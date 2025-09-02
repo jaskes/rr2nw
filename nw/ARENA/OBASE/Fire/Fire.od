@@ -1,0 +1,99 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Fire\Fire.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Fire\Fire.cpp"
+        Script   :!""
+        Object   :!"Fire"
+        ExtrenTab :!"Fire"
+        ExternAttr:!"FireAttr"
+        IsActiv  :false
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_onLand"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_timeOfLife"
+            DefaultVal :!"2"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_timeIncrement"
+            DefaultVal :!"0.05"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_maxBranchCnt"
+            DefaultVal :!"50"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_radius"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_rgb0"
+            DefaultVal :!"0xFFFFFF"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_rgb1"
+            DefaultVal :!"0xFFFFFF"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_rgb2"
+            DefaultVal :!"0xFFFFFF"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_rgb3"
+            DefaultVal :!"0xFFFFFF"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){EndOfEvent }
+    }
+}

@@ -1,0 +1,75 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,10
+
+[Flight1.0]
+Pos  =2376.698,71.259, -2574.971
+Angle=1.628,0.073, 0.148
+Time =9.009
+Delay=3.000
+Text = You must help our friends
+
+[Flight1.1]
+Pos  =2372.064,76.121, -2550.787
+Angle=-53.303,-25.635, 3.931
+Time =6.028
+Delay=2.000
+Text = Take this machine
+
+[Flight1.2]
+Pos  =2431.399,93.547, -2534.364
+Angle=-106.215,-36.484, 0.076
+Time =4.052
+Delay=0.000
+Text = 
+
+[Flight1.3]
+Pos  =2485.313,90.203, -2519.768
+Angle=-152.143,20.652, -4.829
+Time =3.364
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2524.651,107.766, -2499.004
+Angle=-86.783,12.314, 0.705
+Time =1.388
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2533.089,108.758, -2499.404
+Angle=-86.832,-2.364, 0.049
+Time =4.600
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2565.867,104.664, -2501.215
+Angle=-86.833,-8.318, 0.000
+Time =6.840
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2669.066,96.933, -2506.926
+Angle=-86.833,4.104, 0.000
+Time =13.829
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2834.300,63.887, -2466.077
+Angle=-109.576,-25.875, 0.000
+Time =8.860
+Delay=2.000
+Text =
+
+[Flight1.9]
+Pos  =2832.881,64.078, -2461.400
+Angle=-91.281,-20.463, -1.182
+Time =5.329
+Delay=0.000
+Text =
+

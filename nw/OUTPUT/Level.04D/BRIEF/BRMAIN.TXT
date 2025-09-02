@@ -1,0 +1,359 @@
+[Root]
+ActionsNum=3
+RepeatsNum=1
+Action1=PlayFlight,Flight1,NONE,17
+Sound1=wav.Ambient,0,0
+Action2=PlayFlight,Flight2,NONE,10
+Sound2=Ethnic,0,0
+Action3=PlayFlight,Flight3,NONE,23
+Sound3=Drums,0,0
+
+[Flight1.0]
+Pos  =2514.000,80.000, -2307.000
+Angle=0.000,0.000, 0.000
+Time =2.001
+Delay=0.000
+Text =Welcome!\nThis movie will show you\nhow to start the game
+
+[Flight1.1]
+Pos  =2514.000,80.000, -2307.000
+Angle=0.000,-9.702, 0.000
+Time =2.075
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2514.000,81.641, -2297.422
+Angle=0.000,-9.723, 0.000
+Time =2.529
+Delay=0.000
+Text =Press ESC to interrupt it.
+
+[Flight1.3]
+Pos  =2514.837,90.562, -2266.363
+Angle=0.000,-19.707, 0.000
+Time =3.179
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2517.487,113.151, -2264.579
+Angle=0.000,-31.195, 0.000
+Time =2.073
+Delay=0.000
+Text =Here is the Portal\nWhich brought you to this world
+
+[Flight1.5]
+Pos  =2519.487,112.160, -2264.815
+Angle=0.000,-43.600, 0.000
+Time =3.589
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2532.646,106.177, -2312.785
+Angle=96.805,-40.746, -0.022
+Time =3.583
+Delay=0.000
+Text =Now it's broken,\nand your goal is\nto set it into working condition
+
+[Flight1.7]
+Pos  =2537.236,89.426, -2315.709
+Angle=96.982,-38.301, -0.002
+Time =1.554
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2537.092,88.978, -2315.638
+Angle=60.733,-16.208, 4.633
+Time =0.592
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2535.092,88.977, -2315.638
+Angle=49.611,-15.453, -4.399
+Time =0.667
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2535.092,88.977, -2315.638
+Angle=35.886,-14.663, -6.422
+Time =2.384
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2534.480,83.101, -2339.151
+Angle=22.203,-7.299, 0.052
+Time =3.260
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2523.182,77.821, -2372.059
+Angle=7.767,-6.646, -0.126
+Time =3.589
+Delay=0.000
+Text =The road sign shows you locations\nof parties on the planet
+
+[Flight1.13]
+Pos  =2519.694,73.407, -2411.796
+Angle=8.120,-6.230, -0.008
+Time =4.001
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2518.092,73.018, -2423.023
+Angle=8.120,-2.077, 0.000
+Time =4.635
+Delay=0.000
+Text =The Natives are situated to the Left\nAnd the Conquerors - to the Right
+
+[Flight1.15]
+Pos  =2511.013,73.872, -2429.472
+Angle=-24.554,-1.809, 0.000
+Time =4.528
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2516.133,79.242, -2401.872
+Angle=3.993,2.578, 1.120
+Time =4.318
+Delay=0.000
+Text =
+
+[Flight2.0]
+Pos  =2491.571,88.885, -2452.100
+Angle=29.211,2.114, 0.042
+Time =4.174
+Delay=0.000
+Text =Now we're proceeding\nTo Native's recruit center
+
+[Flight2.1]
+Pos  =2448.151,84.634, -2528.256
+Angle=46.297,-13.948, 0.001
+Time =4.774
+Delay=0.000
+Text =
+
+[Flight2.2]
+Pos  =2390.756,72.121, -2546.711
+Angle=28.875,-13.107, -0.001
+Time =3.846
+Delay=0.000
+Text =Where you can be given a mission\nto complete
+
+[Flight2.3]
+Pos  =2373.667,71.078, -2543.763
+Angle=-11.405,-10.740, 3.263
+Time =6.183
+Delay=0.000
+Text =
+
+[Flight2.4]
+Pos  =2366.048,115.763, -2511.570
+Angle=-11.615,-12.374, 0.000
+Time =4.474
+Delay=0.000
+Text =
+
+[Flight2.5]
+Pos  =2370.620,101.299, -2535.911
+Angle=3.594,-31.881, -2.753
+Time =6.061
+Delay=0.000
+Text =
+
+[Flight2.6]
+Pos  =2369.786,68.516, -2589.329
+Angle=10.503,-23.816, -4.220
+Time =2.040
+Delay=0.000
+Text =Enter the Pyramid\nto face the Priest-Enlister 
+
+[Flight2.7]
+Pos  =2369.611,68.149, -2590.072
+Angle=-5.219,-14.574, 1.131
+Time =4.035
+Delay=0.000
+Text =
+
+[Flight2.8]
+Pos  =2370.274,66.734, -2598.270
+Angle=-1.933,-9.380, -0.163
+Time =3.356
+Delay=0.000
+Text =
+
+[Flight2.9]
+Pos  =2370.385,66.298, -2601.009
+Angle=4.656,-8.972, -0.164
+Time =0.000
+Delay=0.000
+Text =
+
+[Flight3.0]
+Pos  =2486.636,95.721, -2290.102
+Angle=-38.084,-31.406, 0.008
+Time =3.125
+Delay=0.000
+Text =Now we're on the way\nto the recruit center\nof The Conquerors
+
+[Flight3.1]
+Pos  =2491.786,90.042, -2297.908
+Angle=-46.068,-30.369, 3.118
+Time =3.244
+Delay=0.000
+Text =
+
+[Flight3.2]
+Pos  =2504.797,81.551, -2316.326
+Angle=-17.622,-7.395, 0.894
+Time =3.161
+Delay=0.000
+Text =
+
+[Flight3.3]
+Pos  =2510.641,74.366, -2383.407
+Angle=-3.713,-2.568, 0.039
+Time =3.860
+Delay=0.000
+Text =
+
+[Flight3.4]
+Pos  =2513.008,72.610, -2420.023
+Angle=-3.718,-2.562, 0.000
+Time =6.829
+Delay=0.000
+Text =The roadsign tells us\nthat it is situated to the right
+
+[Flight3.5]
+Pos  =2518.047,72.127, -2429.739
+Angle=22.490,7.599, 0.065
+Time =1.268
+Delay=0.000
+Text =
+
+[Flight3.6]
+Pos  =2518.047,72.127, -2429.739
+Angle=3.604,7.350, -10.354
+Time =2.083
+Delay=0.000
+Text =
+
+[Flight3.7]
+Pos  =2525.310,76.345, -2443.625
+Angle=-33.714,6.366, -1.915
+Time =3.152
+Delay=0.000
+Text =
+       
+[Flight3.8]
+Pos  =2570.069,83.328, -2477.446
+Angle=-89.249,-11.709, -3.957
+Time =1.853
+Delay=0.000
+Text =
+
+[Flight3.9]
+Pos  =2604.448,86.532, -2483.122
+Angle=-72.711,-10.868, -3.766
+Time =2.030
+Delay=0.000
+Text =
+
+[Flight3.10]
+Pos  =2649.037,87.099, -2494.397
+Angle=-77.642,-13.232, 0.023
+Time =1.363
+Delay=0.000
+Text =
+
+[Flight3.11]
+Pos  =2682.700,88.832, -2501.777
+Angle=-77.643,-13.232, 0.000
+Time =1.643
+Delay=0.000
+Text =
+
+[Flight3.12]
+Pos  =2712.880,82.492, -2508.488
+Angle=-72.611,-13.185, 1.190
+Time =1.238
+Delay=0.000
+Text =
+
+[Flight3.13]
+Pos  =2735.612,76.812, -2517.140
+Angle=-55.432,-12.658, -0.797
+Time =1.868
+Delay=0.000
+Text =
+
+[Flight3.14]
+Pos  =2760.313,76.227, -2542.215
+Angle=-21.534,-18.701, -1.738
+Time =1.773
+Delay=0.000
+Text =
+
+[Flight3.15]
+Pos  =2765.058,76.444, -2576.585
+Angle=12.043,0.027, -0.489
+Time =2.055
+Delay=0.000
+Text =The appearance of the building\ndiffers from the Native's one
+
+[Flight3.16]
+Pos  =2761.821,82.899, -2590.929
+Angle=12.185,0.016, 0.670
+Time =1.696
+Delay=0.000
+Text =
+
+[Flight3.17]
+Pos  =2761.722,91.096, -2591.067
+Angle=12.179,-1.733, 0.026
+Time =5.378
+Delay=0.000
+Text =Pay attention to the \ncurling banner on the roof
+
+[Flight3.18]
+Pos  =2757.512,88.996, -2619.352
+Angle=11.692,-11.090, 0.177
+Time =1.338
+Delay=0.000
+Text =
+
+[Flight3.19]
+Pos  =2756.689,88.358, -2623.697
+Angle=11.967,-11.728, -0.016
+Time =3.065
+Delay=0.000
+Text =
+
+[Flight3.20]
+Pos  =2753.451,85.116, -2638.976
+Angle=11.967,-11.728, 0.000
+Time =7.164
+Delay=0.000
+Text =The Conquerors will give you their \norders here
+
+[Flight3.21]
+Pos  =2749.629,82.686, -2646.175
+Angle=6.582,-15.119, -1.089
+Time =5.964
+Delay=0.000
+Text =
+
+[Flight3.22]
+Pos  =2749.935,81.394, -2650.992
+Angle=-1.326,-14.467, 0.102
+Time =8.061
+Delay=5.000
+Text =Enjoy the game!

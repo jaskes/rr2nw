@@ -1,0 +1,460 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :="Начальник группы танков.
+        !Префикс для событий - tg_ (tank group)"
+        Header   :!"C:\NW\ARENA\OBASE\GROUP\group.h"
+        CPP      :!"C:\NW\ARENA\OBASE\GROUP\group.cpp"
+        Script   :!""
+        Object   :!"TankGroup"
+        ExtrenTab :!"TankGroup"
+        ExternAttr:!"TankGroupTable"
+        IsActiv  :true
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"STAY"
+                Comment:="умолчальный режим - 
+                =для ничего 
+                !не делания"
+            }
+            Point0(PN2I 0 1){
+                x -194
+                y 34
+            }
+            Point1(PN2I 0 1){
+                x 214
+                y 117
+            }
+            State links(STLN 0 1){
+                Count: 2
+                | 1                 0| 0 1
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"MOVING"
+                Comment:="Движение вдоль некоторой траектории с использованием
+                =набора трасс.
+                =В процессе движения необходимо сканировать окружение
+                =на предмет наличия врагов. - раз в 3-5 секунд.
+                =Цикл сканирования врагов организуется посылкой
+                !себе сообщения tg_EV_FIND_ENEMY"
+            }
+            Point0(PN2I 0 1){
+                x 314
+                y 32
+            }
+            Point1(PN2I 0 1){
+                x 715
+                y 149
+            }
+            State links(STLN 0 1){
+                Count: 3
+                | 2                 2| 1 1| 0 0
+            }
+        }
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"gotoF"
+                Comment        :="Основная команда - перейти всей группой в новую
+                =точку
+                =Необходимо запустить 2 цикла:
+                =tg_EVC_FIND_ENEMY
+                !tg_EVC_MOVING"
+                Event          :!"tg_EVCMD_GO_TO"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.319277
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.243590
+            }
+            Title(ETIT 0 1){
+                pos.x:-25
+                pos.y:-110
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"move_ReachedF"
+                Comment        :="Мы прибыли на место.
+                =Возможно необходимо уведомить об этом 
+                !командира"
+                Event          :!"tg_EV_REACHED"
+            }
+            Point0(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.414530
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.560241
+            }
+            Title(ETIT 0 1){
+                pos.x:-56
+                pos.y:53
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:0
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"movingFC"
+                Comment        :="Движение по заданной трассе к указанной точке
+                =Для продолжения цикла испускается tg_EVC_MOVING,
+                !по прибытии на место - tg_EV_REACHED"
+                Event          :!"tg_EVC_MOVING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.564838
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.390274
+            }
+            Title(ETIT 0 1){
+                pos.x:-21
+                pos.y:-83
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 540 y: 0
+                x: 470 y: 0
+            }
+        }
+
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_bravery"
+            DefaultVal :!"(4./15)*0.3"
+            Comment    :!"смелость"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_nearDist"
+            DefaultVal :!"10.0"
+            Comment    :!"Расстояние от центра группы, которое считается нулевым"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_waitDist"
+            DefaultVal :!"20.0"
+            Comment    :!"Расстояние, при превышении которого ждем отставших"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_speed"
+            DefaultVal :!"10.0"
+            Comment    :!"m/s Скорость движения"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_reachedDelta"
+            DefaultVal :!"1.0"
+            Comment    :!"Радиус, в пределах которого считается, что точка достигнута"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxViewDist"
+            DefaultVal :!"300.0"
+            Comment    :!"Максимальная дальность, при которой враг обнаруживается"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_findEnemyDist"
+            DefaultVal :!"100.0"
+            Comment    :!"радиус, в пределах которого ищем врагов"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_movingAttackingTimeIncrement"
+            DefaultVal :!"2.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EVCMD_GO_TO"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!"Идти группой в указанную точку"
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DESCEND( VECTOR_LAND, 0 )"
+                        Comment:!""
+                        Child 
+                    }
+                    Data tree(EDT_ 0 0){
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@vecx"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@vecz"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EndOfEventDataItem }
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EVC_FIND_ENEMY"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!"Сканировать окрестность на предмет поиска врагов"
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EVC_MOVING"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!"Продвижение"
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@prevTimeStamp"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EV_TARGET_LOCKED"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"OBJECTID"
+                        Comment:!"@@enemyID"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EV_TARGET_LOST"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EV_REACHED"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EV_YOU_ATTACKED"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"OBJECTID"
+                        Comment:!"@@attackingID"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EV_TARGET_DESTROED"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"OBJECTID"
+                        Comment:!"@@objectID"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"tg_EV_REBUILD"
+                Header: !"C:\NW\ARENA\MESSAGE\Groupmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){EndOfEvent }
+    }
+}

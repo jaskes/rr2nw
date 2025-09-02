@@ -1,0 +1,122 @@
+[Root]
+ActionsNum=2
+Action1=PlayFlic,Flic1
+Sound1=Spell,0,0
+Action2=PlayFlight,Flight1,CRYSTAL,15
+Sound2=DummyBriefing,0,0
+#CRYSTAL
+#TV
+#CINEMA
+
+[Flic1]
+Name =FLIC/Brifing.flc
+Text =
+Delay=1.0
+
+[Flight1.0]
+Pos  = 2379.162,66.896, -2550.999
+Angle= 12.202,8.914, 0.008
+Time = 3.0
+Delay= 2.000
+Text = Our spies have reported that our enemy 
+
+[Flight1.1]
+Pos  =2377.368,67.959, -2564.210
+Angle=-3.275,4.400, -0.017
+Time =1.300
+Delay=0.000
+Text = plans the take by assault the village of
+
+[Flight1.2]
+Pos  = 2374.937,65.758, -2581.495
+Angle= -114.530,-0.877, 0.000
+Time = 1.207
+Delay= 3.000
+Text = Astockchetlan which is situated to the North
+
+
+[Flight1.3]
+Pos  =2376.974,65.755, -2580.566
+Angle=-114.530,-0.877, 0.000
+Time =1.251
+Delay=0.000
+Text = Take this machine - the best vehicle 
+
+[Flight1.4]
+Pos  =2374.681,65.793, -2581.612
+Angle=-114.530,-0.877, 0.000
+Time =7.163
+Delay=0.000
+Text = our engineers have ever created
+
+
+[Flight1.5]
+Pos  =2402.312,84.021, -2584.024
+Angle=-13.391,-7.133, 0.166
+Time =6.564
+Delay=0.000
+Text = Captain Kontezuma will lead 
+
+[Flight1.6]
+Pos  =2408.433,77.120, -2616.742
+Angle=14.269,-7.102, 0.089
+Time =4.203
+Delay=0.000
+Text = you to Astockchetlan
+
+[Flight1.7]
+Pos  =2414.459,77.256, -2665.793
+Angle=-10.507,0.398, 0.090
+Time =5.369
+Delay=0.000
+Text = 
+
+[Flight1.8]
+Pos  =2421.384,72.105, -2821.461
+Angle=10.457,-3.056, -0.015
+Time =4.876
+Delay=0.000
+Text = We were reported that the enemy will
+
+[Flight1.9]
+Pos  =2366.712,74.515, -2967.494
+Angle=58.060,-0.167, 0.729
+Time =5.603
+Delay=0.000
+Text = use their most modern battle vehicles
+
+[Flight1.10]
+Pos  =2240.212,92.451, -3045.128
+Angle=58.816,-0.167, 0.000
+Time =4.051
+Delay=0.000
+Text = they call "Tanks".
+
+[Flight1.11]
+Pos  =2168.556,92.181, -3107.541
+Angle=32.920,-0.153, -0.018
+Time =6.494
+Delay=0.000
+Text = Three of them will engage Astockchetlan
+
+[Flight1.12]
+Pos  =2157.952,106.949, -3142.690
+Angle=10.388,-10.227, -0.040
+Time =7.048
+Delay=0.000
+Text = Destroy them all and your efforts
+
+[Flight1.13]
+Pos  =2147.678,152.213, -3198.130
+Angle=22.116,-30.976, -0.396
+Time =4.779
+Delay=0.000
+Text = will be generously rewarded
+
+[Flight1.14]
+Pos  =2107.702,173.438, -3195.638
+Angle=22.116,-30.976, 0.199
+Time =0.000
+Delay=0.000
+Text = 
+

@@ -1,0 +1,84 @@
+[Root]
+ActionsNum=2
+Action1=PlayFlic,Flic1
+Sound1=wav.Magician,0,0
+RepeatsNum=1
+Action2=PlayFlight,Flight1,CRYSTAL,9
+Sound2=wav.Magician,0,0
+
+
+[Flic1]
+Name =FLIC/mag.flc
+Text =
+Delay=1.0
+
+
+[Flight1.0]
+Pos  =3109.420,61.920, -2787.650
+Angle=-179.378,-8.073, 0.222
+Time =6.743
+Delay=0.000
+Text =Kingdo forces attack Aura of Death,\nour recruit center!
+
+[Flight1.1]
+Pos  =3119.601,63.341, -2797.774
+Angle=-169.674,-9.090, 0.763
+Time =1.651
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3110.696,64.027, -2800.558
+Angle=-179.787,-8.954, -9.461
+Time =6.928
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =3091.724,70.240, -2802.036
+Angle=-179.700,-19.268, 0.000
+Time =2.994
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =3091.938,92.709, -2761.113
+Angle=-179.700,-5.236, 0.000
+Time =2.774
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =3108.794,89.461, -2697.057
+Angle=-153.427,7.931, 0.181
+Time =5.383
+Delay=0.000
+Text =You must protect us from attack
+
+[Flight1.6]
+Pos  =3169.588,92.906, -2643.378
+Angle=163.835,-10.184, 4.088
+Time =4.968
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =3186.881,88.901, -2598.302
+Angle=112.770,-24.376, 0.304
+Time =3.482
+Delay=0.000
+Text =Kill the battle beast and \nshoot down the dragon
+
+[Flight1.8]
+Pos  =3186.905,88.892, -2598.217
+Angle=112.770,-24.370, 0.016
+Time =0.300
+Delay=0.300
+Text =
+
+[Flight1.9]
+Pos  =3186.905,88.892, -2598.217
+Angle=112.770,-24.370, 0.016
+Time =0.000
+Delay=0.000
+Text =

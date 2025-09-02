@@ -1,0 +1,167 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,23
+Sound1=wav.Magician,0,0
+
+[Flight1.0]
+Pos  =3130.065,72.072, -2802.506
+Angle=140.393,-14.179, 0.227
+Time =2.844
+Delay=0.000
+Text =Hey, warrior, we have some tasks for you.
+
+[Flight1.1]
+Pos  =3148.524,78.333, -2819.374
+Angle=132.104,-14.047, -0.292
+Time =1.522
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3155.807,80.769, -2825.835
+Angle=118.763,-13.751, -8.460
+Time =2.226
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =3124.976,75.486, -2831.748
+Angle=136.896,-13.073, -7.807
+Time =2.228
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =3080.036,72.761, -2822.948
+Angle=177.305,-10.487, -1.759
+Time =1.313
+Delay=0.000
+Text =Take this battle beast.
+
+[Flight1.5]
+Pos  =3078.214,92.588, -2801.153
+Angle=177.423,-22.563, -0.007
+Time =1.602
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =3076.948,89.979, -2773.231
+Angle=177.422,-9.976, 0.000
+Time =1.403
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =3078.472,81.092, -2708.556
+Angle=-159.761,0.680, 6.456
+Time =1.552
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =3116.069,77.309, -2605.902
+Angle=-156.553,-4.697, 3.350
+Time =1.915
+Delay=0.000
+Text =Follow this way.
+
+[Flight1.9]
+Pos  =3190.757,80.058, -2523.764
+Angle=-128.414,-4.285, 9.676
+Time =2.044
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =3249.026,75.799, -2482.450
+Angle=-111.670,3.042, 7.623
+Time =3.006
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =3361.135,81.334, -2457.635
+Angle=-96.542,2.985, 2.431
+Time =2.253
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =3467.840,92.809, -2451.923
+Angle=-90.660,-8.323, 0.280
+Time =2.932
+Delay=0.000
+Text =You must defend this bridge from\nthe enemies armade.
+
+[Flight1.13]
+Pos  =3582.732,98.786, -2379.559
+Angle=-63.798,-15.934, -9.386
+Time =2.085
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =3614.890,97.221, -2333.932
+Angle=-28.233,-14.215, 2.649
+Time =2.497
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =3666.513,95.120, -2323.475
+Angle=6.748,-12.529, 0.018
+Time =2.366
+Delay=0.000
+Text =Large king forces approaching here from the West. 
+
+[Flight1.16]
+Pos  =3720.144,94.399, -2337.024
+Angle=30.942,-11.940, -7.783
+Time =2.306
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =3747.929,93.740, -2361.990
+Angle=46.426,-5.254, 3.335
+Time =3.081
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =3773.828,111.652, -2406.778
+Angle=75.585,-15.202, -2.229
+Time =2.047
+Delay=0.000
+Text =You must kill all enemies. Enybody mustn't pass here.
+
+[Flight1.19]
+Pos  =3789.993,102.866, -2403.391
+Angle=75.580,-20.245, 0.000
+Time =1.555
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =3819.909,111.189, -2395.699
+Angle=75.580,-20.245, 0.000
+Time =1.072
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =3821.958,110.754, -2395.172
+Angle=75.580,-20.245, 0.000
+Time =1.054
+Delay=0.000
+Text =
+
+[Flight1.22]
+Pos  =3822.036,110.754, -2395.152
+Angle=75.580,-20.245, 0.000
+Time =0.000
+Delay=0.000
+Text =
+

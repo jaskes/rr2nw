@@ -1,0 +1,103 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,14
+
+[Flight1.0]
+Pos  =2380.133,71.450, -2588.999
+Angle=-4.628,-6.397, 0.000
+Time =5.452
+Delay=2.000
+Text = You must destroy the escort
+
+[Flight1.1]
+Pos  =2377.932,78.542, -2574.192
+Angle=10.039,-21.375, -1.047
+Time =4.848
+Delay=0.000
+Text = 
+
+[Flight1.2]
+Pos  =2371.295,85.910, -2555.591
+Angle=-37.304,-44.147, 2.451
+Time =5.027
+Delay=2.000
+Text = Take this tank
+
+[Flight1.3]
+Pos  =2397.625,77.831, -2592.459
+Angle=-18.382,-9.655, 0.448
+Time =2.911
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2411.554,71.782, -2636.861
+Angle=-15.788,-5.024, -0.017
+Time =7.018
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2422.588,74.256, -2721.572
+Angle=-11.821,-4.796, -0.024
+Time =4.230
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2438.635,63.206, -2845.874
+Angle=-1.401,-4.732, -0.027
+Time =3.447
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2441.200,67.883, -2949.992
+Angle=-1.397,-4.732, 0.000
+Time =5.260
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2543.021,97.146, -3039.574
+Angle=-99.248,-2.911, 2.470
+Time =4.522
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2677.594,102.217, -3046.189
+Angle=-82.361,-2.862, -0.002
+Time =4.707
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2808.082,95.437, -3095.880
+Angle=-64.244,-2.748, -0.001
+Time =6.152
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2984.761,84.232, -3098.412
+Angle=-95.773,-9.479, -0.005
+Time =10.974
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =3094.749,109.343, -2992.976
+Angle=-83.871,-34.905, -0.073
+Time =8.927
+Delay=2.000
+Text =
+
+[Flight1.13]
+Pos  =3089.749,114.121, -2976.497
+Angle=-79.380,-35.999, 2.661
+Time =0.000
+Delay=0.000
+Text =
+

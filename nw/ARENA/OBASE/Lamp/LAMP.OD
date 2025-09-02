@@ -1,0 +1,218 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Lamp\lamp.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Lamp\lamp.cpp"
+        Script   :!""
+        Object   :!"Lamp"
+        ExtrenTab :!"Lamp"
+        ExternAttr:!"LampAttr"
+        IsActiv  :false
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_lightColor"
+            DefaultVal :!"7"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_minLightBright"
+            DefaultVal :!"20"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxLightBright"
+            DefaultVal :!"255"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_lightRadius"
+            DefaultVal :!"10.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_lightBrightStep"
+            DefaultVal :!"30.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_lightOffset"
+            DefaultVal :!"2.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_useCorona"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_coronaRGB"
+            DefaultVal :!"0xFFFFFF"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_coronaR"
+            DefaultVal :!"0.2"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_coronaAlpha"
+            DefaultVal :!"255"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_coronaName"
+            DefaultVal :!""corona.spr""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxCoronaR"
+            DefaultVal :!"5"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_createIncMin"
+            DefaultVal :!"0.1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_createIncMax"
+            DefaultVal :!"0.3"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_lightMode"
+            DefaultVal :!"0"
+            Comment    :!"0 - permanent; 1 - randomly changeable; 2 - blinking; 3-fading"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxTimeLife"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_sleepTime"
+            DefaultVal :!"1.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxBrightTime"
+            DefaultVal :!"0.5"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_FadeInCoeff"
+            DefaultVal :!"2.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_FadeOutCoeff"
+            DefaultVal :!"10"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_onLand  "
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_isMoving"
+            DefaultVal :!"0"
+            Comment    :!"ƒвижуща€с€ байда"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_movementType"
+            DefaultVal :!"0"
+            Comment    :!"0 - в одном направлении, 1 - туда обратно"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_movementDeltaT"
+            DefaultVal :!"2.0"
+            Comment    :!"„ерез какое врем€ пересчитывать положение"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_hasParticle"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_particleWidth"
+            DefaultVal :!"0.1"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){EndOfEvent }
+    }
+}

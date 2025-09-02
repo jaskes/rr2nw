@@ -1,0 +1,127 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\nw\ARENA\OBASE\Corpse\Corpse.h"
+        CPP      :!"C:\nw\ARENA\OBASE\Corpse\Corpse.cpp"
+        Script   :!""
+        Object   :!"Corpse"
+        ExtrenTab :!"Corpse"
+        ExternAttr:!"AttributeCorpse"
+        IsActiv  :false
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_skinName"
+            DefaultVal :!""sk.corpse.default""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_isBurning"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_smokerAttr"
+            DefaultVal :!""Smoker.Attr.Corpse""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_fireOffsetX"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_fireOffsetY"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_fireOffsetZ"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_minLifeTime"
+            DefaultVal :!"30"
+            Comment    :!"Минимальное время жизни. После истечения этого срока объект исчезнет после исчезновения из поля зрения"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_smokerTable"
+            DefaultVal :!""DynSmoker""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_isSmoking"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_fireAttr"
+            DefaultVal :!""Smoker.Attr.Fire.Corpse""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"FLOAT"
+            Name       :!"m_corpseOffsetX"
+            DefaultVal :!"0"
+            Comment    :!"Смещение модели обломков относительно точки соударения объекта с землей"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_corpseOffsetY"
+            DefaultVal :!"-1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"FLOAT"
+            Name       :!"m_corpseOffsetZ"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){EndOfEvent }
+    }
+}

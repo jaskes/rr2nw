@@ -1,0 +1,85 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Taxi\Taxi.h"
+        CPP      :!"C:\nw\ARENA\OBASE\Taxi\Taxi.h"
+        Script   :!""
+        Object   :!"Taxi"
+        ExtrenTab :!"Taxi"
+        ExternAttr:!"TaxiAttr"
+        IsActiv  :false
+        IsSubject:false
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_name"
+            DefaultVal :!""otank""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_skinName"
+            DefaultVal :!""sk.Tank""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_attrForVehicleName"
+            DefaultVal :!""""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_corpseAttrName"
+            DefaultVal :!""Corpse.Attr.Default""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_initialDamage"
+            DefaultVal :!"1.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_yOffset"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_buzzing"
+            DefaultVal :!"0"
+            Comment    :!"«вучит или нет"
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){EndOfEvent }
+    }
+}

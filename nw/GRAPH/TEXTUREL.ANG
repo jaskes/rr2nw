@@ -1,0 +1,692 @@
+;$align 4
+.486p
+MODEL	FLAT,CPP
+LOCALS
+; align	4
+
+include platform.inc
+
+BEGIN_CODE_SEG
+
+;========================================================================
+include types.inc
+include stack.inc
+include get_s.inc
+include subtloop.inc
+
+
+FIX_SHIFT_4	equ 2
+FIX_MASK_4	equ 3
+
+;
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+align 8
+ADrawLinTexture:
+	Public ADrawLinTexture
+
+	mov	edx,[ESP_topVert]
+	mov	ebp,[ESP_bottomVert]
+	mov	ecx,_gr_pYCache
+	mov	ebx,offset screen
+	mov	esi,[edx].y
+	mov	edx,[ebp].y
+	sub	edx,esi			;deltaY
+	mov	[ESP_startVert],ebx
+
+        mov     eax,[_gr_polygon].textp
+
+        mov     edi,[ecx + esi*4]       ;scrPtr
+	mov	[ESP_count],edx
+	mov	[ESP_endVert],edi
+
+        ;mov     esi,[_gr_polygon].textwid
+        mov     esi,[eax + 8]  ;cache
+        mov     eax,[eax + 12] ;textp
+
+        mov     ds:[?TextureTable],esi
+        mov     ds:[?Texture],eax
+        mov     ds:[??TextureTable],esi
+        mov     ecx,[esi+4]
+        mov     ds:[?TextWidth],ecx
+	;mov	ds:[??Texture],eax
+	;mov	ds:[???TextureTable],ebx
+
+TextLoopY:
+
+	mov	eax,[ebx].xl
+	mov	esi,[ebx].xr
+	add	edi,eax
+	;
+	sub	esi,eax
+	inc	esi
+	jle	End
+        ;mov     [ESP_scr],edi
+
+
+	;mov	[_deltaX],esi
+        ;shr     esi,FIX_SHIFT_4
+        cmp     esi,4
+        jl      DrawL4
+	;mov	[ESP_num],esi
+        mov     ebp,edi
+        and     edi,3
+	mov	ecx,esi
+
+        ;sub     esi,4
+        ;shl     esi,FIX_SHIFT_4
+        mov     [ESP_D_B],edi
+	sub	edi,4
+        mov     [ESP_scr],ebp
+	add	esi,edi
+	xor	ecx,0FFFFFFFFh	;neg - 1
+	mov	[_deltaX],esi
+	and	esi,0FFFFFFFCh
+	sub	ebp,edi
+        ;add     esi,edi
+        ;and     esi,0FFFFFFFCh
+	;mov	eax,65536
+	;xor	edx,edx
+	;idiv	ecx
+	mov	ecx,[_gr_pDivCache + ecx*4 + 4] ;neg + 1
+	;unused - eax,edx,esi,edi
+	;ebx - scanline
+        add     ebp,esi
+
+	;mov	ebx,[esi].uzl
+	;mov	edx,[esi].vzl
+
+	GetDW	mov	esi,?Texture
+
+        mov     ds:[?EndLineAdr],ebp
+
+	;mov	ecx,eax		;1/(xr-xl)
+	mov	ebp,[ebx].uzl	;u0
+	mov	edi,ebp         ;u0
+        mov     edx,[ebx].vzl   ;v0
+	sar	ebp,16          ;[u0]
+	and	edi,00000000000000001111111111111111b ;{u0}
+	add	esi,ebp		;to + [u0]
+	mov	ebp,edx         ;v0
+	sar	edx,16          ;[v0]
+	sal	ebp,16          ;{v0}.16
+	add	esi,[0FACEBEDAh+4*edx] ;Texture Offset
+	org	$-4
+	?TextureTable	dd 0FACEBEDAh
+
+	shr	edi,1
+	;push	eax
+	;unused - eax,edx,ebp
+	;ebx-scan
+	;esi-texture
+	;ecx-1/(xr-xl)
+	;edi-textTable
+
+	mov	eax,[ebx].vzl
+	add	edi,ebp		;17.{u0}+{v0}.16
+	sub	eax,[ebx].vzr
+	imul	ecx
+	shrd	eax,edx,Y_DIV_CACHE_PRES
+	mov	ebp,eax
+	;ebp - dv(16.16)
+	mov	eax,[ebx].uzl
+	sub	eax,[ebx].uzr
+	imul	ecx
+	shrd	eax,edx,Y_DIV_CACHE_PRES + 1
+	mov	ecx,eax
+	;ecx - du(16.15)
+
+	;ebx-scan
+	;esi-texture
+	;ecx-du
+	;edi-textTable
+	;ebp-dv
+	GetDW	mov	edx,?TextWidth	;Texture Width
+	mov	eax,edi         ;textTable
+	mov	edi,ebp         ;dv
+	mov	ebx,ecx         ;du
+	sar	ebp,16		;[dv]
+	and	ebx,00000000000000000111111111111111b	;{du}
+	sar	ecx,15		;[du]
+	sal	edi,16		;{dv}*65536
+	add	ecx,[??TextureTable + 4*ebp]	;[du]+[dv]*TextWidth
+	org	$-4
+	??TextureTable dd 0FACEBEDAh
+
+	;pop	eax
+        mov     ebp,[ESP_D_B]
+
+        or      edi,ebx         ;{dv}0{du}
+
+	;pop	eax		;17.{u0}+{v0}.16
+	;nop
+	;push	eax
+	;mov	[ESP_num],edx
+	;mov	edx,[ESP_scr]
+        or	ebp,ebp
+        jz      InnerLoop
+        mov     [ESP_num],edx
+        mov     edx,[ESP_scr]
+
+        $switch ebp
+                $case 1
+                        add     eax,edi         ;{v}+{dv}|{u}+{du}
+                        mov     bh,[esi]
+                        sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+                        add     ah,80h          ;set carry if need add 1(u)
+                        adc     esi,ecx
+                        mov     [edx],bh
+                        and     ebp,[ESP_num]           ;0 or TextureWidth
+                        and     ah,7Fh          ;restore eax and set 15 bit to zero
+                        add     esi,ebp
+                        inc     edx
+                        ;dec     [_deltaX]
+                $case 2
+                        add     eax,edi         ;{v}+{dv}|{u}+{du}
+                        mov     bh,[esi]
+                        sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+                        add     ah,80h          ;set carry if need add 1(u)
+                        adc     esi,ecx
+                        mov     [edx],bh
+                        and     ebp,[ESP_num]           ;0 or TextureWidth
+                        and     ah,7Fh          ;restore eax and set 15 bit to zero
+                        add     esi,ebp
+                        inc     edx
+                        ;dec     [_deltaX]
+                $case 3
+                        add     eax,edi         ;{v}+{dv}|{u}+{du}
+                        mov     bh,[esi]
+                        sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+                        add     ah,80h          ;set carry if need add 1(u)
+                        adc     esi,ecx
+                        mov     [edx],bh
+                        and     ebp,[ESP_num]           ;0 or TextureWidth
+                        and     ah,7Fh          ;restore eax and set 15 bit to zero
+                        inc     edx
+                        add     esi,ebp
+                        ;dec     [_deltaX]
+                        ;
+                        mov     [ESP_scr],edx
+			mov	ebp,edx
+                        mov     edx,[ESP_num]
+			cmp	[_deltaX],4
+			jl	Ost
+        $endswitch
+
+InnerLoop:
+	;mov	ebp,[ESP_num]
+	;and	edx,0FFFFFFFCh
+	;jmp	large[ebp*4+UnRollLinPoly]
+	;	$DoUnRoll edx $from @MAX_UNROLLPOLY,UnRollLinPoly(
+
+	;eax - {v}0{u}
+	;ebx - store pixels
+	;ecx - [du] + [dv]*TextureWidth
+	;edx - TextureWidth
+	;esi - Texture Pointer
+	;edi - {dv}0{du}
+	;ebp - carry
+	;
+    	;
+
+	InnerTextureLoop4 edx
+
+	;
+	;
+	mov	ebp,dword ptr [ESP_scr]  ;scr
+	add	ebp,4
+	mov	dword ptr [ESP_scr],ebp
+	GetDW	cmp	ebp,?EndLineAdr
+	mov	[ebp-4],ebx
+	jnz	InnerLoop
+
+	;	)$EndDoUnRoll
+
+Ost:
+	mov	ebx,[_deltaX]
+	mov	[ESP_num],edx
+	and	ebx,3
+
+	$switch ebx
+	$case 3
+		add	eax,edi		;{v}+{dv}|{u}+{du}
+		mov	bh,[esi]
+		sbb	edx,edx		;FFFFFFFF if need add TextureWidth(v)
+		add	ah,80h		;set carry if need add 1(u)
+		adc	esi,ecx
+		mov	[ebp],bh
+		and	edx,[ESP_num]		;0 or TextureWidth
+		and	ah,7Fh		;restore eax and set 15 bit to zero
+		add	esi,edx
+		inc	ebp
+	$case 2
+		add	eax,edi		;{v}+{dv}|{u}+{du}
+		mov	bh,[esi]
+		sbb	edx,edx		;FFFFFFFF if need add TextureWidth(v)
+		add	ah,80h		;set carry if need add 1(u)
+		adc	esi,ecx
+		mov	[ebp],bh
+		and	edx,[ESP_num]		;0 or TextureWidth
+		and	ah,7Fh		;restore eax and set 15 bit to zero
+		add	esi,edx
+		inc	ebp
+	$case 1
+		mov	bh,[esi]
+		mov	[ebp],bh
+	$case 0
+	$endSwitch
+
+End:
+	mov	ebx,[ESP_startVert]
+	mov	edi,[ESP_endVert]
+	add	ebx,type Screen
+	GetDWPub	add	edi,EXT_ScreenWidth6
+	dec	[ESP_count]
+	mov	[ESP_startVert],ebx
+	mov	[ESP_endVert],edi
+	jge	TextLoopY
+
+jmp	END_TYPE_DRAW
+
+	;
+DrawL4:
+	;edi - scrPtr ebp
+	;ebx - screen esi
+
+	mov	ebp,[_gr_polygon].textp
+	mov	ecx,[ebx].vzl
+        mov     edx,[ebx].uzl
+        ;mov    esi,[_deltaX]
+        mov     eax,[ebp + 8]  ;cache
+        mov     ebp,[ebp + 12] ;texture
+
+	$switch esi
+	$case 3
+		mov	esi,ecx
+		sub	ecx,[ebx].vzr
+		sar	ecx,1
+		mov	[ESP_scr],ecx
+		mov	ecx,edx
+		sub	edx,[ebx].uzr
+		sar	edx,1
+		mov	[ESP_num],edx
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+		mov	dh,B_P [ebp + edx]
+		sub	ecx,[ESP_num]
+		mov	B_P [edi],dh
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+		mov	dh,B_P [ebp + edx]
+		sub	ecx,[ESP_num]
+		mov	B_P [edi+1],dh
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		;sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+		mov	dh,B_P [ebp + edx]
+		;sub	ecx,[ESP_num]
+		mov	B_P [edi+2],dh
+		$break
+	$case 2
+		sar	ecx,16
+		sar	edx,16
+		mov	esi,[ebx].vzr
+		add	edx,ebp
+		sar	esi,16
+		add	edx,[eax + ecx*4]
+		mov	ecx,[ebx].uzr
+		add	ebp,[eax + esi*4]
+		sar	ecx,16
+		mov	dh,B_P [edx]
+		mov	dl,B_P [ebp + ecx]
+		mov	W_P [edi],dx
+		$break
+	$case 1
+		sar	ecx,16
+		sar	edx,16
+		add	ebp,[eax + ecx*4]
+		mov	ah,B_P [ebp + edx]
+		mov	B_P [edi],ah
+	$case 0
+	$endSwitch
+
+	mov	ebx,[ESP_startVert]
+	mov	edi,[ESP_endVert]
+	add	ebx,type Screen
+	GetDWPub	add	edi,EXT_ScreenWidth7
+	dec	[ESP_count]
+	mov	[ESP_startVert],ebx
+	mov	[ESP_endVert],edi
+	jge	TextLoopY
+
+jmp	END_TYPE_DRAW
+
+;=============================================================
+comment `
+ADrawLinTexturePPro:
+	Public ADrawLinTexturePPro
+
+	mov	edx,[ESP_topVert]
+	mov	ebx,[ESP_bottomVert]
+	mov	ecx,_gr_pYCache
+	mov	esi,[edx].y
+	mov	edx,[ebx].y
+	mov	ebx,offset screen
+	sub	edx,esi			;deltaY
+	mov	edi,[ecx + esi*4]	;scrPtr
+	mov	[ESP_count],edx
+	mov	[ESP_endVert],edi
+	mov	[ESP_startVert],ebx
+
+	mov	esi,[_gr_polygon].textwid
+	mov	eax,[_gr_polygon].textp
+	mov	ds:[?TextureTable1],esi
+	mov	ds:[?Texture1],eax
+	mov	ds:[??TextureTable1],esi
+	mov	ecx,[esi+4]
+	mov	ds:[?TextWidth1],ecx
+	;mov	ds:[??Texture],eax
+	;mov	ds:[???TextureTable],ebx
+
+TextLoopY_:
+
+	mov	eax,[ebx].xl
+	mov	esi,[ebx].xr
+	add	edi,eax
+	;
+	sub	esi,eax
+	jl	End_
+	mov	ecx,esi
+	inc	esi
+	mov	[ESP_scr],edi
+
+	neg	ecx
+
+	mov	[_deltaX],esi
+	shr	esi,FIX_SHIFT_4
+	jz	DrawL4_
+	;mov	[ESP_num],esi
+	shl	esi,FIX_SHIFT_4
+	;mov	eax,65536
+	;xor	edx,edx
+	;idiv	ecx
+	mov	ecx,[_gr_pDivCache + ecx*4]
+	;unused - eax,edx,esi,edi
+	;ebx - scanline
+	add	edi,esi
+
+	;mov	ebx,[esi].uzl
+	;mov	edx,[esi].vzl
+
+	GetDW	mov	esi,?Texture1
+
+	mov	ds:[?EndLineAdr1],edi
+
+	;mov	ecx,eax		;1/(xr-xl)
+	mov	ebp,[ebx].uzl	;u0
+	mov	edi,ebp         ;u0
+        mov     edx,[ebx].vzl   ;v0
+	sar	ebp,16          ;[u0]
+	and	edi,00000000000000001111111111111111b ;{u0}
+	add	esi,ebp		;to + [u0]
+	mov	ebp,edx         ;v0
+	sar	edx,16          ;[v0]
+	sal	ebp,16          ;{v0}.16
+	add	esi,[0FACEBEDAh+4*edx] ;Texture Offset
+	org	$-4
+	?TextureTable1	dd 0FACEBEDAh
+
+	shr	edi,1
+	add	edi,ebp		;17.{u0}+{v0}.16
+	;push	eax
+	;unused - eax,edx,ebp
+	;ebx-scan
+	;esi-texture
+	;ecx-1/(xr-xl)
+	;edi-textTable
+
+	mov	eax,[ebx].vzl
+	sub	eax,[ebx].vzr
+	imul	ecx
+	shrd	eax,edx,Y_DIV_CACHE_PRES
+	mov	ebp,eax
+	;ebp - dv(16.16)
+	mov	eax,[ebx].uzl
+	sub	eax,[ebx].uzr
+	imul	ecx
+	shrd	eax,edx,Y_DIV_CACHE_PRES + 1
+	mov	ecx,eax
+	;ecx - du(16.15)
+
+	;ebx-scan
+	;esi-texture
+	;ecx-du
+	;edi-textTable
+	;ebp-dv
+	GetDW	mov	[ESP_num],?TextWidth1	;Texture Width
+	mov	eax,edi         ;textTable
+	mov	edi,ebp         ;dv
+	mov	ebx,ecx         ;du
+	sar	ebp,16		;[dv]
+	and	ebx,00000000000000000111111111111111b	;{du}
+	sar	ecx,15		;[du]
+	sal	edi,16		;{dv}*65536
+	add	ecx,[??TextureTable1 + 4*ebp]	;[du]+[dv]*TextWidth
+	org	$-4
+	??TextureTable1 dd 0FACEBEDAh
+
+	;pop	eax
+	mov	edx,[ESP_scr]
+	add	edi,ebx		;{dv}0{du}
+
+	;pop	eax		;17.{u0}+{v0}.16
+	;nop
+	;push	eax
+	;mov	[ESP_num],edx
+	;mov	edx,[ESP_scr]
+
+InnerLoop_:
+	;mov	ebp,[ESP_num]
+	;and	edx,0FFFFFFFCh
+	;jmp	large[ebp*4+UnRollLinPoly]
+	;	$DoUnRoll edx $from @MAX_UNROLLPOLY,UnRollLinPoly(
+
+	;eax - {v}0{u}
+	;ebx - store pixels
+	;ecx - [du] + [dv]*TextureWidth
+	;edx - TextureWidth
+	;esi - Texture Pointer
+	;edi - {dv}0{du}
+	;ebp - carry
+	;
+    	;
+
+	InnerTextureLoop4PPro [ESP_num],0
+
+	;
+	;
+	;mov	ebp,dword ptr [ESP_scr]  ;scr
+	add	edx,4
+	;mov	dword ptr [ESP_scr],ebp
+	GetDW	cmp	ebp,?EndLineAdr1
+	;mov	[ebp-4],ebx
+	jnz	InnerLoop_
+
+	;	)$EndDoUnRoll
+
+Ost_:
+	mov	ebx,[_deltaX]
+	;mov	[ESP_num],edx
+	and	ebx,3
+	mov	ebp,edx
+
+;        $switch ebx
+;        $case 3
+		add	eax,edi		;{v}+{dv}|{u}+{du}
+		mov	bh,[esi]
+		sbb	edx,edx		;FFFFFFFF if need add TextureWidth(v)
+		add	ah,80h		;set carry if need add 1(u)
+		adc	esi,ecx
+		mov	[ebp],bh
+		and	edx,[ESP_num]		;0 or TextureWidth
+		and	ah,7Fh		;restore eax and set 15 bit to zero
+		add	esi,edx
+		inc	ebp
+;        $case 2
+		add	eax,edi		;{v}+{dv}|{u}+{du}
+		mov	bh,[esi]
+		sbb	edx,edx		;FFFFFFFF if need add TextureWidth(v)
+		add	ah,80h		;set carry if need add 1(u)
+		adc	esi,ecx
+		mov	[ebp],bh
+		and	edx,[ESP_num]		;0 or TextureWidth
+		and	ah,7Fh		;restore eax and set 15 bit to zero
+		add	esi,edx
+		inc	ebp
+;        $case 1
+		mov	bh,[esi]
+		mov	[ebp],bh
+;        $case 0
+;        $endSwitch
+
+End_:
+	mov	ebx,[ESP_startVert]
+	mov	edi,[ESP_endVert]
+	add	ebx,type Screen
+	add	edi,_gr_nScreenWidth
+	dec	[ESP_count]
+	mov	[ESP_startVert],ebx
+	mov	[ESP_endVert],edi
+	jge	TextLoopY_
+
+jmp	END_TYPE_DRAW
+
+	;
+DrawL4_:
+	;edi - scrPtr ebp
+	;ebx - screen esi
+
+	mov	ebp,[_gr_polygon].textp
+	mov	ecx,[ebx].vzl
+
+       mov     esi,[_deltaX]
+	mov	eax,[_gr_polygon].textwid
+	mov	edx,[ebx].uzl
+
+;        $switch esi
+;        $case 3
+		mov	esi,ecx
+		sub	ecx,[ebx].vzr
+		sar	ecx,1
+		mov	[ESP_scr],ecx
+		mov	ecx,edx
+		sub	edx,[ebx].uzr
+		sar	edx,1
+		mov	[ESP_num],edx
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+		mov	dh,B_P [ebp + edx]
+		sub	ecx,[ESP_num]
+		mov	B_P [edi],dh
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+		mov	dh,B_P [ebp + edx]
+		sub	ecx,[ESP_num]
+		mov	B_P [edi+1],dh
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		;sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+		mov	dh,B_P [ebp + edx]
+		;sub	ecx,[ESP_num]
+		mov	B_P [edi+2],dh
+;                $break
+;        $case 2
+		sar	ecx,16
+		sar	edx,16
+		mov	esi,[ebx].vzr
+		add	edx,ebp
+		sar	esi,16
+		add	edx,[eax + ecx*4]
+		mov	ecx,[ebx].uzr
+		add	ebp,[eax + esi*4]
+		sar	ecx,16
+		mov	dh,B_P [edx]
+		mov	dl,B_P [ebp + ecx]
+		mov	W_P [edi],dx
+;                $break
+;        $case 1
+		sar	ecx,16
+		sar	edx,16
+		add	ebp,[eax + ecx*4]
+		mov	ah,B_P [ebp + edx]
+		mov	B_P [edi],ah
+;        $case 0
+;        $endSwitch
+
+	mov	ebx,[ESP_startVert]
+	mov	edi,[ESP_endVert]
+	add	ebx,type Screen
+	add	edi,_gr_nScreenWidth
+	dec	[ESP_count]
+	mov	[ESP_startVert],ebx
+	mov	[ESP_endVert],edi
+	jge	TextLoopY
+
+jmp	END_TYPE_DRAW
+`
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::;
+;
+;unused dd  1024 DUP(?)
+;==========ASM extern Labels==============
+align 4
+extrn END_TYPE_DRAW:proc
+extrn ENDD:proc
+;==========ASM extern=====================
+align 4
+extrn _gr_vertices:dword
+extrn interVert:dword
+extrn _gr_polygon:dword
+extrn screen:dword
+extrn pYDivCache:dword
+;===========C(++) extern==================
+align 4
+extrn   _gr_pYCache:dword
+extrn p1DivCache:dword
+extrn	_gr_nScreenWidth:dword
+;=============Module Data=================
+align 4
+_deltaX dd ?
+;=========================================
+align 4
+$tables
+END_CODE_SEG
+end
+

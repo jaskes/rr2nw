@@ -1,0 +1,222 @@
+[Root]
+ActionsNum=2
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,18
+Action2=PlayFlight,Flight2,CINEMA,13
+
+[Flight1.0]
+Pos  =2036.589,125.411, -3070.506
+Angle=8.480,-23.071, -0.602
+Time =4.096
+Delay=0.000
+Text =Intersept this messenger
+
+[Flight1.1]
+Pos  =2027.670,107.737, -3150.367
+Angle=7.861,-22.762, 0.467
+Time =0.871
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2025.229,98.776, -3171.775
+Angle=3.216,-22.703, -3.418
+Time =4.568
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2002.653,115.393, -3162.484
+Angle=-22.869,-21.455, 0.392
+Time =1.963
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =1998.127,119.159, -3162.647
+Angle=-22.893,-29.973, 2.298
+Time =3.815
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =1986.773,126.835, -3151.173
+Angle=-76.747,-34.051, -0.540
+Time =2.985
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =1986.372,127.092, -3150.837
+Angle=-109.110,-21.900, 4.196
+Time =1.892
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =1995.320,123.197, -3146.945
+Angle=-101.876,-21.374, 2.129
+Time =2.384
+Delay=0.000
+Text = He is supposed to follow this way 
+
+[Flight1.8]
+Pos  =2058.101,118.334, -3119.813
+Angle=-128.293,-20.194, 1.595
+Time =3.865
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2152.371,100.751, -3052.472
+Angle=-116.869,-16.479, 4.786
+Time =3.255
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2249.395,105.838, -3019.757
+Angle=-99.063,-21.443, 1.714
+Time =4.008
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2625.919,139.512, -3033.274
+Angle=-78.495,-24.001, -0.335
+Time =3.808
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2877.998,108.340, -3202.676
+Angle=-5.916,1.054, 11.941
+Time =2.043
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2876.745,126.163, -3202.940
+Angle=-6.230,-8.138, 0.261
+Time =2.303
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2872.435,124.070, -3222.792
+Angle=13.689,-7.896, -0.265
+Time =3.033
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2833.714,140.739, -3224.746
+Angle=1.726,-17.760, -1.790
+Time =2.075
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2833.109,148.777, -3196.655
+Angle=-2.102,-15.669, 0.019
+Time =2.071
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =2815.136,158.006, -3161.056
+Angle=-4.438,-14.143, 0.894
+Time =0.000
+Delay=0.000
+Text =
+
+[Flight2.0]
+Pos  =2736.742,96.448, -2642.509
+Angle=-10.090,-24.278, -0.595
+Time =2.364
+Delay=0.000
+Text =
+
+[Flight2.1]
+Pos  =2734.735,101.658, -2631.133
+Angle=-10.002,-24.278, -0.006
+Time =2.054
+Delay=0.000
+Text =
+
+[Flight2.2]
+Pos  =2729.656,116.009, -2599.723
+Angle=-0.951,-24.041, -1.291
+Time =2.024
+Delay=0.000
+Text =
+
+[Flight2.3]
+Pos  =2726.810,109.775, -2613.795
+Angle=7.717,-23.603, -1.708
+Time =2.223
+Delay=0.000
+Text = Take this machine to stop him
+
+[Flight2.4]
+Pos  =2722.244,94.315, -2653.242
+Angle=5.523,-19.200, 0.070
+Time =3.046
+Delay=0.000
+Text =
+
+[Flight2.5]
+Pos  =2700.827,89.618, -2664.678
+Angle=-15.136,-18.202, 3.125
+Time =2.514
+Delay=0.000
+Text =
+
+[Flight2.6]
+Pos  =2703.757,96.258, -2666.507
+Angle=-2.786,-18.153, -4.629
+Time =2.585
+Delay=0.000
+Text =
+
+[Flight2.7]
+Pos  =2700.972,90.100, -2724.499
+Angle=0.463,-17.189, -7.075
+Time =2.345
+Delay=0.000
+Text =
+
+[Flight2.8]
+Pos  =2714.743,92.025, -2813.765
+Angle=-5.495,-18.532, -5.850
+Time =1.932
+Delay=0.000
+Text =
+
+[Flight2.9]
+Pos  =2718.382,92.580, -2875.003
+Angle=-5.496,-18.533, 0.430
+Time =2.224
+Delay=0.000
+Text =
+
+[Flight2.10]
+Pos  =2701.102,106.251, -2945.238
+Angle=21.949,-19.026, 10.977
+Time =3.696
+Delay=0.000
+Text = Be quick !!  They are just leave. 
+
+[Flight2.11]
+Pos  =2404.317,139.854, -3035.589
+Angle=98.877,-16.928, -1.464
+Time =2.000
+Delay=0.000
+Text =
+
+[Flight2.12]
+Pos  =2404.317,139.854, -3035.589
+Angle=88.877,-16.928, -1.464
+Time =1.000
+Delay=0.000
+Text =

@@ -1,0 +1,131 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,TV,18
+
+[Flight1.0]
+Pos  =2746.727,83.124, -2641.568
+Angle=-12.536,-17.722, -0.024
+Time =4.150
+Delay=2.000
+Text = You must protect the escort
+
+[Flight1.1]
+Pos  =2745.416,85.054, -2635.672
+Angle=-38.884,-16.281, 1.167
+Time =6.000
+Delay=2.000
+Text = The third tank must reach Gizdorf
+
+[Flight1.2]
+Pos  =2748.060,77.434, -2619.891
+Angle=-39.943,-23.542, 1.076
+Time =2.160
+Delay=2.000
+Text = Take this tank
+
+[Flight1.3]
+Pos  =2748.060,77.434, -2619.891
+Angle=-122.759,-8.025, 4.517
+Time =1.771
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2748.060,77.434, -2619.891
+Angle=-146.771,-6.639, 0.627
+Time =5.494
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2793.904,74.878, -2511.451
+Angle=-158.023,-6.501, 0.000
+Time =1.744
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2811.972,69.625, -2468.989
+Angle=-139.450,-6.191, 2.027
+Time =3.574
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2827.017,67.407, -2446.996
+Angle=-38.727,-0.698, -0.579
+Time =3.571
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2874.361,61.734, -2487.758
+Angle=-52.311,-0.521, 0.082
+Time =6.647
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =3052.559,60.145, -2572.820
+Angle=-62.308,-0.429, 0.000
+Time =6.056
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =3200.229,58.799, -2677.412
+Angle=-50.620,-0.422, 0.000
+Time =4.890
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =3313.780,57.718, -2770.618
+Angle=-50.620,-0.422, 0.000
+Time =3.131
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =3361.591,75.728, -2854.146
+Angle=-29.980,-0.409, 4.484
+Time =4.079
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =3406.716,79.716, -2966.705
+Angle=-15.089,-0.397, 0.000
+Time =3.557
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =3428.940,87.522, -3071.204
+Angle=-2.786,-0.388, 1.852
+Time =4.600
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =3431.757,87.049, -3141.959
+Angle=-0.856,-0.387, 0.000
+Time =4.958
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =3378.784,86.666, -3200.411
+Angle=102.535,-0.033, -13.552
+Time =8.000
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =3386.186,89.146, -3215.943
+Angle=103.030,-12.703, -0.001
+Time =4.106
+Delay=0.000
+Text =
+

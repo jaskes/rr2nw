@@ -1,0 +1,246 @@
+.486p
+MODEL	FLAT,CPP
+LOCALS
+
+include platform.inc
+
+BEGIN_CODE_SEG
+; align	4
+;========================================================================
+
+include types.inc
+include stack.inc
+include get_s.inc
+;
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+align 8
+ADrawFlat:
+public ADrawFlat
+
+	mov	ebp,[ESP_topVert]
+        mov     eax,[_gr_polygon].color
+	mov	esi,[ESP_bottomVert]
+	mov	ecx,_gr_pYCache
+	mov	edi,[ebp].y
+	mov	ebp,[esi].y
+	mov	esi,offset screen
+	mov	ebx,[ecx + edi*4]	;scrPtr
+
+	mov	ah,al
+	sub	ebp,edi			;deltaY
+	mov	edx,eax
+	bswap	eax
+        mov     ax,dx
+
+
+FlatLoopY:
+	mov	edi,ebx
+	mov	edx,[esi].xl
+	mov	ecx,[esi].xr
+	add	edi,edx
+	;mov	edx,edi
+	;add	edi,[left]
+	sub	ecx,edx
+	jl	FlatLoopEnd
+	inc	ecx
+
+	;mov 	   ;edi-dest,ecx-count(),eax-color,esi-screen,ebx-addr
+ 	$if $(cmp ecx,4) >=
+		mov	edx,edi
+		and	edx,3
+		$switch edx
+		$case 1
+			dec	ecx
+			mov	B_P [edi],ah
+			inc	edi
+		$case 2
+			dec	ecx
+			mov	B_P [edi],ah
+			inc	edi
+		$case 3
+			dec	ecx
+			mov	B_P [edi],ah
+			inc	edi
+		$case 0
+		$endswitch
+
+	;@@m00:
+		mov	edx,ecx
+		sub	edi,((@MAX_UNROLLPOLY)*4)
+		and	edx,0FFFFFFFCh
+		add	edi,edx
+		jmp	large[edx+UnRollPoly1]
+		OFF = 0
+		$DoUnRoll edx $from @MAX_UNROLLPOLY,UnRollPoly1(
+			;add	edi,4
+			mov	[edi+OFF],eax
+			OFF = OFF + 4
+		)$EndDoUnRoll
+		and	ecx,3
+		add	edi,((@MAX_UNROLLPOLY)*4)
+	$endif
+	;
+
+	$switch ecx
+	$case 3
+		mov	B_P [edi],ah
+		inc	edi
+	$case 2
+		mov	B_P [edi],ah
+		inc	edi
+	$case 1
+		mov	B_P [edi],ah
+	$case 0
+	$endswitch
+
+FlatLoopEnd:
+	GetDWPub	add	ebx,EXT_ScreenWidth
+	add	esi,type Screen
+	dec	ebp
+	jge	FlatLoopY
+
+jmp	END_TYPE_DRAW
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::;
+;
+align 8
+ADrawTransparent:
+public ADrawTransparent
+
+	mov	ebp,[ESP_topVert]
+        mov     eax,[_gr_polygon].color
+	mov	esi,[ESP_bottomVert]
+	mov	ecx,_gr_pYCache
+	mov	ebx,[ebp].y
+	mov	ebp,[esi].y
+	mov	esi,offset screen
+        mov     edx,[_gr_polygon].opacity
+	mov	edi,[ecx + ebx*4]	;scrPtr
+        and     edx,0F0h
+        sal     edx,4
+	sub	ebp,ebx			;deltaY
+        add     eax,edx
+
+
+        ;add     eax,_gr_pTransparency
+	mov	[ESP_num],ebp
+	;eax - color table
+	;edi - scrPtr
+	;esi - screen
+TrspLoopY:
+
+	mov	ebp,edi
+	mov	ecx,dword ptr [esi].xl
+	mov	edx,dword ptr [esi].xr
+	add	ebp,ecx
+	sub	edx,ecx
+	jl	TrspEndLoop
+	inc	edx          ;////////////
+	xor	ecx,ecx
+	;edx - deltaX
+	;ebp - scrPtr
+;align	4
+	$if $(cmp edx,4) >=
+		mov	ebx,ebp
+		and	ebx,3
+		;
+		$switch ebx
+		$case 1
+			mov	cl,byte ptr [ebp]
+			inc	ebp
+			mov	cl,byte ptr [ecx+eax]
+			dec	edx
+			mov	byte ptr [ebp-1],cl
+		$case 2
+			mov	cl,byte ptr [ebp]
+			inc	ebp
+			mov	cl,byte ptr [ecx+eax]
+			dec	edx
+			mov	byte ptr [ebp-1],cl
+		$case 3
+			mov	cl,byte ptr [ebp]
+			inc	ebp
+			mov	cl,byte ptr [ecx+eax]
+			dec	edx
+			mov	byte ptr [ebp-1],cl
+		$case 0
+		$endSwitch
+		;
+		;mov	[esp + 8],edx
+		mov	[ESP_scr],edx
+		;push	edx
+		and	edx,0FFFFFFCh
+		jmp	large [edx+unRollTrP1]
+		;eax - color table
+		;ebp - scrPtr + xl
+		;esi - screen
+		$DoUnRoll edx $from @MAX_UNROLLPOLY,unRollTrP1 (
+			mov	edx,[ebp]
+			add	ebp,4
+			mov	cl,dl
+			mov	bl,B_P [ecx+eax]
+			;
+			mov	cl,dh
+			ror	edx,16
+			mov	bh,B_P [ecx+eax]
+			;
+			mov	cl,dl
+			ror	ebx,16
+			mov	bl,B_P [ecx+eax]
+			;
+			mov	cl,dh
+			mov	bh,B_P [ecx+eax]
+			ror	ebx,16
+			;
+			mov	[ebp-4],ebx
+		)$EndDoUnRoll
+		mov	edx,[ESP_scr]
+		and	edx,3
+	$endif
+	;
+	$DoUnRoll edx $from 4(
+		mov	cl,byte ptr [ebp]
+		inc	ebp
+		mov	cl,byte ptr [ecx+eax]
+		mov	byte ptr [ebp-1],cl
+	)$DoUnRollLast(
+		mov	cl,byte ptr [ebp]
+		mov	cl,byte ptr [ecx+eax]
+		mov	byte ptr [ebp],cl
+	)$endDoUnRoll
+
+TrspEndLoop:
+	add	esi,type Screen
+	GetDWPub	add	edi,EXT_ScreenWidth1
+	dec	dword ptr [ESP_num]
+	jge	TrspLoopY
+
+jmp	END_TYPE_DRAW
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::;
+;
+
+unused dd  1024 DUP(?)
+;==========ASM extern Labels==============
+align 4
+extrn END_TYPE_DRAW:proc
+extrn ENDD:proc
+;==========ASM extern=====================
+align 4
+extrn _gr_vertices:dword
+extrn interVert:dword
+extrn _gr_polygon:dword
+extrn screen:dword
+extrn pYDivCache:dword
+extrn p1DivCache:dword
+;===========C(++) extern==================
+align 4
+extrn   _gr_pYCache:dword
+extrn	_gr_nScreenWidth:dword
+extrn	_gr_pTransparency:dword
+;=========================================
+align 4
+$tables
+
+END_CODE_SEG
+end
+
+

@@ -1,0 +1,138 @@
+[Root]
+ActionsNum=2
+RepeatsNum=1
+Action1=PlayFlic,Flic1
+Sound1=wav.Kingdom,0,0
+Action2=PlayFlight,Flight1,CINEMA,17
+Sound2=wav.Kingdom,0,0
+
+
+[Flic1]
+Name =FLIC/king.flc
+Text =
+Delay=1.0
+
+
+[Flight1.0]
+Pos  =2640.854,59.061, -2801.317
+Angle=177.299,3.042, 0.124
+Time =3.430
+Delay=0.000
+Text =Take this battle beast, then  meet\nand protect the escort\ncoming from Bencon
+TextDelay=20
+
+[Flight1.1]
+Pos  =2672.137,57.436, -2794.199
+Angle=177.937,2.436, 0.408
+Time =3.804
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2636.111,69.410, -2703.049
+Angle=147.263,2.648, -3.558
+Time =2.060
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2588.551,86.642, -2624.958
+Angle=176.314,2.331, 11.446
+Time =1.855
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2586.416,91.466, -2522.777
+Angle=-113.581,1.030, 21.943
+Time =2.471
+Delay=0.000
+Text =Refer to the map to clarify its route
+TextDelay=20
+
+[Flight1.5]
+Pos  =2697.395,108.607, -2481.478
+Angle=-97.217,0.983, 5.763
+Time =2.953
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2889.976,112.461, -2464.876
+Angle=-90.992,7.471, 0.550
+Time =1.786
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =3057.629,133.656, -2461.785
+Angle=-90.992,7.472, 0.004
+Time =3.185
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =3299.855,129.575, -2457.587
+Angle=-90.992,-9.333, 0.000
+Time =1.607
+Delay=0.000
+Text =Our enemies will try to intercept the escort\nin Fort of Evil Deeds and Veto Fort
+TextDelay=20
+
+[Flight1.9]
+Pos  =3365.784,129.488, -2453.655
+Angle=-125.298,-8.451, -7.932
+Time =2.926
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =3419.094,110.740, -2358.773
+Angle=161.213,-7.185, -12.188
+Time =1.607
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =3401.580,120.309, -2310.279
+Angle=131.123,-6.199, -16.788
+Time =3.364
+Delay=0.000
+Text =The horse with cargo must reach\nMill of Happiness undamaged
+TextDelay=20
+
+[Flight1.12]
+Pos  =3304.709,133.815, -2220.650
+Angle=155.383,-5.628, 7.768
+Time =1.956
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =3263.401,143.622, -2136.507
+Angle=172.129,-5.370, 10.048
+Time =3.365
+Delay=0.000
+Text =The escort comes from this place\nTry to meet them as soon as possible
+TextDelay=20
+
+[Flight1.14]
+Pos  =3253.205,125.294, -2001.421
+Angle=-161.226,-12.499, 6.721
+Time =10.400
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =3188.991,118.125, -1946.875
+Angle=-138.899,-28.510, -0.341
+Time =0.300
+Delay=0.300
+Text =
+
+[Flight1.16]
+Pos  =3188.991,120.125, -1946.875
+Angle=-138.899,-28.510, -0.341
+Time =0.000
+Delay=0.000
+Text =

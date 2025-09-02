@@ -1,0 +1,6 @@
++graph.obj
++mode.obj
++polygon.obj+clip2da.obj+drawpoly.obj+texture.obj+texturel.obj+hazea.obj+gouraud.obj
++sprite.obj+patterns.obj
++view.obj
++LANDD.OBJ+SBLOOP.OBJ+MSKLN32A.OBJ

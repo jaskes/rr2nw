@@ -1,0 +1,85 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,11
+Sound1=wav.Magician,0,0
+
+[Flight1.0]
+Pos  =3109.343,59.132, -2787.343
+Angle=-178.748,2.503, 0.017
+Time =4.274
+Delay=0.000
+Text =Take your battle beast and\nhurry Up! Veto Fort is under attack!
+TextDelay=20
+
+[Flight1.1]
+Pos  =3135.184,57.286, -2789.895
+Angle=163.176,-8.197, -0.424
+Time =3.021
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3131.302,74.885, -2749.595
+Angle=174.876,9.125, 0.204
+Time =2.513
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =3155.718,92.457, -2597.278
+Angle=-162.595,10.515, 7.943
+Time =2.472
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =3255.635,115.765, -2474.763
+Angle=-86.117,6.153, 27.947
+Time =2.908
+Delay=0.000
+Text =Destroy all of the Kingdom troops,\nground and airborne, otherwise they will\ndestroy our key stronghold!
+TextDelay=20
+
+[Flight1.5]
+Pos  =3410.638,142.251, -2479.530
+Angle=-85.731,-3.162, 0.848
+Time =3.187
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =3611.664,141.772, -2494.439
+Angle=-105.583,-12.938, -4.443
+Time =4.093
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =3779.016,140.559, -2472.052
+Angle=-145.022,-8.441, -6.868
+Time =5.470
+Delay=0.000
+Text =This is Veto Fort
+TextDelay=20
+
+[Flight1.8]
+Pos  =3898.640,137.223, -2511.784
+Angle=-178.556,-7.136, 4.390
+Time =5.286
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =4010.675,130.537, -2481.526
+Angle=139.302,-15.173, -0.542
+Time =0.300
+Delay=0.300
+Text =
+
+[Flight1.10]
+Pos  =4010.675,130.537, -2481.526
+Angle=139.302,-15.173, -0.542
+Time =0.000
+Delay=0.000
+Text =

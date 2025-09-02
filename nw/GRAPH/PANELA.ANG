@@ -1,0 +1,144 @@
+$align
+.486p
+MODEL	FLAT,CPP
+LOCALS
+; align	4
+
+include platform.inc
+include types.inc
+
+BEGIN_CODE_SEG
+;========================================================================
+
+ASM_GRDrawPanel:
+        public ASM_GRDrawPanel
+
+DrawPanel  proc panel:dword,xP:dword,yP:dword
+	uses	esi,edi,ebx;
+
+
+        mov     eax,_gr_pScreen
+        mov     ebx,[yP]
+        mov     esi,[panel]
+        imul    ebx,_gr_nScreenWidth
+        add     eax,[xP]
+        add     esi,2
+        add     eax,ebx
+
+        ;mov     ecx,_gr_pYCache
+        ;mov     ebx,[yP]
+        ;mov     esi,[panel]
+        ;mov     eax,[xP]
+        ;add     esi,2
+        ;add     eax,[ecx + ebx*4]       ;screen
+
+        xor     ebx,ebx
+        mov     bx, W_P [esi-2]
+align 4
+@@Loop:
+        or      ebx,ebx
+        jz      @@End
+        add     ebx, 0FFFF8000h
+        jc      @@NonTransp
+        ;---------------------------------
+        mov     cx, W_P [esi]
+        and     ebx,7FFFh
+        add     esi,2
+        add     eax,ebx
+        mov     bx,cx
+        jmp     @@Loop
+
+align 4
+@@NonTransp:
+
+;@@Loop__:
+;        mov     cl, B_P [esi]
+;        inc     esi
+;        mov     B_P [eax],cl
+;        inc     eax
+;        dec     ebx
+;        jg      @@Loop__
+
+        cmp     ebx,4
+        jl      @@Less4
+
+        mov     edx,eax
+        and     edx,3
+        $switch edx
+                $case 1
+                        mov     cl, B_P [esi]
+                        dec     ebx
+                        inc     esi
+                        mov     B_P [eax],cl
+                        inc     eax
+		$case 2
+                        mov     cl, B_P [esi]
+                        dec     ebx
+                        inc     esi
+                        mov     B_P [eax],cl
+                        inc     eax
+                $case 3
+                        mov     cl, B_P [esi]
+                        dec     ebx
+                        inc     esi
+                        mov     B_P [eax],cl
+                        inc     eax
+                $case 0
+        $endswitch
+
+        mov     edi,ebx
+        and     ebx,3
+        shr     edi,2
+        jz      @@Less4
+
+@@LoopFill4:
+        add     eax,4
+        mov     edx,[esi]
+        add     esi,4
+        dec     edi
+        mov     [eax-4],edx
+        jg      @@LoopFill4
+
+@@Less4:
+        $switch ebx
+                $case 3
+                        mov     cl, B_P [esi]
+                        inc     esi
+                        mov     B_P [eax],cl
+                        inc     eax
+                $case 2
+                        mov     cl, B_P [esi]
+                        inc     esi
+                        mov     B_P [eax],cl
+                        inc     eax
+                $case 1
+                        mov     cl, B_P [esi]
+                        inc     esi
+                        mov     B_P [eax],cl
+                        inc     eax
+                $case 0
+        $endswitch
+
+        mov     bx, W_P [esi]
+        add     esi,2
+
+        jmp     @@Loop
+
+align 4
+@@End:
+	ret
+
+endp
+
+;============ASM extern==================
+align 4
+extrn pYDivCache:dword
+extrn p1DivCache:dword
+;===========C(++) extern==================
+align 4
+extrn   _gr_pYCache:dword
+extrn   _gr_pScreen:dword
+extrn   _gr_nScreenWidth:dword
+$tables
+END_CODE_SEG
+end

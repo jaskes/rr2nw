@@ -1,0 +1,326 @@
+.486p
+MODEL	FLAT,CPP
+LOCALS
+
+include platform.inc
+
+BEGIN_CODE_SEG
+; align	4
+;========================================================================
+
+include types.inc
+include stack.inc
+include get_s.inc
+;
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+align 8
+ASM_GRDrawParticle:
+        public ASM_GRDrawParticle
+drawparticle proc xc:dword,yc:dword,sizep:dword,izp:dword,colorp:dword
+
+        uses    ebx,esi,edi
+
+        mov     ebx,[izp]
+        cmp     ebx,?HazeStartG
+        jge     @@NoHaze
+
+        mov     eax,[colorp]
+        mov     ecx,_gr_pHaze
+        and     eax,0FFh
+
+        cmp     ebx,?HazeEndL
+        jle     @@End4
+
+        lea     ecx,[ecx+eax+256*5]
+        mov     al,B_P [ecx]
+        mov     [colorp],eax
+
+@@NoHaze:
+        mov     eax,[sizep]
+        mov     edx,_gr_pYCache
+        cmp     eax,4
+        jg      @@SGr4
+
+        $switch eax
+        $case 4
+                mov     eax,[xc]
+                mov     ebx,[yc]
+                dec     eax
+                dec     ebx
+                cmp     eax,_gr_clipRect.right
+                jge     @@End4
+                cmp     ebx,_gr_clipRect.bottom
+                jge     @@End4
+                cmp     eax,_gr_clipRect.left
+                jl      @@End4
+                cmp     ebx,_gr_clipRect.top
+                jl      @@End4
+                lea     ecx,[eax+3]
+                lea     esi,[ebx+3]
+                cmp     ecx,_gr_clipRect.left
+                jl      @@End4
+                cmp     esi,_gr_clipRect.top
+                jl      @@End4
+                cmp     ecx,_gr_clipRect.right
+                jge     @@End4
+                cmp     esi,_gr_clipRect.bottom
+                jge     @@End4
+
+                mov     ecx,[colorp]
+                add     eax,[edx+ebx*4]
+                mov     ch,cl
+                mov     esi,eax
+                mov     ebx,ecx
+                mov     edi,_gr_nScreenWidth
+                shl     ebx,16
+                add     eax,edi
+                mov     bx,cx
+                add     eax,edi
+
+                mov     D_P [esi],ebx
+                mov     D_P [esi+edi],ebx
+                mov     D_P [eax],ebx
+                mov     D_P [eax+edi],ebx
+        ret
+
+        $case 3
+                mov     eax,[xc]
+                mov     ebx,[yc]
+                dec     eax
+                dec     ebx
+                cmp     eax,_gr_clipRect.right
+                jge     @@End4
+                cmp     ebx,_gr_clipRect.bottom
+                jge     @@End4
+                cmp     eax,_gr_clipRect.left
+                jl      @@End4
+                cmp     ebx,_gr_clipRect.top
+                jl      @@End4
+                lea     ecx,[eax+2]
+                lea     esi,[ebx+2]
+                cmp     ecx,_gr_clipRect.left
+                jl      @@End4
+                cmp     esi,_gr_clipRect.top
+                jl      @@End4
+                cmp     ecx,_gr_clipRect.right
+                jge     @@End4
+                cmp     esi,_gr_clipRect.bottom
+                jge     @@End4
+
+                mov     ecx,[colorp]
+                add     eax,[edx+ebx*4]
+                mov     ch,cl
+                mov     edi,_gr_nScreenWidth
+                mov     esi,eax
+                add     eax,edi
+
+                mov     W_P [esi],cx
+                mov     B_P [esi+2],cl
+
+                mov     W_P [eax],cx
+                mov     B_P [eax+2],cl
+
+                mov     W_P [eax+edi],cx
+                mov     B_P [eax+edi+2],cl
+        ret
+
+        $case 2
+                mov     eax,[xc]
+                mov     ebx,[yc]
+                cmp     eax,_gr_clipRect.right
+                jge     @@End4
+                cmp     ebx,_gr_clipRect.bottom
+                jge     @@End4
+                cmp     eax,_gr_clipRect.left
+                jl      @@End4
+                cmp     ebx,_gr_clipRect.top
+                jl      @@End4
+                lea     ecx,[eax+1]
+                lea     esi,[ebx+1]
+                cmp     ecx,_gr_clipRect.left
+                jl      @@End4
+                cmp     esi,_gr_clipRect.top
+                jl      @@End4
+                cmp     ecx,_gr_clipRect.right
+                jge     @@End4
+                cmp     esi,_gr_clipRect.bottom
+                jge     @@End4
+
+                mov     ecx,[colorp]
+                add     eax,[edx+ebx*4]
+                mov     ch,cl
+                mov     esi,eax
+                add     eax,_gr_nScreenWidth
+                mov     W_P [esi],cx
+                mov     W_P [eax],cx
+        ret
+
+        $case 1
+                mov     eax,[xc]
+                mov     ebx,[yc]
+                cmp     eax,_gr_clipRect.left
+                jl      @@End4
+                cmp     ebx,_gr_clipRect.top
+                jl      @@End4
+                cmp     eax,_gr_clipRect.right
+                jge     @@End4
+                cmp     ebx,_gr_clipRect.bottom
+                jge     @@End4
+
+                add     eax,[edx + ebx*4]
+                mov     ecx,[colorp]
+                mov     B_P [eax],cl
+        ret
+
+        $case 0
+        $endswitch
+
+@@End4:
+        ret
+
+align 8
+@@SGr4:
+
+        mov     ebx,eax
+        dec     eax
+        sar     eax,1
+        mov     edi,ebx
+        sar     ebx,1
+
+        mov     ecx,[xc]
+        mov     esi,[yc]
+        sub     ecx,eax  ;x0
+        sub     esi,eax  ;y0
+        mov     eax,ebx
+        add     ebx,[yc] ;y1
+        add     eax,[xc] ;x1
+
+        cmp     ecx,_gr_clipRect.right
+        jge     @@End
+        cmp     eax,_gr_clipRect.left
+        jl      @@End
+        cmp     esi,_gr_clipRect.bottom
+        jge     @@End
+        cmp     ebx,_gr_clipRect.top
+        jl      @@End
+
+        cmp     ecx,_gr_clipRect.left
+        jl      @@End
+        cmp     esi,_gr_clipRect.top
+        jl      @@End
+        cmp     eax,_gr_clipRect.right
+        jge     @@End
+        cmp     ebx,_gr_clipRect.bottom
+        jge     @@End
+
+        mov     eax,[colorp]
+        add     ecx,[edx+esi*4]
+        mov     ah,al
+        mov     esi,_gr_nScreenWidth
+        mov     edx,eax
+        mov     ds:[_ScreenWidth],esi
+        sal     eax,16
+        push    ebp
+        mov     ax,dx
+        mov     ebp,edi
+
+@@LoopY:
+        mov     edx,ecx
+        mov     ebx,ecx
+        and     edx,3
+        mov     esi,edi
+        ;ebx - SPtr
+        ;ecx - SPtr save
+        ;eax - color
+        ;edi - size save
+        ;esi - size
+        ;edx - tmp
+        ;ebp - deltaY
+
+	;mov 	   ;edi-dest,ecx-count(),eax-color,esi-screen,ebx-addr
+        $switch edx
+        $case 1
+                sub     esi,3
+                mov     B_P [ebx],ah
+                mov     W_P [ebx+1],ax
+                add     ebx,3
+                $break
+        $case 2
+                sub     esi,2
+                mov     W_P [ebx],ax
+                add     ebx,2
+                $break
+        $case 3
+                dec     esi
+                mov     B_P [ebx],ah
+                inc     ebx
+        $case 0
+        $endswitch
+
+	;@@m00:
+        mov     edx,esi
+        sub     ebx,((@MAX_UNROLLPOLY)*4)
+        and     edx,0FFFFFFFCh
+        add     ebx,edx
+        jmp     large[edx+UnRollPoly1]
+
+        OFF = 0
+        $DoUnRoll edx $from @MAX_UNROLLPOLY,UnRollPoly1(
+             mov     [ebx+OFF],eax
+             OFF = OFF + 4
+        )$EndDoUnRoll
+        and     esi,3
+        add     ebx,((@MAX_UNROLLPOLY)*4)
+	;
+
+        $switch esi
+	$case 3
+                mov     B_P [ebx],ah
+                mov     W_P [ebx+1],ax
+                $break
+	$case 2
+                mov     W_P [ebx],ax
+                $break
+	$case 1
+                mov     B_P [ebx],ah
+	$case 0
+	$endswitch
+
+        GetDW   add     ecx,_ScreenWidth
+	dec	ebp
+        jg      @@LoopY
+
+        pop     ebp
+@@End:
+        ret
+endP
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::;
+;
+
+unused dd  1024 DUP(?)
+;==========ASM extern Labels==============
+;==========ASM extern=====================
+align 4
+;extrn _gr_vertices:dword
+;extrn interVert:dword
+;extrn _gr_polygon:dword
+;extrn screen:dword
+extrn pYDivCache:dword
+extrn p1DivCache:dword
+extrn ?HazeEndL:dword
+extrn ?HazeStartG:dword
+;===========C(++) extern==================
+align 4
+extrn   _gr_pYCache:dword
+extrn	_gr_nScreenWidth:dword
+extrn   _gr_clipRect:Clip
+extrn   _gr_pHaze:dword
+
+;=========================================
+align 4
+$tables
+
+END_CODE_SEG
+end
+
+

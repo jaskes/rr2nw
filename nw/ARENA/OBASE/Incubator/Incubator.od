@@ -1,0 +1,50 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Incubator\Incubator.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Incubator\Incubator.cpp"
+        Script   :!""
+        Object   :!"Incubator"
+        ExtrenTab :!"Incubator"
+        ExternAttr:!"IncubAttr"
+        IsActiv  :false
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_isHidden"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_nextTimeInc"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){EndOfEvent }
+    }
+}

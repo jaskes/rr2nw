@@ -1,0 +1,149 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,20
+Sound1=wav.Kingdom,0,0
+
+[Flight1.0]
+Pos  =2640.878,58.155, -2797.264
+Angle=175.178,-7.777, 0.007
+Time =1.742
+Delay=0.000
+Text =Hostile fortifications prevent our troops\nto achieve total control on the bridge\nnear the Warrior Fortress
+TextDelay=20
+
+[Flight1.1]
+Pos  =2655.125,58.409, -2797.923
+Angle=175.178,-7.777, 17.081
+Time =1.603
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2671.535,58.430, -2796.698
+Angle=173.756,-18.640, 4.290
+Time =2.994
+Delay=1.000
+Text =
+
+[Flight1.3]
+Pos  =2656.885,66.913, -2764.454
+Angle=151.383,3.183, -0.183
+Time =1.483
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2627.506,75.101, -2692.913
+Angle=161.298,3.101, 0.927
+Time =1.433
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2609.374,107.712, -2640.387
+Angle=161.253,-8.059, 0.024
+Time =1.258
+Delay=0.000
+Text =As a part of battle beast squadroon\nyou are ordered to destroy these fortifications
+TextDelay=20
+
+[Flight1.6]
+Pos  =2590.150,118.629, -2581.171
+Angle=-168.767,-7.069, 15.798
+Time =1.150
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2592.379,115.929, -2551.875
+Angle=-133.839,-5.303, 16.540
+Time =1.525
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2659.315,107.000, -2485.117
+Angle=-116.579,-4.981, 9.854
+Time =2.416
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2756.457,98.239, -2457.627
+Angle=-90.468,-11.106, 7.432
+Time =1.401
+Delay=0.000
+Text =Go to Warrior Fortress, make a forced\ncross of the river and take the bridge
+TextDelay=20
+
+[Flight1.10]
+Pos  =2830.164,97.082, -2455.827
+Angle=-90.390,-11.411, 0.349
+Time =1.346
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2932.057,117.988, -2455.046
+Angle=-90.390,-11.411, 0.008
+Time =1.001
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2985.823,134.314, -2454.674
+Angle=-90.390,-11.411, 0.000
+Time =2.000
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =3092.961,133.423, -2454.135
+Angle=-89.945,-18.340, -0.116
+Time =4.261
+Delay=0.000
+Text =Mission is successful when\nall the enemies around the bridge\nare dead
+TextDelay=20
+
+[Flight1.14]
+Pos  =3364.167,107.518, -2454.308
+Angle=-89.945,-22.472, 0.000
+Time =2.552
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =3537.283,148.579, -2454.474
+Angle=-89.945,-22.472, 0.000
+Time =2.319
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =3596.890,144.941, -2454.562
+Angle=-85.843,-22.421, 3.282
+Time =2.131
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =3598.076,145.168, -2439.538
+Angle=-74.851,-18.465, 3.376
+Time =2.994
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =3608.791,143.910, -2398.468
+Angle=-70.364,-18.404, 1.445
+Time =5.325
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =3627.824,124.493, -2350.093
+Angle=-49.830,-18.033, 1.803
+Time =3.956
+Delay=0.000
+Text =

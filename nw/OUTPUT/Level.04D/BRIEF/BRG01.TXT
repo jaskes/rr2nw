@@ -1,0 +1,105 @@
+[Root]
+ActionsNum=2
+RepeatsNum=1
+Action1=PlayFlic,Flic1
+Sound1=ConqBriefing,0,0
+Action2=PlayFlight,Flight1,CINEMA,13
+Sound2=ConqBriefing,0,0
+
+[Flic1]
+Name =FLIC/nazy.flc
+Text =
+Delay=1.0
+
+
+[Flight1.0]
+Pos  =2698.082,114.652, -2610.225
+Angle=-13.214,-22.658, 0.000
+Time =2.363
+Delay=0.000
+Text =Town of Tuanahaste is 
+
+[Flight1.1]
+Pos  =2699.838,111.445, -2617.706
+Angle=-13.214,-22.658, 0.000
+Time =2.354
+Delay=0.000
+Text =our primary goal for this operation
+
+[Flight1.2]
+Pos  =2703.426,105.083, -2632.986
+Angle=-13.214,-18.782, 0.000
+Time =3.345
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2707.313,91.680, -2699.212
+Angle=16.296,-17.002, -6.071
+Time =2.433
+Delay=0.000
+Text = 
+
+[Flight1.4]
+Pos  =2702.640,88.926, -2776.302
+Angle=-9.993,-15.575, 0.411
+Time =1.843
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2716.942,94.339, -2833.230
+Angle=-13.930,-15.860, -0.067
+Time =2.243
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2738.813,97.830, -2900.452
+Angle=-25.668,-15.600, 0.590
+Time =2.914
+Delay=0.000
+Text =Join tank platoon and
+
+[Flight1.7]
+Pos  =2778.933,108.580, -2984.632
+Angle=-25.793,-19.859, 0.005
+Time =3.545
+Delay=0.000
+Text = Capture this town
+
+[Flight1.8]
+Pos  =2821.038,97.323, -3082.125
+Angle=-28.550,-7.499, -1.756
+Time =3.716
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2889.960,149.065, -3179.111
+Angle=-31.494,-7.451, -3.272
+Time =1.842
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2904.019,143.553, -3228.490
+Angle=14.003,-5.468, -2.855
+Time =2.013
+Delay=0.000
+Text =You'll be given 100 gold pieces
+
+[Flight1.11]
+Pos  =2899.299,141.407, -3249.875
+Angle=19.057,-5.417, 0.584
+Time =3.676
+Delay=0.000
+Text =in case of success
+
+[Flight1.12]
+Pos  =2899.299,141.407, -3249.875
+Angle=24.803,-11.937, -0.099
+Time =1.032
+Delay=0.000
+Text =
+

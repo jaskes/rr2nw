@@ -1,0 +1,719 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Cannon\Cannon.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Cannon\Cannon.cpp"
+        Script   :!""
+        Object   :!"Cannon"
+        ExtrenTab :!"Cannon"
+        ExternAttr:!"CannonAttr"
+        IsActiv  :true
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"STAY"
+                Comment:!""
+            }
+            Point0(PN2I 0 1){
+                x 96
+                y 124
+            }
+            Point1(PN2I 0 1){
+                x 296
+                y 184
+            }
+            State links(STLN 0 1){
+                Count: 5
+                | 6                 0| 5 2| 4 0| 3 1| 0 1
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"SHOOTING"
+                Comment:!""
+            }
+            Point0(PN2I 0 1){
+                x 442
+                y 127
+            }
+            Point1(PN2I 0 1){
+                x 642
+                y 187
+            }
+            State links(STLN 0 1){
+                Count: 3
+                | 2                 0| 1 1| 0 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"AUTOIDLE"
+                Comment:!""
+            }
+            Point0(PN2I 0 1){
+                x 445
+                y 409
+            }
+            Point1(PN2I 0 1){
+                x 645
+                y 469
+            }
+            State links(STLN 0 1){
+                Count: 3
+                | 6                 1| 2 1| 1 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"SINGLEIDLE"
+                Comment:!""
+            }
+            Point0(PN2I 0 1){
+                x 95
+                y 414
+            }
+            Point1(PN2I 0 1){
+                x 295
+                y 474
+            }
+            State links(STLN 0 1){
+                Count: 2
+                | 4                 1| 3 0
+            }
+        }
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY__to__SHOOTING__F"
+                Comment        :!"Команда начинать стрельбу"
+                Event          :!"cn_EV_SHOOT"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.275000
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.225000
+            }
+            Title(ETIT 0 1){
+                pos.x:-55
+                pos.y:-107
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_SHOOTING__to__IDLE__F"
+                Comment        :!"Процесс перезаряжания кончился"
+                Event          :!"cn_EV_SHOOT"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.742500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.727500
+            }
+            Title(ETIT 0 1){
+                pos.x:22
+                pos.y:-57
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"repeatShootF"
+                Comment        :!"Процесс перезаряжания кончился"
+                Event          :!"cn_EV_IDLEOK"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.427500
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.442500
+            }
+            Title(ETIT 0 1){
+                pos.x:-238
+                pos.y:-67
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY__to__SINGLEIDLE__F"
+                Comment        :!""
+                Event          :!"cn_EV_SINGLE_SHOOT"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.772500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.777500
+            }
+            Title(ETIT 0 1){
+                pos.x:31
+                pos.y:47
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:3
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"NULL"
+                Comment        :!"Процесс перезаряжания кончился"
+                Event          :!"cn_EV_END_SHOOTING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.500000
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.495000
+            }
+            Title(ETIT 0 1){
+                pos.x:-178
+                pos.y:-55
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:3
+                dest:0
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"rebuldF"
+                Comment        :!"Приказ о создании танка"
+                Event          :!"tg_EV_REBUILD"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.570000
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.372500
+            }
+            Title(ETIT 0 1){
+                pos.x:-7
+                pos.y:-45
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:0
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 210 y: 100
+                x: 170 y: 100
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_AUTOIDLE__to__STAY__F"
+                Comment        :!"Прекращаем стрельбу"
+                Event          :!"cn_EV_ENDOFSHOOT"
+            }
+            Point0(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.525000
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.622500
+            }
+            Title(ETIT 0 1){
+                pos.x:21
+                pos.y:122
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:0
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 350 y: 440
+                x: 220 y: 330
+            }
+        }
+
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_rotateHSpeed"
+            DefaultVal :!"(3.14/2.0)"
+            Comment    :!"Горизонтальная скорость поворота"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_rotateVSpeed"
+            DefaultVal :!"(3.14/2.0)"
+            Comment    :!"Вертикальная скорость поворота"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_viewBulletDist"
+            DefaultVal :!"5.0"
+            Comment    :!"Расстояние, с которого начинают быть видимыми пули"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"CFVector3"
+            Name       :!"m_offset"
+            DefaultVal :!"CFVector3(0.71, 4.35, -4.25-1.0)"
+            Comment    :!"Смещение относительно центра объекта"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"CFVector3"
+            Name       :!"m_hAxis"
+            DefaultVal :!"CFVector3(0,0,0)"
+            Comment    :!"Ось горизонтального вращения"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"CFVector3"
+            Name       :!"m_vAxis"
+            DefaultVal :!"CFVector3(0,0,0)"
+            Comment    :!"Ось вращения по вертикали"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_cannonLength"
+            DefaultVal :!"2.0"
+            Comment    :!"Длина ствола пушки"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_idleTime"
+            DefaultVal :!"1.8"
+            Comment    :!"Время ожидания перезарядки"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_bulletTable"
+            DefaultVal :!""Bullet""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_minStopAngle"
+            DefaultVal :!"0.001"
+            Comment    :!"Минимальный угол, при котором пушка останавливается"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_rotateTimeDelta"
+            DefaultVal :!"0.04"
+            Comment    :!"Время пересчета для поворота"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_fixed"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EV_SHOOT"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@count"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@bulletAttrIndex"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EV_IDLEOK"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@bulletAttrIndex"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@count"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EV_END_SHOOTING"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EV_SINGLE_SHOOT"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@bulletAttrIndex"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EVC_IDLE"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@bulletAttrIndex"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EV_ENDOFSHOOT"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EVC_ROTATE"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@prevTimeStamp"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@hAngle"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@vAngle"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EVCMD_ROTATE_AND_SHOOT"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DESCEND(cn_ROTATE , 0 )"
+                        Comment:!""
+                        Child 
+                    }
+                    Data tree(EDT_ 0 0){
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@prevTimeStamp"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@hAngle"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@vAngle"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EndOfEventDataItem }
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DESCEND( cn_SHOOT, 0 )"
+                        Comment:!""
+                        Child 
+                    }
+                    Data tree(EDT_ 0 0){
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"INT"
+                            Comment:!"@@count"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"INT"
+                            Comment:!"@@bulletAttrIndex"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EndOfEventDataItem }
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"cn_EVCMD_DIRECT_SHOOT"
+                Header: !"C:\NW\ARENA\MESSAGE\cnmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@hAngle"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@vAngle"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@bulletAttr"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@count"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){EndOfEvent }
+    }
+}

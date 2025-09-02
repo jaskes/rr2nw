@@ -1,0 +1,206 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Fly\Fly.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Fly\Fly.cpp"
+        Script   :!""
+        Object   :!"Fly"
+        ExtrenTab :!"Fly"
+        ExternAttr:!"FlyAttr"
+        IsActiv  :true
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"STAY"
+                Comment:!"Начальное состояние"
+            }
+            Point0(PN2I 0 1){
+                x 37
+                y 53
+            }
+            Point1(PN2I 0 1){
+                x 237
+                y 113
+            }
+            State links(STLN 0 1){
+                Count: 1
+                | 0                 1
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"PATROL"
+                Comment:!""
+            }
+            Point0(PN2I 0 1){
+                x 392
+                y 53
+            }
+            Point1(PN2I 0 1){
+                x 592
+                y 113
+            }
+            State links(STLN 0 1){
+                Count: 3
+                | 2                 1| 1 2| 0 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"ATTACK"
+                Comment:!"Атака врага"
+            }
+            Point0(PN2I 0 1){
+                x 391
+                y 201
+            }
+            Point1(PN2I 0 1){
+                x 591
+                y 261
+            }
+            State links(STLN 0 1){
+                Count: 1
+                | 2                 0
+            }
+        }
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY__to__PATROL__F"
+                Comment        :!""
+                Event          :!"fly_EVCMD_START_PATROL"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.500000
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.500000
+            }
+            Title(ETIT 0 1){
+                pos.x:-77
+                pos.y:-72
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"findEnemyFC"
+                Comment        :!"Приблизительно раз в 2 секунды (m_findEnemyDeltaT)"
+                Event          :!"fly_EVC_FIND_ENEMY"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.492500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.692500
+            }
+            Title(ETIT 0 1){
+                pos.x:-49
+                pos.y:-44
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 490 y: 30
+                x: 530 y: 30
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_PATROL__to__ATTACK__F"
+                Comment        :!""
+                Event          :!"fly_EV_ENEMY_FOUNDED"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.692500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.697500
+            }
+            Title(ETIT 0 1){
+                pos.x:44
+                pos.y:-27
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxSpeed"
+            DefaultVal :!"30"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_findEnemyDeltaT"
+            DefaultVal :!"2"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_skinName"
+            DefaultVal :!""sk.Fly...""
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){EndOfEvent }
+    }
+}

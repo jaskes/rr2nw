@@ -1,0 +1,4 @@
++matrix34.obj &
++mathio.obj &
++taggfile.obj+fileres.obj+config.obj &
++assert.obj

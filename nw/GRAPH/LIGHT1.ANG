@@ -1,0 +1,633 @@
+$align 4
+.486p
+MODEL	FLAT,CPP
+LOCALS
+; align	4
+
+include platform.inc
+
+BEGIN_CODE_SEG
+
+;========================================================================
+include types.inc
+include stack.inc
+include get_s.inc
+
+include subtloop.inc
+;========================================================================
+DrawOst Macro
+        local   EndOst,BrG
+
+        mov     ebx,[_deltaX]
+        fistp   [ESP_u0]
+        and     ebx,07h
+        jz      EndOst
+
+        ;ecx - [L]
+        ;ebx - [dL]
+        ;ebp - {L}<<16
+        ;edx - {dL}<<16
+
+        ;FIXME in switch ecx 60030000-????????????????otkuda 6?????????
+        ;mov     [_ECX],ecx
+        ;mov     [_EBP],ebp
+
+
+        shl     ecx,16
+        mov     edx,[ESP_u0]        ;Le
+        shr     ebp,16          ;0|{L}
+        or      edx,edx
+        jle     BrG
+        and     edx,1FFFFFh
+BrG:
+        or      ecx,ebp         ;[L]|{L}
+        sub     edx,ecx
+        sar     edx,3
+
+        $switch ebx
+        $case 7
+                mov     eax,ecx ;L16.16
+                add     ecx,edx ;L+dL
+                sar     eax,8
+                $if     >0
+                and     eax,0FFFFh
+                mov     al,[edi]
+                mov     al,[esi+eax]
+                mov     [edi],al
+                $endif
+                inc     edi
+        $case 6
+                mov     eax,ecx ;L16.16
+                add     ecx,edx ;L+dL
+                sar     eax,8
+                $if     >0
+                and     eax,0FFFFh
+                mov     al,[edi]
+                mov     al,[esi+eax]
+                mov     [edi],al
+                $endif
+                inc     edi
+        $case 5
+                mov     eax,ecx ;L16.16
+                add     ecx,edx ;L+dL
+                sar     eax,8
+                $if     >0
+                and     eax,0FFFFh
+                mov     al,[edi]
+                mov     al,[esi+eax]
+                mov     [edi],al
+                $endif
+                inc     edi
+        $case 4
+                mov     eax,ecx ;L16.16
+                add     ecx,edx ;L+dL
+                sar     eax,8
+                $if     >0
+                and     eax,0FFFFh
+                mov     al,[edi]
+                mov     al,[esi+eax]
+                mov     [edi],al
+                $endif
+                inc     edi
+        $case 3
+                mov     eax,ecx ;L16.16
+                add     ecx,edx ;L+dL
+                sar     eax,8
+                $if     >0
+                and     eax,0FFFFh
+                mov     al,[edi]
+                mov     al,[esi+eax]
+                mov     [edi],al
+                $endif
+                inc     edi
+        $case 2
+                mov     eax,ecx ;L16.16
+                add     ecx,edx ;L+dL
+                sar     eax,8
+                $if     >0
+                and     eax,0FFFFh
+                mov     al,[edi]
+                mov     al,[esi+eax]
+                mov     [edi],al
+                $endif
+                inc     edi
+        $case 1
+                mov     eax,ecx ;L16.16
+                or      ecx,ecx
+                jle     EndOst
+                add     ecx,edx ;L+dL
+                sar     eax,8
+                and     eax,0FFFFh
+                ;$break <=0
+                ;jle     EndOst
+                ;$if $(or eax,eax) <0
+                ;    int 3
+                ;$endif
+                mov     al,[edi]
+                mov     al,[esi+eax]
+                mov     [edi],al
+        $case 0
+	$endswitch
+EndOst:
+
+ENDM
+;----------------------------------------------------------------------
+EndLineDraw Macro name
+
+        fcompp
+        fcompp
+        fcompp
+        ;ffree   st(0)
+
+        fld     [PDB]   ;pdb
+        fld     [PDC0]  ;pdc0 pdb
+        fld     [PDC]   ;pdc pdc0 pdb
+        fxch    st(2)   ;pdb  pdc0 pdc
+        fadd    [PDB0]  ;pdb` pdc0 pdc
+        fxch    st(1)   ;pdc0 pdb` pdc
+        fadd    st(2),st;pdc0 pdb` pdc`
+        fadd    [PDC1]  ;pdc0` pdb` pdc`
+        fxch    st(1)   ;pdb` pdc0` pdc`
+        fstp    [PDB]
+        fxch    st(1)
+        fstp    [PDC]
+        fstp    [PDC0]
+
+        fld     [PUB]   ;pdb
+        fld     [PUC0]  ;pdc0 pdb
+        fld     [PUC]   ;pdc pdc0 pdb
+        fxch    st(2)   ;pdb pdc0 pdc
+        fadd    [PUB0]  ;pdb` pdc0 pdc
+        fxch    st(1)   ;pdc0 pdb` pdc
+        fadd    st(2),st;pdc0 pdb` pdc`
+        fadd    [PUC1]  ;pdc0` pdb` pdc`
+        fxch    st(1)   ;pdb` pdc0` pdc`
+        fstp    [PUB]
+        fxch    st(1)
+        fstp    [PUC]
+        fstp    [PUC0]
+
+        mov     ebp,[ESP_startVert]
+	mov	edi,[ESP_endVert]
+        add     ebp,type Screen
+        GetDWPub        add     edi,name
+	dec	[ESP_count]
+        mov     [ESP_startVert],ebp
+	mov	[ESP_endVert],edi
+        ;ffree   st(0)
+        ;ffree   st(1)
+        ;ffree   st(2)
+        ;ffree   st(3)
+        ;ffree   st(4)
+        ;ffree   st(5)
+        ;ffree   st(6)
+        jge     LightLoopY
+	;
+	;
+	fldcw   [_oldFPUCW]	; restore the FPU
+
+
+jmp     END_DRAW_LIGHT
+
+ENDM
+
+;========================================================================
+align 8
+ADrawLightPer8:
+        Public ADrawLightPer8
+
+	fstcw   [_oldFPUCW]          ; store copy of CW
+	mov     ax,_oldFPUCW         ; get it in ax
+	and     eax,NOT 1100000000b ; 24 bit precision
+	mov     [_newFPUCW],ax       ; store it
+	fldcw   [_newFPUCW]          ; load the FPU
+
+	mov	edx,[ESP_topVert]
+	mov	esi,[ESP_bottomVert]
+	mov	ecx,_gr_pYCache
+	mov	ebx,[edx].y
+	mov	edx,[esi].y
+        mov     ebp,offset screen
+	sub	edx,ebx			;deltaY
+	mov	edi,[ecx + ebx*4]	;scrPtr
+
+        ;mov     eax,[_gr_polygon].textp
+
+        mov     [ESP_count],edx
+	mov	[ESP_endVert],edi
+        mov     [ESP_startVert],ebp
+
+
+
+        ;mov     ebx,[eax + 8]  ;cache
+        ;mov     eax,[eax + 12] ;data
+
+	;TestCoordinates
+
+
+        ;mov     ds:[?TextureTable32],ebx
+        ;mov     ds:[?Texture32],eax
+        ;mov     ds:[??TextureTable32],ebx
+        ;mov     edx,[ebx + 4]
+        ;mov     ds:[???TextureTable32],ebx
+        ;mov     ds:[??Texture32],eax
+        mov     esi,[_gr_polygon].color
+        ;mov     ds:[?TextWidth32],edx
+        ;mov     ds:[?AlphaMixTable],eax
+LightLoopY:
+        mov     eax,[ebp].xl
+        mov     ebx,[ebp].xr
+	add	edi,eax
+	;dec	eax
+	sub	ebx,eax
+        jl      EndDraw
+
+        ;mov     [ESP_scr],edi
+        ;cmp     ebx,1
+        ;jle     @@Ls3
+	inc	ebx
+        ;
+        fild    [ebp].xl;xl
+        fld     [PDA]   ;pda xl
+        fld     [N]     ;N pda xl
+        fxch    st(2)   ;xl pda N
+        fld     st      ;xl xl pda N
+        fmul    st,st(2);xl*pda xl pda N
+        fld     [PDB]   ;pdb xl*pda xl pda N
+        fxch    st(3)   ;pda xl*pda xl pdb N
+        fmul    st,st(4);pda*N xl*pda xl pdb N
+        fxch    st(1)   ;xl*pda pda*N xl pdb N
+        fld     st      ;xl*pda xl*pda pda*N xl pdb N
+        faddp   st(4),st;xl*pda pda*N xl pdb+xl*pda N
+        fld     [PDC]   ;pdc xl*pda pda*N xl pdb+xl*pda N
+        fxch    st(1)   ;xl*pda pdc pda*N xl pdb+xl*pda N
+        fadd    st,st(2);pda*(N+xl) pdc pda*N xl pdb+xl*pda N
+        fld     st(4)   ;pdb+xl*pda pda*(N+xl) pdc pda*N xl pdb+xl*pda N
+        fmul    st,st(4);(pdb+xl*pda)*xl pda*(N+xl) pdc pda*N xl pdb+xl*pda N
+        fxch    st(1)   ;pda*(N+xl) (pdb+xl*pda)*xl pdc pda*N xl pdb+xl*pda N
+        faddp   st(5),st;(pdb+xl*pda)*xl pdc pda*N xl pda*(2*xl+N)+pdb N
+        fxch    st(2)   ;pda*N pdc (pdb+xl*pda)*xl xl pda*(2*xl+N)+pdb N
+        fmul    st,st(5);pda*N*N pdc (pdb+xl*pda)*xl xl pda*(2*xl+N)+pdb N
+        fxch    st(1)   ;pdc pda*N*N (pdb+xl*pda)*xl xl pda*(2*xl+N)+pdb N
+        faddp   st(2),st;pda*N*N PD xl pda*(2*xl+N)+pdb N
+        fxch    st(3)   ;pda*(2*xl+N)+pdb PD xl pda*N*N N
+        fmul    st,st(4);PD0 PD xl pda*N*N N
+        fld     st(3)   ;pda*N*N PD0 PD xl pda*N*N N
+        fxch    st(2)   ;PD PD0 pda*N*N xl pda*N*N N
+        fstp    [PD]    ;PD0 pda*N*N xl pda*N*N N
+        fxch    st(1)   ;pda*N*N PD0 xl pda*N*N N
+        faddp   st(3),st;PD0 xl PD1 N
+        fld     [PUA]   ;pua PD0 xl PD1 N
+        fxch    st(1)   ;PD0 pua xl PD1 N
+        fstp    [PD0]   ;pua xl PD1 N
+        fxch    st(2)   ;PD1 xl pua N
+        fstp    [PD1]   ;xl pua N
+        ;-------------------------------------------
+        fld     st      ;xl xl pua N
+        fmul    st,st(2);xl*pua xl pua N
+        fld     [PUB]   ;pub xl*pua xl pua N
+        fxch    st(3)   ;pua xl*pua xl pub N
+        fmul    st,st(4);pua*N xl*pua xl pub N
+        fxch    st(1)   ;xl*pua pua*N xl pub N
+        fld     st      ;xl*pua xl*pua pua*N xl pub N
+        faddp   st(4),st;xl*pua pua*N xl pub+xl*pua N
+        fld     [PUC]   ;puc xl*pua pua*N xl pub+xl*pua N
+        fxch    st(1)   ;xl*pua puc pua*N xl pub+xl*pua N
+        fadd    st,st(2);pua*(N+xl) puc pua*N xl pub+xl*pua N
+        fld     st(4)   ;pub+xl*pua pua*(N+xl) puc pua*N xl pub+xl*pua N
+
+        fmulp   st(4),st;pua*(N+xl) puc pua*N (pub+xl*pua)*xl pub+xl*pua N
+        faddp   st(4),st;puc pua*N (pub+xl*pua)*xl pua*(2*xl+N)+pub N
+        fxch    st(1)   ;pua*N puc (pub+xl*pua)*xl pua*(2*xl+N)+pub N
+        fmul    st,st(4);pua*N*N puc (pub+xl*pua)*xl pua*(2*xl+N)+pub N
+        fxch    st(1)   ;puc pua*N*N (pub+xl*pua)*xl pua*(2*xl+N)+pub N
+        faddp   st(2),st;pua*N*N PU pua*(2*xl+N)+pub N
+        fxch    st(2)   ;pua*(2*xl+N)+pub PU pua*N*N N
+        fmulp   st(3),st;PU pua*N*N PU0
+        fld     st(1)   ;pua*N*N PU pua*N*N PU0
+        faddp   st(2),st;PU PU1 PU0
+        fxch    st(1)   ;PU1 PU PU0
+        ;-----------------------------------------
+        fld     [L0]    ;L0 PU1 PU PU0
+        fld     [PD]    ;PD L0 PU1 PU PU0
+        fxch    st(2)   ;PU1 L0 PD PU PU0
+        fst     [PU1]   ;PU1 L0 PD PU PU0
+        ;
+        fld     st(3)   ;PU PU1 L0 PD PU PU0
+        fdiv    st,st(3);PU/PD PU1 L0 PD PU PU0
+        fxch    st(4)   ;PU PU1 L0 PD PU/PD PU0
+        fadd    st,st(5);PU` PU1 L0 PD PU/PD PU0
+        fxch    st(4)   ;PU/PD PU1 L0 PD PU` PU0
+        fsub    st,st(2);L    PU1  L0  PD  PU`  PU0
+        fxch    st(5)   ;PU0  PU1  L0  PD  PU`  L
+        fadd    st,st(1);PU0` PU1  L0  PD  PU`  L
+        fld     [PD0]   ;PD0  PU0` PU1 L0  PD   PU` L
+        fxch    st(6)   ;L    PU0` PU1 L0  PD   PU` PD0
+        fistp   [ESP_u0];PU0` PU1  L0  PD  PU`  PD0
+        fxch    st(5)   ;PD0  PU1  L0  PD  PU`  PU0`
+        fadd    st(3),st;PD0  PU1  L0  PD` PU`  PU0`
+        fadd    [PD1]   ;PD0` PU1  L0  PD` PU`  PU0`
+        fxch    st(3)   ;PD`  PU1  L0 PD0` PU`  PU0`
+        fld     st(4)   ;PU`  PD` PU1  L0  PD0` PU` PU0`
+        fdiv    st,st(1);
+
+        mov     ecx,[ESP_u0]
+        mov     [_deltaX],ebx
+        mov     ebp,ecx
+        cmp     ecx,0
+        jle     NOCLIP
+        and     ecx,1F0000h
+NOCLIP:
+        sar     ecx,16   ;[L]
+        shl     ebp,16  ;{L}<<16
+        and     ebx,0FFFFFFF8h
+
+        fsub    st,st(3);L pd pu1 l0 pd0 pu pu0
+
+        jz      Ost
+        add     ebx,edi
+        mov     ds:[?EndLineAdr32],ebx
+        mov     ds:[?EndLineAdr32a],ebx
+        mov     ds:[?EndLineAdr32b],ebx
+
+InnerLoop:
+        ;L pd pu1 l0 pd0 pu pu0
+        fistp   [ESP_u0]        ;pd   pu1 l0 pd0  pu  pu0
+        fadd    st,st(3)        ;pd`  pu1 l0 pd0  pu  pu0
+        fxch    st(3)           ;pd0  pu1 l0 pd`  pu  pu0
+        fadd    [PD1]           ;pd0` pu1 l0 pd`  pu  pu0
+        fxch    st(5)           ;pu0  pu1 l0 pd`  pu  pd0`
+        fadd    st(4),st        ;pu0  pu1 l0 pd`  pu` pd0`
+        fadd    st,st(1)        ;pu0` pu1 l0 pd`  pu` pd0`
+        fxch    st(5)           ;pd0` pu1 l0 pd`  pu` pu0`
+        fxch    st(3)           ;pd`  pu1 l0 pd0` pu` pu0`
+        fld     st(4)           ;pu`  pd` pu1 l0 pd0` pu` pu0`
+        fdiv    st,st(1)        ;
+
+        ;edi - screen
+        ;ecx - [L]
+        ;ebp - {L}<<16
+        ;edx - Lend
+        ;esi - LightTable
+        cmp     ecx,0
+        mov     edx,[ESP_u0]
+        jle     StL0
+        ;---------Ls > 0
+        cmp     edx,0
+        jle     EnL0
+        ;---------Ls > 0, Le > 0
+
+        and     edx,1FFFFFh
+
+        mov     ebx,edx  ;u
+        shl     edx,16   ;u {Le}<<16
+        sar     ebx,16   ;u [Le]
+        sub     edx,ebp  ;v{dL}<<16
+        sbb     eax,eax  ;u
+        sub     ebx,ecx  ;v[dL]
+        add     ebx,eax  ;u
+
+        xor     eax,eax
+        mov     ah,cl ; v store [L]
+
+        shrd    edx,ebx,3;u
+        sar     ebx,3    ;u
+
+        mov     al,[edi] ;v get first pixel
+        inc     edi      ;u
+        add     ebp,edx  ;v {L} + {dL}
+        adc     ecx,ebx  ;u [L] + [dL]
+        mov     al,[esi+eax];v
+        mov     [edi-1],al    ;u
+
+        OFF = 0
+        REPT    7
+        mov     al,[edi+OFF];v
+        mov     ah,cl   ;u
+        add     ebp,edx ;v
+        adc     ecx,ebx ;u
+        mov     al,[esi+eax];v+1
+        mov     [edi+OFF],al;u
+        OFF = OFF + 1
+        ENDM
+
+        add     edi,7
+
+        fsub    st,st(3) ;L pd pu1 l0 pd0 pu pu0
+
+        GetDW   cmp     edi,?EndLineAdr32
+        jl      InnerLoop
+Ost:
+
+        DrawOst
+EndDraw:
+        EndLineDraw EXT_ScreenWidth13
+        ;==========================================================
+        ;---------------
+EnL0:
+        ;---------Ls > 0, Le <= 0
+        mov     ebx,edx  ;u
+        shl     edx,16   ;u {Le}<<16
+        sar     ebx,16   ;u [Le]
+        sub     edx,ebp  ;v{dL}<<16
+        sbb     eax,eax  ;u
+        sub     ebx,ecx  ;v[dL]
+        add     ebx,eax  ;u
+
+        xor     eax,eax
+        mov     ah,cl ; v store [L]
+
+        shrd    edx,ebx,3;u
+        sar     ebx,3    ;u
+
+        mov     al,[edi] ;v get first pixel
+        inc     edi      ;u
+        add     ebp,edx  ;v {L} + {dL}
+        adc     ecx,ebx  ;u [L] + [dL]
+        mov     al,[esi+eax];v
+        mov     [edi-1],al    ;u
+
+        ;OFF = 0
+        REPT    7
+        local   NoDraw
+
+        jle     NoDraw
+        mov     ah,cl   ;v
+        mov     al,[edi];u
+        mov     al,[esi+eax];u+1
+        mov     [edi],al;u
+
+        NoDraw:
+        inc     edi     ;u
+        add     ebp,edx ;v
+        adc     ecx,ebx ;u
+        ENDM
+
+        ;add     edi,7
+
+        ;fsub    st,st(3) ;L pd pu1 l0 pd0 pu pu0
+
+        ;GetDW   cmp     edi,?EndLineAdr32
+        ;jnz     @@InnerLoop
+
+        ;DrawOst
+        fcomp   ;clear ST(0)
+
+        EndLineDraw EXT_ScreenWidth13a
+        ;==========================================================
+
+        ;------------------
+StL0:
+        ;-------Ls <= 0
+        cmp     edx,0
+        jle     EnL01
+        ;-------Ls <= 0, Le > 0
+        and     edx,1FFFFFh
+
+        mov     ebx,edx  ;u
+        shl     edx,16   ;u {Le}<<16
+        sar     ebx,16   ;u [Le]
+        sub     edx,ebp  ;v{dL}<<16
+        sbb     eax,eax  ;u
+        sub     ebx,ecx  ;v[dL]
+        add     ebx,eax  ;u
+
+        inc     edi      ;v
+        ;mov     eax,ecx ; v store [L]
+
+        xor     eax,eax
+
+        shrd    edx,ebx,3;u
+        sar     ebx,3    ;u
+
+        ;mov     ah,[edi] ;v get first pixel
+        add     ebp,edx  ;v {L} + {dL}
+        adc     ecx,ebx  ;u [L] + [dL]
+        ;mov     al,[esi+eax];v
+        ;mov     [edi-1],al    ;u
+
+        ;OFF = 0
+        REPT    7
+        local   NoDraw
+
+        jle     NoDraw
+        mov     ah,cl   ;v
+        mov     al,[edi];u
+        mov     al,[esi+eax];u+1
+        mov     [edi],al;u
+
+        NoDraw:
+        inc     edi     ;u
+        add     ebp,edx ;v
+        adc     ecx,ebx ;u
+        ENDM
+
+        fsub    st,st(3)
+        GetDW   cmp     edi,?EndLineAdr32a
+        jl      InnerLoop
+
+        DrawOst
+
+        EndLineDraw EXT_ScreenWidth13b
+
+EnL01:
+        ;-------Ls <= 0, Le <= 0
+
+        add     edi,8
+
+        mov     ecx,edx
+        mov     ebp,edx
+        sar     ecx,16
+        shl     ebp,16
+
+        fsub    st,st(3)
+        GetDW   cmp     edi,?EndLineAdr32b
+        jl      InnerLoop
+
+        DrawOst
+
+        EndLineDraw EXT_ScreenWidth13c
+        ;==========================================================
+
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::;
+;
+;
+
+unused dd  1024 DUP(?)
+;==========ASM extern Labels==============
+align 4
+extrn END_DRAW_LIGHT:proc
+extrn ENDD:proc
+;==========ASM extern=====================
+align 4
+extrn _gr_vertices:dword
+extrn interVert:dword
+extrn _gr_polygon:dword
+extrn screen:dword
+extrn pYDivCache:dword
+extrn p1DivCache:dword
+;===========C(++) extern==================
+align 4
+extrn   _gr_pYCache:dword
+extrn	_gr_nScreenWidth:dword
+;=============Module Data=================
+align 4
+_oldFPUCW dw ?
+align 4
+_newFPUCW dw ?
+align 4
+_deltaX dd ?
+;_ECX    dd ?
+;_EBP    dd ?
+
+align 4
+N dd 8.0
+
+L0 dd ?
+public L0
+
+PDA dd ?
+public PDA
+PDB dd ?
+public PDB
+PDC dd ?
+public PDC
+
+PDB0 dd ?
+public PDB0
+PDC0 dd ?
+public PDC0
+PDC1 dd ?
+public PDC1
+
+
+PUA dd ?
+public PUA
+PUB dd ?
+public PUB
+PUC dd ?
+public PUC
+
+PUB0 dd ?
+public PUB0
+PUC0 dd ?
+public PUC0
+PUC1 dd ?
+public PUC1
+
+
+PD dd ?
+public PD
+PD0 dd ?
+public PD0
+PD1 dd ?
+public PD1
+PU dd ?
+public PU
+PU0 dd ?
+public PU0
+PU1 dd ?
+public PU1
+
+END_CODE_SEG
+end

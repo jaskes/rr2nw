@@ -1,0 +1,772 @@
+.486p
+MODEL flat,cpp
+
+$align 4
+
+	@SCRW equ 1280
+	@SCRH equ 1024
+
+	@MAX_SCR_MASK equ 255
+
+@JMP_ECX macro lab
+        db 0ffh,24h,8Dh
+	dd offset lab
+	endm
+@JMP_EAX macro lab
+        db 0ffh,24h,85h
+	dd offset lab
+	endm
+@JMP_EDX macro lab
+        db 0ffh,24h,95h
+	dd offset lab
+	endm
+
+DataSbLoopType struc
+	st_X    dd ?
+	st_Y    dd ?
+
+	en_X    dd ?
+	en_Y    dd ?
+
+	rlen    dd ?
+
+	scrPtr  dd ?
+	xfs	dd ?
+
+	c1	dd ?
+	c2	dd ?
+	amout	dd ?
+	zLen	dd ?
+	flag    dd ?
+DataSbLoopType ends
+
+include macro.inc
+@SIZECOORDBUF equ 36
+
+include platform.inc
+
+;_TEXT segment dword public use32 'CODE'
+
+BEGIN_CODE_SEG
+
+lnq_rlen dd ?
+
+
+?DS macro par
+	par
+	endm
+
+;        assume cs:_TEXT,ds:_TEXT
+;---------------------------
+	public SbLoop
+	public SbLoopND
+	public SbLoopW
+	public InitSbLoop
+	public LineSbScrDivNoQuest
+        public Init_pYCache
+;---------------------------
+		db 512 dup (-1)
+?signumTable	db 0
+	     	db 512 dup (1)
+
+
+
+InitSbLoop proc mmask:dword
+        mov     eax,[mmask]
+	mov	eax,[eax+4]
+        ?DS <mov        ds:[?MapPtr],eax>
+        ?DS <mov        ds:[?MapPtrND],eax>
+;       ?DS <mov        ds:[?maskPtr_p2],eax>
+;	?DS <mov	ds:[?maskPtr_p3],eax>
+;	?DS <mov	ds:[?maskPtr_Pnq0],eax>
+        ?DS <mov        ds:[?maskPtr_Pnq1],eax>
+;        ?DS <mov        ds:[?maskPtr_Pnq2],eax>
+;        ?DS <mov        ds:[?maskPtr_Pnq3],eax>
+;	?DS <mov	ds:[?maskPtr_Pnq4],eax>
+;	?DS <mov	ds:[?maskPtr_Pnq5],eax>
+;	?DS <mov	ds:[?maskPtr_Pnq6],eax>
+	ret
+	endp
+
+;
+Init_pYCache proc
+        mov eax,_gr_pYCache
+        ?DS <mov        ds:[?yCache_pnq1],eax>
+;        ?DS <mov        ds:[?yCache_pnq2],eax>
+        ?DS <mov        ds:[?yCache_pnq3],eax>
+        ret
+        endp
+align 4
+StepByX dw ?
+align 4
+StepByY dw ?
+;
+align 4
+; Рисование вертикальной линии
+; используется:
+;   глобальные переменные:
+;   vsbloop[] st_X,st_Y, en_X,en_Y, rlen
+; input:ecx==rlen обязан быть больше 1
+;
+SbLoop:
+        $push edi,esi,ebx,ebp
+;
+	dec	ecx
+;--------------------------------------------------
+	mov	eax , [vsbloop].en_X
+	;
+	mov	ebx , [vsbloop].st_X
+	mov	esi , ebx
+	;
+	sub	eax , ebx
+	;
+	cdq
+	idiv	ecx
+	;
+	mov	ebp , eax
+;--------------------------------------------------
+	mov	eax , [vsbloop].en_Y
+	;
+	mov	ebx , [vsbloop].st_Y
+	mov	edi , ebx
+	;
+	sub	eax , ebx
+	;
+	cdq
+	idiv	ecx
+	;
+	xchg	eax , edi
+;---------------------------------------------------
+        ?DS<mov     ds:[stepByY],edi>
+        mov     edi , [vsbloop].scrPtr
+	;
+        mov     edx , ecx
+        inc     edx
+GetDwrd	mov	ecx , ?MapPtr
+
+; ecx - число выводимых точек
+; ebp - указатель на точку в экране
+;
+; esi - координата_в_маске_X*65536
+; edi - координата_в_маске_Y*65536
+;---------------------------------------
+; MaskPTR - Адрес маски
+; stepByX - шаг по x integer(deltaX/число_шагов)
+; stepByY - шаг по y integer(delteY/число_шагов)
+
+	@JMP_EDX UnRollSbLoop
+
+;------------------- UnRolling Loop -------------------------
+@PSET_ONE macro
+
+ 	mov	edx , esi
+        xor     ebx , ebx
+        mov     bl  , dh
+        mov     bh  , ah
+        shl     ebx , 2
+        add     ebx , [maskDithPtr]
+        mov     ebx , [ebx]
+        ;
+        ror     eax,16
+        shr     edx , 16
+        mov     dh  , al
+        ror     eax,16
+        ;
+;
+
+        add     ebx , ecx
+        mov     dl  , ds:[edx+ebx]
+;
+        add     esi , ebp
+        ?DS<add     eax , ds:[stepByY]>
+;
+        mov     [edi] , dl
+        inc     edi
+
+	endm
+
+align 4
+REPT @SCRW+2
+	@PSET_ONE
+ENDM
+EndSbLoop:
+	$pop
+	ret
+
+startPsetOne:
+	@PSET_ONE
+endPsetOne:
+
+
+align 4
+UnRollSbLoop label dword
+	@StepSb = offset endPsetOne - offset startPsetOne
+	@StartSb = offset EndSbLoop
+;
+REPT @SCRW+2
+	dd @StartSb
+	@StartSb = @StartSb - @StepSb
+ENDM
+
+align 4
+stepByY dd 0
+
+;
+;******************************************************************************
+;*
+;******************************************************************************
+@PutOneColorW macro
+	 	mov	ds:[ebx].@COL_BH , esi
+
+        	add	esi,ebp
+
+	 	mov	ds:[ebx].@COL_BL , edi
+;
+		add	ebx,eax
+                add     edi,edx
+        endm
+
+$PutOneColorStart:
+	@PutOneColorW
+$PutOneColorEnd:
+;------------------------------------------------------------------------------
+align 4
+UnLoopWTable label dword
+	dd offset UnLoopW_0
+	dd offset UnLoopW_1
+	dd offset UnLoopW_2
+	dd offset UnLoopW_3
+	dd offset UnLoopW_4
+	dd offset UnLoopW_5
+        align 4
+
+UnLoopW_1:
+        mov     eax, [vsbloop].st_X
+        mov     ds:[ebx].@COL_BH , eax
+        mov     eax, [vsbloop].st_Y
+        mov     ds:[ebx].@COL_BL , eax
+        popad
+        ret
+        align 4
+
+UnLoopW_2:
+        mov     eax, [vsbloop].st_X
+        mov     ds:[ebx].@COL_BH , eax
+        mov     eax, [vsbloop].st_Y
+        mov     ds:[ebx].@COL_BL , eax
+;
+        add     ebx , @SIZECOORDBUF
+;
+        mov     eax, [vsbloop].en_X
+        mov     ds:[ebx].@COL_BH , eax
+        mov     eax, [vsbloop].en_Y
+        mov     ds:[ebx].@COL_BL , eax
+UnLoopW_0:
+        popad
+        ret
+        align 4
+;
+UnLoopW_3:
+        mov     eax, [vsbloop].st_X
+        mov     ds:[ebx].@COL_BH , eax
+        mov     edx, [vsbloop].st_Y
+        mov     ds:[ebx].@COL_BL , edx
+;
+        add     ebx , @SIZECOORDBUF
+;
+        add     eax, [vsbloop].en_X
+        shr     eax, 1
+        mov     ds:[ebx].@COL_BH , eax
+        add     edx, [vsbloop].en_Y
+        shr     edx, 1
+        mov     ds:[ebx].@COL_BL , edx
+;
+        add     ebx , @SIZECOORDBUF
+;
+        mov     eax, [vsbloop].en_X
+        mov     ds:[ebx].@COL_BH , eax
+        mov     eax, [vsbloop].en_Y
+        mov     ds:[ebx].@COL_BL , eax
+;
+        popad
+        ret
+        align 4
+;
+UnLoopW_4:
+        mov     eax , [vsbloop].en_X
+        mov     ebx , [vsbloop].st_X
+        mov     esi , ebx
+        ;
+        sub     eax , ebx
+        mov     edx , eax
+        add   eax , edx
+          shl   edx , 2         ; eax*4
+          add   eax , edx
+          shl   edx , 2         ; eax*16
+          add   eax , edx
+          shl   edx , 2         ; eax*64
+          add   eax , edx
+          sar   eax , 8
+        mov     ebp , eax
+        ;
+        mov     eax , [vsbloop].en_Y
+        mov     ebx , [vsbloop].st_Y
+        mov     edi , ebx
+        ;
+        sub     eax , ebx
+        mov     edx , eax
+          add   eax , edx
+          shl   edx , 2         ; eax*4
+          add   eax , edx
+          shl   edx , 2         ; eax*16
+          add   eax , edx
+          shl   edx , 2         ; eax*64
+          add   eax , edx
+          sar   eax , 8
+        mov     edx , eax
+                                                        ;
+        mov     ebx , [vsbloop].scrPtr
+        ;
+        mov     eax , @SIZECOORDBUF
+        @JMP_ECX    LoopTable
+        align 4
+                                                        ;
+
+UnLoopW_5:
+        mov     eax , [vsbloop].en_X
+        mov     ebx , [vsbloop].st_X
+        mov     esi , ebx
+        ;
+        sub     eax , ebx
+        sar     eax , 2
+        mov     ebp , eax
+        ;
+        mov     eax , [vsbloop].en_Y
+        mov     ebx , [vsbloop].st_Y
+        mov     edi , ebx
+        ;
+        sub     eax , ebx
+        sar     eax , 2
+        mov     edx , eax
+                                                        ;
+        mov     ebx , [vsbloop].scrPtr
+        ;
+        mov     eax , @SIZECOORDBUF
+        @JMP_ECX    LoopTable
+        align 4
+
+goUnLoop:
+        mov     ebx , [vsbloop].scrPtr
+        @JMP_ECX    UnLoopWTable
+
+align 4
+SbLoopND:
+        $push edi,esi,ebx,ebp
+;
+	dec	ecx
+;--------------------------------------------------
+	mov	eax , [vsbloop].en_X
+	;
+	mov	ebx , [vsbloop].st_X
+	mov	esi , ebx
+	;
+	sub	eax , ebx
+	;
+	cdq
+	idiv	ecx
+	;
+	mov	ebp , eax
+;--------------------------------------------------
+	mov	eax , [vsbloop].en_Y
+	;
+	mov	ebx , [vsbloop].st_Y
+	mov	edi , ebx
+	;
+	sub	eax , ebx
+	;
+	cdq
+	nop
+	idiv	ecx
+	;
+	xchg	eax , edi
+;---------------------------------------------------
+	mov	ebx , [vsbloop].scrPtr
+	;
+	mov	edx , ecx
+        inc     edx
+GetDwrd mov     ecx , ?MapPtrND
+;
+; ecx - число выводимых точек
+; ebp - указатель на точку в экране
+;
+; esi - координата_в_маске_X*65536
+; edi - координата_в_маске_Y*65536
+;---------------------------------------
+; MaskPTR - Адрес маски
+; stepByX - шаг по x integer(deltaX/число_шагов)
+; stepByY - шаг по y integer(delteY/число_шагов)
+@UNROL_SIZE equ @SCRW/4+4
+	cmp	edx,4
+	$if >=
+			mov	[cnt0],edx
+			mov	edx,ebx
+			and	edx,3
+			$switch edx
+			$case 1
+	 		       	mov	edx , esi
+			        ror     eax , 16
+			        shr     edx , 16
+			        mov     dh  , al
+			       	ror	eax , 16
+			       	;
+			        mov     dl  , ds:[ecx+edx]
+			       	;
+			       	add	esi , ebp
+				dec	[cnt0]
+			       	add	eax , edi
+				mov	[ebx] , dl
+				inc	ebx
+				;
+			$case 2
+	 		       	mov	edx , esi
+			        ror     eax , 16
+			        shr     edx , 16
+			        mov     dh  , al
+			       	ror	eax , 16
+			       	;
+			        mov     dl  , ds:[ecx+edx]
+			       	;
+			       	add	esi , ebp
+				dec	[cnt0]
+			       	add	eax , edi
+				mov	[ebx] , dl
+				inc	ebx
+			$case 3
+	 		       	mov	edx , esi
+			        ror     eax , 16
+			        shr     edx , 16
+			        mov     dh  , al
+			       	ror	eax , 16
+			       	;
+			        mov     dl  , ds:[ecx+edx]
+			       	;
+			       	add	esi , ebp
+				dec	[cnt0]
+			       	add	eax , edi
+				mov	[ebx] , dl
+				inc	ebx
+			$case 0
+			$endswitch
+			mov	[scrPTR0],ebx
+			mov	edx,[cnt0]
+                        ;mov     [cnt0],edx
+
+			and	edx , 0FFFFFFCh
+			jmp	large cs:[edx+unRoll_01]
+			$DoUnRoll edx $from @UNROL_SIZE,unRoll_01 (
+	 		       	mov	edx , esi
+			        ror     eax , 16
+			        shr     edx , 16
+			        mov     dh  , al
+			       	ror	eax , 16
+			       	;
+			        mov     bl  , ds:[ecx+edx]
+			       	;
+			       	add	esi , ebp
+			       	add	eax , edi
+				;--------------------------------
+	 		       	mov	edx , esi
+			        ror     eax , 16
+			        shr     edx , 16
+			        mov     dh  , al
+			       	ror	eax , 16
+			       	;
+			        mov     bh  , ds:[ecx+edx]
+			       	ror	ebx , 16
+			       	;
+			       	add	esi , ebp
+			       	add	eax , edi
+				;--------------------------------
+	 		       	mov	edx , esi
+			        ror     eax , 16
+			        shr     edx , 16
+			        mov     dh  , al
+			       	ror	eax , 16
+			       	;
+			        mov     bl  , ds:[ecx+edx]
+			       	;
+			       	add	esi , ebp
+			       	add	eax , edi
+				;--------------------------------
+	 		       	mov	edx , esi
+			        ror     eax , 16
+			        shr     edx , 16
+			        mov     dh  , al
+			       	ror	eax , 16
+			       	;
+			        mov     bh  , ds:[ecx+edx]
+			       	ror	ebx , 16
+			       	;
+			       	add	esi , ebp
+			       	add	eax , edi
+				;--------------------------------
+				mov	edx , [scrPTR0]
+			        mov     [edx] , ebx
+				add	edx,4
+				mov	[scrPTR0] , edx
+			)$EndDoUnRoll
+		mov	edx,[cnt0]
+		and     edx,3
+		mov	ebx,[scrPTR0]
+	$endif
+	and edx,3
+	$DoUnRoll edx $from 4 (
+ 		mov	edx , esi
+	        ror     eax , 16
+	        shr     edx , 16
+	        mov     dh  , al
+		ror	eax , 16
+;
+	        mov     dl  , ds:[ecx+edx]
+;
+		add	esi , ebp
+		add	eax , edi
+;
+	        mov     [ebx] , dl
+		inc	ebx
+	)$DoUnRollLast(
+ 		mov	edx , esi
+	        ror     eax , 16
+	        shr     edx , 16
+	        mov     dh  , al
+;
+	        mov     dl  , ds:[ecx+edx]
+;
+	        mov     [ebx] , dl
+	)$EndDoUnRoll
+	$pop
+	ret
+
+align 4
+SbLoopW:
+        pushad
+;
+	mov	ecx , [vsbloop].rlen
+	cmp	ecx , 5
+        jbe     goUnLoop
+        ;$if     <=
+	dec	ecx
+;--------------------------------------------------
+        mov     ebx , [vsbloop].st_X
+	mov	esi , ebx
+        mov     eax , [vsbloop].en_X
+	;
+	sub	eax , ebx
+        ;                add     ebx , eax
+
+	cdq
+	idiv	ecx
+	;
+	mov	ebp , eax
+;--------------------------------------------------
+        mov     ebx , [vsbloop].st_Y
+	mov	edi , ebx
+        mov     eax , [vsbloop].en_Y
+	;
+	sub	eax , ebx
+	;
+	cdq
+	idiv	ecx
+	;
+	mov	edx , eax
+;---------------------------------------------------
+;startOutW:
+	mov	ebx , [vsbloop].scrPtr
+	;
+	inc	ecx
+; ecx - число выводимых точек
+; ebp - указатель на точку в экране
+;
+; esi - координата_в_маске_X*65536
+; edi - координата_в_маске_Y*65536
+;---------------------------------------
+; MaskPTR - Адрес маски
+; ebp - stepByXW - шаг по x integer(deltaX/число_шагов)
+; edx - stepByYW - шаг по y integer(delteY/число_шагов)
+	mov	eax , @SIZECOORDBUF
+        @JMP_ECX    LoopTable
+
+
+	align	4
+LoopTable label dword
+	stepW equ    (offset $PutOneColorEnd) - (offset $PutOneColorStart)
+	startLabelW = offset EndSbLoopW
+	REPT @SCRW+2
+                dd  startLabelW
+                startLabelW = startLabelW -  stepW
+        ENDM
+
+
+	REPT    @SCRW+2
+		@PutOneColorW
+	ENDM
+EndSbLoopW:
+;
+        popad
+	ret
+
+;******************************************************************************
+;*
+;******************************************************************************
+comment `
+@PutPixToScr macro par
+                mov     eax,[0FACEBEDAh][esi*4] | SetDwrd ?yCache_pnq4
+	dir?&par:	add	eax,@i
+
+		add	eax,[vsbloop.xfs]
+
+		mov	dl,[0FACEBEDAh+edx] | SetDwrd ?maskPtr_&par
+                mov     [eax],dl
+	endm
+`
+align 4
+@X      equ [0]
+@Y      equ [4]
+@COL_BH    equ [8]
+@COL_BL    equ [12]
+; ***********************************************************************************
+;
+;
+;lnq_rlen dd ?
+align 4
+LineSbScrDivNoQuest:
+	$push esi,edi,ebp,ebx
+;
+;	@y_scr equ esi
+;	@prev  equ edi
+;	@next  equ ecx
+;	@i     equ ebx
+
+        mov     eax,[vsbloop.flag]
+        mov     edi,ofsftable[eax*4]
+        mov     [vsbloop.flag],edi
+;
+	mov	edi,[vsbloop].c1
+	mov	ecx,[vsbloop].c2
+;
+	xor	ebx,ebx
+	mov	esi , [vsbloop].xfs
+
+	jmp	NqStartDoSbScrDiv
+	align 4
+	$do
+	RestartNq:
+;
+		mov	eax , [edi].@X
+		mov	ebp , eax
+		mov	edx , eax						; c1_y=y_scr
+		mov	eax , [ecx].@X
+;
+		sub	eax,edx
+                inc    eax
+                ;add     eax,2
+
+
+		cmp	eax,0
+                jg      ddd
+
+			inc ebx
+                        cmp     ebx,[vsbloop].amout
+                        $leave >=.
+			add	edi,@SIZECOORDBUF
+			add	ecx,@SIZECOORDBUF
+			inc	esi
+			jmp	RestartNq
+
+		ddd:
+
+
+		?DS <mov 	[lnq_rlen],eax>				; l_rlen = c2_y-c1_y
+;
+                $if     $(cmp   eax,1) =
+                        mov     edx,[ecx].@COL_BH               ; change edx to @next
+                        shr     edx,16
+                        mov     eax,[ecx].@COL_BL
+                        shr     eax,16
+                        mov     dh,al
+
+
+                        mov     eax,[0FACEBEDAh][esi*4] | SetDwrd ?yCache_pnq1
+
+                        mov     dl,[0FACEBEDAh+edx] | SetDwrd ?maskPtr_Pnq1
+                        add     eax,ebp
+                        inc     ebx
+                        mov     [eax],dl
+
+                        cmp     ebx,[vsbloop].amout
+                        $leave >=.
+			add	edi,@SIZECOORDBUF
+			add	ecx,@SIZECOORDBUF
+			inc	esi
+			jmp	RestartNq
+                $endif
+
+		mov	edx,[edi].@COL_BH
+		mov	eax,[edi].@COL_BL
+		mov	[vsbloop.st_X],edx
+		mov	[vsbloop.st_Y],eax
+;
+                mov     eax,[0FACEBEDAh][esi*4] | SetDwrd ?yCache_pnq3
+                mov     edx,[ecx].@COL_BH
+		add	eax,ebp
+;
+		mov	[vsbloop.en_X],edx
+		mov	edx,[ecx].@COL_BL
+		mov	[vsbloop.en_Y],edx
+;
+
+		;
+
+		mov	[vsbloop.scrPtr],eax
+		;
+                $push ecx
+                ?DS <mov        ecx,[lnq_rlen]>
+                ;mov     [vsbloop.rlen],eax
+
+		;
+                call    [vsbloop.flag]
+
+                $pop
+	;
+		inc	ebx
+		add	edi,@SIZECOORDBUF
+		add	ecx,@SIZECOORDBUF
+		inc	esi
+;
+	NqStartDoSbScrDiv:
+	cmp	ebx,[vsbloop].amout
+	$enddo <.
+	$pop
+	ret
+
+;assume ds:_TEXT
+;?switchByPix 	dd offset ?pixel_num1;
+;		dd offset ?pixel_num2
+REPT 400
+        nop
+
+endm
+align 4
+scrPTR0 dd ?
+cnt0    dd ?
+ofsftable dd offset SbLoop ;SbLoop
+          dd offset SbLoopND
+$tables
+extrn vsbloop:DataSbLoopType
+extrn _gr_pYCache:dword
+extrn maskPtr:dword
+extrn maskDithPtr:dword
+
+;_TEXT ends
+END_CODE_SEG
+end

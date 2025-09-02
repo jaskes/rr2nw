@@ -1,0 +1,100 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Bird\bird.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Bird\bird.cpp"
+        Script   :!""
+        Object   :!"Bird"
+        ExtrenTab :!"Bird"
+        ExternAttr:!"BirdAttr"
+        IsActiv  :false
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_calcNewPosIncrement"
+            DefaultVal :!"5"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_calcPosIncrement"
+            DefaultVal :!"0.080012345678"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_skinName"
+            DefaultVal :!""Bird.0""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_speed"
+            DefaultVal :!"20"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"bi_EVC_NEWPOS"
+                Header: !"C:\WinGame\MESSAGE\birdmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"bi_EVC_MOVE"
+                Header: !"C:\WinGame\MESSAGE\birdmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){EndOfEvent }
+    }
+}

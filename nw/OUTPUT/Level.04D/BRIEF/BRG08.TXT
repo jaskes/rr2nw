@@ -1,0 +1,158 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,22
+
+[Flight1.0]
+Pos  =2730.970,89.598, -2648.884
+Angle=-59.546,-26.135, 0.000
+Time =4.058
+Delay=0.000
+Text =Enemy vehicles capture our bridge.
+
+[Flight1.1]
+Pos  =2722.545,94.264, -2644.447
+Angle=-68.433,-25.097, -1.306
+Time =2.073
+Delay=0.000
+Text =You have to kill them.
+
+[Flight1.2]
+Pos  =2709.522,100.399, -2642.084
+Angle=-116.410,-20.973, 0.546
+Time =5.098
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2716.309,101.918, -2660.656
+Angle=-32.175,-21.107, -1.263
+Time =1.514
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2716.387,101.934, -2660.882
+Angle=1.732,-36.987, -8.490
+Time =4.127
+Delay=0.000
+Text = Take this tank
+
+[Flight1.5]
+Pos  =2692.124,99.879, -2669.004
+Angle=-46.218,-32.514, 5.534
+Time =1.572
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2692.034,99.871, -2669.030
+Angle=-84.122,-21.237, 5.520
+Time =0.571
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2692.033,99.870, -2669.030
+Angle=-98.111,-17.605, -4.417
+Time =0.851
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2692.032,99.870, -2669.030
+Angle=-132.085,-12.286, -4.677
+Time =0.441
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2692.032,99.870, -2669.030
+Angle=-146.429,-10.367, -3.691
+Time =3.346
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2725.532,90.692, -2614.223
+Angle=-130.043,-6.708, -4.943
+Time =2.264
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2776.294,96.754, -2549.099
+Angle=-166.036,-11.709, -2.903
+Time =1.373
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2803.295,86.996, -2505.288
+Angle=-86.032,-5.889, 2.913
+Time =2.745
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2977.692,78.127, -2540.691
+Angle=-62.302,-0.043, 0.321
+Time =1.112
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =3050.930,83.815, -2578.817
+Angle=-61.692,-0.033, -0.019
+Time =1.131
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =3141.404,84.187, -2627.435
+Angle=-61.674,-0.033, -0.004
+Time =8.132
+Delay=0.000
+Text =Annihilate this enemies
+
+[Flight1.16]
+Pos  =3253.783,122.102, -2713.562
+Angle=-69.315,-24.137, -8.865
+Time =6.930
+Delay=0.000
+Text =and retake this strategic point.
+
+[Flight1.17]
+Pos  =3236.844,120.549, -2883.392
+Angle=-140.751,-19.880, 4.528
+Time =2.203
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =3251.010,142.897, -2886.036
+Angle=-125.471,-19.551, 3.552
+Time =6.484
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =3480.729,124.817, -2890.576
+Angle=155.173,-21.882, 1.084
+Time =6.975
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =3520.977,119.268, -2788.787
+Angle=107.691,-22.592, -1.853
+Time =1.000
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =3520.977,119.268, -2788.787
+Angle=107.691,-22.592, -1.853
+Time =1.000
+Delay=0.000
+Text =

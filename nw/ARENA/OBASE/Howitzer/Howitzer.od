@@ -1,0 +1,169 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Howitzer\Howitzer.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Howitzer\Howitzer.cpp"
+        Script   :!""
+        Object   :!"Howitzer"
+        ExtrenTab :!"Howitzer"
+        ExternAttr:!"HowitzerAttr"
+        IsActiv  :false
+        IsSubject:false
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_skinName"
+            DefaultVal :!""""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_corpseAttrName"
+            DefaultVal :!""Corpse.Attr.Default""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_initialDamage"
+            DefaultVal :!"1.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_fireSpeed"
+            DefaultVal :!"5.0"
+            Comment    :!"Время между выстрелами"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_turnSpeed"
+            DefaultVal :!"0.2"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_addRoll"
+            DefaultVal :!"0"
+            Comment    :!"Начальный поворот пушки. Бить тех, кто скины ориентирует неправильно"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_shootAngle"
+            DefaultVal :!"0.93"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_bulletAttrName"
+            DefaultVal :!""""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_dx"
+            DefaultVal :!"0"
+            Comment    :!"Координата точки ортносительно центра, из которой вылетают пульки"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_dy"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_dz"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_dumbness"
+            DefaultVal :!"0"
+            Comment    :!""Тупость" пушки. 0 - совсем тупая, 1 - стреляет с упреждением"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_deflectionXMax"
+            DefaultVal :!"1.1"
+            Comment    :!"Случайное отклонение при стрельбе. Пушка можеит мазать"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_deflectionXMin"
+            DefaultVal :!"0.9"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_deflectionYMax"
+            DefaultVal :!"1.1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_deflectionYMin"
+            DefaultVal :!"0.9"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_deflectionZMax"
+            DefaultVal :!"1.1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_deflectionZMin"
+            DefaultVal :!"0.9"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxBulletFlyTime"
+            DefaultVal :!"5"
+            Comment    :!"Тщательно прицеливаетмся и стреляем точно чтобы попасть. Если пуля в течении m_maxBulletFlyTime секунд не попадает  в цель или бампится, то ищем новую цель"
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){EndOfEvent }
+    }
+}

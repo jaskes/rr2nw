@@ -1,0 +1,103 @@
+[Root]
+ActionsNum=2
+RepeatsNum=1
+Action1=PlayFlic,Flic1
+Sound1=wav.Magician,0,0
+Action2=PlayFlight,Flight1,CRYSTAL,12
+Sound2=wav.Magician,0,0
+
+[Flic1]
+Name =FLIC/mag.flc
+Text =
+Delay=1.0
+
+
+[Flight1.0]
+Pos  =3109.683,59.507, -2786.987
+Angle=-178.019,0.505, -0.039
+Time =3.846
+Delay=0.000
+Text = This battle beast is given to you\nto destroy the enemy escort\nWhich moves from from Gold Horn\nto Dragon Heart
+TextDelay=20.0
+
+
+[Flight1.1]
+Pos  =3126.296,62.553, -2794.157
+Angle=-178.080,-13.708, 0.423
+Time =5.837
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3128.668,95.911, -2698.354
+Angle=-178.069,-8.021, 0.000
+Time =1.864
+Delay=0.000
+Text = The escort consists of a carriage\nunder the guard of four Empire\nbattle beasts
+TextDelay=20.0
+
+[Flight1.3]
+Pos  =3131.022,118.787, -2628.544
+Angle=-178.069,-8.021, 0.000
+Time =1.355
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =3131.268,114.775, -2553.135
+Angle=154.140,-7.156, -7.378
+Time =2.211
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =3097.639,108.236, -2509.555
+Angle=129.126,-5.339, 3.565
+Time =3.232
+Delay=0.000
+Text = Another crew is also given the same task\nYou can follow them or act separately
+TextDelay=20.0
+
+[Flight1.6]
+Pos  =2925.704,125.410, -2463.357
+Angle=92.706,-4.847, -0.114
+Time =3.876
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2696.456,121.985, -2422.880
+Angle=159.411,-4.846, 20.820
+Time =2.808
+Delay=0.000
+Text = We were reported about possible partisan activities\non your way
+TextDelay = 9
+
+[Flight1.8]
+Pos  =2679.420,112.269, -2313.633
+Angle=-116.437,-1.469, 7.964
+Time =6.537
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2759.791,120.076, -2300.875
+Angle=-161.771,-11.603, -1.336
+Time =12.655
+Delay=0.000
+Text =Here is the escort to be destroyed
+TextDelay = 15
+
+[Flight1.10]
+Pos  =2836.907,125.692, -2302.161
+Angle=167.481,-12.563, 0.000
+Time =0.300
+Delay=0.300
+Text =
+
+[Flight1.11]
+Pos  =2836.907,125.692, -2302.161
+Angle=167.481,-12.563, 0.000
+Time =0.000
+Delay=0.000
+Text =

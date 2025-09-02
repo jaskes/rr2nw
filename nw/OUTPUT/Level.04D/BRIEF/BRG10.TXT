@@ -1,0 +1,159 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,22
+
+[Flight1.0]
+Pos  =2732.772,89.114, -2650.643
+Angle=-58.858,-20.193, 0.212
+Time =5.550
+Delay=0.000
+Text =Enemy airships attack Edem
+
+[Flight1.1]
+Pos  =2702.502,101.767, -2634.242
+Angle=-64.889,-20.112, 0.043
+Time =2.073
+Delay=0.000
+Text =You must annigilate them.
+
+[Flight1.2]
+Pos  =2698.209,103.493, -2632.298
+Angle=-75.516,-19.831, 0.979
+Time =1.062
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2697.136,103.898, -2631.986
+Angle=-93.269,-18.910, 1.832
+Time =2.735
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2696.506,104.116, -2632.013
+Angle=-119.961,-19.936, 0.505
+Time =3.426
+Delay=0.000
+Text =Take this airplane.
+
+[Flight1.5]
+Pos  =2716.638,96.254, -2623.450
+Angle=-118.206,-19.689, -0.061
+Time =4.007
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2723.479,113.655, -2619.777
+Angle=-119.487,-38.344, -1.092
+Time =2.514
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2723.516,113.732, -2619.757
+Angle=-79.738,-15.799, -0.216
+Time =1.042
+Delay=0.000
+Text =Follow this way to find enemies.
+
+[Flight1.8]
+Pos  =2723.516,113.732, -2619.757
+Angle=-40.559,-2.600, 6.675
+Time =0.651
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2723.516,113.732, -2619.757
+Angle=-21.882,3.575, 7.697
+Time =1.052
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2723.516,113.732, -2619.757
+Angle=15.335,3.522, 10.986
+Time =2.043
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2719.269,113.385, -2629.909
+Angle=15.583,-1.791, -2.326
+Time =2.273
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2706.707,116.213, -2698.619
+Angle=-8.427,-4.414, -0.589
+Time =1.262
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2712.237,118.554, -2738.946
+Angle=-17.281,-4.346, -3.018
+Time =1.202
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2745.256,111.328, -2831.765
+Angle=-21.069,-4.312, 0.074
+Time =2.514
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2797.772,138.786, -2958.059
+Angle=-52.051,-2.709, -6.512
+Time =2.755
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2889.191,151.384, -3017.669
+Angle=-72.884,4.508, -4.185
+Time =8.787
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =3151.646,162.039, -3080.841
+Angle=-70.942,-20.602, 0.102
+Time =6.804
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =3228.915,146.412, -3286.276
+Angle=-135.581,-21.884, 1.060
+Time =5.991
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =3218.486,164.375, -3357.866
+Angle=-116.097,-20.124, -0.825
+Time =6.222
+Delay=0.000
+Text =You must clear air of our towns.
+
+[Flight1.20]
+Pos  =3185.611,173.867, -3406.361
+Angle=-157.288,-18.262, 0.045
+Time =3.134
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =3185.037,174.350, -3407.726
+Angle=-157.290,-18.262, 0.000
+Time =0.000
+Delay=0.000
+Text =
+

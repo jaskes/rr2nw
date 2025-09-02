@@ -1,0 +1,13 @@
+FileSize Typ Name
+======== === =================================
+  184320 dat 3dfxps.dll
+    8048 dat fxmemmap.vxd
+   47104 dat fxoem2x.dll
+  398848 dat glide2x.dll
+  389883 dat glide2x.ovl
+  424960 dat glide3x.dll
+    5825 txt license.txt
+   13088 dat mm3dfx.drv
+    4384 dat mm3dfx16.dll
+  219648 dat mm3dfx32.dll
+  280576 dat msvcrt.dll

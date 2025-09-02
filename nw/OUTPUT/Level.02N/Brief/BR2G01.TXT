@@ -1,0 +1,146 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,20
+Sound1=wav.Magician,0,0
+
+[Flight1.0]
+Pos  =3085.087,76.393, -2805.831
+Angle=-132.740,-27.038, 0.000
+Time =2.623
+Delay=0.000
+Text =One of our mercenaries betray us.
+
+[Flight1.1]
+Pos  =3078.436,81.014, -2811.977
+Angle=-119.071,-31.375, -2.109
+Time =2.694
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3059.212,94.389, -2822.577
+Angle=-118.776,-31.373, -0.050
+Time =4.037
+Delay=0.000
+Text =He take our battle beast \nand escaping to kings territory.
+
+[Flight1.3]
+Pos  =3091.552,92.864, -2866.535
+Angle=-160.766,-17.200, 18.393
+Time =3.076
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =3137.207,127.966, -2869.833
+Angle=-172.672,-41.495, 6.335
+Time =1.863
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =3143.260,108.472, -2847.785
+Angle=-167.227,-29.665, -1.650
+Time =1.372
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =3148.370,119.163, -2823.159
+Angle=-167.018,-28.008, -0.264
+Time =2.353
+Delay=0.000
+Text =He must be killed immediately.
+
+[Flight1.7]
+Pos  =3158.646,85.777, -2716.798
+Angle=178.160,-14.452, 1.044
+Time =3.125
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =3147.753,79.239, -2562.877
+Angle=158.635,-6.298, 0.057
+Time =0.851
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =3140.564,87.319, -2541.133
+Angle=157.752,-26.726, 0.231
+Time =3.956
+Delay=0.000
+Text =Everybody must know ! \nThat we can catch \nanybody anyplace and anytime !!!
+
+[Flight1.10]
+Pos  =3070.107,105.393, -2484.973
+Angle=112.628,-2.046, -5.592
+Time =1.512
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2930.645,102.351, -2438.340
+Angle=91.024,-1.975, -9.010
+Time =1.011
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2818.816,98.594, -2443.247
+Angle=80.924,-1.879, -0.218
+Time =0.942
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2670.290,93.653, -2465.622
+Angle=80.480,-1.877, 0.027
+Time =2.503
+Delay=0.000
+Text =It is supposed that he follow this way.
+
+[Flight1.14]
+Pos  =2519.187,112.621, -2470.774
+Angle=84.803,-6.502, 3.790
+Time =5.027
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2374.450,97.615, -2476.975
+Angle=99.972,-4.405, 1.867
+Time =3.686
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2175.150,96.372, -2450.872
+Angle=99.047,7.615, 2.775
+Time =4.586
+Delay=0.000
+Text =Yoy must kill him anycase !!!\neven you have to destroy all city.
+
+[Flight1.17]
+Pos  =2083.613,102.619, -2437.085
+Angle=41.549,-18.836, -0.618
+Time =7.311
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =1864.391,110.438, -2367.526
+Angle=8.709,-25.314, -0.290
+Time =5.087
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =1785.123,104.043, -2386.066
+Angle=-18.328,-30.109, -1.346
+Time =0.000
+Delay=2.200
+Text =
+

@@ -1,0 +1,106 @@
+[Root]
+ActionsNum=2
+Action1=PlayFlic,Flic1
+Sound1=wav.Kingdom,0,0
+RepeatsNum=1
+Action2=PlayFlight,Flight1,CINEMA,13
+Sound2=wav.Kingdom,0,0
+
+[Flic1]
+Name =FLIC/king.flc
+Text =
+Delay=1.0
+
+
+[Flight1.0]
+Pos  =2641.212,59.061, -2799.739
+Angle=176.607,3.287, 0.003
+Time =6.310
+Delay=0.000
+Text =WE ARE UNDER ATTACK!!!
+TextDelay=10
+
+[Flight1.1]
+Pos  =2663.360,58.097, -2799.143
+Angle=-159.729,-6.467, -0.040
+Time =4.074
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2644.046,63.366, -2802.641
+Angle=-159.729,-6.467, -0.008
+Time =3.509
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2614.028,64.186, -2797.315
+Angle=-159.729,-6.467, -0.756
+Time =4.329
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2595.002,64.305, -2791.405
+Angle=-140.390,-20.050, 0.101
+Time =3.268
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2614.281,84.642, -2762.213
+Angle=-163.807,-2.428, -8.552
+Time =3.901
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2608.903,102.526, -2681.704
+Angle=156.122,-17.410, -14.657
+Time =2.218
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2600.751,82.821, -2618.414
+Angle=132.457,-9.629, 0.104
+Time =2.074
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2572.088,83.855, -2592.187
+Angle=132.457,-9.629, 0.001
+Time =1.881
+Delay=0.000
+Text =Destroy two magician battle beasts\nand a helicopter
+TextDelay=10
+
+[Flight1.9]
+Pos  =2534.299,88.462, -2557.582
+Angle=142.328,-9.489, 2.352
+Time =7.229
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2475.617,91.113, -2573.615
+Angle=-134.076,-15.792, 4.995
+Time =11.728
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2460.127,89.609, -2530.362
+Angle=-90.671,-23.723, -1.513
+Time =0.300
+Delay=0.300
+Text =
+
+[Flight1.12]
+Pos  =2460.127,89.609, -2530.362
+Angle=-90.671,-23.723, -1.513
+Time =0.000
+Delay=0.000
+Text =

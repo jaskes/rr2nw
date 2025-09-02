@@ -1,0 +1,134 @@
+.486p
+
+comment `
+typedef struct{
+    long 			x,y;
+	unsigned long 	bl,bh;
+	long			zLen;
+} CoordBuf;
+`
+CoordBuf struc
+        _x  dd ?
+        _y  dd ?
+        _bl dd ?
+        _bh dd ?
+        zLen dd ?
+CoordBuf ends
+
+@SIZE_OF_MAPBUF equ 20
+@OFFSET_Y       equ 4
+
+.model flat,cpp
+include platform.inc
+
+BEGIN_CODE_SEG
+
+	public PutScrLineB
+
+PutScrLineB:
+                push    ebx esi edi ebp
+
+                sub     esp,00000004H
+                mov     edx,+1cH[esp]
+                mov     ecx,+20H[esp]
+                mov     eax,[ecx]._x
+                sub     eax,[edx]._x
+                mov     ebx,[edx]._y
+                cdq
+                xor     eax,edx
+                sub     eax,edx
+                mov     ebp,eax
+;
+                mov     eax,[ecx]._y
+                sub     eax,ebx
+                mov     ecx,+18H[esp]
+                mov     [esp],eax
+                cdq
+                xor     eax,edx
+                sub     eax,edx
+                mov     esi,eax
+                mov     eax,ebp
+                add     esi,esi
+;
+                lea     edi,[ebp*2]
+                neg     eax
+                mov     edx,ebp
+
+                test    ebp,ebp
+                jle     L10
+
+                cmp     esi,edi
+                jle     L5
+                mov     ebp,[esp]
+                test    ebp,ebp
+                jge     L3
+@s equ eax
+@k equ edx
+@dy_2 equ esi
+@RET macro
+       add     esp,00000004H
+       pop     ebp edi esi ebx
+       ret
+	endm
+;-------------------------------------------------------------------
+L1:             add     ecx,00000014H
+                add     @s,@dy_2
+                mov     -10H[ecx],ebx
+                jge     L2
+
+                dec     @k
+                jne     L1
+                jmp     L10
+L2:
+                dec     ebx
+                sub     @s,edi
+                jge     L2
+                dec     @k
+                jne     L1
+                jmp     L10
+;--------------------------------------------------------------------
+L3:             add     ecx,00000014H
+                add     @s,@dy_2
+                mov     -10H[ecx],ebx
+                jge     L4
+                dec     @k
+                jne     L3
+                jmp     L10
+L4:
+                inc     ebx
+                sub     @s,edi
+                jge     L4
+                dec     @k
+                jne     L3
+                jmp     L10
+;---------------------------------------------------------------------
+L5:
+                mov     ebp,[esp]
+                test    ebp,ebp
+                jge     L8
+L6:             add     ecx,00000014H
+                add     @s,@dy_2
+                mov     -10H[ecx],ebx
+                jge     L7
+                dec     @k
+                jne     L6
+                @RET
+
+L7:             dec     ebx
+                sub     @s,edi
+                dec     @k
+                jne     L6
+                @RET
+;-----------------------------------------------------------------------------
+L8:             add     ecx,00000014H
+                add     @s,@dy_2
+                mov     -10H[ecx],ebx
+                jl      L9
+                inc     ebx
+                sub     @s,edi
+L9:             dec     @k
+                jne     L8
+L10:
+		@RET
+END_CODE_SEG
+end

@@ -1,0 +1,5 @@
+{"lmp_EV_START"      ,    s_Const_lmp_EV_START, 0 },
+{"lmp_EV_SETENDPOS"  ,    s_Const_lmp_EV_SETENDPOS, 0 },
+{"s_lev_LOAD",            s_lev_LOAD,    0},
+{"s_lev_SAVE",            s_lev_SAVE,    0},
+{"s_lev_RESTART",         s_lev_RESTART, 0},

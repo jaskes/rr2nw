@@ -1,0 +1,1652 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\TANK\tank.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Tank\tank_3.cpp"
+        Script   :!""
+        Object   :!"Tank"
+        ExtrenTab :!"Tank"
+        ExternAttr:!"TankAttr"
+        IsActiv  :true
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"STAY"
+                Comment:!"Главное умолчальное состояние"
+            }
+            Point0(PN2I 0 1){
+                x -66
+                y 75
+            }
+            Point1(PN2I 0 1){
+                x 222
+                y 135
+            }
+            State links(STLN 0 1){
+                Count: 6
+                | 18                 1| 11 0| 5 1| 4 0| 1 0| 0 1
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"MOVING"
+                Comment:!""
+            }
+            Point0(PN2I 0 1){
+                x 473
+                y 74
+            }
+            Point1(PN2I 0 1){
+                x 673
+                y 134
+            }
+            State links(STLN 0 1){
+                Count: 6
+                | 19                 2| 16 2| 6 0| 2 1| 1 1| 0 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"MOVING_SHOOTING"
+                Comment:!"Стрельба в движении"
+            }
+            Point0(PN2I 0 1){
+                x 475
+                y 408
+            }
+            Point1(PN2I 0 1){
+                x 675
+                y 468
+            }
+            State links(STLN 0 1){
+                Count: 10
+                | 22                 0| 21 1| 20 2| 17 2| 13 2| 8 1| 7 0| 6 1| 3 1| 2 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"STAY_SHOOTING"
+                Comment:!"Соять и стрелять"
+            }
+            Point0(PN2I 0 1){
+                x 162
+                y 410
+            }
+            Point1(PN2I 0 1){
+                x 362
+                y 470
+            }
+            State links(STLN 0 1){
+                Count: 7
+                | 18                 0| 12 2| 9 1| 7 1| 5 0| 4 1| 3 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"RETREATING"
+                Comment:!"Убегание"
+            }
+            Point0(PN2I 0 1){
+                x 478
+                y 720
+            }
+            Point1(PN2I 0 1){
+                x 678
+                y 780
+            }
+            State links(STLN 0 1){
+                Count: 4
+                | 14                 2| 10 1| 9 0| 8 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"RETURN"
+                Comment:!"возврат"
+            }
+            Point0(PN2I 0 1){
+                x 483
+                y 955
+            }
+            Point1(PN2I 0 1){
+                x 683
+                y 1015
+            }
+            State links(STLN 0 1){
+                Count: 3
+                | 15                 2| 11 1| 10 0
+            }
+        }
+        (TKEY 0 1){State }
+        State(STAT 0 0){
+            State Head(STH_ 0 1){
+                Name   :!"ROTATE_AND_SHOOTING"
+                Comment:!""
+            }
+            Point0(PN2I 0 1){
+                x 931
+                y 184
+            }
+            Point1(PN2I 0 1){
+                x 1180
+                y 243
+            }
+            State links(STLN 0 1){
+                Count: 4
+                | 24                 2| 23 2| 22 1| 21 0
+            }
+        }
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY__to__MOVING__F"
+                Comment        :="Приказ двигаться в заданном направлении.
+                !Дается командирог группы"
+                Event          :!"t_EV_MOVE"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.258333
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.275000
+            }
+            Title(ETIT 0 1){
+                pos.x:-84
+                pos.y:-76
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_MOVING__to__STAY__F"
+                Comment        :!"Приказ остановиться"
+                Event          :!"t_EV_STOP"
+            }
+            Point0(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.500000
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.483333
+            }
+            Title(ETIT 0 1){
+                pos.x:-79
+                pos.y:33
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:0
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_MOVING__to__MOVING_SHOOTING__F"
+                Comment        :!"Продолжать двигаться и атаковать"
+                Event          :!"t_EV_ATTACK"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.487500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.477500
+            }
+            Title(ETIT 0 1){
+                pos.x:57
+                pos.y:-107
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_MOVING_SHOOTING__to__STAY_SHOOTING__F"
+                Comment        :!""
+                Event          :!"t_EV_STOP"
+            }
+            Point0(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.708333
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.675000
+            }
+            Title(ETIT 0 1){
+                pos.x:-192
+                pos.y:103
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:3
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY_SHOOTING__to__STAY__F"
+                Comment        :!"Потеря цели"
+                Event          :!"t_EV_TARGET_LOCKED"
+            }
+            Point0(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.341667
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.404514
+            }
+            Title(ETIT 0 1){
+                pos.x:22
+                pos.y:-134
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:3
+                dest:0
+            }
+            Node list(SLNL 0 1){
+                Count: 1
+
+                x: 50 y: 430
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY__to__STAY_SHOOTING__F"
+                Comment        :!""
+                Event          :!"t_EV_YOU_ATTACKED"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.335069
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.675000
+            }
+            Title(ETIT 0 1){
+                pos.x:95
+                pos.y:-73
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:3
+            }
+            Node list(SLNL 0 1){
+                Count: 1
+
+                x: 30 y: 450
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_MOVING_SHOOTING__to__MOVING__F"
+                Comment        :!""
+                Event          :!"t_EV_TARGET_LOST"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.377500
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.385000
+            }
+            Title(ETIT 0 1){
+                pos.x:137
+                pos.y:-154
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY_SHOOTING__to__MOVING_SHOOTING__F"
+                Comment        :!""
+                Event          :!"t_EV_MOVE"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.341667
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.375000
+            }
+            Title(ETIT 0 1){
+                pos.x:-235
+                pos.y:-71
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:3
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_MOVING_SHOOTING__to__RETREATING__F"
+                Comment        :!""
+                Event          :!"t_EV_RETREATING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.527500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.512500
+            }
+            Title(ETIT 0 1){
+                pos.x:29
+                pos.y:-16
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:4
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY_SHOOTING__to__RETREATING__F"
+                Comment        :!""
+                Event          :!"t_EV_RETREATING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.092500
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.508333
+            }
+            Title(ETIT 0 1){
+                pos.x:39
+                pos.y:-142
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:3
+                dest:4
+            }
+            Node list(SLNL 0 1){
+                Count: 1
+
+                x: 180 y: 750
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_RETREATING__to__RETURN__F"
+                Comment        :!""
+                Event          :!"t_EV_RETURN"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.512500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.487500
+            }
+            Title(ETIT 0 1){
+                pos.x:25
+                pos.y:-54
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:4
+                dest:5
+            }
+            Node list(SLNL 0 1){
+                Count: 0
+
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_RETURN__to__STAY__F"
+                Comment        :!""
+                Event          :!"t_EV_REACHED"
+            }
+            Point0(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.433333
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.265625
+            }
+            Title(ETIT 0 1){
+                pos.x:28
+                pos.y:-4
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:5
+                dest:0
+            }
+            Node list(SLNL 0 1){
+                Count: 1
+
+                x: 10 y: 980
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"stayAndShootingFC"
+                Comment        :!""
+                Event          :!"t_EVC_STAY_AND_SHOOTING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.392500
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.590000
+            }
+            Title(ETIT 0 1){
+                pos.x:-75
+                pos.y:7
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:3
+                dest:3
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 240 y: 490
+                x: 280 y: 490
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"movingAndShootingFC"
+                Comment        :!""
+                Event          :!"t_EVC_MOVING_AND_SHOOTING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.875000
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.541667
+            }
+            Title(ETIT 0 1){
+                pos.x:20
+                pos.y:0
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 700 y: 460
+                x: 700 y: 440
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"retreatingFC"
+                Comment        :!""
+                Event          :!"t_EVC_RETREATING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.675000
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.341667
+            }
+            Title(ETIT 0 1){
+                pos.x:20
+                pos.y:0
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:4
+                dest:4
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 710 y: 760
+                x: 710 y: 740
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"returnFC"
+                Comment        :!""
+                Event          :!"t_EVC_RETURN"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.591667
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.258333
+            }
+            Title(ETIT 0 1){
+                pos.x:20
+                pos.y:0
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:5
+                dest:5
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 720 y: 990
+                x: 720 y: 970
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"correctDirFC"
+                Comment        :!"Коррекция направления движения"
+                Event          :!"t_EV_MOVE"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.837500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.637500
+            }
+            Title(ETIT 0 1){
+                pos.x:-1
+                pos.y:-67
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 640 y: 50
+                x: 600 y: 50
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"correctDirFC"
+                Comment        :!""
+                Event          :!"t_EV_MOVE"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.677500
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.827500
+            }
+            Title(ETIT 0 1){
+                pos.x:20
+                pos.y:0
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 610 y: 490
+                x: 640 y: 490
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"from_STAY__to__STAY_SHOOTING__F_attack"
+                Comment        :!""
+                Event          :!"t_EV_ATTACK"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.300347
+            }
+            Point1(SQRP 0 1){
+                Edge num :3
+                Ascpect  :0.841667
+            }
+            Title(ETIT 0 1){
+                pos.x:-224
+                pos.y:114
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:0
+                dest:3
+            }
+            Node list(SLNL 0 1){
+                Count: 1
+
+                x: 20 y: 460
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"movingFC"
+                Comment        :!""
+                Event          :!"t_EVC_MOVING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.437500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.237500
+            }
+            Title(ETIT 0 1){
+                pos.x:-48
+                pos.y:-76
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:1
+                dest:1
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 560 y: 50
+                x: 520 y: 50
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"movingFC"
+                Comment        :!""
+                Event          :!"t_EVC_MOVING"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.877500
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.627500
+            }
+            Title(ETIT 0 1){
+                pos.x:72
+                pos.y:-38
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 650 y: 390
+                x: 600 y: 390
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"rotateAndShooting"
+                Comment        :!""
+                Event          :!"cn_EVCMD_ROTATE_AND_SHOOT"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.375000
+            }
+            Point1(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.600402
+            }
+            Title(ETIT 0 1){
+                pos.x:-12
+                pos.y:32
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:2
+                dest:6
+            }
+            Node list(SLNL 0 1){
+                Count: 1
+
+                x: 1080 y: 430
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"shooting"
+                Comment        :!""
+                Event          :!"t_EV_REACHED"
+            }
+            Point0(SQRP 0 1){
+                Edge num :2
+                Ascpect  :0.560241
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.208333
+            }
+            Title(ETIT 0 1){
+                pos.x:-44
+                pos.y:-78
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:6
+                dest:2
+            }
+            Node list(SLNL 0 1){
+                Count: 1
+
+                x: 1070 y: 420
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"checkRotate"
+                Comment        :!""
+                Event          :!"t_EVC_CHECK_ROTATE"
+            }
+            Point0(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.479920
+            }
+            Point1(SQRP 0 1){
+                Edge num :0
+                Ascpect  :0.640562
+            }
+            Title(ETIT 0 1){
+                pos.x:16
+                pos.y:-63
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:6
+                dest:6
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 1050 y: 140
+                x: 1090 y: 140
+            }
+        }
+
+        (TKEY 0 1){StateLink }
+        State link(STLN 0 0){
+            State link description(STLD 0 1){
+                Action function:!"correctDirFC_hidden"
+                Comment        :!""
+                Event          :!"t_EV_MOVE"
+            }
+            Point0(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.618644
+            }
+            Point1(SQRP 0 1){
+                Edge num :1
+                Ascpect  :0.110169
+            }
+            Title(ETIT 0 1){
+                pos.x:20
+                pos.y:0
+                asp 0.500000
+            }
+            States(STL_ 0 1){
+                sour:6
+                dest:6
+            }
+            Node list(SLNL 0 1){
+                Count: 2
+
+                x: 1210 y: 220
+                x: 1210 y: 190
+            }
+        }
+
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_type"
+            DefaultVal :!"0"
+            Comment    :!"Тип танка"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_power"
+            DefaultVal :!"5.0"
+            Comment    :!"Мощность по 10-бальной шкале"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_armor"
+            DefaultVal :!"0.5"
+            Comment    :!"0..1 - бронированность"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_radius"
+            DefaultVal :!"5.0"
+            Comment    :!"Приблизительный радиус объекта с запасом"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_viewDist"
+            DefaultVal :!"100"
+            Comment    :!"Расстояние, на которое види объект"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"massa"
+            DefaultVal :!"1000.0"
+            Comment    :!"Масса объекта"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"maxPower"
+            DefaultVal :!"8000000.0"
+            Comment    :!"Максимальная развиваемая тяга"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"refriction"
+            DefaultVal :!"0.5"
+            Comment    :!"сила трения  %"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"maxSpeed"
+            DefaultVal :!"10.0"
+            Comment    :!"максимальная скорость м/с"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"minSpeed"
+            DefaultVal :!"0.2"
+            Comment    :!"Скорость, добавляемая при расчете сопротивления"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"rotSpeed"
+            DefaultVal :!"0.5"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"stopAngle"
+            DefaultVal :!"0.01"
+            Comment    :!"Угол останова поворота"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"maxRotSpeed"
+            DefaultVal :!"3.0"
+            Comment    :!"максимальная скорость вращения"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"stopRadius2"
+            DefaultVal :!"25.0"
+            Comment    :!"квадрат радиуса начала торможения"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"stopRadius"
+            DefaultVal :!"4.0"
+            Comment    :!"квадрат радиуса от точки останова"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"deaxelerate"
+            DefaultVal :!"0.2"
+            Comment    :!"коэффициент сброса скорости при торможении"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"rotRefrict"
+            DefaultVal :!"0.45"
+            Comment    :!"коэффициент трения для поворота"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"stopSpeed"
+            DefaultVal :!"maxSpeed*0.1"
+            Comment    :!"скорость, при достижении которой остановиться"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"stopPower"
+            DefaultVal :!"maxPower*0.01"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_maxDistScale"
+            DefaultVal :!"4"
+            Comment    :!"Кратность, с которой проверяется, что мы не ушли слишком далеко"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_cannonTable"
+            DefaultVal :!""Cannon""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_cacheCannonTable"
+            DefaultVal :!"-1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_bulletAttrTable"
+            DefaultVal :!""BulletAttr""
+            Comment    :!"Имя таблицы атрибутов для пули"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_cacheBulletAttrTable"
+            DefaultVal :!"-1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_bulletAttr"
+            DefaultVal :!""Bullet.Led""
+            Comment    :!"Имя объекта - аттрибута для пули"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_cacheBulletAttr"
+            DefaultVal :!"-1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_movingAndShootingIncrement"
+            DefaultVal :!"0.8"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_bulletSpeed"
+            DefaultVal :!"60.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_skin"
+            DefaultVal :!""sk.Tank.0""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"CViewObjectModel*"
+            Name       :!"m_cacheSkin"
+            DefaultVal :!"NULL"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_blobCreateTime"
+            DefaultVal :!"1.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_smokeTableName"
+            DefaultVal :!""Smoke""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_smokeAttrName"
+            DefaultVal :!""Smoke.Attr.Small""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_mvTimeInc"
+            DefaultVal :!"2.0"
+            Comment    :!"Time between checking moving direction"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_maxViewDist"
+            DefaultVal :!"30.0"
+            Comment    :!"Tank view distanse"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_turnAngleTreshold"
+            DefaultVal :!"0.3"
+            Comment    :!"Constraint on turning"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_obstH"
+            DefaultVal :!"0.2"
+            Comment    :!"Max ovecomable obstacle height (not used yet)"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_staticTresh"
+            DefaultVal :!"0.5"
+            Comment    :!"Threshold of static objects"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_dynamicTresh"
+            DefaultVal :!"0.5"
+            Comment    :!"Threshold of dynamic objects"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_checkRotateTime"
+            DefaultVal :!"0.02"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_checkRotateDelta"
+            DefaultVal :!"3.14/90"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_soundTable"
+            DefaultVal :!""SoundObj""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_wavName"
+            DefaultVal :!""wav.Tank""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_attackDelay"
+            DefaultVal :!"5"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_cannonCnt"
+            DefaultVal :!"1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_cannon0"
+            DefaultVal :!""Cannon.Ch""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_cannon1"
+            DefaultVal :!""Cannon.Ht""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_cannon2"
+            DefaultVal :!""Cannon.Ht""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"powerDeltaTime"
+            DefaultVal :!"2"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_MOVE"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:="@@moveSpeed
+                        !скорость, как процент скорости объекта"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DESCEND( VECTOR_LAND, 0 )"
+                        Comment:!"Вектор движения (ненормированный)"
+                        Child 
+                    }
+                    Data tree(EDT_ 0 0){
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@xVec"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@yVec"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EndOfEventDataItem }
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:="Как далеко можно уйти
+                        !@@maxMoveDist"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_STOP"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_ATTACK"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"OBJECTID"
+                        Comment:!"@@enemyID"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_TARGET_LOCKED"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"OBJECTID"
+                        Comment:!"@@targetID"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_YOU_ATTACKED"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"OBJECTID"
+                        Comment:!"@@enemyID"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_TARGET_LOST"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_RETREATING"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_RETURN"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EV_REACHED"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EVC_STAY_AND_SHOOTING"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EVC_MOVING_AND_SHOOTING"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@prevTimeStamp"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EVC_RETREATING"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@prevTimeStamp"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EVC_RETURN"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:!"@@prevTimeStamp"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"UNIT_I_DRIVE"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"t_EVC_CHECK_ROTATE"
+                Header: !"C:\NW\ARENA\MESSAGE\Unitmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){EndOfEvent }
+    }
+}

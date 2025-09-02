@@ -1,0 +1,251 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,35
+Sound1=wav.Magician,0,0
+
+[Flight1.0]
+Pos  =3127.271,72.996, -2814.382
+Angle=145.144,-15.216, 2.810
+Time =3.567
+Delay=0.000
+Text =Look and keep in mind.
+
+[Flight1.1]
+Pos  =3143.309,78.458, -2825.456
+Angle=123.253,-14.752, 3.003
+Time =1.793
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3153.127,81.232, -2830.135
+Angle=119.680,-14.724, -2.398
+Time =1.172
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =3159.145,83.060, -2833.621
+Angle=118.278,-14.717, -1.415
+Time =3.076
+Delay=0.000
+Text =Take this helicopter.
+
+[Flight1.4]
+Pos  =3149.837,79.685, -2828.737
+Angle=117.726,-10.854, -0.477
+Time =0.962
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =3133.534,74.940, -2820.551
+Angle=114.480,-16.018, -2.911
+Time =2.214
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =3122.198,71.490, -2815.246
+Angle=70.748,8.179, -24.026
+Time =0.681
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =3122.198,71.490, -2815.246
+Angle=58.192,7.443, -12.956
+Time =1.342
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =3114.617,73.335, -2820.603
+Angle=50.214,12.213, -8.473
+Time =1.172
+Delay=0.000
+Text =Follow for our dark creaturies.\nThey bring you to our enemies.
+
+[Flight1.9]
+Pos  =3080.380,84.473, -2848.793
+Angle=49.461,27.774, -0.898
+Time =1.682
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =3018.265,109.914, -2891.214
+Angle=57.022,17.179, 1.605
+Time =1.102
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2968.274,126.894, -2922.720
+Angle=55.373,13.330, -2.744
+Time =0.981
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2933.975,137.285, -2947.216
+Angle=43.775,13.063, -12.492
+Time =1.042
+Delay=0.000
+Text =You must intercept kings ship caravan.
+
+[Flight1.13]
+Pos  =2888.193,164.485, -2992.823
+Angle=43.562,13.057, -1.505
+Time =1.051
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2862.251,182.176, -3015.332
+Angle=54.660,12.850, 4.407
+Time =1.683
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2773.508,206.959, -3077.853
+Angle=56.509,-9.259, 1.556
+Time =1.232
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2737.580,198.981, -3101.880
+Angle=56.196,-12.663, 0.052
+Time =1.463
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =2694.640,197.544, -3130.630
+Angle=56.198,-3.432, 0.000
+Time =1.122
+Delay=0.000
+Text =Fool king send reach ship caravan\nthrough our territory. But there are many\ndifferent creaturies that defend it allong way.
+
+[Flight1.18]
+Pos  =2668.007,199.191, -3160.017
+Angle=47.417,-7.021, -12.406
+Time =1.482
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =2634.480,196.855, -3206.363
+Angle=61.698,-8.325, -19.478
+Time =2.014
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =2510.814,167.916, -3288.273
+Angle=58.322,-9.633, -0.289
+Time =1.482
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =2422.584,146.762, -3342.691
+Angle=58.325,-13.315, -0.004
+Time =1.061
+Delay=0.000
+Text =
+
+[Flight1.22]
+Pos  =2377.657,135.839, -3369.854
+Angle=69.395,-4.234, 5.313
+Time =1.182
+Delay=0.000
+Text =
+
+[Flight1.23]
+Pos  =2294.297,128.258, -3398.177
+Angle=82.952,-4.095, 11.343
+Time =1.282
+Delay=0.000
+Text =
+
+[Flight1.24]
+Pos  =2205.699,121.728, -3409.264
+Angle=91.350,-4.027, 5.529
+Time =1.553
+Delay=0.000
+Text =
+
+[Flight1.25]
+Pos  =2117.199,115.472, -3406.532
+Angle=95.627,-4.015, 2.184
+Time =1.673
+Delay=0.000
+Text =You must sink all caravan ships. 
+
+[Flight1.26]
+Pos  =2006.471,107.620, -3390.741
+Angle=118.100,-3.786, 9.698
+Time =2.091
+Delay=0.000
+Text =
+
+[Flight1.27]
+Pos  =1842.306,118.395, -3531.922
+Angle=161.145,-13.090, -0.863
+Time =1.762
+Delay=0.000
+Text =
+
+[Flight1.28]
+Pos  =1737.706,119.630, -3517.793
+Angle=-171.022,-6.567, -22.350
+Time =0.470
+Delay=0.000
+Text =
+
+[Flight1.29]
+Pos  =1732.881,119.635, -3516.495
+Angle=-173.553,-6.532, -12.255
+Time =2.365
+Delay=0.000
+Text =It is supposed will follow along\nthe river on the East. 
+
+[Flight1.30]
+Pos  =1648.922,110.039, -3426.859
+Angle=-131.628,-10.487, 0.773
+Time =1.923
+Delay=0.000
+Text =
+
+[Flight1.31]
+Pos  =1604.802,111.215, -3383.574
+Angle=-115.053,-10.173, 8.222
+Time =1.645
+Delay=0.000
+Text =
+
+[Flight1.32]
+Pos  =1553.099,154.833, -3228.110
+Angle=-77.935,-33.016, -0.144
+Time =1.409
+Delay=0.000
+Text =
+
+[Flight1.33]
+Pos  =1472.275,145.218, -3209.853
+Angle=-77.925,-18.460, 0.000
+Time =1.852
+Delay=0.000
+Text =
+
+[Flight1.34]
+Pos  =1447.547,138.291, -3204.563
+Angle=-77.925,-22.306, 0.000
+Time =0.000
+Delay=0.000
+Text =
+

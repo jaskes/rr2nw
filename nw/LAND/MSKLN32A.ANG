@@ -1,0 +1,87 @@
+@UNROLL_CNT        equ 32
+@BASE_BUMPCOMPRESS equ 128
+
+.486p
+.model flat,cpp
+include platform.inc
+;_TEXT segment public use32 'CODE'
+BEGIN_CODE_SEG
+
+	extrn textBuffer:dword
+        extrn bumpCompressa:byte
+
+;void LineMaskL32_i(
+;                            int xMask, int xStep,
+;                            int yMask, int yStep,
+;                            char *dest, byte *maskAdr)
+
+	public LineMaskL32_ia
+LineMaskL32_ia:
+	$push edi,esi,ebp,ebx
+@SFRAME = 5*4
+xMask   equ [esp+@SFRAME+4*0]
+xStep   equ [esp+@SFRAME+4*1]
+yMask   equ [esp+@SFRAME+4*2]
+yStep   equ [esp+@SFRAME+4*3]
+dest    equ [esp+@SFRAME+4*4]
+maskAdr equ [esp+@SFRAME+4*5]
+;
+;
+;
+	xor	ebx , ebx
+;
+	mov	ecx , yMask
+	shl	ecx , 16
+	mov	ch  , yStep[2]
+;
+	mov	ebp , yStep
+	shl	ebp , 16
+	mov	bh  , yMask[2]
+;
+	mov	edi , xMask
+;
+	mov	edx , dest
+;
+	mov	esi , maskAdr
+;
+;
+;
+	mov	eax , [textBuffer][0]
+	add	ecx , ebp
+	adc	bh  , ch
+	add	eax , edi
+	sar	eax , 16
+	add	edi , xStep
+        mov     bl  , [bumpCompressa+@BASE_BUMPCOMPRESS][eax]
+;
+;
+;
+@CURPOS = 0
+	REPT @UNROLL_CNT/2
+	mov	eax , [textBuffer][(@CURPOS+1)*4]
+	mov	cl  , [esi+ebx]
+	add	eax , edi
+	sar	eax , 16
+	add	ecx , ebp
+	adc	bh  , ch
+	add	edi , xStep
+	mov	[edx+@CURPOS] , cl
+        mov     bl  , [bumpCompressa+@BASE_BUMPCOMPRESS][eax]
+	mov	eax , [textBuffer][(@CURPOS+2)*4]
+	mov	cl  , [esi+ebx]
+	add	eax , edi
+	add	edi , xStep
+	sar	eax , 16
+	add	ecx , ebp
+	adc	bh  , ch
+	mov	[edx+@CURPOS+1] , cl
+        mov     bl  , [bumpCompressa+@BASE_BUMPCOMPRESS][eax]
+
+	@CURPOS = @CURPOS+2
+	ENDM
+
+	$pop
+	ret
+END_CODE_SEG
+;_TEXT ends
+end

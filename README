@@ -1,0 +1,36 @@
+Данная версия исходных кодов не является релизной, но очень близка к финальной версии.
+
+Примерная дата создания nw205PeopleWater.rar 18 января 1999 года, а релиз игры состоялся 26 марта 1999.
+
+Все файлы были найдены и предоставлены разработчиком Святославом Образцовым (Suavik), за что ему огромнейшее спасибо.
+
+Большая благодарность компании Logos за разрешение публикации данных файлов.
+
+
+
+Для сборки данных исходников необходимы Turbo Assembler и Watcom C/C++(скорее всего 10.6, т.к. в 11 создаваётся нерабочий файл), 
+а также утилита angel.exe (angelmasm.exe) - ассемблерный препроцессор, который также предоставил Святослав
+
+Для простоты сборки, лучше всего расположить исходные файлы в C:\nw\ , чтоб не производить лишних действий по правке BAT и остальных файлов сборки,
+что всё равно придётся делать.
+
+Для сборки designwr.lib необходимо воспользоваться файлом disgnwr.make, т.к. в оригинальном архиве отсутствуют makefile для этой библиотеки.
+
+
+
+
+This version of the source code is not a release version, but is very close to the final version.
+
+The approximate date of creation of nw205PeopleWater.rar is January 18, 1999, and the game was released on March 26, 1999.
+
+All files were found and provided by the developer Svyatoslav Obraztsov (Suavik), for which he is very grateful.
+
+Many thanks to Logos for permission to publish these files.
+
+To build these sources, you need Turbo Assembler and Watcom C / C ++ (most likely 10.6, since 11 creates a non-working file),
+as well as the angel.exe utility (angelmasm.exe) - an assembler preprocessor, which was also provided by Svyatoslav
+
+For ease of assembly, it is best to place the source files in C: \ nw \ , so as not to perform unnecessary actions to edit BAT and other assembly files,
+which will have to be done anyway.
+
+To build designwr.lib, you need to use the disgnwr.make file, since the original archive does not contain a makefile for this library.

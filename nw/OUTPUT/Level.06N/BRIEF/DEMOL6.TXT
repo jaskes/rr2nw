@@ -1,0 +1,405 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,NONE,57
+Sound1=wav.Moon
+
+[Flight1.0]
+Pos  =915.022,150.356, -3773.010
+Angle=-150.796,-10.688, -0.143
+Time =1.073
+Delay=0.000
+Text = This world reminds our satellite - Moon
+
+[Flight1.1]
+Pos  =954.437,145.670, -3724.746
+Angle=-135.161,-2.175, 5.947
+Time =1.021
+Delay=0.000
+Text = This world reminds our satellite - Moon
+
+[Flight1.2]
+Pos  =1051.249,140.770, -3627.494
+Angle=-133.095,-2.268, 1.934
+Time =1.012
+Delay=0.000
+Text = This world reminds our satellite - Moon
+
+[Flight1.3]
+Pos  =1186.658,133.544, -3502.401
+Angle=-124.707,-2.248, 8.532
+Time =1.092
+Delay=0.000
+Text = This world reminds our satellite - Moon
+
+[Flight1.4]
+Pos  =1241.538,130.960, -3466.695
+Angle=-84.804,-1.838, 21.075
+Time =0.791
+Delay=0.000
+Text = The difference is that Our Moon is peaceful,\nunlike this ugly planet
+
+[Flight1.5]
+Pos  =1297.931,129.049, -3466.471
+Angle=-81.319,-1.788, 6.109
+Time =2.074
+Delay=0.000
+Text = The difference is that Our Moon is peaceful,\nunlike this ugly planet
+
+[Flight1.6]
+Pos  =1576.882,120.239, -3499.782
+Angle=-103.538,-1.683, -12.962
+Time =1.022
+Delay=0.000
+Text = The difference is that Our Moon is peaceful,\nunlike this ugly planet
+
+[Flight1.7]
+Pos  =1661.250,117.668, -3478.971
+Angle=-115.266,-1.602, -10.762
+Time =1.743
+Delay=0.000
+Text = The difference is that Our Moon is peaceful,\nunlike this ugly planet
+
+[Flight1.8]
+Pos  =1818.964,109.853, -3431.514
+Angle=-99.262,0.920, 3.766
+Time =1.152
+Delay=0.000
+Text = The difference is that Our Moon is peaceful,\nunlike this ugly planet
+
+[Flight1.9]
+Pos  =1908.656,109.170, -3424.916
+Angle=-51.259,9.167, 24.255
+Time =0.811
+Delay=0.000
+Text = The difference is that Our Moon is peaceful,\nunlike this ugly planet
+
+[Flight1.10]
+Pos  =1953.471,116.248, -3447.416
+Angle=-47.218,13.226, 8.300
+Time =0.941
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2026.927,138.711, -3515.724
+Angle=-36.289,18.809, 9.982
+Time =0.611
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2066.174,156.979, -3564.281
+Angle=-21.549,18.699, 19.850
+Time =1.213
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2114.301,212.546, -3706.818
+Angle=-10.328,4.856, 1.992
+Time =1.071
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2120.780,228.020, -3742.785
+Angle=-2.139,-6.967, 8.541
+Time =0.491
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2122.487,226.654, -3765.567
+Angle=-2.619,-11.807, 3.875
+Time =0.383
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2139.933,193.486, -3878.461
+Angle=-78.675,3.611, -15.458
+Time =0.531
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =2152.348,190.413, -3888.609
+Angle=-114.755,9.135, -27.286
+Time =1.042
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =2214.205,193.869, -3853.813
+Angle=-116.166,3.239, -23.210
+Time =0.791
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =2263.277,197.090, -3823.096
+Angle=-103.017,3.169, -0.651
+Time =1.052
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =2397.864,209.251, -3795.760
+Angle=-91.058,1.999, 5.812
+Time =0.871
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =2487.155,220.092, -3798.377
+Angle=-79.576,1.949, 14.673
+Time =0.832
+Delay=0.000
+Text =
+
+[Flight1.22]
+Pos  =2558.898,223.917, -3810.092
+Angle=-54.697,1.727, 21.250
+Time =1.101
+Delay=0.000
+Text =
+
+[Flight1.23]
+Pos  =2645.074,225.198, -3859.024
+Angle=-48.778,-1.701, 8.650
+Time =0.581
+Delay=0.000
+Text =
+
+[Flight1.24]
+Pos  =2689.994,224.085, -3896.019
+Angle=-31.665,-1.625, 17.279
+Time =0.751
+Delay=0.000
+Text =
+
+[Flight1.25]
+Pos  =2736.426,221.808, -3951.958
+Angle=-43.520,-4.640, -0.805
+Time =0.831
+Delay=0.000
+Text =
+
+[Flight1.26]
+Pos  =2788.018,216.774, -4010.429
+Angle=-48.197,-4.656, -5.948
+Time =0.841
+Delay=0.000
+Text =
+
+[Flight1.27]
+Pos  =2835.105,219.883, -4055.500
+Angle=-48.364,-4.655, -1.389
+Time =0.992
+Delay=0.000
+Text =
+
+[Flight1.28]
+Pos  =2911.963,233.584, -4126.442
+Angle=-38.957,-4.598, 4.320
+Time =0.711
+Delay=0.000
+Text =
+
+[Flight1.29]
+Pos  =2951.483,230.511, -4169.602
+Angle=-39.027,-9.817, 1.379
+Time =0.851
+Delay=0.000
+Text =
+
+[Flight1.30]
+Pos  =2987.108,224.859, -4211.576
+Angle=-45.573,2.098, -1.648
+Time =1.182
+Delay=0.000
+Text =
+
+[Flight1.31]
+Pos  =3107.088,231.816, -4321.931
+Angle=-34.455,2.231, 7.967
+Time =1.063
+Delay=0.000
+Text =
+
+[Flight1.32]
+Pos  =3213.871,238.282, -4444.703
+Angle=-48.674,2.239, -3.455
+Time =0.831
+Delay=0.000
+Text =
+
+[Flight1.33]
+Pos  =3260.224,240.713, -4486.001
+Angle=-60.329,2.190, -11.824
+Time =0.521
+Delay=0.000
+Text =
+
+[Flight1.34]
+Pos  =3277.453,241.533, -4498.106
+Angle=-83.158,1.935, -22.149
+Time =0.831
+Delay=0.000
+Text =
+
+[Flight1.35]
+Pos  =3350.468,243.993, -4502.377
+Angle=-126.169,1.214, -27.270
+Time =1.102
+Delay=0.000
+Text =
+
+[Flight1.36]
+Pos  =3433.993,246.382, -4445.848
+Angle=-168.821,-5.170, -25.132
+Time =0.791
+Delay=0.000
+Text =
+
+[Flight1.37]
+Pos  =3455.488,241.460, -4392.620
+Angle=-179.965,-7.988, -14.008
+Time =1.322
+Delay=0.000
+Text =
+
+[Flight1.38]
+Pos  =3461.736,218.254, -4304.178
+Angle=176.046,-3.367, -1.904
+Time =0.651
+Delay=0.000
+Text =
+
+[Flight1.39]
+Pos  =3459.223,193.662, -4258.522
+Angle=175.992,1.678, -0.362
+Time =0.951
+Delay=0.000
+Text =
+
+[Flight1.40]
+Pos  =3456.496,196.251, -4216.498
+Angle=176.001,-3.440, -0.027
+Time =0.661
+Delay=0.000
+Text =
+
+[Flight1.41]
+Pos  =3451.499,220.090, -4144.608
+Angle=176.001,-3.763, -0.004
+Time =0.711
+Delay=0.000
+Text =
+
+[Flight1.42]
+Pos  =3445.610,220.483, -4054.268
+Angle=-178.034,-6.532, 1.801
+Time =0.691
+Delay=0.000
+Text =
+
+[Flight1.43]
+Pos  =3445.197,212.673, -3962.498
+Angle=-177.660,-6.532, 0.747
+Time =1.062
+Delay=0.000
+Text =
+
+[Flight1.44]
+Pos  =3447.030,203.065, -3871.662
+Angle=164.511,-6.261, -9.387
+Time =0.981
+Delay=0.000
+Text =
+
+[Flight1.45]
+Pos  =3429.409,200.713, -3788.099
+Angle=163.088,-11.867, -2.362
+Time =1.182
+Delay=0.000
+Text =
+
+[Flight1.46]
+Pos  =3411.153,206.969, -3744.521
+Angle=147.785,3.532, -9.331
+Time =0.711
+Delay=0.000
+Text =
+
+[Flight1.47]
+Pos  =3380.895,209.906, -3694.739
+Angle=147.545,5.135, -2.044
+Time =0.891
+Delay=0.000
+Text =
+
+[Flight1.48]
+Pos  =3349.057,215.110, -3637.691
+Angle=157.200,5.044, 10.844
+Time =0.681
+Delay=0.000
+Text =
+
+[Flight1.49]
+Pos  =3333.066,217.547, -3613.688
+Angle=157.261,5.044, -10.072
+Time =1.013
+Delay=0.000
+Text =
+
+[Flight1.50]
+Pos  =3264.835,211.093, -3516.785
+Angle=-176.999,7.006, 15.624
+Time =0.541
+Delay=0.000
+Text =
+
+[Flight1.51]
+Pos  =3259.640,210.404, -3496.489
+Angle=-174.403,1.259, 11.048
+Time =0.925
+Delay=0.000
+Text =
+
+[Flight1.52]
+Pos  =3262.128,207.229, -3400.975
+Angle=-70.106,-7.166, 18.714
+Time =0.993
+Delay=0.000
+Text =
+
+[Flight1.53]
+Pos  =3214.666,215.060, -3385.169
+Angle=-62.309,-10.379, 8.630
+Time =1.062
+Delay=0.000
+Text =
+
+[Flight1.54]
+Pos  =3160.139,226.414, -3356.163
+Angle=-38.775,-9.484, 12.864
+Time =1.082
+Delay=0.000
+Text =
+
+[Flight1.55]
+Pos  =3110.622,237.556, -3313.784
+Angle=-52.668,-9.437, -1.551
+Time =1.032
+Delay=0.000
+Text =
+
+[Flight1.56]
+Pos  =3071.294,245.653, -3285.278
+Angle=-52.669,-9.437, 4.021
+Time =0.000
+Delay=0.000
+Text =
+

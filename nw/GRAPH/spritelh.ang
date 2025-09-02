@@ -1,0 +1,605 @@
+;$align 4
+.486p
+MODEL	FLAT,CPP
+LOCALS
+; align	4
+
+include platform.inc
+
+BEGIN_CODE_SEG
+
+;========================================================================
+include types.inc
+include stack.inc
+include get_s.inc
+include subtloop.inc
+
+
+FIX_SHIFT_4	equ 2
+FIX_MASK_4	equ 3
+
+;
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+align 8
+ADrawLinSpriteHaze:
+        Public ADrawLinSpriteHaze
+
+	mov	edx,[ESP_topVert]
+	mov	ebp,[ESP_bottomVert]
+	mov	ecx,_gr_pYCache
+	mov	ebx,offset screen
+	mov	esi,[edx].y
+	mov	edx,[ebp].y
+	sub	edx,esi			;deltaY
+	mov	[ESP_startVert],ebx
+
+        mov     eax,[_gr_polygon].textp
+
+        mov     edi,[ecx + esi*4]       ;scrPtr
+	mov	[ESP_count],edx
+	mov	[ESP_endVert],edi
+
+        ;mov     esi,[_gr_polygon].textwid
+        mov     esi,[eax + 8]  ;cache
+        mov     eax,[eax + 12] ;textp
+
+        mov     ds:[?TextureTable],esi
+        mov     ds:[?Texture],eax
+        mov     ecx,[esi+4]
+        mov     ds:[??TextureTable],esi
+        mov     ds:[?TextWidth],ecx
+        ;mov    ds:[??Texture],eax
+	;mov	ds:[???TextureTable],ebx
+
+        ;clear  HAZE flag
+        and     [_gr_polygon].addtyp, (NOT (HAZE_ADDTYPE))
+
+        mov     eax,[ebx].izl
+        mov     cl,?ZShiftRight
+        mov     esi,?HazeStartG
+        sar     eax,cl
+        ;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+        mov     cl,?ZShiftLeft
+        sal     eax,cl
+        ;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        mov     ecx,_gr_pHaze
+        mov     ebp,?HazeEndL
+
+        add     ecx,256*15
+        cmp     eax,esi
+        jge     SaveHazePtr
+        cmp     eax,ebp
+        jle     FullHaze
+        ;----compute haze
+        sub     eax,esi ;(r-HS)
+        mov     edx,15
+        sub     ebp,esi ;(HE-HS)
+        imul    edx;15
+        idiv    ebp
+        and     eax,0Fh
+        sal     eax,8
+        sub     ecx,eax
+        jmp     SaveHazePtr
+
+align 4
+FullHaze:
+        sub     ecx,256*15
+
+SaveHazePtr:
+
+        mov     ds:[?HazePtr0],ecx
+        mov     ds:[?HazePtr1],ecx
+        mov     ds:[?HazePtr2],ecx
+        mov     ds:[?HazePtr3],ecx
+        mov     ds:[?HazePtr4],ecx
+        mov     ds:[?HazePtr5],ecx
+        mov     ds:[?HazePtr6],ecx
+        mov     ds:[?HazePtr7],ecx
+        mov     ds:[?HazePtr8],ecx
+        mov     ds:[?HazePtr9],ecx
+        mov     ds:[?HazePtr10],ecx
+        mov     ds:[?HazePtr11],ecx
+        mov     ds:[?HazePtr12],ecx
+        mov     ds:[?HazePtr13],ecx
+        mov     ds:[?HazePtr14],ecx
+        mov     ds:[?HazePtr15],ecx
+
+TextLoopY:
+
+	mov	eax,[ebx].xl
+	mov	esi,[ebx].xr
+	add	edi,eax
+	;
+	sub	esi,eax
+	inc	esi
+	jle	End
+        ;mov     [ESP_scr],edi
+
+
+	;mov	[_deltaX],esi
+        ;shr     esi,FIX_SHIFT_4
+        cmp     esi,4
+        jl      DrawL4
+	;mov	[ESP_num],esi
+        mov     ebp,edi
+        and     edi,3
+	mov	ecx,esi
+
+        ;sub     esi,4
+        ;shl     esi,FIX_SHIFT_4
+        mov     [ESP_D_B],edi
+	sub	edi,4
+        mov     [ESP_scr],ebp
+	add	esi,edi
+	xor	ecx,0FFFFFFFFh	;neg - 1
+	mov	[_deltaX],esi
+	and	esi,0FFFFFFFCh
+	sub	ebp,edi
+        ;add     esi,edi
+        ;and     esi,0FFFFFFFCh
+	;mov	eax,65536
+	;xor	edx,edx
+	;idiv	ecx
+	mov	ecx,[_gr_pDivCache + ecx*4 + 4] ;neg + 1
+	;unused - eax,edx,esi,edi
+	;ebx - scanline
+        add     ebp,esi
+
+	;mov	ebx,[esi].uzl
+	;mov	edx,[esi].vzl
+
+	GetDW	mov	esi,?Texture
+
+        mov     ds:[?EndLineAdr],ebp
+
+	;mov	ecx,eax		;1/(xr-xl)
+	mov	ebp,[ebx].uzl	;u0
+	mov	edi,ebp         ;u0
+        mov     edx,[ebx].vzl   ;v0
+	sar	ebp,16          ;[u0]
+	and	edi,00000000000000001111111111111111b ;{u0}
+	add	esi,ebp		;to + [u0]
+	mov	ebp,edx         ;v0
+	sar	edx,16          ;[v0]
+	sal	ebp,16          ;{v0}.16
+	add	esi,[0FACEBEDAh+4*edx] ;Texture Offset
+	org	$-4
+	?TextureTable	dd 0FACEBEDAh
+
+	shr	edi,1
+	;push	eax
+	;unused - eax,edx,ebp
+	;ebx-scan
+	;esi-texture
+	;ecx-1/(xr-xl)
+	;edi-textTable
+
+	mov	eax,[ebx].vzl
+	add	edi,ebp		;17.{u0}+{v0}.16
+	sub	eax,[ebx].vzr
+	imul	ecx
+	shrd	eax,edx,Y_DIV_CACHE_PRES
+	mov	ebp,eax
+	;ebp - dv(16.16)
+	mov	eax,[ebx].uzl
+	sub	eax,[ebx].uzr
+	imul	ecx
+	shrd	eax,edx,Y_DIV_CACHE_PRES + 1
+	mov	ecx,eax
+	;ecx - du(16.15)
+
+	;ebx-scan
+	;esi-texture
+	;ecx-du
+	;edi-textTable
+	;ebp-dv
+	GetDW	mov	edx,?TextWidth	;Texture Width
+	mov	eax,edi         ;textTable
+	mov	edi,ebp         ;dv
+	mov	ebx,ecx         ;du
+	sar	ebp,16		;[dv]
+	and	ebx,00000000000000000111111111111111b	;{du}
+	sar	ecx,15		;[du]
+	sal	edi,16		;{dv}*65536
+	add	ecx,[??TextureTable + 4*ebp]	;[du]+[dv]*TextWidth
+	org	$-4
+	??TextureTable dd 0FACEBEDAh
+
+	;pop	eax
+        mov     ebp,[ESP_D_B]
+
+        or      edi,ebx         ;{dv}0{du}
+
+	;pop	eax		;17.{u0}+{v0}.16
+	;nop
+	;push	eax
+	;mov	[ESP_num],edx
+	;mov	edx,[ESP_scr]
+        mov     [ESP_num],edx
+        xor     ebx,ebx
+        mov     edx,[ESP_scr]
+        or      ebp,ebp
+        jz      InnerLoop
+
+        $switch ebp
+                $case 1
+                        add     eax,edi         ;{v}+{dv}|{u}+{du}
+                        mov     bl,[esi]
+                        sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+                        add     ah,80h          ;set carry if need add 1(u)
+                        adc     esi,ecx
+                        ;mov     [edx],bh
+                        and     ebp,[ESP_num]           ;0 or TextureWidth
+                        and     ah,7Fh          ;restore eax and set 15 bit to zero
+                        and     bl,bl
+                        jz      NoDraw1
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr0 dd 0FACEBEDAh
+                        mov     [edx],bl
+                    NoDraw1:
+                        add     esi,ebp
+                        inc     edx
+                        ;dec     [_deltaX]
+                $case 2
+                        add     eax,edi         ;{v}+{dv}|{u}+{du}
+                        mov     bl,[esi]
+                        sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+                        add     ah,80h          ;set carry if need add 1(u)
+                        adc     esi,ecx
+                        ;mov     [edx],bh
+                        and     ebp,[ESP_num]           ;0 or TextureWidth
+                        and     ah,7Fh          ;restore eax and set 15 bit to zero
+                        and     bl,bl
+                        jz      NoDraw2
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr1 dd 0FACEBEDAh
+                        mov     [edx],bl
+                    NoDraw2:
+                        add     esi,ebp
+                        inc     edx
+                        ;dec     [_deltaX]
+                $case 3
+                        add     eax,edi         ;{v}+{dv}|{u}+{du}
+                        mov     bl,[esi]
+                        sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+                        add     ah,80h          ;set carry if need add 1(u)
+                        adc     esi,ecx
+                        ;mov     [edx],bh
+                        and     ebp,[ESP_num]           ;0 or TextureWidth
+                        and     ah,7Fh          ;restore eax and set 15 bit to zero
+                        and     bl,bl
+                        jz      NoDraw3
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr2 dd 0FACEBEDAh
+                        mov     [edx],bl
+                    NoDraw3:
+                        inc     edx
+                        add     esi,ebp
+                        ;dec     [_deltaX]
+                        ;
+                        ;mov     [ESP_scr],edx
+                        ;mov     ebp,edx
+                        ;mov     edx,[ESP_num]
+			cmp	[_deltaX],4
+			jl	Ost
+        $endswitch
+
+InnerLoop:
+	;mov	ebp,[ESP_num]
+	;and	edx,0FFFFFFFCh
+	;jmp	large[ebp*4+UnRollLinPoly]
+	;	$DoUnRoll edx $from @MAX_UNROLLPOLY,UnRollLinPoly(
+
+	;eax - {v}0{u}
+	;ebx - store pixels
+	;ecx - [du] + [dv]*TextureWidth
+	;edx - TextureWidth
+	;esi - Texture Pointer
+	;edi - {dv}0{du}
+	;ebp - carry
+	;
+    	;
+        add     edx,4
+
+        ;InnerSpriteLoop4 [ESP_num],-4
+        add     eax,edi   ; V {v}+{dv}|{u}+{du}
+	mov	bl,[esi]        ; V
+	sbb	ebp,ebp         ;U
+	add	ah,80h		; V set carry if need add 1(u)
+	adc	esi,ecx         ;U
+        and     ebp,[ESP_num]            ; V 0 or TextureWidth
+	add	esi,ebp         ;U
+	and	ah,7Fh		; V restore eax and set 15 bit to zero
+	and	bl,bl
+	jz	@@NoDraw1
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr3 dd 0FACEBEDAh
+        mov     [edx-4+0],bl
+@@NoDraw1:
+    				;
+	add	eax,edi		;U {v}+{dv}|{u}+{du}
+	mov	bl,[esi]        ; V
+	sbb	ebp,ebp		;U FFFFFFFF if need add TextureWidth(v)
+	add	ah,80h          ; V
+	adc	esi,ecx         ;U
+        and     ebp,[ESP_num]            ;U 0 or TextureWidth
+	add	esi,ebp         ;U
+	and	ah,7Fh		; V restore eax and set 15 bit to zero
+	and	bl,bl
+	jz	@@NoDraw2
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr4 dd 0FACEBEDAh
+        mov     [edx-4+1],bl
+@@NoDraw2:
+    				;
+	add	eax,edi		; V {v}+{dv}|{u}+{du}
+	mov	bl,[esi]        ;U
+	sbb	ebp,ebp		;U FFFFFFFF if need add TextureWidth(v)
+	add	ah,80h		; V set carry if need add 1(u)
+	adc	esi,ecx         ;U
+        and     ebp,[ESP_num]            ; V 0 or TextureWidth
+	add	esi,ebp         ;U
+	and	ah,7Fh		; V restore eax and set 15 bit to zero
+	and	bl,bl
+	jz	@@NoDraw3
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr5 dd 0FACEBEDAh
+        mov     [edx-4+2],bl
+@@NoDraw3:
+    				;
+	add	eax,edi		;U {v}+{dv}|{u}+{du}
+	mov	bl,[esi]        ; V
+	sbb	ebp,ebp		;U FFFFFFFF if need add TextureWidth(v)
+	add	ah,80h		; V set carry if need add 1(u)
+   	adc	esi,ecx         ;U
+        and     ebp,[ESP_num]            ;U 0 or TextureWidth
+	and	ah,7Fh          ; V
+   	add	esi,ebp         ; V
+	and	bl,bl
+	jz	@@NoDraw4
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr6 dd 0FACEBEDAh
+        mov     [edx-4+3],bl
+@@NoDraw4:
+
+	;
+	;
+        ;mov     ebp,dword ptr [ESP_scr]  ;scr
+        ;add     ebp,4
+        ;mov     dword ptr [ESP_scr],ebp
+        GetDW   cmp     edx,?EndLineAdr
+        ;mov     [ebp-4],ebx
+	jnz	InnerLoop
+
+	;	)$EndDoUnRoll
+
+Ost:
+	mov	ebx,[_deltaX]
+        ;mov     [ESP_num],edx
+	and	ebx,3
+
+	$switch ebx
+	$case 3
+		add	eax,edi		;{v}+{dv}|{u}+{du}
+                mov     bl,[esi]
+                sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+		add	ah,80h		;set carry if need add 1(u)
+		adc	esi,ecx
+                ;mov     [edx],bh
+                and     ebp,[ESP_num]           ;0 or TextureWidth
+		and	ah,7Fh		;restore eax and set 15 bit to zero
+                and     bl,bl
+                jz      NoDraw1_
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr7 dd 0FACEBEDAh
+                mov     [edx],bl
+            NoDraw1_:
+                add     esi,ebp
+                inc     edx
+	$case 2
+                add     eax,edi         ;{v}+{dv}|{u}+{du}
+                mov     bl,[esi]
+                sbb     ebp,ebp         ;FFFFFFFF if need add TextureWidth(v)
+		add	ah,80h		;set carry if need add 1(u)
+		adc	esi,ecx
+                ;mov     [edx],bh
+                and     ebp,[ESP_num]           ;0 or TextureWidth
+		and	ah,7Fh		;restore eax and set 15 bit to zero
+                and     bl,bl
+                jz      NoDraw2_
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr8 dd 0FACEBEDAh
+                mov     [edx],bl
+            NoDraw2_:
+                add     esi,ebp
+                inc     edx
+        $case 1
+                mov     bl,[esi]
+                and     bl,bl
+                jz      End
+                        mov     bl,[0FACEBEDAh + ebx]
+                        org     $-4
+                        ?HazePtr9 dd 0FACEBEDAh
+                mov     [edx],bl
+
+	$case 0
+	$endSwitch
+
+End:
+	mov	ebx,[ESP_startVert]
+	mov	edi,[ESP_endVert]
+	add	ebx,type Screen
+        GetDWPub        add     edi,EXT_ScreenWidth19a
+	dec	[ESP_count]
+	mov	[ESP_startVert],ebx
+	mov	[ESP_endVert],edi
+	jge	TextLoopY
+
+jmp	END_TYPE_DRAW
+
+	;
+DrawL4:
+	;edi - scrPtr ebp
+	;ebx - screen esi
+
+	mov	ebp,[_gr_polygon].textp
+	mov	ecx,[ebx].vzl
+        mov     edx,[ebx].uzl
+        ;mov    esi,[_deltaX]
+        mov     eax,[ebp + 8]  ;cache
+        mov     ebp,[ebp + 12] ;texture
+
+	$switch esi
+	$case 3
+		mov	esi,ecx
+		sub	ecx,[ebx].vzr
+		sar	ecx,1
+		mov	[ESP_scr],ecx
+		mov	ecx,edx
+		sub	edx,[ebx].uzr
+		sar	edx,1
+		mov	[ESP_num],edx
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+                mov     dl,B_P [ebp + edx]
+		sub	ecx,[ESP_num]
+                and     edx,0Fh
+                jz      NoDraw31
+                        mov     dl,[0FACEBEDAh + edx]
+                        org     $-4
+                        ?HazePtr10 dd 0FACEBEDAh
+                mov     B_P [edi],dl
+            NoDraw31:
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+                mov     dl,B_P [ebp + edx]
+		sub	ecx,[ESP_num]
+                and     edx,0Fh
+                jz      NoDraw32
+                        mov     dl,[0FACEBEDAh + edx]
+                        org     $-4
+                        ?HazePtr11 dd 0FACEBEDAh
+                mov     B_P [edi+1],dl
+            NoDraw32:
+		;
+		mov	ebx,esi	;v
+		mov	edx,ecx ;u
+		sar	ebx,16
+		sar	edx,16
+		;sub	esi,[ESP_scr]
+		add	edx,[eax + ebx*4]
+                mov     dl,B_P [ebp + edx]
+                and     edx,0Fh
+                jz      NoDraw1__
+		;sub	ecx,[ESP_num]
+                        mov     dl,[0FACEBEDAh + edx]
+                        org     $-4
+                        ?HazePtr12 dd 0FACEBEDAh
+                mov     B_P [edi+2],dl
+		$break
+	$case 2
+		sar	ecx,16
+		sar	edx,16
+		mov	esi,[ebx].vzr
+		add	edx,ebp
+		sar	esi,16
+		add	edx,[eax + ecx*4]
+		mov	ecx,[ebx].uzr
+		add	ebp,[eax + esi*4]
+		sar	ecx,16
+                mov     dl,B_P [edx]
+                and     edx,0Fh
+                jz      NoDraw21
+                        mov     dl,[0FACEBEDAh + edx]
+                        org     $-4
+                        ?HazePtr13 dd 0FACEBEDAh
+                mov     B_P [edi],dl
+            NoDraw21:
+                mov     dl,B_P [ebp + ecx]
+                and     dl,dl
+                jz      NoDraw1__
+                        mov     dl,[0FACEBEDAh + edx]
+                        org     $-4
+                        ?HazePtr14 dd 0FACEBEDAh
+                mov     B_P [edi+1],dl
+                ;mov     W_P [edi],dx
+		$break
+	$case 1
+		sar	ecx,16
+		sar	edx,16
+		add	ebp,[eax + ecx*4]
+                mov     al,B_P [ebp + edx]
+                and     eax,0Fh
+                jz      NoDraw1__
+                        mov     al,[0FACEBEDAh + eax]
+                        org     $-4
+                        ?HazePtr15 dd 0FACEBEDAh
+                mov     B_P [edi],al
+            NoDraw1__:
+	$case 0
+	$endSwitch
+
+	mov	ebx,[ESP_startVert]
+	mov	edi,[ESP_endVert]
+	add	ebx,type Screen
+        GetDWPub        add     edi,EXT_ScreenWidth19b
+	dec	[ESP_count]
+	mov	[ESP_startVert],ebx
+	mov	[ESP_endVert],edi
+	jge	TextLoopY
+
+jmp	END_TYPE_DRAW
+
+;=============================================================
+;::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::;
+;
+;unused dd  1024 DUP(?)
+;==========ASM extern Labels==============
+align 4
+extrn END_TYPE_DRAW:proc
+extrn ENDD:proc
+;==========ASM extern=====================
+align 4
+extrn _gr_vertices:dword
+extrn interVert:dword
+extrn _gr_polygon:dword
+extrn screen:dword
+extrn pYDivCache:dword
+extrn ?HazeStartG:dword
+extrn ?HazeEndL:dword
+extrn ?ZShiftLeft:byte
+extrn ?ZShiftRight:byte
+;===========C(++) extern==================
+align 4
+extrn   _gr_pYCache:dword
+extrn   p1DivCache:dword
+extrn	_gr_nScreenWidth:dword
+extrn   _gr_pHaze:dword
+;=============Module Data=================
+align 4
+_deltaX dd ?
+;=========================================
+align 4
+$tables
+END_CODE_SEG
+end

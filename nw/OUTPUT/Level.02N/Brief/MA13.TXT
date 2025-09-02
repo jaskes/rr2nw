@@ -1,0 +1,166 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,23
+Sound1=wav.Magician,0,0
+
+[Flight1.0]
+Pos  =3110.044,61.556, -2788.290
+Angle=172.522,-12.381, 0.059
+Time =1.079
+Delay=0.000
+Text =
+
+[Flight1.1]
+Pos  =3110.469,62.272, -2791.528
+Angle=172.522,-12.381, 0.008
+Time =3.605
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3127.285,63.653, -2792.178
+Angle=172.196,-25.787, 0.073
+Time =1.895
+Delay=0.000
+Text =Take this battle beast
+
+[Flight1.3]
+Pos  =3125.474,69.372, -2778.637
+Angle=172.196,-25.420, 0.001
+Time =1.922
+Delay=0.000
+Text =     
+
+[Flight1.4]
+Pos  =3119.918,66.228, -2738.092
+Angle=172.196,-13.994, 0.000
+Time =3.846
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =3098.106,71.421, -2578.942
+Angle=172.196,12.806, 0.000
+Time =1.043
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =3094.597,79.499, -2553.336
+Angle=172.196,13.464, 0.000
+Time =1.648
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =3079.335,98.628, -2478.474
+Angle=105.365,6.576, -33.625
+Time =1.964
+Delay=0.000
+Text =You must reach Gold Horn and kill all young battle beasts
+
+[Flight1.8]
+Pos  =2976.642,107.748, -2464.356
+Angle=97.608,4.064, 0.133
+Time =1.154
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2881.524,114.569, -2452.086
+Angle=97.834,4.064, 0.004
+Time =0.783
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2807.183,119.901, -2441.912
+Angle=97.840,4.064, 0.000
+Time =1.286
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2730.210,125.539, -2419.808
+Angle=126.652,3.643, 9.585
+Time =1.666
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2655.354,132.124, -2344.225
+Angle=152.470,3.199, 8.715
+Time =1.978
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2614.157,133.122, -2254.143
+Angle=148.144,-3.371, -2.860
+Time =1.167
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2553.658,126.904, -2159.462
+Angle=144.578,3.645, 0.060
+Time =1.470
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2517.253,128.214, -2116.356
+Angle=118.686,3.730, -2.214
+Time =1.785
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2441.365,133.693, -2077.778
+Angle=95.943,3.434, -3.100
+Time =1.497
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =2396.220,135.896, -2072.175
+Angle=93.710,-1.756, -0.103
+Time =1.662
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =2310.864,133.608, -2067.496
+Angle=77.079,-1.726, -4.808
+Time =1.098
+Delay=0.000
+Text =Here is the farm
+
+[Flight1.19]
+Pos  =2277.330,132.358, -2075.053
+Angle=55.852,-5.627, -4.476
+Time =2.143
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =2246.934,124.323, -2095.143
+Angle=50.247,-37.498, 0.178
+Time =1.731
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =2241.435,118.939, -2099.716
+Angle=50.246,-37.745, 0.017
+Time =9.438
+Delay=0.000
+Text =Our warrior will show you the way here
+
+[Flight1.22]
+Pos  =2227.630,104.842, -2111.199
+Angle=50.246,-55.544, 0.000
+Time =2.224
+Delay=0.000
+Text =

@@ -1,0 +1,195 @@
+[Root]
+ActionsNum=3
+RepeatsNum=1
+Action1=PlayFlight,Flight1,NONE,10
+Sound1=Drums,0,0
+Action2=PlayFlight,Flight2,NONE,7
+Sound2=Ethnic,0,0
+Action3=PlayFlight,Flight3,NONE,9
+Sound3=Drums,0,0
+
+
+
+
+[Flight1.0]
+Pos  =3456.391,88.158, -3301.771
+Angle=127.412,-11.284, 0.000
+Time =4.0
+Delay=0.000
+Text = Imagine, what could happen, if America\nis was discovered in the end of XIX century...
+
+[Flight1.1]
+Pos  =3393.190,89.258, -3252.537
+Angle=127.412,-0.945, 0.000
+Time =1.0
+Delay=0.000
+Text = Imagine, what could happen, if America\nis was discovered in the end of XIX century...
+
+[Flight1.2]
+Pos  =3365.580,88.037, -3222.972
+Angle=156.237,-0.837, 3.718
+Time =1.0
+Delay=0.000
+Text = Imagine, what could happen, if America\nis was discovered in the end of XIX century...
+
+[Flight1.3]
+Pos  =3353.521,98.175, -3192.390
+Angle=-179.475,-0.768, 9.457
+Time =0.7
+Delay=0.000
+Text = Imagine, what could happen, if America\nis was discovered in the end of XIX century...
+
+[Flight1.4]
+Pos  =3352.793,109.176, -3171.220
+Angle=-179.457,-0.768, 0.464
+Time =2.8
+Delay=0.000
+Text = Imagine, what could happen, if America\nis was discovered in the end of XIX century...
+
+[Flight1.5]
+Pos  =3342.110,103.392, -3105.025
+Angle=117.122,-10.631, -3.602
+Time =3.0
+Delay=0.000
+Text = Great Central American like civilization\nwithstands European like one\nin this world
+
+[Flight1.6]
+Pos  =3339.463,117.540, -3086.178
+Angle=-45.203,1.404, 0.251
+Time =1.3
+Delay=0.000
+Text = Great Central American like civilization\nwithstands European like one\nin this world
+
+[Flight1.7]
+Pos  =3488.673,125.120, -3298.788
+Angle=-6.228,1.228, 19.240
+Time =1.9
+Delay=0.000
+Text = Great Central American like civilization\nwithstands European like one\nin this world
+
+[Flight1.8]
+Pos  =3499.434,191.156, -3425.909
+Angle=27.012,1.118, 15.168
+Time =0.5
+Delay=0.000
+Text = Great Central American like civilization\nwithstands European like one\nin this world
+
+[Flight1.9]
+Pos  =3498.173,191.981, -3429.974
+Angle=27.398,1.116, 12.883
+Time =0.4
+Delay=0.000
+Text = Great Central American like civilization\nwithstands European like one\nin this world
+
+
+[Flight2.0]
+Pos  =2413.589,114.719, -3233.408
+Angle=24.256,-5.859, 0.000
+Time =3.0
+Delay=0.000
+Text = These temples remind Aztec and Maya buildings\nfound in Central and South America
+
+[Flight2.1]
+Pos  =2383.929,106.434, -3308.881
+Angle=21.480,-5.797, 0.094
+Time =3.0
+Delay=0.000
+Text = These temples remind Aztec and Maya buildings\nfound in Central and South America
+
+[Flight2.2]
+Pos  =2375.630,102.313, -3321.657
+Angle=33.104,-15.132, 0.038
+Time =2.0
+Delay=0.000
+Text = These temples remind Aztec and Maya buildings\nfound in Central and South America
+
+[Flight2.3]
+Pos  =2366.631,109.234, -3335.467
+Angle=33.104,-51.750, -0.001
+Time =3.2
+Delay=0.000
+Text = These temples remind Aztec and Maya buildings\nfound in Central and South America
+
+[Flight2.4]
+Pos  =2358.181,121.432, -3348.428
+Angle=33.104,-27.192, 0.000
+Time =1.3
+Delay=0.000
+Text =
+
+[Flight2.5]
+Pos  =2358.153,121.473, -3348.472
+Angle=48.449,-16.050, 0.064
+Time =3.0
+Delay=0.000
+Text =
+
+[Flight2.6]
+Pos  =2348.360,167.535, -3357.397
+Angle=48.460,-73.306, -0.010
+Time =2.1
+Delay=0.000
+Text =
+
+[Flight3.0]
+Pos  =4325.071,95.971, -2508.119
+Angle=13.757,-10.407, 0.000
+Time =2.3
+Delay=0.000
+Text = Agressive Conquers strive to dominate in this world.\nChoose your side!
+
+[Flight3.1]
+Pos  =4283.496,74.988, -2671.574
+Angle=22.613,-4.416, 2.073
+Time =1.7
+Delay=0.000
+Text = Agressive Conquers strive to dominate in this world.\nChoose your side!
+
+[Flight3.2]
+Pos  =4227.346,58.986, -2800.253
+Angle=19.250,-16.006, 11.783
+Time =2.6
+Delay=0.000
+Text = Agressive Conquers strive to dominate in this world.\nChoose your side!
+
+[Flight3.3]
+Pos  =4152.744,63.325, -2822.733
+Angle=-1.201,-32.404, 1.881
+Time =1.0
+Delay=0.000
+Text = Agressive Conquers strive to dominate in this world.\nChoose your side!
+
+[Flight3.4]
+Pos  =4154.340,60.859, -2831.267
+Angle=-12.987,-15.484, -0.533
+Time =3.3
+Delay=0.000
+Text = Agressive Conquers strive to dominate in this world.\nChoose your side!
+
+[Flight3.5]
+Pos  =4164.304,93.969, -2918.078
+Angle=-14.897,-25.077, -0.004
+Time =2.2
+Delay=0.000
+Text =
+
+[Flight3.6]
+Pos  =4203.812,80.161, -2996.949
+Angle=-28.789,-36.319, 0.014
+Time =1.3
+Delay=0.000
+Text =
+
+[Flight3.7]
+Pos  =4225.181,61.839, -3014.352
+Angle=-157.637,-4.427, -13.376
+Time =0.6
+Delay=0.000
+Text =
+
+[Flight3.8]
+Pos  =4225.181,61.839, -3014.352
+Angle=173.372,-3.780, -9.427
+Time =0.200
+Delay=0.000
+Text =

@@ -1,0 +1,456 @@
+OBJECT(OBJI 0 0){
+    Propiertes(OIPR 0 1){
+        Comment  :!""
+        Header   :!"C:\NW\ARENA\OBASE\Bullet\bullet.h"
+        CPP      :!"C:\NW\ARENA\OBASE\Bullet\bullet.cpp"
+        Script   :!""
+        Object   :!"Bullet"
+        ExtrenTab :!"Bullet"
+        ExternAttr:!"BulletAttr"
+        IsActiv  :false
+        IsSubject:true
+    }
+    States(STB_ 0 0){
+        (TKEY 0 1){EndOfState }
+        (TKEY 0 1){EndOfStateLink }    }
+    AttrDescrVal(ADV_ 0 1){
+        Val: -87114022
+    }
+
+    AttributeBase(ATRB 0 0){
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_type"
+            DefaultVal :!"0"
+            Comment    :!"тип пули, уникален для каждого вида пули"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_RGB"
+            DefaultVal :!"0x000000FFD050UL"
+            Comment    :!"Упакованное RGB значение [00bbggrr]"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_RGB0"
+            DefaultVal :!"0xFFFFFF"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_moveTimeIncrement"
+            DefaultVal :!"0.02"
+            Comment    :!"Через сколько времени пересчитывать координаты"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_chkClzTimeIncrement"
+            DefaultVal :!"0.1"
+            Comment    :!"Через сколько времени"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_sparkAttr"
+            DefaultVal :!""Spark.Flash""
+            Comment    :!"Тип вспышки при попадании в неживые объекты"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_outSparkAttr"
+            DefaultVal :!""Spark.Flash""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_splashAttr"
+            DefaultVal :!""BulletSplash""
+            Comment    :!"Объект вспышки от попадания в живой объект"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_massa"
+            DefaultVal :!"0.009"
+            Comment    :!"Вес пули"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_startSpeed"
+            DefaultVal :!"40.0"
+            Comment    :!"m/s"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_sparkTable"
+            DefaultVal :!""Spark""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_sparkAttrTable"
+            DefaultVal :!""SparkAttr""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_radius0"
+            DefaultVal :!"0.2"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_radius1"
+            DefaultVal :!"0.6"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_length"
+            DefaultVal :!"6.0"
+            Comment    :!"Длина визуализируемой трассы"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_step0"
+            DefaultVal :!"0.1"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_step"
+            DefaultVal :!"0.08"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_useLight"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_lightRadius"
+            DefaultVal :!"2.0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_lightBrightness"
+            DefaultVal :!"250"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_lightColor"
+            DefaultVal :!"7"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_smokeTableName"
+            DefaultVal :!""Smoke""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_smokeAttrName"
+            DefaultVal :!""Smoke.Attr.Led""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_explAttrName"
+            DefaultVal :!""Expl.Attr.Default""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_trace"
+            DefaultVal :!""trace.spr""
+            Comment    :!"Текстура трассы"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_hasTrace"
+            DefaultVal :!"1"
+            Comment    :!"Есть ли трасса"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_traceMinDist"
+            DefaultVal :!"15.0"
+            Comment    :!"Минимальное расстояние от нас, на котором трасса видна"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_traceWidthString"
+            DefaultVal :!""BEFKLMMLKFEB""
+            Comment    :!"Строка, описывающая ширину. Ширина каждого сегмента равна соответствующей букве - "A""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_traceFlatRatio"
+            DefaultVal :!"0.8"
+            Comment    :!"Коэфициент увеличения жопы трассы"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_traceAllFlatDist"
+            DefaultVal :!"90.0"
+            Comment    :!"Расстояние на котором не происходит проверки на рисование жопы"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_traceAss"
+            DefaultVal :!""smoke.spr""
+            Comment    :!"Текстура для жопы"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_traceSegmentLength"
+            DefaultVal :!"10.0"
+            Comment    :!"Длина сегмента трассы"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_shootSndName"
+            DefaultVal :!""wav.Shoot.Gun2""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_traceExist"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_traceTexture"
+            DefaultVal :!""trace.spr""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_useBarellSmoke"
+            DefaultVal :!"1"
+            Comment    :!"Есть ли дым из дула при выстреле"
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"INT"
+            Name       :!"m_useSkin"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"STRING"
+            Name       :!"m_skinName"
+            DefaultVal :!""""
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_rotSpeedOx"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_rotSpeedOy"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){Attr }
+        Attribute(ATRI 0 1){
+            Type       :!"DOUBLE"
+            Name       :!"m_rotSpeedOz"
+            DefaultVal :!"0"
+            Comment    :!""
+        }
+        (TKEY 0 1){EndOfAttr }
+    }
+
+    AttrClass(AC__ 0 0){
+        (TKEY 0 1){EndOfAttrClass }
+    }
+
+    AttrClassData(ACD_ 0 0){
+        (TKEY 0 1){EndOfAttrClassData }
+    }
+
+
+    EVENT_BASE(EVLS 0 0){
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"b_EVC_MOVING"
+                Header: !"D:\GAME\MESSAGE\bulmsg.h"
+                Comment:!"Сообщение для расчета трассы пули"
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DOUBLE"
+                        Comment:="@@prevTimeStamp
+                        !"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"b_EVC_CHECK_COLLISION"
+                Header: !"D:\GAME\MESSAGE\bulmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    NoChild 
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){Event }
+        EVENT(Evnt 0 0){
+            Event description(ED 0 1){
+                Label:  !"b_EV_START"
+                Header: !"D:\GAME\MESSAGE\bulmsg.h"
+                Comment:!""
+            }
+            (TKEY 0 1){Data: }
+            Data tree(EDT_ 0 0){
+                (TKEY 0 1){EventDataItem }
+                Event data item(EDTI 0 1){
+                    Type:   !"Root"
+                    Comment:!""
+                    Child 
+                }
+                Data tree(EDT_ 0 0){
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DESCEND( VECTOR3D_F, 0 )"
+                        Comment:!"Стартовое положение"
+                        Child 
+                    }
+                    Data tree(EDT_ 0 0){
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@m_position.x"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@m_position.y"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@m_position.z"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EndOfEventDataItem }
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"DESCEND( VECTOR3D_F, 0 )"
+                        Comment:!""
+                        Child 
+                    }
+                    Data tree(EDT_ 0 0){
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@xVec"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@yVec"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EventDataItem }
+                        Event data item(EDTI 0 1){
+                            Type:   !"DOUBLE"
+                            Comment:!"@@zVec"
+                            NoChild 
+                        }
+                        (TKEY 0 1){EndOfEventDataItem }
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"INT"
+                        Comment:!"@@attrIndex"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EventDataItem }
+                    Event data item(EDTI 0 1){
+                        Type:   !"OBJECTID"
+                        Comment:!"@@m_master"
+                        NoChild 
+                    }
+                    (TKEY 0 1){EndOfEventDataItem }
+                }
+                (TKEY 0 1){EndOfEventDataItem }
+            }
+        }
+        (TKEY 0 1){EndOfEvent }
+    }
+}

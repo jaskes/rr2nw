@@ -1,0 +1,17 @@
+*.h
+*.inl
+*.cpp
+*.c
+*.asm
+*.ang
+*.inc
+*.bat
+*.rsp
+*.ngs
+*.lnk
+*.ng
+*.txt
+*.tfs
+*.sgi
+makefile
+makesgi

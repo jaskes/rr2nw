@@ -1,0 +1,6 @@
+!Name: DESIGN Library
+!menu: Topics
+	DebugExt	debugext\debugext.ngo
+	FileSys		filesys\filesys.ngo
+	MathLib		mathlib\mathlib.ngo
+	Lang		lang\lang.ngo

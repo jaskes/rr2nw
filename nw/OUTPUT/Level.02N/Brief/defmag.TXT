@@ -1,0 +1,19 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,2
+
+[Flight1.0]
+Pos  =3108.361,82.979, -2779.729
+Angle=-174.138,-2.493, 0.000
+Time =6.0
+Delay=0.000
+Text =We don't speak with betrayers\nunless they prove they worthness for us\nRemember, you are just a deserter\nuntil you prove otherwice
+
+[Flight1.1]
+Pos  =3108.361,82.979, -2779.729
+Angle=-174.138,-2.493, 0.000
+Time =0.0
+Delay=0.000
+Text =
+

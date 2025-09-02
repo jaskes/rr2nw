@@ -1,0 +1,26 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,3
+
+[Flight1.0]
+Pos  =2867.628,129.800, -3168.016
+Angle=155.467,0.000, 0.000
+Time =41.201
+Delay=0.000
+Text =
+
+[Flight1.1]
+Pos  =3112.904,52.423, -2799.639
+Angle=-179.801,0.000, 0.000
+Time =61.855
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2639.889,51.631, -2815.404
+Angle=168.944,0.000, 0.000
+Time =0.000
+Delay=0.000
+Text =
+

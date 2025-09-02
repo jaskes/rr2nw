@@ -1,0 +1,161 @@
+[Root]
+ActionsNum=2
+RepeatsNum=1
+Action1=PlayFlight,Flight1,NONE,8
+Sound1=wav.Kingdom2
+Action2=PlayFlight,Flight2,NONE,14
+Sound2=same
+
+[Flight1.0]
+Pos  =1932.217,94.458, -2868.725
+Angle=145.659,-0.146, 0.000
+Time =4.0
+Delay=0.000
+Text = Castles, City Walls, Crusaders and\nhanged victims of Holy Inquisition are\ndistinguishing features of this world
+
+[Flight1.1]
+Pos  =1863.594,102.189, -2767.601
+Angle=159.938,-0.141, 6.231
+Time =4.0
+Delay=0.000
+Text = Castles, City Walls, Crusaders and\nhanged victims of Holy Inquisition are\ndistinguishing features of this world
+
+[Flight1.2]
+Pos  =1805.116,102.492, -2610.070
+Angle=160.187,-0.141, 0.000
+Time =4.403
+Delay=0.000
+Text = Castles, City Walls, Crusaders and\nhanged victims of Holy Inquisition are\ndistinguishing features of this world
+
+[Flight1.3]
+Pos  =1835.434,102.111, -2463.815
+Angle=-97.896,-0.031, 0.089
+Time =2.922
+Delay=0.000
+Text = Castles, City Walls, Crusaders and\nhanged victims of Holy Inquisition are\ndistinguishing features of this world
+
+[Flight1.4]
+Pos  =1944.497,70.206, -2462.128
+Angle=-86.056,-0.031, 0.082
+Time =2.254
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =1978.410,64.500, -2461.568
+Angle=-98.911,-0.029, -0.056
+Time =1.0
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =1978.410,64.500, -2461.568
+Angle=-123.945,-0.033, -3.693
+Time =3.718
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =1980.926,64.259, -2458.167
+Angle=-155.727,-0.030, -6.475
+Time =1.003
+Delay=0.000
+Text =
+
+[Flight2.0]
+Pos  =4122.299,113.250, -913.823
+Angle=-12.056,-14.853, 0.000
+Time =1.563
+Delay=0.000
+Text = Who will win in this battle\n of might and magic
+
+[Flight2.1]
+Pos  =4139.978,109.413, -996.600
+Angle=-12.056,-14.853, 0.000
+Time =1.668
+Delay=0.000
+Text = Who will win in this battle\n of might and magic
+
+[Flight2.2]
+Pos  =4185.916,93.171, -1044.832
+Angle=-74.600,-29.653, -0.938
+Time =2.735
+Delay=0.000
+Text = Who will win in this battle\n of might and magic
+
+[Flight2.3]
+Pos  =4202.895,110.287, -1053.222
+Angle=-47.046,-7.758, -0.209
+Time =2.659
+Delay=0.000
+Text = Who will win in this battle\n of might and magic
+
+[Flight2.4]
+Pos  =4207.790,98.252, -1137.046
+Angle=-0.171,-6.212, 15.802
+Time =1.994
+Delay=0.000
+Text = Who will win in this battle\n of might and magic
+
+[Flight2.5]
+Pos  =4202.729,69.990, -1177.107
+Angle=-0.171,-6.212, 0.011
+Time =1.680
+Delay=0.000
+Text =
+
+[Flight2.6]
+Pos  =4200.921,68.283, -1182.960
+Angle=17.373,-15.566, 0.412
+Time =2.397
+Delay=0.000
+Text =
+
+[Flight2.7]
+Pos  =4203.610,62.915, -1230.912
+Angle=-0.516,9.117, 0.946
+Time =2.487
+Delay=0.000
+Text =
+
+[Flight2.8]
+Pos  =4205.658,97.558, -1447.310
+Angle=-0.516,9.117, 0.000
+Time =1.629
+Delay=0.000
+Text =
+
+[Flight2.9]
+Pos  =4207.784,136.634, -1683.381
+Angle=-0.516,6.966, 0.000
+Time =2.930
+Delay=0.000
+Text =
+
+[Flight2.10]
+Pos  =4114.270,185.707, -1818.942
+Angle=42.450,-0.229, -0.535
+Time =1.482
+Delay=0.000
+Text =
+
+[Flight2.11]
+Pos  =4176.235,187.969, -2014.277
+Angle=-41.882,-0.130, -10.346
+Time =1.883
+Delay=0.000
+Text =
+
+[Flight2.12]
+Pos  =4437.112,187.363, -2130.957
+Angle=-84.682,-0.103, -0.256
+Time =4.210
+Delay=0.000
+Text =
+
+[Flight2.13]
+Pos  =4580.438,186.233, -2127.948
+Angle=-105.472,-55.901, 2.340
+Time =0.3
+Delay=0.000
+Text =

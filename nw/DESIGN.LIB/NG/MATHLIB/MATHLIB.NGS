@@ -1,0 +1,32 @@
+!short: SVector2 и CVector2
+!file: mathlib\vector2.ngo
+
+!short: SRect2 и CRect2
+!file: mathlib\rect2.ngo
+
+!short: SFVector2 и CFVector2
+!file: mathlib\fvector2.ngo
+
+!short: SFVector3 и CFVector3
+!file: mathlib\fvector3.ngo
+
+!short: SFRect2 и CFRect2
+!file: mathlib\frect2.ngo
+
+!short: CFMatrix3x4
+!file: mathlib\matrix34.ngo
+
+!short: Max and Min functions
+    MATHLIB.H опpеделяет следующие функции:
+
+	int    Max(int a,int b);
+	long   Max(long a,long b);
+	uint   Max(uint a,uint b);
+	ulong  Max(ulong a,ulong b);
+	double Max(double a,double b);
+
+	int    Min(int a,int b);
+	long   Min(long a,long b);
+	uint   Min(uint a,uint b);
+	ulong  Min(ulong a,ulong b);
+	double Min(double a,double b);

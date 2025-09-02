@@ -1,0 +1,164 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,22
+Sound1=wav.Kingdom,0,0
+
+[Flight1.0]
+Pos  =2640.527,59.982, -2798.738
+Angle=-178.497,-9.989, 0.629
+Time =2.187
+Delay=0.000
+Text =Ride your live tank,\nYou have an order to take over\na town of Veto Fort
+TextDelay=20
+
+[Flight1.1]
+Pos  =2653.811,60.401, -2801.805
+Angle=-165.983,-9.771, 11.551
+Time =1.539
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2659.369,58.809, -2793.029
+Angle=-163.356,-9.759, 3.013
+Time =3.419
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2647.835,73.651, -2718.853
+Angle=160.911,-8.365, -2.397
+Time =1.919
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2620.959,96.500, -2662.127
+Angle=161.324,-19.511, -1.677
+Time =1.744
+Delay=0.000
+Text =Note, that Veto Fort is heavily defended
+TextDelay=20
+
+[Flight1.5]
+Pos  =2598.404,108.838, -2597.147
+Angle=161.324,-19.511, -0.017
+Time =1.730
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2589.080,93.255, -2522.681
+Angle=-135.979,-12.544, 13.156
+Time =2.472
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2638.342,103.016, -2484.399
+Angle=-102.465,-13.181, -7.775
+Time =2.638
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2748.015,102.149, -2464.406
+Angle=-92.678,-21.196, 0.017
+Time =2.362
+Delay=0.000
+Text =You must destroy all the guard\nof Veto Fort to achieve the victory
+TextDelay=20
+
+[Flight1.9]
+Pos  =2849.445,106.704, -2462.324
+Angle=-84.679,-10.045, 1.370
+Time =1.799
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2972.139,158.630, -2473.126
+Angle=-84.685,-25.754, 0.012
+Time =1.799
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =3084.890,141.958, -2475.764
+Angle=-91.476,-12.759, -0.159
+Time =1.551
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =3180.917,132.382, -2473.268
+Angle=-91.476,-12.745, 0.003
+Time =1.492
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =3271.337,126.379, -2470.941
+Angle=-91.476,-12.745, 0.000
+Time =3.136
+Delay=0.000
+Text =It is defended by\nhelicopters and heavy artillery
+TextDelay=20
+
+[Flight1.14]
+Pos  =3436.724,116.542, -2466.679
+Angle=-91.476,-2.937, 0.000
+Time =1.758
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =3558.564,129.495, -2463.539
+Angle=-91.476,-3.425, 0.000
+Time =1.813
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =3688.981,135.314, -2460.178
+Angle=-91.476,-3.425, 0.000
+Time =1.579
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =3741.321,133.866, -2455.171
+Angle=-120.936,-3.015, -11.192
+Time =1.895
+Delay=0.000
+Text =Here is Veto Fort,\nuse your map to find a way
+TextDelay=20
+
+[Flight1.18]
+Pos  =3773.138,131.982, -2438.892
+Angle=-133.755,-3.399, -2.610
+Time =3.631
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =3814.960,132.196, -2494.851
+Angle=-150.084,-3.048, -0.737
+Time =5.617
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =3888.493,131.561, -2524.022
+Angle=175.061,-2.528, -2.807
+Time =8.625
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =3952.796,128.457, -2479.822
+Angle=159.514,-14.579, 0.033
+Time =3.241
+Delay=0.000
+Text =

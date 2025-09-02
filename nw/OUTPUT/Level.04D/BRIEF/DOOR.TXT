@@ -1,0 +1,9 @@
+[Root]
+ActionsNum=1
+Action1=PlayFlic,Flic1
+Sound1=Doorsqueak,0,0
+
+[Flic1]
+Name =FLIC/door_lo.flc
+Text =
+Delay=1.0

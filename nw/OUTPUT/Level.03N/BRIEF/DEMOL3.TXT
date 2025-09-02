@@ -1,0 +1,246 @@
+[Root]
+ActionsNum=2
+RepeatsNum=1
+Action1=PlayFlight,Flight1,NONE,21
+Sound1=wav.pwar
+Action2=PlayFlight,Flight2,NONE,13
+Sound2=same
+
+[Flight1.0]
+Pos  =1934.564,145.467, -4253.390
+Angle=68.878,-15.796, 0.000
+Time =3.1
+Delay=0.000
+Text =This level shows
+
+[Flight1.1]
+Pos  =1739.214,171.764, -4226.550
+Angle=123.680,-0.803, 0.594
+Time =1.05
+Delay=0.000
+Text =This level shows
+
+[Flight1.2]
+Pos  =1684.858,164.470, -4190.691
+Angle=123.670,-23.105, 0.002
+Time =3.1
+Delay=0.000
+Text =This level shows
+
+[Flight1.3]
+Pos  =1554.980,204.115, -4044.095
+Angle=168.010,-3.912, 0.189
+Time =2.0
+Delay=0.000
+Text =What could happen to our beloved planet
+
+[Flight1.4]
+Pos  =1585.453,148.161, -3784.626
+Angle=-160.227,-20.042, 0.017
+Time =1.3
+Delay=0.000
+Text =What could happen to our beloved planet
+
+
+[Flight1.5]
+Pos  =763.209,160.160, -2969.133
+Angle=-137.443,-17.386, 0.026
+Time =5.0
+Delay=0.000
+Text =What could happen to our beloved planet
+
+[Flight1.6]
+Pos  =936.975,142.494, -2706.343
+Angle=-155.445,-5.706, -0.050
+Time =0.4
+Delay=0.000
+Text =What could happen to our beloved planet
+
+[Flight1.7]
+Pos  =962.278,137.833, -2666.973
+Angle=-105.669,-4.027, 13.503
+Time =1.7
+Delay=0.000
+Text =If World War III came true...
+
+[Flight1.8]
+Pos  =1170.592,145.696, -2629.526
+Angle=-80.916,-3.764, 1.355
+Time =1.4
+Delay=0.000
+Text =If World War III came true...
+
+[Flight1.9]
+Pos  =1363.969,98.534, -2659.683
+Angle=-80.916,-3.764, 0.000
+Time =3.0
+Delay=0.000
+Text =If World War III came true...
+
+[Flight1.10]
+Pos  =1670.847,181.886, -2617.795
+Angle=-111.121,-3.088, -0.667
+Time =1.2
+Delay=0.000
+Text =If World War III came true...
+
+[Flight1.11]
+Pos  =1846.034,197.678, -2587.052
+Angle=-133.313,-2.430, -11.875
+Time =0.7
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =1937.024,163.822, -2509.430
+Angle=-132.708,-22.410, -0.197
+Time =2.0
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =1989.449,112.604, -2463.633
+Angle=-92.667,-28.520, -0.332
+Time =2.7
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2007.713,99.227, -2458.129
+Angle=14.160,-11.974, 22.114
+Time =0.2
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2003.332,99.473, -2457.084
+Angle=14.160,-11.974, 10.354
+Time =2.0
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2005.164,94.490, -2540.683
+Angle=9.588,-3.371, 4.415
+Time =1.7
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =2024.214,98.029, -2686.461
+Angle=2.253,-3.346, -17.983
+Time =2.1
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =2030.455,91.685, -2867.398
+Angle=7.686,-3.243, -1.586
+Time =1.5
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =2020.430,99.294, -2979.742
+Angle=2.946,-3.232, -0.643
+Time =2.8
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =1979.212,119.705, -3326.978
+Angle=2.452,-3.117, -0.951
+Time =0.3
+Delay=0.000
+Text =
+
+
+[Flight2.0]
+Pos  =3563.649,99.501, -1983.758
+Angle=124.338,0.297, 0.000
+Time =2.8
+Delay=0.000
+Text =
+
+[Flight2.1]
+Pos  =3464.517,100.048, -1940.008
+Angle=120.310,0.283, 0.165
+Time =0.9
+Delay=0.000
+Text =
+
+[Flight2.2]
+Pos  =3428.329,100.259, -1917.391
+Angle=130.219,0.279, 4.259
+Time =0.6
+Delay=0.000
+Text =
+
+[Flight2.3]
+Pos  =3410.236,100.380, -1900.444
+Angle=157.338,0.250, 14.668
+Time =1.1
+Delay=0.000
+Text =
+
+[Flight2.4]
+Pos  =3405.100,100.584, -1852.547
+Angle=177.878,0.169, -9.890
+Time =1.7
+Delay=0.000
+Text =
+
+[Flight2.5]
+Pos  =3404.018,100.681, -1820.613
+Angle=157.401,0.155, -9.290
+Time =1.0
+Delay=0.000
+Text =
+
+[Flight2.6]
+Pos  =3385.965,100.808, -1777.708
+Angle=151.705,0.154, -1.451
+Time =0.7
+Delay=0.000
+Text =
+
+[Flight2.7]
+Pos  =3371.452,105.703, -1747.398
+Angle=-178.867,0.136, 11.248
+Time =0.6
+Delay=0.000
+Text =
+
+[Flight2.8]
+Pos  =3362.191,106.555, -1722.811
+Angle=-178.657,0.135, -7.975
+Time =0.8
+Delay=0.000
+Text =
+
+[Flight2.9]
+Pos  =3361.094,108.598, -1688.461
+Angle=175.102,0.132, -2.482
+Time =1.7
+Delay=0.000
+Text =
+
+[Flight2.10]
+Pos  =3359.643,113.934, -1624.723
+Angle=177.070,0.126, -4.677
+Time =0.7
+Delay=0.000
+Text =
+
+[Flight2.11]
+Pos  =3359.053,114.007, -1591.689
+Angle=176.592,0.126, -0.205
+Time =0.7
+Delay=0.000
+Text =
+
+[Flight2.12]
+Pos  =3358.577,114.067, -1563.885
+Angle=-176.299,0.125, 1.038
+Time =1.0
+Delay=0.000

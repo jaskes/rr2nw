@@ -1,0 +1,99 @@
+Mission	: brg00
+Comander: Actek
+Text	:
+Accompany a tank from recrut center to Pyramid.
+You have a 4 enemy.
+Рус:	Сопроводите танк от рекрут центра до Пирамиды.
+	У вас 4 врага.
+
+Mission	: brg01
+Comander: Colony
+Text	:
+You must capture the Actek Temple.
+You have a 3 enemy.
+Рус:	Вы должны захватить Ацтекский храм.
+        (Храм охраняется тремя танками).
+
+Mission	: brg02
+Comander: Colony
+Text	:
+You must defense Edem.
+You have a 3 enemy.
+Рус: Помогите колонистам защитить город Edem от атакующих Ацтеков.
+
+Mission	: brg03
+Comander: Colony
+Text	:
+You must kill the Actek messenger.
+He is moving from technical center to Actek Temple.
+Рус: Вы должны убить посланника Ацтеков,
+следующего из техцентра в Храм.
+
+Mission	: brg04
+Comander: Colony
+Text	:
+You must capture technical center by Actek.
+You have a 4 enemy.
+Рус: Вам необходимо захватить техцентр Ацтеков.
+(Он охраняется четырьмя танками.)
+
+Mission	: brg05
+Comander: Colony
+Text	:
+You must kill 2 groups of enemy tanks.
+You have a 6 enemy.
+Рус: Вы должны уничтожить 2-е группировки вражеских танков в приграничном районе.
+Против вас - 6 танков.
+
+Mission	: brg06
+Comander: Colony
+Text	:
+You must deliver a tank from Karatcupa to Border.
+You have a 3 enemy.
+Рус: Вам нужно доставить танк из Karatcupa в Border.
+Вас ждут в засадах 3 ввражеских танка.
+
+Mission	: brg07
+Comander: Colony
+Text	:
+You must finish the spy.
+He is moving by a our tank from Matador to Templ.
+Рус: Прикончите шпиона!
+Он едет из города Matador в город Templ.
+
+Mission	: brg08
+Comander: Colony
+Text	:
+You must kill two security-tanks.
+Рус: Вы должны убрать 2 танка, захвативших мост.
+
+Mission	: brg09
+Comander: Colony
+Text	:
+You must drive the enemy helicopter.
+???
+Рус: Вам необходимо угнать вражеский вертокрыл,
+после чего вам надо вернуться на нём в рекрут центр.
+
+Mission	: brg10
+Comander: Colony
+Text	:
+You must destroy enemy dirizables under Edem city.
+Рус: Вы должны уничтожить вражеские дирижабли, атакующие Edem.
+
+Mission	: brg11
+Comander: Colony
+Text	:
+You must destroy 15 empty steper (шагaющих) tanks near Zorr.
+Рус: Разруште армаду ацтекских пустых шагоходов,
+расположившихся вблизи города Zorr.
+
+Mission	: brg12
+Comander: Colony
+Text	:
+You must help capture the enemy Pyramid:
+you must kill 4 dirizables.
+Our tanks must be living.
+Рус: помогите нашим танкам захватить Прирамиду:
+уничтожьте 4 дирижабеля над ней так, чтобы
+наши танки остались живы.

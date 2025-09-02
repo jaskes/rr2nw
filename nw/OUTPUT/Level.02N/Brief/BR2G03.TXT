@@ -1,0 +1,251 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,35
+Sound1=wav.Magician,0,0
+
+[Flight1.0]
+Pos  =3128.504,75.599, -2802.725
+Angle=149.264,-16.461, -0.325
+Time =2.094
+Delay=0.000
+Text =We have a job for you.
+
+[Flight1.1]
+Pos  =3140.967,78.717, -2806.357
+Angle=140.906,-16.302, 14.332
+Time =3.497
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =3149.761,80.330, -2804.853
+Angle=117.579,-15.756, -0.148
+Time =1.642
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =3166.163,86.347, -2819.557
+Angle=117.579,-15.756, -5.785
+Time =2.283
+Delay=0.000
+Text =Take a helicopter \nand follow this way behind our dark creaturies.
+
+[Flight1.4]
+Pos  =3171.513,88.339, -2824.559
+Angle=102.215,-4.235, -7.058
+Time =1.833
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =3135.238,84.720, -2821.106
+Angle=77.789,-5.392, -15.293
+Time =1.041
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =3115.592,83.488, -2823.078
+Angle=44.999,9.187, -24.605
+Time =1.142
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =3102.490,85.675, -2830.871
+Angle=39.255,14.930, -0.222
+Time =1.512
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =3069.314,97.857, -2866.566
+Angle=50.699,6.721, 4.512
+Time =0.972
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =3052.498,101.438, -2881.188
+Angle=60.791,6.570, 11.562
+Time =1.241
+Delay=0.000
+Text =You must annihilate kingdom\n trade flotilla.
+
+[Flight1.10]
+Pos  =2992.919,109.490, -2915.295
+Angle=64.281,3.699, 5.385
+Time =1.493
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2942.092,113.640, -2928.232
+Angle=70.411,0.468, 8.860
+Time =1.642
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2899.873,136.617, -2939.660
+Angle=94.400,0.404, 16.852
+Time =1.943
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2802.306,132.067, -2910.625
+Angle=115.161,-6.348, 0.644
+Time =1.091
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2762.629,127.481, -2895.764
+Angle=115.393,-6.331, 2.257
+Time =1.552
+Delay=0.000
+Text =We find out that a many kings ships\n prepare for journey from Flying Dutchman
+
+[Flight1.15]
+Pos  =2697.421,131.785, -2870.051
+Angle=108.285,10.446, -3.163
+Time =2.083
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2609.212,144.204, -2846.061
+Angle=85.525,-2.848, -12.741
+Time =1.603
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =2520.245,140.424, -2855.792
+Angle=72.934,-2.815, -9.284
+Time =1.842
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =2392.167,133.679, -2908.991
+Angle=61.826,-2.759, -4.363
+Time =1.002
+Delay=0.000
+Text =Be care there are some defenders\nboth in shore and in water.
+
+[Flight1.19]
+Pos  =2327.122,130.173, -2941.266
+Angle=70.538,-2.735, 3.524
+Time =1.282
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =2256.721,126.570, -2967.763
+Angle=70.566,-2.735, 0.218
+Time =1.221
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =2178.105,122.627, -2992.984
+Angle=74.378,-2.729, 1.950
+Time =1.112
+Delay=0.000
+Text =
+
+[Flight1.22]
+Pos  =2119.584,119.641, -3015.909
+Angle=63.523,-2.687, -2.980
+Time =1.432
+Delay=0.000
+Text =
+
+[Flight1.23]
+Pos  =2060.269,135.347, -3044.545
+Angle=63.523,-3.886, -0.096
+Time =2.043
+Delay=0.000
+Text =
+
+[Flight1.24]
+Pos  =1996.883,139.874, -3062.586
+Angle=55.121,-5.747, 20.821
+Time =2.043
+Delay=0.000
+Text =
+
+[Flight1.25]
+Pos  =1925.854,134.070, -3061.911
+Angle=63.262,-5.694, 18.601
+Time =2.562
+Delay=0.000
+Text =
+
+[Flight1.26]
+Pos  =1820.817,112.610, -3035.810
+Angle=28.267,-0.500, -8.539
+Time =2.488
+Delay=0.000
+Text =
+
+[Flight1.27]
+Pos  =1770.632,114.470, -3045.869
+Angle=23.460,-8.757, -4.770
+Time =2.142
+Delay=0.000
+Text =
+
+[Flight1.28]
+Pos  =1666.368,99.151, -3125.682
+Angle=-35.462,-8.651, -1.393
+Time =2.442
+Delay=0.000
+Text =
+
+[Flight1.29]
+Pos  =1560.470,116.852, -3151.663
+Angle=-39.501,-7.258, -10.203
+Time =2.143
+Delay=0.000
+Text =
+
+[Flight1.30]
+Pos  =1507.940,116.360, -3216.792
+Angle=-70.008,-9.175, 0.414
+Time =2.918
+Delay=0.000
+Text =
+
+[Flight1.31]
+Pos  =1545.554,112.373, -3367.711
+Angle=-121.356,-10.288, -2.683
+Time =2.988
+Delay=0.000
+Text =
+
+[Flight1.32]
+Pos  =1690.943,121.349, -3356.162
+Angle=-171.404,-29.036, -5.125
+Time =2.897
+Delay=0.000
+Text =
+
+[Flight1.33]
+Pos  =1764.596,155.691, -3426.885
+Angle=155.703,-26.140, -0.002
+Time =3.625
+Delay=0.000
+Text =
+
+[Flight1.34]
+Pos  =1782.955,191.180, -3507.020
+Angle=176.852,-24.812, -0.048
+Time =0.921
+Delay=0.000
+Text =
+

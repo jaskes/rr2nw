@@ -1,0 +1,202 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,28
+Sound1=wav.Kingdom,0,0
+
+[Flight1.0]
+Pos  =2656.428,70.962, -2804.498
+Angle=139.525,-13.473, 0.000
+Time =1.643
+Delay=0.000
+Text =We have a job for you.
+
+[Flight1.1]
+Pos  =2660.610,72.505, -2809.399
+Angle=139.525,-13.473, 0.000
+Time =2.253
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2676.796,78.200, -2826.823
+Angle=131.136,-13.378, -4.582
+Time =3.024
+Delay=0.000
+Text =
+
+[Flight1.3]
+Pos  =2685.261,81.005, -2835.981
+Angle=109.533,-19.175, -2.933
+Time =2.194
+Delay=0.000
+Text =Take this dragon and\ngo in to Flying Dutchman.
+
+[Flight1.4]
+Pos  =2672.953,77.594, -2832.767
+Angle=92.569,-6.580, -4.747
+Time =2.974
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2639.305,74.723, -2826.387
+Angle=113.718,-11.455, 2.987
+Time =1.172
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2630.064,73.259, -2822.544
+Angle=100.041,1.419, -9.746
+Time =1.012
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2621.540,73.469, -2820.760
+Angle=84.825,17.099, -14.711
+Time =0.921
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2600.557,79.836, -2823.679
+Angle=74.239,20.570, -13.501
+Time =1.071
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2556.649,96.132, -2837.929
+Angle=60.401,10.972, -16.755
+Time =2.244
+Delay=0.000
+Text =This is shortest way.
+
+[Flight1.10]
+Pos  =2445.035,133.243, -2910.341
+Angle=59.212,13.584, 5.418
+Time =1.942
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2304.625,167.355, -2995.201
+Angle=63.175,-5.309, 4.911
+Time =2.083
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2201.639,136.588, -3045.889
+Angle=70.128,9.095, -0.013
+Time =1.773
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2083.863,148.958, -3085.038
+Angle=66.169,-1.005, -2.086
+Time =2.554
+Delay=0.000
+Text =Our king decide to send this\nship caravan to Benoon. 
+
+[Flight1.14]
+Pos  =1947.975,142.866, -3149.157
+Angle=49.063,-30.037, -3.483
+Time =2.684
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =1651.175,122.795, -3122.063
+Angle=-19.459,-17.015, 2.560
+Time =2.325
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =1563.720,119.858, -3239.195
+Angle=-63.836,-17.796, 0.412
+Time =2.727
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =1626.017,95.379, -3374.431
+Angle=-140.508,-9.716, 0.072
+Time =2.645
+Delay=0.000
+Text =You must protect it along it way\nfrom the mean magician creaturies.
+
+[Flight1.18]
+Pos  =1676.698,85.304, -3382.337
+Angle=-123.330,-1.790, 10.660
+Time =2.894
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =1742.761,90.278, -3360.024
+Angle=-93.559,6.993, 7.606
+Time =1.603
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =1840.829,102.265, -3359.197
+Angle=-84.886,6.908, 4.577
+Time =2.103
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =2007.737,122.789, -3392.902
+Angle=-70.418,6.749, 4.349
+Time =2.203
+Delay=0.000
+Text =Our ships will follow along\nthe river on the East. 
+
+[Flight1.22]
+Pos  =2169.328,134.240, -3414.564
+Angle=-97.890,-3.623, -9.650
+Time =2.638
+Delay=0.000
+Text =
+
+[Flight1.23]
+Pos  =2207.840,128.162, -3341.264
+Angle=-178.645,0.075, 24.881
+Time =1.582
+Delay=0.000
+Text =
+
+[Flight1.24]
+Pos  =2191.169,128.240, -3301.193
+Angle=99.107,0.048, -26.282
+Time =2.275
+Delay=0.000
+Text =You have to cross magician territory\n and must be care because they are\nvery artful.
+
+[Flight1.25]
+Pos  =2099.428,127.193, -3306.309
+Angle=79.127,-4.928, 0.269
+Time =2.035
+Delay=0.000
+Text =
+
+[Flight1.26]
+Pos  =1990.114,117.844, -3327.400
+Angle=82.884,-4.918, 4.663
+Time =3.070
+Delay=0.000
+Text =
+
+[Flight1.27]
+Pos  =1968.584,117.442, -3385.593
+Angle=127.576,-5.313, 0.104
+Time =0.000
+Delay=0.000
+Text =57
+

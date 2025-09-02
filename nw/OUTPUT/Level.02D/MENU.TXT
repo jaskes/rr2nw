@@ -1,0 +1,10 @@
+'Point0' IS [100, 100], Size [48, 8].
+'Point1' IS [100, 109], Size [48, 8].
+'Point2' IS [100, 118], Size [48, 8].
+'Point3' IS [100, 127], Size [48, 8].
+'Point4' IS [100, 136], Size [48, 8].
+'Point5' IS [100, 145], Size [48, 8].
+'Point6' IS [100, 154], Size [48, 8].
+'Point7' IS [100, 163], Size [48, 8].
+'Point8' IS [100, 172], Size [48, 8].
+'Exit' IS [100, 181], Size [32, 8].

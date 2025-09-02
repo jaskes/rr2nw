@@ -1,0 +1,339 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CINEMA,47
+Sound1=wav.Kingdom,0,0
+
+[Flight1.0]
+Pos  =2640.789,59.452, -2799.305
+Angle=178.225,-17.479, 0.333
+Time =2.349
+Delay=0.000
+Text =Magicians have hidden a beautiful stone in City of Tears
+TextDelay=20
+
+[Flight1.1]
+Pos  =2656.122,59.808, -2799.983
+Angle=178.225,-17.479, 7.570
+Time =1.525
+Delay=0.000
+Text =
+
+[Flight1.2]
+Pos  =2658.295,57.753, -2793.392
+Angle=-158.528,-16.159, 3.135
+Time =3.845
+Delay=1.000
+Text =
+
+[Flight1.3]
+Pos  =2658.773,69.017, -2756.483
+Angle=170.813,11.346, -10.628
+Time =3.011
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2648.753,73.560, -2708.288
+Angle=152.011,6.321, -9.239
+Time =1.209
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2634.836,76.673, -2681.058
+Angle=152.191,-4.657, -0.647
+Time =1.744
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2613.383,80.933, -2640.344
+Angle=152.192,-4.837, -0.005
+Time =1.606
+Delay=0.000
+Text =Go there and take it!
+TextDelay=20
+
+[Flight1.7]
+Pos  =2597.531,86.852, -2609.950
+Angle=165.365,-4.711, 4.216
+Time =1.607
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2590.061,92.666, -2580.142
+Angle=-176.307,-4.458, 11.360
+Time =1.415
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2602.106,91.570, -2556.030
+Angle=-160.394,-4.270, 22.331
+Time =1.415
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2613.170,89.679, -2531.795
+Angle=-135.636,-3.836, 14.170
+Time =1.530
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2651.061,85.987, -2492.678
+Angle=-116.918,-3.580, 9.907
+Time =1.806
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2692.701,101.516, -2474.868
+Angle=-101.961,-7.604, 11.999
+Time =1.841
+Delay=0.000
+Text =We do not need witnesses, so\neveryone defending the stone must\nalso kiss goodbye to their worhtless lives
+TextDelay=20
+
+[Flight1.13]
+Pos  =2730.898,100.840, -2466.918
+Angle=-98.643,-7.619, 1.409
+Time =1.085
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =2783.850,95.735, -2458.787
+Angle=-95.960,-7.610, 3.558
+Time =1.730
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =2834.873,102.591, -2462.661
+Angle=-95.828,-7.610, 3.400
+Time =1.936
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =2896.049,103.372, -2459.592
+Angle=-89.313,-7.579, 4.336
+Time =1.635
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =2951.086,108.034, -2459.620
+Angle=-89.264,-7.579, 0.100
+Time =1.689
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =3017.538,111.285, -2460.447
+Angle=-89.264,-7.579, 0.001
+Time =1.703
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =3103.367,92.651, -2461.629
+Angle=-85.465,-17.064, 3.729
+Time =1.415
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =3160.414,97.402, -2464.928
+Angle=-85.384,-17.800, 0.150
+Time =1.483
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =3210.421,101.549, -2464.715
+Angle=-88.310,-17.779, -3.546
+Time =1.373
+Delay=0.000
+Text =
+
+[Flight1.22]
+Pos  =3255.521,104.650, -2465.406
+Angle=-88.314,-17.779, -0.112
+Time =1.497
+Delay=0.000
+Text =
+
+[Flight1.23]
+Pos  =3306.332,110.581, -2466.874
+Angle=-88.314,-17.779, -0.001
+Time =1.514
+Delay=0.000
+Text =
+
+[Flight1.24]
+Pos  =3358.212,107.114, -2468.401
+Angle=-88.314,-22.511, 0.000
+Time =1.535
+Delay=0.000
+Text =
+
+[Flight1.25]
+Pos  =3415.455,113.399, -2470.086
+Angle=-88.314,-22.511, 0.000
+Time =1.826
+Delay=0.000
+Text =You are accomponied by our most experienced\nsaboteour, he can be your guide on the way\nto City of Tears
+TextDelay=20
+
+[Flight1.26]
+Pos  =3481.240,118.234, -2472.023
+Angle=-88.314,-22.511, 0.000
+Time =1.676
+Delay=0.000
+Text =
+
+[Flight1.27]
+Pos  =3540.961,124.250, -2473.781
+Angle=-88.314,-23.585, 0.000
+Time =1.827
+Delay=0.000
+Text =
+
+[Flight1.28]
+Pos  =3607.246,117.435, -2475.732
+Angle=-88.314,-28.600, 0.000
+Time =1.524
+Delay=0.000
+Text =
+
+[Flight1.29]
+Pos  =3666.255,120.911, -2477.469
+Angle=-88.314,-28.600, 0.000
+Time =1.689
+Delay=0.000
+Text =
+
+[Flight1.30]
+Pos  =3727.205,123.644, -2479.263
+Angle=-88.314,-29.181, 0.000
+Time =1.813
+Delay=0.000
+Text =
+
+[Flight1.31]
+Pos  =3793.119,124.830, -2481.203
+Angle=-88.314,-29.181, 0.000
+Time =1.895
+Delay=0.000
+Text =
+
+[Flight1.32]
+Pos  =3860.705,120.697, -2483.193
+Angle=-88.314,-33.913, 0.000
+Time =1.552
+Delay=0.000
+Text =
+
+[Flight1.33]
+Pos  =3908.604,103.340, -2484.111
+Angle=-93.415,-14.689, -3.331
+Time =1.456
+Delay=0.000
+Text =
+
+[Flight1.34]
+Pos  =3954.567,102.155, -2481.858
+Angle=-93.423,-14.688, -0.089
+Time =1.442
+Delay=0.000
+Text =
+
+[Flight1.35]
+Pos  =4002.182,101.803, -2479.046
+Angle=-93.423,-14.688, -0.001
+Time =1.524
+Delay=0.000
+Text =
+
+[Flight1.36]
+Pos  =4053.085,111.181, -2476.003
+Angle=-93.423,-14.688, 0.000
+Time =1.099
+Delay=0.000
+Text =
+
+[Flight1.37]
+Pos  =4090.121,111.930, -2473.788
+Angle=-93.423,-14.688, 0.000
+Time =1.167
+Delay=0.000
+Text =
+
+[Flight1.38]
+Pos  =4128.438,109.644, -2471.496
+Angle=-93.423,-14.688, 0.000
+Time =1.621
+Delay=0.000
+Text =
+
+[Flight1.39]
+Pos  =4178.462,109.154, -2468.505
+Angle=-93.423,-14.688, 0.000
+Time =1.854
+Delay=0.000
+Text =This is City of Tears, remember the way\nDo not forget - you always can use a map to find a road
+TextDelay=20
+
+[Flight1.40]
+Pos  =4236.699,108.582, -2465.021
+Angle=-93.423,-14.688, 0.000
+Time =2.733
+Delay=0.000
+Text =
+
+[Flight1.41]
+Pos  =4361.120,140.313, -2459.784
+Angle=-71.812,-13.722, 3.298
+Time =2.156
+Delay=0.000
+Text =
+
+[Flight1.42]
+Pos  =4426.419,136.354, -2478.618
+Angle=-60.039,-13.435, 7.599
+Time =4.116
+Delay=0.000
+Text =
+
+[Flight1.43]
+Pos  =4485.702,138.009, -2510.903
+Angle=-53.887,-13.352, 4.940
+Time =3.455
+Delay=0.000
+Text =
+
+[Flight1.44]
+Pos  =4524.377,133.503, -2537.981
+Angle=-53.831,-13.351, 0.141
+Time =3.103
+Delay=0.000
+Text =
+
+[Flight1.45]
+Pos  =4565.686,128.607, -2541.811
+Angle=-9.316,-9.807, -3.011
+Time =17.788
+Delay=0.000
+Text =
+
+[Flight1.46]
+Pos  =4660.202,156.817, -2497.849
+Angle=18.083,-13.381, 0.000
+Time =0.000
+Delay=0.000
+Text =

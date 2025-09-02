@@ -1,0 +1,319 @@
+[Root]
+ActionsNum=1
+RepeatsNum=1
+Action1=PlayFlight,Flight1,CRYSTAL,45
+
+[Flight1.0]
+Pos  =2370.694,65.752, -2596.778
+Angle=-12.382,-7.914, 0.000
+Time =5.433
+Delay=0.000
+Text =
+
+[Flight1.1]
+Pos  =2365.641,72.991, -2573.759
+Angle=-26.972,-22.997, 2.272
+Time =5.301
+Delay=8.000
+Text = You must destroy the guard, drive away the airplane\n and protect Astokchetlan from the enemy's attack
+
+[Flight1.2]
+Pos  =2361.104,80.790, -2555.224
+Angle=-41.954,-26.805, 0.596
+Time =2.348
+Delay=2.000
+Text = Take this tank
+
+[Flight1.3]
+Pos  =2361.701,80.819, -2555.453
+Angle=-69.467,2.072, -0.822
+Time =4.587
+Delay=0.000
+Text =
+
+[Flight1.4]
+Pos  =2401.956,83.244, -2598.015
+Angle=-15.898,1.566, 0.545
+Time =1.483
+Delay=0.000
+Text =
+
+[Flight1.5]
+Pos  =2427.137,81.545, -2686.173
+Angle=-15.580,6.309, 0.018
+Time =2.610
+Delay=0.000
+Text =
+
+[Flight1.6]
+Pos  =2435.100,84.580, -2781.676
+Angle=4.446,-3.267, -0.181
+Time =1.030
+Delay=0.000
+Text =
+
+[Flight1.7]
+Pos  =2429.649,80.904, -2851.973
+Angle=4.098,-0.837, 0.021
+Time =2.115
+Delay=0.000
+Text =
+
+[Flight1.8]
+Pos  =2435.464,87.300, -2929.803
+Angle=-35.568,-0.614, 5.337
+Time =2.444
+Delay=0.000
+Text =
+
+[Flight1.9]
+Pos  =2515.334,107.962, -3027.594
+Angle=-72.330,-0.527, -6.980
+Time =1.030
+Delay=0.000
+Text =
+
+[Flight1.10]
+Pos  =2581.769,108.477, -3046.401
+Angle=-78.519,-0.508, -0.225
+Time =0.920
+Delay=0.000
+Text =
+
+[Flight1.11]
+Pos  =2679.771,107.686, -3066.797
+Angle=-78.752,-0.507, -0.004
+Time =0.879
+Delay=0.000
+Text =
+
+[Flight1.12]
+Pos  =2738.107,107.169, -3078.685
+Angle=-69.075,-0.501, 9.276
+Time =1.882
+Delay=0.000
+Text =
+
+[Flight1.13]
+Pos  =2876.864,105.847, -3146.724
+Angle=-85.788,-0.453, -4.297
+Time =1.648
+Delay=0.000
+Text =
+
+[Flight1.14]
+Pos  =3008.120,104.823, -3140.257
+Angle=-98.811,-0.433, -0.546
+Time =1.909
+Delay=0.000
+Text =
+
+[Flight1.15]
+Pos  =3134.314,103.862, -3127.813
+Angle=-72.062,-0.399, 2.571
+Time =1.921
+Delay=0.000
+Text =
+
+[Flight1.16]
+Pos  =3233.810,103.132, -3160.986
+Angle=-81.005,-0.389, -3.663
+Time =1.334
+Delay=0.000
+Text =
+
+[Flight1.17]
+Pos  =3351.990,102.326, -3175.593
+Angle=-84.841,-0.385, -0.038
+Time =3.585
+Delay=0.000
+Text =
+
+[Flight1.18]
+Pos  =3470.519,166.890, -3186.541
+Angle=-84.892,-0.385, 0.000
+Time =2.389
+Delay=0.000
+Text =
+
+[Flight1.19]
+Pos  =3490.809,168.628, -3142.383
+Angle=-84.892,-0.385, -26.588
+Time =5.069
+Delay=0.000
+Text =
+
+[Flight1.20]
+Pos  =3521.158,168.466, -3085.680
+Angle=-65.144,-0.363, 18.108
+Time =3.007
+Delay=0.000
+Text =
+
+[Flight1.21]
+Pos  =3579.253,168.298, -3058.969
+Angle=-42.105,-0.304, -19.562
+Time =3.812
+Delay=0.000
+Text =
+
+[Flight1.22]
+Pos  =3652.129,168.115, -3067.786
+Angle=-8.458,-0.263, -7.111
+Time =8.543
+Delay=0.000
+Text =
+
+[Flight1.23]
+Pos  =3776.298,168.095, -3103.539
+Angle=37.819,-0.109, -0.128
+Time =3.117
+Delay=0.000
+Text =
+
+[Flight1.24]
+Pos  =3806.918,168.102, -3122.210
+Angle=49.675,-0.107, 14.327
+Time =8.048
+Delay=0.000
+Text =
+
+[Flight1.25]
+Pos  =3826.311,213.797, -3144.882
+Angle=56.448,-25.136, 0.673
+Time =10.229
+Delay=3.000
+Text = Here is the guard you must destroy
+
+[Flight1.26]
+Pos  =3758.327,203.583, -3183.571
+Angle=74.556,-32.237, 3.449
+Time =4.842
+Delay=3.000
+Text =This is the airplane you may drive away
+
+[Flight1.27]
+Pos  =3679.263,192.289, -3202.668
+Angle=83.876,-15.353, -0.519
+Time =2.492
+Delay=0.000
+Text =
+
+[Flight1.28]
+Pos  =3585.572,167.368, -3201.959
+Angle=97.597,-21.150, -0.648
+Time =1.579
+Delay=0.000
+Text =
+
+[Flight1.29]
+Pos  =3499.623,134.154, -3190.940
+Angle=86.850,-20.828, -2.548
+Time =2.631
+Delay=0.000
+Text =
+
+[Flight1.30]
+Pos  =3383.288,102.815, -3192.009
+Angle=91.694,-12.118, -8.289
+Time =1.874
+Delay=0.000
+Text =
+
+[Flight1.31]
+Pos  =3317.160,105.785, -3189.636
+Angle=80.224,-11.887, 19.173
+Time =1.252
+Delay=0.000
+Text =
+
+[Flight1.32]
+Pos  =3248.277,97.555, -3193.741
+Angle=105.788,-10.816, 19.651
+Time =2.099
+Delay=0.000
+Text =
+
+[Flight1.33]
+Pos  =3194.054,87.176, -3160.422
+Angle=115.833,-6.878, -21.196
+Time =2.099
+Delay=0.000
+Text =
+
+[Flight1.34]
+Pos  =3128.619,107.483, -3124.643
+Angle=80.006,-4.771, 25.837
+Time =0.812
+Delay=0.000
+Text =
+
+[Flight1.35]
+Pos  =3046.926,108.826, -3132.000
+Angle=79.950,-4.770, 2.470
+Time =1.636
+Delay=0.000
+Text =
+
+[Flight1.36]
+Pos  =2933.917,105.146, -3145.829
+Angle=107.709,-4.310, 0.807
+Time =1.413
+Delay=0.000
+Text =
+
+[Flight1.37]
+Pos  =2821.871,105.181, -3109.829
+Angle=109.607,-4.282, -0.098
+Time =0.769
+Delay=0.000
+Text =
+
+[Flight1.38]
+Pos  =2737.251,101.400, -3080.592
+Angle=103.101,-4.259, -8.071
+Time =2.099
+Delay=0.000
+Text =
+
+[Flight1.39]
+Pos  =2479.113,82.423, -3031.662
+Angle=92.785,-9.611, 0.036
+Time =2.101
+Delay=0.000
+Text =
+
+[Flight1.40]
+Pos  =2347.424,94.929, -3021.713
+Angle=92.424,-11.523, 0.014
+Time =1.552
+Delay=0.000
+Text =
+
+[Flight1.41]
+Pos  =2268.565,94.290, -3031.873
+Angle=92.423,-11.523, -16.313
+Time =1.593
+Delay=0.000
+Text =
+
+[Flight1.42]
+Pos  =2218.596,95.506, -3053.276
+Angle=92.423,-11.523, -27.675
+Time =6.207
+Delay=0.000
+Text =
+
+[Flight1.43]
+Pos  =2208.757,114.349, -3118.554
+Angle=72.205,-6.204, -15.443
+Time =10.493
+Delay=3.000
+Text = This is the town you must protect
+
+[Flight1.44]
+Pos  =2207.889,138.023, -3132.724
+Angle=55.619,-34.664, 0.000
+Time =3.596
+Delay=0.000
+Text =
