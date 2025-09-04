@@ -2,14 +2,14 @@
 #ifndef	__MATHLIB_H__
 #define	__MATHLIB_H__
 
+#include<stdlib.h>
+
 #ifndef	_NOAUTOINCLUDE
 	#define	_NOAUTOINCLUDE
 	#if !defined(__STDIO_H) && !defined(_STDIO_H_INCLUDED)
 		#include<stdio.h>
 	#endif
-	#if !defined(__STDLIB_H) && !defined(_STDLIB_H_INCLUDED)
-		#include<stdlib.h>
-	#endif
+
 	#if !defined(__MATH_H) && !defined(_MATH_H_INCLUDED)
 		#include<math.h>
 	#endif
