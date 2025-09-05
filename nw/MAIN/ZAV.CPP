@@ -550,7 +550,7 @@ int   ZAV_InitGraph(HINSTANCE hInst)
        GetChooseRegistry(&j, &fullS, &mode);
 
 	    k = j;
-	    while (dd && j-->0)  dd = dd->link;
+	    while (dd->link && j-->0)  dd = dd->link;
 	    //dd->agp=0;
        modeDef.nWidth  = GET_MODE_WIDTH (dd->modes[mode]);
        modeDef.nHeight = GET_MODE_HEIGHT(dd->modes[mode]);
