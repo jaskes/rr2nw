@@ -41,10 +41,10 @@ void CFileResource::Init(TCchar *pszName)
 	m_eLookUp = m_eDefaultLookUp;
 }
 
-FILE *CFileResource::FOpen(TCchar *pszName,long *pLen)
+FILE *CFileResource::FOpen(CFileResource *_this, TCchar *pszName,long *pLen)
 {
-	if(this) {
-		if(m_eLookUp==LU_OUTERFIRST) {
+	if(_this) {
+		if(_this->m_eLookUp==LU_OUTERFIRST) {
 			FILE *f = fopen(pszName,"rb");
 			if(f) {
 				if(pLen) {
@@ -56,20 +56,20 @@ FILE *CFileResource::FOpen(TCchar *pszName,long *pLen)
 			}
 		}
 		int n = -1;
-		for( int u = m_nEntries-1, l = 0 ; l <= u ; ) {
+		for( int u = _this->m_nEntries-1, l = 0 ; l <= u ; ) {
 			int m = (u+l)/2;
-			int res = strcmpi(m_pEntries[m].name,pszName);
+			int res = strcmpi(_this->m_pEntries[m].name,pszName);
 			if(res == 0) { n = m; break; }
 			if(res<0) l = m+1; else u = m-1;
 		}
 		if(n>=0) {
-			FILE *f = fopen(m_szName,"rb");
-			fseek(f,m_pEntries[n].pos,SEEK_SET);
-			if(pLen) *pLen = m_pEntries[n].len;
+			FILE *f = fopen(_this->m_szName,"rb");
+			fseek(f,_this->m_pEntries[n].pos,SEEK_SET);
+			if(pLen) *pLen = _this->m_pEntries[n].len;
 			return f;
 		}
 	}
-	if(this==NULL||m_eLookUp==LU_INNERFIRST) {
+	if(_this==NULL||_this->m_eLookUp==LU_INNERFIRST) {
 		FILE *f = fopen(pszName,"rb");
 		if(f) {
 			if(pLen) {
@@ -81,4 +81,9 @@ FILE *CFileResource::FOpen(TCchar *pszName,long *pLen)
 		}
 	}
 	return NULL;
+}
+
+FILE *CFileResource::FOpen(TCchar *pszName,long *pLen)
+{
+	return FOpen(this, pszName, pLen);
 }

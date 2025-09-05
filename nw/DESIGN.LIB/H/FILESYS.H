@@ -87,8 +87,9 @@ public:
 	void SetCurrent() { m_pCurrent = this; }
 	static void SetCurrent(CFileResource *p) { m_pCurrent = p; }
 	static CFileResource *GetCurrent() { return m_pCurrent; }
+	static FILE *FOpen(CFileResource *_this, TCchar *pszName,long *pLen);
 	static FILE *FOpenCurrent(TCchar *pszName,long *pLen = NULL) {
-								return m_pCurrent->FOpen(pszName,pLen); }
+								return FOpen(m_pCurrent,pszName,pLen); }
 };
 
 class	CCurrentFileResource : public CFileResource {
