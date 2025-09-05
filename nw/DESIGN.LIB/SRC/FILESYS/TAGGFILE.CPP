@@ -171,7 +171,7 @@ long CTaggedFile::BytesLeft() const
 	return	m_pStackTop->lCount;
 }
 // --------------------------------------------------------------------------
-int  CTaggedFile::QueryChunk(char *pszTagBuf,bool &bTerminal,int &nVersion,
+bool  CTaggedFile::QueryChunk(char *pszTagBuf,bool &bTerminal,int &nVersion,
 															int nRTEFatal )
 {
 	ASSERT( m_pFile && m_eMode==M_READ );
@@ -522,12 +522,8 @@ long CTaggedFile::Write(TCvoid *buf,long count)
 #ifndef	_BIG_ENDIAN
 bool CTaggedFile::WriteBool(bool b)
 {
-	#if defined(__STDTYPES_IBOOL) && (defined(__386__) || defined(_BIG_ENDIAN))
-		return	Write(&b,4)==4;
-	#else
-		long	l = b;
-		return	Write(&l,4)==4;
-	#endif
+	long	l = b;
+	return	Write(&l,4)==4;
 }
 #endif
 // --------------------------------------------------------------------------
@@ -694,13 +690,10 @@ inline long CTaggedFile::ReadBE(void *buf,long count)
 // --------------------------------------------------------------------------
 bool CTaggedFile::ReadBool(bool &b)
 {
-	#if defined(__STDTYPES_IBOOL) && (defined(__386__) || defined(_BIG_ENDIAN))
-		return	ReadBE(&b,4)==4;
-	#else
-		long	l;
-		if( Read(&l,4)!=4 )	return FALSE;
-		return	b = (bool)l, TRUE;
-	#endif
+	long	l;
+	if( Read(&l,4)!=4 )	return FALSE;
+	return	b = (bool)l, TRUE;
+
 }
 // --------------------------------------------------------------------------
 bool CTaggedFile::ReadByte(byte &n)

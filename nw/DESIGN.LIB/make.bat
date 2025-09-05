@@ -1,2 +1,3 @@
-wpp386 -mf -5s -zq -i./H -d3 -oneatmilrf -s -fpi87 -fp5 -w4 -bt=nt SRC/DEBUGEXT/ASSERT.CPP SRC/FILESYS/FILESYS.CPP SRC/MATHLIB/MATHLIB.CPP
-wlib designwr.lib +ASSERT.obj +FILESYS.obj +MATHLIB.obj
+wpp386 -mf -5s -zq -i./H -d3 -oneatmilrf -s -fpi87 -fp5 -w4 -bt=nt SRC/DEBUGEXT/ASSERT.CPP SRC/FILESYS/CONFIG.CPP SRC/FILESYS/FILESYS.CPP SRC/MATHLIB/MATHLIB.CPP
+wlib designwr.lib +ASSERT.obj +CONFIG.obj +FILESYS.obj +MATHLIB.obj
+PAUSE

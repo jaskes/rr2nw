@@ -18,11 +18,11 @@ void CViewBaseModifier::Read(CTaggedFile &f,SViewObjectMorphNames &names)
 			CNameRef	name(f);
 			m_ppVerticesUpdate[i] = (CFVector3*)name.Resolve(names.vertices);
 		}
-		for( i = 0 ; i < m_nFigures ; i++ ) {
+		for( int i = 0 ; i < m_nFigures ; i++ ) {
 			CNameRef	name(f);
 			m_ppFiguresUpdate[i] = (CViewFigure*)name.Resolve(names.figures);
 		}
-		for( i = 0 ; i < m_nClusters ; i++ ) {
+		for( int i = 0 ; i < m_nClusters ; i++ ) {
 			CNameRef	name(f);
 			m_ppClustersUpdate[i] = (CViewMorphedOrder*)name.Resolve(names.clusters);
 		}
@@ -33,7 +33,7 @@ void CViewBaseModifier::Update()
 {
 	for( int i = 0 ; i < m_nFigures ; i++ )
 		m_ppFiguresUpdate[i]->RecalcNormal();
-	for( i = 0 ; i < m_nClusters ; i++ )
+	for( int i = 0 ; i < m_nClusters ; i++ )
 		m_ppClustersUpdate[i]->RecalcNormal();
 }
 
@@ -167,7 +167,7 @@ void CViewKeySpan::Read(CTaggedFile &f,SViewObjectMorphNames &names)
 			m_pVerticesDelta = m_pVerticesFrom + m_nVertices;
 			for( int i = 0 ; i < m_nVertices ; i++ )
 				m_pVerticesFrom[i].Read(f);
-			for( i = 0 ; i < m_nVertices ; i++ ) {
+			for( int i = 0 ; i < m_nVertices ; i++ ) {
 				CFVector3	v;
 				v.Read(f);
 				m_pVerticesDelta[i] = v - m_pVerticesFrom[i];
@@ -202,7 +202,7 @@ void CViewKeyFrameSeq::Read(CTaggedFile &f,SViewObjectMorphNames &names)
 			}
 		f.Ascend();
 		m_pSpans = new CViewKeySpan[m_nSpans];
-		for( i = 0 ; i < m_nSpans ; i++ )	m_pSpans[i].Read(f,names);
+		for( int i = 0 ; i < m_nSpans ; i++ )	m_pSpans[i].Read(f,names);
 	f.Ascend();
 }
 
@@ -210,7 +210,8 @@ void CViewKeyFrameSeq::Tween(double fTime)
 {
 	ASSERT(m_nSpans>0);
 	double fTime0 = 0;
-	for( int i = 0 ; i < m_nSpans-1 ; i++ ) {
+	int i;
+	for(i = 0 ; i < m_nSpans-1 ; i++ ) {
 		if( fTime < m_pfDurations[i] ) break;
 		fTime0 += m_pfDurations[i];
 	}
@@ -239,11 +240,11 @@ void CViewKeyFrameSet::Read(CTaggedFile &f,SViewObjectMorphNames &names)
 				f.Read(m_pNames[i],40);
 		f.Ascend();
 		m_pSeqs = m_nSeqs > 0 ? new CViewKeyFrameSeq[m_nSeqs] : NULL;
-		for( i = 0 ; i < m_nSeqs ; i++ )	m_pSeqs[i].Read(f,names);
+		for( int i = 0 ; i < m_nSeqs ; i++ )	m_pSeqs[i].Read(f,names);
 		m_pMods0 = m_nMods0 > 0 ? new CViewBaseModifier0[m_nMods0] : NULL;
-		for( i = 0 ; i < m_nMods0 ; i++ )	m_pMods0[i].Read(f,names);
+		for( int i = 0 ; i < m_nMods0 ; i++ )	m_pMods0[i].Read(f,names);
 		m_pMods = m_nMods > 0 ? new CViewBaseModifier[m_nMods] : NULL;
-		for( i = 0 ; i < m_nMods ; i++ )	m_pMods[i].Read(f,names);
+		for( int i = 0 ; i < m_nMods ; i++ )	m_pMods[i].Read(f,names);
 	f.Ascend();
 }
 

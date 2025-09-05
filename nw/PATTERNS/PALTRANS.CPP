@@ -63,7 +63,7 @@ bool	CPaletteTranslator::LoadPalettePack(TCchar *name)
 					m_pTranspDefs[i].b = color.b;
 				}
 				f.Read(m_pTransparencies,m_nTransparentColors*16*256);
-				for( i = 0 ; i < m_nTransparentColors ; i++ )
+				for( int i = 0 ; i < m_nTransparentColors ; i++ )
 					m_pTranspDefs[i].pTable = m_pTransparencies+i*16*256;
 			f.Ascend();
 		}
@@ -183,7 +183,7 @@ int	CPaletteTranslator::Define(TCSRGB *pEntries, int nEntries,
 	if( nTransparent >= 0 ) {
 		for( int  i = 0 ; i < 256 ; i++ )	bUsed[i] = FALSE;
 	}
-	for( i = 0 ; i < nEntries ; i++ ) {
+	for( int i = 0 ; i < nEntries ; i++ ) {
 		m_localPalette[i] = pEntries[i];
 		if( i == nTransparent ) continue;
 		int  nBest = nTransparent >= 0 ? 1 : 0; // to reserve 0 for transparent
@@ -200,7 +200,7 @@ int	CPaletteTranslator::Define(TCSRGB *pEntries, int nEntries,
 		//for( i = 0 ; i < 256 ; i++ )
 		//	if( !bUsed[i] )	break;
 		//RTCHECK(i<256,"No unused color for transparent");
-		i = 0;
+		int i = 0;
 		m_entry[nTransparent]=(byte)i;
 		return i;
 	}

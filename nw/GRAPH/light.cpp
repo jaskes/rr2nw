@@ -160,7 +160,7 @@ int GRInitLight(GR_HTEXTURE hT)
         //color > 0
         ptr = D3D_LockTexture(_LightTextH[0], &pitch);
 
-        for(j = 0;j < LIGHT_SIZE;j++,ptr += pitch) {
+        for(int j = 0;j < LIGHT_SIZE;j++,ptr += pitch) {
            unsigned short *ptr1 = (unsigned short*)ptr;
            for(i = 0;i < LIGHT_SIZE;i++,ptr1++) {
               float r = sqrt((j-16)*(j-16) + (i-16)*(i-16));
@@ -187,7 +187,7 @@ int GRInitLight(GR_HTEXTURE hT)
         ptr = D3D_LockTexture(_LightTextH[1], &pitch);
 
 
-        for(j = 0;j < LIGHT_SIZE*2;j++,ptr += pitch) {
+        for(int j = 0;j < LIGHT_SIZE*2;j++,ptr += pitch) {
            unsigned short *ptr1 = (unsigned short*)ptr;
            for(i = 0;i< LIGHT_SIZE*2;i++,ptr1++) {
               float r = sqrt((j-16*2)*(j-16*2) + (i-16*2)*(i-16*2));

@@ -26,36 +26,36 @@
 //const double fIntegerPrec_1 = 1./nIntegerPrec;
 
 inline void D2INT(int *p,double d) { *p=d; }
-#pragma aux D2INT = \
-	"fistp	dword ptr [eax]"	parm [eax] [8087]
+/*#pragma aux D2INT = \
+	"fistp	dword ptr [eax]"	parm [eax] [8087]*/
 
 inline int	SHLD_Div(int num,int den,int shift) { return (int)((1<<shift)*(double)num/den); }
-#ifdef __WATCOMC__
+/*#ifdef __WATCOMC__
 #pragma aux SHLD_Div = \
 	"sub  edx,edx"	\
 	"shld edx,eax,cl"	\
 	"shl  eax,cl"	\
 	"idiv ebx"	\
 	parm [eax] [ebx] [ecx] modify [edx] value [eax]
-#endif
+#endif*/
 
 inline int	SHLD_IDiv(int num,int den,int shift) { return (int)((1<<shift)*(double)num/den); }
-#ifdef __WATCOMC__
+/*#ifdef __WATCOMC__
 #pragma aux SHLD_IDiv = \
 	"cdq"	\
 	"shld edx,eax,cl"	\
 	"shl  eax,cl"	\
 	"idiv ebx"	\
 	parm [eax] [ebx] [ecx] modify [edx] value [eax]
-#endif
+#endif*/
 
 inline int	Mul_SHRD(int mul1,int mul2,int shift) { return (int)(mul1*(double)mul2/(1<<shift)); }
-#ifdef __WATCOMC__
+/*#ifdef __WATCOMC__
 #pragma aux Mul_SHRD = \
 	"imul ebx"	\
 	"shrd eax,edx,cl"	\
 	parm [eax] [ebx] [ecx] modify [edx] value [eax]
-#endif
+#endif*/
 
 inline double ScalarProdNormal(uint nNormalType,TCCFVector3 &n,TCCFVector3 &v)
 {

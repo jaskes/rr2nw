@@ -31,7 +31,7 @@ CViewSceneLandPiece::CViewSceneLandPiece(CTaggedFile &f,
 			m_rect.Read(f);
 			f.SetRTEFatal(FALSE);
 				m_bBumpable = TRUE;
-				f.ReadInt(m_bBumpable);
+				f.ReadBool(m_bBumpable);
 			f.SetOK(TRUE);
 		f.Ascend();
 		m_land.Read(f,m_rect,ReadOrder);

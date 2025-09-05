@@ -62,8 +62,8 @@ const int r_RECT_MINUS          = 4;  // запас отрицательной области
 #define r_DIST_AS_SPRITE  200
 
 inline void SUA_D2INT(int *p,double d) { *p=d; }
-#pragma aux SUA_D2INT = \
-	"fistp	dword ptr [eax]"	parm [eax] [8087]
+/*#pragma aux SUA_D2INT = \
+	"fistp	dword ptr [eax]"	parm [eax] [8087]*/
 
 #define D2LNG(x,y) SUA_D2INT(((int*)(x)),(y))
 

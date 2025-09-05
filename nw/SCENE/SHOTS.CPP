@@ -324,13 +324,13 @@ void CShot::LoadMovie(double fChargeTime,double fHiChargeTime)
 	for(int i = 0 ; i < m_staticHitMovie.Count() ; i++ )
 		m_staticHitMovie.Time(i) = (i+1)/12.;
 	m_dynamicHitMovie.Load("hitsh.spm");
-	for(i = 0 ; i < m_dynamicHitMovie.Count() ; i++ )
+	for(int i = 0 ; i < m_dynamicHitMovie.Count() ; i++ )
 		m_dynamicHitMovie.Time(i) = (i+1)/8.;
 	m_chargeBallMovie.Load("chrgball.spm");
-	for(i = 0 ; i < m_chargeBallMovie.Count() ; i++ )
+	for(int i = 0 ; i < m_chargeBallMovie.Count() ; i++ )
 		m_chargeBallMovie.Time(i) = (i+1)*fChargeTime/m_chargeBallMovie.Count();
 	m_hiChargeBallMovie.Load("hichball.spm");
-	for(i = 0 ; i < m_hiChargeBallMovie.Count() ; i++ )
+	for(int i = 0 ; i < m_hiChargeBallMovie.Count() ; i++ )
 		m_hiChargeBallMovie.Time(i) = (i+1)*fHiChargeTime/m_hiChargeBallMovie.Count();
 	m_nColors[CLR_GREENLASER] = CPaletteTranslator::Match(174,252,3);
 	m_nColors[CLR_REDLASER] = CPaletteTranslator::Match(253,142,184);

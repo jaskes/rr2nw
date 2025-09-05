@@ -5,7 +5,7 @@
 #define	__STDTYPES_IBOOL
 
 #if	defined(__STDTYPES_IBOOL)
-#define	bool ibool
+//#define	bool ibool
 #endif
 
 typedef	int ibool;

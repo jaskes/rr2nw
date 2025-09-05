@@ -253,7 +253,7 @@ bool CViewBody::Bump(SBumpDef0 &def)
 		ASSERT(fTimeL <= fTimeR && fTimeR <= def.fTime);
 		if( m_nFirstCutFigure < m_nFigures ) {
 			CFVector3	v = def.start+def.vel*fTimeL;
-			for( i = m_nFirstCutFigure ; i < m_nFigures ; i++ ) {
+			for( int i = m_nFirstCutFigure ; i < m_nFigures ; i++ ) {
 				CViewFigure	&fig = *m_ppFigures[i];
 				if( (v-fig.Vertex0())*fig.Normal() > def.fRadius )	return FALSE;
 			}
@@ -349,7 +349,7 @@ bool CViewBody::BumpShelter(SBumpDef0 &def, bool &bBump)
 			ASSERT(fTimeL <= fTimeR && fTimeR <= def.fTime);
 			if( m_nFirstCutFigure < m_nFigures ) {
 				CFVector3	v = def.start+def.vel*fTimeL;
-				for( i = m_nFirstCutFigure ; i < m_nFigures ; i++ ) {
+				for( int i = m_nFirstCutFigure ; i < m_nFigures ; i++ ) {
 					CViewFigure	&fig = *m_ppFigures[i];
 					if( (v-fig.Vertex0())*fig.Normal() > def.fRadius )	{
 						i0 = -1; break;
@@ -366,7 +366,7 @@ bool CViewBody::BumpShelter(SBumpDef0 &def, bool &bBump)
 		ASSERT(fTimeI <= def.fTime);
 		if( m_nFirstCutFigure < m_nFigures ) {
 			CFVector3	v = def.start+def.vel*fTimeL;
-			for( i = m_nFirstCutFigure ; i < m_nFigures ; i++ ) {
+			for( int i = m_nFirstCutFigure ; i < m_nFigures ; i++ ) {
 				CViewFigure	&fig = *m_ppFigures[i];
 				if( (v-fig.Vertex0())*fig.Normal() > def.fRadius )	{
 					i0i = -1; break;

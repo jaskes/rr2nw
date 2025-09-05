@@ -293,7 +293,7 @@ void CMovingObject::Draw()
 				m_boomMovie.Time(m_boomMovie.Count()-1)-m_fLifeTime,
 											m_dynBase, m_fRadius/40 );
 		}
-		for( ps = (CShot*) m_bangShots.First() ; ps != NULL ;
+		for( CShot  *ps = (CShot*) m_bangShots.First() ; ps != NULL ;
 												ps = (CShot*) ps->Next() ) {
 			if( ps->m_bangOffset*viewDir <= 0 && ps->IsOn()) {   //!!!!!!!!
 				ps->m_dynBase = m_dynBase+ps->m_bangOffset;

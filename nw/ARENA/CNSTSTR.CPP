@@ -147,7 +147,8 @@ int str_ConstStr::indexOf( const str_ConstStr &str, int from ) const
 
     for( int i = from; i <= max; ++i )
     {
-         for( int j = 0; j < count2; ++j )
+		 int j = 0;
+         for(j = 0; j < count2; ++j )
               if(  v1[i+j] != v2[j]  )
                    break;
 

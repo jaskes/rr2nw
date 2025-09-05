@@ -112,7 +112,7 @@ void Corpse::DestroyMe()
 	context->removeObject(getObjectID() );
 }
 
-virtual void Corpse::onHide(double )
+void Corpse::onHide(double )
 {
 	if (m_mustDieNow)
 		DestroyMe();

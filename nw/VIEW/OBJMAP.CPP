@@ -1002,7 +1002,7 @@ void CLandscapeRect::BumpX(TCCRect2 &rect,CViewDynamicList &list)
 			}
 		}
 	}
-	for( pd = list.First() ; pd != NULL ; pd = pd->Next() ) {
+	for( CViewDynamic *pd = list.First() ; pd != NULL ; pd = pd->Next() ) {
 		CViewDynamic *pd1;
 		for( pd1 = pd->Next(); pd1 != NULL; pd1=pd1->Next() ) ::Bump((CViewBumpDynamic*)pd,(CViewBumpDynamic*)pd1);
 		for( pd1 = left.First() ;pd1!=NULL;pd1=pd1->Next() ) ::Bump((CViewBumpDynamic*)pd,(CViewBumpDynamic*)pd1);
@@ -1052,7 +1052,7 @@ void CLandscapeRect::BumpY(TCCRect2 &rect,CViewDynamicList &list)
 			}
 		}
 	}
-	for( pd = list.First() ; pd != NULL ; pd = pd->Next() ) {
+	for( CViewDynamic *pd = list.First() ; pd != NULL ; pd = pd->Next() ) {
 		CViewDynamic *pd1;
 		for( pd1 = pd->Next(); pd1 != NULL; pd1=pd1->Next() ) ::Bump((CViewBumpDynamic*)pd,(CViewBumpDynamic*)pd1);
 		for( pd1 = up.First() ;pd1!=NULL;pd1=pd1->Next() ) ::Bump((CViewBumpDynamic*)pd,(CViewBumpDynamic*)pd1);

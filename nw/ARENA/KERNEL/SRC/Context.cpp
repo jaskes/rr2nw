@@ -786,7 +786,7 @@ bool SimulationContext::load(PIN_SaveFile & sf)
 	
 	// clearing object Pool
     
-    for(i = 0; i < m_maxObjectQnty; i ++)
+    for( int i = 0; i < m_maxObjectQnty; i ++)
 	{
 		
 		if (m_objectIndex[i].object == NULL)
@@ -801,7 +801,7 @@ bool SimulationContext::load(PIN_SaveFile & sf)
 	// Checking
 
 
-	for (i = 0; i < g_super.m_level.m_howitzersLoaded; i++)
+	for ( int i = 0; i < g_super.m_level.m_howitzersLoaded; i++)
 	{
 		ASSERT( g_super.m_level.m_howitzerPool[i].occupant.isNUL());
 	}

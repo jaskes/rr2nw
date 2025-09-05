@@ -1232,7 +1232,8 @@ void Explosion::onDrawPARTICLE_SNAKE( ExplBranch &b, int & )
     double sizec = b.rC/m_attr->m_snPartCnt;
     int max = b.m_tailCnt;
 
-    for( int i = 0; i < max; ++i  )
+	int i;
+    for( i = 0; i < max; ++i  )
     {
          double t = pT+i*coef,
                 t2= t*t;

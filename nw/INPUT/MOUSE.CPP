@@ -27,9 +27,9 @@ void	CMouse::WriteParms(CTaggedFile &f)
 void	CMouse::ReadParms(CTaggedFile &f)
 {
 	f.Descend("MOU_",TRUE,0);
-		f.ReadInt(m_bEnabled);	m_bActive = m_bPresent && m_bEnabled;
-		f.ReadInt(m_bFlipX);
-		f.ReadInt(m_bFlipY);
+		f.ReadBool(m_bEnabled);	m_bActive = m_bPresent && m_bEnabled;
+		f.ReadBool(m_bFlipX);
+		f.ReadBool(m_bFlipY);
 	f.Ascend();
 }
 
@@ -172,7 +172,7 @@ void	CMouse::MatchCursor()
 		int nComp = Round(i*255./nMid);
 		m_nCursorColor[i] = paletteTranslator.Match(nComp,nComp,nComp);
 	}
-	for( i = nMid ; i < nMax ; i++ ) {
+	for( int i = nMid ; i < nMax ; i++ ) {
 		int nComp = Round((nMax-i)*255./(nMax-nMid));
 		m_nCursorColor[i] = paletteTranslator.Match(nComp,nComp,nComp);
 	}

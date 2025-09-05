@@ -40,7 +40,7 @@ L_SYS+=F
 L_TARG=$(L_SYS)$(L_DEBUG)
 
 I=$(PROJ)\INCLUDE;$(DLIB)\H;$(PROJ)\ARENA;$(PROJ)\ARENA\H
-LIBPATH=$(DLIB)\WC
+LIBPATH=$(DLIB)
 OUT=..\..\OUTPUT
 
 
@@ -59,7 +59,7 @@ LIBRARIANRSP = $(PROJ)\3de$(L_DEBUG).rsp
 CPP = wpp386 -mf -5s -zq -i$(I) -fo$(O)\
 C = wcc386 -mf -5s -zq -i$(I) -fo$(O)\
 ASM = tasmx /ml /m /t /zi /w-ALN
-ANGEL = angel
+ANGEL = angelmasm
 LINK = wlink libp $(LIBPATH) d a
 
 !ifneq DEBUG 0
@@ -68,7 +68,7 @@ C += -d2 -d_DEBUG
 #ASM += /d_DEBUG
 !else
 CPP += -s
-CPP += -d0 -oneatmilrf -7 -fp5
+CPP += -d0 -oneatmilrf -fp5
 !endif
 
 !ifneq NT 0
@@ -111,4 +111,3 @@ ASM += /d_WINNT
 BUILD =all: $(TARGETS)
 
 .ERASE
-

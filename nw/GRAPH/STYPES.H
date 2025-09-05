@@ -31,7 +31,7 @@ typedef const char *   CSTR;
 typedef int BOOL;
 #ifndef __STDTYPES_H__
 
-typedef int bool;
+//typedef int bool;
 
 //enum {
 //	FALSE = 0,

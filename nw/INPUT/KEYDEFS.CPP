@@ -112,7 +112,7 @@ void CUserCtlDefs::Write(CTaggedFile &f)
 		f.Descend("CTLH",TRUE,0);
 			f.WriteDouble(m_fMouseSensitivity);
 			f.WriteDouble(m_fJoystickSensitivity);
-			f.WriteInt(m_bAbsoluteMouse);
+			f.WriteBool(m_bAbsoluteMouse);
 			f.WriteInt(m_nResolution);
 			f.WriteInt(m_nScreenOptimize);
 			f.WriteDouble(m_fHaze);
@@ -128,7 +128,7 @@ void CUserCtlDefs::Read(CTaggedFile &f)
 		f.Descend("CTLH",TRUE,0);
 			f.ReadDouble(m_fMouseSensitivity);
 			f.ReadDouble(m_fJoystickSensitivity);
-			f.ReadInt(m_bAbsoluteMouse);
+			f.ReadBool(m_bAbsoluteMouse);
 			f.ReadInt(m_nResolution);
 			f.ReadInt(m_nScreenOptimize);
 			f.ReadDouble(m_fHaze);

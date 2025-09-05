@@ -144,7 +144,7 @@
 
 static int paletteChange = 0;
 static int bufferSize = 0;
-static const maxProb = 1000;
+static const int maxProb = 1000;
 static SGRViewport *oldViewPort = NULL, *viewPort = NULL;
 
 //---------------------------------------------------
@@ -1248,19 +1248,19 @@ int CBriefing::PerformFly(int pNum){
 }
 //---------------------------------------------------
 void CBriefing::CinemaBugs(double) const {
-   const maxBugsLines = 80;
-   const maxAddLines  = 4;
-   const maxCircles   = 4;
-   const maxBugSecLen = m_scrW/60;
-   const maxBugsNum   = 20;
+   const int maxBugsLines = 80;
+   const int maxAddLines  = 4;
+   const int maxCircles   = 4;
+   const int maxBugSecLen = m_scrW/60;
+   const int maxBugsNum   = 20;
    int x, y, circlesNum, r, maxCircleR;
    int bugsNum;
    int nodeX[4], nodeY[4];
    int lX[4], lY[4];
    int j;
-   static lineX[maxBugsLines], use[maxBugsLines];
-   static lineC[maxBugsLines];
-   static linesNum = 0;
+   static int lineX[maxBugsLines], use[maxBugsLines];
+   static int lineC[maxBugsLines];
+   static int linesNum = 0;
    int i;
    int addLines;
    int removeProb;
@@ -1320,7 +1320,7 @@ void CBriefing::CinemaBugs(double) const {
 }
 //---------------------------------------------------
 void CBriefing::TVBugs(double frRendTime) const {
-   const        itlFact      = 3;  // interliveFactor
+   const    int itlFact      = 3;  // interliveFactor
    const double bandBugDelay = 0.2;
    const double bandBugTime  = 1;
    static double time;
@@ -1350,7 +1350,7 @@ void CBriefing::TVBugs(double frRendTime) const {
 }
 //---------------------------------------------------
 void CBriefing::CrystalBugs(double frRendTime) const {
-   const maxCircles = 60;
+   const int maxCircles = 60;
    const double circleExpTime = 2.0;
    static int x0[maxCircles], y0[maxCircles];
    static double time[maxCircles];

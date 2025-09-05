@@ -428,7 +428,7 @@ bool _CViewTerrain::DRAW4(LPatch)(TCint rectL[4])
 		for( int iCache = M_(iCacheL) ;	LTS(iCache,m_viewpointL[S]+(1-SAS)); iCache = CACHE_SU[iCache].nextrun, bCache = !bCache ) if( bCache && GES(iCache,x) )
 			if( LTP(CACHE_SU[iCache].L[P],cellL.bottom) ) cellL.bottom = CACHE_SU[iCache].L[P]; else break;
 		bCache = TRUE;
-		for( iCache = M_L(iCacheU) ; LTS(iCache,m_viewpointL[S]+(1-SAS)); iCache = CACHE_SL[iCache].nextrun, bCache = !bCache ) if( bCache && GES(iCache,x) )
+		for( int iCache = M_L(iCacheU) ; LTS(iCache,m_viewpointL[S]+(1-SAS)); iCache = CACHE_SL[iCache].nextrun, bCache = !bCache ) if( bCache && GES(iCache,x) )
 			if( GTP(CACHE_SL[iCache].L[P],cellL.top) ) cellL.top = CACHE_SL[iCache].L[P]; else break;
 
 		ASSERT( GTP( cellL.bottom, cellL.top ) );
@@ -2067,7 +2067,8 @@ End:
 		else {
 			ASSERT( LTS(M_(iCacheL),m_viewpointL[S]+(1-SAS)) );
 			bool bCache = TRUE;
-			for( int i = M_(iCacheL) ; LES(CACHE_SU[i].nextrun,xl) ; i=CACHE_SU[i].nextrun,bCache=!bCache ) ASSERT( GTS(CACHE_SU[i].nextrun,i) );
+			int i;
+			for( i = M_(iCacheL) ; LES(CACHE_SU[i].nextrun,xl) ; i=CACHE_SU[i].nextrun,bCache=!bCache ) ASSERT( GTS(CACHE_SU[i].nextrun,i) );
 			if( !bCache )	i = CACHE_SU[i].nextrun = xl;
 			CACHE_SU[i].nextrun = m_viewpointL[S]+(1-SAS);
 		}
@@ -2078,7 +2079,8 @@ End:
 		else {
 			ASSERT( GTS(M_(iCacheU),m_viewpointL[S]+SAS) );
 			bool bCache = TRUE;
-			for( int i = M_(iCacheU) ; GES(CACHE_SU[i].nextrun,xr) ; i=CACHE_SU[i].nextrun,bCache=!bCache ) ASSERT( LTS(CACHE_SU[i].nextrun,i) );
+			int i;
+			for( i = M_(iCacheU) ; GES(CACHE_SU[i].nextrun,xr) ; i=CACHE_SU[i].nextrun,bCache=!bCache ) ASSERT( LTS(CACHE_SU[i].nextrun,i) );
 			if( !bCache )	i = CACHE_SU[i].nextrun = xr;
 			CACHE_SU[i].nextrun = m_viewpointL[S]+SAS;
 		}

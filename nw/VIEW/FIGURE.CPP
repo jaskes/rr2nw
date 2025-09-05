@@ -203,6 +203,7 @@ inline int CViewFigure::FormVertImagesSplit(int nSplitUp,bool bGouraud,dword *pG
 	bool		ycfTemp;
 	int cf;
 	double dy;
+	int nCI;
 	for( int i = 0, nCI = 0, pass = 0 ; i < m_nVertices ; ) {
 		ASSERT( i < m_nVertices );
 		if( (cf=m_ppVertImages[i]->cf)!=0 ) { // if Z-clipped
@@ -323,6 +324,7 @@ inline int CViewFigure::FormVertImages(bool bGouraud,dword *pGourauds,
 			return FormVertImagesSplit(0,bGouraud,pGourauds,bTextured,pTextVerts);
 	}
 	#if _USE_OWNGR || _USE_GLIDE
+		int nCI;
 		for( int i = 0, nCI = 0 ; i < m_nVertices ; i++ ) {
 			int cf;
 			if( (cf=m_ppVertImages[i]->cf)!=0 ) {
@@ -427,7 +429,8 @@ CViewFigure *CViewFigure::Read(CTaggedFile &f, bool bDummy)
 					pFig->m_ppVertImages = NULL; pFig->m_ppInfVertImages = NULL;
 					pFig->m_ppVertImages++;
 				#endif
-				for( int i = 0 ; i < pFig->m_nVertices ; i++ ) {
+				int i = 0;
+				for( i = 0 ; i < pFig->m_nVertices ; i++ ) {
 					int  n;
 					f.ReadInt(n);
 					pFig->m_ppVertices[i] = CViewObjectBase::GetCurrBase()->GetVertexPtr(n);
@@ -446,7 +449,8 @@ CViewFigure *CViewFigure::Read(CTaggedFile &f, bool bDummy)
 					pFig->m_ppInfVertImages = new CViewObject::TCSInfVertImage*[
 														(pFig->m_nVertices+1)*2];
 				#endif
-				for( int  i = 0 ; i < pFig->m_nVertices ; i++ ) {
+				int i;
+				for( i = 0 ; i < pFig->m_nVertices ; i++ ) {
 					int  n;
 					f.ReadInt(n);
 					if( i == 0 ) pFig->m_vertex0 = CViewObjectBase::GetCurrBase()->GetVertex(n);
@@ -593,7 +597,7 @@ bool CViewFigure::AdvancedBump(SBumpDef0 &def)
 
 BumpEdges:
 	double	RR = def.fRadius *def.fRadius;
-	for( i = 0 ; i < m_nVertices ; i++ ) {
+	for( int i = 0 ; i < m_nVertices ; i++ ) {
 
 		TCCFVector3	&v = *m_ppVertices[i];
 		CFVector3	n = (*m_ppVertices[i+1]-v);
@@ -640,7 +644,7 @@ BumpEdges:
 		}
 	}
 
-	for( i = 0 ; i < m_nVertices ; i++ ) {
+	for( int i = 0 ; i < m_nVertices ; i++ ) {
 
 		TCCFVector3	&v = *m_ppVertices[i];
 		CFVector3	s = def.start-v;
@@ -1059,7 +1063,7 @@ void CViewTexturedFigure::_Read(CTaggedFile &f)
 	#endif
 
 	#if _USE_OWNGR
- 		for( i = 0 ; i < m_nVertices ; i++ ) {
+ 		for( int i = 0 ; i < m_nVertices ; i++ ) {
 			STextVert v = m_pTextVerts[i];
 			m_pTextVerts[i].u = MinMax(v.u,2<<16,(m_pTexture->m_nWidth-2)<<16);
 			m_pTextVerts[i].v = MinMax(v.v,2<<16,(m_pTexture->m_nHeight-2)<<16);
@@ -1068,13 +1072,13 @@ void CViewTexturedFigure::_Read(CTaggedFile &f)
 	#endif
 
 	#if _USE_OPENGL
- 		for( i = 0 ; i < m_nVertices ; i++ ) {
+ 		for( int i = 0 ; i < m_nVertices ; i++ ) {
 			m_pTextVerts[i].u /= m_pTexture->m_nWidth;
 			m_pTextVerts[i].v /= m_pTexture->m_nHeight;
 		}
 	#endif
 	#if _USE_GLIDE
- 		for( i = 0 ; i < m_nVertices ; i++ ) {
+ 		for( int i = 0 ; i < m_nVertices ; i++ ) {
 			m_pTextVerts[i].u = Round(m_pTextVerts[i].u*256./m_pTexture->m_nWidth);
 			m_pTextVerts[i].v = Round(m_pTextVerts[i].v*256./m_pTexture->m_nHeight);
 		}

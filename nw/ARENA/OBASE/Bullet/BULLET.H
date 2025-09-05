@@ -256,11 +256,11 @@ class Bullet :	public ct_Subject,
     virtual void draw        ( CDC &gc );
     virtual void addNotify   ();
     virtual void removeNotify();
-    virtual void render( CViewDynamicList &list, double ts );
-    virtual void endRender( CViewScene *scene );
+    //virtual void render( CViewDynamicList &list, double ts );
+    //virtual void endRender( CViewScene *scene );
     strg_SUBJECT_DYNVIEW_DECLARE
 
-    virtual CFVector3     realPosition();
+    //virtual CFVector3     realPosition();
     void         createSpark ( int sparkAttrIndex, double timeStamp );
 
     void         createSmoke( const CFVector3 &p, const CFVector3 &dir, double t );

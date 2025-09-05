@@ -394,8 +394,8 @@ public:
     void ChangeWaterTextureState() { m_wp.m_transWater = 1-m_wp.m_transWater;}
     void ChangeWaterBumpState()    { m_wp.m_transBump  = 1-m_wp.m_transBump;}
 protected:
-    inline int IsWaterCell(int x, int y);
-    inline int IsWaterVertex(int x, int y);
+    inline bool IsWaterCell(int x, int y);
+    inline bool IsWaterVertex(int x, int y);
     CVector2 CalcWaterCoords(int x, int y);
     void CalcWaterBumpCoords();
     // End by Green
@@ -474,7 +474,7 @@ protected:
 	double Reduction(int x,int y);
 	int	   ReductionInt(double z);
 	int	   ReductionCell(int x,int y);
-	CVector2 CalcWaterCoords(int x, int y);
+//	CVector2 CalcWaterCoords(int x, int y); //redeclare
 	int	   _CalcPointReduction(int x,int y,int n,SVector2 &w,bool bLand,bool bWater);
 	int    CalcPointReduction(int x,int y,int n,SVector2 &w,bool bLand,bool bWater);
 

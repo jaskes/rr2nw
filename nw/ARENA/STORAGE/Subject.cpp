@@ -583,7 +583,7 @@ void ct_Arena::render( const CFVector3 &plPos, double radius, CViewDynamicList &
 
     // Now audible objects
 
-    for(
+    for( ct_SubjectTable *
          st = findFirstAudibleSubjectTable();
          st != NULL;
          st = findNextAudibleSubjectTable( st )

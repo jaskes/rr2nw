@@ -113,13 +113,13 @@ void CViewBaseCluster::Read(CTaggedFile &f,bool bDynamic)
 		m_overallMax = CFVector3(-1e10,-1e10,-1e10);
 		m_fHeight = 0;
 		m_bHasBushes = FALSE;
-		for( i = 0 ; i < m_nBaseSets ; i++ ) {
+		for( int i = 0 ; i < m_nBaseSets ; i++ ) {
 			m_pBaseSets[i].Read(f,bDynamic);
 			if( m_pBaseSets[i].m_bHasBushes )	m_bHasBushes = TRUE;
 		}
 		m_overallCenter = (m_overallMin+m_overallMax)/2;
 		m_fHeight = m_overallMax.y-m_overallMin.y;
-		for( i = 0 ; i < m_nBaseSets ; i++ )
+		for( int i = 0 ; i < m_nBaseSets ; i++ )
 			m_pBaseSets[i].CalcClusterRadius();
 		m_center = m_overallCenter;
 		m_fRadius0 = sqrt(m_fOverallRadius02);
@@ -202,14 +202,14 @@ void CViewObjectBaseSet::Read(CTaggedFile &f,bool bDynamic)
 			f.ReadBool(bNeedNames);
 			if( CViewBaseCluster::m_bReadNamesAlways ) bNeedNames = TRUE;
 			if( bNeedNames ) m_pNames = new char[m_nBases][40];
-			for( i = 0 ; i < m_nBases ; i++ ) {
+			for( int i = 0 ; i < m_nBases ; i++ ) {
 				char	szName[40];
 				f.Read(bNeedNames?m_pNames[i]:szName,40);
 			}
 		f.Ascend();
 		m_pBases = new CViewObjectBase[m_nBases];
 		m_bHasBushes = FALSE;
-		for( i = 0 ; i < m_nBases ; i++ ) {
+		for( int i = 0 ; i < m_nBases ; i++ ) {
 			m_pBases[i].Read(f,bDynamic);
 			if( m_pBases[i].NBushes() )	m_bHasBushes = TRUE;
 			m_pBases[i].m_nReductionNum = i;
@@ -228,7 +228,8 @@ void	CViewObjectBaseSet::Draw()
 		return;
 	}
 	double fDistM = fDist*m_fDistanceModify;
-	for( int i = 0 ; i < m_nBases-1 ; i++ )
+	int i;
+	for( i = 0 ; i < m_nBases-1 ; i++ )
 		if( fDistM < m_pfThresholds[i] )	break;
 	//i = 0;
 	CViewObjectBase	*pBase = m_pBases+i;
@@ -410,7 +411,7 @@ void CViewObjectBase::Read(CTaggedFile &f,bool bDynamic)
 			m_fHeight = Max(maxBound.y - minBound.y,0.);
 			m_fRadius = 0;
 			int  nEdgeVerts = 0;
-			for( i = 0 ; i < m_nRenderedVertices ; i++ ) {
+			for( int i = 0 ; i < m_nRenderedVertices ; i++ ) {
 				m_fRadius = Max(m_fRadius,Abs2(m_pVertices[i]-m_center));
 				f.ReadInt(m_pVertEdges[i].n);
 				nEdgeVerts += m_pVertEdges[i].n;
@@ -419,7 +420,7 @@ void CViewObjectBase::Read(CTaggedFile &f,bool bDynamic)
 			RTCHECK(nEdgeVerts<CViewObject::MAX_EDGEVERTICES,"VOB Many Edges");
 			m_pEdgeOtherVertices=nEdgeVerts>0?new TCSFVector3Y*[nEdgeVerts]:NULL;
 			nEdgeVerts = 0;
-			for( i = 0 ; i < m_nRenderedVertices ; i++ ) {
+			for( int i = 0 ; i < m_nRenderedVertices ; i++ ) {
 				m_pVertEdges[i].oth = m_pEdgeOtherVertices+nEdgeVerts;
 				m_pVertEdges[i].im = m_pInfVertImages+nEdgeVerts;
 				nEdgeVerts += m_pVertEdges[i].n;
@@ -429,7 +430,7 @@ void CViewObjectBase::Read(CTaggedFile &f,bool bDynamic)
 					m_pVertEdges[i].oth[j] = &m_pVertImages[n].v3;
 				}
 			}
-			for( i = 0 ; i < m_nVertices ; i++ ) {
+			for( int i = 0 ; i < m_nVertices ; i++ ) {
 				CNameDef	name(f);
 				ASSERTMSG(i>=m_nSplitVertices||name.IsEmpty(),"Split vertex can't be named");
 				name.Resolve(&m_pVertices[i],m_names.vertices);
@@ -447,9 +448,9 @@ void CViewObjectBase::Read(CTaggedFile &f,bool bDynamic)
 		f.Descend("NRMS",TRUE,0);
 		f.Ascend();
 		m_pCurrBase = this;
-		for( i = 0 ; i < m_nBodies ; i++ )
+		for( int i = 0 ; i < m_nBodies ; i++ )
 			m_pBodies[i].Read(f);
-		for( i = 0 ; i < m_nBushes ; i++ ) {
+		for( int i = 0 ; i < m_nBushes ; i++ ) {
 			m_pBushes[i].Read(f);
 			CFVector3	vmin, vmax;
 			vmin = vmax = m_pBushes[i].Center();
@@ -491,7 +492,7 @@ void CViewObjectBase::CalcClusterRadius()
 		CViewBaseCluster::m_fOverallRadius2 =
 			Max(Abs2(m_pVertices[i]-CViewBaseCluster::m_overallCenter),
 										CViewBaseCluster::m_fOverallRadius2);
-	for( i = 0 ; i < m_nBushes ; i++ ) {
+	for( int i = 0 ; i < m_nBushes ; i++ ) {
 		double fRadius = Abs(m_pBushes[i].Center()-CViewBaseCluster::m_overallCenter)+m_pBushes[i].Radius();
 		CViewBaseCluster::m_fOverallRadius2 =
 			Max(fRadius*fRadius,	CViewBaseCluster::m_fOverallRadius2);
@@ -565,7 +566,7 @@ inline void MultSplitsLoop(TCdouble *pDir,int nCount,
 		pSplit++;
 	}
 }
-#ifdef	__WATCOMC__
+/*#ifdef	__WATCOMC__
 #pragma aux MultSplitsLoop = \
 	"test 	ebx,ebx"	\
 	"jle	L1"	\
@@ -586,7 +587,7 @@ inline void MultSplitsLoop(TCdouble *pDir,int nCount,
 	"jg		L0"	\
 	"L1:"\
 	parm [eax] [ebx] [ecx] [edx] modify exact [ebx ecx edx];
-#endif
+#endif*/
 void CViewObjectBase::MultSplits(TCCFMatrix3x4 &dir)
 {
 	/*int		i;
@@ -661,7 +662,7 @@ inline void MultSplitsLoopY(TCdouble *pDir,int nCount,
 		pSplit++;
 	}
 }
-#ifdef	__WATCOMC__
+/*#ifdef	__WATCOMC__
 #pragma aux MultSplitsLoopY = \
 	"test 	ebx,ebx"	\
 	"jle	L1"	\
@@ -685,7 +686,7 @@ inline void MultSplitsLoopY(TCdouble *pDir,int nCount,
 	"jg		L0"	\
 	"L1:"\
 	parm [eax] [ebx] [ecx] [edx] modify exact [ebx ecx edx];
-#endif
+#endif*/
 void CViewObjectBase::MultSplitsY(TCCFMatrix3x4 &dir)
 {
 	MultSplitsLoopY(&dir.m[0][0],m_nSplitX,m_pSplitX,m_splitX);
@@ -780,7 +781,7 @@ inline	int CViewObjectBase::PreDraw(bool bWaterSplit)
 
 		//int	 nFrontClip = CViewObject::m_fFrontClip*fIntegerPrec;
 
-		for( i = 0 ; i < m_nVertices ; i++ ) {
+		for( int i = 0 ; i < m_nVertices ; i++ ) {
 			//CVector3 &v = m_pVertImages3[i];
 			CViewObject::SFinVertImage	&im = m_pVertImages[i];
 			SFVector3Y	&v = im.v3;
@@ -970,7 +971,8 @@ void CViewObjectBase::Split(bool bSplit)
 		m_pSplits = new SSplitRef[m_nVertices];
 		m_nSplitX = m_nSplitY = m_nSplitZ = 0;
 		for( int  i = 0 ; i < m_nVertices ; i++ ) {
-			for( int j = 0 ; j < m_nSplitX ; j++ )
+			int j = 0;
+			for( j = 0 ; j < m_nSplitX ; j++ )
 				if( fabs(m_splitX[j].f-m_pVertices[i].x) < fSplitPrec ) break;
 			if( j == m_nSplitX ) m_splitX[m_nSplitX++].f = m_pVertices[i].x;
 			m_pSplits[i].px = &m_splitX[j].v;
@@ -992,9 +994,9 @@ void CViewObjectBase::Split(bool bSplit)
 		m_pSplitX = new double[m_nSplitX+m_nSplitY+m_nSplitZ];
 		m_pSplitY = m_pSplitX+m_nSplitX;
 		m_pSplitZ = m_pSplitY+m_nSplitY;
-		for( i = 0 ; i < m_nSplitX ; i++ )	m_pSplitX[i] = m_splitX[i].f;
-		for( i = 0 ; i < m_nSplitY ; i++ )	m_pSplitY[i] = m_splitY[i].f;
-		for( i = 0 ; i < m_nSplitZ ; i++ )	m_pSplitZ[i] = m_splitZ[i].f;
+		for( int i = 0 ; i < m_nSplitX ; i++ )	m_pSplitX[i] = m_splitX[i].f;
+		for( int i = 0 ; i < m_nSplitY ; i++ )	m_pSplitY[i] = m_splitY[i].f;
+		for( int i = 0 ; i < m_nSplitZ ; i++ )	m_pSplitZ[i] = m_splitZ[i].f;
 	#endif
 
 	#endif
@@ -1204,7 +1206,7 @@ bool CViewObject::Create3DPoly(int nVertices,TCSFVector3 *pVertices3D,TCdword *p
 	_gr_polygon.dwAddType = 0;
 	GRSetZPrecision(0);
 	int ngr = 0;
-	for( i = 0 ; i < nVertices ; i++ ) {
+	for( int i = 0 ; i < nVertices ; i++ ) {
 		if( v[i].z >= CViewFigure::HazeMin() ) _gr_polygon.dwAddType = GR_POLY_ADD_HAZE;
 		if( nClip[i] ) {
 			int iOth;

@@ -548,7 +548,7 @@ void	CJoystick::WriteParms(CTaggedFile &f)
 void	CJoystick::ReadParms(CTaggedFile &f)
 {
 	f.Descend("JOY_",TRUE,0);
-		f.ReadInt(m_bEnabled);	m_bActive = m_bPresent && m_bEnabled;
+		f.ReadBool(m_bEnabled);	m_bActive = m_bPresent && m_bEnabled;
 		f.ReadInt(m_nMinX);
 		f.ReadInt(m_nMinY);
 		f.ReadInt(m_nCenterX);

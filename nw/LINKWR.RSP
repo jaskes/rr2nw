@@ -32,5 +32,4 @@ file sound.obj
 file briefing.obj, mapchnnl.obj, console.obj, commands.obj
 file registry.obj
 
-library designwr.lib,ddraw.lib,uuid.lib
-
+library designwr.lib,ddraw.lib,uuid.lib,dxguid.lib,winmm.lib,strmiids.lib

@@ -140,7 +140,7 @@ int CGRImage::LoadFromBMPFile(const char *bmpName, int x, int y)
 
    RTCHECK1(ftell(fb)==bf.bfOffBits, "Unexpected image offset in '%s'", bmpName );
 
-   for(i = 0;i < h;i++) {
+   for(int i = 0;i < h;i++) {
       if (bi.biHeight > 0) //invert
          fread(bmp+(h-i-1)*w, 1, w, fb);
       else

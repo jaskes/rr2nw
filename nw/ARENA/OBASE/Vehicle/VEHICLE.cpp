@@ -145,7 +145,7 @@ int Vehicle::receiveEvent(KR_Event &event){
 	{
 	case EV_VEHICLE_FIRE:
 		{
-			bool isPrim;
+			int isPrim;
 			event.data.open(EDO_READ)
 				.getInt(isPrim)
 				.close();

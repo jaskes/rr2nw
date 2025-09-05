@@ -326,12 +326,12 @@ _CViewTerrain::_CViewTerrain(double fCellSize,double fHScale,double fViewDiamete
 	m_pCacheXL0 = m_pCache0; m_pCacheXU0 = m_pCache0+1024;
 	m_pCacheYL0 = m_pCache0+2048; m_pCacheYU0 = m_pCache0+3072;
 	int n = m_nMaxEdges;
-	for( i = 0 ; i < m_nReductions ; i++ ) {
+	for( int i = 0 ; i < m_nReductions ; i++ ) {
 		m_ppEdges[i] = new (int [n][2]); // CEdge[n];
 		IF_DEBUG(m_pnEdges[i]=n);
 		n = n+2>>1;
 	}
-	for( i = 0 ; i < MAX_CELLVERTS ; i++ )	{
+	for( int i = 0 ; i < MAX_CELLVERTS ; i++ )	{
 		m_apCellVerts[i] = &m_cellVerts[i];
 		m_apCellVertsW[i] = &m_cellVerts[i].w;
 		m_apCellVertsWR[MAX_CELLVERTS-1-i] = &m_cellVerts[i].w;
@@ -450,7 +450,7 @@ void _CViewTerrain::SetViewPoint()
 		boundRect.top = (int)floor(pyramidVerts[0].y);
 		boundRect.right = boundRect.left+1;
 		boundRect.bottom = boundRect.top+1;
-		for( i = 1 ; i < nPyramidVerts ; i++ ) {
+		for( int i = 1 ; i < nPyramidVerts ; i++ ) {
 			int x = (int)floor(pyramidVerts[i].x);
 			int y = (int)floor(pyramidVerts[i].y);
 			if( boundRect.left > x )	boundRect.left = x;
@@ -496,13 +496,13 @@ void _CViewTerrain::SetViewPoint()
 
 		// Clip frustum
 		int cf[8];
-		for( i = 0 ; i < 8 ; i++ ) {
+		for( int i = 0 ; i < 8 ; i++ ) {
 			if( pyramidVerts3[i].y < fClip[0] )	cf[i] = 1; else
 			if( pyramidVerts3[i].y > fClip[1] )	cf[i] = 2; else
 			cf[i] = 0;
 		}
 		nPyramidVerts = 0;
-		for( i = 0 ; i < 8 ; i++ ) {
+		for( int i = 0 ; i < 8 ; i++ ) {
 			if( cf[i] ) {
 				int i1;
 				if( cf[i1=(i&3)>0?i-1:i+3] != cf[i] ) {
@@ -547,7 +547,7 @@ void _CViewTerrain::SetViewPoint()
 
 
 	// Sort all projections in ascending y order
-	for( i = 0 ; i < nPyramidVerts-1 ; i++ ) {
+	for( int i = 0 ; i < nPyramidVerts-1 ; i++ ) {
 		int i0 = i;
 		for( int j = i+1 ; j < nPyramidVerts ; j++ )
 			if( pyramidVerts[j].y < pyramidVerts[i0].y ) i0 = j;
@@ -565,7 +565,7 @@ void _CViewTerrain::SetViewPoint()
 	polygonVertices[nPolygonVertices++] = pyramidVerts[0];
 
 	// First we go along the right side
-	for( i = 1 ;; i++) {
+	for( int i = 1 ;; i++) {
 		int		nNext = -1;
 		double	fMaxAngle;
 		for( int j = i ; j < nPyramidVerts ; j++ ) {
@@ -585,7 +585,7 @@ void _CViewTerrain::SetViewPoint()
 	}
 
 	// Then we return along the left one
-	for( i = nPyramidVerts-2 ;; i--) {
+	for( int i = nPyramidVerts-2 ;; i--) {
 		int		nNext = -1;
 		double	fMinAngle;
 		for( int j = i ; j >= 0 ; j-- ) {
@@ -611,7 +611,7 @@ void _CViewTerrain::SetViewPoint()
 
 	// Find out indices of the outmost vertices
 	CRect2	polygonRectIdx(0,0,0,0);
-	for( i = 1 ; i < nPolygonVertices ; i++ ) {
+	for( int i = 1 ; i < nPolygonVertices ; i++ ) {
 		if( polygonVertices[i].x < polygonVertices[polygonRectIdx.left].x )	polygonRectIdx.left = i;
 		if( polygonVertices[i].x > polygonVertices[polygonRectIdx.right].x )	polygonRectIdx.right = i;
 		if( polygonVertices[i].y < polygonVertices[polygonRectIdx.top].y )	polygonRectIdx.top = i;
@@ -625,7 +625,8 @@ void _CViewTerrain::SetViewPoint()
 	// Create zero reduction edges
 	double	fMajorAxisZStep, fMinorAxisZStep;
 	int		iMajorAxisStart0, iMajorAxisEnd0;
-	int iL, iR, iL1, iR1, l, r, l1, r1; double tanL, tanR;
+	int iL, iR, iL1, iR1, l, r, l1, r1, i; 
+	double tanL, tanR;
 	m_edgesOuter[I_L] = 0, m_edgesOuter[I_R] = 0;
 	if( IsViewAlongX() ) { // creating edges alongX
 		RTCHECK(m_polygonRect.Width()+(1<<nTerrainMaxReduction)*3<m_nMaxEdges,"Not enough memory for terrain");
@@ -657,7 +658,8 @@ void _CViewTerrain::SetViewPoint()
 			l = Min(l,l1=(int)floor(polygonVertices[iL].y+tanL*(x-polygonVertices[iL].x)));
 			r = Max(r,r1=(int)floor(polygonVertices[iR].y+tanR*(x-polygonVertices[iR].x))+1);
 			ASSERT(i<m_pnEdges[0]);
-			m_ppEdges[0][i][I_L] = l; m_ppEdges[0][i][I_R] = r;
+			m_ppEdges[0][i][I_L] = l; 
+			m_ppEdges[0][i][I_R] = r;
 			if( m_ppEdges[0][i][I_L] < m_ppEdges[0][m_edgesOuter[I_L]][I_L] ) m_edgesOuter[I_L] = i;
 			if( m_ppEdges[0][i][I_R] > m_ppEdges[0][m_edgesOuter[I_R]][I_R] ) m_edgesOuter[I_R] = i;
 			WRITELOG3("Edge[%d]: %d,%d\n",x-1,l,r);
@@ -893,19 +895,19 @@ int	__terrainObjs = 1;
 
 
 inline	double	FASTLOG2(double x) { return log2(x); }
-#pragma aux FASTLOG2 = \
+/*#pragma aux FASTLOG2 = \
 		"fld1"	\
 		"fxch"	\
 		"fyl2x"	\
-		parm [8087] value [8087]
+		parm [8087] value [8087]*/
 
 inline	void FASTLOG2INT(double x, int *p) { *p = (int)log2(x); }
-#pragma aux FASTLOG2INT = \
+/*#pragma aux FASTLOG2INT = \
 		"fld1"	\
 		"fxch"	\
 		"fyl2x"	\
 		"fistp dword ptr [eax]" \
-		parm [8087] [eax]
+		parm [8087] [eax]*/
 
 
 inline double	_CViewTerrain::Reduction(double z)
@@ -1321,7 +1323,7 @@ inline bool  _CViewTerrain::IsWaterCell(int x, int y)
 	//return	(m_red(x,y)>>6) <= 0x01;
 }
 
-inline int _CViewTerrain::IsWaterVertex(int x, int y)
+inline bool _CViewTerrain::IsWaterVertex(int x, int y)
 {
 	(void)x; (void)y;
     /*int r;
@@ -1621,7 +1623,7 @@ inline bool _CViewTerrain::CalcTriangleNormal(_CViewTerrain::SVert3_0 **ppCellVe
 
 
 #define	SPLITDIFF(X,Y)	(nSplitUp?X-Y:Y-X)
-void _CViewTerrain::DrawTriangleSplit(int nSplitUp,_CViewTerrain::SVert3W **ppCellVerts,int iVert1,int iVertT,int iVert2,int nCellVerts,int mask,
+void _CViewTerrain::DrawTriangleSplit(bool nSplitUp,_CViewTerrain::SVert3W **ppCellVerts,int iVert1,int iVertT,int iVert2,int nCellVerts,int mask,
 											bool bCellBump,SVector2 *pBumpVerts,int nWater,bool bGouraud)
 {
 	(void)iVertT;

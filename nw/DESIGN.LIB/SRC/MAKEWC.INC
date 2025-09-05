@@ -3,7 +3,7 @@
 DEBUG=0
 !endif
 
-PROJ = D:\DESIGN.LIB
+PROJ = C:\nw\DESIGN.LIB\SRC
 I = $(PROJ)\H
 SRC = $(PROJ)\SRC
 
@@ -11,10 +11,10 @@ OUT = $(PROJ)\WC
 
 !ifneq DEBUG 0
 O = $(OUT)\OBJ\DD
-LIBNAME = $(OUT)\designdd
+LIBNAME = $(OUT)\designwd
 !else
 O = $(OUT)\OBJ\DR
-LIBNAME = $(OUT)\designdr
+LIBNAME = $(OUT)\designwr
 !endif
 
 
@@ -25,10 +25,10 @@ CPP = wpp386 -mf -5s -zq -i$(I) -fo$(O)\
 LIBR = wlib -c -b -n -l=$(LIBNAME).lst
 
 !ifeq DEBUG 1
-CPP += -d2 -d_DEBUG -w4 -bt=dos
+CPP += -d2 -d_DEBUG -w4 -bt=nt
 !endif
 !ifeq DEBUG 0
-CPP += -d0 -oneatmilrf -s -fpi87 -7 -fp5 -w4 -bt=dos
+CPP += -d0 -oneatmilrf -s -fpi87 -fp5 -w4 -bt=nt
 !endif
 !ifeq DEBUG 2
 O = $(OUT)\OBJ\WD
@@ -39,7 +39,7 @@ CPP += -bt=nt
 !ifeq DEBUG 3
 O = $(OUT)\OBJ\WR
 LIBNAME = $(OUT)\designwr
-CPP += -d0 -oneatmilrf -s -fpi87 -7 -fp5 -w4
+CPP += -d0 -oneatmilrf -s -fpi87 -fp5 -w4
 CPP += -bt=nt
 !endif
 

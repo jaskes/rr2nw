@@ -152,7 +152,7 @@ class ct_ClassTable
 	void				 setAddMode(ct_addMode mode) 
 	{ m_defaultAddMode = mode; }
 
-             ct_ClassTable();  // inline
+             //ct_ClassTable();  // inline
     virtual ~ct_ClassTable() {}
     ct_ClassTableID      getClassTableID() { return m_id; }
  };

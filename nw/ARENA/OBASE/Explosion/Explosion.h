@@ -31,7 +31,7 @@ class s_ExplosionObject : public  CViewSphericDynamic
  {
  public:
         Explosion *m_master;
-        s_FountainObject()
+        s_ExplosionObject()
         {
             m_master = 0;
         }

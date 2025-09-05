@@ -409,9 +409,9 @@ class Tank : public ct_Subject,
     void   gotoSTAY_SHOOTING( KR_Event &event );
     void   gotoRETREATING( KR_Event &event );
     void   gotoRETURN( KR_Event &event );
-    void   gotoMOVING( KR_Event &event );
-    void   gotoMOVING_SHOOTING( KR_Event &event );
-    void   gotoSTAY_SHOOTING( KR_Event &event );
+    //void   gotoMOVING( KR_Event &event );
+    //void   gotoMOVING_SHOOTING( KR_Event &event );
+    //void   gotoSTAY_SHOOTING( KR_Event &event );
     void   gotoROTATE_AND_SHOOTING( KR_Event &event );
     //}}END_OF_GOTO_STATE_DECLARE
     void         loadStateTransitionTable();

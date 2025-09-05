@@ -1439,7 +1439,7 @@ int GRSetPalette(const unsigned char * pal8, int setScr)
 
 
    if ( _gr_hPal != NULL ) {
-		SelectPalette(_gr_hDC,GetStockObject(DEFAULT_PALETTE),FALSE);
+		SelectPalette(_gr_hDC, (HPALETTE)GetStockObject(DEFAULT_PALETTE),FALSE);
 		DeleteObject(_gr_hPal);
 		_gr_hPal = NULL;
 	}
@@ -1661,7 +1661,7 @@ void DDTerminate(BOOL fAll)
 
 
     if( _gr_hPal != NULL ) {
-		SelectPalette(_gr_hDC,GetStockObject(DEFAULT_PALETTE),FALSE);
+		SelectPalette(_gr_hDC, (HPALETTE)GetStockObject(DEFAULT_PALETTE),FALSE);
 		DeleteObject(_gr_hPal);
 		_gr_hPal = NULL;
 	}

@@ -225,7 +225,7 @@ protected:
 };
 
 
-typedef struct {
+typedef struct Control {
 	Control() { mouse = 1; keyboard = 1; joystick = 0;};
 	int keyboard;
 	int mouse;

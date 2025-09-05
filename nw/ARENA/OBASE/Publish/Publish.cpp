@@ -60,7 +60,7 @@ Publisher::Publisher( int events, int subscribers )
 
     // move all subscribers to free list
     m_subscriberFreeList = 0;
-    for (i = 0; i < m_subscriberQnty - 1; i++)
+    for (int i = 0; i < m_subscriberQnty - 1; i++)
     {
        m_subscribers[i].next       = i + 1;
        m_subscribers[i].subscriber = KR_ObjectID::NUL();

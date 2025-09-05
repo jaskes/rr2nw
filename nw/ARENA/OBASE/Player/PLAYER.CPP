@@ -121,7 +121,7 @@ void    Player::addCommander     (KR_ObjectID commander)
    }
 }
 
-int g_findCommander(KR_ObjectID oID, void *pl)
+bool g_findCommander(KR_ObjectID oID, void *pl)
 {
     ((Player*)pl)->addCommander(oID);
     return 1;
@@ -269,7 +269,7 @@ void Player::SetHostility (KR_ObjectID commander)
 
 	// Fail All Missions for sides, where we are renegats
 
-	for (i = 0; i < m_missCnt; i++)
+	for (int i = 0; i < m_missCnt; i++)
 	{
 		if ( isRenegat(m_mission[i].comID) )
 			m_mission[i].m_status = MISSION_SURRENDER;
@@ -334,7 +334,7 @@ void Player::BetrayFor (KR_ObjectID commander)
    ICommander * icommander = (ICommander*)(g_arena.getContext()->queryInterface(commander,ICommanderIID));
 //   VERIFYMSG(icommander,"Cannot find commander");
 
-   for(i = 0; i < m_sideQnty; ++i)
+   for(int i = 0; i < m_sideQnty; ++i)
    {
 	   if (icommander->isFriendly(m_playerStatus[i].m_masterID))
 	   {

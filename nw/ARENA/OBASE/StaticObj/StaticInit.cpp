@@ -364,7 +364,7 @@ void g_staticInit1()
     CNameDecl     &Flag_rbtArr = refNames["flag_rbt"];
     int       nFlag_rbtCount = Flag_rbtArr.Count();
 
-    for( i = 0 ; i < nFlag_rbtCount ; i++ )
+    for( int i = 0 ; i < nFlag_rbtCount ; i++ )
     {
          CViewObjectRef  *pFlag_rbt = (CViewObjectRef*)Flag_rbtArr[i];
          CViewObjectBase &pBase = pFlag_rbt->Model()->BaseSet(0).Base(0);
@@ -394,7 +394,7 @@ void g_staticInit1()
     CNameDecl     &Flag_tnkArr = refNames["flag_tnk"];
     int       nFlag_tnkCount = Flag_tnkArr.Count();
 
-    for( i = 0 ; i < nFlag_tnkCount ; i++ )
+    for( int i = 0 ; i < nFlag_tnkCount ; i++ )
     {
          CViewObjectRef  *pFlag_tnk = (CViewObjectRef*)Flag_tnkArr[i];
          CViewObjectBase &pBase = pFlag_tnk->Model()->BaseSet(0).Base(0);
@@ -424,7 +424,7 @@ void g_staticInit1()
     CNameDecl  &Pol_02Arr = refNames["pol_02"];      // array of objects named "mill"
     int       nPol_02Count = Pol_02Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nPol_02Count ; i++ ) 
+    for( int i = 0 ; i < nPol_02Count ; i++ ) 
     {
          CViewObjectRef  *pPol_02 = (CViewObjectRef*)Pol_02Arr[i];
          CViewObjectBase &pBase = pPol_02->Model()->BaseSet(0).Base(0);
@@ -462,7 +462,7 @@ void g_staticInit1()
     CNameDecl     &Pol_13Arr = refNames["pol_13"];
     int       nPol_13Count = Pol_13Arr.Count();
 
-    for( i = 0 ; i < nPol_13Count ; i++ )
+    for( int i = 0 ; i < nPol_13Count ; i++ )
     {
          CViewObjectRef  *pPol_13 = (CViewObjectRef*)Pol_13Arr[i];
          CViewObjectBase &pBase = pPol_13->Model()->BaseSet(0).Base(0);
@@ -488,7 +488,7 @@ void g_staticInit1()
     CNameDecl     &Twn_pikeArr = refNames["twn_pike"];
     int       nTwn_pikeCount = Twn_pikeArr.Count();
 
-    for( i = 0 ; i < nTwn_pikeCount ; i++ )
+    for( int i = 0 ; i < nTwn_pikeCount ; i++ )
     {
          CViewObjectRef  *pTwn_pike = (CViewObjectRef*)Twn_pikeArr[i];
          CViewObjectBase &pBase = pTwn_pike->Model()->BaseSet(0).Base(0);
@@ -514,7 +514,7 @@ void g_staticInit1()
     CNameDecl     &Slo_06aArr = refNames["slo_06a"];
     int       nSlo_06aCount = Slo_06aArr.Count();
 
-    for( i = 0 ; i < nSlo_06aCount ; i++ )
+    for( int i = 0 ; i < nSlo_06aCount ; i++ )
     {
          CViewObjectRef  *pSlo_06a = (CViewObjectRef*)Slo_06aArr[i];
          CViewObjectBase &pBase = pSlo_06a->Model()->BaseSet(0).Base(0);
@@ -540,7 +540,7 @@ void g_staticInit1()
     CNameDecl     &Pol_03Arr = refNames["pol_03"];
     int       nPol_03Count = Pol_03Arr.Count();
 
-    for( i = 0 ; i < nPol_03Count ; i++ )
+    for( int i = 0 ; i < nPol_03Count ; i++ )
     {
          CViewObjectRef  *pPol_03 = (CViewObjectRef*)Pol_03Arr[i];
          CViewObjectBase &pBase = pPol_03->Model()->BaseSet(0).Base(0);
@@ -586,7 +586,7 @@ void g_staticInit1()
     CNameDecl     &tel_00Arr = refNames["tel_00"];
     int       ntel_00Count = tel_00Arr.Count();
 
-    for( i = 0 ; i < ntel_00Count ; i++ )
+    for( int i = 0 ; i < ntel_00Count ; i++ )
     {
          CViewObjectRef  *ptel_00 = (CViewObjectRef*)tel_00Arr[i];
          CViewObjectBase &pBase = ptel_00->Model()->BaseSet(0).Base(0);
@@ -609,7 +609,7 @@ void g_staticInit1()
     CNameDecl     &Pol_16Arr = refNames["pol_16"];
     int       nPol_16Count = Pol_16Arr.Count();
 
-    for( i = 0 ; i < nPol_16Count ; i++ )
+    for( int i = 0 ; i < nPol_16Count ; i++ )
     {
          CViewObjectRef  *pPol_16 = (CViewObjectRef*)Pol_16Arr[i];
          CViewObjectBase &pBase = pPol_16->Model()->BaseSet(0).Base(0);
@@ -643,7 +643,7 @@ void g_staticInit1()
     CNameDecl  &Htk_gunArr = refNames["htk_gun"];      // array of objects named "mill"
     int       nHtk_gunCount = Htk_gunArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nHtk_gunCount ; i++ ) 
+    for( int i = 0 ; i < nHtk_gunCount ; i++ ) 
     {
          CViewObjectRef  *pHtk_gun = (CViewObjectRef*)Htk_gunArr[i];
          CViewObjectBase &pBase = pHtk_gun->Model()->BaseSet(0).Base(0);
@@ -1025,7 +1025,7 @@ void g_staticInit2()
     CNameDecl     &Bld_15Arr = refNames["bld_15"];	// array of objects named "mill"
     int       nBld_15Count = Bld_15Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nBld_15Count ; i++ ) 
+    for( int i = 0 ; i < nBld_15Count ; i++ ) 
     {
          CViewObjectRef  *pBld_15 = (CViewObjectRef*)Bld_15Arr[i];
          CViewObjectBase &pBase = pBld_15->Model()->BaseSet(0).Base(0);
@@ -1047,7 +1047,7 @@ void g_staticInit2()
     CNameDecl     &Bld_w03Arr = refNames["bld_w03"];      // array of objects named "mill"
     int       nBld_w03Count = Bld_w03Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nBld_w03Count ; i++ ) 
+    for( int i = 0 ; i < nBld_w03Count ; i++ ) 
     {
          CViewObjectRef  *pBld_w03 = (CViewObjectRef*)Bld_w03Arr[i];
          CViewObjectBase &pBase = pBld_w03->Model()->BaseSet(0).Base(0);
@@ -1069,7 +1069,7 @@ void g_staticInit2()
     CNameDecl     &Bld_w05Arr = refNames["bld_w05"];      // array of objects named "mill"
     int       nBld_w05Count = Bld_w05Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nBld_w05Count ; i++ ) 
+    for( int i = 0 ; i < nBld_w05Count ; i++ ) 
     {
          CViewObjectRef  *pBld_w05 = (CViewObjectRef*)Bld_w05Arr[i];
          CViewObjectBase &pBase = pBld_w05->Model()->BaseSet(0).Base(0);
@@ -1091,7 +1091,7 @@ void g_staticInit2()
     CNameDecl     &Bld_w06Arr = refNames["bld_w06"];      // array of objects named "mill"
     int       nBld_w06Count = Bld_w06Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nBld_w06Count ; i++ ) 
+    for( int i = 0 ; i < nBld_w06Count ; i++ ) 
     {
          CViewObjectRef  *pBld_w06 = (CViewObjectRef*)Bld_w06Arr[i];
          CViewObjectBase &pBase = pBld_w06->Model()->BaseSet(0).Base(0);
@@ -1113,7 +1113,7 @@ void g_staticInit2()
     CNameDecl     &Ctl_01Arr = refNames["ctl_01"];      // array of objects named "mill"
     int       nCtl_01Count = Ctl_01Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nCtl_01Count ; i++ ) 
+    for( int i = 0 ; i < nCtl_01Count ; i++ ) 
     {
          CViewObjectRef  *pCtl_01 = (CViewObjectRef*)Ctl_01Arr[i];
          CViewObjectBase &pBase = pCtl_01->Model()->BaseSet(0).Base(0);
@@ -1132,7 +1132,7 @@ void g_staticInit2()
     CNameDecl     &Flg_magArr = refNames["flg_mag"];      // array of objects named "mill"
     int       nFlg_magCount = Flg_magArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nFlg_magCount ; i++ ) 
+    for( int i = 0 ; i < nFlg_magCount ; i++ ) 
     {
          CViewObjectRef  *pFlg_mag = (CViewObjectRef*)Flg_magArr[i];
          CViewObjectBase &pBase = pFlg_mag->Model()->BaseSet(0).Base(0);
@@ -1154,7 +1154,7 @@ void g_staticInit2()
     CNameDecl     &flg_roylArr = refNames["flg_royl"];      // array of objects named "mill"
     int       nflg_roylCount = flg_roylArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nflg_roylCount ; i++ ) 
+    for( int i = 0 ; i < nflg_roylCount ; i++ ) 
     {
          CViewObjectRef  *pflg_royl = (CViewObjectRef*)flg_roylArr[i];
          CViewObjectBase &pBase = pflg_royl->Model()->BaseSet(0).Base(0);
@@ -1178,7 +1178,7 @@ void g_staticInit2()
     CNameDecl     &bld_00cArr = refNames["bld_00c"];
     int       nbld_00cCount = bld_00cArr.Count();
 
-    for( i = 0 ; i < nbld_00cCount ; i++ )
+    for( int i = 0 ; i < nbld_00cCount ; i++ )
     {
          CViewObjectRef  *pbld_00c = (CViewObjectRef*)bld_00cArr[i];
          CViewObjectBase &pBase = pbld_00c->Model()->BaseSet(0).Base(0);
@@ -1204,7 +1204,7 @@ void g_staticInit2()
     CNameDecl     &Bld_v00Arr = refNames["bld_v00"];
     int       nBld_v00Count = Bld_v00Arr.Count();
 
-    for( i = 0 ; i < nBld_v00Count ; i++ )
+    for( int i = 0 ; i < nBld_v00Count ; i++ )
     {
          CViewObjectRef  *pBld_v00 = (CViewObjectRef*)Bld_v00Arr[i];
          CViewObjectBase &pBase = pBld_v00->Model()->BaseSet(0).Base(0);
@@ -1228,7 +1228,7 @@ void g_staticInit2()
     CNameDecl     &ctl_09Arr = refNames["ctl_09"];
     int       nctl_09Count = ctl_09Arr.Count();
 
-    for( i = 0 ; i < nctl_09Count ; i++ )
+    for( int i = 0 ; i < nctl_09Count ; i++ )
     {
          CViewObjectRef  *pctl_09 = (CViewObjectRef*)ctl_09Arr[i];
          CViewObjectBase &pBase = pctl_09->Model()->BaseSet(0).Base(0);
@@ -1251,7 +1251,7 @@ void g_staticInit2()
     CNameDecl  &Bld_a02Arr = refNames["bld_a02"];      // array of objects named "mill"
     int       nBld_a02Count = Bld_a02Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nBld_a02Count ; i++ ) 
+    for( int i = 0 ; i < nBld_a02Count ; i++ ) 
     {
          CViewObjectRef  *pBld_a02 = (CViewObjectRef*)Bld_a02Arr[i];
          CViewObjectBase &pBase = pBld_a02->Model()->BaseSet(0).Base(0);
@@ -1288,7 +1288,7 @@ void g_staticInit2()
     CNameDecl  &Bld_a03Arr = refNames["bld_a03"];      // array of objects named "mill"
     int       nBld_a03Count = Bld_a03Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nBld_a03Count ; i++ ) 
+    for( int i = 0 ; i < nBld_a03Count ; i++ ) 
     {
          CViewObjectRef  *pBld_a03 = (CViewObjectRef*)Bld_a03Arr[i];
          CViewObjectBase &pBase = pBld_a03->Model()->BaseSet(0).Base(0);
@@ -1317,7 +1317,7 @@ void g_staticInit2()
     CNameDecl     &evl_angrArr = refNames["evl_angr"];
     int       nevl_angrCount = evl_angrArr.Count();
 
-    for( i = 0 ; i < nevl_angrCount ; i++ )
+    for( int i = 0 ; i < nevl_angrCount ; i++ )
     {
          CViewObjectRef  *pevl_angr = (CViewObjectRef*)evl_angrArr[i];
          CViewObjectBase &pBase = pevl_angr->Model()->BaseSet(0).Base(0);
@@ -1664,7 +1664,7 @@ void g_staticInit3()
     CNameDecl     &War_m16Arr = refNames["war_m16"];      // array of objects named "mill"
     int       nWar_m16Count = War_m16Arr.Count(); // number of objects named "mill"
 
-    for(i = 0 ; i < nWar_m16Count ; i++ ) 
+    for( int i = 0 ; i < nWar_m16Count ; i++ ) 
     {
          CViewObjectRef  *pWar_m16 = (CViewObjectRef*)War_m16Arr[i];
          CViewObjectBase &pBase = pWar_m16->Model()->BaseSet(0).Base(0);
@@ -1686,7 +1686,7 @@ void g_staticInit3()
     CNameDecl     &War_m08Arr = refNames["war_m08"];      // array of objects named "mill"
     int       nWar_m08Count = War_m08Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWar_m08Count ; i++ )
+    for( int i = 0 ; i < nWar_m08Count ; i++ )
     {
          CViewObjectRef  *pWar_m08 = (CViewObjectRef*)War_m08Arr[i];
          CViewObjectBase &pBase = pWar_m08->Model()->BaseSet(0).Base(0);
@@ -1708,7 +1708,7 @@ void g_staticInit3()
     CNameDecl     &War_m06bArr = refNames["war_m06b"];      // array of objects named "mill"
     int       nWar_m06bCount = War_m06bArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWar_m06bCount ; i++ )
+    for( int i = 0 ; i < nWar_m06bCount ; i++ )
     {
          CViewObjectRef  *pWar_m06b = (CViewObjectRef*)War_m06bArr[i];
          CViewObjectBase &pBase = pWar_m06b->Model()->BaseSet(0).Base(0);
@@ -1730,7 +1730,7 @@ void g_staticInit3()
     CNameDecl     &War_m14Arr = refNames["war_m14"];      // array of objects named "mill"
     int       nWar_m14Count = War_m14Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWar_m14Count ; i++ ) 
+    for( int i = 0 ; i < nWar_m14Count ; i++ ) 
     {
          CViewObjectRef  *pWar_m14 = (CViewObjectRef*)War_m14Arr[i];
          CViewObjectBase &pBase = pWar_m14->Model()->BaseSet(0).Base(0);
@@ -1762,7 +1762,7 @@ void g_staticInit3()
     CNameDecl  &War_s00Arr = refNames["war_s00"];      // array of objects named "mill"
     int       nWar_s00Count = War_s00Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWar_s00Count ; i++ ) 
+    for( int i = 0 ; i < nWar_s00Count ; i++ ) 
     {
          CViewObjectRef  *pWar_s00 = (CViewObjectRef*)War_s00Arr[i];
          CViewObjectBase &pBase = pWar_s00->Model()->BaseSet(0).Base(0);
@@ -1801,7 +1801,7 @@ void g_staticInit3()
     CNameDecl     &Arn_angrArr = refNames["arn_angr"];      // array of objects named "mill"
     int       nArn_angrCount = Arn_angrArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nArn_angrCount ; i++ ) 
+    for( int i = 0 ; i < nArn_angrCount ; i++ ) 
     {
          CViewObjectRef  *pArn_angr = (CViewObjectRef*)Arn_angrArr[i];
          CViewObjectBase &pBase = pArn_angr->Model()->BaseSet(0).Base(0);
@@ -1823,7 +1823,7 @@ void g_staticInit3()
     CNameDecl     &flg_humnArr = refNames["flg_humn"];
     int       nflg_humnCount = flg_humnArr.Count();
 
-    for( i = 0 ; i < nflg_humnCount ; i++ )
+    for( int i = 0 ; i < nflg_humnCount ; i++ )
     {
          CViewObjectRef  *pflg_humn = (CViewObjectRef*)flg_humnArr[i];
          CViewObjectBase &pBase = pflg_humn->Model()->BaseSet(0).Base(0);
@@ -1853,7 +1853,7 @@ void g_staticInit3()
     CNameDecl     &flg_mrdArr = refNames["flg_mrd"];
     int       nflg_mrdCount = flg_mrdArr.Count();
 
-    for( i = 0 ; i < nflg_mrdCount ; i++ )
+    for( int i = 0 ; i < nflg_mrdCount ; i++ )
     {
          CViewObjectRef  *pflg_mrd = (CViewObjectRef*)flg_mrdArr[i];
          CViewObjectBase &pBase = pflg_mrd->Model()->BaseSet(0).Base(0);
@@ -1883,7 +1883,7 @@ void g_staticInit3()
     CNameDecl     &Arn_entrArr = refNames["arn_entr"];      // array of objects named "mill"
     int       nArn_entrCount = Arn_entrArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nArn_entrCount ; i++ ) 
+    for( int i = 0 ; i < nArn_entrCount ; i++ ) 
     {
          CViewObjectRef  *pArn_entr = (CViewObjectRef*)Arn_entrArr[i];
          CViewObjectBase &pBase = pArn_entr->Model()->BaseSet(0).Base(0);
@@ -1910,7 +1910,7 @@ void g_staticInit3()
     CNameDecl     &war_s01Arr = refNames["war_s01"];      // array of objects named "mill"
     int       nwar_s01Count = war_s01Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nwar_s01Count ; i++ ) 
+    for( int i = 0 ; i < nwar_s01Count ; i++ ) 
     {
          CViewObjectRef  *pwar_s01 = (CViewObjectRef*)war_s01Arr[i];
          CViewObjectBase &pBase = pwar_s01->Model()->BaseSet(0).Base(0);
@@ -1931,7 +1931,7 @@ void g_staticInit3()
     CNameDecl     &Vhl_qganArr = refNames["vhl_qgan"];      // array of objects named "mill"
     int       nVhl_qganCount = Vhl_qganArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nVhl_qganCount ; i++ ) 
+    for( int i = 0 ; i < nVhl_qganCount ; i++ ) 
     {
          CViewObjectRef  *pVhl_qgan = (CViewObjectRef*)Vhl_qganArr[i];
          CViewObjectBase &pBase = pVhl_qgan->Model()->BaseSet(0).Base(0);
@@ -1963,7 +1963,7 @@ void g_staticInit3()
     CNameDecl     &War_s07Arr = refNames["war_s07"];      // array of objects named "mill"
     int       nWar_s07Count = War_s07Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWar_s07Count ; i++ ) 
+    for( int i = 0 ; i < nWar_s07Count ; i++ ) 
     {
          CViewObjectRef  *pWar_s07 = (CViewObjectRef*)War_s07Arr[i];
          CViewObjectBase &pBase = pWar_s07->Model()->BaseSet(0).Base(0);
@@ -2440,7 +2440,7 @@ void g_staticInit4()
     CNameDecl     &Zepps = refNames["cln_f07"];	// array of objects named "mill"
     int       nZeppsCount = Zepps.Count();	// number of objects named "mill"
 
-    for( i = 0 ; i < nZeppsCount ; i++ ) 
+    for( int i = 0 ; i < nZeppsCount ; i++ ) 
     {
          CViewObjectRef	 *pZepp = (CViewObjectRef*)Zepps[i];
          CViewObjectBase &pBase = pZepp->Model()->BaseSet(0).Base(0);
@@ -2459,7 +2459,7 @@ void g_staticInit4()
     CNameDecl     &cranes = refNames["cln_b05"];
     int       nCraneCount = cranes.Count();	
 
-    for( i = 0 ; i < nCraneCount ; i++ ) 
+    for( int i = 0 ; i < nCraneCount ; i++ ) 
     {
          CViewObjectRef	 *pCrane = (CViewObjectRef*)cranes[i];
          CViewObjectBase &pBase = pCrane->Model()->BaseSet(0).Base(0);
@@ -2486,7 +2486,7 @@ void g_staticInit4()
     CNameDecl     &myCranes = refNames["srg_cran"];
     int       nMyCraneCount = myCranes.Count();	
 
-    for( i = 0 ; i < nMyCraneCount ; i++ ) 
+    for( int i = 0 ; i < nMyCraneCount ; i++ ) 
     {
          CViewObjectRef	 *pMyCrane = (CViewObjectRef*)myCranes[i];
          CViewObjectBase &pBase = pMyCrane->Model()->BaseSet(0).Base(0);
@@ -2519,7 +2519,7 @@ void g_staticInit4()
     CNameDecl     &Engines = refNames["cln_b0c"];
     int       nEngineCount = Engines.Count();	
 
-    for( i = 0 ; i < nEngineCount ; i++ ) 
+    for( int i = 0 ; i < nEngineCount ; i++ ) 
     {
          CViewObjectRef	 *pEngine = (CViewObjectRef*)Engines[i];
          CViewObjectBase &pBase = pEngine->Model()->BaseSet(0).Base(0);
@@ -2549,7 +2549,7 @@ void g_staticInit4()
     CNameDecl     &Bridges = refNames["wal_gbrg"];
     int       nBridgeCount = Bridges.Count();	
 
-    for( i = 0 ; i < nBridgeCount ; i++ ) 
+    for( int i = 0 ; i < nBridgeCount ; i++ ) 
     {
          CViewObjectRef	 *pBridge = (CViewObjectRef*)Bridges[i];
          CViewObjectBase &pBase = pBridge->Model()->BaseSet(0).Base(0);
@@ -2577,7 +2577,7 @@ void g_staticInit4()
     CNameDecl     &Gates = refNames["wal_ggts"];
     int       nGateCount = Gates.Count();	
 
-    for( i = 0 ; i < nGateCount ; i++ ) 
+    for( int i = 0 ; i < nGateCount ; i++ ) 
     {
          CViewObjectRef	 *pGate = (CViewObjectRef*)Gates[i];
          CViewObjectBase &pBase = pGate->Model()->BaseSet(0).Base(0);
@@ -2600,7 +2600,7 @@ void g_staticInit4()
     CNameDecl     &FlagAs = refNames["flag_ast"];
     int       nFlagACount = FlagAs.Count();	
 
-    for( i = 0 ; i < nFlagACount ; i++ ) 
+    for( int i = 0 ; i < nFlagACount ; i++ ) 
     {
          CViewObjectRef	 *pFlagA = (CViewObjectRef*)FlagAs[i];
          CViewObjectBase &pBase = pFlagA->Model()->BaseSet(0).Base(0);
@@ -2632,7 +2632,7 @@ void g_staticInit4()
     CNameDecl     &FlagCs = refNames["flag_con"];
     int       nFlagCCount = FlagCs.Count();	
 
-    for( i = 0 ; i < nFlagCCount ; i++ ) 
+    for( int i = 0 ; i < nFlagCCount ; i++ ) 
     {
          CViewObjectRef	 *pFlagC = (CViewObjectRef*)FlagCs[i];
          CViewObjectBase &pBase = pFlagC->Model()->BaseSet(0).Base(0);
@@ -2664,7 +2664,7 @@ void g_staticInit4()
     CNameDecl     &masts = refNames["mast_b0i"];	// array of objects named "mill"
     int       nMastCount = masts.Count();	// number of objects named "mill"
 
-    for( i = 0 ; i < nMastCount ; i++ ) 
+    for( int i = 0 ; i < nMastCount ; i++ ) 
     {
          CViewObjectRef	 *pMast = (CViewObjectRef*)masts[i];
          CViewObjectBase &pBase = pMast->Model()->BaseSet(0).Base(0);
@@ -3267,7 +3267,7 @@ void g_staticInit5()
     CNameDecl  &Wtr_f02Arr = refNames["wtr_f02"];      // array of objects named "mill"
     int       nWtr_f02Count = Wtr_f02Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWtr_f02Count ; i++ ) 
+    for( int i = 0 ; i < nWtr_f02Count ; i++ ) 
     {
          CViewObjectRef  *pWtr_f02 = (CViewObjectRef*)Wtr_f02Arr[i];
          CViewObjectBase &pBase = pWtr_f02->Model()->BaseSet(0).Base(0);
@@ -3313,7 +3313,7 @@ void g_staticInit5()
     CNameDecl  &Wtr_f03aArr = refNames["wtr_f03a"];      // array of objects named "mill"
     int       nWtr_f03aCount = Wtr_f03aArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWtr_f03aCount ; i++ ) 
+    for( int i = 0 ; i < nWtr_f03aCount ; i++ ) 
     {
          CViewObjectRef  *pWtr_f03a = (CViewObjectRef*)Wtr_f03aArr[i];
          CViewObjectBase &pBase = pWtr_f03a->Model()->BaseSet(0).Base(0);
@@ -3357,7 +3357,7 @@ void g_staticInit5()
     CNameDecl  &Wtr_f04Arr = refNames["wtr_f04"];      // array of objects named "mill"
     int       nWtr_f04Count = Wtr_f04Arr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nWtr_f04Count ; i++ ) 
+    for( int i = 0 ; i < nWtr_f04Count ; i++ ) 
     {
          CViewObjectRef  *pWtr_f04 = (CViewObjectRef*)Wtr_f04Arr[i];
          CViewObjectBase &pBase = pWtr_f04->Model()->BaseSet(0).Base(0);
@@ -3411,7 +3411,7 @@ void g_staticInit5()
     CNameDecl     &Flg_civArr = refNames["flg_civ"];
     int       nFlg_civCount = Flg_civArr.Count();
 
-    for( i = 0 ; i < nFlg_civCount ; i++ )
+    for( int i = 0 ; i < nFlg_civCount ; i++ )
     {
          CViewObjectRef	 *pFlg_civ = (CViewObjectRef*)Flg_civArr[i];
          CViewObjectBase &pBase = pFlg_civ->Model()->BaseSet(0).Base(0);
@@ -3440,7 +3440,7 @@ void g_staticInit5()
     CNameDecl     &Flg_villArr = refNames["flg_vill"];
     int       nFlg_villCount = Flg_villArr.Count();
 
-    for( i = 0 ; i < nFlg_villCount ; i++ )
+    for( int i = 0 ; i < nFlg_villCount ; i++ )
     {
          CViewObjectRef  *pFlg_vill = (CViewObjectRef*)Flg_villArr[i];
          CViewObjectBase &pBase = pFlg_vill->Model()->BaseSet(0).Base(0);
@@ -3470,7 +3470,7 @@ void g_staticInit5()
     CNameDecl  &Rwy_smphArr = refNames["rwy_smph"];      // array of objects named "mill"
     int       nRwy_smphCount = Rwy_smphArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nRwy_smphCount ; i++ ) 
+    for( int i = 0 ; i < nRwy_smphCount ; i++ ) 
     {
          CViewObjectRef  *pRwy_smph = (CViewObjectRef*)Rwy_smphArr[i];
          CViewObjectBase &pBase = pRwy_smph->Model()->BaseSet(0).Base(0);
@@ -3497,7 +3497,7 @@ void g_staticInit5()
     CNameDecl  &Gun_civArr = refNames["gun_civ"];      // array of objects named "mill"
     int       nGun_civCount = Gun_civArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nGun_civCount ; i++ ) 
+    for( int i = 0 ; i < nGun_civCount ; i++ ) 
     {
          CViewObjectRef  *pGun_civ = (CViewObjectRef*)Gun_civArr[i];
          CViewObjectBase &pBase = pGun_civ->Model()->BaseSet(0).Base(0);
@@ -3563,7 +3563,7 @@ void g_staticInit5()
     CNameDecl  &Gun_villArr = refNames["gun_vill"];      // array of objects named "mill"
     int       nGun_villCount = Gun_villArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nGun_villCount ; i++ ) 
+    for( int i = 0 ; i < nGun_villCount ; i++ ) 
     {
          CViewObjectRef  *pGun_vill = (CViewObjectRef*)Gun_villArr[i];
          CViewObjectBase &pBase = pGun_vill->Model()->BaseSet(0).Base(0);
@@ -3590,7 +3590,7 @@ void g_staticInit5()
     CNameDecl  &Gun_srgArr = refNames["gun_srg"];      // array of objects named "mill"
     int       nGun_srgCount = Gun_srgArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nGun_srgCount ; i++ ) 
+    for( int i = 0 ; i < nGun_srgCount ; i++ ) 
     {
          CViewObjectRef  *pGun_srg = (CViewObjectRef*)Gun_srgArr[i];
          CViewObjectBase &pBase = pGun_srg->Model()->BaseSet(0).Base(0);
@@ -3617,7 +3617,7 @@ void g_staticInit5()
     CNameDecl  &Rwy_crosArr = refNames["rwy_cros"];      // array of objects named "mill"
     int       nRwy_crosCount = Rwy_crosArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nRwy_crosCount ; i++ ) 
+    for( int i = 0 ; i < nRwy_crosCount ; i++ ) 
     {
          CViewObjectRef  *pRwy_cros = (CViewObjectRef*)Rwy_crosArr[i];
          CViewObjectBase &pBase = pRwy_cros->Model()->BaseSet(0).Base(0);
@@ -3897,7 +3897,7 @@ void g_staticInit6()
     CNameDecl  &Blg_twrArr = refNames["blg_twr"];      // array of objects named "mill"
     int       nBlg_twrCount = Blg_twrArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nBlg_twrCount ; i++ ) 
+    for( int i = 0 ; i < nBlg_twrCount ; i++ ) 
     {
          CViewObjectRef  *pBlg_twr = (CViewObjectRef*)Blg_twrArr[i];
          CViewObjectBase &pBase = pBlg_twr->Model()->BaseSet(0).Base(0);
@@ -3931,7 +3931,7 @@ void g_staticInit6()
     CNameDecl  &Gun_gunArr = refNames["gun_gun"];      // array of objects named "mill"
     int       nGun_gunCount = Gun_gunArr.Count(); // number of objects named "mill"
 
-    for( i = 0 ; i < nGun_gunCount ; i++ ) 
+    for( int i = 0 ; i < nGun_gunCount ; i++ ) 
     {
          CViewObjectRef  *pGun_gun = (CViewObjectRef*)Gun_gunArr[i];
          CViewObjectBase &pBase = pGun_gun->Model()->BaseSet(0).Base(0);

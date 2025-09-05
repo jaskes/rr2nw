@@ -348,7 +348,7 @@ bool   CChannelMap::Update()
 	pRF->beta = pLine->b;
 	pRF->gamma = pLine->f;
 
-	for( i = 1 ; i < nNodes ; i++ )  {
+	for( int i = 1 ; i < nNodes ; i++ )  {
 		pRF_1 = pRF;		pRF = &pRunF[i];
 		pLine = &pLines[i];
 		denom = 1 - pLine->a * pRF_1->beta;
@@ -368,7 +368,7 @@ bool   CChannelMap::Update()
 	pRB_1->kappa = pRF->beta / denom;
 	pRB_1->mu = pRF->gamma / denom;
 
-	for( i = nNodes-2 ; i >= 0 ; i-- )  {
+	for( int i = nNodes-2 ; i >= 0 ; i-- )  {
 		pRB1 = pRB;	pRB = &pRunB[i];
 		pRF = &pRunF[i];
 		pRB->kappa = pRB_1->kappa * pRF->alpha + pRB1->kappa * pRF->beta;
@@ -381,7 +381,7 @@ bool   CChannelMap::Update()
 
 	double	x0 = pRunB[0].mu/(1-pRunB[0].kappa);
 
-	for( i = 0 ; i < nNodes ; i++ )
+	for( int i = 0 ; i < nNodes ; i++ )
 		pNodes[i].v = x0*pRunB[i].kappa+pRunB[i].mu;
 
 	delete	[] pLines;
