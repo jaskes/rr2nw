@@ -516,7 +516,7 @@ void KR_Hardware::ActivateMouseCapture(int activate){
             m_mouseCaptured = FALSE;
 	    ::ReleaseCapture();
             ::ClipCursor(NULL);
-	    if(!_dL.currDevice->fullScreen) ShowMouseCursor();
+	    if(_dL.currDevice && !_dL.currDevice->fullScreen) ShowMouseCursor();
 	    }
         break;
     }
