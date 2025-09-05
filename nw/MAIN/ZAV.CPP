@@ -457,7 +457,7 @@ extern int __revCnt, __fullCnt;
 void ILY_StartupImage()
 {  CGRImage image(_gr_nScreenWidth, _gr_nScreenHeight);
    unsigned char pal[768];
-   FILE *f = fopen("start.pal","rb");
+   FILE *f = fopen("..\\start.pal","rb");
 
    fread(pal,768,1,f);
    fclose(f);
@@ -472,10 +472,10 @@ void ILY_StartupImage()
 
 
    if (_gr_nScreenWidth >= 640)
-      image.LoadFromSPRFile("start_hi.spr",pal,
+      image.LoadFromSPRFile("..\\start_hi.spr",pal,
                             _gr_nScreenWidth/2-320, _gr_nScreenHeight/2 - 240);
    else
-      image.LoadFromSPRFile("start_lo.spr",pal,
+      image.LoadFromSPRFile("..\\start_lo.spr",pal,
                             _gr_nScreenWidth/2-160, _gr_nScreenHeight/2 - 120);
 
 
