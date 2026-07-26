@@ -280,10 +280,30 @@ height are shared separately so Vehicle no longer needs the complete terrain
 renderer merely to compare swimming height.
 
 After these owners are linked, the probe reports 26 unresolved symbols. The
-remaining groups are graph/panel and scene/vessel drawing; Hardware/Console/
-Briefing/Taxi globals; timing helpers; and four legacy RSX COM identifiers.
-`GRCreateColor` remains the first explicit DebugMap-to-renderer edge. No
-placeholder service or no-op game implementation is counted as progress.
+complete recovered `MOVINGOB.CPP` and `VESSEL.CPP` now compile strictly as
+independent archives. `MOVINGOB.CPP` needed one standards-only correction:
+its string-literal table is now pointer-to-const.
+
+A bounded runtime owner connects the recovered `CVessel` constructor, model
+draw dispatch, bonus reset and bonus collection without pulling the rest of
+the monolithic Vessel object. The encoded Russian status strings are expressed
+as their original bytes so the modern UTF-8 source does not silently transcode
+the game's legacy text.
+
+The scene draw owner connects `CMovingObject::Draw`, its front/back shot
+ordering, shot-type dispatch, bonus/movie ownership and aligned-image release.
+The software sprite and laser raster bodies remain disabled exactly as they
+are under `#if 0` in the recovered sources; this tranche does not claim that a
+renderer exists. Its executable contract checks hidden-main/dynamic dispatch,
+Vessel shield and weapon bonus arithmetic, rejection at capacity, consumption
+rules and exact message bytes.
+
+After this scene/Vessel tranche the probe reports 22 unresolved symbols. No
+scene or Vessel symbol remains. The remaining groups are graph/panel;
+Hardware/Console/Briefing/Taxi globals and methods; timing; three Win32 graph
+globals; and four legacy RSX COM identifiers. `GRCreateColor` remains the
+first explicit DebugMap-to-renderer edge. No placeholder service is counted as
+progress.
 
 ## Expansion order
 
@@ -296,9 +316,9 @@ placeholder service or no-op game implementation is counted as progress.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 26 remaining service symbols. Projection and
-   scene pointer state execute without graphics; actual scene/vessel drawing,
-   renderer/platform and shell services are next.
+   Vehicle link probe exposes 22 remaining service symbols. Projection, scene
+   pointer state and scene/Vessel draw dispatch execute without graphics;
+   panel/graph, platform and shell services are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

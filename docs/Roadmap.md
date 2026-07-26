@@ -111,8 +111,11 @@ DebugMap is a warning-free compile gate. The complete Arena physics unit now
 compiles, its math and dynamic-collision boundary executes, and the measured
 link gap is 34 symbols. The projection, haze/waterline, ZAV pointer and script
 viewpoint state boundary now executes without graphics, reducing the gap to 26
-symbols. Scene drawing/platform service linking, Vehicle runtime exercise, the
-game executable and retail level loading remain open.
+symbols. The complete recovered moving-object and Vessel units now compile,
+and a bounded scene/Vessel runtime contract executes draw dispatch and bonus
+behavior without graphics, reducing the gap to 22 symbols. Panel/graph and
+platform service linking, the game executable and retail level loading remain
+open.
 
 ### Цель
 

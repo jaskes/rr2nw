@@ -47,6 +47,10 @@ claim authorship of inherited Logos code or retail data.
 - Added renderer-independent owners for view projection, haze/waterline,
   ZAV scene/viewport pointers and script viewpoints, plus an executable
   defaults/projection/state contract.
+- Added strict compile gates for the complete recovered `MOVINGOB.CPP` and
+  `VESSEL.CPP`, a bounded scene/vessel runtime owner, and an executable
+  moving-object draw/bonus contract that preserves the recovered message
+  bytes without initializing graphics.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -98,6 +102,10 @@ claim authorship of inherited Logos code or retail data.
   connecting the real collision, corpse and god-mode state owners.
 - Reduced the measured Vehicle link gap from 34 to 26 unresolved symbols by
   connecting the recovered scene/view state and accessor owners.
+- Reduced the measured Vehicle link gap from 26 to 22 unresolved symbols by
+  connecting recovered moving-object, shot, phased-movie and Vessel draw
+  dispatch plus Vessel bonus ownership; no scene/vessel symbol remains in the
+  probe.
 - Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
   invalid project creation, and made commander traversal honor its table
   argument instead of the process-wide global.

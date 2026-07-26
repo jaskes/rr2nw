@@ -48,7 +48,7 @@ double	SBonusDef::m_afBonusScale[SBonusDef::T_SUP] = {
 
 void SBonusDef::LoadMovies()
 {
-	static char *szBonusMovies[T_SUP] = {
+	static const char *szBonusMovies[T_SUP] = {
 		"laser.spm", "plasma.spm", "machine.spm", "splasma.spm",
 		"rocket.spm", "life.spm"
 	};
