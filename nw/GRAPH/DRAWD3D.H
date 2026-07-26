@@ -23,7 +23,7 @@
 
 //Functions
 char * GRGetLastErrorStr();
-void D3DSetError(char * title, int error);
+void D3DSetError(const char * title, int error);
 
 
 typedef struct D3D_ZList_{

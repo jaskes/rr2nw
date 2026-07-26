@@ -305,6 +305,35 @@ globals; and four legacy RSX COM identifiers. `GRCreateColor` remains the
 first explicit DebugMap-to-renderer edge. No placeholder service is counted as
 progress.
 
+The first graph tranche compiles the complete recovered palette/assertion,
+`graph.cpp`, `PANEL.CPP`, `2dgraph.cpp`, `image.cpp`, `FIXEDFNT.CPP` and
+`DRAWD3D.CPP` units as default-build archives under `/permissive-`. The
+standards-only fixes make `D3DSetError` and the DirectDraw error-string lookup
+pointer-to-const, and keep the panel's 2,200,000-byte texture-memory threshold
+unsigned. `GRCreateColor` now shifts unsigned RGB components, preserving its
+32-bit layout without signed-left-shift undefined behavior. A direct
+experiment linking the monolithic graph and panel objects
+made the Vehicle probe grow from 22 to 64 unresolved symbols because it also
+activated their DirectDraw, D3D, image, font and ASM edges. Those archives
+therefore remain compile gates rather than being mistaken for a working
+renderer.
+
+`GraphRuntimeState.cpp` instead owns the exact recovered zero/default graph
+state required by current consumers and connects the original
+`GRCreateViewport`, `GRSetViewport`, `GRGetViewport`, `GRReleaseViewport` and
+`GRCreateColor` bodies. Its executable contract verifies 320x200 defaults,
+window/viewport zero initialization, translated clip coordinates, software
+screen origin and row-cache publication, clip dispatch, release behavior and
+both 8-bit and true-color palette encodings.
+
+After this bounded graph tranche the probe reports 17 unresolved symbols. The
+five resolved symbols are `GRSetViewport`, `GRCreateColor`,
+`_gr_nScreenWidth`, `_gr_nScreenHeight` and `_gr_hWnd`. The remaining groups
+are six `CGRPanel` methods; Hardware/Console/Briefing/Taxi globals and methods;
+timing; and four legacy RSX COM identifiers. Full panel linking is deliberately
+held at the renderer/ASM frontier; no empty panel implementation is counted as
+progress.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -316,9 +345,10 @@ progress.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 22 remaining service symbols. Projection, scene
-   pointer state and scene/Vessel draw dispatch execute without graphics;
-   panel/graph, platform and shell services are next.
+   Vehicle link probe exposes 17 remaining service symbols. Projection, scene
+   pointer state, scene/Vessel draw dispatch and the bounded graph viewport/
+   color contract execute without initializing graphics; panel, platform and
+   shell services are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

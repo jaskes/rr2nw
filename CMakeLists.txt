@@ -390,6 +390,155 @@ target_compile_definitions(rr2nw_scene_draw_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_graph_palette_full STATIC
+  nw/GRAPH/SD1_EPAL.CPP
+)
+target_link_libraries(rr2nw_graph_palette_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_palette_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_palette_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_palette_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_assert_full STATIC
+  nw/GRAPH/SOBJECT.CPP
+  nw/GRAPH/CTRLBRK.CPP
+)
+target_link_libraries(rr2nw_graph_assert_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_assert_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_assert_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_assert_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_core_full STATIC
+  nw/GRAPH/graph.cpp
+)
+target_link_libraries(rr2nw_graph_core_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_core_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_core_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_core_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_panel_full STATIC
+  nw/GRAPH/PANEL.CPP
+)
+target_link_libraries(rr2nw_graph_panel_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_panel_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_panel_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_panel_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_2d_full STATIC
+  nw/GRAPH/2dgraph.cpp
+)
+target_link_libraries(rr2nw_graph_2d_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_2d_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_2d_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_2d_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_image_full STATIC
+  nw/GRAPH/image.cpp
+)
+target_link_libraries(rr2nw_graph_image_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_image_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_image_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_image_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_fixed_font_full STATIC
+  nw/GRAPH/FIXEDFNT.CPP
+)
+target_link_libraries(rr2nw_graph_fixed_font_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_fixed_font_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_fixed_font_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_fixed_font_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_d3d_full STATIC
+  nw/GRAPH/DRAWD3D.CPP
+)
+target_link_libraries(rr2nw_graph_d3d_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_graph_d3d_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_d3d_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_d3d_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_runtime_state STATIC
+  nw/GRAPH/GraphRuntimeState.cpp
+)
+target_link_libraries(rr2nw_graph_runtime_state PUBLIC
+  rr2nw_graph_palette_full
+  rr2nw_graph_assert_full
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_graph_runtime_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_runtime_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_runtime_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 if(MSVC)
   target_compile_options(
     rr2nw_arena_physics_math PRIVATE /W3 /permissive- /wd4081
@@ -426,6 +575,33 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_scene_draw_state PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_palette_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_assert_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_core_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_panel_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_2d_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_image_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_fixed_font_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_d3d_full PRIVATE /W3 /permissive- /wd4018 /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_graph_runtime_state PRIVATE /W4 /permissive-
   )
 endif()
 
@@ -752,6 +928,7 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_arena_script_viewpoints
   rr2nw_scene_vessel_runtime_state
   rr2nw_scene_draw_state
+  rr2nw_graph_runtime_state
 )
 
 add_executable(rr2nw_math_smoke
@@ -886,6 +1063,19 @@ target_compile_definitions(rr2nw_scene_draw_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_graph_runtime_smoke
+  src/portability/GraphRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_graph_runtime_smoke PRIVATE
+  rr2nw_graph_runtime_state
+)
+target_compile_features(rr2nw_graph_runtime_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_graph_runtime_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_vehicle_link_probe EXCLUDE_FROM_ALL
   src/portability/VehicleLinkProbe.cpp
 )
@@ -928,6 +1118,7 @@ if(MSVC)
   target_compile_options(rr2nw_physics_core_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_view_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -979,6 +1170,7 @@ if(BUILD_TESTING)
   add_test(NAME legacy-physics-core-smoke COMMAND rr2nw_physics_core_smoke)
   add_test(NAME legacy-view-state-smoke COMMAND rr2nw_view_state_smoke)
   add_test(NAME legacy-scene-draw-smoke COMMAND rr2nw_scene_draw_smoke)
+  add_test(NAME legacy-graph-runtime-smoke COMMAND rr2nw_graph_runtime_smoke)
   add_test(
     NAME legacy-carrier-smoke
     COMMAND rr2nw_carrier_smoke

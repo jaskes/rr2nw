@@ -113,9 +113,11 @@ link gap is 34 symbols. The projection, haze/waterline, ZAV pointer and script
 viewpoint state boundary now executes without graphics, reducing the gap to 26
 symbols. The complete recovered moving-object and Vessel units now compile,
 and a bounded scene/Vessel runtime contract executes draw dispatch and bonus
-behavior without graphics, reducing the gap to 22 symbols. Panel/graph and
-platform service linking, the game executable and retail level loading remain
-open.
+behavior without graphics, reducing the gap to 22 symbols. The recovered
+palette/assertion, graph, panel, 2D, image, fixed-font and Direct3D units now
+compile as strict gates, while an executable viewport/color boundary reduces
+the measured gap to 17 symbols. Full panel, platform and shell service linking,
+the game executable and retail level loading remain open.
 
 ### Цель
 

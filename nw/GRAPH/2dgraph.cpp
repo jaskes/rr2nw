@@ -7,7 +7,7 @@ extern SDeviceList _dL;
 extern int _StartSceneHW;
 
 
-void D3DSetError(char * title, int error);
+void D3DSetError(const char * title, int error);
 
 DDSURFACEDESC _ddsd;
 int           _2dEnable = 0;

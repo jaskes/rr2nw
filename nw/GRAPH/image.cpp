@@ -13,7 +13,7 @@ extern TExtendedPalette  _EPal;
 
 extern SDeviceList _dL;
 
-void D3DSetError(char * title, int error);
+void D3DSetError(const char * title, int error);
 extern int BitCount(unsigned int dw);
 
 

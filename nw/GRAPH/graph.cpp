@@ -166,7 +166,7 @@ BOOL CALLBACK BuildDevicesListCallback(GUID* lpGUID, LPSTR szName, LPSTR szDevic
 BOOL CALLBACK InitDDCallback(GUID* lpGUID, LPSTR szName, LPSTR szDevice, LPVOID lParam);
 void ChooseTextureFormat(SDeviceDescr *dd);
 int BitCount(unsigned int dw);
-void D3DSetError(char * title, int error);
+void D3DSetError(const char * title, int error);
 void SetRenderFunctionTable(int swHw);
 
 SDeviceList _dL = {NULL, -1,};
@@ -1372,9 +1372,9 @@ unsigned long  GRCreateColor(int r, int g, int b)
                (((unsigned int)pal[2])<<8) | col);
     }
 
-    return ((r<<24)|
-            (g<<16)|
-            (b<<8) | epal_Match( _EPal, RGB_i(r, g, b )));
+    return ((((unsigned int)r)<<24)|
+            (((unsigned int)g)<<16)|
+            (((unsigned int)b)<<8) | epal_Match( _EPal, RGB_i(r, g, b )));
     //return (((r>>_rScale)<<(24+_rScale))|
     //        ((g>>_gScale)<<(16+_gScale))|
     //        ((b>>_bScale)<<(8 +_bScale)) | epal_Match( _EPal, RGB_i(r, g, b )));

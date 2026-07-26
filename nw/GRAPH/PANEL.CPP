@@ -13,7 +13,7 @@ extern SDeviceList             _dL;
 extern IDirect3DDevice2       *_d3dDevice;
 extern int LoadTextureTo3DCard(void *tDB);
 
-void D3DSetError(char * title, int error);
+void D3DSetError(const char * title, int error);
 extern int BitCount(unsigned int dw);
 
 extern "C" void ASM_GRDrawPanel(unsigned char *panel, int x0, int y0);
@@ -165,7 +165,7 @@ CGRPanel::CGRPanel(const char *filename)
      }
      else {
 
-        int memory = 2200000 *
+        unsigned long memory = 2200000UL *
                      ((_dL.currDevice->textureFormat[NORMAL_TEXTURE_INDEX].usePalette)?1:2);
 
         fseek(fp, pF.swPanelSize, SEEK_CUR);

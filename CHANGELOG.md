@@ -51,6 +51,9 @@ claim authorship of inherited Logos code or retail data.
   `VESSEL.CPP`, a bounded scene/vessel runtime owner, and an executable
   moving-object draw/bonus contract that preserves the recovered message
   bytes without initializing graphics.
+- Added strict compile gates for the recovered palette/assertion, graph,
+  panel, 2D, image, fixed-font and Direct3D units, plus an executable graph
+  runtime contract for palette colors and software viewports.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -106,6 +109,10 @@ claim authorship of inherited Logos code or retail data.
   connecting recovered moving-object, shot, phased-movie and Vessel draw
   dispatch plus Vessel bonus ownership; no scene/vessel symbol remains in the
   probe.
+- Reduced the measured Vehicle link gap from 22 to 17 unresolved symbols by
+  connecting the recovered graph defaults, viewport lifecycle/activation and
+  palette-backed `GRCreateColor`; the six panel methods remain an explicit
+  renderer dependency instead of placeholders.
 - Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
   invalid project creation, and made commander traversal honor its table
   argument instead of the process-wide global.
@@ -115,6 +122,9 @@ claim authorship of inherited Logos code or retail data.
 - Added a standards-compliant MSVC typed-object debug declaration and explicit
   legacy renderer conversions and const-correct logging formats needed by
   strict modern consumers.
+- Made the recovered graph error interfaces pointer-to-const and the panel
+  texture-memory comparison unsigned without changing their values or control
+  flow; made `GRCreateColor` assemble its result with unsigned shifts.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no

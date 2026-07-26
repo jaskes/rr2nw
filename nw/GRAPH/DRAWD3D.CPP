@@ -3462,7 +3462,7 @@ void GRSaveScrToBMP()
 
 char _NoError[256];
 
-char * D3DAppErrorToString(int error)
+const char * D3DAppErrorToString(int error)
 {
     switch(error) {
         case DD_OK:
@@ -3710,7 +3710,7 @@ char * D3DAppErrorToString(int error)
  ********************    Convert error to string    ********************
  ***********************************************************************/
 
-void D3DSetError(char * title, int error)
+void D3DSetError(const char * title, int error)
 {
   strcpy(_LastError, title);
   strcat(_LastError, ":\n");
