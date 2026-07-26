@@ -789,6 +789,95 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_const_string STATIC
+  nw/ARENA/CNSTSTR.CPP
+)
+target_include_directories(rr2nw_arena_const_string PUBLIC
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_const_string PUBLIC cxx_std_14)
+
+if(MSVC)
+  target_compile_options(rr2nw_arena_const_string PRIVATE
+    /W3 /permissive- /wd4146 /wd4245 /wd4702
+  )
+endif()
+
+add_library(rr2nw_briefing_channel_map STATIC
+  nw/BRIEFING/MAPCHNNL.CPP
+)
+target_link_libraries(rr2nw_briefing_channel_map PUBLIC
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_briefing_channel_map PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/BRIEFING
+)
+target_compile_features(rr2nw_briefing_channel_map PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_briefing_channel_map PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_briefing_channel_map PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_legacy_shell_full STATIC
+  nw/ARENA/HARDWARE.cpp
+  nw/ARENA/ShellGlobals.cpp
+  nw/ARENA/ShellGlobals.inl
+  nw/BRIEFING/CONSOLE.CPP
+  nw/BRIEFING/COMMANDS.CPP
+  nw/BRIEFING/BRIEFING.CPP
+)
+target_link_libraries(rr2nw_legacy_shell_full PUBLIC
+  rr2nw_arena_const_string
+  rr2nw_briefing_channel_map
+  rr2nw_arena_storage
+  rr2nw_arena_level_state
+  rr2nw_arena_time_runtime_state
+  rr2nw_briefing_god_mode_state
+  rr2nw_graph_runtime_state
+  rr2nw_graph_image_runtime_state
+  rr2nw_graph_fixed_font_runtime_state
+  rr2nw_graph_panel_lifecycle
+  rr2nw_main_zav_scene_state
+  rr2nw_scene_draw_state
+  rr2nw_scene_vessel_runtime_state
+  winmm
+)
+target_include_directories(rr2nw_legacy_shell_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/BRIEFING
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+)
+target_compile_features(rr2nw_legacy_shell_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_legacy_shell_full PRIVATE
+  __NT__
+  RR2NW_GOD_MODE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_legacy_shell_full PRIVATE
+    /W3 /permissive- /wd4018 /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_obase_route STATIC
   nw/ARENA/OBASE/ROUTE/Route.cpp
   nw/ARENA/OBASE/ROUTE/ROUTE_I.CPP
@@ -1131,6 +1220,27 @@ target_compile_definitions(rr2nw_level_state_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_const_string_smoke
+  src/portability/ConstStringSmoke.cpp
+)
+target_link_libraries(rr2nw_const_string_smoke PRIVATE
+  rr2nw_arena_const_string
+)
+target_compile_features(rr2nw_const_string_smoke PRIVATE cxx_std_14)
+
+add_executable(rr2nw_channel_map_smoke
+  src/portability/ChannelMapSmoke.cpp
+)
+target_link_libraries(rr2nw_channel_map_smoke PRIVATE
+  rr2nw_briefing_channel_map
+)
+target_compile_features(rr2nw_channel_map_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_channel_map_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_debug_map_mission_smoke
   src/portability/DebugMapMissionSmoke.cpp
 )
@@ -1223,6 +1333,7 @@ add_executable(rr2nw_graph_runtime_smoke
   src/portability/GraphRuntimeSmoke.cpp
 )
 target_link_libraries(rr2nw_graph_runtime_smoke PRIVATE
+  rr2nw_graph_image_runtime_state
   rr2nw_graph_runtime_state
 )
 target_compile_features(rr2nw_graph_runtime_smoke PRIVATE cxx_std_14)
@@ -1257,6 +1368,19 @@ target_compile_definitions(rr2nw_vehicle_link_probe PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_vehicle_shell_link_probe EXCLUDE_FROM_ALL
+  src/portability/VehicleLinkProbe.cpp
+)
+target_link_libraries(rr2nw_vehicle_shell_link_probe PRIVATE
+  rr2nw_arena_obase_vehicle
+  rr2nw_legacy_shell_full
+)
+target_compile_features(rr2nw_vehicle_shell_link_probe PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_vehicle_shell_link_probe PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_carrier_smoke
   src/portability/CarrierSmoke.cpp
 )
@@ -1283,6 +1407,8 @@ if(MSVC)
     rr2nw_debug_map_mission_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_const_string_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_channel_map_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(
     rr2nw_vehicle_services_smoke PRIVATE /W4 /permissive- /wd4081
@@ -1293,6 +1419,9 @@ if(MSVC)
   target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_panel_lifecycle_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_vehicle_shell_link_probe PRIVATE /W4 /permissive-
+  )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
 
@@ -1326,6 +1455,8 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/mproj-smoke.sav"
   )
   add_test(NAME legacy-level-state-smoke COMMAND rr2nw_level_state_smoke)
+  add_test(NAME legacy-const-string-smoke COMMAND rr2nw_const_string_smoke)
+  add_test(NAME legacy-channel-map-smoke COMMAND rr2nw_channel_map_smoke)
   add_test(
     NAME legacy-debug-map-mission-smoke
     COMMAND rr2nw_debug_map_mission_smoke

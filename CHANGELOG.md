@@ -64,6 +64,14 @@ claim authorship of inherited Logos code or retail data.
 - Added exact owners for the legacy RSX COM identities, Taxi attribute registry
   and Supervisor timer/event service, plus an executable GUID/registry/time-skip
   contract that does not initialize RSX, graphics or the game shell.
+- Added a strict recovered Hardware/Console/Commands/Briefing shell archive,
+  shared shell-global ownership and a second excluded Vehicle link probe that
+  exposes the shell's transitive executable frontier.
+- Added executable contracts for the recovered console constant-string parser
+  and briefing channel-map equality/interpolation behavior.
+- Expanded the software graph runtime contract to cover palette publication,
+  clipped clears, opaque and doubled image blits, flat polygons, table-driven
+  transparent polygons and offscreen scene lifecycle.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -134,6 +142,20 @@ claim authorship of inherited Logos code or retail data.
   connecting all four exact RSX GUIDs, the real `TaxiAttr` table and recovered
   `SUA_SkipTime` behavior; only the Hardware/Console/Briefing shell cluster
   remains.
+- Resolved all five symbols in that shell cluster through their recovered
+  implementations rather than stand-ins. The deeper shell probe first exposed
+  37 dependencies, then reduced them to eight by connecting the complete
+  console parser, bounded software graph/palette/image/polygon behavior and
+  the real briefing channel-map implementation. The remaining owners are the
+  menu lifecycle and briefing render orchestration.
+- Fixed `CChannelMap::operator==` infinite recursion, retained its loop index
+  under standard C++ for-scope rules and removed the unrelated scene umbrella
+  from that mathematical translation unit. Copy/self-assignment now retains
+  capacity, flags and hold state. Made the console's internal log echo accept
+  string literals without discarding constness.
+- Hardened software graph entry points against missing devices and framebuffers;
+  hardware-only paths now report unsupported instead of dereferencing absent
+  DirectDraw/D3D state.
 - Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
   invalid project creation, and made commander traversal honor its table
   argument instead of the process-wide global.

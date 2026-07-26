@@ -123,10 +123,13 @@ read-only load sweep. The translated panel RLE blitter and complete software
 control/crosshair path now pass a byte-level pixel contract and draw both
 resolutions of all 38 retail panels, reducing the gap to 11 symbols. Exact RSX
 COM identities, the Taxi attribute registry and recovered timer/session service
-now execute without starting the shell, reducing the gap to 5 symbols. The
-remaining Hardware/Console/Briefing cluster, the game executable and retail
-level loading remain open; the legacy Direct3D panel payload is not part of
-this software tranche.
+now execute without starting the shell, reducing the baseline gap to 5 symbols.
+All five now have recovered Hardware/Console/Briefing owners. A deeper shell
+probe exposed 37 transitive dependencies and has reduced them to 8 by connecting
+the complete console parser, briefing channel map and bounded software
+palette/image/polygon path. Menu lifecycle and briefing render orchestration,
+followed by the game executable and retail level loading, remain open; the
+legacy Direct3D panel payload is not part of this software tranche.
 
 ### Цель
 

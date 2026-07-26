@@ -24,9 +24,9 @@
 
 // Green Globals BEGIN
 
-KR_Hardware g_hardware;
-CBriefing   g_briefing(128*1024);
-GameConsole g_GameConsole;
+#ifndef RR2NW_SHELL_GLOBALS_EXTERNAL
+#include "ShellGlobals.inl"
+#endif
 #ifndef RR2NW_DEBUG_MAP_GLOBAL_EXTERNAL
 #include "obase/dmap/DebugMapGlobal.inl"
 #endif

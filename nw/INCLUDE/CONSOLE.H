@@ -44,7 +44,7 @@ class GameConsole : public KR_Object{
    char m_logFileName[255];
 
    //void logEcho(char *format, va_list msg);
-   void logEcho(char * string);
+   void logEcho(const char *string);
    void PrintAttributeValues();
 
    int	GetDataSize();

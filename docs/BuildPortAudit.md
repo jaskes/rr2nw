@@ -400,6 +400,52 @@ Vehicle probe now reports 5 unresolved symbols in both Debug and Release:
 `CBriefing::PlayBriefing`. These form one shell/UI ownership cluster and are the
 next measured boundary.
 
+The shell tranche compiles the recovered `HARDWARE.cpp`, `CONSOLE.CPP`,
+`COMMANDS.CPP` and `BRIEFING.CPP` bodies as one strict archive. The three
+process-wide objects retain their original construction order in
+`ShellGlobals.inl`; `super.cpp` includes that fragment for the legacy build,
+while `ShellGlobals.cpp` owns it for CMake. Consequently all five symbols from
+the original Vehicle probe are now resolved by recovered code, not empty
+objects or replacement methods.
+
+Pulling those real objects exposes their complete archive-member dependencies,
+so `rr2nw_vehicle_shell_link_probe` is kept separate from the five-symbol
+baseline probe. Its first measurement reported 37 unresolved symbols. The
+complete recovered `CNSTSTR.CPP` owner removes all 14 command-parser symbols;
+an executable contract checks signed integer, floating-point, token and
+expression parsing. `MAPCHNNL.CPP` is now an independent mathematical owner:
+its equality operator no longer calls itself recursively, its loop indices
+survive standard C++ for-scope rules, and its executable contract checks both
+equality directions and linear interpolation.
+
+The bounded software graph owner now also publishes the recovered palette,
+DIB, polygon and vertex state. It implements clipped framebuffer clear,
+offscreen scene begin/end/dump, palette updates, opaque and doubled image
+blits, and a convex/even-odd scanline path for the shell's flat and
+table-transparent polygons. The transparent path preserves the recovered
+16-level lookup-table selection `(opacity & 0xF0) << 4`. Missing device,
+framebuffer or transparency state fails safely; the bounded owner does not
+claim DirectDraw/D3D hardware support. The graph executable asserts exact
+pixels for each path.
+
+After these owners the shell probe reports eight unresolved symbols in both
+Debug and Release:
+
+- briefing frame orchestration: `SUA_BeginRender`, `SUA_EndRender`,
+  `ZAV_RenderFrame`, `ZAV_EndRenderFrame`, `ZAV_PrintFrameInfo` and the
+  hardware-only `D3D_DrawZList` edge;
+- menu lifecycle: `g_menu` and `Menu::Deactivate`.
+
+These are two coherent next owners, not permission to add no-op render or menu
+objects. The recovered briefing source also still contains two compiler-visible
+runtime defects that must be fixed through a clean modern source extraction:
+`sscanf("%i,%f", ..., double*)` must use the double conversion, and a
+block-local `j` shadows the index later used for `lineX[j]`. That source is in
+the recovered non-UTF-8 archive and must not be silently transcoded merely to
+make these edits. The Hardware demo-event branch also retains an empty
+controlled statement before its commented-out translator call; it is recorded
+as behavior archaeology rather than suppressed as a completed input path.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -410,11 +456,13 @@ next measured boundary.
    their state boundaries and run the real core `SimulationContext` lifecycle.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
-   Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 5 remaining shell/UI symbols. Projection, scene
+   Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and all
+   five original Vehicle shell symbols have real recovered owners. The deeper
+   shell probe exposes eight menu/render-orchestration symbols. Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
-   bounded 8-bit framebuffer; the Hardware/Console/Briefing cluster is next.
+   bounded 8-bit framebuffer; menu ownership and the briefing frame loop are
+   next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

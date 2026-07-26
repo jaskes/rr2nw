@@ -1,5 +1,8 @@
-#define LAST_H__SCENE
-#include "game.h"
+#include <windows.h>
+#include <math.h>
+#include <string.h>
+#include "stdtypes.h"
+#include "debugext.h"
 #include "segment1.h"
 #include "cnlmaps.h"
 
@@ -138,6 +141,11 @@ bool CChannelMap::NODE::operator!=(const CChannelMap::NODE &other) const
 // -------------------------------------------------------------------------
 CChannelMap::CChannelMap(int n)
 {
+  if( n <= 0 ) {
+    m_pData = NULL;
+    m_maxNodesNum = 0;
+    return;
+  }
   m_pData       = (DATA *) new BYTE[sizeof(DATA)+sizeof(NODE)*n];
   m_maxNodesNum = n;
 }
@@ -150,16 +158,20 @@ CChannelMap::CChannelMap( const CChannelMap &other )
 // -------------------------------------------------------------------------
 const CChannelMap &CChannelMap::operator=( const CChannelMap &other )
 {
+	if( this == &other ) return *this;
 	delete	[] (BYTE *) m_pData;
+	m_maxNodesNum = other.m_maxNodesNum;
 	if( other.m_pData == NULL )
 		m_pData = NULL;
 	else {
 		m_pData = (DATA *)
-			new BYTE[sizeof(DATA)+sizeof(NODE)*(other.m_pData->nNodes+1)];
+			new BYTE[sizeof(DATA)+sizeof(NODE)*m_maxNodesNum];
 		DATA	* pData = m_pData,  * pOtherData = other.m_pData;
 		pData->nNodes = pOtherData->nNodes;
+		pData->nHold = pOtherData->nHold;
 		pData->fOpenFactor = pOtherData->fOpenFactor;
 		pData->bUpdated = pOtherData->bUpdated;
+		pData->wFlags = pOtherData->wFlags;
 		memcpy( pData->aNodes, pOtherData->aNodes,
 										sizeof(NODE)*(pData->nNodes+1) );
 	}
@@ -172,6 +184,7 @@ const CChannelMap &CChannelMap::operator=( int n )
 	(void)n;
 	delete	[] (BYTE*) m_pData;
 	m_pData = 0;
+	m_maxNodesNum = 0;
 	return	*this;
 }
 // -------------------------------------------------------------------------
@@ -182,7 +195,7 @@ CChannelMap::~CChannelMap()
 // -------------------------------------------------------------------------
 bool CChannelMap::operator==( const CChannelMap &other ) const
 {
-	return	! ( *this == other );
+	return	! ( *this != other );
 }
 // -------------------------------------------------------------------------
 bool CChannelMap::operator!=( const CChannelMap &other ) const
@@ -408,13 +421,14 @@ double   CChannelMap::Phase( double  fTime ) const
 	int		nNodes = m_pData->nNodes;
 
 	double	fValue;
+	int i;
 	if( fTime <= pNodes[0].t )
     fValue = pNodes[0].f+(fTime-pNodes[0].t)*pNodes[0].v*pNodes[0].fSpline; else
 	if( fTime >= pNodes[nNodes-1].t )
 		fValue = pNodes[nNodes-1].f+
           (fTime-pNodes[nNodes-1].t)*pNodes[nNodes-1].v*pNodes[nNodes-1].fSpline;
 	else {
-		for( int i = 1 ; i < nNodes ; i++ )
+		for( i = 1 ; i < nNodes ; i++ )
 		if( fTime < pNodes[i].t ) {
 			NODE	& node1 = pNodes[i-1],  & node2 = pNodes[i];
 			double	h = node2.t - node1.t;
@@ -442,7 +456,7 @@ double   CChannelMap::Phase( double  fTime ) const
 	while( fCyclicTime > pNodes[nNodes].t )  fCyclicTime -= fDuration;
 	if( fCyclicTime == fTime )	return fValue;
 
-	for( int i = 1 ; i <= nNodes ; i++ )
+	for( i = 1 ; i <= nNodes ; i++ )
 	if( fCyclicTime < pNodes[i].t ) {
 		NODE	& node1 = pNodes[i-1],  & node2 = pNodes[i];
 		double	h = node2.t - node1.t;

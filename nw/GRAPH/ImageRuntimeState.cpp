@@ -1,6 +1,7 @@
 #include "graph.h"
 #include "sd1_epal.h"
 
+#include <algorithm>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -166,6 +167,83 @@ int CGRImage::LoadFromBMPFile(const char *bmpName,int x,int y)
     SetPalette(palette8);
     LoadPalImage(bitmap,x,y,0,0,width-1,height-1,width);
     delete [] bitmap;
+    return 1;
+}
+
+int CGRImage::Draw(int xs,int ys) const
+{
+    if( image == NULL || _dL.currDevice == NULL ||
+        _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
+        imageW <= 0 || imageH <= 0 || _gr_nScreenWidth <= 0 ||
+        _gr_nScreenHeight <= 0 ) return 0;
+
+    long long sourceLeft = 0;
+    long long sourceTop = 0;
+    long long destinationLeft = xs;
+    long long destinationTop = ys;
+    long long width = imageW;
+    long long height = imageH;
+    if( destinationLeft < 0 ) {
+        sourceLeft = -destinationLeft;
+        width -= sourceLeft;
+        destinationLeft = 0;
+    }
+    if( destinationTop < 0 ) {
+        sourceTop = -destinationTop;
+        height -= sourceTop;
+        destinationTop = 0;
+    }
+    if( destinationLeft >= _gr_nScreenWidth ||
+        destinationTop >= _gr_nScreenHeight || width <= 0 || height <= 0 )
+        return 0;
+    width = (std::min)(width,
+        static_cast<long long>(_gr_nScreenWidth)-destinationLeft);
+    height = (std::min)(height,
+        static_cast<long long>(_gr_nScreenHeight)-destinationTop);
+    if( width <= 0 || height <= 0 ) return 0;
+
+    const unsigned char *source = static_cast<const unsigned char *>(image)+
+        sourceTop*imageW+sourceLeft;
+    unsigned char *destination = _gr_pScreen+
+        destinationTop*_gr_nScreenWidth+destinationLeft;
+    for( long long row = 0; row < height; ++row ) {
+        memcpy(destination,source,static_cast<size_t>(width));
+        source += imageW;
+        destination += _gr_nScreenWidth;
+    }
+    return 1;
+}
+
+int CGRImage::DrawX2(int xs,int ys) const
+{
+    if( image == NULL || _dL.currDevice == NULL ||
+        _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
+        imageW <= 0 || imageH <= 0 || _gr_nScreenWidth <= 0 ||
+        _gr_nScreenHeight <= 0 || imageW > INT_MAX/2 ||
+        imageH > INT_MAX/2 ) return 0;
+
+    const long long scaledWidth = static_cast<long long>(imageW)*2;
+    const long long scaledHeight = static_cast<long long>(imageH)*2;
+    const long long destinationLeft = (std::max)(0,xs);
+    const long long destinationTop = (std::max)(0,ys);
+    const long long destinationRight = (std::min)(
+        static_cast<long long>(_gr_nScreenWidth),xs+scaledWidth);
+    const long long destinationBottom = (std::min)(
+        static_cast<long long>(_gr_nScreenHeight),ys+scaledHeight);
+    if( destinationRight <= destinationLeft ||
+        destinationBottom <= destinationTop ) return 0;
+
+    const unsigned char *source = static_cast<const unsigned char *>(image);
+    for( long long y = destinationTop; y < destinationBottom; ++y ) {
+        const int sourceY = static_cast<int>((y-ys)/2);
+        unsigned char *destination = _gr_pScreen+
+            y*_gr_nScreenWidth+destinationLeft;
+        for( long long x = destinationLeft; x < destinationRight;
+             ++x,++destination ) {
+            const int sourceX = static_cast<int>((x-xs)/2);
+            *destination = source[sourceY*imageW+sourceX];
+        }
+    }
     return 1;
 }
 

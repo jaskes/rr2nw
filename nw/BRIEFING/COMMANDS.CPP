@@ -15,6 +15,8 @@
 
 #ifndef RR2NW_GOD_MODE_STATE_EXTERNAL
 #include "GodModeState.inl"
+#else
+extern int g_godMode;
 #endif
 
 void GameConsole::ReadVessels(const char *)
@@ -25,7 +27,7 @@ void GameConsole::ReadVessels(const char *)
 }
 
 
-void GameConsole::logEcho(char * string)
+void GameConsole::logEcho(const char *string)
 {
 	echo(string);
 /*	createMessage(g_arena.getObjectID(), 
