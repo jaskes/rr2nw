@@ -381,6 +381,25 @@ with no panel symbol remaining. The Direct3D panel payload remains intentionally
 unsupported by this Windows-first software runtime boundary and will be
 reconsidered only after the game executable can reach a deterministic frame.
 
+The following service tranche defines the Intel RSX identifiers from their
+recovered 1997 `RSX.H` constants without loading COM or RSX. It also extracts
+the real `TaxiAttr` attribute-table owner, including its pool methods and
+attribute update, without constructing the renderer-backed Taxi subject. The
+recovered `a_TTimer`, `g_timer`, `SUA_ProcessEvents` and `SUA_SkipTime` bodies
+now share `TimeRuntimeState.inl` with `super.cpp`. Supervisor explicitly binds
+its Session after adding the simulation context and unbinds it before teardown;
+outside an active seance event processing is a safe no-op rather than an
+implicit dependency on the complete `g_super` object.
+
+The executable service contract compares all four required GUID byte fields,
+requires the process-wide `TaxiAttr` registration and attribute-table type, and
+checks the recovered timer skip arithmetic with both no Session and an empty
+bound Session. No placeholder object or shell initialization is counted. The
+Vehicle probe now reports 5 unresolved symbols in both Debug and Release:
+`g_hardware`, `g_GameConsole`, `g_briefing`, `GameConsole::PrintUrgent` and
+`CBriefing::PlayBriefing`. These form one shell/UI ownership cluster and are the
+next measured boundary.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -392,10 +411,10 @@ reconsidered only after the game executable can reach a deterministic frame.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 11 remaining service symbols. Projection, scene
+   Vehicle link probe exposes 5 remaining shell/UI symbols. Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
-   bounded 8-bit framebuffer; platform and shell services are next.
+   bounded 8-bit framebuffer; the Hardware/Console/Briefing cluster is next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

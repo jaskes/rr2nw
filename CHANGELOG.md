@@ -61,6 +61,9 @@ claim authorship of inherited Logos code or retail data.
   transparent RLE runs, disabled drawing, indicator fill, arrow endpoints,
   sprite transparency/clipping and a fixed-font glyph; the local retail sweep
   now renders both resolutions of all 38 installed panels.
+- Added exact owners for the legacy RSX COM identities, Taxi attribute registry
+  and Supervisor timer/event service, plus an executable GUID/registry/time-skip
+  contract that does not initialize RSX, graphics or the game shell.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -127,6 +130,10 @@ claim authorship of inherited Logos code or retail data.
 - Reduced the measured Vehicle link gap from 12 to 11 unresolved symbols by
   translating the `PANELA.ANG` background blitter and connecting real software
   indicator, arrow, move/fill sprite, digit-font and crosshair drawing.
+- Reduced the measured Vehicle link gap from 11 to 5 unresolved symbols by
+  connecting all four exact RSX GUIDs, the real `TaxiAttr` table and recovered
+  `SUA_SkipTime` behavior; only the Hardware/Console/Briefing shell cluster
+  remains.
 - Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
   invalid project creation, and made commander traversal honor its table
   argument instead of the process-wide global.

@@ -166,6 +166,68 @@ if(MSVC)
   target_compile_options(rr2nw_arena_storage PRIVATE /W3 /wd4081)
 endif()
 
+add_library(rr2nw_legacy_rsx_ids STATIC
+  nw/SOUND/LegacyRsxIds.cpp
+)
+target_include_directories(rr2nw_legacy_rsx_ids PUBLIC
+  nw/DESIGN.LIB/H
+)
+target_compile_features(rr2nw_legacy_rsx_ids PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_legacy_rsx_ids PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_time_runtime_state STATIC
+  nw/ARENA/TimeRuntimeState.cpp
+  nw/ARENA/TimeRuntimeState.inl
+)
+target_link_libraries(rr2nw_arena_time_runtime_state PUBLIC
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_time_runtime_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_time_runtime_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_time_runtime_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_taxi_attribute_state STATIC
+  nw/ARENA/OBASE/Taxi/TaxiAttributeState.cpp
+)
+target_link_libraries(rr2nw_arena_taxi_attribute_state PUBLIC
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_taxi_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_taxi_attribute_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_taxi_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_legacy_rsx_ids PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_arena_time_runtime_state PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_taxi_attribute_state PRIVATE /W4 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_arena_physics_math STATIC
   nw/ARENA/PHISICS.CPP
 )
@@ -388,6 +450,14 @@ target_compile_definitions(rr2nw_scene_draw_state PRIVATE
   __NT__
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
+)
+
+# Taxi.h exposes its attribute table beside the moving-object/Vessel classes,
+# so MSVC emits those recovered virtual boundaries with the extracted owner.
+target_link_libraries(rr2nw_arena_taxi_attribute_state PUBLIC
+  rr2nw_view_object_state
+  rr2nw_scene_draw_state
+  rr2nw_scene_vessel_runtime_state
 )
 
 add_library(rr2nw_graph_palette_full STATIC
@@ -997,6 +1067,9 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_scene_draw_state
   rr2nw_graph_runtime_state
   rr2nw_graph_panel_lifecycle
+  rr2nw_legacy_rsx_ids
+  rr2nw_arena_time_runtime_state
+  rr2nw_arena_taxi_attribute_state
 )
 
 add_executable(rr2nw_math_smoke
@@ -1076,6 +1149,21 @@ target_compile_features(rr2nw_fountain_state_smoke PRIVATE cxx_std_14)
 
 add_executable(rr2nw_vehicle_state_smoke
   src/portability/VehicleStateSmoke.cpp
+)
+
+add_executable(rr2nw_vehicle_services_smoke
+  src/portability/VehicleServicesSmoke.cpp
+)
+target_link_libraries(rr2nw_vehicle_services_smoke PRIVATE
+  rr2nw_legacy_rsx_ids
+  rr2nw_arena_time_runtime_state
+  rr2nw_arena_taxi_attribute_state
+)
+target_compile_features(rr2nw_vehicle_services_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_vehicle_services_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
 )
 target_link_libraries(
   rr2nw_vehicle_state_smoke PRIVATE rr2nw_arena_obase_vehicle_state
@@ -1196,6 +1284,9 @@ if(MSVC)
   )
   target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_vehicle_services_smoke PRIVATE /W4 /permissive- /wd4081
+  )
   target_compile_options(rr2nw_physics_core_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_view_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
@@ -1248,6 +1339,10 @@ if(BUILD_TESTING)
     NAME legacy-vehicle-state-smoke
     COMMAND rr2nw_vehicle_state_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/vehicle-state-smoke.sav"
+  )
+  add_test(
+    NAME legacy-vehicle-services-smoke
+    COMMAND rr2nw_vehicle_services_smoke
   )
   add_test(NAME legacy-physics-core-smoke COMMAND rr2nw_physics_core_smoke)
   add_test(NAME legacy-view-state-smoke COMMAND rr2nw_view_state_smoke)

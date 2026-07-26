@@ -168,87 +168,9 @@ KR_ActiveObject::StateElem a_TObserver::m_state[1] =
 
 
 
-//=========================================================================
-#define CLOCK (*((unsigned *)(0x46C)))
-
-
-bool	a_TTimer::dump(PIN_SaveFile & sf)
-{
-		m_deltaTime = m_prevTime - m_startTick;
-
-		if (!sf.WriteData( (char *) & m_aspect, sizeof(TimerData)  ))
-			return false;
-
-		return true;
-}
-
-bool	a_TTimer::load(PIN_SaveFile & sf)
-{
-		if (!sf.GetData( (char *) & m_aspect, sizeof(TimerData)  ))
-			return false;
-		
-		m_prevTime  = ::GetTickCount();
-		m_startTick = m_prevTime - m_deltaTime;
-
-		return true;
-}
-
-
-
-void a_TTimer::Start()
- {
-//    m_start = ((double)(clock()))/CLOCKS_PER_SEC;
-        m_startTick =  ::GetTickCount();
-        m_prevTime  =  m_startTick;
-        m_curTime   = 0;
-        m_pauseTime = 0;
-    Session::m_moment    = GetTime();
- }
-
-void a_TTimer::Wait(double ){
-}
-
-void   a_TTimer::SetCurTime(double){
-}
-
-
-double a_TTimer::ConvertSysTime(dword tick)
-{  // fixme
-	double t = (double)(((long)tick)-m_startTick)/1000.0-m_pauseTime;
-        if(t < 0.1) t = 0.1;
-        return(t*m_aspect);
-}
-
-void a_TTimer::addTime(double t)
-{
-   m_curTime   += t;
-   m_startTick += (int)(t*1000);
-}
-
-
-double a_TTimer::GetTime()
- {
-    long t = ::GetTickCount();
-    double addTime = t-m_prevTime;
-
-    //   s_ASSERT(addTime >=0,"a_TTimer::GetTime");
-
-    if(  addTime  > 2000.0  )
-    {
-         //m_startTick += t-m_prevTime;
-         m_pauseTime += addTime/1000.0;
-         addTime  = 0;
-    }
-
-    m_curTime += addTime;
-    m_prevTime = t;
-    return (m_curTime/1000.0+0.1)*m_aspect; // FIXME
- }
-
-double a_TTimer::GetTimeDiff(double timeStamp)
- {
-	return GetTime()-timeStamp;
- }
+#ifndef RR2NW_TIME_RUNTIME_EXTERNAL
+#include "TimeRuntimeState.inl"
+#endif
 
  //-----------------------------------------
 void a_TObserver::draw( CDC &gc )
@@ -275,8 +197,6 @@ void a_TObserver::loadStateTransitionTable()
     m_stateTable = m_state;
     m_currentState = 0;
  }
-
-a_TTimer g_timer;
 
 void g_enablePortal(const char *portalName);
 void Supervisor::startSeance()
@@ -327,6 +247,7 @@ void Supervisor::startSeance()
 
    m_session.AddObserver(&m_observer);
    m_session.Add(m_context);
+   SUA_BindSession(&m_session);
 
    g_arena.openSeance( m_context, 5120, 5120 );
    
@@ -386,7 +307,8 @@ extern int g_cacheSmokeCnt;
 
 void Supervisor::endSeance()
  {
-   
+   SUA_BindSession(NULL);
+
    m_context->clearObjects();
    m_session.Remove(m_context);
    m_session.RemoveObserver(&m_observer);
@@ -444,16 +366,4 @@ void SUA_EndRender(CViewScene *pScene)
  {
     g_arena.endRender( pScene );
  }
-
-void SUA_ProcessEvents()
- {
-    g_super.m_session.poll();
- }
-
-void SUA_SkipTime( double t )
-{
-    g_timer.addTime(t);
-    SUA_ProcessEvents();
-}
-
 
