@@ -95,8 +95,9 @@ retail EXE как независимый black-box reference.
 Status: in progress. CMake/MSVC Win32 configure, Debug/Release builds, the
 first linked legacy design-library boundary, tagged-file round-trip/corruption
 coverage, a compiling/running script VM smoke and the complete eight-object
-Arena kernel archive are working. Game executable and retail level loading
-remain open.
+Arena kernel and storage archives are working. Low-level save files also pass
+read-only round-trip and truncated-input coverage. Game executable and retail
+level loading remain open.
 
 ### Цель
 

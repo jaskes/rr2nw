@@ -16,6 +16,8 @@ claim authorship of inherited Logos code or retail data.
   a smoke test that compiles and executes a minimal program in the bytecode VM.
 - Added all eight translation units from the legacy Arena kernel library and an
   executable event-payload, label-registry and object-ID ABI contract.
+- Added the complete Arena storage archive and a real `.sav` round-trip test
+  covering read-only input, exact final-block reads and truncated data.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -44,6 +46,10 @@ claim authorship of inherited Logos code or retail data.
   packing under MSVC with balanced push/pop pragmas.
 - Added equivalent MSVC packing for the serialized view-plane structure and a
   native `__debugbreak` implementation for the kernel's Watcom `Int3` helper.
+- Split low-level `PIN_SaveFile` I/O from `SaveGame`/`LoadGame` orchestration so
+  storage can link independently while retaining both legacy entry points.
+- Hardened save reads against truncated, oversized and unaligned data; made
+  headers deterministic and corrected long/unsigned-long attribute formatting.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no

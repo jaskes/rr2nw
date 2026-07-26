@@ -31,10 +31,10 @@ void ct_AttrItem::getString(char * buffer)	// prints value in a buffer
 			sprintf(buffer,"%u",* ((unsigned *)m_variable));
 		break;
 	case EDI_LONG:
-			sprintf(buffer,"%l",* ((long *)m_variable));
+			sprintf(buffer,"%ld",* ((long *)m_variable));
 		break;
 	case EDI_ULONG:
-			sprintf(buffer,"%ul",* ((unsigned long *)m_variable));
+			sprintf(buffer,"%lu",* ((unsigned long *)m_variable));
 		break;
 	case EDI_SHORT:
 			sprintf(buffer,"%d",* ((short *)m_variable));

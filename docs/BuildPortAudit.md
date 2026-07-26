@@ -91,6 +91,32 @@ its real link boundary includes storage, level, hardware and object-base
 implementations. Those dependencies will be connected rather than replaced by
 test-only game stubs.
 
+## Arena storage/save boundary
+
+The original `strgw.lib` contains attribute, class-table, subject and save-file
+objects. All four source modules build as `rr2nw_arena_storage`. Low-level
+`PIN_SaveFile` methods and top-level `SaveGame`/`LoadGame` originally shared one
+object, which caused any save-backend test to pull the entire simulation,
+hardware, route, vehicle and console graph. The orchestration functions now
+live in `GameSave.cpp`; the Watcom makefile includes that fifth object, so the
+legacy library retains the same public symbols and behavior.
+
+The recovered reader assumed every requested block existed, used an unaligned
+`int*` load and rejected a valid block ending exactly at EOF in Debug. It now
+checks all lengths before access, reads the size prefix with `memcpy`, accepts
+the exact final boundary and returns failure for truncated or mismatched data.
+The header storage is zero-initialized before writing, eliminating
+nondeterministic padding without changing its Win32 layout. Read mode now uses
+`GENERIC_READ`, `PAGE_READONLY` and `FILE_MAP_READ`, so an existing read-only
+save can be inspected without requesting write access. Handle cleanup is
+idempotent across failures and destructor calls.
+
+The storage smoke writes the actual legacy header plus three size-prefixed
+records, marks the file read-only, reopens and verifies every value, then
+checks final-cursor behavior. A copy truncated by one byte must open but reject
+the final record without an assertion or access violation. Attribute string
+formatting also uses the valid `%ld` and `%lu` specifiers.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -98,8 +124,8 @@ test-only game stubs.
 2. **Complete:** compile and execute the script VM libraries without enabling
    their embedded command-line/test mains.
 3. **In progress:** compile the complete Arena kernel archive and execute its
-   event-state boundary; connect storage and the real `SimulationContext`
-   dependencies next.
+   event-state boundary; compile storage and execute its low-level save
+   boundary; connect the remaining real `SimulationContext` dependencies next.
 4. Add object-base modules in dependency order.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.

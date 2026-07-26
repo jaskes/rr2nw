@@ -43,7 +43,9 @@ state capture and a bounded launch observer are implemented and tested. M1 is
 active: the first design-library boundary and both legacy script libraries now
 build and execute under MSVC Win32. The eight-object Arena kernel archive also
 builds, with its event-state transport covered by an executable contract. The
-game executable and level-load gate are still open.
+complete Arena storage archive and its low-level save backend now build and
+round-trip state as well. The game executable and level-load gate are still
+open.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -61,11 +63,13 @@ ctest --preset windows-msvc-x86-debug
 
 This currently builds the recovered math, tagged-filesystem and assertion
 aggregates, all 14 translation units in the legacy script compiler/runtime
-libraries and all eight objects from `kernelw.lib`. CTest covers
+libraries, all eight objects from `kernelw.lib` and the complete Arena storage
+archive. CTest covers
 ABI/PRNG/vector/matrix behavior, tagged-file nested round-trip and clean
 truncation rejection, compilation/execution of a minimal script in the
-original bytecode VM, and Arena event payload/label-registry state. It is not
-yet the game executable or a completed M1 milestone.
+original bytecode VM, Arena event payload/label-registry state, and read-only
+save-file round-trip with clean truncated-payload rejection. It is not yet the
+game executable or a completed M1 milestone.
 
 ## Verified baseline findings
 

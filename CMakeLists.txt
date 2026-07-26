@@ -112,6 +112,31 @@ if(MSVC)
   target_compile_options(rr2nw_arena_kernel PRIVATE /W3 /wd4081)
 endif()
 
+add_library(rr2nw_arena_storage STATIC
+  nw/ARENA/STORAGE/Attr.cpp
+  nw/ARENA/STORAGE/Classtab.cpp
+  nw/ARENA/STORAGE/Subject.cpp
+  nw/ARENA/STORAGE/SaveFile.cpp
+  nw/ARENA/STORAGE/GameSave.cpp
+)
+target_link_libraries(rr2nw_arena_storage PUBLIC rr2nw_arena_kernel)
+target_include_directories(rr2nw_arena_storage PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_storage PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_storage PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_arena_storage PRIVATE /W3 /wd4081)
+endif()
+
 add_executable(rr2nw_math_smoke
   src/portability/LegacyMathSmoke.cpp
 )
@@ -136,11 +161,18 @@ add_executable(rr2nw_kernel_state_smoke
 target_link_libraries(rr2nw_kernel_state_smoke PRIVATE rr2nw_arena_kernel)
 target_compile_features(rr2nw_kernel_state_smoke PRIVATE cxx_std_14)
 
+add_executable(rr2nw_storage_save_smoke
+  src/portability/StorageSaveSmoke.cpp
+)
+target_link_libraries(rr2nw_storage_save_smoke PRIVATE rr2nw_arena_storage)
+target_compile_features(rr2nw_storage_save_smoke PRIVATE cxx_std_14)
+
 if(MSVC)
   target_compile_options(rr2nw_math_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_tagged_file_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_script_vm_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_kernel_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_storage_save_smoke PRIVATE /W4 /permissive-)
 endif()
 
 if(BUILD_TESTING)
@@ -152,4 +184,9 @@ if(BUILD_TESTING)
   )
   add_test(NAME legacy-script-vm-smoke COMMAND rr2nw_script_vm_smoke)
   add_test(NAME legacy-kernel-state-smoke COMMAND rr2nw_kernel_state_smoke)
+  add_test(
+    NAME legacy-storage-save-smoke
+    COMMAND rr2nw_storage_save_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/storage-save-smoke.sav"
+  )
 endif()
