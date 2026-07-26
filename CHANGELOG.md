@@ -67,6 +67,8 @@ claim authorship of inherited Logos code or retail data.
 - Added a strict recovered Hardware/Console/Commands/Briefing shell archive,
   shared shell-global ownership and a second excluded Vehicle link probe that
   exposes the shell's transitive executable frontier.
+- Added the complete recovered Menu implementation as a strict archive and
+  shared its process-wide `g_menu` owner with the original Supervisor source.
 - Added executable contracts for the recovered console constant-string parser
   and briefing channel-map equality/interpolation behavior.
 - Expanded the software graph runtime contract to cover palette publication,
@@ -146,8 +148,10 @@ claim authorship of inherited Logos code or retail data.
   implementations rather than stand-ins. The deeper shell probe first exposed
   37 dependencies, then reduced them to eight by connecting the complete
   console parser, bounded software graph/palette/image/polygon behavior and
-  the real briefing channel-map implementation. The remaining owners are the
-  menu lifecycle and briefing render orchestration.
+  the real briefing channel-map implementation. Connecting the real Menu
+  archive resolves `g_menu` and `Menu::Deactivate`; its complete vtable and
+  implementation expose five initialization/teardown edges, leaving 11
+  measured symbols rather than concealing them behind a placeholder menu.
 - Fixed `CChannelMap::operator==` infinite recursion, retained its loop index
   under standard C++ for-scope rules and removed the unrelated scene umbrella
   from that mathematical translation unit. Copy/self-assignment now retains

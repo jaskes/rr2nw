@@ -446,6 +446,24 @@ make these edits. The Hardware demo-event branch also retains an empty
 controlled statement before its commented-out translator call; it is recorded
 as behavior archaeology rather than suppressed as a completed input path.
 
+The following Menu tranche compiles the complete recovered `MENU.CPP` as a
+strict archive. `g_menu` has one shared definition in `MenuGlobal.inl`, included
+by `super.cpp` for the original build and owned by `MenuGlobal.cpp` for CMake.
+This resolves both Menu symbols above with the original virtual methods and
+`Menu::Deactivate` behavior; no empty Menu object or replacement method is
+linked.
+
+Because the Menu vtable activates the complete archive member, the deeper probe
+now reports 11 unresolved symbols in both Debug and Release. Six are the same
+briefing frame boundary: `SUA_BeginRender`, `SUA_EndRender`, `ZAV_RenderFrame`,
+`ZAV_EndRenderFrame`, `ZAV_PrintFrameInfo` and `D3D_DrawZList`. The other five
+are the Menu initialization/teardown boundary: `g_loadSmoke`, `ZAV_Deinit`,
+`ZAV_PrintOverallInfo`, `SUA_DeinitEverything` and `_pGRDrawAlphaSprite`.
+This compile/link measurement does not claim a runnable Menu lifecycle yet:
+`Menu::addNotify` requires a live simulation context and Hardware subscription,
+while `Menu::Init` requires the retail texture path. Those services must be
+connected and exercised before Menu activation is counted as executable.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -457,12 +475,13 @@ as behavior archaeology rather than suppressed as a completed input path.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and all
-   five original Vehicle shell symbols have real recovered owners. The deeper
-   shell probe exposes eight menu/render-orchestration symbols. Projection, scene
+   five original Vehicle shell symbols have real recovered owners. The real Menu
+   owner is now compiled, and the deeper shell probe exposes 11 Menu-service/
+   render-orchestration symbols. Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
-   bounded 8-bit framebuffer; menu ownership and the briefing frame loop are
-   next.
+   bounded 8-bit framebuffer; Menu runtime services and the briefing frame loop
+   are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

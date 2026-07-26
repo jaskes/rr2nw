@@ -830,6 +830,44 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_menu_full STATIC
+  nw/ARENA/OBASE/MENU/MENU.CPP
+  nw/ARENA/OBASE/MENU/MenuGlobal.cpp
+  nw/ARENA/OBASE/MENU/MenuGlobal.inl
+)
+target_link_libraries(rr2nw_arena_menu_full PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_level_state
+  rr2nw_arena_time_runtime_state
+  rr2nw_graph_runtime_state
+  rr2nw_graph_image_runtime_state
+  rr2nw_graph_fixed_font_runtime_state
+  rr2nw_main_zav_scene_state
+)
+target_include_directories(rr2nw_arena_menu_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/MENU
+  nw/BRIEFING
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+)
+target_compile_features(rr2nw_arena_menu_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_menu_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_arena_menu_full PRIVATE
+    /W3 /permissive- /wd4018 /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_legacy_shell_full STATIC
   nw/ARENA/HARDWARE.cpp
   nw/ARENA/ShellGlobals.cpp
@@ -839,6 +877,7 @@ add_library(rr2nw_legacy_shell_full STATIC
   nw/BRIEFING/BRIEFING.CPP
 )
 target_link_libraries(rr2nw_legacy_shell_full PUBLIC
+  rr2nw_arena_menu_full
   rr2nw_arena_const_string
   rr2nw_briefing_channel_map
   rr2nw_arena_storage

@@ -127,9 +127,12 @@ now execute without starting the shell, reducing the baseline gap to 5 symbols.
 All five now have recovered Hardware/Console/Briefing owners. A deeper shell
 probe exposed 37 transitive dependencies and has reduced them to 8 by connecting
 the complete console parser, briefing channel map and bounded software
-palette/image/polygon path. Menu lifecycle and briefing render orchestration,
-followed by the game executable and retail level loading, remain open; the
-legacy Direct3D panel payload is not part of this software tranche.
+palette/image/polygon path. The complete recovered Menu archive now owns
+`g_menu` and its lifecycle methods; activating that real archive exposes five
+additional initialization/teardown dependencies, so the honest executable
+frontier is 11 symbols. Briefing render orchestration and those Menu runtime
+services, followed by the game executable and retail level loading, remain
+open; the legacy Direct3D panel payload is not part of this software tranche.
 
 ### Цель
 

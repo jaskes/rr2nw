@@ -30,7 +30,9 @@
 #ifndef RR2NW_DEBUG_MAP_GLOBAL_EXTERNAL
 #include "obase/dmap/DebugMapGlobal.inl"
 #endif
-Menu g_menu;
+#ifndef RR2NW_MENU_GLOBAL_EXTERNAL
+#include "obase/menu/MenuGlobal.inl"
+#endif
 
 // Green Globals END 
 
