@@ -1,0 +1,17 @@
+# Local handoff and diagnostics
+/WINDOWS_AGENT_HANDOFF.md
+/diagnostics/
+*.dmp
+*.wer
+
+# Private preservation artifacts
+/reference/private/
+
+# Python reference-tool caches
+__pycache__/
+*.py[cod]
+
+# Generated builds and packages
+/build*/
+/out/
+/dist/

@@ -1,36 +1,87 @@
-Данная версия исходных кодов не является релизной, но очень близка к финальной версии.
+# RR2NW
 
-Примерная дата создания nw205PeopleWater.rar 18 января 1999 года, а релиз игры состоялся 26 марта 1999.
+Community continuation and preservation project for *Русская рулетка II:
+Закрытые планеты* / *Russian Roulette II: The Next Worlds* by Logos.
 
-Все файлы были найдены и предоставлены разработчиком Святославом Образцовым (Suavik), за что ему огромнейшее спасибо.
+The repository contains an approximately 18 January 1999 source snapshot. It
+is not the retail source tree: the historical release date is 26 March 1999,
+while the currently verified official Russian CD was mastered on 27 May 1999
+and contains substantial later content changes.
 
-Большая благодарность компании Logos за разрешение публикации данных файлов.
+Original files were provided by developer Svyatoslav Obraztsov (Suavik) with
+permission from Logos. Original attribution and [License.txt](License.txt) are
+preserved.
 
+## Current direction
 
+Version 1.0 is Windows-first:
 
-Для сборки данных исходников необходимы Turbo Assembler и Watcom C/C++(скорее всего 10.6, т.к. в 11 создаваётся нерабочий файл), 
-а также утилита angel.exe (angelmasm.exe) - ассемблерный препроцессор, который также предоставил Святослав
+- modern reproducible CMake build;
+- stable operation on current 64-bit Windows 10/11;
+- complete official retail campaign parity;
+- no required CD mount, legacy setup, Intel RSX, dgVoodoo or disabled OS
+  protections;
+- compatible saves, deterministic replay foundations and crash diagnostics;
+- external data-driven mod packages.
 
-Для простоты сборки, лучше всего расположить исходные файлы в C:\nw\ , чтоб не производить лишних действий по правке BAT и остальных файлов сборки,
-что всё равно придётся делать.
+The first shipping executable may remain modern x86. Native Windows x64,
+Linux, macOS and multiplayer follow after Windows 1.0.
 
-Для сборки designwr.lib необходимо воспользоваться файлом disgnwr.make, т.к. в оригинальном архиве отсутствуют makefile для этой библиотеки.
+The project uses a **modernization-first** plan. Automated manifests, retail
+diffs and clean fixtures are the initial reference gate; PCem/Windows 98 manual
+testing and a completed Watcom rebuild are not prerequisites for beginning the
+modern port.
 
+See the detailed [Windows-first roadmap](docs/Roadmap.md) and
+[documentation index](docs/README.md).
 
+## Current status
 
+Milestone M0 is complete: deterministic manifests, source/retail diff, stable
+parity IDs, PE inspection, a verified read-only retail fixture, private Windows
+state capture and a bounded launch observer are implemented and tested. The
+next active milestone is the modern Windows x86 CMake vertical slice.
 
-This version of the source code is not a release version, but is very close to the final version.
+The reviewed aggregate baseline is in
+[reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
+retail/install manifests remain local and ignored.
 
-The approximate date of creation of nw205PeopleWater.rar is January 18, 1999, and the game was released on March 26, 1999.
+## Verified baseline findings
 
-All files were found and provided by the developer Svyatoslav Obraztsov (Suavik), for which he is very grateful.
+- Published runtime snapshot: 1,403 files.
+- Official May retail data directory: 6,768 files.
+- Common paths: 1,287; exact: 937; changed: 350.
+- 181 of 237 common `.SCI` files and 47 of 57 `.SC` files differ.
+- Retail adds the absent `Level.07N` runtime directory.
+- The verified retail `nw.exe` executes code from a data-only PE section; on a
+  DEP OptOut system this strongly correlates with the repeated modern-Windows
+  `0xc0000005` crashes. Release builds must fix the layout and must not require
+  disabling DEP.
 
-Many thanks to Logos for permission to publish these files.
+Details and acceptance rules are in [RetailParity.md](docs/RetailParity.md),
+[ReferenceBuild.md](docs/ReferenceBuild.md) and
+[BehaviorDecisions.md](docs/BehaviorDecisions.md).
 
-To build these sources, you need Turbo Assembler and Watcom C / C ++ (most likely 10.6, since 11 creates a non-working file),
-as well as the angel.exe utility (angelmasm.exe) - an assembler preprocessor, which was also provided by Svyatoslav
+## Historical build note
 
-For ease of assembly, it is best to place the source files in C: \ nw \ , so as not to perform unnecessary actions to edit BAT and other assembly files,
-which will have to be done anyway.
+The original tree expects:
 
-To build designwr.lib, you need to use the disgnwr.make file, since the original archive does not contain a makefile for this library.
+- Turbo Assembler;
+- Watcom C/C++, most likely 10.6;
+- `angel.exe`/`angelmasm.exe`;
+- a `C:\nw` source path in several BAT/make files;
+- `disgnwr.make` to build `designwr.lib` because its original makefile was
+  missing from the recovered archive.
+
+This toolchain remains an optional reference lane. The active product target
+is described in [Architecture.md](docs/Architecture.md).
+
+## Data and distribution
+
+The conservative 1.0 package will ship the modern engine, tools, validator and
+example mod. A data importer will read an original CD or existing installation
+without modifying it. Retail media, retail EXE, DirectX/RSX installers, user
+saves and crash dumps are not committed by default.
+
+See [DataProvenance.md](docs/DataProvenance.md) and
+[ReleaseProcess.md](docs/ReleaseProcess.md).

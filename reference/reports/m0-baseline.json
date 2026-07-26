@@ -1,0 +1,593 @@
+{
+  "external_patch_pe": {
+    "coff": {
+      "characteristics": "0x818E",
+      "linker_timestamp": 60040803,
+      "linker_timestamp_utc": "1971-11-26T22:00:03Z",
+      "machine": "0x014C",
+      "machine_name": "I386",
+      "section_count": 3
+    },
+    "file": {
+      "name": "NWRUS.EXE",
+      "sha256": "30E6C9AA1A9B7575A287AA5B37D2A4032B1D1660FC15911BF6075547229DD149",
+      "size": 797286
+    },
+    "imported_dlls": [
+      {
+        "name": "ADVAPI32.dll",
+        "symbol_count": 1
+      },
+      {
+        "name": "GDI32.dll",
+        "symbol_count": 1
+      },
+      {
+        "name": "KERNEL32.DLL",
+        "symbol_count": 3
+      },
+      {
+        "name": "SHELL32.DLL",
+        "symbol_count": 1
+      },
+      {
+        "name": "USER32.dll",
+        "symbol_count": 1
+      }
+    ],
+    "optional_header": {
+      "checksum": "0x00000000",
+      "dll_characteristics": "0x0000",
+      "dll_flags": [],
+      "entry_point_rva": "0x00013037",
+      "entry_point_section": "UPX2",
+      "file_alignment": 512,
+      "image_base": "0x400000",
+      "import_directory_rva": "0x00012000",
+      "import_directory_size": 312,
+      "magic": "PE32",
+      "section_alignment": 4096,
+      "size_of_headers": 1024,
+      "size_of_image": 92301,
+      "subsystem": 2,
+      "subsystem_name": "WINDOWS_GUI"
+    },
+    "probes": [],
+    "sections": [
+      {
+        "characteristics": "0xE0000040",
+        "flags": [
+          "INITIALIZED_DATA",
+          "EXECUTE",
+          "READ",
+          "WRITE"
+        ],
+        "index": 0,
+        "name": "UPX0",
+        "raw_pointer": 1024,
+        "raw_size": 0,
+        "virtual_address": 4096,
+        "virtual_size": 69632
+      },
+      {
+        "characteristics": "0xC0000040",
+        "flags": [
+          "INITIALIZED_DATA",
+          "READ",
+          "WRITE"
+        ],
+        "index": 1,
+        "name": "UPX1",
+        "raw_pointer": 1024,
+        "raw_size": 2560,
+        "virtual_address": 73728,
+        "virtual_size": 2122
+      },
+      {
+        "characteristics": "0xE0000020",
+        "flags": [
+          "CODE",
+          "EXECUTE",
+          "READ",
+          "WRITE"
+        ],
+        "index": 2,
+        "name": "UPX2",
+        "raw_pointer": 3584,
+        "raw_size": 14477,
+        "virtual_address": 77824,
+        "virtual_size": 14477
+      }
+    ],
+    "warnings": []
+  },
+  "local_installation": {
+    "file_count": 13544,
+    "manifest_sha256": "0958D6AE313CBD09F4D269B7444DEC24DD19A57540C44BC370EEFC8F560F8073",
+    "retail_diff_sha256": "159A6C7A41299149F080D5855E104884474AE0ADD2956EFA2ABDC65F22B74944",
+    "retail_diff_summary": {
+      "case_changed": 109,
+      "changed": 4,
+      "common": 6768,
+      "exact": 6764,
+      "left_only": 0,
+      "normalized_equal": 0,
+      "right_only": 6776
+    },
+    "total_bytes": 505539685
+  },
+  "parity_ledger": {
+    "classification_counts": {
+      "UNKNOWN": 5947
+    },
+    "entry_count": 5947,
+    "ledger_sha256": "65A85C5599DB2C3A413D10C6F1CB8BC7055D942B28F9F33457D591049D50D506"
+  },
+  "privacy": {
+    "absolute_paths_included": false,
+    "full_file_lists_included": false,
+    "retail_payload_included": false
+  },
+  "retail": {
+    "file_count": 6768,
+    "manifest_sha256": "0677B86D0792FDAB55FF5EBF2B372F6D7F417215B47FB06DF98D85EA151825C3",
+    "root_label": "retail-buka-1999-05-27",
+    "total_bytes": 251267614
+  },
+  "retail_disc": {
+    "file_count": 6782,
+    "manifest_sha256": "D3CD447947CC7A942A76C23A3139FF35304E39D22C64D5AD0335EEB519083B2E",
+    "root_label": "retail-disc-buka-1999-05-27",
+    "total_bytes": 256746809
+  },
+  "retail_pe": {
+    "coff": {
+      "characteristics": "0x8182",
+      "linker_timestamp": 927812242,
+      "linker_timestamp_utc": "1999-05-27T13:37:22Z",
+      "machine": "0x014C",
+      "machine_name": "I386",
+      "section_count": 6
+    },
+    "file": {
+      "name": "nw.exe",
+      "sha256": "42F2FC3B632C58073307B1B95924C1EFC038B5B3879C7476E438336B5D497132",
+      "size": 2179072
+    },
+    "imported_dlls": [
+      {
+        "name": "ADVAPI32.dll",
+        "symbol_count": 5
+      },
+      {
+        "name": "DDRAW.dll",
+        "symbol_count": 2
+      },
+      {
+        "name": "GDI32.dll",
+        "symbol_count": 5
+      },
+      {
+        "name": "KERNEL32.dll",
+        "symbol_count": 67
+      },
+      {
+        "name": "ole32.dll",
+        "symbol_count": 3
+      },
+      {
+        "name": "USER32.dll",
+        "symbol_count": 45
+      },
+      {
+        "name": "WINMM.dll",
+        "symbol_count": 10
+      }
+    ],
+    "optional_header": {
+      "checksum": "0x00000000",
+      "dll_characteristics": "0x0000",
+      "dll_flags": [],
+      "entry_point_rva": "0x001A702A",
+      "entry_point_section": "BEGTEXT",
+      "file_alignment": 512,
+      "image_base": "0x400000",
+      "import_directory_rva": "0x00430000",
+      "import_directory_size": 3729,
+      "magic": "PE32",
+      "section_alignment": 65536,
+      "size_of_headers": 1024,
+      "size_of_image": 4653056,
+      "subsystem": 2,
+      "subsystem_name": "WINDOWS_GUI"
+    },
+    "probes": [
+      {
+        "executable": false,
+        "file_offset": 1890444,
+        "rva": "0x001DEC8C",
+        "section": "DGROUP",
+        "section_flags": [
+          "INITIALIZED_DATA",
+          "READ",
+          "WRITE"
+        ]
+      },
+      {
+        "executable": false,
+        "file_offset": 1890477,
+        "rva": "0x001DECAD",
+        "section": "DGROUP",
+        "section_flags": [
+          "INITIALIZED_DATA",
+          "READ",
+          "WRITE"
+        ]
+      },
+      {
+        "executable": false,
+        "file_offset": 1890487,
+        "rva": "0x001DECB7",
+        "section": "DGROUP",
+        "section_flags": [
+          "INITIALIZED_DATA",
+          "READ",
+          "WRITE"
+        ]
+      }
+    ],
+    "sections": [
+      {
+        "characteristics": "0x60000020",
+        "flags": [
+          "CODE",
+          "EXECUTE",
+          "READ"
+        ],
+        "index": 0,
+        "name": "BEGTEXT",
+        "raw_pointer": 1024,
+        "raw_size": 1697792,
+        "virtual_address": 65536,
+        "virtual_size": 0
+      },
+      {
+        "characteristics": "0xC0000040",
+        "flags": [
+          "INITIALIZED_DATA",
+          "READ",
+          "WRITE"
+        ],
+        "index": 1,
+        "name": "DGROUP",
+        "raw_pointer": 1698816,
+        "raw_size": 390144,
+        "virtual_address": 1769472,
+        "virtual_size": 0
+      },
+      {
+        "characteristics": "0xC0000080",
+        "flags": [
+          "UNINITIALIZED_DATA",
+          "READ",
+          "WRITE"
+        ],
+        "index": 2,
+        "name": ".bss",
+        "raw_pointer": 0,
+        "raw_size": 2186752,
+        "virtual_address": 2162688,
+        "virtual_size": 0
+      },
+      {
+        "characteristics": "0xC0000040",
+        "flags": [
+          "INITIALIZED_DATA",
+          "READ",
+          "WRITE"
+        ],
+        "index": 3,
+        "name": ".idata",
+        "raw_pointer": 2088960,
+        "raw_size": 4096,
+        "virtual_address": 4390912,
+        "virtual_size": 0
+      },
+      {
+        "characteristics": "0x42000040",
+        "flags": [
+          "INITIALIZED_DATA",
+          "READ"
+        ],
+        "index": 4,
+        "name": ".reloc",
+        "raw_pointer": 2093056,
+        "raw_size": 84480,
+        "virtual_address": 4456448,
+        "virtual_size": 0
+      },
+      {
+        "characteristics": "0x40000040",
+        "flags": [
+          "INITIALIZED_DATA",
+          "READ"
+        ],
+        "index": 5,
+        "name": ".rsrc",
+        "raw_pointer": 2177536,
+        "raw_size": 1536,
+        "virtual_address": 4587520,
+        "virtual_size": 0
+      }
+    ],
+    "warnings": []
+  },
+  "schema": "rr2nw.m0-summary/v1",
+  "source": {
+    "file_count": 1403,
+    "manifest_sha256": "5959C1C842C493CE0AC306F635A5829DEAA5A9B28307AF3052BCC613065E0E51",
+    "root_label": "source-snapshot-output",
+    "total_bytes": 1723113
+  },
+  "source_to_retail": {
+    "diff_sha256": "0D9F05FD08715C7E3A53CA8B3409FF76201AEE8E22ED5FB9C9680113E155F9A0",
+    "extension_stats": {
+      ".BAT": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 3,
+        "normalized_equal": 0,
+        "right_only": 0
+      },
+      ".BMP": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 111
+      },
+      ".CFG": {
+        "changed": 18,
+        "common": 21,
+        "exact": 3,
+        "left_only": 1,
+        "normalized_equal": 0,
+        "right_only": 4
+      },
+      ".CRH": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 35
+      },
+      ".DTH": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 10
+      },
+      ".EXE": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 3
+      },
+      ".FLC": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 16
+      },
+      ".FNT": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 17
+      },
+      ".H": {
+        "changed": 2,
+        "common": 2,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 0
+      },
+      ".HWZ": {
+        "changed": 8,
+        "common": 8,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 1
+      },
+      ".MAP": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 1
+      },
+      ".PAL": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 4
+      },
+      ".PNL": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 38
+      },
+      ".PTP": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 15
+      },
+      ".RT": {
+        "changed": 47,
+        "common": 898,
+        "exact": 851,
+        "left_only": 64,
+        "normalized_equal": 0,
+        "right_only": 3017
+      },
+      ".RTL": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 2
+      },
+      ".RTP": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 1
+      },
+      ".SC": {
+        "changed": 47,
+        "common": 57,
+        "exact": 10,
+        "left_only": 12,
+        "normalized_equal": 0,
+        "right_only": 139
+      },
+      ".SCE": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 9
+      },
+      ".SCI": {
+        "changed": 181,
+        "common": 237,
+        "exact": 56,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 67
+      },
+      ".SPR": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 136
+      },
+      ".TRE": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 4
+      },
+      ".TXR": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 431
+      },
+      ".TXT": {
+        "changed": 47,
+        "common": 64,
+        "exact": 17,
+        "left_only": 36,
+        "normalized_equal": 0,
+        "right_only": 207
+      },
+      ".VBC": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 1121
+      },
+      ".WAV": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 86
+      },
+      ".~~~": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 5
+      },
+      "<NONE>": {
+        "changed": 0,
+        "common": 0,
+        "exact": 0,
+        "left_only": 0,
+        "normalized_equal": 0,
+        "right_only": 1
+      }
+    },
+    "summary": {
+      "case_changed": 125,
+      "changed": 350,
+      "common": 1287,
+      "exact": 937,
+      "left_only": 116,
+      "normalized_equal": 0,
+      "right_only": 5481
+    }
+  },
+  "source_tree": {
+    "file_count": 2038,
+    "manifest_sha256": "298C88F550C9A3D5F9212F116AAB246C83F9820C04A88033097EE55FDC965B9A",
+    "root_label": "source-snapshot-tree",
+    "total_bytes": 6640961
+  },
+  "standalone_artifacts": [
+    {
+      "name": "NWRUS.EXE",
+      "sha256": "30E6C9AA1A9B7575A287AA5B37D2A4032B1D1660FC15911BF6075547229DD149",
+      "size": 797286
+    },
+    {
+      "name": "RR2.mdf",
+      "sha256": "8F3D3FFC236DB6A8809125D39B3D4E3C135865662D043762E0A2CA3318812BDC",
+      "size": 268410880
+    },
+    {
+      "name": "RR2.mds",
+      "sha256": "3FACCEC294F591E122AAD3D90B122896F85846387E166D3B778EC5C005D321D5",
+      "size": 688
+    }
+  ]
+}

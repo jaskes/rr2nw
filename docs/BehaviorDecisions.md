@@ -1,0 +1,123 @@
+# Behavior decisions
+
+Этот ledger фиксирует сознательные продуктовые и технические решения. Запись
+не становится канонической только потому, что она присутствует в текущем
+source snapshot или retail data. Изменение принятого решения требует обновить
+этот документ и связанный regression contract.
+
+## BD-001: retail baseline
+
+Status: accepted on 2026-07-26.
+
+До обнаружения проверенного мартовского образа эталоном campaign/content parity
+является официальный диск `retail-buka-1999-05-27`. Дата 26 марта 1999 года
+сохраняется как историческая дата релиза, но не приписывается конкретному
+имеющемуся EXE.
+
+Regression contract: file manifest и [RetailParity.md](RetailParity.md).
+
+## BD-002: Windows x86 является допустимой архитектурой 1.0
+
+Status: accepted on 2026-07-26.
+
+Версия 1.0 может быть современным 32-битным процессом на 64-битных Windows
+10/11. Native x64 не должен задерживать стабильность, retail parity или mods.
+Это уменьшает риск, связанный с pointer sizes, `long`, raw saves и assembler.
+
+Native x64 рассматривается после явной сериализации и удаления pointer/int
+assumptions.
+
+Regression contract: Windows 10/11 package smoke на x64 hosts.
+
+## BD-003: PCem и Windows 98 не блокируют modern port
+
+Status: accepted on 2026-07-26.
+
+Первый milestone состоит из автоматических manifests, diff, PE analysis и
+fixtures. Legacy Watcom build выполняется независимой дорожкой. PCem/86Box и
+ручная игра под Windows 98 не являются release requirements.
+
+Если отдельный build tool не работает на современной Windows, допускаются
+DOSBox-X scripted build или обычная VM. Результат оценивается по build artifacts
+и автоматическому smoke.
+
+Regression contract: повторяемый M0 report и modern Windows CI.
+
+## BD-004: modernization-first, но не big-bang rewrite
+
+Status: accepted on 2026-07-26.
+
+CMake/modern compiler vertical slice начинается сразу после M0. Существующие
+Win32/DirectDraw части могут временно сохраняться, если это быстрее приводит к
+собираемому уровню. SDL3 вводится по одному platform domain, а renderer math и
+gameplay не переписываются одновременно.
+
+Regression contract: каждый extraction slice сохраняет текущий level/replay
+contract.
+
+## BD-005: DEP не отключается как пользовательское решение
+
+Status: accepted on 2026-07-26.
+
+Retail EXE исполняет инструкции из non-executable `DGROUP` на исследованной
+системе с DEP OptOut. Точечная лабораторная совместимость разрешена только для
+reference-run на копии. Modern и release EXE обязаны работать с включенным DEP.
+
+Regression contract: packaged EXE запускается без DEP exception; PE sections
+и process mitigations проверяются release script.
+
+## BD-006: retail behavior сохраняется до доказанного intentional change
+
+Status: accepted on 2026-07-26.
+
+Стабилизация не должна молча менять mission outcome, faction logic, vehicle
+behavior или progression. Debug build должен строго сообщать invalid state.
+Release build может безопасно прекратить локальное действие, но обязан оставить
+structured diagnostic вместо бесшумного clamp/return.
+
+Regression contract: retail parity entries и targeted invalid-state tests.
+
+## BD-007: fixed simulation tick выбирается после измерения
+
+Status: accepted on 2026-07-26.
+
+Нельзя заранее объявлять 30, 60 или другое число ticks каноническим. Сначала
+измеряется retail поведение при нескольких render rates, затем выбирается
+режим, лучше сохраняющий physics, AI и управление. Presentation FPS после этого
+не должен менять authoritative tick count.
+
+Regression contract: fixed-input timing tests и replay state hashes.
+
+## BD-008: существующий NW-DEMO является исходной replay-точкой
+
+Status: accepted on 2026-07-26.
+
+Проект развивает существующие input record/playback paths вместо создания
+несвязанной второй системы. Формат получает version, tick, seed, content/mod
+identity и state hashes. Старые записи могут остаться import-only.
+
+Regression contract: одинаковая запись дважды дает одинаковые state hashes.
+
+## BD-009: моддинг 1.0 использует VFS и существующую script VM
+
+Status: accepted on 2026-07-26.
+
+Первый mod contract поддерживает resources, maps, routes, data, localization и
+существующие `.SCI/.SC` scripts. Lua, native plugins и новый public C++ ABI
+откладываются до накопления реальных use cases.
+
+Save/replay обязаны хранить mod/content identity и не открываться под другим
+набором данных молча.
+
+Regression contract: validator, example mod и incompatible-save rejection.
+
+## BD-010: multiplayer, Linux и macOS следуют после Windows 1.0
+
+Status: accepted on 2026-07-26.
+
+Код не должен намеренно закрывать переносимость, но cross-platform packages и
+network protocol не участвуют в release gate 1.0. Multiplayer начинается после
+fixed-tick replay и state hashes; базовая модель — authoritative host со
+snapshots, не fragile lockstep.
+
+Regression contract: отсутствует до post-1.0 milestone.
