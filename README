@@ -50,8 +50,10 @@ Supervisor or renderer stubs. Fountain branch serialization and pool recovery
 also build independently of the renderer, while the complete recovered
 `Fountain.cpp` is held as a warning-free compile gate. Vehicle static state now
 round-trips through the real save backend, and all four recovered Vehicle
-translation units form a strict warning-free compile gate. The game executable,
-Vehicle service linking/runtime exercise and level-load gate are still open.
+translation units form a strict warning-free compile gate. The first bounded
+Win32 `rr2nw.exe` now starts without the legacy installer, validates an explicit
+read-only retail data directory and records a deterministic pre-content marker;
+the recovered gameplay runtime and level-ready gate are still open.
 The first link-dependency tranche now builds the real config parser and Player,
 executes `ICarrier`/`IArtefact` carry behavior, and compile-gates the complete
 Artefact source. A diagnostic link probe reduced Vehicle's unresolved surface
@@ -108,6 +110,18 @@ and all 40 script-viewpoint slots without creating a window or renderer. The
 scene contract also executes moving-object visibility dispatch, Vessel shield/
 weapon bonus arithmetic and the original encoded message bytes while keeping
 the disabled legacy sprite/laser raster bodies explicitly outside this gate.
+The normal build also produces `rr2nw.exe`; its automated launch contract uses
+a synthetic nine-level fixture and verifies that startup does not alter data.
+
+An original retail directory can be inspected without entering gameplay:
+
+```powershell
+.\build\windows-msvc-x86\Debug\rr2nw.exe --data-dir X:\path\to\retail\nw
+```
+
+The current EXE deliberately reports that the recovered runtime is not yet
+connected after reaching `retail-data-ready`; it is a controlled integration
+frontier, not a claim that a level already renders.
 
 ## Verified baseline findings
 

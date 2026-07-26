@@ -1424,6 +1424,39 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_mainproc_full STATIC
+  nw/MAIN/mainproc.cpp
+)
+target_link_libraries(rr2nw_mainproc_full PUBLIC
+  rr2nw_arena_obase_vehicle
+  rr2nw_arena_super_full
+  rr2nw_legacy_shell_full
+  rr2nw_main_zav_full
+  rr2nw_recovered_software_frame
+)
+target_include_directories(rr2nw_mainproc_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/BRIEFING
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+)
+target_compile_features(rr2nw_mainproc_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_mainproc_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_mainproc_full PRIVATE
+    /W3 /permissive- /wd4018 /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_obase_route STATIC
   nw/ARENA/OBASE/ROUTE/Route.cpp
   nw/ARENA/OBASE/ROUTE/ROUTE_I.CPP
@@ -2043,6 +2076,58 @@ target_compile_definitions(rr2nw_vehicle_shell_link_probe PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_game_link_probe WIN32 EXCLUDE_FROM_ALL
+  nw/MAIN/mainproc.cpp
+)
+target_link_libraries(rr2nw_game_link_probe PRIVATE
+  rr2nw_mainproc_full
+)
+target_compile_features(rr2nw_game_link_probe PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_game_link_probe PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_game_startup STATIC
+  src/platform/windows/GameStartup.cpp
+  src/platform/windows/GameStartup.h
+)
+set(RR2NW_BUILD_REVISION_HEADER
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/RR2NWBuildRevision.h"
+)
+add_custom_target(rr2nw_build_revision
+  COMMAND "${CMAKE_COMMAND}"
+          "-DRR2NW_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+          "-DRR2NW_OUTPUT=${RR2NW_BUILD_REVISION_HEADER}"
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateBuildRevision.cmake"
+  BYPRODUCTS "${RR2NW_BUILD_REVISION_HEADER}"
+  VERBATIM
+)
+add_dependencies(rr2nw_game_startup rr2nw_build_revision)
+target_include_directories(rr2nw_game_startup PUBLIC
+  src/platform/windows
+)
+target_include_directories(rr2nw_game_startup PRIVATE
+  "${CMAKE_CURRENT_BINARY_DIR}/generated"
+)
+target_compile_features(rr2nw_game_startup PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_game_startup PRIVATE
+  UNICODE
+  _UNICODE
+  RR2NW_BUILD_VERSION="${PROJECT_VERSION}"
+  RR2NW_BUILD_CONFIGURATION="$<CONFIG>"
+)
+target_link_libraries(rr2nw_game_startup PUBLIC shell32)
+
+add_executable(rr2nw_game WIN32
+  src/platform/windows/GameMain.cpp
+)
+target_link_libraries(rr2nw_game PRIVATE rr2nw_game_startup)
+target_compile_features(rr2nw_game PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_game PRIVATE UNICODE _UNICODE)
+set_target_properties(rr2nw_game PROPERTIES OUTPUT_NAME rr2nw)
+
 add_executable(rr2nw_scene_software_draw_link_probe
   src/portability/SceneSoftwareDrawLinkProbe.cpp
 )
@@ -2115,6 +2200,14 @@ if(MSVC)
     rr2nw_vehicle_shell_link_probe PRIVATE /W4 /permissive-
   )
   target_compile_options(
+    rr2nw_game_link_probe PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_game_startup PRIVATE /W4 /permissive- /utf-8
+  )
+  target_compile_options(rr2nw_game PRIVATE /W4 /permissive- /utf-8)
+  target_link_options(rr2nw_game PRIVATE /INCREMENTAL:NO /MAP)
+  target_compile_options(
     rr2nw_scene_software_draw_link_probe PRIVATE /W4 /permissive-
   )
   target_link_options(rr2nw_scene_software_draw_link_probe PRIVATE
@@ -2124,6 +2217,13 @@ if(MSVC)
 endif()
 
 if(BUILD_TESTING)
+  add_test(
+    NAME game-launch-smoke
+    COMMAND "${CMAKE_COMMAND}"
+            "-DRR2NW_GAME=$<TARGET_FILE:rr2nw_game>"
+            "-DRR2NW_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/game-launch-smoke-$<CONFIG>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GameLaunchSmoke.cmake"
+  )
   add_test(NAME legacy-math-smoke COMMAND rr2nw_math_smoke)
   add_test(
     NAME legacy-tagged-file-smoke

@@ -8,6 +8,7 @@
 /README text eol=lf
 /CMakeLists.txt text eol=lf
 /.github/** text eol=lf
+/cmake/** text eol=lf
 /src/** text eol=lf
 *.json text eol=lf
 *.md text eol=lf

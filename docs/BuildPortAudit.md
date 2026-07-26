@@ -604,6 +604,34 @@ from an excluded two-symbol measurement into a passing zero-symbol CTest. The
 full terrain object remains a compile gate and historical 13-symbol comparison
 boundary rather than entering the production link.
 
+## First executable frontier
+
+The normal CMake build now produces a Win32 GUI program named `rr2nw.exe`.
+This first boundary is deliberately smaller than the recovered infinite game
+loop: it parses `--data-dir`/`--diagnostics-dir`, embeds project version, Git
+revision and build configuration, and creates diagnostics under user-local
+storage by default. It does not require the Logos installer or registry keys.
+
+Before legacy code receives a path, the executable resolves it to an absolute
+directory and read-only checks `game.cfg`, `LEVEL0.SC`, `Init/StartLevel` and
+all nine `Levels/0..8` directories. It records `process-ready`,
+`retail-data-ready` and `pre-content-ready`, together with the explicit
+`legacy_runtime=not-connected` boundary. The automated launch contract creates
+a synthetic nine-level directory, verifies exact markers, repeats the launch
+against a missing path and compares fixture inventory before/after. Local runs
+also reached the marker against both verified data sources; hashes of the CD
+`game.cfg` and `LEVEL0.SC` remained unchanged.
+
+The original `mainproc.cpp` is separately compiled as
+`rr2nw_mainproc_full`. Forcing its `WinMain` into the excluded
+`rr2nw_game_link_probe` activates 49 Debug and 48 Release unresolved symbols;
+the sole Debug-only edge is `CViewOrdered::CheckNoDynamics`. They are
+concentrated in real graph device/texture services,
+input/timer and registry owners, Level/Supervisor construction, RSX removal,
+and scene/terrain constructors. This probe is the next integration ledger;
+the bounded executable is not permitted to call its data marker level-ready
+until those services connect and `ZAV_InitLevel` constructs the retail scene.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -624,10 +652,13 @@ boundary rather than entering the production link.
    complete software-panel archive/lifecycle/draw path execute against a
    bounded 8-bit framebuffer. Recovered software-frame binding now executes
    every frame stage, including the bounded normal software world draw. The
-   first game executable and read-only retail scene load are next.
+   first Win32 executable reaches a checked read-only pre-content marker; the
+   original entry point has a measured 49 Debug/48 Release runtime frontier.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
-6. Link the existing Win32/DirectDraw shell as the first game executable.
-7. Load the read-only retail fixture to a deterministic level-ready marker.
+6. Close the measured legacy-entry frontier and connect the existing
+   Win32/DirectDraw shell behind `rr2nw.exe`.
+7. Advance the read-only retail fixture from pre-content-ready to a
+   deterministic level-ready marker.
 
 Renderer/platform replacement does not begin until the existing simulation and
 content path can be observed through the modern compiler.

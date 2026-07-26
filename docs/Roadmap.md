@@ -164,9 +164,24 @@ That final terrain-view slice is now complete. Recovered frustum and reduction
 edge setup has its own owner, the four trapezoid orientations share an
 executable parameterized contract, and the normal scene link frontier is zero.
 `Frame_BindRecoveredSoftware` now sends a non-null active scene to the real
-software `CViewScene::Draw`. The remaining M1 step is no longer renderer symbol
-archaeology: create the first game executable, load the read-only retail scene
-and observe this path against constructed terrain state.
+software `CViewScene::Draw`.
+
+The first normal-build Win32 `rr2nw.exe` now exists. It needs neither the old
+installer nor registry state, accepts `--data-dir`, records build identity and
+checks `game.cfg`, `LEVEL0.SC` and all nine configured retail directories
+read-only before reaching `retail-data-ready`/`pre-content-ready`. The launch
+contract uses a generated non-retail fixture, also checks missing-data failure
+and proves that the fixture inventory is unchanged. Local read-only runs pass
+against both the May CD directory and the modified installed directory.
+
+This is intentionally not called level-ready: `legacy_runtime=not-connected`
+is written beside the marker. Compiling the recovered `mainproc.cpp` is already
+clean, while forcing that Win32 entry point through the currently recovered
+archives exposes 49 Debug and 48 Release unresolved symbols; the sole Debug
+addition is `CViewOrdered::CheckNoDynamics`. The remaining M1 work is to close
+that measured input/registry/graph/content-construction frontier, enter
+`ZAV_InitGraph`/`ZAV_InitLevel` and observe the software world path against
+constructed retail terrain.
 
 ### Цель
 

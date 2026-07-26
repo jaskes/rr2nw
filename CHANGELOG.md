@@ -101,6 +101,15 @@ claim authorship of inherited Logos code or retail data.
 - Added a strict compile gate for the complete recovered terrain renderer and
   fixed its Watcom-era debug-loop variable scope and ambiguous shift
   expressions without changing their calculations.
+- Added the first normal-build Win32 `rr2nw.exe`. It accepts an explicit
+  `--data-dir`, records version/revision/configuration diagnostics, validates
+  the nine configured retail runtime directories without writing to them and
+  stops at an explicit `pre-content-ready` marker. A synthetic launch smoke
+  covers valid and missing data plus the read-only fixture contract.
+- Added a strict compile target and excluded link probe for the recovered
+  `mainproc.cpp` Win32 entry point; its first full-runtime measurement exposes
+  49 Debug and 48 Release unresolved symbols rather than hiding the legacy
+  connection frontier.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.

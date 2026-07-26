@@ -1,0 +1,421 @@
+#include "GameStartup.h"
+
+#include "RR2NWBuildRevision.h"
+
+#include <shlobj.h>
+
+#include <array>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+#ifndef RR2NW_BUILD_VERSION
+#define RR2NW_BUILD_VERSION "unknown"
+#endif
+
+#ifndef RR2NW_BUILD_CONFIGURATION
+#define RR2NW_BUILD_CONFIGURATION "unknown"
+#endif
+
+namespace rr2nw {
+namespace {
+
+constexpr int kSuccess = 0;
+constexpr int kInvalidArguments = 2;
+constexpr int kDataNotReady = 3;
+constexpr int kDiagnosticsFailure = 5;
+constexpr int kRetailLevelCount = 9;
+
+struct StartupOptions {
+  std::wstring dataDirectory;
+  std::wstring diagnosticsDirectory;
+  bool launchSmoke = false;
+  bool showHelp = false;
+  bool showVersion = false;
+};
+
+struct RetailData {
+  std::wstring root;
+  std::array<std::wstring, kRetailLevelCount> levels;
+  int startLevel = -1;
+};
+
+std::wstring Utf8ToWide(const char* text) {
+  const int length = MultiByteToWideChar(CP_UTF8, 0, text, -1, nullptr, 0);
+  if (length <= 1) {
+    return std::wstring();
+  }
+
+  std::vector<wchar_t> result(static_cast<std::size_t>(length));
+  MultiByteToWideChar(CP_UTF8, 0, text, -1, result.data(), length);
+  return std::wstring(result.data());
+}
+
+std::string WideToUtf8(const std::wstring& text) {
+  if (text.empty()) {
+    return std::string();
+  }
+
+  const int length = WideCharToMultiByte(CP_UTF8, 0, text.data(),
+                                         static_cast<int>(text.size()), nullptr,
+                                         0, nullptr, nullptr);
+  if (length <= 0) {
+    return std::string();
+  }
+
+  std::string result(static_cast<std::size_t>(length), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                      &result[0], length, nullptr, nullptr);
+  return result;
+}
+
+std::wstring JoinPath(const std::wstring& base, const std::wstring& child) {
+  if (base.empty()) {
+    return child;
+  }
+  if (base.back() == L'\\' || base.back() == L'/') {
+    return base + child;
+  }
+  return base + L"\\" + child;
+}
+
+std::wstring AbsolutePath(const std::wstring& path) {
+  const DWORD length = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
+  if (length == 0) {
+    return path;
+  }
+
+  std::vector<wchar_t> buffer(static_cast<std::size_t>(length));
+  if (GetFullPathNameW(path.c_str(), length, buffer.data(), nullptr) == 0) {
+    return path;
+  }
+  return std::wstring(buffer.data());
+}
+
+std::wstring ExecutableDirectory() {
+  std::vector<wchar_t> buffer(512);
+  for (;;) {
+    const DWORD length = GetModuleFileNameW(
+        nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (length == 0) {
+      return std::wstring();
+    }
+    if (length < buffer.size() - 1) {
+      std::wstring path(buffer.data(), length);
+      const std::wstring::size_type separator = path.find_last_of(L"\\/");
+      return separator == std::wstring::npos ? std::wstring()
+                                             : path.substr(0, separator);
+    }
+    buffer.resize(buffer.size() * 2);
+  }
+}
+
+std::wstring CurrentDirectory() {
+  const DWORD length = GetCurrentDirectoryW(0, nullptr);
+  if (length == 0) {
+    return std::wstring();
+  }
+  std::vector<wchar_t> buffer(static_cast<std::size_t>(length));
+  if (GetCurrentDirectoryW(length, buffer.data()) == 0) {
+    return std::wstring();
+  }
+  return std::wstring(buffer.data());
+}
+
+std::wstring EnvironmentValue(const wchar_t* name) {
+  const DWORD length = GetEnvironmentVariableW(name, nullptr, 0);
+  if (length == 0) {
+    return std::wstring();
+  }
+  std::vector<wchar_t> buffer(static_cast<std::size_t>(length));
+  if (GetEnvironmentVariableW(name, buffer.data(), length) == 0) {
+    return std::wstring();
+  }
+  return std::wstring(buffer.data());
+}
+
+bool IsDirectory(const std::wstring& path) {
+  const DWORD attributes = GetFileAttributesW(path.c_str());
+  return attributes != INVALID_FILE_ATTRIBUTES &&
+         (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+bool IsFile(const std::wstring& path) {
+  const DWORD attributes = GetFileAttributesW(path.c_str());
+  return attributes != INVALID_FILE_ATTRIBUTES &&
+         (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+bool ParseOptionValue(int argc, wchar_t** argv, int* index,
+                      const wchar_t* name, std::wstring* value,
+                      std::wstring* failure) {
+  if (*index + 1 >= argc) {
+    *failure = std::wstring(L"missing value for ") + name;
+    return false;
+  }
+  *value = argv[++(*index)];
+  if (value->empty()) {
+    *failure = std::wstring(L"empty value for ") + name;
+    return false;
+  }
+  return true;
+}
+
+bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
+                  std::wstring* failure) {
+  for (int index = 1; index < argc; ++index) {
+    const std::wstring argument(argv[index]);
+    if (argument == L"--launch-smoke") {
+      options->launchSmoke = true;
+    } else if (argument == L"--help" || argument == L"-h") {
+      options->showHelp = true;
+    } else if (argument == L"--version") {
+      options->showVersion = true;
+    } else if (argument == L"--data-dir") {
+      if (!ParseOptionValue(argc, argv, &index, L"--data-dir",
+                            &options->dataDirectory, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 11, L"--data-dir=") == 0) {
+      options->dataDirectory = argument.substr(11);
+    } else if (argument == L"--diagnostics-dir") {
+      if (!ParseOptionValue(argc, argv, &index, L"--diagnostics-dir",
+                            &options->diagnosticsDirectory, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 18, L"--diagnostics-dir=") == 0) {
+      options->diagnosticsDirectory = argument.substr(18);
+    } else {
+      *failure = std::wstring(L"unknown argument: ") + argument;
+      return false;
+    }
+  }
+  return true;
+}
+
+std::wstring DefaultDiagnosticsDirectory() {
+  std::wstring base = EnvironmentValue(L"LOCALAPPDATA");
+  if (base.empty()) {
+    base = EnvironmentValue(L"TEMP");
+  }
+  if (base.empty()) {
+    base = CurrentDirectory();
+  }
+  return JoinPath(JoinPath(base, L"RR2NW"), L"logs");
+}
+
+bool EnsureDirectory(const std::wstring& path) {
+  const int result = SHCreateDirectoryExW(nullptr, path.c_str(), nullptr);
+  return result == ERROR_SUCCESS || result == ERROR_ALREADY_EXISTS ||
+         result == ERROR_FILE_EXISTS;
+}
+
+class StartupLog {
+ public:
+  StartupLog() = default;
+  ~StartupLog() {
+    if (file_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(file_);
+    }
+  }
+
+  bool Open(const std::wstring& directory) {
+    if (!EnsureDirectory(directory)) {
+      return false;
+    }
+    path_ = JoinPath(directory, L"rr2nw-startup.log");
+    file_ = CreateFileW(path_.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file_ == INVALID_HANDLE_VALUE) {
+      return false;
+    }
+    const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
+    DWORD written = 0;
+    return WriteFile(file_, bom, sizeof(bom), &written, nullptr) != FALSE &&
+           written == sizeof(bom);
+  }
+
+  bool Line(const std::string& line) {
+    const std::string record = line + "\r\n";
+    DWORD written = 0;
+    return file_ != INVALID_HANDLE_VALUE &&
+           WriteFile(file_, record.data(), static_cast<DWORD>(record.size()),
+                     &written, nullptr) != FALSE &&
+           written == record.size();
+  }
+
+  bool WideLine(const char* key, const std::wstring& value) {
+    return Line(std::string(key) + "=" + WideToUtf8(value));
+  }
+
+  const std::wstring& path() const { return path_; }
+
+ private:
+  HANDLE file_ = INVALID_HANDLE_VALUE;
+  std::wstring path_;
+};
+
+bool InspectRetailData(const std::wstring& candidate, RetailData* data,
+                       std::wstring* failure) {
+  const std::wstring root = AbsolutePath(candidate);
+  if (!IsDirectory(root)) {
+    *failure = std::wstring(L"data directory does not exist: ") + root;
+    return false;
+  }
+
+  const std::wstring configPath = JoinPath(root, L"game.cfg");
+  if (!IsFile(configPath)) {
+    *failure = std::wstring(L"game.cfg is missing in: ") + root;
+    return false;
+  }
+  if (!IsFile(JoinPath(root, L"LEVEL0.SC"))) {
+    *failure = std::wstring(L"LEVEL0.SC is missing in: ") + root;
+    return false;
+  }
+
+  RetailData inspected;
+  inspected.root = root;
+  inspected.startLevel =
+      GetPrivateProfileIntW(L"Init", L"StartLevel", -1, configPath.c_str());
+  if (inspected.startLevel < 0 || inspected.startLevel >= kRetailLevelCount) {
+    *failure = L"game.cfg has an invalid Init/StartLevel";
+    return false;
+  }
+
+  for (int index = 0; index < kRetailLevelCount; ++index) {
+    wchar_t key[16] = {};
+    std::swprintf(key, sizeof(key) / sizeof(key[0]), L"%d", index);
+    wchar_t value[260] = {};
+    if (GetPrivateProfileStringW(L"Levels", key, L"", value,
+                                 sizeof(value) / sizeof(value[0]),
+                                 configPath.c_str()) == 0) {
+      *failure = std::wstring(L"game.cfg is missing Levels/") + key;
+      return false;
+    }
+    inspected.levels[static_cast<std::size_t>(index)] = value;
+    if (!IsDirectory(JoinPath(root, value))) {
+      *failure = std::wstring(L"configured level directory is missing: ") +
+                 value;
+      return false;
+    }
+  }
+
+  *data = inspected;
+  return true;
+}
+
+bool LocateRetailData(const StartupOptions& options, RetailData* data,
+                      std::wstring* failure) {
+  if (!options.dataDirectory.empty()) {
+    return InspectRetailData(options.dataDirectory, data, failure);
+  }
+
+  const std::wstring executableDirectory = ExecutableDirectory();
+  const std::wstring currentDirectory = CurrentDirectory();
+  const std::array<std::wstring, 4> candidates = {
+      executableDirectory, JoinPath(executableDirectory, L"nw"),
+      currentDirectory, JoinPath(currentDirectory, L"nw")};
+
+  for (const std::wstring& candidate : candidates) {
+    std::wstring candidateFailure;
+    if (!candidate.empty() &&
+        InspectRetailData(candidate, data, &candidateFailure)) {
+      return true;
+    }
+  }
+
+  *failure = L"retail data was not found; pass --data-dir <path>";
+  return false;
+}
+
+void ShowMessage(bool silent, UINT icon, const wchar_t* title,
+                 const std::wstring& text) {
+  if (!silent) {
+    MessageBoxW(nullptr, text.c_str(), title, MB_OK | icon);
+  }
+}
+
+std::wstring BuildIdentity() {
+  return L"RR2NW " + Utf8ToWide(RR2NW_BUILD_VERSION) + L" (" +
+         Utf8ToWide(RR2NW_BUILD_REVISION) + L", " +
+         Utf8ToWide(RR2NW_BUILD_CONFIGURATION) + L")";
+}
+
+}  // namespace
+
+int RunGameStartup(HINSTANCE, int argc, wchar_t** argv) {
+  StartupOptions options;
+  std::wstring failure;
+  if (!ParseOptions(argc, argv, &options, &failure)) {
+    ShowMessage(options.launchSmoke, MB_ICONERROR, L"RR2NW startup error",
+                failure);
+    return kInvalidArguments;
+  }
+
+  if (options.showHelp) {
+    ShowMessage(false, MB_ICONINFORMATION, L"RR2NW command line",
+                L"rr2nw.exe [--data-dir <path>] [--diagnostics-dir <path>]\n"
+                L"          [--launch-smoke] [--version] [--help]");
+    return kSuccess;
+  }
+  if (options.showVersion) {
+    ShowMessage(false, MB_ICONINFORMATION, L"RR2NW version", BuildIdentity());
+    return kSuccess;
+  }
+
+  if (options.diagnosticsDirectory.empty()) {
+    options.diagnosticsDirectory = DefaultDiagnosticsDirectory();
+  } else {
+    options.diagnosticsDirectory = AbsolutePath(options.diagnosticsDirectory);
+  }
+
+  StartupLog log;
+  if (!log.Open(options.diagnosticsDirectory)) {
+    ShowMessage(options.launchSmoke, MB_ICONERROR, L"RR2NW startup error",
+                L"Cannot create the startup diagnostic log in:\n" +
+                    options.diagnosticsDirectory);
+    return kDiagnosticsFailure;
+  }
+
+  SYSTEMTIME utc = {};
+  GetSystemTime(&utc);
+  char timestamp[64] = {};
+  std::snprintf(timestamp, sizeof(timestamp),
+                "%04u-%02u-%02uT%02u:%02u:%02u.%03uZ", utc.wYear,
+                utc.wMonth, utc.wDay, utc.wHour, utc.wMinute, utc.wSecond,
+                utc.wMilliseconds);
+  log.Line("timestamp_utc=" + std::string(timestamp));
+  log.Line("version=" RR2NW_BUILD_VERSION);
+  log.Line("revision=" RR2NW_BUILD_REVISION);
+  log.Line("configuration=" RR2NW_BUILD_CONFIGURATION);
+  log.Line("marker=process-ready");
+
+  RetailData data;
+  if (!LocateRetailData(options, &data, &failure)) {
+    log.WideLine("failure", failure);
+    log.Line("marker=data-not-ready");
+    ShowMessage(options.launchSmoke, MB_ICONERROR, L"RR2NW data error",
+                failure + L"\n\nDiagnostic log:\n" + log.path());
+    return kDataNotReady;
+  }
+
+  log.WideLine("data_dir", data.root);
+  log.Line("retail_level_count=9");
+  log.Line("start_level=" + std::to_string(data.startLevel));
+  log.WideLine("start_level_dir",
+               data.levels[static_cast<std::size_t>(data.startLevel)]);
+  log.Line("data_access=read-only");
+  log.Line("marker=retail-data-ready");
+  log.Line("legacy_runtime=not-connected");
+  log.Line("marker=pre-content-ready");
+
+  ShowMessage(options.launchSmoke, MB_ICONINFORMATION, L"RR2NW preflight",
+              BuildIdentity() +
+                  L"\n\nRetail data passed the read-only preflight. "
+                  L"The recovered game runtime is the next connection "
+                  L"frontier.\n\nDiagnostic log:\n" +
+                  log.path());
+  return kSuccess;
+}
+
+}  // namespace rr2nw

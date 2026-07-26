@@ -206,3 +206,22 @@ Regression contract: `recovered-software-frame-smoke`,
 `scene-software-state-smoke`, `terrain-view-state-smoke`,
 `scene-software-draw-link-smoke`, strict `rr2nw_scene_full` and
 `rr2nw_view_terrain_full` Debug/Release compilation.
+
+## BD-014: first executable exposes a pre-content boundary
+
+Status: accepted on 2026-07-26.
+
+The first normal-build `rr2nw.exe` must be useful for modern startup and retail
+path diagnosis before the recovered monolithic `WinMain` can link. It may
+validate retail structure and prepare diagnostics, but may not describe that
+as level-ready or gameplay-ready.
+
+Startup therefore accepts an explicit `--data-dir`, avoids mandatory legacy
+registry state and performs only read access to `game.cfg`, `LEVEL0.SC` and the
+nine configured runtime directories. Its log embeds build identity and ends at
+`pre-content-ready` with `legacy_runtime=not-connected`. The recovered
+`mainproc.cpp` remains a separately measured link probe; its unresolved symbols
+are integration work, not candidates for unconditional stubs.
+
+Regression contract: `game-launch-smoke`, strict `rr2nw_mainproc_full`
+Debug/Release compilation and the excluded `rr2nw_game_link_probe` frontier.
