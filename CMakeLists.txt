@@ -539,6 +539,64 @@ target_compile_definitions(rr2nw_graph_runtime_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_graph_image_runtime_state STATIC
+  nw/GRAPH/ImageRuntimeState.cpp
+)
+target_link_libraries(rr2nw_graph_image_runtime_state PUBLIC
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_graph_image_runtime_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_image_runtime_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_image_runtime_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_fixed_font_runtime_state STATIC
+  nw/GRAPH/FixedFontRuntimeState.cpp
+)
+target_link_libraries(rr2nw_graph_fixed_font_runtime_state PUBLIC
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_graph_fixed_font_runtime_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(
+  rr2nw_graph_fixed_font_runtime_state PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_graph_fixed_font_runtime_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_graph_panel_lifecycle STATIC
+  nw/GRAPH/PanelSoftwareLifecycle.cpp
+)
+target_link_libraries(rr2nw_graph_panel_lifecycle PUBLIC
+  rr2nw_graph_image_runtime_state
+  rr2nw_graph_fixed_font_runtime_state
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_graph_panel_lifecycle PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_panel_lifecycle PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_panel_lifecycle PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 if(MSVC)
   target_compile_options(
     rr2nw_arena_physics_math PRIVATE /W3 /permissive- /wd4081
@@ -602,6 +660,15 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_graph_runtime_state PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_graph_image_runtime_state PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_graph_fixed_font_runtime_state PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_graph_panel_lifecycle PRIVATE /W4 /permissive-
   )
 endif()
 
@@ -929,6 +996,7 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_scene_vessel_runtime_state
   rr2nw_scene_draw_state
   rr2nw_graph_runtime_state
+  rr2nw_graph_panel_lifecycle
 )
 
 add_executable(rr2nw_math_smoke
@@ -1076,6 +1144,19 @@ target_compile_definitions(rr2nw_graph_runtime_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_panel_lifecycle_smoke
+  src/portability/PanelLifecycleSmoke.cpp
+)
+target_link_libraries(rr2nw_panel_lifecycle_smoke PRIVATE
+  rr2nw_graph_panel_lifecycle
+)
+target_compile_features(rr2nw_panel_lifecycle_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_panel_lifecycle_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_vehicle_link_probe EXCLUDE_FROM_ALL
   src/portability/VehicleLinkProbe.cpp
 )
@@ -1119,6 +1200,7 @@ if(MSVC)
   target_compile_options(rr2nw_view_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_panel_lifecycle_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -1171,6 +1253,12 @@ if(BUILD_TESTING)
   add_test(NAME legacy-view-state-smoke COMMAND rr2nw_view_state_smoke)
   add_test(NAME legacy-scene-draw-smoke COMMAND rr2nw_scene_draw_smoke)
   add_test(NAME legacy-graph-runtime-smoke COMMAND rr2nw_graph_runtime_smoke)
+  add_test(
+    NAME legacy-panel-lifecycle-smoke
+    COMMAND rr2nw_panel_lifecycle_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/panel-lifecycle-smoke.pnl"
+            "${CMAKE_CURRENT_BINARY_DIR}/panel-lifecycle-truncated.pnl"
+  )
   add_test(
     NAME legacy-carrier-smoke
     COMMAND rr2nw_carrier_smoke

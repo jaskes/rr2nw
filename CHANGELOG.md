@@ -54,6 +54,9 @@ claim authorship of inherited Logos code or retail data.
 - Added strict compile gates for the recovered palette/assertion, graph,
   panel, 2D, image, fixed-font and Direct3D units, plus an executable graph
   runtime contract for palette colors and software viewports.
+- Added a software `CGRPanel` archive/lifecycle owner with bounded image and
+  fixed-font resource reconstruction, plus an executable valid/truncated-file,
+  resolution-selection, viewport and control-state contract.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -113,6 +116,10 @@ claim authorship of inherited Logos code or retail data.
   connecting the recovered graph defaults, viewport lifecycle/activation and
   palette-backed `GRCreateColor`; the six panel methods remain an explicit
   renderer dependency instead of placeholders.
+- Reduced the measured Vehicle link gap from 17 to 12 unresolved symbols by
+  connecting the real software-panel constructor, destructor, resolution
+  selection and open/close lifecycle. `CGRPanel::Draw` remains the sole panel
+  symbol at the polygon/ASM frontier.
 - Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
   invalid project creation, and made commander traversal honor its table
   argument instead of the process-wide global.
@@ -125,6 +132,13 @@ claim authorship of inherited Logos code or retail data.
 - Made the recovered graph error interfaces pointer-to-const and the panel
   texture-memory comparison unsigned without changing their values or control
   flow; made `GRCreateColor` assemble its result with unsigned shifts.
+- Bounded panel resolution/control counts and embedded resource sizes, rejected
+  truncated RLE/font/image records, unterminated control names and invalid
+  digit counts, made missing crosshairs non-fatal and prevented digit-control
+  formatting from overrunning its four-byte field; viewport creation now
+  rejects invalid device/screen/origin state, and release clears all matching
+  active pointers even after graphics-device teardown. Empty image and font
+  owners now start with deterministic dimensions and pointers.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no

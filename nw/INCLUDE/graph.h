@@ -404,8 +404,10 @@ class CFixedColorFont {
         unsigned short *pHwFntSpr;
 
 	public:
-        CFixedColorFont() {pOriginalFntSpr = NULL;}
-        CFixedColorFont(const char *filename) {Read(filename);}
+        CFixedColorFont() {pOriginalFntSpr = NULL; pSwFntSpr = NULL;
+                           pHwFntSpr = NULL;}
+        CFixedColorFont(const char *filename) {pOriginalFntSpr = NULL;
+                           pSwFntSpr = NULL; pHwFntSpr = NULL; Read(filename);}
         ~CFixedColorFont() {delete [] pOriginalFntSpr;
                        delete [] pSwFntSpr;
                        delete [] pHwFntSpr;}
@@ -468,8 +470,9 @@ class CGRImage {
         unsigned short palToScr16[256];
 
     public:
-        CGRImage() {image = NULL; usePalette = 0;}
-        CGRImage(const char *bmpFile) {image = NULL; usePalette = 0; LoadFromBMPFile(bmpFile,0,0);}
+        CGRImage() {imageW = 0; imageH = 0; image = NULL; usePalette = 0;}
+        CGRImage(const char *bmpFile) {imageW = 0; imageH = 0;
+                         image = NULL; usePalette = 0; LoadFromBMPFile(bmpFile,0,0);}
         CGRImage(int w, int h);
         ~CGRImage() { delete [] image; image = NULL; usePalette = 0;}
 

@@ -334,6 +334,39 @@ timing; and four legacy RSX COM identifiers. Full panel linking is deliberately
 held at the renderer/ASM frontier; no empty panel implementation is counted as
 progress.
 
+The next panel tranche connects five of those six methods through a dedicated
+software lifecycle owner. It parses the original 776-byte `PNL` header,
+44-byte resolution records and 100-byte control records, relocates opaque RLE
+palette runs, skips the hardware payload without decoding it, reconstructs
+move/fill images and fixed-font digit resources, creates the recovered
+viewports and retains the original resolution/open/close behavior. The
+bounded image and fixed-font owners contain the real palette and in-memory
+resource conversion bodies needed during loading; they do not claim the draw
+backend. Viewports are materialized when a resolution is selected, so their
+row cache uses the active screen stride instead of retaining pointers created
+for a different video mode.
+
+The loader rejects more than four resolutions or controls, negative and
+overflowing resource sizes, truncated RLE/image/font payloads, incomplete
+records, unterminated control names and out-of-range digit counts. A missing
+`.crh` remains optional, while its path construction no longer scans before
+the start of a filename without a dot. Digit formatting is bounded to its
+historical four-byte field. The executable contract covers a valid software
+panel, missing/truncated/oversized inputs, hardware rejection, resolution
+switching, repeated open/close, control classification/update and viewport
+cleanup, including destruction after graphics-device teardown, without
+leaving active graph pointers dangling. A read-only local sweep also loaded
+all 38 installed retail panel files, covering arrow, indicator, move/fill
+sprite, digit and crosshair resources; retail data is not copied into the
+repository or CI.
+
+After the software panel lifecycle tranche the Vehicle probe reports 12
+unresolved symbols in both Debug and Release. `CGRPanel::Draw` is now the only
+panel symbol. It remains open because the recovered implementation reaches the
+software `PANELA.ANG` rasterizer, polygon dispatch, 2D controls and font/image
+drawing. Rendering will be connected only with an executable pixel contract,
+not with an empty draw method.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -345,10 +378,10 @@ progress.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 17 remaining service symbols. Projection, scene
-   pointer state, scene/Vessel draw dispatch and the bounded graph viewport/
-   color contract execute without initializing graphics; panel, platform and
-   shell services are next.
+   Vehicle link probe exposes 12 remaining service symbols. Projection, scene
+   pointer state, scene/Vessel draw dispatch, graph viewport/color and the
+   complete software-panel archive/lifecycle execute without initializing a
+   renderer; panel drawing, platform and shell services are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

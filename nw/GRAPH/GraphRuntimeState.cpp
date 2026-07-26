@@ -20,6 +20,13 @@ TExtendedPalette _EPal;
 unsigned char _currPalette[768];
 SDeviceList _dL = {NULL, -1, NULL, 0, 0, NULL};
 
+int _rScale = 0;
+int _rShift = 0;
+int _gScale = 0;
+int _gShift = 0;
+int _bScale = 0;
+int _bShift = 0;
+
 void (*_pGRSetClipRect)(void) = NULL;
 
 void GRSetViewport(SGRViewport *pViewport)
@@ -47,6 +54,11 @@ SGRViewport *GRGetViewport()
 
 SGRViewport *GRCreateViewport(int originX,int originY,TCSRect2 &clipRect)
 {
+    if( _dL.currDevice == NULL || originX < 0 || originY < 0 ||
+        originX > _gr_nScreenWidth || originY > _gr_nScreenHeight ||
+        (_dL.currDevice->swHw == GR_SOFTWARE && _gr_pScreen == NULL) )
+        return NULL;
+
     SGRViewport *pViewport = new SGRViewport;
     int clipH = _gr_nScreenHeight;
 
@@ -73,12 +85,24 @@ SGRViewport *GRCreateViewport(int originX,int originY,TCSRect2 &clipRect)
 void GRReleaseViewport(SGRViewport *pViewport)
 {
     if( !pViewport ) return;
-    if( _dL.currDevice->swHw == GR_SOFTWARE ) {
+    if( pViewport->pCache0 != NULL ) {
         if( _gr_pYCache == pViewport->pCache ) _gr_pYCache = NULL;
+        if( _gr_pOrigin == pViewport->pOrigin ) _gr_pOrigin = NULL;
         delete [] pViewport->pCache0;
     }
+    if( _Viewport == pViewport ) _Viewport = NULL;
 
     delete pViewport;
+}
+
+unsigned long GRFillColor(int r,int g,int b)
+{
+    if( _dL.currDevice->swHw == GR_HARDWARE )
+        return (((unsigned int)r>>_rScale)<<_rShift) |
+               (((unsigned int)g>>_gScale)<<_gShift) |
+               (((unsigned int)b>>_bScale)<<_bShift);
+
+    return epal_Match(_EPal,RGB_i(r,g,b));
 }
 
 unsigned long GRCreateColor(int r,int g,int b)

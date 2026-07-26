@@ -206,6 +206,11 @@ SGRViewport * GRGetViewport()
 
 SGRViewport * GRCreateViewport(int originX, int originY, TCSRect2 &clipRect)
 {
+    if (_dL.currDevice == NULL || originX < 0 || originY < 0 ||
+        originX > _gr_nScreenWidth || originY > _gr_nScreenHeight ||
+        (_dL.currDevice->swHw == GR_SOFTWARE && _gr_pScreen == NULL))
+       return NULL;
+
     SGRViewport *pViewport = new SGRViewport;
     int clipH = _gr_nScreenHeight;//clipRect.bottom - clipRect.top;
 
@@ -234,10 +239,12 @@ SGRViewport * GRCreateViewport(int originX, int originY, TCSRect2 &clipRect)
 void GRReleaseViewport(SGRViewport *pViewport)
 {
     if (!pViewport) return;
-    if (_dL.currDevice->swHw == GR_SOFTWARE) {
+    if (pViewport->pCache0 != NULL) {
        if ( _gr_pYCache == pViewport->pCache )  _gr_pYCache = NULL;
+       if ( _gr_pOrigin == pViewport->pOrigin ) _gr_pOrigin = NULL;
        delete  [] pViewport->pCache0;
     }
+    if ( _Viewport == pViewport ) _Viewport = NULL;
 
 	delete	pViewport;
 }
