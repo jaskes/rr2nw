@@ -208,7 +208,7 @@ bool  CTaggedFile::QueryChunk(char *pszTagBuf,bool &bTerminal,int &nVersion,
 			return m_bOK=FALSE;
 		}
 		if( l > 3 ) {
-			if( m_pStackTop->lCount < sizeof(SHeader)+l ) {
+			if( m_pStackTop->lCount < (long)(sizeof(SHeader)+l) ) {
 				RTCHECK(!nRTEFatal,"TF QueryRH");
 				return m_bOK=FALSE;
 			}
@@ -284,7 +284,7 @@ int  CTaggedFile::Descend(TCchar *pszTag,bool bTerminal,int nVersion,
 					case 0: break;
 					ErrRTagS: RTCHECK3(!nRTEFatal,"TF Desc(%s) RTag(%.*s)",pszTag,&hdr.tag,l); goto ErrRTag;
 					default: {
-						if(m_pStackTop->lCount<sizeof(SHeader)+l) goto ErrRLen;
+						if(m_pStackTop->lCount<(long)(sizeof(SHeader)+l)) goto ErrRLen;
 						char	buf[128]; buf[l]=0;
 						if(fread(buf,1,l,m_pFile)!=l) goto ErrRHR;
 						if(strcmpi(buf,pszTag)!=0) {

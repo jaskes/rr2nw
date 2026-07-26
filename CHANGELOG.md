@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the first modern CMake/MSVC Win32 slice: the recovered legacy
+  math/tagged-filesystem/assertion aggregates and an executable
+  ABI/PRNG/vector/matrix smoke test.
+- Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
+  packing directives and pointer/integer assumptions.
+- Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
+  and Debug/Release MSVC x86 configure, build and CTest runs.
+
 - Added the Windows-first 1.0 roadmap with a modernization-first execution
   order: automated evidence first, modern CMake/x86 vertical slice second, and
   the legacy Watcom build as a non-blocking reference lane.
@@ -25,6 +33,9 @@ claim authorship of inherited Logos code or retail data.
   normalization while standardizing new project files on UTF-8/LF.
 
 ### Changed
+
+- Taught the recovered file/math serialization headers to preserve one-byte
+  packing under MSVC with balanced push/pop pragmas.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no

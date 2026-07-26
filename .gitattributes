@@ -1,12 +1,17 @@
 # Preserve recovered legacy bytes and line endings. Several files are CP1251
 # compatible and must not be silently normalized during modernization work.
-/nw/** -text
+/nw/** -text whitespace=cr-at-eol
 
 # Modern project files use deterministic UTF-8/LF text.
 /.gitattributes text eol=lf
 /.gitignore text eol=lf
 /README text eol=lf
+/CMakeLists.txt text eol=lf
+/.github/** text eol=lf
+/src/** text eol=lf
 *.json text eol=lf
 *.md text eol=lf
 *.ps1 text eol=lf
 *.py text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

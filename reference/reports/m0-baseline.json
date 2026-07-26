@@ -569,6 +569,7 @@
   },
   "source_tree": {
     "file_count": 2038,
+    "git_revision": "e5d7a96ad6ac42fc814876ae82c783dd24eaac5d",
     "manifest_sha256": "298C88F550C9A3D5F9212F116AAB246C83F9820C04A88033097EE55FDC965B9A",
     "root_label": "source-snapshot-tree",
     "total_bytes": 6640961

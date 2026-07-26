@@ -27,11 +27,17 @@ After reviewing a complete run, export its aggregate-only public form:
 ```powershell
 python .\tools\reference\rr2_reference.py summary `
   --input-root .\reference\private\m0 `
+  --source-revision e5d7a96ad6ac42fc814876ae82c783dd24eaac5d `
   --output .\reference\reports\m0-baseline.json
 ```
 
 The public summary retains counts, manifest/report hashes and PE facts. It
 omits full file lists and paths from the local installation.
+
+`--source-revision` must identify the exact checked-out `nw` tree used during
+the M0 run. The accepted baseline was collected on the pushed
+`win10-stability-fixes` commit, while retail parity itself compares its
+unchanged `OUTPUT` data with the official disc.
 
 Create an immutable local retail fixture once:
 

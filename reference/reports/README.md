@@ -10,7 +10,7 @@ and payload bytes. Regenerate it with the `summary` command documented in
 
 ## Accepted M0 baseline
 
-- recovered source tree: 2,038 files;
+- patched working source tree at `e5d7a96`: 2,038 files;
 - published source runtime: 1,403 files;
 - complete mounted CD: 6,782 files;
 - retail runtime data: 6,768 files;

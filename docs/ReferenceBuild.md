@@ -19,6 +19,12 @@ legacy rebuild.
 а процесс воспроизведения — в
 [`tools/reference/README.md`](../tools/reference/README.md).
 
+Полный source-tree manifest относится к commit
+`e5d7a96ad6ac42fc814876ae82c783dd24eaac5d` (`win10-stability-fixes`). Он
+фиксирует рабочее patched-состояние, а не выдается за byte-identical январский
+архив. Runtime `nw/OUTPUT`, использованный в source/retail diff, этим patch не
+менялся.
+
 ## Зафиксированные локальные артефакты
 
 Хеши относятся к исследованным 26 июля 2026 года локальным файлам. Пути не

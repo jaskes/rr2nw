@@ -904,6 +904,10 @@ def command_files(args: argparse.Namespace) -> int:
 
 def command_summary(args: argparse.Namespace) -> int:
     report = build_m0_summary(Path(args.input_root))
+    if args.source_revision:
+        if "source_tree" not in report:
+            raise ReferenceError("source revision supplied but source-tree manifest is absent")
+        report["source_tree"]["git_revision"] = args.source_revision
     write_json(Path(args.output), report)
     print(
         f"M0 public summary: source={report['source']['file_count']} "
@@ -967,6 +971,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     summary.add_argument("--input-root", required=True)
     summary.add_argument("--output", required=True)
+    summary.add_argument(
+        "--source-revision",
+        help="Git revision represented by source-tree.manifest.json",
+    )
     summary.set_defaults(handler=command_summary)
 
     ledger = subparsers.add_parser(

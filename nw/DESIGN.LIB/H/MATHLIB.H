@@ -27,6 +27,8 @@
 	#pragma	option	-a-
 #elif defined(__WATCOMC__)
 	#pragma pack(1)
+#elif defined(_MSC_VER)
+	#pragma pack(push,1)
 #elif !defined(__sgi)
 	#error	Unknown compiler
 #endif
@@ -529,6 +531,8 @@ public:
 	#pragma	option	-a.
 #elif defined(__WATCOMC__)
 	#pragma pack()
+#elif defined(_MSC_VER)
+	#pragma pack(pop)
 #endif
 // ------------------------------------------------------------------------
 

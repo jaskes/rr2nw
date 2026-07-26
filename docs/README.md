@@ -10,6 +10,8 @@
 - [Roadmap.md](Roadmap.md) — Windows-first план до версии 1.0.
 - [Architecture.md](Architecture.md) — целевая архитектура и порядок
   осовременивания без большого переписывания.
+- [BuildPortAudit.md](BuildPortAudit.md) — измеренный legacy build graph,
+  compiler blockers и порядок подключения модулей к CMake.
 - [RetailParity.md](RetailParity.md) — измеренный разрыв между январским
   snapshot и официальным retail-диском.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где

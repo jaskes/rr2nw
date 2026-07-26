@@ -61,6 +61,9 @@ git pull --ff-only origin develop
 git push origin develop
 ```
 
+Windows CI запускается прямыми pushes в обе постоянные ветки; обязательный PR
+для запуска CI не нужен.
+
 ## Milestone gate до RC
 
 Каждый milestone требует:

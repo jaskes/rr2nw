@@ -46,6 +46,20 @@ The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
 retail/install manifests remain local and ignored.
 
+## Modern build foundation
+
+The first M1 slice uses Visual Studio 2022/MSVC and deliberately targets Win32:
+
+```powershell
+cmake --preset windows-msvc-x86
+cmake --build --preset windows-msvc-x86-debug --parallel
+ctest --preset windows-msvc-x86-debug
+```
+
+This currently builds the recovered math, tagged-filesystem and assertion
+aggregates and runs an ABI/PRNG/vector/matrix smoke executable. It is not yet
+the game executable or a completed M1 milestone.
+
 ## Verified baseline findings
 
 - Published runtime snapshot: 1,403 files.

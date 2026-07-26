@@ -23,9 +23,14 @@ static	FILE	*pDebugLogFile = NULL;
 static	bool	bDebugLogFileAppend = FALSE;
 static	char	szDebugDashes[] = "-------------------------------------------------------\n";
 #ifndef __sgi
+#ifdef _MSC_VER
+static char **DebugArgv() { return *__p___argv(); }
+#else
 extern "C" {
 	extern char **_argv;
 }
+static char **DebugArgv() { return _argv; }
+#endif
 #endif
 // --------------------------------------------------------------------------
 //#if	!defined(__NT__) || defined(_DEBUG)
@@ -49,6 +54,10 @@ static	FILE	*DebugOpenLogFile()
 #elif	defined(__BORLANDC__)
 	#define	Int3()	__asm { int 3 }
 	#define	Int16_0()	__asm { mov ah,0; int 0x16 }
+#elif	defined(_MSC_VER)
+	#include<intrin.h>
+	#define	Int3()	__debugbreak()
+	#define	Int16_0()	((void)0)
 #elif	defined(__sgi)
 #include<assert.h>
 inline void Int3() { IF_DEBUG(assert(0)); }
@@ -78,7 +87,7 @@ extern "C" int
 	if(dwDebugFlags & DBGF_ERR_LOG) fprintf(f,szDebugDashes);
 	#ifndef __sgi
 		if(dwDebugFlags & DBGF_ERR_EXENAME)
-			fprintf(f,"Executable: %s\n",_argv[0]);
+			fprintf(f,"Executable: %s\n",DebugArgv()[0]);
 	#endif
 	#ifdef _DEBUG
 		if(dwDebugFlags & DBGF_ERR_SOURCE)
@@ -148,7 +157,7 @@ extern "C" int
 	if(dwDebugFlags & DBGF_ERR_LOG) fprintf(f,szDebugDashes);
 	#ifndef	__sgi
 		if(dwDebugFlags & DBGF_ERR_EXENAME)
-			fprintf(f,"Executable: %s\n",_argv[0]);
+			fprintf(f,"Executable: %s\n",DebugArgv()[0]);
 	#endif
 	#ifdef _DEBUG
 		if(dwDebugFlags & DBGF_ERR_SOURCE)
