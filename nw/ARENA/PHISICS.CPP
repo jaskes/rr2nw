@@ -1,3 +1,6 @@
+#if defined(RR2NW_PHYSICS_MATH_ONLY)
+#include "mathlib.h"
+#else
 #define LAST_H__VIEW
 #include "game.h"
 #include "scene.h"
@@ -12,7 +15,12 @@
 #include "message/unitmsg.h"
 #include "message/corpsemsg.h"
 #include "message/messagemsg.h"
+#endif
 
+#ifdef RR2NW_PHYSICS_MATH_EXTERNAL
+#include "h/phisics.h"
+#endif
+#ifndef RR2NW_PHYSICS_MATH_EXTERNAL
 double interpolateAngle( 
                          double sour, 
                          double dest, 
@@ -137,7 +145,9 @@ void calcCoef(double d, double y0, double y1, double y2, double y3,
    a3 = (-y0 + 3*y1 - 3*y2 + y3)/(6*d*d*d);
    a0 = y0;
 }
+#endif
 
+#ifndef RR2NW_PHYSICS_MATH_ONLY
 int checkDynamicCollision(
 			SBumpDef &def, // мы
                      KR_ObjectID      master,  // кого игнорировать
@@ -538,3 +548,4 @@ double CalcCannonParam(const double v,const CFVector3 &enemyPos,const CFVector3 
 //                    +asin(l*9.8/(v*v))/2;
     return l;
 }
+#endif

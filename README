@@ -57,8 +57,12 @@ executes `ICarrier`/`IArtefact` carry behavior, and compile-gates the complete
 Artefact source. A diagnostic link probe reduced Vehicle's unresolved surface
 from 77 to 53 symbols. The second tranche executes the real MPROJ tree/heap,
 Level attributes and bounded DebugMap mission/input boundary, while the full
-DebugMap is a warning-free compile gate. The probe now exposes 39 symbols in
-scene, panel, physics, Hardware and RSX services.
+DebugMap is a warning-free compile gate. Its dependency tranche reduced the
+probe to 39 symbols. The following tranche compiles the complete Arena physics
+unit, executes the original angle/sphere/dynamic collision algorithms and
+moves god-mode storage behind a shared owner. The probe now exposes 34 symbols,
+concentrated in scene/view rendering, panel, Hardware/briefing/timing, Taxi and
+RSX services.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -91,7 +95,10 @@ serialization, Fountain branch serialization and reconstruction of its
 carrier lifecycle/save boundary. It additionally executes MPROJ tree/data/
 project state, all Level attribute defaults/bindings and DebugMap's bounded
 mission pool plus Hardware subscription protocol. It is not yet the game
-executable or a completed M1 milestone.
+executable or a completed M1 milestone. The suite also locks the Win32
+`SBumpDef` ABI (120-byte Release and 128-byte Debug layouts) and executes
+legacy angle interpolation, sphere timing, cubic coefficients, dynamic
+collision response and god-mode state.
 
 ## Verified baseline findings
 

@@ -107,8 +107,10 @@ builds config, Player and Artefact, executes shared carrier behavior, and has
 reduced the measured link gap from 77 to 53 symbols. The next tranche now
 executes the complete MPROJ tree/heap/project lifecycle, Level attribute state
 and the bounded DebugMap mission pool/input protocol; the full recovered
-DebugMap is a warning-free compile gate. The measured link gap is 39 symbols.
-Scene/platform and physics service linking, Vehicle runtime exercise, the game
+DebugMap is a warning-free compile gate. The complete Arena physics unit now
+compiles, its math and dynamic-collision boundary executes, and the measured
+link gap is 34 symbols. Scene/platform service linking, Vehicle runtime
+exercise, the game
 executable and retail level loading remain open.
 
 ### Цель

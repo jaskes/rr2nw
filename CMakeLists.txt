@@ -166,6 +166,84 @@ if(MSVC)
   target_compile_options(rr2nw_arena_storage PRIVATE /W3 /wd4081)
 endif()
 
+add_library(rr2nw_arena_physics_math STATIC
+  nw/ARENA/PHISICS.CPP
+)
+target_link_libraries(rr2nw_arena_physics_math PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_arena_physics_math PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_physics_math PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_physics_math PRIVATE
+  __NT__
+  RR2NW_PHYSICS_MATH_ONLY
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_view_dynamic_collision STATIC
+  nw/VIEW/DYNAMIC.CPP
+)
+target_link_libraries(rr2nw_view_dynamic_collision PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_view_dynamic_collision PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_dynamic_collision PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_dynamic_collision PRIVATE
+  __NT__
+  RR2NW_DYNAMIC_COLLISION_ONLY
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_physics STATIC
+  nw/ARENA/PHISICS.CPP
+)
+target_link_libraries(rr2nw_arena_physics PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_physics_math
+  rr2nw_view_dynamic_collision
+)
+target_include_directories(rr2nw_arena_physics PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_physics PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_physics PRIVATE
+  __NT__
+  RR2NW_PHYSICS_MATH_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_briefing_god_mode_state STATIC
+  nw/BRIEFING/GodModeState.cpp
+  nw/BRIEFING/GodModeState.inl
+)
+target_compile_features(rr2nw_briefing_god_mode_state PUBLIC cxx_std_14)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_physics_math PRIVATE /W3 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_view_dynamic_collision PRIVATE /W3 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_physics PRIVATE /W3 /permissive- /wd4081
+  )
+  target_compile_options(rr2nw_briefing_god_mode_state PRIVATE /W4 /permissive-)
+endif()
+
 add_library(rr2nw_arena_mproj STATIC
   nw/ARENA/MPROJ/Mproj.cpp
 )
@@ -480,6 +558,8 @@ endif()
 target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_arena_obase_player
   rr2nw_arena_obase_carrier
+  rr2nw_arena_physics
+  rr2nw_briefing_god_mode_state
 )
 
 add_executable(rr2nw_math_smoke
@@ -569,6 +649,20 @@ target_compile_definitions(rr2nw_vehicle_state_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_physics_core_smoke
+  src/portability/PhysicsCoreSmoke.cpp
+)
+target_link_libraries(rr2nw_physics_core_smoke PRIVATE
+  rr2nw_arena_physics_math
+  rr2nw_view_dynamic_collision
+  rr2nw_briefing_god_mode_state
+)
+target_compile_features(rr2nw_physics_core_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_physics_core_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_vehicle_link_probe EXCLUDE_FROM_ALL
   src/portability/VehicleLinkProbe.cpp
 )
@@ -608,6 +702,7 @@ if(MSVC)
   )
   target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_physics_core_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -656,6 +751,7 @@ if(BUILD_TESTING)
     COMMAND rr2nw_vehicle_state_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/vehicle-state-smoke.sav"
   )
+  add_test(NAME legacy-physics-core-smoke COMMAND rr2nw_physics_core_smoke)
   add_test(
     NAME legacy-carrier-smoke
     COMMAND rr2nw_carrier_smoke

@@ -13,7 +13,9 @@
 #include "..\ARENA\KERNEL\H\s_evdata.h"
 #include "..\ARENA\KERNEL\H\session.h"
 
-int g_godMode = 0;
+#ifndef RR2NW_GOD_MODE_STATE_EXTERNAL
+#include "GodModeState.inl"
+#endif
 
 void GameConsole::ReadVessels(const char *)
 {

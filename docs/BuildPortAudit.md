@@ -253,11 +253,22 @@ mission boundary:
   `/permissive-`, but remains a compile gate until the graph/D3D owners link.
 
 After the second tranche the probe reports 39 unresolved symbols. The
-remaining groups are graph/panel and scene/view/vessel rendering; collision
-and corpse physics; Hardware/Console/Briefing/Taxi globals; timing/script
-helpers; and four legacy RSX COM identifiers. `GRCreateColor` is now the first
-explicit DebugMap-to-renderer edge. No placeholder service or no-op game
-implementation is counted as progress.
+third tranche compiles the complete `PHISICS.CPP`, while compile-time slices
+execute its original angle, sphere-intersection and coefficient code and the
+original dynamic `Bump` implementation from `DYNAMIC.CPP`. `BUMPDEF.H` makes
+the Win32 collision record an explicit shared boundary instead of requiring
+all of `_view.h`; its historical diagnostic field produces 120-byte Release
+and 128-byte Debug layouts. The smoke covers wrapped/clamped angles, hit/miss/
+inside sphere timing, linear cubic samples, approaching/departing bodies and
+equal-mass velocity exchange. The shared god-mode state also retains its
+historical zero default and writable global contract.
+
+After these real owners are linked, the probe reports 34 unresolved symbols.
+The remaining groups are graph/panel and scene/view/vessel rendering;
+Hardware/Console/Briefing/Taxi globals; timing/script helpers; and four legacy
+RSX COM identifiers. `GRCreateColor` is still the first explicit
+DebugMap-to-renderer edge. No placeholder service or no-op game implementation
+is counted as progress.
 
 ## Expansion order
 
@@ -270,8 +281,9 @@ implementation is counted as progress.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 39 remaining service symbols. Renderer/platform,
-   physics and shell services are next.
+   Vehicle link probe exposes 34 remaining service symbols. Renderer/platform
+   and shell services are next; the first executable physics boundary is now
+   complete.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

@@ -1,7 +1,12 @@
+#if defined(RR2NW_DYNAMIC_COLLISION_ONLY)
+#include "bumpdef.h"
+#else
 #ifndef	__VIEW_CPP__
 #include"_view.h"
 #endif
+#endif
 
+#ifndef RR2NW_DYNAMIC_COLLISION_ONLY
 //static	bool (*ProcessBonusProc)(SBonusDef *,SBonusDef *);
 static	TPProcessBonusProc	ProcessBonusProc;
 void SetProcessBonusProc(TPProcessBonusProc Proc
@@ -9,7 +14,9 @@ void SetProcessBonusProc(TPProcessBonusProc Proc
 {
 	ProcessBonusProc = Proc;
 }
+#endif
 // ------------------------------------------------------------------------
+#ifndef RR2NW_DYNAMIC_COLLISION_EXTERNAL
 bool Bump(SBumpDef &def, SBumpDef &def1,int nFlags)
 {
 	CFVector3	v10 = def1.vel - def.vel;
@@ -60,7 +67,9 @@ bool Bump(SBumpDef &def, SBumpDef &def1,int nFlags)
 	}
 	return FALSE;
 }
+#endif
 // ------------------------------------------------------------------------
+#ifndef RR2NW_DYNAMIC_COLLISION_ONLY
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
 inline	void	CViewSphericDynamic::TransformInv(TCCFMatrix3x4 &inv)
@@ -238,4 +247,5 @@ bool SBumpFiguresRef::Bump(SBumpDef0 &def)
 }
 
 // ------------------------------------------------------------------------
+#endif
 

@@ -41,6 +41,9 @@ claim authorship of inherited Logos code or retail data.
 - Added a bounded DebugMap mission boundary and executable mission-pool/
   Hardware-subscription contract, while keeping the full recovered
   `dmap.cpp` as a strict warning-free compile gate.
+- Added strict modern targets for the complete Arena physics unit, its
+  renderer-independent math boundary and the recovered dynamic `Bump`
+  algorithm, plus an executable angle/collision/ABI contract.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -88,6 +91,8 @@ claim authorship of inherited Logos code or retail data.
   connecting real config, Player, carrier and sound-state owners.
 - Reduced the measured Vehicle link gap again, from 53 to 39 unresolved
   symbols, by connecting the real Level, MPROJ and DebugMap mission owners.
+- Reduced the measured Vehicle link gap from 39 to 34 unresolved symbols by
+  connecting the real collision, corpse and god-mode state owners.
 - Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
   invalid project creation, and made commander traversal honor its table
   argument instead of the process-wide global.
