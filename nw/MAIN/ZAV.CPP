@@ -136,18 +136,16 @@ struct	SModeDef {
 	int  nRefresh;
 };
 
-CViewScene	*pScene = NULL;
-static SGRViewport **ppViewports = NULL;
+#include "ZavSceneState.h"
+#ifndef RR2NW_ZAV_SCENE_STATE_EXTERNAL
+#include "ZavSceneState.inl"
+#endif
 static SModeDef	modeDef;
 static int	nActivePage = 0;
 CFixedColorFont	font5("figs5x3c.fnt");
 static	byte	*pVirtualScreen = NULL;
 static double	fFocus = 200;
 static int	nHazeMin = 400, nHazeDist = 128;
-
-SGRViewport *ZAV_Viewport() {
-	return ppViewports[0];
-}
 
 extern "C" void DbgSaveViewPoint(bool bNumeric)
 {
@@ -861,11 +859,6 @@ extern int __bViewHide;
 	ASSERT(pVessels);
 	return *pVessels;
 }*/
-
-CViewScene *ZAV_Scene()
-{
-	return pScene;
-}
 
 void ZAV_Deinit()
 {

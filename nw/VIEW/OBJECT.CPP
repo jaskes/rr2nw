@@ -2,6 +2,7 @@
 #include"_view.h"
 #endif
 
+#ifndef RR2NW_VIEW_OBJECT_STATE_ONLY
 #include"brend.h"
 
 void CNameDecl::Read(CTaggedFile &f)
@@ -1019,9 +1020,11 @@ void	CViewObjectBase::AllocBumpFigures(int nSets)
 	m_pBumpF = nSets > 0 ? new SBumpFigures[nSets] : NULL;
 }
 
+#endif
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_OBJECT_STATE_EXTERNAL
 CFMatrix3x4	*CViewObject::m_pCurrentInvMx;
 CFMatrix3x4 CViewObject::m_currentInvMx[2];
 CFMatrix3x4	CViewObject::m_viewPointDirMx, CViewObject::m_viewPointInvMx,
@@ -1109,7 +1112,9 @@ void CViewObject::SetViewPoint(TCCFMatrix3x4 &viewPointDirMx,
 		glLoadMatrix(m_viewPointDirMx);
 	#endif
 }
+#endif
 // -------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_OBJECT_STATE_ONLY
 void CViewObject::SetOrderViewPointToGlobal()
 {
 	#if _VIEW_ORTHO
@@ -1623,4 +1628,5 @@ void	CViewObjectRef::AllocBumpFigures()
 }
 // -------------------------------------------------------------------------
 
+#endif
 

@@ -264,11 +264,26 @@ equal-mass velocity exchange. The shared god-mode state also retains its
 historical zero default and writable global contract.
 
 After these real owners are linked, the probe reports 34 unresolved symbols.
-The remaining groups are graph/panel and scene/view/vessel rendering;
-Hardware/Console/Briefing/Taxi globals; timing/script helpers; and four legacy
-RSX COM identifiers. `GRCreateColor` is still the first explicit
-DebugMap-to-renderer edge. No placeholder service or no-op game implementation
-is counted as progress.
+The next state tranche compiles the original static sections of `OBJECT.CPP`
+and `FIGURE.CPP` without their draw paths. Its executable contract locks the
+default projection rectangle and clip planes, derives the original reciprocal/
+squared scales and clip rays through `CViewObject::SetViewPoint`, and checks the
+legacy haze and figure/terrain waterline defaults. The historical illegal
+`static` specifier on the `CViewFigure::m_eWaterSplit` definition was removed
+for standard C++ without changing its storage or value.
+
+`ZavSceneState.inl` preserves the original `pScene`/`ppViewports` ownership and
+both accessors without initializing graphics. The script-owned `g_vp[40]`
+array likewise has a shared owner, retaining its zero initialization and
+24-byte `TViewPoint` layout. The terrain `Waterline` method and its default
+height are shared separately so Vehicle no longer needs the complete terrain
+renderer merely to compare swimming height.
+
+After these owners are linked, the probe reports 26 unresolved symbols. The
+remaining groups are graph/panel and scene/vessel drawing; Hardware/Console/
+Briefing/Taxi globals; timing helpers; and four legacy RSX COM identifiers.
+`GRCreateColor` remains the first explicit DebugMap-to-renderer edge. No
+placeholder service or no-op game implementation is counted as progress.
 
 ## Expansion order
 
@@ -281,9 +296,9 @@ is counted as progress.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 34 remaining service symbols. Renderer/platform
-   and shell services are next; the first executable physics boundary is now
-   complete.
+   Vehicle link probe exposes 26 remaining service symbols. Projection and
+   scene pointer state execute without graphics; actual scene/vessel drawing,
+   renderer/platform and shell services are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

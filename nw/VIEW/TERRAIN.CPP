@@ -27,7 +27,11 @@ int __revCnt, __fullCnt;
 const	int		nTerrainMaxReduction = 4;
 //const int nTerrainPrec = nIntegerPrec;
 //const int nTerrainHPrec = 65536;
-double __terrainWaterline = 20;
+#ifndef RR2NW_TERRAIN_WATERLINE_STATE_EXTERNAL
+#include "TerrainWaterlineState.inl"
+#else
+extern double __terrainWaterline;
+#endif
 int	   __nTerrainWaterHighest;
 int	   __nTerrainLandLowest;
 
@@ -2830,10 +2834,5 @@ void _CViewTerrain::GenRed()
 	for( x = 0 ; x < 512 ; x++ )
 	for( y = 0 ; y < 512 ; y++ ) m_red.Image()[x+y*512] += 8*(byte)Max(
 		Max(MAX_REDCELL(x,y),MAX_REDCELL(x-1,y)),Max(MAX_REDCELL(x,y-1),MAX_REDCELL(x-1,y-1)));
-}
-
-double _CViewTerrain::Waterline()
-{
-	return	__terrainWaterline*m_fCellSize*m_fHScale;
 }
 

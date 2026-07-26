@@ -1,6 +1,7 @@
 #ifndef	__VIEW_CPP__
 #include"_view.h"
 #endif
+#ifndef RR2NW_VIEW_FIGURE_STATE_ONLY
 // --------------------------------------------------------------------------
 int __nNormalsCnt, __nNormalsOpt;
 uint DefineNormalType(TCCFVector3 &n)
@@ -25,6 +26,8 @@ uint DefineNormalType(TCCFVector3 &n)
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
+#endif
+#ifndef RR2NW_VIEW_FIGURE_STATE_EXTERNAL
 #if !_USE_OPENGL
 dword	CViewFigure::m_dwHazeFlag = 0;
 #endif
@@ -35,7 +38,7 @@ double	CViewFigure::m_fHazeMult = 1,
 		CViewFigure::m_fHazeMax = 228;
 double	CViewFigure::m_fWaterline = -1000;
 //int		CViewFigure::m_nWaterline = -1000*nIntegerPrec;
-static	WATER_SPLIT	CViewFigure::m_eWaterSplit = WATER_SPLIT_NONE;
+WATER_SPLIT	CViewFigure::m_eWaterSplit = WATER_SPLIT_NONE;
 
 //extern "C" {
 //	void SetHaze(int,int);
@@ -46,7 +49,9 @@ void CViewFigure::SetWaterline(double y)
 	m_fWaterline = y;
 	//m_nWaterline = Round(m_fWaterline=y)*fIntegerPrec;
 }
+#endif
 
+#ifndef RR2NW_VIEW_FIGURE_STATE_ONLY
 void CViewFigure::SetHaze(SHazeDef &haze)
 {
 	m_fHazeMin = haze.nHazeMin;
@@ -1281,3 +1286,4 @@ void CViewOwnTexturedFigure::_ReadTexture(CTaggedFile &f)
 }
 
 // --------------------------------------------------------------------------
+#endif

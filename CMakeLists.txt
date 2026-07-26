@@ -231,6 +231,91 @@ add_library(rr2nw_briefing_god_mode_state STATIC
 )
 target_compile_features(rr2nw_briefing_god_mode_state PUBLIC cxx_std_14)
 
+add_library(rr2nw_view_object_state STATIC
+  nw/VIEW/OBJECT.CPP
+)
+target_link_libraries(rr2nw_view_object_state PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_view_object_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_object_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_object_state PRIVATE
+  __NT__
+  RR2NW_VIEW_OBJECT_STATE_ONLY
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_view_figure_state STATIC
+  nw/VIEW/FIGURE.CPP
+)
+target_link_libraries(rr2nw_view_figure_state PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_view_figure_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_figure_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_figure_state PRIVATE
+  __NT__
+  RR2NW_VIEW_FIGURE_STATE_ONLY
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_view_terrain_waterline_state STATIC
+  nw/VIEW/TerrainWaterlineState.cpp
+  nw/VIEW/TerrainWaterlineState.inl
+)
+target_link_libraries(
+  rr2nw_view_terrain_waterline_state PUBLIC rr2nw_legacy_design
+)
+target_include_directories(rr2nw_view_terrain_waterline_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_terrain_waterline_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_terrain_waterline_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_main_zav_scene_state STATIC
+  nw/MAIN/ZavSceneState.cpp
+  nw/MAIN/ZavSceneState.h
+  nw/MAIN/ZavSceneState.inl
+)
+target_include_directories(rr2nw_main_zav_scene_state PUBLIC nw/MAIN)
+target_compile_features(rr2nw_main_zav_scene_state PUBLIC cxx_std_14)
+
+add_library(rr2nw_arena_script_viewpoints STATIC
+  nw/ARENA/SC/ScriptViewPointState.cpp
+  nw/ARENA/SC/ScriptViewPointState.inl
+)
+target_link_libraries(rr2nw_arena_script_viewpoints PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_arena_script_viewpoints PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_script_viewpoints PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_script_viewpoints PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 if(MSVC)
   target_compile_options(
     rr2nw_arena_physics_math PRIVATE /W3 /permissive- /wd4081
@@ -242,6 +327,20 @@ if(MSVC)
     rr2nw_arena_physics PRIVATE /W3 /permissive- /wd4081
   )
   target_compile_options(rr2nw_briefing_god_mode_state PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_view_object_state PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_view_figure_state PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_view_terrain_waterline_state
+    PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(rr2nw_main_zav_scene_state PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_arena_script_viewpoints PRIVATE /W3 /permissive- /wd4081
+  )
 endif()
 
 add_library(rr2nw_arena_mproj STATIC
@@ -560,6 +659,11 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_arena_obase_carrier
   rr2nw_arena_physics
   rr2nw_briefing_god_mode_state
+  rr2nw_view_object_state
+  rr2nw_view_figure_state
+  rr2nw_view_terrain_waterline_state
+  rr2nw_main_zav_scene_state
+  rr2nw_arena_script_viewpoints
 )
 
 add_executable(rr2nw_math_smoke
@@ -663,6 +767,22 @@ target_compile_definitions(rr2nw_physics_core_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_view_state_smoke
+  src/portability/ViewStateSmoke.cpp
+)
+target_link_libraries(rr2nw_view_state_smoke PRIVATE
+  rr2nw_view_object_state
+  rr2nw_view_figure_state
+  rr2nw_view_terrain_waterline_state
+  rr2nw_main_zav_scene_state
+  rr2nw_arena_script_viewpoints
+)
+target_compile_features(rr2nw_view_state_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_view_state_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_vehicle_link_probe EXCLUDE_FROM_ALL
   src/portability/VehicleLinkProbe.cpp
 )
@@ -703,6 +823,7 @@ if(MSVC)
   target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_physics_core_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_view_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -752,6 +873,7 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/vehicle-state-smoke.sav"
   )
   add_test(NAME legacy-physics-core-smoke COMMAND rr2nw_physics_core_smoke)
+  add_test(NAME legacy-view-state-smoke COMMAND rr2nw_view_state_smoke)
   add_test(
     NAME legacy-carrier-smoke
     COMMAND rr2nw_carrier_smoke

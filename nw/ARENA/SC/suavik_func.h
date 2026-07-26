@@ -280,7 +280,9 @@ void s_SearchSeanceClassTable( TProcessContext *pc, void *a )
     SC_PARI(1) = storage.searchSeanceClassTable(name);
 }
 
-TViewPoint g_vp[40];
+#ifndef RR2NW_SCRIPT_VIEWPOINT_STATE_EXTERNAL
+#include "ScriptViewPointState.inl"
+#endif
 
 void s_SetViewPoint( TProcessContext *pc, void * )
 {

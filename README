@@ -61,8 +61,10 @@ DebugMap is a warning-free compile gate. Its dependency tranche reduced the
 probe to 39 symbols. The following tranche compiles the complete Arena physics
 unit, executes the original angle/sphere/dynamic collision algorithms and
 moves god-mode storage behind a shared owner. The probe now exposes 34 symbols,
-concentrated in scene/view rendering, panel, Hardware/briefing/timing, Taxi and
-RSX services.
+then falls to 26 after connecting view projection, haze/terrain waterline,
+ZAV scene/viewport and the 40 script-viewpoint slots. The remainder is
+concentrated in actual scene/vessel drawing, panel/graph, Hardware/briefing/
+timing, Taxi and RSX services.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -98,7 +100,9 @@ mission pool plus Hardware subscription protocol. It is not yet the game
 executable or a completed M1 milestone. The suite also locks the Win32
 `SBumpDef` ABI (120-byte Release and 128-byte Debug layouts) and executes
 legacy angle interpolation, sphere timing, cubic coefficients, dynamic
-collision response and god-mode state.
+collision response and god-mode state. The view-state contract covers legacy
+projection scales and clip rays, haze/waterline defaults, ZAV pointer ownership
+and all 40 script-viewpoint slots without creating a window or renderer.
 
 ## Verified baseline findings
 

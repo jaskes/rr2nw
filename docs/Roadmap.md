@@ -109,9 +109,10 @@ executes the complete MPROJ tree/heap/project lifecycle, Level attribute state
 and the bounded DebugMap mission pool/input protocol; the full recovered
 DebugMap is a warning-free compile gate. The complete Arena physics unit now
 compiles, its math and dynamic-collision boundary executes, and the measured
-link gap is 34 symbols. Scene/platform service linking, Vehicle runtime
-exercise, the game
-executable and retail level loading remain open.
+link gap is 34 symbols. The projection, haze/waterline, ZAV pointer and script
+viewpoint state boundary now executes without graphics, reducing the gap to 26
+symbols. Scene drawing/platform service linking, Vehicle runtime exercise, the
+game executable and retail level loading remain open.
 
 ### Цель
 
