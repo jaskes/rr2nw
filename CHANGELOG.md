@@ -20,6 +20,9 @@ claim authorship of inherited Logos code or retail data.
   covering read-only input, exact final-block reads and truncated data.
 - Added the first object-base library boundary: both legacy Route translation
   units plus an executable geometry/interface/static-save contract.
+- Added the complete legacy Fountain object as a compile-gated target, plus a
+  renderer-independent state target and executable branch serialization/
+  free-list reconstruction contract.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -56,6 +59,11 @@ claim authorship of inherited Logos code or retail data.
   while retaining the original combined Watcom compilation path and symbols.
 - Moved `Session` static pointer definitions out of Supervisor ownership,
   initialized free object-slot names and released the context object index.
+- Shared Fountain branch serialization and pool reconstruction between the
+  original `Fountain.obj` path and the modern state-only archive member.
+- Added a standards-compliant MSVC typed-object debug declaration and explicit
+  legacy renderer conversions and const-correct logging formats needed by
+  strict modern consumers.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no

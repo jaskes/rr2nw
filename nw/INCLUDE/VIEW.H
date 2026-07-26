@@ -26,8 +26,9 @@ class	CFMatrix3x4Y : public CFMatrix3x4 {
 public:
 	double	y[4];
 	double  Y(TCCFVector3 &v) const { return y[0]*v.x+y[1]*v.y+y[2]*v.z+y[3]; }
-	void	YFrom(CFMatrix3x4 &m) {
-		y[0]=m.m[1][0]; y[1]=m.m[1][1]; y[2]=m.m[1][2]; y[3]=m.m[1][3]; }
+	void	YFrom(CFMatrix3x4 &matrix) {
+		y[0]=matrix.m[1][0]; y[1]=matrix.m[1][1];
+		y[2]=matrix.m[1][2]; y[3]=matrix.m[1][3]; }
 	void	YScale(double f) { y[0]*=f; y[1]*=f; y[2]*=f; y[3]*=f; }
 };
 typedef	const CFMatrix3x4Y TCCFMatrix3x4Y;

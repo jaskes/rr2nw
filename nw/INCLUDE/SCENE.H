@@ -569,7 +569,11 @@ protected:
 	CViewObjectRef		m_skyref;
 	CFVector3			m_scale;
 	static CViewScene	*m_pCurrent;
+	#ifdef _MSC_VER
+	static	CViewOrdered	*ReadOrder(CTaggedFile &f);
+	#else
 	static	CViewOrdered	*CViewScene::ReadOrder(CTaggedFile &f);
+	#endif
 public:
 	CViewScene(CTaggedFile &f);
 	~CViewScene();
@@ -579,7 +583,9 @@ public:
 	void CheckDynamicMap() { ASSERT(m_landDynamic.IsEmpty()); }
 	bool Bump(SBumpDef &def) { return m_pOrder->Bump(def); }
 	int BaseCount() { return m_nBases; }
-	CViewObjectModel &Base(int n) { ASSERT((uint)n<m_nBases); return m_pBases[n]; }
+	CViewObjectModel &Base(int n) {
+		ASSERT(n>=0 && n<m_nBases);
+		return m_pBases[n]; }
 	CNameDecls &ObjRefNames() { return m_objRefNames; }
 	void SetupLandDynamics(CViewDynamicList &list,TCSRect2 &rect) { m_landDynamic.SetupDynamics(list,rect,*m_pTerrain); }
 	void RemoveLandDynamic(CViewDynamic *p) { m_landDynamic.RemoveDynamic(p); }

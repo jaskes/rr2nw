@@ -56,7 +56,7 @@ protected:
 	dword			m_dwLights, m_dwLightMask;
 	enum DFORM m_eDType;
 	IF_DEBUG(TCvoid	*m_pList);
-	void Init() { m_dwLightMask = -1L; }
+	void Init() { m_dwLightMask = (dword)-1; }
 	CViewDynamic() { m_eDType = DT_NONE; Init();
 						IF_DEBUG(m_pList=NULL);	IF_DEBUG(m_dwVDTag=0x0BADDAB0); }
 	virtual ~CViewDynamic() {}
@@ -120,6 +120,7 @@ protected:
 	friend class CViewDynamic;
 	friend class CViewDynamicListLoop;
 	void AssertContains(CViewDynamic *p) {
+		(void)p;
 		#ifdef _DEBUG
 			for( CViewDynamic *pd = m_pFirst ; pd ; pd = pd->m_pNext ) {
 				ASSERT(pd->m_pList==this); if(pd==p) return; }

@@ -46,8 +46,10 @@ builds, with its event-state transport covered by an executable contract. The
 complete Arena storage archive and its low-level save backend now build and
 round-trip state as well. The core `SimulationContext` is now executable, and
 the first two-object object-base boundary (`Route`) compiles and runs without
-Supervisor or renderer stubs. The game executable and level-load gate are
-still open.
+Supervisor or renderer stubs. Fountain branch serialization and pool recovery
+also build independently of the renderer, while the complete recovered
+`Fountain.cpp` is held as a warning-free compile gate. The game executable and
+level-load gate are still open.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -66,14 +68,17 @@ ctest --preset windows-msvc-x86-debug
 This currently builds the recovered math, tagged-filesystem and assertion
 aggregates, all 14 translation units in the legacy script compiler/runtime
 libraries, all eight objects from `kernelw.lib` and the complete Arena storage
-archive, plus the first two objects from `obasew.lib`'s Route module. CTest
+archive, plus the first two objects from `obasew.lib`'s Route module and the
+complete Fountain object with its renderer-independent state boundary. CTest
 covers
 ABI/PRNG/vector/matrix behavior, tagged-file nested round-trip and clean
 truncation rejection, compilation/execution of a minimal script in the
 original bytecode VM, Arena event payload/label-registry state, and read-only
 save-file round-trip with clean truncated-payload rejection. It also executes
 `SimulationContext` object/event lifecycle and Route geometry/static-state
-serialization. It is not yet the game executable or a completed M1 milestone.
+serialization, Fountain branch serialization and reconstruction of its
+2,000-entry free list. It is not yet the game executable or a completed M1
+milestone.
 
 ## Verified baseline findings
 

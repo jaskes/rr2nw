@@ -144,6 +144,38 @@ implementation across a two-segment path, checks interpolation and interface
 discovery, then round-trips the complete legacy static Route arrays through a
 real `.sav` file. No game-service, renderer or Supervisor stubs are used.
 
+## Fountain state boundary
+
+The original `Fountain.obj` combines rendering, lighting and scene collision
+with two renderer-independent responsibilities required by world restore:
+serialized `FountBranchData` and reconstruction of the 2,000-entry branch
+free list. Those implementations now live in `FountainState.inl`. The original
+`Fountain.cpp` includes that file by default, so its Watcom makefile still emits
+one object with the same symbols; `FountainState.cpp` includes it from the
+minimal modern target `rr2nw_arena_obase_fountain_state`. The modern full
+Fountain target excludes the embedded copy and links that state target, so the
+two modern libraries can be used together without duplicate symbols.
+
+The executable contract dirties the shared pool, rebuilds it, walks every
+entry in order and verifies that transient previous/delete pointers are reset.
+It then round-trips a branch through the real `.sav` backend, locks the Win32
+serialized data layout at 72 bytes and verifies that runtime list pointers are
+not part of the saved state.
+
+Including the real Fountain header under `/permissive-` exposed a Watcom-only
+qualified method declaration in `DECLARETYPEDOBJECT`. Its MSVC branch now uses
+the standard unqualified in-class declaration while the Watcom macro remains
+unchanged. The same treatment keeps Watcom's qualified `ReadOrder` declaration
+while providing a standard MSVC form, and the logging format parameters are
+now const-correct. Adjacent warnings are removed by an explicit all-bits-set
+`dword` conversion, a renamed matrix parameter, a signed bounds assertion, an
+explicit legacy fixed-point cast and a used marker for a Debug-only parameter.
+These do not change renderer behavior. With those fixes the complete recovered
+`Fountain.cpp` builds warning-free under `/permissive-` as
+`rr2nw_arena_obase_fountain`. Its renderer is not linked or executed yet
+because the scene/light implementations remain outside the modern graph; the
+state-only target is the dependency currently usable by world restore.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -152,8 +184,10 @@ real `.sav` file. No game-service, renderer or Supervisor stubs are used.
    their embedded command-line/test mains.
 3. **Complete:** compile the complete Arena kernel and storage archives, execute
    their state boundaries and run the real core `SimulationContext` lifecycle.
-4. **In progress:** add object-base modules in dependency order; the two-object
-   Route boundary is complete, with Fountain and Vehicle dependencies next.
+4. **In progress:** add object-base modules in dependency order; Route and the
+   complete Fountain source compile, and the renderer-independent Fountain
+   state boundary executes. Fountain renderer linking and Vehicle dependencies
+   are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

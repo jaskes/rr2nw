@@ -13,8 +13,8 @@
 
 class CWnd;
 
-void echo(char *format, ...);
-void warning(char *format, ...);
+void echo(const char *format, ...);
+void warning(const char *format, ...);
 void createConsole( CWnd *parent = NULL );
 void removeConsole();
 CWnd *getConsole();

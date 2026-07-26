@@ -15,50 +15,15 @@
 #include "zav.h"
 
 #include "storage\h\savefile.h"
+#ifndef RR2NW_FOUNTAIN_STATE_EXTERNAL
+#include "FountainState.inl"
+#endif
 
 
 #define MAX_ITER_WAIT 100
 
 
 
-bool	FountBranch::dump(PIN_SaveFile & sf)
-{
-	PIN_SaveItemPrefix prefix;
-
-	prefix.m_Type = PIN_SaveItemPrefix::IP_BRANCH;
-	strcpy(prefix.m_Check,PIN_check);
-
-	if (!sf.WriteData( (char *) & prefix, sizeof(PIN_SaveItemPrefix)) ||
-		!sf.WriteData( (char *) &m_phase, sizeof(FountBranchData)) )
-		return false;
-		
-
-
-	return true;
-}
-
-
-bool	FountBranch::load(PIN_SaveFile & sf)
-{
-	PIN_SaveItemPrefix prefix;	
-
-	if (!sf.GetData((char *) & prefix, sizeof(PIN_SaveItemPrefix)))
-		return false;
-
-	if (strcmp(prefix.m_Check,PIN_check) != 0 ||
-		prefix.m_Type != PIN_SaveItemPrefix::IP_BRANCH)
-		return false;
-
-	if (!sf.GetData( (char *) &m_phase, sizeof(FountBranchData)) )
-		return false;
-
-	return true;
-}
-
-
-
-FountBranch  Fountain::m_branch[MAX_BRANCH];
-FountBranch *Fountain::m_freeList = 0;
  //===========================================================================
 class AttributeFountain : public ct_Attribute
 {
@@ -633,7 +598,7 @@ void Fountain::draw()
                    int screen_x = Round(v.x*d_v),
 		               screen_y = Round(v.y*d_v);
 
-                   GRDrawParticle(screen_x, screen_y, screen_width, 65536*d_v, br->m_color);   
+                   GRDrawParticle(screen_x, screen_y, screen_width, (int)(65536*d_v), br->m_color);
               }
          }
     }
@@ -684,17 +649,6 @@ CFVector3 Fountain::realPosition()
     return m_fountainPosition;
 }
 
-void  Fountain::createFreeList()
-{
-    for( int i = 0; i < MAX_BRANCH; ++i )
-    {
-         m_branch[i].m_next = &m_branch[i+1];
-         m_branch[i].m_prev = 0;
-         m_branch[i].deleteCommand = 0;
-    }
-    m_branch[MAX_BRANCH-1].m_next = 0;
-    m_freeList = m_branch;
-}
 
 
 

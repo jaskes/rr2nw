@@ -165,6 +165,58 @@ if(MSVC)
   target_compile_options(rr2nw_arena_obase_route PRIVATE /W3 /wd4081)
 endif()
 
+add_library(rr2nw_arena_obase_fountain_state STATIC
+  nw/ARENA/OBASE/Fountain/FountainState.cpp
+  nw/ARENA/OBASE/Fountain/FountainState.inl
+)
+target_link_libraries(rr2nw_arena_obase_fountain_state
+  PUBLIC rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_obase_fountain_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_fountain_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_fountain_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_fountain_state PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
+add_library(rr2nw_arena_obase_fountain STATIC
+  nw/ARENA/OBASE/Fountain/Fountain.cpp
+)
+target_link_libraries(
+  rr2nw_arena_obase_fountain PUBLIC rr2nw_arena_obase_fountain_state
+)
+target_include_directories(rr2nw_arena_obase_fountain PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_fountain PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_fountain PRIVATE
+  __NT__
+  RR2NW_FOUNTAIN_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_fountain PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
 add_executable(rr2nw_math_smoke
   src/portability/LegacyMathSmoke.cpp
 )
@@ -201,6 +253,14 @@ add_executable(rr2nw_context_route_smoke
 target_link_libraries(rr2nw_context_route_smoke PRIVATE rr2nw_arena_obase_route)
 target_compile_features(rr2nw_context_route_smoke PRIVATE cxx_std_14)
 
+add_executable(rr2nw_fountain_state_smoke
+  src/portability/FountainStateSmoke.cpp
+)
+target_link_libraries(
+  rr2nw_fountain_state_smoke PRIVATE rr2nw_arena_obase_fountain_state
+)
+target_compile_features(rr2nw_fountain_state_smoke PRIVATE cxx_std_14)
+
 if(MSVC)
   target_compile_options(rr2nw_math_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_tagged_file_smoke PRIVATE /W4 /permissive-)
@@ -208,6 +268,7 @@ if(MSVC)
   target_compile_options(rr2nw_kernel_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_storage_save_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_context_route_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
 endif()
 
 if(BUILD_TESTING)
@@ -228,5 +289,10 @@ if(BUILD_TESTING)
     NAME legacy-context-route-smoke
     COMMAND rr2nw_context_route_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/context-route-smoke.sav"
+  )
+  add_test(
+    NAME legacy-fountain-state-smoke
+    COMMAND rr2nw_fountain_state_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/fountain-state-smoke.sav"
   )
 endif()

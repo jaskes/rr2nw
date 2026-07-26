@@ -210,6 +210,16 @@ class	CTypedObject {
 };
 
 #ifdef _DEBUG
+#ifdef _MSC_VER
+#define	DECLARETYPEDOBJECT(CLASS,BASECLASS)	\
+	public:	\
+		void __AssertType__##CLASS(TCchar *szType) const {	\
+				((CTypedObject const *)this)->__AssertType(szType); } \
+	protected:	\
+		virtual void __AssertTypeName(TCchar *szType) const {	\
+			if(strcmp(szType,#CLASS)!=0) BASECLASS::__AssertTypeName(szType); } \
+		virtual TCchar *__TypeName() const { return #CLASS; }
+#else
 #define	DECLARETYPEDOBJECT(CLASS,BASECLASS)	\
 	public:	\
 		void CLASS::__AssertType__##CLASS(TCchar *szType) const {	\
@@ -218,6 +228,7 @@ class	CTypedObject {
 		virtual void __AssertTypeName(TCchar *szType) const {	\
 			if(strcmp(szType,#CLASS)!=0) BASECLASS::__AssertTypeName(szType); } \
 		virtual TCchar *__TypeName() const { return #CLASS; }
+#endif
 #define	ASSERTTYPE(X,CLASS)	((CLASS const *)&X)->__AssertType__##CLASS(#CLASS)
 #define	ASSERTPTRTYPE(P,CLASS)	((CLASS const *)(P))->__AssertType__##CLASS(#CLASS)
 #define	ASSERTPTRTYPE0(P,CLASS)	((P)?((CLASS const *)(P))->__AssertType__##CLASS(#CLASS):(void)0)

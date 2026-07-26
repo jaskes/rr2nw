@@ -98,8 +98,10 @@ coverage, a compiling/running script VM smoke and the complete eight-object
 Arena kernel and storage archives are working. Low-level save files also pass
 read-only round-trip and truncated-input coverage. Core `SimulationContext`
 object/event lifecycle and the first object-base Route boundary now execute,
-including Route static-state save/load. Game executable and retail level
-loading remain open.
+including Route static-state save/load. Fountain branch serialization and its
+2,000-entry pool reconstruction also execute without pulling renderer code;
+the complete Fountain source is a warning-free compile gate. Game executable
+and retail level loading remain open.
 
 ### Цель
 
