@@ -10,7 +10,7 @@
 
 namespace {
 
-SGameEntryRuntimeHooks g_hooks = {};
+SGameEntryRuntimeHooks g_hooks = GameEntry_RecoveredRuntimeHooks();
 unsigned int g_issues = 0;
 
 void Report(unsigned int issue) { g_issues |= issue; }
@@ -53,7 +53,13 @@ void GameEntry_ConfigureRuntime(const SGameEntryRuntimeHooks& hooks) {
   GameEntry_ClearRuntimeIssues();
 }
 
+void GameEntry_UseRecoveredRuntime() {
+  GameEntry_ConfigureRuntime(GameEntry_RecoveredRuntimeHooks());
+}
+
 bool GameEntry_RuntimeReady() { return MissingHooks() == 0; }
+
+unsigned int GameEntry_RuntimeMissingHooks() { return MissingHooks(); }
 
 unsigned int GameEntry_RuntimeIssues() { return g_issues; }
 

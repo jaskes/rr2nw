@@ -643,6 +643,21 @@ public preflight executable is not permitted to call its marker level-ready
 until the hooks bind recovered services and `ZAV_InitLevel` constructs the
 retail scene.
 
+The first four recovered bindings are now active in the default hook table.
+Graph initialization constructs a 640x480, 8-bit software device, memory
+framebuffer, DIB metadata and full-screen viewport without reading or writing
+the installer registry and without activating DirectDraw. With a real
+`HINSTANCE` it owns a normal Win32 window and DC; the executable contract uses
+the same graph headlessly, clears and presents its framebuffer, verifies
+idempotent initialization, and checks complete repeated ZAV cleanup. Software
+texture preload/restore and the original `dwFrames` increment are also bound.
+
+Eight hooks remain visible in `GameEntry_RuntimeMissingHooks`: Level init and
+deinit, begin-loop state, level config ownership, PIN/input-sound bootstrap,
+Supervisor/script startup, DebugMap draw and Level event dispatch. Because the
+graph wrapper checks the complete inventory first, the normal legacy-entry
+smoke still exits before allocating partial runtime state.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -666,8 +681,9 @@ retail scene.
    first Win32 executable reaches a checked read-only pre-content marker; the
    original entry point now links and exits safely with an unbound runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
-6. **Link frontier complete:** bind the checked legacy-entry services to the
-   existing Win32/DirectDraw shell behind `rr2nw.exe`.
+6. **Link frontier complete, runtime binding in progress:** the software Win32
+   graph and four entry hooks are connected; bind the remaining eight checked
+   services behind `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.
 

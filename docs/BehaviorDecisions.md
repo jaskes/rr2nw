@@ -252,3 +252,37 @@ table is bound to recovered implementations and a retail level is constructed.
 Regression contract: `game-entry-runtime-smoke`,
 `legacy-game-entry-link-smoke`, normal Debug/Release builds of
 `rr2nw_game_link_probe`, and the complete CTest matrix.
+
+## BD-016: first connected graph is the software DIB path
+
+Status: accepted on 2026-07-26.
+
+The first game-entry graph binding uses the recovered 8-bit software
+framebuffer and GDI DIB presentation path at the recovered Windows default of
+640x480. It does not require the Logos setup registry keys, enumerate obsolete
+DirectDraw devices or select a Direct3D adapter. A production `HINSTANCE`
+creates an owned Win32 window; a null instance creates the same framebuffer and
+viewport headlessly for deterministic CI.
+
+The graph owner publishes the legacy globals consumed by the recovered
+renderer, activates a real `SGRViewport`, and arms the existing ordered ZAV
+shutdown boundary. Repeated initialization reuses the live graph, while normal
+and repeated shutdown release the viewport, DIB memory, DC, window class and
+device state. Programmatic cleanup does not inject a stray `WM_QUIT` into a
+subsequent retry.
+
+Software texture preload and lost-surface restore are intentionally empty:
+textures already live in process memory and a DIB cannot become a lost
+DirectDraw surface. These are backend semantics, not unconditional stand-ins
+for the hardware implementation. The DirectDraw/Direct3D sources remain strict
+compile gates for comparison and possible later use.
+
+The default recovered hook table now connects graph initialization, both
+software texture-maintenance steps and the exact ZAV frame counter. Eight
+level/config/input/script/debug hooks remain missing. The all-required startup
+gate therefore still prevents recovered `WinMain` from opening a window until
+the following content slices are connected.
+
+Regression contract: `recovered-software-graph-smoke`,
+`game-entry-runtime-smoke`, `legacy-game-entry-link-smoke` and complete
+Debug/Release CTest runs.

@@ -117,6 +117,11 @@ claim authorship of inherited Logos code or retail data.
   state/draw behavior and original trivial Level lifecycle methods. The legacy
   `WinMain` link probe is now a normal Debug/Release build and CTest target with
   a zero-symbol frontier.
+- Added the first recovered-entry production bindings: a registry-free 640x480
+  software DIB graph with a real Win32 window/viewport, headless CI operation,
+  idempotent allocation/cleanup, software texture maintenance and the recovered
+  ZAV frame counter. Eight content/input startup hooks remain explicitly
+  unbound, so legacy startup still fails closed before allocating the graph.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.
@@ -225,6 +230,10 @@ claim authorship of inherited Logos code or retail data.
   transitive unresolved symbols into 13 direct entry dependencies, connected
   real Fountain and Supervisor state, and closed the linker frontier without
   treating any unimplemented startup service as successful.
+- Replaced the first graphics binding's installer-registry and DirectDraw
+  requirements with the already recovered memory framebuffer and GDI DIB
+  presenter. The Direct3D archive remains a compile gate; it is not activated
+  merely to create the first stable modern window.
 - Fixed `CChannelMap::operator==` infinite recursion, retained its loop index
   under standard C++ for-scope rules and removed the unrelated scene umbrella
   from that mathematical translation unit. Copy/self-assignment now retains

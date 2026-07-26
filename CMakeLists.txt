@@ -1745,10 +1745,19 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
 add_library(rr2nw_game_entry_runtime STATIC
   src/runtime/GameEntryRuntimeState.cpp
   src/runtime/GameEntryRuntimeState.h
+  src/runtime/RecoveredGameEntryBindings.cpp
+  src/runtime/RecoveredSoftwareGraph.cpp
+  src/runtime/RecoveredSoftwareGraph.h
 )
 target_link_libraries(rr2nw_game_entry_runtime PUBLIC
   rr2nw_arena_kernel
+  rr2nw_graph_runtime_state
   rr2nw_legacy_design
+  rr2nw_main_zav_shutdown_state
+  rr2nw_view_frame_state
+  rr2nw_view_object_state
+  gdi32
+  user32
 )
 target_include_directories(rr2nw_game_entry_runtime PUBLIC
   src/runtime
@@ -1760,6 +1769,7 @@ target_include_directories(rr2nw_game_entry_runtime PUBLIC
   nw/GRAPH
   nw/MAIN
   nw/SCENE
+  nw/VIEW
 )
 target_compile_features(rr2nw_game_entry_runtime PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_game_entry_runtime PRIVATE
@@ -2142,6 +2152,21 @@ target_compile_definitions(rr2nw_game_link_probe PRIVATE
 add_executable(rr2nw_game_entry_runtime_smoke
   src/portability/GameEntryRuntimeSmoke.cpp
 )
+
+add_executable(rr2nw_recovered_software_graph_smoke
+  src/portability/RecoveredSoftwareGraphSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_software_graph_smoke PRIVATE
+  rr2nw_game_entry_runtime
+)
+target_compile_features(
+  rr2nw_recovered_software_graph_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_software_graph_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
   rr2nw_arena_obase_debug_map_mission
   rr2nw_game_entry_runtime
@@ -2278,6 +2303,9 @@ if(MSVC)
     rr2nw_game_entry_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_recovered_software_graph_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_game_startup PRIVATE /W4 /permissive- /utf-8
   )
   target_compile_options(rr2nw_game PRIVATE /W4 /permissive- /utf-8)
@@ -2306,6 +2334,10 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/game-entry-runtime-smoke.cfg"
   )
   add_test(NAME legacy-game-entry-link-smoke COMMAND rr2nw_game_link_probe)
+  add_test(
+    NAME recovered-software-graph-smoke
+    COMMAND rr2nw_recovered_software_graph_smoke
+  )
   add_test(
     NAME legacy-tagged-file-smoke
     COMMAND rr2nw_tagged_file_smoke

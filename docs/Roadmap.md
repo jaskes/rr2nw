@@ -189,6 +189,16 @@ observe the software world path against constructed retail terrain. Until the
 complete hook table is bound, recovered `WinMain` refuses startup cleanly and
 the public executable remains at `pre-content-ready`.
 
+The first runtime connection slice is complete. The default recovered table
+now owns a registry-free 640x480 software DIB graph, real Win32
+window/viewport, software texture preload/restore semantics and the original
+frame counter. Its headless contract proves framebuffer operation, repeated
+initialization and complete repeated shutdown. Four of twelve entry hooks are
+therefore connected; the remaining eight are Level init/deinit, begin-loop,
+level config, PIN, Supervisor/SUA, DebugMap draw and Level events. The complete
+startup gate deliberately keeps the production graph unopened until those
+owners are ready.
+
 ### Цель
 
 Собрать исходники CMake/MSVC или clang-cl и автоматически загрузить один
