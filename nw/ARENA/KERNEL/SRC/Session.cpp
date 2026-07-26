@@ -17,6 +17,8 @@
 double  Session::m_moment = 0;
 double  Session::m_viewTime = 0;
 double  Session::m_frameSec = 0;
+KR_Hardware  *Session::m_hardware = 0;
+KR_RealTimer *Session::m_realTimer = 0;
 // ============================================================================
 Session::Session(
                  KR_RealTimer *realTimer,

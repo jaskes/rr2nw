@@ -166,9 +166,6 @@ KR_ActiveObject::StateElem a_TObserver::m_state[1] =
 
 
 
-KR_Hardware  *Session::m_hardware = 0;
-KR_RealTimer *Session::m_realTimer= 0;
-
 //=========================================================================
 #define CLOCK (*((unsigned *)(0x46C)))
 

@@ -199,7 +199,7 @@ void Route::LoadRoute(const char *fName)
 int Route::receiveEvent(KR_Event &event){
     char msg[250];
 	CFVector3 pos;
-	int n, i;
+	int n;
 
     switch( event.label ){
 		case KR_WAKE_UP:

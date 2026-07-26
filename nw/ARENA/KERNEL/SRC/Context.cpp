@@ -48,6 +48,7 @@ typedef struct KR_EventListElemName
    KR_EventListElem,
   *KR_EventList;
 
+#ifndef RR2NW_CONTEXT_SAVE_ONLY
 // ================================================================ Constructor
 SimulationContext::SimulationContext(
                                       /*KR_TimeDelta initModelTime,
@@ -102,6 +103,9 @@ SimulationContext::~SimulationContext()
 
     delete [] m_eventIndex;
     m_eventIndex = NULL;
+
+    delete [] m_objectIndex;
+    m_objectIndex = NULL;
  }
 
 // ============================================================================
@@ -621,6 +625,7 @@ void SimulationContext::initObjects()
          m_objectIndex[i].object = NULL;
          m_objectIndex[i].next   = i + 1;
 
+         m_objectIndex[i].symbolic[0] = 0;
          // initialize publisher data
          m_objectIndex[i].resendEventList = -1;
          m_objectIndex[i].resendEventQnty =  0;
@@ -649,6 +654,8 @@ void SimulationContext::clearObjects()
 
 
 
+#endif
+#ifndef RR2NW_CONTEXT_CORE_ONLY
 bool SimulationContext::dump(PIN_SaveFile & sf)
 {
 	static PIN_SaveItemPrefix prefix;
@@ -922,3 +929,4 @@ bool SimulationContext::load(PIN_SaveFile & sf)
 	
 	return true;
 }
+#endif

@@ -44,8 +44,10 @@ active: the first design-library boundary and both legacy script libraries now
 build and execute under MSVC Win32. The eight-object Arena kernel archive also
 builds, with its event-state transport covered by an executable contract. The
 complete Arena storage archive and its low-level save backend now build and
-round-trip state as well. The game executable and level-load gate are still
-open.
+round-trip state as well. The core `SimulationContext` is now executable, and
+the first two-object object-base boundary (`Route`) compiles and runs without
+Supervisor or renderer stubs. The game executable and level-load gate are
+still open.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -64,12 +66,14 @@ ctest --preset windows-msvc-x86-debug
 This currently builds the recovered math, tagged-filesystem and assertion
 aggregates, all 14 translation units in the legacy script compiler/runtime
 libraries, all eight objects from `kernelw.lib` and the complete Arena storage
-archive. CTest covers
+archive, plus the first two objects from `obasew.lib`'s Route module. CTest
+covers
 ABI/PRNG/vector/matrix behavior, tagged-file nested round-trip and clean
 truncation rejection, compilation/execution of a minimal script in the
 original bytecode VM, Arena event payload/label-registry state, and read-only
-save-file round-trip with clean truncated-payload rejection. It is not yet the
-game executable or a completed M1 milestone.
+save-file round-trip with clean truncated-payload rejection. It also executes
+`SimulationContext` object/event lifecycle and Route geometry/static-state
+serialization. It is not yet the game executable or a completed M1 milestone.
 
 ## Verified baseline findings
 

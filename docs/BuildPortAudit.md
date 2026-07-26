@@ -82,14 +82,25 @@ signed indices through their existing unsigned bounds convention. A Watcom
 `#pragma warning 004` in the CP1251 `HARDWARE.H` is ignored through the narrow
 MSVC C4081 target suppression rather than rewriting that historical header.
 
-The executable contract covers the self-contained kernel state transport: it
-registers event labels, writes a typed event payload containing integer,
-double, string and `KR_ObjectID` values, copies the payload, reads it back and
-checks the two-field 32-bit object-ID ABI. The archive also compiles
-`SimulationContext`, but that object is not yet pulled into the smoke because
-its real link boundary includes storage, level, hardware and object-base
-implementations. Those dependencies will be connected rather than replaced by
-test-only game stubs.
+The first executable contract covers the self-contained kernel state
+transport: it registers event labels, writes a typed event payload containing
+integer, double, string and `KR_ObjectID` values, copies the payload, reads it
+back and checks the two-field 32-bit object-ID ABI.
+
+The recovered `Context.cpp` combines the simulation core with complete
+world-save orchestration. The modern archive now emits those sections as
+separate members: `Context.cpp` builds the core and `ContextSave.cpp` includes
+the same recovered implementation in save-only mode. A default compile still
+emits both sections, so the Watcom makefile and public symbols are unchanged.
+This allows the real context constructor, object registry, immediate/queued
+event routing and removal path to execute without linking level, hardware,
+Supervisor, vehicle and effects code prematurely.
+
+Two static `Session` pointers were defined in `super.cpp`, making the core pull
+Supervisor even though they belong to `Session`; their definitions now live
+with the other `Session` state. Free context slots now start with empty
+symbolic names, avoiding `strcmp` over uninitialized memory during lookups, and
+the destructor releases the object-index array it allocates.
 
 ## Arena storage/save boundary
 
@@ -117,16 +128,32 @@ checks final-cursor behavior. A copy truncated by one byte must open but reject
 the final record without an assertion or access violation. Attribute string
 formatting also uses the valid `%ld` and `%lu` specifiers.
 
+## First object-base boundary: Route
+
+The Route submodule contributes two objects to the original `obasew.lib`:
+`Route.cpp` and `ROUTE_I.CPP`. Both now build as
+`rr2nw_arena_obase_route`, linked against the real storage, kernel and design
+layers. The only compile cleanups preserve behavior: an unused local was
+removed and the existing double-to-integer `GetLen()` interface conversion is
+now explicit.
+
+The executable contract creates a real `SimulationContext`, registers a small
+test object, routes immediate and queued events, checks name/ID/interface
+lookups and removes the object. It independently exercises the real Route
+implementation across a two-segment path, checks interpolation and interface
+discovery, then round-trips the complete legacy static Route arrays through a
+real `.sav` file. No game-service, renderer or Supervisor stubs are used.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
    tagged-file fixtures.
 2. **Complete:** compile and execute the script VM libraries without enabling
    their embedded command-line/test mains.
-3. **In progress:** compile the complete Arena kernel archive and execute its
-   event-state boundary; compile storage and execute its low-level save
-   boundary; connect the remaining real `SimulationContext` dependencies next.
-4. Add object-base modules in dependency order.
+3. **Complete:** compile the complete Arena kernel and storage archives, execute
+   their state boundaries and run the real core `SimulationContext` lifecycle.
+4. **In progress:** add object-base modules in dependency order; the two-object
+   Route boundary is complete, with Fountain and Vehicle dependencies next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

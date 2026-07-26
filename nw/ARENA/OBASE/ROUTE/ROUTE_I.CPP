@@ -20,7 +20,7 @@ int Route::GetNodeCnt() const
 
 int Route::GetLen() const
 {
-   return(m_totalLenght);
+   return((int)m_totalLenght);
 }
 
 CFVector3 Route::GetNode(int n)  const 

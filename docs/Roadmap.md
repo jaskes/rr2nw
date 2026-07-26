@@ -96,8 +96,10 @@ Status: in progress. CMake/MSVC Win32 configure, Debug/Release builds, the
 first linked legacy design-library boundary, tagged-file round-trip/corruption
 coverage, a compiling/running script VM smoke and the complete eight-object
 Arena kernel and storage archives are working. Low-level save files also pass
-read-only round-trip and truncated-input coverage. Game executable and retail
-level loading remain open.
+read-only round-trip and truncated-input coverage. Core `SimulationContext`
+object/event lifecycle and the first object-base Route boundary now execute,
+including Route static-state save/load. Game executable and retail level
+loading remain open.
 
 ### Цель
 
