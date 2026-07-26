@@ -360,12 +360,26 @@ all 38 installed retail panel files, covering arrow, indicator, move/fill
 sprite, digit and crosshair resources; retail data is not copied into the
 repository or CI.
 
-After the software panel lifecycle tranche the Vehicle probe reports 12
-unresolved symbols in both Debug and Release. `CGRPanel::Draw` is now the only
-panel symbol. It remains open because the recovered implementation reaches the
-software `PANELA.ANG` rasterizer, polygon dispatch, 2D controls and font/image
-drawing. Rendering will be connected only with an executable pixel contract,
-not with an empty draw method.
+The following draw tranche translates the `PANELA.ANG` run decoder directly
+to bounded C++, preserving literal-copy, transparent-skip and terminator
+semantics. The software `CGRPanel::Draw` path now retains the recovered order:
+indicator sectors first, panel RLE background second, then arrow, move/fill
+sprite and digit controls, followed by the optional crosshair. Software image
+sprites and fixed-font glyphs use their reconstructed palettes and clip every
+write to the active 8-bit framebuffer. RLE start/output ranges and font glyph
+tables are validated before drawing; non-finite or extreme control geometry
+cannot turn into unbounded pointer arithmetic or loops.
+
+The executable pixel contract asserts the exact bytes produced by literal and
+transparent runs, disabled panel drawing, indicator fill, arrow endpoints,
+sprite transparency/clipping and a fixed-font glyph. It also rejects an RLE
+origin outside the declared resolution. The read-only retail sweep now draws
+both 640x480 and 320x240 variants of all 38 installed panels, exercising every
+recovered control/resource class without placing retail data in the repository.
+The Vehicle probe reports 11 unresolved symbols in both Debug and Release,
+with no panel symbol remaining. The Direct3D panel payload remains intentionally
+unsupported by this Windows-first software runtime boundary and will be
+reconsidered only after the game executable can reach a deterministic frame.
 
 ## Expansion order
 
@@ -378,10 +392,10 @@ not with an empty draw method.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
-   Vehicle link probe exposes 12 remaining service symbols. Projection, scene
+   Vehicle link probe exposes 11 remaining service symbols. Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
-   complete software-panel archive/lifecycle execute without initializing a
-   renderer; panel drawing, platform and shell services are next.
+   complete software-panel archive/lifecycle/draw path execute against a
+   bounded 8-bit framebuffer; platform and shell services are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

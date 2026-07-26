@@ -168,3 +168,66 @@ int CGRImage::LoadFromBMPFile(const char *bmpName,int x,int y)
     delete [] bitmap;
     return 1;
 }
+
+int CGRImage::DrawSprite(int xs,int ys) const
+{
+    return DrawSprite(xs,ys,0,0,imageW-1,imageH-1);
+}
+
+int CGRImage::DrawSprite(int xs,int ys,int x0,int y0,int x1,int y1) const
+{
+    if( image == NULL || _dL.currDevice == NULL ||
+        _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
+        imageW <= 0 || imageH <= 0 || _gr_nScreenWidth <= 0 ||
+        _gr_nScreenHeight <= 0 ) return 0;
+
+    long long sourceLeft = x0;
+    long long sourceTop = y0;
+    long long sourceRight = x1;
+    long long sourceBottom = y1;
+    long long destinationLeft = xs;
+    long long destinationTop = ys;
+
+    if( sourceLeft > sourceRight || sourceTop > sourceBottom ) return 0;
+    if( sourceLeft < 0 ) {
+        destinationLeft -= sourceLeft;
+        sourceLeft = 0;
+    }
+    if( sourceTop < 0 ) {
+        destinationTop -= sourceTop;
+        sourceTop = 0;
+    }
+    if( sourceRight >= imageW ) sourceRight = imageW-1;
+    if( sourceBottom >= imageH ) sourceBottom = imageH-1;
+    if( sourceLeft > sourceRight || sourceTop > sourceBottom ) return 0;
+
+    if( destinationLeft < 0 ) {
+        sourceLeft -= destinationLeft;
+        destinationLeft = 0;
+    }
+    if( destinationTop < 0 ) {
+        sourceTop -= destinationTop;
+        destinationTop = 0;
+    }
+    long long width = sourceRight-sourceLeft+1;
+    long long height = sourceBottom-sourceTop+1;
+    if( destinationLeft >= _gr_nScreenWidth ||
+        destinationTop >= _gr_nScreenHeight ) return 0;
+    if( destinationLeft+width > _gr_nScreenWidth )
+        sourceRight -= destinationLeft+width-_gr_nScreenWidth;
+    if( destinationTop+height > _gr_nScreenHeight )
+        sourceBottom -= destinationTop+height-_gr_nScreenHeight;
+    if( sourceLeft > sourceRight || sourceTop > sourceBottom ) return 0;
+
+    const unsigned char *source = (const unsigned char*)image;
+    for( int ySource = (int)sourceTop, yDestination = (int)destinationTop;
+         ySource <= (int)sourceBottom; ++ySource,++yDestination ) {
+        const unsigned char *input = source+ySource*imageW+(int)sourceLeft;
+        unsigned char *output = _gr_pScreen+
+            (size_t)yDestination*_gr_nScreenWidth+(int)destinationLeft;
+        for( int xSource = (int)sourceLeft;
+             xSource <= (int)sourceRight; ++xSource,++input,++output )
+            if( *input != 0 ) *output = *input;
+    }
+    return 1;
+}

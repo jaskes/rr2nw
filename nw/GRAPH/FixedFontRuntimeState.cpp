@@ -60,3 +60,43 @@ int CFixedColorFont::RecreateFont()
     }
     return 1;
 }
+
+int CFixedColorFont::PrintAt(long x,long y,const char *str)
+{
+    if( _dL.currDevice == NULL || _dL.currDevice->swHw != GR_SOFTWARE ||
+        _gr_pScreen == NULL || pOriginalFntSpr == NULL || pSwFntSpr == NULL ||
+        str == NULL || fontHeader.nFntWidth <= 0 ||
+        fontHeader.nFntHeight <= 0 || fontHeader.nFntSprSize <= 0 ) return 0;
+
+    long long destinationX = (long long)x+_gr_nScreenOriginX;
+    long long destinationY = (long long)y+_gr_nScreenOriginY;
+    while( *str != 0 ) {
+        unsigned int character = (unsigned char)*str++;
+        long glyphWidth = fontHeader.pSmFntTable[character*2];
+        long glyphOffset = fontHeader.pSmFntTable[character*2+1];
+        if( glyphWidth < 0 || glyphWidth > fontHeader.nFntWidth ||
+            glyphOffset < 0 ) return 0;
+        if( glyphWidth == 0 ) continue;
+
+        long long last = (long long)glyphOffset+
+            (long long)(fontHeader.nFntHeight-1)*fontHeader.nFntWidth+
+            glyphWidth;
+        if( last > fontHeader.nFntSprSize ) return 0;
+        for( long row = 0; row < fontHeader.nFntHeight; ++row ) {
+            long long screenY = destinationY+row;
+            if( screenY < 0 || screenY >= _gr_nScreenHeight ) continue;
+            const unsigned char *source = pSwFntSpr+glyphOffset+
+                row*fontHeader.nFntWidth;
+            for( long column = 0; column < glyphWidth; ++column ) {
+                long long screenX = destinationX+column;
+                if( source[column] != 0 && screenX >= 0 &&
+                    screenX < _gr_nScreenWidth )
+                    _gr_pScreen[(size_t)screenY*_gr_nScreenWidth+
+                                (size_t)screenX] =
+                        source[column];
+            }
+        }
+        destinationX += glyphWidth;
+    }
+    return 1;
+}

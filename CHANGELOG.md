@@ -57,6 +57,10 @@ claim authorship of inherited Logos code or retail data.
 - Added a software `CGRPanel` archive/lifecycle owner with bounded image and
   fixed-font resource reconstruction, plus an executable valid/truncated-file,
   resolution-selection, viewport and control-state contract.
+- Added a deterministic 8-bit panel pixel contract covering literal and
+  transparent RLE runs, disabled drawing, indicator fill, arrow endpoints,
+  sprite transparency/clipping and a fixed-font glyph; the local retail sweep
+  now renders both resolutions of all 38 installed panels.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -120,6 +124,9 @@ claim authorship of inherited Logos code or retail data.
   connecting the real software-panel constructor, destructor, resolution
   selection and open/close lifecycle. `CGRPanel::Draw` remains the sole panel
   symbol at the polygon/ASM frontier.
+- Reduced the measured Vehicle link gap from 12 to 11 unresolved symbols by
+  translating the `PANELA.ANG` background blitter and connecting real software
+  indicator, arrow, move/fill sprite, digit-font and crosshair drawing.
 - Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
   invalid project creation, and made commander traversal honor its table
   argument instead of the process-wide global.
@@ -139,6 +146,9 @@ claim authorship of inherited Logos code or retail data.
   rejects invalid device/screen/origin state, and release clears all matching
   active pointers even after graphics-device teardown. Empty image and font
   owners now start with deterministic dimensions and pointers.
+- Bounded software-panel RLE output to its declared resolution, validated font
+  glyph tables before drawing and clipped sprite/font/control pixels to the
+  active framebuffer; malformed control geometry is rejected or capped.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no

@@ -119,8 +119,11 @@ compile as strict gates, while an executable viewport/color boundary reduces
 the measured gap to 17 symbols. The real software-panel archive and lifecycle
 now reconstruct viewports, images, fixed-font resources and control state,
 reducing the gap to 12 symbols; all 38 installed retail panels pass a local
-read-only load sweep. Panel drawing, platform and shell service linking, the
-game executable and retail level loading remain open.
+read-only load sweep. The translated panel RLE blitter and complete software
+control/crosshair path now pass a byte-level pixel contract and draw both
+resolutions of all 38 retail panels, reducing the gap to 11 symbols. Platform
+and shell service linking, the game executable and retail level loading remain
+open; the legacy Direct3D panel payload is not part of this software tranche.
 
 ### Цель
 
