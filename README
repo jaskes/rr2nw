@@ -55,8 +55,10 @@ Vehicle service linking/runtime exercise and level-load gate are still open.
 The first link-dependency tranche now builds the real config parser and Player,
 executes `ICarrier`/`IArtefact` carry behavior, and compile-gates the complete
 Artefact source. A diagnostic link probe reduced Vehicle's unresolved surface
-from 77 to 53 symbols; the remaining graph begins at Level/MPROJ/DebugMap and
-continues into scene, panel, physics, Hardware and RSX.
+from 77 to 53 symbols. The second tranche executes the real MPROJ tree/heap,
+Level attributes and bounded DebugMap mission/input boundary, while the full
+DebugMap is a warning-free compile gate. The probe now exposes 39 symbols in
+scene, panel, physics, Hardware and RSX services.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -86,8 +88,10 @@ save-file round-trip with clean truncated-payload rejection. It also executes
 `SimulationContext` object/event lifecycle and Route geometry/static-state
 serialization, Fountain branch serialization and reconstruction of its
 2,000-entry free list, Vehicle static-state save compatibility, and the shared
-carrier lifecycle/save boundary. It is not yet the game executable or a
-completed M1 milestone.
+carrier lifecycle/save boundary. It additionally executes MPROJ tree/data/
+project state, all Level attribute defaults/bindings and DebugMap's bounded
+mission pool plus Hardware subscription protocol. It is not yet the game
+executable or a completed M1 milestone.
 
 ## Verified baseline findings
 

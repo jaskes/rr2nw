@@ -166,6 +166,53 @@ if(MSVC)
   target_compile_options(rr2nw_arena_storage PRIVATE /W3 /wd4081)
 endif()
 
+add_library(rr2nw_arena_mproj STATIC
+  nw/ARENA/MPROJ/Mproj.cpp
+)
+target_link_libraries(rr2nw_arena_mproj PUBLIC rr2nw_arena_storage)
+target_include_directories(rr2nw_arena_mproj PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_mproj PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_mproj PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_mproj PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
+add_library(rr2nw_arena_level_state STATIC
+  nw/ARENA/LevelState.cpp
+  nw/ARENA/LevelStateData.inl
+)
+target_link_libraries(rr2nw_arena_level_state PUBLIC rr2nw_arena_storage)
+target_include_directories(rr2nw_arena_level_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_level_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_level_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_level_state PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_arena_obase_route STATIC
   nw/ARENA/OBASE/ROUTE/Route.cpp
   nw/ARENA/OBASE/ROUTE/ROUTE_I.CPP
@@ -186,6 +233,62 @@ target_compile_definitions(rr2nw_arena_obase_route PRIVATE
 
 if(MSVC)
   target_compile_options(rr2nw_arena_obase_route PRIVATE /W3 /wd4081)
+endif()
+
+add_library(rr2nw_arena_obase_debug_map_mission STATIC
+  nw/ARENA/OBASE/DMAP/DebugMapMissionState.cpp
+  nw/ARENA/OBASE/DMAP/DebugMapMissionState.inl
+  nw/ARENA/OBASE/DMAP/DebugMapMissionEvents.inl
+  nw/ARENA/OBASE/DMAP/DebugMapMissionContent.cpp
+  nw/ARENA/OBASE/DMAP/DebugMapMissionContent.inl
+  nw/ARENA/OBASE/DMAP/DebugMapGlobal.inl
+)
+target_link_libraries(rr2nw_arena_obase_debug_map_mission PUBLIC
+  rr2nw_arena_obase_route
+)
+target_include_directories(rr2nw_arena_obase_debug_map_mission PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_debug_map_mission PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_debug_map_mission PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_debug_map_mission PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
+add_library(rr2nw_arena_obase_debug_map STATIC
+  nw/ARENA/OBASE/DMAP/dmap.cpp
+)
+target_link_libraries(rr2nw_arena_obase_debug_map PUBLIC
+  rr2nw_arena_obase_debug_map_mission
+)
+target_include_directories(rr2nw_arena_obase_debug_map PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_debug_map PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_debug_map PRIVATE
+  __NT__
+  RR2NW_DMAP_MISSION_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_debug_map PRIVATE /W3 /permissive- /wd4081
+  )
 endif()
 
 add_library(rr2nw_arena_obase_fountain_state STATIC
@@ -299,7 +402,12 @@ endif()
 add_library(rr2nw_arena_obase_player STATIC
   nw/ARENA/OBASE/Player/PLAYER.CPP
 )
-target_link_libraries(rr2nw_arena_obase_player PUBLIC rr2nw_arena_storage)
+target_link_libraries(rr2nw_arena_obase_player PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_mproj
+  rr2nw_arena_level_state
+  rr2nw_arena_obase_debug_map_mission
+)
 target_include_directories(rr2nw_arena_obase_player PUBLIC
   nw/INCLUDE
   nw/DESIGN.LIB/H
@@ -416,6 +524,31 @@ add_executable(rr2nw_context_route_smoke
 target_link_libraries(rr2nw_context_route_smoke PRIVATE rr2nw_arena_obase_route)
 target_compile_features(rr2nw_context_route_smoke PRIVATE cxx_std_14)
 
+add_executable(rr2nw_mproj_smoke
+  src/portability/MprojSmoke.cpp
+)
+target_link_libraries(rr2nw_mproj_smoke PRIVATE rr2nw_arena_mproj)
+target_include_directories(rr2nw_mproj_smoke PRIVATE nw/OUTPUT)
+target_compile_features(rr2nw_mproj_smoke PRIVATE cxx_std_14)
+
+add_executable(rr2nw_level_state_smoke
+  src/portability/LevelStateSmoke.cpp
+)
+target_link_libraries(rr2nw_level_state_smoke PRIVATE rr2nw_arena_level_state)
+target_compile_features(rr2nw_level_state_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_level_state_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_executable(rr2nw_debug_map_mission_smoke
+  src/portability/DebugMapMissionSmoke.cpp
+)
+target_link_libraries(
+  rr2nw_debug_map_mission_smoke PRIVATE rr2nw_arena_obase_debug_map_mission
+)
+target_compile_features(rr2nw_debug_map_mission_smoke PRIVATE cxx_std_14)
+
 add_executable(rr2nw_fountain_state_smoke
   src/portability/FountainStateSmoke.cpp
 )
@@ -468,6 +601,11 @@ if(MSVC)
   target_compile_options(rr2nw_kernel_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_storage_save_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_context_route_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_mproj_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_level_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_debug_map_mission_smoke PRIVATE /W4 /permissive- /wd4081
+  )
   target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
@@ -497,6 +635,16 @@ if(BUILD_TESTING)
     NAME legacy-context-route-smoke
     COMMAND rr2nw_context_route_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/context-route-smoke.sav"
+  )
+  add_test(
+    NAME legacy-mproj-smoke
+    COMMAND rr2nw_mproj_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/mproj-smoke.sav"
+  )
+  add_test(NAME legacy-level-state-smoke COMMAND rr2nw_level_state_smoke)
+  add_test(
+    NAME legacy-debug-map-mission-smoke
+    COMMAND rr2nw_debug_map_mission_smoke
   )
   add_test(
     NAME legacy-fountain-state-smoke

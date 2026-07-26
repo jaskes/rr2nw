@@ -803,7 +803,10 @@ int KR_Hardware::receiveEvent(KR_Event &event){
 		case CTRL_LINK_CONTROLS:	Link();         			    break;
 		case CTRL_CLEAR:			ClearCache();		            break;
 		case CTRL_LOAD_DEFAULT:		m_ctrlTranslator.SetDefault();	break;
-		case CTRL_SET_EXCLUSIVE:	m_exclusiveMode = TRUE;			break;
+		case CTRL_SET_EXCLUSIVE:
+			m_exclusiveMode = TRUE;
+			m_exclusiveReciver = event.source;
+			break;
 		case CTRL_SET_NORMAL:		m_exclusiveMode = FALSE;		break;
         case CTRL_CALIBRATE_JOYSTICK: 
             if(m_ctrlUse.joystick){

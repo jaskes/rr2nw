@@ -13,15 +13,12 @@ extern SDeviceList _dL;
 extern IDirect3DDevice2       *_d3dDevice;
 extern float __HazeLen;
 
+#ifndef RR2NW_DMAP_MISSION_EXTERNAL
+#include "DebugMapMissionState.inl"
+#include "DebugMapMissionContent.inl"
+#include "DebugMapMissionEvents.inl"
+#endif
 
-//=======================================================
-DebugMap::DebugMap(){
-   m_levelMap = new CGRImage;
-}
-//---------------------------------------------
-DebugMap::~DebugMap(){
-   delete m_levelMap;
-}
 //---------------------------------------------
 void DebugMap::Init(const char * mapName)
 {
@@ -29,10 +26,10 @@ void DebugMap::Init(const char * mapName)
 
    m_mapW = m_levelMap->Width();
    m_mapH = m_levelMap->Height();
-   m_mapScaleX  = (float)m_mapW / (512.*10.);
-   m_mapScaleY  = (float)m_mapH / (512.*10.);
-   m_mapiScaleX = (512.*10.) / (float)m_mapW;
-   m_mapiScaleY = (512.*10.) / (float)m_mapH;
+   m_mapScaleX  = (float)m_mapW / (512.0f*10.0f);
+   m_mapScaleY  = (float)m_mapH / (512.0f*10.0f);
+   m_mapiScaleX = (512.0f*10.0f) / (float)m_mapW;
+   m_mapiScaleY = (512.0f*10.0f) / (float)m_mapH;
 
    m_mapScrollL = g_hardware.SearchCode("Left");
    m_mapScrollR = g_hardware.SearchCode("Right");
@@ -119,116 +116,6 @@ void DebugMap::DeInit()
 }
 
 //---------------------------------------------
-TMissionId DebugMap::CreateMission(const char *name)
-{
-   for(int i = 0;i < MAX_MISSIONS;i++)
-      if (m_mission[i].use == FALSE) {
-          m_mission[i].use = TRUE;
-          strcpy(m_mission[i].text.name, name);
-          return i;
-      }
-
-   return -1;
-}
-
-//---------------------------------------------
-void DebugMap::DeleteMission(TMissionId mId)
-{
-   if (mId < 0 || mId >= MAX_MISSIONS) return;
-
-   m_mission[mId].use = 0;
-   ClearMission(mId);
-}
-
-//---------------------------------------------
-void DebugMap::ClearMission(TMissionId mId)
-{
-   if (mId < 0 || mId >= MAX_MISSIONS) return;
-
-   m_mission[mId].text.str[0] = 0;
-   m_mission[mId].text.name[0] = 0;
-   m_mission[mId].text.textLineQnty = 0;
-   m_mission[mId].text.font = NULL;
-   m_mission[mId].routesNum = 0;
-}
-
-//---------------------------------------------
-void DebugMap::AddMissionRoute(TMissionId mId, IRouteObject * route,
-                        unsigned long rgb, float widthS, float widthE)
-{
-   if (mId < 0 || mId >= MAX_MISSIONS || m_mission[mId].use == 0) return;
-
-   SMapRoute *r = &(m_mission[mId].route[m_mission[mId].routesNum++]);
-
-   r->pointsNum = route->GetNodeCnt();
-   for(int i = 0; i < r->pointsNum; i++) {
-      CFVector3 node = route->GetNode(i);
-
-      r->point[i*2+0] = m_winX + (int)(node.x*m_mapScaleX);
-      r->point[i*2+1] = m_winY + m_mapH + (int)(node.z*m_mapScaleY);
-   }
-
-   r->widthS = widthS;
-   r->widthE = widthE;
-   r->color = GRCreateColor(rgb>>16, (rgb>>8) & 0xff, rgb & 0xff);
-}
-
-//---------------------------------------------
-void DebugMap::AddMissionText(TMissionId mId, const char * str, 
-	const char * fntObjName)
-	//CFixedColorFont *fnt)
-{  SMapText *txt;
-   int i;
-   char *tmp;
-
-   if (mId < 0 || mId >= MAX_MISSIONS || m_mission[mId].use == 0) return;
-
-   txt = &m_mission[mId].text;
-   
-   //txt->font = fnt;
-   KR_ObjectID  fontID = g_arena.getContext()->searchObject(fntObjName);
-   txt->font = (IFixedFont*)(g_arena.getContext()->queryInterface(fontID,IFixedFontIID));
-   txt->textCurrLine = 0;
-   strcpy(txt->str, str);
-
-   txt->textLineQnty = 1;
-   for(i = 0; txt->str[i] != 0;i++)
-      if (txt->str[i] == '$') {
-         txt->str[i] = 0;
-         txt->textLineQnty++;
-      }
-
-   txt->dy = txt->font->Height();
-   txt->x  = m_textBoxX + m_textBoxOffX;
-   txt->y  = m_textBoxY + m_textBoxOffY + txt->dy;
-
-   txt->boxDy = m_textBoxOffY*2 + txt->dy*(m_textBoxStrQnty+1); //+1 for name
-
-   txt->boxDx = 0;
-   tmp = txt->str;
-
-   int len;
-
-   for(i = 0;i < txt->textLineQnty;i++) {
-      len = txt->font->StringWidth(tmp);
-      if (len > txt->boxDx)
-         txt->boxDx = len;
-
-      while(*tmp++ != 0);
-   }
-
-   len = txt->font->StringWidth(txt->name);
-   if (len > txt->boxDx)
-      txt->boxDx = len;
-
-   txt->boxDx += m_textBoxOffX*2 + m_textBoxSliderDx;
-
-   txt->sliderUpDownOffX = txt->boxDx - m_textBoxOffX - m_textBoxSliderDx;
-   txt->sliderUpOffY     = txt->dy + m_textBoxOffY;
-   txt->sliderDownOffY   = txt->boxDy - m_textBoxOffY - m_textBoxSliderDy;
-}
-
-
 //---------------------------------------------
 void DebugMap::Draw() {
     int i,j;
@@ -391,8 +278,8 @@ void DebugMap::DrawSelf(IDynamicObject * obj, unsigned long col)
    //GREndScene();
    GREnable2D();
 
-   x  = m_winX - m_winBaseX + (int)(objPos.x*m_mapScaleX);
-   y  = m_winY + m_mapH - m_winBaseY + (int)(objPos.z*m_mapScaleY);
+   x  = (float)(m_winX - m_winBaseX + (int)(objPos.x*m_mapScaleX));
+   y  = (float)(m_winY + m_mapH - m_winBaseY + (int)(objPos.z*m_mapScaleY));
    r  = __HazeLen*m_mapScaleX;
 
    Circle((int)x, (int)y, (int)r, m_selfRColor, FALSE);
@@ -406,8 +293,8 @@ void DebugMap::DrawSelf(IDynamicObject * obj, unsigned long col)
 
 void DebugMap::DrawDynamicObject(IDynamicObject * obj, unsigned long col, int checkR)
 {  CFVector3 objPos = obj->getPos();
-   float     objR   = obj->getRadius();
-   float     hAng   = obj->getHAngle();
+   float     objR   = (float)obj->getRadius();
+   float     hAng   = (float)obj->getHAngle();
    float     x, y;
    float     r,r1;
    float     dx,dy;
@@ -418,10 +305,10 @@ void DebugMap::DrawDynamicObject(IDynamicObject * obj, unsigned long col, int ch
          return;
    }
 
-   x  = m_winX - m_winBaseX + (int)(objPos.x*m_mapScaleX) - _gr_nScreenOriginX;
-   y  = m_winY + m_mapH - m_winBaseY + (int)(objPos.z*m_mapScaleY) - _gr_nScreenOriginY;
-   r  = Max(objR*m_mapScaleX, 8.);
-   r1 = r*PROC;
+   x  = (float)(m_winX - m_winBaseX + (int)(objPos.x*m_mapScaleX) - _gr_nScreenOriginX);
+   y  = (float)(m_winY + m_mapH - m_winBaseY + (int)(objPos.z*m_mapScaleY) - _gr_nScreenOriginY);
+   r  = (float)Max(objR*m_mapScaleX, 8.0f);
+   r1 = r*(float)PROC;
 
    _gr_polygon.dwFullType = GR_POLY_TRANSPARENT;
    _gr_polygon.dwAddType = 0;
@@ -430,8 +317,8 @@ void DebugMap::DrawDynamicObject(IDynamicObject * obj, unsigned long col, int ch
    _gr_polygon.dwOpacity = 200;
    _gr_polygon.nLights = 0;
 
-   dx = cos(hAng);
-   dy = sin(hAng);
+   dx = (float)cos(hAng);
+   dy = (float)sin(hAng);
 
    _gr_vertices[0].any.x = (int)(x + dx*r);
    _gr_vertices[0].any.y = (int)(y + dy*r);
@@ -465,12 +352,12 @@ void DebugMap::DrawArtefact(IDynamicObject * obj, unsigned long col, int checkR)
    //GREndScene();
    GREnable2D();
 
-   x  = m_winX - m_winBaseX + (int)(objPos.x*m_mapScaleX);
-   y  = m_winY + m_mapH - m_winBaseY + (int)(objPos.z*m_mapScaleY);
+   x  = (float)(m_winX - m_winBaseX + (int)(objPos.x*m_mapScaleX));
+   y  = (float)(m_winY + m_mapH - m_winBaseY + (int)(objPos.z*m_mapScaleY));
 
    Circle((int)x, (int)y, 3, col, TRUE);
 
-   time = Session::m_realTimer->GetTime();
+   time = (float)Session::m_realTimer->GetTime();
 
    Circle((int)x, (int)y, (int)(m_artefactR*(time - ((int)time))), col, FALSE);
 
@@ -735,168 +622,3 @@ void DebugMap::Circle(int x, int y, int r, int color, int fill)
 
 //---------------------------------------------
 //---------------------------------------------
-void DebugMap::addNotify(){
-	KR_Event event;
-
-	event.source	  = getObjectID();
-	event.destination = g_hardware.getObjectID();
-	event.label       = CTRL_SUBSCRIBE;
-	event.timeStamp	  = Session::m_moment;
-	event.data.open(EDO_WRITE)
-				.putObjectID(getObjectID())
-	            .putInt(EXCLUSIVE)
-			  .close();
-	getContext()->addEvent(event);
-
-	KR_Object::addNotify();
-}
-//---------------------------------------------
-void DebugMap::removeNotify(){
-        KR_Object::removeNotify();
-
-        KR_Event event;
-
-        event.timeStamp   = Session::m_moment;
-        event.source      = getObjectID();
-        event.destination = g_hardware.getObjectID();
-
-        if (event.destination.isNUL())
-                return;
-
-        event.label               = CTRL_UNSUBSCRIBE;
-        event.data.open(EDO_WRITE)
-                                .putObjectID(getObjectID())
-                          .close();
-//      getContext()->addEvent(event);
-        if (context)
-           context->sendEventNow(event);
-
-
-}
-//---------------------------------------------
-int DebugMap::receiveEvent(KR_Event &event){
-	int code;
-	int ctrlEvent;
-	double timeStamp, down;
-	int repeat;
-
-	switch( event.label ){
-      case KR_WAKE_UP:  break;
-      case CTRL_CHAR: break;
-		case CTRL_MOUSE_MOVE_MSG:
-		case CTRL_JOYSTICK_MOVE_MSG: break;
-		case CTRL_BUTTONS_MSG:
-			timeStamp = event.timeStamp;
-         event.data.open(EDO_READ)
-                       .getInt(ctrlEvent)
-                       .getDouble(down)
-                       .getInt(code)
-                       .getInt(repeat)
-                   .close();
-
-         if (down == 0) break;
-
-         if (ctrlEvent == DMAP_TOGGLE) {
-            if (m_active) {
-               m_active = FALSE;
-               EnableRender3D();
-               if (!m_followMode)
-                  g_hardware.ReleaseExclusiveMode();
-            }
-            else{
-               m_active = TRUE;
-               DisableRender3D();
-               if (!m_followMode)
-                  g_hardware.GetExclusiveMode(getObjectID());
-            }
-         }
-
-         if (!m_active) break;
-
-         if (!m_followMode) {
-            if (code ==  m_mapScrollL) {
-               m_winBaseX -= m_step;
-               m_winBaseX = Max(0, m_winBaseX);
-            }
-            else
-            if (code == m_mapScrollR) {
-               m_winBaseX += m_step;
-               m_winBaseX = Min(m_mapW-m_winW, m_winBaseX);
-            }
-            else
-            if (code == m_mapScrollU) {
-                  m_winBaseY -= m_step;
-                  m_winBaseY = Max(0, m_winBaseY);
-            }
-            else
-            if (code == m_mapScrollD) {
-                  m_winBaseY += m_step;
-                  m_winBaseY = Min(m_mapH-m_winH, m_winBaseY);
-            }
-         }
-
-         switch(ctrlEvent){
-            case DMAP_TOGGLE_FOLLOW_MODE:
-               m_followMode = !m_followMode;
-               if (m_followMode)
-                  g_hardware.ReleaseExclusiveMode();
-               else
-                  g_hardware.GetExclusiveMode(getObjectID());
-            break;
-
-            case DMAP_NEXT_MISSION: {
-               for(int i = m_curMission + 1;i < MAX_MISSIONS;i++)
-                  if (m_mission[i].use) {
-                     m_curMission = i;
-                     break;
-                  }
-            }
-            break;
-
-            case DMAP_PREVIOUS_MISSION: {
-               for(int i = m_curMission - 1;i >= 0;i--)
-                  if (m_mission[i].use) {
-                     m_curMission = i;
-                     break;
-                  }
-            }
-            break;
-
-            case DMAP_TEXT_BOX_UP:
-               if (m_mission[m_curMission].text.textCurrLine > 0)
-                  m_mission[m_curMission].text.textCurrLine--;
-            break;
-
-            case DMAP_TEXT_BOX_DOWN: {
-               SMapText *mT = &m_mission[m_curMission].text;
-
-               if (mT->textCurrLine < mT->textLineQnty - m_textBoxStrQnty)
-                  mT->textCurrLine++;
-            }
-            break;
-
-            default: break;
-			}
-
-      break;
-
-      default:
-      return(0);
-   }
- 	return(1);
-}
-//---------------------------------------------
-void DebugMap::EnableRender3D()
-{
-}
-//---------------------------------------------
-void DebugMap::DisableRender3D()
-{
-}
-
-void DebugMap::ClearMissions()
-{
-   m_curMission = 0;
-   for(int i = 0;i < MAX_MISSIONS;i++)
-      DeleteMission(i);
-}

@@ -106,9 +106,9 @@ void mp_ProjectHeap::step(int s)
          return;
     }
 
-    if( m_pos+s>=m_size )
+    if( s < 0 || s > m_size-m_pos )
     {
-        m_pos = m_size-1;
+        m_pos = m_size;
         echo("mp_ProjectHeap::step: Heap overflow\n");
         return;
     }
@@ -209,6 +209,7 @@ void mp_ProjectTable::allocObjects( int objectQnty )
  //============================================================================
 void mp_ProjectTable::freeObjects()
  {
+    m_heap.remove();
     delete [] m_tree;
     m_tree = NULL;
     m_treeSize = 0;
@@ -264,20 +265,23 @@ mp_ProjectTable::~mp_ProjectTable()
  //============================================================================
 KR_ObjectID  mp_ProjectTable::newProject( const char *pname, int node , int permanent )
  {
-    KR_ObjectID oID = newObject( pname );
-    mp_Project *proj = searchProject( oID );
-
-	proj->m_permanent = permanent;
-
     int nodeNum = mp_Code2Int( node );
     if( nodeNum<0 || nodeNum >= m_treePos )
     {
          echo("Create project with unknown tree node\n");
          return KR_ObjectID(-1,-1);
     }
+
+    KR_ObjectID oID = newObject( pname );
+    mp_Project *proj = searchProject( oID );
     if( proj==NULL )
+    {
          echo("Unknown project %s\n",pname);
-    else proj->set(node);
+         return KR_ObjectID(-1,-1);
+    }
+
+    proj->m_permanent = permanent;
+    proj->set(node);
 
     return oID;
  }
@@ -408,6 +412,11 @@ void   mp_WriteByte( mp_ProjectTable &p, mp_TreeNode &n, KR_byte b )
     if( n.m_data==NULL )
     {
          echo("MPROJ.CPP::mp_WriteByte: node data==NULL\n");
+         return;
+    }
+    if( p.m_heap.m_pos >= p.m_heap.m_size )
+    {
+         echo("MPROJ.CPP::mp_WriteByte: Heap overflow\n");
          return;
     }
 
@@ -677,10 +686,10 @@ bool  mp_IsCommanderEqu( mp_ProjectTable &p, mp_NodeNum pn, const char *c )
    for(
        ;
        pn != pNULL;
-       pn = projectTable.getRight( pn )
+       pn = p.getRight( pn )
    )
    {
-       switch( projectTable.getCommand( pn ) )
+       switch( p.getCommand( pn ) )
        {
        case  COM_0COMMANDER:
         {

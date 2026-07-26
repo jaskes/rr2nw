@@ -16,10 +16,9 @@
 #include "zav.h"
 
 
-int	ol_Level::m_levelNumber=0;
-int	ol_Level::m_levelToLoad=0;
-int 	ol_Level::m_saveGameStatus=0;
-char	ol_Level::m_saveGameName[200];
+#ifndef RR2NW_LEVEL_STATE_EXTERNAL
+#include "LevelStateData.inl"
+#endif
 
 
 #define MAX_LEVEL_QNTY 1
@@ -31,8 +30,6 @@ struct  {
  {
     {"..\\LEVEL0.SC",""}
  };
-
-AttributeLevel g_levelAttr;
 
 static const char saveCfgFileName[] = "../saves.cfg", emptySlotText[] = "Empty";
 //--------------------------------------------------------

@@ -229,10 +229,35 @@ The first dependency tranche connects only recovered implementations:
   while `rr2nw_sound_state` supplies them without running COM/RSX startup.
 
 After these real owners are linked, the probe reports 53 unresolved symbols.
-The remaining groups are Level/MPROJ/DebugMap mission state; collision and
-corpse physics; scene/view/vessel and panel rendering; Hardware/Console/
-Briefing globals; and four legacy RSX COM identifiers. No placeholder service
-or no-op game implementation is counted as progress.
+
+The second dependency tranche crosses the complete Level/MPROJ/DebugMap
+mission boundary:
+
+- the complete `Mproj.cpp` is now `rr2nw_arena_mproj`; its executable contract
+  creates encoded command-tree links, fills the typed heap to its exact final
+  byte, reads the values back, registers a real project in
+  `SimulationContext` and round-trips the historical 8-byte project record;
+- MPROJ now releases its heap with each storage seance, rejects invalid tree
+  roots before allocating an object, checks writes before touching a full heap
+  and traverses the table passed to `mp_IsCommanderEqu`;
+- `LevelStateData.inl` gives modern CMake one real owner for `g_levelAttr` and
+  the four `ol_Level` selection/save globals while the original `Olevel.cpp`
+  keeps the same ownership in the legacy build. The smoke locks all 30
+  defaults and exercises the named attribute bindings;
+- DebugMap lifetime, mission pool, route/text preparation and Hardware events
+  are shared fragments. Mission names/text and route arrays are bounded, null
+  dependencies are rejected, and the input path uses the recovered
+  `CTRL_SET_EXCLUSIVE`/`CTRL_SET_NORMAL` protocol rather than reaching through
+  the global Hardware object;
+- the complete remaining `dmap.cpp` renderer compiles warning-free under
+  `/permissive-`, but remains a compile gate until the graph/D3D owners link.
+
+After the second tranche the probe reports 39 unresolved symbols. The
+remaining groups are graph/panel and scene/view/vessel rendering; collision
+and corpse physics; Hardware/Console/Briefing/Taxi globals; timing/script
+helpers; and four legacy RSX COM identifiers. `GRCreateColor` is now the first
+explicit DebugMap-to-renderer edge. No placeholder service or no-op game
+implementation is counted as progress.
 
 ## Expansion order
 
@@ -244,8 +269,9 @@ or no-op game implementation is counted as progress.
    their state boundaries and run the real core `SimulationContext` lifecycle.
 4. **In progress:** add object-base modules in dependency order; Route and
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
-   and the Vehicle link probe exposes 53 remaining service symbols. Level/
-   MPROJ/DebugMap ownership is next, followed by renderer/platform services.
+   Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and the
+   Vehicle link probe exposes 39 remaining service symbols. Renderer/platform,
+   physics and shell services are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

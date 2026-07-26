@@ -27,7 +27,9 @@
 KR_Hardware g_hardware;
 CBriefing   g_briefing(128*1024);
 GameConsole g_GameConsole;
-DebugMap g_debugMap;
+#ifndef RR2NW_DEBUG_MAP_GLOBAL_EXTERNAL
+#include "obase/dmap/DebugMapGlobal.inl"
+#endif
 Menu g_menu;
 
 // Green Globals END 

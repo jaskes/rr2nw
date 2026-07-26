@@ -32,6 +32,15 @@ claim authorship of inherited Logos code or retail data.
   `IArtefact` behavior boundary and an executable carry/drop/save contract.
 - Added an excluded Vehicle link probe that measures the remaining monolithic
   dependency surface without breaking normal builds or CTest.
+- Added the complete legacy MPROJ implementation and an executable contract
+  for its encoded tree links, exact-capacity typed heap, project lifecycle and
+  8-byte project save record.
+- Added a renderer-independent Level state owner and executable coverage for
+  all 30 legacy defaults, named attribute bindings and save/load selection
+  globals.
+- Added a bounded DebugMap mission boundary and executable mission-pool/
+  Hardware-subscription contract, while keeping the full recovered
+  `dmap.cpp` as a strict warning-free compile gate.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -77,6 +86,14 @@ claim authorship of inherited Logos code or retail data.
   allowing storage and object-base components to link without initializing RSX.
 - Reduced the measured Vehicle link gap from 77 to 53 unresolved symbols by
   connecting real config, Player, carrier and sound-state owners.
+- Reduced the measured Vehicle link gap again, from 53 to 39 unresolved
+  symbols, by connecting the real Level, MPROJ and DebugMap mission owners.
+- Hardened MPROJ exact-capacity heap writes, repeated-seance heap cleanup and
+  invalid project creation, and made commander traversal honor its table
+  argument instead of the process-wide global.
+- Bounded DebugMap mission names, text, route counts and route points; guarded
+  missing route/font/context inputs; and routed exclusive input switching
+  through the existing Hardware message protocol.
 - Added a standards-compliant MSVC typed-object debug declaration and explicit
   legacy renderer conversions and const-correct logging formats needed by
   strict modern consumers.

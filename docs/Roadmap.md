@@ -104,9 +104,12 @@ the complete Fountain source is a warning-free compile gate. Vehicle static
 state now passes exact save-format round-trip coverage and all four recovered
 Vehicle sources compile strictly. The first Vehicle dependency tranche now
 builds config, Player and Artefact, executes shared carrier behavior, and has
-reduced the measured link gap from 77 to 53 symbols. Level/MPROJ/DebugMap,
-scene/platform service linking, Vehicle runtime exercise, the game executable
-and retail level loading remain open.
+reduced the measured link gap from 77 to 53 symbols. The next tranche now
+executes the complete MPROJ tree/heap/project lifecycle, Level attribute state
+and the bounded DebugMap mission pool/input protocol; the full recovered
+DebugMap is a warning-free compile gate. The measured link gap is 39 symbols.
+Scene/platform and physics service linking, Vehicle runtime exercise, the game
+executable and retail level loading remain open.
 
 ### Цель
 
