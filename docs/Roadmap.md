@@ -211,6 +211,22 @@ remaining six are full Level/scene init, begin-loop, PIN, Supervisor/SUA,
 DebugMap draw and Level events; the next content slice is the rollback-capable
 palette/font/figure-library and retail scene-construction transaction.
 
+The asset half of that transaction is now complete. Before any fatal legacy
+reader runs, the recovered owner bounds and validates the complete palette
+pack, fixed-font payload and terminal scene header. It then uses the original
+palette translator, reconstructs the software font, allocates the recovered
+empty figure-texture library and publishes clip, haze, fog and waterline state.
+Every tested failure releases partial allocations, config ownership and the
+Level working directory. The same read-only path accepts all nine installed
+Levels and all nine mounted retail-CD Levels in Debug and Release.
+
+This still is not full `initLevel`: constructing `CViewScene` immediately
+activates object models, figures, bushes, land dynamics and the complete
+terrain decoder. The default table therefore truthfully remains at six of
+twelve hooks. The next frontier is to isolate and validate those object/terrain
+scene chunks, construct a real owned scene with rollback, and only then bind
+the full Level-init hook.
+
 ### Цель
 
 Собрать исходники CMake/MSVC или clang-cl и автоматически загрузить один

@@ -2,6 +2,7 @@
 #include"_pattern.h"
 #endif
 
+#ifndef RR2NW_PALETTE_FRAME_STATE_EXTERNAL
 CPaletteTranslator	paletteTranslator;
 
 SRGB	CPaletteTranslator::m_palette[256];
@@ -14,6 +15,7 @@ SGRColorDef	*CPaletteTranslator::m_pTranspDefs = NULL;
 byte	*CPaletteTranslator::m_pLights = NULL;
 int		CPaletteTranslator::m_nLightColors = 0;
 int		CPaletteTranslator::m_nTransparentColors = 0;
+#endif
 
 #if 0
 void	CPaletteTranslator::InvertHaze(byte *pHaze)
@@ -114,7 +116,7 @@ byte	CPaletteTranslator::Match(int r,int g,int b)
 	int  nBest = 0;
 	int  nBestVal = Mismatch(rgb,m_palette[0]);
 	for( int  i = 1 ; i < 256 ; i++ ) {
-		double	nMismatch = Mismatch(rgb,m_palette[i]);
+		int	nMismatch = Mismatch(rgb,m_palette[i]);
 		if( nMismatch < nBestVal ) { nBest = i; nBestVal = nMismatch; }
 	}
 	return	(byte)nBest;
@@ -189,7 +191,7 @@ int	CPaletteTranslator::Define(TCSRGB *pEntries, int nEntries,
 		int  nBest = nTransparent >= 0 ? 1 : 0; // to reserve 0 for transparent
 		int  nBestVal = Mismatch(pEntries[i],m_palette[nBest]);
 		for( int  j = nBest+1 ; j < 256 ; j++ ) {
-			double	nMismatch = Mismatch(pEntries[i],m_palette[j]);
+			int	nMismatch = Mismatch(pEntries[i],m_palette[j]);
 			if( nMismatch < nBestVal ) { nBest = j; nBestVal = nMismatch; }
 		}
 		m_entry[i] = (byte)nBest;

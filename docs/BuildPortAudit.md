@@ -671,6 +671,22 @@ Six hooks remain visible: full Level/scene init, begin-loop, PIN, Supervisor/
 SUA, DebugMap draw and Level event dispatch. The all-required graph gate still
 keeps the legacy entry executable fail-closed until those owners are real.
 
+The next post-config boundary now executes without widening that hook claim.
+`RecoveredLevelAssets` prevalidates palette-pack chunk sizes, font glyph ranges
+and the terminal scene header before invoking historical readers, then owns
+the real palette translator allocations, software fixed font, 100-slot empty
+figure-texture library and published clip/haze/fog/waterline state. Its smoke
+contract covers missing and malformed assets, the intentionally fatal legacy
+`BSPCheck` request, font pixels, repeated release and graph-owned release. A
+manual read-only sweep passed all nine installed Levels and all nine mounted
+retail-CD Levels.
+
+Direct `CViewScene` construction is not part of that owner: its constructor
+immediately activates object/figure/bush/land/terrain readers. Consequently the
+measured entry inventory remains six of twelve rather than disguising a header
+preflight as full Level initialization. Those content decoders are the current
+runtime frontier.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -695,7 +711,9 @@ keeps the legacy entry executable fail-closed until those owners are real.
    original entry point now links and exits safely with an unbound runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Link frontier complete, runtime binding in progress:** the software Win32
-   graph and pre-scene Level lifecycle connect six entry hooks; bind the
+   graph and pre-scene Level lifecycle connect six entry hooks. Palette, font,
+   figure-library and scene-header bootstrap now execute atomically; isolate
+   the object/terrain decoders, construct the owned scene, then bind the
    remaining six checked services behind `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.

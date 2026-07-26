@@ -308,6 +308,13 @@ void GRSetPaletteTables(SGRColorDef *pTransparency,int nTranspCount,
     epal_Load8BitPal(_ETransparencyPal,palette,_gr_nTranspCount);
 }
 
+void SetMixLightTable(unsigned char *table)
+{
+    // The recovered software graph has not initialized the legacy light-mix
+    // allocation. The original implementation is also a no-op in that state.
+    (void)table;
+}
+
 unsigned long GRTransparentColor(int r,int g,int b)
 {
     if( _dL.currDevice == NULL ) return 0;

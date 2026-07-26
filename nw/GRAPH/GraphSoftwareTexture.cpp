@@ -264,6 +264,12 @@ void GRSetTextureLoadFunc(GR_HTEXTURE handle,const char *fileName,
     texture->loadFuncUserPar = user;
 }
 
+void GRReInitTextureDB()
+{
+    // Software textures are individually owned and do not use the recovered
+    // DirectDraw texture database.
+}
+
 void GRSetTextureLoadIntFunc(GR_HTEXTURE handle,TTextureLoadIntFunc loadFunc)
 {
     SoftwareTexture *texture = AsSoftwareTexture(handle);

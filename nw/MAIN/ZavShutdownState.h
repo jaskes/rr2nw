@@ -19,6 +19,8 @@ struct SZavShutdownHooks {
 extern unsigned char* pVirtualScreen;
 
 void ZAV_ConfigureShutdown(const SZavShutdownHooks& hooks);
+void ZAV_ConfigureLevelShutdown(TZavReleaseScene releaseScene,
+                                TZavClearFigureLibrary clearFigureLibrary);
 void ZAV_ArmGraphShutdown(int viewportCount);
 void ZAV_ArmLevelShutdown();
 void ZAV_DeinitLevelResources();

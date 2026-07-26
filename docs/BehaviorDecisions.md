@@ -321,3 +321,39 @@ Regression contract: `recovered-level-runtime-smoke` with missing/invalid
 synthetic fixtures, uppercase `LEVEL.CFG`, legacy defaults, repeated cleanup,
 graph-owned rollback and optional read-only validation of a local retail
 Level tree; plus complete Debug/Release CTest runs.
+
+## BD-018: asset bootstrap commits before scene-object decoding
+
+Status: accepted on 2026-07-26.
+
+The post-config portion of `ZAV_InitLevel` is split at the next atomic
+ownership boundary. A recovered asset owner first validates the tagged-file
+shape and exact bounded payload sizes of `default.ptp`, validates the fixed
+font header and every glyph range in `..\figs5x3c.fnt`, and reads only the
+bounded `SCEN/SCEH` header from the selected scene. The `BSPCheck` option is
+rejected diagnostically because its recovered path intentionally terminates
+the process and is unsuitable for normal modern startup.
+
+Only after preflight succeeds does the owner invoke the original palette-pack
+decoder, publish graph/transparency/light/haze tables, reconstruct the real
+software fixed font, allocate the recovered 100-slot figure-texture library
+and apply the original clip, fog, haze and waterline settings. The recovered
+software texture backend keeps `GRReInitTextureDB` as an exact no-op because it
+has no DirectDraw-wide texture database; the light-mix setter is likewise an
+exact no-op until the historical light allocation exists.
+
+All partial ownership is armed before later allocations and released through
+the existing ordered Level shutdown path. Missing, truncated or structurally
+invalid assets and allocation failures roll back palette/font/library/config
+state and restore the prior process directory. The transaction was exercised
+read-only against every Level in both local retail trees.
+
+`initLevel` remains unbound. The recovered `CViewScene` constructor immediately
+crosses the object-model, figure, bush, land-dynamic and terrain decoders, so a
+validated header and asset bootstrap alone cannot truthfully claim a loaded
+Level. The next decision boundary is an owned scene decoder with complete
+constructor rollback.
+
+Regression contract: `recovered-level-assets-smoke`, including malformed and
+missing synthetic resources, fixed-font drawing, repeated/cascaded shutdown
+and optional retail validation; plus complete Debug/Release CTest runs.

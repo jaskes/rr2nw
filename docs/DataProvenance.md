@@ -59,6 +59,12 @@ counterparts. The installed root `game.cfg` differs from the CD copy only in
 a trustworthy read-only runtime fixture while leaving `game.cfg` classified
 as user-modified state.
 
+The same date's recovered asset sweep opened, validated and released the
+selected `.sce` header, `default.ptp` and shared `figs5x3c.fnt` for all nine
+Levels in both `E:\Games\The Next Worlds` and `G:\nw`. The sweep performed no
+writes to either data tree. This confirms compatibility of the bounded asset
+bootstrap only; it does not yet claim successful object/terrain scene decoding.
+
 Основной установленный `nw.exe` совпадает с дисковым по SHA-256. Установка
 полезна как user-state fixture, но не как clean retail fixture.
 

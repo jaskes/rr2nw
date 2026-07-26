@@ -128,6 +128,14 @@ claim authorship of inherited Logos code or retail data.
   contract, restores it on every failure and repeated shutdown, snapshots the
   recovered visual/debug settings and binds only the truthful config/deinit
   entry hooks; full scene initialization remains fail-closed.
+- Added the atomic asset half of recovered Level initialization: bounded
+  validation and ownership for `default.ptp`, `figs5x3c.fnt`, the empty
+  figure-texture library and the `SCEH` scene header, followed by the original
+  palette, haze, clip, fog and waterline publication. Malformed data,
+  allocation failure and the legacy fatal `BSPCheck` path now fail with a
+  diagnostic issue and restore the complete pre-Level state. All nine Levels
+  from both the installed tree and mounted retail CD pass the read-only asset
+  sweep; full object/terrain construction remains explicitly unbound.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.

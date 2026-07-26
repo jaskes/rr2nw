@@ -15,6 +15,13 @@ void ZAV_ConfigureShutdown(const SZavShutdownHooks& hooks) {
   g_zavShutdownHooks = hooks;
 }
 
+void ZAV_ConfigureLevelShutdown(
+    TZavReleaseScene releaseScene,
+    TZavClearFigureLibrary clearFigureLibrary) {
+  g_zavShutdownHooks.releaseScene = releaseScene;
+  g_zavShutdownHooks.clearFigureLibrary = clearFigureLibrary;
+}
+
 void ZAV_ArmGraphShutdown(int viewportCount) {
   g_zavViewportCount = viewportCount > 0 ? viewportCount : 0;
   g_zavGraphShutdownArmed = true;

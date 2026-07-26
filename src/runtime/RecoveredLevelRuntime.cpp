@@ -13,6 +13,7 @@
 
 #include "filesys.h"
 
+#include "RecoveredLevelAssets.h"
 #include "RecoveredSoftwareGraph.h"
 #include "ZavShutdownState.h"
 
@@ -162,6 +163,7 @@ SRecoveredLevelSettings ReadSettings(CConfigFile& config) {
 }
 
 bool ResetState() {
+  RecoveredLevelAssets_Release();
   if (g_prepared || g_config != nullptr || !g_restoreDirectory.empty()) {
     ZAV_DeinitLevelResources();
   }

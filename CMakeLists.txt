@@ -986,6 +986,35 @@ target_compile_definitions(rr2nw_graph_runtime_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_patterns_palette_runtime STATIC
+  nw/PATTERNS/PALTRANS.CPP
+)
+target_link_libraries(rr2nw_patterns_palette_runtime PUBLIC
+  rr2nw_graph_runtime_state
+  rr2nw_patterns_palette_frame_state
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_patterns_palette_runtime PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+  nw/PATTERNS
+  nw/VIEW
+)
+target_compile_features(rr2nw_patterns_palette_runtime PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_patterns_palette_runtime PRIVATE
+  __NT__
+  RR2NW_PALETTE_FRAME_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_patterns_palette_runtime PRIVATE /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_graph_software_texture STATIC
   nw/GRAPH/GraphSoftwareTexture.cpp
 )
@@ -1007,6 +1036,33 @@ target_compile_definitions(rr2nw_graph_software_texture PRIVATE
 if(MSVC)
   target_compile_options(
     rr2nw_graph_software_texture PRIVATE /W4 /permissive-
+  )
+endif()
+
+add_library(rr2nw_view_figure_library_state STATIC
+  nw/VIEW/ViewFigureLibraryState.cpp
+  nw/VIEW/ViewFigureLibraryState.h
+)
+target_link_libraries(rr2nw_view_figure_library_state PUBLIC
+  rr2nw_graph_software_texture
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_view_figure_library_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_figure_library_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_figure_library_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_view_figure_library_state PRIVATE /W4 /permissive-
   )
 endif()
 
@@ -1746,6 +1802,8 @@ add_library(rr2nw_game_entry_runtime STATIC
   src/runtime/GameEntryRuntimeState.cpp
   src/runtime/GameEntryRuntimeState.h
   src/runtime/RecoveredGameEntryBindings.cpp
+  src/runtime/RecoveredLevelAssets.cpp
+  src/runtime/RecoveredLevelAssets.h
   src/runtime/RecoveredLevelRuntime.cpp
   src/runtime/RecoveredLevelRuntime.h
   src/runtime/RecoveredSoftwareGraph.cpp
@@ -1753,11 +1811,15 @@ add_library(rr2nw_game_entry_runtime STATIC
 )
 target_link_libraries(rr2nw_game_entry_runtime PUBLIC
   rr2nw_arena_kernel
+  rr2nw_graph_fixed_font_runtime_state
   rr2nw_graph_runtime_state
   rr2nw_legacy_design
   rr2nw_main_zav_shutdown_state
+  rr2nw_patterns_palette_runtime
+  rr2nw_view_figure_library_state
   rr2nw_view_frame_state
   rr2nw_view_object_state
+  rr2nw_view_terrain_waterline_state
   gdi32
   user32
 )
@@ -2184,6 +2246,21 @@ target_compile_definitions(rr2nw_recovered_level_runtime_smoke PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_recovered_level_assets_smoke
+  src/portability/RecoveredLevelAssetsSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_level_assets_smoke PRIVATE
+  rr2nw_game_entry_runtime
+)
+target_compile_features(
+  rr2nw_recovered_level_assets_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_level_assets_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
   rr2nw_arena_obase_debug_map_mission
   rr2nw_game_entry_runtime
@@ -2326,6 +2403,9 @@ if(MSVC)
     rr2nw_recovered_level_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_recovered_level_assets_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_game_startup PRIVATE /W4 /permissive- /utf-8
   )
   target_compile_options(rr2nw_game PRIVATE /W4 /permissive- /utf-8)
@@ -2362,6 +2442,11 @@ if(BUILD_TESTING)
     NAME recovered-level-runtime-smoke
     COMMAND rr2nw_recovered_level_runtime_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/recovered-level-runtime-smoke-$<CONFIG>"
+  )
+  add_test(
+    NAME recovered-level-assets-smoke
+    COMMAND rr2nw_recovered_level_assets_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/recovered-level-assets-smoke-$<CONFIG>"
   )
   add_test(
     NAME legacy-tagged-file-smoke
