@@ -522,6 +522,32 @@ belonging to the briefing/render-frame boundary:
 `SUA_BeginRender`, `SUA_EndRender`, `ZAV_RenderFrame`, `ZAV_EndRenderFrame`,
 `ZAV_PrintFrameInfo` and `D3D_DrawZList`.
 
+The frame-runtime tranche resolves those six symbols behind one explicit
+stage contract rather than activating the complete `ZAV.obj`, `super.obj` and
+`DRAWD3D.obj` archive members. A direct-link measurement was rejected: it
+expanded the boundary to 75 unresolved dependencies and introduced duplicate
+software/Direct3D texture entry points. The bounded owner instead requires
+callbacks for arena begin, scene draw, graphics finish, arena end and frame
+scene release. Missing callbacks accumulate a queryable issue mask and make
+the runtime readiness check fail; a null view direction is rejected before
+dispatch. `D3D_DrawZList` is a separate guarded stage: software devices skip
+it, while hardware mode requires and invokes the registered backend flush.
+The complete recovered compile gates retain their frame bodies under explicit
+`*Recovered`/`*Hardware` adapter names. This prevents duplicate public symbols
+when those archives are connected to the dispatcher and gives the next tranche
+unambiguous callbacks to bind without editing the recovered files.
+
+The executable contract runs the main-loop stage order on an empty software
+scene, proves that no hardware flush leaks into that path, switches to a
+hardware descriptor and observes exactly one flush, and verifies every missing
+stage diagnostic. Consequently `rr2nw_vehicle_shell_link_probe` now links and
+runs with no unresolved symbol in Debug or Release. This is a checked
+integration seam, not a claim that the recovered world is rendering: the first
+game-executable
+tranche must bind the callbacks to `g_arena`, `pScene->Draw`, `GREndScene`, the
+dynamic waste-box cleanup and the selected renderer backend before entering
+the frame loop.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -535,12 +561,13 @@ belonging to the briefing/render-frame boundary:
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and all
    five original Vehicle shell symbols have real recovered owners. The real Menu
    owner is now compiled, its software texture/draw path executes, and the
-   recovered idempotent shutdown path executes. The deeper shell probe now
-   exposes only six render-orchestration symbols.
+   recovered idempotent shutdown path executes. A checked frame-stage owner now
+   closes the deeper shell probe without hiding missing runtime bindings.
    Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
-   bounded 8-bit framebuffer; the briefing frame loop is next.
+   bounded 8-bit framebuffer; recovered frame-stage binding and the first game
+   executable are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

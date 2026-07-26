@@ -80,6 +80,10 @@ claim authorship of inherited Logos code or retail data.
   allocation/destruction contracts.
 - Added executable contracts for the recovered console constant-string parser
   and briefing channel-map equality/interpolation behavior.
+- Added a checked render-frame runtime boundary for the five software frame
+  stages and the hardware-only z-list flush, plus an executable contract for
+  missing-stage diagnostics, software ordering, null input rejection and D3D
+  dispatch.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.
@@ -177,6 +181,12 @@ claim authorship of inherited Logos code or retail data.
   than an ABI-changing compiler switch. ZAV overall diagnostics avoid
   zero-duration division and bounded-buffer truncation. These real owners reduce
   the deeper shell probe from 9 to the six render-frame symbols.
+- Resolved the final six shell-probe symbols through a checked frame dispatch
+  contract instead of pulling the monolithic ZAV, Supervisor and Direct3D
+  objects. Unconfigured stages are observable errors, software never invokes
+  the hardware z-list callback, and the deeper shell probe now links and runs
+  in both configurations. Binding those stages to the recovered scene/arena
+  implementations remains the next executable tranche.
 - Fixed `CChannelMap::operator==` infinite recursion, retained its loop index
   under standard C++ for-scope rules and removed the unrelated scene umbrella
   from that mathematical translation unit. Copy/self-assignment now retains

@@ -136,9 +136,18 @@ contracts, reducing that frontier to 9. Briefing render orchestration and the
 three Menu shutdown services were the next boundary. The recovered ZAV and
 Supervisor sources now compile against armed, idempotent lifecycle owners and
 an executable contract verifies empty, active, level-only and repeated release
-order. The honest frontier is now the six briefing/render-frame services,
-followed by the game executable and retail level loading; the legacy Direct3D
-panel payload is not part of this software tranche.
+order. At that point the honest frontier was the six briefing/render-frame
+services, followed by the game executable and retail level loading; the legacy
+Direct3D panel payload was not part of that software tranche.
+
+Those six entry points now have a checked frame-stage owner and the deeper
+shell probe links cleanly. The contract diagnoses every unbound software stage,
+rejects a null view direction and keeps the D3D z-list flush behind an actual
+hardware-device check. Its smoke executes the recovered main-loop ordering on
+an empty software scene and the hardware flush as a separate branch. This is
+the seam for the next slice, not a rendered-game claim: bind it to the recovered
+arena/scene/graphics implementations, then create the first game executable
+and load the read-only retail fixture.
 
 ### Цель
 

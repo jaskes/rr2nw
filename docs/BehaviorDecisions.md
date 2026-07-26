@@ -142,3 +142,29 @@ instead of selecting an event through uninitialized stack data.
 Regression contract: `legacy-menu-shutdown-smoke`,
 `legacy-publisher-lifecycle-smoke`, `legacy-kernel-state-smoke` and the
 Debug/Release shell-link measurement.
+
+## BD-012: frame entry points form a checked dispatch boundary
+
+Status: accepted on 2026-07-26.
+
+The recovered frame functions live inside three monolithic translation units.
+Pulling those objects merely to satisfy six shell symbols activates unrelated
+initialization, renderer and content dependencies and conflicts with the
+bounded software texture owner. The modern shell therefore owns the public
+frame entry points and dispatches their arena, scene, graphics-finish and
+cleanup stages through explicitly configured callbacks.
+
+The strict recovered archives retain their implementations under internal
+`*Recovered` and `*Hardware` adapter names. They can therefore be linked and
+registered later without colliding with the public dispatcher symbols.
+
+An absent callback is not accepted as successful rendering: readiness fails
+and the attempted stage is recorded in a queryable issue mask. A null view
+direction is rejected. The legacy Direct3D z-list callback is never dispatched
+for a software device and is mandatory when hardware mode is selected. The
+first game executable must bind all required stages before entering its loop;
+this seam may later receive SDL-backed implementations without changing game
+call sites.
+
+Regression contract: `legacy-frame-runtime-smoke` and zero-symbol Debug/Release
+`rr2nw_vehicle_shell_link_probe` linkage.

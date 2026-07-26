@@ -360,6 +360,24 @@ add_library(rr2nw_main_zav_scene_state STATIC
 target_include_directories(rr2nw_main_zav_scene_state PUBLIC nw/MAIN)
 target_compile_features(rr2nw_main_zav_scene_state PUBLIC cxx_std_14)
 
+add_library(rr2nw_frame_runtime STATIC
+  nw/MAIN/FrameRuntimeState.cpp
+  nw/MAIN/FrameRuntimeState.h
+)
+target_link_libraries(rr2nw_frame_runtime PUBLIC rr2nw_graph_runtime_state)
+target_include_directories(rr2nw_frame_runtime PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+  nw/MAIN
+)
+target_compile_features(rr2nw_frame_runtime PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_frame_runtime PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_library(rr2nw_main_zav_shutdown_state STATIC
   nw/MAIN/ZavShutdownState.cpp
   nw/MAIN/ZavShutdownState.h
@@ -411,6 +429,9 @@ target_include_directories(rr2nw_main_zav_full PUBLIC
 target_compile_features(rr2nw_main_zav_full PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_main_zav_full PRIVATE
   __NT__
+  ZAV_RenderFrame=ZAV_RenderFrameRecovered
+  ZAV_EndRenderFrame=ZAV_EndRenderFrameRecovered
+  ZAV_PrintFrameInfo=ZAV_PrintFrameInfoRecovered
   RR2NW_ZAV_SCENE_STATE_EXTERNAL
   RR2NW_ZAV_SHUTDOWN_EXTERNAL
   RR2NW_ZAV_OVERALL_INFO_EXTERNAL
@@ -439,6 +460,8 @@ target_include_directories(rr2nw_arena_super_full PUBLIC
 target_compile_features(rr2nw_arena_super_full PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_arena_super_full PRIVATE
   __NT__
+  SUA_BeginRender=SUA_BeginRenderRecovered
+  SUA_EndRender=SUA_EndRenderRecovered
   RR2NW_SHELL_GLOBALS_EXTERNAL
   RR2NW_DEBUG_MAP_GLOBAL_EXTERNAL
   RR2NW_MENU_GLOBAL_EXTERNAL
@@ -692,6 +715,7 @@ target_include_directories(rr2nw_graph_d3d_full PUBLIC
 target_compile_features(rr2nw_graph_d3d_full PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_graph_d3d_full PRIVATE
   __NT__
+  D3D_DrawZList=D3D_DrawZListHardware
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
@@ -826,6 +850,7 @@ if(MSVC)
   target_compile_options(
     rr2nw_arena_sua_shutdown_state PRIVATE /W4 /permissive-
   )
+  target_compile_options(rr2nw_frame_runtime PRIVATE /W4 /permissive-)
   target_compile_options(
     rr2nw_main_zav_full PRIVATE /W3 /permissive- /wd4081 /wd4244
   )
@@ -1099,6 +1124,7 @@ target_link_libraries(rr2nw_legacy_shell_full PUBLIC
   rr2nw_graph_image_runtime_state
   rr2nw_graph_fixed_font_runtime_state
   rr2nw_graph_panel_lifecycle
+  rr2nw_frame_runtime
   rr2nw_main_zav_scene_state
   rr2nw_scene_draw_state
   rr2nw_scene_vessel_runtime_state
@@ -1605,6 +1631,23 @@ target_compile_definitions(rr2nw_graph_runtime_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_frame_runtime_smoke
+  src/portability/FrameRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_frame_runtime_smoke PRIVATE rr2nw_frame_runtime)
+target_include_directories(rr2nw_frame_runtime_smoke PRIVATE
+  nw/ARENA
+  nw/ARENA/H
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_frame_runtime_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_frame_runtime_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_menu_texture_smoke
   src/portability/MenuTextureSmoke.cpp
 )
@@ -1709,6 +1752,7 @@ if(MSVC)
   target_compile_options(rr2nw_view_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_frame_runtime_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_menu_texture_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_menu_shutdown_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_panel_lifecycle_smoke PRIVATE /W4 /permissive-)
@@ -1777,6 +1821,7 @@ if(BUILD_TESTING)
   add_test(NAME legacy-view-state-smoke COMMAND rr2nw_view_state_smoke)
   add_test(NAME legacy-scene-draw-smoke COMMAND rr2nw_scene_draw_smoke)
   add_test(NAME legacy-graph-runtime-smoke COMMAND rr2nw_graph_runtime_smoke)
+  add_test(NAME legacy-frame-runtime-smoke COMMAND rr2nw_frame_runtime_smoke)
   add_test(
     NAME legacy-menu-texture-smoke
     COMMAND rr2nw_menu_texture_smoke
