@@ -92,9 +92,10 @@ retail EXE как независимый black-box reference.
 
 ## M1. Современный Windows x86 vertical slice — 0.1.0
 
-Status: in progress. CMake/MSVC Win32 configure, Debug/Release builds and the
-first linked legacy design-library smoke are working. Game executable and
-retail level loading remain open.
+Status: in progress. CMake/MSVC Win32 configure, Debug/Release builds, the
+first linked legacy design-library boundary, tagged-file round-trip/corruption
+coverage and a compiling/running script VM smoke are working. Game executable
+and retail level loading remain open.
 
 ### Цель
 

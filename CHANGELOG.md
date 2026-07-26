@@ -10,6 +10,10 @@ claim authorship of inherited Logos code or retail data.
 - Added the first modern CMake/MSVC Win32 slice: the recovered legacy
   math/tagged-filesystem/assertion aggregates and an executable
   ABI/PRNG/vector/matrix smoke test.
+- Added a nested tagged-file round-trip test, including clean rejection of a
+  truncated terminal payload.
+- Added the complete legacy script compiler and runtime libraries to CMake and
+  a smoke test that compiles and executes a minimal program in the bytecode VM.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests

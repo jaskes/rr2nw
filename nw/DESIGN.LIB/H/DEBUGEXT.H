@@ -38,6 +38,12 @@
 	extern "C" {
 #endif
 
+#ifdef	_ASSERT
+	// The MSVC CRT owns the same compatibility macro name. This header has
+	// always supplied the game-specific boolean form, so replace it explicitly.
+	#undef	_ASSERT
+#endif
+
 #ifdef	_DEBUG
 	#ifndef	__DEBUGEXT_FILEMSG
 		#define	__DEBUGEXT_FILEMSG	__FILE__

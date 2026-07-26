@@ -42,10 +42,37 @@ aggregates and links a smoke executable that checks Win32 ABI widths, packed
 vector/matrix sizes, the first legacy PRNG sample, integer vector arithmetic
 and a non-inline identity matrix transform.
 
+The tagged-filesystem boundary is also exercised through its public API. The
+test creates nested terminal/non-terminal chunks, covers a long chunk name,
+round-trips integer, dword and double fields, then verifies that a truncated
+terminal payload changes the reader to its non-fatal error state instead of
+crashing or accepting partial data.
+
+## Script compiler/runtime boundary
+
+The original `ARENA/SC` makefiles define two libraries. Their exact proxy
+translation-unit lists now build as `rr2nw_script_compiler` (11 units) and
+`rr2nw_script_runtime` (3 units). The disabled scanner/heap/outstream test
+programs and `TEST_SC` command-line main are not separate modern targets.
+
+An executable smoke initializes the original compiler, compiles
+`func void main() { }`, links the resulting bytecode with empty sentinel tables,
+creates a process and executes it through the recovered interpreter. This
+forces both static libraries to link and tests the 32-bit `TInt`/pointer ABI,
+not merely compilation of otherwise unreferenced objects.
+
+The compiler's inherited error path uses `setjmp`/`longjmp`. The smoke keeps
+compiler state outside automatic storage, has no C++ objects requiring stack
+unwinding across that boundary and narrowly suppresses MSVC C4611. Replacing
+the error mechanism is deferred until callers and retail scripts are under
+tests.
+
 ## Expansion order
 
-1. Finish `DESIGN.LIB` math/filesystem compile and tagged-file fixtures.
-2. Compile the script VM libraries without the command-line generator mains.
+1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
+   tagged-file fixtures.
+2. **Complete:** compile and execute the script VM libraries without enabling
+   their embedded command-line/test mains.
 3. Compile Arena kernel/state with platform calls behind narrow adapters.
 4. Add object-base modules in dependency order.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

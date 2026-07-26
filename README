@@ -39,8 +39,10 @@ See the detailed [Windows-first roadmap](docs/Roadmap.md) and
 
 Milestone M0 is complete: deterministic manifests, source/retail diff, stable
 parity IDs, PE inspection, a verified read-only retail fixture, private Windows
-state capture and a bounded launch observer are implemented and tested. The
-next active milestone is the modern Windows x86 CMake vertical slice.
+state capture and a bounded launch observer are implemented and tested. M1 is
+active: the first design-library boundary and both legacy script libraries now
+build and execute under MSVC Win32. The game executable and level-load gate are
+still open.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -57,8 +59,11 @@ ctest --preset windows-msvc-x86-debug
 ```
 
 This currently builds the recovered math, tagged-filesystem and assertion
-aggregates and runs an ABI/PRNG/vector/matrix smoke executable. It is not yet
-the game executable or a completed M1 milestone.
+aggregates plus all 14 translation units in the legacy script compiler/runtime
+libraries. CTest covers ABI/PRNG/vector/matrix behavior, tagged-file nested
+round-trip and clean truncation rejection, and compilation/execution of a
+minimal script in the original bytecode VM. It is not yet the game executable
+or a completed M1 milestone.
 
 ## Verified baseline findings
 
