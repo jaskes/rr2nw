@@ -464,6 +464,33 @@ This compile/link measurement does not claim a runnable Menu lifecycle yet:
 while `Menu::Init` requires the retail texture path. Those services must be
 connected and exercised before Menu activation is counted as executable.
 
+The Menu texture tranche shares `SmokeTextureCache.inl` between the recovered
+`Smoke.cpp` build and a standalone modern owner. The five-byte `corona.spr`
+header and payload are checked before allocation, dimensions are limited to
+4096 in either direction and 64 MiB in total, the ten-entry recovered cache has
+bounded names, and reload keeps the original texture handle. The complete
+recovered Smoke source also compiles as a strict target against this owner.
+
+`GraphSoftwareTexture.cpp` preserves the software-visible prefix of the
+recovered `STextDB`, including pixel and row-cache fields. It implements the
+palette/alpha branch required by Menu and translates the `alphaspr.asm`
+fixed-point sampler to bounded C++: destination and UV ranges are clipped,
+texture coordinates cannot escape the allocation, and the recovered 16x16
+opacity multiplication feeds the selected 16x256 palette blend table. This is
+the software Menu path only; it does not claim the Direct3D texture database.
+
+The executable contract checks exact pixels at full and partial opacity,
+horizontal clipping, zero-alpha preservation, cache identity, in-place reload,
+missing-framebuffer rejection and clean rejection of truncated or oversized
+fixtures. A local read-only sweep loaded all 18 installed `CORONA.SPR` copies
+(two distinct hashes) without importing retail data into the repository.
+`g_loadSmoke` and `_pGRDrawAlphaSprite` are therefore removed from the deeper
+probe. Debug and Release now report the same nine unresolved symbols: the six
+briefing/render-frame functions plus the Menu exit sequence `ZAV_Deinit`,
+`ZAV_PrintOverallInfo` and `SUA_DeinitEverything`. The last three own scene,
+device and Supervisor teardown and must be reconstructed as that lifecycle,
+not as empty exit hooks.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -476,8 +503,9 @@ connected and exercised before Menu activation is counted as executable.
    carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and all
    five original Vehicle shell symbols have real recovered owners. The real Menu
-   owner is now compiled, and the deeper shell probe exposes 11 Menu-service/
-   render-orchestration symbols. Projection, scene
+   owner is now compiled, its software texture/draw path executes, and the
+   deeper shell probe exposes nine shutdown/render-orchestration symbols.
+   Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
    bounded 8-bit framebuffer; Menu runtime services and the briefing frame loop

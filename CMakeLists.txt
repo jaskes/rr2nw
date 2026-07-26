@@ -609,6 +609,30 @@ target_compile_definitions(rr2nw_graph_runtime_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_graph_software_texture STATIC
+  nw/GRAPH/GraphSoftwareTexture.cpp
+)
+target_link_libraries(rr2nw_graph_software_texture PUBLIC
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_graph_software_texture PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_software_texture PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_software_texture PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_graph_software_texture PRIVATE /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_graph_image_runtime_state STATIC
   nw/GRAPH/ImageRuntimeState.cpp
 )
@@ -830,12 +854,74 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_smoke_texture_cache STATIC
+  nw/ARENA/OBASE/Smoke/SmokeTextureCache.cpp
+  nw/ARENA/OBASE/Smoke/SmokeTextureCache.inl
+)
+target_link_libraries(rr2nw_arena_smoke_texture_cache PUBLIC
+  rr2nw_graph_software_texture
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_arena_smoke_texture_cache PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Smoke
+  nw/GRAPH
+)
+target_compile_features(rr2nw_arena_smoke_texture_cache PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_smoke_texture_cache PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_smoke_texture_cache PRIVATE /W4 /permissive-
+  )
+endif()
+
+add_library(rr2nw_arena_obase_smoke_full STATIC
+  nw/ARENA/OBASE/Smoke/Smoke.cpp
+)
+target_link_libraries(rr2nw_arena_obase_smoke_full PUBLIC
+  rr2nw_arena_smoke_texture_cache
+  rr2nw_arena_storage
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_arena_obase_smoke_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Smoke
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_smoke_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_smoke_full PRIVATE
+  __NT__
+  RR2NW_SMOKE_TEXTURE_CACHE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_smoke_full PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_menu_full STATIC
   nw/ARENA/OBASE/MENU/MENU.CPP
   nw/ARENA/OBASE/MENU/MenuGlobal.cpp
   nw/ARENA/OBASE/MENU/MenuGlobal.inl
 )
 target_link_libraries(rr2nw_arena_menu_full PUBLIC
+  rr2nw_arena_smoke_texture_cache
   rr2nw_arena_storage
   rr2nw_arena_level_state
   rr2nw_arena_time_runtime_state
@@ -1382,6 +1468,19 @@ target_compile_definitions(rr2nw_graph_runtime_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_menu_texture_smoke
+  src/portability/MenuTextureSmoke.cpp
+)
+target_link_libraries(rr2nw_menu_texture_smoke PRIVATE
+  rr2nw_arena_smoke_texture_cache
+)
+target_compile_features(rr2nw_menu_texture_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_menu_texture_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_panel_lifecycle_smoke
   src/portability/PanelLifecycleSmoke.cpp
 )
@@ -1456,6 +1555,7 @@ if(MSVC)
   target_compile_options(rr2nw_view_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_menu_texture_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_panel_lifecycle_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
   target_compile_options(
@@ -1518,6 +1618,11 @@ if(BUILD_TESTING)
   add_test(NAME legacy-view-state-smoke COMMAND rr2nw_view_state_smoke)
   add_test(NAME legacy-scene-draw-smoke COMMAND rr2nw_scene_draw_smoke)
   add_test(NAME legacy-graph-runtime-smoke COMMAND rr2nw_graph_runtime_smoke)
+  add_test(
+    NAME legacy-menu-texture-smoke
+    COMMAND rr2nw_menu_texture_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/menu-texture-smoke.spr"
+  )
   add_test(
     NAME legacy-panel-lifecycle-smoke
     COMMAND rr2nw_panel_lifecycle_smoke

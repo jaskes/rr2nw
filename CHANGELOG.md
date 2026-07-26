@@ -69,6 +69,12 @@ claim authorship of inherited Logos code or retail data.
   exposes the shell's transitive executable frontier.
 - Added the complete recovered Menu implementation as a strict archive and
   shared its process-wide `g_menu` owner with the original Supervisor source.
+- Added a bounded software texture owner for the recovered `STextDB` prefix,
+  4-bit alpha textures and fixed-point alpha sprites, plus a strict compile
+  gate for the complete recovered Smoke implementation.
+- Added an executable Menu texture contract covering valid, truncated and
+  oversized `corona.spr` data, cache/reload identity, clipping, full and
+  partial opacity blending and missing-framebuffer rejection.
 - Added executable contracts for the recovered console constant-string parser
   and briefing channel-map equality/interpolation behavior.
 - Expanded the software graph runtime contract to cover palette publication,
@@ -152,6 +158,11 @@ claim authorship of inherited Logos code or retail data.
   archive resolves `g_menu` and `Menu::Deactivate`; its complete vtable and
   implementation expose five initialization/teardown edges, leaving 11
   measured symbols rather than concealing them behind a placeholder menu.
+- Shared the bounded `g_loadSmoke` cache/loader between the recovered Smoke
+  source and modern Menu owner, and translated the required `alphaspr.asm`
+  software path to bounded C++. These real owners reduce the deeper shell
+  probe from 11 to 9 symbols; the remaining Menu edges are the ZAV/Supervisor
+  shutdown sequence rather than texture or drawing placeholders.
 - Fixed `CChannelMap::operator==` infinite recursion, retained its loop index
   under standard C++ for-scope rules and removed the unrelated scene umbrella
   from that mathematical translation unit. Copy/self-assignment now retains

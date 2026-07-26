@@ -130,9 +130,12 @@ the complete console parser, briefing channel map and bounded software
 palette/image/polygon path. The complete recovered Menu archive now owns
 `g_menu` and its lifecycle methods; activating that real archive exposes five
 additional initialization/teardown dependencies, so the honest executable
-frontier is 11 symbols. Briefing render orchestration and those Menu runtime
-services, followed by the game executable and retail level loading, remain
-open; the legacy Direct3D panel payload is not part of this software tranche.
+frontier was 11 symbols. Its recovered `corona.spr` cache plus the required
+software alpha-texture and sprite path now execute with bounded input and pixel
+contracts, reducing that frontier to 9. Briefing render orchestration and the
+three Menu shutdown services, followed by the game executable and retail level
+loading, remain open; the legacy Direct3D panel payload is not part of this
+software tranche.
 
 ### Цель
 

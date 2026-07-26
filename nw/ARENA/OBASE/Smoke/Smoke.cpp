@@ -753,62 +753,9 @@ int Smoke::onMove( double t )
 }
 
 
-cs_CacheSmoke g_cacheSmoke[10];
-int           g_cacheSmokeCnt = 0;
-
-GR_HTEXTURE   g_loadSmoke( const char *fileName , GR_HTEXTURE hT, void *)
-{
-   int i;
-   GR_HTEXTURE reth = 0;
-
-   if (hT == NULL)
-   {
-        for( i = 0; i < g_cacheSmokeCnt; ++i )
-            if(  strcmpi(g_cacheSmoke[i].fname,fileName) == 0  )
-            {
-                reth = g_cacheSmoke[i].hand;
-                break;
-            }
-
-
-        if(  reth != 0  )
-            return reth;
-
-   }
-
-   int x = 0,y = 0, c;
-
-   FILE *f = CFileResource::FOpenCurrent(fileName);
-
-   if(  f != NULL  )
-   {
-        fread(&x,2,1,f);
-        fread(&y,2,1,f);
-        fread(&c,1,1,f);
-
-        char *data = new char[x*y+12];
-        fread(data+12,x,y,f);
-
-        ((dword*)data)[0] = TEXTURE_ALPHA|TEXTURE_PAL_FORMAT;
-        ((dword*)data)[1] = y;
-        ((dword*)data)[2] = x;
-
-        reth = GRLoadTextureToDB(hT,NULL,0,(byte*)(data+12));
-        RTCHECK(reth!=NULL,"AttributeSmoke::update Can't Load texture");
-        GRSetTextureLoadFunc( reth, fileName, g_loadSmoke);
-        delete [] data;
-        fclose(f);
-
-        if(  g_cacheSmokeCnt < 10 && hT == NULL )
-        {
-             strncpy(g_cacheSmoke[g_cacheSmokeCnt].fname,fileName,100);
-                     g_cacheSmoke[g_cacheSmokeCnt].hand = reth;
-             ++g_cacheSmokeCnt;
-        }
-   }
-   else s_ASSERTNQ1("AttributeSmoke::update Can't open file %s",fileName);
-   return reth;
-}
+#ifndef RR2NW_SMOKE_TEXTURE_CACHE_EXTERNAL
+#include "SmokeTextureCache.inl"
+#endif
 
 inline double getR(int x) { return x>>16; }
 inline double getG(int x) { return (x>>8)&255; }
