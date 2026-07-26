@@ -40,7 +40,18 @@ Session::Session(
 Session::~Session()
 // ============================================================================
 {
-    m_contextList = NULL;
+    while (m_contextList != NULL)
+    {
+        SimulationContextElem *next = m_contextList->next;
+        delete m_contextList;
+        m_contextList = next;
+    }
+    while (m_observerList != NULL)
+    {
+        ObserverElem *next = m_observerList->next;
+        delete m_observerList;
+        m_observerList = next;
+    }
 }
 // ============================================================================
 void Session::Add(
@@ -74,6 +85,7 @@ int Session::Remove(
                    )
 {
    int founded = 0;
+   SimulationContextElem *removed = NULL;
    if (m_contextList)
    {
       SimulationContextElem *list  =  m_contextList;
@@ -85,14 +97,16 @@ int Session::Remove(
          {
             founded = 1;
             *prev   = list->next;
+            removed = list;
          }
-
-         prev = &(list->next);
+         else
+            prev = &(list->next);
       }
    }
 
    if (founded)
    {
+      delete removed;
       fprintf(stdout, "\nContext Removed\n");
    }
    return(founded);
@@ -130,6 +144,7 @@ int Session::RemoveObserver(
                            )
 {
    int founded = 0;
+   ObserverElem *removed = NULL;
    if (m_observerList)
    {
       ObserverElem  *list =  m_observerList;
@@ -141,14 +156,16 @@ int Session::RemoveObserver(
          {
             founded = 1;
             *prev   = list->next;
+            removed = list;
          }
-
-         prev = &(list->next);
+         else
+            prev = &(list->next);
       }
    }
 
    if (founded)
    {
+      delete removed;
       fprintf(stdout, "\n Observer Removed\n");
    }
 

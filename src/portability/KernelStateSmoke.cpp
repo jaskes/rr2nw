@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "kernel/h/s_evdata.h"
+#include "kernel/h/session.h"
 
 namespace {
 
@@ -68,6 +69,21 @@ int main() {
       actual_id != expected_id || actual_id.getCachePos() != 9) {
     return Fail("event payload round-trip diverged");
   }
+
+  Session session;
+  SimulationContext* const context =
+      reinterpret_cast<SimulationContext*>(0x1234);
+  KR_Observer* const observer = reinterpret_cast<KR_Observer*>(0x5678);
+  session.Add(context);
+  session.AddObserver(observer);
+  if (!session.Remove(context) || session.Remove(context) ||
+      !session.RemoveObserver(observer) || session.RemoveObserver(observer) ||
+      session.m_contextList != nullptr || session.m_observerList != nullptr) {
+    return Fail("session list removal did not release exactly one node");
+  }
+
+  session.Add(context);
+  session.AddObserver(observer);
 
   std::cout << "legacy-kernel-state-smoke: OK\n";
   return EXIT_SUCCESS;

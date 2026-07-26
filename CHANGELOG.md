@@ -75,6 +75,9 @@ claim authorship of inherited Logos code or retail data.
 - Added an executable Menu texture contract covering valid, truncated and
   oversized `corona.spr` data, cache/reload identity, clipping, full and
   partial opacity blending and missing-framebuffer rejection.
+- Added strict compile gates for the complete recovered ZAV, Supervisor and
+  Publisher sources, plus executable Menu shutdown and repeated Publisher
+  allocation/destruction contracts.
 - Added executable contracts for the recovered console constant-string parser
   and briefing channel-map equality/interpolation behavior.
 - Expanded the software graph runtime contract to cover palette publication,
@@ -163,6 +166,17 @@ claim authorship of inherited Logos code or retail data.
   software path to bounded C++. These real owners reduce the deeper shell
   probe from 11 to 9 symbols; the remaining Menu edges are the ZAV/Supervisor
   shutdown sequence rather than texture or drawing placeholders.
+- Reconstructed the Menu exit sequence as armed ZAV and Supervisor lifecycle
+  owners. Scene, figure library, viewports, profile/device and vehicle/session
+  resources are released in recovered order, nulled before callbacks and safe
+  on empty or repeated shutdown. `Session` now releases detached list nodes
+  and its remaining nodes at destruction, Publisher matches both array
+  allocations with `delete[]` and full-unsubscribe now walks every registered
+  event instead of consuming an uninitialized label. Its non-standard Watcom
+  derived-member action casts are replaced by class-local event dispatch rather
+  than an ABI-changing compiler switch. ZAV overall diagnostics avoid
+  zero-duration division and bounded-buffer truncation. These real owners reduce
+  the deeper shell probe from 9 to the six render-frame symbols.
 - Fixed `CChannelMap::operator==` infinite recursion, retained its loop index
   under standard C++ for-scope rules and removed the unrelated scene umbrella
   from that mathematical translation unit. Copy/self-assignment now retains

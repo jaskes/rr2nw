@@ -121,3 +121,24 @@ fixed-tick replay и state hashes; базовая модель — authoritative
 snapshots, не fragile lockstep.
 
 Regression contract: отсутствует до post-1.0 milestone.
+
+## BD-011: shutdown entry points are idempotent lifecycle boundaries
+
+Status: accepted on 2026-07-26.
+
+Menu exit and level restart may encounter empty or partially initialized
+state, and the same teardown request may be observed more than once while the
+Win32 shell is unwinding. ZAV and Supervisor resources are therefore explicitly
+armed after acquisition, disarmed and nulled before release callbacks, and safe
+to tear down repeatedly. An unarmed call performs no release because it owns no
+resources; it is not treated as evidence that game initialization succeeded.
+
+This decision does not change gameplay or retail data. It prevents null access,
+double release and per-restart `Session` list-node leaks while retaining the
+recovered release order. Publisher teardown matches array ownership, and its
+full-unsubscribe event now performs the operation named by the recovered API
+instead of selecting an event through uninitialized stack data.
+
+Regression contract: `legacy-menu-shutdown-smoke`,
+`legacy-publisher-lifecycle-smoke`, `legacy-kernel-state-smoke` and the
+Debug/Release shell-link measurement.

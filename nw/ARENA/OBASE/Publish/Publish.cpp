@@ -73,11 +73,11 @@ Publisher::Publisher( int events, int subscribers )
  //============================================================
 Publisher::~Publisher()
  {
-   delete m_subscribers;
+   delete [] m_subscribers;
    m_subscriberQnty = 0;
    m_subscribers    = NULL;
 
-   delete m_events;
+   delete [] m_events;
    m_eventDescrQnty = 0;
    m_events         = NULL;
  }
@@ -85,7 +85,30 @@ Publisher::~Publisher()
  //============================================================
 int Publisher::receiveEvent( KR_Event &event )
  {
-    return EVENTHANDLER( event );
+    switch( event.label )
+    {
+    case EVT_REMOVE_AUTHOR:
+        removeAutor(event);
+        break;
+    case EVT_DUMP:
+        dump(event);
+        break;
+    case EVT_FULL_UNSUBSCRIPT_TO_AUTHOR:
+        fullUnSubscipt(event);
+        break;
+    case EVT_UNSUBSCRIPT_TO_EVENT:
+        unSubscript(event);
+        break;
+    case EVT_SUBSCRIPT_TO_EVENT:
+        subscript(event);
+        break;
+    case KR_WAKE_UP:
+        wakeUp(event);
+        break;
+    default:
+        return EVENTHANDLER( event );
+    }
+    return 1;
  }
 
  //============================================================
@@ -175,7 +198,6 @@ void Publisher::unSubscript( KR_Event &event )
   *******************************/
 void Publisher::fullUnSubscipt( KR_Event &event )
 {
-   KR_EventLabel label;
    KR_ObjectID   author;
    KR_ObjectID   subscriber;
 
@@ -186,7 +208,13 @@ void Publisher::fullUnSubscipt( KR_Event &event )
              .close();
    //}}END_OF_GET_EVENT(EVT_FULL_UNSUBSCRIPT_TO_AUTHOR)
 
-   unSubscript(author, label, subscriber);
+   KR_ObjectList objectIndex = context->m_objectIndex;
+   for(
+        int eventIndex = objectIndex[author.cachePos].resendEventList;
+        eventIndex != -1;
+        eventIndex = m_events[eventIndex].next
+      )
+      unSubscript(author, m_events[eventIndex].label, subscriber);
 }
 
  /*******************************
@@ -224,8 +252,8 @@ void Publisher::dump( KR_Event &event )
                  j = m_subscribers[j].next
                )
             {
-                fprintf(dmp, "\t\t%d %s\n",
-                     m_subscribers[j].subscriber,
+                fprintf(dmp, "\t\t%ld %s\n",
+                     m_subscribers[j].subscriber.id,
                      context->searchObject(m_subscribers[j].subscriber));
             }
          }
@@ -259,12 +287,12 @@ void Publisher::loadStateTransitionTable()
     //{{TRANSLATION_TABLE
     static KR_ActiveObject::StateTransitionTableElem row0[6] =
     {
-        {EVT_REMOVE_AUTHOR             , ST_NEW_STATE,  0, (ACTION)removeAutor    },
-        {EVT_DUMP                      , ST_NEW_STATE,  0, (ACTION)dump           },
-        {EVT_FULL_UNSUBSCRIPT_TO_AUTHOR, ST_NEW_STATE,  0, (ACTION)fullUnSubscipt },
-        {EVT_UNSUBSCRIPT_TO_EVENT      , ST_NEW_STATE,  0, (ACTION)unSubscript    },
-        {EVT_SUBSCRIPT_TO_EVENT        , ST_NEW_STATE,  0, (ACTION)subscript      },
-        {KR_WAKE_UP                    , ST_NEW_STATE,  0, (ACTION)wakeUp         }
+        {EVT_REMOVE_AUTHOR             , ST_NEW_STATE,  0, (ACTION)NULL },
+        {EVT_DUMP                      , ST_NEW_STATE,  0, (ACTION)NULL },
+        {EVT_FULL_UNSUBSCRIPT_TO_AUTHOR, ST_NEW_STATE,  0, (ACTION)NULL },
+        {EVT_UNSUBSCRIPT_TO_EVENT      , ST_NEW_STATE,  0, (ACTION)NULL },
+        {EVT_SUBSCRIPT_TO_EVENT        , ST_NEW_STATE,  0, (ACTION)NULL },
+        {KR_WAKE_UP                    , ST_NEW_STATE,  0, (ACTION)NULL }
     };
     //}}END_OF_TRANSLATION_TABLE{{
     static StateElem STT[1]={

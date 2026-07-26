@@ -133,9 +133,12 @@ additional initialization/teardown dependencies, so the honest executable
 frontier was 11 symbols. Its recovered `corona.spr` cache plus the required
 software alpha-texture and sprite path now execute with bounded input and pixel
 contracts, reducing that frontier to 9. Briefing render orchestration and the
-three Menu shutdown services, followed by the game executable and retail level
-loading, remain open; the legacy Direct3D panel payload is not part of this
-software tranche.
+three Menu shutdown services were the next boundary. The recovered ZAV and
+Supervisor sources now compile against armed, idempotent lifecycle owners and
+an executable contract verifies empty, active, level-only and repeated release
+order. The honest frontier is now the six briefing/render-frame services,
+followed by the game executable and retail level loading; the legacy Direct3D
+panel payload is not part of this software tranche.
 
 ### Цель
 

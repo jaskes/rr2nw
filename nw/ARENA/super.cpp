@@ -21,6 +21,10 @@
 #include "briefing.h"
 #include "menu.h"
 #include "zav.h"
+#include "SupervisorShutdownState.h"
+#ifndef RR2NW_SUA_SHUTDOWN_EXTERNAL
+#include "SupervisorShutdownState.inl"
+#endif
 
 // Green Globals BEGIN
 
@@ -311,21 +315,39 @@ void Supervisor::endSeance()
  {
    SUA_BindSession(NULL);
 
-   m_context->clearObjects();
-   m_session.Remove(m_context);
-   m_session.RemoveObserver(&m_observer);
+   if( m_context != NULL )
+   {
+      m_context->clearObjects();
+      m_session.Remove(m_context);
+      m_session.RemoveObserver(&m_observer);
+      m_level.closeLevel();
+      g_arena.closeSeance();
+      delete m_context;
+      m_context = NULL;
+   }
    g_cacheSmokeCnt = 0;
 
    Session::m_realTimer = NULL;
 
    Session::m_hardware = NULL;
 
-   m_level.closeLevel();
-   g_arena.closeSeance();
+   delete m_publisher;
+   m_publisher = NULL;
    g_vehicle = 0;
  }
 
 Supervisor g_super;
+
+static void CloseVehiclePanel()
+ {
+   if( g_vehicle != NULL )
+      g_vehicle->closePanel(Session::m_moment);
+ }
+
+static void EndSupervisorSeance()
+ {
+   g_super.endSeance();
+ }
 
 void PIN_InitEverything()
 {
@@ -336,16 +358,19 @@ void PIN_InitEverything()
 void SUA_InitEverything()
  {
 
+   SSuaShutdownHooks shutdownHooks = {
+      CloseVehiclePanel,
+      EndSupervisorSeance
+   };
+   SUA_ConfigureShutdown(shutdownHooks);
+
    InitNearAI_Data(); // Green
    g_super.startSeance();
 
-   //g_hardware.Test(); // fixme Green
- }
+   if( g_super.m_context != NULL )
+      SUA_ArmShutdown();
 
-void SUA_DeinitEverything()
- {
-   g_vehicle->closePanel(Session::m_moment);
-   g_super.endSeance();
+   //g_hardware.Test(); // fixme Green
  }
 
 void PIN_DeInitEverything()

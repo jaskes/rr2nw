@@ -360,6 +360,113 @@ add_library(rr2nw_main_zav_scene_state STATIC
 target_include_directories(rr2nw_main_zav_scene_state PUBLIC nw/MAIN)
 target_compile_features(rr2nw_main_zav_scene_state PUBLIC cxx_std_14)
 
+add_library(rr2nw_main_zav_shutdown_state STATIC
+  nw/MAIN/ZavShutdownState.cpp
+  nw/MAIN/ZavShutdownState.h
+  nw/MAIN/ZavShutdownState.inl
+  nw/MAIN/ZavOverallInfoState.cpp
+  nw/MAIN/ZavOverallInfoState.h
+  nw/MAIN/ZavOverallInfoState.inl
+)
+target_link_libraries(
+  rr2nw_main_zav_shutdown_state PUBLIC rr2nw_main_zav_scene_state
+)
+target_include_directories(rr2nw_main_zav_shutdown_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/MAIN
+)
+target_compile_features(rr2nw_main_zav_shutdown_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_main_zav_shutdown_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_sua_shutdown_state STATIC
+  nw/ARENA/SupervisorShutdownState.cpp
+  nw/ARENA/SupervisorShutdownState.h
+  nw/ARENA/SupervisorShutdownState.inl
+)
+target_include_directories(rr2nw_arena_sua_shutdown_state PUBLIC nw/ARENA)
+target_compile_features(rr2nw_arena_sua_shutdown_state PUBLIC cxx_std_14)
+
+add_library(rr2nw_main_zav_full STATIC
+  nw/MAIN/ZAV.CPP
+)
+target_link_libraries(
+  rr2nw_main_zav_full PUBLIC rr2nw_main_zav_shutdown_state
+)
+target_include_directories(rr2nw_main_zav_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/BRIEFING
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_main_zav_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_main_zav_full PRIVATE
+  __NT__
+  RR2NW_ZAV_SCENE_STATE_EXTERNAL
+  RR2NW_ZAV_SHUTDOWN_EXTERNAL
+  RR2NW_ZAV_OVERALL_INFO_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_super_full STATIC
+  nw/ARENA/super.cpp
+)
+target_link_libraries(rr2nw_arena_super_full PUBLIC
+  rr2nw_arena_sua_shutdown_state
+  rr2nw_arena_time_runtime_state
+)
+target_include_directories(rr2nw_arena_super_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/BRIEFING
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_super_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_super_full PRIVATE
+  __NT__
+  RR2NW_SHELL_GLOBALS_EXTERNAL
+  RR2NW_DEBUG_MAP_GLOBAL_EXTERNAL
+  RR2NW_MENU_GLOBAL_EXTERNAL
+  RR2NW_TIME_RUNTIME_EXTERNAL
+  RR2NW_SUA_SHUTDOWN_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_obase_publish_full STATIC
+  nw/ARENA/OBASE/Publish/Publish.cpp
+)
+target_link_libraries(
+  rr2nw_arena_obase_publish_full PUBLIC rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_obase_publish_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_publish_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_publish_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_library(rr2nw_arena_script_viewpoints STATIC
   nw/ARENA/SC/ScriptViewPointState.cpp
   nw/ARENA/SC/ScriptViewPointState.inl
@@ -714,6 +821,22 @@ if(MSVC)
   )
   target_compile_options(rr2nw_main_zav_scene_state PRIVATE /W4 /permissive-)
   target_compile_options(
+    rr2nw_main_zav_shutdown_state PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_arena_sua_shutdown_state PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_main_zav_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_arena_super_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_arena_obase_publish_full PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
     rr2nw_arena_script_viewpoints PRIVATE /W3 /permissive- /wd4081
   )
   target_compile_options(
@@ -922,6 +1045,7 @@ add_library(rr2nw_arena_menu_full STATIC
 )
 target_link_libraries(rr2nw_arena_menu_full PUBLIC
   rr2nw_arena_smoke_texture_cache
+  rr2nw_arena_sua_shutdown_state
   rr2nw_arena_storage
   rr2nw_arena_level_state
   rr2nw_arena_time_runtime_state
@@ -929,6 +1053,7 @@ target_link_libraries(rr2nw_arena_menu_full PUBLIC
   rr2nw_graph_image_runtime_state
   rr2nw_graph_fixed_font_runtime_state
   rr2nw_main_zav_scene_state
+  rr2nw_main_zav_shutdown_state
 )
 target_include_directories(rr2nw_arena_menu_full PUBLIC
   nw/INCLUDE
@@ -1316,6 +1441,18 @@ add_executable(rr2nw_kernel_state_smoke
 target_link_libraries(rr2nw_kernel_state_smoke PRIVATE rr2nw_arena_kernel)
 target_compile_features(rr2nw_kernel_state_smoke PRIVATE cxx_std_14)
 
+add_executable(rr2nw_publisher_lifecycle_smoke
+  src/portability/PublisherLifecycleSmoke.cpp
+)
+target_link_libraries(
+  rr2nw_publisher_lifecycle_smoke PRIVATE rr2nw_arena_obase_publish_full
+)
+target_compile_features(rr2nw_publisher_lifecycle_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_publisher_lifecycle_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_storage_save_smoke
   src/portability/StorageSaveSmoke.cpp
 )
@@ -1481,6 +1618,20 @@ target_compile_definitions(rr2nw_menu_texture_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_menu_shutdown_smoke
+  src/portability/MenuShutdownSmoke.cpp
+)
+target_link_libraries(rr2nw_menu_shutdown_smoke PRIVATE
+  rr2nw_arena_sua_shutdown_state
+  rr2nw_main_zav_shutdown_state
+)
+target_compile_features(rr2nw_menu_shutdown_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_menu_shutdown_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_panel_lifecycle_smoke
   src/portability/PanelLifecycleSmoke.cpp
 )
@@ -1537,6 +1688,9 @@ if(MSVC)
   target_compile_options(rr2nw_config_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_script_vm_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_kernel_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_publisher_lifecycle_smoke PRIVATE /W4 /permissive-
+  )
   target_compile_options(rr2nw_storage_save_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_context_route_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_mproj_smoke PRIVATE /W4 /permissive-)
@@ -1556,6 +1710,7 @@ if(MSVC)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_menu_texture_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_menu_shutdown_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_panel_lifecycle_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
   target_compile_options(
@@ -1578,6 +1733,10 @@ if(BUILD_TESTING)
   )
   add_test(NAME legacy-script-vm-smoke COMMAND rr2nw_script_vm_smoke)
   add_test(NAME legacy-kernel-state-smoke COMMAND rr2nw_kernel_state_smoke)
+  add_test(
+    NAME legacy-publisher-lifecycle-smoke
+    COMMAND rr2nw_publisher_lifecycle_smoke
+  )
   add_test(
     NAME legacy-storage-save-smoke
     COMMAND rr2nw_storage_save_smoke
@@ -1623,6 +1782,7 @@ if(BUILD_TESTING)
     COMMAND rr2nw_menu_texture_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/menu-texture-smoke.spr"
   )
+  add_test(NAME legacy-menu-shutdown-smoke COMMAND rr2nw_menu_shutdown_smoke)
   add_test(
     NAME legacy-panel-lifecycle-smoke
     COMMAND rr2nw_panel_lifecycle_smoke

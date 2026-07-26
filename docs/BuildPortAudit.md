@@ -491,6 +491,37 @@ briefing/render-frame functions plus the Menu exit sequence `ZAV_Deinit`,
 device and Supervisor teardown and must be reconstructed as that lifecycle,
 not as empty exit hooks.
 
+The Menu shutdown tranche reconstructs those three services as armed lifecycle
+owners shared with the complete recovered `ZAV.CPP` and `super.cpp` sources.
+The ZAV owner releases the active scene and figure library, then viewport
+objects/array, profile/device/timer hook and virtual screen in recovered order;
+it clears ownership before invoking release callbacks, so level restart and
+full shutdown are both idempotent. The SUA owner likewise closes the active
+vehicle panel before the Supervisor seance and disarms before either callback.
+An unarmed owner is a verified empty lifecycle, not a replacement success path:
+the recovered initialization functions configure and arm both owners after
+resource acquisition.
+
+The complete ZAV and Supervisor translation units now compile as strict MSVC
+x86 gates against these external owners. ZAV also has a native MSVC `__rdtsc`
+implementation instead of silently ignoring the Watcom `#pragma aux` body,
+and its overall report formats zero-duration state without division by zero.
+Supervisor teardown accepts partial initialization, deletes/nulls the context
+and publisher, and the core `Session` releases removed and destructor-owned
+list nodes rather than leaking one allocation per restart. The recovered
+Publisher now compiles as its own strict gate and an executable lifecycle test
+repeats both of its allocation/destruction paths. It matches its two `new[]`
+allocations with `delete[]`; its six generated Watcom derived-member casts are
+replaced by class-local event dispatch without changing the shared kernel
+member-pointer ABI. Full-unsubscribe walks all of an author's event labels
+instead of passing an uninitialized label, and the executable contract proves
+both subscriber slots are released and reusable. The Menu contract covers
+empty, active, level-only and repeated shutdown in the exact release order.
+Debug and Release probes now expose the same six unresolved symbols, all
+belonging to the briefing/render-frame boundary:
+`SUA_BeginRender`, `SUA_EndRender`, `ZAV_RenderFrame`, `ZAV_EndRenderFrame`,
+`ZAV_PrintFrameInfo` and `D3D_DrawZList`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -504,12 +535,12 @@ not as empty exit hooks.
    Level/MPROJ/DebugMap state now executes, the full DebugMap compiles, and all
    five original Vehicle shell symbols have real recovered owners. The real Menu
    owner is now compiled, its software texture/draw path executes, and the
-   deeper shell probe exposes nine shutdown/render-orchestration symbols.
+   recovered idempotent shutdown path executes. The deeper shell probe now
+   exposes only six render-orchestration symbols.
    Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
-   bounded 8-bit framebuffer; Menu runtime services and the briefing frame loop
-   are next.
+   bounded 8-bit framebuffer; the briefing frame loop is next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

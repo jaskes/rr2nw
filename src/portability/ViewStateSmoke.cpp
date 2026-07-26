@@ -87,6 +87,9 @@ int main() {
   if (ZAV_Scene() != nullptr || ppViewports != nullptr) {
     return Fail("ZAV pointer state is not zero-initialized");
   }
+  if (ZAV_Viewport() != nullptr) {
+    return Fail("empty ZAV viewport access did not stay null");
+  }
   CViewScene* const sentinel = reinterpret_cast<CViewScene*>(0x1234);
   pScene = sentinel;
   if (ZAV_Scene() != sentinel) {

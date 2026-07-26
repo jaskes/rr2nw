@@ -22,6 +22,10 @@
 
 #include "direct.h"
 
+#ifndef PATH_MAX
+#define PATH_MAX _MAX_PATH
+#endif
+
 // --------------------------------------------------------
 #ifdef	__DOS__
 #define	_PROFILE	1
@@ -118,7 +122,10 @@ dword	MemMax()
 
 static CUserCtlDefs	m_ctl;
 double	m_fDeltaT, fTerrain0;
-static	dword	m_dwPrevTime, dwTime0, dwFrames, nWhiteColor, dwMem0, dwMem1;
+#include "ZavOverallInfoState.h"
+#ifndef RR2NW_ZAV_OVERALL_INFO_EXTERNAL
+#include "ZavOverallInfoState.inl"
+#endif
 //static	ibool	bLimitMotion, bKeysDebug;
 
 
@@ -140,10 +147,13 @@ struct	SModeDef {
 #ifndef RR2NW_ZAV_SCENE_STATE_EXTERNAL
 #include "ZavSceneState.inl"
 #endif
+#include "ZavShutdownState.h"
+#ifndef RR2NW_ZAV_SHUTDOWN_EXTERNAL
+#include "ZavShutdownState.inl"
+#endif
 static SModeDef	modeDef;
 static int	nActivePage = 0;
 CFixedColorFont	font5("figs5x3c.fnt");
-static	byte	*pVirtualScreen = NULL;
 static double	fFocus = 200;
 static int	nHazeMin = 400, nHazeDist = 128;
 
@@ -172,21 +182,31 @@ static void	DbgCleanUp()
 	CTimer::Uninstall();
 }
 
-static void CleanUp()
+static void ReleaseScene(CViewScene* scene)
 {
-	delete pScene;
-	CViewLibTexturedFigure::ClearLib();
-	//GRUninitGraphNT();
-	if( ppViewports ) {
-		for( int i = 0 ; i < modeDef.nPages ; i++ )
-	 		GRReleaseViewport(ppViewports[i]);
-		delete [] ppViewports;
-	}
+	delete scene;
+}
 
+static void ClearFigureLibrary()
+{
+	CViewLibTexturedFigure::ClearLib();
+}
+
+static void EndZavProfile()
+{
 	EndProfile();
-	DbgCleanUp();
-	delete [] pVirtualScreen;
-//	GRUninitGraphSGI();
+}
+
+static void ConfigureZavShutdown()
+{
+	SZavShutdownHooks hooks = {
+		ReleaseScene,
+		ClearFigureLibrary,
+		GRReleaseViewport,
+		EndZavProfile,
+		DbgCleanUp
+	};
+	ZAV_ConfigureShutdown(hooks);
 }
 
 #include<conio.h>
@@ -451,6 +471,7 @@ CViewObjectModel	basevessel;
 CViewObjectRef	refvessel;
 
 extern int __revCnt, __fullCnt;
+void __AdjustPlane(CViewOrdered *ordered);
 
 void ILY_StartupImage()
 {  CGRImage image(_gr_nScreenWidth, _gr_nScreenHeight);
@@ -501,6 +522,7 @@ extern int __printInfo;
 int   ZAV_InitGraph(HINSTANCE hInst)
 {
    __revCnt = __fullCnt = 0;
+	ConfigureZavShutdown();
 
    if (!CheckExistingRegistry()) {
       MessageBox (NULL, "You must run Setup first", "Error", MB_OK | MB_ICONERROR);
@@ -596,6 +618,7 @@ int   ZAV_InitGraph(HINSTANCE hInst)
 
 	CViewObject::SetClipRect  (ppViewports[0]->clipRect);
    GRSetViewport(ppViewports[0]);
+	ZAV_ArmGraphShutdown(modeDef.nPages);
    return 1;
 }
 
@@ -662,6 +685,7 @@ int   ZAV_InitLevel(const char *dir)
 
 
 	CViewLibTexturedFigure::LoadLib(NULL);
+	ZAV_ArmLevelShutdown();
 
    GRReInitTextureDB();
 
@@ -772,8 +796,7 @@ int   ZAV_InitLevel(const char *dir)
 
 void ZAV_DeInitLevel()
 {
-   delete pScene;
-	CViewLibTexturedFigure::ClearLib();
+	ZAV_DeinitLevelResources();
 
    chdir(_currPath);
 }
@@ -860,17 +883,22 @@ extern int __bViewHide;
 	return *pVessels;
 }*/
 
-void ZAV_Deinit()
+#if defined(_MSC_VER)
+#include <intrin.h>
+void GETCYCLE(unsigned *p)
 {
-	CleanUp();
+	const unsigned __int64 cycle = __rdtsc();
+	p[0] = static_cast<unsigned>(cycle);
+	p[1] = static_cast<unsigned>(cycle >> 32);
 }
-
+#else
 void GETCYCLE(unsigned *p);
 #pragma aux GETCYCLE = \
     "mov  ebx,eax " \
     ".586p " "rdtsc "        \
     "mov [ebx],eax "\
     "mov [ebx+4],edx "  parm [eax] modify [eax ebx edx]
+#endif
 
 double _prevTime = 0;
 
@@ -898,20 +926,6 @@ void ZAV_PrintFrameInfo()
    _prevTime = t;
    //font5.PrintClipColorAt(_gr_clipRect.left,_gr_clipRect.top+1,s,nWhiteColor);
 	__revCnt = __fullCnt = 0;
-}
-
-void ZAV_PrintOverallInfo()
-{
-	dword dwTime1 = m_dwPrevTime;
-	double fTicks = CTimer::TicksD();
-	#if 1 // defined(MSDOS) || defined(__NT__)
-	char s[40];
-	sprintf(s,"%lg Mem=%d",
-		dwFrames/((dwTime1-dwTime0)/fTicks),
-		dwMem0-dwMem1);
-	#endif
-	//MessageBox(NULL,s,"RR2",MB_OK);
-	(void)dwTime0;
 }
 
 // ======================================================================
