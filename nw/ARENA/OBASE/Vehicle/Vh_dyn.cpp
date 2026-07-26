@@ -958,9 +958,14 @@ void  Vehicle::onSetTaxi( KR_Event & event)
 	IDynamicObject *ido = (IDynamicObject*)(context->queryInterface( nearest, IDynamicObjectIID ));
 	IUnit *unit = (IUnit *)(context->queryInterface( nearest, IUnitIID ));
 
-	ASSERT(ti);
-	ASSERT(ido);
-	ASSERT(unit);
+	if(  ti == 0 || ido == 0 || unit == 0  )
+	{
+		const char *name = context->searchObject(nearest);
+		if(  name == 0  )
+			name = "<unknown>";
+		echo("Vehicle::onSetTaxi: bad taxi object %s", name);
+		return;
+	}
 
         m_secBulletCnt = ti->taxiGetBulletCnt( );
 	m_damage = unit->getDamage();

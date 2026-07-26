@@ -108,9 +108,8 @@ SimulationContext::~SimulationContext()
 void SimulationContext::sendEventNow( KR_Event  &event )
  {
     s_ASSERT( event.timeStamp >= 0.1, "SimulationContext::sendEventNow: Not initialize timeStamp" );
-    if( is_ASSERT( event.destination.cachePos >= 0
-             && event.destination.cachePos <= m_maxObjectQnty,
-             "SimulationContext::sendEventNow. Range check error" ) )
+    if( event.destination.cachePos < 0
+     || event.destination.cachePos >= m_maxObjectQnty )
         return;
 
     KR_Object *object = m_objectIndex[event.destination.cachePos].object;
@@ -134,9 +133,7 @@ void *SimulationContext::queryInterface(
                                         int           interfaceNum 
                                        )
  {
-    if( is_ASSERT( ID.cachePos >= 0
-             && ID.cachePos <= m_maxObjectQnty,
-             "SimulationContext::queryInterface. Range check error" ) )
+    if( ID.cachePos < 0 || ID.cachePos >= m_maxObjectQnty )
         return 0;
 
     KR_Object *object = m_objectIndex[ID.cachePos].object;

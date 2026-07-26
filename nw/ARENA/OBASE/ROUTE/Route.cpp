@@ -96,6 +96,8 @@ void Route::addNotify()
 {
     m_nodeQnty = 0; 
     m_refs     = 0;
+    m_totalLenght = 0;
+    m_base = 0;
     ct_Object::addNotify();
 }
 
@@ -103,6 +105,7 @@ void Route::addNotify()
 void Route::removeNotify()
 {
 	m_nodeQnty = 0;
+	m_totalLenght = 0;
 	ct_Object::removeNotify();
 }
 
@@ -111,35 +114,68 @@ void Route::EvaluateLenght()
 {
 	int i;
 
-	for( i= m_base, m_totalLenght = 0 ; i < m_base+m_nodeQnty-1 ; i++ )
+	m_totalLenght = 0;
+	if(  m_nodeQnty <= 1  )
+		return;
+
+	for( i= m_base ; i < m_base+m_nodeQnty-1 ; i++ )
 		m_totalLenght += Abs( m_node[i] - m_node[i+1] );
 
+	if(  m_totalLenght <= 1e-12  )
+	{
+		for( i = m_base ; i < m_base+m_nodeQnty-1 ; i++ )
+		{
+			m_length[i] = 0;
+			m_napr[i]   = CFVector3(0,0,0);
+		}
+		return;
+	}
+
 	for( i = m_base ; i < m_base+m_nodeQnty-1 ; i++ ){
-		m_length[i] = Abs( m_node[i] - m_node[i+1] ) / m_totalLenght;
-		m_napr[i]   = ( m_node[i+1] - m_node[i] ) / m_length[i] ;
+		double segLen = Abs( m_node[i] - m_node[i+1] );
+		m_length[i] = segLen / m_totalLenght;
+		if(  m_length[i] > 1e-12  )
+			m_napr[i] = ( m_node[i+1] - m_node[i] ) / m_length[i] ;
+		else
+			m_napr[i] = CFVector3(0,0,0);
 	}
 }
 
 //============================================================================
 void Route::LoadRoute(const char *fName)
  {
+    m_nodeQnty = 0;
+    m_totalLenght = 0;
+    m_base = m_totalNodePos;
+
     FILE *f = fopen(fName,"rb");
     char buff[256];
 
     if(f == NULL){
          echo("Route::load: File %s not found\n", fName);
-         s_ASSERTNQ1("Route::load: File %s not found\n", fName);
          return;
     }
     ReadStr(f, buff, sizeof(buff));
-    if( strcmp(buff, context->searchObject(getObjectID())) != 0 )
+    const char *routeName = context->searchObject(getObjectID());
+    if( routeName != 0 && strcmp(buff, routeName) != 0 )
          echo("Route::load: Suacript_RouteName != file_RouteName\n");
 
     ReadStr(f, buff, sizeof(buff));
     sscanf(buff, "%i", &m_nodeQnty);
 
-    m_base = m_totalNodePos;
-    s_ASSERT(m_nodeQnty > 0 && m_totalNodePos + m_nodeQnty < ROUTE_MAX_NODE_NUM, "");
+    if(  m_nodeQnty <= 0  )
+    {
+         echo("Route::load: Empty route %s\n", fName);
+         fclose(f);
+         return;
+    }
+    if(  m_totalNodePos + m_nodeQnty >= ROUTE_MAX_NODE_NUM  )
+    {
+         echo("Route::load: Route overflow %s\n", fName);
+         fclose(f);
+         m_nodeQnty = 0;
+         return;
+    }
 
     for( int i = m_base; i < m_base+m_nodeQnty; ++i ){
          double x,y,z;
@@ -149,6 +185,7 @@ void Route::LoadRoute(const char *fName)
          if( IsNAN(x) || IsNAN(y) || IsNAN(z) ){
               echo("Route::load: Bad coord[%i]\n",i);
               fclose(f);
+              m_nodeQnty = 0;
               return;
          }
          m_node[i].x = x;
@@ -187,50 +224,52 @@ int Route::receiveEvent(KR_Event &event){
 						  .close();
 				break;
 
-		case ro_EV_GET_NODE:
-				event.data.open( EDO_READ )
-							.getInt( n )
-						  .close();
-				
-				if( n<0 && n>=m_nodeQnty )
-					echo( "Route::GIVE_POINT:Wrong point number." );
+case ro_EV_GET_NODE:
+		event.data.open( EDO_READ )
+					.getInt( n )
+				  .close();
 
-				event.data.open( EDO_WRITE )
-								.descend( 5 , 1 )
-										.putDouble( m_node[m_base+n].x )
-										.putDouble( m_node[m_base+n].y )
-										.putDouble( m_node[m_base+n].z )
-								.ascend()
-						  .close();
+		if(  m_nodeQnty <= 0  )
+		{
+			echo( "Route::GIVE_POINT: route has no nodes." );
 			break;
+		}
 
-		case ro_EV_GET_POS:
-				double part;
-				int	   type;
+		pos = GetNode(n);
 
-				event.data.open( EDO_READ )
-							.getDouble(part)
-							.getInt( type )
-						  .close();
+		event.data.open( EDO_WRITE )
+						.descend( 5 , 1 )
+								.putDouble( pos.x )
+								.putDouble( pos.y )
+								.putDouble( pos.z )
+						.ascend()
+				  .close();
+	break;
 
-				if(part < 0 || part > 1){
-					echo("Route::GIVE_INT_POS: Wrong part." );
-					break;
-				}
-				for(i = m_base ;  ; i++ )
-					if(part <= m_length[i] || i == m_base+m_nodeQnty-2 ){
-						pos = m_node[i] + m_napr[i] * part;
-						event.data.open( EDO_WRITE )
-									.descend( 5 , 2 )
-										.putDouble( pos.x )
-										.putDouble( pos.y )
-										.putDouble( pos.z )
-									.ascend()
-							      .close();
-						break;
-					}
-					else part -= m_length[i] ;
+case ro_EV_GET_POS:
+		double part;
+		int	   type;
+
+		event.data.open( EDO_READ )
+					.getDouble(part)
+					.getInt( type )
+				  .close();
+
+		if(  m_nodeQnty <= 0  )
+		{
+			echo("Route::GIVE_INT_POS: route has no nodes." );
 			break;
+		}
+
+		pos = GetPos(part);
+		event.data.open( EDO_WRITE )
+						.descend( 5 , 2 )
+							.putDouble( pos.x )
+							.putDouble( pos.y )
+							.putDouble( pos.z )
+						.ascend()
+				      .close();
+	break;
 
 		default: return 0;
     }

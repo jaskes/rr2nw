@@ -1,0 +1,283 @@
+RR2NW / Windows 10 x64 release build checklist
+=============================================
+
+Goal
+----
+
+Build the patched Win32 game on a Windows 10 x64 machine.
+
+Important:
+
+- The game is still an old 32-bit Windows executable.
+- "Windows 10 x64" only means the host OS is 64-bit.
+- This source dump is not a final retail source release.
+
+
+What to copy to Windows
+-----------------------
+
+Copy the CONTENTS of the local "nw" folder into:
+
+    C:\NW
+
+After copying, you should have files like:
+
+    C:\NW\MAKEALL.BAT
+    C:\NW\TOREL.BAT
+    C:\NW\ARENA\...
+    C:\NW\DESIGN.LIB\...
+    C:\NW\WIN10_BUILD_CHECKLIST.txt
+
+Do NOT keep an extra "nw" nesting like:
+
+    C:\NW\nw\MAKEALL.BAT
+
+The make files expect the project root itself to be C:\NW.
+
+
+Already patched in this source tree
+-----------------------------------
+
+The crash-stability patch is already applied in:
+
+- ARENA\KERNEL\SRC\Context.cpp
+- ARENA\OBASE\ROUTE\Route.cpp
+- ARENA\OBASE\ROUTE\ROUTE_I.CPP
+- ARENA\OBASE\Comander\Comander.cpp
+- ARENA\OBASE\People\PEOPLE.CPP
+- ARENA\OBASE\Vehicle\Vh_dyn.cpp
+
+
+Tools you need
+--------------
+
+1. Watcom C/C++ 10.6
+   README says Watcom 11 creates a broken executable.
+
+2. Turbo Assembler / TASM / TASMX
+
+3. angel.exe
+   The repo contains angelmasm.exe, but the make files call "angel".
+
+4. Old Windows SDK / DirectX-era libs available to the linker:
+   - ddraw.lib
+   - uuid.lib
+   - dxguid.lib
+   - winmm.lib
+   - strmiids.lib
+
+
+Recommended machine setup
+-------------------------
+
+Suggested paths:
+
+- C:\NW
+- C:\TASM\BIN
+
+The project build script appends these to PATH:
+
+- C:\TASM\BIN
+- C:\NW
+
+It does NOT add Watcom to PATH.
+
+
+Before the first build
+----------------------
+
+Open a command prompt where Watcom tools already work.
+
+These commands must already be available:
+
+- wmake
+- wpp386
+- wcc386
+- wlink
+- wlib
+
+Then go to the project root:
+
+    cd /d C:\NW
+
+Create angel.exe:
+
+    copy angelmasm.exe angel.exe
+
+If that file is missing in the root for some reason, use:
+
+    copy util\angelmasm.exe angel.exe
+
+
+Switch to release mode
+----------------------
+
+Run:
+
+    cd /d C:\NW
+    call TOREL.BAT
+
+This switches the project to the release make settings.
+
+
+Create object directories
+-------------------------
+
+Run:
+
+    cd /d C:\NW
+    call MAKEDIRS.BAT
+
+
+Build DESIGN.LIB first
+----------------------
+
+The game link step needs designwr.lib.
+
+The safest path in this repo is:
+
+1. Build the library in DESIGN.LIB
+2. Copy the result into DESIGN.LIB\WC
+
+Commands:
+
+    cd /d C:\NW\DESIGN.LIB
+    mkdir WC
+    call make.bat
+    copy designwr.lib WC\designwr.lib
+
+If you want to be extra safe, also keep a backup copy:
+
+    copy designwr.lib WC\designwr.lib.bak
+
+
+Build the game
+--------------
+
+Run:
+
+    cd /d C:\NW
+    call MAKEALL.BAT
+
+What MAKEALL.BAT does:
+
+1. Builds top-level modules
+2. Builds ARENA
+3. Links the final executable
+
+
+Expected output
+---------------
+
+Release EXE:
+
+    C:\NW\OUTPUT\gameWR.exe
+
+
+Full release recipe
+-------------------
+
+If you want the shortest exact sequence, run this in order:
+
+    cd /d C:\NW
+    copy angelmasm.exe angel.exe
+    call TOREL.BAT
+    call MAKEDIRS.BAT
+
+    cd /d C:\NW\DESIGN.LIB
+    mkdir WC
+    call make.bat
+    copy designwr.lib WC\designwr.lib
+
+    cd /d C:\NW
+    call MAKEALL.BAT
+
+
+If the build fails
+------------------
+
+1. "Bad command or file name: wmake"
+   Watcom environment is not set up.
+
+2. "Bad command or file name: angel"
+   You did not create C:\NW\angel.exe.
+
+3. "cannot open designwr.lib"
+   Build DESIGN.LIB first, then make sure this file exists:
+
+       C:\NW\DESIGN.LIB\WC\designwr.lib
+
+4. Missing OBJ folders
+   Run MAKEDIRS.BAT again.
+
+5. Build succeeds but the EXE behaves strangely
+   Try again with Watcom 10.6 specifically.
+
+
+Runtime data note
+-----------------
+
+The repo contains code and script references to audio/video assets, but the
+actual asset files do not appear to be included.
+
+Examples of references:
+
+- OUTPUT\Level.01D\SCINC\LOADWAV.SCI
+- OUTPUT\Level.04D\BRIEF\L04.txt
+
+Missing file types appear to include:
+
+- *.wav
+- *.flc
+- *.avi
+- *.mp3
+- *.ogg
+
+So the game may build, but some sounds and briefing movies may be missing at
+runtime until you copy assets from an original installation.
+
+
+First test after build
+----------------------
+
+1. Start:
+
+       C:\NW\OUTPUT\gameWR.exe
+
+2. Load a level that used to crash while moving.
+
+3. Move around for a while.
+
+4. If it still crashes, write down:
+   - exact level
+   - exact error text
+   - what was happening when it crashed
+
+
+Useful in-game console note
+---------------------------
+
+The in-game console opens with:
+
+    ~
+
+Useful first command:
+
+    log myconsole.txt
+
+Then you can try:
+
+    help
+    god
+    state
+    tables
+
+
+Start here
+----------
+
+If you are reading this on the Windows machine, start with:
+
+    cd /d C:\NW
+
+Then follow the "Full release recipe" section above.

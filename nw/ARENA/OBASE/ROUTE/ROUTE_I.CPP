@@ -25,20 +25,50 @@ int Route::GetLen() const
 
 CFVector3 Route::GetNode(int n)  const 
 {
-   s_ASSERT1( n >=0 && n < m_nodeQnty, "Route::GetNode: Range check error %i", n );
+   if(  m_nodeQnty <= 0  )
+   {
+      echo("Route::GetNode: route has no nodes");
+      return CFVector3(0,0,0);
+   }
+
+   if(  n < 0  )
+   {
+      echo("Route::GetNode: clamp node index %i", n);
+      n = 0;
+   }
+   else
+   if(  n >= m_nodeQnty  )
+   {
+      echo("Route::GetNode: clamp node index %i", n);
+      n = m_nodeQnty-1;
+   }
+
    return(m_node[m_base+n]); 
 }
 
 CFVector3 Route::GetPos(double part) const{
 	CFVector3 pos;
-	
-	if( part < 0 || part > 1) echo("Route::GIVE_INT_POS:Wrong part." );
+
+	if(  m_nodeQnty <= 0  )
+	{
+		echo("Route::GIVE_INT_POS: route has no nodes.");
+		return CFVector3(0,0,0);
+	}
+	if(  m_nodeQnty == 1  )
+		return m_node[m_base];
+
+	if(  part < 0  )
+		part = 0;
+	else
+	if(  part > 1  )
+		part = 1;
+
 	for(int i = m_base ;  ; i++ )
-		if( part <= m_length[m_base+i] || i == m_base+m_nodeQnty-2 ){
-			pos = m_node[m_base+i] + m_napr[m_base+i] * part;
+		if( part <= m_length[i] || i == m_base+m_nodeQnty-2 ){
+			pos = m_node[i] + m_napr[i] * part;
 			break;
 		}
-		else part -= m_length[m_base+i] ;
+		else part -= m_length[i] ;
 
 	return(pos);
 }

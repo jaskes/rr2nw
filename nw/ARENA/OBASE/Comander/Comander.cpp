@@ -32,7 +32,7 @@ s_ELNTable commanderMsgTable("Commander messages",commanderMsgNames);
 
 class GroupMember{
 public:
-    GroupMember() {  m_routeCnt = m_curRoute = 0; m_patrol = 0; }
+    GroupMember() { reset(); }
 
 	KR_ObjectID m_id;
 	int m_patrol;
@@ -51,10 +51,11 @@ public:
 
             void reset()
             {
-                repCnt    = 
-                repeated = 
-                waitNext = 
-                nodeCnt  = 
+                id       = KR_ObjectID::NUL();
+                repCnt   = 0;
+                repeated = 0;
+                waitNext = 0;
+                nodeCnt  = 0;
                 curNode  = 0; 
                 dir = 1; 
                 patrol = FALSE;
@@ -173,11 +174,15 @@ void *com_Commander::queryInterface( int interNum )
 //============================================================================
 void com_Commander::addNotify()
  {
+    int i;
     m_memberQnty = 0;
     m_xMoving =  2060;
     m_zMoving = -2390;
     m_wMoving = 100;
     m_dMoving = 100;
+
+    for( i = 0; i < MAX_MEMBER; ++i )
+         m_member[i].reset();
  }
 //============================================================================
 
@@ -310,8 +315,30 @@ void com_Commander::clrRoute(int mNum)
 //============================================================================
 void com_Commander::setToStart(int mNum,double ts)
  {
+   if(  mNum < 0 || mNum >= m_memberQnty  )
+   {
+        echo("com_Commander::setToStart: member range error");
+        return;
+   }
+   if(  m_member[mNum].m_routeCnt <= 0  )
+   {
+        echo("com_Commander::setToStart: member has no route");
+        return;
+   }
+
    IRouteObject *
    riFace =(IRouteObject *)(getContext()->queryInterface( m_member[mNum].m_route[0].id, IRouteObjectIID));
+
+   if(  riFace == 0  )
+   {
+        echo("com_Commander::setToStart: route not found");
+        return;
+   }
+   if(  riFace->GetNodeCnt() < 2  )
+   {
+        echo("com_Commander::setToStart: route has less than 2 nodes");
+        return;
+   }
 
    SetMemberPos (this,ts,m_member[mNum].m_id,       riFace->GetNode(0));
    GotoMemberPos(this,ts,m_member[mNum].m_id,       riFace->GetNode(1));
@@ -502,65 +529,107 @@ int com_Commander::receiveEvent(KR_Event &event)
 		break;
 		
 		
-	case com_EV_GROUP_REACHED:
-		for(i = 0; i < m_memberQnty; ++i )
+case com_EV_GROUP_REACHED:
+	for(i = 0; i < m_memberQnty; ++i )
+	{
+		GroupMember &mem = m_member[i];
+		if(  mem.m_id != event.source ) 
+			continue;
+		
+		int &curRoute = mem.m_curRoute;
+		int  routeCnt = mem.m_routeCnt;
+		if(  routeCnt <= 0  )
 		{
-			GroupMember &mem = m_member[i];
-			if(  mem.m_id != event.source ) 
-				continue;
-			
-			int &curRoute = mem.m_curRoute;
-			int  routeCnt = mem.m_routeCnt;
+			echo("Commander: member has no routes");
+			continue;
+		}
+		if(  curRoute < 0 || curRoute >= routeCnt  )
+			curRoute = 0;
+		
+		mem.m_patrol = mem.m_route[curRoute].patrol;
+		
+		if(  mem.m_patrol  )
+		{
 			int &curNode  = mem.m_route[curRoute].curNode;
 			int  nodeCnt  = mem.m_route[curRoute].nodeCnt;
 			int &dir      = mem.m_route[curRoute].dir;
-			mem.m_patrol = mem.m_route[curRoute].patrol;
 			
-			if(  mem.m_patrol  )
+			if(  nodeCnt <= 0  )
 			{
-				switch( dir )
+				echo("Commander: patrol route has no nodes");
+				continue;
+			}
+			
+			switch( dir )
+			{
+			case 1:
+				curNode++;
+				if(  curNode >=  nodeCnt )
 				{
-				case 1:
-					curNode++;
-					if(  curNode >=  nodeCnt )
-					{
-						dir = 0;
-						curNode--;
-					}
-					break;
-					
-				case 0:
+					dir = 0;
 					curNode--;
-					if(  curNode < 0  )
-					{
-						dir = 1;
-						curNode = 0;
-					}
-					break;
 				}
-			}
-			else
-			{
-				if(  curNode < nodeCnt-1  )
-					curNode++;
-				else 
+				break;
+				
+			case 0:
+				curNode--;
+				if(  curNode < 0  )
 				{
-					if(  curRoute < routeCnt-1  )
-					{
-						curRoute++;
-						mem.m_route[curRoute].curNode = 0;
-						curNode = 0;
-						//echo( "End of route" );
-					}
+					dir = 1;
+					curNode = 0;
 				}
+				break;
+			}
+		}
+		else
+		{
+			int &curNode  = mem.m_route[curRoute].curNode;
+			int  nodeCnt  = mem.m_route[curRoute].nodeCnt;
+			
+			if(  nodeCnt <= 0  )
+			{
+				echo("Commander: route has no nodes");
+				continue;
 			}
 			
-			riFace =(IRouteObject *)(getContext()->queryInterface( mem.m_route[curRoute].id, IRouteObjectIID));
-			GotoMemberPos(this,event.timeStamp,mem.m_id,node=riFace->GetNode(curNode));
-			
-			//echo("Group send to [%.2f, %.2f, %.2f]", node.x, node.y, node.z); 
-		} 
-		break;
+			if(  curNode < nodeCnt-1  )
+				curNode++;
+			else 
+			{
+				if(  curRoute < routeCnt-1  )
+				{
+					curRoute++;
+					mem.m_route[curRoute].curNode = 0;
+					//echo( "End of route" );
+				}
+			}
+		}
+		
+		riFace =(IRouteObject *)(getContext()->queryInterface( mem.m_route[curRoute].id, IRouteObjectIID));
+		if(  riFace == 0  )
+		{
+			echo("Commander: route interface lost");
+			continue;
+		}
+		
+		int nodeCnt = riFace->GetNodeCnt();
+		if(  nodeCnt <= 0  )
+		{
+			echo("Commander: route has no nodes");
+			continue;
+		}
+		
+		if(  mem.m_route[curRoute].curNode < 0  )
+			mem.m_route[curRoute].curNode = 0;
+		else
+		if(  mem.m_route[curRoute].curNode >= nodeCnt  )
+			mem.m_route[curRoute].curNode = nodeCnt-1;
+		
+		GotoMemberPos(this,event.timeStamp,mem.m_id,node=riFace->GetNode(mem.m_route[curRoute].curNode));
+		
+		//echo("Group send to [%.2f, %.2f, %.2f]", node.x, node.y, node.z); 
+	} 
+	break;
 		
     default: return 0;
     }

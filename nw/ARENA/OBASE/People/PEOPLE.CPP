@@ -256,6 +256,9 @@ void People::nexNodeDefault(KR_Event &event)
     double    dist;
     CFVector3 pos(getPosition());
 
+    if(  m_attr == 0  )
+         return;
+
     switch( m_attr->m_onLand )
     {
     case NO_LAND:   dist = Abs( currentNode-pos ); break;
@@ -274,6 +277,16 @@ void People::nexNodeDefault(KR_Event &event)
     }
 
     IRouteObject *ri = (IRouteObject*)(context->queryInterface(m_routeID,IRouteObjectIID));
+    if(  ri == 0  )
+    {
+         echo("People::nexNodeDefault: route interface lost");
+         return;
+    }
+    if(  ri->GetNodeCnt() < 2  )
+    {
+         echo("People::nexNodeDefault: route has less than 2 nodes");
+         return;
+    }
 
     m_curNode = (m_curNode+1)%ri->GetNodeCnt();
     int nnn   = (m_curNode+1)%ri->GetNodeCnt();
@@ -421,10 +434,18 @@ void People::nexNodeAttackNear(KR_Event &event,
 
 void People::setPeopleAttr()
 {
+	m_attr = 0;
+	m_askin = 0;
+
 	ct_Attribute *attr = __attrTable.searchAttribute(m_peopleAttrID);
 	if( attr==NULL )
-		echo( "People::receiveEvent: Unknown attribute %s",
-		context->searchObject(m_peopleAttrID));
+	{
+		const char *attrName = context->searchObject(m_peopleAttrID);
+		if(  attrName == 0  )
+			attrName = "<unknown>";
+		echo( "People::receiveEvent: Unknown attribute %s", attrName);
+		return;
+	}
 	else
 		m_attr = (AttributePeople*)attr;
 
@@ -438,8 +459,16 @@ void People::setPeopleAttr()
 
 
 	m_skin.Attach(m_attr->m_cacheSkin);
+	if(  m_skin.Model() == 0  )
+	{
+		echo("People::setPeopleAttr: skin model not loaded");
+		m_attr = 0;
+		return;
+	}
 	m_viewDynObj.BumpDef().fRadius = m_skin.Model()->Radius();
 	m_askin = (ISkin*)(context->queryInterface(m_attr->m_skinID, ISkinIID));
+	if(  m_askin == 0  )
+		echo("People::setPeopleAttr: ISkin interface unavailable");
 
 	m_skin.SetUserAttrib(this);
 	if(  strcmp(m_attr->m_skinName,"sk.Peop.shiz_f0a")==0 )
@@ -970,99 +999,116 @@ int People::receiveEvent( KR_Event &event )
          m_isNotCreate = 0;
          break;
 
-    case pe_EVCMD_START:
-     {
-         //KR_ObjectID attrID;
-         char        route[50];
-         double      timeStart = 0;
+case pe_EVCMD_START:
+ {
+     //KR_ObjectID attrID;
+     char        route[50];
+     double      timeStart = 0;
 
-         m_lastMoveTimeStamp = event.timeStamp;
-         m_lastMoveDeltaT    = 0;
+     m_lastMoveTimeStamp = event.timeStamp;
+     m_lastMoveDeltaT    = 0;
 
-         event.data.open(EDO_READ)
-                     .getObjectID(m_peopleAttrID)
-                     .getStr     (route,sizeof(route)-1)
-                     .getDouble  (timeStart)
-                   .close();
-         double  viewTime = event.timeStamp+timeStart+context->rnd_f(0.1);
+     event.data.open(EDO_READ)
+                 .getObjectID(m_peopleAttrID)
+                 .getStr     (route,sizeof(route)-1)
+                 .getDouble  (timeStart)
+               .close();
+     double  viewTime = event.timeStamp+timeStart+context->rnd_f(0.1);
 
 	 setPeopleAttr();
+     if(  m_attr == 0  )
+     {
+          echo("People::receiveEvent: start skipped because attribute is invalid");
+          break;
+     }
 
-         /*ct_Attribute *attr = __attrTable.searchAttribute(attrID);
-         if( attr==NULL )
-              echo( "People::receiveEvent: Unknown attribute %s",
-                    context->searchObject(attrID));
-         else m_attr = (AttributePeople*)attr;*/
+     /*ct_Attribute *attr = __attrTable.searchAttribute(attrID);
+     if( attr==NULL )
+          echo( "People::receiveEvent: Unknown attribute %s",
+                context->searchObject(attrID));
+     else m_attr = (AttributePeople*)attr;*/
 
 
 		m_damage = m_attr->m_initialDamage;
 
 
 	/*updateSound( getObjectID(),
-	    	     context,
+		     context,
 		     m_attr->m_ctsndID,
 		     m_attr->m_wav,
 		     m_snd );
 
 
 
-        m_skin.Attach(m_attr->m_cacheSkin);
-        m_viewDynObj.BumpDef().fRadius = m_skin.Model()->Radius();
-        m_askin = (ISkin*)(context->queryInterface(m_attr->m_skinID, ISkinIID));
-        
-        m_skin.SetUserAttrib(this);
-        if(  strcmp(m_attr->m_skinName,"sk.Peop.shiz_f0a")==0 )
-             m_skin.SetAnimationCallback(AnimateCallBack0); 
-        else
-        if(  strcmp(m_attr->m_skinName,"sk.Taxi.cln_f01")==0 )
-             m_skin.SetAnimationCallback(AnimateCallBack1); 
-        else
-        if(  strcmp(m_attr->m_skinName,"sk.Taxi.cln_f08")==0 )
-             m_skin.SetAnimationCallback(AnimateCallBack2); */
+    m_skin.Attach(m_attr->m_cacheSkin);
+    m_viewDynObj.BumpDef().fRadius = m_skin.Model()->Radius();
+    m_askin = (ISkin*)(context->queryInterface(m_attr->m_skinID, ISkinIID));
+    
+    m_skin.SetUserAttrib(this);
+    if(  strcmp(m_attr->m_skinName,"sk.Peop.shiz_f0a")==0 )
+         m_skin.SetAnimationCallback(AnimateCallBack0); 
+    else
+    if(  strcmp(m_attr->m_skinName,"sk.Taxi.cln_f01")==0 )
+         m_skin.SetAnimationCallback(AnimateCallBack1); 
+    else
+    if(  strcmp(m_attr->m_skinName,"sk.Taxi.cln_f08")==0 )
+         m_skin.SetAnimationCallback(AnimateCallBack2); */
 
-        if( m_askin->isAutoAnim()  )
-            m_askin->skinSetAnimAuto(&m_skin);
+    if( m_askin != 0 && m_askin->isAutoAnim()  )
+        m_askin->skinSetAnimAuto(&m_skin);
 
-        if(  route[0] == 0  )
-             m_routeID = context->searchObject( m_attr->m_routeName );
-        else m_routeID = context->searchObject( route );
-        m_prevTime = viewTime;
+    if(  route[0] == 0  )
+         m_routeID = context->searchObject( m_attr->m_routeName );
+    else m_routeID = context->searchObject( route );
+    m_prevTime = viewTime;
 
-        m_curNode = 0;
-        m_calcPosInc = m_attr->m_timeInc;
+    m_curNode = 0;
+    m_calcPosInc = m_attr->m_timeInc;
 
-        IRouteObject *ri = (IRouteObject*)
-              (context->queryInterface(m_routeID,IRouteObjectIID));
+    IRouteObject *ri = (IRouteObject*)
+          (context->queryInterface(m_routeID,IRouteObjectIID));
+    if(  ri == 0  )
+    {
+         echo("People::receiveEvent: route not found for people");
+         m_routeID = KR_ObjectID::NUL();
+         break;
+    }
+    if(  ri->GetNodeCnt() < 2  )
+    {
+         echo("People::receiveEvent: route has less than 2 nodes");
+         m_routeID = KR_ObjectID::NUL();
+         break;
+    }
 
-        ri->AddRef();
+    ri->AddRef();
 
-        {
-             setPosition( ri->GetNode(0) );
-             CFVector3 nextNode(ri->GetNode(1));
+    {
+         setPosition( ri->GetNode(0) );
+         CFVector3 nextNode(ri->GetNode(1));
 
-             CFVector3 pos(getPosition());
-             setHAngleFixDir( atan2( nextNode.z-pos.z, nextNode.x-pos.x ) );
-             m_dir.y = 0;
-             double dist = hypot(nextNode.z-pos.z, nextNode.x-pos.x );
-             m_nextNode = nextNode;
+         CFVector3 pos(getPosition());
+         setHAngleFixDir( atan2( nextNode.z-pos.z, nextNode.x-pos.x ) );
+         m_dir.y = 0;
+         double dist = hypot(nextNode.z-pos.z, nextNode.x-pos.x );
+         m_nextNode = nextNode;
 
-             if(  m_attr->m_speed > 1e-3 )
-             {
-                  event.label       = pe_EVC_NEXTNODE;
-                  event.timeStamp   = viewTime + dist/m_attr->m_speed;
-                  issueEvent( event );
-             }
-        }
-        event.label       = pe_EVC_MOVE;
-        event.source      = getObjectID();
-        event.destination = getObjectID();
-        event.timeStamp   = viewTime;
-        issueEvent( event );
-        event.label       = pe_EV_STARTSHOW;
-        issueEvent( event );
-     }
-     m_lastMovePos = getPosition();
-     break;
+         if(  m_attr->m_speed > 1e-3 )
+         {
+              event.label       = pe_EVC_NEXTNODE;
+              event.timeStamp   = viewTime + dist/m_attr->m_speed;
+              issueEvent( event );
+         }
+    }
+    event.label       = pe_EVC_MOVE;
+    event.source      = getObjectID();
+    event.destination = getObjectID();
+    event.timeStamp   = viewTime;
+    issueEvent( event );
+    event.label       = pe_EV_STARTSHOW;
+    issueEvent( event );
+ }
+ m_lastMovePos = getPosition();
+ break;
 
     case pe_EVCMD_STOP:
             context->removeEvent(pe_EVC_MOVE,getObjectID());
@@ -1075,9 +1121,10 @@ int People::receiveEvent( KR_Event &event )
             s_ASSERTNQ("People:receiveEvent:case KR_SET_ATTR: do't supported");
             break;
 
-    case pe_EV_SETAUTOANIM:
+case pe_EV_SETAUTOANIM:
+        if(  m_askin != 0  )
             m_askin->skinSetAnimAuto(&m_skin);
-            break;
+        break;
 
     case t_EV_ONCOLLISION:
             break;
@@ -1091,6 +1138,7 @@ int People::receiveEvent( KR_Event &event )
 void People::addNotify()
  {
     ct_Subject::addNotify();
+    m_attr = 0;
     m_askin = NULL;
     m_damage = 1;
     m_killed = KILL_NONE;
@@ -1101,7 +1149,10 @@ void People::addNotify()
     m_prevShootTime  = 0;
     m_lastDamageTime = 0;
     m_correctScale   = 1;
+    m_peopleAttrID   = KR_ObjectID::NUL();
+    m_routeID        = KR_ObjectID::NUL();
     m_commanderID    = KR_ObjectID::NUL();
+    m_snd            = KR_ObjectID::NUL();
     m_isNotCreate    = 1;
     m_prevStartShoot = 0;
     m_stoped         = 0;
@@ -1112,14 +1163,21 @@ void People::addNotify()
  //============================================================
 void People::removeNotify()
  {    
-    IRouteObject *ri = (IRouteObject*)
+    IRouteObject *ri = 0;
+
+    if(  !m_routeID.isNUL()  )
+         ri = (IRouteObject*)
               (context->queryInterface(m_routeID,IRouteObjectIID));
 
     if(  ri!=0  )
          ri->DelRef();
 
+    m_routeID = KR_ObjectID::NUL();
+
     if(  !m_snd.isNUL()  )
          context->removeObject( m_snd );
+
+    m_snd = KR_ObjectID::NUL();
 
     ct_Subject::removeNotify();
  }
@@ -1666,7 +1724,18 @@ void g_toSeg( CFVector3 &v, const CFVector3 &p0, const CFVector3 &p1, double max
 
 void People::setPosition(  const CFVector3 &vec  )
 {
+    if(  m_attr == 0 || m_routeID.isNUL()  )
+    {
+         ct_Subject::setPosition( vec );
+         return;
+    }
+
     IRouteObject *ri = (IRouteObject*)(context->queryInterface(m_routeID,IRouteObjectIID));
+    if(  ri == 0 || ri->GetNodeCnt() < 2  )
+    {
+         ct_Subject::setPosition( vec );
+         return;
+    }
 
     int n0 = m_curNode;
     int n1 = (n0+1)%ri->GetNodeCnt();
