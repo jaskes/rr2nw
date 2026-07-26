@@ -59,16 +59,6 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  pScene = reinterpret_cast<CViewScene*>(1);
-  Frame_ClearRuntimeIssues();
-  ZAV_RenderFrame(&direction, list);
-  if (!Expect(Frame_RuntimeIssues() ==
-                  FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE,
-              "unbound recovered scene draw was not diagnosed")) {
-    return EXIT_FAILURE;
-  }
-  pScene = 0;
-
   Session::m_realTimer = 0;
   Frame_ClearRuntimeIssues();
   SUA_BeginRender(0, list);

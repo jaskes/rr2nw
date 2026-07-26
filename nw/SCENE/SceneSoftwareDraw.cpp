@@ -66,9 +66,9 @@ void CViewScene::Draw(TCSFMatrix3x4& viewDirection,
   m_pTerrain->EndDrawTerrain();
 }
 
-void SceneSoftwareDraw_LinkAnchor(CViewScene* scene,
-                                  TCSFMatrix3x4* direction,
-                                  CViewDynamicList* list) {
+void SceneSoftwareDraw_Render(CViewScene* scene,
+                              TCSFMatrix3x4* direction,
+                              CViewDynamicList* list) {
   if (scene != 0 && direction != 0 && list != 0) {
     scene->Draw(*direction, *list);
   }

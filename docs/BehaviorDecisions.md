@@ -181,21 +181,28 @@ function-level linking and dead-code elimination, so that object is not used as
 the production adapter.
 
 The recovered Arena/light begin, graphics finish, Arena end and cleanup stages
-are accepted as an executable empty-scene increment. A non-null scene produces
-the dedicated `FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE` issue. The next increment
-extracts the normal software draw and dynamic-promotion path with only its real
-terrain, ordering, palette and land-dynamic dependencies; it must not replace
-them with an unconditional success stub.
+were accepted as an executable empty-scene increment. The following increment
+extracted the normal software draw and dynamic-promotion path with only its
+real terrain, ordering, palette and land-dynamic dependencies; it did not
+replace them with an unconditional success stub.
 
 That extraction reduces the world-draw frontier to terrain `SetViewPoint` and
 `FitInTrapezioid`. The complete recovered terrain archive is likewise kept as
 a compile gate: resolving those two functions by linking its single object
 opens 13 font, texture, palette, land-map and renderer-pointer dependencies in
 both configurations even with function-level linking. The production path
-will therefore isolate the two terrain operations and retain the full archive
-as comparison evidence.
+therefore isolates the recovered frustum/reduction setup and the four
+trapezoid-fit orientations in a bounded terrain-view owner. The complete
+archive remains comparison evidence, while the normal scene link contract now
+closes with zero unresolved symbols.
+
+`Frame_BindRecoveredSoftware` dispatches a non-null `pScene` to the extracted
+real `CViewScene::Draw`; a null scene remains the empty integration fixture.
+This closes the software world-draw code and link path, but does not yet claim
+pixel or playthrough parity: actual terrain state will first execute after the
+retail scene constructor and first game executable are connected.
 
 Regression contract: `recovered-software-frame-smoke`,
-`scene-software-state-smoke`, strict `rr2nw_scene_full` and
-`rr2nw_view_terrain_full` Debug/Release compilation, plus both excluded scene
-link probes.
+`scene-software-state-smoke`, `terrain-view-state-smoke`,
+`scene-software-draw-link-smoke`, strict `rr2nw_scene_full` and
+`rr2nw_view_terrain_full` Debug/Release compilation.

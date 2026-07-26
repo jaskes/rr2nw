@@ -3,6 +3,7 @@
 
 #include "FrameRuntimeState.h"
 #include "RecoveredSoftwareFrame.h"
+#include "SceneSoftwareDraw.h"
 #include "ZavSceneState.h"
 #include "h/light.h"
 #include "kernel/h/session.h"
@@ -25,9 +26,8 @@ void BeginArenaRender(CViewScene*, CViewDynamicList& list) {
   g_lightChain.render();
 }
 
-void RenderScene(TCSFMatrix3x4*, CViewDynamicList&) {
-  if (pScene == 0) return;
-  Frame_ReportRuntimeIssue(FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE);
+void RenderScene(TCSFMatrix3x4* direction, CViewDynamicList& list) {
+  SceneSoftwareDraw_Render(pScene, direction, &list);
 }
 
 void FinishGraphicsScene() {

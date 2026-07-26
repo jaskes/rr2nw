@@ -147,10 +147,8 @@ hardware-device check. The first production binding now executes recovered
 Arena/light begin, graphics finish, Arena end and dynamic cleanup against an
 empty software scene. The complete recovered `SCENE.CPP` also compiles under
 MSVC, but linking that one object activates 70 unrelated symbols even with
-function-level linking. World draw is therefore the explicit remaining stage:
-an active scene records `FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE` rather than
-silently succeeding. Isolate that draw path, then create the first game
-executable and load the read-only retail fixture.
+function-level linking. The normal world-draw path is therefore supplied by
+bounded owners rather than that scene monolith.
 
 The normal software `CViewScene::Draw`/`PromoteDynamic` path is now isolated.
 Its measured frontier fell from 14 symbols to the two real terrain operations
@@ -161,6 +159,14 @@ standard for-loop scope in its generated Debug blocks. Direct terrain archive
 linking still opens 13 unrelated font/texture/map dependencies, so the next
 slice isolates those last two terrain operations before connecting world draw
 to the frame dispatcher.
+
+That final terrain-view slice is now complete. Recovered frustum and reduction
+edge setup has its own owner, the four trapezoid orientations share an
+executable parameterized contract, and the normal scene link frontier is zero.
+`Frame_BindRecoveredSoftware` now sends a non-null active scene to the real
+software `CViewScene::Draw`. The remaining M1 step is no longer renderer symbol
+archaeology: create the first game executable, load the read-only retail scene
+and observe this path against constructed terrain state.
 
 ### Цель
 

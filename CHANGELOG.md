@@ -94,6 +94,10 @@ claim authorship of inherited Logos code or retail data.
   clip, light, dynamic-map and z-order owners reduce its real link frontier
   from 14 symbols to only terrain `SetViewPoint` and `FitInTrapezioid`; a new
   executable contract verifies the compact frame state.
+- Extracted the recovered terrain frustum/reduction setup and parameterized
+  all four generated trapezoid-fit orientations. The software scene now has a
+  zero-symbol link frontier and a non-null active scene reaches its real
+  `Draw` method through the recovered frame dispatcher.
 - Added a strict compile gate for the complete recovered terrain renderer and
   fixed its Watcom-era debug-loop variable scope and ambiguous shift
   expressions without changing their calculations.

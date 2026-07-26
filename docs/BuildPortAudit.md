@@ -542,14 +542,14 @@ scene, proves that no hardware flush leaks into that path, switches to a
 hardware descriptor and observes exactly one flush, and verifies every missing
 stage diagnostic. Consequently `rr2nw_vehicle_shell_link_probe` now links and
 runs with no unresolved symbol in Debug or Release. This is a checked
-integration seam, not a claim that the recovered world is rendering: the first
-game-executable
-tranche must bind the callbacks to `g_arena`, `pScene->Draw`, `GREndScene`, the
-dynamic waste-box cleanup and the selected renderer backend before entering
-the frame loop.
+integration seam rather than a claim that the recovered world was rendering.
+The subsequent recovered software adapter uses that seam for `g_arena`,
+`pScene->Draw`, `GREndScene` and dynamic waste-box cleanup; the first game
+executable must construct their retail-backed state before entering the frame
+loop.
 
-The first production software binding now connects the recovered
-`g_arena.render`, `g_lightChain.render`, `GREndScene`, `g_arena.endRender`,
+The production software binding now connects the recovered `g_arena.render`,
+`g_lightChain.render`, `CViewScene::Draw`, `GREndScene`, `g_arena.endRender`,
 dynamic waste-box release and scene dynamic-map check. It also supplies the
 recovered light publication, terrain counters and safe land-dynamic emptiness
 state required by those stages. A missing real timer is a checked runtime
@@ -560,11 +560,8 @@ without injecting test callbacks.
 single archive member was measured with `/Gy` plus `/OPT:REF`; it still opened
 70 unresolved edges because constructors, virtual tables and unrelated scene
 services share that object. The production binding therefore does not link the
-monolith. A non-null `pScene` records
-`FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE`, while an empty scene remains a valid
-integration fixture. The next renderer tranche must extract the normal
-software `CViewScene::Draw`/`PromoteDynamic` path and satisfy its actual order,
-terrain, palette and land-dynamic dependencies as bounded owners.
+monolith. It routes a non-null `pScene` through the bounded software draw owner,
+while an empty scene remains a valid integration fixture.
 
 That normal software path is now isolated in `SceneSoftwareDraw.cpp`; it omits
 only the recovered random-position diagnostic branch and the hardware-only
@@ -589,10 +586,23 @@ terrain counters and the empty end-frame method remain external bounded
 owners. Linking the full terrain archive to resolve the final two scene edges
 was also measured with `/Gy` and `/OPT:REF`: it opens 13 dependencies in both
 configurations, covering fixed font, texture loading, palette loading,
-land-object-map drawing and renderer function pointers. Therefore the full
-terrain object remains a compile gate; the next slice must isolate its
-view-frustum setup and trapezoid test rather than adopting that transitive
-archive as the production boundary.
+land-object-map drawing and renderer function pointers.
+
+`TerrainViewState.cpp` now owns the recovered `SetViewPoint` frustum,
+projection and reduction-edge setup plus `ReductionCell`. Explicit conversion
+casts preserve the x86 results without implicit narrowing, and equivalent
+negative power-of-two masks remove signed-left-shift undefined behavior. The
+convex-polygon search extrema and edge slopes receive deterministic zero
+initialization: the
+first valid candidate still overwrites the extrema exactly as before, while a
+degenerate edge can no longer consume indeterminate stack data. The four
+generated `FitInTrapezioid` variants are expressed by one parameterized kernel
+with the same primary/secondary axis and direction algebra; its executable
+contract covers hidden terrain, near-edge rejection and far/secondary clipping
+for all four orientations. The normal scene link probe consequently changed
+from an excluded two-symbol measurement into a passing zero-symbol CTest. The
+full terrain object remains a compile gate and historical 13-symbol comparison
+boundary rather than entering the production link.
 
 ## Expansion order
 
@@ -612,10 +622,9 @@ archive as the production boundary.
    Projection, scene
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
-   bounded 8-bit framebuffer. Recovered empty software-frame binding now
-   executes every non-world-draw stage. Normal software scene orchestration is
-   isolated and its compact state executes; two terrain methods, then the first
-   game executable, are next.
+   bounded 8-bit framebuffer. Recovered software-frame binding now executes
+   every frame stage, including the bounded normal software world draw. The
+   first game executable and read-only retail scene load are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.
