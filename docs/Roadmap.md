@@ -199,6 +199,18 @@ level config, PIN, Supervisor/SUA, DebugMap draw and Level events. The complete
 startup gate deliberately keeps the production graph unopened until those
 owners are ready.
 
+The pre-scene Level lifecycle slice is also complete. A bounded owner now
+preflights the Level directory, legacy config grammar and selected `.sce`,
+owns the real `CConfigFile`, records the original visual/debug defaults and
+restores the prior working directory on failure or repeated shutdown. Local
+read-only validation succeeds against all nine Levels in both the installed
+tree and mounted retail CD; the synthetic contract covers every rollback
+branch. Config and Level deinit are now connected, bringing the default table
+to six of twelve hooks. The
+remaining six are full Level/scene init, begin-loop, PIN, Supervisor/SUA,
+DebugMap draw and Level events; the next content slice is the rollback-capable
+palette/font/figure-library and retail scene-construction transaction.
+
 ### Цель
 
 Собрать исходники CMake/MSVC или clang-cl и автоматически загрузить один

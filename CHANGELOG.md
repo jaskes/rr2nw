@@ -122,6 +122,12 @@ claim authorship of inherited Logos code or retail data.
   idempotent allocation/cleanup, software texture maintenance and the recovered
   ZAV frame counter. Eight content/input startup hooks remain explicitly
   unbound, so legacy startup still fails closed before allocating the graph.
+- Added a recovered pre-scene Level owner that validates the target directory,
+  legacy config grammar and referenced scene before publishing a real
+  `CConfigFile`. It preserves the original per-level working-directory
+  contract, restores it on every failure and repeated shutdown, snapshots the
+  recovered visual/debug settings and binds only the truthful config/deinit
+  entry hooks; full scene initialization remains fail-closed.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.

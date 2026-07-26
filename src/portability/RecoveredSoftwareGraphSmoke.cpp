@@ -25,13 +25,13 @@ int Fail(const char* message) {
 int main() {
   GameEntry_UseRecoveredRuntime();
   const unsigned int missing = GameEntry_RuntimeMissingHooks();
-  const unsigned int connected = GAME_ENTRY_MISSING_GRAPH_INIT |
-                                 GAME_ENTRY_MISSING_NEXT_FRAME |
-                                 GAME_ENTRY_MISSING_TEXTURE_PRELOAD |
-                                 GAME_ENTRY_MISSING_SURFACE_RESTORE;
-  if ((missing & connected) != 0 ||
-      (missing & GAME_ENTRY_MISSING_LEVEL_INIT) == 0 ||
-      (missing & GAME_ENTRY_MISSING_CONFIG) == 0) {
+  const unsigned int expectedMissing = GAME_ENTRY_MISSING_LEVEL_INIT |
+                                       GAME_ENTRY_MISSING_BEGIN_LOOP |
+                                       GAME_ENTRY_MISSING_PIN_INIT |
+                                       GAME_ENTRY_MISSING_SUA_INIT |
+                                       GAME_ENTRY_MISSING_DEBUG_MAP_DRAW |
+                                       GAME_ENTRY_MISSING_LEVEL_EVENT;
+  if (missing != expectedMissing) {
     return Fail("default recovered hook inventory changed");
   }
 

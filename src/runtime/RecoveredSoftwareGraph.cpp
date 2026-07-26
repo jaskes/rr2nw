@@ -8,6 +8,7 @@
 #include "game.h"
 #include "graph.h"
 
+#include "RecoveredLevelRuntime.h"
 #include "ZavShutdownState.h"
 
 extern SDeviceList _dL;
@@ -85,6 +86,8 @@ bool CreateSoftwareWindow(HINSTANCE instance) {
 }
 
 void FinishSoftwareGraph() {
+  RecoveredLevelRuntime_Release();
+
   if (_gr_hDC != nullptr && _gr_hWnd != nullptr) {
     ReleaseDC(_gr_hWnd, _gr_hDC);
   }
@@ -205,3 +208,11 @@ int RecoveredSoftwareGraph_Initialize(HINSTANCE instance) {
 }
 
 bool RecoveredSoftwareGraph_IsReady() { return g_ready; }
+
+int RecoveredSoftwareGraph_Width() {
+  return g_ready ? kScreenWidth : 0;
+}
+
+int RecoveredSoftwareGraph_Height() {
+  return g_ready ? kScreenHeight : 0;
+}

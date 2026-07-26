@@ -658,6 +658,19 @@ Supervisor/script startup, DebugMap draw and Level event dispatch. Because the
 graph wrapper checks the complete inventory first, the normal legacy-entry
 smoke still exits before allocating partial runtime state.
 
+Level config and deinit now have bounded production owners. Preparation
+requires the graph, validates the directory and config grammar before entering
+the fatal legacy `CConfigFile` parser, preserves the Windows case-insensitive
+`level.cfg`/retail `LEVEL.CFG` contract, validates the selected scene and
+publishes a snapshot of the pre-scene visual/debug settings. Every failure and
+both explicit Level and graph shutdown restore the original working directory
+and delete the config. The optional local test path prepares all nine Levels
+from both the installed tree and mounted retail CD read-only.
+
+Six hooks remain visible: full Level/scene init, begin-loop, PIN, Supervisor/
+SUA, DebugMap draw and Level event dispatch. The all-required graph gate still
+keeps the legacy entry executable fail-closed until those owners are real.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -682,8 +695,8 @@ smoke still exits before allocating partial runtime state.
    original entry point now links and exits safely with an unbound runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Link frontier complete, runtime binding in progress:** the software Win32
-   graph and four entry hooks are connected; bind the remaining eight checked
-   services behind `rr2nw.exe`.
+   graph and pre-scene Level lifecycle connect six entry hooks; bind the
+   remaining six checked services behind `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.
 

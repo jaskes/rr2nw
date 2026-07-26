@@ -6,3 +6,5 @@
 
 int RecoveredSoftwareGraph_Initialize(HINSTANCE instance);
 bool RecoveredSoftwareGraph_IsReady();
+int RecoveredSoftwareGraph_Width();
+int RecoveredSoftwareGraph_Height();

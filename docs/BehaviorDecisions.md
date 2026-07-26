@@ -286,3 +286,38 @@ the following content slices are connected.
 Regression contract: `recovered-software-graph-smoke`,
 `game-entry-runtime-smoke`, `legacy-game-entry-link-smoke` and complete
 Debug/Release CTest runs.
+
+## BD-017: Level config ownership precedes scene construction
+
+Status: accepted on 2026-07-26.
+
+The recovered Level path is split at the first durable ownership boundary.
+After the software graph exists, the pre-scene owner resolves and validates
+the requested directory, checks `level.cfg` and its legacy grammar before the
+fatal historical parser can run, changes to the Level working directory and
+owns the resulting `CConfigFile`. It snapshots the visual/debug values read by
+the original `ZAV_InitLevel` and verifies the configured scene file, including
+the recovered `1.sce` default.
+
+This deliberately preserves the Windows behavior by which retail
+`LEVEL.CFG` satisfies the original lowercase `level.cfg` lookup. Case-sensitive
+filesystem parity is deferred until a cross-platform data/VFS policy exists;
+the Windows milestone does not silently rename local retail files.
+
+Any missing directory, config, invalid grammar, missing scene or allocation
+failure rolls back the config and restores the prior process directory. Level
+deinit first uses the existing ordered scene-resource boundary, then deletes
+the config and restores the directory; repeated deinit is safe. Graph shutdown
+also releases a prepared Level so early startup failure cannot strand process
+state.
+
+Only the truthful Level config and deinit hooks are connected. `initLevel`
+remains missing until palette/font/figure-library setup and the real retail
+scene/terrain constructor succeed as one rollback-capable transaction.
+Therefore six of twelve entry hooks are connected and recovered `WinMain`
+continues to fail closed before opening its graph.
+
+Regression contract: `recovered-level-runtime-smoke` with missing/invalid
+synthetic fixtures, uppercase `LEVEL.CFG`, legacy defaults, repeated cleanup,
+graph-owned rollback and optional read-only validation of a local retail
+Level tree; plus complete Debug/Release CTest runs.

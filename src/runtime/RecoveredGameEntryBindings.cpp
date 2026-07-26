@@ -1,5 +1,6 @@
 #include "GameEntryRuntimeState.h"
 
+#include "RecoveredLevelRuntime.h"
 #include "RecoveredSoftwareGraph.h"
 #include "ZavOverallInfoState.h"
 
@@ -20,7 +21,9 @@ void AdvanceFrameCounter() { ++dwFrames; }
 SGameEntryRuntimeHooks GameEntry_RecoveredRuntimeHooks() {
   SGameEntryRuntimeHooks hooks = {};
   hooks.initGraph = RecoveredSoftwareGraph_Initialize;
+  hooks.deinitLevel = RecoveredLevelRuntime_Release;
   hooks.nextFrame = AdvanceFrameCounter;
+  hooks.config = RecoveredLevelRuntime_Config;
   hooks.preloadTextures = PreloadSoftwareTextures;
   hooks.restoreSurfaces = RestoreSoftwareSurfaces;
   return hooks;

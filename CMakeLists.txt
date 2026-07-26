@@ -1746,6 +1746,8 @@ add_library(rr2nw_game_entry_runtime STATIC
   src/runtime/GameEntryRuntimeState.cpp
   src/runtime/GameEntryRuntimeState.h
   src/runtime/RecoveredGameEntryBindings.cpp
+  src/runtime/RecoveredLevelRuntime.cpp
+  src/runtime/RecoveredLevelRuntime.h
   src/runtime/RecoveredSoftwareGraph.cpp
   src/runtime/RecoveredSoftwareGraph.h
 )
@@ -2167,6 +2169,21 @@ target_compile_definitions(rr2nw_recovered_software_graph_smoke PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_recovered_level_runtime_smoke
+  src/portability/RecoveredLevelRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_level_runtime_smoke PRIVATE
+  rr2nw_game_entry_runtime
+)
+target_compile_features(
+  rr2nw_recovered_level_runtime_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_level_runtime_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
   rr2nw_arena_obase_debug_map_mission
   rr2nw_game_entry_runtime
@@ -2306,6 +2323,9 @@ if(MSVC)
     rr2nw_recovered_software_graph_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_recovered_level_runtime_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_game_startup PRIVATE /W4 /permissive- /utf-8
   )
   target_compile_options(rr2nw_game PRIVATE /W4 /permissive- /utf-8)
@@ -2337,6 +2357,11 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-software-graph-smoke
     COMMAND rr2nw_recovered_software_graph_smoke
+  )
+  add_test(
+    NAME recovered-level-runtime-smoke
+    COMMAND rr2nw_recovered_level_runtime_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/recovered-level-runtime-smoke-$<CONFIG>"
   )
   add_test(
     NAME legacy-tagged-file-smoke

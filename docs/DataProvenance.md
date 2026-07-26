@@ -52,6 +52,13 @@ E:\Games\The Next Worlds
 - registry `HDDir` и `CDDir` указывают на установленную директорию;
 - для `nw.exe` задан AppCompat `HIGHDPIAWARE WINXPSP2`.
 
+A focused 2026-07-26 comparison confirmed that all nine installed root
+`Level.*\LEVEL.CFG` files are byte-identical to their `G:\nw` retail-CD
+counterparts. The installed root `game.cfg` differs from the CD copy only in
+`Init/StartLevel` (`3` locally versus retail `0`). This makes the Level configs
+a trustworthy read-only runtime fixture while leaving `game.cfg` classified
+as user-modified state.
+
 Основной установленный `nw.exe` совпадает с дисковым по SHA-256. Установка
 полезна как user-state fixture, но не как clean retail fixture.
 
