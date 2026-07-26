@@ -152,6 +152,16 @@ an active scene records `FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE` rather than
 silently succeeding. Isolate that draw path, then create the first game
 executable and load the read-only retail fixture.
 
+The normal software `CViewScene::Draw`/`PromoteDynamic` path is now isolated.
+Its measured frontier fell from 14 symbols to the two real terrain operations
+`SetViewPoint` and `FitInTrapezioid`; projection scale, clip planes, haze,
+palette state, light maps and dynamic sorting have bounded executable owners.
+The complete recovered terrain source also compiles strictly after correcting
+standard for-loop scope in its generated Debug blocks. Direct terrain archive
+linking still opens 13 unrelated font/texture/map dependencies, so the next
+slice isolates those last two terrain operations before connecting world draw
+to the frame dispatcher.
+
 ### Цель
 
 Собрать исходники CMake/MSVC или clang-cl и автоматически загрузить один

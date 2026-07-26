@@ -514,8 +514,9 @@ bool _CViewTerrain::DRAW4(LPatch)(TCint rectL[4])
 
 	#ifdef _DEBUG
 	{
+		int i_;
 		WRITELOG("### LPATCH M_(iCacheL) RUN:");
-		for( int i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
+		for( i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
 											i_ = CACHE_SU[i_].nextrun ) {
 			WRITELOG1(" %d", i_ );
 			ASSERT( GTS(CACHE_SU[i_].nextrun, i_ ) );
@@ -1134,8 +1135,9 @@ Again:
 
 	#ifdef _DEBUG
 	{
+		int i_;
 		WRITELOG("### LCACHE RUN:");
-		for( int i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
+		for( i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
 											i_ = CACHE_SU[i_].nextrun ) {
 			WRITELOG1(" %d", i_ );
 			ASSERT( GTS(CACHE_SU[i_].nextrun, i_ ) );
@@ -1379,8 +1381,9 @@ End:
 
 	#ifdef _DEBUG
 	{
+		int i_;
 		WRITELOG("### LCACHE RUN:");
-		for( int i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
+		for( i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
 											i_ = CACHE_SU[i_].nextrun ) {
 			WRITELOG1(" %d", i_ );
 			ASSERT( GTS(CACHE_SU[i_].nextrun, i_ ) );
@@ -1827,8 +1830,9 @@ End:
 	WRITELOG1("RRun: M_(iCacheU)=%d\n",M_(iCacheU));
 	#ifdef _DEBUG
 	{
+		int i_;
 		WRITELOG("### RCACHE RUN:");
-		for( int i_ = M_(iCacheU) ; GTS(i_,m_viewpointL[S]+SAS) ;
+		for( i_ = M_(iCacheU) ; GTS(i_,m_viewpointL[S]+SAS) ;
 											i_ = CACHE_SU[i_].nextrun ) {
 			ASSERT( LTS(CACHE_SU[i_].nextrun, i_ ) );
 			WRITELOG1(" %d", i_ );
@@ -2088,8 +2092,9 @@ End:
 
 	#ifdef _DEBUG
 	{
+		int i_;
 		WRITELOG("### LCACHE RUN:");
-		for( int i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
+		for( i_ = M_(iCacheL) ; LTS(i_,m_viewpointL[S]+(1-SAS)) ;
 											i_ = CACHE_SU[i_].nextrun ) {
 			WRITELOG1(" %d", i_ );
 			ASSERT( GTS(CACHE_SU[i_].nextrun, i_ ) );

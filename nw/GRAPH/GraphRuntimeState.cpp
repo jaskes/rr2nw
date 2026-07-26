@@ -50,6 +50,17 @@ int _gShift = 0;
 int _bScale = 0;
 int _bShift = 0;
 
+float _kX = 0.01f;
+float _kY = 0.01f;
+float _kXX = 0.0001f;
+float _kYY = 0.0001f;
+float _kXY = 0.0001f;
+float _ikX = 100.0f;
+float _ikY = 100.0f;
+
+int __HazeStartInt = 0;
+float __HazeLen = 0.0f;
+
 void (*_pGRSetClipRect)(void) = NULL;
 
 namespace {
@@ -252,6 +263,29 @@ int GRIsHardware()
 {
     return _dL.currDevice != NULL &&
            _dL.currDevice->swHw == GR_HARDWARE;
+}
+
+void GRSetScale(float scaleX,float scaleY)
+{
+    if( scaleX == 0.0f || scaleY == 0.0f ) return;
+    _kX = scaleX;
+    _kY = scaleY;
+    _kXY = scaleX*scaleY;
+    _ikX = 1.0f/scaleX;
+    _ikY = 1.0f/scaleY;
+    _kXX = scaleX*scaleX;
+    _kYY = scaleY*scaleY;
+}
+
+int GRSetHaze(int start,int length,SGRColorDef *definition)
+{
+    if( start <= 0 || length <= 0 || definition == NULL ||
+        definition->pTable == NULL || GRIsHardware() ) return FALSE;
+
+    __HazeStartInt = static_cast<int>(65536.0/start);
+    __HazeLen = static_cast<float>(start+length);
+    _gr_pHaze = definition->pTable;
+    return TRUE;
 }
 
 void GRSetPaletteTables(SGRColorDef *pTransparency,int nTranspCount,

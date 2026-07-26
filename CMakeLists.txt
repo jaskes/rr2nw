@@ -331,6 +331,51 @@ target_compile_definitions(rr2nw_view_figure_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_patterns_palette_frame_state STATIC
+  nw/PATTERNS/PaletteFrameState.cpp
+)
+target_link_libraries(rr2nw_patterns_palette_frame_state PUBLIC
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_patterns_palette_frame_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/PATTERNS
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_patterns_palette_frame_state PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_patterns_palette_frame_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_view_frame_state STATIC
+  nw/VIEW/ViewFrameState.cpp
+  nw/VIEW/ViewHazeFrameState.cpp
+)
+target_link_libraries(rr2nw_view_frame_state PUBLIC
+  rr2nw_graph_runtime_state
+  rr2nw_patterns_palette_frame_state
+  rr2nw_view_figure_state
+  rr2nw_view_object_state
+)
+target_include_directories(rr2nw_view_frame_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_frame_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_frame_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_library(rr2nw_view_terrain_waterline_state STATIC
   nw/VIEW/TerrainWaterlineState.cpp
   nw/VIEW/TerrainWaterlineState.inl
@@ -351,6 +396,31 @@ target_compile_definitions(rr2nw_view_terrain_waterline_state PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_library(rr2nw_view_terrain_full STATIC
+  nw/VIEW/TERRAIN.CPP
+)
+target_link_libraries(rr2nw_view_terrain_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_view_terrain_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_terrain_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_terrain_full PRIVATE
+  __NT__
+  RR2NW_TERRAIN_FRAME_COUNTERS_EXTERNAL
+  RR2NW_TERRAIN_FRAME_END_EXTERNAL
+  RR2NW_TERRAIN_WATERLINE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_view_terrain_full PRIVATE /Gy)
+endif()
 
 add_library(rr2nw_main_zav_scene_state STATIC
   nw/MAIN/ZavSceneState.cpp
@@ -422,6 +492,7 @@ target_compile_definitions(rr2nw_arena_light_chain PRIVATE
 
 add_library(rr2nw_view_land_dynamic_frame_state STATIC
   nw/VIEW/LandDynamicFrameState.cpp
+  nw/VIEW/LandDynamicTerrainFrameState.cpp
   nw/VIEW/TerrainFrameCounters.cpp
 )
 target_link_libraries(rr2nw_view_land_dynamic_frame_state PUBLIC
@@ -461,6 +532,38 @@ target_compile_definitions(rr2nw_scene_full PRIVATE
 if(MSVC)
   target_compile_options(rr2nw_scene_full PRIVATE /Gy)
 endif()
+
+add_library(rr2nw_scene_software_draw STATIC
+  nw/SCENE/SceneSoftwareDraw.cpp
+  nw/SCENE/SceneSoftwareDraw.h
+)
+target_link_libraries(rr2nw_scene_software_draw PUBLIC
+  rr2nw_graph_runtime_state
+  rr2nw_legacy_design
+  rr2nw_patterns_palette_frame_state
+  rr2nw_scene_draw_state
+  rr2nw_scene_vessel_runtime_state
+  rr2nw_view_figure_state
+  rr2nw_view_frame_state
+  rr2nw_view_land_dynamic_frame_state
+  rr2nw_view_object_state
+  rr2nw_view_terrain_waterline_state
+)
+target_include_directories(rr2nw_scene_software_draw PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_scene_software_draw PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_scene_software_draw PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 
 add_library(rr2nw_recovered_software_frame STATIC
   nw/MAIN/RecoveredSoftwareFrame.cpp
@@ -969,12 +1072,22 @@ if(MSVC)
   )
   target_compile_options(rr2nw_frame_runtime PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_view_light_state PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_patterns_palette_frame_state PRIVATE /W4 /permissive-
+  )
+  target_compile_options(rr2nw_view_frame_state PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_arena_light_chain PRIVATE /W3 /permissive-)
   target_compile_options(
     rr2nw_view_land_dynamic_frame_state PRIVATE /W4 /permissive-
   )
   target_compile_options(
     rr2nw_scene_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_scene_software_draw PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_view_terrain_full PRIVATE /W3 /permissive- /wd4081 /wd4244
   )
   target_compile_options(
     rr2nw_recovered_software_frame PRIVATE /W4 /permissive- /wd4459
@@ -1797,6 +1910,29 @@ target_compile_definitions(rr2nw_recovered_software_frame_smoke PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_scene_software_state_smoke
+  src/portability/SceneSoftwareStateSmoke.cpp
+)
+target_link_libraries(rr2nw_scene_software_state_smoke PRIVATE
+  rr2nw_view_light_state
+  rr2nw_view_frame_state
+  rr2nw_view_land_dynamic_frame_state
+)
+target_include_directories(rr2nw_scene_software_state_smoke PRIVATE
+  nw/ARENA
+  nw/ARENA/H
+  nw/PATTERNS
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_scene_software_state_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(rr2nw_scene_software_state_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 add_executable(rr2nw_menu_texture_smoke
   src/portability/MenuTextureSmoke.cpp
 )
@@ -1862,6 +1998,35 @@ target_compile_definitions(rr2nw_vehicle_shell_link_probe PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_scene_software_draw_link_probe EXCLUDE_FROM_ALL
+  src/portability/SceneSoftwareDrawLinkProbe.cpp
+)
+target_link_libraries(rr2nw_scene_software_draw_link_probe PRIVATE
+  rr2nw_scene_software_draw
+)
+target_compile_features(
+  rr2nw_scene_software_draw_link_probe PRIVATE cxx_std_14
+)
+target_compile_definitions(rr2nw_scene_software_draw_link_probe PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_executable(rr2nw_scene_terrain_link_probe EXCLUDE_FROM_ALL
+  src/portability/SceneSoftwareDrawLinkProbe.cpp
+)
+target_link_libraries(rr2nw_scene_terrain_link_probe PRIVATE
+  rr2nw_scene_software_draw
+  rr2nw_view_terrain_full
+)
+target_compile_features(rr2nw_scene_terrain_link_probe PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_scene_terrain_link_probe PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_carrier_smoke
   src/portability/CarrierSmoke.cpp
 )
@@ -1905,12 +2070,27 @@ if(MSVC)
   target_compile_options(
     rr2nw_recovered_software_frame_smoke PRIVATE /W4 /permissive-
   )
+  target_compile_options(
+    rr2nw_scene_software_state_smoke PRIVATE /W4 /permissive-
+  )
   target_compile_options(rr2nw_menu_texture_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_menu_shutdown_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_panel_lifecycle_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
   target_compile_options(
     rr2nw_vehicle_shell_link_probe PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_scene_software_draw_link_probe PRIVATE /W4 /permissive-
+  )
+  target_link_options(rr2nw_scene_software_draw_link_probe PRIVATE
+    /INCREMENTAL:NO /OPT:REF
+  )
+  target_compile_options(
+    rr2nw_scene_terrain_link_probe PRIVATE /W4 /permissive-
+  )
+  target_link_options(rr2nw_scene_terrain_link_probe PRIVATE
+    /INCREMENTAL:NO /OPT:REF
   )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -1977,6 +2157,10 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-software-frame-smoke
     COMMAND rr2nw_recovered_software_frame_smoke
+  )
+  add_test(
+    NAME scene-software-state-smoke
+    COMMAND rr2nw_scene_software_state_smoke
   )
   add_test(
     NAME legacy-menu-texture-smoke

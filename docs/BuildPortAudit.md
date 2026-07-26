@@ -566,6 +566,34 @@ integration fixture. The next renderer tranche must extract the normal
 software `CViewScene::Draw`/`PromoteDynamic` path and satisfy its actual order,
 terrain, palette and land-dynamic dependencies as bounded owners.
 
+That normal software path is now isolated in `SceneSoftwareDraw.cpp`; it omits
+only the recovered random-position diagnostic branch and the hardware-only
+z-write toggles. Its first forced link exposed 14 symbols rather than the 70
+from `SCENE.obj`. Exact bounded owners for projection scale, clip planes,
+software haze publication, palette haze state, order globals, dynamic-list
+sorting and land light setup/removal reduce the same Debug and Release probe to
+two symbols: `_CViewTerrain::SetViewPoint` and
+`_CViewTerrain::FitInTrapezioid`. `EndDrawTerrain` is an exact empty owner in
+the current build because every statement in its recovered body is behind the
+disabled `_RC_COUNT` gate. `scene-software-state-smoke` executes the compact
+owners against a software device and checks scale, clipping, haze publication
+and land-light cleanup. The unusual recovered bump-light scan, which consumes
+its left cell cursor without resetting it on later rows, remains unchanged
+until retail parity evidence justifies treating it as a gameplay bug.
+
+The complete 97 KiB `TERRAIN.CPP` plus its generated 89 KiB `terrain4.inl` now
+compile strictly under MSVC. Five active Debug loops had relied on Watcom's
+pre-standard for-loop variable lifetime; their indices now have block scope,
+and two shift expressions have explicit recovered precedence. Waterline,
+terrain counters and the empty end-frame method remain external bounded
+owners. Linking the full terrain archive to resolve the final two scene edges
+was also measured with `/Gy` and `/OPT:REF`: it opens 13 dependencies in both
+configurations, covering fixed font, texture loading, palette loading,
+land-object-map drawing and renderer function pointers. Therefore the full
+terrain object remains a compile gate; the next slice must isolate its
+view-frustum setup and trapezoid test rather than adopting that transitive
+archive as the production boundary.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -585,8 +613,9 @@ terrain, palette and land-dynamic dependencies as bounded owners.
    pointer state, scene/Vessel draw dispatch, graph viewport/color and the
    complete software-panel archive/lifecycle/draw path execute against a
    bounded 8-bit framebuffer. Recovered empty software-frame binding now
-   executes every non-world-draw stage; isolated scene draw and the first game
-   executable are next.
+   executes every non-world-draw stage. Normal software scene orchestration is
+   isolated and its compact state executes; two terrain methods, then the first
+   game executable, are next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

@@ -187,5 +187,15 @@ extracts the normal software draw and dynamic-promotion path with only its real
 terrain, ordering, palette and land-dynamic dependencies; it must not replace
 them with an unconditional success stub.
 
-Regression contract: `recovered-software-frame-smoke` and strict
-`rr2nw_scene_full` Debug/Release compilation.
+That extraction reduces the world-draw frontier to terrain `SetViewPoint` and
+`FitInTrapezioid`. The complete recovered terrain archive is likewise kept as
+a compile gate: resolving those two functions by linking its single object
+opens 13 font, texture, palette, land-map and renderer-pointer dependencies in
+both configurations even with function-level linking. The production path
+will therefore isolate the two terrain operations and retain the full archive
+as comparison evidence.
+
+Regression contract: `recovered-software-frame-smoke`,
+`scene-software-state-smoke`, strict `rr2nw_scene_full` and
+`rr2nw_view_terrain_full` Debug/Release compilation, plus both excluded scene
+link probes.

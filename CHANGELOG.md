@@ -89,6 +89,14 @@ claim authorship of inherited Logos code or retail data.
   original order. The complete recovered `SCENE.CPP` is a strict compile gate;
   its still-isolated world draw reports a dedicated runtime issue instead of
   linking a 70-symbol monolith or pretending to render successfully.
+- Extracted the normal recovered software `CViewScene::Draw` and
+  `PromoteDynamic` path into its own strict archive. Bounded projection, haze,
+  clip, light, dynamic-map and z-order owners reduce its real link frontier
+  from 14 symbols to only terrain `SetViewPoint` and `FitInTrapezioid`; a new
+  executable contract verifies the compact frame state.
+- Added a strict compile gate for the complete recovered terrain renderer and
+  fixed its Watcom-era debug-loop variable scope and ambiguous shift
+  expressions without changing their calculations.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.

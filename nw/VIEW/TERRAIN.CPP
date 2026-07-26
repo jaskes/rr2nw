@@ -4,7 +4,11 @@
 
 #include<windows.h>
 
+#ifndef RR2NW_TERRAIN_FRAME_COUNTERS_EXTERNAL
 int __revCnt, __fullCnt;
+#else
+extern int __revCnt, __fullCnt;
+#endif
 
 
 #define	MAX_REDCELL(X,Y)	(m_red(X,Y)&7)
@@ -110,7 +114,7 @@ inline byte  _CViewTerrain::CMipMapHeight::GetLimit(int x,int y,int nMinMax,int 
 	if( nShiftReduction <= m_nShiftR )
 		return m_pImage[m_nWidth*((y>>m_nShiftR)&(m_nHeight-1))+
 									((x>>m_nShiftR)&(m_nWidth-1))][nMinMax];
-	int n = 1<<nShiftReduction-m_nShiftR;
+	int n = 1<<(nShiftReduction-m_nShiftR);
 	x >>= m_nShiftR;
 	y >>= m_nShiftR;
 	byte nBest = (byte)(nMinMax-1);
@@ -333,7 +337,7 @@ _CViewTerrain::_CViewTerrain(double fCellSize,double fHScale,double fViewDiamete
 	for( int i = 0 ; i < m_nReductions ; i++ ) {
 		m_ppEdges[i] = new (int [n][2]); // CEdge[n];
 		IF_DEBUG(m_pnEdges[i]=n);
-		n = n+2>>1;
+		n = (n+2)>>1;
 	}
 	for( int i = 0 ; i < MAX_CELLVERTS ; i++ )	{
 		m_apCellVerts[i] = &m_cellVerts[i];
@@ -2679,6 +2683,7 @@ void _CViewTerrain::VT_DrawPixel(int x,int y)
 	#endif
 }
 
+#ifndef RR2NW_TERRAIN_FRAME_END_EXTERNAL
 void _CViewTerrain::EndDrawTerrain()
 {
 	#if 0
@@ -2742,6 +2747,7 @@ void _CViewTerrain::EndDrawTerrain()
 	//(void)fIntegerPrec;
 	//(void)fIntegerPrec_1;
 }
+#endif
 
 void _CViewTerrain::GetPlane(SFVector3 v,SFVector3 &normal,double &height)
 {
