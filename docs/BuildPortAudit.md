@@ -623,14 +623,25 @@ also reached the marker against both verified data sources; hashes of the CD
 `game.cfg` and `LEVEL0.SC` remained unchanged.
 
 The original `mainproc.cpp` is separately compiled as
-`rr2nw_mainproc_full`. Forcing its `WinMain` into the excluded
-`rr2nw_game_link_probe` activates 49 Debug and 48 Release unresolved symbols;
-the sole Debug-only edge is `CViewOrdered::CheckNoDynamics`. They are
-concentrated in real graph device/texture services,
-input/timer and registry owners, Level/Supervisor construction, RSX removal,
-and scene/terrain constructors. This probe is the next integration ledger;
-the bounded executable is not permitted to call its data marker level-ready
-until those services connect and `ZAV_InitLevel` constructs the retail scene.
+`rr2nw_mainproc_full`. The first measurement forced its `WinMain` through the
+monolithic ZAV and Supervisor archives and exposed 49 Debug/48 Release
+unresolved symbols; the sole Debug-only edge was
+`CViewOrdered::CheckNoDynamics`. Removing those two monoliths showed the direct
+entry frontier was 13 symbols: the 11 graph/input/script/level entry services,
+`Fountain::createFreeList` and `g_super`.
+
+The real Fountain state owner and a bounded real Supervisor/observer owner are
+now connected. The 11 direct services plus the Level event boundary use a
+checked hook table: incomplete configuration records exact issue bits and
+causes `ZAV_InitGraph` to return false before legacy startup can enter a
+partially initialized runtime. `rr2nw_game_link_probe` consequently has zero
+unresolved symbols, belongs to the normal build and runs as
+`legacy-game-entry-link-smoke` in both configurations.
+
+This is a link-complete entry executable, not a content-complete game. The
+public preflight executable is not permitted to call its marker level-ready
+until the hooks bind recovered services and `ZAV_InitLevel` constructs the
+retail scene.
 
 ## Expansion order
 
@@ -653,10 +664,10 @@ until those services connect and `ZAV_InitLevel` constructs the retail scene.
    bounded 8-bit framebuffer. Recovered software-frame binding now executes
    every frame stage, including the bounded normal software world draw. The
    first Win32 executable reaches a checked read-only pre-content marker; the
-   original entry point has a measured 49 Debug/48 Release runtime frontier.
+   original entry point now links and exits safely with an unbound runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
-6. Close the measured legacy-entry frontier and connect the existing
-   Win32/DirectDraw shell behind `rr2nw.exe`.
+6. **Link frontier complete:** bind the checked legacy-entry services to the
+   existing Win32/DirectDraw shell behind `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.
 

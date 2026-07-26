@@ -220,8 +220,35 @@ Startup therefore accepts an explicit `--data-dir`, avoids mandatory legacy
 registry state and performs only read access to `game.cfg`, `LEVEL0.SC` and the
 nine configured runtime directories. Its log embeds build identity and ends at
 `pre-content-ready` with `legacy_runtime=not-connected`. The recovered
-`mainproc.cpp` remains a separately measured link probe; its unresolved symbols
-are integration work, not candidates for unconditional stubs.
+`mainproc.cpp` remains a separate integration executable; its startup bindings
+are integration work, not candidates for unconditional success stubs.
 
 Regression contract: `game-launch-smoke`, strict `rr2nw_mainproc_full`
-Debug/Release compilation and the excluded `rr2nw_game_link_probe` frontier.
+Debug/Release compilation and the normal-build `rr2nw_game_link_probe` CTest.
+
+## BD-015: legacy entry services are a fail-closed binding boundary
+
+Status: accepted on 2026-07-26.
+
+The initial 49 Debug/48 Release link measurements mostly described the cost of
+activating the monolithic recovered ZAV and Supervisor translation units, not
+the direct needs of `mainproc.cpp`. Removing those monoliths from the entry
+link reduced the direct frontier to 13 symbols: 11 graph/input/script/level
+entry services, `Fountain::createFreeList` and `g_super`.
+
+Fountain state and the actual Supervisor global now have bounded owners. The
+Supervisor owner preserves the recovered observer table, draw traversal and
+state-table initialization; the Level owner preserves its recovered trivial
+notify/close behavior. The remaining entry services use one explicit hook
+table. The graph initializer refuses to start unless every required hook is
+bound and records a bitmask of missing services. No hook reports success when
+unconfigured, and the recovered `WinMain` therefore exits cleanly before
+touching partially connected content.
+
+This closes the executable's linker frontier, not the gameplay startup
+frontier. The public `rr2nw.exe` remains at `pre-content-ready` until the hook
+table is bound to recovered implementations and a retail level is constructed.
+
+Regression contract: `game-entry-runtime-smoke`,
+`legacy-game-entry-link-smoke`, normal Debug/Release builds of
+`rr2nw_game_link_probe`, and the complete CTest matrix.

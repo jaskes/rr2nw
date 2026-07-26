@@ -110,6 +110,13 @@ claim authorship of inherited Logos code or retail data.
   `mainproc.cpp` Win32 entry point; its first full-runtime measurement exposes
   49 Debug and 48 Release unresolved symbols rather than hiding the legacy
   connection frontier.
+- Added a fail-closed game-entry runtime contract for graph, level, input,
+  script, texture, frame and DebugMap services, with executable coverage for
+  incomplete-runtime diagnostics and the complete configured dispatch order.
+- Added bounded owners for the real `g_super` object, recovered observer
+  state/draw behavior and original trivial Level lifecycle methods. The legacy
+  `WinMain` link probe is now a normal Debug/Release build and CTest target with
+  a zero-symbol frontier.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.
@@ -213,6 +220,11 @@ claim authorship of inherited Logos code or retail data.
   the hardware z-list callback, and the deeper shell probe now links and runs
   in both configurations. Binding those stages to the recovered scene/arena
   implementations remains the next executable tranche.
+- Replaced the legacy-entry measurement's monolithic ZAV/Supervisor archive
+  activation with bounded startup owners. This separated 49 Debug/48 Release
+  transitive unresolved symbols into 13 direct entry dependencies, connected
+  real Fountain and Supervisor state, and closed the linker frontier without
+  treating any unimplemented startup service as successful.
 - Fixed `CChannelMap::operator==` infinite recursion, retained its loop index
   under standard C++ for-scope rules and removed the unrelated scene umbrella
   from that mathematical translation unit. Copy/self-assignment now retains

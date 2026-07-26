@@ -175,13 +175,19 @@ and proves that the fixture inventory is unchanged. Local read-only runs pass
 against both the May CD directory and the modified installed directory.
 
 This is intentionally not called level-ready: `legacy_runtime=not-connected`
-is written beside the marker. Compiling the recovered `mainproc.cpp` is already
-clean, while forcing that Win32 entry point through the currently recovered
-archives exposes 49 Debug and 48 Release unresolved symbols; the sole Debug
-addition is `CViewOrdered::CheckNoDynamics`. The remaining M1 work is to close
-that measured input/registry/graph/content-construction frontier, enter
-`ZAV_InitGraph`/`ZAV_InitLevel` and observe the software world path against
-constructed retail terrain.
+is written beside the marker. The first recovered-entry measurement exposed
+49 Debug/48 Release unresolved symbols because it activated the monolithic ZAV
+and Supervisor objects. Isolating the direct dependencies reduced that ledger
+to 13; real Fountain and Supervisor owners plus a fail-closed startup hook
+contract now reduce the normal `rr2nw_game_link_probe` frontier to zero in
+both configurations.
+
+The remaining M1 work is runtime connection rather than linker archaeology:
+bind graph/configuration, input, script, texture, frame and Level services to
+their recovered implementations, enter `ZAV_InitGraph`/`ZAV_InitLevel`, and
+observe the software world path against constructed retail terrain. Until the
+complete hook table is bound, recovered `WinMain` refuses startup cleanly and
+the public executable remains at `pre-content-ready`.
 
 ### Цель
 

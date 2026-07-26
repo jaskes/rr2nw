@@ -1428,11 +1428,13 @@ add_library(rr2nw_mainproc_full STATIC
   nw/MAIN/mainproc.cpp
 )
 target_link_libraries(rr2nw_mainproc_full PUBLIC
+  rr2nw_arena_obase_debug_map_mission
   rr2nw_arena_obase_vehicle
-  rr2nw_arena_super_full
+  rr2nw_arena_obase_fountain_state
+  rr2nw_game_entry_runtime
   rr2nw_legacy_shell_full
-  rr2nw_main_zav_full
   rr2nw_recovered_software_frame
+  rr2nw_supervisor_global
 )
 target_include_directories(rr2nw_mainproc_full PUBLIC
   nw/INCLUDE
@@ -1738,6 +1740,54 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_legacy_rsx_ids
   rr2nw_arena_time_runtime_state
   rr2nw_arena_taxi_attribute_state
+)
+
+add_library(rr2nw_game_entry_runtime STATIC
+  src/runtime/GameEntryRuntimeState.cpp
+  src/runtime/GameEntryRuntimeState.h
+)
+target_link_libraries(rr2nw_game_entry_runtime PUBLIC
+  rr2nw_arena_kernel
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_game_entry_runtime PUBLIC
+  src/runtime
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/BRIEFING
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+)
+target_compile_features(rr2nw_game_entry_runtime PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_game_entry_runtime PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_supervisor_global STATIC
+  src/runtime/SupervisorGlobal.cpp
+)
+target_link_libraries(rr2nw_supervisor_global PUBLIC
+  rr2nw_arena_kernel
+  rr2nw_arena_obase_publish_full
+  rr2nw_arena_storage
+  rr2nw_game_entry_runtime
+)
+target_include_directories(rr2nw_supervisor_global PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_supervisor_global PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_supervisor_global PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
 )
 
 add_executable(rr2nw_math_smoke
@@ -2076,7 +2126,7 @@ target_compile_definitions(rr2nw_vehicle_shell_link_probe PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
-add_executable(rr2nw_game_link_probe WIN32 EXCLUDE_FROM_ALL
+add_executable(rr2nw_game_link_probe WIN32
   nw/MAIN/mainproc.cpp
 )
 target_link_libraries(rr2nw_game_link_probe PRIVATE
@@ -2084,6 +2134,21 @@ target_link_libraries(rr2nw_game_link_probe PRIVATE
 )
 target_compile_features(rr2nw_game_link_probe PRIVATE cxx_std_14)
 target_compile_definitions(rr2nw_game_link_probe PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_executable(rr2nw_game_entry_runtime_smoke
+  src/portability/GameEntryRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
+  rr2nw_arena_obase_debug_map_mission
+  rr2nw_game_entry_runtime
+  rr2nw_supervisor_global
+)
+target_compile_features(rr2nw_game_entry_runtime_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_game_entry_runtime_smoke PRIVATE
   __NT__
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
@@ -2202,6 +2267,16 @@ if(MSVC)
   target_compile_options(
     rr2nw_game_link_probe PRIVATE /W4 /permissive- /wd4081
   )
+  target_link_options(rr2nw_game_link_probe PRIVATE /INCREMENTAL:NO /OPT:REF)
+  target_compile_options(
+    rr2nw_game_entry_runtime PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_supervisor_global PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_game_entry_runtime_smoke PRIVATE /W4 /permissive- /wd4081
+  )
   target_compile_options(
     rr2nw_game_startup PRIVATE /W4 /permissive- /utf-8
   )
@@ -2225,6 +2300,12 @@ if(BUILD_TESTING)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GameLaunchSmoke.cmake"
   )
   add_test(NAME legacy-math-smoke COMMAND rr2nw_math_smoke)
+  add_test(
+    NAME game-entry-runtime-smoke
+    COMMAND rr2nw_game_entry_runtime_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/game-entry-runtime-smoke.cfg"
+  )
+  add_test(NAME legacy-game-entry-link-smoke COMMAND rr2nw_game_link_probe)
   add_test(
     NAME legacy-tagged-file-smoke
     COMMAND rr2nw_tagged_file_smoke
