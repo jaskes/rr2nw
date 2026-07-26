@@ -6,7 +6,7 @@ enum
   IVesselIID = 8
 };
 
-class SBumpDef;
+struct SBumpDef;
 class ct_Subject;
 
 class IVessel

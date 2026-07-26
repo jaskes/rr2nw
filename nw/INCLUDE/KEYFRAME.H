@@ -19,7 +19,7 @@ public:
 					delete [] m_ppFiguresUpdate; Init(); }
 	~CViewBaseModifier() { Clear(); }
 	void Read(CTaggedFile &f,SViewObjectMorphNames &names);
-	CFVector3 &Vertex(int i) { ASSERT((uint)i<m_nVertices); return *m_ppVerticesUpdate[i]; }
+	CFVector3 &Vertex(int i) { ASSERT((uint)i<(uint)m_nVertices); return *m_ppVerticesUpdate[i]; }
 	int VertexCount() const { return m_nVertices; }
 	void Update();
 
@@ -44,7 +44,7 @@ public:
 	void Clear() { CViewBaseModifier::Clear(); Clear0(); }
 	~CViewBaseModifier0() { Clear0(); }
 	void Read(CTaggedFile &f,SViewObjectMorphNames &names);
-	TCCFVector3 &Vertex0(int i) { ASSERT((uint)i<m_nVertices); return m_pVertices0[i]; }
+	TCCFVector3 &Vertex0(int i) { ASSERT((uint)i<(uint)m_nVertices); return m_pVertices0[i]; }
 
 	CViewBaseModifier0 &LoadIdentity();
 

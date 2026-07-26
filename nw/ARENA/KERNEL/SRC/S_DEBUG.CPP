@@ -8,12 +8,22 @@
 #include <conio.h>
 #include "Kernel/h/s_debug.h"
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 static s_Console console;
 s_Console *g_console=&console;
 
+#ifdef _MSC_VER
+static void Int3(void)
+ {
+    __debugbreak();
+ }
+#else
 extern void Int3(void);
 #pragma aux Int3 = "int 3"
+#endif
  //===========================================================================
 void s_Console::terminate()
  {

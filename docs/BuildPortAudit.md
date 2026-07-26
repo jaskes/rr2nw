@@ -67,13 +67,39 @@ unwinding across that boundary and narrowly suppresses MSVC C4611. Replacing
 the error mechanism is deferred until callers and retail scripts are under
 tests.
 
+## Arena kernel boundary
+
+The original `kernelw.lib` makefile lists eight objects: object, assertions,
+ID set, simulation context, session, console echo, event data and active-object
+state. The same eight translation units now build as `rr2nw_arena_kernel`.
+
+The first MSVC blockers were another serialized packing guard in `VIEW.H` and
+the Watcom-only `#pragma aux Int3`. The packing branch now uses balanced MSVC
+push/pop pragmas, while the assertion console uses `__debugbreak` under MSVC
+and retains the Watcom implementation. Explicit casts were added where the
+legacy code intentionally narrows renderer timing/vector values or compares
+signed indices through their existing unsigned bounds convention. A Watcom
+`#pragma warning 004` in the CP1251 `HARDWARE.H` is ignored through the narrow
+MSVC C4081 target suppression rather than rewriting that historical header.
+
+The executable contract covers the self-contained kernel state transport: it
+registers event labels, writes a typed event payload containing integer,
+double, string and `KR_ObjectID` values, copies the payload, reads it back and
+checks the two-field 32-bit object-ID ABI. The archive also compiles
+`SimulationContext`, but that object is not yet pulled into the smoke because
+its real link boundary includes storage, level, hardware and object-base
+implementations. Those dependencies will be connected rather than replaced by
+test-only game stubs.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
    tagged-file fixtures.
 2. **Complete:** compile and execute the script VM libraries without enabling
    their embedded command-line/test mains.
-3. Compile Arena kernel/state with platform calls behind narrow adapters.
+3. **In progress:** compile the complete Arena kernel archive and execute its
+   event-state boundary; connect storage and the real `SimulationContext`
+   dependencies next.
 4. Add object-base modules in dependency order.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.

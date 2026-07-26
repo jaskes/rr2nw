@@ -238,7 +238,7 @@ typedef struct {
 #define GR_LIGHT  0
 #define GR_SHADOW 1
 
-typedef struct {
+typedef struct SGRLight {
    int type;
    unsigned long *colorTable;
    float x, y, z;
@@ -255,7 +255,7 @@ typedef struct {
    //float irad2;
    float saveR; //h2 use for save r
    //long uC, vC;
-   void Set(TCSFVector3 &v) { x = v.x; y = v.y; z = v.z; }
+   void Set(TCSFVector3 &v) { x = (float)v.x; y = (float)v.y; z = (float)v.z; }
 }SGRLight;
 
 //sizeof (13 + 64*8)*4 = 2100

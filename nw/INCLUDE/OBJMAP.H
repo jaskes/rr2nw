@@ -386,8 +386,8 @@ public:
 
     void SetCurTime(double curTime) {
        m_curTime  = curTime;
-       m_curTimeX = curTime*m_wp.m_txwTimeP;
-       m_curTimeY = curTime*m_wp.m_tywTimeP;
+       m_curTimeX = (int)(curTime*m_wp.m_txwTimeP);
+       m_curTimeY = (int)(curTime*m_wp.m_tywTimeP);
     }
     void InitWaterTabulation();
     void InitWaterParams(const CWaterParams &p) { m_wp = p;}

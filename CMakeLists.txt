@@ -82,6 +82,36 @@ if(MSVC)
   target_compile_options(rr2nw_script_runtime PRIVATE /W3)
 endif()
 
+add_library(rr2nw_arena_kernel STATIC
+  nw/ARENA/KERNEL/SRC/Object.cpp
+  nw/ARENA/KERNEL/SRC/S_DEBUG.CPP
+  nw/ARENA/KERNEL/SRC/SETOFID.CPP
+  nw/ARENA/KERNEL/SRC/Context.cpp
+  nw/ARENA/KERNEL/SRC/Session.cpp
+  nw/ARENA/KERNEL/SRC/Echo.cpp
+  nw/ARENA/KERNEL/SRC/S_EVDATA.CPP
+  nw/ARENA/KERNEL/SRC/Active.cpp
+)
+target_link_libraries(rr2nw_arena_kernel PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_arena_kernel PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_kernel PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_kernel PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  # HARDWARE.H contains Watcom's `#pragma warning 004` syntax. MSVC diagnoses
+  # the foreign pragma before it can otherwise ignore it.
+  target_compile_options(rr2nw_arena_kernel PRIVATE /W3 /wd4081)
+endif()
+
 add_executable(rr2nw_math_smoke
   src/portability/LegacyMathSmoke.cpp
 )
@@ -100,10 +130,17 @@ add_executable(rr2nw_script_vm_smoke
 target_link_libraries(rr2nw_script_vm_smoke PRIVATE rr2nw_script_runtime)
 target_compile_features(rr2nw_script_vm_smoke PRIVATE cxx_std_14)
 
+add_executable(rr2nw_kernel_state_smoke
+  src/portability/KernelStateSmoke.cpp
+)
+target_link_libraries(rr2nw_kernel_state_smoke PRIVATE rr2nw_arena_kernel)
+target_compile_features(rr2nw_kernel_state_smoke PRIVATE cxx_std_14)
+
 if(MSVC)
   target_compile_options(rr2nw_math_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_tagged_file_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_script_vm_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_kernel_state_smoke PRIVATE /W4 /permissive-)
 endif()
 
 if(BUILD_TESTING)
@@ -114,4 +151,5 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/tagged-file-smoke.tfb"
   )
   add_test(NAME legacy-script-vm-smoke COMMAND rr2nw_script_vm_smoke)
+  add_test(NAME legacy-kernel-state-smoke COMMAND rr2nw_kernel_state_smoke)
 endif()

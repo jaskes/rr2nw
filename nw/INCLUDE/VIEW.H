@@ -101,6 +101,8 @@ public:
 		#pragma	option	-a-
 	#elif	defined(__WATCOMC__)
 		#pragma pack(1)
+	#elif defined(_MSC_VER)
+		#pragma pack(push,1)
 	#elif defined(__sgi)
 	#else
 		#error	Unknown compiler
@@ -115,6 +117,8 @@ public:
 		#pragma	option	-a.
 	#elif	defined(__WATCOMC__)
 		#pragma pack()
+	#elif defined(_MSC_VER)
+		#pragma pack(pop)
 	#endif
 protected:
 
@@ -414,20 +418,20 @@ public:
 	int		NumVertices() const { return m_nVertices; }
 	TCCFVector3 *GetVertexPtr(int i) {
 		#if _USE_OPENGL
-			ASSERT((uint)i<m_nVertices);
+			ASSERT((uint)i<(uint)m_nVertices);
 		#else
-			ASSERT((uint)i<m_nVertices); //&&m_nSplitVertices<m_nVertices);
+			ASSERT((uint)i<(uint)m_nVertices); //&&m_nSplitVertices<m_nVertices);
 		#endif
 		return m_pVertices+i;
 	}
-	CFVector3 GetVertex(int i) { ASSERT((uint)i<m_nVertices);
+	CFVector3 GetVertex(int i) { ASSERT((uint)i<(uint)m_nVertices);
 		if( m_pVertices ) return m_pVertices[i];
 		SSplitRef	*pSplit = m_pSplits+i; return CFVector3(
 								m_pSplitX[(USplitVect*)pSplit->px-m_splitX],
 								m_pSplitY[(USplitVect*)pSplit->py-m_splitY],
 								m_pSplitZ[(USplitVect*)pSplit->pz-m_splitZ]); }
 	static	CViewObjectBase *GetCurrBase() { ASSERT(m_pCurrBase); return m_pCurrBase; }
-	CViewBody &GetBody(int i) {	ASSERT(this); ASSERT((uint)i<m_nBodies);
+	CViewBody &GetBody(int i) {	ASSERT(this); ASSERT((uint)i<(uint)m_nBodies);
 									return m_pBodies[i]; }
 	bool IsVisible(TCCFMatrix3x4 &dir);
 	void CalcCenterDist(TCCFMatrix3x4 &dir /*view scaled matrix*/) {
@@ -601,7 +605,7 @@ protected:
 	bool	BumpFigures(SBumpDef0 &def) {
 		int res = 0;
 		for( int i = 0 ; i < m_nBFDefs ; i++ )
-			if( m_pBFDefs[i].bActive ) res |= m_pBFDefs[i].Bump(def);
+			if( m_pBFDefs[i].bActive ) res |= m_pBFDefs[i].Bump(def) ? 1 : 0;
 		return MAKEBOOL(res); }
 
 public:
@@ -633,7 +637,7 @@ public:
 
 	void	AllocBumpFigures();	// count is taken from base(0)
 	void	EnableBumpFigures(int i,TCSFVector3 &vel,double fTime) {
-				ASSERT((uint)i<m_nBFDefs);
+				ASSERT((uint)i<(uint)m_nBFDefs);
 				m_pBFDefs[i].vel = vel; m_pBFDefs[i].fTime = fTime;
 				m_pBFDefs[i].bActive = TRUE; }
 	void	DisableBumpFigures() {
@@ -727,7 +731,7 @@ protected:
 		int	 FormVertImages(bool bGouraud,
 				dword *pGourauds,bool bTextured,STextVert *pTextVerts);
 	#endif
-	int  NamedIdx(int n) { ASSERT(m_pMorphData&&(uint)n<m_nVertices); return (n+m_pMorphData->m_nNamed0Idx)%m_nVertices; }
+	int  NamedIdx(int n) { ASSERT(m_pMorphData&&(uint)n<(uint)m_nVertices); return (n+m_pMorphData->m_nNamed0Idx)%m_nVertices; }
 	//bool m_bRecalc;
 public:
 	CViewFigure() {

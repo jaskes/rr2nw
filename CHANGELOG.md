@@ -14,6 +14,8 @@ claim authorship of inherited Logos code or retail data.
   truncated terminal payload.
 - Added the complete legacy script compiler and runtime libraries to CMake and
   a smoke test that compiles and executes a minimal program in the bytecode VM.
+- Added all eight translation units from the legacy Arena kernel library and an
+  executable event-payload, label-registry and object-ID ABI contract.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -40,6 +42,8 @@ claim authorship of inherited Logos code or retail data.
 
 - Taught the recovered file/math serialization headers to preserve one-byte
   packing under MSVC with balanced push/pop pragmas.
+- Added equivalent MSVC packing for the serialized view-plane structure and a
+  native `__debugbreak` implementation for the kernel's Watcom `Int3` helper.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no
