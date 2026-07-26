@@ -143,11 +143,14 @@ Direct3D panel payload was not part of that software tranche.
 Those six entry points now have a checked frame-stage owner and the deeper
 shell probe links cleanly. The contract diagnoses every unbound software stage,
 rejects a null view direction and keeps the D3D z-list flush behind an actual
-hardware-device check. Its smoke executes the recovered main-loop ordering on
-an empty software scene and the hardware flush as a separate branch. This is
-the seam for the next slice, not a rendered-game claim: bind it to the recovered
-arena/scene/graphics implementations, then create the first game executable
-and load the read-only retail fixture.
+hardware-device check. The first production binding now executes recovered
+Arena/light begin, graphics finish, Arena end and dynamic cleanup against an
+empty software scene. The complete recovered `SCENE.CPP` also compiles under
+MSVC, but linking that one object activates 70 unrelated symbols even with
+function-level linking. World draw is therefore the explicit remaining stage:
+an active scene records `FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE` rather than
+silently succeeding. Isolate that draw path, then create the first game
+executable and load the read-only retail fixture.
 
 ### Цель
 

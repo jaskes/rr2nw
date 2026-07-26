@@ -378,6 +378,122 @@ target_compile_definitions(rr2nw_frame_runtime PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_view_light_state STATIC
+  nw/VIEW/ViewLightState.cpp
+)
+target_link_libraries(rr2nw_view_light_state PUBLIC
+  rr2nw_graph_runtime_state
+  rr2nw_view_object_state
+)
+target_include_directories(rr2nw_view_light_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_light_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_light_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_light_chain STATIC
+  nw/ARENA/OBASE/LIGHT/LIGHTOBJ.CPP
+)
+target_link_libraries(rr2nw_arena_light_chain PUBLIC
+  rr2nw_arena_kernel
+  rr2nw_view_light_state
+)
+target_include_directories(rr2nw_arena_light_chain PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_light_chain PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_light_chain PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_view_land_dynamic_frame_state STATIC
+  nw/VIEW/LandDynamicFrameState.cpp
+  nw/VIEW/TerrainFrameCounters.cpp
+)
+target_link_libraries(rr2nw_view_land_dynamic_frame_state PUBLIC
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_view_land_dynamic_frame_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_land_dynamic_frame_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_land_dynamic_frame_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_scene_full STATIC
+  nw/SCENE/SCENE.CPP
+)
+target_link_libraries(rr2nw_scene_full PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_scene_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_scene_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_scene_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_scene_full PRIVATE /Gy)
+endif()
+
+add_library(rr2nw_recovered_software_frame STATIC
+  nw/MAIN/RecoveredSoftwareFrame.cpp
+  nw/MAIN/RecoveredSoftwareFrame.h
+)
+target_link_libraries(rr2nw_recovered_software_frame PUBLIC
+  rr2nw_arena_light_chain
+  rr2nw_arena_storage
+  rr2nw_frame_runtime
+  rr2nw_main_zav_scene_state
+  rr2nw_scene_draw_state
+  rr2nw_scene_vessel_runtime_state
+  rr2nw_view_figure_state
+  rr2nw_view_land_dynamic_frame_state
+  rr2nw_view_object_state
+)
+target_include_directories(rr2nw_recovered_software_frame PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_recovered_software_frame PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_recovered_software_frame PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_library(rr2nw_main_zav_shutdown_state STATIC
   nw/MAIN/ZavShutdownState.cpp
   nw/MAIN/ZavShutdownState.h
@@ -546,6 +662,7 @@ target_compile_definitions(rr2nw_scene_vessel PRIVATE
 
 add_library(rr2nw_scene_vessel_runtime_state STATIC
   nw/SCENE/VesselBonusState.cpp
+  nw/SCENE/VesselRuntimeGlobals.cpp
 )
 target_link_libraries(
   rr2nw_scene_vessel_runtime_state PUBLIC rr2nw_legacy_design
@@ -851,6 +968,17 @@ if(MSVC)
     rr2nw_arena_sua_shutdown_state PRIVATE /W4 /permissive-
   )
   target_compile_options(rr2nw_frame_runtime PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_view_light_state PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_arena_light_chain PRIVATE /W3 /permissive-)
+  target_compile_options(
+    rr2nw_view_land_dynamic_frame_state PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
+    rr2nw_scene_full PRIVATE /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_recovered_software_frame PRIVATE /W4 /permissive- /wd4459
+  )
   target_compile_options(
     rr2nw_main_zav_full PRIVATE /W3 /permissive- /wd4081 /wd4244
   )
@@ -1648,6 +1776,27 @@ target_compile_definitions(rr2nw_frame_runtime_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_recovered_software_frame_smoke
+  src/portability/RecoveredSoftwareFrameSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_software_frame_smoke PRIVATE
+  rr2nw_arena_time_runtime_state
+  rr2nw_recovered_software_frame
+)
+target_include_directories(rr2nw_recovered_software_frame_smoke PRIVATE
+  nw/ARENA
+  nw/ARENA/H
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_recovered_software_frame_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_software_frame_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 add_executable(rr2nw_menu_texture_smoke
   src/portability/MenuTextureSmoke.cpp
 )
@@ -1753,6 +1902,9 @@ if(MSVC)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_frame_runtime_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_recovered_software_frame_smoke PRIVATE /W4 /permissive-
+  )
   target_compile_options(rr2nw_menu_texture_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_menu_shutdown_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_panel_lifecycle_smoke PRIVATE /W4 /permissive-)
@@ -1822,6 +1974,10 @@ if(BUILD_TESTING)
   add_test(NAME legacy-scene-draw-smoke COMMAND rr2nw_scene_draw_smoke)
   add_test(NAME legacy-graph-runtime-smoke COMMAND rr2nw_graph_runtime_smoke)
   add_test(NAME legacy-frame-runtime-smoke COMMAND rr2nw_frame_runtime_smoke)
+  add_test(
+    NAME recovered-software-frame-smoke
+    COMMAND rr2nw_recovered_software_frame_smoke
+  )
   add_test(
     NAME legacy-menu-texture-smoke
     COMMAND rr2nw_menu_texture_smoke

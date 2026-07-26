@@ -37,6 +37,10 @@ void Frame_ClearRuntimeIssues() {
   g_frameIssues = 0;
 }
 
+void Frame_ReportRuntimeIssue(unsigned int issue) {
+  MarkMissing(issue);
+}
+
 void SUA_BeginRender(CViewScene* scene, CViewDynamicList& list) {
   if (g_frameHooks.beginArenaRender != 0) {
     g_frameHooks.beginArenaRender(scene, list);

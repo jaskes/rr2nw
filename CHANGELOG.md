@@ -84,6 +84,11 @@ claim authorship of inherited Logos code or retail data.
   stages and the hardware-only z-list flush, plus an executable contract for
   missing-stage diagnostics, software ordering, null input rejection and D3D
   dispatch.
+- Added the first recovered software-frame binding: real Arena/light begin,
+  graphics finish, Arena end and dynamic cleanup stages now execute in their
+  original order. The complete recovered `SCENE.CPP` is a strict compile gate;
+  its still-isolated world draw reports a dedicated runtime issue instead of
+  linking a 70-symbol monolith or pretending to render successfully.
 - Expanded the software graph runtime contract to cover palette publication,
   clipped clears, opaque and doubled image blits, flat polygons, table-driven
   transparent polygons and offscreen scene lifecycle.

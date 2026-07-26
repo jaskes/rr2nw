@@ -28,13 +28,16 @@ enum EFrameRuntimeIssue {
   FRAME_RUNTIME_MISSING_SUA_END = 1u << 3,
   FRAME_RUNTIME_MISSING_ZAV_END = 1u << 4,
   FRAME_RUNTIME_MISSING_D3D_FLUSH = 1u << 5,
-  FRAME_RUNTIME_NULL_VIEW_DIRECTION = 1u << 6
+  FRAME_RUNTIME_NULL_VIEW_DIRECTION = 1u << 6,
+  FRAME_RUNTIME_MISSING_REAL_TIMER = 1u << 7,
+  FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE = 1u << 8
 };
 
 void Frame_ConfigureRuntime(const SFrameRuntimeHooks& hooks);
 bool Frame_RuntimeReady(bool hardware);
 unsigned int Frame_RuntimeIssues();
 void Frame_ClearRuntimeIssues();
+void Frame_ReportRuntimeIssue(unsigned int issue);
 
 void SUA_BeginRender(CViewScene* scene, CViewDynamicList& list);
 void ZAV_RenderFrame(TCSFMatrix3x4* direction, CViewDynamicList& list);

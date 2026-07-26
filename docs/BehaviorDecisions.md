@@ -168,3 +168,24 @@ call sites.
 
 Regression contract: `legacy-frame-runtime-smoke` and zero-symbol Debug/Release
 `rr2nw_vehicle_shell_link_probe` linkage.
+
+## BD-013: world draw is isolated before activating the scene monolith
+
+Status: accepted on 2026-07-26.
+
+The recovered software frame may bind stages independently, but it may not
+claim that an active world was rendered until `CViewScene::Draw` is connected.
+The original `SCENE.CPP` remains a strict compile gate. A measured direct link
+activates 70 unresolved dependencies from its single archive member even with
+function-level linking and dead-code elimination, so that object is not used as
+the production adapter.
+
+The recovered Arena/light begin, graphics finish, Arena end and cleanup stages
+are accepted as an executable empty-scene increment. A non-null scene produces
+the dedicated `FRAME_RUNTIME_SCENE_DRAW_UNAVAILABLE` issue. The next increment
+extracts the normal software draw and dynamic-promotion path with only its real
+terrain, ordering, palette and land-dynamic dependencies; it must not replace
+them with an unconditional success stub.
+
+Regression contract: `recovered-software-frame-smoke` and strict
+`rr2nw_scene_full` Debug/Release compilation.

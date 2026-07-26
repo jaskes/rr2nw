@@ -35,6 +35,7 @@ POINTS _gr_windowPos = {0, 0};
 
 UGRVertex _gr_vertices[GR_MAX_VERTEX] = {};
 SGRPolygon _gr_polygon = {};
+SGRLight _gr_pLights[LIGHT_SOURCE_COUNT] = {};
 }
 
 TExtendedPalette _EPal;
