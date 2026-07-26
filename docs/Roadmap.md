@@ -100,8 +100,10 @@ read-only round-trip and truncated-input coverage. Core `SimulationContext`
 object/event lifecycle and the first object-base Route boundary now execute,
 including Route static-state save/load. Fountain branch serialization and its
 2,000-entry pool reconstruction also execute without pulling renderer code;
-the complete Fountain source is a warning-free compile gate. Game executable
-and retail level loading remain open.
+the complete Fountain source is a warning-free compile gate. Vehicle static
+state now passes exact save-format round-trip coverage and all four recovered
+Vehicle sources compile strictly. Vehicle service linking/runtime exercise,
+the game executable and retail level loading remain open.
 
 ### Цель
 

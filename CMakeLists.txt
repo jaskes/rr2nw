@@ -217,6 +217,62 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_obase_vehicle_state STATIC
+  nw/ARENA/OBASE/Vehicle/VehicleState.cpp
+  nw/ARENA/OBASE/Vehicle/VehicleStateData.inl
+  nw/ARENA/OBASE/Vehicle/VehicleStateIO.inl
+)
+target_link_libraries(rr2nw_arena_obase_vehicle_state
+  PUBLIC rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_obase_vehicle_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_vehicle_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_vehicle_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_vehicle_state PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
+add_library(rr2nw_arena_obase_vehicle STATIC
+  nw/ARENA/OBASE/Vehicle/VEHICLE.cpp
+  nw/ARENA/OBASE/Vehicle/Vh_dyn.cpp
+  nw/ARENA/OBASE/Vehicle/vh_vessel.CPP
+  nw/ARENA/OBASE/Vehicle/VS_ZAV.CPP
+)
+target_link_libraries(
+  rr2nw_arena_obase_vehicle PUBLIC rr2nw_arena_obase_vehicle_state
+)
+target_include_directories(rr2nw_arena_obase_vehicle PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_vehicle PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_vehicle PRIVATE
+  __NT__
+  RR2NW_VEHICLE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_vehicle PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
 add_executable(rr2nw_math_smoke
   src/portability/LegacyMathSmoke.cpp
 )
@@ -261,6 +317,18 @@ target_link_libraries(
 )
 target_compile_features(rr2nw_fountain_state_smoke PRIVATE cxx_std_14)
 
+add_executable(rr2nw_vehicle_state_smoke
+  src/portability/VehicleStateSmoke.cpp
+)
+target_link_libraries(
+  rr2nw_vehicle_state_smoke PRIVATE rr2nw_arena_obase_vehicle_state
+)
+target_compile_features(rr2nw_vehicle_state_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_vehicle_state_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 if(MSVC)
   target_compile_options(rr2nw_math_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_tagged_file_smoke PRIVATE /W4 /permissive-)
@@ -269,6 +337,7 @@ if(MSVC)
   target_compile_options(rr2nw_storage_save_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_context_route_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_vehicle_state_smoke PRIVATE /W4 /permissive-)
 endif()
 
 if(BUILD_TESTING)
@@ -294,5 +363,10 @@ if(BUILD_TESTING)
     NAME legacy-fountain-state-smoke
     COMMAND rr2nw_fountain_state_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/fountain-state-smoke.sav"
+  )
+  add_test(
+    NAME legacy-vehicle-state-smoke
+    COMMAND rr2nw_vehicle_state_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/vehicle-state-smoke.sav"
   )
 endif()

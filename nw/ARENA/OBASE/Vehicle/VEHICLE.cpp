@@ -18,19 +18,9 @@
 #include "suavik.h"
 #include "console.h"
 
-static int    Vehicle::m_isTakingTaxiNow = 0;
-static double Vehicle::m_takingTaxiCurrentAngle;
-static double Vehicle::m_takingTaxiFinalAngle;
-
-static double Vehicle::m_lastEventTime;
-static double Vehicle::m_taxiRotateSpeed;
-
-static double Vehicle::m_spZ;
-static double Vehicle::m_spX;
-static double Vehicle::m_spY;
-static CFVector3 Vehicle::m_currentTaxiPos;
-static CFVector3 Vehicle::m_currentTaxiOurPos;
-static bool	  Vehicle::m_dead = 0;
+#ifndef RR2NW_VEHICLE_STATE_EXTERNAL
+#include "VehicleStateData.inl"
+#endif
 
 
 void Vehicle::transformMatrix(CFMatrix3x4	& tdir)
@@ -90,9 +80,9 @@ void Vehicle::UpdatePos(){
         CFVector3 pos = CViewObject::m_viewPointInvMx.Offset();
         RSXVECTOR3D v3d, dir, up;
 
-        v3d.x = pos.x;
-        v3d.y = pos.y;
-        v3d.z = pos.z;
+        v3d.x = float(pos.x);
+        v3d.y = float(pos.y);
+        v3d.z = float(pos.z);
 
         if (m_lpCE)
           m_lpCE->SetPosition(&v3d);
@@ -123,7 +113,7 @@ void Vehicle::UpdatePos(){
 		    if (pitch != m_currentPitch)
 		    {
 		      m_currentPitch = pitch;
-		      m_lpCE->SetPitch(m_currentPitch);
+		      m_lpCE->SetPitch(float(m_currentPitch));
 		    }
         }
 

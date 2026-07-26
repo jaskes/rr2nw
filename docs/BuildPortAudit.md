@@ -176,6 +176,31 @@ These do not change renderer behavior. With those fixes the complete recovered
 because the scene/light implementations remain outside the modern graph; the
 state-only target is the dependency currently usable by world restore.
 
+## Vehicle state boundary
+
+The legacy Vehicle makefile contributes four objects to `obasew.lib`:
+`VEHICLE.cpp`, `Vh_dyn.cpp`, `vh_vessel.CPP` and `VS_ZAV.CPP`. All four now
+build warning-free under `/permissive-` as `rr2nw_arena_obase_vehicle`. This is
+a compile gate, not yet a claim that the complete renderer, player, vessel and
+RSX service graph links or that Vehicle runtime behavior has been exercised.
+
+Vehicle's process-wide taxi/death state was split into
+`VehicleStateData.inl`, while `SaveStaticData` and `LoadStaticData` now share
+`VehicleStateIO.inl`. The original Watcom translation units include these
+fragments by default and therefore retain the same object ownership and
+symbols. Modern CMake compiles them once in
+`rr2nw_arena_obase_vehicle_state`; the full Vehicle target excludes its
+embedded copies and links the state archive.
+
+The executable contract writes a controlled legacy fixture, loads it through
+the real Vehicle entry point, saves it again, requires byte-identical files and
+then independently reads every size-prefixed record through `PIN_SaveFile`.
+It locks the Win32 `bool` and `CFVector3` widths and the historical order of all
+11 saved values. `m_spY` remains deliberately absent because the recovered
+format never serialized it. Six explicit `double`-to-`float` conversions at
+the RSX audio boundary make the pre-existing narrowing visible without
+changing values or control flow.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -184,10 +209,10 @@ state-only target is the dependency currently usable by world restore.
    their embedded command-line/test mains.
 3. **Complete:** compile the complete Arena kernel and storage archives, execute
    their state boundaries and run the real core `SimulationContext` lifecycle.
-4. **In progress:** add object-base modules in dependency order; Route and the
-   complete Fountain source compile, and the renderer-independent Fountain
-   state boundary executes. Fountain renderer linking and Vehicle dependencies
-   are next.
+4. **In progress:** add object-base modules in dependency order; Route executes,
+   Fountain and all four Vehicle sources compile, and their renderer-independent
+   state boundaries execute. Linking their renderer/audio/game-service graph is
+   next.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

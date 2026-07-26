@@ -23,6 +23,9 @@ claim authorship of inherited Logos code or retail data.
 - Added the complete legacy Fountain object as a compile-gated target, plus a
   renderer-independent state target and executable branch serialization/
   free-list reconstruction contract.
+- Added all four legacy Vehicle translation units as a strict compile gate,
+  plus a renderer-independent static-state target and an exact legacy `.sav`
+  record-order/byte-round-trip contract.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -61,6 +64,9 @@ claim authorship of inherited Logos code or retail data.
   initialized free object-slot names and released the context object index.
 - Shared Fountain branch serialization and pool reconstruction between the
   original `Fountain.obj` path and the modern state-only archive member.
+- Shared Vehicle static definitions and save/load code between the original
+  Watcom objects and the modern state-only archive without changing the legacy
+  record order or adding the historically unsaved `m_spY` field.
 - Added a standards-compliant MSVC typed-object debug declaration and explicit
   legacy renderer conversions and const-correct logging formats needed by
   strict modern consumers.
