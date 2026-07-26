@@ -45,7 +45,7 @@ void Player::loadNotify()
 				g_arena.context->queryInterface(m_mission[i].m_missionRouteID,IRouteObjectIID);
 			VERIFY(iroute);
 			g_debugMap.AddMissionRoute(m_mission[i].m_TMissionId, iroute, m_mission[i].m_missionrgb, 
-				m_mission[i].m_missionsw, m_mission[i].m_missionew);						
+				float(m_mission[i].m_missionsw), float(m_mission[i].m_missionew));
 		}            
    }
 }

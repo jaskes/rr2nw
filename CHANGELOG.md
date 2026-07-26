@@ -26,6 +26,12 @@ claim authorship of inherited Logos code or retail data.
 - Added all four legacy Vehicle translation units as a strict compile gate,
   plus a renderer-independent static-state target and an exact legacy `.sav`
   record-order/byte-round-trip contract.
+- Added the legacy config parser and a controlled Vehicle-style configuration
+  fixture covering string, integer, double and default-value lookup.
+- Added strict Player and Artefact compile gates, a shared `ICarrier`/
+  `IArtefact` behavior boundary and an executable carry/drop/save contract.
+- Added an excluded Vehicle link probe that measures the remaining monolithic
+  dependency surface without breaking normal builds or CTest.
 - Added a measured build-port audit for legacy compiler gates, ASM/ANG sources,
   packing directives and pointer/integer assumptions.
 - Added push-based Windows CI for `develop` and `master`, covering M0 unit tests
@@ -67,6 +73,10 @@ claim authorship of inherited Logos code or retail data.
 - Shared Vehicle static definitions and save/load code between the original
   Watcom objects and the modern state-only archive without changing the legacy
   record order or adding the historically unsaved `m_spY` field.
+- Moved the original sound/RSX global definitions into a shared state fragment,
+  allowing storage and object-base components to link without initializing RSX.
+- Reduced the measured Vehicle link gap from 77 to 53 unresolved symbols by
+  connecting real config, Player, carrier and sound-state owners.
 - Added a standards-compliant MSVC typed-object debug declaration and explicit
   legacy renderer conversions and const-correct logging formats needed by
   strict modern consumers.

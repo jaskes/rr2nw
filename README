@@ -52,6 +52,11 @@ also build independently of the renderer, while the complete recovered
 round-trips through the real save backend, and all four recovered Vehicle
 translation units form a strict warning-free compile gate. The game executable,
 Vehicle service linking/runtime exercise and level-load gate are still open.
+The first link-dependency tranche now builds the real config parser and Player,
+executes `ICarrier`/`IArtefact` carry behavior, and compile-gates the complete
+Artefact source. A diagnostic link probe reduced Vehicle's unresolved surface
+from 77 to 53 symbols; the remaining graph begins at Level/MPROJ/DebugMap and
+continues into scene, panel, physics, Hardware and RSX.
 
 The reviewed aggregate baseline is in
 [reference/reports/m0-baseline.json](reference/reports/m0-baseline.json); full
@@ -74,14 +79,15 @@ archive, plus the first two objects from `obasew.lib`'s Route module and the
 complete Fountain object with its renderer-independent state boundary. It also
 compile-gates all four Vehicle objects and links their renderer-independent
 state boundary. CTest covers ABI/PRNG/vector/matrix behavior, tagged-file
-nested round-trip and clean
-truncation rejection, compilation/execution of a minimal script in the
+nested round-trip, legacy config parsing and clean truncation rejection,
+compilation/execution of a minimal script in the
 original bytecode VM, Arena event payload/label-registry state, and read-only
 save-file round-trip with clean truncated-payload rejection. It also executes
 `SimulationContext` object/event lifecycle and Route geometry/static-state
 serialization, Fountain branch serialization and reconstruction of its
-2,000-entry free list, and Vehicle static-state save compatibility. It is not
-yet the game executable or a completed M1 milestone.
+2,000-entry free list, Vehicle static-state save compatibility, and the shared
+carrier lifecycle/save boundary. It is not yet the game executable or a
+completed M1 milestone.
 
 ## Verified baseline findings
 

@@ -102,8 +102,11 @@ including Route static-state save/load. Fountain branch serialization and its
 2,000-entry pool reconstruction also execute without pulling renderer code;
 the complete Fountain source is a warning-free compile gate. Vehicle static
 state now passes exact save-format round-trip coverage and all four recovered
-Vehicle sources compile strictly. Vehicle service linking/runtime exercise,
-the game executable and retail level loading remain open.
+Vehicle sources compile strictly. The first Vehicle dependency tranche now
+builds config, Player and Artefact, executes shared carrier behavior, and has
+reduced the measured link gap from 77 to 53 symbols. Level/MPROJ/DebugMap,
+scene/platform service linking, Vehicle runtime exercise, the game executable
+and retail level loading remain open.
 
 ### Цель
 

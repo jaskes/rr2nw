@@ -19,6 +19,7 @@ include(CTest)
 
 add_library(rr2nw_legacy_design STATIC
   nw/DESIGN.LIB/SRC/DEBUGEXT/ASSERT.CPP
+  nw/DESIGN.LIB/SRC/FILESYS/CONFIG.CPP
   nw/DESIGN.LIB/SRC/FILESYS/FILESYS.CPP
   nw/DESIGN.LIB/SRC/MATHLIB/MATHLIB.CPP
 )
@@ -82,6 +83,25 @@ if(MSVC)
   target_compile_options(rr2nw_script_runtime PRIVATE /W3)
 endif()
 
+add_library(rr2nw_sound_state STATIC
+  nw/SOUND/SoundState.cpp
+  nw/SOUND/SoundStateData.inl
+)
+target_include_directories(rr2nw_sound_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+)
+target_compile_features(rr2nw_sound_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_sound_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(rr2nw_sound_state PRIVATE /W3 /permissive-)
+endif()
+
 add_library(rr2nw_arena_kernel STATIC
   nw/ARENA/KERNEL/SRC/Object.cpp
   nw/ARENA/KERNEL/SRC/S_DEBUG.CPP
@@ -125,7 +145,10 @@ add_library(rr2nw_arena_storage STATIC
   nw/ARENA/STORAGE/SaveFile.cpp
   nw/ARENA/STORAGE/GameSave.cpp
 )
-target_link_libraries(rr2nw_arena_storage PUBLIC rr2nw_arena_kernel)
+target_link_libraries(rr2nw_arena_storage PUBLIC
+  rr2nw_arena_kernel
+  rr2nw_sound_state
+)
 target_include_directories(rr2nw_arena_storage PUBLIC
   nw/INCLUDE
   nw/DESIGN.LIB/H
@@ -273,6 +296,84 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_obase_player STATIC
+  nw/ARENA/OBASE/Player/PLAYER.CPP
+)
+target_link_libraries(rr2nw_arena_obase_player PUBLIC rr2nw_arena_storage)
+target_include_directories(rr2nw_arena_obase_player PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_player PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_player PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_player PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
+add_library(rr2nw_arena_obase_carrier STATIC
+  nw/ARENA/OBASE/Artefact/Carrier.cpp
+  nw/ARENA/OBASE/Artefact/Carrier.inl
+)
+target_link_libraries(rr2nw_arena_obase_carrier PUBLIC rr2nw_arena_storage)
+target_include_directories(rr2nw_arena_obase_carrier PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_carrier PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_carrier PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_carrier PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
+add_library(rr2nw_arena_obase_artefact STATIC
+  nw/ARENA/OBASE/Artefact/Artefact.cpp
+)
+target_link_libraries(
+  rr2nw_arena_obase_artefact PUBLIC rr2nw_arena_obase_carrier
+)
+target_include_directories(rr2nw_arena_obase_artefact PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+)
+target_compile_features(rr2nw_arena_obase_artefact PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_artefact PRIVATE
+  __NT__
+  RR2NW_CARRIER_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_artefact PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
+target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
+  rr2nw_arena_obase_player
+  rr2nw_arena_obase_carrier
+)
+
 add_executable(rr2nw_math_smoke
   src/portability/LegacyMathSmoke.cpp
 )
@@ -284,6 +385,12 @@ add_executable(rr2nw_tagged_file_smoke
 )
 target_link_libraries(rr2nw_tagged_file_smoke PRIVATE rr2nw_legacy_design)
 target_compile_features(rr2nw_tagged_file_smoke PRIVATE cxx_std_14)
+
+add_executable(rr2nw_config_smoke
+  src/portability/ConfigSmoke.cpp
+)
+target_link_libraries(rr2nw_config_smoke PRIVATE rr2nw_legacy_design)
+target_compile_features(rr2nw_config_smoke PRIVATE cxx_std_14)
 
 add_executable(rr2nw_script_vm_smoke
   src/portability/ScriptVmSmoke.cpp
@@ -329,15 +436,42 @@ target_compile_definitions(rr2nw_vehicle_state_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_vehicle_link_probe EXCLUDE_FROM_ALL
+  src/portability/VehicleLinkProbe.cpp
+)
+target_link_libraries(
+  rr2nw_vehicle_link_probe PRIVATE rr2nw_arena_obase_vehicle
+)
+target_compile_features(rr2nw_vehicle_link_probe PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_vehicle_link_probe PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_executable(rr2nw_carrier_smoke
+  src/portability/CarrierSmoke.cpp
+)
+target_link_libraries(
+  rr2nw_carrier_smoke PRIVATE rr2nw_arena_obase_carrier
+)
+target_compile_features(rr2nw_carrier_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_carrier_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 if(MSVC)
   target_compile_options(rr2nw_math_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_tagged_file_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_config_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_script_vm_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_kernel_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_storage_save_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_context_route_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_fountain_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_vehicle_state_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_vehicle_link_probe PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
 
 if(BUILD_TESTING)
@@ -346,6 +480,11 @@ if(BUILD_TESTING)
     NAME legacy-tagged-file-smoke
     COMMAND rr2nw_tagged_file_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/tagged-file-smoke.tfb"
+  )
+  add_test(
+    NAME legacy-config-smoke
+    COMMAND rr2nw_config_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/config-smoke.cfg"
   )
   add_test(NAME legacy-script-vm-smoke COMMAND rr2nw_script_vm_smoke)
   add_test(NAME legacy-kernel-state-smoke COMMAND rr2nw_kernel_state_smoke)
@@ -368,5 +507,10 @@ if(BUILD_TESTING)
     NAME legacy-vehicle-state-smoke
     COMMAND rr2nw_vehicle_state_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/vehicle-state-smoke.sav"
+  )
+  add_test(
+    NAME legacy-carrier-smoke
+    COMMAND rr2nw_carrier_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/carrier-smoke.sav"
   )
 endif()

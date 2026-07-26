@@ -39,7 +39,8 @@ void CConfigFile::SSection::Read(char *&pData,char *pEnd,TCchar *name,int &line)
 	m_pEntries = m_nEntries > 0 ? new SEntry[m_nEntries] : NULL;
 
 	p = pData;
-	for( int i = -1 ; p < pEnd && *p != '['; line++ ) {
+	int i = -1;
+	for( ; p < pEnd && *p != '['; line++ ) {
 		if( !isspace(*p) ) {
 			if( *p == '#' )
 				SkipLine(p,pEnd);

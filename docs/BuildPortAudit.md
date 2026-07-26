@@ -201,6 +201,39 @@ format never serialized it. Six explicit `double`-to-`float` conversions at
 the RSX audio boundary make the pre-existing narrowing visible without
 changing values or control flow.
 
+## Vehicle link dependency tranche
+
+`rr2nw_vehicle_link_probe` references the real `g_vehicle` global, forcing the
+linker to expose dependencies hidden by the static compile gate. It is excluded
+from the default build and from CTest because it remains an intentionally open
+diagnostic gate. The first measurement reported 77 unresolved symbols.
+
+The first dependency tranche connects only recovered implementations:
+
+- `CONFIG.CPP` is now part of `rr2nw_legacy_design`; its Watcom loop-scope
+  assumption was made standard, and a controlled config fixture executes
+  string, integer, double and missing-value lookup;
+- the complete `PLAYER.CPP` compiles strictly as
+  `rr2nw_arena_obase_player`; it is not yet runtime-linked because mission
+  behavior reaches Level, MPROJ and DebugMap;
+- the shared `ICarrier` and `IArtefact` methods now live in `Carrier.inl`.
+  The Watcom Artefact object includes them by default, while modern CMake owns
+  them in `rr2nw_arena_obase_carrier`;
+- the carrier executable takes an artefact, propagates its real carrier matrix,
+  drops it, verifies reset behavior and round-trips the 8-byte `KR_ObjectID`
+  through `PIN_SaveFile`;
+- the full recovered `Artefact.cpp` compiles warning-free as
+  `rr2nw_arena_obase_artefact` with the shared methods linked externally;
+- RSX pointers and sound configuration values now live in
+  `SoundStateData.inl`. The original sound unit includes the same definitions,
+  while `rr2nw_sound_state` supplies them without running COM/RSX startup.
+
+After these real owners are linked, the probe reports 53 unresolved symbols.
+The remaining groups are Level/MPROJ/DebugMap mission state; collision and
+corpse physics; scene/view/vessel and panel rendering; Hardware/Console/
+Briefing globals; and four legacy RSX COM identifiers. No placeholder service
+or no-op game implementation is counted as progress.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -209,10 +242,10 @@ changing values or control flow.
    their embedded command-line/test mains.
 3. **Complete:** compile the complete Arena kernel and storage archives, execute
    their state boundaries and run the real core `SimulationContext` lifecycle.
-4. **In progress:** add object-base modules in dependency order; Route executes,
-   Fountain and all four Vehicle sources compile, and their renderer-independent
-   state boundaries execute. Linking their renderer/audio/game-service graph is
-   next.
+4. **In progress:** add object-base modules in dependency order; Route and
+   carrier behavior execute, Fountain, Vehicle, Player and Artefact compile,
+   and the Vehicle link probe exposes 53 remaining service symbols. Level/
+   MPROJ/DebugMap ownership is next, followed by renderer/platform services.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. Link the existing Win32/DirectDraw shell as the first game executable.
 7. Load the read-only retail fixture to a deterministic level-ready marker.

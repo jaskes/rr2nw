@@ -23,141 +23,9 @@
 
 #define DELTAT 0.08
 
-
-
-bool ICarrier::dump(PIN_SaveFile &sf)
-{
-	if (! sf.WriteData( (char * ) &m_artefactID, sizeof(KR_ObjectID)))
-		return false;
-
-	return true;
-}
-
-bool ICarrier::load(PIN_SaveFile &sf)
-{
-	if (! sf.GetData( (char * ) &m_artefactID, sizeof(KR_ObjectID)))
-		return false;
-
-	return true;
-}
-
-void ICarrier::loadNotify()
-{
-	if (!m_artefactID.isNUL())
-		m_artefact = (IArtefact *) (g_arena.getContext()->queryInterface(m_artefactID,IArtefactIID));
-	else
-		m_artefact = NULL;
-}
-
- //==========================================================================
-void ICarrier::carrierDropArtefact(double ts)
-{
-  if(  m_artefact!=0  )
-  {
-       CFMatrix3x4 m;
-       carrierLoadMatrix(m);
-       m_artefact->drop( m, ts );
-
-       m_artefact   = 0;
-       m_artefactID = KR_ObjectID::NUL();
-  }
-}
-
- //==========================================================================
-void ICarrier::carrierOnRemoveArtefact()
-{
-  if(  m_artefact!=0  )
-  {
-       m_artefact   = 0;
-       m_artefactID = KR_ObjectID::NUL();
-  }
-}
-
- //==========================================================================
-void ICarrier::carrierTakeArtefact(KR_ObjectID oID, IArtefact *artefact )
-{
-  if(  m_artefact==0  )
-  {
-       m_artefactID = oID;
-       m_artefact   = artefact;
-  }
-}
-
- //==========================================================================
-void ICarrier::carrierOnCollizion (KR_ObjectID oID)
-{
-  if(  m_artefact==0 && !oID.isNUL() )
-  {
-       IArtefact *artefact = (IArtefact *)
-              (g_arena.getContext()->queryInterface(oID,IArtefactIID));
-
-       if(  artefact!=0  )
-            carrierTakeArtefact( oID, artefact );
-  }
-}
-
- //==========================================================================
-int  ICarrier::carrierReceiveEvent( KR_Event &event )
-{
-   switch( event.label )
-   {
-   case t_EV_ONCOLLISION:
-     return 0;
-
-   default: return 0;
-   }
-
-}
-
- //==========================================================================
-void ICarrier::carrierAddNotify   (SimulationContext*,double)
-{
-  m_artefactID = KR_ObjectID::NUL();
-  m_artefact   = 0;
-}
-
- //==========================================================================
-void ICarrier::carrierRemoveNotify(SimulationContext*,double ts)
-{
-  carrierDropArtefact(ts);
-}
-
-void ICarrier::carrierOnMove      ()
-{
-  if(  m_artefact!=0  )
-  {
-       CFMatrix3x4 m;
-       carrierLoadMatrix(m);
-       m_artefact->moveTo(m);
-  }
-}
-
-
-
-
-bool IArtefact::dump(PIN_SaveFile &sf)
-{
-	if (! sf.WriteData( (char * ) &m_carrierID, sizeof(KR_ObjectID)))
-		return false;
-
-	return true;
-}
-
-bool IArtefact::load(PIN_SaveFile &sf)
-{
-	if (! sf.GetData( (char * ) &m_carrierID, sizeof(KR_ObjectID)))
-		return false;
-
-	return true;
-}
-
-void IArtefact::loadNotify()
-{
-	if (!m_carrierID.isNUL())
-		m_carrier = (ICarrier *) (g_arena.getContext()->queryInterface(m_carrierID,ICarrierIID));
-	else
-		m_carrier = NULL;
-}
+#ifndef RR2NW_CARRIER_EXTERNAL
+#include "Carrier.inl"
+#endif
 
  //===========================================================================
 class AttributeArtefact : public ct_Attribute
@@ -279,8 +147,8 @@ void ArtefactObj::Draw()
     {
          double dir = i * M_PI*2 / rayCnt;
 
-         int screen_dx = cos(dir+t)*screen_len;
-         int screen_dy = sin(dir+t)*screen_len;
+         int screen_dx = int(cos(dir+t)*screen_len);
+         int screen_dy = int(sin(dir+t)*screen_len);
          double nt = dt-((double)i)/rayCnt;
          if(  nt < 0  ) nt += 1;
          int transp = (int)(100*(1-nt));
@@ -292,7 +160,7 @@ void ArtefactObj::Draw()
          GRDrawRay( screen_x, screen_y, 
                 screen_x+screen_dx, 
                 screen_y+screen_dy, m_rayColor,
-                transp, (int)(65536*d_z), (float)width, nt);
+                transp, (int)(65536*d_z), (float)width, float(nt));
     }
    }
 
