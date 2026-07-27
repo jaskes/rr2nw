@@ -631,6 +631,67 @@ Status vocabulary:
 - Revisit when: full include preprocessing is safe; the same two-file
   ownership and selected-Level resolution must remain observable.
 
+### CQ-047: the January Skin tables and animation cleanup are unsafe to reuse
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: both original Skin table implementations accept
+  `index <= m_maxObjectQnty`, exposing the one-past-end element. Original
+  `Skin::removeAniSets()` deletes the animation program without nulling its
+  pointer or completely resetting counts/stack state, so repeated cleanup or
+  object reuse can double-delete or observe stale state.
+- Handling: the recovered resource owner uses strict `<` bounds, nothrow
+  allocation, complete idempotent cleanup and placement reconstruction of the
+  model after removal or failed decode. A failed sprite decode releases its
+  partial texture. An unloaded Skin cannot allocate animation state, and a
+  rejected animation command does not consume a program slot.
+- Revisit when: the original Skin sources are retired from every build; keep
+  the regression on the recovered owner because Arena tables are deliberately
+  reconstructed between Levels.
+
+### CQ-048: May Skin animation calls exceed the January event ABI
+
+- Status: `CONFIRMED_RETAIL`, `DEFERRED_FAIL_CLOSED`.
+- Evidence: the nine May `SCINC/SKIN.SCI` files contain 82
+  `skin_SetAnimProg_ROCKOX`, 30 `ROCKOZ` and 6 `ROTATEOYOut` calls, in addition
+  to the older MOVE/ROTATE/UPDATE set. January `AnimateInfo::setAnim()` handles
+  only UPDATE, LOADIDENTITY, MOVE and plain/oscillating OX/OY/OZ rotations;
+  `AnimateCell` has only axis, direction, amplitude, speed and phase storage.
+  The ROCK calls carry extra min/max/offset parameters that cannot be preserved
+  by that layout.
+- Handling: this frontier parses only `main_LoadSkin()` and loads all resources;
+  it does not execute animation construction. The recovered decoder rejects
+  unknown command IDs without advancing either cell count or program stack.
+- Revisit when: recover the May external-function payload and runtime math for
+  ROCKOX, ROCKOZ and ROTATEOYOut, expand the state explicitly, then add
+  deterministic pose tests before calling the animation part of `SKIN.SCI`.
+
+### CQ-049: Skin resources are a large Level-specific retail delta
+
+- Status: `CONFIRMED_RETAIL`, `RETAIL_REQUIRED`.
+- Evidence: every available January `nw/OUTPUT/Level.*/SCINC/SKIN.SCI` differs
+  from May retail, four are only 627 bytes, and January has no Level.07N copy.
+  May files range from 1,849 to 35,167 bytes and define different tables of
+  26--52 models plus one sprite. Installed and mounted May copies are
+  byte-identical for all nine Levels.
+- Handling: runtime reads the selected user's file and resources read-only;
+  it never promotes one Level's roster to a universal table. Exact source plus
+  asset fingerprints are checked before mutation. Decoded resource
+  fingerprints match across E/G and Debug/Release for every Level.
+- Revisit when: distributable retail-compatible data has a reviewed provenance
+  path, or a mod manifest supplies an explicit alternate content identity.
+
+### CQ-050: the seance issue mask outgrew 32 bits
+
+- Status: `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_ROSTER_INVALID` already
+  occupies bit 31. Four independently actionable Skin failures require new
+  bits; a 32-bit shift would overflow or alias an existing diagnosis.
+- Handling: the internal/public recovered seance mask and all format consumers
+  use `unsigned long long`; existing bit values 0--31 remain unchanged and Skin
+  occupies bits 32--35.
+- Revisit when: issue reporting moves to a structured diagnostic collection;
+  preserve stable legacy bit values during any transition.
+
 ## Maintenance rule
 
 When a new quirk is found:

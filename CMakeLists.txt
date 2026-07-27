@@ -1827,6 +1827,61 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_skin_resource_state STATIC
+  nw/ARENA/OBASE/Skin/SkinResourceState.cpp
+  nw/ARENA/OBASE/Skin/SkinResourceState.h
+  nw/ARENA/OBASE/Skin/SKIN.H
+  nw/ARENA/OBASE/Skin/AnimPeop.h
+)
+target_link_libraries(rr2nw_arena_skin_resource_state PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_time_runtime_state
+  rr2nw_scene_draw_state
+  rr2nw_scene_vessel_runtime_state
+  rr2nw_view_object_decoder
+)
+target_include_directories(rr2nw_arena_skin_resource_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Skin
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_skin_resource_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_skin_resource_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_skin_resource_state PRIVATE
+    /W4 /permissive- /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_recovered_skin_resource_catalog STATIC
+  src/runtime/RecoveredSkinResourceCatalog.cpp
+  src/runtime/RecoveredSkinResourceCatalog.h
+)
+target_include_directories(rr2nw_recovered_skin_resource_catalog PUBLIC
+  src/runtime
+)
+target_compile_features(
+  rr2nw_recovered_skin_resource_catalog PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_skin_resource_catalog PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_recovered_skin_resource_catalog PRIVATE /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_arena_smoke_attribute_state STATIC
   nw/ARENA/OBASE/Smoke/SmokeAttributeState.cpp
   nw/ARENA/OBASE/Smoke/SmokeAttributeState.h
@@ -2562,10 +2617,12 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_orphan_attribute_state
   rr2nw_arena_obase_portal
   rr2nw_arena_explosion_attribute_state
+  rr2nw_arena_skin_resource_state
   rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
   rr2nw_legacy_shell_full
   rr2nw_recovered_legacy_script_runtime
+  rr2nw_recovered_skin_resource_catalog
   rr2nw_recovered_game_level_runtime
   rr2nw_recovered_software_frame
   rr2nw_supervisor_global
@@ -3240,6 +3297,21 @@ target_compile_definitions(
 add_executable(rr2nw_carrier_smoke
   src/portability/CarrierSmoke.cpp
 )
+
+add_executable(rr2nw_legacy_skin_resource_smoke
+  src/portability/LegacySkinResourceSmoke.cpp
+)
+target_link_libraries(rr2nw_legacy_skin_resource_smoke PRIVATE
+  rr2nw_arena_skin_resource_state
+  rr2nw_game_entry_runtime
+  rr2nw_recovered_skin_resource_catalog
+)
+target_compile_features(rr2nw_legacy_skin_resource_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_legacy_skin_resource_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_link_libraries(
   rr2nw_carrier_smoke PRIVATE rr2nw_arena_obase_carrier
 )
@@ -3514,5 +3586,9 @@ if(BUILD_TESTING)
     NAME legacy-carrier-smoke
     COMMAND rr2nw_carrier_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/carrier-smoke.sav"
+  )
+  add_test(
+    NAME legacy-skin-resource-smoke
+    COMMAND rr2nw_legacy_skin_resource_smoke
   )
 endif()

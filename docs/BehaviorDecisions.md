@@ -944,3 +944,50 @@ Regression contract: missing common and Level-local fragment rejection;
 one-field roster-corruption rejection; deterministic 90-field defaults and
 cache sentinels; two complete Arena cycles; repeat fingerprint equality; and
 matching installed/mounted fingerprints for every Level in Debug and Release.
+
+## BD-034: Skin enters as a verified resource owner before animation execution
+
+Status: accepted on 2026-07-27.
+
+The next Level-dependent slice owns the real `Skin` and `SkinSpr` tables and
+loads the selected Level's actual VBC/TXR resources. A bounded parser admits
+only the two class-table declarations and `LoadSkin` calls inside
+`main_LoadSkin()` from `SCINC/SKIN.SCI`. Before Arena mutation it rejects path
+escape, duplicate names, invalid capacities, oversized input and missing or
+oversized assets, and hashes every exact source/resource byte. The admitted
+catalog must match one of the nine verified May retail fingerprints or the
+empty public lifecycle fixture.
+
+This whitelist is a parity-mode gate, not the future mod policy. Mod content
+will need an explicit validated manifest/content mode rather than silently
+weakening the retail identity boundary. Catalog validation and resource
+hashing complete before either table is created, so bad content cannot leave a
+partially published Skin roster.
+
+After preflight, Arena creates every named object and sends the original
+`sk_EV_LOAD`. Models go through the real tagged VBC reader and split path;
+`SkinSpr` goes through the real TXR texture reader. Readiness requires exact
+model/sprite counts, every non-empty resource loaded, and a deterministic
+fingerprint of decoded model/texture state. Both tables remain Arena-owned and
+are fully removed on failure, double shutdown and fresh-context reconstruction.
+
+Animation setup functions in the remainder of `SKIN.SCI` are deliberately not
+executed yet. May data actively uses `ROCKOX`, `ROCKOZ` and `ROTATEOYOut`, while
+the January `AnimateInfo` owner neither decodes nor represents their complete
+payload. Treating those calls as the older rotations would manufacture
+behavior and corrupt the event stream. The recovered owner fail-closes unknown
+commands until the retail animation ABI is recovered and covered separately.
+
+The owner also fixes lifecycle defects without changing loaded data: strict
+table bounds, deterministic allocation failure, idempotent animation cleanup,
+clean model/texture state after failed load, safe object reuse, and no program
+stack advance after a rejected command. The Arena issue ledger becomes
+64-bit because Explosion already consumed bit 31 and Skin requires independent
+catalog, table, load and roster diagnostics.
+
+Regression contract: invalid/missing catalog rollback after prior Arena
+mutation; unloaded animation-allocation rejection; idempotent owner cleanup;
+two complete Arena/service cycles; the 45-test Debug/Release matrix; 36/36
+retail service loads and 36/36 direct catalog loads across both data roots;
+matching decoded fingerprints across roots/configurations; and 4/4 executable
+runtime-smoke launches with clean shutdown.

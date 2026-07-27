@@ -1177,6 +1177,62 @@ fingerprints for every equivalent case. All 4/4 executable runtime-smoke
 launches publish the Smoke and Explosion readiness markers, the expanded
 script mode, zero service issues, `level-ready` and `runtime_shutdown=clean`.
 
+### Bounded retail Skin resource catalog and owner
+
+The next Level-local boundary reads `SCINC/SKIN.SCI` without passing its full
+animation program into the legacy compiler. A strict tokenizer follows only
+the top-level `main_LoadSkin()` body, requiring one `Skin` and one `SkinSpr`
+table, bounded positive capacities and well-formed `LoadSkin` calls. It rejects
+duplicate object names, path escape, wrong extensions, malformed source,
+oversized files and rosters larger than their tables.
+
+Preflight hashes the exact script plus every referenced VBC/TXR before Arena
+mutation. The accepted parity set contains the nine canonical May retail
+catalogs and one empty public CI fixture. This prevents missing or modified
+assets from leaving a plausible partial table; it is intentionally separate
+from the future manifest-backed mod mode.
+
+The production seance then creates real Arena-owned `Skin`/`SkinSpr` objects
+and sends `sk_EV_LOAD`. VBC files execute `CTaggedFile`, model `Read` and
+`Split`; the sprite executes the real TXR texture reader. Readiness requires
+the exact catalog counts, loaded-state checks and a deterministic decoded
+resource fingerprint. The nine May model rosters are 38, 35, 38, 39, 34, 52,
+46, 26 and 29 objects respectively; every Level has one SkinSpr. Equivalent
+E/G, Debug/Release cases produce the same catalog and decoded fingerprints.
+
+| Level | Models/capacity | Catalog fingerprint | Decoded resource fingerprint |
+| --- | ---: | ---: | ---: |
+| Level.01D | 38/40 | `1413472398250490146` | `15831412749386013959` |
+| Level.01N | 35/40 | `11859523755204284989` | `13308309828621497533` |
+| Level.02D | 38/45 | `10036339473467796241` | `15419541256100731902` |
+| Level.02N | 39/45 | `11348318312366732924` | `16181029699515619806` |
+| Level.03N | 34/60 | `10639645034542172860` | `200056849899070651` |
+| Level.04D | 52/70 | `7391849982136336596` | `5373895064779109015` |
+| Level.05D | 46/50 | `250404433711419488` | `4074415404592127573` |
+| Level.06N | 26/46 | `4365639098974117513` | `13167095297875412293` |
+| Level.07N | 29/60 | `12242754344231949391` | `6603856809287193722` |
+
+The recovered owner replaces the January tables' one-past-end lookup and
+non-idempotent animation cleanup. Allocation is fail-closed, failed model or
+texture decoding restores a reusable empty object, and table shutdown resets
+all program state. `legacy-skin-resource-smoke` covers deterministic default,
+unloaded animation rejection and repeated cleanup, raising the normal matrix
+to 45 tests.
+
+Animation construction remains outside this slice. Retail files use ROCKOX,
+ROCKOZ and ROTATEOYOut payloads that the January `AnimateCell` cannot represent.
+Unknown commands fail closed and cannot advance the recovered program stack;
+resource readiness therefore makes no animation/gameplay parity claim.
+
+Final verification passes 45/45 tests in Debug and 45/45 in Release. The full
+retail gate passes 36/36 service launches and 36/36 direct Skin-catalog loads
+(both configurations, both roots, all nine Levels), with zero cross-root or
+cross-configuration decoded fingerprint mismatches. All 4/4
+`rr2nw.exe --runtime-smoke` launches publish `skin_resources_initialized=1`,
+the exact counts/fingerprints,
+`bounded-retail-skin-resource-smoke-explosion-attribute-vehicle-bootstrap`,
+zero service issues, `level-ready` and `runtime_shutdown=clean`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1203,9 +1259,10 @@ script mode, zero service issues, `level-ready` and `runtime_shutdown=clean`.
    Arena, Storage, recovered script VM and `Vehicle.Default` now execute through
    a bounded bootstrap. A read-only Level-aware manifest validates all 48 retail
    includes before Level mutation; root Smoke plus root/Level-local Explosion
-   attribute fragments now execute before publication. Remaining OBASE
-   archives and script ABI bindings are still required before switching to
-   full retail `LEVEL0.SC`.
+   attribute fragments execute before publication, followed by strict
+   preflight and real decoding of every Level-local Skin VBC/TXR resource.
+   Skin animation construction and remaining OBASE archives/script ABI
+   bindings are still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

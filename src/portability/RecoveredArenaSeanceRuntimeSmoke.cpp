@@ -26,14 +26,15 @@ class CGRPanel;
 namespace {
 
 unsigned long long g_explosionFixtureFingerprint = 0;
+unsigned long long g_skinCatalogFixtureFingerprint = 0;
 
 int Fail(const char* message) {
   RecoveredArenaSeance_Release();
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
-               "smoke=%d explosion=%d spark=%d route=%d vehicle=%d "
-               "issues=%u error=%s)\n",
+               "smoke=%d explosion=%d skin=%d spark=%d route=%d vehicle=%d "
+               "issues=%llu error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
                RecoveredArenaSeance_BirdAttributesReady() ? 1 : 0,
@@ -42,6 +43,7 @@ int Fail(const char* message) {
                RecoveredArenaSeance_ArtefactAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokeAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_ExplosionAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_SkinResourcesReady() ? 1 : 0,
                RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleReady() ? 1 : 0,
@@ -95,6 +97,7 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_ArtefactAttributesReady() &&
          !RecoveredArenaSeance_SmokeAttributesReady() &&
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
+         !RecoveredArenaSeance_SkinResourcesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
@@ -120,6 +123,7 @@ bool RunCycle() {
       !RecoveredArenaSeance_ArtefactAttributesReady() ||
       !RecoveredArenaSeance_SmokeAttributesReady() ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
+      !RecoveredArenaSeance_SkinResourcesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
@@ -131,6 +135,8 @@ bool RunCycle() {
       g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Skin") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("SkinSpr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
@@ -172,6 +178,8 @@ bool RunCycle() {
       context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
   g_explosionFixtureFingerprint =
       ExplosionAttributeState_Fingerprint(&context);
+  g_skinCatalogFixtureFingerprint =
+      RecoveredArenaSeance_SkinCatalogFingerprint();
 
   RecoveredArenaSeance_Release();
   RecoveredArenaSeance_Release();
@@ -241,6 +249,20 @@ int main(int argc, char** argv) {
       "  New(ctID, \"Expl.Test.8\", objectID, cachePos);\r\n"
       "  New(ctID, \"Expl.Test.9\", objectID, cachePos);\r\n"
       "}\r\n";
+  const char skinLevelFixture[] =
+      "func void main_LoadSkin()\r\n"
+      " var int ctIDSkin;\r\n"
+      "{\r\n"
+      " ctIDSkin := s_AddClassTable(\"Skin\",1);\r\n"
+      " ctIDSkin := s_AddClassTable(\"SkinSpr\",1);\r\n"
+      "}\r\n";
+  const char invalidSkinLevelFixture[] =
+      "func void main_LoadSkin()\r\n"
+      " var int ctIDSkin;\r\n"
+      "{\r\n"
+      " ctIDSkin := s_AddClassTable(\"Skin\",2);\r\n"
+      " ctIDSkin := s_AddClassTable(\"SkinSpr\",1);\r\n"
+      "}\r\n";
   const std::string config = JoinPath(levelDirectory, "vessels.cfg");
   const std::string smokeCopy = JoinPath(fixtureDirectory, "SMOKE.SCI");
   const std::string explosionCopy =
@@ -248,12 +270,14 @@ int main(int argc, char** argv) {
   const std::string scincDirectory = JoinPath(levelDirectory, "SCINC");
   const std::string explosionLocalCopy =
       JoinPath(scincDirectory, "EXPLOSION_LOC.SCI");
+  const std::string skinCopy = JoinPath(scincDirectory, "SKIN.SCI");
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(explosionCopy.c_str());
   if (!EnsureDirectory(scincDirectory)) {
     return Fail("could not establish the fixture SCINC directory");
   }
   DeleteFileA(explosionLocalCopy.c_str());
+  DeleteFileA(skinCopy.c_str());
   if (!WriteFile(config, fixture) ||
       SetCurrentDirectoryA(levelDirectory.c_str()) == FALSE) {
     return Fail("could not prepare retail-script Arena fixture");
@@ -295,6 +319,29 @@ int main(int argc, char** argv) {
     return Fail("could not write bounded Explosion Level fixture");
   }
 
+  SimulationContext missingSkinCatalogContext(64, 128);
+  const bool missingSkinCatalogRejected =
+      RecoveredArenaSeance_Initialize(&missingSkinCatalogContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_SKIN_CATALOG_INVALID) != 0 &&
+      IsReleased(missingSkinCatalogContext);
+  if (!WriteFile(skinCopy, invalidSkinLevelFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Skin catalog fixture");
+  }
+  SimulationContext invalidSkinCatalogContext(64, 128);
+  const bool invalidSkinCatalogRejected =
+      RecoveredArenaSeance_Initialize(&invalidSkinCatalogContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_SKIN_RESOURCE_ROSTER_INVALID) != 0 &&
+      IsReleased(invalidSkinCatalogContext);
+  if (!WriteFile(skinCopy, skinLevelFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore bounded Skin catalog fixture");
+  }
+
   std::string invalidExplosionLevelFixture = explosionLevelFixture;
   const std::size_t impulse = invalidExplosionLevelFixture.find("1234");
   if (impulse == std::string::npos) {
@@ -327,6 +374,7 @@ int main(int argc, char** argv) {
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(explosionCopy.c_str());
   DeleteFileA(explosionLocalCopy.c_str());
+  DeleteFileA(skinCopy.c_str());
   RemoveDirectoryA(scincDirectory.c_str());
   RemoveDirectoryA(levelDirectory.c_str());
   RemoveDirectoryA(fixtureDirectory.c_str());
@@ -342,6 +390,12 @@ int main(int argc, char** argv) {
     return Fail("invalid Explosion attribute roster was not rejected "
                 "transactionally");
   }
+  if (!missingSkinCatalogRejected) {
+    return Fail("missing retail Skin catalog was not rejected transactionally");
+  }
+  if (!invalidSkinCatalogRejected) {
+    return Fail("invalid Skin catalog was not rejected transactionally");
+  }
   if (!firstCycle) return Fail("first real Vehicle seance failed");
   if (!secondCycle) return Fail("Vehicle seance reconstruction failed");
   if (!restored) return Fail("working directory was not restored");
@@ -349,12 +403,17 @@ int main(int argc, char** argv) {
   std::printf("bounded arena seance cycles=2 missing-smoke=rollback "
               "missing-explosion-root-local=rollback "
               "invalid-explosion-roster=rollback "
+              "missing-skin-catalog=rollback "
+              "invalid-skin-catalog=rollback "
               "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
+              "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
-              "explosion_fingerprint=%llu rollback=idempotent\n",
-              g_explosionFixtureFingerprint);
+              "explosion_fingerprint=%llu skin_catalog_fingerprint=%llu "
+              "rollback=idempotent\n",
+              g_explosionFixtureFingerprint,
+              g_skinCatalogFixtureFingerprint);
   return EXIT_SUCCESS;
 }

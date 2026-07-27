@@ -376,11 +376,21 @@ match for all nine Levels. The May retail Explosion ABI gap is now explicit:
 the port links 90 attributes including binary-confirmed light/impulse fields,
 while the heavyweight Explosion subject remains registration-only. Smoke,
 Smoker and Explosion gameplay plus renderer cache updates are still deferred.
-The next frontier is the Skin/resource owner followed by the next
-dependency-safe root or Level-local attribute fragment; Farter/Corpse/Lamp
-remain behind Sound, Skin, Smoke/Fire or renderer owners, while
-People/Tank/Taxi/Bullet/Sound stay outside that first group. Continue in
-rollback-tested groups
+
+The Skin/resource owner is now complete as a bounded Level-aware slice. Before
+Arena mutation it strictly extracts `main_LoadSkin()`, hashes the script and
+every referenced asset, and admits only the nine known May catalogs (plus the
+empty CI fixture). Production constructs the real `Skin`/`SkinSpr` tables and
+decodes each Level's 26--52 VBC models and one TXR sprite. Counts, loaded state
+and decoded fingerprints survive double teardown/reconstruction and match for
+E/G and Debug/Release. Retail animation construction remains explicitly
+deferred because ROCKOX, ROCKOZ and ROTATEOYOut exceed the January state/event
+ABI.
+
+The next dependency audit can now reconsider the Level-local Farter/Corpse/Lamp
+attribute layer against a live Skin roster, but must keep Sound, Smoke/Fire,
+light/render updates and heavyweight People/Tank/Taxi/Bullet subjects behind
+their own owners. Continue in rollback-tested groups
 until the unchanged retail `LEVEL0.SC` can replace the bootstrap. Then verify
 the already attached Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
@@ -395,9 +405,10 @@ runtime sweeps. The SmokeAttr fragment preserves the same complete gate and
 adds a required production marker plus missing-source rollback coverage. The
 ExplosionAttr fragment adds root/local missing-source and corrupted-roster
 rollback, paired per-Level roster fingerprints and a second production
-readiness marker. Its completed gate is 44/44 Debug and 44/44 Release tests,
-36/36 service launches, 36/36 direct manifest launches and 4/4 executable
-runtime smokes across the installed and mounted retail roots.
+readiness marker. Skin raises the matrix to 45/45 in each configuration and
+adds missing/invalid-catalog rollback, 36/36 direct catalogs, 36/36 real
+service loads with exact decoded-resource parity, and four executable Skin
+markers with clean shutdown across the installed and mounted roots.
 
 ### Цель
 

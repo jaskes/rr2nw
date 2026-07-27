@@ -7,6 +7,7 @@
 class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
+#include "kernel/h/session.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
@@ -14,10 +15,13 @@ class CGRPanel;
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
+#include "obase/skin/SkinResourceState.h"
 #include "storage/h/subject.h"
+#include "message/skinmsg.h"
 
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
+#include "RecoveredSkinResourceCatalog.h"
 
 namespace {
 
@@ -313,7 +317,7 @@ bool ReadBoundedRetailAttributeSource(const char* relativePath,
 }
 
 struct RecoveredArenaSeanceState {
-  unsigned int issues;
+  unsigned long long issues;
   bool arenaOpen;
   bool scriptCompleted;
   bool birdAttributesReady;
@@ -322,9 +326,14 @@ struct RecoveredArenaSeanceState {
   bool artefactAttributesReady;
   bool smokeAttributesReady;
   bool explosionAttributesReady;
+  bool skinResourcesReady;
   bool sparkAttributesReady;
   bool routeReady;
   bool vehicleReady;
+  int skinModelCount;
+  int skinSpriteCount;
+  unsigned long long skinCatalogFingerprint;
+  unsigned long long skinResourceFingerprint;
   char lastError[256];
 };
 
@@ -335,7 +344,7 @@ void SetError(const char* message) {
                 message == nullptr ? "unknown seance failure" : message);
 }
 
-void Report(unsigned int issue, const char* message) {
+void Report(unsigned long long issue, const char* message) {
   g_state.issues |= issue;
   SetError(message);
 }
@@ -672,6 +681,82 @@ bool PublishExplosionAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishSkinResources(SimulationContext* context) {
+  SRecoveredSkinResourceCatalog catalog = {};
+  SRecoveredSkinResourceCatalogResult result = {};
+  if (!RecoveredSkinResourceCatalog_Load(".", &catalog, &result)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Skin catalog preflight failed (issues=%u): %.190s",
+                  result.issues, result.error);
+    Report(RECOVERED_ARENA_SEANCE_SKIN_CATALOG_INVALID, message);
+    return false;
+  }
+  if (!RecoveredSkinResourceCatalog_IsKnown(&catalog)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "Skin catalog is not a bounded retail roster "
+                  "(models=%d sprites=%d fingerprint=%llu)",
+                  catalog.modelCount, catalog.spriteCount,
+                  catalog.fingerprint);
+    Report(RECOVERED_ARENA_SEANCE_SKIN_RESOURCE_ROSTER_INVALID, message);
+    return false;
+  }
+
+  const ct_ClassTableID modelTable =
+      g_arena.addClassTable("Skin", catalog.modelCapacity);
+  const ct_ClassTableID spriteTable =
+      g_arena.addClassTable("SkinSpr", catalog.spriteCapacity);
+  if (modelTable == ct_NULLID || spriteTable == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_SKIN_TABLE_FAILURE,
+           "could not create the retail Skin resource tables");
+    return false;
+  }
+
+  for (int index = 0; index < catalog.entryCount; ++index) {
+    const SRecoveredSkinResourceEntry& entry = catalog.entries[index];
+    const ct_ClassTableID table =
+        entry.kind == RECOVERED_SKIN_RESOURCE_MODEL ? modelTable : spriteTable;
+    KR_ObjectID object = g_arena.newObject(table, entry.objectName);
+    if (object.isNUL()) {
+      Report(RECOVERED_ARENA_SEANCE_SKIN_RESOURCE_LOAD_FAILURE,
+             "could not allocate a retail Skin resource object");
+      return false;
+    }
+    KR_Event event;
+    event.label = sk_EV_LOAD;
+    event.source = g_arena.getObjectID();
+    event.destination = object;
+    event.timeStamp = Session::m_moment;
+    event.data.open(EDO_WRITE).putStr(entry.fileName).close();
+    context->sendEventNow(event);
+  }
+
+  const int modelCount = SkinResourceState_ModelCount(context);
+  const int spriteCount = SkinResourceState_SpriteCount(context);
+  const bool emptyFixture = catalog.entryCount == 0;
+  const unsigned long long resourceFingerprint =
+      SkinResourceState_Fingerprint(context);
+  if (modelCount != catalog.modelCount || spriteCount != catalog.spriteCount ||
+      (!emptyFixture &&
+       (!SkinResourceState_AllLoaded(context) || resourceFingerprint == 0))) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "Skin resources did not load completely "
+                  "(models=%d/%d sprites=%d/%d fingerprint=%llu)",
+                  modelCount, catalog.modelCount, spriteCount,
+                  catalog.spriteCount, resourceFingerprint);
+    Report(RECOVERED_ARENA_SEANCE_SKIN_RESOURCE_LOAD_FAILURE, message);
+    return false;
+  }
+  g_state.skinModelCount = modelCount;
+  g_state.skinSpriteCount = spriteCount;
+  g_state.skinCatalogFingerprint = catalog.fingerprint;
+  g_state.skinResourceFingerprint = resourceFingerprint;
+  g_state.skinResourcesReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -692,6 +777,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SparkAttributeState_Link();
   SmokeAttributeState_Link();
   ExplosionAttributeState_Link();
+  SkinResourceState_Link();
   if (!OpenArena(context)) return FALSE;
 
   try {
@@ -704,6 +790,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
     if (!RunExplosionAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!PublishSkinResources(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -753,6 +843,11 @@ void RecoveredArenaSeance_Release() {
   g_state.sparkAttributesReady = false;
   g_state.smokeAttributesReady = false;
   g_state.explosionAttributesReady = false;
+  g_state.skinResourcesReady = false;
+  g_state.skinModelCount = 0;
+  g_state.skinSpriteCount = 0;
+  g_state.skinCatalogFingerprint = 0;
+  g_state.skinResourceFingerprint = 0;
   g_state.artefactAttributesReady = false;
   g_state.orphanAttributesReady = false;
   g_state.portalReady = false;
@@ -794,12 +889,32 @@ bool RecoveredArenaSeance_ExplosionAttributesReady() {
   return g_state.explosionAttributesReady;
 }
 
+bool RecoveredArenaSeance_SkinResourcesReady() {
+  return g_state.skinResourcesReady;
+}
+
+int RecoveredArenaSeance_SkinModelCount() {
+  return g_state.skinModelCount;
+}
+
+int RecoveredArenaSeance_SkinSpriteCount() {
+  return g_state.skinSpriteCount;
+}
+
+unsigned long long RecoveredArenaSeance_SkinCatalogFingerprint() {
+  return g_state.skinCatalogFingerprint;
+}
+
+unsigned long long RecoveredArenaSeance_SkinResourceFingerprint() {
+  return g_state.skinResourceFingerprint;
+}
+
 bool RecoveredArenaSeance_SparkAttributesReady() {
   return g_state.sparkAttributesReady;
 }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }
 
-unsigned int RecoveredArenaSeance_Issues() { return g_state.issues; }
+unsigned long long RecoveredArenaSeance_Issues() { return g_state.issues; }
 
 const char* RecoveredArenaSeance_LastError() { return g_state.lastError; }

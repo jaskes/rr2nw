@@ -506,6 +506,10 @@ bool RecoveredGameServices_ExplosionAttributesReady() {
   return RecoveredArenaSeance_ExplosionAttributesReady();
 }
 
+bool RecoveredGameServices_SkinResourcesReady() {
+  return RecoveredArenaSeance_SkinResourcesReady();
+}
+
 bool RecoveredGameServices_SparkAttributesReady() {
   return RecoveredArenaSeance_SparkAttributesReady();
 }
@@ -527,6 +531,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_ArtefactAttributesReady() &&
          RecoveredGameServices_SmokeAttributesReady() &&
          RecoveredGameServices_ExplosionAttributesReady() &&
+         RecoveredGameServices_SkinResourcesReady() &&
          RecoveredGameServices_SparkAttributesReady() &&
          RecoveredGameServices_RouteReady() &&
          RecoveredGameServices_VehicleReady() &&

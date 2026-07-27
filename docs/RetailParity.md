@@ -133,6 +133,34 @@ Retail scripts нельзя молча копировать поверх source 
   unique retail fingerprints preserve the admitted boundary; subject behavior
   remains a separately reviewed binary-parity task.
 
+### RP-SCRIPT-003: every retail Skin catalog replaces its January snapshot
+
+- Classification: `RETAIL_REQUIRED`; animation behavior is still deferred.
+- Installed and mounted May copies match byte-for-byte for every row:
+
+| Level | January bytes / SHA-256 | May bytes / SHA-256 |
+| --- | --- | --- |
+| Level.01D | 627 / `EB8D4A3C29E02AAAFC17DA80B1D1438412B8B4915D452A80208C2D7581D572BA` | 14,786 / `8C7D8584C3C5175625A96098C5194AB9CE023EC6242091194ACB56922D097C76` |
+| Level.01N | 627 / `EB8D4A3C29E02AAAFC17DA80B1D1438412B8B4915D452A80208C2D7581D572BA` | 14,587 / `EC4E851DA70DC912D94619CF4B800F331F795580D5FD768C73AF088D014E8E30` |
+| Level.02D | 38,636 / `65A021E4BEF9C8548C3A95E7BACDDE97650132B9FB3F386136116D4F9607EE95` | 35,107 / `46363C536607055431A766C2DC59AC9FE88429C9A9580186C2FF78FC1FF49BEC` |
+| Level.02N | 38,632 / `D6108F4D6166C6BCDE4C7A3DDF2638E78F039286D618AB61AD7F0EDFFC58545B` | 35,167 / `A471A71167F8920B6EE073B8A29D018C9DA3F583227E75D4718022D2B77EC1C6` |
+| Level.03N | 825 / `FCCA9687C42DDAA58D214463744B4F093C1167816D3201045239A2C330AF42E9` | 11,368 / `27AEC28B5729F3A943FDF563AD5CEE03EBC139EC600969822840AC59EF339C04` |
+| Level.04D | 5,569 / `35536FC735045D754D78AD9D51256E26FC7F85AB9F2C1E6572A3B5D61C5E7FC0` | 8,586 / `319C009BB9FDE0A542DC2876C3DCC3F3EDBE5033A9B7510C69B142F5EBB409C2` |
+| Level.05D | 627 / `EB8D4A3C29E02AAAFC17DA80B1D1438412B8B4915D452A80208C2D7581D572BA` | 21,481 / `1594F04D28034930FB67D1C39232383C473689D71E6150DDE091EF126C3AC69D` |
+| Level.06N | 627 / `EB8D4A3C29E02AAAFC17DA80B1D1438412B8B4915D452A80208C2D7581D572BA` | 10,724 / `F90EA1D1CF9B7F9B93A8E19714B2C8635D022E5D9C408D5721F3A8E032D0F451` |
+| Level.07N | absent | 1,849 / `CBDB2F1A543A57B191820D2898010CC7B38CD67DD1709B758D88A3EB03117EDE` |
+
+- Runtime boundary: strict `main_LoadSkin()` extraction admits 26--52 real
+  VBC models and exactly one TXR sprite per Level. Every asset is hashed before
+  Arena mutation, then decoded through the real object/texture readers.
+- Deferred delta: May animation setup actively calls ROCKOX, ROCKOZ and
+  ROTATEOYOut operations not represented by the January owner. Resource parity
+  must not be reported as animation parity until that ABI is recovered.
+- Distribution handling: do not copy private May scripts/assets into
+  `nw/OUTPUT`; runtime consumes the user's selected retail tree. A future mod
+  catalog uses a separate declared content identity rather than a relaxed
+  retail fingerprint check.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

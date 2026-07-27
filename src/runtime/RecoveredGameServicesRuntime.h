@@ -34,6 +34,7 @@ bool RecoveredGameServices_OrphanAttributesReady();
 bool RecoveredGameServices_ArtefactAttributesReady();
 bool RecoveredGameServices_SmokeAttributesReady();
 bool RecoveredGameServices_ExplosionAttributesReady();
+bool RecoveredGameServices_SkinResourcesReady();
 bool RecoveredGameServices_SparkAttributesReady();
 bool RecoveredGameServices_RouteReady();
 bool RecoveredGameServices_VehicleReady();

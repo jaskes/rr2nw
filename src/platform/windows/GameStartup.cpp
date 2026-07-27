@@ -550,6 +550,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0));
+  log.Line("skin_resources_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SkinResourcesReady() ? 1 : 0));
+  log.Line("skin_resource_models=" +
+           std::to_string(RecoveredArenaSeance_SkinModelCount()));
+  log.Line("skin_resource_sprites=" +
+           std::to_string(RecoveredArenaSeance_SkinSpriteCount()));
+  log.Line("skin_catalog_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SkinCatalogFingerprint()));
+  log.Line("skin_resource_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SkinResourceFingerprint()));
   log.Line("spark_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SparkAttributesReady() ? 1 : 0));
@@ -626,7 +637,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");
