@@ -18,6 +18,10 @@
 #include "message/sndmsg.h"
 #include "storage/h/savefile.h"
 
+#ifndef RR2NW_ORPHAN_ATTRIBUTE_STATE_EXTERNAL
+#include "OrphanAttributeState.inl"
+#endif
+
 
 static void AnimateCallBack1(CViewObjectBaseSet *,CViewObjectBase *pBase,CViewObjectRef *ref);
 static void AnimateCallBack2(CViewObjectBaseSet *,CViewObjectBase *pBase,CViewObjectRef *ref);
@@ -58,91 +62,7 @@ bool OrphanTable::isAudible()
 }
 
 
-//===========================================================================
-class AttributeOrphan : public ct_Attribute
-{
-public:
-    CViewObjectModel*   m_cacheSkin              ;  // 
-    KR_ObjectID			m_skinID;
-    KR_ObjectID         m_attrForVehicle;
-    virtual void    update(double ts);  
-	
-    int             m_cacheExplAttr;
-    int             m_cacheExplosionTable;
-
-    ct_ClassTableID     m_smokeTableID;
-    KR_ObjectID         m_smokeAttrID;
-	
-	
-	//{{ATTRIBUTE
-    ct_AttrItem  m_array[7];
-    ct_AttrStr      m_explAttrName           ;  // 
-    double          m_deltaT                 ;  // 
-    double          m_collisionT             ;  // 
-    double          m_explosionTime          ;  // 
-    double          m_minSpeed               ;  // 
-    ct_AttrStr      m_smokeAttrName          ;  // 
-    double          m_smokeDamage            ;  // Значение Damage при котором надо дымиться
-
-    AttributeOrphan()
-    {
-        strncpy(m_explAttrName,"Expl.Attr.Default", sizeof( ct_AttrStr )-1 );
-        m_deltaT             = 0.2;
-        m_collisionT         = 0.1;
-        m_explosionTime      = 0.5;
-        m_minSpeed           = 1;
-        strncpy(m_smokeAttrName,"Smoke.Attr.Small", sizeof( ct_AttrStr )-1 );
-        m_smokeDamage        = 0.5;
-
-        m_array[0].set("m_explAttrName",m_explAttrName);
-        m_array[1].set("m_deltaT",m_deltaT);
-        m_array[2].set("m_collisionT",m_collisionT);
-        m_array[3].set("m_explosionTime",m_explosionTime);
-        m_array[4].set("m_minSpeed",m_minSpeed);
-        m_array[5].set("m_smokeAttrName",m_smokeAttrName);
-        m_array[6].set("m_smokeDamage",m_smokeDamage);
-
-        linkTable(m_array,7);
-    }
-	//}}END_OF_ATTRIBUTE
-	
-};
-
-
-
-void AttributeOrphan::update(double )
-{
-	m_cacheExplosionTable = g_arena.searchSeanceClassTable( "Explosion" );
-	m_cacheExplAttr	   = g_arena.getAttributeIndex( 
-		g_arena.searchSeanceClassTable( "ExplosionAttr" ),
-		context->searchObject(m_explAttrName) 
-		);
-
-    m_smokeTableID = g_arena.searchSeanceClassTable( "Smoke" );
-    m_smokeAttrID = context->searchObject(m_smokeAttrName);
-}
-
-
-//===========================================================================
-class AttributeTableOrphan : public ct_AttributeTable
-{
-protected:
-    AttributeOrphan *m_table;
-	
-public:
-    AttributeTableOrphan()
-    {
-		m_table = NULL;
-		registerClass( "OrphanAttr" );
-    }
-	
-    virtual void       allocObjects( int objectQnty );
-    virtual void       freeObjects ();
-    virtual ct_Object *getObjectPTR( int index );
-};
-
 static OrphanTable  __classTable;
-static AttributeTableOrphan __attrTable;
 
 
 /*********************************
@@ -253,7 +173,7 @@ void Orphan::setOrphanAttr()
 	}
 	
 
-	attr = __attrTable.searchAttribute(context->searchObject("Orphan.Attr.Default"));
+	attr = __attrOrphanTable.searchAttribute(context->searchObject("Orphan.Attr.Default"));
 	if( attr==NULL )
 		echo( "Orphan::receiveEvent: Unknown attribute Orphan.Attr.Default");
 	else 
@@ -629,37 +549,6 @@ int Orphan::receiveEvent( KR_Event &event )
  static
 	 void AnimateCallBack2(CViewObjectBaseSet *,CViewObjectBase */*pBase*/,CViewObjectRef */*ref*/)
  {
- }
- 
- 
- /*************************************
- *
- *   AttributeTable implementation
- *
- *************************************/
- 
- //============================================================
- void AttributeTableOrphan::allocObjects( int objectQnty )
- {
-	 m_table = new AttributeOrphan[ objectQnty ];
-	 
-	 if(  m_table == NULL  )
-         m_maxObjectQnty = 0;
- }
- 
- //============================================================
- void AttributeTableOrphan::freeObjects()
- {
-	 delete [] m_table;
-	 m_table         = NULL;
-	 m_maxObjectQnty = 0;
- }
- 
- //============================================================
- ct_Object *AttributeTableOrphan::getObjectPTR( int index )
- {
-	 s_ASSERT(index>=0 && index <m_maxObjectQnty,"AttributeTable::getObjectPTR");
-	 return &(m_table[ index ]);
  }
  
  

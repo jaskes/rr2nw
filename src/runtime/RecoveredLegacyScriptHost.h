@@ -19,7 +19,7 @@ enum ERecoveredLegacyScriptHostIssue {
 
 class RecoveredLegacyScriptHost {
  public:
-  enum { kConstantCount = 4 };
+  enum { kConstantCount = 7 };
 
   explicit RecoveredLegacyScriptHost(ct_Arena* arena);
 

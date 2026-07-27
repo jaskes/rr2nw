@@ -32,8 +32,8 @@ int Fail(const char* message) {
   std::fprintf(
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
-      "platform=%d session=%d loop=%d hardware=%d seance=%d spark=%d route=%d "
-      "vehicle=%d "
+      "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
+      "portal=%d orphan=%d artefact=%d spark=%d route=%d vehicle=%d "
       "arena_issues=%u arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
       "bush=%d observer_events=%u observer_z=%lg)\n",
@@ -44,6 +44,10 @@ int Fail(const char* message) {
       RecoveredGameServices_LoopReady() ? 1 : 0,
       RecoveredGameServices_HardwareReady() ? 1 : 0,
       RecoveredGameServices_SeanceReady() ? 1 : 0,
+      RecoveredGameServices_BirdAttributesReady() ? 1 : 0,
+      RecoveredGameServices_PortalReady() ? 1 : 0,
+      RecoveredGameServices_OrphanAttributesReady() ? 1 : 0,
+      RecoveredGameServices_ArtefactAttributesReady() ? 1 : 0,
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
@@ -66,6 +70,10 @@ bool IsServiceReleased() {
          !RecoveredGameServices_LoopReady() &&
          !RecoveredGameServices_HardwareReady() &&
          !RecoveredGameServices_SeanceReady() &&
+         !RecoveredGameServices_BirdAttributesReady() &&
+         !RecoveredGameServices_PortalReady() &&
+         !RecoveredGameServices_OrphanAttributesReady() &&
+         !RecoveredGameServices_ArtefactAttributesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_RouteReady() &&
          !RecoveredGameServices_VehicleReady() &&
@@ -161,13 +169,23 @@ int main(int argc, char** argv) {
       RecoveredGameServices_ObserverState();
   KR_ObjectID vehicleID =
       g_super.m_context->searchObject("Vehicle.Default");
+  KR_ObjectID birdID = g_super.m_context->searchObject("Bird.Attr.0");
+  KR_ObjectID orphanID =
+      g_super.m_context->searchObject("Orphan.Attr.Default");
+  KR_ObjectID artefactID =
+      g_super.m_context->searchObject("Artefact.Attr.0");
   KR_ObjectID sparkID = g_super.m_context->searchObject("Spark.Flash");
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
+      !RecoveredGameServices_BirdAttributesReady() ||
+      !RecoveredGameServices_PortalReady() ||
+      !RecoveredGameServices_OrphanAttributesReady() ||
+      !RecoveredGameServices_ArtefactAttributesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
-      RecoveredArenaSeance_Issues() != 0 || sparkID.isNUL() ||
+      RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||
+      orphanID.isNUL() || artefactID.isNUL() || sparkID.isNUL() ||
       vehicleID.isNUL() ||
       g_vehicle == nullptr ||
       g_super.m_context->queryInterface(vehicleID, IVehicleIID) != g_vehicle ||
@@ -175,8 +193,8 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail(
-        "recovered Hardware, Arena, Spark, Route, Vehicle or observer was not "
-        "published");
+        "recovered Hardware, Arena, common attributes, Portal, Spark, Route, "
+        "Vehicle or observer was not published");
   }
   const SRecoveredObserverState observerBefore = *observer;
   if (!SendHardwareButton("W", TRUE)) {
@@ -233,6 +251,7 @@ int main(int argc, char** argv) {
   }
 
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
-              "arena=1 script=bounded route=table vehicle=real observer=1\n");
+              "arena=1 script=bounded common_attrs=3 portal=table "
+              "route=table vehicle=real observer=1\n");
   return EXIT_SUCCESS;
 }

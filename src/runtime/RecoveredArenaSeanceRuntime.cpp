@@ -6,6 +6,10 @@
 class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
+#include "obase/artefact/ArtefactAttributeState.h"
+#include "obase/bird/BirdAttributeState.h"
+#include "obase/orphan/OrphanAttributeState.h"
+#include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "storage/h/subject.h"
 
@@ -17,19 +21,21 @@ namespace {
 constexpr double kSceneWidth = 5120.0;
 constexpr double kSceneDepth = 5120.0;
 constexpr const char kBootstrapProgramName[] =
-    "recovered_attribute_vehicle_bootstrap";
+    "recovered_common_attribute_vehicle_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol. It is a bounded bridge to the real Vehicle tables, not a second
 // gameplay implementation. The complete retail LEVEL0.SC will replace it as
 // the remaining OBASE class-table archives are connected.
-const char kVehicleBootstrapScript[] = R"RR2NW_SCRIPT(const int EDO_WRITE = 1;
+const char kAttributeVehicleBootstrapScript[] = R"RR2NW_SCRIPT(const int EDO_WRITE = 1;
 const int KR_SET_ATTR = 1;
-const int ATTR_MSG_SET_STR = 16010;
 const int sp_EV_SET_PHASE_COUNT extern;
 const int sp_EV_SET_PHASE extern;
 const int RECT2D_I extern;
 const int LIGHT_COLOR_YELLOW extern;
+const int s_ATTR_MSG_SET_INT extern;
+const int s_ATTR_MSG_SET_DOUBLE extern;
+const int s_ATTR_MSG_SET_STR extern;
 
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
@@ -83,6 +89,26 @@ var int objectID, cachePos, event;
   SetSparkPhase(objectID,cachePos,5,230,44,20,40,0.00,  0,LIGHT_COLOR_YELLOW, 0);
 }
 
+func void SetAttributeFloat(int objectID, int cachePos, str name, float value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, name);
+  s_WriteFloat(event, value);
+  s_CloseEventData(event);
+  s_SendEventNow(event, s_ATTR_MSG_SET_DOUBLE, objectID, cachePos);
+}
+
+func void SetAttributeInt(int objectID, int cachePos, str name, int value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, name);
+  s_WriteInt(event, value);
+  s_CloseEventData(event);
+  s_SendEventNow(event, s_ATTR_MSG_SET_INT, objectID, cachePos);
+}
+
 func void SetAttributeStr(int objectID, int cachePos, str name, str value)
 var int event;
 {
@@ -90,7 +116,7 @@ var int event;
   s_WriteStr(event, name);
   s_WriteStr(event, value);
   s_CloseEventData(event);
-  s_SendEventNow(event, ATTR_MSG_SET_STR, objectID, cachePos);
+  s_SendEventNow(event, s_ATTR_MSG_SET_STR, objectID, cachePos);
 }
 
 func void ChangeObjectAttrN(str attrName, str objectName)
@@ -105,7 +131,8 @@ var int event, attrID, attrCachePos, objectID, cachePos;
 }
 
 func void main()
-var int sparkAttrTable, routeTable, attrTable, vehicleTable, objectID, cachePos;
+var int sparkAttrTable, routeTable, attrTable, birdAttrTable, portalTable;
+var int orphanAttrTable, artefactAttrTable, vehicleTable, objectID, cachePos;
 {
   sparkAttrTable := s_AddClassTable("SparkAttr", 3);
   routeTable := s_AddClassTable("Route", 100);
@@ -116,12 +143,31 @@ var int sparkAttrTable, routeTable, attrTable, vehicleTable, objectID, cachePos;
   s_New(attrTable, "Vehicle.Attr.dead", objectID, cachePos);
   SetAttributeStr(objectID, cachePos, "m_dynamic", "Dead");
 
-  vehicleTable := s_AddClassTable("Vehicle", 1);
-  s_New(vehicleTable, "Vehicle.Default", objectID, cachePos);
-  ChangeObjectAttrN("Vehicle.Attr.default", "Vehicle.Default");
+  birdAttrTable := s_AddClassTable("BirdAttr", 1);
+  s_New(birdAttrTable, "Bird.Attr.0", objectID, cachePos);
+  SetAttributeFloat(objectID, cachePos, "m_speed", 2.0);
+  SetAttributeStr(objectID, cachePos, "m_skinName", "sk.Bird.0");
+  SetAttributeFloat(objectID, cachePos, "m_calcPosIncrement", 0.2);
+
+  portalTable := s_AddClassTable("Portal", 2);
 
   s_NewObject(sparkAttrTable, "Spark.Flash");
   SetSpark0();
+
+  orphanAttrTable := s_AddClassTable("OrphanAttr", 3);
+  s_New(orphanAttrTable, "Orphan.Attr.Default", objectID, cachePos);
+
+  artefactAttrTable := s_AddClassTable("ArtefactAttr", 2);
+  s_New(artefactAttrTable, "Artefact.Attr.0", objectID, cachePos);
+  SetAttributeStr(objectID, cachePos, "m_skinName", "sk.Artefact.0");
+  SetAttributeFloat(objectID, cachePos, "m_maxCoronaR", 20.0);
+  SetAttributeFloat(objectID, cachePos, "m_coronaR", 0.4);
+  SetAttributeInt(objectID, cachePos, "m_coronaRGB", 16711935);
+  SetAttributeInt(objectID, cachePos, "m_coronaAlpha", 150);
+
+  vehicleTable := s_AddClassTable("Vehicle", 1);
+  s_New(vehicleTable, "Vehicle.Default", objectID, cachePos);
+  ChangeObjectAttrN("Vehicle.Attr.default", "Vehicle.Default");
 }
 )RR2NW_SCRIPT";
 
@@ -129,6 +175,10 @@ struct RecoveredArenaSeanceState {
   unsigned int issues;
   bool arenaOpen;
   bool scriptCompleted;
+  bool birdAttributesReady;
+  bool portalReady;
+  bool orphanAttributesReady;
+  bool artefactAttributesReady;
   bool sparkAttributesReady;
   bool routeReady;
   bool vehicleReady;
@@ -177,14 +227,15 @@ unsigned int IssueForScriptStatus(ERecoveredLegacyScriptRunStatus status) {
   return RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE;
 }
 
-bool RunVehicleBootstrap(SimulationContext* context, double startTime) {
+bool RunAttributeVehicleBootstrap(SimulationContext* context,
+                                  double startTime) {
   RecoveredLegacyScriptHost host(&g_arena);
   SRecoveredLegacyScriptRunResult result = {};
   const SRecoveredLegacyScriptProfile profile =
       RecoveredLegacyScript_BootstrapProfile();
   if (!RecoveredLegacyScript_RunMemory(
-          kVehicleBootstrapScript, kBootstrapProgramName, profile, context,
-          startTime, &host, &result)) {
+          kAttributeVehicleBootstrapScript, kBootstrapProgramName, profile,
+          context, startTime, &host, &result)) {
     Report(IssueForScriptStatus(result.status), result.error);
     return false;
   }
@@ -276,6 +327,85 @@ bool PublishSparkAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishBirdAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("BirdAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_BIRD_TABLE_MISSING,
+           "script did not create the BirdAttr table");
+    return false;
+  }
+
+  KR_ObjectID bird = context->searchObject("Bird.Attr.0");
+  if (bird.isNUL()) {
+    Report(RECOVERED_ARENA_SEANCE_BIRD_OBJECT_MISSING,
+           "script did not create Bird.Attr.0");
+    return false;
+  }
+  if (!BirdAttributeState_IsRetailDefault(bird)) {
+    Report(RECOVERED_ARENA_SEANCE_BIRD_DEFAULT_INVALID,
+           "Bird.Attr.0 does not match the retail common attribute");
+    return false;
+  }
+
+  g_state.birdAttributesReady = true;
+  return true;
+}
+
+bool PublishPortalTable() {
+  if (g_arena.searchSeanceClassTable("Portal") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_PORTAL_TABLE_MISSING,
+           "script did not create the Portal table");
+    return false;
+  }
+  g_state.portalReady = true;
+  return true;
+}
+
+bool PublishOrphanAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_ORPHAN_TABLE_MISSING,
+           "script did not create the OrphanAttr table");
+    return false;
+  }
+
+  KR_ObjectID orphan = context->searchObject("Orphan.Attr.Default");
+  if (orphan.isNUL()) {
+    Report(RECOVERED_ARENA_SEANCE_ORPHAN_OBJECT_MISSING,
+           "script did not create Orphan.Attr.Default");
+    return false;
+  }
+  if (!OrphanAttributeState_IsRetailDefault(orphan)) {
+    Report(RECOVERED_ARENA_SEANCE_ORPHAN_DEFAULT_INVALID,
+           "Orphan.Attr.Default does not match the retail common attribute");
+    return false;
+  }
+
+  g_state.orphanAttributesReady = true;
+  return true;
+}
+
+bool PublishArtefactAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("ArtefactAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_ARTEFACT_TABLE_MISSING,
+           "script did not create the ArtefactAttr table");
+    return false;
+  }
+
+  KR_ObjectID artefact = context->searchObject("Artefact.Attr.0");
+  if (artefact.isNUL()) {
+    Report(RECOVERED_ARENA_SEANCE_ARTEFACT_OBJECT_MISSING,
+           "script did not create Artefact.Attr.0");
+    return false;
+  }
+  if (!ArtefactAttributeState_IsRetailDefault(artefact)) {
+    Report(RECOVERED_ARENA_SEANCE_ARTEFACT_DEFAULT_INVALID,
+           "Artefact.Attr.0 does not match the retail common attribute");
+    return false;
+  }
+
+  g_state.artefactAttributesReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -289,17 +419,28 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     return FALSE;
   }
 
+  BirdAttributeState_Link();
+  ArtefactAttributeState_Link();
+  OrphanAttributeState_Link();
+  PortalClassTable_Link();
   SparkAttributeState_Link();
   if (!OpenArena(context)) return FALSE;
 
   try {
-    if (!RunVehicleBootstrap(context, startTime)) {
+    if (!RunAttributeVehicleBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
     g_state.scriptCompleted = true;
 
     if (!PublishSparkAttributes(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+
+    if (!PublishBirdAttributes(context) || !PublishPortalTable() ||
+        !PublishOrphanAttributes(context) ||
+        !PublishArtefactAttributes(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -332,6 +473,10 @@ void RecoveredArenaSeance_Release() {
   g_state.vehicleReady = false;
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
+  g_state.artefactAttributesReady = false;
+  g_state.orphanAttributesReady = false;
+  g_state.portalReady = false;
+  g_state.birdAttributesReady = false;
   g_state.scriptCompleted = false;
   g_vehicle = nullptr;
   if (!g_state.arenaOpen) return;
@@ -346,6 +491,20 @@ bool RecoveredArenaSeance_ScriptCompleted() {
 }
 
 bool RecoveredArenaSeance_RouteReady() { return g_state.routeReady; }
+
+bool RecoveredArenaSeance_BirdAttributesReady() {
+  return g_state.birdAttributesReady;
+}
+
+bool RecoveredArenaSeance_PortalReady() { return g_state.portalReady; }
+
+bool RecoveredArenaSeance_OrphanAttributesReady() {
+  return g_state.orphanAttributesReady;
+}
+
+bool RecoveredArenaSeance_ArtefactAttributesReady() {
+  return g_state.artefactAttributesReady;
+}
 
 bool RecoveredArenaSeance_SparkAttributesReady() {
   return g_state.sparkAttributesReady;

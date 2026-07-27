@@ -21,8 +21,8 @@
 #include "i/dynobj.i"
 
 #include "obase/dynobj/dyncorona.h"
+#include "ArtefactAttributeState.h"
 
-class AttributeArtefact;
 class ArtefactObj : public s_ViewDynamicObject
 {
 public:

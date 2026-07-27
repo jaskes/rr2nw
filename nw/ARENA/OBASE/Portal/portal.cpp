@@ -5,6 +5,7 @@
  */
 
 #include "portal.h"
+#include "PortalClassTableState.h"
 #include "vehicle.h"
 
 #include "kernel/h/context.h"
@@ -36,6 +37,7 @@ class AttributePortal : public ct_Attribute
 
     AttributePortal()
     {
+        m_cacheSkin         = 0;
         m_activRadius        = 15;
         m_slotCnt            = 4;
 
@@ -73,6 +75,11 @@ static AttributePortal __defaultAttr;
 
  //===========================================================================
 static PortalTable          __classTable;
+
+void PortalClassTable_Link()
+{
+}
+
  /*********************************
   *
   *   Portal implementation

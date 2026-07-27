@@ -11,6 +11,9 @@
 
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "obase/artefact/ArtefactAttributeState.h"
+#include "obase/bird/BirdAttributeState.h"
+#include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "storage/h/subject.h"
@@ -80,7 +83,8 @@ bool RunCase(const char* source, const char* name,
              bool expectRoute = false,
              bool expectUnloadedRoutes = false,
              bool expectTruncatedRoute = false,
-             bool expectSpark = false) {
+             bool expectSpark = false,
+             bool expectCommonAttributes = false) {
   SimulationContext context(16, 32);
   g_arena.openSeance(&context, 64.0, 64.0);
   RecoveredLegacyScriptHost host(&g_arena);
@@ -136,9 +140,24 @@ bool RunCase(const char* source, const char* name,
     sparkPublished =
         !flash.isNUL() && SparkAttributeState_IsRetailFlash(flash);
   }
+  bool commonAttributesPublished = !expectCommonAttributes;
+  if (expectCommonAttributes) {
+    KR_ObjectID bird = context.searchObject("Bird.Attr.0");
+    KR_ObjectID orphan = context.searchObject("Orphan.Attr.Default");
+    KR_ObjectID artefact = context.searchObject("Artefact.Attr.0");
+    commonAttributesPublished =
+        !bird.isNUL() && !orphan.isNUL() && !artefact.isNUL() &&
+        BirdAttributeState_IsRetailDefault(bird) &&
+        OrphanAttributeState_IsRetailDefault(orphan) &&
+        ArtefactAttributeState_IsRetailDefault(artefact);
+  }
   g_arena.closeSeance();
   return matched && routePublished && sparkPublished &&
-         !context.isExist("Storage") && !context.isExist("Spark.Flash") &&
+         commonAttributesPublished && !context.isExist("Storage") &&
+         !context.isExist("Bird.Attr.0") &&
+         !context.isExist("Orphan.Attr.Default") &&
+         !context.isExist("Artefact.Attr.0") &&
+         !context.isExist("Spark.Flash") &&
          !context.isExist("Route.fixture") &&
          !context.isExist("Route.by-table") &&
          !context.isExist("Route.by-class") &&
@@ -156,6 +175,9 @@ int main(int argc, char** argv) {
                 "recovered script host requires a Win32 process");
   if (argc != 2) return Fail("expected a fixture directory");
 
+  BirdAttributeState_Link();
+  ArtefactAttributeState_Link();
+  OrphanAttributeState_Link();
   SparkAttributeState_Link();
 
   std::string originalDirectory;
@@ -248,16 +270,41 @@ const int sp_EV_SET_PHASE_COUNT extern;
 const int sp_EV_SET_PHASE extern;
 const int RECT2D_I extern;
 const int LIGHT_COLOR_YELLOW extern;
+const int s_ATTR_MSG_SET_INT extern;
+const int s_ATTR_MSG_SET_DOUBLE extern;
+const int s_ATTR_MSG_SET_STR extern;
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
 func void s_Descend(int event, int tag, int index) extern;
 func void s_Ascend(int event) extern;
 func void s_WriteInt(int event, int value) extern;
 func void s_WriteFloat(int event, float value) extern;
+func void s_WriteStr(int event, str value) extern;
 func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
 func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
 func int s_AddClassTable(str className, int capacity) extern;
 func void s_NewObject(int table, str name) extern;
+func void SetF(int objectID, int cachePos, str name, float value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE); s_WriteStr(event,name);
+  s_WriteFloat(event,value); s_CloseEventData(event);
+  s_SendEventNow(event,s_ATTR_MSG_SET_DOUBLE,objectID,cachePos);
+}
+func void SetI(int objectID, int cachePos, str name, int value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE); s_WriteStr(event,name);
+  s_WriteInt(event,value); s_CloseEventData(event);
+  s_SendEventNow(event,s_ATTR_MSG_SET_INT,objectID,cachePos);
+}
+func void SetS(int objectID, int cachePos, str name, str value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE); s_WriteStr(event,name);
+  s_WriteStr(event,value); s_CloseEventData(event);
+  s_SendEventNow(event,s_ATTR_MSG_SET_STR,objectID,cachePos);
+}
 func void Phase(int objectID, int cachePos, int num,
                 int x, int y, int w, int h, float time,
                 int brightness, int color, float radius)
@@ -275,7 +322,8 @@ var int event;
   s_SendEventNow(event,sp_EV_SET_PHASE,objectID,cachePos);
 }
 func void main()
-var int table, objectID, cachePos, event;
+var int table, birdTable, orphanTable, artefactTable;
+var int objectID, cachePos, event;
 {
   table := s_AddClassTable("SparkAttr",3);
   s_NewObject(table,"Spark.Flash");
@@ -289,12 +337,31 @@ var int table, objectID, cachePos, event;
   Phase(objectID,cachePos,3,180,44,20,40,0.10, 20,LIGHT_COLOR_YELLOW, 7);
   Phase(objectID,cachePos,4,230,44,20,40,0.10,  0,LIGHT_COLOR_YELLOW, 4);
   Phase(objectID,cachePos,5,230,44,20,40,0.00,  0,LIGHT_COLOR_YELLOW, 0);
+
+  birdTable := s_AddClassTable("BirdAttr",1);
+  s_NewObject(birdTable,"Bird.Attr.0");
+  s_SearchObjectID(objectID,cachePos,"Bird.Attr.0");
+  SetF(objectID,cachePos,"m_speed",2.0);
+  SetS(objectID,cachePos,"m_skinName","sk.Bird.0");
+  SetF(objectID,cachePos,"m_calcPosIncrement",0.2);
+
+  orphanTable := s_AddClassTable("OrphanAttr",3);
+  s_NewObject(orphanTable,"Orphan.Attr.Default");
+
+  artefactTable := s_AddClassTable("ArtefactAttr",2);
+  s_NewObject(artefactTable,"Artefact.Attr.0");
+  s_SearchObjectID(objectID,cachePos,"Artefact.Attr.0");
+  SetS(objectID,cachePos,"m_skinName","sk.Artefact.0");
+  SetF(objectID,cachePos,"m_maxCoronaR",20.0);
+  SetF(objectID,cachePos,"m_coronaR",0.4);
+  SetI(objectID,cachePos,"m_coronaRGB",16711935);
+  SetI(objectID,cachePos,"m_coronaAlpha",150);
 }
 )RR2NW_SCRIPT";
   if (!RunCase(sparkAttributeSource, "spark_attribute",
                RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result,
-               false, false, false, true)) {
-    return Fail("retail Spark attribute script did not execute", &result);
+               false, false, false, true, true)) {
+    return Fail("retail common attribute script did not execute", &result);
   }
 
   const char routeSource[] =
@@ -457,8 +524,9 @@ var int table, objectID, cachePos, event;
   RemoveDirectoryA(fixtureDirectory.c_str());
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("legacy script host bindings=15 constants=4 lf=normalized "
-              "spark=retail-phases route=loaded route_eof=clamped "
+  std::printf("legacy script host bindings=15 constants=7 lf=normalized "
+              "spark=retail-phases common_attrs=bird,orphan,artefact "
+              "route=loaded route_eof=clamped "
               "errors=fail-closed rollback=clean\n");
   return EXIT_SUCCESS;
 }

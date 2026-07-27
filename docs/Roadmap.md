@@ -346,7 +346,7 @@ are safely clamped at clean EOF. Closing the table clears the process-wide node
 cursor. No common route object is invented because retail level and mission
 scripts own their route selection.
 
-The least-coupled attribute group is now in progress. Its first complete slice
+The least-coupled attribute group is now substantially connected. Its first slice
 extracts the real `SparkAttr` owner from the renderer-backed `Spark` source,
 creates the retail `Spark.Flash` object and reproduces all six phases from
 `SPARK.SCI`. Production verifies the named attribute and phase payload before
@@ -357,11 +357,23 @@ until `sk.Fusion.0` and the other referenced resource owners are present.
 The tranche preserves 43/43 tests in Debug and Release, 36/36 retail service
 launches and 4/4 retail executable smoke launches.
 
-The bounded bootstrap now creates SparkAttr, Route and the Vehicle portion of
-the object graph. The next slice is another low-coupling attribute table whose
-`update()` dependencies can be isolated honestly; Farter/Corpse/Lamp remain
-behind Sound, Skin, Smoke/Fire or renderer owners, while People/Tank/Taxi/
-Bullet/Sound stay out of this frontier. Continue in rollback-tested groups
+The second slice adds the root/common `BirdAttr`, `OrphanAttr` and
+`ArtefactAttr` owners plus the real capacity-2 `Portal` table. The bounded VM
+creates and validates `Bird.Attr.0`, `Orphan.Attr.Default` and
+`Artefact.Attr.0` with their retail values through integer, double and string
+attribute events. Transient caches now have deterministic unresolved
+sentinels, and all four owners participate in readiness and Arena rollback.
+The full Debug/Release matrix remains 43/43, with 36/36 retail service launches
+and 4/4 executable smoke launches across both data roots.
+
+The bounded bootstrap now creates the common attribute tranche, Portal,
+SparkAttr, Route and the Vehicle portion of the object graph. The next slice
+cannot honestly copy another universal table: remaining `SCINC` rosters differ
+by Level. The next frontier is therefore Level-aware script/include data and
+the Skin/resource owners required by the eventual complete attribute update;
+Farter/Corpse/Lamp remain behind Sound, Skin, Smoke/Fire or renderer owners,
+while People/Tank/Taxi/Bullet/Sound stay out of this frontier. Continue in
+rollback-tested groups
 until the unchanged retail `LEVEL0.SC` can replace the bootstrap. Then verify
 the already attached Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer

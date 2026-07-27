@@ -18,7 +18,17 @@ enum ERecoveredArenaSeanceIssue {
   RECOVERED_ARENA_SEANCE_ROUTE_TABLE_MISSING = 1u << 11,
   RECOVERED_ARENA_SEANCE_SPARK_TABLE_MISSING = 1u << 12,
   RECOVERED_ARENA_SEANCE_SPARK_OBJECT_MISSING = 1u << 13,
-  RECOVERED_ARENA_SEANCE_SPARK_DEFAULT_INVALID = 1u << 14
+  RECOVERED_ARENA_SEANCE_SPARK_DEFAULT_INVALID = 1u << 14,
+  RECOVERED_ARENA_SEANCE_BIRD_TABLE_MISSING = 1u << 15,
+  RECOVERED_ARENA_SEANCE_BIRD_OBJECT_MISSING = 1u << 16,
+  RECOVERED_ARENA_SEANCE_BIRD_DEFAULT_INVALID = 1u << 17,
+  RECOVERED_ARENA_SEANCE_PORTAL_TABLE_MISSING = 1u << 18,
+  RECOVERED_ARENA_SEANCE_ORPHAN_TABLE_MISSING = 1u << 19,
+  RECOVERED_ARENA_SEANCE_ORPHAN_OBJECT_MISSING = 1u << 20,
+  RECOVERED_ARENA_SEANCE_ORPHAN_DEFAULT_INVALID = 1u << 21,
+  RECOVERED_ARENA_SEANCE_ARTEFACT_TABLE_MISSING = 1u << 22,
+  RECOVERED_ARENA_SEANCE_ARTEFACT_OBJECT_MISSING = 1u << 23,
+  RECOVERED_ARENA_SEANCE_ARTEFACT_DEFAULT_INVALID = 1u << 24
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -26,6 +36,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 void RecoveredArenaSeance_Release();
 bool RecoveredArenaSeance_IsOpen();
 bool RecoveredArenaSeance_ScriptCompleted();
+bool RecoveredArenaSeance_BirdAttributesReady();
+bool RecoveredArenaSeance_PortalReady();
+bool RecoveredArenaSeance_OrphanAttributesReady();
+bool RecoveredArenaSeance_ArtefactAttributesReady();
 bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();

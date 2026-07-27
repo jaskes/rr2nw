@@ -804,3 +804,36 @@ direct retail-phase VM execution; invalid stack-reference rejection; named
 object/type/phase publication; two Arena construction/destruction cycles; full
 service readiness and rollback; and the Debug/Release 43-test matrix plus
 retail service/executable sweeps.
+
+## BD-030: common pre-update attributes form one transactional tranche
+
+Status: accepted on 2026-07-27.
+
+The next bounded script slice connects only attributes whose definitions are
+shared by the root retail scripts rather than replaced by each Level: the
+single `Bird.Attr.0`, `Orphan.Attr.Default` and `Artefact.Attr.0` objects. It
+also creates the root `Portal` table with capacity 2. The three attribute
+owners are extracted from their monolithic subjects into shared state units;
+the unchanged subject sources consume those same implementations in legacy
+mode and have strict full-source compile gates.
+
+All script mutations use the original `s_ATTR_MSG_SET_INT`,
+`s_ATTR_MSG_SET_DOUBLE` and `s_ATTR_MSG_SET_STR` relocations. The old numeric
+literal for the string message is removed. Production verifies every named
+object and retail field before publishing independent Bird, Portal, Orphan and
+Artefact readiness. All owners remain inside the Arena seance and disappear on
+double release and fresh-context reconstruction.
+
+The global `s_UpdateAttributes()` pass remains deferred. Bird requires
+`sk.Bird.0`; Artefact requires `sk.Artefact.0`, palette conversion, corona
+texture loading and Portal lookup; Orphan requires Explosion/ExplosionAttr and
+Smoke/SmokeAttr. Their constructors now initialize transient cache fields to
+null or `ct_NULLID`, making the retail pre-update interval deterministic
+without changing the values produced by a later successful update.
+
+Level-local Smoke, Explosion, Cannon/Tank, Taxi, Smoker, People, Farter, Lamp,
+Corpse, Fountain, Bullet and Howitzer attribute rosters are deliberately not
+copied into the bounded script. Their capacities and named objects differ by
+Level, so hard-coding one Level would create false retail parity. Those owners
+must follow either a Level-aware data bridge or execution of the unchanged
+retail script.

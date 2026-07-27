@@ -15,11 +15,11 @@
 #include "kernel/h/active.h"
 #include "i/dynobj.i"
 #include "obase/sound/wavobj.h"
+#include "OrphanAttributeState.h"
 
 
 
 class AttributeTaxi;
-class AttributeOrphan;
 
 
 typedef struct {

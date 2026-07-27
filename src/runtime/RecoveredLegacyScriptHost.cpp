@@ -7,6 +7,7 @@
 #include "graph.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "message/attrmsg.h"
 #include "message/sparkmsg.h"
 #include "message/routmsg.h"
 #include "obase/route/route.h"
@@ -132,6 +133,18 @@ void ConstLightColorYellow(TStackCell* cell) {
   cell->i = LIGHT_COLOR_YELLOW;
 }
 
+void ConstAttributeSetInt(TStackCell* cell) {
+  cell->i = ATTR_MSG_SET_INT;
+}
+
+void ConstAttributeSetDouble(TStackCell* cell) {
+  cell->i = ATTR_MSG_SET_DOUBLE;
+}
+
+void ConstAttributeSetString(TStackCell* cell) {
+  cell->i = ATTR_MSG_SET_STR;
+}
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
@@ -155,6 +168,9 @@ TLinkConstExtern g_constants[] = {
     {"sp_EV_SET_PHASE", ConstSparkSetPhase, 0},
     {"RECT2D_I", ConstRect2DI, 0},
     {"LIGHT_COLOR_YELLOW", ConstLightColorYellow, 0},
+    {"s_ATTR_MSG_SET_INT", ConstAttributeSetInt, 0},
+    {"s_ATTR_MSG_SET_DOUBLE", ConstAttributeSetDouble, 0},
+    {"s_ATTR_MSG_SET_STR", ConstAttributeSetString, 0},
     {nullptr, nullptr, 0}};
 
 }  // namespace

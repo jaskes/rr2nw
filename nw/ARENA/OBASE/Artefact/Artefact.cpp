@@ -27,74 +27,9 @@
 #include "Carrier.inl"
 #endif
 
- //===========================================================================
-class AttributeArtefact : public ct_Attribute
-{
- public:
-    CViewObjectModel*   m_cacheSkin              ;  // 
-    virtual void        update(double ts);  
-    unsigned long       m_rayColor;
-
-    GR_HTEXTURE         m_coronaHText;
-    unsigned long       m_coronaColor;
-    int                 m_portalTable;
-    virtual int         receiveEvent( KR_Event &e );
-//{{ATTRIBUTE
-    ct_AttrItem  m_array[15];
-    double          m_radius                 ;  // 
-    int             m_riceCnt                ;  // 
-    ct_AttrStr      m_skinName               ;  // 
-    int             m_lightColor             ;  // 
-    int             m_brightness             ;  // 
-    double          m_lightRadius            ;  // 
-    int             m_rayRGB                 ;  // 
-    int             m_useLight               ;  // 
-    int             m_useRay                 ;  // 
-    int             m_useCorona              ;  // 
-    double          m_maxCoronaR             ;  // 
-    int             m_coronaAlpha            ;  // 
-    int             m_coronaRGB              ;  // 
-    ct_AttrStr      m_coronaName             ;  // 
-    double          m_coronaR                ;  // 
-
-    AttributeArtefact()
-    {
-        m_radius             = 5;
-        m_riceCnt            = 10;
-        strncpy(m_skinName,"", sizeof( ct_AttrStr )-1 );
-        m_lightColor         = LIGHT_COLOR_VIOLET;
-        m_brightness         = 127;
-        m_lightRadius        = 15;
-        m_rayRGB             = 0xFFFFFF;
-        m_useLight           = 1;
-        m_useRay             = 1;
-        m_useCorona          = 1;
-        m_maxCoronaR         = 8;
-        m_coronaAlpha        = 100;
-        m_coronaRGB          = 0xFFFFFF;
-        strncpy(m_coronaName,"corona.spr", sizeof( ct_AttrStr )-1 );
-        m_coronaR            = 0.2;
-
-        m_array[0].set("m_radius",m_radius);
-        m_array[1].set("m_riceCnt",m_riceCnt);
-        m_array[2].set("m_skinName",m_skinName);
-        m_array[3].set("m_lightColor",m_lightColor);
-        m_array[4].set("m_brightness",m_brightness);
-        m_array[5].set("m_lightRadius",m_lightRadius);
-        m_array[6].set("m_rayRGB",m_rayRGB);
-        m_array[7].set("m_useLight",m_useLight);
-        m_array[8].set("m_useRay",m_useRay);
-        m_array[9].set("m_useCorona",m_useCorona);
-        m_array[10].set("m_maxCoronaR",m_maxCoronaR);
-        m_array[11].set("m_coronaAlpha",m_coronaAlpha);
-        m_array[12].set("m_coronaRGB",m_coronaRGB);
-        m_array[13].set("m_coronaName",m_coronaName);
-        m_array[14].set("m_coronaR",m_coronaR);
-
-        linkTable(m_array,15);
-    }
-//}}END_OF_ATTRIBUTE
-};
+#ifndef RR2NW_ARTEFACT_ATTRIBUTE_STATE_EXTERNAL
+#include "ArtefactAttributeState.inl"
+#endif
 
  //==========================================================================
 void ArtefactObj::Draw()
@@ -168,12 +103,6 @@ void ArtefactObj::Draw()
 }
 
 
-int  AttributeArtefact::receiveEvent( KR_Event &e )
-{
-    return ct_Attribute::receiveEvent(e);
-}
-
-
 void  Artefact::moveTo  ( CFMatrix3x4 &m )
 {
     m_orient = m;
@@ -216,7 +145,6 @@ void  Artefact::drop    ( CFMatrix3x4 &m, double  ts)
 
  //===========================================================================
 strg_SUBJECT_TABLE_IMPLEMENTATION(Artefact,1)
-strg_ATTRIBUTE_TABLE_IMPLEMENTATION(Artefact,"ArtefactAttr")
 
 static ArtefactTable          __classTable;
 
@@ -241,7 +169,7 @@ void Artefact::onView(double)
 void Artefact::setArtefactAttr()
 {
 	
-	ct_Attribute *attr = __attrTable.searchAttribute(m_artefactAttrID);
+	ct_Attribute *attr = __attrArtefactTable.searchAttribute(m_artefactAttrID);
 	if( attr==NULL )
 		echo( "Artefact::receiveEvent: Unknown attribute %s",
 		context->searchObject(m_artefactAttrID));
@@ -451,31 +379,6 @@ strg_SUBJECT_DYNVIEW_IMPLEMENTATION(Artefact)
  //============================================================
 CFVector3     Artefact::realPosition() {  return getPosition();  }
 
-
-
- /*************************************
-  *
-  *   AttributeArtefact implementation
-  *
-  *************************************/
-
- //============================================================
-
-#define RGB_TO_LIST(col)  ((col)>>16), ((col)>>8)&255, (col)&255
-
-void AttributeArtefact::update(double ts)
-{
-   strg_UPDATE_ATTRIBUTE_SKIN(m_skinName,m_cacheSkin,ts)
-   if(  m_useRay  )
-   m_rayColor =     GRTransparentColor(RGB_TO_LIST(m_rayRGB));
-
-   if(  m_useCorona  )
-   {
-        m_coronaHText = g_loadSmoke( m_coronaName, NULL );
-        m_coronaColor = GRTransparentColor(m_coronaRGB>>16,(m_coronaRGB>>8)&255,m_coronaRGB&255);
-   }
-   m_portalTable = g_arena.searchSeanceClassTable("Portal");
-}
 
 
 double Artefact::getPower   ()

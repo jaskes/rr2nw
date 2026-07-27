@@ -486,6 +486,48 @@ Status vocabulary:
 - Revisit when: linker output owns immutable constant relocation records or
   concurrent script compilation is introduced.
 
+### CQ-038: common attribute caches were indeterminate before update
+
+- Status: `CONFIRMED_SOURCE`, `BUGFIX_ACCEPTED`.
+- Evidence: the Bird, Orphan and Artefact attribute constructors initialized
+  their script-facing fields but left renderer/object-table cache pointers,
+  IDs, handles and indices untouched. Retail creates these attributes before
+  the later global `s_UpdateAttributes()` pass, so rollback or diagnostics can
+  observe an interval containing indeterminate state.
+- Handling: extracted constructors initialize transient fields to null,
+  `KR_ObjectID::NUL()` or `ct_NULLID`. Validators require those sentinels in
+  the bounded pre-update state. The later update methods overwrite the same
+  fields with their historical resolved values.
+- Revisit when: the complete attribute update pass owns typed cache state and
+  can distinguish unresolved, resolved and failed dependencies explicitly.
+
+### CQ-039: attribute message labels are external script ABI constants
+
+- Status: `CONFIRMED_SOURCE`, `PRESERVED`.
+- Evidence: `DEFINES.SCI` imports `s_ATTR_MSG_SET_INT`,
+  `s_ATTR_MSG_SET_DOUBLE` and `s_ATTR_MSG_SET_STR`; `SYS.SCI` uses them for
+  attribute setters. The bounded bootstrap previously embedded decimal 16010
+  for the string case only.
+- Handling: all three labels now come through the isolated external-constant
+  registry and per-program relocation copy. Direct VM coverage changes string,
+  integer and double attributes and then runs constant-free scripts to prove
+  relocation isolation.
+- Revisit when: the legacy script ABI is generated from the message headers or
+  the complete retail constant table replaces the bounded registry.
+
+### CQ-040: root/common and Level-local attribute rosters are different data
+
+- Status: `CONFIRMED_RETAIL`, `PRESERVED`.
+- Evidence: `BIRD.SCI` and `ARTEFACT.SCI`, plus the Orphan creation in root
+  `LEVEL0.SC`, define the same common objects for every Level. In contrast,
+  Smoke, Explosion, Tank, Taxi, People, Farter, Corpse, Fountain, Bullet and
+  other `SCINC` files change capacities, names and values between Levels.
+- Handling: only root/common objects are admitted to the bounded bootstrap.
+  Level-local rosters remain behind a Level-aware bridge or unchanged retail
+  script execution; no single Level is treated as a universal default.
+- Revisit when: includes are resolved against the selected Level and the
+  retail script can create each Level's exact table/object set transactionally.
+
 ## Maintenance rule
 
 When a new quirk is found:

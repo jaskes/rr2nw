@@ -14,8 +14,7 @@
 #include "storage/h/attr.h"
 #include "kernel/h/active.h"
 #include "storage/h/strgdefs.h"
-
-class AttributeBird;
+#include "BirdAttributeState.h"
 
 typedef struct {
     KR_ObjectID            m_birdAttrID;

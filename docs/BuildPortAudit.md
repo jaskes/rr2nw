@@ -1030,6 +1030,43 @@ diagnostics publish `spark_attributes_initialized=1`, identify the script as
 `bounded-attribute-vehicle-bootstrap` and finish with
 `runtime_shutdown=clean`.
 
+### Root/common attribute tranche and Portal
+
+The next dependency-safe slice extracts `BirdAttr`, `OrphanAttr` and
+`ArtefactAttr` from their monolithic OBASE subjects. Each old source includes
+the shared implementation when built in legacy mode, while modern state
+archives own production registration and full Bird/Orphan/Artefact targets
+compile against the external owner. The real Portal source also compiles and
+its link anchor admits the capacity-2 `Portal` table used by root `LEVEL0.SC`.
+No Portal subject is named or activated by this bootstrap.
+
+The bounded script now reproduces the shared retail objects:
+`Bird.Attr.0` with speed 2, `sk.Bird.0` and position increment 0.2;
+`Orphan.Attr.Default` with its source defaults; and `Artefact.Attr.0` with
+`sk.Artefact.0`, corona radius 20/0.4, RGB `0xFF00FF` and alpha 150. Integer,
+double and string changes travel through the original `ATTR_MSG_SET_*` event
+protocol. The host constant count grows from four to seven and no attribute
+message label is hard-coded.
+
+This extraction also closes a pre-update stability hole. Bird's skin cache,
+Orphan's Explosion/Smoke table caches and Artefact's skin/palette/corona/Portal
+caches were left uninitialized by their constructors. They now start at null,
+NUL or `ct_NULLID`, and production validators require that deterministic state
+until the complete dependency graph is ready for `s_UpdateAttributes()`.
+
+This boundary is intentionally root/common only. The selected Level supplies
+different `SCINC` definitions for Smoke, Explosion, Tank, Taxi, People,
+Farter, Corpse, Fountain, Bullet and Howitzer attributes. Copying the values
+from one Level into the bounded bootstrap would be a compatibility regression;
+their next honest boundary requires Level-aware include resolution or the
+unchanged retail script.
+
+Final verification for the common tranche passes 43/43 tests in Debug and
+Release, 36/36 service launches across all nine Levels on the installed and
+mounted retail roots, and 4/4 executable runtime-smoke launches. The executable
+publishes all four new readiness markers, the
+`bounded-common-attribute-vehicle-bootstrap` mode and a clean shutdown.
+
 This closes the real `Vehicle.Default` creation frontier, but not complete
 retail script startup. `LEVEL0.SC` includes broad Menu/unit/mission helpers and
 expects the remaining Tank, People, Sound, Smoke, Bullet, Taxi and other OBASE

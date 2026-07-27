@@ -13,6 +13,9 @@ class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "obase/artefact/ArtefactAttributeState.h"
+#include "obase/bird/BirdAttributeState.h"
+#include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
 #include "storage/h/subject.h"
 
@@ -24,10 +27,14 @@ int Fail(const char* message) {
   RecoveredArenaSeance_Release();
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
-               "(open=%d script=%d spark=%d route=%d vehicle=%d issues=%u "
-               "error=%s)\n",
+               "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
+               "spark=%d route=%d vehicle=%d issues=%u error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
+               RecoveredArenaSeance_BirdAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_PortalReady() ? 1 : 0,
+               RecoveredArenaSeance_OrphanAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_ArtefactAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleReady() ? 1 : 0,
@@ -75,10 +82,17 @@ bool FullPath(const char* path, std::string& result) {
 bool IsReleased(SimulationContext& context) {
   return !RecoveredArenaSeance_IsOpen() &&
          !RecoveredArenaSeance_ScriptCompleted() &&
+         !RecoveredArenaSeance_BirdAttributesReady() &&
+         !RecoveredArenaSeance_PortalReady() &&
+         !RecoveredArenaSeance_OrphanAttributesReady() &&
+         !RecoveredArenaSeance_ArtefactAttributesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
-         !context.isExist("Storage") && !context.isExist("Spark.Flash") &&
+         !context.isExist("Storage") && !context.isExist("Bird.Attr.0") &&
+         !context.isExist("Orphan.Attr.Default") &&
+         !context.isExist("Artefact.Attr.0") &&
+         !context.isExist("Spark.Flash") &&
          !context.isExist("Vehicle.Default") &&
          Route::m_totalNodePos == 0;
 }
@@ -88,10 +102,18 @@ bool RunCycle() {
   if (!RecoveredArenaSeance_Initialize(&context, Session::m_moment) ||
       !RecoveredArenaSeance_IsOpen() ||
       !RecoveredArenaSeance_ScriptCompleted() ||
+      !RecoveredArenaSeance_BirdAttributesReady() ||
+      !RecoveredArenaSeance_PortalReady() ||
+      !RecoveredArenaSeance_OrphanAttributesReady() ||
+      !RecoveredArenaSeance_ArtefactAttributesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 ||
+      g_arena.searchSeanceClassTable("BirdAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Portal") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("ArtefactAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
@@ -101,10 +123,17 @@ bool RunCycle() {
   }
 
   KR_ObjectID storage = context.searchObject("Storage");
+  KR_ObjectID bird = context.searchObject("Bird.Attr.0");
+  KR_ObjectID orphan = context.searchObject("Orphan.Attr.Default");
+  KR_ObjectID artefact = context.searchObject("Artefact.Attr.0");
   KR_ObjectID flash = context.searchObject("Spark.Flash");
   KR_ObjectID vehicle = context.searchObject("Vehicle.Default");
   const bool vehiclePublished =
-      !storage.isNUL() && !flash.isNUL() && !vehicle.isNUL() &&
+      !storage.isNUL() && !bird.isNUL() && !orphan.isNUL() &&
+      !artefact.isNUL() && !flash.isNUL() && !vehicle.isNUL() &&
+      BirdAttributeState_IsRetailDefault(bird) &&
+      OrphanAttributeState_IsRetailDefault(orphan) &&
+      ArtefactAttributeState_IsRetailDefault(artefact) &&
       g_vehicle != nullptr &&
       context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
 
@@ -165,6 +194,7 @@ int main(int argc, char** argv) {
   if (!restored) return Fail("working directory was not restored");
 
   std::printf("bounded arena seance cycles=2 script=legacy-vm "
+              "common_attrs=bird,orphan,artefact portal=table "
               "spark=Spark.Flash route=table vehicle=Vehicle.Default "
               "rollback=idempotent\n");
   return EXIT_SUCCESS;

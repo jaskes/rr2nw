@@ -285,6 +285,176 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_bird_attribute_state STATIC
+  nw/ARENA/OBASE/Bird/BirdAttributeState.cpp
+  nw/ARENA/OBASE/Bird/BirdAttributeState.h
+  nw/ARENA/OBASE/Bird/BirdAttributeState.inl
+)
+target_link_libraries(rr2nw_arena_bird_attribute_state PUBLIC
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_bird_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Bird
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_bird_attribute_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_bird_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_obase_bird_full STATIC
+  nw/ARENA/OBASE/Bird/Bird.cpp
+)
+target_link_libraries(rr2nw_arena_obase_bird_full PUBLIC
+  rr2nw_arena_bird_attribute_state
+)
+target_include_directories(rr2nw_arena_obase_bird_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Bird
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_bird_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_bird_full PRIVATE
+  __NT__
+  RR2NW_BIRD_ATTRIBUTE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_orphan_attribute_state STATIC
+  nw/ARENA/OBASE/Orphan/OrphanAttributeState.cpp
+  nw/ARENA/OBASE/Orphan/OrphanAttributeState.h
+  nw/ARENA/OBASE/Orphan/OrphanAttributeState.inl
+)
+target_link_libraries(rr2nw_arena_orphan_attribute_state PUBLIC
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_orphan_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Orphan
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_orphan_attribute_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_orphan_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_obase_orphan_full STATIC
+  nw/ARENA/OBASE/Orphan/Orphan.cpp
+)
+target_link_libraries(rr2nw_arena_obase_orphan_full PUBLIC
+  rr2nw_arena_orphan_attribute_state
+)
+target_include_directories(rr2nw_arena_obase_orphan_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Orphan
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_orphan_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_orphan_full PRIVATE
+  __NT__
+  RR2NW_ORPHAN_ATTRIBUTE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_artefact_attribute_state STATIC
+  nw/ARENA/OBASE/Artefact/ArtefactAttributeState.cpp
+  nw/ARENA/OBASE/Artefact/ArtefactAttributeState.h
+  nw/ARENA/OBASE/Artefact/ArtefactAttributeState.inl
+)
+target_link_libraries(rr2nw_arena_artefact_attribute_state PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_smoke_texture_cache
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_arena_artefact_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Artefact
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_arena_artefact_attribute_state PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_arena_artefact_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_obase_portal STATIC
+  nw/ARENA/OBASE/Portal/portal.cpp
+  nw/ARENA/OBASE/Portal/PortalClassTableState.h
+)
+target_link_libraries(rr2nw_arena_obase_portal PUBLIC rr2nw_arena_storage)
+target_include_directories(rr2nw_arena_obase_portal PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Portal
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_portal PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_portal PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_bird_attribute_state PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_obase_bird_full PRIVATE /W3 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_orphan_attribute_state PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_obase_orphan_full PRIVATE /W3 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_artefact_attribute_state PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_obase_portal PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_arena_physics_math STATIC
   nw/ARENA/PHISICS.CPP
 )
@@ -2027,7 +2197,9 @@ add_library(rr2nw_arena_obase_artefact STATIC
   nw/ARENA/OBASE/Artefact/Artefact.cpp
 )
 target_link_libraries(
-  rr2nw_arena_obase_artefact PUBLIC rr2nw_arena_obase_carrier
+  rr2nw_arena_obase_artefact PUBLIC
+  rr2nw_arena_artefact_attribute_state
+  rr2nw_arena_obase_carrier
 )
 target_include_directories(rr2nw_arena_obase_artefact PUBLIC
   nw/INCLUDE
@@ -2038,6 +2210,7 @@ target_include_directories(rr2nw_arena_obase_artefact PUBLIC
 target_compile_features(rr2nw_arena_obase_artefact PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_arena_obase_artefact PRIVATE
   __NT__
+  RR2NW_ARTEFACT_ATTRIBUTE_STATE_EXTERNAL
   RR2NW_CARRIER_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
@@ -2292,6 +2465,10 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state
   rr2nw_arena_obase_vehicle
+  rr2nw_arena_bird_attribute_state
+  rr2nw_arena_artefact_attribute_state
+  rr2nw_arena_orphan_attribute_state
+  rr2nw_arena_obase_portal
   rr2nw_arena_spark_attribute_state
   rr2nw_legacy_shell_full
   rr2nw_recovered_legacy_script_runtime
@@ -2934,6 +3111,9 @@ add_executable(rr2nw_recovered_legacy_script_runtime_smoke
 )
 target_link_libraries(rr2nw_recovered_legacy_script_runtime_smoke PRIVATE
   rr2nw_recovered_legacy_script_runtime
+  rr2nw_arena_bird_attribute_state
+  rr2nw_arena_artefact_attribute_state
+  rr2nw_arena_orphan_attribute_state
   rr2nw_arena_spark_attribute_state
 )
 target_compile_features(

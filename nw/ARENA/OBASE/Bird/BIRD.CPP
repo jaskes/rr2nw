@@ -12,44 +12,14 @@
 #include "message/skinmsg.h"
 #include "storage/h/savefile.h"
 
+#ifndef RR2NW_BIRD_ATTRIBUTE_STATE_EXTERNAL
+#include "BirdAttributeState.inl"
+#endif
+
 //#include <afxwin.h>
 
  //===========================================================================
-class AttributeBird : public ct_Attribute
-{
- public:
-    CViewObjectModel*   m_cacheSkin              ;  // 
-    virtual void    update(double ts);  
-
-//{{ATTRIBUTE
-    ct_AttrItem  m_array[4];
-    double          m_calcNewPosIncrement    ;  // 
-    double          m_calcPosIncrement       ;  // 
-    ct_AttrStr      m_skinName               ;  // 
-    double          m_speed                  ;  // 
-
-    AttributeBird()
-    {
-        m_calcNewPosIncrement = 5;
-        m_calcPosIncrement   = 0.080012345678;
-        strncpy(m_skinName,"Bird.0", sizeof( ct_AttrStr )-1 );
-        m_speed              = 20;
-
-        m_array[0].set("m_calcNewPosIncrement",m_calcNewPosIncrement);
-        m_array[1].set("m_calcPosIncrement",m_calcPosIncrement);
-        m_array[2].set("m_skinName",m_skinName);
-        m_array[3].set("m_speed",m_speed);
-
-        linkTable(m_array,4);
-    }
-//}}END_OF_ATTRIBUTE
-};
-
-//static AttributeBird __defaultAttr;
-
- //===========================================================================
 strg_SUBJECT_TABLE_IMPLEMENTATION(Bird,1)
-strg_ATTRIBUTE_TABLE_IMPLEMENTATION(Bird,"BirdAttr")
 
 static BirdTable          __classTable;
  /*********************************
@@ -113,7 +83,7 @@ void Bird::onView(double time)
 
 void Bird::setBirdAttr()
 {
-         ct_Attribute *attr = __attrTable.searchAttribute(m_birdAttrID);
+         ct_Attribute *attr = __attrBirdTable.searchAttribute(m_birdAttrID);
          if( attr==NULL )
               echo( "Bird::receiveEvent: Unknown attribute %s",
                     context->searchObject(m_birdAttrID));
@@ -342,19 +312,5 @@ strg_SUBJECT_DYNVIEW_IMPLEMENTATION(Bird)
 CFVector3     Bird::realPosition() {  return m_pos;  }
 
 
-
- /*************************************
-  *
-  *   AttributeBird implementation
-  *
-  *************************************/
-
- //============================================================
-
-
-void AttributeBird::update(double ts)
-{
-   strg_UPDATE_ATTRIBUTE_SKIN(m_skinName,m_cacheSkin,ts)
-}
 
 /* End of file C:\WinGame\OBASE\bird\bird.cpp */
