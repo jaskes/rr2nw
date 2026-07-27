@@ -308,7 +308,13 @@ public:
 		for( int i = 1 ; i < m_nHeight ; i<<=1 )	m_nHeightShift++;
 		ASSERT( 1 << m_nHeightShift == m_nHeight );
 		int nDim = m_nWidth*m_nHeight;
-		m_pImage = (T*)(new byte[sizeof(T)*nDim+EXTRA_INFO]+EXTRA_INFO);
+		try {
+			m_pImage = (T*)(new byte[sizeof(T)*nDim+EXTRA_INFO]+EXTRA_INFO);
+		}
+		catch(...) {
+			fclose(f);
+			throw;
+		}
 		RTCHECK1(fread(m_pImage,sizeof(T),nDim,f)==nDim,"Err reading map '%s'",name);
 		fclose(f);
 		((dword*)m_pImage)[-1] = nWidth;
@@ -629,6 +635,7 @@ protected:
 	void PutTriangleMark(int n);
 	void AddCellVertex(CCellVertex &v);
 	void EndDrawCell(int rc,TCSRect2 &cell);
+	void ReleaseOwnedResources();
 
 public:
 	_CViewTerrain(double fCellSize,double fHScale,double fViewDiameter);

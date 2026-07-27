@@ -712,6 +712,28 @@ cache but does not activate the full `bush_Init` renderer path. Land dynamics,
 terrain construction and rollback-capable `CViewScene` ownership are the current
 runtime frontier, and the default entry table truthfully remains six of twelve.
 
+Terrain construction is now separated from that scene frontier. A decoder-only
+build of `TERRAIN.CPP` retains its real constructor, destructor, masks, maps and
+waterline calculation while excluding render traversal already covered by the
+full-source compile gate. Its measured link frontier is zero after separating
+the real aligned-image allocator and bounded fixed-font file reader from larger
+render objects.
+
+`RecoveredTerrainRuntime` validates exact serialized dimensions and lengths for
+`covh7.spr`, `mapc7.spr`, `hrange.spr`, `red.spr`, `maskflag.spr`, both 512x512
+land masks and the three 256x256 bump/water masks. Only then does it construct
+the real terrain from the recovered scene scale. Partial edge arrays are
+zero-initialized, allocation failures close their source files, and destruction
+now releases `m_hMask1` in addition to the four handles owned previously.
+
+All nine installed Levels construct and release in Debug and Release. Day/night
+pairs 01 and 02 share height maps, leaving seven distinct checksums across the
+nine Levels; every map spans byte heights 0 through 255 and both configurations
+agree exactly. A synthetic complete/corrupt/missing-resource contract raises the
+normal CTest matrix to 37 of 37. Land maps, scene ordering and full bush-render
+initialization are now the runtime frontier; the entry inventory remains six of
+twelve until the entire scene transaction can commit.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -738,9 +760,10 @@ runtime frontier, and the default entry table truthfully remains six of twelve.
 6. **Link frontier complete, runtime binding in progress:** the software Win32
    graph and pre-scene Level lifecycle connect six entry hooks. Palette, font,
    figure-library and scene-header bootstrap now execute atomically. The complete
-   object/figure/keyframe/order/bush decode path now passes every installed retail
-   Level; isolate land/terrain construction, construct the owned scene, then bind
-   the remaining six checked services behind `rr2nw.exe`.
+   object/figure/keyframe/order/bush decode path and real terrain construction
+   now pass every installed retail Level; isolate land maps and scene ordering,
+   construct the owned scene, then bind the remaining six checked services
+   behind `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.
 

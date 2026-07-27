@@ -65,6 +65,13 @@ Levels in both `E:\Games\The Next Worlds` and `G:\nw`. The sweep performed no
 writes to either data tree. This confirms compatibility of the bounded asset
 bootstrap only; it does not yet claim successful object/terrain scene decoding.
 
+On 2026-07-27 the recovered terrain sweep additionally validated, constructed
+and released the real software terrain for all nine installed Levels in Debug
+and Release. It read the five terrain sprites and five 8-bit masks in each Level
+without modifying them. The resulting 512x512 height-map checksums agree across
+configurations and identify seven distinct maps; this is terrain-decoder
+evidence only and does not yet claim land-map or complete scene ownership.
+
 Основной установленный `nw.exe` совпадает с дисковым по SHA-256. Установка
 полезна как user-state fixture, но не как clean retail fixture.
 

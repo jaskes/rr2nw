@@ -810,10 +810,35 @@ target_compile_definitions(rr2nw_scene_vessel_runtime_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_patterns_aligned_image_runtime STATIC
+  nw/PATTERNS/AlignedImageRuntime.cpp
+)
+target_link_libraries(
+  rr2nw_patterns_aligned_image_runtime PUBLIC rr2nw_legacy_design
+)
+target_include_directories(rr2nw_patterns_aligned_image_runtime PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/PATTERNS
+)
+target_compile_features(
+  rr2nw_patterns_aligned_image_runtime PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_patterns_aligned_image_runtime PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_library(rr2nw_scene_draw_state STATIC
   nw/SCENE/SceneDrawState.cpp
 )
-target_link_libraries(rr2nw_scene_draw_state PUBLIC rr2nw_legacy_design)
+target_link_libraries(rr2nw_scene_draw_state PUBLIC
+  rr2nw_legacy_design
+  rr2nw_patterns_aligned_image_runtime
+)
 target_include_directories(rr2nw_scene_draw_state PUBLIC
   nw/INCLUDE
   nw/DESIGN.LIB/H
@@ -1110,6 +1135,41 @@ target_compile_definitions(rr2nw_view_object_decoder PRIVATE
 if(MSVC)
   target_compile_options(
     rr2nw_view_object_decoder PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_view_terrain_decoder STATIC
+  nw/VIEW/TERRAIN.CPP
+)
+target_link_libraries(rr2nw_view_terrain_decoder PUBLIC
+  rr2nw_graph_fixed_font_runtime_state
+  rr2nw_graph_software_texture
+  rr2nw_legacy_design
+  rr2nw_patterns_aligned_image_runtime
+  rr2nw_patterns_palette_runtime
+  rr2nw_view_terrain_waterline_state
+)
+target_include_directories(rr2nw_view_terrain_decoder PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_terrain_decoder PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_terrain_decoder PRIVATE
+  __NT__
+  RR2NW_TERRAIN_DECODER_ONLY
+  RR2NW_TERRAIN_FRAME_COUNTERS_EXTERNAL
+  RR2NW_TERRAIN_FRAME_END_EXTERNAL
+  RR2NW_TERRAIN_WATERLINE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_view_terrain_decoder PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
   )
 endif()
 
@@ -1889,6 +1949,34 @@ target_compile_definitions(rr2nw_game_entry_runtime PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_recovered_terrain_runtime STATIC
+  src/runtime/RecoveredTerrainRuntime.cpp
+  src/runtime/RecoveredTerrainRuntime.h
+)
+target_link_libraries(rr2nw_recovered_terrain_runtime PUBLIC
+  rr2nw_game_entry_runtime
+  rr2nw_view_terrain_decoder
+)
+target_include_directories(rr2nw_recovered_terrain_runtime PUBLIC
+  src/runtime
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_recovered_terrain_runtime PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_recovered_terrain_runtime PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_recovered_terrain_runtime PRIVATE /W4 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_supervisor_global STATIC
   src/runtime/SupervisorGlobal.cpp
 )
@@ -2389,6 +2477,19 @@ target_compile_definitions(rr2nw_view_object_decoder_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_view_terrain_decoder_smoke
+  src/portability/ViewTerrainDecoderSmoke.cpp
+)
+target_link_libraries(rr2nw_view_terrain_decoder_smoke PRIVATE
+  rr2nw_recovered_terrain_runtime
+)
+target_compile_features(rr2nw_view_terrain_decoder_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_view_terrain_decoder_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_carrier_smoke
   src/portability/CarrierSmoke.cpp
 )
@@ -2480,6 +2581,9 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_view_object_decoder_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_view_terrain_decoder_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -2589,6 +2693,10 @@ if(BUILD_TESTING)
   add_test(
     NAME view-object-decoder-smoke
     COMMAND rr2nw_view_object_decoder_smoke
+  )
+  add_test(
+    NAME view-terrain-decoder-smoke
+    COMMAND rr2nw_view_terrain_decoder_smoke
   )
   add_test(
     NAME legacy-menu-texture-smoke

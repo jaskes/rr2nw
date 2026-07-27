@@ -396,3 +396,42 @@ continues to fail closed at `pre-content-ready`.
 
 Regression contract: `view-object-decoder-smoke`, optional installed-retail
 object sweeps and complete 36-test Debug/Release CTest runs.
+
+## BD-020: terrain decoding commits before scene construction
+
+Status: accepted on 2026-07-27.
+
+The recovered Level transaction constructs the historical `_CViewTerrain`
+before it attempts the land maps or the monolithic `CViewScene`. A dedicated
+decoder target therefore compiles only the real terrain resource constructor,
+destructor and waterline behavior; render traversal remains behind the existing
+full-source compile gate and is not replaced with production no-ops.
+
+`RecoveredTerrainRuntime` preflights all five software terrain sprites and all
+five 8-bit masks before any fatal legacy reader executes. Sprite dimensions,
+pixel widths and exact payload lengths are checked, as are BMP structure,
+palette offset, dimensions and image length. The owner publishes no terrain on
+failure, bounds the view-edge allocation, and releases only its own terrain and
+font state so the already prepared Level-assets transaction remains valid for
+ordered rollback.
+
+The historical constructor now initializes every destructor-visible pointer,
+zero-initializes partial edge arrays and cleans them if a later allocation
+throws. Matching ownership was restored for all five texture handles, including
+the previously omitted second land mask. Terrain-map and aligned-image
+allocation failures now unwind instead of leaving open files or passing a null
+pixel buffer to `fread`; the recovered fixed-font reader also bounds its input
+and closes it on every path.
+
+Read-only validation constructs and destroys the real terrain for all nine
+installed Levels in both Debug and Release. The nine files resolve to seven
+distinct 512x512 height maps, and both configurations produce identical FNV-1a
+checksums. Synthetic CI coverage accepts a complete resource set, rejects a
+truncated sprite and rejects a missing bitmap without requiring retail data.
+
+This evidence still does not bind `initLevel`. Land-object maps, serialized
+scene ordering and full bush-render initialization remain ahead of owned
+`CViewScene` construction, so the default entry table remains six of twelve.
+
+Regression contract: `view-terrain-decoder-smoke`, optional installed-retail
+terrain sweeps and complete 37-test Debug/Release CTest runs.

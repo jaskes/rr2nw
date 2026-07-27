@@ -3,6 +3,8 @@
 //#endif
 
 #include<windows.h>
+#include<new>
+#include<stdexcept>
 
 #ifndef RR2NW_TERRAIN_FRAME_COUNTERS_EXTERNAL
 int __revCnt, __fullCnt;
@@ -226,7 +228,18 @@ GR_HTEXTURE _CViewTerrain::LoadMask(TCchar *name,int dim,GR_HTEXTURE hOld)
 	if( bi.biClrUsed == 256 )	bi.biClrUsed = 0;
 	RTCHECK1(dim < 0 || bi.biSizeImage == dim*dim, "Bad image size in '%s'", name );
 
-	byte *pImage = PTNCreate2AlignedImage(bi.biWidth,bi.biHeight,1,TEXTURE_UNLOAD | TEXTURE_PAL_FORMAT);
+	byte *pImage = NULL;
+	try {
+		pImage = PTNCreate2AlignedImage(bi.biWidth,bi.biHeight,1,TEXTURE_UNLOAD | TEXTURE_PAL_FORMAT);
+	}
+	catch(...) {
+		fclose(f);
+		throw;
+	}
+	if( !pImage ) {
+		fclose(f);
+		throw std::bad_alloc();
+	}
 
 	RTCHECK1(ftell(f)==bf.bfOffBits, "Unexpected image offset in '%s'", name );
 	RTCHECK1(fread(pImage,1,bi.biSizeImage,f)==bi.biSizeImage, "Error reading image '%s'",name);
@@ -282,6 +295,8 @@ void _CViewTerrain::ClearHWSW()
 {
 	GRDeleteTextureFromDB(m_hMask);
 	GRDeleteTextureFromDB(m_hMask1);
+	m_hMask = NULL;
+	m_hMask1 = NULL;
 	m_colors.Clear();
 	m_brightness.Clear();
 }
@@ -293,11 +308,18 @@ _CViewTerrain::_CViewTerrain(double fCellSize,double fHScale,double fViewDiamete
 //		m_hrange(m_heights,_CViewTerrain::HRANGE_SHIFTREDUCTION),
 //		m_red("red.spr")
 {
-	terrFnt.Read("..\\figs5x3c.fnt");
+	m_hMask = m_hBump = m_hMaskW = m_hBumpW = m_hMask1 = NULL;
+	m_nReductions = 0;
+	m_ppEdges = NULL;
+	IF_DEBUG(m_pnEdges = NULL);
+	m_pEdgeR = NULL;
+	m_pCache0 = NULL;
+
+	try {
+	if( !terrFnt.Read("..\\figs5x3c.fnt") )
+		throw std::runtime_error("Cannot load terrain font");
 	m_bIsHardware = GRIsHardware();
 
-	m_hMask = NULL;
-	m_hMask1 = NULL;
 	LoadHWSW();
 
 	m_heights.Load("covh7.spr");
@@ -327,7 +349,7 @@ _CViewTerrain::_CViewTerrain(double fCellSize,double fHScale,double fViewDiamete
 	m_nMaxEdges = (int)ceil(fViewDiameter/fCellSize);
 	m_nReductions = 1;
 	for( int i = m_nMaxEdges-1 ; i > 0 ; m_nReductions++ )	i >>= 1;
-	m_ppEdges = new (int (*[m_nReductions])[2]); // CEdge*[m_nReductions];
+	m_ppEdges = new (int (*[m_nReductions])[2])(); // CEdge*[m_nReductions];
 	IF_DEBUG(m_pnEdges = new int[m_nReductions]);
 	m_pEdgeR = new (int [m_nMaxEdges][2]);// CEdge[nMaxEdges];
 	m_pCache0 = new CCellVertex[1024*4];
@@ -358,24 +380,42 @@ _CViewTerrain::_CViewTerrain(double fCellSize,double fHScale,double fViewDiamete
 
 	__terrainWhiteColor = GRFillColor(255,255,255);
 	terrFnt.RecreateFont();
+	}
+	catch(...) {
+		ReleaseOwnedResources();
+		throw;
+	}
 }
 
-_CViewTerrain::~_CViewTerrain()
+void _CViewTerrain::ReleaseOwnedResources()
 {
 	//delete [] (m_pMaskCache-256);
-	for( int i = 0 ; i < m_nReductions ; i++ )
-		delete [] m_ppEdges[i];
+	if( m_ppEdges )
+		for( int i = 0 ; i < m_nReductions ; i++ )
+			delete [] m_ppEdges[i];
 	delete [] m_ppEdges;
+	m_ppEdges = NULL;
 	IF_DEBUG(delete [] m_pnEdges);
+	IF_DEBUG(m_pnEdges = NULL);
 	delete [] m_pEdgeR;
+	m_pEdgeR = NULL;
 	delete [] m_pCache0;
+	m_pCache0 = NULL;
 
 	GRDeleteTextureFromDB(m_hMask);
 	GRDeleteTextureFromDB(m_hBump);
 	GRDeleteTextureFromDB(m_hMaskW);
 	GRDeleteTextureFromDB(m_hBumpW);
+	GRDeleteTextureFromDB(m_hMask1);
+	m_hMask = m_hBump = m_hMaskW = m_hBumpW = m_hMask1 = NULL;
 }
 
+_CViewTerrain::~_CViewTerrain()
+{
+	ReleaseOwnedResources();
+}
+
+#ifndef RR2NW_TERRAIN_DECODER_ONLY
 
 #if _PRECOMPUTE_REDS
 inline void _CViewTerrain::SetReds(int s,int p,int r)
@@ -2841,4 +2881,6 @@ void _CViewTerrain::GenRed()
 	for( y = 0 ; y < 512 ; y++ ) m_red.Image()[x+y*512] += 8*(byte)Max(
 		Max(MAX_REDCELL(x,y),MAX_REDCELL(x-1,y)),Max(MAX_REDCELL(x,y-1),MAX_REDCELL(x-1,y-1)));
 }
+
+#endif  // RR2NW_TERRAIN_DECODER_ONLY
 

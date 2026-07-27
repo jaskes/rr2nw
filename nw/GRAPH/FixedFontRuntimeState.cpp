@@ -1,7 +1,42 @@
 #include "graph.h"
 #include "sd1_epal.h"
 
+#include <new>
+#include <stdio.h>
 #include <string.h>
+
+int CFixedColorFont::Read(const char *filename)
+{
+    FILE *file = fopen(filename,"rb");
+    if( file == NULL ) return 0;
+
+    delete [] pOriginalFntSpr;
+    delete [] pSwFntSpr;
+    delete [] pHwFntSpr;
+    pOriginalFntSpr = NULL;
+    pSwFntSpr = NULL;
+    pHwFntSpr = NULL;
+
+    if( fread(&fontHeader,sizeof(fontHeader),1,file)!=1 ||
+        _strnicmp(fontHeader.id,FONT_ID,sizeof(FONT_ID)-1)!=0 ||
+        fontHeader.nFntSprSize<=0 ||
+        fontHeader.nFntSprSize>16*1024*1024 ) {
+        fclose(file);
+        return 0;
+    }
+
+    pOriginalFntSpr =
+        new (std::nothrow) unsigned char[fontHeader.nFntSprSize];
+    const bool read = pOriginalFntSpr != NULL &&
+        fread(pOriginalFntSpr,fontHeader.nFntSprSize,1,file)==1;
+    const bool closed = fclose(file)==0;
+    if( !read || !closed ) {
+        delete [] pOriginalFntSpr;
+        pOriginalFntSpr = NULL;
+        return 0;
+    }
+    return RecreateFont();
+}
 
 extern int _rScale, _rShift;
 extern int _gScale, _gShift;

@@ -1,15 +1,5 @@
 #include "_scene.h"
 
-byte *PTNUnload2AlignedImage(byte *p)
-{
-    if( p ) {
-        PTNS2AlignedImageHeader *ph = PTNGet2AlignedImageHeader(p);
-        if( ph->pCache ) delete [] (ph->pCache-ph->height);
-        delete [] (byte*)ph;
-    }
-    return NULL;
-}
-
 void CPhasedMovie::Draw(double fTime,TCCFVector3 &pt,double fZoom)
 {
     (void)fTime;

@@ -235,11 +235,25 @@ indices, and makes fatal MSVC diagnostics non-interactive. Renderer callbacks
 needed only because the old object files are monolithic live in the smoke target
 alone; no no-op drawing path is published as production functionality.
 
-Constructing `CViewScene` still activates land dynamics, the complete terrain
-decoder and full bush-render setup. The default table therefore truthfully
-remains at six of twelve hooks. The next frontier is to isolate those remaining
-scene chunks, construct a real owned scene with rollback, and only then bind the
-full Level-init hook.
+The terrain-resource slice is now complete as a separate rollback boundary.
+`RecoveredTerrainRuntime` validates the five software sprites and five 8-bit
+BMP masks before constructing the real historical `_CViewTerrain`, owns that
+object without publishing `initLevel`, and releases it before the palette,
+graph and Level directory. Constructor failure now cleans partial edge arrays,
+all five texture handles and the terrain font; allocation paths no longer leak
+open map files or feed null aligned images into the legacy loader.
+
+The synthetic test covers complete, truncated and missing resource sets without
+shipping retail data. Optional read-only execution constructs and destroys the
+terrain for every installed Level. All nine pass in Debug and Release with
+matching height-map checksums, representing seven distinct terrain maps. The
+normal automated matrix advances to 37/37 in both configurations.
+
+Constructing `CViewScene` still activates land dynamics, serialized scene
+ordering and full bush-render setup. The default table therefore truthfully
+remains at six of twelve hooks. The next frontier is the serialized land maps
+and scene-order tree; after those own clean rollback, the project can construct
+a real `CViewScene` and only then bind the full Level-init hook.
 
 ### Цель
 
