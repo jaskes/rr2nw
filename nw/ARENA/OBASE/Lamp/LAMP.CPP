@@ -23,106 +23,9 @@
 
 #define RGB_TO_LIST(col)  ((col)>>16), ((col)>>8)&255, (col)&255
 
- //===========================================================================
-class AttributeLamp : public ct_Attribute
-{
- public:
-    GR_HTEXTURE     m_coronaHText;
-    unsigned long   m_coronaColor;
-
-    virtual void    update(double ts);
-
-    double	    m_coronaFadeCoeff;
-
-//{{ATTRIBUTE
-    ct_AttrItem  m_array[26];
-    int             m_lightColor             ;  // 
-    double          m_minLightBright         ;  // 
-    double          m_maxLightBright         ;  // 
-    double          m_lightRadius            ;  // 
-    double          m_lightBrightStep        ;  // 
-    double          m_lightOffset            ;  // 
-    int             m_useCorona              ;  // 
-    int             m_coronaRGB              ;  // 
-    double          m_coronaR                ;  // 
-    int             m_coronaAlpha            ;  // 
-    ct_AttrStr      m_coronaName             ;  // 
-    double          m_maxCoronaR             ;  // 
-    double          m_createIncMin           ;  // 
-    double          m_createIncMax           ;  // 
-    int             m_lightMode              ;  // 0 - permanent; 1 - randomly changeable; 2 - blinking; 3-fading
-    double          m_maxTimeLife            ;  // 
-    double          m_sleepTime              ;  // 
-    double          m_maxBrightTime          ;  // 
-    double          m_FadeInCoeff            ;  // 
-    double          m_FadeOutCoeff           ;  // 
-    int             m_onLand                 ;  // 
-    int             m_isMoving               ;  // ƒвижуща€с€ байда
-    int             m_movementType           ;  // 0 - в одном направлении, 1 - туда обратно
-    double          m_movementDeltaT         ;  // „ерез какое врем€ пересчитывать положение
-    int             m_hasParticle            ;  // 
-    double          m_particleWidth          ;  // 
-
-    AttributeLamp()
-    {
-        m_lightColor         = 7;
-        m_minLightBright     = 20;
-        m_maxLightBright     = 255;
-        m_lightRadius        = 10.0;
-        m_lightBrightStep    = 30.0;
-        m_lightOffset        = 2.0;
-        m_useCorona          = 1;
-        m_coronaRGB          = 0xFFFFFF;
-        m_coronaR            = 0.2;
-        m_coronaAlpha        = 255;
-        strncpy(m_coronaName,"corona.spr", sizeof( ct_AttrStr )-1 );
-        m_maxCoronaR         = 5;
-        m_createIncMin       = 0.1;
-        m_createIncMax       = 0.3;
-        m_lightMode          = 0;
-        m_maxTimeLife        = 0;
-        m_sleepTime          = 1.0;
-        m_maxBrightTime      = 0.5;
-        m_FadeInCoeff        = 2.0;
-        m_FadeOutCoeff       = 10;
-        m_onLand             = 0;
-        m_isMoving           = 0;
-        m_movementType       = 0;
-        m_movementDeltaT     = 2.0;
-        m_hasParticle        = 1;
-        m_particleWidth      = 0.1;
-
-        m_array[0].set("m_lightColor",m_lightColor);
-        m_array[1].set("m_minLightBright",m_minLightBright);
-        m_array[2].set("m_maxLightBright",m_maxLightBright);
-        m_array[3].set("m_lightRadius",m_lightRadius);
-        m_array[4].set("m_lightBrightStep",m_lightBrightStep);
-        m_array[5].set("m_lightOffset",m_lightOffset);
-        m_array[6].set("m_useCorona",m_useCorona);
-        m_array[7].set("m_coronaRGB",m_coronaRGB);
-        m_array[8].set("m_coronaR",m_coronaR);
-        m_array[9].set("m_coronaAlpha",m_coronaAlpha);
-        m_array[10].set("m_coronaName",m_coronaName);
-        m_array[11].set("m_maxCoronaR",m_maxCoronaR);
-        m_array[12].set("m_createIncMin",m_createIncMin);
-        m_array[13].set("m_createIncMax",m_createIncMax);
-        m_array[14].set("m_lightMode",m_lightMode);
-        m_array[15].set("m_maxTimeLife",m_maxTimeLife);
-        m_array[16].set("m_sleepTime",m_sleepTime);
-        m_array[17].set("m_maxBrightTime",m_maxBrightTime);
-        m_array[18].set("m_FadeInCoeff",m_FadeInCoeff);
-        m_array[19].set("m_FadeOutCoeff",m_FadeOutCoeff);
-        m_array[20].set("m_onLand  ",m_onLand  );
-        m_array[21].set("m_isMoving",m_isMoving);
-        m_array[22].set("m_movementType",m_movementType);
-        m_array[23].set("m_movementDeltaT",m_movementDeltaT);
-        m_array[24].set("m_hasParticle",m_hasParticle);
-        m_array[25].set("m_particleWidth",m_particleWidth);
-
-        linkTable(m_array,26);
-    }
-//}}END_OF_ATTRIBUTE
-};
+#ifndef RR2NW_LAMP_ATTRIBUTE_STATE_EXTERNAL
+#include "LampAttributeState.inl"
+#endif
 
  //===========================================================================
 class LampTable : public ct_SubjectTable
@@ -153,26 +56,7 @@ bool LampTable::isRendering()
      return true;
 }
 
- //===========================================================================
-class AttributeTableLamp : public ct_AttributeTable
-{
- protected:
-    AttributeLamp *m_table;
-
- public:
-    AttributeTableLamp()
-    {
-       m_table = NULL;
-       registerClass( "LampAttr" );
-    }
-
-    virtual void       allocObjects( int objectQnty );
-    virtual void       freeObjects ();
-    virtual ct_Object *getObjectPTR( int index );
-};
-
 static LampTable  __classTable;
-static AttributeTableLamp __attrTable;
  /*********************************
   *
   *   Lamp implementation
@@ -307,7 +191,7 @@ void Lamp::Blink(KR_Event &event)
 
 void Lamp::setLampAttr()
 {
-	ct_Attribute *attr = __attrTable.searchAttribute(m_lampAttrID);
+	ct_Attribute *attr = __attrLampTable.searchAttribute(m_lampAttrID);
 	if( attr==NULL )
 		echo( "Fountain::receiveEvent: Unknown attribute %s",
 		context->searchObject(m_lampAttrID));
@@ -506,50 +390,6 @@ ct_Object *LampTable::getObjectPTR( int index )
     s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"LampTable::getObjectPTR");
     return &(m_table[ index ]);
  }
-
- /*************************************
-  *
-  *   AttributeTable implementation
-  *
-  *************************************/
-
- //============================================================
-void AttributeTableLamp::allocObjects( int objectQnty )
- {
-    m_table = new AttributeLamp[ objectQnty ];
-
-    if(  m_table == NULL  )
-         m_maxObjectQnty = 0;
- }
-
- //============================================================
-void AttributeTableLamp::freeObjects()
- {
-    delete [] m_table;
-    m_table         = NULL;
-    m_maxObjectQnty = 0;
- }
-
- //============================================================
-ct_Object *AttributeTableLamp::getObjectPTR( int index )
- {
-    s_ASSERT(index>=0 && index <m_maxObjectQnty,"AttributeTable::getObjectPTR");
-    return &(m_table[ index ]);
- }
-
-
-
-
-void  AttributeLamp::update(double)
-{
-    m_coronaHText = g_loadSmoke( m_coronaName, NULL );
-    m_coronaColor = GRTransparentColor(m_coronaRGB>>16,(m_coronaRGB>>8)&255,m_coronaRGB&255);
-
-    m_coronaFadeCoeff = m_coronaAlpha / (m_maxLightBright - m_minLightBright);
-
-	
-}
-
 
 void Lamp::render( CViewDynamicList &list,double)
 {

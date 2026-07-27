@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -15,7 +16,10 @@ class CGRPanel;
 #include "kernel/h/session.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
+#include "obase/corpse/CorpseAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/farter/FarterAttributeState.h"
+#include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
 #include "obase/smoke/SmokeAttributeState.h"
@@ -26,6 +30,9 @@ class CGRPanel;
 namespace {
 
 unsigned long long g_explosionFixtureFingerprint = 0;
+unsigned long long g_farterFixtureFingerprint = 0;
+unsigned long long g_lampFixtureFingerprint = 0;
+unsigned long long g_corpseFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
 
 int Fail(const char* message) {
@@ -33,7 +40,8 @@ int Fail(const char* message) {
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
-               "smoke=%d explosion=%d skin=%d spark=%d route=%d vehicle=%d "
+               "smoke=%d explosion=%d farter=%d lamp=%d corpse=%d skin=%d "
+               "spark=%d route=%d vehicle=%d "
                "issues=%llu error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
@@ -43,6 +51,9 @@ int Fail(const char* message) {
                RecoveredArenaSeance_ArtefactAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokeAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_ExplosionAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_FarterAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_LampAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_CorpseAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SkinResourcesReady() ? 1 : 0,
                RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
@@ -64,6 +75,21 @@ bool EnsureDirectory(const std::string& path) {
 bool WriteFile(const std::string& path, const char* contents) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   output.write(contents, static_cast<std::streamsize>(std::strlen(contents)));
+  return output.good();
+}
+
+bool ReadFile(const char* path, std::string& contents) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return false;
+  contents.assign(std::istreambuf_iterator<char>(input),
+                  std::istreambuf_iterator<char>());
+  return input.good() || input.eof();
+}
+
+bool WriteFile(const std::string& path, const std::string& contents) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(contents.data(),
+               static_cast<std::streamsize>(contents.size()));
   return output.good();
 }
 
@@ -97,6 +123,9 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_ArtefactAttributesReady() &&
          !RecoveredArenaSeance_SmokeAttributesReady() &&
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
+         !RecoveredArenaSeance_FarterAttributesReady() &&
+         !RecoveredArenaSeance_LampAttributesReady() &&
+         !RecoveredArenaSeance_CorpseAttributesReady() &&
          !RecoveredArenaSeance_SkinResourcesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
@@ -107,6 +136,8 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Smoke.Attr.Small") &&
          !context.isExist("Smoke.Attr.Fire.Corpse") &&
          !context.isExist("Expl.Test.0") &&
+         !context.isExist("Lamp.Attr.Default") &&
+         !context.isExist("Corpse.Attr.Default") &&
          !context.isExist("Spark.Flash") &&
          !context.isExist("Vehicle.Default") &&
          Route::m_totalNodePos == 0;
@@ -123,6 +154,9 @@ bool RunCycle() {
       !RecoveredArenaSeance_ArtefactAttributesReady() ||
       !RecoveredArenaSeance_SmokeAttributesReady() ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
+      !RecoveredArenaSeance_FarterAttributesReady() ||
+      !RecoveredArenaSeance_LampAttributesReady() ||
+      !RecoveredArenaSeance_CorpseAttributesReady() ||
       !RecoveredArenaSeance_SkinResourcesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
@@ -135,6 +169,9 @@ bool RunCycle() {
       g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("FarterAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("LampAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("CorpseAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Skin") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SkinSpr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
@@ -168,6 +205,15 @@ bool RunCycle() {
       SmokeAttributeState_IsRetailRoster(&context) &&
       ExplosionAttributeState_IsKnownRoster(&context) &&
       ExplosionAttributeState_RosterSize(&context) == 10 &&
+      FarterAttributeState_IsKnownRoster(&context) &&
+      FarterAttributeState_RosterSize(&context) == 0 &&
+      FarterAttributeState_Capacity() == 10 &&
+      LampAttributeState_IsKnownRoster(&context) &&
+      LampAttributeState_RosterSize(&context) == 10 &&
+      LampAttributeState_Capacity() == 10 &&
+      CorpseAttributeState_IsKnownRoster(&context) &&
+      CorpseAttributeState_RosterSize(&context) == 2 &&
+      CorpseAttributeState_Capacity() == 3 &&
       explosionAttribute != nullptr &&
       explosionAttribute->m_useLight == 0 &&
       explosionAttribute->m_impulseCoeff == 1234 &&
@@ -176,21 +222,43 @@ bool RunCycle() {
       explosionAttribute->m_wav == nullptr &&
       g_vehicle != nullptr &&
       context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
-  g_explosionFixtureFingerprint =
+  const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(&context);
-  g_skinCatalogFixtureFingerprint =
+  const unsigned long long farterFingerprint =
+      FarterAttributeState_Fingerprint(&context);
+  const unsigned long long lampFingerprint =
+      LampAttributeState_Fingerprint(&context);
+  const unsigned long long corpseFingerprint =
+      CorpseAttributeState_Fingerprint(&context);
+  const unsigned long long skinCatalogFingerprint =
       RecoveredArenaSeance_SkinCatalogFingerprint();
+  const bool reconstructionStable =
+      (g_explosionFixtureFingerprint == 0 ||
+       g_explosionFixtureFingerprint == explosionFingerprint) &&
+      (g_farterFixtureFingerprint == 0 ||
+       g_farterFixtureFingerprint == farterFingerprint) &&
+      (g_lampFixtureFingerprint == 0 ||
+       g_lampFixtureFingerprint == lampFingerprint) &&
+      (g_corpseFixtureFingerprint == 0 ||
+       g_corpseFixtureFingerprint == corpseFingerprint) &&
+      (g_skinCatalogFixtureFingerprint == 0 ||
+       g_skinCatalogFixtureFingerprint == skinCatalogFingerprint);
+  g_explosionFixtureFingerprint = explosionFingerprint;
+  g_farterFixtureFingerprint = farterFingerprint;
+  g_lampFixtureFingerprint = lampFingerprint;
+  g_corpseFixtureFingerprint = corpseFingerprint;
+  g_skinCatalogFixtureFingerprint = skinCatalogFingerprint;
 
   RecoveredArenaSeance_Release();
   RecoveredArenaSeance_Release();
-  return vehiclePublished && IsReleased(context);
+  return vehiclePublished && reconstructionStable && IsReleased(context);
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
-    return Fail("expected a fixture directory and retail SMOKE.SCI");
+  if (argc != 7) {
+    return Fail("expected a fixture directory and five retail-script sources");
   }
 
   RecoveredArenaSeance_Release();
@@ -267,16 +335,25 @@ int main(int argc, char** argv) {
   const std::string smokeCopy = JoinPath(fixtureDirectory, "SMOKE.SCI");
   const std::string explosionCopy =
       JoinPath(fixtureDirectory, "EXPLOSION.SCI");
+  const std::string farterCopy = JoinPath(fixtureDirectory, "FARTER.SCI");
+  const std::string lampCopy = JoinPath(fixtureDirectory, "LAMP.SCI");
   const std::string scincDirectory = JoinPath(levelDirectory, "SCINC");
   const std::string explosionLocalCopy =
       JoinPath(scincDirectory, "EXPLOSION_LOC.SCI");
+  const std::string farterLocalCopy =
+      JoinPath(scincDirectory, "FARTERATTR.SCI");
+  const std::string corpseCopy = JoinPath(scincDirectory, "CORPSE.SCI");
   const std::string skinCopy = JoinPath(scincDirectory, "SKIN.SCI");
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(explosionCopy.c_str());
+  DeleteFileA(farterCopy.c_str());
+  DeleteFileA(lampCopy.c_str());
   if (!EnsureDirectory(scincDirectory)) {
     return Fail("could not establish the fixture SCINC directory");
   }
   DeleteFileA(explosionLocalCopy.c_str());
+  DeleteFileA(farterLocalCopy.c_str());
+  DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
   if (!WriteFile(config, fixture) ||
       SetCurrentDirectoryA(levelDirectory.c_str()) == FALSE) {
@@ -317,6 +394,52 @@ int main(int argc, char** argv) {
   if (!WriteFile(explosionLocalCopy, explosionLevelFixture)) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not write bounded Explosion Level fixture");
+  }
+
+  SimulationContext missingFarterRootContext(64, 128);
+  const bool missingFarterRootRejected =
+      RecoveredArenaSeance_Initialize(&missingFarterRootContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingFarterRootContext);
+  if (CopyFileA(argv[3], farterCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy FARTER.SCI into Arena fixture");
+  }
+
+  SimulationContext missingFarterLocalContext(64, 128);
+  const bool missingFarterLocalRejected =
+      RecoveredArenaSeance_Initialize(&missingFarterLocalContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingFarterLocalContext);
+  if (CopyFileA(argv[5], farterLocalCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy FARTERATTR.SCI into Arena fixture");
+  }
+
+  SimulationContext missingLampContext(64, 128);
+  const bool missingLampRejected =
+      RecoveredArenaSeance_Initialize(&missingLampContext, 0.0) == FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingLampContext);
+  if (CopyFileA(argv[4], lampCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy LAMP.SCI into Arena fixture");
+  }
+
+  SimulationContext missingCorpseContext(64, 128);
+  const bool missingCorpseRejected =
+      RecoveredArenaSeance_Initialize(&missingCorpseContext, 0.0) == FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingCorpseContext);
+  if (CopyFileA(argv[6], corpseCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy CORPSE.SCI into Arena fixture");
   }
 
   SimulationContext missingSkinCatalogContext(64, 128);
@@ -366,6 +489,35 @@ int main(int argc, char** argv) {
     return Fail("could not restore valid Explosion Level fixture");
   }
 
+  std::string invalidLampFixture;
+  if (!ReadFile(argv[4], invalidLampFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not read Lamp fixture for deterministic corruption");
+  }
+  const std::string lampNeedle = "\"m_particleWidth\",0.5";
+  const std::size_t particleWidth = invalidLampFixture.find(lampNeedle);
+  if (particleWidth == std::string::npos) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not corrupt Lamp fixture deterministically");
+  }
+  invalidLampFixture.replace(particleWidth, lampNeedle.size(),
+                             "\"m_particleWidth\",0.6");
+  if (!WriteFile(lampCopy, invalidLampFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Lamp fixture");
+  }
+  SimulationContext invalidLampRosterContext(64, 128);
+  const bool invalidLampRosterRejected =
+      RecoveredArenaSeance_Initialize(&invalidLampRosterContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_ROSTER_INVALID) != 0 &&
+      IsReleased(invalidLampRosterContext);
+  if (CopyFileA(argv[4], lampCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid Lamp fixture");
+  }
+
   const bool firstCycle = RunCycle();
   const bool secondCycle = firstCycle && RunCycle();
   const bool restored =
@@ -373,7 +525,11 @@ int main(int argc, char** argv) {
   DeleteFileA(config.c_str());
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(explosionCopy.c_str());
+  DeleteFileA(farterCopy.c_str());
+  DeleteFileA(lampCopy.c_str());
   DeleteFileA(explosionLocalCopy.c_str());
+  DeleteFileA(farterLocalCopy.c_str());
+  DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
   RemoveDirectoryA(scincDirectory.c_str());
   RemoveDirectoryA(levelDirectory.c_str());
@@ -386,8 +542,17 @@ int main(int argc, char** argv) {
     return Fail("missing retail Explosion fragments were not rejected "
                 "transactionally");
   }
+  if (!missingFarterRootRejected || !missingFarterLocalRejected ||
+      !missingLampRejected || !missingCorpseRejected) {
+    return Fail("missing Farter/Lamp/Corpse fragments were not rejected "
+                "transactionally");
+  }
   if (!invalidExplosionRosterRejected) {
     return Fail("invalid Explosion attribute roster was not rejected "
+                "transactionally");
+  }
+  if (!invalidLampRosterRejected) {
+    return Fail("invalid Lamp attribute roster was not rejected "
                 "transactionally");
   }
   if (!missingSkinCatalogRejected) {
@@ -402,18 +567,27 @@ int main(int argc, char** argv) {
 
   std::printf("bounded arena seance cycles=2 missing-smoke=rollback "
               "missing-explosion-root-local=rollback "
+              "missing-farter-root-local=rollback missing-lamp=rollback "
+              "missing-corpse=rollback "
               "invalid-explosion-roster=rollback "
+              "invalid-lamp-roster=rollback "
               "missing-skin-catalog=rollback "
               "invalid-skin-catalog=rollback "
               "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
               "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
+              "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
-              "explosion_fingerprint=%llu skin_catalog_fingerprint=%llu "
+              "explosion_fingerprint=%llu farter_fingerprint=%llu "
+              "lamp_fingerprint=%llu corpse_fingerprint=%llu "
+              "skin_catalog_fingerprint=%llu "
               "rollback=idempotent\n",
               g_explosionFixtureFingerprint,
+              g_farterFixtureFingerprint,
+              g_lampFixtureFingerprint,
+              g_corpseFixtureFingerprint,
               g_skinCatalogFixtureFingerprint);
   return EXIT_SUCCESS;
 }

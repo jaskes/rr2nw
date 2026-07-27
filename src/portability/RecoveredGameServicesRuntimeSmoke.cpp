@@ -10,7 +10,10 @@
 #include "kernel/h/session.h"
 #include "message/hardmsg.h"
 #include "message/levelmsg.h"
+#include "obase/corpse/CorpseAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/farter/FarterAttributeState.h"
+#include "obase/lamp/LampAttributeState.h"
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
@@ -35,7 +38,8 @@ int Fail(const char* message) {
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
-      "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d skin=%d spark=%d "
+      "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d farter=%d "
+      "lamp=%d corpse=%d skin=%d spark=%d "
       "route=%d vehicle=%d "
       "arena_issues=%llu arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
@@ -53,6 +57,9 @@ int Fail(const char* message) {
       RecoveredGameServices_ArtefactAttributesReady() ? 1 : 0,
       RecoveredGameServices_SmokeAttributesReady() ? 1 : 0,
       RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0,
+      RecoveredGameServices_FarterAttributesReady() ? 1 : 0,
+      RecoveredGameServices_LampAttributesReady() ? 1 : 0,
+      RecoveredGameServices_CorpseAttributesReady() ? 1 : 0,
       RecoveredGameServices_SkinResourcesReady() ? 1 : 0,
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
@@ -82,6 +89,9 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ArtefactAttributesReady() &&
          !RecoveredGameServices_SmokeAttributesReady() &&
          !RecoveredGameServices_ExplosionAttributesReady() &&
+         !RecoveredGameServices_FarterAttributesReady() &&
+         !RecoveredGameServices_LampAttributesReady() &&
+         !RecoveredGameServices_CorpseAttributesReady() &&
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_RouteReady() &&
@@ -195,6 +205,9 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ArtefactAttributesReady() ||
       !RecoveredGameServices_SmokeAttributesReady() ||
       !RecoveredGameServices_ExplosionAttributesReady() ||
+      !RecoveredGameServices_FarterAttributesReady() ||
+      !RecoveredGameServices_LampAttributesReady() ||
+      !RecoveredGameServices_CorpseAttributesReady() ||
       !RecoveredGameServices_SkinResourcesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_RouteReady() ||
@@ -216,6 +229,20 @@ int main(int argc, char** argv) {
       ExplosionAttributeState_Fingerprint(g_super.m_context);
   const int explosionRosterSize =
       ExplosionAttributeState_RosterSize(g_super.m_context);
+  const unsigned long long farterFingerprint =
+      FarterAttributeState_Fingerprint(g_super.m_context);
+  const int farterRosterSize =
+      FarterAttributeState_RosterSize(g_super.m_context);
+  const int farterCapacity = FarterAttributeState_Capacity();
+  const unsigned long long lampFingerprint =
+      LampAttributeState_Fingerprint(g_super.m_context);
+  const int lampRosterSize = LampAttributeState_RosterSize(g_super.m_context);
+  const int lampCapacity = LampAttributeState_Capacity();
+  const unsigned long long corpseFingerprint =
+      CorpseAttributeState_Fingerprint(g_super.m_context);
+  const int corpseRosterSize =
+      CorpseAttributeState_RosterSize(g_super.m_context);
+  const int corpseCapacity = CorpseAttributeState_Capacity();
   const int skinModelCount = RecoveredArenaSeance_SkinModelCount();
   const int skinSpriteCount = RecoveredArenaSeance_SkinSpriteCount();
   const unsigned long long skinCatalogFingerprint =
@@ -225,7 +252,13 @@ int main(int argc, char** argv) {
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
       explosionRosterSize > 14 || skinModelCount < 26 ||
       skinModelCount > 52 || skinSpriteCount != 1 ||
-      skinCatalogFingerprint == 0 || skinResourceFingerprint == 0) {
+      skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
+      farterFingerprint == 0 || farterRosterSize < 0 ||
+      farterRosterSize > 4 || farterCapacity != 10 ||
+      lampFingerprint == 0 || lampRosterSize != 12 || lampCapacity != 12 ||
+      corpseFingerprint == 0 || corpseRosterSize < 3 ||
+      corpseRosterSize > 7 || corpseCapacity < corpseRosterSize ||
+      corpseCapacity > 7) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("level-aware Explosion attribute roster is invalid");
@@ -274,6 +307,19 @@ int main(int argc, char** argv) {
   if (!StartServices(argv[1]) || RecoveredGameServices_Issues() != 0 ||
       ExplosionAttributeState_Fingerprint(g_super.m_context) !=
           explosionFingerprint ||
+      FarterAttributeState_Fingerprint(g_super.m_context) !=
+          farterFingerprint ||
+      FarterAttributeState_RosterSize(g_super.m_context) !=
+          farterRosterSize ||
+      FarterAttributeState_Capacity() != farterCapacity ||
+      LampAttributeState_Fingerprint(g_super.m_context) != lampFingerprint ||
+      LampAttributeState_RosterSize(g_super.m_context) != lampRosterSize ||
+      LampAttributeState_Capacity() != lampCapacity ||
+      CorpseAttributeState_Fingerprint(g_super.m_context) !=
+          corpseFingerprint ||
+      CorpseAttributeState_RosterSize(g_super.m_context) !=
+          corpseRosterSize ||
+      CorpseAttributeState_Capacity() != corpseCapacity ||
       RecoveredArenaSeance_SkinCatalogFingerprint() !=
           skinCatalogFingerprint ||
       RecoveredArenaSeance_SkinResourceFingerprint() !=
@@ -292,11 +338,18 @@ int main(int argc, char** argv) {
 
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
               "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
-              "explosion_attrs=%d explosion_fingerprint=%llu portal=table "
+              "explosion_attrs=%d explosion_fingerprint=%llu "
+              "farter_attrs=%d/%d farter_fingerprint=%llu "
+              "lamp_attrs=%d/%d lamp_fingerprint=%llu "
+              "corpse_attrs=%d/%d corpse_fingerprint=%llu portal=table "
               "skin_models=%d skin_sprites=%d skin_catalog=%llu "
               "skin_resources=%llu "
               "route=table vehicle=real observer=1\n",
-              explosionRosterSize, explosionFingerprint, skinModelCount,
+              explosionRosterSize, explosionFingerprint,
+              farterRosterSize, farterCapacity, farterFingerprint,
+              lampRosterSize, lampCapacity, lampFingerprint,
+              corpseRosterSize, corpseCapacity, corpseFingerprint,
+              skinModelCount,
               skinSpriteCount, skinCatalogFingerprint,
               skinResourceFingerprint);
   return EXIT_SUCCESS;

@@ -10,7 +10,10 @@ class CGRPanel;
 #include "kernel/h/session.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
+#include "obase/corpse/CorpseAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/farter/FarterAttributeState.h"
+#include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
@@ -33,6 +36,12 @@ constexpr const char kSmokeAttributeProgramName[] =
     "recovered_retail_smoke_attribute_bootstrap";
 constexpr const char kExplosionAttributeProgramName[] =
     "recovered_retail_explosion_attribute_bootstrap";
+constexpr const char kFarterAttributeProgramName[] =
+    "recovered_retail_farter_attribute_bootstrap";
+constexpr const char kLampAttributeProgramName[] =
+    "recovered_retail_lamp_attribute_bootstrap";
+constexpr const char kCorpseAttributeProgramName[] =
+    "recovered_retail_corpse_attribute_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol. It is a bounded bridge to the real Vehicle tables, not a second
@@ -192,10 +201,14 @@ const int LIGHT_COLOR_GREEN = 2;
 const int LIGHT_COLOR_YELLOW = 3;
 const int LIGHT_COLOR_BLUE = 4;
 const int LIGHT_COLOR_CYAN = 6;
+const int LIGHT_COLOR_WHITE = 7;
 const int s_ATTR_MSG_SET_INT extern;
 const int s_ATTR_MSG_SET_DOUBLE extern;
 const int s_ATTR_MSG_SET_STR extern;
 const int fou_EVCMD_START extern;
+const int START_FARTING extern;
+const int lmp_EV_START extern;
+const int lmp_EV_SETENDPOS extern;
 
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
@@ -284,6 +297,27 @@ func void main()
 }
 )RR2NW_SCRIPT";
 
+const char kFarterAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateFarterAttrs();
+}
+)RR2NW_SCRIPT";
+
+const char kLampAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateLampAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kCorpseAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateCorpseAttr();
+}
+)RR2NW_SCRIPT";
+
 constexpr long kMaximumRetailAttributeSourceBytes = 128 * 1024;
 
 bool ReadBoundedRetailAttributeSource(const char* relativePath,
@@ -326,6 +360,9 @@ struct RecoveredArenaSeanceState {
   bool artefactAttributesReady;
   bool smokeAttributesReady;
   bool explosionAttributesReady;
+  bool farterAttributesReady;
+  bool lampAttributesReady;
+  bool corpseAttributesReady;
   bool skinResourcesReady;
   bool sparkAttributesReady;
   bool routeReady;
@@ -400,7 +437,7 @@ bool RunRetailAttributeBootstrap(SimulationContext* context,
                                  const char* levelPath,
                                  const char* suffix,
                                  const char* programName,
-                                 unsigned int sourceIssue,
+                                 unsigned long long sourceIssue,
                                  const char* description) {
   std::string rootSource;
   std::string levelSource;
@@ -467,6 +504,33 @@ bool RunExplosionAttributeBootstrap(SimulationContext* context,
       kExplosionAttributeProgramName,
       RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_SOURCE_UNAVAILABLE,
       "EXPLOSION.SCI + SCINC\\EXPLOSION_LOC.SCI");
+}
+
+bool RunFarterAttributeBootstrap(SimulationContext* context,
+                                 double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "..\\FARTER.SCI", "SCINC\\FARTERATTR.SCI",
+      kFarterAttributeBootstrapSuffix, kFarterAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "FARTER.SCI + SCINC\\FARTERATTR.SCI");
+}
+
+bool RunLampAttributeBootstrap(SimulationContext* context,
+                               double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "..\\LAMP.SCI", nullptr,
+      kLampAttributeBootstrapSuffix, kLampAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "LAMP.SCI");
+}
+
+bool RunCorpseAttributeBootstrap(SimulationContext* context,
+                                 double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "SCINC\\CORPSE.SCI", nullptr,
+      kCorpseAttributeBootstrapSuffix, kCorpseAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "SCINC\\CORPSE.SCI");
 }
 
 bool OpenArena(SimulationContext* context) {
@@ -681,6 +745,69 @@ bool PublishExplosionAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishFarterAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("FarterAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_TABLE_MISSING,
+           "retail fragments did not create the FarterAttr table");
+    return false;
+  }
+  if (!FarterAttributeState_IsKnownRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "FarterAttr objects do not match a bounded level roster "
+                  "(capacity=%d count=%d fingerprint=%llu)",
+                  FarterAttributeState_Capacity(),
+                  FarterAttributeState_RosterSize(context),
+                  FarterAttributeState_Fingerprint(context));
+    Report(RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_ROSTER_INVALID, message);
+    return false;
+  }
+  g_state.farterAttributesReady = true;
+  return true;
+}
+
+bool PublishLampAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("LampAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_TABLE_MISSING,
+           "retail fragment did not create the LampAttr table");
+    return false;
+  }
+  if (!LampAttributeState_IsKnownRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "LampAttr objects do not match the bounded retail roster "
+                  "(capacity=%d count=%d fingerprint=%llu)",
+                  LampAttributeState_Capacity(),
+                  LampAttributeState_RosterSize(context),
+                  LampAttributeState_Fingerprint(context));
+    Report(RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_ROSTER_INVALID, message);
+    return false;
+  }
+  g_state.lampAttributesReady = true;
+  return true;
+}
+
+bool PublishCorpseAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("CorpseAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_TABLE_MISSING,
+           "retail fragment did not create the CorpseAttr table");
+    return false;
+  }
+  if (!CorpseAttributeState_IsKnownRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "CorpseAttr objects do not match a bounded level roster "
+                  "(capacity=%d count=%d fingerprint=%llu)",
+                  CorpseAttributeState_Capacity(),
+                  CorpseAttributeState_RosterSize(context),
+                  CorpseAttributeState_Fingerprint(context));
+    Report(RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_ROSTER_INVALID, message);
+    return false;
+  }
+  g_state.corpseAttributesReady = true;
+  return true;
+}
+
 bool PublishSkinResources(SimulationContext* context) {
   SRecoveredSkinResourceCatalog catalog = {};
   SRecoveredSkinResourceCatalogResult result = {};
@@ -777,6 +904,9 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SparkAttributeState_Link();
   SmokeAttributeState_Link();
   ExplosionAttributeState_Link();
+  FarterAttributeState_Link();
+  LampAttributeState_Link();
+  CorpseAttributeState_Link();
   SkinResourceState_Link();
   if (!OpenArena(context)) return FALSE;
 
@@ -790,6 +920,13 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
     if (!RunExplosionAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    // Preserve LEVEL0.SC ownership order for this attribute-only tranche.
+    if (!RunFarterAttributeBootstrap(context, startTime) ||
+        !RunLampAttributeBootstrap(context, startTime) ||
+        !RunCorpseAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -808,7 +945,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         !PublishOrphanAttributes(context) ||
         !PublishArtefactAttributes(context) ||
         !PublishSmokeAttributes(context) ||
-        !PublishExplosionAttributes(context)) {
+        !PublishExplosionAttributes(context) ||
+        !PublishFarterAttributes(context) ||
+        !PublishLampAttributes(context) ||
+        !PublishCorpseAttributes(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -843,6 +983,9 @@ void RecoveredArenaSeance_Release() {
   g_state.sparkAttributesReady = false;
   g_state.smokeAttributesReady = false;
   g_state.explosionAttributesReady = false;
+  g_state.farterAttributesReady = false;
+  g_state.lampAttributesReady = false;
+  g_state.corpseAttributesReady = false;
   g_state.skinResourcesReady = false;
   g_state.skinModelCount = 0;
   g_state.skinSpriteCount = 0;
@@ -887,6 +1030,66 @@ bool RecoveredArenaSeance_SmokeAttributesReady() {
 
 bool RecoveredArenaSeance_ExplosionAttributesReady() {
   return g_state.explosionAttributesReady;
+}
+
+bool RecoveredArenaSeance_FarterAttributesReady() {
+  return g_state.farterAttributesReady;
+}
+
+bool RecoveredArenaSeance_LampAttributesReady() {
+  return g_state.lampAttributesReady;
+}
+
+bool RecoveredArenaSeance_CorpseAttributesReady() {
+  return g_state.corpseAttributesReady;
+}
+
+int RecoveredArenaSeance_FarterAttributeCount() {
+  return g_state.farterAttributesReady
+             ? FarterAttributeState_RosterSize(g_arena.getContext())
+             : -1;
+}
+
+int RecoveredArenaSeance_FarterAttributeCapacity() {
+  return g_state.farterAttributesReady ? FarterAttributeState_Capacity() : 0;
+}
+
+unsigned long long RecoveredArenaSeance_FarterAttributeFingerprint() {
+  return g_state.farterAttributesReady
+             ? FarterAttributeState_Fingerprint(g_arena.getContext())
+             : 0;
+}
+
+int RecoveredArenaSeance_LampAttributeCount() {
+  return g_state.lampAttributesReady
+             ? LampAttributeState_RosterSize(g_arena.getContext())
+             : 0;
+}
+
+int RecoveredArenaSeance_LampAttributeCapacity() {
+  return g_state.lampAttributesReady ? LampAttributeState_Capacity() : 0;
+}
+
+unsigned long long RecoveredArenaSeance_LampAttributeFingerprint() {
+  return g_state.lampAttributesReady
+             ? LampAttributeState_Fingerprint(g_arena.getContext())
+             : 0;
+}
+
+int RecoveredArenaSeance_CorpseAttributeCount() {
+  return g_state.corpseAttributesReady
+             ? CorpseAttributeState_RosterSize(g_arena.getContext())
+             : 0;
+}
+
+int RecoveredArenaSeance_CorpseAttributeCapacity() {
+  return g_state.corpseAttributesReady ? CorpseAttributeState_Capacity() : 0;
+}
+
+unsigned long long RecoveredArenaSeance_CorpseAttributeFingerprint() {
+  return g_state.corpseAttributesReady
+             ? CorpseAttributeState_Fingerprint(g_arena.getContext())
+             : 0;
 }
 
 bool RecoveredArenaSeance_SkinResourcesReady() {

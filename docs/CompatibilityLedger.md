@@ -692,6 +692,59 @@ Status vocabulary:
 - Revisit when: issue reporting moves to a structured diagnostic collection;
   preserve stable legacy bit values during any transition.
 
+### CQ-051: Lamp `m_onLand` has two trailing spaces in the executable ABI
+
+- Status: `CONFIRMED_RETAIL_BINARY`, `PRESERVED`.
+- Evidence: the January C++ registers `m_array[20]` as `"m_onLand  "`, while
+  root retail `LAMP.SCI` writes `"m_onLand"`. `ct_Attribute::searchItem()` uses
+  exact `strcmp`. Focused May executable strings retain `LampAttr`, followed by
+  `m_onLand  ` and the adjacent `m_isMoving`/`m_particleWidth` names.
+- Handling: keep the two spaces in the recovered owner. The owner smoke proves
+  `m_onLand` is rejected, `m_onLand  ` is accepted, and the retail script write
+  leaves the default zero. Record this in diagnostics instead of silently
+  correcting data behavior.
+- Revisit when: a non-parity mod schema exposes a normalized field name; any
+  alias must be explicit and content-versioned.
+
+### CQ-052: Farter, Lamp and Corpse caches are invalid before global update
+
+- Status: `CONFIRMED_SOURCE`, `CONTAINED`.
+- Evidence: the original constructors initialize script fields but not Farter
+  WAV/table caches, Corpse Skin/Smoker/Fire IDs, or Lamp texture/color/fade
+  caches. Retail creates all three tables before its later
+  `s_UpdateAttributes()` call.
+- Handling: initialize every transient member to a null/zero sentinel. The
+  admitted frontier does not call global update, and roster fingerprints fail
+  if any cache resolves early. This makes rollback and reconstruction safe
+  without claiming Sound, renderer or Smoker readiness.
+- Revisit when: the complete dependency graph can execute and roll back one
+  global attribute-update pass transactionally.
+
+### CQ-053: peripheral attribute ownership is split across four scripts
+
+- Status: `CONFIRMED_RETAIL`, `PRESERVED`.
+- Evidence: Farter helpers live in root `FARTER.SCI` while each Level owns
+  `SCINC/FARTERATTR.SCI`; Lamp attributes are root-owned by `LAMP.SCI`; Corpse
+  attributes are entirely Level-local in `SCINC/CORPSE.SCI`. `LEVEL0.SC` calls
+  them in Farter, Lamp, Corpse order.
+- Handling: compile the same four selected files as three bounded programs in
+  that order. Missing root/local inputs have independent issue bits, but all
+  participate in the same Arena transaction.
+- Revisit when: safe include preprocessing admits the complete `LEVEL0.SC`;
+  retain the same selected-Level resolution and observable call order.
+
+### CQ-054: retail Lamp adds two attributes absent from the public snapshot
+
+- Status: `CONFIRMED_RETAIL`, `RETAIL_REQUIRED`.
+- Evidence: public `LAMP.SCI` allocates 10 objects. The installed/mounted file
+  allocates 12 and adds `Lamp.Attr.Fd3Attach` and
+  `Lamp.Attr.Yellow.Small`; both retail roots are byte-identical.
+- Handling: parity startup reads the user's selected retail root and admits
+  only the twelve-object fingerprint. The ten-object public source remains a
+  clearly separate CI lifecycle fixture.
+- Revisit when: retail-compatible data can be redistributed or a validated mod
+  manifest declares a non-retail Lamp roster.
+
 ## Maintenance rule
 
 When a new quirk is found:

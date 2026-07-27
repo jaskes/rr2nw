@@ -39,7 +39,16 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_SKIN_CATALOG_INVALID = 1ull << 32,
   RECOVERED_ARENA_SEANCE_SKIN_TABLE_FAILURE = 1ull << 33,
   RECOVERED_ARENA_SEANCE_SKIN_RESOURCE_LOAD_FAILURE = 1ull << 34,
-  RECOVERED_ARENA_SEANCE_SKIN_RESOURCE_ROSTER_INVALID = 1ull << 35
+  RECOVERED_ARENA_SEANCE_SKIN_RESOURCE_ROSTER_INVALID = 1ull << 35,
+  RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 36,
+  RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_TABLE_MISSING = 1ull << 37,
+  RECOVERED_ARENA_SEANCE_FARTER_ATTRIBUTE_ROSTER_INVALID = 1ull << 38,
+  RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 39,
+  RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_TABLE_MISSING = 1ull << 40,
+  RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_ROSTER_INVALID = 1ull << 41,
+  RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 42,
+  RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_TABLE_MISSING = 1ull << 43,
+  RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_ROSTER_INVALID = 1ull << 44
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -53,6 +62,18 @@ bool RecoveredArenaSeance_OrphanAttributesReady();
 bool RecoveredArenaSeance_ArtefactAttributesReady();
 bool RecoveredArenaSeance_SmokeAttributesReady();
 bool RecoveredArenaSeance_ExplosionAttributesReady();
+bool RecoveredArenaSeance_FarterAttributesReady();
+bool RecoveredArenaSeance_LampAttributesReady();
+bool RecoveredArenaSeance_CorpseAttributesReady();
+int RecoveredArenaSeance_FarterAttributeCount();
+int RecoveredArenaSeance_FarterAttributeCapacity();
+unsigned long long RecoveredArenaSeance_FarterAttributeFingerprint();
+int RecoveredArenaSeance_LampAttributeCount();
+int RecoveredArenaSeance_LampAttributeCapacity();
+unsigned long long RecoveredArenaSeance_LampAttributeFingerprint();
+int RecoveredArenaSeance_CorpseAttributeCount();
+int RecoveredArenaSeance_CorpseAttributeCapacity();
+unsigned long long RecoveredArenaSeance_CorpseAttributeFingerprint();
 bool RecoveredArenaSeance_SkinResourcesReady();
 int RecoveredArenaSeance_SkinModelCount();
 int RecoveredArenaSeance_SkinSpriteCount();

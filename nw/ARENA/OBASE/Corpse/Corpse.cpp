@@ -15,73 +15,12 @@
 #include "message/fountmsg.h"
 #include "storage/h/savefile.h"
 
- //===========================================================================
-class AttributeCorpse : public ct_Attribute
-{
- public:
-    CViewObjectModel*   m_cacheSkin              ;  // 
-    KR_ObjectID			m_skinID;
-    virtual void    update(double ts);  
-
-    KR_ObjectID     m_smokerAttrID;
-	KR_ObjectID     m_fireAttrID;
-    ct_ClassTableID m_smokerTableID;
-
-//{{ATTRIBUTE
-    ct_AttrItem  m_array[13];
-    ct_AttrStr      m_skinName               ;  // 
-    int             m_isBurning              ;  // 
-    ct_AttrStr      m_smokerAttr             ;  // 
-    double          m_fireOffsetX            ;  // 
-    double          m_fireOffsetY            ;  // 
-    double          m_fireOffsetZ            ;  // 
-    double          m_minLifeTime            ;  // Минимальное время жизни. После истечения этого срока объект исчезнет после исчезновения из поля зрения
-    ct_AttrStr      m_smokerTable            ;  // 
-    int             m_isSmoking              ;  // 
-    ct_AttrStr      m_fireAttr               ;  // 
-    float           m_corpseOffsetX          ;  // Смещение модели обломков относительно точки соударения объекта с землей
-    double          m_corpseOffsetY          ;  // 
-    float           m_corpseOffsetZ          ;  // 
-
-    AttributeCorpse()
-    {
-        strncpy(m_skinName,"sk.corpse.default", sizeof( ct_AttrStr )-1 );
-        m_isBurning          = 1;
-        strncpy(m_smokerAttr,"Smoker.Attr.Corpse", sizeof( ct_AttrStr )-1 );
-        m_fireOffsetX        = 0;
-        m_fireOffsetY        = 1;
-        m_fireOffsetZ        = 0;
-        m_minLifeTime        = 30;
-        strncpy(m_smokerTable,"DynSmoker", sizeof( ct_AttrStr )-1 );
-        m_isSmoking          = 1;
-        strncpy(m_fireAttr,"Smoker.Attr.Fire.Corpse", sizeof( ct_AttrStr )-1 );
-        m_corpseOffsetX      = 0;
-        m_corpseOffsetY      = -1;
-        m_corpseOffsetZ      = 0;
-
-        m_array[0].set("m_skinName",m_skinName);
-        m_array[1].set("m_isBurning",m_isBurning);
-        m_array[2].set("m_smokerAttr",m_smokerAttr);
-        m_array[3].set("m_fireOffsetX",m_fireOffsetX);
-        m_array[4].set("m_fireOffsetY",m_fireOffsetY);
-        m_array[5].set("m_fireOffsetZ",m_fireOffsetZ);
-        m_array[6].set("m_minLifeTime",m_minLifeTime);
-        m_array[7].set("m_smokerTable",m_smokerTable);
-        m_array[8].set("m_isSmoking",m_isSmoking);
-        m_array[9].set("m_fireAttr",m_fireAttr);
-        m_array[10].set("m_corpseOffsetX",m_corpseOffsetX);
-        m_array[11].set("m_corpseOffsetY",m_corpseOffsetY);
-        m_array[12].set("m_corpseOffsetZ",m_corpseOffsetZ);
-
-        linkTable(m_array,13);
-    }
-//}}END_OF_ATTRIBUTE
-};
-
+#ifndef RR2NW_CORPSE_ATTRIBUTE_STATE_EXTERNAL
+#include "CorpseAttributeState.inl"
+#endif
 
 strg_SUBJECT_TABLE_IMPLEMENTATION(Corpse,true)
 static CorpseTable __corpse;
-strg_ATTRIBUTE_TABLE_IMPLEMENTATION(Corpse,"CorpseAttr")
 
 
  /*********************************
@@ -170,7 +109,7 @@ int Corpse::receiveEvent( KR_Event &event )
 		
 			m_mustDieNow = 0;
 
-			__attrTable.setAttribute(m_attributeIndex,(ct_Attribute *&)m_attr);
+			__attrCorpseTable.setAttribute(m_attributeIndex,(ct_Attribute *&)m_attr);
 			m_skin.Attach(m_attr->m_cacheSkin);
 
 			pos += CFVector3(m_attr->m_corpseOffsetX,m_attr->m_corpseOffsetY,m_attr->m_corpseOffsetZ);
@@ -271,25 +210,6 @@ void Corpse::removeNotify()
 
 CFVector3 Corpse::realPosition() { return getPosition() ; }
 
-void AttributeCorpse::update(double ts)
-{
-	strg_UPDATE_ATTRIBUTE_SKIN(m_skinName,m_cacheSkin,ts);
-
-	m_smokerTableID = g_arena.searchSeanceClassTable( m_smokerTable );
-
-	if (m_isSmoking)
-	{		
-		m_smokerAttrID = context->searchObject(m_smokerAttr);
-	}
-
-	if (m_isBurning)
-	{	
-		m_fireAttrID	= context->searchObject(m_fireAttr);
-	}
-
-}
-
-
 // ----- interface IDynamicObject
 void      *Corpse::queryInterface( int interNum )
 {
@@ -329,7 +249,7 @@ bool	Corpse::load(PIN_SaveFile & sf)
 void	Corpse::loadNotify()
 {
 	ct_Subject::loadNotify(); 
-	__attrTable.setAttribute(m_attributeIndex,(ct_Attribute *&)m_attr);
+	__attrCorpseTable.setAttribute(m_attributeIndex,(ct_Attribute *&)m_attr);
 	m_skin.Attach(m_attr->m_cacheSkin);
 }
 

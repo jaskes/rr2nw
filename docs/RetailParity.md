@@ -161,6 +161,31 @@ Retail scripts нельзя молча копировать поверх source 
   catalog uses a separate declared content identity rather than a relaxed
   retail fingerprint check.
 
+### RP-SCRIPT-004: peripheral attributes mix common and Level-local ownership
+
+- Classification: `RETAIL_REQUIRED` for Lamp and every Corpse roster;
+  Farter root is unchanged but its roster remains Level-local.
+- Root Farter public/retail SHA-256:
+  `4DF6DA249AA0D72221DB0737BFB326E0208DFABFB12ABC047792AED3042735B5`.
+- Public Lamp SHA-256:
+  `16582BDE95E548B6E439405D3CE1B1ABBC74A6EAD28B75649D04B9E8E2A7758F`.
+- Canonical May Lamp SHA-256:
+  `8024C4526B8232CEDC1962D844505659DB2D820715257A3C15E837BB65CFD5F8`;
+  installed and mounted copies are byte-identical.
+- Lamp delta: table capacity/count grows from 10 to 12 with
+  `Lamp.Attr.Fd3Attach` and `Lamp.Attr.Yellow.Small`.
+- Farter delta: eight Levels create an empty capacity-10 table; Level.04D
+  creates four sound attributes. This remains data only; Sound/WAV resolution
+  is not activated by the attribute frontier.
+- Corpse delta: all nine selected `SCINC/CORPSE.SCI` files are admitted as
+  distinct complete fingerprints, with 3--7 objects and capacities 4--7.
+- Binary compatibility: retail `LampAttr` retains `m_onLand  ` with two
+  trailing spaces while its script writes `m_onLand`; exact serializer lookup
+  ignores the write. Parity preserves this instead of normalizing it.
+- Handling: exact selected bytes execute in Farter/Lamp/Corpse order and are
+  validated through complete pre-update fingerprints. The public ten-object
+  Lamp and two-object Corpse fixtures are CI-only identities.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

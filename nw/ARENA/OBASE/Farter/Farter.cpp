@@ -12,30 +12,9 @@
 #include "obase/sound/wavobj.h"
 #include "message/sndmsg.h"
 
- //===========================================================================
-class AttributeFarter : public ct_Attribute
-{
- public:
-
-    WAVObj            * m_wav;	
-    ct_ClassTableID     m_ctsndID;
-
-//{{ATTRIBUTE
-    ct_AttrItem  m_array[1];
-    ct_AttrStr      m_soundName              ;  // 
-
-    AttributeFarter()
-    {
-        strncpy(m_soundName,"", sizeof( ct_AttrStr )-1 );
-
-        m_array[0].set("m_soundName",m_soundName);
-
-        linkTable(m_array,1);
-    }
-//}}END_OF_ATTRIBUTE
-
-   virtual void update(double ts);
-};
+#ifndef RR2NW_FARTER_ATTRIBUTE_STATE_EXTERNAL
+#include "FarterAttributeState.inl"
+#endif
 
 static AttributeFarter __defaultAttr;
 
@@ -68,26 +47,7 @@ bool FarterTable::isAudible()
   return true;
 }
 
- //===========================================================================
-class AttributeTableFarter : public ct_AttributeTable
-{
- protected:
-    AttributeFarter *m_table;
-
- public:
-    AttributeTableFarter()
-    {
-       m_table = NULL;
-       registerClass( "FarterAttr" );
-    }
-
-    virtual void       allocObjects( int objectQnty );
-    virtual void       freeObjects ();
-    virtual ct_Object *getObjectPTR( int index );
-};
-
 static FarterTable  __classTable;
-static AttributeTableFarter __attrTable;
  /*********************************
   *
   *   Farter implementation
@@ -130,7 +90,7 @@ int Farter::receiveEvent( KR_Event &event )
                   .close();
         
 
-        ct_Attribute *attr = __attrTable.searchAttribute(oID);
+        ct_Attribute *attr = __attrFarterTable.searchAttribute(oID);
 
         if( attr==NULL )
            echo( "Farter::receiveEvent: Unknown attribute %s",
@@ -261,40 +221,4 @@ ct_Object *FarterTable::getObjectPTR( int index )
     return &(m_table[ index ]);
  }
 
- /*************************************
-  *
-  *   AttributeTable implementation
-  *
-  *************************************/
-
- //============================================================
-void AttributeTableFarter::allocObjects( int objectQnty )
- {
-    m_table = new AttributeFarter[ objectQnty ];
-
-    if(  m_table == NULL  )
-         m_maxObjectQnty = 0;
- }
-
- //============================================================
-void AttributeTableFarter::freeObjects()
- {
-    delete [] m_table;
-    m_table         = NULL;
-    m_maxObjectQnty = 0;
- }
-
- //============================================================
-ct_Object *AttributeTableFarter::getObjectPTR( int index )
- {
-    s_ASSERT(index>=0 && index <m_maxObjectQnty,"AttributeTable::getObjectPTR");
-    return &(m_table[ index ]);
- }
-
-
-void AttributeFarter::update(double)
-{
-  if (!SetSoundAttr(getObjectID(), context,m_soundName,m_ctsndID, (void *) & m_wav))
-	m_wav = NULL;
-}
 /* End of file C:\NW\ARENA\OBASE\Farter\Farter.cpp */

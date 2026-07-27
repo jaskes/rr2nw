@@ -9,8 +9,8 @@
 #include "storage/h/subject.h"
 #include "storage/h/attr.h"
 #include "kernel/h/active.h"
+#include "FarterAttributeState.h"
 
-class AttributeFarter;
 class Farter : public ct_Subject
 {
     CFVector3              m_position;

@@ -1233,6 +1233,59 @@ the exact counts/fingerprints,
 `bounded-retail-skin-resource-smoke-explosion-attribute-vehicle-bootstrap`,
 zero service issues, `level-ready` and `runtime_shutdown=clean`.
 
+### Level-local Farter, Lamp and Corpse attribute tranche
+
+Three extracted owners now compile both independently and with their complete
+legacy subject translation units. Constructors initialize all transient
+sound, Skin, Smoker/Fire, texture, color and fade caches deterministically;
+table bounds use strict `<`, allocation fails closed, and complete fingerprints
+sort by object name and include table capacity plus every script-facing field.
+
+The Arena runner executes exact selected sources in `LEVEL0.SC` order:
+
+1. `../FARTER.SCI` plus `SCINC/FARTERATTR.SCI`;
+2. `../LAMP.SCI`;
+3. `SCINC/CORPSE.SCI`.
+
+It creates only `FarterAttr`, `LampAttr` and `CorpseAttr`. Farter/Lamp/Corpse
+subjects and the global `s_UpdateAttributes()` pass remain outside this slice.
+Missing source files, VM/host failure, unknown roster, capacity drift, or a
+prematurely resolved cache rolls the full seance back. CI additionally mutates
+one Lamp value and proves the plausible complete roster is rejected.
+
+The available May retail identity is:
+
+| Level | Farter count/capacity/fingerprint | Lamp count/capacity/fingerprint | Corpse count/capacity/fingerprint |
+| --- | --- | --- | --- |
+| Level.01D | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `7/7/4638798848437234605` |
+| Level.01N | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `6/6/11155175483122396646` |
+| Level.02D | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `6/6/10086583070732431402` |
+| Level.02N | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `6/6/13316459317288169687` |
+| Level.03N | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `4/4/16670294511977263743` |
+| Level.04D | `4/10/5223394802105552525` | `12/12/16446864977750376763` | `4/4/17707082791514824439` |
+| Level.05D | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `5/5/16181431137439848755` |
+| Level.06N | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `4/4/9116715007723704035` |
+| Level.07N | `0/10/10155668643424727455` | `12/12/16446864977750376763` | `3/4/5409415849671832200` |
+
+Root Farter is unchanged between the public snapshot and retail
+(`4DF6DA...735B5`). Retail Lamp (`8024C4...D5F8`) replaces the public
+ten-object file (`16582B...758F`) and adds `Lamp.Attr.Fd3Attach` plus
+`Lamp.Attr.Yellow.Small`. Installed and mounted copies match.
+
+One binary/source compatibility defect is intentionally retained:
+`AttributeLamp` registers `m_onLand  ` with two trailing spaces, but retail
+scripts write `m_onLand`. Exact legacy lookup ignores the write. The focused
+owner test locks this behavior so future cleanup cannot accidentally change
+retail terrain placement semantics.
+
+Final verification passes 46/46 tests in Debug and 46/46 in Release. The
+retail gate passes 36/36 service launches and 36/36 direct Skin-catalog loads
+(both configurations, both roots, all nine Levels), with no cross-root
+Farter/Lamp/Corpse fingerprint mismatch. All 4/4 executable runtime-smoke
+launches publish the three readiness/count/capacity/fingerprint groups,
+`bounded-retail-farter-lamp-corpse-skin-resource-smoke-explosion-attribute-vehicle-bootstrap`,
+zero service issues, `level-ready` and `runtime_shutdown=clean`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1261,6 +1314,8 @@ zero service issues, `level-ready` and `runtime_shutdown=clean`.
    includes before Level mutation; root Smoke plus root/Level-local Explosion
    attribute fragments execute before publication, followed by strict
    preflight and real decoding of every Level-local Skin VBC/TXR resource.
+   The Farter/Lamp/Corpse attribute-only tranche now executes exact root and
+   Level-local scripts with complete per-Level identity and rollback.
    Skin animation construction and remaining OBASE archives/script ABI
    bindings are still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

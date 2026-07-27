@@ -387,10 +387,20 @@ E/G and Debug/Release. Retail animation construction remains explicitly
 deferred because ROCKOX, ROCKOZ and ROTATEOYOut exceed the January state/event
 ABI.
 
-The next dependency audit can now reconsider the Level-local Farter/Corpse/Lamp
-attribute layer against a live Skin roster, but must keep Sound, Smoke/Fire,
-light/render updates and heavyweight People/Tank/Taxi/Bullet subjects behind
-their own owners. Continue in rollback-tested groups
+The Level-local Farter/Lamp/Corpse attribute layer is now connected against the
+live Skin roster. Exact root/local programs execute in retail order, all
+transient caches remain deterministic pre-update sentinels, and complete
+capacity/name/value fingerprints cover all nine May Levels. Missing fragments,
+one-field Lamp corruption, teardown and reconstruction are rollback-tested.
+The executable's two-space `m_onLand  ` serializer spelling is deliberately
+preserved and has a focused regression.
+
+The next dependency audit can therefore enter the heavy graph, but must keep
+Sound/WAV, Smoker/Fire, light/corona/terrain updates and the
+People/Tank/Taxi/Bullet subjects behind explicit owners. A sensible next slice
+is the shared Smoker/Fire attribute layer required by Corpse, followed by
+Sound metadata required by Farter; subject creation comes only after those
+services have bounded lifecycle tests. Continue in rollback-tested groups
 until the unchanged retail `LEVEL0.SC` can replace the bootstrap. Then verify
 the already attached Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
@@ -409,6 +419,11 @@ readiness marker. Skin raises the matrix to 45/45 in each configuration and
 adds missing/invalid-catalog rollback, 36/36 direct catalogs, 36/36 real
 service loads with exact decoded-resource parity, and four executable Skin
 markers with clean shutdown across the installed and mounted roots.
+The peripheral attribute owner smoke raises the matrix to 46/46 tests in both
+configurations. The complete gate also passes 36/36 service launches, 36/36
+direct Skin catalogs and 4/4 executable runtime smokes; the latter publish
+Farter/Lamp/Corpse readiness, counts, capacities and fingerprints with clean
+shutdown.
 
 ### Цель
 

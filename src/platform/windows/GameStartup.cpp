@@ -550,6 +550,33 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0));
+  log.Line("farter_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_FarterAttributesReady() ? 1 : 0));
+  log.Line("farter_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_FarterAttributeCount()));
+  log.Line("farter_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_FarterAttributeCapacity()));
+  log.Line("farter_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_FarterAttributeFingerprint()));
+  log.Line("lamp_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_LampAttributesReady() ? 1 : 0));
+  log.Line("lamp_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_LampAttributeCount()));
+  log.Line("lamp_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_LampAttributeCapacity()));
+  log.Line("lamp_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_LampAttributeFingerprint()));
+  log.Line("corpse_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_CorpseAttributesReady() ? 1 : 0));
+  log.Line("corpse_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_CorpseAttributeCount()));
+  log.Line("corpse_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_CorpseAttributeCapacity()));
+  log.Line("corpse_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_CorpseAttributeFingerprint()));
   log.Line("skin_resources_initialized=" +
            std::to_string(
                RecoveredGameServices_SkinResourcesReady() ? 1 : 0));
@@ -637,7 +664,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-farter-lamp-corpse-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

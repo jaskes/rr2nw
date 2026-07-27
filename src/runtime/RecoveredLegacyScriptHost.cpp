@@ -8,7 +8,9 @@
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "message/attrmsg.h"
+#include "message/fartmsg.h"
 #include "message/fountmsg.h"
+#include "message/lampmsg.h"
 #include "message/sparkmsg.h"
 #include "message/routmsg.h"
 #include "obase/route/route.h"
@@ -148,6 +150,14 @@ void ConstAttributeSetString(TStackCell* cell) {
 
 void ConstFountainStart(TStackCell* cell) { cell->i = fou_EVCMD_START; }
 
+void ConstFarterStart(TStackCell* cell) { cell->i = START_FARTING; }
+
+void ConstLampStart(TStackCell* cell) { cell->i = lmp_EV_START; }
+
+void ConstLampSetEndPosition(TStackCell* cell) {
+  cell->i = lmp_EV_SETENDPOS;
+}
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
@@ -175,6 +185,9 @@ TLinkConstExtern g_constants[] = {
     {"s_ATTR_MSG_SET_DOUBLE", ConstAttributeSetDouble, 0},
     {"s_ATTR_MSG_SET_STR", ConstAttributeSetString, 0},
     {"fou_EVCMD_START", ConstFountainStart, 0},
+    {"START_FARTING", ConstFarterStart, 0},
+    {"lmp_EV_START", ConstLampStart, 0},
+    {"lmp_EV_SETENDPOS", ConstLampSetEndPosition, 0},
     {nullptr, nullptr, 0}};
 
 }  // namespace

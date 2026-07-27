@@ -15,9 +15,7 @@
 #include "kernel/h/active.h"
 #include "storage/h/strgdefs.h"
 #include "i/dynobj.i"
-
-
-class AttributeCorpse;
+#include "CorpseAttributeState.h"
 
 typedef struct {
 	int	m_attributeIndex;

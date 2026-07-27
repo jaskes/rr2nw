@@ -991,3 +991,41 @@ two complete Arena/service cycles; the 45-test Debug/Release matrix; 36/36
 retail service loads and 36/36 direct catalog loads across both data roots;
 matching decoded fingerprints across roots/configurations; and 4/4 executable
 runtime-smoke launches with clean shutdown.
+
+## BD-035: Farter, Lamp and Corpse enter as one pre-update attribute tranche
+
+Status: accepted on 2026-07-27.
+
+The next dependency-safe `LEVEL0.SC` slice preserves its original call order:
+`main_CreateFarterAttrs()`, `main_CreateLampAttr()`, then
+`main_CreateCorpseAttr()`. The runner compiles exact selected files through the
+already bounded attribute ABI: root plus Level-local Farter, root Lamp, and
+Level-local Corpse. Each source has an independent diagnostic, while any
+failure rolls back the complete Arena seance.
+
+Only the three attribute tables enter this frontier. Farter subjects require
+the Sound/WAV graph; Lamp subjects require light, terrain, corona/particle and
+event lifecycles; Corpse subjects require collision, Skin rendering,
+Smoker/Fire and save state. The later retail `s_UpdateAttributes()` call is
+also deferred. Accordingly, fingerprints require unresolved sound, model,
+texture, color and object-ID caches and include table capacity plus every
+script-facing value.
+
+Retail identity is fail-closed. Farter has two admitted May fingerprints (the
+empty roster shared by eight Levels and four objects in Level.04D), Lamp has
+one twelve-object retail fingerprint, and Corpse has nine Level-specific
+fingerprints. Smaller January/public Lamp and Corpse rosters have separate CI
+fingerprints and are never confused with retail content.
+
+The Lamp owner deliberately preserves the executable's attribute name
+`m_onLand  ` with two trailing spaces. Retail scripts write `m_onLand`, and the
+legacy serializer uses exact `strcmp`, so those writes are ignored and the
+value remains its default zero. Correcting the spelling in this parity layer
+would silently invent behavior; a focused regression proves both spellings.
+
+Regression contract: deterministic owner defaults; exact two-space serializer
+behavior; missing Farter root/local, Lamp and Corpse rollback; one-field Lamp
+corruption rejection; two complete Arena reconstruction cycles; all nine
+installed/mounted Level fingerprints in Debug and Release; and executable
+diagnostics containing readiness, count, capacity and fingerprint for all
+three tables.

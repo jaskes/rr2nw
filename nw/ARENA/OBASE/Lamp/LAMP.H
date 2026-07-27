@@ -12,9 +12,7 @@
 #include "obase/dynobj/dyncorona.h"
 #include "obase/dynobj/dynpart.h"
 #include "storage/h/savefile.h"
-
-class AttributeLamp;
-
+#include "LampAttributeState.h"
 
 typedef struct {
 	KR_ObjectID		   m_lampAttrID;
