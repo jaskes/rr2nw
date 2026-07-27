@@ -7,10 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the real retail `DynSmoker` subject table as a bounded lifecycle owner.
+  Startup now verifies the exact capacity-62 table with a real
+  create/start/remove probe before Corpse references may report structural
+  runtime readiness, and shutdown proves an empty reconstructed pool.
+- Added deterministic `Smoker` member initialization, invalid-attribute guards,
+  an object-table bounds fix and a focused two-cycle subject lifecycle test.
+  Smoke emission, terrain placement, corona/light updates and rendering remain
+  compile-gated until their reference graph is admitted.
 - Added transactional Farter/Corpse reference resolution after WAV, Skin and
-  SmokerAttr publication. Runtime diagnostics now distinguish source roster,
-  resolved metadata references and the still-deferred SoundObj/DynSmoker
-  subject dependencies, with deterministic May retail fingerprints.
+  SmokerAttr publication. Runtime diagnostics distinguish source roster,
+  resolved metadata references and the still-deferred `SoundObj` dependency,
+  with deterministic May retail fingerprints.
 - Added failure-injection coverage proving that a missing Farter WAV or Corpse
   SmokerAttr target cannot partially mutate an already published attribute
   table.

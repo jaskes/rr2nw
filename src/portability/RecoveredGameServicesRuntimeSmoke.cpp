@@ -16,6 +16,7 @@
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/smoke/SmokerAttributeState.h"
+#include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/WAVResourceState.h"
 
 #include "FrameRuntimeState.h"
@@ -42,6 +43,7 @@ int Fail(const char* message) {
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d smoker=%d "
+      "dyn_smoker=%d "
       "farter=%d lamp=%d corpse=%d wav=%d skin=%d spark=%d "
       "route=%d vehicle=%d "
       "arena_issues=%llu arena_error=%s level=%d graph=%d "
@@ -61,6 +63,7 @@ int Fail(const char* message) {
       RecoveredGameServices_SmokeAttributesReady() ? 1 : 0,
       RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0,
       RecoveredGameServices_SmokerAttributesReady() ? 1 : 0,
+      RecoveredGameServices_DynSmokerReady() ? 1 : 0,
       RecoveredGameServices_FarterAttributesReady() ? 1 : 0,
       RecoveredGameServices_LampAttributesReady() ? 1 : 0,
       RecoveredGameServices_CorpseAttributesReady() ? 1 : 0,
@@ -100,6 +103,11 @@ bool IsServiceReleased() {
          !RecoveredGameServices_LampAttributesReady() &&
          !RecoveredGameServices_CorpseAttributesReady() &&
          !RecoveredGameServices_CorpseReferencesReady() &&
+         !RecoveredGameServices_CorpseRuntimeReady() &&
+         !RecoveredGameServices_DynSmokerReady() &&
+         RecoveredArenaSeance_DynSmokerCapacity() == 0 &&
+         RecoveredArenaSeance_DynSmokerFingerprint() == 0 &&
+         SmokerSubjectState_DynLiveCount() == 0 &&
          !RecoveredGameServices_WavMetadataReady() &&
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
@@ -274,6 +282,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokeAttributesReady() ||
       !RecoveredGameServices_ExplosionAttributesReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
+      !RecoveredGameServices_DynSmokerReady() ||
       !RecoveredGameServices_FarterAttributesReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
       !RecoveredGameServices_CorpseAttributesReady() ||
@@ -304,6 +313,10 @@ int main(int argc, char** argv) {
   const int smokerRosterSize =
       SmokerAttributeState_RosterSize(g_super.m_context);
   const int smokerCapacity = SmokerAttributeState_Capacity();
+  const int dynSmokerCapacity =
+      RecoveredArenaSeance_DynSmokerCapacity();
+  const unsigned long long dynSmokerFingerprint =
+      RecoveredArenaSeance_DynSmokerFingerprint();
   const unsigned long long wavFingerprint =
       WAVResourceState_Fingerprint(g_super.m_context);
   const int wavRosterSize =
@@ -340,6 +353,8 @@ int main(int argc, char** argv) {
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
       explosionRosterSize > 14 || smokerFingerprint == 0 ||
       smokerRosterSize != 12 || smokerCapacity != 12 ||
+      dynSmokerCapacity != 62 || dynSmokerFingerprint == 0 ||
+      SmokerSubjectState_DynLiveCount() != 0 ||
       wavFingerprint == 0 || wavRosterSize < 22 || wavRosterSize > 33 ||
       wavCapacity < 30 || wavCapacity > 35 ||
       RecoveredArenaSeance_WavCatalogFingerprint() != wavFingerprint ||
@@ -356,10 +371,10 @@ int main(int argc, char** argv) {
       corpseCapacity > 7 ||
       !RecoveredGameServices_CorpseReferencesReady() ||
       corpseReferenceFingerprint == 0 ||
-      corpseRuntimeReady) {
+      !corpseRuntimeReady) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("level-aware Explosion attribute roster is invalid");
+    return Fail("level-aware Arena subject/attribute roster is invalid");
   }
   if (!ValidateReferenceTransaction(farterReferenceFingerprint,
                                     corpseReferenceFingerprint)) {
@@ -416,6 +431,10 @@ int main(int argc, char** argv) {
       SmokerAttributeState_RosterSize(g_super.m_context) !=
           smokerRosterSize ||
       SmokerAttributeState_Capacity() != smokerCapacity ||
+      RecoveredArenaSeance_DynSmokerCapacity() != dynSmokerCapacity ||
+      RecoveredArenaSeance_DynSmokerFingerprint() !=
+          dynSmokerFingerprint ||
+      SmokerSubjectState_DynLiveCount() != 0 ||
       WAVResourceState_Fingerprint(g_super.m_context) != wavFingerprint ||
       WAVResourceState_RosterSize(g_super.m_context) != wavRosterSize ||
       WAVResourceState_Capacity() != wavCapacity ||
@@ -458,6 +477,7 @@ int main(int argc, char** argv) {
               "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
               "explosion_attrs=%d explosion_fingerprint=%llu "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
+              "dyn_smoker=%d fingerprint=%llu "
               "wav_metadata=%d/%d wav_fingerprint=%llu "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
               "farter_refs=%llu farter_runtime=%d "
@@ -469,6 +489,7 @@ int main(int argc, char** argv) {
               "route=table vehicle=real observer=1\n",
               explosionRosterSize, explosionFingerprint,
               smokerRosterSize, smokerCapacity, smokerFingerprint,
+              dynSmokerCapacity, dynSmokerFingerprint,
               wavRosterSize, wavCapacity, wavFingerprint,
               farterRosterSize, farterCapacity, farterFingerprint,
               farterReferenceFingerprint, farterRuntimeReady ? 1 : 0,

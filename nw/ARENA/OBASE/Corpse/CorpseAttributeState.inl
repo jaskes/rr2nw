@@ -406,7 +406,16 @@ bool CorpseAttributeState_IsKnownReferenceRoster(
         10786868786188527686ull,
         4997848093767624065ull,
         12288141928948103315ull,
-        9753321888689787743ull
+        9753321888689787743ull,
+        539434840447190304ull,
+        9795151478447124647ull,
+        12590229251738312629ull,
+        2464677148223081022ull,
+        3261932691431263142ull,
+        14974069617191203320ull,
+        5217480802870209045ull,
+        3841228987087175911ull,
+        7850075107978684653ull
     };
     const unsigned long long fingerprint =
         CorpseAttributeState_ReferenceFingerprint(context);

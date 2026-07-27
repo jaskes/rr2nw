@@ -19,6 +19,7 @@ class CGRPanel;
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokerAttributeState.h"
+#include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "obase/skin/SkinResourceState.h"
 #include "storage/h/subject.h"
@@ -33,6 +34,7 @@ namespace {
 
 constexpr double kSceneWidth = 5120.0;
 constexpr double kSceneDepth = 5120.0;
+constexpr int kDynSmokerCapacity = 50 + 12;
 constexpr const char kBootstrapProgramName[] =
     "recovered_common_attribute_vehicle_bootstrap";
 constexpr const char kSmokeAttributeProgramName[] =
@@ -437,6 +439,7 @@ struct RecoveredArenaSeanceState {
   bool corpseReferencesReady;
   bool corpseRuntimeReady;
   bool smokerAttributesReady;
+  bool dynSmokerReady;
   bool wavMetadataReady;
   bool skinResourcesReady;
   bool sparkAttributesReady;
@@ -452,6 +455,8 @@ struct RecoveredArenaSeanceState {
   unsigned long long wavResourceFingerprint;
   unsigned long long farterReferenceFingerprint;
   unsigned long long corpseReferenceFingerprint;
+  int dynSmokerCapacity;
+  unsigned long long dynSmokerFingerprint;
   char lastError[256];
 };
 
@@ -903,6 +908,35 @@ bool PublishSmokerAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishDynSmokerSubject(SimulationContext* context, double startTime) {
+  const ct_ClassTableID table =
+      g_arena.addClassTable("DynSmoker", kDynSmokerCapacity);
+  if (table == ct_NULLID ||
+      !SmokerSubjectState_DynTableReady(context, kDynSmokerCapacity)) {
+    Report(RECOVERED_ARENA_SEANCE_DYN_SMOKER_TABLE_FAILURE,
+           "could not create the retail DynSmoker subject table");
+    return false;
+  }
+  if (!SmokerSubjectState_ProbeDynLifecycle(
+          context, "Smoker.Attr.Corpse", startTime) ||
+      SmokerSubjectState_DynLiveCount() != 0) {
+    Report(RECOVERED_ARENA_SEANCE_DYN_SMOKER_LIFECYCLE_FAILURE,
+           "DynSmoker create/start/remove lifecycle probe failed");
+    return false;
+  }
+  const unsigned long long fingerprint =
+      SmokerSubjectState_DynFingerprint(context);
+  if (fingerprint == 0) {
+    Report(RECOVERED_ARENA_SEANCE_DYN_SMOKER_LIFECYCLE_FAILURE,
+           "DynSmoker table did not return to an empty stable state");
+    return false;
+  }
+  g_state.dynSmokerCapacity = kDynSmokerCapacity;
+  g_state.dynSmokerFingerprint = fingerprint;
+  g_state.dynSmokerReady = true;
+  return true;
+}
+
 bool PublishExplosionAttributes(SimulationContext* context) {
   if (g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID) {
@@ -1134,8 +1168,12 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
       CorpseAttributeState_ReferenceFingerprint(context);
   if (g_state.corpseReferenceFingerprint == 0 ||
       !CorpseAttributeState_IsKnownReferenceRoster(context)) {
-    Report(RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID,
-           "CorpseAttr resolved references are not a bounded retail roster");
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "CorpseAttr resolved references are not a bounded retail "
+                  "roster (fingerprint=%llu)",
+                  g_state.corpseReferenceFingerprint);
+    Report(RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID, message);
     return false;
   }
   g_state.corpseReferencesReady = true;
@@ -1167,6 +1205,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   LampAttributeState_Link();
   CorpseAttributeState_Link();
   SmokerAttributeState_Link();
+  SmokerSubjectState_Link();
   WAVResourceState_Link();
   SkinResourceState_Link();
   if (!OpenArena(context)) return FALSE;
@@ -1226,7 +1265,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
 
-    if (!PublishDependentAttributeReferences(context)) {
+    if (!PublishDynSmokerSubject(context, startTime) ||
+        !PublishDependentAttributeReferences(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1271,6 +1311,9 @@ void RecoveredArenaSeance_Release() {
   g_state.corpseRuntimeReady = false;
   g_state.corpseReferenceFingerprint = 0;
   g_state.smokerAttributesReady = false;
+  g_state.dynSmokerReady = false;
+  g_state.dynSmokerCapacity = 0;
+  g_state.dynSmokerFingerprint = 0;
   g_state.wavMetadataReady = false;
   g_state.wavMetadataCount = 0;
   g_state.wavMetadataCapacity = 0;
@@ -1336,6 +1379,18 @@ bool RecoveredArenaSeance_CorpseAttributesReady() {
 
 bool RecoveredArenaSeance_SmokerAttributesReady() {
   return g_state.smokerAttributesReady;
+}
+
+bool RecoveredArenaSeance_DynSmokerReady() {
+  return g_state.dynSmokerReady;
+}
+
+int RecoveredArenaSeance_DynSmokerCapacity() {
+  return g_state.dynSmokerReady ? g_state.dynSmokerCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_DynSmokerFingerprint() {
+  return g_state.dynSmokerReady ? g_state.dynSmokerFingerprint : 0;
 }
 
 int RecoveredArenaSeance_SmokerAttributeCount() {

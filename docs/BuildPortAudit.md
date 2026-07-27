@@ -1362,8 +1362,9 @@ active Corpse SmokerAttr target on every retail run and the Level.04D Farter
 WAV target where present. Failed resolution must preserve every existing cache,
 and restoring the source name must reproduce the original stable fingerprint.
 
-This boundary does not create `SoundObj` or `DynSmoker`. Diagnostics therefore
-separate attribute roster, reference resolution and full runtime readiness.
+This boundary does not create `SoundObj`. Diagnostics therefore separate
+attribute roster, reference resolution and full runtime readiness. The bounded
+`DynSmoker` owner described below now completes structural Corpse readiness.
 All nine May Corpse rosters resolve against their actual VBC/SmokerAttr data;
 the four Level.04D Farter WAVs resolve; both retail roots produce identical
 reference fingerprints. The public no-Skin fixture remains explicitly
@@ -1374,6 +1375,49 @@ retail gate passes 36/36 service launches, 36/36 direct WAV catalogs and 36/36
 direct Skin catalogs across both configurations, both roots and all nine
 Levels. All 4/4 executable runtime-smoke launches publish resolved Farter and
 Corpse references, `level-ready` and `runtime_shutdown=clean`.
+
+### Bounded DynSmoker subject owner
+
+The next least-coupled subject frontier activates the original `DynSmoker`
+class table from `SMOKER.CPP`. All nine May `localmain.sci` sources in both
+retail roots declare capacity `50+12`; the existing raw-source admission check
+therefore binds the production owner to exactly 62 objects. The source unit is
+force-linked before `openSeance()` because the Arena allocates a fixed class
+table pool from registrations already present at that point.
+
+The legacy source combines allocator/event lifecycle with not-yet-admitted
+terrain, Smoke, corona, light and renderer calls. Runtime therefore compiles
+the same source under `RR2NW_SMOKER_SUBJECT_ONLY`: the real class table,
+allocator, add/remove notifications, START event and timed removal remain,
+while MOVE scheduling, on-land placement and rendering are inert. The existing
+unrestricted source target remains compiled. A direct unrestricted link audit
+also exposed a duplicate `CViewObject::SetLight` owner, confirming that visual
+activation must follow the derived-reference boundary instead of entering as
+an accidental linker fanout.
+
+Before readiness, production creates one real object, sends START using the
+infinite-life/non-land `Smoker.Attr.Corpse`, checks its attribute, position,
+timestamp and deterministic transient state, removes it and requires the live
+count to return to zero. The capacity-62 table fingerprint is
+`10679040711010833004`. This changes every retail Corpse reference fingerprint
+because the stable `DynSmoker` table identity is now part of the resolved
+record; both the old pre-subject and new subject-bound identities remain in the
+parity ledger.
+
+The subject source is also hardened against pool-byte reuse and invalid events:
+all transient members reset deterministically, invalid attributes are rejected,
+callbacks guard unresolved state and `getObjectPTR` rejects the one-past-end
+index. The focused test rejects missing attributes and capacity mismatches,
+runs two create/start/remove probes per seance and reconstructs the table over
+two complete open/close cycles.
+
+Final verification passes 48/48 tests in both Debug and Release. The complete
+retail gate passes 36/36 service launches, 36/36 direct WAV catalogs and 36/36
+direct Skin catalogs across both configurations, both roots and all nine
+Levels, with paired E/G subject and Corpse identities. All 4/4 executable
+runtime-smoke launches publish capacity 62, fingerprint
+`10679040711010833004`, `corpse_runtime_ready=1`, `level-ready` and
+`runtime_shutdown=clean`.
 
 ## Expansion order
 
@@ -1408,7 +1452,9 @@ Corpse references, `level-ready` and `runtime_shutdown=clean`.
    shared SmokerAttr and Level-local WAV metadata owners now preserve May
    rosters, optional load flags and live/catalog fingerprints without
    activating RSX. Farter WAV and Corpse Skin/SmokerAttr references now resolve
-   transactionally. SoundObj, DynSmoker, remaining attribute cache groups,
+   transactionally. The real bounded `DynSmoker` table now executes its
+   create/start/remove lifecycle at exact retail capacity. `SoundObj`, Smoker
+   Smoke/light/corona/terrain references, remaining attribute cache groups,
    Skin animation construction and remaining OBASE/script ABI bindings are
    still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

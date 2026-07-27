@@ -224,12 +224,13 @@ Retail scripts нельзя молча копировать поверх source 
 
 ### RP-SCRIPT-006: Farter and Corpse publish verified references in two phases
 
-- Classification: `RETAIL_REQUIRED`; SoundObj and DynSmoker subjects remain
-  deferred.
+- Classification: `RETAIL_REQUIRED`; `SoundObj` remains deferred and
+  `DynSmoker` activation is recorded separately by RP-SCRIPT-007.
 - Farter reference fingerprints are `10155668643424727455` for the empty
   roster shared by eight Levels and `6949774498761611553` for Level.04D's four
   loaded WAV references. Level.04D remains runtime-pending without SoundObj.
-- Corpse reference fingerprints after real Skin/SmokerAttr resolution are:
+- Corpse reference fingerprints after real Skin/SmokerAttr resolution but
+  before the subject table was admitted were:
 
 | Level | Corpse reference fingerprint |
 | --- | ---: |
@@ -247,6 +248,36 @@ Retail scripts нельзя молча копировать поверх source 
   stable object/table names and source values, not address-space pointers.
 - The public no-asset fixture remains explicitly source-only; it is not a
   tenth resolved Corpse identity.
+
+### RP-SCRIPT-007: every May Level declares the same DynSmoker pool
+
+- Classification: `RETAIL_REQUIRED`; subject allocation and START/removal are
+  active, while visual emission and rendering remain deferred.
+- Both installed and mounted copies of all nine admitted `localmain.sci` files
+  contain the exact declaration `s_AddClassTable("DynSmoker"  ,50+12 );`.
+  Production therefore requires capacity 62; the stable table fingerprint is
+  `10679040711010833004`.
+- After the real table ID is bound, the Corpse reference fingerprints become:
+
+| Level | Subject-bound Corpse reference fingerprint |
+| --- | ---: |
+| Level.01D | `539434840447190304` |
+| Level.01N | `9795151478447124647` |
+| Level.02D | `12590229251738312629` |
+| Level.02N | `2464677148223081022` |
+| Level.03N | `3261932691431263142` |
+| Level.04D | `14974069617191203320` |
+| Level.05D | `5217480802870209045` |
+| Level.06N | `3841228987087175911` |
+| Level.07N | `7850075107978684653` |
+
+- Fingerprints hash the stable table name/identity, not its address. The old
+  pre-subject fingerprints remain documented so saved diagnostics and earlier
+  builds can be identified rather than silently reclassified.
+- The startup proof creates one real `DynSmoker`, sends a real START with
+  `Smoker.Attr.Corpse`, removes it and requires an empty table before publishing
+  readiness. `corpse_runtime_ready=1` denotes this structural lifecycle only;
+  it is not a claim of visible Smoke/light/corona parity.
 
 ## Behavioral parity matrix
 

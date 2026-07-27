@@ -375,7 +375,8 @@ root/local provenance before Level mutation, and installed/disc-image pairs
 match for all nine Levels. The May retail Explosion ABI gap is now explicit:
 the port links 90 attributes including binary-confirmed light/impulse fields,
 while the heavyweight Explosion subject remains registration-only. Smoke,
-Smoker and Explosion gameplay plus renderer cache updates are still deferred.
+Smoker visual emission and Explosion gameplay plus renderer cache updates are
+still deferred.
 
 The Skin/resource owner is now complete as a bounded Level-aware slice. Before
 Arena mutation it strictly extracts `main_LoadSkin()`, hashes the script and
@@ -409,15 +410,18 @@ The first dependency-safe subset of the later global attribute update now
 resolves Farter WAV pointers and Corpse Skin/SmokerAttr references in a
 two-phase transaction. All nine May Corpse rosters and Level.04D's four Farter
 WAVs resolve against real loaded objects with stable E/G fingerprints. Runtime
-readiness remains separate: SoundObj and DynSmoker are still explicit subject
-frontiers, and the public no-Skin fixture remains source-only.
+readiness remains separate: `SoundObj` is still an explicit subject/device
+frontier, and the public no-Skin fixture remains source-only.
 
 This closes the attribute/service prerequisites and reference resolution that
-previously blocked Corpse and Farter. The next dependency audit should enter
-their least-coupled subject owners before the People/Tank/Taxi/Bullet graph.
-`DynSmoker`, `SoundObj`, light/corona/terrain updates and an eventual replacement
-audio backend remain explicit boundaries. Continue in rollback-tested groups
-until unchanged retail
+previously blocked Corpse and Farter. The original capacity-62 `DynSmoker`
+subject table now executes a bounded real create/start/remove lifecycle, making
+retail Corpse structurally runtime-ready without claiming visible smoke. The
+next dependency audit should resolve SmokerAttr's Smoke references and
+renderer-independent corona data before enabling MOVE, terrain, light and
+render callbacks. `SoundObj` and an eventual replacement audio backend remain
+separate boundaries before the People/Tank/Taxi/Bullet graph. Continue in
+rollback-tested groups until unchanged retail
 `LEVEL0.SC` can replace the bootstrap. Then verify the already attached
 Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
@@ -447,6 +451,11 @@ and 36/36 Skin-catalog launches, paired E/G identities, and 4/4 executable
 smokes with Smoker/WAV readiness plus clean shutdown. Restoring the original
 4000-event/5000-object context capacities also removes the full-pool CPU-loop
 revealed by the complete WAV plus Skin population.
+The bounded DynSmoker owner raises the matrix to 48/48, adds a focused repeated
+subject lifecycle/reconstruction contract, and passes all 36/36 retail service,
+36/36 WAV-catalog and 36/36 Skin-catalog launches. All 4/4 executable smokes
+publish exact capacity 62, fingerprint `10679040711010833004`, subject-bound
+Corpse references and clean shutdown.
 
 ### Цель
 

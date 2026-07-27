@@ -716,9 +716,10 @@ Status vocabulary:
 - Handling: initialize every transient member to a null/zero sentinel. The
   source frontier does not call global update. The later dependency-safe phase
   resolves only Farter WAV and Corpse Skin/SmokerAttr references through a
-  complete-table transaction; Lamp and all other derived caches remain null.
-- Revisit when: SoundObj, DynSmoker and the remaining dependency graph can
-  execute and roll back the complete global attribute-update pass.
+  complete-table transaction; the bounded DynSmoker owner now supplies the
+  Corpse subject-table ID. Lamp and all other derived caches remain null.
+- Revisit when: SoundObj, Smoker visual references and the remaining dependency
+  graph can execute and roll back the complete global attribute-update pass.
 
 ### CQ-053: peripheral attribute ownership is split across four scripts
 
@@ -818,12 +819,14 @@ Status vocabulary:
 - Evidence: Corpse needs a loaded Skin model, conditional
   `Smoker.Attr.Corpse`/`Smoker.Attr.Fire.Corpse` IDs, and the `DynSmoker` table.
   Retail `local_createTables()` creates `DynSmoker` before the later global
-  update, while the current bounded subject graph does not yet admit it.
-- Handling: resolve the real model and attribute IDs transactionally now;
-  publish `corpse_runtime_ready=0` until the exact `DynSmoker` table enters.
-  Never substitute the unrelated standalone `Fire` implementation.
-- Revisit when: the recovered Smoker subject table and its Smoke/light/terrain
-  dependencies are activated and exercised through Corpse creation.
+  update.
+- Handling: resolve the real model and attribute IDs transactionally, then
+  require the capacity-62 real `DynSmoker` table and its create/start/remove
+  probe before publishing `corpse_runtime_ready=1`. Never substitute the
+  unrelated standalone `Fire` implementation. This readiness is structural;
+  visual Smoke/light/terrain behavior remains a separate gate.
+- Revisit when: the recovered Smoker Smoke/light/terrain dependencies are
+  activated and exercised through visible Corpse creation.
 
 ### CQ-061: the public Corpse lifecycle fixture has no Skin assets
 
@@ -835,6 +838,50 @@ Status vocabulary:
   Corpse references or reject the complete seance.
 - Revisit when: CI owns a redistributable minimal valid VBC fixture; keep that
   identity distinct from all May retail fingerprints.
+
+### CQ-062: Smoker subject lifecycle and visual effects share one source unit
+
+- Status: `CONFIRMED_SOURCE`, `PORTABILITY_SPLIT_ACCEPTED`.
+- Evidence: `SMOKER.CPP` owns the class tables, pool allocator and event
+  lifecycle, but the same object file also calls terrain, Smoke creation,
+  light/corona and renderer services. Linking the unrestricted archive pulls
+  that dependency fanout and collides with the recovered
+  `CViewObject::SetLight` owner.
+- Handling: compile the same legacy source under
+  `RR2NW_SMOKER_SUBJECT_ONLY` for runtime activation while retaining the
+  unrestricted target as a compile gate. The bounded build keeps allocation,
+  START/removal and teardown but gates MOVE, land and rendering paths.
+- Revisit when: SmokerAttr derived references plus renderer-independent
+  corona state are verified; remove individual gates only with focused visible
+  behavior coverage.
+
+### CQ-063: class registration must precede opening the Arena seance
+
+- Status: `CONFIRMED_SOURCE`, `ORDERING_CONTRACT`.
+- Evidence: static class tables register their class identity process-wide,
+  while `openSeance()` sizes a fixed seance table pool from the registered
+  inventory. Force-linking `SMOKER.CPP` only after open would make the new
+  `DynSmoker` class arrive too late for that pool.
+- Handling: call `SmokerSubjectState_Link()` before `OpenArena`, then create and
+  validate the seance-local capacity-62 table. The lifecycle probe must run only
+  after SmokerAttr publication.
+- Revisit when: class-table registration becomes explicit and dynamically
+  sized; preserve deterministic registration order in tests and save ABI.
+
+### CQ-064: Smoker reused indeterminate state and accepted one-past-capacity
+
+- Status: `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the legacy constructor/add notification left position, count,
+  start time, MOVE scheduling and brightness dependent on reused pool bytes;
+  invalid START could leave `m_attr` null for later dereference. The table
+  accessor asserted `index <= m_maxObjectQnty`, admitting the one-past-end
+  index.
+- Handling: initialize and reset all transient members deterministically,
+  reject invalid attributes before activation, guard remaining callbacks and
+  require `index < m_maxObjectQnty`. A two-cycle test proves empty-pool
+  reconstruction and repeated lifecycle reuse.
+- Revisit when: full MOVE/render behavior is enabled; add sanitizer-backed
+  emission and timed-removal coverage before removing the guards.
 
 ## Maintenance rule
 

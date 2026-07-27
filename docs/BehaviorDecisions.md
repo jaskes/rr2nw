@@ -1088,12 +1088,14 @@ also unsuitable as a metadata boundary because it gates WAV lookup and
 `SoundObj` table lookup together on non-null `lpRSX2Unk`. The recovered split
 caches the verified WAV independently and keeps playback readiness explicit.
 
-`SoundObj` and `DynSmoker` remain deferred subject tables. Consequently the
-four Level.04D Farter entries have resolved WAV references but are not runtime
-ready; Corpse references resolve on all nine Levels but Corpse is not runtime
-ready until `DynSmoker` is created. Empty Farter rosters are vacuously ready.
-The public lifecycle fixture intentionally contains no Skin assets, so its
-Corpse table remains source-only instead of receiving invented model objects.
+`SoundObj` remains a deferred subject table. Consequently the four Level.04D
+Farter entries have resolved WAV references but are not runtime ready. The
+bounded `DynSmoker` owner in BD-038 now makes all nine retail Corpse rosters
+structurally runtime-ready; this means their subject table and start lifecycle
+exist, not that visual smoke emission is complete. Empty Farter rosters are
+vacuously ready. The public lifecycle fixture intentionally contains no Skin
+assets, so its Corpse table remains source-only instead of receiving invented
+model objects.
 
 Resolved fingerprints hash stable names and table identities, never process
 pointers. The installed and mounted May trees match for all nine Levels.
@@ -1101,3 +1103,48 @@ Failure-injection temporarily replaces one active Corpse SmokerAttr name on
 every retail service run and the Level.04D Farter WAV name when present; both
 must reject without changing any cache and then reconstruct the original
 fingerprint after restoration.
+
+## BD-038: DynSmoker enters as a bounded real subject lifecycle
+
+Status: accepted on 2026-07-27.
+
+The retail `DynSmoker` class table is now owned by the original
+`ARENA/OBASE/Smoke/SMOKER.CPP`, not by a synthetic replacement. Every admitted
+May `localmain.sci` declares the exact expression `50+12`, so production creates
+a capacity-62 rendering table after the already fail-closed local-main source
+check. The table's static class registration is force-linked before
+`openSeance()`: Arena sizes its fixed seance table pool from the registered
+class inventory and cannot safely discover another class after that boundary.
+
+The source translation unit mixes subject allocation and event lifecycle with
+terrain lookup, Smoke spawning, light/corona state and renderer calls. Pulling
+the unrestricted archive therefore expands into several not-yet-admitted
+owners and conflicts with the recovered `CViewObject::SetLight` boundary. The
+same real source is compiled a second time under `RR2NW_SMOKER_SUBJECT_ONLY`.
+That bounded variant retains the real table, allocator, notifications,
+`fou_EVCMD_START`, timed removal and teardown while making MOVE scheduling,
+on-land placement and render callbacks inert. The unrestricted target remains
+in the compile gate, so this is an explicit activation boundary rather than a
+forked reimplementation.
+
+Startup proves the production table through a real create/start/remove probe
+using the infinite-life, non-land `Smoker.Attr.Corpse`. The probe checks the
+selected attribute, position, timestamp and initialized internal state, then
+requires the object name and live count to return to empty before readiness is
+published. Failure rolls back the complete seance. A stable fingerprint hashes
+the `DynSmoker` name, capacity and rendering property; the retail capacity-62
+identity is `10679040711010833004`.
+
+The legacy constructor and add notification now initialize position, counters,
+timestamps, scheduling and brightness deterministically. Invalid START
+attributes no longer leave a null pointer for later MOVE/render dereference,
+and the object-table accessor now rejects `index == capacity`. Focused coverage
+also rejects a wrong expected capacity, rejects a missing attribute without
+mutation, executes two lifecycle probes per seance and reconstructs the table
+across two complete open/close cycles.
+
+`corpse_runtime_ready=1` now means the verified Skin/SmokerAttr references and
+the real `DynSmoker` subject/start lifecycle are all present. It does not claim
+Smoke emission, land dynamics, light/corona behavior or renderer parity. The
+next Smoker frontier must transactionally resolve the `SmokeAttr` references
+and renderer-independent corona data before those gated callbacks are enabled.

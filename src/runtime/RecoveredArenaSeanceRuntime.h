@@ -57,7 +57,9 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_WAV_TABLE_FAILURE = 1ull << 50,
   RECOVERED_ARENA_SEANCE_WAV_ROSTER_INVALID = 1ull << 51,
   RECOVERED_ARENA_SEANCE_FARTER_REFERENCE_INVALID = 1ull << 52,
-  RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID = 1ull << 53
+  RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID = 1ull << 53,
+  RECOVERED_ARENA_SEANCE_DYN_SMOKER_TABLE_FAILURE = 1ull << 54,
+  RECOVERED_ARENA_SEANCE_DYN_SMOKER_LIFECYCLE_FAILURE = 1ull << 55
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -75,6 +77,9 @@ bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();
 bool RecoveredArenaSeance_SmokerAttributesReady();
+bool RecoveredArenaSeance_DynSmokerReady();
+int RecoveredArenaSeance_DynSmokerCapacity();
+unsigned long long RecoveredArenaSeance_DynSmokerFingerprint();
 int RecoveredArenaSeance_SmokerAttributeCount();
 int RecoveredArenaSeance_SmokerAttributeCapacity();
 unsigned long long RecoveredArenaSeance_SmokerAttributeFingerprint();
