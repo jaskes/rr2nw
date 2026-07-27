@@ -47,6 +47,8 @@ enum EGameEntryRuntimeIssue {
 void GameEntry_ConfigureRuntime(const SGameEntryRuntimeHooks& hooks);
 SGameEntryRuntimeHooks GameEntry_RecoveredRuntimeHooks();
 void GameEntry_UseRecoveredRuntime();
+void GameEntry_EnableBoundedStartup();
+bool GameEntry_BoundedStartupEnabled();
 bool GameEntry_RuntimeReady();
 unsigned int GameEntry_RuntimeMissingHooks();
 unsigned int GameEntry_RuntimeIssues();

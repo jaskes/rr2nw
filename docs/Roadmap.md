@@ -279,12 +279,28 @@ in Debug and Release. Their resolved-reference counts range from 303 to 7,106
 and attached land-piece counts from 5 to 466; the normal automated matrix is
 39/39 in both configurations.
 
-The default entry table still truthfully stays at six of twelve hooks because
-this owner has not yet been composed into public `ZAV_InitLevel`. The next
-frontier is to bind Level preparation + assets + drawable scene atomically,
-advance `rr2nw.exe` from `pre-content-ready` to `level-ready`, then connect the
-remaining begin-loop, PIN, Supervisor/SUA, DebugMap and Level-event services for
-a bounded event/render loop.
+The drawable scene is now composed with Level preparation and assets behind
+public `ZAV_InitLevel`/`ZAV_DeInitLevel`. Every public failure rolls back the
+complete Level stack and restores the prior working directory; repeated
+deinitialization and reconstruction are covered. The truthful entry inventory
+advances from six to seven of twelve hooks. An explicit bounded-startup gate
+lets this complete graph/Level slice run while all other incomplete tables,
+including the legacy `WinMain` probe, remain fail-closed.
+
+All nine installed Levels and all nine mounted May-retail Levels pass public
+initialization, both forced scene rollback points, deinitialization and
+reconstruction in Debug and Release. The normal
+`rr2nw.exe --runtime-smoke` selects `Level.05D` from the installed `game.cfg`,
+publishes 76 bases, resolves all 5,080 references and attaches 466 land pieces.
+Against `G:\nw` it selects retail `Level.03N`, publishes 115 bases, resolves
+all 6,527 references and attaches 303 land pieces. Both reach
+`marker=level-ready` and shut down cleanly. The normal automated matrix is
+40/40 in both configurations.
+
+The next frontier is the bounded event/render loop: connect begin-loop, PIN,
+Supervisor/SUA, DebugMap and Level-event services without introducing fake
+hooks, then keep a loaded Level alive long enough to process input and draw
+frames under the modern executable.
 
 ### Цель
 

@@ -1,6 +1,12 @@
 #include "GameStartup.h"
 
 #include "RR2NWBuildRevision.h"
+#include "GameEntryRuntimeState.h"
+#include "RecoveredDrawableSceneRuntime.h"
+#include "RecoveredGameLevelRuntime.h"
+#include "RecoveredLevelAssets.h"
+#include "RecoveredLevelRuntime.h"
+#include "ZavShutdownState.h"
 
 #include <shlobj.h>
 
@@ -23,6 +29,7 @@ namespace {
 constexpr int kSuccess = 0;
 constexpr int kInvalidArguments = 2;
 constexpr int kDataNotReady = 3;
+constexpr int kRuntimeNotReady = 4;
 constexpr int kDiagnosticsFailure = 5;
 constexpr int kRetailLevelCount = 9;
 
@@ -30,6 +37,7 @@ struct StartupOptions {
   std::wstring dataDirectory;
   std::wstring diagnosticsDirectory;
   bool launchSmoke = false;
+  bool runtimeSmoke = false;
   bool showHelp = false;
   bool showVersion = false;
 };
@@ -67,6 +75,34 @@ std::string WideToUtf8(const std::wstring& text) {
   WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
                       &result[0], length, nullptr, nullptr);
   return result;
+}
+
+bool WideToSystemPath(const std::wstring& text, std::string* result) {
+  if (text.empty()) {
+    result->clear();
+    return false;
+  }
+
+  BOOL usedDefaultCharacter = FALSE;
+  const int length = WideCharToMultiByte(
+      CP_ACP, WC_NO_BEST_FIT_CHARS, text.data(),
+      static_cast<int>(text.size()), nullptr, 0, nullptr,
+      &usedDefaultCharacter);
+  if (length <= 0 || usedDefaultCharacter != FALSE) {
+    result->clear();
+    return false;
+  }
+
+  result->assign(static_cast<std::size_t>(length), '\0');
+  usedDefaultCharacter = FALSE;
+  if (WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, text.data(),
+                          static_cast<int>(text.size()), &(*result)[0],
+                          length, nullptr, &usedDefaultCharacter) != length ||
+      usedDefaultCharacter != FALSE) {
+    result->clear();
+    return false;
+  }
+  return true;
 }
 
 std::wstring JoinPath(const std::wstring& base, const std::wstring& child) {
@@ -167,6 +203,8 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     const std::wstring argument(argv[index]);
     if (argument == L"--launch-smoke") {
       options->launchSmoke = true;
+    } else if (argument == L"--runtime-smoke") {
+      options->runtimeSmoke = true;
     } else if (argument == L"--help" || argument == L"-h") {
       options->showHelp = true;
     } else if (argument == L"--version") {
@@ -343,11 +381,12 @@ std::wstring BuildIdentity() {
 
 }  // namespace
 
-int RunGameStartup(HINSTANCE, int argc, wchar_t** argv) {
+int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   StartupOptions options;
   std::wstring failure;
   if (!ParseOptions(argc, argv, &options, &failure)) {
-    ShowMessage(options.launchSmoke, MB_ICONERROR, L"RR2NW startup error",
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW startup error",
                 failure);
     return kInvalidArguments;
   }
@@ -355,7 +394,8 @@ int RunGameStartup(HINSTANCE, int argc, wchar_t** argv) {
   if (options.showHelp) {
     ShowMessage(false, MB_ICONINFORMATION, L"RR2NW command line",
                 L"rr2nw.exe [--data-dir <path>] [--diagnostics-dir <path>]\n"
-                L"          [--launch-smoke] [--version] [--help]");
+                L"          [--launch-smoke] [--runtime-smoke]\n"
+                L"          [--version] [--help]");
     return kSuccess;
   }
   if (options.showVersion) {
@@ -371,7 +411,8 @@ int RunGameStartup(HINSTANCE, int argc, wchar_t** argv) {
 
   StartupLog log;
   if (!log.Open(options.diagnosticsDirectory)) {
-    ShowMessage(options.launchSmoke, MB_ICONERROR, L"RR2NW startup error",
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW startup error",
                 L"Cannot create the startup diagnostic log in:\n" +
                     options.diagnosticsDirectory);
     return kDiagnosticsFailure;
@@ -394,7 +435,8 @@ int RunGameStartup(HINSTANCE, int argc, wchar_t** argv) {
   if (!LocateRetailData(options, &data, &failure)) {
     log.WideLine("failure", failure);
     log.Line("marker=data-not-ready");
-    ShowMessage(options.launchSmoke, MB_ICONERROR, L"RR2NW data error",
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW data error",
                 failure + L"\n\nDiagnostic log:\n" + log.path());
     return kDataNotReady;
   }
@@ -406,14 +448,88 @@ int RunGameStartup(HINSTANCE, int argc, wchar_t** argv) {
                data.levels[static_cast<std::size_t>(data.startLevel)]);
   log.Line("data_access=read-only");
   log.Line("marker=retail-data-ready");
-  log.Line("legacy_runtime=not-connected");
-  log.Line("marker=pre-content-ready");
 
-  ShowMessage(options.launchSmoke, MB_ICONINFORMATION, L"RR2NW preflight",
+  if (options.launchSmoke) {
+    log.Line("recovered_runtime=skipped-for-launch-smoke");
+    log.Line("marker=pre-content-ready");
+    return kSuccess;
+  }
+
+  std::string levelDirectory;
+  if (!WideToSystemPath(
+          JoinPath(data.root,
+                   data.levels[static_cast<std::size_t>(data.startLevel)]),
+          &levelDirectory)) {
+    log.Line("failure=level path is not representable by the Windows ANSI "
+             "code page");
+    log.Line("marker=level-not-ready");
+    ShowMessage(options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW runtime error",
+                L"The selected Level path cannot be represented by the "
+                L"current Windows ANSI code page.\n\nDiagnostic log:\n" +
+                    log.path());
+    return kRuntimeNotReady;
+  }
+
+  RecoveredGameLevel_UseRuntime();
+  if (!ZAV_InitGraph(instance) ||
+      !ZAV_InitLevel(levelDirectory.c_str()) ||
+      !RecoveredGameLevel_IsReady()) {
+    log.Line("game_entry_issues=" +
+             std::to_string(GameEntry_RuntimeIssues()));
+    log.Line("game_entry_missing_hooks=" +
+             std::to_string(GameEntry_RuntimeMissingHooks()));
+    log.Line("game_level_issues=" +
+             std::to_string(RecoveredGameLevel_Issues()));
+    log.Line("level_runtime_issues=" +
+             std::to_string(RecoveredLevelRuntime_Issues()));
+    log.Line("level_asset_issues=" +
+             std::to_string(RecoveredLevelAssets_Issues()));
+    log.Line("drawable_scene_issues=" +
+             std::to_string(RecoveredDrawableScene_Issues()));
+    log.Line("marker=level-not-ready");
+    ZAV_Deinit();
+    ShowMessage(options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW runtime error",
+                L"The recovered runtime could not construct the selected "
+                L"Level.\n\nDiagnostic log:\n" + log.path());
+    return kRuntimeNotReady;
+  }
+
+  const SRecoveredDrawableSceneSummary* summary =
+      RecoveredDrawableScene_Summary();
+  if (summary == nullptr) {
+    log.Line("failure=published Level has no drawable scene summary");
+    log.Line("marker=level-not-ready");
+    ZAV_Deinit();
+    return kRuntimeNotReady;
+  }
+
+  log.Line("recovered_runtime=connected");
+  log.Line("game_entry_missing_hooks=" +
+           std::to_string(GameEntry_RuntimeMissingHooks()));
+  log.Line("scene_bases=" + std::to_string(summary->bases));
+  log.Line("scene_named_declarations=" +
+           std::to_string(summary->namedDeclarations));
+  log.Line("scene_resolved_references=" +
+           std::to_string(summary->resolvedReferences));
+  log.Line("scene_land_pieces=" + std::to_string(summary->landPieces));
+  log.Line("scene_terrain_ready=" +
+           std::to_string(summary->terrainHeightMapReady));
+  log.Line("scene_bush_ready=" +
+           std::to_string(summary->bushRendererReady));
+  log.Line("marker=level-ready");
+
+  ZAV_DeInitLevel();
+  ZAV_Deinit();
+  log.Line("runtime_shutdown=clean");
+
+  ShowMessage(options.runtimeSmoke, MB_ICONINFORMATION,
+              L"RR2NW recovered Level",
               BuildIdentity() +
-                  L"\n\nRetail data passed the read-only preflight. "
-                  L"The recovered game runtime is the next connection "
-                  L"frontier.\n\nDiagnostic log:\n" +
+                  L"\n\nThe selected Level reached the recovered drawable "
+                  L"scene boundary and shut down cleanly. The bounded game "
+                  L"loop is the next frontier.\n\nDiagnostic log:\n" +
                   log.path());
   return kSuccess;
 }

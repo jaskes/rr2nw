@@ -528,3 +528,44 @@ executable may claim `level-ready`.
 
 Regression contract: `recovered-drawable-scene-smoke`, the nine-Level
 Debug/Release sweep, complete Debug/Release build and 39-test CTest runs.
+
+## BD-023: public Level initialization is one bounded transaction
+
+Status: accepted on 2026-07-27.
+
+The executable-facing `ZAV_InitLevel` hook owns the complete recovered Level
+sequence: prepare the selected directory and `level.cfg`, initialize palette,
+font and figure-library assets, construct and publish the drawable
+`CViewScene`, or release every completed stage and restore the prior working
+directory. `ZAV_DeInitLevel` is the matching idempotent boundary. A failed
+scene may preserve assets inside the lower-level scene owner for focused
+testing, but failure returned through the public composition never preserves a
+partial Level.
+
+The composition lives above `rr2nw_game_entry_runtime` and
+`rr2nw_recovered_drawable_scene_runtime` so neither lower static archive needs
+a circular dependency. It installs the real init/deinit callbacks by creating
+the recovered hook table, replacing its Level pair and enabling bounded
+startup explicitly.
+
+Bounded startup is deliberately narrower than runtime readiness. The table now
+contains seven of twelve truthful hooks; begin-loop, PIN, Supervisor/SUA,
+DebugMap draw and Level-event handling remain absent and visible through
+`GameEntry_RuntimeMissingHooks()`. The normal incomplete recovered table and
+the legacy `WinMain` probe still refuse `ZAV_InitGraph`; only the composed
+Level path may initialize graph and Level while those later services remain
+unbound.
+
+The normal Win32 executable joins relative `[Levels]` entries to the inspected
+retail-data root, crosses into legacy APIs only when that absolute path is
+representable in the current Windows ANSI code page, calls public
+`ZAV_InitGraph`/`ZAV_InitLevel`, records the committed scene summary and writes
+`marker=level-ready`. It then performs a clean bounded shutdown because an
+interactive event loop is not yet connected. `--launch-smoke` remains a
+non-retail preflight-only contract; `--runtime-smoke` exercises the real Level
+path without message boxes.
+
+Regression contract: `recovered-game-level-runtime-smoke`, forced public
+scene rollback at both failure points, two public init/deinit cycles, all nine
+installed and mounted May-retail Levels in Debug/Release, normal
+`rr2nw.exe --runtime-smoke`, and the complete 40-test Debug/Release matrix.

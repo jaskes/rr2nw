@@ -133,6 +133,12 @@ claim authorship of inherited Logos code or retail data.
   a synthetic branch/object/land/shelter/empty contract and read-only sweeps of
   all nine installed scenes verify Debug/Release parity without publishing a
   fake drawable scene or binding `initLevel`.
+- Added the public recovered Level transaction behind `ZAV_InitLevel`: Level
+  path/config preparation, palette/font/figure assets and the committed
+  drawable scene now succeed or roll back as one unit. The normal Win32
+  `rr2nw.exe` reaches a diagnostic `level-ready` marker on its configured
+  retail Level, while an explicit bounded-startup gate keeps every other
+  incomplete legacy hook table fail-closed.
 - Added a living compatibility ledger with stable IDs, evidence, current
   handling and revisit triggers for retail case folding, modified local data,
   day/night scene reuse, serializer sentinels, empty maps, ABI widths and

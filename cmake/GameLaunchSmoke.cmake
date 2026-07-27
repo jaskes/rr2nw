@@ -42,7 +42,7 @@ foreach(expected
     "start_level=3"
     "data_access=read-only"
     "marker=retail-data-ready"
-    "legacy_runtime=not-connected"
+    "recovered_runtime=skipped-for-launch-smoke"
     "marker=pre-content-ready")
   string(FIND "${log_text}" "${expected}" position)
   if(position EQUAL -1)

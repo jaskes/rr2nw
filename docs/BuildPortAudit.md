@@ -802,11 +802,28 @@ Each run resolves exactly the serialized reference count (303 through 7,106)
 and attaches 5 through 466 land pieces. The normal automated matrix is now
 39 of 39 in both configurations.
 
-This closes scene construction and drawing as a reusable runtime owner, but it
-does not yet change the truthful executable hook inventory. `initLevel` remains
-unbound until the prepared Level, asset owner and drawable scene are composed
-behind one `ZAV_InitLevel` hook and the remaining loop/input/Supervisor services
-can enter and leave a bounded event/render loop.
+### Public Level composition boundary
+
+`rr2nw_recovered_game_level_runtime` now composes Level preparation, assets and
+the drawable scene behind the public `ZAV_InitLevel`/`ZAV_DeInitLevel` pair.
+Every returned failure releases the scene, bush state, figure library,
+palette/font state, config and Level working directory. The lower scene-only
+owner can still preserve prepared assets for its focused reconstruction tests;
+the public boundary cannot.
+
+The entry dispatcher retains its strict default: any incomplete hook table
+keeps `ZAV_InitGraph` fail-closed. The full Level composition explicitly enables
+a bounded-startup mode, allowing only the already recovered graph and Level
+path to run while the five missing loop/input/Supervisor services remain
+visible in the hook inventory. This avoids both a static-library cycle and fake
+no-op hooks.
+
+The real `rr2nw.exe` now selects the configured Level relative to the validated
+data root, enters public graph/Level initialization, records exact drawable
+scene counts and reaches `level-ready`, then shuts down cleanly pending the
+bounded event loop. Public rollback/reconstruction passes all nine installed
+Levels and all nine mounted May-retail Levels in Debug and Release. The normal
+automated matrix is 40 of 40 in both configurations.
 
 ## Expansion order
 
@@ -828,20 +845,22 @@ can enter and leave a bounded event/render loop.
    complete software-panel archive/lifecycle/draw path execute against a
    bounded 8-bit framebuffer. Recovered software-frame binding now executes
    every frame stage, including the bounded normal software world draw. The
-   first Win32 executable reaches a checked read-only pre-content marker; the
-   original entry point now links and exits safely with an unbound runtime.
+   first Win32 executable reaches a checked read-only `level-ready` marker
+   through public `ZAV_InitLevel`; the original entry point still links and
+   exits safely with its intentionally incomplete default runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
-6. **Drawable scene complete, runtime binding in progress:** the software Win32
-   graph and pre-scene Level lifecycle connect six entry hooks. Palette, font,
+6. **Level binding complete, loop services in progress:** the software Win32
+   graph and public Level lifecycle connect seven entry hooks. Palette, font,
    figure-library and scene-header bootstrap now execute atomically. The complete
    object/figure/keyframe/order/bush decode path, real terrain construction and
    structural land-map/order ownership now pass every installed retail Level.
    A transactional real `CViewScene` resolves all object references, attaches
-   land dynamics, initializes DEP-safe bush rendering and draws a software
-   frame; bind that owner and the remaining five checked services behind
-   `rr2nw.exe`.
-7. Advance the read-only retail fixture from pre-content-ready to a
-   deterministic level-ready marker.
+   land dynamics, initializes DEP-safe bush rendering and is now published by
+   `ZAV_InitLevel`. Connect begin-loop, PIN, Supervisor/SUA, DebugMap and
+   Level-event services next.
+7. **Complete:** advance the executable from pre-content-ready to a
+   deterministic level-ready marker while retaining the synthetic preflight
+   contract.
 
 Renderer/platform replacement does not begin until the existing simulation and
 content path can be observed through the modern compiler.

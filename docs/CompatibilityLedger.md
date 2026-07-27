@@ -269,6 +269,20 @@ Status vocabulary:
 - Revisit when: the scene order graph is moved to explicit smart-pointer
   ownership.
 
+### CQ-023: configured Level names are relative to the retail-data root
+
+- Status: `CONFIRMED_DATA`, `BUGFIX_ACCEPTED` for modern startup.
+- Evidence: the installed `game.cfg` contains values such as `Level.05D`; the
+  preflight correctly validated them below `E:\Games\The Next Worlds`, but an
+  initial executable-runtime connection passed the raw value from the build
+  directory and reported `RECOVERED_LEVEL_INVALID_DIRECTORY`.
+- Handling: startup joins the configured name to the already validated
+  absolute retail-data root before calling public `ZAV_InitLevel`. Conversion
+  to the legacy ANSI filesystem boundary rejects an unrepresentable path
+  instead of silently substituting characters.
+- Revisit when: the recovered filesystem layer accepts native Unicode paths or
+  no longer depends on a process-wide Level working directory.
+
 ## Maintenance rule
 
 When a new quirk is found:

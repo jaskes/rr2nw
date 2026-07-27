@@ -12,6 +12,7 @@ namespace {
 
 SGameEntryRuntimeHooks g_hooks = GameEntry_RecoveredRuntimeHooks();
 unsigned int g_issues = 0;
+bool g_boundedStartup = false;
 
 void Report(unsigned int issue) { g_issues |= issue; }
 
@@ -50,12 +51,17 @@ unsigned int MissingHooks() {
 
 void GameEntry_ConfigureRuntime(const SGameEntryRuntimeHooks& hooks) {
   g_hooks = hooks;
+  g_boundedStartup = false;
   GameEntry_ClearRuntimeIssues();
 }
 
 void GameEntry_UseRecoveredRuntime() {
   GameEntry_ConfigureRuntime(GameEntry_RecoveredRuntimeHooks());
 }
+
+void GameEntry_EnableBoundedStartup() { g_boundedStartup = true; }
+
+bool GameEntry_BoundedStartupEnabled() { return g_boundedStartup; }
 
 bool GameEntry_RuntimeReady() { return MissingHooks() == 0; }
 
@@ -67,8 +73,12 @@ void GameEntry_ClearRuntimeIssues() { g_issues = 0; }
 
 int ZAV_InitGraph(HINSTANCE instance) {
   const unsigned int missing = MissingHooks();
-  if (missing != 0) {
+  if (!g_boundedStartup && missing != 0) {
     Report(missing);
+    return FALSE;
+  }
+  if (g_hooks.initGraph == nullptr) {
+    Report(GAME_ENTRY_MISSING_GRAPH_INIT);
     return FALSE;
   }
   return g_hooks.initGraph(instance);
