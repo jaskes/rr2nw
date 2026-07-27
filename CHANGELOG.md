@@ -7,12 +7,26 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the real retail `Smoke` subject table as a bounded production owner.
+  Startup now creates the exact capacity-300 pool, proves deterministic
+  create/remove reuse and publishes a stable table fingerprint before any
+  Smoker reference can report runtime readiness.
+- Added transactional publication of the retail `smoke.spr`, `flame.spr` and
+  `corona.spr` resource set. Complete 256x256 sprite sets resolve every
+  SmokeAttr image and Smoker corona cache; partial, corrupt or failed loads
+  reject the seance and restore the shared texture cache exactly.
+- Added stable Smoke visual-resource diagnostics and complete lifecycle
+  coverage for source-only, partial, invalid and valid fixtures. All nine May
+  Levels now publish `smoker_runtime_ready=1`; the resource-free public fixture
+  remains an explicitly supported metadata-only path.
+- Added deterministic initialization for `Smoke`, its view object and all four
+  smoke blobs, plus the legacy `SmokeTable` one-past-capacity bounds fix.
 - Added transactional SmokerAttr-to-SmokeAttr reference resolution with
   stable public/May fingerprints, fail-closed service readiness, atomic
   missing-target injection and complete reconstruction/rollback coverage.
-- Added separate Smoker reference and visual-runtime diagnostics. The latter
-  remains explicitly deferred until the real `Smoke` subject, Smoke sprite
-  caches and corona transparency resources are active.
+- Added separate Smoker reference and visual-runtime diagnostics, allowing
+  metadata-only fixtures to stay distinguishable from complete retail visual
+  readiness.
 - Added the real retail `DynSmoker` subject table as a bounded lifecycle owner.
   Startup now verifies the exact capacity-62 table with a real
   create/start/remove probe before Corpse references may report structural

@@ -1,6 +1,8 @@
 #ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_INL
 #define RR2NW_SMOKE_ATTRIBUTE_STATE_INL
 
+#include <vector>
+
 AttributeTableSmoke __attrSmokeTable;
 
 namespace {
@@ -78,6 +80,38 @@ bool SmokeCachesAreUnresolved(AttributeSmoke &attr)
             return false;
     return true;
 }
+
+const char *const kSmokeRetailNames[] = {
+    "Smoke.Attr.Small", "Smoke.Attr.Led", "Smoke.Attr.LedSm",
+    "Smoke.Attr.LedBig", "Smoke.Attr.Def", "Smoke.Attr.Fire",
+    "Smoke.Attr.FireGrad", "Smoke.Attr.Volcano",
+    "Smoke.Attr.FireArea", "Smoke.Attr.Tower", "Smoke.Attr.Huge",
+    "Smoke.Attr.White", "Smoke.Attr.FireSm", "Smoke.Attr.FireMd",
+    "Smoke.Attr.Trace", "Smoke.Attr.FireMdBlue", "Smoke.Attr.Corpse",
+    "Smoke.Attr.Fire.Corpse"
+};
+
+const int kSmokeRetailNameCount =
+    static_cast<int>(sizeof(kSmokeRetailNames) /
+                     sizeof(kSmokeRetailNames[0]));
+
+AttributeSmoke *SmokeFindRetailAttribute(SimulationContext *context,
+                                         int index)
+{
+    if (context == NULL || index < 0 || index >= kSmokeRetailNameCount)
+        return NULL;
+    KR_ObjectID object = context->searchObject(kSmokeRetailNames[index]);
+    return object.isNUL() ? NULL : static_cast<AttributeSmoke *>(
+        __attrSmokeTable.searchAttribute(object));
+}
+
+struct SmokeVisualResources
+{
+    AttributeSmoke *attribute;
+    GR_HTEXTURE image;
+    unsigned long color;
+    unsigned long gradient[AttributeSmoke::MAX_COLOR];
+};
 
 }  // namespace
 
@@ -165,30 +199,16 @@ void AttributeSmoke::update(double)
 unsigned long long SmokeAttributeState_RetailFingerprint(
     SimulationContext *context)
 {
-    static const char *names[] = {
-        "Smoke.Attr.Small", "Smoke.Attr.Led", "Smoke.Attr.LedSm",
-        "Smoke.Attr.LedBig", "Smoke.Attr.Def", "Smoke.Attr.Fire",
-        "Smoke.Attr.FireGrad", "Smoke.Attr.Volcano",
-        "Smoke.Attr.FireArea", "Smoke.Attr.Tower", "Smoke.Attr.Huge",
-        "Smoke.Attr.White", "Smoke.Attr.FireSm", "Smoke.Attr.FireMd",
-        "Smoke.Attr.Trace", "Smoke.Attr.FireMdBlue", "Smoke.Attr.Corpse",
-        "Smoke.Attr.Fire.Corpse"
-    };
     if (context == NULL)
         return 0;
 
     unsigned long long hash = kSmokeHashOffset;
-    for (int i = 0; i < static_cast<int>(sizeof(names) / sizeof(names[0]));
-         ++i)
+    for (int i = 0; i < kSmokeRetailNameCount; ++i)
     {
-        KR_ObjectID object = context->searchObject(names[i]);
-        if (object.isNUL())
+        AttributeSmoke *attr = SmokeFindRetailAttribute(context, i);
+        if (attr == NULL)
             return 0;
-        AttributeSmoke *attr = static_cast<AttributeSmoke *>(
-            __attrSmokeTable.searchAttribute(object));
-        if (attr == NULL || !SmokeCachesAreUnresolved(*attr))
-            return 0;
-        SmokeHashString(hash, names[i]);
+        SmokeHashString(hash, kSmokeRetailNames[i]);
         SmokeHashAttribute(hash, *attr);
     }
     return hash;
@@ -198,6 +218,100 @@ bool SmokeAttributeState_IsRetailRoster(SimulationContext *context)
 {
     const unsigned long long expected = 13981601751930040122ull;
     return SmokeAttributeState_RetailFingerprint(context) == expected;
+}
+
+bool SmokeAttributeState_CachesUnresolved(SimulationContext *context)
+{
+    for (int i = 0; i < kSmokeRetailNameCount; ++i)
+    {
+        AttributeSmoke *attribute = SmokeFindRetailAttribute(context, i);
+        if (attribute == NULL || !SmokeCachesAreUnresolved(*attribute))
+            return false;
+    }
+    return true;
+}
+
+bool SmokeAttributeState_ResolveVisualResources(SimulationContext *context)
+{
+    if (!SmokeAttributeState_IsRetailRoster(context))
+        return false;
+    std::vector<SmokeVisualResources> staged(kSmokeRetailNameCount);
+    for (int i = 0; i < kSmokeRetailNameCount; ++i)
+    {
+        AttributeSmoke *attribute = SmokeFindRetailAttribute(context, i);
+        if (attribute == NULL)
+            return false;
+        SmokeVisualResources &resources = staged[i];
+        resources.attribute = attribute;
+        resources.image = g_loadSmoke(attribute->m_imageName, NULL);
+        if (resources.image == NULL)
+            return false;
+        resources.color = GRTransparentColor(
+            attribute->m_RGB >> 16, (attribute->m_RGB >> 8) & 255,
+            attribute->m_RGB & 255);
+        std::memset(resources.gradient, 0, sizeof(resources.gradient));
+        if (attribute->m_isColorGradient)
+        {
+            double r[4], g[4], b[4];
+            calcCoef(AttributeSmoke::MAX_COLOR / 3.0,
+                     SmokeGetR(attribute->RGB0),
+                     SmokeGetR(attribute->RGB1),
+                     SmokeGetR(attribute->RGB2),
+                     SmokeGetR(attribute->RGB3),
+                     r[0], r[1], r[2], r[3]);
+            calcCoef(AttributeSmoke::MAX_COLOR / 3.0,
+                     SmokeGetG(attribute->RGB0),
+                     SmokeGetG(attribute->RGB1),
+                     SmokeGetG(attribute->RGB2),
+                     SmokeGetG(attribute->RGB3),
+                     g[0], g[1], g[2], g[3]);
+            calcCoef(AttributeSmoke::MAX_COLOR / 3.0,
+                     SmokeGetB(attribute->RGB0),
+                     SmokeGetB(attribute->RGB1),
+                     SmokeGetB(attribute->RGB2),
+                     SmokeGetB(attribute->RGB3),
+                     b[0], b[1], b[2], b[3]);
+            for (int color = 0; color < AttributeSmoke::MAX_COLOR; ++color)
+                resources.gradient[color] = SmokeCalcRGB(
+                    color * 32.0 / 31.0, r, g, b);
+        }
+    }
+    for (int i = 0; i < kSmokeRetailNameCount; ++i)
+    {
+        SmokeVisualResources &resources = staged[i];
+        resources.attribute->m_cacheImage = resources.image;
+        resources.attribute->m_cacheColor = resources.color;
+        std::memcpy(resources.attribute->colors, resources.gradient,
+                    sizeof(resources.gradient));
+    }
+    return true;
+}
+
+bool SmokeAttributeState_VisualResourcesResolved(
+    SimulationContext *context)
+{
+    if (!SmokeAttributeState_IsRetailRoster(context))
+        return false;
+    for (int i = 0; i < kSmokeRetailNameCount; ++i)
+    {
+        AttributeSmoke *attribute = SmokeFindRetailAttribute(context, i);
+        if (attribute == NULL || attribute->m_cacheImage == NULL)
+            return false;
+    }
+    return true;
+}
+
+void SmokeAttributeState_ClearVisualResources(SimulationContext *context)
+{
+    for (int i = 0; i < kSmokeRetailNameCount; ++i)
+    {
+        AttributeSmoke *attribute = SmokeFindRetailAttribute(context, i);
+        if (attribute == NULL)
+            continue;
+        attribute->m_cacheImage = NULL;
+        attribute->m_cacheColor = 0;
+        std::memset(attribute->colors, 0, sizeof(attribute->colors));
+    }
 }
 
 #endif

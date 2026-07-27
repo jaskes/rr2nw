@@ -1442,9 +1442,10 @@ Software `GRTransparentColor` returns a transparency-table pointer; an early
 trial that hashed the derived corona color changed across ASLR-enabled process
 launches. Metadata resolution now leaves `m_coronaHText` and `m_coronaColor`
 null, excludes both from identity, and preserves only the already scripted
-`m_coronaRGB`. The active seance also lacks a `Smoke` subject table, so
-diagnostics intentionally report `smoker_references_resolved=1` and
-`smoker_runtime_ready=0`. Runtime readiness additionally requires each target
+`m_coronaRGB`. At this audit checkpoint the active seance also lacked a
+`Smoke` subject table, so diagnostics intentionally reported
+`smoker_references_resolved=1` and `smoker_runtime_ready=0`. Runtime readiness
+additionally requires each target
 SmokeAttr image cache and every enabled corona texture/color cache.
 
 Final verification remains 48/48 tests in Debug and Release. The complete
@@ -1453,6 +1454,57 @@ direct Skin catalogs across both configurations, both roots and all nine
 Levels. All service summaries publish the May Smoker reference fingerprint and
 deferred runtime state. All 4/4 executable runtime smokes publish the same
 three Smoker diagnostics, zero service issues and `runtime_shutdown=clean`.
+
+### Bounded Smoke subject and atomic visual-resource owner
+
+The original `Smoke.cpp` now owns production class registration and allocation
+through a second bounded build, while its unrestricted target remains a strict
+compile gate. `SmokeSubjectState_Link()` runs before `OpenArena`; startup then
+adds the exact capacity-300 retail table and executes one real create/remove
+probe per seance. Focused coverage invokes it twice and reconstructs a second
+seance. The proof requires a clean pool, stable rendering-table metadata and
+inert deterministic state for the subject, view object and all four smoke
+blobs. The resulting stable identity is `11870427327380980520`. The legacy
+one-past-capacity table access is rejected with a strict `< capacity` bound.
+
+This bounded phase intentionally does not send START: the original START/MOVE
+path immediately expands into terrain lookup, timed scheduling, land dynamics
+and rendering. Those paths remain compiled in the unrestricted archive but are
+gated in the active subject owner until a controlled visible lifecycle test can
+exercise them against the recovered `CViewScene`.
+
+`SmokeVisualState` owns the adjoining renderer transaction. It preflights the
+fixed `smoke.spr`, `flame.spr`, `corona.spr` set as exact 256x256 paletted
+sprites, checkpoints the shared ten-entry texture cache, stages all eighteen
+SmokeAttr image/color records and every enabled Smoker corona record, and only
+then publishes readiness. Failure clears derived fields and deletes every
+texture added after the checkpoint. Release performs the same ordering before
+the Arena seance closes, so no attribute retains a dangling handle.
+
+The public source fixture may omit all three resources and stays metadata-only;
+one or two present files, malformed headers, wrong lengths and failed loads are
+fatal content errors. The synthetic complete fixture fingerprint is
+`2132834873738653727`. May retail is `15830240760157492622` for every Level
+except Level.02N, whose distinct valid corona produces
+`12038661591293825930`. Both roots match per Level. With the real Smoke table,
+the public and May Smoker reference identities become `5252407361007838750`
+and `5026602665209222964`; earlier metadata-only values remain recognized.
+
+The focused Arena test injects partial and corrupt sprite sets, requires exact
+rollback, restores a complete set and reconstructs it over two full
+open/close cycles. The separate real-subject test repeats table reconstruction
+and lifecycle reuse. Retail services publish subject/visual fingerprints and
+`smoker_runtime_ready=1` for all nine Levels. MOVE scheduling, terrain
+placement, Smoke emission, light/corona updates and draw callbacks remain the
+next frontier rather than being implied by this resource-ready marker.
+
+Final verification passes 49/49 tests in Debug and Release, 36/36 real service
+launches across both configurations, both roots and all nine Levels, and 4/4
+`rr2nw.exe --runtime-smoke` launches. Every retail service reports capacity
+300, subject fingerprint `11870427327380980520`, its expected per-Level visual
+fingerprint and `smoker_runtime=1`. Executable diagnostics publish both Smoke
+readiness markers, `smoker_runtime_ready=1`, `level-ready` and
+`runtime_shutdown=clean`.
 
 ## Expansion order
 
@@ -1487,11 +1539,11 @@ three Smoker diagnostics, zero service issues and `runtime_shutdown=clean`.
    shared SmokerAttr and Level-local WAV metadata owners now preserve May
    rosters, optional load flags and live/catalog fingerprints without
    activating RSX. Farter WAV and Corpse Skin/SmokerAttr references now resolve
-   transactionally. The real bounded `DynSmoker` table now executes its
-   create/start/remove lifecycle at exact retail capacity, and SmokerAttr now
-   resolves every real SmokeAttr target atomically. `SoundObj`, the `Smoke`
-   subject lifecycle, Smoker sprite/corona/light/terrain caches, remaining
-   attribute cache groups,
+   transactionally. The real bounded `DynSmoker` and `Smoke` tables now execute
+   exact retail-capacity lifecycle probes, SmokerAttr resolves every real
+   SmokeAttr target atomically, and the Smoke/flame/corona transaction now owns
+   derived visual resources. `SoundObj`, active Smoke/Smoker
+   MOVE/terrain/light/render behavior, remaining attribute cache groups,
    Skin animation construction and remaining OBASE/script ABI bindings are
    still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

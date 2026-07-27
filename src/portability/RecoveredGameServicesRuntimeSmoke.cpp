@@ -16,6 +16,7 @@
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/smoke/SmokerAttributeState.h"
+#include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/WAVResourceState.h"
 
@@ -96,6 +97,12 @@ bool IsServiceReleased() {
          !RecoveredGameServices_OrphanAttributesReady() &&
          !RecoveredGameServices_ArtefactAttributesReady() &&
          !RecoveredGameServices_SmokeAttributesReady() &&
+         !RecoveredGameServices_SmokeSubjectReady() &&
+         !RecoveredGameServices_SmokeVisualResourcesReady() &&
+         RecoveredArenaSeance_SmokeSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_SmokeSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_SmokeVisualResourceFingerprint() == 0 &&
+         SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_ExplosionAttributesReady() &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
@@ -314,10 +321,12 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_OrphanAttributesReady() ||
       !RecoveredGameServices_ArtefactAttributesReady() ||
       !RecoveredGameServices_SmokeAttributesReady() ||
+      !RecoveredGameServices_SmokeSubjectReady() ||
+      !RecoveredGameServices_SmokeVisualResourcesReady() ||
       !RecoveredGameServices_ExplosionAttributesReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
-      RecoveredGameServices_SmokerRuntimeReady() ||
+      !RecoveredGameServices_SmokerRuntimeReady() ||
       !RecoveredGameServices_DynSmokerReady() ||
       !RecoveredGameServices_FarterAttributesReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
@@ -350,6 +359,12 @@ int main(int argc, char** argv) {
       SmokerAttributeState_ReferenceFingerprint(g_super.m_context);
   const bool smokerRuntimeReady =
       RecoveredArenaSeance_SmokerRuntimeReady();
+  const int smokeSubjectCapacity =
+      RecoveredArenaSeance_SmokeSubjectCapacity();
+  const unsigned long long smokeSubjectFingerprint =
+      RecoveredArenaSeance_SmokeSubjectFingerprint();
+  const unsigned long long smokeVisualResourceFingerprint =
+      RecoveredArenaSeance_SmokeVisualResourceFingerprint();
   const int smokerRosterSize =
       SmokerAttributeState_RosterSize(g_super.m_context);
   const int smokerCapacity = SmokerAttributeState_Capacity();
@@ -393,7 +408,10 @@ int main(int argc, char** argv) {
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
       explosionRosterSize > 14 || smokerFingerprint == 0 ||
       smokerRosterSize != 12 || smokerCapacity != 12 ||
-      smokerReferenceFingerprint == 0 || smokerRuntimeReady ||
+      smokerReferenceFingerprint == 0 || !smokerRuntimeReady ||
+      smokeSubjectCapacity != 300 || smokeSubjectFingerprint == 0 ||
+      smokeVisualResourceFingerprint == 0 ||
+      SmokeSubjectState_LiveCount() != 0 ||
       dynSmokerCapacity != 62 || dynSmokerFingerprint == 0 ||
       SmokerSubjectState_DynLiveCount() != 0 ||
       wavFingerprint == 0 || wavRosterSize < 22 || wavRosterSize > 33 ||
@@ -476,6 +494,12 @@ int main(int argc, char** argv) {
       SmokerAttributeState_ReferenceFingerprint(g_super.m_context) !=
           smokerReferenceFingerprint ||
       RecoveredArenaSeance_SmokerRuntimeReady() != smokerRuntimeReady ||
+      RecoveredArenaSeance_SmokeSubjectCapacity() != smokeSubjectCapacity ||
+      RecoveredArenaSeance_SmokeSubjectFingerprint() !=
+          smokeSubjectFingerprint ||
+      RecoveredArenaSeance_SmokeVisualResourceFingerprint() !=
+          smokeVisualResourceFingerprint ||
+      SmokeSubjectState_LiveCount() != 0 ||
       RecoveredArenaSeance_DynSmokerCapacity() != dynSmokerCapacity ||
       RecoveredArenaSeance_DynSmokerFingerprint() !=
           dynSmokerFingerprint ||
@@ -519,7 +543,8 @@ int main(int argc, char** argv) {
   }
 
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
-              "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
+               "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
+               "smoke_subject=%d fingerprint=%llu smoke_visual=%llu "
               "explosion_attrs=%d explosion_fingerprint=%llu "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
@@ -533,7 +558,9 @@ int main(int argc, char** argv) {
               "skin_models=%d skin_sprites=%d skin_catalog=%llu "
               "skin_resources=%llu "
               "route=table vehicle=real observer=1\n",
-              explosionRosterSize, explosionFingerprint,
+               smokeSubjectCapacity, smokeSubjectFingerprint,
+               smokeVisualResourceFingerprint,
+               explosionRosterSize, explosionFingerprint,
               smokerRosterSize, smokerCapacity, smokerFingerprint,
               smokerReferenceFingerprint, smokerRuntimeReady ? 1 : 0,
               dynSmokerCapacity, dynSmokerFingerprint,

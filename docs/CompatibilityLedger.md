@@ -898,6 +898,50 @@ Status vocabulary:
 - Revisit when: the software renderer replaces raw table-address colors with a
   stable logical handle. Add a render-lifecycle test before changing this rule.
 
+### CQ-066: Smoke reused indeterminate blob state and accepted one-past-capacity
+
+- Status: `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the legacy `Smoke` constructor initialized only `m_attr` and
+  `m_cnt`; `s_SmokeObject` initialized only its master pointer; each
+  `SmokeBlob` left texture coordinates, live position/direction, radius,
+  alpha, texture handle and cubic coefficients dependent on pool bytes. The
+  table accessor also asserted `index <= m_maxObjectQnty`.
+- Handling: initialize every transient field to an inert deterministic value,
+  require `index < m_maxObjectQnty`, and verify all four blobs in the repeated
+  create/remove lifecycle probe. No serialized source field or retail formula
+  is changed.
+- Revisit when: START/MOVE is admitted; add emission evolution and
+  save/load reconstruction coverage before relying on these defaults in a
+  visible frame.
+
+### CQ-067: retail Smoke visuals form one atomic three-file resource set
+
+- Status: `CONFIRMED_RETAIL`, `FAIL_CLOSED_CONTENT_CONTRACT`.
+- Evidence: both May roots expose `smoke.spr`, `flame.spr` and `corona.spr` as
+  256x256, five-byte-header paletted sprites. Every SmokeAttr selects one of
+  the first two and corona-using SmokerAttrs select the third. Level.02N has a
+  distinct valid corona payload while the other admitted Levels share one
+  visual fingerprint.
+- Handling: accept all three absent only as the public metadata-only fixture;
+  reject partial, malformed or wrong-sized sets. Checkpoint the global Smoke
+  cache before resolving derived handles/colors and roll it back completely on
+  any failure. Fingerprint file bytes, never renderer handles.
+- Revisit when: VFS/mod overlays enter; apply the same complete-set validation
+  to the resolved mount view and include its identity in saves/replays.
+
+### CQ-068: Smoke class registration must also precede seance creation
+
+- Status: `CONFIRMED_SOURCE`, `ORDERING_CONTRACT`.
+- Evidence: `Smoke.cpp` owns the real static class table, while Arena fixes its
+  seance table inventory at `openSeance()`, the same constraint already
+  observed for `DynSmoker`.
+- Handling: force-link `SmokeSubjectState` before `OpenArena`, then add and
+  validate capacity 300 before resolving Smoker table IDs or visual resources.
+  Keep the unrestricted original target as a compile gate and activate the
+  same source under the bounded subject definition.
+- Revisit when: class registration becomes explicit/dynamic; retain stable
+  ordering and table-name identity for diagnostics and saves.
+
 ## Maintenance rule
 
 When a new quirk is found:

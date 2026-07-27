@@ -24,12 +24,17 @@ class CGRPanel;
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
 #include "obase/smoke/SmokeAttributeState.h"
+#include "obase/smoke/SmokeSubjectState.h"
+#include "obase/smoke/SmokeVisualState.h"
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "h/cachesmoke.h"
 #include "obase/sound/WAVResourceState.h"
 #include "storage/h/subject.h"
 
 #include "RecoveredArenaSeanceRuntime.h"
+
+extern SDeviceList _dL;
 
 namespace {
 
@@ -40,6 +45,8 @@ unsigned long long g_lampFixtureFingerprint = 0;
 unsigned long long g_corpseFixtureFingerprint = 0;
 unsigned long long g_smokerFixtureFingerprint = 0;
 unsigned long long g_smokerReferenceFixtureFingerprint = 0;
+unsigned long long g_smokeSubjectFixtureFingerprint = 0;
+unsigned long long g_smokeVisualFixtureFingerprint = 0;
 unsigned long long g_dynSmokerFixtureFingerprint = 0;
 unsigned long long g_wavFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
@@ -165,6 +172,19 @@ bool WriteFile(const std::string& path, const std::string& contents) {
   return output.good();
 }
 
+bool WriteSprite(const std::string& path, unsigned char seed) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  const unsigned char header[5] = {0, 1, 0, 1, 0};
+  output.write(reinterpret_cast<const char*>(header), sizeof(header));
+  std::vector<unsigned char> pixels(256u * 256u);
+  for (std::size_t index = 0; index < pixels.size(); ++index) {
+    pixels[index] = static_cast<unsigned char>(seed + index % 251u);
+  }
+  output.write(reinterpret_cast<const char*>(pixels.data()),
+               static_cast<std::streamsize>(pixels.size()));
+  return output.good();
+}
+
 bool CurrentDirectory(std::string& result) {
   const DWORD required = GetCurrentDirectoryA(0, nullptr);
   if (required == 0) return false;
@@ -194,6 +214,12 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_OrphanAttributesReady() &&
          !RecoveredArenaSeance_ArtefactAttributesReady() &&
          !RecoveredArenaSeance_SmokeAttributesReady() &&
+         !RecoveredArenaSeance_SmokeSubjectReady() &&
+         RecoveredArenaSeance_SmokeSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_SmokeSubjectFingerprint() == 0 &&
+         !RecoveredArenaSeance_SmokeVisualResourcesReady() &&
+         RecoveredArenaSeance_SmokeVisualResourceFingerprint() == 0 &&
+         SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
@@ -229,10 +255,10 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Corpse.Attr.Default") &&
          !context.isExist("Spark.Flash") &&
          !context.isExist("Vehicle.Default") &&
-         Route::m_totalNodePos == 0;
+         Route::m_totalNodePos == 0 && g_cacheSmokeCnt == 0;
 }
 
-bool RunCycle() {
+bool RunCycle(bool expectVisualResources) {
   SimulationContext context(64, 128);
   if (!RecoveredArenaSeance_Initialize(&context, Session::m_moment) ||
       !RecoveredArenaSeance_IsOpen() ||
@@ -241,11 +267,19 @@ bool RunCycle() {
       !RecoveredArenaSeance_PortalReady() ||
       !RecoveredArenaSeance_OrphanAttributesReady() ||
       !RecoveredArenaSeance_ArtefactAttributesReady() ||
-      !RecoveredArenaSeance_SmokeAttributesReady() ||
+       !RecoveredArenaSeance_SmokeAttributesReady() ||
+       !RecoveredArenaSeance_SmokeSubjectReady() ||
+       RecoveredArenaSeance_SmokeSubjectCapacity() != 300 ||
+       RecoveredArenaSeance_SmokeSubjectFingerprint() == 0 ||
+       RecoveredArenaSeance_SmokeVisualResourcesReady() !=
+           expectVisualResources ||
+       (RecoveredArenaSeance_SmokeVisualResourceFingerprint() != 0) !=
+           expectVisualResources ||
+       SmokeSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
       !RecoveredArenaSeance_SmokerAttributesReady() ||
       !RecoveredArenaSeance_SmokerReferencesReady() ||
-      RecoveredArenaSeance_SmokerRuntimeReady() ||
+       RecoveredArenaSeance_SmokerRuntimeReady() != expectVisualResources ||
       RecoveredArenaSeance_SmokerReferenceFingerprint() == 0 ||
       !RecoveredArenaSeance_DynSmokerReady() ||
       RecoveredArenaSeance_DynSmokerCapacity() != 62 ||
@@ -270,7 +304,8 @@ bool RunCycle() {
       g_arena.searchSeanceClassTable("Portal") == ct_NULLID ||
       g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ArtefactAttr") == ct_NULLID ||
-      g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
+       g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
+       g_arena.searchSeanceClassTable("Smoke") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
@@ -315,8 +350,8 @@ bool RunCycle() {
       SmokerAttributeState_IsKnownRoster(&context) &&
       SmokerAttributeState_RosterSize(&context) == 11 &&
       SmokerAttributeState_Capacity() == 11 &&
-      SmokerAttributeState_ReferencesResolved(&context) &&
-      !SmokerAttributeState_RuntimeReady(&context) &&
+       SmokerAttributeState_ReferencesResolved(&context) &&
+       SmokerAttributeState_RuntimeReady(&context) == expectVisualResources &&
       SmokerAttributeState_ReferenceFingerprint(&context) != 0 &&
       SmokerSubjectState_DynTableReady(&context, 62) &&
       SmokerSubjectState_DynCapacity() == 62 &&
@@ -348,7 +383,11 @@ bool RunCycle() {
       explosionAttribute->m_cacheSkin == nullptr &&
       explosionAttribute->m_wav == nullptr &&
       g_vehicle != nullptr &&
-      context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
+       context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
+  const unsigned long long smokeSubjectFingerprint =
+      SmokeSubjectState_Fingerprint(&context);
+  const unsigned long long smokeVisualFingerprint =
+      RecoveredArenaSeance_SmokeVisualResourceFingerprint();
   const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(&context);
   const unsigned long long farterFingerprint =
@@ -380,6 +419,10 @@ bool RunCycle() {
        g_smokerFixtureFingerprint == smokerFingerprint) &&
       (g_smokerReferenceFixtureFingerprint == 0 ||
        g_smokerReferenceFixtureFingerprint == smokerReferenceFingerprint) &&
+      (g_smokeSubjectFixtureFingerprint == 0 ||
+       g_smokeSubjectFixtureFingerprint == smokeSubjectFingerprint) &&
+      (g_smokeVisualFixtureFingerprint == 0 ||
+       g_smokeVisualFixtureFingerprint == smokeVisualFingerprint) &&
       (g_dynSmokerFixtureFingerprint == 0 ||
        g_dynSmokerFixtureFingerprint == dynSmokerFingerprint) &&
       (g_wavFixtureFingerprint == 0 ||
@@ -395,6 +438,8 @@ bool RunCycle() {
   g_farterReferenceFixtureFingerprint = farterReferenceFingerprint;
   g_smokerFixtureFingerprint = smokerFingerprint;
   g_smokerReferenceFixtureFingerprint = smokerReferenceFingerprint;
+  g_smokeSubjectFixtureFingerprint = smokeSubjectFingerprint;
+  g_smokeVisualFixtureFingerprint = smokeVisualFingerprint;
   g_dynSmokerFixtureFingerprint = dynSmokerFingerprint;
   g_wavFixtureFingerprint = wavFingerprint;
   g_lampFixtureFingerprint = lampFingerprint;
@@ -487,6 +532,9 @@ int main(int argc, char** argv) {
       " ctIDSkin := s_AddClassTable(\"SkinSpr\",1);\r\n"
       "}\r\n";
   const std::string config = JoinPath(levelDirectory, "vessels.cfg");
+  const std::string smokeSprite = JoinPath(levelDirectory, "SMOKE.SPR");
+  const std::string flameSprite = JoinPath(levelDirectory, "FLAME.SPR");
+  const std::string coronaSprite = JoinPath(levelDirectory, "CORONA.SPR");
   const std::string smokeCopy = JoinPath(fixtureDirectory, "SMOKE.SCI");
   const std::string explosionCopy =
       JoinPath(fixtureDirectory, "EXPLOSION.SCI");
@@ -503,6 +551,9 @@ int main(int argc, char** argv) {
       JoinPath(scincDirectory, "LOCALMAIN.SCI");
   const std::string loadWavCopy = JoinPath(scincDirectory, "LOADWAV.SCI");
   DeleteFileA(smokeCopy.c_str());
+  DeleteFileA(smokeSprite.c_str());
+  DeleteFileA(flameSprite.c_str());
+  DeleteFileA(coronaSprite.c_str());
   DeleteFileA(explosionCopy.c_str());
   DeleteFileA(farterCopy.c_str());
   DeleteFileA(lampCopy.c_str());
@@ -749,8 +800,53 @@ int main(int argc, char** argv) {
     return Fail("could not restore valid WAV metadata fixture");
   }
 
-  const bool firstCycle = RunCycle();
-  const bool secondCycle = firstCycle && RunCycle();
+  const bool sourceOnlyCycle = RunCycle(false);
+  if (!WriteSprite(smokeSprite, 3)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write partial Smoke visual fixture");
+  }
+  SimulationContext partialSmokeVisualContext(64, 128);
+  const bool partialSmokeVisualRejected =
+      RecoveredArenaSeance_Initialize(&partialSmokeVisualContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_INVALID) != 0 &&
+      IsReleased(partialSmokeVisualContext);
+
+  if (!WriteSprite(flameSprite, 7) || !WriteSprite(coronaSprite, 11) ||
+      !WriteFile(coronaSprite, "invalid")) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Smoke visual fixture");
+  }
+  SimulationContext invalidSmokeVisualContext(64, 128);
+  const bool invalidSmokeVisualRejected =
+      RecoveredArenaSeance_Initialize(&invalidSmokeVisualContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_INVALID) != 0 &&
+      IsReleased(invalidSmokeVisualContext);
+  if (!WriteSprite(coronaSprite, 11)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid Smoke visual fixture");
+  }
+
+  SDeviceDescr device = {};
+  device.swHw = GR_HARDWARE;
+  SDeviceDescr* const previousDevice = _dL.currDevice;
+  _dL.currDevice = &device;
+  auto previousTextureLoader = _pGRLoadTextureToDB;
+  _pGRLoadTextureToDB = nullptr;
+  SimulationContext failedSmokeVisualLoadContext(64, 128);
+  const bool failedSmokeVisualLoadRejected =
+      RecoveredArenaSeance_Initialize(&failedSmokeVisualLoadContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_LOAD_FAILURE) != 0 &&
+      IsReleased(failedSmokeVisualLoadContext);
+  _pGRLoadTextureToDB = previousTextureLoader;
+  const bool firstCycle = RunCycle(true);
+  const bool secondCycle = firstCycle && RunCycle(true);
+  _dL.currDevice = previousDevice;
   const bool restored =
       SetCurrentDirectoryA(originalDirectory.c_str()) != FALSE;
   DeleteFileA(config.c_str());
@@ -764,6 +860,9 @@ int main(int argc, char** argv) {
   DeleteFileA(skinCopy.c_str());
   DeleteFileA(localMainCopy.c_str());
   DeleteFileA(loadWavCopy.c_str());
+  DeleteFileA(smokeSprite.c_str());
+  DeleteFileA(flameSprite.c_str());
+  DeleteFileA(coronaSprite.c_str());
   RemoveDirectoryA(scincDirectory.c_str());
   RemoveDirectoryA(levelDirectory.c_str());
   RemoveDirectoryA(fixtureDirectory.c_str());
@@ -799,6 +898,13 @@ int main(int argc, char** argv) {
     return Fail("invalid WAV metadata roster was not rejected "
                 "transactionally");
   }
+  if (!partialSmokeVisualRejected || !invalidSmokeVisualRejected ||
+      !failedSmokeVisualLoadRejected) {
+    return Fail("invalid/failed Smoke visual resources were not rolled back");
+  }
+  if (!sourceOnlyCycle) {
+    return Fail("source-only Smoke visual deferral was not preserved");
+  }
   if (!missingSkinCatalogRejected) {
     return Fail("missing retail Skin catalog was not rejected transactionally");
   }
@@ -809,28 +915,33 @@ int main(int argc, char** argv) {
   if (!secondCycle) return Fail("Vehicle seance reconstruction failed");
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("bounded arena seance cycles=2 missing-smoke=rollback "
+  std::printf("bounded arena seance cycles=3 source-only-visual=deferred "
+              "missing-smoke=rollback "
               "missing-wav=rollback "
               "missing-explosion-root-local=rollback "
               "missing-farter-root-local=rollback missing-lamp=rollback "
               "missing-corpse=rollback "
               "invalid-explosion-roster=rollback "
               "invalid-lamp-roster=rollback "
-              "invalid-smoker-roster=rollback invalid-wav-roster=rollback "
+               "invalid-smoker-roster=rollback invalid-wav-roster=rollback "
+               "partial-invalid-failed-smoke-visual=rollback "
               "missing-skin-catalog=rollback "
               "invalid-skin-catalog=rollback "
               "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
               "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
-              "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
+               "smoke_subject=0/300 smoke_visual=resolved "
+               "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
               "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
               "farter_refs=resolved smoker_refs=resolved "
-              "smoker_runtime=deferred corpse_refs=source-only "
+               "smoker_runtime=ready corpse_refs=source-only "
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
               "explosion_fingerprint=%llu smoker_fingerprint=%llu "
-              "smoker_reference_fingerprint=%llu "
+               "smoker_reference_fingerprint=%llu "
+               "smoke_subject_fingerprint=%llu "
+               "smoke_visual_fingerprint=%llu "
               "dyn_smoker_fingerprint=%llu "
               "wav_fingerprint=%llu farter_fingerprint=%llu "
               "farter_reference_fingerprint=%llu "
@@ -839,7 +950,9 @@ int main(int argc, char** argv) {
               "rollback=idempotent\n",
               g_explosionFixtureFingerprint,
               g_smokerFixtureFingerprint,
-              g_smokerReferenceFixtureFingerprint,
+               g_smokerReferenceFixtureFingerprint,
+               g_smokeSubjectFixtureFingerprint,
+               g_smokeVisualFixtureFingerprint,
               g_dynSmokerFixtureFingerprint,
               g_wavFixtureFingerprint,
               g_farterFixtureFingerprint,

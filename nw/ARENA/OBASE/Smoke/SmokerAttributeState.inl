@@ -73,6 +73,13 @@ struct SmokerResolvedReferences
     unsigned long coronaColor;
 };
 
+struct SmokerVisualResources
+{
+    AttributeSmoker *attribute;
+    GR_HTEXTURE coronaHText;
+    unsigned long coronaColor;
+};
+
 bool ResolveSmokerReferences(SimulationContext *context,
                              AttributeSmoker &attribute,
                              SmokerResolvedReferences &references)
@@ -350,7 +357,9 @@ bool SmokerAttributeState_ReferencesResolved(SimulationContext *context)
 
 bool SmokerAttributeState_RuntimeReady(SimulationContext *context)
 {
-    if (!SmokerAttributeState_ReferencesResolved(context))
+    if (!SmokerAttributeState_ReferencesResolved(context) ||
+        !SmokeAttributeState_VisualResourcesResolved(context) ||
+        !SmokerAttributeState_VisualResourcesResolved(context))
         return false;
     SmokerRosterCollector collector = {};
     if (!CollectSmokerRoster(context, collector))
@@ -399,10 +408,14 @@ unsigned long long SmokerAttributeState_ReferenceFingerprint(
 bool SmokerAttributeState_IsKnownReferenceRoster(
     SimulationContext *context)
 {
-    // Filled from the public January snapshot and canonical May retail root.
+    // The first two values are metadata-only compatibility fingerprints.
+    // The final values are the public January and canonical May retail
+    // rosters with the real Smoke table.
     static const unsigned long long known[] = {
         5627988880116855453ull,
-        2087316489424612812ull
+        2087316489424612812ull,
+        5252407361007838750ull,
+        5026602665209222964ull
     };
     const unsigned long long fingerprint =
         SmokerAttributeState_ReferenceFingerprint(context);
@@ -411,6 +424,71 @@ bool SmokerAttributeState_IsKnownReferenceRoster(
         if (fingerprint == known[i])
             return true;
     return false;
+}
+
+bool SmokerAttributeState_ResolveVisualResources(SimulationContext *context)
+{
+    if (!SmokerAttributeState_ReferencesResolved(context))
+        return false;
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return false;
+    std::vector<SmokerVisualResources> staged(collector.entries.size());
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeSmoker *attribute = collector.entries[i].attribute;
+        SmokerVisualResources &resources = staged[i];
+        resources.attribute = attribute;
+        resources.coronaHText = NULL;
+        resources.coronaColor = 0;
+        if (attribute->m_useCorona)
+        {
+            resources.coronaHText =
+                g_loadSmoke(attribute->m_coronaName, NULL);
+            resources.coronaColor = GRTransparentColor(
+                attribute->m_coronaRGB >> 16,
+                (attribute->m_coronaRGB >> 8) & 255,
+                attribute->m_coronaRGB & 255);
+            if (resources.coronaHText == NULL ||
+                resources.coronaColor == 0)
+                return false;
+        }
+    }
+    for (std::size_t i = 0; i < staged.size(); ++i)
+    {
+        staged[i].attribute->m_coronaHText = staged[i].coronaHText;
+        staged[i].attribute->m_coronaColor = staged[i].coronaColor;
+    }
+    return true;
+}
+
+bool SmokerAttributeState_VisualResourcesResolved(
+    SimulationContext *context)
+{
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeSmoker *attribute = collector.entries[i].attribute;
+        if (attribute->m_useCorona &&
+            (attribute->m_coronaHText == NULL ||
+             attribute->m_coronaColor == 0))
+            return false;
+    }
+    return true;
+}
+
+void SmokerAttributeState_ClearVisualResources(SimulationContext *context)
+{
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        collector.entries[i].attribute->m_coronaHText = NULL;
+        collector.entries[i].attribute->m_coronaColor = 0;
+    }
 }
 
 #endif

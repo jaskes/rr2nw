@@ -290,12 +290,38 @@ Retail scripts нельзя молча копировать поверх source 
 - The stable resolved fingerprint is `5627988880116855453` for the public
   January fixture and `2087316489424612812` for the canonical May root. All
   nine installed and mounted Levels share the latter identity.
-- The current production seance does not create the `Smoke` subject table.
-  `m_smokeTableID`, `m_coronaHText` and `m_coronaColor` therefore remain null;
-  `smoker_references_resolved=1` and `smoker_runtime_ready=0` are both expected.
+- At the RP-SCRIPT-008 boundary the production seance did not yet create the
+  `Smoke` subject table. `m_smokeTableID`, `m_coronaHText` and
+  `m_coronaColor` therefore remained null; the later active boundary is
+  recorded separately by RP-SCRIPT-009.
 - Fingerprints use resolved names and source RGB data only. The software
   transparent-color cache is a process-local table pointer and is explicitly
   excluded from content identity.
+
+### RP-SCRIPT-009: Smoke table and visual set complete Smoker runtime readiness
+
+- Classification: `RETAIL_REQUIRED`; subject ownership and resource caches are
+  active, while Smoke/Smoker MOVE, terrain, light and drawing stay gated.
+- Every admitted May `localmain.sci` creates `Smoke` with capacity 300. The
+  original class table is now present before seance creation, and a repeated
+  real create/remove proof publishes stable identity
+  `11870427327380980520` only after the pool returns empty.
+- Retail visuals are the atomic set `smoke.spr`, `flame.spr` and `corona.spr`.
+  Each is exactly 256x256 with a five-byte SPR header and one byte per pixel.
+  The canonical fingerprint is `15830240760157492622` for eight Levels;
+  Level.02N is valid but has distinct corona bytes and fingerprint
+  `12038661591293825930`. Installed and mounted roots match per Level.
+- With the real Smoke table, resolved Smoker reference fingerprints are
+  `5252407361007838750` for the public January fixture and
+  `5026602665209222964` for the canonical May roster. The earlier metadata-only
+  identities remain recognized for diagnostic compatibility.
+- A completely absent sprite set remains allowed only for the source-only
+  public fixture and reports visual/runtime readiness false. Partial, malformed
+  or failed resource publication rejects the entire seance and rolls back all
+  derived caches. Complete May Levels publish `smoker_runtime_ready=1`.
+- Resource fingerprints hash names, dimensions and file bytes. Subject
+  fingerprints hash stable class metadata. Neither includes object IDs,
+  pointers, texture handles or transparency-table addresses.
 
 ## Behavioral parity matrix
 

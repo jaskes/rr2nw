@@ -457,17 +457,22 @@ subject lifecycle/reconstruction contract, and passes all 36/36 retail service,
 publish exact capacity 62, fingerprint `10679040711010833004`, subject-bound
 Corpse references and clean shutdown.
 
-The next dependency audit is complete: every SmokerAttr now resolves its real
-SmokeAttr target transactionally, with stable public/May identities and
-failure-atomic reconstruction. Service readiness requires those references;
-`smoker_runtime_ready` remains false until the real `Smoke` subject table,
-Smoke sprite caches and corona transparency resources are admitted together.
-This keeps the next implementation step narrow: restore the bounded `Smoke`
-subject lifecycle and renderer-owned smoke/corona resource initialization
-before enabling Smoker MOVE, terrain, light or draw callbacks.
-The complete gate remains 48/48 Debug and Release tests, 36/36 service,
-36/36 WAV-catalog and 36/36 Skin-catalog retail launches, plus 4/4 executable
-runtime smokes with clean shutdown.
+The real capacity-300 `Smoke` table and renderer-owned visual resources are now
+admitted as two rollback-safe gates. Production creates and reconstructs the
+original subject pool, resolves all eighteen SmokeAttr image caches and every
+enabled Smoker corona cache from the complete three-SPR retail set, and reports
+`smoker_runtime_ready=1` for every May Level. An entirely absent visual set
+remains a supported source-only fixture; partial or corrupt content fails
+closed. Stable diagnostics preserve Level.02N's distinct corona identity and
+match installed/mounted roots.
+
+The focused subject test raises the matrix to 49/49 in Debug and Release. The
+next implementation step is deliberately behavioral rather than structural:
+exercise a controlled Smoke START/MOVE sequence against the real drawable
+scene, then restore Smoker MOVE, terrain placement, land-dynamic ownership,
+light/corona updates and visible draw callbacks in rollback-tested slices.
+`SoundObj` remains a separate dependency boundary before the heavier
+People/Tank/Taxi/Bullet graph.
 
 ### Цель
 

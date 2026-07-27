@@ -24,6 +24,8 @@ class s_SmokeObject : public  CViewSphericDynamic
         s_SmokeObject()
         {
             m_master = 0;
+            m_visible = false;
+            m_z = 0;
         }
 
     void    prepareToRender();
@@ -61,16 +63,23 @@ class SmokeBlob
      {
      m_phase     = 0;
      m_color     = 0;
+     u0 = v0 = u1 = v1 = 0;
      m_startPos  = CFVector3(0,0,0);
+     m_position  = CFVector3(0,0,0);
+     m_dir       = CFVector3(0,0,0);
      m_ofsDir    = CFVector3(1,1,0);
      m_dirIncrement = 0;
      m_maxTimeLife  = 0;
+     m_radius = 0;
+     m_alpha = 0;
+     m_ref = NULL;
      rA = 0;
      rB = 0;
      rC = 2.0;
      tA = 0; // alpha = tA*t*t + tB*t + tC
      tB = 0;
      tC = 2.0;
+     a0 = a1 = a2 = a3 = 0;
      }
 };
 

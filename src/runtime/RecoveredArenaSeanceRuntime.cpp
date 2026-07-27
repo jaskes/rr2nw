@@ -18,6 +18,8 @@ class CGRPanel;
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
+#include "obase/smoke/SmokeSubjectState.h"
+#include "obase/smoke/SmokeVisualState.h"
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/WAVResourceState.h"
@@ -35,6 +37,8 @@ namespace {
 constexpr double kSceneWidth = 5120.0;
 constexpr double kSceneDepth = 5120.0;
 constexpr int kDynSmokerCapacity = 50 + 12;
+constexpr int kSmokeCapacity = 300;
+constexpr int kSourceOnlySmokerAttributeCount = 11;
 constexpr const char kBootstrapProgramName[] =
     "recovered_common_attribute_vehicle_bootstrap";
 constexpr const char kSmokeAttributeProgramName[] =
@@ -430,6 +434,8 @@ struct RecoveredArenaSeanceState {
   bool orphanAttributesReady;
   bool artefactAttributesReady;
   bool smokeAttributesReady;
+  bool smokeSubjectReady;
+  bool smokeVisualResourcesReady;
   bool explosionAttributesReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
@@ -458,6 +464,9 @@ struct RecoveredArenaSeanceState {
   unsigned long long farterReferenceFingerprint;
   unsigned long long corpseReferenceFingerprint;
   unsigned long long smokerReferenceFingerprint;
+  int smokeSubjectCapacity;
+  unsigned long long smokeSubjectFingerprint;
+  unsigned long long smokeVisualResourceFingerprint;
   int dynSmokerCapacity;
   unsigned long long dynSmokerFingerprint;
   char lastError[256];
@@ -876,7 +885,8 @@ bool PublishSmokeAttributes(SimulationContext* context) {
            "retail fragment did not create the complete SmokeAttr roster");
     return false;
   }
-  if (!SmokeAttributeState_IsRetailRoster(context)) {
+  if (!SmokeAttributeState_IsRetailRoster(context) ||
+      !SmokeAttributeState_CachesUnresolved(context)) {
     char message[192] = {};
     std::snprintf(message, sizeof(message),
                   "SmokeAttr objects do not match unchanged retail "
@@ -888,6 +898,73 @@ bool PublishSmokeAttributes(SimulationContext* context) {
   }
   g_state.smokeAttributesReady = true;
   return true;
+}
+
+bool PublishSmokeSubject(SimulationContext* context) {
+  const ct_ClassTableID table =
+      g_arena.addClassTable("Smoke", kSmokeCapacity);
+  if (table == ct_NULLID ||
+      !SmokeSubjectState_TableReady(context, kSmokeCapacity)) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_TABLE_FAILURE,
+           "could not create the retail Smoke subject table");
+    return false;
+  }
+  if (!SmokeSubjectState_ProbeLifecycle(context) ||
+      SmokeSubjectState_LiveCount() != 0) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_LIFECYCLE_FAILURE,
+           "Smoke create/remove lifecycle probe failed");
+    return false;
+  }
+  const unsigned long long fingerprint =
+      SmokeSubjectState_Fingerprint(context);
+  if (fingerprint == 0) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_LIFECYCLE_FAILURE,
+           "Smoke table did not return to an empty stable state");
+    return false;
+  }
+  g_state.smokeSubjectCapacity = kSmokeCapacity;
+  g_state.smokeSubjectFingerprint = fingerprint;
+  g_state.smokeSubjectReady = true;
+  return true;
+}
+
+bool PublishSmokeVisualResources(SimulationContext* context) {
+  unsigned long long fingerprint = 0;
+  const ESmokeVisualResourcePresence presence =
+      SmokeVisualState_InspectResources(&fingerprint);
+  if (presence == SMOKE_VISUAL_RESOURCES_NONE) {
+    if (SmokerAttributeState_RosterSize(context) ==
+        kSourceOnlySmokerAttributeCount) {
+      g_state.smokerRuntimeReady = false;
+      return true;
+    }
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_INVALID,
+           "Smoke visual resource set is missing from a retail roster");
+    return false;
+  }
+  if (presence != SMOKE_VISUAL_RESOURCES_COMPLETE) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_INVALID,
+           presence == SMOKE_VISUAL_RESOURCES_PARTIAL
+               ? "Smoke visual resource set is incomplete"
+               : "Smoke visual resource set is invalid");
+    return false;
+  }
+  if (fingerprint == 0 || !SmokeVisualState_Resolve(context) ||
+      !SmokeVisualState_Ready(context)) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_LOAD_FAILURE,
+           "Smoke visual resources could not be published atomically");
+    return false;
+  }
+  g_state.smokeVisualResourceFingerprint =
+      SmokeVisualState_Fingerprint(context);
+  if (g_state.smokeVisualResourceFingerprint != fingerprint) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_LOAD_FAILURE,
+           "Smoke visual resource fingerprint changed during publication");
+    return false;
+  }
+  g_state.smokeVisualResourcesReady = true;
+  g_state.smokerRuntimeReady = SmokerAttributeState_RuntimeReady(context);
+  return g_state.smokerRuntimeReady;
 }
 
 bool PublishSmokerAttributes(SimulationContext* context) {
@@ -1225,6 +1302,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   PortalClassTable_Link();
   SparkAttributeState_Link();
   SmokeAttributeState_Link();
+  SmokeSubjectState_Link();
+  SmokeVisualState_Link();
   ExplosionAttributeState_Link();
   FarterAttributeState_Link();
   LampAttributeState_Link();
@@ -1290,8 +1369,14 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
 
-    if (!PublishDynSmokerSubject(context, startTime) ||
+    if (!PublishSmokeSubject(context) ||
+        !PublishDynSmokerSubject(context, startTime) ||
         !PublishDependentAttributeReferences(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+
+    if (!PublishSmokeVisualResources(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1321,10 +1406,16 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 }
 
 void RecoveredArenaSeance_Release() {
+  SmokeVisualState_Release();
   g_state.vehicleReady = false;
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
   g_state.smokeAttributesReady = false;
+  g_state.smokeSubjectReady = false;
+  g_state.smokeSubjectCapacity = 0;
+  g_state.smokeSubjectFingerprint = 0;
+  g_state.smokeVisualResourcesReady = false;
+  g_state.smokeVisualResourceFingerprint = 0;
   g_state.explosionAttributesReady = false;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
@@ -1387,6 +1478,28 @@ bool RecoveredArenaSeance_ArtefactAttributesReady() {
 
 bool RecoveredArenaSeance_SmokeAttributesReady() {
   return g_state.smokeAttributesReady;
+}
+
+bool RecoveredArenaSeance_SmokeSubjectReady() {
+  return g_state.smokeSubjectReady;
+}
+
+int RecoveredArenaSeance_SmokeSubjectCapacity() {
+  return g_state.smokeSubjectReady ? g_state.smokeSubjectCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_SmokeSubjectFingerprint() {
+  return g_state.smokeSubjectReady ? g_state.smokeSubjectFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_SmokeVisualResourcesReady() {
+  return g_state.smokeVisualResourcesReady;
+}
+
+unsigned long long RecoveredArenaSeance_SmokeVisualResourceFingerprint() {
+  return g_state.smokeVisualResourcesReady
+             ? g_state.smokeVisualResourceFingerprint
+             : 0;
 }
 
 bool RecoveredArenaSeance_ExplosionAttributesReady() {

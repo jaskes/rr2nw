@@ -175,5 +175,10 @@ bool SmokeAttributeState_Resolve(SimulationContext *context,
 unsigned long long SmokeAttributeState_RetailFingerprint(
     SimulationContext *context);
 bool SmokeAttributeState_IsRetailRoster(SimulationContext *context);
+bool SmokeAttributeState_CachesUnresolved(SimulationContext *context);
+bool SmokeAttributeState_ResolveVisualResources(SimulationContext *context);
+bool SmokeAttributeState_VisualResourcesResolved(
+    SimulationContext *context);
+void SmokeAttributeState_ClearVisualResources(SimulationContext *context);
 
 #endif

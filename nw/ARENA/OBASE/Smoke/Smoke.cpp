@@ -8,6 +8,7 @@
 #include "game.h"
 #include "scene.h"
 #include "Smoke.h"
+#include "SmokeSubjectState.h"
 #ifdef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
 #include "SmokeAttributeState.h"
 #endif
@@ -189,6 +190,7 @@ class SmokeTable : public ct_SubjectTable
     virtual void       freeObjects ();
     virtual ct_Object *getObjectPTR( int index );
     virtual  bool      isRendering();
+    int                capacity() const { return m_maxObjectQnty; }
 };
 
 #ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
@@ -226,6 +228,11 @@ static AttributeTableSmoke __attrTable;
  //============================================================
 Smoke::Smoke()
  {
+    m_smokeAttrID = KR_ObjectID::NUL();
+    m_viewIter = 0;
+    m_pos = CFVector3(0,0,0);
+    m_prevTimeStamp = 0;
+    m_setRemove = 0;
     m_attr = 0;
     m_cnt  = 0;
  }
@@ -258,6 +265,9 @@ int Smoke::receiveEvent( KR_Event &event )
     switch( event.label )
     {
     case fou_EVC_MOVING:
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+            break;
+#else
             if(  m_setRemove  )
             {
                  context->removeObject(getObjectID());
@@ -275,6 +285,7 @@ int Smoke::receiveEvent( KR_Event &event )
                  issueEvent( event );
             }
             break;
+#endif
 
     case KR_WAKE_UP:
             break;
@@ -296,9 +307,11 @@ int Smoke::receiveEvent( KR_Event &event )
 
 			setSmokeAttr();
 
-            
-
-            m_viewIter = MAX_ITER_WAIT;
+             m_viewIter = MAX_ITER_WAIT;
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+            if( m_attr == NULL ) return 0;
+            m_prevTimeStamp = event.timeStamp;
+#else
             if(  m_attr->m_onLand  )
             {
                  double height;
@@ -312,7 +325,7 @@ int Smoke::receiveEvent( KR_Event &event )
             event.label      = fou_EVC_MOVING;
             event.source     = getObjectID();
             context->sendEventNow( event );
-
+#endif
             }
             break;
 
@@ -338,6 +351,11 @@ int Smoke::receiveEvent( KR_Event &event )
             else m_attr = (AttributeSmoke*)attr;
 
             m_viewIter = MAX_ITER_WAIT;
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+            if( m_attr == NULL ) return 0;
+            m_smokeAttrID = oID;
+            m_prevTimeStamp = event.timeStamp;
+#else
             if(  m_attr->m_onLand  )
             {
                  double height;
@@ -351,6 +369,7 @@ int Smoke::receiveEvent( KR_Event &event )
             event.label      = fou_EVC_MOVING;
             event.source     = getObjectID();
             context->sendEventNow( event );
+#endif
      }
             break;
 
@@ -363,6 +382,9 @@ int Smoke::receiveEvent( KR_Event &event )
  //============================================================
 void s_SmokeObject::prepareToRender()
 {
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+    m_visible = false;
+#else
     int cnt = m_master->m_cnt;
     m_visible = false;
 
@@ -385,7 +407,7 @@ void s_SmokeObject::prepareToRender()
               m_bump.fRadius = m_master->m_attr->m_radius;
          }
     }
-
+#endif
 }
 
  //============================================================
@@ -409,6 +431,9 @@ void Smoke::removeNotify()
  //============================================================
 void Smoke::draw()
  {
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+     return;
+#else
      if(  m_cnt <= 0  )
           return;
      int i;
@@ -456,7 +481,7 @@ void Smoke::draw()
 
           GRDrawAlphaSprite(&par);
      }
-
+#endif
  }
 
  /*************************************
@@ -490,7 +515,7 @@ void SmokeTable::freeObjects()
  //============================================================
 ct_Object *SmokeTable::getObjectPTR( int index )
  {
-    s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"SmokeTable::getObjectPTR");
+    s_ASSERT( index >= 0 && index < m_maxObjectQnty ,"SmokeTable::getObjectPTR");
     return &(m_table[ index ]);
  }
 
@@ -558,18 +583,26 @@ void s_SmokeObject::Draw()
  //============================================================
 void Smoke::render( CViewDynamicList &list, double )
 {
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+     (void)list;
+#else
      m_viewIter = MAX_ITER_WAIT;
      m_viewObj.prepareToRender();
 
      if(  m_viewObj.m_visible  )
           list.Load( &m_viewObj );
+#endif
 }
 
  //============================================================
 void Smoke::endRender( CViewScene *scene )
 {
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+     (void)scene;
+#else
      if(  m_viewObj.m_visible  )
           scene->RemoveLandDynamic( &m_viewObj );
+#endif
 }
 
  //============================================================
@@ -862,4 +895,117 @@ void	Smoke::loadNotify()
 }
 
 void Smoke::draw( CDC & ){}
+
+namespace {
+
+const unsigned long long kSmokeSubjectHashOffset = 14695981039346656037ull;
+const unsigned long long kSmokeSubjectHashPrime = 1099511628211ull;
+
+void SmokeSubjectHashBytes(unsigned long long &hash, const void *data,
+                           int size)
+{
+    const unsigned char *bytes = static_cast<const unsigned char *>(data);
+    for (int i = 0; i < size; ++i)
+    {
+        hash ^= bytes[i];
+        hash *= kSmokeSubjectHashPrime;
+    }
+}
+
+void SmokeSubjectHashString(unsigned long long &hash, const char *value)
+{
+    SmokeSubjectHashBytes(hash, value,
+                          static_cast<int>(strlen(value)) + 1);
+}
+
+}  // namespace
+
+void SmokeSubjectState_Link()
+{
+}
+
+bool SmokeSubjectState_TableReady(SimulationContext *context,
+                                  int expectedCapacity)
+{
+    if (context == NULL || expectedCapacity <= 0 ||
+        g_arena.getContext() != context)
+        return false;
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Smoke");
+    return table != ct_NULLID &&
+           table == __classTable.getClassTableID() &&
+           __classTable.capacity() == expectedCapacity &&
+           __classTable.isRendering();
+}
+
+int SmokeSubjectState_Capacity()
+{
+    return __classTable.capacity();
+}
+
+int SmokeSubjectState_LiveCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = __classTable.findFirstSubject();
+         subject != NULL;
+         subject = __classTable.findNextSubject(subject))
+        ++count;
+    return count;
+}
+
+unsigned long long SmokeSubjectState_Fingerprint(SimulationContext *context)
+{
+    const int capacity = SmokeSubjectState_Capacity();
+    if (!SmokeSubjectState_TableReady(context, capacity) ||
+        SmokeSubjectState_LiveCount() != 0)
+        return 0;
+    unsigned long long hash = kSmokeSubjectHashOffset;
+    SmokeSubjectHashString(hash, "Smoke");
+    SmokeSubjectHashBytes(hash, &capacity, sizeof(capacity));
+    const int rendering = __classTable.isRendering() ? 1 : 0;
+    SmokeSubjectHashBytes(hash, &rendering, sizeof(rendering));
+    return hash;
+}
+
+bool SmokeSubjectState_ProbeLifecycle(SimulationContext *context)
+{
+    const int capacity = SmokeSubjectState_Capacity();
+    static const char kProbeName[] = "Smoke.Lifecycle.Probe";
+    if (!SmokeSubjectState_TableReady(context, capacity) ||
+        SmokeSubjectState_LiveCount() != 0 ||
+        context->isExist(kProbeName))
+        return false;
+
+    KR_ObjectID object =
+        g_arena.newObject(__classTable.getClassTableID(), kProbeName);
+    Smoke *smoke = static_cast<Smoke *>(__classTable.findFirstSubject());
+    if (object.isNUL() || smoke == NULL || smoke->getObjectID() != object ||
+        SmokeSubjectState_LiveCount() != 1)
+    {
+        if (!object.isNUL())
+            context->removeObject(object);
+        return false;
+    }
+
+    bool blobsInitialized = true;
+    for (int i = 0; i < Smoke::MAXSMOKEBLOB; ++i)
+    {
+        const SmokeBlob &blob = smoke->m_blob[i];
+        blobsInitialized = blobsInitialized && blob.m_phase == 0 &&
+                           blob.m_color == 0 && blob.u0 == 0 &&
+                           blob.v0 == 0 && blob.u1 == 0 && blob.v1 == 0 &&
+                           blob.m_radius == 0 && blob.m_alpha == 0 &&
+                           blob.m_ref == NULL;
+    }
+    const bool initialized = smoke->m_attr == NULL && smoke->m_cnt == 0 &&
+                             smoke->m_viewObj.m_master == smoke &&
+                             !smoke->m_viewObj.m_visible &&
+                             smoke->m_viewObj.m_z == 0 &&
+                             smoke->m_setRemove == 0 &&
+                             smoke->m_smokeAttrID.isNUL() &&
+                             blobsInitialized;
+    context->removeObject(object);
+    return initialized && !context->isExist(kProbeName) &&
+           SmokeSubjectState_LiveCount() == 0;
+}
 /* End of file C:\NW\ARENA\OBASE\Smoke\Smoke.cpp */

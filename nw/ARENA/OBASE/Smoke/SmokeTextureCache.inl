@@ -10,6 +10,45 @@
 cs_CacheSmoke g_cacheSmoke[10] = {};
 int g_cacheSmokeCnt = 0;
 
+int SmokeTextureCache_Checkpoint()
+{
+    return (std::max)(0,(std::min)(10,g_cacheSmokeCnt));
+}
+
+bool SmokeTextureCache_CanLoad(const char *const *fileNames,int count)
+{
+    if( fileNames == NULL || count < 0 ) return false;
+    const int cacheCount = SmokeTextureCache_Checkpoint();
+    int missing = 0;
+    for( int i = 0; i < count; ++i ) {
+        if( fileNames[i] == NULL || fileNames[i][0] == 0 ) return false;
+        bool known = false;
+        for( int cache = 0; cache < cacheCount; ++cache )
+            if( strcmpi(g_cacheSmoke[cache].fname,fileNames[i]) == 0 ) {
+                known = true;
+                break;
+            }
+        for( int previous = 0; !known && previous < i; ++previous )
+            if( strcmpi(fileNames[previous],fileNames[i]) == 0 )
+                known = true;
+        if( !known ) ++missing;
+    }
+    return cacheCount+missing <= 10;
+}
+
+void SmokeTextureCache_Rollback(int checkpoint)
+{
+    const int cacheCount = SmokeTextureCache_Checkpoint();
+    if( checkpoint < 0 || checkpoint > cacheCount ) return;
+    for( int i = cacheCount-1; i >= checkpoint; --i ) {
+        if( g_cacheSmoke[i].hand != NULL &&
+            _pGRDeleteTextureFromDB != NULL )
+            GRDeleteTextureFromDB(g_cacheSmoke[i].hand);
+        std::memset(&g_cacheSmoke[i],0,sizeof(g_cacheSmoke[i]));
+    }
+    g_cacheSmokeCnt = checkpoint;
+}
+
 GR_HTEXTURE g_loadSmoke(const char *fileName,GR_HTEXTURE texture,void *)
 {
     if( fileName == NULL || fileName[0] == 0 ) return NULL;

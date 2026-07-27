@@ -1169,9 +1169,10 @@ pointer rather than a portable RGB integer. `m_coronaHText` and
 `m_coronaColor` therefore remain null/zero; the stable source `m_coronaRGB` is
 already present in the attribute and is sufficient to preserve intent.
 
-Reference readiness is now required by the service gate, while visual runtime
-readiness is reported separately and remains false. Full Smoker runtime
-readiness will require the real `Smoke` subject table, a loaded image cache for
+At the BD-039 boundary, reference readiness became required by the service
+gate while visual runtime readiness was reported separately and remained
+false. Full Smoker runtime readiness required the real `Smoke` subject table,
+a loaded image cache for
 every referenced `SmokeAttr`, and a texture/color cache for every corona-using
 Smoker. MOVE scheduling, terrain placement, smoke creation, light/corona
 updates and rendering remain disabled in the bounded subject build.
@@ -1187,3 +1188,43 @@ Regression contract: 48/48 Debug and Release tests; 36/36 service, WAV-catalog
 and Skin-catalog retail launches across both roots; paired May reference
 identity; and 4/4 executable runtime smokes publishing resolved references,
 deferred visual readiness, zero service issues and clean shutdown.
+
+## BD-040: Smoke subject and visual resources are admitted separately
+
+Status: accepted on 2026-07-27.
+
+Production now force-links the original `Smoke.cpp` class registration before
+opening the Arena seance and creates the exact retail capacity-300 `Smoke`
+table. The bounded runtime build retains the real allocator, notifications and
+teardown, but keeps START/MOVE, terrain and draw behavior compile-gated. Each
+seance startup creates and removes a real object, verifies an empty pool and
+checks deterministic initialization of `Smoke`, its view object and all four
+blobs. Focused coverage repeats the probe and reconstructs the seance. This is
+subject ownership, not yet visible emission parity.
+
+Visual readiness is a second transaction over the complete fixed retail set:
+`smoke.spr`, `flame.spr` and `corona.spr`. All three must exist, use the retail
+256x256 SPR layout and contain exactly one byte per pixel. An absent complete
+set is accepted only for the public source-only fixture and reports deferred
+visual readiness. A partial or invalid set is treated as damaged content and
+rejects startup instead of silently degrading a real installation.
+
+The coordinator checkpoints the shared ten-slot Smoke texture cache, stages
+all eighteen SmokeAttr image/color caches and every enabled Smoker corona
+cache, and publishes readiness only after the full graph validates. Any load
+failure clears derived attribute fields, deletes handles added after the
+checkpoint and restores the prior cache count. Shutdown performs the same
+ordered release before closing the Arena seance.
+
+Stable diagnostics hash sprite names, headers and bytes, never texture handles
+or software transparency-table pointers. The synthetic fixture identity is
+`2132834873738653727`; canonical May retail is
+`15830240760157492622`, except Level.02N's distinct corona data produces
+`12038661591293825930`. The subject identity is
+`11870427327380980520` in every admitted Level.
+
+Regression contract: 49/49 Debug and Release tests; source-only success;
+partial, invalid and failed-load rejection with exact rollback; two complete
+visual open/close cycles; 36/36 retail service launches; and 4/4 executable
+runtime smokes. Smoker MOVE, land placement, Smoke creation, light/corona
+updates and rendering remain the next explicitly gated frontier.

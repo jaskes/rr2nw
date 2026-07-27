@@ -60,7 +60,11 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID = 1ull << 53,
   RECOVERED_ARENA_SEANCE_DYN_SMOKER_TABLE_FAILURE = 1ull << 54,
   RECOVERED_ARENA_SEANCE_DYN_SMOKER_LIFECYCLE_FAILURE = 1ull << 55,
-  RECOVERED_ARENA_SEANCE_SMOKER_REFERENCE_INVALID = 1ull << 56
+  RECOVERED_ARENA_SEANCE_SMOKER_REFERENCE_INVALID = 1ull << 56,
+  RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_TABLE_FAILURE = 1ull << 57,
+  RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_LIFECYCLE_FAILURE = 1ull << 58,
+  RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_INVALID = 1ull << 59,
+  RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_LOAD_FAILURE = 1ull << 60
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -73,6 +77,11 @@ bool RecoveredArenaSeance_PortalReady();
 bool RecoveredArenaSeance_OrphanAttributesReady();
 bool RecoveredArenaSeance_ArtefactAttributesReady();
 bool RecoveredArenaSeance_SmokeAttributesReady();
+bool RecoveredArenaSeance_SmokeSubjectReady();
+int RecoveredArenaSeance_SmokeSubjectCapacity();
+unsigned long long RecoveredArenaSeance_SmokeSubjectFingerprint();
+bool RecoveredArenaSeance_SmokeVisualResourcesReady();
+unsigned long long RecoveredArenaSeance_SmokeVisualResourceFingerprint();
 bool RecoveredArenaSeance_ExplosionAttributesReady();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();

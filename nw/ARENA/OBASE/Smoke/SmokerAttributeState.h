@@ -72,5 +72,9 @@ unsigned long long SmokerAttributeState_ReferenceFingerprint(
     SimulationContext *context);
 bool SmokerAttributeState_IsKnownReferenceRoster(
     SimulationContext *context);
+bool SmokerAttributeState_ResolveVisualResources(SimulationContext *context);
+bool SmokerAttributeState_VisualResourcesResolved(
+    SimulationContext *context);
+void SmokerAttributeState_ClearVisualResources(SimulationContext *context);
 
 #endif
