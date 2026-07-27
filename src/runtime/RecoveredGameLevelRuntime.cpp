@@ -4,6 +4,7 @@
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredRetailScriptManifest.h"
 
 namespace {
 
@@ -13,6 +14,7 @@ bool g_ready = false;
 int Fail(unsigned int issue) {
   g_issues = issue;
   RecoveredDrawableScene_Release();
+  RecoveredRetailScriptManifest_Release();
   RecoveredLevelRuntime_Release();
   g_ready = false;
   return FALSE;
@@ -27,6 +29,10 @@ int RecoveredGameLevel_Initialize(const char* directory) {
   if (!RecoveredLevelRuntime_Prepare(directory)) {
     return Fail(RECOVERED_GAME_LEVEL_PREPARE_FAILURE);
   }
+  if (!RecoveredRetailScriptManifest_Preflight(
+          RecoveredLevelRuntime_Directory())) {
+    return Fail(RECOVERED_GAME_LEVEL_SCRIPT_MANIFEST_FAILURE);
+  }
   if (!RecoveredLevelAssets_Initialize()) {
     return Fail(RECOVERED_GAME_LEVEL_ASSET_FAILURE);
   }
@@ -40,12 +46,14 @@ int RecoveredGameLevel_Initialize(const char* directory) {
 
 void RecoveredGameLevel_Release() {
   RecoveredDrawableScene_Release();
+  RecoveredRetailScriptManifest_Release();
   RecoveredLevelRuntime_Release();
   g_ready = false;
 }
 
 bool RecoveredGameLevel_IsReady() {
   return g_ready && RecoveredLevelRuntime_IsPrepared() &&
+         RecoveredRetailScriptManifest_IsReady() &&
          RecoveredLevelAssets_IsReady() &&
          RecoveredDrawableScene_IsReady();
 }

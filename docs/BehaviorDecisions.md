@@ -837,3 +837,33 @@ copied into the bounded script. Their capacities and named objects differ by
 Level, so hard-coding one Level would create false retail parity. Those owners
 must follow either a Level-aware data bridge or execution of the unchanged
 retail script.
+
+## BD-031: retail script admission begins with a read-only Level manifest
+
+Status: accepted on 2026-07-27.
+
+The Level transaction now validates the complete script include graph before
+palette, scene or Arena mutation. `LEVEL0.SC` is selected from the parent
+retail root, while every one of its includes is resolved against the selected
+Level directory. This is the historical compiler rule and is deliberately not
+replaced with conventional "relative to the including file" behavior.
+
+The manifest does not compile or execute retail `main()`. It reads files under
+bounded per-file, total-byte, depth and visit budgets; rejects missing,
+malformed, cyclic, overlong-name and root-escaping includes; follows final Windows
+paths to contain junction/reparse traversal; and records ordered root/Level
+provenance plus a deterministic content fingerprint. Failure rolls the whole
+Level transaction back while preserving the specific diagnostic.
+
+This is the content identity boundary for the next object-table slices. It
+allows Skin and the least-connected Level-local attribute owners to consume
+the selected Level's real roster without choosing Level.05D (or any other
+Level) as a hidden universal default. The bounded bootstrap remains active
+until the required class archives and external function/constant ABI are
+complete enough to run retail `main()` transactionally.
+
+Regression contract: mixed slash/case resolution, nested Level-base includes,
+line/block-comment exclusion, deterministic reconstruction, diagnostic
+retention after rollback, and fail-closed malformed/missing/escaping/cyclic
+fixtures. Both retail roots must resolve all nine Levels read-only and produce
+matching paired fingerprints.

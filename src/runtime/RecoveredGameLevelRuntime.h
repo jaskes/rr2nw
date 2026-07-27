@@ -3,7 +3,8 @@
 enum ERecoveredGameLevelIssue {
   RECOVERED_GAME_LEVEL_PREPARE_FAILURE = 1u << 0,
   RECOVERED_GAME_LEVEL_ASSET_FAILURE = 1u << 1,
-  RECOVERED_GAME_LEVEL_SCENE_FAILURE = 1u << 2
+  RECOVERED_GAME_LEVEL_SCENE_FAILURE = 1u << 2,
+  RECOVERED_GAME_LEVEL_SCRIPT_MANIFEST_FAILURE = 1u << 3
 };
 
 int RecoveredGameLevel_Initialize(const char* directory);

@@ -8,6 +8,7 @@
 #include "RecoveredGameServicesRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredRetailScriptManifest.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
 
@@ -491,6 +492,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(RecoveredGameLevel_Issues()));
     log.Line("level_runtime_issues=" +
              std::to_string(RecoveredLevelRuntime_Issues()));
+    log.Line("retail_script_manifest_issues=" +
+             std::to_string(RecoveredRetailScriptManifest_Issues()));
+    if (RecoveredRetailScriptManifest_LastError()[0] != 0) {
+      log.Line(std::string("retail_script_manifest_error=") +
+               RecoveredRetailScriptManifest_LastError());
+    }
     log.Line("level_asset_issues=" +
              std::to_string(RecoveredLevelAssets_Issues()));
     log.Line("drawable_scene_issues=" +
@@ -509,8 +516,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
 
   const SRecoveredDrawableSceneSummary* summary =
       RecoveredDrawableScene_Summary();
-  if (summary == nullptr) {
-    log.Line("failure=published Level has no drawable scene summary");
+  const SRecoveredRetailScriptManifestSummary* scriptManifest =
+      RecoveredRetailScriptManifest_Summary();
+  if (summary == nullptr || scriptManifest == nullptr) {
+    log.Line("failure=published Level has no drawable scene/script manifest "
+             "summary");
     log.Line("marker=level-not-ready");
     ZAV_Deinit();
     return kRuntimeNotReady;
@@ -577,6 +587,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
 
   log.Line("recovered_runtime=connected");
+  log.Line("retail_script_manifest_ready=1");
+  log.Line("retail_script_manifest_includes=" +
+           std::to_string(scriptManifest->includeDirectives));
+  log.Line("retail_script_manifest_files=" +
+           std::to_string(scriptManifest->fileVisits));
+  log.Line("retail_script_manifest_unique_files=" +
+           std::to_string(scriptManifest->uniqueFiles));
+  log.Line("retail_script_manifest_root_files=" +
+           std::to_string(scriptManifest->rootFiles));
+  log.Line("retail_script_manifest_level_files=" +
+           std::to_string(scriptManifest->levelFiles));
+  log.Line("retail_script_manifest_bytes=" +
+           std::to_string(scriptManifest->totalBytes));
+  log.Line("retail_script_manifest_fingerprint=" +
+           std::to_string(scriptManifest->contentFingerprint));
   log.Line("game_entry_missing_hooks=" +
            std::to_string(GameEntry_RuntimeMissingHooks()));
   log.Line("scene_bases=" + std::to_string(summary->bases));

@@ -1076,6 +1076,34 @@ bounded bootstrap with the retail script. Only after the attached Vessel
 receives `[Vessel] Init` and its update path is rollback-tested should Hardware
 subscription, control and camera move away from the temporary observer.
 
+### Level-aware retail script manifest
+
+`rr2nw_recovered_retail_script_manifest` now gates the recovered Level
+transaction before mutable asset initialization. It resolves the root
+`LEVEL0.SC` and its include graph with the original selected-Level search base,
+normalizes mixed slash/case spellings, follows final Win32 paths, contains every
+file inside the retail root and applies explicit file-size, total-size,
+depth/visit and legacy path-buffer bounds. The scanner is read-only and never
+executes `main()`.
+
+The standalone smoke covers nested includes, line and nested block comments,
+deterministic file order/fingerprint, idempotent release with retained failure
+diagnostics, and fail-closed malformed, missing, escaping and cyclic graphs.
+The public `ZAV_InitLevel` path requires manifest readiness and includes the
+manifest in rollback. Executable diagnostics publish directive, unique-file,
+root/local, byte and fingerprint fields before the `level-ready` marker.
+
+The actual retail sweep resolves 48 directives into 49 unique visits for each
+Level: 19 root/common files including the entry and 30 Level-local files.
+All 18 installed/mounted checks pass, and all nine paired graphs have identical
+byte counts and fingerprints. This establishes a verified data boundary for
+Skin and the next Level-local attribute group without claiming that full retail
+script compilation or execution is ready.
+
+Final verification passes 44/44 tests in Debug and Release, 36/36 retail
+service launches, 18/18 direct manifest sweeps with 9/9 paired fingerprints,
+and 4/4 executable runtime-smoke launches with clean shutdown.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1100,8 +1128,9 @@ subscription, control and camera move away from the temporary observer.
    through public `ZAV_InitLevel`; the original entry point still links and
    exits safely with its intentionally incomplete default runtime. The real
    Arena, Storage, recovered script VM and `Vehicle.Default` now execute through
-   a bounded bootstrap; remaining OBASE archives are still required before
-   switching to full retail `LEVEL0.SC`.
+   a bounded bootstrap. A read-only Level-aware manifest validates all 48 retail
+   includes before Level mutation; remaining OBASE archives and script ABI
+   bindings are still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

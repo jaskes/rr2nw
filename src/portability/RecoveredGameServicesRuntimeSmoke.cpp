@@ -19,6 +19,7 @@
 #include "RecoveredGameServicesRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredRetailScriptManifest.h"
 #include "RecoveredSoftwareGraph.h"
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
@@ -87,6 +88,7 @@ bool IsServiceReleased() {
 bool IsLevelRolledBack() {
   return !RecoveredGameLevel_IsReady() &&
          !RecoveredLevelRuntime_IsPrepared() &&
+         !RecoveredRetailScriptManifest_IsReady() &&
          !RecoveredLevelAssets_IsReady() &&
          !RecoveredDrawableScene_IsReady() && pScene == nullptr &&
          CViewScene::Current() == nullptr && !CViewScene::IsBuilding() &&

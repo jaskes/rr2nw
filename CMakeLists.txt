@@ -2399,12 +2399,34 @@ target_compile_definitions(rr2nw_recovered_drawable_scene_runtime PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_recovered_retail_script_manifest STATIC
+  src/runtime/RecoveredRetailScriptManifest.cpp
+  src/runtime/RecoveredRetailScriptManifest.h
+)
+target_include_directories(rr2nw_recovered_retail_script_manifest PUBLIC
+  src/runtime
+)
+target_compile_features(
+  rr2nw_recovered_retail_script_manifest PUBLIC cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_recovered_retail_script_manifest PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_recovered_retail_script_manifest PRIVATE /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_recovered_game_level_runtime STATIC
   src/runtime/RecoveredGameLevelRuntime.cpp
   src/runtime/RecoveredGameLevelRuntime.h
 )
 target_link_libraries(rr2nw_recovered_game_level_runtime PUBLIC
   rr2nw_recovered_drawable_scene_runtime
+  rr2nw_recovered_retail_script_manifest
 )
 target_include_directories(rr2nw_recovered_game_level_runtime PUBLIC
   src/runtime
@@ -2935,6 +2957,22 @@ target_compile_definitions(rr2nw_recovered_level_assets_smoke PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_recovered_retail_script_manifest_smoke
+  src/portability/RecoveredRetailScriptManifestSmoke.cpp
+)
+target_link_libraries(
+  rr2nw_recovered_retail_script_manifest_smoke PRIVATE
+  rr2nw_recovered_retail_script_manifest
+)
+target_compile_features(
+  rr2nw_recovered_retail_script_manifest_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_recovered_retail_script_manifest_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
   rr2nw_arena_obase_debug_map_mission
   rr2nw_game_entry_runtime
@@ -3205,6 +3243,9 @@ if(MSVC)
     rr2nw_recovered_level_assets_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_recovered_retail_script_manifest_smoke PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
     rr2nw_game_startup PRIVATE /W4 /permissive- /utf-8
   )
   target_compile_options(rr2nw_game PRIVATE /W4 /permissive- /utf-8)
@@ -3270,6 +3311,11 @@ if(BUILD_TESTING)
     NAME recovered-level-assets-smoke
     COMMAND rr2nw_recovered_level_assets_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/recovered-level-assets-smoke-$<CONFIG>"
+  )
+  add_test(
+    NAME recovered-retail-script-manifest-smoke
+    COMMAND rr2nw_recovered_retail_script_manifest_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/retail-script-manifest-smoke-$<CONFIG>"
   )
   add_test(
     NAME legacy-tagged-file-smoke

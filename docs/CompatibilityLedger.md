@@ -528,6 +528,38 @@ Status vocabulary:
 - Revisit when: includes are resolved against the selected Level and the
   retail script can create each Level's exact table/object set transactionally.
 
+### CQ-041: SuaCript includes use one Level-relative search base
+
+- Status: `CONFIRMED_SOURCE`, `PRESERVED`.
+- Evidence: `lex_Include` prefixes `TScanner::textPath` to every include name;
+  the retail entry contains both `../COMMON.SCI` and `SCINC/LOCAL.SCI` forms.
+  Included scanners reset `textPath`, but gameplay has already changed the
+  process directory to the selected Level, so nested includes retain the same
+  effective base. The old concatenation uses unchecked `strcpy`/`strcat` into
+  a 1024-byte local buffer.
+- Handling: the manifest resolves every directive against the selected Level,
+  accepts legacy slash and filename-case variation on Windows, and rejects a
+  raw include name that would overflow the historical buffer. It recognizes the
+  scanner's `//`, nested `/* */`, and single/double-quoted string rules so text
+  such as the `//*` annotations in `DEFS.H` cannot become a false include.
+- Revisit when: the script VM reads through the versioned VFS; preserve this
+  search-base behavior as the legacy mount policy even if unsafe buffers are
+  removed permanently.
+
+### CQ-042: installed and mounted script graphs are byte-identical
+
+- Status: `CONFIRMED_RETAIL`, `OBSERVED_LOCAL`.
+- Evidence: the read-only sweep resolves 48 directives and 49 unique file
+  visits per Level (19 root/common and 30 Level-local) for all nine Levels.
+  Every installed `E:\Games\The Next Worlds` graph has the same byte count and
+  ordered content fingerprint as its `G:\nw` disc-image counterpart; the root
+  `LEVEL0.SC` SHA-256 is also identical.
+- Handling: retain per-Level ordered fingerprints in startup diagnostics. This
+  proves the current install has not drifted from the mounted release script
+  data while still allowing legitimate differences between Levels.
+- Revisit when: VFS/mod overlays are admitted. At that point report base and
+  effective content identities separately instead of requiring one fingerprint.
+
 ## Maintenance rule
 
 When a new quirk is found:

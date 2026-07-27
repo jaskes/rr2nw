@@ -9,6 +9,7 @@
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredRetailScriptManifest.h"
 #include "RecoveredSoftwareGraph.h"
 #include "ZavSceneState.h"
 #include "ZavShutdownState.h"
@@ -43,6 +44,7 @@ int Fail(const char* message) {
 bool IsLevelRolledBack() {
   return !RecoveredGameLevel_IsReady() &&
          !RecoveredLevelRuntime_IsPrepared() &&
+         !RecoveredRetailScriptManifest_IsReady() &&
          !RecoveredLevelAssets_IsReady() &&
          !RecoveredDrawableScene_IsReady() && pScene == nullptr &&
          CViewScene::Current() == nullptr && !CViewScene::IsBuilding() &&

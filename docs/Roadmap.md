@@ -367,12 +367,13 @@ The full Debug/Release matrix remains 43/43, with 36/36 retail service launches
 and 4/4 executable smoke launches across both data roots.
 
 The bounded bootstrap now creates the common attribute tranche, Portal,
-SparkAttr, Route and the Vehicle portion of the object graph. The next slice
-cannot honestly copy another universal table: remaining `SCINC` rosters differ
-by Level. The next frontier is therefore Level-aware script/include data and
-the Skin/resource owners required by the eventual complete attribute update;
+SparkAttr, Route and the Vehicle portion of the object graph. The read-only
+Level-aware script manifest is complete: all 48 includes resolve with exact
+root/local provenance before Level mutation, and installed/disc-image pairs
+match for all nine Levels. The next frontier is the Skin/resource owner plus
+the least-connected Level-local attribute group selected from that manifest;
 Farter/Corpse/Lamp remain behind Sound, Skin, Smoke/Fire or renderer owners,
-while People/Tank/Taxi/Bullet/Sound stay out of this frontier. Continue in
+while People/Tank/Taxi/Bullet/Sound stay out of the first group. Continue in
 rollback-tested groups
 until the unchanged retail `LEVEL0.SC` can replace the bootstrap. Then verify
 the already attached Vessel, apply
@@ -380,6 +381,11 @@ the already attached Vessel, apply
 Hardware subscription and camera ownership from the temporary observer. Menu,
 Briefing, Console, save/load/restart transitions, RSX/audio and active DebugMap
 rendering remain separately reversible later tranches.
+
+The manifest frontier raises the automated matrix to 44/44 tests in both
+configurations. Its retail gate is 18/18 direct Level graphs with 9/9 matching
+installed/disc-image pairs, plus the existing 36/36 service and 4/4 executable
+runtime sweeps.
 
 ### Цель
 
