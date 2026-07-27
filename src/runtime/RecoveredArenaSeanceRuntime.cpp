@@ -18,6 +18,8 @@ class CGRPanel;
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
+#include "obase/smoke/SmokerAttributeState.h"
+#include "obase/sound/WAVResourceState.h"
 #include "obase/skin/SkinResourceState.h"
 #include "storage/h/subject.h"
 #include "message/skinmsg.h"
@@ -25,6 +27,7 @@ class CGRPanel;
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
 #include "RecoveredSkinResourceCatalog.h"
+#include "RecoveredWavMetadataCatalog.h"
 
 namespace {
 
@@ -42,6 +45,10 @@ constexpr const char kLampAttributeProgramName[] =
     "recovered_retail_lamp_attribute_bootstrap";
 constexpr const char kCorpseAttributeProgramName[] =
     "recovered_retail_corpse_attribute_bootstrap";
+constexpr const char kSmokerAttributeProgramName[] =
+    "recovered_retail_smoker_attribute_bootstrap";
+constexpr const char kWavMetadataProgramName[] =
+    "recovered_retail_wav_metadata_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol. It is a bounded bridge to the real Vehicle tables, not a second
@@ -318,6 +325,68 @@ func void main()
 }
 )RR2NW_SCRIPT";
 
+const char kSmokerAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateSmokerAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kWavMetadataBootstrapPrefix[] = R"RR2NW_SCRIPT(
+const int EDO_WRITE = 1;
+const int sk_EV_LOAD extern;
+
+func int s_OpenEventData(int style) extern;
+func void s_CloseEventData(int event) extern;
+func void s_WriteInt(int event, int value) extern;
+func void s_WriteFloat(int event, float value) extern;
+func void s_WriteStr(int event, str value) extern;
+func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
+func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
+func int s_AddClassTable(str className, int maxTableSize) extern;
+func void s_NewObject(int classTableID, str name) extern;
+
+func void LoadWAV(int classTableID, str objectName, str fileName,
+                  float minFront, float minBack,
+                  float maxFront, float maxBack, float intensity)
+var int event, objectID, cachePos;
+{
+  s_NewObject(classTableID, objectName);
+  s_SearchObjectID(objectID, cachePos, objectName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, fileName);
+  s_WriteFloat(event, minFront);
+  s_WriteFloat(event, minBack);
+  s_WriteFloat(event, maxFront);
+  s_WriteFloat(event, maxBack);
+  s_WriteFloat(event, intensity);
+  s_WriteInt(event, 0);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_LOAD, objectID, cachePos);
+}
+
+func void LoadWAVEx(int classTableID, str objectName, str fileName,
+                    float minFront, float minBack,
+                    float maxFront, float maxBack, float intensity,
+                    int flags)
+var int event, objectID, cachePos;
+{
+  s_NewObject(classTableID, objectName);
+  s_SearchObjectID(objectID, cachePos, objectName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, fileName);
+  s_WriteFloat(event, minFront);
+  s_WriteFloat(event, minBack);
+  s_WriteFloat(event, maxFront);
+  s_WriteFloat(event, maxBack);
+  s_WriteFloat(event, intensity);
+  s_WriteInt(event, flags);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_LOAD, objectID, cachePos);
+}
+
+)RR2NW_SCRIPT";
+
 constexpr long kMaximumRetailAttributeSourceBytes = 128 * 1024;
 
 bool ReadBoundedRetailAttributeSource(const char* relativePath,
@@ -363,6 +432,8 @@ struct RecoveredArenaSeanceState {
   bool farterAttributesReady;
   bool lampAttributesReady;
   bool corpseAttributesReady;
+  bool smokerAttributesReady;
+  bool wavMetadataReady;
   bool skinResourcesReady;
   bool sparkAttributesReady;
   bool routeReady;
@@ -371,6 +442,10 @@ struct RecoveredArenaSeanceState {
   int skinSpriteCount;
   unsigned long long skinCatalogFingerprint;
   unsigned long long skinResourceFingerprint;
+  int wavMetadataCount;
+  int wavMetadataCapacity;
+  unsigned long long wavCatalogFingerprint;
+  unsigned long long wavResourceFingerprint;
   char lastError[256];
 };
 
@@ -496,6 +571,15 @@ bool RunSmokeAttributeBootstrap(SimulationContext* context,
       "SMOKE.SCI");
 }
 
+bool RunSmokerAttributeBootstrap(SimulationContext* context,
+                                 double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "..\\SMOKE.SCI", nullptr,
+      kSmokerAttributeBootstrapSuffix, kSmokerAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_SMOKER_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "SMOKE.SCI SmokerAttr section");
+}
+
 bool RunExplosionAttributeBootstrap(SimulationContext* context,
                                     double startTime) {
   return RunRetailAttributeBootstrap(
@@ -531,6 +615,75 @@ bool RunCorpseAttributeBootstrap(SimulationContext* context,
       kCorpseAttributeBootstrapSuffix, kCorpseAttributeProgramName,
       RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_SOURCE_UNAVAILABLE,
       "SCINC\\CORPSE.SCI");
+}
+
+bool RunWavMetadataBootstrap(SimulationContext* context, double startTime,
+                             SRecoveredWavMetadataCatalog* catalog) {
+  SRecoveredWavMetadataCatalogResult catalogResult = {};
+  if (!RecoveredWavMetadataCatalog_Load(".", catalog, &catalogResult)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "WAV metadata preflight failed (issues=%u): %.190s",
+                  catalogResult.issues, catalogResult.error);
+    const unsigned long long issue =
+        (catalogResult.issues &
+         (RECOVERED_WAV_CATALOG_SOURCE_UNAVAILABLE |
+          RECOVERED_WAV_CATALOG_SOURCE_TOO_LARGE)) != 0
+            ? RECOVERED_ARENA_SEANCE_WAV_SOURCE_UNAVAILABLE
+            : RECOVERED_ARENA_SEANCE_WAV_CATALOG_INVALID;
+    Report(issue, message);
+    return false;
+  }
+  if (!RecoveredWavMetadataCatalog_IsKnown(catalog)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "WAV metadata is not a bounded retail roster "
+                  "(count=%d capacity=%d fingerprint=%llu)",
+                  catalog->entryCount, catalog->capacity,
+                  catalog->fingerprint);
+    Report(RECOVERED_ARENA_SEANCE_WAV_ROSTER_INVALID, message);
+    return false;
+  }
+
+  std::string source;
+  if (!ReadBoundedRetailAttributeSource("SCINC\\LOADWAV.SCI", &source)) {
+    Report(RECOVERED_ARENA_SEANCE_WAV_SOURCE_UNAVAILABLE,
+           "could not read bounded retail SCINC\\LOADWAV.SCI");
+    return false;
+  }
+  char suffix[256] = {};
+  std::snprintf(suffix, sizeof(suffix),
+                "\nfunc void main()\n"
+                " var int classTableID;\n"
+                "{\n"
+                " classTableID := s_AddClassTable(\"WAVObj\",%d);\n"
+                " LoadAllWaves(classTableID);\n"
+                "}\n",
+                catalog->capacity);
+  std::string program;
+  try {
+    program.reserve(sizeof(kWavMetadataBootstrapPrefix) + source.size() +
+                    std::strlen(suffix) + 2u);
+    program.append(kWavMetadataBootstrapPrefix);
+    program.append(source);
+    program.append(suffix);
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
+           "could not allocate bounded WAV metadata bootstrap source");
+    return false;
+  }
+
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kWavMetadataProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
 }
 
 bool OpenArena(SimulationContext* context) {
@@ -723,6 +876,27 @@ bool PublishSmokeAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishSmokerAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKER_ATTRIBUTE_TABLE_MISSING,
+           "retail fragment did not create the SmokerAttr table");
+    return false;
+  }
+  if (!SmokerAttributeState_IsKnownRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "SmokerAttr objects do not match a bounded root roster "
+                  "(count=%d capacity=%d fingerprint=%llu)",
+                  SmokerAttributeState_RosterSize(context),
+                  SmokerAttributeState_Capacity(),
+                  SmokerAttributeState_Fingerprint(context));
+    Report(RECOVERED_ARENA_SEANCE_SMOKER_ATTRIBUTE_ROSTER_INVALID, message);
+    return false;
+  }
+  g_state.smokerAttributesReady = true;
+  return true;
+}
+
 bool PublishExplosionAttributes(SimulationContext* context) {
   if (g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID) {
@@ -805,6 +979,37 @@ bool PublishCorpseAttributes(SimulationContext* context) {
     return false;
   }
   g_state.corpseAttributesReady = true;
+  return true;
+}
+
+bool PublishWavMetadata(
+    SimulationContext* context,
+    const SRecoveredWavMetadataCatalog& catalog) {
+  if (g_arena.searchSeanceClassTable("WAVObj") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_WAV_TABLE_FAILURE,
+           "retail fragment did not create the WAVObj table");
+    return false;
+  }
+  const int count = WAVResourceState_RosterSize(context);
+  const int capacity = WAVResourceState_Capacity();
+  const unsigned long long fingerprint =
+      WAVResourceState_Fingerprint(context);
+  if (!WAVResourceState_AllLoaded(context) || count != catalog.entryCount ||
+      capacity != catalog.capacity || fingerprint != catalog.fingerprint) {
+    char message[224] = {};
+    std::snprintf(message, sizeof(message),
+                  "WAVObj metadata differs from preflight "
+                  "(count=%d/%d capacity=%d/%d fingerprint=%llu/%llu)",
+                  count, catalog.entryCount, capacity, catalog.capacity,
+                  fingerprint, catalog.fingerprint);
+    Report(RECOVERED_ARENA_SEANCE_WAV_ROSTER_INVALID, message);
+    return false;
+  }
+  g_state.wavMetadataCount = count;
+  g_state.wavMetadataCapacity = capacity;
+  g_state.wavCatalogFingerprint = catalog.fingerprint;
+  g_state.wavResourceFingerprint = fingerprint;
+  g_state.wavMetadataReady = true;
   return true;
 }
 
@@ -907,10 +1112,18 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   FarterAttributeState_Link();
   LampAttributeState_Link();
   CorpseAttributeState_Link();
+  SmokerAttributeState_Link();
+  WAVResourceState_Link();
   SkinResourceState_Link();
   if (!OpenArena(context)) return FALSE;
 
   try {
+    SRecoveredWavMetadataCatalog wavCatalog = {};
+    // local_createTables() owns WAVObj before LEVEL0.SC creates attributes.
+    if (!RunWavMetadataBootstrap(context, startTime, &wavCatalog)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
     if (!RunAttributeVehicleBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
@@ -920,6 +1133,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
     if (!RunExplosionAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunSmokerAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -936,7 +1153,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
     g_state.scriptCompleted = true;
 
-    if (!PublishSparkAttributes(context)) {
+    if (!PublishWavMetadata(context, wavCatalog) ||
+        !PublishSparkAttributes(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -946,6 +1164,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         !PublishArtefactAttributes(context) ||
         !PublishSmokeAttributes(context) ||
         !PublishExplosionAttributes(context) ||
+        !PublishSmokerAttributes(context) ||
         !PublishFarterAttributes(context) ||
         !PublishLampAttributes(context) ||
         !PublishCorpseAttributes(context)) {
@@ -986,6 +1205,12 @@ void RecoveredArenaSeance_Release() {
   g_state.farterAttributesReady = false;
   g_state.lampAttributesReady = false;
   g_state.corpseAttributesReady = false;
+  g_state.smokerAttributesReady = false;
+  g_state.wavMetadataReady = false;
+  g_state.wavMetadataCount = 0;
+  g_state.wavMetadataCapacity = 0;
+  g_state.wavCatalogFingerprint = 0;
+  g_state.wavResourceFingerprint = 0;
   g_state.skinResourcesReady = false;
   g_state.skinModelCount = 0;
   g_state.skinSpriteCount = 0;
@@ -1044,6 +1269,26 @@ bool RecoveredArenaSeance_CorpseAttributesReady() {
   return g_state.corpseAttributesReady;
 }
 
+bool RecoveredArenaSeance_SmokerAttributesReady() {
+  return g_state.smokerAttributesReady;
+}
+
+int RecoveredArenaSeance_SmokerAttributeCount() {
+  return g_state.smokerAttributesReady
+             ? SmokerAttributeState_RosterSize(g_arena.getContext())
+             : -1;
+}
+
+int RecoveredArenaSeance_SmokerAttributeCapacity() {
+  return g_state.smokerAttributesReady ? SmokerAttributeState_Capacity() : 0;
+}
+
+unsigned long long RecoveredArenaSeance_SmokerAttributeFingerprint() {
+  return g_state.smokerAttributesReady
+             ? SmokerAttributeState_Fingerprint(g_arena.getContext())
+             : 0;
+}
+
 int RecoveredArenaSeance_FarterAttributeCount() {
   return g_state.farterAttributesReady
              ? FarterAttributeState_RosterSize(g_arena.getContext())
@@ -1090,6 +1335,26 @@ unsigned long long RecoveredArenaSeance_CorpseAttributeFingerprint() {
   return g_state.corpseAttributesReady
              ? CorpseAttributeState_Fingerprint(g_arena.getContext())
              : 0;
+}
+
+bool RecoveredArenaSeance_WavMetadataReady() {
+  return g_state.wavMetadataReady;
+}
+
+int RecoveredArenaSeance_WavMetadataCount() {
+  return g_state.wavMetadataReady ? g_state.wavMetadataCount : 0;
+}
+
+int RecoveredArenaSeance_WavMetadataCapacity() {
+  return g_state.wavMetadataReady ? g_state.wavMetadataCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_WavCatalogFingerprint() {
+  return g_state.wavMetadataReady ? g_state.wavCatalogFingerprint : 0;
+}
+
+unsigned long long RecoveredArenaSeance_WavResourceFingerprint() {
+  return g_state.wavMetadataReady ? g_state.wavResourceFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_SkinResourcesReady() {

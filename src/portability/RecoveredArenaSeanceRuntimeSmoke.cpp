@@ -14,6 +14,7 @@ class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "message/skinmsg.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/corpse/CorpseAttributeState.h"
@@ -23,6 +24,8 @@ class CGRPanel;
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
 #include "obase/smoke/SmokeAttributeState.h"
+#include "obase/smoke/SmokerAttributeState.h"
+#include "obase/sound/WAVResourceState.h"
 #include "storage/h/subject.h"
 
 #include "RecoveredArenaSeanceRuntime.h"
@@ -33,6 +36,8 @@ unsigned long long g_explosionFixtureFingerprint = 0;
 unsigned long long g_farterFixtureFingerprint = 0;
 unsigned long long g_lampFixtureFingerprint = 0;
 unsigned long long g_corpseFixtureFingerprint = 0;
+unsigned long long g_smokerFixtureFingerprint = 0;
+unsigned long long g_wavFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
 
 int Fail(const char* message) {
@@ -40,7 +45,8 @@ int Fail(const char* message) {
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
-               "smoke=%d explosion=%d farter=%d lamp=%d corpse=%d skin=%d "
+               "smoke=%d explosion=%d smoker=%d farter=%d lamp=%d corpse=%d "
+               "wav=%d skin=%d "
                "spark=%d route=%d vehicle=%d "
                "issues=%llu error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
@@ -51,9 +57,11 @@ int Fail(const char* message) {
                RecoveredArenaSeance_ArtefactAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokeAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_ExplosionAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_SmokerAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_FarterAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_LampAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_CorpseAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_WavMetadataReady() ? 1 : 0,
                RecoveredArenaSeance_SkinResourcesReady() ? 1 : 0,
                RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
@@ -61,6 +69,64 @@ int Fail(const char* message) {
                RecoveredArenaSeance_Issues(),
                RecoveredArenaSeance_LastError());
   return EXIT_FAILURE;
+}
+
+bool ValidateWavPayloadCompatibility() {
+  WAVObj january;
+  KR_Event januaryEvent;
+  januaryEvent.label = sk_EV_LOAD;
+  januaryEvent.data.open(EDO_WRITE)
+      .putStr("january.wav")
+      .putDouble(1.0)
+      .putDouble(2.0)
+      .putDouble(3.0)
+      .putDouble(4.0)
+      .putDouble(5.0)
+      .close();
+  const unsigned long cachedFlags =
+      RSXEMITTERDESC_PREPROCESS | RSXEMITTERDESC_INMEMORY;
+  if (!january.receiveEvent(januaryEvent) || !january.m_loaded ||
+      january.m_flags != 0 ||
+      std::strcmp(january.m_rsxCE.szFilename,
+                  "..\\SOUND\\january.wav") != 0 ||
+      (january.m_rsxCE.dwFlags & cachedFlags) != cachedFlags) {
+    return false;
+  }
+
+  WAVObj may;
+  KR_Event mayEvent;
+  mayEvent.label = sk_EV_LOAD;
+  mayEvent.data.open(EDO_WRITE)
+      .putStr("may.wav")
+      .putDouble(10.0)
+      .putDouble(20.0)
+      .putDouble(30.0)
+      .putDouble(40.0)
+      .putDouble(50.0)
+      .putInt(1)
+      .close();
+  if (!may.receiveEvent(mayEvent) || !may.m_loaded || may.m_flags != 1 ||
+      std::strcmp(may.m_rsxCE.szFilename, "..\\SOUND\\may.wav") != 0 ||
+      (may.m_rsxCE.dwFlags & cachedFlags) != 0 ||
+      may.m_rsxEModel.fMinFront != 10.0f ||
+      may.m_rsxEModel.fIntensity != 50.0f) {
+    return false;
+  }
+
+  WAVObj malformed;
+  KR_Event malformedEvent;
+  malformedEvent.label = sk_EV_LOAD;
+  malformedEvent.data.open(EDO_WRITE)
+      .putStr("malformed.wav")
+      .putDouble(1.0)
+      .putDouble(2.0)
+      .putDouble(3.0)
+      .putDouble(4.0)
+      .putDouble(5.0)
+      .putInt(1)
+      .putInt(0)
+      .close();
+  return !malformed.receiveEvent(malformedEvent) && !malformed.m_loaded;
 }
 
 std::string JoinPath(const std::string& directory, const char* name) {
@@ -126,6 +192,8 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_LampAttributesReady() &&
          !RecoveredArenaSeance_CorpseAttributesReady() &&
+         !RecoveredArenaSeance_SmokerAttributesReady() &&
+         !RecoveredArenaSeance_WavMetadataReady() &&
          !RecoveredArenaSeance_SkinResourcesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
@@ -135,6 +203,8 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Artefact.Attr.0") &&
          !context.isExist("Smoke.Attr.Small") &&
          !context.isExist("Smoke.Attr.Fire.Corpse") &&
+         !context.isExist("Smoker.Attr") &&
+         !context.isExist("wav.Ambient") &&
          !context.isExist("Expl.Test.0") &&
          !context.isExist("Lamp.Attr.Default") &&
          !context.isExist("Corpse.Attr.Default") &&
@@ -154,9 +224,11 @@ bool RunCycle() {
       !RecoveredArenaSeance_ArtefactAttributesReady() ||
       !RecoveredArenaSeance_SmokeAttributesReady() ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
+      !RecoveredArenaSeance_SmokerAttributesReady() ||
       !RecoveredArenaSeance_FarterAttributesReady() ||
       !RecoveredArenaSeance_LampAttributesReady() ||
       !RecoveredArenaSeance_CorpseAttributesReady() ||
+      !RecoveredArenaSeance_WavMetadataReady() ||
       !RecoveredArenaSeance_SkinResourcesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
@@ -169,6 +241,8 @@ bool RunCycle() {
       g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("WAVObj") == ct_NULLID ||
       g_arena.searchSeanceClassTable("FarterAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("LampAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("CorpseAttr") == ct_NULLID ||
@@ -205,6 +279,14 @@ bool RunCycle() {
       SmokeAttributeState_IsRetailRoster(&context) &&
       ExplosionAttributeState_IsKnownRoster(&context) &&
       ExplosionAttributeState_RosterSize(&context) == 10 &&
+      SmokerAttributeState_IsKnownRoster(&context) &&
+      SmokerAttributeState_RosterSize(&context) == 11 &&
+      SmokerAttributeState_Capacity() == 11 &&
+      WAVResourceState_AllLoaded(&context) &&
+      WAVResourceState_RosterSize(&context) == 5 &&
+      WAVResourceState_Capacity() == 30 &&
+      WAVResourceState_Fingerprint(&context) ==
+          RecoveredArenaSeance_WavCatalogFingerprint() &&
       FarterAttributeState_IsKnownRoster(&context) &&
       FarterAttributeState_RosterSize(&context) == 0 &&
       FarterAttributeState_Capacity() == 10 &&
@@ -226,6 +308,10 @@ bool RunCycle() {
       ExplosionAttributeState_Fingerprint(&context);
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(&context);
+  const unsigned long long smokerFingerprint =
+      SmokerAttributeState_Fingerprint(&context);
+  const unsigned long long wavFingerprint =
+      WAVResourceState_Fingerprint(&context);
   const unsigned long long lampFingerprint =
       LampAttributeState_Fingerprint(&context);
   const unsigned long long corpseFingerprint =
@@ -237,6 +323,10 @@ bool RunCycle() {
        g_explosionFixtureFingerprint == explosionFingerprint) &&
       (g_farterFixtureFingerprint == 0 ||
        g_farterFixtureFingerprint == farterFingerprint) &&
+      (g_smokerFixtureFingerprint == 0 ||
+       g_smokerFixtureFingerprint == smokerFingerprint) &&
+      (g_wavFixtureFingerprint == 0 ||
+       g_wavFixtureFingerprint == wavFingerprint) &&
       (g_lampFixtureFingerprint == 0 ||
        g_lampFixtureFingerprint == lampFingerprint) &&
       (g_corpseFixtureFingerprint == 0 ||
@@ -245,6 +335,8 @@ bool RunCycle() {
        g_skinCatalogFixtureFingerprint == skinCatalogFingerprint);
   g_explosionFixtureFingerprint = explosionFingerprint;
   g_farterFixtureFingerprint = farterFingerprint;
+  g_smokerFixtureFingerprint = smokerFingerprint;
+  g_wavFixtureFingerprint = wavFingerprint;
   g_lampFixtureFingerprint = lampFingerprint;
   g_corpseFixtureFingerprint = corpseFingerprint;
   g_skinCatalogFixtureFingerprint = skinCatalogFingerprint;
@@ -257,11 +349,14 @@ bool RunCycle() {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 7) {
-    return Fail("expected a fixture directory and five retail-script sources");
+  if (argc != 9) {
+    return Fail("expected a fixture directory and seven retail-script sources");
   }
 
   RecoveredArenaSeance_Release();
+  if (!ValidateWavPayloadCompatibility()) {
+    return Fail("January/May WAV event payload compatibility failed");
+  }
   if (RecoveredArenaSeance_Initialize(nullptr, 0.0) != FALSE ||
       RecoveredArenaSeance_Issues() !=
           RECOVERED_ARENA_SEANCE_INVALID_CONTEXT ||
@@ -344,6 +439,9 @@ int main(int argc, char** argv) {
       JoinPath(scincDirectory, "FARTERATTR.SCI");
   const std::string corpseCopy = JoinPath(scincDirectory, "CORPSE.SCI");
   const std::string skinCopy = JoinPath(scincDirectory, "SKIN.SCI");
+  const std::string localMainCopy =
+      JoinPath(scincDirectory, "LOCALMAIN.SCI");
+  const std::string loadWavCopy = JoinPath(scincDirectory, "LOADWAV.SCI");
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(explosionCopy.c_str());
   DeleteFileA(farterCopy.c_str());
@@ -355,12 +453,27 @@ int main(int argc, char** argv) {
   DeleteFileA(farterLocalCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
+  DeleteFileA(localMainCopy.c_str());
+  DeleteFileA(loadWavCopy.c_str());
   if (!WriteFile(config, fixture) ||
       SetCurrentDirectoryA(levelDirectory.c_str()) == FALSE) {
     return Fail("could not prepare retail-script Arena fixture");
   }
 
   Session::m_moment = 0.0;
+  SimulationContext missingWavSourceContext(64, 128);
+  const bool missingWavSourceRejected =
+      RecoveredArenaSeance_Initialize(&missingWavSourceContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_WAV_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingWavSourceContext);
+  if (CopyFileA(argv[7], localMainCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[8], loadWavCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy WAV metadata sources into Arena fixture");
+  }
+
   SimulationContext missingSourceContext(64, 128);
   const bool missingSourceRejected =
       RecoveredArenaSeance_Initialize(&missingSourceContext, 0.0) == FALSE &&
@@ -518,6 +631,64 @@ int main(int argc, char** argv) {
     return Fail("could not restore valid Lamp fixture");
   }
 
+  std::string invalidSmokerFixture;
+  if (!ReadFile(argv[2], invalidSmokerFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not read Smoker fixture for deterministic corruption");
+  }
+  const std::string smokerNeedle =
+      "0.1, 1.8, \"Smoke.Attr.Volcano\"";
+  const std::size_t smokerRate = invalidSmokerFixture.find(smokerNeedle);
+  if (smokerRate == std::string::npos) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not corrupt Smoker fixture deterministically");
+  }
+  invalidSmokerFixture.replace(smokerRate, smokerNeedle.size(),
+                               "0.2, 1.8, \"Smoke.Attr.Volcano\"");
+  if (!WriteFile(smokeCopy, invalidSmokerFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Smoker fixture");
+  }
+  SimulationContext invalidSmokerRosterContext(64, 128);
+  const bool invalidSmokerRosterRejected =
+      RecoveredArenaSeance_Initialize(&invalidSmokerRosterContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_SMOKER_ATTRIBUTE_ROSTER_INVALID) != 0 &&
+      IsReleased(invalidSmokerRosterContext);
+  if (CopyFileA(argv[2], smokeCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid Smoker fixture");
+  }
+
+  std::string invalidWavFixture;
+  if (!ReadFile(argv[8], invalidWavFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not read WAV fixture for deterministic corruption");
+  }
+  const std::string wavNeedle = "Ambient.wav";
+  const std::size_t wavFile = invalidWavFixture.find(wavNeedle);
+  if (wavFile == std::string::npos) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not corrupt WAV fixture deterministically");
+  }
+  invalidWavFixture.replace(wavFile, wavNeedle.size(), "Ambient2.wav");
+  if (!WriteFile(loadWavCopy, invalidWavFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid WAV metadata fixture");
+  }
+  SimulationContext invalidWavRosterContext(64, 128);
+  const bool invalidWavRosterRejected =
+      RecoveredArenaSeance_Initialize(&invalidWavRosterContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_WAV_ROSTER_INVALID) != 0 &&
+      IsReleased(invalidWavRosterContext);
+  if (CopyFileA(argv[8], loadWavCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid WAV metadata fixture");
+  }
+
   const bool firstCycle = RunCycle();
   const bool secondCycle = firstCycle && RunCycle();
   const bool restored =
@@ -531,12 +702,17 @@ int main(int argc, char** argv) {
   DeleteFileA(farterLocalCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
+  DeleteFileA(localMainCopy.c_str());
+  DeleteFileA(loadWavCopy.c_str());
   RemoveDirectoryA(scincDirectory.c_str());
   RemoveDirectoryA(levelDirectory.c_str());
   RemoveDirectoryA(fixtureDirectory.c_str());
 
   if (!missingSourceRejected) {
     return Fail("missing retail SMOKE.SCI was not rejected transactionally");
+  }
+  if (!missingWavSourceRejected) {
+    return Fail("missing WAV metadata sources were not rejected transactionally");
   }
   if (!missingExplosionRootRejected || !missingExplosionLocalRejected) {
     return Fail("missing retail Explosion fragments were not rejected "
@@ -555,6 +731,14 @@ int main(int argc, char** argv) {
     return Fail("invalid Lamp attribute roster was not rejected "
                 "transactionally");
   }
+  if (!invalidSmokerRosterRejected) {
+    return Fail("invalid Smoker attribute roster was not rejected "
+                "transactionally");
+  }
+  if (!invalidWavRosterRejected) {
+    return Fail("invalid WAV metadata roster was not rejected "
+                "transactionally");
+  }
   if (!missingSkinCatalogRejected) {
     return Fail("missing retail Skin catalog was not rejected transactionally");
   }
@@ -566,25 +750,31 @@ int main(int argc, char** argv) {
   if (!restored) return Fail("working directory was not restored");
 
   std::printf("bounded arena seance cycles=2 missing-smoke=rollback "
+              "missing-wav=rollback "
               "missing-explosion-root-local=rollback "
               "missing-farter-root-local=rollback missing-lamp=rollback "
               "missing-corpse=rollback "
               "invalid-explosion-roster=rollback "
               "invalid-lamp-roster=rollback "
+              "invalid-smoker-roster=rollback invalid-wav-roster=rollback "
               "missing-skin-catalog=rollback "
               "invalid-skin-catalog=rollback "
               "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
               "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
+              "smoker_attrs=11/11 wav_metadata=5/30 "
               "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
-              "explosion_fingerprint=%llu farter_fingerprint=%llu "
+              "explosion_fingerprint=%llu smoker_fingerprint=%llu "
+              "wav_fingerprint=%llu farter_fingerprint=%llu "
               "lamp_fingerprint=%llu corpse_fingerprint=%llu "
               "skin_catalog_fingerprint=%llu "
               "rollback=idempotent\n",
               g_explosionFixtureFingerprint,
+              g_smokerFixtureFingerprint,
+              g_wavFixtureFingerprint,
               g_farterFixtureFingerprint,
               g_lampFixtureFingerprint,
               g_corpseFixtureFingerprint,

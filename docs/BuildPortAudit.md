@@ -1286,6 +1286,68 @@ launches publish the three readiness/count/capacity/fingerprint groups,
 `bounded-retail-farter-lamp-corpse-skin-resource-smoke-explosion-attribute-vehicle-bootstrap`,
 zero service issues, `level-ready` and `runtime_shutdown=clean`.
 
+### Smoker attributes and WAV metadata
+
+The next dependency-safe frontier now owns the original `SmokerAttr` table and
+the `WAVObj` metadata table. `SMOKER.CPP` and `Wavobj.cpp` remain full compile
+gates, while their table/object lifecycles are extracted into reusable owners.
+The Smoker owner registers all 19 script-facing fields, initializes every
+derived Smoke/table/corona cache deterministically, and validates complete
+sorted name/value fingerprints before publication.
+
+The selected root `SMOKE.SCI` is compiled a second time with an entry point
+that invokes only `main_CreateSmokerAttr()`. This is intentional: the earlier
+SmokeAttr stage and the new SmokerAttr stage preserve their separate table
+ownership while both execute the user's exact selected source. May retail has
+12 attributes and adds `Smoker.Attr.Train`; the public January fixture has 11.
+The active Level `set_Fires.sci` files instantiate `Smoker` objects with
+`Smoker.Attr.Fire`/`FireArea`, so the old standalone `Fire.cpp` is not promoted
+as a duplicate service in this slice.
+
+WAV admission is read-only and precedes every attribute table, matching
+`local_createTables()` in retail `LEVEL0.SC`. A bounded parser extracts only
+the `WAVObj` capacity from `SCINC/LOCALMAIN.SCI` and exact `LoadWAV`/
+`LoadWAVEx` calls from `SCINC/LOADWAV.SCI`; it rejects malformed calls,
+duplicates, path escape, oversized input and capacity overflow. The same
+selected `LOADWAV.SCI` then executes through the recovered VM. Catalog and
+live-object fingerprints must match exactly before readiness is published;
+the known-roster gate also binds the raw `LOCALMAIN.SCI` and `LOADWAV.SCI`
+source fingerprints, so a semantic lookalike is not mislabeled as retail.
+
+May `LoadWAV` writes a trailing zero flag absent from the January event, and
+`LoadWAVEx(..., 1)` marks dialogue/music as uncached. The event reader accepts
+the older payload only when no bytes remain; flag 1 omits the legacy
+`PREPROCESS|INMEMORY` bits. This frontier records RSX descriptors only. It does
+not activate Intel RSX, allocate a `SoundObj`, or claim audible playback.
+
+The verified May metadata identities are:
+
+| Level | WAV count/capacity | `LoadWAVEx` count | Fingerprint |
+| --- | ---: | ---: | ---: |
+| Level.01D | `29/30` | 4 | `18427911194505023745` |
+| Level.01N | `28/30` | 4 | `4633857832084587996` |
+| Level.02D | `22/35` | 5 | `12826306996657882107` |
+| Level.02N | `22/30` | 5 | `12370419092194669116` |
+| Level.03N | `32/35` | 6 | `9649152438776867277` |
+| Level.04D | `33/35` | 6 | `13040795140785882021` |
+| Level.05D | `28/30` | 4 | `6968472016635930248` |
+| Level.06N | `26/35` | 2 | `1186999906182190271` |
+| Level.07N | `29/30` | 2 | `14511910215820770629` |
+
+Adding the complete WAV roster exposed an earlier artificial limit in the
+recovered service: its `SimulationContext(64, 128)` exhausted the object pool
+during Skin creation and legacy rollback spun at 100% CPU. The original retail
+`Supervisor::startSeance()` uses `SimulationContext(4000, 5000)`; restoring
+those exact capacities removes the hang and preserves room for the remaining
+subject graph.
+
+Final verification passes 47/47 tests in Debug and Release. The retail matrix
+passes 36/36 service launches, 36/36 direct WAV catalogs and 36/36 direct Skin
+catalogs across both configurations, both roots and all nine Levels, with
+matching E/G identities. All 4/4 executable runtime-smoke launches publish
+Smoker/WAV readiness and fingerprints, zero service issues, `level-ready` and
+`runtime_shutdown=clean`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1315,9 +1377,12 @@ zero service issues, `level-ready` and `runtime_shutdown=clean`.
    attribute fragments execute before publication, followed by strict
    preflight and real decoding of every Level-local Skin VBC/TXR resource.
    The Farter/Lamp/Corpse attribute-only tranche now executes exact root and
-   Level-local scripts with complete per-Level identity and rollback.
-   Skin animation construction and remaining OBASE archives/script ABI
-   bindings are still required before switching to full retail `LEVEL0.SC`.
+   Level-local scripts with complete per-Level identity and rollback. The
+   shared SmokerAttr and Level-local WAV metadata owners now preserve May
+   rosters, optional load flags and live/catalog fingerprints without
+   activating RSX. Attribute cache resolution, Skin animation construction and
+   remaining OBASE archives/script ABI bindings are still required before
+   switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

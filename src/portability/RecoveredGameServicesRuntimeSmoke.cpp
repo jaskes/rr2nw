@@ -14,6 +14,8 @@
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/lamp/LampAttributeState.h"
+#include "obase/smoke/SmokerAttributeState.h"
+#include "obase/sound/WAVResourceState.h"
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
@@ -38,8 +40,8 @@ int Fail(const char* message) {
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
-      "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d farter=%d "
-      "lamp=%d corpse=%d skin=%d spark=%d "
+      "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d smoker=%d "
+      "farter=%d lamp=%d corpse=%d wav=%d skin=%d spark=%d "
       "route=%d vehicle=%d "
       "arena_issues=%llu arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
@@ -57,9 +59,11 @@ int Fail(const char* message) {
       RecoveredGameServices_ArtefactAttributesReady() ? 1 : 0,
       RecoveredGameServices_SmokeAttributesReady() ? 1 : 0,
       RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0,
+      RecoveredGameServices_SmokerAttributesReady() ? 1 : 0,
       RecoveredGameServices_FarterAttributesReady() ? 1 : 0,
       RecoveredGameServices_LampAttributesReady() ? 1 : 0,
       RecoveredGameServices_CorpseAttributesReady() ? 1 : 0,
+      RecoveredGameServices_WavMetadataReady() ? 1 : 0,
       RecoveredGameServices_SkinResourcesReady() ? 1 : 0,
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
@@ -89,9 +93,11 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ArtefactAttributesReady() &&
          !RecoveredGameServices_SmokeAttributesReady() &&
          !RecoveredGameServices_ExplosionAttributesReady() &&
+         !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_FarterAttributesReady() &&
          !RecoveredGameServices_LampAttributesReady() &&
          !RecoveredGameServices_CorpseAttributesReady() &&
+         !RecoveredGameServices_WavMetadataReady() &&
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_RouteReady() &&
@@ -205,9 +211,11 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ArtefactAttributesReady() ||
       !RecoveredGameServices_SmokeAttributesReady() ||
       !RecoveredGameServices_ExplosionAttributesReady() ||
+      !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_FarterAttributesReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
       !RecoveredGameServices_CorpseAttributesReady() ||
+      !RecoveredGameServices_WavMetadataReady() ||
       !RecoveredGameServices_SkinResourcesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_RouteReady() ||
@@ -229,6 +237,16 @@ int main(int argc, char** argv) {
       ExplosionAttributeState_Fingerprint(g_super.m_context);
   const int explosionRosterSize =
       ExplosionAttributeState_RosterSize(g_super.m_context);
+  const unsigned long long smokerFingerprint =
+      SmokerAttributeState_Fingerprint(g_super.m_context);
+  const int smokerRosterSize =
+      SmokerAttributeState_RosterSize(g_super.m_context);
+  const int smokerCapacity = SmokerAttributeState_Capacity();
+  const unsigned long long wavFingerprint =
+      WAVResourceState_Fingerprint(g_super.m_context);
+  const int wavRosterSize =
+      WAVResourceState_RosterSize(g_super.m_context);
+  const int wavCapacity = WAVResourceState_Capacity();
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(g_super.m_context);
   const int farterRosterSize =
@@ -250,7 +268,12 @@ int main(int argc, char** argv) {
   const unsigned long long skinResourceFingerprint =
       RecoveredArenaSeance_SkinResourceFingerprint();
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
-      explosionRosterSize > 14 || skinModelCount < 26 ||
+      explosionRosterSize > 14 || smokerFingerprint == 0 ||
+      smokerRosterSize != 12 || smokerCapacity != 12 ||
+      wavFingerprint == 0 || wavRosterSize < 22 || wavRosterSize > 33 ||
+      wavCapacity < 30 || wavCapacity > 35 ||
+      RecoveredArenaSeance_WavCatalogFingerprint() != wavFingerprint ||
+      skinModelCount < 26 ||
       skinModelCount > 52 || skinSpriteCount != 1 ||
       skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
       farterFingerprint == 0 || farterRosterSize < 0 ||
@@ -307,6 +330,14 @@ int main(int argc, char** argv) {
   if (!StartServices(argv[1]) || RecoveredGameServices_Issues() != 0 ||
       ExplosionAttributeState_Fingerprint(g_super.m_context) !=
           explosionFingerprint ||
+      SmokerAttributeState_Fingerprint(g_super.m_context) !=
+          smokerFingerprint ||
+      SmokerAttributeState_RosterSize(g_super.m_context) !=
+          smokerRosterSize ||
+      SmokerAttributeState_Capacity() != smokerCapacity ||
+      WAVResourceState_Fingerprint(g_super.m_context) != wavFingerprint ||
+      WAVResourceState_RosterSize(g_super.m_context) != wavRosterSize ||
+      WAVResourceState_Capacity() != wavCapacity ||
       FarterAttributeState_Fingerprint(g_super.m_context) !=
           farterFingerprint ||
       FarterAttributeState_RosterSize(g_super.m_context) !=
@@ -339,6 +370,8 @@ int main(int argc, char** argv) {
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
               "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
               "explosion_attrs=%d explosion_fingerprint=%llu "
+              "smoker_attrs=%d/%d smoker_fingerprint=%llu "
+              "wav_metadata=%d/%d wav_fingerprint=%llu "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
               "lamp_attrs=%d/%d lamp_fingerprint=%llu "
               "corpse_attrs=%d/%d corpse_fingerprint=%llu portal=table "
@@ -346,6 +379,8 @@ int main(int argc, char** argv) {
               "skin_resources=%llu "
               "route=table vehicle=real observer=1\n",
               explosionRosterSize, explosionFingerprint,
+              smokerRosterSize, smokerCapacity, smokerFingerprint,
+              wavRosterSize, wavCapacity, wavFingerprint,
               farterRosterSize, farterCapacity, farterFingerprint,
               lampRosterSize, lampCapacity, lampFingerprint,
               corpseRosterSize, corpseCapacity, corpseFingerprint,

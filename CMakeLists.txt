@@ -1882,6 +1882,26 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_recovered_wav_metadata_catalog STATIC
+  src/runtime/RecoveredWavMetadataCatalog.cpp
+  src/runtime/RecoveredWavMetadataCatalog.h
+)
+target_include_directories(rr2nw_recovered_wav_metadata_catalog PUBLIC
+  src/runtime
+)
+target_compile_features(
+  rr2nw_recovered_wav_metadata_catalog PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_wav_metadata_catalog PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_recovered_wav_metadata_catalog PRIVATE /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_arena_smoke_attribute_state STATIC
   nw/ARENA/OBASE/Smoke/SmokeAttributeState.cpp
   nw/ARENA/OBASE/Smoke/SmokeAttributeState.h
@@ -1915,6 +1935,71 @@ target_compile_definitions(rr2nw_arena_smoke_attribute_state PRIVATE
 if(MSVC)
   target_compile_options(
     rr2nw_arena_smoke_attribute_state PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_arena_smoker_attribute_state STATIC
+  nw/ARENA/OBASE/Smoke/SmokerAttributeState.cpp
+  nw/ARENA/OBASE/Smoke/SmokerAttributeState.h
+  nw/ARENA/OBASE/Smoke/SmokerAttributeState.inl
+)
+target_link_libraries(rr2nw_arena_smoker_attribute_state PUBLIC
+  rr2nw_arena_smoke_texture_cache
+  rr2nw_arena_storage
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_arena_smoker_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Smoke
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_arena_smoker_attribute_state PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_arena_smoker_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_smoker_attribute_state PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_arena_wav_resource_state STATIC
+  nw/ARENA/OBASE/Sound/WAVResourceState.cpp
+  nw/ARENA/OBASE/Sound/WAVResourceState.h
+  nw/ARENA/OBASE/Sound/WAVResourceState.inl
+  nw/ARENA/OBASE/Sound/WAVObj.h
+)
+target_link_libraries(rr2nw_arena_wav_resource_state PUBLIC
+  rr2nw_arena_storage
+  rr2nw_sound_state
+)
+target_include_directories(rr2nw_arena_wav_resource_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Sound
+)
+target_compile_features(rr2nw_arena_wav_resource_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_wav_resource_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_wav_resource_state PRIVATE
     /W3 /permissive- /wd4081 /wd4244
   )
 endif()
@@ -2123,6 +2208,68 @@ target_compile_definitions(rr2nw_arena_obase_smoke_full PRIVATE
 
 if(MSVC)
   target_compile_options(rr2nw_arena_obase_smoke_full PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_arena_obase_smoker_full STATIC
+  nw/ARENA/OBASE/Smoke/SMOKER.CPP
+)
+target_link_libraries(rr2nw_arena_obase_smoker_full PUBLIC
+  rr2nw_arena_light_chain
+  rr2nw_arena_obase_smoke_full
+  rr2nw_arena_physics
+  rr2nw_arena_smoker_attribute_state
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_obase_smoker_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Smoke
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_smoker_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_smoker_full PRIVATE
+  __NT__
+  RR2NW_SMOKER_ATTRIBUTE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_obase_wav_full STATIC
+  nw/ARENA/OBASE/Sound/Wavobj.cpp
+)
+target_link_libraries(rr2nw_arena_obase_wav_full PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_wav_resource_state
+  rr2nw_sound_state
+)
+target_include_directories(rr2nw_arena_obase_wav_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Sound
+)
+target_compile_features(rr2nw_arena_obase_wav_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_wav_full PRIVATE
+  __NT__
+  RR2NW_WAV_RESOURCE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_smoker_full PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_arena_obase_wav_full PRIVATE
     /W3 /permissive- /wd4081 /wd4244
   )
 endif()
@@ -2794,12 +2941,15 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_farter_attribute_state
   rr2nw_arena_lamp_attribute_state
   rr2nw_arena_corpse_attribute_state
+  rr2nw_arena_smoker_attribute_state
+  rr2nw_arena_wav_resource_state
   rr2nw_arena_skin_resource_state
   rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
   rr2nw_legacy_shell_full
   rr2nw_recovered_legacy_script_runtime
   rr2nw_recovered_skin_resource_catalog
+  rr2nw_recovered_wav_metadata_catalog
   rr2nw_recovered_game_level_runtime
   rr2nw_recovered_software_frame
   rr2nw_supervisor_global
@@ -3507,6 +3657,26 @@ target_compile_definitions(rr2nw_legacy_skin_resource_smoke PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_recovered_wav_metadata_catalog_smoke
+  src/portability/RecoveredWavMetadataCatalogSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_wav_metadata_catalog_smoke PRIVATE
+  rr2nw_recovered_wav_metadata_catalog
+)
+target_compile_features(
+  rr2nw_recovered_wav_metadata_catalog_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_recovered_wav_metadata_catalog_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_recovered_wav_metadata_catalog_smoke PRIVATE /W4 /permissive-
+  )
+endif()
 target_link_libraries(
   rr2nw_carrier_smoke PRIVATE rr2nw_arena_obase_carrier
 )
@@ -3766,6 +3936,8 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/LAMP.SCI"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/farterattr.sci"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/CORPSE.SCI"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/localmain.sci"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/LOADWAV.SCI"
   )
   add_test(
     NAME peripheral-attribute-state-smoke
@@ -3796,5 +3968,10 @@ if(BUILD_TESTING)
   add_test(
     NAME legacy-skin-resource-smoke
     COMMAND rr2nw_legacy_skin_resource_smoke
+  )
+  add_test(
+    NAME recovered-wav-metadata-catalog-smoke
+    COMMAND rr2nw_recovered_wav_metadata_catalog_smoke
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N"
   )
 endif()

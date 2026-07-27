@@ -327,7 +327,10 @@ void InitializeSession() {
     g_hardware.m_ctrlUse.joystick = FALSE;
     Session::m_hardware = &g_hardware;
 
-    g_super.m_context = new SimulationContext(64, 128);
+    // Preserve the capacities used by the retail Supervisor::startSeance().
+    // Small synthetic pools can exhaust once the complete WAV and Skin
+    // rosters coexist, and the legacy full-pool rollback is not reliable.
+    g_super.m_context = new SimulationContext(4000, 5000);
     g_super.m_publisher = new Publisher();
     g_super.m_context->addObject("Publisher", g_super.m_publisher);
     if (g_super.m_context->addObject("Hardware", &g_hardware).isNUL() ||
@@ -518,6 +521,14 @@ bool RecoveredGameServices_CorpseAttributesReady() {
   return RecoveredArenaSeance_CorpseAttributesReady();
 }
 
+bool RecoveredGameServices_SmokerAttributesReady() {
+  return RecoveredArenaSeance_SmokerAttributesReady();
+}
+
+bool RecoveredGameServices_WavMetadataReady() {
+  return RecoveredArenaSeance_WavMetadataReady();
+}
+
 bool RecoveredGameServices_SkinResourcesReady() {
   return RecoveredArenaSeance_SkinResourcesReady();
 }
@@ -546,6 +557,8 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_FarterAttributesReady() &&
          RecoveredGameServices_LampAttributesReady() &&
          RecoveredGameServices_CorpseAttributesReady() &&
+         RecoveredGameServices_SmokerAttributesReady() &&
+         RecoveredGameServices_WavMetadataReady() &&
          RecoveredGameServices_SkinResourcesReady() &&
          RecoveredGameServices_SparkAttributesReady() &&
          RecoveredGameServices_RouteReady() &&

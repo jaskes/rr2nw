@@ -524,7 +524,7 @@ var int objectID, cachePos, event;
   RemoveDirectoryA(fixtureDirectory.c_str());
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("legacy script host bindings=15 constants=11 lf=normalized "
+  std::printf("legacy script host bindings=15 constants=12 lf=normalized "
               "spark=retail-phases common_attrs=bird,orphan,artefact "
               "route=loaded route_eof=clamped "
               "errors=fail-closed rollback=clean\n");

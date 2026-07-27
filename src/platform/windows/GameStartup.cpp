@@ -577,6 +577,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_CorpseAttributeCapacity()));
   log.Line("corpse_attribute_fingerprint=" + std::to_string(
                RecoveredArenaSeance_CorpseAttributeFingerprint()));
+  log.Line("smoker_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SmokerAttributesReady() ? 1 : 0));
+  log.Line("smoker_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_SmokerAttributeCount()));
+  log.Line("smoker_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_SmokerAttributeCapacity()));
+  log.Line("smoker_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SmokerAttributeFingerprint()));
+  log.Line("wav_metadata_initialized=" +
+           std::to_string(
+               RecoveredGameServices_WavMetadataReady() ? 1 : 0));
+  log.Line("wav_metadata_count=" +
+           std::to_string(RecoveredArenaSeance_WavMetadataCount()));
+  log.Line("wav_metadata_capacity=" +
+           std::to_string(RecoveredArenaSeance_WavMetadataCapacity()));
+  log.Line("wav_catalog_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_WavCatalogFingerprint()));
+  log.Line("wav_resource_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_WavResourceFingerprint()));
   log.Line("skin_resources_initialized=" +
            std::to_string(
                RecoveredGameServices_SkinResourcesReady() ? 1 : 0));
@@ -664,7 +684,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-farter-lamp-corpse-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-wav-smoker-farter-lamp-corpse-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

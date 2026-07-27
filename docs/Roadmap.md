@@ -395,14 +395,22 @@ one-field Lamp corruption, teardown and reconstruction are rollback-tested.
 The executable's two-space `m_onLand  ` serializer spelling is deliberately
 preserved and has a focused regression.
 
-The next dependency audit can therefore enter the heavy graph, but must keep
-Sound/WAV, Smoker/Fire, light/corona/terrain updates and the
-People/Tank/Taxi/Bullet subjects behind explicit owners. A sensible next slice
-is the shared Smoker/Fire attribute layer required by Corpse, followed by
-Sound metadata required by Farter; subject creation comes only after those
-services have bounded lifecycle tests. Continue in rollback-tested groups
-until the unchanged retail `LEVEL0.SC` can replace the bootstrap. Then verify
-the already attached Vessel, apply
+The shared Smoker and WAV metadata dependencies are now connected. The real
+owners execute `main_CreateSmokerAttr()` and each selected Level's exact
+`LoadAllWaves()`, validate complete live fingerprints and roll back with the
+rest of the seance. May's `Smoker.Attr.Train`, optional WAV event flags and
+uncached `LoadWAVEx` behavior are preserved without activating RSX or claiming
+audible sound. Active retail fires are Smoker instances, so the obsolete
+standalone Fire source stays outside the runtime graph.
+
+This closes the attribute/service prerequisites previously blocking Corpse and
+Farter. The next dependency audit should resolve their now-available Smoker/
+WAV references in a controlled attribute-update pass, then enter the least
+coupled subjects before the People/Tank/Taxi/Bullet graph. Light/corona/terrain
+updates, `SoundObj` and an eventual replacement audio backend remain explicit
+boundaries. Continue in rollback-tested groups until unchanged retail
+`LEVEL0.SC` can replace the bootstrap. Then verify the already attached
+Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
 Hardware subscription and camera ownership from the temporary observer. Menu,
 Briefing, Console, save/load/restart transitions, RSX/audio and active DebugMap
@@ -424,6 +432,12 @@ configurations. The complete gate also passes 36/36 service launches, 36/36
 direct Skin catalogs and 4/4 executable runtime smokes; the latter publish
 Farter/Lamp/Corpse readiness, counts, capacities and fingerprints with clean
 shutdown.
+The Smoker/WAV frontier raises the matrix to 47/47 in each configuration and
+adds 36/36 direct WAV-catalog launches. The same full gate passes 36/36 service
+and 36/36 Skin-catalog launches, paired E/G identities, and 4/4 executable
+smokes with Smoker/WAV readiness plus clean shutdown. Restoring the original
+4000-event/5000-object context capacities also removes the full-pool CPU-loop
+revealed by the complete WAV plus Skin population.
 
 ### Цель
 

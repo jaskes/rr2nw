@@ -208,6 +208,19 @@ claim authorship of inherited Logos code or retail data.
 - Protected the recovered `nw/` tree from automatic text/line-ending
   normalization while standardizing new project files on UTF-8/LF.
 
+- Added the real `SmokerAttr` owner and exact root-script bootstrap, including
+  deterministic derived caches, public/May complete-roster fingerprints and
+  transactional missing/corrupt-source rejection. May's additional
+  `Smoker.Attr.Train` is preserved as retail data.
+- Added a bounded Level-local WAV metadata catalog and real `WAVObj` owner.
+  Production now executes exact `LOADWAV.SCI`, checks the live object roster
+  against preflight, preserves the May trailing flags word and uncached
+  `LoadWAVEx` entries, and publishes counts/capacities/fingerprints without
+  activating the legacy RSX audio backend.
+- Added a direct WAV catalog smoke and expanded Arena/service/executable
+  contracts to cover missing/corrupt WAV and Smoker input, reconstruction and
+  all nine installed/mounted retail identities.
+
 ### Changed
 
 - Split the Vehicle seance into an Arena transaction, a script execution owner
@@ -358,6 +371,9 @@ claim authorship of inherited Logos code or retail data.
 - Bounded software-panel RLE output to its declared resolution, validated font
   glyph tables before drawing and clipped sprite/font/control pixels to the
   active framebuffer; malformed control geometry is rejected or capped.
+- Restored the original retail `SimulationContext` capacities of 4000 events
+  and 5000 objects. The earlier synthetic 64/128 pool exhausted once complete
+  WAV and Skin rosters coexisted and could enter a legacy teardown CPU-loop.
 
 - Defined Windows 10/11 as the only mandatory platforms for 1.0.
 - Allowed a modern x86 executable on x64 Windows for 1.0; native x64 is no

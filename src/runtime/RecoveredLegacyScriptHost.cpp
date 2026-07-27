@@ -10,6 +10,7 @@
 #include "message/attrmsg.h"
 #include "message/fartmsg.h"
 #include "message/fountmsg.h"
+#include "message/skinmsg.h"
 #include "message/lampmsg.h"
 #include "message/sparkmsg.h"
 #include "message/routmsg.h"
@@ -158,6 +159,8 @@ void ConstLampSetEndPosition(TStackCell* cell) {
   cell->i = lmp_EV_SETENDPOS;
 }
 
+void ConstSkinLoad(TStackCell* cell) { cell->i = sk_EV_LOAD; }
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
@@ -188,6 +191,7 @@ TLinkConstExtern g_constants[] = {
     {"START_FARTING", ConstFarterStart, 0},
     {"lmp_EV_START", ConstLampStart, 0},
     {"lmp_EV_SETENDPOS", ConstLampSetEndPosition, 0},
+    {"sk_EV_LOAD", ConstSkinLoad, 0},
     {nullptr, nullptr, 0}};
 
 }  // namespace

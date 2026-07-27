@@ -16,87 +16,7 @@
 #include "h/light.h"
 #include "h/phisics.h"
 #include "h/cachesmoke.h"
-
- //===========================================================================
-class AttributeSmoker : public ct_Attribute
-{
- public:
-    KR_ObjectID     m_smokeAttrID;
-    ct_ClassTableID m_smokeTableID;
-
-    GR_HTEXTURE     m_coronaHText;
-    unsigned long   m_coronaColor;
-
-    virtual void    update(double ts);
-
-//{{ATTRIBUTE
-    ct_AttrItem  m_array[19];
-    double          m_createIncMin           ;  // 
-    double          m_createIncMax           ;  // 
-    ct_AttrStr      m_smokeAttrName          ;  // 
-    double          m_maxTimeLife            ;  // 
-    ct_AttrStr      m_smokeTableName         ;  // 
-    int             m_onLand                 ;  // 
-    int             m_useLight               ;  // 
-    int             m_lightColor             ;  // 
-    double          m_minLightBright         ;  // 
-    double          m_maxLightBright         ;  // 
-    double          m_lightRadius            ;  // 
-    double          m_lightBrightStep        ;  // 
-    double          m_lightOffset            ;  // 
-    int             m_useCorona              ;  // 
-    int             m_coronaRGB              ;  // 
-    double          m_coronaR                ;  // 
-    int             m_coronaAlpha            ;  // 
-    ct_AttrStr      m_coronaName             ;  // 
-    double          m_maxCoronaR             ;  // 
-
-    AttributeSmoker()
-    {
-        m_createIncMin       = 0.1;
-        m_createIncMax       = 0.3;
-        strncpy(m_smokeAttrName,"Smoke.Attr.Def", sizeof( ct_AttrStr )-1 );
-        m_maxTimeLife        = -1;
-        strncpy(m_smokeTableName,"Smoke", sizeof( ct_AttrStr )-1 );
-        m_onLand             = 0;
-        m_useLight           = 0;
-        m_lightColor         = 7;
-        m_minLightBright     = 20;
-        m_maxLightBright     = 255;
-        m_lightRadius        = 10.0;
-        m_lightBrightStep    = 30.0;
-        m_lightOffset        = 2.0;
-        m_useCorona          = 0;
-        m_coronaRGB          = 0xFFFFFF;
-        m_coronaR            = 0.2;
-        m_coronaAlpha        = 255;
-        strncpy(m_coronaName,"Smoke.spr", sizeof( ct_AttrStr )-1 );
-        m_maxCoronaR         = 5;
-
-        m_array[0].set("m_createIncMin",m_createIncMin);
-        m_array[1].set("m_createIncMax",m_createIncMax);
-        m_array[2].set("m_smokeAttrName",m_smokeAttrName);
-        m_array[3].set("m_maxTimeLife",m_maxTimeLife);
-        m_array[4].set("m_smokeTableName",m_smokeTableName);
-        m_array[5].set("m_onLand",m_onLand);
-        m_array[6].set("m_useLight",m_useLight);
-        m_array[7].set("m_lightColor",m_lightColor);
-        m_array[8].set("m_minLightBright",m_minLightBright);
-        m_array[9].set("m_maxLightBright",m_maxLightBright);
-        m_array[10].set("m_lightRadius",m_lightRadius);
-        m_array[11].set("m_lightBrightStep",m_lightBrightStep);
-        m_array[12].set("m_lightOffset",m_lightOffset);
-        m_array[13].set("m_useCorona",m_useCorona);
-        m_array[14].set("m_coronaRGB",m_coronaRGB);
-        m_array[15].set("m_coronaR",m_coronaR);
-        m_array[16].set("m_coronaAlpha",m_coronaAlpha);
-        m_array[17].set("m_coronaName",m_coronaName);
-        m_array[18].set("m_maxCoronaR",m_maxCoronaR);
-
-        linkTable(m_array,19);
-    }
-//}}END_OF_ATTRIBUTE
-};
+#include "SmokerAttributeState.h"
 
  //===========================================================================
 class SmokerTable : public ct_SubjectTable
@@ -110,7 +30,7 @@ class SmokerTable : public ct_SubjectTable
         registerClass( "Smoker" );
     }
 
-    SmokerTable(char * name)
+    SmokerTable(const char * name)
     {
         m_table = NULL;
         registerClass(name);
@@ -134,27 +54,12 @@ bool SmokerTable::isRendering()
      return true;
 }
 
- //===========================================================================
-class AttributeTableSmoker : public ct_AttributeTable
-{
- protected:
-    AttributeSmoker *m_table;
-
- public:
-    AttributeTableSmoker()
-    {
-       m_table = NULL;
-       registerClass( "SmokerAttr" );
-    }
-
-    virtual void       allocObjects( int objectQnty );
-    virtual void       freeObjects ();
-    virtual ct_Object *getObjectPTR( int index );
-};
-
 static SmokerTable  __classTable;
 static SmokerTable  __classTable2("DynSmoker");
-static AttributeTableSmoker __attrTable;
+
+#ifndef RR2NW_SMOKER_ATTRIBUTE_STATE_EXTERNAL
+#include "SmokerAttributeState.inl"
+#endif
  /*********************************
   *
   *   Smoker implementation
@@ -251,7 +156,7 @@ int Smoker::receiveEvent( KR_Event &event )
                         .getDouble(m_position.z)
                       .close();
 
-            ct_Attribute *attr = __attrTable.searchAttribute(oID);
+            ct_Attribute *attr = __attrSmokerTable.searchAttribute(oID);
             if( attr==NULL )
                  echo( "Fountain::receiveEvent: Unknown attribute %s",
                        context->searchObject(oID));
@@ -331,46 +236,6 @@ ct_Object *SmokerTable::getObjectPTR( int index )
     s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"SmokerTable::getObjectPTR");
     return &(m_table[ index ]);
  }
-
- /*************************************
-  *
-  *   AttributeTable implementation
-  *
-  *************************************/
-
- //============================================================
-void AttributeTableSmoker::allocObjects( int objectQnty )
- {
-    m_table = new AttributeSmoker[ objectQnty ];
-
-    if(  m_table == NULL  )
-         m_maxObjectQnty = 0;
- }
-
- //============================================================
-void AttributeTableSmoker::freeObjects()
- {
-    delete [] m_table;
-    m_table         = NULL;
-    m_maxObjectQnty = 0;
- }
-
- //============================================================
-ct_Object *AttributeTableSmoker::getObjectPTR( int index )
- {
-    s_ASSERT(index>=0 && index <m_maxObjectQnty,"AttributeTable::getObjectPTR");
-    return &(m_table[ index ]);
- }
-
-void  AttributeSmoker::update(double)
-{
-    m_smokeTableID = g_arena.searchSeanceClassTable( m_smokeTableName );
-    m_smokeAttrID = context->searchObject(m_smokeAttrName);
-
-    m_coronaHText = g_loadSmoke( m_coronaName, NULL );
-    m_coronaColor = GRTransparentColor(m_coronaRGB>>16,(m_coronaRGB>>8)&255,m_coronaRGB&255);
-}
-
 
 void Smoker::render( CViewDynamicList &list, double )
 {

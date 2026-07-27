@@ -1029,3 +1029,41 @@ corruption rejection; two complete Arena reconstruction cycles; all nine
 installed/mounted Level fingerprints in Debug and Release; and executable
 diagnostics containing readiness, count, capacity and fingerprint for all
 three tables.
+
+## BD-036: Smoker and WAV enter as metadata owners without activating audio
+
+Status: accepted on 2026-07-27.
+
+The next frontier admits two dependencies needed by the existing Corpse and
+Farter attributes: the root `SmokerAttr` roster and each selected Level's WAV
+metadata roster. Both are real Arena class tables with deterministic object
+lifecycle, exact source execution through the recovered VM, complete sorted
+fingerprints and full seance rollback. The production path keeps the retail
+ordering by creating WAV metadata before attribute tables.
+
+Smoker executes only `main_CreateSmokerAttr()` from the already selected root
+`SMOKE.SCI`. The May source's twelfth `Smoker.Attr.Train` is a separate retail
+identity from the eleven-object January fixture. Fire remains represented by
+the active retail architecture: `set_Fires.sci` creates `Smoker` instances
+using Fire/FireArea attributes. The unused standalone `Fire` subject is not
+activated merely because its old source still exists.
+
+WAV publication is deliberately metadata-only. The real `WAVObj` receives the
+retail event payload and owns the RSX emitter descriptor, including the May
+trailing flags word and `LoadWAVEx(..., 1)` uncached policy. Intel RSX,
+`SoundObj`, emitter allocation and audible playback remain a later isolated
+platform boundary. This lets Farter/Corpse references resolve against exact
+names without conflating content parity with audio-device readiness.
+
+Retail identity remains fail-closed: malformed or unknown WAV catalogs,
+missing files, catalog/runtime disagreement, unknown Smoker rosters, and
+single-field corruption all reject the complete seance. Public January
+identities are retained only for focused CI lifecycle coverage. WAV admission
+binds raw source fingerprints as well as normalized metadata. Mod content
+will require an explicit manifest mode instead of weakening either whitelist.
+
+Regression contract: old/new WAV event payload compatibility; uncached flag
+mapping; public and May Smoker fingerprints; missing/corrupt source rollback;
+catalog/live-resource equality; two complete seance/service cycles; 47-test
+Debug/Release matrices; 36/36 service, WAV-catalog and Skin-catalog retail
+sweeps; paired E/G fingerprints; and 4/4 executable clean shutdowns.

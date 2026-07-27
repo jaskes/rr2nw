@@ -18,6 +18,7 @@ class WAVObj : public ct_Object
  public:
 
     bool m_loaded;
+    int  m_flags;
 
 
     RSXCACHEDEMITTERDESC m_rsxCE;
@@ -30,7 +31,8 @@ class WAVObj : public ct_Object
     virtual void addNotify   ();
     virtual void removeNotify();
 
-    void    load( const char *fname, double, double, double, double, double );
+    void    load( const char *fname, double, double, double, double, double,
+                  int flags = 0 );
 
     virtual bool shouldDump () { return false; } // cannot be allocated dynamically
 };

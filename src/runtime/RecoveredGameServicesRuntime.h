@@ -37,6 +37,8 @@ bool RecoveredGameServices_ExplosionAttributesReady();
 bool RecoveredGameServices_FarterAttributesReady();
 bool RecoveredGameServices_LampAttributesReady();
 bool RecoveredGameServices_CorpseAttributesReady();
+bool RecoveredGameServices_SmokerAttributesReady();
+bool RecoveredGameServices_WavMetadataReady();
 bool RecoveredGameServices_SkinResourcesReady();
 bool RecoveredGameServices_SparkAttributesReady();
 bool RecoveredGameServices_RouteReady();

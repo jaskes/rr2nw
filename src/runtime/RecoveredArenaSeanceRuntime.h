@@ -48,7 +48,14 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_ROSTER_INVALID = 1ull << 41,
   RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 42,
   RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_TABLE_MISSING = 1ull << 43,
-  RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_ROSTER_INVALID = 1ull << 44
+  RECOVERED_ARENA_SEANCE_CORPSE_ATTRIBUTE_ROSTER_INVALID = 1ull << 44,
+  RECOVERED_ARENA_SEANCE_SMOKER_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 45,
+  RECOVERED_ARENA_SEANCE_SMOKER_ATTRIBUTE_TABLE_MISSING = 1ull << 46,
+  RECOVERED_ARENA_SEANCE_SMOKER_ATTRIBUTE_ROSTER_INVALID = 1ull << 47,
+  RECOVERED_ARENA_SEANCE_WAV_CATALOG_INVALID = 1ull << 48,
+  RECOVERED_ARENA_SEANCE_WAV_SOURCE_UNAVAILABLE = 1ull << 49,
+  RECOVERED_ARENA_SEANCE_WAV_TABLE_FAILURE = 1ull << 50,
+  RECOVERED_ARENA_SEANCE_WAV_ROSTER_INVALID = 1ull << 51
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -65,6 +72,10 @@ bool RecoveredArenaSeance_ExplosionAttributesReady();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();
+bool RecoveredArenaSeance_SmokerAttributesReady();
+int RecoveredArenaSeance_SmokerAttributeCount();
+int RecoveredArenaSeance_SmokerAttributeCapacity();
+unsigned long long RecoveredArenaSeance_SmokerAttributeFingerprint();
 int RecoveredArenaSeance_FarterAttributeCount();
 int RecoveredArenaSeance_FarterAttributeCapacity();
 unsigned long long RecoveredArenaSeance_FarterAttributeFingerprint();
@@ -74,6 +85,11 @@ unsigned long long RecoveredArenaSeance_LampAttributeFingerprint();
 int RecoveredArenaSeance_CorpseAttributeCount();
 int RecoveredArenaSeance_CorpseAttributeCapacity();
 unsigned long long RecoveredArenaSeance_CorpseAttributeFingerprint();
+bool RecoveredArenaSeance_WavMetadataReady();
+int RecoveredArenaSeance_WavMetadataCount();
+int RecoveredArenaSeance_WavMetadataCapacity();
+unsigned long long RecoveredArenaSeance_WavCatalogFingerprint();
+unsigned long long RecoveredArenaSeance_WavResourceFingerprint();
 bool RecoveredArenaSeance_SkinResourcesReady();
 int RecoveredArenaSeance_SkinModelCount();
 int RecoveredArenaSeance_SkinSpriteCount();

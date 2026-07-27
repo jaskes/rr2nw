@@ -745,6 +745,61 @@ Status vocabulary:
 - Revisit when: retail-compatible data can be redistributed or a validated mod
   manifest declares a non-retail Lamp roster.
 
+### CQ-055: May Smoker adds `Smoker.Attr.Train`
+
+- Status: `CONFIRMED_RETAIL`, `RETAIL_REQUIRED`.
+- Evidence: public `SMOKE.SCI` is 36,983 bytes with SHA-256
+  `15C769E24F753CA0C128EC1B2B6456FCC7937509998304FC1F2A948AFA103C9B`
+  and creates 11 Smoker attributes. Both May roots contain the identical
+  37,300-byte SHA-256
+  `A91F66634370A0FFF89E0DF3FA320C5414F2646FFCB24B8CF8A62BD1E5AA2070`
+  and add `Smoker.Attr.Train` with `Smoke.Attr.Tower`, infinite lifetime and
+  `NO_LAND`.
+- Handling: accept distinct complete fingerprints for the 11/11 public fixture
+  and 12/12 May roster; production reads the selected root file.
+- Revisit when: a validated mod manifest declares an alternate Smoker roster.
+
+### CQ-056: May WAV load events append flags and add `LoadWAVEx`
+
+- Status: `CONFIRMED_RETAIL`, `ABI_BRIDGE_ACCEPTED`.
+- Evidence: January `Wavobj.cpp` consumes a filename plus five floating values
+  and always enables cached preprocessing. May `LEVEL0.SC` writes an additional
+  integer for every `LoadWAV`; `LoadWAVEx(..., 1)` is annotated `uncached` and
+  is used 2--6 times per Level.
+- Handling: expose read-only event size/position/remaining accessors, consume
+  the flags only when a complete integer remains, default the shorter January
+  payload to zero, and omit `PREPROCESS|INMEMORY` for bit 0. Reject other flag
+  values during catalog admission.
+- Revisit when: the replacement audio backend defines its streaming/cache
+  contract; preserve the content-visible distinction even if RSX flags vanish.
+
+### CQ-057: retail script directory and WAV filename case are inconsistent
+
+- Status: `CONFIRMED_RETAIL`, `WINDOWS_TOLERATED`.
+- Evidence: Levels 02D, 02N and 03N use directory `Scinc`; the others use
+  `SCINC`. Every `localmain.sci` is lower-case, most WAV lists are
+  `LOADWAV.SCI`, and Level.04D alone stores `loadwav.sci`. Installed and
+  mounted roots reproduce the same spellings.
+- Handling: the Windows-first loader uses canonical logical names and relies on
+  the case-insensitive filesystem. Record the mismatch now rather than copying
+  or renaming retail data.
+- Revisit when: Linux/macOS work begins; add a deterministic case-folded lookup
+  with ambiguity rejection before claiming portable retail-data support.
+
+### CQ-058: synthetic object-pool limits can turn rollback into a CPU loop
+
+- Status: `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the recovered service used `SimulationContext(64, 128)`. Adding the
+  complete May WAV roster exhausted the 128-object pool while publishing Skin
+  entry `sk.corpse.final`; subsequent legacy teardown consumed a core without
+  returning. Original `Supervisor::startSeance()` constructs the context with
+  event/object capacities `4000/5000`.
+- Handling: restore the original capacities in the recovered service. The full
+  E/G Debug/Release matrix proves startup, reconstruction and shutdown with WAV
+  and Skin rosters coexisting.
+- Revisit when: `SimulationContext` gains checked dynamic growth and a
+  separately tested full-pool rollback; never reduce the capacity by guesswork.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -186,6 +186,41 @@ Retail scripts нельзя молча копировать поверх source 
   validated through complete pre-update fingerprints. The public ten-object
   Lamp and two-object Corpse fixtures are CI-only identities.
 
+### RP-SCRIPT-005: May Smoker and WAV metadata extend the January ABI
+
+- Classification: `RETAIL_REQUIRED`; subject audio and Smoker rendering remain
+  deferred.
+- Root Smoker public SHA-256:
+  `15C769E24F753CA0C128EC1B2B6456FCC7937509998304FC1F2A948AFA103C9B`.
+  Canonical May SHA-256:
+  `A91F66634370A0FFF89E0DF3FA320C5414F2646FFCB24B8CF8A62BD1E5AA2070`;
+  installed and mounted copies are byte-identical.
+- Smoker delta: May grows the table from 11 to 12 and adds
+  `Smoker.Attr.Train`; normalized complete fingerprints are
+  `7057393947133380293` (January) and `5654440424696413223` (May).
+- WAV delta: January lists contain 4--24 entries, capacity 30, no
+  `LoadWAVEx`, and no Level.07N snapshot. May contains 22--33 entries with
+  capacity 30 or 35 and 2--6 extended uncached entries per Level.
+
+| Level | May WAV count/capacity | Metadata fingerprint |
+| --- | ---: | ---: |
+| Level.01D | `29/30` | `18427911194505023745` |
+| Level.01N | `28/30` | `4633857832084587996` |
+| Level.02D | `22/35` | `12826306996657882107` |
+| Level.02N | `22/30` | `12370419092194669116` |
+| Level.03N | `32/35` | `9649152438776867277` |
+| Level.04D | `33/35` | `13040795140785882021` |
+| Level.05D | `28/30` | `6968472016635930248` |
+| Level.06N | `26/35` | `1186999906182190271` |
+| Level.07N | `29/30` | `14511910215820770629` |
+
+- Runtime boundary: exact selected metadata is preflighted, executed and
+  compared to live `WAVObj` state. Raw local-main and WAV-list source hashes
+  are also part of the admitted identity. The owner creates no RSX device or
+  `SoundObj`, so this proves content/event parity rather than audible sound.
+- Handling: retain all nine May identities plus a separate public Level.03N CI
+  identity. A future mod mode must declare a new content identity explicitly.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

@@ -200,6 +200,10 @@ class s_EventData
     s_EventData &getFloat    ( float          &f    );
 
     s_EventData &getObjectID ( KR_ObjectID     &id  );
+
+    int          size        () const { return m_size; }
+    int          position    () const { return m_pos; }
+    int          remaining   () const { return m_size - m_pos; }
  };
 
 
@@ -302,4 +306,3 @@ void         s_VerifyLabel();
 
 
 /* End of file S_EVENT.H */
-
