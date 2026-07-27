@@ -8,6 +8,12 @@ Workflow использует две постоянные ветки:
 - `master` — опубликованная release history; обычная разработка в ней не
   ведется.
 
+До первого опубликованного milestone GitHub default branch — `develop`: она
+показывает актуальное интеграционное состояние и делает активную историю
+проекта основной. При первом продвижении полного `develop` в `master` и
+создании release tag default branch переключается на `master`, как в Four
+Winds Reborn.
+
 Публичные pull requests не являются частью принятого release-процесса. После
 прохождения gate владелец напрямую сливает полный `develop` в `master` явным
 release commit, как в Four Winds Reborn.
