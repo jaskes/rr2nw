@@ -200,6 +200,23 @@ void SmokerAttributeState_Link()
 {
 }
 
+bool SmokerAttributeState_Resolve(SimulationContext *context,
+                                  const char *objectName,
+                                  KR_ObjectID *objectID)
+{
+    if (objectID != NULL)
+        *objectID = KR_ObjectID::NUL();
+    if (context == NULL || objectName == NULL || objectName[0] == 0 ||
+        objectID == NULL)
+        return false;
+    KR_ObjectID resolved = context->searchObject(objectName);
+    if (resolved.isNUL() ||
+        __attrSmokerTable.searchAttribute(resolved) == NULL)
+        return false;
+    *objectID = resolved;
+    return true;
+}
+
 unsigned long long SmokerAttributeState_Fingerprint(
     SimulationContext *context)
 {

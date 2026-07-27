@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+#include "obase/skin/SkinResourceState.h"
+#include "obase/smoke/SmokerAttributeState.h"
+
 AttributeTableCorpse __attrCorpseTable;
 
 namespace {
@@ -56,6 +59,50 @@ bool CorpseCachesAreUnresolved(AttributeCorpse &attr)
            attr.m_smokerTableID == ct_NULLID;
 }
 
+struct CorpseResolvedReferences
+{
+    CViewObjectModel *skin;
+    KR_ObjectID skinID;
+    KR_ObjectID smokerAttrID;
+    KR_ObjectID fireAttrID;
+    ct_ClassTableID smokerTableID;
+};
+
+bool ResolveCorpseReferences(SimulationContext *context,
+                             AttributeCorpse &attribute,
+                             CorpseResolvedReferences &references)
+{
+    references.skin = NULL;
+    references.skinID = KR_ObjectID::NUL();
+    references.smokerAttrID = KR_ObjectID::NUL();
+    references.fireAttrID = KR_ObjectID::NUL();
+    references.smokerTableID =
+        g_arena.searchSeanceClassTable(attribute.m_smokerTable);
+    if (!SkinResourceState_ResolveLoadedModel(context, attribute.m_skinName,
+                                              &references.skinID,
+                                              &references.skin))
+        return false;
+    if (attribute.m_isSmoking &&
+        !SmokerAttributeState_Resolve(context, attribute.m_smokerAttr,
+                                      &references.smokerAttrID))
+        return false;
+    if (attribute.m_isBurning &&
+        !SmokerAttributeState_Resolve(context, attribute.m_fireAttr,
+                                      &references.fireAttrID))
+        return false;
+    return true;
+}
+
+void CommitCorpseReferences(AttributeCorpse &attribute,
+                            const CorpseResolvedReferences &references)
+{
+    attribute.m_cacheSkin = references.skin;
+    attribute.m_skinID = references.skinID;
+    attribute.m_smokerAttrID = references.smokerAttrID;
+    attribute.m_fireAttrID = references.fireAttrID;
+    attribute.m_smokerTableID = references.smokerTableID;
+}
+
 struct CorpseRosterEntry
 {
     std::string name;
@@ -76,8 +123,7 @@ bool CollectCorpseRosterEntry(const KR_ObjectID object, void *user)
     const char *name = collector->context->searchObject(object);
     AttributeCorpse *attribute = static_cast<AttributeCorpse *>(
         __attrCorpseTable.searchAttribute(object));
-    if (name == NULL || attribute == NULL ||
-        !CorpseCachesAreUnresolved(*attribute))
+    if (name == NULL || attribute == NULL)
     {
         collector->valid = false;
         return false;
@@ -153,27 +199,19 @@ AttributeCorpse::AttributeCorpse()
     linkTable(m_array, 13);
 }
 
-void AttributeCorpse::update(double ts)
+void AttributeCorpse::update(double)
 {
-    m_cacheSkin = NULL;
-    m_skinID = context->searchObject(m_skinName);
-    if (!m_skinID.isNUL())
+    CorpseResolvedReferences references = {};
+    if (ResolveCorpseReferences(context, *this, references))
+        CommitCorpseReferences(*this, references);
+    else
     {
-        KR_Event event;
-        event.timeStamp = ts;
-        event.label = sk_EV_QUERY_MODEL_PTR;
-        event.destination = m_skinID;
-        context->sendEventNow(event);
-        if (event.label == sk_EV_QUERY_MODEL_PTR_OK)
-            event.data.open(EDO_READ)
-                      .get(&m_cacheSkin, sizeof(void *))
-                      .close();
+        m_cacheSkin = NULL;
+        m_skinID = KR_ObjectID::NUL();
+        m_smokerAttrID = KR_ObjectID::NUL();
+        m_fireAttrID = KR_ObjectID::NUL();
+        m_smokerTableID = ct_NULLID;
     }
-    m_smokerTableID = g_arena.searchSeanceClassTable(m_smokerTable);
-    m_smokerAttrID = m_isSmoking ? context->searchObject(m_smokerAttr)
-                                 : KR_ObjectID::NUL();
-    m_fireAttrID = m_isBurning ? context->searchObject(m_fireAttr)
-                               : KR_ObjectID::NUL();
 }
 
 AttributeTableCorpse::AttributeTableCorpse() : m_table(NULL)
@@ -254,6 +292,124 @@ bool CorpseAttributeState_IsKnownRoster(SimulationContext *context)
     };
     const unsigned long long fingerprint =
         CorpseAttributeState_Fingerprint(context);
+    for (int i = 0; i < static_cast<int>(sizeof(known) / sizeof(known[0]));
+         ++i)
+        if (fingerprint == known[i])
+            return true;
+    return false;
+}
+
+bool CorpseAttributeState_CachesUnresolved(SimulationContext *context)
+{
+    CorpseRosterCollector collector = {};
+    if (!CollectCorpseRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (!CorpseCachesAreUnresolved(*collector.entries[i].attribute))
+            return false;
+    return true;
+}
+
+bool CorpseAttributeState_ResolveReferences(SimulationContext *context)
+{
+    CorpseRosterCollector collector = {};
+    if (!CollectCorpseRoster(context, collector))
+        return false;
+    std::vector<CorpseResolvedReferences> references(
+        collector.entries.size());
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (!ResolveCorpseReferences(context, *collector.entries[i].attribute,
+                                     references[i]))
+            return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        CommitCorpseReferences(*collector.entries[i].attribute,
+                               references[i]);
+    return true;
+}
+
+bool CorpseAttributeState_ReferencesResolved(SimulationContext *context)
+{
+    CorpseRosterCollector collector = {};
+    if (!CollectCorpseRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeCorpse *attribute = collector.entries[i].attribute;
+        CorpseResolvedReferences expected = {};
+        if (!ResolveCorpseReferences(context, *attribute, expected) ||
+            attribute->m_cacheSkin != expected.skin ||
+            attribute->m_skinID != expected.skinID ||
+            attribute->m_smokerAttrID != expected.smokerAttrID ||
+            attribute->m_fireAttrID != expected.fireAttrID ||
+            attribute->m_smokerTableID != expected.smokerTableID)
+            return false;
+    }
+    return true;
+}
+
+bool CorpseAttributeState_RuntimeReady(SimulationContext *context)
+{
+    if (!CorpseAttributeState_ReferencesResolved(context))
+        return false;
+    CorpseRosterCollector collector = {};
+    if (!CollectCorpseRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeCorpse *attribute = collector.entries[i].attribute;
+        if ((attribute->m_isSmoking || attribute->m_isBurning) &&
+            attribute->m_smokerTableID == ct_NULLID)
+            return false;
+    }
+    return true;
+}
+
+unsigned long long CorpseAttributeState_ReferenceFingerprint(
+    SimulationContext *context)
+{
+    if (!CorpseAttributeState_ReferencesResolved(context))
+        return 0;
+    CorpseRosterCollector collector = {};
+    if (!CollectCorpseRoster(context, collector))
+        return 0;
+    unsigned long long hash = kCorpseHashOffset;
+    const int capacity = __attrCorpseTable.capacity();
+    CorpseHashBytes(hash, &capacity, sizeof(capacity));
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeCorpse *attribute = collector.entries[i].attribute;
+        CorpseHashString(hash, collector.entries[i].name.c_str());
+        CorpseHashAttribute(hash, *attribute);
+        const char *skinName = context->searchObject(attribute->m_skinID);
+        const char *smokerName =
+            context->searchObject(attribute->m_smokerAttrID);
+        const char *fireName = context->searchObject(attribute->m_fireAttrID);
+        const char *tableName =
+            g_arena.searchSeanceClassTable(attribute->m_smokerTableID);
+        CorpseHashString(hash, skinName == NULL ? "" : skinName);
+        CorpseHashString(hash, smokerName == NULL ? "" : smokerName);
+        CorpseHashString(hash, fireName == NULL ? "" : fireName);
+        CorpseHashString(hash, tableName == NULL ? "" : tableName);
+    }
+    return hash;
+}
+
+bool CorpseAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context)
+{
+    static const unsigned long long known[] = {
+        7364266581369871892ull,
+        4457511145599497373ull,
+        8357954309558191987ull,
+        2453173629272488012ull,
+        17542294791107830676ull,
+        10786868786188527686ull,
+        4997848093767624065ull,
+        12288141928948103315ull,
+        9753321888689787743ull
+    };
+    const unsigned long long fingerprint =
+        CorpseAttributeState_ReferenceFingerprint(context);
     for (int i = 0; i < static_cast<int>(sizeof(known) / sizeof(known[0]));
          ++i)
         if (fingerprint == known[i])

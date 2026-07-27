@@ -513,12 +513,20 @@ bool RecoveredGameServices_FarterAttributesReady() {
   return RecoveredArenaSeance_FarterAttributesReady();
 }
 
+bool RecoveredGameServices_FarterReferencesReady() {
+  return RecoveredArenaSeance_FarterReferencesReady();
+}
+
 bool RecoveredGameServices_LampAttributesReady() {
   return RecoveredArenaSeance_LampAttributesReady();
 }
 
 bool RecoveredGameServices_CorpseAttributesReady() {
   return RecoveredArenaSeance_CorpseAttributesReady();
+}
+
+bool RecoveredGameServices_CorpseReferencesReady() {
+  return RecoveredArenaSeance_CorpseReferencesReady();
 }
 
 bool RecoveredGameServices_SmokerAttributesReady() {
@@ -555,8 +563,10 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_SmokeAttributesReady() &&
          RecoveredGameServices_ExplosionAttributesReady() &&
          RecoveredGameServices_FarterAttributesReady() &&
+         RecoveredGameServices_FarterReferencesReady() &&
          RecoveredGameServices_LampAttributesReady() &&
          RecoveredGameServices_CorpseAttributesReady() &&
+         RecoveredGameServices_CorpseReferencesReady() &&
          RecoveredGameServices_SmokerAttributesReady() &&
          RecoveredGameServices_WavMetadataReady() &&
          RecoveredGameServices_SkinResourcesReady() &&

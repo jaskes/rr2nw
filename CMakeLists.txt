@@ -1838,6 +1838,7 @@ target_link_libraries(rr2nw_arena_skin_resource_state PUBLIC
   rr2nw_arena_time_runtime_state
   rr2nw_scene_draw_state
   rr2nw_scene_vessel_runtime_state
+  rr2nw_view_frame_state
   rr2nw_view_object_decoder
 )
 target_include_directories(rr2nw_arena_skin_resource_state PUBLIC
@@ -2011,6 +2012,7 @@ add_library(rr2nw_arena_farter_attribute_state STATIC
 )
 target_link_libraries(rr2nw_arena_farter_attribute_state PUBLIC
   rr2nw_arena_storage
+  rr2nw_arena_wav_resource_state
 )
 target_include_directories(rr2nw_arena_farter_attribute_state PUBLIC
   nw/INCLUDE
@@ -2033,6 +2035,7 @@ add_library(rr2nw_arena_corpse_attribute_state STATIC
 )
 target_link_libraries(rr2nw_arena_corpse_attribute_state PUBLIC
   rr2nw_arena_skin_resource_state
+  rr2nw_arena_smoker_attribute_state
   rr2nw_arena_storage
 )
 target_include_directories(rr2nw_arena_corpse_attribute_state PUBLIC

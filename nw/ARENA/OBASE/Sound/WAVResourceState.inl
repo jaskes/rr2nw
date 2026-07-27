@@ -128,6 +128,14 @@ ct_Object *WAVObjTable::getObjectPTR(int index)
     return &(m_table[index]);
 }
 
+WAVObj *WAVObjTable::find(const KR_ObjectID &objectID)
+{
+    for (int i = 0; i < m_maxObjectQnty; ++i)
+        if (m_table[i].getObjectID() == objectID)
+            return &(m_table[i]);
+    return NULL;
+}
+
 WAVObj::WAVObj()
 {
     ResetWAVMetadata(this);
@@ -232,6 +240,23 @@ void WAVObj::load(const char *fname, double fMinFront, double fMinBack,
 
 void WAVResourceState_Link()
 {
+}
+
+bool WAVResourceState_ResolveLoaded(SimulationContext *context,
+                                    const char *objectName,
+                                    WAVObj **object)
+{
+    if (object != NULL)
+        *object = NULL;
+    if (context == NULL || objectName == NULL || objectName[0] == 0 ||
+        object == NULL)
+        return false;
+    KR_ObjectID objectID = context->searchObject(objectName);
+    WAVObj *resolved = objectID.isNUL() ? NULL : __wavObjTable.find(objectID);
+    if (resolved == NULL || !resolved->m_loaded)
+        return false;
+    *object = resolved;
+    return true;
 }
 
 int WAVResourceState_RosterSize(SimulationContext *context)

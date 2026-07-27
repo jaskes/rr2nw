@@ -430,8 +430,12 @@ struct RecoveredArenaSeanceState {
   bool smokeAttributesReady;
   bool explosionAttributesReady;
   bool farterAttributesReady;
+  bool farterReferencesReady;
+  bool farterRuntimeReady;
   bool lampAttributesReady;
   bool corpseAttributesReady;
+  bool corpseReferencesReady;
+  bool corpseRuntimeReady;
   bool smokerAttributesReady;
   bool wavMetadataReady;
   bool skinResourcesReady;
@@ -446,6 +450,8 @@ struct RecoveredArenaSeanceState {
   int wavMetadataCapacity;
   unsigned long long wavCatalogFingerprint;
   unsigned long long wavResourceFingerprint;
+  unsigned long long farterReferenceFingerprint;
+  unsigned long long corpseReferenceFingerprint;
   char lastError[256];
 };
 
@@ -1089,6 +1095,54 @@ bool PublishSkinResources(SimulationContext* context) {
   return true;
 }
 
+bool PublishDependentAttributeReferences(SimulationContext* context) {
+  if (!FarterAttributeState_ResolveReferences(context) ||
+      !FarterAttributeState_ReferencesResolved(context)) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_REFERENCE_INVALID,
+           "FarterAttr could not resolve its loaded WAV references");
+    return false;
+  }
+  g_state.farterReferenceFingerprint =
+      FarterAttributeState_ReferenceFingerprint(context);
+  if (g_state.farterReferenceFingerprint == 0 ||
+      !FarterAttributeState_IsKnownReferenceRoster(context)) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_REFERENCE_INVALID,
+           "FarterAttr resolved references are not a bounded roster");
+    return false;
+  }
+  g_state.farterReferencesReady = true;
+  g_state.farterRuntimeReady = FarterAttributeState_RuntimeReady(context);
+
+  // The repository CI fixture deliberately has no model assets. Keep that
+  // source-only fixture useful, while requiring real Corpse references for
+  // every retail Level whose Skin catalog is populated.
+  if (g_state.skinModelCount == 0) {
+    if (!CorpseAttributeState_CachesUnresolved(context)) {
+      Report(RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID,
+             "source-only Corpse fixture unexpectedly published caches");
+      return false;
+    }
+    return true;
+  }
+  if (!CorpseAttributeState_ResolveReferences(context) ||
+      !CorpseAttributeState_ReferencesResolved(context)) {
+    Report(RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID,
+           "CorpseAttr could not resolve Skin/SmokerAttr references");
+    return false;
+  }
+  g_state.corpseReferenceFingerprint =
+      CorpseAttributeState_ReferenceFingerprint(context);
+  if (g_state.corpseReferenceFingerprint == 0 ||
+      !CorpseAttributeState_IsKnownReferenceRoster(context)) {
+    Report(RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID,
+           "CorpseAttr resolved references are not a bounded retail roster");
+    return false;
+  }
+  g_state.corpseReferencesReady = true;
+  g_state.corpseRuntimeReady = CorpseAttributeState_RuntimeReady(context);
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -1172,6 +1226,11 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
 
+    if (!PublishDependentAttributeReferences(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+
     if (!PublishRouteTable()) {
       RecoveredArenaSeance_Release();
       return FALSE;
@@ -1203,8 +1262,14 @@ void RecoveredArenaSeance_Release() {
   g_state.smokeAttributesReady = false;
   g_state.explosionAttributesReady = false;
   g_state.farterAttributesReady = false;
+  g_state.farterReferencesReady = false;
+  g_state.farterRuntimeReady = false;
+  g_state.farterReferenceFingerprint = 0;
   g_state.lampAttributesReady = false;
   g_state.corpseAttributesReady = false;
+  g_state.corpseReferencesReady = false;
+  g_state.corpseRuntimeReady = false;
+  g_state.corpseReferenceFingerprint = 0;
   g_state.smokerAttributesReady = false;
   g_state.wavMetadataReady = false;
   g_state.wavMetadataCount = 0;
@@ -1305,6 +1370,19 @@ unsigned long long RecoveredArenaSeance_FarterAttributeFingerprint() {
              : 0;
 }
 
+bool RecoveredArenaSeance_FarterReferencesReady() {
+  return g_state.farterReferencesReady;
+}
+
+bool RecoveredArenaSeance_FarterRuntimeReady() {
+  return g_state.farterRuntimeReady;
+}
+
+unsigned long long RecoveredArenaSeance_FarterReferenceFingerprint() {
+  return g_state.farterReferencesReady ? g_state.farterReferenceFingerprint
+                                       : 0;
+}
+
 int RecoveredArenaSeance_LampAttributeCount() {
   return g_state.lampAttributesReady
              ? LampAttributeState_RosterSize(g_arena.getContext())
@@ -1335,6 +1413,19 @@ unsigned long long RecoveredArenaSeance_CorpseAttributeFingerprint() {
   return g_state.corpseAttributesReady
              ? CorpseAttributeState_Fingerprint(g_arena.getContext())
              : 0;
+}
+
+bool RecoveredArenaSeance_CorpseReferencesReady() {
+  return g_state.corpseReferencesReady;
+}
+
+bool RecoveredArenaSeance_CorpseRuntimeReady() {
+  return g_state.corpseRuntimeReady;
+}
+
+unsigned long long RecoveredArenaSeance_CorpseReferenceFingerprint() {
+  return g_state.corpseReferencesReady ? g_state.corpseReferenceFingerprint
+                                       : 0;
 }
 
 bool RecoveredArenaSeance_WavMetadataReady() {

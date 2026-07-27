@@ -55,7 +55,9 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_WAV_CATALOG_INVALID = 1ull << 48,
   RECOVERED_ARENA_SEANCE_WAV_SOURCE_UNAVAILABLE = 1ull << 49,
   RECOVERED_ARENA_SEANCE_WAV_TABLE_FAILURE = 1ull << 50,
-  RECOVERED_ARENA_SEANCE_WAV_ROSTER_INVALID = 1ull << 51
+  RECOVERED_ARENA_SEANCE_WAV_ROSTER_INVALID = 1ull << 51,
+  RECOVERED_ARENA_SEANCE_FARTER_REFERENCE_INVALID = 1ull << 52,
+  RECOVERED_ARENA_SEANCE_CORPSE_REFERENCE_INVALID = 1ull << 53
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -79,12 +81,18 @@ unsigned long long RecoveredArenaSeance_SmokerAttributeFingerprint();
 int RecoveredArenaSeance_FarterAttributeCount();
 int RecoveredArenaSeance_FarterAttributeCapacity();
 unsigned long long RecoveredArenaSeance_FarterAttributeFingerprint();
+bool RecoveredArenaSeance_FarterReferencesReady();
+bool RecoveredArenaSeance_FarterRuntimeReady();
+unsigned long long RecoveredArenaSeance_FarterReferenceFingerprint();
 int RecoveredArenaSeance_LampAttributeCount();
 int RecoveredArenaSeance_LampAttributeCapacity();
 unsigned long long RecoveredArenaSeance_LampAttributeFingerprint();
 int RecoveredArenaSeance_CorpseAttributeCount();
 int RecoveredArenaSeance_CorpseAttributeCapacity();
 unsigned long long RecoveredArenaSeance_CorpseAttributeFingerprint();
+bool RecoveredArenaSeance_CorpseReferencesReady();
+bool RecoveredArenaSeance_CorpseRuntimeReady();
+unsigned long long RecoveredArenaSeance_CorpseReferenceFingerprint();
 bool RecoveredArenaSeance_WavMetadataReady();
 int RecoveredArenaSeance_WavMetadataCount();
 int RecoveredArenaSeance_WavMetadataCapacity();

@@ -559,6 +559,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_FarterAttributeCapacity()));
   log.Line("farter_attribute_fingerprint=" + std::to_string(
                RecoveredArenaSeance_FarterAttributeFingerprint()));
+  log.Line("farter_references_resolved=" +
+           std::to_string(
+               RecoveredArenaSeance_FarterReferencesReady() ? 1 : 0));
+  log.Line("farter_runtime_ready=" +
+           std::to_string(
+               RecoveredArenaSeance_FarterRuntimeReady() ? 1 : 0));
+  log.Line("farter_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_FarterReferenceFingerprint()));
   log.Line("lamp_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_LampAttributesReady() ? 1 : 0));
@@ -577,6 +585,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_CorpseAttributeCapacity()));
   log.Line("corpse_attribute_fingerprint=" + std::to_string(
                RecoveredArenaSeance_CorpseAttributeFingerprint()));
+  log.Line("corpse_references_resolved=" +
+           std::to_string(
+               RecoveredArenaSeance_CorpseReferencesReady() ? 1 : 0));
+  log.Line("corpse_runtime_ready=" +
+           std::to_string(
+               RecoveredArenaSeance_CorpseRuntimeReady() ? 1 : 0));
+  log.Line("corpse_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_CorpseReferenceFingerprint()));
   log.Line("smoker_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SmokerAttributesReady() ? 1 : 0));
@@ -684,7 +700,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-wav-smoker-farter-lamp-corpse-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-farter-corpse-reference-wav-smoker-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

@@ -1007,9 +1007,10 @@ Only the three attribute tables enter this frontier. Farter subjects require
 the Sound/WAV graph; Lamp subjects require light, terrain, corona/particle and
 event lifecycles; Corpse subjects require collision, Skin rendering,
 Smoker/Fire and save state. The later retail `s_UpdateAttributes()` call is
-also deferred. Accordingly, fingerprints require unresolved sound, model,
-texture, color and object-ID caches and include table capacity plus every
-script-facing value.
+also deferred at this stage. Initial admission requires unresolved sound,
+model, texture, color and object-ID caches. Source fingerprints include table
+capacity plus every script-facing value and remain stable when the separately
+admitted reference phase in BD-037 publishes derived caches.
 
 Retail identity is fail-closed. Farter has two admitted May fingerprints (the
 empty roster shared by eight Levels and four objects in Level.04D), Lamp has
@@ -1067,3 +1068,36 @@ mapping; public and May Smoker fingerprints; missing/corrupt source rollback;
 catalog/live-resource equality; two complete seance/service cycles; 47-test
 Debug/Release matrices; 36/36 service, WAV-catalog and Skin-catalog retail
 sweeps; paired E/G fingerprints; and 4/4 executable clean shutdowns.
+
+## BD-037: dependency references resolve before subject/device activation
+
+Status: accepted on 2026-07-27.
+
+The next bounded part of retail `s_UpdateAttributes()` resolves only references
+whose owners are already verified: Farter to loaded `WAVObj`, and Corpse to a
+loaded Skin model plus conditional `SmokerAttr` Fire/Smoke IDs. Resolution is
+two-phase across each complete table. Every target is staged first; caches are
+committed only after the entire roster succeeds. A missing target therefore
+leaves all previously published caches unchanged, and any initialization
+failure still rolls back the complete Arena seance.
+
+This is deliberately not a call to global `ct_Storage::updateAttributes()`.
+That function walks every attribute table and would also enter texture, corona,
+audio and subject-table paths not yet admitted. The January `SetSoundAttr()` is
+also unsuitable as a metadata boundary because it gates WAV lookup and
+`SoundObj` table lookup together on non-null `lpRSX2Unk`. The recovered split
+caches the verified WAV independently and keeps playback readiness explicit.
+
+`SoundObj` and `DynSmoker` remain deferred subject tables. Consequently the
+four Level.04D Farter entries have resolved WAV references but are not runtime
+ready; Corpse references resolve on all nine Levels but Corpse is not runtime
+ready until `DynSmoker` is created. Empty Farter rosters are vacuously ready.
+The public lifecycle fixture intentionally contains no Skin assets, so its
+Corpse table remains source-only instead of receiving invented model objects.
+
+Resolved fingerprints hash stable names and table identities, never process
+pointers. The installed and mounted May trees match for all nine Levels.
+Failure-injection temporarily replaces one active Corpse SmokerAttr name on
+every retail service run and the Level.04D Farter WAV name when present; both
+must reject without changing any cache and then reconstruct the original
+fingerprint after restoration.

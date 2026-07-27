@@ -714,11 +714,11 @@ Status vocabulary:
   caches. Retail creates all three tables before its later
   `s_UpdateAttributes()` call.
 - Handling: initialize every transient member to a null/zero sentinel. The
-  admitted frontier does not call global update, and roster fingerprints fail
-  if any cache resolves early. This makes rollback and reconstruction safe
-  without claiming Sound, renderer or Smoker readiness.
-- Revisit when: the complete dependency graph can execute and roll back one
-  global attribute-update pass transactionally.
+  source frontier does not call global update. The later dependency-safe phase
+  resolves only Farter WAV and Corpse Skin/SmokerAttr references through a
+  complete-table transaction; Lamp and all other derived caches remain null.
+- Revisit when: SoundObj, DynSmoker and the remaining dependency graph can
+  execute and roll back the complete global attribute-update pass.
 
 ### CQ-053: peripheral attribute ownership is split across four scripts
 
@@ -799,6 +799,42 @@ Status vocabulary:
   and Skin rosters coexisting.
 - Revisit when: `SimulationContext` gains checked dynamic growth and a
   separately tested full-pool rollback; never reduce the capacity by guesswork.
+
+### CQ-059: `SetSoundAttr` couples metadata lookup to a live RSX device
+
+- Status: `CONFIRMED_SOURCE`, `PORTABILITY_SPLIT_ACCEPTED`.
+- Evidence: the January implementation enters WAV lookup, `SoundObj` lookup
+  and model-pointer query only inside `if (*soundName && lpRSX2Unk)`. With RSX
+  absent, even an already loaded WAV remains invisible to Farter.
+- Handling: resolve and validate the real loaded `WAVObj` independently. Keep
+  `m_ctsndID` null until `SoundObj` is admitted, and expose separate reference
+  and runtime readiness instead of pretending playback exists.
+- Revisit when: the replacement audio owner and `SoundObj` lifecycle enter;
+  retain the data/device separation even if the RSX implementation is removed.
+
+### CQ-060: Corpse update mixes model lookup with subject-table readiness
+
+- Status: `CONFIRMED_RETAIL`, `PORTABILITY_SPLIT_ACCEPTED`.
+- Evidence: Corpse needs a loaded Skin model, conditional
+  `Smoker.Attr.Corpse`/`Smoker.Attr.Fire.Corpse` IDs, and the `DynSmoker` table.
+  Retail `local_createTables()` creates `DynSmoker` before the later global
+  update, while the current bounded subject graph does not yet admit it.
+- Handling: resolve the real model and attribute IDs transactionally now;
+  publish `corpse_runtime_ready=0` until the exact `DynSmoker` table enters.
+  Never substitute the unrelated standalone `Fire` implementation.
+- Revisit when: the recovered Smoker subject table and its Smoke/light/terrain
+  dependencies are activated and exercised through Corpse creation.
+
+### CQ-061: the public Corpse lifecycle fixture has no Skin assets
+
+- Status: `TEST_FIXTURE_ONLY`, `PRESERVED`.
+- Evidence: the public Arena smoke deliberately declares capacity-one Skin
+  tables without `LoadSkin` calls, while it still creates two Corpse attributes.
+- Handling: validate its source roster and unresolved sentinels but do not
+  manufacture model objects. Every non-empty May Skin catalog must resolve all
+  Corpse references or reject the complete seance.
+- Revisit when: CI owns a redistributable minimal valid VBC fixture; keep that
+  identity distinct from all May retail fingerprints.
 
 ## Maintenance rule
 

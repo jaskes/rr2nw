@@ -40,5 +40,13 @@ unsigned long long FarterAttributeState_Fingerprint(
 int FarterAttributeState_RosterSize(SimulationContext *context);
 int FarterAttributeState_Capacity();
 bool FarterAttributeState_IsKnownRoster(SimulationContext *context);
+bool FarterAttributeState_CachesUnresolved(SimulationContext *context);
+bool FarterAttributeState_ResolveReferences(SimulationContext *context);
+bool FarterAttributeState_ReferencesResolved(SimulationContext *context);
+bool FarterAttributeState_RuntimeReady(SimulationContext *context);
+unsigned long long FarterAttributeState_ReferenceFingerprint(
+    SimulationContext *context);
+bool FarterAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context);
 
 #endif

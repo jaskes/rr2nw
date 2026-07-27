@@ -56,6 +56,9 @@ class AttributeTableSmoker : public ct_AttributeTable
 extern AttributeTableSmoker __attrSmokerTable;
 
 void SmokerAttributeState_Link();
+bool SmokerAttributeState_Resolve(SimulationContext *context,
+                                  const char *objectName,
+                                  KR_ObjectID *objectID);
 unsigned long long SmokerAttributeState_Fingerprint(
     SimulationContext *context);
 int SmokerAttributeState_RosterSize(SimulationContext *context);

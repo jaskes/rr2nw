@@ -55,5 +55,13 @@ unsigned long long CorpseAttributeState_Fingerprint(
 int CorpseAttributeState_RosterSize(SimulationContext *context);
 int CorpseAttributeState_Capacity();
 bool CorpseAttributeState_IsKnownRoster(SimulationContext *context);
+bool CorpseAttributeState_CachesUnresolved(SimulationContext *context);
+bool CorpseAttributeState_ResolveReferences(SimulationContext *context);
+bool CorpseAttributeState_ReferencesResolved(SimulationContext *context);
+bool CorpseAttributeState_RuntimeReady(SimulationContext *context);
+unsigned long long CorpseAttributeState_ReferenceFingerprint(
+    SimulationContext *context);
+bool CorpseAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context);
 
 #endif

@@ -389,9 +389,11 @@ ABI.
 
 The Level-local Farter/Lamp/Corpse attribute layer is now connected against the
 live Skin roster. Exact root/local programs execute in retail order, all
-transient caches remain deterministic pre-update sentinels, and complete
-capacity/name/value fingerprints cover all nine May Levels. Missing fragments,
-one-field Lamp corruption, teardown and reconstruction are rollback-tested.
+transient caches begin as deterministic pre-update sentinels, and complete
+capacity/name/value fingerprints cover all nine May Levels. The admitted
+Farter/Corpse references now resolve only after their dependencies publish.
+Missing fragments, one-field Lamp corruption, teardown and reconstruction are
+rollback-tested.
 The executable's two-space `m_onLand  ` serializer spelling is deliberately
 preserved and has a focused regression.
 
@@ -403,12 +405,19 @@ uncached `LoadWAVEx` behavior are preserved without activating RSX or claiming
 audible sound. Active retail fires are Smoker instances, so the obsolete
 standalone Fire source stays outside the runtime graph.
 
-This closes the attribute/service prerequisites previously blocking Corpse and
-Farter. The next dependency audit should resolve their now-available Smoker/
-WAV references in a controlled attribute-update pass, then enter the least
-coupled subjects before the People/Tank/Taxi/Bullet graph. Light/corona/terrain
-updates, `SoundObj` and an eventual replacement audio backend remain explicit
-boundaries. Continue in rollback-tested groups until unchanged retail
+The first dependency-safe subset of the later global attribute update now
+resolves Farter WAV pointers and Corpse Skin/SmokerAttr references in a
+two-phase transaction. All nine May Corpse rosters and Level.04D's four Farter
+WAVs resolve against real loaded objects with stable E/G fingerprints. Runtime
+readiness remains separate: SoundObj and DynSmoker are still explicit subject
+frontiers, and the public no-Skin fixture remains source-only.
+
+This closes the attribute/service prerequisites and reference resolution that
+previously blocked Corpse and Farter. The next dependency audit should enter
+their least-coupled subject owners before the People/Tank/Taxi/Bullet graph.
+`DynSmoker`, `SoundObj`, light/corona/terrain updates and an eventual replacement
+audio backend remain explicit boundaries. Continue in rollback-tested groups
+until unchanged retail
 `LEVEL0.SC` can replace the bootstrap. Then verify the already attached
 Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer

@@ -1348,6 +1348,33 @@ matching E/G identities. All 4/4 executable runtime-smoke launches publish
 Smoker/WAV readiness and fingerprints, zero service issues, `level-ready` and
 `runtime_shutdown=clean`.
 
+### Transactional Farter/Corpse dependency references
+
+The first safe subset of the deferred attribute-update pass now executes after
+WAV, Skin, SmokerAttr, FarterAttr and CorpseAttr publication. Farter resolves
+real loaded WAV objects without requiring `lpRSX2Unk`; Corpse resolves real
+loaded model pointers plus only the Fire/Smoke attribute IDs enabled by each
+record. Resource lookup helpers verify ownership by the corresponding Arena
+table rather than accepting an arbitrary global object with the same name.
+
+Both tables use preflight-and-commit resolution. The service smoke corrupts an
+active Corpse SmokerAttr target on every retail run and the Level.04D Farter
+WAV target where present. Failed resolution must preserve every existing cache,
+and restoring the source name must reproduce the original stable fingerprint.
+
+This boundary does not create `SoundObj` or `DynSmoker`. Diagnostics therefore
+separate attribute roster, reference resolution and full runtime readiness.
+All nine May Corpse rosters resolve against their actual VBC/SmokerAttr data;
+the four Level.04D Farter WAVs resolve; both retail roots produce identical
+reference fingerprints. The public no-Skin fixture remains explicitly
+source-only rather than receiving synthetic models.
+
+Final verification remains 47/47 tests in Debug and Release. The complete
+retail gate passes 36/36 service launches, 36/36 direct WAV catalogs and 36/36
+direct Skin catalogs across both configurations, both roots and all nine
+Levels. All 4/4 executable runtime-smoke launches publish resolved Farter and
+Corpse references, `level-ready` and `runtime_shutdown=clean`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1380,9 +1407,10 @@ Smoker/WAV readiness and fingerprints, zero service issues, `level-ready` and
    Level-local scripts with complete per-Level identity and rollback. The
    shared SmokerAttr and Level-local WAV metadata owners now preserve May
    rosters, optional load flags and live/catalog fingerprints without
-   activating RSX. Attribute cache resolution, Skin animation construction and
-   remaining OBASE archives/script ABI bindings are still required before
-   switching to full retail `LEVEL0.SC`.
+   activating RSX. Farter WAV and Corpse Skin/SmokerAttr references now resolve
+   transactionally. SoundObj, DynSmoker, remaining attribute cache groups,
+   Skin animation construction and remaining OBASE/script ABI bindings are
+   still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

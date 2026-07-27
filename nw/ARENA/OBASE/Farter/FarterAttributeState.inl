@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "obase/sound/WAVResourceState.h"
+
 AttributeTableFarter __attrFarterTable;
 
 namespace {
@@ -49,8 +51,7 @@ bool CollectFarterRosterEntry(const KR_ObjectID object, void *user)
     const char *name = collector->context->searchObject(object);
     AttributeFarter *attribute = static_cast<AttributeFarter *>(
         __attrFarterTable.searchAttribute(object));
-    if (name == NULL || attribute == NULL || attribute->m_wav != NULL ||
-        attribute->m_ctsndID != ct_NULLID)
+    if (name == NULL || attribute == NULL)
     {
         collector->valid = false;
         return false;
@@ -94,11 +95,16 @@ AttributeFarter::AttributeFarter()
 
 void AttributeFarter::update(double)
 {
-    // SoundObj/WAVObj activation is deliberately outside this attribute-only
-    // frontier. Preserve the deterministic pre-update cache state until the
-    // complete Sound service graph is attached.
-    m_wav = NULL;
-    m_ctsndID = ct_NULLID;
+    WAVObj *wav = NULL;
+    if (m_soundName[0] == 0 ||
+        !WAVResourceState_ResolveLoaded(context, m_soundName, &wav))
+    {
+        m_wav = NULL;
+        m_ctsndID = ct_NULLID;
+        return;
+    }
+    m_wav = wav;
+    m_ctsndID = g_arena.searchSeanceClassTable("SoundObj");
 }
 
 AttributeTableFarter::AttributeTableFarter() : m_table(NULL)
@@ -172,6 +178,128 @@ bool FarterAttributeState_IsKnownRoster(SimulationContext *context)
     };
     const unsigned long long fingerprint =
         FarterAttributeState_Fingerprint(context);
+    for (int i = 0; i < static_cast<int>(sizeof(known) / sizeof(known[0]));
+         ++i)
+        if (fingerprint == known[i])
+            return true;
+    return false;
+}
+
+bool FarterAttributeState_CachesUnresolved(SimulationContext *context)
+{
+    FarterRosterCollector collector = {};
+    if (!CollectFarterRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (collector.entries[i].attribute->m_wav != NULL ||
+            collector.entries[i].attribute->m_ctsndID != ct_NULLID)
+            return false;
+    return true;
+}
+
+bool FarterAttributeState_ResolveReferences(SimulationContext *context)
+{
+    FarterRosterCollector collector = {};
+    if (!CollectFarterRoster(context, collector))
+        return false;
+    std::vector<WAVObj *> waves(collector.entries.size(), NULL);
+    const ct_ClassTableID soundTable =
+        g_arena.searchSeanceClassTable("SoundObj");
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        const char *soundName = collector.entries[i].attribute->m_soundName;
+        if (soundName[0] != 0 &&
+            !WAVResourceState_ResolveLoaded(context, soundName, &waves[i]))
+            return false;
+    }
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeFarter *attribute = collector.entries[i].attribute;
+        attribute->m_wav = waves[i];
+        attribute->m_ctsndID = attribute->m_soundName[0] == 0
+                                   ? ct_NULLID
+                                   : soundTable;
+    }
+    return true;
+}
+
+bool FarterAttributeState_ReferencesResolved(SimulationContext *context)
+{
+    FarterRosterCollector collector = {};
+    if (!CollectFarterRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeFarter *attribute = collector.entries[i].attribute;
+        if (attribute->m_soundName[0] == 0)
+        {
+            if (attribute->m_wav != NULL ||
+                attribute->m_ctsndID != ct_NULLID)
+                return false;
+            continue;
+        }
+        WAVObj *expected = NULL;
+        if (!WAVResourceState_ResolveLoaded(context, attribute->m_soundName,
+                                            &expected) ||
+            attribute->m_wav != expected)
+            return false;
+    }
+    return true;
+}
+
+bool FarterAttributeState_RuntimeReady(SimulationContext *context)
+{
+    if (!FarterAttributeState_ReferencesResolved(context))
+        return false;
+    FarterRosterCollector collector = {};
+    if (!CollectFarterRoster(context, collector))
+        return false;
+    const ct_ClassTableID soundTable =
+        g_arena.searchSeanceClassTable("SoundObj");
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeFarter *attribute = collector.entries[i].attribute;
+        if (attribute->m_soundName[0] != 0 &&
+            (soundTable == ct_NULLID || attribute->m_ctsndID != soundTable))
+            return false;
+    }
+    return true;
+}
+
+unsigned long long FarterAttributeState_ReferenceFingerprint(
+    SimulationContext *context)
+{
+    if (!FarterAttributeState_ReferencesResolved(context))
+        return 0;
+    FarterRosterCollector collector = {};
+    if (!CollectFarterRoster(context, collector))
+        return 0;
+    unsigned long long hash = kFarterHashOffset;
+    const int capacity = __attrFarterTable.capacity();
+    FarterHashBytes(hash, &capacity, sizeof(capacity));
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeFarter *attribute = collector.entries[i].attribute;
+        FarterHashString(hash, collector.entries[i].name.c_str());
+        FarterHashString(hash, attribute->m_soundName);
+        const int hasWave = attribute->m_wav != NULL ? 1 : 0;
+        FarterHashBytes(hash, &hasWave, sizeof(hasWave));
+        const char *tableName =
+            g_arena.searchSeanceClassTable(attribute->m_ctsndID);
+        FarterHashString(hash, tableName == NULL ? "" : tableName);
+    }
+    return hash;
+}
+
+bool FarterAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context)
+{
+    static const unsigned long long known[] = {
+        10155668643424727455ull,
+        6949774498761611553ull
+    };
+    const unsigned long long fingerprint =
+        FarterAttributeState_ReferenceFingerprint(context);
     for (int i = 0; i < static_cast<int>(sizeof(known) / sizeof(known[0]));
          ++i)
         if (fingerprint == known[i])

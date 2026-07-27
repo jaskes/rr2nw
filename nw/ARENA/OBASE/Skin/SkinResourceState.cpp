@@ -735,6 +735,27 @@ void SkinResourceState_Link()
 {
 }
 
+bool SkinResourceState_ResolveLoadedModel(SimulationContext *context,
+                                          const char *objectName,
+                                          KR_ObjectID *objectID,
+                                          CViewObjectModel **model)
+{
+    if (objectID != NULL)
+        *objectID = KR_ObjectID::NUL();
+    if (model != NULL)
+        *model = NULL;
+    if (context == NULL || objectName == NULL || objectName[0] == 0 ||
+        objectID == NULL || model == NULL)
+        return false;
+    KR_ObjectID resolvedID = context->searchObject(objectName);
+    Skin *skin = resolvedID.isNUL() ? NULL : g_skinTable.find(resolvedID);
+    if (skin == NULL || !skin->m_loaded)
+        return false;
+    *objectID = resolvedID;
+    *model = &skin->m_model;
+    return true;
+}
+
 int SkinResourceState_ModelCount(SimulationContext *context)
 {
     ResourceCollector collector = {};

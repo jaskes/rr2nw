@@ -175,15 +175,16 @@ Retail scripts нельзя молча копировать поверх source 
 - Lamp delta: table capacity/count grows from 10 to 12 with
   `Lamp.Attr.Fd3Attach` and `Lamp.Attr.Yellow.Small`.
 - Farter delta: eight Levels create an empty capacity-10 table; Level.04D
-  creates four sound attributes. This remains data only; Sound/WAV resolution
-  is not activated by the attribute frontier.
+  creates four sound attributes. The original attribute frontier is source
+  only; the later RP-SCRIPT-006 phase resolves their loaded WAV references
+  without activating SoundObj or audio playback.
 - Corpse delta: all nine selected `SCINC/CORPSE.SCI` files are admitted as
   distinct complete fingerprints, with 3--7 objects and capacities 4--7.
 - Binary compatibility: retail `LampAttr` retains `m_onLand  ` with two
   trailing spaces while its script writes `m_onLand`; exact serializer lookup
   ignores the write. Parity preserves this instead of normalizing it.
 - Handling: exact selected bytes execute in Farter/Lamp/Corpse order and are
-  validated through complete pre-update fingerprints. The public ten-object
+  validated through complete source fingerprints. The public ten-object
   Lamp and two-object Corpse fixtures are CI-only identities.
 
 ### RP-SCRIPT-005: May Smoker and WAV metadata extend the January ABI
@@ -220,6 +221,32 @@ Retail scripts нельзя молча копировать поверх source 
   `SoundObj`, so this proves content/event parity rather than audible sound.
 - Handling: retain all nine May identities plus a separate public Level.03N CI
   identity. A future mod mode must declare a new content identity explicitly.
+
+### RP-SCRIPT-006: Farter and Corpse publish verified references in two phases
+
+- Classification: `RETAIL_REQUIRED`; SoundObj and DynSmoker subjects remain
+  deferred.
+- Farter reference fingerprints are `10155668643424727455` for the empty
+  roster shared by eight Levels and `6949774498761611553` for Level.04D's four
+  loaded WAV references. Level.04D remains runtime-pending without SoundObj.
+- Corpse reference fingerprints after real Skin/SmokerAttr resolution are:
+
+| Level | Corpse reference fingerprint |
+| --- | ---: |
+| Level.01D | `7364266581369871892` |
+| Level.01N | `4457511145599497373` |
+| Level.02D | `8357954309558191987` |
+| Level.02N | `2453173629272488012` |
+| Level.03N | `17542294791107830676` |
+| Level.04D | `10786868786188527686` |
+| Level.05D | `4997848093767624065` |
+| Level.06N | `12288141928948103315` |
+| Level.07N | `9753321888689787743` |
+
+- Installed and mounted roots match for every identity. Fingerprints hash
+  stable object/table names and source values, not address-space pointers.
+- The public no-asset fixture remains explicitly source-only; it is not a
+  tenth resolved Corpse identity.
 
 ## Behavioral parity matrix
 

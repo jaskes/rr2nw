@@ -7,6 +7,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added transactional Farter/Corpse reference resolution after WAV, Skin and
+  SmokerAttr publication. Runtime diagnostics now distinguish source roster,
+  resolved metadata references and the still-deferred SoundObj/DynSmoker
+  subject dependencies, with deterministic May retail fingerprints.
+- Added failure-injection coverage proving that a missing Farter WAV or Corpse
+  SmokerAttr target cannot partially mutate an already published attribute
+  table.
 - Added the first modern CMake/MSVC Win32 slice: the recovered legacy
   math/tagged-filesystem/assertion aggregates and an executable
   ABI/PRNG/vector/matrix smoke test.
@@ -223,6 +230,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Changed
 
+- Split legacy attribute update into a device-independent reference phase and
+  a later subject/device activation phase. Farter no longer needs a live RSX
+  device to cache loaded WAV metadata, and Corpse resolves the real loaded
+  Skin model without sending a renderer-coupled query event.
+- Declared the Skin resource owner's recovered view-frame dependency directly,
+  so focused consumers link the model decoder without relying on accidental
+  transitive service libraries.
 - Split the Vehicle seance into an Arena transaction, a script execution owner
   and a script-to-engine binding host without changing the public seance API or
   bounded bootstrap behavior. Future OBASE bindings can now be added in tested

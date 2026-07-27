@@ -34,6 +34,7 @@ namespace {
 
 unsigned long long g_explosionFixtureFingerprint = 0;
 unsigned long long g_farterFixtureFingerprint = 0;
+unsigned long long g_farterReferenceFixtureFingerprint = 0;
 unsigned long long g_lampFixtureFingerprint = 0;
 unsigned long long g_corpseFixtureFingerprint = 0;
 unsigned long long g_smokerFixtureFingerprint = 0;
@@ -190,8 +191,14 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_SmokeAttributesReady() &&
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
+         !RecoveredArenaSeance_FarterReferencesReady() &&
+         !RecoveredArenaSeance_FarterRuntimeReady() &&
+         RecoveredArenaSeance_FarterReferenceFingerprint() == 0 &&
          !RecoveredArenaSeance_LampAttributesReady() &&
          !RecoveredArenaSeance_CorpseAttributesReady() &&
+         !RecoveredArenaSeance_CorpseReferencesReady() &&
+         !RecoveredArenaSeance_CorpseRuntimeReady() &&
+         RecoveredArenaSeance_CorpseReferenceFingerprint() == 0 &&
          !RecoveredArenaSeance_SmokerAttributesReady() &&
          !RecoveredArenaSeance_WavMetadataReady() &&
          !RecoveredArenaSeance_SkinResourcesReady() &&
@@ -226,8 +233,14 @@ bool RunCycle() {
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
       !RecoveredArenaSeance_SmokerAttributesReady() ||
       !RecoveredArenaSeance_FarterAttributesReady() ||
+      !RecoveredArenaSeance_FarterReferencesReady() ||
+      !RecoveredArenaSeance_FarterRuntimeReady() ||
+      RecoveredArenaSeance_FarterReferenceFingerprint() == 0 ||
       !RecoveredArenaSeance_LampAttributesReady() ||
       !RecoveredArenaSeance_CorpseAttributesReady() ||
+      RecoveredArenaSeance_CorpseReferencesReady() ||
+      RecoveredArenaSeance_CorpseRuntimeReady() ||
+      RecoveredArenaSeance_CorpseReferenceFingerprint() != 0 ||
       !RecoveredArenaSeance_WavMetadataReady() ||
       !RecoveredArenaSeance_SkinResourcesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
@@ -290,12 +303,17 @@ bool RunCycle() {
       FarterAttributeState_IsKnownRoster(&context) &&
       FarterAttributeState_RosterSize(&context) == 0 &&
       FarterAttributeState_Capacity() == 10 &&
+      FarterAttributeState_ReferencesResolved(&context) &&
+      FarterAttributeState_RuntimeReady(&context) &&
+      FarterAttributeState_ReferenceFingerprint(&context) != 0 &&
       LampAttributeState_IsKnownRoster(&context) &&
       LampAttributeState_RosterSize(&context) == 10 &&
       LampAttributeState_Capacity() == 10 &&
       CorpseAttributeState_IsKnownRoster(&context) &&
       CorpseAttributeState_RosterSize(&context) == 2 &&
       CorpseAttributeState_Capacity() == 3 &&
+      CorpseAttributeState_CachesUnresolved(&context) &&
+      !CorpseAttributeState_ReferencesResolved(&context) &&
       explosionAttribute != nullptr &&
       explosionAttribute->m_useLight == 0 &&
       explosionAttribute->m_impulseCoeff == 1234 &&
@@ -308,6 +326,8 @@ bool RunCycle() {
       ExplosionAttributeState_Fingerprint(&context);
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(&context);
+  const unsigned long long farterReferenceFingerprint =
+      FarterAttributeState_ReferenceFingerprint(&context);
   const unsigned long long smokerFingerprint =
       SmokerAttributeState_Fingerprint(&context);
   const unsigned long long wavFingerprint =
@@ -323,6 +343,8 @@ bool RunCycle() {
        g_explosionFixtureFingerprint == explosionFingerprint) &&
       (g_farterFixtureFingerprint == 0 ||
        g_farterFixtureFingerprint == farterFingerprint) &&
+      (g_farterReferenceFixtureFingerprint == 0 ||
+       g_farterReferenceFixtureFingerprint == farterReferenceFingerprint) &&
       (g_smokerFixtureFingerprint == 0 ||
        g_smokerFixtureFingerprint == smokerFingerprint) &&
       (g_wavFixtureFingerprint == 0 ||
@@ -335,6 +357,7 @@ bool RunCycle() {
        g_skinCatalogFixtureFingerprint == skinCatalogFingerprint);
   g_explosionFixtureFingerprint = explosionFingerprint;
   g_farterFixtureFingerprint = farterFingerprint;
+  g_farterReferenceFixtureFingerprint = farterReferenceFingerprint;
   g_smokerFixtureFingerprint = smokerFingerprint;
   g_wavFixtureFingerprint = wavFingerprint;
   g_lampFixtureFingerprint = lampFingerprint;
@@ -765,10 +788,12 @@ int main(int argc, char** argv) {
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
               "smoker_attrs=11/11 wav_metadata=5/30 "
               "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
+              "farter_refs=resolved corpse_refs=source-only "
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
               "explosion_fingerprint=%llu smoker_fingerprint=%llu "
               "wav_fingerprint=%llu farter_fingerprint=%llu "
+              "farter_reference_fingerprint=%llu "
               "lamp_fingerprint=%llu corpse_fingerprint=%llu "
               "skin_catalog_fingerprint=%llu "
               "rollback=idempotent\n",
@@ -776,6 +801,7 @@ int main(int argc, char** argv) {
               g_smokerFixtureFingerprint,
               g_wavFixtureFingerprint,
               g_farterFixtureFingerprint,
+              g_farterReferenceFixtureFingerprint,
               g_lampFixtureFingerprint,
               g_corpseFixtureFingerprint,
               g_skinCatalogFixtureFingerprint);

@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #define LAST_H__SCENE
 #include "game.h"
@@ -95,8 +96,10 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ExplosionAttributesReady() &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_FarterAttributesReady() &&
+         !RecoveredGameServices_FarterReferencesReady() &&
          !RecoveredGameServices_LampAttributesReady() &&
          !RecoveredGameServices_CorpseAttributesReady() &&
+         !RecoveredGameServices_CorpseReferencesReady() &&
          !RecoveredGameServices_WavMetadataReady() &&
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
@@ -147,6 +150,65 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
       .close();
   g_super.m_context->sendEventNow(event);
   return true;
+}
+
+bool ValidateReferenceTransaction(
+    unsigned long long farterReferenceFingerprint,
+    unsigned long long corpseReferenceFingerprint) {
+  KR_ObjectID corpseID =
+      g_super.m_context->searchObject("Corpse.Attr.Default");
+  AttributeCorpse* corpse =
+      corpseID.isNUL()
+          ? nullptr
+          : static_cast<AttributeCorpse*>(
+                __attrCorpseTable.searchAttribute(corpseID));
+  if (corpse == nullptr || !corpse->m_isSmoking) return false;
+  char smokerName[sizeof(corpse->m_smokerAttr)] = {};
+  std::memcpy(smokerName, corpse->m_smokerAttr, sizeof(smokerName));
+  CViewObjectModel* skin = corpse->m_cacheSkin;
+  const KR_ObjectID skinID = corpse->m_skinID;
+  const KR_ObjectID smokerID = corpse->m_smokerAttrID;
+  const KR_ObjectID fireID = corpse->m_fireAttrID;
+  const ct_ClassTableID smokerTable = corpse->m_smokerTableID;
+  std::strncpy(corpse->m_smokerAttr, "Smoker.Attr.Missing",
+               sizeof(corpse->m_smokerAttr) - 1);
+  corpse->m_smokerAttr[sizeof(corpse->m_smokerAttr) - 1] = 0;
+  const bool corpseRejected =
+      !CorpseAttributeState_ResolveReferences(g_super.m_context) &&
+      corpse->m_cacheSkin == skin && corpse->m_skinID == skinID &&
+      corpse->m_smokerAttrID == smokerID && corpse->m_fireAttrID == fireID &&
+      corpse->m_smokerTableID == smokerTable;
+  std::memcpy(corpse->m_smokerAttr, smokerName, sizeof(smokerName));
+  if (!corpseRejected ||
+      !CorpseAttributeState_ResolveReferences(g_super.m_context) ||
+      CorpseAttributeState_ReferenceFingerprint(g_super.m_context) !=
+          corpseReferenceFingerprint)
+    return false;
+
+  if (FarterAttributeState_RosterSize(g_super.m_context) == 0) return true;
+  KR_ObjectID farterID =
+      g_super.m_context->searchObject("Farter.Attr.Factory");
+  AttributeFarter* farter =
+      farterID.isNUL()
+          ? nullptr
+          : static_cast<AttributeFarter*>(
+                __attrFarterTable.searchAttribute(farterID));
+  if (farter == nullptr || farter->m_wav == nullptr) return false;
+  char soundName[sizeof(farter->m_soundName)] = {};
+  std::memcpy(soundName, farter->m_soundName, sizeof(soundName));
+  WAVObj* wav = farter->m_wav;
+  const ct_ClassTableID soundTable = farter->m_ctsndID;
+  std::strncpy(farter->m_soundName, "wav.Missing",
+               sizeof(farter->m_soundName) - 1);
+  farter->m_soundName[sizeof(farter->m_soundName) - 1] = 0;
+  const bool farterRejected =
+      !FarterAttributeState_ResolveReferences(g_super.m_context) &&
+      farter->m_wav == wav && farter->m_ctsndID == soundTable;
+  std::memcpy(farter->m_soundName, soundName, sizeof(soundName));
+  return farterRejected &&
+         FarterAttributeState_ResolveReferences(g_super.m_context) &&
+         FarterAttributeState_ReferenceFingerprint(g_super.m_context) ==
+             farterReferenceFingerprint;
 }
 
 }  // namespace
@@ -249,6 +311,10 @@ int main(int argc, char** argv) {
   const int wavCapacity = WAVResourceState_Capacity();
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(g_super.m_context);
+  const unsigned long long farterReferenceFingerprint =
+      FarterAttributeState_ReferenceFingerprint(g_super.m_context);
+  const bool farterRuntimeReady =
+      RecoveredArenaSeance_FarterRuntimeReady();
   const int farterRosterSize =
       FarterAttributeState_RosterSize(g_super.m_context);
   const int farterCapacity = FarterAttributeState_Capacity();
@@ -258,6 +324,10 @@ int main(int argc, char** argv) {
   const int lampCapacity = LampAttributeState_Capacity();
   const unsigned long long corpseFingerprint =
       CorpseAttributeState_Fingerprint(g_super.m_context);
+  const unsigned long long corpseReferenceFingerprint =
+      CorpseAttributeState_ReferenceFingerprint(g_super.m_context);
+  const bool corpseRuntimeReady =
+      RecoveredArenaSeance_CorpseRuntimeReady();
   const int corpseRosterSize =
       CorpseAttributeState_RosterSize(g_super.m_context);
   const int corpseCapacity = CorpseAttributeState_Capacity();
@@ -278,13 +348,24 @@ int main(int argc, char** argv) {
       skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
       farterFingerprint == 0 || farterRosterSize < 0 ||
       farterRosterSize > 4 || farterCapacity != 10 ||
+      !RecoveredGameServices_FarterReferencesReady() ||
+      farterReferenceFingerprint == 0 ||
       lampFingerprint == 0 || lampRosterSize != 12 || lampCapacity != 12 ||
       corpseFingerprint == 0 || corpseRosterSize < 3 ||
       corpseRosterSize > 7 || corpseCapacity < corpseRosterSize ||
-      corpseCapacity > 7) {
+      corpseCapacity > 7 ||
+      !RecoveredGameServices_CorpseReferencesReady() ||
+      corpseReferenceFingerprint == 0 ||
+      corpseRuntimeReady) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("level-aware Explosion attribute roster is invalid");
+  }
+  if (!ValidateReferenceTransaction(farterReferenceFingerprint,
+                                    corpseReferenceFingerprint)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Farter/Corpse reference transaction was not atomic");
   }
   const SRecoveredObserverState observerBefore = *observer;
   if (!SendHardwareButton("W", TRUE)) {
@@ -343,6 +424,9 @@ int main(int argc, char** argv) {
       FarterAttributeState_RosterSize(g_super.m_context) !=
           farterRosterSize ||
       FarterAttributeState_Capacity() != farterCapacity ||
+      FarterAttributeState_ReferenceFingerprint(g_super.m_context) !=
+          farterReferenceFingerprint ||
+      RecoveredArenaSeance_FarterRuntimeReady() != farterRuntimeReady ||
       LampAttributeState_Fingerprint(g_super.m_context) != lampFingerprint ||
       LampAttributeState_RosterSize(g_super.m_context) != lampRosterSize ||
       LampAttributeState_Capacity() != lampCapacity ||
@@ -351,6 +435,9 @@ int main(int argc, char** argv) {
       CorpseAttributeState_RosterSize(g_super.m_context) !=
           corpseRosterSize ||
       CorpseAttributeState_Capacity() != corpseCapacity ||
+      CorpseAttributeState_ReferenceFingerprint(g_super.m_context) !=
+          corpseReferenceFingerprint ||
+      RecoveredArenaSeance_CorpseRuntimeReady() != corpseRuntimeReady ||
       RecoveredArenaSeance_SkinCatalogFingerprint() !=
           skinCatalogFingerprint ||
       RecoveredArenaSeance_SkinResourceFingerprint() !=
@@ -373,8 +460,10 @@ int main(int argc, char** argv) {
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "wav_metadata=%d/%d wav_fingerprint=%llu "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
+              "farter_refs=%llu farter_runtime=%d "
               "lamp_attrs=%d/%d lamp_fingerprint=%llu "
               "corpse_attrs=%d/%d corpse_fingerprint=%llu portal=table "
+              "corpse_refs=%llu corpse_runtime=%d "
               "skin_models=%d skin_sprites=%d skin_catalog=%llu "
               "skin_resources=%llu "
               "route=table vehicle=real observer=1\n",
@@ -382,8 +471,10 @@ int main(int argc, char** argv) {
               smokerRosterSize, smokerCapacity, smokerFingerprint,
               wavRosterSize, wavCapacity, wavFingerprint,
               farterRosterSize, farterCapacity, farterFingerprint,
+              farterReferenceFingerprint, farterRuntimeReady ? 1 : 0,
               lampRosterSize, lampCapacity, lampFingerprint,
               corpseRosterSize, corpseCapacity, corpseFingerprint,
+              corpseReferenceFingerprint, corpseRuntimeReady ? 1 : 0,
               skinModelCount,
               skinSpriteCount, skinCatalogFingerprint,
               skinResourceFingerprint);
