@@ -417,8 +417,8 @@ This closes the attribute/service prerequisites and reference resolution that
 previously blocked Corpse and Farter. The original capacity-62 `DynSmoker`
 subject table now executes a bounded real create/start/remove lifecycle, making
 retail Corpse structurally runtime-ready without claiming visible smoke. The
-next dependency audit should resolve SmokerAttr's Smoke references and
-renderer-independent corona data before enabling MOVE, terrain, light and
+dependency audit now resolves SmokerAttr's Smoke references while keeping
+renderer-owned corona caches deferred before enabling MOVE, terrain, light and
 render callbacks. `SoundObj` and an eventual replacement audio backend remain
 separate boundaries before the People/Tank/Taxi/Bullet graph. Continue in
 rollback-tested groups until unchanged retail
@@ -456,6 +456,18 @@ subject lifecycle/reconstruction contract, and passes all 36/36 retail service,
 36/36 WAV-catalog and 36/36 Skin-catalog launches. All 4/4 executable smokes
 publish exact capacity 62, fingerprint `10679040711010833004`, subject-bound
 Corpse references and clean shutdown.
+
+The next dependency audit is complete: every SmokerAttr now resolves its real
+SmokeAttr target transactionally, with stable public/May identities and
+failure-atomic reconstruction. Service readiness requires those references;
+`smoker_runtime_ready` remains false until the real `Smoke` subject table,
+Smoke sprite caches and corona transparency resources are admitted together.
+This keeps the next implementation step narrow: restore the bounded `Smoke`
+subject lifecycle and renderer-owned smoke/corona resource initialization
+before enabling Smoker MOVE, terrain, light or draw callbacks.
+The complete gate remains 48/48 Debug and Release tests, 36/36 service,
+36/36 WAV-catalog and 36/36 Skin-catalog retail launches, plus 4/4 executable
+runtime smokes with clean shutdown.
 
 ### Цель
 

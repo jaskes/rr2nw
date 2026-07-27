@@ -98,6 +98,9 @@ bool IsServiceReleased() {
          !RecoveredGameServices_SmokeAttributesReady() &&
          !RecoveredGameServices_ExplosionAttributesReady() &&
          !RecoveredGameServices_SmokerAttributesReady() &&
+         !RecoveredGameServices_SmokerReferencesReady() &&
+         !RecoveredGameServices_SmokerRuntimeReady() &&
+         RecoveredArenaSeance_SmokerReferenceFingerprint() == 0 &&
          !RecoveredGameServices_FarterAttributesReady() &&
          !RecoveredGameServices_FarterReferencesReady() &&
          !RecoveredGameServices_LampAttributesReady() &&
@@ -161,8 +164,39 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
 }
 
 bool ValidateReferenceTransaction(
+    unsigned long long smokerReferenceFingerprint,
     unsigned long long farterReferenceFingerprint,
     unsigned long long corpseReferenceFingerprint) {
+  KR_ObjectID smokerObjectID =
+      g_super.m_context->searchObject("Smoker.Attr.Corpse");
+  AttributeSmoker* smoker =
+      smokerObjectID.isNUL()
+          ? nullptr
+          : static_cast<AttributeSmoker*>(
+                __attrSmokerTable.searchAttribute(smokerObjectID));
+  if (smoker == nullptr || smoker->m_smokeAttrID.isNUL()) return false;
+  char smokeName[sizeof(smoker->m_smokeAttrName)] = {};
+  std::memcpy(smokeName, smoker->m_smokeAttrName, sizeof(smokeName));
+  const KR_ObjectID smokeAttrID = smoker->m_smokeAttrID;
+  const ct_ClassTableID smokeTableID = smoker->m_smokeTableID;
+  const GR_HTEXTURE coronaHText = smoker->m_coronaHText;
+  const unsigned long coronaColor = smoker->m_coronaColor;
+  std::strncpy(smoker->m_smokeAttrName, "Smoke.Attr.Missing",
+               sizeof(smoker->m_smokeAttrName) - 1);
+  smoker->m_smokeAttrName[sizeof(smoker->m_smokeAttrName) - 1] = 0;
+  const bool smokerRejected =
+      !SmokerAttributeState_ResolveReferences(g_super.m_context) &&
+      smoker->m_smokeAttrID == smokeAttrID &&
+      smoker->m_smokeTableID == smokeTableID &&
+      smoker->m_coronaHText == coronaHText &&
+      smoker->m_coronaColor == coronaColor;
+  std::memcpy(smoker->m_smokeAttrName, smokeName, sizeof(smokeName));
+  if (!smokerRejected ||
+      !SmokerAttributeState_ResolveReferences(g_super.m_context) ||
+      SmokerAttributeState_ReferenceFingerprint(g_super.m_context) !=
+          smokerReferenceFingerprint)
+    return false;
+
   KR_ObjectID corpseID =
       g_super.m_context->searchObject("Corpse.Attr.Default");
   AttributeCorpse* corpse =
@@ -282,6 +316,8 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokeAttributesReady() ||
       !RecoveredGameServices_ExplosionAttributesReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
+      !RecoveredGameServices_SmokerReferencesReady() ||
+      RecoveredGameServices_SmokerRuntimeReady() ||
       !RecoveredGameServices_DynSmokerReady() ||
       !RecoveredGameServices_FarterAttributesReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
@@ -310,6 +346,10 @@ int main(int argc, char** argv) {
       ExplosionAttributeState_RosterSize(g_super.m_context);
   const unsigned long long smokerFingerprint =
       SmokerAttributeState_Fingerprint(g_super.m_context);
+  const unsigned long long smokerReferenceFingerprint =
+      SmokerAttributeState_ReferenceFingerprint(g_super.m_context);
+  const bool smokerRuntimeReady =
+      RecoveredArenaSeance_SmokerRuntimeReady();
   const int smokerRosterSize =
       SmokerAttributeState_RosterSize(g_super.m_context);
   const int smokerCapacity = SmokerAttributeState_Capacity();
@@ -353,6 +393,7 @@ int main(int argc, char** argv) {
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
       explosionRosterSize > 14 || smokerFingerprint == 0 ||
       smokerRosterSize != 12 || smokerCapacity != 12 ||
+      smokerReferenceFingerprint == 0 || smokerRuntimeReady ||
       dynSmokerCapacity != 62 || dynSmokerFingerprint == 0 ||
       SmokerSubjectState_DynLiveCount() != 0 ||
       wavFingerprint == 0 || wavRosterSize < 22 || wavRosterSize > 33 ||
@@ -376,11 +417,12 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("level-aware Arena subject/attribute roster is invalid");
   }
-  if (!ValidateReferenceTransaction(farterReferenceFingerprint,
+  if (!ValidateReferenceTransaction(smokerReferenceFingerprint,
+                                    farterReferenceFingerprint,
                                     corpseReferenceFingerprint)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("Farter/Corpse reference transaction was not atomic");
+    return Fail("Smoker/Farter/Corpse reference transaction was not atomic");
   }
   const SRecoveredObserverState observerBefore = *observer;
   if (!SendHardwareButton("W", TRUE)) {
@@ -431,6 +473,9 @@ int main(int argc, char** argv) {
       SmokerAttributeState_RosterSize(g_super.m_context) !=
           smokerRosterSize ||
       SmokerAttributeState_Capacity() != smokerCapacity ||
+      SmokerAttributeState_ReferenceFingerprint(g_super.m_context) !=
+          smokerReferenceFingerprint ||
+      RecoveredArenaSeance_SmokerRuntimeReady() != smokerRuntimeReady ||
       RecoveredArenaSeance_DynSmokerCapacity() != dynSmokerCapacity ||
       RecoveredArenaSeance_DynSmokerFingerprint() !=
           dynSmokerFingerprint ||
@@ -477,6 +522,7 @@ int main(int argc, char** argv) {
               "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
               "explosion_attrs=%d explosion_fingerprint=%llu "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
+              "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
               "wav_metadata=%d/%d wav_fingerprint=%llu "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
@@ -489,6 +535,7 @@ int main(int argc, char** argv) {
               "route=table vehicle=real observer=1\n",
               explosionRosterSize, explosionFingerprint,
               smokerRosterSize, smokerCapacity, smokerFingerprint,
+              smokerReferenceFingerprint, smokerRuntimeReady ? 1 : 0,
               dynSmokerCapacity, dynSmokerFingerprint,
               wavRosterSize, wavCapacity, wavFingerprint,
               farterRosterSize, farterCapacity, farterFingerprint,

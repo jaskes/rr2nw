@@ -439,6 +439,8 @@ struct RecoveredArenaSeanceState {
   bool corpseReferencesReady;
   bool corpseRuntimeReady;
   bool smokerAttributesReady;
+  bool smokerReferencesReady;
+  bool smokerRuntimeReady;
   bool dynSmokerReady;
   bool wavMetadataReady;
   bool skinResourcesReady;
@@ -455,6 +457,7 @@ struct RecoveredArenaSeanceState {
   unsigned long long wavResourceFingerprint;
   unsigned long long farterReferenceFingerprint;
   unsigned long long corpseReferenceFingerprint;
+  unsigned long long smokerReferenceFingerprint;
   int dynSmokerCapacity;
   unsigned long long dynSmokerFingerprint;
   char lastError[256];
@@ -893,7 +896,8 @@ bool PublishSmokerAttributes(SimulationContext* context) {
            "retail fragment did not create the SmokerAttr table");
     return false;
   }
-  if (!SmokerAttributeState_IsKnownRoster(context)) {
+  if (!SmokerAttributeState_IsKnownRoster(context) ||
+      !SmokerAttributeState_CachesUnresolved(context)) {
     char message[192] = {};
     std::snprintf(message, sizeof(message),
                   "SmokerAttr objects do not match a bounded root roster "
@@ -1130,6 +1134,27 @@ bool PublishSkinResources(SimulationContext* context) {
 }
 
 bool PublishDependentAttributeReferences(SimulationContext* context) {
+  if (!SmokerAttributeState_ResolveReferences(context) ||
+      !SmokerAttributeState_ReferencesResolved(context)) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKER_REFERENCE_INVALID,
+           "SmokerAttr could not resolve its SmokeAttr references");
+    return false;
+  }
+  g_state.smokerReferenceFingerprint =
+      SmokerAttributeState_ReferenceFingerprint(context);
+  if (g_state.smokerReferenceFingerprint == 0 ||
+      !SmokerAttributeState_IsKnownReferenceRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "SmokerAttr resolved references are not a bounded roster "
+                  "(fingerprint=%llu)",
+                  g_state.smokerReferenceFingerprint);
+    Report(RECOVERED_ARENA_SEANCE_SMOKER_REFERENCE_INVALID, message);
+    return false;
+  }
+  g_state.smokerReferencesReady = true;
+  g_state.smokerRuntimeReady = SmokerAttributeState_RuntimeReady(context);
+
   if (!FarterAttributeState_ResolveReferences(context) ||
       !FarterAttributeState_ReferencesResolved(context)) {
     Report(RECOVERED_ARENA_SEANCE_FARTER_REFERENCE_INVALID,
@@ -1311,6 +1336,9 @@ void RecoveredArenaSeance_Release() {
   g_state.corpseRuntimeReady = false;
   g_state.corpseReferenceFingerprint = 0;
   g_state.smokerAttributesReady = false;
+  g_state.smokerReferencesReady = false;
+  g_state.smokerRuntimeReady = false;
+  g_state.smokerReferenceFingerprint = 0;
   g_state.dynSmokerReady = false;
   g_state.dynSmokerCapacity = 0;
   g_state.dynSmokerFingerprint = 0;
@@ -1379,6 +1407,19 @@ bool RecoveredArenaSeance_CorpseAttributesReady() {
 
 bool RecoveredArenaSeance_SmokerAttributesReady() {
   return g_state.smokerAttributesReady;
+}
+
+bool RecoveredArenaSeance_SmokerReferencesReady() {
+  return g_state.smokerReferencesReady;
+}
+
+bool RecoveredArenaSeance_SmokerRuntimeReady() {
+  return g_state.smokerRuntimeReady;
+}
+
+unsigned long long RecoveredArenaSeance_SmokerReferenceFingerprint() {
+  return g_state.smokerReferencesReady ? g_state.smokerReferenceFingerprint
+                                       : 0;
 }
 
 bool RecoveredArenaSeance_DynSmokerReady() {

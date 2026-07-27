@@ -715,10 +715,10 @@ Status vocabulary:
   `s_UpdateAttributes()` call.
 - Handling: initialize every transient member to a null/zero sentinel. The
   source frontier does not call global update. The later dependency-safe phase
-  resolves only Farter WAV and Corpse Skin/SmokerAttr references through a
-  complete-table transaction; the bounded DynSmoker owner now supplies the
-  Corpse subject-table ID. Lamp and all other derived caches remain null.
-- Revisit when: SoundObj, Smoker visual references and the remaining dependency
+  resolves Farter WAV, Corpse Skin/SmokerAttr and Smoker SmokeAttr references
+  through complete-table transactions; the bounded DynSmoker owner supplies
+  the Corpse subject-table ID. Lamp and renderer-derived caches remain null.
+- Revisit when: SoundObj, Smoker visual caches and the remaining dependency
   graph can execute and roll back the complete global attribute-update pass.
 
 ### CQ-053: peripheral attribute ownership is split across four scripts
@@ -851,8 +851,8 @@ Status vocabulary:
   `RR2NW_SMOKER_SUBJECT_ONLY` for runtime activation while retaining the
   unrestricted target as a compile gate. The bounded build keeps allocation,
   START/removal and teardown but gates MOVE, land and rendering paths.
-- Revisit when: SmokerAttr derived references plus renderer-independent
-  corona state are verified; remove individual gates only with focused visible
+- Revisit when: SmokerAttr SmokeAttr IDs are verified and the renderer owns
+  explicit corona resources; remove individual gates only with focused visible
   behavior coverage.
 
 ### CQ-063: class registration must precede opening the Arena seance
@@ -882,6 +882,21 @@ Status vocabulary:
   reconstruction and repeated lifecycle reuse.
 - Revisit when: full MOVE/render behavior is enabled; add sanitizer-backed
   emission and timed-removal coverage before removing the guards.
+
+### CQ-065: software transparent colors are process-local table pointers
+
+- Status: `CONFIRMED_SOURCE`, `PORTABILITY_SPLIT_ACCEPTED`.
+- Evidence: the recovered software `GRTransparentColor(r,g,b)` matches a
+  palette entry and returns `_gr_pTransparency[color].pTable` cast to
+  `unsigned long`; only the hardware branch returns packed RGB. Repeated
+  process launches therefore produced different values under ASLR when the
+  derived Smoker corona color was incorrectly included in a trial fingerprint.
+- Handling: never serialize or fingerprint `m_coronaColor`, and do not compute
+  it during metadata-only reference resolution. Preserve `m_coronaRGB` as the
+  stable source value; create the table pointer only after the renderer owns
+  the transparency palette, and clear it with that renderer lifecycle.
+- Revisit when: the software renderer replaces raw table-address colors with a
+  stable logical handle. Add a render-lifecycle test before changing this rule.
 
 ## Maintenance rule
 

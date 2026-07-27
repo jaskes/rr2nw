@@ -39,6 +39,7 @@ unsigned long long g_farterReferenceFixtureFingerprint = 0;
 unsigned long long g_lampFixtureFingerprint = 0;
 unsigned long long g_corpseFixtureFingerprint = 0;
 unsigned long long g_smokerFixtureFingerprint = 0;
+unsigned long long g_smokerReferenceFixtureFingerprint = 0;
 unsigned long long g_dynSmokerFixtureFingerprint = 0;
 unsigned long long g_wavFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
@@ -204,6 +205,9 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_CorpseRuntimeReady() &&
          RecoveredArenaSeance_CorpseReferenceFingerprint() == 0 &&
          !RecoveredArenaSeance_SmokerAttributesReady() &&
+         !RecoveredArenaSeance_SmokerReferencesReady() &&
+         !RecoveredArenaSeance_SmokerRuntimeReady() &&
+         RecoveredArenaSeance_SmokerReferenceFingerprint() == 0 &&
          !RecoveredArenaSeance_DynSmokerReady() &&
          RecoveredArenaSeance_DynSmokerCapacity() == 0 &&
          RecoveredArenaSeance_DynSmokerFingerprint() == 0 &&
@@ -240,6 +244,9 @@ bool RunCycle() {
       !RecoveredArenaSeance_SmokeAttributesReady() ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
       !RecoveredArenaSeance_SmokerAttributesReady() ||
+      !RecoveredArenaSeance_SmokerReferencesReady() ||
+      RecoveredArenaSeance_SmokerRuntimeReady() ||
+      RecoveredArenaSeance_SmokerReferenceFingerprint() == 0 ||
       !RecoveredArenaSeance_DynSmokerReady() ||
       RecoveredArenaSeance_DynSmokerCapacity() != 62 ||
       RecoveredArenaSeance_DynSmokerFingerprint() == 0 ||
@@ -308,6 +315,9 @@ bool RunCycle() {
       SmokerAttributeState_IsKnownRoster(&context) &&
       SmokerAttributeState_RosterSize(&context) == 11 &&
       SmokerAttributeState_Capacity() == 11 &&
+      SmokerAttributeState_ReferencesResolved(&context) &&
+      !SmokerAttributeState_RuntimeReady(&context) &&
+      SmokerAttributeState_ReferenceFingerprint(&context) != 0 &&
       SmokerSubjectState_DynTableReady(&context, 62) &&
       SmokerSubjectState_DynCapacity() == 62 &&
       SmokerSubjectState_DynLiveCount() == 0 &&
@@ -347,6 +357,8 @@ bool RunCycle() {
       FarterAttributeState_ReferenceFingerprint(&context);
   const unsigned long long smokerFingerprint =
       SmokerAttributeState_Fingerprint(&context);
+  const unsigned long long smokerReferenceFingerprint =
+      SmokerAttributeState_ReferenceFingerprint(&context);
   const unsigned long long dynSmokerFingerprint =
       SmokerSubjectState_DynFingerprint(&context);
   const unsigned long long wavFingerprint =
@@ -366,6 +378,8 @@ bool RunCycle() {
        g_farterReferenceFixtureFingerprint == farterReferenceFingerprint) &&
       (g_smokerFixtureFingerprint == 0 ||
        g_smokerFixtureFingerprint == smokerFingerprint) &&
+      (g_smokerReferenceFixtureFingerprint == 0 ||
+       g_smokerReferenceFixtureFingerprint == smokerReferenceFingerprint) &&
       (g_dynSmokerFixtureFingerprint == 0 ||
        g_dynSmokerFixtureFingerprint == dynSmokerFingerprint) &&
       (g_wavFixtureFingerprint == 0 ||
@@ -380,6 +394,7 @@ bool RunCycle() {
   g_farterFixtureFingerprint = farterFingerprint;
   g_farterReferenceFixtureFingerprint = farterReferenceFingerprint;
   g_smokerFixtureFingerprint = smokerFingerprint;
+  g_smokerReferenceFixtureFingerprint = smokerReferenceFingerprint;
   g_dynSmokerFixtureFingerprint = dynSmokerFingerprint;
   g_wavFixtureFingerprint = wavFingerprint;
   g_lampFixtureFingerprint = lampFingerprint;
@@ -810,10 +825,12 @@ int main(int argc, char** argv) {
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
               "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
               "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
-              "farter_refs=resolved corpse_refs=source-only "
+              "farter_refs=resolved smoker_refs=resolved "
+              "smoker_runtime=deferred corpse_refs=source-only "
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
               "explosion_fingerprint=%llu smoker_fingerprint=%llu "
+              "smoker_reference_fingerprint=%llu "
               "dyn_smoker_fingerprint=%llu "
               "wav_fingerprint=%llu farter_fingerprint=%llu "
               "farter_reference_fingerprint=%llu "
@@ -822,6 +839,7 @@ int main(int argc, char** argv) {
               "rollback=idempotent\n",
               g_explosionFixtureFingerprint,
               g_smokerFixtureFingerprint,
+              g_smokerReferenceFixtureFingerprint,
               g_dynSmokerFixtureFingerprint,
               g_wavFixtureFingerprint,
               g_farterFixtureFingerprint,

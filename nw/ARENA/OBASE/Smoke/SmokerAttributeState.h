@@ -64,5 +64,13 @@ unsigned long long SmokerAttributeState_Fingerprint(
 int SmokerAttributeState_RosterSize(SimulationContext *context);
 int SmokerAttributeState_Capacity();
 bool SmokerAttributeState_IsKnownRoster(SimulationContext *context);
+bool SmokerAttributeState_CachesUnresolved(SimulationContext *context);
+bool SmokerAttributeState_ResolveReferences(SimulationContext *context);
+bool SmokerAttributeState_ReferencesResolved(SimulationContext *context);
+bool SmokerAttributeState_RuntimeReady(SimulationContext *context);
+unsigned long long SmokerAttributeState_ReferenceFingerprint(
+    SimulationContext *context);
+bool SmokerAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context);
 
 #endif

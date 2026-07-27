@@ -1946,6 +1946,7 @@ add_library(rr2nw_arena_smoker_attribute_state STATIC
   nw/ARENA/OBASE/Smoke/SmokerAttributeState.inl
 )
 target_link_libraries(rr2nw_arena_smoker_attribute_state PUBLIC
+  rr2nw_arena_smoke_attribute_state
   rr2nw_arena_smoke_texture_cache
   rr2nw_arena_storage
   rr2nw_graph_runtime_state

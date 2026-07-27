@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "obase/smoke/SmokeAttributeState.h"
+
 AttributeTableSmoker __attrSmokerTable;
 
 namespace {
@@ -55,6 +57,47 @@ void SmokerHashAttribute(unsigned long long &hash, AttributeSmoker &attr)
 #undef RR2NW_SMOKER_HASH_FIELD
 }
 
+bool SmokerCachesAreUnresolved(AttributeSmoker &attribute)
+{
+    return attribute.m_smokeAttrID.isNUL() &&
+           attribute.m_smokeTableID == ct_NULLID &&
+           attribute.m_coronaHText == NULL &&
+           attribute.m_coronaColor == 0;
+}
+
+struct SmokerResolvedReferences
+{
+    KR_ObjectID smokeAttrID;
+    ct_ClassTableID smokeTableID;
+    GR_HTEXTURE coronaHText;
+    unsigned long coronaColor;
+};
+
+bool ResolveSmokerReferences(SimulationContext *context,
+                             AttributeSmoker &attribute,
+                             SmokerResolvedReferences &references)
+{
+    references.smokeAttrID = KR_ObjectID::NUL();
+    references.smokeTableID =
+        g_arena.searchSeanceClassTable(attribute.m_smokeTableName);
+    // Software corona colors are process-local transparency-table pointers.
+    // This metadata phase preserves renderer caches until their owner runs.
+    references.coronaHText = attribute.m_coronaHText;
+    references.coronaColor = attribute.m_coronaColor;
+    return SmokeAttributeState_Resolve(context, attribute.m_smokeAttrName,
+                                       &references.smokeAttrID);
+}
+
+void CommitSmokerReferences(
+    AttributeSmoker &attribute,
+    const SmokerResolvedReferences &references)
+{
+    attribute.m_smokeAttrID = references.smokeAttrID;
+    attribute.m_smokeTableID = references.smokeTableID;
+    attribute.m_coronaHText = references.coronaHText;
+    attribute.m_coronaColor = references.coronaColor;
+}
+
 struct SmokerRosterEntry
 {
     std::string name;
@@ -75,10 +118,7 @@ bool CollectSmokerRosterEntry(const KR_ObjectID object, void *user)
     const char *name = collector->context->searchObject(object);
     AttributeSmoker *attribute = static_cast<AttributeSmoker *>(
         __attrSmokerTable.searchAttribute(object));
-    if (name == NULL || attribute == NULL ||
-        !attribute->m_smokeAttrID.isNUL() ||
-        attribute->m_smokeTableID != ct_NULLID ||
-        attribute->m_coronaHText != NULL || attribute->m_coronaColor != 0)
+    if (name == NULL || attribute == NULL)
     {
         collector->valid = false;
         return false;
@@ -256,6 +296,116 @@ bool SmokerAttributeState_IsKnownRoster(SimulationContext *context)
     };
     const unsigned long long fingerprint =
         SmokerAttributeState_Fingerprint(context);
+    for (int i = 0; i < static_cast<int>(sizeof(known) / sizeof(known[0]));
+         ++i)
+        if (fingerprint == known[i])
+            return true;
+    return false;
+}
+
+bool SmokerAttributeState_CachesUnresolved(SimulationContext *context)
+{
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (!SmokerCachesAreUnresolved(*collector.entries[i].attribute))
+            return false;
+    return true;
+}
+
+bool SmokerAttributeState_ResolveReferences(SimulationContext *context)
+{
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return false;
+    std::vector<SmokerResolvedReferences> references(
+        collector.entries.size());
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (!ResolveSmokerReferences(context, *collector.entries[i].attribute,
+                                     references[i]))
+            return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        CommitSmokerReferences(*collector.entries[i].attribute,
+                               references[i]);
+    return true;
+}
+
+bool SmokerAttributeState_ReferencesResolved(SimulationContext *context)
+{
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeSmoker *attribute = collector.entries[i].attribute;
+        SmokerResolvedReferences expected = {};
+        if (!ResolveSmokerReferences(context, *attribute, expected) ||
+            attribute->m_smokeAttrID != expected.smokeAttrID ||
+            attribute->m_smokeTableID != expected.smokeTableID)
+            return false;
+    }
+    return true;
+}
+
+bool SmokerAttributeState_RuntimeReady(SimulationContext *context)
+{
+    if (!SmokerAttributeState_ReferencesResolved(context))
+        return false;
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeSmoker *attribute = collector.entries[i].attribute;
+        AttributeSmoke *smoke = static_cast<AttributeSmoke *>(
+            __attrSmokeTable.searchAttribute(attribute->m_smokeAttrID));
+        if (attribute->m_smokeTableID == ct_NULLID || smoke == NULL ||
+            smoke->m_cacheImage == NULL ||
+            (attribute->m_useCorona &&
+             (attribute->m_coronaHText == NULL ||
+              attribute->m_coronaColor == 0)))
+            return false;
+    }
+    return true;
+}
+
+unsigned long long SmokerAttributeState_ReferenceFingerprint(
+    SimulationContext *context)
+{
+    if (!SmokerAttributeState_ReferencesResolved(context))
+        return 0;
+    SmokerRosterCollector collector = {};
+    if (!CollectSmokerRoster(context, collector))
+        return 0;
+    unsigned long long hash = kSmokerHashOffset;
+    const int capacity = __attrSmokerTable.capacity();
+    SmokerHashBytes(hash, &capacity, sizeof(capacity));
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeSmoker *attribute = collector.entries[i].attribute;
+        SmokerHashString(hash, collector.entries[i].name.c_str());
+        SmokerHashAttribute(hash, *attribute);
+        const char *smokeName =
+            context->searchObject(attribute->m_smokeAttrID);
+        const char *tableName =
+            g_arena.searchSeanceClassTable(attribute->m_smokeTableID);
+        SmokerHashString(hash, smokeName == NULL ? "" : smokeName);
+        SmokerHashString(hash, tableName == NULL ? "" : tableName);
+    }
+    return hash;
+}
+
+bool SmokerAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context)
+{
+    // Filled from the public January snapshot and canonical May retail root.
+    static const unsigned long long known[] = {
+        5627988880116855453ull,
+        2087316489424612812ull
+    };
+    const unsigned long long fingerprint =
+        SmokerAttributeState_ReferenceFingerprint(context);
     for (int i = 0; i < static_cast<int>(sizeof(known) / sizeof(known[0]));
          ++i)
         if (fingerprint == known[i])

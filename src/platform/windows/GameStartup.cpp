@@ -602,6 +602,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_SmokerAttributeCapacity()));
   log.Line("smoker_attribute_fingerprint=" + std::to_string(
                RecoveredArenaSeance_SmokerAttributeFingerprint()));
+  log.Line("smoker_references_resolved=" +
+           std::to_string(
+               RecoveredGameServices_SmokerReferencesReady() ? 1 : 0));
+  log.Line("smoker_runtime_ready=" +
+           std::to_string(
+               RecoveredGameServices_SmokerRuntimeReady() ? 1 : 0));
+  log.Line("smoker_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SmokerReferenceFingerprint()));
   log.Line("dyn_smoker_initialized=" +
            std::to_string(
                RecoveredGameServices_DynSmokerReady() ? 1 : 0));

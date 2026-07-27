@@ -85,6 +85,23 @@ void SmokeAttributeState_Link()
 {
 }
 
+bool SmokeAttributeState_Resolve(SimulationContext *context,
+                                 const char *objectName,
+                                 KR_ObjectID *objectID)
+{
+    if (objectID != NULL)
+        *objectID = KR_ObjectID::NUL();
+    if (context == NULL || objectName == NULL || objectName[0] == 0 ||
+        objectID == NULL)
+        return false;
+    KR_ObjectID resolved = context->searchObject(objectName);
+    if (resolved.isNUL() ||
+        __attrSmokeTable.searchAttribute(resolved) == NULL)
+        return false;
+    *objectID = resolved;
+    return true;
+}
+
 void AttributeTableSmoke::allocObjects(int objectQnty)
 {
     m_table = new AttributeSmoke[objectQnty];

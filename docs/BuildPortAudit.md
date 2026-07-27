@@ -1419,6 +1419,41 @@ runtime-smoke launches publish capacity 62, fingerprint
 `10679040711010833004`, `corpse_runtime_ready=1`, `level-ready` and
 `runtime_shutdown=clean`.
 
+### Transactional Smoker to SmokeAttr references
+
+The next dependency-safe phase resolves every
+`AttributeSmoker::m_smokeAttrName` against the already verified real
+`SmokeAttr` table. The source collector now separates immutable script fields
+from derived caches, so the January/May source fingerprints remain valid after
+resolution. A complete staging vector holds every target object ID and current
+`Smoke` table ID; no record is changed until all names resolve. Retail service
+failure injection substitutes `Smoke.Attr.Missing` for the active Corpse
+Smoker and proves rejection leaves all four derived fields unchanged before
+exact reconstruction.
+
+The stable reference fingerprints are `5627988880116855453` for the public
+eleven-object fixture and `2087316489424612812` for the canonical May
+twelve-object root. They hash stable source and resolved names rather than
+object IDs. The same May identity is expected for all nine Levels because both
+SmokerAttr and SmokeAttr are shared root data.
+
+The audit also caught a renderer ABI trap before it reached the whitelist.
+Software `GRTransparentColor` returns a transparency-table pointer; an early
+trial that hashed the derived corona color changed across ASLR-enabled process
+launches. Metadata resolution now leaves `m_coronaHText` and `m_coronaColor`
+null, excludes both from identity, and preserves only the already scripted
+`m_coronaRGB`. The active seance also lacks a `Smoke` subject table, so
+diagnostics intentionally report `smoker_references_resolved=1` and
+`smoker_runtime_ready=0`. Runtime readiness additionally requires each target
+SmokeAttr image cache and every enabled corona texture/color cache.
+
+Final verification remains 48/48 tests in Debug and Release. The complete
+retail gate passes 36/36 service launches, 36/36 direct WAV catalogs and 36/36
+direct Skin catalogs across both configurations, both roots and all nine
+Levels. All service summaries publish the May Smoker reference fingerprint and
+deferred runtime state. All 4/4 executable runtime smokes publish the same
+three Smoker diagnostics, zero service issues and `runtime_shutdown=clean`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1453,8 +1488,10 @@ runtime-smoke launches publish capacity 62, fingerprint
    rosters, optional load flags and live/catalog fingerprints without
    activating RSX. Farter WAV and Corpse Skin/SmokerAttr references now resolve
    transactionally. The real bounded `DynSmoker` table now executes its
-   create/start/remove lifecycle at exact retail capacity. `SoundObj`, Smoker
-   Smoke/light/corona/terrain references, remaining attribute cache groups,
+   create/start/remove lifecycle at exact retail capacity, and SmokerAttr now
+   resolves every real SmokeAttr target atomically. `SoundObj`, the `Smoke`
+   subject lifecycle, Smoker sprite/corona/light/terrain caches, remaining
+   attribute cache groups,
    Skin animation construction and remaining OBASE/script ABI bindings are
    still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

@@ -41,6 +41,8 @@ bool RecoveredGameServices_CorpseAttributesReady();
 bool RecoveredGameServices_CorpseReferencesReady();
 bool RecoveredGameServices_CorpseRuntimeReady();
 bool RecoveredGameServices_SmokerAttributesReady();
+bool RecoveredGameServices_SmokerReferencesReady();
+bool RecoveredGameServices_SmokerRuntimeReady();
 bool RecoveredGameServices_DynSmokerReady();
 bool RecoveredGameServices_WavMetadataReady();
 bool RecoveredGameServices_SkinResourcesReady();

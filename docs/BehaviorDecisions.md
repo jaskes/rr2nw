@@ -1145,6 +1145,45 @@ across two complete open/close cycles.
 
 `corpse_runtime_ready=1` now means the verified Skin/SmokerAttr references and
 the real `DynSmoker` subject/start lifecycle are all present. It does not claim
-Smoke emission, land dynamics, light/corona behavior or renderer parity. The
-next Smoker frontier must transactionally resolve the `SmokeAttr` references
-and renderer-independent corona data before those gated callbacks are enabled.
+Smoke emission, land dynamics, light/corona behavior or renderer parity.
+BD-039 resolves the `SmokeAttr` references while keeping corona handles/colors
+behind their renderer boundary before those gated callbacks are enabled.
+
+## BD-039: Smoker metadata references are separate from visual readiness
+
+Status: accepted on 2026-07-27.
+
+Every admitted `SmokerAttr` now resolves its named `SmokeAttr` against the real
+root table in one complete-table transaction. The resolver stages every target
+object ID and the current `Smoke` subject-table identity before committing any
+record. A missing target rejects the transaction without changing the already
+published IDs, table IDs or corona caches. Source-roster fingerprints remain
+valid before and after resolution because derived caches are no longer part of
+the source collector contract.
+
+This phase deliberately does not call `AttributeSmoker::update()` or the global
+attribute update. The active runtime has no `Smoke` subject table yet, and the
+public CI fixture has no redistributable `Smoke.spr`/`corona.spr`. Moreover,
+software `GRTransparentColor` returns a process-local transparency-table
+pointer rather than a portable RGB integer. `m_coronaHText` and
+`m_coronaColor` therefore remain null/zero; the stable source `m_coronaRGB` is
+already present in the attribute and is sufficient to preserve intent.
+
+Reference readiness is now required by the service gate, while visual runtime
+readiness is reported separately and remains false. Full Smoker runtime
+readiness will require the real `Smoke` subject table, a loaded image cache for
+every referenced `SmokeAttr`, and a texture/color cache for every corona-using
+Smoker. MOVE scheduling, terrain placement, smoke creation, light/corona
+updates and rendering remain disabled in the bounded subject build.
+
+Reference fingerprints hash source data plus stable resolved object/table
+names, never object IDs, pointers or renderer handles. The public January
+fixture is `5627988880116855453`; the canonical May root shared by all nine
+Levels is `2087316489424612812`. Failure injection replaces
+`Smoker.Attr.Corpse`'s target with `Smoke.Attr.Missing`, requires atomic
+rejection, restores the source and requires exact fingerprint reconstruction.
+
+Regression contract: 48/48 Debug and Release tests; 36/36 service, WAV-catalog
+and Skin-catalog retail launches across both roots; paired May reference
+identity; and 4/4 executable runtime smokes publishing resolved references,
+deferred visual readiness, zero service issues and clean shutdown.

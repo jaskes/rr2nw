@@ -279,6 +279,24 @@ Retail scripts нельзя молча копировать поверх source 
   readiness. `corpse_runtime_ready=1` denotes this structural lifecycle only;
   it is not a claim of visible Smoke/light/corona parity.
 
+### RP-SCRIPT-008: SmokerAttr resolves the shared root SmokeAttr roster
+
+- Classification: `RETAIL_REQUIRED`; metadata references are active, visual
+  Smoke/corona resources remain deferred.
+- All eleven January and all twelve May `SmokerAttr` records name objects in
+  the admitted eighteen-object root `SmokeAttr` table. Resolution is atomic
+  across the complete roster and preserves the distinct January/May source
+  identities.
+- The stable resolved fingerprint is `5627988880116855453` for the public
+  January fixture and `2087316489424612812` for the canonical May root. All
+  nine installed and mounted Levels share the latter identity.
+- The current production seance does not create the `Smoke` subject table.
+  `m_smokeTableID`, `m_coronaHText` and `m_coronaColor` therefore remain null;
+  `smoker_references_resolved=1` and `smoker_runtime_ready=0` are both expected.
+- Fingerprints use resolved names and source RGB data only. The software
+  transparent-color cache is a process-local table pointer and is explicitly
+  excluded from content identity.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

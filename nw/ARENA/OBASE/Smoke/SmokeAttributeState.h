@@ -169,6 +169,9 @@ class AttributeTableSmoke : public ct_AttributeTable
 extern AttributeTableSmoke __attrSmokeTable;
 
 void SmokeAttributeState_Link();
+bool SmokeAttributeState_Resolve(SimulationContext *context,
+                                 const char *objectName,
+                                 KR_ObjectID *objectID);
 unsigned long long SmokeAttributeState_RetailFingerprint(
     SimulationContext *context);
 bool SmokeAttributeState_IsRetailRoster(SimulationContext *context);

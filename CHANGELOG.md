@@ -7,6 +7,12 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added transactional SmokerAttr-to-SmokeAttr reference resolution with
+  stable public/May fingerprints, fail-closed service readiness, atomic
+  missing-target injection and complete reconstruction/rollback coverage.
+- Added separate Smoker reference and visual-runtime diagnostics. The latter
+  remains explicitly deferred until the real `Smoke` subject, Smoke sprite
+  caches and corona transparency resources are active.
 - Added the real retail `DynSmoker` subject table as a bounded lifecycle owner.
   Startup now verifies the exact capacity-62 table with a real
   create/start/remove probe before Corpse references may report structural
@@ -238,6 +244,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Changed
 
+- Kept software corona colors out of persistent identities: the legacy
+  `GRTransparentColor` value is a process-local transparency-table pointer,
+  not portable packed RGB. Metadata resolution now preserves source RGB while
+  leaving renderer-derived corona handles null.
 - Split legacy attribute update into a device-independent reference phase and
   a later subject/device activation phase. Farter no longer needs a live RSX
   device to cache loaded WAV metadata, and Corpse resolves the real loaded
