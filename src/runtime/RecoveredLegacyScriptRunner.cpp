@@ -14,6 +14,8 @@ namespace {
 struct ScriptAttempt {
   TSuaCript compiler;
   TSetOfProcess processes;
+  TLinkConstExtern linkedConstants[
+      RecoveredLegacyScriptHost::kConstantCount + 1];
   char* source;
   bool compilerInitialized;
   bool processInitialized;
@@ -167,6 +169,7 @@ bool RunMemory(const char* source, const char* programName,
 
     attempt->stage = SCRIPT_STAGE_COMPILE;
     sc_InitScannerFromMem(&attempt->compiler, attempt->source);
+    RecoveredLegacyScriptHost::ResetConstantLinks();
     sc_Compile(&attempt->compiler, programName,
                RecoveredLegacyScriptHost::Bindings(),
                RecoveredLegacyScriptHost::Constants());
@@ -175,6 +178,14 @@ bool RunMemory(const char* source, const char* programName,
       CleanupScriptAttempt(attempt);
       SetResult(result, RECOVERED_LEGACY_SCRIPT_RUN_COMPILE_FAILURE,
                 "legacy script compiler did not publish the program");
+      return false;
+    }
+    if (RecoveredLegacyScriptHost::CopyLinkedConstants(
+            attempt->linkedConstants,
+            RecoveredLegacyScriptHost::kConstantCount + 1) < 0) {
+      CleanupScriptAttempt(attempt);
+      SetResult(result, RECOVERED_LEGACY_SCRIPT_RUN_INITIALIZATION_FAILURE,
+                "could not isolate legacy script constant links");
       return false;
     }
 
@@ -190,7 +201,7 @@ bool RunMemory(const char* source, const char* programName,
     attempt->processInitialized = true;
     if (!sc_CreateProcess(&attempt->processes, &attempt->compiler, program,
                           profile.processStackSize, profile.processQuants,
-                          RecoveredLegacyScriptHost::Constants())) {
+                          attempt->linkedConstants)) {
       CleanupScriptAttempt(attempt);
       SetResult(result, RECOVERED_LEGACY_SCRIPT_RUN_PROCESS_FAILURE,
                 "could not create legacy script process");

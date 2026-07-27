@@ -228,6 +228,63 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_spark_attribute_state STATIC
+  nw/ARENA/OBASE/Spark/SparkAttributeState.cpp
+  nw/ARENA/OBASE/Spark/SparkAttributeState.h
+  nw/ARENA/OBASE/Spark/SparkAttributeState.inl
+)
+target_link_libraries(rr2nw_arena_spark_attribute_state PUBLIC
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_spark_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Spark
+)
+target_compile_features(
+  rr2nw_arena_spark_attribute_state PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_arena_spark_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_obase_spark_full STATIC
+  nw/ARENA/OBASE/Spark/Spark.cpp
+)
+target_link_libraries(rr2nw_arena_obase_spark_full PUBLIC
+  rr2nw_arena_spark_attribute_state
+)
+target_include_directories(rr2nw_arena_obase_spark_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Spark
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_spark_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_spark_full PRIVATE
+  __NT__
+  RR2NW_SPARK_ATTRIBUTE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_spark_attribute_state PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_arena_obase_spark_full PRIVATE /W3 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_arena_physics_math STATIC
   nw/ARENA/PHISICS.CPP
 )
@@ -2235,6 +2292,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state
   rr2nw_arena_obase_vehicle
+  rr2nw_arena_spark_attribute_state
   rr2nw_legacy_shell_full
   rr2nw_recovered_legacy_script_runtime
   rr2nw_recovered_game_level_runtime
@@ -2876,6 +2934,7 @@ add_executable(rr2nw_recovered_legacy_script_runtime_smoke
 )
 target_link_libraries(rr2nw_recovered_legacy_script_runtime_smoke PRIVATE
   rr2nw_recovered_legacy_script_runtime
+  rr2nw_arena_spark_attribute_state
 )
 target_compile_features(
   rr2nw_recovered_legacy_script_runtime_smoke PRIVATE cxx_std_14

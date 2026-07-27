@@ -346,10 +346,24 @@ are safely clamped at clean EOF. Closing the table clears the process-wide node
 cursor. No common route object is invented because retail level and mission
 scripts own their route selection.
 
-The bounded bootstrap now creates the Route table and Vehicle portion of the
-object graph. The next slice is to connect the remaining OBASE class tables and
-external script functions in rollback-tested groups until the unchanged retail
-`LEVEL0.SC` can replace it. Then verify the already attached Vessel, apply
+The least-coupled attribute group is now in progress. Its first complete slice
+extracts the real `SparkAttr` owner from the renderer-backed `Spark` source,
+creates the retail `Spark.Flash` object and reproduces all six phases from
+`SPARK.SCI`. Production verifies the named attribute and phase payload before
+publishing `spark_attributes_initialized=1`; Arena teardown removes the table
+and object across repeated contexts. The full Spark subject still only has a
+strict compile gate, and the global attribute-update pass remains deferred
+until `sk.Fusion.0` and the other referenced resource owners are present.
+The tranche preserves 43/43 tests in Debug and Release, 36/36 retail service
+launches and 4/4 retail executable smoke launches.
+
+The bounded bootstrap now creates SparkAttr, Route and the Vehicle portion of
+the object graph. The next slice is another low-coupling attribute table whose
+`update()` dependencies can be isolated honestly; Farter/Corpse/Lamp remain
+behind Sound, Skin, Smoke/Fire or renderer owners, while People/Tank/Taxi/
+Bullet/Sound stay out of this frontier. Continue in rollback-tested groups
+until the unchanged retail `LEVEL0.SC` can replace the bootstrap. Then verify
+the already attached Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
 Hardware subscription and camera ownership from the temporary observer. Menu,
 Briefing, Console, save/load/restart transitions, RSX/audio and active DebugMap

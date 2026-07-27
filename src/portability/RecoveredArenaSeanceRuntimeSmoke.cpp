@@ -24,9 +24,11 @@ int Fail(const char* message) {
   RecoveredArenaSeance_Release();
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
-               "(open=%d script=%d route=%d vehicle=%d issues=%u error=%s)\n",
+               "(open=%d script=%d spark=%d route=%d vehicle=%d issues=%u "
+               "error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
+               RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleReady() ? 1 : 0,
                RecoveredArenaSeance_Issues(),
@@ -73,9 +75,11 @@ bool FullPath(const char* path, std::string& result) {
 bool IsReleased(SimulationContext& context) {
   return !RecoveredArenaSeance_IsOpen() &&
          !RecoveredArenaSeance_ScriptCompleted() &&
+         !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
-         !context.isExist("Storage") && !context.isExist("Vehicle.Default") &&
+         !context.isExist("Storage") && !context.isExist("Spark.Flash") &&
+         !context.isExist("Vehicle.Default") &&
          Route::m_totalNodePos == 0;
 }
 
@@ -84,9 +88,11 @@ bool RunCycle() {
   if (!RecoveredArenaSeance_Initialize(&context, Session::m_moment) ||
       !RecoveredArenaSeance_IsOpen() ||
       !RecoveredArenaSeance_ScriptCompleted() ||
+      !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 ||
+      g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Vehicle") == ct_NULLID) {
@@ -95,9 +101,11 @@ bool RunCycle() {
   }
 
   KR_ObjectID storage = context.searchObject("Storage");
+  KR_ObjectID flash = context.searchObject("Spark.Flash");
   KR_ObjectID vehicle = context.searchObject("Vehicle.Default");
   const bool vehiclePublished =
-      !storage.isNUL() && !vehicle.isNUL() && g_vehicle != nullptr &&
+      !storage.isNUL() && !flash.isNUL() && !vehicle.isNUL() &&
+      g_vehicle != nullptr &&
       context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
 
   RecoveredArenaSeance_Release();
@@ -156,7 +164,8 @@ int main(int argc, char** argv) {
   if (!secondCycle) return Fail("Vehicle seance reconstruction failed");
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("bounded arena seance cycles=2 script=legacy-vm route=table "
-              "vehicle=Vehicle.Default rollback=idempotent\n");
+  std::printf("bounded arena seance cycles=2 script=legacy-vm "
+              "spark=Spark.Flash route=table vehicle=Vehicle.Default "
+              "rollback=idempotent\n");
   return EXIT_SUCCESS;
 }

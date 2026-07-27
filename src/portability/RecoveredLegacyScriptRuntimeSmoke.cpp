@@ -12,6 +12,7 @@
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "obase/route/route.h"
+#include "obase/spark/SparkAttributeState.h"
 #include "storage/h/subject.h"
 
 #include "RecoveredLegacyScriptHost.h"
@@ -78,7 +79,8 @@ bool RunCase(const char* source, const char* name,
              SRecoveredLegacyScriptRunResult* observed,
              bool expectRoute = false,
              bool expectUnloadedRoutes = false,
-             bool expectTruncatedRoute = false) {
+             bool expectTruncatedRoute = false,
+             bool expectSpark = false) {
   SimulationContext context(16, 32);
   g_arena.openSeance(&context, 64.0, 64.0);
   RecoveredLegacyScriptHost host(&g_arena);
@@ -128,8 +130,15 @@ bool RunCase(const char* source, const char* name,
                        NearlyEqual(midpoint.z, 0.0);
     }
   }
+  bool sparkPublished = !expectSpark;
+  if (expectSpark) {
+    KR_ObjectID flash = context.searchObject("Spark.Flash");
+    sparkPublished =
+        !flash.isNUL() && SparkAttributeState_IsRetailFlash(flash);
+  }
   g_arena.closeSeance();
-  return matched && routePublished && !context.isExist("Storage") &&
+  return matched && routePublished && sparkPublished &&
+         !context.isExist("Storage") && !context.isExist("Spark.Flash") &&
          !context.isExist("Route.fixture") &&
          !context.isExist("Route.by-table") &&
          !context.isExist("Route.by-class") &&
@@ -146,6 +155,8 @@ int main(int argc, char** argv) {
   static_assert(sizeof(void*) == 4,
                 "recovered script host requires a Win32 process");
   if (argc != 2) return Fail("expected a fixture directory");
+
+  SparkAttributeState_Link();
 
   std::string originalDirectory;
   std::string fixtureDirectory;
@@ -200,6 +211,17 @@ int main(int argc, char** argv) {
     return Fail("invalid runner input did not fail closed", &result);
   }
 
+  TStackCell stack[1] = {};
+  TProcessContext invalidReference = {};
+  invalidReference.m_stack = stack;
+  invalidReference.m_stackSize = 1;
+  if (detachedHost.WriteScriptInteger(&invalidReference, 1, 7) ||
+      detachedHost.Issues() !=
+          RECOVERED_LEGACY_SCRIPT_HOST_INVALID_STACK_REFERENCE) {
+    return Fail("invalid script variable reference was not rejected");
+  }
+  detachedHost.Reset();
+
   const char validLfSource[] =
       "func void main()\n"
       "{\n"
@@ -218,6 +240,61 @@ int main(int argc, char** argv) {
   if (!RunCase(validLfSource, "valid_lf",
                RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result)) {
     return Fail("LF source was not normalized and executed", &result);
+  }
+
+  const char sparkAttributeSource[] = R"RR2NW_SCRIPT(
+const int EDO_WRITE = 1;
+const int sp_EV_SET_PHASE_COUNT extern;
+const int sp_EV_SET_PHASE extern;
+const int RECT2D_I extern;
+const int LIGHT_COLOR_YELLOW extern;
+func int s_OpenEventData(int style) extern;
+func void s_CloseEventData(int event) extern;
+func void s_Descend(int event, int tag, int index) extern;
+func void s_Ascend(int event) extern;
+func void s_WriteInt(int event, int value) extern;
+func void s_WriteFloat(int event, float value) extern;
+func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
+func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
+func int s_AddClassTable(str className, int capacity) extern;
+func void s_NewObject(int table, str name) extern;
+func void Phase(int objectID, int cachePos, int num,
+                int x, int y, int w, int h, float time,
+                int brightness, int color, float radius)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event,num);
+  s_Descend(event,RECT2D_I,0);
+  s_WriteInt(event,x-w); s_WriteInt(event,y-h);
+  s_WriteInt(event,x+w); s_WriteInt(event,y+h);
+  s_Ascend(event);
+  s_WriteFloat(event,time); s_WriteInt(event,brightness);
+  s_WriteInt(event,color); s_WriteFloat(event,radius);
+  s_CloseEventData(event);
+  s_SendEventNow(event,sp_EV_SET_PHASE,objectID,cachePos);
+}
+func void main()
+var int table, objectID, cachePos, event;
+{
+  table := s_AddClassTable("SparkAttr",3);
+  s_NewObject(table,"Spark.Flash");
+  s_SearchObjectID(objectID,cachePos,"Spark.Flash");
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event,6); s_CloseEventData(event);
+  s_SendEventNow(event,sp_EV_SET_PHASE_COUNT,objectID,cachePos);
+  Phase(objectID,cachePos,0, 25,45,20,40,0.04,100,LIGHT_COLOR_YELLOW, 7);
+  Phase(objectID,cachePos,1, 78,46,20,40,0.03,200,LIGHT_COLOR_YELLOW,14);
+  Phase(objectID,cachePos,2,126,47,20,40,0.03,100,LIGHT_COLOR_YELLOW,10);
+  Phase(objectID,cachePos,3,180,44,20,40,0.10, 20,LIGHT_COLOR_YELLOW, 7);
+  Phase(objectID,cachePos,4,230,44,20,40,0.10,  0,LIGHT_COLOR_YELLOW, 4);
+  Phase(objectID,cachePos,5,230,44,20,40,0.00,  0,LIGHT_COLOR_YELLOW, 0);
+}
+)RR2NW_SCRIPT";
+  if (!RunCase(sparkAttributeSource, "spark_attribute",
+               RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result,
+               false, false, false, true)) {
+    return Fail("retail Spark attribute script did not execute", &result);
   }
 
   const char routeSource[] =
@@ -380,7 +457,8 @@ int main(int argc, char** argv) {
   RemoveDirectoryA(fixtureDirectory.c_str());
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("legacy script host bindings=11 lf=normalized route=loaded "
-              "route_eof=clamped errors=fail-closed rollback=clean\n");
+  std::printf("legacy script host bindings=15 constants=4 lf=normalized "
+              "spark=retail-phases route=loaded route_eof=clamped "
+              "errors=fail-closed rollback=clean\n");
   return EXIT_SUCCESS;
 }

@@ -523,6 +523,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredGameServices_SessionReady() ? 1 : 0));
   log.Line("arena_seance_initialized=" +
            std::to_string(RecoveredGameServices_SeanceReady() ? 1 : 0));
+  log.Line("spark_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SparkAttributesReady() ? 1 : 0));
   log.Line("route_table_initialized=" +
            std::to_string(RecoveredGameServices_RouteReady() ? 1 : 0));
   log.Line("vehicle_default_initialized=" +
@@ -580,7 +583,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                                             : "interactive-observer"));
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
-  log.Line("script_mode=bounded-vehicle-bootstrap");
+  log.Line("script_mode=bounded-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

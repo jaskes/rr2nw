@@ -444,6 +444,48 @@ Status vocabulary:
   patch, or Route files gain a versioned parser that can report recoverable
   warnings separately from fatal errors.
 
+### CQ-035: SuaScript `var` extern parameters are stack references
+
+- Status: `CONFIRMED_SOURCE`, `BUGFIX_ACCEPTED`.
+- Evidence: the original `s_SearchObjectID` and `s_New` hosts treat their
+  output arguments as indices and write through `pc->m_stack[SC_PARI(n)]`.
+  The isolated host instead assigned to `SC_PARI(n)` itself. The call returned
+  successfully but left caller variables at Debug-fill values; Spark phase
+  messages consequently targeted an invalid object ID.
+- Handling: both bindings now dereference the supplied stack cell, validate it
+  against `m_stackSize` and set a typed host issue for an invalid reference. A
+  direct bounds test and the retail `Spark.Flash` phase fixture cover the ABI.
+- Revisit when: external calls use typed references instead of exposing raw VM
+  stack offsets, or SuaScript is replaced behind a compatible host adapter.
+
+### CQ-036: Spark attributes are valid before renderer resolution
+
+- Status: `CONFIRMED_SOURCE`, `PRESERVED`.
+- Evidence: retail creates/configures `Spark.Flash` before the later global
+  `s_UpdateAttributes()` call. Its constructor and phase events are data-only,
+  while `AttributeSpark::update()` resolves `sk.Fusion.0`, sends
+  `sk_EV_QUERY_MODEL_PTR` and stores a transient `CViewTexture*`.
+- Handling: the first attribute tranche creates and verifies all six retail
+  phases but does not call the global update pass. The cache pointer remains
+  null and deterministic; Arena can release the table without a Skin or
+  renderer owner. Production reports Spark readiness separately.
+- Revisit when: the Skin table and `sk.Fusion.0` are initialized transactionally
+  and the complete attribute-update pass has rollback coverage.
+
+### CQ-037: external-constant links store program-specific stack offsets
+
+- Status: `CONFIRMED_SOURCE`, `CONTAINED`.
+- Evidence: `ci_LinkProgramm` writes each referenced external constant's stack
+  offset back into the shared `TLinkConstExtern` table, and process creation
+  initializes every entry it receives. Reusing the same table for a later
+  program that does not declare those constants would retain stale offsets.
+- Handling: the bounded synchronous runner resets all offsets before compile,
+  copies only constants linked by that program into its POD attempt state and
+  gives that per-program list to process creation. The Spark fixture is followed
+  by constant-free Route/error scripts in the same process.
+- Revisit when: linker output owns immutable constant relocation records or
+  concurrent script compilation is introduced.
+
 ## Maintenance rule
 
 When a new quirk is found:

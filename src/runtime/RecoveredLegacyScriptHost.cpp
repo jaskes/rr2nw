@@ -3,8 +3,11 @@
 #include <cstdio>
 #include <cstring>
 
+#include "enum/spaceenum.h"
+#include "graph.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "message/sparkmsg.h"
 #include "message/routmsg.h"
 #include "obase/route/route.h"
 #include "storage/h/subject.h"
@@ -26,6 +29,28 @@ void ScriptOpenEventData(TProcessContext* pc, void* userData) {
 void ScriptCloseEventData(TProcessContext* pc, void* userData) {
   RecoveredLegacyScriptHost* host = Host(userData);
   if (host != nullptr) host->CloseEventData(SC_PARI(0));
+}
+
+void ScriptDescendEventData(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->DescendEventData(SC_PARI(2), SC_PARI(1), SC_PARI(0));
+  }
+}
+
+void ScriptAscendEventData(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->AscendEventData(SC_PARI(0));
+}
+
+void ScriptWriteInt(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->WriteInt(SC_PARI(1), SC_PARI(0));
+}
+
+void ScriptWriteFloat(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->WriteFloat(SC_PARI(1), SC_PARF(0));
 }
 
 void ScriptWriteString(TProcessContext* pc, void* userData) {
@@ -53,8 +78,10 @@ void ScriptSearchObjectID(TProcessContext* pc, void* userData) {
   RecoveredLegacyScriptHost* host = Host(userData);
   const KR_ObjectID object =
       host == nullptr ? KR_ObjectID::NUL() : host->SearchObject(SC_PARS(0));
-  SC_PARI(2) = object.id;
-  SC_PARI(1) = object.getCachePos();
+  if (host != nullptr) {
+    host->WriteScriptInteger(pc, SC_PARI(2), object.id);
+    host->WriteScriptInteger(pc, SC_PARI(1), object.getCachePos());
+  }
 }
 
 void ScriptAddClassTable(TProcessContext* pc, void* userData) {
@@ -70,8 +97,10 @@ void ScriptNewObject(TProcessContext* pc, void* userData) {
       host == nullptr
           ? KR_ObjectID::NUL()
           : host->NewObject(SC_PARI(3), SC_PARS(2));
-  SC_PARI(1) = object.id;
-  SC_PARI(0) = object.getCachePos();
+  if (host != nullptr) {
+    host->WriteScriptInteger(pc, SC_PARI(1), object.id);
+    host->WriteScriptInteger(pc, SC_PARI(0), object.getCachePos());
+  }
 }
 
 void ScriptNewObjectWithoutResult(TProcessContext* pc, void* userData) {
@@ -91,9 +120,25 @@ void ScriptLoadRoute(TProcessContext* pc, void* userData) {
   }
 }
 
+void ConstSparkSetPhaseCount(TStackCell* cell) {
+  cell->i = sp_EV_SET_PHASE_COUNT;
+}
+
+void ConstSparkSetPhase(TStackCell* cell) { cell->i = sp_EV_SET_PHASE; }
+
+void ConstRect2DI(TStackCell* cell) { cell->i = RECT2D_I; }
+
+void ConstLightColorYellow(TStackCell* cell) {
+  cell->i = LIGHT_COLOR_YELLOW;
+}
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
+    {"s_Descend", ScriptDescendEventData, nullptr},
+    {"s_Ascend", ScriptAscendEventData, nullptr},
+    {"s_WriteInt", ScriptWriteInt, nullptr},
+    {"s_WriteFloat", ScriptWriteFloat, nullptr},
     {"s_WriteStr", ScriptWriteString, nullptr},
     {"s_WriteObjectID", ScriptWriteObjectID, nullptr},
     {"s_SendEventNow", ScriptSendEventNow, nullptr},
@@ -105,7 +150,12 @@ TLinkExtern g_bindings[] = {
     {"s_LoadRoute", ScriptLoadRoute, nullptr},
     {nullptr, nullptr, nullptr}};
 
-TLinkConstExtern g_constants[] = {{nullptr, nullptr, 0}};
+TLinkConstExtern g_constants[] = {
+    {"sp_EV_SET_PHASE_COUNT", ConstSparkSetPhaseCount, 0},
+    {"sp_EV_SET_PHASE", ConstSparkSetPhase, 0},
+    {"RECT2D_I", ConstRect2DI, 0},
+    {"LIGHT_COLOR_YELLOW", ConstLightColorYellow, 0},
+    {nullptr, nullptr, 0}};
 
 }  // namespace
 
@@ -146,6 +196,27 @@ void RecoveredLegacyScriptHost::CloseEventData(int eventIndex) {
   if (event != nullptr) event->data.close();
 }
 
+void RecoveredLegacyScriptHost::DescendEventData(int eventIndex, int tag,
+                                                  int index) {
+  ScriptEvent* event = Event(eventIndex, "descend event data");
+  if (event != nullptr) event->data.descend(tag, index);
+}
+
+void RecoveredLegacyScriptHost::AscendEventData(int eventIndex) {
+  ScriptEvent* event = Event(eventIndex, "ascend event data");
+  if (event != nullptr) event->data.ascend();
+}
+
+void RecoveredLegacyScriptHost::WriteInt(int eventIndex, int value) {
+  ScriptEvent* event = Event(eventIndex, "write event integer");
+  if (event != nullptr) event->data.putInt(value);
+}
+
+void RecoveredLegacyScriptHost::WriteFloat(int eventIndex, double value) {
+  ScriptEvent* event = Event(eventIndex, "write event float");
+  if (event != nullptr) event->data.putDouble(value);
+}
+
 void RecoveredLegacyScriptHost::WriteString(int eventIndex,
                                             const char* value) {
   ScriptEvent* event = Event(eventIndex, "write event string");
@@ -169,6 +240,19 @@ void RecoveredLegacyScriptHost::SendEventNow(
   event->source = m_arena->getObjectID();
   event->inUse = false;
   m_arena->getContext()->sendEventNow(*event);
+}
+
+bool RecoveredLegacyScriptHost::WriteScriptInteger(TProcessContext* process,
+                                                     int reference,
+                                                     int value) {
+  if (process == nullptr || process->m_stack == nullptr || reference < 0 ||
+      reference >= process->m_stackSize) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_INVALID_STACK_REFERENCE,
+           "script variable reference is outside the process stack");
+    return false;
+  }
+  process->m_stack[reference].i = value;
+  return true;
 }
 
 KR_ObjectID RecoveredLegacyScriptHost::SearchObject(const char* name) {
@@ -263,6 +347,26 @@ TLinkExtern* RecoveredLegacyScriptHost::Bindings() { return g_bindings; }
 
 TLinkConstExtern* RecoveredLegacyScriptHost::Constants() {
   return g_constants;
+}
+
+void RecoveredLegacyScriptHost::ResetConstantLinks() {
+  for (TLinkConstExtern* constant = g_constants;
+       constant->m_name != nullptr; ++constant) {
+    constant->m_offset = -1;
+  }
+}
+
+int RecoveredLegacyScriptHost::CopyLinkedConstants(
+    TLinkConstExtern* destination, int capacity) {
+  if (destination == nullptr || capacity < kConstantCount + 1) return -1;
+
+  int count = 0;
+  for (TLinkConstExtern* constant = g_constants;
+       constant->m_name != nullptr; ++constant) {
+    if (constant->m_offset >= 0) destination[count++] = *constant;
+  }
+  destination[count] = {nullptr, nullptr, 0};
+  return count;
 }
 
 RecoveredLegacyScriptHost::ScriptEvent* RecoveredLegacyScriptHost::Event(

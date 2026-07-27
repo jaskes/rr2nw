@@ -15,7 +15,10 @@ enum ERecoveredArenaSeanceIssue {
   RECOVERED_ARENA_SEANCE_VEHICLE_OBJECT_MISSING = 1u << 8,
   RECOVERED_ARENA_SEANCE_VEHICLE_INTERFACE_MISSING = 1u << 9,
   RECOVERED_ARENA_SEANCE_SCRIPT_HOST_FAILURE = 1u << 10,
-  RECOVERED_ARENA_SEANCE_ROUTE_TABLE_MISSING = 1u << 11
+  RECOVERED_ARENA_SEANCE_ROUTE_TABLE_MISSING = 1u << 11,
+  RECOVERED_ARENA_SEANCE_SPARK_TABLE_MISSING = 1u << 12,
+  RECOVERED_ARENA_SEANCE_SPARK_OBJECT_MISSING = 1u << 13,
+  RECOVERED_ARENA_SEANCE_SPARK_DEFAULT_INVALID = 1u << 14
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -23,6 +26,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 void RecoveredArenaSeance_Release();
 bool RecoveredArenaSeance_IsOpen();
 bool RecoveredArenaSeance_ScriptCompleted();
+bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();
 unsigned int RecoveredArenaSeance_Issues();

@@ -984,6 +984,52 @@ also resets the shared static node cursor, making route teardown observable and
 complete across fresh-context reconstruction. Arena, service and executable
 diagnostics expose Route table readiness separately from Vehicle readiness.
 
+### First isolated attribute activation: SparkAttr
+
+`LEVEL0.SC` registers `SparkAttr` with capacity 3 before Route, then creates
+`Spark.Flash` and calls `SetSpark0()` after the broader attribute roster. The
+bounded bootstrap now preserves that table/object relationship without pulling
+the renderer-backed Spark subject into production. `AttributeSpark`, its pool,
+default state and event handlers live in `SparkAttributeState`; the historical
+`Spark.cpp` includes the same implementation for the Watcom-style build, while
+the modern full-source compile gate uses the external state archive. The legacy
+CP1251/CRLF source format remains intact.
+
+The host grows from 11 to 15 functions with `s_WriteInt`, `s_WriteFloat`,
+`s_Descend` and `s_Ascend`, plus the four constants used by the retail phase
+script. A direct VM fixture creates `Spark.Flash`, sends the six phase records
+and verifies rectangles, timing, light color, brightness and radius against
+the installed/mounted retail `SPARK.SCI`. Script `float` values are stored in
+the event payload as doubles, so parity comparison allows only a small
+single-precision conversion tolerance.
+
+The legacy constant linker mutates its registry entries with program-specific
+stack offsets. The runner therefore resets those links before compile and
+copies only constants actually referenced by the compiled program into its POD
+attempt state before process creation; later constant-free scripts cannot
+inherit Spark offsets.
+
+This fixture exposed that SuaScript `var int` external parameters contain a
+stack-cell reference, not the value stored in that cell. The isolated host had
+copied `s_SearchObjectID` and `s_New` results into the argument slots instead
+of dereferencing them. Both bindings now follow the original ABI and reject an
+out-of-range reference with a typed host issue. Production validates the real
+named attribute and all phase data before publishing Spark readiness; close
+seance removes it and the two-cycle regression proves reconstruction.
+
+`AttributeSpark::update()` is intentionally not run yet: it resolves
+`sk.Fusion.0` and queries a renderer-owned texture pointer. The current object
+is valid pre-update data, matching retail ordering before
+`s_UpdateAttributes()`. Spark subjects, Fountain/Lamp/Corpse/Farter updates and
+the heavier People/Tank/Taxi/Bullet/Sound graph remain later boundaries.
+
+Final verification remains green in both configurations: 43/43 Debug and
+43/43 Release tests, 36/36 service launches across all nine installed and
+mounted retail Levels, and 4/4 `rr2nw.exe --runtime-smoke` launches. Executable
+diagnostics publish `spark_attributes_initialized=1`, identify the script as
+`bounded-attribute-vehicle-bootstrap` and finish with
+`runtime_shutdown=clean`.
+
 This closes the real `Vehicle.Default` creation frontier, but not complete
 retail script startup. `LEVEL0.SC` includes broad Menu/unit/mission helpers and
 expects the remaining Tank, People, Sound, Smoke, Bullet, Taxi and other OBASE

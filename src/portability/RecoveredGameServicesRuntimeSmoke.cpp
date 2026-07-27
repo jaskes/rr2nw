@@ -32,7 +32,7 @@ int Fail(const char* message) {
   std::fprintf(
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
-      "platform=%d session=%d loop=%d hardware=%d seance=%d route=%d "
+      "platform=%d session=%d loop=%d hardware=%d seance=%d spark=%d route=%d "
       "vehicle=%d "
       "arena_issues=%u arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
@@ -44,6 +44,7 @@ int Fail(const char* message) {
       RecoveredGameServices_LoopReady() ? 1 : 0,
       RecoveredGameServices_HardwareReady() ? 1 : 0,
       RecoveredGameServices_SeanceReady() ? 1 : 0,
+      RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
       RecoveredArenaSeance_Issues(), RecoveredArenaSeance_LastError(),
@@ -65,6 +66,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_LoopReady() &&
          !RecoveredGameServices_HardwareReady() &&
          !RecoveredGameServices_SeanceReady() &&
+         !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_RouteReady() &&
          !RecoveredGameServices_VehicleReady() &&
          !RecoveredArenaSeance_IsOpen() && g_vehicle == nullptr &&
@@ -159,18 +161,21 @@ int main(int argc, char** argv) {
       RecoveredGameServices_ObserverState();
   KR_ObjectID vehicleID =
       g_super.m_context->searchObject("Vehicle.Default");
+  KR_ObjectID sparkID = g_super.m_context->searchObject("Spark.Flash");
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
+      !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
-      RecoveredArenaSeance_Issues() != 0 || vehicleID.isNUL() ||
+      RecoveredArenaSeance_Issues() != 0 || sparkID.isNUL() ||
+      vehicleID.isNUL() ||
       g_vehicle == nullptr ||
       g_super.m_context->queryInterface(vehicleID, IVehicleIID) != g_vehicle ||
       observer == nullptr) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail(
-        "recovered Hardware, Arena, Route, Vehicle or observer was not "
+        "recovered Hardware, Arena, Spark, Route, Vehicle or observer was not "
         "published");
   }
   const SRecoveredObserverState observerBefore = *observer;

@@ -9,6 +9,7 @@
 #include "storage/h/subject.h"
 #include "storage/h/attr.h"
 #include "kernel/h/active.h"
+#include "SparkAttributeState.h"
 
 #define LAST_H__VIEW
 #include "game.h"
@@ -18,30 +19,6 @@
 #define sp_TIME_INCREMENT (0.04)
 
 class CDC;
-class AttributeSpark;
-
-class SparkPhase
-{
-public:
-    int u0,v0,u1,v1;
-    double time;
-
-    int  brightness, color;
-    double radius;
-
-    void init( int u0l, int v0l, int u1l, int v1l, double t,
-               int b, int c, double r )
-    {
-         u0 = u0l;
-         v0 = v0l;
-         u1 = u1l;
-         v1 = v1l;
-         time = t;
-         brightness = b;
-         color      = c;
-         radius     = r;
-    }
-};
 
 class Spark : public ct_Subject
 {

@@ -6,6 +6,7 @@
 class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
+#include "obase/spark/SparkAttributeState.h"
 #include "storage/h/subject.h"
 
 #include "RecoveredLegacyScriptHost.h"
@@ -16,7 +17,7 @@ namespace {
 constexpr double kSceneWidth = 5120.0;
 constexpr double kSceneDepth = 5120.0;
 constexpr const char kBootstrapProgramName[] =
-    "recovered_vehicle_bootstrap";
+    "recovered_attribute_vehicle_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol. It is a bounded bridge to the real Vehicle tables, not a second
@@ -25,15 +26,62 @@ constexpr const char kBootstrapProgramName[] =
 const char kVehicleBootstrapScript[] = R"RR2NW_SCRIPT(const int EDO_WRITE = 1;
 const int KR_SET_ATTR = 1;
 const int ATTR_MSG_SET_STR = 16010;
+const int sp_EV_SET_PHASE_COUNT extern;
+const int sp_EV_SET_PHASE extern;
+const int RECT2D_I extern;
+const int LIGHT_COLOR_YELLOW extern;
 
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
+func void s_Descend(int event, int tag, int index) extern;
+func void s_Ascend(int event) extern;
+func void s_WriteInt(int event, int value) extern;
+func void s_WriteFloat(int event, float value) extern;
 func void s_WriteStr(int event, str value) extern;
 func void s_WriteObjectID(int event, int objectID, int cachePos) extern;
 func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
 func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
 func int s_AddClassTable(str className, int maxTableSize) extern;
 func void s_New(int classTableID, str name, var int objectID, var int cachePos) extern;
+func void s_NewObject(int classTableID, str name) extern;
+
+func void SetSparkPhase(int objectID, int cachePos,
+                        int phase, int x, int y, int w, int h, float time,
+                        int brightness, int color, float radius)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, phase);
+  s_Descend(event, RECT2D_I, 0);
+  s_WriteInt(event, x-w);
+  s_WriteInt(event, y-h);
+  s_WriteInt(event, x+w);
+  s_WriteInt(event, y+h);
+  s_Ascend(event);
+  s_WriteFloat(event, time);
+  s_WriteInt(event, brightness);
+  s_WriteInt(event, color);
+  s_WriteFloat(event, radius);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sp_EV_SET_PHASE, objectID, cachePos);
+}
+
+func void SetSpark0()
+var int objectID, cachePos, event;
+{
+  s_SearchObjectID(objectID, cachePos, "Spark.Flash");
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, 6);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sp_EV_SET_PHASE_COUNT, objectID, cachePos);
+
+  SetSparkPhase(objectID,cachePos,0, 25,45,20,40,0.04,100,LIGHT_COLOR_YELLOW, 7);
+  SetSparkPhase(objectID,cachePos,1, 78,46,20,40,0.03,200,LIGHT_COLOR_YELLOW,14);
+  SetSparkPhase(objectID,cachePos,2,126,47,20,40,0.03,100,LIGHT_COLOR_YELLOW,10);
+  SetSparkPhase(objectID,cachePos,3,180,44,20,40,0.10, 20,LIGHT_COLOR_YELLOW, 7);
+  SetSparkPhase(objectID,cachePos,4,230,44,20,40,0.10,  0,LIGHT_COLOR_YELLOW, 4);
+  SetSparkPhase(objectID,cachePos,5,230,44,20,40,0.00,  0,LIGHT_COLOR_YELLOW, 0);
+}
 
 func void SetAttributeStr(int objectID, int cachePos, str name, str value)
 var int event;
@@ -57,8 +105,9 @@ var int event, attrID, attrCachePos, objectID, cachePos;
 }
 
 func void main()
-var int routeTable, attrTable, vehicleTable, objectID, cachePos;
+var int sparkAttrTable, routeTable, attrTable, vehicleTable, objectID, cachePos;
 {
+  sparkAttrTable := s_AddClassTable("SparkAttr", 3);
   routeTable := s_AddClassTable("Route", 100);
 
   attrTable := s_AddClassTable("VehicleAttr", 2);
@@ -70,6 +119,9 @@ var int routeTable, attrTable, vehicleTable, objectID, cachePos;
   vehicleTable := s_AddClassTable("Vehicle", 1);
   s_New(vehicleTable, "Vehicle.Default", objectID, cachePos);
   ChangeObjectAttrN("Vehicle.Attr.default", "Vehicle.Default");
+
+  s_NewObject(sparkAttrTable, "Spark.Flash");
+  SetSpark0();
 }
 )RR2NW_SCRIPT";
 
@@ -77,6 +129,7 @@ struct RecoveredArenaSeanceState {
   unsigned int issues;
   bool arenaOpen;
   bool scriptCompleted;
+  bool sparkAttributesReady;
   bool routeReady;
   bool vehicleReady;
   char lastError[256];
@@ -200,6 +253,29 @@ bool PublishRouteTable() {
   return true;
 }
 
+bool PublishSparkAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_SPARK_TABLE_MISSING,
+           "script did not create the SparkAttr table");
+    return false;
+  }
+
+  KR_ObjectID flash = context->searchObject("Spark.Flash");
+  if (flash.isNUL()) {
+    Report(RECOVERED_ARENA_SEANCE_SPARK_OBJECT_MISSING,
+           "script did not create Spark.Flash");
+    return false;
+  }
+  if (!SparkAttributeState_IsRetailFlash(flash)) {
+    Report(RECOVERED_ARENA_SEANCE_SPARK_DEFAULT_INVALID,
+           "Spark.Flash does not match the retail phase table");
+    return false;
+  }
+
+  g_state.sparkAttributesReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -213,6 +289,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     return FALSE;
   }
 
+  SparkAttributeState_Link();
   if (!OpenArena(context)) return FALSE;
 
   try {
@@ -221,6 +298,11 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
     g_state.scriptCompleted = true;
+
+    if (!PublishSparkAttributes(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
 
     if (!PublishRouteTable()) {
       RecoveredArenaSeance_Release();
@@ -249,6 +331,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 void RecoveredArenaSeance_Release() {
   g_state.vehicleReady = false;
   g_state.routeReady = false;
+  g_state.sparkAttributesReady = false;
   g_state.scriptCompleted = false;
   g_vehicle = nullptr;
   if (!g_state.arenaOpen) return;
@@ -263,6 +346,10 @@ bool RecoveredArenaSeance_ScriptCompleted() {
 }
 
 bool RecoveredArenaSeance_RouteReady() { return g_state.routeReady; }
+
+bool RecoveredArenaSeance_SparkAttributesReady() {
+  return g_state.sparkAttributesReady;
+}
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }
 

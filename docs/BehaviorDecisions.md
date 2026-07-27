@@ -763,3 +763,44 @@ three-node route plus a retail-style overdeclared route with interface and
 interpolation checks, missing and malformed route rejection, static-node
 cleanup, two complete Arena cycles, the full service reconstruction and the
 43-test Debug/Release matrix.
+
+## BD-029: SparkAttr starts the isolated attribute layer
+
+Status: accepted on 2026-07-27.
+
+The first table after Route is `SparkAttr`, because it can be separated from
+the rendering Spark subject without activating Sound, People, Tank, Taxi or
+Bullet. The shared attribute definition, pool and event handlers are extracted
+into `SparkAttributeState`; the old monolithic source consumes the same `.inl`
+when built without the modern external-state definition, preserving one
+behavior implementation and the reference-build path.
+
+The bounded script follows retail ownership: capacity 3, named object
+`Spark.Flash`, six phase records from `SPARK.SCI`, and the original nested
+event-data layout. The host admits only the four additional functions and four
+constants that phase setup requires. Production readiness is fail-closed: the
+table, named object, type and every phase field must match before the service
+is ready. All of it remains Arena-owned and is removed on rollback.
+
+External-constant offsets are isolated per compiled program. The historical
+linker writes stack offsets into the supplied registry, so the runner clears
+the shared links before compile and passes process creation a POD copy
+containing only constants referenced by that program.
+
+`s_UpdateAttributes()` is not admitted in this tranche. The real Spark update
+resolves `sk.Fusion.0` and requests a renderer pointer, so running it before
+Skin/resource ownership is connected would turn a data-only milestone into an
+implicit renderer activation. The pre-update attribute is deterministic and
+safe to destroy. The Spark subject is compile-checked but not registered in
+the production seance.
+
+The direct fixture also makes the SuaScript `var` calling convention explicit:
+external functions receive stack references for output parameters. The host
+now dereferences those cells for `s_SearchObjectID` and `s_New`, validates the
+reference bounds and reports invalid references as a typed host failure.
+
+Regression contract: strict attribute-state and full Spark compilation;
+direct retail-phase VM execution; invalid stack-reference rejection; named
+object/type/phase publication; two Arena construction/destruction cycles; full
+service readiness and rollback; and the Debug/Release 43-test matrix plus
+retail service/executable sweeps.
