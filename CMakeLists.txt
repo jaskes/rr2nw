@@ -424,7 +424,10 @@ target_compile_definitions(rr2nw_view_terrain_view_state PRIVATE
 add_library(rr2nw_view_terrain_full STATIC
   nw/VIEW/TERRAIN.CPP
 )
-target_link_libraries(rr2nw_view_terrain_full PUBLIC rr2nw_legacy_design)
+target_link_libraries(rr2nw_view_terrain_full PUBLIC
+  rr2nw_legacy_design
+  rr2nw_view_terrain_view_state
+)
 target_include_directories(rr2nw_view_terrain_full PUBLIC
   nw/INCLUDE
   nw/DESIGN.LIB/H
@@ -438,6 +441,7 @@ target_compile_definitions(rr2nw_view_terrain_full PRIVATE
   __NT__
   RR2NW_TERRAIN_FRAME_COUNTERS_EXTERNAL
   RR2NW_TERRAIN_FRAME_END_EXTERNAL
+  RR2NW_TERRAIN_VIEW_STATE_EXTERNAL
   RR2NW_TERRAIN_WATERLINE_STATE_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
@@ -519,6 +523,26 @@ add_library(rr2nw_view_land_dynamic_frame_state STATIC
   nw/VIEW/LandDynamicTerrainFrameState.cpp
   nw/VIEW/TerrainFrameCounters.cpp
 )
+
+add_library(rr2nw_view_dynamic_waste_state STATIC
+  nw/VIEW/ViewDynamicWasteState.cpp
+)
+target_link_libraries(rr2nw_view_dynamic_waste_state PUBLIC
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_view_dynamic_waste_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_dynamic_waste_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_dynamic_waste_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_link_libraries(rr2nw_view_land_dynamic_frame_state PUBLIC
   rr2nw_legacy_design
 )
@@ -573,6 +597,7 @@ target_link_libraries(rr2nw_scene_software_draw PUBLIC
   rr2nw_view_object_state
   rr2nw_view_terrain_view_state
   rr2nw_view_terrain_waterline_state
+  rr2nw_view_dynamic_waste_state
 )
 target_include_directories(rr2nw_scene_software_draw PUBLIC
   nw/INCLUDE
@@ -838,6 +863,7 @@ add_library(rr2nw_scene_draw_state STATIC
 target_link_libraries(rr2nw_scene_draw_state PUBLIC
   rr2nw_legacy_design
   rr2nw_patterns_aligned_image_runtime
+  rr2nw_view_dynamic_waste_state
 )
 target_include_directories(rr2nw_scene_draw_state PUBLIC
   nw/INCLUDE
@@ -1111,6 +1137,7 @@ target_link_libraries(rr2nw_view_object_decoder PUBLIC
   rr2nw_view_figure_state
   rr2nw_view_dynamic_collision
   rr2nw_view_object_state
+  rr2nw_view_dynamic_waste_state
 )
 target_include_directories(rr2nw_view_object_decoder PUBLIC
   nw/INCLUDE
@@ -1129,6 +1156,7 @@ target_compile_definitions(rr2nw_view_object_decoder PRIVATE
   RR2NW_VIEW_FIGURE_LIBRARY_STATE_EXTERNAL
   RR2NW_VIEW_FIGURE_STATE_EXTERNAL
   RR2NW_VIEW_OBJECT_STATE_EXTERNAL
+  RR2NW_VIEW_DYNAMIC_WASTE_STATE_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
@@ -1199,6 +1227,7 @@ add_library(rr2nw_view_land_object_full STATIC
 )
 target_link_libraries(rr2nw_view_land_object_full PUBLIC
   rr2nw_legacy_design
+  rr2nw_view_land_dynamic_frame_state
 )
 target_include_directories(rr2nw_view_land_object_full PUBLIC
   nw/INCLUDE
@@ -1211,6 +1240,7 @@ target_include_directories(rr2nw_view_land_object_full PUBLIC
 target_compile_features(rr2nw_view_land_object_full PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_view_land_object_full PRIVATE
   __NT__
+  RR2NW_LAND_DYNAMIC_FRAME_STATE_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
@@ -2082,6 +2112,71 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_scene_runtime_core STATIC
+  nw/SCENE/SCENE.CPP
+)
+target_link_libraries(rr2nw_scene_runtime_core PUBLIC
+  rr2nw_scene_software_draw
+  rr2nw_view_land_object_full
+  rr2nw_view_object_decoder
+  rr2nw_view_terrain_full
+)
+target_include_directories(rr2nw_scene_runtime_core PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_scene_runtime_core PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_scene_runtime_core PRIVATE
+  __NT__
+  RR2NW_SCENE_DRAW_EXTERNAL
+  RR2NW_SCENE_NO_HARDWARE_PUMP
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_recovered_drawable_scene_runtime STATIC
+  src/runtime/RecoveredDrawableSceneRuntime.cpp
+  src/runtime/RecoveredDrawableSceneRuntime.h
+)
+target_link_libraries(rr2nw_recovered_drawable_scene_runtime PUBLIC
+  rr2nw_game_entry_runtime
+  rr2nw_main_zav_scene_state
+  rr2nw_scene_runtime_core
+)
+target_include_directories(rr2nw_recovered_drawable_scene_runtime PUBLIC
+  src/runtime
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_recovered_drawable_scene_runtime PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_drawable_scene_runtime PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_scene_runtime_core PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_recovered_drawable_scene_runtime PRIVATE /W4 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_supervisor_global STATIC
   src/runtime/SupervisorGlobal.cpp
 )
@@ -2569,7 +2664,6 @@ target_compile_definitions(rr2nw_scene_software_draw_link_probe PRIVATE
 
 add_executable(rr2nw_view_object_decoder_smoke
   src/portability/ViewObjectDecoderSmoke.cpp
-  src/portability/ViewObjectDecoderSmokeState.cpp
 )
 target_link_libraries(rr2nw_view_object_decoder_smoke PRIVATE
   rr2nw_game_entry_runtime
@@ -2603,6 +2697,21 @@ target_link_libraries(rr2nw_scene_order_decoder_smoke PRIVATE
 )
 target_compile_features(rr2nw_scene_order_decoder_smoke PRIVATE cxx_std_14)
 target_compile_definitions(rr2nw_scene_order_decoder_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_executable(rr2nw_recovered_drawable_scene_smoke
+  src/portability/RecoveredDrawableSceneSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_drawable_scene_smoke PRIVATE
+  rr2nw_recovered_drawable_scene_runtime
+)
+target_compile_features(
+  rr2nw_recovered_drawable_scene_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_drawable_scene_smoke PRIVATE
   __NT__
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
@@ -2705,6 +2814,9 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_scene_order_decoder_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_recovered_drawable_scene_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -2822,6 +2934,10 @@ if(BUILD_TESTING)
   add_test(
     NAME scene-order-decoder-smoke
     COMMAND rr2nw_scene_order_decoder_smoke
+  )
+  add_test(
+    NAME recovered-drawable-scene-smoke
+    COMMAND rr2nw_recovered_drawable_scene_smoke
   )
   add_test(
     NAME legacy-menu-texture-smoke

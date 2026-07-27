@@ -90,6 +90,7 @@ void CLandDynamicMap::SetupDynamics(CViewDynamicList &list,TCSRect2 &rect,_CView
 	}
 }
 
+#ifndef RR2NW_LAND_DYNAMIC_FRAME_STATE_EXTERNAL
 void CLandDynamicMap::SetupLandSticks(CViewDynamicList &list,_CViewTerrain &terrain)
 {
 	for( CViewDynamic *pd = list.First(), *p1 ; pd != NULL ; pd = p1 ) {
@@ -108,6 +109,7 @@ void CLandDynamicMap::SetupLandSticks(CViewDynamicList &list,_CViewTerrain &terr
 		}
 	}
 }
+#endif
 
 void CLandDynamicMap::SetOrigin(TCSFVector3 &origin)
 {
@@ -117,6 +119,7 @@ void CLandDynamicMap::SetOrigin(TCSFVector3 &origin)
 	SetOrigin(originCell);
 }
 
+#ifndef RR2NW_LAND_DYNAMIC_FRAME_STATE_EXTERNAL
 bool CLandDynamicMap::IsEmpty()
 {
 	for( int y = m_rect.top ; y < m_rect.bottom ; y++ )
@@ -169,6 +172,7 @@ void CLandDynamicMap::ApplyLights(CViewDynamic *pd)
 		pd->m_dwLights |= m_pOriginLight[celld.left+celld.top*m_size.x];
 	pd->m_dwLights &= pd->m_dwLightMask;
 }
+#endif
 
 #endif  // RR2NW_LAND_OBJECT_DECODER_ONLY
 

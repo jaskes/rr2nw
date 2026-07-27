@@ -264,12 +264,27 @@ earlier case/path/toolchain discoveries are tracked in
 `CompatibilityLedger.md` with stable IDs, evidence classes and revisit
 conditions; the scene observations remain due for direct CD confirmation.
 
-This is still not a drawable `CViewScene`: object references are structural
-nodes, and full bush-render initialization, scene publication and land-dynamic
-attachment remain outside the owner. The default entry table therefore stays
-at six of twelve hooks. The next frontier is a rollback-capable real scene that
-combines the already verified object models, terrain and order/land graph; only
-after it can be drawn and destroyed may the full Level-init hook be bound.
+The drawable scene frontier is now complete as a reusable transaction. The
+historical `CViewScene` constructs real `CViewObjectRef` nodes, verifies every
+resolved name slot in Release as well as Debug, attaches all land pieces to one
+live dynamic map, initializes the full bush renderer under normal Windows DEP,
+applies water/terrain configuration and publishes only through an explicit
+commit. Two forced failure points and complete ZAV shutdown restore scene,
+bush, ordered-top and land state without discarding the already prepared Level
+assets.
+
+All nine installed Levels decode, render one software frame, release,
+exercise non-empty stick-land placement/removal, reconstruct and release again
+in Debug and Release. Their resolved-reference counts range from 303 to 7,106
+and attached land-piece counts from 5 to 466; the normal automated matrix is
+39/39 in both configurations.
+
+The default entry table still truthfully stays at six of twelve hooks because
+this owner has not yet been composed into public `ZAV_InitLevel`. The next
+frontier is to bind Level preparation + assets + drawable scene atomically,
+advance `rr2nw.exe` from `pre-content-ready` to `level-ready`, then connect the
+remaining begin-loop, PIN, Supervisor/SUA, DebugMap and Level-event services for
+a bounded event/render loop.
 
 ### Цель
 

@@ -522,6 +522,11 @@ CShelterOrder::CShelterOrder(CViewObjectModel *pBase)
 	m_pInnerOrder = NULL;
 	m_bInhibitDraw = FALSE;
 }
+CShelterOrder::~CShelterOrder()
+{
+	if( m_pInnerOrder ) m_pInnerOrder->Delete();
+	m_pInnerOrder = NULL;
+}
 void CShelterOrder::DrawViewStartHere()
 {
 	ASSERT(m_pInnerOrder);

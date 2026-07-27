@@ -766,6 +766,48 @@ scene. Real object-reference construction, land-dynamic attachment and full
 bush renderer startup remain the final `CViewScene` ownership frontier; the
 entry inventory stays six of twelve.
 
+### Drawable scene transaction boundary
+
+`rr2nw_scene_runtime_core` now compiles the historical `CViewScene` constructor
+against the real object, terrain and land-map owners and the recovered software
+draw path. `RecoveredDrawableSceneRuntime` keeps the scene private while it
+decodes the complete order graph, resolves every named object slot, attaches
+the land maps to one live `CLandDynamicMap`, applies terrain/water settings and
+adjusts land planes. Only `Commit()` publishes `CViewScene::Current()` and the
+legacy `pScene` pointer.
+
+Construction and destruction no longer depend on half-published globals.
+`ReadOrder` uses the staged scene as its explicit owner, recursive nodes are
+locally owned until complete, shelter inner orders are released by their
+shelter, and the prior `CViewOrdered::CurrentTop` is restored on every exit.
+The sky reference is allocated after that prior top is captured; keeping it as
+an inline member had made failed construction restore a pointer into the
+already destroyed scene. Bush cache, leaves texture, trunk arrays and generated
+code now form one repeatable lifecycle.
+
+The bush rectangle generator remains the historical 32-bit x86 implementation,
+but Windows allocates its code writable, fills it, then changes it to
+execute/read and flushes the instruction cache. This removes the dependency on
+executing a normal `new[]` buffer under DEP without introducing a permanent
+RWX mapping. The recovered software backend also owns the sprite blitter and
+the Z/bump callbacks that a real scene frame reaches.
+
+`recovered-drawable-scene-smoke` checks the dependency gate, forces rollback
+both immediately after decode and after full configuration, commits a real
+scene, renders one software frame, releases it while preserving prepared
+assets, places and removes a real stick-land dynamic through the cell map,
+reconstructs the scene, and finally exercises the complete ZAV shutdown. The
+retail-derived sweep passes all nine installed Levels in Debug and Release.
+Each run resolves exactly the serialized reference count (303 through 7,106)
+and attaches 5 through 466 land pieces. The normal automated matrix is now
+39 of 39 in both configurations.
+
+This closes scene construction and drawing as a reusable runtime owner, but it
+does not yet change the truthful executable hook inventory. `initLevel` remains
+unbound until the prepared Level, asset owner and drawable scene are composed
+behind one `ZAV_InitLevel` hook and the remaining loop/input/Supervisor services
+can enter and leave a bounded event/render loop.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -789,13 +831,15 @@ entry inventory stays six of twelve.
    first Win32 executable reaches a checked read-only pre-content marker; the
    original entry point now links and exits safely with an unbound runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
-6. **Link frontier complete, runtime binding in progress:** the software Win32
+6. **Drawable scene complete, runtime binding in progress:** the software Win32
    graph and pre-scene Level lifecycle connect six entry hooks. Palette, font,
    figure-library and scene-header bootstrap now execute atomically. The complete
    object/figure/keyframe/order/bush decode path, real terrain construction and
-   structural land-map/order ownership now pass every installed retail Level;
-   construct the real drawable scene, then bind the remaining six checked
-   services behind `rr2nw.exe`.
+   structural land-map/order ownership now pass every installed retail Level.
+   A transactional real `CViewScene` resolves all object references, attaches
+   land dynamics, initializes DEP-safe bush rendering and draws a software
+   frame; bind that owner and the remaining five checked services behind
+   `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.
 

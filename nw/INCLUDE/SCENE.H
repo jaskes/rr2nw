@@ -566,17 +566,27 @@ protected:
 	//CViewSceneLandPiece	*m_pLand;
 	CLandDynamicMap	m_landDynamic;
 	CViewObjectModel	m_skybase;
-	CViewObjectRef		m_skyref;
+	CViewObjectRef		*m_pSkyref;
 	CFVector3			m_scale;
 	static CViewScene	*m_pCurrent;
+	static CViewScene	*m_pBuilding;
+	CViewOrdered		*m_pPreviousTop;
+	bool				m_bBushInitialized;
+	int				m_nLandPieces;
+	void ReleaseOwnedResources();
+	static CViewScene *DecodeCurrent() {
+		return m_pBuilding ? m_pBuilding : m_pCurrent;
+	}
+	friend class CViewSceneLandPiece;
 	#ifdef _MSC_VER
 	static	CViewOrdered	*ReadOrder(CTaggedFile &f);
 	#else
 	static	CViewOrdered	*CViewScene::ReadOrder(CTaggedFile &f);
 	#endif
 public:
-	CViewScene(CTaggedFile &f);
+	CViewScene(CTaggedFile &f,bool bDeferPublication=FALSE);
 	~CViewScene();
+	bool Commit();
 	void SetScale(double fScaleX,double fScaleY) { m_scale=CFVector3(fScaleX,-fScaleY,-1); }
 	void Draw(TCSFMatrix3x4 &dir,CViewDynamicList &list);
 	void PromoteDynamic(CViewDynamicList &list,bool bWillDraw=FALSE); // { m_pOrder->LoadDyns(list); m_pOrder->PromoteDynamic(); }
@@ -587,6 +597,11 @@ public:
 		ASSERT(n>=0 && n<m_nBases);
 		return m_pBases[n]; }
 	CNameDecls &ObjRefNames() { return m_objRefNames; }
+	int ReferenceCount() const { return m_objRefNames.ReferenceCount(); }
+	int ResolvedReferenceCount() const {
+		return m_objRefNames.ResolvedReferenceCount();
+	}
+	int LandPieceCount() const { return m_nLandPieces; }
 	void SetupLandDynamics(CViewDynamicList &list,TCSRect2 &rect) { m_landDynamic.SetupDynamics(list,rect,*m_pTerrain); }
 	void RemoveLandDynamic(CViewDynamic *p) { m_landDynamic.RemoveDynamic(p); }
 	void Attach(CLandObjectMap2 &map) { map.Attach(m_landDynamic); }
@@ -596,6 +611,7 @@ public:
 		CViewTerrain *GetTerrain() { return m_pTerrain; }
 	//#endif
 	static CViewScene *Current() { return m_pCurrent; }
+	static bool IsBuilding() { return m_pBuilding != NULL; }
 };
 
 inline void CVesselPack::RemoveLandDynamic(CViewScene *pScene) {

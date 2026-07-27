@@ -8,6 +8,8 @@ int          g_MidleR = 0,
              g_MidleG = 0,
              g_MidleB = 0;
 
+static bool g_bushInitialized = false;
+
 static void CallBack(byte *pImage, SRGB*pal)
 {
    (void)pImage;
@@ -40,25 +42,33 @@ static void CallBack(byte *pImage, SRGB*pal)
 
 int bush_Init()
 {
-    b_CreateCacheBush();
-    /*CTaggedFile f(TRUE);
+    bush_Done();
+    try {
+        b_CreateCacheBush();
+		b_Leaves.Read("LEAVES.TXR",TRUE,CallBack);
 
-    f.Open("LEAVES.TXR");
-       b_Leaves.Read(f,TRUE,CallBack);
-    f.Close();*/
-	b_Leaves.Read("LEAVES.TXR",TRUE,CallBack);
-
-    if( !b_LoadBushTrunk() )
-    {
-         ASSERT(0);
-         return 0;
+        if( !b_LoadBushTrunk() ) {
+             bush_Done();
+             return 0;
+        }
+        g_bushInitialized = true;
+        return 1;
+    } catch(...) {
+        bush_Done();
+        throw;
     }
-
-    return 1;
 }
 
 void bush_Done()
 {
     b_DeleteCacheBush();
+    b_ClearBushTrunk();
+    b_Leaves.Release();
+    g_MidleR = g_MidleG = g_MidleB = 0;
+    g_bushInitialized = false;
+}
 
+bool bush_IsInitialized()
+{
+    return g_bushInitialized;
 }

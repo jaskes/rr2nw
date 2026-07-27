@@ -3,6 +3,7 @@
 #endif
 
 #include <stdlib.h>
+#include <memory>
 //#include <string.h>
 //#include "brend.h"
 
@@ -108,33 +109,45 @@ typedef struct {
 } b_RGB;
 extern int  g_MidleR, g_MidleG, g_MidleB;
 
+void b_ClearBushTrunk()
+ {
+    delete [] b_TBush::m_bushRect.data0;
+    delete [] b_TBush::m_bushRect.data1;
+    delete [] b_TBush::m_bushRect.data2;
+    delete [] b_TBush::m_bushRect.data3;
+    b_TBush::m_bushRect.data0 = NULL;
+    b_TBush::m_bushRect.data1 = NULL;
+    b_TBush::m_bushRect.data2 = NULL;
+    b_TBush::m_bushRect.data3 = NULL;
+    b_TBush::m_bushRect.m_size = 0;
+    b_TBush::m_singleCol = 0;
+    b_TBush::m_hSingleCol = 0;
+    b_TBush::m_compileRectBody.Clear();
+    for( int i = 0; i < r_MAX_RECT_SIZE+r_RECT_MINUS; ++i )
+         b_TBush::CompileRectAr[i] = NULL;
+ }
+
 int b_LoadBushTrunk()
  {
-    word  *data;
+    b_ClearBushTrunk();
     int    cnt;
     int    width,height,t;
-    b_RGB  lpal[2048];
+    b_RGB  lpal[2048] = {};
     int    i,j;
-    byte   xlat[2048];
+    byte   xlat[2048] = {};
 
-    CTaggedFile fs(TRUE);
-    fs.Open("B_TRUNK.TXR");
-	 fs.Descend("TXR_",FALSE,0);
-	   fs.Descend("TXRH",TRUE,0);
-	     fs.ReadInt(t);
-	     fs.ReadInt(width);
-	     fs.ReadInt(height);
-         if( width!=height )
-         {
-              ASSERT(0);
-              return 0;
-         }
-	   fs.Ascend();
+    CTaggedFile fs(FALSE);
+    if( !fs.Open("B_TRUNK.TXR",FALSE) ||
+        fs.Descend("TXR_",FALSE,0,FALSE) != 0 ||
+        fs.Descend("TXRH",TRUE,0,FALSE) != 0 ||
+        !fs.ReadInt(t) || !fs.ReadInt(width) || !fs.ReadInt(height) ||
+        width <= 0 || width > 4096 || width != height || !fs.Ascend() )
+         return 0;
 
-	   fs.Descend("PAL_",TRUE,1);
-	     fs.ReadInt(cnt);
-	     fs.ReadInt(t);
-	     fs.Read(lpal,cnt*3);
+    if( fs.Descend("PAL_",TRUE,1,FALSE) != 1 ||
+        !fs.ReadInt(cnt) || !fs.ReadInt(t) || cnt <= 0 || cnt > 2048 ||
+        fs.Read(lpal,cnt*3) != cnt*3 )
+         return 0;
 
          for( i=0; i<cnt; ++i )
          {
@@ -157,45 +170,58 @@ int b_LoadBushTrunk()
               }
          }
 
-	   fs.Ascend();
+    if( !fs.Ascend() || fs.Descend("TXRD",TRUE,0,FALSE) != 0 ) return 0;
 
-	   fs.Descend("TXRD",TRUE,0);
-	     data = new word[width*height];
-	     fs.Read( data, width*height*2 );
-         b_TBush::m_bushRect.data0 = new byte[width];
-         b_TBush::m_bushRect.data1 = new byte[width];
-         b_TBush::m_bushRect.data2 = new byte[width];
-         b_TBush::m_bushRect.data3 = new byte[width];
-	   fs.Ascend();
-	 fs.Ascend();
-    fs.Close();
+    const size_t pixels = (size_t)width*(size_t)height;
+    std::unique_ptr<word[]> data(new word[pixels]);
+    if( fs.Read(data.get(),(long)(pixels*sizeof(word))) !=
+            (long)(pixels*sizeof(word)) ||
+        !fs.Ascend() || !fs.Ascend() || !fs.Close(FALSE) )
+         return 0;
+
+    for( size_t pixel = 0; pixel < pixels; ++pixel )
+         if( data[pixel] >= cnt ) return 0;
+
+    std::unique_ptr<byte[]> data0(new byte[width]);
+    std::unique_ptr<byte[]> data1(new byte[width]);
+    std::unique_ptr<byte[]> data2(new byte[width]);
+    std::unique_ptr<byte[]> data3(new byte[width]);
 
     for( i = 0; i<width; ++i )
     {
-         b_TBush::m_bushRect.data0[i] = xlat[data[i]];
-         b_TBush::m_bushRect.data1[i] = xlat[data[i*width+width-1]];
-         b_TBush::m_bushRect.data2[i] = xlat[data[i+width*(width-1)]];
-         b_TBush::m_bushRect.data3[i] = xlat[data[i*width]];
+         data0[i] = xlat[data[i]];
+         data1[i] = xlat[data[i*width+width-1]];
+         data2[i] = xlat[data[i+width*(width-1)]];
+         data3[i] = xlat[data[i*width]];
     }
 
+    b_TBush::m_bushRect.data0 = data0.release();
+    b_TBush::m_bushRect.data1 = data1.release();
+    b_TBush::m_bushRect.data2 = data2.release();
+    b_TBush::m_bushRect.data3 = data3.release();
     b_TBush::m_bushRect.m_size = width<<16;
     b_TBush::m_singleCol = b_TBush::m_bushRect.data2[width>>1];
 
     b_TBush::m_hSingleCol = GRCreateColor(int(g_MidleR),int(g_MidleG),int(g_MidleB));
-    bsh_CompileRectLODs( b_TBush::m_compileRectBody );
-
-    delete [] data;
+	if( !bsh_CompileRectLODs(b_TBush::m_compileRectBody) ) {
+         b_ClearBushTrunk();
+         return 0;
+    }
 	return 1;
  }
 
 void b_CreateCacheBush()
  {
     b_TCacheBush *cache = &(b_TBush::m_cache);
+    b_DeleteCacheBush();
+    std::unique_ptr<b_TCacheVert[]> vert(
+         new b_TCacheVert[r_MAX_CACHE_VERTEX]);
+    std::unique_ptr<b_TCacheWidt[]> widt(
+         new b_TCacheWidt[r_MAX_CACHE_WIDTH]);
 
-    cache->m_vert    = new b_TCacheVert[ r_MAX_CACHE_VERTEX ];
+    cache->m_vert    = vert.release();
     cache->m_vertCnt = r_MAX_CACHE_VERTEX;
-
-    cache->m_widt    = new b_TCacheWidt[ r_MAX_CACHE_WIDTH ];
+    cache->m_widt    = widt.release();
     cache->m_widtCnt = r_MAX_CACHE_WIDTH;
  }
 
@@ -1520,12 +1546,22 @@ void b_TBush::Draw()
 
 typedef byte *bytePTR;
 
-void GETCYCLE(unsigned *p);
+#if defined(_MSC_VER)
+#include <intrin.h>
+static void GETCYCLE(unsigned *p)
+ {
+    const unsigned __int64 cycle = __rdtsc();
+    p[0] = static_cast<unsigned>(cycle);
+    p[1] = static_cast<unsigned>(cycle >> 32);
+ }
+#else
+static void GETCYCLE(unsigned *p);
 #pragma aux GETCYCLE = \
     "mov  ebx,eax " \
     ".586p " "rdtsc "        \
     "mov [ebx],eax "\
     "mov [ebx+4],edx "	parm [eax] modify [eax ebx edx]
+#endif
 
 
 double GetCycle()

@@ -221,6 +221,54 @@ Status vocabulary:
   checkout release after reviewing its official migration notes, then require
   the same Debug/Release matrix to remain green.
 
+### CQ-019: a `CViewOrdered` member can mutate global top before its owner body
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: `CViewOrdered` installs itself as `m_pCurrentTopOrdered` when the
+  previous value is null. The former inline `CViewScene::m_skyref` therefore
+  ran before the scene constructor body could capture the prior top. Forced
+  rollback restored a pointer into the destroyed scene.
+- Handling: the sky reference is transaction-owned and allocated only after
+  the prior top is captured. Scene teardown restores that exact pointer; smoke
+  checks the top after both decode-stage and pre-publication failures.
+- Revisit when: global ordered-tree construction state is replaced by an
+  explicit decode context.
+
+### CQ-020: bush LOD drawing executes generated 32-bit x86 code
+
+- Status: `CONFIRMED_SOURCE`, `BUGFIX_ACCEPTED` for modern Windows DEP.
+- Evidence: `bsh_CompileRectLODs` emits machine instructions and publishes
+  pointers into that buffer. The historical `new[]` allocation is data memory
+  and is not executable under normal current Windows DEP policy.
+- Handling: Win32 allocates the buffer `PAGE_READWRITE`, generates and copies
+  code, changes it to `PAGE_EXECUTE_READ`, and flushes the instruction cache.
+  Teardown releases the mapping and clears all published entry points. No RWX
+  mapping or system-wide DEP exception is required.
+- Revisit when: replacing the generator with portable scalar/SIMD drawing, or
+  when native x64/non-Windows work begins; the emitted ABI remains x86-only.
+
+### CQ-021: scene name resolution was enforced only by Debug assertions
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: `CNameDecls::FinishResolve()` historically expands to checks only
+  in Debug, although serialized references are later used as real object
+  pointers. Release could therefore publish a partially unresolved scene.
+- Handling: declaration slots and populated slots are counted in all builds.
+  Drawable-scene publication requires the two counts to match each other and
+  the bounded scene-header reference total.
+- Revisit when: name references move to a typed/versioned scene schema.
+
+### CQ-022: shelter orders own their nested order graph
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: `CShelterOrder::SetInner` stores a recursively allocated order, but
+  the historical class had no destructor for it. Constructor rollback and
+  normal scene release therefore leaked that subtree.
+- Handling: `CShelterOrder` releases its inner embedded order; recursive decode
+  retains local ownership until assignment so partial branches also unwind.
+- Revisit when: the scene order graph is moved to explicit smart-pointer
+  ownership.
+
 ## Maintenance rule
 
 When a new quirk is found:

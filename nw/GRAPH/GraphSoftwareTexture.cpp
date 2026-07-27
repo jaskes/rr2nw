@@ -278,12 +278,79 @@ void DrawSoftwareAlphaSprite(SGRAlphaSprite *sprite)
     }
 }
 
+void DrawSoftwareSprite(int x0,int y0,int x1,int y1,
+                        int u0,int v0,int u1,int v1,int iz,void *handle)
+{
+    (void)iz;
+    if( _dL.currDevice == NULL || _dL.currDevice->swHw != GR_SOFTWARE ||
+        _gr_pScreen == NULL || x1 <= x0 || y1 <= y0 ) return;
+
+    SoftwareTexture *texture = AsSoftwareTexture(handle);
+    if( texture == NULL || texture->dataPtr == NULL || texture->w <= 0 ||
+        texture->h <= 0 ) return;
+
+    int clipLeft = static_cast<int>(_gr_clipRect.left);
+    int clipTop = static_cast<int>(_gr_clipRect.top);
+    int clipRight = static_cast<int>(_gr_clipRect.right);
+    int clipBottom = static_cast<int>(_gr_clipRect.bottom);
+    if( clipRight <= clipLeft || clipBottom <= clipTop ) {
+        clipLeft = -_gr_nScreenOriginX;
+        clipTop = -_gr_nScreenOriginY;
+        clipRight = _gr_nScreenWidth-_gr_nScreenOriginX;
+        clipBottom = _gr_nScreenHeight-_gr_nScreenOriginY;
+    }
+    clipLeft = (std::max)(clipLeft,-_gr_nScreenOriginX);
+    clipTop = (std::max)(clipTop,-_gr_nScreenOriginY);
+    clipRight = (std::min)(clipRight,
+                           _gr_nScreenWidth-_gr_nScreenOriginX);
+    clipBottom = (std::min)(clipBottom,
+                            _gr_nScreenHeight-_gr_nScreenOriginY);
+
+    const int left = (std::max)(x0,clipLeft);
+    const int top = (std::max)(y0,clipTop);
+    const int right = (std::min)(x1,clipRight);
+    const int bottom = (std::min)(y1,clipBottom);
+    if( right <= left || bottom <= top ) return;
+
+    const std::int64_t spanX = x1-x0;
+    const std::int64_t spanY = y1-y0;
+    const std::int64_t spanU = static_cast<std::int64_t>(u1)-u0;
+    const std::int64_t spanV = static_cast<std::int64_t>(v1)-v0;
+    const bool transparent = (texture->flags & TEXTURE_SPRITE) != 0;
+
+    for( int y = top; y < bottom; ++y ) {
+        const std::int64_t v = v0+
+            static_cast<std::int64_t>(y-y0)*spanV/spanY;
+        const long sourceY = (std::max)(0L,(std::min)(
+            texture->h-1,static_cast<long>(v>>16)));
+        unsigned char *destination = _gr_pScreen+
+            static_cast<std::size_t>(y+_gr_nScreenOriginY)*
+                _gr_nScreenWidth+left+_gr_nScreenOriginX;
+        for( int x = left; x < right; ++x,++destination ) {
+            const std::int64_t u = u0+
+                static_cast<std::int64_t>(x-x0)*spanU/spanX;
+            const long sourceX = (std::max)(0L,(std::min)(
+                texture->w-1,static_cast<long>(u>>16)));
+            const unsigned char color = texture->dataPtr[
+                static_cast<std::size_t>(sourceY)*texture->w+sourceX];
+            if( !transparent || color != 0 ) *destination = color;
+        }
+    }
+}
+
+void SetSoftwareZPrecision(int) {}
+void SetSoftwareBump(int, int) {}
+
 }  // namespace
 
 void *(*_pGRLoadTextureToDB)(void *,unsigned char *,int,unsigned char *) =
     LoadSoftwareTexture;
 void (*_pGRDeleteTextureFromDB)(void *) = DestroySoftwareTexture;
 void (*_pGRDrawAlphaSprite)(SGRAlphaSprite *) = DrawSoftwareAlphaSprite;
+void (*_pGRDrawSprite)(int,int,int,int,int,int,int,int,int,void *) =
+    DrawSoftwareSprite;
+void (*_pGRSetZPrecision)(int) = SetSoftwareZPrecision;
+void (*_pGRSetBump)(int,int) = SetSoftwareBump;
 
 void GRSetTextureLoadFunc(GR_HTEXTURE handle,const char *fileName,
                           TTextureLoadFunc loadFunc,void *user)

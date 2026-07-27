@@ -336,15 +336,12 @@ int  bsh_CalcRectLOD( bsh_TCodeStream &s,
     return adr;
  }
 
-void bsh_CompileRectLODs( bsh_TCodeStream &s )
+bool bsh_CompileRectLODs( bsh_TCodeStream &s )
  {
     int i;
     int adr[r_MAX_RECT_SIZE+r_RECT_MINUS];
-    byte buff[15000];
     bsh_TCodeStream cs;
-    cs.m_stream = buff;
-    cs.m_pos    = 0;
-    cs.m_size   = sizeof(buff);
+    cs.Create(15000);
 
     for( i = 0; i < r_MAX_RECT_SIZE+r_RECT_MINUS; ++i )
     {
@@ -355,9 +352,10 @@ void bsh_CompileRectLODs( bsh_TCodeStream &s )
     }
 
     s = cs;
+    if( !s.MakeExecutable() ) return false;
 
     for( i = 0; i < r_MAX_RECT_SIZE+r_RECT_MINUS; ++i )
          b_TBush::CompileRectAr[i] = (bsh_TOutComileRectFunc)
                                      (&(s.m_stream[ adr[i] ]));
-    cs.m_stream = NULL;
+    return true;
  }

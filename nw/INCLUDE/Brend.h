@@ -1,6 +1,7 @@
 #ifndef __BREND_H__
 #define __BREND_H__
 
+#include <new>
 
 #if 0
 #include "filesys.h"
@@ -76,6 +77,26 @@ class b_TBushRect;
 
 class bsh_TCodeStream
  {
+ private:
+    static byte *Allocate( int size )
+    {
+       if( size <= 0 ) return NULL;
+#ifdef __NT__
+       return (byte*)VirtualAlloc(NULL,size,MEM_COMMIT|MEM_RESERVE,
+                                  PAGE_READWRITE);
+#else
+       return new byte[size];
+#endif
+    }
+    static void Release( byte *stream )
+    {
+       if( !stream ) return;
+#ifdef __NT__
+       VirtualFree(stream,0,MEM_RELEASE);
+#else
+       delete [] stream;
+#endif
+    }
  public:
     byte  *m_stream;
     int    m_size;
@@ -91,7 +112,8 @@ class bsh_TCodeStream
     {
        int i;
 
-       m_stream = new byte[sour.m_pos];
+       m_stream = Allocate(sour.m_pos);
+       if( sour.m_pos > 0 && !m_stream ) throw std::bad_alloc();
        m_size = sour.m_pos;
        m_pos  = sour.m_pos;
 
@@ -100,26 +122,50 @@ class bsh_TCodeStream
     bsh_TCodeStream &operator = ( const bsh_TCodeStream &sour )
     {
        int i;
-       delete m_stream;
-       m_stream = new byte[sour.m_pos];
+       if( this == &sour ) return *this;
+       byte *stream = Allocate(sour.m_pos);
+       if( sour.m_pos > 0 && !stream ) throw std::bad_alloc();
+       for(i=0; i<sour.m_pos; ++i) stream[i] = sour.m_stream[i];
+       Release(m_stream);
+       m_stream = stream;
        m_size = sour.m_pos;
        m_pos  = sour.m_pos;
-
-       for(i=0; i<sour.m_pos; ++i) m_stream[i] = sour.m_stream[i];
        return *this;
     }
 
     void Create( int size )
     {
-       delete m_stream;
-       m_stream = new byte[size];
+       byte *stream = Allocate(size);
+       if( size > 0 && !stream ) throw std::bad_alloc();
+       Release(m_stream);
+       m_stream = stream;
        m_size = size;
        m_pos  = 0;
     }
 
+    bool MakeExecutable()
+    {
+       if( !m_stream || m_pos <= 0 ) return false;
+#ifdef __NT__
+       DWORD oldProtect = 0;
+       if( !VirtualProtect(m_stream,m_pos,PAGE_EXECUTE_READ,&oldProtect) )
+          return false;
+       FlushInstructionCache(GetCurrentProcess(),m_stream,m_pos);
+#endif
+       return true;
+    }
+
+    void Clear()
+    {
+       Release(m_stream);
+       m_stream = NULL;
+       m_size = 0;
+       m_pos = 0;
+    }
+
     ~bsh_TCodeStream()
     {
-       delete m_stream;
+       Release(m_stream);
     }
  };
 
@@ -332,6 +378,7 @@ class b_TBushRect
 
 
 int b_LoadBushTrunk();
+void b_ClearBushTrunk();
 void b_CreateCacheBush();
 void b_DeleteCacheBush();
 void bsh_PutLineRL(int x0,int y0, int x1, int y1, int w0, int w1 );
@@ -352,7 +399,7 @@ void bsh_SingleLineRLVDU_nclp( int x0,int y0, int x1, int y1 );
 void bsh_SingleLineLRVUD_clip( int x0,int y0, int x1, int y1 );
 void bsh_SingleLineRLVUD_clip( int x0,int y0, int x1, int y1 );
 
-void bsh_CompileRectLODs( bsh_TCodeStream &s );
+bool bsh_CompileRectLODs( bsh_TCodeStream &s );
 
 extern b_TBush      g_bush;
 extern CViewTexture g_bushTexture;

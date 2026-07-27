@@ -655,6 +655,7 @@ protected:
 	bool			m_bInhibitDraw;
 public:
 	CShelterOrder(CViewObjectModel *pBase);
+	virtual ~CShelterOrder();
 	void SetInner(CViewOrdered *pOrd) { m_pInnerOrder = pOrd; }
 	void Draw();
 	void DrawViewStartHere();
@@ -901,6 +902,7 @@ public:
 	CViewTexture() { m_dwFlags = 0; m_nWidth = m_nHeight = 0;
 		m_hImage = NULL; m_nTransparentColor = 0; /*m_pImageCache = NULL;*/ }
 	~CViewTexture();
+	void Release();
 	int Width() const { return m_nWidth; }
 	int Height() const { return m_nHeight; }
 	GR_HTEXTURE	HImage() const { return m_hImage; }
@@ -976,6 +978,7 @@ public:
 
 int bush_Init();
 void bush_Done();
+bool bush_IsInitialized();
 
 class	CViewRenderState {
 protected:

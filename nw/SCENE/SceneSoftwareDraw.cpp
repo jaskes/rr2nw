@@ -40,7 +40,7 @@ void CViewScene::Draw(TCSFMatrix3x4& viewDirection,
     CViewObject::SetHaze(FALSE);
     CViewObject::SetClipPlanes(CViewObject::m_fFrontClip, 10000);
     CViewObject::m_eWaterView = WATER_VIEW_ALL;
-    m_skyref.Draw();
+    m_pSkyref->Draw();
     CViewObject::m_eWaterView = WATER_VIEW_ABOVE;
     CViewObject::EnableLights(lights);
   } else {

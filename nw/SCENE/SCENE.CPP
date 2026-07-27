@@ -6,6 +6,9 @@
 #include "d3d.h"
 #include "hardware.h"
 
+#include <memory>
+#include <stdexcept>
+
 typedef	CViewOrder	CBumpShotOrder;
 typedef	CViewObjectRef	CBumpShotObjectRef;
 
@@ -26,6 +29,8 @@ CViewSceneLandPiece::CViewSceneLandPiece(CTaggedFile &f,
 		CViewOrdered *(*ReadOrder)(CTaggedFile &f),
 						int nSizeShift,double fCellSize,double fHRatio)
 {
+	CViewScene *scene = CViewScene::DecodeCurrent();
+	if( !scene ) throw std::logic_error("land piece decoded without a scene");
 	f.Descend("LNDP",FALSE,0);
 		f.Descend("LDPH",TRUE,0);
 			m_rect.Read(f);
@@ -37,10 +42,11 @@ CViewSceneLandPiece::CViewSceneLandPiece(CTaggedFile &f,
 		m_land.Read(f,m_rect,ReadOrder);
 	f.Ascend();
 	m_land.Setup((byte*)
-			CViewScene::Current()->GetTerrain()->GetHeightMap()
+			scene->GetTerrain()->GetHeightMap()
 			,nSizeShift,fCellSize,fHRatio);
 	//	(void)nSizeShift; (void)fCellSize; (void)fHRatio;
-	CViewScene::Current()->Attach(m_land.Map());
+	scene->Attach(m_land.Map());
+	scene->m_nLandPieces++;
 	pMap2 = &m_land.Map();
 }
 
@@ -108,93 +114,120 @@ void __AdjustPlane(CViewOrdered *p)
 	}
 }
 
-CViewScene *CViewScene::m_pCurrent;
+CViewScene *CViewScene::m_pCurrent = NULL;
+CViewScene *CViewScene::m_pBuilding = NULL;
 CViewOrdered	*CViewScene::ReadOrder(CTaggedFile &f)
 {
+	CViewScene *scene = m_pBuilding;
+	if( !scene ) throw std::logic_error("scene order decoded without owner");
 	f.Descend("ORDR",FALSE,1);
 		f.Descend("ORDH",TRUE,1);
 			int  type;
 			f.ReadInt(type);
 			CNameDef name(f);
-			CViewOrdered	* pOrdered;
+			std::unique_ptr<CViewOrdered> pOrdered;
 			switch(type) {
 				case CViewOrdered::VOT_ORDER: {
 					name.AssertEmpty();
-					CViewOrder	*pOrder;
-					pOrder = new CBumpShotOrder();
+					std::unique_ptr<CViewOrder> pOrder(new CBumpShotOrder());
 					CFVector3 pt; int nNormIdx; CFVector3 n; double d;
 					pt.Read(f); f.ReadInt(nNormIdx); n.Read(f); f.ReadDouble(d);
 					pOrder->SetPlane(pt,n,d);
 					f.Ascend();	// ORDH
- 					pOrder->SetOrdered(0,ReadOrder(f));
- 					pOrder->SetOrdered(1,ReadOrder(f));
- 					pOrdered = pOrder;
+					pOrder->SetOrdered(0,ReadOrder(f));
+					pOrder->SetOrdered(1,ReadOrder(f));
+					pOrdered.reset(pOrder.release());
 				} break;
 				case CViewOrdered::VOT_OBJECT: {
 					int  nBase;
 					f.ReadInt(nBase);
-					RTCHECK( nBase >= 0 && nBase<m_pCurrent->m_nBases, "Bad base idx");
-					CViewObjectRef *pRef = new CBumpShotObjectRef(
-											&m_pCurrent->m_pBases[nBase]);
+					if( nBase < 0 || nBase >= scene->m_nBases )
+						throw std::runtime_error("bad scene object base index");
+					std::unique_ptr<CViewObjectRef> pRef(new CBumpShotObjectRef(
+											&scene->m_pBases[nBase]));
 					pRef->GetDirModify().Read(f);
 					pRef->GetDir().CheckOrtho();
 					pRef->ClaimModelUsage();
-					pOrdered = pRef;
 					f.Ascend();	// ORDH
-					name.Resolve(pOrdered,m_pCurrent->m_objRefNames);
+					name.Resolve(pRef.get(),scene->m_objRefNames);
+					pOrdered.reset(pRef.release());
 				} break; // VOT_OBJECT
 				case CViewOrdered::VOT_LANDPIECE:
 					name.AssertEmpty();
 					f.Ascend(); // ORDH
-					pOrdered = new CViewSceneLandPiece(f,ReadOrder,
-						m_pCurrent->m_landParms.nSizeShift,
-						m_pCurrent->m_landParms.fCellSize,
-						m_pCurrent->m_landParms.fHRatio);
+					pOrdered.reset(new CViewSceneLandPiece(f,ReadOrder,
+						scene->m_landParms.nSizeShift,
+						scene->m_landParms.fCellSize,
+						scene->m_landParms.fHRatio));
 					break;
 				case CViewOrdered::VOT_SHELTERORDER: {
 					name.AssertEmpty();
 					int  nBase;
 					f.ReadInt(nBase);
-					RTCHECK( nBase >= 0 && nBase<m_pCurrent->m_nBases, "Bad base idx");
-					CShelterOrder *pRef = new CShelterOrder(
-					   						&m_pCurrent->m_pBases[nBase]);
+					if( nBase < 0 || nBase >= scene->m_nBases )
+						throw std::runtime_error("bad shelter base index");
+					std::unique_ptr<CShelterOrder> pRef(new CShelterOrder(
+						&scene->m_pBases[nBase]));
 					pRef->GetDirModify().Read(f);
 					pRef->ClaimModelUsage();
-					pOrdered = pRef;
 					f.Ascend();	// ORDH
-					CViewOrdered  *pOldTop = CViewOrdered::SetCurrentTop(pRef);
-					pRef->SetInner(ReadOrder(f));
+					CViewOrdered  *pOldTop = CViewOrdered::SetCurrentTop(pRef.get());
+					try {
+						pRef->SetInner(ReadOrder(f));
+					} catch(...) {
+						CViewOrdered::SetCurrentTop(pOldTop);
+						throw;
+					}
 					CViewOrdered::SetCurrentTop(pOldTop);
+					pOrdered.reset(pRef.release());
 				} break; // VOT_SHELTER
 				case CViewOrdered::VOT_EMPTY: {
 					name.AssertEmpty();
 					f.Ascend(); // ORDH
-					pOrdered = new CViewEmptyOrder();
+					pOrdered.reset(new CViewEmptyOrder());
 				} break;
-				default: RTCHECK(0,"Bad VOT in SCE Ordr"); break;
+				default: throw std::runtime_error("bad scene order type");
 			} // switch type
 		// f.Ascend();	// ORDH
 	f.Ascend();	// ORDR
-	return	pOrdered;
+	return	pOrdered.release();
 }
 
-CViewScene::CViewScene(CTaggedFile &f)
+CViewScene::CViewScene(CTaggedFile &f,bool bDeferPublication)
 {
+	m_nBases = 0;
+	m_pBases = NULL;
+	m_pTerrain = NULL;
+	m_pOrder = NULL;
+	m_pSkyref = NULL;
+	m_pPreviousTop = CViewOrdered::GetCurrentTop();
+	m_bBushInitialized = FALSE;
+	m_nLandPieces = 0;
+	if( m_pCurrent || m_pBuilding )
+		throw std::logic_error("another scene is already active");
+	m_pBuilding = this;
+
+	try {
 	//#if _KHAMIDULIN
 	//	LoadLand();
 	//#endif
 
 	CViewLibTexturedFigure::LoadLib(NULL);
-	bush_Init();
+	if( !bush_Init() ) throw std::runtime_error("bush initialization failed");
+	m_bBushInitialized = TRUE;
 
 	{
-		CTaggedFile	fs(TRUE);
-		fs.Open("sky.vbc");
+		CTaggedFile	fs(FALSE);
+		if( !fs.Open("sky.vbc",FALSE) )
+			throw std::runtime_error("sky model is missing");
 		m_skybase.Read(fs);
 		m_skybase.Split(TRUE);
-		fs.Close();
-		m_skyref.Attach(&m_skybase);
-		m_skyref.GetDirModify().LoadIdentity();
+		if( !fs.IsOK() || !fs.Close(FALSE) )
+			throw std::runtime_error("sky model decode failed");
+		m_pSkyref = new CViewObjectRef();
+		m_pSkyref->Attach(&m_skybase);
+		m_pSkyref->GetDirModify().LoadIdentity();
+		CViewOrdered::SetCurrentTop(m_pPreviousTop);
 	}
 
 
@@ -238,7 +271,9 @@ CViewScene::CViewScene(CTaggedFile &f)
 				}
 				#endif
 				WRITELOG("\n\n-----------------------------------------------\n\n");
-		                g_hardware.MessageLoop();
+				#ifndef RR2NW_SCENE_NO_HARDWARE_PUMP
+			        g_hardware.MessageLoop();
+				#endif
 			}
 		}
 		if( nDirectBases > 0 ) {
@@ -246,7 +281,7 @@ CViewScene::CViewScene(CTaggedFile &f)
 			for( int i = 0 ; i < nDirectBases ; i++ ) {
 				m_pBases[nNamedBases+i].Read(f);
 				#ifdef _DEBUG
-					double fErr = m_pBases[i].ComputeBSPError();
+					double fErr = m_pBases[nNamedBases+i].ComputeBSPError();
 					WRITELOG3("BSPCHK%s: DirectBase %d = %lg\n",fErr<-1e-5?" ERR":"",i,fErr);
 				#endif
 			}
@@ -255,7 +290,6 @@ CViewScene::CViewScene(CTaggedFile &f)
 		f.Descend("NAMS",FALSE,0);
 			m_objRefNames.Read(f);
 		f.Ascend();
-		m_pCurrent = this;
 		CViewOrdered::SetCurrentTop(NULL);
 		m_pOrder = ReadOrder(f); //CViewOrder::Read(f);
 		#ifdef _DEBUG
@@ -269,23 +303,58 @@ CViewScene::CViewScene(CTaggedFile &f)
 		}
 		#endif
 		m_objRefNames.FinishResolve();
+		if( !m_objRefNames.IsFullyResolved() )
+			throw std::runtime_error("unresolved scene object references");
 		m_pOrder->ApplyModelUsage();
 		m_pOrder->ComputeMaxHeight();
 		for( int  i = 0 ; i < m_nBases ; i++ )	m_pBases[i].Split(FALSE);
 	}
+	if( !f.IsOK() || !m_pOrder )
+		throw std::runtime_error("scene decode failed");
+	m_pBuilding = NULL;
+	if( !bDeferPublication && !Commit() )
+		throw std::logic_error("scene publication failed");
+	} catch(...) {
+		ReleaseOwnedResources();
+		throw;
+	}
+}
+
+bool CViewScene::Commit()
+{
+	if( m_pBuilding || (m_pCurrent && m_pCurrent != this) || !m_pOrder )
+		return FALSE;
+	m_pCurrent = this;
+	return TRUE;
+}
+
+void CViewScene::ReleaseOwnedResources()
+{
+	if( m_pBuilding == this ) m_pBuilding = NULL;
+	if( m_pCurrent == this ) m_pCurrent = NULL;
+	CViewOrdered::SetCurrentTop(m_pPreviousTop);
+	delete m_pOrder;
+	m_pOrder = NULL;
+	delete [] m_pBases;
+	m_pBases = NULL;
+	m_nBases = 0;
+	m_nLandPieces = 0;
+	delete m_pSkyref;
+	m_pSkyref = NULL;
+	//#if !_KHAMIDULIN
+		delete m_pTerrain;
+		m_pTerrain = NULL;
+	//#else
+   	//	UnloadLand();
+	//#endif
+	if( m_bBushInitialized || bush_IsInitialized() ) bush_Done();
+	m_bBushInitialized = FALSE;
+	pMap2 = NULL;
 }
 
 CViewScene::~CViewScene()
 {
-	delete m_pOrder;
-	delete [] m_pBases;
-	//#if !_KHAMIDULIN
-		delete m_pTerrain;
-	//#else
-   	//	UnloadLand();
-	//#endif
-	bush_Done();
-	if( m_pCurrent == this )	m_pCurrent = NULL;
+	ReleaseOwnedResources();
 }
 
 CRandomGenerator	sc_randomPos, sc_randomRed;
@@ -298,6 +367,7 @@ int __randomPos;
 #define	DBGF_RR2_DEFAULT	DBGF_DEFAULT
 #endif*/
 
+#ifndef RR2NW_SCENE_DRAW_EXTERNAL
 void CViewScene::PromoteDynamic(CViewDynamicList &list,bool bWillDraw)
 {
 	if( bWillDraw ) {
@@ -384,14 +454,14 @@ void CViewScene::Draw(TCSFMatrix3x4 &viewDir,CViewDynamicList &list)
         if (_dL.currDevice->swHw == GR_HARDWARE)
            _d3dDevice->SetRenderState(D3DRENDERSTATE_ZWRITEENABLE, FALSE);
 #endif
-		m_skyref.Draw();
+		m_pSkyref->Draw();
 
 #if USE_Z_BUFFER
         if (_dL.currDevice->swHw == GR_HARDWARE)
            _d3dDevice->SetRenderState(D3DRENDERSTATE_ZWRITEENABLE, TRUE);
 #endif
 
-		//m_skyref.Draw();
+		//m_pSkyref->Draw();
 		CViewObject::m_eWaterView = WATER_VIEW_ABOVE;
 		CViewObject::EnableLights(dwLights);
 	} else
@@ -428,4 +498,5 @@ void CViewScene::Draw(TCSFMatrix3x4 &viewDir,CViewDynamicList &list)
 	//m_pLand->Draw();
 	m_pTerrain->EndDrawTerrain();
 }
+#endif
 

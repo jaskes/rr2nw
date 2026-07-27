@@ -38,8 +38,13 @@ const	int		nTerrainMaxReduction = 4;
 #else
 extern double __terrainWaterline;
 #endif
+#ifndef RR2NW_TERRAIN_VIEW_STATE_EXTERNAL
 int	   __nTerrainWaterHighest;
 int	   __nTerrainLandLowest;
+#else
+extern int __nTerrainWaterHighest;
+extern int __nTerrainLandLowest;
+#endif
 
 int		__terrainWhiteColor;
 int		__terrainCoords = 0;
@@ -47,8 +52,14 @@ CFixedColorFont	terrFnt;
 
 
 
+#ifndef RR2NW_TERRAIN_VIEW_STATE_EXTERNAL
 double	__terrainCell = 10;
 int __polygonReductionCall, __reductionCall, __cellCount, __reductionCallLink;
+#else
+extern double __terrainCell;
+extern int __polygonReductionCall, __reductionCall, __cellCount,
+		__reductionCallLink;
+#endif
 
 #if _RC_COUNT
 byte	(*rcCount)[512] = new byte[512][512];
@@ -449,6 +460,7 @@ inline void _CViewTerrain::SetReds(s,p,d,r)
 }
 #endif
 
+#ifndef RR2NW_TERRAIN_VIEW_STATE_EXTERNAL
 void _CViewTerrain::SetViewPoint()
 {
 	m_fCellSize = __terrainCell;
@@ -933,6 +945,7 @@ void _CViewTerrain::SetViewPoint()
 	#endif
 
 }
+#endif
 
 int __terrainLin = 0;
 int __terrainVerts = 0;
@@ -1017,6 +1030,7 @@ inline double	_CViewTerrain::Reduction(int x,int y)
 	#endif	// reduction immediate
 }
 
+#ifndef RR2NW_TERRAIN_VIEW_STATE_EXTERNAL
 int  _CViewTerrain::ReductionCell(int x,int y)
 {
 	__reductionCall++;
@@ -1077,6 +1091,7 @@ NoLandInvis:
 	#endif // immediate
 	#endif // static
 }
+#endif
 
 inline CVector2	_CViewTerrain::V2Mul_SHRD(TCSVector2 &s,int mul,int shift)
 {
@@ -2827,6 +2842,7 @@ void _CViewTerrain::GetPlane(SFVector3 v,SFVector3 &normal,double &height)
 }
 
 
+#ifndef RR2NW_TERRAIN_VIEW_STATE_EXTERNAL
 bool _CViewTerrain::FitInTrapezioid(SVector2 &v)
 {
 	if( IsViewAlongX() ) {
@@ -2846,6 +2862,7 @@ bool _CViewTerrain::FitInTrapezioid(SVector2 &v)
 		}
 	}
 }
+#endif
 
 
 void _CViewTerrain::GenRed()

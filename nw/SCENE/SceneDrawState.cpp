@@ -15,8 +15,6 @@ double SBonusDef::m_afBonusScale[SBonusDef::T_SUP] = {
     0.04, 0.04, 0.04, 0.04, 0.04, 0.04
 };
 
-CViewDynamicList CViewDynamicList::m_wasteBox;
-
 CPhasedMovie CShot::m_staticHitMovie;
 CPhasedMovie CShot::m_dynamicHitMovie;
 CPhasedMovie CShot::m_chargeBallMovie;

@@ -17,6 +17,14 @@ public:
 	void FinishResolve() { IF_DEBUG(for(int i = 0 ; i < m_nDimension ; i++ ) ASSERTMSG2(Elem(i),"Unresolved: %s[%d]",Name(),i)); }
 	void *operator[](int n) { return Elem(n); }
 	int  Count() const { return m_nDimension; }
+	int  ResolvedCount() const {
+		int nResolved = 0;
+		void *const *pElements = reinterpret_cast<void *const *>(m_pData);
+		for( int i = 0 ; i < m_nDimension ; i++ )
+			if( pElements[i] ) nResolved++;
+		return nResolved;
+	}
+	bool IsFullyResolved() const { return ResolvedCount() == Count(); }
 };
 class CNameDecls {
 protected:
@@ -35,6 +43,21 @@ public:
 	CNameDecl &operator[](int n) { RTCHECK((uint)n<(uint)m_nDecls,"Decl idx exceeded"); return m_pDecls[n]; }
 	CNameDecl *Lookup(TCchar *szName);
 	int Count() const { return m_nDecls; }
+	int ReferenceCount() const {
+		int nReferences = 0;
+		for( int i = 0 ; i < m_nDecls ; i++ )
+			nReferences += m_pDecls[i].Count();
+		return nReferences;
+	}
+	int ResolvedReferenceCount() const {
+		int nResolved = 0;
+		for( int i = 0 ; i < m_nDecls ; i++ )
+			nResolved += m_pDecls[i].ResolvedCount();
+		return nResolved;
+	}
+	bool IsFullyResolved() const {
+		return ResolvedReferenceCount() == ReferenceCount();
+	}
 };
 class CNameDef {
 protected:

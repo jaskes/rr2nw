@@ -13,8 +13,15 @@ bool g_figureLibraryReady = false;
 
 dword CViewTexture::m_dwDefaultInfoFlags = 0;
 
-CViewTexture::~CViewTexture() {
+CViewTexture::~CViewTexture() { Release(); }
+
+void CViewTexture::Release() {
   if (m_hImage != nullptr) GRDeleteTextureFromDB(m_hImage);
+  m_hImage = nullptr;
+  m_dwFlags = 0;
+  m_nWidth = 0;
+  m_nHeight = 0;
+  m_nTransparentColor = 0;
 }
 
 CViewLibTexturedFigure::SLibTexture*

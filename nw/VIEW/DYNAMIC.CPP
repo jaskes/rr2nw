@@ -127,7 +127,9 @@ inline	void	CViewDynamic::TransformInv(TCCFVector3 &inv)
 }
 // ------------------------------------------------------------------------
 
+#ifndef RR2NW_VIEW_DYNAMIC_WASTE_STATE_EXTERNAL
 CViewDynamicList	CViewDynamicList::m_wasteBox;
+#endif
 
 void CViewDynamicList::TransformInv(TCCFMatrix3x4 &inv)
 {

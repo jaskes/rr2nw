@@ -910,15 +910,23 @@ void CViewFlatTransparentFlashFigure::Draw()
 dword CViewTexture::m_dwDefaultInfoFlags = 0;
 CViewTexture::~CViewTexture()
 {
-	//if(m_pImageCache) delete [] (m_pImageCache-m_nHeight);
-	//if(m_pImage) delete [] (m_pImage-SIZE_IMAGEINFO);
-    if( m_hImage ) GRDeleteTextureFromDB(m_hImage);
+	Release();
 	#if 0 //_USE_OPENGL
 		glDeleteLists(m_nCallList,1);
 	#endif
 	#ifdef __sgi
 		glDeleteTexturesEXT(1,&m_nBindIndex);
 	#endif
+}
+void CViewTexture::Release()
+{
+	//if(m_pImageCache) delete [] (m_pImageCache-m_nHeight);
+	//if(m_pImage) delete [] (m_pImage-SIZE_IMAGEINFO);
+    if( m_hImage ) GRDeleteTextureFromDB(m_hImage);
+	m_hImage = NULL;
+	m_dwFlags = 0;
+	m_nWidth = m_nHeight = 0;
+	m_nTransparentColor = 0;
 }
 #endif
 

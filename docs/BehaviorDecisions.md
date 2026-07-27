@@ -480,3 +480,51 @@ drawable scene rollback before Level readiness can be claimed.
 Regression contract: `scene-order-decoder-smoke`, optional read-only sweeps of
 all installed retail Levels, strict full `OBJMAP.CPP` compilation and complete
 38-test Debug/Release CTest runs.
+
+## BD-022: a drawable scene publishes only after complete configuration
+
+Status: accepted on 2026-07-27.
+
+The recovered Level path treats `CViewScene` as a staged transaction rather
+than allowing its constructor to publish global state. During decode,
+`CViewScene::m_pBuilding` is the explicit owner used by recursive object and
+land readers. The scene remains absent from `CViewScene::Current()` and the
+legacy `pScene` until object-name resolution, land-dynamic attachment, bush
+initialization, water tabulation, plane adjustment and scale configuration all
+succeed. `Commit()` is the only publication point.
+
+Rollback owns the complete graph. Recursive orders use local RAII until their
+parent accepts them; shelter orders destroy their inner graph; scene teardown
+deletes order, bases, sky reference and terrain, clears the land-map bridge and
+releases the full bush cache/trunk/leaves/generated-code state. The previous
+`CViewOrdered::CurrentTop` is restored exactly. The sky reference is therefore
+allocated inside the transaction after the previous top is captured: as an
+inline member it constructed too early, became the global top and left a
+dangling pointer after a failed scene construction.
+
+Named object references are a release-build invariant, not a Debug assertion.
+The runtime counts every declared slot and every populated slot and refuses to
+publish unless both equal the serialized scene-header total. A committed scene
+must also contain at least one real land piece attached to its dynamic map.
+
+The historical bush rectangle generator is retained for Win32 parity, but its
+generated x86 bytes use a write-then-execute transition (`PAGE_READWRITE` to
+`PAGE_EXECUTE_READ`) and an instruction-cache flush. Repeated initialization
+first releases the prior cache, trunk arrays, texture and code mapping. No DEP
+exception is part of the runtime contract.
+
+Read-only validation forces failure immediately after decode and immediately
+before publication, checks every public/global owner for rollback, then renders
+and destroys a committed scene twice. It also moves a non-empty
+`CViewStickLandDynamic` into a visible land cell and removes it through the
+scene owner. All nine installed Levels pass in Debug and Release with exact
+resolved-reference and land-piece counts; the complete automated matrix is 39
+tests per configuration.
+
+This decision completes a reusable drawable Level owner but does not by itself
+bind the public `initLevel` entry. That binding must compose Level preparation,
+assets and this scene transaction as a single failure result before the
+executable may claim `level-ready`.
+
+Regression contract: `recovered-drawable-scene-smoke`, the nine-Level
+Debug/Release sweep, complete Debug/Release build and 39-test CTest runs.
