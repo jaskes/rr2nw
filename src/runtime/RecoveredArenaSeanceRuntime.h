@@ -3,7 +3,7 @@
 
 class SimulationContext;
 
-enum ERecoveredArenaSeanceIssue {
+enum ERecoveredArenaSeanceIssue : unsigned int {
   RECOVERED_ARENA_SEANCE_INVALID_CONTEXT = 1u << 0,
   RECOVERED_ARENA_SEANCE_OPEN_FAILURE = 1u << 1,
   RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE = 1u << 2,
@@ -32,7 +32,10 @@ enum ERecoveredArenaSeanceIssue {
   RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_TABLE_MISSING = 1u << 25,
   RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_OBJECT_MISSING = 1u << 26,
   RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_ROSTER_INVALID = 1u << 27,
-  RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE = 1u << 28
+  RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE = 1u << 28,
+  RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_SOURCE_UNAVAILABLE = 1u << 29,
+  RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_TABLE_MISSING = 1u << 30,
+  RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_ROSTER_INVALID = 1u << 31
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -45,6 +48,7 @@ bool RecoveredArenaSeance_PortalReady();
 bool RecoveredArenaSeance_OrphanAttributesReady();
 bool RecoveredArenaSeance_ArtefactAttributesReady();
 bool RecoveredArenaSeance_SmokeAttributesReady();
+bool RecoveredArenaSeance_ExplosionAttributesReady();
 bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();

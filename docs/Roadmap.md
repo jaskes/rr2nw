@@ -367,13 +367,17 @@ The full Debug/Release matrix remains 43/43, with 36/36 retail service launches
 and 4/4 executable smoke launches across both data roots.
 
 The bounded bootstrap now creates the common attribute tranche, Portal,
-SparkAttr, Route, the Vehicle portion of the object graph and all 18 root
-`SmokeAttr` objects by executing the selected retail `SMOKE.SCI`. The read-only
+SparkAttr, Route, the Vehicle portion of the object graph, all 18 root
+`SmokeAttr` objects, and each selected Level's 10--14 `ExplosionAttr` objects
+by executing the root Smoke file and the root/local Explosion pair. The read-only
 Level-aware script manifest is complete: all 48 includes resolve with exact
 root/local provenance before Level mutation, and installed/disc-image pairs
-match for all nine Levels. Smoke/Smoker subjects and renderer cache updates are
-still deferred. The next frontier is the Skin/resource owner followed by the
-next dependency-safe root or Level-local attribute fragment; Farter/Corpse/Lamp
+match for all nine Levels. The May retail Explosion ABI gap is now explicit:
+the port links 90 attributes including binary-confirmed light/impulse fields,
+while the heavyweight Explosion subject remains registration-only. Smoke,
+Smoker and Explosion gameplay plus renderer cache updates are still deferred.
+The next frontier is the Skin/resource owner followed by the next
+dependency-safe root or Level-local attribute fragment; Farter/Corpse/Lamp
 remain behind Sound, Skin, Smoke/Fire or renderer owners, while
 People/Tank/Taxi/Bullet/Sound stay outside that first group. Continue in
 rollback-tested groups
@@ -388,7 +392,12 @@ The manifest frontier raises the automated matrix to 44/44 tests in both
 configurations. Its retail gate is 18/18 direct Level graphs with 9/9 matching
 installed/disc-image pairs, plus the existing 36/36 service and 4/4 executable
 runtime sweeps. The SmokeAttr fragment preserves the same complete gate and
-adds a required production marker plus missing-source rollback coverage.
+adds a required production marker plus missing-source rollback coverage. The
+ExplosionAttr fragment adds root/local missing-source and corrupted-roster
+rollback, paired per-Level roster fingerprints and a second production
+readiness marker. Its completed gate is 44/44 Debug and 44/44 Release tests,
+36/36 service launches, 36/36 direct manifest launches and 4/4 executable
+runtime smokes across the installed and mounted retail roots.
 
 ### Цель
 

@@ -906,3 +906,41 @@ two successful Arena construction/destruction cycles; full strict Smoke source
 compilation against the extracted owner; service readiness and rollback; the
 44-test Debug/Release matrix; and all installed/mounted retail service and
 executable sweeps.
+
+## BD-033: ExplosionAttr executes as a root plus Level-local pair
+
+Status: accepted on 2026-07-27.
+
+Explosion is the first admitted Level-dependent attribute owner. The common
+`EXPLOSION.SCI` does not define `main_CreateExplosionAttr()` in the May retail
+data; each selected Level supplies that entry in
+`SCINC/EXPLOSION_LOC.SCI`. The bounded compiler therefore concatenates the
+exact bytes of both already-manifested files between the shared attribute ABI
+prefix and a tiny `main()` suffix. It does not choose one Level roster as a
+global default.
+
+The modern owner implements the May executable's 90-field attribute ABI. The
+public January C++ contains only 88 fields, but the retail executable and
+scripts additionally require `m_useLight` and `m_impulseCoeff`; focused binary
+evidence establishes defaults 1 and 10000. All renderer, Skin, Sound, Smoke and
+object-ID caches are deterministic unresolved sentinels. The original global
+attribute update remains deferred.
+
+Level scripts also create an `Explosion` subject table with capacity 40--60.
+This attribute-only tranche registers a non-rendering, non-audible pool solely
+so the unchanged script's class-table allocation succeeds. It creates no
+Explosion subjects and does not claim recovered damage, impulse, light,
+texture, piece-Skin or Sound behavior. Replacing that registration pool with
+the full subject is a later heavy-graph boundary.
+
+Readiness is fail-closed against the complete sorted name/value fingerprint.
+Eight unique fingerprints cover the nine retail Levels because Level.02D and
+Level.02N intentionally share one roster; a ninth fingerprint belongs only to
+the synthetic public CI fixture. Missing common or local source, compile/host
+failure, unknown roster, cache drift or partial publication rolls back the
+entire Arena seance.
+
+Regression contract: missing common and Level-local fragment rejection;
+one-field roster-corruption rejection; deterministic 90-field defaults and
+cache sentinels; two complete Arena cycles; repeat fingerprint equality; and
+matching installed/mounted fingerprints for every Level in Debug and Release.

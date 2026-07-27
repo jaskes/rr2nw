@@ -1144,6 +1144,39 @@ logs publish `smoke_attributes_initialized=1`, identify
 `bounded-retail-smoke-attribute-vehicle-bootstrap`, and end with
 `runtime_shutdown=clean`.
 
+### Level-aware retail ExplosionAttr fragment
+
+The next bounded program generalizes the root reader into a two-source
+attribute fragment. It loads exact `../EXPLOSION.SCI` bytes plus the selected
+`SCINC/EXPLOSION_LOC.SCI`, inserts only the already-audited setter/color ABI,
+and invokes the Level-local `main_CreateExplosionAttr()`. Missing root and
+local files are independent transactional failures. A one-field mutation of a
+complete synthetic roster proves readiness is fingerprint-based rather than a
+capacity-only check.
+
+`ExplosionAttributeState` reconstructs the 90-field May ABI and owns the real
+attribute pool. In addition to the January source's 88 items, focused retail
+binary analysis recovers `m_useLight` (default 1) and `m_impulseCoeff`
+(default 10000), including their real light-gate and impulse-scaling uses. All
+pre-update renderer, Skin, Sound, Smoke and ID caches are zero/null sentinels.
+The unchanged Level scripts allocate an `Explosion` table but no subjects, so
+this slice supplies a registration-only non-rendering/non-audible subject pool;
+full Explosion gameplay remains deliberately outside the attribute frontier.
+
+Retail Level rosters contain 10--14 objects and produce eight unique complete
+field fingerprints. Level.02D and Level.02N intentionally match. The installed
+and mounted roots produce matching values for all nine Levels; the service
+smoke publishes roster size and fingerprint so later parity sweeps retain this
+evidence. Startup adds `explosion_attributes_initialized=1` and identifies
+`bounded-retail-smoke-explosion-attribute-vehicle-bootstrap`.
+
+Final verification passes 44/44 tests in both Debug and Release. The expanded
+retail matrix passes 36/36 service launches and 36/36 direct manifest launches
+(Debug/Release, both roots, all nine Levels), with matching roster and manifest
+fingerprints for every equivalent case. All 4/4 executable runtime-smoke
+launches publish the Smoke and Explosion readiness markers, the expanded
+script mode, zero service issues, `level-ready` and `runtime_shutdown=clean`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1169,8 +1202,10 @@ logs publish `smoke_attributes_initialized=1`, identify
    exits safely with its intentionally incomplete default runtime. The real
    Arena, Storage, recovered script VM and `Vehicle.Default` now execute through
    a bounded bootstrap. A read-only Level-aware manifest validates all 48 retail
-   includes before Level mutation; remaining OBASE archives and script ABI
-   bindings are still required before switching to full retail `LEVEL0.SC`.
+   includes before Level mutation; root Smoke plus root/Level-local Explosion
+   attribute fragments now execute before publication. Remaining OBASE
+   archives and script ABI bindings are still required before switching to
+   full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

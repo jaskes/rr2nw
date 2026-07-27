@@ -526,9 +526,11 @@ Status vocabulary:
   Explosion, Tank, Taxi, People, Farter, Corpse, Fountain, Bullet and other
   `SCINC` files also vary by Level.
 - Handling: root/common objects, now including the retail `SmokeAttr` roster,
-  may enter bounded bootstrap fragments. Level-local rosters and subjects
-  remain behind a Level-aware bridge or unchanged retail script execution; no
-  single Level is treated as a universal default.
+  may enter bounded bootstrap fragments. Explosion is the first Level-aware
+  exception: its root and selected local files execute together and retain a
+  per-Level fingerprint. Other Level-local rosters and subjects remain behind
+  the same kind of bridge or unchanged retail script execution; no single
+  Level is treated as a universal default.
 - Revisit when: includes are resolved against the selected Level and the
   retail script can create each Level's exact table/object set transactionally.
 
@@ -595,6 +597,39 @@ Status vocabulary:
 - Revisit when: scanner include ownership is repaired with dedicated nested
   include/rollback tests, or a versioned preprocessor/VFS supplies one bounded
   translation unit before full `LEVEL0.SC` execution.
+
+### CQ-045: retail Explosion has a 90-field ABI absent from the source snapshot
+
+- Status: `CONFIRMED_RETAIL_BINARY`, `RETAIL_REQUIRED`.
+- Evidence: January `Explosion.cpp` links 88 items and has neither
+  `m_useLight` nor `m_impulseCoeff`. May `nw.exe` contains both names after the
+  original 88, and its constructor passes hexadecimal `5A` (90) to
+  `linkTable`. Disassembly initializes `m_useLight` to 1 at `0x00511EE6` and
+  `m_impulseCoeff` to 10000 at `0x00511EFC`--`0x00511F07`. The former gates
+  light creation at `0x00510178`; the latter scales three impulse-vector
+  components at `0x00511467`--`0x00511491`. Retail root and Level-local scripts
+  write both fields.
+- Handling: the extracted modern attribute owner exposes all 90 fields in the
+  retail order and uses the binary-confirmed defaults. The attribute
+  fingerprint includes them. Full Explosion subject behavior is not inferred
+  beyond these focused facts and remains deferred.
+- Revisit when: the complete Explosion subject is connected; port the two
+  confirmed uses with focused light/damage tests before replacing the
+  registration-only subject pool.
+
+### CQ-046: Explosion construction is owned by the Level-local script
+
+- Status: `CONFIRMED_RETAIL`, `PRESERVED`.
+- Evidence: May `EXPLOSION.SCI` ends after shared constructors and contains no
+  `main_CreateExplosionAttr`. Every `SCINC/EXPLOSION_LOC.SCI` defines it,
+  creates the `Explosion`/`ExplosionAttr` tables and selects a different
+  10--14 object roster. `LEVEL0.SC` includes the root file immediately before
+  the local file and calls the entry later.
+- Handling: the bounded translation unit reads both exact files and calls the
+  local entry. Per-Level fingerprints are retained; Level.02D/Level.02N are
+  allowed to share one value. Neither root file alone is considered runnable.
+- Revisit when: full include preprocessing is safe; the same two-file
+  ownership and selected-Level resolution must remain observable.
 
 ## Maintenance rule
 

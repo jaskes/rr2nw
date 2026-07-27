@@ -547,6 +547,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("smoke_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SmokeAttributesReady() ? 1 : 0));
+  log.Line("explosion_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0));
   log.Line("spark_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SparkAttributesReady() ? 1 : 0));
@@ -622,7 +625,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                                             : "interactive-observer"));
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
-  log.Line("script_mode=bounded-retail-smoke-attribute-vehicle-bootstrap");
+  log.Line(
+      "script_mode=bounded-retail-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

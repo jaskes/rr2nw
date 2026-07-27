@@ -15,6 +15,7 @@ class CGRPanel;
 #include "kernel/h/session.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
+#include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
 #include "obase/smoke/SmokeAttributeState.h"
@@ -24,12 +25,15 @@ class CGRPanel;
 
 namespace {
 
+unsigned long long g_explosionFixtureFingerprint = 0;
+
 int Fail(const char* message) {
   RecoveredArenaSeance_Release();
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
-               "smoke=%d spark=%d route=%d vehicle=%d issues=%u error=%s)\n",
+               "smoke=%d explosion=%d spark=%d route=%d vehicle=%d "
+               "issues=%u error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
                RecoveredArenaSeance_BirdAttributesReady() ? 1 : 0,
@@ -37,6 +41,7 @@ int Fail(const char* message) {
                RecoveredArenaSeance_OrphanAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_ArtefactAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokeAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_ExplosionAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleReady() ? 1 : 0,
@@ -89,6 +94,7 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_OrphanAttributesReady() &&
          !RecoveredArenaSeance_ArtefactAttributesReady() &&
          !RecoveredArenaSeance_SmokeAttributesReady() &&
+         !RecoveredArenaSeance_ExplosionAttributesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
@@ -97,6 +103,7 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Artefact.Attr.0") &&
          !context.isExist("Smoke.Attr.Small") &&
          !context.isExist("Smoke.Attr.Fire.Corpse") &&
+         !context.isExist("Expl.Test.0") &&
          !context.isExist("Spark.Flash") &&
          !context.isExist("Vehicle.Default") &&
          Route::m_totalNodePos == 0;
@@ -112,6 +119,7 @@ bool RunCycle() {
       !RecoveredArenaSeance_OrphanAttributesReady() ||
       !RecoveredArenaSeance_ArtefactAttributesReady() ||
       !RecoveredArenaSeance_SmokeAttributesReady() ||
+      !RecoveredArenaSeance_ExplosionAttributesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
@@ -121,6 +129,8 @@ bool RunCycle() {
       g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ArtefactAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Explosion") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
@@ -135,17 +145,33 @@ bool RunCycle() {
   KR_ObjectID artefact = context.searchObject("Artefact.Attr.0");
   KR_ObjectID flash = context.searchObject("Spark.Flash");
   KR_ObjectID smoke = context.searchObject("Smoke.Attr.Small");
+  KR_ObjectID explosion = context.searchObject("Expl.Test.0");
+  AttributeExplosion* explosionAttribute =
+      explosion.isNUL()
+          ? nullptr
+          : static_cast<AttributeExplosion*>(
+                __attrExplosionTable.searchAttribute(explosion));
   KR_ObjectID vehicle = context.searchObject("Vehicle.Default");
   const bool vehiclePublished =
       !storage.isNUL() && !bird.isNUL() && !orphan.isNUL() &&
       !artefact.isNUL() && !flash.isNUL() && !vehicle.isNUL() &&
-      !smoke.isNUL() &&
+      !smoke.isNUL() && !explosion.isNUL() &&
       BirdAttributeState_IsRetailDefault(bird) &&
       OrphanAttributeState_IsRetailDefault(orphan) &&
       ArtefactAttributeState_IsRetailDefault(artefact) &&
       SmokeAttributeState_IsRetailRoster(&context) &&
+      ExplosionAttributeState_IsKnownRoster(&context) &&
+      ExplosionAttributeState_RosterSize(&context) == 10 &&
+      explosionAttribute != nullptr &&
+      explosionAttribute->m_useLight == 0 &&
+      explosionAttribute->m_impulseCoeff == 1234 &&
+      explosionAttribute->m_hTexture == nullptr &&
+      explosionAttribute->m_cacheSkin == nullptr &&
+      explosionAttribute->m_wav == nullptr &&
       g_vehicle != nullptr &&
       context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
+  g_explosionFixtureFingerprint =
+      ExplosionAttributeState_Fingerprint(&context);
 
   RecoveredArenaSeance_Release();
   RecoveredArenaSeance_Release();
@@ -192,9 +218,42 @@ int main(int argc, char** argv) {
       "[Tank2]\r\n"
       "[Tank3]\r\n"
       "[Dead]\r\n";
+  const char explosionRootFixture[] =
+      "func void ExplosionFixtureRoot()\r\n"
+      "{\r\n"
+      "}\r\n";
+  const char explosionLevelFixture[] =
+      "func void main_CreateExplosionAttr()\r\n"
+      " var int ctID, objectID, cachePos;\r\n"
+      "{\r\n"
+      "  s_AddClassTable(\"Explosion\", 2);\r\n"
+      "  ctID := s_AddClassTable(\"ExplosionAttr\", 10);\r\n"
+      "  New(ctID, \"Expl.Test.0\", objectID, cachePos);\r\n"
+      "  SetAttribute_i(objectID, cachePos, \"m_useLight\", 0);\r\n"
+      "  SetAttribute_f(objectID, cachePos, \"m_impulseCoeff\", 1234);\r\n"
+      "  New(ctID, \"Expl.Test.1\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.2\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.3\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.4\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.5\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.6\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.7\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.8\", objectID, cachePos);\r\n"
+      "  New(ctID, \"Expl.Test.9\", objectID, cachePos);\r\n"
+      "}\r\n";
   const std::string config = JoinPath(levelDirectory, "vessels.cfg");
   const std::string smokeCopy = JoinPath(fixtureDirectory, "SMOKE.SCI");
+  const std::string explosionCopy =
+      JoinPath(fixtureDirectory, "EXPLOSION.SCI");
+  const std::string scincDirectory = JoinPath(levelDirectory, "SCINC");
+  const std::string explosionLocalCopy =
+      JoinPath(scincDirectory, "EXPLOSION_LOC.SCI");
   DeleteFileA(smokeCopy.c_str());
+  DeleteFileA(explosionCopy.c_str());
+  if (!EnsureDirectory(scincDirectory)) {
+    return Fail("could not establish the fixture SCINC directory");
+  }
+  DeleteFileA(explosionLocalCopy.c_str());
   if (!WriteFile(config, fixture) ||
       SetCurrentDirectoryA(levelDirectory.c_str()) == FALSE) {
     return Fail("could not prepare retail-script Arena fixture");
@@ -211,27 +270,91 @@ int main(int argc, char** argv) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not copy retail SMOKE.SCI into Arena fixture");
   }
+
+  SimulationContext missingExplosionRootContext(64, 128);
+  const bool missingExplosionRootRejected =
+      RecoveredArenaSeance_Initialize(&missingExplosionRootContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingExplosionRootContext);
+  if (!WriteFile(explosionCopy, explosionRootFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write bounded Explosion root fixture");
+  }
+
+  SimulationContext missingExplosionLocalContext(64, 128);
+  const bool missingExplosionLocalRejected =
+      RecoveredArenaSeance_Initialize(&missingExplosionLocalContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingExplosionLocalContext);
+  if (!WriteFile(explosionLocalCopy, explosionLevelFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write bounded Explosion Level fixture");
+  }
+
+  std::string invalidExplosionLevelFixture = explosionLevelFixture;
+  const std::size_t impulse = invalidExplosionLevelFixture.find("1234");
+  if (impulse == std::string::npos) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not corrupt Explosion fixture deterministically");
+  }
+  invalidExplosionLevelFixture.replace(impulse, 4, "1235");
+  if (!WriteFile(explosionLocalCopy,
+                 invalidExplosionLevelFixture.c_str())) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Explosion Level fixture");
+  }
+  SimulationContext invalidExplosionRosterContext(64, 128);
+  const bool invalidExplosionRosterRejected =
+      RecoveredArenaSeance_Initialize(&invalidExplosionRosterContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_ROSTER_INVALID) != 0 &&
+      IsReleased(invalidExplosionRosterContext);
+  if (!WriteFile(explosionLocalCopy, explosionLevelFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid Explosion Level fixture");
+  }
+
   const bool firstCycle = RunCycle();
   const bool secondCycle = firstCycle && RunCycle();
   const bool restored =
       SetCurrentDirectoryA(originalDirectory.c_str()) != FALSE;
   DeleteFileA(config.c_str());
   DeleteFileA(smokeCopy.c_str());
+  DeleteFileA(explosionCopy.c_str());
+  DeleteFileA(explosionLocalCopy.c_str());
+  RemoveDirectoryA(scincDirectory.c_str());
   RemoveDirectoryA(levelDirectory.c_str());
   RemoveDirectoryA(fixtureDirectory.c_str());
 
   if (!missingSourceRejected) {
     return Fail("missing retail SMOKE.SCI was not rejected transactionally");
   }
+  if (!missingExplosionRootRejected || !missingExplosionLocalRejected) {
+    return Fail("missing retail Explosion fragments were not rejected "
+                "transactionally");
+  }
+  if (!invalidExplosionRosterRejected) {
+    return Fail("invalid Explosion attribute roster was not rejected "
+                "transactionally");
+  }
   if (!firstCycle) return Fail("first real Vehicle seance failed");
   if (!secondCycle) return Fail("Vehicle seance reconstruction failed");
   if (!restored) return Fail("working directory was not restored");
 
   std::printf("bounded arena seance cycles=2 missing-smoke=rollback "
+              "missing-explosion-root-local=rollback "
+              "invalid-explosion-roster=rollback "
               "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
-              "smoke_attrs=retail-18 spark=Spark.Flash route=table "
+              "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
+              "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
-              "rollback=idempotent\n");
+              "explosion_fingerprint=%llu rollback=idempotent\n",
+              g_explosionFixtureFingerprint);
   return EXIT_SUCCESS;
 }

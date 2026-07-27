@@ -1796,6 +1796,37 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_explosion_attribute_state STATIC
+  nw/ARENA/OBASE/Explosion/ExplosionAttributeState.cpp
+  nw/ARENA/OBASE/Explosion/ExplosionAttributeState.h
+)
+target_link_libraries(rr2nw_arena_explosion_attribute_state PUBLIC
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_explosion_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Explosion
+)
+target_compile_features(
+  rr2nw_arena_explosion_attribute_state PUBLIC cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_arena_explosion_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_explosion_attribute_state PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_smoke_attribute_state STATIC
   nw/ARENA/OBASE/Smoke/SmokeAttributeState.cpp
   nw/ARENA/OBASE/Smoke/SmokeAttributeState.h
@@ -2530,6 +2561,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_orphan_attribute_state
   rr2nw_arena_obase_portal
+  rr2nw_arena_explosion_attribute_state
   rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
   rr2nw_legacy_shell_full

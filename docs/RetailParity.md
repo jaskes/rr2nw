@@ -111,6 +111,28 @@ Retail scripts нельзя молча копировать поверх source 
   reads the selected user's retail file; future distributable normalized data
   or a source-side compatibility patch requires a separate publication review.
 
+### RP-SCRIPT-002: retail Explosion adds fields and delegates its roster
+
+- Classification: `RETAIL_REQUIRED`.
+- Source snapshot `nw/OUTPUT/EXPLOSION.SCI` SHA-256:
+  `491C9CE5D170D01063F20112392357721DEBABFC16ACC4B7DE9D3D052BC82D90`.
+- Canonical May retail SHA-256:
+  `BB202E2C1ED26418A5AC4EF4B271693021B8AB76F82ED31A4418EB550AAA89FD`;
+  installed and mounted copies are byte-identical.
+- Semantic delta: retail factors the big preset through `SetExplBig`, changes
+  small particle/piece counts, writes per-preset `m_impulseCoeff`, changes the
+  water splash sound, and adds `Expl.NULL`, `Expl.Attr.Man` and
+  `Expl.Attr.Woman` constructors. The root file no longer owns
+  `main_CreateExplosionAttr`; each Level-local explosion script chooses the
+  final roster.
+- Binary bridge: retail `nw.exe` links the script-visible `m_useLight` and
+  `m_impulseCoeff` fields missing from the public C++, confirming this is an
+  engine ABI delta rather than unused data.
+- Handling: runtime reads the selected user's common and Level-local scripts
+  without copying them into the repository. The 90-field owner and eight
+  unique retail fingerprints preserve the admitted boundary; subject behavior
+  remains a separately reviewed binary-parity task.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

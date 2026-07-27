@@ -10,6 +10,7 @@
 #include "kernel/h/session.h"
 #include "message/hardmsg.h"
 #include "message/levelmsg.h"
+#include "obase/explosion/ExplosionAttributeState.h"
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
@@ -34,7 +35,8 @@ int Fail(const char* message) {
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
-      "portal=%d orphan=%d artefact=%d smoke=%d spark=%d route=%d vehicle=%d "
+      "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d spark=%d "
+      "route=%d vehicle=%d "
       "arena_issues=%u arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
       "bush=%d observer_events=%u observer_z=%lg)\n",
@@ -50,6 +52,7 @@ int Fail(const char* message) {
       RecoveredGameServices_OrphanAttributesReady() ? 1 : 0,
       RecoveredGameServices_ArtefactAttributesReady() ? 1 : 0,
       RecoveredGameServices_SmokeAttributesReady() ? 1 : 0,
+      RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0,
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
@@ -77,6 +80,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_OrphanAttributesReady() &&
          !RecoveredGameServices_ArtefactAttributesReady() &&
          !RecoveredGameServices_SmokeAttributesReady() &&
+         !RecoveredGameServices_ExplosionAttributesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_RouteReady() &&
          !RecoveredGameServices_VehicleReady() &&
@@ -188,6 +192,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_OrphanAttributesReady() ||
       !RecoveredGameServices_ArtefactAttributesReady() ||
       !RecoveredGameServices_SmokeAttributesReady() ||
+      !RecoveredGameServices_ExplosionAttributesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
@@ -203,6 +208,16 @@ int main(int argc, char** argv) {
     return Fail(
         "recovered Hardware, Arena, common attributes, Portal, Spark, Route, "
         "Vehicle or observer was not published");
+  }
+  const unsigned long long explosionFingerprint =
+      ExplosionAttributeState_Fingerprint(g_super.m_context);
+  const int explosionRosterSize =
+      ExplosionAttributeState_RosterSize(g_super.m_context);
+  if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
+      explosionRosterSize > 14) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("level-aware Explosion attribute roster is invalid");
   }
   const SRecoveredObserverState observerBefore = *observer;
   if (!SendHardwareButton("W", TRUE)) {
@@ -246,6 +261,8 @@ int main(int argc, char** argv) {
   }
 
   if (!StartServices(argv[1]) || RecoveredGameServices_Issues() != 0 ||
+      ExplosionAttributeState_Fingerprint(g_super.m_context) !=
+          explosionFingerprint ||
       !RecoveredGameServices_RunFrame() || dwFrames != 1) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -259,7 +276,9 @@ int main(int argc, char** argv) {
   }
 
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
-              "arena=1 script=bounded common_attrs=3 smoke_attrs=18 portal=table "
-              "route=table vehicle=real observer=1\n");
+              "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
+              "explosion_attrs=%d explosion_fingerprint=%llu portal=table "
+              "route=table vehicle=real observer=1\n",
+              explosionRosterSize, explosionFingerprint);
   return EXIT_SUCCESS;
 }

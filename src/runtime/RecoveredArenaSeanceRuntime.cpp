@@ -9,6 +9,7 @@ class CGRPanel;
 #include "kernel/h/context.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
+#include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
@@ -26,6 +27,8 @@ constexpr const char kBootstrapProgramName[] =
     "recovered_common_attribute_vehicle_bootstrap";
 constexpr const char kSmokeAttributeProgramName[] =
     "recovered_retail_smoke_attribute_bootstrap";
+constexpr const char kExplosionAttributeProgramName[] =
+    "recovered_retail_explosion_attribute_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol. It is a bounded bridge to the real Vehicle tables, not a second
@@ -175,13 +178,15 @@ var int orphanAttrTable, artefactAttrTable, vehicleTable, objectID, cachePos;
 }
 )RR2NW_SCRIPT";
 
-const char kSmokeAttributeBootstrapPrefix[] = R"RR2NW_SCRIPT(
+const char kRetailAttributeBootstrapPrefix[] = R"RR2NW_SCRIPT(
 const int EDO_WRITE = 1;
 const int NO_LAND = 0;
 const int ON_LAND = 1;
 const float INFINITY_TIME = -1;
 const int LIGHT_COLOR_RED = 1;
+const int LIGHT_COLOR_GREEN = 2;
 const int LIGHT_COLOR_YELLOW = 3;
+const int LIGHT_COLOR_BLUE = 4;
 const int LIGHT_COLOR_CYAN = 6;
 const int s_ATTR_MSG_SET_INT extern;
 const int s_ATTR_MSG_SET_DOUBLE extern;
@@ -247,6 +252,18 @@ var int event;
   s_SendEventNow(event, s_ATTR_MSG_SET_STR, objectID, cachePos);
 }
 
+func void fount_SetColors(int objectID, int cachePos,
+                          int r0, int g0, int b0,
+                          int r1, int g1, int b1,
+                          int r2, int g2, int b2,
+                          int r3, int g3, int b3)
+{
+  SetAttribute_i(objectID, cachePos, "m_RGB0", ConvertColor(r0,g0,b0));
+  SetAttribute_i(objectID, cachePos, "m_RGB1", ConvertColor(r1,g1,b1));
+  SetAttribute_i(objectID, cachePos, "m_RGB2", ConvertColor(r2,g2,b2));
+  SetAttribute_i(objectID, cachePos, "m_RGB3", ConvertColor(r3,g3,b3));
+}
+
 )RR2NW_SCRIPT";
 
 const char kSmokeAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
@@ -256,19 +273,27 @@ func void main()
 }
 )RR2NW_SCRIPT";
 
-constexpr long kMaximumRetailSmokeSourceBytes = 128 * 1024;
+const char kExplosionAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateExplosionAttr();
+}
+)RR2NW_SCRIPT";
 
-bool ReadRetailSmokeSource(std::string* source) {
-  if (source == nullptr) return false;
+constexpr long kMaximumRetailAttributeSourceBytes = 128 * 1024;
 
-  FILE* file = std::fopen("..\\SMOKE.SCI", "rb");
+bool ReadBoundedRetailAttributeSource(const char* relativePath,
+                                      std::string* source) {
+  if (relativePath == nullptr || source == nullptr) return false;
+
+  FILE* file = std::fopen(relativePath, "rb");
   if (file == nullptr) return false;
   if (std::fseek(file, 0, SEEK_END) != 0) {
     std::fclose(file);
     return false;
   }
   const long size = std::ftell(file);
-  if (size <= 0 || size > kMaximumRetailSmokeSourceBytes ||
+  if (size <= 0 || size > kMaximumRetailAttributeSourceBytes ||
       std::fseek(file, 0, SEEK_SET) != 0) {
     std::fclose(file);
     return false;
@@ -296,6 +321,7 @@ struct RecoveredArenaSeanceState {
   bool orphanAttributesReady;
   bool artefactAttributesReady;
   bool smokeAttributesReady;
+  bool explosionAttributesReady;
   bool sparkAttributesReady;
   bool routeReady;
   bool vehicleReady;
@@ -359,26 +385,46 @@ bool RunAttributeVehicleBootstrap(SimulationContext* context,
   return true;
 }
 
-bool RunSmokeAttributeBootstrap(SimulationContext* context,
-                                double startTime) {
-  std::string retailSource;
-  if (!ReadRetailSmokeSource(&retailSource)) {
-    Report(RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE,
-           "could not read bounded retail SMOKE.SCI beside selected Level");
+bool RunRetailAttributeBootstrap(SimulationContext* context,
+                                 double startTime,
+                                 const char* rootPath,
+                                 const char* levelPath,
+                                 const char* suffix,
+                                 const char* programName,
+                                 unsigned int sourceIssue,
+                                 const char* description) {
+  std::string rootSource;
+  std::string levelSource;
+  if (!ReadBoundedRetailAttributeSource(rootPath, &rootSource) ||
+      (levelPath != nullptr &&
+       !ReadBoundedRetailAttributeSource(levelPath, &levelSource))) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "could not read bounded retail %s source beside selected "
+                  "Level", description);
+    Report(sourceIssue, message);
     return false;
   }
 
   std::string program;
   try {
-    program.reserve(sizeof(kSmokeAttributeBootstrapPrefix) +
-                    retailSource.size() +
-                    sizeof(kSmokeAttributeBootstrapSuffix));
-    program.append(kSmokeAttributeBootstrapPrefix);
-    program.append(retailSource);
-    program.append(kSmokeAttributeBootstrapSuffix);
+    program.reserve(sizeof(kRetailAttributeBootstrapPrefix) +
+                    rootSource.size() + levelSource.size() +
+                    std::strlen(suffix) + 3u);
+    program.append(kRetailAttributeBootstrapPrefix);
+    program.append(rootSource);
+    program.push_back('\n');
+    if (!levelSource.empty()) {
+      program.append(levelSource);
+      program.push_back('\n');
+    }
+    program.append(suffix);
   } catch (...) {
-    Report(RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE,
-           "could not allocate bounded retail Smoke bootstrap source");
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "could not allocate bounded retail %s bootstrap source",
+                  description);
+    Report(sourceIssue, message);
     return false;
   }
 
@@ -387,12 +433,31 @@ bool RunSmokeAttributeBootstrap(SimulationContext* context,
   const SRecoveredLegacyScriptProfile profile =
       RecoveredLegacyScript_RetailFragmentProfile();
   if (!RecoveredLegacyScript_RunMemory(
-          program.c_str(), kSmokeAttributeProgramName, profile,
-          context, startTime, &host, &result)) {
+          program.c_str(), programName, profile, context, startTime,
+          &host, &result)) {
     Report(IssueForScriptStatus(result.status), result.error);
     return false;
   }
   return true;
+}
+
+bool RunSmokeAttributeBootstrap(SimulationContext* context,
+                                double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "..\\SMOKE.SCI", nullptr,
+      kSmokeAttributeBootstrapSuffix, kSmokeAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "SMOKE.SCI");
+}
+
+bool RunExplosionAttributeBootstrap(SimulationContext* context,
+                                    double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "..\\EXPLOSION.SCI",
+      "SCINC\\EXPLOSION_LOC.SCI", kExplosionAttributeBootstrapSuffix,
+      kExplosionAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "EXPLOSION.SCI + SCINC\\EXPLOSION_LOC.SCI");
 }
 
 bool OpenArena(SimulationContext* context) {
@@ -585,6 +650,28 @@ bool PublishSmokeAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishExplosionAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Explosion") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_TABLE_MISSING,
+           "retail fragments did not create the Explosion tables");
+    return false;
+  }
+  if (!ExplosionAttributeState_IsKnownRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "ExplosionAttr objects do not match a bounded level "
+                  "roster (count=%d fingerprint=%llu)",
+                  ExplosionAttributeState_RosterSize(context),
+                  ExplosionAttributeState_Fingerprint(context));
+    Report(RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_ROSTER_INVALID,
+           message);
+    return false;
+  }
+  g_state.explosionAttributesReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -604,6 +691,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   PortalClassTable_Link();
   SparkAttributeState_Link();
   SmokeAttributeState_Link();
+  ExplosionAttributeState_Link();
   if (!OpenArena(context)) return FALSE;
 
   try {
@@ -612,6 +700,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
     if (!RunSmokeAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunExplosionAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -625,7 +717,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     if (!PublishBirdAttributes(context) || !PublishPortalTable() ||
         !PublishOrphanAttributes(context) ||
         !PublishArtefactAttributes(context) ||
-        !PublishSmokeAttributes(context)) {
+        !PublishSmokeAttributes(context) ||
+        !PublishExplosionAttributes(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -659,6 +752,7 @@ void RecoveredArenaSeance_Release() {
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
   g_state.smokeAttributesReady = false;
+  g_state.explosionAttributesReady = false;
   g_state.artefactAttributesReady = false;
   g_state.orphanAttributesReady = false;
   g_state.portalReady = false;
@@ -694,6 +788,10 @@ bool RecoveredArenaSeance_ArtefactAttributesReady() {
 
 bool RecoveredArenaSeance_SmokeAttributesReady() {
   return g_state.smokeAttributesReady;
+}
+
+bool RecoveredArenaSeance_ExplosionAttributesReady() {
+  return g_state.explosionAttributesReady;
 }
 
 bool RecoveredArenaSeance_SparkAttributesReady() {
