@@ -208,6 +208,19 @@ Status vocabulary:
 - Revisit when: these legacy owners are replaced by RAII containers rather than
   merely wrapped by a transaction.
 
+### CQ-018: GitHub currently forces the checkout action onto Node.js 24
+
+- Status: `OPEN` infrastructure maintenance.
+- Evidence: the successful Windows CI run for commit `1ef3aa4` reports that
+  `actions/checkout@v4` targets deprecated Node.js 20 and is being forced onto
+  Node.js 24 by the runner.
+- Handling: this is not a game/runtime failure and does not weaken the green
+  build result. Keep the annotation visible; do not pin an obsolete runner to
+  suppress it.
+- Revisit when: next updating the CI action versions. Move to the supported
+  checkout release after reviewing its official migration notes, then require
+  the same Debug/Release matrix to remain green.
+
 ## Maintenance rule
 
 When a new quirk is found:
