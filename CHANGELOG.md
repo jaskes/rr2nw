@@ -128,6 +128,15 @@ claim authorship of inherited Logos code or retail data.
   contract, restores it on every failure and repeated shutdown, snapshots the
   recovered visual/debug settings and binds only the truthful config/deinit
   entry hooks; full scene initialization remains fail-closed.
+- Added bounded structural ownership for serialized scene ordering and real
+  land-object maps. Complete and decoder-only `OBJMAP.CPP` targets now compile;
+  a synthetic branch/object/land/shelter/empty contract and read-only sweeps of
+  all nine installed scenes verify Debug/Release parity without publishing a
+  fake drawable scene or binding `initLevel`.
+- Added a living compatibility ledger with stable IDs, evidence, current
+  handling and revisit triggers for retail case folding, modified local data,
+  day/night scene reuse, serializer sentinels, empty maps, ABI widths and
+  accepted toolchain/ownership fixes.
 - Added the atomic asset half of recovered Level initialization: bounded
   validation and ownership for `default.ptp`, `figs5x3c.fnt`, the empty
   figure-texture library and the `SCEH` scene header, followed by the original

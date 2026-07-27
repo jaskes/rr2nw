@@ -1173,6 +1173,81 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_view_order_decode_state STATIC
+  nw/VIEW/ViewOrderedDecodeState.cpp
+)
+target_link_libraries(rr2nw_view_order_decode_state PUBLIC
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_view_order_decode_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_order_decode_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_order_decode_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_view_land_object_full STATIC
+  nw/VIEW/OBJMAP.CPP
+)
+target_link_libraries(rr2nw_view_land_object_full PUBLIC
+  rr2nw_legacy_design
+)
+target_include_directories(rr2nw_view_land_object_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_land_object_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_land_object_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_view_land_object_full PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_view_land_object_decoder STATIC
+  nw/VIEW/OBJMAP.CPP
+)
+target_link_libraries(rr2nw_view_land_object_decoder PUBLIC
+  rr2nw_legacy_design
+  rr2nw_view_order_decode_state
+)
+target_include_directories(rr2nw_view_land_object_decoder PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_land_object_decoder PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_land_object_decoder PRIVATE
+  __NT__
+  RR2NW_LAND_OBJECT_DECODER_ONLY
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_view_land_object_decoder PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_graph_image_runtime_state STATIC
   nw/GRAPH/ImageRuntimeState.cpp
 )
@@ -1977,6 +2052,36 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_recovered_scene_order_runtime STATIC
+  src/runtime/RecoveredSceneOrderRuntime.cpp
+  src/runtime/RecoveredSceneOrderRuntime.h
+)
+target_link_libraries(rr2nw_recovered_scene_order_runtime PUBLIC
+  rr2nw_game_entry_runtime
+  rr2nw_recovered_terrain_runtime
+  rr2nw_view_land_object_decoder
+  rr2nw_view_order_decode_state
+)
+target_include_directories(rr2nw_recovered_scene_order_runtime PUBLIC
+  src/runtime
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_recovered_scene_order_runtime PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_recovered_scene_order_runtime PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_recovered_scene_order_runtime PRIVATE /W4 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_supervisor_global STATIC
   src/runtime/SupervisorGlobal.cpp
 )
@@ -2490,6 +2595,19 @@ target_compile_definitions(rr2nw_view_terrain_decoder_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_scene_order_decoder_smoke
+  src/portability/SceneOrderDecoderSmoke.cpp
+)
+target_link_libraries(rr2nw_scene_order_decoder_smoke PRIVATE
+  rr2nw_recovered_scene_order_runtime
+)
+target_compile_features(rr2nw_scene_order_decoder_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_scene_order_decoder_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_carrier_smoke
   src/portability/CarrierSmoke.cpp
 )
@@ -2584,6 +2702,9 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_view_terrain_decoder_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_scene_order_decoder_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -2697,6 +2818,10 @@ if(BUILD_TESTING)
   add_test(
     NAME view-terrain-decoder-smoke
     COMMAND rr2nw_view_terrain_decoder_smoke
+  )
+  add_test(
+    NAME scene-order-decoder-smoke
+    COMMAND rr2nw_scene_order_decoder_smoke
   )
   add_test(
     NAME legacy-menu-texture-smoke

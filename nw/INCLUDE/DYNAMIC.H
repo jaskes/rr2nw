@@ -82,6 +82,9 @@ public:
 			return ::Bump(pd1->m_bump,pd2->m_bump,nFlag); }
 };
 
+// Make the inline friend visible to conforming namespace-scope lookup.
+bool Bump(CViewBumpDynamic *pd1,CViewBumpDynamic *pd2,int nFlag);
+
 class	CViewDynamicList	{
 protected:
 	CViewDynamic	*m_pFirst, *m_pLast;

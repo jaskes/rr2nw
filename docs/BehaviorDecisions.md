@@ -435,3 +435,48 @@ scene ordering and full bush-render initialization remain ahead of owned
 
 Regression contract: `view-terrain-decoder-smoke`, optional installed-retail
 terrain sweeps and complete 37-test Debug/Release CTest runs.
+
+## BD-021: scene-order and land maps commit as a structural transaction
+
+Status: accepted on 2026-07-27.
+
+The monolithic `CViewScene` constructor is split once more before publication.
+A bounded preflight validates the complete serialized suffix: the exact scene
+header, named-reference declarations and resolution, recursive order grammar,
+finite transforms, land extents, owner/copy `MAP1` row ordering and every
+copy-to-owner cross-reference. Node, depth, name, coordinate, primary-row and
+entry limits are explicit so malformed content cannot turn the historical
+reader into unbounded recursion or allocation.
+
+Only after this preflight succeeds does a dedicated owner invoke the original
+`CLandscapeRect` and `CLandObjectMap1/2` decoding against the already committed
+terrain height map. Its order nodes are intentionally structural and
+non-renderable: they own child trees and land rectangles for rollback, but do
+not pretend to be `CViewObjectRef`, attach dynamics or publish a scene. Both the
+decoder-only slice and the complete `OBJMAP.CPP` compile under modern MSVC.
+
+Compatibility with the installed retail-derived data is strict rather than
+byte-naive. The copy `MAP1` may
+carry exactly one trailing empty `M1PE/M1PH` sentinel because the original
+reader lets `Ascend()` skip it; three of nine installed scenes do so. No such
+tail is allowed in the owner index, and non-empty, duplicate or otherwise
+trailing data remains invalid. A land map may also contain no object entries:
+`Level.07N` has five land pieces and 2,056 primary rows but zero entries.
+These facts are catalogued as CQ-007 and CQ-008 in the compatibility ledger and
+remain explicitly classified as local-fixture observations until the same
+structural sweep can be repeated on the remounted CD.
+
+All nine installed Levels construct and destroy this structural owner in both
+Debug and Release with identical summaries. A synthetic fixture additionally
+covers branch, object, land, shelter and empty orders, the valid sentinel,
+corrupt copy references, missing dependencies and repeated release. This raises
+the normal automated matrix to 38 tests in each configuration.
+
+`initLevel` remains unbound at six of twelve hooks. The next owner must replace
+structural object nodes with real scene references, combine the already tested
+model/terrain/land transactions, initialize full bush rendering and prove
+drawable scene rollback before Level readiness can be claimed.
+
+Regression contract: `scene-order-decoder-smoke`, optional read-only sweeps of
+all installed retail Levels, strict full `OBJMAP.CPP` compilation and complete
+38-test Debug/Release CTest runs.

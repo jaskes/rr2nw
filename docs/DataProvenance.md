@@ -72,6 +72,16 @@ without modifying them. The resulting 512x512 height-map checksums agree across
 configurations and identify seven distinct maps; this is terrain-decoder
 evidence only and does not yet claim land-map or complete scene ownership.
 
+The same date's scene-order sweep read and released every installed `1.sce` in
+Debug and Release without modifying the Level trees. It validated named
+references, order topology and land-object owner/copy indices, then executed the
+historical land-map reader against the recovered terrain. The two configurations
+produce identical summaries. Three scenes (`Level.01D`, `Level.01N` and
+`Level.06N`) contain one valid empty trailing copy-index primary sentinel;
+`Level.07N` contains 2,056 land primary rows and zero nested map entries. This is
+structural scene evidence only: the resulting owner is deliberately not a
+drawable or published `CViewScene`.
+
 Основной установленный `nw.exe` совпадает с дисковым по SHA-256. Установка
 полезна как user-state fixture, но не как clean retail fixture.
 

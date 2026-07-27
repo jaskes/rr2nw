@@ -734,6 +734,38 @@ normal CTest matrix to 37 of 37. Land maps, scene ordering and full bush-render
 initialization are now the runtime frontier; the entry inventory remains six of
 twelve until the entire scene transaction can commit.
 
+### Scene-order and land-object decoder boundary
+
+`rr2nw_view_land_object_full` now compiles the complete historical
+`OBJMAP.CPP`, while `rr2nw_view_land_object_decoder` isolates its static map
+reader, ownership and land setup from drawing and collision traversal. The full
+compile gate exposed a Watcom-era inline-friend lookup assumption for dynamic
+`Bump`; a namespace-scope declaration makes the same function visible to
+conforming MSVC without changing collision semantics.
+
+`RecoveredSceneOrderRuntime` first performs a non-fatal bounded pass over the
+entire `SCEN` suffix. It validates the `NAMS` declaration matrix, exact one-time
+name resolution, recursive `ORDR` types and finite payloads, land extents,
+ordered `M1PE/M1SE` coordinates and the transposed copy-index links. It then
+constructs a private non-renderable order tree and invokes the real
+`CLandscapeRect`/`CLandObjectMap2` reader against the recovered 512x512 terrain.
+All destructor-visible legacy map members and partial arrays now begin in a
+safe state.
+
+The preflight models two rules observed in the installed retail-derived tree.
+A copy `MAP1` may
+end in one empty extra primary record: one is present in Levels 01D, 01N and
+06N, while the other six contain none. Level 07N is valid with five land pieces,
+2,056 primary rows and no nested map objects. Debug and Release produce
+identical node/map/name summaries for all nine installed scenes. The synthetic
+contract also covers order types absent from this retail corpus and rejects a
+bad copy reference, raising the normal matrix to 38 of 38.
+
+This target deliberately does not publish the structural tree as a drawable
+scene. Real object-reference construction, land-dynamic attachment and full
+bush renderer startup remain the final `CViewScene` ownership frontier; the
+entry inventory stays six of twelve.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -760,10 +792,10 @@ twelve until the entire scene transaction can commit.
 6. **Link frontier complete, runtime binding in progress:** the software Win32
    graph and pre-scene Level lifecycle connect six entry hooks. Palette, font,
    figure-library and scene-header bootstrap now execute atomically. The complete
-   object/figure/keyframe/order/bush decode path and real terrain construction
-   now pass every installed retail Level; isolate land maps and scene ordering,
-   construct the owned scene, then bind the remaining six checked services
-   behind `rr2nw.exe`.
+   object/figure/keyframe/order/bush decode path, real terrain construction and
+   structural land-map/order ownership now pass every installed retail Level;
+   construct the real drawable scene, then bind the remaining six checked
+   services behind `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.
 

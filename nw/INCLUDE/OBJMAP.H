@@ -145,7 +145,13 @@ protected:
 		static bool m_bInitDrawObj;
 	//#endif
 
-	CLandObjectMap1() {}
+	CLandObjectMap1() {
+		m_pPrimaries = NULL; m_xplow = m_xphigh = 0;
+		m_viewxp = m_viewxs = 0; m_bReduce = FALSE;
+		m_nReduction = m_nReductionAdd = 0; m_bIsCopy = FALSE;
+		m_pDynamicsOrg = NULL; m_pLightsOrg = NULL; m_pDynamicsRect = NULL;
+		m_nDynamicsXPStep = m_nDynamicsXSStep = 0;
+	}
 	CLandObjectMap1(int xplow,int xphigh);
 	void Read(CTaggedFile &f,int xplow,int xphigh,
 							CViewOrdered *(*ReadOrder)(CTaggedFile &f),
@@ -194,9 +200,13 @@ protected:
 	int		m_nLightsPitch;
 	TCSRect2	*m_pDynamicsRect;
 public:
-	CLandObjectMap2() {}
+	CLandObjectMap2() {
+		m_pLightsOrigin = NULL; m_nLightsPitch = 0; m_pDynamicsRect = NULL;
+	}
 	CLandObjectMap2(TCCRect2 &rect) :
-				m_mapX(rect.left,rect.right), m_mapY(rect.top,rect.bottom) {} // m_pDynamics = NULL; }
+				m_mapX(rect.left,rect.right), m_mapY(rect.top,rect.bottom) {
+		m_pLightsOrigin = NULL; m_nLightsPitch = 0; m_pDynamicsRect = NULL;
+	} // m_pDynamics = NULL; }
 	void Attach(CLandDynamicMap &dmap) {
 		m_mapX.Attach(dmap,&dmap.Rect(),1,dmap.Size().x);
 		m_mapY.Attach(dmap,&dmap.RectT(),dmap.Size().x,1);
@@ -251,6 +261,10 @@ protected:
 	void BumpX(TCCRect2 &rect,CViewDynamicList &list);
 	void BumpY(TCCRect2 &rect,CViewDynamicList &list);
 public:
+	CLandscapeRect() {
+		m_pHeights = NULL; m_nSize = m_nAxisMask = m_nLandSizeShift = 0;
+		m_fCellSize = m_fScaleHeight = m_fCellSize0 = 0;
+	}
 	void Setup(THeight *pHeights,
 						int nSizeShift,double fCellSize,double fHRatio);
 	void Read(CTaggedFile &f,TCCRect2 &rect,

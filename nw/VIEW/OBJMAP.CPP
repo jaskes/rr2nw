@@ -2,6 +2,8 @@
 #include"_view.h"
 #endif
 
+#ifndef RR2NW_LAND_OBJECT_DECODER_ONLY
+
 #if _USE_OPENGL
 void BeginDrawFromLand()
 {
@@ -168,6 +170,8 @@ void CLandDynamicMap::ApplyLights(CViewDynamic *pd)
 	pd->m_dwLights &= pd->m_dwLightMask;
 }
 
+#endif  // RR2NW_LAND_OBJECT_DECODER_ONLY
+
 
 
 //int CLandObjectMap1::m_nDynamicsOrigin;
@@ -229,7 +233,11 @@ CLandObjectMap1::CLandObjectMap1(int xplow,int xphigh)
 	m_bIsCopy = FALSE;
 	m_xplow = xplow;
 	m_xphigh = xphigh;
-	m_pPrimaries = new CPrimaryEntry[xphigh-xplow];
+	m_viewxp = m_viewxs = 0; m_bReduce = FALSE;
+	m_nReduction = m_nReductionAdd = 0;
+	m_pDynamicsOrg = NULL; m_pLightsOrg = NULL; m_pDynamicsRect = NULL;
+	m_nDynamicsXPStep = m_nDynamicsXSStep = 0;
+	m_pPrimaries = new CPrimaryEntry[xphigh-xplow]();
 	for( int i = xplow ; i < xphigh ; i++ ) {
 		CPrimaryEntry	&prim = m_pPrimaries[i-xplow];
 		prim.m_n = 0;
@@ -242,9 +250,9 @@ CLandObjectMap1::CLandObjectMap1(int xplow,int xphigh)
 
 CLandObjectMap1::~CLandObjectMap1()
 {
-	for( int i = m_xplow ; i < m_xphigh ; i++ ) {
+	for( int i = m_xplow ; m_pPrimaries && i < m_xphigh ; i++ ) {
 		CPrimaryEntry &prim = m_pPrimaries[i-m_xplow];
-		if( !m_bIsCopy )
+		if( !m_bIsCopy && prim.m_pSE0 )
 			for( int j = 0 ; j < prim.m_n ; j++ ) delete prim.m_pSE0[j].pObj;
 		delete [] prim.m_pSE0;
 	}
@@ -259,14 +267,14 @@ void	CLandObjectMap1::Read(CTaggedFile &f,int xplow,int xphigh,
 	f.Descend("MAP1",FALSE,0);
 		m_xplow = xplow;
 		m_xphigh = xphigh;
-		m_pPrimaries = new CPrimaryEntry[xphigh-xplow];
+		m_pPrimaries = new CPrimaryEntry[xphigh-xplow]();
 		for( int i = xplow ; i < xphigh ; i++ ) {
 			CPrimaryEntry	&prim = m_pPrimaries[i-xplow];
 			f.Descend("M1PE",FALSE,0);
 				f.Descend("M1PH",TRUE,0);
 					f.ReadInt(prim.m_n);
 					prim.m_pSE = prim.m_pSE0 = prim.m_n > 0 ?
-									new CSecondaryEntry[prim.m_n] : NULL;
+									new CSecondaryEntry[prim.m_n]() : NULL;
 					prim.m_xreq = 0;
 					prim.m_xmin = 1024*1024; prim.m_xmax = -1024*1024;
 				f.Ascend();
@@ -298,6 +306,8 @@ void CLandObjectMap1::ApplyModelUsage()
 			prim.m_pSE0[j].pObj->ApplyModelUsage();
 	}
 }
+
+#ifndef RR2NW_LAND_OBJECT_DECODER_ONLY
 
 inline void CLandObjectMap1::DrawReductionSec(CPrimaryEntry &prim,int xp,int xs,WATER_VIEW eWaterView)
 {
@@ -366,6 +376,8 @@ void	CLandObjectMap1::DrawReduction(TCSRect2 &cellSP,WATER_VIEW eWaterView)
 	}
 }
 
+#endif  // RR2NW_LAND_OBJECT_DECODER_ONLY
+
 void	CLandObjectMap2::Read(CTaggedFile &f,TCCRect2 &rect,
 								CViewOrdered *(*ReadOrder)(CTaggedFile &f))
 {
@@ -377,6 +389,8 @@ void	CLandObjectMap2::Read(CTaggedFile &f,TCCRect2 &rect,
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
+#ifndef RR2NW_LAND_OBJECT_DECODER_ONLY
+
 bool SolveDynamicSq(double a,double b_2,double c,double &t);
 bool CLandscapeRect::_BumpLandCellAdvanced(SBumpDef &def,int nLandX,int nLandY)
 {
@@ -1064,7 +1078,18 @@ void CLandscapeRect::BumpY(TCCRect2 &rect,CViewDynamicList &list)
 	BumpY(rectU,up);
 	BumpY(rectD,down);
 }
+
+#endif  // RR2NW_LAND_OBJECT_DECODER_ONLY
 // -------------------------------------------------------------------------
+#ifdef RR2NW_LAND_OBJECT_DECODER_ONLY
+bool CLandscapeRect::Bump(SBumpDef &def,int nLandX,int nLandY)
+{
+	(void)def; (void)nLandX; (void)nLandY;
+	ASSERTMSG(0,"Decoded land map is not a bump owner");
+	return FALSE;
+}
+#endif
+
 void CLandscapeRect::Setup(THeight *pHeights,
 						int nSizeShift,double fCellSize,double fHRatio)
 {

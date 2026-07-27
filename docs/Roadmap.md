@@ -249,11 +249,27 @@ terrain for every installed Level. All nine pass in Debug and Release with
 matching height-map checksums, representing seven distinct terrain maps. The
 normal automated matrix advances to 37/37 in both configurations.
 
-Constructing `CViewScene` still activates land dynamics, serialized scene
-ordering and full bush-render setup. The default table therefore truthfully
-remains at six of twelve hooks. The next frontier is the serialized land maps
-and scene-order tree; after those own clean rollback, the project can construct
-a real `CViewScene` and only then bind the full Level-init hook.
+The serialized land-map and scene-order slice is now complete as a separate
+rollback boundary. Bounded preflight verifies names, order depth/counts, land
+rectangles, both `MAP1` indices and their cross-references before the original
+`CLandObjectMap1/2` reader receives the file. A structural, deliberately
+non-renderable owner then decodes and releases the real land maps against the
+already owned terrain. All nine installed scenes pass identically in Debug and
+Release; the normal matrix advances to 38/38.
+
+The sweep also records rather than normalizes quirks in the installed
+retail-derived tree: three scenes carry one empty copy-index `M1PE` sentinel,
+and `Level.07N` has 2,056 primary rows but zero land-object entries. These and
+earlier case/path/toolchain discoveries are tracked in
+`CompatibilityLedger.md` with stable IDs, evidence classes and revisit
+conditions; the scene observations remain due for direct CD confirmation.
+
+This is still not a drawable `CViewScene`: object references are structural
+nodes, and full bush-render initialization, scene publication and land-dynamic
+attachment remain outside the owner. The default entry table therefore stays
+at six of twelve hooks. The next frontier is a rollback-capable real scene that
+combines the already verified object models, terrain and order/land graph; only
+after it can be drawn and destroyed may the full Level-init hook be bound.
 
 ### Цель
 

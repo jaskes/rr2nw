@@ -14,6 +14,9 @@
   compiler blockers и порядок подключения модулей к CMake.
 - [RetailParity.md](RetailParity.md) — измеренный разрыв между январским
   snapshot и официальным retail-диском.
+- [CompatibilityLedger.md](CompatibilityLedger.md) — живой реестр странностей
+  legacy-кода, retail-данных и сериализаторов с доказательствами, текущей
+  обработкой и условиями пересмотра.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где
   исторические источники или возможные реализации расходятся.
 
