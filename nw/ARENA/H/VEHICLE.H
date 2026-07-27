@@ -60,6 +60,11 @@ class AttributeVehicle : public ct_Attribute
 
     AttributeVehicle()
     {
+        m_panel              = NULL;
+        m_taxiID             = KR_ObjectID::NUL();
+        m_bulletTable        = ct_NULLID;
+        m_bulletAttrIndex    = -1;
+        m_bulletSecAttrIndex = -1;
         m_type               = 0;
         m_timeInc            = 0.02;
         m_radius             = 3;

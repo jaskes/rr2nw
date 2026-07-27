@@ -6,12 +6,14 @@
 #include "dmap.h"
 #include "hardware.h"
 #include "h/super.h"
+#include "h/vehicle.h"
 #include "kernel/h/session.h"
 #include "message/hardmsg.h"
 #include "message/levelmsg.h"
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
+#include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredGameServicesRuntime.h"
@@ -30,7 +32,8 @@ int Fail(const char* message) {
   std::fprintf(
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
-      "platform=%d session=%d loop=%d hardware=%d level=%d graph=%d "
+      "platform=%d session=%d loop=%d hardware=%d seance=%d vehicle=%d "
+      "arena_issues=%u arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
       "bush=%d observer_events=%u observer_z=%lg)\n",
       message, RecoveredGameServices_Issues(), GameEntry_RuntimeIssues(),
@@ -39,6 +42,9 @@ int Fail(const char* message) {
       RecoveredGameServices_SessionReady() ? 1 : 0,
       RecoveredGameServices_LoopReady() ? 1 : 0,
       RecoveredGameServices_HardwareReady() ? 1 : 0,
+      RecoveredGameServices_SeanceReady() ? 1 : 0,
+      RecoveredGameServices_VehicleReady() ? 1 : 0,
+      RecoveredArenaSeance_Issues(), RecoveredArenaSeance_LastError(),
       RecoveredGameLevel_IsReady() ? 1 : 0,
       RecoveredSoftwareGraph_IsReady() ? 1 : 0, Frame_RuntimeIssues(),
       static_cast<void*>(g_super.m_context),
@@ -56,6 +62,9 @@ bool IsServiceReleased() {
          !RecoveredGameServices_SessionReady() &&
          !RecoveredGameServices_LoopReady() &&
          !RecoveredGameServices_HardwareReady() &&
+         !RecoveredGameServices_SeanceReady() &&
+         !RecoveredGameServices_VehicleReady() &&
+         !RecoveredArenaSeance_IsOpen() && g_vehicle == nullptr &&
          RecoveredGameServices_ObserverState() == nullptr &&
          g_super.m_context == nullptr && g_super.m_publisher == nullptr &&
          Session::m_realTimer == nullptr && Session::m_hardware == nullptr &&
@@ -145,10 +154,18 @@ int main(int argc, char** argv) {
   g_debugMap.Draw();
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();
-  if (!RecoveredGameServices_HardwareReady() || observer == nullptr) {
+  KR_ObjectID vehicleID =
+      g_super.m_context->searchObject("Vehicle.Default");
+  if (!RecoveredGameServices_HardwareReady() ||
+      !RecoveredGameServices_SeanceReady() ||
+      !RecoveredGameServices_VehicleReady() ||
+      RecoveredArenaSeance_Issues() != 0 || vehicleID.isNUL() ||
+      g_vehicle == nullptr ||
+      g_super.m_context->queryInterface(vehicleID, IVehicleIID) != g_vehicle ||
+      observer == nullptr) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("recovered Hardware or observer was not published");
+    return Fail("recovered Hardware, Arena, Vehicle or observer was not published");
   }
   const SRecoveredObserverState observerBefore = *observer;
   if (!SendHardwareButton("W", TRUE)) {
@@ -204,6 +221,7 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=3 hooks=12 hardware=legacy observer=1\n");
+  std::printf("bounded services frames=3 hooks=12 hardware=legacy "
+              "arena=1 script=bounded vehicle=real observer=1\n");
   return EXIT_SUCCESS;
 }

@@ -21,6 +21,7 @@
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
+#include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
@@ -250,6 +251,9 @@ void EndBoundedSession() {
   SUA_BindSession(nullptr);
 
   if (g_super.m_context != nullptr) {
+    // Arena owns all script-created class-table objects. Release that graph
+    // while its context and the legacy services it may notify still exist.
+    RecoveredArenaSeance_Release();
     // Subscribers must leave while Hardware can still accept unsubscribe
     // events. The legacy clearObjects() walks allocation order instead.
     RemoveAttachedObject(g_super.m_context, &g_super.m_level);
@@ -352,7 +356,12 @@ void InitializeSession() {
     g_super.m_session.Add(g_super.m_context);
     g_sessionAttached = true;
     SUA_BindSession(&g_super.m_session);
-    g_super.m_context->start(Session::m_moment);
+    if (!RecoveredArenaSeance_Initialize(g_super.m_context,
+                                         Session::m_moment)) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_SEANCE_FAILURE);
+      return;
+    }
 
     Frame_BindRecoveredSoftware();
     RecoveredSoftwareGraph_ConfigureWindowMessageHook(
@@ -464,12 +473,23 @@ bool RecoveredGameServices_LoopReady() { return g_loopReady; }
 
 bool RecoveredGameServices_HardwareReady() { return g_hardwareReady; }
 
+bool RecoveredGameServices_SeanceReady() {
+  return RecoveredArenaSeance_IsOpen() &&
+         RecoveredArenaSeance_ScriptCompleted();
+}
+
+bool RecoveredGameServices_VehicleReady() {
+  return RecoveredArenaSeance_VehicleReady();
+}
+
 bool RecoveredGameServices_QuitRequested() {
   return g_observerInput.QuitRequested() || g_windowQuitRequested;
 }
 
 bool RecoveredGameServices_IsReady() {
   return g_platformReady && g_sessionReady && g_loopReady && g_hardwareReady &&
+         RecoveredGameServices_SeanceReady() &&
+         RecoveredGameServices_VehicleReady() &&
          RecoveredGameLevel_IsReady() && Frame_RuntimeReady(false);
 }
 

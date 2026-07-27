@@ -652,3 +652,40 @@ Regression contract: legacy press/release translation and observer movement in
 `recovered-game-services-runtime-smoke`; two-frame executable runtime smoke;
 automated GUI W movement plus Escape shutdown with zero issues and a clean
 diagnostic log; all installed and mounted retail Levels in Debug and Release.
+
+## BD-026: real Vehicle seance precedes full retail script activation
+
+Status: accepted on 2026-07-27.
+
+The next production transaction opens the original global `ct_Arena` at the
+historical 5120 by 5120 dimensions, publishes its real `Storage` object, starts
+the existing `SimulationContext`, executes the recovered script compiler/VM
+and resolves the resulting `Vehicle.Default` through `IVehicleIID`. The
+process-wide `g_vehicle` pointer is published only after the two class tables,
+named object and interface have all been verified.
+
+This is deliberately a bounded bootstrap, not a substitute implementation of
+Vehicle and not a claim that retail `LEVEL0.SC` is running. It exercises the
+same script-facing storage and event operations used by the original program:
+class-table creation, object creation, symbolic lookup, event-data writes,
+immediate events and `KR_SET_ATTR`. It creates only `VehicleAttr`, the default
+and dead attributes, `Vehicle`, and `Vehicle.Default`. The complete retail
+script also requires the remaining Tank, People, Sound, Smoke, Bullet, Taxi,
+Menu and other OBASE archives plus their external script bindings. Activating
+that entire graph before those owners have bounded teardown would make startup
+failures non-transactional again.
+
+Every failure and normal release clears `g_vehicle`, releases script-owned
+class tables and objects through `ct_Arena::closeSeance`, removes `Storage` and
+leaves the owning context safe to destroy. Release is idempotent. A later
+startup must use a fresh context, matching the production Session lifecycle;
+the test performs two complete construction/destruction cycles. The temporary
+observer remains the active camera and Hardware subscriber until the real
+Vehicle's attached Vessel receives the retail `[Vessel] Init` placement and its
+control/pre-step/update path has its own rollback proof.
+
+Regression contract: dedicated null-context and two-cycle Arena seance smoke;
+service-level double teardown/reconstruction; all nine Levels from both the
+installed and mounted retail trees in Debug and Release; four executable
+runtime-smoke combinations; interactive W/Escape shutdown; and the complete
+42-test Debug/Release matrix.

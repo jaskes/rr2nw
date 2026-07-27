@@ -903,6 +903,51 @@ the level script create the gameplay object graph. Arena/storage/script seance
 startup is therefore the next measured frontier; real Vehicle/player camera
 handoff follows it. RSX/audio, active DebugMap and shell UI remain separate.
 
+### Transactional Arena and real Vehicle bootstrap
+
+`RecoveredArenaSeanceRuntime` now replaces that measured gap with a bounded
+composition of original owners. It calls `g_arena.openSeance()` using the
+historical world dimensions, compiles an embedded script with the recovered
+compiler, executes it in the recovered process VM and exposes only the minimum
+external functions needed for the historical storage/event protocol. The
+script adds the real `VehicleAttr` and `Vehicle` class archives, creates
+`Vehicle.Attr.default`, `Vehicle.Attr.dead` and `Vehicle.Default`, sends the
+normal string-attribute and `KR_SET_ATTR` events, and finally resolves the
+actual `IVehicleIID`. There is no parallel modern Vehicle representation.
+
+The embedded source is normalized to CRLF because the old memory scanner
+recognizes carriage return and consumes a two-byte line ending. Opening the
+real Vehicle table also exposed a separate modern-runtime UB: retail
+`vessels.cfg` comments contain bytes above 127, but the parser passed signed
+`char` values to `isspace`. Classification now uses unsigned bytes, and the
+transient, non-serialized `AttributeVehicle` pointers/indices have deterministic
+pre-update sentinels.
+
+The seance is below the existing service owner, so failed startup and public
+Level teardown close Arena before removing the surrounding Level/DebugMap/
+observer/Hardware/Publisher graph. `g_vehicle` is never left pointing into a
+released class table. A dedicated test rejects a null context, constructs a
+real Vehicle, releases twice, verifies `Storage` and `Vehicle.Default` are gone
+and repeats the cycle with a fresh context. The service test repeats that proof
+inside the full Level transaction.
+
+Debug and Release both pass 42 of 42 automated tests. The service sweep passes
+all nine Levels under `E:\Games\The Next Worlds` and all nine under `G:\nw` in
+both configurations (36 of 36 invocations). The normal executable passes both
+data roots in both configurations (4 of 4), recording
+`arena_seance_initialized=1`, `vehicle_default_initialized=1`, zero Arena
+issues and clean shutdown. Interactive Debug and Release HWND runs accept W
+and terminate normally through Escape.
+
+This closes the real `Vehicle.Default` creation frontier, but not complete
+retail script startup. `LEVEL0.SC` includes broad Menu/unit/mission helpers and
+expects the remaining Tank, People, Sound, Smoke, Bullet, Taxi and other OBASE
+archives plus a much larger external-function surface. The next tranche is to
+connect those class tables in small rollback-tested groups, then replace the
+bounded bootstrap with the retail script. Only after the attached Vessel
+receives `[Vessel] Init` and its update path is rollback-tested should Hardware
+subscription, control and camera move away from the temporary observer.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -925,7 +970,10 @@ handoff follows it. RSX/audio, active DebugMap and shell UI remain separate.
    every frame stage, including the bounded normal software world draw. The
    first Win32 executable reaches a checked read-only `level-ready` marker
    through public `ZAV_InitLevel`; the original entry point still links and
-   exits safely with its intentionally incomplete default runtime.
+   exits safely with its intentionally incomplete default runtime. The real
+   Arena, Storage, recovered script VM and `Vehicle.Default` now execute through
+   a bounded bootstrap; remaining OBASE archives are still required before
+   switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,
@@ -936,9 +984,10 @@ handoff follows it. RSX/audio, active DebugMap and shell UI remain separate.
    land dynamics, initializes DEP-safe bush rendering and is now published by
    `ZAV_InitLevel`. A real Session/Publisher/Level/Hardware graph now presents
    software frames, drives a persistent observer through legacy actions and
-   tears down cleanly. Connect Arena/script seance creation and then hand the
-   camera to the real Vehicle/player; RSX/audio and active DebugMap remain later
-   isolated boundaries.
+   tears down cleanly. Arena/script seance creation and the real Vehicle object
+   are now complete; expand the OBASE/script binding roster, run full retail
+   `LEVEL0.SC`, then hand the camera to the initialized Vehicle/player.
+   RSX/audio and active DebugMap remain later isolated boundaries.
 7. **Complete:** advance the executable from pre-content-ready to a
    deterministic level-ready marker while retaining the synthetic preflight
    contract.

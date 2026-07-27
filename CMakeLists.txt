@@ -2197,6 +2197,8 @@ target_compile_definitions(rr2nw_recovered_game_level_runtime PRIVATE
 )
 
 add_library(rr2nw_recovered_game_services_runtime STATIC
+  src/runtime/RecoveredArenaSeanceRuntime.cpp
+  src/runtime/RecoveredArenaSeanceRuntime.h
   src/runtime/RecoveredGameServicesRuntime.cpp
   src/runtime/RecoveredGameServicesRuntime.h
 )
@@ -2206,6 +2208,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_time_runtime_state
   rr2nw_arena_obase_vehicle
   rr2nw_legacy_shell_full
+  rr2nw_script_runtime
   rr2nw_recovered_game_level_runtime
   rr2nw_recovered_software_frame
   rr2nw_supervisor_global
@@ -2821,6 +2824,22 @@ target_compile_definitions(
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_recovered_arena_seance_runtime_smoke
+  src/portability/RecoveredArenaSeanceRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_arena_seance_runtime_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_recovered_arena_seance_runtime_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_recovered_arena_seance_runtime_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_carrier_smoke
   src/portability/CarrierSmoke.cpp
 )
@@ -2927,6 +2946,9 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_recovered_game_services_runtime_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_recovered_arena_seance_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -3056,6 +3078,11 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-game-services-runtime-smoke
     COMMAND rr2nw_recovered_game_services_runtime_smoke
+  )
+  add_test(
+    NAME recovered-arena-seance-runtime-smoke
+    COMMAND rr2nw_recovered_arena_seance_runtime_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/arena-seance-smoke-$<CONFIG>"
   )
   add_test(
     NAME legacy-menu-texture-smoke

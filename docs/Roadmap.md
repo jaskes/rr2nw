@@ -308,7 +308,7 @@ Every installed and mounted May-retail Level completes three frames across a
 two-cycle service test in Debug and Release. The normal executable selects
 installed `Level.05D`, resolves all 5,080 references, attaches 466 land pieces,
 presents two frames and records `service_hooks=12`, zero service issues and a
-clean shutdown. The automated matrix is 41/41 in both configurations.
+  clean shutdown. The automated matrix is 42/42 in both configurations.
 
 The persistent observation slice is now complete. The original `KR_Hardware`
 receives real Win32 messages and translates W/A/S/D, vertical movement, arrow
@@ -319,15 +319,24 @@ close; `--runtime-smoke` stays bounded at two frames. An automated installed
 `Level.05D` GUI run delivered W and Escape through the HWND, completed 33
 frames, moved the observer, reported zero service issues and shut down cleanly.
 
-The real Vehicle is not a drawable-scene reference that can simply be selected
-now. `Vehicle.Default` is created by the level script only after
-`ct_Arena::openSeance()` establishes the gameplay object graph. The next
-implementation slice is therefore Arena/storage/script seance startup with a
-transactional failure boundary and an explicit proof that `Vehicle.Default`
-exists. Only then should control and the camera transfer from the observer to
-the real Vehicle/player and begin recovered pre-step/event/update processing.
-Menu, Briefing, Console, save/load/restart transitions, RSX/audio and active
-DebugMap rendering remain separately reversible later tranches.
+The transactional Arena/storage/script slice is now complete. The production
+service opens the real `ct_Arena`, uses the recovered compiler and VM to create
+the real `VehicleAttr`/`Vehicle` tables and `Vehicle.Default`, verifies
+`IVehicleIID`, and rolls the complete seance back before its surrounding
+context is destroyed. A dedicated test proves null-context failure, double
+release and two fresh-context cycles. All installed and mounted Levels pass the
+new service path in Debug and Release (36/36 invocations); both data roots pass
+the normal executable in both configurations (4/4), and interactive Debug and
+Release runs accept W and shut down cleanly through Escape.
+
+The bounded bootstrap intentionally creates only the Vehicle portion of the
+object graph. The next slice is to connect the remaining OBASE class tables and
+external script functions in rollback-tested groups until the unchanged retail
+`LEVEL0.SC` can replace it. Then verify the already attached Vessel, apply
+`[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
+Hardware subscription and camera ownership from the temporary observer. Menu,
+Briefing, Console, save/load/restart transitions, RSX/audio and active DebugMap
+rendering remain separately reversible later tranches.
 
 ### Цель
 

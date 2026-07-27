@@ -15,7 +15,14 @@ int Fail(const char* message) {
 
 bool WriteFixture(const char* path) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
-  output << "# controlled Vehicle config\r\n"
+  output << "# controlled Vehicle config ";
+  // Retail configs contain legacy single-byte Cyrillic comments. Keep bytes
+  // above 0x7f in the regression fixture so ctype calls cannot regress to
+  // signed-char undefined behavior.
+  output.put(static_cast<char>(0xac));
+  output.put(static_cast<char>(0xa8));
+  output.put(static_cast<char>(0xe0));
+  output << "\r\n"
             "[Vehicle]\r\n"
             "Type=Emveshka\r\n"
             "Wheels=4\r\n"

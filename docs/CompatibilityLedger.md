@@ -330,6 +330,44 @@ Status vocabulary:
 - Revisit when: terrain polygon clipping is covered by a renderer-independent
   geometry test or replaced by a modern vertex pipeline.
 
+### CQ-027: the memory script scanner requires CRLF records
+
+- Status: `CONFIRMED_SOURCE`, `BUGFIX_ACCEPTED` for embedded modern source.
+- Evidence: the recovered scanner defines end-of-line as byte 13 and advances
+  by a two-byte EOL token. Passing the LF-only C++ raw string first produced a
+  line-1 syntax error and then an unknown-character diagnostic; the same text
+  compiles and executes after CRLF normalization.
+- Handling: modern embedded script text is copied into a temporary buffer and
+  each lone LF is expanded to CRLF before `sc_InitScannerFromMem`. Historical
+  retail/source scripts and the scanner grammar are not rewritten.
+- Revisit when: the scanner receives an explicit source-length/newline layer or
+  retail script compilation is moved behind a modern input abstraction.
+
+### CQ-028: config whitespace classification must use unsigned bytes
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: the real installed `vessels.cfg` contains high-bit bytes in its
+  single-byte legacy comments. Passing a negative signed `char` directly to
+  MSVC `isspace` triggered the Debug CRT `isctype.cpp` range assertion during
+  `VehicleTable::ReadConfig`.
+- Handling: the parser's three whitespace checks now classify
+  `static_cast<unsigned char>(c)`. A synthetic high-byte comment and all 18
+  installed/mounted Level configurations cover the path in both build types.
+- Revisit when: legacy config input is decoded to a defined Unicode encoding or
+  the parser is replaced while retaining byte-compatible retail behavior.
+
+### CQ-029: Vehicle attributes have transient pre-update state
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: `AttributeVehicle` initialized all 27 serialized attributes but
+  left its panel pointer, taxi object ID, bullet table and bullet attribute
+  indices indeterminate until later update work. The bounded script seance can
+  construct and tear down the attributes before the full object graph exists.
+- Handling: those transient fields begin null, NUL, `ct_NULLID` and `-1` while
+  every serialized/default gameplay attribute remains unchanged.
+- Revisit when: Vehicle attribute setup becomes an explicit two-phase owner or
+  the full retail script/object graph guarantees and tests its first update.
+
 ## Maintenance rule
 
 When a new quirk is found:

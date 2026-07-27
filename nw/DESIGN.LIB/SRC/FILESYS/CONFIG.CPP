@@ -16,10 +16,15 @@ static bool IsEol(char c)
 	return c == '\n' || c == '\r';
 }
 
+static bool IsSpace(char c)
+{
+	return isspace(static_cast<unsigned char>(c)) != 0;
+}
+
 static bool SkipLine(char *&p,char *pEnd)
 {
 	bool bNonZ = FALSE;
-	while( p < pEnd && !IsEol(*p) ) if( !isspace(*p++) )	bNonZ = TRUE;
+	while( p < pEnd && !IsEol(*p) ) if( !IsSpace(*p++) )	bNonZ = TRUE;
 	while( p < pEnd ) if( *p++ == '\n') break;
 	return bNonZ;
 }
@@ -29,7 +34,7 @@ void CConfigFile::SSection::Read(char *&pData,char *pEnd,TCchar *name,int &line)
 	char *p = pData;
 	int l = line;
 	for( m_nEntries = 0 ; p < pEnd && *p != '[' ; ) {
-		if( !isspace(*p) ) {
+		if( !IsSpace(*p) ) {
 			if( *p != '#' )	m_nEntries++;
 			SkipLine(p,pEnd);
 		} else
@@ -41,7 +46,7 @@ void CConfigFile::SSection::Read(char *&pData,char *pEnd,TCchar *name,int &line)
 	p = pData;
 	int i = -1;
 	for( ; p < pEnd && *p != '['; line++ ) {
-		if( !isspace(*p) ) {
+		if( !IsSpace(*p) ) {
 			if( *p == '#' )
 				SkipLine(p,pEnd);
 			else {

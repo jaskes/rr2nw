@@ -2,6 +2,7 @@
 
 #include "RR2NWBuildRevision.h"
 #include "GameEntryRuntimeState.h"
+#include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredGameServicesRuntime.h"
@@ -520,6 +521,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   SUA_InitEverything();
   log.Line("session_initialized=" +
            std::to_string(RecoveredGameServices_SessionReady() ? 1 : 0));
+  log.Line("arena_seance_initialized=" +
+           std::to_string(RecoveredGameServices_SeanceReady() ? 1 : 0));
+  log.Line("vehicle_default_initialized=" +
+           std::to_string(RecoveredGameServices_VehicleReady() ? 1 : 0));
+  log.Line("arena_seance_issues=" +
+           std::to_string(RecoveredArenaSeance_Issues()));
+  if (RecoveredArenaSeance_LastError()[0] != 0) {
+    log.Line(std::string("arena_seance_error=") +
+             RecoveredArenaSeance_LastError());
+  }
   ZAV_BeginLoop();
   log.Line("loop_initialized=" +
            std::to_string(RecoveredGameServices_LoopReady() ? 1 : 0));
@@ -567,6 +578,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                                             : "interactive-observer"));
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
+  log.Line("script_mode=bounded-vehicle-bootstrap");
+  log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));

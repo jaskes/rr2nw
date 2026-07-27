@@ -153,6 +153,12 @@ claim authorship of inherited Logos code or retail data.
   observer camera initialized from `[Vessel] Init`. W/A/S/D, Space/left Ctrl,
   arrow keys and Escape now drive the normal executable until explicit exit;
   `--runtime-smoke` remains a deterministic two-frame CI path.
+- Added a transactional real Arena seance behind the recovered service owner.
+  The original storage registry and script compiler/VM now create the real
+  `VehicleAttr` and `Vehicle` tables, `Vehicle.Default` and its `IVehicleIID`
+  through a bounded bootstrap that uses the historical script event protocol.
+  A dedicated smoke proves invalid-context rollback, idempotent double release
+  and reconstruction with a fresh `SimulationContext`.
 - Added a living compatibility ledger with stable IDs, evidence, current
   handling and revisit triggers for retail case folding, modified local data,
   day/night scene reuse, serializer sentinels, empty maps, ABI widths and
@@ -303,6 +309,15 @@ claim authorship of inherited Logos code or retail data.
   when bump mapping is disabled. A real `[Vessel] Init` camera on installed
   `Level.05D` exposed the previous uninitialized reference as MSVC Run-Time
   Check Failure #3 before the first frame.
+- Made legacy config whitespace classification pass an unsigned-byte value to
+  the C runtime. The retail `vessels.cfg` files contain high-bit single-byte
+  comment text that previously triggered the Debug CRT `isspace` assertion.
+- Initialized `AttributeVehicle`'s transient panel, taxi and bullet-table state
+  before its first scripted attribute update, preserving the historical field
+  defaults while making partial startup and rollback deterministic.
+- Normalized the embedded Vehicle bootstrap to CRLF before handing it to the
+  recovered memory scanner. Its grammar treats byte 13 as end-of-line and
+  advances by a two-byte EOL token, so raw LF source is not accepted.
 - Consolidated `pVesselObj` under the extracted scene runtime owner when the
   full Vehicle archive is linked, avoiding duplicate process-wide state while
   preserving the original owner for historical builds.
