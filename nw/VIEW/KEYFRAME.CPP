@@ -2,7 +2,7 @@
 #include"_view.h"
 #endif
 
-static	CViewBaseModifier0	CViewBaseModifier::m_null;
+CViewBaseModifier0	CViewBaseModifier::m_null;
 
 void CViewBaseModifier::Read(CTaggedFile &f,SViewObjectMorphNames &names)
 {

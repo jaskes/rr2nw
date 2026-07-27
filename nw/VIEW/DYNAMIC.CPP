@@ -141,6 +141,7 @@ void CViewDynamicList::TransformInv(TCCFVector3 &inv)
 		pd->TransformInv(inv);
 }
 // ------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_FRAME_STATE_EXTERNAL
 void CViewDynamicList::SortZOrder()
 {
 	if( m_pFirst == m_pLast ) return;
@@ -177,6 +178,7 @@ void CViewDynamicList::SortZOrder()
 	}
 	Append(linears);
 }
+#endif
 // ------------------------------------------------------------------------
 
 SBumpFigures::~SBumpFigures()

@@ -80,8 +80,13 @@ extern "C" int
 	FILE *f = dwDebugFlags & DBGF_ERR_LOG ? DebugOpenLogFile() : stdout;
 	#ifdef	__NT__
 		if( f == stdout ) {
-			AllocConsole();
-			freopen("CONOUT$","wt",stdout);
+			HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+			DWORD outputType = hOutput == INVALID_HANDLE_VALUE ?
+				FILE_TYPE_UNKNOWN : GetFileType(hOutput);
+			if( outputType != FILE_TYPE_PIPE && outputType != FILE_TYPE_DISK ) {
+				AllocConsole();
+				freopen("CONOUT$","wt",stdout);
+			}
 		}
 	#endif
 	if(dwDebugFlags & DBGF_ERR_LOG) fprintf(f,szDebugDashes);
@@ -117,11 +122,18 @@ extern "C" int
 				printf("Run-time error: %s\n", pszMsg );
 			#endif
 		}
-		printf("Press any key\n");
+		#ifdef _MSC_VER
+			printf("Terminating after fatal error\n");
+		#else
+			printf("Press any key\n");
+		#endif
 		if( pDebugLogFile )	fclose(pDebugLogFile);
+		else fflush(f);
 		#ifdef __NT__
-			if( ! getch() ) getch();
-			if( dwDebugFlags & DBGF_ERR_INT3 )	Int3();
+			#if !defined(_MSC_VER)
+				if( ! getch() ) getch();
+				if( dwDebugFlags & DBGF_ERR_INT3 )	Int3();
+			#endif
 			ExitProcess(1);
 		#else
 			Int16_0();
@@ -150,8 +162,13 @@ extern "C" int
 	FILE *f = dwDebugFlags & DBGF_ERR_LOG ? DebugOpenLogFile() : stdout;
 	#ifdef	__NT__
 		if( f == stdout ) {
-			AllocConsole();
-			freopen("CONOUT$","wt",stdout);
+			HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+			DWORD outputType = hOutput == INVALID_HANDLE_VALUE ?
+				FILE_TYPE_UNKNOWN : GetFileType(hOutput);
+			if( outputType != FILE_TYPE_PIPE && outputType != FILE_TYPE_DISK ) {
+				AllocConsole();
+				freopen("CONOUT$","wt",stdout);
+			}
 		}
 	#endif
 	if(dwDebugFlags & DBGF_ERR_LOG) fprintf(f,szDebugDashes);
@@ -194,11 +211,18 @@ extern "C" int
 				printf("\n");
 			#endif
 		}
-		printf("Press any key\n");
+		#ifdef _MSC_VER
+			printf("Terminating after fatal error\n");
+		#else
+			printf("Press any key\n");
+		#endif
 		if( pDebugLogFile )	fclose(pDebugLogFile);
+		else fflush(f);
 		#ifdef __NT__
-			if( ! getch() ) getch();
-			if( dwDebugFlags & DBGF_ERR_INT3 )	Int3();
+			#if !defined(_MSC_VER)
+				if( ! getch() ) getch();
+				if( dwDebugFlags & DBGF_ERR_INT3 )	Int3();
+			#endif
 			ExitProcess(1);
 		#else
 			Int16_0();

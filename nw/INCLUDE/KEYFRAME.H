@@ -38,7 +38,7 @@ class	CViewBaseModifier0 : public CViewBaseModifier {
 protected:
 	CFVector3	*m_pVertices0;
 	void Init0() { m_pVertices0 = NULL; }
-	void Clear0() { delete [] m_pVertices0; Init(); }
+	void Clear0() { delete [] m_pVertices0; Init0(); }
 public:
 	CViewBaseModifier0() { Init0(); }
 	void Clear() { CViewBaseModifier::Clear(); Clear0(); }
@@ -91,7 +91,8 @@ protected:
 	char (*m_pNames)[40];
 	int FindName(TCchar *szName,int nStartIdx,int nCount);
 public:
-	CViewKeyFrameSet() { m_pSeqs = NULL; m_pMods0 = NULL; m_pMods = NULL; m_nSeqs = m_nMods0 = m_nMods = 0; }
+	CViewKeyFrameSet() { m_pSeqs = NULL; m_pMods0 = NULL; m_pMods = NULL;
+		m_pNames = NULL; m_nSeqs = m_nMods0 = m_nMods = 0; }
 	~CViewKeyFrameSet() { delete [] m_pSeqs; delete [] m_pMods0; delete [] m_pMods; delete [] m_pNames; }
 	void Read(CTaggedFile &f,SViewObjectMorphNames &names);
 	CViewKeyFrameSeq &Seq(TCchar *szName) {	return m_pSeqs[FindName(szName,0,m_nSeqs)]; }

@@ -148,7 +148,7 @@ protected:
 
 public:
 	//CViewOrder(CTaggedFile &f);
-	CViewOrder()  { /*m_bSingle = FALSE;*/ }
+	CViewOrder()  { m_apOrdered[0] = m_apOrdered[1] = NULL; /*m_bSingle = FALSE;*/ }
 		//{ m_ppOrdered = new CViewOrdered*[(m_nOrdered = nOrdered)*2];
 		//	m_pNormals = new SNormal[nOrdered*(nOrdered-1)/2]; }
 	void SetOrdered(int n,CViewOrdered *pOrdered) {
@@ -222,7 +222,9 @@ protected:
 	bool PreDrawSpheric(CViewSphericDynamic *pd,TCCFVector3 &objViewPoint);
 	bool PreDrawDynamic(CViewDynamic *pd,TCCFVector3 &objViewPoint);
 public:
-	CViewBody() { m_nFigures = 0; m_ppFigures = NULL; m_bHide = FALSE; m_bEmbedded = FALSE; }
+	CViewBody() { m_nFigures = m_nViewFigures = m_nFirstBumpFigure =
+		m_nFirstCutFigure = 0; m_ppFigures = NULL; m_bHide = FALSE;
+		m_bEmbedded = FALSE; }
 	void Read(CTaggedFile &f);
 	virtual	void Draw();
 	virtual	bool Bump(SBumpDef0 &def);
@@ -387,10 +389,12 @@ protected:
 	static	int				m_z1Shift;
 	static	double			m_fz1Scale;
 	static	CViewOrdered	* ReadOrder(CTaggedFile &f);
+public:
 	union USplitVect {
 		SFVector3Y	v;
 		double		f;
 	};
+protected:
 	static	USplitVect	m_splitX[], m_splitY[], m_splitZ[];
 	void MultSplits(TCCFMatrix3x4 &dir);
 	void AddSplits(int nOffsetX,int nOffsetY,int nOffsetZ);
@@ -408,7 +412,7 @@ public:
 	bool	IsDynamic() const { return m_pVertImages != CViewObject::m_aVertImages; }
 	void	Read(CTaggedFile &f,bool bDynamic=FALSE);
 	CViewObjectBase();
-	CViewObjectBase(CTaggedFile &f,bool bDynamic=FALSE) { Read(f,bDynamic); }
+	CViewObjectBase(CTaggedFile &f,bool bDynamic=FALSE) : CViewObjectBase() { Read(f,bDynamic); }
 	~CViewObjectBase();
 
 	void operator%=(TCCFMatrix3x4 &dir);
@@ -484,7 +488,7 @@ public:
 	bool IsDynamic() const { ASSERT(m_nBases>0); return m_pBases[0].IsDynamic(); }
 	void Read(CTaggedFile &f,bool bDynamic=FALSE);
 	CViewObjectBaseSet() { m_pBases = NULL; m_pfThresholds = NULL; m_nBases = 0; m_bEmbedded = FALSE; m_pNames = NULL; }
-	CViewObjectBaseSet(CTaggedFile &f,bool bDynamic=FALSE) { m_bEmbedded = FALSE; Read(f,bDynamic); }
+	CViewObjectBaseSet(CTaggedFile &f,bool bDynamic=FALSE) : CViewObjectBaseSet() { Read(f,bDynamic); }
 	~CViewObjectBaseSet() { delete [] m_pBases; delete [] m_pfThresholds; delete [] m_pNames; }
 	VORDTYPE Type() const { return VOT_BASESET; }
 	void operator%=(TCCFMatrix3x4 &dir);
@@ -546,8 +550,8 @@ public:
 	void Read(CTaggedFile &f,bool bDynamic=FALSE);
 	CViewBaseCluster() { m_pBaseSets = NULL; m_pOrder = NULL; m_pMatrix0 = NULL; m_bIdentity = FALSE;
 			 m_nBaseSets = 0; m_pNames = NULL; IF_DEBUG(m_bAnimate = FALSE); }
-	CViewBaseCluster(CTaggedFile &f,bool bDynamic=FALSE) { Read(f,bDynamic); }
-	~CViewBaseCluster() { m_pOrder->Delete(); delete [] m_pBaseSets; delete [] m_pNames; }
+	CViewBaseCluster(CTaggedFile &f,bool bDynamic=FALSE) : CViewBaseCluster() { Read(f,bDynamic); }
+	~CViewBaseCluster() { if(m_pOrder) m_pOrder->Delete(); delete [] m_pBaseSets; delete [] m_pNames; }
 	void operator%=(TCCFMatrix3x4 &dir);
 	double ComputeBSPError();
 	double ComputeBSPError(TCCFVector3 &pt,TCCFVector3 &n,double d);
@@ -749,8 +753,9 @@ public:
 		#if _USE_OPENGL
 			delete [] m_ppVertices;
 		#else
-			delete [] (m_ppVertices-1);
-			delete [] (m_ppVertImages-1); delete [] m_ppInfVertImages;
+			if(m_ppVertices) delete [] (m_ppVertices-1);
+			if(m_ppVertImages) delete [] (m_ppVertImages-1);
+			delete [] m_ppInfVertImages;
 		#endif
 		delete m_pMorphData;
 	}
@@ -808,14 +813,14 @@ public:
 		#if _USE_OPENGL
 			m_pglGourauds = NULL;
 		#else
-			m_pGourauds = NULL; m_pGourauds++;
+			m_pGourauds = NULL;
 		#endif
 	}
 	~CViewFlatGouraudFigure() {
 		#if _USE_OPENGL
 			delete [] m_pglGourauds;
 		#else
-			delete [] (m_pGourauds-1);
+			if(m_pGourauds) delete [] (m_pGourauds-1);
 		#endif
 	}
 	void SetNamedGouraud(int n,double f) { f = MinMax(f,-1.,1.); int idx = NamedIdx(n);
@@ -893,7 +898,8 @@ protected:
 	static GR_HTEXTURE Reload(TCchar *szName,GR_HTEXTURE hOld,void *pUser);
 	friend	class CViewTexturedFigure;
 public:
-	CViewTexture() { m_hImage = NULL; /*m_pImageCache = NULL;*/ }
+	CViewTexture() { m_dwFlags = 0; m_nWidth = m_nHeight = 0;
+		m_hImage = NULL; m_nTransparentColor = 0; /*m_pImageCache = NULL;*/ }
 	~CViewTexture();
 	int Width() const { return m_nWidth; }
 	int Height() const { return m_nHeight; }
@@ -918,7 +924,7 @@ protected:
 	static	int m_nFlatColor;
 	static	double m_fFlatDeltaRange;
 public:
-	CViewTexturedFigure() { m_pTextVerts = NULL; }
+	CViewTexturedFigure() { m_pTextVerts = NULL; m_pTexture = NULL; }
 	~CViewTexturedFigure() { if(m_pTextVerts) delete [] (m_pTextVerts-1); }
 	void SetNamedTextCoord(int n,TCCFVector2 &v) { int idx = NamedIdx(n);
 		#if _USE_OPENGL

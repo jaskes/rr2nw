@@ -1,6 +1,7 @@
 #ifndef	__VIEW_CPP__
 #include"_view.h"
 #endif
+#include <memory>
 #ifndef RR2NW_VIEW_FIGURE_STATE_ONLY
 // --------------------------------------------------------------------------
 int __nNormalsCnt, __nNormalsOpt;
@@ -52,6 +53,7 @@ void CViewFigure::SetWaterline(double y)
 #endif
 
 #ifndef RR2NW_VIEW_FIGURE_STATE_ONLY
+#ifndef RR2NW_VIEW_FRAME_STATE_EXTERNAL
 void CViewFigure::SetHaze(SHazeDef &haze)
 {
 	m_fHazeMin = haze.nHazeMin;
@@ -73,6 +75,7 @@ void CViewFigure::SetHaze(SHazeDef &haze)
 		GRSetHaze(haze.nHazeMin,haze.nHazeDist,&haze);
 	#endif
 }
+#endif
 
 #if _USE_OPENGL
 void CViewFigure::SetHaze(bool b) {
@@ -208,8 +211,8 @@ inline int CViewFigure::FormVertImagesSplit(int nSplitUp,bool bGouraud,dword *pG
 	bool		ycfTemp;
 	int cf;
 	double dy;
-	int nCI;
-	for( int i = 0, nCI = 0, pass = 0 ; i < m_nVertices ; ) {
+	int nCI = 0;
+	for( int i = 0, pass = 0 ; i < m_nVertices ; ) {
 		ASSERT( i < m_nVertices );
 		if( (cf=m_ppVertImages[i]->cf)!=0 ) { // if Z-clipped
 			if( m_ppVertImages[i-1]->cf!=cf ) { // prev Z-clipped
@@ -329,8 +332,8 @@ inline int CViewFigure::FormVertImages(bool bGouraud,dword *pGourauds,
 			return FormVertImagesSplit(0,bGouraud,pGourauds,bTextured,pTextVerts);
 	}
 	#if _USE_OWNGR || _USE_GLIDE
-		int nCI;
-		for( int i = 0, nCI = 0 ; i < m_nVertices ; i++ ) {
+		int nCI = 0;
+		for( int i = 0 ; i < m_nVertices ; i++ ) {
 			int cf;
 			if( (cf=m_ppVertImages[i]->cf)!=0 ) {
 				if( m_ppVertImages[i-1]->cf!=cf ) {
@@ -417,6 +420,7 @@ CViewFigure *CViewFigure::Read(CTaggedFile &f, bool bDummy)
 						pFig = new CViewFigure; break;
 				default:	RTCHECK(0,"Bad FigT");
 			}
+			std::unique_ptr<CViewFigure> figureOwner(pFig);
 			if(!name.IsEmpty())	pFig->m_pMorphData = new SMorphData;
 			name.Resolve(pFig,CViewObjectBase::GetCurrBase()->Names().figures);
 			f.ReadInt(pFig->m_nVertices);
@@ -510,7 +514,7 @@ CViewFigure *CViewFigure::Read(CTaggedFile &f, bool bDummy)
 			f.Ascend(); // FIGS
 		}
 	f.Ascend(); // FIG_
-	return pFig;
+	return figureOwner.release();
 }
 // --------------------------------------------------------------------------
 bool SolveDynamicSq(double a,double b_2,double c,double &t)
@@ -902,6 +906,7 @@ void CViewFlatTransparentFlashFigure::Draw()
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_FIGURE_LIBRARY_STATE_EXTERNAL
 dword CViewTexture::m_dwDefaultInfoFlags = 0;
 CViewTexture::~CViewTexture()
 {
@@ -915,6 +920,7 @@ CViewTexture::~CViewTexture()
 		glDeleteTexturesEXT(1,&m_nBindIndex);
 	#endif
 }
+#endif
 
 extern SDeviceList _dL;
 int __loadTextures = 1;
@@ -1048,7 +1054,7 @@ void CViewTexturedFigure::_Read(CTaggedFile &f)
 	#ifdef	_DEBUG
 		if( m_dwFlags & CViewTexture::TXR_HASMATRIX )
 		//#if _USE_OPENGL
-			for( i = 0 ; i < m_nVertices ; i++ )
+			for( int i = 0 ; i < m_nVertices ; i++ )
 		//#else
 		//	for( i = -1 ; i <= m_nVertices ; i++ )
 		//#endif
@@ -1060,7 +1066,9 @@ void CViewTexturedFigure::_Read(CTaggedFile &f)
 						fabs(m_pTextVerts[i].v-v.y) <= 1 );
 			#else
 				CFVector3	v = inv * CViewObjectBase::GetCurrBase()->GetVertex(m_ppVertImages[i] - CViewObject::m_paVertImages);
-				ASSERT(abs(v.z)<1e-3);
+				// Legacy abs(double) truncated sub-unit residuals to int.
+				ASSERTMSG1(fabs(v.z)<1.0,
+					"Texture matrix z residual: %lg",v.z);
 				ASSERT( abs(m_pTextVerts[i].u-Round(v.x*65536)) <= 2 &&
 						abs(m_pTextVerts[i].v-Round(v.y*65536)) <= 2 );
 			#endif
@@ -1208,9 +1216,11 @@ void CViewTexturedFigure::Draw()
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_FIGURE_LIBRARY_STATE_EXTERNAL
 CViewLibTexturedFigure::SLibTexture	*CViewLibTexturedFigure::m_pLibTextures = 0;
 int	CViewLibTexturedFigure::m_nLibTextures = 0;
 int	CViewLibTexturedFigure::m_nMaxLibTextures = 0;
+#endif
 void CViewLibTexturedFigure::_ReadTexture(CTaggedFile &f)
 {
 	char	szName[9];
@@ -1254,6 +1264,7 @@ void CViewLibTexturedFigure::LoadLib(CTaggedFile &f)
 }
 #endif
 
+#ifndef RR2NW_VIEW_FIGURE_LIBRARY_STATE_EXTERNAL
 void CViewLibTexturedFigure::LoadLib(TCchar *szName)
 {
 	if(!szName) {
@@ -1274,6 +1285,7 @@ void CViewLibTexturedFigure::ClearLib()
 {
 	delete	[] m_pLibTextures; m_pLibTextures = NULL; m_nLibTextures = 0;
 }
+#endif
 
 void CViewOwnTexturedFigure::_ReadTexture(CTaggedFile &f)
 {

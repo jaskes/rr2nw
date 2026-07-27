@@ -1066,6 +1066,53 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_view_object_decoder STATIC
+  nw/VIEW/BODY.CPP
+  nw/VIEW/DYNAMIC.CPP
+  nw/VIEW/FIGURE.CPP
+  nw/VIEW/KEYFRAME.CPP
+  nw/VIEW/OBJECT.CPP
+  nw/VIEW/ORDER.CPP
+  nw/BUSH/BRECT.CPP
+  nw/BUSH/BUSH.CPP
+  nw/BUSH/BUSH_M.CPP
+  nw/BUSH/Brend.cpp
+)
+target_link_libraries(rr2nw_view_object_decoder PUBLIC
+  rr2nw_graph_software_texture
+  rr2nw_legacy_design
+  rr2nw_patterns_palette_runtime
+  rr2nw_view_figure_library_state
+  rr2nw_view_figure_state
+  rr2nw_view_dynamic_collision
+  rr2nw_view_object_state
+)
+target_include_directories(rr2nw_view_object_decoder PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/BUSH
+  nw/GRAPH
+  nw/VIEW
+)
+target_compile_features(rr2nw_view_object_decoder PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_view_object_decoder PRIVATE
+  __NT__
+  RR2NW_DYNAMIC_COLLISION_EXTERNAL
+  RR2NW_VIEW_FRAME_STATE_EXTERNAL
+  RR2NW_VIEW_FIGURE_LIBRARY_STATE_EXTERNAL
+  RR2NW_VIEW_FIGURE_STATE_EXTERNAL
+  RR2NW_VIEW_OBJECT_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_view_object_decoder PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_graph_image_runtime_state STATIC
   nw/GRAPH/ImageRuntimeState.cpp
 )
@@ -2327,6 +2374,21 @@ target_compile_definitions(rr2nw_scene_software_draw_link_probe PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_view_object_decoder_smoke
+  src/portability/ViewObjectDecoderSmoke.cpp
+  src/portability/ViewObjectDecoderSmokeState.cpp
+)
+target_link_libraries(rr2nw_view_object_decoder_smoke PRIVATE
+  rr2nw_game_entry_runtime
+  rr2nw_view_object_decoder
+)
+target_compile_features(rr2nw_view_object_decoder_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_view_object_decoder_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_carrier_smoke
   src/portability/CarrierSmoke.cpp
 )
@@ -2415,6 +2477,9 @@ if(MSVC)
   )
   target_link_options(rr2nw_scene_software_draw_link_probe PRIVATE
     /INCREMENTAL:NO /OPT:REF
+  )
+  target_compile_options(
+    rr2nw_view_object_decoder_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -2520,6 +2585,10 @@ if(BUILD_TESTING)
   add_test(
     NAME scene-software-draw-link-smoke
     COMMAND rr2nw_scene_software_draw_link_probe
+  )
+  add_test(
+    NAME view-object-decoder-smoke
+    COMMAND rr2nw_view_object_decoder_smoke
   )
   add_test(
     NAME legacy-menu-texture-smoke

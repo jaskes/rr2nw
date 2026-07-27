@@ -19,7 +19,7 @@ void WriteLog(char *fmt,...)
 
 // ------------------------------------------------------------------------
 CViewBody::~CViewBody() {
-	for(int i = 0 ; i < m_nFigures ; i++ )	delete m_ppFigures[i];
+	for(int i = 0 ; m_ppFigures && i < m_nFigures ; i++ )	delete m_ppFigures[i];
 	delete [] m_ppFigures;
 }
 
@@ -37,13 +37,20 @@ void CViewBody::Read(CTaggedFile &f)
 	m_maxBound = CFVector3(-1e10,-1e10,-1e10);
 	f.Descend("BODY",FALSE,0);
 		f.Descend("BODH",TRUE,2);
-			f.ReadInt(m_nFigures);
+			int nFigures;
+			f.ReadInt(nFigures);
 			f.ReadInt(m_nViewFigures);
 			f.ReadInt(m_nFirstBumpFigure);
 			f.ReadInt(m_nFirstCutFigure);
-		f.Ascend();
-		m_ppFigures = new CViewFigure*[m_nFigures];
-		if(!m_ppFigures)	f.SetOK(FALSE);
+			RTCHECK(nFigures>=0&&m_nViewFigures>=0&&m_nViewFigures<=nFigures,
+				"Bad body figure counts");
+			RTCHECK(m_nFirstBumpFigure>=0&&m_nFirstBumpFigure<=nFigures&&
+				m_nFirstCutFigure>=0&&m_nFirstCutFigure<=nFigures,
+				"Bad body figure ranges");
+			f.Ascend();
+		m_ppFigures = nFigures > 0 ? new CViewFigure*[nFigures]() : NULL;
+		if(nFigures>0&&!m_ppFigures)	f.SetOK(FALSE);
+		m_nFigures = nFigures;
 		for(int i = 0 ; i < m_nFigures ; i++ )
 			m_ppFigures[i] = CViewFigure::Read(f,i>=m_nViewFigures);
 	f.Ascend();

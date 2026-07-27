@@ -52,7 +52,7 @@ b_TNode::b_TNode()
 
 b_TNode::~b_TNode()
  {
-    delete m_chain;
+    delete [] m_chain;
     delete m_left;
     delete m_right;
  }
@@ -75,8 +75,8 @@ b_TBush::b_TBush()
 
 b_TBush::~b_TBush()
  {
-    delete m_vert;
-    delete m_widt;
+    delete [] m_vert;
+    delete [] m_widt;
     delete m_node;
  }
 

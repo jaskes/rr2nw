@@ -323,10 +323,10 @@ class b_TBushRect
      }
     ~b_TBushRect()
      {
-        delete data0;
-        delete data1;
-        delete data2;
-        delete data3;
+        delete [] data0;
+        delete [] data1;
+        delete [] data2;
+        delete [] data3;
      }
  };
 

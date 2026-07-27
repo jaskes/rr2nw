@@ -357,3 +357,42 @@ constructor rollback.
 Regression contract: `recovered-level-assets-smoke`, including malformed and
 missing synthetic resources, fixed-font drawing, repeated/cascaded shutdown
 and optional retail validation; plus complete Debug/Release CTest runs.
+
+## BD-019: object decoding is verified before scene ownership
+
+Status: accepted on 2026-07-27.
+
+The next content boundary is the complete historical object-model decoder, not
+the monolithic `CViewScene` constructor. A dedicated library owns body, figure,
+texture, keyframe, BSP-order, dynamic and bush decoding while reusing the
+recovered graph, palette and figure-library state. It deliberately excludes land
+and terrain construction, the full bush renderer and Level-hook publication.
+
+The decoder is required to survive both default construction and complete
+retail ownership. Tagged counts, bounded names and edge references are checked
+before allocation or pointer construction; partial object graphs initialize all
+destructor-visible members; array allocations use matching `delete[]`; figure
+creation remains locally owned until its tagged payload succeeds. The recovered
+software texture backend accepts the original 16-bit `TEXTURE_TXR_FORMAT` rather
+than skipping models that use it.
+
+MSVC fatal diagnostics are non-interactive: redirected stdout remains attached,
+the error is flushed and the process exits instead of waiting for `getch` or
+breaking into an absent debugger. This preserves actionable failure evidence in
+CI and prevents malformed content from appearing as a hung test. Renderer
+callbacks and the MSVC cycle-counter bridge pulled in by monolithic legacy
+object files are supplied by the smoke executable only; renderer no-ops must
+not enter the production graph owner.
+
+Read-only validation loads `sky.vbc`, every named `OBJN` model and every direct
+`OBJD` model, runs model splitting, counts decoded bases/bushes and releases the
+complete prepared-Level stack. All nine installed Levels pass in both Debug and
+Release, covering 760 models, 973 bases and 32 bushes per configuration.
+
+This evidence does not bind `initLevel`. The next ownership boundary is land,
+terrain and full bush-render initialization inside a rollback-capable scene.
+Until it succeeds, the entry table remains six of twelve and recovered `WinMain`
+continues to fail closed at `pre-content-ready`.
+
+Regression contract: `view-object-decoder-smoke`, optional installed-retail
+object sweeps and complete 36-test Debug/Release CTest runs.

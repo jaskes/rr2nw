@@ -11,8 +11,12 @@ void CNameDecl::Read(CTaggedFile &f)
 	RTCHECK(m_nDimension>0,"namedef dim < 0");
 	char szName[40];
 	f.Read(szName,40);
-	int nLen = strlen(szName);
-	m_pData = new byte[m_nDimension*sizeof(void*)+nLen+1];
+	const char *pNameEnd = (const char*)memchr(szName,0,sizeof(szName));
+	RTCHECK(pNameEnd!=NULL,"namedef name is not terminated");
+	const size_t nLen = pNameEnd-szName;
+	RTCHECK((size_t)m_nDimension <= ((size_t)-1-nLen-1)/sizeof(void*),
+												"namedef allocation overflow");
+	m_pData = new byte[(size_t)m_nDimension*sizeof(void*)+nLen+1];
 	for( int i = 0 ; i < m_nDimension ; i++ ) Elem(i) = NULL;
 	memcpy((char*)Name(),szName,nLen+1);
 }
@@ -21,8 +25,10 @@ void CNameDecls::Read(CTaggedFile &f)
 {
 	f.Descend("NAME",TRUE,0);
 		f.ReadInt(m_nDecls);
-		ASSERT(m_nDecls>=0);
-		if( m_nDecls >= 0 ) m_pDecls = new CNameDecl[m_nDecls];
+		RTCHECK(m_nDecls>=0,"negative namedef count");
+		RTCHECK((size_t)m_nDecls <= (size_t)-1/sizeof(CNameDecl),
+												"namedef table overflow");
+		if( m_nDecls > 0 ) m_pDecls = new CNameDecl[m_nDecls];
 		for( int i = 0 ; i < m_nDecls ; i++ )
 			m_pDecls[i].Read(f);
 	f.Ascend();
@@ -382,17 +388,21 @@ void CViewObjectBase::Read(CTaggedFile &f,bool bDynamic)
 			f.ReadInt(type);
 			RTCHECK(type==0,"Bad VOB type");
 			f.ReadInt(m_nBodies);
+			RTCHECK(m_nBodies>=0,"negative VOB body count");
 			f.ReadInt(m_nVertices);
-			RTCHECK(m_nVertices<=CViewObject::MAX_VERTICES,
+			RTCHECK(m_nVertices>=0&&m_nVertices<=CViewObject::MAX_VERTICES,
 												"VOB R Vert Many");
 			f.ReadInt(m_nRenderedVertices);
-			RTCHECK( m_nRenderedVertices <= m_nVertices, "Bad num rend verts");
+			RTCHECK( m_nRenderedVertices >= 0 && m_nRenderedVertices <= m_nVertices,
+												"Bad num rend verts");
 			f.ReadInt(m_nSplitVertices);
-			RTCHECK( m_nSplitVertices <= m_nVertices, "Bad num split verts");
+			RTCHECK( m_nSplitVertices >= 0 && m_nSplitVertices <= m_nVertices,
+												"Bad num split verts");
 			RTCHECK(m_nRenderedVertices>=m_nSplitVertices,"Bad num split/rend verts");
 			f.SetRTEFatal(FALSE);
 			m_nBushes = 0;
 			f.ReadInt(m_nBushes);
+			RTCHECK(m_nBushes>=0,"negative VOB bush count");
 			f.SetOK(TRUE);
 		f.Ascend();
 		m_names.Read(f);
@@ -415,6 +425,9 @@ void CViewObjectBase::Read(CTaggedFile &f,bool bDynamic)
 			for( int i = 0 ; i < m_nRenderedVertices ; i++ ) {
 				m_fRadius = Max(m_fRadius,Abs2(m_pVertices[i]-m_center));
 				f.ReadInt(m_pVertEdges[i].n);
+				RTCHECK(m_pVertEdges[i].n>=0 &&
+					m_pVertEdges[i].n<CViewObject::MAX_EDGEVERTICES-nEdgeVerts,
+					"VOB Many Edges");
 				nEdgeVerts += m_pVertEdges[i].n;
 			}
 			m_fRadius = sqrt(m_fRadius);
@@ -427,6 +440,7 @@ void CViewObjectBase::Read(CTaggedFile &f,bool bDynamic)
 				nEdgeVerts += m_pVertEdges[i].n;
 				for( int  j = 0 ; j < m_pVertEdges[i].n ; j++ ) {
 					int n; f.ReadInt(n);
+					RTCHECK((uint)n<(uint)m_nVertices,"VOB bad edge vertex");
 					//m_pVertEdges[i].oth[j] = &m_pVertImages3[n];
 					m_pVertEdges[i].oth[j] = &m_pVertImages[n].v3;
 				}
@@ -503,6 +517,8 @@ void CViewObjectBase::CalcClusterRadius()
 // -------------------------------------------------------------------------
 CViewObjectBase::CViewObjectBase()
 {
+	m_nVertices = m_nSplitVertices = m_nRenderedVertices = 0;
+	m_nBodies = m_nBushes = 0;
 	m_pVertices = NULL;
 	m_pBodies = NULL;
 	m_pVertEdges = NULL;
@@ -512,11 +528,13 @@ CViewObjectBase::CViewObjectBase()
 	m_pSplitX = NULL;
 	m_pSplits = NULL;
 	m_pBushes = NULL;
+	m_pBumpF = NULL;
+	m_nBumpF = 0;
 }
 // -------------------------------------------------------------------------
 CViewObjectBase::~CViewObjectBase()
 {
-	m_pOrder->Delete();
+	if( m_pOrder ) m_pOrder->Delete();
 	delete	[] m_pVertices;
 	delete	[] m_pBodies;
 	delete	[] m_pBushes;
@@ -1115,6 +1133,7 @@ void CViewObject::SetViewPoint(TCCFMatrix3x4 &viewPointDirMx,
 #endif
 // -------------------------------------------------------------------------
 #ifndef RR2NW_VIEW_OBJECT_STATE_ONLY
+#ifndef RR2NW_VIEW_FRAME_STATE_EXTERNAL
 void CViewObject::SetOrderViewPointToGlobal()
 {
 	#if _VIEW_ORTHO
@@ -1129,6 +1148,7 @@ void CViewObject::SetOrderViewPointToGlobal()
 													m_viewPointScale.z);
 	#endif
 }
+#endif
 // -------------------------------------------------------------------------
 bool	CViewObject::IsVisible(TCSFVector3 &centerW,double fRadius)
 {
@@ -1167,6 +1187,7 @@ void CViewObject::SetLight(int i,int color,TCSFVector3 &pos,double radius,int br
 	_gr_pLights[i].color = color;
 }
 // -------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_FRAME_STATE_EXTERNAL
 void CViewObject::BeginDraw()
 {
 	SetOrderViewPointToGlobal();
@@ -1196,6 +1217,7 @@ void CViewObject::SetClipPlanes(double fFront,double fBack)
 	m_fz1MinScale = 1<<(m_z1MinShift+16);
 	_gr_fFrontClip = fFront;
 }
+#endif
 #if 1
 bool CViewObject::Create3DPoly(int nVertices,TCSFVector3 *pVertices3D,TCdword *pGouraud,TCSFVector2 *pTexture)
 {

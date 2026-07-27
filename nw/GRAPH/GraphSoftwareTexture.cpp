@@ -159,6 +159,39 @@ void *LoadSoftwareTexture(void *handle,unsigned char *palette,int paletteCount,
                 supported = false;
             }
             break;
+        case TEXTURE_TXR_FORMAT: {
+            const std::uint16_t *indices =
+                reinterpret_cast<const std::uint16_t *>(source);
+            if( (flags & TEXTURE_ALPHA) &&
+                (flags & TEXTURE_SPRITE) == 0 ) {
+                for( std::size_t i = 0; i < pixelCount; ++i )
+                    texture->dataPtr[i] =
+                        static_cast<unsigned char>(indices[i]>>4);
+                break;
+            }
+            if( palette == NULL || paletteCount <= 0 ||
+                paletteCount > 4096 ) {
+                supported = false;
+                break;
+            }
+            unsigned char colorMap[4096];
+            for( int i = 0; i < paletteCount; ++i ) {
+                colorMap[i] = static_cast<unsigned char>(epal_Match(
+                    _EPal,RGB_i(palette[i*3],palette[i*3+1],
+                                palette[i*3+2])));
+            }
+            for( std::size_t i = 0; i < pixelCount; ++i ) {
+                const std::uint16_t index = indices[i];
+                if( index >= paletteCount ) {
+                    supported = false;
+                    break;
+                }
+                texture->dataPtr[i] =
+                    (flags & TEXTURE_SPRITE) && index == 0 ?
+                    0 : colorMap[index];
+            }
+            break;
+        }
         default:
             supported = false;
             break;

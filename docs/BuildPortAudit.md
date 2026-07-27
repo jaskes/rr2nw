@@ -684,8 +684,33 @@ retail-CD Levels.
 Direct `CViewScene` construction is not part of that owner: its constructor
 immediately activates object/figure/bush/land/terrain readers. Consequently the
 measured entry inventory remains six of twelve rather than disguising a header
-preflight as full Level initialization. Those content decoders are the current
-runtime frontier.
+preflight as full Level initialization.
+
+The object-model half of that frontier now has a link-complete modern owner.
+`rr2nw_view_object_decoder` compiles the historical body, figure, texture,
+keyframe, BSP-order, dynamic and bush decoders without constructing terrain or
+a scene. Its smoke executable first proves that an empty model can be destroyed
+safely, then optionally opens `sky.vbc`, every `OBJN` file and every embedded
+`OBJD` model from a prepared retail Level, splits each decoded model and releases
+the complete graph/asset/Level stack.
+
+The software texture backend now implements the legacy 16-bit
+`TEXTURE_TXR_FORMAT`, including palette translation, sprite transparency,
+alpha data and index validation. Decoder constructors and destructors initialize
+and release partial state safely; serialized counts, names and edge references
+are checked before allocation or pointer formation. Fatal MSVC diagnostics keep
+piped output and terminate without the historical interactive `getch`, so a bad
+asset cannot hang CI behind an invisible console prompt. Legacy renderer symbols
+pulled in only by monolithic object files are satisfied exclusively by the smoke
+executable, not by the production graph runtime.
+
+A read-only sweep passed all nine installed Levels in both Debug and Release.
+Each configuration decoded 760 models, 760 base sets, 973 bases and 32 bushes;
+the complete CTest matrix is now 36 of 36 in both configurations. This is still
+decoder coverage rather than bush rendering: the smoke owns the bush decode
+cache but does not activate the full `bush_Init` renderer path. Land dynamics,
+terrain construction and rollback-capable `CViewScene` ownership are the current
+runtime frontier, and the default entry table truthfully remains six of twelve.
 
 ## Expansion order
 
@@ -712,9 +737,10 @@ runtime frontier.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Link frontier complete, runtime binding in progress:** the software Win32
    graph and pre-scene Level lifecycle connect six entry hooks. Palette, font,
-   figure-library and scene-header bootstrap now execute atomically; isolate
-   the object/terrain decoders, construct the owned scene, then bind the
-   remaining six checked services behind `rr2nw.exe`.
+   figure-library and scene-header bootstrap now execute atomically. The complete
+   object/figure/keyframe/order/bush decode path now passes every installed retail
+   Level; isolate land/terrain construction, construct the owned scene, then bind
+   the remaining six checked services behind `rr2nw.exe`.
 7. Advance the read-only retail fixture from pre-content-ready to a
    deterministic level-ready marker.
 

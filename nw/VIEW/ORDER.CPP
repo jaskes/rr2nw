@@ -40,15 +40,17 @@ CViewOrdered::CViewOrdered()
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_FRAME_STATE_EXTERNAL
 CFVector3	CViewOrder::m_currOrdViewPoint;
 bool		CViewOrder::m_bIsGlobalOrder = TRUE;
 TCSFVector3	*CViewOrder::m_pLights = NULL;
+#endif
 // ------------------------------------------------------------------------
 CViewOrder::~CViewOrder()
 {
 	//for( int  i = 0 ; i < m_nOrdered ; i++ )
-	m_apOrdered[0]->Delete();
-	/*if(!m_bSingle)*/	m_apOrdered[1]->Delete();
+	if( m_apOrdered[0] ) m_apOrdered[0]->Delete();
+	/*if(!m_bSingle)*/	if( m_apOrdered[1] ) m_apOrdered[1]->Delete();
 	//delete [] m_ppOrdered;
 	//delete [] m_pNormals;
 }

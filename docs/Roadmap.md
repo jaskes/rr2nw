@@ -220,12 +220,26 @@ Every tested failure releases partial allocations, config ownership and the
 Level working directory. The same read-only path accepts all nine installed
 Levels and all nine mounted retail-CD Levels in Debug and Release.
 
-This still is not full `initLevel`: constructing `CViewScene` immediately
-activates object models, figures, bushes, land dynamics and the complete
-terrain decoder. The default table therefore truthfully remains at six of
-twelve hooks. The next frontier is to isolate and validate those object/terrain
-scene chunks, construct a real owned scene with rollback, and only then bind
-the full Level-init hook.
+The object-model decoder slice is now complete without claiming full
+`initLevel`. A dedicated modern target compiles and executes the historical
+body, figure, texture, keyframe, BSP-order, dynamic and bush readers. Its
+read-only retail mode loads `sky.vbc`, every named model and every embedded
+model from the selected scene, splits them and releases all ownership. All nine
+installed Levels pass in Debug and Release: each configuration covers 760
+models, 973 bases and 32 bushes. The normal automated matrix is 36/36 in both
+configurations.
+
+This slice also restored software `TEXTURE_TXR_FORMAT`, corrected partial-object
+destruction and array ownership, validates serialized model counts/names/edge
+indices, and makes fatal MSVC diagnostics non-interactive. Renderer callbacks
+needed only because the old object files are monolithic live in the smoke target
+alone; no no-op drawing path is published as production functionality.
+
+Constructing `CViewScene` still activates land dynamics, the complete terrain
+decoder and full bush-render setup. The default table therefore truthfully
+remains at six of twelve hooks. The next frontier is to isolate those remaining
+scene chunks, construct a real owned scene with rollback, and only then bind the
+full Level-init hook.
 
 ### Цель
 
