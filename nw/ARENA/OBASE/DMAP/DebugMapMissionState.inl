@@ -2,6 +2,10 @@
 #define RR2NW_DEBUG_MAP_MISSION_STATE_INL
 
 DebugMap::DebugMap() {
+  m_vPort = NULL;
+  m_active = FALSE;
+  m_enableDraw = FALSE;
+  m_followMode = TRUE;
   m_levelMap = new CGRImage;
   ClearMissions();
 }

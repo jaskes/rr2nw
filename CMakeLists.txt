@@ -2195,6 +2195,40 @@ target_compile_definitions(rr2nw_recovered_game_level_runtime PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_recovered_game_services_runtime STATIC
+  src/runtime/RecoveredGameServicesRuntime.cpp
+  src/runtime/RecoveredGameServicesRuntime.h
+)
+target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
+  rr2nw_arena_obase_debug_map_mission
+  rr2nw_arena_sua_shutdown_state
+  rr2nw_arena_time_runtime_state
+  rr2nw_recovered_game_level_runtime
+  rr2nw_recovered_software_frame
+  rr2nw_supervisor_global
+  ole32
+  user32
+)
+target_include_directories(rr2nw_recovered_game_services_runtime PUBLIC
+  src/runtime
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/GRAPH
+  nw/MAIN
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_recovered_game_services_runtime PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_recovered_game_services_runtime PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 if(MSVC)
   target_compile_options(
     rr2nw_scene_runtime_core PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
@@ -2204,6 +2238,9 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_recovered_game_level_runtime PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_recovered_game_services_runtime PRIVATE /W4 /permissive- /wd4081
   )
 endif()
 
@@ -2668,7 +2705,7 @@ target_compile_definitions(rr2nw_game_startup PRIVATE
   RR2NW_BUILD_CONFIGURATION="$<CONFIG>"
 )
 target_link_libraries(rr2nw_game_startup PUBLIC
-  rr2nw_recovered_game_level_runtime
+  rr2nw_recovered_game_services_runtime
   shell32
 )
 
@@ -2760,6 +2797,22 @@ target_compile_features(
   rr2nw_recovered_game_level_runtime_smoke PRIVATE cxx_std_14
 )
 target_compile_definitions(rr2nw_recovered_game_level_runtime_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_executable(rr2nw_recovered_game_services_runtime_smoke
+  src/portability/RecoveredGameServicesRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_game_services_runtime_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_recovered_game_services_runtime_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_recovered_game_services_runtime_smoke PRIVATE
   __NT__
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
@@ -2868,6 +2921,9 @@ if(MSVC)
   )
   target_compile_options(
     rr2nw_recovered_game_level_runtime_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
+    rr2nw_recovered_game_services_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(rr2nw_carrier_smoke PRIVATE /W4 /permissive-)
 endif()
@@ -2993,6 +3049,10 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-game-level-runtime-smoke
     COMMAND rr2nw_recovered_game_level_runtime_smoke
+  )
+  add_test(
+    NAME recovered-game-services-runtime-smoke
+    COMMAND rr2nw_recovered_game_services_runtime_smoke
   )
   add_test(
     NAME legacy-menu-texture-smoke

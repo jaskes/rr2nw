@@ -139,6 +139,15 @@ claim authorship of inherited Logos code or retail data.
   `rr2nw.exe` reaches a diagnostic `level-ready` marker on its configured
   retail Level, while an explicit bounded-startup gate keeps every other
   incomplete legacy hook table fail-closed.
+- Added a bounded production service layer for the five remaining game-entry
+  callbacks. It owns the COM apartment, a real `Session`/
+  `SimulationContext`/`Publisher` graph, Level and inactive DebugMap event
+  objects, the recovered timer and software-frame binding, Win32 message
+  pumping, software frame presentation and complete reverse-order teardown.
+  The normal executable now runs two real frames before `level-ready`; a new
+  smoke contract covers missing-Level rollback, wake-up dispatch, unsupported
+  Level-event diagnostics, inactive DebugMap safety, double shutdown and
+  service reconstruction across all retail Levels.
 - Added a living compatibility ledger with stable IDs, evidence, current
   handling and revisit triggers for retail case folding, modified local data,
   day/night scene reuse, serializer sentinels, empty maps, ABI widths and
@@ -277,6 +286,10 @@ claim authorship of inherited Logos code or retail data.
 - Bounded DebugMap mission names, text, route counts and route points; guarded
   missing route/font/context inputs; and routed exclusive input switching
   through the existing Hardware message protocol.
+- Initialized the DebugMap viewport, active, draw-enable and follow-mode state
+  in its constructor so the pre-`DebugMap::Init` bounded service path is
+  deterministic and cannot enter the Hardware-dependent renderer by reading
+  indeterminate flags.
 - Added a standards-compliant MSVC typed-object debug declaration and explicit
   legacy renderer conversions and const-correct logging formats needed by
   strict modern consumers.

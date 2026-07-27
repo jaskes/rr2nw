@@ -283,6 +283,22 @@ Status vocabulary:
 - Revisit when: the recovered filesystem layer accepts native Unicode paths or
   no longer depends on a process-wide Level working directory.
 
+### CQ-024: DebugMap state was valid only after `DebugMap::Init`
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: the historical constructor allocated the map image and cleared
+  missions but left `m_vPort`, `m_active`, `m_enableDraw` and `m_followMode`
+  indeterminate. `DebugMap::Init` assigned them later, which hid the problem in
+  the monolithic seance. The bounded service loop must safely register and
+  dispatch the global DebugMap before its Hardware/vehicle-dependent
+  initialization is enabled.
+- Handling: construction now starts with a null secondary viewport, inactive
+  and drawing disabled, with follow mode at its historical initialized value.
+  Inactive draw is a safe no-op. An active draw request remains an explicit
+  unavailable-service issue until the complete DebugMap dependencies exist.
+- Revisit when: DebugMap resources move to a platform-independent explicit
+  lifecycle or active DebugMap rendering is connected to the modern runtime.
+
 ## Maintenance rule
 
 When a new quirk is found:

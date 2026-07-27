@@ -297,10 +297,28 @@ all 6,527 references and attaches 303 land pieces. Both reach
 `marker=level-ready` and shut down cleanly. The normal automated matrix is
 40/40 in both configurations.
 
-The next frontier is the bounded event/render loop: connect begin-loop, PIN,
-Supervisor/SUA, DebugMap and Level-event services without introducing fake
-hooks, then keep a loaded Level alive long enough to process input and draw
-frames under the modern executable.
+The bounded event/render loop is now connected without activating the
+monolithic historical seance. All twelve entry callbacks have production
+bindings: COM platform initialization, a real Session/SimulationContext/
+Publisher/Level graph, recovered timer and frame stages, begin-loop state,
+inactive DebugMap dispatch, `KR_WAKE_UP`, Win32 message pumping and software
+presentation. Public teardown is idempotent and reconstruction is covered.
+
+Every installed and mounted May-retail Level completes three frames across a
+two-cycle service test in Debug and Release. The normal executable selects
+installed `Level.05D`, resolves all 5,080 references, attaches 466 land pieces,
+presents two frames and records `service_hooks=12`, zero service issues and a
+clean shutdown. The automated matrix is 41/41 in both configurations.
+
+This finishes the bounded M1 service-loop frontier, not a playable seance. The
+next implementation slice is persistent interaction: connect the recovered
+Hardware/message input boundary, create the real Vehicle/player relationship,
+derive the camera from that live object, and advance pre-step/event/update in
+the recovered order. Menu, Briefing, Console, save/load/restart transitions,
+RSX/audio and active DebugMap rendering follow as separately reversible
+tranches. The executable should become user-closable and continuously playable
+on one retail Level before any of those optional surfaces are allowed to widen
+the stable startup transaction.
 
 ### Цель
 

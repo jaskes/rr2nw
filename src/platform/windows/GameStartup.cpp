@@ -4,8 +4,10 @@
 #include "GameEntryRuntimeState.h"
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
+#include "RecoveredGameServicesRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
 
 #include <shlobj.h>
@@ -471,7 +473,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kRuntimeNotReady;
   }
 
-  RecoveredGameLevel_UseRuntime();
+  RecoveredGameServices_UseRuntime();
   if (!ZAV_InitGraph(instance) ||
       !ZAV_InitLevel(levelDirectory.c_str()) ||
       !RecoveredGameLevel_IsReady()) {
@@ -487,7 +489,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(RecoveredLevelAssets_Issues()));
     log.Line("drawable_scene_issues=" +
              std::to_string(RecoveredDrawableScene_Issues()));
+    log.Line("game_services_issues=" +
+             std::to_string(RecoveredGameServices_Issues()));
     log.Line("marker=level-not-ready");
+    RecoveredGameServices_Release();
     ZAV_Deinit();
     ShowMessage(options.runtimeSmoke, MB_ICONERROR,
                 L"RR2NW runtime error",
@@ -505,6 +510,24 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kRuntimeNotReady;
   }
 
+  PIN_InitEverything();
+  SUA_InitEverything();
+  ZAV_BeginLoop();
+  if (!RecoveredGameServices_IsReady() ||
+      !RecoveredGameServices_RunFrame() ||
+      !RecoveredGameServices_RunFrame()) {
+    log.Line("game_services_issues=" +
+             std::to_string(RecoveredGameServices_Issues()));
+    log.Line("marker=loop-not-ready");
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    ShowMessage(options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW runtime error",
+                L"The recovered services could not complete the bounded "
+                L"software loop.\n\nDiagnostic log:\n" + log.path());
+    return kRuntimeNotReady;
+  }
+
   log.Line("recovered_runtime=connected");
   log.Line("game_entry_missing_hooks=" +
            std::to_string(GameEntry_RuntimeMissingHooks()));
@@ -518,6 +541,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(summary->terrainHeightMapReady));
   log.Line("scene_bush_ready=" +
            std::to_string(summary->bushRendererReady));
+  log.Line("service_hooks=12");
+  log.Line("service_frames=" + std::to_string(dwFrames));
+  log.Line("game_services_issues=" +
+           std::to_string(RecoveredGameServices_Issues()));
   log.Line("marker=level-ready");
 
   ZAV_DeInitLevel();
@@ -528,8 +555,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               L"RR2NW recovered Level",
               BuildIdentity() +
                   L"\n\nThe selected Level reached the recovered drawable "
-                  L"scene boundary and shut down cleanly. The bounded game "
-                  L"loop is the next frontier.\n\nDiagnostic log:\n" +
+                  L"scene, completed the bounded service/render loop and "
+                  L"shut down cleanly.\n\nDiagnostic log:\n" +
                   log.path());
   return kSuccess;
 }

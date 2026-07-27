@@ -569,3 +569,48 @@ Regression contract: `recovered-game-level-runtime-smoke`, forced public
 scene rollback at both failure points, two public init/deinit cycles, all nine
 installed and mounted May-retail Levels in Debug/Release, normal
 `rr2nw.exe --runtime-smoke`, and the complete 40-test Debug/Release matrix.
+
+## BD-024: complete entry inventory exposes a bounded service loop
+
+Status: accepted on 2026-07-27.
+
+The five callbacks after Level construction are connected as one deliberately
+bounded service owner rather than by linking the historical monolithic
+`Supervisor::startSeance()`. The latter immediately activates Hardware, RSX,
+Arena, Menu, Briefing, Console, Vehicle and level-script state, making a stable
+failure impossible to attribute or roll back. The bounded owner instead
+provides exactly the dependencies needed to advance and present the recovered
+software scene:
+
+- PIN establishes a real COM apartment and records initialization failure;
+- SUA owns a real `SimulationContext`, `Session`, `Publisher`, timer, Level and
+  inactive DebugMap registration, plus the recovered frame-stage binding;
+- begin-loop resets the recovered frame baseline, verifies graph/scene/frame
+  dependencies, refreshes the scene dynamic map and selects the main viewport;
+- the Level event boundary accepts the side-effect-free `KR_WAKE_UP` event and
+  rejects every Menu/save/project event with a persistent diagnostic bit;
+- the DebugMap boundary is safe while inactive and reports active-map rendering
+  as unavailable until its Hardware, vehicle, panel and secondary-viewport
+  dependencies are connected.
+
+One bounded frame pumps Win32 messages, starts the real software scene,
+executes `SUA_BeginRender`, the recovered `CViewScene` draw and every recovered
+software frame stage, polls the real Session, advances `dwFrames` and presents
+the DIB with `GRDumpScreen`. `WM_QUIT`, missing dependencies and frame-stage
+errors are explicit failure results. Public Level deinitialization always
+releases the service graph first; repeated teardown and complete reconstruction
+are required behavior.
+
+Twelve of twelve entry callbacks now have production bindings, so the special
+seven-hook bounded-startup exception is no longer enabled for this owner. This
+is a complete callback inventory, not a claim of complete gameplay. RSX/audio,
+legacy Hardware input, Arena object seance, Vehicle/player control, Menu,
+Briefing, Console, active DebugMap rendering, save/load/restart events and a
+persistent interactive loop remain outside this boundary and must not be
+reported as recovered.
+
+Regression contract: `recovered-game-services-runtime-smoke`, missing-Level
+rollback, inactive and unsupported dispatch checks, double shutdown,
+reconstruction, three presented frames per retail invocation, all nine Levels
+from both the installed and mounted May-retail trees in Debug/Release, normal
+`rr2nw.exe --runtime-smoke`, and the complete 41-test Debug/Release matrix.

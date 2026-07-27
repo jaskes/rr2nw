@@ -825,6 +825,43 @@ bounded event loop. Public rollback/reconstruction passes all nine installed
 Levels and all nine mounted May-retail Levels in Debug and Release. The normal
 automated matrix is 40 of 40 in both configurations.
 
+### Bounded game-service loop
+
+`rr2nw_recovered_game_services_runtime` replaces the remaining five missing
+entry callbacks above the public Level transaction. It deliberately does not
+activate the complete recovered `Supervisor::startSeance()` archive. The
+linked runtime surface is the recovered software graph/frame/Level stack, the
+real Arena timer, `Session`, `SimulationContext`, `Publisher`, the trivial
+Level event owner, inactive DebugMap state and Win32 COM/message services.
+This produces a zero-symbol normal-build frontier without pulling RSX,
+Hardware, Arena object creation, Vehicle, Menu, Briefing or Console into the
+startup transaction.
+
+PIN now establishes COM; SUA constructs and attaches the bounded context;
+begin-loop validates the committed scene and frame dispatcher; the inactive
+DebugMap callback is deterministic; and the Level callback handles
+`KR_WAKE_UP`. Active DebugMap rendering and Menu/save/project Level events
+remain explicit service issues rather than no-op success. The public Level
+release calls the service teardown before destroying scene objects, and the
+same owner can then construct a fresh service and Level graph.
+
+`recovered-game-services-runtime-smoke` verifies a failed Level leaves no
+service or scene state, executes two frames, diagnoses an unsupported Level
+event, performs repeated public shutdown, reconstructs the same Level,
+executes another frame and finally releases graph, service and Level state.
+All nine Levels in `E:\Games\The Next Worlds` and all nine in mounted
+`G:\nw` pass that sequence in Debug and Release. The normal executable selects
+installed `Level.05D`, publishes 76 bases, resolves 5,080 references, attaches
+466 land pieces, presents two software frames, records `service_hooks=12`,
+`game_services_issues=0` and `runtime_shutdown=clean`. The automated matrix is
+41 of 41 in both configurations.
+
+This closes the bounded service-loop frontier, not the gameplay frontier. The
+next measured boundary is a persistent interactive seance with recovered
+Hardware/input and a real Vehicle/player, followed by Menu/Briefing/Console
+and save/restart transitions. RSX/audio and active DebugMap integration stay
+separate so they cannot destabilize the proven software path.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -849,15 +886,17 @@ automated matrix is 40 of 40 in both configurations.
    through public `ZAV_InitLevel`; the original entry point still links and
    exits safely with its intentionally incomplete default runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
-6. **Level binding complete, loop services in progress:** the software Win32
-   graph and public Level lifecycle connect seven entry hooks. Palette, font,
+6. **Bounded Level/service loop complete:** the software Win32 graph and
+   public Level/service lifecycle connect all twelve entry hooks. Palette, font,
    figure-library and scene-header bootstrap now execute atomically. The complete
    object/figure/keyframe/order/bush decode path, real terrain construction and
    structural land-map/order ownership now pass every installed retail Level.
    A transactional real `CViewScene` resolves all object references, attaches
    land dynamics, initializes DEP-safe bush rendering and is now published by
-   `ZAV_InitLevel`. Connect begin-loop, PIN, Supervisor/SUA, DebugMap and
-   Level-event services next.
+   `ZAV_InitLevel`. A bounded real Session/Publisher/Level service graph now
+   presents software frames and tears down cleanly. Connect persistent
+   Hardware/Vehicle input and gameplay event processing next; RSX/audio and
+   active DebugMap remain later isolated boundaries.
 7. **Complete:** advance the executable from pre-content-ready to a
    deterministic level-ready marker while retaining the synthetic preflight
    contract.
