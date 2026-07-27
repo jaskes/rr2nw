@@ -308,7 +308,7 @@ Every installed and mounted May-retail Level completes three frames across a
 two-cycle service test in Debug and Release. The normal executable selects
 installed `Level.05D`, resolves all 5,080 references, attaches 466 land pieces,
 presents two frames and records `service_hooks=12`, zero service issues and a
-  clean shutdown. The automated matrix is 42/42 in both configurations.
+  clean shutdown. The automated matrix is 43/43 in both configurations.
 
 The persistent observation slice is now complete. The original `KR_Hardware`
 receives real Win32 messages and translates W/A/S/D, vertical movement, arrow
@@ -328,6 +328,14 @@ release and two fresh-context cycles. All installed and mounted Levels pass the
 new service path in Debug and Release (36/36 invocations); both data roots pass
 the normal executable in both configurations (4/4), and interactive Debug and
 Release runs accept W and shut down cleanly through Escape.
+
+The script boundary is now ready for controlled expansion: Arena transaction,
+legacy compiler/VM execution and script-facing engine bindings are separate
+owners. The binding host preserves the exact eight-event pool and reports
+invalid handles/exhaustion fail-closed; the runner contains compiler
+`setjmp`/`longjmp`, normalizes memory source and enforces typed allocation and
+execution limits. Its dedicated regression raises the automated matrix to
+43/43 in Debug and Release without enabling another OBASE table.
 
 The bounded bootstrap intentionally creates only the Vehicle portion of the
 object graph. The next slice is to connect the remaining OBASE class tables and

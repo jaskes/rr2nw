@@ -368,6 +368,34 @@ Status vocabulary:
 - Revisit when: Vehicle attribute setup becomes an explicit two-phase owner or
   the full retail script/object graph guarantees and tests its first update.
 
+### CQ-030: script compiler failures use non-local jumps
+
+- Status: `CONFIRMED_SOURCE`, `CONTAINED`.
+- Evidence: `SUACRIPT_REGISTER_ERROR_HANDLE` expands to `setjmp`, while the
+  recovered language-error functions report failures with `longjmp`. Normal
+  C++ stack unwinding and destructors between those points therefore cannot be
+  assumed to run.
+- Handling: compiler, process, normalized source and lifecycle flags live in a
+  zeroed POD heap allocation. Every direct and non-local exit uses one explicit
+  cleanup path; no RAII-owned resource crosses the registered jump boundary.
+  A malformed-source smoke proves that the error is typed and Arena teardown
+  remains complete.
+- Revisit when: the compiler reports errors through return values/exceptions,
+  or the legacy compiler is replaced behind the same runner contract.
+
+### CQ-031: the script event-data pool has exactly eight live slots
+
+- Status: `CONFIRMED_SOURCE`, `PRESERVED`.
+- Evidence: the historical function host defines `MAX_OLE_EVENT` as 8 and
+  stores one process-wide array of that size. A slot remains occupied after
+  data close and becomes reusable only when its event is sent.
+- Handling: each `RecoveredLegacyScriptHost` owns eight event records with the
+  same close/send lifetime. The ninth simultaneous open returns `-1` and sets
+  a fail-closed exhaustion issue; stale, negative and out-of-range handles are
+  diagnosed instead of indexing arbitrary memory.
+- Revisit when: concurrent or persistent script processes require separate
+  host instances, or a new script ABI replaces integer event handles.
+
 ## Maintenance rule
 
 When a new quirk is found:

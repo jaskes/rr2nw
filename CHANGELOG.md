@@ -159,6 +159,12 @@ claim authorship of inherited Logos code or retail data.
   through a bounded bootstrap that uses the historical script event protocol.
   A dedicated smoke proves invalid-context rollback, idempotent double release
   and reconstruction with a fresh `SimulationContext`.
+- Added a reusable bounded legacy-script host and runner ahead of further
+  OBASE activation. The host owns the exact eight-slot event pool and the
+  initial eight Arena/storage bindings; the runner owns newline normalization,
+  compiler/process limits, non-local error containment and typed fail-closed
+  diagnostics. A dedicated smoke covers invalid input, malformed source,
+  invalid handles, pool exhaustion and complete Arena rollback.
 - Added a living compatibility ledger with stable IDs, evidence, current
   handling and revisit triggers for retail case folding, modified local data,
   day/night scene reuse, serializer sentinels, empty maps, ABI widths and
@@ -198,6 +204,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Changed
 
+- Split the Vehicle seance into an Arena transaction, a script execution owner
+  and a script-to-engine binding host without changing the public seance API or
+  bounded bootstrap behavior. Future OBASE bindings can now be added in tested
+  groups without growing one monolithic startup function.
 - Taught the recovered file/math serialization headers to preserve one-byte
   packing under MSVC with balanced push/pop pragmas.
 - Added equivalent MSVC packing for the serialized view-plane structure and a

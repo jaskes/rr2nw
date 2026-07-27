@@ -688,4 +688,39 @@ Regression contract: dedicated null-context and two-cycle Arena seance smoke;
 service-level double teardown/reconstruction; all nine Levels from both the
 installed and mounted retail trees in Debug and Release; four executable
 runtime-smoke combinations; interactive W/Escape shutdown; and the complete
-42-test Debug/Release matrix.
+43-test Debug/Release matrix.
+
+## BD-027: script expansion uses an isolated runner and bounded host registry
+
+Status: accepted on 2026-07-27.
+
+Before adding more OBASE tables, the Vehicle bootstrap is split into three
+owners with unchanged public behavior. `RecoveredArenaSeanceRuntime` owns the
+Arena transaction and publication of verified gameplay interfaces;
+`RecoveredLegacyScriptRunner` owns source normalization, compiler/process
+storage, execution budgets and legacy error containment; and
+`RecoveredLegacyScriptHost` owns script-visible engine bindings and temporary
+event payloads.
+
+The host begins with only the eight functions already exercised by the bounded
+Vehicle bootstrap. New functions are admitted in small behavior-tested groups
+alongside the OBASE owners they need. The complete historical function table is
+not linked wholesale because it would silently restore the monolithic
+dependency graph and make partial startup difficult to unwind. Missing
+symbolic objects remain valid NUL script results, matching historical optional
+lookup flow; invalid handles, unavailable Arena state, class-table failure,
+object-creation failure and event-pool exhaustion fail closed with typed issue
+bits.
+
+The runner remains synchronous and bounded. Its limits are explicit in a typed
+profile, and all results carry a typed status, host issue mask and diagnostic.
+The compiler/process lifetime is isolated from the seance so malformed future
+retail script input cannot strand Arena objects. This boundary is internal:
+`RecoveredArenaSeance_Initialize`, its issue bits and the verified
+`Vehicle.Default` publication contract remain the production API.
+
+Regression contract: dedicated legacy-script host/runner smoke covering LF
+normalization, invalid input, compiler `longjmp`, invalid event handles, exact
+eight-slot exhaustion and Arena cleanup; the two-cycle Vehicle seance smoke;
+and the complete 43-test Debug/Release matrix plus the retail service and
+executable sweeps.

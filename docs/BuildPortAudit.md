@@ -931,13 +931,31 @@ real Vehicle, releases twice, verifies `Storage` and `Vehicle.Default` are gone
 and repeats the cycle with a fresh context. The service test repeats that proof
 inside the full Level transaction.
 
-Debug and Release both pass 42 of 42 automated tests. The service sweep passes
+Debug and Release both pass 43 of 43 automated tests. The service sweep passes
 all nine Levels under `E:\Games\The Next Worlds` and all nine under `G:\nw` in
 both configurations (36 of 36 invocations). The normal executable passes both
 data roots in both configurations (4 of 4), recording
 `arena_seance_initialized=1`, `vehicle_default_initialized=1`, zero Arena
 issues and clean shutdown. Interactive Debug and Release HWND runs accept W
 and terminate normally through Escape.
+
+Before widening the OBASE roster, the embedded-script work was separated from
+the Arena transaction. `RecoveredLegacyScriptRunner` now owns CRLF
+normalization, the compiler and process buffers, the bounded VM loop and typed
+status/diagnostic results. `RecoveredLegacyScriptHost` owns the exact
+eight-record historical event pool and the eight currently admitted external
+functions. Host failures are no longer silent: invalid handles, pool
+exhaustion, missing Arena state and failed class/object creation return a
+dedicated issue mask and force seance rollback. Missing symbolic names still
+return NUL because retail scripts use that as ordinary optional-object flow.
+
+The compiler's `setjmp`/`longjmp` error path is contained in a zeroed POD heap
+attempt with explicit cleanup; C++ RAII is intentionally not placed across
+that boundary. The new direct smoke executes real Arena/context state and
+covers LF source, malformed compilation, invalid handles, exact eight-slot
+exhaustion and removal of `Storage` after every case. This changes the normal
+matrix from 42 to 43 tests while leaving the public Vehicle seance API and its
+two-cycle contract unchanged.
 
 This closes the real `Vehicle.Default` creation frontier, but not complete
 retail script startup. `LEVEL0.SC` includes broad Menu/unit/mission helpers and
