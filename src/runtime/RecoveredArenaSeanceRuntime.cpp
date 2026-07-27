@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <new>
+#include <string>
 
 class CGRPanel;
 #include "h/vehicle.h"
@@ -11,6 +12,7 @@ class CGRPanel;
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
+#include "obase/smoke/SmokeAttributeState.h"
 #include "storage/h/subject.h"
 
 #include "RecoveredLegacyScriptHost.h"
@@ -22,6 +24,8 @@ constexpr double kSceneWidth = 5120.0;
 constexpr double kSceneDepth = 5120.0;
 constexpr const char kBootstrapProgramName[] =
     "recovered_common_attribute_vehicle_bootstrap";
+constexpr const char kSmokeAttributeProgramName[] =
+    "recovered_retail_smoke_attribute_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol. It is a bounded bridge to the real Vehicle tables, not a second
@@ -171,6 +175,118 @@ var int orphanAttrTable, artefactAttrTable, vehicleTable, objectID, cachePos;
 }
 )RR2NW_SCRIPT";
 
+const char kSmokeAttributeBootstrapPrefix[] = R"RR2NW_SCRIPT(
+const int EDO_WRITE = 1;
+const int NO_LAND = 0;
+const int ON_LAND = 1;
+const float INFINITY_TIME = -1;
+const int LIGHT_COLOR_RED = 1;
+const int LIGHT_COLOR_YELLOW = 3;
+const int LIGHT_COLOR_CYAN = 6;
+const int s_ATTR_MSG_SET_INT extern;
+const int s_ATTR_MSG_SET_DOUBLE extern;
+const int s_ATTR_MSG_SET_STR extern;
+const int fou_EVCMD_START extern;
+
+func int s_OpenEventData(int style) extern;
+func void s_CloseEventData(int event) extern;
+func void s_WriteInt(int event, int value) extern;
+func void s_WriteFloat(int event, float value) extern;
+func void s_WriteStr(int event, str value) extern;
+func void s_WriteObjectID(int event, int objectID, int cachePos) extern;
+func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
+func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
+func int s_AddClassTable(str className, int maxTableSize) extern;
+func void s_New(int classTableID, str name,
+                var int objectID, var int cachePos) extern;
+func void s_NewObject(int classTableID, str name) extern;
+func void s_NewObjectN(str className, str name) extern;
+
+func int ConvertColor(int r, int g, int b)
+{
+  if r > 255 then r := 255; else if r < 0 then r := 0;
+  if g > 255 then g := 255; else if g < 0 then g := 0;
+  if b > 255 then b := 255; else if b < 0 then b := 0;
+  return r*65536+g*256+b;
+}
+
+func void New(int classTableID, str name,
+              var int objectID, var int cachePos)
+{
+  s_NewObject(classTableID, name);
+  s_SearchObjectID(objectID, cachePos, name);
+}
+
+func void SetAttribute_f(int objectID, int cachePos, str name, float value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, name);
+  s_WriteFloat(event, value);
+  s_CloseEventData(event);
+  s_SendEventNow(event, s_ATTR_MSG_SET_DOUBLE, objectID, cachePos);
+}
+
+func void SetAttribute_i(int objectID, int cachePos, str name, int value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, name);
+  s_WriteInt(event, value);
+  s_CloseEventData(event);
+  s_SendEventNow(event, s_ATTR_MSG_SET_INT, objectID, cachePos);
+}
+
+func void SetAttribute_s(int objectID, int cachePos, str name, str value)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, name);
+  s_WriteStr(event, value);
+  s_CloseEventData(event);
+  s_SendEventNow(event, s_ATTR_MSG_SET_STR, objectID, cachePos);
+}
+
+)RR2NW_SCRIPT";
+
+const char kSmokeAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateSmokeAttr();
+}
+)RR2NW_SCRIPT";
+
+constexpr long kMaximumRetailSmokeSourceBytes = 128 * 1024;
+
+bool ReadRetailSmokeSource(std::string* source) {
+  if (source == nullptr) return false;
+
+  FILE* file = std::fopen("..\\SMOKE.SCI", "rb");
+  if (file == nullptr) return false;
+  if (std::fseek(file, 0, SEEK_END) != 0) {
+    std::fclose(file);
+    return false;
+  }
+  const long size = std::ftell(file);
+  if (size <= 0 || size > kMaximumRetailSmokeSourceBytes ||
+      std::fseek(file, 0, SEEK_SET) != 0) {
+    std::fclose(file);
+    return false;
+  }
+
+  try {
+    source->resize(static_cast<std::size_t>(size));
+  } catch (...) {
+    std::fclose(file);
+    return false;
+  }
+  const bool read =
+      std::fread(&(*source)[0], 1, static_cast<std::size_t>(size), file) ==
+      static_cast<std::size_t>(size);
+  std::fclose(file);
+  return read && source->find('\0') == std::string::npos;
+}
+
 struct RecoveredArenaSeanceState {
   unsigned int issues;
   bool arenaOpen;
@@ -179,6 +295,7 @@ struct RecoveredArenaSeanceState {
   bool portalReady;
   bool orphanAttributesReady;
   bool artefactAttributesReady;
+  bool smokeAttributesReady;
   bool sparkAttributesReady;
   bool routeReady;
   bool vehicleReady;
@@ -235,6 +352,42 @@ bool RunAttributeVehicleBootstrap(SimulationContext* context,
       RecoveredLegacyScript_BootstrapProfile();
   if (!RecoveredLegacyScript_RunMemory(
           kAttributeVehicleBootstrapScript, kBootstrapProgramName, profile,
+          context, startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
+}
+
+bool RunSmokeAttributeBootstrap(SimulationContext* context,
+                                double startTime) {
+  std::string retailSource;
+  if (!ReadRetailSmokeSource(&retailSource)) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+           "could not read bounded retail SMOKE.SCI beside selected Level");
+    return false;
+  }
+
+  std::string program;
+  try {
+    program.reserve(sizeof(kSmokeAttributeBootstrapPrefix) +
+                    retailSource.size() +
+                    sizeof(kSmokeAttributeBootstrapSuffix));
+    program.append(kSmokeAttributeBootstrapPrefix);
+    program.append(retailSource);
+    program.append(kSmokeAttributeBootstrapSuffix);
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+           "could not allocate bounded retail Smoke bootstrap source");
+    return false;
+  }
+
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kSmokeAttributeProgramName, profile,
           context, startTime, &host, &result)) {
     Report(IssueForScriptStatus(result.status), result.error);
     return false;
@@ -406,6 +559,32 @@ bool PublishArtefactAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishSmokeAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_TABLE_MISSING,
+           "retail fragment did not create the SmokeAttr table");
+    return false;
+  }
+  if (context->searchObject("Smoke.Attr.Small").isNUL() ||
+      context->searchObject("Smoke.Attr.Fire.Corpse").isNUL()) {
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_OBJECT_MISSING,
+           "retail fragment did not create the complete SmokeAttr roster");
+    return false;
+  }
+  if (!SmokeAttributeState_IsRetailRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "SmokeAttr objects do not match unchanged retail "
+                  "SMOKE.SCI (fingerprint=%llu)",
+                  SmokeAttributeState_RetailFingerprint(context));
+    Report(RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_ROSTER_INVALID,
+           message);
+    return false;
+  }
+  g_state.smokeAttributesReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -424,10 +603,15 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   OrphanAttributeState_Link();
   PortalClassTable_Link();
   SparkAttributeState_Link();
+  SmokeAttributeState_Link();
   if (!OpenArena(context)) return FALSE;
 
   try {
     if (!RunAttributeVehicleBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunSmokeAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -440,7 +624,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 
     if (!PublishBirdAttributes(context) || !PublishPortalTable() ||
         !PublishOrphanAttributes(context) ||
-        !PublishArtefactAttributes(context)) {
+        !PublishArtefactAttributes(context) ||
+        !PublishSmokeAttributes(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -473,6 +658,7 @@ void RecoveredArenaSeance_Release() {
   g_state.vehicleReady = false;
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
+  g_state.smokeAttributesReady = false;
   g_state.artefactAttributesReady = false;
   g_state.orphanAttributesReady = false;
   g_state.portalReady = false;
@@ -504,6 +690,10 @@ bool RecoveredArenaSeance_OrphanAttributesReady() {
 
 bool RecoveredArenaSeance_ArtefactAttributesReady() {
   return g_state.artefactAttributesReady;
+}
+
+bool RecoveredArenaSeance_SmokeAttributesReady() {
+  return g_state.smokeAttributesReady;
 }
 
 bool RecoveredArenaSeance_SparkAttributesReady() {

@@ -39,6 +39,7 @@ struct SRecoveredLegacyScriptRunResult {
 };
 
 SRecoveredLegacyScriptProfile RecoveredLegacyScript_BootstrapProfile();
+SRecoveredLegacyScriptProfile RecoveredLegacyScript_RetailFragmentProfile();
 
 bool RecoveredLegacyScript_RunMemory(
     const char* source, const char* programName,

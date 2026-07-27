@@ -92,6 +92,25 @@ contract.
 Retail scripts нельзя молча копировать поверх source tree без классификации.
 До решения о публикации modern build может читать неизмененный retail fixture.
 
+### RP-SCRIPT-001: retail SMOKE.SCI adds the Train smoker preset
+
+- Classification: `RETAIL_REQUIRED` for eventual `SmokerAttr` activation.
+- Source snapshot SHA-256:
+  `15C769E24F753CA0C128EC1B2B6456FCC7937509998304FC1F2A948AFA103C9B`.
+- Canonical May retail SHA-256:
+  `A91F66634370A0FFF89E0DF3FA320C5414F2646FFCB24B8CF8A62BD1E5AA2070`;
+  the installed root and mounted CD copies are byte-identical.
+- Semantic delta: retail adds `CreateSmokerAttrTrain`, creates
+  `Smoker.Attr.Train` with emission interval 0.01--0.1 and
+  `Smoke.Attr.Tower`, and raises `SmokerAttr` capacity from 11 to 12.
+- Unchanged boundary: the earlier capacity-18 `SmokeAttr` roster and its field
+  values are identical, so it may be regression-tested with the public source
+  fixture while canonical runtime sweeps still consume the read-only retail
+  file.
+- Handling: do not copy the private retail script over `nw/OUTPUT`. Runtime
+  reads the selected user's retail file; future distributable normalized data
+  or a source-side compatibility patch requires a separate publication review.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

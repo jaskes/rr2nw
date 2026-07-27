@@ -867,3 +867,42 @@ line/block-comment exclusion, deterministic reconstruction, diagnostic
 retention after rollback, and fail-closed malformed/missing/escaping/cyclic
 fixtures. Both retail roots must resolve all nine Levels read-only and produce
 matching paired fingerprints.
+
+## BD-032: execute the root retail SmokeAttr fragment before Smoke subjects
+
+Status: accepted on 2026-07-27.
+
+`SmokeAttr` is the next dependency-safe table. Unlike the Level-local
+`Smoker` subject population in `SCINC/SET_SMOKER.SCI`, root `SMOKE.SCI` creates
+one invariant capacity-18 attribute roster before any renderer-backed Smoke or
+Smoker subject is required. The Arena transaction therefore compiles the
+selected retail root file with the real recovered VM and calls only
+`main_CreateSmokeAttr()`.
+
+The file is not copied into a C++ data table and is not rewritten. After the
+Level manifest admits the script graph, a bounded 128 KiB reader loads
+`../SMOKE.SCI` from the selected Level directory. Its exact bytes are placed
+between a small ABI prefix and `main()`, avoiding the legacy memory scanner's
+invalid nested-include ownership while preserving every function and literal in
+the selected retail file. The host adds only `fou_EVCMD_START`, raising its
+constant registry from seven to eight; that symbol must link because the full
+file defines `CreateSmoke`, even though the bounded entry does not call it.
+
+Production publishes readiness only after all 18 names and all 39 script-facing
+fields per object match fingerprint `13981601751930040122`. Texture and color
+caches must remain deterministic zero sentinels. `AttributeSmoke::update()`,
+the `Smoke`/`Smoker`/`SmokerAttr` tables, texture loading and the global
+`s_UpdateAttributes()` pass remain deferred. Missing retail source, VM failure,
+roster drift or cache resolution rolls the complete Arena seance back.
+
+The January source fixture differs from the canonical May retail file only in
+the later `SmokerAttr` portion: retail adds `Smoker.Attr.Train` and raises that
+separate table from 11 to 12. The 18 `SmokeAttr` definitions are unchanged, so
+the in-repository fixture can cover CI while installed and mounted retail
+sweeps prove the canonical file produces the same fingerprint.
+
+Regression contract: missing-source rejection after partial common bootstrap;
+two successful Arena construction/destruction cycles; full strict Smoke source
+compilation against the extracted owner; service readiness and rollback; the
+44-test Debug/Release matrix; and all installed/mounted retail service and
+executable sweeps.

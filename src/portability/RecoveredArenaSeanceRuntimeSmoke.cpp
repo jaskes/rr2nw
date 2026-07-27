@@ -17,6 +17,7 @@ class CGRPanel;
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
+#include "obase/smoke/SmokeAttributeState.h"
 #include "storage/h/subject.h"
 
 #include "RecoveredArenaSeanceRuntime.h"
@@ -28,13 +29,14 @@ int Fail(const char* message) {
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
-               "spark=%d route=%d vehicle=%d issues=%u error=%s)\n",
+               "smoke=%d spark=%d route=%d vehicle=%d issues=%u error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
                RecoveredArenaSeance_BirdAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_PortalReady() ? 1 : 0,
                RecoveredArenaSeance_OrphanAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_ArtefactAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_SmokeAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleReady() ? 1 : 0,
@@ -86,12 +88,15 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_PortalReady() &&
          !RecoveredArenaSeance_OrphanAttributesReady() &&
          !RecoveredArenaSeance_ArtefactAttributesReady() &&
+         !RecoveredArenaSeance_SmokeAttributesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
          !context.isExist("Storage") && !context.isExist("Bird.Attr.0") &&
          !context.isExist("Orphan.Attr.Default") &&
          !context.isExist("Artefact.Attr.0") &&
+         !context.isExist("Smoke.Attr.Small") &&
+         !context.isExist("Smoke.Attr.Fire.Corpse") &&
          !context.isExist("Spark.Flash") &&
          !context.isExist("Vehicle.Default") &&
          Route::m_totalNodePos == 0;
@@ -106,6 +111,7 @@ bool RunCycle() {
       !RecoveredArenaSeance_PortalReady() ||
       !RecoveredArenaSeance_OrphanAttributesReady() ||
       !RecoveredArenaSeance_ArtefactAttributesReady() ||
+      !RecoveredArenaSeance_SmokeAttributesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
@@ -114,6 +120,7 @@ bool RunCycle() {
       g_arena.searchSeanceClassTable("Portal") == ct_NULLID ||
       g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ArtefactAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
@@ -127,13 +134,16 @@ bool RunCycle() {
   KR_ObjectID orphan = context.searchObject("Orphan.Attr.Default");
   KR_ObjectID artefact = context.searchObject("Artefact.Attr.0");
   KR_ObjectID flash = context.searchObject("Spark.Flash");
+  KR_ObjectID smoke = context.searchObject("Smoke.Attr.Small");
   KR_ObjectID vehicle = context.searchObject("Vehicle.Default");
   const bool vehiclePublished =
       !storage.isNUL() && !bird.isNUL() && !orphan.isNUL() &&
       !artefact.isNUL() && !flash.isNUL() && !vehicle.isNUL() &&
+      !smoke.isNUL() &&
       BirdAttributeState_IsRetailDefault(bird) &&
       OrphanAttributeState_IsRetailDefault(orphan) &&
       ArtefactAttributeState_IsRetailDefault(artefact) &&
+      SmokeAttributeState_IsRetailRoster(&context) &&
       g_vehicle != nullptr &&
       context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
 
@@ -145,7 +155,9 @@ bool RunCycle() {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 2) return Fail("expected a fixture directory");
+  if (argc != 3) {
+    return Fail("expected a fixture directory and retail SMOKE.SCI");
+  }
 
   RecoveredArenaSeance_Release();
   if (RecoveredArenaSeance_Initialize(nullptr, 0.0) != FALSE ||
@@ -157,10 +169,15 @@ int main(int argc, char** argv) {
 
   std::string originalDirectory;
   std::string fixtureDirectory;
+  std::string levelDirectory;
   if (!CurrentDirectory(originalDirectory) ||
       !FullPath(argv[1], fixtureDirectory) ||
       !EnsureDirectory(fixtureDirectory)) {
     return Fail("could not establish the fixture directory");
+  }
+  levelDirectory = JoinPath(fixtureDirectory, "Level.Fixture");
+  if (!EnsureDirectory(levelDirectory)) {
+    return Fail("could not establish the fixture Level directory");
   }
 
   // These legacy single-byte comment characters reproduce the exact ctype
@@ -175,27 +192,46 @@ int main(int argc, char** argv) {
       "[Tank2]\r\n"
       "[Tank3]\r\n"
       "[Dead]\r\n";
-  const std::string config = JoinPath(fixtureDirectory, "vessels.cfg");
+  const std::string config = JoinPath(levelDirectory, "vessels.cfg");
+  const std::string smokeCopy = JoinPath(fixtureDirectory, "SMOKE.SCI");
+  DeleteFileA(smokeCopy.c_str());
   if (!WriteFile(config, fixture) ||
-      SetCurrentDirectoryA(fixtureDirectory.c_str()) == FALSE) {
-    return Fail("could not prepare vessels.cfg");
+      SetCurrentDirectoryA(levelDirectory.c_str()) == FALSE) {
+    return Fail("could not prepare retail-script Arena fixture");
   }
 
   Session::m_moment = 0.0;
+  SimulationContext missingSourceContext(64, 128);
+  const bool missingSourceRejected =
+      RecoveredArenaSeance_Initialize(&missingSourceContext, 0.0) == FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      IsReleased(missingSourceContext);
+  if (CopyFileA(argv[2], smokeCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy retail SMOKE.SCI into Arena fixture");
+  }
   const bool firstCycle = RunCycle();
   const bool secondCycle = firstCycle && RunCycle();
   const bool restored =
       SetCurrentDirectoryA(originalDirectory.c_str()) != FALSE;
   DeleteFileA(config.c_str());
+  DeleteFileA(smokeCopy.c_str());
+  RemoveDirectoryA(levelDirectory.c_str());
   RemoveDirectoryA(fixtureDirectory.c_str());
 
+  if (!missingSourceRejected) {
+    return Fail("missing retail SMOKE.SCI was not rejected transactionally");
+  }
   if (!firstCycle) return Fail("first real Vehicle seance failed");
   if (!secondCycle) return Fail("Vehicle seance reconstruction failed");
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("bounded arena seance cycles=2 script=legacy-vm "
+  std::printf("bounded arena seance cycles=2 missing-smoke=rollback "
+              "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
-              "spark=Spark.Flash route=table vehicle=Vehicle.Default "
+              "smoke_attrs=retail-18 spark=Spark.Flash route=table "
+              "vehicle=Vehicle.Default "
               "rollback=idempotent\n");
   return EXIT_SUCCESS;
 }

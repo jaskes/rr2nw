@@ -28,7 +28,11 @@ enum ERecoveredArenaSeanceIssue {
   RECOVERED_ARENA_SEANCE_ORPHAN_DEFAULT_INVALID = 1u << 21,
   RECOVERED_ARENA_SEANCE_ARTEFACT_TABLE_MISSING = 1u << 22,
   RECOVERED_ARENA_SEANCE_ARTEFACT_OBJECT_MISSING = 1u << 23,
-  RECOVERED_ARENA_SEANCE_ARTEFACT_DEFAULT_INVALID = 1u << 24
+  RECOVERED_ARENA_SEANCE_ARTEFACT_DEFAULT_INVALID = 1u << 24,
+  RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_TABLE_MISSING = 1u << 25,
+  RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_OBJECT_MISSING = 1u << 26,
+  RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_ROSTER_INVALID = 1u << 27,
+  RECOVERED_ARENA_SEANCE_SMOKE_ATTRIBUTE_SOURCE_UNAVAILABLE = 1u << 28
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -40,6 +44,7 @@ bool RecoveredArenaSeance_BirdAttributesReady();
 bool RecoveredArenaSeance_PortalReady();
 bool RecoveredArenaSeance_OrphanAttributesReady();
 bool RecoveredArenaSeance_ArtefactAttributesReady();
+bool RecoveredArenaSeance_SmokeAttributesReady();
 bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();

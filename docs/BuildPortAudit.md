@@ -1104,6 +1104,46 @@ Final verification passes 44/44 tests in Debug and Release, 36/36 retail
 service launches, 18/18 direct manifest sweeps with 9/9 paired fingerprints,
 and 4/4 executable runtime-smoke launches with clean shutdown.
 
+### Root retail SmokeAttr fragment
+
+The next Arena-owned table is the real `SmokeAttr` owner extracted from
+`OBASE/Smoke/Smoke.cpp`. The full historical Smoke source still compiles against
+that external owner, while the standalone archive provides its original pool,
+39-field event surface and `AttributeSmoke::update()` implementation without
+registering a `Smoke` subject in production. Both constructor paths now zero the
+texture handle, packed color and 32 cached gradient entries that were previously
+indeterminate before the global update pass.
+
+After the Level manifest succeeds, the Arena transaction reads the selected
+root `SMOKE.SCI` through fixed `../SMOKE.SCI` lookup and a 128 KiB cap. It places
+the file bytes unchanged between a bounded ABI prefix and entry function, then
+uses the recovered compiler/VM to invoke only `main_CreateSmokeAttr()`. This
+include-free translation unit avoids the old scanner's invalid ownership path:
+`lex_Include` would otherwise free the embedded parent scanner when an included
+file reaches EOF. Missing source is tested after the common bootstrap has
+already mutated Arena, and the complete partial seance still rolls back.
+
+The host constant roster grows from seven to eight with
+`fou_EVCMD_START`, which is referenced by a compiled but uncalled helper in the
+full retail file. Readiness requires the capacity-18 table, both endpoint names,
+all 18 objects, unresolved renderer caches and the ordered 39-field fingerprint
+`13981601751930040122`. No `Smoke`, `Smoker` or `SmokerAttr` subject, texture
+load or global attribute update is activated.
+
+This slice also turns one source/retail delta into an explicit parity entry.
+The January `nw/OUTPUT/SMOKE.SCI` and both canonical May retail copies have the
+same 18 Smoke attributes, but retail adds `Smoker.Attr.Train` and raises the
+later `SmokerAttr` table from 11 to 12. The public source fixture therefore
+covers the admitted boundary without importing private retail data; installed
+and mounted service sweeps compile the canonical file directly.
+
+Final verification passes 44/44 tests in both Debug and Release, 36/36 service
+launches across all nine Levels in both retail roots, 18/18 manifest checks with
+9/9 paired fingerprints, and 4/4 executable runtime-smoke launches. Executable
+logs publish `smoke_attributes_initialized=1`, identify
+`bounded-retail-smoke-attribute-vehicle-bootstrap`, and end with
+`runtime_shutdown=clean`.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise

@@ -1796,10 +1796,48 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_smoke_attribute_state STATIC
+  nw/ARENA/OBASE/Smoke/SmokeAttributeState.cpp
+  nw/ARENA/OBASE/Smoke/SmokeAttributeState.h
+  nw/ARENA/OBASE/Smoke/SmokeAttributeState.inl
+)
+target_link_libraries(rr2nw_arena_smoke_attribute_state PUBLIC
+  rr2nw_arena_physics
+  rr2nw_arena_smoke_texture_cache
+  rr2nw_arena_storage
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_arena_smoke_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Smoke
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_arena_smoke_attribute_state PUBLIC cxx_std_14
+)
+target_compile_definitions(rr2nw_arena_smoke_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_smoke_attribute_state PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_obase_smoke_full STATIC
   nw/ARENA/OBASE/Smoke/Smoke.cpp
 )
 target_link_libraries(rr2nw_arena_obase_smoke_full PUBLIC
+  rr2nw_arena_smoke_attribute_state
   rr2nw_arena_smoke_texture_cache
   rr2nw_arena_storage
   rr2nw_graph_runtime_state
@@ -1817,6 +1855,7 @@ target_include_directories(rr2nw_arena_obase_smoke_full PUBLIC
 target_compile_features(rr2nw_arena_obase_smoke_full PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_arena_obase_smoke_full PRIVATE
   __NT__
+  RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
   RR2NW_SMOKE_TEXTURE_CACHE_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
@@ -2491,6 +2530,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_orphan_attribute_state
   rr2nw_arena_obase_portal
+  rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
   rr2nw_legacy_shell_full
   rr2nw_recovered_legacy_script_runtime
@@ -3152,6 +3192,7 @@ target_link_libraries(rr2nw_recovered_legacy_script_runtime_smoke PRIVATE
   rr2nw_arena_bird_attribute_state
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_orphan_attribute_state
+  rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
 )
 target_compile_features(
@@ -3418,6 +3459,7 @@ if(BUILD_TESTING)
     NAME recovered-arena-seance-runtime-smoke
     COMMAND rr2nw_recovered_arena_seance_runtime_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/arena-seance-smoke-$<CONFIG>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/SMOKE.SCI"
   )
   add_test(
     NAME recovered-legacy-script-runtime-smoke

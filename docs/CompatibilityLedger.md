@@ -518,13 +518,17 @@ Status vocabulary:
 ### CQ-040: root/common and Level-local attribute rosters are different data
 
 - Status: `CONFIRMED_RETAIL`, `PRESERVED`.
-- Evidence: `BIRD.SCI` and `ARTEFACT.SCI`, plus the Orphan creation in root
-  `LEVEL0.SC`, define the same common objects for every Level. In contrast,
-  Smoke, Explosion, Tank, Taxi, People, Farter, Corpse, Fountain, Bullet and
-  other `SCINC` files change capacities, names and values between Levels.
-- Handling: only root/common objects are admitted to the bounded bootstrap.
-  Level-local rosters remain behind a Level-aware bridge or unchanged retail
-  script execution; no single Level is treated as a universal default.
+- Evidence: `BIRD.SCI`, `ARTEFACT.SCI` and `SMOKE.SCI`, plus the Orphan
+  creation in root `LEVEL0.SC`, define the same common objects for every Level.
+  In particular, `SmokeAttr` is a fixed 18-object root roster. The similarly
+  named Level-local `SCINC/SET_SMOKER.SCI` files instead change the `Smoker`
+  subject capacity and instances (40 through 200 in the observed source set).
+  Explosion, Tank, Taxi, People, Farter, Corpse, Fountain, Bullet and other
+  `SCINC` files also vary by Level.
+- Handling: root/common objects, now including the retail `SmokeAttr` roster,
+  may enter bounded bootstrap fragments. Level-local rosters and subjects
+  remain behind a Level-aware bridge or unchanged retail script execution; no
+  single Level is treated as a universal default.
 - Revisit when: includes are resolved against the selected Level and the
   retail script can create each Level's exact table/object set transactionally.
 
@@ -559,6 +563,38 @@ Status vocabulary:
   data while still allowing legitimate differences between Levels.
 - Revisit when: VFS/mod overlays are admitted. At that point report base and
   effective content identities separately instead of requiring one fingerprint.
+
+### CQ-043: Smoke attributes had indeterminate renderer caches before update
+
+- Status: `CONFIRMED_SOURCE`, `BUGFIX_ACCEPTED`.
+- Evidence: `AttributeSmoke` initialized all 39 script-facing values but left
+  `m_cacheImage`, `m_cacheColor` and the 32-entry gradient cache untouched.
+  Retail creates all 18 `SmokeAttr` objects before the later global
+  `s_UpdateAttributes()` pass, and rollback can destroy them in that interval.
+- Handling: both the extracted modern owner and retained legacy constructor
+  initialize the texture handle and all cached colors to zero. The retail
+  roster validator requires those unresolved sentinels and hashes only the 39
+  gameplay/data fields, so no renderer or texture load is triggered.
+- Revisit when: the complete attribute-update pass has transactional ownership
+  of `g_loadSmoke`, palette conversion and renderer teardown.
+
+### CQ-044: nested includes cannot safely enter the recovered memory scanner
+
+- Status: `CONFIRMED_SOURCE`, `CONTAINED`.
+- Evidence: `lex_Include` allocates a scanner for the included file but records
+  the caller scanner as `prevScanner`; the EOF path restores from and frees that
+  previous pointer. The top-level memory scanner is embedded in `TSuaCript`, not
+  heap-owned. A direct retail fragment compile stopped making progress at its
+  first include, consistent with this invalid ownership path.
+- Handling: Level startup first validates the full include graph with the
+  bounded read-only manifest. The Smoke fragment then reads the already
+  admitted root `SMOKE.SCI` through a fixed parent path and 128 KiB limit,
+  appends its bytes unchanged between a bounded ABI prefix/suffix, and presents
+  an include-free memory source to the legacy compiler. Missing, oversized or
+  unreadable input rolls the Arena transaction back with a typed issue.
+- Revisit when: scanner include ownership is repaired with dedicated nested
+  include/rollback tests, or a versioned preprocessor/VFS supplies one bounded
+  translation unit before full `LEVEL0.SC` execution.
 
 ## Maintenance rule
 

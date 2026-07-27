@@ -34,7 +34,7 @@ int Fail(const char* message) {
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
-      "portal=%d orphan=%d artefact=%d spark=%d route=%d vehicle=%d "
+      "portal=%d orphan=%d artefact=%d smoke=%d spark=%d route=%d vehicle=%d "
       "arena_issues=%u arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
       "bush=%d observer_events=%u observer_z=%lg)\n",
@@ -49,6 +49,7 @@ int Fail(const char* message) {
       RecoveredGameServices_PortalReady() ? 1 : 0,
       RecoveredGameServices_OrphanAttributesReady() ? 1 : 0,
       RecoveredGameServices_ArtefactAttributesReady() ? 1 : 0,
+      RecoveredGameServices_SmokeAttributesReady() ? 1 : 0,
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
@@ -75,6 +76,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_PortalReady() &&
          !RecoveredGameServices_OrphanAttributesReady() &&
          !RecoveredGameServices_ArtefactAttributesReady() &&
+         !RecoveredGameServices_SmokeAttributesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_RouteReady() &&
          !RecoveredGameServices_VehicleReady() &&
@@ -177,17 +179,21 @@ int main(int argc, char** argv) {
   KR_ObjectID artefactID =
       g_super.m_context->searchObject("Artefact.Attr.0");
   KR_ObjectID sparkID = g_super.m_context->searchObject("Spark.Flash");
+  KR_ObjectID smokeID =
+      g_super.m_context->searchObject("Smoke.Attr.Small");
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
       !RecoveredGameServices_BirdAttributesReady() ||
       !RecoveredGameServices_PortalReady() ||
       !RecoveredGameServices_OrphanAttributesReady() ||
       !RecoveredGameServices_ArtefactAttributesReady() ||
+      !RecoveredGameServices_SmokeAttributesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||
-      orphanID.isNUL() || artefactID.isNUL() || sparkID.isNUL() ||
+      orphanID.isNUL() || artefactID.isNUL() || smokeID.isNUL() ||
+      sparkID.isNUL() ||
       vehicleID.isNUL() ||
       g_vehicle == nullptr ||
       g_super.m_context->queryInterface(vehicleID, IVehicleIID) != g_vehicle ||
@@ -253,7 +259,7 @@ int main(int argc, char** argv) {
   }
 
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
-              "arena=1 script=bounded common_attrs=3 portal=table "
+              "arena=1 script=bounded common_attrs=3 smoke_attrs=18 portal=table "
               "route=table vehicle=real observer=1\n");
   return EXIT_SUCCESS;
 }

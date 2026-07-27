@@ -8,6 +8,9 @@
 #include "game.h"
 #include "scene.h"
 #include "Smoke.h"
+#ifdef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
+#include "SmokeAttributeState.h"
+#endif
 #include "kernel/h/context.h"
 #include "kernel/h/echo.h"
 #include "kernel/h/s_debug.h"
@@ -15,6 +18,7 @@
 #include "h/cachesmoke.h"
 #include "h/phisics.h"
 
+#ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
  //===========================================================================
 class AttributeSmoke : public ct_Attribute
 {
@@ -73,6 +77,10 @@ class AttributeSmoke : public ct_Attribute
 
     AttributeSmoke()
     {
+        m_cacheImage          = NULL;
+        m_cacheColor          = 0;
+        for( int i = 0; i < MAX_COLOR; ++i )
+             colors[i] = 0;
         m_radius             = 3;
         m_onLand             = 1;
         m_maxBlob            = 4;
@@ -157,6 +165,7 @@ class AttributeSmoke : public ct_Attribute
     }
 //}}END_OF_ATTRIBUTE
 };
+#endif
 
 
  //===========================================================================
@@ -182,6 +191,7 @@ class SmokeTable : public ct_SubjectTable
     virtual  bool      isRendering();
 };
 
+#ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
  //===========================================================================
 class AttributeTableSmoke : public ct_AttributeTable
 {
@@ -199,9 +209,14 @@ class AttributeTableSmoke : public ct_AttributeTable
     virtual void       freeObjects ();
     virtual ct_Object *getObjectPTR( int index );
 };
+#endif
 
 static SmokeTable  __classTable;
+#ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
 static AttributeTableSmoke __attrTable;
+#else
+#define __attrTable __attrSmokeTable
+#endif
  /*********************************
   *
   *   Smoke implementation
@@ -486,6 +501,7 @@ ct_Object *SmokeTable::getObjectPTR( int index )
   *************************************/
 
  //============================================================
+#ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
 void AttributeTableSmoke::allocObjects( int objectQnty )
  {
     m_table = new AttributeSmoke[ objectQnty ];
@@ -508,6 +524,7 @@ ct_Object *AttributeTableSmoke::getObjectPTR( int index )
     s_ASSERT(index>=0 && index <m_maxObjectQnty,"AttributeTable::getObjectPTR");
     return &(m_table[ index ]);
  }
+#endif
 
  //============================================================
 int  Smoke::addBlob()
@@ -757,6 +774,7 @@ int Smoke::onMove( double t )
 #include "SmokeTextureCache.inl"
 #endif
 
+#ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
 inline double getR(int x) { return x>>16; }
 inline double getG(int x) { return (x>>8)&255; }
 inline double getB(int x) { return x&255; }
@@ -804,6 +822,7 @@ void AttributeSmoke::update(double)
             colors[i] = calcRGB(i*32./31., r,g,b);
    }
 }
+#endif
 
 
 bool	Smoke::dump(PIN_SaveFile & sf)

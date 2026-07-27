@@ -273,6 +273,22 @@ SRecoveredLegacyScriptProfile RecoveredLegacyScript_BootstrapProfile() {
   return profile;
 }
 
+SRecoveredLegacyScriptProfile RecoveredLegacyScript_RetailFragmentProfile() {
+  SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_BootstrapProfile();
+  profile.compilerWordBufferSize = 32 * 1024;
+  profile.compilerStringBufferSize = 64 * 1024;
+  profile.compilerNameCount = 2048;
+  profile.compilerTreeBufferSize = 128 * 1024;
+  profile.compilerCodeStreamSize = 128 * 1024;
+  profile.compilerLinkInfoSize = 32 * 1024;
+  profile.processStorageStackSize = 2048;
+  profile.processStackSize = 2048;
+  profile.processQuants = 16384;
+  profile.maximumVmSlices = 4096;
+  return profile;
+}
+
 bool RecoveredLegacyScript_RunMemory(
     const char* source, const char* programName,
     const SRecoveredLegacyScriptProfile& profile, SimulationContext* context,
