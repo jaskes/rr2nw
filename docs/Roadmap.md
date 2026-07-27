@@ -337,7 +337,16 @@ invalid handles/exhaustion fail-closed; the runner contains compiler
 execution limits. Its dedicated regression raises the automated matrix to
 43/43 in Debug and Release without enabling another OBASE table.
 
-The bounded bootstrap intentionally creates only the Vehicle portion of the
+The first such group is complete. Production now creates the real retail-size
+`Route` table before the Vehicle tables, reports its readiness independently
+and exposes both object-creation forms plus `s_LoadRoute`. A direct script
+fixture verifies a real loaded `IRouteObject`; missing and malformed route data
+fail closed, while the four verified retail files whose count is one too large
+are safely clamped at clean EOF. Closing the table clears the process-wide node
+cursor. No common route object is invented because retail level and mission
+scripts own their route selection.
+
+The bounded bootstrap now creates the Route table and Vehicle portion of the
 object graph. The next slice is to connect the remaining OBASE class tables and
 external script functions in rollback-tested groups until the unchanged retail
 `LEVEL0.SC` can replace it. Then verify the already attached Vessel, apply

@@ -957,6 +957,33 @@ exhaustion and removal of `Storage` after every case. This changes the normal
 matrix from 42 to 43 tests while leaving the public Vehicle seance API and its
 two-cycle contract unchanged.
 
+### First incremental OBASE activation: Route
+
+The isolated host now links the already recovered Route archive and expands
+from eight to eleven external functions with `s_NewObject`, `s_NewObjectN` and
+`s_LoadRoute`. The production script follows `LEVEL0.SC` ordering by adding the
+real `Route` table at the retail capacity of 100 before Vehicle attributes. It
+does not manufacture route objects: most level bootstraps leave their initial
+load commented, while later mission scripts create routes on demand.
+
+The direct host contract does exercise the complete path. A CRLF fixture
+creates `Route.fixture`, sends the original immediate `ROUTE_LOAD` event,
+resolves `IRouteObjectIID`, verifies three nodes, total length 20 and an
+interpolated midpoint. Separate scripts cover table-ID and class-name object
+creation. Missing files and malformed coordinates return typed host failures;
+paths longer than the 140-byte event payload are rejected before `putStr`.
+
+The recovered coordinate parser previously ignored `sscanf` failure and then
+read uninitialized doubles through a broken NaN macro. It now requires three
+finite values. Four matching installed/disc retail files declare one more node
+than they contain, including two referenced by mission scripts, so clean EOF
+after valid records safely clamps the route instead of rejecting it or reusing
+stale buffer bytes. A dedicated overdeclared fixture verifies two published
+nodes and interpolation; malformed records remain fatal. `RouteTable::freeObjects`
+also resets the shared static node cursor, making route teardown observable and
+complete across fresh-context reconstruction. Arena, service and executable
+diagnostics expose Route table readiness separately from Vehicle readiness.
+
 This closes the real `Vehicle.Default` creation frontier, but not complete
 retail script startup. `LEVEL0.SC` includes broad Menu/unit/mission helpers and
 expects the remaining Tank, People, Sound, Smoke, Bullet, Taxi and other OBASE

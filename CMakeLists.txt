@@ -2203,6 +2203,7 @@ add_library(rr2nw_recovered_legacy_script_runtime STATIC
   src/runtime/RecoveredLegacyScriptRunner.h
 )
 target_link_libraries(rr2nw_recovered_legacy_script_runtime PUBLIC
+  rr2nw_arena_obase_route
   rr2nw_arena_storage
   rr2nw_arena_time_runtime_state
   rr2nw_script_runtime
@@ -3136,6 +3137,7 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-legacy-script-runtime-smoke
     COMMAND rr2nw_recovered_legacy_script_runtime_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/legacy-script-smoke-$<CONFIG>"
   )
   add_test(
     NAME legacy-menu-texture-smoke

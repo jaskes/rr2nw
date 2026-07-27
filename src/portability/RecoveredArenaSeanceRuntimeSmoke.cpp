@@ -13,6 +13,7 @@ class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "obase/route/route.h"
 #include "storage/h/subject.h"
 
 #include "RecoveredArenaSeanceRuntime.h"
@@ -23,9 +24,10 @@ int Fail(const char* message) {
   RecoveredArenaSeance_Release();
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
-               "(open=%d script=%d vehicle=%d issues=%u error=%s)\n",
+               "(open=%d script=%d route=%d vehicle=%d issues=%u error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
+               RecoveredArenaSeance_RouteReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleReady() ? 1 : 0,
                RecoveredArenaSeance_Issues(),
                RecoveredArenaSeance_LastError());
@@ -71,8 +73,10 @@ bool FullPath(const char* path, std::string& result) {
 bool IsReleased(SimulationContext& context) {
   return !RecoveredArenaSeance_IsOpen() &&
          !RecoveredArenaSeance_ScriptCompleted() &&
+         !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
-         !context.isExist("Storage") && !context.isExist("Vehicle.Default");
+         !context.isExist("Storage") && !context.isExist("Vehicle.Default") &&
+         Route::m_totalNodePos == 0;
 }
 
 bool RunCycle() {
@@ -80,8 +84,10 @@ bool RunCycle() {
   if (!RecoveredArenaSeance_Initialize(&context, Session::m_moment) ||
       !RecoveredArenaSeance_IsOpen() ||
       !RecoveredArenaSeance_ScriptCompleted() ||
+      !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 ||
+      g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Vehicle") == ct_NULLID) {
     RecoveredArenaSeance_Release();
@@ -150,7 +156,7 @@ int main(int argc, char** argv) {
   if (!secondCycle) return Fail("Vehicle seance reconstruction failed");
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("bounded arena seance cycles=2 script=legacy-vm "
+  std::printf("bounded arena seance cycles=2 script=legacy-vm route=table "
               "vehicle=Vehicle.Default rollback=idempotent\n");
   return EXIT_SUCCESS;
 }

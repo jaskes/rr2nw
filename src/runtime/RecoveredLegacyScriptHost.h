@@ -11,7 +11,9 @@ enum ERecoveredLegacyScriptHostIssue {
   RECOVERED_LEGACY_SCRIPT_HOST_INVALID_EVENT = 1u << 1,
   RECOVERED_LEGACY_SCRIPT_HOST_ARENA_UNAVAILABLE = 1u << 2,
   RECOVERED_LEGACY_SCRIPT_HOST_CLASS_TABLE_FAILURE = 1u << 3,
-  RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE = 1u << 4
+  RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE = 1u << 4,
+  RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_INTERFACE_FAILURE = 1u << 5,
+  RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_LOAD_FAILURE = 1u << 6
 };
 
 class RecoveredLegacyScriptHost {
@@ -32,6 +34,9 @@ class RecoveredLegacyScriptHost {
   KR_ObjectID SearchObject(const char* name);
   int AddClassTable(const char* name, int capacity);
   KR_ObjectID NewObject(int classTable, const char* name);
+  KR_ObjectID NewObject(const char* className, const char* name);
+  KR_ObjectID LoadRoute(int classTable, const char* fileName,
+                        const char* routeName);
 
   static TLinkExtern* Bindings();
   static TLinkConstExtern* Constants();

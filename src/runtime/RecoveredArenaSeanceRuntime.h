@@ -14,7 +14,8 @@ enum ERecoveredArenaSeanceIssue {
   RECOVERED_ARENA_SEANCE_VEHICLE_TABLE_MISSING = 1u << 7,
   RECOVERED_ARENA_SEANCE_VEHICLE_OBJECT_MISSING = 1u << 8,
   RECOVERED_ARENA_SEANCE_VEHICLE_INTERFACE_MISSING = 1u << 9,
-  RECOVERED_ARENA_SEANCE_SCRIPT_HOST_FAILURE = 1u << 10
+  RECOVERED_ARENA_SEANCE_SCRIPT_HOST_FAILURE = 1u << 10,
+  RECOVERED_ARENA_SEANCE_ROUTE_TABLE_MISSING = 1u << 11
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -22,6 +23,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 void RecoveredArenaSeance_Release();
 bool RecoveredArenaSeance_IsOpen();
 bool RecoveredArenaSeance_ScriptCompleted();
+bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();
 unsigned int RecoveredArenaSeance_Issues();
 const char* RecoveredArenaSeance_LastError();

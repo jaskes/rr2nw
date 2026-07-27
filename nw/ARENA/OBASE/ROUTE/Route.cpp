@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <float.h>
 
 #include "route.h"
 #include "kernel/h/s_debug.h"
@@ -13,10 +14,12 @@
 #define max Max
 #define BYTE byte
 
-#define IsNAN(x)  (((x)*(x)==(x)) && (x)!=0)
-
-
 static RouteTable __routeTable;
+
+static bool IsFinite(double value)
+{
+    return value == value && value <= DBL_MAX && value >= -DBL_MAX;
+}
 
 
 CFVector3 Route::m_node[ROUTE_MAX_NODE_NUM];
@@ -73,23 +76,47 @@ void Route::Delete()
 }
 
 //============================================================================
-static void ReadStr( FILE *f, char buff[], int maxSize ){
-    int i, len;
-    char c;
+enum EReadStrResult
+{
+    READ_STR_INVALID = -1,
+    READ_STR_EOF = 0,
+    READ_STR_OK = 1
+};
 
-	for( i = 0, c = 0; (!feof(f)) && c != 13; ++i ){
-         fread(&c, 1, 1, f);
-         if(i >= maxSize-1)break;
-         buff[i]   = c;
-         buff[i+1] = 0;
-    }
-    if((!feof(f)) && c == 13) fread(&c,1,1,f);
+static int ReadStr( FILE *f, char buff[], int maxSize ){
+    int c = 0;
+    int len = 0;
+    bool overflow = false;
+    bool readAnything = false;
 
-    for(;;){
-         len = strlen(buff);
-         if( len>0 && buff[len-1]<=' ') buff[len-1] = 0;
-         else                           break;
+    if( f == NULL || buff == NULL || maxSize <= 0 )
+         return READ_STR_INVALID;
+
+    buff[0] = 0;
+    while( (c = fgetc(f)) != EOF ){
+         readAnything = true;
+         if( c == 13 || c == 10 ){
+              if( c == 13 ){
+                   int next = fgetc(f);
+                   if( next != 10 && next != EOF )
+                        ungetc(next, f);
+              }
+              break;
+         }
+
+         if( len < maxSize-1 )
+              buff[len++] = (char)c;
+         else
+              overflow = true;
     }
+    buff[len] = 0;
+
+    while( len > 0 && buff[len-1] <= ' ' )
+         buff[--len] = 0;
+
+    if( overflow )
+         return READ_STR_INVALID;
+    return readAnything ? READ_STR_OK : READ_STR_EOF;
 }
 //============================================================================
 void Route::addNotify()
@@ -155,43 +182,71 @@ void Route::LoadRoute(const char *fName)
          echo("Route::load: File %s not found\n", fName);
          return;
     }
-    ReadStr(f, buff, sizeof(buff));
+    if( ReadStr(f, buff, sizeof(buff)) != READ_STR_OK ){
+         echo("Route::load: Bad route name %s\n", fName);
+         fclose(f);
+         return;
+    }
     const char *routeName = context->searchObject(getObjectID());
     if( routeName != 0 && strcmp(buff, routeName) != 0 )
          echo("Route::load: Suacript_RouteName != file_RouteName\n");
 
-    ReadStr(f, buff, sizeof(buff));
-    sscanf(buff, "%i", &m_nodeQnty);
+    int declaredNodeQnty = 0;
+    if( ReadStr(f, buff, sizeof(buff)) != READ_STR_OK ||
+        sscanf(buff, "%i", &declaredNodeQnty) != 1 ){
+         echo("Route::load: Bad node count %s\n", fName);
+         fclose(f);
+         return;
+    }
 
-    if(  m_nodeQnty <= 0  )
+    if(  declaredNodeQnty <= 0  )
     {
          echo("Route::load: Empty route %s\n", fName);
          fclose(f);
          return;
     }
-    if(  m_totalNodePos + m_nodeQnty >= ROUTE_MAX_NODE_NUM  )
+    if(  m_totalNodePos + declaredNodeQnty >= ROUTE_MAX_NODE_NUM  )
     {
          echo("Route::load: Route overflow %s\n", fName);
          fclose(f);
-         m_nodeQnty = 0;
          return;
     }
 
-    for( int i = m_base; i < m_base+m_nodeQnty; ++i ){
-         double x,y,z;
-         ReadStr(f,buff,sizeof(buff));
-         sscanf(buff,"[ %lf , %lf , %lf ]",&x,&y,&z);
-
-         if( IsNAN(x) || IsNAN(y) || IsNAN(z) ){
-              echo("Route::load: Bad coord[%i]\n",i);
+    int loadedNodeQnty = 0;
+    for( ; loadedNodeQnty < declaredNodeQnty; ++loadedNodeQnty ){
+         double x = 0;
+         double y = 0;
+         double z = 0;
+         const int readResult = ReadStr(f,buff,sizeof(buff));
+         if( readResult != READ_STR_OK ){
+              if( readResult == READ_STR_EOF && loadedNodeQnty > 0 )
+                   echo("Route::load: Truncated route %s (%i/%i nodes)\n",
+                        fName, loadedNodeQnty, declaredNodeQnty);
+              if( readResult == READ_STR_EOF )
+                   break;
+              echo("Route::load: Bad coord[%i]\n",m_base+loadedNodeQnty);
               fclose(f);
-              m_nodeQnty = 0;
               return;
          }
-         m_node[i].x = x;
-         m_node[i].y = y;
-         m_node[i].z = z;
+         const int parsed = sscanf(buff,"[ %lf , %lf , %lf ]",&x,&y,&z);
+
+         if( parsed != 3 || !IsFinite(x) || !IsFinite(y) || !IsFinite(z) ){
+              echo("Route::load: Bad coord[%i]\n",m_base+loadedNodeQnty);
+              fclose(f);
+              return;
+         }
+         m_node[m_base+loadedNodeQnty].x = x;
+         m_node[m_base+loadedNodeQnty].y = y;
+         m_node[m_base+loadedNodeQnty].z = z;
     }
+
+    if( loadedNodeQnty <= 0 ){
+         echo("Route::load: Empty route %s\n", fName);
+         fclose(f);
+         return;
+    }
+
+    m_nodeQnty = loadedNodeQnty;
     m_totalNodePos += m_nodeQnty;
     fclose(f);
 }
@@ -332,6 +387,7 @@ void RouteTable::freeObjects(){
     delete [] m_table;
     m_table = NULL;
     m_maxObjectQnty = 0;
+    Route::m_totalNodePos = 0;
 }
 
 //============================================================================

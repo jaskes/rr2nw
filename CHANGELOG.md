@@ -165,6 +165,12 @@ claim authorship of inherited Logos code or retail data.
   compiler/process limits, non-local error containment and typed fail-closed
   diagnostics. A dedicated smoke covers invalid input, malformed source,
   invalid handles, pool exhaustion and complete Arena rollback.
+- Added the first post-architecture OBASE expansion: the production bootstrap
+  now creates and verifies the retail-capacity `Route` table, and the bounded
+  host exposes `s_NewObject`, `s_NewObjectN` and `s_LoadRoute`. Its smoke loads
+  a real route fixture through `IRouteObject`, covers both object-creation
+  forms, preserves retail routes whose declared count is one too large, and
+  rejects missing or malformed route data transactionally.
 - Added a living compatibility ledger with stable IDs, evidence, current
   handling and revisit triggers for retail case folding, modified local data,
   day/night scene reuse, serializer sentinels, empty maps, ABI widths and
@@ -208,6 +214,11 @@ claim authorship of inherited Logos code or retail data.
   and a script-to-engine binding host without changing the public seance API or
   bounded bootstrap behavior. Future OBASE bindings can now be added in tested
   groups without growing one monolithic startup function.
+- Made Route coordinate parsing reject malformed and non-finite records instead
+  of inspecting uninitialized doubles. Clean EOF now safely clamps the node
+  count for four verified retail routes whose headers are one too large;
+  route paths remain bounded to the historical event payload, and class-table
+  release resets the static node pool.
 - Taught the recovered file/math serialization headers to preserve one-byte
   packing under MSVC with balanced push/pop pragmas.
 - Added equivalent MSVC packing for the serialized view-plane structure and a

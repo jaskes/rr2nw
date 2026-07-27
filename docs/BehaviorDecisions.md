@@ -724,3 +724,42 @@ normalization, invalid input, compiler `longjmp`, invalid event handles, exact
 eight-slot exhaustion and Arena cleanup; the two-cycle Vehicle seance smoke;
 and the complete 43-test Debug/Release matrix plus the retail service and
 executable sweeps.
+
+## BD-028: Route is the first incremental OBASE activation
+
+Status: accepted on 2026-07-27.
+
+The first table added after isolating the script host is `Route`. Retail
+`LEVEL0.SC` calls `main_LoadRoute` before attribute creation; every level adds
+the table with capacity 100, while only level- or mission-specific scripts
+request actual route objects. The bounded production bootstrap therefore adds
+and verifies the real `Route` table but does not invent common route objects or
+load a file that is absent from some levels.
+
+The matching host tranche admits exactly three historical functions:
+`s_NewObject`, `s_NewObjectN` and `s_LoadRoute`. The first two preserve the
+table-ID and class-name creation forms. `s_LoadRoute` preserves creation plus
+the immediate `ROUTE_LOAD` event, then verifies `IRouteObjectIID` and a
+non-empty node result so missing or malformed files fail the surrounding
+script transaction instead of leaving a plausible empty route.
+
+The retail corpus contains four Route files whose declared node count is one
+larger than the available coordinate records; two are referenced by mission
+scripts. Clean EOF after valid nodes is therefore a recoverable compatibility
+condition, not a fatal parse error. The loader clamps the object to the valid
+prefix while malformed coordinate lines, invalid headers and empty files still
+fail closed. This recreates the useful historical outcome without reading stale
+stack or buffer contents beyond EOF.
+
+Route remains owned by Arena. `closeSeance` removes its objects and class table,
+and table release resets the static node cursor so a second context cannot
+observe coordinates from the first. Production readiness now requires Route
+table readiness alongside the existing Vehicle publication. The startup log
+records `route_table_initialized`; complete per-level route creation remains
+deferred to retail script activation.
+
+Regression contract: direct script cases for both object-creation forms, a
+three-node route plus a retail-style overdeclared route with interface and
+interpolation checks, missing and malformed route rejection, static-node
+cleanup, two complete Arena cycles, the full service reconstruction and the
+43-test Debug/Release matrix.

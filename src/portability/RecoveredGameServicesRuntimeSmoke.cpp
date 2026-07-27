@@ -32,7 +32,8 @@ int Fail(const char* message) {
   std::fprintf(
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
-      "platform=%d session=%d loop=%d hardware=%d seance=%d vehicle=%d "
+      "platform=%d session=%d loop=%d hardware=%d seance=%d route=%d "
+      "vehicle=%d "
       "arena_issues=%u arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
       "bush=%d observer_events=%u observer_z=%lg)\n",
@@ -43,6 +44,7 @@ int Fail(const char* message) {
       RecoveredGameServices_LoopReady() ? 1 : 0,
       RecoveredGameServices_HardwareReady() ? 1 : 0,
       RecoveredGameServices_SeanceReady() ? 1 : 0,
+      RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
       RecoveredArenaSeance_Issues(), RecoveredArenaSeance_LastError(),
       RecoveredGameLevel_IsReady() ? 1 : 0,
@@ -63,6 +65,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_LoopReady() &&
          !RecoveredGameServices_HardwareReady() &&
          !RecoveredGameServices_SeanceReady() &&
+         !RecoveredGameServices_RouteReady() &&
          !RecoveredGameServices_VehicleReady() &&
          !RecoveredArenaSeance_IsOpen() && g_vehicle == nullptr &&
          RecoveredGameServices_ObserverState() == nullptr &&
@@ -158,6 +161,7 @@ int main(int argc, char** argv) {
       g_super.m_context->searchObject("Vehicle.Default");
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
+      !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 || vehicleID.isNUL() ||
       g_vehicle == nullptr ||
@@ -165,7 +169,9 @@ int main(int argc, char** argv) {
       observer == nullptr) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("recovered Hardware, Arena, Vehicle or observer was not published");
+    return Fail(
+        "recovered Hardware, Arena, Route, Vehicle or observer was not "
+        "published");
   }
   const SRecoveredObserverState observerBefore = *observer;
   if (!SendHardwareButton("W", TRUE)) {
@@ -222,6 +228,6 @@ int main(int argc, char** argv) {
   }
 
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
-              "arena=1 script=bounded vehicle=real observer=1\n");
+              "arena=1 script=bounded route=table vehicle=real observer=1\n");
   return EXIT_SUCCESS;
 }

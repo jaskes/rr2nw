@@ -1,9 +1,12 @@
 #include "RecoveredLegacyScriptHost.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "message/routmsg.h"
+#include "obase/route/route.h"
 #include "storage/h/subject.h"
 
 namespace {
@@ -71,6 +74,23 @@ void ScriptNewObject(TProcessContext* pc, void* userData) {
   SC_PARI(0) = object.getCachePos();
 }
 
+void ScriptNewObjectWithoutResult(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->NewObject(SC_PARI(1), SC_PARS(0));
+}
+
+void ScriptNewObjectByClass(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->NewObject(SC_PARS(1), SC_PARS(0));
+}
+
+void ScriptLoadRoute(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->LoadRoute(SC_PARI(2), SC_PARS(1), SC_PARS(0));
+  }
+}
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
@@ -80,6 +100,9 @@ TLinkExtern g_bindings[] = {
     {"s_SearchObjectID", ScriptSearchObjectID, nullptr},
     {"s_AddClassTable", ScriptAddClassTable, nullptr},
     {"s_New", ScriptNewObject, nullptr},
+    {"s_NewObject", ScriptNewObjectWithoutResult, nullptr},
+    {"s_NewObjectN", ScriptNewObjectByClass, nullptr},
+    {"s_LoadRoute", ScriptLoadRoute, nullptr},
     {nullptr, nullptr, nullptr}};
 
 TLinkConstExtern g_constants[] = {{nullptr, nullptr, 0}};
@@ -181,6 +204,59 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(int classTable,
            "script object creation failed");
   }
   return object;
+}
+
+KR_ObjectID RecoveredLegacyScriptHost::NewObject(const char* className,
+                                                  const char* name) {
+  if (!ArenaReady("create object by class") || className == nullptr ||
+      name == nullptr) {
+    return KR_ObjectID::NUL();
+  }
+  KR_ObjectID object = m_arena->newObject(className, name);
+  if (object.isNUL()) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE,
+           "script named-class object creation failed");
+  }
+  return object;
+}
+
+KR_ObjectID RecoveredLegacyScriptHost::LoadRoute(
+    int classTable, const char* fileName, const char* routeName) {
+  if (!ArenaReady("load route") || fileName == nullptr ||
+      routeName == nullptr) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_LOAD_FAILURE,
+           "script route load received invalid input");
+    return KR_ObjectID::NUL();
+  }
+  if (std::strlen(fileName) + 1 > s_EventData::BUFF_SIZE) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_LOAD_FAILURE,
+           "script route path exceeds the event payload");
+    return KR_ObjectID::NUL();
+  }
+
+  const int previousNodeCount = Route::m_totalNodePos;
+  KR_ObjectID routeID = NewObject(classTable, routeName);
+  if (routeID.isNUL()) return routeID;
+
+  KR_Event event;
+  event.label = ROUTE_LOAD;
+  event.source = m_arena->getObjectID();
+  event.destination = routeID;
+  event.timeStamp = 0.1;
+  event.data.open(EDO_WRITE).putStr(fileName).close();
+  m_arena->getContext()->sendEventNow(event);
+
+  IRouteObject* route = static_cast<IRouteObject*>(
+      m_arena->getContext()->queryInterface(routeID, IRouteObjectIID));
+  if (route == nullptr) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_INTERFACE_FAILURE,
+           "script route object does not expose IRouteObjectIID");
+  } else if (route->GetNodeCnt() <= 0 ||
+             Route::m_totalNodePos <= previousNodeCount) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_LOAD_FAILURE,
+           "script route file did not publish any nodes");
+  }
+  return routeID;
 }
 
 TLinkExtern* RecoveredLegacyScriptHost::Bindings() { return g_bindings; }

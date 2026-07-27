@@ -523,6 +523,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredGameServices_SessionReady() ? 1 : 0));
   log.Line("arena_seance_initialized=" +
            std::to_string(RecoveredGameServices_SeanceReady() ? 1 : 0));
+  log.Line("route_table_initialized=" +
+           std::to_string(RecoveredGameServices_RouteReady() ? 1 : 0));
   log.Line("vehicle_default_initialized=" +
            std::to_string(RecoveredGameServices_VehicleReady() ? 1 : 0));
   log.Line("arena_seance_issues=" +

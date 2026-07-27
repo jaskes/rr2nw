@@ -396,6 +396,54 @@ Status vocabulary:
 - Revisit when: concurrent or persistent script processes require separate
   host instances, or a new script ABI replaces integer event handles.
 
+### CQ-032: Route coordinates were accepted without a complete parse
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: `Route::LoadRoute` declared three uninitialized doubles, ignored
+  the return value from `sscanf` and passed them to an `IsNAN` macro that did
+  not implement a NaN test. A malformed coordinate record could therefore read
+  indeterminate values and publish arbitrary coordinates.
+- Handling: all coordinates begin at zero, the record must produce exactly
+  three values and each value must be finite. Invalid input leaves the route
+  empty, which the bounded `s_LoadRoute` host reports as a typed failure. Valid
+  retail decimal records retain their original values and ordering.
+- Revisit when: Route input moves to a length-aware parser with structured
+  diagnostics and explicit encoding/newline rules.
+
+### CQ-033: Route nodes use a process-wide static pool
+
+- Status: `CONFIRMED_SOURCE`, `BUGFIX_ACCEPTED` for table teardown.
+- Evidence: all Route objects share `m_node`, `m_napr`, `m_length` and
+  `m_totalNodePos`. Table allocation reset the cursor, but `freeObjects` left
+  it pointing past coordinates owned by the released seance.
+- Handling: Route table release now resets `m_totalNodePos` after destroying
+  its objects. The host smoke loads a three-node route, closes Arena, verifies
+  the object and `Storage` disappear and requires the static cursor to be zero.
+- Revisit when: routes own independent node containers or static Route save
+  compatibility is replaced by an explicit world-state serializer.
+
+### CQ-034: four retail Route headers overstate their node count by one
+
+- Status: `CONFIRMED_RETAIL`, `PRESERVED_SAFELY`.
+- Evidence: the installed May 1999 data and mounted disc image contain matching
+  copies of `Level.01D/Route/Pwr_Mis.T08/t08_t_01.rt`,
+  `Level.03N/Route/Intro/man_03.rt`, `man_04.rt` and
+  `Level.06N/Route/CIVIL/msl12.rt`. Their declared/actual coordinate counts are
+  respectively 44/43, 3/2, 3/2 and 24/23. `t08_t_01.rt` and `msl12.rt` are
+  referenced by retail mission scripts, so rejecting the whole file would
+  regress playable content. The matching copies prove this is corpus behavior,
+  not damage unique to the local installation.
+- Handling: the line reader now initializes its buffer, checks I/O, consumes
+  CRLF or LF deterministically and never reuses stale bytes after EOF. A clean
+  EOF after at least one valid coordinate clamps the published count to the
+  number actually read. An existing malformed coordinate, empty route, bad
+  header or overlong record still rejects the route. A direct host fixture
+  declares three nodes, provides two and verifies a usable two-node interface,
+  interpolation and complete static-pool rollback.
+- Revisit when: corrected retail data is shipped as an opt-in compatibility
+  patch, or Route files gain a versioned parser that can report recoverable
+  warnings separately from fatal errors.
+
 ## Maintenance rule
 
 When a new quirk is found:

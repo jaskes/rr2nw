@@ -57,8 +57,10 @@ var int event, attrID, attrCachePos, objectID, cachePos;
 }
 
 func void main()
-var int attrTable, vehicleTable, objectID, cachePos;
+var int routeTable, attrTable, vehicleTable, objectID, cachePos;
 {
+  routeTable := s_AddClassTable("Route", 100);
+
   attrTable := s_AddClassTable("VehicleAttr", 2);
   s_New(attrTable, "Vehicle.Attr.default", objectID, cachePos);
   SetAttributeStr(objectID, cachePos, "m_dynamic", "TankGenn0");
@@ -75,6 +77,7 @@ struct RecoveredArenaSeanceState {
   unsigned int issues;
   bool arenaOpen;
   bool scriptCompleted;
+  bool routeReady;
   bool vehicleReady;
   char lastError[256];
 };
@@ -187,6 +190,16 @@ bool PublishVehicle(SimulationContext* context) {
   return true;
 }
 
+bool PublishRouteTable() {
+  if (g_arena.searchSeanceClassTable("Route") == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_ROUTE_TABLE_MISSING,
+           "script did not create the Route table");
+    return false;
+  }
+  g_state.routeReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -209,6 +222,11 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
     g_state.scriptCompleted = true;
 
+    if (!PublishRouteTable()) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+
     if (!PublishVehicle(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
@@ -230,6 +248,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 
 void RecoveredArenaSeance_Release() {
   g_state.vehicleReady = false;
+  g_state.routeReady = false;
   g_state.scriptCompleted = false;
   g_vehicle = nullptr;
   if (!g_state.arenaOpen) return;
@@ -242,6 +261,8 @@ bool RecoveredArenaSeance_IsOpen() { return g_state.arenaOpen; }
 bool RecoveredArenaSeance_ScriptCompleted() {
   return g_state.scriptCompleted;
 }
+
+bool RecoveredArenaSeance_RouteReady() { return g_state.routeReady; }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }
 

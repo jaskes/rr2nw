@@ -28,6 +28,7 @@ bool RecoveredGameServices_SessionReady();
 bool RecoveredGameServices_LoopReady();
 bool RecoveredGameServices_HardwareReady();
 bool RecoveredGameServices_SeanceReady();
+bool RecoveredGameServices_RouteReady();
 bool RecoveredGameServices_VehicleReady();
 bool RecoveredGameServices_QuitRequested();
 bool RecoveredGameServices_IsReady();
