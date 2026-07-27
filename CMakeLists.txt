@@ -1903,6 +1903,7 @@ target_compile_features(rr2nw_arena_obase_vehicle PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_arena_obase_vehicle PRIVATE
   __NT__
   RR2NW_VEHICLE_STATE_EXTERNAL
+  RR2NW_VESSEL_RUNTIME_GLOBALS_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
@@ -2203,6 +2204,8 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_obase_debug_map_mission
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state
+  rr2nw_arena_obase_vehicle
+  rr2nw_legacy_shell_full
   rr2nw_recovered_game_level_runtime
   rr2nw_recovered_software_frame
   rr2nw_supervisor_global

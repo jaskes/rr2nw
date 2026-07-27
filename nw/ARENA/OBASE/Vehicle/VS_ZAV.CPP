@@ -9,7 +9,9 @@
 
 //CViewObjectModel	*CVessel::m_pBase = NULL;
 
+#ifndef RR2NW_VESSEL_RUNTIME_GLOBALS_EXTERNAL
 CViewObjectRef	*pVesselObj = NULL;
+#endif
 
 CViewScene *ZAV_Scene();
 double		__t = 0;

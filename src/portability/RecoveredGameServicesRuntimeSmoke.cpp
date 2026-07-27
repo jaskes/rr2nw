@@ -4,8 +4,10 @@
 #define LAST_H__SCENE
 #include "game.h"
 #include "dmap.h"
+#include "hardware.h"
 #include "h/super.h"
 #include "kernel/h/session.h"
+#include "message/hardmsg.h"
 #include "message/levelmsg.h"
 
 #include "FrameRuntimeState.h"
@@ -23,31 +25,41 @@
 namespace {
 
 int Fail(const char* message) {
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
   std::fprintf(
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
-      "platform=%d session=%d loop=%d level=%d graph=%d frame=%u "
-      "context=%p publisher=%p timer=%p scene=%p current=%p bush=%d)\n",
+      "platform=%d session=%d loop=%d hardware=%d level=%d graph=%d "
+      "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
+      "bush=%d observer_events=%u observer_z=%lg)\n",
       message, RecoveredGameServices_Issues(), GameEntry_RuntimeIssues(),
       GameEntry_RuntimeMissingHooks(),
       RecoveredGameServices_PlatformReady() ? 1 : 0,
       RecoveredGameServices_SessionReady() ? 1 : 0,
       RecoveredGameServices_LoopReady() ? 1 : 0,
+      RecoveredGameServices_HardwareReady() ? 1 : 0,
       RecoveredGameLevel_IsReady() ? 1 : 0,
       RecoveredSoftwareGraph_IsReady() ? 1 : 0, Frame_RuntimeIssues(),
       static_cast<void*>(g_super.m_context),
       static_cast<void*>(g_super.m_publisher),
       static_cast<void*>(Session::m_realTimer), static_cast<void*>(pScene),
       static_cast<void*>(CViewScene::Current()),
-      bush_IsInitialized() ? 1 : 0);
+      bush_IsInitialized() ? 1 : 0,
+      observer != nullptr ? observer->inputEvents : 0,
+      observer != nullptr ? observer->z : 0.0);
   return EXIT_FAILURE;
 }
 
 bool IsServiceReleased() {
   return !RecoveredGameServices_PlatformReady() &&
          !RecoveredGameServices_SessionReady() &&
-         !RecoveredGameServices_LoopReady() && g_super.m_context == nullptr &&
-         g_super.m_publisher == nullptr && Session::m_realTimer == nullptr;
+         !RecoveredGameServices_LoopReady() &&
+         !RecoveredGameServices_HardwareReady() &&
+         RecoveredGameServices_ObserverState() == nullptr &&
+         g_super.m_context == nullptr && g_super.m_publisher == nullptr &&
+         Session::m_realTimer == nullptr && Session::m_hardware == nullptr &&
+         g_hardware.getContext() == nullptr;
 }
 
 bool IsLevelRolledBack() {
@@ -65,6 +77,28 @@ bool StartServices(const char* directory) {
   SUA_InitEverything();
   ZAV_BeginLoop();
   return RecoveredGameServices_IsReady();
+}
+
+bool SendHardwareButton(const char* keyName, int buttonDown) {
+  if (g_super.m_context == nullptr || g_hardware.getContext() == nullptr) {
+    return false;
+  }
+  const int code = g_hardware.SearchCode(keyName);
+  if (code < 0) return false;
+
+  KR_Event event;
+  event.source = g_hardware.getObjectID();
+  event.destination = g_hardware.getObjectID();
+  event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
+  event.label = CTRL_HARDWARE_EVENT;
+  event.data.open(EDO_WRITE)
+      .putInt(CTRL_BUTTONS_MSG)
+      .putInt(code)
+      .putInt(buttonDown)
+      .putInt(FALSE)
+      .close();
+  g_super.m_context->sendEventNow(event);
+  return true;
 }
 
 }  // namespace
@@ -109,12 +143,34 @@ int main(int argc, char** argv) {
     return Fail("bounded Level event was not dispatched");
   }
   g_debugMap.Draw();
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  if (!RecoveredGameServices_HardwareReady() || observer == nullptr) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("recovered Hardware or observer was not published");
+  }
+  const SRecoveredObserverState observerBefore = *observer;
+  if (!SendHardwareButton("W", TRUE)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("synthetic Hardware press failed");
+  }
+  Sleep(20);
   if (RecoveredGameServices_Issues() != 0 ||
       !RecoveredGameServices_RunFrame() ||
+      !SendHardwareButton("W", FALSE) ||
       !RecoveredGameServices_RunFrame() || dwFrames != 2) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("bounded software frames failed");
+  }
+  observer = RecoveredGameServices_ObserverState();
+  if (observer == nullptr || observer->inputEvents < 2 ||
+      observer->z >= observerBefore.z) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Hardware actions did not advance the observer camera");
   }
 
   KR_Event unsupported;
@@ -148,6 +204,6 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=3 hooks=12\n");
+  std::printf("bounded services frames=3 hooks=12 hardware=legacy observer=1\n");
   return EXIT_SUCCESS;
 }

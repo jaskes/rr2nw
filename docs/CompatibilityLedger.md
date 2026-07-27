@@ -299,6 +299,37 @@ Status vocabulary:
 - Revisit when: DebugMap resources move to a platform-independent explicit
   lifecycle or active DebugMap rendering is connected to the modern runtime.
 
+### CQ-025: Hardware resolution changes assumed a live window and device
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: `KR_Hardware::addNotify` unconditionally calls `ChangeRes`, while
+  the historical implementation dereferenced `_dL.currDevice` and consumed
+  the result of `GetWindowRect(_gr_hWnd, ...)` without validating either. A
+  headless service test can legitimately register Hardware with no HWND, and a
+  partially constructed or rolling-back graph can have no current device.
+- Handling: a missing window receives a deterministic framebuffer-sized
+  rectangle (with a one-pixel lower bound), current-device access is guarded,
+  and cursor hiding requires a real window. The normal windowed path retains
+  the recovered dimensions and cursor behavior.
+- Revisit when: Hardware window/mouse ownership moves behind the platform
+  boundary and no longer reads graph globals directly.
+
+### CQ-026: terrain water clipping passed an uninitialized bump reference
+
+- Status: `BUGFIX_ACCEPTED`.
+- Evidence: `_CViewTerrain::DrawTriangleSplit` declared `pBump` and each local
+  `pbump` without initialization, then formed references from them for
+  `InterpolateClipped` even when `bCellBump` was false. The former identity
+  camera did not reach this branch. Starting at retail `Level.05D`'s actual
+  `[Vessel] Init` position reproduced MSVC Run-Time Check Failure #3 for
+  `pBump` before the first frame.
+- Handling: both optional bump-coordinate slots are zero-initialized and the
+  pointers always address the matching slot. Enabled bump mapping still writes
+  the same interpolated values before use; the disabled path no longer forms a
+  reference from an indeterminate pointer.
+- Revisit when: terrain polygon clipping is covered by a renderer-independent
+  geometry test or replaced by a modern vertex pipeline.
+
 ## Maintenance rule
 
 When a new quirk is found:

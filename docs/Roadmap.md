@@ -310,15 +310,24 @@ installed `Level.05D`, resolves all 5,080 references, attaches 466 land pieces,
 presents two frames and records `service_hooks=12`, zero service issues and a
 clean shutdown. The automated matrix is 41/41 in both configurations.
 
-This finishes the bounded M1 service-loop frontier, not a playable seance. The
-next implementation slice is persistent interaction: connect the recovered
-Hardware/message input boundary, create the real Vehicle/player relationship,
-derive the camera from that live object, and advance pre-step/event/update in
-the recovered order. Menu, Briefing, Console, save/load/restart transitions,
-RSX/audio and active DebugMap rendering follow as separately reversible
-tranches. The executable should become user-closable and continuously playable
-on one retail Level before any of those optional surfaces are allowed to widen
-the stable startup transaction.
+The persistent observation slice is now complete. The original `KR_Hardware`
+receives real Win32 messages and translates W/A/S/D, vertical movement, arrow
+look and Escape into its legacy action protocol. A temporary observer starts at
+the retail `[Vessel] Init` position, drives the view continuously and unwinds in
+subscriber-before-Hardware order. Normal `rr2nw.exe` runs until Escape/window
+close; `--runtime-smoke` stays bounded at two frames. An automated installed
+`Level.05D` GUI run delivered W and Escape through the HWND, completed 33
+frames, moved the observer, reported zero service issues and shut down cleanly.
+
+The real Vehicle is not a drawable-scene reference that can simply be selected
+now. `Vehicle.Default` is created by the level script only after
+`ct_Arena::openSeance()` establishes the gameplay object graph. The next
+implementation slice is therefore Arena/storage/script seance startup with a
+transactional failure boundary and an explicit proof that `Vehicle.Default`
+exists. Only then should control and the camera transfer from the observer to
+the real Vehicle/player and begin recovered pre-step/event/update processing.
+Menu, Briefing, Console, save/load/restart transitions, RSX/audio and active
+DebugMap rendering remain separately reversible later tranches.
 
 ### Цель
 

@@ -862,6 +862,47 @@ Hardware/input and a real Vehicle/player, followed by Menu/Briefing/Console
 and save/restart transitions. RSX/audio and active DebugMap integration stay
 separate so they cannot destabilize the proven software path.
 
+### Legacy Hardware and persistent observer
+
+The next tranche connects the complete recovered `HARDWARE.cpp` implementation
+to the production service context and Win32 software window. Hardware remains
+the sole key-code/action translator; the modern layer only chooses a bounded
+W/A/S/D, vertical, arrow and Escape binding set and consumes its normal action
+events. Window messages are dispatched once through Hardware, message draining
+is bounded per frame and user quit is kept separate from service failures.
+
+Pulling the full shell archive exposed four real transitive Vehicle edges from
+Briefing/Console: `Vehicle::setBriefingSound`, `g_vehicle`,
+`Vehicle::Restart` and `VehicleTable::ReadConfig`. Linking the recovered Vehicle
+archive closes those edges. Its `VS_ZAV.CPP` and the extracted scene runtime
+both historically defined `pVesselObj`; `RR2NW_VESSEL_RUNTIME_GLOBALS_EXTERNAL`
+now selects the extracted owner for modern links instead of tolerating duplicate
+process-wide state. This is a link dependency only: no Vehicle object is
+created in the bounded context.
+
+`RecoveredObserver` registers through the original Hardware subscription
+protocol, starts at `[Vessel] Init`, advances from `Session::m_frameSec` and
+builds the real view matrix. The service smoke injects W through
+`CTRL_HARDWARE_EVENT`, observes translated press/release actions and proves the
+camera moved, then verifies Hardware, observer and Session pointers are cleared
+across double shutdown and reconstruction.
+
+Rendering from the actual installed `Level.05D` start exposed an older terrain
+UB that the identity camera missed: water clipping formed `pBump` references
+from uninitialized pointers when bump mapping was disabled. Initializing the
+two optional coordinate slots and their pointers removes MSVC Run-Time Check
+Failure #3 without changing enabled-bump interpolation. The normal executable
+now runs persistently; an automated GUI check delivered W and Escape through
+the real HWND, completed 33 frames, moved from Z `-2393.579` to `-2478.699`,
+reported ten Hardware action events, zero service issues and clean shutdown.
+The two-frame `--runtime-smoke` contract is unchanged.
+
+This completes persistent visual observation and the Hardware event boundary,
+not gameplay. `Vehicle.Default` appears only after `ct_Arena::openSeance()` and
+the level script create the gameplay object graph. Arena/storage/script seance
+startup is therefore the next measured frontier; real Vehicle/player camera
+handoff follows it. RSX/audio, active DebugMap and shell UI remain separate.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -886,17 +927,18 @@ separate so they cannot destabilize the proven software path.
    through public `ZAV_InitLevel`; the original entry point still links and
    exits safely with its intentionally incomplete default runtime.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
-6. **Bounded Level/service loop complete:** the software Win32 graph and
+6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,
    figure-library and scene-header bootstrap now execute atomically. The complete
    object/figure/keyframe/order/bush decode path, real terrain construction and
    structural land-map/order ownership now pass every installed retail Level.
    A transactional real `CViewScene` resolves all object references, attaches
    land dynamics, initializes DEP-safe bush rendering and is now published by
-   `ZAV_InitLevel`. A bounded real Session/Publisher/Level service graph now
-   presents software frames and tears down cleanly. Connect persistent
-   Hardware/Vehicle input and gameplay event processing next; RSX/audio and
-   active DebugMap remain later isolated boundaries.
+   `ZAV_InitLevel`. A real Session/Publisher/Level/Hardware graph now presents
+   software frames, drives a persistent observer through legacy actions and
+   tears down cleanly. Connect Arena/script seance creation and then hand the
+   camera to the real Vehicle/player; RSX/audio and active DebugMap remain later
+   isolated boundaries.
 7. **Complete:** advance the executable from pre-content-ready to a
    deterministic level-ready marker while retaining the synthetic preflight
    contract.

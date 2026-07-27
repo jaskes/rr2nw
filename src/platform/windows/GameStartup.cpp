@@ -474,9 +474,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
 
   RecoveredGameServices_UseRuntime();
-  if (!ZAV_InitGraph(instance) ||
-      !ZAV_InitLevel(levelDirectory.c_str()) ||
-      !RecoveredGameLevel_IsReady()) {
+  const bool graphInitialized = ZAV_InitGraph(instance) != FALSE;
+  log.Line(std::string("graph_initialized=") +
+           (graphInitialized ? "1" : "0"));
+  const bool levelInitialized =
+      graphInitialized && ZAV_InitLevel(levelDirectory.c_str()) != FALSE;
+  log.Line(std::string("level_initialized=") +
+           (levelInitialized ? "1" : "0"));
+  if (!levelInitialized || !RecoveredGameLevel_IsReady()) {
     log.Line("game_entry_issues=" +
              std::to_string(GameEntry_RuntimeIssues()));
     log.Line("game_entry_missing_hooks=" +
@@ -511,11 +516,27 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
 
   PIN_InitEverything();
+  log.Line("platform_initialized=1");
   SUA_InitEverything();
+  log.Line("session_initialized=" +
+           std::to_string(RecoveredGameServices_SessionReady() ? 1 : 0));
   ZAV_BeginLoop();
-  if (!RecoveredGameServices_IsReady() ||
-      !RecoveredGameServices_RunFrame() ||
-      !RecoveredGameServices_RunFrame()) {
+  log.Line("loop_initialized=" +
+           std::to_string(RecoveredGameServices_LoopReady() ? 1 : 0));
+  bool loopFailed = !RecoveredGameServices_IsReady();
+  if (!loopFailed && options.runtimeSmoke) {
+    loopFailed = !RecoveredGameServices_RunFrame() ||
+                 !RecoveredGameServices_RunFrame();
+  }
+  while (!loopFailed && !options.runtimeSmoke &&
+         !RecoveredGameServices_QuitRequested()) {
+    if (!RecoveredGameServices_RunFrame()) {
+      loopFailed = !RecoveredGameServices_QuitRequested();
+      break;
+    }
+    Sleep(1);
+  }
+  if (loopFailed) {
     log.Line("game_services_issues=" +
              std::to_string(RecoveredGameServices_Issues()));
     log.Line("marker=loop-not-ready");
@@ -523,8 +544,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     ZAV_Deinit();
     ShowMessage(options.runtimeSmoke, MB_ICONERROR,
                 L"RR2NW runtime error",
-                L"The recovered services could not complete the bounded "
-                L"software loop.\n\nDiagnostic log:\n" + log.path());
+                L"The recovered services could not complete the software "
+                L"loop.\n\nDiagnostic log:\n" + log.path());
     return kRuntimeNotReady;
   }
 
@@ -541,23 +562,32 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(summary->terrainHeightMapReady));
   log.Line("scene_bush_ready=" +
            std::to_string(summary->bushRendererReady));
+  log.Line("runtime_mode=" +
+           std::string(options.runtimeSmoke ? "bounded-smoke"
+                                            : "interactive-observer"));
+  log.Line("input_mode=legacy-hardware-keyboard");
+  log.Line("camera_mode=recovered-observer");
+  log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));
   log.Line("game_services_issues=" +
            std::to_string(RecoveredGameServices_Issues()));
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  if (observer != nullptr) {
+    log.Line("observer_input_events=" +
+             std::to_string(observer->inputEvents));
+    log.Line("observer_position=" + std::to_string(observer->x) + "," +
+             std::to_string(observer->y) + "," +
+             std::to_string(observer->z));
+    log.Line("observer_angles=" + std::to_string(observer->yaw) + "," +
+             std::to_string(observer->pitch));
+  }
   log.Line("marker=level-ready");
 
   ZAV_DeInitLevel();
   ZAV_Deinit();
   log.Line("runtime_shutdown=clean");
-
-  ShowMessage(options.runtimeSmoke, MB_ICONINFORMATION,
-              L"RR2NW recovered Level",
-              BuildIdentity() +
-                  L"\n\nThe selected Level reached the recovered drawable "
-                  L"scene, completed the bounded service/render loop and "
-                  L"shut down cleanly.\n\nDiagnostic log:\n" +
-                  log.path());
   return kSuccess;
 }
 

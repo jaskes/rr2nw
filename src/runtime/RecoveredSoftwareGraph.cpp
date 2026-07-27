@@ -26,6 +26,7 @@ bool g_windowClassOwned = false;
 bool g_programmaticWindowDestroy = false;
 bool g_ready = false;
 void (*g_previousClipUpdate)() = nullptr;
+TRecoveredSoftwareWindowMessageHook g_windowMessageHook = nullptr;
 
 void UpdateSoftwareClip() {}
 
@@ -34,6 +35,13 @@ LRESULT CALLBACK SoftwareWindowProc(HWND window, UINT message, WPARAM wParam,
   switch (message) {
     case WM_ERASEBKGND:
       return 1;
+    case WM_PAINT: {
+      PAINTSTRUCT paint = {};
+      BeginPaint(window, &paint);
+      (void)GRDumpScreen();
+      EndPaint(window, &paint);
+      return 0;
+    }
     case WM_CLOSE:
       DestroyWindow(window);
       return 0;
@@ -41,6 +49,9 @@ LRESULT CALLBACK SoftwareWindowProc(HWND window, UINT message, WPARAM wParam,
       if (!g_programmaticWindowDestroy) PostQuitMessage(0);
       return 0;
     default:
+      if (g_windowMessageHook != nullptr) {
+        return g_windowMessageHook(window, message, wParam, lParam);
+      }
       return DefWindowProcA(window, message, wParam, lParam);
   }
 }
@@ -124,6 +135,7 @@ void FinishSoftwareGraph() {
   _dL = SDeviceList{};
   _pGRSetClipRect = g_previousClipUpdate;
   g_previousClipUpdate = nullptr;
+  g_windowMessageHook = nullptr;
   g_ready = false;
 }
 
@@ -215,4 +227,9 @@ int RecoveredSoftwareGraph_Width() {
 
 int RecoveredSoftwareGraph_Height() {
   return g_ready ? kScreenHeight : 0;
+}
+
+void RecoveredSoftwareGraph_ConfigureWindowMessageHook(
+    TRecoveredSoftwareWindowMessageHook hook) {
+  g_windowMessageHook = hook;
 }

@@ -1714,7 +1714,7 @@ void _CViewTerrain::DrawTriangleSplit(bool nSplitUp,_CViewTerrain::SVert3W **ppC
 	int		pass = 0, iTemp = 0;
 	bool	hcfTemp;
 	SVert3W	temps[2], *pTemp = NULL;
-	SVector2	bumps[2], *pBump;
+	SVector2	bumps[2] = {}, *pBump = &bumps[0];
 	for( i = iVert1 ; ; ) {
 		SVert3W	&vert = *ppCellVerts[i];
 		if( vert.v3.z >= CViewFigure::HazeMin() /**nTerrainPrec*/ ) dwHazeFlag = GR_POLY_ADD_HAZE;
@@ -1727,7 +1727,7 @@ void _CViewTerrain::DrawTriangleSplit(bool nSplitUp,_CViewTerrain::SVert3W **ppC
 				//int	t = SHLD_IDiv(nClipD-vert.z3,vertP.z3-vert.z3,CViewObject::CLIP_SHIFT);
 				double  t = (fClipD-vert.v3.z)/AbsNoLess(vertP.v3.z-vert.v3.z,1e-5);
 				int nt; D2INT(&nt,t*CViewObject::CLIP_PREC);
-				SVert3W &temp = temps[iTemp]; SVector2 *pbump;
+				SVert3W &temp = temps[iTemp]; SVector2 *pbump = &bumps[iTemp];
 				temp.v3.x = vert.v3.x+(vertP.v3.x-vert.v3.x)*t;
 				temp.v3.y = vert.v3.y+(vertP.v3.y-vert.v3.y)*t;
 				//temp.y3 = vert.y3+Mul_SHRD(vertP.y3-vert.y3,t,CViewObject::CLIP_SHIFT);
@@ -1775,7 +1775,7 @@ void _CViewTerrain::DrawTriangleSplit(bool nSplitUp,_CViewTerrain::SVert3W **ppC
 				//int	t = SHLD_IDiv(nClipD-vert.z3,vertN.z3-vert.z3,CViewObject::CLIP_SHIFT);
 				double t = (fClipD-vert.v3.z)/AbsNoLess(vertN.v3.z-vert.v3.z,1e-5);
 				int nt; D2INT(&nt,t*CViewObject::CLIP_PREC);
-				SVert3W &temp = temps[iTemp]; SVector2 *pbump;
+				SVert3W &temp = temps[iTemp]; SVector2 *pbump = &bumps[iTemp];
 				temp.v3.x = vert.v3.x+(vertN.v3.x-vert.v3.x)*t;
 				temp.v3.y = vert.v3.y+(vertN.v3.y-vert.v3.y)*t;
 				temp.v3.z = fClipD;
@@ -1820,7 +1820,7 @@ void _CViewTerrain::DrawTriangleSplit(bool nSplitUp,_CViewTerrain::SVert3W **ppC
 			} // next Z-clipped
 		}
 		else {
-			SVert3W &temp = temps[iTemp]; SVector2 *pbump;
+			SVert3W &temp = temps[iTemp]; SVector2 *pbump = &bumps[iTemp];
 			*(SVert3_0*)&temp = *(SVert3_0*)&vert;
 			temp.h0 = vert.h0;
 			if( bGouraud )

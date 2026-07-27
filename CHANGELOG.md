@@ -148,6 +148,11 @@ claim authorship of inherited Logos code or retail data.
   smoke contract covers missing-Level rollback, wake-up dispatch, unsupported
   Level-event diagnostics, inactive DebugMap safety, double shutdown and
   service reconstruction across all retail Levels.
+- Added the first persistent interactive runtime: the recovered `KR_Hardware`
+  translates real Win32 keyboard messages into legacy actions for a bounded
+  observer camera initialized from `[Vessel] Init`. W/A/S/D, Space/left Ctrl,
+  arrow keys and Escape now drive the normal executable until explicit exit;
+  `--runtime-smoke` remains a deterministic two-frame CI path.
 - Added a living compatibility ledger with stable IDs, evidence, current
   handling and revisit triggers for retail case folding, modified local data,
   day/night scene reuse, serializer sentinels, empty maps, ABI widths and
@@ -290,6 +295,17 @@ claim authorship of inherited Logos code or retail data.
   in its constructor so the pre-`DebugMap::Init` bounded service path is
   deterministic and cannot enter the Hardware-dependent renderer by reading
   indeterminate flags.
+- Made `KR_Hardware::ChangeRes` tolerate the headless service context and
+  partially initialized graphics state, bounded each frame's Win32 message
+  drain and removed duplicate default-window dispatch when the legacy input
+  handler is attached.
+- Initialized the terrain splitter's optional bump-coordinate pointers even
+  when bump mapping is disabled. A real `[Vessel] Init` camera on installed
+  `Level.05D` exposed the previous uninitialized reference as MSVC Run-Time
+  Check Failure #3 before the first frame.
+- Consolidated `pVesselObj` under the extracted scene runtime owner when the
+  full Vehicle archive is linked, avoiding duplicate process-wide state while
+  preserving the original owner for historical builds.
 - Added a standards-compliant MSVC typed-object debug declaration and explicit
   legacy renderer conversions and const-correct logging formats needed by
   strict modern consumers.

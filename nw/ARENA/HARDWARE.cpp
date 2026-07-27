@@ -453,13 +453,19 @@ void KR_Hardware::removeNotify(){
 }
 //-------------------------------------------------------------
 void KR_Hardware::ChangeRes(){
-	::GetWindowRect(_gr_hWnd, &m_windowRect);
+	if( _gr_hWnd == NULL || !::GetWindowRect(_gr_hWnd, &m_windowRect) ) {
+		::SetRect(&m_windowRect, 0, 0,
+			_gr_nScreenWidth > 0 ? _gr_nScreenWidth : 1,
+			_gr_nScreenHeight > 0 ? _gr_nScreenHeight : 1);
+	}
 	m_winLen	    = m_windowRect.right-m_windowRect.left;
 	m_winH	        = m_windowRect.bottom-m_windowRect.top;
 	m_centerWindowX = m_winLen/2;
 	m_centerWindowY = m_winH/2;
 
-    if(_dL.currDevice->fullScreen || m_ctrlUse.mouse) HideMouseCursor();
+    if(_gr_hWnd != NULL &&
+       ((_dL.currDevice != NULL && _dL.currDevice->fullScreen) ||
+        m_ctrlUse.mouse)) HideMouseCursor();
 }
 //-------------------------------------------------------------
 int KR_Hardware::SearchCode(const char *name) const{

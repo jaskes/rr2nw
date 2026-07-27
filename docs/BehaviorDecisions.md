@@ -593,24 +593,62 @@ software scene:
   as unavailable until its Hardware, vehicle, panel and secondary-viewport
   dependencies are connected.
 
-One bounded frame pumps Win32 messages, starts the real software scene,
+One bounded frame pumps Win32 messages, polls the real Session and starts the
+real software scene,
 executes `SUA_BeginRender`, the recovered `CViewScene` draw and every recovered
-software frame stage, polls the real Session, advances `dwFrames` and presents
-the DIB with `GRDumpScreen`. `WM_QUIT`, missing dependencies and frame-stage
-errors are explicit failure results. Public Level deinitialization always
-releases the service graph first; repeated teardown and complete reconstruction
-are required behavior.
+software frame stage, advances `dwFrames` and presents the DIB with
+`GRDumpScreen`. Missing dependencies and frame-stage errors are explicit
+failure results. Public Level deinitialization always releases the service graph
+first; repeated teardown and complete reconstruction are required behavior.
 
 Twelve of twelve entry callbacks now have production bindings, so the special
 seven-hook bounded-startup exception is no longer enabled for this owner. This
-is a complete callback inventory, not a claim of complete gameplay. RSX/audio,
-legacy Hardware input, Arena object seance, Vehicle/player control, Menu,
-Briefing, Console, active DebugMap rendering, save/load/restart events and a
-persistent interactive loop remain outside this boundary and must not be
-reported as recovered.
+is a complete callback inventory, not a claim of complete gameplay. At this
+decision's acceptance, RSX/audio, legacy Hardware input, Arena object seance,
+Vehicle/player control, Menu, Briefing, Console, active DebugMap rendering,
+save/load/restart events and a persistent interactive loop remained outside the
+boundary. BD-025 connects Hardware plus a temporary observer while retaining
+the remaining exclusions.
 
 Regression contract: `recovered-game-services-runtime-smoke`, missing-Level
 rollback, inactive and unsupported dispatch checks, double shutdown,
 reconstruction, three presented frames per retail invocation, all nine Levels
 from both the installed and mounted May-retail trees in Debug/Release, normal
 `rr2nw.exe --runtime-smoke`, and the complete 41-test Debug/Release matrix.
+
+## BD-025: recovered Hardware drives a temporary observer before Vehicle seance
+
+Status: accepted on 2026-07-27.
+
+The first persistent runtime uses the original `KR_Hardware` translator rather
+than inventing a second Win32 key map. Hardware is registered in the bounded
+`SimulationContext` before its subscribers, receives window messages from the
+software graph and publishes the existing `CTRL_BUTTONS_MSG` action payload.
+The observer subscribes through the original exclusive-input protocol and maps
+only these actions into camera state:
+
+- W/A/S/D move forward, left, backward and right;
+- Space and left Ctrl move vertically;
+- the arrow keys change yaw and pitch;
+- Escape requests clean shutdown through the normal window lifecycle.
+
+The observer begins at the first three values of the retail `[Vessel] Init`
+setting, matching the historical `mainproc.cpp` interpretation. It is a
+deliberate transitional object, not a substitute `Vehicle.Default`: inspection
+shows that the real Vehicle is created by the level script after the Arena
+seance opens, not by visual `CViewScene` reference resolution. Linking the
+Vehicle archive to satisfy Hardware's Briefing/Console edges therefore does
+not authorize constructing a fake vehicle before that script boundary exists.
+
+Normal `rr2nw.exe` now runs continuously until Escape or window close.
+`--runtime-smoke` remains exactly two frames so CI and retail sweeps stay
+bounded. Teardown removes Level, DebugMap and observer subscribers before
+Hardware, then releases Publisher, Session, scene and graph state. Clean user
+exit is a lifecycle signal and does not set the persistent service issue mask.
+RSX/audio, mouse/joystick control, active DebugMap, Menu/Briefing/Console UI and
+gameplay Vehicle/player state remain deferred.
+
+Regression contract: legacy press/release translation and observer movement in
+`recovered-game-services-runtime-smoke`; two-frame executable runtime smoke;
+automated GUI W movement plus Escape shutdown with zero issues and a clean
+diagnostic log; all installed and mounted retail Levels in Debug and Release.
