@@ -296,7 +296,8 @@ bool FarterAttributeState_IsKnownReferenceRoster(
 {
     static const unsigned long long known[] = {
         10155668643424727455ull,
-        6949774498761611553ull
+        6949774498761611553ull,
+        852741406253704921ull
     };
     const unsigned long long fingerprint =
         FarterAttributeState_ReferenceFingerprint(context);

@@ -18,6 +18,11 @@ class SoundObj : public ct_Object
  IRSXCachedEmitter  * m_lpCE;        // Cached Emitter
  int                  m_emitterValid;
  int		      m_positionValid;
+ int                  m_playing;
+ int                  m_playCount;
+
+    void releaseEmitter();
+    void resetState();
 
  public:
     CFVector3  m_position;
@@ -34,6 +39,12 @@ class SoundObj : public ct_Object
     void       onChangePos();
     void       startPlay(int count);
     void       endPlay();
+
+    bool       hasWAV() const { return m_wav != 0; }
+    bool       emitterValid() const { return m_emitterValid != 0; }
+    bool       positionValid() const { return m_positionValid != 0; }
+    bool       playing() const { return m_playing != 0; }
+    int        playCount() const { return m_playCount; }
 
     virtual bool shouldDump () { return false; } // cannot be allocated dynamically
 };

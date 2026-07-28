@@ -807,11 +807,14 @@ Status vocabulary:
 - Evidence: the January implementation enters WAV lookup, `SoundObj` lookup
   and model-pointer query only inside `if (*soundName && lpRSX2Unk)`. With RSX
   absent, even an already loaded WAV remains invisible to Farter.
-- Handling: resolve and validate the real loaded `WAVObj` independently. Keep
-  `m_ctsndID` null until `SoundObj` is admitted, and expose separate reference
-  and runtime readiness instead of pretending playback exists.
-- Revisit when: the replacement audio owner and `SoundObj` lifecycle enter;
-  retain the data/device separation even if the RSX implementation is removed.
+- Handling: resolved in BD-046. Resolve and validate the real loaded `WAVObj`
+  and `SoundObj` table independently of `lpRSX2Unk`; commit both only after the
+  model-pointer response has the expected label, payload and live-table
+  membership. Runtime readiness now means command-state availability, while
+  `audio_backend=device-free-command-state` explicitly denies audible output.
+- Revisit when: a replacement audio owner enters. Retain the data/device split,
+  preserve the same subject event ABI and add audible-device lifecycle tests
+  without weakening metadata validation.
 
 ### CQ-060: Corpse update mixes model lookup with subject-table readiness
 
@@ -1054,6 +1057,40 @@ Status vocabulary:
   the 32nd light metadata and proves the chain resets after publication.
 - Revisit when: light capacity or mask storage changes; preserve an unsigned
   mask wide enough for every admitted source and test the highest bit.
+
+### CQ-076: freed class-table slots retain stale object IDs
+
+- Status: `CONFIRMED_SOURCE`, `POOL_LIVENESS_CONTRACT`.
+- Evidence: `ct_ClassTable` returns a removed slot to its free list without
+  clearing every object's stored `KR_ObjectID`. Counting non-null IDs therefore
+  reported a removed `SoundObj` as live and made a clean pool appear occupied.
+  The table's exist list, exposed through `userFind()`, is the authoritative
+  live-membership source.
+- Handling: derive `SoundObj` live counts and WAV pointer membership from
+  `userFind()`. A pointer is admitted only when it belongs to the current WAV
+  table, its resource is loaded, and its object ID occurs in that table's live
+  exist list. Repeated removal/reuse and complete seance rollback are tested.
+- Revisit when: any future pool API treats `getObjectID().isNUL()` as a liveness
+  test. Prefer an explicit table membership method or clear IDs centrally only
+  after auditing save/debug behavior that may depend on the retained value.
+
+### CQ-077: SoundObj pooled stale emitter state and accepted one-past capacity
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `OWNERSHIP_ROLLBACK_FIXED`.
+- Evidence: the original constructor left position validity uninitialized;
+  `removeNotify()` released the RSX emitter without clearing its pointer or
+  validity flag; add/remove did not reset playback/position state; and
+  `getObjectPTR()` accepted `index == capacity`. A reused or destructed slot
+  could therefore double-release a stale emitter or inherit prior commands.
+- Handling: centralize complete state reset and idempotent emitter release,
+  stop playback before a real emitter is released, validate exact event payload
+  sizes and finite positions, and require `index < capacity`. The device-free
+  lifecycle covers invalid bind, `updateSound`, MOVE, START, END, remove and
+  clean reuse twice across two seances; the unrestricted RSX owner still
+  compiles as a historical compatibility gate.
+- Revisit when: the replacement audio backend owns a real emitter. Preserve the
+  same reset/release ordering and add device-loss plus repeated bind/unbind
+  coverage before claiming audible readiness.
 
 ## Maintenance rule
 

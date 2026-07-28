@@ -17,6 +17,7 @@ class WAVObjTable : public ct_ClassTable
     virtual void freeObjects();
     virtual ct_Object *getObjectPTR(int index);
     WAVObj *find(const KR_ObjectID &objectID);
+    bool containsLoaded(const WAVObj *object);
     int capacity() const { return m_maxObjectQnty; }
 };
 
@@ -26,6 +27,7 @@ void WAVResourceState_Link();
 bool WAVResourceState_ResolveLoaded(SimulationContext *context,
                                     const char *objectName,
                                     WAVObj **object);
+bool WAVResourceState_IsLoadedPointer(const WAVObj *object);
 int WAVResourceState_RosterSize(SimulationContext *context);
 int WAVResourceState_Capacity();
 unsigned long long WAVResourceState_Fingerprint(SimulationContext *context);

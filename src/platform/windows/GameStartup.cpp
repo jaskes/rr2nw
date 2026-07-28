@@ -655,6 +655,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_WavCatalogFingerprint()));
   log.Line("wav_resource_fingerprint=" + std::to_string(
                RecoveredArenaSeance_WavResourceFingerprint()));
+  log.Line("sound_object_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SoundObjectReady() ? 1 : 0));
+  log.Line("sound_object_capacity=" + std::to_string(
+               RecoveredArenaSeance_SoundObjectCapacity()));
+  log.Line("sound_object_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SoundObjectFingerprint()));
+  log.Line("audio_backend=device-free-command-state");
   log.Line("skin_resources_initialized=" +
            std::to_string(
                RecoveredGameServices_SkinResourcesReady() ? 1 : 0));
@@ -742,7 +750,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-farter-corpse-reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-simulation-visual-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-sound-object-farter-corpse-reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-simulation-visual-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

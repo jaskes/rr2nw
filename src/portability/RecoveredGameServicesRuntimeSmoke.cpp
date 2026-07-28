@@ -23,6 +23,7 @@
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 
 #include "FrameRuntimeState.h"
@@ -86,7 +87,7 @@ int Fail(const char* message) {
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d smoker=%d "
       "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
-      "farter=%d lamp=%d corpse=%d wav=%d skin=%d spark=%d "
+      "farter=%d lamp=%d corpse=%d wav=%d sound=%d skin=%d spark=%d "
       "route=%d vehicle=%d "
       "arena_issues=%llu arena_error=%s level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
@@ -112,6 +113,7 @@ int Fail(const char* message) {
       RecoveredGameServices_LampAttributesReady() ? 1 : 0,
       RecoveredGameServices_CorpseAttributesReady() ? 1 : 0,
       RecoveredGameServices_WavMetadataReady() ? 1 : 0,
+      RecoveredGameServices_SoundObjectReady() ? 1 : 0,
       RecoveredGameServices_SkinResourcesReady() ? 1 : 0,
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
@@ -157,6 +159,7 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_SmokerReferenceFingerprint() == 0 &&
          !RecoveredGameServices_FarterAttributesReady() &&
          !RecoveredGameServices_FarterReferencesReady() &&
+         !RecoveredGameServices_FarterRuntimeReady() &&
          !RecoveredGameServices_LampAttributesReady() &&
          !RecoveredGameServices_CorpseAttributesReady() &&
          !RecoveredGameServices_CorpseReferencesReady() &&
@@ -166,6 +169,10 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_DynSmokerFingerprint() == 0 &&
          SmokerSubjectState_DynLiveCount() == 0 &&
          !RecoveredGameServices_WavMetadataReady() &&
+         !RecoveredGameServices_SoundObjectReady() &&
+         RecoveredArenaSeance_SoundObjectCapacity() == 0 &&
+         RecoveredArenaSeance_SoundObjectFingerprint() == 0 &&
+         SoundObjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_RouteReady() &&
@@ -672,9 +679,12 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokerLightCoronaReady() ||
       !RecoveredGameServices_DynSmokerReady() ||
       !RecoveredGameServices_FarterAttributesReady() ||
+      !RecoveredGameServices_FarterReferencesReady() ||
+      !RecoveredGameServices_FarterRuntimeReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
       !RecoveredGameServices_CorpseAttributesReady() ||
       !RecoveredGameServices_WavMetadataReady() ||
+      !RecoveredGameServices_SoundObjectReady() ||
       !RecoveredGameServices_SkinResourcesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_RouteReady() ||
@@ -712,12 +722,15 @@ int main(int argc, char** argv) {
           g_super.m_context, "Smoker.Attr.FireMd") ||
       !SmokerSubjectState_ProbeLightCoronaLifecycle(
           g_super.m_context, "Smoker.Attr.FireMd", Session::m_moment) ||
+      !SoundObjectState_ProbeLifecycle(
+          g_super.m_context, "wav.Explosion", Session::m_moment) ||
       SmokeSubjectState_LiveCount() != 0 ||
-      SmokerSubjectState_DynLiveCount() != 0) {
+      SmokerSubjectState_DynLiveCount() != 0 ||
+      SoundObjectState_LiveCount() != 0) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail(
-        "retail Smoke and Smoker free/terrain MOVE/emission lifecycle failed");
+        "retail Smoke/Smoker/SoundObj lifecycle failed");
   }
   const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(g_super.m_context);
@@ -747,6 +760,10 @@ int main(int argc, char** argv) {
   const int wavRosterSize =
       WAVResourceState_RosterSize(g_super.m_context);
   const int wavCapacity = WAVResourceState_Capacity();
+  const int soundObjectCapacity =
+      RecoveredArenaSeance_SoundObjectCapacity();
+  const unsigned long long soundObjectFingerprint =
+      RecoveredArenaSeance_SoundObjectFingerprint();
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long farterReferenceFingerprint =
@@ -787,12 +804,16 @@ int main(int argc, char** argv) {
       wavFingerprint == 0 || wavRosterSize < 22 || wavRosterSize > 33 ||
       wavCapacity < 30 || wavCapacity > 35 ||
       RecoveredArenaSeance_WavCatalogFingerprint() != wavFingerprint ||
+      soundObjectCapacity != 250 || soundObjectFingerprint == 0 ||
+      !SoundObjectState_DeviceFree() ||
+      SoundObjectState_LiveCount() != 0 ||
       skinModelCount < 26 ||
       skinModelCount > 52 || skinSpriteCount != 1 ||
       skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
       farterFingerprint == 0 || farterRosterSize < 0 ||
       farterRosterSize > 4 || farterCapacity != 10 ||
       !RecoveredGameServices_FarterReferencesReady() ||
+      !RecoveredGameServices_FarterRuntimeReady() ||
       farterReferenceFingerprint == 0 ||
       lampFingerprint == 0 || lampRosterSize != 12 || lampCapacity != 12 ||
       corpseFingerprint == 0 || corpseRosterSize < 3 ||
@@ -892,6 +913,10 @@ int main(int argc, char** argv) {
       WAVResourceState_Fingerprint(g_super.m_context) != wavFingerprint ||
       WAVResourceState_RosterSize(g_super.m_context) != wavRosterSize ||
       WAVResourceState_Capacity() != wavCapacity ||
+      RecoveredArenaSeance_SoundObjectCapacity() != soundObjectCapacity ||
+      RecoveredArenaSeance_SoundObjectFingerprint() !=
+          soundObjectFingerprint ||
+      SoundObjectState_LiveCount() != 0 ||
       FarterAttributeState_Fingerprint(g_super.m_context) !=
           farterFingerprint ||
       FarterAttributeState_RosterSize(g_super.m_context) !=
@@ -900,6 +925,7 @@ int main(int argc, char** argv) {
       FarterAttributeState_ReferenceFingerprint(g_super.m_context) !=
           farterReferenceFingerprint ||
       RecoveredArenaSeance_FarterRuntimeReady() != farterRuntimeReady ||
+      !RecoveredGameServices_FarterRuntimeReady() ||
       LampAttributeState_Fingerprint(g_super.m_context) != lampFingerprint ||
       LampAttributeState_RosterSize(g_super.m_context) != lampRosterSize ||
       LampAttributeState_Capacity() != lampCapacity ||
@@ -940,6 +966,7 @@ int main(int argc, char** argv) {
               "smoker_emission=visible-MOVE-Smoke-draw-detach "
               "smoker_light_corona=visible-light-corona-draw-detach "
               "wav_metadata=%d/%d wav_fingerprint=%llu "
+              "sound_object=%d fingerprint=%llu backend=device-free "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
               "farter_refs=%llu farter_runtime=%d "
               "lamp_attrs=%d/%d lamp_fingerprint=%llu "
@@ -955,6 +982,7 @@ int main(int argc, char** argv) {
               smokerReferenceFingerprint, smokerRuntimeReady ? 1 : 0,
               dynSmokerCapacity, dynSmokerFingerprint,
               wavRosterSize, wavCapacity, wavFingerprint,
+              soundObjectCapacity, soundObjectFingerprint,
               farterRosterSize, farterCapacity, farterFingerprint,
               farterReferenceFingerprint, farterRuntimeReady ? 1 : 0,
               lampRosterSize, lampCapacity, lampFingerprint,

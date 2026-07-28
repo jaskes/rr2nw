@@ -1453,3 +1453,53 @@ installed retail service launches across all nine Levels, and 2/2 installed
 `rr2nw.exe --runtime-smoke` launches publishing
 `smoker_light_corona_initialized=1`, `level-ready` and clean shutdown. The
 mounted-image half remains pending because `G:` is not mounted.
+
+## BD-046: admit SoundObj command state before replacing Intel RSX
+
+Status: accepted on 2026-07-28.
+
+The original `SoundObj.cpp` now owns the production class registration, pool
+and event ABI through a bounded device-free build. Every admitted May
+`localmain.sci` declares capacity 250. Production force-links that class before
+opening the Arena seance, creates the exact table after verified WAV metadata,
+and publishes readiness only after a real `wav.Explosion` lifecycle returns the
+pool and object namespace to their initial state. The unrestricted original
+owner remains a separate Debug/Release compile gate with Intel RSX identifiers
+and COM linkage.
+
+This boundary deliberately separates sound commands from sound presentation.
+`SetSoundAttr()` resolves a verified live `WAVObj` and the real `SoundObj`
+table without consulting `lpRSX2Unk`. Original `updateSound()` creates the
+subject and sends `snd_EV_SET_WAV`; the lifecycle then executes exact MOVE,
+START and END payloads. In the bounded owner those commands update deterministic
+logical binding, position and playback state but never create an RSX emitter.
+Startup therefore reports `audio_backend=device-free-command-state`; neither
+`sound_object_initialized=1` nor Level.04D Farter runtime readiness claims that
+the player can hear audio.
+
+The admission also closes three pool/ABI hazards rather than carrying them into
+a future backend. Every constructor, add and remove path resets WAV, emitter,
+position and playback fields; emitter release is idempotent; event payloads are
+exact-size checked and MOVE rejects non-finite coordinates; table access uses a
+strict upper bound. Because removed class-table slots retain stale object IDs,
+live counts and WAV-pointer validation use the table exist list rather than a
+non-null ID heuristic. Invalid binding, removal, same-name reuse and a second
+complete seance must leave no `snd.snd`, probe name, live slot or fingerprint.
+
+The capability-versioned SoundObj fingerprint is
+`6353104879006733584` for retail capacity 250 and
+`6876927774548138025` for the focused capacity-3 fixture. Binding the table
+changes Level.04D's Farter reference identity from the historical
+metadata-only `6949774498761611553` to runtime-ready
+`852741406253704921`; the empty-roster identity remains
+`10155668643424727455`.
+
+Regression contract: the unrestricted and bounded owners compile in both
+configurations; 50/50 CTest passes in Debug and Release; all 36/36 retail
+service launches pass across nine Levels, two configurations and both `E:` and
+mounted `G:` roots with 18/18 paired output identities; and all 4/4 real
+`rr2nw.exe --runtime-smoke` launches publish the SoundObj diagnostics,
+`level-ready` and clean shutdown. The next audio step is a replacement output
+backend behind this stable command-state boundary, not restoration of Intel
+RSX. Before that wider platform work, the next isolated gameplay consumer can
+activate the Level.04D Farter subject lifecycle against these commands.

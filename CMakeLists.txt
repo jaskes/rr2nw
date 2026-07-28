@@ -2397,6 +2397,68 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_obase_soundobj_full STATIC
+  nw/ARENA/OBASE/Sound/SoundObj.cpp
+  nw/ARENA/OBASE/Sound/SoundObj.h
+  nw/ARENA/OBASE/Sound/SoundObjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_soundobj_full PUBLIC
+  rr2nw_arena_obase_wav_full
+  rr2nw_arena_storage
+  rr2nw_legacy_rsx_ids
+  rr2nw_sound_state
+  ole32
+)
+target_include_directories(rr2nw_arena_obase_soundobj_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Sound
+)
+target_compile_features(rr2nw_arena_obase_soundobj_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_soundobj_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_sound_object_state STATIC
+  nw/ARENA/OBASE/Sound/SoundObj.cpp
+  nw/ARENA/OBASE/Sound/SoundObj.h
+  nw/ARENA/OBASE/Sound/SoundObjectState.h
+)
+target_link_libraries(rr2nw_arena_sound_object_state PUBLIC
+  rr2nw_arena_obase_wav_full
+  rr2nw_arena_storage
+  rr2nw_sound_state
+)
+target_include_directories(rr2nw_arena_sound_object_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Sound
+)
+target_compile_features(rr2nw_arena_sound_object_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_sound_object_state PRIVATE
+  __NT__
+  RR2NW_SOUNDOBJ_DEVICE_FREE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_obase_soundobj_full PRIVATE
+    /W3 /permissive- /wd4081 /wd4244
+  )
+  target_compile_options(
+    rr2nw_arena_sound_object_state PRIVATE
+    /W4 /permissive- /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_menu_full STATIC
   nw/ARENA/OBASE/MENU/MENU.CPP
   nw/ARENA/OBASE/MENU/MenuGlobal.cpp
@@ -3069,6 +3131,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_smoke_subject_state
   rr2nw_arena_smoke_visual_state
   rr2nw_arena_wav_resource_state
+  rr2nw_arena_sound_object_state
   rr2nw_arena_skin_resource_state
   rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
@@ -3738,6 +3801,19 @@ target_link_libraries(rr2nw_peripheral_attribute_state_smoke PRIVATE
 target_compile_features(
   rr2nw_peripheral_attribute_state_smoke PRIVATE cxx_std_14
 )
+
+add_executable(rr2nw_sound_object_state_smoke
+  src/portability/SoundObjectStateSmoke.cpp
+)
+target_link_libraries(rr2nw_sound_object_state_smoke PRIVATE
+  rr2nw_arena_sound_object_state
+)
+target_compile_features(rr2nw_sound_object_state_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_sound_object_state_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_compile_definitions(
   rr2nw_peripheral_attribute_state_smoke PRIVATE
   __NT__
@@ -3947,6 +4023,9 @@ if(MSVC)
     rr2nw_recovered_arena_seance_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_sound_object_state_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_peripheral_attribute_state_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -4101,6 +4180,10 @@ if(BUILD_TESTING)
   add_test(
     NAME peripheral-attribute-state-smoke
     COMMAND rr2nw_peripheral_attribute_state_smoke
+  )
+  add_test(
+    NAME sound-object-state-smoke
+    COMMAND rr2nw_sound_object_state_smoke
   )
   add_test(
     NAME smoker-subject-state-smoke

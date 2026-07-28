@@ -409,20 +409,21 @@ standalone Fire source stays outside the runtime graph.
 The first dependency-safe subset of the later global attribute update now
 resolves Farter WAV pointers and Corpse Skin/SmokerAttr references in a
 two-phase transaction. All nine May Corpse rosters and Level.04D's four Farter
-WAVs resolve against real loaded objects with stable E/G fingerprints. Runtime
-readiness remains separate: `SoundObj` is still an explicit subject/device
-frontier, and the public no-Skin fixture remains source-only.
+WAVs resolve against real loaded objects with stable E/G fingerprints. The
+device-free `SoundObj` table is now admitted separately, so Level.04D also
+publishes command-state runtime readiness without claiming audible output. The
+public no-Skin fixture remains source-only.
 
 This closes the attribute/service prerequisites and reference resolution that
 previously blocked Corpse and Farter. The original capacity-62 `DynSmoker`
 subject table now executes a bounded real create/start/remove lifecycle, making
 retail Corpse structurally runtime-ready without claiming visible smoke. The
 dependency audit now resolves SmokerAttr's Smoke references; Smoke resource
-caches and emitted-Smoke drawing are active while Smoker MOVE, emission,
-corona and light callbacks remain deferred. `SoundObj` and an eventual
-replacement audio backend remain
-separate boundaries before the People/Tank/Taxi/Bullet graph. Continue in
-rollback-tested groups until unchanged retail
+caches, emitted-Smoke drawing and the complete Smoker MOVE/light/corona path
+are active. The capacity-250 `SoundObj` command-state pool is also active while
+its replacement audio output backend remains deliberately separate. Activate
+the Farter consumer and continue in rollback-tested groups before the heavier
+People/Tank/Taxi/Bullet graph, until unchanged retail
 `LEVEL0.SC` can replace the bootstrap. Then verify the already attached
 Vessel, apply
 `[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
@@ -493,8 +494,19 @@ The isolated Smoker light/corona boundary is now complete. The original
 brightness update, one-light publication and exact retail corona draw execute
 with complete frame/event/pool rollback. The current capacity-62 capability
 fingerprint is `15784014999936525692`; installed coverage is 18/18 service
-launches and 2/2 executable smokes. The next implementation step is the
-isolated `SoundObj` boundary before the heavier People/Tank/Taxi/Bullet graph.
+launches and 2/2 executable smokes.
+
+The isolated SoundObj boundary is now complete. The same original source owns
+an unrestricted RSX compile gate and a production device-free command-state
+build. Every retail Level publishes capacity 250 and executes verified
+SET_WAV/MOVE/START/END plus pooled reconstruction; `SetSoundAttr()` no longer
+hides loaded data behind the RSX device pointer. The current fingerprint is
+`6353104879006733584`, Level.04D Farter references are runtime-ready, and the
+complete gate passes 50/50 tests per configuration, 36/36 services with 18/18
+paired E/G identities, and 4/4 executable smokes. The next implementation step
+is the isolated Farter subject/audible-zone command path, still device-free,
+before entering the heavier People/Tank/Taxi/Bullet graph. A replacement audio
+output backend remains a later platform tranche.
 
 ### Цель
 

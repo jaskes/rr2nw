@@ -1610,6 +1610,49 @@ nine Levels, and 2/2 real executable runtime smokes publishing
 mounted-image half remains pending because `G:` is not mounted. `SoundObj` is
 the next isolated dependency before the heavier People/Tank/Taxi/Bullet graph.
 
+### Device-free SoundObj command-state boundary
+
+The original `SoundObj.cpp` now builds in two explicit roles. The unrestricted
+archive retains Intel RSX identifiers, COM emitter calls and `ole32` as a
+historical compile gate. The production archive compiles the same class table,
+object lifecycle and event receiver with `RR2NW_SOUNDOBJ_DEVICE_FREE`; it
+suppresses only emitter allocation/control/release while retaining logical WAV
+binding, position, play state and the original command payloads. This avoids
+inventing a replacement audio API before the gameplay graph can use sound
+objects safely.
+
+Class registration is force-linked before `OpenArena`. After WAV metadata is
+published, production creates the exact capacity 250 declared by all nine May
+Levels. Its pure identity covers table name, capacity, device-free mode, WAV
+binding and event-lifecycle capability. The disposable startup proof resolves
+the common loaded `wav.Explosion`, rejects an invalid bind, creates `snd.snd`
+through original `updateSound()`, executes MOVE/START/END, removes and recreates
+the same name, and publishes only after the pool's authoritative exist list is
+empty. Release clears readiness/fingerprint before seance teardown.
+
+The tranche resolves the old RSX/data coupling in `SetSoundAttr()`: lookup now
+requires a valid context, loaded WAV response with the exact pointer payload,
+live WAV-table membership and an admitted SoundObj table, but no device pointer.
+Level.04D's Farter roster is consequently runtime-ready while diagnostics state
+plainly that the backend is `device-free-command-state`. No test or marker
+claims audible playback.
+
+Hardening is intentionally shared with the future output backend. SoundObj
+resets every transient field on construction/add/remove, releases a real
+emitter idempotently, validates exact event sizes and finite positions, rejects
+negative play counts and fixes the legacy one-past table bound. WAV pointers
+are checked against table address range, loaded state and live exist-list
+membership. This last requirement matters because freed pooled objects retain
+stale `KR_ObjectID` values even though `userFind()` no longer reports them.
+
+The retail capacity-250 fingerprint is `6353104879006733584`; focused capacity
+3 is `6876927774548138025`. Final verification passes 50/50 CTest in Debug and
+Release, 36/36 service launches across both retail roots with 18/18 paired
+identities, and 4/4 executable runtime smokes publishing SoundObj readiness,
+capacity, fingerprint, explicit backend, `level-ready` and clean shutdown. The
+next narrow consumer frontier is the Level.04D Farter subject lifecycle; real
+audio output remains a later platform-backend tranche.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1651,9 +1694,12 @@ the next isolated dependency before the heavier People/Tank/Taxi/Bullet graph.
    exact dynamic detach. Bounded Smoker MOVE now emits those real children and
    rolls parent/child queues and scene ownership back exactly. Its original
    brightness/light/corona path now also crosses a real frame and rolls every
-   light and scene owner back exactly. `SoundObj`, remaining attribute cache
-   groups, Skin animation construction and remaining OBASE/script ABI bindings
-   are still required before switching to full retail `LEVEL0.SC`.
+   light and scene owner back exactly. The capacity-250 `SoundObj` table now
+   executes its device-free SET_WAV/MOVE/START/END lifecycle and makes the
+   Level.04D Farter references runtime-ready. The Farter subject, remaining
+   attribute cache groups, Skin animation construction and remaining
+   OBASE/script ABI bindings are still required before switching to full retail
+   `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

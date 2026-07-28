@@ -7,6 +7,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated the original `SoundObj` class table as a device-free command-state
+  boundary. Every May Level now creates the exact capacity-250 pool; real
+  `SET_WAV`, `MOVE`, `START`, `END`, `updateSound()`, removal and pooled reuse
+  execute without requiring Intel RSX or claiming audible playback.
+- Added `sound_object_initialized`, capacity, stable fingerprint and explicit
+  `audio_backend=device-free-command-state` startup diagnostics. Focused,
+  service and executable regressions prove complete table/name/state rollback
+  and reconstruction in Debug and Release on both retail roots.
+- Decoupled `SetSoundAttr()` metadata and `SoundObj` table resolution from the
+  legacy RSX device pointer. Level.04D's four Farter attributes now become
+  runtime-ready against verified live WAV objects while audio output remains a
+  separate replacement-backend frontier.
+- Hardened the legacy sound pools: `SoundObj` now resets all emitter, playback,
+  position and WAV state, releases emitters idempotently, rejects malformed
+  event payloads and one-past-capacity access, and validates WAV pointers
+  against the class table's live membership rather than stale pooled IDs.
 - Activated the original bounded `DynSmoker` brightness, light-chain and corona
   rendering path. `Smoker.Attr.FireMd` now publishes one real scene light and
   one exact retail corona sprite after its first MOVE, then proves complete

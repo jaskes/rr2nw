@@ -22,15 +22,16 @@ bool SetSoundAttr(	const KR_ObjectID & selfID,
 			ct_ClassTableID & ctsndID,
 			void * wav)
 {
-    if (*soundName && lpRSX2Unk)
+    if (context != NULL && soundName != NULL && *soundName && wav != NULL)
     {
-	
-	KR_ObjectID	wavID;	
+
+	KR_ObjectID	wavID;
 
         wavID     = context->searchObject(soundName);
-        ctsndID   = g_arena.searchSeanceClassTable("SoundObj");
+        const ct_ClassTableID soundTable =
+            g_arena.searchSeanceClassTable("SoundObj");
 
-        if (!wavID.isNUL())
+	if (!wavID.isNUL() && soundTable != ct_NULLID)
 	{
 	   KR_Event event;
            event.label       = sk_EV_QUERY_MODEL_PTR;
@@ -40,11 +41,22 @@ bool SetSoundAttr(	const KR_ObjectID & selfID,
            context->sendEventNow( event );
 	   //context->addEvent( event );
 
-	   event.data.open(EDO_READ)
-              .get( wav, sizeof(void*))
-           .close();
-	   
-	   return true;	
+	   WAVObj *resolved = NULL;
+	   s_EventData &data = event.data.open(EDO_READ);
+	   if (event.label != sk_EV_QUERY_MODEL_PTR_OK ||
+	       data.remaining() != static_cast<int>(sizeof(resolved)))
+	   {
+	       data.close();
+	       return false;
+	   }
+	   data.get(&resolved, sizeof(resolved)).close();
+	   if (!WAVResourceState_IsLoadedPointer(resolved))
+	       return false;
+
+	   *static_cast<WAVObj **>(wav) = resolved;
+	   ctsndID = soundTable;
+
+	   return true;
 	}
 	
     }
@@ -61,7 +73,8 @@ void updateSound( const KR_ObjectID & selfID,
 {
     snd = KR_ObjectID::NUL();
 
-    if ( wav)
+    if ( context != NULL && ctsndID != ct_NULLID &&
+         WAVResourceState_IsLoadedPointer(wav))
     {
 	snd = g_arena.newObject(ctsndID,"snd.snd");
 

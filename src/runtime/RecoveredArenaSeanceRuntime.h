@@ -64,7 +64,9 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_TABLE_FAILURE = 1ull << 57,
   RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_LIFECYCLE_FAILURE = 1ull << 58,
   RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_INVALID = 1ull << 59,
-  RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_LOAD_FAILURE = 1ull << 60
+  RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_LOAD_FAILURE = 1ull << 60,
+  RECOVERED_ARENA_SEANCE_SOUND_OBJECT_TABLE_FAILURE = 1ull << 61,
+  RECOVERED_ARENA_SEANCE_SOUND_OBJECT_LIFECYCLE_FAILURE = 1ull << 62
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -116,6 +118,9 @@ int RecoveredArenaSeance_WavMetadataCount();
 int RecoveredArenaSeance_WavMetadataCapacity();
 unsigned long long RecoveredArenaSeance_WavCatalogFingerprint();
 unsigned long long RecoveredArenaSeance_WavResourceFingerprint();
+bool RecoveredArenaSeance_SoundObjectReady();
+int RecoveredArenaSeance_SoundObjectCapacity();
+unsigned long long RecoveredArenaSeance_SoundObjectFingerprint();
 bool RecoveredArenaSeance_SkinResourcesReady();
 int RecoveredArenaSeance_SkinModelCount();
 int RecoveredArenaSeance_SkinSpriteCount();

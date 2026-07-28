@@ -29,6 +29,7 @@ class CGRPanel;
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "h/cachesmoke.h"
+#include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "storage/h/subject.h"
 
@@ -49,6 +50,7 @@ unsigned long long g_smokeSubjectFixtureFingerprint = 0;
 unsigned long long g_smokeVisualFixtureFingerprint = 0;
 unsigned long long g_dynSmokerFixtureFingerprint = 0;
 unsigned long long g_wavFixtureFingerprint = 0;
+unsigned long long g_soundObjectFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
 
 int Fail(const char* message) {
@@ -58,7 +60,7 @@ int Fail(const char* message) {
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
                "smoke=%d explosion=%d smoker=%d dyn_smoker=%d "
                "farter=%d lamp=%d corpse=%d "
-               "wav=%d skin=%d "
+               "wav=%d sound=%d skin=%d "
                "spark=%d route=%d vehicle=%d "
                "issues=%llu error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
@@ -75,6 +77,7 @@ int Fail(const char* message) {
                RecoveredArenaSeance_LampAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_CorpseAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_WavMetadataReady() ? 1 : 0,
+               RecoveredArenaSeance_SoundObjectReady() ? 1 : 0,
                RecoveredArenaSeance_SkinResourcesReady() ? 1 : 0,
                RecoveredArenaSeance_SparkAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
@@ -239,6 +242,10 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_DynSmokerFingerprint() == 0 &&
          SmokerSubjectState_DynLiveCount() == 0 &&
          !RecoveredArenaSeance_WavMetadataReady() &&
+         !RecoveredArenaSeance_SoundObjectReady() &&
+         RecoveredArenaSeance_SoundObjectCapacity() == 0 &&
+         RecoveredArenaSeance_SoundObjectFingerprint() == 0 &&
+         SoundObjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_SkinResourcesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_RouteReady() &&
@@ -253,6 +260,7 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Expl.Test.0") &&
          !context.isExist("Lamp.Attr.Default") &&
          !context.isExist("Corpse.Attr.Default") &&
+         !context.isExist("snd.snd") &&
          !context.isExist("Spark.Flash") &&
          !context.isExist("Vehicle.Default") &&
          Route::m_totalNodePos == 0 && g_cacheSmokeCnt == 0;
@@ -295,6 +303,11 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_CorpseRuntimeReady() ||
       RecoveredArenaSeance_CorpseReferenceFingerprint() != 0 ||
       !RecoveredArenaSeance_WavMetadataReady() ||
+      !RecoveredArenaSeance_SoundObjectReady() ||
+      RecoveredArenaSeance_SoundObjectCapacity() != 250 ||
+      RecoveredArenaSeance_SoundObjectFingerprint() == 0 ||
+      !SoundObjectState_DeviceFree() ||
+      SoundObjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_SkinResourcesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_RouteReady() ||
@@ -311,6 +324,7 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("DynSmoker") == ct_NULLID ||
       g_arena.searchSeanceClassTable("WAVObj") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("SoundObj") == ct_NULLID ||
       g_arena.searchSeanceClassTable("FarterAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("LampAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("CorpseAttr") == ct_NULLID ||
@@ -342,6 +356,10 @@ bool RunCycle(bool expectVisualResources) {
           : static_cast<AttributeExplosion*>(
                 __attrExplosionTable.searchAttribute(explosion));
   KR_ObjectID vehicle = context.searchObject("Vehicle.Default");
+  const bool soundLifecycle =
+      SoundObjectState_ProbeLifecycle(
+          &context, "wav.Explosion", Session::m_moment) &&
+      SoundObjectState_LiveCount() == 0;
   const bool vehiclePublished =
       !storage.isNUL() && !bird.isNUL() && !orphan.isNUL() &&
       !artefact.isNUL() && !flash.isNUL() && !vehicle.isNUL() &&
@@ -368,6 +386,10 @@ bool RunCycle(bool expectVisualResources) {
       WAVResourceState_Capacity() == 30 &&
       WAVResourceState_Fingerprint(&context) ==
           RecoveredArenaSeance_WavCatalogFingerprint() &&
+      soundLifecycle &&
+      SoundObjectState_TableReady(&context, 250) &&
+      SoundObjectState_Fingerprint(&context) ==
+          RecoveredArenaSeance_SoundObjectFingerprint() &&
       FarterAttributeState_IsKnownRoster(&context) &&
       FarterAttributeState_RosterSize(&context) == 0 &&
       FarterAttributeState_Capacity() == 10 &&
@@ -408,6 +430,8 @@ bool RunCycle(bool expectVisualResources) {
       SmokerSubjectState_DynFingerprint(&context);
   const unsigned long long wavFingerprint =
       WAVResourceState_Fingerprint(&context);
+  const unsigned long long soundObjectFingerprint =
+      SoundObjectState_Fingerprint(&context);
   const unsigned long long lampFingerprint =
       LampAttributeState_Fingerprint(&context);
   const unsigned long long corpseFingerprint =
@@ -433,6 +457,8 @@ bool RunCycle(bool expectVisualResources) {
        g_dynSmokerFixtureFingerprint == dynSmokerFingerprint) &&
       (g_wavFixtureFingerprint == 0 ||
        g_wavFixtureFingerprint == wavFingerprint) &&
+      (g_soundObjectFixtureFingerprint == 0 ||
+       g_soundObjectFixtureFingerprint == soundObjectFingerprint) &&
       (g_lampFixtureFingerprint == 0 ||
        g_lampFixtureFingerprint == lampFingerprint) &&
       (g_corpseFixtureFingerprint == 0 ||
@@ -448,6 +474,7 @@ bool RunCycle(bool expectVisualResources) {
   g_smokeVisualFixtureFingerprint = smokeVisualFingerprint;
   g_dynSmokerFixtureFingerprint = dynSmokerFingerprint;
   g_wavFixtureFingerprint = wavFingerprint;
+  g_soundObjectFixtureFingerprint = soundObjectFingerprint;
   g_lampFixtureFingerprint = lampFingerprint;
   g_corpseFixtureFingerprint = corpseFingerprint;
   g_skinCatalogFixtureFingerprint = skinCatalogFingerprint;
@@ -940,6 +967,7 @@ int main(int argc, char** argv) {
                "smoke_subject=0/300 smoke_simulation=START-MOVE-remove "
                "smoke_visual=resolved "
                "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
+               "sound_object=0/250 device-free "
               "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
               "farter_refs=resolved smoker_refs=resolved "
                "smoker_runtime=ready corpse_refs=source-only "
@@ -950,7 +978,8 @@ int main(int argc, char** argv) {
                "smoke_subject_fingerprint=%llu "
                "smoke_visual_fingerprint=%llu "
               "dyn_smoker_fingerprint=%llu "
-              "wav_fingerprint=%llu farter_fingerprint=%llu "
+              "wav_fingerprint=%llu sound_object_fingerprint=%llu "
+              "farter_fingerprint=%llu "
               "farter_reference_fingerprint=%llu "
               "lamp_fingerprint=%llu corpse_fingerprint=%llu "
               "skin_catalog_fingerprint=%llu "
@@ -962,6 +991,7 @@ int main(int argc, char** argv) {
                g_smokeVisualFixtureFingerprint,
               g_dynSmokerFixtureFingerprint,
               g_wavFixtureFingerprint,
+              g_soundObjectFixtureFingerprint,
               g_farterFixtureFingerprint,
               g_farterReferenceFixtureFingerprint,
               g_lampFixtureFingerprint,

@@ -136,6 +136,43 @@ WAVObj *WAVObjTable::find(const KR_ObjectID &objectID)
     return NULL;
 }
 
+namespace {
+
+struct WAVLivePointerQuery
+{
+    KR_ObjectID target;
+    bool found;
+};
+
+bool FindLiveWAVPointer(const KR_ObjectID objectID, void *user)
+{
+    WAVLivePointerQuery *query = static_cast<WAVLivePointerQuery *>(user);
+    if (objectID == query->target)
+    {
+        query->found = true;
+        return false;
+    }
+    return true;
+}
+
+}  // namespace
+
+bool WAVObjTable::containsLoaded(const WAVObj *object)
+{
+    if (object == NULL)
+        return false;
+    for (int i = 0; i < m_maxObjectQnty; ++i)
+        if (&m_table[i] == object)
+        {
+            if (!m_table[i].m_loaded)
+                return false;
+            WAVLivePointerQuery query = {m_table[i].getObjectID(), false};
+            userFind(FindLiveWAVPointer, &query);
+            return query.found;
+        }
+    return false;
+}
+
 WAVObj::WAVObj()
 {
     ResetWAVMetadata(this);
@@ -257,6 +294,11 @@ bool WAVResourceState_ResolveLoaded(SimulationContext *context,
         return false;
     *object = resolved;
     return true;
+}
+
+bool WAVResourceState_IsLoadedPointer(const WAVObj *object)
+{
+    return __wavObjTable.containsLoaded(object);
 }
 
 int WAVResourceState_RosterSize(SimulationContext *context)

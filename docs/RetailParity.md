@@ -387,6 +387,32 @@ Retail scripts нельзя молча копировать поверх source 
   Debug/Release service launches across all nine Levels and 2/2 executable
   runtime smokes. Mounted-root parity remains pending while `G:` is absent.
 
+### RP-SCRIPT-012: all May Levels publish the SoundObj command pool
+
+- Classification: `RETAIL_REQUIRED`; the original subject/event boundary is
+  active in device-free command-state mode. Audible output remains deferred to
+  a replacement backend.
+- All nine installed and mounted `SCINC/localmain.sci` files declare
+  `SoundObj` with capacity 250. The production table fingerprint is
+  `6353104879006733584`; the focused capacity-3 fixture is
+  `6876927774548138025`.
+- `wav.Explosion` exists in every admitted WAV roster and is the common
+  production lifecycle target. A probe creates it through original
+  `updateSound()`, executes SET_WAV, MOVE, START and END, removes it, reuses the
+  pooled `snd.snd` name and requires an empty exist list before readiness is
+  published.
+- The command-state owner never creates an Intel RSX COM emitter. Diagnostics
+  therefore publish `audio_backend=device-free-command-state`; table and
+  Farter runtime readiness must not be interpreted as audible playback.
+- Decoupling `SetSoundAttr()` from `lpRSX2Unk` binds Level.04D's four loaded
+  WAV references to the admitted SoundObj table. Its current reference
+  fingerprint is `852741406253704921`; historical metadata-only identity
+  `6949774498761611553` remains recognized. The other eight Levels retain the
+  empty-roster fingerprint `10155668643424727455`.
+- The complete gate passes 36/36 Debug/Release service launches across both
+  roots, with identical paired output for all 18 configuration/Level cases,
+  and 4/4 executable runtime smokes with level-ready and clean shutdown.
+
 ## Behavioral parity matrix
 
 Минимальные domains:
