@@ -2459,6 +2459,38 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_farter_subject_state STATIC
+  nw/ARENA/OBASE/Farter/Farter.cpp
+  nw/ARENA/OBASE/Farter/Farter.h
+  nw/ARENA/OBASE/Farter/FarterSubjectState.h
+)
+target_link_libraries(rr2nw_arena_farter_subject_state PUBLIC
+  rr2nw_arena_farter_attribute_state
+  rr2nw_arena_sound_object_state
+  rr2nw_arena_storage
+)
+target_include_directories(rr2nw_arena_farter_subject_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Farter
+  nw/ARENA/OBASE/Sound
+)
+target_compile_features(rr2nw_arena_farter_subject_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_farter_subject_state PRIVATE
+  __NT__
+  RR2NW_FARTER_ATTRIBUTE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_farter_subject_state PRIVATE
+    /W4 /permissive- /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_menu_full STATIC
   nw/ARENA/OBASE/MENU/MENU.CPP
   nw/ARENA/OBASE/MENU/MenuGlobal.cpp
@@ -3132,6 +3164,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_smoke_visual_state
   rr2nw_arena_wav_resource_state
   rr2nw_arena_sound_object_state
+  rr2nw_arena_farter_subject_state
   rr2nw_arena_skin_resource_state
   rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
@@ -3814,6 +3847,19 @@ target_compile_definitions(rr2nw_sound_object_state_smoke PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_farter_subject_state_smoke
+  src/portability/FarterSubjectStateSmoke.cpp
+)
+target_link_libraries(rr2nw_farter_subject_state_smoke PRIVATE
+  rr2nw_arena_farter_subject_state
+)
+target_compile_features(rr2nw_farter_subject_state_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_farter_subject_state_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_compile_definitions(
   rr2nw_peripheral_attribute_state_smoke PRIVATE
   __NT__
@@ -4026,6 +4072,9 @@ if(MSVC)
     rr2nw_sound_object_state_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_farter_subject_state_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_peripheral_attribute_state_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -4176,6 +4225,7 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/CORPSE.SCI"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/localmain.sci"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/LOADWAV.SCI"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_farter.sci"
   )
   add_test(
     NAME peripheral-attribute-state-smoke
@@ -4184,6 +4234,10 @@ if(BUILD_TESTING)
   add_test(
     NAME sound-object-state-smoke
     COMMAND rr2nw_sound_object_state_smoke
+  )
+  add_test(
+    NAME farter-subject-state-smoke
+    COMMAND rr2nw_farter_subject_state_smoke
   )
   add_test(
     NAME smoker-subject-state-smoke

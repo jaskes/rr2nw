@@ -1650,8 +1650,54 @@ The retail capacity-250 fingerprint is `6353104879006733584`; focused capacity
 Release, 36/36 service launches across both retail roots with 18/18 paired
 identities, and 4/4 executable runtime smokes publishing SoundObj readiness,
 capacity, fingerprint, explicit backend, `level-ready` and clean shutdown. The
-next narrow consumer frontier is the Level.04D Farter subject lifecycle; real
-audio output remains a later platform-backend tranche.
+next narrow consumer frontier was the Level.04D Farter subject lifecycle; it is
+recorded below. Real audio output remains a later platform-backend tranche.
+
+### Bounded Farter subject and audible command lifecycle
+
+`Farter.cpp` now has a bounded production owner linked to the device-free
+SoundObj target while the unrestricted archive remains a compile gate. Static
+registration is forced before `OpenArena`; after transactional Farter WAV
+resolution, a comment-aware inspection adds the retail capacity-25 subject
+table only for Level.01D, Level.01N, Level.04D, Level.06N and Level.07N.
+Level.02D, Level.02N and Level.03N line-comment the declaration, while
+Level.05D block-comments both declaration and apparent roster; those four
+publish an audited capacity-0 absence without inventing subjects. Empty active
+attribute Levels prove table ownership only, while Level.04D probes its real
+Factory attribute.
+
+The proof sends exact START_FARTING data, observes original `updateSound()`
+create and position `snd.snd`, then crosses the original enter/exit audible
+callbacks and verifies logical START/END through the SoundObj state owner.
+Parent removal owns child deletion. A repeated same-name allocation must begin
+with the default attribute, null child and zero position, and both class-table
+exist lists must be empty before the stable fingerprint is accepted.
+
+The inheritance audit found that Farter's legacy notifications skipped
+`ct_Subject` and invoked `ct_Object` directly. This bypassed spatial-cache
+ownership and left audible/visible frame state uninitialized. Production now
+restores the subject-base add/remove sequence, initializes the formerly
+undefined child ObjectID, resets all pooled state, rejects malformed or
+non-finite START data and unknown attributes, removes only a live child, uses
+nothrow allocation and enforces a strict table bound.
+
+Retail script inspection also distinguishes syntax from executable content.
+Level.04D contains 23 active CreateFarter calls. Level.05D contains the same
+textual block only inside `/* ... */`, including its table declaration, and its
+attribute roster is empty; every other Level also creates zero persistent
+Farters. The inspector prevents comments from joining tokens, rejects any
+active count outside the admitted 0/23 set and requires the 23-call roster to
+match four loaded attributes. This tranche activates the table and disposable
+command lifecycle, not those persistent calls. Comment-aware roster execution
+plus real observer audible culling is the next narrow step.
+
+The capacity-25 fingerprint is `4111324552562250482`, the admitted absent-table
+fingerprint is `985003563401138714`, and focused capacity 3 is
+`5538208929077097000`. Final verification passes 51/51 tests in Debug and
+Release, 36/36 service launches with 18/18 paired installed/mounted identities,
+and 4/4 executable smokes publishing Farter subject readiness, exact capacity,
+fingerprint, `level-ready` and clean shutdown. Audio output remains explicitly
+device-free.
 
 ## Expansion order
 
@@ -1696,10 +1742,11 @@ audio output remains a later platform-backend tranche.
    brightness/light/corona path now also crosses a real frame and rolls every
    light and scene owner back exactly. The capacity-250 `SoundObj` table now
    executes its device-free SET_WAV/MOVE/START/END lifecycle and makes the
-   Level.04D Farter references runtime-ready. The Farter subject, remaining
-   attribute cache groups, Skin animation construction and remaining
-   OBASE/script ABI bindings are still required before switching to full retail
-   `LEVEL0.SC`.
+   Level.04D Farter references runtime-ready. The capacity-25 Farter subject
+   now executes START_FARTING and audible START/END with complete child
+   rollback; its comment-aware persistent Level.04D roster, remaining attribute
+   cache groups, Skin animation construction and remaining OBASE/script ABI
+   bindings are still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

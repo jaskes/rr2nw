@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated the original `Farter` subject table as the first real SoundObj
+  consumer on the five retail Levels that actually declare its capacity-25
+  pool. `START_FARTING` now binds a verified FarterAttr, creates and positions
+  a child SoundObj, and the original audible-zone enter/exit callbacks drive
+  logical START/END before complete parent/child rollback.
+- Added Farter subject readiness, capacity/fingerprint and audible diagnostics,
+  plus comment-aware active/absent script classification and repeated focused
+  and retail lifecycle coverage. The current boundary validates Level.04D's
+  real `Farter.Attr.Factory`; persistent execution of its 23-object
+  `main_CreateFarters()` roster remains a separate script step.
+- Restored `ct_Subject::addNotify/removeNotify` ownership in Farter, initialized
+  its formerly indeterminate child ID, reset every pooled field, rejected
+  malformed/unknown START payloads and fixed the class table's one-past bound.
 - Activated the original `SoundObj` class table as a device-free command-state
   boundary. Every May Level now creates the exact capacity-250 pool; real
   `SET_WAV`, `MOVE`, `START`, `END`, `updateSound()`, removal and pooled reuse

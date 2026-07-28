@@ -14,7 +14,9 @@
 class Farter : public ct_Subject
 {
     CFVector3              m_position;
-    KR_ObjectID            m_snd;    
+    KR_ObjectID            m_snd;
+
+    void resetState();
  public:
     AttributeFarter   *m_attr;
 
@@ -30,6 +32,10 @@ class Farter : public ct_Subject
 
     virtual void onEnterAudibleZone(double ts);
     virtual void onExitAudibleZone (double ts);
+
+    const KR_ObjectID &soundObjectID() const { return m_snd; }
+    bool hasSoundObject() const { return m_snd.getCachePos() != -1; }
+    const CFVector3 &farterPosition() const { return m_position; }
 
 
    virtual bool shouldDump () { return false; } // we don't dump attributes

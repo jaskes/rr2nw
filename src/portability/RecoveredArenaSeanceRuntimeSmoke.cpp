@@ -20,6 +20,7 @@ class CGRPanel;
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
+#include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/route/route.h"
@@ -51,6 +52,7 @@ unsigned long long g_smokeVisualFixtureFingerprint = 0;
 unsigned long long g_dynSmokerFixtureFingerprint = 0;
 unsigned long long g_wavFixtureFingerprint = 0;
 unsigned long long g_soundObjectFixtureFingerprint = 0;
+unsigned long long g_farterSubjectFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
 
 int Fail(const char* message) {
@@ -227,6 +229,11 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
          !RecoveredArenaSeance_FarterRuntimeReady() &&
+         !RecoveredArenaSeance_FarterSubjectReady() &&
+         RecoveredArenaSeance_FarterSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_FarterSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_FarterScriptObjectCount() == -1 &&
+         FarterSubjectState_LiveCount() == 0 &&
          RecoveredArenaSeance_FarterReferenceFingerprint() == 0 &&
          !RecoveredArenaSeance_LampAttributesReady() &&
          !RecoveredArenaSeance_CorpseAttributesReady() &&
@@ -294,6 +301,12 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_DynSmokerFingerprint() == 0 ||
       SmokerSubjectState_DynLiveCount() != 0 ||
       !RecoveredArenaSeance_FarterAttributesReady() ||
+      !RecoveredArenaSeance_FarterSubjectReady() ||
+      RecoveredArenaSeance_FarterSubjectCapacity() != 0 ||
+      RecoveredArenaSeance_FarterSubjectFingerprint() !=
+          FarterSubjectState_AbsentFingerprint() ||
+      RecoveredArenaSeance_FarterScriptObjectCount() != 0 ||
+      FarterSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_FarterReferencesReady() ||
       !RecoveredArenaSeance_FarterRuntimeReady() ||
       RecoveredArenaSeance_FarterReferenceFingerprint() == 0 ||
@@ -326,6 +339,7 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("WAVObj") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SoundObj") == ct_NULLID ||
       g_arena.searchSeanceClassTable("FarterAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Farter") != ct_NULLID ||
       g_arena.searchSeanceClassTable("LampAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("CorpseAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Skin") == ct_NULLID ||
@@ -432,6 +446,8 @@ bool RunCycle(bool expectVisualResources) {
       WAVResourceState_Fingerprint(&context);
   const unsigned long long soundObjectFingerprint =
       SoundObjectState_Fingerprint(&context);
+  const unsigned long long farterSubjectFingerprint =
+      RecoveredArenaSeance_FarterSubjectFingerprint();
   const unsigned long long lampFingerprint =
       LampAttributeState_Fingerprint(&context);
   const unsigned long long corpseFingerprint =
@@ -459,6 +475,8 @@ bool RunCycle(bool expectVisualResources) {
        g_wavFixtureFingerprint == wavFingerprint) &&
       (g_soundObjectFixtureFingerprint == 0 ||
        g_soundObjectFixtureFingerprint == soundObjectFingerprint) &&
+      (g_farterSubjectFixtureFingerprint == 0 ||
+       g_farterSubjectFixtureFingerprint == farterSubjectFingerprint) &&
       (g_lampFixtureFingerprint == 0 ||
        g_lampFixtureFingerprint == lampFingerprint) &&
       (g_corpseFixtureFingerprint == 0 ||
@@ -475,6 +493,7 @@ bool RunCycle(bool expectVisualResources) {
   g_dynSmokerFixtureFingerprint = dynSmokerFingerprint;
   g_wavFixtureFingerprint = wavFingerprint;
   g_soundObjectFixtureFingerprint = soundObjectFingerprint;
+  g_farterSubjectFixtureFingerprint = farterSubjectFingerprint;
   g_lampFixtureFingerprint = lampFingerprint;
   g_corpseFixtureFingerprint = corpseFingerprint;
   g_skinCatalogFixtureFingerprint = skinCatalogFingerprint;
@@ -487,8 +506,8 @@ bool RunCycle(bool expectVisualResources) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 9) {
-    return Fail("expected a fixture directory and seven retail-script sources");
+  if (argc != 10) {
+    return Fail("expected a fixture directory and eight retail-script sources");
   }
 
   RecoveredArenaSeance_Release();
@@ -578,6 +597,8 @@ int main(int argc, char** argv) {
       JoinPath(scincDirectory, "EXPLOSION_LOC.SCI");
   const std::string farterLocalCopy =
       JoinPath(scincDirectory, "FARTERATTR.SCI");
+  const std::string farterSetCopy =
+      JoinPath(scincDirectory, "SET_FARTER.SCI");
   const std::string corpseCopy = JoinPath(scincDirectory, "CORPSE.SCI");
   const std::string skinCopy = JoinPath(scincDirectory, "SKIN.SCI");
   const std::string localMainCopy =
@@ -595,6 +616,7 @@ int main(int argc, char** argv) {
   }
   DeleteFileA(explosionLocalCopy.c_str());
   DeleteFileA(farterLocalCopy.c_str());
+  DeleteFileA(farterSetCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
   DeleteFileA(localMainCopy.c_str());
@@ -720,6 +742,18 @@ int main(int argc, char** argv) {
   if (!WriteFile(skinCopy, skinLevelFixture)) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not restore bounded Skin catalog fixture");
+  }
+
+  SimulationContext missingFarterSubjectContext(64, 128);
+  const bool missingFarterSubjectRejected =
+      RecoveredArenaSeance_Initialize(&missingFarterSubjectContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE) != 0 &&
+      IsReleased(missingFarterSubjectContext);
+  if (CopyFileA(argv[9], farterSetCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy SET_FARTER.SCI into Arena fixture");
   }
 
   std::string invalidExplosionLevelFixture = explosionLevelFixture;
@@ -889,6 +923,7 @@ int main(int argc, char** argv) {
   DeleteFileA(lampCopy.c_str());
   DeleteFileA(explosionLocalCopy.c_str());
   DeleteFileA(farterLocalCopy.c_str());
+  DeleteFileA(farterSetCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
   DeleteFileA(localMainCopy.c_str());
@@ -914,6 +949,9 @@ int main(int argc, char** argv) {
       !missingLampRejected || !missingCorpseRejected) {
     return Fail("missing Farter/Lamp/Corpse fragments were not rejected "
                 "transactionally");
+  }
+  if (!missingFarterSubjectRejected) {
+    return Fail("missing Farter subject script was not rejected transactionally");
   }
   if (!invalidExplosionRosterRejected) {
     return Fail("invalid Explosion attribute roster was not rejected "
@@ -953,6 +991,7 @@ int main(int argc, char** argv) {
               "missing-wav=rollback "
               "missing-explosion-root-local=rollback "
               "missing-farter-root-local=rollback missing-lamp=rollback "
+              "missing-farter-subject=rollback "
               "missing-corpse=rollback "
               "invalid-explosion-roster=rollback "
               "invalid-lamp-roster=rollback "
@@ -968,6 +1007,7 @@ int main(int argc, char** argv) {
                "smoke_visual=resolved "
                "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
                "sound_object=0/250 device-free "
+               "farter_subject=retail-absent script_objects=0 "
               "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
               "farter_refs=resolved smoker_refs=resolved "
                "smoker_runtime=ready corpse_refs=source-only "
@@ -979,6 +1019,7 @@ int main(int argc, char** argv) {
                "smoke_visual_fingerprint=%llu "
               "dyn_smoker_fingerprint=%llu "
               "wav_fingerprint=%llu sound_object_fingerprint=%llu "
+              "farter_subject_fingerprint=%llu "
               "farter_fingerprint=%llu "
               "farter_reference_fingerprint=%llu "
               "lamp_fingerprint=%llu corpse_fingerprint=%llu "
@@ -992,6 +1033,7 @@ int main(int argc, char** argv) {
               g_dynSmokerFixtureFingerprint,
               g_wavFixtureFingerprint,
               g_soundObjectFixtureFingerprint,
+              g_farterSubjectFixtureFingerprint,
               g_farterFixtureFingerprint,
               g_farterReferenceFixtureFingerprint,
               g_lampFixtureFingerprint,

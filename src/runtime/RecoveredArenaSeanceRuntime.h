@@ -66,7 +66,8 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_INVALID = 1ull << 59,
   RECOVERED_ARENA_SEANCE_SMOKE_VISUAL_RESOURCE_LOAD_FAILURE = 1ull << 60,
   RECOVERED_ARENA_SEANCE_SOUND_OBJECT_TABLE_FAILURE = 1ull << 61,
-  RECOVERED_ARENA_SEANCE_SOUND_OBJECT_LIFECYCLE_FAILURE = 1ull << 62
+  RECOVERED_ARENA_SEANCE_SOUND_OBJECT_LIFECYCLE_FAILURE = 1ull << 62,
+  RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE = 1ull << 63
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -103,6 +104,10 @@ int RecoveredArenaSeance_FarterAttributeCapacity();
 unsigned long long RecoveredArenaSeance_FarterAttributeFingerprint();
 bool RecoveredArenaSeance_FarterReferencesReady();
 bool RecoveredArenaSeance_FarterRuntimeReady();
+bool RecoveredArenaSeance_FarterSubjectReady();
+int RecoveredArenaSeance_FarterSubjectCapacity();
+unsigned long long RecoveredArenaSeance_FarterSubjectFingerprint();
+int RecoveredArenaSeance_FarterScriptObjectCount();
 unsigned long long RecoveredArenaSeance_FarterReferenceFingerprint();
 int RecoveredArenaSeance_LampAttributeCount();
 int RecoveredArenaSeance_LampAttributeCapacity();

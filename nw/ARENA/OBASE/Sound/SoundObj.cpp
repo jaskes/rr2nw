@@ -246,15 +246,25 @@ ct_Object *SoundObjTable::getObjectPTR( int index )
     return &(m_table[ index ]);
  }
 
-SoundObj *SoundObjTable::find(const KR_ObjectID &objectID)
- {
-    for (int i = 0; i < m_maxObjectQnty; ++i)
-        if (m_table[i].getObjectID() == objectID)
-            return &m_table[i];
-    return 0;
- }
-
 namespace {
+
+struct SoundObjectLiveQuery
+{
+    KR_ObjectID target;
+    bool found;
+};
+
+bool FindLiveSoundObject(const KR_ObjectID objectID, void *user)
+{
+    SoundObjectLiveQuery *query =
+        static_cast<SoundObjectLiveQuery *>(user);
+    if (objectID == query->target)
+    {
+        query->found = true;
+        return false;
+    }
+    return true;
+}
 
 bool CountSoundObject(const KR_ObjectID, void *user)
  {
@@ -263,6 +273,18 @@ bool CountSoundObject(const KR_ObjectID, void *user)
  }
 
 }  // namespace
+
+SoundObj *SoundObjTable::find(const KR_ObjectID &objectID)
+ {
+    SoundObjectLiveQuery query = {objectID, false};
+    userFind(FindLiveSoundObject, &query);
+    if (!query.found)
+        return 0;
+    for (int i = 0; i < m_maxObjectQnty; ++i)
+        if (m_table[i].getObjectID() == objectID)
+            return &m_table[i];
+    return 0;
+ }
 
 int SoundObjTable::liveCount()
  {
@@ -371,6 +393,26 @@ int SoundObjectState_Capacity()
 int SoundObjectState_LiveCount()
  {
     return __classTable.liveCount();
+ }
+
+bool SoundObjectState_Matches(const KR_ObjectID &objectID,
+                              const WAVObj *wav,
+                              double x,
+                              double y,
+                              double z,
+                              bool positionValid,
+                              bool playing,
+                              int playCount)
+ {
+    SoundObj *object = __classTable.find(objectID);
+    if (object == 0 || object->m_wav != wav ||
+        object->positionValid() != positionValid ||
+        object->playing() != playing || object->playCount() != playCount)
+        return false;
+    if (!positionValid)
+        return true;
+    const CFVector3 position = object->getPosition();
+    return position.x == x && position.y == y && position.z == z;
  }
 
 unsigned long long SoundObjectState_Fingerprint(SimulationContext *context)

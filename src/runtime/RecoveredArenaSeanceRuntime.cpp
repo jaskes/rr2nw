@@ -1,5 +1,6 @@
 #include "RecoveredArenaSeanceRuntime.h"
 
+#include <cctype>
 #include <cstdio>
 #include <new>
 #include <string>
@@ -13,6 +14,7 @@ class CGRPanel;
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
+#include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/portal/PortalClassTableState.h"
@@ -40,6 +42,7 @@ constexpr double kSceneDepth = 5120.0;
 constexpr int kDynSmokerCapacity = 50 + 12;
 constexpr int kSmokeCapacity = 300;
 constexpr int kSoundObjectCapacity = 250;
+constexpr int kFarterSubjectCapacity = 25;
 constexpr int kSourceOnlySmokerAttributeCount = 11;
 constexpr const char kBootstrapProgramName[] =
     "recovered_common_attribute_vehicle_bootstrap";
@@ -427,6 +430,86 @@ bool ReadBoundedRetailAttributeSource(const char* relativePath,
   return read && source->find('\0') == std::string::npos;
 }
 
+struct FarterSubjectScriptSummary {
+  bool tablePresent;
+  int objectCount;
+};
+
+int CountTextOccurrences(const std::string& text, const char* pattern) {
+  int count = 0;
+  std::size_t position = 0;
+  const std::size_t length = std::strlen(pattern);
+  while ((position = text.find(pattern, position)) != std::string::npos) {
+    ++count;
+    position += length;
+  }
+  return count;
+}
+
+bool InspectFarterSubjectScript(const std::string& source,
+                                FarterSubjectScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  std::string compact;
+  try {
+    compact.reserve(source.size());
+  } catch (...) {
+    return false;
+  }
+  bool lineComment = false;
+  bool blockComment = false;
+  bool quoted = false;
+  for (std::size_t index = 0; index < source.size(); ++index) {
+    const char current = source[index];
+    const char next = index + 1 < source.size() ? source[index + 1] : '\0';
+    if (lineComment) {
+      if (current == '\r' || current == '\n') lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (current == '*' && next == '/') {
+        blockComment = false;
+        ++index;
+      }
+      continue;
+    }
+    if (!quoted && current == '/' && next == '/') {
+      lineComment = true;
+      compact.push_back('\n');
+      ++index;
+      continue;
+    }
+    if (!quoted && current == '/' && next == '*') {
+      blockComment = true;
+      compact.push_back('\n');
+      ++index;
+      continue;
+    }
+    if (quoted && current == '\\' && next != '\0') {
+      compact.push_back(current);
+      compact.push_back(next);
+      ++index;
+      continue;
+    }
+    if (current == '"') quoted = !quoted;
+    if (quoted || !std::isspace(static_cast<unsigned char>(current))) {
+      compact.push_back(current);
+    }
+  }
+  if (blockComment || quoted) return false;
+
+  const int tableCount = CountTextOccurrences(
+      compact, "s_AddClassTable(\"Farter\",25)");
+  const int objectCount = CountTextOccurrences(compact, "CreateFarter(");
+  if (tableCount > 1 ||
+      (objectCount != 0 && objectCount != 23) ||
+      (tableCount == 0 && objectCount != 0)) {
+    return false;
+  }
+  summary->tablePresent = tableCount == 1;
+  summary->objectCount = objectCount;
+  return true;
+}
+
 struct RecoveredArenaSeanceState {
   unsigned long long issues;
   bool arenaOpen;
@@ -442,6 +525,7 @@ struct RecoveredArenaSeanceState {
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
+  bool farterSubjectReady;
   bool lampAttributesReady;
   bool corpseAttributesReady;
   bool corpseReferencesReady;
@@ -467,6 +551,9 @@ struct RecoveredArenaSeanceState {
   int soundObjectCapacity;
   unsigned long long soundObjectFingerprint;
   unsigned long long farterReferenceFingerprint;
+  int farterSubjectCapacity;
+  unsigned long long farterSubjectFingerprint;
+  int farterScriptObjectCount;
   unsigned long long corpseReferenceFingerprint;
   unsigned long long smokerReferenceFingerprint;
   int smokeSubjectCapacity;
@@ -1288,7 +1375,7 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
     return false;
   }
   g_state.farterReferencesReady = true;
-  g_state.farterRuntimeReady = FarterAttributeState_RuntimeReady(context);
+  g_state.farterRuntimeReady = false;
 
   // The repository CI fixture deliberately has no model assets. Keep that
   // source-only fixture useful, while requiring real Corpse references for
@@ -1324,6 +1411,71 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
   return true;
 }
 
+bool PublishFarterSubject(SimulationContext* context, double startTime) {
+  if (!g_state.farterReferencesReady ||
+      !FarterAttributeState_RuntimeReady(context)) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "Farter command references are not ready for subject activation");
+    return false;
+  }
+  std::string source;
+  FarterSubjectScriptSummary script = {};
+  if (!ReadBoundedRetailAttributeSource("SCINC\\SET_FARTER.SCI", &source) ||
+      !InspectFarterSubjectScript(source, &script)) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "could not inspect the comment-aware Farter subject script");
+    return false;
+  }
+  const int rosterSize = FarterAttributeState_RosterSize(context);
+  const int expectedRosterSize = script.objectCount == 23 ? 4 : 0;
+  if (rosterSize != expectedRosterSize) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "Farter subject script and attribute roster disagree");
+    return false;
+  }
+  g_state.farterScriptObjectCount = script.objectCount;
+  if (!script.tablePresent) {
+    g_state.farterSubjectCapacity = 0;
+    g_state.farterSubjectFingerprint =
+        FarterSubjectState_AbsentFingerprint();
+    g_state.farterSubjectReady =
+        g_state.farterSubjectFingerprint != 0 &&
+        FarterSubjectState_Capacity() == 0;
+    g_state.farterRuntimeReady = g_state.farterSubjectReady;
+    return g_state.farterSubjectReady;
+  }
+
+  const ct_ClassTableID table =
+      g_arena.addClassTable("Farter", kFarterSubjectCapacity);
+  if (table == ct_NULLID ||
+      !FarterSubjectState_TableReady(context, kFarterSubjectCapacity)) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "could not create the retail Farter subject table");
+    return false;
+  }
+  if ((rosterSize > 0 &&
+       !FarterSubjectState_ProbeLifecycle(
+           context, "Farter.Attr.Factory", startTime)) ||
+      FarterSubjectState_LiveCount() != 0 ||
+      SoundObjectState_LiveCount() != 0) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "Farter START/audible/SoundObj lifecycle probe failed");
+    return false;
+  }
+  const unsigned long long fingerprint =
+      FarterSubjectState_Fingerprint(context);
+  if (fingerprint == 0) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "Farter subject table did not return to stable empty state");
+    return false;
+  }
+  g_state.farterSubjectCapacity = kFarterSubjectCapacity;
+  g_state.farterSubjectFingerprint = fingerprint;
+  g_state.farterSubjectReady = true;
+  g_state.farterRuntimeReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -1347,6 +1499,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SmokeVisualState_Link();
   ExplosionAttributeState_Link();
   FarterAttributeState_Link();
+  FarterSubjectState_Link();
   LampAttributeState_Link();
   CorpseAttributeState_Link();
   SmokerAttributeState_Link();
@@ -1414,7 +1567,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 
     if (!PublishSmokeSubject(context) ||
         !PublishDynSmokerSubject(context, startTime) ||
-        !PublishDependentAttributeReferences(context)) {
+        !PublishDependentAttributeReferences(context) ||
+        !PublishFarterSubject(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1463,6 +1617,10 @@ void RecoveredArenaSeance_Release() {
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
+  g_state.farterSubjectReady = false;
+  g_state.farterSubjectCapacity = 0;
+  g_state.farterSubjectFingerprint = 0;
+  g_state.farterScriptObjectCount = 0;
   g_state.farterReferenceFingerprint = 0;
   g_state.lampAttributesReady = false;
   g_state.corpseAttributesReady = false;
@@ -1631,6 +1789,22 @@ bool RecoveredArenaSeance_FarterReferencesReady() {
 
 bool RecoveredArenaSeance_FarterRuntimeReady() {
   return g_state.farterRuntimeReady;
+}
+
+bool RecoveredArenaSeance_FarterSubjectReady() {
+  return g_state.farterSubjectReady;
+}
+
+int RecoveredArenaSeance_FarterSubjectCapacity() {
+  return g_state.farterSubjectReady ? g_state.farterSubjectCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_FarterSubjectFingerprint() {
+  return g_state.farterSubjectReady ? g_state.farterSubjectFingerprint : 0;
+}
+
+int RecoveredArenaSeance_FarterScriptObjectCount() {
+  return g_state.farterSubjectReady ? g_state.farterScriptObjectCount : -1;
 }
 
 unsigned long long RecoveredArenaSeance_FarterReferenceFingerprint() {

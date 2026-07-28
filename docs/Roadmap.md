@@ -504,9 +504,21 @@ hides loaded data behind the RSX device pointer. The current fingerprint is
 `6353104879006733584`, Level.04D Farter references are runtime-ready, and the
 complete gate passes 50/50 tests per configuration, 36/36 services with 18/18
 paired E/G identities, and 4/4 executable smokes. The next implementation step
-is the isolated Farter subject/audible-zone command path, still device-free,
-before entering the heavier People/Tank/Taxi/Bullet graph. A replacement audio
-output backend remains a later platform tranche.
+was the isolated Farter subject/audible-zone command path, still device-free.
+
+That Farter boundary is now complete at the structural/command level. Five
+Levels publish the exact capacity-25 audible subject table (01D, 01N, 04D, 06N
+and 07N); 02D, 02N and 03N line-comment the declaration, while 05D
+block-comments its declaration and apparent 23-entry roster. Those four publish
+the audited capacity-0 fingerprint `985003563401138714`. Level.04D's real
+Factory attribute executes START_FARTING, child SoundObj positioning,
+enter-START, exit-END, parent/child removal and clean reuse. The active
+fingerprint is `4111324552562250482`; 51/51 tests per configuration, 36/36
+services with 18/18 E/G identities and 4/4 executables pass. Next, execute the
+actual comment-aware `main_CreateFarters()` population (23 only for Level.04D)
+and prove one observer-driven audible transition before entering the heavier
+People/Tank/Taxi/Bullet graph. A replacement audio output backend remains a
+later platform tranche.
 
 ### Цель
 

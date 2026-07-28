@@ -413,6 +413,37 @@ Retail scripts нельзя молча копировать поверх source 
   roots, with identical paired output for all 18 configuration/Level cases,
   and 4/4 executable runtime smokes with level-ready and clean shutdown.
 
+### RP-SCRIPT-013: Farter owns the audible SoundObj subject boundary
+
+- Classification: `RETAIL_REQUIRED`; table and command lifecycle are active.
+  Persistent Level.04D roster execution and audible output remain deferred.
+- Five May `set_farter.sci` files declare capacity 25 in their executable path:
+  Level.01D, Level.01N, Level.04D, Level.06N and Level.07N. Production publishes
+  fingerprint `4111324552562250482` for that table. Level.02D, Level.02N and
+  Level.03N disable the declaration with `//`; Level.05D disables it inside
+  `/* ... */`. Their audited absent-table fingerprint is
+  `985003563401138714`; the focused capacity-3 identity is
+  `5538208929077097000`.
+- Only Level.04D has an active subject roster: 23 `CreateFarter` calls using
+  its four loaded Factory/Factory2/Windmill/Steam1 attributes. Level.05D keeps
+  the same-looking 23 lines only inside one block comment, including its table
+  declaration, and has an empty FarterAttr roster. The other four active-table
+  Levels have no creation calls and empty attribute rosters. Both retail roots
+  agree byte-for-byte for every selected script.
+- The current production proof uses Level.04D `Farter.Attr.Factory`: original
+  START_FARTING creates and positions `snd.snd`, enter/exit callbacks produce
+  logical SoundObj START/END, and parent removal owns child removal. Malformed
+  input and repeated pooled reconstruction leave both tables and names empty.
+- `farter_subject_initialized=1` means the script boundary was classified and
+  published: capacity 25 is an active audible subject table, while capacity 0
+  is the admitted retail absence. `audible=1` describes the active
+  subject/callback contract, not speaker output. Startup continues to state
+  `audio_backend=device-free-command-state` explicitly.
+- Verification passes 51/51 Debug and Release tests, 36/36 retail services
+  with 18/18 identical E/G pairs, and 4/4 executable runtime smokes. The next
+  parity gate must execute the comment-aware persistent roster and observe a
+  real frame-driven audible-zone transition.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

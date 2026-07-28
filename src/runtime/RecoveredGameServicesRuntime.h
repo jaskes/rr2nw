@@ -41,6 +41,7 @@ bool RecoveredGameServices_ExplosionAttributesReady();
 bool RecoveredGameServices_FarterAttributesReady();
 bool RecoveredGameServices_FarterReferencesReady();
 bool RecoveredGameServices_FarterRuntimeReady();
+bool RecoveredGameServices_FarterSubjectReady();
 bool RecoveredGameServices_LampAttributesReady();
 bool RecoveredGameServices_CorpseAttributesReady();
 bool RecoveredGameServices_CorpseReferencesReady();

@@ -18,6 +18,7 @@
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
+#include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
@@ -160,6 +161,11 @@ bool IsServiceReleased() {
          !RecoveredGameServices_FarterAttributesReady() &&
          !RecoveredGameServices_FarterReferencesReady() &&
          !RecoveredGameServices_FarterRuntimeReady() &&
+         !RecoveredGameServices_FarterSubjectReady() &&
+         RecoveredArenaSeance_FarterSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_FarterSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_FarterScriptObjectCount() == -1 &&
+         FarterSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_LampAttributesReady() &&
          !RecoveredGameServices_CorpseAttributesReady() &&
          !RecoveredGameServices_CorpseReferencesReady() &&
@@ -681,6 +687,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_FarterAttributesReady() ||
       !RecoveredGameServices_FarterReferencesReady() ||
       !RecoveredGameServices_FarterRuntimeReady() ||
+      !RecoveredGameServices_FarterSubjectReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
       !RecoveredGameServices_CorpseAttributesReady() ||
       !RecoveredGameServices_WavMetadataReady() ||
@@ -766,6 +773,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SoundObjectFingerprint();
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(g_super.m_context);
+  const int farterSubjectCapacity =
+      RecoveredArenaSeance_FarterSubjectCapacity();
+  const unsigned long long farterSubjectFingerprint =
+      RecoveredArenaSeance_FarterSubjectFingerprint();
+  const int farterScriptObjectCount =
+      RecoveredArenaSeance_FarterScriptObjectCount();
   const unsigned long long farterReferenceFingerprint =
       FarterAttributeState_ReferenceFingerprint(g_super.m_context);
   const bool farterRuntimeReady =
@@ -815,6 +828,18 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_FarterReferencesReady() ||
       !RecoveredGameServices_FarterRuntimeReady() ||
       farterReferenceFingerprint == 0 ||
+      (farterSubjectCapacity != 0 && farterSubjectCapacity != 25) ||
+      farterSubjectFingerprint == 0 ||
+      (farterSubjectCapacity == 25 &&
+       farterSubjectFingerprint != 4111324552562250482ull) ||
+      (farterSubjectCapacity == 0 &&
+       farterSubjectFingerprint !=
+           FarterSubjectState_AbsentFingerprint()) ||
+      (farterScriptObjectCount != 0 && farterScriptObjectCount != 23) ||
+      (farterScriptObjectCount == 23 &&
+       (farterSubjectCapacity != 25 || farterRosterSize != 4)) ||
+      (farterScriptObjectCount == 0 && farterRosterSize != 0) ||
+      FarterSubjectState_LiveCount() != 0 ||
       lampFingerprint == 0 || lampRosterSize != 12 || lampCapacity != 12 ||
       corpseFingerprint == 0 || corpseRosterSize < 3 ||
       corpseRosterSize > 7 || corpseCapacity < corpseRosterSize ||
@@ -926,6 +951,13 @@ int main(int argc, char** argv) {
           farterReferenceFingerprint ||
       RecoveredArenaSeance_FarterRuntimeReady() != farterRuntimeReady ||
       !RecoveredGameServices_FarterRuntimeReady() ||
+      RecoveredArenaSeance_FarterSubjectCapacity() !=
+          farterSubjectCapacity ||
+      RecoveredArenaSeance_FarterSubjectFingerprint() !=
+          farterSubjectFingerprint ||
+      RecoveredArenaSeance_FarterScriptObjectCount() !=
+          farterScriptObjectCount ||
+      FarterSubjectState_LiveCount() != 0 ||
       LampAttributeState_Fingerprint(g_super.m_context) != lampFingerprint ||
       LampAttributeState_RosterSize(g_super.m_context) != lampRosterSize ||
       LampAttributeState_Capacity() != lampCapacity ||
@@ -969,6 +1001,8 @@ int main(int argc, char** argv) {
               "sound_object=%d fingerprint=%llu backend=device-free "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
               "farter_refs=%llu farter_runtime=%d "
+              "farter_subject=%d fingerprint=%llu audible=%d "
+              "script_objects=%d "
               "lamp_attrs=%d/%d lamp_fingerprint=%llu "
               "corpse_attrs=%d/%d corpse_fingerprint=%llu portal=table "
               "corpse_refs=%llu corpse_runtime=%d "
@@ -985,6 +1019,9 @@ int main(int argc, char** argv) {
               soundObjectCapacity, soundObjectFingerprint,
               farterRosterSize, farterCapacity, farterFingerprint,
               farterReferenceFingerprint, farterRuntimeReady ? 1 : 0,
+              farterSubjectCapacity, farterSubjectFingerprint,
+              farterSubjectCapacity == 25 ? 1 : 0,
+              farterScriptObjectCount,
               lampRosterSize, lampCapacity, lampFingerprint,
               corpseRosterSize, corpseCapacity, corpseFingerprint,
               corpseReferenceFingerprint, corpseRuntimeReady ? 1 : 0,

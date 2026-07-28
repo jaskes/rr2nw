@@ -586,6 +586,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("farter_runtime_ready=" +
            std::to_string(
                RecoveredArenaSeance_FarterRuntimeReady() ? 1 : 0));
+  log.Line("farter_subject_initialized=" +
+           std::to_string(
+               RecoveredGameServices_FarterSubjectReady() ? 1 : 0));
+  log.Line("farter_subject_capacity=" + std::to_string(
+               RecoveredArenaSeance_FarterSubjectCapacity()));
+  log.Line("farter_subject_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_FarterSubjectFingerprint()));
+  log.Line("farter_script_objects=" + std::to_string(
+               RecoveredArenaSeance_FarterScriptObjectCount()));
   log.Line("farter_reference_fingerprint=" + std::to_string(
                RecoveredArenaSeance_FarterReferenceFingerprint()));
   log.Line("lamp_attributes_initialized=" +
@@ -750,7 +759,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-sound-object-farter-corpse-reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-simulation-visual-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-simulation-visual-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

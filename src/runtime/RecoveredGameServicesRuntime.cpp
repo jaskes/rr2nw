@@ -547,6 +547,10 @@ bool RecoveredGameServices_FarterRuntimeReady() {
   return RecoveredArenaSeance_FarterRuntimeReady();
 }
 
+bool RecoveredGameServices_FarterSubjectReady() {
+  return RecoveredArenaSeance_FarterSubjectReady();
+}
+
 bool RecoveredGameServices_LampAttributesReady() {
   return RecoveredArenaSeance_LampAttributesReady();
 }
@@ -634,6 +638,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_FarterAttributesReady() &&
          RecoveredGameServices_FarterReferencesReady() &&
          RecoveredGameServices_FarterRuntimeReady() &&
+         RecoveredGameServices_FarterSubjectReady() &&
          RecoveredGameServices_LampAttributesReady() &&
          RecoveredGameServices_CorpseAttributesReady() &&
          RecoveredGameServices_CorpseReferencesReady() &&

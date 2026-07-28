@@ -1092,6 +1092,52 @@ Status vocabulary:
   same reset/release ordering and add device-loss plus repeated bind/unbind
   coverage before claiming audible readiness.
 
+### CQ-078: Farter bypassed ct_Subject lifecycle and reused an undefined child ID
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `SUBJECT_OWNERSHIP_FIXED`.
+- Evidence: `Farter::addNotify()` and `removeNotify()` called `ct_Object`
+  directly even though Farter derives from `ct_Subject`. This skipped spatial
+  cache insertion/removal and initialization of audible/visible/frame links.
+  Its constructor initialized only the attribute pointer; `KR_ObjectID m_snd`
+  was therefore indeterminate, pooled reuse retained position/child state, and
+  the table accepted `index == capacity`.
+- Handling: restore `ct_Subject` base notifications, reset attribute, private
+  position and child ID on construction/add/remove, remove only a live child,
+  use nothrow allocation and a strict upper bound. START_FARTING now validates
+  exact payload size, finite coordinates and a live attribute before replacing
+  any existing child. Focused reconstruction proves malformed rejection,
+  SoundObj START/END, parent-child removal and clean same-name reuse.
+- Revisit when: persistent Level.04D Farter creation enters. Drive at least one
+  real subject through observer-based audible culling, verify cache ownership
+  across repeated zone transitions, and retain the direct callback regression
+  as a smaller failure diagnostic.
+
+### CQ-079: Level.05D's apparent Farter roster is wholly commented out
+
+- Status: `CONFIRMED_RETAIL`, `SCRIPT_COMMENT_CONTRACT`.
+- Evidence: both May roots contain 23 textual `CreateFarter` lines in
+  Level.05D `set_farter.sci`, but the opening `/*` precedes its capacity-25
+  table declaration and the closing `*/` follows the final call. Its
+  `main_CreateFarterAttrs()` creates only the empty capacity-10 table. Only
+  Level.04D has four attributes and 23 active creation calls. Installed and
+  mounted copies are byte-identical in four exact SHA-256 groups:
+  `913687A04832869A8B83AF1A6BEBAE9B2239202FAAD8E23FF9FCA3FE6C4FC6D0`
+  for active empty 01D/01N/06N/07N,
+  `EBAA4987CDC474767079A9D100CA2571803EF886957308EC8E6190C9DCC69CF9`
+  for line-commented 02D/02N/03N,
+  `C2A91DADFC5DBBFB3BBD4B917541E3805F835B167115D42F4BCF02E8E7ABD456`
+  for active populated 04D and
+  `0B1AF8A5F22263450EB8A7F368840301EE06F7175CBF274B36B6157882D4984B`
+  for block-commented 05D.
+- Handling: remove comments before counting declarations or calls. Publish the
+  capacity-25 table only for Level.01D, Level.01N, Level.04D, Level.06N and
+  Level.07N. Record Level.02D, Level.02N and Level.03N (`//`) plus Level.05D
+  (`/* ... */`) as audited absent-table states, and never copy Level.04D based
+  on textual similarity.
+- Revisit when: `main_CreateFarters()` execution is added to the bounded script
+  host. Assert active counts 23 for Level.04D and zero for every other Level on
+  both roots before publishing the roster.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -1503,3 +1503,50 @@ mounted `G:` roots with 18/18 paired output identities; and all 4/4 real
 backend behind this stable command-state boundary, not restoration of Intel
 RSX. Before that wider platform work, the next isolated gameplay consumer can
 activate the Level.04D Farter subject lifecycle against these commands.
+
+## BD-047: activate Farter as the first device-free SoundObj consumer
+
+Status: accepted on 2026-07-28.
+
+The original `Farter.cpp` now owns a bounded production subject table with the
+exact capacity 25 declared by the executable path of Level.01D, Level.01N,
+Level.04D, Level.06N and Level.07N. Class registration is force-linked before
+seance creation, while the table itself is added after Farter WAV references
+resolve, matching retail's update-before-subject ordering. Level.02D,
+Level.02N and Level.03N comment out their declaration with `//`; Level.05D
+encloses its declaration and apparent object roster in `/* ... */`. Those four
+Levels publish an audited absent-table state rather than an invented table.
+Empty active rosters prove table ownership only; Level.04D additionally
+executes a real `Farter.Attr.Factory` lifecycle.
+
+That lifecycle sends the original `START_FARTING` payload, creates `snd.snd`
+through `updateSound()`, verifies exact position/WAV command state, invokes the
+original enter/exit audible callbacks and observes SoundObj START then END. It
+removes the Farter, requires its child to disappear, recreates the same parent
+name and proves the reused slot has the default attribute, null child and zero
+position. A malformed START is rejected without either pool changing.
+
+This is still an honest device-free boundary. `Farter` is registered as an
+audible subject and its zone callbacks execute, but no output backend exists.
+The production startup probe invokes those callbacks directly and is removed
+before play; persistent execution of Level.04D's 23 `CreateFarter` calls and a
+normal observer-driven in/out spatial transition remain the next script/frame
+step. Level.05D contains a visually similar 23-entry block, but the entire
+block including its table declaration is enclosed in `/* ... */` and its
+FarterAttr roster is empty; it must not be misclassified as active content.
+
+Activation exposed a deeper inheritance bug. The legacy override called
+`ct_Object::addNotify/removeNotify` instead of `ct_Subject`, bypassing spatial
+cache insertion/removal plus audible/visible state initialization. It now
+restores subject-base ownership. The constructor and pool reuse also reset the
+formerly uninitialized `KR_ObjectID m_snd`, attribute and private position;
+removal is child-aware and idempotent; exact event size, finite position,
+known attribute, nothrow allocation and strict table bounds are required.
+
+The capability fingerprint is `4111324552562250482` for retail capacity 25,
+`985003563401138714` for the admitted absent-table state and
+`5538208929077097000` for the focused capacity-3 fixture. Verification passes
+51/51 CTest in Debug and Release, all 36/36 retail service launches with 18/18
+paired E/G identities, and all 4/4 executable runtime smokes publishing Farter
+subject readiness, exact capacity/fingerprint, `level-ready` and clean
+shutdown. Audible playback remains deferred despite the active callbacks.
