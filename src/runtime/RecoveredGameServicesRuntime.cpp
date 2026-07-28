@@ -581,6 +581,12 @@ bool RecoveredGameServices_SmokerEmissionReady() {
              g_super.m_context, "Smoker.Attr.FireArea");
 }
 
+bool RecoveredGameServices_SmokerLightCoronaReady() {
+  return RecoveredGameServices_SmokerEmissionReady() &&
+         SmokerSubjectState_LightCoronaSupported(
+             g_super.m_context, "Smoker.Attr.FireMd");
+}
+
 bool RecoveredGameServices_DynSmokerReady() {
   return RecoveredArenaSeance_DynSmokerReady();
 }
@@ -627,6 +633,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_SmokerReferencesReady() &&
          RecoveredGameServices_DynSmokerReady() &&
          RecoveredGameServices_SmokerEmissionReady() &&
+         RecoveredGameServices_SmokerLightCoronaReady() &&
          RecoveredGameServices_WavMetadataReady() &&
          RecoveredGameServices_SkinResourcesReady() &&
          RecoveredGameServices_SparkAttributesReady() &&

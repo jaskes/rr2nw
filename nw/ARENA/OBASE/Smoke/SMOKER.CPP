@@ -3,6 +3,8 @@
  * Autor :
  * Ver   1.0 
  */
+#include <cmath>
+
 #define LAST_H__VIEW
 #include "game.h"
 #include "scene.h"
@@ -19,10 +21,6 @@
 #include "SmokerAttributeState.h"
 #include "SmokeSubjectState.h"
 #include "SmokerSubjectState.h"
-
-#ifdef RR2NW_SMOKER_SUBJECT_ONLY
-#define RR2NW_SMOKER_LIGHT_CORONA_DISABLED
-#endif
 
  //===========================================================================
 class SmokerTable : public ct_SubjectTable
@@ -105,6 +103,31 @@ static bool SmokerCanEmit(SimulationContext *context,
            attr->m_smokeTableID == smokeTable &&
            smokeAttribute != NULL &&
            SmokeSubjectState_SimulationSupported(context, smokeAttribute);
+}
+
+static bool SmokerLightReady(const AttributeSmoker *attr)
+{
+    return attr != NULL && attr->m_useLight &&
+           std::isfinite(attr->m_minLightBright) &&
+           std::isfinite(attr->m_maxLightBright) &&
+           std::isfinite(attr->m_lightRadius) &&
+           std::isfinite(attr->m_lightBrightStep) &&
+           std::isfinite(attr->m_lightOffset) &&
+           attr->m_minLightBright >= 0.0 &&
+           attr->m_maxLightBright >= attr->m_minLightBright &&
+           attr->m_maxLightBright <= 255.0 &&
+           attr->m_lightRadius > 0.0 &&
+           attr->m_lightBrightStep >= 0.0;
+}
+
+static bool SmokerCoronaReady(const AttributeSmoker *attr)
+{
+    return attr != NULL && attr->m_useCorona &&
+           std::isfinite(attr->m_coronaR) &&
+           std::isfinite(attr->m_maxCoronaR) &&
+           attr->m_coronaR > 0.0 && attr->m_maxCoronaR > 0.0 &&
+           attr->m_coronaAlpha > 0 && attr->m_coronaAlpha <= 255 &&
+           attr->m_coronaHText != NULL && attr->m_coronaColor != 0;
 }
 
 static KR_ObjectID SmokerEmitSmoke(const CFVector3 &position,
@@ -521,6 +544,24 @@ bool SmokerSubjectState_EmissionSupported(SimulationContext *context,
     return SmokerCanEmit(context, attribute);
 }
 
+bool SmokerSubjectState_LightCoronaSupported(
+    SimulationContext *context, const char *attributeName)
+{
+    if (!SmokerSubjectState_EmissionSupported(context, attributeName))
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoker *attribute = attributeID.isNUL()
+        ? NULL
+        : static_cast<AttributeSmoker *>(
+              __attrSmokerTable.searchAttribute(attributeID));
+#ifdef RR2NW_SMOKER_LIGHT_CORONA_DISABLED
+    (void)attribute;
+    return false;
+#else
+    return SmokerLightReady(attribute) && SmokerCoronaReady(attribute);
+#endif
+}
+
 bool SmokerSubjectState_ProbeEmissionLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp)
@@ -613,6 +654,134 @@ bool SmokerSubjectState_ProbeEmissionLifecycle(
            !context->isExist(kSmokeName) &&
            SmokerSubjectState_DynLiveCount() == 0 &&
            SmokeSubjectState_LiveCount() == 0 &&
+           context->removeEvent(sm_EV_MOVE, object) == 0 &&
+           context->removeEvent(sm_EV_REMOVE, object) == 0 &&
+           (smoke.isNUL() ||
+            context->removeEvent(fou_EVC_MOVING, smoke) == 0);
+}
+
+bool SmokerSubjectState_ProbeLightCoronaLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp)
+{
+    if (!SmokerSubjectState_LightCoronaSupported(context, attributeName) ||
+        SmokerSubjectState_DynLiveCount() != 0 ||
+        SmokeSubjectState_LiveCount() != 0 ||
+        g_lightChain.m_count != 0 || g_lightChain.m_list != NULL)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoker *attribute = static_cast<AttributeSmoker *>(
+        __attrSmokerTable.searchAttribute(attributeID));
+
+    static const char kProbeName[] = "DynSmoker.LightCorona.Probe";
+    static const char kSmokeName[] = "Smok.Static";
+    if (context->isExist(kProbeName) || context->isExist(kSmokeName))
+        return false;
+    KR_ObjectID object =
+        g_arena.newObject(__classTable2.getClassTableID(), kProbeName);
+    Smoker *smoker = static_cast<Smoker *>(__classTable2.findFirstSubject());
+    if (object.isNUL() || smoker == NULL || smoker->getObjectID() != object)
+    {
+        if (!object.isNUL())
+            context->removeObject(object);
+        return false;
+    }
+
+    const CFVector3 position(17.0, 3.0, -19.0);
+    KR_Event event;
+    event.label = fou_EVCMD_START;
+    event.source = g_arena.getObjectID();
+    event.destination = object;
+    event.timeStamp = timeStamp < 0.1 ? 0.1 : timeStamp;
+    event.data.open(EDO_WRITE)
+              .putObjectID(attributeID)
+              .putDouble(position.x)
+              .putDouble(position.y)
+              .putDouble(position.z)
+            .close();
+    context->sendEventNow(event);
+    smoker->m_isVisible = true;
+    smoker->onView(event.timeStamp);
+
+    const bool firstMove = smoker->m_attr == attribute &&
+                           smoker->m_brightness == 0.0 &&
+                           context->removeEvent(sm_EV_MOVE, object) != 0;
+    if (firstMove)
+    {
+        event.label = sm_EV_MOVE;
+        event.source = object;
+        event.destination = object;
+        context->sendEventNow(event);
+    }
+    KR_ObjectID smoke = context->searchObject(kSmokeName);
+    const bool moved = firstMove && !smoke.isNUL() &&
+                       smoker->m_brightness >=
+                           attribute->m_minLightBright &&
+                       smoker->m_brightness <=
+                           attribute->m_maxLightBright &&
+                       context->removeEvent(sm_EV_MOVE, object) != 0 &&
+                       context->removeEvent(fou_EVC_MOVING, smoke) != 0;
+    if (!smoke.isNUL() && context->isExist(smoke))
+        context->removeObject(smoke);
+
+    CViewDynamicList list;
+    if (moved)
+        smoker->render(list, event.timeStamp);
+    const CFVector3 lightPosition =
+        position + CFVector3(0, attribute->m_lightOffset, 0);
+    const bool rendered = moved && g_lightChain.m_count == 1 &&
+                          g_lightChain.m_list == g_lightChain.m_dim &&
+                          g_lightChain.m_list->m_pos == lightPosition &&
+                          g_lightChain.m_list->m_color ==
+                              attribute->m_lightColor &&
+                          g_lightChain.m_list->m_brightness ==
+                              static_cast<int>(smoker->m_brightness) &&
+                          g_lightChain.m_list->m_radius ==
+                              attribute->m_lightRadius &&
+                          list.First() == &smoker->m_corona &&
+                          smoker->m_corona.m_pos == position &&
+                          smoker->m_corona.m_radius > 0.0 &&
+                          smoker->m_corona.m_radius <=
+                              attribute->m_maxCoronaR &&
+                          smoker->m_corona.m_alpha ==
+                              attribute->m_coronaAlpha &&
+                          smoker->m_corona.m_color ==
+                              attribute->m_coronaColor &&
+                          smoker->m_corona.m_htext ==
+                              attribute->m_coronaHText;
+    list.Clear(false);
+    if (rendered)
+        g_lightChain.render();
+    const bool lightPublished = rendered &&
+                                CViewObject::EnabledLights() == 1 &&
+                                _gr_pLights[0].r ==
+                                    attribute->m_lightRadius &&
+                                _gr_pLights[0].power0 ==
+                                    static_cast<int>(smoker->m_brightness) &&
+                                _gr_pLights[0].color ==
+                                    attribute->m_lightColor;
+    CViewObject::EnableLights(0);
+    g_lightChain.m_list = NULL;
+    g_lightChain.m_count = 0;
+
+    if (moved)
+    {
+        KR_Event pending;
+        pending.label = sm_EV_MOVE;
+        pending.source = object;
+        pending.destination = object;
+        pending.timeStamp = event.timeStamp + 1000.0;
+        context->addEvent(pending);
+    }
+    if (context->isExist(object))
+        context->removeObject(object);
+
+    return lightPublished && !context->isExist(kProbeName) &&
+           !context->isExist(kSmokeName) &&
+           SmokerSubjectState_DynLiveCount() == 0 &&
+           SmokeSubjectState_LiveCount() == 0 &&
+           g_lightChain.m_count == 0 && g_lightChain.m_list == NULL &&
+           CViewObject::EnabledLights() == 0 &&
            context->removeEvent(sm_EV_MOVE, object) == 0 &&
            context->removeEvent(sm_EV_REMOVE, object) == 0 &&
            (smoke.isNUL() ||

@@ -362,6 +362,31 @@ Retail scripts нельзя молча копировать поверх source 
   executable runtime smokes. Mounted-root parity is pending while `G:` is not
   mounted.
 
+### RP-SCRIPT-011: DynSmoker publishes the retail light and corona
+
+- Classification: `RETAIL_REQUIRED`; the original Smoker brightness update,
+  light-chain publication and corona draw are active. `SoundObj` remains a
+  separate later boundary.
+- `Smoker.Attr.FireMd` is the complete proof attribute: it enables both light
+  and corona, references the admitted `corona.spr` cache and supplies the
+  original radius, brightness range, alpha and color. A new DynSmoker retains
+  legacy zero brightness until its first MOVE, which clamps the randomized
+  update into the decoded range.
+- The retail service proof crosses normal observer culling and then captures
+  exactly one corona alpha-sprite with the resolved texture handle and exact
+  opacity/color. The same frame publishes one graph light with the attribute's
+  radius/color and an in-range brightness. Parent removal must make the next
+  frame publish zero matching draws and a zero light mask while leaving no
+  queued work, names, subjects or dynamic ownership.
+- The current capacity-62 capability fingerprint is
+  `15784014999936525692`; the focused capacity-2 fixture is
+  `1658570564920133248`. The RP-SCRIPT-010 value
+  `8864986274241257997` remains the historical emission-only identity.
+- Normal startup performs only pure validation and publishes
+  `smoker_light_corona_initialized=1`. The installed root passes 18/18
+  Debug/Release service launches across all nine Levels and 2/2 executable
+  runtime smokes. Mounted-root parity remains pending while `G:` is absent.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

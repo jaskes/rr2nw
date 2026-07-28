@@ -7,6 +7,7 @@
 #include "dmap.h"
 #include "graph.h"
 #include "hardware.h"
+#include "h/light.h"
 #include "h/super.h"
 #include "h/vehicle.h"
 #include "kernel/h/session.h"
@@ -41,35 +42,38 @@
 namespace {
 
 void (*g_originalAlphaSprite)(SGRAlphaSprite*) = nullptr;
-GR_HTEXTURE g_expectedSmokeTexture = nullptr;
-int g_smokeSpriteDraws = 0;
-bool g_smokeSpriteDrawValid = true;
+GR_HTEXTURE g_expectedAlphaTexture = nullptr;
+int g_alphaSpriteDraws = 0;
+bool g_alphaSpriteDrawValid = true;
+SGRAlphaSprite g_lastAlphaSprite = {};
 
-void CaptureSmokeAlphaSprite(SGRAlphaSprite* sprite) {
-  if (sprite != nullptr && sprite->hTexture == g_expectedSmokeTexture) {
-    ++g_smokeSpriteDraws;
-    g_smokeSpriteDrawValid =
-        g_smokeSpriteDrawValid && sprite->x1 > sprite->x0 &&
+void CaptureAlphaSprite(SGRAlphaSprite* sprite) {
+  if (sprite != nullptr && sprite->hTexture == g_expectedAlphaTexture) {
+    ++g_alphaSpriteDraws;
+    g_lastAlphaSprite = *sprite;
+    g_alphaSpriteDrawValid =
+        g_alphaSpriteDrawValid && sprite->x1 > sprite->x0 &&
         sprite->y1 > sprite->y0 && sprite->opacity > 0 &&
         sprite->opacity <= 255 && sprite->iz > 0;
   }
   if (g_originalAlphaSprite != nullptr) g_originalAlphaSprite(sprite);
 }
 
-class ScopedSmokeAlphaSpriteCapture {
+class ScopedAlphaSpriteCapture {
  public:
-  explicit ScopedSmokeAlphaSpriteCapture(GR_HTEXTURE expected) {
-    g_expectedSmokeTexture = expected;
-    g_smokeSpriteDraws = 0;
-    g_smokeSpriteDrawValid = true;
+  explicit ScopedAlphaSpriteCapture(GR_HTEXTURE expected) {
+    g_expectedAlphaTexture = expected;
+    g_alphaSpriteDraws = 0;
+    g_alphaSpriteDrawValid = true;
+    std::memset(&g_lastAlphaSprite, 0, sizeof(g_lastAlphaSprite));
     g_originalAlphaSprite = _pGRDrawAlphaSprite;
-    _pGRDrawAlphaSprite = CaptureSmokeAlphaSprite;
+    _pGRDrawAlphaSprite = CaptureAlphaSprite;
   }
 
-  ~ScopedSmokeAlphaSpriteCapture() {
+  ~ScopedAlphaSpriteCapture() {
     _pGRDrawAlphaSprite = g_originalAlphaSprite;
     g_originalAlphaSprite = nullptr;
-    g_expectedSmokeTexture = nullptr;
+    g_expectedAlphaTexture = nullptr;
   }
 };
 
@@ -81,7 +85,7 @@ int Fail(const char* message) {
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d smoker=%d "
-      "dyn_smoker=%d smoker_emission=%d "
+      "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
       "farter=%d lamp=%d corpse=%d wav=%d skin=%d spark=%d "
       "route=%d vehicle=%d "
       "arena_issues=%llu arena_error=%s level=%d graph=%d "
@@ -103,6 +107,7 @@ int Fail(const char* message) {
       RecoveredGameServices_SmokerAttributesReady() ? 1 : 0,
       RecoveredGameServices_DynSmokerReady() ? 1 : 0,
       RecoveredGameServices_SmokerEmissionReady() ? 1 : 0,
+      RecoveredGameServices_SmokerLightCoronaReady() ? 1 : 0,
       RecoveredGameServices_FarterAttributesReady() ? 1 : 0,
       RecoveredGameServices_LampAttributesReady() ? 1 : 0,
       RecoveredGameServices_CorpseAttributesReady() ? 1 : 0,
@@ -148,6 +153,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_SmokerReferencesReady() &&
          !RecoveredGameServices_SmokerRuntimeReady() &&
          !RecoveredGameServices_SmokerEmissionReady() &&
+         !RecoveredGameServices_SmokerLightCoronaReady() &&
          RecoveredArenaSeance_SmokerReferenceFingerprint() == 0 &&
          !RecoveredGameServices_FarterAttributesReady() &&
          !RecoveredGameServices_FarterReferencesReady() &&
@@ -264,15 +270,15 @@ bool ExerciseVisibleSmoke() {
   bool secondFrame = false;
   int drawsAfterFirstFrame = 0;
   {
-    ScopedSmokeAlphaSpriteCapture capture(attribute->m_cacheImage);
+    ScopedAlphaSpriteCapture capture(attribute->m_cacheImage);
     firstFrame = RecoveredGameServices_RunFrame() != FALSE;
-    drawsAfterFirstFrame = g_smokeSpriteDraws;
+    drawsAfterFirstFrame = g_alphaSpriteDraws;
     context->removeObject(object);
     secondFrame = RecoveredGameServices_RunFrame() != FALSE;
   }
-  return firstFrame && secondFrame && g_smokeSpriteDrawValid &&
+  return firstFrame && secondFrame && g_alphaSpriteDrawValid &&
          drawsAfterFirstFrame == attribute->m_maxBlob &&
-         g_smokeSpriteDraws == drawsAfterFirstFrame &&
+         g_alphaSpriteDraws == drawsAfterFirstFrame &&
          dwFrames == framesBefore + 2 &&
          !context->isExist(kProbeName) &&
          SmokeSubjectState_LiveCount() == 0 &&
@@ -368,17 +374,132 @@ bool ExerciseVisibleSmokerEmission() {
   bool detachedFrame = false;
   int drawsAfterVisibleFrame = 0;
   {
-    ScopedSmokeAlphaSpriteCapture capture(smokeAttribute->m_cacheImage);
+    ScopedAlphaSpriteCapture capture(smokeAttribute->m_cacheImage);
     visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
-    drawsAfterVisibleFrame = g_smokeSpriteDraws;
+    drawsAfterVisibleFrame = g_alphaSpriteDraws;
     context->removeObject(smoker);
     context->removeObject(smoke);
     detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
   }
-  return visibleFrame && detachedFrame && g_smokeSpriteDrawValid &&
+  return visibleFrame && detachedFrame && g_alphaSpriteDrawValid &&
          drawsAfterVisibleFrame == smokeAttribute->m_maxBlob &&
-         g_smokeSpriteDraws == drawsAfterVisibleFrame &&
+         g_alphaSpriteDraws == drawsAfterVisibleFrame &&
          dwFrames == framesBefore + 3 &&
+         !context->isExist(kProbeName) &&
+         !context->isExist(kSmokeName) &&
+         SmokerSubjectState_DynLiveCount() == 0 &&
+         SmokeSubjectState_LiveCount() == 0 &&
+         context->removeEvent(sm_EV_MOVE, smoker) == 0 &&
+         context->removeEvent(sm_EV_REMOVE, smoker) == 0 &&
+         context->removeEvent(fou_EVC_MOVING, smoke) == 0;
+}
+
+bool ExerciseVisibleSmokerLightCorona() {
+  if (g_super.m_context == nullptr ||
+      !RecoveredGameServices_SmokerLightCoronaReady() ||
+      SmokerSubjectState_DynLiveCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0 ||
+      g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
+      CViewObject::EnabledLights() != 0) {
+    return false;
+  }
+  SimulationContext* context = g_super.m_context;
+  const char* attributeName = "Smoker.Attr.FireMd";
+  KR_ObjectID attributeID = context->searchObject(attributeName);
+  AttributeSmoker* attribute = attributeID.isNUL()
+      ? nullptr
+      : static_cast<AttributeSmoker*>(
+            __attrSmokerTable.searchAttribute(attributeID));
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  const ct_ClassTableID table =
+      g_arena.searchSeanceClassTable("DynSmoker");
+  static const char kProbeName[] = "DynSmoker.LightCorona.Rendering.Probe";
+  static const char kSmokeName[] = "Smok.Static";
+  if (attribute == nullptr || !attribute->m_useLight ||
+      !attribute->m_useCorona || attribute->m_coronaHText == nullptr ||
+      attribute->m_coronaColor == 0 || observer == nullptr ||
+      table == ct_NULLID || context->isExist(kProbeName) ||
+      context->isExist(kSmokeName)) {
+    return false;
+  }
+
+  KR_ObjectID smoker = g_arena.newObject(table, kProbeName);
+  if (smoker.isNUL()) return false;
+  KR_Event event;
+  event.label = fou_EVCMD_START;
+  event.source = g_arena.getObjectID();
+  event.destination = smoker;
+  event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
+  event.data.open(EDO_WRITE)
+      .putObjectID(attributeID)
+      .putDouble(observer->x)
+      .putDouble(observer->y)
+      .putDouble(observer->z - 64.0)
+      .close();
+  context->sendEventNow(event);
+
+  const dword framesBefore = dwFrames;
+  const bool enteredView = RecoveredGameServices_RunFrame() != FALSE &&
+      context->removeEvent(sm_EV_MOVE, smoker) != 0;
+  if (enteredView) {
+    event.label = sm_EV_MOVE;
+    event.source = smoker;
+    event.destination = smoker;
+    context->sendEventNow(event);
+  }
+  KR_ObjectID smoke = context->searchObject(kSmokeName);
+  const bool moved = enteredView && !smoke.isNUL() &&
+      SmokerSubjectState_DynLiveCount() == 1 &&
+      SmokeSubjectState_LiveCount() == 1 &&
+      context->removeEvent(sm_EV_MOVE, smoker) != 0 &&
+      context->removeEvent(fou_EVC_MOVING, smoke) != 0;
+  if (!moved) {
+    context->removeEvent(sm_EV_MOVE, smoker);
+    if (context->isExist(smoker)) context->removeObject(smoker);
+    if (!smoke.isNUL() && context->isExist(smoke)) {
+      context->removeEvent(fou_EVC_MOVING, smoke);
+      context->removeObject(smoke);
+    }
+    CViewObject::EnableLights(0);
+    g_lightChain.m_list = nullptr;
+    g_lightChain.m_count = 0;
+    return false;
+  }
+  context->removeObject(smoke);
+  KR_Event pending;
+  pending.label = sm_EV_MOVE;
+  pending.source = smoker;
+  pending.destination = smoker;
+  pending.timeStamp = Session::m_moment + 1000.0;
+  context->addEvent(pending);
+
+  bool visibleFrame = false;
+  bool detachedFrame = false;
+  bool lightPublished = false;
+  int drawsAfterVisibleFrame = 0;
+  {
+    ScopedAlphaSpriteCapture capture(attribute->m_coronaHText);
+    visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
+    drawsAfterVisibleFrame = g_alphaSpriteDraws;
+    lightPublished = CViewObject::EnabledLights() == 1 &&
+        g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+        _gr_pLights[0].r == attribute->m_lightRadius &&
+        _gr_pLights[0].power0 >= attribute->m_minLightBright &&
+        _gr_pLights[0].power0 <= attribute->m_maxLightBright &&
+        _gr_pLights[0].color == attribute->m_lightColor;
+    context->removeObject(smoker);
+    detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
+  }
+  return visibleFrame && detachedFrame && lightPublished &&
+         g_alphaSpriteDrawValid && drawsAfterVisibleFrame == 1 &&
+         g_alphaSpriteDraws == drawsAfterVisibleFrame &&
+         g_lastAlphaSprite.opacity == attribute->m_coronaAlpha &&
+         g_lastAlphaSprite.color == attribute->m_coronaColor &&
+         g_lastAlphaSprite.hTexture == attribute->m_coronaHText &&
+         dwFrames == framesBefore + 3 &&
+         CViewObject::EnabledLights() == 0 &&
+         g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
          !context->isExist(kProbeName) &&
          !context->isExist(kSmokeName) &&
          SmokerSubjectState_DynLiveCount() == 0 &&
@@ -548,6 +669,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
       !RecoveredGameServices_SmokerEmissionReady() ||
+      !RecoveredGameServices_SmokerLightCoronaReady() ||
       !RecoveredGameServices_DynSmokerReady() ||
       !RecoveredGameServices_FarterAttributesReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
@@ -586,6 +708,10 @@ int main(int argc, char** argv) {
           g_super.m_context, "Smoker.Attr.FireArea") ||
       !SmokerSubjectState_ProbeEmissionLifecycle(
           g_super.m_context, "Smoker.Attr.FireArea", Session::m_moment) ||
+      !SmokerSubjectState_LightCoronaSupported(
+          g_super.m_context, "Smoker.Attr.FireMd") ||
+      !SmokerSubjectState_ProbeLightCoronaLifecycle(
+          g_super.m_context, "Smoker.Attr.FireMd", Session::m_moment) ||
       SmokeSubjectState_LiveCount() != 0 ||
       SmokerSubjectState_DynLiveCount() != 0) {
     ZAV_DeInitLevel();
@@ -718,6 +844,11 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("visible DynSmoker MOVE/emission/detach rollback failed");
   }
+  if (!ExerciseVisibleSmokerLightCorona()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("visible DynSmoker light/corona/detach rollback failed");
+  }
 
   KR_Event unsupported;
   unsupported.label = lev_SAVE;
@@ -796,7 +927,7 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=8 hooks=12 hardware=legacy "
+  std::printf("bounded services frames=11 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
                "smoke_simulation=START-MOVE-remove "
@@ -807,6 +938,7 @@ int main(int argc, char** argv) {
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
               "smoker_emission=visible-MOVE-Smoke-draw-detach "
+              "smoker_light_corona=visible-light-corona-draw-detach "
               "wav_metadata=%d/%d wav_fingerprint=%llu "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
               "farter_refs=%llu farter_runtime=%d "

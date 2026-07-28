@@ -15,7 +15,12 @@ bool SmokerSubjectState_ProbeDynLifecycle(SimulationContext *context,
                                           double timeStamp);
 bool SmokerSubjectState_EmissionSupported(SimulationContext *context,
                                            const char *attributeName);
+bool SmokerSubjectState_LightCoronaSupported(
+    SimulationContext *context, const char *attributeName);
 bool SmokerSubjectState_ProbeEmissionLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp);
+bool SmokerSubjectState_ProbeLightCoronaLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp);
 

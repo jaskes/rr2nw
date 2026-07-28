@@ -489,9 +489,12 @@ service coverage proves the visible emission path. The installed Debug/Release
 gate is 18/18 services over all nine Levels plus 2/2 executables; mounted-root
 repetition is pending while `G:` is absent.
 
-The next implementation step is the isolated Smoker light/corona boundary.
-`SoundObj` remains a separate dependency before the heavier
-People/Tank/Taxi/Bullet graph.
+The isolated Smoker light/corona boundary is now complete. The original
+brightness update, one-light publication and exact retail corona draw execute
+with complete frame/event/pool rollback. The current capacity-62 capability
+fingerprint is `15784014999936525692`; installed coverage is 18/18 service
+launches and 2/2 executable smokes. The next implementation step is the
+isolated `SoundObj` boundary before the heavier People/Tank/Taxi/Bullet graph.
 
 ### Цель
 

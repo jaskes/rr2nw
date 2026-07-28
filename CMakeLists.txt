@@ -725,25 +725,30 @@ target_compile_definitions(rr2nw_view_light_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
-add_library(rr2nw_arena_light_chain STATIC
+add_library(rr2nw_arena_light_chain_core STATIC
   nw/ARENA/OBASE/LIGHT/LIGHTOBJ.CPP
 )
-target_link_libraries(rr2nw_arena_light_chain PUBLIC
+target_link_libraries(rr2nw_arena_light_chain_core PUBLIC
   rr2nw_arena_kernel
-  rr2nw_view_light_state
 )
-target_include_directories(rr2nw_arena_light_chain PUBLIC
+target_include_directories(rr2nw_arena_light_chain_core PUBLIC
   nw/INCLUDE
   nw/DESIGN.LIB/H
   nw/ARENA
   nw/ARENA/H
   nw/VIEW
 )
-target_compile_features(rr2nw_arena_light_chain PUBLIC cxx_std_14)
-target_compile_definitions(rr2nw_arena_light_chain PRIVATE
+target_compile_features(rr2nw_arena_light_chain_core PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_light_chain_core PRIVATE
   __NT__
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
+)
+
+add_library(rr2nw_arena_light_chain INTERFACE)
+target_link_libraries(rr2nw_arena_light_chain INTERFACE
+  rr2nw_arena_light_chain_core
+  rr2nw_view_light_state
 )
 
 add_library(rr2nw_view_land_dynamic_frame_state STATIC
@@ -1601,7 +1606,7 @@ if(MSVC)
   target_compile_options(
     rr2nw_view_terrain_view_state PRIVATE /W4 /permissive-
   )
-  target_compile_options(rr2nw_arena_light_chain PRIVATE /W3 /permissive-)
+  target_compile_options(rr2nw_arena_light_chain_core PRIVATE /W3 /permissive-)
   target_compile_options(
     rr2nw_view_land_dynamic_frame_state PRIVATE /W4 /permissive-
   )
@@ -2326,6 +2331,7 @@ add_library(rr2nw_arena_smoker_subject_state STATIC
   nw/ARENA/OBASE/Smoke/SmokerSubjectState.h
 )
 target_link_libraries(rr2nw_arena_smoker_subject_state PUBLIC
+  rr2nw_arena_light_chain_core
   rr2nw_arena_smoke_subject_state
   rr2nw_arena_smoker_attribute_state
   rr2nw_arena_storage
@@ -3373,6 +3379,7 @@ add_executable(rr2nw_scene_software_state_smoke
   src/portability/SceneSoftwareStateSmoke.cpp
 )
 target_link_libraries(rr2nw_scene_software_state_smoke PRIVATE
+  rr2nw_arena_light_chain
   rr2nw_view_light_state
   rr2nw_view_frame_state
   rr2nw_view_land_dynamic_frame_state

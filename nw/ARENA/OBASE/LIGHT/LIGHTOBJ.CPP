@@ -69,12 +69,12 @@ void LightChain::render()
 {
 
     int i    = 0;
-    int mask = 0;
+    dword mask = 0;
 
     for(
          LightPoint *lp = m_list;
-         i < 32 && lp != 0;
-         lp = lp->m_next, mask |= (1<<i), i++
+         i < LIGHT_SOURCE_COUNT && lp != 0;
+         lp = lp->m_next, mask |= (static_cast<dword>(1) << i), i++
        )
          CViewObject::SetLight( i,
                                 lp->m_color ,

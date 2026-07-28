@@ -1405,11 +1405,51 @@ culling call the real `onView`, dispatches one MOVE, observes one child Smoke
 and its exact sprite count, then proves a following frame has no stale draw or
 scene ownership after parent/child removal.
 
-The DynSmoker capability fingerprint now versions both emission support and the
-still-disabled light/corona boundary. The capacity-62 retail identity is
+The DynSmoker capability fingerprint at this decision versions emission support
+with light/corona still disabled. The capacity-62 retail identity is
 `8864986274241257997`; the capacity-2 focused fixture is
-`13186285912934417169`. Verification passes 49/49 CTest in Debug and Release,
+`13186285912934417169`. BD-045 supersedes that restriction and assigns new
+capability identities. Verification passes 49/49 CTest in Debug and Release,
 18/18 installed retail service launches across all nine Levels, and 2/2
 installed `rr2nw.exe --runtime-smoke` launches with the new marker, level-ready
 and clean shutdown. The mounted-image half remains pending because `G:` is not
 mounted.
+
+## BD-045: activate original Smoker light and corona rendering
+
+Status: accepted on 2026-07-28.
+
+The bounded production owner now executes the original Smoker brightness
+update, `render()` and `endRender()` callbacks. `Smoker.Attr.FireMd` is the
+retail proof because it enables both effects and already owns a transactionally
+resolved `corona.spr` handle. A new subject still begins with brightness zero;
+the first MOVE applies the legacy random step and clamps the result into the
+attribute's minimum/maximum range before the asserted visible frame. That
+ordering is preserved rather than inventing a startup brightness.
+
+Startup readiness remains side-effect free: it validates finite light/corona
+parameters and resolved resources but does not create an emitter or consume the
+process-global PRNG. The disposable frame proof places a real DynSmoker before
+the recovered observer, crosses normal Arena culling, dispatches MOVE, removes
+the emitted Smoke child and then observes exactly one corona draw plus one
+published light. The captured sprite must retain the exact texture handle,
+opacity and color from the retail attribute. Removing the parent before the
+following frame must clear its pending MOVE, light mask, light chain, scene
+dynamic, names and both subject pools.
+
+Linking this path exposed two independent light-layer hazards. The light-chain
+object had transitively pulled in the recovered minimal `SetLight` owner even
+when a complete runtime already linked original `OBJECT.CPP`; its target is now
+split into a core implementation and an interface adapter so each consumer
+selects one owner. The chain also built a signed `int` mask with `1 << 31`,
+which is undefined behavior. It now uses `dword`, `LIGHT_SOURCE_COUNT` and an
+unsigned shift; a focused regression publishes all 32 bits as `0xFFFFFFFF`.
+
+The capacity-62 retail DynSmoker fingerprint is now
+`15784014999936525692`; the capacity-2 focused identity is
+`1658570564920133248`. The prior BD-044 values remain historical emission-only
+identities. Verification passes 49/49 CTest in Debug and Release, 18/18
+installed retail service launches across all nine Levels, and 2/2 installed
+`rr2nw.exe --runtime-smoke` launches publishing
+`smoker_light_corona_initialized=1`, `level-ready` and clean shutdown. The
+mounted-image half remains pending because `G:` is not mounted.

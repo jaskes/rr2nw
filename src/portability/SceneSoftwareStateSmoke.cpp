@@ -4,6 +4,7 @@
 
 #define LAST_H__VIEW
 #include "game.h"
+#include "h/light.h"
 
 extern SDeviceList _dL;
 extern float _ikX;
@@ -77,6 +78,29 @@ int main() {
   map.RemoveLights(1);
   if (!Expect(map.IsEmpty(),
               "land light mask was not cleared after frame")) {
+    return EXIT_FAILURE;
+  }
+
+  for (int index = 0; index < LIGHT_SOURCE_COUNT; ++index) {
+    g_lightChain.add(CFVector3(index, 0.0, 0.0), index, 100 + index,
+                     10.0 + index);
+  }
+  if (!Expect(g_lightChain.m_count == LIGHT_SOURCE_COUNT,
+              "legacy light chain did not retain all 32 sources")) {
+    return EXIT_FAILURE;
+  }
+  g_lightChain.render();
+  if (!Expect(CViewObject::EnabledLights() == 0xFFFFFFFFu,
+              "32nd light bit was not published without signed overflow") ||
+      !Expect(g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr,
+              "light chain did not reset after publication") ||
+      !Expect(_gr_pLights[LIGHT_SOURCE_COUNT - 1].color ==
+                      LIGHT_SOURCE_COUNT - 1 &&
+                  _gr_pLights[LIGHT_SOURCE_COUNT - 1].power0 ==
+                      100 + LIGHT_SOURCE_COUNT - 1 &&
+                  Near(_gr_pLights[LIGHT_SOURCE_COUNT - 1].r,
+                       10.0 + LIGHT_SOURCE_COUNT - 1),
+              "furthest admitted light changed during publication")) {
     return EXIT_FAILURE;
   }
 

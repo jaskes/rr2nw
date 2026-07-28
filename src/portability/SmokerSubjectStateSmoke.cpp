@@ -48,8 +48,19 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
                  sizeof(smoker->m_smokeAttrName) - 1);
     smoker->m_smokeAttrName[sizeof(smoker->m_smokeAttrName) - 1] = 0;
     smoker->m_onLand = 0;
-    smoker->m_useLight = 0;
-    smoker->m_useCorona = 0;
+    smoker->m_useLight = 1;
+    smoker->m_lightColor = 7;
+    smoker->m_minLightBright = 100.0;
+    smoker->m_maxLightBright = 140.0;
+    smoker->m_lightRadius = 3.0;
+    smoker->m_lightBrightStep = 120.0;
+    smoker->m_lightOffset = 1.5;
+    smoker->m_useCorona = 1;
+    smoker->m_coronaR = 0.003;
+    smoker->m_coronaAlpha = 140;
+    smoker->m_maxCoronaR = 40.0;
+    smoker->m_coronaHText = reinterpret_cast<GR_HTEXTURE>(1);
+    smoker->m_coronaColor = 1;
     smoker->m_maxTimeLife = -1;
   }
   const ct_ClassTableID smokeTable =
@@ -88,6 +99,15 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
           &context, "Smoker.Attr.Corpse", 1.0) &&
       SmokerSubjectState_DynLiveCount() == 0 &&
       SmokeSubjectState_LiveCount() == 0;
+  const bool lightCorona =
+      SmokerSubjectState_LightCoronaSupported(
+          &context, "Smoker.Attr.Corpse") &&
+      SmokerSubjectState_ProbeLightCoronaLifecycle(
+          &context, "Smoker.Attr.Corpse", 0.1) &&
+      SmokerSubjectState_ProbeLightCoronaLifecycle(
+          &context, "Smoker.Attr.Corpse", 1.0) &&
+      SmokerSubjectState_DynLiveCount() == 0 &&
+      SmokeSubjectState_LiveCount() == 0;
   const unsigned long long fingerprint =
       SmokerSubjectState_DynFingerprint(&context);
   const bool stable =
@@ -95,7 +115,8 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
       (*expectedFingerprint == 0 || *expectedFingerprint == fingerprint);
   *expectedFingerprint = fingerprint;
   g_arena.closeSeance();
-  return constructed && missingRejected && lifecycle && emission && stable &&
+  return constructed && missingRejected && lifecycle && emission &&
+         lightCorona && stable &&
          SmokerSubjectState_DynCapacity() == 0 &&
          SmokerSubjectState_DynLiveCount() == 0 &&
          SmokeSubjectState_Capacity() == 0 &&
@@ -116,8 +137,8 @@ int main() {
     return Fail("DynSmoker create/start/remove reconstruction failed");
   }
   std::printf("smoker subject table=DynSmoker capacity=2 "
-              "lifecycle=create-start-visible-MOVE-emit-Smoke-remove-twice "
-              "rollback=events-child-pools fingerprint=%llu\n",
+              "lifecycle=create-start-visible-MOVE-emit-Smoke-light-corona-"
+              "remove-twice rollback=events-child-pools-lights fingerprint=%llu\n",
               fingerprint);
   return EXIT_SUCCESS;
 }

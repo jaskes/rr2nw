@@ -1025,6 +1025,36 @@ Status vocabulary:
   add cancellation to that subject's `removeNotify()` and preserve a regression
   that proves the queue empty after removal.
 
+### CQ-074: the light chain must not choose the `SetLight` symbol owner
+
+- Status: `BUILD_DEPENDENCY_FIXED`, `SINGLE_OWNER_LINK_CONTRACT`.
+- Evidence: activating Smoker rendering linked `LIGHTOBJ.CPP` into a complete
+  game-services target that already owned `CViewObject::SetLight` through the
+  original `OBJECT.CPP`. The former light-chain target also pulled the recovered
+  minimal view-light state transitively, producing a duplicate `SetLight`
+  definition even though both implementations were individually valid in their
+  intended graph.
+- Handling: keep `rr2nw_arena_light_chain_core` responsible only for
+  `LIGHTOBJ.CPP`. The `rr2nw_arena_light_chain` interface adds the recovered
+  minimal owner for isolated consumers; the bounded Smoker target links the
+  core and receives the full owner from its existing object graph. Full Debug
+  and Release links are part of the regression contract.
+- Revisit when: the recovered minimal view-light adapter is retired or the
+  renderer boundary has one explicit implementation for every consumer.
+
+### CQ-075: the 32nd legacy light bit used a signed left shift
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `FIXED_WIDTH_MASK_CONTRACT`.
+- Evidence: `LightChain::render()` accumulated enabled sources in an `int` with
+  `1 << i` while admitting 32 lights. Shifting signed one into bit 31 is
+  undefined behavior and made the last supported light compiler-dependent.
+- Handling: accumulate into `dword`, shift a `dword(1)`, and use
+  `LIGHT_SOURCE_COUNT` instead of a second literal 32. The software-scene
+  regression fills the complete chain, requires the mask `0xFFFFFFFF`, checks
+  the 32nd light metadata and proves the chain resets after publication.
+- Revisit when: light capacity or mask storage changes; preserve an unsigned
+  mask wide enough for every admitted source and test the highest bit.
+
 ## Maintenance rule
 
 When a new quirk is found:

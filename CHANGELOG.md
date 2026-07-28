@@ -7,11 +7,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
-- Activated bounded production `DynSmoker` emission without enabling its still
-  isolated light/corona renderer. Real observer culling now schedules the
-  original timed MOVE, both retail `Smoker.Attr.Corpse` and terrain-bound
-  `Smoker.Attr.FireArea` create real child `Smoke`, and the child crosses the
-  already recovered alpha-sprite draw path.
+- Activated the original bounded `DynSmoker` brightness, light-chain and corona
+  rendering path. `Smoker.Attr.FireMd` now publishes one real scene light and
+  one exact retail corona sprite after its first MOVE, then proves complete
+  light, draw, event and subject rollback on removal.
+- Added pure `smoker_light_corona_initialized` startup diagnostics, focused
+  lifecycle coverage and an installed retail frame proof for the resolved
+  corona texture handle, alpha/color metadata and light parameters.
+- Split the legacy light chain implementation from its recovered minimal
+  `CViewObject::SetLight` adapter so bounded and full-object consumers retain a
+  single symbol owner. Fixed the chain's signed `1 << 31` mask overflow and
+  added a regression that publishes all 32 supported lights as `0xFFFFFFFF`.
+- Activated bounded production `DynSmoker` emission as the preceding isolated
+  boundary. Real observer culling now schedules the original timed MOVE, both
+  retail `Smoker.Attr.Corpse` and terrain-bound `Smoker.Attr.FireArea` create
+  real child `Smoke`, and the child crosses the already recovered alpha-sprite
+  draw path.
 - Added `smoker_emission_initialized` diagnostics plus focused and retail
   lifecycle proofs for parent scheduling, child creation, visible drawing and
   complete parent/child rollback. Normal startup only checks capability and

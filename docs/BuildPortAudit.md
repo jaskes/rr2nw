@@ -1575,7 +1575,40 @@ passes 18/18 service launches across all nine Levels with visible
 MOVE-to-Smoke/draw/detach proof and the new fingerprint, plus 2/2 executable
 runtime smokes publishing the emission marker, `level-ready` and
 `runtime_shutdown=clean`. The mounted-image gate is pending because `G:` is not
-mounted. Light/corona behavior remains isolated as the next Smoker boundary.
+mounted. The light/corona restriction at this checkpoint is superseded by the
+next accepted boundary.
+
+### Bounded Smoker light/corona rendering and exact frame rollback
+
+The bounded `SMOKER.CPP` owner now executes its original brightness update,
+`render()` and `endRender()` methods. Production readiness validates the
+resolved `Smoker.Attr.FireMd` light/corona parameters without mutation. The
+disposable lifecycle starts with legacy brightness zero, dispatches the first
+MOVE to clamp it into the decoded range, prepares the exact resolved corona and
+publishes one light through the original `LightChain`.
+
+The installed frame proof places the real emitter before the recovered
+observer, crosses Arena culling, removes the emitted Smoke child, captures one
+corona alpha-sprite with the exact retail texture/opacity/color, and validates
+the graph light radius, color and brightness. Parent removal then cancels its
+pending MOVE; the following frame must publish no additional corona, a zero
+light mask, empty chain/dynamic ownership and empty subject pools.
+
+This link exposed CQ-074: the light-chain target had selected the recovered
+minimal `CViewObject::SetLight` owner even when original `OBJECT.CPP` was
+already present. The implementation is now a core target, with a separate
+interface adapter only for isolated consumers. CQ-075 also replaces the signed
+`1 << 31` enabled-light mask with a `dword` shift bounded by
+`LIGHT_SOURCE_COUNT`; a 32-light regression requires `0xFFFFFFFF` and exact
+last-light metadata.
+
+The capacity-62 DynSmoker fingerprint is now `15784014999936525692`; the
+focused capacity-2 identity is `1658570564920133248`. Final verification is
+49/49 CTest in each configuration, 18/18 installed retail services across all
+nine Levels, and 2/2 real executable runtime smokes publishing
+`smoker_light_corona_initialized=1`, `level-ready` and clean shutdown. The
+mounted-image half remains pending because `G:` is not mounted. `SoundObj` is
+the next isolated dependency before the heavier People/Tank/Taxi/Bullet graph.
 
 ## Expansion order
 
@@ -1616,10 +1649,11 @@ mounted. Light/corona behavior remains isolated as the next Smoker boundary.
    derived visual resources. Free and terrain-bound Smoke START/MOVE/removal
    now execute with queue rollback, scene promotion, alpha-sprite drawing and
    exact dynamic detach. Bounded Smoker MOVE now emits those real children and
-   rolls parent/child queues and scene ownership back exactly. `SoundObj`,
-   Smoker light/corona behavior, remaining attribute cache groups,
-   Skin animation construction and remaining OBASE/script ABI bindings are
-   still required before switching to full retail `LEVEL0.SC`.
+   rolls parent/child queues and scene ownership back exactly. Its original
+   brightness/light/corona path now also crosses a real frame and rolls every
+   light and scene owner back exactly. `SoundObj`, remaining attribute cache
+   groups, Skin animation construction and remaining OBASE/script ABI bindings
+   are still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,
