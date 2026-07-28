@@ -1354,22 +1354,22 @@ Status vocabulary:
   executable. Add compatibility semantics only with code-layout or runtime
   evidence, and version any resulting state/save-format change.
 
-### CQ-093: Spark is a real empty prerequisite; Bullet is registration-only
+### CQ-093: Spark is a real empty prerequisite; Bullet activation is layered
 
 - Status: `CONFIRMED_RETAIL`, `ACTIVATION_BOUNDARY`.
 - Evidence: every May `localmain.sci` declares `Spark(40)` and a Level-specific
   Bullet capacity, while the admitted Bullet fragments create attributes but no
   projectile subjects. Bullet dependencies nevertheless require both class
   table names during reference resolution.
-- Handling: link the original Spark owner and dynamic-sprite base, require its
-  capacity-40 pool to contain zero live objects, and expose exact Bullet
-  capacity through a non-rendering/non-audible registration table. This
-  satisfies dependency identity without implying live ballistic behavior.
-  Spark allocation is made non-throwing and its `index <= capacity` assertion
-  is corrected to the valid half-open bound before production registration.
-- Revisit when: activate Bullet construction, motion, collision, damage,
-  lifetime, trace draw and removal together; then replace the registration-only
-  owner and extend lifecycle diagnostics.
+- Handling: link the original Spark owner and dynamic-sprite base and require
+  its capacity-40 pool to contain zero live objects. Bullet keeps its exact
+  capacity in a non-rendering/non-audible owner, but registration is no longer
+  the activation boundary: exact start ABI, free-flight motion, ground removal,
+  queued-event cleanup and pool reuse now execute independently of collision
+  and visual effects. Spark allocation is non-throwing and its historical
+  one-past assertion uses the valid half-open bound.
+- Revisit when: activate Bullet spatial collision and child Spark/Explosion/
+  Smoke creation. Require parent/child rollback before marking Spark live.
 
 ### CQ-094: Bullet runtime color identity is palette-dependent
 
@@ -1385,6 +1385,29 @@ Status vocabulary:
 - Revisit when: the renderer moves away from the indexed software palette.
   Preserve the legacy resolved-color contract as a compatibility path or
   version the diagnostic identity when true-color output is introduced.
+
+### CQ-095: legacy Bullet start, trace and removal accept corrupt state
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `MEMORY_SAFETY_BOUNDARY`.
+- Evidence: `b_EV_START` passes its encoded index to the shared
+  `ct_AttributeTable::setAttribute()`, whose range condition is
+  `index >= 0 || index < m_maxObjectQnty` and therefore accepts almost every
+  decoded value. `traceStep()` indexes `m_viewTrace[m_traceCurrentLength - 1]`
+  while the first call starts at zero. Legacy `removeNotify()` deletes only the
+  sound child and does not remove queued moving/collision events.
+- Handling: the modern subject scans the admitted live BulletAttr roster and
+  accepts an encoded index only when it exactly matches a live attribute. It
+  validates complete payload size, finite vectors/timestamps, non-zero launch
+  direction and positive finite speed/tick interval before mutation. Removal
+  always clears both Bullet-owned event labels and resets every pooled field.
+  Trace remains disabled rather than copying the negative-index access.
+- Regression contract: every seance rejects truncated, invalid-index and
+  zero-direction starts without state/queue changes; reproduces one exact
+  airborne tick; removes at the ground; proves pending-event rollback; and
+  immediately reallocates a clean pooled object. The probe must finish with
+  zero live Bullets and a non-zero stable subject fingerprint.
+- Revisit when: collision/effects and trace are admitted. Preserve these
+  validation and rollback guarantees while extending the fingerprint flags.
 
 ## Maintenance rule
 

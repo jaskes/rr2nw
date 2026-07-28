@@ -559,6 +559,10 @@ bool RecoveredGameServices_BulletSubjectRegistrationReady() {
   return RecoveredArenaSeance_BulletSubjectRegistrationReady();
 }
 
+bool RecoveredGameServices_BulletSubjectReady() {
+  return RecoveredArenaSeance_BulletSubjectReady();
+}
+
 bool RecoveredGameServices_FarterAttributesReady() {
   return RecoveredArenaSeance_FarterAttributesReady();
 }
@@ -673,6 +677,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_BulletAttributesReady() &&
          RecoveredGameServices_BulletReferencesReady() &&
          RecoveredGameServices_BulletSubjectRegistrationReady() &&
+         RecoveredGameServices_BulletSubjectReady() &&
          RecoveredGameServices_FarterAttributesReady() &&
          RecoveredGameServices_FarterReferencesReady() &&
          RecoveredGameServices_FarterRuntimeReady() &&

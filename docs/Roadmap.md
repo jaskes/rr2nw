@@ -535,18 +535,22 @@ caches remain intentionally unresolved. The legacy Arena issue word is full,
 so these frontiers use a separately versioned extended issue word without
 renumbering established diagnostics.
 
-That dependency-first Bullet slice is now complete. Exact root/local Bullet
-programs publish all May rosters; their Spark, Explosion, Smoke, optional
-WAV/Skin and trace resources resolve through one atomic transaction. The real
-empty `Spark(40)` table is present, while Bullet capacities are deliberately
-registration-only so no incomplete projectile can enter the world.
+That dependency-first Bullet slice and its first real subject slice are now
+complete. Exact root/local programs publish all May rosters; their Spark,
+Explosion, Smoke, optional WAV/Skin and trace resources resolve through one
+atomic transaction. The real empty `Spark(40)` table is present. Bullet retains
+each exact capacity and now executes the retail start-event ABI, timestamp-based
+free-flight equation, ground removal, event rollback and clean pool reuse. It
+is intentionally non-rendering and non-audible, so admitting ballistics does not
+silently activate the unsafe legacy trace or the heavy collision/effect graph.
 
-The next safe gameplay slice is the real Bullet subject lifecycle in isolation:
-audit construction, movement tick, FPS dependence, collision, damage, lifetime,
-trace drawing, sound emission and removal; identify which of the retail
-`m_lifeTime`/`massa` writes were intentionally ignored by the exact serializer;
-then replace the registration owner only when rollback and one bounded frame are
-proven. After that, resolve Vehicle's Bullet/Panel/Taxi caches before attempting
+The next safe Bullet slice is spatial collision in isolation: reproduce the
+terrain/order and dynamic-object query contract, bound waterline intersection,
+prove earliest-hit selection and damage ownership, then attach real
+Explosion/Spark/Smoke children with complete parent/child queue rollback.
+Trace, skin/light and sound follow only after the first collision slice is
+stable; the known first-step `m_viewTrace[-1]` bug must be replaced rather than
+copied. After that, resolve Vehicle's Bullet/Panel/Taxi caches before attempting
 `SET_TAXI.SCI`. Taxi creation remains ahead of People and Tank, and live network
 or replay work remains outside this 1.0 frontier.
 

@@ -87,7 +87,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_ROSTER_INVALID = 1ull << 10,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_REFERENCE_INVALID = 1ull << 11,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_TABLE_FAILURE = 1ull << 12,
-  RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_TABLE_FAILURE = 1ull << 13
+  RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_TABLE_FAILURE = 1ull << 13,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_LIFECYCLE_FAILURE = 1ull << 14
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -120,7 +121,10 @@ int RecoveredArenaSeance_BulletAttributeCapacity();
 unsigned long long RecoveredArenaSeance_BulletAttributeFingerprint();
 unsigned long long RecoveredArenaSeance_BulletReferenceFingerprint();
 bool RecoveredArenaSeance_BulletSubjectRegistrationReady();
+bool RecoveredArenaSeance_BulletSubjectReady();
 int RecoveredArenaSeance_BulletSubjectCapacity();
+unsigned long long RecoveredArenaSeance_BulletSubjectFingerprint();
+int RecoveredArenaSeance_BulletSubjectProbeMoveCount();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();

@@ -19,6 +19,7 @@
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/bullet/BulletAttributeState.h"
+#include "obase/bullet/BulletSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
@@ -236,11 +237,15 @@ bool IsServiceReleased() {
          !RecoveredGameServices_BulletAttributesReady() &&
          !RecoveredGameServices_BulletReferencesReady() &&
          !RecoveredGameServices_BulletSubjectRegistrationReady() &&
+         !RecoveredGameServices_BulletSubjectReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
          RecoveredArenaSeance_BulletReferenceFingerprint() == 0 &&
          RecoveredArenaSeance_BulletSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_BulletSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_BulletSubjectProbeMoveCount() == -1 &&
+         BulletSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
          !RecoveredGameServices_SmokerRuntimeReady() &&
@@ -848,6 +853,7 @@ int main(int argc, char** argv) {
        !RecoveredGameServices_BulletAttributesReady() ||
        !RecoveredGameServices_BulletReferencesReady() ||
        !RecoveredGameServices_BulletSubjectRegistrationReady() ||
+       !RecoveredGameServices_BulletSubjectReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
@@ -934,6 +940,8 @@ int main(int argc, char** argv) {
   const int bulletCapacity = BulletAttributeState_Capacity();
   const int bulletSubjectCapacity =
       BulletAttributeState_SubjectCapacity();
+  const unsigned long long bulletSubjectFingerprint =
+      BulletSubjectState_Fingerprint(g_super.m_context);
   const unsigned long long vehicleAttributeFingerprint =
       VehicleAttributeState_Fingerprint(g_super.m_context);
   const int vehicleAttributeRosterSize =
@@ -1037,6 +1045,13 @@ int main(int argc, char** argv) {
       (bulletSubjectCapacity != 50 && bulletSubjectCapacity != 100 &&
        bulletSubjectCapacity != 250) ||
       !BulletAttributeState_SubjectTableReady(g_super.m_context) ||
+      !BulletSubjectState_TableReady(g_super.m_context,
+                                     bulletSubjectCapacity) ||
+      BulletSubjectState_LiveCount() != 0 ||
+      bulletSubjectFingerprint == 0 ||
+      RecoveredArenaSeance_BulletSubjectFingerprint() !=
+          bulletSubjectFingerprint ||
+      RecoveredArenaSeance_BulletSubjectProbeMoveCount() != 2 ||
       !BulletAttributeState_IsKnownRoster(g_super.m_context) ||
       !BulletAttributeState_ReferencesResolved(g_super.m_context) ||
       !BulletAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
@@ -1217,6 +1232,12 @@ int main(int argc, char** argv) {
           bulletReferenceFingerprint ||
       RecoveredArenaSeance_BulletSubjectCapacity() !=
           bulletSubjectCapacity ||
+      BulletSubjectState_LiveCount() != 0 ||
+      BulletSubjectState_Fingerprint(g_super.m_context) !=
+          bulletSubjectFingerprint ||
+      RecoveredArenaSeance_BulletSubjectFingerprint() !=
+          bulletSubjectFingerprint ||
+      RecoveredArenaSeance_BulletSubjectProbeMoveCount() != 2 ||
       VehicleAttributeState_Fingerprint(g_super.m_context) !=
           vehicleAttributeFingerprint ||
       VehicleAttributeState_RosterSize(g_super.m_context) !=
@@ -1323,7 +1344,9 @@ int main(int argc, char** argv) {
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
-              "bullet_refs=%llu bullet_subject=0/%d-registration "
+              "bullet_refs=%llu "
+              "bullet_subject=0/%d-ballistic-free-flight-ground "
+              "bullet_subject_fingerprint=%llu bullet_probe_moves=2 "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
@@ -1352,6 +1375,7 @@ int main(int argc, char** argv) {
               taxiReferenceFingerprint,
               bulletRosterSize, bulletCapacity, bulletFingerprint,
               bulletReferenceFingerprint, bulletSubjectCapacity,
+              bulletSubjectFingerprint,
               smokerRosterSize, smokerCapacity, smokerFingerprint,
               smokerReferenceFingerprint, smokerRuntimeReady ? 1 : 0,
               dynSmokerCapacity, dynSmokerFingerprint,

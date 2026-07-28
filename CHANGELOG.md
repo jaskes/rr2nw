@@ -7,6 +7,25 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Replaced the registration-only Bullet placeholder with a real bounded
+  non-rendering/non-audible subject. It consumes the exact retail `b_EV_START`
+  payload, resolves the encoded BulletAttr index without calling the unsafe
+  legacy `setAttribute()`, normalizes launch direction, schedules timestamped
+  movement ticks, applies the recovered `-9.8` gravity equation and removes the
+  projectile when it crosses the ground plane.
+- Added Bullet subject lifecycle admission and diagnostics. Every public/retail
+  seance rejects malformed payloads, invalid encoded attributes and zero
+  directions; proves a numerically exact free-flight tick, ground removal,
+  pending-event rollback and clean pool reuse; then publishes a stable subject
+  fingerprint with zero live probes. All nine installed May Levels pass using
+  an attribute selected from their own exact roster rather than assuming the
+  non-universal `Bullet.Sec` name.
+- Recorded and isolated three legacy Bullet hazards before activation: the
+  shared attribute setter uses `index >= 0 || index < capacity`, the first
+  trace step reads `m_viewTrace[-1]`, and old removal leaves Bullet-owned
+  movement/collision events queued. Collision, water splash/explosion/Spark,
+  sound, skin/light and trace rendering remain disabled until their owners can
+  be admitted with the same rollback standard.
 - Executed the exact root `BULLET.SCI` plus each selected Level's
   `SCINC/bullet_loc.sci` through original `main_CreateBullets()` ordering.
   Seven May raw identities now cover all nine Levels with exact attribute and
@@ -18,9 +37,9 @@ claim authorship of inherited Logos code or retail data.
   unresolved and already resolved failures leave every cache and texture owner
   unchanged.
 - Linked the original empty retail `Spark(40)` subject table required by every
-  May `localmain.sci`. Bullet subjects use a deliberately registration-only,
-  non-rendering/non-audible bounded table until their physics, collision and
-  renderer lifecycle can be activated as one reviewed frontier. Spark pool
+  May `localmain.sci`. Bullet subjects retain the exact Level capacity and now
+  execute the isolated free-flight/ground-removal lifecycle described above;
+  collision and renderer activation remain separate reviewed frontiers. Spark pool
   allocation is now non-throwing and its historical one-past index check is
   corrected before the table enters modern production.
 - Added Bullet raw/reference and subject-table diagnostics, dedicated extended

@@ -609,8 +609,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("bullet_subject_registration_initialized=" + std::to_string(
                RecoveredArenaSeance_BulletSubjectRegistrationReady() ? 1
                                                                       : 0));
+  log.Line("bullet_subject_initialized=" + std::to_string(
+               RecoveredArenaSeance_BulletSubjectReady() ? 1 : 0));
   log.Line("bullet_subject_capacity=" +
            std::to_string(RecoveredArenaSeance_BulletSubjectCapacity()));
+  log.Line("bullet_subject_mode=ballistic-free-flight-ground");
+  log.Line("bullet_subject_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_BulletSubjectFingerprint()));
+  log.Line("bullet_subject_probe_move_count=" + std::to_string(
+               RecoveredArenaSeance_BulletSubjectProbeMoveCount()));
   log.Line("farter_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_FarterAttributesReady() ? 1 : 0));
@@ -832,7 +839,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
       "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
-      "attribute-vehicle-bootstrap");
+      "attribute-bullet-ballistic-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

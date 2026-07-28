@@ -44,6 +44,7 @@ bool RecoveredGameServices_TaxiReferencesReady();
 bool RecoveredGameServices_BulletAttributesReady();
 bool RecoveredGameServices_BulletReferencesReady();
 bool RecoveredGameServices_BulletSubjectRegistrationReady();
+bool RecoveredGameServices_BulletSubjectReady();
 bool RecoveredGameServices_FarterAttributesReady();
 bool RecoveredGameServices_FarterReferencesReady();
 bool RecoveredGameServices_FarterRuntimeReady();

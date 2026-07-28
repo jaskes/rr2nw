@@ -1744,10 +1744,10 @@ Every May `localmain.sci` declares `Spark(40)`. Production therefore links the
 original Spark subject owner, including its dynamic-sprite base, creates the
 real capacity-40 table and requires zero live objects. This is a prerequisite
 table, not an activated Spark gameplay claim. The Bullet subject table is even
-more deliberately bounded: exact retail capacities are registered through a
-non-rendering, non-audible placeholder owner, but no live Bullet is constructed.
-Its original motion, collision, damage, lifetime, trace drawing and removal
-contract must be recovered together before replacing that owner.
+more deliberately bounded: this decision first registered exact retail
+capacities through a non-rendering, non-audible placeholder owner. BD-052 now
+replaces that placeholder with an isolated free-flight subject without changing
+the attribute/reference transaction accepted here.
 
 The extracted Bullet serializer contains 41 actual items. Retail scripts also
 write `massa` and `m_lifeTime`, neither of which is an exact item name;
@@ -1768,3 +1768,40 @@ Verification requires 51/51 CTest in both configurations, all 36 May service
 launches with 18/18 identical installed/disc pairs, and 4/4 waited executable
 smokes. This tranche does not claim live projectile physics, collision, damage,
 trace drawing or Vehicle's Bullet cache.
+
+## BD-052: activate Bullet free flight before collision and rendering
+
+Status: accepted on 2026-07-28.
+
+The registration-only Bullet owner is replaced by a real bounded subject while
+retaining every script-selected capacity. The first admitted slice implements
+only behavior that can be proved without People/Tank/Vehicle cache activation:
+the exact `b_EV_START` payload (position vector, direction vector, encoded
+BulletAttr index and master ObjectID), normalized launch velocity, scheduled
+movement using event timestamps, the recovered constant-gravity equation,
+`fu_EV_QUERY_SPEED`, ground-plane removal and complete event/pool rollback.
+
+The shared legacy attribute setter cannot be used at this boundary because its
+range test uses `||` and can index outside the pool. The modern subject instead
+matches the encoded value against every live admitted BulletAttr and mutates no
+state unless a real object matches. It also rejects incomplete data, non-finite
+values, zero direction and invalid speed/tick intervals. This keeps the
+original producer ABI used by Cannon/Vehicle without inheriting the unsafe
+consumer.
+
+Startup performs a destructive-but-fully-rolled-back lifecycle transaction on
+an attribute selected from the current Level's sorted exact roster. A hardcoded
+`Bullet.Sec` probe was rejected by retail evidence: that name is absent in
+Level.01D, Level.01N and Level.07N. The final probe rejects three invalid starts,
+checks one airborne position/velocity step numerically, crosses the ground with
+a downward shot, removes an object while its next movement event is pending and
+reallocates a clean pooled object. Readiness requires two executed movement
+steps, zero live Bullets and a stable feature/capacity fingerprint.
+
+Collision checks, waterline splash selection, damage, Explosion/Spark/Smoke
+children, sound, Skin/light and trace rendering are explicitly false in the
+subject fingerprint. In particular, legacy trace drawing is not copied because
+its first step reads `m_viewTrace[-1]`; these systems will be activated in
+separate slices with parent/child rollback. Vehicle's Bullet cache also remains
+deferred, so this decision proves the consumer lifecycle without yet claiming
+that every retail weapon can create it during normal gameplay.

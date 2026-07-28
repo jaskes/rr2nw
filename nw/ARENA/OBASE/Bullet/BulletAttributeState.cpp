@@ -2,17 +2,16 @@
 
 #include <algorithm>
 #include <cstdio>
-#include <new>
 #include <string>
 #include <vector>
 
+#include "BulletSubjectState.h"
 #include "h/cachesmoke.h"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
 #include "message/funitmsg.h"
 #include "obase/skin/SkinResourceState.h"
 #include "obase/sound/WAVResourceState.h"
-#include "storage/h/subject.h"
 
 AttributeTableBullet __bulletAttrTable;
 
@@ -21,7 +20,6 @@ namespace {
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 int g_attributeCapacity = 0;
-int g_subjectCapacity = 0;
 char g_lastError[192] = {};
 
 void SetLastError(const char *kind, const char *name)
@@ -30,57 +28,6 @@ void SetLastError(const char *kind, const char *name)
                   "Bullet dependency missing: %s <%s>", kind,
                   name == NULL ? "" : name);
 }
-
-class BulletRegistrationSubject : public ct_Subject
-{
- public:
-    virtual CFVector3 realPosition() { return m_position; }
-    virtual int receiveEvent(KR_Event &) { return 0; }
-    virtual bool shouldDump() { return false; }
-};
-
-class BulletRegistrationTable : public ct_SubjectTable
-{
-    BulletRegistrationSubject *m_table;
-
- public:
-    BulletRegistrationTable() : m_table(NULL)
-    {
-        registerClass("Bullet");
-    }
-
-    virtual void allocObjects(int objectQnty)
-    {
-        m_table = new (std::nothrow) BulletRegistrationSubject[objectQnty];
-        if (m_table == NULL)
-        {
-            m_maxObjectQnty = 0;
-            g_subjectCapacity = 0;
-            return;
-        }
-        g_subjectCapacity = objectQnty;
-    }
-
-    virtual void freeObjects()
-    {
-        delete [] m_table;
-        m_table = NULL;
-        m_maxObjectQnty = 0;
-        g_subjectCapacity = 0;
-    }
-
-    virtual ct_Object *getObjectPTR(int index)
-    {
-        s_ASSERT(index >= 0 && index < m_maxObjectQnty,
-                 "BulletRegistrationTable::getObjectPTR");
-        return &(m_table[index]);
-    }
-
-    virtual bool isRendering() { return false; }
-    virtual bool isAudible() { return false; }
-};
-
-BulletRegistrationTable g_bulletRegistrationTable;
 
 void HashBytes(unsigned long long &hash, const void *data, int size)
 {
@@ -584,6 +531,7 @@ int AttributeBullet::receiveEvent(KR_Event &event)
 
 void BulletAttributeState_Link()
 {
+    BulletSubjectState_Link();
 }
 
 int BulletAttributeState_RosterSize(SimulationContext *context)
@@ -601,21 +549,21 @@ int BulletAttributeState_Capacity()
 
 int BulletAttributeState_SubjectCapacity()
 {
-    return g_subjectCapacity;
+    return BulletSubjectState_Capacity();
 }
 
 bool BulletAttributeState_SubjectTableReady(SimulationContext *context)
 {
-    if (context == NULL || g_arena.getContext() != context ||
-        g_subjectCapacity <= 0)
+    const int capacity = BulletSubjectState_Capacity();
+    if (context == NULL || g_arena.getContext() != context || capacity <= 0)
         return false;
     const int known[] = {50, 100, 250, 500};
     bool capacityKnown = false;
     for (int i = 0; i < 4; ++i)
-        if (g_subjectCapacity == known[i])
+        if (capacity == known[i])
             capacityKnown = true;
     return capacityKnown &&
-           g_arena.searchSeanceClassTable("Bullet") != ct_NULLID;
+           BulletSubjectState_TableReady(context, capacity);
 }
 
 unsigned long long BulletAttributeState_Fingerprint(
@@ -625,8 +573,9 @@ unsigned long long BulletAttributeState_Fingerprint(
     if (!CollectRoster(context, collector))
         return 0;
     unsigned long long hash = kHashOffset;
+    const int subjectCapacity = BulletSubjectState_Capacity();
     HashBytes(hash, &g_attributeCapacity, sizeof(g_attributeCapacity));
-    HashBytes(hash, &g_subjectCapacity, sizeof(g_subjectCapacity));
+    HashBytes(hash, &subjectCapacity, sizeof(subjectCapacity));
     for (std::size_t i = 0; i < collector.entries.size(); ++i)
     {
         HashString(hash, collector.entries[i].name.c_str());
@@ -754,8 +703,9 @@ unsigned long long BulletAttributeState_ReferenceFingerprint(
     if (!CollectRoster(context, collector))
         return 0;
     unsigned long long hash = kHashOffset;
+    const int subjectCapacity = BulletSubjectState_Capacity();
     HashBytes(hash, &g_attributeCapacity, sizeof(g_attributeCapacity));
-    HashBytes(hash, &g_subjectCapacity, sizeof(g_subjectCapacity));
+    HashBytes(hash, &subjectCapacity, sizeof(subjectCapacity));
     for (std::size_t i = 0; i < collector.entries.size(); ++i)
     {
         AttributeBullet &attribute = *collector.entries[i].attribute;
@@ -810,4 +760,45 @@ bool BulletAttributeState_IsKnownReferenceRoster(
 const char *BulletAttributeState_LastError()
 {
     return g_lastError;
+}
+
+bool BulletAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeBullet **attribute)
+{
+    if (attribute == NULL)
+        return false;
+    *attribute = NULL;
+    if (context == NULL || g_arena.getContext() != context ||
+        encodedIndex == -1)
+        return false;
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("BulletAttr");
+    if (table == ct_NULLID)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeBullet *candidate = collector.entries[i].attribute;
+        if (candidate != NULL &&
+            g_arena.getAttributeIndex(table, candidate->getObjectID()) ==
+                encodedIndex)
+        {
+            *attribute = candidate;
+            return true;
+        }
+    }
+    return false;
+}
+
+const char *BulletAttributeState_FirstAttributeName(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) || collector.entries.empty())
+        return NULL;
+    return context->searchObject(
+        collector.entries.front().attribute->getObjectID());
 }

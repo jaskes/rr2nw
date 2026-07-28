@@ -1848,21 +1848,36 @@ still compares the concrete handles, pointers, table IDs, ObjectIDs and indices.
 The required Spark subject table is no longer synthetic: every May
 `localmain.sci` declaration creates the original empty `Spark(40)` pool, with
 the dynamic-sprite implementation linked and zero live subjects required. The
-Bullet subject table preserves each retail capacity through a registration-only
-owner. It cannot render, emit audio or instantiate live objects, which prevents
-attribute recovery from accidentally activating incomplete projectile physics.
+Bullet subject table preserves each retail capacity through a real bounded
+owner. It consumes the original producer ABI, executes timestamp-based
+free-flight and ground removal, and clears its event queue and pooled state on
+every exit. It remains non-rendering/non-audible and does not yet schedule the
+collision label, so this does not accidentally activate incomplete effects.
+
+The modern start path does not use `ct_AttributeTable::setAttribute()`: its
+legacy `index >= 0 || index < capacity` condition admits out-of-range decoded
+indices. Instead, encoded values are compared against the complete live
+BulletAttr roster. Payload length, timestamps, vectors, direction magnitude,
+speed and tick interval are validated before any cache position or subject
+field changes. The admission probe covers malformed payload, corrupt index,
+zero direction, exact airborne position/velocity, ground crossing, pending
+event removal and clean pool reuse. Because `Bullet.Sec` is not universal, the
+probe selects the first attribute from each admitted sorted roster.
 
 Retail `massa` and `m_lifeTime` assignments are preserved as unknown exact-name
 serializer no-ops. The recovered field is named `m_massa`; there is no proven
 lifetime item. Corrupt name, missing source, tableless source, unresolved public
 fixture and live resolved-roster mutation tests cover complete rollback and
 reconstruction. Startup exposes raw/reference Bullet identities, both table
-contracts and dedicated extended issue bits.
+contracts, a ballistic subject identity, probe movement count and dedicated
+extended issue bits. The legacy trace is deliberately excluded: its first call
+can read `m_viewTrace[-1]`, and legacy removal does not clear queued events.
 
 Final verification requires 51/51 CTest in both configurations, all 36 May
 service launches with 18/18 identical installed/disc summaries, and 4/4 waited
-executable smokes. Live Bullet motion, collision, damage, lifetime and trace
-drawing remain the next separate frontier.
+executable smokes. Live free-flight motion is admitted; spatial collision,
+damage/effect children, lifetime compatibility, audio and trace drawing remain
+the next separate frontiers.
 
 ## Expansion order
 
@@ -1918,8 +1933,10 @@ drawing remain the next separate frontier.
    resolves all three dependency groups atomically with stable symbolic
    identities. Exact BulletAttr rosters now resolve their Spark, Explosion,
    Smoke, optional WAV/Skin and trace resources atomically; the original empty
-   `Spark(40)` pool and exact registration-only Bullet capacities are present.
-   Vehicle's own Panel/Taxi/Bullet caches, live Bullet subjects, remaining
+   `Spark(40)` pool and exact Bullet capacities are present. The bounded Bullet
+   subject now executes exact start/free-flight/ground-removal and rollback
+   without collision, effects or rendering. Vehicle's own Panel/Taxi/Bullet
+   caches, the remaining live Bullet graph, remaining
    attribute groups, Skin
    animation construction and remaining OBASE/script ABI bindings are still
    required before switching to full retail `LEVEL0.SC`.

@@ -19,6 +19,7 @@ class CGRPanel;
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/bullet/BulletAttributeState.h"
+#include "obase/bullet/BulletSubjectState.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
@@ -51,6 +52,7 @@ unsigned long long g_vehicleFixtureFingerprint = 0;
 unsigned long long g_taxiFixtureFingerprint = 0;
 unsigned long long g_bulletFixtureFingerprint = 0;
 unsigned long long g_bulletReferenceFixtureFingerprint = 0;
+unsigned long long g_bulletSubjectFixtureFingerprint = 0;
 unsigned long long g_farterFixtureFingerprint = 0;
 unsigned long long g_farterReferenceFixtureFingerprint = 0;
 unsigned long long g_lampFixtureFingerprint = 0;
@@ -258,11 +260,15 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_BulletAttributesReady() &&
          !RecoveredArenaSeance_BulletReferencesReady() &&
          !RecoveredArenaSeance_BulletSubjectRegistrationReady() &&
+         !RecoveredArenaSeance_BulletSubjectReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
          RecoveredArenaSeance_BulletReferenceFingerprint() == 0 &&
          RecoveredArenaSeance_BulletSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_BulletSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_BulletSubjectProbeMoveCount() == -1 &&
+         BulletSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
          !RecoveredArenaSeance_FarterRuntimeReady() &&
@@ -362,9 +368,13 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_BulletAttributesReady() ||
       RecoveredArenaSeance_BulletReferencesReady() ||
       !RecoveredArenaSeance_BulletSubjectRegistrationReady() ||
+      !RecoveredArenaSeance_BulletSubjectReady() ||
       RecoveredArenaSeance_BulletAttributeCount() != 4 ||
       RecoveredArenaSeance_BulletAttributeCapacity() != 4 ||
       RecoveredArenaSeance_BulletSubjectCapacity() != 500 ||
+      RecoveredArenaSeance_BulletSubjectFingerprint() == 0 ||
+      RecoveredArenaSeance_BulletSubjectProbeMoveCount() != 2 ||
+      BulletSubjectState_LiveCount() != 0 ||
       RecoveredArenaSeance_BulletAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_BulletReferenceFingerprint() != 0 ||
       !RecoveredArenaSeance_SmokerAttributesReady() ||
@@ -498,6 +508,10 @@ bool RunCycle(bool expectVisualResources) {
       BulletAttributeState_Capacity() == 4 &&
       BulletAttributeState_SubjectCapacity() == 500 &&
       BulletAttributeState_SubjectTableReady(&context) &&
+      BulletSubjectState_TableReady(&context, 500) &&
+      BulletSubjectState_LiveCount() == 0 &&
+      BulletSubjectState_Fingerprint(&context) ==
+          RecoveredArenaSeance_BulletSubjectFingerprint() &&
       BulletAttributeState_CachesUnresolved(&context) &&
       !BulletAttributeState_ResolveReferences(&context) &&
       BulletAttributeState_CachesUnresolved(&context) &&
@@ -559,6 +573,8 @@ bool RunCycle(bool expectVisualResources) {
       BulletAttributeState_Fingerprint(&context);
   const unsigned long long bulletReferenceFingerprint =
       BulletAttributeState_ReferenceFingerprint(&context);
+  const unsigned long long bulletSubjectFingerprint =
+      BulletSubjectState_Fingerprint(&context);
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(&context);
   const unsigned long long farterReferenceFingerprint =
@@ -595,6 +611,8 @@ bool RunCycle(bool expectVisualResources) {
       (g_bulletReferenceFixtureFingerprint == 0 ||
        g_bulletReferenceFixtureFingerprint ==
            bulletReferenceFingerprint) &&
+      (g_bulletSubjectFixtureFingerprint == 0 ||
+       g_bulletSubjectFixtureFingerprint == bulletSubjectFingerprint) &&
       (g_farterFixtureFingerprint == 0 ||
        g_farterFixtureFingerprint == farterFingerprint) &&
       (g_farterReferenceFixtureFingerprint == 0 ||
@@ -628,6 +646,7 @@ bool RunCycle(bool expectVisualResources) {
   g_taxiFixtureFingerprint = taxiFingerprint;
   g_bulletFixtureFingerprint = bulletFingerprint;
   g_bulletReferenceFixtureFingerprint = bulletReferenceFingerprint;
+  g_bulletSubjectFixtureFingerprint = bulletSubjectFingerprint;
   g_farterFixtureFingerprint = farterFingerprint;
   g_farterReferenceFixtureFingerprint = farterReferenceFingerprint;
   g_smokerFixtureFingerprint = smokerFingerprint;
@@ -1432,7 +1451,9 @@ int main(int argc, char** argv) {
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
-               "bullet_attrs=4/4 bullet_subject=0/500-registration "
+               "bullet_attrs=4/4 "
+               "bullet_subject=0/500-ballistic-free-flight-ground "
+               "bullet_probe_moves=2 "
                "smoke_subject=0/300 smoke_simulation=START-MOVE-remove "
                "smoke_visual=resolved "
                "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
@@ -1446,6 +1467,7 @@ int main(int argc, char** argv) {
               "vehicle=Vehicle.Default "
               "explosion_fingerprint=%llu vehicle_fingerprint=%llu "
               "bullet_fingerprint=%llu bullet_reference_fingerprint=%llu "
+              "bullet_subject_fingerprint=%llu "
               "smoker_fingerprint=%llu "
                "taxi_fingerprint=%llu "
                "smoker_reference_fingerprint=%llu "
@@ -1464,6 +1486,7 @@ int main(int argc, char** argv) {
               g_vehicleFixtureFingerprint,
               g_bulletFixtureFingerprint,
               g_bulletReferenceFixtureFingerprint,
+              g_bulletSubjectFixtureFingerprint,
               g_smokerFixtureFingerprint,
               g_taxiFixtureFingerprint,
                g_smokerReferenceFixtureFingerprint,

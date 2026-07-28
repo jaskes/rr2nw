@@ -12,6 +12,7 @@ class CGRPanel;
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/bullet/BulletAttributeState.h"
+#include "obase/bullet/BulletSubjectState.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
@@ -601,6 +602,7 @@ struct RecoveredArenaSeanceState {
   bool bulletAttributesReady;
   bool bulletReferencesReady;
   bool bulletSubjectRegistrationReady;
+  bool bulletSubjectReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -632,6 +634,8 @@ struct RecoveredArenaSeanceState {
   int sparkSubjectCapacity;
   unsigned long long bulletAttributeFingerprint;
   unsigned long long bulletReferenceFingerprint;
+  unsigned long long bulletSubjectFingerprint;
+  int bulletSubjectProbeMoveCount;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
@@ -1464,6 +1468,29 @@ bool PublishBulletAttributes(SimulationContext* context) {
       BulletAttributeState_Fingerprint(context);
   g_state.bulletAttributesReady = true;
   g_state.bulletSubjectRegistrationReady = true;
+  const char* probeAttribute =
+      BulletAttributeState_FirstAttributeName(context);
+  int probeMoveCount = 0;
+  if (probeAttribute == nullptr ||
+      !BulletSubjectState_ProbeBallisticLifecycle(
+          context, probeAttribute, Session::m_moment, &probeMoveCount) ||
+      probeMoveCount != 2 || BulletSubjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_LIFECYCLE_FAILURE,
+        "bounded Bullet start/move/ground-removal/rollback probe failed");
+    return false;
+  }
+  const unsigned long long subjectFingerprint =
+      BulletSubjectState_Fingerprint(context);
+  if (subjectFingerprint == 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_LIFECYCLE_FAILURE,
+        "Bullet subject did not return to a stable empty ballistic pool");
+    return false;
+  }
+  g_state.bulletSubjectFingerprint = subjectFingerprint;
+  g_state.bulletSubjectProbeMoveCount = probeMoveCount;
+  g_state.bulletSubjectReady = true;
   return true;
 }
 
@@ -1918,6 +1945,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 
   BirdAttributeState_Link();
   BulletAttributeState_Link();
+  BulletSubjectState_Link();
   ArtefactAttributeState_Link();
   OrphanAttributeState_Link();
   PortalClassTable_Link();
@@ -2089,11 +2117,14 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletAttributesReady = false;
   g_state.bulletReferencesReady = false;
   g_state.bulletSubjectRegistrationReady = false;
+  g_state.bulletSubjectReady = false;
   g_state.bulletAttributeCount = 0;
   g_state.bulletAttributeCapacity = 0;
   g_state.bulletSubjectCapacity = 0;
   g_state.bulletAttributeFingerprint = 0;
   g_state.bulletReferenceFingerprint = 0;
+  g_state.bulletSubjectFingerprint = 0;
+  g_state.bulletSubjectProbeMoveCount = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -2270,10 +2301,22 @@ bool RecoveredArenaSeance_BulletSubjectRegistrationReady() {
   return g_state.bulletSubjectRegistrationReady;
 }
 
+bool RecoveredArenaSeance_BulletSubjectReady() {
+  return g_state.bulletSubjectReady;
+}
+
 int RecoveredArenaSeance_BulletSubjectCapacity() {
   return g_state.bulletSubjectRegistrationReady
              ? g_state.bulletSubjectCapacity
              : 0;
+}
+
+unsigned long long RecoveredArenaSeance_BulletSubjectFingerprint() {
+  return g_state.bulletSubjectReady ? g_state.bulletSubjectFingerprint : 0;
+}
+
+int RecoveredArenaSeance_BulletSubjectProbeMoveCount() {
+  return g_state.bulletSubjectReady ? g_state.bulletSubjectProbeMoveCount : -1;
 }
 
 bool RecoveredArenaSeance_FarterAttributesReady() {

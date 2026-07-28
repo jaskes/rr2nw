@@ -112,5 +112,10 @@ unsigned long long BulletAttributeState_ReferenceFingerprint(
 bool BulletAttributeState_IsKnownReferenceRoster(
     SimulationContext *context);
 const char *BulletAttributeState_LastError();
+bool BulletAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeBullet **attribute);
+const char *BulletAttributeState_FirstAttributeName(
+    SimulationContext *context);
 
 #endif
