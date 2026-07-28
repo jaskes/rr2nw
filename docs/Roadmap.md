@@ -517,8 +517,10 @@ fingerprint is `4111324552562250482`; 51/51 tests per configuration, 36/36
 services with 18/18 E/G identities and 4/4 executables pass. Next, execute the
 actual comment-aware `main_CreateFarters()` population (23 only for Level.04D)
 and prove one observer-driven audible transition before entering the heavier
-People/Tank/Taxi/Bullet graph. A replacement audio output backend remains a
-later platform tranche.
+People/Tank/Taxi/Bullet graph. That step must first initialize the device-free
+audible distance: the legacy squared threshold remains zero unless
+`InitializeRSX()` runs, even though both retail configs request `DistMax=300`.
+A replacement audio output backend remains a later platform tranche.
 
 ### Цель
 

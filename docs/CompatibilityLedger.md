@@ -1138,6 +1138,26 @@ Status vocabulary:
   host. Assert active counts 23 for Level.04D and zero for every other Level on
   both roots before publishing the roster.
 
+### CQ-080: device-free startup leaves the audible distance squared at zero
+
+- Status: `CONFIRMED_SOURCE`, `NEXT_FARTER_BLOCKER`.
+- Evidence: `SoundStateData.inl` initializes `snd_distMax` to 100 but
+  `snd_distMax2` to zero. The only legacy assignment of the squared value is in
+  `InitializeRSX()`, after reading `[Sound] DistMax`; the modern command-state
+  path deliberately never enters that Intel RSX initializer. Both installed
+  and mounted retail `game.cfg` files request `DistMax=300`.
+- Impact: `ct_Arena::render()` tests every audible subject with
+  `distanceSquared < snd_distMax2`. Direct Farter callback probes are valid for
+  the event contract, but an ordinary observer frame cannot enter an audible
+  zone while the threshold remains zero.
+- Handling: before persistent Farter publication, add a device-free sound
+  configuration initializer that validates the finite non-negative distance,
+  publishes both linear and squared values, and resets them during shutdown.
+  This must not initialize RSX or claim speaker output.
+- Revisit when: the 23-object Level.04D roster is executed. Prove a near frame
+  enters at least one Farter, a far frame ends it, and repeated seance teardown
+  restores the sound-distance state together with both object pools.
+
 ## Maintenance rule
 
 When a new quirk is found:
