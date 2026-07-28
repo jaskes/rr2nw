@@ -952,13 +952,13 @@ Status vocabulary:
   linear case. A reused pool slot reset only a subset of serialized/transient
   state.
 - Handling: validate every simulation-critical attribute before mutation,
-  reject terrain-dependent START until the scene boundary is active, stop on
-  any failed blob allocation, handle linear/quadratic positive roots, and
+  reject terrain-dependent START only when no published terrain exists, stop
+  on any failed blob allocation, handle linear/quadratic positive roots, and
   reset all transient/blob/view state on every add notification. Verify queued
   MOVE creation and cancellation through the corrected `removeEvent()` result.
-- Revisit when: terrain/render and save/load are connected; retain the same
-  validation and prove full rollback with a live land dynamic and serialized
-  in-flight smoke.
+- Revisit when: render and save/load are connected; retain the same validation
+  and prove full rollback with a live land dynamic and serialized in-flight
+  smoke.
 
 ### CQ-070: a startup Smoke probe would consume gameplay randomness
 
@@ -974,6 +974,20 @@ Status vocabulary:
   side effect cannot escape into a played session.
 - Revisit when: SimulationContext owns an explicit serializable PRNG; at that
   point checkpoint/restore the generator around probes and replay tests.
+
+### CQ-071: CViewTerrain relied on an undeclared fixed-font link edge
+
+- Status: `BUILD_DEPENDENCY_FIXED`, `SCENE_CORE_CONTRACT`.
+- Evidence: linking the scene core into the focused terrain-bound Smoke test
+  exposed unresolved `CFixedColorFont::Read`, `RecreateFont` and
+  `PrintClipColorAt` references from `TERRAIN.CPP`. Complete executables had
+  hidden the omission by bringing the same owner through unrelated UI paths.
+- Handling: make `rr2nw_graph_fixed_font_runtime_state` a public dependency of
+  `rr2nw_view_terrain_full`. A consumer that requests the real terrain now
+  receives the exact recovered font boundary it uses, independent of link
+  order or unrelated menu/panel libraries.
+- Revisit when: terrain diagnostics stop using the legacy fixed font; remove
+  the edge only after the object file no longer references those methods.
 
 ## Maintenance rule
 

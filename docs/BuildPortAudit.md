@@ -1469,15 +1469,17 @@ scheduled event, then removes the subject through `onHide`. Focused coverage
 invokes both probes twice and reconstructs a second seance.
 The proof requires a clean pool/event queue, stable rendering-table metadata
 and deterministic reset of the subject, view object and all four blobs. The
-versioned stable identity is `5282691061579441721`. The legacy
+terrain-capability versioned stable identity is `1037197792853722552`. The
+legacy
 one-past-capacity table access is rejected with a strict `< capacity` bound.
 
-The bounded owner now gates only the scene-dependent portion of Smoke:
-on-land START, draw/render and land-dynamic detachment. It rejects an on-land
-attribute before mutation rather than dereferencing a global scene. The
-unrestricted archive still compiles the complete terrain/render path as a
-strict gate until a controlled visible lifecycle can exercise it against the
-recovered `CViewScene`.
+The bounded owner now activates on-land placement while keeping rendering
+separate. Both START variants require a published `CViewScene` only for an
+`m_onLand` attribute, query its real terrain plane and snap Y before blob
+creation. Missing-scene input is rejected before blob/event mutation. Draw,
+render and land-dynamic detachment remain compile-gated; the unrestricted
+archive still compiles those paths until a controlled visible lifecycle can
+exercise them against the recovered scene.
 
 Simulation admission also closes legacy unchecked-input paths. START rejects
 missing attributes, more than four blobs, invalid coefficient ranges,
@@ -1509,19 +1511,22 @@ and `5026602665209222964`; earlier metadata-only values remain recognized.
 The focused Arena test injects partial and corrupt sprite sets, requires exact
 rollback, restores a complete set and reconstructs it over two full
 open/close cycles. The separate real-subject test repeats table reconstruction
-and simulation lifecycle reuse, including missing, land-dependent, five-blob
-and too-small-timestep rejection. Retail services publish subject/visual
-fingerprints and `smoker_runtime_ready=1` for all nine Levels. Smoke MOVE
-scheduling now runs; terrain placement, land-dynamic drawing, Smoker emission,
-light/corona updates and draw callbacks remain the next frontier rather than
-being implied by this resource-ready marker.
+and simulation lifecycle reuse, including missing-scene, five-blob and
+too-small-timestep rejection. Retail services execute both free
+`Smoke.Attr.Trace` through START and on-land `Smoke.Attr.FireArea` through
+START_WITHDIR, verify terrain placement, publish subject/visual fingerprints
+and report `smoker_runtime_ready=1` for all nine Levels. Smoke MOVE and terrain
+placement now run; land-dynamic
+drawing, Smoker emission, light/corona updates and draw callbacks remain the
+next frontier rather than being implied by this resource-ready marker.
 
 Final verification passes 49/49 tests in Debug and Release. The currently
 available installed root passes 18/18 real service launches across all nine
 Levels and 2/2 `rr2nw.exe --runtime-smoke` launches. Every service reports
-capacity 300, subject fingerprint `5282691061579441721`, its expected
+capacity 300, subject fingerprint `1037197792853722552`, its expected
 per-Level visual fingerprint and `smoker_runtime=1`; executable diagnostics
-publish `smoke_simulation_initialized=1`, `level-ready` and
+publish `smoke_simulation_initialized=1`, `smoke_terrain_initialized=1`,
+`level-ready` and
 `runtime_shutdown=clean`. The mounted-image half of the usual 36/36 and 4/4
 gate remains uncounted because `G:` was no longer mounted during this run.
 
@@ -1561,8 +1566,9 @@ gate remains uncounted because `G:` was no longer mounted during this run.
    transactionally. The real bounded `DynSmoker` and `Smoke` tables now execute
    exact retail-capacity lifecycle probes, SmokerAttr resolves every real
    SmokeAttr target atomically, and the Smoke/flame/corona transaction now owns
-   derived visual resources. Non-land Smoke START/MOVE/removal now executes
-   with queue rollback. `SoundObj`, Smoke terrain/render behavior, active
+   derived visual resources. Free and terrain-bound Smoke START/MOVE/removal
+   now execute with queue rollback. `SoundObj`, Smoke land-dynamic/render
+   behavior, active
    Smoker MOVE/emission/light behavior, remaining attribute cache groups,
    Skin animation construction and remaining OBASE/script ABI bindings are
    still required before switching to full retail `LEVEL0.SC`.

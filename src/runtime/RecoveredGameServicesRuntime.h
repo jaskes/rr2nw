@@ -34,6 +34,7 @@ bool RecoveredGameServices_OrphanAttributesReady();
 bool RecoveredGameServices_ArtefactAttributesReady();
 bool RecoveredGameServices_SmokeAttributesReady();
 bool RecoveredGameServices_SmokeSubjectReady();
+bool RecoveredGameServices_SmokeTerrainReady();
 bool RecoveredGameServices_SmokeVisualResourcesReady();
 bool RecoveredGameServices_ExplosionAttributesReady();
 bool RecoveredGameServices_FarterAttributesReady();

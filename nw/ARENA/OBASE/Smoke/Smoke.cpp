@@ -239,6 +239,28 @@ static bool SmokeAttributeCanSimulate(const AttributeSmoke *attr)
            attr->m_minTB <= attr->m_maxTB &&
            attr->m_minTC <= attr->m_maxTC;
 }
+
+static bool SmokeTerrainReady(const AttributeSmoke *attr)
+{
+    if (attr == NULL || !attr->m_onLand)
+        return attr != NULL;
+    CViewScene *scene = CViewScene::Current();
+    return scene != NULL && scene->GetTerrain() != NULL;
+}
+
+static bool SmokePlaceOnTerrain(const AttributeSmoke *attr,
+                                CFVector3 &position)
+{
+    if (!SmokeTerrainReady(attr))
+        return false;
+    if (!attr->m_onLand)
+        return true;
+    double height;
+    CFVector3 normal;
+    CViewScene::Current()->GetTerrain()->GetPlane(position, normal, height);
+    position.y = height;
+    return true;
+}
  /*********************************
   *
   *   Smoke implementation
@@ -353,21 +375,11 @@ int Smoke::receiveEvent( KR_Event &event )
                  context->removeObject(getObjectID());
                  break;
             }
-#ifdef RR2NW_SMOKE_SIMULATION_ONLY
-            if( m_attr->m_onLand )
+            if( !SmokePlaceOnTerrain(m_attr, m_pos) )
             {
                  context->removeObject(getObjectID());
                  break;
             }
-#else
-            if(  m_attr->m_onLand  )
-            {
-                 double height;
-                 CFVector3 normal;
-                 CViewScene::Current()->GetTerrain()->GetPlane(m_pos,normal,height);
-                 m_pos.y = height;
-            }
-#endif
             m_prevTimeStamp  = event.timeStamp;
             onCreate();
 
@@ -416,21 +428,11 @@ int Smoke::receiveEvent( KR_Event &event )
                  context->removeObject(getObjectID());
                  break;
             }
-#ifdef RR2NW_SMOKE_SIMULATION_ONLY
-            if( m_attr->m_onLand )
+            if( !SmokePlaceOnTerrain(m_attr, m_pos) )
             {
                  context->removeObject(getObjectID());
                  break;
             }
-#else
-            if(  m_attr->m_onLand  )
-            {
-                 double height;
-                 CFVector3 normal;
-                 CViewScene::Current()->GetTerrain()->GetPlane(m_pos,normal,height);
-                 m_pos.y = height;
-            }
-#endif
             m_prevTimeStamp  = event.timeStamp;
             onCreate( dir );
 
@@ -1047,6 +1049,9 @@ unsigned long long SmokeSubjectState_Fingerprint(SimulationContext *context)
     const int simulation = 0;
 #endif
     SmokeSubjectHashBytes(hash, &simulation, sizeof(simulation));
+    const int terrainPlacement = 1;
+    SmokeSubjectHashBytes(hash, &terrainPlacement,
+                          sizeof(terrainPlacement));
     return hash;
 }
 
@@ -1118,18 +1123,27 @@ bool SmokeSubjectState_ProbeSimulationLifecycle(
     }
 
     const CFVector3 position(17.0, 3.0, -19.0);
+    CFVector3 expectedPosition = position;
+    if (!SmokePlaceOnTerrain(attribute, expectedPosition))
+    {
+        context->removeObject(object);
+        return false;
+    }
     KR_Event event;
-    event.label = fou_EVCMD_START;
     event.source = g_arena.getObjectID();
     event.destination = object;
     event.timeStamp = timeStamp < 0.1 ? 0.1 : timeStamp;
     const double startTimeStamp = event.timeStamp;
+    event.label = attribute->m_onLand ? fou_EVCMD_START_WITHDIR
+                                      : fou_EVCMD_START;
     event.data.open(EDO_WRITE)
               .putObjectID(attributeID)
               .putDouble(position.x)
               .putDouble(position.y)
-              .putDouble(position.z)
-            .close();
+              .putDouble(position.z);
+    if (attribute->m_onLand)
+        event.data.putDouble(0.0).putDouble(1.0).putDouble(0.0);
+    event.data.close();
     context->sendEventNow(event);
 
     bool blobsStarted = context->isExist(kProbeName) &&
@@ -1143,7 +1157,7 @@ bool SmokeSubjectState_ProbeSimulationLifecycle(
     }
     const bool started = blobsStarted && smoke->m_attr == attribute &&
                          smoke->m_smokeAttrID == attributeID &&
-                         smoke->m_pos == position &&
+                         smoke->m_pos == expectedPosition &&
                          smoke->m_prevTimeStamp == startTimeStamp &&
                          smoke->m_setRemove == 0;
     const bool firstMoveScheduled =
@@ -1197,6 +1211,7 @@ bool SmokeSubjectState_SimulationSupported(
         ? NULL
         : static_cast<AttributeSmoke *>(
               __attrTable.searchAttribute(attributeID));
-    return SmokeAttributeCanSimulate(attribute) && !attribute->m_onLand;
+    return SmokeAttributeCanSimulate(attribute) &&
+           SmokeTerrainReady(attribute);
 }
 /* End of file C:\NW\ARENA\OBASE\Smoke\Smoke.cpp */

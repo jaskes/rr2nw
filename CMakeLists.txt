@@ -652,6 +652,7 @@ add_library(rr2nw_view_terrain_full STATIC
   nw/VIEW/TERRAIN.CPP
 )
 target_link_libraries(rr2nw_view_terrain_full PUBLIC
+  rr2nw_graph_fixed_font_runtime_state
   rr2nw_legacy_design
   rr2nw_view_terrain_view_state
 )
@@ -2264,6 +2265,7 @@ target_link_libraries(rr2nw_arena_smoke_subject_state PUBLIC
   rr2nw_scene_draw_state
   rr2nw_scene_vessel_runtime_state
   rr2nw_view_object_state
+  rr2nw_scene_runtime_core
 )
 target_include_directories(rr2nw_arena_smoke_subject_state PUBLIC
   nw/INCLUDE

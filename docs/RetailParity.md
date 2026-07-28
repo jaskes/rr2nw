@@ -301,12 +301,14 @@ Retail scripts нельзя молча копировать поверх source 
 ### RP-SCRIPT-009: Smoke table, simulation and visuals complete resource readiness
 
 - Classification: `RETAIL_REQUIRED`; subject ownership and resource caches are
-  active. Non-land Smoke START/MOVE now executes, while Smoker MOVE/emission,
-  terrain, light and drawing stay gated.
+  active. Non-land and terrain-bound Smoke START/MOVE now execute, while
+  Smoker MOVE/emission, land-dynamic attachment, light and drawing stay gated.
 - Every admitted May `localmain.sci` creates `Smoke` with capacity 300. The
-  original class table is now present before seance creation. A repeated real
-  START/queued-MOVE/hide/remove proof publishes the versioned stable identity
-  `5282691061579441721` only after the pool and event queue return empty.
+  original class table is now present before seance creation. Repeated real
+  free and terrain-bound START/queued-MOVE/hide/remove proofs publish the
+  versioned stable identity `1037197792853722552` only after the pool and event
+  queue return empty. `Smoke.Attr.FireArea` snaps to the decoded terrain in all
+  nine installed Levels; a missing scene rejects the subject without work.
 - Retail visuals are the atomic set `smoke.spr`, `flame.spr` and `corona.spr`.
   Each is exactly 256x256 with a five-byte SPR header and one byte per pixel.
   The canonical fingerprint is `15830240760157492622` for eight Levels;

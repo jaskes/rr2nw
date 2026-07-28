@@ -22,12 +22,14 @@
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
 #include "RecoveredArenaSeanceRuntime.h"
+#include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
 #include "SupervisorShutdownState.h"
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
+#include "obase/smoke/SmokeSubjectState.h"
 
 namespace {
 
@@ -509,6 +511,12 @@ bool RecoveredGameServices_SmokeSubjectReady() {
   return RecoveredArenaSeance_SmokeSubjectReady();
 }
 
+bool RecoveredGameServices_SmokeTerrainReady() {
+  return g_super.m_context != nullptr && RecoveredDrawableScene_IsReady() &&
+         SmokeSubjectState_SimulationSupported(
+             g_super.m_context, "Smoke.Attr.FireArea");
+}
+
 bool RecoveredGameServices_SmokeVisualResourcesReady() {
   return RecoveredArenaSeance_SmokeVisualResourcesReady();
 }
@@ -586,6 +594,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_ArtefactAttributesReady() &&
          RecoveredGameServices_SmokeAttributesReady() &&
          RecoveredGameServices_SmokeSubjectReady() &&
+         RecoveredGameServices_SmokeTerrainReady() &&
          RecoveredGameServices_ExplosionAttributesReady() &&
          RecoveredGameServices_FarterAttributesReady() &&
          RecoveredGameServices_FarterReferencesReady() &&

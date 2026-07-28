@@ -1276,3 +1276,48 @@ mounted-image half remains to be repeated when `G:` is mounted again. Rendering
 and terrain are the next Smoke boundary; Smoker MOVE/emission follows only
 after a visible Smoke can attach and detach from the recovered scene
 transactionally.
+
+The terrain restriction in this decision is superseded by BD-042. Rendering
+and land-dynamic attachment remain deferred.
+
+## BD-042: activate Smoke terrain placement before land-dynamic rendering
+
+Status: accepted on 2026-07-28.
+
+The composed game runtime publishes the transactional drawable `CViewScene`
+before it opens Arena services. The bounded Smoke owner now uses that ordering
+directly: both `fou_EVCMD_START` and `fou_EVCMD_START_WITHDIR` validate the
+attribute, require `CViewScene::Current()` and its terrain only when
+`m_onLand` is set, query the decoded plane, and replace the requested Y with
+the terrain height before blob creation. A missing scene removes the new
+subject without scheduling MOVE; non-land Smoke still has no scene
+prerequisite.
+
+Startup readiness remains side-effect free. Composed game-service readiness
+now additionally validates the real `Smoke.Attr.FireArea` terrain contract and
+publishes `smoke_terrain_initialized=1`, but the blob-producing proof remains
+isolated from a played session because it consumes the process-global legacy
+PRNG. Retail service coverage executes both `Smoke.Attr.Trace` and
+`Smoke.Attr.FireArea`: Trace uses START and FireArea uses START_WITHDIR. It
+checks snapped position, advances one MOVE, removes both scheduled events and
+proves the pool empty. The missing-scene fixture retains the inverse
+fail-closed contract.
+
+This boundary does not call `Smoke::render`, `s_SmokeObject::Draw` or
+`Smoke::endRender`; `RR2NW_SMOKE_SIMULATION_ONLY` continues to gate those
+callbacks. The next visual step is therefore explicit: load the real view
+object into a frame dynamic list, promote it into the scene land-dynamic map,
+draw through the already resolved sprite handle, and prove removal before
+scene teardown.
+
+Linking the scene core into the focused Smoke boundary exposed that
+`CViewTerrain` used `CFixedColorFont` without declaring its recovered runtime
+owner. That dependency now belongs to the terrain target instead of arriving
+accidentally through a larger executable. The capability-versioned Smoke
+subject fingerprint is `1037197792853722552`.
+
+Regression contract: 49/49 CTest in Debug and Release, unrestricted historical
+Smoke compilation in both configurations, 18/18 installed retail service
+launches across all nine Levels, and an installed executable runtime smoke
+publishing the terrain marker. The mounted-image half remains pending until
+`G:` is mounted again.

@@ -98,6 +98,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ArtefactAttributesReady() &&
          !RecoveredGameServices_SmokeAttributesReady() &&
          !RecoveredGameServices_SmokeSubjectReady() &&
+         !RecoveredGameServices_SmokeTerrainReady() &&
          !RecoveredGameServices_SmokeVisualResourcesReady() &&
          RecoveredArenaSeance_SmokeSubjectCapacity() == 0 &&
          RecoveredArenaSeance_SmokeSubjectFingerprint() == 0 &&
@@ -322,6 +323,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ArtefactAttributesReady() ||
       !RecoveredGameServices_SmokeAttributesReady() ||
       !RecoveredGameServices_SmokeSubjectReady() ||
+      !RecoveredGameServices_SmokeTerrainReady() ||
       !RecoveredGameServices_SmokeVisualResourcesReady() ||
       !RecoveredGameServices_ExplosionAttributesReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
@@ -353,10 +355,14 @@ int main(int argc, char** argv) {
           g_super.m_context, "Smoke.Attr.Trace") ||
       !SmokeSubjectState_ProbeSimulationLifecycle(
           g_super.m_context, "Smoke.Attr.Trace", Session::m_moment) ||
+      !SmokeSubjectState_SimulationSupported(
+          g_super.m_context, "Smoke.Attr.FireArea") ||
+      !SmokeSubjectState_ProbeSimulationLifecycle(
+          g_super.m_context, "Smoke.Attr.FireArea", Session::m_moment) ||
       SmokeSubjectState_LiveCount() != 0) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("retail Smoke START/MOVE/remove lifecycle failed");
+    return Fail("retail Smoke free/terrain START/MOVE/remove lifecycle failed");
   }
   const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(g_super.m_context);
@@ -554,7 +560,8 @@ int main(int argc, char** argv) {
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
-               "smoke_simulation=START-MOVE-remove smoke_visual=%llu "
+               "smoke_simulation=START-MOVE-remove "
+               "smoke_terrain=FireArea-directed-snap smoke_visual=%llu "
               "explosion_attrs=%d explosion_fingerprint=%llu "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "

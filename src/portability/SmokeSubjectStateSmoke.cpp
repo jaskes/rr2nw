@@ -78,7 +78,7 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
       RejectedStart(&context, KR_ObjectID::NUL(),
                     "Smoke.MissingAttr.Probe");
   attribute->m_onLand = 1;
-  const bool landRejected =
+  const bool missingSceneRejected =
       !SmokeSubjectState_ProbeSimulationLifecycle(
           &context, "Smoke.Attr.Probe", 0.1) &&
       RejectedStart(&context, attributeID, "Smoke.Land.Probe");
@@ -103,7 +103,8 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
   *expectedFingerprint = fingerprint;
   g_arena.closeSeance();
   return constructed && lifecycle && simulation && missingRejected &&
-         landRejected && overflowRejected && timeStepRejected && stable &&
+         missingSceneRejected && overflowRejected && timeStepRejected &&
+         stable &&
          SmokeSubjectState_Capacity() == 0 &&
          SmokeSubjectState_LiveCount() == 0 &&
          SmokeSubjectState_Fingerprint(&context) == 0 &&
@@ -121,7 +122,7 @@ int main() {
   }
   std::printf("smoke subject table=Smoke capacity=300 "
               "lifecycle=START-MOVE-hide-remove-twice "
-              "rollback=missing-land-overflow-timestep fingerprint=%llu\n",
+              "rollback=missing-scene-overflow-timestep fingerprint=%llu\n",
               fingerprint);
   return EXIT_SUCCESS;
 }
