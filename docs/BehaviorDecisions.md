@@ -1660,3 +1660,60 @@ service launches with 18/18 byte-identical E/G summaries, and 4/4 waited
 `rr2nw.exe --runtime-smoke` launches. Every executable diagnostic publishes
 Taxi readiness/count/capacity/fingerprint, `arena_seance_extended_issues=0`,
 `level-ready` and clean shutdown.
+
+## BD-050: resolve Taxi dependencies over exact VehicleAttr and Corpse tables
+
+Status: accepted on 2026-07-28.
+
+The synthetic two-entry `VehicleAttr` bootstrap is retired. Recovered seance
+startup now executes each selected Level's exact `SCINC/VEHICLE.SCI`, invokes
+its original `main_CreateVehicleAttr()` and `main_CreateVehicle()` functions,
+and preserves LEVEL0 ordering by doing so before Smoke, Explosion and Taxi.
+This produces both the real raw VehicleAttr roster and `Vehicle.Default`; it
+does not yet resolve Vehicle's Panel, Taxi or Bullet caches.
+
+Taxi dependency publication is a two-phase transaction. Every entry first
+resolves its named raw VehicleAttr, the real `Corpse` and `CorpseAttr` tables,
+the named corpse attribute, and finally its loaded Skin model into temporary
+storage. Only after every entry succeeds are all five derived fields committed.
+The public source-only fixture deliberately has no model catalog: Vehicle and
+Corpse preflight succeeds, final Skin resolution fails, and every Taxi cache
+must remain null. In a real May Level all references resolve before service
+readiness is published.
+
+The exact empty `Corpse(100)` table declared by every May `localmain.sci` is now
+owned by the bounded production graph. The original Corpse translation unit
+and its dynamic rendering base are linked, but startup creates no corpse
+subjects. Readiness therefore means a capacity-100 pool, zero live objects and
+stable fingerprint `9990831306143723938`; it is not a death/corpse gameplay
+claim.
+
+Vehicle identity hashes the table capacity, sorted object names and all 27
+implemented raw fields. The May matrix is Level.01D/01N `8/8`, Level.02D/02N
+`6/6`, Level.03N `7/7`, Level.04D `8/8`, Level.05D `9/10`, Level.06N `5/5`
+and Level.07N `3/3`, with fingerprints `4820723311424334637`,
+`11460174472260063041`, `1438011491898955296`, `4531502674543477175`,
+`10038446168503949478`, `1803529506760166992` and
+`13479800410678345611`. The public January fixture remains separately admitted
+as `3/8`, fingerprint `14035231734239706959`.
+
+Taxi reference fingerprints use resolved symbolic names and the raw roster,
+not process-local class-table or attribute indices. Actual readiness still
+compares every cached pointer, table, index and ObjectID against a fresh
+resolution. The seven May reference identities are `9175343944702536723`,
+`17235045383519457016`, `8799760472968283833`, `7830645074479408122`,
+`5874980028233070888`, `1305593298262665297` and
+`4383146699719690126` in the same Level grouping as above.
+
+Missing, tableless and deterministically corrupted Vehicle sources roll back
+the complete seance with dedicated extended issue bits. A live-service probe
+then replaces one Taxi VehicleAttr name with a missing name, proves that none
+of the five caches changes, restores the source name and reproduces the same
+reference fingerprint. Startup diagnostics expose Vehicle count/capacity/raw
+identity, Taxi reference readiness/identity and Corpse subject identity.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+launches with 18/18 identical E/G summaries, and 4/4 waited executable smokes.
+This closes the attribute/reference layer only. `SET_TAXI.SCI`, live Taxi
+subjects, People/Tank/Bullet/Sound gameplay and Vehicle's own heavy cache
+resolution remain later frontiers.

@@ -2161,6 +2161,9 @@ target_compile_definitions(rr2nw_arena_obase_farter_full PRIVATE
 
 add_library(rr2nw_arena_obase_corpse_full STATIC
   nw/ARENA/OBASE/Corpse/Corpse.cpp
+  nw/ARENA/OBASE/Corpse/CorpseSubjectState.cpp
+  nw/ARENA/OBASE/Corpse/CorpseSubjectState.h
+  nw/ARENA/OBASE/DynObj/DynObj.cpp
 )
 target_link_libraries(rr2nw_arena_obase_corpse_full PUBLIC
   rr2nw_arena_corpse_attribute_state
@@ -2782,6 +2785,8 @@ add_library(rr2nw_arena_obase_vehicle STATIC
   nw/ARENA/OBASE/Vehicle/Vh_dyn.cpp
   nw/ARENA/OBASE/Vehicle/vh_vessel.CPP
   nw/ARENA/OBASE/Vehicle/VS_ZAV.CPP
+  nw/ARENA/OBASE/Vehicle/VehicleAttributeState.cpp
+  nw/ARENA/OBASE/Vehicle/VehicleAttributeState.h
 )
 target_link_libraries(
   rr2nw_arena_obase_vehicle PUBLIC rr2nw_arena_obase_vehicle_state
@@ -3161,6 +3166,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_farter_attribute_state
   rr2nw_arena_lamp_attribute_state
   rr2nw_arena_corpse_attribute_state
+  rr2nw_arena_obase_corpse_full
   rr2nw_arena_smoker_attribute_state
   rr2nw_arena_smoker_subject_state
   rr2nw_arena_smoke_subject_state
@@ -4230,6 +4236,7 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/LOADWAV.SCI"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_farter.sci"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/TAXI.SCI"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/VEHICLE.SCI"
   )
   add_test(
     NAME peripheral-attribute-state-smoke

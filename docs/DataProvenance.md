@@ -103,6 +103,26 @@ The public repository fixture is a distinct January Level.03N source,
 `0A2037173379376C3B38E3FCC051FF51286D4793999F5A5CEF02895A7EB9F10A`.
 It is admitted only for hermetic CI and is never described as May content.
 
+## Vehicle attribute source identities
+
+The 2026-07-28 read-only sweep likewise found every selected May
+`SCINC/VEHICLE.SCI` byte-identical between installed
+`E:\Games\The Next Worlds` and mounted `G:\nw`. Seven SHA-256 groups cover the
+nine Levels:
+
+- Level.01D/01N: `E9AAB05DA2E2F44F45E657F192265FD8095B90856A1D630C6373FB138A23A92A`;
+- Level.02D/02N: `A48D64915904031741807DF5D21DFBBF6163DCC14BB8ADDF64B428D4B2A158E2`;
+- Level.03N: `A4FFF3DC84856AB664CED63E4E801D48B8CB01B981B21FB908AB28409C2396B0`;
+- Level.04D: `EE42C8B64E19E21FD96C5FC2EEC80FA76D0B4CC76900451405474D1A618325F7`;
+- Level.05D: `664D7E7FB80D737DE7354BECBF8E0AC37B0D68B6F3C00C8049F39AA6397970DE`;
+- Level.06N: `356664FEFFBA3D96E1E503D37D4177DF6155B0574A4E4FD574A48765B3AA6AA7`;
+- Level.07N: `E83751756B62F4199A313B85C446D2865CC9A62BE7611C1E7546B0DF9A123E95`.
+
+The public repository's January Level.03N Vehicle fixture is distinct:
+`8ACFBA97C9D6F1CD658647AB12847394647251507E16AEDC463165A9BFA8BEC9`.
+It is used only by the hermetic source/rollback test and has a `3/8` roster;
+the May Level.03N source has `7/7`. No retail source is copied into Git.
+
 ## User-generated/private artifacts
 
 В установке обнаружены пользовательские `save0` и `save1`. Они полезны для

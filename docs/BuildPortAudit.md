@@ -1767,6 +1767,59 @@ Release CTest pass 51/51 each, and 4/4 waited executable smokes publish Taxi
 identity, zero extended issues, `level-ready` and clean shutdown. Reference
 resolution and `SET_TAXI.SCI` are explicit later work.
 
+### Exact Vehicle attributes and atomic Taxi dependencies
+
+The bounded common bootstrap no longer invents capacity-2 Vehicle attributes.
+After Arena opens, production first creates the real empty capacity-100 Corpse
+subject table, then compiles the selected Level's exact `SCINC/VEHICLE.SCI` and
+invokes both `main_CreateVehicleAttr()` and `main_CreateVehicle()`. This retains
+the real `Vehicle.Default` path while preserving root LEVEL0 ordering ahead of
+Smoke, Explosion and Taxi.
+
+Vehicle admission is data-exact but dependency-bounded. Its state owner sorts
+the live table, hashes capacity, names and all 27 implemented fields, requires
+one of seven May identities, and proves the Panel/Taxi/Bullet-derived caches
+remain null. May count/capacity pairs are `8/8`, `6/6`, `7/7`, `8/8`, `9/10`,
+`5/5` and `3/3` for the paired/sequential Levels. The public January fixture is
+separately admitted as `3/8`; its identity is never substituted for May data.
+
+The Level.03N May fragment assigns `m_initialDamage=2.5`, but that item is not
+present in the recovered `AttributeVehicle` serializer. Exact execution retains
+the historical unknown-name no-op instead of changing the class layout. The
+script preflight separately extracts the declared table capacity because the
+legacy header is CP1251-era source and the current field set has no capacity
+owner of its own.
+
+Taxi reference activation no longer uses assertion-driven partial update.
+Every attribute resolves its VehicleAttr ObjectID, real Corpse table, named
+CorpseAttr index and loaded Skin model into temporary storage. The complete
+roster commits only when every dependency resolves. A source-only fixture
+reaches the final unavailable Skin dependency after successful Vehicle/Corpse
+preflight and proves all caches stay null; a real retail mutation proves a
+resolved roster also remains unchanged on failure and reproduces its identity
+after restoration.
+
+The reference fingerprint includes raw Taxi state and stable symbolic names.
+It deliberately excludes numeric class-table and attribute indices, whose
+values can move with static link registration order; readiness still compares
+every real pointer, index, table and ObjectID. The real Corpse pool is retained
+through original `Corpse.cpp` plus its dynamic-object implementation, but no
+Corpse gameplay object is created: capacity is 100, live count is zero and the
+stable empty-table fingerprint is `9990831306143723938`.
+
+Extended diagnostics allocate Vehicle source/table/roster bits 3--5, Taxi
+reference bit 6 and Corpse subject-table bit 7 without disturbing the original
+full 64-bit issue word or Taxi bits 0--2. Startup publishes raw Vehicle,
+resolved Taxi and Corpse-table readiness/count/capacity/fingerprints. Hermetic
+coverage includes missing, corrupted and tableless Vehicle programs plus
+source-only atomic failure; retail coverage reconstructs every Level and
+performs a live no-partial-commit probe.
+
+Final verification passes 51/51 CTest in Debug and Release, 36/36 service
+launches across the two May roots with 18/18 identical pairs, and 4/4 waited
+executable smokes. This does not activate `SET_TAXI.SCI`, Taxi or Corpse
+subjects, People/Tank/Bullet/Sound gameplay, or Vehicle's remaining caches.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1816,8 +1869,11 @@ resolution and `SET_TAXI.SCI` are explicit later work.
    and 23 SoundObj objects, with real near/far Arena frames proving the audible
    transition at `DistMax=300`. Exact Level-local TaxiAttr programs now execute
    as the first isolated slice of the heavy graph, preserving raw
-   Skin/VehicleAttr/Corpse names while keeping their caches unresolved.
-   Remaining attribute cache groups, Skin
+   Skin/VehicleAttr/Corpse names. Exact Level-local VehicleAttr now replaces
+   the synthetic pair, the real empty `Corpse(100)` table is linked, and Taxi
+   resolves all three dependency groups atomically with stable symbolic
+   identities. Vehicle's own Panel/Taxi/Bullet caches, remaining attribute
+   groups, Skin
    animation construction and remaining OBASE/script ABI bindings are still
    required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

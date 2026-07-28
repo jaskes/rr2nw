@@ -1246,6 +1246,85 @@ Status vocabulary:
   actual water/land behavior from subject code and retail frames rather than
   retroactively changing the serialized attribute ABI.
 
+### CQ-086: the synthetic VehicleAttr pair hid seven distinct retail rosters
+
+- Status: `CONFIRMED_RETAIL`, `SYNTHETIC_BOOTSTRAP_RETIRED`.
+- Evidence: May `SCINC/VEHICLE.SCI` files contain 3--9 live entries in tables
+  of capacity 3--10, while the former bounded bootstrap invented only
+  `Vehicle.Attr.default` and `Vehicle.Attr.dead` in capacity 2. Installed and
+  mounted sources are byte-identical for all nine selected Levels and form
+  seven SHA-256/roster groups recorded in `DataProvenance.md`.
+- Handling: execute exact Level-local `main_CreateVehicleAttr()` and
+  `main_CreateVehicle()` before Smoke/Explosion/Taxi, hash all 27 implemented
+  raw fields, and require a known count/capacity/fingerprint. The resulting
+  Vehicle caches intentionally remain unresolved until Panel/Taxi/Bullet
+  dependencies are admitted.
+- Revisit when: Vehicle's own `update()` graph is activated. Replace the
+  unresolved-cache invariant with the same preflight/commit discipline used
+  for Taxi, without weakening raw roster identity.
+
+### CQ-087: Level.03N writes a non-existent Vehicle `m_initialDamage` field
+
+- Status: `CONFIRMED_RETAIL`, `EXACT_NAME_SERIALIZER_CONTRACT`.
+- Evidence: both May Level.03N `VEHICLE.SCI` copies write `2.5` to
+  `m_initialDamage`, but the preserved `AttributeVehicle` serializer exposes
+  no field of that name. Other values and the complete source are identical
+  between the installed and mounted roots.
+- Handling: execute the exact source and retain the serializer's unknown-name
+  no-op. Do not add a guessed field to the binary layout. Vehicle roster
+  fingerprinting covers the 27 fields that the recovered class actually owns.
+- Revisit when: damage behavior for the Level.03N vehicles is observed against
+  the May executable. Add a compatibility field only with binary or runtime
+  evidence for its layout and semantics.
+
+### CQ-088: Taxi reference resolution was assertion-driven and non-atomic
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `REFERENCE_TRANSACTION`.
+- Evidence: legacy `AttributeTaxi::update()` committed `m_skinID` before
+  querying the model, then assigned VehicleAttr and Corpse caches independently
+  through assertion-heavy lookups. A missing late dependency could leave a
+  partially updated attribute or abort the process.
+- Handling: resolve VehicleAttr, Corpse table/attribute and loaded Skin into a
+  temporary record for every Taxi entry, then commit the complete roster only
+  after all preflight succeeds. Failure changes none of the five cached fields;
+  the safe legacy update clears all five together when it cannot resolve.
+  Source-only CI fails deliberately at the final Skin step, and a live retail
+  mutation proves an already resolved roster also remains unchanged.
+- Revisit when: live Taxi subjects or hot-reloaded mods can replace dependency
+  tables. Define generation/ownership rules before cached pointers are allowed
+  to outlive a content transaction.
+
+### CQ-089: numeric Arena table and attribute IDs are not stable identities
+
+- Status: `DIAGNOSTIC_IDENTITY_CONTRACT`, `PROCESS_LOCAL_IDS_EXCLUDED`.
+- Evidence: linking the real Corpse owner changed static registration order and
+  therefore numeric class/attribute indices without changing any retail
+  content or resolved target. Hashing those indices made Taxi reference
+  fingerprints depend on link layout.
+- Handling: readiness compares the actual cached pointer, table, index and
+  ObjectIDs to fresh resolution, but the diagnostic fingerprint hashes stable
+  symbolic Skin, VehicleAttr, Corpse table and CorpseAttr names plus raw Taxi
+  state. The same E/G content therefore has the same identity across Debug and
+  Release even when internal registration order differs.
+- Revisit when: save/mod formats expose object references. Serialize versioned
+  stable names or explicit IDs and resolve them transactionally; never persist
+  raw table indices or pointers.
+
+### CQ-090: every May Level declares an empty capacity-100 Corpse table
+
+- Status: `CONFIRMED_RETAIL`, `EMPTY_TABLE_IS_REAL_STATE`.
+- Evidence: all nine installed and mounted `SCINC/localmain.sci` sources call
+  `s_AddClassTable("Corpse",100)`, but the currently admitted LEVEL0 slice
+  creates no Corpse subjects. Taxi nevertheless requires that subject table ID
+  while resolving its corpse dependency.
+- Handling: force-link the original Corpse registration and dynamic rendering
+  base, create the exact table before attributes run, and require capacity 100,
+  zero live members and fingerprint `9990831306143723938`. Release must remove
+  the table and reset diagnostics even after later script failure.
+- Revisit when: death logic or a retail creation fragment adds Corpse objects.
+  Extend the fingerprint and lifecycle proof to live content without treating
+  the current empty roster as missing functionality.
+
 ## Maintenance rule
 
 When a new quirk is found:

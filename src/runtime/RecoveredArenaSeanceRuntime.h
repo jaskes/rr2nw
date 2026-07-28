@@ -76,7 +76,12 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
 enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 0,
   RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_TABLE_MISSING = 1ull << 1,
-  RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_ROSTER_INVALID = 1ull << 2
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_ROSTER_INVALID = 1ull << 2,
+  RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 3,
+  RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_TABLE_MISSING = 1ull << 4,
+  RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_ROSTER_INVALID = 1ull << 5,
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_REFERENCE_INVALID = 1ull << 6,
+  RECOVERED_ARENA_SEANCE_EXT_CORPSE_SUBJECT_TABLE_FAILURE = 1ull << 7
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -95,7 +100,13 @@ unsigned long long RecoveredArenaSeance_SmokeSubjectFingerprint();
 bool RecoveredArenaSeance_SmokeVisualResourcesReady();
 unsigned long long RecoveredArenaSeance_SmokeVisualResourceFingerprint();
 bool RecoveredArenaSeance_ExplosionAttributesReady();
+bool RecoveredArenaSeance_VehicleAttributesReady();
+int RecoveredArenaSeance_VehicleAttributeCount();
+int RecoveredArenaSeance_VehicleAttributeCapacity();
+unsigned long long RecoveredArenaSeance_VehicleAttributeFingerprint();
 bool RecoveredArenaSeance_TaxiAttributesReady();
+bool RecoveredArenaSeance_TaxiReferencesReady();
+unsigned long long RecoveredArenaSeance_TaxiReferenceFingerprint();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();
@@ -139,6 +150,9 @@ unsigned long long RecoveredArenaSeance_CorpseAttributeFingerprint();
 bool RecoveredArenaSeance_CorpseReferencesReady();
 bool RecoveredArenaSeance_CorpseRuntimeReady();
 unsigned long long RecoveredArenaSeance_CorpseReferenceFingerprint();
+bool RecoveredArenaSeance_CorpseSubjectReady();
+int RecoveredArenaSeance_CorpseSubjectCapacity();
+unsigned long long RecoveredArenaSeance_CorpseSubjectFingerprint();
 bool RecoveredArenaSeance_WavMetadataReady();
 int RecoveredArenaSeance_WavMetadataCount();
 int RecoveredArenaSeance_WavMetadataCapacity();

@@ -9,5 +9,11 @@ int TaxiAttributeState_RosterSize(SimulationContext *context);
 int TaxiAttributeState_Capacity();
 bool TaxiAttributeState_IsKnownRoster(SimulationContext *context);
 bool TaxiAttributeState_CachesUnresolved(SimulationContext *context);
+bool TaxiAttributeState_ResolveReferences(SimulationContext *context);
+bool TaxiAttributeState_ReferencesResolved(SimulationContext *context);
+unsigned long long TaxiAttributeState_ReferenceFingerprint(
+    SimulationContext *context);
+bool TaxiAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context);
 
 #endif

@@ -61,6 +61,83 @@ bool TaxiCachesAreUnresolved(AttributeTaxi &attribute)
            attribute.m_attrForVehicle.isNUL();
 }
 
+struct TaxiResolvedReferences
+{
+    CViewObjectModel *skin;
+    ct_ClassTableID corpseTable;
+    int corpseAttr;
+    KR_ObjectID skinID;
+    KR_ObjectID vehicleAttrID;
+};
+
+bool ResolveTaxiReferences(SimulationContext *context,
+                           AttributeTaxi &attribute,
+                           TaxiResolvedReferences &references)
+{
+    references.skin = NULL;
+    references.corpseTable = ct_NULLID;
+    references.corpseAttr = ct_NULLID;
+    references.skinID = KR_ObjectID::NUL();
+    references.vehicleAttrID = KR_ObjectID::NUL();
+    if (context == NULL)
+        return false;
+
+    const ct_ClassTableID vehicleAttrTable =
+        g_arena.searchSeanceClassTable("VehicleAttr");
+    references.vehicleAttrID =
+        context->searchObject(attribute.m_attrForVehicleName);
+    if (vehicleAttrTable == ct_NULLID ||
+        references.vehicleAttrID.isNUL() ||
+        g_arena.getAttributeIndex(vehicleAttrTable,
+                                  references.vehicleAttrID) == ct_NULLID)
+        return false;
+
+    references.corpseTable =
+        g_arena.searchSeanceClassTable("Corpse");
+    const ct_ClassTableID corpseAttrTable =
+        g_arena.searchSeanceClassTable("CorpseAttr");
+    KR_ObjectID corpseAttrID =
+        context->searchObject(attribute.m_corpseAttrName);
+    if (references.corpseTable == ct_NULLID ||
+        corpseAttrTable == ct_NULLID || corpseAttrID.isNUL())
+        return false;
+    references.corpseAttr =
+        g_arena.getAttributeIndex(corpseAttrTable, corpseAttrID);
+    if (references.corpseAttr == ct_NULLID)
+        return false;
+
+    // Resolve the loaded model last through the original object/event
+    // boundary. This keeps the attribute owner independent from the concrete
+    // Skin table while validating the exact response before reading it. A
+    // source-only fixture therefore proves that successful VehicleAttr/Corpse
+    // preflight never leaks a partial commit when the visual dependency is
+    // unavailable.
+    references.skinID = context->searchObject(attribute.m_skinName);
+    if (references.skinID.isNUL())
+        return false;
+    KR_Event event;
+    event.label = sk_EV_QUERY_MODEL_PTR;
+    event.destination = references.skinID;
+    context->sendEventNow(event);
+    if (event.label != sk_EV_QUERY_MODEL_PTR_OK ||
+        event.data.size() != static_cast<int>(sizeof(references.skin)))
+        return false;
+    event.data.open(EDO_READ)
+              .get(&references.skin, sizeof(references.skin))
+              .close();
+    return references.skin != NULL;
+}
+
+void CommitTaxiReferences(AttributeTaxi &attribute,
+                          const TaxiResolvedReferences &references)
+{
+    attribute.m_cacheSkin = references.skin;
+    attribute.m_cacheCorpseTable = references.corpseTable;
+    attribute.m_cacheCorpseAttr = references.corpseAttr;
+    attribute.m_skinID = references.skinID;
+    attribute.m_attrForVehicle = references.vehicleAttrID;
+}
+
 struct TaxiRosterEntry
 {
     std::string name;
@@ -80,8 +157,7 @@ bool CollectTaxiRosterEntry(const KR_ObjectID object, void *user)
     const char *name = collector->context->searchObject(object);
     AttributeTaxi *attribute = static_cast<AttributeTaxi *>(
         __attrTaxiTable.searchAttribute(object));
-    if (name == NULL || attribute == NULL ||
-        !TaxiCachesAreUnresolved(*attribute))
+    if (name == NULL || attribute == NULL)
     {
         collector->valid = false;
         return false;
@@ -156,27 +232,18 @@ ct_Object *AttributeTableTaxi::getObjectPTR(int index)
 
 void AttributeTaxi::update(double ts)
 {
-    KR_ObjectID skinID = context->searchObject(m_skinName);
-    s_ASSERT(!skinID.isNUL(), "AttributeTaxi::update");
-
-    m_skinID = skinID;
-
-    KR_Event event;
-    event.timeStamp = ts;
-    event.label = sk_EV_QUERY_MODEL_PTR;
-    event.destination = skinID;
-    context->sendEventNow(event);
-    s_ASSERT(event.label == sk_EV_QUERY_MODEL_PTR_OK, "AttributeTaxi::update");
-    event.data.open(EDO_READ)
-              .get(&m_cacheSkin, sizeof(void *))
-              .close();
-
-    m_attrForVehicle = context->searchObject(m_attrForVehicleName);
-
-    m_cacheCorpseTable = g_arena.searchSeanceClassTable("Corpse");
-    m_cacheCorpseAttr = g_arena.getAttributeIndex(
-        g_arena.searchSeanceClassTable("CorpseAttr"),
-        context->searchObject(m_corpseAttrName));
+    (void)ts;
+    TaxiResolvedReferences references = {};
+    if (ResolveTaxiReferences(context, *this, references))
+        CommitTaxiReferences(*this, references);
+    else
+    {
+        m_cacheSkin = NULL;
+        m_cacheCorpseTable = ct_NULLID;
+        m_cacheCorpseAttr = ct_NULLID;
+        m_skinID = KR_ObjectID::NUL();
+        m_attrForVehicle = KR_ObjectID::NUL();
+    }
 }
 
 void TaxiAttributeState_Link()
@@ -239,5 +306,100 @@ bool TaxiAttributeState_IsKnownRoster(SimulationContext *context)
 bool TaxiAttributeState_CachesUnresolved(SimulationContext *context)
 {
     TaxiRosterCollector collector = {};
-    return CollectTaxiRoster(context, collector);
+    if (!CollectTaxiRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (!TaxiCachesAreUnresolved(*collector.entries[i].attribute))
+            return false;
+    return true;
+}
+
+bool TaxiAttributeState_ResolveReferences(SimulationContext *context)
+{
+    TaxiRosterCollector collector = {};
+    if (!CollectTaxiRoster(context, collector))
+        return false;
+    std::vector<TaxiResolvedReferences> references(collector.entries.size());
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (!ResolveTaxiReferences(context, *collector.entries[i].attribute,
+                                   references[i]))
+            return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        CommitTaxiReferences(*collector.entries[i].attribute,
+                             references[i]);
+    return true;
+}
+
+bool TaxiAttributeState_ReferencesResolved(SimulationContext *context)
+{
+    TaxiRosterCollector collector = {};
+    if (!CollectTaxiRoster(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeTaxi *attribute = collector.entries[i].attribute;
+        TaxiResolvedReferences expected = {};
+        if (!ResolveTaxiReferences(context, *attribute, expected) ||
+            attribute->m_cacheSkin != expected.skin ||
+            attribute->m_cacheCorpseTable != expected.corpseTable ||
+            attribute->m_cacheCorpseAttr != expected.corpseAttr ||
+            attribute->m_skinID != expected.skinID ||
+            attribute->m_attrForVehicle != expected.vehicleAttrID)
+            return false;
+    }
+    return true;
+}
+
+unsigned long long TaxiAttributeState_ReferenceFingerprint(
+    SimulationContext *context)
+{
+    if (!TaxiAttributeState_ReferencesResolved(context))
+        return 0;
+    TaxiRosterCollector collector = {};
+    if (!CollectTaxiRoster(context, collector))
+        return 0;
+    unsigned long long hash = kTaxiHashOffset;
+    TaxiHashBytes(hash, &g_taxiAttributeCapacity,
+                  sizeof(g_taxiAttributeCapacity));
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeTaxi *attribute = collector.entries[i].attribute;
+        TaxiHashString(hash, collector.entries[i].name.c_str());
+        TaxiHashAttribute(hash, *attribute);
+        const char *skinName = context->searchObject(attribute->m_skinID);
+        const char *vehicleName =
+            context->searchObject(attribute->m_attrForVehicle);
+        const char *corpseTableName = g_arena.searchSeanceClassTable(
+            attribute->m_cacheCorpseTable);
+        TaxiHashString(hash, skinName == NULL ? "" : skinName);
+        TaxiHashString(hash, vehicleName == NULL ? "" : vehicleName);
+        TaxiHashString(hash,
+                       corpseTableName == NULL ? "" : corpseTableName);
+        TaxiHashString(hash, attribute->m_corpseAttrName);
+    }
+    return hash;
+}
+
+bool TaxiAttributeState_IsKnownReferenceRoster(
+    SimulationContext *context)
+{
+    // Seven canonical May identities cover all nine Levels. The public
+    // source-only fixture is not admitted because it intentionally owns no
+    // loaded Skin models.
+    static const unsigned long long known[] = {
+        9175343944702536723ull,
+        17235045383519457016ull,
+        8799760472968283833ull,
+        7830645074479408122ull,
+        5874980028233070888ull,
+        1305593298262665297ull,
+        4383146699719690126ull
+    };
+    const unsigned long long fingerprint =
+        TaxiAttributeState_ReferenceFingerprint(context);
+    for (int i = 0; i < static_cast<int>(sizeof(known) / sizeof(known[0]));
+         ++i)
+        if (fingerprint == known[i])
+            return true;
+    return false;
 }

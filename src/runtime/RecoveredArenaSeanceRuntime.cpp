@@ -12,6 +12,7 @@ class CGRPanel;
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/corpse/CorpseAttributeState.h"
+#include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
@@ -20,6 +21,7 @@ class CGRPanel;
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/taxi/TaxiAttributeState.h"
+#include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokeVisualState.h"
@@ -45,16 +47,19 @@ constexpr int kDynSmokerCapacity = 50 + 12;
 constexpr int kSmokeCapacity = 300;
 constexpr int kSoundObjectCapacity = 250;
 constexpr int kFarterSubjectCapacity = 25;
+constexpr int kCorpseSubjectCapacity = 100;
 constexpr double kDeviceFreeSoundDistance = 300.0;
 constexpr int kSourceOnlySmokerAttributeCount = 11;
-constexpr const char kBootstrapProgramName[] =
-    "recovered_common_attribute_vehicle_bootstrap";
+constexpr const char kCommonBootstrapProgramName[] =
+    "recovered_common_attribute_bootstrap";
 constexpr const char kSmokeAttributeProgramName[] =
     "recovered_retail_smoke_attribute_bootstrap";
 constexpr const char kExplosionAttributeProgramName[] =
     "recovered_retail_explosion_attribute_bootstrap";
 constexpr const char kTaxiAttributeProgramName[] =
     "recovered_retail_taxi_attribute_bootstrap";
+constexpr const char kVehicleAttributeProgramName[] =
+    "recovered_retail_vehicle_attribute_bootstrap";
 constexpr const char kFarterAttributeProgramName[] =
     "recovered_retail_farter_attribute_bootstrap";
 constexpr const char kFarterSubjectProgramName[] =
@@ -69,10 +74,11 @@ constexpr const char kWavMetadataProgramName[] =
     "recovered_retail_wav_metadata_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
-// protocol. It is a bounded bridge to the real Vehicle tables, not a second
-// gameplay implementation. The complete retail LEVEL0.SC will replace it as
-// the remaining OBASE class-table archives are connected.
-const char kAttributeVehicleBootstrapScript[] = R"RR2NW_SCRIPT(const int EDO_WRITE = 1;
+// protocol for the small common Bird/Portal/Orphan/Artefact/Spark/Route slice.
+// Exact Vehicle tables now come from the selected retail VEHICLE.SCI. The
+// complete retail LEVEL0.SC will replace this bridge as the remaining OBASE
+// class-table archives are connected.
+const char kCommonAttributeBootstrapScript[] = R"RR2NW_SCRIPT(const int EDO_WRITE = 1;
 const int KR_SET_ATTR = 1;
 const int sp_EV_SET_PHASE_COUNT extern;
 const int sp_EV_SET_PHASE extern;
@@ -176,17 +182,11 @@ var int event, attrID, attrCachePos, objectID, cachePos;
 }
 
 func void main()
-var int sparkAttrTable, routeTable, attrTable, birdAttrTable, portalTable;
-var int orphanAttrTable, artefactAttrTable, vehicleTable, objectID, cachePos;
+var int sparkAttrTable, routeTable, birdAttrTable, portalTable;
+var int orphanAttrTable, artefactAttrTable, objectID, cachePos;
 {
   sparkAttrTable := s_AddClassTable("SparkAttr", 3);
   routeTable := s_AddClassTable("Route", 100);
-
-  attrTable := s_AddClassTable("VehicleAttr", 2);
-  s_New(attrTable, "Vehicle.Attr.default", objectID, cachePos);
-  SetAttributeStr(objectID, cachePos, "m_dynamic", "TankGenn0");
-  s_New(attrTable, "Vehicle.Attr.dead", objectID, cachePos);
-  SetAttributeStr(objectID, cachePos, "m_dynamic", "Dead");
 
   birdAttrTable := s_AddClassTable("BirdAttr", 1);
   s_New(birdAttrTable, "Bird.Attr.0", objectID, cachePos);
@@ -210,9 +210,6 @@ var int orphanAttrTable, artefactAttrTable, vehicleTable, objectID, cachePos;
   SetAttributeInt(objectID, cachePos, "m_coronaRGB", 16711935);
   SetAttributeInt(objectID, cachePos, "m_coronaAlpha", 150);
 
-  vehicleTable := s_AddClassTable("Vehicle", 1);
-  s_New(vehicleTable, "Vehicle.Default", objectID, cachePos);
-  ChangeObjectAttrN("Vehicle.Attr.default", "Vehicle.Default");
 }
 )RR2NW_SCRIPT";
 
@@ -264,6 +261,17 @@ func void New(int classTableID, str name,
 {
   s_NewObject(classTableID, name);
   s_SearchObjectID(objectID, cachePos, name);
+}
+
+func void ChangeObjectAttrN(str attrName, str objectName)
+var int event, attrID, attrCachePos, objectID, cachePos;
+{
+  s_SearchObjectID(attrID, attrCachePos, attrName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteObjectID(event, attrID, attrCachePos);
+  s_CloseEventData(event);
+  s_SearchObjectID(objectID, cachePos, objectName);
+  s_SendEventNow(event, KR_SET_ATTR, objectID, cachePos);
 }
 
 func void SetAttribute_f(int objectID, int cachePos, str name, float value)
@@ -335,6 +343,14 @@ const char kTaxiAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
   main_CreateTaxiAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kVehicleAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateVehicleAttr();
+  main_CreateVehicle();
 }
 )RR2NW_SCRIPT";
 
@@ -533,6 +549,26 @@ bool InspectFarterSubjectScript(const std::string& source,
   return true;
 }
 
+int InspectVehicleAttributeCapacity(const std::string& source) {
+  static const char marker[] = "s_AddClassTable(\"VehicleAttr\",";
+  const std::size_t markerPosition = source.find(marker);
+  if (markerPosition == std::string::npos) return 0;
+  std::size_t position = markerPosition + sizeof(marker) - 1u;
+  while (position < source.size() &&
+         std::isspace(static_cast<unsigned char>(source[position]))) {
+    ++position;
+  }
+  int capacity = 0;
+  int digits = 0;
+  while (position < source.size() &&
+         std::isdigit(static_cast<unsigned char>(source[position]))) {
+    capacity = capacity * 10 + (source[position] - '0');
+    ++position;
+    ++digits;
+  }
+  return digits > 0 && capacity > 0 && capacity <= 128 ? capacity : 0;
+}
+
 struct RecoveredArenaSeanceState {
   unsigned long long issues;
   unsigned long long extendedIssues;
@@ -546,7 +582,9 @@ struct RecoveredArenaSeanceState {
   bool smokeSubjectReady;
   bool smokeVisualResourcesReady;
   bool explosionAttributesReady;
+  bool vehicleAttributesReady;
   bool taxiAttributesReady;
+  bool taxiReferencesReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -555,6 +593,7 @@ struct RecoveredArenaSeanceState {
   bool corpseAttributesReady;
   bool corpseReferencesReady;
   bool corpseRuntimeReady;
+  bool corpseSubjectReady;
   bool smokerAttributesReady;
   bool smokerReferencesReady;
   bool smokerRuntimeReady;
@@ -566,6 +605,12 @@ struct RecoveredArenaSeanceState {
   bool sparkAttributesReady;
   bool routeReady;
   bool vehicleReady;
+  int vehicleAttributeCount;
+  int vehicleAttributeCapacity;
+  unsigned long long vehicleAttributeFingerprint;
+  unsigned long long taxiReferenceFingerprint;
+  int corpseSubjectCapacity;
+  unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
   int skinSpriteCount;
   unsigned long long skinCatalogFingerprint;
@@ -646,15 +691,15 @@ unsigned int IssueForScriptStatus(ERecoveredLegacyScriptRunStatus status) {
   return RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE;
 }
 
-bool RunAttributeVehicleBootstrap(SimulationContext* context,
-                                  double startTime) {
+bool RunCommonAttributeBootstrap(SimulationContext* context,
+                                 double startTime) {
   RecoveredLegacyScriptHost host(&g_arena);
   SRecoveredLegacyScriptRunResult result = {};
   const SRecoveredLegacyScriptProfile profile =
       RecoveredLegacyScript_BootstrapProfile();
   if (!RecoveredLegacyScript_RunMemory(
-          kAttributeVehicleBootstrapScript, kBootstrapProgramName, profile,
-          context, startTime, &host, &result)) {
+          kCommonAttributeBootstrapScript, kCommonBootstrapProgramName,
+          profile, context, startTime, &host, &result)) {
     Report(IssueForScriptStatus(result.status), result.error);
     return false;
   }
@@ -761,6 +806,25 @@ bool RunTaxiAttributeBootstrap(SimulationContext* context,
       kTaxiAttributeBootstrapSuffix, kTaxiAttributeProgramName,
       RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_SOURCE_UNAVAILABLE,
       "SCINC\\TAXI.SCI", true);
+}
+
+bool RunVehicleAttributeBootstrap(SimulationContext* context,
+                                  double startTime) {
+  std::string source;
+  if (!ReadBoundedRetailAttributeSource("SCINC\\VEHICLE.SCI", &source)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+        "could not read bounded retail SCINC\\VEHICLE.SCI beside selected "
+        "Level");
+    return false;
+  }
+  VehicleAttributeState_SetCapacity(
+      InspectVehicleAttributeCapacity(source));
+  return RunRetailAttributeBootstrap(
+      context, startTime, "SCINC\\VEHICLE.SCI", nullptr,
+      kVehicleAttributeBootstrapSuffix, kVehicleAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "SCINC\\VEHICLE.SCI", true);
 }
 
 bool RunFarterAttributeBootstrap(SimulationContext* context,
@@ -913,6 +977,54 @@ bool InitializeDeviceFreeSoundDistance() {
            "device-free audible distance did not publish atomically");
     return false;
   }
+  return true;
+}
+
+bool InitializeCorpseSubjectTable(SimulationContext* context) {
+  if (!CorpseSubjectState_CreateTable(context, kCorpseSubjectCapacity) ||
+      !CorpseSubjectState_TableReady(context, kCorpseSubjectCapacity) ||
+      CorpseSubjectState_LiveCount() != 0) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_CORPSE_SUBJECT_TABLE_FAILURE,
+                   "could not create the empty retail Corpse(100) table");
+    return false;
+  }
+  g_state.corpseSubjectCapacity = CorpseSubjectState_Capacity();
+  g_state.corpseSubjectFingerprint =
+      CorpseSubjectState_Fingerprint(context);
+  if (g_state.corpseSubjectFingerprint == 0) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_CORPSE_SUBJECT_TABLE_FAILURE,
+                   "retail Corpse table did not publish an empty stable pool");
+    return false;
+  }
+  g_state.corpseSubjectReady = true;
+  return true;
+}
+
+bool PublishVehicleAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_TABLE_MISSING,
+                   "retail fragment did not create the VehicleAttr table");
+    return false;
+  }
+  const int count = VehicleAttributeState_RosterSize(context);
+  const int capacity = VehicleAttributeState_Capacity();
+  const unsigned long long fingerprint =
+      VehicleAttributeState_Fingerprint(context);
+  if (!VehicleAttributeState_CachesUnresolved(context) ||
+      !VehicleAttributeState_IsKnownRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "VehicleAttr objects do not match a bounded unresolved "
+                  "Level roster (capacity=%d count=%d fingerprint=%llu)",
+                  capacity, count, fingerprint);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_ROSTER_INVALID,
+                   message);
+    return false;
+  }
+  g_state.vehicleAttributeCount = count;
+  g_state.vehicleAttributeCapacity = capacity;
+  g_state.vehicleAttributeFingerprint = fingerprint;
+  g_state.vehicleAttributesReady = true;
   return true;
 }
 
@@ -1448,6 +1560,41 @@ bool PublishSkinResources(SimulationContext* context) {
 }
 
 bool PublishDependentAttributeReferences(SimulationContext* context) {
+  // The public January fixture intentionally has no model assets. Execute the
+  // complete preflight anyway: VehicleAttr, Corpse table and CorpseAttr resolve
+  // before Skin fails, proving the two-phase helper leaves every Taxi cache
+  // untouched. Canonical retail Levels must resolve and publish the full graph.
+  if (g_state.skinModelCount == 0) {
+    if (TaxiAttributeState_ResolveReferences(context) ||
+        !TaxiAttributeState_CachesUnresolved(context)) {
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TAXI_REFERENCE_INVALID,
+                     "source-only Taxi fixture leaked partial references");
+      return false;
+    }
+  } else {
+    if (!TaxiAttributeState_ResolveReferences(context) ||
+        !TaxiAttributeState_ReferencesResolved(context)) {
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TAXI_REFERENCE_INVALID,
+                     "TaxiAttr could not resolve Skin/VehicleAttr/Corpse "
+                     "references atomically");
+      return false;
+    }
+    g_state.taxiReferenceFingerprint =
+        TaxiAttributeState_ReferenceFingerprint(context);
+    if (g_state.taxiReferenceFingerprint == 0 ||
+        !TaxiAttributeState_IsKnownReferenceRoster(context)) {
+      char message[192] = {};
+      std::snprintf(message, sizeof(message),
+                    "TaxiAttr resolved references are not a bounded retail "
+                    "roster (fingerprint=%llu)",
+                    g_state.taxiReferenceFingerprint);
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TAXI_REFERENCE_INVALID,
+                     message);
+      return false;
+    }
+    g_state.taxiReferencesReady = true;
+  }
+
   if (!SmokerAttributeState_ResolveReferences(context) ||
       !SmokerAttributeState_ReferencesResolved(context)) {
     Report(RECOVERED_ARENA_SEANCE_SMOKER_REFERENCE_INVALID,
@@ -1642,11 +1789,13 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SmokeSubjectState_Link();
   SmokeVisualState_Link();
   ExplosionAttributeState_Link();
+  VehicleAttributeState_Link();
   TaxiAttributeState_Link();
   FarterAttributeState_Link();
   FarterSubjectState_Link();
   LampAttributeState_Link();
   CorpseAttributeState_Link();
+  CorpseSubjectState_Link();
   SmokerAttributeState_Link();
   SmokerSubjectState_Link();
   WAVResourceState_Link();
@@ -1654,6 +1803,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SkinResourceState_Link();
   if (!InitializeDeviceFreeSoundDistance()) return FALSE;
   if (!OpenArena(context)) return FALSE;
+  if (!InitializeCorpseSubjectTable(context)) {
+    RecoveredArenaSeance_Release();
+    return FALSE;
+  }
 
   try {
     SRecoveredWavMetadataCatalog wavCatalog = {};
@@ -1662,7 +1815,11 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
-    if (!RunAttributeVehicleBootstrap(context, startTime)) {
+    if (!RunCommonAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunVehicleAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1702,7 +1859,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
 
-    if (!PublishBirdAttributes(context) || !PublishPortalTable() ||
+    if (!PublishVehicleAttributes(context) ||
+        !PublishBirdAttributes(context) || !PublishPortalTable() ||
         !PublishOrphanAttributes(context) ||
         !PublishArtefactAttributes(context) ||
         !PublishSmokeAttributes(context) ||
@@ -1769,7 +1927,14 @@ void RecoveredArenaSeance_Release() {
   g_state.smokeVisualResourcesReady = false;
   g_state.smokeVisualResourceFingerprint = 0;
   g_state.explosionAttributesReady = false;
+  g_state.vehicleAttributesReady = false;
+  g_state.vehicleAttributeCount = 0;
+  g_state.vehicleAttributeCapacity = 0;
+  g_state.vehicleAttributeFingerprint = 0;
+  VehicleAttributeState_SetCapacity(0);
   g_state.taxiAttributesReady = false;
+  g_state.taxiReferencesReady = false;
+  g_state.taxiReferenceFingerprint = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -1783,6 +1948,9 @@ void RecoveredArenaSeance_Release() {
   g_state.corpseReferencesReady = false;
   g_state.corpseRuntimeReady = false;
   g_state.corpseReferenceFingerprint = 0;
+  g_state.corpseSubjectReady = false;
+  g_state.corpseSubjectCapacity = 0;
+  g_state.corpseSubjectFingerprint = 0;
   g_state.smokerAttributesReady = false;
   g_state.smokerReferencesReady = false;
   g_state.smokerRuntimeReady = false;
@@ -1881,8 +2049,34 @@ bool RecoveredArenaSeance_ExplosionAttributesReady() {
   return g_state.explosionAttributesReady;
 }
 
+bool RecoveredArenaSeance_VehicleAttributesReady() {
+  return g_state.vehicleAttributesReady;
+}
+
+int RecoveredArenaSeance_VehicleAttributeCount() {
+  return g_state.vehicleAttributesReady ? g_state.vehicleAttributeCount : -1;
+}
+
+int RecoveredArenaSeance_VehicleAttributeCapacity() {
+  return g_state.vehicleAttributesReady ? g_state.vehicleAttributeCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_VehicleAttributeFingerprint() {
+  return g_state.vehicleAttributesReady
+             ? g_state.vehicleAttributeFingerprint
+             : 0;
+}
+
 bool RecoveredArenaSeance_TaxiAttributesReady() {
   return g_state.taxiAttributesReady;
+}
+
+bool RecoveredArenaSeance_TaxiReferencesReady() {
+  return g_state.taxiReferencesReady;
+}
+
+unsigned long long RecoveredArenaSeance_TaxiReferenceFingerprint() {
+  return g_state.taxiReferencesReady ? g_state.taxiReferenceFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_FarterAttributesReady() {
@@ -2080,6 +2274,18 @@ bool RecoveredArenaSeance_CorpseRuntimeReady() {
 unsigned long long RecoveredArenaSeance_CorpseReferenceFingerprint() {
   return g_state.corpseReferencesReady ? g_state.corpseReferenceFingerprint
                                        : 0;
+}
+
+bool RecoveredArenaSeance_CorpseSubjectReady() {
+  return g_state.corpseSubjectReady;
+}
+
+int RecoveredArenaSeance_CorpseSubjectCapacity() {
+  return g_state.corpseSubjectReady ? g_state.corpseSubjectCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_CorpseSubjectFingerprint() {
+  return g_state.corpseSubjectReady ? g_state.corpseSubjectFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_WavMetadataReady() {

@@ -571,6 +571,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0));
+  log.Line("vehicle_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_VehicleAttributesReady() ? 1 : 0));
+  log.Line("vehicle_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_VehicleAttributeCount()));
+  log.Line("vehicle_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_VehicleAttributeCapacity()));
+  log.Line("vehicle_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_VehicleAttributeFingerprint()));
   log.Line("taxi_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_TaxiAttributesReady() ? 1 : 0));
@@ -580,7 +589,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_TaxiAttributeCapacity()));
   log.Line("taxi_attribute_fingerprint=" + std::to_string(
                RecoveredArenaSeance_TaxiAttributeFingerprint()));
-  log.Line("taxi_references=unresolved-source-only");
+  log.Line("taxi_references_resolved=" +
+           std::to_string(
+               RecoveredGameServices_TaxiReferencesReady() ? 1 : 0));
+  log.Line("taxi_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_TaxiReferenceFingerprint()));
   log.Line("farter_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_FarterAttributesReady() ? 1 : 0));
@@ -649,6 +662,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_CorpseRuntimeReady() ? 1 : 0));
   log.Line("corpse_reference_fingerprint=" + std::to_string(
                RecoveredArenaSeance_CorpseReferenceFingerprint()));
+  log.Line("corpse_subject_initialized=" +
+           std::to_string(
+               RecoveredGameServices_CorpseSubjectReady() ? 1 : 0));
+  log.Line("corpse_subject_capacity=" + std::to_string(
+               RecoveredArenaSeance_CorpseSubjectCapacity()));
+  log.Line("corpse_subject_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_CorpseSubjectFingerprint()));
   log.Line("smoker_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SmokerAttributesReady() ? 1 : 0));

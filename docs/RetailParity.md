@@ -502,6 +502,40 @@ Retail scripts нельзя молча копировать поверх source 
   launches with 18/18 identical E/G summaries, and 4/4 waited executable
   smokes publishing Taxi identity, zero extended issues and clean shutdown.
 
+### RP-SCRIPT-016: VehicleAttr unlocks atomic Taxi reference publication
+
+- Classification: `RETAIL_REQUIRED`; exact Vehicle attributes, the empty
+  Corpse subject pool and Taxi dependency caches are active. Live Taxi and
+  Corpse subjects remain deferred.
+- The production host executes each selected `SCINC/VEHICLE.SCI` before Smoke,
+  Explosion and Taxi, invoking the original Vehicle attribute and default
+  Vehicle creation functions. The former synthetic capacity-2 attribute table
+  is gone. Vehicle's own Panel/Taxi/Bullet caches stay unresolved by design.
+- The May Vehicle matrix is Level.01D/01N `8/8`, Level.02D/02N `6/6`,
+  Level.03N `7/7`, Level.04D `8/8`, Level.05D `9/10`, Level.06N `5/5` and
+  Level.07N `3/3`. Seven exact raw fingerprints are admitted and match for
+  every E/G pair. The separate public January fixture is `3/8`.
+- Every May `localmain.sci` declares `Corpse(100)`. The original class owner is
+  now linked and the real empty table is present before Taxi resolution. Its
+  production fingerprint is `9990831306143723938`, with zero live subjects.
+- Taxi resolves each named VehicleAttr, Corpse/CorpseAttr target and loaded
+  Skin model into temporary storage. Only a completely valid roster commits.
+  The seven stable reference identities are `9175343944702536723`,
+  `17235045383519457016`, `8799760472968283833`, `7830645074479408122`,
+  `5874980028233070888`, `1305593298262665297` and
+  `4383146699719690126` in the Vehicle Level grouping above.
+- Stable fingerprints use symbolic resolved identities rather than
+  process-local class/attribute indices; readiness separately verifies the
+  actual cached pointer, index, table and ObjectIDs. Missing, tableless and
+  corrupted Vehicle sources plus both unresolved and already-resolved Taxi
+  failures prove no partial commit and complete seance rollback.
+- Level.03N's source-only write to unknown Vehicle field `m_initialDamage`
+  remains the exact-name serializer's historical no-op; no speculative field
+  is added to `AttributeVehicle`.
+- Verification passes 51/51 CTest in both configurations, 36/36 retail service
+  launches with 18/18 identical installed/mounted summaries, and 4/4 waited
+  executable smokes publishing the new diagnostics and clean shutdown.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

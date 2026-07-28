@@ -525,11 +525,23 @@ remains a later platform tranche.
 The first slice of that heavier graph is now bounded: exact Level-local
 `main_CreateTaxiAttr()` programs execute for all nine May Levels and the public
 fixture. Counts, capacities and seven-field fingerprints reconstruct exactly
-across installed and mounted roots. Skin, VehicleAttr and CorpseAttr references
-are retained as names with deterministic null caches; resolving that dependency
-set atomically is the next prerequisite before `SET_TAXI.SCI` or Taxi subjects.
-The legacy Arena issue word is full, so new frontiers also use a separately
-versioned extended issue word without renumbering established diagnostics.
+across installed and mounted roots. The dependency prerequisite is now also
+complete: exact Level-local VehicleAttr replaces the synthetic pair, the
+original empty `Corpse(100)` subject table is linked, and every Taxi resolves
+its Skin, VehicleAttr and CorpseAttr targets through a two-phase transaction.
+Missing late dependencies cannot leak partial caches, and stable diagnostics
+exclude process-local table/index values. Vehicle's own Panel/Taxi/Bullet
+caches remain intentionally unresolved. The legacy Arena issue word is full,
+so these frontiers use a separately versioned extended issue word without
+renumbering established diagnostics.
+
+The next safe gameplay slice should remain dependency-first. Audit and admit
+Bullet attributes and their referenced visual/sound resources before executing
+Taxi subjects; then evaluate Taxi creation/lifecycle in isolation before
+People and Tank are allowed to bind it. `SET_TAXI.SCI` stays deferred until its
+subject table, object roster, rollback and frame behavior can be proven as one
+transaction. This order avoids constructing a live Taxi over unresolved
+Vehicle Bullet/Panel state and does not imply that the heavy graph is complete.
 
 ### Цель
 

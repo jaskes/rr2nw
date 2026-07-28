@@ -7,11 +7,32 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Replaced the synthetic two-entry Vehicle attribute bootstrap with each
+  selected Level's exact `SCINC/VEHICLE.SCI`. Production now executes original
+  `main_CreateVehicleAttr()` and `main_CreateVehicle()` ordering and publishes
+  known May count/capacity/raw fingerprints while keeping Vehicle's own
+  Panel/Taxi/Bullet caches explicitly deferred.
+- Added atomic Taxi Skin/VehicleAttr/Corpse dependency resolution. All entries
+  preflight into temporary storage before any of five cached fields commit;
+  source-only and live-retail failure probes prove both unresolved and already
+  resolved rosters cannot be partially mutated.
+- Linked the original empty retail `Corpse(100)` subject table with its dynamic
+  rendering base. It now supplies Taxi's real table dependency and publishes
+  exact capacity, zero live objects and a stable identity without claiming
+  Corpse gameplay activation.
+- Added Vehicle raw roster, Taxi resolved-reference and Corpse subject-table
+  diagnostics plus extended source/table/roster/reference issue bits. Stable
+  reference identities use symbolic targets rather than process-local Arena
+  indices, while readiness still verifies the actual cached values.
+- Added missing, corrupted and tableless Vehicle rollback coverage, public
+  January Vehicle fixture admission, repeated reconstruction and full May E/G
+  parity for all new identities. Preserved Level.03N's unknown
+  `m_initialDamage` write as the historical exact-name serializer no-op.
 - Executed every retail `SCINC/TAXI.SCI` `main_CreateTaxiAttr()` program in
   `LEVEL0.SC` order as the first isolated slice of the heavier
-  People/Tank/Taxi/Bullet graph. All nine May Levels now publish their exact
-  `TaxiAttr` counts/capacities while Skin, VehicleAttr and Corpse caches remain
-  explicitly unresolved for the next dependency tranche.
+  People/Tank/Taxi/Bullet graph. All nine May Levels publish their exact
+  `TaxiAttr` counts/capacities; their dependencies are now resolved by the
+  subsequent transaction described above.
 - Added sorted Taxi attribute fingerprints for seven May roster identities
   plus the public January fixture, exact installed/mounted parity, repeated
   reconstruction, missing-source and corrupted-roster rollback.
@@ -21,7 +42,7 @@ claim authorship of inherited Logos code or retail data.
 - Preserved the full legacy 64-bit Arena issue word and added a separate
   extended issue word for Taxi source/table/roster failures without
   renumbering an established diagnostic bit.
-- Added Taxi readiness, count, capacity, fingerprint, unresolved-reference and
+- Added Taxi readiness, count, capacity, raw/reference fingerprints and
   extended-issue startup diagnostics.
 - Executed the exact comment-aware retail `main_CreateFarters()` program after
   its root attribute fragment. Level.04D now keeps all 23 original Farter
