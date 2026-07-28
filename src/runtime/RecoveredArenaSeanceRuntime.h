@@ -89,7 +89,10 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_TABLE_FAILURE = 1ull << 12,
   RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_TABLE_FAILURE = 1ull << 13,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_LIFECYCLE_FAILURE = 1ull << 14,
-  RECOVERED_ARENA_SEANCE_EXT_BULLET_COLLISION_LIFECYCLE_FAILURE = 1ull << 15
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_COLLISION_LIFECYCLE_FAILURE = 1ull << 15,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_TABLE_FAILURE = 1ull << 16,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_LIFECYCLE_FAILURE = 1ull << 17,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_EFFECT_TRANSACTION_FAILURE = 1ull << 18
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -108,6 +111,15 @@ unsigned long long RecoveredArenaSeance_SmokeSubjectFingerprint();
 bool RecoveredArenaSeance_SmokeVisualResourcesReady();
 unsigned long long RecoveredArenaSeance_SmokeVisualResourceFingerprint();
 bool RecoveredArenaSeance_ExplosionAttributesReady();
+bool RecoveredArenaSeance_ExplosionSubjectReady();
+int RecoveredArenaSeance_ExplosionSubjectCapacity();
+unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint();
+int RecoveredArenaSeance_ExplosionProbeInvalidStarts();
+int RecoveredArenaSeance_ExplosionProbeAllocationRollbacks();
+int RecoveredArenaSeance_ExplosionProbeQueuedCommands();
+int RecoveredArenaSeance_ExplosionProbeQueueRollbacks();
+int RecoveredArenaSeance_ExplosionProbeExecutedCommands();
+int RecoveredArenaSeance_ExplosionProbeDamageApplications();
 bool RecoveredArenaSeance_VehicleAttributesReady();
 int RecoveredArenaSeance_VehicleAttributeCount();
 int RecoveredArenaSeance_VehicleAttributeCapacity();
@@ -123,6 +135,7 @@ unsigned long long RecoveredArenaSeance_BulletAttributeFingerprint();
 unsigned long long RecoveredArenaSeance_BulletReferenceFingerprint();
 bool RecoveredArenaSeance_BulletSubjectRegistrationReady();
 bool RecoveredArenaSeance_BulletSubjectReady();
+bool RecoveredArenaSeance_BulletImpactEffectsReady();
 int RecoveredArenaSeance_BulletSubjectCapacity();
 unsigned long long RecoveredArenaSeance_BulletSubjectFingerprint();
 int RecoveredArenaSeance_BulletSubjectProbeMoveCount();
@@ -132,6 +145,10 @@ int RecoveredArenaSeance_BulletCollisionSphereCases();
 int RecoveredArenaSeance_BulletCollisionEarliestHitCases();
 int RecoveredArenaSeance_BulletCollisionWaterlineCases();
 int RecoveredArenaSeance_BulletCollisionSceneQueries();
+int RecoveredArenaSeance_BulletEffectQueuedBatches();
+int RecoveredArenaSeance_BulletEffectQueuedChildren();
+int RecoveredArenaSeance_BulletEffectSplashFirstCases();
+int RecoveredArenaSeance_BulletEffectRolledBackChildren();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();

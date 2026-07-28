@@ -535,6 +535,10 @@ bool RecoveredGameServices_ExplosionAttributesReady() {
   return RecoveredArenaSeance_ExplosionAttributesReady();
 }
 
+bool RecoveredGameServices_ExplosionSubjectReady() {
+  return RecoveredArenaSeance_ExplosionSubjectReady();
+}
+
 bool RecoveredGameServices_VehicleAttributesReady() {
   return RecoveredArenaSeance_VehicleAttributesReady();
 }
@@ -561,6 +565,10 @@ bool RecoveredGameServices_BulletSubjectRegistrationReady() {
 
 bool RecoveredGameServices_BulletSubjectReady() {
   return RecoveredArenaSeance_BulletSubjectReady();
+}
+
+bool RecoveredGameServices_BulletImpactEffectsReady() {
+  return RecoveredArenaSeance_BulletImpactEffectsReady();
 }
 
 bool RecoveredGameServices_FarterAttributesReady() {
@@ -671,6 +679,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_SmokeTerrainReady() &&
          RecoveredGameServices_SmokeRenderingReady() &&
          RecoveredGameServices_ExplosionAttributesReady() &&
+         RecoveredGameServices_ExplosionSubjectReady() &&
          RecoveredGameServices_VehicleAttributesReady() &&
          RecoveredGameServices_TaxiAttributesReady() &&
          RecoveredGameServices_TaxiReferencesReady() &&
@@ -678,6 +687,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_BulletReferencesReady() &&
          RecoveredGameServices_BulletSubjectRegistrationReady() &&
          RecoveredGameServices_BulletSubjectReady() &&
+         RecoveredGameServices_BulletImpactEffectsReady() &&
          RecoveredGameServices_FarterAttributesReady() &&
          RecoveredGameServices_FarterReferencesReady() &&
          RecoveredGameServices_FarterRuntimeReady() &&

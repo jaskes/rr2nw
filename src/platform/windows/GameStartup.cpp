@@ -571,6 +571,28 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0));
+  log.Line("explosion_subject_initialized=" +
+           std::to_string(
+               RecoveredGameServices_ExplosionSubjectReady() ? 1 : 0));
+  log.Line("explosion_subject_capacity=" + std::to_string(
+               RecoveredArenaSeance_ExplosionSubjectCapacity()));
+  log.Line("explosion_subject_mode=bounded-impact-radial-damage");
+  log.Line("explosion_subject_impulse=deferred");
+  log.Line("explosion_subject_visual_audio=deferred");
+  log.Line("explosion_subject_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_ExplosionSubjectFingerprint()));
+  log.Line("explosion_probe_invalid_starts=" + std::to_string(
+               RecoveredArenaSeance_ExplosionProbeInvalidStarts()));
+  log.Line("explosion_probe_allocation_rollbacks=" + std::to_string(
+               RecoveredArenaSeance_ExplosionProbeAllocationRollbacks()));
+  log.Line("explosion_probe_queued_commands=" + std::to_string(
+               RecoveredArenaSeance_ExplosionProbeQueuedCommands()));
+  log.Line("explosion_probe_queue_rollbacks=" + std::to_string(
+               RecoveredArenaSeance_ExplosionProbeQueueRollbacks()));
+  log.Line("explosion_probe_executed_commands=" + std::to_string(
+               RecoveredArenaSeance_ExplosionProbeExecutedCommands()));
+  log.Line("explosion_probe_damage_applications=" + std::to_string(
+               RecoveredArenaSeance_ExplosionProbeDamageApplications()));
   log.Line("vehicle_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_VehicleAttributesReady() ? 1 : 0));
@@ -613,7 +635,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_BulletSubjectReady() ? 1 : 0));
   log.Line("bullet_subject_capacity=" +
            std::to_string(RecoveredArenaSeance_BulletSubjectCapacity()));
-  log.Line("bullet_subject_mode=ballistic-collision-ground-waterline");
+  log.Line(
+      "bullet_subject_mode=ballistic-collision-impact-ground-waterline");
   log.Line("bullet_subject_fingerprint=" + std::to_string(
                RecoveredArenaSeance_BulletSubjectFingerprint()));
   log.Line("bullet_subject_probe_move_count=" + std::to_string(
@@ -630,6 +653,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_BulletCollisionWaterlineCases()));
   log.Line("bullet_collision_scene_queries=" + std::to_string(
                RecoveredArenaSeance_BulletCollisionSceneQueries()));
+  log.Line("bullet_impact_effects_initialized=" + std::to_string(
+               RecoveredArenaSeance_BulletImpactEffectsReady() ? 1 : 0));
+  log.Line("bullet_effect_queued_batches=" + std::to_string(
+               RecoveredArenaSeance_BulletEffectQueuedBatches()));
+  log.Line("bullet_effect_queued_children=" + std::to_string(
+               RecoveredArenaSeance_BulletEffectQueuedChildren()));
+  log.Line("bullet_effect_splash_first_cases=" + std::to_string(
+               RecoveredArenaSeance_BulletEffectSplashFirstCases()));
+  log.Line("bullet_effect_rolled_back_children=" + std::to_string(
+               RecoveredArenaSeance_BulletEffectRolledBackChildren()));
   log.Line("farter_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_FarterAttributesReady() ? 1 : 0));
@@ -851,7 +884,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
       "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
-      "attribute-bullet-collision-vehicle-bootstrap");
+      "attribute-bullet-collision-impact-explosion-damage-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

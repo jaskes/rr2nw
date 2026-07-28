@@ -7,6 +7,27 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Replaced the registration-only Explosion placeholder with a bounded,
+  non-rendering and non-audible impact command. It safely resolves the encoded
+  90-field ExplosionAttr index, retains the Bullet master in an explicit
+  payload, applies the recovered radial `IUnit` damage/friendly-fire/player
+  attribution contract and removes itself immediately after one execution.
+- Connected Bullet waterline and collision decisions to an atomic Explosion
+  child batch. A water splash is queued before a later impact, both children
+  reserve sufficient pool capacity before allocation or event publication,
+  unexpected partial allocation rolls back every child, and self-owned queued
+  events can be cancelled without
+  confusing the damage owner with the event owner.
+- Added Explosion/Bullet-effect admission and diagnostics. Startup now proves
+  invalid-start rejection, allocation rollback, queued-event rollback,
+  immediate execution, clean pool reuse and a `2 batches / 3 children / 1
+  splash-first / 3 rollbacks` impact transaction. The Arena smoke additionally
+  applies one real radial hit to a safe `IDynamicObject + IUnit` target and
+  verifies damage, position, timestamp and owner.
+- Recorded the remaining retail boundary explicitly: May `m_impulseCoeff`
+  vector scaling is binary-confirmed but its target dispatch is not yet
+  reconstructed; Explosion light, particles, sound and Bullet trace rendering
+  therefore remain disabled rather than being guessed into the damage owner.
 - Activated the isolated Bullet collision cadence. Every accepted start now
   schedules both movement and `b_EVC_CHECK_COLLISION`; collision checks select
   the earliest valid dynamic-sphere or decoded scene/order hit, preserve the

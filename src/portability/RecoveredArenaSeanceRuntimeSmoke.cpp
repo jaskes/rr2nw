@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -14,6 +15,7 @@
 class CGRPanel;
 #include "h/vehicle.h"
 #include "i/dynobj.i"
+#include "i/unit.i"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "sound.h"
@@ -25,6 +27,7 @@ class CGRPanel;
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
@@ -50,6 +53,7 @@ extern SDeviceList _dL;
 namespace {
 
 unsigned long long g_explosionFixtureFingerprint = 0;
+unsigned long long g_explosionSubjectFixtureFingerprint = 0;
 unsigned long long g_vehicleFixtureFingerprint = 0;
 unsigned long long g_taxiFixtureFingerprint = 0;
 unsigned long long g_bulletFixtureFingerprint = 0;
@@ -70,21 +74,37 @@ unsigned long long g_soundObjectFixtureFingerprint = 0;
 unsigned long long g_farterSubjectFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
 
-class BulletDynamicProbe : public ct_Subject, public IDynamicObject {
+bool NearlyEqual(double left, double right) {
+  const double magnitude = std::fmax(std::fabs(left), std::fabs(right));
+  return std::fabs(left - right) <=
+         1.0e-10 * std::fmax(1.0, magnitude);
+}
+
+class BulletDynamicProbe : public ct_Subject,
+                           public IDynamicObject,
+                           public IUnit {
  public:
-  BulletDynamicProbe() : radius_(10.0) { direction_.LoadIdentity(); }
+  BulletDynamicProbe()
+      : radius_(10.0), damageCount_(0), lastDamage_(0.0),
+        lastDamagePosition_(0.0, 0.0, 0.0), lastDamageTime_(0.0),
+        lastDamageOwner_(KR_ObjectID::NUL()),
+        commander_(KR_ObjectID::NUL()) {
+    direction_.LoadIdentity();
+  }
 
   void addNotify() override {
     ct_Subject::addNotify();
     direction_.LoadIdentity();
     radius_ = 10.0;
-    setPosition(CFVector3(500000.0, 500000.0, 500000.0));
+    resetDamage();
+    setPosition(CFVector3(2500.0, 100.0, 2500.0));
   }
 
   void removeNotify() override {
     ct_Subject::removeNotify();
     direction_.LoadIdentity();
     radius_ = 10.0;
+    resetDamage();
     m_position = CFVector3(0.0, 0.0, 0.0);
   }
 
@@ -95,6 +115,7 @@ class BulletDynamicProbe : public ct_Subject, public IDynamicObject {
   void* queryInterface(int iid) override {
     if (iid == IUnknownIID) return static_cast<KR_Object*>(this);
     if (iid == IDynamicObjectIID) return static_cast<IDynamicObject*>(this);
+    if (iid == IUnitIID) return static_cast<IUnit*>(this);
     return nullptr;
   }
 
@@ -111,9 +132,47 @@ class BulletDynamicProbe : public ct_Subject, public IDynamicObject {
   TCCFMatrix3x4& GetDir() override { return direction_; }
   void SetDir(TCSFMatrix3x4& direction) override { direction_ = direction; }
 
+  double getPower() override { return 1.0; }
+  int isFriend(const KR_ObjectID&) override { return 0; }
+  double getDamage() override { return lastDamage_; }
+  void setDamage(double damage, const CFVector3& position, double timeStamp,
+                 KR_ObjectID owner) override {
+    ++damageCount_;
+    lastDamage_ = damage;
+    lastDamagePosition_ = position;
+    lastDamageTime_ = timeStamp;
+    lastDamageOwner_ = owner;
+  }
+  double desireShoot() override { return 0.0; }
+  KR_ObjectID getCommander() override { return commander_; }
+  void setCommander(KR_ObjectID commander) override {
+    commander_ = commander;
+  }
+
+  void resetDamage() {
+    damageCount_ = 0;
+    lastDamage_ = 0.0;
+    lastDamagePosition_ = CFVector3(0.0, 0.0, 0.0);
+    lastDamageTime_ = 0.0;
+    lastDamageOwner_ = KR_ObjectID::NUL();
+    commander_ = KR_ObjectID::NUL();
+  }
+  int damageCount() const { return damageCount_; }
+  const CFVector3& lastDamagePosition() const {
+    return lastDamagePosition_;
+  }
+  double lastDamageTime() const { return lastDamageTime_; }
+  KR_ObjectID lastDamageOwner() const { return lastDamageOwner_; }
+
  private:
   CFMatrix3x4 direction_;
   double radius_;
+  int damageCount_;
+  double lastDamage_;
+  CFVector3 lastDamagePosition_;
+  double lastDamageTime_;
+  KR_ObjectID lastDamageOwner_;
+  KR_ObjectID commander_;
 };
 
 class BulletDynamicProbeTable : public ct_SubjectTable {
@@ -142,6 +201,12 @@ class BulletDynamicProbeTable : public ct_SubjectTable {
   bool isRendering() override { return false; }
   bool isAudible() override { return false; }
 
+  BulletDynamicProbe* find(const KR_ObjectID& id) const {
+    for (int index = 0; index < m_maxObjectQnty; ++index)
+      if (table_[index].getObjectID() == id) return &table_[index];
+    return nullptr;
+  }
+
  private:
   BulletDynamicProbe* table_;
 };
@@ -154,13 +219,40 @@ bool ProbeDynamicBulletCollision(SimulationContext& context) {
   if (table == ct_NULLID) return false;
   KR_ObjectID target =
       g_arena.newObject(table, "Bullet.Dynamic.Target.Probe");
+  BulletDynamicProbe* targetObject = g_bulletDynamicProbeTable.find(target);
   const char* attribute = BulletAttributeState_FirstAttributeName(&context);
-  const bool valid = !target.isNUL() && attribute != nullptr &&
+  const bool bulletValid = !target.isNUL() && targetObject != nullptr &&
+      attribute != nullptr &&
       BulletSubjectState_ProbeDynamicCollisionLifecycle(
           &context, attribute, target, Session::m_moment) &&
       BulletSubjectState_LiveCount() == 0;
+  if (targetObject != nullptr) targetObject->resetDamage();
+  const char* explosionAttribute =
+      ExplosionAttributeState_FirstAttributeName(&context);
+  ExplosionImpactProbeSummary explosionSummary = {};
+  const KR_ObjectID damageOwner = g_arena.getObjectID();
+  const double damageTime = Session::m_moment < 0.1
+                                ? 0.1
+                                : Session::m_moment;
+  const bool explosionValid = targetObject != nullptr &&
+      explosionAttribute != nullptr &&
+      ExplosionSubjectState_ProbeDamageLifecycle(
+          &context, explosionAttribute, target, damageOwner,
+          Session::m_moment, &explosionSummary) &&
+      explosionSummary.executedCommands == 1 &&
+      explosionSummary.damageApplications == 1 &&
+      targetObject->damageCount() == 1 &&
+      NearlyEqual(targetObject->getDamage(),
+                  explosionSummary.expectedDamage) &&
+      targetObject->lastDamagePosition().x == targetObject->getPos().x &&
+      targetObject->lastDamagePosition().y == targetObject->getPos().y &&
+      targetObject->lastDamagePosition().z == targetObject->getPos().z &&
+      NearlyEqual(targetObject->lastDamageTime(), damageTime) &&
+      targetObject->lastDamageOwner() == damageOwner &&
+      ExplosionSubjectState_LiveCount() == 0;
   if (!target.isNUL() && context.isExist(target)) context.removeObject(target);
-  return valid && !context.isExist("Bullet.Dynamic.Target.Probe");
+  return bulletValid && explosionValid &&
+         !context.isExist("Bullet.Dynamic.Target.Probe");
 }
 
 int Fail(const char* message) {
@@ -342,6 +434,16 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_SmokeVisualResourceFingerprint() == 0 &&
          SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
+         !RecoveredArenaSeance_ExplosionSubjectReady() &&
+         RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeQueuedCommands() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeQueueRollbacks() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeExecutedCommands() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeDamageApplications() == -1 &&
+         ExplosionSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_VehicleAttributesReady() &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
@@ -356,6 +458,7 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_BulletReferencesReady() &&
          !RecoveredArenaSeance_BulletSubjectRegistrationReady() &&
          !RecoveredArenaSeance_BulletSubjectReady() &&
+         !RecoveredArenaSeance_BulletImpactEffectsReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
@@ -369,6 +472,10 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_BulletCollisionEarliestHitCases() == -1 &&
          RecoveredArenaSeance_BulletCollisionWaterlineCases() == -1 &&
          RecoveredArenaSeance_BulletCollisionSceneQueries() == -1 &&
+         RecoveredArenaSeance_BulletEffectQueuedBatches() == -1 &&
+         RecoveredArenaSeance_BulletEffectQueuedChildren() == -1 &&
+         RecoveredArenaSeance_BulletEffectSplashFirstCases() == -1 &&
+         RecoveredArenaSeance_BulletEffectRolledBackChildren() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
@@ -454,8 +561,18 @@ bool RunCycle(bool expectVisualResources) {
            expectVisualResources ||
        (RecoveredArenaSeance_SmokeVisualResourceFingerprint() != 0) !=
            expectVisualResources ||
-       SmokeSubjectState_LiveCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
+      !RecoveredArenaSeance_ExplosionSubjectReady() ||
+      RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
+      RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
+      RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
+      RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeQueuedCommands() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeQueueRollbacks() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeExecutedCommands() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeDamageApplications() != 0 ||
+      ExplosionSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_VehicleAttributesReady() ||
       RecoveredArenaSeance_VehicleAttributeCount() != 3 ||
       RecoveredArenaSeance_VehicleAttributeCapacity() != 8 ||
@@ -470,6 +587,7 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_BulletReferencesReady() ||
       !RecoveredArenaSeance_BulletSubjectRegistrationReady() ||
       !RecoveredArenaSeance_BulletSubjectReady() ||
+      RecoveredArenaSeance_BulletImpactEffectsReady() ||
       RecoveredArenaSeance_BulletAttributeCount() != 4 ||
       RecoveredArenaSeance_BulletAttributeCapacity() != 4 ||
       RecoveredArenaSeance_BulletSubjectCapacity() != 500 ||
@@ -481,6 +599,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_BulletCollisionEarliestHitCases() != 3 ||
       RecoveredArenaSeance_BulletCollisionWaterlineCases() != 4 ||
       RecoveredArenaSeance_BulletCollisionSceneQueries() != 0 ||
+      RecoveredArenaSeance_BulletEffectQueuedBatches() != -1 ||
+      RecoveredArenaSeance_BulletEffectQueuedChildren() != -1 ||
+      RecoveredArenaSeance_BulletEffectSplashFirstCases() != -1 ||
+      RecoveredArenaSeance_BulletEffectRolledBackChildren() != -1 ||
       BulletSubjectState_LiveCount() != 0 ||
       RecoveredArenaSeance_BulletAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_BulletReferenceFingerprint() != 0 ||
@@ -599,6 +721,10 @@ bool RunCycle(bool expectVisualResources) {
       SmokeAttributeState_IsRetailRoster(&context) &&
       ExplosionAttributeState_IsKnownRoster(&context) &&
       ExplosionAttributeState_RosterSize(&context) == 10 &&
+      ExplosionSubjectState_TableReady(&context, 2) &&
+      ExplosionSubjectState_LiveCount() == 0 &&
+      ExplosionSubjectState_Fingerprint(&context) ==
+          RecoveredArenaSeance_ExplosionSubjectFingerprint() &&
       VehicleAttributeState_IsKnownRoster(&context) &&
       VehicleAttributeState_RosterSize(&context) == 3 &&
       VehicleAttributeState_Capacity() == 8 &&
@@ -674,6 +800,8 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_SmokeVisualResourceFingerprint();
   const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(&context);
+  const unsigned long long explosionSubjectFingerprint =
+      ExplosionSubjectState_Fingerprint(&context);
   const unsigned long long vehicleFingerprint =
       VehicleAttributeState_Fingerprint(&context);
   const unsigned long long taxiFingerprint =
@@ -711,6 +839,8 @@ bool RunCycle(bool expectVisualResources) {
   const bool reconstructionStable =
       (g_explosionFixtureFingerprint == 0 ||
        g_explosionFixtureFingerprint == explosionFingerprint) &&
+      (g_explosionSubjectFixtureFingerprint == 0 ||
+       g_explosionSubjectFixtureFingerprint == explosionSubjectFingerprint) &&
       (g_vehicleFixtureFingerprint == 0 ||
        g_vehicleFixtureFingerprint == vehicleFingerprint) &&
       (g_taxiFixtureFingerprint == 0 ||
@@ -751,6 +881,7 @@ bool RunCycle(bool expectVisualResources) {
       (g_skinCatalogFixtureFingerprint == 0 ||
        g_skinCatalogFixtureFingerprint == skinCatalogFingerprint);
   g_explosionFixtureFingerprint = explosionFingerprint;
+  g_explosionSubjectFixtureFingerprint = explosionSubjectFingerprint;
   g_vehicleFixtureFingerprint = vehicleFingerprint;
   g_taxiFixtureFingerprint = taxiFingerprint;
   g_bulletFixtureFingerprint = bulletFingerprint;

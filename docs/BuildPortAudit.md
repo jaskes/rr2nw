@@ -1855,7 +1855,9 @@ and collision labels. Collision performs the recovered Arena `IDynamicObject`
 sphere scan and decoded scene-order `Bump`, selects the earliest hit with scene
 winning an equal-time tie, and safely classifies downward waterline crossings.
 Every exit clears both queues and pooled state. The owner remains
-non-rendering/non-audible and deliberately does not create incomplete effects.
+non-rendering/non-audible. Resolved retail collisions now queue the bounded
+Explosion damage children described below; the source-only fixture deliberately
+retains no effect dependencies.
 
 The modern start path does not use `ct_AttributeTable::setAttribute()`: its
 legacy `index >= 0 || index < capacity` condition admits out-of-range decoded
@@ -1882,14 +1884,43 @@ contracts, a ballistic subject identity, probe movement count and dedicated
 extended issue bits. The legacy trace is deliberately excluded: its first call
 can read `m_viewTrace[-1]`, and legacy removal does not clear queued events.
 
-Final verification passes 51/51 CTest in both configurations, all 36 May
-service launches with 18/18 identical installed/disc summaries, and 4/4 waited
-executable smokes. Live free-flight and isolated spatial collision are admitted;
-damage/effect children, lifetime compatibility, audio and trace drawing remain
-the next separate frontiers. The impact path currently removes the Bullet
-without creating Explosion/Spark/Smoke: Explosion is still registration-only,
-so activating the legacy child call now would leak a live orphan rather than
-prove bounded ownership.
+The Explosion table is no longer registration-only. Its nothrow subject owner
+is a one-shot, non-rendering/non-audible command that validates the exact modern
+payload and resolves encoded attributes by matching the admitted live roster,
+never through the legacy unsafe setter. Event source and destination are the
+child; the Bullet master is serialized separately as the damage owner. This
+split permits exact event cancellation while preserving friendly-fire and
+player attack attribution.
+
+The active command implements the recovered radial-damage scan over
+`IDynamicObject + IUnit` subjects and removes itself immediately. Bullet impact
+construction is a bounded transaction of at most two children: splash first
+when its waterline timestamp precedes impact, then impact. Both are preflighted
+and allocated before event publication; partial object-pool allocation removes
+every created child, while known insufficient capacity rejects the batch before
+allocation. The void-returning kernel event insertion API cannot prove
+event-pool-overflow recovery, so that limitation is recorded separately rather
+than hidden behind an atomicity claim.
+
+Admission forces invalid payload/index rejection, a capacity-short reservation
+failure, queue rollback, immediate execution and pool reuse. Resolved retail
+Bullet references prove two batches, three queued children, one splash-first
+case and three rollbacks. The Arena smoke uses a real safe
+`IDynamicObject + IUnit` and verifies one radial damage call's amount, position,
+timestamp and owner. Startup diagnostics publish Explosion capacity/identity,
+all admission counters and the Bullet child-transaction counters.
+
+The May-only impulse/light portion is still isolated. Binary evidence confirms
+`m_useLight` and three-component `m_impulseCoeff` scaling, but not the complete
+missing target dispatch. Impulse, Spark/Smoke/visual lifetime, audio and trace
+drawing remain the next separate frontiers; no renderer claim is implied by the
+active damage command.
+
+Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
+service launches with 18/18 byte-identical installed/mounted summaries, and
+4/4 waited executable runtime smokes. The executable logs publish an active
+bounded Explosion pool, lifecycle counters `2/1/1/1/1/0`, Bullet effect
+counters `2/3/1/3` and `runtime_shutdown=clean`.
 
 ## Expansion order
 
@@ -1947,8 +1978,10 @@ prove bounded ownership.
    Smoke, optional WAV/Skin and trace resources atomically; the original empty
    `Spark(40)` pool and exact Bullet capacities are present. The bounded Bullet
    subject now executes exact start/free-flight/ground-removal, isolated dynamic
-   and scene collision, bounded waterline classification and rollback without
-   effects or rendering. Vehicle's own Panel/Taxi/Bullet
+   and scene collision, bounded waterline classification and rollback. Its
+   splash/impact transaction owns one-shot radial-damage Explosion children
+   with all-or-none object-pool allocation; impulse and presentation remain
+   deferred. Vehicle's own Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
    attribute groups, Skin
    animation construction and remaining OBASE/script ABI bindings are still

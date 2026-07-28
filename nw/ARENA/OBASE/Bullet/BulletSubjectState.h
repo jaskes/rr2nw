@@ -14,6 +14,14 @@ struct BulletCollisionProbeSummary
     int sceneQueries;
 };
 
+struct BulletEffectProbeSummary
+{
+    int queuedBatches;
+    int queuedChildren;
+    int splashFirstCases;
+    int rolledBackChildren;
+};
+
 void BulletSubjectState_Link();
 bool BulletSubjectState_TableReady(SimulationContext *context, int capacity);
 int BulletSubjectState_Capacity();
@@ -29,5 +37,8 @@ bool BulletSubjectState_ProbeCollisionLifecycle(
 bool BulletSubjectState_ProbeDynamicCollisionLifecycle(
     SimulationContext *context, const char *attributeName,
     const KR_ObjectID &target, double timeStamp);
+bool BulletSubjectState_ProbeImpactEffectLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, BulletEffectProbeSummary *summary);
 
 #endif

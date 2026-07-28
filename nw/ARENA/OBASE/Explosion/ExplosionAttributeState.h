@@ -146,5 +146,10 @@ unsigned long long ExplosionAttributeState_Fingerprint(
     SimulationContext *context);
 bool ExplosionAttributeState_IsKnownRoster(SimulationContext *context);
 int ExplosionAttributeState_RosterSize(SimulationContext *context);
+bool ExplosionAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeExplosion **attribute);
+const char *ExplosionAttributeState_FirstAttributeName(
+    SimulationContext *context);
 
 #endif

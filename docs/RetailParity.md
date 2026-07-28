@@ -540,8 +540,8 @@ Retail scripts нельзя молча копировать поверх source 
 
 - Classification: `RETAIL_REQUIRED`; exact Bullet attributes and their
   dependencies are active. The isolated live free-flight, ground-removal and
-  spatial-collision subject is active; damage/effect children, audio and
-  rendering remain deferred.
+  spatial-collision subject is active. BD-054 additionally activates bounded
+  splash/impact Explosion damage; impulse, audio and rendering remain deferred.
 - Production executes root `BULLET.SCI`, Level-local `bullet_loc.sci` and
   `main_CreateBullets()` in retail order. The May count/attribute-capacity/
   subject-capacity matrix is `11/11/50`, `11/11/50`, `10/10/100`,
@@ -586,12 +586,49 @@ Retail scripts нельзя молча копировать поверх source 
   resolved software-palette colors are part of the runtime state.
 - Unknown exact-name writes `massa` and `m_lifeTime` remain no-ops; the port
   does not alias `massa` to `m_massa` or invent an unverified lifetime field.
-- Explosion/Spark/Smoke creation remains outside this boundary. In particular,
-  the current bounded Explosion table is registration-only and cannot yet own
-  impact children safely; collision therefore removes the Bullet without
-  manufacturing a persistent orphan effect.
+- Explosion damage activation is specified separately by RP-SCRIPT-018.
+  Spark/barrel-Smoke children, visual Explosion lifetime, sound and trace remain
+  outside this Bullet attribute/reference boundary.
 - Verification passes 51/51 CTest in Debug and Release, 36/36 May services
   with 18/18 identical E/G pairs, and 4/4 clean waited executable smokes.
+
+### RP-SCRIPT-018: bounded Explosion commands own Bullet impact damage
+
+- Classification: `RETAIL_REQUIRED` for the source-backed radial damage and
+  damage-owner contract; `PARTIAL_RETAIL` for the May Explosion subject as a
+  whole. May impulse/light and presentation effects are still deferred.
+- Every selected Level keeps its script-declared Explosion capacity. The owner
+  is non-rendering and non-audible, consumes an encoded live ExplosionAttr,
+  position and separate damage-owner ObjectID, executes once and immediately
+  returns its slot. The command never calls the legacy shared attribute setter.
+- Radial damage follows the recovered source equation over Arena subjects that
+  expose both `IDynamicObject` and `IUnit`. Target radius participates in the
+  falloff; non-player unit owners use the retail friend-damage scale and player
+  owners retain commander attack attribution.
+- A Bullet queues water splash before a later solid impact. All dependency and
+  timestamp inputs preflight first, then the complete one- or two-child batch
+  preallocates before any event is published. Partial object-pool allocation
+  removes every child, while known insufficient capacity is rejected before
+  allocation. Event source/destination are the child itself, while the
+  Bullet master remains payload damage ownership, allowing exact queue cleanup.
+- Startup admission rejects two malformed starts, forces and rolls back a
+  partial two-child allocation, cancels one queued command, executes a
+  zero-target command and proves clean reuse. Resolved retail Bullet rosters
+  additionally queue/rollback one splash-plus-impact batch and one impact-only
+  batch: two batches, three children, one splash-first case and three clean
+  child rollbacks. A hermetic Arena target receives exactly one verified damage
+  call with the expected amount, position, timestamp and owner.
+- The public January fixture has unresolved Bullet effect references by design,
+  so its collision path produces no children while its separately declared
+  Explosion pool still passes lifecycle and direct-damage admission.
+- The May binary proves `m_useLight` and `m_impulseCoeff` fields and coefficient
+  vector scaling, but not enough of the missing dispatch path to enable impulse
+  safely. Fingerprints and diagnostics therefore declare impulse, light,
+  particles and sound false/deferred rather than implying full visual Explosion
+  parity.
+- Verification passes 51/51 CTest in both configurations, 36/36 May service
+  launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
+  smokes publishing the new command/transaction diagnostics and clean shutdown.
 
 ## Behavioral parity matrix
 

@@ -550,18 +550,27 @@ spheres, validates every returned time, preserves the original scene-wins-ties
 rule and classifies the first downward waterline crossing. Startup proves
 queueing, malformed rejection and a real scene traversal; the seance smoke also
 drives the Arena spatial cache and a real interface target through earliest hit,
-removal and pool reuse. No incomplete effect object is created.
+removal and pool reuse. This isolated slice created no incomplete effect object;
+the bounded damage owner connected immediately afterward is described below.
 
-The next safe Bullet slice is effect ownership: replace the registration-only
-Explosion subject with a bounded impact command, resolve its encoded attribute
-without the shared unsafe setter, preserve the Bullet master as damage owner,
-and prove splash-before-impact ordering plus parent/child rollback. Spark and
-barrel Smoke can then attach to the same transaction. Trace, skin/light and
-sound follow only after effect children are stable; the known first-step
-`m_viewTrace[-1]` bug must be replaced rather than copied. After that, resolve
-Vehicle's Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi
-creation remains ahead of People and Tank, and live network or replay work
-remains outside this 1.0 frontier.
+The first effect-ownership slice is now complete. Explosion is a bounded
+one-shot command with safe encoded-attribute resolution, self-owned queued
+events and the Bullet master retained separately as damage owner. It executes
+the recovered radial `IUnit` damage/friendly-fire/player-attribution loop and
+immediately frees itself. Bullet preallocates splash and impact as one child
+batch, preserves splash-before-impact timestamps and rolls back a partial pool
+allocation after rejecting known insufficient capacity before mutation.
+Admission proves queue teardown, reuse and one real damage call.
+
+The next safe slice is the May impulse contract. Binary evidence proves that
+`m_impulseCoeff` scales the three vector components, but the missing target
+dispatch must be reconstructed and tested before activation. After that,
+Spark/barrel Smoke and Explosion light/sound/particles can attach to the same
+bounded transaction. Trace follows only after the known first-step
+`m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
+Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
+ahead of People and Tank, and live network or replay work remains outside this
+1.0 frontier.
 
 ### Цель
 

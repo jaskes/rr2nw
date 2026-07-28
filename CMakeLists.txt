@@ -1809,8 +1809,11 @@ endif()
 add_library(rr2nw_arena_explosion_attribute_state STATIC
   nw/ARENA/OBASE/Explosion/ExplosionAttributeState.cpp
   nw/ARENA/OBASE/Explosion/ExplosionAttributeState.h
+  nw/ARENA/OBASE/Explosion/ExplosionSubjectState.cpp
+  nw/ARENA/OBASE/Explosion/ExplosionSubjectState.h
 )
 target_link_libraries(rr2nw_arena_explosion_attribute_state PUBLIC
+  rr2nw_arena_level_state
   rr2nw_arena_storage
 )
 target_include_directories(rr2nw_arena_explosion_attribute_state PUBLIC
@@ -2473,6 +2476,7 @@ add_library(rr2nw_arena_bullet_attribute_state STATIC
   nw/ARENA/OBASE/Bullet/BulletSubjectState.h
 )
 target_link_libraries(rr2nw_arena_bullet_attribute_state PUBLIC
+  rr2nw_arena_explosion_attribute_state
   rr2nw_arena_skin_resource_state
   rr2nw_arena_smoke_texture_cache
   rr2nw_arena_storage

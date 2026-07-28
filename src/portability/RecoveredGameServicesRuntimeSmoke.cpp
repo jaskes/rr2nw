@@ -21,6 +21,7 @@
 #include "obase/bullet/BulletAttributeState.h"
 #include "obase/bullet/BulletSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
@@ -224,6 +225,16 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_SmokeVisualResourceFingerprint() == 0 &&
          SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_ExplosionAttributesReady() &&
+         !RecoveredGameServices_ExplosionSubjectReady() &&
+         RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeQueuedCommands() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeQueueRollbacks() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeExecutedCommands() == -1 &&
+         RecoveredArenaSeance_ExplosionProbeDamageApplications() == -1 &&
+         ExplosionSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_VehicleAttributesReady() &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
@@ -238,6 +249,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_BulletReferencesReady() &&
          !RecoveredGameServices_BulletSubjectRegistrationReady() &&
          !RecoveredGameServices_BulletSubjectReady() &&
+         !RecoveredGameServices_BulletImpactEffectsReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
@@ -251,6 +263,10 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_BulletCollisionEarliestHitCases() == -1 &&
          RecoveredArenaSeance_BulletCollisionWaterlineCases() == -1 &&
          RecoveredArenaSeance_BulletCollisionSceneQueries() == -1 &&
+         RecoveredArenaSeance_BulletEffectQueuedBatches() == -1 &&
+         RecoveredArenaSeance_BulletEffectQueuedChildren() == -1 &&
+         RecoveredArenaSeance_BulletEffectSplashFirstCases() == -1 &&
+         RecoveredArenaSeance_BulletEffectRolledBackChildren() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
@@ -853,6 +869,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokeRenderingReady() ||
        !RecoveredGameServices_SmokeVisualResourcesReady() ||
        !RecoveredGameServices_ExplosionAttributesReady() ||
+       !RecoveredGameServices_ExplosionSubjectReady() ||
        !RecoveredGameServices_VehicleAttributesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
@@ -860,6 +877,7 @@ int main(int argc, char** argv) {
        !RecoveredGameServices_BulletReferencesReady() ||
        !RecoveredGameServices_BulletSubjectRegistrationReady() ||
        !RecoveredGameServices_BulletSubjectReady() ||
+       !RecoveredGameServices_BulletImpactEffectsReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
@@ -930,6 +948,10 @@ int main(int argc, char** argv) {
       ExplosionAttributeState_Fingerprint(g_super.m_context);
   const int explosionRosterSize =
       ExplosionAttributeState_RosterSize(g_super.m_context);
+  const int explosionSubjectCapacity =
+      ExplosionSubjectState_Capacity();
+  const unsigned long long explosionSubjectFingerprint =
+      ExplosionSubjectState_Fingerprint(g_super.m_context);
   const unsigned long long taxiFingerprint =
       TaxiAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long taxiReferenceFingerprint =
@@ -1033,7 +1055,25 @@ int main(int argc, char** argv) {
   const unsigned long long skinResourceFingerprint =
       RecoveredArenaSeance_SkinResourceFingerprint();
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
-      explosionRosterSize > 14 || taxiFingerprint == 0 ||
+      explosionRosterSize > 14 ||
+      (explosionSubjectCapacity != 40 &&
+       explosionSubjectCapacity != 50 &&
+       explosionSubjectCapacity != 60) ||
+      !ExplosionSubjectState_TableReady(g_super.m_context,
+                                        explosionSubjectCapacity) ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      explosionSubjectFingerprint == 0 ||
+      RecoveredArenaSeance_ExplosionSubjectCapacity() !=
+          explosionSubjectCapacity ||
+      RecoveredArenaSeance_ExplosionSubjectFingerprint() !=
+          explosionSubjectFingerprint ||
+      RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
+      RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeQueuedCommands() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeQueueRollbacks() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeExecutedCommands() != 1 ||
+      RecoveredArenaSeance_ExplosionProbeDamageApplications() != 0 ||
+      taxiFingerprint == 0 ||
       taxiRosterSize < 2 || taxiRosterSize > 10 ||
       taxiCapacity < taxiRosterSize || taxiCapacity > 10 ||
       !TaxiAttributeState_IsKnownRoster(g_super.m_context) ||
@@ -1064,6 +1104,10 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletCollisionEarliestHitCases() != 3 ||
       RecoveredArenaSeance_BulletCollisionWaterlineCases() != 4 ||
       RecoveredArenaSeance_BulletCollisionSceneQueries() != 1 ||
+      RecoveredArenaSeance_BulletEffectQueuedBatches() != 2 ||
+      RecoveredArenaSeance_BulletEffectQueuedChildren() != 3 ||
+      RecoveredArenaSeance_BulletEffectSplashFirstCases() != 1 ||
+      RecoveredArenaSeance_BulletEffectRolledBackChildren() != 3 ||
       !BulletAttributeState_IsKnownRoster(g_super.m_context) ||
       !BulletAttributeState_ReferencesResolved(g_super.m_context) ||
       !BulletAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
@@ -1218,6 +1262,14 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
       ExplosionAttributeState_Fingerprint(g_super.m_context) !=
           explosionFingerprint ||
+      ExplosionSubjectState_Capacity() != explosionSubjectCapacity ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      ExplosionSubjectState_Fingerprint(g_super.m_context) !=
+          explosionSubjectFingerprint ||
+      RecoveredArenaSeance_ExplosionSubjectCapacity() !=
+          explosionSubjectCapacity ||
+      RecoveredArenaSeance_ExplosionSubjectFingerprint() !=
+          explosionSubjectFingerprint ||
       TaxiAttributeState_Fingerprint(g_super.m_context) != taxiFingerprint ||
       TaxiAttributeState_RosterSize(g_super.m_context) != taxiRosterSize ||
       TaxiAttributeState_Capacity() != taxiCapacity ||
@@ -1256,6 +1308,10 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletCollisionEarliestHitCases() != 3 ||
       RecoveredArenaSeance_BulletCollisionWaterlineCases() != 4 ||
       RecoveredArenaSeance_BulletCollisionSceneQueries() != 1 ||
+      RecoveredArenaSeance_BulletEffectQueuedBatches() != 2 ||
+      RecoveredArenaSeance_BulletEffectQueuedChildren() != 3 ||
+      RecoveredArenaSeance_BulletEffectSplashFirstCases() != 1 ||
+      RecoveredArenaSeance_BulletEffectRolledBackChildren() != 3 ||
       VehicleAttributeState_Fingerprint(g_super.m_context) !=
           vehicleAttributeFingerprint ||
       VehicleAttributeState_RosterSize(g_super.m_context) !=
@@ -1359,13 +1415,15 @@ int main(int argc, char** argv) {
                "smoke_terrain=FireArea-directed-snap "
                "smoke_render=scene-alpha-sprite-detach smoke_visual=%llu "
               "explosion_attrs=%d explosion_fingerprint=%llu "
+              "explosion_subject=0/%d-impact-damage fingerprint=%llu "
+              "explosion_probe=2/1/1/1/1/0 "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
-              "bullet_subject=0/%d-ballistic-collision-ground-waterline "
+              "bullet_subject=0/%d-ballistic-collision-impact-ground-waterline "
               "bullet_subject_fingerprint=%llu bullet_probe_moves=2 "
-              "bullet_collision=2/1/4/3/4/1 "
+              "bullet_collision=2/1/4/3/4/1 bullet_effects=2/3/1/3 "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
@@ -1388,6 +1446,7 @@ int main(int argc, char** argv) {
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,
                explosionRosterSize, explosionFingerprint,
+              explosionSubjectCapacity, explosionSubjectFingerprint,
               vehicleAttributeRosterSize, vehicleAttributeCapacity,
               vehicleAttributeFingerprint,
               taxiRosterSize, taxiCapacity, taxiFingerprint,

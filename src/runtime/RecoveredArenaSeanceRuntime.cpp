@@ -16,6 +16,7 @@ class CGRPanel;
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
@@ -596,6 +597,7 @@ struct RecoveredArenaSeanceState {
   bool smokeSubjectReady;
   bool smokeVisualResourcesReady;
   bool explosionAttributesReady;
+  bool explosionSubjectReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -603,6 +605,7 @@ struct RecoveredArenaSeanceState {
   bool bulletReferencesReady;
   bool bulletSubjectRegistrationReady;
   bool bulletSubjectReady;
+  bool bulletImpactEffectsReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -635,6 +638,14 @@ struct RecoveredArenaSeanceState {
   unsigned long long bulletAttributeFingerprint;
   unsigned long long bulletReferenceFingerprint;
   unsigned long long bulletSubjectFingerprint;
+  int explosionSubjectCapacity;
+  unsigned long long explosionSubjectFingerprint;
+  int explosionProbeInvalidStarts;
+  int explosionProbeAllocationRollbacks;
+  int explosionProbeQueuedCommands;
+  int explosionProbeQueueRollbacks;
+  int explosionProbeExecutedCommands;
+  int explosionProbeDamageApplications;
   int bulletSubjectProbeMoveCount;
   int bulletCollisionScheduledChecks;
   int bulletCollisionExecutedChecks;
@@ -642,6 +653,10 @@ struct RecoveredArenaSeanceState {
   int bulletCollisionEarliestHitCases;
   int bulletCollisionWaterlineCases;
   int bulletCollisionSceneQueries;
+  int bulletEffectQueuedBatches;
+  int bulletEffectQueuedChildren;
+  int bulletEffectSplashFirstCases;
+  int bulletEffectRolledBackChildren;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
@@ -1388,6 +1403,46 @@ bool PublishExplosionAttributes(SimulationContext* context) {
            message);
     return false;
   }
+  const int subjectCapacity = ExplosionSubjectState_Capacity();
+  if (subjectCapacity < 2 ||
+      !ExplosionSubjectState_TableReady(context, subjectCapacity)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_TABLE_FAILURE,
+        "retail fragments did not create a bounded Explosion command table");
+    return false;
+  }
+  const char* probeAttribute =
+      ExplosionAttributeState_FirstAttributeName(context);
+  ExplosionImpactProbeSummary probe = {};
+  if (probeAttribute == nullptr ||
+      !ExplosionSubjectState_ProbeLifecycle(
+          context, probeAttribute, Session::m_moment, &probe) ||
+      probe.invalidStarts != 2 || probe.allocationRollbacks != 1 ||
+      probe.queuedCommands != 1 || probe.queueRollbacks != 1 ||
+      probe.executedCommands != 1 || probe.damageApplications != 0 ||
+      ExplosionSubjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_LIFECYCLE_FAILURE,
+        "bounded Explosion validation/allocation/queue/execute probe failed");
+    return false;
+  }
+  const unsigned long long subjectFingerprint =
+      ExplosionSubjectState_Fingerprint(context);
+  if (subjectFingerprint == 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_LIFECYCLE_FAILURE,
+        "Explosion command table did not return to a stable empty pool");
+    return false;
+  }
+  g_state.explosionSubjectCapacity = subjectCapacity;
+  g_state.explosionSubjectFingerprint = subjectFingerprint;
+  g_state.explosionProbeInvalidStarts = probe.invalidStarts;
+  g_state.explosionProbeAllocationRollbacks = probe.allocationRollbacks;
+  g_state.explosionProbeQueuedCommands = probe.queuedCommands;
+  g_state.explosionProbeQueueRollbacks = probe.queueRollbacks;
+  g_state.explosionProbeExecutedCommands = probe.executedCommands;
+  g_state.explosionProbeDamageApplications = probe.damageApplications;
+  g_state.explosionSubjectReady = true;
   g_state.explosionAttributesReady = true;
   return true;
 }
@@ -1572,6 +1627,28 @@ bool PublishBulletReferences(SimulationContext* context) {
                    message);
     return false;
   }
+  const char* probeAttribute =
+      BulletAttributeState_FirstAttributeName(context);
+  BulletEffectProbeSummary effectSummary = {};
+  if (probeAttribute == nullptr ||
+      !BulletSubjectState_ProbeImpactEffectLifecycle(
+          context, probeAttribute, Session::m_moment, &effectSummary) ||
+      effectSummary.queuedBatches != 2 ||
+      effectSummary.queuedChildren != 3 ||
+      effectSummary.splashFirstCases != 1 ||
+      effectSummary.rolledBackChildren != 3 ||
+      ExplosionSubjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_EFFECT_TRANSACTION_FAILURE,
+        "Bullet splash/impact allocation, ordering, or rollback probe failed");
+    return false;
+  }
+  g_state.bulletEffectQueuedBatches = effectSummary.queuedBatches;
+  g_state.bulletEffectQueuedChildren = effectSummary.queuedChildren;
+  g_state.bulletEffectSplashFirstCases = effectSummary.splashFirstCases;
+  g_state.bulletEffectRolledBackChildren =
+      effectSummary.rolledBackChildren;
+  g_state.bulletImpactEffectsReady = true;
   g_state.bulletReferencesReady = true;
   return true;
 }
@@ -2139,6 +2216,15 @@ void RecoveredArenaSeance_Release() {
   g_state.smokeVisualResourcesReady = false;
   g_state.smokeVisualResourceFingerprint = 0;
   g_state.explosionAttributesReady = false;
+  g_state.explosionSubjectReady = false;
+  g_state.explosionSubjectCapacity = 0;
+  g_state.explosionSubjectFingerprint = 0;
+  g_state.explosionProbeInvalidStarts = 0;
+  g_state.explosionProbeAllocationRollbacks = 0;
+  g_state.explosionProbeQueuedCommands = 0;
+  g_state.explosionProbeQueueRollbacks = 0;
+  g_state.explosionProbeExecutedCommands = 0;
+  g_state.explosionProbeDamageApplications = 0;
   g_state.vehicleAttributesReady = false;
   g_state.vehicleAttributeCount = 0;
   g_state.vehicleAttributeCapacity = 0;
@@ -2151,6 +2237,7 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletReferencesReady = false;
   g_state.bulletSubjectRegistrationReady = false;
   g_state.bulletSubjectReady = false;
+  g_state.bulletImpactEffectsReady = false;
   g_state.bulletAttributeCount = 0;
   g_state.bulletAttributeCapacity = 0;
   g_state.bulletSubjectCapacity = 0;
@@ -2164,6 +2251,10 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletCollisionEarliestHitCases = 0;
   g_state.bulletCollisionWaterlineCases = 0;
   g_state.bulletCollisionSceneQueries = 0;
+  g_state.bulletEffectQueuedBatches = 0;
+  g_state.bulletEffectQueuedChildren = 0;
+  g_state.bulletEffectSplashFirstCases = 0;
+  g_state.bulletEffectRolledBackChildren = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -2278,6 +2369,53 @@ bool RecoveredArenaSeance_ExplosionAttributesReady() {
   return g_state.explosionAttributesReady;
 }
 
+bool RecoveredArenaSeance_ExplosionSubjectReady() {
+  return g_state.explosionSubjectReady;
+}
+
+int RecoveredArenaSeance_ExplosionSubjectCapacity() {
+  return g_state.explosionSubjectReady ? g_state.explosionSubjectCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint() {
+  return g_state.explosionSubjectReady
+             ? g_state.explosionSubjectFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_ExplosionProbeInvalidStarts() {
+  return g_state.explosionSubjectReady ? g_state.explosionProbeInvalidStarts
+                                       : -1;
+}
+
+int RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() {
+  return g_state.explosionSubjectReady
+             ? g_state.explosionProbeAllocationRollbacks
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionProbeQueuedCommands() {
+  return g_state.explosionSubjectReady ? g_state.explosionProbeQueuedCommands
+                                       : -1;
+}
+
+int RecoveredArenaSeance_ExplosionProbeQueueRollbacks() {
+  return g_state.explosionSubjectReady ? g_state.explosionProbeQueueRollbacks
+                                       : -1;
+}
+
+int RecoveredArenaSeance_ExplosionProbeExecutedCommands() {
+  return g_state.explosionSubjectReady
+             ? g_state.explosionProbeExecutedCommands
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionProbeDamageApplications() {
+  return g_state.explosionSubjectReady
+             ? g_state.explosionProbeDamageApplications
+             : -1;
+}
+
 bool RecoveredArenaSeance_VehicleAttributesReady() {
   return g_state.vehicleAttributesReady;
 }
@@ -2344,6 +2482,10 @@ bool RecoveredArenaSeance_BulletSubjectReady() {
   return g_state.bulletSubjectReady;
 }
 
+bool RecoveredArenaSeance_BulletImpactEffectsReady() {
+  return g_state.bulletImpactEffectsReady;
+}
+
 int RecoveredArenaSeance_BulletSubjectCapacity() {
   return g_state.bulletSubjectRegistrationReady
              ? g_state.bulletSubjectCapacity
@@ -2388,6 +2530,28 @@ int RecoveredArenaSeance_BulletCollisionWaterlineCases() {
 
 int RecoveredArenaSeance_BulletCollisionSceneQueries() {
   return g_state.bulletSubjectReady ? g_state.bulletCollisionSceneQueries : -1;
+}
+
+int RecoveredArenaSeance_BulletEffectQueuedBatches() {
+  return g_state.bulletImpactEffectsReady ? g_state.bulletEffectQueuedBatches
+                                          : -1;
+}
+
+int RecoveredArenaSeance_BulletEffectQueuedChildren() {
+  return g_state.bulletImpactEffectsReady ? g_state.bulletEffectQueuedChildren
+                                          : -1;
+}
+
+int RecoveredArenaSeance_BulletEffectSplashFirstCases() {
+  return g_state.bulletImpactEffectsReady
+             ? g_state.bulletEffectSplashFirstCases
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletEffectRolledBackChildren() {
+  return g_state.bulletImpactEffectsReady
+             ? g_state.bulletEffectRolledBackChildren
+             : -1;
 }
 
 bool RecoveredArenaSeance_FarterAttributesReady() {

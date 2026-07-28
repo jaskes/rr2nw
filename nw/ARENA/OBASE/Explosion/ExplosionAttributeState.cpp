@@ -1,59 +1,16 @@
 #include "ExplosionAttributeState.h"
 
 #include <algorithm>
+#include <new>
 #include <string>
 #include <vector>
 
+#include "ExplosionSubjectState.h"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
 #include "storage/h/subject.h"
 
 namespace {
-
-class ExplosionRegistrationSubject : public ct_Subject
-{
- public:
-    virtual CFVector3 realPosition() { return m_position; }
-    virtual int receiveEvent(KR_Event &) { return 0; }
-    virtual bool shouldDump() { return false; }
-};
-
-class ExplosionRegistrationTable : public ct_SubjectTable
-{
-    ExplosionRegistrationSubject *m_table;
-
- public:
-    ExplosionRegistrationTable() : m_table(NULL)
-    {
-        registerClass("Explosion");
-    }
-
-    virtual void allocObjects(int objectQnty)
-    {
-        m_table = new ExplosionRegistrationSubject[objectQnty];
-        if (m_table == NULL)
-            m_maxObjectQnty = 0;
-    }
-
-    virtual void freeObjects()
-    {
-        delete [] m_table;
-        m_table = NULL;
-        m_maxObjectQnty = 0;
-    }
-
-    virtual ct_Object *getObjectPTR(int index)
-    {
-        s_ASSERT(index >= 0 && index < m_maxObjectQnty,
-                 "ExplosionRegistrationTable::getObjectPTR");
-        return &(m_table[index]);
-    }
-
-    virtual bool isRendering() { return false; }
-    virtual bool isAudible() { return false; }
-};
-
-ExplosionRegistrationTable g_explosionRegistrationTable;
 
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
@@ -448,7 +405,7 @@ AttributeTableExplosion::AttributeTableExplosion() : m_table(NULL)
 
 void AttributeTableExplosion::allocObjects(int objectQnty)
 {
-    m_table = new AttributeExplosion[objectQnty];
+    m_table = new (std::nothrow) AttributeExplosion[objectQnty];
     if (m_table == NULL)
         m_maxObjectQnty = 0;
 }
@@ -469,6 +426,7 @@ ct_Object *AttributeTableExplosion::getObjectPTR(int index)
 
 void ExplosionAttributeState_Link()
 {
+    ExplosionSubjectState_Link();
 }
 
 unsigned long long ExplosionAttributeState_Fingerprint(
@@ -492,6 +450,47 @@ int ExplosionAttributeState_RosterSize(SimulationContext *context)
     return CollectRoster(context, collector)
                ? static_cast<int>(collector.entries.size())
                : 0;
+}
+
+bool ExplosionAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeExplosion **attribute)
+{
+    if (attribute == NULL)
+        return false;
+    *attribute = NULL;
+    if (context == NULL || g_arena.getContext() != context ||
+        encodedIndex == -1)
+        return false;
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("ExplosionAttr");
+    if (table == ct_NULLID)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *candidate = collector.entries[index].attribute;
+        if (candidate != NULL &&
+            g_arena.getAttributeIndex(table, candidate->getObjectID()) ==
+                encodedIndex)
+        {
+            *attribute = candidate;
+            return true;
+        }
+    }
+    return false;
+}
+
+const char *ExplosionAttributeState_FirstAttributeName(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) || collector.entries.empty())
+        return NULL;
+    return context->searchObject(
+        collector.entries.front().attribute->getObjectID());
 }
 
 bool ExplosionAttributeState_IsKnownRoster(SimulationContext *context)

@@ -15,6 +15,7 @@
 #include "message/a_msg.h"
 #include "message/bulmsg.h"
 #include "message/funitmsg.h"
+#include "obase/explosion/ExplosionSubjectState.h"
 #include "storage/h/subject.h"
 
 namespace {
@@ -119,6 +120,74 @@ BulletImpact SelectEarliestImpact(bool dynamicHit, double dynamicTime,
         result.time = sceneTime;
     }
     return result;
+}
+
+bool QueueImpactEffects(SimulationContext *context,
+                        AttributeBullet *attribute,
+                        const KR_ObjectID &damageOwner,
+                        const CFVector3 &position,
+                        const CFVector3 &velocity,
+                        double eventTimeStamp,
+                        bool splashBeforeImpact, double waterTime,
+                        bool hasImpact, double impactTime,
+                        KR_ObjectID *children, int *childCount)
+{
+    if (children == NULL || childCount == NULL)
+        return false;
+    children[0] = KR_ObjectID::NUL();
+    children[1] = KR_ObjectID::NUL();
+    *childCount = 0;
+    if (context == NULL || attribute == NULL ||
+        !FiniteVector(position) || !FiniteVector(velocity) ||
+        !std::isfinite(eventTimeStamp) || eventTimeStamp < 0.1)
+        return false;
+
+    // The source-only fixture deliberately leaves the dependency transaction
+    // unresolved. Collision remains valid there without manufacturing effects.
+    if (attribute->m_cacheExplosionTable == ct_NULLID)
+        return true;
+
+    ExplosionImpactRequest requests[2] = {};
+    int requestCount = 0;
+    if (splashBeforeImpact && attribute->m_cacheSplashAttr != ct_NULLID)
+    {
+        const CFVector3 splashPosition = position + velocity * waterTime;
+        if (!FiniteVector(splashPosition) || !std::isfinite(waterTime) ||
+            waterTime < 0.0)
+            return false;
+        requests[requestCount].position = splashPosition;
+        requests[requestCount].timeStamp = eventTimeStamp + waterTime;
+        requests[requestCount].damageOwner = damageOwner;
+        requests[requestCount].subjectTable =
+            attribute->m_cacheExplosionTable;
+        requests[requestCount].attributeIndex =
+            attribute->m_cacheSplashAttr;
+        requests[requestCount].objectName = "Expl.Bullet.Splash";
+        ++requestCount;
+    }
+    if (hasImpact)
+    {
+        const CFVector3 impactPosition = position + velocity * impactTime;
+        if (attribute->m_cacheExplAttr == ct_NULLID ||
+            !FiniteVector(impactPosition) || !std::isfinite(impactTime) ||
+            impactTime < 0.0)
+            return false;
+        requests[requestCount].position = impactPosition;
+        requests[requestCount].timeStamp = eventTimeStamp + impactTime;
+        requests[requestCount].damageOwner = damageOwner;
+        requests[requestCount].subjectTable =
+            attribute->m_cacheExplosionTable;
+        requests[requestCount].attributeIndex = attribute->m_cacheExplAttr;
+        requests[requestCount].objectName = "Expl.Bullet.Impact";
+        ++requestCount;
+    }
+    if (requestCount == 0)
+        return true;
+    if (!ExplosionSubjectState_QueueBatch(
+            context, requests, requestCount, children))
+        return false;
+    *childCount = requestCount;
+    return true;
 }
 
 void HashBytes(unsigned long long &hash, const void *data, int size)
@@ -435,9 +504,19 @@ class BoundedBullet : public ct_Subject
                                 horizon, &waterTime);
         const BulletImpact impact = findImpact(horizon);
         ++m_collisionCheckCount;
-        if (waterHit &&
-            (impact.kind == BULLET_IMPACT_NONE || waterTime < impact.time))
+        const bool splashBeforeImpact = waterHit &&
+            (impact.kind == BULLET_IMPACT_NONE || waterTime < impact.time);
+        if (splashBeforeImpact)
             m_crossedWaterline = true;
+
+        KR_ObjectID effectChildren[2] = {
+            KR_ObjectID::NUL(), KR_ObjectID::NUL()};
+        int effectChildCount = 0;
+        QueueImpactEffects(context, m_attribute, m_master, m_position,
+                           m_velocity, event.timeStamp,
+                           splashBeforeImpact, waterTime,
+                           impact.kind != BULLET_IMPACT_NONE, impact.time,
+                           effectChildren, &effectChildCount);
 
         if (impact.kind != BULLET_IMPACT_NONE)
         {
@@ -653,7 +732,9 @@ unsigned long long BulletSubjectState_Fingerprint(
     const int sceneOrderCollision = 1;
     const int dynamicSphereCollision = 1;
     const int waterlineIntersection = 1;
-    const int effects = 0;
+    const int impactCommands = 1;
+    const int splashCommands = 1;
+    const int visualEffects = 0;
     HashString(hash, "Bullet");
     HashBytes(hash, &capacity, sizeof(capacity));
     HashBytes(hash, &rendering, sizeof(rendering));
@@ -665,7 +746,9 @@ unsigned long long BulletSubjectState_Fingerprint(
               sizeof(dynamicSphereCollision));
     HashBytes(hash, &waterlineIntersection,
               sizeof(waterlineIntersection));
-    HashBytes(hash, &effects, sizeof(effects));
+    HashBytes(hash, &impactCommands, sizeof(impactCommands));
+    HashBytes(hash, &splashCommands, sizeof(splashCommands));
+    HashBytes(hash, &visualEffects, sizeof(visualEffects));
     return hash;
 }
 
@@ -1098,4 +1181,62 @@ bool BulletSubjectState_ProbeDynamicCollisionLifecycle(
            context->removeEvent(b_EVC_CHECK_COLLISION, bullet) == 0 &&
            g_bulletTable.liveCount() == baseline &&
            !context->isExist("Bullet.Subject.DynamicCollision.Probe");
+}
+
+bool BulletSubjectState_ProbeImpactEffectLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, BulletEffectProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || attributeName == NULL || attributeName[0] == 0 ||
+        ExplosionSubjectState_LiveCount() != 0)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeBullet *attribute = static_cast<AttributeBullet *>(
+        __bulletAttrTable.searchAttribute(attributeID));
+    if (attributeID.isNUL() || attribute == NULL ||
+        attribute->m_cacheExplosionTable == ct_NULLID ||
+        attribute->m_cacheSplashAttr == ct_NULLID ||
+        attribute->m_cacheExplAttr == ct_NULLID)
+        return false;
+
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    const CFVector3 position(1000000.0, 1000000.0, 1000000.0);
+    const CFVector3 velocity(10.0, -10.0, 0.0);
+    KR_ObjectID children[2] = {
+        KR_ObjectID::NUL(), KR_ObjectID::NUL()};
+    int childCount = 0;
+    const bool splashAndImpact = QueueImpactEffects(
+        context, attribute, g_arena.getObjectID(), position, velocity,
+        ts, true, 0.25, true, 0.5, children, &childCount);
+    if (!splashAndImpact || childCount != 2 ||
+        ExplosionSubjectState_LiveCount() != 2 ||
+        !ExplosionSubjectState_RollbackQueued(context, children, 2) ||
+        ExplosionSubjectState_LiveCount() != 0)
+        return false;
+    summary->queuedBatches = 1;
+    summary->queuedChildren = 2;
+    summary->splashFirstCases = 1;
+    summary->rolledBackChildren = 2;
+
+    children[0] = KR_ObjectID::NUL();
+    children[1] = KR_ObjectID::NUL();
+    childCount = 0;
+    const bool impactOnly = QueueImpactEffects(
+        context, attribute, g_arena.getObjectID(), position, velocity,
+        ts + 1.0, false, 0.0, true, 0.5, children, &childCount);
+    if (!impactOnly || childCount != 1 ||
+        ExplosionSubjectState_LiveCount() != 1 ||
+        !ExplosionSubjectState_RollbackQueued(context, children, 1) ||
+        ExplosionSubjectState_LiveCount() != 0)
+        return false;
+    ++summary->queuedBatches;
+    ++summary->queuedChildren;
+    ++summary->rolledBackChildren;
+    return summary->queuedBatches == 2 &&
+           summary->queuedChildren == 3 &&
+           summary->splashFirstCases == 1 &&
+           summary->rolledBackChildren == 3;
 }

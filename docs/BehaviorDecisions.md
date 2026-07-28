@@ -1831,16 +1831,67 @@ scene queries; a retail game-service seance records one real order query. The
 Arena smoke supplies a deliberately isolated `IDynamicObject` and proves the
 actual spatial lookup, interface dispatch, hit removal and pool/queue cleanup.
 
-Impact effects remain a separate ownership slice. The recovered Explosion
-subject is currently registration-only, so copying the legacy `createExplosion`
-call would create an object that cannot consume its start event or tear itself
-down. Collision therefore records the waterline/impact decision and removes the
-Bullet without creating Explosion, Spark or Smoke children. The next frontier
-must give Explosion a bounded start/teardown contract, retain `m_bulletMaster`
-as the damage owner, preserve splash-before-impact ordering and roll every
-parent/child failure back atomically before effects are enabled.
+At this decision's acceptance boundary, impact effects remained a separate
+ownership slice and Explosion was registration-only. Copying the legacy
+`createExplosion` call then would have created an object unable to consume its
+start event or tear itself down, so collision removed the Bullet without
+children. BD-054 supersedes that temporary boundary with bounded splash/impact
+damage commands while Spark and Smoke presentation children remain deferred.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
 launches with 18/18 identical installed/mounted summaries, and 4/4 waited
 executable smokes reporting one real scene query, `level-ready` and clean
 shutdown.
+
+## BD-054: activate one-shot Explosion damage before presentation effects
+
+Status: accepted on 2026-07-28.
+
+The registration-only Explosion owner is replaced by a bounded command object,
+not by a direct copy of the legacy long-lived visual subject. Its accepted
+`EXPLOSION_START` payload contains the encoded ExplosionAttr index, three-double
+position and an explicit damage-owner ObjectID. The queued event source and
+destination are the Explosion child itself, so normal object removal can cancel
+the event; the Bullet master remains separate payload data and is passed to
+`IUnit::setDamage`.
+
+The first admitted behavior is the recovered radial damage loop. It scans the
+same Arena rectangle, requires both `IDynamicObject` and `IUnit`, includes the
+target radius in the linear falloff, applies `m_fromFriendDamageScale` for a
+non-player unit owner attacking a friend, and reports a valid target commander
+to an `IPlayer` owner. Non-finite geometry, negative radii/damage and unresolved
+encoded attributes fail closed. Once the loop finishes, the Explosion removes
+itself immediately and leaves no MOVE, render, sound, light or particle owner.
+
+Bullet collision now builds at most two children. A valid water crossing that
+precedes a solid impact occupies slot zero and uses its own earlier timestamp;
+the solid impact follows in slot one. The complete request is preflighted and
+every child is allocated before either start event enters the queue. If the
+pool cannot supply the full batch, reservation fails before allocation. If a
+later context allocation still fails, all already allocated children are
+removed and the projectile completes its collision teardown with no partial
+effect. Queued children own their events and can be rolled back in reverse
+order.
+
+Admission proves two invalid starts, a forced capacity-short batch rejection,
+one queued-event rollback, one immediate zero-target execution and clean slot
+reuse. Retail Bullet references then prove a two-child splash/impact batch and
+an impact-only batch, rolling back all three children. The Arena smoke adds a
+safe real `IDynamicObject + IUnit`, executes the damage command at its position
+and checks the single call's amount, position, timestamp and owner before full
+reconstruction.
+
+This decision intentionally stops before presentation and impulse. The May
+binary proves that `m_useLight` gates light creation and that
+`m_impulseCoeff` scales three impulse-vector components, but the absent January
+source does not establish the complete May target-dispatch contract. Light,
+impulse, Spark/Smoke particles, Explosion sound and Bullet trace therefore stay
+false in the feature fingerprints. The next slice should reconstruct and test
+impulse dispatch first, then attach visual/audio children to the same bounded
+transaction.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May
+game-service launches with 18/18 byte-identical installed/mounted summaries,
+and 4/4 waited `rr2nw.exe --runtime-smoke` launches. Executable diagnostics
+publish the Explosion subject contract, every lifecycle counter, the Bullet
+effect transaction and `runtime_shutdown=clean`.

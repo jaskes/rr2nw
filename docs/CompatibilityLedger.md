@@ -611,11 +611,13 @@ Status vocabulary:
   write both fields.
 - Handling: the extracted modern attribute owner exposes all 90 fields in the
   retail order and uses the binary-confirmed defaults. The attribute
-  fingerprint includes them. Full Explosion subject behavior is not inferred
-  beyond these focused facts and remains deferred.
-- Revisit when: the complete Explosion subject is connected; port the two
-  confirmed uses with focused light/damage tests before replacing the
-  registration-only subject pool.
+  fingerprint includes them. BD-054 now activates the source-backed radial
+  damage loop through a bounded one-shot owner. The binary-confirmed light gate
+  and impulse coefficient remain inactive because the complete May impulse
+  target dispatch is not present in the January source.
+- Revisit when: the May impulse recipient/dispatch path is recovered. Add
+  focused vector/target tests before enabling `m_impulseCoeff`, then admit the
+  confirmed light gate through the existing transactional light owner.
 
 ### CQ-046: Explosion construction is owned by the Level-local script
 
@@ -1422,16 +1424,58 @@ Status vocabulary:
 - Handling: retain the real spatial/interface and decoded scene queries, the
   strict tie rule and the valid downward-crossing result, but require finite
   bounded sphere inputs and a strictly downward non-zero waterline segment.
-  Collision cadence and removal are active while Explosion/Spark/Smoke creation
-  stays off. `m_bulletMaster` is retained for the later damage-owner contract.
+  Collision cadence and removal are active. BD-054 now turns the retained
+  `m_bulletMaster` into an explicit damage-owner payload and queues bounded
+  splash/impact Explosion commands; Spark, barrel Smoke and presentation
+  effects remain off.
 - Regression contract: four sphere cases, three earliest-hit cases and four
   waterline cases run in every seance. Source-only admission expects zero scene
   queries, game-service admission expects one real query, and the Arena smoke
   collides with a safe real `IDynamicObject`. Every path ends with zero probe
   Bullets and no queued Bullet events.
-- Revisit when: replace registration-only Explosion with a bounded impact
-  consumer. Preserve splash-before-impact order and prove atomic parent/child
-  rollback before enabling any effect object.
+- Revisit when: attach Spark, barrel Smoke or other presentation children.
+  Preserve the admitted splash-before-impact order and all-or-none child
+  allocation before extending the transaction.
+
+### CQ-097: the legacy Explosion event source is not its lifecycle owner
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `EVENT_OWNERSHIP_SPLIT`.
+- Evidence: legacy `createExplosion()` puts the Bullet/weapon master in
+  `event.source` and the Explosion in `event.destination`. Arena object removal
+  cancels events by source ObjectID, so an unexecuted Explosion start cannot be
+  reliably removed by deleting the child. Reusing that layout would either
+  leak queued work or require cancelling unrelated owner events.
+- Handling: the bounded command uses its own ObjectID as both event source and
+  destination. The original master travels in the exact-size modern payload
+  and is retained only as the damage owner for friendly-fire and player attack
+  attribution. `removeNotify()` can therefore remove precisely the child's
+  queued `EXPLOSION_START` without touching the shooter.
+- Regression contract: queue one command, remove its event and object, require
+  one rollback and zero live Explosion subjects; execute another command and
+  verify its `IUnit::setDamage` owner is the separately supplied ObjectID.
+- Revisit when: a versioned save/replay schema serializes queued Explosion
+  commands. Persist event owner and damage owner as distinct fields.
+
+### CQ-098: event-pool insertion does not report overflow to callers
+
+- Status: `KNOWN_ENGINE_LIMIT`, `BOUNDED_MITIGATION`.
+- Evidence: `SimulationContext::addEvent()` returns `void`; when the fixed event
+  pool is exhausted it cannot report failure to the producer. Explosion can
+  prove object-pool preallocation and can cancel an event that was inserted,
+  but it cannot atomically distinguish an inserted event from a silently
+  dropped one at the call site.
+- Handling: preflight every request and preallocate the entire one- or
+  two-child batch before publishing events. Self-owned event IDs make normal
+  rollback exact, and every admitted startup path begins with an empty probe
+  pool. This prevents partial object allocation but does not claim a general
+  transactional event queue.
+- Regression contract: leave one object slot for a two-child batch and require
+  reservation rejection with both returned IDs null and zero leaked children;
+  independently queue and cancel a command to prove the normal event path. Do
+  not describe this as proof of event-pool-overflow recovery.
+- Revisit when: the kernel event API can return an insertion token/result or a
+  reservation API is introduced. Upgrade the child batch to reserve all event
+  slots before object publication.
 
 ## Maintenance rule
 
