@@ -455,8 +455,8 @@ revealed by the complete WAV plus Skin population.
 The bounded DynSmoker owner raises the matrix to 48/48, adds a focused repeated
 subject lifecycle/reconstruction contract, and passes all 36/36 retail service,
 36/36 WAV-catalog and 36/36 Skin-catalog launches. All 4/4 executable smokes
-publish exact capacity 62, fingerprint `10679040711010833004`, subject-bound
-Corpse references and clean shutdown.
+publish exact capacity 62, structural-era fingerprint
+`10679040711010833004`, subject-bound Corpse references and clean shutdown.
 
 The real capacity-300 `Smoke` table and renderer-owned visual resources are now
 admitted as two rollback-safe gates. Production creates and reconstructs the
@@ -480,9 +480,18 @@ The visible land-dynamic boundary is now complete. A live retail Smoke view
 object crosses Arena culling, recovered-scene promotion and the real software
 alpha-sprite callback; the next frame proves exact detach and no stale draw.
 Exact same-cell removal also preserves neighboring dynamics during rollback.
-The next implementation step is bounded Smoker MOVE and Smoke emission,
-followed by light/corona updates. `SoundObj` remains a separate dependency
-boundary before the heavier People/Tank/Taxi/Bullet graph.
+Bounded Smoker MOVE and Smoke emission are now complete as well: both retail
+emitter forms schedule the original timed event, create the admitted real Smoke
+child and cancel every parent/child event during removal. The current
+capacity-62 capability fingerprint is `8864986274241257997`; normal startup
+publishes the pure `smoker_emission_initialized=1` marker while disposable
+service coverage proves the visible emission path. The installed Debug/Release
+gate is 18/18 services over all nine Levels plus 2/2 executables; mounted-root
+repetition is pending while `G:` is absent.
+
+The next implementation step is the isolated Smoker light/corona boundary.
+`SoundObj` remains a separate dependency before the heavier
+People/Tank/Taxi/Bullet graph.
 
 ### Цель
 

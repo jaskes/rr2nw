@@ -13,6 +13,7 @@
 #include "message/fountmsg.h"
 #include "message/hardmsg.h"
 #include "message/levelmsg.h"
+#include "message/smokermsg.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
@@ -80,7 +81,7 @@ int Fail(const char* message) {
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d smoker=%d "
-      "dyn_smoker=%d "
+      "dyn_smoker=%d smoker_emission=%d "
       "farter=%d lamp=%d corpse=%d wav=%d skin=%d spark=%d "
       "route=%d vehicle=%d "
       "arena_issues=%llu arena_error=%s level=%d graph=%d "
@@ -101,6 +102,7 @@ int Fail(const char* message) {
       RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0,
       RecoveredGameServices_SmokerAttributesReady() ? 1 : 0,
       RecoveredGameServices_DynSmokerReady() ? 1 : 0,
+      RecoveredGameServices_SmokerEmissionReady() ? 1 : 0,
       RecoveredGameServices_FarterAttributesReady() ? 1 : 0,
       RecoveredGameServices_LampAttributesReady() ? 1 : 0,
       RecoveredGameServices_CorpseAttributesReady() ? 1 : 0,
@@ -145,6 +147,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
          !RecoveredGameServices_SmokerRuntimeReady() &&
+         !RecoveredGameServices_SmokerEmissionReady() &&
          RecoveredArenaSeance_SmokerReferenceFingerprint() == 0 &&
          !RecoveredGameServices_FarterAttributesReady() &&
          !RecoveredGameServices_FarterReferencesReady() &&
@@ -211,7 +214,8 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
 bool ExerciseVisibleSmoke() {
   if (g_super.m_context == nullptr ||
       !RecoveredGameServices_SmokeRenderingReady() ||
-      SmokeSubjectState_LiveCount() != 0) {
+      SmokeSubjectState_LiveCount() != 0 ||
+      SmokerSubjectState_DynLiveCount() != 0) {
     return false;
   }
   SimulationContext* context = g_super.m_context;
@@ -273,6 +277,115 @@ bool ExerciseVisibleSmoke() {
          !context->isExist(kProbeName) &&
          SmokeSubjectState_LiveCount() == 0 &&
          context->removeEvent(fou_EVC_MOVING, object) == 0;
+}
+
+bool ExerciseVisibleSmokerEmission() {
+  if (g_super.m_context == nullptr ||
+      !RecoveredGameServices_SmokerEmissionReady() ||
+      SmokerSubjectState_DynLiveCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0) {
+    return false;
+  }
+  SimulationContext* context = g_super.m_context;
+  const char* smokerAttributeName = "Smoker.Attr.Corpse";
+  KR_ObjectID smokerAttributeID =
+      context->searchObject(smokerAttributeName);
+  AttributeSmoker* smokerAttribute = smokerAttributeID.isNUL()
+      ? nullptr
+      : static_cast<AttributeSmoker*>(
+            __attrSmokerTable.searchAttribute(smokerAttributeID));
+  AttributeSmoke* smokeAttribute =
+      smokerAttribute == nullptr || smokerAttribute->m_smokeAttrID.isNUL()
+          ? nullptr
+          : static_cast<AttributeSmoke*>(
+                __attrSmokeTable.searchAttribute(
+                    smokerAttribute->m_smokeAttrID));
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  const ct_ClassTableID table =
+      g_arena.searchSeanceClassTable("DynSmoker");
+  static const char kProbeName[] = "DynSmoker.Rendering.Probe";
+  static const char kSmokeName[] = "Smok.Static";
+  if (smokerAttribute == nullptr || smokeAttribute == nullptr ||
+      smokeAttribute->m_cacheImage == nullptr ||
+      smokeAttribute->m_maxBlob <= 0 || observer == nullptr ||
+      table == ct_NULLID || context->isExist(kProbeName) ||
+      context->isExist(kSmokeName)) {
+    return false;
+  }
+
+  KR_ObjectID smoker = g_arena.newObject(table, kProbeName);
+  if (smoker.isNUL()) return false;
+  KR_Event event;
+  event.label = fou_EVCMD_START;
+  event.source = g_arena.getObjectID();
+  event.destination = smoker;
+  event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
+  event.data.open(EDO_WRITE)
+      .putObjectID(smokerAttributeID)
+      .putDouble(observer->x)
+      .putDouble(observer->y)
+      .putDouble(observer->z - 64.0)
+      .close();
+  context->sendEventNow(event);
+
+  const dword framesBefore = dwFrames;
+  const bool enteredView = RecoveredGameServices_RunFrame() != FALSE &&
+      context->removeEvent(sm_EV_MOVE, smoker) != 0;
+  if (enteredView) {
+    event.label = sm_EV_MOVE;
+    event.source = smoker;
+    event.destination = smoker;
+    context->sendEventNow(event);
+  }
+  KR_ObjectID smoke = context->searchObject(kSmokeName);
+  const bool emitted = enteredView && !smoke.isNUL() &&
+      SmokerSubjectState_DynLiveCount() == 1 &&
+      SmokeSubjectState_LiveCount() == 1 &&
+      context->removeEvent(sm_EV_MOVE, smoker) != 0 &&
+      context->removeEvent(fou_EVC_MOVING, smoke) != 0;
+  if (!emitted) {
+    context->removeEvent(sm_EV_MOVE, smoker);
+    if (context->isExist(smoker)) context->removeObject(smoker);
+    if (!smoke.isNUL()) {
+      context->removeEvent(fou_EVC_MOVING, smoke);
+      if (context->isExist(smoke)) context->removeObject(smoke);
+    }
+    return false;
+  }
+  KR_Event pending;
+  pending.label = sm_EV_MOVE;
+  pending.source = smoker;
+  pending.destination = smoker;
+  pending.timeStamp = Session::m_moment + 1000.0;
+  context->addEvent(pending);
+  pending.label = fou_EVC_MOVING;
+  pending.source = smoke;
+  pending.destination = smoke;
+  context->addEvent(pending);
+
+  bool visibleFrame = false;
+  bool detachedFrame = false;
+  int drawsAfterVisibleFrame = 0;
+  {
+    ScopedSmokeAlphaSpriteCapture capture(smokeAttribute->m_cacheImage);
+    visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
+    drawsAfterVisibleFrame = g_smokeSpriteDraws;
+    context->removeObject(smoker);
+    context->removeObject(smoke);
+    detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
+  }
+  return visibleFrame && detachedFrame && g_smokeSpriteDrawValid &&
+         drawsAfterVisibleFrame == smokeAttribute->m_maxBlob &&
+         g_smokeSpriteDraws == drawsAfterVisibleFrame &&
+         dwFrames == framesBefore + 3 &&
+         !context->isExist(kProbeName) &&
+         !context->isExist(kSmokeName) &&
+         SmokerSubjectState_DynLiveCount() == 0 &&
+         SmokeSubjectState_LiveCount() == 0 &&
+         context->removeEvent(sm_EV_MOVE, smoker) == 0 &&
+         context->removeEvent(sm_EV_REMOVE, smoker) == 0 &&
+         context->removeEvent(fou_EVC_MOVING, smoke) == 0;
 }
 
 bool ValidateReferenceTransaction(
@@ -434,6 +547,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
+      !RecoveredGameServices_SmokerEmissionReady() ||
       !RecoveredGameServices_DynSmokerReady() ||
       !RecoveredGameServices_FarterAttributesReady() ||
       !RecoveredGameServices_LampAttributesReady() ||
@@ -464,10 +578,20 @@ int main(int argc, char** argv) {
           g_super.m_context, "Smoke.Attr.FireArea") ||
       !SmokeSubjectState_ProbeSimulationLifecycle(
           g_super.m_context, "Smoke.Attr.FireArea", Session::m_moment) ||
-      SmokeSubjectState_LiveCount() != 0) {
+      !SmokerSubjectState_EmissionSupported(
+          g_super.m_context, "Smoker.Attr.Corpse") ||
+      !SmokerSubjectState_ProbeEmissionLifecycle(
+          g_super.m_context, "Smoker.Attr.Corpse", Session::m_moment) ||
+      !SmokerSubjectState_EmissionSupported(
+          g_super.m_context, "Smoker.Attr.FireArea") ||
+      !SmokerSubjectState_ProbeEmissionLifecycle(
+          g_super.m_context, "Smoker.Attr.FireArea", Session::m_moment) ||
+      SmokeSubjectState_LiveCount() != 0 ||
+      SmokerSubjectState_DynLiveCount() != 0) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("retail Smoke free/terrain START/MOVE/remove lifecycle failed");
+    return Fail(
+        "retail Smoke and Smoker free/terrain MOVE/emission lifecycle failed");
   }
   const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(g_super.m_context);
@@ -589,6 +713,11 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("visible Smoke scene/draw/detach rollback failed");
   }
+  if (!ExerciseVisibleSmokerEmission()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("visible DynSmoker MOVE/emission/detach rollback failed");
+  }
 
   KR_Event unsupported;
   unsupported.label = lev_SAVE;
@@ -667,7 +796,7 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=5 hooks=12 hardware=legacy "
+  std::printf("bounded services frames=8 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
                "smoke_simulation=START-MOVE-remove "
@@ -677,6 +806,7 @@ int main(int argc, char** argv) {
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
+              "smoker_emission=visible-MOVE-Smoke-draw-detach "
               "wav_metadata=%d/%d wav_fingerprint=%llu "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
               "farter_refs=%llu farter_runtime=%d "

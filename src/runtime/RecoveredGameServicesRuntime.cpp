@@ -30,6 +30,7 @@
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
 #include "obase/smoke/SmokeSubjectState.h"
+#include "obase/smoke/SmokerSubjectState.h"
 
 namespace {
 
@@ -570,6 +571,16 @@ bool RecoveredGameServices_SmokerRuntimeReady() {
   return RecoveredArenaSeance_SmokerRuntimeReady();
 }
 
+bool RecoveredGameServices_SmokerEmissionReady() {
+  return RecoveredGameServices_SmokerRuntimeReady() &&
+         RecoveredGameServices_DynSmokerReady() &&
+         RecoveredGameServices_SmokeRenderingReady() &&
+         SmokerSubjectState_EmissionSupported(
+             g_super.m_context, "Smoker.Attr.Corpse") &&
+         SmokerSubjectState_EmissionSupported(
+             g_super.m_context, "Smoker.Attr.FireArea");
+}
+
 bool RecoveredGameServices_DynSmokerReady() {
   return RecoveredArenaSeance_DynSmokerReady();
 }
@@ -615,6 +626,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_SmokerAttributesReady() &&
          RecoveredGameServices_SmokerReferencesReady() &&
          RecoveredGameServices_DynSmokerReady() &&
+         RecoveredGameServices_SmokerEmissionReady() &&
          RecoveredGameServices_WavMetadataReady() &&
          RecoveredGameServices_SkinResourcesReady() &&
          RecoveredGameServices_SparkAttributesReady() &&

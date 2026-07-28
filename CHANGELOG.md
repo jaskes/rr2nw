@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated bounded production `DynSmoker` emission without enabling its still
+  isolated light/corona renderer. Real observer culling now schedules the
+  original timed MOVE, both retail `Smoker.Attr.Corpse` and terrain-bound
+  `Smoker.Attr.FireArea` create real child `Smoke`, and the child crosses the
+  already recovered alpha-sprite draw path.
+- Added `smoker_emission_initialized` diagnostics plus focused and retail
+  lifecycle proofs for parent scheduling, child creation, visible drawing and
+  complete parent/child rollback. Normal startup only checks capability and
+  does not consume the legacy process-global PRNG.
+- Cancelled subject-owned queued work from `Smoker::removeNotify()` and
+  `Smoke::removeNotify()`. The legacy context removes an object without
+  cancelling its events, so every new periodic subject must now prove queue
+  cleanup explicitly.
 - Activated the real visible `Smoke` path in the bounded production owner.
   A live retail `Smoke.Attr.Trace` now crosses Arena culling, scene dynamic
   promotion and the software alpha-sprite draw callback, then leaves no object,

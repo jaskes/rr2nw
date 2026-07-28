@@ -1132,8 +1132,8 @@ using the infinite-life, non-land `Smoker.Attr.Corpse`. The probe checks the
 selected attribute, position, timestamp and initialized internal state, then
 requires the object name and live count to return to empty before readiness is
 published. Failure rolls back the complete seance. A stable fingerprint hashes
-the `DynSmoker` name, capacity and rendering property; the retail capacity-62
-identity is `10679040711010833004`.
+the `DynSmoker` name, capacity and rendering property; the structural-era
+retail capacity-62 identity at this boundary was `10679040711010833004`.
 
 The legacy constructor and add notification now initialize position, counters,
 timestamps, scheduling and brightness deterministically. Invalid START
@@ -1148,6 +1148,7 @@ the real `DynSmoker` subject/start lifecycle are all present. It does not claim
 Smoke emission, land dynamics, light/corona behavior or renderer parity.
 BD-039 resolves the `SmokeAttr` references while keeping corona handles/colors
 behind their renderer boundary before those gated callbacks are enabled.
+The emission restriction at this historical boundary is superseded by BD-044.
 
 ## BD-039: Smoker metadata references are separate from visual readiness
 
@@ -1176,6 +1177,8 @@ a loaded image cache for
 every referenced `SmokeAttr`, and a texture/color cache for every corona-using
 Smoker. MOVE scheduling, terrain placement, smoke creation, light/corona
 updates and rendering remain disabled in the bounded subject build.
+BD-044 later supersedes the MOVE, terrain-placement and smoke-creation parts of
+that restriction while retaining the light/corona gate.
 
 Reference fingerprints hash source data plus stable resolved object/table
 names, never object IDs, pointers or renderer handles. The public January
@@ -1354,12 +1357,59 @@ masks, so frame rollback assertions can detect leaked ownership instead of
 only leaked lighting.
 
 The capability-versioned Smoke subject fingerprint is
-`5752704755427809737`. This decision activates only emitted Smoke itself;
-Smoker timed emission, corona/light behavior and SoundObj integration remain
-separate boundaries.
+`5752704755427809737`. This decision activated only emitted Smoke itself;
+BD-044 subsequently activates Smoker timed emission while corona/light behavior
+and SoundObj integration remain separate boundaries.
 
 Regression contract: 49/49 CTest passes in Debug and Release, 18/18 installed
 retail service launches and 18/18 real drawable-scene launches across all nine
 Levels, plus 2/2 installed executable runtime smokes publishing the rendering
 marker and clean shutdown. The mounted-image half remains pending because
 `G:` is not mounted.
+
+## BD-044: activate bounded Smoker MOVE and real child Smoke emission
+
+Status: accepted on 2026-07-28.
+
+The production `RR2NW_SMOKER_SUBJECT_ONLY` owner now gates only Smoker's
+light/corona update and draw callbacks. Its original `onView` contract schedules
+`sm_EV_MOVE`, MOVE reschedules itself with the retail attribute interval, and
+each MOVE creates a real child in the already admitted `Smoke` table. Both
+infinite-life, free-position `Smoker.Attr.Corpse` and terrain-bound
+`Smoker.Attr.FireArea` are admitted; the latter requires the published real
+`CViewScene` terrain and snaps its emitter position before scheduling work.
+
+The bounded owner uses a local Arena event constructor identical to the legacy
+global `createSmoke()` instead of linking all of `PHISICS.CPP` and its unrelated
+People/Tank/Taxi/Bullet dependency fan-out. This is not a replacement Smoke
+implementation: the event still creates the original `Smoke.cpp` subject with
+the resolved retail attribute and lets that subject own simulation, scene
+promotion and rendering. The unrestricted historical Smoker target continues
+to compile in both configurations.
+
+Removal exposed a kernel ownership rule that was previously hidden by manually
+drained tests: `SimulationContext::removeObject()` calls `removeNotify()` and
+frees the object slot but does not cancel queued events. `Smoker::removeNotify`
+now cancels both `sm_EV_MOVE` and `sm_EV_REMOVE`; `Smoke::removeNotify` cancels
+`fou_EVC_MOVING`. Focused and retail probes require all three queries to report
+empty after deleting the parent and child, in addition to empty subject pools
+and names. CQ-073 records this as a rule for every future periodic subject.
+
+Startup readiness remains side-effect free. It validates the real DynSmoker and
+Smoke tables, visible Smoke capability, both referenced Smoker attributes and
+terrain availability, then publishes `smoker_emission_initialized=1`. The
+emission lifecycle itself remains test-only because both emission timing and
+Smoke blob initialization consume the process-global legacy PRNG. The retail
+visual proof places a DynSmoker in front of the recovered observer, lets Arena
+culling call the real `onView`, dispatches one MOVE, observes one child Smoke
+and its exact sprite count, then proves a following frame has no stale draw or
+scene ownership after parent/child removal.
+
+The DynSmoker capability fingerprint now versions both emission support and the
+still-disabled light/corona boundary. The capacity-62 retail identity is
+`8864986274241257997`; the capacity-2 focused fixture is
+`13186285912934417169`. Verification passes 49/49 CTest in Debug and Release,
+18/18 installed retail service launches across all nine Levels, and 2/2
+installed `rr2nw.exe --runtime-smoke` launches with the new marker, level-ready
+and clean shutdown. The mounted-image half remains pending because `G:` is not
+mounted.

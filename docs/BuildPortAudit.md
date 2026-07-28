@@ -1398,11 +1398,11 @@ an accidental linker fanout.
 Before readiness, production creates one real object, sends START using the
 infinite-life/non-land `Smoker.Attr.Corpse`, checks its attribute, position,
 timestamp and deterministic transient state, removes it and requires the live
-count to return to zero. The capacity-62 table fingerprint is
-`10679040711010833004`. This changes every retail Corpse reference fingerprint
-because the stable `DynSmoker` table identity is now part of the resolved
-record; both the old pre-subject and new subject-bound identities remain in the
-parity ledger.
+count to return to zero. The structural-era capacity-62 table fingerprint at
+this boundary was `10679040711010833004`. This changes every retail Corpse
+reference fingerprint because the stable `DynSmoker` table identity is now part
+of the resolved record; both the old pre-subject and new subject-bound
+identities remain in the parity ledger.
 
 The subject source is also hardened against pool-byte reuse and invalid events:
 all transient members reset deterministically, invalid attributes are rejected,
@@ -1418,6 +1418,9 @@ Levels, with paired E/G subject and Corpse identities. All 4/4 executable
 runtime-smoke launches publish capacity 62, fingerprint
 `10679040711010833004`, `corpse_runtime_ready=1`, `level-ready` and
 `runtime_shutdown=clean`.
+
+This section records the structural-only activation gate. The later bounded
+emission tranche versions the current DynSmoker capability fingerprint below.
 
 ### Transactional Smoker to SmokeAttr references
 
@@ -1525,9 +1528,9 @@ too-small-timestep rejection. Retail services execute both free
 `Smoke.Attr.Trace` through START and on-land `Smoke.Attr.FireArea` through
 START_WITHDIR, verify terrain placement, publish subject/visual fingerprints
 and report `smoker_runtime_ready=1` for all nine Levels. Smoke MOVE, terrain
-placement and visible sprite drawing now run. Smoker emission and its
-light/corona updates remain the next frontier rather than being implied by the
-Smoke marker.
+placement and visible sprite drawing now run. At this Smoke-only boundary,
+Smoker emission and its light/corona updates remained separate rather than
+being implied by the Smoke marker; emission is activated in the next tranche.
 
 Final verification passes 49/49 tests in Debug and Release. The currently
 available installed root passes 18/18 real service launches and 18/18 direct
@@ -1539,6 +1542,40 @@ publish `smoke_simulation_initialized=1`, `smoke_terrain_initialized=1`,
 `smoke_rendering_initialized=1`, `level-ready` and
 `runtime_shutdown=clean`. The mounted-image half of the usual 36/36 and 4/4
 gate remains uncounted because `G:` was no longer mounted during this run.
+
+### Bounded Smoker timed emission and complete child rollback
+
+`SMOKER.CPP` remains the production owner of `DynSmoker`, but its bounded build
+now isolates only light/corona update and rendering. The real `onView` schedules
+`sm_EV_MOVE`; MOVE uses the decoded `m_createIncMin`/`m_createIncMax` interval,
+reschedules itself and creates the original `Smoke.cpp` child through an Arena
+START event. The small local constructor is byte-for-byte equivalent in payload
+shape to legacy `createSmoke()` and avoids linking the rest of `PHISICS.CPP`'s
+unrelated object graph. `Smoker.Attr.Corpse` runs without terrain and
+`Smoker.Attr.FireArea` validates and snaps against the published scene terrain.
+
+Capability readiness is deliberately non-mutating: production validates both
+attributes, the capacity-62 DynSmoker table, the capacity-300 Smoke table and
+visible Smoke support, then publishes `smoker_emission_initialized=1`. Only the
+disposable regression process advances emission because its timing and child
+blob construction consume the legacy global PRNG. Its real-frame proof crosses
+Arena culling, schedules MOVE, creates one child, captures the exact retail
+alpha-sprite draws, removes both objects and requires a later frame, dynamic
+map, queues and both pools to remain empty.
+
+That rollback requirement exposed CQ-073: context object removal does not own
+queued-event cancellation. Smoker now cancels MOVE/removal and Smoke cancels its
+MOVING event in `removeNotify()`. The versioned DynSmoker fingerprint therefore
+changes from the structural-era value to `8864986274241257997` for retail
+capacity 62; the focused capacity-2 lifecycle identity is
+`13186285912934417169`.
+
+Final verification remains 49/49 in both Debug and Release. The installed root
+passes 18/18 service launches across all nine Levels with visible
+MOVE-to-Smoke/draw/detach proof and the new fingerprint, plus 2/2 executable
+runtime smokes publishing the emission marker, `level-ready` and
+`runtime_shutdown=clean`. The mounted-image gate is pending because `G:` is not
+mounted. Light/corona behavior remains isolated as the next Smoker boundary.
 
 ## Expansion order
 
@@ -1578,8 +1615,9 @@ gate remains uncounted because `G:` was no longer mounted during this run.
    SmokeAttr target atomically, and the Smoke/flame/corona transaction now owns
    derived visual resources. Free and terrain-bound Smoke START/MOVE/removal
    now execute with queue rollback, scene promotion, alpha-sprite drawing and
-   exact dynamic detach. `SoundObj`, active Smoker MOVE/emission/light
-   behavior, remaining attribute cache groups,
+   exact dynamic detach. Bounded Smoker MOVE now emits those real children and
+   rolls parent/child queues and scene ownership back exactly. `SoundObj`,
+   Smoker light/corona behavior, remaining attribute cache groups,
    Skin animation construction and remaining OBASE/script ABI bindings are
    still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

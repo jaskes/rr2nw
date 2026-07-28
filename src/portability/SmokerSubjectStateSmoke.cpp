@@ -1,8 +1,11 @@
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "obase/smoke/SmokeAttributeState.h"
+#include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "storage/h/subject.h"
@@ -18,15 +21,50 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
   Session::m_moment = 0.0;
   SimulationContext context(64, 128);
   g_arena.openSeance(&context, 8192.0, 8192.0);
+  const ct_ClassTableID smokeAttributeTable =
+      g_arena.addClassTable("SmokeAttr", 1);
+  KR_ObjectID smokeAttribute =
+      g_arena.newObject(smokeAttributeTable, "Smoke.Attr.Probe");
+  AttributeSmoke* smoke = smokeAttribute.isNUL()
+      ? nullptr
+      : static_cast<AttributeSmoke*>(
+            __attrSmokeTable.searchAttribute(smokeAttribute));
+  if (smoke != nullptr) {
+    smoke->m_onLand = 0;
+    smoke->m_maxBlob = 2;
+    smoke->m_timeIncrement = 0.05;
+    smoke->m_maxTimeLife = 2.0;
+  }
   const ct_ClassTableID attributeTable =
       g_arena.addClassTable("SmokerAttr", 1);
   KR_ObjectID attribute =
       g_arena.newObject(attributeTable, "Smoker.Attr.Corpse");
+  AttributeSmoker* smoker = attribute.isNUL()
+      ? nullptr
+      : static_cast<AttributeSmoker*>(
+            __attrSmokerTable.searchAttribute(attribute));
+  if (smoker != nullptr) {
+    std::strncpy(smoker->m_smokeAttrName, "Smoke.Attr.Probe",
+                 sizeof(smoker->m_smokeAttrName) - 1);
+    smoker->m_smokeAttrName[sizeof(smoker->m_smokeAttrName) - 1] = 0;
+    smoker->m_onLand = 0;
+    smoker->m_useLight = 0;
+    smoker->m_useCorona = 0;
+    smoker->m_maxTimeLife = -1;
+  }
+  const ct_ClassTableID smokeTable =
+      g_arena.addClassTable("Smoke", 2);
   const ct_ClassTableID subjectTable =
       g_arena.addClassTable("DynSmoker", 2);
   const bool constructed = attributeTable != ct_NULLID &&
+                           smokeAttributeTable != ct_NULLID &&
+                           smokeTable != ct_NULLID &&
                            subjectTable != ct_NULLID &&
+                           !smokeAttribute.isNUL() && smoke != nullptr &&
                            !attribute.isNUL() &&
+                           smoker != nullptr &&
+                           SmokeSubjectState_TableReady(&context, 2) &&
+                           SmokerAttributeState_ResolveReferences(&context) &&
                            SmokerSubjectState_DynTableReady(&context, 2) &&
                            !SmokerSubjectState_DynTableReady(&context, 62) &&
                            SmokerSubjectState_DynCapacity() == 2 &&
@@ -41,6 +79,15 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
       SmokerSubjectState_ProbeDynLifecycle(
           &context, "Smoker.Attr.Corpse", 1.0) &&
       SmokerSubjectState_DynLiveCount() == 0;
+  const bool emission =
+      SmokerSubjectState_EmissionSupported(
+          &context, "Smoker.Attr.Corpse") &&
+      SmokerSubjectState_ProbeEmissionLifecycle(
+          &context, "Smoker.Attr.Corpse", 0.1) &&
+      SmokerSubjectState_ProbeEmissionLifecycle(
+          &context, "Smoker.Attr.Corpse", 1.0) &&
+      SmokerSubjectState_DynLiveCount() == 0 &&
+      SmokeSubjectState_LiveCount() == 0;
   const unsigned long long fingerprint =
       SmokerSubjectState_DynFingerprint(&context);
   const bool stable =
@@ -48,9 +95,11 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
       (*expectedFingerprint == 0 || *expectedFingerprint == fingerprint);
   *expectedFingerprint = fingerprint;
   g_arena.closeSeance();
-  return constructed && missingRejected && lifecycle && stable &&
+  return constructed && missingRejected && lifecycle && emission && stable &&
          SmokerSubjectState_DynCapacity() == 0 &&
          SmokerSubjectState_DynLiveCount() == 0 &&
+         SmokeSubjectState_Capacity() == 0 &&
+         SmokeSubjectState_LiveCount() == 0 &&
          SmokerSubjectState_DynFingerprint(&context) == 0 &&
          !context.isExist("Storage");
 }
@@ -58,6 +107,8 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
 }  // namespace
 
 int main() {
+  SmokeAttributeState_Link();
+  SmokeSubjectState_Link();
   SmokerAttributeState_Link();
   SmokerSubjectState_Link();
   unsigned long long fingerprint = 0;
@@ -65,7 +116,8 @@ int main() {
     return Fail("DynSmoker create/start/remove reconstruction failed");
   }
   std::printf("smoker subject table=DynSmoker capacity=2 "
-              "lifecycle=create-start-remove-twice fingerprint=%llu\n",
+              "lifecycle=create-start-visible-MOVE-emit-Smoke-remove-twice "
+              "rollback=events-child-pools fingerprint=%llu\n",
               fingerprint);
   return EXIT_SUCCESS;
 }

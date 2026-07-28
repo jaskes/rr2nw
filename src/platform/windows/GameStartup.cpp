@@ -629,6 +629,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("smoker_runtime_ready=" +
            std::to_string(
                RecoveredGameServices_SmokerRuntimeReady() ? 1 : 0));
+  log.Line("smoker_emission_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SmokerEmissionReady() ? 1 : 0));
   log.Line("smoker_reference_fingerprint=" + std::to_string(
                RecoveredArenaSeance_SmokerReferenceFingerprint()));
   log.Line("dyn_smoker_initialized=" +
@@ -736,7 +739,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-farter-corpse-reference-wav-smoker-dyn-smoker-smoke-terrain-simulation-visual-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-farter-corpse-reference-wav-smoker-dyn-smoker-emission-smoke-terrain-simulation-visual-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

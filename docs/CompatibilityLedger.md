@@ -1005,6 +1005,26 @@ Status vocabulary:
 - Revisit when: dynamic ownership moves to an explicit frame-scoped container;
   preserve exact-object detach and the ability to audit an interrupted frame.
 
+### CQ-073: object removal does not cancel subject-owned queued events
+
+- Status: `LEGACY_BEHAVIOR_PRESERVED`, `OWNERSHIP_ROLLBACK_FIXED`.
+- Evidence: `SimulationContext::removeObject()` invokes the object's
+  `removeNotify()`, returns its object slot to the free list and clears the ID,
+  but never scans the event queue. The queue indexes events independently and
+  `removeEvent()` matches their source ID and label. Deleting a timed Smoker or
+  Smoke without explicit cancellation therefore leaves stale MOVE work that is
+  only ignored later because the destination ID no longer resolves, or can
+  obscure reuse bugs during a long seance.
+- Handling: `Smoker::removeNotify()` cancels `sm_EV_MOVE` and `sm_EV_REMOVE`;
+  `Smoke::removeNotify()` cancels `fou_EVC_MOVING` before returning either
+  subject to its pool. Emission probes delete a live parent and child and then
+  require all corresponding `removeEvent()` queries to return zero, alongside
+  empty names and pools.
+- Revisit when: admitting any other subject that schedules recurring or delayed
+  self-events. Either give the kernel explicit per-object event ownership or
+  add cancellation to that subject's `removeNotify()` and preserve a regression
+  that proves the queue empty after removal.
+
 ## Maintenance rule
 
 When a new quirk is found:

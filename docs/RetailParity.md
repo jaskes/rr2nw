@@ -255,8 +255,9 @@ Retail scripts нельзя молча копировать поверх source 
   active, while visual emission and rendering remain deferred.
 - Both installed and mounted copies of all nine admitted `localmain.sci` files
   contain the exact declaration `s_AddClassTable("DynSmoker"  ,50+12 );`.
-  Production therefore requires capacity 62; the stable table fingerprint is
-  `10679040711010833004`.
+  Production therefore requires capacity 62; the structural-era table
+  fingerprint at this boundary was `10679040711010833004`. RP-SCRIPT-010
+  records the current capability-versioned identity after emission activation.
 - After the real table ID is bound, the Corpse reference fingerprints become:
 
 | Level | Subject-bound Corpse reference fingerprint |
@@ -302,8 +303,9 @@ Retail scripts нельзя молча копировать поверх source 
 
 - Classification: `RETAIL_REQUIRED`; subject ownership and resource caches are
   active. Non-land and terrain-bound Smoke START/MOVE plus the complete visible
-  Smoke scene/sprite/detach path execute. Smoker MOVE/emission and its
-  light/corona behavior stay gated.
+  Smoke scene/sprite/detach path execute. At this boundary Smoker MOVE/emission
+  and its light/corona behavior stayed gated; RP-SCRIPT-010 supersedes the
+  emission part of that restriction.
 - Every admitted May `localmain.sci` creates `Smoke` with capacity 300. The
   original class table is now present before seance creation. Repeated real
   free and terrain-bound START/queued-MOVE/hide/remove proofs publish the
@@ -332,6 +334,33 @@ Retail scripts нельзя молча копировать поверх source 
 - Resource fingerprints hash names, dimensions and file bytes. Subject
   fingerprints hash stable class metadata. Neither includes object IDs,
   pointers, texture handles or transparency-table addresses.
+
+### RP-SCRIPT-010: DynSmoker performs timed real Smoke emission
+
+- Classification: `RETAIL_REQUIRED`; Smoker scheduling and child Smoke
+  emission are active, while Smoker light/corona update and rendering remain an
+  explicit later boundary.
+- Both retail emitter forms are required. `Smoker.Attr.Corpse` schedules from
+  its free position; `Smoker.Attr.FireArea` requires and snaps to the decoded
+  Level terrain. Each MOVE uses the retail interval, reschedules the same
+  DynSmoker and creates a real capacity-300 `Smoke` child with the resolved
+  SmokeAttr reference.
+- The capacity remains the exact `50+12` declared by every May Level. The
+  capability-versioned fingerprint is now `8864986274241257997`, recording that
+  emission is active while light/corona remains isolated. Earlier
+  `10679040711010833004` diagnostics identify the structural-only owner and are
+  retained as historical identities, not treated as current parity.
+- The retail service proof positions a DynSmoker before the recovered observer,
+  lets normal Arena culling schedule MOVE, dispatches one emission, verifies the
+  child Smoke's exact alpha-sprite draw count and then removes parent and child.
+  A following frame must add no draw and the object names, queues, subject pools
+  and land-dynamic map must all be empty.
+- Normal startup performs only side-effect-free capability checks and publishes
+  `smoker_emission_initialized=1`; emission probes stay outside played sessions
+  because they consume the legacy process-global PRNG. The installed root
+  passes 18/18 Debug/Release service launches across all nine Levels and 2/2
+  executable runtime smokes. Mounted-root parity is pending while `G:` is not
+  mounted.
 
 ## Behavioral parity matrix
 

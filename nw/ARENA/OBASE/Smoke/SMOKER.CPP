@@ -17,7 +17,12 @@
 #include "h/phisics.h"
 #include "h/cachesmoke.h"
 #include "SmokerAttributeState.h"
+#include "SmokeSubjectState.h"
 #include "SmokerSubjectState.h"
+
+#ifdef RR2NW_SMOKER_SUBJECT_ONLY
+#define RR2NW_SMOKER_LIGHT_CORONA_DISABLED
+#endif
 
  //===========================================================================
 class SmokerTable : public ct_SubjectTable
@@ -62,6 +67,64 @@ static SmokerTable  __classTable2("DynSmoker");
 #ifndef RR2NW_SMOKER_ATTRIBUTE_STATE_EXTERNAL
 #include "SmokerAttributeState.inl"
 #endif
+
+static bool SmokerTerrainReady(const AttributeSmoker *attr)
+{
+    if (attr == NULL || !attr->m_onLand)
+        return attr != NULL;
+    CViewScene *scene = CViewScene::Current();
+    return scene != NULL && scene->GetTerrain() != NULL;
+}
+
+static bool SmokerPlaceOnTerrain(const AttributeSmoker *attr,
+                                 CFVector3 &position)
+{
+    if (!SmokerTerrainReady(attr))
+        return false;
+    if (!attr->m_onLand)
+        return true;
+    double height;
+    CFVector3 normal;
+    CViewScene::Current()->GetTerrain()->GetPlane(position, normal, height);
+    position.y = height;
+    return true;
+}
+
+static bool SmokerCanEmit(SimulationContext *context,
+                          AttributeSmoker *attr)
+{
+    if (context == NULL || attr == NULL || attr->m_createIncMin <= 0 ||
+        attr->m_createIncMax < attr->m_createIncMin ||
+        attr->m_smokeTableID == ct_NULLID ||
+        attr->m_smokeAttrID.isNUL() || !SmokerTerrainReady(attr))
+        return false;
+    const ct_ClassTableID smokeTable =
+        g_arena.searchSeanceClassTable("Smoke");
+    const char *smokeAttribute = context->searchObject(attr->m_smokeAttrID);
+    return smokeTable != ct_NULLID &&
+           attr->m_smokeTableID == smokeTable &&
+           smokeAttribute != NULL &&
+           SmokeSubjectState_SimulationSupported(context, smokeAttribute);
+}
+
+static KR_ObjectID SmokerEmitSmoke(const CFVector3 &position,
+                                   const KR_ObjectID &master,
+                                   double timeStamp,
+                                   ct_ClassTableID table,
+                                   const KR_ObjectID &attribute)
+{
+    KR_Event event;
+    event.label = fou_EVCMD_START;
+    event.source = master;
+    event.timeStamp = timeStamp;
+    event.data.open(EDO_WRITE)
+              .putObjectID(attribute)
+              .putDouble(position.x)
+              .putDouble(position.y)
+              .putDouble(position.z)
+            .close();
+    return g_arena.newObject(table, "Smok.Static", event);
+}
  /*********************************
   *
   *   Smoker implementation
@@ -87,20 +150,17 @@ Smoker::~Smoker()
  //============================================================
 void Smoker::onView(double ts)
 {
-#ifdef RR2NW_SMOKER_SUBJECT_ONLY
-    (void)ts;
-#else
-    if(  m_attr != 0 && !m_sendedMove  )
+    if(  m_attr != 0 && SmokerCanEmit(context, m_attr) &&
+         !m_sendedMove  )
     {
           KR_Event event;
           event.label       = sm_EV_MOVE;
           event.source      = getObjectID();
           event.destination = getObjectID();
-          event.timeStamp   = ts;
+          event.timeStamp   = ts < 0.1 ? 0.1 : ts;
           issueEvent( event );
           m_sendedMove = true;
     }
-#endif
 }
 
 CFVector3 Smoker::realPosition()
@@ -113,10 +173,7 @@ int Smoker::receiveEvent( KR_Event &event )
     switch( event.label )
     {
     case sm_EV_MOVE:
-#ifdef RR2NW_SMOKER_SUBJECT_ONLY
-            m_sendedMove = false;
-#else
-            if(  m_attr == 0  )
+            if(  m_attr == 0 || !SmokerCanEmit(context, m_attr)  )
             {
                  m_sendedMove = false;
                  break;
@@ -128,16 +185,17 @@ int Smoker::receiveEvent( KR_Event &event )
                  event.timeStamp += context->rnd_f(
                                                     m_attr->m_createIncMin,
                                                     m_attr->m_createIncMax
-                                                  );
+                 );
                  issueEvent( event );
                  m_sendedMove = true;
-                 createSmoke( m_position,
-                              getObjectID(),
-                              ts,
-                              m_attr->m_smokeTableID,
-                              m_attr->m_smokeAttrID
-                             );
+                 SmokerEmitSmoke( m_position,
+                                  getObjectID(),
+                                  ts,
+                                  m_attr->m_smokeTableID,
+                                  m_attr->m_smokeAttrID
+                                );
 
+#ifndef RR2NW_SMOKER_LIGHT_CORONA_DISABLED
                  if(  m_attr->m_useLight  )
                  {
                       m_brightness +=  context->rnd_f(m_attr->m_lightBrightStep) 
@@ -147,11 +205,11 @@ int Smoker::receiveEvent( KR_Event &event )
                       else
                       if(  m_brightness > m_attr->m_maxLightBright  )
                            m_brightness = m_attr->m_maxLightBright;
-                      
+
                  }
+#endif
             }
             else m_sendedMove = false;
-#endif
 
             break;
 
@@ -188,15 +246,11 @@ int Smoker::receiveEvent( KR_Event &event )
 
             if(  m_attr->m_onLand  )
             {
-#ifdef RR2NW_SMOKER_SUBJECT_ONLY
-                 m_attr = 0;
-                 return 0;
-#else
-                 double height;
-                 CFVector3 normal;
-                 CViewScene::Current()->GetTerrain()->GetPlane(m_position,normal,height);
-                 m_position.y = height;
-#endif
+                 if( !SmokerPlaceOnTerrain(m_attr, m_position) )
+                 {
+                      m_attr = 0;
+                      return 0;
+                 }
             }
      }
      m_sendedMove = false;
@@ -234,8 +288,12 @@ void Smoker::addNotify()
  //============================================================
 void Smoker::removeNotify()
  {
+    if (context != NULL)
+    {
+         context->removeEvent(sm_EV_MOVE, getObjectID());
+         context->removeEvent(sm_EV_REMOVE, getObjectID());
+    }
     ct_Subject::removeNotify();
-    // insert your code this
  }
 
 
@@ -271,7 +329,7 @@ ct_Object *SmokerTable::getObjectPTR( int index )
 
 void Smoker::render( CViewDynamicList &list, double )
 {
-#ifdef RR2NW_SMOKER_SUBJECT_ONLY
+#ifdef RR2NW_SMOKER_LIGHT_CORONA_DISABLED
     (void)list;
 #else
     if(  m_attr == 0  )
@@ -303,7 +361,7 @@ void Smoker::render( CViewDynamicList &list, double )
 
 void Smoker::endRender( CViewScene *scene )
 {
-#ifdef RR2NW_SMOKER_SUBJECT_ONLY
+#ifdef RR2NW_SMOKER_LIGHT_CORONA_DISABLED
      (void)scene;
 #else
      if(  m_attr != 0 && m_attr->m_useCorona  )
@@ -379,6 +437,14 @@ unsigned long long SmokerSubjectState_DynFingerprint(
     DynSmokerHashBytes(hash, &capacity, sizeof(capacity));
     const int rendering = __classTable2.isRendering() ? 1 : 0;
     DynSmokerHashBytes(hash, &rendering, sizeof(rendering));
+    const int emission = 1;
+    DynSmokerHashBytes(hash, &emission, sizeof(emission));
+#ifdef RR2NW_SMOKER_LIGHT_CORONA_DISABLED
+    const int lightCorona = 0;
+#else
+    const int lightCorona = 1;
+#endif
+    DynSmokerHashBytes(hash, &lightCorona, sizeof(lightCorona));
     return hash;
 }
 
@@ -438,6 +504,119 @@ bool SmokerSubjectState_ProbeDynLifecycle(SimulationContext *context,
     context->removeObject(object);
     return started && !context->isExist(kProbeName) &&
            SmokerSubjectState_DynLiveCount() == 0;
+}
+
+bool SmokerSubjectState_EmissionSupported(SimulationContext *context,
+                                           const char *attributeName)
+{
+    const int capacity = SmokerSubjectState_DynCapacity();
+    if (!SmokerSubjectState_DynTableReady(context, capacity) ||
+        attributeName == NULL || attributeName[0] == 0)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoker *attribute = attributeID.isNUL()
+        ? NULL
+        : static_cast<AttributeSmoker *>(
+              __attrSmokerTable.searchAttribute(attributeID));
+    return SmokerCanEmit(context, attribute);
+}
+
+bool SmokerSubjectState_ProbeEmissionLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp)
+{
+    if (!SmokerSubjectState_EmissionSupported(context, attributeName) ||
+        SmokerSubjectState_DynLiveCount() != 0 ||
+        SmokeSubjectState_LiveCount() != 0)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoker *attribute = static_cast<AttributeSmoker *>(
+        __attrSmokerTable.searchAttribute(attributeID));
+
+    static const char kProbeName[] = "DynSmoker.Emission.Probe";
+    static const char kSmokeName[] = "Smok.Static";
+    if (context->isExist(kProbeName) || context->isExist(kSmokeName))
+        return false;
+    KR_ObjectID object =
+        g_arena.newObject(__classTable2.getClassTableID(), kProbeName);
+    Smoker *smoker = static_cast<Smoker *>(__classTable2.findFirstSubject());
+    if (object.isNUL() || smoker == NULL || smoker->getObjectID() != object)
+    {
+        if (!object.isNUL())
+            context->removeObject(object);
+        return false;
+    }
+
+    const CFVector3 position(17.0, 3.0, -19.0);
+    CFVector3 expectedPosition = position;
+    if (!SmokerPlaceOnTerrain(attribute, expectedPosition))
+    {
+        context->removeObject(object);
+        return false;
+    }
+    KR_Event event;
+    event.label = fou_EVCMD_START;
+    event.source = g_arena.getObjectID();
+    event.destination = object;
+    event.timeStamp = timeStamp < 0.1 ? 0.1 : timeStamp;
+    event.data.open(EDO_WRITE)
+              .putObjectID(attributeID)
+              .putDouble(position.x)
+              .putDouble(position.y)
+              .putDouble(position.z)
+            .close();
+    context->sendEventNow(event);
+
+    smoker->m_isVisible = true;
+    smoker->onView(event.timeStamp);
+    const bool firstMoveScheduled =
+        smoker->m_attr == attribute &&
+        smoker->m_position == expectedPosition && smoker->m_sendedMove &&
+        context->removeEvent(sm_EV_MOVE, object) != 0;
+    if (firstMoveScheduled)
+    {
+        event.label = sm_EV_MOVE;
+        event.source = object;
+        event.destination = object;
+        context->sendEventNow(event);
+    }
+
+    KR_ObjectID smoke = context->searchObject(kSmokeName);
+    const bool emitted = firstMoveScheduled && !smoke.isNUL() &&
+                         context->isExist(object) &&
+                         context->isExist(smoke) &&
+                         smoker->m_sendedMove &&
+                         SmokerSubjectState_DynLiveCount() == 1 &&
+                         SmokeSubjectState_LiveCount() == 1;
+    const bool queued = emitted &&
+                        context->removeEvent(sm_EV_MOVE, object) != 0 &&
+                        context->removeEvent(fou_EVC_MOVING, smoke) != 0;
+    if (queued)
+    {
+        KR_Event pending;
+        pending.label = sm_EV_MOVE;
+        pending.source = object;
+        pending.destination = object;
+        pending.timeStamp = event.timeStamp + 1000.0;
+        context->addEvent(pending);
+        pending.label = fou_EVC_MOVING;
+        pending.source = smoke;
+        pending.destination = smoke;
+        context->addEvent(pending);
+    }
+    if (context->isExist(object))
+        context->removeObject(object);
+    if (!smoke.isNUL() && context->isExist(smoke))
+        context->removeObject(smoke);
+
+    return queued && !context->isExist(kProbeName) &&
+           !context->isExist(kSmokeName) &&
+           SmokerSubjectState_DynLiveCount() == 0 &&
+           SmokeSubjectState_LiveCount() == 0 &&
+           context->removeEvent(sm_EV_MOVE, object) == 0 &&
+           context->removeEvent(sm_EV_REMOVE, object) == 0 &&
+           (smoke.isNUL() ||
+            context->removeEvent(fou_EVC_MOVING, smoke) == 0);
 }
 
 

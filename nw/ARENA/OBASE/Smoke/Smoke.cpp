@@ -490,8 +490,9 @@ void Smoke::addNotify()
  //============================================================
 void Smoke::removeNotify()
  {
+    if (context != NULL)
+         context->removeEvent(fou_EVC_MOVING, getObjectID());
     ct_Subject::removeNotify();
-    // insert your code this
  }
 
  //============================================================

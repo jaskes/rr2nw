@@ -2326,6 +2326,7 @@ add_library(rr2nw_arena_smoker_subject_state STATIC
   nw/ARENA/OBASE/Smoke/SmokerSubjectState.h
 )
 target_link_libraries(rr2nw_arena_smoker_subject_state PUBLIC
+  rr2nw_arena_smoke_subject_state
   rr2nw_arena_smoker_attribute_state
   rr2nw_arena_storage
   rr2nw_graph_software_texture
