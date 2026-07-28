@@ -7,6 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated the real non-land `Smoke` simulation lifecycle in the bounded
+  production owner. Startup validates the real retail `SmokeAttr` without
+  consuming gameplay randomness; isolated and retail-service gates prove
+  `START`, blob creation, queued MOVE scheduling, state evolution,
+  hide/removal and exact pool reuse.
+- Added fail-closed Smoke simulation validation for missing attributes,
+  terrain-dependent attributes, invalid time steps and blob counts beyond the
+  fixed four-entry legacy array. Reused pooled objects now reset every
+  transient subject, view and blob field.
+- Made `SimulationContext::removeEvent()` report whether it actually removed
+  queued work, allowing lifecycle probes and callers to verify rollback rather
+  than receiving the historical unconditional false result.
 - Added the real retail `Smoke` subject table as a bounded production owner.
   Startup now creates the exact capacity-300 pool, proves deterministic
   create/remove reuse and publishes a stable table fingerprint before any

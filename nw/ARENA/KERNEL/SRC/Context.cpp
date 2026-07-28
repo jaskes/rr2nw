@@ -217,6 +217,7 @@ int SimulationContext::removeEvent(
 
          // remove from event queue
          *ref = nextInQueue;
+         result = TRUE;
       }
       else
          ref = &m_eventIndex[*ref].next;

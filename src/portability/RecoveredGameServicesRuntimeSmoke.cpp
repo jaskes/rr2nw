@@ -349,6 +349,15 @@ int main(int argc, char** argv) {
         "recovered Hardware, Arena, common attributes, Portal, Spark, Route, "
         "Vehicle or observer was not published");
   }
+  if (!SmokeSubjectState_SimulationSupported(
+          g_super.m_context, "Smoke.Attr.Trace") ||
+      !SmokeSubjectState_ProbeSimulationLifecycle(
+          g_super.m_context, "Smoke.Attr.Trace", Session::m_moment) ||
+      SmokeSubjectState_LiveCount() != 0) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("retail Smoke START/MOVE/remove lifecycle failed");
+  }
   const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(g_super.m_context);
   const int explosionRosterSize =
@@ -544,7 +553,8 @@ int main(int argc, char** argv) {
 
   std::printf("bounded services frames=3 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
-               "smoke_subject=%d fingerprint=%llu smoke_visual=%llu "
+               "smoke_subject=%d fingerprint=%llu "
+               "smoke_simulation=START-MOVE-remove smoke_visual=%llu "
               "explosion_attrs=%d explosion_fingerprint=%llu "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "

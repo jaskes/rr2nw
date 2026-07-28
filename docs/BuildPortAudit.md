@@ -1460,18 +1460,34 @@ three Smoker diagnostics, zero service issues and `runtime_shutdown=clean`.
 The original `Smoke.cpp` now owns production class registration and allocation
 through a second bounded build, while its unrestricted target remains a strict
 compile gate. `SmokeSubjectState_Link()` runs before `OpenArena`; startup then
-adds the exact capacity-300 retail table and executes one real create/remove
-probe per seance. Focused coverage invokes it twice and reconstructs a second
-seance. The proof requires a clean pool, stable rendering-table metadata and
-inert deterministic state for the subject, view object and all four smoke
-blobs. The resulting stable identity is `11870427327380980520`. The legacy
+adds the exact capacity-300 retail table and executes real create/remove plus
+side-effect-free simulation-readiness checks per production seance. Isolated
+and retail-service coverage then sends START against a real SmokeAttr, creates
+the configured blobs and queues the original MOVE event; the probe verifies
+and removes that event, executes a positive-delta MOVE, verifies the next
+scheduled event, then removes the subject through `onHide`. Focused coverage
+invokes both probes twice and reconstructs a second seance.
+The proof requires a clean pool/event queue, stable rendering-table metadata
+and deterministic reset of the subject, view object and all four blobs. The
+versioned stable identity is `5282691061579441721`. The legacy
 one-past-capacity table access is rejected with a strict `< capacity` bound.
 
-This bounded phase intentionally does not send START: the original START/MOVE
-path immediately expands into terrain lookup, timed scheduling, land dynamics
-and rendering. Those paths remain compiled in the unrestricted archive but are
-gated in the active subject owner until a controlled visible lifecycle test can
-exercise them against the recovered `CViewScene`.
+The bounded owner now gates only the scene-dependent portion of Smoke:
+on-land START, draw/render and land-dynamic detachment. It rejects an on-land
+attribute before mutation rather than dereferencing a global scene. The
+unrestricted archive still compiles the complete terrain/render path as a
+strict gate until a controlled visible lifecycle can exercise it against the
+recovered `CViewScene`.
+
+Simulation admission also closes legacy unchecked-input paths. START rejects
+missing attributes, more than four blobs, invalid coefficient ranges,
+non-positive lifetime/radius and time increments at or below the original
+0.002-second assertion. Failed `addBlob()` no longer indexes `m_blob[-1]`.
+Every pooled reuse resets complete SmokeData/blob/view state, and the gradient
+alpha-root calculation handles linear coefficients and the smallest positive
+quadratic root. The kernel's existing `removeEvent()` API now reports a real
+removal, which lets the lifecycle prove queue rollback without advancing model
+time.
 
 `SmokeVisualState` owns the adjoining renderer transaction. It preflights the
 fixed `smoke.spr`, `flame.spr`, `corona.spr` set as exact 256x256 paletted
@@ -1493,18 +1509,21 @@ and `5026602665209222964`; earlier metadata-only values remain recognized.
 The focused Arena test injects partial and corrupt sprite sets, requires exact
 rollback, restores a complete set and reconstructs it over two full
 open/close cycles. The separate real-subject test repeats table reconstruction
-and lifecycle reuse. Retail services publish subject/visual fingerprints and
-`smoker_runtime_ready=1` for all nine Levels. MOVE scheduling, terrain
-placement, Smoke emission, light/corona updates and draw callbacks remain the
-next frontier rather than being implied by this resource-ready marker.
+and simulation lifecycle reuse, including missing, land-dependent, five-blob
+and too-small-timestep rejection. Retail services publish subject/visual
+fingerprints and `smoker_runtime_ready=1` for all nine Levels. Smoke MOVE
+scheduling now runs; terrain placement, land-dynamic drawing, Smoker emission,
+light/corona updates and draw callbacks remain the next frontier rather than
+being implied by this resource-ready marker.
 
-Final verification passes 49/49 tests in Debug and Release, 36/36 real service
-launches across both configurations, both roots and all nine Levels, and 4/4
-`rr2nw.exe --runtime-smoke` launches. Every retail service reports capacity
-300, subject fingerprint `11870427327380980520`, its expected per-Level visual
-fingerprint and `smoker_runtime=1`. Executable diagnostics publish both Smoke
-readiness markers, `smoker_runtime_ready=1`, `level-ready` and
-`runtime_shutdown=clean`.
+Final verification passes 49/49 tests in Debug and Release. The currently
+available installed root passes 18/18 real service launches across all nine
+Levels and 2/2 `rr2nw.exe --runtime-smoke` launches. Every service reports
+capacity 300, subject fingerprint `5282691061579441721`, its expected
+per-Level visual fingerprint and `smoker_runtime=1`; executable diagnostics
+publish `smoke_simulation_initialized=1`, `level-ready` and
+`runtime_shutdown=clean`. The mounted-image half of the usual 36/36 and 4/4
+gate remains uncounted because `G:` was no longer mounted during this run.
 
 ## Expansion order
 
@@ -1542,8 +1561,9 @@ readiness markers, `smoker_runtime_ready=1`, `level-ready` and
    transactionally. The real bounded `DynSmoker` and `Smoke` tables now execute
    exact retail-capacity lifecycle probes, SmokerAttr resolves every real
    SmokeAttr target atomically, and the Smoke/flame/corona transaction now owns
-   derived visual resources. `SoundObj`, active Smoke/Smoker
-   MOVE/terrain/light/render behavior, remaining attribute cache groups,
+   derived visual resources. Non-land Smoke START/MOVE/removal now executes
+   with queue rollback. `SoundObj`, Smoke terrain/render behavior, active
+   Smoker MOVE/emission/light behavior, remaining attribute cache groups,
    Skin animation construction and remaining OBASE/script ABI bindings are
    still required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

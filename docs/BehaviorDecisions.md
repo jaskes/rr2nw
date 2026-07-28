@@ -1220,11 +1220,59 @@ Stable diagnostics hash sprite names, headers and bytes, never texture handles
 or software transparency-table pointers. The synthetic fixture identity is
 `2132834873738653727`; canonical May retail is
 `15830240760157492622`, except Level.02N's distinct corona data produces
-`12038661591293825930`. The subject identity is
-`11870427327380980520` in every admitted Level.
+`12038661591293825930`. The table-only subject identity at this boundary was
+`11870427327380980520` in every admitted Level; BD-041 versions it when
+simulation readiness becomes part of the fingerprint.
 
 Regression contract: 49/49 Debug and Release tests; source-only success;
 partial, invalid and failed-load rejection with exact rollback; two complete
 visual open/close cycles; 36/36 retail service launches; and 4/4 executable
 runtime smokes. Smoker MOVE, land placement, Smoke creation, light/corona
 updates and rendering remain the next explicitly gated frontier.
+
+The START/MOVE restriction in this decision is superseded for non-land Smoke
+simulation by BD-041. Terrain placement, land-dynamic rendering and Smoker
+emission remain separate gates.
+
+## BD-041: activate Smoke simulation before terrain and rendering
+
+Status: accepted on 2026-07-28.
+
+The bounded production `Smoke.cpp` build now executes the original non-land
+`fou_EVCMD_START`, `fou_EVC_MOVING` and `onHide` paths. Startup resolves and
+validates the real retail `Smoke.Attr.Trace` without creating blobs. Isolated
+and retail-service gates create a real subject, prove that START queued a MOVE,
+execute one positive-delta MOVE, verify position/phase evolution and then
+remove the subject through the original hide-on-next-MOVE contract. Each
+scheduled event is removed explicitly during the probe, so the test leaves no
+hidden work in the queue. Subject readiness is published from the active
+simulation build plus the side-effect-free attribute contract.
+
+Terrain-dependent attributes still fail closed in the bounded owner until the
+real drawable scene is passed into the Arena lifecycle explicitly. Draw,
+render and land-dynamic callbacks remain compile-gated; the unrestricted
+`Smoke.cpp` archive continues to compile as their parity gate. This keeps the
+simulation boundary honest without making global `CViewScene::Current()` a
+startup prerequisite.
+
+Before accepting a START, production now validates the fixed four-blob bound,
+positive lifetime/radius, the historical `> 0.002` time-step contract and all
+random coefficient ranges. Missing or invalid attributes remove the newly
+created subject without scheduling work. Pool reuse resets the complete
+transient `SmokeData`, all blobs and view-object visibility, closing the stale
+state path that constructor-only initialization could not cover. Gradient
+alpha lifetime calculation also handles a linear coefficient and selects the
+smallest positive quadratic root without division by zero.
+
+The event-kernel `removeEvent()` return value now reflects an actual removal;
+the queue behavior itself is unchanged. The focused test uses that contract to
+prove both scheduled MOVEs and rollback for missing, on-land, five-blob and
+too-small-timestep attributes over two reconstructed seances. The versioned
+subject fingerprint is `5282691061579441721`. The real lifecycle is also run
+after service initialization for every available retail Level, keeping
+production startup from consuming the legacy process-global `rand()` sequence.
+The current host passes all nine installed Levels in Debug and Release; the
+mounted-image half remains to be repeated when `G:` is mounted again. Rendering
+and terrain are the next Smoke boundary; Smoker MOVE/emission follows only
+after a visible Smoke can attach and detach from the recovered scene
+transactionally.

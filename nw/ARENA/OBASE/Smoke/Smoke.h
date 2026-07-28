@@ -108,6 +108,7 @@ class Smoke :	public ct_Subject,
 {
 
 	void setSmokeAttr();
+    void resetTransientState();
  
 public:
     

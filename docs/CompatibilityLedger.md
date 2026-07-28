@@ -910,9 +910,9 @@ Status vocabulary:
   require `index < m_maxObjectQnty`, and verify all four blobs in the repeated
   create/remove lifecycle probe. No serialized source field or retail formula
   is changed.
-- Revisit when: START/MOVE is admitted; add emission evolution and
-  save/load reconstruction coverage before relying on these defaults in a
-  visible frame.
+- Revisit when: visible rendering is admitted; START/MOVE evolution and pool
+  reuse are now covered, while save/load reconstruction must still be proved
+  before relying on these defaults across a restored game.
 
 ### CQ-067: retail Smoke visuals form one atomic three-file resource set
 
@@ -941,6 +941,39 @@ Status vocabulary:
   same source under the bounded subject definition.
 - Revisit when: class registration becomes explicit/dynamic; retain stable
   ordering and table-name identity for diagnostics and saves.
+
+### CQ-069: Smoke START trusted attributes beyond its fixed storage
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `FAIL_CLOSED_RUNTIME_CONTRACT`.
+- Evidence: `Smoke::onCreate()` iterated `m_maxBlob` but stored into the fixed
+  four-entry `m_blob` array even after `addBlob()` returned `-1`. START also
+  dereferenced a missing attribute, accepted a non-positive scheduling step,
+  and the gradient lifetime formula divided by `2*tA` without handling the
+  linear case. A reused pool slot reset only a subset of serialized/transient
+  state.
+- Handling: validate every simulation-critical attribute before mutation,
+  reject terrain-dependent START until the scene boundary is active, stop on
+  any failed blob allocation, handle linear/quadratic positive roots, and
+  reset all transient/blob/view state on every add notification. Verify queued
+  MOVE creation and cancellation through the corrected `removeEvent()` result.
+- Revisit when: terrain/render and save/load are connected; retain the same
+  validation and prove full rollback with a live land dynamic and serialized
+  in-flight smoke.
+
+### CQ-070: a startup Smoke probe would consume gameplay randomness
+
+- Status: `COMPATIBILITY_SIDE_EFFECT_AVOIDED`.
+- Evidence: every Smoke blob calls `SimulationContext::rnd_*`, which delegates
+  directly to the process-global C `rand()` state. The runtime has no portable
+  getter/restore operation for that state, and scene/bush/gameplay code shares
+  the same generator. Running a lifecycle probe during normal initialization
+  would therefore shift later legacy behavior despite leaving no objects.
+- Handling: production startup performs only pure table/attribute validation.
+  Execute the real START/MOVE/hide/remove probe in isolated CTest and after
+  retail-service initialization, where the context is torn down and its PRNG
+  side effect cannot escape into a played session.
+- Revisit when: SimulationContext owns an explicit serializable PRNG; at that
+  point checkpoint/restore the generator around probes and replay tests.
 
 ## Maintenance rule
 

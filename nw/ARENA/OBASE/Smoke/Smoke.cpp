@@ -19,6 +19,11 @@
 #include "h/cachesmoke.h"
 #include "h/phisics.h"
 
+#if defined(RR2NW_SMOKE_SUBJECT_ONLY) || \
+    defined(RR2NW_SMOKE_SIMULATION_ONLY)
+#define RR2NW_SMOKE_RENDER_DISABLED
+#endif
+
 #ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
  //===========================================================================
 class AttributeSmoke : public ct_Attribute
@@ -219,6 +224,21 @@ static AttributeTableSmoke __attrTable;
 #else
 #define __attrTable __attrSmokeTable
 #endif
+
+static bool SmokeAttributeCanSimulate(const AttributeSmoke *attr)
+{
+    return attr != NULL && attr->m_maxBlob > 0 &&
+           attr->m_maxBlob <= Smoke::MAXSMOKEBLOB &&
+           attr->m_timeIncrement > 0.002 &&
+           attr->m_maxTimeLife > 0 && attr->m_radius > 0 &&
+           attr->m_minDirInc <= attr->m_maxDirInc &&
+           attr->m_minRA <= attr->m_maxRA &&
+           attr->m_minRB <= attr->m_maxRB &&
+           attr->m_minRC <= attr->m_maxRC &&
+           attr->m_minTA <= attr->m_maxTA &&
+           attr->m_minTB <= attr->m_maxTB &&
+           attr->m_minTC <= attr->m_maxTC;
+}
  /*********************************
   *
   *   Smoke implementation
@@ -228,6 +248,11 @@ static AttributeTableSmoke __attrTable;
  //============================================================
 Smoke::Smoke()
  {
+    resetTransientState();
+ }
+
+void Smoke::resetTransientState()
+ {
     m_smokeAttrID = KR_ObjectID::NUL();
     m_viewIter = 0;
     m_pos = CFVector3(0,0,0);
@@ -235,6 +260,11 @@ Smoke::Smoke()
     m_setRemove = 0;
     m_attr = 0;
     m_cnt  = 0;
+    m_viewObj.m_master = this;
+    m_viewObj.m_visible = false;
+    m_viewObj.m_z = 0;
+    for( int i = 0; i < MAXSMOKEBLOB; ++i )
+         m_blob[i] = SmokeBlob();
  }
 
  //============================================================
@@ -251,10 +281,14 @@ void Smoke::onHide(double)
 
 void Smoke::setSmokeAttr()
 {
+	m_attr = NULL;
 	ct_Attribute *attr = __attrTable.searchAttribute(m_smokeAttrID);
     if( attr==NULL )
+	{
+		const char *name = context->searchObject(m_smokeAttrID);
 		echo( "Smoke::receiveEvent: Unknown attribute %s",
-		context->searchObject(m_smokeAttrID));
+		      name == NULL ? "<missing>" : name);
+	}
 	else 
 		m_attr = (AttributeSmoke*)attr;
 }
@@ -298,6 +332,8 @@ int Smoke::receiveEvent( KR_Event &event )
             {
             //KR_ObjectID oID;
 
+            resetTransientState();
+
             event.data.open(EDO_READ)
                         .getObjectID(m_smokeAttrID)
                         .getDouble(m_pos.x)
@@ -312,6 +348,18 @@ int Smoke::receiveEvent( KR_Event &event )
             if( m_attr == NULL ) return 0;
             m_prevTimeStamp = event.timeStamp;
 #else
+            if( !SmokeAttributeCanSimulate(m_attr) )
+            {
+                 context->removeObject(getObjectID());
+                 break;
+            }
+#ifdef RR2NW_SMOKE_SIMULATION_ONLY
+            if( m_attr->m_onLand )
+            {
+                 context->removeObject(getObjectID());
+                 break;
+            }
+#else
             if(  m_attr->m_onLand  )
             {
                  double height;
@@ -319,6 +367,7 @@ int Smoke::receiveEvent( KR_Event &event )
                  CViewScene::Current()->GetTerrain()->GetPlane(m_pos,normal,height);
                  m_pos.y = height;
             }
+#endif
             m_prevTimeStamp  = event.timeStamp;
             onCreate();
 
@@ -334,6 +383,8 @@ int Smoke::receiveEvent( KR_Event &event )
             KR_ObjectID oID;
             CFVector3   dir;
 
+            resetTransientState();
+
             event.data.open(EDO_READ)
                         .getObjectID(oID)
                         .getDouble(m_pos.x)
@@ -346,8 +397,11 @@ int Smoke::receiveEvent( KR_Event &event )
 
             ct_Attribute *attr = __attrTable.searchAttribute(oID);
             if( attr==NULL )
+            {
+                 const char *name = context->searchObject(oID);
                  echo( "Smoke::receiveEvent: Unknown attribute %s",
-                       context->searchObject(oID));
+                       name == NULL ? "<missing>" : name);
+            }
             else m_attr = (AttributeSmoke*)attr;
 
             m_viewIter = MAX_ITER_WAIT;
@@ -356,6 +410,19 @@ int Smoke::receiveEvent( KR_Event &event )
             m_smokeAttrID = oID;
             m_prevTimeStamp = event.timeStamp;
 #else
+            m_smokeAttrID = oID;
+            if( !SmokeAttributeCanSimulate(m_attr) )
+            {
+                 context->removeObject(getObjectID());
+                 break;
+            }
+#ifdef RR2NW_SMOKE_SIMULATION_ONLY
+            if( m_attr->m_onLand )
+            {
+                 context->removeObject(getObjectID());
+                 break;
+            }
+#else
             if(  m_attr->m_onLand  )
             {
                  double height;
@@ -363,6 +430,7 @@ int Smoke::receiveEvent( KR_Event &event )
                  CViewScene::Current()->GetTerrain()->GetPlane(m_pos,normal,height);
                  m_pos.y = height;
             }
+#endif
             m_prevTimeStamp  = event.timeStamp;
             onCreate( dir );
 
@@ -382,7 +450,7 @@ int Smoke::receiveEvent( KR_Event &event )
  //============================================================
 void s_SmokeObject::prepareToRender()
 {
-#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+#ifdef RR2NW_SMOKE_RENDER_DISABLED
     m_visible = false;
 #else
     int cnt = m_master->m_cnt;
@@ -414,11 +482,7 @@ void s_SmokeObject::prepareToRender()
 void Smoke::addNotify()
  {
     ct_Subject::addNotify();
-    // insert your code this
-    m_viewObj.m_master = this;
-    m_attr = 0;
-    m_cnt  = 0;
-    m_setRemove = 0;
+    resetTransientState();
  }
 
  //============================================================
@@ -431,7 +495,7 @@ void Smoke::removeNotify()
  //============================================================
 void Smoke::draw()
  {
-#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+#ifdef RR2NW_SMOKE_RENDER_DISABLED
      return;
 #else
      if(  m_cnt <= 0  )
@@ -583,7 +647,7 @@ void s_SmokeObject::Draw()
  //============================================================
 void Smoke::render( CViewDynamicList &list, double )
 {
-#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+#ifdef RR2NW_SMOKE_RENDER_DISABLED
      (void)list;
 #else
      m_viewIter = MAX_ITER_WAIT;
@@ -597,7 +661,7 @@ void Smoke::render( CViewDynamicList &list, double )
  //============================================================
 void Smoke::endRender( CViewScene *scene )
 {
-#ifdef RR2NW_SMOKE_SUBJECT_ONLY
+#ifdef RR2NW_SMOKE_RENDER_DISABLED
      (void)scene;
 #else
      if(  m_viewObj.m_visible  )
@@ -683,13 +747,22 @@ void Smoke::preCreate( SmokeBlob &b )
    if(  m_attr->m_isColorGradient  )
    {
         double d = b.tB*b.tB-4*b.tA*b.tC;
-        if(  d >= 0  )
+        if(  fabs(b.tA) > 1.0e-12  )
         {
-             double sqd = sqrt(d);
-             double t0 = (-b.tB-sqd)/(2*b.tA);
-             double t1 = (-b.tB+sqd)/(2*b.tA);
-             if(  t1 > 0  && t1 < t0  )
-                  t0 = t1;
+             if(  d >= 0  )
+             {
+                  double sqd = sqrt(d);
+                  double t0 = (-b.tB-sqd)/(2*b.tA);
+                  double t1 = (-b.tB+sqd)/(2*b.tA);
+                  if(  t0 <= 0 || (t1 > 0 && t1 < t0)  )
+                       t0 = t1;
+                  if(  t0 > 0  )
+                       b.m_maxTimeLife = t0;
+             }
+        }
+        else if(  fabs(b.tB) > 1.0e-12  )
+        {
+             double t0 = -b.tC/b.tB;
              if(  t0 > 0  )
                   b.m_maxTimeLife = t0;
         }
@@ -716,6 +789,8 @@ void Smoke::onCreate()
     for( int i = 0; i < m_attr->m_maxBlob; ++i )
     {
          int num = addBlob();
+         if(  num < 0  )
+              break;
          SmokeBlob &b = m_blob[num];
 
 
@@ -748,6 +823,8 @@ void Smoke::onCreate( const CFVector3 &dir )
     for( int i = 0; i < m_attr->m_maxBlob; ++i )
     {
          int num = addBlob();
+         if(  num < 0  )
+              break;
          SmokeBlob &b = m_blob[num];
 
          preCreate(b);
@@ -964,6 +1041,12 @@ unsigned long long SmokeSubjectState_Fingerprint(SimulationContext *context)
     SmokeSubjectHashBytes(hash, &capacity, sizeof(capacity));
     const int rendering = __classTable.isRendering() ? 1 : 0;
     SmokeSubjectHashBytes(hash, &rendering, sizeof(rendering));
+#ifdef RR2NW_SMOKE_SIMULATION_ONLY
+    const int simulation = 1;
+#else
+    const int simulation = 0;
+#endif
+    SmokeSubjectHashBytes(hash, &simulation, sizeof(simulation));
     return hash;
 }
 
@@ -1007,5 +1090,113 @@ bool SmokeSubjectState_ProbeLifecycle(SimulationContext *context)
     context->removeObject(object);
     return initialized && !context->isExist(kProbeName) &&
            SmokeSubjectState_LiveCount() == 0;
+}
+
+bool SmokeSubjectState_ProbeSimulationLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp)
+{
+    if (!SmokeSubjectState_SimulationSupported(context, attributeName) ||
+        SmokeSubjectState_LiveCount() != 0)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoke *attribute = static_cast<AttributeSmoke *>(
+        __attrTable.searchAttribute(attributeID));
+
+    static const char kProbeName[] = "Smoke.Simulation.Probe";
+    if (context->isExist(kProbeName))
+        return false;
+    KR_ObjectID object =
+        g_arena.newObject(__classTable.getClassTableID(), kProbeName);
+    Smoke *smoke = static_cast<Smoke *>(__classTable.findFirstSubject());
+    if (object.isNUL() || smoke == NULL || smoke->getObjectID() != object ||
+        SmokeSubjectState_LiveCount() != 1)
+    {
+        if (!object.isNUL())
+            context->removeObject(object);
+        return false;
+    }
+
+    const CFVector3 position(17.0, 3.0, -19.0);
+    KR_Event event;
+    event.label = fou_EVCMD_START;
+    event.source = g_arena.getObjectID();
+    event.destination = object;
+    event.timeStamp = timeStamp < 0.1 ? 0.1 : timeStamp;
+    const double startTimeStamp = event.timeStamp;
+    event.data.open(EDO_WRITE)
+              .putObjectID(attributeID)
+              .putDouble(position.x)
+              .putDouble(position.y)
+              .putDouble(position.z)
+            .close();
+    context->sendEventNow(event);
+
+    bool blobsStarted = context->isExist(kProbeName) &&
+                        smoke->m_cnt == attribute->m_maxBlob;
+    for (int i = 0; blobsStarted && i < smoke->m_cnt; ++i)
+    {
+        const SmokeBlob &blob = smoke->m_blob[i];
+        blobsStarted = blob.m_phase == 0 && blob.m_radius > 0 &&
+                       blob.m_alpha > 0 &&
+                       blob.m_maxTimeLife > 0;
+    }
+    const bool started = blobsStarted && smoke->m_attr == attribute &&
+                         smoke->m_smokeAttrID == attributeID &&
+                         smoke->m_pos == position &&
+                         smoke->m_prevTimeStamp == startTimeStamp &&
+                         smoke->m_setRemove == 0;
+    const bool firstMoveScheduled =
+        context->removeEvent(fou_EVC_MOVING, object) != 0;
+    if (!started || !firstMoveScheduled)
+    {
+        context->removeEvent(fou_EVC_MOVING, object);
+        if (context->isExist(kProbeName))
+            context->removeObject(object);
+        return false;
+    }
+
+    const CFVector3 previousPosition = smoke->m_blob[0].m_position;
+    event.label = fou_EVC_MOVING;
+    event.source = object;
+    event.destination = object;
+    event.timeStamp = startTimeStamp + attribute->m_timeIncrement;
+    const double moveTimeStamp = event.timeStamp;
+    context->sendEventNow(event);
+    const bool moved = context->isExist(kProbeName) && smoke->m_cnt > 0 &&
+                       smoke->m_blob[0].m_phase > 0 &&
+                       smoke->m_blob[0].m_position != previousPosition &&
+                       smoke->m_prevTimeStamp == moveTimeStamp;
+    const bool secondMoveScheduled =
+        context->removeEvent(fou_EVC_MOVING, object) != 0;
+    if (!moved || !secondMoveScheduled)
+    {
+        context->removeEvent(fou_EVC_MOVING, object);
+        if (context->isExist(kProbeName))
+            context->removeObject(object);
+        return false;
+    }
+
+    smoke->onHide(event.timeStamp);
+    event.timeStamp += attribute->m_timeIncrement;
+    context->sendEventNow(event);
+    return !context->isExist(kProbeName) &&
+           SmokeSubjectState_LiveCount() == 0 &&
+           context->removeEvent(fou_EVC_MOVING, object) == 0;
+}
+
+bool SmokeSubjectState_SimulationSupported(
+    SimulationContext *context, const char *attributeName)
+{
+    const int capacity = SmokeSubjectState_Capacity();
+    if (!SmokeSubjectState_TableReady(context, capacity) ||
+        attributeName == NULL || attributeName[0] == 0)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoke *attribute = attributeID.isNUL()
+        ? NULL
+        : static_cast<AttributeSmoke *>(
+              __attrTable.searchAttribute(attributeID));
+    return SmokeAttributeCanSimulate(attribute) && !attribute->m_onLand;
 }
 /* End of file C:\NW\ARENA\OBASE\Smoke\Smoke.cpp */

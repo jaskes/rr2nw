@@ -298,14 +298,15 @@ Retail scripts нельзя молча копировать поверх source 
   transparent-color cache is a process-local table pointer and is explicitly
   excluded from content identity.
 
-### RP-SCRIPT-009: Smoke table and visual set complete Smoker runtime readiness
+### RP-SCRIPT-009: Smoke table, simulation and visuals complete resource readiness
 
 - Classification: `RETAIL_REQUIRED`; subject ownership and resource caches are
-  active, while Smoke/Smoker MOVE, terrain, light and drawing stay gated.
+  active. Non-land Smoke START/MOVE now executes, while Smoker MOVE/emission,
+  terrain, light and drawing stay gated.
 - Every admitted May `localmain.sci` creates `Smoke` with capacity 300. The
-  original class table is now present before seance creation, and a repeated
-  real create/remove proof publishes stable identity
-  `11870427327380980520` only after the pool returns empty.
+  original class table is now present before seance creation. A repeated real
+  START/queued-MOVE/hide/remove proof publishes the versioned stable identity
+  `5282691061579441721` only after the pool and event queue return empty.
 - Retail visuals are the atomic set `smoke.spr`, `flame.spr` and `corona.spr`.
   Each is exactly 256x256 with a five-byte SPR header and one byte per pixel.
   The canonical fingerprint is `15830240760157492622` for eight Levels;

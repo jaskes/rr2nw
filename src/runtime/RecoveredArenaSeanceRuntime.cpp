@@ -910,9 +910,11 @@ bool PublishSmokeSubject(SimulationContext* context) {
     return false;
   }
   if (!SmokeSubjectState_ProbeLifecycle(context) ||
+      !SmokeSubjectState_SimulationSupported(
+          context, "Smoke.Attr.Trace") ||
       SmokeSubjectState_LiveCount() != 0) {
     Report(RECOVERED_ARENA_SEANCE_SMOKE_SUBJECT_LIFECYCLE_FAILURE,
-           "Smoke create/remove lifecycle probe failed");
+           "Smoke simulation prerequisites are invalid");
     return false;
   }
   const unsigned long long fingerprint =

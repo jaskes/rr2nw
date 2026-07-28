@@ -330,6 +330,11 @@ bool RunCycle(bool expectVisualResources) {
   KR_ObjectID artefact = context.searchObject("Artefact.Attr.0");
   KR_ObjectID flash = context.searchObject("Spark.Flash");
   KR_ObjectID smoke = context.searchObject("Smoke.Attr.Small");
+  const bool smokeSimulation =
+      SmokeSubjectState_SimulationSupported(
+          &context, "Smoke.Attr.Trace") &&
+      SmokeSubjectState_ProbeSimulationLifecycle(
+          &context, "Smoke.Attr.Trace", Session::m_moment);
   KR_ObjectID explosion = context.searchObject("Expl.Test.0");
   AttributeExplosion* explosionAttribute =
       explosion.isNUL()
@@ -344,6 +349,7 @@ bool RunCycle(bool expectVisualResources) {
       BirdAttributeState_IsRetailDefault(bird) &&
       OrphanAttributeState_IsRetailDefault(orphan) &&
       ArtefactAttributeState_IsRetailDefault(artefact) &&
+      smokeSimulation && SmokeSubjectState_LiveCount() == 0 &&
       SmokeAttributeState_IsRetailRoster(&context) &&
       ExplosionAttributeState_IsKnownRoster(&context) &&
       ExplosionAttributeState_RosterSize(&context) == 10 &&
@@ -931,7 +937,8 @@ int main(int argc, char** argv) {
               "common_attrs=bird,orphan,artefact portal=table "
               "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
-               "smoke_subject=0/300 smoke_visual=resolved "
+               "smoke_subject=0/300 smoke_simulation=START-MOVE-remove "
+               "smoke_visual=resolved "
                "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
               "farter_attrs=0/10 lamp_attrs=10/10 corpse_attrs=2/3 "
               "farter_refs=resolved smoker_refs=resolved "

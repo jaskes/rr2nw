@@ -467,12 +467,18 @@ closed. Stable diagnostics preserve Level.02N's distinct corona identity and
 match installed/mounted roots.
 
 The focused subject test raises the matrix to 49/49 in Debug and Release. The
-next implementation step is deliberately behavioral rather than structural:
-exercise a controlled Smoke START/MOVE sequence against the real drawable
-scene, then restore Smoker MOVE, terrain placement, land-dynamic ownership,
-light/corona updates and visible draw callbacks in rollback-tested slices.
-`SoundObj` remains a separate dependency boundary before the heavier
-People/Tank/Taxi/Bullet graph.
+non-land behavioral step is now complete: production executes a controlled
+Smoke START, proves both scheduled MOVE events, advances real blob phase and
+position, and removes through the original hide-on-MOVE path without leaving
+an object or event behind. Invalid/missing, on-land and five-blob starts fail
+closed, and pooled reuse resets the complete transient object.
+
+The next implementation step is the visible scene boundary: bind on-land
+placement to the already recovered drawable `CViewScene`, attach one live
+Smoke view object to the land-dynamic list, draw it from the resolved sprite
+cache, and prove full detachment/rollback. Only then restore Smoker MOVE and
+Smoke emission, followed by light/corona updates. `SoundObj` remains a
+separate dependency boundary before the heavier People/Tank/Taxi/Bullet graph.
 
 ### Цель
 
