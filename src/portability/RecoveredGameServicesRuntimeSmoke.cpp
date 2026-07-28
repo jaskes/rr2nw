@@ -7,6 +7,7 @@
 #include "dmap.h"
 #include "graph.h"
 #include "hardware.h"
+#include "h/cachesmoke.h"
 #include "h/light.h"
 #include "h/super.h"
 #include "h/vehicle.h"
@@ -17,6 +18,7 @@
 #include "message/smokermsg.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
+#include "obase/bullet/BulletAttributeState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
@@ -48,11 +50,65 @@
 
 namespace {
 
+const unsigned long long kBulletCacheHashOffset = 14695981039346656037ull;
+const unsigned long long kBulletCacheHashPrime = 1099511628211ull;
+
 void (*g_originalAlphaSprite)(SGRAlphaSprite*) = nullptr;
 GR_HTEXTURE g_expectedAlphaTexture = nullptr;
 int g_alphaSpriteDraws = 0;
 bool g_alphaSpriteDrawValid = true;
 SGRAlphaSprite g_lastAlphaSprite = {};
+
+void HashBulletCacheBytes(unsigned long long& hash, const void* data,
+                          int size) {
+  const unsigned char* bytes = static_cast<const unsigned char*>(data);
+  for (int index = 0; index < size; ++index) {
+    hash ^= bytes[index];
+    hash *= kBulletCacheHashPrime;
+  }
+}
+
+bool HashBulletCache(KR_ObjectID objectID, void* user) {
+  unsigned long long* hash = static_cast<unsigned long long*>(user);
+  AttributeBullet* attribute = static_cast<AttributeBullet*>(
+      __bulletAttrTable.searchAttribute(objectID));
+  if (attribute == nullptr) return false;
+#define RR2NW_HASH_BULLET_CACHE(field) \
+  HashBulletCacheBytes(*hash, &attribute->field, sizeof(attribute->field))
+  RR2NW_HASH_BULLET_CACHE(m_cacheImage);
+  RR2NW_HASH_BULLET_CACHE(m_cacheImageFront);
+  RR2NW_HASH_BULLET_CACHE(m_wav);
+  RR2NW_HASH_BULLET_CACHE(m_ctsndID);
+  RR2NW_HASH_BULLET_CACHE(m_colorGrad);
+  RR2NW_HASH_BULLET_CACHE(m_smokeTableID);
+  RR2NW_HASH_BULLET_CACHE(m_smokeAttrID);
+  RR2NW_HASH_BULLET_CACHE(m_cacheSparkAttrTable);
+  RR2NW_HASH_BULLET_CACHE(m_cacheSparkTable);
+  RR2NW_HASH_BULLET_CACHE(m_cacheColor);
+  RR2NW_HASH_BULLET_CACHE(m_cacheSparkAttr);
+  RR2NW_HASH_BULLET_CACHE(m_cacheOutSparkAttr);
+  RR2NW_HASH_BULLET_CACHE(m_cacheSplashAttr);
+  RR2NW_HASH_BULLET_CACHE(m_cacheExplAttr);
+  RR2NW_HASH_BULLET_CACHE(m_cacheExplosionTable);
+  RR2NW_HASH_BULLET_CACHE(m_cacheSkin);
+#undef RR2NW_HASH_BULLET_CACHE
+  return true;
+}
+
+unsigned long long BulletCacheFingerprint() {
+  unsigned long long hash = kBulletCacheHashOffset;
+  __bulletAttrTable.userFind(HashBulletCache, &hash);
+  return hash;
+}
+
+bool FindFirstBullet(KR_ObjectID objectID, void* user) {
+  AttributeBullet** result = static_cast<AttributeBullet**>(user);
+  if (*result == nullptr) {
+    *result = static_cast<AttributeBullet*>(
+        __bulletAttrTable.searchAttribute(objectID));
+  }
+  return true;
+}
 
 void CaptureAlphaSprite(SGRAlphaSprite* sprite) {
   if (sprite != nullptr && sprite->hTexture == g_expectedAlphaTexture) {
@@ -92,7 +148,7 @@ int Fail(const char* message) {
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d "
-      "vehicle_attrs=%d taxi=%d taxi_refs=%d smoker=%d "
+      "vehicle_attrs=%d taxi=%d taxi_refs=%d bullet=%d bullet_refs=%d smoker=%d "
       "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
       "farter=%d lamp=%d corpse=%d corpse_subject=%d "
       "wav=%d sound=%d skin=%d spark=%d "
@@ -117,6 +173,8 @@ int Fail(const char* message) {
       RecoveredGameServices_VehicleAttributesReady() ? 1 : 0,
       RecoveredGameServices_TaxiAttributesReady() ? 1 : 0,
       RecoveredGameServices_TaxiReferencesReady() ? 1 : 0,
+      RecoveredGameServices_BulletAttributesReady() ? 1 : 0,
+      RecoveredGameServices_BulletReferencesReady() ? 1 : 0,
       RecoveredGameServices_SmokerAttributesReady() ? 1 : 0,
       RecoveredGameServices_DynSmokerReady() ? 1 : 0,
       RecoveredGameServices_SmokerEmissionReady() ? 1 : 0,
@@ -175,6 +233,14 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_TaxiAttributeCapacity() == 0 &&
          RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 &&
          RecoveredArenaSeance_TaxiReferenceFingerprint() == 0 &&
+         !RecoveredGameServices_BulletAttributesReady() &&
+         !RecoveredGameServices_BulletReferencesReady() &&
+         !RecoveredGameServices_BulletSubjectRegistrationReady() &&
+         RecoveredArenaSeance_BulletAttributeCount() == -1 &&
+         RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
+         RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
+         RecoveredArenaSeance_BulletReferenceFingerprint() == 0 &&
+         RecoveredArenaSeance_BulletSubjectCapacity() == 0 &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
          !RecoveredGameServices_SmokerRuntimeReady() &&
@@ -216,6 +282,8 @@ bool IsServiceReleased() {
          SoundObjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
+         !RecoveredGameServices_SparkSubjectReady() &&
+         RecoveredArenaSeance_SparkSubjectCapacity() == 0 &&
          !RecoveredGameServices_RouteReady() &&
          !RecoveredGameServices_VehicleReady() &&
          !RecoveredArenaSeance_IsOpen() && g_vehicle == nullptr &&
@@ -559,6 +627,7 @@ bool ExerciseVisibleSmokerLightCorona() {
 
 bool ValidateReferenceTransaction(
     unsigned long long taxiReferenceFingerprint,
+    unsigned long long bulletReferenceFingerprint,
     unsigned long long smokerReferenceFingerprint,
     unsigned long long farterReferenceFingerprint,
     unsigned long long corpseReferenceFingerprint) {
@@ -592,6 +661,31 @@ bool ValidateReferenceTransaction(
       !TaxiAttributeState_ResolveReferences(g_super.m_context) ||
       TaxiAttributeState_ReferenceFingerprint(g_super.m_context) !=
           taxiReferenceFingerprint)
+    return false;
+
+  AttributeBullet* bullet = nullptr;
+  __bulletAttrTable.userFind(FindFirstBullet, &bullet);
+  if (bullet == nullptr || bullet->m_smokeAttrID.isNUL()) return false;
+  char bulletSmokeName[sizeof(bullet->m_smokeAttrName)] = {};
+  std::memcpy(bulletSmokeName, bullet->m_smokeAttrName,
+              sizeof(bulletSmokeName));
+  const unsigned long long bulletCacheFingerprint =
+      BulletCacheFingerprint();
+  const int textureCheckpoint = SmokeTextureCache_Checkpoint();
+  std::strncpy(bullet->m_smokeAttrName, "Smoke.Attr.Missing",
+               sizeof(bullet->m_smokeAttrName) - 1);
+  bullet->m_smokeAttrName[sizeof(bullet->m_smokeAttrName) - 1] = 0;
+  const bool bulletRejected =
+      !BulletAttributeState_ResolveReferences(g_super.m_context) &&
+      BulletCacheFingerprint() == bulletCacheFingerprint &&
+      SmokeTextureCache_Checkpoint() == textureCheckpoint;
+  std::memcpy(bullet->m_smokeAttrName, bulletSmokeName,
+              sizeof(bulletSmokeName));
+  if (!bulletRejected ||
+      !BulletAttributeState_ResolveReferences(g_super.m_context) ||
+      !BulletAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
+      BulletAttributeState_ReferenceFingerprint(g_super.m_context) !=
+          bulletReferenceFingerprint)
     return false;
 
   KR_ObjectID smokerObjectID =
@@ -751,6 +845,9 @@ int main(int argc, char** argv) {
        !RecoveredGameServices_VehicleAttributesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
+       !RecoveredGameServices_BulletAttributesReady() ||
+       !RecoveredGameServices_BulletReferencesReady() ||
+       !RecoveredGameServices_BulletSubjectRegistrationReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
@@ -768,6 +865,8 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SoundObjectReady() ||
       !RecoveredGameServices_SkinResourcesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
+      !RecoveredGameServices_SparkSubjectReady() ||
+      RecoveredArenaSeance_SparkSubjectCapacity() != 40 ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||
@@ -826,6 +925,15 @@ int main(int argc, char** argv) {
   const int taxiRosterSize =
       TaxiAttributeState_RosterSize(g_super.m_context);
   const int taxiCapacity = TaxiAttributeState_Capacity();
+  const unsigned long long bulletFingerprint =
+      BulletAttributeState_Fingerprint(g_super.m_context);
+  const unsigned long long bulletReferenceFingerprint =
+      BulletAttributeState_ReferenceFingerprint(g_super.m_context);
+  const int bulletRosterSize =
+      BulletAttributeState_RosterSize(g_super.m_context);
+  const int bulletCapacity = BulletAttributeState_Capacity();
+  const int bulletSubjectCapacity =
+      BulletAttributeState_SubjectCapacity();
   const unsigned long long vehicleAttributeFingerprint =
       VehicleAttributeState_Fingerprint(g_super.m_context);
   const int vehicleAttributeRosterSize =
@@ -923,6 +1031,23 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TaxiAttributeFingerprint() != taxiFingerprint ||
       RecoveredArenaSeance_TaxiReferenceFingerprint() !=
           taxiReferenceFingerprint ||
+      bulletFingerprint == 0 || bulletReferenceFingerprint == 0 ||
+      bulletRosterSize < 3 || bulletRosterSize > 15 ||
+      bulletCapacity != bulletRosterSize ||
+      (bulletSubjectCapacity != 50 && bulletSubjectCapacity != 100 &&
+       bulletSubjectCapacity != 250) ||
+      !BulletAttributeState_SubjectTableReady(g_super.m_context) ||
+      !BulletAttributeState_IsKnownRoster(g_super.m_context) ||
+      !BulletAttributeState_ReferencesResolved(g_super.m_context) ||
+      !BulletAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
+      RecoveredArenaSeance_BulletAttributeCount() != bulletRosterSize ||
+      RecoveredArenaSeance_BulletAttributeCapacity() != bulletCapacity ||
+      RecoveredArenaSeance_BulletAttributeFingerprint() !=
+          bulletFingerprint ||
+      RecoveredArenaSeance_BulletReferenceFingerprint() !=
+          bulletReferenceFingerprint ||
+      RecoveredArenaSeance_BulletSubjectCapacity() !=
+          bulletSubjectCapacity ||
       vehicleAttributeFingerprint == 0 ||
       vehicleAttributeRosterSize < 3 || vehicleAttributeRosterSize > 9 ||
       vehicleAttributeCapacity < vehicleAttributeRosterSize ||
@@ -995,12 +1120,14 @@ int main(int argc, char** argv) {
     return Fail("level-aware Arena subject/attribute roster is invalid");
   }
   if (!ValidateReferenceTransaction(taxiReferenceFingerprint,
+                                    bulletReferenceFingerprint,
                                     smokerReferenceFingerprint,
                                     farterReferenceFingerprint,
                                     corpseReferenceFingerprint)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("Smoker/Farter/Corpse reference transaction was not atomic");
+    return Fail("Taxi/Bullet/Smoker/Farter/Corpse reference transaction "
+                "was not atomic");
   }
   const SRecoveredObserverState observerBefore = *observer;
   if (!SendHardwareButton("W", TRUE)) {
@@ -1075,6 +1202,21 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TaxiAttributeFingerprint() != taxiFingerprint ||
       RecoveredArenaSeance_TaxiReferenceFingerprint() !=
           taxiReferenceFingerprint ||
+      BulletAttributeState_Fingerprint(g_super.m_context) !=
+          bulletFingerprint ||
+      BulletAttributeState_RosterSize(g_super.m_context) !=
+          bulletRosterSize ||
+      BulletAttributeState_Capacity() != bulletCapacity ||
+      BulletAttributeState_SubjectCapacity() != bulletSubjectCapacity ||
+      !BulletAttributeState_ReferencesResolved(g_super.m_context) ||
+      BulletAttributeState_ReferenceFingerprint(g_super.m_context) !=
+          bulletReferenceFingerprint ||
+      RecoveredArenaSeance_BulletAttributeFingerprint() !=
+          bulletFingerprint ||
+      RecoveredArenaSeance_BulletReferenceFingerprint() !=
+          bulletReferenceFingerprint ||
+      RecoveredArenaSeance_BulletSubjectCapacity() !=
+          bulletSubjectCapacity ||
       VehicleAttributeState_Fingerprint(g_super.m_context) !=
           vehicleAttributeFingerprint ||
       VehicleAttributeState_RosterSize(g_super.m_context) !=
@@ -1180,6 +1322,8 @@ int main(int argc, char** argv) {
               "explosion_attrs=%d explosion_fingerprint=%llu "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
+              "bullet_attrs=%d/%d bullet_fingerprint=%llu "
+              "bullet_refs=%llu bullet_subject=0/%d-registration "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
@@ -1206,6 +1350,8 @@ int main(int argc, char** argv) {
               vehicleAttributeFingerprint,
               taxiRosterSize, taxiCapacity, taxiFingerprint,
               taxiReferenceFingerprint,
+              bulletRosterSize, bulletCapacity, bulletFingerprint,
+              bulletReferenceFingerprint, bulletSubjectCapacity,
               smokerRosterSize, smokerCapacity, smokerFingerprint,
               smokerReferenceFingerprint, smokerRuntimeReady ? 1 : 0,
               dynSmokerCapacity, dynSmokerFingerprint,

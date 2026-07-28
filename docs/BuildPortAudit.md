@@ -1820,6 +1820,50 @@ launches across the two May roots with 18/18 identical pairs, and 4/4 waited
 executable smokes. This does not activate `SET_TAXI.SCI`, Taxi or Corpse
 subjects, People/Tank/Bullet/Sound gameplay, or Vehicle's remaining caches.
 
+### Exact Bullet attributes and atomic dependency publication
+
+The legacy Bullet header cannot be used as a safe modern owner: it is a
+CP1251-era source file, mixes serializer state with rendering and gameplay, and
+its assertion-driven update writes caches while it resolves them. A shared
+`BulletAttributeState` now owns the same 41 implemented serializer items,
+initializes every transient cache deterministically and allocates the table with
+`nothrow` behavior. The legacy file itself remains byte-preserved.
+
+Production concatenates root `BULLET.SCI` with the selected
+`SCINC/bullet_loc.sci` and invokes `main_CreateBullets()`. Strict admission
+covers seven May raw roster identities and the separate public January fixture.
+The May count/capacity pairs are `11/11`, `10/10`, `12/12`, `15/15`, `14/14`,
+`12/12` and `3/3` across the paired/sequential Levels; associated Bullet table
+capacities are 50, 100, 100, 100, 100, 250 and 250. The public fixture is
+`4/4`, Bullet capacity 500.
+
+The resolver first validates all non-visual dependencies, color gradients and
+optional resources into temporary storage. It then takes a texture-catalog
+checkpoint, loads every required trace/front texture and commits only after the
+complete roster succeeds. Any failure restores the texture checkpoint and
+leaves all Bullet caches untouched. Known runtime fingerprints include stable
+symbolic dependency names and palette-resolved color values; actual readiness
+still compares the concrete handles, pointers, table IDs, ObjectIDs and indices.
+
+The required Spark subject table is no longer synthetic: every May
+`localmain.sci` declaration creates the original empty `Spark(40)` pool, with
+the dynamic-sprite implementation linked and zero live subjects required. The
+Bullet subject table preserves each retail capacity through a registration-only
+owner. It cannot render, emit audio or instantiate live objects, which prevents
+attribute recovery from accidentally activating incomplete projectile physics.
+
+Retail `massa` and `m_lifeTime` assignments are preserved as unknown exact-name
+serializer no-ops. The recovered field is named `m_massa`; there is no proven
+lifetime item. Corrupt name, missing source, tableless source, unresolved public
+fixture and live resolved-roster mutation tests cover complete rollback and
+reconstruction. Startup exposes raw/reference Bullet identities, both table
+contracts and dedicated extended issue bits.
+
+Final verification requires 51/51 CTest in both configurations, all 36 May
+service launches with 18/18 identical installed/disc summaries, and 4/4 waited
+executable smokes. Live Bullet motion, collision, damage, lifetime and trace
+drawing remain the next separate frontier.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1872,8 +1916,11 @@ subjects, People/Tank/Bullet/Sound gameplay, or Vehicle's remaining caches.
    Skin/VehicleAttr/Corpse names. Exact Level-local VehicleAttr now replaces
    the synthetic pair, the real empty `Corpse(100)` table is linked, and Taxi
    resolves all three dependency groups atomically with stable symbolic
-   identities. Vehicle's own Panel/Taxi/Bullet caches, remaining attribute
-   groups, Skin
+   identities. Exact BulletAttr rosters now resolve their Spark, Explosion,
+   Smoke, optional WAV/Skin and trace resources atomically; the original empty
+   `Spark(40)` pool and exact registration-only Bullet capacities are present.
+   Vehicle's own Panel/Taxi/Bullet caches, live Bullet subjects, remaining
+   attribute groups, Skin
    animation construction and remaining OBASE/script ABI bindings are still
    required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

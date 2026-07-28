@@ -4,6 +4,7 @@
  * Ver   1.0 
  */
 #include "Spark.h"
+#include <new>
 #include "kernel/h/context.h"
 #include "kernel/h/echo.h"
 #include "kernel/h/s_debug.h"
@@ -12,6 +13,7 @@
 #include "enum/spaceenum.h"
 #include "scene.h"
 #include "h/light.h"
+#include "SparkSubjectState.h"
 
 #ifdef  __TRACE_NW__
 #include "afxwin.h"
@@ -59,6 +61,8 @@ class SparkTable : public ct_SubjectTable
     virtual void       freeObjects ();
     virtual ct_Object *getObjectPTR( int index );
     virtual  bool      isRendering();
+    int                capacity() const { return m_maxObjectQnty; }
+    int                liveCount() const;
 };
 
 static SparkTable          __classTable;
@@ -208,7 +212,7 @@ CFVector3 Spark::realPosition()
  //============================================================
 void SparkTable::allocObjects( int objectQnty )
  {
-    m_table = new Spark[ objectQnty ];
+    m_table = new (std::nothrow) Spark[ objectQnty ];
 
     if(  m_table == NULL  )
          m_maxObjectQnty = 0;
@@ -225,7 +229,7 @@ void SparkTable::freeObjects()
  //============================================================
 ct_Object *SparkTable::getObjectPTR( int index )
  {
-    s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"SparkTable::getObjectPTR");
+    s_ASSERT( index >= 0 && index < m_maxObjectQnty ,"SparkTable::getObjectPTR");
     return &(m_table[ index ]);
  }
 
@@ -233,6 +237,49 @@ ct_Object *SparkTable::getObjectPTR( int index )
 bool SparkTable::isRendering()
  {
     return true;
+ }
+
+//============================================================
+int SparkTable::liveCount() const
+ {
+    int count = 0;
+    for( ct_Object *object = m_existList; object != NULL;
+         object = object->next() )
+         ++count;
+    return count;
+ }
+
+//============================================================
+void SparkSubjectState_Link()
+ {
+ }
+
+//============================================================
+bool SparkSubjectState_TableReady( SimulationContext *context,
+                                   int expectedCapacity )
+ {
+    if( context == NULL || expectedCapacity <= 0 ||
+        g_arena.getContext() != context )
+         return false;
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Spark");
+    return table != ct_NULLID &&
+           table == __classTable.getClassTableID() &&
+           __classTable.capacity() == expectedCapacity &&
+           __classTable.liveCount() == 0 &&
+           __classTable.isRendering();
+ }
+
+//============================================================
+int SparkSubjectState_Capacity()
+ {
+    return __classTable.capacity();
+ }
+
+//============================================================
+int SparkSubjectState_LiveCount()
+ {
+    return __classTable.liveCount();
  }
 
  //============================================================

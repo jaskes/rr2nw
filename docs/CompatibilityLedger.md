@@ -1325,6 +1325,67 @@ Status vocabulary:
   Extend the fingerprint and lifecycle proof to live content without treating
   the current empty roster as missing functionality.
 
+### CQ-091: Bullet update mixed assertion-heavy resolution with partial writes
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `REFERENCE_TRANSACTION`.
+- Evidence: the legacy Bullet owner resolves Spark, Explosion, Smoke, WAV,
+  Skin and trace resources inside `AttributeBullet::update()`, assigning cache
+  fields as it proceeds and relying on assertions. A late missing dependency or
+  texture failure can therefore abort or expose a partially updated object.
+- Handling: the extracted modern state owner preflights the complete roster,
+  checkpoints the renderer texture catalog and commits caches only after every
+  dependency succeeds. Both an unresolved source-only roster and a mutated
+  already-resolved May roster prove no partial field or texture change. The
+  encoding-sensitive legacy `BULLET.H` remains byte-preserved.
+- Revisit when: resource hot reload or live Bullet subjects can retain these
+  pointers across generations. Add an explicit generation/ownership contract
+  before permitting dependency replacement.
+
+### CQ-092: retail Bullet scripts write two unknown exact field names
+
+- Status: `CONFIRMED_RETAIL`, `EXACT_NAME_SERIALIZER_CONTRACT`.
+- Evidence: May `BULLET.SCI`/`bullet_loc.sci` assign `massa` and
+  `m_lifeTime`, but the recovered 41-item serializer exposes `m_massa` and no
+  lifetime item. Exact lookup therefore accepted neither historical spelling.
+- Handling: preserve both writes as serializer no-ops. Do not alias `massa` to
+  `m_massa` or add a guessed lifetime member; fingerprints cover only fields
+  the recovered class actually owns.
+- Revisit when: live projectile behavior can be compared against the May
+  executable. Add compatibility semantics only with code-layout or runtime
+  evidence, and version any resulting state/save-format change.
+
+### CQ-093: Spark is a real empty prerequisite; Bullet is registration-only
+
+- Status: `CONFIRMED_RETAIL`, `ACTIVATION_BOUNDARY`.
+- Evidence: every May `localmain.sci` declares `Spark(40)` and a Level-specific
+  Bullet capacity, while the admitted Bullet fragments create attributes but no
+  projectile subjects. Bullet dependencies nevertheless require both class
+  table names during reference resolution.
+- Handling: link the original Spark owner and dynamic-sprite base, require its
+  capacity-40 pool to contain zero live objects, and expose exact Bullet
+  capacity through a non-rendering/non-audible registration table. This
+  satisfies dependency identity without implying live ballistic behavior.
+  Spark allocation is made non-throwing and its `index <= capacity` assertion
+  is corrected to the valid half-open bound before production registration.
+- Revisit when: activate Bullet construction, motion, collision, damage,
+  lifetime, trace draw and removal together; then replace the registration-only
+  owner and extend lifecycle diagnostics.
+
+### CQ-094: Bullet runtime color identity is palette-dependent
+
+- Status: `DIAGNOSTIC_IDENTITY_CONTRACT`, `PALETTE_STATE_INCLUDED`.
+- Evidence: paired day/night Levels have byte-identical Bullet scripts and raw
+  fingerprints, but `GRCreateColor()` maps their RGB values through different
+  loaded palettes. The resulting cached color and 16-entry gradient are real
+  runtime state and produce distinct resolved identities.
+- Handling: raw identity remains source/state based; reference identity includes
+  resolved palette colors plus stable symbolic dependency names. Readiness
+  separately verifies concrete handles, pointers and indices. E/G copies of the
+  same Level must match, while D/N reference fingerprints need not.
+- Revisit when: the renderer moves away from the indexed software palette.
+  Preserve the legacy resolved-color contract as a compatibility path or
+  version the diagnostic identity when true-color output is introduced.
+
 ## Maintenance rule
 
 When a new quirk is found:

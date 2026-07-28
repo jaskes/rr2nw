@@ -18,6 +18,7 @@ class CGRPanel;
 #include "message/skinmsg.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
+#include "obase/bullet/BulletAttributeState.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
@@ -31,6 +32,7 @@ class CGRPanel;
 #include "obase/smoke/SmokeVisualState.h"
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "h/cachesmoke.h"
@@ -47,6 +49,8 @@ namespace {
 unsigned long long g_explosionFixtureFingerprint = 0;
 unsigned long long g_vehicleFixtureFingerprint = 0;
 unsigned long long g_taxiFixtureFingerprint = 0;
+unsigned long long g_bulletFixtureFingerprint = 0;
+unsigned long long g_bulletReferenceFixtureFingerprint = 0;
 unsigned long long g_farterFixtureFingerprint = 0;
 unsigned long long g_farterReferenceFixtureFingerprint = 0;
 unsigned long long g_lampFixtureFingerprint = 0;
@@ -68,7 +72,7 @@ int Fail(const char* message) {
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
                "smoke=%d explosion=%d vehicle_attrs=%d taxi=%d "
-               "taxi_refs=%d smoker=%d dyn_smoker=%d "
+               "taxi_refs=%d bullet=%d bullet_refs=%d smoker=%d dyn_smoker=%d "
                "farter=%d lamp=%d corpse=%d corpse_subject=%d "
                "wav=%d sound=%d skin=%d "
                "spark=%d route=%d vehicle=%d "
@@ -84,6 +88,8 @@ int Fail(const char* message) {
                RecoveredArenaSeance_VehicleAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_TaxiAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_TaxiReferencesReady() ? 1 : 0,
+               RecoveredArenaSeance_BulletAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_BulletReferencesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokerAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_DynSmokerReady() ? 1 : 0,
                RecoveredArenaSeance_FarterAttributesReady() ? 1 : 0,
@@ -249,6 +255,14 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_TaxiAttributeCapacity() == 0 &&
          RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 &&
          RecoveredArenaSeance_TaxiReferenceFingerprint() == 0 &&
+         !RecoveredArenaSeance_BulletAttributesReady() &&
+         !RecoveredArenaSeance_BulletReferencesReady() &&
+         !RecoveredArenaSeance_BulletSubjectRegistrationReady() &&
+         RecoveredArenaSeance_BulletAttributeCount() == -1 &&
+         RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
+         RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
+         RecoveredArenaSeance_BulletReferenceFingerprint() == 0 &&
+         RecoveredArenaSeance_BulletSubjectCapacity() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
          !RecoveredArenaSeance_FarterRuntimeReady() &&
@@ -290,6 +304,10 @@ bool IsReleased(SimulationContext& context) {
          SoundObjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_SkinResourcesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
+         !RecoveredArenaSeance_SparkSubjectReady() &&
+         RecoveredArenaSeance_SparkSubjectCapacity() == 0 &&
+         SparkSubjectState_Capacity() == 0 &&
+         SparkSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
          !context.isExist("Storage") && !context.isExist("Bird.Attr.0") &&
@@ -300,6 +318,7 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Smoker.Attr") &&
          !context.isExist("wav.Ambient") &&
          !context.isExist("Expl.Test.0") &&
+         !context.isExist("Bullet.Led") &&
          !context.isExist("Taxi.Attr.CorpseFinal") &&
          !context.isExist("Lamp.Attr.Default") &&
          !context.isExist("Corpse.Attr.Default") &&
@@ -340,6 +359,14 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_TaxiAttributeCapacity() != 7 ||
       RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_TaxiReferenceFingerprint() != 0 ||
+      !RecoveredArenaSeance_BulletAttributesReady() ||
+      RecoveredArenaSeance_BulletReferencesReady() ||
+      !RecoveredArenaSeance_BulletSubjectRegistrationReady() ||
+      RecoveredArenaSeance_BulletAttributeCount() != 4 ||
+      RecoveredArenaSeance_BulletAttributeCapacity() != 4 ||
+      RecoveredArenaSeance_BulletSubjectCapacity() != 500 ||
+      RecoveredArenaSeance_BulletAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_BulletReferenceFingerprint() != 0 ||
       !RecoveredArenaSeance_SmokerAttributesReady() ||
       !RecoveredArenaSeance_SmokerReferencesReady() ||
        RecoveredArenaSeance_SmokerRuntimeReady() != expectVisualResources ||
@@ -383,6 +410,10 @@ bool RunCycle(bool expectVisualResources) {
       SoundObjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_SkinResourcesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
+      !RecoveredArenaSeance_SparkSubjectReady() ||
+      RecoveredArenaSeance_SparkSubjectCapacity() != 40 ||
+      SparkSubjectState_Capacity() != 40 ||
+      SparkSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 ||
@@ -395,6 +426,8 @@ bool RunCycle(bool expectVisualResources) {
        g_arena.searchSeanceClassTable("Smoke") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("BulletAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Bullet") == ct_NULLID ||
       g_arena.searchSeanceClassTable("TaxiAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("DynSmoker") == ct_NULLID ||
@@ -408,6 +441,7 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("Skin") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SkinSpr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Spark") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Vehicle") == ct_NULLID) {
@@ -459,6 +493,15 @@ bool RunCycle(bool expectVisualResources) {
       !TaxiAttributeState_ResolveReferences(&context) &&
       TaxiAttributeState_CachesUnresolved(&context) &&
       !TaxiAttributeState_ReferencesResolved(&context) &&
+      BulletAttributeState_IsKnownRoster(&context) &&
+      BulletAttributeState_RosterSize(&context) == 4 &&
+      BulletAttributeState_Capacity() == 4 &&
+      BulletAttributeState_SubjectCapacity() == 500 &&
+      BulletAttributeState_SubjectTableReady(&context) &&
+      BulletAttributeState_CachesUnresolved(&context) &&
+      !BulletAttributeState_ResolveReferences(&context) &&
+      BulletAttributeState_CachesUnresolved(&context) &&
+      !BulletAttributeState_ReferencesResolved(&context) &&
       SmokerAttributeState_IsKnownRoster(&context) &&
       SmokerAttributeState_RosterSize(&context) == 11 &&
       SmokerAttributeState_Capacity() == 11 &&
@@ -512,6 +555,10 @@ bool RunCycle(bool expectVisualResources) {
       VehicleAttributeState_Fingerprint(&context);
   const unsigned long long taxiFingerprint =
       TaxiAttributeState_Fingerprint(&context);
+  const unsigned long long bulletFingerprint =
+      BulletAttributeState_Fingerprint(&context);
+  const unsigned long long bulletReferenceFingerprint =
+      BulletAttributeState_ReferenceFingerprint(&context);
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(&context);
   const unsigned long long farterReferenceFingerprint =
@@ -543,6 +590,11 @@ bool RunCycle(bool expectVisualResources) {
        g_vehicleFixtureFingerprint == vehicleFingerprint) &&
       (g_taxiFixtureFingerprint == 0 ||
        g_taxiFixtureFingerprint == taxiFingerprint) &&
+      (g_bulletFixtureFingerprint == 0 ||
+       g_bulletFixtureFingerprint == bulletFingerprint) &&
+      (g_bulletReferenceFixtureFingerprint == 0 ||
+       g_bulletReferenceFixtureFingerprint ==
+           bulletReferenceFingerprint) &&
       (g_farterFixtureFingerprint == 0 ||
        g_farterFixtureFingerprint == farterFingerprint) &&
       (g_farterReferenceFixtureFingerprint == 0 ||
@@ -574,6 +626,8 @@ bool RunCycle(bool expectVisualResources) {
   g_explosionFixtureFingerprint = explosionFingerprint;
   g_vehicleFixtureFingerprint = vehicleFingerprint;
   g_taxiFixtureFingerprint = taxiFingerprint;
+  g_bulletFixtureFingerprint = bulletFingerprint;
+  g_bulletReferenceFixtureFingerprint = bulletReferenceFingerprint;
   g_farterFixtureFingerprint = farterFingerprint;
   g_farterReferenceFixtureFingerprint = farterReferenceFingerprint;
   g_smokerFixtureFingerprint = smokerFingerprint;
@@ -599,8 +653,8 @@ bool RunCycle(bool expectVisualResources) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 12) {
-    return Fail("expected a fixture directory and ten retail-script sources");
+  if (argc != 14) {
+    return Fail("expected a fixture directory and twelve retail-script sources");
   }
 
   RecoveredArenaSeance_Release();
@@ -686,6 +740,7 @@ int main(int argc, char** argv) {
       JoinPath(fixtureDirectory, "EXPLOSION.SCI");
   const std::string farterCopy = JoinPath(fixtureDirectory, "FARTER.SCI");
   const std::string lampCopy = JoinPath(fixtureDirectory, "LAMP.SCI");
+  const std::string bulletCopy = JoinPath(fixtureDirectory, "BULLET.SCI");
   const std::string scincDirectory = JoinPath(levelDirectory, "SCINC");
   const std::string explosionLocalCopy =
       JoinPath(scincDirectory, "EXPLOSION_LOC.SCI");
@@ -693,6 +748,8 @@ int main(int argc, char** argv) {
       JoinPath(scincDirectory, "FARTERATTR.SCI");
   const std::string taxiCopy = JoinPath(scincDirectory, "TAXI.SCI");
   const std::string vehicleCopy = JoinPath(scincDirectory, "VEHICLE.SCI");
+  const std::string bulletLocalCopy =
+      JoinPath(scincDirectory, "bullet_loc.sci");
   const std::string farterSetCopy =
       JoinPath(scincDirectory, "SET_FARTER.SCI");
   const std::string corpseCopy = JoinPath(scincDirectory, "CORPSE.SCI");
@@ -707,6 +764,7 @@ int main(int argc, char** argv) {
   DeleteFileA(explosionCopy.c_str());
   DeleteFileA(farterCopy.c_str());
   DeleteFileA(lampCopy.c_str());
+  DeleteFileA(bulletCopy.c_str());
   if (!EnsureDirectory(scincDirectory)) {
     return Fail("could not establish the fixture SCINC directory");
   }
@@ -714,6 +772,7 @@ int main(int argc, char** argv) {
   DeleteFileA(farterLocalCopy.c_str());
   DeleteFileA(taxiCopy.c_str());
   DeleteFileA(vehicleCopy.c_str());
+  DeleteFileA(bulletLocalCopy.c_str());
   DeleteFileA(farterSetCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
@@ -841,6 +900,32 @@ int main(int argc, char** argv) {
     return Fail("could not copy CORPSE.SCI into Arena fixture");
   }
 
+  SimulationContext missingBulletRootContext(64, 128);
+  const bool missingBulletRootRejected =
+      RecoveredArenaSeance_Initialize(&missingBulletRootContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 &&
+      IsReleased(missingBulletRootContext);
+  if (CopyFileA(argv[12], bulletCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy BULLET.SCI into Arena fixture");
+  }
+
+  SimulationContext missingBulletLocalContext(64, 128);
+  const bool missingBulletLocalRejected =
+      RecoveredArenaSeance_Initialize(&missingBulletLocalContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 &&
+      IsReleased(missingBulletLocalContext);
+  if (CopyFileA(argv[13], bulletLocalCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy bullet_loc.sci into Arena fixture");
+  }
+
   SimulationContext missingSkinCatalogContext(64, 128);
   const bool missingSkinCatalogRejected =
       RecoveredArenaSeance_Initialize(&missingSkinCatalogContext, 0.0) ==
@@ -900,6 +985,58 @@ int main(int argc, char** argv) {
   if (CopyFileA(argv[9], farterSetCopy.c_str(), FALSE) == FALSE) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not restore valid SET_FARTER.SCI fixture");
+  }
+
+  std::string invalidBulletFixture;
+  if (!ReadFile(argv[13], invalidBulletFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not read Bullet fixture for deterministic corruption");
+  }
+  const std::string bulletNeedle =
+      "s_NewObject( ctIDAttr, \"Bullet.Led\" );";
+  const std::size_t bulletName = invalidBulletFixture.find(bulletNeedle);
+  if (bulletName == std::string::npos) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not corrupt Bullet fixture deterministically");
+  }
+  invalidBulletFixture.replace(
+      bulletName, bulletNeedle.size(),
+      "s_NewObject( ctIDAttr, \"Bullet.Led.Corrupt\" );");
+  if (!WriteFile(bulletLocalCopy, invalidBulletFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Bullet fixture");
+  }
+  SimulationContext invalidBulletRosterContext(64, 128);
+  const bool invalidBulletRosterRejected =
+      RecoveredArenaSeance_Initialize(&invalidBulletRosterContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_ROSTER_INVALID) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 &&
+      IsReleased(invalidBulletRosterContext);
+  if (CopyFileA(argv[13], bulletLocalCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid Bullet fixture");
+  }
+
+  const char tablelessBulletFixture[] =
+      "func void main_CreateBullets()\r\n"
+      "{\r\n"
+      "}\r\n";
+  if (!WriteFile(bulletLocalCopy, tablelessBulletFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write tableless Bullet fixture");
+  }
+  SimulationContext tablelessBulletContext(64, 128);
+  const bool tablelessBulletRejected =
+      RecoveredArenaSeance_Initialize(&tablelessBulletContext, 0.0) == FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_TABLE_MISSING) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 &&
+      IsReleased(tablelessBulletContext);
+  if (CopyFileA(argv[13], bulletLocalCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore Bullet fixture after tableless probe");
   }
 
   std::string invalidExplosionLevelFixture = explosionLevelFixture;
@@ -1168,10 +1305,12 @@ int main(int argc, char** argv) {
   DeleteFileA(explosionCopy.c_str());
   DeleteFileA(farterCopy.c_str());
   DeleteFileA(lampCopy.c_str());
+  DeleteFileA(bulletCopy.c_str());
   DeleteFileA(explosionLocalCopy.c_str());
   DeleteFileA(farterLocalCopy.c_str());
   DeleteFileA(taxiCopy.c_str());
   DeleteFileA(vehicleCopy.c_str());
+  DeleteFileA(bulletLocalCopy.c_str());
   DeleteFileA(farterSetCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
@@ -1203,6 +1342,18 @@ int main(int argc, char** argv) {
   if (!missingFarterRootRejected || !missingFarterLocalRejected ||
       !missingLampRejected || !missingCorpseRejected) {
     return Fail("missing Farter/Lamp/Corpse fragments were not rejected "
+                "transactionally");
+  }
+  if (!missingBulletRootRejected || !missingBulletLocalRejected) {
+    return Fail("missing Bullet root/local fragments were not rejected "
+                "transactionally");
+  }
+  if (!invalidBulletRosterRejected) {
+    return Fail("invalid Bullet attribute roster was not rejected "
+                "transactionally");
+  }
+  if (!tablelessBulletRejected) {
+    return Fail("missing Bullet attribute table was not rejected "
                 "transactionally");
   }
   if (!missingFarterSubjectRejected) {
@@ -1268,6 +1419,7 @@ int main(int argc, char** argv) {
               "missing-farter-subject=rollback "
               "invalid-farter-subject=rollback "
               "missing-corpse=rollback "
+              "invalid-bullet-roster=rollback tableless-bullet=rollback "
               "invalid-explosion-roster=rollback "
               "invalid-lamp-roster=rollback "
                "invalid-smoker-roster=rollback invalid-wav-roster=rollback "
@@ -1280,6 +1432,7 @@ int main(int argc, char** argv) {
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
+               "bullet_attrs=4/4 bullet_subject=0/500-registration "
                "smoke_subject=0/300 smoke_simulation=START-MOVE-remove "
                "smoke_visual=resolved "
                "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
@@ -1292,6 +1445,7 @@ int main(int argc, char** argv) {
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
               "explosion_fingerprint=%llu vehicle_fingerprint=%llu "
+              "bullet_fingerprint=%llu bullet_reference_fingerprint=%llu "
               "smoker_fingerprint=%llu "
                "taxi_fingerprint=%llu "
                "smoker_reference_fingerprint=%llu "
@@ -1308,6 +1462,8 @@ int main(int argc, char** argv) {
               "rollback=idempotent\n",
               g_explosionFixtureFingerprint,
               g_vehicleFixtureFingerprint,
+              g_bulletFixtureFingerprint,
+              g_bulletReferenceFixtureFingerprint,
               g_smokerFixtureFingerprint,
               g_taxiFixtureFingerprint,
                g_smokerReferenceFixtureFingerprint,

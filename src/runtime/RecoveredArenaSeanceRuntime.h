@@ -81,7 +81,13 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_TABLE_MISSING = 1ull << 4,
   RECOVERED_ARENA_SEANCE_EXT_VEHICLE_ATTRIBUTE_ROSTER_INVALID = 1ull << 5,
   RECOVERED_ARENA_SEANCE_EXT_TAXI_REFERENCE_INVALID = 1ull << 6,
-  RECOVERED_ARENA_SEANCE_EXT_CORPSE_SUBJECT_TABLE_FAILURE = 1ull << 7
+  RECOVERED_ARENA_SEANCE_EXT_CORPSE_SUBJECT_TABLE_FAILURE = 1ull << 7,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 8,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_TABLE_MISSING = 1ull << 9,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_ROSTER_INVALID = 1ull << 10,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_REFERENCE_INVALID = 1ull << 11,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_TABLE_FAILURE = 1ull << 12,
+  RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_TABLE_FAILURE = 1ull << 13
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -107,6 +113,14 @@ unsigned long long RecoveredArenaSeance_VehicleAttributeFingerprint();
 bool RecoveredArenaSeance_TaxiAttributesReady();
 bool RecoveredArenaSeance_TaxiReferencesReady();
 unsigned long long RecoveredArenaSeance_TaxiReferenceFingerprint();
+bool RecoveredArenaSeance_BulletAttributesReady();
+bool RecoveredArenaSeance_BulletReferencesReady();
+int RecoveredArenaSeance_BulletAttributeCount();
+int RecoveredArenaSeance_BulletAttributeCapacity();
+unsigned long long RecoveredArenaSeance_BulletAttributeFingerprint();
+unsigned long long RecoveredArenaSeance_BulletReferenceFingerprint();
+bool RecoveredArenaSeance_BulletSubjectRegistrationReady();
+int RecoveredArenaSeance_BulletSubjectCapacity();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();
@@ -167,6 +181,8 @@ int RecoveredArenaSeance_SkinSpriteCount();
 unsigned long long RecoveredArenaSeance_SkinCatalogFingerprint();
 unsigned long long RecoveredArenaSeance_SkinResourceFingerprint();
 bool RecoveredArenaSeance_SparkAttributesReady();
+bool RecoveredArenaSeance_SparkSubjectReady();
+int RecoveredArenaSeance_SparkSubjectCapacity();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();
 unsigned long long RecoveredArenaSeance_Issues();

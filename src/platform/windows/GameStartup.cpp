@@ -594,6 +594,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_TaxiReferencesReady() ? 1 : 0));
   log.Line("taxi_reference_fingerprint=" + std::to_string(
                RecoveredArenaSeance_TaxiReferenceFingerprint()));
+  log.Line("bullet_attributes_initialized=" + std::to_string(
+               RecoveredArenaSeance_BulletAttributesReady() ? 1 : 0));
+  log.Line("bullet_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_BulletAttributeCount()));
+  log.Line("bullet_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_BulletAttributeCapacity()));
+  log.Line("bullet_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_BulletAttributeFingerprint()));
+  log.Line("bullet_references_resolved=" + std::to_string(
+               RecoveredArenaSeance_BulletReferencesReady() ? 1 : 0));
+  log.Line("bullet_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_BulletReferenceFingerprint()));
+  log.Line("bullet_subject_registration_initialized=" + std::to_string(
+               RecoveredArenaSeance_BulletSubjectRegistrationReady() ? 1
+                                                                      : 0));
+  log.Line("bullet_subject_capacity=" +
+           std::to_string(RecoveredArenaSeance_BulletSubjectCapacity()));
   log.Line("farter_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_FarterAttributesReady() ? 1 : 0));
@@ -732,6 +749,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("spark_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SparkAttributesReady() ? 1 : 0));
+  log.Line("spark_subject_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SparkSubjectReady() ? 1 : 0));
+  log.Line("spark_subject_capacity=" +
+           std::to_string(RecoveredArenaSeance_SparkSubjectCapacity()));
   log.Line("route_table_initialized=" +
            std::to_string(RecoveredGameServices_RouteReady() ? 1 : 0));
   log.Line("vehicle_default_initialized=" +

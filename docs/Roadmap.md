@@ -535,13 +535,20 @@ caches remain intentionally unresolved. The legacy Arena issue word is full,
 so these frontiers use a separately versioned extended issue word without
 renumbering established diagnostics.
 
-The next safe gameplay slice should remain dependency-first. Audit and admit
-Bullet attributes and their referenced visual/sound resources before executing
-Taxi subjects; then evaluate Taxi creation/lifecycle in isolation before
-People and Tank are allowed to bind it. `SET_TAXI.SCI` stays deferred until its
-subject table, object roster, rollback and frame behavior can be proven as one
-transaction. This order avoids constructing a live Taxi over unresolved
-Vehicle Bullet/Panel state and does not imply that the heavy graph is complete.
+That dependency-first Bullet slice is now complete. Exact root/local Bullet
+programs publish all May rosters; their Spark, Explosion, Smoke, optional
+WAV/Skin and trace resources resolve through one atomic transaction. The real
+empty `Spark(40)` table is present, while Bullet capacities are deliberately
+registration-only so no incomplete projectile can enter the world.
+
+The next safe gameplay slice is the real Bullet subject lifecycle in isolation:
+audit construction, movement tick, FPS dependence, collision, damage, lifetime,
+trace drawing, sound emission and removal; identify which of the retail
+`m_lifeTime`/`massa` writes were intentionally ignored by the exact serializer;
+then replace the registration owner only when rollback and one bounded frame are
+proven. After that, resolve Vehicle's Bullet/Panel/Taxi caches before attempting
+`SET_TAXI.SCI`. Taxi creation remains ahead of People and Tank, and live network
+or replay work remains outside this 1.0 frontier.
 
 ### Цель
 

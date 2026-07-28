@@ -1717,3 +1717,54 @@ launches with 18/18 identical E/G summaries, and 4/4 waited executable smokes.
 This closes the attribute/reference layer only. `SET_TAXI.SCI`, live Taxi
 subjects, People/Tank/Bullet/Sound gameplay and Vehicle's own heavy cache
 resolution remain later frontiers.
+
+## BD-051: admit exact Bullet attributes before live projectile subjects
+
+Status: accepted on 2026-07-28.
+
+Recovered seance startup now executes retail `BULLET.SCI` followed by the
+selected `SCINC/bullet_loc.sci`, then invokes the original
+`main_CreateBullets()`. The resulting May matrix is Level.01D/01N `11/11` with
+Bullet capacity 50, Level.02D/02N `10/10` with capacity 100, Level.03N `12/12`
+with capacity 100, Level.04D `15/15` with capacity 100, Level.05D `14/14` with
+capacity 100, Level.06N `12/12` with capacity 250 and Level.07N `3/3` with
+capacity 250. The January public fixture remains separately admitted as `4/4`
+with capacity 500 and is not presented as May data.
+
+Bullet reference publication is a whole-roster transaction. It preflights
+Spark/SparkAttr, Explosion/ExplosionAttr, Smoke/SmokeAttr, optional loaded WAV
+and Skin resources, and optional trace/front textures into temporary records.
+Texture creation is protected by a renderer catalog checkpoint. Only after
+every attribute resolves are all cached handles, pointers, IDs, indices,
+16-entry color gradients and colors committed. A missing live SmokeAttr proves
+an already resolved roster and the texture owner remain byte-for-byte
+unchanged; restoring the source name reproduces the known reference identity.
+
+Every May `localmain.sci` declares `Spark(40)`. Production therefore links the
+original Spark subject owner, including its dynamic-sprite base, creates the
+real capacity-40 table and requires zero live objects. This is a prerequisite
+table, not an activated Spark gameplay claim. The Bullet subject table is even
+more deliberately bounded: exact retail capacities are registered through a
+non-rendering, non-audible placeholder owner, but no live Bullet is constructed.
+Its original motion, collision, damage, lifetime, trace drawing and removal
+contract must be recovered together before replacing that owner.
+
+The extracted Bullet serializer contains 41 actual items. Retail scripts also
+write `massa` and `m_lifeTime`, neither of which is an exact item name;
+`AttributeBullet` owns `m_massa` and has no recovered lifetime field. These
+writes remain the historical unknown-name no-op. The CP1251-era `BULLET.H` is
+left byte-preserved; the modern state owner documents and implements the safe
+boundary rather than silently rewriting legacy encoding or ABI.
+
+Raw fingerprints hash names, capacities and implemented serialized state.
+Reference fingerprints use stable symbolic dependencies plus the resolved
+palette-derived color and gradient values, while readiness separately compares
+the actual pointers, handles, ObjectIDs and table indices. Consequently paired
+day/night Levels share a raw identity but have distinct reference identities;
+the same Level remains identical between installed and retail-disc roots and
+between Debug and Release.
+
+Verification requires 51/51 CTest in both configurations, all 36 May service
+launches with 18/18 identical installed/disc pairs, and 4/4 waited executable
+smokes. This tranche does not claim live projectile physics, collision, damage,
+trace drawing or Vehicle's Bullet cache.

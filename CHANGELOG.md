@@ -7,6 +7,30 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Executed the exact root `BULLET.SCI` plus each selected Level's
+  `SCINC/bullet_loc.sci` through original `main_CreateBullets()` ordering.
+  Seven May raw identities now cover all nine Levels with exact attribute and
+  Bullet-table count/capacity contracts; the public January fixture remains a
+  separately admitted source-only identity.
+- Added atomic Bullet dependency publication across Spark/SparkAttr,
+  Explosion/ExplosionAttr, Smoke/SmokeAttr, optional WAV/Skin and trace
+  textures. Full-roster preflight plus renderer texture checkpoints prove both
+  unresolved and already resolved failures leave every cache and texture owner
+  unchanged.
+- Linked the original empty retail `Spark(40)` subject table required by every
+  May `localmain.sci`. Bullet subjects use a deliberately registration-only,
+  non-rendering/non-audible bounded table until their physics, collision and
+  renderer lifecycle can be activated as one reviewed frontier. Spark pool
+  allocation is now non-throwing and its historical one-past index check is
+  corrected before the table enters modern production.
+- Added Bullet raw/reference and subject-table diagnostics, dedicated extended
+  issue bits, corrupted/tableless source probes, live dependency mutation and
+  complete reconstruction coverage. Palette-derived reference identities
+  intentionally distinguish day/night Levels while remaining identical for
+  installed and retail-disc data.
+- Preserved the retail Bullet writes to unknown exact serializer names `massa`
+  and `m_lifeTime` as historical no-ops. The recovered class owns `m_massa`
+  instead; no speculative lifetime or alias field is introduced.
 - Replaced the synthetic two-entry Vehicle attribute bootstrap with each
   selected Level's exact `SCINC/VEHICLE.SCI`. Production now executes original
   `main_CreateVehicleAttr()` and `main_CreateVehicle()` ordering and publishes

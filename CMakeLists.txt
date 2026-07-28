@@ -255,7 +255,9 @@ target_compile_definitions(rr2nw_arena_spark_attribute_state PRIVATE
 )
 
 add_library(rr2nw_arena_obase_spark_full STATIC
+  nw/ARENA/OBASE/DynObj/DynSpr.cpp
   nw/ARENA/OBASE/Spark/Spark.cpp
+  nw/ARENA/OBASE/Spark/SparkSubjectState.h
 )
 target_link_libraries(rr2nw_arena_obase_spark_full PUBLIC
   rr2nw_arena_spark_attribute_state
@@ -2464,6 +2466,45 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_bullet_attribute_state STATIC
+  nw/ARENA/OBASE/Bullet/BulletAttributeState.cpp
+  nw/ARENA/OBASE/Bullet/BulletAttributeState.h
+)
+target_link_libraries(rr2nw_arena_bullet_attribute_state PUBLIC
+  rr2nw_arena_skin_resource_state
+  rr2nw_arena_smoke_texture_cache
+  rr2nw_arena_storage
+  rr2nw_arena_wav_resource_state
+  rr2nw_graph_runtime_state
+)
+target_include_directories(rr2nw_arena_bullet_attribute_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Bullet
+  nw/ARENA/OBASE/Skin
+  nw/ARENA/OBASE/Sound
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_arena_bullet_attribute_state PUBLIC cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_arena_bullet_attribute_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_arena_bullet_attribute_state PRIVATE
+    /W4 /permissive- /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_arena_farter_subject_state STATIC
   nw/ARENA/OBASE/Farter/Farter.cpp
   nw/ARENA/OBASE/Farter/Farter.h
@@ -3162,6 +3203,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_orphan_attribute_state
   rr2nw_arena_obase_portal
+  rr2nw_arena_bullet_attribute_state
   rr2nw_arena_explosion_attribute_state
   rr2nw_arena_farter_attribute_state
   rr2nw_arena_lamp_attribute_state
@@ -3177,6 +3219,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_skin_resource_state
   rr2nw_arena_smoke_attribute_state
   rr2nw_arena_spark_attribute_state
+  rr2nw_arena_obase_spark_full
   rr2nw_legacy_shell_full
   rr2nw_recovered_legacy_script_runtime
   rr2nw_recovered_skin_resource_catalog
@@ -4237,6 +4280,8 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_farter.sci"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/TAXI.SCI"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/VEHICLE.SCI"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/BULLET.SCI"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/bullet_loc.sci"
   )
   add_test(
     NAME peripheral-attribute-state-smoke

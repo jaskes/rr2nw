@@ -123,6 +123,30 @@ The public repository's January Level.03N Vehicle fixture is distinct:
 It is used only by the hermetic source/rollback test and has a `3/8` roster;
 the May Level.03N source has `7/7`. No retail source is copied into Git.
 
+## Bullet attribute source identities
+
+The 2026-07-28 read-only sweep found retail root `BULLET.SCI` and every
+selected May `SCINC/bullet_loc.sci` byte-identical between installed
+`E:\Games\The Next Worlds` and the preserved mounted-disc fixture. Root
+`BULLET.SCI` is
+`0A418F00ED079DD719572980B610B838F7EE9F44A37A9E3D7B06530C30639403`.
+Seven local SHA-256 groups cover the nine Levels:
+
+- Level.01D/01N: `1430F7B850A9A8248241D19E115432D99EC26F783C8C4D47392C7E603731715B`;
+- Level.02D/02N: `1FF38B5B85F5C2AAB66025C1B6811599FFBA999A138C31F66FE068B69C0ABCA5`;
+- Level.03N: `011EB3FE765872B6FC122339BBA67C728199C9F2432A709106EF41E74B66A930`;
+- Level.04D: `62CEB31A8B7197177050AAB9B7E99A1753B283ABCEF4BDFC435AAD8EC2B3B25B`;
+- Level.05D: `2BD5472DB2F6B452ADDF3D525076B60C9D04E2CB9C979D9019938FA5A5BF1867`;
+- Level.06N: `B7C62E7CFFD56B354BBF94396A172A883C1FBC23603EDE0F06E77B44C1BD6460`;
+- Level.07N: `396CBA32A520F689302B8AFDDB75D52F77014C30B5E3385259746755644CA6EB`.
+
+The repository's January root/local fixtures are distinct:
+`F4554E35C66540B55379135D5313B00093EF32BE1B44F9BB93476D93EB349E62`
+and
+`260F0F8FE4AAAC94B71EF5FB217577C9E3E886E25260E4F5195230CE29C44EF6`.
+They are admitted only as a hermetic `4/4` source and rollback fixture. No May
+Bullet script is copied into public Git.
+
 ## User-generated/private artifacts
 
 В установке обнаружены пользовательские `save0` и `save1`. Они полезны для

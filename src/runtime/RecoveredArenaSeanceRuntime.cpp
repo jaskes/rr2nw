@@ -11,6 +11,7 @@ class CGRPanel;
 #include "kernel/h/session.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
+#include "obase/bullet/BulletAttributeState.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
@@ -20,6 +21,7 @@ class CGRPanel;
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
+#include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
@@ -48,6 +50,7 @@ constexpr int kSmokeCapacity = 300;
 constexpr int kSoundObjectCapacity = 250;
 constexpr int kFarterSubjectCapacity = 25;
 constexpr int kCorpseSubjectCapacity = 100;
+constexpr int kSparkSubjectCapacity = 40;
 constexpr double kDeviceFreeSoundDistance = 300.0;
 constexpr int kSourceOnlySmokerAttributeCount = 11;
 constexpr const char kCommonBootstrapProgramName[] =
@@ -68,6 +71,8 @@ constexpr const char kLampAttributeProgramName[] =
     "recovered_retail_lamp_attribute_bootstrap";
 constexpr const char kCorpseAttributeProgramName[] =
     "recovered_retail_corpse_attribute_bootstrap";
+constexpr const char kBulletAttributeProgramName[] =
+    "recovered_retail_bullet_attribute_bootstrap";
 constexpr const char kSmokerAttributeProgramName[] =
     "recovered_retail_smoker_attribute_bootstrap";
 constexpr const char kWavMetadataProgramName[] =
@@ -224,6 +229,7 @@ const int LIGHT_COLOR_RED = 1;
 const int LIGHT_COLOR_GREEN = 2;
 const int LIGHT_COLOR_YELLOW = 3;
 const int LIGHT_COLOR_BLUE = 4;
+const int LIGHT_COLOR_VIOLET = 5;
 const int LIGHT_COLOR_CYAN = 6;
 const int LIGHT_COLOR_WHITE = 7;
 const int s_ATTR_MSG_SET_INT extern;
@@ -372,6 +378,13 @@ const char kCorpseAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
   main_CreateCorpseAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kBulletAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateBullets();
 }
 )RR2NW_SCRIPT";
 
@@ -585,6 +598,9 @@ struct RecoveredArenaSeanceState {
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
+  bool bulletAttributesReady;
+  bool bulletReferencesReady;
+  bool bulletSubjectRegistrationReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -603,12 +619,19 @@ struct RecoveredArenaSeanceState {
   bool soundDistanceReady;
   bool skinResourcesReady;
   bool sparkAttributesReady;
+  bool sparkSubjectReady;
   bool routeReady;
   bool vehicleReady;
   int vehicleAttributeCount;
   int vehicleAttributeCapacity;
   unsigned long long vehicleAttributeFingerprint;
   unsigned long long taxiReferenceFingerprint;
+  int bulletAttributeCount;
+  int bulletAttributeCapacity;
+  int bulletSubjectCapacity;
+  int sparkSubjectCapacity;
+  unsigned long long bulletAttributeFingerprint;
+  unsigned long long bulletReferenceFingerprint;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
@@ -863,6 +886,15 @@ bool RunCorpseAttributeBootstrap(SimulationContext* context,
       "SCINC\\CORPSE.SCI");
 }
 
+bool RunBulletAttributeBootstrap(SimulationContext* context,
+                                 double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "..\\BULLET.SCI", "SCINC\\bullet_loc.sci",
+      kBulletAttributeBootstrapSuffix, kBulletAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "BULLET.SCI + SCINC\\bullet_loc.sci", true);
+}
+
 bool RunWavMetadataBootstrap(SimulationContext* context, double startTime,
                              SRecoveredWavMetadataCatalog* catalog) {
   SRecoveredWavMetadataCatalogResult catalogResult = {};
@@ -1085,6 +1117,20 @@ bool PublishSparkAttributes(SimulationContext* context) {
   }
 
   g_state.sparkAttributesReady = true;
+  return true;
+}
+
+bool InitializeSparkSubjectTable(SimulationContext* context) {
+  const ct_ClassTableID table =
+      g_arena.addClassTable("Spark", kSparkSubjectCapacity);
+  if (table == ct_NULLID ||
+      !SparkSubjectState_TableReady(context, kSparkSubjectCapacity)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_TABLE_FAILURE,
+                   "could not create the retail Spark(40) subject table");
+    return false;
+  }
+  g_state.sparkSubjectCapacity = SparkSubjectState_Capacity();
+  g_state.sparkSubjectReady = true;
   return true;
 }
 
@@ -1377,6 +1423,96 @@ bool PublishTaxiAttributes(SimulationContext* context) {
     return false;
   }
   g_state.taxiAttributesReady = true;
+  return true;
+}
+
+bool PublishBulletAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("BulletAttr") == ct_NULLID) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_TABLE_MISSING,
+        "retail fragments did not create the BulletAttr table");
+    return false;
+  }
+  if (!BulletAttributeState_SubjectTableReady(context)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_TABLE_FAILURE,
+        "retail fragments did not create a bounded Bullet registration table");
+    return false;
+  }
+  if (!BulletAttributeState_CachesUnresolved(context) ||
+      !BulletAttributeState_IsKnownRoster(context)) {
+    char message[224] = {};
+    std::snprintf(message, sizeof(message),
+                  "BulletAttr objects do not match a bounded unresolved "
+                  "level roster (capacity=%d count=%d subject_capacity=%d "
+                  "fingerprint=%llu)",
+                  BulletAttributeState_Capacity(),
+                  BulletAttributeState_RosterSize(context),
+                  BulletAttributeState_SubjectCapacity(),
+                  BulletAttributeState_Fingerprint(context));
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_ROSTER_INVALID,
+        message);
+    return false;
+  }
+  g_state.bulletAttributeCount =
+      BulletAttributeState_RosterSize(context);
+  g_state.bulletAttributeCapacity = BulletAttributeState_Capacity();
+  g_state.bulletSubjectCapacity =
+      BulletAttributeState_SubjectCapacity();
+  g_state.bulletAttributeFingerprint =
+      BulletAttributeState_Fingerprint(context);
+  g_state.bulletAttributesReady = true;
+  g_state.bulletSubjectRegistrationReady = true;
+  return true;
+}
+
+bool PublishBulletReferences(SimulationContext* context) {
+  if (!g_state.bulletAttributesReady) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_BULLET_REFERENCE_INVALID,
+                   "BulletAttr roster is not ready for reference resolution");
+    return false;
+  }
+  // The January public fixture deliberately substitutes a ten-object test
+  // ExplosionAttr roster and owns no Bullet dependencies. Exercise the full
+  // two-phase preflight, but require it to leave every cache untouched.
+  const bool sourceOnlyFixture =
+      g_state.bulletAttributeCount == 4 &&
+      g_state.bulletAttributeCapacity == 4 &&
+      g_state.bulletSubjectCapacity == 500;
+  if (sourceOnlyFixture) {
+    if (BulletAttributeState_ResolveReferences(context) ||
+        !BulletAttributeState_CachesUnresolved(context)) {
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_BULLET_REFERENCE_INVALID,
+                     "source-only Bullet fixture leaked partial references");
+      return false;
+    }
+    return true;
+  }
+  if (!BulletAttributeState_ResolveReferences(context) ||
+      !BulletAttributeState_ReferencesResolved(context)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "BulletAttr could not resolve references atomically: %s",
+                  BulletAttributeState_LastError());
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_BULLET_REFERENCE_INVALID,
+                   message);
+    return false;
+  }
+  g_state.bulletReferenceFingerprint =
+      BulletAttributeState_ReferenceFingerprint(context);
+  if (g_state.bulletReferenceFingerprint == 0 ||
+      !BulletAttributeState_IsKnownReferenceRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "BulletAttr resolved references are not a bounded roster "
+                  "(fingerprint=%llu)",
+                  g_state.bulletReferenceFingerprint);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_BULLET_REFERENCE_INVALID,
+                   message);
+    return false;
+  }
+  g_state.bulletReferencesReady = true;
   return true;
 }
 
@@ -1781,10 +1917,12 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   }
 
   BirdAttributeState_Link();
+  BulletAttributeState_Link();
   ArtefactAttributeState_Link();
   OrphanAttributeState_Link();
   PortalClassTable_Link();
   SparkAttributeState_Link();
+  SparkSubjectState_Link();
   SmokeAttributeState_Link();
   SmokeSubjectState_Link();
   SmokeVisualState_Link();
@@ -1803,6 +1941,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SkinResourceState_Link();
   if (!InitializeDeviceFreeSoundDistance()) return FALSE;
   if (!OpenArena(context)) return FALSE;
+  if (!InitializeSparkSubjectTable(context)) {
+    RecoveredArenaSeance_Release();
+    return FALSE;
+  }
   if (!InitializeCorpseSubjectTable(context)) {
     RecoveredArenaSeance_Release();
     return FALSE;
@@ -1842,7 +1984,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     // Preserve LEVEL0.SC ownership order for this attribute-only tranche.
     if (!RunFarterAttributeBootstrap(context, startTime) ||
         !RunLampAttributeBootstrap(context, startTime) ||
-        !RunCorpseAttributeBootstrap(context, startTime)) {
+        !RunCorpseAttributeBootstrap(context, startTime) ||
+        !RunBulletAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1869,7 +2012,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         !PublishSmokerAttributes(context) ||
         !PublishFarterAttributes(context) ||
         !PublishLampAttributes(context) ||
-        !PublishCorpseAttributes(context)) {
+        !PublishCorpseAttributes(context) ||
+        !PublishBulletAttributes(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1883,6 +2027,11 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
 
     if (!PublishSmokeVisualResources(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+
+    if (!PublishBulletReferences(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1920,6 +2069,8 @@ void RecoveredArenaSeance_Release() {
   g_state.vehicleReady = false;
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
+  g_state.sparkSubjectReady = false;
+  g_state.sparkSubjectCapacity = 0;
   g_state.smokeAttributesReady = false;
   g_state.smokeSubjectReady = false;
   g_state.smokeSubjectCapacity = 0;
@@ -1935,6 +2086,14 @@ void RecoveredArenaSeance_Release() {
   g_state.taxiAttributesReady = false;
   g_state.taxiReferencesReady = false;
   g_state.taxiReferenceFingerprint = 0;
+  g_state.bulletAttributesReady = false;
+  g_state.bulletReferencesReady = false;
+  g_state.bulletSubjectRegistrationReady = false;
+  g_state.bulletAttributeCount = 0;
+  g_state.bulletAttributeCapacity = 0;
+  g_state.bulletSubjectCapacity = 0;
+  g_state.bulletAttributeFingerprint = 0;
+  g_state.bulletReferenceFingerprint = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -2077,6 +2236,44 @@ bool RecoveredArenaSeance_TaxiReferencesReady() {
 
 unsigned long long RecoveredArenaSeance_TaxiReferenceFingerprint() {
   return g_state.taxiReferencesReady ? g_state.taxiReferenceFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_BulletAttributesReady() {
+  return g_state.bulletAttributesReady;
+}
+
+bool RecoveredArenaSeance_BulletReferencesReady() {
+  return g_state.bulletReferencesReady;
+}
+
+int RecoveredArenaSeance_BulletAttributeCount() {
+  return g_state.bulletAttributesReady ? g_state.bulletAttributeCount : -1;
+}
+
+int RecoveredArenaSeance_BulletAttributeCapacity() {
+  return g_state.bulletAttributesReady ? g_state.bulletAttributeCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_BulletAttributeFingerprint() {
+  return g_state.bulletAttributesReady
+             ? g_state.bulletAttributeFingerprint
+             : 0;
+}
+
+unsigned long long RecoveredArenaSeance_BulletReferenceFingerprint() {
+  return g_state.bulletReferencesReady
+             ? g_state.bulletReferenceFingerprint
+             : 0;
+}
+
+bool RecoveredArenaSeance_BulletSubjectRegistrationReady() {
+  return g_state.bulletSubjectRegistrationReady;
+}
+
+int RecoveredArenaSeance_BulletSubjectCapacity() {
+  return g_state.bulletSubjectRegistrationReady
+             ? g_state.bulletSubjectCapacity
+             : 0;
 }
 
 bool RecoveredArenaSeance_FarterAttributesReady() {
@@ -2342,6 +2539,14 @@ unsigned long long RecoveredArenaSeance_SkinResourceFingerprint() {
 
 bool RecoveredArenaSeance_SparkAttributesReady() {
   return g_state.sparkAttributesReady;
+}
+
+bool RecoveredArenaSeance_SparkSubjectReady() {
+  return g_state.sparkSubjectReady;
+}
+
+int RecoveredArenaSeance_SparkSubjectCapacity() {
+  return g_state.sparkSubjectReady ? g_state.sparkSubjectCapacity : 0;
 }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }

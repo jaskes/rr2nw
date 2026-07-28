@@ -536,6 +536,40 @@ Retail scripts нельзя молча копировать поверх source 
   launches with 18/18 identical installed/mounted summaries, and 4/4 waited
   executable smokes publishing the new diagnostics and clean shutdown.
 
+### RP-SCRIPT-017: exact Bullet rosters resolve through a bounded transaction
+
+- Classification: `RETAIL_REQUIRED`; exact Bullet attributes and their
+  dependencies are active. Live Bullet subjects remain deferred.
+- Production executes root `BULLET.SCI`, Level-local `bullet_loc.sci` and
+  `main_CreateBullets()` in retail order. The May count/attribute-capacity/
+  subject-capacity matrix is `11/11/50`, `11/11/50`, `10/10/100`,
+  `10/10/100`, `12/12/100`, `15/15/100`, `14/14/100`, `12/12/250` and
+  `3/3/250` for Level.01D through Level.07N. The public fixture is a distinct
+  source-only `4/4/500` case.
+- Seven raw May fingerprints are `7049523956833959095`,
+  `4765450848671018588`, `14925665994745469719`, `5727703390122206721`,
+  `8941119509838881546`, `17515670196467174251` and
+  `2736248886668568454`; the first two identities are shared by their paired
+  day/night Levels. The public identity is `1712455478039360212`.
+- Every May Level supplies the real empty `Spark(40)` subject table. Its source
+  owner is linked and verified. The Bullet table preserves exact capacity
+  through a registration-only placeholder; it creates no projectile and makes
+  no physics/rendering claim.
+- Spark, Explosion, Smoke, optional WAV/Skin and trace-texture references
+  preflight for the full roster before any commit. Renderer texture checkpoints
+  and a live missing-SmokeAttr mutation prove complete atomic rollback.
+- The nine palette-aware reference identities are
+  `16411189436502945310`, `10085683157827810974`,
+  `17098152857370235907`, `10265746233383620522`,
+  `15908499397651653066`, `14908054844878695565`,
+  `11154395558747041286`, `3445417319787692654` and
+  `10893998309281092758`. Day/night differences are expected because the
+  resolved software-palette colors are part of the runtime state.
+- Unknown exact-name writes `massa` and `m_lifeTime` remain no-ops; the port
+  does not alias `massa` to `m_massa` or invent an unverified lifetime field.
+- Verification requires 51/51 CTest in Debug and Release, 36/36 May services
+  with 18/18 identical E/G pairs, and 4/4 clean waited executable smokes.
+
 ## Behavioral parity matrix
 
 Минимальные domains:
