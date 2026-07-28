@@ -88,7 +88,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_BULLET_REFERENCE_INVALID = 1ull << 11,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_TABLE_FAILURE = 1ull << 12,
   RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_TABLE_FAILURE = 1ull << 13,
-  RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_LIFECYCLE_FAILURE = 1ull << 14
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_LIFECYCLE_FAILURE = 1ull << 14,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_COLLISION_LIFECYCLE_FAILURE = 1ull << 15
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -125,6 +126,12 @@ bool RecoveredArenaSeance_BulletSubjectReady();
 int RecoveredArenaSeance_BulletSubjectCapacity();
 unsigned long long RecoveredArenaSeance_BulletSubjectFingerprint();
 int RecoveredArenaSeance_BulletSubjectProbeMoveCount();
+int RecoveredArenaSeance_BulletCollisionScheduledChecks();
+int RecoveredArenaSeance_BulletCollisionExecutedChecks();
+int RecoveredArenaSeance_BulletCollisionSphereCases();
+int RecoveredArenaSeance_BulletCollisionEarliestHitCases();
+int RecoveredArenaSeance_BulletCollisionWaterlineCases();
+int RecoveredArenaSeance_BulletCollisionSceneQueries();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();

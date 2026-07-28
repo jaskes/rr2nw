@@ -539,8 +539,9 @@ Retail scripts нельзя молча копировать поверх source 
 ### RP-SCRIPT-017: exact Bullet rosters resolve through a bounded transaction
 
 - Classification: `RETAIL_REQUIRED`; exact Bullet attributes and their
-  dependencies are active. The isolated live free-flight/ground-removal subject
-  is active; spatial collision, effects, audio and rendering remain deferred.
+  dependencies are active. The isolated live free-flight, ground-removal and
+  spatial-collision subject is active; damage/effect children, audio and
+  rendering remain deferred.
 - Production executes root `BULLET.SCI`, Level-local `bullet_loc.sci` and
   `main_CreateBullets()` in retail order. The May count/attribute-capacity/
   subject-capacity matrix is `11/11/50`, `11/11/50`, `10/10/100`,
@@ -555,16 +556,24 @@ Retail scripts нельзя молча копировать поверх source 
 - Every May Level supplies the real empty `Spark(40)` subject table. Its source
   owner is linked and verified. The Bullet table preserves exact capacity and
   executes the original `b_EV_START` layout: two three-double vectors, encoded
-  BulletAttr index and master ObjectID. A timestamped tick reproduces the
-  recovered position/velocity gravity equation and ground-plane removal while
-  the table remains non-rendering and non-audible.
+  BulletAttr index and master ObjectID. Start schedules both recovered event
+  labels. Timestamped movement reproduces the position/velocity gravity
+  equation and ground-plane removal; collision cadence queries `IDynamicObject`
+  spheres and the decoded scene order while the table remains non-rendering and
+  non-audible.
 - Admission selects an attribute from each Level's exact sorted roster because
   `Bullet.Sec` is absent from Level.01D, Level.01N and Level.07N. It rejects a
   truncated payload, a deliberately out-of-range encoded index and a zero
   direction, then proves one exact airborne tick, one ground crossing, pending
-  event cleanup and clean object-pool reuse. The subject fingerprint encodes
-  capacity plus explicit free-flight/ground/removal feature flags and requires
-  zero live probe objects.
+  event cleanup and clean object-pool reuse. The collision transaction rejects
+  malformed event data, schedules two checks, executes one, covers four bounded
+  sphere cases, three earliest-hit/tie cases and four waterline cases, and ends
+  with zero queued or live probe objects. A source-only seance performs no scene
+  query; each retail game-service seance performs one query through its real
+  decoded `CViewScene::Order()`. The portability smoke additionally collides a
+  real Bullet with a safe test `IDynamicObject`, proving Arena spatial lookup,
+  interface dispatch, hit removal and rollback. The subject fingerprint encodes
+  capacity plus explicit free-flight, ground, collision and waterline flags.
 - Spark, Explosion, Smoke, optional WAV/Skin and trace-texture references
   preflight for the full roster before any commit. Renderer texture checkpoints
   and a live missing-SmokeAttr mutation prove complete atomic rollback.
@@ -577,7 +586,11 @@ Retail scripts нельзя молча копировать поверх source 
   resolved software-palette colors are part of the runtime state.
 - Unknown exact-name writes `massa` and `m_lifeTime` remain no-ops; the port
   does not alias `massa` to `m_massa` or invent an unverified lifetime field.
-- Verification requires 51/51 CTest in Debug and Release, 36/36 May services
+- Explosion/Spark/Smoke creation remains outside this boundary. In particular,
+  the current bounded Explosion table is registration-only and cannot yet own
+  impact children safely; collision therefore removes the Bullet without
+  manufacturing a persistent orphan effect.
+- Verification passes 51/51 CTest in Debug and Release, 36/36 May services
   with 18/18 identical E/G pairs, and 4/4 clean waited executable smokes.
 
 ## Behavioral parity matrix

@@ -7,6 +7,17 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated the isolated Bullet collision cadence. Every accepted start now
+  schedules both movement and `b_EVC_CHECK_COLLISION`; collision checks select
+  the earliest valid dynamic-sphere or decoded scene/order hit, preserve the
+  retail scene-wins-ties rule, bound waterline crossings and remove the Bullet
+  with both event queues rolled back. Explosion/Spark/Smoke creation remains
+  disabled until those children have bounded lifecycle owners.
+- Added collision admission evidence: corrupt payloads and stale labels are
+  rejected without mutation, four sphere cases, three earliest-hit cases and
+  four waterline cases execute deterministically, a real scene-backed startup
+  traverses `Order()->Bump`, and the seance smoke drives the real Arena spatial
+  query against a safe `IDynamicObject` target through hit/removal/pool reuse.
 - Replaced the registration-only Bullet placeholder with a real bounded
   non-rendering/non-audible subject. It consumes the exact retail `b_EV_START`
   payload, resolves the encoded BulletAttr index without calling the unsafe
@@ -23,9 +34,10 @@ claim authorship of inherited Logos code or retail data.
 - Recorded and isolated three legacy Bullet hazards before activation: the
   shared attribute setter uses `index >= 0 || index < capacity`, the first
   trace step reads `m_viewTrace[-1]`, and old removal leaves Bullet-owned
-  movement/collision events queued. Collision, water splash/explosion/Spark,
-  sound, skin/light and trace rendering remain disabled until their owners can
-  be admitted with the same rollback standard.
+  movement/collision events queued. Spatial collision and safe waterline
+  classification are now admitted; splash/explosion/Spark creation, sound,
+  skin/light and trace rendering remain disabled until their owners can be
+  admitted with the same rollback standard.
 - Executed the exact root `BULLET.SCI` plus each selected Level's
   `SCINC/bullet_loc.sci` through original `main_CreateBullets()` ordering.
   Seven May raw identities now cover all nine Levels with exact attribute and
@@ -38,10 +50,11 @@ claim authorship of inherited Logos code or retail data.
   unchanged.
 - Linked the original empty retail `Spark(40)` subject table required by every
   May `localmain.sci`. Bullet subjects retain the exact Level capacity and now
-  execute the isolated free-flight/ground-removal lifecycle described above;
-  collision and renderer activation remain separate reviewed frontiers. Spark pool
-  allocation is now non-throwing and its historical one-past index check is
-  corrected before the table enters modern production.
+  execute the isolated free-flight, ground-removal and collision-query
+  lifecycle described above. Effect-child and renderer activation remain
+  separate reviewed frontiers. Spark pool allocation is now non-throwing and
+  its historical one-past index check is corrected before the table enters
+  modern production.
 - Added Bullet raw/reference and subject-table diagnostics, dedicated extended
   issue bits, corrupted/tableless source probes, live dependency mutation and
   complete reconstruction coverage. Palette-derived reference identities

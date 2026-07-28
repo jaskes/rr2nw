@@ -1850,9 +1850,12 @@ The required Spark subject table is no longer synthetic: every May
 the dynamic-sprite implementation linked and zero live subjects required. The
 Bullet subject table preserves each retail capacity through a real bounded
 owner. It consumes the original producer ABI, executes timestamp-based
-free-flight and ground removal, and clears its event queue and pooled state on
-every exit. It remains non-rendering/non-audible and does not yet schedule the
-collision label, so this does not accidentally activate incomplete effects.
+free-flight and ground removal, and schedules the original independent movement
+and collision labels. Collision performs the recovered Arena `IDynamicObject`
+sphere scan and decoded scene-order `Bump`, selects the earliest hit with scene
+winning an equal-time tie, and safely classifies downward waterline crossings.
+Every exit clears both queues and pooled state. The owner remains
+non-rendering/non-audible and deliberately does not create incomplete effects.
 
 The modern start path does not use `ct_AttributeTable::setAttribute()`: its
 legacy `index >= 0 || index < capacity` condition admits out-of-range decoded
@@ -1861,8 +1864,14 @@ BulletAttr roster. Payload length, timestamps, vectors, direction magnitude,
 speed and tick interval are validated before any cache position or subject
 field changes. The admission probe covers malformed payload, corrupt index,
 zero direction, exact airborne position/velocity, ground crossing, pending
-event removal and clean pool reuse. Because `Bullet.Sec` is not universal, the
-probe selects the first attribute from each admitted sorted roster.
+event removal and clean pool reuse. Collision admission separately rejects a
+malformed event, proves a rescheduled cadence, four finite sphere cases, three
+earliest-hit cases, four bounded waterline cases and complete queue rollback.
+The source-only seance expects no scene, while the game-service seance executes
+one query against its real decoded scene order. A dedicated smoke target proves
+the complete spatial lookup and `IDynamicObject` hit/removal path. Because
+`Bullet.Sec` is not universal, the probe selects the first attribute from each
+admitted sorted roster.
 
 Retail `massa` and `m_lifeTime` assignments are preserved as unknown exact-name
 serializer no-ops. The recovered field is named `m_massa`; there is no proven
@@ -1873,11 +1882,14 @@ contracts, a ballistic subject identity, probe movement count and dedicated
 extended issue bits. The legacy trace is deliberately excluded: its first call
 can read `m_viewTrace[-1]`, and legacy removal does not clear queued events.
 
-Final verification requires 51/51 CTest in both configurations, all 36 May
+Final verification passes 51/51 CTest in both configurations, all 36 May
 service launches with 18/18 identical installed/disc summaries, and 4/4 waited
-executable smokes. Live free-flight motion is admitted; spatial collision,
+executable smokes. Live free-flight and isolated spatial collision are admitted;
 damage/effect children, lifetime compatibility, audio and trace drawing remain
-the next separate frontiers.
+the next separate frontiers. The impact path currently removes the Bullet
+without creating Explosion/Spark/Smoke: Explosion is still registration-only,
+so activating the legacy child call now would leak a live orphan rather than
+prove bounded ownership.
 
 ## Expansion order
 
@@ -1934,8 +1946,9 @@ the next separate frontiers.
    identities. Exact BulletAttr rosters now resolve their Spark, Explosion,
    Smoke, optional WAV/Skin and trace resources atomically; the original empty
    `Spark(40)` pool and exact Bullet capacities are present. The bounded Bullet
-   subject now executes exact start/free-flight/ground-removal and rollback
-   without collision, effects or rendering. Vehicle's own Panel/Taxi/Bullet
+   subject now executes exact start/free-flight/ground-removal, isolated dynamic
+   and scene collision, bounded waterline classification and rollback without
+   effects or rendering. Vehicle's own Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
    attribute groups, Skin
    animation construction and remaining OBASE/script ABI bindings are still

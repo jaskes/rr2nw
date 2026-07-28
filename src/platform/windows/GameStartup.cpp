@@ -613,11 +613,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_BulletSubjectReady() ? 1 : 0));
   log.Line("bullet_subject_capacity=" +
            std::to_string(RecoveredArenaSeance_BulletSubjectCapacity()));
-  log.Line("bullet_subject_mode=ballistic-free-flight-ground");
+  log.Line("bullet_subject_mode=ballistic-collision-ground-waterline");
   log.Line("bullet_subject_fingerprint=" + std::to_string(
                RecoveredArenaSeance_BulletSubjectFingerprint()));
   log.Line("bullet_subject_probe_move_count=" + std::to_string(
                RecoveredArenaSeance_BulletSubjectProbeMoveCount()));
+  log.Line("bullet_collision_scheduled_checks=" + std::to_string(
+               RecoveredArenaSeance_BulletCollisionScheduledChecks()));
+  log.Line("bullet_collision_executed_checks=" + std::to_string(
+               RecoveredArenaSeance_BulletCollisionExecutedChecks()));
+  log.Line("bullet_collision_sphere_cases=" + std::to_string(
+               RecoveredArenaSeance_BulletCollisionSphereCases()));
+  log.Line("bullet_collision_earliest_hit_cases=" + std::to_string(
+               RecoveredArenaSeance_BulletCollisionEarliestHitCases()));
+  log.Line("bullet_collision_waterline_cases=" + std::to_string(
+               RecoveredArenaSeance_BulletCollisionWaterlineCases()));
+  log.Line("bullet_collision_scene_queries=" + std::to_string(
+               RecoveredArenaSeance_BulletCollisionSceneQueries()));
   log.Line("farter_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_FarterAttributesReady() ? 1 : 0));
@@ -839,7 +851,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
       "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
-      "attribute-bullet-ballistic-vehicle-bootstrap");
+      "attribute-bullet-collision-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

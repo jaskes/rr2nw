@@ -245,6 +245,12 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_BulletSubjectCapacity() == 0 &&
          RecoveredArenaSeance_BulletSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_BulletSubjectProbeMoveCount() == -1 &&
+         RecoveredArenaSeance_BulletCollisionScheduledChecks() == -1 &&
+         RecoveredArenaSeance_BulletCollisionExecutedChecks() == -1 &&
+         RecoveredArenaSeance_BulletCollisionSphereCases() == -1 &&
+         RecoveredArenaSeance_BulletCollisionEarliestHitCases() == -1 &&
+         RecoveredArenaSeance_BulletCollisionWaterlineCases() == -1 &&
+         RecoveredArenaSeance_BulletCollisionSceneQueries() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
@@ -1052,6 +1058,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletSubjectFingerprint() !=
           bulletSubjectFingerprint ||
       RecoveredArenaSeance_BulletSubjectProbeMoveCount() != 2 ||
+      RecoveredArenaSeance_BulletCollisionScheduledChecks() != 2 ||
+      RecoveredArenaSeance_BulletCollisionExecutedChecks() != 1 ||
+      RecoveredArenaSeance_BulletCollisionSphereCases() != 4 ||
+      RecoveredArenaSeance_BulletCollisionEarliestHitCases() != 3 ||
+      RecoveredArenaSeance_BulletCollisionWaterlineCases() != 4 ||
+      RecoveredArenaSeance_BulletCollisionSceneQueries() != 1 ||
       !BulletAttributeState_IsKnownRoster(g_super.m_context) ||
       !BulletAttributeState_ReferencesResolved(g_super.m_context) ||
       !BulletAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
@@ -1238,6 +1250,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletSubjectFingerprint() !=
           bulletSubjectFingerprint ||
       RecoveredArenaSeance_BulletSubjectProbeMoveCount() != 2 ||
+      RecoveredArenaSeance_BulletCollisionScheduledChecks() != 2 ||
+      RecoveredArenaSeance_BulletCollisionExecutedChecks() != 1 ||
+      RecoveredArenaSeance_BulletCollisionSphereCases() != 4 ||
+      RecoveredArenaSeance_BulletCollisionEarliestHitCases() != 3 ||
+      RecoveredArenaSeance_BulletCollisionWaterlineCases() != 4 ||
+      RecoveredArenaSeance_BulletCollisionSceneQueries() != 1 ||
       VehicleAttributeState_Fingerprint(g_super.m_context) !=
           vehicleAttributeFingerprint ||
       VehicleAttributeState_RosterSize(g_super.m_context) !=
@@ -1345,8 +1363,9 @@ int main(int argc, char** argv) {
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
-              "bullet_subject=0/%d-ballistic-free-flight-ground "
+              "bullet_subject=0/%d-ballistic-collision-ground-waterline "
               "bullet_subject_fingerprint=%llu bullet_probe_moves=2 "
+              "bullet_collision=2/1/4/3/4/1 "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "

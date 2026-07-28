@@ -636,6 +636,12 @@ struct RecoveredArenaSeanceState {
   unsigned long long bulletReferenceFingerprint;
   unsigned long long bulletSubjectFingerprint;
   int bulletSubjectProbeMoveCount;
+  int bulletCollisionScheduledChecks;
+  int bulletCollisionExecutedChecks;
+  int bulletCollisionSphereCases;
+  int bulletCollisionEarliestHitCases;
+  int bulletCollisionWaterlineCases;
+  int bulletCollisionSceneQueries;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
@@ -1480,6 +1486,23 @@ bool PublishBulletAttributes(SimulationContext* context) {
         "bounded Bullet start/move/ground-removal/rollback probe failed");
     return false;
   }
+  BulletCollisionProbeSummary collisionSummary = {};
+  if (!BulletSubjectState_ProbeCollisionLifecycle(
+          context, probeAttribute, Session::m_moment,
+          &collisionSummary) ||
+      collisionSummary.scheduledChecks != 2 ||
+      collisionSummary.executedChecks != 1 ||
+      collisionSummary.sphereCases != 4 ||
+      collisionSummary.earliestHitCases != 3 ||
+      collisionSummary.waterlineCases != 4 ||
+      (collisionSummary.sceneQueries != 0 &&
+       collisionSummary.sceneQueries != 1) ||
+      BulletSubjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_COLLISION_LIFECYCLE_FAILURE,
+        "bounded Bullet collision scheduling/query/rollback probe failed");
+    return false;
+  }
   const unsigned long long subjectFingerprint =
       BulletSubjectState_Fingerprint(context);
   if (subjectFingerprint == 0) {
@@ -1490,6 +1513,16 @@ bool PublishBulletAttributes(SimulationContext* context) {
   }
   g_state.bulletSubjectFingerprint = subjectFingerprint;
   g_state.bulletSubjectProbeMoveCount = probeMoveCount;
+  g_state.bulletCollisionScheduledChecks =
+      collisionSummary.scheduledChecks;
+  g_state.bulletCollisionExecutedChecks =
+      collisionSummary.executedChecks;
+  g_state.bulletCollisionSphereCases = collisionSummary.sphereCases;
+  g_state.bulletCollisionEarliestHitCases =
+      collisionSummary.earliestHitCases;
+  g_state.bulletCollisionWaterlineCases =
+      collisionSummary.waterlineCases;
+  g_state.bulletCollisionSceneQueries = collisionSummary.sceneQueries;
   g_state.bulletSubjectReady = true;
   return true;
 }
@@ -2125,6 +2158,12 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletReferenceFingerprint = 0;
   g_state.bulletSubjectFingerprint = 0;
   g_state.bulletSubjectProbeMoveCount = 0;
+  g_state.bulletCollisionScheduledChecks = 0;
+  g_state.bulletCollisionExecutedChecks = 0;
+  g_state.bulletCollisionSphereCases = 0;
+  g_state.bulletCollisionEarliestHitCases = 0;
+  g_state.bulletCollisionWaterlineCases = 0;
+  g_state.bulletCollisionSceneQueries = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -2317,6 +2356,38 @@ unsigned long long RecoveredArenaSeance_BulletSubjectFingerprint() {
 
 int RecoveredArenaSeance_BulletSubjectProbeMoveCount() {
   return g_state.bulletSubjectReady ? g_state.bulletSubjectProbeMoveCount : -1;
+}
+
+int RecoveredArenaSeance_BulletCollisionScheduledChecks() {
+  return g_state.bulletSubjectReady
+             ? g_state.bulletCollisionScheduledChecks
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletCollisionExecutedChecks() {
+  return g_state.bulletSubjectReady
+             ? g_state.bulletCollisionExecutedChecks
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletCollisionSphereCases() {
+  return g_state.bulletSubjectReady ? g_state.bulletCollisionSphereCases : -1;
+}
+
+int RecoveredArenaSeance_BulletCollisionEarliestHitCases() {
+  return g_state.bulletSubjectReady
+             ? g_state.bulletCollisionEarliestHitCases
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletCollisionWaterlineCases() {
+  return g_state.bulletSubjectReady
+             ? g_state.bulletCollisionWaterlineCases
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletCollisionSceneQueries() {
+  return g_state.bulletSubjectReady ? g_state.bulletCollisionSceneQueries : -1;
 }
 
 bool RecoveredArenaSeance_FarterAttributesReady() {

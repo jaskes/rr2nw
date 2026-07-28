@@ -3,6 +3,7 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,7 @@
 
 class CGRPanel;
 #include "h/vehicle.h"
+#include "i/dynobj.i"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "sound.h"
@@ -67,6 +69,99 @@ unsigned long long g_wavFixtureFingerprint = 0;
 unsigned long long g_soundObjectFixtureFingerprint = 0;
 unsigned long long g_farterSubjectFixtureFingerprint = 0;
 unsigned long long g_skinCatalogFixtureFingerprint = 0;
+
+class BulletDynamicProbe : public ct_Subject, public IDynamicObject {
+ public:
+  BulletDynamicProbe() : radius_(10.0) { direction_.LoadIdentity(); }
+
+  void addNotify() override {
+    ct_Subject::addNotify();
+    direction_.LoadIdentity();
+    radius_ = 10.0;
+    setPosition(CFVector3(500000.0, 500000.0, 500000.0));
+  }
+
+  void removeNotify() override {
+    ct_Subject::removeNotify();
+    direction_.LoadIdentity();
+    radius_ = 10.0;
+    m_position = CFVector3(0.0, 0.0, 0.0);
+  }
+
+  int receiveEvent(KR_Event&) override { return 0; }
+  CFVector3 realPosition() override { return m_position; }
+  bool shouldDump() override { return false; }
+
+  void* queryInterface(int iid) override {
+    if (iid == IUnknownIID) return static_cast<KR_Object*>(this);
+    if (iid == IDynamicObjectIID) return static_cast<IDynamicObject*>(this);
+    return nullptr;
+  }
+
+  CFVector3 getPos() override { return m_position; }
+  double getHAngle() override { return 0.0; }
+  CFVector3 getUpVector() override { return CFVector3(0.0, 1.0, 0.0); }
+  CFVector3 getCenter() override { return CFVector3(0.0, 0.0, 0.0); }
+  double getRadius() override { return radius_; }
+  double getRadius0() override { return radius_; }
+  CFVector3 getMoveDir() override { return CFVector3(1.0, 0.0, 0.0); }
+  double getMoveSpeed() override { return 0.0; }
+  void getMatrix(CFMatrix3x4& matrix) override { matrix = direction_; }
+  double getMass() override { return 1.0; }
+  TCCFMatrix3x4& GetDir() override { return direction_; }
+  void SetDir(TCSFMatrix3x4& direction) override { direction_ = direction; }
+
+ private:
+  CFMatrix3x4 direction_;
+  double radius_;
+};
+
+class BulletDynamicProbeTable : public ct_SubjectTable {
+ public:
+  BulletDynamicProbeTable() : table_(nullptr) {
+    registerClass("BulletDynamicProbe");
+  }
+
+  void allocObjects(int count) override {
+    table_ = new (std::nothrow) BulletDynamicProbe[count];
+    if (table_ == nullptr) m_maxObjectQnty = 0;
+  }
+
+  void freeObjects() override {
+    delete[] table_;
+    table_ = nullptr;
+    m_maxObjectQnty = 0;
+  }
+
+  ct_Object* getObjectPTR(int index) override {
+    s_ASSERT(index >= 0 && index < m_maxObjectQnty,
+             "BulletDynamicProbeTable::getObjectPTR");
+    return &table_[index];
+  }
+
+  bool isRendering() override { return false; }
+  bool isAudible() override { return false; }
+
+ private:
+  BulletDynamicProbe* table_;
+};
+
+BulletDynamicProbeTable g_bulletDynamicProbeTable;
+
+bool ProbeDynamicBulletCollision(SimulationContext& context) {
+  const ct_ClassTableID table =
+      g_arena.addClassTable("BulletDynamicProbe", 1);
+  if (table == ct_NULLID) return false;
+  KR_ObjectID target =
+      g_arena.newObject(table, "Bullet.Dynamic.Target.Probe");
+  const char* attribute = BulletAttributeState_FirstAttributeName(&context);
+  const bool valid = !target.isNUL() && attribute != nullptr &&
+      BulletSubjectState_ProbeDynamicCollisionLifecycle(
+          &context, attribute, target, Session::m_moment) &&
+      BulletSubjectState_LiveCount() == 0;
+  if (!target.isNUL() && context.isExist(target)) context.removeObject(target);
+  return valid && !context.isExist("Bullet.Dynamic.Target.Probe");
+}
 
 int Fail(const char* message) {
   RecoveredArenaSeance_Release();
@@ -268,6 +363,12 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_BulletSubjectCapacity() == 0 &&
          RecoveredArenaSeance_BulletSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_BulletSubjectProbeMoveCount() == -1 &&
+         RecoveredArenaSeance_BulletCollisionScheduledChecks() == -1 &&
+         RecoveredArenaSeance_BulletCollisionExecutedChecks() == -1 &&
+         RecoveredArenaSeance_BulletCollisionSphereCases() == -1 &&
+         RecoveredArenaSeance_BulletCollisionEarliestHitCases() == -1 &&
+         RecoveredArenaSeance_BulletCollisionWaterlineCases() == -1 &&
+         RecoveredArenaSeance_BulletCollisionSceneQueries() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
@@ -374,6 +475,12 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_BulletSubjectCapacity() != 500 ||
       RecoveredArenaSeance_BulletSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_BulletSubjectProbeMoveCount() != 2 ||
+      RecoveredArenaSeance_BulletCollisionScheduledChecks() != 2 ||
+      RecoveredArenaSeance_BulletCollisionExecutedChecks() != 1 ||
+      RecoveredArenaSeance_BulletCollisionSphereCases() != 4 ||
+      RecoveredArenaSeance_BulletCollisionEarliestHitCases() != 3 ||
+      RecoveredArenaSeance_BulletCollisionWaterlineCases() != 4 ||
+      RecoveredArenaSeance_BulletCollisionSceneQueries() != 0 ||
       BulletSubjectState_LiveCount() != 0 ||
       RecoveredArenaSeance_BulletAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_BulletReferenceFingerprint() != 0 ||
@@ -559,6 +666,8 @@ bool RunCycle(bool expectVisualResources) {
       explosionAttribute->m_wav == nullptr &&
       g_vehicle != nullptr &&
        context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
+  const bool dynamicBulletCollision =
+      ProbeDynamicBulletCollision(context);
   const unsigned long long smokeSubjectFingerprint =
       SmokeSubjectState_Fingerprint(&context);
   const unsigned long long smokeVisualFingerprint =
@@ -664,7 +773,8 @@ bool RunCycle(bool expectVisualResources) {
 
   RecoveredArenaSeance_Release();
   RecoveredArenaSeance_Release();
-  return vehiclePublished && reconstructionStable && IsReleased(context) &&
+  return vehiclePublished && dynamicBulletCollision && reconstructionStable &&
+         IsReleased(context) &&
          snd_distMax == previousSoundDistance &&
          snd_distMax2 == previousSoundDistanceSquared;
 }
@@ -1452,8 +1562,9 @@ int main(int argc, char** argv) {
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
                "bullet_attrs=4/4 "
-               "bullet_subject=0/500-ballistic-free-flight-ground "
-               "bullet_probe_moves=2 "
+               "bullet_subject=0/500-ballistic-collision-ground-waterline "
+               "bullet_probe_moves=2 bullet_collision=2/1/4/3/4/0 "
+               "bullet_dynamic_query=hit-remove-rollback "
                "smoke_subject=0/300 smoke_simulation=START-MOVE-remove "
                "smoke_visual=resolved "
                "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "

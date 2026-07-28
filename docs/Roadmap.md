@@ -544,15 +544,24 @@ free-flight equation, ground removal, event rollback and clean pool reuse. It
 is intentionally non-rendering and non-audible, so admitting ballistics does not
 silently activate the unsafe legacy trace or the heavy collision/effect graph.
 
-The next safe Bullet slice is spatial collision in isolation: reproduce the
-terrain/order and dynamic-object query contract, bound waterline intersection,
-prove earliest-hit selection and damage ownership, then attach real
-Explosion/Spark/Smoke children with complete parent/child queue rollback.
-Trace, skin/light and sound follow only after the first collision slice is
-stable; the known first-step `m_viewTrace[-1]` bug must be replaced rather than
-copied. After that, resolve Vehicle's Bullet/Panel/Taxi caches before attempting
-`SET_TAXI.SCI`. Taxi creation remains ahead of People and Tank, and live network
-or replay work remains outside this 1.0 frontier.
+The isolated Bullet collision slice is now complete. A second timestamped
+cadence queries decoded scene/order geometry and nearby `IDynamicObject`
+spheres, validates every returned time, preserves the original scene-wins-ties
+rule and classifies the first downward waterline crossing. Startup proves
+queueing, malformed rejection and a real scene traversal; the seance smoke also
+drives the Arena spatial cache and a real interface target through earliest hit,
+removal and pool reuse. No incomplete effect object is created.
+
+The next safe Bullet slice is effect ownership: replace the registration-only
+Explosion subject with a bounded impact command, resolve its encoded attribute
+without the shared unsafe setter, preserve the Bullet master as damage owner,
+and prove splash-before-impact ordering plus parent/child rollback. Spark and
+barrel Smoke can then attach to the same transaction. Trace, skin/light and
+sound follow only after effect children are stable; the known first-step
+`m_viewTrace[-1]` bug must be replaced rather than copied. After that, resolve
+Vehicle's Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi
+creation remains ahead of People and Tank, and live network or replay work
+remains outside this 1.0 frontier.
 
 ### Цель
 

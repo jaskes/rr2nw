@@ -1798,10 +1798,49 @@ a downward shot, removes an object while its next movement event is pending and
 reallocates a clean pooled object. Readiness requires two executed movement
 steps, zero live Bullets and a stable feature/capacity fingerprint.
 
-Collision checks, waterline splash selection, damage, Explosion/Spark/Smoke
-children, sound, Skin/light and trace rendering are explicitly false in the
-subject fingerprint. In particular, legacy trace drawing is not copied because
-its first step reads `m_viewTrace[-1]`; these systems will be activated in
-separate slices with parent/child rollback. Vehicle's Bullet cache also remains
-deferred, so this decision proves the consumer lifecycle without yet claiming
-that every retail weapon can create it during normal gameplay.
+At this boundary collision checks, waterline splash selection, damage,
+Explosion/Spark/Smoke children, sound, Skin/light and trace rendering were
+explicitly false in the subject fingerprint. BD-053 supersedes the collision
+and waterline portion while retaining the effect/rendering boundary. In
+particular, legacy trace drawing is not copied because its first step reads
+`m_viewTrace[-1]`. Vehicle's Bullet cache also remains deferred, so this
+decision proves the consumer lifecycle without yet claiming that every retail
+weapon can create it during normal gameplay.
+
+## BD-053: isolate Bullet collision cadence from impact effects
+
+Status: accepted on 2026-07-28.
+
+Bullet start now atomically schedules both recovered event labels. A collision
+event uses its own ordered timestamp and positive finite attribute interval,
+queries the Arena between the current position and the velocity-scaled horizon,
+asks only `IDynamicObject` candidates for finite sphere state, and queries the
+real decoded `CViewScene::Order()` with the recovered `SBumpDef` shape. The
+earliest bounded hit wins; a scene hit wins an equal-time tie, matching the
+legacy strict dynamic comparison. Any impact removes the movement event and
+the Bullet, and all rejection/removal paths clear both labels and reset pooled
+state.
+
+The legacy water test allowed a near-horizontal denominator. The bounded path
+accepts only a finite, strictly downward segment that crosses the finite scene
+waterline within the current interval. Deterministic admission covers four
+sphere cases, three hit-selection cases and four waterline cases. It also
+schedules two real collision checks, executes the first, rejects malformed
+collision data and proves complete rollback. A source-only seance records zero
+scene queries; a retail game-service seance records one real order query. The
+Arena smoke supplies a deliberately isolated `IDynamicObject` and proves the
+actual spatial lookup, interface dispatch, hit removal and pool/queue cleanup.
+
+Impact effects remain a separate ownership slice. The recovered Explosion
+subject is currently registration-only, so copying the legacy `createExplosion`
+call would create an object that cannot consume its start event or tear itself
+down. Collision therefore records the waterline/impact decision and removes the
+Bullet without creating Explosion, Spark or Smoke children. The next frontier
+must give Explosion a bounded start/teardown contract, retain `m_bulletMaster`
+as the damage owner, preserve splash-before-impact ordering and roll every
+parent/child failure back atomically before effects are enabled.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+launches with 18/18 identical installed/mounted summaries, and 4/4 waited
+executable smokes reporting one real scene query, `level-ready` and clean
+shutdown.

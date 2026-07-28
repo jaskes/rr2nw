@@ -4,8 +4,12 @@
 #include <cstring>
 #include <new>
 
+#define LAST_H__SCENE
+#include "game.h"
+
 #include "BulletAttributeState.h"
 #include "enum/SpaceEnum.h"
+#include "i/dynobj.i"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
 #include "message/a_msg.h"
@@ -16,8 +20,23 @@
 namespace {
 
 const double kGravity = -9.8;
+const double kBulletCollisionRadius = 0.01;
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
+
+enum BulletImpactKind
+{
+    BULLET_IMPACT_NONE = 0,
+    BULLET_IMPACT_DYNAMIC = 1,
+    BULLET_IMPACT_SCENE = 2
+};
+
+struct BulletImpact
+{
+    BulletImpactKind kind;
+    double time;
+    KR_ObjectID object;
+};
 
 bool FiniteVector(const CFVector3 &value)
 {
@@ -29,6 +48,77 @@ bool NearlyEqual(double left, double right)
 {
     const double scale = 1.0 + std::fabs(left) + std::fabs(right);
     return std::fabs(left - right) <= 1.0e-10 * scale;
+}
+
+bool SphereImpactTime(const CFVector3 &centerOffset,
+                      const CFVector3 &relativeVelocity,
+                      double radius, double horizon, double *impactTime)
+{
+    if (impactTime == NULL || !FiniteVector(centerOffset) ||
+        !FiniteVector(relativeVelocity) || !std::isfinite(radius) ||
+        !std::isfinite(horizon) || radius < 0.0 || horizon < 0.0)
+        return false;
+    *impactTime = 0.0;
+    const double radius2 = radius * radius;
+    const double distance2 = Abs2(centerOffset);
+    if (!std::isfinite(radius2) || !std::isfinite(distance2))
+        return false;
+    if (distance2 <= radius2)
+        return true;
+
+    const double speed2 = Abs2(relativeVelocity);
+    const double toward = relativeVelocity * centerOffset;
+    if (!std::isfinite(speed2) || !std::isfinite(toward) ||
+        speed2 <= 1.0e-4 || toward < 0.0)
+        return false;
+    const double discriminant =
+        4.0 * toward * toward -
+        4.0 * (distance2 - radius2) * speed2;
+    if (!std::isfinite(discriminant) || discriminant < 0.0)
+        return false;
+    const double result =
+        (2.0 * toward - std::sqrt(discriminant)) / (2.0 * speed2);
+    if (!std::isfinite(result) || result < 0.0 || result > horizon)
+        return false;
+    *impactTime = result;
+    return true;
+}
+
+bool WaterlineImpactTime(const CFVector3 &position,
+                         const CFVector3 &velocity,
+                         double waterline, double horizon,
+                         double *impactTime)
+{
+    if (impactTime == NULL || !FiniteVector(position) ||
+        !FiniteVector(velocity) || !std::isfinite(waterline) ||
+        !std::isfinite(horizon) || horizon < 0.0 ||
+        velocity.y >= 0.0 || position.y <= waterline)
+        return false;
+    const double result = (waterline - position.y) / velocity.y;
+    if (!std::isfinite(result) || result < 0.0 || result > horizon)
+        return false;
+    *impactTime = result;
+    return true;
+}
+
+BulletImpact SelectEarliestImpact(bool dynamicHit, double dynamicTime,
+                                  KR_ObjectID dynamicObject,
+                                  bool sceneHit, double sceneTime)
+{
+    BulletImpact result = {BULLET_IMPACT_NONE, 0.0, KR_ObjectID::NUL()};
+    // Preserve the retail tie rule: scene/order wins equal-time hits.
+    if (dynamicHit && (!sceneHit || dynamicTime < sceneTime))
+    {
+        result.kind = BULLET_IMPACT_DYNAMIC;
+        result.time = dynamicTime;
+        result.object = dynamicObject;
+    }
+    else if (sceneHit)
+    {
+        result.kind = BULLET_IMPACT_SCENE;
+        result.time = sceneTime;
+    }
+    return result;
 }
 
 void HashBytes(unsigned long long &hash, const void *data, int size)
@@ -87,8 +177,7 @@ class BoundedBullet : public ct_Subject
         case b_EVC_MOVING:
             return move(event);
         case b_EVC_CHECK_COLLISION:
-            // The spatial collision/effect graph is the next admitted slice.
-            return 0;
+            return checkCollision(event);
         case fu_EV_QUERY_SPEED:
             if (m_attribute == NULL)
                 return 0;
@@ -106,6 +195,9 @@ class BoundedBullet : public ct_Subject
     {
         return !m_started && m_attribute == NULL && m_master.isNUL() &&
                m_moveCount == 0 && m_lastMoveTimeStamp == 0.0 &&
+               m_lastCollisionTimeStamp == 0.0 &&
+               m_collisionCheckCount == 0 && m_sceneQueryCount == 0 &&
+               !m_hasWaterline && !m_crossedWaterline &&
                m_position.x == 0.0 && m_position.y == 0.0 &&
                m_position.z == 0.0 && m_velocity.x == 0.0 &&
                m_velocity.y == 0.0 && m_velocity.z == 0.0;
@@ -115,6 +207,8 @@ class BoundedBullet : public ct_Subject
     int moveCount() const { return m_moveCount; }
     AttributeBullet *attribute() const { return m_attribute; }
     const CFVector3 &velocity() const { return m_velocity; }
+    int collisionCheckCount() const { return m_collisionCheckCount; }
+    int sceneQueryCount() const { return m_sceneQueryCount; }
 
  private:
     void resetState()
@@ -129,6 +223,12 @@ class BoundedBullet : public ct_Subject
         m_started = false;
         m_moveCount = 0;
         m_lastMoveTimeStamp = 0.0;
+        m_lastCollisionTimeStamp = 0.0;
+        m_waterline = 0.0;
+        m_hasWaterline = false;
+        m_crossedWaterline = false;
+        m_collisionCheckCount = 0;
+        m_sceneQueryCount = 0;
     }
 
     bool scheduleMove(double previousTimeStamp, double timeStamp)
@@ -145,6 +245,21 @@ class BoundedBullet : public ct_Subject
                    .putDouble(previousTimeStamp)
                    .close();
         issueEvent(moving);
+        return true;
+    }
+
+    bool scheduleCollision(double timeStamp)
+    {
+        if (context == NULL || !std::isfinite(timeStamp) ||
+            timeStamp < 0.1)
+            return false;
+        KR_Event collision;
+        collision.label = b_EVC_CHECK_COLLISION;
+        collision.source = getObjectID();
+        collision.destination = getObjectID();
+        collision.timeStamp = timeStamp;
+        m_lastCollisionTimeStamp = timeStamp;
+        issueEvent(collision);
         return true;
     }
 
@@ -189,7 +304,9 @@ class BoundedBullet : public ct_Subject
             attribute == NULL || !std::isfinite(attribute->m_startSpeed) ||
             attribute->m_startSpeed <= 0.0 ||
             !std::isfinite(attribute->m_moveTimeIncrement) ||
-            attribute->m_moveTimeIncrement <= 0.0)
+            attribute->m_moveTimeIncrement <= 0.0 ||
+            !std::isfinite(attribute->m_chkClzTimeIncrement) ||
+            attribute->m_chkClzTimeIncrement <= 0.0)
             return 0;
 
         const double inverseLength = 1.0 / std::sqrt(directionLength2);
@@ -202,6 +319,12 @@ class BoundedBullet : public ct_Subject
         m_started = true;
         m_moveCount = 0;
         m_lastMoveTimeStamp = event.timeStamp;
+        CViewScene *scene = CViewScene::Current();
+        if (scene != NULL && scene->GetTerrain() != NULL)
+        {
+            m_waterline = scene->GetTerrain()->Waterline();
+            m_hasWaterline = std::isfinite(m_waterline) != 0;
+        }
         setPosition(position);
         if (position.y <= 0.0)
         {
@@ -211,10 +334,122 @@ class BoundedBullet : public ct_Subject
         }
         if (!scheduleMove(event.timeStamp,
                           event.timeStamp +
-                              attribute->m_moveTimeIncrement))
+                              attribute->m_moveTimeIncrement) ||
+            !scheduleCollision(event.timeStamp))
         {
+            context->removeEvent(b_EVC_MOVING, getObjectID());
+            context->removeEvent(b_EVC_CHECK_COLLISION, getObjectID());
             setPosition(CFVector3(0.0, 0.0, 0.0));
             resetState();
+            return 0;
+        }
+        return 1;
+    }
+
+    BulletImpact findImpact(double horizon)
+    {
+        bool dynamicHit = false;
+        double dynamicTime = horizon;
+        KR_ObjectID dynamicObject = KR_ObjectID::NUL();
+        const CFVector3 end = m_position + m_velocity * horizon;
+        if (FiniteVector(end))
+        {
+            ct_SubjectFindData found;
+            g_arena.findFirstSubject(found, m_position.x, m_position.z,
+                                     end.x, end.z);
+            for (int index = 0; index < found.getCount(); ++index)
+            {
+                const KR_ObjectID candidate(found[index]);
+                if (candidate == m_master || candidate == getObjectID())
+                    continue;
+                IDynamicObject *object = static_cast<IDynamicObject *>(
+                    context->queryInterface(candidate, IDynamicObjectIID));
+                if (object == NULL)
+                    continue;
+                const CFVector3 targetPosition = object->getPos();
+                const CFVector3 targetVelocity =
+                    object->getMoveDir() * object->getMoveSpeed();
+                const double targetRadius = object->getRadius();
+                double candidateTime = 0.0;
+                if (!FiniteVector(targetPosition) ||
+                    !FiniteVector(targetVelocity) ||
+                    !std::isfinite(targetRadius) || targetRadius < 0.0 ||
+                    !SphereImpactTime(targetPosition - m_position,
+                                      m_velocity - targetVelocity,
+                                      targetRadius, horizon,
+                                      &candidateTime))
+                    continue;
+                if (!dynamicHit || candidateTime < dynamicTime)
+                {
+                    dynamicHit = true;
+                    dynamicTime = candidateTime;
+                    dynamicObject = candidate;
+                }
+            }
+        }
+
+        bool sceneHit = false;
+        double sceneTime = horizon;
+        CViewScene *scene = CViewScene::Current();
+        if (scene != NULL && scene->Order() != NULL)
+        {
+            ++m_sceneQueryCount;
+            SBumpDef bump;
+            bump.start = m_position;
+            bump.vel = m_velocity;
+            bump.vel1 = CFVector3(0.0, 0.0, 0.0);
+            bump.fTime = horizon;
+            bump.fRadius = kBulletCollisionRadius;
+            bump.dwFlags1 = 0;
+            bump.fMass = 0.001;
+            bump.nBumpFlags = 0;
+            bump.pBonus = NULL;
+            bump.pBumpRef = NULL;
+            if (scene->Order()->Bump(bump) &&
+                std::isfinite(bump.fTime) && bump.fTime >= 0.0 &&
+                bump.fTime <= horizon)
+            {
+                sceneHit = true;
+                sceneTime = bump.fTime;
+            }
+        }
+        return SelectEarliestImpact(dynamicHit, dynamicTime, dynamicObject,
+                                    sceneHit, sceneTime);
+    }
+
+    int checkCollision(KR_Event &event)
+    {
+        if (!m_started || m_attribute == NULL || context == NULL ||
+            event.source != getObjectID() ||
+            event.destination != getObjectID() || event.data.size() != 0 ||
+            !std::isfinite(event.timeStamp) || event.timeStamp < 0.1 ||
+            !NearlyEqual(event.timeStamp, m_lastCollisionTimeStamp) ||
+            !std::isfinite(m_attribute->m_chkClzTimeIncrement) ||
+            m_attribute->m_chkClzTimeIncrement <= 0.0)
+            return 0;
+
+        const double horizon = m_attribute->m_chkClzTimeIncrement;
+        double waterTime = 0.0;
+        const bool waterHit = m_hasWaterline && !m_crossedWaterline &&
+            WaterlineImpactTime(m_position, m_velocity, m_waterline,
+                                horizon, &waterTime);
+        const BulletImpact impact = findImpact(horizon);
+        ++m_collisionCheckCount;
+        if (waterHit &&
+            (impact.kind == BULLET_IMPACT_NONE || waterTime < impact.time))
+            m_crossedWaterline = true;
+
+        if (impact.kind != BULLET_IMPACT_NONE)
+        {
+            context->removeEvent(b_EVC_MOVING, getObjectID());
+            const KR_ObjectID self = getObjectID();
+            context->removeObject(self);
+            return 1;
+        }
+        if (!scheduleCollision(event.timeStamp + horizon))
+        {
+            const KR_ObjectID self = getObjectID();
+            context->removeObject(self);
             return 0;
         }
         return 1;
@@ -277,6 +512,12 @@ class BoundedBullet : public ct_Subject
     KR_ObjectID m_master;
     bool m_started;
     int m_moveCount;
+    double m_lastCollisionTimeStamp;
+    double m_waterline;
+    bool m_hasWaterline;
+    bool m_crossedWaterline;
+    int m_collisionCheckCount;
+    int m_sceneQueryCount;
 };
 
 class BoundedBulletTable : public ct_SubjectTable
@@ -409,7 +650,9 @@ unsigned long long BulletSubjectState_Fingerprint(
     const int audible = 0;
     const int ballisticFreeFlight = 1;
     const int groundRemoval = 1;
-    const int collision = 0;
+    const int sceneOrderCollision = 1;
+    const int dynamicSphereCollision = 1;
+    const int waterlineIntersection = 1;
     const int effects = 0;
     HashString(hash, "Bullet");
     HashBytes(hash, &capacity, sizeof(capacity));
@@ -417,7 +660,11 @@ unsigned long long BulletSubjectState_Fingerprint(
     HashBytes(hash, &audible, sizeof(audible));
     HashBytes(hash, &ballisticFreeFlight, sizeof(ballisticFreeFlight));
     HashBytes(hash, &groundRemoval, sizeof(groundRemoval));
-    HashBytes(hash, &collision, sizeof(collision));
+    HashBytes(hash, &sceneOrderCollision, sizeof(sceneOrderCollision));
+    HashBytes(hash, &dynamicSphereCollision,
+              sizeof(dynamicSphereCollision));
+    HashBytes(hash, &waterlineIntersection,
+              sizeof(waterlineIntersection));
     HashBytes(hash, &effects, sizeof(effects));
     return hash;
 }
@@ -465,7 +712,8 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
     const bool invalidPayloadRejected =
         !invalid.isNUL() && invalidObject != NULL &&
         invalidObject->receiveEvent(event) == 0 && invalidObject->clean() &&
-        context->removeEvent(b_EVC_MOVING, invalid) == 0;
+        context->removeEvent(b_EVC_MOVING, invalid) == 0 &&
+        context->removeEvent(b_EVC_CHECK_COLLISION, invalid) == 0;
     RemoveIfPresent(context, invalid);
 
     invalid = g_arena.newObject(
@@ -478,7 +726,8 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
     const bool invalidAttributeRejected =
         !invalid.isNUL() && invalidObject != NULL &&
         invalidObject->receiveEvent(event) == 0 && invalidObject->clean() &&
-        context->removeEvent(b_EVC_MOVING, invalid) == 0;
+        context->removeEvent(b_EVC_MOVING, invalid) == 0 &&
+        context->removeEvent(b_EVC_CHECK_COLLISION, invalid) == 0;
     RemoveIfPresent(context, invalid);
 
     invalid = g_arena.newObject(
@@ -490,7 +739,8 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
     const bool invalidDirectionRejected =
         !invalid.isNUL() && invalidObject != NULL &&
         invalidObject->receiveEvent(event) == 0 && invalidObject->clean() &&
-        context->removeEvent(b_EVC_MOVING, invalid) == 0;
+        context->removeEvent(b_EVC_MOVING, invalid) == 0 &&
+        context->removeEvent(b_EVC_CHECK_COLLISION, invalid) == 0;
     RemoveIfPresent(context, invalid);
     if (!invalidPayloadRejected || !invalidAttributeRejected ||
         !invalidDirectionRejected ||
@@ -527,9 +777,11 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
         speedQuery.data.open(EDO_READ).getDouble(queriedSpeed).close();
     const bool firstScheduled =
         context->removeEvent(b_EVC_MOVING, flight) != 0;
+    const bool firstCollisionScheduled =
+        context->removeEvent(b_EVC_CHECK_COLLISION, flight) != 0;
     if (!started || !speedAnswered ||
         !NearlyEqual(queriedSpeed, attribute->m_startSpeed) ||
-        !firstScheduled)
+        !firstScheduled || !firstCollisionScheduled)
     {
         context->removeEvent(b_EVC_MOVING, flight);
         RemoveIfPresent(context, flight);
@@ -624,4 +876,226 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
            !context->isExist("Bullet.Subject.Ground.Probe") &&
            !context->isExist("Bullet.Subject.Rollback.Probe") &&
            !context->isExist("Bullet.Subject.Reuse.Probe");
+}
+
+bool BulletSubjectState_ProbeCollisionLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, BulletCollisionProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    const int baseline = g_bulletTable.liveCount();
+    if (context == NULL || attributeName == NULL || attributeName[0] == 0 ||
+        baseline != 0 ||
+        !BulletSubjectState_TableReady(context, g_bulletTable.capacity()))
+        return false;
+
+    double impactTime = 0.0;
+    const bool sphereInside =
+        SphereImpactTime(CFVector3(1.0, 0.0, 0.0),
+                         CFVector3(0.0, 0.0, 0.0), 2.0, 1.0,
+                         &impactTime) && NearlyEqual(impactTime, 0.0);
+    const bool sphereApproach =
+        SphereImpactTime(CFVector3(10.0, 0.0, 0.0),
+                         CFVector3(2.0, 0.0, 0.0), 2.0, 5.0,
+                         &impactTime) && NearlyEqual(impactTime, 4.0);
+    const bool sphereDeparture =
+        !SphereImpactTime(CFVector3(10.0, 0.0, 0.0),
+                          CFVector3(-2.0, 0.0, 0.0), 2.0, 5.0,
+                          &impactTime);
+    const bool sphereMiss =
+        !SphereImpactTime(CFVector3(10.0, 10.0, 0.0),
+                          CFVector3(2.0, 0.0, 0.0), 1.0, 5.0,
+                          &impactTime);
+    if (!sphereInside || !sphereApproach || !sphereDeparture ||
+        !sphereMiss)
+        return false;
+    summary->sphereCases = 4;
+
+    const KR_ObjectID target = g_arena.getObjectID();
+    const BulletImpact dynamicFirst =
+        SelectEarliestImpact(true, 0.25, target, true, 0.5);
+    const BulletImpact sceneFirst =
+        SelectEarliestImpact(true, 0.75, target, true, 0.5);
+    const BulletImpact sceneTie =
+        SelectEarliestImpact(true, 0.5, target, true, 0.5);
+    if (dynamicFirst.kind != BULLET_IMPACT_DYNAMIC ||
+        dynamicFirst.object != target ||
+        !NearlyEqual(dynamicFirst.time, 0.25) ||
+        sceneFirst.kind != BULLET_IMPACT_SCENE ||
+        !NearlyEqual(sceneFirst.time, 0.5) ||
+        sceneTie.kind != BULLET_IMPACT_SCENE ||
+        !NearlyEqual(sceneTie.time, 0.5))
+        return false;
+    summary->earliestHitCases = 3;
+
+    const bool waterCrossing =
+        WaterlineImpactTime(CFVector3(0.0, 10.0, 0.0),
+                            CFVector3(0.0, -20.0, 0.0), 5.0, 1.0,
+                            &impactTime) && NearlyEqual(impactTime, 0.25);
+    const bool waterBeyondHorizon =
+        !WaterlineImpactTime(CFVector3(0.0, 10.0, 0.0),
+                             CFVector3(0.0, -2.0, 0.0), 5.0, 1.0,
+                             &impactTime);
+    const bool waterMovingUp =
+        !WaterlineImpactTime(CFVector3(0.0, 10.0, 0.0),
+                             CFVector3(0.0, 2.0, 0.0), 5.0, 1.0,
+                             &impactTime);
+    const bool waterAlreadyBelow =
+        !WaterlineImpactTime(CFVector3(0.0, 4.0, 0.0),
+                             CFVector3(0.0, -2.0, 0.0), 5.0, 1.0,
+                             &impactTime);
+    if (!waterCrossing || !waterBeyondHorizon || !waterMovingUp ||
+        !waterAlreadyBelow)
+        return false;
+    summary->waterlineCases = 4;
+
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeBullet *attribute = static_cast<AttributeBullet *>(
+        __bulletAttrTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("BulletAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Bullet");
+    if (attributeID.isNUL() || attribute == NULL ||
+        attributeTable == ct_NULLID || subjectTable == ct_NULLID)
+        return false;
+    const int attributeIndex =
+        g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (attributeIndex == -1)
+        return false;
+
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    KR_ObjectID collision = g_arena.newObject(
+        subjectTable, "Bullet.Subject.Collision.Probe");
+    BoundedBullet *collisionObject = g_bulletTable.find(collision);
+    KR_Event event;
+    BuildStartEvent(event, collision, target, ts,
+                    CFVector3(1000000.0, 1000000.0, 1000000.0),
+                    CFVector3(1.0, 0.0, 0.0), attributeIndex, target);
+    context->sendEventNow(event);
+    const bool started = !collision.isNUL() && collisionObject != NULL &&
+        collisionObject->started();
+    const bool firstCollisionScheduled = started &&
+        context->removeEvent(b_EVC_CHECK_COLLISION, collision) != 0;
+    if (!started || !firstCollisionScheduled)
+    {
+        RemoveIfPresent(context, collision);
+        return false;
+    }
+    summary->scheduledChecks = 1;
+
+    KR_Event invalid;
+    invalid.label = b_EVC_CHECK_COLLISION;
+    invalid.source = collision;
+    invalid.destination = collision;
+    invalid.timeStamp = ts;
+    invalid.data.open(EDO_WRITE).putInt(1).close();
+    const bool malformedRejected =
+        collisionObject->receiveEvent(invalid) == 0 &&
+        collisionObject->collisionCheckCount() == 0;
+
+    KR_Event stale;
+    stale.label = b_EVC_CHECK_COLLISION;
+    stale.source = collision;
+    stale.destination = collision;
+    stale.timeStamp = ts + attribute->m_chkClzTimeIncrement;
+    const bool staleRejected =
+        collisionObject->receiveEvent(stale) == 0 &&
+        collisionObject->collisionCheckCount() == 0;
+
+    event = KR_Event();
+    event.label = b_EVC_CHECK_COLLISION;
+    event.source = collision;
+    event.destination = collision;
+    event.timeStamp = ts;
+    const bool executed = collisionObject->receiveEvent(event) == 1 &&
+        context->isExist(collision) &&
+        collisionObject->collisionCheckCount() == 1;
+    const bool secondCollisionScheduled = executed &&
+        context->removeEvent(b_EVC_CHECK_COLLISION, collision) != 0;
+    summary->executedChecks = executed ? 1 : 0;
+    summary->scheduledChecks += secondCollisionScheduled ? 1 : 0;
+    summary->sceneQueries = collisionObject->sceneQueryCount();
+    RemoveIfPresent(context, collision);
+    const bool rolledBack =
+        context->removeEvent(b_EVC_MOVING, collision) == 0 &&
+        context->removeEvent(b_EVC_CHECK_COLLISION, collision) == 0;
+
+    return malformedRejected && staleRejected && executed &&
+           secondCollisionScheduled &&
+           rolledBack && summary->scheduledChecks == 2 &&
+           summary->executedChecks == 1 &&
+           summary->sceneQueries ==
+               (CViewScene::Current() == NULL ? 0 : 1) &&
+           g_bulletTable.liveCount() == baseline &&
+           !context->isExist("Bullet.Subject.Collision.Probe");
+}
+
+bool BulletSubjectState_ProbeDynamicCollisionLifecycle(
+    SimulationContext *context, const char *attributeName,
+    const KR_ObjectID &target, double timeStamp)
+{
+    const int baseline = g_bulletTable.liveCount();
+    KR_ObjectID targetID = target;
+    if (context == NULL || attributeName == NULL || attributeName[0] == 0 ||
+        targetID.isNUL() || !context->isExist(targetID) || baseline != 0 ||
+        !BulletSubjectState_TableReady(context, g_bulletTable.capacity()))
+        return false;
+    IDynamicObject *dynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(targetID, IDynamicObjectIID));
+    if (dynamic == NULL)
+        return false;
+    const CFVector3 targetPosition = dynamic->getPos();
+    const double targetRadius = dynamic->getRadius();
+    if (!FiniteVector(targetPosition) || targetPosition.y <= 0.0 ||
+        !std::isfinite(targetRadius) || targetRadius <= 0.0)
+        return false;
+
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeBullet *attribute = static_cast<AttributeBullet *>(
+        __bulletAttrTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("BulletAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Bullet");
+    if (attributeID.isNUL() || attribute == NULL ||
+        attributeTable == ct_NULLID || subjectTable == ct_NULLID)
+        return false;
+    const int attributeIndex =
+        g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (attributeIndex == -1)
+        return false;
+
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    KR_ObjectID bullet = g_arena.newObject(
+        subjectTable, "Bullet.Subject.DynamicCollision.Probe");
+    BoundedBullet *bulletObject = g_bulletTable.find(bullet);
+    KR_Event event;
+    BuildStartEvent(event, bullet, g_arena.getObjectID(), ts,
+                    targetPosition, CFVector3(1.0, 0.0, 0.0),
+                    attributeIndex, g_arena.getObjectID());
+    context->sendEventNow(event);
+    const bool started = !bullet.isNUL() && bulletObject != NULL &&
+        bulletObject->started() &&
+        context->removeEvent(b_EVC_CHECK_COLLISION, bullet) != 0;
+    if (!started)
+    {
+        RemoveIfPresent(context, bullet);
+        return false;
+    }
+
+    event = KR_Event();
+    event.label = b_EVC_CHECK_COLLISION;
+    event.source = bullet;
+    event.destination = bullet;
+    event.timeStamp = ts;
+    const bool hit = bulletObject->receiveEvent(event) == 1 &&
+                     !context->isExist(bullet);
+    RemoveIfPresent(context, bullet);
+    return hit && context->removeEvent(b_EVC_MOVING, bullet) == 0 &&
+           context->removeEvent(b_EVC_CHECK_COLLISION, bullet) == 0 &&
+           g_bulletTable.liveCount() == baseline &&
+           !context->isExist("Bullet.Subject.DynamicCollision.Probe");
 }

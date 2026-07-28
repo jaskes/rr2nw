@@ -1365,11 +1365,11 @@ Status vocabulary:
   its capacity-40 pool to contain zero live objects. Bullet keeps its exact
   capacity in a non-rendering/non-audible owner, but registration is no longer
   the activation boundary: exact start ABI, free-flight motion, ground removal,
-  queued-event cleanup and pool reuse now execute independently of collision
-  and visual effects. Spark allocation is non-throwing and its historical
-  one-past assertion uses the valid half-open bound.
-- Revisit when: activate Bullet spatial collision and child Spark/Explosion/
-  Smoke creation. Require parent/child rollback before marking Spark live.
+  spatial collision, queued-event cleanup and pool reuse now execute
+  independently of visual effects. Spark allocation is non-throwing and its
+  historical one-past assertion uses the valid half-open bound.
+- Revisit when: activate child Spark/Explosion/Smoke creation. Require
+  parent/child rollback before marking Spark live.
 
 ### CQ-094: Bullet runtime color identity is palette-dependent
 
@@ -1403,11 +1403,35 @@ Status vocabulary:
   Trace remains disabled rather than copying the negative-index access.
 - Regression contract: every seance rejects truncated, invalid-index and
   zero-direction starts without state/queue changes; reproduces one exact
-  airborne tick; removes at the ground; proves pending-event rollback; and
+  airborne tick; removes at the ground; rejects malformed collision data;
+  reschedules one valid collision cadence; proves both-label rollback; and
   immediately reallocates a clean pooled object. The probe must finish with
   zero live Bullets and a non-zero stable subject fingerprint.
-- Revisit when: collision/effects and trace are admitted. Preserve these
-  validation and rollback guarantees while extending the fingerprint flags.
+- Revisit when: effects and trace are admitted. Preserve these validation and
+  rollback guarantees while extending the fingerprint flags.
+
+### CQ-096: legacy Bullet collision couples safe queries to unsafe effects
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `ACTIVATION_BOUNDARY`.
+- Evidence: the recovered collision handler scans `IDynamicObject` spheres and
+  calls scene-order `Bump`, then immediately creates splash/impact children and
+  removes the Bullet. Its dynamic comparison is strict, so the scene owns an
+  equal-time tie. The waterline expression accepts a near-zero downward delta
+  and divides by that delta. The current Explosion table is registration-only;
+  it cannot consume the legacy start event or guarantee teardown.
+- Handling: retain the real spatial/interface and decoded scene queries, the
+  strict tie rule and the valid downward-crossing result, but require finite
+  bounded sphere inputs and a strictly downward non-zero waterline segment.
+  Collision cadence and removal are active while Explosion/Spark/Smoke creation
+  stays off. `m_bulletMaster` is retained for the later damage-owner contract.
+- Regression contract: four sphere cases, three earliest-hit cases and four
+  waterline cases run in every seance. Source-only admission expects zero scene
+  queries, game-service admission expects one real query, and the Arena smoke
+  collides with a safe real `IDynamicObject`. Every path ends with zero probe
+  Bullets and no queued Bullet events.
+- Revisit when: replace registration-only Explosion with a bounded impact
+  consumer. Preserve splash-before-impact order and prove atomic parent/child
+  rollback before enabling any effect object.
 
 ## Maintenance rule
 
