@@ -595,6 +595,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_FarterSubjectFingerprint()));
   log.Line("farter_script_objects=" + std::to_string(
                RecoveredArenaSeance_FarterScriptObjectCount()));
+  log.Line("farter_live_objects=" + std::to_string(
+               RecoveredArenaSeance_FarterLiveObjectCount()));
+  log.Line("farter_sound_objects=" + std::to_string(
+               RecoveredArenaSeance_FarterSoundObjectCount()));
+  log.Line("sound_distance_initialized=" + std::to_string(
+               RecoveredArenaSeance_SoundDistanceReady() ? 1 : 0));
+  log.Line("sound_distance_max=" + std::to_string(
+               RecoveredArenaSeance_SoundDistance()));
+  log.Line("sound_distance_squared=" + std::to_string(
+               RecoveredArenaSeance_SoundDistanceSquared()));
+  log.Line("farter_near_frame_audible=" + std::to_string(
+               RecoveredArenaSeance_FarterNearFrameAudibleCount()));
+  log.Line("farter_far_frame_audible=" + std::to_string(
+               RecoveredArenaSeance_FarterFarFrameAudibleCount()));
+  log.Line("farter_audible_frame_transition=" + std::to_string(
+               RecoveredArenaSeance_FarterAudibleFrameTransition() ? 1 : 0));
   log.Line("farter_reference_fingerprint=" + std::to_string(
                RecoveredArenaSeance_FarterReferenceFingerprint()));
   log.Line("lamp_attributes_initialized=" +

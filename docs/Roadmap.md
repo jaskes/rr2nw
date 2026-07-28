@@ -506,21 +506,21 @@ complete gate passes 50/50 tests per configuration, 36/36 services with 18/18
 paired E/G identities, and 4/4 executable smokes. The next implementation step
 was the isolated Farter subject/audible-zone command path, still device-free.
 
-That Farter boundary is now complete at the structural/command level. Five
-Levels publish the exact capacity-25 audible subject table (01D, 01N, 04D, 06N
-and 07N); 02D, 02N and 03N line-comment the declaration, while 05D
-block-comments its declaration and apparent 23-entry roster. Those four publish
-the audited capacity-0 fingerprint `985003563401138714`. Level.04D's real
-Factory attribute executes START_FARTING, child SoundObj positioning,
-enter-START, exit-END, parent/child removal and clean reuse. The active
-fingerprint is `4111324552562250482`; 51/51 tests per configuration, 36/36
-services with 18/18 E/G identities and 4/4 executables pass. Next, execute the
-actual comment-aware `main_CreateFarters()` population (23 only for Level.04D)
-and prove one observer-driven audible transition before entering the heavier
-People/Tank/Taxi/Bullet graph. That step must first initialize the device-free
-audible distance: the legacy squared threshold remains zero unless
-`InitializeRSX()` runs, even though both retail configs request `DistMax=300`.
-A replacement audio output backend remains a later platform tranche.
+The persistent Farter boundary is now complete. The original comment-aware
+`main_CreateFarters()` executes from retail source: Level.04D retains exactly
+23 Farter and 23 child SoundObj objects, active-empty Levels retain zero, and
+commented Levels retain no table. Device-free startup atomically publishes the
+retail `DistMax=300` and squared `90000` pair, then two real Arena frames prove
+`near=1` audible/playing and `far=0` before leaving the complete roster silent
+and live for play. Level.04D's content fingerprint is
+`7560493766445754338`; active-empty capacity 25 remains
+`4111324552562250482`, and absent tables remain `985003563401138714`.
+Missing/malformed scripts, repeat construction and shutdown restore the prior
+distance pair, timer, VM, names and both pools. The fragment runner now starts
+a SimulationContext only once, avoiding a live-world KR_WAKE_UP replay found
+during this activation. The next gameplay frontier is the least-coupled slice
+of the heavier People/Tank/Taxi/Bullet graph; a replacement audio output backend
+remains a later platform tranche.
 
 ### Цель
 

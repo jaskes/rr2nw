@@ -29,6 +29,7 @@ class CGRPanel;
 #include "obase/skin/SkinResourceState.h"
 #include "storage/h/subject.h"
 #include "message/skinmsg.h"
+#include "sound.h"
 
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
@@ -43,6 +44,7 @@ constexpr int kDynSmokerCapacity = 50 + 12;
 constexpr int kSmokeCapacity = 300;
 constexpr int kSoundObjectCapacity = 250;
 constexpr int kFarterSubjectCapacity = 25;
+constexpr double kDeviceFreeSoundDistance = 300.0;
 constexpr int kSourceOnlySmokerAttributeCount = 11;
 constexpr const char kBootstrapProgramName[] =
     "recovered_common_attribute_vehicle_bootstrap";
@@ -52,6 +54,8 @@ constexpr const char kExplosionAttributeProgramName[] =
     "recovered_retail_explosion_attribute_bootstrap";
 constexpr const char kFarterAttributeProgramName[] =
     "recovered_retail_farter_attribute_bootstrap";
+constexpr const char kFarterSubjectProgramName[] =
+    "recovered_retail_farter_subject_bootstrap";
 constexpr const char kLampAttributeProgramName[] =
     "recovered_retail_lamp_attribute_bootstrap";
 constexpr const char kCorpseAttributeProgramName[] =
@@ -322,6 +326,13 @@ func void main()
 }
 )RR2NW_SCRIPT";
 
+const char kFarterSubjectBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateFarters();
+}
+)RR2NW_SCRIPT";
+
 const char kLampAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
@@ -536,6 +547,7 @@ struct RecoveredArenaSeanceState {
   bool dynSmokerReady;
   bool wavMetadataReady;
   bool soundObjectReady;
+  bool soundDistanceReady;
   bool skinResourcesReady;
   bool sparkAttributesReady;
   bool routeReady;
@@ -550,10 +562,19 @@ struct RecoveredArenaSeanceState {
   unsigned long long wavResourceFingerprint;
   int soundObjectCapacity;
   unsigned long long soundObjectFingerprint;
+  double previousSoundDistance;
+  double previousSoundDistanceSquared;
+  double soundDistance;
+  double soundDistanceSquared;
   unsigned long long farterReferenceFingerprint;
   int farterSubjectCapacity;
   unsigned long long farterSubjectFingerprint;
   int farterScriptObjectCount;
+  int farterLiveObjectCount;
+  int farterSoundObjectCount;
+  int farterNearFrameAudibleCount;
+  int farterFarFrameAudibleCount;
+  bool farterAudibleFrameTransition;
   unsigned long long corpseReferenceFingerprint;
   unsigned long long smokerReferenceFingerprint;
   int smokeSubjectCapacity;
@@ -714,6 +735,15 @@ bool RunFarterAttributeBootstrap(SimulationContext* context,
       "FARTER.SCI + SCINC\\FARTERATTR.SCI");
 }
 
+bool RunFarterSubjectBootstrap(SimulationContext* context,
+                               double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "..\\FARTER.SCI", "SCINC\\SET_FARTER.SCI",
+      kFarterSubjectBootstrapSuffix, kFarterSubjectProgramName,
+      RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+      "FARTER.SCI + SCINC\\SET_FARTER.SCI subject roster");
+}
+
 bool RunLampAttributeBootstrap(SimulationContext* context,
                                double startTime) {
   return RunRetailAttributeBootstrap(
@@ -821,6 +851,29 @@ bool OpenArena(SimulationContext* context) {
     Report(RECOVERED_ARENA_SEANCE_OPEN_FAILURE,
            "Arena did not publish Storage");
     RecoveredArenaSeance_Release();
+    return false;
+  }
+  return true;
+}
+
+bool InitializeDeviceFreeSoundDistance() {
+  g_state.previousSoundDistance = snd_distMax;
+  g_state.previousSoundDistanceSquared = snd_distMax2;
+  if (!SoundState_SetMaximumDistance(kDeviceFreeSoundDistance)) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "device-free audible distance initialization failed");
+    return false;
+  }
+  g_state.soundDistance = snd_distMax;
+  g_state.soundDistanceSquared = snd_distMax2;
+  g_state.soundDistanceReady =
+      snd_distMax == kDeviceFreeSoundDistance &&
+      snd_distMax2 == kDeviceFreeSoundDistance * kDeviceFreeSoundDistance;
+  if (!g_state.soundDistanceReady) {
+    snd_distMax = g_state.previousSoundDistance;
+    snd_distMax2 = g_state.previousSoundDistanceSquared;
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "device-free audible distance did not publish atomically");
     return false;
   }
   return true;
@@ -1434,39 +1487,70 @@ bool PublishFarterSubject(SimulationContext* context, double startTime) {
     return false;
   }
   g_state.farterScriptObjectCount = script.objectCount;
+  if (!RunFarterSubjectBootstrap(context, startTime)) {
+    return false;
+  }
   if (!script.tablePresent) {
     g_state.farterSubjectCapacity = 0;
     g_state.farterSubjectFingerprint =
         FarterSubjectState_AbsentFingerprint();
     g_state.farterSubjectReady =
         g_state.farterSubjectFingerprint != 0 &&
-        FarterSubjectState_Capacity() == 0;
+        FarterSubjectState_Capacity() == 0 &&
+        FarterSubjectState_LiveCount() == 0 &&
+        SoundObjectState_LiveCount() == 0;
+    g_state.farterLiveObjectCount = 0;
+    g_state.farterSoundObjectCount = 0;
     g_state.farterRuntimeReady = g_state.farterSubjectReady;
     return g_state.farterSubjectReady;
   }
 
   const ct_ClassTableID table =
-      g_arena.addClassTable("Farter", kFarterSubjectCapacity);
+      g_arena.searchSeanceClassTable("Farter");
   if (table == ct_NULLID ||
       !FarterSubjectState_TableReady(context, kFarterSubjectCapacity)) {
     Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
            "could not create the retail Farter subject table");
     return false;
   }
-  if ((rosterSize > 0 &&
+  g_state.farterLiveObjectCount = FarterSubjectState_LiveCount();
+  g_state.farterSoundObjectCount = SoundObjectState_LiveCount();
+  if (g_state.farterLiveObjectCount != script.objectCount ||
+      g_state.farterSoundObjectCount != script.objectCount) {
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "persistent Farter/SoundObj roster does not match retail script");
+    return false;
+  }
+  // A populated retail roster has already executed START_FARTING once for
+  // every persistent object. Keep the synthetic create/remove/reuse probe for
+  // empty-table coverage only; injecting it into a nearly full capacity-25
+  // retail table is neither necessary nor representative.
+  if ((rosterSize > 0 && script.objectCount == 0 &&
        !FarterSubjectState_ProbeLifecycle(
            context, "Farter.Attr.Factory", startTime)) ||
-      FarterSubjectState_LiveCount() != 0 ||
-      SoundObjectState_LiveCount() != 0) {
+      FarterSubjectState_LiveCount() != script.objectCount ||
+      SoundObjectState_LiveCount() != script.objectCount) {
     Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
            "Farter START/audible/SoundObj lifecycle probe failed");
     return false;
+  }
+  if (script.objectCount > 0) {
+    if (!g_state.soundDistanceReady ||
+        !FarterSubjectState_ProbeAudibleFrames(
+            context, g_state.soundDistance,
+            &g_state.farterNearFrameAudibleCount,
+            &g_state.farterFarFrameAudibleCount)) {
+      Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+             "real Farter near/far audible frame transition failed");
+      return false;
+    }
+    g_state.farterAudibleFrameTransition = true;
   }
   const unsigned long long fingerprint =
       FarterSubjectState_Fingerprint(context);
   if (fingerprint == 0) {
     Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
-           "Farter subject table did not return to stable empty state");
+           "Farter subject roster did not reach a stable silent state");
     return false;
   }
   g_state.farterSubjectCapacity = kFarterSubjectCapacity;
@@ -1507,6 +1591,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   WAVResourceState_Link();
   SoundObjectState_Link();
   SkinResourceState_Link();
+  if (!InitializeDeviceFreeSoundDistance()) return FALSE;
   if (!OpenArena(context)) return FALSE;
 
   try {
@@ -1603,6 +1688,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 }
 
 void RecoveredArenaSeance_Release() {
+  const bool restoreSoundDistance = g_state.soundDistanceReady;
+  const double previousSoundDistance = g_state.previousSoundDistance;
+  const double previousSoundDistanceSquared =
+      g_state.previousSoundDistanceSquared;
   SmokeVisualState_Release();
   g_state.vehicleReady = false;
   g_state.routeReady = false;
@@ -1642,6 +1731,11 @@ void RecoveredArenaSeance_Release() {
   g_state.soundObjectReady = false;
   g_state.soundObjectCapacity = 0;
   g_state.soundObjectFingerprint = 0;
+  g_state.farterLiveObjectCount = 0;
+  g_state.farterSoundObjectCount = 0;
+  g_state.farterNearFrameAudibleCount = 0;
+  g_state.farterFarFrameAudibleCount = 0;
+  g_state.farterAudibleFrameTransition = false;
   g_state.skinResourcesReady = false;
   g_state.skinModelCount = 0;
   g_state.skinSpriteCount = 0;
@@ -1653,9 +1747,19 @@ void RecoveredArenaSeance_Release() {
   g_state.birdAttributesReady = false;
   g_state.scriptCompleted = false;
   g_vehicle = nullptr;
-  if (!g_state.arenaOpen) return;
-  g_arena.closeSeance();
-  g_state.arenaOpen = false;
+  if (g_state.arenaOpen) {
+    g_arena.closeSeance();
+    g_state.arenaOpen = false;
+  }
+  if (restoreSoundDistance) {
+    snd_distMax = previousSoundDistance;
+    snd_distMax2 = previousSoundDistanceSquared;
+  }
+  g_state.soundDistanceReady = false;
+  g_state.previousSoundDistance = 0.0;
+  g_state.previousSoundDistanceSquared = 0.0;
+  g_state.soundDistance = 0.0;
+  g_state.soundDistanceSquared = 0.0;
 }
 
 bool RecoveredArenaSeance_IsOpen() { return g_state.arenaOpen; }
@@ -1805,6 +1909,40 @@ unsigned long long RecoveredArenaSeance_FarterSubjectFingerprint() {
 
 int RecoveredArenaSeance_FarterScriptObjectCount() {
   return g_state.farterSubjectReady ? g_state.farterScriptObjectCount : -1;
+}
+
+int RecoveredArenaSeance_FarterLiveObjectCount() {
+  return g_state.farterSubjectReady ? g_state.farterLiveObjectCount : -1;
+}
+
+int RecoveredArenaSeance_FarterSoundObjectCount() {
+  return g_state.farterSubjectReady ? g_state.farterSoundObjectCount : -1;
+}
+
+int RecoveredArenaSeance_FarterNearFrameAudibleCount() {
+  return g_state.farterSubjectReady
+             ? g_state.farterNearFrameAudibleCount
+             : -1;
+}
+
+int RecoveredArenaSeance_FarterFarFrameAudibleCount() {
+  return g_state.farterSubjectReady ? g_state.farterFarFrameAudibleCount : -1;
+}
+
+bool RecoveredArenaSeance_FarterAudibleFrameTransition() {
+  return g_state.farterAudibleFrameTransition;
+}
+
+bool RecoveredArenaSeance_SoundDistanceReady() {
+  return g_state.soundDistanceReady;
+}
+
+double RecoveredArenaSeance_SoundDistance() {
+  return g_state.soundDistanceReady ? g_state.soundDistance : 0.0;
+}
+
+double RecoveredArenaSeance_SoundDistanceSquared() {
+  return g_state.soundDistanceReady ? g_state.soundDistanceSquared : 0.0;
 }
 
 unsigned long long RecoveredArenaSeance_FarterReferenceFingerprint() {

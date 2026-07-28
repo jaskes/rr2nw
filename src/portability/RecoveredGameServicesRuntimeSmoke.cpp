@@ -26,6 +26,7 @@
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
+#include "sound.h"
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
@@ -165,6 +166,14 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_FarterSubjectCapacity() == 0 &&
          RecoveredArenaSeance_FarterSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_FarterScriptObjectCount() == -1 &&
+         RecoveredArenaSeance_FarterLiveObjectCount() == -1 &&
+         RecoveredArenaSeance_FarterSoundObjectCount() == -1 &&
+         RecoveredArenaSeance_FarterNearFrameAudibleCount() == -1 &&
+         RecoveredArenaSeance_FarterFarFrameAudibleCount() == -1 &&
+         !RecoveredArenaSeance_FarterAudibleFrameTransition() &&
+         !RecoveredArenaSeance_SoundDistanceReady() &&
+         RecoveredArenaSeance_SoundDistance() == 0.0 &&
+         RecoveredArenaSeance_SoundDistanceSquared() == 0.0 &&
          FarterSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_LampAttributesReady() &&
          !RecoveredGameServices_CorpseAttributesReady() &&
@@ -620,6 +629,8 @@ int main(int argc, char** argv) {
   }
 
   RecoveredGameServices_UseRuntime();
+  const double initialSoundDistance = snd_distMax;
+  const double initialSoundDistanceSquared = snd_distMax2;
   if (!GameEntry_RuntimeReady() || GameEntry_RuntimeMissingHooks() != 0 ||
       GameEntry_BoundedStartupEnabled()) {
     return Fail("complete service hook inventory is incorrect");
@@ -733,7 +744,8 @@ int main(int argc, char** argv) {
           g_super.m_context, "wav.Explosion", Session::m_moment) ||
       SmokeSubjectState_LiveCount() != 0 ||
       SmokerSubjectState_DynLiveCount() != 0 ||
-      SoundObjectState_LiveCount() != 0) {
+      SoundObjectState_LiveCount() !=
+          RecoveredArenaSeance_FarterScriptObjectCount()) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail(
@@ -779,6 +791,19 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_FarterSubjectFingerprint();
   const int farterScriptObjectCount =
       RecoveredArenaSeance_FarterScriptObjectCount();
+  const int farterLiveObjectCount =
+      RecoveredArenaSeance_FarterLiveObjectCount();
+  const int farterSoundObjectCount =
+      RecoveredArenaSeance_FarterSoundObjectCount();
+  const int farterNearFrameAudibleCount =
+      RecoveredArenaSeance_FarterNearFrameAudibleCount();
+  const int farterFarFrameAudibleCount =
+      RecoveredArenaSeance_FarterFarFrameAudibleCount();
+  const bool farterAudibleFrameTransition =
+      RecoveredArenaSeance_FarterAudibleFrameTransition();
+  const double soundDistance = RecoveredArenaSeance_SoundDistance();
+  const double soundDistanceSquared =
+      RecoveredArenaSeance_SoundDistanceSquared();
   const unsigned long long farterReferenceFingerprint =
       FarterAttributeState_ReferenceFingerprint(g_super.m_context);
   const bool farterRuntimeReady =
@@ -819,7 +844,10 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_WavCatalogFingerprint() != wavFingerprint ||
       soundObjectCapacity != 250 || soundObjectFingerprint == 0 ||
       !SoundObjectState_DeviceFree() ||
-      SoundObjectState_LiveCount() != 0 ||
+      !RecoveredArenaSeance_SoundDistanceReady() ||
+      RecoveredArenaSeance_SoundDistance() != 300.0 ||
+      RecoveredArenaSeance_SoundDistanceSquared() != 90000.0 ||
+      SoundObjectState_LiveCount() != farterScriptObjectCount ||
       skinModelCount < 26 ||
       skinModelCount > 52 || skinSpriteCount != 1 ||
       skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
@@ -830,16 +858,25 @@ int main(int argc, char** argv) {
       farterReferenceFingerprint == 0 ||
       (farterSubjectCapacity != 0 && farterSubjectCapacity != 25) ||
       farterSubjectFingerprint == 0 ||
-      (farterSubjectCapacity == 25 &&
+      (farterSubjectCapacity == 25 && farterScriptObjectCount == 0 &&
        farterSubjectFingerprint != 4111324552562250482ull) ||
       (farterSubjectCapacity == 0 &&
        farterSubjectFingerprint !=
            FarterSubjectState_AbsentFingerprint()) ||
       (farterScriptObjectCount != 0 && farterScriptObjectCount != 23) ||
       (farterScriptObjectCount == 23 &&
-       (farterSubjectCapacity != 25 || farterRosterSize != 4)) ||
+       (farterSubjectCapacity != 25 || farterRosterSize != 4 ||
+        farterLiveObjectCount != 23 || farterSoundObjectCount != 23 ||
+        farterNearFrameAudibleCount <= 0 ||
+        farterFarFrameAudibleCount != 0 ||
+        !farterAudibleFrameTransition)) ||
       (farterScriptObjectCount == 0 && farterRosterSize != 0) ||
-      FarterSubjectState_LiveCount() != 0 ||
+      (farterScriptObjectCount == 0 &&
+       (farterLiveObjectCount != 0 || farterSoundObjectCount != 0 ||
+        farterNearFrameAudibleCount != 0 ||
+        farterFarFrameAudibleCount != 0 ||
+        farterAudibleFrameTransition)) ||
+      FarterSubjectState_LiveCount() != farterScriptObjectCount ||
       lampFingerprint == 0 || lampRosterSize != 12 || lampCapacity != 12 ||
       corpseFingerprint == 0 || corpseRosterSize < 3 ||
       corpseRosterSize > 7 || corpseCapacity < corpseRosterSize ||
@@ -909,7 +946,9 @@ int main(int argc, char** argv) {
   ZAV_DeInitLevel();
   ZAV_DeInitLevel();
   if (!IsServiceReleased() || !IsLevelRolledBack() ||
-      !RecoveredSoftwareGraph_IsReady()) {
+      !RecoveredSoftwareGraph_IsReady() ||
+      snd_distMax != initialSoundDistance ||
+      snd_distMax2 != initialSoundDistanceSquared) {
     ZAV_Deinit();
     return Fail("public service shutdown was not idempotent");
   }
@@ -941,7 +980,7 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SoundObjectCapacity() != soundObjectCapacity ||
       RecoveredArenaSeance_SoundObjectFingerprint() !=
           soundObjectFingerprint ||
-      SoundObjectState_LiveCount() != 0 ||
+      SoundObjectState_LiveCount() != farterScriptObjectCount ||
       FarterAttributeState_Fingerprint(g_super.m_context) !=
           farterFingerprint ||
       FarterAttributeState_RosterSize(g_super.m_context) !=
@@ -957,7 +996,20 @@ int main(int argc, char** argv) {
           farterSubjectFingerprint ||
       RecoveredArenaSeance_FarterScriptObjectCount() !=
           farterScriptObjectCount ||
-      FarterSubjectState_LiveCount() != 0 ||
+      RecoveredArenaSeance_FarterLiveObjectCount() !=
+          farterLiveObjectCount ||
+      RecoveredArenaSeance_FarterSoundObjectCount() !=
+          farterSoundObjectCount ||
+      RecoveredArenaSeance_FarterNearFrameAudibleCount() !=
+          farterNearFrameAudibleCount ||
+      RecoveredArenaSeance_FarterFarFrameAudibleCount() !=
+          farterFarFrameAudibleCount ||
+      RecoveredArenaSeance_FarterAudibleFrameTransition() !=
+          farterAudibleFrameTransition ||
+      RecoveredArenaSeance_SoundDistance() != soundDistance ||
+      RecoveredArenaSeance_SoundDistanceSquared() !=
+          soundDistanceSquared ||
+      FarterSubjectState_LiveCount() != farterScriptObjectCount ||
       LampAttributeState_Fingerprint(g_super.m_context) != lampFingerprint ||
       LampAttributeState_RosterSize(g_super.m_context) != lampRosterSize ||
       LampAttributeState_Capacity() != lampCapacity ||
@@ -981,7 +1033,9 @@ int main(int argc, char** argv) {
   ZAV_DeInitLevel();
   ZAV_Deinit();
   if (!IsServiceReleased() || !IsLevelRolledBack() ||
-      RecoveredSoftwareGraph_IsReady()) {
+      RecoveredSoftwareGraph_IsReady() ||
+      snd_distMax != initialSoundDistance ||
+      snd_distMax2 != initialSoundDistanceSquared) {
     return Fail("complete service shutdown failed");
   }
 
@@ -1001,8 +1055,9 @@ int main(int argc, char** argv) {
               "sound_object=%d fingerprint=%llu backend=device-free "
               "farter_attrs=%d/%d farter_fingerprint=%llu "
               "farter_refs=%llu farter_runtime=%d "
-              "farter_subject=%d fingerprint=%llu audible=%d "
-              "script_objects=%d "
+               "farter_subject=%d fingerprint=%llu live=%d sound=%d "
+               "script_objects=%d dist=%.0f/%.0f "
+               "near_frame=%d far_frame=%d transition=%d "
               "lamp_attrs=%d/%d lamp_fingerprint=%llu "
               "corpse_attrs=%d/%d corpse_fingerprint=%llu portal=table "
               "corpse_refs=%llu corpse_runtime=%d "
@@ -1019,9 +1074,12 @@ int main(int argc, char** argv) {
               soundObjectCapacity, soundObjectFingerprint,
               farterRosterSize, farterCapacity, farterFingerprint,
               farterReferenceFingerprint, farterRuntimeReady ? 1 : 0,
-              farterSubjectCapacity, farterSubjectFingerprint,
-              farterSubjectCapacity == 25 ? 1 : 0,
-              farterScriptObjectCount,
+               farterSubjectCapacity, farterSubjectFingerprint,
+               farterLiveObjectCount, farterSoundObjectCount,
+               farterScriptObjectCount,
+               soundDistance, soundDistanceSquared,
+               farterNearFrameAudibleCount, farterFarFrameAudibleCount,
+               farterAudibleFrameTransition ? 1 : 0,
               lampRosterSize, lampCapacity, lampFingerprint,
               corpseRosterSize, corpseCapacity, corpseFingerprint,
               corpseReferenceFingerprint, corpseRuntimeReady ? 1 : 0,

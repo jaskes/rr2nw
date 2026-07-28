@@ -2468,6 +2468,7 @@ target_link_libraries(rr2nw_arena_farter_subject_state PUBLIC
   rr2nw_arena_farter_attribute_state
   rr2nw_arena_sound_object_state
   rr2nw_arena_storage
+  rr2nw_view_dynamic_waste_state
 )
 target_include_directories(rr2nw_arena_farter_subject_state PUBLIC
   nw/INCLUDE

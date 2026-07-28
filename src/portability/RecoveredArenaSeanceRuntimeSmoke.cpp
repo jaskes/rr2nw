@@ -14,6 +14,7 @@ class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "sound.h"
 #include "message/skinmsg.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
@@ -233,6 +234,14 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_FarterSubjectCapacity() == 0 &&
          RecoveredArenaSeance_FarterSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_FarterScriptObjectCount() == -1 &&
+         RecoveredArenaSeance_FarterLiveObjectCount() == -1 &&
+         RecoveredArenaSeance_FarterSoundObjectCount() == -1 &&
+         RecoveredArenaSeance_FarterNearFrameAudibleCount() == -1 &&
+         RecoveredArenaSeance_FarterFarFrameAudibleCount() == -1 &&
+         !RecoveredArenaSeance_FarterAudibleFrameTransition() &&
+         !RecoveredArenaSeance_SoundDistanceReady() &&
+         RecoveredArenaSeance_SoundDistance() == 0.0 &&
+         RecoveredArenaSeance_SoundDistanceSquared() == 0.0 &&
          FarterSubjectState_LiveCount() == 0 &&
          RecoveredArenaSeance_FarterReferenceFingerprint() == 0 &&
          !RecoveredArenaSeance_LampAttributesReady() &&
@@ -274,6 +283,8 @@ bool IsReleased(SimulationContext& context) {
 }
 
 bool RunCycle(bool expectVisualResources) {
+  const double previousSoundDistance = snd_distMax;
+  const double previousSoundDistanceSquared = snd_distMax2;
   SimulationContext context(64, 128);
   if (!RecoveredArenaSeance_Initialize(&context, Session::m_moment) ||
       !RecoveredArenaSeance_IsOpen() ||
@@ -306,6 +317,14 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_FarterSubjectFingerprint() !=
           FarterSubjectState_AbsentFingerprint() ||
       RecoveredArenaSeance_FarterScriptObjectCount() != 0 ||
+      RecoveredArenaSeance_FarterLiveObjectCount() != 0 ||
+      RecoveredArenaSeance_FarterSoundObjectCount() != 0 ||
+      RecoveredArenaSeance_FarterNearFrameAudibleCount() != 0 ||
+      RecoveredArenaSeance_FarterFarFrameAudibleCount() != 0 ||
+      RecoveredArenaSeance_FarterAudibleFrameTransition() ||
+      !RecoveredArenaSeance_SoundDistanceReady() ||
+      RecoveredArenaSeance_SoundDistance() != 300.0 ||
+      RecoveredArenaSeance_SoundDistanceSquared() != 90000.0 ||
       FarterSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_FarterReferencesReady() ||
       !RecoveredArenaSeance_FarterRuntimeReady() ||
@@ -500,7 +519,9 @@ bool RunCycle(bool expectVisualResources) {
 
   RecoveredArenaSeance_Release();
   RecoveredArenaSeance_Release();
-  return vehiclePublished && reconstructionStable && IsReleased(context);
+  return vehiclePublished && reconstructionStable && IsReleased(context) &&
+         snd_distMax == previousSoundDistance &&
+         snd_distMax2 == previousSoundDistanceSquared;
 }
 
 }  // namespace
@@ -756,6 +777,32 @@ int main(int argc, char** argv) {
     return Fail("could not copy SET_FARTER.SCI into Arena fixture");
   }
 
+  std::string invalidFarterSubjectFixture;
+  if (!ReadFile(argv[9], invalidFarterSubjectFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not read Farter subject fixture for corruption");
+  }
+  invalidFarterSubjectFixture.append("\r\n/*");
+  if (!WriteFile(farterSetCopy, invalidFarterSubjectFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Farter subject fixture");
+  }
+  const double preInvalidFarterDistance = snd_distMax;
+  const double preInvalidFarterDistanceSquared = snd_distMax2;
+  SimulationContext invalidFarterSubjectContext(64, 128);
+  const bool invalidFarterSubjectRejected =
+      RecoveredArenaSeance_Initialize(&invalidFarterSubjectContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_Issues() &
+       RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE) != 0 &&
+      IsReleased(invalidFarterSubjectContext) &&
+      snd_distMax == preInvalidFarterDistance &&
+      snd_distMax2 == preInvalidFarterDistanceSquared;
+  if (CopyFileA(argv[9], farterSetCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid SET_FARTER.SCI fixture");
+  }
+
   std::string invalidExplosionLevelFixture = explosionLevelFixture;
   const std::size_t impulse = invalidExplosionLevelFixture.find("1234");
   if (impulse == std::string::npos) {
@@ -953,6 +1000,9 @@ int main(int argc, char** argv) {
   if (!missingFarterSubjectRejected) {
     return Fail("missing Farter subject script was not rejected transactionally");
   }
+  if (!invalidFarterSubjectRejected) {
+    return Fail("invalid Farter subject script was not rejected transactionally");
+  }
   if (!invalidExplosionRosterRejected) {
     return Fail("invalid Explosion attribute roster was not rejected "
                 "transactionally");
@@ -992,6 +1042,7 @@ int main(int argc, char** argv) {
               "missing-explosion-root-local=rollback "
               "missing-farter-root-local=rollback missing-lamp=rollback "
               "missing-farter-subject=rollback "
+              "invalid-farter-subject=rollback "
               "missing-corpse=rollback "
               "invalid-explosion-roster=rollback "
               "invalid-lamp-roster=rollback "

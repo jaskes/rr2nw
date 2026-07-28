@@ -1699,6 +1699,48 @@ and 4/4 executable smokes publishing Farter subject readiness, exact capacity,
 fingerprint, `level-ready` and clean shutdown. Audio output remains explicitly
 device-free.
 
+### Persistent retail Farter roster and real audible frames
+
+The bounded host now executes the original Farter subject script instead of
+stopping after comment-aware inspection. It compiles the exact root definition
+with the Level-local `SET_FARTER.SCI` program and invokes its real
+`main_CreateFarters()`. Level.04D consequently retains 23 Farter subjects and
+23 child SoundObj commands; every other retail Level remains exactly empty or
+table-absent according to executable, comment-stripped source.
+
+The device-free sound owner now publishes distance and squared distance as one
+validated operation. Seance initialization saves the caller's pair and installs
+the retail `300/90000` values before Arena creation; shutdown restores the pair
+even after missing or malformed subject source. Invalid, non-finite and
+overflowing values cannot partially mutate state. The process fallback is also
+internally consistent at `100/10000`; none of this initializes RSX or changes
+the explicit command-state backend claim.
+
+Production readiness crosses the normal spatial path, not direct callbacks. A
+real near Arena frame at the first Level.04D emitter observes one audible and
+playing parent/child pair. A second real frame from a far observer observes
+zero and ends all children. The temporary real timer is installed only when no
+Session timer exists and is restored afterwards. The original 23/23 objects
+remain silent and live until complete seance teardown, which removes their
+duplicate `Smoker.Auto`/`snd.snd` names and empties both pools.
+
+This late fragment also found a context-lifecycle hazard: the recovered runner
+called `SimulationContext::start()` after every compiled script. On a live
+world that re-broadcasts `KR_WAKE_UP` while traversing the object queue, and the
+real Farter population reproduced an access violation at `Context.cpp:569`.
+New script objects already receive wake-up from `addObject()` in a started
+context, so the runner now starts only an unstarted context.
+
+The content-aware Level.04D subject fingerprint is
+`7560493766445754338`; active-empty and absent identities remain
+`4111324552562250482` and `985003563401138714`. Startup diagnostics expose
+`live=23`, `sound=23`, `DistMax=300`, `DistMax2=90000`, `near=1`, `far=0`
+and the successful transition. Missing/malformed script, double reconstruction
+and idempotent release cover complete configuration, VM, object, timer and
+diagnostic rollback. Final verification passes 51/51 CTest in Debug and
+Release, 36/36 service launches with 18/18 identical E/G pairs, and 4/4 waited
+executable smokes with the new diagnostics, `level-ready` and clean shutdown.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1744,9 +1786,11 @@ device-free.
    executes its device-free SET_WAV/MOVE/START/END lifecycle and makes the
    Level.04D Farter references runtime-ready. The capacity-25 Farter subject
    now executes START_FARTING and audible START/END with complete child
-   rollback; its comment-aware persistent Level.04D roster, remaining attribute
-   cache groups, Skin animation construction and remaining OBASE/script ABI
-   bindings are still required before switching to full retail `LEVEL0.SC`.
+   rollback. Its exact comment-aware script now retains Level.04D's 23 Farter
+   and 23 SoundObj objects, with real near/far Arena frames proving the audible
+   transition at `DistMax=300`. Remaining attribute cache groups, Skin
+   animation construction and remaining OBASE/script ABI bindings are still
+   required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.
 6. **Persistent observer loop complete:** the software Win32 graph and
    public Level/service lifecycle connect all twelve entry hooks. Palette, font,

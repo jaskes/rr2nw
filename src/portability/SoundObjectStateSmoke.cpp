@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
@@ -7,6 +8,7 @@
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "storage/h/subject.h"
+#include "sound.h"
 
 namespace {
 
@@ -96,13 +98,31 @@ bool RunCycle(unsigned long long* expectedFingerprint) {
 }  // namespace
 
 int main() {
+  const double originalDistance = snd_distMax;
+  const double originalDistanceSquared = snd_distMax2;
+  const bool invalidDistanceRejected =
+      !SoundState_SetMaximumDistance(0.0) &&
+      !SoundState_SetMaximumDistance(-1.0) &&
+      !SoundState_SetMaximumDistance(
+          std::numeric_limits<double>::infinity()) &&
+      snd_distMax == originalDistance &&
+      snd_distMax2 == originalDistanceSquared;
+  const bool configuredDistance =
+      SoundState_SetMaximumDistance(300.0) &&
+      snd_distMax == 300.0 && snd_distMax2 == 90000.0;
+  snd_distMax = originalDistance;
+  snd_distMax2 = originalDistanceSquared;
+  if (!invalidDistanceRejected || !configuredDistance) {
+    return Fail("device-free maximum distance was not transactional");
+  }
   WAVResourceState_Link();
   SoundObjectState_Link();
   unsigned long long fingerprint = 0;
   if (!RunCycle(&fingerprint) || !RunCycle(&fingerprint)) {
     return Fail("device-free SoundObj lifecycle reconstruction failed");
   }
-  std::printf("sound object table=SoundObj capacity=3 backend=device-free "
+  std::printf("sound distance=300/90000 invalid=transactional "
+              "sound object table=SoundObj capacity=3 backend=device-free "
               "lifecycle=invalid-bind-updateSound-move-start-end-reuse "
               "rollback=pool-name fingerprint=%llu\n",
               fingerprint);

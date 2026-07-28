@@ -209,7 +209,11 @@ bool RunMemory(const char* source, const char* programName,
     }
 
     attempt->stage = SCRIPT_STAGE_EXECUTION;
-    context->start(startTime);
+    // addObject() wakes a newly attached script program immediately once the
+    // context is running. Re-starting the entire object queue for every retail
+    // fragment replays KR_WAKE_UP on already initialized gameplay objects and
+    // can mutate the queue while start() is traversing it.
+    if (!context->m_started) context->start(startTime);
     bool completed = false;
     for (int slice = 0; slice < profile.maximumVmSlices; ++slice) {
       if (sc_RunProcess(&attempt->processes, 1, host) != 0) {

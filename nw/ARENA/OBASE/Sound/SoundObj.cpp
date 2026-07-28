@@ -417,8 +417,7 @@ bool SoundObjectState_Matches(const KR_ObjectID &objectID,
 
 unsigned long long SoundObjectState_Fingerprint(SimulationContext *context)
  {
-    if (!SoundObjectState_TableReady(context, __classTable.capacity()) ||
-        __classTable.liveCount() != 0)
+    if (!SoundObjectState_TableReady(context, __classTable.capacity()))
         return 0;
     unsigned long long hash = kSoundObjectHashOffset;
     const int capacity = __classTable.capacity();
@@ -438,15 +437,15 @@ bool SoundObjectState_ProbeLifecycle(SimulationContext *context,
                                      double timeStamp)
  {
     if (!SoundObjectState_DeviceFree() || context == 0 || wavName == 0 ||
-        wavName[0] == 0 || __classTable.liveCount() != 0)
+        wavName[0] == 0)
         return false;
+    const int liveBaseline = __classTable.liveCount();
     WAVObj *wav = 0;
     if (!WAVResourceState_ResolveLoaded(context, wavName, &wav))
         return false;
     const ct_ClassTableID table =
         g_arena.searchSeanceClassTable("SoundObj");
-    if (table == ct_NULLID || context->isExist("SoundObj.Invalid.Probe") ||
-        context->isExist("snd.snd"))
+    if (table == ct_NULLID || context->isExist("SoundObj.Invalid.Probe"))
         return false;
 
     KR_ObjectID invalid =
@@ -462,7 +461,7 @@ bool SoundObjectState_ProbeLifecycle(SimulationContext *context,
         !invalidObject->positionValid() && !invalidObject->playing();
     if (!invalid.isNUL() && context->isExist(invalid))
         context->removeObject(invalid);
-    if (!invalidRejected || __classTable.liveCount() != 0)
+    if (!invalidRejected || __classTable.liveCount() != liveBaseline)
         return false;
 
     KR_ObjectID sound;
@@ -514,9 +513,8 @@ bool SoundObjectState_ProbeLifecycle(SimulationContext *context,
         context->removeObject(sound);
 
     return moved && started && ended && reusedClean &&
-           __classTable.liveCount() == 0 &&
-           !context->isExist("SoundObj.Invalid.Probe") &&
-           !context->isExist("snd.snd");
+           __classTable.liveCount() == liveBaseline &&
+           !context->isExist("SoundObj.Invalid.Probe");
  }
 
 

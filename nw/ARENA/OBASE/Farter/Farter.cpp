@@ -17,6 +17,9 @@
 #include "obase/sound/wavobj.h"
 #include "obase/sound/SoundObjectState.h"
 #include "message/sndmsg.h"
+#include "kernel/h/session.h"
+#include "kernel/h/timer.h"
+#include "dynamic.h"
 
 #ifndef RR2NW_FARTER_ATTRIBUTE_STATE_EXTERNAL
 #include "FarterAttributeState.inl"
@@ -48,6 +51,11 @@ class FarterTable : public ct_SubjectTable
     Farter            *find(const KR_ObjectID &objectID);
     int                capacity() const { return m_maxObjectQnty; }
     int                liveCount();
+    int                audibleCount();
+    int                matchingSoundCount(bool playing);
+    Farter            *first();
+    bool                hashRoster(SimulationContext *context,
+                                   unsigned long long &hash);
 };
 
 
@@ -328,6 +336,67 @@ int FarterTable::liveCount()
     return count;
 }
 
+int FarterTable::audibleCount()
+{
+    int count = 0;
+    for (Farter *object = static_cast<Farter *>(m_existList);
+         object != NULL; object = static_cast<Farter *>(object->next()))
+        if (object->m_audibleThisFrame)
+            ++count;
+    return count;
+}
+
+int FarterTable::matchingSoundCount(bool playing)
+{
+    int count = 0;
+    for (Farter *object = static_cast<Farter *>(m_existList);
+         object != NULL; object = static_cast<Farter *>(object->next()))
+    {
+        const CFVector3 position = object->farterPosition();
+        if (object->m_attr != NULL && object->m_attr->m_wav != NULL &&
+            SoundObjectState_Matches(object->soundObjectID(),
+                                     object->m_attr->m_wav,
+                                     position.x, position.y, position.z,
+                                     true, playing, 0))
+            ++count;
+    }
+    return count;
+}
+
+Farter *FarterTable::first()
+{
+    return static_cast<Farter *>(m_existList);
+}
+
+bool FarterTable::hashRoster(SimulationContext *context,
+                             unsigned long long &hash)
+{
+    if (context == NULL)
+        return false;
+    for (Farter *object = static_cast<Farter *>(m_existList);
+         object != NULL; object = static_cast<Farter *>(object->next()))
+    {
+        if (object->m_attr == NULL || object->m_attr == &__defaultAttr ||
+            object->m_attr->m_wav == NULL || !object->hasSoundObject())
+            return false;
+        const char *attributeName =
+            context->searchObject(object->m_attr->getObjectID());
+        if (attributeName == NULL)
+            return false;
+        const CFVector3 position = object->farterPosition();
+        if (!SoundObjectState_Matches(object->soundObjectID(),
+                                      object->m_attr->m_wav,
+                                      position.x, position.y, position.z,
+                                      true, false, 0))
+            return false;
+        FarterSubjectHashString(hash, attributeName);
+        FarterSubjectHashBytes(hash, &position.x, sizeof(position.x));
+        FarterSubjectHashBytes(hash, &position.y, sizeof(position.y));
+        FarterSubjectHashBytes(hash, &position.z, sizeof(position.z));
+    }
+    return true;
+}
+
 void FarterSubjectState_Link()
 {
 }
@@ -350,10 +419,19 @@ int FarterSubjectState_LiveCount()
     return __classTable.liveCount();
 }
 
+int FarterSubjectState_AudibleCount()
+{
+    return __classTable.audibleCount();
+}
+
+int FarterSubjectState_MatchingSoundCount(bool playing)
+{
+    return __classTable.matchingSoundCount(playing);
+}
+
 unsigned long long FarterSubjectState_Fingerprint(SimulationContext *context)
 {
-    if (!FarterSubjectState_TableReady(context, __classTable.capacity()) ||
-        __classTable.liveCount() != 0)
+    if (!FarterSubjectState_TableReady(context, __classTable.capacity()))
         return 0;
     unsigned long long hash = kFarterSubjectHashOffset;
     const int capacity = __classTable.capacity();
@@ -364,6 +442,13 @@ unsigned long long FarterSubjectState_Fingerprint(SimulationContext *context)
     FarterSubjectHashBytes(hash, &audible, sizeof(audible));
     FarterSubjectHashBytes(hash, &commandLifecycle,
                            sizeof(commandLifecycle));
+    const int liveCount = __classTable.liveCount();
+    if (liveCount != 0)
+    {
+        FarterSubjectHashBytes(hash, &liveCount, sizeof(liveCount));
+        if (!__classTable.hashRoster(context, hash))
+            return 0;
+    }
     return hash;
 }
 
@@ -385,9 +470,10 @@ bool FarterSubjectState_ProbeLifecycle(SimulationContext *context,
                                        const char *attributeName,
                                        double timeStamp)
 {
-    if (context == NULL || attributeName == NULL || attributeName[0] == 0 ||
-        __classTable.liveCount() != 0 || SoundObjectState_LiveCount() != 0)
+    if (context == NULL || attributeName == NULL || attributeName[0] == 0)
         return false;
+    const int farterBaseline = __classTable.liveCount();
+    const int soundBaseline = SoundObjectState_LiveCount();
     KR_ObjectID attributeID = context->searchObject(attributeName);
     AttributeFarter *attribute = static_cast<AttributeFarter *>(
         __attrFarterTable.searchAttribute(attributeID));
@@ -395,8 +481,7 @@ bool FarterSubjectState_ProbeLifecycle(SimulationContext *context,
         g_arena.searchSeanceClassTable("Farter");
     if (attributeID.isNUL() || attribute == NULL || attribute->m_wav == NULL ||
         attribute->m_ctsndID == ct_NULLID || table == ct_NULLID ||
-        context->isExist("Farter.Subject.Probe") ||
-        context->isExist("snd.snd"))
+        context->isExist("Farter.Subject.Probe"))
         return false;
 
     KR_ObjectID invalid =
@@ -411,8 +496,8 @@ bool FarterSubjectState_ProbeLifecycle(SimulationContext *context,
         !invalidObject->hasSoundObject();
     if (!invalid.isNUL() && context->isExist(invalid))
         context->removeObject(invalid);
-    if (!invalidRejected || __classTable.liveCount() != 0 ||
-        SoundObjectState_LiveCount() != 0)
+    if (!invalidRejected || __classTable.liveCount() != farterBaseline ||
+        SoundObjectState_LiveCount() != soundBaseline)
         return false;
 
     KR_ObjectID subject =
@@ -464,11 +549,86 @@ bool FarterSubjectState_ProbeLifecycle(SimulationContext *context,
         context->removeObject(subject);
 
     return started && entered && exited && reusedClean &&
-           __classTable.liveCount() == 0 &&
-           SoundObjectState_LiveCount() == 0 &&
+           __classTable.liveCount() == farterBaseline &&
+           SoundObjectState_LiveCount() == soundBaseline &&
            !context->isExist("Farter.Subject.Invalid.Probe") &&
-           !context->isExist("Farter.Subject.Probe") &&
-           !context->isExist("snd.snd");
+           !context->isExist("Farter.Subject.Probe");
+}
+
+namespace {
+
+class FarterFrameTimer : public KR_RealTimer
+{
+ public:
+    virtual double GetTime() { return Session::m_moment; }
+    virtual double GetTimeDiff(double timeStamp)
+    {
+        return Session::m_moment - timeStamp;
+    }
+    virtual double ConvertSysTime(unsigned long tick)
+    {
+        return static_cast<double>(tick) / 1000.0;
+    }
+    virtual void Wait(double) {}
+    virtual void SetCurTime(double interval) { Session::m_moment = interval; }
+};
+
+}  // namespace
+
+bool FarterSubjectState_ProbeAudibleFrames(SimulationContext *context,
+                                           double maximumDistance,
+                                           int *nearAudibleCount,
+                                           int *farAudibleCount)
+{
+    if (nearAudibleCount == NULL || farAudibleCount == NULL)
+        return false;
+    *nearAudibleCount = 0;
+    *farAudibleCount = 0;
+    Farter *target = __classTable.first();
+    const int liveCount = __classTable.liveCount();
+    if (context == NULL || target == NULL || liveCount <= 0 ||
+        !std::isfinite(maximumDistance) || maximumDistance <= 0.0 ||
+        snd_distMax != maximumDistance ||
+        snd_distMax2 != maximumDistance * maximumDistance ||
+        SoundObjectState_LiveCount() != liveCount ||
+        __classTable.audibleCount() != 0 ||
+        __classTable.matchingSoundCount(false) != liveCount)
+        return false;
+
+    const CFVector3 nearPosition = target->farterPosition();
+    const KR_ObjectID targetSound = target->soundObjectID();
+    WAVObj *targetWav = target->m_attr->m_wav;
+    CViewDynamicList frameDynamics;
+    FarterFrameTimer fallbackTimer;
+    KR_RealTimer *previousTimer = Session::m_realTimer;
+    if (Session::m_realTimer == NULL)
+        Session::m_realTimer = &fallbackTimer;
+
+    g_arena.render(nearPosition, 0.0, frameDynamics);
+    frameDynamics.Clear(false);
+    *nearAudibleCount = __classTable.audibleCount();
+    const bool entered = target->m_audibleThisFrame != 0 &&
+        *nearAudibleCount > 0 &&
+        __classTable.matchingSoundCount(true) == *nearAudibleCount &&
+        SoundObjectState_Matches(targetSound, targetWav,
+                                 nearPosition.x, nearPosition.y,
+                                 nearPosition.z, true, true, 0);
+
+    const CFVector3 farPosition(1000000.0, 1000000.0, 1000000.0);
+    g_arena.render(farPosition, 0.0, frameDynamics);
+    frameDynamics.Clear(false);
+    *farAudibleCount = __classTable.audibleCount();
+    const bool exited = target->m_audibleThisFrame == 0 &&
+        *farAudibleCount == 0 &&
+        __classTable.matchingSoundCount(false) == liveCount &&
+        SoundObjectState_Matches(targetSound, targetWav,
+                                 nearPosition.x, nearPosition.y,
+                                 nearPosition.z, true, false, 0);
+
+    Session::m_realTimer = previousTimer;
+    return entered && exited &&
+           __classTable.liveCount() == liveCount &&
+           SoundObjectState_LiveCount() == liveCount;
 }
 
 /* End of file C:\NW\ARENA\OBASE\Farter\Farter.cpp */

@@ -14,6 +14,11 @@ extern IRSX2* lpRSX2;
 HRESULT InitializeRSX();
 void DeInitializeRSX();
 
+// Keeps the audible-zone radius usable when the legacy RSX device is not
+// initialized. The update is transactional: invalid or overflowing values do
+// not modify either public distance value.
+bool SoundState_SetMaximumDistance(double maximumDistance);
+
 extern int snd_engine ;
 extern int snd_true3d ;
 extern int snd_useDS  ;

@@ -1140,23 +1140,65 @@ Status vocabulary:
 
 ### CQ-080: device-free startup leaves the audible distance squared at zero
 
-- Status: `CONFIRMED_SOURCE`, `NEXT_FARTER_BLOCKER`.
-- Evidence: `SoundStateData.inl` initializes `snd_distMax` to 100 but
-  `snd_distMax2` to zero. The only legacy assignment of the squared value is in
-  `InitializeRSX()`, after reading `[Sound] DistMax`; the modern command-state
-  path deliberately never enters that Intel RSX initializer. Both installed
-  and mounted retail `game.cfg` files request `DistMax=300`.
+- Status: `CONFIRMED_SOURCE`, `PORTABILITY_FIX_ACCEPTED`,
+  `TRANSACTIONAL_CONFIGURATION`.
+- Evidence: the inherited `SoundStateData.inl` initialized `snd_distMax` to 100
+  but `snd_distMax2` to zero. The only legacy assignment of the squared value
+  was in `InitializeRSX()`, after reading `[Sound] DistMax`; the modern
+  command-state path deliberately never enters that Intel RSX initializer.
+  Both installed and mounted retail `game.cfg` files request `DistMax=300`.
 - Impact: `ct_Arena::render()` tests every audible subject with
   `distanceSquared < snd_distMax2`. Direct Farter callback probes are valid for
   the event contract, but an ordinary observer frame cannot enter an audible
   zone while the threshold remains zero.
-- Handling: before persistent Farter publication, add a device-free sound
-  configuration initializer that validates the finite non-negative distance,
-  publishes both linear and squared values, and resets them during shutdown.
-  This must not initialize RSX or claim speaker output.
-- Revisit when: the 23-object Level.04D roster is executed. Prove a near frame
-  enters at least one Farter, a far frame ends it, and repeated seance teardown
-  restores the sound-distance state together with both object pools.
+- Handling: the RSX-independent sound state now begins with a consistent
+  `100/10000` fallback and exposes one atomic setter. Recovered seance startup
+  saves the prior pair, validates and publishes the retail `300/90000` pair
+  before Arena opens, and restores the exact prior pair after every failed or
+  repeated shutdown. Zero, negative, non-finite and square-overflowing inputs
+  are rejected without partial mutation. No Intel RSX device is initialized.
+  Level.04D now proves the result through real Arena frames: the near observer
+  starts one persistent Farter child and the far observer ends all 23, yielding
+  `near=1`, `far=0` with both object pools preserved until normal teardown.
+- Revisit when: a replacement audio backend owns runtime configuration. It may
+  source `DistMax` from validated user configuration, but must preserve atomic
+  linear/squared publication and exact failure/device-loss rollback.
+
+### CQ-081: restarting a live SimulationContext replays world wake-up
+
+- Status: `CONFIRMED_SOURCE`, `RUNTIME_STABILITY_FIXED`,
+  `ONE_START_PER_CONTEXT`.
+- Evidence: the recovered fragment runner formerly called `context->start()`
+  after every independently compiled retail program. That function broadcasts
+  `KR_WAKE_UP` while traversing the complete context object queue. Running the
+  real Farter subject bootstrap after the already-started attribute/WAV world
+  reproduced an access violation in `SimulationContext::start()` at
+  `Context.cpp:569`; newly attached script programs already receive their own
+  wake-up from `addObject()` when `m_started` is true.
+- Handling: call `start(startTime)` only for an unstarted context. Later script
+  fragments rely on the kernel's existing add-to-running-context wake-up and
+  still run to completion through the same bounded VM slice loop. Exact
+  Level.04D execution twice in one process and full Debug/Release seance tests
+  cover the rule.
+- Revisit when: retail fragments are compiled into one monolithic program or
+  the kernel gains an explicit per-object startup API. Never restore a global
+  wake-up broadcast merely to activate one newly attached script.
+
+### CQ-082: retail Farter children deliberately reuse symbolic names
+
+- Status: `CONFIRMED_RETAIL`, `NON_UNIQUE_NAME_CONTRACT`.
+- Evidence: all 23 active Level.04D calls pass `"Smoker.Auto"` as the Farter
+  name, and original `updateSound()` creates every child as `"snd.snd"`.
+  Symbolic lookup therefore cannot identify a persistent instance; the kernel
+  permits these duplicate names and assigns distinct `KR_ObjectID` values.
+- Handling: persistent roster validation walks each class table's live exist
+  list, relates every Farter to its child ObjectID, WAV and exact position, and
+  fingerprints the ordered attribute/coordinate roster. Lifecycle and rollback
+  counts never infer uniqueness from `searchObject("Smoker.Auto")` or
+  `searchObject("snd.snd")`.
+- Revisit when: modding or save serialization exposes stable public object
+  identities. Add explicit stable IDs instead of silently treating legacy
+  display/script names as unique keys.
 
 ## Maintenance rule
 

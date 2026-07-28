@@ -8,7 +8,7 @@ int snd_engine = 0;
 int snd_true3d = 0;
 int snd_useDS = 0;
 double snd_distMax = 100;
-double snd_distMax2 = 0;
+double snd_distMax2 = 100 * 100;
 double snd_engineIntensity = 0;
 
 #endif

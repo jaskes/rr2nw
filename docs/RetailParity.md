@@ -440,9 +440,41 @@ Retail scripts нельзя молча копировать поверх source 
   subject/callback contract, not speaker output. Startup continues to state
   `audio_backend=device-free-command-state` explicitly.
 - Verification passes 51/51 Debug and Release tests, 36/36 retail services
-  with 18/18 identical E/G pairs, and 4/4 executable runtime smokes. The next
-  parity gate must execute the comment-aware persistent roster and observe a
-  real frame-driven audible-zone transition.
+  with 18/18 identical E/G pairs, and 4/4 executable runtime smokes. The
+  persistent/frame-driven parity gate is fulfilled by RP-SCRIPT-014 below.
+
+### RP-SCRIPT-014: Level.04D executes its persistent audible roster
+
+- Classification: `RETAIL_REQUIRED`; persistent script execution and spatial
+  command-state culling are active. Speaker output remains deferred.
+- The production host executes the exact combined root `FARTER.SCI` and local
+  `SET_FARTER.SCI` program. Level.04D alone creates 23 live Farter subjects and
+  23 child SoundObj commands against its four known attributes. Active-empty
+  01D/01N/06N/07N retain zero objects, and the four commented Levels retain an
+  absent table. Installed and mounted roots agree on all cases.
+- Retail sound configuration publishes `DistMax=300` and
+  `DistMax2=90000` atomically before Arena opens. Failed script setup and
+  repeated shutdown restore the exact previous pair; the operation does not
+  initialize Intel RSX.
+- Two real `ct_Arena::render` calls provide the spatial proof. At a persistent
+  Farter position, one object enters the audible set and its child reaches
+  logical playing state. With the observer at `(1000000,1000000,1000000)`, all
+  23 leave and every child is silent. The audited counters are `near=1` and
+  `far=0`, followed by 23/23 persistent objects until normal level teardown.
+- Level.04D's content-aware Farter subject fingerprint is
+  `7560493766445754338`. Active-empty capacity 25 remains
+  `4111324552562250482`; absent tables remain `985003563401138714`.
+  Duplicate retail names `Smoker.Auto` and `snd.snd` are intentionally not
+  treated as stable identifiers; validation uses live table membership and
+  parent/child ObjectIDs.
+- Startup diagnostics publish the distance pair, script/live/child counts,
+  near/far counters and `farter_audible_frame_transition=1`. A missing or
+  malformed subject fragment fails transactionally. The complete local gate
+  passes 51/51 CTest in both configurations, 36/36 service launches with 18/18
+  identical E/G pairs, and 4/4 waited executable smokes with valid diagnostics.
+  The exact active-23 integration uses the May roots: public Level.04D carries
+  the separately admitted January `24/30` WAV roster and must not be mixed with
+  May Farter content to manufacture a CI-only hybrid.
 
 ## Behavioral parity matrix
 

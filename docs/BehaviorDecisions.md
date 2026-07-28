@@ -1531,7 +1531,8 @@ audible subject and its zone callbacks execute, but no output backend exists.
 The production startup probe invokes those callbacks directly and is removed
 before play; persistent execution of Level.04D's 23 `CreateFarter` calls and a
 normal observer-driven in/out spatial transition remain the next script/frame
-step. Level.05D contains a visually similar 23-entry block, but the entire
+step for this decision and are fulfilled by BD-048 below. Level.05D contains a
+visually similar 23-entry block, but the entire
 block including its table declaration is enclosed in `/* ... */` and its
 FarterAttr roster is empty; it must not be misclassified as active content.
 
@@ -1550,3 +1551,62 @@ The capability fingerprint is `4111324552562250482` for retail capacity 25,
 paired E/G identities, and all 4/4 executable runtime smokes publishing Farter
 subject readiness, exact capacity/fingerprint, `level-ready` and clean
 shutdown. Audible playback remains deferred despite the active callbacks.
+
+## BD-048: retain the real Level.04D Farter roster and prove culling by frames
+
+Status: accepted on 2026-07-28.
+
+Recovered seance startup now executes the exact root `FARTER.SCI` definitions
+and Level-local `SCINC/SET_FARTER.SCI` program rather than translating its
+creation calls into a parallel C++ roster. Comment-aware inspection remains a
+preflight contract: only Level.04D may execute 23 calls against four known
+attributes; active-empty Levels execute zero, and commented-out Levels publish
+no table. The real VM therefore creates the persistent subjects and their child
+SoundObj commands through original `CreateFarter` and `START_FARTING` code.
+
+Audible distance is configuration state, not an audio-device side effect. The
+device-free seance atomically installs retail `DistMax=300` and its exact square
+`90000` before opening Arena, after saving the prior pair. Invalid values cannot
+partially change either global, and every success, script failure or repeated
+release restores the saved values. The stable outer fallback is `100/10000`,
+closing the former zero-square state even outside an active seance.
+
+Level.04D readiness requires 23 live Farter objects and 23 child SoundObj
+objects. A disposable timer is installed only when the Session has none, then
+the proof invokes the real `ct_Arena::render` twice. The first observer is
+placed exactly at one persistent Farter and must produce at least one audible,
+playing match; the second is placed far beyond the 300-unit radius and must
+produce zero audible or playing matches. The retail result is `near=1` and
+`far=0`. The proof restores the prior timer and leaves all 46 persistent
+objects in their silent gameplay state; ordinary seance teardown later removes
+both pools and their duplicate names completely.
+
+The roster fingerprint now versions persistent content as well as capacity. It
+hashes the live count plus every ordered attribute name and exact XYZ tuple;
+Level.04D is `7560493766445754338`. Active-empty capacity 25 remains
+`4111324552562250482`, absent-table state remains `985003563401138714`, and
+the focused capacity-3 capability identity remains `5538208929077097000`.
+Startup publishes live/child counts, distance, both frame counts and a boolean
+transition so a crash report can distinguish script population from culling.
+
+Attaching this late retail fragment exposed that the generic runner restarted
+the whole live context for every program. Since `addObject()` already wakes a
+new program in a started context, repeated `start()` replayed `KR_WAKE_UP` over
+the world and could invalidate the traversal queue. The runner now starts a
+context exactly once. Missing and malformed Farter subject programs, two
+complete reconstructions and final release cover script, object, timer,
+diagnostic and sound-distance rollback.
+
+This decision still makes no audible-output claim: SoundObj remains the
+device-free command backend. The next gameplay frontier may enter the heavier
+People/Tank/Taxi/Bullet graph with a persistent scripted-object pattern and
+one-start context contract now proven.
+
+Verification passes 51/51 CTest in both Debug and Release, 36/36 retail
+service launches with 18/18 identical E/G pairs, and 4/4 waited executable
+smokes whose archives contain the distance pair, `level-ready` and clean
+shutdown markers. The repository's public Level.04D source is the separately
+admitted January `24/30` WAV snapshot, not the May `33/35` roster; CI therefore
+keeps its hermetic public-source rollback fixture, while exact active-23 content
+proof deliberately runs against the two canonical May roots rather than
+weakening the retail-identity gate or constructing a hybrid Level.

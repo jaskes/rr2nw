@@ -7,6 +7,24 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Executed the exact comment-aware retail `main_CreateFarters()` program after
+  its root attribute fragment. Level.04D now keeps all 23 original Farter
+  objects and their 23 child SoundObj commands alive for play; the other eight
+  Levels retain their exact active-empty or commented-absent states.
+- Added atomic device-free `DistMax=300` initialization (`DistMax2=90000`),
+  rejection of invalid/overflowing distances and exact restoration of both
+  legacy globals on failed initialization and repeated shutdown.
+- Added a real Arena-frame audible-zone proof. A near observer starts one of
+  Level.04D's persistent sounds and a far observer ends it, producing audited
+  `near_frame=1`, `far_frame=0` diagnostics without claiming speaker output.
+- Added persistent Farter/SoundObj roster, distance and near/far-frame startup
+  diagnostics plus a roster fingerprint that includes exact attribute names
+  and positions. Missing and malformed subject scripts now prove complete
+  transactional rollback.
+- Prevented the fragment script runner from restarting an already running
+  `SimulationContext`. Newly attached programs receive their own wake-up from
+  `addObject()`; replaying `KR_WAKE_UP` across the live world could mutate the
+  object queue during traversal.
 - Activated the original `Farter` subject table as the first real SoundObj
   consumer on the five retail Levels that actually declare its capacity-25
   pool. `START_FARTING` now binds a verified FarterAttr, creates and positions
@@ -14,9 +32,8 @@ claim authorship of inherited Logos code or retail data.
   logical START/END before complete parent/child rollback.
 - Added Farter subject readiness, capacity/fingerprint and audible diagnostics,
   plus comment-aware active/absent script classification and repeated focused
-  and retail lifecycle coverage. The current boundary validates Level.04D's
-  real `Farter.Attr.Factory`; persistent execution of its 23-object
-  `main_CreateFarters()` roster remains a separate script step.
+  and retail lifecycle coverage. The smaller disposable Factory probe remains
+  for empty-table fixtures, while populated Level.04D uses its real roster.
 - Restored `ct_Subject::addNotify/removeNotify` ownership in Farter, initialized
   its formerly indeterminate child ID, reset every pooled field, rejected
   malformed/unknown START payloads and fixed the class table's one-past bound.
