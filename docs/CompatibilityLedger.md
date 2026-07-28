@@ -1158,8 +1158,9 @@ Status vocabulary:
   repeated shutdown. Zero, negative, non-finite and square-overflowing inputs
   are rejected without partial mutation. No Intel RSX device is initialized.
   Level.04D now proves the result through real Arena frames: the near observer
-  starts one persistent Farter child and the far observer ends all 23, yielding
-  `near=1`, `far=0` with both object pools preserved until normal teardown.
+  starts one persistent Farter child and the far observer ends that active
+  child, yielding `near=1`, `far=0` with all 23 children silent and both object
+  pools preserved until normal teardown.
 - Revisit when: a replacement audio backend owns runtime configuration. It may
   source `DistMax` from validated user configuration, but must preserve atomic
   linear/squared publication and exact failure/device-loss rollback.

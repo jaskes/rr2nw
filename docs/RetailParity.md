@@ -458,9 +458,10 @@ Retail scripts нельзя молча копировать поверх source 
   initialize Intel RSX.
 - Two real `ct_Arena::render` calls provide the spatial proof. At a persistent
   Farter position, one object enters the audible set and its child reaches
-  logical playing state. With the observer at `(1000000,1000000,1000000)`, all
-  23 leave and every child is silent. The audited counters are `near=1` and
-  `far=0`, followed by 23/23 persistent objects until normal level teardown.
+  logical playing state. With the observer at `(1000000,1000000,1000000)`,
+  that active object exits and every one of the 23 children is silent. The
+  audited counters are `near=1` and `far=0`, followed by 23/23 persistent
+  objects until normal level teardown.
 - Level.04D's content-aware Farter subject fingerprint is
   `7560493766445754338`. Active-empty capacity 25 remains
   `4111324552562250482`; absent tables remain `985003563401138714`.

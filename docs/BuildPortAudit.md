@@ -1719,10 +1719,11 @@ the explicit command-state backend claim.
 Production readiness crosses the normal spatial path, not direct callbacks. A
 real near Arena frame at the first Level.04D emitter observes one audible and
 playing parent/child pair. A second real frame from a far observer observes
-zero and ends all children. The temporary real timer is installed only when no
-Session timer exists and is restored afterwards. The original 23/23 objects
-remain silent and live until complete seance teardown, which removes their
-duplicate `Smoker.Auto`/`snd.snd` names and empties both pools.
+zero, ends that active child and verifies all 23 children are silent. The
+temporary real timer is installed only when no Session timer exists and is
+restored afterwards. The original 23/23 objects remain silent and live until
+complete seance teardown, which removes their duplicate
+`Smoker.Auto`/`snd.snd` names and empties both pools.
 
 This late fragment also found a context-lifecycle hazard: the recovered runner
 called `SimulationContext::start()` after every compiled script. On a live
