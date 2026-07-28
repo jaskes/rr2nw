@@ -2,11 +2,16 @@
 #include "game.h"
 
 bool CLandDynamicMap::IsEmpty() {
-  if (m_pOriginLight == 0) return true;
+  if (m_pOrigin == 0 || m_pOriginLight == 0) {
+    return m_pOrigin == 0 && m_pOriginLight == 0;
+  }
 
   for (int y = m_rect.top; y < m_rect.bottom; ++y) {
     for (int x = m_rect.left; x < m_rect.right; ++x) {
-      if (m_pOriginLight[x + y * m_size.x] != 0) return false;
+      const int index = x + y * m_size.x;
+      if (m_pOrigin[index].First() != 0 || m_pOriginLight[index] != 0) {
+        return false;
+      }
     }
   }
   return true;

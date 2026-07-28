@@ -417,9 +417,10 @@ This closes the attribute/service prerequisites and reference resolution that
 previously blocked Corpse and Farter. The original capacity-62 `DynSmoker`
 subject table now executes a bounded real create/start/remove lifecycle, making
 retail Corpse structurally runtime-ready without claiming visible smoke. The
-dependency audit now resolves SmokerAttr's Smoke references while keeping
-renderer-owned corona caches deferred before enabling MOVE, terrain, light and
-render callbacks. `SoundObj` and an eventual replacement audio backend remain
+dependency audit now resolves SmokerAttr's Smoke references; Smoke resource
+caches and emitted-Smoke drawing are active while Smoker MOVE, emission,
+corona and light callbacks remain deferred. `SoundObj` and an eventual
+replacement audio backend remain
 separate boundaries before the People/Tank/Taxi/Bullet graph. Continue in
 rollback-tested groups until unchanged retail
 `LEVEL0.SC` can replace the bootstrap. Then verify the already attached
@@ -475,12 +476,13 @@ published `CViewScene` terrain and fail closed only when that scene is absent;
 pooled reuse still resets the complete transient object. The installed
 Debug/Release sweep proves `Smoke.Attr.FireArea` against all nine Level scenes.
 
-The next implementation step is the visible land-dynamic boundary: attach one
-live Smoke view object to the recovered scene's dynamic list, promote it into
-the land map, draw it from the resolved sprite cache, and prove full
-detachment/rollback before scene teardown. Only then restore Smoker MOVE and
-Smoke emission, followed by light/corona updates. `SoundObj` remains a
-separate dependency boundary before the heavier People/Tank/Taxi/Bullet graph.
+The visible land-dynamic boundary is now complete. A live retail Smoke view
+object crosses Arena culling, recovered-scene promotion and the real software
+alpha-sprite callback; the next frame proves exact detach and no stale draw.
+Exact same-cell removal also preserves neighboring dynamics during rollback.
+The next implementation step is bounded Smoker MOVE and Smoke emission,
+followed by light/corona updates. `SoundObj` remains a separate dependency
+boundary before the heavier People/Tank/Taxi/Bullet graph.
 
 ### Цель
 

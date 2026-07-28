@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated the real visible `Smoke` path in the bounded production owner.
+  A live retail `Smoke.Attr.Trace` now crosses Arena culling, scene dynamic
+  promotion and the software alpha-sprite draw callback, then leaves no object,
+  queued MOVE, sprite draw or dynamic-map ownership behind on the next frame.
+- Added `smoke_rendering_initialized` runtime diagnostics and capability
+  versioning for the now-active Smoke draw boundary.
+- Replaced `CLandDynamicMap::RemoveDynamic()`'s whole-cell clear with exact
+  circular-list unlinking. A two-object same-cell regression proves that
+  detaching one view object preserves its sibling and that interrupted-frame
+  rollback leaves the map empty.
+- Made the land-dynamic emptiness assertion inspect dynamic cells as well as
+  light masks, turning the existing frame-release check into a real ownership
+  invariant.
 - Activated terrain-bound `Smoke` placement against the published real
   `CViewScene`. Both START forms now snap `m_onLand` smoke to the decoded
   terrain, fail closed when no scene exists, and retain exact MOVE/pool/event

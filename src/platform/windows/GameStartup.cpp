@@ -556,6 +556,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("smoke_terrain_initialized=" +
            std::to_string(
                RecoveredGameServices_SmokeTerrainReady() ? 1 : 0));
+  log.Line("smoke_rendering_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SmokeRenderingReady() ? 1 : 0));
   log.Line("smoke_subject_capacity=" + std::to_string(
                RecoveredArenaSeance_SmokeSubjectCapacity()));
   log.Line("smoke_subject_fingerprint=" + std::to_string(

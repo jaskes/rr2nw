@@ -1043,15 +1043,22 @@ unsigned long long SmokeSubjectState_Fingerprint(SimulationContext *context)
     SmokeSubjectHashBytes(hash, &capacity, sizeof(capacity));
     const int rendering = __classTable.isRendering() ? 1 : 0;
     SmokeSubjectHashBytes(hash, &rendering, sizeof(rendering));
-#ifdef RR2NW_SMOKE_SIMULATION_ONLY
-    const int simulation = 1;
-#else
+#ifdef RR2NW_SMOKE_SUBJECT_ONLY
     const int simulation = 0;
+#else
+    const int simulation = 1;
 #endif
     SmokeSubjectHashBytes(hash, &simulation, sizeof(simulation));
     const int terrainPlacement = 1;
     SmokeSubjectHashBytes(hash, &terrainPlacement,
                           sizeof(terrainPlacement));
+#ifdef RR2NW_SMOKE_RENDER_DISABLED
+    const int visibleRendering = 0;
+#else
+    const int visibleRendering = 1;
+#endif
+    SmokeSubjectHashBytes(hash, &visibleRendering,
+                          sizeof(visibleRendering));
     return hash;
 }
 
@@ -1213,5 +1220,25 @@ bool SmokeSubjectState_SimulationSupported(
               __attrTable.searchAttribute(attributeID));
     return SmokeAttributeCanSimulate(attribute) &&
            SmokeTerrainReady(attribute);
+}
+
+bool SmokeSubjectState_RenderingSupported(
+    SimulationContext *context, const char *attributeName)
+{
+#ifdef RR2NW_SMOKE_RENDER_DISABLED
+    (void)context;
+    (void)attributeName;
+    return false;
+#else
+    if (!SmokeSubjectState_SimulationSupported(context, attributeName) ||
+        _pGRDrawAlphaSprite == NULL)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoke *attribute = attributeID.isNUL()
+        ? NULL
+        : static_cast<AttributeSmoke *>(
+              __attrTable.searchAttribute(attributeID));
+    return attribute != NULL && attribute->m_cacheImage != NULL;
+#endif
 }
 /* End of file C:\NW\ARENA\OBASE\Smoke\Smoke.cpp */

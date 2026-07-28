@@ -989,6 +989,22 @@ Status vocabulary:
 - Revisit when: terrain diagnostics stop using the legacy fixed font; remove
   the edge only after the object file no longer references those methods.
 
+### CQ-072: land-dynamic removal cleared every object in one terrain cell
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `OWNERSHIP_ROLLBACK_FIXED`.
+- Evidence: legacy `CLandDynamicMap::RemoveDynamic()` called `Clear()` on the
+  circular list selected by the target's cell. If two visible subjects shared
+  that cell and a frame ended before normal draw drainage, ending either
+  subject detached both. The old `IsEmpty()` checked only light masks, so its
+  rollback assertion could not detect a retained dynamic list either.
+- Handling: add exact circular unlinking to `CViewDynamicListLoop`, make map
+  removal a no-op when the requested object is absent, and include both list
+  and light state in `CLandDynamicMap::IsEmpty()`. The drawable-scene test
+  promotes two stick dynamics into the same real terrain cell, removes the
+  first twice, proves the sibling survives, then proves complete cleanup.
+- Revisit when: dynamic ownership moves to an explicit frame-scoped container;
+  preserve exact-object detach and the ability to audit an interrupted frame.
+
 ## Maintenance rule
 
 When a new quirk is found:

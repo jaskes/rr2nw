@@ -77,19 +77,28 @@ bool ExerciseLandDynamics(CViewScene& scene) {
   }
   if (!found) return false;
 
-  SmokeLandDynamic dynamic;
-  dynamic.Cell() = cell;
+  SmokeLandDynamic first;
+  SmokeLandDynamic second;
+  first.Cell() = cell;
+  second.Cell() = cell;
   CViewDynamicList dynamics;
-  dynamics.Load(&dynamic);
+  dynamics.Load(&first);
+  dynamics.Load(&second);
   scene.PromoteDynamic(dynamics, TRUE);
   const bool attached =
-      dynamics.First() == nullptr && dynamic.Next() == &dynamic;
+      dynamics.First() == nullptr && first.Next() == &second &&
+      second.Next() == &first;
   if (attached) {
-    scene.RemoveLandDynamic(&dynamic);
+    scene.RemoveLandDynamic(&first);
+    scene.RemoveLandDynamic(&first);
+    const bool siblingPreserved = second.Next() == &second;
+    scene.RemoveLandDynamic(&second);
+    scene.CheckDynamicMap();
+    return siblingPreserved;
   } else {
     CViewDynamicList::WasteBox().Clear(FALSE);
   }
-  return attached;
+  return false;
 }
 
 }  // namespace

@@ -75,7 +75,10 @@ public:
 	void SetupDynamics(CViewDynamicList &list,TCSRect2 &rect,_CViewTerrain &terrain);
 	void SetupLights(dword dwLights);
 	void SetupLandSticks(CViewDynamicList &list,_CViewTerrain &terrain);
-	void RemoveDynamic(CViewDynamic *p) { if( m_rect.Contains(p->m_cell) ) m_pOrigin[p->m_cell.x+p->m_cell.y*m_size.x].Clear(); }
+	void RemoveDynamic(CViewDynamic *p) {
+		if( p && m_pOrigin && m_rect.Contains(p->m_cell) )
+			m_pOrigin[p->m_cell.x+p->m_cell.y*m_size.x].Remove(p);
+	}
 	void RemoveLights(dword dwLights);
 	CViewDynamicListLoop	&AfterList() { return m_afterList; }
 	void ApplyLights(CViewDynamic *pd);

@@ -12,6 +12,8 @@ unsigned long long SmokeSubjectState_Fingerprint(SimulationContext *context);
 bool SmokeSubjectState_ProbeLifecycle(SimulationContext *context);
 bool SmokeSubjectState_SimulationSupported(
     SimulationContext *context, const char *attributeName);
+bool SmokeSubjectState_RenderingSupported(
+    SimulationContext *context, const char *attributeName);
 bool SmokeSubjectState_ProbeSimulationLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp);

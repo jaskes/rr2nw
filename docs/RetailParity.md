@@ -298,17 +298,24 @@ Retail scripts нельзя молча копировать поверх source 
   transparent-color cache is a process-local table pointer and is explicitly
   excluded from content identity.
 
-### RP-SCRIPT-009: Smoke table, simulation and visuals complete resource readiness
+### RP-SCRIPT-009: Smoke table, simulation and visible sprite rendering
 
 - Classification: `RETAIL_REQUIRED`; subject ownership and resource caches are
-  active. Non-land and terrain-bound Smoke START/MOVE now execute, while
-  Smoker MOVE/emission, land-dynamic attachment, light and drawing stay gated.
+  active. Non-land and terrain-bound Smoke START/MOVE plus the complete visible
+  Smoke scene/sprite/detach path execute. Smoker MOVE/emission and its
+  light/corona behavior stay gated.
 - Every admitted May `localmain.sci` creates `Smoke` with capacity 300. The
   original class table is now present before seance creation. Repeated real
   free and terrain-bound START/queued-MOVE/hide/remove proofs publish the
-  versioned stable identity `1037197792853722552` only after the pool and event
+  versioned stable identity `5752704755427809737` only after the pool and event
   queue return empty. `Smoke.Attr.FireArea` snaps to the decoded terrain in all
   nine installed Levels; a missing scene rejects the subject without work.
+- The retail service gate creates `Smoke.Attr.Trace` in front of the recovered
+  observer and verifies its real texture handle, positive projected rectangle,
+  opacity and inverse depth at `GRDrawAlphaSprite`. A second frame after object
+  removal must produce no matching draw and leave the scene dynamic map empty.
+  Exact same-cell detach coverage separately proves one rollback cannot remove
+  a neighboring dynamic.
 - Retail visuals are the atomic set `smoke.spr`, `flame.spr` and `corona.spr`.
   Each is exactly 256x256 with a five-byte SPR header and one byte per pixel.
   The canonical fingerprint is `15830240760157492622` for eight Levels;

@@ -517,6 +517,15 @@ bool RecoveredGameServices_SmokeTerrainReady() {
              g_super.m_context, "Smoke.Attr.FireArea");
 }
 
+bool RecoveredGameServices_SmokeRenderingReady() {
+  return RecoveredGameServices_SmokeTerrainReady() &&
+         RecoveredArenaSeance_SmokeVisualResourcesReady() &&
+         SmokeSubjectState_RenderingSupported(
+             g_super.m_context, "Smoke.Attr.Trace") &&
+         SmokeSubjectState_RenderingSupported(
+             g_super.m_context, "Smoke.Attr.FireArea");
+}
+
 bool RecoveredGameServices_SmokeVisualResourcesReady() {
   return RecoveredArenaSeance_SmokeVisualResourcesReady();
 }
@@ -595,6 +604,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_SmokeAttributesReady() &&
          RecoveredGameServices_SmokeSubjectReady() &&
          RecoveredGameServices_SmokeTerrainReady() &&
+         RecoveredGameServices_SmokeRenderingReady() &&
          RecoveredGameServices_ExplosionAttributesReady() &&
          RecoveredGameServices_FarterAttributesReady() &&
          RecoveredGameServices_FarterReferencesReady() &&

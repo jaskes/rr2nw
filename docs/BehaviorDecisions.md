@@ -1277,8 +1277,8 @@ and terrain are the next Smoke boundary; Smoker MOVE/emission follows only
 after a visible Smoke can attach and detach from the recovered scene
 transactionally.
 
-The terrain restriction in this decision is superseded by BD-042. Rendering
-and land-dynamic attachment remain deferred.
+The terrain restriction in this decision is superseded by BD-042. Its
+rendering and land-dynamic restriction is superseded by BD-043.
 
 ## BD-042: activate Smoke terrain placement before land-dynamic rendering
 
@@ -1310,6 +1310,8 @@ object into a frame dynamic list, promote it into the scene land-dynamic map,
 draw through the already resolved sprite handle, and prove removal before
 scene teardown.
 
+The rendering restriction in this decision is superseded by BD-043.
+
 Linking the scene core into the focused Smoke boundary exposed that
 `CViewTerrain` used `CFixedColorFont` without declaring its recovered runtime
 owner. That dependency now belongs to the terrain target instead of arriving
@@ -1321,3 +1323,43 @@ Smoke compilation in both configurations, 18/18 installed retail service
 launches across all nine Levels, and an installed executable runtime smoke
 publishing the terrain marker. The mounted-image half remains pending until
 `G:` is mounted again.
+
+## BD-043: activate one complete visible Smoke frame before Smoker emission
+
+Status: accepted on 2026-07-28.
+
+The bounded production `Smoke.cpp` owner now executes `prepareToRender`,
+`render`, `s_SmokeObject::Draw`, the original alpha-sprite loop and
+`endRender`. `Smoke.Attr.Trace` is created 64 world units in front of the real
+recovered observer only inside the retail service regression. Arena performs
+its normal radius cull, the real `CViewScene` promotes the spheric view object,
+and a scoped observer around `GRDrawAlphaSprite` proves a positive rectangle,
+opacity, inverse depth and the exact resolved retail texture handle. The
+observer forwards to the production software draw implementation rather than
+replacing it.
+
+The proof removes the scheduled MOVE before frame entry, renders exactly the
+attribute's blob count, removes the subject, and renders a second frame with no
+additional matching sprite draw. Normal `SUA_EndRender` plus frame release
+must leave the Smoke pool, event queue, waste box and land-dynamic map empty.
+Startup readiness stays side-effect free and now publishes
+`smoke_rendering_initialized=1`; the draw-producing probe remains test-only so
+normal startup still does not consume the process-global legacy PRNG.
+
+Before enabling this path, `CLandDynamicMap::RemoveDynamic` was changed from a
+whole-cell `Clear()` to exact circular-list unlinking. A two-object same-cell
+regression removes the first object twice, proves the second remains attached,
+then removes the second. `IsEmpty()` now checks both dynamic cells and light
+masks, so frame rollback assertions can detect leaked ownership instead of
+only leaked lighting.
+
+The capability-versioned Smoke subject fingerprint is
+`5752704755427809737`. This decision activates only emitted Smoke itself;
+Smoker timed emission, corona/light behavior and SoundObj integration remain
+separate boundaries.
+
+Regression contract: 49/49 CTest passes in Debug and Release, 18/18 installed
+retail service launches and 18/18 real drawable-scene launches across all nine
+Levels, plus 2/2 installed executable runtime smokes publishing the rendering
+marker and clean shutdown. The mounted-image half remains pending because
+`G:` is not mounted.

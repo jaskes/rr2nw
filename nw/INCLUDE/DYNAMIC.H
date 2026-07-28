@@ -190,6 +190,26 @@ public:
 	CViewDynamicListLoop() { m_pFirst = NULL; }
 	void Clear() { ChangeOwner(NULL); m_pFirst = NULL; }
 	CViewDynamic *First() { return m_pFirst; }
+	bool Remove(CViewDynamic *pd) {
+		if( !pd || !m_pFirst ) return FALSE;
+		CViewDynamic *current = m_pFirst;
+		do {
+			if( current == pd ) {
+				ASSERT(pd->m_pList==this); IF_DEBUG(pd->m_pList=NULL);
+				if( pd->m_pNext == pd )
+					m_pFirst = NULL;
+				else {
+					pd->m_pPrev->m_pNext = pd->m_pNext;
+					pd->m_pNext->m_pPrev = pd->m_pPrev;
+					if( m_pFirst == pd ) m_pFirst = pd->m_pNext;
+				}
+				pd->m_pNext = pd->m_pPrev = NULL;
+				return TRUE;
+			}
+			current = current->m_pNext;
+		} while( current != m_pFirst );
+		return FALSE;
+	}
 	void Move(CViewDynamicList &list) {
 		list.ChangeOwner(this);
 		if( list.m_pFirst ) {
