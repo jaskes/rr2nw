@@ -1,6 +1,8 @@
 #ifndef __VS_ZAV_H__INCLUDED
 #define __VS_ZAV_H__INCLUDED
 
+#include <cmath>
+
 #include "mathlib.h"
 #include "storage/h/subject.h"
 #include"i/vessel.i"
@@ -144,6 +146,7 @@ struct	SEmvAttrs	{
     double  fRandomizeWing;
 	double	fRandomizeWingTime;
 	double	fMaxPossibleHeight;
+	double	fMass;
 
 	double	_fMaxIncline;
 	double	_fMaxTurnSpeed;
@@ -163,6 +166,7 @@ struct	SEmvAttrs	{
 	SEmvAttrs() {
 		fRadius = 2;
 		fMaxPossibleHeight = 1e10;
+		fMass = 1000.0;
 		fInclinationTime = 0.5;
 		//fInclinationRestoreTime = 0.5;
 		fInclineFrictionCoeff = 1;
@@ -247,6 +251,7 @@ struct	SEmvAttrs	{
         LOADPARM_D(fRandomizeWing)
         LOADPARM_D(fRandomizeWingTime)
 		LOADPARM_D(fMaxPossibleHeight)
+		LOADPARM_D(fMass)
 		#undef	LOADPARM_D
 		#undef	LOADPARM_I
 		#undef	LOADPARM_E
@@ -267,6 +272,7 @@ struct	SEmvAttrs	{
         _fSuspendOffset = fSuspendOffset*M_PI/180;
 		_fFallOmega = 2*M_PI/fFallInclineTime;
 		_fFallAngle = M_PI*fFallAngle/180;
+		if (!(fMass > 0.0) || !std::isfinite(fMass)) fMass = 1000.0;
 	}
 };
 
@@ -344,6 +350,10 @@ public:
 	}
 	TCCFVector3 Pos() { return m_position; }
 	TCCFVector3 Speed() { return m_speed; }
+	void ApplyImpulse(TCCFVector3 &impulse, double factor) {
+		m_speed += impulse*(factor/m_attr->fMass);
+	}
+	double GetMass() { return m_attr->fMass; }
 
 	void	 MoveMouse(double dx,double dy) { m_mouse.x += dx/1e3; m_mouse.y += dy/5e2; }
     void     Joystick(double x,double y) { m_joy.x = x; m_joy.y = y; }
@@ -457,6 +467,7 @@ struct	SWheelsAttrs	{
     double  fSwimmingSpeed, fSwimmingStrafeSpeed;
     double  fSwimmingAccelTime;
 	bool	bSwimming;
+	double	fMass;
 
 	// ------------------
 	// internal parms
@@ -574,6 +585,7 @@ struct	SWheelsAttrs	{
 		fMaxTowerStopTime = 1;
         fMouseInterpolateDecay = 100;
 		bSwimming = FALSE;
+		fMass = 1000.0;
         fSwimmingSpeed = 10;
         fSwimmingStrafeSpeed = 5;
         fSwimmingAccelTime = 0.5;
@@ -651,6 +663,7 @@ struct	SWheelsAttrs	{
         LOADPARM_D(fSwimmingStrafeSpeed)
         LOADPARM_D(fSwimmingAccelTime)
 		LOADPARM_I(bSwimming)
+		LOADPARM_D(fMass)
 		#undef	LOADPARM_E
 		#undef	LOADPARM_D
 		#undef	LOADPARM_I
@@ -718,7 +731,8 @@ struct	SWheelsAttrs	{
 		_fTowerStopAccel = _fMaxTowerSpeed/fMaxTowerStopTime;
         _fMouseTurnSpeed = fMouseTurnSpeed*M_PI/180;
         _fMouseDecayLog = log(fMouseInterpolateDecay);
-        _fSwimmingStopLog = 1./fSwimmingAccelTime;
+		_fSwimmingStopLog = 1./fSwimmingAccelTime;
+		if (!(fMass > 0.0) || !std::isfinite(fMass)) fMass = 1000.0;
 
 		fStepUp = Max(0.,fHead-fRadius);
 	}
@@ -791,6 +805,10 @@ public:
 	}
 	TCCFVector3 Pos() { return m_position+m_base.MultTF(HeadOffset()); }
 	TCCFVector3 Speed() { return m_speed; }
+	void ApplyImpulse(TCCFVector3 &impulse, double factor) {
+		m_speed += impulse*(factor/m_attr->fMass);
+	}
+	double GetMass() { return m_attr->fMass; }
 	CFMatrix3x4 &GetDir() { return m_dir; }
     void SetDir(TCSFMatrix3x4 &dir) {
 		double	fAngleX, fAngleY, fAngleZ;

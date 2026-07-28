@@ -6,6 +6,10 @@
 
 class SimulationContext;
 
+typedef bool (*ExplosionImpulseDispatch)(void *user,
+                                         const CFVector3 &impulse,
+                                         double factor);
+
 struct ExplosionImpactRequest
 {
     CFVector3 position;
@@ -24,7 +28,15 @@ struct ExplosionImpactProbeSummary
     int queueRollbacks;
     int executedCommands;
     int damageApplications;
+    int impulseApplications;
     double expectedDamage;
+    double impactPositionX;
+    double impactPositionY;
+    double impactPositionZ;
+    double expectedImpulseX;
+    double expectedImpulseY;
+    double expectedImpulseZ;
+    double impulseFactor;
 };
 
 void ExplosionSubjectState_Link();
@@ -32,6 +44,13 @@ bool ExplosionSubjectState_TableReady(SimulationContext *context,
                                       int expectedCapacity);
 int ExplosionSubjectState_Capacity();
 int ExplosionSubjectState_LiveCount();
+bool ExplosionSubjectState_BindImpulseTarget(
+    SimulationContext *context, const KR_ObjectID &target,
+    void *user, ExplosionImpulseDispatch dispatch);
+void ExplosionSubjectState_UnbindImpulseTarget(
+    SimulationContext *context);
+bool ExplosionSubjectState_ImpulseTargetReady(
+    SimulationContext *context, const KR_ObjectID &target);
 unsigned long long ExplosionSubjectState_Fingerprint(
     SimulationContext *context);
 bool ExplosionSubjectState_QueueBatch(

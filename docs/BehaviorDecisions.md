@@ -1895,3 +1895,48 @@ game-service launches with 18/18 byte-identical installed/mounted summaries,
 and 4/4 waited `rr2nw.exe --runtime-smoke` launches. Executable diagnostics
 publish the Explosion subject contract, every lifecycle counter, the Bullet
 effect transaction and `runtime_shutdown=clean`.
+
+## BD-055: bind May Explosion impulse only to the active local vessel
+
+Status: accepted on 2026-07-28.
+
+The missing May dispatch is now binary-bounded. In the preserved retail
+`nw.exe` (`SHA-256
+42F2FC3B632C58073307B1B95924C1EFC038B5B3879C7476E438336B5D497132`), the
+Explosion damage routine at `0x00510E6C`--`0x0051156E` compares each damaged
+target with the global local Vehicle ObjectID. Only that object receives
+`Normal(targetPosition - explosionPosition) * damage * m_impulseCoeff`; the
+vessel call at `0x00511536`--`0x00511548` supplies the constant factor `5.0`.
+No arbitrary `IUnit`, damage owner or remote object is an impulse recipient.
+
+The vessel side is independently confirmed in both derived vtables. EMV
+`0x00531520`--`0x005315CB` and Wheels
+`0x0052D830`--`0x0052D8DB` implement the same update:
+`speed += impulse * factor / fMass`. Their vtable slots are `+0x6c` for the
+update and `+0x70` for mass. Both attribute constructors default `fMass` to
+`1000.0`, while the retail `vessels.cfg` files override it per vehicle. The
+modern interface preserves these exact slot positions after `NextFrame` and
+before `SetBounds`; missing, non-positive or non-finite mass falls back to the
+confirmed default before division.
+
+Explosion remains independent of the Vehicle archive. The seance publishes a
+narrow callback only after `Vehicle.Default`, its `IVehicleIID`, active vessel,
+finite positive mass and a mutation-free zero-impulse call are all proven.
+Dispatch requires the same live context and exact bound ObjectID. Release
+unbinds before clearing `g_vehicle` or closing the Arena, and Explosion table
+allocation/free also clears stale bindings. Binding failure has its own
+extended issue bit and prevents readiness.
+
+The hermetic Arena probe places a real explosion at a non-zero X offset from a
+safe `IDynamicObject + IUnit`. It verifies one radial damage call, one impulse
+callback, the exact normalized direction, `m_impulseCoeff` scaling and factor
+`5.0`, then restores the production binding and requires an empty pool. The
+feature fingerprint now records impulse as active. Light, particles, sound and
+long-lived visual Explosion ownership remain false and are the next separate
+frontier.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+launches with 18/18 byte-identical installed/mounted summaries, and 4/4 waited
+executable smokes. Every Level selects the retail local-vessel `fMass=900`;
+executable diagnostics publish `explosion_subject_impulse=1`, that mass,
+`level-ready` and `runtime_shutdown=clean`.

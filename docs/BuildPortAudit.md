@@ -1910,11 +1910,24 @@ case and three rollbacks. The Arena smoke uses a real safe
 timestamp and owner. Startup diagnostics publish Explosion capacity/identity,
 all admission counters and the Bullet child-transaction counters.
 
-The May-only impulse/light portion is still isolated. Binary evidence confirms
-`m_useLight` and three-component `m_impulseCoeff` scaling, but not the complete
-missing target dispatch. Impulse, Spark/Smoke/visual lifetime, audio and trace
-drawing remain the next separate frontiers; no renderer claim is implied by the
-active damage command.
+The May-only impulse path is now isolated and active without widening the
+presentation boundary. Retail disassembly identifies the sole recipient as the
+global local Vehicle, the vector as
+`Normal(target - explosion) * damage * m_impulseCoeff`, and the vessel factor as
+`5.0`. Both EMV and Wheels vtables then apply
+`speed += impulse * factor / fMass`; their `fMass` config item defaults to the
+binary-confirmed `1000.0`. Modern startup loads that field, rejects unsafe mass,
+proves the active vessel with a zero-vector call and atomically binds the exact
+Vehicle ObjectID. Release clears the binding before object teardown.
+
+The Arena damage probe now uses a non-zero offset and proves the exact damage,
+direction, coefficient, factor and one successful impulse dispatch while
+restoring the production binding. Startup diagnostics publish impulse readiness
+and the selected vessel mass. The full retail matrix selects `fMass=900` for
+the local vessel in all nine Levels and reproduces the complete summary across
+both data roots and configurations. `m_useLight`, Spark/Smoke/visual lifetime,
+audio and trace drawing remain separate frontiers; no renderer claim is implied
+by the active damage/impulse command.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 byte-identical installed/mounted summaries, and
@@ -1980,8 +1993,9 @@ counters `2/3/1/3` and `runtime_shutdown=clean`.
    subject now executes exact start/free-flight/ground-removal, isolated dynamic
    and scene collision, bounded waterline classification and rollback. Its
    splash/impact transaction owns one-shot radial-damage Explosion children
-   with all-or-none object-pool allocation; impulse and presentation remain
-   deferred. Vehicle's own Panel/Taxi/Bullet
+   with all-or-none object-pool allocation. May local-Vehicle impulse and
+   vessel mass are active; presentation remains deferred. Vehicle's own
+   Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
    attribute groups, Skin
    animation construction and remaining OBASE/script ABI bindings are still

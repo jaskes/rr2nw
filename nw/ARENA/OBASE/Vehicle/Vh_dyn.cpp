@@ -4,6 +4,8 @@
  * Ver   1.0 
  */
 #define LAST_H__VIEW
+#include <cmath>
+
 #include "game.h"
 #include "scene.h"
 #include "Vehicle.h"
@@ -246,6 +248,35 @@ CFVector3  Vehicle::getMoveDir  () // Направление движения
 double     Vehicle::getMoveSpeed() // Скорость
 {
     return Abs(m_vessel->Speed());
+}
+
+bool Vehicle::ApplyExplosionImpulse(const CFVector3 &impulse, double factor)
+{
+    if (m_vessel == 0 || !std::isfinite(impulse.x) ||
+        !std::isfinite(impulse.y) || !std::isfinite(impulse.z) ||
+        !std::isfinite(factor) || factor < 0.0)
+        return false;
+    const double mass = m_vessel->GetMass();
+    if (!std::isfinite(mass) || mass <= 0.0)
+        return false;
+    const CFVector3 speedBefore = m_vessel->Speed();
+    const double scale = factor/mass;
+    const CFVector3 speedAfter = speedBefore + impulse*scale;
+    if (!std::isfinite(scale) || !std::isfinite(speedBefore.x) ||
+        !std::isfinite(speedBefore.y) || !std::isfinite(speedBefore.z) ||
+        !std::isfinite(speedAfter.x) || !std::isfinite(speedAfter.y) ||
+        !std::isfinite(speedAfter.z))
+        return false;
+    m_vessel->ApplyImpulse(impulse, factor);
+    const CFVector3 appliedSpeed = m_vessel->Speed();
+    return std::isfinite(appliedSpeed.x) &&
+           std::isfinite(appliedSpeed.y) &&
+           std::isfinite(appliedSpeed.z);
+}
+
+double Vehicle::VesselMass() const
+{
+    return m_vessel == 0 ? 0.0 : m_vessel->GetMass();
 }
 
  //============================================================

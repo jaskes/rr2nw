@@ -7,6 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated the May-only Explosion impulse contract. The bounded radial loop
+  now dispatches only to the lifecycle-bound local `Vehicle.Default`, computes
+  `Normal(target - explosion) * damage * m_impulseCoeff`, and invokes the
+  recovered vessel response with factor `5.0`; zero-distance impacts remain a
+  finite zero vector.
+- Restored the May `IVessel` impulse/mass ABI at vtable slots `+0x6c/+0x70`.
+  EMV and wheeled vessels load the real per-section `fMass` from
+  `vessels.cfg`, use the binary-confirmed `1000.0` fallback for invalid/missing
+  values, and update speed by `impulse * factor / fMass`.
+- Added atomic Explosion-to-Vehicle binding, release-time unbinding, readiness
+  and vessel-mass diagnostics, plus a hermetic offset-impact proof of damage,
+  direction, coefficient, factor and one-and-only-one impulse dispatch.
 - Replaced the registration-only Explosion placeholder with a bounded,
   non-rendering and non-audible impact command. It safely resolves the encoded
   90-field ExplosionAttr index, retains the Bullet master in an explicit
@@ -24,10 +36,9 @@ claim authorship of inherited Logos code or retail data.
   splash-first / 3 rollbacks` impact transaction. The Arena smoke additionally
   applies one real radial hit to a safe `IDynamicObject + IUnit` target and
   verifies damage, position, timestamp and owner.
-- Recorded the remaining retail boundary explicitly: May `m_impulseCoeff`
-  vector scaling is binary-confirmed but its target dispatch is not yet
-  reconstructed; Explosion light, particles, sound and Bullet trace rendering
-  therefore remain disabled rather than being guessed into the damage owner.
+- Recorded the remaining retail boundary explicitly: Explosion light,
+  particles, sound and Bullet trace rendering remain disabled; impulse is now
+  independently admitted and does not imply presentation parity.
 - Activated the isolated Bullet collision cadence. Every accepted start now
   schedules both movement and `b_EVC_CHECK_COLLISION`; collision checks select
   the earliest valid dynamic-sphere or decoded scene/order hit, preserve the

@@ -226,6 +226,7 @@ bool IsServiceReleased() {
          SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_ExplosionAttributesReady() &&
          !RecoveredGameServices_ExplosionSubjectReady() &&
+         !RecoveredGameServices_ExplosionImpulseReady() &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -236,6 +237,7 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_ExplosionProbeDamageApplications() == -1 &&
          ExplosionSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_VehicleAttributesReady() &&
+         RecoveredGameServices_VehicleVesselMass() == 0.0 &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
          RecoveredArenaSeance_VehicleAttributeFingerprint() == 0 &&
@@ -869,7 +871,8 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokeRenderingReady() ||
        !RecoveredGameServices_SmokeVisualResourcesReady() ||
        !RecoveredGameServices_ExplosionAttributesReady() ||
-       !RecoveredGameServices_ExplosionSubjectReady() ||
+      !RecoveredGameServices_ExplosionSubjectReady() ||
+      !RecoveredGameServices_ExplosionImpulseReady() ||
        !RecoveredGameServices_VehicleAttributesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
@@ -899,6 +902,7 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SparkSubjectCapacity() != 40 ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
+      RecoveredGameServices_VehicleVesselMass() <= 0.0 ||
       RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
       orphanID.isNUL() || artefactID.isNUL() || smokeID.isNUL() ||
@@ -906,6 +910,8 @@ int main(int argc, char** argv) {
       vehicleID.isNUL() ||
       g_vehicle == nullptr ||
       g_super.m_context->queryInterface(vehicleID, IVehicleIID) != g_vehicle ||
+      !ExplosionSubjectState_ImpulseTargetReady(
+          g_super.m_context, vehicleID) ||
       observer == nullptr) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -975,6 +981,8 @@ int main(int argc, char** argv) {
   const int vehicleAttributeRosterSize =
       VehicleAttributeState_RosterSize(g_super.m_context);
   const int vehicleAttributeCapacity = VehicleAttributeState_Capacity();
+  const double vehicleVesselMass =
+      RecoveredGameServices_VehicleVesselMass();
   const unsigned long long smokerFingerprint =
       SmokerAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long smokerReferenceFingerprint =
@@ -1067,6 +1075,7 @@ int main(int argc, char** argv) {
           explosionSubjectCapacity ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() !=
           explosionSubjectFingerprint ||
+      !RecoveredGameServices_ExplosionImpulseReady() ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
       RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() != 1 ||
       RecoveredArenaSeance_ExplosionProbeQueuedCommands() != 1 ||
@@ -1415,9 +1424,9 @@ int main(int argc, char** argv) {
                "smoke_terrain=FireArea-directed-snap "
                "smoke_render=scene-alpha-sprite-detach smoke_visual=%llu "
               "explosion_attrs=%d explosion_fingerprint=%llu "
-              "explosion_subject=0/%d-impact-damage fingerprint=%llu "
+              "explosion_subject=0/%d-impact-damage-impulse fingerprint=%llu "
               "explosion_probe=2/1/1/1/1/0 "
-              "vehicle_attrs=%d/%d vehicle_fingerprint=%llu "
+              "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
@@ -1448,7 +1457,7 @@ int main(int argc, char** argv) {
                explosionRosterSize, explosionFingerprint,
               explosionSubjectCapacity, explosionSubjectFingerprint,
               vehicleAttributeRosterSize, vehicleAttributeCapacity,
-              vehicleAttributeFingerprint,
+              vehicleAttributeFingerprint, vehicleVesselMass,
               taxiRosterSize, taxiCapacity, taxiFingerprint,
               taxiReferenceFingerprint,
               bulletRosterSize, bulletCapacity, bulletFingerprint,

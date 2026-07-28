@@ -541,7 +541,8 @@ Retail scripts нельзя молча копировать поверх source 
 - Classification: `RETAIL_REQUIRED`; exact Bullet attributes and their
   dependencies are active. The isolated live free-flight, ground-removal and
   spatial-collision subject is active. BD-054 additionally activates bounded
-  splash/impact Explosion damage; impulse, audio and rendering remain deferred.
+  splash/impact Explosion damage, and BD-055 activates its local-Vehicle
+  impulse; audio and rendering remain deferred.
 - Production executes root `BULLET.SCI`, Level-local `bullet_loc.sci` and
   `main_CreateBullets()` in retail order. The May count/attribute-capacity/
   subject-capacity matrix is `11/11/50`, `11/11/50`, `10/10/100`,
@@ -595,8 +596,8 @@ Retail scripts нельзя молча копировать поверх source 
 ### RP-SCRIPT-018: bounded Explosion commands own Bullet impact damage
 
 - Classification: `RETAIL_REQUIRED` for the source-backed radial damage and
-  damage-owner contract; `PARTIAL_RETAIL` for the May Explosion subject as a
-  whole. May impulse/light and presentation effects are still deferred.
+  damage-owner/impulse contract; `PARTIAL_RETAIL` for the May Explosion subject
+  as a whole. Light and presentation effects are still deferred.
 - Every selected Level keeps its script-declared Explosion capacity. The owner
   is non-rendering and non-audible, consumes an encoded live ExplosionAttr,
   position and separate damage-owner ObjectID, executes once and immediately
@@ -621,14 +622,19 @@ Retail scripts нельзя молча копировать поверх source 
 - The public January fixture has unresolved Bullet effect references by design,
   so its collision path produces no children while its separately declared
   Explosion pool still passes lifecycle and direct-damage admission.
-- The May binary proves `m_useLight` and `m_impulseCoeff` fields and coefficient
-  vector scaling, but not enough of the missing dispatch path to enable impulse
-  safely. Fingerprints and diagnostics therefore declare impulse, light,
-  particles and sound false/deferred rather than implying full visual Explosion
-  parity.
+- The May binary limits impulse to the global local Vehicle ObjectID. It builds
+  `Normal(target - explosion) * damage * m_impulseCoeff`, calls the active
+  vessel with factor `5.0`, and both EMV/Wheels implementations add
+  `impulse * factor / fMass` to speed. The modern vessel ABI keeps the recovered
+  `+0x6c/+0x70` slots, loads retail `fMass` with default `1000.0`, and binds the
+  exact local Vehicle only after a zero-mutation readiness proof. Hermetic
+  admission verifies a non-zero direction and complete binding restoration.
+  Fingerprints and diagnostics declare impulse active while light, particles
+  and sound remain false/deferred.
 - Verification passes 51/51 CTest in both configurations, 36/36 May service
   launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
   smokes publishing the new command/transaction diagnostics and clean shutdown.
+  The selected local vessel reports `fMass=900` in every Level and both roots.
 
 ## Behavioral parity matrix
 

@@ -539,6 +539,10 @@ bool RecoveredGameServices_ExplosionSubjectReady() {
   return RecoveredArenaSeance_ExplosionSubjectReady();
 }
 
+bool RecoveredGameServices_ExplosionImpulseReady() {
+  return RecoveredArenaSeance_ExplosionImpulseReady();
+}
+
 bool RecoveredGameServices_VehicleAttributesReady() {
   return RecoveredArenaSeance_VehicleAttributesReady();
 }
@@ -663,6 +667,10 @@ bool RecoveredGameServices_VehicleReady() {
   return RecoveredArenaSeance_VehicleReady();
 }
 
+double RecoveredGameServices_VehicleVesselMass() {
+  return RecoveredArenaSeance_VehicleVesselMass();
+}
+
 bool RecoveredGameServices_QuitRequested() {
   return g_observerInput.QuitRequested() || g_windowQuitRequested;
 }
@@ -680,6 +688,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_SmokeRenderingReady() &&
          RecoveredGameServices_ExplosionAttributesReady() &&
          RecoveredGameServices_ExplosionSubjectReady() &&
+         RecoveredGameServices_ExplosionImpulseReady() &&
          RecoveredGameServices_VehicleAttributesReady() &&
          RecoveredGameServices_TaxiAttributesReady() &&
          RecoveredGameServices_TaxiReferencesReady() &&

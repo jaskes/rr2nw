@@ -374,9 +374,8 @@ Level-aware script manifest is complete: all 48 includes resolve with exact
 root/local provenance before Level mutation, and installed/disc-image pairs
 match for all nine Levels. The May retail Explosion ABI gap is now explicit:
 the port links 90 attributes including binary-confirmed light/impulse fields,
-while the heavyweight Explosion subject remains registration-only. Smoke,
-Smoker visual emission and Explosion gameplay plus renderer cache updates are
-still deferred.
+and the bounded subject now owns radial damage plus local-Vehicle impulse.
+Explosion light, sound, particles and renderer cache updates remain deferred.
 
 The Skin/resource owner is now complete as a bounded Level-aware slice. Before
 Arena mutation it strictly extracts `main_LoadSkin()`, hashes the script and
@@ -562,11 +561,12 @@ batch, preserves splash-before-impact timestamps and rolls back a partial pool
 allocation after rejecting known insufficient capacity before mutation.
 Admission proves queue teardown, reuse and one real damage call.
 
-The next safe slice is the May impulse contract. Binary evidence proves that
-`m_impulseCoeff` scales the three vector components, but the missing target
-dispatch must be reconstructed and tested before activation. After that,
-Spark/barrel Smoke and Explosion light/sound/particles can attach to the same
-bounded transaction. Trace follows only after the known first-step
+The May impulse slice is complete: the exact local-Vehicle target, normalized
+vector, factor `5.0`, vessel vtable slots and `fMass` response are recovered,
+bound transactionally and covered by an offset-impact regression. The next
+safe slice can attach Explosion light to the existing transactional light
+owner, followed separately by Spark/barrel Smoke, sound and particles. Trace
+follows only after the known first-step
 `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this

@@ -23,8 +23,21 @@ const unsigned long long kHashPrime = 1099511628211ull;
 
 int g_executedCommands = 0;
 int g_damageApplications = 0;
+int g_impulseApplications = 0;
 int g_allocationRollbacks = 0;
 int g_queueRollbacks = 0;
+SimulationContext *g_impulseContext = NULL;
+KR_ObjectID g_impulseTarget = KR_ObjectID::NUL();
+void *g_impulseUser = NULL;
+ExplosionImpulseDispatch g_impulseDispatch = NULL;
+
+void ResetImpulseBinding()
+{
+    g_impulseContext = NULL;
+    g_impulseTarget = KR_ObjectID::NUL();
+    g_impulseUser = NULL;
+    g_impulseDispatch = NULL;
+}
 
 bool FiniteVector(const CFVector3 &value)
 {
@@ -62,6 +75,30 @@ bool ImpactAttributeReady(const AttributeExplosion *attribute)
            attribute->m_power >= 0.0 &&
            std::isfinite(attribute->m_impulseCoeff) &&
            attribute->m_impulseCoeff >= 0.0;
+}
+
+bool DispatchImpulse(SimulationContext *context,
+                     const KR_ObjectID &target,
+                     const CFVector3 &targetPosition,
+                     const CFVector3 &explosionPosition,
+                     double distance, double damage,
+                     double impulseCoefficient)
+{
+    if (context == NULL || context != g_impulseContext ||
+        target != g_impulseTarget || g_impulseDispatch == NULL ||
+        !std::isfinite(distance) || distance < 0.0 ||
+        !std::isfinite(damage) || damage < 0.0 ||
+        !std::isfinite(impulseCoefficient) || impulseCoefficient < 0.0)
+        return false;
+    CFVector3 direction(0.0, 0.0, 0.0);
+    if (distance > 1e-12)
+        direction = (targetPosition - explosionPosition) / distance;
+    const CFVector3 impulse = direction * (damage * impulseCoefficient);
+    if (!FiniteVector(impulse) ||
+        !g_impulseDispatch(g_impulseUser, impulse, 5.0))
+        return false;
+    ++g_impulseApplications;
+    return true;
 }
 
 int ApplyRadialDamage(SimulationContext *context,
@@ -124,6 +161,8 @@ int ApplyRadialDamage(SimulationContext *context,
             if (!IsNul(commander))
                 player->attackUnit(commander, damage);
         }
+        DispatchImpulse(context, target, targetPosition, position,
+                        distance, damage, attribute.m_impulseCoeff);
     }
     return applications;
 }
@@ -246,8 +285,10 @@ class BoundedExplosionTable : public ct_SubjectTable
             m_maxObjectQnty = 0;
         g_executedCommands = 0;
         g_damageApplications = 0;
+        g_impulseApplications = 0;
         g_allocationRollbacks = 0;
         g_queueRollbacks = 0;
+        ResetImpulseBinding();
     }
 
     virtual void freeObjects()
@@ -257,8 +298,10 @@ class BoundedExplosionTable : public ct_SubjectTable
         m_maxObjectQnty = 0;
         g_executedCommands = 0;
         g_damageApplications = 0;
+        g_impulseApplications = 0;
         g_allocationRollbacks = 0;
         g_queueRollbacks = 0;
+        ResetImpulseBinding();
     }
 
     virtual ct_Object *getObjectPTR(int index)
@@ -340,6 +383,32 @@ void RemoveIfPresent(SimulationContext *context, const KR_ObjectID &object)
         context->removeObject(object);
 }
 
+struct ImpulseProbeCapture
+{
+    int applications;
+    CFVector3 impulse;
+    double factor;
+};
+
+bool CaptureImpulse(void *user, const CFVector3 &impulse, double factor)
+{
+    ImpulseProbeCapture *capture =
+        static_cast<ImpulseProbeCapture *>(user);
+    if (capture == NULL || !FiniteVector(impulse) ||
+        !std::isfinite(factor))
+        return false;
+    ++capture->applications;
+    capture->impulse = impulse;
+    capture->factor = factor;
+    return true;
+}
+
+bool NearlyEqual(double actual, double expected)
+{
+    const double scale = 1.0 + std::fabs(expected);
+    return std::fabs(actual - expected) <= 1e-10 * scale;
+}
+
 }  // namespace
 
 void ExplosionSubjectState_Link()
@@ -366,6 +435,43 @@ int ExplosionSubjectState_LiveCount()
     return g_explosionTable.liveCount();
 }
 
+bool ExplosionSubjectState_BindImpulseTarget(
+    SimulationContext *context, const KR_ObjectID &target,
+    void *user, ExplosionImpulseDispatch dispatch)
+{
+    IDynamicObject *dynamic = context == NULL || IsNul(target)
+        ? NULL
+        : static_cast<IDynamicObject *>(
+              context->queryInterface(target, IDynamicObjectIID));
+    IUnit *unit = context == NULL || IsNul(target)
+        ? NULL
+        : static_cast<IUnit *>(context->queryInterface(target, IUnitIID));
+    if (context == NULL || g_arena.getContext() != context ||
+        IsNul(target) || !context->isExist(target) || dispatch == NULL ||
+        dynamic == NULL || unit == NULL)
+        return false;
+    g_impulseContext = context;
+    g_impulseTarget = target;
+    g_impulseUser = user;
+    g_impulseDispatch = dispatch;
+    return true;
+}
+
+void ExplosionSubjectState_UnbindImpulseTarget(
+    SimulationContext *context)
+{
+    if (context == NULL || context == g_impulseContext)
+        ResetImpulseBinding();
+}
+
+bool ExplosionSubjectState_ImpulseTargetReady(
+    SimulationContext *context, const KR_ObjectID &target)
+{
+    return context != NULL && context == g_impulseContext &&
+           !IsNul(target) && target == g_impulseTarget &&
+           context->isExist(target) && g_impulseDispatch != NULL;
+}
+
 unsigned long long ExplosionSubjectState_Fingerprint(
     SimulationContext *context)
 {
@@ -380,7 +486,7 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     const int radialDamage = 1;
     const int friendlyPlayerAttribution = 1;
     const int selfOwnedQueuedEvent = 1;
-    const int impulse = 0;
+    const int impulse = 1;
     const int light = 0;
     const int particles = 0;
     const int sound = 0;
@@ -685,20 +791,60 @@ bool ExplosionSubjectState_ProbeDamageLifecycle(
         attributeIndex == -1)
         return false;
 
+    const double offset = std::fmin(attribute->m_radius * 0.25,
+                                    attribute->m_radiusDamage * 0.25);
+    if (!std::isfinite(offset) || offset <= 0.0)
+        return false;
+    const CFVector3 impactPosition =
+        targetPosition - CFVector3(offset, 0.0, 0.0);
+    if (!FiniteVector(impactPosition))
+        return false;
+
+    SimulationContext *savedContext = g_impulseContext;
+    const KR_ObjectID savedTarget = g_impulseTarget;
+    void *savedUser = g_impulseUser;
+    ExplosionImpulseDispatch savedDispatch = g_impulseDispatch;
+    ImpulseProbeCapture impulseCapture = {
+        0, CFVector3(0.0, 0.0, 0.0), 0.0};
+    if (!ExplosionSubjectState_BindImpulseTarget(
+            context, target, &impulseCapture, CaptureImpulse))
+        return false;
+
     const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
     ExplosionImpactRequest request = {
-        targetPosition, ts, damageOwner, subjectTable, attributeIndex,
+        impactPosition, ts, damageOwner, subjectTable, attributeIndex,
         "Explosion.DynamicDamage.Probe"};
     int damageApplications = 0;
+    const int beforeImpulseApplications = g_impulseApplications;
     const bool executed = ExplosionSubjectState_ExecuteNow(
         context, request, &damageApplications);
+    g_impulseContext = savedContext;
+    g_impulseTarget = savedTarget;
+    g_impulseUser = savedUser;
+    g_impulseDispatch = savedDispatch;
     const double expectedDamage = attribute->m_power *
-        (1.0 + targetRadius / attribute->m_radiusDamage);
+        (1.0 - (offset - targetRadius) / attribute->m_radiusDamage);
+    const double expectedImpulse =
+        expectedDamage * attribute->m_impulseCoeff;
     summary->executedCommands = executed ? 1 : 0;
     summary->damageApplications = damageApplications;
+    summary->impulseApplications = impulseCapture.applications;
     summary->expectedDamage = expectedDamage;
+    summary->impactPositionX = impactPosition.x;
+    summary->impactPositionY = impactPosition.y;
+    summary->impactPositionZ = impactPosition.z;
+    summary->expectedImpulseX = expectedImpulse;
+    summary->expectedImpulseY = 0.0;
+    summary->expectedImpulseZ = 0.0;
+    summary->impulseFactor = 5.0;
     return executed && damageApplications == 1 &&
            std::isfinite(expectedDamage) && expectedDamage >= 0.0 &&
+           impulseCapture.applications == 1 &&
+           g_impulseApplications == beforeImpulseApplications + 1 &&
+           NearlyEqual(impulseCapture.impulse.x, expectedImpulse) &&
+           NearlyEqual(impulseCapture.impulse.y, 0.0) &&
+           NearlyEqual(impulseCapture.impulse.z, 0.0) &&
+           NearlyEqual(impulseCapture.factor, 5.0) &&
            g_explosionTable.liveCount() == 0 &&
            !context->isExist("Explosion.DynamicDamage.Probe");
 }

@@ -612,12 +612,12 @@ Status vocabulary:
 - Handling: the extracted modern attribute owner exposes all 90 fields in the
   retail order and uses the binary-confirmed defaults. The attribute
   fingerprint includes them. BD-054 now activates the source-backed radial
-  damage loop through a bounded one-shot owner. The binary-confirmed light gate
-  and impulse coefficient remain inactive because the complete May impulse
-  target dispatch is not present in the January source.
-- Revisit when: the May impulse recipient/dispatch path is recovered. Add
-  focused vector/target tests before enabling `m_impulseCoeff`, then admit the
-  confirmed light gate through the existing transactional light owner.
+  damage loop through a bounded one-shot owner. BD-055 reconstructs the missing
+  recipient as the local global Vehicle only, restores vessel mass/impulse
+  slots `+0x6c/+0x70`, and activates `m_impulseCoeff` behind an exact ObjectID
+  binding. The binary-confirmed light gate remains inactive.
+- Revisit when: admit the confirmed light gate through the existing
+  transactional light owner, followed separately by particles and sound.
 
 ### CQ-046: Explosion construction is owned by the Level-local script
 

@@ -46,6 +46,11 @@ class IVessel
     virtual bool LoadGame(TCvoid *pSavedGame) = 0;
 
     virtual void         NextFrame        () = 0;
+    // Recovered at May 1999 vtable offsets +0x6c/+0x70. Explosion passes a
+    // world-space impulse and the original fixed response factor (5.0).
+    virtual void         ApplyImpulse      (TCCFVector3 &impulse,
+                                             double factor) = 0;
+    virtual double       GetMass           () = 0;
     virtual void SetBounds(TCdouble *p=NULL) = 0; // xmin,xmax,ymin,ymax,zmin,zmax
 											     // do not delete. only pointer is stored
 };

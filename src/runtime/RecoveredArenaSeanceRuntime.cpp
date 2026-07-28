@@ -1,6 +1,7 @@
 #include "RecoveredArenaSeanceRuntime.h"
 
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <new>
 #include <string>
@@ -598,6 +599,7 @@ struct RecoveredArenaSeanceState {
   bool smokeVisualResourcesReady;
   bool explosionAttributesReady;
   bool explosionSubjectReady;
+  bool explosionImpulseReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -1108,6 +1110,34 @@ bool PublishVehicle(SimulationContext* context) {
     return false;
   }
 
+  const double mass = g_vehicle->VesselMass();
+  const CFVector3 speedBefore = g_vehicle->Speed();
+  if (!std::isfinite(mass) || mass <= 0.0 ||
+      !g_vehicle->ApplyExplosionImpulse(CFVector3(0.0, 0.0, 0.0), 5.0)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_IMPULSE_BINDING_FAILURE,
+        "Vehicle.Default did not expose a finite positive vessel mass");
+    return false;
+  }
+  const CFVector3 speedAfter = g_vehicle->Speed();
+  if (speedBefore.x != speedAfter.x || speedBefore.y != speedAfter.y ||
+      speedBefore.z != speedAfter.z ||
+      !ExplosionSubjectState_BindImpulseTarget(
+          context, vehicleID, g_vehicle,
+          [](void* user, const CFVector3& impulse, double factor) -> bool {
+            Vehicle* vehicle = static_cast<Vehicle*>(user);
+            return vehicle != nullptr &&
+                   vehicle->ApplyExplosionImpulse(impulse, factor);
+          }) ||
+      !ExplosionSubjectState_ImpulseTargetReady(context, vehicleID)) {
+    ExplosionSubjectState_UnbindImpulseTarget(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_IMPULSE_BINDING_FAILURE,
+        "Vehicle.Default Explosion impulse dispatch did not bind atomically");
+    return false;
+  }
+
+  g_state.explosionImpulseReady = true;
   g_state.vehicleReady = true;
   return true;
 }
@@ -2204,6 +2234,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
   SmokeVisualState_Release();
+  ExplosionSubjectState_UnbindImpulseTarget(g_arena.getContext());
   g_state.vehicleReady = false;
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
@@ -2217,6 +2248,7 @@ void RecoveredArenaSeance_Release() {
   g_state.smokeVisualResourceFingerprint = 0;
   g_state.explosionAttributesReady = false;
   g_state.explosionSubjectReady = false;
+  g_state.explosionImpulseReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -2371,6 +2403,10 @@ bool RecoveredArenaSeance_ExplosionAttributesReady() {
 
 bool RecoveredArenaSeance_ExplosionSubjectReady() {
   return g_state.explosionSubjectReady;
+}
+
+bool RecoveredArenaSeance_ExplosionImpulseReady() {
+  return g_state.explosionImpulseReady;
 }
 
 int RecoveredArenaSeance_ExplosionSubjectCapacity() {
@@ -2828,6 +2864,12 @@ int RecoveredArenaSeance_SparkSubjectCapacity() {
 }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }
+
+double RecoveredArenaSeance_VehicleVesselMass() {
+  return g_state.vehicleReady && g_vehicle != nullptr
+             ? g_vehicle->VesselMass()
+             : 0.0;
+}
 
 unsigned long long RecoveredArenaSeance_Issues() { return g_state.issues; }
 

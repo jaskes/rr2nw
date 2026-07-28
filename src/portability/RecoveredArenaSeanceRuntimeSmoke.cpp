@@ -241,12 +241,22 @@ bool ProbeDynamicBulletCollision(SimulationContext& context) {
           Session::m_moment, &explosionSummary) &&
       explosionSummary.executedCommands == 1 &&
       explosionSummary.damageApplications == 1 &&
+      explosionSummary.impulseApplications == 1 &&
+      NearlyEqual(explosionSummary.expectedImpulseX,
+                  explosionSummary.expectedDamage *
+                      1234.0) &&
+      NearlyEqual(explosionSummary.expectedImpulseY, 0.0) &&
+      NearlyEqual(explosionSummary.expectedImpulseZ, 0.0) &&
+      NearlyEqual(explosionSummary.impulseFactor, 5.0) &&
       targetObject->damageCount() == 1 &&
       NearlyEqual(targetObject->getDamage(),
                   explosionSummary.expectedDamage) &&
-      targetObject->lastDamagePosition().x == targetObject->getPos().x &&
-      targetObject->lastDamagePosition().y == targetObject->getPos().y &&
-      targetObject->lastDamagePosition().z == targetObject->getPos().z &&
+      targetObject->lastDamagePosition().x ==
+          explosionSummary.impactPositionX &&
+      targetObject->lastDamagePosition().y ==
+          explosionSummary.impactPositionY &&
+      targetObject->lastDamagePosition().z ==
+          explosionSummary.impactPositionZ &&
       NearlyEqual(targetObject->lastDamageTime(), damageTime) &&
       targetObject->lastDamageOwner() == damageOwner &&
       ExplosionSubjectState_LiveCount() == 0;
@@ -435,6 +445,7 @@ bool IsReleased(SimulationContext& context) {
          SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
          !RecoveredArenaSeance_ExplosionSubjectReady() &&
+         !RecoveredArenaSeance_ExplosionImpulseReady() &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -524,6 +535,7 @@ bool IsReleased(SimulationContext& context) {
          SparkSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_RouteReady() &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
+         RecoveredArenaSeance_VehicleVesselMass() == 0.0 &&
          !context.isExist("Storage") && !context.isExist("Bird.Attr.0") &&
          !context.isExist("Orphan.Attr.Default") &&
          !context.isExist("Artefact.Attr.0") &&
@@ -564,6 +576,7 @@ bool RunCycle(bool expectVisualResources) {
       SmokeSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
       !RecoveredArenaSeance_ExplosionSubjectReady() ||
+      !RecoveredArenaSeance_ExplosionImpulseReady() ||
       RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
@@ -655,6 +668,7 @@ bool RunCycle(bool expectVisualResources) {
       SparkSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
+      RecoveredArenaSeance_VehicleVesselMass() != 1000.0 ||
       RecoveredArenaSeance_Issues() != 0 ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
       g_arena.searchSeanceClassTable("BirdAttr") == ct_NULLID ||
@@ -725,6 +739,7 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionSubjectState_LiveCount() == 0 &&
       ExplosionSubjectState_Fingerprint(&context) ==
           RecoveredArenaSeance_ExplosionSubjectFingerprint() &&
+      ExplosionSubjectState_ImpulseTargetReady(&context, vehicle) &&
       VehicleAttributeState_IsKnownRoster(&context) &&
       VehicleAttributeState_RosterSize(&context) == 3 &&
       VehicleAttributeState_Capacity() == 8 &&
@@ -1690,6 +1705,7 @@ int main(int argc, char** argv) {
               "common_attrs=bird,orphan,artefact portal=table "
               "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
+              "explosion_impulse=local-vehicle-factor-5-offset-proof "
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
                "bullet_attrs=4/4 "

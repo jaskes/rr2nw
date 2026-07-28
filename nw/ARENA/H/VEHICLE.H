@@ -271,6 +271,9 @@ public:
 
     void         onSetTaxi              (KR_Event & event);     
     CFVector3	 Speed() { return m_vessel->Speed(); }
+    bool         ApplyExplosionImpulse(const CFVector3 &impulse,
+                                       double factor);
+    double       VesselMass() const;
 
     virtual void carrierLoadMatrix  (CFMatrix3x4 &m);
 

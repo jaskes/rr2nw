@@ -92,7 +92,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_BULLET_COLLISION_LIFECYCLE_FAILURE = 1ull << 15,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_TABLE_FAILURE = 1ull << 16,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_LIFECYCLE_FAILURE = 1ull << 17,
-  RECOVERED_ARENA_SEANCE_EXT_BULLET_EFFECT_TRANSACTION_FAILURE = 1ull << 18
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_EFFECT_TRANSACTION_FAILURE = 1ull << 18,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_IMPULSE_BINDING_FAILURE = 1ull << 19
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -112,6 +113,7 @@ bool RecoveredArenaSeance_SmokeVisualResourcesReady();
 unsigned long long RecoveredArenaSeance_SmokeVisualResourceFingerprint();
 bool RecoveredArenaSeance_ExplosionAttributesReady();
 bool RecoveredArenaSeance_ExplosionSubjectReady();
+bool RecoveredArenaSeance_ExplosionImpulseReady();
 int RecoveredArenaSeance_ExplosionSubjectCapacity();
 unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint();
 int RecoveredArenaSeance_ExplosionProbeInvalidStarts();
@@ -213,6 +215,7 @@ bool RecoveredArenaSeance_SparkSubjectReady();
 int RecoveredArenaSeance_SparkSubjectCapacity();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();
+double RecoveredArenaSeance_VehicleVesselMass();
 unsigned long long RecoveredArenaSeance_Issues();
 unsigned long long RecoveredArenaSeance_ExtendedIssues();
 const char* RecoveredArenaSeance_LastError();
