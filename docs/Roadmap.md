@@ -522,6 +522,15 @@ during this activation. The next gameplay frontier is the least-coupled slice
 of the heavier People/Tank/Taxi/Bullet graph; a replacement audio output backend
 remains a later platform tranche.
 
+The first slice of that heavier graph is now bounded: exact Level-local
+`main_CreateTaxiAttr()` programs execute for all nine May Levels and the public
+fixture. Counts, capacities and seven-field fingerprints reconstruct exactly
+across installed and mounted roots. Skin, VehicleAttr and CorpseAttr references
+are retained as names with deterministic null caches; resolving that dependency
+set atomically is the next prerequisite before `SET_TAXI.SCI` or Taxi subjects.
+The legacy Arena issue word is full, so new frontiers also use a separately
+versioned extended issue word without renumbering established diagnostics.
+
 ### Цель
 
 Собрать исходники CMake/MSVC или clang-cl и автоматически загрузить один

@@ -30,6 +30,7 @@ class CGRPanel;
 #include "obase/smoke/SmokeVisualState.h"
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "obase/taxi/TaxiAttributeState.h"
 #include "h/cachesmoke.h"
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
@@ -42,6 +43,7 @@ extern SDeviceList _dL;
 namespace {
 
 unsigned long long g_explosionFixtureFingerprint = 0;
+unsigned long long g_taxiFixtureFingerprint = 0;
 unsigned long long g_farterFixtureFingerprint = 0;
 unsigned long long g_farterReferenceFixtureFingerprint = 0;
 unsigned long long g_lampFixtureFingerprint = 0;
@@ -61,11 +63,11 @@ int Fail(const char* message) {
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
-               "smoke=%d explosion=%d smoker=%d dyn_smoker=%d "
+               "smoke=%d explosion=%d taxi=%d smoker=%d dyn_smoker=%d "
                "farter=%d lamp=%d corpse=%d "
                "wav=%d sound=%d skin=%d "
                "spark=%d route=%d vehicle=%d "
-               "issues=%llu error=%s)\n",
+               "issues=%llu extended_issues=%llu error=%s)\n",
                message, RecoveredArenaSeance_IsOpen() ? 1 : 0,
                RecoveredArenaSeance_ScriptCompleted() ? 1 : 0,
                RecoveredArenaSeance_BirdAttributesReady() ? 1 : 0,
@@ -74,6 +76,7 @@ int Fail(const char* message) {
                RecoveredArenaSeance_ArtefactAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokeAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_ExplosionAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_TaxiAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokerAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_DynSmokerReady() ? 1 : 0,
                RecoveredArenaSeance_FarterAttributesReady() ? 1 : 0,
@@ -86,6 +89,7 @@ int Fail(const char* message) {
                RecoveredArenaSeance_RouteReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleReady() ? 1 : 0,
                RecoveredArenaSeance_Issues(),
+               RecoveredArenaSeance_ExtendedIssues(),
                RecoveredArenaSeance_LastError());
   return EXIT_FAILURE;
 }
@@ -227,6 +231,10 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_SmokeVisualResourceFingerprint() == 0 &&
          SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
+         !RecoveredArenaSeance_TaxiAttributesReady() &&
+         RecoveredArenaSeance_TaxiAttributeCount() == -1 &&
+         RecoveredArenaSeance_TaxiAttributeCapacity() == 0 &&
+         RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
          !RecoveredArenaSeance_FarterRuntimeReady() &&
@@ -274,6 +282,7 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Smoker.Attr") &&
          !context.isExist("wav.Ambient") &&
          !context.isExist("Expl.Test.0") &&
+         !context.isExist("Taxi.Attr.CorpseFinal") &&
          !context.isExist("Lamp.Attr.Default") &&
          !context.isExist("Corpse.Attr.Default") &&
          !context.isExist("snd.snd") &&
@@ -303,6 +312,10 @@ bool RunCycle(bool expectVisualResources) {
            expectVisualResources ||
        SmokeSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
+      !RecoveredArenaSeance_TaxiAttributesReady() ||
+      RecoveredArenaSeance_TaxiAttributeCount() != 2 ||
+      RecoveredArenaSeance_TaxiAttributeCapacity() != 7 ||
+      RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 ||
       !RecoveredArenaSeance_SmokerAttributesReady() ||
       !RecoveredArenaSeance_SmokerReferencesReady() ||
        RecoveredArenaSeance_SmokerRuntimeReady() != expectVisualResources ||
@@ -345,6 +358,7 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_RouteReady() ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 ||
+      RecoveredArenaSeance_ExtendedIssues() != 0 ||
       g_arena.searchSeanceClassTable("BirdAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Portal") == ct_NULLID ||
       g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID ||
@@ -353,6 +367,7 @@ bool RunCycle(bool expectVisualResources) {
        g_arena.searchSeanceClassTable("Smoke") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ExplosionAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Explosion") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("TaxiAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("DynSmoker") == ct_NULLID ||
       g_arena.searchSeanceClassTable("WAVObj") == ct_NULLID ||
@@ -404,6 +419,10 @@ bool RunCycle(bool expectVisualResources) {
       SmokeAttributeState_IsRetailRoster(&context) &&
       ExplosionAttributeState_IsKnownRoster(&context) &&
       ExplosionAttributeState_RosterSize(&context) == 10 &&
+      TaxiAttributeState_IsKnownRoster(&context) &&
+      TaxiAttributeState_RosterSize(&context) == 2 &&
+      TaxiAttributeState_Capacity() == 7 &&
+      TaxiAttributeState_CachesUnresolved(&context) &&
       SmokerAttributeState_IsKnownRoster(&context) &&
       SmokerAttributeState_RosterSize(&context) == 11 &&
       SmokerAttributeState_Capacity() == 11 &&
@@ -451,6 +470,8 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_SmokeVisualResourceFingerprint();
   const unsigned long long explosionFingerprint =
       ExplosionAttributeState_Fingerprint(&context);
+  const unsigned long long taxiFingerprint =
+      TaxiAttributeState_Fingerprint(&context);
   const unsigned long long farterFingerprint =
       FarterAttributeState_Fingerprint(&context);
   const unsigned long long farterReferenceFingerprint =
@@ -476,6 +497,8 @@ bool RunCycle(bool expectVisualResources) {
   const bool reconstructionStable =
       (g_explosionFixtureFingerprint == 0 ||
        g_explosionFixtureFingerprint == explosionFingerprint) &&
+      (g_taxiFixtureFingerprint == 0 ||
+       g_taxiFixtureFingerprint == taxiFingerprint) &&
       (g_farterFixtureFingerprint == 0 ||
        g_farterFixtureFingerprint == farterFingerprint) &&
       (g_farterReferenceFixtureFingerprint == 0 ||
@@ -503,6 +526,7 @@ bool RunCycle(bool expectVisualResources) {
       (g_skinCatalogFixtureFingerprint == 0 ||
        g_skinCatalogFixtureFingerprint == skinCatalogFingerprint);
   g_explosionFixtureFingerprint = explosionFingerprint;
+  g_taxiFixtureFingerprint = taxiFingerprint;
   g_farterFixtureFingerprint = farterFingerprint;
   g_farterReferenceFixtureFingerprint = farterReferenceFingerprint;
   g_smokerFixtureFingerprint = smokerFingerprint;
@@ -527,8 +551,8 @@ bool RunCycle(bool expectVisualResources) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 10) {
-    return Fail("expected a fixture directory and eight retail-script sources");
+  if (argc != 11) {
+    return Fail("expected a fixture directory and nine retail-script sources");
   }
 
   RecoveredArenaSeance_Release();
@@ -538,6 +562,7 @@ int main(int argc, char** argv) {
   if (RecoveredArenaSeance_Initialize(nullptr, 0.0) != FALSE ||
       RecoveredArenaSeance_Issues() !=
           RECOVERED_ARENA_SEANCE_INVALID_CONTEXT ||
+      RecoveredArenaSeance_ExtendedIssues() != 0 ||
       RecoveredArenaSeance_IsOpen() || g_vehicle != nullptr) {
     return Fail("null context did not fail transactionally");
   }
@@ -618,6 +643,7 @@ int main(int argc, char** argv) {
       JoinPath(scincDirectory, "EXPLOSION_LOC.SCI");
   const std::string farterLocalCopy =
       JoinPath(scincDirectory, "FARTERATTR.SCI");
+  const std::string taxiCopy = JoinPath(scincDirectory, "TAXI.SCI");
   const std::string farterSetCopy =
       JoinPath(scincDirectory, "SET_FARTER.SCI");
   const std::string corpseCopy = JoinPath(scincDirectory, "CORPSE.SCI");
@@ -637,6 +663,7 @@ int main(int argc, char** argv) {
   }
   DeleteFileA(explosionLocalCopy.c_str());
   DeleteFileA(farterLocalCopy.c_str());
+  DeleteFileA(taxiCopy.c_str());
   DeleteFileA(farterSetCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
@@ -694,6 +721,17 @@ int main(int argc, char** argv) {
   if (!WriteFile(explosionLocalCopy, explosionLevelFixture)) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not write bounded Explosion Level fixture");
+  }
+
+  SimulationContext missingTaxiContext(64, 128);
+  const bool missingTaxiRejected =
+      RecoveredArenaSeance_Initialize(&missingTaxiContext, 0.0) == FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_SOURCE_UNAVAILABLE) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 && IsReleased(missingTaxiContext);
+  if (CopyFileA(argv[10], taxiCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not copy TAXI.SCI into Arena fixture");
   }
 
   SimulationContext missingFarterRootContext(64, 128);
@@ -825,6 +863,54 @@ int main(int argc, char** argv) {
   if (!WriteFile(explosionLocalCopy, explosionLevelFixture)) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not restore valid Explosion Level fixture");
+  }
+
+  std::string invalidTaxiFixture;
+  if (!ReadFile(argv[10], invalidTaxiFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not read Taxi fixture for deterministic corruption");
+  }
+  const std::string taxiNeedle = "sk.Taxi.akula";
+  const std::size_t taxiSkin = invalidTaxiFixture.find(taxiNeedle);
+  if (taxiSkin == std::string::npos) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not corrupt Taxi fixture deterministically");
+  }
+  invalidTaxiFixture.replace(taxiSkin, taxiNeedle.size(), "sk.Taxi.akula2");
+  if (!WriteFile(taxiCopy, invalidTaxiFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write invalid Taxi fixture");
+  }
+  SimulationContext invalidTaxiRosterContext(64, 128);
+  const bool invalidTaxiRosterRejected =
+      RecoveredArenaSeance_Initialize(&invalidTaxiRosterContext, 0.0) ==
+          FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_ROSTER_INVALID) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 &&
+      IsReleased(invalidTaxiRosterContext);
+  if (CopyFileA(argv[10], taxiCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore valid Taxi fixture");
+  }
+
+  const char tablelessTaxiFixture[] =
+      "func void main_CreateTaxiAttr()\r\n"
+      "{\r\n"
+      "}\r\n";
+  if (!WriteFile(taxiCopy, tablelessTaxiFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write tableless Taxi fixture");
+  }
+  SimulationContext tablelessTaxiContext(64, 128);
+  const bool tablelessTaxiRejected =
+      RecoveredArenaSeance_Initialize(&tablelessTaxiContext, 0.0) == FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_TABLE_MISSING) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 && IsReleased(tablelessTaxiContext);
+  if (CopyFileA(argv[10], taxiCopy.c_str(), FALSE) == FALSE) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not restore Taxi fixture after tableless probe");
   }
 
   std::string invalidLampFixture;
@@ -970,6 +1056,7 @@ int main(int argc, char** argv) {
   DeleteFileA(lampCopy.c_str());
   DeleteFileA(explosionLocalCopy.c_str());
   DeleteFileA(farterLocalCopy.c_str());
+  DeleteFileA(taxiCopy.c_str());
   DeleteFileA(farterSetCopy.c_str());
   DeleteFileA(corpseCopy.c_str());
   DeleteFileA(skinCopy.c_str());
@@ -992,6 +1079,9 @@ int main(int argc, char** argv) {
     return Fail("missing retail Explosion fragments were not rejected "
                 "transactionally");
   }
+  if (!missingTaxiRejected) {
+    return Fail("missing retail Taxi fragment was not rejected transactionally");
+  }
   if (!missingFarterRootRejected || !missingFarterLocalRejected ||
       !missingLampRejected || !missingCorpseRejected) {
     return Fail("missing Farter/Lamp/Corpse fragments were not rejected "
@@ -1006,6 +1096,12 @@ int main(int argc, char** argv) {
   if (!invalidExplosionRosterRejected) {
     return Fail("invalid Explosion attribute roster was not rejected "
                 "transactionally");
+  }
+  if (!invalidTaxiRosterRejected) {
+    return Fail("invalid Taxi attribute roster was not rejected transactionally");
+  }
+  if (!tablelessTaxiRejected) {
+    return Fail("missing Taxi attribute table was not rejected transactionally");
   }
   if (!invalidLampRosterRejected) {
     return Fail("invalid Lamp attribute roster was not rejected "
@@ -1040,6 +1136,8 @@ int main(int argc, char** argv) {
               "missing-smoke=rollback "
               "missing-wav=rollback "
               "missing-explosion-root-local=rollback "
+              "missing-taxi=rollback tableless-taxi=rollback "
+              "invalid-taxi-roster=rollback "
               "missing-farter-root-local=rollback missing-lamp=rollback "
               "missing-farter-subject=rollback "
               "invalid-farter-subject=rollback "
@@ -1054,6 +1152,7 @@ int main(int argc, char** argv) {
               "common_attrs=bird,orphan,artefact portal=table "
               "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
+               "taxi_attrs=2/7-unresolved "
                "smoke_subject=0/300 smoke_simulation=START-MOVE-remove "
                "smoke_visual=resolved "
                "smoker_attrs=11/11 dyn_smoker=0/62 wav_metadata=5/30 "
@@ -1065,6 +1164,7 @@ int main(int argc, char** argv) {
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
               "explosion_fingerprint=%llu smoker_fingerprint=%llu "
+               "taxi_fingerprint=%llu "
                "smoker_reference_fingerprint=%llu "
                "smoke_subject_fingerprint=%llu "
                "smoke_visual_fingerprint=%llu "
@@ -1078,6 +1178,7 @@ int main(int argc, char** argv) {
               "rollback=idempotent\n",
               g_explosionFixtureFingerprint,
               g_smokerFixtureFingerprint,
+              g_taxiFixtureFingerprint,
                g_smokerReferenceFixtureFingerprint,
                g_smokeSubjectFixtureFingerprint,
                g_smokeVisualFixtureFingerprint,

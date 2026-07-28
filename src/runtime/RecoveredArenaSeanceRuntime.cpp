@@ -19,6 +19,7 @@ class CGRPanel;
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
+#include "obase/taxi/TaxiAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokeVisualState.h"
@@ -52,6 +53,8 @@ constexpr const char kSmokeAttributeProgramName[] =
     "recovered_retail_smoke_attribute_bootstrap";
 constexpr const char kExplosionAttributeProgramName[] =
     "recovered_retail_explosion_attribute_bootstrap";
+constexpr const char kTaxiAttributeProgramName[] =
+    "recovered_retail_taxi_attribute_bootstrap";
 constexpr const char kFarterAttributeProgramName[] =
     "recovered_retail_farter_attribute_bootstrap";
 constexpr const char kFarterSubjectProgramName[] =
@@ -215,8 +218,10 @@ var int orphanAttrTable, artefactAttrTable, vehicleTable, objectID, cachePos;
 
 const char kRetailAttributeBootstrapPrefix[] = R"RR2NW_SCRIPT(
 const int EDO_WRITE = 1;
+const int KR_SET_ATTR = 1;
 const int NO_LAND = 0;
 const int ON_LAND = 1;
+const int ON_WATER = 2;
 const float INFINITY_TIME = -1;
 const int LIGHT_COLOR_RED = 1;
 const int LIGHT_COLOR_GREEN = 2;
@@ -323,6 +328,13 @@ const char kFarterAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
   main_CreateFarterAttrs();
+}
+)RR2NW_SCRIPT";
+
+const char kTaxiAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateTaxiAttr();
 }
 )RR2NW_SCRIPT";
 
@@ -523,6 +535,7 @@ bool InspectFarterSubjectScript(const std::string& source,
 
 struct RecoveredArenaSeanceState {
   unsigned long long issues;
+  unsigned long long extendedIssues;
   bool arenaOpen;
   bool scriptCompleted;
   bool birdAttributesReady;
@@ -533,6 +546,7 @@ struct RecoveredArenaSeanceState {
   bool smokeSubjectReady;
   bool smokeVisualResourcesReady;
   bool explosionAttributesReady;
+  bool taxiAttributesReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -597,6 +611,11 @@ void Report(unsigned long long issue, const char* message) {
   SetError(message);
 }
 
+void ReportExtended(unsigned long long issue, const char* message) {
+  g_state.extendedIssues |= issue;
+  SetError(message);
+}
+
 void RollBackPartiallyOpenedArena(SimulationContext* context) {
   if (context == nullptr) return;
   if (g_arena.getContext() == context || context->isExist("Storage")) {
@@ -649,7 +668,8 @@ bool RunRetailAttributeBootstrap(SimulationContext* context,
                                  const char* suffix,
                                  const char* programName,
                                  unsigned long long sourceIssue,
-                                 const char* description) {
+                                 const char* description,
+                                 bool extendedSourceIssue = false) {
   std::string rootSource;
   std::string levelSource;
   if (!ReadBoundedRetailAttributeSource(rootPath, &rootSource) ||
@@ -659,7 +679,11 @@ bool RunRetailAttributeBootstrap(SimulationContext* context,
     std::snprintf(message, sizeof(message),
                   "could not read bounded retail %s source beside selected "
                   "Level", description);
-    Report(sourceIssue, message);
+    if (extendedSourceIssue) {
+      ReportExtended(sourceIssue, message);
+    } else {
+      Report(sourceIssue, message);
+    }
     return false;
   }
 
@@ -681,7 +705,11 @@ bool RunRetailAttributeBootstrap(SimulationContext* context,
     std::snprintf(message, sizeof(message),
                   "could not allocate bounded retail %s bootstrap source",
                   description);
-    Report(sourceIssue, message);
+    if (extendedSourceIssue) {
+      ReportExtended(sourceIssue, message);
+    } else {
+      Report(sourceIssue, message);
+    }
     return false;
   }
 
@@ -724,6 +752,15 @@ bool RunExplosionAttributeBootstrap(SimulationContext* context,
       kExplosionAttributeProgramName,
       RECOVERED_ARENA_SEANCE_EXPLOSION_ATTRIBUTE_SOURCE_UNAVAILABLE,
       "EXPLOSION.SCI + SCINC\\EXPLOSION_LOC.SCI");
+}
+
+bool RunTaxiAttributeBootstrap(SimulationContext* context,
+                               double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "SCINC\\TAXI.SCI", nullptr,
+      kTaxiAttributeBootstrapSuffix, kTaxiAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_SOURCE_UNAVAILABLE,
+      "SCINC\\TAXI.SCI", true);
 }
 
 bool RunFarterAttributeBootstrap(SimulationContext* context,
@@ -1208,6 +1245,29 @@ bool PublishFarterAttributes(SimulationContext* context) {
   return true;
 }
 
+bool PublishTaxiAttributes(SimulationContext* context) {
+  if (g_arena.searchSeanceClassTable("TaxiAttr") == ct_NULLID) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_TABLE_MISSING,
+                   "retail fragment did not create the TaxiAttr table");
+    return false;
+  }
+  if (!TaxiAttributeState_CachesUnresolved(context) ||
+      !TaxiAttributeState_IsKnownRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "TaxiAttr objects do not match a bounded unresolved level "
+                  "roster (capacity=%d count=%d fingerprint=%llu)",
+                  TaxiAttributeState_Capacity(),
+                  TaxiAttributeState_RosterSize(context),
+                  TaxiAttributeState_Fingerprint(context));
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_ROSTER_INVALID,
+                   message);
+    return false;
+  }
+  g_state.taxiAttributesReady = true;
+  return true;
+}
+
 bool PublishLampAttributes(SimulationContext* context) {
   if (g_arena.searchSeanceClassTable("LampAttr") == ct_NULLID) {
     Report(RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_TABLE_MISSING,
@@ -1582,6 +1642,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SmokeSubjectState_Link();
   SmokeVisualState_Link();
   ExplosionAttributeState_Link();
+  TaxiAttributeState_Link();
   FarterAttributeState_Link();
   FarterSubjectState_Link();
   LampAttributeState_Link();
@@ -1610,6 +1671,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
     if (!RunExplosionAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunTaxiAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -1642,6 +1707,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         !PublishArtefactAttributes(context) ||
         !PublishSmokeAttributes(context) ||
         !PublishExplosionAttributes(context) ||
+        !PublishTaxiAttributes(context) ||
         !PublishSmokerAttributes(context) ||
         !PublishFarterAttributes(context) ||
         !PublishLampAttributes(context) ||
@@ -1703,6 +1769,7 @@ void RecoveredArenaSeance_Release() {
   g_state.smokeVisualResourcesReady = false;
   g_state.smokeVisualResourceFingerprint = 0;
   g_state.explosionAttributesReady = false;
+  g_state.taxiAttributesReady = false;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -1814,6 +1881,10 @@ bool RecoveredArenaSeance_ExplosionAttributesReady() {
   return g_state.explosionAttributesReady;
 }
 
+bool RecoveredArenaSeance_TaxiAttributesReady() {
+  return g_state.taxiAttributesReady;
+}
+
 bool RecoveredArenaSeance_FarterAttributesReady() {
   return g_state.farterAttributesReady;
 }
@@ -1868,6 +1939,22 @@ int RecoveredArenaSeance_SmokerAttributeCapacity() {
 unsigned long long RecoveredArenaSeance_SmokerAttributeFingerprint() {
   return g_state.smokerAttributesReady
              ? SmokerAttributeState_Fingerprint(g_arena.getContext())
+             : 0;
+}
+
+int RecoveredArenaSeance_TaxiAttributeCount() {
+  return g_state.taxiAttributesReady
+             ? TaxiAttributeState_RosterSize(g_arena.getContext())
+             : -1;
+}
+
+int RecoveredArenaSeance_TaxiAttributeCapacity() {
+  return g_state.taxiAttributesReady ? TaxiAttributeState_Capacity() : 0;
+}
+
+unsigned long long RecoveredArenaSeance_TaxiAttributeFingerprint() {
+  return g_state.taxiAttributesReady
+             ? TaxiAttributeState_Fingerprint(g_arena.getContext())
              : 0;
 }
 
@@ -2054,5 +2141,9 @@ bool RecoveredArenaSeance_SparkAttributesReady() {
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }
 
 unsigned long long RecoveredArenaSeance_Issues() { return g_state.issues; }
+
+unsigned long long RecoveredArenaSeance_ExtendedIssues() {
+  return g_state.extendedIssues;
+}
 
 const char* RecoveredArenaSeance_LastError() { return g_state.lastError; }

@@ -571,6 +571,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0));
+  log.Line("taxi_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_TaxiAttributesReady() ? 1 : 0));
+  log.Line("taxi_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_TaxiAttributeCount()));
+  log.Line("taxi_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_TaxiAttributeCapacity()));
+  log.Line("taxi_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_TaxiAttributeFingerprint()));
+  log.Line("taxi_references=unresolved-source-only");
   log.Line("farter_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_FarterAttributesReady() ? 1 : 0));
@@ -708,6 +718,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredGameServices_VehicleReady() ? 1 : 0));
   log.Line("arena_seance_issues=" +
            std::to_string(RecoveredArenaSeance_Issues()));
+  log.Line("arena_seance_extended_issues=" +
+           std::to_string(RecoveredArenaSeance_ExtendedIssues()));
   if (RecoveredArenaSeance_LastError()[0] != 0) {
     log.Line(std::string("arena_seance_error=") +
              RecoveredArenaSeance_LastError());
@@ -775,7 +787,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
   log.Line(
-      "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-simulation-visual-lamp-skin-resource-smoke-explosion-attribute-vehicle-bootstrap");
+      "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
+      "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
+      "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
+      "attribute-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

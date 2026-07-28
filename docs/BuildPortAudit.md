@@ -1742,6 +1742,31 @@ diagnostic rollback. Final verification passes 51/51 CTest in Debug and
 Release, 36/36 service launches with 18/18 identical E/G pairs, and 4/4 waited
 executable smokes with the new diagnostics, `level-ready` and clean shutdown.
 
+### Taxi attribute-only LEVEL0 frontier
+
+The already extracted `TaxiAttributeState.cpp` owner now participates in the
+bounded seance rather than serving only as a link boundary for Vehicle. Startup
+force-links its registry, compiles exact `SCINC/TAXI.SCI` with the missing
+retail `KR_SET_ATTR` and `ON_WATER` constants, and invokes
+`main_CreateTaxiAttr()` in LEVEL0 attribute order. No Taxi moving-object or
+renderer archive is activated by this step.
+
+Pool allocation was made non-throwing and now normalizes the five cache fields
+the legacy inline constructor left undefined. The state API collects live
+attributes through the class-table exist list, rejects any pre-resolved cache,
+sorts by object name, hashes capacity plus all seven raw fields, and admits only
+seven exact May identities plus the public fixture. Failed source read and
+failed roster admission use a second diagnostic word because the original
+64-bit word is full; all former values remain unchanged.
+
+The hermetic public fixture proves missing source, mutated source, double
+construction and idempotent rollback. The installed/mounted service sweep
+passes all 18 Level/root combinations and reproduces the same identity for each
+pair in both configurations: 36/36 service launches total. Full Debug and
+Release CTest pass 51/51 each, and 4/4 waited executable smokes publish Taxi
+identity, zero extended issues, `level-ready` and clean shutdown. Reference
+resolution and `SET_TAXI.SCI` are explicit later work.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -1789,7 +1814,10 @@ executable smokes with the new diagnostics, `level-ready` and clean shutdown.
    now executes START_FARTING and audible START/END with complete child
    rollback. Its exact comment-aware script now retains Level.04D's 23 Farter
    and 23 SoundObj objects, with real near/far Arena frames proving the audible
-   transition at `DistMax=300`. Remaining attribute cache groups, Skin
+   transition at `DistMax=300`. Exact Level-local TaxiAttr programs now execute
+   as the first isolated slice of the heavy graph, preserving raw
+   Skin/VehicleAttr/Corpse names while keeping their caches unresolved.
+   Remaining attribute cache groups, Skin
    animation construction and remaining OBASE/script ABI bindings are still
    required before switching to full retail `LEVEL0.SC`.
 5. Replace or isolate the 16 ASM and 10 ANG translation units.

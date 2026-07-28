@@ -1201,6 +1201,51 @@ Status vocabulary:
   identities. Add explicit stable IDs instead of silently treating legacy
   display/script names as unique keys.
 
+### CQ-083: AttributeTaxi constructed indeterminate dependency caches
+
+- Status: `CONFIRMED_SOURCE`, `SOURCE_ONLY_CACHE_CONTRACT`,
+  `POOL_INITIALIZATION_FIXED`.
+- Evidence: the inline retail constructor initialized only the seven script
+  fields. `m_cacheSkin`, Corpse table/index and both `KR_ObjectID` references
+  retained allocation contents until `update()`, whose assert-based resolution
+  requires Skin, VehicleAttr and Corpse dependencies that the current bounded
+  bootstrap does not yet own.
+- Handling: the extracted table owner normalizes every cache and ObjectID after
+  nothrow allocation, terminates each fixed string and requires all caches to
+  remain null while hashing the raw retail roster. Do not call `update()` until
+  all referenced tables are preflighted and can be committed atomically.
+- Revisit when: VehicleAttr/Skin/Corpse resolution is implemented. Replace the
+  unresolved invariant with a two-phase resolve/commit proof and preserve exact
+  rollback if any named reference is absent.
+
+### CQ-084: the Arena diagnostic bitset exhausted all 64 legacy bits
+
+- Status: `FIXED_WIDTH_DIAGNOSTIC_CONTRACT`, `ABI_PRESERVED`.
+- Evidence: Farter subject failure occupies `1ull << 63`; no unambiguous bit
+  remains for Taxi source, table or roster failures. Reusing or renumbering a
+  bit would change the meaning of existing crash diagnostics and tests.
+- Handling: preserve `RecoveredArenaSeance_Issues()` exactly and add
+  `RecoveredArenaSeance_ExtendedIssues()` as a second 64-bit word. Taxi owns
+  extended bits 0..2. Both words are reset for a new initialization, retained
+  long enough to diagnose failed rollback and printed by startup and smoke
+  failure paths.
+- Revisit when: diagnostics gain a versioned structured format. Keep both
+  words readable for old tooling and migrate by explicit version rather than
+  silently widening or reindexing the original enum.
+
+### CQ-085: Level.05D writes a non-existent Taxi `m_onLand` field
+
+- Status: `CONFIRMED_RETAIL`, `EXACT_NAME_SERIALIZER_CONTRACT`.
+- Evidence: both May copies define `ON_WATER=2` and pass it to
+  `SetAttribute_i(..., "m_onLand", ON_WATER)` in Level.05D `TAXI.SCI`, while
+  `AttributeTaxi` exposes only seven fields and has no `m_onLand` item.
+- Handling: provide the retail constant so the exact fragment compiles, then
+  retain the serializer's historical unknown-name no-op. The admitted roster
+  is eight live attributes in a capacity-10 table; no modern field is invented.
+- Revisit when: Taxi subject movement/placement is activated. Determine its
+  actual water/land behavior from subject code and retail frames rather than
+  retroactively changing the serialized attribute ABI.
+
 ## Maintenance rule
 
 When a new quirk is found:

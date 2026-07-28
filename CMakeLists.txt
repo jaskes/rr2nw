@@ -201,6 +201,7 @@ target_compile_definitions(rr2nw_arena_time_runtime_state PRIVATE
 
 add_library(rr2nw_arena_taxi_attribute_state STATIC
   nw/ARENA/OBASE/Taxi/TaxiAttributeState.cpp
+  nw/ARENA/OBASE/Taxi/TaxiAttributeState.h
 )
 target_link_libraries(rr2nw_arena_taxi_attribute_state PUBLIC
   rr2nw_arena_storage
@@ -210,6 +211,7 @@ target_include_directories(rr2nw_arena_taxi_attribute_state PUBLIC
   nw/DESIGN.LIB/H
   nw/ARENA
   nw/ARENA/H
+  nw/ARENA/OBASE/Taxi
 )
 target_compile_features(rr2nw_arena_taxi_attribute_state PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_arena_taxi_attribute_state PRIVATE
@@ -4227,6 +4229,7 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/localmain.sci"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/LOADWAV.SCI"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_farter.sci"
+            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/TAXI.SCI"
   )
   add_test(
     NAME peripheral-attribute-state-smoke

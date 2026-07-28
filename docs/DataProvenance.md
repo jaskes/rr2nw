@@ -85,6 +85,24 @@ drawable or published `CViewScene`.
 Основной установленный `nw.exe` совпадает с дисковым по SHA-256. Установка
 полезна как user-state fixture, но не как clean retail fixture.
 
+## Taxi attribute source identities
+
+The 2026-07-28 read-only sweep found every selected May `SCINC/TAXI.SCI`
+byte-identical between installed `E:\Games\The Next Worlds` and mounted
+`G:\nw`. Seven SHA-256 groups cover the nine Levels:
+
+- Level.01D/01N: `0FF1A02150DB84C2765D616D35A7835478732DBDAD4DEC5240DAF9D8669EA3A7`;
+- Level.02D/02N: `115848E1742E547F9B3E6C29B008A5EEA476F7F39304DAB6244A2350BAC8BB21`;
+- Level.03N: `A0D38B22334B558DCC3A62A4C6B53BBBD3CE419309638B548A7311B443ECEBC4`;
+- Level.04D: `8EF98BE9CCC797D03FBCDAE89FEDEBD4D5712CB1EE313868CBE8E9F9B23BD07B`;
+- Level.05D: `685A780CCBCD51458112BAB62E6A5132F21F751BF2E9423E44C337CAAAA9EB60`;
+- Level.06N: `5981BFE10F5F39FF5778752606FA78702573A0B2906A64C65BA590FBA37DB058`;
+- Level.07N: `2E6B6898483E8C48BF06812312B42D4CC94807CB5BB69EDC4830127F204987B9`.
+
+The public repository fixture is a distinct January Level.03N source,
+`0A2037173379376C3B38E3FCC051FF51286D4793999F5A5CEF02895A7EB9F10A`.
+It is admitted only for hermetic CI and is never described as May content.
+
 ## User-generated/private artifacts
 
 В установке обнаружены пользовательские `save0` и `save1`. Они полезны для

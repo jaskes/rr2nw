@@ -7,6 +7,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Executed every retail `SCINC/TAXI.SCI` `main_CreateTaxiAttr()` program in
+  `LEVEL0.SC` order as the first isolated slice of the heavier
+  People/Tank/Taxi/Bullet graph. All nine May Levels now publish their exact
+  `TaxiAttr` counts/capacities while Skin, VehicleAttr and Corpse caches remain
+  explicitly unresolved for the next dependency tranche.
+- Added sorted Taxi attribute fingerprints for seven May roster identities
+  plus the public January fixture, exact installed/mounted parity, repeated
+  reconstruction, missing-source and corrupted-roster rollback.
+- Hardened the extracted Taxi attribute pool with nothrow allocation and
+  deterministic null cache/ObjectID initialization before any legacy
+  assertion-based reference update can run.
+- Preserved the full legacy 64-bit Arena issue word and added a separate
+  extended issue word for Taxi source/table/roster failures without
+  renumbering an established diagnostic bit.
+- Added Taxi readiness, count, capacity, fingerprint, unresolved-reference and
+  extended-issue startup diagnostics.
 - Executed the exact comment-aware retail `main_CreateFarters()` program after
   its root attribute fragment. Level.04D now keeps all 23 original Farter
   objects and their 23 child SoundObj commands alive for play; the other eight

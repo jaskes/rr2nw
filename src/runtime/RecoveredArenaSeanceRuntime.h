@@ -70,6 +70,15 @@ enum ERecoveredArenaSeanceIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE = 1ull << 63
 };
 
+// The original diagnostic word is an established 64-bit compatibility
+// surface and is full. New frontiers use this second word so prior issue
+// values never change meaning.
+enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 0,
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_TABLE_MISSING = 1ull << 1,
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_ROSTER_INVALID = 1ull << 2
+};
+
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
                                     double startTime);
 void RecoveredArenaSeance_Release();
@@ -86,6 +95,7 @@ unsigned long long RecoveredArenaSeance_SmokeSubjectFingerprint();
 bool RecoveredArenaSeance_SmokeVisualResourcesReady();
 unsigned long long RecoveredArenaSeance_SmokeVisualResourceFingerprint();
 bool RecoveredArenaSeance_ExplosionAttributesReady();
+bool RecoveredArenaSeance_TaxiAttributesReady();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();
@@ -99,6 +109,9 @@ unsigned long long RecoveredArenaSeance_DynSmokerFingerprint();
 int RecoveredArenaSeance_SmokerAttributeCount();
 int RecoveredArenaSeance_SmokerAttributeCapacity();
 unsigned long long RecoveredArenaSeance_SmokerAttributeFingerprint();
+int RecoveredArenaSeance_TaxiAttributeCount();
+int RecoveredArenaSeance_TaxiAttributeCapacity();
+unsigned long long RecoveredArenaSeance_TaxiAttributeFingerprint();
 int RecoveredArenaSeance_FarterAttributeCount();
 int RecoveredArenaSeance_FarterAttributeCapacity();
 unsigned long long RecoveredArenaSeance_FarterAttributeFingerprint();
@@ -143,6 +156,7 @@ bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();
 unsigned long long RecoveredArenaSeance_Issues();
+unsigned long long RecoveredArenaSeance_ExtendedIssues();
 const char* RecoveredArenaSeance_LastError();
 
 #endif

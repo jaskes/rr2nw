@@ -477,6 +477,31 @@ Retail scripts нельзя молча копировать поверх source 
   the separately admitted January `24/30` WAV roster and must not be mixed with
   May Farter content to manufacture a CI-only hybrid.
 
+### RP-SCRIPT-015: Taxi publishes exact raw attributes before references
+
+- Classification: `RETAIL_REQUIRED`; attribute source and serializer state are
+  active, while Taxi subjects and dependency resolution remain deferred.
+- The production host executes exact Level-local `TAXI.SCI` and invokes
+  `main_CreateTaxiAttr()` in LEVEL0 order. It does not execute `SET_TAXI.SCI`
+  or call the assert-based legacy `AttributeTaxi::update()`.
+- The May matrix is Level.01D/01N `10/10`, Level.02D/02N `5/5`, Level.03N
+  `6/6`, Level.04D `7/7`, Level.05D `8/10`, Level.06N `4/4` and Level.07N
+  `2/3`. Seven corresponding fingerprints are admitted and match exactly
+  across installed `E:` and mounted `G:` roots. The public January fixture is
+  separately admitted as `2/7`, fingerprint `2754184477989056894`.
+- Raw Skin, VehicleAttr and CorpseAttr names remain exact while every derived
+  pointer, table/index and ObjectID cache stays null. Missing source and one
+  deterministic Skin-name mutation fail with dedicated extended issue bits and
+  close the table/context completely. Repeated initialization reproduces
+  count, capacity, fingerprint and unresolved-cache state exactly.
+- Level.05D writes `ON_WATER` to an `m_onLand` name not present in the
+  seven-field Taxi serializer. The retail constant is available to the exact
+  fragment, but the unknown item remains the historical exact-name no-op; no
+  modern field is invented.
+- Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+  launches with 18/18 identical E/G summaries, and 4/4 waited executable
+  smokes publishing Taxi identity, zero extended issues and clean shutdown.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

@@ -38,6 +38,7 @@ bool RecoveredGameServices_SmokeTerrainReady();
 bool RecoveredGameServices_SmokeRenderingReady();
 bool RecoveredGameServices_SmokeVisualResourcesReady();
 bool RecoveredGameServices_ExplosionAttributesReady();
+bool RecoveredGameServices_TaxiAttributesReady();
 bool RecoveredGameServices_FarterAttributesReady();
 bool RecoveredGameServices_FarterReferencesReady();
 bool RecoveredGameServices_FarterRuntimeReady();

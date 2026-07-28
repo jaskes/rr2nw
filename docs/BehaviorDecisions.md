@@ -1610,3 +1610,53 @@ admitted January `24/30` WAV snapshot, not the May `33/35` roster; CI therefore
 keeps its hermetic public-source rollback fixture, while exact active-23 content
 proof deliberately runs against the two canonical May roots rather than
 weakening the retail-identity gate or constructing a hybrid Level.
+
+## BD-049: admit Taxi attributes before resolving the heavy object graph
+
+Status: accepted on 2026-07-28.
+
+`TaxiAttr` is the least-coupled entry into the remaining
+People/Tank/Taxi/Bullet frontier. Recovered seance startup now executes each
+Level's exact `SCINC/TAXI.SCI` and calls its original
+`main_CreateTaxiAttr()` after Explosion and before the later peripheral
+attributes. It deliberately does not execute `SET_TAXI.SCI`, construct a Taxi
+subject or call the assertion-heavy legacy `AttributeTaxi::update()`.
+
+This creates the retail raw data while preserving dependency truth. Every
+attribute retains its exact Skin, VehicleAttr and CorpseAttr names, initial
+damage, Y offset and buzzing value. The corresponding model pointer, table
+index and object IDs must all remain deterministically null. The extracted
+pool now uses nothrow allocation, initializes those formerly indeterminate
+caches after construction, terminates all fixed strings and clears its
+capacity on every free. Publication fails unless the live roster is sorted,
+nonempty, cache-free and one of the bounded identities.
+
+The May roster matrix is: Level.01D/01N `10/10`, Level.02D/02N `5/5`,
+Level.03N `6/6`, Level.04D `7/7`, Level.05D `8/10`, Level.06N `4/4` and
+Level.07N `2/3`. Their fingerprints are respectively
+`8356819091171925193`, `14997410288666183479`,
+`10407405744231412933`, `9807800466153373862`,
+`18284905668689134823`, `17154522297671520673` and
+`3076718173379490250`. The public January Level.03N fixture is separately
+admitted as `2/7`, fingerprint `2754184477989056894`. Both canonical roots
+produce the same identity for all nine Levels.
+
+The established Arena issue word already uses all 64 bits. Renumbering it
+would corrupt every prior diagnostic contract, so Taxi source, table and roster
+failures use bits 0..2 of a new `extendedIssues` word. Startup and smoke failure
+reports publish both words. Missing source, deterministic source corruption,
+two complete reconstructions and idempotent release prove that the new table,
+names, caches, capacity and diagnostics roll back together.
+
+Level.05D also writes `ON_WATER` to `m_onLand`, a field absent from
+`AttributeTaxi`. The exact-name serializer therefore ignores it, matching the
+legacy object layout; the modern port does not invent a new Taxi field during
+this source-preservation tranche. The next Taxi step is to recover and resolve
+the referenced VehicleAttr/Skin/Corpse graph atomically before any subject is
+allowed to consume it.
+
+Verification passes 51/51 CTest in both Debug and Release, 36/36 canonical
+service launches with 18/18 byte-identical E/G summaries, and 4/4 waited
+`rr2nw.exe --runtime-smoke` launches. Every executable diagnostic publishes
+Taxi readiness/count/capacity/fingerprint, `arena_seance_extended_issues=0`,
+`level-ready` and clean shutdown.

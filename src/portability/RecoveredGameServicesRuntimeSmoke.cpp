@@ -24,6 +24,7 @@
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "obase/taxi/TaxiAttributeState.h"
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "sound.h"
@@ -87,11 +88,12 @@ int Fail(const char* message) {
       stderr,
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
-      "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d smoker=%d "
+      "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d taxi=%d smoker=%d "
       "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
       "farter=%d lamp=%d corpse=%d wav=%d sound=%d skin=%d spark=%d "
       "route=%d vehicle=%d "
-      "arena_issues=%llu arena_error=%s level=%d graph=%d "
+      "arena_issues=%llu arena_extended_issues=%llu arena_error=%s "
+      "level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
       "bush=%d observer_events=%u observer_z=%lg)\n",
       message, RecoveredGameServices_Issues(), GameEntry_RuntimeIssues(),
@@ -107,6 +109,7 @@ int Fail(const char* message) {
       RecoveredGameServices_ArtefactAttributesReady() ? 1 : 0,
       RecoveredGameServices_SmokeAttributesReady() ? 1 : 0,
       RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0,
+      RecoveredGameServices_TaxiAttributesReady() ? 1 : 0,
       RecoveredGameServices_SmokerAttributesReady() ? 1 : 0,
       RecoveredGameServices_DynSmokerReady() ? 1 : 0,
       RecoveredGameServices_SmokerEmissionReady() ? 1 : 0,
@@ -120,7 +123,8 @@ int Fail(const char* message) {
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
-      RecoveredArenaSeance_Issues(), RecoveredArenaSeance_LastError(),
+      RecoveredArenaSeance_Issues(), RecoveredArenaSeance_ExtendedIssues(),
+      RecoveredArenaSeance_LastError(),
       RecoveredGameLevel_IsReady() ? 1 : 0,
       RecoveredSoftwareGraph_IsReady() ? 1 : 0, Frame_RuntimeIssues(),
       static_cast<void*>(g_super.m_context),
@@ -153,6 +157,10 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_SmokeVisualResourceFingerprint() == 0 &&
          SmokeSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_ExplosionAttributesReady() &&
+         !RecoveredGameServices_TaxiAttributesReady() &&
+         RecoveredArenaSeance_TaxiAttributeCount() == -1 &&
+         RecoveredArenaSeance_TaxiAttributeCapacity() == 0 &&
+         RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
          !RecoveredGameServices_SmokerRuntimeReady() &&
@@ -689,6 +697,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokeRenderingReady() ||
       !RecoveredGameServices_SmokeVisualResourcesReady() ||
       !RecoveredGameServices_ExplosionAttributesReady() ||
+      !RecoveredGameServices_TaxiAttributesReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
@@ -708,6 +717,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
       RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||
+      RecoveredArenaSeance_ExtendedIssues() != 0 ||
       orphanID.isNUL() || artefactID.isNUL() || smokeID.isNUL() ||
       sparkID.isNUL() ||
       vehicleID.isNUL() ||
@@ -755,6 +765,11 @@ int main(int argc, char** argv) {
       ExplosionAttributeState_Fingerprint(g_super.m_context);
   const int explosionRosterSize =
       ExplosionAttributeState_RosterSize(g_super.m_context);
+  const unsigned long long taxiFingerprint =
+      TaxiAttributeState_Fingerprint(g_super.m_context);
+  const int taxiRosterSize =
+      TaxiAttributeState_RosterSize(g_super.m_context);
+  const int taxiCapacity = TaxiAttributeState_Capacity();
   const unsigned long long smokerFingerprint =
       SmokerAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long smokerReferenceFingerprint =
@@ -831,7 +846,15 @@ int main(int argc, char** argv) {
   const unsigned long long skinResourceFingerprint =
       RecoveredArenaSeance_SkinResourceFingerprint();
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
-      explosionRosterSize > 14 || smokerFingerprint == 0 ||
+      explosionRosterSize > 14 || taxiFingerprint == 0 ||
+      taxiRosterSize < 2 || taxiRosterSize > 10 ||
+      taxiCapacity < taxiRosterSize || taxiCapacity > 10 ||
+      !TaxiAttributeState_IsKnownRoster(g_super.m_context) ||
+      !TaxiAttributeState_CachesUnresolved(g_super.m_context) ||
+      RecoveredArenaSeance_TaxiAttributeCount() != taxiRosterSize ||
+      RecoveredArenaSeance_TaxiAttributeCapacity() != taxiCapacity ||
+      RecoveredArenaSeance_TaxiAttributeFingerprint() != taxiFingerprint ||
+      smokerFingerprint == 0 ||
       smokerRosterSize != 12 || smokerCapacity != 12 ||
       smokerReferenceFingerprint == 0 || !smokerRuntimeReady ||
       smokeSubjectCapacity != 300 || smokeSubjectFingerprint == 0 ||
@@ -954,8 +977,16 @@ int main(int argc, char** argv) {
   }
 
   if (!StartServices(argv[1]) || RecoveredGameServices_Issues() != 0 ||
+      RecoveredArenaSeance_ExtendedIssues() != 0 ||
       ExplosionAttributeState_Fingerprint(g_super.m_context) !=
           explosionFingerprint ||
+      TaxiAttributeState_Fingerprint(g_super.m_context) != taxiFingerprint ||
+      TaxiAttributeState_RosterSize(g_super.m_context) != taxiRosterSize ||
+      TaxiAttributeState_Capacity() != taxiCapacity ||
+      !TaxiAttributeState_CachesUnresolved(g_super.m_context) ||
+      RecoveredArenaSeance_TaxiAttributeCount() != taxiRosterSize ||
+      RecoveredArenaSeance_TaxiAttributeCapacity() != taxiCapacity ||
+      RecoveredArenaSeance_TaxiAttributeFingerprint() != taxiFingerprint ||
       SmokerAttributeState_Fingerprint(g_super.m_context) !=
           smokerFingerprint ||
       SmokerAttributeState_RosterSize(g_super.m_context) !=
@@ -1046,6 +1077,7 @@ int main(int argc, char** argv) {
                "smoke_terrain=FireArea-directed-snap "
                "smoke_render=scene-alpha-sprite-detach smoke_visual=%llu "
               "explosion_attrs=%d explosion_fingerprint=%llu "
+              "taxi_attrs=%d/%d taxi_fingerprint=%llu refs=unresolved "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
@@ -1067,6 +1099,7 @@ int main(int argc, char** argv) {
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,
                explosionRosterSize, explosionFingerprint,
+              taxiRosterSize, taxiCapacity, taxiFingerprint,
               smokerRosterSize, smokerCapacity, smokerFingerprint,
               smokerReferenceFingerprint, smokerRuntimeReady ? 1 : 0,
               dynSmokerCapacity, dynSmokerFingerprint,
