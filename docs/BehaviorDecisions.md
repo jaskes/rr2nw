@@ -1886,8 +1886,9 @@ binary proves that `m_useLight` gates light creation and that
 `m_impulseCoeff` scales three impulse-vector components, but the absent January
 source does not establish the complete May target-dispatch contract. BD-055
 subsequently admitted impulse, and BD-056 admitted the independently bounded
-light lifetime. Spark/Smoke particles, Explosion sound and Bullet trace remain
-separate transactions.
+light lifetime. BD-057 subsequently activates the ground Spark child and its
+own sprite/light lifecycle; barrel Smoke, Explosion sound/particles and Bullet
+trace remain separate transactions.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May
 game-service launches with 18/18 byte-identical installed/mounted summaries,
@@ -1983,8 +1984,69 @@ view time.
 Fingerprints and diagnostics now report rendering and light active through
 `explosion_subject_light=1` and
 `explosion_subject_light_lifecycle=useLight-brightness-frame-expiry`.
-Particles, sound, Spark/barrel-Smoke children and Bullet trace remain deferred.
+BD-057 subsequently activates the ground Spark child and its independent
+sprite/light lifetime. Explosion particles/sound, barrel Smoke and Bullet trace
+remain deferred.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
 launches with 18/18 byte-identical installed/mounted summaries, and 4/4 waited
 executable smokes reporting `level-ready` and `runtime_shutdown=clean`.
+
+## BD-057: activate the retail Spark lifecycle and the Bullet ground child
+
+Status: accepted on 2026-07-28.
+
+The preserved May retail binary (`nw.exe`, SHA-256
+`42F2FC3B632C58073307B1B95924C1EFC038B5B3879C7476E438336B5D497132`)
+retains the January Spark state machine. `Spark::receiveEvent` begins at
+`0x00573CB0`; CREATE resolves the encoded attribute and schedules phase zero at
+`0x00573DDA`--`0x00573E03`; LIFE tests expiration at
+`0x00573E25`--`0x00573E52`, schedules the next event at
+`0x00573E77`--`0x00573E98`, and increments the visible phase only afterward at
+`0x00573E9D`--`0x00573EA7`. The modern owner deliberately preserves that order:
+CREATE waits phase-zero time, and each subsequent transition schedules with the
+duration of the phase that was visible before the transition. It does not
+"correct" the duplicated leading duration or shift the May animation timing.
+
+`Spark.Flash` is admitted only after its exact six phase records and loaded
+`sk.Fusion.0` sprite resolve atomically. Every UV rectangle must fit the loaded
+texture; all times, radii, brightness and color fields are checked before the
+cache pointer is committed. A Spark accepts only the exact position/index
+payload, finite timestamp and a live encoded `SparkAttr`. Its CREATE and LIFE
+events are self-owned, removal cancels both labels, and pooled reuse restores a
+fully clean state. Rendering publishes the current opaque sprite through the
+existing dynamic list and the current phase light through `LightChain`;
+`endRender` detaches the land dynamic.
+
+Arena permits duplicate symbolic object names, and the original Bullet helper
+uses the constant name `"S"` for every Spark. Production therefore does not use
+name existence as an allocation guard: concurrent impacts may own distinct
+ObjectIDs with the same display name. Admission queues two same-name children
+and rolls each back by ObjectID. Only empty/oversized names are rejected before
+the kernel's fixed symbolic buffer.
+
+The January Bullet source actively creates a Spark when ballistic movement
+reaches the ground; its start and collision Spark calls are commented out. This
+tranche therefore connects only both ground-removal paths. The queued Spark is
+self-owned rather than retaining the soon-to-be-removed Bullet as event source:
+that intentional ownership split makes child rollback exact while preserving
+the same position, attribute and timestamp. Spark allocation remains a
+best-effort presentation effect and cannot prevent the Bullet's required ground
+removal. Start/collision sparks and barrel Smoke are still separate frontiers.
+
+Admission rejects malformed payload and encoded attribute starts, proves one
+queued CREATE and rollback, walks five visible phase transitions and one final
+expiration, and verifies that the released pooled slot is fully reset. The
+Bullet probe crosses the ground, observes exactly one queued Spark, rolls it
+back and requires empty
+Bullet/Spark/event pools. The retail service smoke freezes a real phase-zero
+Spark in front of the observer, crosses a software frame that emits one opaque
+Fusion sprite and the exact light, removes it, then crosses a second frame with
+no residual sprite, light or land dynamic.
+
+The public source-only Arena fixture deliberately creates no `SkinSpr` object.
+It publishes structural `SparkAttr` and `Spark(40)` readiness but reports visual
+and lifecycle metrics as unavailable (`-1`), never as a successful zero-count
+probe. Real retail startup requires visual resolution, stable subject/resource
+fingerprints and counters `2/1/1/5/1`. Diagnostics additionally publish the
+Bullet ground transaction `1/1`.

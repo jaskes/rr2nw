@@ -5,11 +5,16 @@
 
 class SimulationContext;
 class CViewObjectModel;
+class CViewTexture;
 
 bool SkinResourceState_ResolveLoadedModel(SimulationContext *context,
                                           const char *objectName,
                                           KR_ObjectID *objectID,
                                           CViewObjectModel **model);
+bool SkinResourceState_ResolveLoadedSprite(SimulationContext *context,
+                                           const char *objectName,
+                                           KR_ObjectID *objectID,
+                                           CViewTexture **texture);
 
 void SkinResourceState_Link();
 int SkinResourceState_ModelCount(SimulationContext *context);

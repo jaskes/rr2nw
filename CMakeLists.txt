@@ -237,6 +237,7 @@ add_library(rr2nw_arena_spark_attribute_state STATIC
 )
 target_link_libraries(rr2nw_arena_spark_attribute_state PUBLIC
   rr2nw_arena_storage
+  rr2nw_arena_skin_resource_state
 )
 target_include_directories(rr2nw_arena_spark_attribute_state PUBLIC
   nw/INCLUDE
@@ -2478,6 +2479,7 @@ add_library(rr2nw_arena_bullet_attribute_state STATIC
 )
 target_link_libraries(rr2nw_arena_bullet_attribute_state PUBLIC
   rr2nw_arena_explosion_attribute_state
+  rr2nw_arena_obase_spark_full
   rr2nw_arena_skin_resource_state
   rr2nw_arena_smoke_texture_cache
   rr2nw_arena_storage

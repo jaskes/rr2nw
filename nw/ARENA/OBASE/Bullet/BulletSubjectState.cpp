@@ -15,7 +15,9 @@
 #include "message/a_msg.h"
 #include "message/bulmsg.h"
 #include "message/funitmsg.h"
+#include "message/sparkmsg.h"
 #include "obase/explosion/ExplosionSubjectState.h"
+#include "obase/spark/SparkSubjectState.h"
 #include "storage/h/subject.h"
 
 namespace {
@@ -188,6 +190,29 @@ bool QueueImpactEffects(SimulationContext *context,
         return false;
     *childCount = requestCount;
     return true;
+}
+
+bool QueueGroundSpark(SimulationContext *context,
+                      AttributeBullet *attribute,
+                      const CFVector3 &position,
+                      double timeStamp, KR_ObjectID *child)
+{
+    if (child == NULL)
+        return false;
+    *child = KR_ObjectID::NUL();
+    if (context == NULL || attribute == NULL ||
+        !FiniteVector(position) || !std::isfinite(timeStamp) ||
+        timeStamp < 0.1)
+        return false;
+    // The January source-only fixture has no resolved dependencies. Ground
+    // removal remains valid there without manufacturing a visual child.
+    if (attribute->m_cacheSparkTable == ct_NULLID ||
+        attribute->m_cacheSparkAttr == ct_NULLID)
+        return true;
+    SparkCreateRequest request = {
+        position, timeStamp, attribute->m_cacheSparkTable,
+        attribute->m_cacheSparkAttr, "S"};
+    return SparkSubjectState_QueueCreate(context, request, child);
 }
 
 void HashBytes(unsigned long long &hash, const void *data, int size)
@@ -397,6 +422,9 @@ class BoundedBullet : public ct_Subject
         setPosition(position);
         if (position.y <= 0.0)
         {
+            KR_ObjectID spark = KR_ObjectID::NUL();
+            QueueGroundSpark(context, m_attribute, m_position,
+                             event.timeStamp, &spark);
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
             return 1;
@@ -568,6 +596,9 @@ class BoundedBullet : public ct_Subject
         setPosition(nextPosition);
         if (m_position.y <= 0.0)
         {
+            KR_ObjectID spark = KR_ObjectID::NUL();
+            QueueGroundSpark(context, m_attribute, m_position,
+                             event.timeStamp, &spark);
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
             return 1;
@@ -734,7 +765,8 @@ unsigned long long BulletSubjectState_Fingerprint(
     const int waterlineIntersection = 1;
     const int impactCommands = 1;
     const int splashCommands = 1;
-    const int visualEffects = 0;
+    const int visualEffects = 1;
+    const int groundSpark = 1;
     HashString(hash, "Bullet");
     HashBytes(hash, &capacity, sizeof(capacity));
     HashBytes(hash, &rendering, sizeof(rendering));
@@ -749,6 +781,7 @@ unsigned long long BulletSubjectState_Fingerprint(
     HashBytes(hash, &impactCommands, sizeof(impactCommands));
     HashBytes(hash, &splashCommands, sizeof(splashCommands));
     HashBytes(hash, &visualEffects, sizeof(visualEffects));
+    HashBytes(hash, &groundSpark, sizeof(groundSpark));
     return hash;
 }
 
@@ -1239,4 +1272,80 @@ bool BulletSubjectState_ProbeImpactEffectLifecycle(
            summary->queuedChildren == 3 &&
            summary->splashFirstCases == 1 &&
            summary->rolledBackChildren == 3;
+}
+
+bool BulletSubjectState_ProbeGroundSparkLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, BulletGroundSparkProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_bulletTable.liveCount() != 0 ||
+        SparkSubjectState_LiveCount() != 0)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeBullet *attribute = static_cast<AttributeBullet *>(
+        __bulletAttrTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("BulletAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Bullet");
+    const int attributeIndex = attributeTable == ct_NULLID ||
+            attributeID.isNUL()
+        ? -1
+        : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (attribute == NULL || attributeIndex == -1 ||
+        subjectTable == ct_NULLID ||
+        attribute->m_cacheSparkTable == ct_NULLID ||
+        attribute->m_cacheSparkAttr == ct_NULLID)
+        return false;
+
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    const KR_ObjectID source = g_arena.getObjectID();
+    KR_ObjectID bullet = g_arena.newObject(
+        subjectTable, "Bullet.GroundSpark.Probe");
+    BoundedBullet *object = g_bulletTable.find(bullet);
+    KR_Event event;
+    BuildStartEvent(event, bullet, source, ts,
+                    CFVector3(0.0, 0.001, 0.0),
+                    CFVector3(0.0, -1.0, 0.0),
+                    attributeIndex, source);
+    context->sendEventNow(event);
+    const bool started = !bullet.isNUL() && object != NULL &&
+        object->started() &&
+        context->removeEvent(b_EVC_MOVING, bullet) != 0;
+    if (!started)
+    {
+        RemoveIfPresent(context, bullet);
+        return false;
+    }
+
+    event = KR_Event();
+    event.label = b_EVC_MOVING;
+    event.source = bullet;
+    event.destination = bullet;
+    event.timeStamp = ts + attribute->m_moveTimeIncrement;
+    event.data.open(EDO_WRITE).putDouble(ts).close();
+    context->sendEventNow(event);
+    KR_ObjectID spark = context->searchObject("S");
+    const bool queued = !context->isExist(bullet) && !spark.isNUL() &&
+        SparkSubjectState_LiveCount() == 1;
+    summary->queuedSparks = queued ? 1 : 0;
+    const bool rolledBack = queued &&
+        SparkSubjectState_RollbackQueued(context, spark);
+    summary->rolledBackSparks = rolledBack ? 1 : 0;
+    RemoveIfPresent(context, bullet);
+    RemoveIfPresent(context, spark);
+    return queued && rolledBack && summary->queuedSparks == 1 &&
+           summary->rolledBackSparks == 1 &&
+           g_bulletTable.liveCount() == 0 &&
+           SparkSubjectState_LiveCount() == 0 &&
+           context->removeEvent(b_EVC_MOVING, bullet) == 0 &&
+           context->removeEvent(b_EVC_CHECK_COLLISION, bullet) == 0 &&
+           context->removeEvent(sp_EV_CREATE, spark) == 0 &&
+           context->removeEvent(sp_EVC_LIFE, spark) == 0 &&
+           !context->isExist("Bullet.GroundSpark.Probe") &&
+           !context->isExist("S");
 }

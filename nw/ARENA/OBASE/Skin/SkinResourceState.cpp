@@ -756,6 +756,32 @@ bool SkinResourceState_ResolveLoadedModel(SimulationContext *context,
     return true;
 }
 
+bool SkinResourceState_ResolveLoadedSprite(SimulationContext *context,
+                                            const char *objectName,
+                                            KR_ObjectID *objectID,
+                                            CViewTexture **texture)
+{
+    if (objectID != NULL)
+        *objectID = KR_ObjectID::NUL();
+    if (texture != NULL)
+        *texture = NULL;
+    if (context == NULL || objectName == NULL || objectName[0] == 0 ||
+        objectID == NULL || texture == NULL)
+        return false;
+    KR_ObjectID resolvedID = context->searchObject(objectName);
+    RecoveredSkinSprite *sprite = resolvedID.isNUL()
+        ? NULL
+        : g_skinSprTable.find(resolvedID);
+    if (sprite == NULL || !sprite->m_loaded ||
+        sprite->m_texture.HImage() == NULL ||
+        sprite->m_texture.Width() <= 0 ||
+        sprite->m_texture.Height() <= 0)
+        return false;
+    *objectID = resolvedID;
+    *texture = &sprite->m_texture;
+    return true;
+}
+
 int SkinResourceState_ModelCount(SimulationContext *context)
 {
     ResourceCollector collector = {};

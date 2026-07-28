@@ -22,6 +22,12 @@ struct BulletEffectProbeSummary
     int rolledBackChildren;
 };
 
+struct BulletGroundSparkProbeSummary
+{
+    int queuedSparks;
+    int rolledBackSparks;
+};
+
 void BulletSubjectState_Link();
 bool BulletSubjectState_TableReady(SimulationContext *context, int capacity);
 int BulletSubjectState_Capacity();
@@ -40,5 +46,8 @@ bool BulletSubjectState_ProbeDynamicCollisionLifecycle(
 bool BulletSubjectState_ProbeImpactEffectLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, BulletEffectProbeSummary *summary);
+bool BulletSubjectState_ProbeGroundSparkLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, BulletGroundSparkProbeSummary *summary);
 
 #endif

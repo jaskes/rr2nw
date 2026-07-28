@@ -94,7 +94,10 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_LIFECYCLE_FAILURE = 1ull << 17,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_EFFECT_TRANSACTION_FAILURE = 1ull << 18,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_IMPULSE_BINDING_FAILURE = 1ull << 19,
-  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_LIGHT_LIFECYCLE_FAILURE = 1ull << 20
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_LIGHT_LIFECYCLE_FAILURE = 1ull << 20,
+  RECOVERED_ARENA_SEANCE_EXT_SPARK_VISUAL_RESOURCE_FAILURE = 1ull << 21,
+  RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_LIFECYCLE_FAILURE = 1ull << 22,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_GROUND_SPARK_FAILURE = 1ull << 23
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -140,6 +143,7 @@ unsigned long long RecoveredArenaSeance_BulletReferenceFingerprint();
 bool RecoveredArenaSeance_BulletSubjectRegistrationReady();
 bool RecoveredArenaSeance_BulletSubjectReady();
 bool RecoveredArenaSeance_BulletImpactEffectsReady();
+bool RecoveredArenaSeance_BulletGroundSparkReady();
 int RecoveredArenaSeance_BulletSubjectCapacity();
 unsigned long long RecoveredArenaSeance_BulletSubjectFingerprint();
 int RecoveredArenaSeance_BulletSubjectProbeMoveCount();
@@ -153,6 +157,8 @@ int RecoveredArenaSeance_BulletEffectQueuedBatches();
 int RecoveredArenaSeance_BulletEffectQueuedChildren();
 int RecoveredArenaSeance_BulletEffectSplashFirstCases();
 int RecoveredArenaSeance_BulletEffectRolledBackChildren();
+int RecoveredArenaSeance_BulletGroundSparkQueued();
+int RecoveredArenaSeance_BulletGroundSparkRolledBack();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();
@@ -214,7 +220,15 @@ unsigned long long RecoveredArenaSeance_SkinCatalogFingerprint();
 unsigned long long RecoveredArenaSeance_SkinResourceFingerprint();
 bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_SparkSubjectReady();
+bool RecoveredArenaSeance_SparkVisualResourcesReady();
 int RecoveredArenaSeance_SparkSubjectCapacity();
+unsigned long long RecoveredArenaSeance_SparkSubjectFingerprint();
+unsigned long long RecoveredArenaSeance_SparkVisualResourceFingerprint();
+int RecoveredArenaSeance_SparkProbeInvalidStarts();
+int RecoveredArenaSeance_SparkProbeQueuedCreates();
+int RecoveredArenaSeance_SparkProbeQueueRollbacks();
+int RecoveredArenaSeance_SparkProbePhaseTransitions();
+int RecoveredArenaSeance_SparkProbeExpirations();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_VehicleReady();
 double RecoveredArenaSeance_VehicleVesselMass();

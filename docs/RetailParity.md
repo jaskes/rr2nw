@@ -587,9 +587,10 @@ Retail scripts нельзя молча копировать поверх source 
   resolved software-palette colors are part of the runtime state.
 - Unknown exact-name writes `massa` and `m_lifeTime` remain no-ops; the port
   does not alias `massa` to `m_massa` or invent an unverified lifetime field.
-- Explosion damage activation is specified separately by RP-SCRIPT-018.
-  Spark/barrel-Smoke children, visual Explosion lifetime, sound and trace remain
-  outside this Bullet attribute/reference boundary.
+- Explosion damage activation is specified separately by RP-SCRIPT-018 and the
+  ground Spark child by RP-SCRIPT-019. Barrel Smoke, remaining visual Explosion
+  lifetime, sound and trace remain outside this Bullet attribute/reference
+  boundary.
 - Verification passes 51/51 CTest in Debug and Release, 36/36 May services
   with 18/18 identical E/G pairs, and 4/4 clean waited executable smokes.
 
@@ -645,6 +646,33 @@ Retail scripts нельзя молча копировать поверх source 
   launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
   smokes publishing the new command/transaction diagnostics and clean shutdown.
   The selected local vessel reports `fMass=900` in every Level and both roots.
+
+### RP-SCRIPT-019: Spark.Flash owns the May sprite/light lifecycle
+
+- Classification: `RETAIL_REQUIRED`. Exact six-phase Spark presentation and
+  the active Bullet ground-removal child are restored; start/collision Sparks
+  and barrel Smoke remain deferred.
+- Every May Level loads the single `SkinSpr` identity `sk.Fusion.0` and creates
+  `Spark.Flash` plus an empty `Spark(40)` pool. Startup resolves that loaded
+  sprite only after validating every UV rectangle and phase field, then records
+  stable subject and visual-resource fingerprints. The public source-only
+  fixture has no sprite object and therefore advertises structure only.
+- The event payload and encoded attribute are validated before mutation.
+  CREATE/LIFE events are self-owned, removal clears both labels, and the May
+  schedule-before-phase-increment timing is preserved. The rendering owner is
+  non-audible and contributes exactly one current-phase opaque sprite and light.
+- Admission counters are two invalid starts, one queued create, one queue
+  rollback, five phase transitions and one expiration. A real observer-frame
+  proof verifies phase-zero sprite coordinates/UV/depth/texture plus exact light
+  metadata, followed by a detached frame with no residual publication.
+- Bullet ground movement now creates the configured Spark before removing the
+  projectile. The dedicated proof reports one child and one rollback with empty
+  object/event pools; the child owns its queue identity because its Bullet
+  parent is removed immediately.
+- Verification passes 51/51 CTest in both configurations, 36/36 May service
+  launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
+  smokes publishing Spark fingerprints, `2/1/1/5/1`, Bullet `1/1`,
+  `level-ready` and clean shutdown.
 
 ## Behavioral parity matrix
 

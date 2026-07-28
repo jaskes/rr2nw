@@ -18,6 +18,7 @@
 #include "message/explmsg.h"
 #include "message/levelmsg.h"
 #include "message/smokermsg.h"
+#include "message/sparkmsg.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/bullet/BulletAttributeState.h"
@@ -27,6 +28,8 @@
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
+#include "obase/spark/SparkAttributeState.h"
+#include "obase/spark/SparkSubjectState.h"
 #include "obase/smoke/SmokerAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
@@ -58,10 +61,19 @@ const unsigned long long kBulletCacheHashOffset = 14695981039346656037ull;
 const unsigned long long kBulletCacheHashPrime = 1099511628211ull;
 
 void (*g_originalAlphaSprite)(SGRAlphaSprite*) = nullptr;
+void (*g_originalSprite)(int, int, int, int, int, int, int, int,
+                         int, void*) = nullptr;
 GR_HTEXTURE g_expectedAlphaTexture = nullptr;
+GR_HTEXTURE g_expectedSpriteTexture = nullptr;
 int g_alphaSpriteDraws = 0;
+int g_spriteDraws = 0;
 bool g_alphaSpriteDrawValid = true;
+bool g_spriteDrawValid = true;
 SGRAlphaSprite g_lastAlphaSprite = {};
+int g_lastSpriteU0 = 0;
+int g_lastSpriteV0 = 0;
+int g_lastSpriteU1 = 0;
+int g_lastSpriteV1 = 0;
 
 void HashBulletCacheBytes(unsigned long long& hash, const void* data,
                           int size) {
@@ -141,6 +153,45 @@ class ScopedAlphaSpriteCapture {
     _pGRDrawAlphaSprite = g_originalAlphaSprite;
     g_originalAlphaSprite = nullptr;
     g_expectedAlphaTexture = nullptr;
+  }
+};
+
+void CaptureSprite(int x0, int y0, int x1, int y1,
+                   int u0, int v0, int u1, int v1,
+                   int inverseZ, void* texture) {
+  if (texture == g_expectedSpriteTexture) {
+    ++g_spriteDraws;
+    g_lastSpriteU0 = u0;
+    g_lastSpriteV0 = v0;
+    g_lastSpriteU1 = u1;
+    g_lastSpriteV1 = v1;
+    g_spriteDrawValid = g_spriteDrawValid && x1 > x0 && y1 > y0 &&
+                        u1 > u0 && v1 > v0 && inverseZ > 0;
+  }
+  if (g_originalSprite != nullptr) {
+    g_originalSprite(x0, y0, x1, y1, u0, v0, u1, v1,
+                     inverseZ, texture);
+  }
+}
+
+class ScopedSpriteCapture {
+ public:
+  explicit ScopedSpriteCapture(GR_HTEXTURE expected) {
+    g_expectedSpriteTexture = expected;
+    g_spriteDraws = 0;
+    g_spriteDrawValid = true;
+    g_lastSpriteU0 = 0;
+    g_lastSpriteV0 = 0;
+    g_lastSpriteU1 = 0;
+    g_lastSpriteV1 = 0;
+    g_originalSprite = _pGRDrawSprite;
+    _pGRDrawSprite = CaptureSprite;
+  }
+
+  ~ScopedSpriteCapture() {
+    _pGRDrawSprite = g_originalSprite;
+    g_originalSprite = nullptr;
+    g_expectedSpriteTexture = nullptr;
   }
 };
 
@@ -255,6 +306,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_BulletSubjectRegistrationReady() &&
          !RecoveredGameServices_BulletSubjectReady() &&
          !RecoveredGameServices_BulletImpactEffectsReady() &&
+         !RecoveredGameServices_BulletGroundSparkReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
@@ -272,6 +324,8 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_BulletEffectQueuedChildren() == -1 &&
          RecoveredArenaSeance_BulletEffectSplashFirstCases() == -1 &&
          RecoveredArenaSeance_BulletEffectRolledBackChildren() == -1 &&
+         RecoveredArenaSeance_BulletGroundSparkQueued() == -1 &&
+         RecoveredArenaSeance_BulletGroundSparkRolledBack() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
@@ -315,7 +369,16 @@ bool IsServiceReleased() {
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_SparkSubjectReady() &&
+         !RecoveredGameServices_SparkRenderingReady() &&
+         !RecoveredArenaSeance_SparkVisualResourcesReady() &&
          RecoveredArenaSeance_SparkSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_SparkSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_SparkVisualResourceFingerprint() == 0 &&
+         RecoveredArenaSeance_SparkProbeInvalidStarts() == -1 &&
+         RecoveredArenaSeance_SparkProbeQueuedCreates() == -1 &&
+         RecoveredArenaSeance_SparkProbeQueueRollbacks() == -1 &&
+         RecoveredArenaSeance_SparkProbePhaseTransitions() == -1 &&
+         RecoveredArenaSeance_SparkProbeExpirations() == -1 &&
          !RecoveredGameServices_RouteReady() &&
          !RecoveredGameServices_VehicleReady() &&
          !RecoveredArenaSeance_IsOpen() && g_vehicle == nullptr &&
@@ -757,6 +820,93 @@ bool ExerciseVisibleExplosionLight() {
          context->removeEvent(EXPLOSION_MOVE, explosion) == 0;
 }
 
+bool ExerciseVisibleSpark() {
+  if (g_super.m_context == nullptr ||
+      !RecoveredGameServices_SparkRenderingReady() ||
+      SparkSubjectState_LiveCount() != 0 || _pGRDrawSprite == nullptr ||
+      g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
+      CViewObject::EnabledLights() != 0) {
+    return false;
+  }
+  SimulationContext* context = g_super.m_context;
+  KR_ObjectID attributeID = context->searchObject("Spark.Flash");
+  AttributeSpark* attribute = attributeID.isNUL()
+      ? nullptr
+      : static_cast<AttributeSpark*>(
+            __attrSparkTable.searchAttribute(attributeID));
+  const ct_ClassTableID attributeTable =
+      g_arena.searchSeanceClassTable("SparkAttr");
+  const ct_ClassTableID subjectTable =
+      g_arena.searchSeanceClassTable("Spark");
+  const int attributeIndex = attributeTable == ct_NULLID ||
+          attributeID.isNUL()
+      ? -1
+      : g_arena.getAttributeIndex(attributeTable, attributeID);
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  static const char kProbeName[] = "Spark.Rendering.Probe";
+  if (attribute == nullptr || attribute->m_cacheSkin == nullptr ||
+      attribute->m_cacheSkin->HImage() == nullptr ||
+      attribute->m_phaseCnt != 6 || attributeIndex == -1 ||
+      subjectTable == ct_NULLID || observer == nullptr ||
+      context->isExist(kProbeName)) {
+    return false;
+  }
+
+  const double currentTime =
+      (std::max)(Session::m_moment, Session::m_viewTime);
+  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  SparkCreateRequest request = {
+      CFVector3(observer->x, observer->y, observer->z - 64.0),
+      timeStamp, subjectTable, attributeIndex, kProbeName};
+  KR_ObjectID spark = KR_ObjectID::NUL();
+  const bool started = SparkSubjectState_ExecuteNow(
+      context, request, &spark);
+  const bool ownedLife = started &&
+      context->removeEvent(sp_EVC_LIFE, spark) != 0;
+  if (!started || !ownedLife || spark.isNUL() ||
+      SparkSubjectState_LiveCount() != 1) {
+    context->removeEvent(sp_EVC_LIFE, spark);
+    if (!spark.isNUL() && context->isExist(spark)) {
+      context->removeObject(spark);
+    }
+    return false;
+  }
+
+  const SparkPhase& phase = attribute->m_phase[0];
+  const dword framesBefore = dwFrames;
+  bool visibleFrame = false;
+  bool detachedFrame = false;
+  bool lightPublished = false;
+  int drawsAfterVisibleFrame = 0;
+  {
+    ScopedSpriteCapture capture(attribute->m_cacheSkin->HImage());
+    visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
+    drawsAfterVisibleFrame = g_spriteDraws;
+    lightPublished = visibleFrame && CViewObject::EnabledLights() == 1 &&
+        g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+        _gr_pLights[0].r == phase.radius &&
+        _gr_pLights[0].power0 == phase.brightness &&
+        _gr_pLights[0].color == phase.color;
+    context->removeObject(spark);
+    detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
+  }
+  return visibleFrame && detachedFrame && lightPublished &&
+         g_spriteDrawValid && drawsAfterVisibleFrame == 1 &&
+         g_spriteDraws == drawsAfterVisibleFrame &&
+         g_lastSpriteU0 == (phase.u0 << 16) &&
+         g_lastSpriteV0 == (phase.v0 << 16) &&
+         g_lastSpriteU1 == (phase.u1 << 16) &&
+         g_lastSpriteV1 == (phase.v1 << 16) &&
+         dwFrames == framesBefore + 2 &&
+         CViewObject::EnabledLights() == 0 &&
+         g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+         !context->isExist(kProbeName) &&
+         SparkSubjectState_LiveCount() == 0 &&
+         context->removeEvent(sp_EV_CREATE, spark) == 0 &&
+         context->removeEvent(sp_EVC_LIFE, spark) == 0;
+}
+
 bool ValidateReferenceTransaction(
     unsigned long long taxiReferenceFingerprint,
     unsigned long long bulletReferenceFingerprint,
@@ -985,6 +1135,7 @@ int main(int argc, char** argv) {
        !RecoveredGameServices_BulletSubjectRegistrationReady() ||
        !RecoveredGameServices_BulletSubjectReady() ||
        !RecoveredGameServices_BulletImpactEffectsReady() ||
+       !RecoveredGameServices_BulletGroundSparkReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
@@ -1003,7 +1154,16 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SkinResourcesReady() ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_SparkSubjectReady() ||
+      !RecoveredGameServices_SparkRenderingReady() ||
+      !RecoveredArenaSeance_SparkVisualResourcesReady() ||
       RecoveredArenaSeance_SparkSubjectCapacity() != 40 ||
+      RecoveredArenaSeance_SparkSubjectFingerprint() == 0 ||
+      RecoveredArenaSeance_SparkVisualResourceFingerprint() == 0 ||
+      RecoveredArenaSeance_SparkProbeInvalidStarts() != 2 ||
+      RecoveredArenaSeance_SparkProbeQueuedCreates() != 1 ||
+      RecoveredArenaSeance_SparkProbeQueueRollbacks() != 1 ||
+      RecoveredArenaSeance_SparkProbePhaseTransitions() != 5 ||
+      RecoveredArenaSeance_SparkProbeExpirations() != 1 ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
       RecoveredGameServices_VehicleVesselMass() <= 0.0 ||
@@ -1166,6 +1326,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SkinCatalogFingerprint();
   const unsigned long long skinResourceFingerprint =
       RecoveredArenaSeance_SkinResourceFingerprint();
+  const int sparkSubjectCapacity =
+      RecoveredArenaSeance_SparkSubjectCapacity();
+  const unsigned long long sparkSubjectFingerprint =
+      RecoveredArenaSeance_SparkSubjectFingerprint();
+  const unsigned long long sparkVisualResourceFingerprint =
+      RecoveredArenaSeance_SparkVisualResourceFingerprint();
   if (explosionFingerprint == 0 || explosionRosterSize < 10 ||
       explosionRosterSize > 14 ||
       (explosionSubjectCapacity != 40 &&
@@ -1222,6 +1388,8 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletEffectQueuedChildren() != 3 ||
       RecoveredArenaSeance_BulletEffectSplashFirstCases() != 1 ||
       RecoveredArenaSeance_BulletEffectRolledBackChildren() != 3 ||
+      RecoveredArenaSeance_BulletGroundSparkQueued() != 1 ||
+      RecoveredArenaSeance_BulletGroundSparkRolledBack() != 1 ||
       !BulletAttributeState_IsKnownRoster(g_super.m_context) ||
       !BulletAttributeState_ReferencesResolved(g_super.m_context) ||
       !BulletAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
@@ -1265,6 +1433,8 @@ int main(int argc, char** argv) {
       skinModelCount < 26 ||
       skinModelCount > 52 || skinSpriteCount != 1 ||
       skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
+      sparkSubjectCapacity != 40 || sparkSubjectFingerprint == 0 ||
+      sparkVisualResourceFingerprint == 0 ||
       farterFingerprint == 0 || farterRosterSize < 0 ||
       farterRosterSize > 4 || farterCapacity != 10 ||
       !RecoveredGameServices_FarterReferencesReady() ||
@@ -1356,6 +1526,11 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("visible Explosion light/expiry/detach rollback failed");
   }
+  if (!ExerciseVisibleSpark()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("visible Spark sprite/light/detach rollback failed");
+  }
 
   KR_Event unsupported;
   unsupported.label = lev_SAVE;
@@ -1431,6 +1606,8 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletEffectQueuedChildren() != 3 ||
       RecoveredArenaSeance_BulletEffectSplashFirstCases() != 1 ||
       RecoveredArenaSeance_BulletEffectRolledBackChildren() != 3 ||
+      RecoveredArenaSeance_BulletGroundSparkQueued() != 1 ||
+      RecoveredArenaSeance_BulletGroundSparkRolledBack() != 1 ||
       VehicleAttributeState_Fingerprint(g_super.m_context) !=
           vehicleAttributeFingerprint ||
       VehicleAttributeState_RosterSize(g_super.m_context) !=
@@ -1513,6 +1690,17 @@ int main(int argc, char** argv) {
           skinCatalogFingerprint ||
       RecoveredArenaSeance_SkinResourceFingerprint() !=
           skinResourceFingerprint ||
+      RecoveredArenaSeance_SparkSubjectCapacity() !=
+          sparkSubjectCapacity ||
+      RecoveredArenaSeance_SparkSubjectFingerprint() !=
+          sparkSubjectFingerprint ||
+      RecoveredArenaSeance_SparkVisualResourceFingerprint() !=
+          sparkVisualResourceFingerprint ||
+      RecoveredArenaSeance_SparkProbeInvalidStarts() != 2 ||
+      RecoveredArenaSeance_SparkProbeQueuedCreates() != 1 ||
+      RecoveredArenaSeance_SparkProbeQueueRollbacks() != 1 ||
+      RecoveredArenaSeance_SparkProbePhaseTransitions() != 5 ||
+      RecoveredArenaSeance_SparkProbeExpirations() != 1 ||
       !RecoveredGameServices_RunFrame() || dwFrames != 1) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -1543,8 +1731,9 @@ int main(int argc, char** argv) {
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
               "bullet_subject=0/%d-ballistic-collision-impact-ground-waterline "
-              "bullet_subject_fingerprint=%llu bullet_probe_moves=2 "
-              "bullet_collision=2/1/4/3/4/1 bullet_effects=2/3/1/3 "
+               "bullet_subject_fingerprint=%llu bullet_probe_moves=2 "
+               "bullet_collision=2/1/4/3/4/1 bullet_effects=2/3/1/3 "
+               "bullet_ground_spark=1/1 "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "
@@ -1561,9 +1750,11 @@ int main(int argc, char** argv) {
               "corpse_attrs=%d/%d corpse_fingerprint=%llu portal=table "
               "corpse_refs=%llu corpse_runtime=%d "
               "corpse_subject=%d fingerprint=%llu live=0 "
-              "skin_models=%d skin_sprites=%d skin_catalog=%llu "
-              "skin_resources=%llu "
-              "route=table vehicle=real observer=1\n",
+               "skin_models=%d skin_sprites=%d skin_catalog=%llu "
+               "skin_resources=%llu "
+               "spark=0/%d-sprite-light-May-phase spark_subject=%llu "
+               "spark_visual=%llu spark_probe=2/1/1/5/1 "
+               "route=table vehicle=real observer=1\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,
                explosionRosterSize, explosionFingerprint,
@@ -1592,8 +1783,9 @@ int main(int argc, char** argv) {
               corpseRosterSize, corpseCapacity, corpseFingerprint,
               corpseReferenceFingerprint, corpseRuntimeReady ? 1 : 0,
               corpseSubjectCapacity, corpseSubjectFingerprint,
-              skinModelCount,
-              skinSpriteCount, skinCatalogFingerprint,
-              skinResourceFingerprint);
+               skinModelCount,
+               skinSpriteCount, skinCatalogFingerprint,
+               skinResourceFingerprint, sparkSubjectCapacity,
+               sparkSubjectFingerprint, sparkVisualResourceFingerprint);
   return EXIT_SUCCESS;
 }

@@ -815,6 +815,31 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_SparkSubjectReady() ? 1 : 0));
   log.Line("spark_subject_capacity=" +
            std::to_string(RecoveredArenaSeance_SparkSubjectCapacity()));
+  log.Line("spark_rendering_initialized=" +
+           std::to_string(
+               RecoveredGameServices_SparkRenderingReady() ? 1 : 0));
+  log.Line("spark_subject_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SparkSubjectFingerprint()));
+  log.Line("spark_visual_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SparkVisualResourceFingerprint()));
+  log.Line("spark_lifecycle_probe=" +
+           std::to_string(RecoveredArenaSeance_SparkProbeInvalidStarts()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_SparkProbeQueuedCreates()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_SparkProbeQueueRollbacks()) +
+           "/" +
+           std::to_string(
+               RecoveredArenaSeance_SparkProbePhaseTransitions()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_SparkProbeExpirations()));
+  log.Line("bullet_ground_spark_initialized=" +
+           std::to_string(
+               RecoveredGameServices_BulletGroundSparkReady() ? 1 : 0));
+  log.Line("bullet_ground_spark_probe=" +
+           std::to_string(RecoveredArenaSeance_BulletGroundSparkQueued()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_BulletGroundSparkRolledBack()));
   log.Line("route_table_initialized=" +
            std::to_string(RecoveredGameServices_RouteReady() ? 1 : 0));
   log.Line("vehicle_default_initialized=" +

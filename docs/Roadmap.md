@@ -539,8 +539,8 @@ renumbering established diagnostics.
 That dependency-first Bullet slice and its first real subject slice are now
 complete. Exact root/local programs publish all May rosters; their Spark,
 Explosion, Smoke, optional WAV/Skin and trace resources resolve through one
-atomic transaction. The real empty `Spark(40)` table is present. Bullet retains
-each exact capacity and now executes the retail start-event ABI, timestamp-based
+atomic transaction. The real `Spark(40)` table is present. Bullet retains each
+exact capacity and now executes the retail start-event ABI, timestamp-based
 free-flight equation, ground removal, event rollback and clean pool reuse. It
 is intentionally non-rendering and non-audible, so admitting ballistics does not
 silently activate the unsafe legacy trace or the heavy collision/effect graph.
@@ -568,9 +568,13 @@ normalized vector, factor `5.0`, vessel vtable slots and `fMass` response are
 recovered, bound transactionally and covered by an offset-impact regression.
 The binary-confirmed `m_useLight` gate now uses the exact January brightness
 curve and existing transactional light owner; a real visible frame plus an
-explicit self-owned expiry prove full detach on the following frame. The next
-safe slices are Spark/barrel Smoke, Explosion sound and remaining particles,
-each behind its own lifecycle transaction. Trace follows only after the known first-step
+explicit self-owned expiry prove full detach on the following frame. The Spark
+slice is also complete: exact `Spark.Flash` resolves `sk.Fusion.0`, preserves
+the May schedule-before-phase-increment timing, publishes its sprite/light and
+expires without residual scene state. Bullet ground removal queues that child
+with child-owned rollback. The next safe slice is the FPS-gated barrel Smoke;
+start/collision Spark, Explosion sound and remaining particles stay behind
+separate lifecycle transactions. Trace follows only after the known first-step
 `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this

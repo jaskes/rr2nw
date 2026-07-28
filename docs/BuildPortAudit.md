@@ -1944,7 +1944,8 @@ clears the pending chain and enabled-light mask.
 Hermetic admission inspects the exact half-life graph light and full rollback.
 The retail service smoke places a real Explosion in front of the observer,
 runs a visible software frame, expires the object, then runs a detached frame
-with zero lights. Spark/Smoke particles, sound, the full visual Explosion graph
+with zero lights. The following Spark frontier activates the ground child and
+its sprite/light owner; barrel Smoke, sound, the full visual Explosion graph
 and trace drawing remain separate frontiers.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
@@ -1953,6 +1954,45 @@ service launches with 18/18 byte-identical installed/mounted summaries, and
 bounded Explosion pool, lifecycle counters `2/1/1/1/1/0`, Bullet effect
 counters `2/3/1/3`, `explosion_subject_light=1`, the exact light-lifecycle
 marker and `runtime_shutdown=clean`.
+
+### Retail Spark rendering and Bullet ground-child frontier
+
+The former registration-only `Spark(40)` owner now has a bounded executable
+lifecycle. `SparkAttributeState` resolves the one loaded `sk.Fusion.0` sprite
+through `SkinResourceState` and commits its cache only after validating the
+complete six-phase `Spark.Flash` table, texture dimensions and UV bounds. The
+subject table uses nothrow allocation, exact payload/index admission,
+self-owned CREATE/LIFE events, deterministic reset and idempotent cleanup.
+It preserves Arena's duplicate-name semantics because the retail helper names
+every impact child `"S"`; bounded name length protects the kernel buffer while
+ObjectID, not symbolic name, owns rollback.
+
+May binary inspection confirms the January schedule-before-increment phase
+order, so the modern state keeps that quirk rather than redesigning it. A
+hermetic probe rejects two bad starts, queues and cancels one child, executes
+five phase changes and expires once. Subject and visual fingerprints are
+published only for a real loaded sprite; the empty public fixture remains
+structurally useful but exposes unavailable lifecycle counters.
+
+The existing dynamic-sprite and `LightChain` paths now carry an actual Spark
+through a software frame. The service smoke verifies one opaque Fusion draw and
+one exact phase light, explicit land-dynamic detach, then a following frame with
+no leaked draw/light/event/object state. Both normal initialization and full
+reconstruction reproduce the same fingerprints and `2/1/1/5/1` counters.
+
+Bullet free flight creates this child on both immediate and moved ground
+removal. Only that source-active branch is enabled; start/collision Spark and
+barrel Smoke remain isolated. Because the Bullet is removed immediately, the
+child owns its event identity. A dedicated probe observes one queued child,
+rolls it back and proves empty Bullet/Spark pools. Startup diagnostics publish
+visual readiness, both Spark fingerprints, lifecycle counters and Bullet
+ground-child `1/1`.
+
+Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
+service launches with 18/18 byte-identical installed/mounted summaries, and
+4/4 waited executable runtime smokes. The next narrow projectile presentation
+frontier is the FPS-gated barrel Smoke branch; start/collision Spark, Explosion
+sound/particles and Bullet trace remain separately gated.
 
 ## Expansion order
 
@@ -2007,15 +2047,17 @@ marker and `runtime_shutdown=clean`.
    the synthetic pair, the real empty `Corpse(100)` table is linked, and Taxi
    resolves all three dependency groups atomically with stable symbolic
    identities. Exact BulletAttr rosters now resolve their Spark, Explosion,
-   Smoke, optional WAV/Skin and trace resources atomically; the original empty
+   Smoke, optional WAV/Skin and trace resources atomically; the original
    `Spark(40)` pool and exact Bullet capacities are present. The bounded Bullet
    subject now executes exact start/free-flight/ground-removal, isolated dynamic
    and scene collision, bounded waterline classification and rollback. Its
    splash/impact transaction owns bounded radial-damage Explosion children
    with all-or-none object-pool allocation. May local-Vehicle impulse and
    vessel mass are active. The May `m_useLight` gate, exact derived brightness,
-   one-light frame publication and self-owned expiry are also active; particles,
-   sound and the heavy visual graph remain deferred. Vehicle's own
+   one-light frame publication and self-owned expiry are also active. Exact
+   six-phase Spark sprite/light rendering, May phase timing, expiry and Bullet
+   ground-child rollback are active as well. Barrel Smoke, Explosion
+   sound/particles and Bullet trace remain deferred. Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
    attribute groups, Skin

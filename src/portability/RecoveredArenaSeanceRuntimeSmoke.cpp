@@ -471,6 +471,7 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_BulletSubjectRegistrationReady() &&
          !RecoveredArenaSeance_BulletSubjectReady() &&
          !RecoveredArenaSeance_BulletImpactEffectsReady() &&
+         !RecoveredArenaSeance_BulletGroundSparkReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
@@ -488,6 +489,8 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_BulletEffectQueuedChildren() == -1 &&
          RecoveredArenaSeance_BulletEffectSplashFirstCases() == -1 &&
          RecoveredArenaSeance_BulletEffectRolledBackChildren() == -1 &&
+         RecoveredArenaSeance_BulletGroundSparkQueued() == -1 &&
+         RecoveredArenaSeance_BulletGroundSparkRolledBack() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
@@ -531,7 +534,15 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_SkinResourcesReady() &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_SparkSubjectReady() &&
+         !RecoveredArenaSeance_SparkVisualResourcesReady() &&
          RecoveredArenaSeance_SparkSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_SparkSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_SparkVisualResourceFingerprint() == 0 &&
+         RecoveredArenaSeance_SparkProbeInvalidStarts() == -1 &&
+         RecoveredArenaSeance_SparkProbeQueuedCreates() == -1 &&
+         RecoveredArenaSeance_SparkProbeQueueRollbacks() == -1 &&
+         RecoveredArenaSeance_SparkProbePhaseTransitions() == -1 &&
+         RecoveredArenaSeance_SparkProbeExpirations() == -1 &&
          SparkSubjectState_Capacity() == 0 &&
          SparkSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_RouteReady() &&
@@ -603,6 +614,7 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_BulletSubjectRegistrationReady() ||
       !RecoveredArenaSeance_BulletSubjectReady() ||
       RecoveredArenaSeance_BulletImpactEffectsReady() ||
+      RecoveredArenaSeance_BulletGroundSparkReady() ||
       RecoveredArenaSeance_BulletAttributeCount() != 4 ||
       RecoveredArenaSeance_BulletAttributeCapacity() != 4 ||
       RecoveredArenaSeance_BulletSubjectCapacity() != 500 ||
@@ -618,6 +630,8 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_BulletEffectQueuedChildren() != -1 ||
       RecoveredArenaSeance_BulletEffectSplashFirstCases() != -1 ||
       RecoveredArenaSeance_BulletEffectRolledBackChildren() != -1 ||
+      RecoveredArenaSeance_BulletGroundSparkQueued() != -1 ||
+      RecoveredArenaSeance_BulletGroundSparkRolledBack() != -1 ||
       BulletSubjectState_LiveCount() != 0 ||
       RecoveredArenaSeance_BulletAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_BulletReferenceFingerprint() != 0 ||
@@ -665,7 +679,15 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_SkinResourcesReady() ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_SparkSubjectReady() ||
+      RecoveredArenaSeance_SparkVisualResourcesReady() ||
       RecoveredArenaSeance_SparkSubjectCapacity() != 40 ||
+      RecoveredArenaSeance_SparkSubjectFingerprint() != 0 ||
+      RecoveredArenaSeance_SparkVisualResourceFingerprint() != 0 ||
+      RecoveredArenaSeance_SparkProbeInvalidStarts() != -1 ||
+      RecoveredArenaSeance_SparkProbeQueuedCreates() != -1 ||
+      RecoveredArenaSeance_SparkProbeQueueRollbacks() != -1 ||
+      RecoveredArenaSeance_SparkProbePhaseTransitions() != -1 ||
+      RecoveredArenaSeance_SparkProbeExpirations() != -1 ||
       SparkSubjectState_Capacity() != 40 ||
       SparkSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_RouteReady() ||

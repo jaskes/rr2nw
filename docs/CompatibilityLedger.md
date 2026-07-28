@@ -1524,6 +1524,46 @@ Status vocabulary:
 - Revisit when: tests can trigger a named gameplay Explosion through its final
   weapon owner. Keep roster-order independence even after that integration.
 
+### CQ-101: Spark phase timing advances after scheduling
+
+- Status: `RETAIL_QUIRK_PRESERVED`, `TIMING_CONTRACT`.
+- Evidence: January source schedules the next LIFE event from
+  `m_phase[m_curPhase].time` and increments `m_curPhase` afterward. May retail
+  disassembly preserves the same order at `0x00573E77`--`0x00573EA7`.
+  Consequently CREATE first waits phase-zero duration and the LIFE event that
+  enters phase one schedules the following event with phase-zero duration
+  again.
+- Handling: preserve the observed order exactly. The modern state stores the
+  expected absolute LIFE timestamp and rejects a stale or early event; it does
+  not shift durations to the destination phase.
+- Regression contract: execute all six retail phases and require five
+  transitions, one expiration, each next timestamp derived from the previously
+  visible phase, and a fully reset released pool slot.
+- Revisit when: fixed-tick replay serializes presentation state. Record this
+  timing contract explicitly rather than normalizing it during replay import.
+
+### CQ-102: a removed Bullet cannot own its queued ground Spark event
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `EVENT_OWNERSHIP_SPLIT`.
+- Evidence: January `createSpark()` copies the Bullet ObjectID into event
+  `source`, then the ground branch immediately removes that Bullet. Kernel
+  cancellation is keyed by source ObjectID, so the historical layout couples a
+  surviving child event to an owner that has already left the object pool and
+  makes exact child rollback unsafe under ID reuse.
+- Handling: the Spark child is both source and destination of CREATE/LIFE.
+  Position, encoded `SparkAttr` and timestamp retain their retail meaning; the
+  parent Bullet is not part of Spark presentation state. Failure to allocate the
+  optional Spark never blocks mandatory Bullet ground removal. The constant
+  name `"S"` is not treated as unique because Arena and the retail helper allow
+  simultaneous same-name objects; rollback always uses the returned ObjectID.
+- Regression contract: cross the ground with one real Bullet, observe one
+  queued self-owned Spark, cancel it by child ID, and require zero remaining
+  Bullet/Spark objects and both event labels absent. Independently queue two
+  same-name Spark children and cancel both exact IDs.
+- Revisit when: a general child-event reservation API replaces the fixed queue.
+  Keep parent identity separate from lifecycle ownership even if the request
+  becomes fully atomic.
+
 ## Maintenance rule
 
 When a new quirk is found:

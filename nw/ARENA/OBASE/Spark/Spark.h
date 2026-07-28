@@ -31,6 +31,8 @@ class Spark : public ct_Subject
     AttributeSpark        *m_attr;
     CFVector3              m_position;
     int                    m_curPhase;
+    double                 m_nextLifeTime;
+    bool                   m_started;
 
     s_ViewDynamicSprite    m_viewDynSpr;
 
@@ -43,8 +45,10 @@ class Spark : public ct_Subject
     virtual CFVector3 realPosition();
     virtual void render( CViewDynamicList &list, double ts );
     virtual void endRender( CViewScene *scene );
+    void resetState();
+    bool clean() const;
    
-    virtual bool shouldDump () { return true; } // see comments for explosions
+    virtual bool shouldDump () { return false; }
 };
 
 #endif // ifndef __SPARK_H__INCLUDED

@@ -4,6 +4,7 @@
 #include "storage/h/attr.h"
 
 class CViewTexture;
+class SimulationContext;
 
 class SparkPhase
 {
@@ -82,5 +83,14 @@ extern AttributeTableSpark __attrSparkTable;
 
 void SparkAttributeState_Link();
 bool SparkAttributeState_IsRetailFlash(const KR_ObjectID &objectID);
+bool SparkAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeSpark **attribute);
+bool SparkAttributeState_ResolveVisualResources(SimulationContext *context);
+bool SparkAttributeState_VisualResourcesResolved(
+    SimulationContext *context);
+void SparkAttributeState_ClearVisualResources(SimulationContext *context);
+unsigned long long SparkAttributeState_VisualResourceFingerprint(
+    SimulationContext *context);
 
 #endif

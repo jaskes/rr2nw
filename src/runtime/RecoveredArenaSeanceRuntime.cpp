@@ -609,6 +609,7 @@ struct RecoveredArenaSeanceState {
   bool bulletSubjectRegistrationReady;
   bool bulletSubjectReady;
   bool bulletImpactEffectsReady;
+  bool bulletGroundSparkReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -628,6 +629,7 @@ struct RecoveredArenaSeanceState {
   bool skinResourcesReady;
   bool sparkAttributesReady;
   bool sparkSubjectReady;
+  bool sparkVisualResourcesReady;
   bool routeReady;
   bool vehicleReady;
   int vehicleAttributeCount;
@@ -638,6 +640,13 @@ struct RecoveredArenaSeanceState {
   int bulletAttributeCapacity;
   int bulletSubjectCapacity;
   int sparkSubjectCapacity;
+  unsigned long long sparkSubjectFingerprint;
+  unsigned long long sparkVisualResourceFingerprint;
+  int sparkProbeInvalidStarts;
+  int sparkProbeQueuedCreates;
+  int sparkProbeQueueRollbacks;
+  int sparkProbePhaseTransitions;
+  int sparkProbeExpirations;
   unsigned long long bulletAttributeFingerprint;
   unsigned long long bulletReferenceFingerprint;
   unsigned long long bulletSubjectFingerprint;
@@ -660,6 +669,8 @@ struct RecoveredArenaSeanceState {
   int bulletEffectQueuedChildren;
   int bulletEffectSplashFirstCases;
   int bulletEffectRolledBackChildren;
+  int bulletGroundSparkQueued;
+  int bulletGroundSparkRolledBack;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
@@ -1172,7 +1183,64 @@ bool PublishSparkAttributes(SimulationContext* context) {
     return false;
   }
 
+  // The public January source-only fixture intentionally owns no SkinSpr
+  // objects. Keep its structural Spark table available so later transactional
+  // failure probes can run, but do not claim visual/lifecycle readiness.
+  if (g_state.skinSpriteCount == 0) {
+    g_state.sparkAttributesReady = true;
+    g_state.sparkSubjectReady = true;
+    return true;
+  }
+
+  if (!SparkAttributeState_ResolveVisualResources(context) ||
+      !SparkAttributeState_VisualResourcesResolved(context)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SPARK_VISUAL_RESOURCE_FAILURE,
+        "Spark.Flash could not resolve the loaded sk.Fusion.0 sprite");
+    return false;
+  }
+  const unsigned long long visualFingerprint =
+      SparkAttributeState_VisualResourceFingerprint(context);
+  if (visualFingerprint == 0) {
+    SparkAttributeState_ClearVisualResources(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SPARK_VISUAL_RESOURCE_FAILURE,
+        "Spark.Flash visual resource did not publish a stable fingerprint");
+    return false;
+  }
+
+  SparkLifecycleProbeSummary probe = {};
+  if (!SparkSubjectState_ProbeLifecycle(
+          context, Session::m_moment, &probe) ||
+      probe.invalidStarts != 2 || probe.queuedCreates != 1 ||
+      probe.queueRollbacks != 1 || probe.phaseTransitions != 5 ||
+      probe.expirations != 1 || SparkSubjectState_LiveCount() != 0) {
+    SparkAttributeState_ClearVisualResources(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_LIFECYCLE_FAILURE,
+        "Spark validation/queue/May-phase/expiry lifecycle probe failed");
+    return false;
+  }
+  const unsigned long long subjectFingerprint =
+      SparkSubjectState_Fingerprint(context);
+  if (subjectFingerprint == 0) {
+    SparkAttributeState_ClearVisualResources(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_LIFECYCLE_FAILURE,
+        "Spark subject table did not return to a stable empty pool");
+    return false;
+  }
+
   g_state.sparkAttributesReady = true;
+  g_state.sparkSubjectReady = true;
+  g_state.sparkVisualResourcesReady = true;
+  g_state.sparkSubjectFingerprint = subjectFingerprint;
+  g_state.sparkVisualResourceFingerprint = visualFingerprint;
+  g_state.sparkProbeInvalidStarts = probe.invalidStarts;
+  g_state.sparkProbeQueuedCreates = probe.queuedCreates;
+  g_state.sparkProbeQueueRollbacks = probe.queueRollbacks;
+  g_state.sparkProbePhaseTransitions = probe.phaseTransitions;
+  g_state.sparkProbeExpirations = probe.expirations;
   return true;
 }
 
@@ -1186,7 +1254,6 @@ bool InitializeSparkSubjectTable(SimulationContext* context) {
     return false;
   }
   g_state.sparkSubjectCapacity = SparkSubjectState_Capacity();
-  g_state.sparkSubjectReady = true;
   return true;
 }
 
@@ -1687,12 +1754,27 @@ bool PublishBulletReferences(SimulationContext* context) {
         "Bullet splash/impact allocation, ordering, or rollback probe failed");
     return false;
   }
+  BulletGroundSparkProbeSummary sparkSummary = {};
+  if (!BulletSubjectState_ProbeGroundSparkLifecycle(
+          context, probeAttribute, Session::m_moment, &sparkSummary) ||
+      sparkSummary.queuedSparks != 1 ||
+      sparkSummary.rolledBackSparks != 1 ||
+      BulletSubjectState_LiveCount() != 0 ||
+      SparkSubjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_GROUND_SPARK_FAILURE,
+        "Bullet ground removal did not queue/rollback one self-owned Spark");
+    return false;
+  }
   g_state.bulletEffectQueuedBatches = effectSummary.queuedBatches;
   g_state.bulletEffectQueuedChildren = effectSummary.queuedChildren;
   g_state.bulletEffectSplashFirstCases = effectSummary.splashFirstCases;
   g_state.bulletEffectRolledBackChildren =
       effectSummary.rolledBackChildren;
+  g_state.bulletGroundSparkQueued = sparkSummary.queuedSparks;
+  g_state.bulletGroundSparkRolledBack = sparkSummary.rolledBackSparks;
   g_state.bulletImpactEffectsReady = true;
+  g_state.bulletGroundSparkReady = true;
   g_state.bulletReferencesReady = true;
   return true;
 }
@@ -2248,13 +2330,22 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
   SmokeVisualState_Release();
+  SparkAttributeState_ClearVisualResources(g_arena.getContext());
   ExplosionSubjectState_ReleaseLightFrame();
   ExplosionSubjectState_UnbindImpulseTarget(g_arena.getContext());
   g_state.vehicleReady = false;
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
   g_state.sparkSubjectReady = false;
+  g_state.sparkVisualResourcesReady = false;
   g_state.sparkSubjectCapacity = 0;
+  g_state.sparkSubjectFingerprint = 0;
+  g_state.sparkVisualResourceFingerprint = 0;
+  g_state.sparkProbeInvalidStarts = 0;
+  g_state.sparkProbeQueuedCreates = 0;
+  g_state.sparkProbeQueueRollbacks = 0;
+  g_state.sparkProbePhaseTransitions = 0;
+  g_state.sparkProbeExpirations = 0;
   g_state.smokeAttributesReady = false;
   g_state.smokeSubjectReady = false;
   g_state.smokeSubjectCapacity = 0;
@@ -2286,6 +2377,7 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletSubjectRegistrationReady = false;
   g_state.bulletSubjectReady = false;
   g_state.bulletImpactEffectsReady = false;
+  g_state.bulletGroundSparkReady = false;
   g_state.bulletAttributeCount = 0;
   g_state.bulletAttributeCapacity = 0;
   g_state.bulletSubjectCapacity = 0;
@@ -2303,6 +2395,8 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletEffectQueuedChildren = 0;
   g_state.bulletEffectSplashFirstCases = 0;
   g_state.bulletEffectRolledBackChildren = 0;
+  g_state.bulletGroundSparkQueued = 0;
+  g_state.bulletGroundSparkRolledBack = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -2542,6 +2636,10 @@ bool RecoveredArenaSeance_BulletImpactEffectsReady() {
   return g_state.bulletImpactEffectsReady;
 }
 
+bool RecoveredArenaSeance_BulletGroundSparkReady() {
+  return g_state.bulletGroundSparkReady;
+}
+
 int RecoveredArenaSeance_BulletSubjectCapacity() {
   return g_state.bulletSubjectRegistrationReady
              ? g_state.bulletSubjectCapacity
@@ -2607,6 +2705,18 @@ int RecoveredArenaSeance_BulletEffectSplashFirstCases() {
 int RecoveredArenaSeance_BulletEffectRolledBackChildren() {
   return g_state.bulletImpactEffectsReady
              ? g_state.bulletEffectRolledBackChildren
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletGroundSparkQueued() {
+  return g_state.bulletGroundSparkReady
+             ? g_state.bulletGroundSparkQueued
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletGroundSparkRolledBack() {
+  return g_state.bulletGroundSparkReady
+             ? g_state.bulletGroundSparkRolledBack
              : -1;
 }
 
@@ -2879,8 +2989,48 @@ bool RecoveredArenaSeance_SparkSubjectReady() {
   return g_state.sparkSubjectReady;
 }
 
+bool RecoveredArenaSeance_SparkVisualResourcesReady() {
+  return g_state.sparkVisualResourcesReady;
+}
+
 int RecoveredArenaSeance_SparkSubjectCapacity() {
   return g_state.sparkSubjectReady ? g_state.sparkSubjectCapacity : 0;
+}
+
+unsigned long long RecoveredArenaSeance_SparkSubjectFingerprint() {
+  return g_state.sparkSubjectReady ? g_state.sparkSubjectFingerprint : 0;
+}
+
+unsigned long long RecoveredArenaSeance_SparkVisualResourceFingerprint() {
+  return g_state.sparkVisualResourcesReady
+             ? g_state.sparkVisualResourceFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_SparkProbeInvalidStarts() {
+  return g_state.sparkVisualResourcesReady ? g_state.sparkProbeInvalidStarts
+                                           : -1;
+}
+
+int RecoveredArenaSeance_SparkProbeQueuedCreates() {
+  return g_state.sparkVisualResourcesReady ? g_state.sparkProbeQueuedCreates
+                                           : -1;
+}
+
+int RecoveredArenaSeance_SparkProbeQueueRollbacks() {
+  return g_state.sparkVisualResourcesReady ? g_state.sparkProbeQueueRollbacks
+                                           : -1;
+}
+
+int RecoveredArenaSeance_SparkProbePhaseTransitions() {
+  return g_state.sparkVisualResourcesReady
+             ? g_state.sparkProbePhaseTransitions
+             : -1;
+}
+
+int RecoveredArenaSeance_SparkProbeExpirations() {
+  return g_state.sparkVisualResourcesReady ? g_state.sparkProbeExpirations
+                                           : -1;
 }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }

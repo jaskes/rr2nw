@@ -27,7 +27,7 @@ void AttributeSpark::update(double ts)
 
 void AttributeTableSpark::allocObjects(int objectQnty)
 {
-    m_table = new AttributeSpark[objectQnty];
+    m_table = new (std::nothrow) AttributeSpark[objectQnty];
 
     if (m_table == NULL)
         m_maxObjectQnty = 0;
@@ -102,7 +102,8 @@ bool SparkAttributeState_IsRetailFlash(const KR_ObjectID &objectID)
         __attrSparkTable.searchAttribute(objectID));
     if (attr == NULL)
         return false;
-    if (strcmp(attr->m_skin, "sk.Fusion.0") != 0 || attr->m_phaseCnt != 6)
+    if (strcmp(attr->m_skin, "sk.Fusion.0") != 0 || attr->m_phaseCnt != 6 ||
+        !std::isfinite(attr->m_maxRadius) || attr->m_maxRadius <= 0.0)
         return false;
 
     static const SparkPhase expected[6] = {
@@ -132,4 +133,140 @@ bool SparkAttributeState_IsRetailFlash(const KR_ObjectID &objectID)
             return false;
     }
     return true;
+}
+
+bool SparkAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeSpark **attribute)
+{
+    if (attribute == NULL)
+        return false;
+    *attribute = NULL;
+    if (context == NULL || g_arena.getContext() != context ||
+        encodedIndex == -1)
+        return false;
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("SparkAttr");
+    KR_ObjectID object = context->searchObject("Spark.Flash");
+    AttributeSpark *candidate = object.isNUL()
+        ? NULL
+        : static_cast<AttributeSpark *>(
+              __attrSparkTable.searchAttribute(object));
+    if (table == ct_NULLID || candidate == NULL ||
+        g_arena.getAttributeIndex(table, object) != encodedIndex ||
+        !SparkAttributeState_IsRetailFlash(object))
+        return false;
+    *attribute = candidate;
+    return true;
+}
+
+bool SparkAttributeState_ResolveVisualResources(SimulationContext *context)
+{
+    if (SparkAttributeState_VisualResourcesResolved(context))
+        return true;
+    if (context == NULL || g_arena.getContext() != context)
+        return false;
+    KR_ObjectID object = context->searchObject("Spark.Flash");
+    AttributeSpark *attribute = object.isNUL()
+        ? NULL
+        : static_cast<AttributeSpark *>(
+              __attrSparkTable.searchAttribute(object));
+    KR_ObjectID spriteID = KR_ObjectID::NUL();
+    CViewTexture *texture = NULL;
+    if (attribute == NULL || attribute->m_cacheSkin != NULL ||
+        !SparkAttributeState_IsRetailFlash(object) ||
+        !SkinResourceState_ResolveLoadedSprite(
+            context, attribute->m_skin, &spriteID, &texture) ||
+        spriteID.isNUL() || texture == NULL || texture->HImage() == NULL ||
+        texture->Width() <= 0 || texture->Height() <= 0)
+        return false;
+    for (int index = 0; index < attribute->m_phaseCnt; ++index)
+    {
+        const SparkPhase &phase = attribute->m_phase[index];
+        if (phase.u0 < 0 || phase.v0 < 0 || phase.u1 <= phase.u0 ||
+            phase.v1 <= phase.v0 || phase.u1 > texture->Width() ||
+            phase.v1 > texture->Height() ||
+            !std::isfinite(phase.time) || phase.time < 0.0 ||
+            (index + 1 < attribute->m_phaseCnt && phase.time <= 0.0) ||
+            phase.brightness < 0 || phase.color < 0 ||
+            !std::isfinite(phase.radius) || phase.radius < 0.0)
+            return false;
+    }
+    attribute->m_cacheSkin = texture;
+    return true;
+}
+
+bool SparkAttributeState_VisualResourcesResolved(
+    SimulationContext *context)
+{
+    if (context == NULL || g_arena.getContext() != context)
+        return false;
+    KR_ObjectID object = context->searchObject("Spark.Flash");
+    AttributeSpark *attribute = object.isNUL()
+        ? NULL
+        : static_cast<AttributeSpark *>(
+              __attrSparkTable.searchAttribute(object));
+    KR_ObjectID spriteID = KR_ObjectID::NUL();
+    CViewTexture *texture = NULL;
+    return attribute != NULL && attribute->m_cacheSkin != NULL &&
+           SkinResourceState_ResolveLoadedSprite(
+               context, attribute->m_skin, &spriteID, &texture) &&
+           !spriteID.isNUL() && texture == attribute->m_cacheSkin &&
+           texture->HImage() != NULL && texture->Width() > 0 &&
+           texture->Height() > 0;
+}
+
+void SparkAttributeState_ClearVisualResources(SimulationContext *context)
+{
+    if (context == NULL)
+        return;
+    KR_ObjectID object = context->searchObject("Spark.Flash");
+    AttributeSpark *attribute = object.isNUL()
+        ? NULL
+        : static_cast<AttributeSpark *>(
+              __attrSparkTable.searchAttribute(object));
+    if (attribute != NULL)
+        attribute->m_cacheSkin = NULL;
+}
+
+unsigned long long SparkAttributeState_VisualResourceFingerprint(
+    SimulationContext *context)
+{
+    if (!SparkAttributeState_VisualResourcesResolved(context))
+        return 0;
+    KR_ObjectID object = context->searchObject("Spark.Flash");
+    AttributeSpark *attribute = static_cast<AttributeSpark *>(
+        __attrSparkTable.searchAttribute(object));
+    const unsigned long long offset = 14695981039346656037ull;
+    const unsigned long long prime = 1099511628211ull;
+    unsigned long long hash = offset;
+    const char *name = "Spark.Flash";
+    for (const unsigned char *byte =
+             reinterpret_cast<const unsigned char *>(name);
+         *byte != 0; ++byte)
+    {
+        hash ^= *byte;
+        hash *= prime;
+    }
+    hash ^= 0;
+    hash *= prime;
+    for (const unsigned char *byte =
+             reinterpret_cast<const unsigned char *>(attribute->m_skin);
+         *byte != 0; ++byte)
+    {
+        hash ^= *byte;
+        hash *= prime;
+    }
+    hash ^= 0;
+    hash *= prime;
+    const int dimensions[2] = {
+        attribute->m_cacheSkin->Width(), attribute->m_cacheSkin->Height()};
+    const unsigned char *bytes =
+        reinterpret_cast<const unsigned char *>(dimensions);
+    for (int index = 0; index < static_cast<int>(sizeof(dimensions)); ++index)
+    {
+        hash ^= bytes[index];
+        hash *= prime;
+    }
+    return hash;
 }
