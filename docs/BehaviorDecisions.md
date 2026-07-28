@@ -1881,14 +1881,13 @@ safe real `IDynamicObject + IUnit`, executes the damage command at its position
 and checks the single call's amount, position, timestamp and owner before full
 reconstruction.
 
-This decision intentionally stops before presentation and impulse. The May
+This decision intentionally stopped before presentation and impulse. The May
 binary proves that `m_useLight` gates light creation and that
 `m_impulseCoeff` scales three impulse-vector components, but the absent January
-source does not establish the complete May target-dispatch contract. Light,
-impulse, Spark/Smoke particles, Explosion sound and Bullet trace therefore stay
-false in the feature fingerprints. The next slice should reconstruct and test
-impulse dispatch first, then attach visual/audio children to the same bounded
-transaction.
+source does not establish the complete May target-dispatch contract. BD-055
+subsequently admitted impulse, and BD-056 admitted the independently bounded
+light lifetime. Spark/Smoke particles, Explosion sound and Bullet trace remain
+separate transactions.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May
 game-service launches with 18/18 byte-identical installed/mounted summaries,
@@ -1931,12 +1930,61 @@ The hermetic Arena probe places a real explosion at a non-zero X offset from a
 safe `IDynamicObject + IUnit`. It verifies one radial damage call, one impulse
 callback, the exact normalized direction, `m_impulseCoeff` scaling and factor
 `5.0`, then restores the production binding and requires an empty pool. The
-feature fingerprint now records impulse as active. Light, particles, sound and
-long-lived visual Explosion ownership remain false and are the next separate
-frontier.
+feature fingerprint records impulse as active. BD-056 subsequently activates
+the independent light-only lifetime; particles, sound and the full visual
+Explosion graph remain separate frontiers.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
 launches with 18/18 byte-identical installed/mounted summaries, and 4/4 waited
 executable smokes. Every Level selects the retail local-vessel `fMass=900`;
 executable diagnostics publish `explosion_subject_impulse=1`, that mass,
 `level-ready` and `runtime_shutdown=clean`.
+
+## BD-056: activate May Explosion light through a bounded expiry owner
+
+Status: accepted on 2026-07-28.
+
+The preserved May retail binary (`nw.exe`, SHA-256
+`42F2FC3B632C58073307B1B95924C1EFC038B5B3879C7476E438336B5D497132`)
+adds a gate absent from the January source. At `0x00510178` it tests
+`m_useLight`; the disabled branch jumps to `0x00510273`, while the enabled
+branch executes the January light lifetime/index/publication sequence and calls
+the light owner at `0x0051026B`. The recovered index is
+`int(elapsed * 255 / m_lightTimeLife)`, clamped to `0..254`; position is the
+Explosion position plus `(0, m_lightOffset, 0)`, with the declared light color
+and radius.
+
+The January attribute update also builds a resource-free 255-entry brightness
+curve. Each entry begins as `min(index * 20, 255)`; after index `85` it becomes
+`int(255.0 / (index - 85))`. The modern constructor now derives that exact
+curve and validates it independently. Texture, model, Smoke, sound, palette and
+other presentation caches remain unresolved, so activating light does not
+silently admit the heavier graph.
+
+An accepted impact still applies damage and optional local-Vehicle impulse
+exactly once. If `m_useLight` is enabled and every light field is finite and
+bounded, the child remains only as a rendering owner and queues a self-owned
+`EXPLOSION_MOVE` at `start + m_lightTimeLife`. Its render callback publishes at
+most one entry to the existing transactional `LightChain`; expiration removes
+the subject. Disabled or invalid light data retains the former immediate-removal
+behavior. `removeNotify()` cancels both START and MOVE events, pooled reuse
+clears all light state, and seance release explicitly clears the pending chain
+and enabled-light mask before Arena teardown.
+
+Admission proves the exact half-life brightness/position/color/radius through
+the original graph-light arrays, explicit expiration, empty event and object
+pools, and full global light rollback. The retail service smoke additionally
+places an Explosion in front of the real observer, crosses one actual software
+frame, expires it, and crosses a second frame that publishes no light. It does
+not assume storage iteration equals script order: the probe validates the whole
+roster and deterministically chooses the enabled attribute with the longest
+light lifetime, then timestamps it against the newer of simulation moment and
+view time.
+Fingerprints and diagnostics now report rendering and light active through
+`explosion_subject_light=1` and
+`explosion_subject_light_lifecycle=useLight-brightness-frame-expiry`.
+Particles, sound, Spark/barrel-Smoke children and Bullet trace remain deferred.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+launches with 18/18 byte-identical installed/mounted summaries, and 4/4 waited
+executable smokes reporting `level-ready` and `runtime_shutdown=clean`.

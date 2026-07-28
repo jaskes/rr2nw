@@ -597,11 +597,14 @@ Retail scripts нельзя молча копировать поверх source 
 
 - Classification: `RETAIL_REQUIRED` for the source-backed radial damage and
   damage-owner/impulse contract; `PARTIAL_RETAIL` for the May Explosion subject
-  as a whole. Light and presentation effects are still deferred.
+  as a whole. The independently bounded light lifetime is active; particles,
+  sound and the heavy visual graph are still deferred.
 - Every selected Level keeps its script-declared Explosion capacity. The owner
-  is non-rendering and non-audible, consumes an encoded live ExplosionAttr,
-  position and separate damage-owner ObjectID, executes once and immediately
-  returns its slot. The command never calls the legacy shared attribute setter.
+  is rendering but non-audible, consumes an encoded live ExplosionAttr,
+  position and separate damage-owner ObjectID, and never calls the legacy
+  shared attribute setter. Damage and impulse execute once. A disabled/invalid
+  light returns the slot immediately; a valid light retains only the bounded
+  rendering owner until expiration.
 - Radial damage follows the recovered source equation over Arena subjects that
   expose both `IDynamicObject` and `IUnit`. Target radius participates in the
   falloff; non-player unit owners use the retail friend-damage scale and player
@@ -629,8 +632,15 @@ Retail scripts нельзя молча копировать поверх source 
   `+0x6c/+0x70` slots, loads retail `fMass` with default `1000.0`, and binds the
   exact local Vehicle only after a zero-mutation readiness proof. Hermetic
   admission verifies a non-zero direction and complete binding restoration.
-  Fingerprints and diagnostics declare impulse active while light, particles
-  and sound remain false/deferred.
+  Fingerprints and diagnostics declare impulse active.
+- The May `m_useLight` test at `0x00510178` gates the January lifetime and
+  publication sequence ending at `0x0051026B`. The modern owner derives the
+  exact 255-entry January brightness curve, validates finite positive lifetime
+  and radius plus the bounded color, publishes through the original
+  `LightChain`, and removes through a self-owned `EXPLOSION_MOVE` at
+  `start + m_lightTimeLife`. Hermetic and real-observer frames prove the light
+  metadata, expiry, detached following frame and complete global rollback.
+  Particles and sound remain false/deferred.
 - Verification passes 51/51 CTest in both configurations, 36/36 May service
   launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
   smokes publishing the new command/transaction diagnostics and clean shutdown.

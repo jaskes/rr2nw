@@ -51,6 +51,10 @@ void ExplosionSubjectState_UnbindImpulseTarget(
     SimulationContext *context);
 bool ExplosionSubjectState_ImpulseTargetReady(
     SimulationContext *context, const KR_ObjectID &target);
+bool ExplosionSubjectState_LightRosterReady(SimulationContext *context);
+const char *ExplosionSubjectState_LightProbeAttributeName(
+    SimulationContext *context);
+void ExplosionSubjectState_ReleaseLightFrame();
 unsigned long long ExplosionSubjectState_Fingerprint(
     SimulationContext *context);
 bool ExplosionSubjectState_QueueBatch(
@@ -69,5 +73,8 @@ bool ExplosionSubjectState_ProbeDamageLifecycle(
     SimulationContext *context, const char *attributeName,
     const KR_ObjectID &target, const KR_ObjectID &damageOwner,
     double timeStamp, ExplosionImpactProbeSummary *summary);
+bool ExplosionSubjectState_ProbeLightLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp);
 
 #endif

@@ -15,6 +15,26 @@ namespace {
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 
+int LightBrightness(int index)
+{
+    int brightness = index * 20;
+    if (brightness > 255)
+        brightness = 255;
+    if (index > AttributeExplosion::MAX_BRIGHT / 3)
+    {
+        const int tailIndex =
+            index - AttributeExplosion::MAX_BRIGHT / 3;
+        brightness = static_cast<int>(255.0 / tailIndex);
+    }
+    return brightness;
+}
+
+void InitializeLightBrightness(AttributeExplosion &attr)
+{
+    for (int index = 0; index < AttributeExplosion::MAX_BRIGHT; ++index)
+        attr.m_brightness[index] = LightBrightness(index);
+}
+
 void HashBytes(unsigned long long &hash, const void *data, int size)
 {
     const unsigned char *bytes = static_cast<const unsigned char *>(data);
@@ -138,7 +158,7 @@ bool CachesAreUnresolved(AttributeExplosion &attr)
         !attr.m_smokeAttrID.isNUL())
         return false;
     for (int i = 0; i < AttributeExplosion::MAX_BRIGHT; ++i)
-        if (attr.m_brightness[i] != 0)
+        if (attr.m_brightness[i] != LightBrightness(i))
             return false;
     for (int i = 0; i < AttributeExplosion::COLLINE * 3; ++i)
         if (attr.m_colBuf[i] != 0)
@@ -202,7 +222,7 @@ AttributeTableExplosion __attrExplosionTable;
 
 AttributeExplosion::AttributeExplosion()
 {
-    std::memset(m_brightness, 0, sizeof(m_brightness));
+    InitializeLightBrightness(*this);
     m_color0 = m_color1 = m_color2 = m_color3 = 0;
     std::memset(m_colBuf, 0, sizeof(m_colBuf));
     m_hTexture = NULL;
@@ -507,7 +527,7 @@ bool ExplosionAttributeState_IsKnownRoster(SimulationContext *context)
         17713080548385097020ull,
         2278948764680578997ull,
         13266148710419836005ull,
-        14910874217155058923ull
+        7518588989293452268ull
     };
     const unsigned long long fingerprint =
         ExplosionAttributeState_Fingerprint(context);

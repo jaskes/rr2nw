@@ -1885,16 +1885,19 @@ extended issue bits. The legacy trace is deliberately excluded: its first call
 can read `m_viewTrace[-1]`, and legacy removal does not clear queued events.
 
 The Explosion table is no longer registration-only. Its nothrow subject owner
-is a one-shot, non-rendering/non-audible command that validates the exact modern
-payload and resolves encoded attributes by matching the admitted live roster,
-never through the legacy unsafe setter. Event source and destination are the
-child; the Bullet master is serialized separately as the damage owner. This
-split permits exact event cancellation while preserving friendly-fire and
-player attack attribution.
+validates the exact modern payload and resolves encoded attributes by matching
+the admitted live roster, never through the legacy unsafe setter. Event source
+and destination are the child; the Bullet master is serialized separately as
+the damage owner. This split permits exact event cancellation while preserving
+friendly-fire and player attack attribution. The table is rendering but remains
+non-audible: rendering exists solely for the bounded light lifetime described
+below.
 
 The active command implements the recovered radial-damage scan over
-`IDynamicObject + IUnit` subjects and removes itself immediately. Bullet impact
-construction is a bounded transaction of at most two children: splash first
+`IDynamicObject + IUnit` subjects exactly once. A disabled or invalid light
+still removes it immediately; an admitted light retains it until its own
+expiration event. Bullet impact construction is a bounded transaction of at
+most two children: splash first
 when its waterline timestamp precedes impact, then impact. Both are preflighted
 and allocated before event publication; partial object-pool allocation removes
 every created child, while known insufficient capacity rejects the batch before
@@ -1925,15 +1928,31 @@ direction, coefficient, factor and one successful impulse dispatch while
 restoring the production binding. Startup diagnostics publish impulse readiness
 and the selected vessel mass. The full retail matrix selects `fMass=900` for
 the local vessel in all nine Levels and reproduces the complete summary across
-both data roots and configurations. `m_useLight`, Spark/Smoke/visual lifetime,
-audio and trace drawing remain separate frontiers; no renderer claim is implied
-by the active damage/impulse command.
+both data roots and configurations.
+
+The May-only `m_useLight` gate is now active as a separately bounded renderer
+slice. Retail disassembly at `0x00510178` gates the January lifetime formula;
+the enabled branch reaches light publication at `0x0051026B`. The attribute
+constructor derives the January 255-entry brightness curve instead of treating
+it as an unresolved cache. All resource-backed Explosion presentation caches
+remain null. A valid light retains the already-executed command, queues a
+self-owned `EXPLOSION_MOVE` at `start + m_lightTimeLife`, and publishes one
+position/brightness/color/radius entry through the existing `LightChain` until
+that event removes it. Removal cancels both event labels and seance teardown
+clears the pending chain and enabled-light mask.
+
+Hermetic admission inspects the exact half-life graph light and full rollback.
+The retail service smoke places a real Explosion in front of the observer,
+runs a visible software frame, expires the object, then runs a detached frame
+with zero lights. Spark/Smoke particles, sound, the full visual Explosion graph
+and trace drawing remain separate frontiers.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 byte-identical installed/mounted summaries, and
 4/4 waited executable runtime smokes. The executable logs publish an active
 bounded Explosion pool, lifecycle counters `2/1/1/1/1/0`, Bullet effect
-counters `2/3/1/3` and `runtime_shutdown=clean`.
+counters `2/3/1/3`, `explosion_subject_light=1`, the exact light-lifecycle
+marker and `runtime_shutdown=clean`.
 
 ## Expansion order
 
@@ -1992,9 +2011,11 @@ counters `2/3/1/3` and `runtime_shutdown=clean`.
    `Spark(40)` pool and exact Bullet capacities are present. The bounded Bullet
    subject now executes exact start/free-flight/ground-removal, isolated dynamic
    and scene collision, bounded waterline classification and rollback. Its
-   splash/impact transaction owns one-shot radial-damage Explosion children
+   splash/impact transaction owns bounded radial-damage Explosion children
    with all-or-none object-pool allocation. May local-Vehicle impulse and
-   vessel mass are active; presentation remains deferred. Vehicle's own
+   vessel mass are active. The May `m_useLight` gate, exact derived brightness,
+   one-light frame publication and self-owned expiry are also active; particles,
+   sound and the heavy visual graph remain deferred. Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
    attribute groups, Skin

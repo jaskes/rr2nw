@@ -600,6 +600,7 @@ struct RecoveredArenaSeanceState {
   bool explosionAttributesReady;
   bool explosionSubjectReady;
   bool explosionImpulseReady;
+  bool explosionLightReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -1456,6 +1457,18 @@ bool PublishExplosionAttributes(SimulationContext* context) {
         "bounded Explosion validation/allocation/queue/execute probe failed");
     return false;
   }
+  const char* lightProbeAttribute =
+      ExplosionSubjectState_LightProbeAttributeName(context);
+  if (!ExplosionSubjectState_LightRosterReady(context) ||
+      lightProbeAttribute == nullptr ||
+      !ExplosionSubjectState_ProbeLightLifecycle(
+          context, lightProbeAttribute, Session::m_moment) ||
+      ExplosionSubjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_LIGHT_LIFECYCLE_FAILURE,
+        "Explosion m_useLight gate/publication/expiry probe failed");
+    return false;
+  }
   const unsigned long long subjectFingerprint =
       ExplosionSubjectState_Fingerprint(context);
   if (subjectFingerprint == 0) {
@@ -1473,6 +1486,7 @@ bool PublishExplosionAttributes(SimulationContext* context) {
   g_state.explosionProbeExecutedCommands = probe.executedCommands;
   g_state.explosionProbeDamageApplications = probe.damageApplications;
   g_state.explosionSubjectReady = true;
+  g_state.explosionLightReady = true;
   g_state.explosionAttributesReady = true;
   return true;
 }
@@ -2234,6 +2248,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
   SmokeVisualState_Release();
+  ExplosionSubjectState_ReleaseLightFrame();
   ExplosionSubjectState_UnbindImpulseTarget(g_arena.getContext());
   g_state.vehicleReady = false;
   g_state.routeReady = false;
@@ -2249,6 +2264,7 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionAttributesReady = false;
   g_state.explosionSubjectReady = false;
   g_state.explosionImpulseReady = false;
+  g_state.explosionLightReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -2407,6 +2423,10 @@ bool RecoveredArenaSeance_ExplosionSubjectReady() {
 
 bool RecoveredArenaSeance_ExplosionImpulseReady() {
   return g_state.explosionImpulseReady;
+}
+
+bool RecoveredArenaSeance_ExplosionLightReady() {
+  return g_state.explosionLightReady;
 }
 
 int RecoveredArenaSeance_ExplosionSubjectCapacity() {

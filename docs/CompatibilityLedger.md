@@ -615,9 +615,9 @@ Status vocabulary:
   damage loop through a bounded one-shot owner. BD-055 reconstructs the missing
   recipient as the local global Vehicle only, restores vessel mass/impulse
   slots `+0x6c/+0x70`, and activates `m_impulseCoeff` behind an exact ObjectID
-  binding. The binary-confirmed light gate remains inactive.
-- Revisit when: admit the confirmed light gate through the existing
-  transactional light owner, followed separately by particles and sound.
+  binding. BD-056 activates the binary-confirmed light gate through the existing
+  transactional light owner without admitting particles or sound.
+- Revisit when: admit particles and sound as separate lifecycle transactions.
 
 ### CQ-046: Explosion construction is owned by the Level-local script
 
@@ -1468,7 +1468,10 @@ Status vocabulary:
   two-child batch before publishing events. Self-owned event IDs make normal
   rollback exact, and every admitted startup path begins with an empty probe
   pool. This prevents partial object allocation but does not claim a general
-  transactional event queue.
+  transactional event queue. BD-056 gives Explosion light expiration the same
+  self-owned identity and rejects a non-finite computed expiry, but the void
+  insertion API still cannot prove recovery if that expiry is dropped by an
+  already-full event pool.
 - Regression contract: leave one object slot for a two-child batch and require
   reservation rejection with both returned IDs null and zero leaked children;
   independently queue and cancel a command to prove the normal event path. Do
@@ -1476,6 +1479,50 @@ Status vocabulary:
 - Revisit when: the kernel event API can return an insertion token/result or a
   reservation API is introduced. Upgrade the child batch to reserve all event
   slots before object publication.
+
+### CQ-099: Explosion brightness is derived state, not an unresolved cache
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the recovered January `AttributeExplosion::update()` fills all 255
+  `m_brightness` entries without loading a resource: first
+  `min(index * 20, 255)`, then for indices above 85
+  `int(255.0 / (index - 85))`. The early modern attribute owner zeroed this
+  array together with unresolved texture/model/sound caches. Enabling the
+  May `m_useLight` gate in that state would publish a structurally valid but
+  black light.
+- Handling: construct and validate the exact resource-free curve for every
+  ExplosionAttr. Keep texture, model, Smoke, sound, palette/color-buffer and
+  other heavy presentation caches unresolved. Stable attribute fingerprints
+  continue to hash script-visible state only, so deriving the curve does not
+  create machine- or renderer-dependent identities.
+- Regression contract: verify all 255 entries before light readiness, publish
+  the exact half-life entry through `LightChain`, inspect graph-light metadata,
+  then expire the subject and require empty light, event and object owners.
+- Revisit when: full Explosion renderer cache initialization is admitted.
+  Preserve the distinction between deterministic derived state and
+  resource-backed caches rather than restoring a blanket zero-cache invariant.
+
+### CQ-100: attribute storage order is not script declaration order
+
+- Status: `TEST_ASSUMPTION_REJECTED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the complete retail sweep exposed two distinct failures hidden by
+  a single-Level smoke. `Level.02D` yielded a first stored ExplosionAttr with
+  `m_useLight=0`; `Level.04D` could yield an enabled small variant with only a
+  `0.1`-second lifetime. Class-table iteration follows the intrusive existence
+  list, not the declaration order in `explosion_loc.sci`. In addition,
+  `Session::m_moment` is the timestamp of the last dispatched event and may lag
+  the current `m_viewTime`, allowing a short synthetic expiry to be due at the
+  next poll.
+- Handling: validate every roster entry, but choose the enabled attribute with
+  the greatest `m_lightTimeLife` for the visible-frame proof; break equal-life
+  ties by symbolic name. Timestamp that probe at
+  `max(Session::m_moment, Session::m_viewTime)`. Production behavior still uses
+  the exact attribute selected by the real impact and does not reorder content.
+- Regression contract: run the real visible/expiry/detach proof over all nine
+  Levels, both data roots and both configurations, and require 36/36 launches
+  plus 18/18 byte-identical E/G summaries.
+- Revisit when: tests can trigger a named gameplay Explosion through its final
+  weapon owner. Keep roster-order independence even after that integration.
 
 ## Maintenance rule
 

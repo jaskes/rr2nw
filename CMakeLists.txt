@@ -1813,6 +1813,7 @@ add_library(rr2nw_arena_explosion_attribute_state STATIC
   nw/ARENA/OBASE/Explosion/ExplosionSubjectState.h
 )
 target_link_libraries(rr2nw_arena_explosion_attribute_state PUBLIC
+  rr2nw_arena_light_chain
   rr2nw_arena_level_state
   rr2nw_arena_storage
 )

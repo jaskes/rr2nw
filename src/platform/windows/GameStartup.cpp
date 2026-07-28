@@ -576,13 +576,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_ExplosionSubjectReady() ? 1 : 0));
   log.Line("explosion_subject_capacity=" + std::to_string(
                RecoveredArenaSeance_ExplosionSubjectCapacity()));
-  log.Line("explosion_subject_mode=bounded-impact-radial-damage-impulse");
+  log.Line(
+      "explosion_subject_mode=bounded-impact-radial-damage-impulse-light");
   log.Line("explosion_subject_impulse=" +
            std::to_string(
                RecoveredGameServices_ExplosionImpulseReady() ? 1 : 0));
+  log.Line("explosion_subject_light=" +
+           std::to_string(
+               RecoveredGameServices_ExplosionLightReady() ? 1 : 0));
+  log.Line("explosion_subject_light_lifecycle=useLight-brightness-frame-expiry");
   log.Line("vehicle_vessel_mass=" + std::to_string(
                RecoveredGameServices_VehicleVesselMass()));
-  log.Line("explosion_subject_visual_audio=deferred");
+  log.Line("explosion_subject_particles_sound=deferred");
   log.Line("explosion_subject_fingerprint=" + std::to_string(
                RecoveredArenaSeance_ExplosionSubjectFingerprint()));
   log.Line("explosion_probe_invalid_starts=" + std::to_string(

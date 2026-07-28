@@ -1,3 +1,6 @@
+#define LAST_H__VIEW
+#include "game.h"
+
 #include "ExplosionSubjectState.h"
 
 #include <cmath>
@@ -7,12 +10,14 @@
 #include <vector>
 
 #include "ExplosionAttributeState.h"
+#include "h/light.h"
 #include "h/olevel.h"
 #include "i/dynobj.i"
 #include "i/player.i"
 #include "i/unit.i"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
+#include "kernel/h/session.h"
 #include "message/explmsg.h"
 #include "storage/h/subject.h"
 
@@ -75,6 +80,94 @@ bool ImpactAttributeReady(const AttributeExplosion *attribute)
            attribute->m_power >= 0.0 &&
            std::isfinite(attribute->m_impulseCoeff) &&
            attribute->m_impulseCoeff >= 0.0;
+}
+
+int ExpectedLightBrightness(int index)
+{
+    int brightness = index * 20;
+    if (brightness > 255)
+        brightness = 255;
+    if (index > AttributeExplosion::MAX_BRIGHT / 3)
+    {
+        const int tailIndex =
+            index - AttributeExplosion::MAX_BRIGHT / 3;
+        brightness = static_cast<int>(255.0 / tailIndex);
+    }
+    return brightness;
+}
+
+bool LightBrightnessReady(const AttributeExplosion *attribute)
+{
+    if (attribute == NULL)
+        return false;
+    for (int index = 0; index < AttributeExplosion::MAX_BRIGHT; ++index)
+        if (attribute->m_brightness[index] !=
+            ExpectedLightBrightness(index))
+            return false;
+    return true;
+}
+
+bool LightAttributeReady(const AttributeExplosion *attribute)
+{
+    return attribute != NULL && attribute->m_useLight != 0 &&
+           std::isfinite(attribute->m_lightOffset) &&
+           std::isfinite(attribute->m_lightRadius) &&
+           attribute->m_lightRadius > 0.0 &&
+           attribute->m_lightColor >= 0 &&
+           attribute->m_lightColor < LIGHT_COLOR_COUNT &&
+           std::isfinite(attribute->m_lightTimeLife) &&
+           attribute->m_lightTimeLife > 0.0 &&
+           LightBrightnessReady(attribute);
+}
+
+struct LightRosterProbe
+{
+    bool ready;
+};
+
+struct LightProbeAttribute
+{
+    SimulationContext *context;
+    const char *name;
+    double timeLife;
+};
+
+bool ValidateLightAttribute(const KR_ObjectID object, void *user)
+{
+    LightRosterProbe *probe = static_cast<LightRosterProbe *>(user);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (probe == NULL || attribute == NULL ||
+        !LightBrightnessReady(attribute) ||
+        (attribute->m_useLight != 0 && !LightAttributeReady(attribute)))
+    {
+        if (probe != NULL)
+            probe->ready = false;
+        return false;
+    }
+    return true;
+}
+
+bool SelectLightProbeAttribute(const KR_ObjectID object, void *user)
+{
+    LightProbeAttribute *probe =
+        static_cast<LightProbeAttribute *>(user);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (probe == NULL || probe->context == NULL)
+        return false;
+    if (!LightAttributeReady(attribute))
+        return true;
+    const char *name = probe->context->searchObject(object);
+    if (name != NULL &&
+        (probe->name == NULL || attribute->m_lightTimeLife > probe->timeLife ||
+         (attribute->m_lightTimeLife == probe->timeLife &&
+          std::strcmp(name, probe->name) < 0)))
+    {
+        probe->name = name;
+        probe->timeLife = attribute->m_lightTimeLife;
+    }
+    return true;
 }
 
 bool DispatchImpulse(SimulationContext *context,
@@ -175,6 +268,31 @@ class BoundedExplosion : public ct_Subject
     virtual CFVector3 realPosition() { return m_position; }
     virtual bool shouldDump() { return false; }
 
+    virtual void render(CViewDynamicList &, double)
+    {
+        if (!m_started || !m_lightActive ||
+            !LightAttributeReady(m_attribute))
+            return;
+        double elapsed = Session::m_moment - m_startTime;
+        if (!std::isfinite(elapsed) ||
+            elapsed > m_attribute->m_lightTimeLife)
+            return;
+        if (elapsed < 0.0)
+            elapsed = 0.0;
+        int index = static_cast<int>(
+            elapsed * AttributeExplosion::MAX_BRIGHT /
+            m_attribute->m_lightTimeLife);
+        if (index < 0)
+            index = 0;
+        else if (index >= AttributeExplosion::MAX_BRIGHT)
+            index = AttributeExplosion::MAX_BRIGHT - 1;
+        g_lightChain.add(
+            m_position + CFVector3(0.0, m_attribute->m_lightOffset, 0.0),
+            m_attribute->m_lightColor,
+            m_attribute->m_brightness[index],
+            m_attribute->m_lightRadius);
+    }
+
     virtual void addNotify()
     {
         ct_Subject::addNotify();
@@ -184,25 +302,40 @@ class BoundedExplosion : public ct_Subject
     virtual void removeNotify()
     {
         if (context != NULL)
+        {
             context->removeEvent(EXPLOSION_START, getObjectID());
+            context->removeEvent(EXPLOSION_MOVE, getObjectID());
+        }
         ct_Subject::removeNotify();
         resetState();
     }
 
     virtual int receiveEvent(KR_Event &event)
     {
-        if (event.label != EXPLOSION_START)
-            return event.label == KR_WAKE_UP ? 1 : 0;
-        return start(event);
+        switch (event.label)
+        {
+        case EXPLOSION_START:
+            return start(event);
+        case EXPLOSION_MOVE:
+            return expire(event);
+        case KR_WAKE_UP:
+            return 1;
+        default:
+            return 0;
+        }
     }
 
     bool clean()
     {
-        return !m_started && m_attribute == NULL &&
+        return !m_started && !m_lightActive && m_attribute == NULL &&
                IsNul(m_damageOwner) && m_damageApplications == 0 &&
                m_position.x == 0.0 && m_position.y == 0.0 &&
                m_position.z == 0.0 && m_startTime == 0.0;
     }
+
+    bool lightActive() const { return m_lightActive; }
+    AttributeExplosion *attribute() const { return m_attribute; }
+    double startTime() const { return m_startTime; }
 
  private:
     void resetState()
@@ -213,6 +346,7 @@ class BoundedExplosion : public ct_Subject
         m_startTime = 0.0;
         m_damageApplications = 0;
         m_started = false;
+        m_lightActive = false;
     }
 
     int start(KR_Event &event)
@@ -259,6 +393,36 @@ class BoundedExplosion : public ct_Subject
         g_damageApplications += m_damageApplications;
 
         const KR_ObjectID self = getObjectID();
+        const double expiryTime =
+            event.timeStamp + attribute->m_lightTimeLife;
+        if (LightAttributeReady(attribute) && std::isfinite(expiryTime))
+        {
+            m_lightActive = true;
+            KR_Event expiry;
+            expiry.label = EXPLOSION_MOVE;
+            expiry.source = self;
+            expiry.destination = self;
+            expiry.timeStamp = expiryTime;
+            context->addEvent(expiry);
+        }
+        else
+            context->removeObject(self);
+        return 1;
+    }
+
+    int expire(KR_Event &event)
+    {
+        if (!m_started || !m_lightActive || m_attribute == NULL ||
+            context == NULL || event.source != getObjectID() ||
+            event.destination != getObjectID() || event.data.size() != 0 ||
+            !std::isfinite(event.timeStamp))
+            return 0;
+        const double expiryTime =
+            m_startTime + m_attribute->m_lightTimeLife;
+        const double tolerance = 1e-10 * (1.0 + std::fabs(expiryTime));
+        if (event.timeStamp + tolerance < expiryTime)
+            return 0;
+        const KR_ObjectID self = getObjectID();
         context->removeObject(self);
         return 1;
     }
@@ -268,6 +432,7 @@ class BoundedExplosion : public ct_Subject
     double m_startTime;
     int m_damageApplications;
     bool m_started;
+    bool m_lightActive;
 };
 
 class BoundedExplosionTable : public ct_SubjectTable
@@ -311,7 +476,7 @@ class BoundedExplosionTable : public ct_SubjectTable
         return &m_table[index];
     }
 
-    virtual bool isRendering() { return false; }
+    virtual bool isRendering() { return true; }
     virtual bool isAudible() { return false; }
 
     int capacity() const { return m_maxObjectQnty; }
@@ -472,6 +637,33 @@ bool ExplosionSubjectState_ImpulseTargetReady(
            context->isExist(target) && g_impulseDispatch != NULL;
 }
 
+bool ExplosionSubjectState_LightRosterReady(SimulationContext *context)
+{
+    if (context == NULL || g_arena.getContext() != context)
+        return false;
+    LightRosterProbe probe = {true};
+    __attrExplosionTable.userFind(ValidateLightAttribute, &probe);
+    return probe.ready &&
+           ExplosionAttributeState_RosterSize(context) > 0;
+}
+
+const char *ExplosionSubjectState_LightProbeAttributeName(
+    SimulationContext *context)
+{
+    if (context == NULL || g_arena.getContext() != context)
+        return NULL;
+    LightProbeAttribute probe = {context, NULL, 0.0};
+    __attrExplosionTable.userFind(SelectLightProbeAttribute, &probe);
+    return probe.name;
+}
+
+void ExplosionSubjectState_ReleaseLightFrame()
+{
+    CViewObject::EnableLights(0);
+    g_lightChain.m_list = NULL;
+    g_lightChain.m_count = 0;
+}
+
 unsigned long long ExplosionSubjectState_Fingerprint(
     SimulationContext *context)
 {
@@ -480,14 +672,14 @@ unsigned long long ExplosionSubjectState_Fingerprint(
         return 0;
     unsigned long long hash = kHashOffset;
     const int capacity = g_explosionTable.capacity();
-    const int rendering = 0;
+    const int rendering = 1;
     const int audible = 0;
     const int boundedImpactCommand = 1;
     const int radialDamage = 1;
     const int friendlyPlayerAttribution = 1;
     const int selfOwnedQueuedEvent = 1;
     const int impulse = 1;
-    const int light = 0;
+    const int light = 1;
     const int particles = 0;
     const int sound = 0;
     HashString(hash, "Explosion");
@@ -612,8 +804,11 @@ bool ExplosionSubjectState_ExecuteNow(
     const int beforeCommands = g_executedCommands;
     const int beforeDamage = g_damageApplications;
     const int accepted = object->receiveEvent(event);
-    const bool complete = accepted == 1 && !context->isExist(child) &&
-                          g_executedCommands == beforeCommands + 1;
+    const bool retained = context->isExist(child) != 0;
+    const bool complete = accepted == 1 &&
+                          g_executedCommands == beforeCommands + 1 &&
+                          ((retained && object->lightActive()) ||
+                           (!retained && object->clean()));
     if (!complete)
         RemoveIfPresent(context, child);
     *damageApplications = g_damageApplications - beforeDamage;
@@ -729,9 +924,12 @@ bool ExplosionSubjectState_ProbeLifecycle(
         farPosition, ts + 4.0, g_arena.getObjectID(), subjectTable,
         attributeIndex, "Explosion.Execute.Probe"};
     int damageApplications = -1;
-    if (!ExplosionSubjectState_ExecuteNow(
-            context, executeRequest, &damageApplications) ||
-        damageApplications != 0 ||
+    const bool executed = ExplosionSubjectState_ExecuteNow(
+        context, executeRequest, &damageApplications);
+    const KR_ObjectID executedChild =
+        context->searchObject("Explosion.Execute.Probe");
+    RemoveIfPresent(context, executedChild);
+    if (!executed || damageApplications != 0 ||
         g_explosionTable.liveCount() != baseline)
         return false;
     summary->executedCommands = 1;
@@ -818,6 +1016,9 @@ bool ExplosionSubjectState_ProbeDamageLifecycle(
     const int beforeImpulseApplications = g_impulseApplications;
     const bool executed = ExplosionSubjectState_ExecuteNow(
         context, request, &damageApplications);
+    const KR_ObjectID explosion =
+        context->searchObject("Explosion.DynamicDamage.Probe");
+    RemoveIfPresent(context, explosion);
     g_impulseContext = savedContext;
     g_impulseTarget = savedTarget;
     g_impulseUser = savedUser;
@@ -847,4 +1048,109 @@ bool ExplosionSubjectState_ProbeDamageLifecycle(
            NearlyEqual(impulseCapture.factor, 5.0) &&
            g_explosionTable.liveCount() == 0 &&
            !context->isExist("Explosion.DynamicDamage.Probe");
+}
+
+bool ExplosionSubjectState_ProbeLightLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp)
+{
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_explosionTable.liveCount() != 0 ||
+        g_lightChain.m_count != 0 || g_lightChain.m_list != NULL ||
+        CViewObject::EnabledLights() != 0 ||
+        !ExplosionSubjectState_LightRosterReady(context))
+        return false;
+
+    const KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("ExplosionAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Explosion");
+    const int attributeIndex = attributeTable == ct_NULLID
+        ? -1
+        : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (IsNul(attributeID) || attribute == NULL ||
+        !ImpactAttributeReady(attribute) || subjectTable == ct_NULLID ||
+        attributeIndex == -1)
+        return false;
+
+    static const char kProbeName[] = "Explosion.Light.Probe";
+    if (context->isExist(kProbeName))
+        return false;
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    const CFVector3 position(23.0, 11.0, -29.0);
+    ExplosionImpactRequest request = {
+        position, ts, KR_ObjectID::NUL(), subjectTable, attributeIndex,
+        kProbeName};
+    int damageApplications = -1;
+    const bool executed = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    const KR_ObjectID child = context->searchObject(kProbeName);
+
+    if (attribute->m_useLight == 0)
+        return executed && damageApplications == 0 && IsNul(child) &&
+               g_explosionTable.liveCount() == 0 &&
+               g_lightChain.m_count == 0 && g_lightChain.m_list == NULL &&
+               CViewObject::EnabledLights() == 0;
+
+    BoundedExplosion *object = g_explosionTable.find(child);
+    const bool retained = executed && damageApplications == 0 &&
+                          !IsNul(child) && object != NULL &&
+                          object->lightActive() &&
+                          object->attribute() == attribute &&
+                          NearlyEqual(object->startTime(), ts) &&
+                          g_explosionTable.liveCount() == 1;
+    const bool expiryOwned = retained &&
+        context->removeEvent(EXPLOSION_MOVE, child) != 0;
+
+    const double savedMoment = Session::m_moment;
+    Session::m_moment = ts + attribute->m_lightTimeLife * 0.5;
+    CViewDynamicList list;
+    if (expiryOwned)
+        object->render(list, Session::m_moment);
+    const int brightnessIndex =
+        AttributeExplosion::MAX_BRIGHT / 2;
+    const CFVector3 lightPosition =
+        position + CFVector3(0.0, attribute->m_lightOffset, 0.0);
+    const bool queued = expiryOwned && g_lightChain.m_count == 1 &&
+                        g_lightChain.m_list == g_lightChain.m_dim &&
+                        g_lightChain.m_list->m_pos == lightPosition &&
+                        g_lightChain.m_list->m_color ==
+                            attribute->m_lightColor &&
+                        g_lightChain.m_list->m_brightness ==
+                            attribute->m_brightness[brightnessIndex] &&
+                        g_lightChain.m_list->m_radius ==
+                            attribute->m_lightRadius;
+    if (queued)
+        g_lightChain.render();
+    const bool published = queued && CViewObject::EnabledLights() == 1 &&
+                           _gr_pLights[0].r == attribute->m_lightRadius &&
+                           _gr_pLights[0].power0 ==
+                               attribute->m_brightness[brightnessIndex] &&
+                           _gr_pLights[0].color ==
+                               attribute->m_lightColor;
+    ExplosionSubjectState_ReleaseLightFrame();
+
+    bool expired = false;
+    if (retained && context->isExist(child))
+    {
+        KR_Event expiry;
+        expiry.label = EXPLOSION_MOVE;
+        expiry.source = child;
+        expiry.destination = child;
+        expiry.timeStamp = ts + attribute->m_lightTimeLife;
+        context->sendEventNow(expiry);
+        expired = !context->isExist(child);
+    }
+    Session::m_moment = savedMoment;
+    RemoveIfPresent(context, child);
+    list.Clear(false);
+    return published && expired && g_explosionTable.liveCount() == 0 &&
+           !context->isExist(kProbeName) &&
+           (IsNul(child) ||
+            context->removeEvent(EXPLOSION_MOVE, child) == 0) &&
+           g_lightChain.m_count == 0 && g_lightChain.m_list == NULL &&
+           CViewObject::EnabledLights() == 0;
 }

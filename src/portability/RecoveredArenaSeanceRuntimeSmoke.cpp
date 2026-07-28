@@ -446,6 +446,7 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_ExplosionAttributesReady() &&
          !RecoveredArenaSeance_ExplosionSubjectReady() &&
          !RecoveredArenaSeance_ExplosionImpulseReady() &&
+         !RecoveredArenaSeance_ExplosionLightReady() &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -577,6 +578,7 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_ExplosionAttributesReady() ||
       !RecoveredArenaSeance_ExplosionSubjectReady() ||
       !RecoveredArenaSeance_ExplosionImpulseReady() ||
+      !RecoveredArenaSeance_ExplosionLightReady() ||
       RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
@@ -800,7 +802,7 @@ bool RunCycle(bool expectVisualResources) {
       CorpseSubjectState_TableReady(&context, 100) &&
       CorpseSubjectState_LiveCount() == 0 &&
       explosionAttribute != nullptr &&
-      explosionAttribute->m_useLight == 0 &&
+      explosionAttribute->m_useLight == 1 &&
       explosionAttribute->m_impulseCoeff == 1234 &&
       explosionAttribute->m_hTexture == nullptr &&
       explosionAttribute->m_cacheSkin == nullptr &&
@@ -980,7 +982,7 @@ int main(int argc, char** argv) {
       "  s_AddClassTable(\"Explosion\", 2);\r\n"
       "  ctID := s_AddClassTable(\"ExplosionAttr\", 10);\r\n"
       "  New(ctID, \"Expl.Test.0\", objectID, cachePos);\r\n"
-      "  SetAttribute_i(objectID, cachePos, \"m_useLight\", 0);\r\n"
+      "  SetAttribute_i(objectID, cachePos, \"m_useLight\", 1);\r\n"
       "  SetAttribute_f(objectID, cachePos, \"m_impulseCoeff\", 1234);\r\n"
       "  New(ctID, \"Expl.Test.1\", objectID, cachePos);\r\n"
       "  New(ctID, \"Expl.Test.2\", objectID, cachePos);\r\n"

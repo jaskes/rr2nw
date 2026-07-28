@@ -93,7 +93,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_TABLE_FAILURE = 1ull << 16,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SUBJECT_LIFECYCLE_FAILURE = 1ull << 17,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_EFFECT_TRANSACTION_FAILURE = 1ull << 18,
-  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_IMPULSE_BINDING_FAILURE = 1ull << 19
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_IMPULSE_BINDING_FAILURE = 1ull << 19,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_LIGHT_LIFECYCLE_FAILURE = 1ull << 20
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -114,6 +115,7 @@ unsigned long long RecoveredArenaSeance_SmokeVisualResourceFingerprint();
 bool RecoveredArenaSeance_ExplosionAttributesReady();
 bool RecoveredArenaSeance_ExplosionSubjectReady();
 bool RecoveredArenaSeance_ExplosionImpulseReady();
+bool RecoveredArenaSeance_ExplosionLightReady();
 int RecoveredArenaSeance_ExplosionSubjectCapacity();
 unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint();
 int RecoveredArenaSeance_ExplosionProbeInvalidStarts();

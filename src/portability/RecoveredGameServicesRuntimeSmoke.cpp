@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -14,6 +15,7 @@
 #include "kernel/h/session.h"
 #include "message/fountmsg.h"
 #include "message/hardmsg.h"
+#include "message/explmsg.h"
 #include "message/levelmsg.h"
 #include "message/smokermsg.h"
 #include "obase/corpse/CorpseAttributeState.h"
@@ -227,6 +229,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ExplosionAttributesReady() &&
          !RecoveredGameServices_ExplosionSubjectReady() &&
          !RecoveredGameServices_ExplosionImpulseReady() &&
+         !RecoveredGameServices_ExplosionLightReady() &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -654,6 +657,106 @@ bool ExerciseVisibleSmokerLightCorona() {
          context->removeEvent(fou_EVC_MOVING, smoke) == 0;
 }
 
+bool ExerciseVisibleExplosionLight() {
+  if (g_super.m_context == nullptr ||
+      !RecoveredGameServices_ExplosionLightReady() ||
+      !ExplosionSubjectState_LightRosterReady(g_super.m_context) ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
+      CViewObject::EnabledLights() != 0) {
+    return false;
+  }
+  SimulationContext* context = g_super.m_context;
+  const char* attributeName =
+      ExplosionSubjectState_LightProbeAttributeName(context);
+  KR_ObjectID attributeID = attributeName == nullptr
+      ? KR_ObjectID::NUL()
+      : context->searchObject(attributeName);
+  AttributeExplosion* attribute = attributeID.isNUL()
+      ? nullptr
+      : static_cast<AttributeExplosion*>(
+            __attrExplosionTable.searchAttribute(attributeID));
+  const ct_ClassTableID attributeTable =
+      g_arena.searchSeanceClassTable("ExplosionAttr");
+  const ct_ClassTableID subjectTable =
+      g_arena.searchSeanceClassTable("Explosion");
+  const int attributeIndex = attributeTable == ct_NULLID ||
+          attributeID.isNUL()
+      ? -1
+      : g_arena.getAttributeIndex(attributeTable, attributeID);
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  static const char kProbeName[] = "Explosion.Light.Rendering.Probe";
+  if (attribute == nullptr || !attribute->m_useLight ||
+      attribute->m_lightTimeLife <= 0.0 ||
+      attribute->m_lightRadius <= 0.0 || attributeIndex == -1 ||
+      subjectTable == ct_NULLID || observer == nullptr ||
+      context->isExist(kProbeName)) {
+    return false;
+  }
+
+  const double currentTime =
+      (std::max)(Session::m_moment, Session::m_viewTime);
+  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  const CFVector3 position(observer->x, observer->y,
+                           observer->z - 64.0);
+  ExplosionImpactRequest request = {
+      position, timeStamp, KR_ObjectID::NUL(), subjectTable,
+      attributeIndex, kProbeName};
+  int damageApplications = -1;
+  const bool executed = ExplosionSubjectState_ExecuteNow(
+      context, request, &damageApplications);
+  KR_ObjectID explosion = context->searchObject(kProbeName);
+  if (!executed || damageApplications != 0 || explosion.isNUL() ||
+      ExplosionSubjectState_LiveCount() != 1) {
+    if (!explosion.isNUL() && context->isExist(explosion)) {
+      context->removeObject(explosion);
+    }
+    return false;
+  }
+
+  const dword framesBefore = dwFrames;
+  const bool visibleFrame =
+      RecoveredGameServices_RunFrame() != FALSE;
+  double elapsed = Session::m_moment - timeStamp;
+  if (elapsed < 0.0) elapsed = 0.0;
+  int brightnessIndex = static_cast<int>(
+      elapsed * AttributeExplosion::MAX_BRIGHT /
+      attribute->m_lightTimeLife);
+  if (brightnessIndex < 0) brightnessIndex = 0;
+  if (brightnessIndex >= AttributeExplosion::MAX_BRIGHT) {
+    brightnessIndex = AttributeExplosion::MAX_BRIGHT - 1;
+  }
+  const bool lightPublished = visibleFrame &&
+      CViewObject::EnabledLights() == 1 &&
+      g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+      _gr_pLights[0].r == attribute->m_lightRadius &&
+      _gr_pLights[0].power0 == attribute->m_brightness[brightnessIndex] &&
+      _gr_pLights[0].color == attribute->m_lightColor;
+
+  const bool ownedExpiry =
+      context->removeEvent(EXPLOSION_MOVE, explosion) != 0;
+  if (ownedExpiry && context->isExist(explosion)) {
+    KR_Event expiry;
+    expiry.label = EXPLOSION_MOVE;
+    expiry.source = explosion;
+    expiry.destination = explosion;
+    expiry.timeStamp = timeStamp + attribute->m_lightTimeLife;
+    context->sendEventNow(expiry);
+  }
+  const bool expired = !context->isExist(explosion) &&
+      ExplosionSubjectState_LiveCount() == 0;
+  const bool detachedFrame =
+      RecoveredGameServices_RunFrame() != FALSE;
+  if (context->isExist(explosion)) context->removeObject(explosion);
+  return lightPublished && ownedExpiry && expired && detachedFrame &&
+         dwFrames == framesBefore + 2 &&
+         CViewObject::EnabledLights() == 0 &&
+         g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+         !context->isExist(kProbeName) &&
+         context->removeEvent(EXPLOSION_MOVE, explosion) == 0;
+}
+
 bool ValidateReferenceTransaction(
     unsigned long long taxiReferenceFingerprint,
     unsigned long long bulletReferenceFingerprint,
@@ -869,10 +972,11 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SmokeSubjectReady() ||
       !RecoveredGameServices_SmokeTerrainReady() ||
       !RecoveredGameServices_SmokeRenderingReady() ||
-       !RecoveredGameServices_SmokeVisualResourcesReady() ||
-       !RecoveredGameServices_ExplosionAttributesReady() ||
+      !RecoveredGameServices_SmokeVisualResourcesReady() ||
+      !RecoveredGameServices_ExplosionAttributesReady() ||
       !RecoveredGameServices_ExplosionSubjectReady() ||
       !RecoveredGameServices_ExplosionImpulseReady() ||
+      !RecoveredGameServices_ExplosionLightReady() ||
        !RecoveredGameServices_VehicleAttributesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
@@ -1076,6 +1180,7 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_ExplosionSubjectFingerprint() !=
           explosionSubjectFingerprint ||
       !RecoveredGameServices_ExplosionImpulseReady() ||
+      !RecoveredGameServices_ExplosionLightReady() ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
       RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() != 1 ||
       RecoveredArenaSeance_ExplosionProbeQueuedCommands() != 1 ||
@@ -1245,6 +1350,11 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("visible DynSmoker light/corona/detach rollback failed");
+  }
+  if (!ExerciseVisibleExplosionLight()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("visible Explosion light/expiry/detach rollback failed");
   }
 
   KR_Event unsupported;
@@ -1417,15 +1527,17 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=11 hooks=12 hardware=legacy "
+  std::printf("bounded services frames=13 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
                "smoke_simulation=START-MOVE-remove "
                "smoke_terrain=FireArea-directed-snap "
                "smoke_render=scene-alpha-sprite-detach smoke_visual=%llu "
               "explosion_attrs=%d explosion_fingerprint=%llu "
-              "explosion_subject=0/%d-impact-damage-impulse fingerprint=%llu "
+              "explosion_subject=0/%d-impact-damage-impulse-light "
+              "fingerprint=%llu "
               "explosion_probe=2/1/1/1/1/0 "
+              "explosion_light=useLight-brightness-frame-expiry "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "

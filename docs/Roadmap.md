@@ -375,7 +375,9 @@ root/local provenance before Level mutation, and installed/disc-image pairs
 match for all nine Levels. The May retail Explosion ABI gap is now explicit:
 the port links 90 attributes including binary-confirmed light/impulse fields,
 and the bounded subject now owns radial damage plus local-Vehicle impulse.
-Explosion light, sound, particles and renderer cache updates remain deferred.
+The May light gate, exact derived brightness, one-light frame publication and
+self-owned expiry are active. Sound, particles and heavy renderer cache updates
+remain deferred.
 
 The Skin/resource owner is now complete as a bounded Level-aware slice. Before
 Arena mutation it strictly extracts `main_LoadSkin()`, hashes the script and
@@ -553,20 +555,22 @@ removal and pool reuse. This isolated slice created no incomplete effect object;
 the bounded damage owner connected immediately afterward is described below.
 
 The first effect-ownership slice is now complete. Explosion is a bounded
-one-shot command with safe encoded-attribute resolution, self-owned queued
-events and the Bullet master retained separately as damage owner. It executes
-the recovered radial `IUnit` damage/friendly-fire/player-attribution loop and
-immediately frees itself. Bullet preallocates splash and impact as one child
-batch, preserves splash-before-impact timestamps and rolls back a partial pool
-allocation after rejecting known insufficient capacity before mutation.
-Admission proves queue teardown, reuse and one real damage call.
+command with safe encoded-attribute resolution, self-owned queued events and
+the Bullet master retained separately as damage owner. It executes the
+recovered radial `IUnit` damage/friendly-fire/player-attribution loop once.
+Bullet preallocates splash and impact as one child batch, preserves
+splash-before-impact timestamps and rolls back a partial pool allocation after
+rejecting known insufficient capacity before mutation. Admission proves queue
+teardown, reuse and one real damage call.
 
-The May impulse slice is complete: the exact local-Vehicle target, normalized
-vector, factor `5.0`, vessel vtable slots and `fMass` response are recovered,
-bound transactionally and covered by an offset-impact regression. The next
-safe slice can attach Explosion light to the existing transactional light
-owner, followed separately by Spark/barrel Smoke, sound and particles. Trace
-follows only after the known first-step
+The May impulse and light slices are complete: the exact local-Vehicle target,
+normalized vector, factor `5.0`, vessel vtable slots and `fMass` response are
+recovered, bound transactionally and covered by an offset-impact regression.
+The binary-confirmed `m_useLight` gate now uses the exact January brightness
+curve and existing transactional light owner; a real visible frame plus an
+explicit self-owned expiry prove full detach on the following frame. The next
+safe slices are Spark/barrel Smoke, Explosion sound and remaining particles,
+each behind its own lifecycle transaction. Trace follows only after the known first-step
 `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this

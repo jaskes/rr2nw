@@ -7,6 +7,23 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated the May `Explosion::m_useLight` gate through the existing
+  transactional light chain. Valid Explosion commands now retain a rendering
+  owner until `m_lightTimeLife`, publish the exact offset/color/radius and
+  brightness for each frame, then remove through a self-owned expiry event.
+- Restored the exact resource-free January 255-entry Explosion brightness curve
+  while leaving texture, model, Smoke, sound and other heavy presentation caches
+  unresolved. Hermetic and real-observer regressions prove graph-light metadata,
+  expiration, a detached following frame and complete event/pool/global-light
+  rollback.
+- Added `explosion_subject_light=1` and the stable
+  `useLight-brightness-frame-expiry` lifecycle diagnostic. Explosion particles,
+  sound, Spark/barrel-Smoke children and Bullet trace remain deferred.
+- Removed a single-Level test assumption exposed by the full retail sweep.
+  Visible light admission now validates the whole unordered attribute roster,
+  deterministically selects the longest-lived enabled entry and uses current
+  view/simulation time, covering Levels whose first stored entry disables light
+  or lasts only `0.1` seconds.
 - Activated the May-only Explosion impulse contract. The bounded radial loop
   now dispatches only to the lifecycle-bound local `Vehicle.Default`, computes
   `Normal(target - explosion) * damage * m_impulseCoeff`, and invokes the
@@ -20,10 +37,12 @@ claim authorship of inherited Logos code or retail data.
   and vessel-mass diagnostics, plus a hermetic offset-impact proof of damage,
   direction, coefficient, factor and one-and-only-one impulse dispatch.
 - Replaced the registration-only Explosion placeholder with a bounded,
-  non-rendering and non-audible impact command. It safely resolves the encoded
+  initially non-rendering and non-audible impact command. It safely resolves the encoded
   90-field ExplosionAttr index, retains the Bullet master in an explicit
   payload, applies the recovered radial `IUnit` damage/friendly-fire/player
-  attribution contract and removes itself immediately after one execution.
+  attribution contract and originally removed itself immediately after one
+  execution; the separately admitted light lifecycle above now retains only
+  the rendering owner when enabled.
 - Connected Bullet waterline and collision decisions to an atomic Explosion
   child batch. A water splash is queued before a later impact, both children
   reserve sufficient pool capacity before allocation or event publication,
@@ -36,9 +55,9 @@ claim authorship of inherited Logos code or retail data.
   splash-first / 3 rollbacks` impact transaction. The Arena smoke additionally
   applies one real radial hit to a safe `IDynamicObject + IUnit` target and
   verifies damage, position, timestamp and owner.
-- Recorded the remaining retail boundary explicitly: Explosion light,
-  particles, sound and Bullet trace rendering remain disabled; impulse is now
-  independently admitted and does not imply presentation parity.
+- Recorded the remaining retail boundary explicitly: Explosion particles,
+  sound and Bullet trace rendering remain disabled; impulse and bounded light
+  are independently admitted and do not imply full presentation parity.
 - Activated the isolated Bullet collision cadence. Every accepted start now
   schedules both movement and `b_EVC_CHECK_COLLISION`; collision checks select
   the earliest valid dynamic-sphere or decoded scene/order hit, preserve the
