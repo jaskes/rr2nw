@@ -2842,6 +2842,8 @@ add_library(rr2nw_arena_obase_vehicle STATIC
   nw/ARENA/OBASE/Vehicle/Vh_dyn.cpp
   nw/ARENA/OBASE/Vehicle/vh_vessel.CPP
   nw/ARENA/OBASE/Vehicle/VS_ZAV.CPP
+  nw/ARENA/OBASE/Vehicle/VehicleVesselTelemetry.cpp
+  nw/ARENA/OBASE/Vehicle/VehicleVesselTelemetry.h
   nw/ARENA/OBASE/Vehicle/VehicleAttributeState.cpp
   nw/ARENA/OBASE/Vehicle/VehicleAttributeState.h
   nw/ARENA/OBASE/Vehicle/VehicleRuntimeState.cpp

@@ -1,6 +1,6 @@
 # Player to Vehicle vertical-slice readiness
 
-Snapshot: 2026-07-29, after RP-SCRIPT-027.
+Snapshot: 2026-07-29, after RP-SCRIPT-028.
 
 ## What “drive through the real world” means
 
@@ -43,11 +43,17 @@ first movement proof; they must not be confused with basic drive readiness.
   message pump, real `BeginPreStep`, queued action dispatch, real `UpdatePos`
   and a `Vehicle.Default` camera. The first frame synchronizes clocks and later
   stalls cap physics at `0.05` while recording dropped elapsed time.
-- A retail proof sends real Hardware W down/up, observes the paired
-  `4/2/2/0` total/Vehicle/housekeeping/rejected event contract, positive
-  movement and 21 consecutive Vehicle ticks and cameras without moving or
-  activating the observer. One deliberately delayed frame is capped and
-  counted without causing fallback.
+- A retail proof now drives W, forward-plus-right, X stop, focus loss and
+  focus recovery through real Hardware and Vehicle dispatch. It observes the
+  paired `26/11/13/0` total/Vehicle/housekeeping/rejected contract over 42
+  consecutive Vehicle ticks/cameras, one synthetic held-W release, two
+  suppressed inactive actions, resumed movement and zero final held actions.
+  One deliberately delayed frame is capped without fallback.
+- Drive telemetry is available in executable diagnostics: current/maximum
+  displacement, speed and heading, last bump kind, ground contact and static/
+  dynamic collision frame counts. The installed/mounted matrix proves ground
+  contact on eight Levels and a real static collision on `Level.04D`; the
+  bounded `Level.07N` path correctly reports no contact.
 - All nine installed and mounted May Levels produce the same Vehicle runtime
   fingerprint (`14754063850192062311`) in Debug and Release. Their measured
   four-second horizontal distances range from `1.048754` to `66.229913`, so
@@ -65,10 +71,11 @@ first movement proof; they must not be confused with basic drive readiness.
 ## Remaining gap to a manually proven drivable build
 
 The ownership transfer is no longer the critical gap: the executable now keeps
-the real Vehicle active for gameplay frames and renders from its matrix. What
-remains is to prove that this automated vertical slice is useful under human
-input against the complete retail collision world. Until that manual smoke is
-recorded, “the code drives” must not be upgraded to “the game is drivable.”
+the real Vehicle active for gameplay frames, renders from its matrix, releases
+held controls on focus loss and observes the real collision world. What
+remains is a human feel/visibility smoke and the surrounding gameplay services.
+Until that manual smoke is recorded, “the automated slice drives” must not be
+upgraded to “the game is comfortably playable.”
 
 The shortest safe implementation sequence is:
 
@@ -86,9 +93,11 @@ The shortest safe implementation sequence is:
 5. **Automated portion complete:** use the vessel view matrix for every
    persistent frame, prove real Hardware motion and deterministic shutdown, and
    cap long presentation stalls without feeding unsafe physics deltas.
-6. Run the first manual smoke on Level.01D: spawn, drive forward, turn, stop,
-   traverse a slope, collide with a static obstacle, alt-tab and exit. Repeat on
-   one wheeled and one EMV/air-like roster before broadening to all nine Levels.
+6. **Automated portion complete:** prove forward movement, heading change,
+   original stop, focus release/rearm, ground contact and a real static bump.
+   The remaining manual smoke is Level.01D visibility/input feel, slope,
+   obstacle, real alt-tab/window messages and exit; later repeat on an admitted
+   EMV/air-like roster before broadening human testing.
 
 ## Work immediately after movement
 
@@ -109,11 +118,18 @@ The shortest safe implementation sequence is:
 ## Current estimate
 
 The reusable platform/world/asset foundation for this slice is roughly
-85--90% complete. The automated end-to-end drivable slice is roughly 80--85%
-complete: persistent input, timing, movement and camera ownership are now in
-place, but terrain/static-collision behavior, alt-tab recovery and input feel
-still need the first manual drive. Real cockpit, Taxi/change-vehicle and
-weapons remain subsequent slices.
+90% complete. The automated end-to-end driving slice is roughly 90--95%
+complete: persistent input, timing, movement, steering, stop, focus recovery,
+camera and world-contact observation are in place. Human input feel/visibility
+still needs a manual drive. Real cockpit, Taxi/change-vehicle and weapons remain
+subsequent slices and are not included in that percentage.
 
 These percentages are engineering orientation, not schedule claims. Readiness
 is gated by the proofs above, not by line count.
+
+The current automated evidence is green in both compiler configurations:
+51/51 CTest per configuration, 36/36 installed/mounted retail service launches
+and 4/4 waited executable runtime smokes. The positive static-collision proof
+on `Level.04D` appears in both Debug and Release; the formerly flaky visual
+Smoke case also passes a 10/10 Debug repetition after following the Vehicle
+camera instead of the suspended observer.

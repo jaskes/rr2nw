@@ -540,6 +540,23 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
   const int code = g_hardware.SearchCode(keyName);
   if (code < 0) return false;
 
+  BYTE savedKeyboardState[256] = {};
+  bool restoreKeyboardState = false;
+  if (code >= CTRL_EXTENDED_KEY) {
+    const int virtualKey = code - CTRL_EXTENDED_KEY;
+    if (virtualKey < 0 || virtualKey >= 256 ||
+        GetKeyboardState(savedKeyboardState) == FALSE) {
+      return false;
+    }
+    BYTE translatedKeyboardState[256] = {};
+    std::memcpy(translatedKeyboardState, savedKeyboardState,
+                sizeof(translatedKeyboardState));
+    translatedKeyboardState[virtualKey] =
+        buttonDown ? static_cast<BYTE>(0x80) : static_cast<BYTE>(0x00);
+    if (SetKeyboardState(translatedKeyboardState) == FALSE) return false;
+    restoreKeyboardState = true;
+  }
+
   KR_Event event;
   event.source = g_hardware.getObjectID();
   event.destination = g_hardware.getObjectID();
@@ -555,6 +572,7 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
       .putInt(FALSE)
       .close();
   g_super.m_context->sendEventNow(event);
+  if (restoreKeyboardState) SetKeyboardState(savedKeyboardState);
   return true;
 }
 
@@ -577,6 +595,64 @@ bool WaitForSessionTimeAdvance(double minimumDelta) {
   return false;
 }
 
+double HorizontalSpeed(const SRecoveredVehicleRuntimeState& state) {
+  return std::sqrt(state.speed.x * state.speed.x +
+                   state.speed.z * state.speed.z);
+}
+
+double HorizontalHeadingDelta(const CFMatrix3x4& before,
+                              const CFMatrix3x4& after) {
+  const CFVector3 beforeForward = before.Row(2);
+  const CFVector3 afterForward = after.Row(2);
+  const double beforeLength = std::sqrt(
+      beforeForward.x * beforeForward.x +
+      beforeForward.z * beforeForward.z);
+  const double afterLength = std::sqrt(
+      afterForward.x * afterForward.x +
+      afterForward.z * afterForward.z);
+  if (beforeLength <= 1.0e-12 || afterLength <= 1.0e-12) return 0.0;
+  const double dot = (std::max)(
+      -1.0, (std::min)(1.0,
+                      (beforeForward.x * afterForward.x +
+                       beforeForward.z * afterForward.z) /
+                          (beforeLength * afterLength)));
+  return std::acos(dot);
+}
+
+bool RunVehicleFrameAfter(double minimumDelta) {
+  return WaitForSessionTimeAdvance(minimumDelta) &&
+         RecoveredGameServices_RunFrame() &&
+         IsVehicleControlActive(
+             g_super.m_context->searchObject("Vehicle.Default"), nullptr);
+}
+
+bool VisibleProbePosition(double verticalOffset, double forwardDistance,
+                          CFVector3* position) {
+  if (position == nullptr || g_super.m_context == nullptr) return false;
+
+  SRecoveredVehicleRuntimeState vehicle = {};
+  KR_ObjectID vehicleID =
+      g_super.m_context->searchObject("Vehicle.Default");
+  if (!vehicleID.isNUL() &&
+      VehicleRuntimeState_Inspect(g_super.m_context, vehicleID, &vehicle) &&
+      vehicle.active) {
+    const CFVector3 forward = vehicle.direction.Row(2);
+    position->x = vehicle.position.x - forward.x * forwardDistance;
+    position->y = vehicle.position.y - forward.y * forwardDistance +
+                  verticalOffset;
+    position->z = vehicle.position.z - forward.z * forwardDistance;
+  } else {
+    const SRecoveredObserverState* observer =
+        RecoveredGameServices_ObserverState();
+    if (observer == nullptr) return false;
+    position->x = observer->x;
+    position->y = observer->y + verticalOffset;
+    position->z = observer->z - forwardDistance;
+  }
+  return std::isfinite(position->x) && std::isfinite(position->y) &&
+         std::isfinite(position->z);
+}
+
 bool ExerciseVisibleSmoke() {
   if (g_super.m_context == nullptr ||
       !RecoveredGameServices_SmokeRenderingReady() ||
@@ -591,13 +667,13 @@ bool ExerciseVisibleSmoke() {
       ? nullptr
       : static_cast<AttributeSmoke*>(
             __attrSmokeTable.searchAttribute(attributeID));
-  const SRecoveredObserverState* observer =
-      RecoveredGameServices_ObserverState();
+  CFVector3 position;
   const ct_ClassTableID table =
       g_arena.searchSeanceClassTable("Smoke");
   static const char kProbeName[] = "Smoke.Rendering.Probe";
   if (attribute == nullptr || attribute->m_cacheImage == nullptr ||
-      attribute->m_maxBlob <= 0 || observer == nullptr ||
+      attribute->m_maxBlob <= 0 ||
+      !VisibleProbePosition(0.0, 64.0, &position) ||
       table == ct_NULLID || context->isExist(kProbeName)) {
     return false;
   }
@@ -611,9 +687,9 @@ bool ExerciseVisibleSmoke() {
   event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
   event.data.open(EDO_WRITE)
       .putObjectID(attributeID)
-      .putDouble(observer->x)
-      .putDouble(observer->y)
-      .putDouble(observer->z - 64.0)
+      .putDouble(position.x)
+      .putDouble(position.y)
+      .putDouble(position.z)
       .close();
   context->sendEventNow(event);
   const bool started = context->isExist(kProbeName) &&
@@ -2309,13 +2385,157 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("Hardware actions did not advance the live Vehicle camera");
   }
+
+  if (!SendHardwareButton("Right", TRUE) ||
+      !SendHardwareButton("W", TRUE)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("live Vehicle right-turn sequence failed");
+  }
+  for (int turnFrame = 0; turnFrame < 12; ++turnFrame) {
+    if (!RunVehicleFrameAfter(0.025)) {
+      ZAV_DeInitLevel();
+      ZAV_Deinit();
+      return Fail("live Vehicle right-turn frame failed");
+    }
+  }
+  if (!SendHardwareButton("Right", FALSE) ||
+      !SendHardwareButton("W", FALSE) ||
+      !RunVehicleFrameAfter(0.01)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("live Vehicle right-turn release failed");
+  }
+  SRecoveredVehicleRuntimeState vehicleTurned = {};
+  if (!IsVehicleControlActive(vehicleID, &vehicleTurned) ||
+      HorizontalHeadingDelta(vehicleAfter.direction,
+                             vehicleTurned.direction) <= 1.0e-6) {
+    std::fprintf(stderr,
+                 "vehicle-turn diagnostics heading=%.12f "
+                 "before0=%.9f/%.9f/%.9f before1=%.9f/%.9f/%.9f "
+                 "before2=%.9f/%.9f/%.9f after0=%.9f/%.9f/%.9f "
+                 "after1=%.9f/%.9f/%.9f after2=%.9f/%.9f/%.9f\n",
+                 HorizontalHeadingDelta(vehicleAfter.direction,
+                                        vehicleTurned.direction),
+                 vehicleAfter.direction.Row(0).x,
+                 vehicleAfter.direction.Row(0).y,
+                 vehicleAfter.direction.Row(0).z,
+                 vehicleAfter.direction.Row(1).x,
+                 vehicleAfter.direction.Row(1).y,
+                 vehicleAfter.direction.Row(1).z,
+                 vehicleAfter.direction.Row(2).x,
+                 vehicleAfter.direction.Row(2).y,
+                 vehicleAfter.direction.Row(2).z,
+                 vehicleTurned.direction.Row(0).x,
+                 vehicleTurned.direction.Row(0).y,
+                 vehicleTurned.direction.Row(0).z,
+                 vehicleTurned.direction.Row(1).x,
+                 vehicleTurned.direction.Row(1).y,
+                 vehicleTurned.direction.Row(1).z,
+                 vehicleTurned.direction.Row(2).x,
+                 vehicleTurned.direction.Row(2).y,
+                 vehicleTurned.direction.Row(2).z);
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("right arrow did not rotate the live Vehicle heading");
+  }
+
+  const double horizontalSpeedBeforeStop = HorizontalSpeed(vehicleTurned);
+  if (!SendHardwareButton("X", TRUE) ||
+      !RunVehicleFrameAfter(0.01) ||
+      !SendHardwareButton("X", FALSE) ||
+      !RunVehicleFrameAfter(0.01)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("live Vehicle stop sequence failed");
+  }
+  SRecoveredVehicleRuntimeState vehicleStopped = {};
+  const double maximumStoppedSpeed =
+      (std::max)(1.0e-4, horizontalSpeedBeforeStop * 0.25);
+  if (!IsVehicleControlActive(vehicleID, &vehicleStopped) ||
+      horizontalSpeedBeforeStop <= 1.0e-6 ||
+      HorizontalSpeed(vehicleStopped) > maximumStoppedSpeed) {
+    std::fprintf(stderr,
+                 "vehicle-stop diagnostics before=%.12f after=%.12f "
+                 "limit=%.12f\n",
+                 horizontalSpeedBeforeStop, HorizontalSpeed(vehicleStopped),
+                 maximumStoppedSpeed);
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("X did not stop the live Vehicle");
+  }
+
+  if (!SendHardwareButton("W", TRUE) ||
+      !RunVehicleFrameAfter(0.01) ||
+      RecoveredGameServices_VehicleActiveActionCount() != 1 ||
+      !RecoveredGameServices_SetApplicationActive(false) ||
+      RecoveredGameServices_VehicleApplicationActive() ||
+      RecoveredGameServices_VehicleFocusLossCount() != 1 ||
+      RecoveredGameServices_VehicleSyntheticReleaseCount() != 1 ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0 ||
+      !RunVehicleFrameAfter(0.01)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("focus loss did not release the held Vehicle throttle");
+  }
+  SRecoveredVehicleRuntimeState vehicleFocusReleased = {};
+  if (!IsVehicleControlActive(vehicleID, &vehicleFocusReleased) ||
+      !SendHardwareButton("W", TRUE) ||
+      !SendHardwareButton("W", FALSE) ||
+      !RunVehicleFrameAfter(0.01) ||
+      RecoveredGameServices_VehicleSuppressedInputCount() != 2 ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0 ||
+      !RecoveredGameServices_SetApplicationActive(true) ||
+      !RecoveredGameServices_VehicleApplicationActive() ||
+      RecoveredGameServices_VehicleFocusGainCount() != 1) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("inactive Vehicle input was not suppressed and rearmed");
+  }
+
+  if (!SendHardwareButton("W", TRUE) ||
+      !RunVehicleFrameAfter(0.01) ||
+      !RunVehicleFrameAfter(0.04) ||
+      !SendHardwareButton("W", FALSE) ||
+      !RunVehicleFrameAfter(0.01)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Vehicle throttle did not resume after focus recovery");
+  }
+  SRecoveredVehicleRuntimeState vehicleFocusResumed = {};
+  if (!IsVehicleControlActive(vehicleID, &vehicleFocusResumed)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("live Vehicle control was lost after focus recovery");
+  }
+  const double resumedDx =
+      vehicleFocusResumed.position.x - vehicleFocusReleased.position.x;
+  const double resumedDz =
+      vehicleFocusResumed.position.z - vehicleFocusReleased.position.z;
+  if (RecoveredGameServices_VehicleInputEvents() != 26 ||
+      RecoveredGameServices_VehicleForwardedEvents() != 11 ||
+      RecoveredGameServices_VehicleHousekeepingEvents() != 13 ||
+      RecoveredGameServices_VehicleIgnoredEvents() != 0 ||
+      RecoveredGameServices_VehicleSuppressedInputCount() != 2 ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0 ||
+      vehicleFocusResumed.controlEventCount -
+              vehicleBefore.controlEventCount != 12 ||
+      std::sqrt(resumedDx * resumedDx + resumedDz * resumedDz) <= 1.0e-6 ||
+      dwFrames != 24 ||
+      RecoveredGameServices_VehicleFrameCount() != 24 ||
+      RecoveredGameServices_VehicleCameraFrameCount() != 24) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("focus-safe Vehicle input accounting or recovery failed");
+  }
+
   const unsigned int droppedFramesBeforeStall =
       RecoveredGameServices_VehicleDroppedTimeFrameCount();
   if (!WaitForSessionTimeAdvance(0.06) ||
       !RecoveredGameServices_RunFrame() ||
-      !IsVehicleControlActive(vehicleID, nullptr) || dwFrames != 4 ||
-      RecoveredGameServices_VehicleFrameCount() != 4 ||
-      RecoveredGameServices_VehicleCameraFrameCount() != 4 ||
+      !IsVehicleControlActive(vehicleID, nullptr) || dwFrames != 25 ||
+      RecoveredGameServices_VehicleFrameCount() != 25 ||
+      RecoveredGameServices_VehicleCameraFrameCount() != 25 ||
       RecoveredGameServices_VehicleDroppedTimeFrameCount() !=
           droppedFramesBeforeStall + 1 ||
       RecoveredGameServices_VehicleFallbackCount() != 0) {
@@ -2363,23 +2583,45 @@ int main(int argc, char** argv) {
       g_super.m_context, vehicleID, &vehicleVisualState);
   const bool vehicleVisualControlActive =
       IsVehicleControlActive(vehicleID, nullptr);
-  if (!vehicleVisualControlActive || dwFrames != 21 ||
-      RecoveredGameServices_VehicleInputEvents() != 4 ||
-      RecoveredGameServices_VehicleForwardedEvents() != 2 ||
-      RecoveredGameServices_VehicleHousekeepingEvents() != 2 ||
+  SRecoveredVehicleDriveTelemetry vehicleDriveTelemetry = {};
+  const bool vehicleDriveTelemetryInspected =
+      RecoveredGameServices_VehicleDriveTelemetry(&vehicleDriveTelemetry);
+  if (!vehicleVisualControlActive || dwFrames != 42 ||
+      RecoveredGameServices_VehicleInputEvents() != 26 ||
+      RecoveredGameServices_VehicleForwardedEvents() != 11 ||
+      RecoveredGameServices_VehicleHousekeepingEvents() != 13 ||
       RecoveredGameServices_VehicleIgnoredEvents() != 0 ||
+      RecoveredGameServices_VehicleSuppressedInputCount() != 2 ||
+      RecoveredGameServices_VehicleSyntheticReleaseCount() != 1 ||
+      RecoveredGameServices_VehicleFocusLossCount() != 1 ||
+      RecoveredGameServices_VehicleFocusGainCount() != 1 ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0 ||
+      !RecoveredGameServices_VehicleApplicationActive() ||
       RecoveredGameServices_VehicleLastInputFailure() != 0 ||
-      RecoveredGameServices_VehicleFrameCount() != 21 ||
-      RecoveredGameServices_VehicleCameraFrameCount() != 21 ||
+      RecoveredGameServices_VehicleFrameCount() != 42 ||
+      RecoveredGameServices_VehicleCameraFrameCount() != 42 ||
       RecoveredGameServices_VehicleDroppedTimeFrameCount() < 1 ||
       RecoveredGameServices_VehicleFallbackCount() != 0 ||
-      RecoveredGameServices_VehicleFallbackReason() != 0) {
+      RecoveredGameServices_VehicleFallbackReason() != 0 ||
+      !vehicleDriveTelemetryInspected ||
+      vehicleDriveTelemetry.maximumHorizontalDistance <= 1.0e-6 ||
+      vehicleDriveTelemetry.maximumSpeedMagnitude <= 1.0e-6 ||
+      vehicleDriveTelemetry.maximumHeadingDelta <= 1.0e-6 ||
+      vehicleDriveTelemetry.lastBumpFlags < 0 ||
+      vehicleDriveTelemetry.lastBumpFlags > 5 ||
+      vehicleDriveTelemetry.groundContactFrames > 42 ||
+      vehicleDriveTelemetry.staticCollisionFrames > 42 ||
+      vehicleDriveTelemetry.landCollisionFrames > 42 ||
+      vehicleDriveTelemetry.dynamicCollisionFrames > 42) {
     std::fprintf(stderr,
                  "vehicle-visual-suite diagnostics ready=%d fallback=%d "
                  "reason=%u input=%u forwarded=%u housekeeping=%u ignored=%u "
                  "input_failure=%d frames=%u cameras=%u dropped=%u "
                  "fallbacks=%u dwFrames=%lu inspected=%d active=%d "
-                 "frame_begun=%d advances=%u controls=%u\n",
+                 "frame_begun=%d advances=%u controls=%u "
+                 "focus=%u/%u release=%u suppressed=%u active_actions=%u "
+                 "telemetry=%d distance=%.9f speed=%.9f heading=%.9f "
+                 "ground=%u static=%u land=%u dynamic=%u\n",
                  RecoveredGameServices_VehicleControlReady() ? 1 : 0,
                  RecoveredGameServices_VehicleFallbackActive() ? 1 : 0,
                  RecoveredGameServices_VehicleFallbackReason(),
@@ -2396,7 +2638,20 @@ int main(int argc, char** argv) {
                  vehicleVisualState.active ? 1 : 0,
                  vehicleVisualState.frameBegun ? 1 : 0,
                  vehicleVisualState.advanceCount,
-                 vehicleVisualState.controlEventCount);
+                 vehicleVisualState.controlEventCount,
+                 RecoveredGameServices_VehicleFocusLossCount(),
+                 RecoveredGameServices_VehicleFocusGainCount(),
+                 RecoveredGameServices_VehicleSyntheticReleaseCount(),
+                 RecoveredGameServices_VehicleSuppressedInputCount(),
+                 RecoveredGameServices_VehicleActiveActionCount(),
+                 vehicleDriveTelemetryInspected ? 1 : 0,
+                 vehicleDriveTelemetry.maximumHorizontalDistance,
+                 vehicleDriveTelemetry.maximumSpeedMagnitude,
+                 vehicleDriveTelemetry.maximumHeadingDelta,
+                 vehicleDriveTelemetry.groundContactFrames,
+                 vehicleDriveTelemetry.staticCollisionFrames,
+                 vehicleDriveTelemetry.landCollisionFrames,
+                 vehicleDriveTelemetry.dynamicCollisionFrames);
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("live Vehicle control did not survive the visual frame suite");
@@ -2648,7 +2903,7 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=21 hooks=12 hardware=legacy "
+  std::printf("bounded services frames=42 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
                "smoke_simulation=START-MOVE-remove "
@@ -2671,8 +2926,10 @@ int main(int argc, char** argv) {
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
               "vehicle_runtime=live-BeginPreStep-UpdatePos kind=%d fingerprint=%llu "
               "probe=%d/%d/%d/%d/%d/%d/%d/%d distance=%.6f "
-              "vehicle_control=Hardware-exclusive-4/2/2/0 "
-              "vehicle_frames=21 dropped>=1 camera=Vehicle.Default fallback=0 "
+              "vehicle_control=Hardware-exclusive-26/11/13/0 "
+              "vehicle_focus=loss/gain-1/1 release=1 suppressed=2 stop=X "
+              "vehicle_world=%u/%u/%u/%u "
+              "vehicle_frames=42 dropped>=1 camera=Vehicle.Default fallback=0 "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
@@ -2744,6 +3001,10 @@ int main(int argc, char** argv) {
                 vehicleProbeMovementSteps, vehicleProbeTurnEvents,
                 vehicleProbeCameraTransitions, vehicleProbeRollbacks,
                 vehicleProbeHorizontalDistance,
+                vehicleDriveTelemetry.groundContactFrames,
+                vehicleDriveTelemetry.staticCollisionFrames,
+                vehicleDriveTelemetry.landCollisionFrames,
+                vehicleDriveTelemetry.dynamicCollisionFrames,
                 taxiRosterSize, taxiCapacity, taxiFingerprint,
                 taxiReferenceFingerprint,
                 bulletRosterSize, bulletCapacity, bulletFingerprint,

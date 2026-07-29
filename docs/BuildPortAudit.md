@@ -2303,8 +2303,9 @@ failure, `marker=level-ready` and `runtime_shutdown=clean`.
    active with real frame/detach proof. The real `Vehicle.Default` now also
    accepts original throttle/turn controls, advances 172 bounded
    `UpdatePos()` steps, produces a vessel camera and rolls its public state
-   back exactly on all nine Levels. Actual interactive Vehicle ownership,
-   audio output and Bullet trace remain deferred.
+   back exactly on all nine Levels. Interactive Vehicle input/tick/camera
+   ownership is now active and focus-safe; audio output and the remaining live
+   Bullet graph remain deferred.
    Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
@@ -2322,10 +2323,11 @@ failure, `marker=level-ready` and `runtime_shutdown=clean`.
    `ZAV_InitLevel`. A real Session/Publisher/Level/Hardware graph now presents
    software frames, drives a persistent observer through legacy actions and
    tears down cleanly. Arena/script seance creation, the real Vehicle object and
-   bounded movement/camera proof are now complete; next transfer Hardware,
-   persistent tick and camera ownership transactionally from the observer to
-   the initialized Vehicle/player, while continuing the remaining OBASE/script
-   expansion toward full retail `LEVEL0.SC`.
+   bounded movement/camera proof are now complete. Hardware, persistent tick
+   and camera ownership have transferred transactionally to the initialized
+   Vehicle/player; focus loss releases held controls, inactive gameplay input
+   is suppressed and the observer remains fallback-only. Continue with the
+   remaining OBASE/script expansion toward full retail `LEVEL0.SC`.
    RSX/audio and active DebugMap remain later isolated boundaries.
 7. **Complete:** advance the executable from pre-content-ready to a
    deterministic level-ready marker while retaining the synthetic preflight
@@ -2333,3 +2335,35 @@ failure, `marker=level-ready` and `runtime_shutdown=clean`.
 
 Renderer/platform replacement does not begin until the existing simulation and
 content path can be observed through the modern compiler.
+
+## Focus-safe Vehicle drive and collision observation
+
+The interactive Vehicle boundary now handles a Win32 lifecycle case absent
+from the January source: `WM_ACTIVATEAPP` did not release keyboard actions.
+`RecoveredVehicleControl` tracks ten admitted continuous actions, forwards real
+zero-valued Vehicle controls on deactivation, suppresses gameplay actions while
+inactive and rearms only on focus gain. X is a new binding for the existing
+`STOP_VEHICLE`; no vessel physics or legacy serializer layout changed.
+
+The selected vessel's collision state crosses a deliberately narrow bridge
+compiled with the historical Vehicle include order. This avoids including
+`VS_ZAV.H` in the modern owner and avoids touching non-UTF-8 `VEHICLE.H`.
+After each real `UpdatePos()`, the owner records ground contact and the enum
+`SBumpDef::nBumpFlags`; static, land and dynamic contacts have separate
+counters. Public startup diagnostics add current/maximum position, speed and
+heading plus the collision counters, focus transitions, synthetic releases,
+suppressed input and active-action count.
+
+The strengthened retail service scenario runs 42 real Vehicle/camera frames.
+It proves forward movement, extended-key right steering, X stop, held-W focus
+release, inactive suppression, post-focus movement, capped long-frame recovery
+and continued rendering. The standalone Smoke visibility probe follows the
+active Vehicle camera instead of the frozen fallback observer; the formerly
+intermittent `Level.04D` Debug case then passes 10/10 repetitions. Debug and
+Release installed/mounted runs pass 36/36. Eight Levels report real ground
+contact; `Level.04D` exposes `BF_BUMPSTATIC` separately from land in both data
+roots and configurations, while `Level.07N` correctly reports none during the
+bounded path. Exact contact-frame counts are scheduler-sensitive observation,
+not golden output. The surrounding suites pass 51/51 CTest
+in each configuration, and all 4/4 waited executable runtime smokes publish the
+new diagnostics, reach `marker=level-ready` and shut down cleanly.

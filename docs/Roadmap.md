@@ -602,9 +602,12 @@ pass across the complete E/G and Debug/Release matrix. The temporary
 observer-to-Vehicle handoff is now transactional: an exclusive adapter owns
 paired legacy keyboard events and Escape, the source Begin/Session/Update
 order runs persistently, long frames are capped and diagnosed, and every
-software frame uses the real vessel camera. Next manually prove useful driving
-against terrain/static collision, then resolve Vehicle's Bullet/Panel/Taxi
-caches before attempting `SET_TAXI.SCI`. Taxi
+software frame uses the real vessel camera. Focus loss now releases held
+Vehicle actions, inactive input is suppressed, X executes the original stop,
+and the retail matrix proves heading change, ground contact and a real static
+collision on `Level.04D`. Manual input feel and real window alt-tab remain an
+acceptance smoke rather than an implementation blocker. Next resolve Vehicle's
+Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi
 creation remains ahead of People and Tank, and live network or replay work
 remains outside this 1.0 frontier.
 

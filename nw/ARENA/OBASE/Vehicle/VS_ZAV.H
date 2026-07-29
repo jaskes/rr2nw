@@ -39,6 +39,7 @@ protected:
 public:
 	CVessel0() { m_pfBounds = NULL; }
 	SBumpDef  &GetBumpDef() { return m_bump; }
+	const SBumpDef &GetBumpDef() const { return m_bump; }
 	void SetBounds(TCdouble *p) { m_pfBounds = p; }
 };
 
@@ -360,6 +361,7 @@ public:
 
 	double	FuelSpeed() const { return m_fFuelSpeed; }
 	double	ForwardSpeed() const;
+	bool TouchingGround() const { return m_bTouchGround; }
 	CFMatrix3x4 &GetDir() { return m_dir; }
     void SetDir(TCSFMatrix3x4 &dir) { m_dir = dir; m_dir.LoadOffset(CFVector3(0,0,0)); }
 	void LoadPos(TCCFMatrix3x4 &startPos);
@@ -805,6 +807,7 @@ public:
 	}
 	TCCFVector3 Pos() { return m_position+m_base.MultTF(HeadOffset()); }
 	TCCFVector3 Speed() { return m_speed; }
+	bool TouchingGround() const { return m_bTouchGround; }
 	void ApplyImpulse(TCCFVector3 &impulse, double factor) {
 		m_speed += impulse*(factor/m_attr->fMass);
 	}

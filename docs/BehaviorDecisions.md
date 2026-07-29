@@ -2417,3 +2417,59 @@ and Debug/Release summaries, and 4/4 waited `rr2nw.exe --runtime-smoke`
 launches. Each executable log records two Vehicle ticks, two Vehicle cameras,
 zero fallback/input failures, `marker=level-ready` and
 `runtime_shutdown=clean`.
+
+## BD-066: focus loss releases Vehicle controls and drive telemetry stays read-only
+
+Status: accepted on 2026-07-29.
+
+The January `WM_ACTIVATEAPP` handler releases mouse and joystick capture but
+does not neutralize keyboard-derived Vehicle state. The recovered exclusive
+adapter therefore owns a small set of continuous action values. On application
+deactivation it sends a real zero-valued `CTRL_BUTTONS_MSG` for every held
+action before any further frame is simulated, clears the set and suppresses
+gameplay actions while inactive. Raw `SYS_KEY` housekeeping is still consumed
+so Hardware accounting remains observable. Reactivation does not restore old
+values: a new physical press is required. A failed synthetic release enters
+the existing diagnosed Vehicle fallback instead of leaving a hidden throttle.
+
+`X` is bound to the original `STOP_VEHICLE` action. This is a binding addition,
+not new physics: `Vehicle::receiveEvent()` still calls the selected vessel's
+real `Stop()` implementation. Arrow keys remain the retail incline/turn actions.
+The headless proof supplies Win32 extended-key state only while passing the
+synthetic arrow transition through the unchanged Hardware translator; normal
+windowed input continues to use real Win32 key state.
+
+Drive diagnostics are observation-only. A thin bridge in the legacy Vehicle
+translation-unit family exposes the selected vessel's last `SBumpDef` result
+and wheeled/EMV ground-contact state without changing the non-UTF-8
+`VEHICLE.H` layout. The modern owner accumulates ground, static, land and
+dynamic contact frames separately after real `UpdatePos()` calls. Service
+telemetry publishes current/maximum displacement, speed and heading plus those
+collision counters; it never alters the vessel or scene.
+
+The retail proof now executes 42 Vehicle/camera frames: W motion, combined
+forward/right steering, X stop, held-W focus loss, two suppressed inactive
+actions, focus recovery, resumed W motion, one capped long frame and the visual
+effect suite. Its exact Hardware contract is `26/11/13/0` total/forwarded/
+housekeeping/rejected, with one synthetic release, two suppressed actions,
+zero held actions at completion and no fallback. The installed/mounted Debug
+matrix observes real ground contacts on eight Levels. `Level.04D` repeatedly
+reports a real `BF_BUMPSTATIC` with separate zero land count, while `Level.07N`
+legitimately reports no contact in this bounded window rather than
+manufacturing one. Counts are observational rather than golden: this proof
+uses physical elapsed time, so the exact number of contact frames may vary
+with scheduling while its type remains explicit.
+
+The visible Smoke probe can no longer use the deliberately frozen fallback
+observer as its placement anchor after Vehicle owns the camera. It is placed
+in front of the current Vehicle view instead; the other effect probes retain
+their isolated coordinates so their collision environment does not change.
+This removes the post-turn visibility flake without altering game rendering.
+
+Final verification passes 51/51 CTest in both Debug and Release, all 36/36
+retail service launches across the installed and mounted roots, plus a 10/10
+repeat of the previously flaky `Level.04D` Debug case, and 4/4 waited
+`rr2nw.exe --runtime-smoke` launches. The Release matrix independently repeats
+the positive `Level.04D` static contact, and each executable log publishes the
+new focus/drive/collision fields before `marker=level-ready` and
+`runtime_shutdown=clean`.

@@ -912,6 +912,49 @@ Retail scripts нельзя молча копировать поверх source 
   4/4 waited executable smokes with two Vehicle ticks/cameras, zero fallback,
   `marker=level-ready` and clean shutdown.
 
+### RP-SCRIPT-028: live Vehicle control is focus-safe and world-observable
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. This extends persistent Vehicle ownership; it
+  does not admit Panel, Taxi switching, weapons or mission play.
+- The original Hardware and Vehicle decoders remain authoritative. W/S/A/D,
+  vertical controls and arrows reach the real vessel, while X now selects the
+  existing `STOP_VEHICLE` action. The proof drives forward, steers right over
+  twelve physical steps and verifies a changed vessel direction, then proves X
+  reduces horizontal speed through the real `CVesselWheels::Stop()` path.
+- Focus loss delivers zero for every held continuous action. Inactive mapped
+  actions are counted and suppressed; focus gain requires new input. The exact
+  proof result is `26/11/13/0`, focus loss/gain `1/1`, one synthetic release,
+  two suppressed actions and zero active actions after recovery.
+- Read-only telemetry exposes position, speed, displacement, heading and the
+  original vessel/scene collision outcome after each real `UpdatePos()`. The
+  installed/mounted Debug/Release sweeps produce this observation matrix:
+
+| Level | Ground seen | Static seen | Land seen | Dynamic seen |
+| --- | ---: | ---: | ---: | ---: |
+| Level.01D | yes | no | no | no |
+| Level.01N | yes | no | no | no |
+| Level.02D | yes | no | no | no |
+| Level.02N | yes | no | no | no |
+| Level.03N | yes | no | no | no |
+| Level.04D | yes | yes | no | no |
+| Level.05D | yes | no | no | no |
+| Level.06N | yes | no | no | no |
+| Level.07N | no | no | no | no |
+
+- Zero is valid: it means the bounded path did not report that contact. In
+  particular, no artificial obstacle is inserted into retail scenes merely to
+  satisfy a test. The separate zero land counter proves that `Level.04D`'s
+  positive observation is a real `BF_BUMPSTATIC`, not terrain contact. Exact
+  frame counts vary with physical elapsed time and are deliberately not a
+  parity fingerprint.
+- Verification passes 51/51 CTest in Debug and Release, all 36/36 retail
+  service launches across the installed and mounted roots, a 10/10 repeat of
+  the formerly flaky `Level.04D` Debug case, and 4/4 waited
+  `rr2nw.exe --runtime-smoke` launches. Release independently observes the
+  positive `Level.04D` static contact; every executable log publishes the new
+  telemetry and ends with the level-ready marker and clean shutdown.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

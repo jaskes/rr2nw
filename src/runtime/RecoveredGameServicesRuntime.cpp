@@ -226,6 +226,12 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_forwardedEvents = 0;
     m_housekeepingEvents = 0;
     m_ignoredEvents = 0;
+    m_focusLosses = 0;
+    m_focusGains = 0;
+    m_syntheticReleases = 0;
+    m_suppressedInputs = 0;
+    for (double& value : m_heldActions) value = 0.0;
+    m_applicationActive = true;
     m_quitRequested = false;
     m_forwardingFailed = false;
     m_lastInputFailure = 0;
@@ -267,6 +273,11 @@ class RecoveredVehicleControlInput final : public KR_Object {
       return 1;
     }
 
+    if (!m_applicationActive) {
+      ++m_suppressedInputs;
+      return 1;
+    }
+
     if (action == EXIT) {
       if (down > 0.0) {
         m_quitRequested = true;
@@ -285,6 +296,8 @@ class RecoveredVehicleControlInput final : public KR_Object {
       return 1;
     }
     ++m_forwardedEvents;
+    const int heldIndex = HeldActionIndex(action);
+    if (heldIndex >= 0) m_heldActions[heldIndex] = down;
     return 1;
   }
 
@@ -299,9 +312,75 @@ class RecoveredVehicleControlInput final : public KR_Object {
   unsigned int ForwardedEvents() const { return m_forwardedEvents; }
   unsigned int HousekeepingEvents() const { return m_housekeepingEvents; }
   unsigned int IgnoredEvents() const { return m_ignoredEvents; }
+  bool ApplicationActive() const { return m_applicationActive; }
+  unsigned int FocusLosses() const { return m_focusLosses; }
+  unsigned int FocusGains() const { return m_focusGains; }
+  unsigned int SyntheticReleases() const { return m_syntheticReleases; }
+  unsigned int SuppressedInputs() const { return m_suppressedInputs; }
+  unsigned int ActiveActionCount() const {
+    unsigned int count = 0;
+    for (double value : m_heldActions) {
+      if (value != 0.0) ++count;
+    }
+    return count;
+  }
   int LastInputFailure() const { return m_lastInputFailure; }
 
+  bool SetApplicationActive(bool active, double eventTime) {
+    if (m_applicationActive == active) return true;
+    if (active) {
+      m_applicationActive = true;
+      ++m_focusGains;
+      return true;
+    }
+
+    m_applicationActive = false;
+    ++m_focusLosses;
+    bool succeeded = true;
+    for (int index = 0; index < kHeldActionCount; ++index) {
+      if (m_heldActions[index] == 0.0) continue;
+      if (getContext() == nullptr || m_vehicle.isNUL() ||
+          !getContext()->isExist(m_vehicle) ||
+          !VehicleRuntimeState_ApplyLiveControlAt(
+              getContext(), HeldAction(index), 0.0, eventTime)) {
+        m_forwardingFailed = true;
+        m_lastInputFailure = VehicleRuntimeState_LastControlFailure();
+        succeeded = false;
+      } else {
+        ++m_syntheticReleases;
+      }
+      m_heldActions[index] = 0.0;
+    }
+    return succeeded;
+  }
+
  private:
+  static constexpr int kHeldActionCount = 10;
+
+  static int HeldActionIndex(int action) {
+    switch (action) {
+      case MOVE_FORWARD: return 0;
+      case MOVE_BACKWARD: return 1;
+      case STRAFE_LEFT: return 2;
+      case STRAFE_RIGHT: return 3;
+      case STRAFE_UP: return 4;
+      case STRAFE_DOWN: return 5;
+      case TURN_LEFT: return 6;
+      case TURN_RIGHT: return 7;
+      case LOOK_UP: return 8;
+      case LOOK_DOWN: return 9;
+      default: return -1;
+    }
+  }
+
+  static int HeldAction(int index) {
+    static const int actions[kHeldActionCount] = {
+        MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
+        STRAFE_UP, STRAFE_DOWN, TURN_LEFT, TURN_RIGHT,
+        LOOK_UP, LOOK_DOWN};
+    return actions[index];
+  }
+
   bool SetSubscribed(bool subscribe) {
     if (m_subscribed == subscribe) return true;
     if (getContext() == nullptr) return false;
@@ -326,6 +405,12 @@ class RecoveredVehicleControlInput final : public KR_Object {
   unsigned int m_forwardedEvents = 0;
   unsigned int m_housekeepingEvents = 0;
   unsigned int m_ignoredEvents = 0;
+  unsigned int m_focusLosses = 0;
+  unsigned int m_focusGains = 0;
+  unsigned int m_syntheticReleases = 0;
+  unsigned int m_suppressedInputs = 0;
+  double m_heldActions[kHeldActionCount] = {};
+  bool m_applicationActive = true;
   bool m_quitRequested = false;
   bool m_forwardingFailed = false;
   int m_lastInputFailure = 0;
@@ -351,6 +436,10 @@ unsigned int g_vehicleFallbackReason = 0;
 unsigned long long g_vehicleRuntimeFingerprint = 0;
 int g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
 SRecoveredVehicleMovementProbeSummary g_vehicleMovementProbe = {};
+SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
+CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
+CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
+bool g_vehicleDriveTelemetryReady = false;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 
@@ -375,6 +464,7 @@ bool ConfigureHardwareControls() {
       !BindHardwareControl(TURN_RIGHT, "Right") ||
       !BindHardwareControl(LOOK_UP, "Up") ||
       !BindHardwareControl(LOOK_DOWN, "Down") ||
+      !BindHardwareControl(STOP_VEHICLE, "X") ||
       !BindHardwareControl(EXIT, "Esc")) {
     return false;
   }
@@ -387,7 +477,81 @@ LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
   if (!g_hardwareReady || g_hardware.getContext() == nullptr) {
     return DefWindowProcA(window, message, wParam, lParam);
   }
+  if (message == WM_ACTIVATEAPP && g_vehicleControlReady) {
+    const double timerTime = g_timer.GetTime();
+    const double eventTime =
+        !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
+    g_vehicleControlInput.SetApplicationActive(wParam != FALSE, eventTime);
+  }
   return g_hardware.WndProc(window, message, wParam, lParam);
+}
+
+double HorizontalLength(double x, double z) {
+  return std::sqrt(x * x + z * z);
+}
+
+CFVector3 HorizontalForward(const CFMatrix3x4& direction) {
+  CFVector3 forward = direction.Row(2);
+  const double length = HorizontalLength(forward.x, forward.z);
+  if (!std::isfinite(length) || length <= 1.0e-12) {
+    return CFVector3(0.0, 0.0, 1.0);
+  }
+  return CFVector3(forward.x / length, 0.0, forward.z / length);
+}
+
+void UpdateVehicleDriveTelemetry(
+    const SRecoveredVehicleRuntimeState& state) {
+  const double dx = state.position.x - g_vehicleTelemetryStartPosition.x;
+  const double dz = state.position.z - g_vehicleTelemetryStartPosition.z;
+  const double horizontalDistance = HorizontalLength(dx, dz);
+  const double speedMagnitude =
+      std::sqrt(state.speed.x * state.speed.x +
+                state.speed.y * state.speed.y +
+                state.speed.z * state.speed.z);
+  const CFVector3 forward = HorizontalForward(state.direction);
+  const double dot = (std::max)(
+      -1.0, (std::min)(1.0,
+                      forward.x * g_vehicleTelemetryStartForward.x +
+                          forward.z * g_vehicleTelemetryStartForward.z));
+  const double headingDelta = std::acos(dot);
+
+  g_vehicleDriveTelemetry.positionX = state.position.x;
+  g_vehicleDriveTelemetry.positionY = state.position.y;
+  g_vehicleDriveTelemetry.positionZ = state.position.z;
+  g_vehicleDriveTelemetry.speedX = state.speed.x;
+  g_vehicleDriveTelemetry.speedY = state.speed.y;
+  g_vehicleDriveTelemetry.speedZ = state.speed.z;
+  g_vehicleDriveTelemetry.horizontalDistance = horizontalDistance;
+  g_vehicleDriveTelemetry.maximumHorizontalDistance =
+      (std::max)(g_vehicleDriveTelemetry.maximumHorizontalDistance,
+                 horizontalDistance);
+  g_vehicleDriveTelemetry.speedMagnitude = speedMagnitude;
+  g_vehicleDriveTelemetry.maximumSpeedMagnitude =
+      (std::max)(g_vehicleDriveTelemetry.maximumSpeedMagnitude,
+                 speedMagnitude);
+  g_vehicleDriveTelemetry.headingDelta = headingDelta;
+  g_vehicleDriveTelemetry.maximumHeadingDelta =
+      (std::max)(g_vehicleDriveTelemetry.maximumHeadingDelta,
+                 headingDelta);
+  g_vehicleDriveTelemetry.lastBumpFlags = state.lastBumpFlags;
+  g_vehicleDriveTelemetry.touchingGround = state.touchingGround;
+  g_vehicleDriveTelemetry.groundContactFrames = static_cast<unsigned int>(
+      (std::max)(state.groundContactFrameCount, 0));
+  g_vehicleDriveTelemetry.staticCollisionFrames = static_cast<unsigned int>(
+      (std::max)(state.staticCollisionFrameCount, 0));
+  g_vehicleDriveTelemetry.landCollisionFrames = static_cast<unsigned int>(
+      (std::max)(state.landCollisionFrameCount, 0));
+  g_vehicleDriveTelemetry.dynamicCollisionFrames = static_cast<unsigned int>(
+      (std::max)(state.dynamicCollisionFrameCount, 0));
+}
+
+void BeginVehicleDriveTelemetry(
+    const SRecoveredVehicleRuntimeState& state) {
+  g_vehicleDriveTelemetry = {};
+  g_vehicleTelemetryStartPosition = state.position;
+  g_vehicleTelemetryStartForward = HorizontalForward(state.direction);
+  g_vehicleDriveTelemetryReady = true;
+  UpdateVehicleDriveTelemetry(state);
 }
 
 void RemoveAttachedObject(SimulationContext* context, KR_Object* object) {
@@ -453,6 +617,8 @@ bool BeginVehicleControl(SimulationContext* context,
     StopVehicleControl(true, &position);
     return false;
   }
+
+  BeginVehicleDriveTelemetry(state);
 
   g_vehicleControlReady = true;
   g_vehicleFallbackActive = false;
@@ -534,6 +700,10 @@ void EndBoundedSession() {
   g_vehicleRuntimeFingerprint = 0;
   g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
   g_vehicleMovementProbe = {};
+  g_vehicleDriveTelemetry = {};
+  g_vehicleTelemetryStartPosition = CFVector3(0.0, 0.0, 0.0);
+  g_vehicleTelemetryStartForward = CFVector3(0.0, 0.0, 1.0);
+  g_vehicleDriveTelemetryReady = false;
   g_vehicleControlInput.Reset(KR_ObjectID::NUL());
 
   const SFrameRuntimeHooks emptyFrameHooks = {};
@@ -1069,8 +1239,49 @@ unsigned int RecoveredGameServices_VehicleIgnoredEvents() {
   return g_vehicleControlInput.IgnoredEvents();
 }
 
+bool RecoveredGameServices_SetApplicationActive(bool active) {
+  if (!g_vehicleControlReady || g_vehicleControlInput.getContext() == nullptr) {
+    return false;
+  }
+  const double timerTime = g_timer.GetTime();
+  const double eventTime =
+      !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
+  return g_vehicleControlInput.SetApplicationActive(active, eventTime);
+}
+
+bool RecoveredGameServices_VehicleApplicationActive() {
+  return g_vehicleControlInput.ApplicationActive();
+}
+
+unsigned int RecoveredGameServices_VehicleFocusLossCount() {
+  return g_vehicleControlInput.FocusLosses();
+}
+
+unsigned int RecoveredGameServices_VehicleFocusGainCount() {
+  return g_vehicleControlInput.FocusGains();
+}
+
+unsigned int RecoveredGameServices_VehicleSyntheticReleaseCount() {
+  return g_vehicleControlInput.SyntheticReleases();
+}
+
+unsigned int RecoveredGameServices_VehicleSuppressedInputCount() {
+  return g_vehicleControlInput.SuppressedInputs();
+}
+
+unsigned int RecoveredGameServices_VehicleActiveActionCount() {
+  return g_vehicleControlInput.ActiveActionCount();
+}
+
 int RecoveredGameServices_VehicleLastInputFailure() {
   return g_vehicleControlInput.LastInputFailure();
+}
+
+bool RecoveredGameServices_VehicleDriveTelemetry(
+    SRecoveredVehicleDriveTelemetry* telemetry) {
+  if (!g_vehicleDriveTelemetryReady || telemetry == nullptr) return false;
+  *telemetry = g_vehicleDriveTelemetry;
+  return true;
 }
 
 unsigned int RecoveredGameServices_VehicleFrameCount() {
@@ -1200,6 +1411,16 @@ int RecoveredGameServices_RunFrame() {
     } else {
       ++g_vehicleFrameCount;
       if (droppedTime) ++g_vehicleDroppedTimeFrameCount;
+      SRecoveredVehicleRuntimeState telemetryState = {};
+      if (!VehicleRuntimeState_Inspect(
+              g_super.m_context,
+              g_super.m_context->searchObject("Vehicle.Default"),
+              &telemetryState)) {
+        if (!ActivateVehicleFallback(6)) return FALSE;
+        vehicleFrame = false;
+      } else {
+        UpdateVehicleDriveTelemetry(telemetryState);
+      }
     }
   }
   if (!vehicleFrame) g_observerInput.Advance(Session::m_frameSec);

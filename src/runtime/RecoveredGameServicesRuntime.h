@@ -23,6 +23,27 @@ struct SRecoveredObserverState {
   unsigned int inputEvents;
 };
 
+struct SRecoveredVehicleDriveTelemetry {
+  double positionX;
+  double positionY;
+  double positionZ;
+  double speedX;
+  double speedY;
+  double speedZ;
+  double horizontalDistance;
+  double maximumHorizontalDistance;
+  double speedMagnitude;
+  double maximumSpeedMagnitude;
+  double headingDelta;
+  double maximumHeadingDelta;
+  int lastBumpFlags;
+  int touchingGround;
+  unsigned int groundContactFrames;
+  unsigned int staticCollisionFrames;
+  unsigned int landCollisionFrames;
+  unsigned int dynamicCollisionFrames;
+};
+
 void RecoveredGameServices_UseRuntime();
 void RecoveredGameServices_Release();
 bool RecoveredGameServices_PlatformReady();
@@ -100,7 +121,16 @@ unsigned int RecoveredGameServices_VehicleInputEvents();
 unsigned int RecoveredGameServices_VehicleForwardedEvents();
 unsigned int RecoveredGameServices_VehicleHousekeepingEvents();
 unsigned int RecoveredGameServices_VehicleIgnoredEvents();
+bool RecoveredGameServices_SetApplicationActive(bool active);
+bool RecoveredGameServices_VehicleApplicationActive();
+unsigned int RecoveredGameServices_VehicleFocusLossCount();
+unsigned int RecoveredGameServices_VehicleFocusGainCount();
+unsigned int RecoveredGameServices_VehicleSyntheticReleaseCount();
+unsigned int RecoveredGameServices_VehicleSuppressedInputCount();
+unsigned int RecoveredGameServices_VehicleActiveActionCount();
 int RecoveredGameServices_VehicleLastInputFailure();
+bool RecoveredGameServices_VehicleDriveTelemetry(
+    SRecoveredVehicleDriveTelemetry* telemetry);
 unsigned int RecoveredGameServices_VehicleFrameCount();
 unsigned int RecoveredGameServices_VehicleCameraFrameCount();
 unsigned int RecoveredGameServices_VehicleDroppedTimeFrameCount();

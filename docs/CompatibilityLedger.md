@@ -1842,6 +1842,35 @@ Status vocabulary:
   fixed-tick replay is activated. Do not mistake dropped real time for a
   deterministic simulation clock.
 
+### CQ-117: Win32 deactivation does not release legacy keyboard actions
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `KR_Hardware::WndProc(WM_ACTIVATEAPP)` changes mouse/joystick
+  capture and restore state only. A mapped key-down already delivered to
+  `Vehicle::receiveEvent()` remains in the vessel until a matching action is
+  delivered; alt-tab can therefore leave throttle or steering active. The
+  translator also treats extended keys through `GetKeyState`, which headless
+  tests must model explicitly even though real window input already supplies
+  that state.
+- Handling: track only the ten admitted continuous Vehicle actions in the
+  exclusive adapter. On focus loss forward zero for each held action, clear
+  the set, suppress non-housekeeping input while inactive and require fresh
+  presses after focus gain. Bind X to the existing `STOP_VEHICLE`. Read bump
+  and ground state through a separate legacy bridge; never edit the historical
+  non-UTF-8 `VEHICLE.H` or reinterpret `nBumpFlags` as a bitmask (it is an
+  enum). Static, land and dynamic results remain distinct.
+- Regression contract: real Hardware W/right/X transitions must prove motion,
+  heading change and stop; focus loss must produce exactly one synthetic W
+  release, inactive W down/up must be suppressed, focus gain must rearm motion,
+  and completion must leave zero active actions. The 42-frame run must expose
+  finite drive telemetry and bounded collision counters without fallback. Any
+  visibility probe executed after the handoff must anchor to the active Vehicle
+  camera, not the intentionally frozen observer. Collision categories are
+  stable evidence; physical-time frame counts are not golden fingerprints.
+- Revisit when: configurable bindings, raw input, replay or SDL input replaces
+  Win32 Hardware. Focus-generation ordering must then be part of the recorded
+  input contract rather than inferred from queued window messages.
+
 ## Maintenance rule
 
 When a new quirk is found:

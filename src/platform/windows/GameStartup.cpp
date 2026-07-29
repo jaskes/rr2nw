@@ -1057,6 +1057,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleHousekeepingEvents()));
   log.Line("vehicle_ignored_events=" + std::to_string(
                RecoveredGameServices_VehicleIgnoredEvents()));
+  log.Line("vehicle_application_active=" + std::to_string(
+               RecoveredGameServices_VehicleApplicationActive() ? 1 : 0));
+  log.Line("vehicle_focus_loss_count=" + std::to_string(
+               RecoveredGameServices_VehicleFocusLossCount()));
+  log.Line("vehicle_focus_gain_count=" + std::to_string(
+               RecoveredGameServices_VehicleFocusGainCount()));
+  log.Line("vehicle_synthetic_release_count=" + std::to_string(
+               RecoveredGameServices_VehicleSyntheticReleaseCount()));
+  log.Line("vehicle_suppressed_input_count=" + std::to_string(
+               RecoveredGameServices_VehicleSuppressedInputCount()));
+  log.Line("vehicle_active_action_count=" + std::to_string(
+               RecoveredGameServices_VehicleActiveActionCount()));
   log.Line("vehicle_last_input_failure=" + std::to_string(
                RecoveredGameServices_VehicleLastInputFailure()));
   log.Line("vehicle_frame_count=" + std::to_string(
@@ -1069,6 +1081,41 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleFallbackCount()));
   log.Line("vehicle_fallback_reason=" + std::to_string(
                RecoveredGameServices_VehicleFallbackReason()));
+  SRecoveredVehicleDriveTelemetry vehicleTelemetry = {};
+  if (RecoveredGameServices_VehicleDriveTelemetry(&vehicleTelemetry)) {
+    log.Line("vehicle_position=" +
+             std::to_string(vehicleTelemetry.positionX) + "," +
+             std::to_string(vehicleTelemetry.positionY) + "," +
+             std::to_string(vehicleTelemetry.positionZ));
+    log.Line("vehicle_speed=" +
+             std::to_string(vehicleTelemetry.speedX) + "," +
+             std::to_string(vehicleTelemetry.speedY) + "," +
+             std::to_string(vehicleTelemetry.speedZ));
+    log.Line("vehicle_horizontal_distance=" + std::to_string(
+                 vehicleTelemetry.horizontalDistance));
+    log.Line("vehicle_maximum_horizontal_distance=" + std::to_string(
+                 vehicleTelemetry.maximumHorizontalDistance));
+    log.Line("vehicle_speed_magnitude=" + std::to_string(
+                 vehicleTelemetry.speedMagnitude));
+    log.Line("vehicle_maximum_speed_magnitude=" + std::to_string(
+                 vehicleTelemetry.maximumSpeedMagnitude));
+    log.Line("vehicle_heading_delta=" + std::to_string(
+                 vehicleTelemetry.headingDelta));
+    log.Line("vehicle_maximum_heading_delta=" + std::to_string(
+                 vehicleTelemetry.maximumHeadingDelta));
+    log.Line("vehicle_last_bump_flags=" + std::to_string(
+                 vehicleTelemetry.lastBumpFlags));
+    log.Line("vehicle_touching_ground=" + std::to_string(
+                 vehicleTelemetry.touchingGround));
+    log.Line("vehicle_ground_contact_frames=" + std::to_string(
+                 vehicleTelemetry.groundContactFrames));
+    log.Line("vehicle_static_collision_frames=" + std::to_string(
+                 vehicleTelemetry.staticCollisionFrames));
+    log.Line("vehicle_land_collision_frames=" + std::to_string(
+                 vehicleTelemetry.landCollisionFrames));
+    log.Line("vehicle_dynamic_collision_frames=" + std::to_string(
+                 vehicleTelemetry.dynamicCollisionFrames));
+  }
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
@@ -1076,7 +1123,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       "attribute-bullet-collision-impact-explosion-damage-sound-particles-"
       "vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
-  log.Line("vehicle_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
+  log.Line("vehicle_controls=W,S,A,D,Space,LCtrl,arrows,X-stop,Escape");
   log.Line("observer_mode=fallback-suspended");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));

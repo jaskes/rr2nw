@@ -1,4 +1,5 @@
 #include "VehicleRuntimeState.h"
+#include "VehicleVesselTelemetry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,6 +8,7 @@
 
 class CGRPanel;
 #include "h/vehicle.h"
+#include "bumpdef.h"
 #include "hardware.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
@@ -34,6 +36,11 @@ struct VehicleRuntimeOwner
     double lastTime;
     int advanceCount;
     int controlEventCount;
+    int lastBumpFlags;
+    int groundContactFrameCount;
+    int staticCollisionFrameCount;
+    int landCollisionFrameCount;
+    int dynamicCollisionFrameCount;
     bool active;
     bool frameBegun;
 
@@ -43,8 +50,10 @@ struct VehicleRuntimeOwner
           savedSubjectPosition(0.0, 0.0, 0.0),
           savedSpeed(0.0, 0.0, 0.0), savedLastTime(0.0),
           savedCurrentTime(0.0), savedViewTime(0.0), lastTime(0.0),
-          advanceCount(0), controlEventCount(0), active(false),
-          frameBegun(false)
+          advanceCount(0), controlEventCount(0), lastBumpFlags(BF_NONE),
+          groundContactFrameCount(0), staticCollisionFrameCount(0),
+          landCollisionFrameCount(0), dynamicCollisionFrameCount(0),
+          active(false), frameBegun(false)
     {
         savedDirection.LoadIdentity();
     }
@@ -128,6 +137,11 @@ void ClearOwner()
     g_owner.lastTime = 0.0;
     g_owner.advanceCount = 0;
     g_owner.controlEventCount = 0;
+    g_owner.lastBumpFlags = BF_NONE;
+    g_owner.groundContactFrameCount = 0;
+    g_owner.staticCollisionFrameCount = 0;
+    g_owner.landCollisionFrameCount = 0;
+    g_owner.dynamicCollisionFrameCount = 0;
     g_owner.active = false;
     g_owner.frameBegun = false;
     g_lastControlFailure = 0;
@@ -166,6 +180,33 @@ int VesselKind(const AttributeVehicle *attribute)
         std::strcmp(dynamic, "Dead") == 0)
         return RECOVERED_VEHICLE_VESSEL_WHEELS;
     return RECOVERED_VEHICLE_VESSEL_UNKNOWN;
+}
+
+int VesselBumpFlags(const AttributeVehicle *attribute)
+{
+    return attribute == NULL
+               ? BF_NONE
+               : RecoveredVehicleVesselBumpFlags(attribute->m_dynamic);
+}
+
+bool VesselTouchesGround(const AttributeVehicle *attribute)
+{
+    return attribute != NULL &&
+           RecoveredVehicleVesselTouchesGround(attribute->m_dynamic);
+}
+
+void RecordFrameCollision()
+{
+    AttributeVehicle *attribute = ResolveAttribute(g_owner.vehicle);
+    g_owner.lastBumpFlags = VesselBumpFlags(attribute);
+    if (VesselTouchesGround(attribute))
+        ++g_owner.groundContactFrameCount;
+    if (g_owner.lastBumpFlags == BF_BUMPSTATIC)
+        ++g_owner.staticCollisionFrameCount;
+    if (g_owner.lastBumpFlags == BF_BUMPLAND)
+        ++g_owner.landCollisionFrameCount;
+    if (g_owner.lastBumpFlags == BF_BUMPDYNAMIC)
+        ++g_owner.dynamicCollisionFrameCount;
 }
 
 bool VehicleReady(Vehicle *vehicle)
@@ -207,6 +248,17 @@ bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
     state->advanceCount = state->active ? g_owner.advanceCount : 0;
     state->controlEventCount =
         state->active ? g_owner.controlEventCount : 0;
+    state->lastBumpFlags =
+        state->active ? g_owner.lastBumpFlags : VesselBumpFlags(attribute);
+    state->touchingGround = VesselTouchesGround(attribute) ? 1 : 0;
+    state->groundContactFrameCount =
+        state->active ? g_owner.groundContactFrameCount : 0;
+    state->staticCollisionFrameCount =
+        state->active ? g_owner.staticCollisionFrameCount : 0;
+    state->landCollisionFrameCount =
+        state->active ? g_owner.landCollisionFrameCount : 0;
+    state->dynamicCollisionFrameCount =
+        state->active ? g_owner.dynamicCollisionFrameCount : 0;
     return !IsNul(state->object) && !IsNul(state->attribute) &&
            FiniteVector(state->position) &&
            FiniteVector(state->subjectPosition) &&
@@ -352,6 +404,11 @@ bool VehicleRuntimeState_Activate(
     g_owner.lastTime = startTime;
     g_owner.advanceCount = 0;
     g_owner.controlEventCount = 0;
+    g_owner.lastBumpFlags = BF_NONE;
+    g_owner.groundContactFrameCount = 0;
+    g_owner.staticCollisionFrameCount = 0;
+    g_owner.landCollisionFrameCount = 0;
+    g_owner.dynamicCollisionFrameCount = 0;
     g_owner.active = true;
     g_owner.frameBegun = false;
 
@@ -543,6 +600,7 @@ bool VehicleRuntimeState_CompleteFrame(
 
     Session::m_viewTime = targetTime;
     g_owner.vehicle->UpdatePos();
+    RecordFrameCollision();
     g_owner.lastTime = targetTime;
     ++g_owner.advanceCount;
     g_owner.frameBegun = false;
@@ -574,6 +632,7 @@ bool VehicleRuntimeState_CompleteLiveFrame(
     {
         Session::m_viewTime = targetTime;
         g_owner.vehicle->UpdatePos();
+        RecordFrameCollision();
         ++g_owner.advanceCount;
         g_owner.frameBegun = false;
         SRecoveredVehicleRuntimeState state = {};
@@ -588,6 +647,7 @@ bool VehicleRuntimeState_CompleteLiveFrame(
     const double physicsTarget = g_owner.lastTime + kMaximumStep;
     Session::m_viewTime = physicsTarget;
     g_owner.vehicle->UpdatePos();
+    RecordFrameCollision();
     g_owner.vehicle->m_lastTime = targetTime;
     Vehicle::s_curTime = targetTime;
     Session::m_viewTime = targetTime;

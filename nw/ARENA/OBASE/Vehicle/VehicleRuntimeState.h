@@ -28,6 +28,12 @@ struct SRecoveredVehicleRuntimeState
     int frameBegun;
     int advanceCount;
     int controlEventCount;
+    int lastBumpFlags;
+    int touchingGround;
+    int groundContactFrameCount;
+    int staticCollisionFrameCount;
+    int landCollisionFrameCount;
+    int dynamicCollisionFrameCount;
 };
 
 struct SRecoveredVehicleMovementProbeSummary
