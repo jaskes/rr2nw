@@ -10,7 +10,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_ACTIVE_DEBUG_MAP_UNAVAILABLE = 1u << 6,
   RECOVERED_GAME_SERVICES_UNSUPPORTED_LEVEL_EVENT = 1u << 7,
   RECOVERED_GAME_SERVICES_SEANCE_FAILURE = 1u << 8,
-  RECOVERED_GAME_SERVICES_VEHICLE_MOVEMENT_FAILURE = 1u << 9
+  RECOVERED_GAME_SERVICES_VEHICLE_MOVEMENT_FAILURE = 1u << 9,
+  RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE = 1u << 10
 };
 
 struct SRecoveredObserverState {
@@ -93,6 +94,18 @@ int RecoveredGameServices_VehicleProbeTurnEvents();
 int RecoveredGameServices_VehicleProbeCameraTransitions();
 int RecoveredGameServices_VehicleProbeRollbacks();
 double RecoveredGameServices_VehicleProbeHorizontalDistance();
+bool RecoveredGameServices_VehicleControlReady();
+bool RecoveredGameServices_VehicleFallbackActive();
+unsigned int RecoveredGameServices_VehicleInputEvents();
+unsigned int RecoveredGameServices_VehicleForwardedEvents();
+unsigned int RecoveredGameServices_VehicleHousekeepingEvents();
+unsigned int RecoveredGameServices_VehicleIgnoredEvents();
+int RecoveredGameServices_VehicleLastInputFailure();
+unsigned int RecoveredGameServices_VehicleFrameCount();
+unsigned int RecoveredGameServices_VehicleCameraFrameCount();
+unsigned int RecoveredGameServices_VehicleDroppedTimeFrameCount();
+unsigned int RecoveredGameServices_VehicleFallbackCount();
+unsigned int RecoveredGameServices_VehicleFallbackReason();
 bool RecoveredGameServices_QuitRequested();
 bool RecoveredGameServices_IsReady();
 unsigned int RecoveredGameServices_Issues();

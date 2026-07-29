@@ -2363,3 +2363,57 @@ Verification passes 51/51 CTest in Debug and Release, all 36/36 installed/
 mounted retail service launches with identical configuration pairs, and 4/4
 waited executable smokes publishing the bounded Vehicle marker,
 `marker=level-ready` and `runtime_shutdown=clean`.
+
+## BD-065: transfer persistent Hardware, tick and camera ownership to Vehicle.Default
+
+Status: accepted on 2026-07-29.
+
+The active January frame order is `Hardware::MessageLoop()`,
+`Vehicle::BeginPreStep()`, `SUA_ProcessEvents()` and `Vehicle::UpdatePos()`.
+Recovery now preserves that boundary with a two-phase runtime frame: Windows
+messages are pumped first, the real vessel begins its pre-step, queued Hardware
+actions are dispatched by Session, and the vessel completes its position
+update before its matrix is used for rendering.
+
+Control transfer is one reversible transaction. The already admitted retail
+Vehicle is activated at the configured spawn, a `RecoveredVehicleControl`
+object is attached as Hardware's `EXCLUSIVE` subscriber, and only then is
+`RecoveredObserver` suspended. Startup failure reverses those steps in the
+opposite order. Normal shutdown unsubscribes and removes the adapter while
+Hardware and SimulationContext still exist, rolls the real Vehicle back, and
+only then releases the Arena graph. The observer remains attached but frozen
+as an emergency camera; it is resubscribed at the last finite Vehicle position
+only if live control state becomes invalid.
+
+The legacy translator emits `SYS_KEY` plus the mapped action for every keyboard
+transition. `SYS_KEY` is counted as housekeeping and consumed by the adapter;
+W/S/A/D, vertical strafe and arrow actions are forwarded through the original
+`Vehicle::receiveEvent(CTRL_BUTTONS_MSG)` decoder. Escape remains owned by the
+adapter so quit is not lost when the observer is suspended. Mouse, joystick,
+Panel, Taxi switching, firing and the unresolved private Vehicle caches are
+not enabled by this decision.
+
+The first presentation frame synchronizes the admitted Vehicle clock with the
+real timer so load-time archaeology does not become a giant physics delta.
+Normal live physics is capped at `0.05` seconds. A longer presentation stall
+executes one bounded step, rebases the legacy clocks and increments a dropped-
+time counter instead of feeding an oversized delta or permanently abandoning
+Vehicle control. Fallback is reserved for five diagnosed corruption paths:
+clock synchronization, BeginPreStep, input forwarding, UpdatePos completion or
+camera construction.
+
+The retail service proof sends real Hardware W down/up transitions. It observes
+four translated events (two `SYS_KEY`, two mapped), two accepted Vehicle
+controls, positive real-vessel motion, a frozen observer and 21 consecutive
+Vehicle-derived software cameras. One frame is deliberately delayed beyond
+`0.05` and must increment the dropped-time counter exactly once without
+fallback. Reconstruction repeats the ownership transaction, and shutdown
+requires a clean runtime owner, zero subscriptions
+and zero published counters.
+
+Final verification passes 51/51 CTest in Debug and Release, all 36/36 retail
+service launches across the installed and mounted roots with identical E/G
+and Debug/Release summaries, and 4/4 waited `rr2nw.exe --runtime-smoke`
+launches. Each executable log records two Vehicle ticks, two Vehicle cameras,
+zero fallback/input failures, `marker=level-ready` and
+`runtime_shutdown=clean`.

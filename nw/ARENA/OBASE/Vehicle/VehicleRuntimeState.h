@@ -25,6 +25,7 @@ struct SRecoveredVehicleRuntimeState
     double lastTime;
     int vesselKind;
     int active;
+    int frameBegun;
     int advanceCount;
     int controlEventCount;
 };
@@ -60,6 +61,21 @@ bool VehicleRuntimeState_Activate(
     const CFVector3 &position, double startTime);
 bool VehicleRuntimeState_ApplyControl(
     SimulationContext *context, int action, double down);
+bool VehicleRuntimeState_ApplyControlAt(
+    SimulationContext *context, int action, double down,
+    double eventTime);
+bool VehicleRuntimeState_ApplyLiveControlAt(
+    SimulationContext *context, int action, double down,
+    double eventTime);
+int VehicleRuntimeState_LastControlFailure();
+bool VehicleRuntimeState_SynchronizeFirstFrame(
+    SimulationContext *context, double startTime);
+bool VehicleRuntimeState_BeginFrame(SimulationContext *context);
+bool VehicleRuntimeState_CompleteFrame(
+    SimulationContext *context, double targetTime);
+bool VehicleRuntimeState_CompleteLiveFrame(
+    SimulationContext *context, double targetTime,
+    bool *droppedTime);
 bool VehicleRuntimeState_Advance(
     SimulationContext *context, double targetTime);
 bool VehicleRuntimeState_BuildCamera(

@@ -1,6 +1,6 @@
 # Player to Vehicle vertical-slice readiness
 
-Snapshot: 2026-07-29, after RP-SCRIPT-026.
+Snapshot: 2026-07-29, after RP-SCRIPT-027.
 
 ## What “drive through the real world” means
 
@@ -25,8 +25,10 @@ first movement proof; they must not be confused with basic drive readiness.
 - `Vehicle.Default` already selects a real `CVesselWheels` or `CVesselEmv`
   implementation from `m_dynamic`; the current admission proves a positive
   mass (`900` on Level.01D), restart state and explosion impulse response.
-- Legacy W/S/A/D action names, Win32 Hardware dispatch and a persistent camera
-  loop work, but they currently belong to `RecoveredObserver`, not Vehicle.
+- Legacy W/S/A/D action names and Win32 Hardware dispatch now feed an exclusive
+  `RecoveredVehicleControl` adapter. It consumes raw `SYS_KEY`, preserves
+  Escape/quit and forwards the mapped action through the real Vehicle decoder.
+  `RecoveredObserver` stays attached but suspended as a fallback-only camera.
 - Core Vessel input methods (`Throttle`, horizontal/vertical strafe, incline,
   raise, jump, stop), collision callback, step functions and camera matrix are
   compiled. `Vehicle::receiveEvent()` already decodes the legacy control
@@ -37,26 +39,36 @@ first movement proof; they must not be confused with basic drive readiness.
   `Vehicle::UpdatePos()` path with a maximum `0.05` second step. The admission
   probe proves a stationary step, W down/up, right steering, 172 movement
   steps, camera change, positive horizontal movement and exact rollback.
+- The persistent service frame now mirrors the source boundary around Session:
+  message pump, real `BeginPreStep`, queued action dispatch, real `UpdatePos`
+  and a `Vehicle.Default` camera. The first frame synchronizes clocks and later
+  stalls cap physics at `0.05` while recording dropped elapsed time.
+- A retail proof sends real Hardware W down/up, observes the paired
+  `4/2/2/0` total/Vehicle/housekeeping/rejected event contract, positive
+  movement and 21 consecutive Vehicle ticks and cameras without moving or
+  activating the observer. One deliberately delayed frame is capped and
+  counted without causing fallback.
 - All nine installed and mounted May Levels produce the same Vehicle runtime
   fingerprint (`14754063850192062311`) in Debug and Release. Their measured
   four-second horizontal distances range from `1.048754` to `66.229913`, so
   admission proves real Level-dependent terrain/dynamics rather than a
   synthetic position increment.
+- Final automated verification passes 51/51 CTest in both configurations,
+  36/36 installed/mounted retail service launches without a root or build-mode
+  mismatch, and 4/4 waited executable smokes with two live Vehicle/camera
+  frames, zero fallback/input failure and clean shutdown.
 - Combat support below Vehicle is substantially present: Bullet attributes and
   subject flight/collision/effects, Explosion/Spark/Smoke children and rollback
   are active. This is useful after movement, but it is not a substitute for the
-  missing Vehicle frame owner.
+  remaining Vehicle gameplay graph.
 
-## Critical gap to the first drivable build
+## Remaining gap to a manually proven drivable build
 
-The current executable deliberately keeps the recovery observer in control.
-The real Vehicle now demonstrably accepts input, advances and produces a
-camera, but only inside a startup admission transaction that restores every
-public position/direction/time field before gameplay frames begin.
-`RecoveredGameServices_RunFrame()` still advances the temporary observer and
-Hardware subscribes that observer exclusively. The remaining critical gap is
-therefore the transactional transfer of persistent input, tick and camera
-ownership, followed by collision-focused manual driving.
+The ownership transfer is no longer the critical gap: the executable now keeps
+the real Vehicle active for gameplay frames and renders from its matrix. What
+remains is to prove that this automated vertical slice is useful under human
+input against the complete retail collision world. Until that manual smoke is
+recorded, “the code drives” must not be upgraded to “the game is drivable.”
 
 The shortest safe implementation sequence is:
 
@@ -68,13 +80,12 @@ The shortest safe implementation sequence is:
 3. **Complete:** add a monotonic, finite, maximum-`0.05`-second advance boundary
    around the original `Vehicle::UpdatePos()` sequence. Invalid activation and
    step inputs fail closed.
-4. Add a handoff mode in game services: unsubscribe `RecoveredObserver`,
-   subscribe `Vehicle.Default`, retain Escape/quit ownership, and restore the
-   observer transactionally if activation fails.
-5. **Synthetic portion complete:** the view matrix is built from vessel
-   position/direction and changes after W/steering. Connect it to the persistent
-   frame owner, then prove terrain collision and deterministic detach while the
-   observer remains a diagnostic fallback.
+4. **Complete:** hand off exclusive Hardware delivery to a quit-safe Vehicle
+   adapter, suspend the observer, and restore it transactionally at the last
+   finite Vehicle position on diagnosed owner/control/camera failure.
+5. **Automated portion complete:** use the vessel view matrix for every
+   persistent frame, prove real Hardware motion and deterministic shutdown, and
+   cap long presentation stalls without feeding unsafe physics deltas.
 6. Run the first manual smoke on Level.01D: spawn, drive forward, turn, stop,
    traverse a slope, collide with a static obstacle, alt-tab and exit. Repeat on
    one wheeled and one EMV/air-like roster before broadening to all nine Levels.
@@ -98,11 +109,11 @@ The shortest safe implementation sequence is:
 ## Current estimate
 
 The reusable platform/world/asset foundation for this slice is roughly
-80--85% complete. The end-to-end drivable slice is roughly 65--70% complete:
-the headless real-physics movement milestone is now passed, but the remaining
-work is high-risk because it transfers persistent input, timing and camera
-ownership and then exposes terrain/static collision to manual play. Real
-cockpit, Taxi/change-vehicle and weapons remain subsequent slices.
+85--90% complete. The automated end-to-end drivable slice is roughly 80--85%
+complete: persistent input, timing, movement and camera ownership are now in
+place, but terrain/static-collision behavior, alt-tab recovery and input feel
+still need the first manual drive. Real cockpit, Taxi/change-vehicle and
+weapons remain subsequent slices.
 
 These percentages are engineering orientation, not schedule claims. Readiness
 is gated by the proofs above, not by line count.

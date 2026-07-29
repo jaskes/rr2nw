@@ -1,5 +1,6 @@
 #include "VehicleRuntimeState.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -16,6 +17,7 @@ namespace {
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 const double kMaximumStep = 0.05;
+const double kTimeEpsilon = 1.0e-9;
 
 struct VehicleRuntimeOwner
 {
@@ -33,6 +35,7 @@ struct VehicleRuntimeOwner
     int advanceCount;
     int controlEventCount;
     bool active;
+    bool frameBegun;
 
     VehicleRuntimeOwner()
         : context(NULL), vehicle(NULL), object(KR_ObjectID::NUL()),
@@ -40,13 +43,15 @@ struct VehicleRuntimeOwner
           savedSubjectPosition(0.0, 0.0, 0.0),
           savedSpeed(0.0, 0.0, 0.0), savedLastTime(0.0),
           savedCurrentTime(0.0), savedViewTime(0.0), lastTime(0.0),
-          advanceCount(0), controlEventCount(0), active(false)
+          advanceCount(0), controlEventCount(0), active(false),
+          frameBegun(false)
     {
         savedDirection.LoadIdentity();
     }
 };
 
 VehicleRuntimeOwner g_owner;
+int g_lastControlFailure = 0;
 
 bool IsNul(const KR_ObjectID &object)
 {
@@ -124,6 +129,8 @@ void ClearOwner()
     g_owner.advanceCount = 0;
     g_owner.controlEventCount = 0;
     g_owner.active = false;
+    g_owner.frameBegun = false;
+    g_lastControlFailure = 0;
 }
 
 Vehicle *ResolveVehicle(SimulationContext *context,
@@ -196,6 +203,7 @@ bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
     state->lastTime = vehicle->m_lastTime;
     state->vesselKind = VesselKind(attribute);
     state->active = g_owner.active && g_owner.vehicle == vehicle;
+    state->frameBegun = state->active && g_owner.frameBegun;
     state->advanceCount = state->active ? g_owner.advanceCount : 0;
     state->controlEventCount =
         state->active ? g_owner.controlEventCount : 0;
@@ -345,6 +353,7 @@ bool VehicleRuntimeState_Activate(
     g_owner.advanceCount = 0;
     g_owner.controlEventCount = 0;
     g_owner.active = true;
+    g_owner.frameBegun = false;
 
     resolved->Restart();
     resolved->GetDir().LoadIdentity();
@@ -370,10 +379,34 @@ bool VehicleRuntimeState_Activate(
 bool VehicleRuntimeState_ApplyControl(
     SimulationContext *context, int action, double down)
 {
+    return VehicleRuntimeState_ApplyControlAt(
+        context, action, down, g_owner.lastTime);
+}
+
+bool VehicleRuntimeState_ApplyControlAt(
+    SimulationContext *context, int action, double down,
+    double eventTime)
+{
+    g_lastControlFailure = 0;
     if (!g_owner.active || context == NULL ||
-        g_owner.context != context || g_owner.vehicle == NULL ||
-        !std::isfinite(down) || down < -1.0 || down > 1.0)
+        g_owner.context != context || g_owner.vehicle == NULL)
+    {
+        g_lastControlFailure = 1;
         return false;
+    }
+    if (!std::isfinite(down) || down < -1.0 || down > 1.0 ||
+        !std::isfinite(eventTime))
+    {
+        g_lastControlFailure = 2;
+        return false;
+    }
+    if (eventTime < g_owner.lastTime)
+        eventTime = g_owner.lastTime;
+    if (eventTime - g_owner.lastTime > kMaximumStep + kTimeEpsilon)
+    {
+        g_lastControlFailure = 3;
+        return false;
+    }
     switch (action)
     {
     case MOVE_FORWARD:
@@ -389,6 +422,7 @@ bool VehicleRuntimeState_ApplyControl(
     case STOP_VEHICLE:
         break;
     default:
+        g_lastControlFailure = 4;
         return false;
     }
     KR_ObjectID source = context->searchObject("Hardware");
@@ -397,7 +431,7 @@ bool VehicleRuntimeState_ApplyControl(
     KR_Event event;
     event.source = source;
     event.destination = g_owner.object;
-    event.timeStamp = g_owner.lastTime;
+    event.timeStamp = eventTime;
     event.label = CTRL_BUTTONS_MSG;
     event.data.open(EDO_WRITE)
         .putInt(action)
@@ -405,11 +439,63 @@ bool VehicleRuntimeState_ApplyControl(
         .putInt(0)
         .putInt(FALSE)
         .close();
-    if (g_owner.vehicle->receiveEvent(event) != 1 ||
-        !VehicleReady(g_owner.vehicle))
+    if (g_owner.vehicle->receiveEvent(event) != 1)
+    {
+        g_lastControlFailure = 5;
         return false;
+    }
+    if (!VehicleReady(g_owner.vehicle))
+    {
+        g_lastControlFailure = 6;
+        return false;
+    }
     ++g_owner.controlEventCount;
     return true;
+}
+
+int VehicleRuntimeState_LastControlFailure()
+{
+    return g_lastControlFailure;
+}
+
+bool VehicleRuntimeState_ApplyLiveControlAt(
+    SimulationContext *context, int action, double down,
+    double eventTime)
+{
+    g_lastControlFailure = 0;
+    if (!g_owner.active || context == NULL ||
+        g_owner.context != context || g_owner.vehicle == NULL)
+    {
+        g_lastControlFailure = 1;
+        return false;
+    }
+    if (!std::isfinite(eventTime))
+    {
+        g_lastControlFailure = 2;
+        return false;
+    }
+    const double boundedTime =
+        (std::max)(g_owner.lastTime,
+                   (std::min)(eventTime,
+                              g_owner.lastTime + kMaximumStep));
+    return VehicleRuntimeState_ApplyControlAt(
+        context, action, down, boundedTime);
+}
+
+bool VehicleRuntimeState_SynchronizeFirstFrame(
+    SimulationContext *context, double startTime)
+{
+    if (!g_owner.active || context == NULL ||
+        g_owner.context != context || g_owner.vehicle == NULL ||
+        g_owner.frameBegun || g_owner.advanceCount != 0 ||
+        g_owner.controlEventCount != 0 || !std::isfinite(startTime) ||
+        startTime < 0.1 || !VehicleReady(g_owner.vehicle))
+        return false;
+    g_owner.lastTime = startTime;
+    g_owner.vehicle->m_lastTime = startTime;
+    Vehicle::s_curTime = startTime;
+    Session::m_viewTime = startTime;
+    return VehicleReady(g_owner.vehicle);
 }
 
 bool VehicleRuntimeState_Advance(
@@ -417,20 +503,101 @@ bool VehicleRuntimeState_Advance(
 {
     if (!g_owner.active || context == NULL ||
         g_owner.context != context || g_owner.vehicle == NULL ||
-        !std::isfinite(targetTime))
+        g_owner.frameBegun || !std::isfinite(targetTime))
         return false;
     const double deltaTime = targetTime - g_owner.lastTime;
     if (!std::isfinite(deltaTime) || deltaTime <= 0.0 ||
-        deltaTime > kMaximumStep)
+        deltaTime > kMaximumStep + kTimeEpsilon)
+        return false;
+
+    return VehicleRuntimeState_BeginFrame(context) &&
+           VehicleRuntimeState_CompleteFrame(context, targetTime);
+}
+
+bool VehicleRuntimeState_BeginFrame(SimulationContext *context)
+{
+    if (!g_owner.active || context == NULL ||
+        g_owner.context != context || g_owner.vehicle == NULL ||
+        g_owner.frameBegun || !VehicleReady(g_owner.vehicle))
         return false;
 
     g_owner.vehicle->BeginPreStep();
+    g_owner.frameBegun = true;
+    return VehicleReady(g_owner.vehicle);
+}
+
+bool VehicleRuntimeState_CompleteFrame(
+    SimulationContext *context, double targetTime)
+{
+    if (!g_owner.active || context == NULL ||
+        g_owner.context != context || g_owner.vehicle == NULL ||
+        !g_owner.frameBegun || !std::isfinite(targetTime))
+        return false;
+    const double deltaTime = targetTime - g_owner.lastTime;
+    if (!std::isfinite(deltaTime) || deltaTime <= 0.0 ||
+        deltaTime > kMaximumStep + kTimeEpsilon)
+    {
+        g_owner.frameBegun = false;
+        return false;
+    }
+
     Session::m_viewTime = targetTime;
     g_owner.vehicle->UpdatePos();
     g_owner.lastTime = targetTime;
     ++g_owner.advanceCount;
+    g_owner.frameBegun = false;
     SRecoveredVehicleRuntimeState state = {};
     return ReadState(g_owner.vehicle, &state) && state.active &&
+           !state.frameBegun &&
+           state.advanceCount == g_owner.advanceCount &&
+           NearlyEqual(state.lastTime, targetTime);
+}
+
+bool VehicleRuntimeState_CompleteLiveFrame(
+    SimulationContext *context, double targetTime,
+    bool *droppedTime)
+{
+    if (droppedTime == NULL)
+        return false;
+    *droppedTime = false;
+    if (!g_owner.active || context == NULL ||
+        g_owner.context != context || g_owner.vehicle == NULL ||
+        !g_owner.frameBegun || !std::isfinite(targetTime))
+        return false;
+    const double deltaTime = targetTime - g_owner.lastTime;
+    if (!std::isfinite(deltaTime) || deltaTime < 0.0)
+    {
+        g_owner.frameBegun = false;
+        return false;
+    }
+    if (deltaTime == 0.0)
+    {
+        Session::m_viewTime = targetTime;
+        g_owner.vehicle->UpdatePos();
+        ++g_owner.advanceCount;
+        g_owner.frameBegun = false;
+        SRecoveredVehicleRuntimeState state = {};
+        return ReadState(g_owner.vehicle, &state) && state.active &&
+               !state.frameBegun &&
+               state.advanceCount == g_owner.advanceCount &&
+               NearlyEqual(state.lastTime, targetTime);
+    }
+    if (deltaTime <= kMaximumStep + kTimeEpsilon)
+        return VehicleRuntimeState_CompleteFrame(context, targetTime);
+
+    const double physicsTarget = g_owner.lastTime + kMaximumStep;
+    Session::m_viewTime = physicsTarget;
+    g_owner.vehicle->UpdatePos();
+    g_owner.vehicle->m_lastTime = targetTime;
+    Vehicle::s_curTime = targetTime;
+    Session::m_viewTime = targetTime;
+    g_owner.lastTime = targetTime;
+    ++g_owner.advanceCount;
+    g_owner.frameBegun = false;
+    *droppedTime = true;
+    SRecoveredVehicleRuntimeState state = {};
+    return ReadState(g_owner.vehicle, &state) && state.active &&
+           !state.frameBegun &&
            state.advanceCount == g_owner.advanceCount &&
            NearlyEqual(state.lastTime, targetTime);
 }

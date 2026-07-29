@@ -1814,6 +1814,34 @@ Status vocabulary:
   bounded pristine-state transaction is not a general replacement for the
   legacy Vehicle serializer.
 
+### CQ-116: Hardware keyboard delivery is paired and long frame time must be bounded
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `CtrlSet::Translate()` puts `SYS_KEY` in slot zero for every button
+  transition and appends the configured gameplay action. Hardware queues both
+  events for every eligible subscriber. The original active frame boundary is
+  `MessageLoop`, `BeginPreStep`, Session poll and `UpdatePos`; its timer also
+  treats a pause above two seconds specially.
+- Handling: keep one exclusive recovery adapter subscribed while Vehicle owns
+  control. Consume/count `SYS_KEY` as raw-key housekeeping, forward only the
+  admitted finite keyboard action set, and own Escape locally for quit. Split
+  Begin/Complete around Session polling. Synchronize the first frame, cap live
+  physics at `0.05`, record dropped elapsed time and reserve observer rollback
+  for invalid state rather than normal presentation stalls.
+- Regression contract: W down/up must yield `4/2/2/0` total/forwarded/
+  housekeeping/rejected events, two real Vehicle control events, positive
+  motion, 21 Vehicle ticks/cameras, exactly one deliberately capped long frame,
+  no observer movement and no fallback.
+  Reconstruction and idempotent shutdown must leave Vehicle runtime clean and
+  both Hardware subscribers detached.
+- Verification: 51/51 CTest passes in both configurations; the 36/36 retail
+  service matrix has no installed/mounted or Debug/Release mismatch; 4/4
+  executable smokes record two Vehicle/camera frames and no fallback/input
+  failure through clean shutdown.
+- Revisit when: mouse/joystick, configurable bindings, Panel, Taxi switching or
+  fixed-tick replay is activated. Do not mistake dropped real time for a
+  deterministic simulation clock.
+
 ## Maintenance rule
 
 When a new quirk is found:

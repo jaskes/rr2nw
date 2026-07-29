@@ -1040,11 +1040,35 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(summary->bushRendererReady));
   log.Line("runtime_mode=" +
            std::string(options.runtimeSmoke ? "bounded-smoke"
-                                            : "interactive-observer"));
+                                            : "interactive-vehicle"));
   log.Line("input_mode=legacy-hardware-keyboard");
-  log.Line("camera_mode=recovered-observer");
-  log.Line("vehicle_control_owner=probe-only-observer-retained");
-  log.Line("vehicle_runtime=retail-spawn-bounded-UpdatePos-camera-rollback");
+  log.Line("camera_mode=Vehicle.Default");
+  log.Line("vehicle_control_owner=RecoveredVehicleControl-exclusive");
+  log.Line("vehicle_runtime=retail-spawn-live-BeginPreStep-UpdatePos-camera");
+  log.Line("vehicle_control_ready=" + std::to_string(
+               RecoveredGameServices_VehicleControlReady() ? 1 : 0));
+  log.Line("vehicle_fallback_active=" + std::to_string(
+               RecoveredGameServices_VehicleFallbackActive() ? 1 : 0));
+  log.Line("vehicle_input_events=" + std::to_string(
+               RecoveredGameServices_VehicleInputEvents()));
+  log.Line("vehicle_forwarded_events=" + std::to_string(
+               RecoveredGameServices_VehicleForwardedEvents()));
+  log.Line("vehicle_housekeeping_events=" + std::to_string(
+               RecoveredGameServices_VehicleHousekeepingEvents()));
+  log.Line("vehicle_ignored_events=" + std::to_string(
+               RecoveredGameServices_VehicleIgnoredEvents()));
+  log.Line("vehicle_last_input_failure=" + std::to_string(
+               RecoveredGameServices_VehicleLastInputFailure()));
+  log.Line("vehicle_frame_count=" + std::to_string(
+               RecoveredGameServices_VehicleFrameCount()));
+  log.Line("vehicle_camera_frame_count=" + std::to_string(
+               RecoveredGameServices_VehicleCameraFrameCount()));
+  log.Line("vehicle_dropped_time_frame_count=" + std::to_string(
+               RecoveredGameServices_VehicleDroppedTimeFrameCount()));
+  log.Line("vehicle_fallback_count=" + std::to_string(
+               RecoveredGameServices_VehicleFallbackCount()));
+  log.Line("vehicle_fallback_reason=" + std::to_string(
+               RecoveredGameServices_VehicleFallbackReason()));
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
@@ -1052,7 +1076,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       "attribute-bullet-collision-impact-explosion-damage-sound-particles-"
       "vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
-  log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
+  log.Line("vehicle_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
+  log.Line("observer_mode=fallback-suspended");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));
   log.Line("game_services_issues=" +

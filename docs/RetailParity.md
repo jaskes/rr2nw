@@ -883,6 +883,35 @@ Retail scripts нельзя молча копировать поверх source 
   launches with exact E/G and Debug/Release results, and 4/4 waited executable
   smokes with `level-ready` and clean shutdown.
 
+### RP-SCRIPT-027: Vehicle.Default owns persistent keyboard input, tick and camera
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. The known May Vehicle identity remains the only
+  admitted physics owner, but activation now persists beyond the startup probe.
+- The recovered order is Hardware message pump, real `BeginPreStep`, Session
+  event dispatch, real `UpdatePos`, then a camera built from `GetDir()` and
+  `-Pos()`. `RecoveredObserver` is suspended and retained only for diagnosed
+  fallback.
+- Each keyboard transition produces one raw `SYS_KEY` housekeeping event and
+  one mapped action. The proof therefore requires `4/2/2/0` for total,
+  forwarded, housekeeping and rejected events around W down/up, plus positive
+  Vehicle motion and no observer motion.
+- Live physics never receives more than `0.05` seconds at once. Longer elapsed
+  time is intentionally dropped after one bounded step and recorded; invalid
+  owner/control/camera state instead rolls back Vehicle and resubscribes the
+  observer at the last finite position. The service proof includes one delayed
+  frame and requires it to increment the existing drop counter exactly once
+  across 21 Vehicle ticks/cameras with no fallback. Any incidental additional
+  host stall remains diagnosed rather than hidden.
+- Startup diagnostics now say `camera_mode=Vehicle.Default`,
+  `vehicle_control_owner=RecoveredVehicleControl-exclusive` and
+  `observer_mode=fallback-suspended`. Panel, Taxi switching, weapon controls,
+  audio and full mission play remain outside this parity claim.
+- Verification passes 51/51 CTest in Debug and Release, 36/36 installed/
+  mounted retail service launches with exact root/configuration summaries, and
+  4/4 waited executable smokes with two Vehicle ticks/cameras, zero fallback,
+  `marker=level-ready` and clean shutdown.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

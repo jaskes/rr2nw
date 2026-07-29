@@ -2192,14 +2192,46 @@ horizontal displacement, camera transition and exact rollback. All nine
 Levels pass from installed and mounted roots in Debug and Release; measured
 movement ranges from `1.048754` (04D) to `66.229913` (05D) while runtime
 identity and counters remain exact. Startup publishes every counter and states
-that the observer still owns control, preventing this bounded proof from being
-mistaken for interactive Vehicle readiness.
+that the observer still owns control at this historical admission milestone;
+the persistent handoff below supersedes that temporary ownership.
 
 Final verification passes 51/51 CTest in each configuration, the 36/36 retail
 service matrix and 4/4 executable smokes with `marker=level-ready` and
-`runtime_shutdown=clean`. The next narrow frontier is transactional
-Hardware/quit/tick/camera handoff from `RecoveredObserver` to this already
-measured Vehicle owner, followed by terrain/static-collision manual driving.
+`runtime_shutdown=clean`. Its next narrow frontier was the transactional
+Hardware/quit/tick/camera handoff completed in the following section.
+
+### Persistent Vehicle control and camera handoff
+
+The handoff frontier is now implemented without opening Vehicle's Panel or
+private serializer. `RecoveredVehicleControl` replaces the observer as the
+exclusive legacy Hardware subscriber and forwards the bounded keyboard action
+set into the real `Vehicle.Default`. Escape is intercepted by the adapter for
+the Win32 quit path; Hardware's extra `SYS_KEY` notification is explicitly
+classified as housekeeping rather than a failed Vehicle command.
+
+`VehicleRuntimeState` exposes separate Begin/Complete operations matching the
+source main loop. The exact admission API continues to reject a step above
+`0.05` without mutation. The persistent API additionally synchronizes the
+first frame and drops excess elapsed time after one capped `0.05` physics step,
+which makes alt-tab, debugger pauses and slow software frames a diagnosed
+timing loss instead of an unsafe ancient dynamics call. Diagnostics publish
+input, forwarded, housekeeping and ignored counts; Vehicle/camera/dropped-time
+frame counts; and fallback count/reason.
+
+The service smoke demonstrates real `Hardware -> Session -> adapter ->
+Vehicle::receiveEvent` delivery, positive motion, 21 persistent Vehicle ticks
+and 21 Vehicle cameras while the fallback observer remains stationary. One
+deliberately delayed frame proves a single capped/dropped interval with no
+fallback. The remaining manual frontier is useful driving against real
+terrain/static
+collision, followed by the unresolved Panel/Taxi/Bullet caches and broader
+gameplay command graph.
+
+Final verification passes 51/51 CTest in each configuration, 36/36 retail
+service launches with zero E/G or Debug/Release summary mismatches, and 4/4
+waited executable smokes. The executable logs prove
+`vehicle_control_ready=1`, two Vehicle/camera frames, zero fallback and input
+failure, `marker=level-ready` and `runtime_shutdown=clean`.
 
 ## Expansion order
 

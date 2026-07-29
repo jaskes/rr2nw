@@ -384,6 +384,18 @@ bool IsServiceReleased() {
          RecoveredGameServices_VehicleProbeCameraTransitions() == -1 &&
          RecoveredGameServices_VehicleProbeRollbacks() == -1 &&
          RecoveredGameServices_VehicleProbeHorizontalDistance() == 0.0 &&
+         !RecoveredGameServices_VehicleControlReady() &&
+         !RecoveredGameServices_VehicleFallbackActive() &&
+         RecoveredGameServices_VehicleInputEvents() == 0 &&
+         RecoveredGameServices_VehicleForwardedEvents() == 0 &&
+         RecoveredGameServices_VehicleHousekeepingEvents() == 0 &&
+         RecoveredGameServices_VehicleIgnoredEvents() == 0 &&
+         RecoveredGameServices_VehicleLastInputFailure() == 0 &&
+         RecoveredGameServices_VehicleFrameCount() == 0 &&
+         RecoveredGameServices_VehicleCameraFrameCount() == 0 &&
+         RecoveredGameServices_VehicleDroppedTimeFrameCount() == 0 &&
+         RecoveredGameServices_VehicleFallbackCount() == 0 &&
+         RecoveredGameServices_VehicleFallbackReason() == 0 &&
          VehicleRuntimeState_IsClean(nullptr) &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
@@ -504,6 +516,23 @@ bool StartServices(const char* directory) {
   return RecoveredGameServices_IsReady();
 }
 
+bool IsVehicleControlActive(KR_ObjectID vehicleID,
+                            SRecoveredVehicleRuntimeState* state) {
+  SRecoveredVehicleRuntimeState current = {};
+  if (g_super.m_context == nullptr || vehicleID.isNUL() ||
+      !RecoveredGameServices_VehicleControlReady() ||
+      RecoveredGameServices_VehicleFallbackActive() ||
+      RecoveredGameServices_VehicleIgnoredEvents() != 0 ||
+      RecoveredGameServices_VehicleFallbackCount() != 0 ||
+      !VehicleRuntimeState_Inspect(
+          g_super.m_context, vehicleID, &current) ||
+      !current.active || current.frameBegun) {
+    return false;
+  }
+  if (state != nullptr) *state = current;
+  return true;
+}
+
 bool SendHardwareButton(const char* keyName, int buttonDown) {
   if (g_super.m_context == nullptr || g_hardware.getContext() == nullptr) {
     return false;
@@ -514,7 +543,10 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
   KR_Event event;
   event.source = g_hardware.getObjectID();
   event.destination = g_hardware.getObjectID();
-  event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
+  const double timerTime = Session::m_realTimer->GetTime();
+  event.timeStamp = !std::isfinite(timerTime) || timerTime < 0.1
+                        ? 0.1
+                        : timerTime;
   event.label = CTRL_HARDWARE_EVENT;
   event.data.open(EDO_WRITE)
       .putInt(CTRL_BUTTONS_MSG)
@@ -524,6 +556,25 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
       .close();
   g_super.m_context->sendEventNow(event);
   return true;
+}
+
+bool WaitForSessionTimeAdvance(double minimumDelta) {
+  if (Session::m_realTimer == nullptr || !std::isfinite(minimumDelta) ||
+      minimumDelta <= 0.0) {
+    return false;
+  }
+  const double startTime = Session::m_realTimer->GetTime();
+  if (!std::isfinite(startTime)) return false;
+  const ULONGLONG deadline = GetTickCount64() + 2000;
+  do {
+    Sleep(1);
+    const double currentTime = Session::m_realTimer->GetTime();
+    if (std::isfinite(currentTime) &&
+        currentTime - startTime >= minimumDelta) {
+      return true;
+    }
+  } while (GetTickCount64() < deadline);
+  return false;
 }
 
 bool ExerciseVisibleSmoke() {
@@ -1659,7 +1710,7 @@ int main(int argc, char** argv) {
       RecoveredGameServices_VehicleProbeCameraTransitions() != 1 ||
       RecoveredGameServices_VehicleProbeRollbacks() != 1 ||
       RecoveredGameServices_VehicleProbeHorizontalDistance() <= 0.01 ||
-      !VehicleRuntimeState_IsClean(g_super.m_context) ||
+      !IsVehicleControlActive(vehicleID, nullptr) ||
       RecoveredGameServices_VehicleVesselMass() <= 0.0 ||
       RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
@@ -2080,7 +2131,7 @@ int main(int argc, char** argv) {
       vehicleProbeCameraTransitions != 1 ||
       vehicleProbeRollbacks != 1 ||
       vehicleProbeHorizontalDistance <= 0.01 ||
-      !VehicleRuntimeState_IsClean(g_super.m_context) ||
+      !IsVehicleControlActive(vehicleID, nullptr) ||
       smokerFingerprint == 0 ||
       smokerRosterSize != 12 || smokerCapacity != 12 ||
       smokerReferenceFingerprint == 0 || !smokerRuntimeReady ||
@@ -2153,26 +2204,124 @@ int main(int argc, char** argv) {
                 "was not atomic");
   }
   const SRecoveredObserverState observerBefore = *observer;
-  if (!SendHardwareButton("W", TRUE)) {
+  SRecoveredVehicleRuntimeState vehicleBefore = {};
+  if (!IsVehicleControlActive(vehicleID, &vehicleBefore) ||
+      RecoveredGameServices_VehicleInputEvents() != 0 ||
+      RecoveredGameServices_VehicleForwardedEvents() != 0 ||
+      RecoveredGameServices_VehicleHousekeepingEvents() != 0 ||
+      RecoveredGameServices_VehicleFrameCount() != 0 ||
+      RecoveredGameServices_VehicleCameraFrameCount() != 0 ||
+      !SendHardwareButton("W", TRUE)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("synthetic Hardware press failed");
+    return Fail("live Vehicle control handoff was not clean");
   }
-  Sleep(20);
+  if (!WaitForSessionTimeAdvance(0.01)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("legacy Session timer did not expose the W press");
+  }
   if (RecoveredGameServices_Issues() != 0 ||
-      !RecoveredGameServices_RunFrame() ||
-      !SendHardwareButton("W", FALSE) ||
-      !RecoveredGameServices_RunFrame() || dwFrames != 2) {
+      !RecoveredGameServices_RunFrame()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("bounded software press frame failed");
+  }
+  // Wait on the same timer that drives Session rather than assuming a wall
+  // clock Sleep maps one-to-one onto a legacy timer tick.
+  if (!WaitForSessionTimeAdvance(0.04)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("legacy Session timer did not advance while W was held");
+  }
+  if (!RecoveredGameServices_RunFrame() ||
+      !SendHardwareButton("W", FALSE)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("bounded software held-input frame failed");
+  }
+  if (!WaitForSessionTimeAdvance(0.01)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("legacy Session timer did not expose the W release");
+  }
+  if (!RecoveredGameServices_RunFrame() || dwFrames != 3) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("bounded software frames failed");
   }
   observer = RecoveredGameServices_ObserverState();
-  if (observer == nullptr || observer->inputEvents < 2 ||
-      observer->z >= observerBefore.z) {
+  SRecoveredVehicleRuntimeState vehicleAfter = {};
+  if (observer == nullptr ||
+      !IsVehicleControlActive(vehicleID, &vehicleAfter)) {
+    std::fprintf(stderr,
+                 "vehicle-control diagnostics ready=%d fallback=%d "
+                 "reason=%u input=%u forwarded=%u housekeeping=%u ignored=%u "
+                 "frames=%u cameras=%u dropped=%u input_failure=%d\n",
+                 RecoveredGameServices_VehicleControlReady() ? 1 : 0,
+                 RecoveredGameServices_VehicleFallbackActive() ? 1 : 0,
+                 RecoveredGameServices_VehicleFallbackReason(),
+                 RecoveredGameServices_VehicleInputEvents(),
+                 RecoveredGameServices_VehicleForwardedEvents(),
+                 RecoveredGameServices_VehicleHousekeepingEvents(),
+                 RecoveredGameServices_VehicleIgnoredEvents(),
+                 RecoveredGameServices_VehicleFrameCount(),
+                 RecoveredGameServices_VehicleCameraFrameCount(),
+                 RecoveredGameServices_VehicleDroppedTimeFrameCount(),
+                 RecoveredGameServices_VehicleLastInputFailure());
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("Hardware actions did not advance the observer camera");
+    return Fail("live Vehicle control was lost after three frames");
+  }
+  const double vehicleDx = vehicleAfter.position.x - vehicleBefore.position.x;
+  const double vehicleDz = vehicleAfter.position.z - vehicleBefore.position.z;
+  if (RecoveredGameServices_VehicleInputEvents() != 4 ||
+      RecoveredGameServices_VehicleForwardedEvents() != 2 ||
+      RecoveredGameServices_VehicleHousekeepingEvents() != 2 ||
+      RecoveredGameServices_VehicleIgnoredEvents() != 0 ||
+      RecoveredGameServices_VehicleFrameCount() != 3 ||
+      RecoveredGameServices_VehicleCameraFrameCount() != 3 ||
+      vehicleAfter.controlEventCount - vehicleBefore.controlEventCount != 2 ||
+      std::sqrt(vehicleDx * vehicleDx + vehicleDz * vehicleDz) <= 1.0e-6 ||
+      observer->inputEvents != observerBefore.inputEvents ||
+      std::fabs(observer->x - observerBefore.x) > 1.0e-9 ||
+      std::fabs(observer->y - observerBefore.y) > 1.0e-9 ||
+      std::fabs(observer->z - observerBefore.z) > 1.0e-9) {
+    std::fprintf(stderr,
+                 "vehicle-motion diagnostics input=%u forwarded=%u "
+                 "housekeeping=%u ignored=%u frames=%u cameras=%u "
+                 "control_delta=%u dx=%.12f dz=%.12f observer_events=%u/%u "
+                 "observer_xyz=%.12f/%.12f/%.12f\n",
+                 RecoveredGameServices_VehicleInputEvents(),
+                 RecoveredGameServices_VehicleForwardedEvents(),
+                 RecoveredGameServices_VehicleHousekeepingEvents(),
+                 RecoveredGameServices_VehicleIgnoredEvents(),
+                 RecoveredGameServices_VehicleFrameCount(),
+                 RecoveredGameServices_VehicleCameraFrameCount(),
+                 vehicleAfter.controlEventCount -
+                     vehicleBefore.controlEventCount,
+                 vehicleDx, vehicleDz,
+                 observer->inputEvents, observerBefore.inputEvents,
+                 observer->x - observerBefore.x,
+                 observer->y - observerBefore.y,
+                 observer->z - observerBefore.z);
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Hardware actions did not advance the live Vehicle camera");
+  }
+  const unsigned int droppedFramesBeforeStall =
+      RecoveredGameServices_VehicleDroppedTimeFrameCount();
+  if (!WaitForSessionTimeAdvance(0.06) ||
+      !RecoveredGameServices_RunFrame() ||
+      !IsVehicleControlActive(vehicleID, nullptr) || dwFrames != 4 ||
+      RecoveredGameServices_VehicleFrameCount() != 4 ||
+      RecoveredGameServices_VehicleCameraFrameCount() != 4 ||
+      RecoveredGameServices_VehicleDroppedTimeFrameCount() !=
+          droppedFramesBeforeStall + 1 ||
+      RecoveredGameServices_VehicleFallbackCount() != 0) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("long Vehicle frame was not capped without fallback");
   }
   if (!ExerciseVisibleSmoke()) {
     ZAV_DeInitLevel();
@@ -2208,6 +2357,49 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("visible Spark sprite/light/detach rollback failed");
+  }
+  SRecoveredVehicleRuntimeState vehicleVisualState = {};
+  const bool vehicleVisualStateInspected = VehicleRuntimeState_Inspect(
+      g_super.m_context, vehicleID, &vehicleVisualState);
+  const bool vehicleVisualControlActive =
+      IsVehicleControlActive(vehicleID, nullptr);
+  if (!vehicleVisualControlActive || dwFrames != 21 ||
+      RecoveredGameServices_VehicleInputEvents() != 4 ||
+      RecoveredGameServices_VehicleForwardedEvents() != 2 ||
+      RecoveredGameServices_VehicleHousekeepingEvents() != 2 ||
+      RecoveredGameServices_VehicleIgnoredEvents() != 0 ||
+      RecoveredGameServices_VehicleLastInputFailure() != 0 ||
+      RecoveredGameServices_VehicleFrameCount() != 21 ||
+      RecoveredGameServices_VehicleCameraFrameCount() != 21 ||
+      RecoveredGameServices_VehicleDroppedTimeFrameCount() < 1 ||
+      RecoveredGameServices_VehicleFallbackCount() != 0 ||
+      RecoveredGameServices_VehicleFallbackReason() != 0) {
+    std::fprintf(stderr,
+                 "vehicle-visual-suite diagnostics ready=%d fallback=%d "
+                 "reason=%u input=%u forwarded=%u housekeeping=%u ignored=%u "
+                 "input_failure=%d frames=%u cameras=%u dropped=%u "
+                 "fallbacks=%u dwFrames=%lu inspected=%d active=%d "
+                 "frame_begun=%d advances=%u controls=%u\n",
+                 RecoveredGameServices_VehicleControlReady() ? 1 : 0,
+                 RecoveredGameServices_VehicleFallbackActive() ? 1 : 0,
+                 RecoveredGameServices_VehicleFallbackReason(),
+                 RecoveredGameServices_VehicleInputEvents(),
+                 RecoveredGameServices_VehicleForwardedEvents(),
+                 RecoveredGameServices_VehicleHousekeepingEvents(),
+                 RecoveredGameServices_VehicleIgnoredEvents(),
+                 RecoveredGameServices_VehicleLastInputFailure(),
+                 RecoveredGameServices_VehicleFrameCount(),
+                 RecoveredGameServices_VehicleCameraFrameCount(),
+                 RecoveredGameServices_VehicleDroppedTimeFrameCount(),
+                 RecoveredGameServices_VehicleFallbackCount(), dwFrames,
+                 vehicleVisualStateInspected ? 1 : 0,
+                 vehicleVisualState.active ? 1 : 0,
+                 vehicleVisualState.frameBegun ? 1 : 0,
+                 vehicleVisualState.advanceCount,
+                 vehicleVisualState.controlEventCount);
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("live Vehicle control did not survive the visual frame suite");
   }
 
   KR_Event unsupported;
@@ -2356,7 +2548,7 @@ int main(int argc, char** argv) {
           vehicleProbeRollbacks ||
       std::fabs(RecoveredGameServices_VehicleProbeHorizontalDistance() -
                 vehicleProbeHorizontalDistance) > 1.0e-9 ||
-      !VehicleRuntimeState_IsClean(g_super.m_context) ||
+      !IsVehicleControlActive(vehicleID, nullptr) ||
       SmokerAttributeState_Fingerprint(g_super.m_context) !=
           smokerFingerprint ||
       SmokerAttributeState_RosterSize(g_super.m_context) !=
@@ -2456,7 +2648,7 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=18 hooks=12 hardware=legacy "
+  std::printf("bounded services frames=21 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
                "smoke_simulation=START-MOVE-remove "
@@ -2477,8 +2669,10 @@ int main(int argc, char** argv) {
               "explosion_trace=%d/%d/%d/%d/%d/%d/%d refs=%llu "
               "frame=NEWPUFF-common-Smoke-detach quota=4 "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
-              "vehicle_runtime=bounded-UpdatePos kind=%d fingerprint=%llu "
+              "vehicle_runtime=live-BeginPreStep-UpdatePos kind=%d fingerprint=%llu "
               "probe=%d/%d/%d/%d/%d/%d/%d/%d distance=%.6f "
+              "vehicle_control=Hardware-exclusive-4/2/2/0 "
+              "vehicle_frames=21 dropped>=1 camera=Vehicle.Default fallback=0 "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
@@ -2507,7 +2701,7 @@ int main(int argc, char** argv) {
                "skin_resources=%llu "
                "spark=0/%d-sprite-light-May-phase spark_subject=%llu "
                "spark_visual=%llu spark_probe=2/1/1/5/1 "
-               "route=table vehicle=real observer=1\n",
+               "route=table vehicle=real observer=fallback-suspended\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,
                explosionRosterSize, explosionFingerprint,

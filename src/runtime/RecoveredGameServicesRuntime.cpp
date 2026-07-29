@@ -56,11 +56,11 @@ class RecoveredObserverInput final : public KR_Object {
 
   void addNotify() override {
     KR_Object::addNotify();
-    Subscribe(CTRL_SUBSCRIBE);
+    SetSubscribed(true);
   }
 
   void removeNotify() override {
-    Subscribe(CTRL_UNSUBSCRIBE);
+    SetSubscribed(false);
     KR_Object::removeNotify();
   }
 
@@ -162,23 +162,45 @@ class RecoveredObserverInput final : public KR_Object {
   }
 
   bool QuitRequested() const { return m_quitRequested; }
+  bool IsSubscribed() const { return m_subscribed; }
+  bool Suspend() {
+    ClearMotion();
+    return SetSubscribed(false);
+  }
+  bool Resume() { return SetSubscribed(true); }
   const SRecoveredObserverState& state() const { return m_state; }
 
  private:
-  void Subscribe(int label) {
-    if (getContext() == nullptr) return;
+  void ClearMotion() {
+    m_forward = 0.0;
+    m_backward = 0.0;
+    m_left = 0.0;
+    m_right = 0.0;
+    m_up = 0.0;
+    m_down = 0.0;
+    m_turnLeft = 0.0;
+    m_turnRight = 0.0;
+    m_lookUp = 0.0;
+    m_lookDown = 0.0;
+  }
+
+  bool SetSubscribed(bool subscribe) {
+    if (m_subscribed == subscribe) return true;
+    if (getContext() == nullptr) return false;
     KR_ObjectID hardware = getContext()->searchObject("Hardware");
-    if (hardware.isNUL()) return;
+    if (hardware.isNUL()) return false;
 
     KR_Event event;
     event.source = getObjectID();
     event.destination = hardware;
-    event.label = label;
+    event.label = subscribe ? CTRL_SUBSCRIBE : CTRL_UNSUBSCRIBE;
     event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
     event.data.open(EDO_WRITE).putObjectID(getObjectID());
-    if (label == CTRL_SUBSCRIBE) event.data.putInt(EXCLUSIVE);
+    if (subscribe) event.data.putInt(EXCLUSIVE);
     event.data.close();
     getContext()->sendEventNow(event);
+    m_subscribed = subscribe;
+    return true;
   }
 
   SRecoveredObserverState m_state = {};
@@ -193,6 +215,121 @@ class RecoveredObserverInput final : public KR_Object {
   double m_lookUp = 0.0;
   double m_lookDown = 0.0;
   bool m_quitRequested = false;
+  bool m_subscribed = false;
+};
+
+class RecoveredVehicleControlInput final : public KR_Object {
+ public:
+  void Reset(const KR_ObjectID& vehicle) {
+    m_vehicle = vehicle;
+    m_inputEvents = 0;
+    m_forwardedEvents = 0;
+    m_housekeepingEvents = 0;
+    m_ignoredEvents = 0;
+    m_quitRequested = false;
+    m_forwardingFailed = false;
+    m_lastInputFailure = 0;
+  }
+
+  void addNotify() override { KR_Object::addNotify(); }
+
+  void removeNotify() override {
+    SetSubscribed(false);
+    KR_Object::removeNotify();
+  }
+
+  int receiveEvent(KR_Event& event) override {
+    if (event.label == KR_WAKE_UP || event.label == CTRL_CHAR ||
+        event.label == CTRL_MOUSE_MOVE_MSG ||
+        event.label == CTRL_JOYSTICK_MOVE_MSG) {
+      return 1;
+    }
+    if (event.label != CTRL_BUTTONS_MSG) return 0;
+
+    int action = -1;
+    double down = 0.0;
+    int code = 0;
+    int repeat = 0;
+    event.data.open(EDO_READ)
+        .getInt(action)
+        .getDouble(down)
+        .getInt(code)
+        .getInt(repeat)
+        .close();
+    (void)code;
+    (void)repeat;
+    ++m_inputEvents;
+
+    // Every legacy keyboard translation also emits SYS_KEY before its mapped
+    // gameplay action. It is a raw-key notification, not a Vehicle command.
+    if (action == SYS_KEY) {
+      ++m_housekeepingEvents;
+      return 1;
+    }
+
+    if (action == EXIT) {
+      if (down > 0.0) {
+        m_quitRequested = true;
+        if (_gr_hWnd != nullptr) PostMessageA(_gr_hWnd, WM_CLOSE, 0, 0);
+      }
+      return 1;
+    }
+
+    if (getContext() == nullptr || m_vehicle.isNUL() ||
+        !getContext()->isExist(m_vehicle) ||
+        !VehicleRuntimeState_ApplyLiveControlAt(
+            getContext(), action, down, event.timeStamp)) {
+      ++m_ignoredEvents;
+      m_forwardingFailed = true;
+      m_lastInputFailure = VehicleRuntimeState_LastControlFailure();
+      return 1;
+    }
+    ++m_forwardedEvents;
+    return 1;
+  }
+
+  bool shouldDump() override { return false; }
+
+  bool Subscribe() { return SetSubscribed(true); }
+  bool Unsubscribe() { return SetSubscribed(false); }
+  bool IsSubscribed() const { return m_subscribed; }
+  bool QuitRequested() const { return m_quitRequested; }
+  bool ForwardingFailed() const { return m_forwardingFailed; }
+  unsigned int InputEvents() const { return m_inputEvents; }
+  unsigned int ForwardedEvents() const { return m_forwardedEvents; }
+  unsigned int HousekeepingEvents() const { return m_housekeepingEvents; }
+  unsigned int IgnoredEvents() const { return m_ignoredEvents; }
+  int LastInputFailure() const { return m_lastInputFailure; }
+
+ private:
+  bool SetSubscribed(bool subscribe) {
+    if (m_subscribed == subscribe) return true;
+    if (getContext() == nullptr) return false;
+    KR_ObjectID hardware = getContext()->searchObject("Hardware");
+    if (hardware.isNUL()) return false;
+
+    KR_Event event;
+    event.source = getObjectID();
+    event.destination = hardware;
+    event.label = subscribe ? CTRL_SUBSCRIBE : CTRL_UNSUBSCRIBE;
+    event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
+    event.data.open(EDO_WRITE).putObjectID(getObjectID());
+    if (subscribe) event.data.putInt(EXCLUSIVE);
+    event.data.close();
+    getContext()->sendEventNow(event);
+    m_subscribed = subscribe;
+    return true;
+  }
+
+  KR_ObjectID m_vehicle = KR_ObjectID::NUL();
+  unsigned int m_inputEvents = 0;
+  unsigned int m_forwardedEvents = 0;
+  unsigned int m_housekeepingEvents = 0;
+  unsigned int m_ignoredEvents = 0;
+  bool m_quitRequested = false;
+  bool m_forwardingFailed = false;
+  int m_lastInputFailure = 0;
+  bool m_subscribed = false;
 };
 
 unsigned int g_issues = 0;
@@ -204,10 +341,18 @@ bool g_loopReady = false;
 bool g_hardwareReady = false;
 bool g_windowQuitRequested = false;
 bool g_vehicleMovementReady = false;
+bool g_vehicleControlReady = false;
+bool g_vehicleFallbackActive = false;
+unsigned int g_vehicleFrameCount = 0;
+unsigned int g_vehicleCameraFrameCount = 0;
+unsigned int g_vehicleDroppedTimeFrameCount = 0;
+unsigned int g_vehicleFallbackCount = 0;
+unsigned int g_vehicleFallbackReason = 0;
 unsigned long long g_vehicleRuntimeFingerprint = 0;
 int g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
 SRecoveredVehicleMovementProbeSummary g_vehicleMovementProbe = {};
 RecoveredObserverInput g_observerInput;
+RecoveredVehicleControlInput g_vehicleControlInput;
 
 void Report(unsigned int issue) { g_issues |= issue; }
 
@@ -254,12 +399,103 @@ void RemoveAttachedObject(SimulationContext* context, KR_Object* object) {
   context->removeObject(id);
 }
 
+void StopVehicleControl(bool restoreObserver,
+                        const CFVector3* observerPosition) {
+  SimulationContext* context = g_super.m_context;
+  if (context != nullptr) {
+    if (g_vehicleControlInput.getContext() == context) {
+      g_vehicleControlInput.Unsubscribe();
+      RemoveAttachedObject(context, &g_vehicleControlInput);
+    }
+    VehicleRuntimeState_Reset(context);
+    if (restoreObserver && g_observerInput.getContext() == context) {
+      if (observerPosition != nullptr) {
+        g_observerInput.Reset(*observerPosition);
+      }
+      g_observerInput.Resume();
+    }
+  }
+  g_vehicleControlReady = false;
+}
+
+bool BeginVehicleControl(SimulationContext* context,
+                         KR_ObjectID vehicle,
+                         const CFVector3& position) {
+  if (context == nullptr || vehicle.isNUL() ||
+      g_observerInput.getContext() != context ||
+      !g_observerInput.IsSubscribed() ||
+      !VehicleRuntimeState_IsClean(context)) {
+    return false;
+  }
+
+  const double timerTime = g_timer.GetTime();
+  const double startTime =
+      !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
+  if (!VehicleRuntimeState_Activate(
+          context, vehicle, position, startTime)) {
+    return false;
+  }
+
+  g_vehicleControlInput.Reset(vehicle);
+  if (context->addObject("RecoveredVehicleControl",
+                         &g_vehicleControlInput).isNUL() ||
+      !g_observerInput.Suspend() ||
+      !g_vehicleControlInput.Subscribe()) {
+    StopVehicleControl(true, &position);
+    return false;
+  }
+
+  SRecoveredVehicleRuntimeState state = {};
+  if (!VehicleRuntimeState_Inspect(context, vehicle, &state) ||
+      !state.active || state.frameBegun ||
+      !g_vehicleControlInput.IsSubscribed() ||
+      g_observerInput.IsSubscribed()) {
+    StopVehicleControl(true, &position);
+    return false;
+  }
+
+  g_vehicleControlReady = true;
+  g_vehicleFallbackActive = false;
+  g_vehicleFrameCount = 0;
+  g_vehicleCameraFrameCount = 0;
+  g_vehicleDroppedTimeFrameCount = 0;
+  g_vehicleFallbackCount = 0;
+  g_vehicleFallbackReason = 0;
+  return true;
+}
+
+bool ActivateVehicleFallback(unsigned int reason) {
+  if (g_vehicleFallbackActive) return true;
+  CFVector3 position(g_observerInput.state().x,
+                     g_observerInput.state().y,
+                     g_observerInput.state().z);
+  if (g_super.m_context != nullptr) {
+    KR_ObjectID vehicle =
+        g_super.m_context->searchObject("Vehicle.Default");
+    SRecoveredVehicleRuntimeState state = {};
+    if (!vehicle.isNUL() && VehicleRuntimeState_Inspect(
+            g_super.m_context, vehicle, &state) && state.active &&
+        std::isfinite(state.position.x) &&
+        std::isfinite(state.position.y) &&
+        std::isfinite(state.position.z)) {
+      position = state.position;
+    }
+  }
+
+  StopVehicleControl(true, &position);
+  g_vehicleFallbackActive = g_observerInput.IsSubscribed();
+  g_vehicleFallbackReason = reason;
+  if (g_vehicleFallbackActive) ++g_vehicleFallbackCount;
+  Report(RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE);
+  return g_vehicleFallbackActive;
+}
+
 void EndBoundedSession() {
   RecoveredSoftwareGraph_ConfigureWindowMessageHook(nullptr);
   SUA_BindSession(nullptr);
 
   if (g_super.m_context != nullptr) {
-    VehicleRuntimeState_Reset(g_super.m_context);
+    StopVehicleControl(false, nullptr);
     // Arena owns all script-created class-table objects. Release that graph
     // while its context and the legacy services it may notify still exist.
     RecoveredArenaSeance_Release();
@@ -288,9 +524,17 @@ void EndBoundedSession() {
   g_hardwareReady = false;
   g_windowQuitRequested = false;
   g_vehicleMovementReady = false;
+  g_vehicleControlReady = false;
+  g_vehicleFallbackActive = false;
+  g_vehicleFrameCount = 0;
+  g_vehicleCameraFrameCount = 0;
+  g_vehicleDroppedTimeFrameCount = 0;
+  g_vehicleFallbackCount = 0;
+  g_vehicleFallbackReason = 0;
   g_vehicleRuntimeFingerprint = 0;
   g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
   g_vehicleMovementProbe = {};
+  g_vehicleControlInput.Reset(KR_ObjectID::NUL());
 
   const SFrameRuntimeHooks emptyFrameHooks = {};
   Frame_ConfigureRuntime(emptyFrameHooks);
@@ -401,6 +645,12 @@ void InitializeSession() {
     }
     g_vehicleVesselKind = vehicleState.vesselKind;
     g_vehicleMovementReady = true;
+    if (!BeginVehicleControl(g_super.m_context, vehicle,
+                             observerPosition)) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE);
+      return;
+    }
 
     Frame_BindRecoveredSoftware();
     RecoveredSoftwareGraph_ConfigureWindowMessageHook(
@@ -795,8 +1045,58 @@ double RecoveredGameServices_VehicleProbeHorizontalDistance() {
                                 : 0.0;
 }
 
+bool RecoveredGameServices_VehicleControlReady() {
+  return g_vehicleControlReady;
+}
+
+bool RecoveredGameServices_VehicleFallbackActive() {
+  return g_vehicleFallbackActive;
+}
+
+unsigned int RecoveredGameServices_VehicleInputEvents() {
+  return g_vehicleControlInput.InputEvents();
+}
+
+unsigned int RecoveredGameServices_VehicleForwardedEvents() {
+  return g_vehicleControlInput.ForwardedEvents();
+}
+
+unsigned int RecoveredGameServices_VehicleHousekeepingEvents() {
+  return g_vehicleControlInput.HousekeepingEvents();
+}
+
+unsigned int RecoveredGameServices_VehicleIgnoredEvents() {
+  return g_vehicleControlInput.IgnoredEvents();
+}
+
+int RecoveredGameServices_VehicleLastInputFailure() {
+  return g_vehicleControlInput.LastInputFailure();
+}
+
+unsigned int RecoveredGameServices_VehicleFrameCount() {
+  return g_vehicleFrameCount;
+}
+
+unsigned int RecoveredGameServices_VehicleCameraFrameCount() {
+  return g_vehicleCameraFrameCount;
+}
+
+unsigned int RecoveredGameServices_VehicleDroppedTimeFrameCount() {
+  return g_vehicleDroppedTimeFrameCount;
+}
+
+unsigned int RecoveredGameServices_VehicleFallbackCount() {
+  return g_vehicleFallbackCount;
+}
+
+unsigned int RecoveredGameServices_VehicleFallbackReason() {
+  return g_vehicleFallbackReason;
+}
+
 bool RecoveredGameServices_QuitRequested() {
-  return g_observerInput.QuitRequested() || g_windowQuitRequested;
+  return g_observerInput.QuitRequested() ||
+         g_vehicleControlInput.QuitRequested() ||
+         g_windowQuitRequested;
 }
 
 bool RecoveredGameServices_IsReady() {
@@ -852,6 +1152,8 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_RouteReady() &&
          RecoveredGameServices_VehicleReady() &&
          RecoveredGameServices_VehicleMovementReady() &&
+         (RecoveredGameServices_VehicleControlReady() ||
+          RecoveredGameServices_VehicleFallbackActive()) &&
          RecoveredGameLevel_IsReady() && Frame_RuntimeReady(false);
 }
 
@@ -867,8 +1169,40 @@ int RecoveredGameServices_RunFrame() {
     return FALSE;
   }
   if (!PumpMessages()) return FALSE;
+  bool vehicleFrame = g_vehicleControlReady;
+  if (vehicleFrame && g_vehicleFrameCount == 0) {
+    const double timerTime = g_timer.GetTime();
+    if (!VehicleRuntimeState_SynchronizeFirstFrame(
+            g_super.m_context,
+            !std::isfinite(timerTime) || timerTime < 0.1
+                ? 0.1
+                : timerTime)) {
+      if (!ActivateVehicleFallback(1)) return FALSE;
+      vehicleFrame = false;
+    }
+  }
+  if (vehicleFrame &&
+      !VehicleRuntimeState_BeginFrame(g_super.m_context)) {
+    if (!ActivateVehicleFallback(2)) return FALSE;
+    vehicleFrame = false;
+  }
   SUA_ProcessEvents();
-  g_observerInput.Advance(Session::m_frameSec);
+  if (vehicleFrame) {
+    bool droppedTime = false;
+    if (g_vehicleControlInput.ForwardingFailed()) {
+      if (!ActivateVehicleFallback(3)) return FALSE;
+      vehicleFrame = false;
+    } else if (!VehicleRuntimeState_CompleteLiveFrame(
+            g_super.m_context, Session::m_viewTime,
+            &droppedTime)) {
+      if (!ActivateVehicleFallback(4)) return FALSE;
+      vehicleFrame = false;
+    } else {
+      ++g_vehicleFrameCount;
+      if (droppedTime) ++g_vehicleDroppedTimeFrameCount;
+    }
+  }
+  if (!vehicleFrame) g_observerInput.Advance(Session::m_frameSec);
 
   Frame_ClearRuntimeIssues();
   if (!GRStartScene()) {
@@ -878,7 +1212,20 @@ int RecoveredGameServices_RunFrame() {
 
   CViewDynamicList dynamics;
   CFMatrix3x4 direction;
-  g_observerInput.BuildCamera(&direction);
+  if (g_vehicleControlReady) {
+    if (!VehicleRuntimeState_BuildCamera(
+            g_super.m_context, &direction)) {
+      if (!ActivateVehicleFallback(5)) {
+        Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+        return FALSE;
+      }
+      g_observerInput.BuildCamera(&direction);
+    } else {
+      ++g_vehicleCameraFrameCount;
+    }
+  } else {
+    g_observerInput.BuildCamera(&direction);
+  }
   SUA_BeginRender(ZAV_Scene(), dynamics);
   g_debugMap.Draw();
   ZAV_RenderFrame(&direction, dynamics);
