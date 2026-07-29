@@ -100,7 +100,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_BULLET_GROUND_SPARK_FAILURE = 1ull << 23,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_BARREL_SMOKE_FAILURE = 1ull << 24,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE = 1ull << 25,
-  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE = 1ull << 26
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE = 1ull << 26,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE = 1ull << 27
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -137,6 +138,13 @@ int RecoveredArenaSeance_ExplosionParticleProbeDependencySkips();
 int RecoveredArenaSeance_ExplosionParticleProbeMoveSteps();
 int RecoveredArenaSeance_ExplosionParticleProbeExpiredParents();
 int RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches();
+bool RecoveredArenaSeance_ExplosionSmokeReady();
+unsigned long long RecoveredArenaSeance_ExplosionSmokeVisualFingerprint();
+int RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites();
+int RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips();
+int RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps();
+int RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents();
+int RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites();
 int RecoveredArenaSeance_ExplosionSubjectCapacity();
 unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint();
 int RecoveredArenaSeance_ExplosionProbeInvalidStarts();

@@ -10,6 +10,14 @@ class CViewObjectModel;
 class SimulationContext;
 class WAVObj;
 
+enum EExplosionSmokeVisualResourcePresence
+{
+    EXPLOSION_SMOKE_VISUAL_RESOURCES_NONE = 0,
+    EXPLOSION_SMOKE_VISUAL_RESOURCES_COMPLETE = 1,
+    EXPLOSION_SMOKE_VISUAL_RESOURCES_PARTIAL = 2,
+    EXPLOSION_SMOKE_VISUAL_RESOURCES_INVALID = 3
+};
+
 class AttributeExplosion : public ct_Attribute
 {
  public:
@@ -176,6 +184,23 @@ unsigned long long ExplosionAttributeState_ParticleVisualFingerprint(
 bool ExplosionAttributeState_IsKnownParticleVisualRoster(
     SimulationContext *context);
 void ExplosionAttributeState_ClearParticleVisuals(
+    SimulationContext *context);
+EExplosionSmokeVisualResourcePresence
+ExplosionAttributeState_InspectSmokeVisualResources(
+    SimulationContext *context, unsigned long long *fingerprint);
+bool ExplosionAttributeState_SmokeVisualCachesUnresolved(
+    SimulationContext *context);
+bool ExplosionAttributeState_ProbeSmokeVisualAtomicity(
+    SimulationContext *context);
+bool ExplosionAttributeState_ResolveSmokeVisuals(
+    SimulationContext *context);
+bool ExplosionAttributeState_SmokeVisualsResolved(
+    SimulationContext *context);
+unsigned long long ExplosionAttributeState_SmokeVisualFingerprint(
+    SimulationContext *context);
+bool ExplosionAttributeState_IsKnownSmokeVisualRoster(
+    SimulationContext *context);
+void ExplosionAttributeState_ClearSmokeVisuals(
     SimulationContext *context);
 
 #endif

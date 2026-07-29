@@ -316,6 +316,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ExplosionLightReady() &&
          !RecoveredGameServices_ExplosionSoundReady() &&
          !RecoveredGameServices_ExplosionParticlesReady() &&
+         !RecoveredGameServices_ExplosionSmokeReady() &&
          RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionSoundProbeStarted() == -1 &&
          RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() == -1 &&
@@ -329,6 +330,12 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_ExplosionParticleProbeMoveSteps() == -1 &&
          RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() == -1 &&
          RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeVisualFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -901,8 +908,9 @@ bool ExerciseVisibleExplosionParticles() {
       !RecoveredGameServices_ExplosionLightReady() ||
       !RecoveredGameServices_ExplosionSoundReady() ||
       !RecoveredGameServices_ExplosionParticlesReady() ||
+      !RecoveredGameServices_ExplosionSmokeReady() ||
       !ExplosionSubjectState_LightRosterReady(g_super.m_context) ||
-      _pGRDrawParticle == nullptr ||
+      _pGRDrawParticle == nullptr || _pGRDrawAlphaSprite == nullptr ||
       ExplosionSubjectState_LiveCount() != 0 ||
       ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
       g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
@@ -932,6 +940,7 @@ bool ExerciseVisibleExplosionParticles() {
   static const char kProbeName[] = "Explosion.Light.Rendering.Probe";
   if (attribute == nullptr || !attribute->m_useLight ||
       attribute->m_wav == nullptr || attribute->m_ctsndID == ct_NULLID ||
+      attribute->m_hTexture == nullptr ||
       attribute->m_lightTimeLife <= 0.0 ||
       attribute->m_lightRadius <= 0.0 || attributeIndex == -1 ||
       subjectTable == ct_NULLID || observer == nullptr ||
@@ -957,14 +966,17 @@ bool ExerciseVisibleExplosionParticles() {
   int simpleParticles = -1;
   int snakeParticles = -1;
   int rays = -1;
+  int smokeSprites = -1;
   const bool particlesOwned = !explosion.isNUL() &&
       ExplosionSubjectState_ParentParticleCounts(
-          context, explosion, &simpleParticles, &snakeParticles, &rays);
-  const int ownedBranches = simpleParticles + snakeParticles + rays;
+          context, explosion, &simpleParticles, &snakeParticles, &rays,
+          &smokeSprites);
+  const int ownedBranches =
+      simpleParticles + snakeParticles + rays + smokeSprites;
   if (!executed || damageApplications != 0 || explosion.isNUL() ||
       ExplosionSubjectState_LiveCount() != 1 ||
       !particlesOwned || simpleParticles <= 0 || snakeParticles <= 0 ||
-      rays < 0 || ownedBranches <= 0 ||
+      rays < 0 || smokeSprites <= 0 || ownedBranches <= 0 ||
       ExplosionSubjectState_ParticleBranchLiveCount() !=
           branchesBefore + ownedBranches ||
       SoundObjectState_LiveCount() != soundsBefore + 1 ||
@@ -982,10 +994,13 @@ bool ExerciseVisibleExplosionParticles() {
   bool lightPublished = false;
   bool ownedMove = false;
   int drawsAfterVisibleFrame = 0;
+  int smokeDrawsAfterVisibleFrame = 0;
   {
     ScopedParticleCapture capture;
+    ScopedAlphaSpriteCapture smokeCapture(attribute->m_hTexture);
     visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
     drawsAfterVisibleFrame = g_particleDraws;
+    smokeDrawsAfterVisibleFrame = g_alphaSpriteDraws;
     double elapsed = Session::m_moment - timeStamp;
     if (elapsed < 0.0) elapsed = 0.0;
     int brightnessIndex = static_cast<int>(
@@ -1013,6 +1028,9 @@ bool ExerciseVisibleExplosionParticles() {
   return lightPublished && ownedMove && rolledBack && detachedFrame &&
          g_particleDrawValid && drawsAfterVisibleFrame > 0 &&
          g_particleDraws == drawsAfterVisibleFrame &&
+         g_alphaSpriteDrawValid && smokeDrawsAfterVisibleFrame > 0 &&
+         g_alphaSpriteDraws == smokeDrawsAfterVisibleFrame &&
+         g_lastAlphaSprite.hTexture == attribute->m_hTexture &&
          dwFrames == framesBefore + 2 &&
          CViewObject::EnabledLights() == 0 &&
          g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
@@ -1330,6 +1348,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ExplosionLightReady() ||
       !RecoveredGameServices_ExplosionSoundReady() ||
       !RecoveredGameServices_ExplosionParticlesReady() ||
+      !RecoveredGameServices_ExplosionSmokeReady() ||
        !RecoveredGameServices_VehicleAttributesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
@@ -1432,6 +1451,19 @@ int main(int argc, char** argv) {
   const unsigned long long explosionParticleVisualFingerprint =
       ExplosionAttributeState_ParticleVisualFingerprint(
           g_super.m_context);
+  const unsigned long long explosionSmokeVisualFingerprint =
+      ExplosionAttributeState_SmokeVisualFingerprint(
+          g_super.m_context);
+  const int explosionSmokeStartedSprites =
+      RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites();
+  const int explosionSmokeDependencySkips =
+      RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips();
+  const int explosionSmokeMoveSteps =
+      RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps();
+  const int explosionSmokeExpiredParents =
+      RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents();
+  const int explosionSmokeRolledBackSprites =
+      RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites();
   const int explosionParticleStartedBranches =
       RecoveredArenaSeance_ExplosionParticleProbeStartedBranches();
   const int explosionParticleSimple =
@@ -1575,6 +1607,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ExplosionLightReady() ||
       !RecoveredGameServices_ExplosionSoundReady() ||
       !RecoveredGameServices_ExplosionParticlesReady() ||
+      !RecoveredGameServices_ExplosionSmokeReady() ||
       !ExplosionAttributeState_ParticleVisualsResolved(
           g_super.m_context) ||
       !ExplosionAttributeState_IsKnownParticleVisualRoster(
@@ -1591,6 +1624,17 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() != 1 ||
       RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() !=
           RecoveredArenaSeance_ExplosionParticleProbeStartedBranches() ||
+      !ExplosionAttributeState_SmokeVisualsResolved(g_super.m_context) ||
+      !ExplosionAttributeState_IsKnownSmokeVisualRoster(g_super.m_context) ||
+      explosionSmokeVisualFingerprint == 0 ||
+      RecoveredArenaSeance_ExplosionSmokeVisualFingerprint() !=
+          explosionSmokeVisualFingerprint ||
+      RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() <= 0 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() != 1 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() <= 0 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() != 1 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() !=
+          RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() ||
       ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
       ExplosionSubjectState_ParticleBranchCapacity() != 500 ||
       !ExplosionAttributeState_SoundReferencesResolved(g_super.m_context) ||
@@ -1822,6 +1866,15 @@ int main(int argc, char** argv) {
           explosionFingerprint ||
       ExplosionAttributeState_ParticleVisualFingerprint(
           g_super.m_context) != explosionParticleVisualFingerprint ||
+      ExplosionAttributeState_SmokeVisualFingerprint(
+          g_super.m_context) != explosionSmokeVisualFingerprint ||
+      !RecoveredGameServices_ExplosionSmokeReady() ||
+      RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() <= 0 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() != 1 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() <= 0 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() != 1 ||
+      RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() !=
+          RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() ||
       ExplosionSubjectState_Capacity() != explosionSubjectCapacity ||
       ExplosionSubjectState_LiveCount() != 0 ||
       ExplosionSubjectState_Fingerprint(g_super.m_context) !=
@@ -1999,6 +2052,8 @@ int main(int argc, char** argv) {
               "explosion_sound=1/1/1-device-free refs=%llu "
               "explosion_particles=%d/%d/%d/%d/%d/%d/%d/%d-cap500 "
               "visual=%llu frame=draw-detach "
+              "explosion_smoke=%d/%d/%d/%d/%d visual=%llu "
+              "frame=alpha-draw-detach "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
@@ -2043,6 +2098,12 @@ int main(int argc, char** argv) {
               explosionParticleExpiredParents,
               explosionParticleRolledBackBranches,
               explosionParticleVisualFingerprint,
+              explosionSmokeStartedSprites,
+              explosionSmokeDependencySkips,
+              explosionSmokeMoveSteps,
+              explosionSmokeExpiredParents,
+              explosionSmokeRolledBackSprites,
+              explosionSmokeVisualFingerprint,
               vehicleAttributeRosterSize, vehicleAttributeCapacity,
               vehicleAttributeFingerprint, vehicleVesselMass,
               taxiRosterSize, taxiCapacity, taxiFingerprint,

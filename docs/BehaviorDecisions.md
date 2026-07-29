@@ -2174,12 +2174,53 @@ Admission proves successful branch creation, missing-draw dependency gating,
 recurring movement, natural parent expiry and exact global-pool rollback. The
 retail service smoke additionally captures real particle calls during one
 software frame, removes the parent, and proves the following frame emits no
-particle, light, sound, event or land-dynamic residue. Piece, traced piece,
-piece-with-smoke and standalone Smoke branches remain fail-closed until their
-Skin/Smoke caches are admitted. The direct texture smoke also checks an exact
+particle, light, sound, event or land-dynamic residue. At this frontier Piece,
+traced Piece, Piece-with-smoke and standalone Smoke remained fail-closed;
+BD-061 subsequently admits standalone Smoke. The direct texture smoke also checks an exact
 edge-clipped particle footprint and rejects a non-positive inverse depth.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
 launches with 18/18 identical installed/mounted pairs and 18/18 identical
 Debug/Release pairs, and 4/4 waited executable smokes publishing particle
 readiness, the safe raster marker, `level-ready` and `runtime_shutdown=clean`.
+
+## BD-061: activate Explosion's resource-backed standalone Smoke branch
+
+Status: accepted on 2026-07-29.
+
+January source and the May executable keep standalone Smoke as branch tag `5`
+inside the Explosion owner. It is not a child from the shared `Smoke(300)`
+table. The modern branch therefore shares the existing fixed 128-per-parent and
+500-global Explosion budgets, parent event ownership and 15-second hard stop.
+Piece, Piece-with-smoke and trace remain fail-closed.
+
+Explosion smoke resources publish only after the common Smoke visual
+transaction. Admission preflights every distinct `m_smokeName`, the exact
+256x256/65541-byte SPR shape, numeric ranges, the 24-color three-segment
+gradient and cache capacity. It then loads from a texture-cache checkpoint and
+commits all `m_colBuf`/`m_hTexture` fields together; any failure rolls back the
+checkpoint and leaves every attribute zeroed. Release clears Explosion caches
+before releasing the common Smoke checkpoint.
+
+Creation preserves the source random-field order: lifetime; radius A/B/C;
+opacity A/B/C; three-axis offset; speed; speed multiplier; morph flags; atlas
+quadrant. The `2..126` UV inset, four 128x128 atlas quadrants, polynomial
+radius/opacity, 24-step lifetime color, per-MOVE velocity damping and rotated
+drift match the recovered equations. Count quarters only above
+`Session::m_frameSec > 0.1`. A zero creation offset retains its position but
+uses a deterministic normalization direction; a non-positive derived lifetime
+removes only that branch instead of dividing by zero.
+
+The alpha-sprite dependency is a separate readiness boundary from simple,
+snake and ray particles. Admission proves non-empty creation, missing-draw
+gating, recurring movement, natural expiry and exact rollback. The retail
+service proof captures the real Explosion texture in a visible
+`GRDrawAlphaSprite` frame and observes no draw after parent detach. Eight
+fingerprints admit all nine May Levels (02D/02N share one) and a ninth admits
+the public fixture; installed and mounted fingerprints are identical.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+launches with 18/18 identical installed/mounted summaries and no
+configuration mismatch, and 4/4 executable smokes publishing one real
+Explosion smoke sprite, the resource-backed alpha-sprite raster marker,
+`level-ready` and `runtime_shutdown=clean`.

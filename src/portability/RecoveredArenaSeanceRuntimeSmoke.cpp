@@ -56,6 +56,7 @@ unsigned long long g_explosionFixtureFingerprint = 0;
 unsigned long long g_explosionSubjectFixtureFingerprint = 0;
 unsigned long long g_explosionSoundFixtureFingerprint = 0;
 unsigned long long g_explosionParticleFixtureFingerprint = 0;
+unsigned long long g_explosionSmokeFixtureFingerprint = 0;
 unsigned long long g_vehicleFixtureFingerprint = 0;
 unsigned long long g_taxiFixtureFingerprint = 0;
 unsigned long long g_bulletFixtureFingerprint = 0;
@@ -464,6 +465,13 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ExplosionParticleProbeMoveSteps() == -1 &&
          RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() == -1 &&
          RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() == -1 &&
+         !RecoveredArenaSeance_ExplosionSmokeReady() &&
+         RecoveredArenaSeance_ExplosionSmokeVisualFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() == -1 &&
+         RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -629,6 +637,22 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() != 1 ||
       RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() !=
           RecoveredArenaSeance_ExplosionParticleProbeStartedBranches() ||
+      RecoveredArenaSeance_ExplosionSmokeReady() != expectVisualResources ||
+      (RecoveredArenaSeance_ExplosionSmokeVisualFingerprint() != 0) !=
+          expectVisualResources ||
+      (expectVisualResources &&
+       (RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() <= 0 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() != 1 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() <= 0 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() != 1 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() !=
+            RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites())) ||
+      (!expectVisualResources &&
+       (RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() != -1 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() != -1 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() != -1 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() != -1 ||
+        RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() != -1)) ||
       RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
@@ -817,6 +841,12 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionAttributeState_ParticleVisualFingerprint(&context) ==
           RecoveredArenaSeance_ExplosionParticleVisualFingerprint() &&
       ExplosionAttributeState_IsKnownParticleVisualRoster(&context) &&
+      (ExplosionAttributeState_SmokeVisualsResolved(&context) ==
+       expectVisualResources) &&
+      ((ExplosionAttributeState_SmokeVisualFingerprint(&context) != 0) ==
+       expectVisualResources) &&
+      (!expectVisualResources ||
+       ExplosionAttributeState_IsKnownSmokeVisualRoster(&context)) &&
       ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
       ExplosionSubjectState_ImpulseTargetReady(&context, vehicle) &&
       VehicleAttributeState_IsKnownRoster(&context) &&
@@ -881,7 +911,8 @@ bool RunCycle(bool expectVisualResources) {
       explosionAttribute != nullptr &&
       explosionAttribute->m_useLight == 1 &&
       explosionAttribute->m_impulseCoeff == 1234 &&
-      explosionAttribute->m_hTexture == nullptr &&
+      ((explosionAttribute->m_hTexture != nullptr) ==
+       expectVisualResources) &&
       explosionAttribute->m_cacheSkin == nullptr &&
       WAVResourceState_IsLoadedPointer(explosionAttribute->m_wav) &&
       explosionAttribute->m_ctsndID ==
@@ -902,6 +933,8 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionAttributeState_SoundReferenceFingerprint(&context);
   const unsigned long long explosionParticleFingerprint =
       ExplosionAttributeState_ParticleVisualFingerprint(&context);
+  const unsigned long long explosionSmokeFingerprint =
+      ExplosionAttributeState_SmokeVisualFingerprint(&context);
   const unsigned long long vehicleFingerprint =
       VehicleAttributeState_Fingerprint(&context);
   const unsigned long long taxiFingerprint =
@@ -946,6 +979,8 @@ bool RunCycle(bool expectVisualResources) {
       (g_explosionParticleFixtureFingerprint == 0 ||
        g_explosionParticleFixtureFingerprint ==
            explosionParticleFingerprint) &&
+      (g_explosionSmokeFixtureFingerprint == 0 ||
+       g_explosionSmokeFixtureFingerprint == explosionSmokeFingerprint) &&
       (g_vehicleFixtureFingerprint == 0 ||
        g_vehicleFixtureFingerprint == vehicleFingerprint) &&
       (g_taxiFixtureFingerprint == 0 ||
@@ -989,6 +1024,7 @@ bool RunCycle(bool expectVisualResources) {
   g_explosionSubjectFixtureFingerprint = explosionSubjectFingerprint;
   g_explosionSoundFixtureFingerprint = explosionSoundFingerprint;
   g_explosionParticleFixtureFingerprint = explosionParticleFingerprint;
+  g_explosionSmokeFixtureFingerprint = explosionSmokeFingerprint;
   g_vehicleFixtureFingerprint = vehicleFingerprint;
   g_taxiFixtureFingerprint = taxiFingerprint;
   g_bulletFixtureFingerprint = bulletFingerprint;
@@ -1801,6 +1837,7 @@ int main(int argc, char** argv) {
               "explosion_impulse=local-vehicle-factor-5-offset-proof "
                "explosion_sound=1/1/1-device-free refs=%llu "
                "explosion_particles=bounded-simple-snake-ray visual=%llu "
+               "explosion_smoke=standalone-alpha-sprite visual=%llu "
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
                "bullet_attrs=4/4 "
@@ -1837,6 +1874,7 @@ int main(int argc, char** argv) {
               "rollback=idempotent\n",
               g_explosionSoundFixtureFingerprint,
               g_explosionParticleFixtureFingerprint,
+              g_explosionSmokeFixtureFingerprint,
               g_explosionFixtureFingerprint,
               g_vehicleFixtureFingerprint,
               g_bulletFixtureFingerprint,

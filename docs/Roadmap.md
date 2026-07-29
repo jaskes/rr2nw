@@ -580,7 +580,10 @@ January calls are commented out. Explosion now has the bounded device-free
 SET_WAV/MOVE_TO/START(1) command and exact parent rollback; actual audio output
 stays an independent future slice. Its bounded simple/snake/ray particle owner,
 recurring lifetime, safe software raster and exact rollback are now active.
-Piece, traced-piece and Smoke limbs remain separate resource-backed slices.
+The standalone Smoke limb now uses an atomically published SPR/gradient,
+preserves the source atlas, drift, opacity/radius and `>0.1` frame gate, and is
+proven by a real alpha-sprite frame plus full parent rollback. Piece and
+traced-piece limbs remain separate resource-backed slices.
 Trace follows only
 after the known first-step `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains

@@ -603,6 +603,7 @@ struct RecoveredArenaSeanceState {
   bool explosionLightReady;
   bool explosionSoundReady;
   bool explosionParticlesReady;
+  bool explosionSmokeReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -674,6 +675,12 @@ struct RecoveredArenaSeanceState {
   int explosionParticleProbeMoveSteps;
   int explosionParticleProbeExpiredParents;
   int explosionParticleProbeRolledBackBranches;
+  unsigned long long explosionSmokeVisualFingerprint;
+  int explosionSmokeProbeStartedSprites;
+  int explosionSmokeProbeDependencySkips;
+  int explosionSmokeProbeMoveSteps;
+  int explosionSmokeProbeExpiredParents;
+  int explosionSmokeProbeRolledBackSprites;
   int bulletSubjectProbeMoveCount;
   int bulletCollisionScheduledChecks;
   int bulletCollisionExecutedChecks;
@@ -1450,6 +1457,80 @@ bool PublishSmokeVisualResources(SimulationContext* context) {
   g_state.smokeVisualResourcesReady = true;
   g_state.smokerRuntimeReady = SmokerAttributeState_RuntimeReady(context);
   return g_state.smokerRuntimeReady;
+}
+
+bool PublishExplosionSmokeVisualResources(SimulationContext* context) {
+  unsigned long long fingerprint = 0;
+  const EExplosionSmokeVisualResourcePresence presence =
+      ExplosionAttributeState_InspectSmokeVisualResources(
+          context, &fingerprint);
+  if (presence == EXPLOSION_SMOKE_VISUAL_RESOURCES_NONE) {
+    // The source-only parser fixture intentionally carries no bitmaps. A
+    // retail seance has already published the common Smoke visuals here, so
+    // missing Explosion resources in that case are an admission failure.
+    if (!g_state.smokeVisualResourcesReady) return true;
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE,
+        "Explosion smoke sprite resources are missing from a visual roster");
+    return false;
+  }
+  if (presence != EXPLOSION_SMOKE_VISUAL_RESOURCES_COMPLETE) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE,
+        presence == EXPLOSION_SMOKE_VISUAL_RESOURCES_PARTIAL
+            ? "Explosion smoke sprite resource set is incomplete"
+            : "Explosion smoke sprite resource set is invalid");
+    return false;
+  }
+  if (fingerprint == 0 ||
+      !ExplosionAttributeState_ProbeSmokeVisualAtomicity(context) ||
+      !ExplosionAttributeState_ResolveSmokeVisuals(context) ||
+      !ExplosionAttributeState_SmokeVisualsResolved(context)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE,
+        "Explosion smoke sprite resources could not be published atomically");
+    return false;
+  }
+  g_state.explosionSmokeVisualFingerprint =
+      ExplosionAttributeState_SmokeVisualFingerprint(context);
+  if (g_state.explosionSmokeVisualFingerprint != fingerprint ||
+      !ExplosionAttributeState_IsKnownSmokeVisualRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "Explosion smoke sprite roster is empty or unknown "
+                  "(fingerprint=%llu)",
+                  g_state.explosionSmokeVisualFingerprint);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
+
+  const char* probeAttribute =
+      ExplosionSubjectState_SoundProbeAttributeName(context);
+  ExplosionSmokeProbeSummary probe = {};
+  if (probeAttribute == nullptr ||
+      !ExplosionSubjectState_ProbeSmokeLifecycle(
+          context, probeAttribute, Session::m_moment, &probe) ||
+      probe.startedSprites <= 0 || probe.dependencyGateSkips != 1 ||
+      probe.moveSteps <= 0 || probe.expiredParents != 1 ||
+      probe.rolledBackSprites != probe.startedSprites ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      ExplosionSubjectState_ParticleBranchLiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE,
+        "Explosion smoke start/gate/move/expiry/rollback probe failed");
+    return false;
+  }
+  g_state.explosionSmokeProbeStartedSprites = probe.startedSprites;
+  g_state.explosionSmokeProbeDependencySkips =
+      probe.dependencyGateSkips;
+  g_state.explosionSmokeProbeMoveSteps = probe.moveSteps;
+  g_state.explosionSmokeProbeExpiredParents = probe.expiredParents;
+  g_state.explosionSmokeProbeRolledBackSprites =
+      probe.rolledBackSprites;
+  g_state.explosionSmokeReady = true;
+  return true;
 }
 
 bool PublishSmokerAttributes(SimulationContext* context) {
@@ -2438,7 +2519,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
 
-    if (!PublishSmokeVisualResources(context)) {
+    if (!PublishSmokeVisualResources(context) ||
+        !PublishExplosionSmokeVisualResources(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -2477,6 +2559,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  ExplosionAttributeState_ClearSmokeVisuals(g_arena.getContext());
   SmokeVisualState_Release();
   SparkAttributeState_ClearVisualResources(g_arena.getContext());
   ExplosionSubjectState_ReleaseLightFrame();
@@ -2507,6 +2590,7 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionLightReady = false;
   g_state.explosionSoundReady = false;
   g_state.explosionParticlesReady = false;
+  g_state.explosionSmokeReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -2528,6 +2612,12 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionParticleProbeMoveSteps = 0;
   g_state.explosionParticleProbeExpiredParents = 0;
   g_state.explosionParticleProbeRolledBackBranches = 0;
+  g_state.explosionSmokeVisualFingerprint = 0;
+  g_state.explosionSmokeProbeStartedSprites = 0;
+  g_state.explosionSmokeProbeDependencySkips = 0;
+  g_state.explosionSmokeProbeMoveSteps = 0;
+  g_state.explosionSmokeProbeExpiredParents = 0;
+  g_state.explosionSmokeProbeRolledBackSprites = 0;
   g_state.vehicleAttributesReady = false;
   g_state.vehicleAttributeCount = 0;
   g_state.vehicleAttributeCapacity = 0;
@@ -2774,6 +2864,47 @@ int RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() {
 int RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() {
   return g_state.explosionParticlesReady
              ? g_state.explosionParticleProbeRolledBackBranches
+             : -1;
+}
+
+bool RecoveredArenaSeance_ExplosionSmokeReady() {
+  return g_state.explosionSmokeReady;
+}
+
+unsigned long long
+RecoveredArenaSeance_ExplosionSmokeVisualFingerprint() {
+  return g_state.explosionSmokeReady
+             ? g_state.explosionSmokeVisualFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() {
+  return g_state.explosionSmokeReady
+             ? g_state.explosionSmokeProbeStartedSprites
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() {
+  return g_state.explosionSmokeReady
+             ? g_state.explosionSmokeProbeDependencySkips
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() {
+  return g_state.explosionSmokeReady
+             ? g_state.explosionSmokeProbeMoveSteps
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() {
+  return g_state.explosionSmokeReady
+             ? g_state.explosionSmokeProbeExpiredParents
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() {
+  return g_state.explosionSmokeReady
+             ? g_state.explosionSmokeProbeRolledBackSprites
              : -1;
 }
 

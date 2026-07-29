@@ -1668,8 +1668,42 @@ Status vocabulary:
 - Regression contract: start and remove one full parent, dependency-gate a
   second, naturally expire a third through recurring MOVE, and require global
   and parent counts to return to zero on every path.
-- Revisit when: Piece/Skin and Smoke branches join the graph. They must share
-  the same 500 budget rather than introducing independent unbounded containers.
+- Revisit when: Piece/Skin branches join the graph. BD-061 has already added
+  standalone Smoke to the same 500 budget; Piece must not introduce an
+  independent unbounded container.
+
+### CQ-109: Explosion standalone Smoke is internal and has a separate visual transaction
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_REQUIRED_OWNER`, `ATOMIC_RESOURCE_BOUNDARY`.
+- Evidence: January creates branch tag `expl_SMOKE` after Piece/trace branches,
+  updates it in `EXPLOSION_MOVE` and draws `m_hTexture` directly. Retail Levels
+  use `expl.spr`; all installed and mounted copies are 65541 bytes and share
+  SHA-256 `38ED8A45B4112E6A50368909FC2E5BBE96ED057A25A863B72A2F7D0F8A4A5A11`.
+- Handling: resolve unique 256x256 SPR resources from a cache checkpoint,
+  derive all 24 transparent colors before mutation, commit every attribute at
+  once and release this checkpoint before the common Smoke visual owner.
+- Regression contract: filename substitution must fail without a texture or
+  field leak; source-only resources may defer, while a partial or invalid
+  visual roster is rejected. Known identities cover all May Levels and the
+  synthetic fixture.
+- Revisit when: mod manifests can replace Explosion sprites. Admit the new
+  content identity explicitly instead of accepting any non-zero fingerprint.
+
+### CQ-110: Explosion Smoke retains its frame gate and zero-vector hazard explicitly
+
+- Status: `RETAIL_QUIRK_PRESERVED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: January quarters standalone Smoke count only when `frameSec > 0.1`,
+  normalizes its sampled creation offset and computes reciprocal lifetime from
+  the earliest positive radius root, opacity root or configured lifetime.
+- Handling: preserve the strict threshold and sampling order. A sampled zero
+  vector gets a deterministic direction without moving the spawn point; an
+  invalid derived lifetime deactivates the branch rather than producing
+  infinity. Motion uses the elapsed MOVE delta, not presentation FPS.
+- Regression contract: force `frameSec=0.04`, prove positive creation and
+  natural expiry, then remove the parent and require both Explosion pools and
+  its queued MOVE to return to baseline.
+- Revisit when: emission quality becomes configurable. Compatibility mode must
+  keep the original `>0.1` threshold.
 
 ## Maintenance rule
 

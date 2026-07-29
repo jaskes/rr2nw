@@ -2,11 +2,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <new>
 #include <string>
 #include <vector>
 
+#include "filesys.h"
 #include "ExplosionSubjectState.h"
+#include "h/cachesmoke.h"
 #include "obase/sound/WAVResourceState.h"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
@@ -29,6 +32,16 @@ struct ParticleVisualRuntimeState
 
 ParticleVisualRuntimeState g_particleVisualState = {};
 
+struct SmokeVisualRuntimeState
+{
+    SimulationContext *context;
+    int textureCheckpoint;
+    unsigned long long fingerprint;
+    bool ready;
+};
+
+SmokeVisualRuntimeState g_smokeVisualState = {};
+
 struct ParticleVisualCache
 {
     unsigned long color[4];
@@ -36,6 +49,12 @@ struct ParticleVisualCache
     unsigned long snakeHead;
     unsigned long snakeCenter;
     unsigned long ray;
+};
+
+struct SmokeVisualCache
+{
+    unsigned long colors[AttributeExplosion::COLLINE * 3];
+    GR_HTEXTURE texture;
 };
 
 int LightBrightness(int index)
@@ -178,17 +197,23 @@ bool ParticleCacheIsZero(const AttributeExplosion &attr)
            attr.m_colorSnCenter == 0 && attr.m_rayColor == 0;
 }
 
-bool DeferredCachesAreUnresolved(AttributeExplosion &attr)
+bool SmokeVisualCacheIsZero(const AttributeExplosion &attr)
 {
-    if (attr.m_hTexture != NULL || attr.m_cacheSkin != NULL ||
-        attr.m_smokeTableID != ct_NULLID ||
+    if (attr.m_hTexture != NULL)
+        return false;
+    for (int i = 0; i < AttributeExplosion::COLLINE * 3; ++i)
+        if (attr.m_colBuf[i] != 0)
+            return false;
+    return true;
+}
+
+bool DeferredReferencesAreUnresolved(AttributeExplosion &attr)
+{
+    if (attr.m_cacheSkin != NULL || attr.m_smokeTableID != ct_NULLID ||
         !attr.m_smokeAttrID.isNUL())
         return false;
     for (int i = 0; i < AttributeExplosion::MAX_BRIGHT; ++i)
         if (attr.m_brightness[i] != LightBrightness(i))
-            return false;
-    for (int i = 0; i < AttributeExplosion::COLLINE * 3; ++i)
-        if (attr.m_colBuf[i] != 0)
             return false;
     return true;
 }
@@ -301,6 +326,119 @@ bool ParticleNumbersReady(const AttributeExplosion &attr)
     return true;
 }
 
+double PositiveRoot(double a, double b, double c)
+{
+    if (!std::isfinite(a) || !std::isfinite(b) || !std::isfinite(c))
+        return 0.0;
+    if (std::fabs(a) < 1.0e-5)
+    {
+        if (std::fabs(b) < 1.0e-5)
+            return 1.0e10;
+        const double result = -c / b;
+        return result < 1.001 ? 1.0e10 : result;
+    }
+    const double discriminant = b * b - 4.0 * a * c;
+    if (discriminant < 0.0)
+        return 1.0e10;
+    const double root = std::sqrt(discriminant);
+    const double first = (-b + root) / (2.0 * a);
+    const double second = (-b - root) / (2.0 * a);
+    const double result = first > second ? first : second;
+    return result < 0.001 ? 1.0e10 : result;
+}
+
+bool SmokeNumbersReady(const AttributeExplosion &attr)
+{
+    const int maximumBranches = attr.m_maxRayCnt + attr.m_maxPartCnt +
+        attr.m_maxPartSnCnt + attr.m_maxSmokeCnt;
+    if (!CountRange(attr.m_minSmokeCnt, attr.m_maxSmokeCnt) ||
+        maximumBranches > kExplosionParticleBranchCapacity ||
+        attr.m_smokeName[0] == 0)
+        return false;
+    if (attr.m_maxSmokeCnt == 0)
+        return true;
+    if (!std::isfinite(attr.m_createSmokeRadius) ||
+        attr.m_createSmokeRadius < 0.0 ||
+        !FiniteRange(attr.m_minSmokeTimeLife,
+                     attr.m_maxSmokeTimeLife) ||
+        attr.m_minSmokeTimeLife <= 0.0 ||
+        !FiniteRange(attr.m_minSmokeA, attr.m_maxSmokeA) ||
+        !FiniteRange(attr.m_minSmokeB, attr.m_maxSmokeB) ||
+        !FiniteRange(attr.m_minSmokeC, attr.m_maxSmokeC) ||
+        !FiniteRange(attr.m_minSmokeTA, attr.m_maxSmokeTA) ||
+        !FiniteRange(attr.m_minSmokeTB, attr.m_maxSmokeTB) ||
+        !FiniteRange(attr.m_minSmokeTC, attr.m_maxSmokeTC) ||
+        !FiniteRange(attr.m_minSmokeSpeed, attr.m_maxSmokeSpeed) ||
+        attr.m_minSmokeSpeed < 0.0 ||
+        !FiniteRange(attr.m_minMulSpeed, attr.m_maxMulSpeed) ||
+        attr.m_minMulSpeed < 0.0 ||
+        !std::isfinite(attr.m_ofsVAngle) ||
+        !std::isfinite(attr.m_ofsHAngle) ||
+        !std::isfinite(attr.m_ofsSpeed) ||
+        !std::isfinite(attr.m_ofsSpeedMul))
+        return false;
+    const double opacityLife = PositiveRoot(
+        attr.m_minSmokeTA, attr.m_minSmokeTB, attr.m_minSmokeTC);
+    const double radiusLife = PositiveRoot(
+        attr.m_minSmokeA, attr.m_minSmokeB, attr.m_minSmokeC);
+    return std::isfinite(opacityLife) && opacityLife > 0.0 &&
+           std::isfinite(radiusLife) && radiusLife > 0.0;
+}
+
+bool BuildSmokeVisualCache(const AttributeExplosion &attr,
+                           SmokeVisualCache &cache)
+{
+    if (_dL.currDevice == NULL)
+        return false;
+    const int rgb[4] = {
+        attr.m_sRGB0, attr.m_sRGB1, attr.m_sRGB2, attr.m_sRGB3
+    };
+    for (int segment = 0; segment < 3; ++segment)
+        for (int index = 0; index < AttributeExplosion::COLLINE; ++index)
+        {
+            const int red = Red(rgb[segment]) +
+                (Red(rgb[segment + 1]) - Red(rgb[segment])) * index /
+                    (AttributeExplosion::COLLINE - 1);
+            const int green = Green(rgb[segment]) +
+                (Green(rgb[segment + 1]) - Green(rgb[segment])) * index /
+                    (AttributeExplosion::COLLINE - 1);
+            const int blue = Blue(rgb[segment]) +
+                (Blue(rgb[segment + 1]) - Blue(rgb[segment])) * index /
+                    (AttributeExplosion::COLLINE - 1);
+            cache.colors[segment * AttributeExplosion::COLLINE + index] =
+                GRTransparentColor((std::max)(0, (std::min)(255, red)),
+                                   (std::max)(0, (std::min)(255, green)),
+                                   (std::max)(0, (std::min)(255, blue)));
+        }
+    cache.texture = NULL;
+    return true;
+}
+
+GR_HTEXTURE FindCachedSmokeTexture(const char *name)
+{
+    if (name == NULL || name[0] == 0)
+        return NULL;
+    const int count = SmokeTextureCache_Checkpoint();
+    for (int i = 0; i < count; ++i)
+        if (strcmpi(g_cacheSmoke[i].fname, name) == 0)
+            return g_cacheSmoke[i].hand;
+    return NULL;
+}
+
+bool SmokeVisualCacheMatches(const AttributeExplosion &attr)
+{
+    SmokeVisualCache expected = {};
+    if (!BuildSmokeVisualCache(attr, expected))
+        return false;
+    expected.texture = FindCachedSmokeTexture(attr.m_smokeName);
+    if (expected.texture == NULL || attr.m_hTexture != expected.texture)
+        return false;
+    for (int i = 0; i < AttributeExplosion::COLLINE * 3; ++i)
+        if (attr.m_colBuf[i] != expected.colors[i])
+            return false;
+    return true;
+}
+
 bool SoundCacheIsCoherent(AttributeExplosion &attr)
 {
     if (attr.m_soundName[0] == 0)
@@ -314,8 +452,15 @@ bool SoundCacheIsCoherent(AttributeExplosion &attr)
 
 bool CachesAreCoherent(AttributeExplosion &attr)
 {
-    if (!DeferredCachesAreUnresolved(attr) ||
+    if (!DeferredReferencesAreUnresolved(attr) ||
         !SoundCacheIsCoherent(attr))
+        return false;
+    if (g_smokeVisualState.ready)
+    {
+        if (!SmokeNumbersReady(attr) || !SmokeVisualCacheMatches(attr))
+            return false;
+    }
+    else if (!SmokeVisualCacheIsZero(attr))
         return false;
     if (!g_particleVisualState.ready)
         return ParticleCacheIsZero(attr);
@@ -1079,6 +1224,364 @@ void ExplosionAttributeState_ClearParticleVisuals(
         return;
     __attrExplosionTable.userFind(ClearParticleVisualCache, NULL);
     g_particleVisualState = ParticleVisualRuntimeState{};
+}
+
+namespace {
+
+void HashSmokeVisualSource(unsigned long long &hash,
+                           const RosterEntry &entry)
+{
+    const AttributeExplosion &attribute = *entry.attribute;
+    HashString(hash, entry.name.c_str());
+    HashString(hash, attribute.m_smokeName);
+    HashBytes(hash, &attribute.m_minSmokeCnt,
+              sizeof(attribute.m_minSmokeCnt));
+    HashBytes(hash, &attribute.m_maxSmokeCnt,
+              sizeof(attribute.m_maxSmokeCnt));
+    HashBytes(hash, &attribute.m_createSmokeRadius,
+              sizeof(attribute.m_createSmokeRadius));
+    HashBytes(hash, &attribute.m_minSmokeTimeLife,
+              sizeof(attribute.m_minSmokeTimeLife));
+    HashBytes(hash, &attribute.m_maxSmokeTimeLife,
+              sizeof(attribute.m_maxSmokeTimeLife));
+    HashBytes(hash, &attribute.m_sRGB0, sizeof(attribute.m_sRGB0));
+    HashBytes(hash, &attribute.m_sRGB1, sizeof(attribute.m_sRGB1));
+    HashBytes(hash, &attribute.m_sRGB2, sizeof(attribute.m_sRGB2));
+    HashBytes(hash, &attribute.m_sRGB3, sizeof(attribute.m_sRGB3));
+    HashBytes(hash, &attribute.m_minSmokeA,
+              sizeof(attribute.m_minSmokeA));
+    HashBytes(hash, &attribute.m_maxSmokeA,
+              sizeof(attribute.m_maxSmokeA));
+    HashBytes(hash, &attribute.m_minSmokeB,
+              sizeof(attribute.m_minSmokeB));
+    HashBytes(hash, &attribute.m_maxSmokeB,
+              sizeof(attribute.m_maxSmokeB));
+    HashBytes(hash, &attribute.m_minSmokeC,
+              sizeof(attribute.m_minSmokeC));
+    HashBytes(hash, &attribute.m_maxSmokeC,
+              sizeof(attribute.m_maxSmokeC));
+    HashBytes(hash, &attribute.m_minSmokeTA,
+              sizeof(attribute.m_minSmokeTA));
+    HashBytes(hash, &attribute.m_maxSmokeTA,
+              sizeof(attribute.m_maxSmokeTA));
+    HashBytes(hash, &attribute.m_minSmokeTB,
+              sizeof(attribute.m_minSmokeTB));
+    HashBytes(hash, &attribute.m_maxSmokeTB,
+              sizeof(attribute.m_maxSmokeTB));
+    HashBytes(hash, &attribute.m_minSmokeTC,
+              sizeof(attribute.m_minSmokeTC));
+    HashBytes(hash, &attribute.m_maxSmokeTC,
+              sizeof(attribute.m_maxSmokeTC));
+    HashBytes(hash, &attribute.m_minSmokeSpeed,
+              sizeof(attribute.m_minSmokeSpeed));
+    HashBytes(hash, &attribute.m_maxSmokeSpeed,
+              sizeof(attribute.m_maxSmokeSpeed));
+    HashBytes(hash, &attribute.m_minMulSpeed,
+              sizeof(attribute.m_minMulSpeed));
+    HashBytes(hash, &attribute.m_maxMulSpeed,
+              sizeof(attribute.m_maxMulSpeed));
+    HashBytes(hash, &attribute.m_ofsVAngle,
+              sizeof(attribute.m_ofsVAngle));
+    HashBytes(hash, &attribute.m_ofsHAngle,
+              sizeof(attribute.m_ofsHAngle));
+    HashBytes(hash, &attribute.m_ofsSpeed,
+              sizeof(attribute.m_ofsSpeed));
+    HashBytes(hash, &attribute.m_ofsSpeedMul,
+              sizeof(attribute.m_ofsSpeedMul));
+}
+
+bool CollectSmokeTextureNames(const RosterCollector &collector,
+                              std::vector<std::string> &names)
+{
+    names.clear();
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        const AttributeExplosion *attribute =
+            collector.entries[index].attribute;
+        if (attribute == NULL || attribute->m_smokeName[0] == 0)
+            return false;
+        bool known = false;
+        for (std::size_t existing = 0; existing < names.size(); ++existing)
+            if (strcmpi(names[existing].c_str(),
+                        attribute->m_smokeName) == 0)
+                known = true;
+        if (!known)
+            names.push_back(attribute->m_smokeName);
+    }
+    std::sort(names.begin(), names.end());
+    return !names.empty();
+}
+
+bool SmokeTextureResourceExists(const char *name)
+{
+    long length = 0;
+    FILE *file = CFileResource::FOpenCurrent(name, &length);
+    if (file == NULL)
+        return false;
+    std::fclose(file);
+    return true;
+}
+
+bool HashSmokeTextureResource(const char *name,
+                              unsigned long long &hash)
+{
+    long length = 0;
+    FILE *file = CFileResource::FOpenCurrent(name, &length);
+    if (file == NULL)
+        return false;
+    unsigned char header[5] = {};
+    const bool headerReady =
+        std::fread(header, 1, sizeof(header), file) == sizeof(header);
+    const unsigned int width = header[0] | (header[1] << 8);
+    const unsigned int height = header[2] | (header[3] << 8);
+    const long expectedLength = 5 + 256 * 256;
+    if (!headerReady || width != 256 || height != 256 ||
+        length != expectedLength)
+    {
+        std::fclose(file);
+        return false;
+    }
+    HashString(hash, name);
+    HashBytes(hash, header, sizeof(header));
+    unsigned char buffer[4096];
+    long remaining = length - static_cast<long>(sizeof(header));
+    while (remaining > 0)
+    {
+        const int request = remaining < static_cast<long>(sizeof(buffer))
+                                ? static_cast<int>(remaining)
+                                : static_cast<int>(sizeof(buffer));
+        const int received = static_cast<int>(
+            std::fread(buffer, 1, request, file));
+        if (received != request)
+        {
+            std::fclose(file);
+            return false;
+        }
+        HashBytes(hash, buffer, received);
+        remaining -= received;
+    }
+    std::fclose(file);
+    return true;
+}
+
+bool ClearSmokeVisualCache(const KR_ObjectID object, void *)
+{
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (attribute == NULL)
+        return false;
+    std::memset(attribute->m_colBuf, 0, sizeof(attribute->m_colBuf));
+    attribute->m_hTexture = NULL;
+    return true;
+}
+
+}  // namespace
+
+EExplosionSmokeVisualResourcePresence
+ExplosionAttributeState_InspectSmokeVisualResources(
+    SimulationContext *context, unsigned long long *fingerprint)
+{
+    if (fingerprint != NULL)
+        *fingerprint = 0;
+    RosterCollector collector = {};
+    std::vector<std::string> names;
+    if (!CollectRoster(context, collector) ||
+        !CollectSmokeTextureNames(collector, names))
+        return EXPLOSION_SMOKE_VISUAL_RESOURCES_INVALID;
+    int present = 0;
+    for (std::size_t index = 0; index < names.size(); ++index)
+        if (SmokeTextureResourceExists(names[index].c_str()))
+            ++present;
+    if (present == 0)
+        return EXPLOSION_SMOKE_VISUAL_RESOURCES_NONE;
+    if (present != static_cast<int>(names.size()))
+        return EXPLOSION_SMOKE_VISUAL_RESOURCES_PARTIAL;
+
+    unsigned long long hash = kHashOffset;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        if (!SmokeNumbersReady(*collector.entries[index].attribute))
+            return EXPLOSION_SMOKE_VISUAL_RESOURCES_INVALID;
+        HashSmokeVisualSource(hash, collector.entries[index]);
+    }
+    for (std::size_t index = 0; index < names.size(); ++index)
+        if (!HashSmokeTextureResource(names[index].c_str(), hash))
+            return EXPLOSION_SMOKE_VISUAL_RESOURCES_INVALID;
+    if (hash == 0)
+        return EXPLOSION_SMOKE_VISUAL_RESOURCES_INVALID;
+    if (fingerprint != NULL)
+        *fingerprint = hash;
+    return EXPLOSION_SMOKE_VISUAL_RESOURCES_COMPLETE;
+}
+
+bool ExplosionAttributeState_SmokeVisualCachesUnresolved(
+    SimulationContext *context)
+{
+    if (g_smokeVisualState.ready)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        if (!SmokeVisualCacheIsZero(*collector.entries[index].attribute))
+            return false;
+    return true;
+}
+
+bool ExplosionAttributeState_ProbeSmokeVisualAtomicity(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    unsigned long long resourceFingerprint = 0;
+    if (!CollectRoster(context, collector) || collector.entries.empty() ||
+        !ExplosionAttributeState_SmokeVisualCachesUnresolved(context) ||
+        ExplosionAttributeState_InspectSmokeVisualResources(
+            context, &resourceFingerprint) !=
+                EXPLOSION_SMOKE_VISUAL_RESOURCES_COMPLETE)
+        return false;
+    AttributeExplosion *probe = collector.entries.front().attribute;
+    if (probe == NULL)
+        return false;
+    ct_AttrStr saved = {};
+    std::memcpy(saved, probe->m_smokeName, sizeof(saved));
+    const unsigned long long before =
+        ExplosionAttributeState_Fingerprint(context);
+    const int textureCheckpoint = SmokeTextureCache_Checkpoint();
+    std::strncpy(probe->m_smokeName,
+                 "Explosion.Missing.Smoke.Visual.Probe.spr",
+                 sizeof(ct_AttrStr) - 1);
+    probe->m_smokeName[sizeof(ct_AttrStr) - 1] = 0;
+    const bool rejected =
+        !ExplosionAttributeState_ResolveSmokeVisuals(context) &&
+        ExplosionAttributeState_SmokeVisualCachesUnresolved(context) &&
+        SmokeTextureCache_Checkpoint() == textureCheckpoint;
+    std::memcpy(probe->m_smokeName, saved, sizeof(saved));
+    return rejected && before != 0 && resourceFingerprint != 0 &&
+           ExplosionAttributeState_Fingerprint(context) == before &&
+           ExplosionAttributeState_SmokeVisualCachesUnresolved(context);
+}
+
+bool ExplosionAttributeState_ResolveSmokeVisuals(
+    SimulationContext *context)
+{
+    if (g_smokeVisualState.ready)
+        return ExplosionAttributeState_SmokeVisualsResolved(context);
+    RosterCollector collector = {};
+    unsigned long long fingerprint = 0;
+    if (context == NULL || g_arena.getContext() != context ||
+        _pGRDrawAlphaSprite == NULL || _pGRLoadTextureToDB == NULL ||
+        _pGRDeleteTextureFromDB == NULL ||
+        !CollectRoster(context, collector) ||
+        !ExplosionAttributeState_SmokeVisualCachesUnresolved(context) ||
+        ExplosionAttributeState_InspectSmokeVisualResources(
+            context, &fingerprint) !=
+                EXPLOSION_SMOKE_VISUAL_RESOURCES_COMPLETE)
+        return false;
+
+    std::vector<std::string> names;
+    if (!CollectSmokeTextureNames(collector, names))
+        return false;
+    std::vector<const char *> textureNames;
+    for (std::size_t index = 0; index < names.size(); ++index)
+        textureNames.push_back(names[index].c_str());
+    if (!SmokeTextureCache_CanLoad(
+            textureNames.data(), static_cast<int>(textureNames.size())))
+        return false;
+
+    std::vector<SmokeVisualCache> caches(collector.entries.size());
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        if (!SmokeNumbersReady(*collector.entries[index].attribute) ||
+            !BuildSmokeVisualCache(
+                *collector.entries[index].attribute, caches[index]))
+            return false;
+
+    const int checkpoint = SmokeTextureCache_Checkpoint();
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        caches[index].texture = g_loadSmoke(
+            collector.entries[index].attribute->m_smokeName, NULL);
+        if (caches[index].texture == NULL)
+        {
+            SmokeTextureCache_Rollback(checkpoint);
+            return false;
+        }
+    }
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        std::memcpy(attribute->m_colBuf, caches[index].colors,
+                    sizeof(attribute->m_colBuf));
+        attribute->m_hTexture = caches[index].texture;
+    }
+    g_smokeVisualState.context = context;
+    g_smokeVisualState.textureCheckpoint = checkpoint;
+    g_smokeVisualState.fingerprint = fingerprint;
+    g_smokeVisualState.ready = true;
+    if (ExplosionAttributeState_SmokeVisualsResolved(context))
+        return true;
+    ExplosionAttributeState_ClearSmokeVisuals(context);
+    return false;
+}
+
+bool ExplosionAttributeState_SmokeVisualsResolved(
+    SimulationContext *context)
+{
+    if (!g_smokeVisualState.ready || context == NULL ||
+        g_smokeVisualState.context != context ||
+        g_arena.getContext() != context || _pGRDrawAlphaSprite == NULL)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        if (!SmokeNumbersReady(*collector.entries[index].attribute) ||
+            !SmokeVisualCacheMatches(*collector.entries[index].attribute))
+            return false;
+    return true;
+}
+
+unsigned long long ExplosionAttributeState_SmokeVisualFingerprint(
+    SimulationContext *context)
+{
+    return ExplosionAttributeState_SmokeVisualsResolved(context)
+               ? g_smokeVisualState.fingerprint
+               : 0;
+}
+
+bool ExplosionAttributeState_IsKnownSmokeVisualRoster(
+    SimulationContext *context)
+{
+    // Eight identities cover the nine May Levels because 02D/02N share one
+    // Explosion roster. The final identity is the public synthetic fixture.
+    static const unsigned long long known[] = {
+        7038031820659649713ull,
+        6559137887547133221ull,
+        6173607222118504530ull,
+        5686558409198199324ull,
+        6719445918051910172ull,
+        12520912501699516820ull,
+        10358437977799102119ull,
+        16738263764033403268ull,
+        17579349666034557707ull
+    };
+    const unsigned long long fingerprint =
+        ExplosionAttributeState_SmokeVisualFingerprint(context);
+    for (std::size_t index = 0;
+         index < sizeof(known) / sizeof(known[0]); ++index)
+        if (fingerprint == known[index])
+            return true;
+    return false;
+}
+
+void ExplosionAttributeState_ClearSmokeVisuals(
+    SimulationContext *context)
+{
+    if (!g_smokeVisualState.ready ||
+        g_smokeVisualState.context != context)
+        return;
+    __attrExplosionTable.userFind(ClearSmokeVisualCache, NULL);
+    SmokeTextureCache_Rollback(g_smokeVisualState.textureCheckpoint);
+    g_smokeVisualState = SmokeVisualRuntimeState{};
 }
 
 bool ExplosionAttributeState_IsKnownRoster(SimulationContext *context)

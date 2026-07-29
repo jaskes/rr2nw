@@ -741,11 +741,34 @@ Retail scripts нельзя молча копировать поверх source 
   lifetime, not a claim of exact legacy polygon/transparency raster parity.
 - Admission proves creation, dependency skip, movement, natural expiry and
   exact rollback. The service smoke captures non-zero particle draws in a real
-  frame and none after parent detach. Piece, traced-piece and Smoke branches
-  remain deferred pending their resource owners.
+  frame and none after parent detach. This slice deferred Piece, traced Piece
+  and Smoke; RP-SCRIPT-023 subsequently activates standalone Smoke.
 - The final gate passes 51/51 CTest in both configurations, 36/36 retail
   services with 18/18 installed/mounted and 18/18 Debug/Release identities,
   plus 4/4 waited `rr2nw.exe --runtime-smoke` launches.
+
+### RP-SCRIPT-023: Explosion owns standalone resource-backed Smoke sprites
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. Standalone Smoke
+  tag `5`, source creation order within the branch, polynomial size/opacity,
+  atlas morphing, drift/damping, MOVE expiry and the `>0.1` quarter-count gate
+  are active. Piece and traced-piece tags `2/3` remain deferred.
+- ExplosionAttr smoke visuals use an independent all-or-none transaction over
+  the shared ten-entry texture cache. Exact 256x256 SPR validation, 24 derived
+  transparent colors and a content fingerprint precede publication.
+- May fingerprints are: 01D `7038031820659649713`, 01N
+  `6559137887547133221`, 02D/02N `6173607222118504530`, 03N
+  `5686558409198199324`, 04D `6719445918051910172`, 05D
+  `12520912501699516820`, 06N `10358437977799102119`, and 07N
+  `16738263764033403268`. The public fixture is
+  `17579349666034557707`.
+- Admission proves dependency gating, motion, expiry and rollback. A real
+  software frame captures positive alpha-sprite draws using the selected
+  ExplosionAttr texture and a following detached frame emits none.
+- Verification passes 51/51 CTest in both configurations, 36/36 retail
+  service launches with 18/18 identical installed/mounted summaries, and 4/4
+  executable smokes proving `level-ready`, one Explosion smoke sprite, the
+  resource-backed alpha-sprite raster and clean shutdown.
 
 ## Behavioral parity matrix
 

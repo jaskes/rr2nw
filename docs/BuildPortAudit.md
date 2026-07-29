@@ -2025,7 +2025,7 @@ Startup diagnostics publish readiness, all four counters and the explicit
 Explosion now resolves all WAV/SoundObj references atomically and executes the
 exact device-free SET_WAV/MOVE_TO/START(1) command with parent-owned rollback;
 its bounded simple/snake/ray owner and safe software particle raster are now
-active. Piece/trace/Smoke limbs and actual audio output remain separate. Bullet trace stays behind
+active. Piece/trace limbs and actual audio output remain separate. Bullet trace stays behind
 replacement of the known first-step `m_viewTrace[-1]` access.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
@@ -2060,12 +2060,37 @@ claim. A direct framebuffer fixture proves exact edge clipping and a no-op for
 invalid inverse depth. Admission proves creation, missing-draw gating, repeated movement,
 natural expiry and exact branch rollback. A real service frame captures
 non-zero particle calls, then parent removal proves no draws, light, sound,
-event or land-dynamic residue in the next frame. Piece, traced-piece,
-piece-with-smoke and standalone Smoke branches remain fail-closed.
+event or land-dynamic residue in the next frame. At that frontier Piece,
+traced Piece, Piece-with-smoke and standalone Smoke were fail-closed; the next
+section activates standalone Smoke.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with all 18/18 installed/mounted and 18/18 configuration pairs
 identical, and 4/4 waited executable runtime smokes with clean shutdown.
+
+### Resource-backed Explosion standalone Smoke frontier
+
+The former deferred standalone Smoke limb now runs inside the bounded Explosion
+owner. `ExplosionAttributeState` adds a second visual transaction after common
+Smoke: it validates the complete attribute roster and raw 256x256 SPR bytes,
+stages the exact 24-color gradient, checkpoints the shared texture cache, and
+commits all handles/colors only after every load succeeds. Teardown reverses
+that ordering, so repeated seances restore the earlier common-Smoke checkpoint.
+
+`BoundedExplosion` adds tag `5` without heap allocation and preserves the
+source coefficient, atlas, damping, drift and FPS-gate behavior. Standalone
+Smoke shares the 128 local/500 global branch budgets. The new admission probe
+covers positive creation, alpha-draw dependency gating, recurring MOVE,
+natural expiry and exact parent rollback. The retail service smoke additionally
+captures a real alpha sprite during the Explosion light/sound/particle frame.
+Startup now publishes readiness, content fingerprint, five lifecycle counters
+and marks only Piece/trace as deferred.
+
+Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
+service launches with 18/18 identical installed/mounted summaries, and 4/4
+executable runtime smokes. Every executable log contains `level-ready`,
+`explosion_smoke_sprites=1`, the resource-backed alpha-sprite raster marker
+and `runtime_shutdown=clean`.
 
 ## Expansion order
 
@@ -2133,7 +2158,7 @@ identical, and 4/4 waited executable runtime smokes with clean shutdown.
    Explosion SET_WAV/MOVE_TO/START(1) command with parent-owned rollback are
    active. The bounded Explosion simple/snake/ray graph now renders through a
    safe software particle path and owns recurring expiry/rollback. Actual audio
-   output, Explosion Piece/Smoke limbs and Bullet trace remain deferred.
+   output, Explosion Piece/traced-Piece limbs and Bullet trace remain deferred.
    Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
