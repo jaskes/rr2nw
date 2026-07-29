@@ -1024,10 +1024,11 @@ Retail scripts нельзя молча копировать поверх source 
 - `MouseL` is focus-safe: losing focus during the second held press produces
   one synthetic release, suppresses inactive down/up input, creates no third
   shot and leaves zero held actions. The Hardware subscription survives.
-- Impact Explosion audio is proven. Bullet muzzle `m_shootSndName` and
-  secondary fire remain explicitly deferred. The table peak Bullet count is a
-  lifetime high-water mark; per-proof shot/move/impact counters are deltas from
-  an explicit observation window.
+- The impact Explosion's SoundObj command path is proven against the current
+  device-free backend; audible output is not. Bullet muzzle `m_shootSndName`
+  and secondary fire remain explicitly deferred. The table peak Bullet count
+  is a lifetime high-water mark; per-proof shot/move/impact counters are deltas
+  from an explicit observation window.
 - Verification passes 51/51 CTest in Debug and Release, the full 36/36 retail
   service matrix without reruns, a 10/10 `Level.05D` Debug repetition and 4/4
   waited executable smokes with observability, level-ready and clean shutdown.

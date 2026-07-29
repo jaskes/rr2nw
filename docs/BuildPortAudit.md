@@ -2504,9 +2504,10 @@ two-frame `--runtime-smoke` remains passive and therefore normally reports zero
 trigger presses and shots. Normal Level teardown destroys the complete effect
 graph, and the existing second seance proves reconstruction without residue.
 
-Vehicle-owned primary muzzle audio is not claimed: `m_shootSndName` is still
-not started by the bounded Bullet, while the observed sound is the retail
-impact Explosion. Secondary fire remains a separate small combat slice.
+Audible output is not claimed. The impact creates the retail Explosion
+SoundObj and executes its device-free command state, while `m_shootSndName` is
+still not started by the bounded Bullet. Secondary fire remains a separate
+small combat slice.
 Frame-sensitive visual probes now use the active Vehicle camera; Explosion
 Piece/trace probes additionally sample real terrain and begin above it instead
 of immediately expiring below the land surface.

@@ -2650,10 +2650,12 @@ relative to their live counts when the observation starts. Normal seance
 teardown remains the owner of every projectile and child and reconstruction
 must return the original retail identities.
 
-This decision proves impact audio, not muzzle audio. The recovered Bullet still
-does not start `BulletAttr::m_shootSndName`; secondary fire and its ammunition
-rules also remain deferred. The executable's bounded two-frame runtime smoke
-publishes observation readiness but does not synthesize a player click.
+This decision proves the retail impact SoundObj command path, not audible
+device output or muzzle audio. The SoundObj backend remains device-free and the
+recovered Bullet still does not start `BulletAttr::m_shootSndName`; secondary
+fire and its ammunition rules also remain deferred. The executable's bounded
+two-frame runtime smoke publishes observation readiness but does not synthesize
+a player click.
 
 Final verification passes 51/51 CTest in Debug and Release, all 36/36 retail
 service launches across installed and mounted data with no reruns, a 10/10

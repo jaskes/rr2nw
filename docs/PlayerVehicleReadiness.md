@@ -120,9 +120,9 @@ The shortest safe implementation sequence is:
   with the People/Tank/Orphan frontier.
 - **Complete for primary fire:** deliver `MouseL` through Hardware and the
   recurring Vehicle fire event, prove two real Bullet starts, movement,
-  natural collision, rendered impact effects, impact sound, focus-safe release
-  and complete seance rollback. Secondary fire and the still-unused Bullet
-  muzzle-sound reference follow as separate work.
+  natural collision, rendered impact effects, the device-free impact SoundObj
+  command, focus-safe release and complete seance rollback. Secondary fire and
+  the still-unused Bullet muzzle-sound reference follow as separate work.
 - Exercise embedded Player faction/mission/save state after the movement owner
   is stable. Its fixed-size legacy serialization still needs the broader save
   format audit before 1.0.

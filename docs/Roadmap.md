@@ -839,9 +839,10 @@ Linux/macOS и multiplayer остаются за пределами этого W
 The primary-combat slice is complete. `MouseL` now travels through recovered
 Hardware, the original Vehicle fire latch/repeat event and the real Bullet
 flight/collision/effect graph. Armed retail Vehicles produce visible natural
-impacts and impact sound; type-0 and intentionally unarmed type-1 attributes
-retain their no-projectile behavior. Focus loss releases held fire and normal
-seance reconstruction removes every projectile and effect.
+impacts and the retail impact SoundObj command; audible backend output remains
+deferred. Type-0 and intentionally unarmed type-1 attributes retain their
+no-projectile behavior. Focus loss releases held fire and normal seance
+reconstruction removes every projectile and effect.
 
 The next large 1.0 slice is the minimum People/Tank/Orphan embodiment graph:
 
