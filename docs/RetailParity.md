@@ -714,6 +714,39 @@ Retail scripts нельзя молча копировать поверх source 
   source fixture. Startup diagnostics publish readiness, fingerprint,
   `1/1/1`, `START(1)` and `backend=device-free`.
 
+### RP-SCRIPT-022: Explosion owns visible simple, snake and ray particles
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. Branch tags,
+  creation and random-field sampling order, counts, source motion, 0.6-second
+  ray life, snake-tail decay, recurring MOVE and the shared 500-entry cap match
+  January source and May executable evidence.
+- Each ExplosionAttr publishes its particle colors atomically after numeric
+  validation. A separate source-derived fingerprint is stable across device
+  handles, software palettes, both retail roots and repeated reconstruction.
+  The admitted May values are: 01D `15405245879790332505`, 01N
+  `6832843287917630389`, 02D/02N `10902720985337932439`, 03N
+  `10669768949891345271`, 04D `3307987323279664573`, 05D
+  `12112644173111710481`, 06N `1177190502280645556`, and 07N
+  `17815537380847575576`. The public fixture is separately admitted as
+  `8630148845058022144`.
+- The modern parent uses a 128-entry fixed local store, sufficient for the May
+  script maximum of 115 admitted ray/simple/snake limbs. Parent removal owns
+  every branch plus its MOVE, light and SoundObj rollback; a 15-second hard
+  deadline bounds malformed content.
+- May's simple-particle FPS ordering bug and snake `>0.07` quarter gate are
+  preserved. Zero-vector normalization is made defined without changing a
+  zero-radius spawn position.
+- A clipped 8-bit software particle rasterizer now produces real frames. Rays
+  are bounded particle samples using recovered count/length/width/direction and
+  lifetime, not a claim of exact legacy polygon/transparency raster parity.
+- Admission proves creation, dependency skip, movement, natural expiry and
+  exact rollback. The service smoke captures non-zero particle draws in a real
+  frame and none after parent detach. Piece, traced-piece and Smoke branches
+  remain deferred pending their resource owners.
+- The final gate passes 51/51 CTest in both configurations, 36/36 retail
+  services with 18/18 installed/mounted and 18/18 Debug/Release identities,
+  plus 4/4 waited `rr2nw.exe --runtime-smoke` launches.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

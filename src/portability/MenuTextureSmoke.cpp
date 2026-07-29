@@ -147,6 +147,28 @@ int main(int argc,char **argv)
         return EXIT_FAILURE;
     }
 
+    std::fill(screen.begin(),screen.end(),static_cast<unsigned char>(7));
+    _gr_clipRect.left = 1;
+    _gr_clipRect.top = 1;
+    _gr_clipRect.right = 5;
+    _gr_clipRect.bottom = 4;
+    GRDrawParticle(1,1,5,65535,42);
+    const std::vector<unsigned char> expectedParticle = {
+        7,7,7,7,7,7,
+        7,42,42,42,42,7,
+        7,42,42,42,7,7,
+        7,42,42,42,7,7};
+    if( !Expect(screen == expectedParticle,
+                "software particle raster escaped its clip rectangle") ) {
+        return EXIT_FAILURE;
+    }
+    const std::vector<unsigned char> screenBeforeInvalidDepth = screen;
+    GRDrawParticle(1,1,5,0,99);
+    if( !Expect(screen == screenBeforeInvalidDepth,
+                "invalid particle depth changed the framebuffer") ) {
+        return EXIT_FAILURE;
+    }
+
     for( int i = 2; i < argc; ++i ) {
         g_cacheSmokeCnt = 0;
         void *retailTexture = g_loadSmoke(argv[i],NULL);

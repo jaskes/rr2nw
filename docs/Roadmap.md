@@ -578,7 +578,10 @@ real directional Smoke owner, with child-owned movement, exact rollback and a
 visible/detached frame proof. Start/collision Spark remain inactive because the
 January calls are commented out. Explosion now has the bounded device-free
 SET_WAV/MOVE_TO/START(1) command and exact parent rollback; actual audio output
-and remaining particles stay independent future slices. Trace follows only
+stays an independent future slice. Its bounded simple/snake/ray particle owner,
+recurring lifetime, safe software raster and exact rollback are now active.
+Piece, traced-piece and Smoke limbs remain separate resource-backed slices.
+Trace follows only
 after the known first-step `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this

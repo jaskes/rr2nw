@@ -11,6 +11,7 @@
 #include "RecoveredRetailScriptManifest.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
+#include "obase/explosion/ExplosionSubjectState.h"
 
 #include <shlobj.h>
 
@@ -577,7 +578,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_subject_capacity=" + std::to_string(
                RecoveredArenaSeance_ExplosionSubjectCapacity()));
   log.Line(
-      "explosion_subject_mode=bounded-impact-radial-damage-impulse-light");
+      "explosion_subject_mode=bounded-impact-radial-damage-impulse-light-sound-particles");
   log.Line("explosion_subject_impulse=" +
            std::to_string(
                RecoveredGameServices_ExplosionImpulseReady() ? 1 : 0));
@@ -600,9 +601,33 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line(
       "explosion_subject_sound_lifecycle=SET_WAV-MOVE_TO-START(1)-parent-rollback");
   log.Line("explosion_subject_sound_backend=device-free");
+  log.Line("explosion_subject_particles=" +
+           std::to_string(
+               RecoveredGameServices_ExplosionParticlesReady() ? 1 : 0));
+  log.Line("explosion_particle_visual_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleVisualFingerprint()));
+  log.Line("explosion_particle_branch_capacity=" + std::to_string(
+               ExplosionSubjectState_ParticleBranchCapacity()));
+  log.Line("explosion_particle_probe_started_branches=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeStartedBranches()));
+  log.Line("explosion_particle_probe_simple=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeSimpleParticles()));
+  log.Line("explosion_particle_probe_snake=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeSnakeParticles()));
+  log.Line("explosion_particle_probe_rays=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeRays()));
+  log.Line("explosion_particle_probe_dependency_skips=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeDependencySkips()));
+  log.Line("explosion_particle_probe_move_steps=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeMoveSteps()));
+  log.Line("explosion_particle_probe_expired_parents=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeExpiredParents()));
+  log.Line("explosion_particle_probe_rolled_back_branches=" + std::to_string(
+               RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches()));
+  log.Line("explosion_particle_raster=safe-clipped-software-particle");
+  log.Line("explosion_piece_trace_smoke=deferred");
   log.Line("vehicle_vessel_mass=" + std::to_string(
                RecoveredGameServices_VehicleVesselMass()));
-  log.Line("explosion_subject_particles=deferred");
   log.Line("explosion_subject_fingerprint=" + std::to_string(
                RecoveredArenaSeance_ExplosionSubjectFingerprint()));
   log.Line("explosion_probe_invalid_starts=" + std::to_string(
@@ -945,7 +970,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
       "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
-      "attribute-bullet-collision-impact-explosion-damage-sound-vehicle-bootstrap");
+      "attribute-bullet-collision-impact-explosion-damage-sound-particles-"
+      "vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

@@ -602,6 +602,7 @@ struct RecoveredArenaSeanceState {
   bool explosionImpulseReady;
   bool explosionLightReady;
   bool explosionSoundReady;
+  bool explosionParticlesReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -664,6 +665,15 @@ struct RecoveredArenaSeanceState {
   int explosionSoundProbeStarted;
   int explosionSoundProbeDependencySkips;
   int explosionSoundProbeRollbacks;
+  unsigned long long explosionParticleVisualFingerprint;
+  int explosionParticleProbeStartedBranches;
+  int explosionParticleProbeSimpleParticles;
+  int explosionParticleProbeSnakeParticles;
+  int explosionParticleProbeRays;
+  int explosionParticleProbeDependencySkips;
+  int explosionParticleProbeMoveSteps;
+  int explosionParticleProbeExpiredParents;
+  int explosionParticleProbeRolledBackBranches;
   int bulletSubjectProbeMoveCount;
   int bulletCollisionScheduledChecks;
   int bulletCollisionExecutedChecks;
@@ -2073,6 +2083,24 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
   g_state.farterReferencesReady = true;
   g_state.farterRuntimeReady = false;
 
+  if (!ExplosionAttributeState_ProbeParticleVisualAtomicity(context) ||
+      !ExplosionAttributeState_ResolveParticleVisuals(context) ||
+      !ExplosionAttributeState_ParticleVisualsResolved(context)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE,
+        "ExplosionAttr could not publish its particle colors atomically");
+    return false;
+  }
+  g_state.explosionParticleVisualFingerprint =
+      ExplosionAttributeState_ParticleVisualFingerprint(context);
+  if (g_state.explosionParticleVisualFingerprint == 0 ||
+      !ExplosionAttributeState_IsKnownParticleVisualRoster(context)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE,
+        "Explosion particle visual roster is empty or unknown");
+    return false;
+  }
+
   if (!ExplosionAttributeState_ProbeSoundReferenceAtomicity(context) ||
       !ExplosionAttributeState_ResolveSoundReferences(context) ||
       !ExplosionAttributeState_SoundReferencesResolved(context)) {
@@ -2098,6 +2126,43 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
   }
   const char* soundProbeAttribute =
       ExplosionSubjectState_SoundProbeAttributeName(context);
+  ExplosionParticleProbeSummary particleProbe = {};
+  if (soundProbeAttribute == nullptr ||
+      !ExplosionSubjectState_ProbeParticleLifecycle(
+          context, soundProbeAttribute, Session::m_moment,
+          &particleProbe) ||
+      particleProbe.startedBranches <= 0 ||
+      particleProbe.simpleParticles <= 0 ||
+      particleProbe.snakeParticles <= 0 ||
+      particleProbe.dependencyGateSkips != 1 ||
+      particleProbe.moveSteps <= 0 ||
+      particleProbe.expiredParents != 1 ||
+      particleProbe.rolledBackBranches !=
+          particleProbe.startedBranches ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      ExplosionSubjectState_ParticleBranchLiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE,
+        "Explosion simple/snake/ray start/gate/move/expiry/rollback probe "
+        "failed");
+    return false;
+  }
+  g_state.explosionParticleProbeStartedBranches =
+      particleProbe.startedBranches;
+  g_state.explosionParticleProbeSimpleParticles =
+      particleProbe.simpleParticles;
+  g_state.explosionParticleProbeSnakeParticles =
+      particleProbe.snakeParticles;
+  g_state.explosionParticleProbeRays = particleProbe.rays;
+  g_state.explosionParticleProbeDependencySkips =
+      particleProbe.dependencyGateSkips;
+  g_state.explosionParticleProbeMoveSteps = particleProbe.moveSteps;
+  g_state.explosionParticleProbeExpiredParents =
+      particleProbe.expiredParents;
+  g_state.explosionParticleProbeRolledBackBranches =
+      particleProbe.rolledBackBranches;
+  g_state.explosionParticlesReady = true;
+
   ExplosionSoundProbeSummary soundProbe = {};
   if (soundProbeAttribute == nullptr ||
       !ExplosionSubjectState_ProbeSoundLifecycle(
@@ -2416,6 +2481,7 @@ void RecoveredArenaSeance_Release() {
   SparkAttributeState_ClearVisualResources(g_arena.getContext());
   ExplosionSubjectState_ReleaseLightFrame();
   ExplosionSubjectState_UnbindImpulseTarget(g_arena.getContext());
+  ExplosionAttributeState_ClearParticleVisuals(g_arena.getContext());
   g_state.vehicleReady = false;
   g_state.routeReady = false;
   g_state.sparkAttributesReady = false;
@@ -2440,6 +2506,7 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionImpulseReady = false;
   g_state.explosionLightReady = false;
   g_state.explosionSoundReady = false;
+  g_state.explosionParticlesReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -2452,6 +2519,15 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionSoundProbeStarted = 0;
   g_state.explosionSoundProbeDependencySkips = 0;
   g_state.explosionSoundProbeRollbacks = 0;
+  g_state.explosionParticleVisualFingerprint = 0;
+  g_state.explosionParticleProbeStartedBranches = 0;
+  g_state.explosionParticleProbeSimpleParticles = 0;
+  g_state.explosionParticleProbeSnakeParticles = 0;
+  g_state.explosionParticleProbeRays = 0;
+  g_state.explosionParticleProbeDependencySkips = 0;
+  g_state.explosionParticleProbeMoveSteps = 0;
+  g_state.explosionParticleProbeExpiredParents = 0;
+  g_state.explosionParticleProbeRolledBackBranches = 0;
   g_state.vehicleAttributesReady = false;
   g_state.vehicleAttributeCount = 0;
   g_state.vehicleAttributeCapacity = 0;
@@ -2639,6 +2715,65 @@ int RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() {
 int RecoveredArenaSeance_ExplosionSoundProbeRollbacks() {
   return g_state.explosionSoundReady
              ? g_state.explosionSoundProbeRollbacks
+             : -1;
+}
+
+bool RecoveredArenaSeance_ExplosionParticlesReady() {
+  return g_state.explosionParticlesReady;
+}
+
+unsigned long long
+RecoveredArenaSeance_ExplosionParticleVisualFingerprint() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleVisualFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeStartedBranches() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeStartedBranches
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeSimpleParticles() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeSimpleParticles
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeSnakeParticles() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeSnakeParticles
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeRays() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeRays
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeDependencySkips() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeDependencySkips
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeMoveSteps() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeMoveSteps
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeExpiredParents
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() {
+  return g_state.explosionParticlesReady
+             ? g_state.explosionParticleProbeRolledBackBranches
              : -1;
 }
 

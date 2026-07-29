@@ -2135,4 +2135,51 @@ remains device-free, and no fake WAV duration is invented. Explosions whose
 only lifetime owner would be sound still lose the logical child when the
 parent is removed; full playback/lifetime waits for the audio backend or the
 original particle owner. Diagnostics say `backend=device-free`, publish the
-reference fingerprint and counters `1/1/1`, and keep particles deferred.
+reference fingerprint and counters `1/1/1`. BD-060 below activates the first
+particle-owner subset without changing this audio boundary.
+
+## BD-060: activate a bounded Explosion simple/snake/ray particle owner
+
+Status: accepted on 2026-07-29.
+
+January source and May disassembly agree on branch tags simple `0`, snake `1`
+and ray `4`, their creation order (ray, simple, snake), per-branch random-field
+sampling order, the shared 500-entry pool and the recurring `EXPLOSION_MOVE`
+owner. The nine retail scripts request
+at most 80 simple particles, 20 snakes and 15 rays at once. The modern parent
+therefore keeps the retail global cap of 500 and a fixed 128-entry local array;
+it performs no heap allocation after START and cannot overrun either boundary.
+
+START validates the complete numeric particle contract before publishing any
+derived color. Color resolution is two-phase and has a symbolic, pointer-free
+fingerprint. Missing draw support leaves every color cache untouched. Parent
+removal cancels START/MOVE, releases every exact branch and rolls back its
+SoundObj. Natural movement is ballistic with the January half-gravity term;
+snake tails shrink after head lifetime, rays live 0.6 seconds, and an absolute
+15-second owner deadline prevents malformed content from retaining a slot.
+
+The May FPS ordering quirk is preserved literally: simple count halves above
+0.05 seconds and the following `else if (>0.08)` quarter branch remains
+unreachable; snakes quarter above 0.07 seconds. The original zero-vector
+normalization is made defined with a deterministic unit direction while a zero
+creation radius still produces a zero position offset.
+
+The unsafe assembler particle entry is replaced for this path by a clipped,
+bounded circular 8-bit software rasterizer. Simple and snake limbs retain their
+source motion and colors. Ray length, width, direction, count and lifetime are
+recovered, but the visual is deliberately sampled as bounded particles rather
+than claiming parity with the old polygon/transparency rasterizer.
+
+Admission proves successful branch creation, missing-draw dependency gating,
+recurring movement, natural parent expiry and exact global-pool rollback. The
+retail service smoke additionally captures real particle calls during one
+software frame, removes the parent, and proves the following frame emits no
+particle, light, sound, event or land-dynamic residue. Piece, traced piece,
+piece-with-smoke and standalone Smoke branches remain fail-closed until their
+Skin/Smoke caches are admitted. The direct texture smoke also checks an exact
+edge-clipped particle footprint and rejects a non-positive inverse depth.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+launches with 18/18 identical installed/mounted pairs and 18/18 identical
+Debug/Release pairs, and 4/4 waited executable smokes publishing particle
+readiness, the safe raster marker, `level-ready` and `runtime_shutdown=clean`.

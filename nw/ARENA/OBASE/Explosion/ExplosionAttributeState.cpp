@@ -1,6 +1,7 @@
 #include "ExplosionAttributeState.h"
 
 #include <algorithm>
+#include <cmath>
 #include <new>
 #include <string>
 #include <vector>
@@ -11,10 +12,31 @@
 #include "kernel/h/s_debug.h"
 #include "storage/h/subject.h"
 
+extern SDeviceList _dL;
+
 namespace {
 
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
+const int kExplosionParticleBranchCapacity = 128;
+
+struct ParticleVisualRuntimeState
+{
+    SimulationContext *context;
+    unsigned long long fingerprint;
+    bool ready;
+};
+
+ParticleVisualRuntimeState g_particleVisualState = {};
+
+struct ParticleVisualCache
+{
+    unsigned long color[4];
+    unsigned long snakeTail;
+    unsigned long snakeHead;
+    unsigned long snakeCenter;
+    unsigned long ray;
+};
 
 int LightBrightness(int index)
 {
@@ -148,13 +170,18 @@ void HashAttribute(unsigned long long &hash, AttributeExplosion &attr)
 #undef RR2NW_EXPLOSION_HASH
 }
 
-bool NonSoundCachesAreUnresolved(AttributeExplosion &attr)
+bool ParticleCacheIsZero(const AttributeExplosion &attr)
 {
-    if (attr.m_color0 != 0 || attr.m_color1 != 0 || attr.m_color2 != 0 ||
-        attr.m_color3 != 0 || attr.m_hTexture != NULL ||
-        attr.m_colorSnTail != 0 || attr.m_colorSnHead != 0 ||
-        attr.m_colorSnCenter != 0 || attr.m_cacheSkin != NULL ||
-        attr.m_rayColor != 0 || attr.m_smokeTableID != ct_NULLID ||
+    return attr.m_color0 == 0 && attr.m_color1 == 0 &&
+           attr.m_color2 == 0 && attr.m_color3 == 0 &&
+           attr.m_colorSnTail == 0 && attr.m_colorSnHead == 0 &&
+           attr.m_colorSnCenter == 0 && attr.m_rayColor == 0;
+}
+
+bool DeferredCachesAreUnresolved(AttributeExplosion &attr)
+{
+    if (attr.m_hTexture != NULL || attr.m_cacheSkin != NULL ||
+        attr.m_smokeTableID != ct_NULLID ||
         !attr.m_smokeAttrID.isNUL())
         return false;
     for (int i = 0; i < AttributeExplosion::MAX_BRIGHT; ++i)
@@ -163,6 +190,114 @@ bool NonSoundCachesAreUnresolved(AttributeExplosion &attr)
     for (int i = 0; i < AttributeExplosion::COLLINE * 3; ++i)
         if (attr.m_colBuf[i] != 0)
             return false;
+    return true;
+}
+
+int Red(const int color) { return (color >> 16) & 255; }
+int Green(const int color) { return (color >> 8) & 255; }
+int Blue(const int color) { return color & 255; }
+
+unsigned long CreateParticleColor(int red, int green, int blue)
+{
+    if (_dL.currDevice == NULL)
+        return 0;
+    if (_dL.currDevice->swHw == GR_HARDWARE)
+        return (static_cast<unsigned long>(red) << 24) |
+               (static_cast<unsigned long>(green) << 16) |
+               (static_cast<unsigned long>(blue) << 8);
+    return GRCreateColor(red, green, blue);
+}
+
+ParticleVisualCache BuildParticleVisualCache(
+    const AttributeExplosion &attr)
+{
+    ParticleVisualCache cache = {};
+    cache.color[0] = CreateParticleColor(
+        Red(attr.m_RGB0), Green(attr.m_RGB0), Blue(attr.m_RGB0));
+    cache.color[1] = CreateParticleColor(
+        Red(attr.m_RGB1), Green(attr.m_RGB1), Blue(attr.m_RGB1));
+    cache.color[2] = CreateParticleColor(
+        Red(attr.m_RGB2), Green(attr.m_RGB2), Blue(attr.m_RGB2));
+    cache.color[3] = CreateParticleColor(
+        Red(attr.m_RGB3), Green(attr.m_RGB3), Blue(attr.m_RGB3));
+    cache.snakeTail = CreateParticleColor(
+        Red(attr.m_snRGBtail), Green(attr.m_snRGBtail),
+        Blue(attr.m_snRGBtail));
+    cache.snakeHead = CreateParticleColor(
+        Red(attr.m_snRGBhead), Green(attr.m_snRGBhead),
+        Blue(attr.m_snRGBhead));
+    cache.snakeCenter = CreateParticleColor(
+        Red(attr.m_snRGBcenter), Green(attr.m_snRGBcenter),
+        Blue(attr.m_snRGBcenter));
+    // The recovered ray path is deliberately particle-sampled; retain the
+    // source RGB in the same device color form as the other particle limbs.
+    cache.ray = CreateParticleColor(
+        Red(attr.m_rayRGB), Green(attr.m_rayRGB), Blue(attr.m_rayRGB));
+    return cache;
+}
+
+bool ParticleCacheMatches(const AttributeExplosion &attr,
+                          const ParticleVisualCache &cache)
+{
+    return attr.m_color0 == cache.color[0] &&
+           attr.m_color1 == cache.color[1] &&
+           attr.m_color2 == cache.color[2] &&
+           attr.m_color3 == cache.color[3] &&
+           attr.m_colorSnTail == cache.snakeTail &&
+           attr.m_colorSnHead == cache.snakeHead &&
+           attr.m_colorSnCenter == cache.snakeCenter &&
+           attr.m_rayColor == cache.ray;
+}
+
+bool FiniteRange(double minimum, double maximum)
+{
+    return std::isfinite(minimum) && std::isfinite(maximum) &&
+           minimum <= maximum;
+}
+
+bool CountRange(int minimum, int maximum)
+{
+    return minimum >= 0 && maximum >= minimum &&
+           maximum <= kExplosionParticleBranchCapacity;
+}
+
+bool ParticleNumbersReady(const AttributeExplosion &attr)
+{
+    const int maximumBranches = attr.m_maxRayCnt + attr.m_maxPartCnt +
+                                attr.m_maxPartSnCnt;
+    if (!std::isfinite(attr.m_moveTimeInc) || attr.m_moveTimeInc <= 0.0 ||
+        attr.m_moveTimeInc > 1.0 || !CountRange(attr.m_minRayCnt,
+                                                attr.m_maxRayCnt) ||
+        !CountRange(attr.m_minPartCnt, attr.m_maxPartCnt) ||
+        !CountRange(attr.m_minPartSnCnt, attr.m_maxPartSnCnt) ||
+        maximumBranches > kExplosionParticleBranchCapacity ||
+        !std::isfinite(attr.m_createRadius) ||
+        attr.m_createRadius < 0.0)
+        return false;
+    if (attr.m_maxPartCnt > 0 &&
+        (!FiniteRange(attr.m_minPartSize, attr.m_maxPartSize) ||
+         attr.m_minPartSize <= 0.0 ||
+         !FiniteRange(attr.m_minPartSpeed, attr.m_maxPartSpeed) ||
+         attr.m_minPartSpeed < 0.0 ||
+         !FiniteRange(attr.m_minPartTimeLife,
+                      attr.m_maxPartTimeLife) ||
+         attr.m_minPartTimeLife <= 0.0))
+        return false;
+    if (attr.m_maxPartSnCnt > 0 &&
+        (!FiniteRange(attr.m_minPartSnSize, attr.m_maxPartSnSize) ||
+         attr.m_minPartSnSize <= 0.0 || attr.m_snPartCnt <= 0 ||
+         attr.m_snPartCnt > 64 || !std::isfinite(attr.m_snDeltaT) ||
+         attr.m_snDeltaT < 0.0 ||
+         !FiniteRange(attr.m_minPartSnTimeLife,
+                      attr.m_maxPartSnTimeLife) ||
+         attr.m_minPartSnTimeLife <= 0.0))
+        return false;
+    if (attr.m_maxRayCnt > 0 &&
+        (!FiniteRange(attr.m_minRayLen, attr.m_maxRayLen) ||
+         attr.m_minRayLen <= 0.0 ||
+         !FiniteRange(attr.m_minRayWidth, attr.m_maxRayWidth) ||
+         attr.m_minRayWidth <= 0.0))
+        return false;
     return true;
 }
 
@@ -179,8 +314,12 @@ bool SoundCacheIsCoherent(AttributeExplosion &attr)
 
 bool CachesAreCoherent(AttributeExplosion &attr)
 {
-    return NonSoundCachesAreUnresolved(attr) &&
-           SoundCacheIsCoherent(attr);
+    if (!DeferredCachesAreUnresolved(attr) ||
+        !SoundCacheIsCoherent(attr))
+        return false;
+    if (!g_particleVisualState.ready)
+        return ParticleCacheIsZero(attr);
+    return ParticleCacheMatches(attr, BuildParticleVisualCache(attr));
 }
 
 struct RosterEntry
@@ -701,6 +840,245 @@ bool ExplosionAttributeState_IsKnownSoundReferenceRoster(
         if (fingerprint == known[index])
             return true;
     return false;
+}
+
+bool ExplosionAttributeState_ParticleCachesUnresolved(
+    SimulationContext *context)
+{
+    if (g_particleVisualState.ready)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        if (!ParticleCacheIsZero(*collector.entries[index].attribute))
+            return false;
+    return true;
+}
+
+bool ExplosionAttributeState_ProbeParticleVisualAtomicity(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) ||
+        !ExplosionAttributeState_ParticleCachesUnresolved(context))
+        return false;
+    AttributeExplosion *probe = collector.entries.front().attribute;
+    if (probe == NULL)
+        return false;
+    const unsigned long long before =
+        ExplosionAttributeState_Fingerprint(context);
+    const int savedMaximum = probe->m_maxPartCnt;
+    probe->m_maxPartCnt = -1;
+    const bool rejected =
+        !ExplosionAttributeState_ResolveParticleVisuals(context) &&
+        ExplosionAttributeState_ParticleCachesUnresolved(context);
+    probe->m_maxPartCnt = savedMaximum;
+    return rejected && before != 0 &&
+           ExplosionAttributeState_Fingerprint(context) == before &&
+           ExplosionAttributeState_ParticleCachesUnresolved(context);
+}
+
+bool ExplosionAttributeState_ResolveParticleVisuals(
+    SimulationContext *context)
+{
+    if (g_particleVisualState.ready)
+        return ExplosionAttributeState_ParticleVisualsResolved(context);
+    RosterCollector collector = {};
+    if (context == NULL || g_arena.getContext() != context ||
+        _pGRDrawParticle == NULL ||
+        !CollectRoster(context, collector) ||
+        !ExplosionAttributeState_ParticleCachesUnresolved(context))
+        return false;
+
+    std::vector<ParticleVisualCache> caches(collector.entries.size());
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (attribute == NULL || !ParticleNumbersReady(*attribute))
+            return false;
+        caches[index] = BuildParticleVisualCache(*attribute);
+    }
+
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        attribute->m_color0 = caches[index].color[0];
+        attribute->m_color1 = caches[index].color[1];
+        attribute->m_color2 = caches[index].color[2];
+        attribute->m_color3 = caches[index].color[3];
+        attribute->m_colorSnTail = caches[index].snakeTail;
+        attribute->m_colorSnHead = caches[index].snakeHead;
+        attribute->m_colorSnCenter = caches[index].snakeCenter;
+        attribute->m_rayColor = caches[index].ray;
+    }
+
+    unsigned long long hash = kHashOffset;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        const AttributeExplosion *attribute =
+            collector.entries[index].attribute;
+        HashString(hash, collector.entries[index].name.c_str());
+        HashBytes(hash, &attribute->m_RGB0, sizeof(attribute->m_RGB0));
+        HashBytes(hash, &attribute->m_RGB1, sizeof(attribute->m_RGB1));
+        HashBytes(hash, &attribute->m_RGB2, sizeof(attribute->m_RGB2));
+        HashBytes(hash, &attribute->m_RGB3, sizeof(attribute->m_RGB3));
+        HashBytes(hash, &attribute->m_snRGBtail,
+                  sizeof(attribute->m_snRGBtail));
+        HashBytes(hash, &attribute->m_snRGBhead,
+                  sizeof(attribute->m_snRGBhead));
+        HashBytes(hash, &attribute->m_snRGBcenter,
+                  sizeof(attribute->m_snRGBcenter));
+        HashBytes(hash, &attribute->m_rayRGB,
+                  sizeof(attribute->m_rayRGB));
+        HashBytes(hash, &attribute->m_moveTimeInc,
+                  sizeof(attribute->m_moveTimeInc));
+        HashBytes(hash, &attribute->m_minPartSize,
+                  sizeof(attribute->m_minPartSize));
+        HashBytes(hash, &attribute->m_maxPartSize,
+                  sizeof(attribute->m_maxPartSize));
+        HashBytes(hash, &attribute->m_minPartSnSize,
+                  sizeof(attribute->m_minPartSnSize));
+        HashBytes(hash, &attribute->m_maxPartSnSize,
+                  sizeof(attribute->m_maxPartSnSize));
+        HashBytes(hash, &attribute->m_minPartCnt,
+                  sizeof(attribute->m_minPartCnt));
+        HashBytes(hash, &attribute->m_maxPartCnt,
+                  sizeof(attribute->m_maxPartCnt));
+        HashBytes(hash, &attribute->m_minPartSnCnt,
+                  sizeof(attribute->m_minPartSnCnt));
+        HashBytes(hash, &attribute->m_maxPartSnCnt,
+                  sizeof(attribute->m_maxPartSnCnt));
+        HashBytes(hash, &attribute->m_minRayCnt,
+                  sizeof(attribute->m_minRayCnt));
+        HashBytes(hash, &attribute->m_maxRayCnt,
+                  sizeof(attribute->m_maxRayCnt));
+        HashBytes(hash, &attribute->m_radius,
+                  sizeof(attribute->m_radius));
+        HashBytes(hash, &attribute->m_createRadius,
+                  sizeof(attribute->m_createRadius));
+        HashBytes(hash, &attribute->m_minPartSpeed,
+                  sizeof(attribute->m_minPartSpeed));
+        HashBytes(hash, &attribute->m_maxPartSpeed,
+                  sizeof(attribute->m_maxPartSpeed));
+        HashBytes(hash, &attribute->m_minPartTimeLife,
+                  sizeof(attribute->m_minPartTimeLife));
+        HashBytes(hash, &attribute->m_maxPartTimeLife,
+                  sizeof(attribute->m_maxPartTimeLife));
+        HashBytes(hash, &attribute->m_minPartSnTimeLife,
+                  sizeof(attribute->m_minPartSnTimeLife));
+        HashBytes(hash, &attribute->m_maxPartSnTimeLife,
+                  sizeof(attribute->m_maxPartSnTimeLife));
+        HashBytes(hash, &attribute->m_snDeltaT,
+                  sizeof(attribute->m_snDeltaT));
+        HashBytes(hash, &attribute->m_snPartCnt,
+                  sizeof(attribute->m_snPartCnt));
+        HashBytes(hash, &attribute->m_useRay,
+                  sizeof(attribute->m_useRay));
+        HashBytes(hash, &attribute->m_minRayLen,
+                  sizeof(attribute->m_minRayLen));
+        HashBytes(hash, &attribute->m_maxRayLen,
+                  sizeof(attribute->m_maxRayLen));
+        HashBytes(hash, &attribute->m_minRayWidth,
+                  sizeof(attribute->m_minRayWidth));
+        HashBytes(hash, &attribute->m_maxRayWidth,
+                  sizeof(attribute->m_maxRayWidth));
+    }
+    if (hash == 0)
+        return false;
+    g_particleVisualState.context = context;
+    g_particleVisualState.fingerprint = hash;
+    g_particleVisualState.ready = true;
+    if (ExplosionAttributeState_ParticleVisualsResolved(context))
+        return true;
+    ExplosionAttributeState_ClearParticleVisuals(context);
+    return false;
+}
+
+bool ExplosionAttributeState_ParticleVisualsResolved(
+    SimulationContext *context)
+{
+    if (!g_particleVisualState.ready || context == NULL ||
+        g_particleVisualState.context != context ||
+        g_arena.getContext() != context || _pGRDrawParticle == NULL)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (attribute == NULL || !ParticleNumbersReady(*attribute) ||
+            !ParticleCacheMatches(
+                *attribute, BuildParticleVisualCache(*attribute)))
+            return false;
+    }
+    return true;
+}
+
+unsigned long long ExplosionAttributeState_ParticleVisualFingerprint(
+    SimulationContext *context)
+{
+    return ExplosionAttributeState_ParticleVisualsResolved(context)
+               ? g_particleVisualState.fingerprint
+               : 0;
+}
+
+bool ExplosionAttributeState_IsKnownParticleVisualRoster(
+    SimulationContext *context)
+{
+    // Eight unique values cover nine May Levels; Level.02D and Level.02N
+    // intentionally share a roster. The final value is the public fixture.
+    static const unsigned long long known[] = {
+        15405245879790332505ull,
+        6832843287917630389ull,
+        10902720985337932439ull,
+        10669768949891345271ull,
+        3307987323279664573ull,
+        12112644173111710481ull,
+        1177190502280645556ull,
+        17815537380847575576ull,
+        8630148845058022144ull
+    };
+    const unsigned long long fingerprint =
+        ExplosionAttributeState_ParticleVisualFingerprint(context);
+    for (int index = 0;
+         index < static_cast<int>(sizeof(known) / sizeof(known[0]));
+         ++index)
+        if (fingerprint == known[index])
+            return true;
+    return false;
+}
+
+namespace {
+
+bool ClearParticleVisualCache(const KR_ObjectID object, void *)
+{
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (attribute == NULL)
+        return false;
+    attribute->m_color0 = 0;
+    attribute->m_color1 = 0;
+    attribute->m_color2 = 0;
+    attribute->m_color3 = 0;
+    attribute->m_colorSnTail = 0;
+    attribute->m_colorSnHead = 0;
+    attribute->m_colorSnCenter = 0;
+    attribute->m_rayColor = 0;
+    return true;
+}
+
+}  // namespace
+
+void ExplosionAttributeState_ClearParticleVisuals(
+    SimulationContext *context)
+{
+    if (!g_particleVisualState.ready ||
+        g_particleVisualState.context != context)
+        return;
+    __attrExplosionTable.userFind(ClearParticleVisualCache, NULL);
+    g_particleVisualState = ParticleVisualRuntimeState{};
 }
 
 bool ExplosionAttributeState_IsKnownRoster(SimulationContext *context)

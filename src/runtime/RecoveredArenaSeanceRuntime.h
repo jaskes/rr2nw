@@ -99,7 +99,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_LIFECYCLE_FAILURE = 1ull << 22,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_GROUND_SPARK_FAILURE = 1ull << 23,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_BARREL_SMOKE_FAILURE = 1ull << 24,
-  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE = 1ull << 25
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE = 1ull << 25,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE = 1ull << 26
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -126,6 +127,16 @@ unsigned long long RecoveredArenaSeance_ExplosionSoundReferenceFingerprint();
 int RecoveredArenaSeance_ExplosionSoundProbeStarted();
 int RecoveredArenaSeance_ExplosionSoundProbeDependencySkips();
 int RecoveredArenaSeance_ExplosionSoundProbeRollbacks();
+bool RecoveredArenaSeance_ExplosionParticlesReady();
+unsigned long long RecoveredArenaSeance_ExplosionParticleVisualFingerprint();
+int RecoveredArenaSeance_ExplosionParticleProbeStartedBranches();
+int RecoveredArenaSeance_ExplosionParticleProbeSimpleParticles();
+int RecoveredArenaSeance_ExplosionParticleProbeSnakeParticles();
+int RecoveredArenaSeance_ExplosionParticleProbeRays();
+int RecoveredArenaSeance_ExplosionParticleProbeDependencySkips();
+int RecoveredArenaSeance_ExplosionParticleProbeMoveSteps();
+int RecoveredArenaSeance_ExplosionParticleProbeExpiredParents();
+int RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches();
 int RecoveredArenaSeance_ExplosionSubjectCapacity();
 unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint();
 int RecoveredArenaSeance_ExplosionProbeInvalidStarts();

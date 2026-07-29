@@ -338,6 +338,58 @@ void DrawSoftwareSprite(int x0,int y0,int x1,int y1,
     }
 }
 
+void DrawSoftwareParticle(int x,int y,int size,int inverseZ,
+                          unsigned long color)
+{
+    if( _dL.currDevice == NULL ||
+        _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
+        _gr_nScreenWidth <= 0 || _gr_nScreenHeight <= 0 ||
+        size <= 0 || inverseZ <= 0 ) return;
+
+    // The preserved software particle assembler is not safe to enter from the
+    // modern Win32 runtime. Retain its palette-index contract (the low byte of
+    // GRCreateColor) and bounded circular footprint, with explicit clipping.
+    const int diameter = (std::min)(size,4096);
+    const int radius = (std::max)(1,(diameter+1)/2);
+    int clipLeft = static_cast<int>(_gr_clipRect.left);
+    int clipTop = static_cast<int>(_gr_clipRect.top);
+    int clipRight = static_cast<int>(_gr_clipRect.right);
+    int clipBottom = static_cast<int>(_gr_clipRect.bottom);
+    if( clipRight <= clipLeft || clipBottom <= clipTop ) {
+        clipLeft = -_gr_nScreenOriginX;
+        clipTop = -_gr_nScreenOriginY;
+        clipRight = _gr_nScreenWidth-_gr_nScreenOriginX;
+        clipBottom = _gr_nScreenHeight-_gr_nScreenOriginY;
+    }
+    clipLeft = (std::max)(clipLeft,-_gr_nScreenOriginX);
+    clipTop = (std::max)(clipTop,-_gr_nScreenOriginY);
+    clipRight = (std::min)(clipRight,
+                           _gr_nScreenWidth-_gr_nScreenOriginX);
+    clipBottom = (std::min)(clipBottom,
+                            _gr_nScreenHeight-_gr_nScreenOriginY);
+
+    const int left = (std::max)(x-radius,clipLeft);
+    const int top = (std::max)(y-radius,clipTop);
+    const int right = (std::min)(x+radius+1,clipRight);
+    const int bottom = (std::min)(y+radius+1,clipBottom);
+    if( right <= left || bottom <= top ) return;
+
+    const int radiusSquared = radius*radius;
+    const unsigned char paletteIndex =
+        static_cast<unsigned char>(color&0xffUL);
+    for( int py = top; py < bottom; ++py ) {
+        unsigned char *destination = _gr_pScreen+
+            static_cast<std::size_t>(py+_gr_nScreenOriginY)*
+                _gr_nScreenWidth+left+_gr_nScreenOriginX;
+        const int dy = py-y;
+        for( int px = left; px < right; ++px,++destination ) {
+            const int dx = px-x;
+            if( dx*dx+dy*dy <= radiusSquared )
+                *destination = paletteIndex;
+        }
+    }
+}
+
 void SetSoftwareZPrecision(int) {}
 void SetSoftwareBump(int, int) {}
 
@@ -349,6 +401,8 @@ void (*_pGRDeleteTextureFromDB)(void *) = DestroySoftwareTexture;
 void (*_pGRDrawAlphaSprite)(SGRAlphaSprite *) = DrawSoftwareAlphaSprite;
 void (*_pGRDrawSprite)(int,int,int,int,int,int,int,int,int,void *) =
     DrawSoftwareSprite;
+void (*_pGRDrawParticle)(int,int,int,int,unsigned long) =
+    DrawSoftwareParticle;
 void (*_pGRSetZPrecision)(int) = SetSoftwareZPrecision;
 void (*_pGRSetBump)(int,int) = SetSoftwareBump;
 

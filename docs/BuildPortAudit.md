@@ -2024,7 +2024,8 @@ Startup diagnostics publish readiness, all four counters and the explicit
 `frameSec<=0.09` contract. Start/collision Spark remain intentionally inactive.
 Explosion now resolves all WAV/SoundObj references atomically and executes the
 exact device-free SET_WAV/MOVE_TO/START(1) command with parent-owned rollback;
-particles and actual audio output remain separate. Bullet trace stays behind
+its bounded simple/snake/ray owner and safe software particle raster are now
+active. Piece/trace/Smoke limbs and actual audio output remain separate. Bullet trace stays behind
 replacement of the known first-step `m_viewTrace[-1]` access.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
@@ -2032,6 +2033,39 @@ service launches with 18/18 byte-identical installed/mounted summaries, and
 4/4 waited executable runtime smokes. Every executable log publishes
 `bullet_barrel_smoke_initialized=1`, probe `1/1/1/1`, the exact frame gate,
 `level-ready` and `runtime_shutdown=clean`.
+
+### Bounded Explosion particle graph and recurring owner lifetime
+
+January source and the preserved May executable agree on ray/simple/snake
+creation order, per-branch random-field sampling order, branch tags `4/0/1`,
+the shared 500-entry pool and recurring `EXPLOSION_MOVE`. Retail scripts top
+out at 115 admitted limbs per parent, so
+the modern owner retains the global 500 cap and adds a fixed 128-entry local
+store. Numeric preflight and two-phase color publication happen before START;
+the separate visual fingerprint contains source identities and values rather
+than palette indices, table pointers or process addresses.
+
+Simple limbs follow the recovered ballistic equation, snake limbs retain their
+head/center/tail colors and post-lifetime tail decay, and rays retain their
+count, direction, length, width and 0.6-second lifetime. The May simple-count
+ordering bug and snake frame gate are preserved. Zero random offsets use a
+deterministic normal instead of invoking undefined normalization, while a zero
+creation radius still leaves the position unchanged. A 15-second deadline
+bounds every parent even under hostile mod data.
+
+The old assembler particle call is replaced on the recovered software path by
+a clipped circular 8-bit rasterizer. Rays are sampled through that safe path;
+this is a documented adaptation rather than an exact polygon/transparency
+claim. A direct framebuffer fixture proves exact edge clipping and a no-op for
+invalid inverse depth. Admission proves creation, missing-draw gating, repeated movement,
+natural expiry and exact branch rollback. A real service frame captures
+non-zero particle calls, then parent removal proves no draws, light, sound,
+event or land-dynamic residue in the next frame. Piece, traced-piece,
+piece-with-smoke and standalone Smoke branches remain fail-closed.
+
+Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
+service launches with all 18/18 installed/mounted and 18/18 configuration pairs
+identical, and 4/4 waited executable runtime smokes with clean shutdown.
 
 ## Expansion order
 
@@ -2097,8 +2131,10 @@ service launches with 18/18 byte-identical installed/mounted summaries, and
    six-phase Spark sprite/light rendering, May phase timing, expiry and Bullet
    ground-child rollback are active as well. Barrel Smoke and the exact
    Explosion SET_WAV/MOVE_TO/START(1) command with parent-owned rollback are
-   active. Actual audio output, Explosion particles and Bullet trace remain
-   deferred. Vehicle's own
+   active. The bounded Explosion simple/snake/ray graph now renders through a
+   safe software particle path and owns recurring expiry/rollback. Actual audio
+   output, Explosion Piece/Smoke limbs and Bullet trace remain deferred.
+   Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
    attribute groups, Skin

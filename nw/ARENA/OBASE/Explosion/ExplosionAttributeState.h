@@ -163,5 +163,19 @@ unsigned long long ExplosionAttributeState_SoundReferenceFingerprint(
     SimulationContext *context);
 bool ExplosionAttributeState_IsKnownSoundReferenceRoster(
     SimulationContext *context);
+bool ExplosionAttributeState_ParticleCachesUnresolved(
+    SimulationContext *context);
+bool ExplosionAttributeState_ProbeParticleVisualAtomicity(
+    SimulationContext *context);
+bool ExplosionAttributeState_ResolveParticleVisuals(
+    SimulationContext *context);
+bool ExplosionAttributeState_ParticleVisualsResolved(
+    SimulationContext *context);
+unsigned long long ExplosionAttributeState_ParticleVisualFingerprint(
+    SimulationContext *context);
+bool ExplosionAttributeState_IsKnownParticleVisualRoster(
+    SimulationContext *context);
+void ExplosionAttributeState_ClearParticleVisuals(
+    SimulationContext *context);
 
 #endif

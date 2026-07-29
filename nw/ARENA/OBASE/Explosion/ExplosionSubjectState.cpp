@@ -1,4 +1,4 @@
-#define LAST_H__VIEW
+#define LAST_H__SCENE
 #include "game.h"
 
 #include "ExplosionSubjectState.h"
@@ -26,16 +26,72 @@ namespace {
 
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
+const int kParticleBranchCapacity = 500;
+const int kParticleBranchPerExplosion = 128;
+const double kRayTimeLife = 0.6;
+const double kExplosionMaximumTimeLife = 15.0;
+const double kPi = 3.14159265358979323846;
 
 int g_executedCommands = 0;
 int g_damageApplications = 0;
 int g_impulseApplications = 0;
 int g_allocationRollbacks = 0;
 int g_queueRollbacks = 0;
+int g_particleBranchesLive = 0;
 SimulationContext *g_impulseContext = NULL;
 KR_ObjectID g_impulseTarget = KR_ObjectID::NUL();
 void *g_impulseUser = NULL;
 ExplosionImpulseDispatch g_impulseDispatch = NULL;
+
+enum ExplosionParticleBranchType
+{
+    EXPLOSION_PARTICLE_SIMPLE = 0,
+    EXPLOSION_PARTICLE_SNAKE = 1,
+    EXPLOSION_PARTICLE_RAY = 4
+};
+
+struct ExplosionParticleBranch
+{
+    ExplosionParticleBranchType type;
+    CFVector3 start;
+    CFVector3 velocity;
+    double radius;
+    double timeOfLife;
+    double rayAngle;
+    double rayWidth;
+    int tailCount;
+    unsigned long color;
+    bool active;
+
+    void reset()
+    {
+        type = EXPLOSION_PARTICLE_SIMPLE;
+        start = CFVector3(0.0, 0.0, 0.0);
+        velocity = CFVector3(0.0, 0.0, 0.0);
+        radius = 0.0;
+        timeOfLife = 0.0;
+        rayAngle = 0.0;
+        rayWidth = 0.0;
+        tailCount = 0;
+        color = 0;
+        active = false;
+    }
+};
+
+class BoundedExplosion;
+bool NearlyEqual(double actual, double expected);
+
+class ExplosionParticleDrawable : public CViewSphericDynamic
+{
+ public:
+    ExplosionParticleDrawable() : m_owner(NULL) {}
+    void bind(BoundedExplosion *owner) { m_owner = owner; }
+    void prepare(const CFVector3 &position, double radius);
+    virtual void Draw();
+
+ private:
+    BoundedExplosion *m_owner;
+};
 
 void ResetImpulseBinding()
 {
@@ -294,34 +350,53 @@ int ApplyRadialDamage(SimulationContext *context,
 class BoundedExplosion : public ct_Subject
 {
  public:
-    BoundedExplosion() { resetState(); }
+    BoundedExplosion()
+    {
+        m_particleDrawable.bind(this);
+        resetState();
+    }
 
     virtual CFVector3 realPosition() { return m_position; }
     virtual bool shouldDump() { return false; }
 
-    virtual void render(CViewDynamicList &, double)
+    virtual void render(CViewDynamicList &list, double)
     {
-        if (!m_started || !m_lightActive ||
-            !LightAttributeReady(m_attribute))
+        if (!m_started)
             return;
-        double elapsed = Session::m_moment - m_startTime;
-        if (!std::isfinite(elapsed) ||
-            elapsed > m_attribute->m_lightTimeLife)
-            return;
-        if (elapsed < 0.0)
-            elapsed = 0.0;
-        int index = static_cast<int>(
-            elapsed * AttributeExplosion::MAX_BRIGHT /
-            m_attribute->m_lightTimeLife);
-        if (index < 0)
-            index = 0;
-        else if (index >= AttributeExplosion::MAX_BRIGHT)
-            index = AttributeExplosion::MAX_BRIGHT - 1;
-        g_lightChain.add(
-            m_position + CFVector3(0.0, m_attribute->m_lightOffset, 0.0),
-            m_attribute->m_lightColor,
-            m_attribute->m_brightness[index],
-            m_attribute->m_lightRadius);
+        if (m_lightActive && LightAttributeReady(m_attribute))
+        {
+            double elapsed = Session::m_moment - m_startTime;
+            if (std::isfinite(elapsed) &&
+                elapsed <= m_attribute->m_lightTimeLife)
+            {
+                if (elapsed < 0.0)
+                    elapsed = 0.0;
+                int index = static_cast<int>(
+                    elapsed * AttributeExplosion::MAX_BRIGHT /
+                    m_attribute->m_lightTimeLife);
+                if (index < 0)
+                    index = 0;
+                else if (index >= AttributeExplosion::MAX_BRIGHT)
+                    index = AttributeExplosion::MAX_BRIGHT - 1;
+                g_lightChain.add(
+                    m_position +
+                        CFVector3(0.0, m_attribute->m_lightOffset, 0.0),
+                    m_attribute->m_lightColor,
+                    m_attribute->m_brightness[index],
+                    m_attribute->m_lightRadius);
+            }
+        }
+        if (m_particleCount > 0 && _pGRDrawParticle != NULL)
+        {
+            m_particleDrawable.prepare(m_position, m_attribute->m_radius);
+            list.Load(&m_particleDrawable);
+        }
+    }
+
+    virtual void endRender(CViewScene *scene)
+    {
+        if (scene != NULL && m_started && m_particleCount > 0)
+            scene->RemoveLandDynamic(&m_particleDrawable);
     }
 
     virtual void addNotify()
@@ -339,6 +414,7 @@ class BoundedExplosion : public ct_Subject
             if (!IsNul(m_sound))
                 SoundObjectState_RollbackOwned(context, &m_sound);
         }
+        releaseParticles();
         ct_Subject::removeNotify();
         resetState();
     }
@@ -361,7 +437,8 @@ class BoundedExplosion : public ct_Subject
     bool clean()
     {
         return !m_started && !m_lightActive && m_attribute == NULL &&
-               IsNul(m_sound) &&
+               IsNul(m_sound) && m_particleCount == 0 &&
+               m_nextMoveTime == 0.0 &&
                IsNul(m_damageOwner) && m_damageApplications == 0 &&
                m_position.x == 0.0 && m_position.y == 0.0 &&
                m_position.z == 0.0 && m_startTime == 0.0;
@@ -371,6 +448,20 @@ class BoundedExplosion : public ct_Subject
     const KR_ObjectID &sound() const { return m_sound; }
     AttributeExplosion *attribute() const { return m_attribute; }
     double startTime() const { return m_startTime; }
+    int particleCount() const { return m_particleCount; }
+    double nextMoveTime() const { return m_nextMoveTime; }
+
+    int particleCount(ExplosionParticleBranchType type) const
+    {
+        int count = 0;
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+            if (m_particles[index].active &&
+                m_particles[index].type == type)
+                ++count;
+        return count;
+    }
+
+    void drawParticles() const;
 
  private:
     void resetState()
@@ -380,9 +471,201 @@ class BoundedExplosion : public ct_Subject
         m_damageOwner = KR_ObjectID::NUL();
         m_sound = KR_ObjectID::NUL();
         m_startTime = 0.0;
+        m_nextMoveTime = 0.0;
         m_damageApplications = 0;
+        m_particleCount = 0;
         m_started = false;
         m_lightActive = false;
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+            m_particles[index].reset();
+    }
+
+    ExplosionParticleBranch *allocateParticle(
+        ExplosionParticleBranchType type)
+    {
+        if (m_particleCount >= kParticleBranchPerExplosion ||
+            g_particleBranchesLive >= kParticleBranchCapacity)
+            return NULL;
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+            if (!m_particles[index].active)
+            {
+                ExplosionParticleBranch *branch = &m_particles[index];
+                branch->reset();
+                branch->type = type;
+                branch->active = true;
+                ++m_particleCount;
+                ++g_particleBranchesLive;
+                return branch;
+            }
+        return NULL;
+    }
+
+    void deactivateParticle(ExplosionParticleBranch &branch)
+    {
+        if (!branch.active)
+            return;
+        branch.reset();
+        if (m_particleCount > 0)
+            --m_particleCount;
+        if (g_particleBranchesLive > 0)
+            --g_particleBranchesLive;
+    }
+
+    void releaseParticles()
+    {
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+            deactivateParticle(m_particles[index]);
+    }
+
+    CFVector3 randomDirection(int seed, CFVector3 *spawnOffset) const
+    {
+        CFVector3 offset(
+            context->rnd_f(-m_attribute->m_createRadius,
+                           m_attribute->m_createRadius),
+            context->rnd_f(-m_attribute->m_createRadius,
+                           m_attribute->m_createRadius),
+            context->rnd_f(-m_attribute->m_createRadius,
+                           m_attribute->m_createRadius));
+        if (spawnOffset != NULL)
+            *spawnOffset = offset;
+        if (Abs2(offset) > 1.0e-20)
+            return offset;
+        // Several retail presets permit a zero creation radius. The January
+        // code normalizes that zero vector; choose a deterministic direction
+        // while preserving the requested zero spawn offset.
+        switch (seed % 3)
+        {
+        case 0: return CFVector3(1.0, 0.0, 0.0);
+        case 1: return CFVector3(0.0, 1.0, 0.0);
+        default: return CFVector3(0.0, 0.0, 1.0);
+        }
+    }
+
+    int createParticles()
+    {
+        if (!ExplosionAttributeState_ParticleVisualsResolved(context))
+            return 0;
+        int created = 0;
+        int count = context->rnd_i(
+            m_attribute->m_minRayCnt, m_attribute->m_maxRayCnt);
+        for (int index = 0; index < count; ++index)
+        {
+            ExplosionParticleBranch *branch =
+                allocateParticle(EXPLOSION_PARTICLE_RAY);
+            if (branch == NULL)
+                return created;
+            branch->start = m_position;
+            branch->timeOfLife = kRayTimeLife;
+            branch->rayAngle = context->rnd_f(-kPi, kPi);
+            branch->radius = context->rnd_f(
+                m_attribute->m_minRayLen, m_attribute->m_maxRayLen);
+            branch->rayWidth = context->rnd_f(
+                m_attribute->m_minRayWidth,
+                m_attribute->m_maxRayWidth);
+            branch->color = m_attribute->m_rayColor;
+            ++created;
+        }
+
+        count = context->rnd_i(
+            m_attribute->m_minPartCnt, m_attribute->m_maxPartCnt);
+        // May 1999 preserves the January ordering bug: the later >0.08
+        // quarter branch is unreachable after the >0.05 half branch.
+        if (Session::m_frameSec > 0.05)
+            count >>= 1;
+        else if (Session::m_frameSec > 0.08)
+            count >>= 2;
+        for (int index = 0; index < count; ++index)
+        {
+            ExplosionParticleBranch *branch =
+                allocateParticle(EXPLOSION_PARTICLE_SIMPLE);
+            if (branch == NULL)
+                return created;
+            branch->radius = context->rnd_f(
+                m_attribute->m_minPartSize,
+                m_attribute->m_maxPartSize);
+            switch (context->rnd_i() & 3)
+            {
+            case 0: branch->color = m_attribute->m_color0; break;
+            case 1: branch->color = m_attribute->m_color1; break;
+            case 2: branch->color = m_attribute->m_color2; break;
+            default: branch->color = m_attribute->m_color3; break;
+            }
+            CFVector3 spawnOffset;
+            const CFVector3 direction =
+                randomDirection(created, &spawnOffset);
+            branch->start = m_position + spawnOffset;
+            branch->velocity = Normal(direction) * context->rnd_f(
+                m_attribute->m_minPartSpeed,
+                m_attribute->m_maxPartSpeed);
+            branch->timeOfLife = context->rnd_f(
+                m_attribute->m_minPartTimeLife,
+                m_attribute->m_maxPartTimeLife);
+            ++created;
+        }
+
+        count = context->rnd_i(
+            m_attribute->m_minPartSnCnt,
+            m_attribute->m_maxPartSnCnt);
+        if (Session::m_frameSec > 0.07)
+            count >>= 2;
+        for (int index = 0; index < count; ++index)
+        {
+            ExplosionParticleBranch *branch =
+                allocateParticle(EXPLOSION_PARTICLE_SNAKE);
+            if (branch == NULL)
+                return created;
+            branch->timeOfLife = context->rnd_f(
+                m_attribute->m_minPartSnTimeLife,
+                m_attribute->m_maxPartSnTimeLife);
+            branch->radius = context->rnd_f(
+                m_attribute->m_minPartSnSize,
+                m_attribute->m_maxPartSnSize);
+            CFVector3 spawnOffset;
+            const CFVector3 direction =
+                randomDirection(created, &spawnOffset);
+            branch->start = m_position + spawnOffset;
+            branch->velocity = Normal(direction) * context->rnd_f(
+                m_attribute->m_minPartSpeed,
+                m_attribute->m_maxPartSpeed);
+            branch->tailCount = m_attribute->m_snPartCnt;
+            branch->color = m_attribute->m_colorSnHead;
+            ++created;
+        }
+        return created;
+    }
+
+    void updateParticles(double elapsed)
+    {
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+        {
+            ExplosionParticleBranch &branch = m_particles[index];
+            if (!branch.active || elapsed <= branch.timeOfLife)
+                continue;
+            if (branch.type == EXPLOSION_PARTICLE_SNAKE &&
+                branch.tailCount > 0)
+                --branch.tailCount;
+            else
+                deactivateParticle(branch);
+        }
+    }
+
+    bool scheduleNextMove(double currentTime)
+    {
+        double next = currentTime + m_attribute->m_moveTimeInc;
+        const double deadline =
+            m_startTime + kExplosionMaximumTimeLife;
+        if (next > deadline)
+            next = deadline;
+        if (!std::isfinite(next) || next <= currentTime)
+            return false;
+        KR_Event move;
+        move.label = EXPLOSION_MOVE;
+        move.source = getObjectID();
+        move.destination = getObjectID();
+        move.timeStamp = next;
+        context->addEvent(move);
+        m_nextMoveTime = next;
+        return true;
     }
 
     int start(KR_Event &event)
@@ -434,38 +717,48 @@ class BoundedExplosion : public ct_Subject
                 context, getObjectID(), attribute->m_ctsndID,
                 attribute->m_wav, position, event.timeStamp, &m_sound);
 
-        const KR_ObjectID self = getObjectID();
-        const double expiryTime =
-            event.timeStamp + attribute->m_lightTimeLife;
-        if (LightAttributeReady(attribute) && std::isfinite(expiryTime))
-        {
+        createParticles();
+        if (LightAttributeReady(attribute))
             m_lightActive = true;
-            KR_Event expiry;
-            expiry.label = EXPLOSION_MOVE;
-            expiry.source = self;
-            expiry.destination = self;
-            expiry.timeStamp = expiryTime;
-            context->addEvent(expiry);
-        }
-        else
-            context->removeObject(self);
+        if ((m_lightActive || m_particleCount > 0) &&
+            scheduleNextMove(event.timeStamp))
+            return 1;
+        const KR_ObjectID self = getObjectID();
+        context->removeObject(self);
         return 1;
     }
 
     int expire(KR_Event &event)
     {
-        if (!m_started || !m_lightActive || m_attribute == NULL ||
+        if (!m_started || m_attribute == NULL ||
             context == NULL || event.source != getObjectID() ||
             event.destination != getObjectID() || event.data.size() != 0 ||
-            !std::isfinite(event.timeStamp))
+            !std::isfinite(event.timeStamp) ||
+            !NearlyEqual(event.timeStamp, m_nextMoveTime))
             return 0;
-        const double expiryTime =
-            m_startTime + m_attribute->m_lightTimeLife;
-        const double tolerance = 1e-10 * (1.0 + std::fabs(expiryTime));
-        if (event.timeStamp + tolerance < expiryTime)
+        const double elapsed = event.timeStamp - m_startTime;
+        if (!std::isfinite(elapsed) || elapsed < 0.0)
             return 0;
-        const KR_ObjectID self = getObjectID();
-        context->removeObject(self);
+        updateParticles(elapsed);
+        if (m_lightActive &&
+            elapsed > m_attribute->m_lightTimeLife)
+            m_lightActive = false;
+        if (elapsed >= kExplosionMaximumTimeLife)
+        {
+            releaseParticles();
+            m_lightActive = false;
+        }
+        if (m_particleCount == 0 && !m_lightActive)
+        {
+            const KR_ObjectID self = getObjectID();
+            context->removeObject(self);
+            return 1;
+        }
+        if (!scheduleNextMove(event.timeStamp))
+        {
+            const KR_ObjectID self = getObjectID();
+            context->removeObject(self);
+        }
         return 1;
     }
 
@@ -473,10 +766,136 @@ class BoundedExplosion : public ct_Subject
     KR_ObjectID m_damageOwner;
     KR_ObjectID m_sound;
     double m_startTime;
+    double m_nextMoveTime;
     int m_damageApplications;
+    ExplosionParticleBranch
+        m_particles[kParticleBranchPerExplosion];
+    ExplosionParticleDrawable m_particleDrawable;
+    int m_particleCount;
     bool m_started;
     bool m_lightActive;
 };
+
+void ExplosionParticleDrawable::prepare(
+    const CFVector3 &position, double radius)
+{
+    m_dynBase = m_dynBase1 = m_bump.start = position;
+    m_bump.vel = CFVector3(0.0, 0.0, 0.0);
+    m_bump.fTime = 0.0;
+    m_bump.fRadius = radius > 0.0 ? radius : 1.0;
+}
+
+void ExplosionParticleDrawable::Draw()
+{
+    if (m_owner != NULL)
+        m_owner->drawParticles();
+}
+
+void BoundedExplosion::drawParticles() const
+{
+    if (!m_started || m_attribute == NULL || m_particleCount <= 0 ||
+        _pGRDrawParticle == NULL)
+        return;
+    double elapsed = Session::m_moment - m_startTime;
+    if (!std::isfinite(elapsed))
+        return;
+    if (elapsed < 0.0)
+        elapsed = 0.0;
+
+    const auto drawWorld = [](const CFVector3 &position, double radius,
+                              unsigned long color) {
+        const CFVector3 view = CViewObject::m_viewPointDirSMx * position;
+        if (!std::isfinite(view.z) ||
+            view.z < CViewObject::m_fFrontClip)
+            return;
+        const double inverse = 1.0 / view.z;
+        int size = Round(radius * CViewObject::m_viewPointScale.x * inverse);
+        if (size < 1)
+            size = 1;
+        const int inverseZ = static_cast<int>(65536.0 * inverse);
+        if (inverseZ <= 0)
+            return;
+        GRDrawParticle(Round(view.x * inverse), Round(view.y * inverse),
+                       size, inverseZ, color);
+    };
+
+    for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+    {
+        const ExplosionParticleBranch &branch = m_particles[index];
+        if (!branch.active)
+            continue;
+        if (branch.type == EXPLOSION_PARTICLE_RAY)
+        {
+            const CFVector3 center =
+                CViewObject::m_viewPointDirSMx * m_position;
+            if (center.z < CViewObject::m_fFrontClip)
+                continue;
+            const double inverse = 1.0 / center.z;
+            const double screenLength = elapsed * branch.radius *
+                CViewObject::m_viewPointScale.x * inverse;
+            int samples = static_cast<int>(std::fabs(screenLength) / 3.0);
+            if (samples < 2)
+                samples = 2;
+            else if (samples > 24)
+                samples = 24;
+            const double dx = std::cos(branch.rayAngle) * screenLength;
+            const double dy = std::sin(branch.rayAngle) * screenLength;
+            const int inverseZ = static_cast<int>(65536.0 * inverse);
+            for (int sample = 1; sample <= samples; ++sample)
+            {
+                const double fraction =
+                    static_cast<double>(sample) / samples;
+                int size = Round(std::fabs(screenLength) *
+                                 branch.rayWidth * fraction);
+                if (size < 1)
+                    size = 1;
+                GRDrawParticle(
+                    Round(center.x * inverse + dx * fraction),
+                    Round(center.y * inverse + dy * fraction),
+                    size, inverseZ, branch.color);
+            }
+            continue;
+        }
+
+        if (branch.type == EXPLOSION_PARTICLE_SIMPLE)
+        {
+            const CFVector3 position = branch.start + CFVector3(
+                branch.velocity.x * elapsed,
+                branch.velocity.y * elapsed - 4.9 * elapsed * elapsed,
+                branch.velocity.z * elapsed);
+            drawWorld(position, branch.radius, branch.color);
+            continue;
+        }
+
+        const int tailCount = branch.tailCount > 0
+                                  ? branch.tailCount
+                                  : 1;
+        double tailStart = elapsed - m_attribute->m_snDeltaT;
+        if (tailStart < 0.0)
+            tailStart = 0.0;
+        for (int tail = 0; tail < tailCount; ++tail)
+        {
+            const double fraction =
+                static_cast<double>(tail + 1) / tailCount;
+            const double sampleTime = tailStart +
+                (elapsed - tailStart) * fraction;
+            const CFVector3 position = branch.start + CFVector3(
+                branch.velocity.x * sampleTime,
+                branch.velocity.y * sampleTime -
+                    4.9 * sampleTime * sampleTime,
+                branch.velocity.z * sampleTime);
+            drawWorld(position, branch.radius * fraction,
+                      m_attribute->m_colorSnTail);
+        }
+        const CFVector3 head = branch.start + CFVector3(
+            branch.velocity.x * elapsed,
+            branch.velocity.y * elapsed - 4.9 * elapsed * elapsed,
+            branch.velocity.z * elapsed);
+        drawWorld(head, branch.radius, m_attribute->m_colorSnHead);
+        drawWorld(head, branch.radius * 0.5,
+                  m_attribute->m_colorSnCenter);
+    }
+}
 
 class BoundedExplosionTable : public ct_SubjectTable
 {
@@ -496,6 +915,7 @@ class BoundedExplosionTable : public ct_SubjectTable
         g_impulseApplications = 0;
         g_allocationRollbacks = 0;
         g_queueRollbacks = 0;
+        g_particleBranchesLive = 0;
         ResetImpulseBinding();
     }
 
@@ -509,6 +929,7 @@ class BoundedExplosionTable : public ct_SubjectTable
         g_impulseApplications = 0;
         g_allocationRollbacks = 0;
         g_queueRollbacks = 0;
+        g_particleBranchesLive = 0;
         ResetImpulseBinding();
     }
 
@@ -630,7 +1051,8 @@ bool ExplosionSubjectState_TableReady(SimulationContext *context,
            expectedCapacity > 0 &&
            g_explosionTable.capacity() == expectedCapacity &&
            g_arena.searchSeanceClassTable("Explosion") != ct_NULLID &&
-           g_explosionTable.liveCount() == 0;
+           g_explosionTable.liveCount() == 0 &&
+           g_particleBranchesLive == 0;
 }
 
 int ExplosionSubjectState_Capacity()
@@ -694,6 +1116,38 @@ bool ExplosionSubjectState_ParentSoundMatches(
                true, playing, playCount);
 }
 
+bool ExplosionSubjectState_ParentParticleCounts(
+    SimulationContext *context, const KR_ObjectID &parent,
+    int *simpleParticles, int *snakeParticles, int *rays)
+{
+    if (simpleParticles == NULL || snakeParticles == NULL || rays == NULL)
+        return false;
+    *simpleParticles = 0;
+    *snakeParticles = 0;
+    *rays = 0;
+    BoundedExplosion *object = g_explosionTable.find(parent);
+    if (context == NULL || g_arena.getContext() != context ||
+        !context->isExist(parent) || object == NULL)
+        return false;
+    *simpleParticles =
+        object->particleCount(EXPLOSION_PARTICLE_SIMPLE);
+    *snakeParticles =
+        object->particleCount(EXPLOSION_PARTICLE_SNAKE);
+    *rays = object->particleCount(EXPLOSION_PARTICLE_RAY);
+    return *simpleParticles + *snakeParticles + *rays ==
+           object->particleCount();
+}
+
+int ExplosionSubjectState_ParticleBranchLiveCount()
+{
+    return g_particleBranchesLive;
+}
+
+int ExplosionSubjectState_ParticleBranchCapacity()
+{
+    return kParticleBranchCapacity;
+}
+
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context)
 {
     if (context == NULL || g_arena.getContext() != context)
@@ -748,7 +1202,13 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     const int selfOwnedQueuedEvent = 1;
     const int impulse = 1;
     const int light = 1;
-    const int particles = 0;
+    const int particles = 1;
+    const int simpleSnakeRay = 1;
+    const int globalParticleCapacity = kParticleBranchCapacity;
+    const int perExplosionParticleCapacity =
+        kParticleBranchPerExplosion;
+    const int retailFrameGateOrdering = 1;
+    const int zeroVectorGuard = 1;
     const int sound = 1;
     const int parentOwnedSound = 1;
     const int oneShotCount = 1;
@@ -765,6 +1225,14 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     HashBytes(hash, &impulse, sizeof(impulse));
     HashBytes(hash, &light, sizeof(light));
     HashBytes(hash, &particles, sizeof(particles));
+    HashBytes(hash, &simpleSnakeRay, sizeof(simpleSnakeRay));
+    HashBytes(hash, &globalParticleCapacity,
+              sizeof(globalParticleCapacity));
+    HashBytes(hash, &perExplosionParticleCapacity,
+              sizeof(perExplosionParticleCapacity));
+    HashBytes(hash, &retailFrameGateOrdering,
+              sizeof(retailFrameGateOrdering));
+    HashBytes(hash, &zeroVectorGuard, sizeof(zeroVectorGuard));
     HashBytes(hash, &sound, sizeof(sound));
     HashBytes(hash, &parentOwnedSound, sizeof(parentOwnedSound));
     HashBytes(hash, &oneShotCount, sizeof(oneShotCount));
@@ -1206,15 +1674,28 @@ bool ExplosionSubjectState_ProbeLightLifecycle(
     ExplosionSubjectState_ReleaseLightFrame();
 
     bool expired = false;
+    int expirySteps = 0;
     if (retained && context->isExist(child))
     {
-        KR_Event expiry;
-        expiry.label = EXPLOSION_MOVE;
-        expiry.source = child;
-        expiry.destination = child;
-        expiry.timeStamp = ts + attribute->m_lightTimeLife;
-        context->sendEventNow(expiry);
-        expired = !context->isExist(child);
+        while (context->isExist(child) && expirySteps < 4096)
+        {
+            object = g_explosionTable.find(child);
+            if (object == NULL || object->nextMoveTime() <= 0.0)
+                break;
+            if (expirySteps > 0 &&
+                context->removeEvent(EXPLOSION_MOVE, child) == 0)
+                break;
+            KR_Event expiry;
+            expiry.label = EXPLOSION_MOVE;
+            expiry.source = child;
+            expiry.destination = child;
+            expiry.timeStamp = object->nextMoveTime();
+            if (object->receiveEvent(expiry) != 1)
+                break;
+            ++expirySteps;
+        }
+        expired = !context->isExist(child) && expirySteps > 0 &&
+                  expirySteps < 4096;
     }
     Session::m_moment = savedMoment;
     RemoveIfPresent(context, child);
@@ -1315,4 +1796,158 @@ bool ExplosionSubjectState_ProbeSoundLifecycle(
     summary->dependencyGateSkips = 1;
     return !context->isExist("Explosion.Sound.Parent.Probe") &&
            !context->isExist("Explosion.Sound.DependencyGate.Probe");
+}
+
+bool ExplosionSubjectState_ProbeParticleLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionParticleProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_explosionTable.liveCount() != 0 ||
+        g_particleBranchesLive != 0 ||
+        !ExplosionAttributeState_ParticleVisualsResolved(context))
+        return false;
+
+    const KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("ExplosionAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Explosion");
+    const int attributeIndex = attributeTable == ct_NULLID
+        ? -1
+        : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (IsNul(attributeID) || !ImpactAttributeReady(attribute) ||
+        subjectTable == ct_NULLID || attributeIndex == -1 ||
+        attribute->m_minPartCnt <= 0 ||
+        attribute->m_minPartSnCnt <= 0)
+        return false;
+
+    const double savedFrameSec = Session::m_frameSec;
+    const double savedMoveTimeInc = attribute->m_moveTimeInc;
+    Session::m_frameSec = 0.04;
+    // Exercise the recurring owner event without making every seance
+    // admission replay thousands of sub-frame retail increments.
+    attribute->m_moveTimeInc = 0.25;
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    ExplosionImpactRequest request = {
+        CFVector3(31.0, 19.0, -47.0), ts, KR_ObjectID::NUL(),
+        subjectTable, attributeIndex, "Explosion.Particle.Rollback.Probe"};
+    int damageApplications = -1;
+    const bool executed = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    KR_ObjectID parent =
+        context->searchObject("Explosion.Particle.Rollback.Probe");
+    int simple = 0;
+    int snake = 0;
+    int rays = 0;
+    const bool countsReady = executed && damageApplications == 0 &&
+        !IsNul(parent) && ExplosionSubjectState_ParentParticleCounts(
+            context, parent, &simple, &snake, &rays) &&
+        simple >= attribute->m_minPartCnt &&
+        simple <= attribute->m_maxPartCnt &&
+        snake >= attribute->m_minPartSnCnt &&
+        snake <= attribute->m_maxPartSnCnt &&
+        rays >= attribute->m_minRayCnt &&
+        rays <= attribute->m_maxRayCnt &&
+        simple + snake + rays > 0 &&
+        g_particleBranchesLive == simple + snake + rays;
+    const int rollbackCount = g_particleBranchesLive;
+    RemoveIfPresent(context, parent);
+    const bool rollbackReady = countsReady &&
+        g_explosionTable.liveCount() == 0 &&
+        g_particleBranchesLive == 0;
+    if (!rollbackReady)
+    {
+        Session::m_frameSec = savedFrameSec;
+        attribute->m_moveTimeInc = savedMoveTimeInc;
+        return false;
+    }
+    summary->startedBranches = simple + snake + rays;
+    summary->simpleParticles = simple;
+    summary->snakeParticles = snake;
+    summary->rays = rays;
+    summary->rolledBackBranches = rollbackCount;
+
+    void (*savedDrawParticle)(int, int, int, int, unsigned long) =
+        _pGRDrawParticle;
+    _pGRDrawParticle = NULL;
+    request.timeStamp = ts + 1.0;
+    request.objectName = "Explosion.Particle.DependencyGate.Probe";
+    damageApplications = -1;
+    const bool gatedExecuted = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    _pGRDrawParticle = savedDrawParticle;
+    parent = context->searchObject(
+        "Explosion.Particle.DependencyGate.Probe");
+    int gatedSimple = -1;
+    int gatedSnake = -1;
+    int gatedRays = -1;
+    const bool dependencySkipped = gatedExecuted &&
+        damageApplications == 0 && !IsNul(parent) &&
+        ExplosionSubjectState_ParentParticleCounts(
+            context, parent, &gatedSimple, &gatedSnake, &gatedRays) &&
+        gatedSimple == 0 && gatedSnake == 0 && gatedRays == 0 &&
+        g_particleBranchesLive == 0;
+    RemoveIfPresent(context, parent);
+    if (!dependencySkipped || g_explosionTable.liveCount() != 0 ||
+        g_particleBranchesLive != 0 ||
+        !ExplosionAttributeState_ParticleVisualsResolved(context))
+    {
+        Session::m_frameSec = savedFrameSec;
+        attribute->m_moveTimeInc = savedMoveTimeInc;
+        return false;
+    }
+    summary->dependencyGateSkips = 1;
+
+    request.timeStamp = ts + 2.0;
+    request.objectName = "Explosion.Particle.Expiry.Probe";
+    damageApplications = -1;
+    const bool lifecycleExecuted = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    parent = context->searchObject("Explosion.Particle.Expiry.Probe");
+    BoundedExplosion *object = g_explosionTable.find(parent);
+    bool lifecycleReady = lifecycleExecuted && damageApplications == 0 &&
+        !IsNul(parent) && object != NULL && object->particleCount() > 0;
+    int moveSteps = 0;
+    while (lifecycleReady && context->isExist(parent) && moveSteps < 4096)
+    {
+        object = g_explosionTable.find(parent);
+        if (object == NULL || object->nextMoveTime() <= 0.0 ||
+            context->removeEvent(EXPLOSION_MOVE, parent) == 0)
+        {
+            lifecycleReady = false;
+            break;
+        }
+        KR_Event move;
+        move.label = EXPLOSION_MOVE;
+        move.source = parent;
+        move.destination = parent;
+        move.timeStamp = object->nextMoveTime();
+        if (object->receiveEvent(move) != 1)
+        {
+            lifecycleReady = false;
+            break;
+        }
+        ++moveSteps;
+    }
+    const bool expired = lifecycleReady && !context->isExist(parent) &&
+        moveSteps > 0 && moveSteps < 4096 &&
+        g_explosionTable.liveCount() == 0 &&
+        g_particleBranchesLive == 0;
+    RemoveIfPresent(context, parent);
+    Session::m_frameSec = savedFrameSec;
+    attribute->m_moveTimeInc = savedMoveTimeInc;
+    if (!expired)
+        return false;
+    summary->moveSteps = moveSteps;
+    summary->expiredParents = 1;
+    return !context->isExist("Explosion.Particle.Rollback.Probe") &&
+           !context->isExist("Explosion.Particle.DependencyGate.Probe") &&
+           !context->isExist("Explosion.Particle.Expiry.Probe") &&
+           ExplosionAttributeState_ParticleVisualsResolved(context);
 }

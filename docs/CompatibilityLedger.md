@@ -1640,6 +1640,37 @@ Status vocabulary:
 - Revisit when: the RSX/audio replacement identifies the global semantically.
   Add audible output and duration ownership only with direct evidence.
 
+### CQ-107: May preserves an unreachable Explosion particle FPS branch
+
+- Status: `RETAIL_QUIRK_PRESERVED`, `PRESENTATION_TIMING_CONTRACT`.
+- Evidence: January tests `frameSec > 0.05` before an `else if > 0.08`, making
+  the intended quarter-count branch unreachable. May disassembly preserves the
+  same ordering; snake count independently quarters above `0.07`.
+- Handling: reproduce the executed May behavior exactly: full simple count at
+  or below `0.05`, half above it, and snake quartering only above `0.07`. Record
+  this as presentation behavior rather than silently correcting the condition.
+- Regression contract: admission forces `frameSec=0.04` for full non-empty
+  branch creation and documents the ordering in the subject fingerprint.
+- Revisit when: a fixed presentation-quality policy replaces frame-dependent
+  emission. Treat that as an explicit compatibility option, not a bug fix.
+
+### CQ-108: Explosion particle ownership needs two bounded pools and a defined zero vector
+
+- Status: `BINARY_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: May compares a shared branch count against 500 and stores all six
+  branch types in that pool. Retail data can request at most 115 currently
+  admitted ray/simple/snake branches from one parent. January normalizes its
+  random creation offset even when the radius or sampled vector is zero.
+- Handling: retain the 500 global limit, add a 128-entry per-parent fixed array,
+  reject unsafe numeric ranges before cache publication and use a deterministic
+  unit direction for zero normalization. A zero creation radius still leaves
+  the spawn position unshifted. Removal decrements the exact live count once.
+- Regression contract: start and remove one full parent, dependency-gate a
+  second, naturally expire a third through recurring MOVE, and require global
+  and parent counts to return to zero on every path.
+- Revisit when: Piece/Skin and Smoke branches join the graph. They must share
+  the same 500 budget rather than introducing independent unbounded containers.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -55,6 +55,7 @@ namespace {
 unsigned long long g_explosionFixtureFingerprint = 0;
 unsigned long long g_explosionSubjectFixtureFingerprint = 0;
 unsigned long long g_explosionSoundFixtureFingerprint = 0;
+unsigned long long g_explosionParticleFixtureFingerprint = 0;
 unsigned long long g_vehicleFixtureFingerprint = 0;
 unsigned long long g_taxiFixtureFingerprint = 0;
 unsigned long long g_bulletFixtureFingerprint = 0;
@@ -453,6 +454,16 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ExplosionSoundProbeStarted() == -1 &&
          RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() == -1 &&
          RecoveredArenaSeance_ExplosionSoundProbeRollbacks() == -1 &&
+         !RecoveredArenaSeance_ExplosionParticlesReady() &&
+         RecoveredArenaSeance_ExplosionParticleVisualFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionParticleProbeStartedBranches() == -1 &&
+         RecoveredArenaSeance_ExplosionParticleProbeSimpleParticles() == -1 &&
+         RecoveredArenaSeance_ExplosionParticleProbeSnakeParticles() == -1 &&
+         RecoveredArenaSeance_ExplosionParticleProbeRays() == -1 &&
+         RecoveredArenaSeance_ExplosionParticleProbeDependencySkips() == -1 &&
+         RecoveredArenaSeance_ExplosionParticleProbeMoveSteps() == -1 &&
+         RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() == -1 &&
+         RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -462,6 +473,7 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ExplosionProbeExecutedCommands() == -1 &&
          RecoveredArenaSeance_ExplosionProbeDamageApplications() == -1 &&
          ExplosionSubjectState_LiveCount() == 0 &&
+         ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
          !RecoveredArenaSeance_VehicleAttributesReady() &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
@@ -606,6 +618,17 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_ExplosionSoundProbeStarted() != 1 ||
       RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() != 1 ||
       RecoveredArenaSeance_ExplosionSoundProbeRollbacks() != 1 ||
+      !RecoveredArenaSeance_ExplosionParticlesReady() ||
+      RecoveredArenaSeance_ExplosionParticleVisualFingerprint() == 0 ||
+      RecoveredArenaSeance_ExplosionParticleProbeStartedBranches() <= 0 ||
+      RecoveredArenaSeance_ExplosionParticleProbeSimpleParticles() <= 0 ||
+      RecoveredArenaSeance_ExplosionParticleProbeSnakeParticles() <= 0 ||
+      RecoveredArenaSeance_ExplosionParticleProbeRays() < 0 ||
+      RecoveredArenaSeance_ExplosionParticleProbeDependencySkips() != 1 ||
+      RecoveredArenaSeance_ExplosionParticleProbeMoveSteps() <= 0 ||
+      RecoveredArenaSeance_ExplosionParticleProbeExpiredParents() != 1 ||
+      RecoveredArenaSeance_ExplosionParticleProbeRolledBackBranches() !=
+          RecoveredArenaSeance_ExplosionParticleProbeStartedBranches() ||
       RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
@@ -615,6 +638,8 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_ExplosionProbeExecutedCommands() != 1 ||
       RecoveredArenaSeance_ExplosionProbeDamageApplications() != 0 ||
       ExplosionSubjectState_LiveCount() != 0 ||
+      ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
+      ExplosionSubjectState_ParticleBranchCapacity() != 500 ||
       !RecoveredArenaSeance_VehicleAttributesReady() ||
       RecoveredArenaSeance_VehicleAttributeCount() != 3 ||
       RecoveredArenaSeance_VehicleAttributeCapacity() != 8 ||
@@ -788,6 +813,11 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionAttributeState_IsKnownSoundReferenceRoster(&context) &&
       ExplosionAttributeState_SoundReferenceFingerprint(&context) ==
           RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() &&
+      ExplosionAttributeState_ParticleVisualsResolved(&context) &&
+      ExplosionAttributeState_ParticleVisualFingerprint(&context) ==
+          RecoveredArenaSeance_ExplosionParticleVisualFingerprint() &&
+      ExplosionAttributeState_IsKnownParticleVisualRoster(&context) &&
+      ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
       ExplosionSubjectState_ImpulseTargetReady(&context, vehicle) &&
       VehicleAttributeState_IsKnownRoster(&context) &&
       VehicleAttributeState_RosterSize(&context) == 3 &&
@@ -870,6 +900,8 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionSubjectState_Fingerprint(&context);
   const unsigned long long explosionSoundFingerprint =
       ExplosionAttributeState_SoundReferenceFingerprint(&context);
+  const unsigned long long explosionParticleFingerprint =
+      ExplosionAttributeState_ParticleVisualFingerprint(&context);
   const unsigned long long vehicleFingerprint =
       VehicleAttributeState_Fingerprint(&context);
   const unsigned long long taxiFingerprint =
@@ -911,6 +943,9 @@ bool RunCycle(bool expectVisualResources) {
        g_explosionSubjectFixtureFingerprint == explosionSubjectFingerprint) &&
       (g_explosionSoundFixtureFingerprint == 0 ||
        g_explosionSoundFixtureFingerprint == explosionSoundFingerprint) &&
+      (g_explosionParticleFixtureFingerprint == 0 ||
+       g_explosionParticleFixtureFingerprint ==
+           explosionParticleFingerprint) &&
       (g_vehicleFixtureFingerprint == 0 ||
        g_vehicleFixtureFingerprint == vehicleFingerprint) &&
       (g_taxiFixtureFingerprint == 0 ||
@@ -953,6 +988,7 @@ bool RunCycle(bool expectVisualResources) {
   g_explosionFixtureFingerprint = explosionFingerprint;
   g_explosionSubjectFixtureFingerprint = explosionSubjectFingerprint;
   g_explosionSoundFixtureFingerprint = explosionSoundFingerprint;
+  g_explosionParticleFixtureFingerprint = explosionParticleFingerprint;
   g_vehicleFixtureFingerprint = vehicleFingerprint;
   g_taxiFixtureFingerprint = taxiFingerprint;
   g_bulletFixtureFingerprint = bulletFingerprint;
@@ -1764,6 +1800,7 @@ int main(int argc, char** argv) {
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
               "explosion_impulse=local-vehicle-factor-5-offset-proof "
                "explosion_sound=1/1/1-device-free refs=%llu "
+               "explosion_particles=bounded-simple-snake-ray visual=%llu "
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
                "bullet_attrs=4/4 "
@@ -1799,6 +1836,7 @@ int main(int argc, char** argv) {
               "skin_catalog_fingerprint=%llu "
               "rollback=idempotent\n",
               g_explosionSoundFixtureFingerprint,
+              g_explosionParticleFixtureFingerprint,
               g_explosionFixtureFingerprint,
               g_vehicleFixtureFingerprint,
               g_bulletFixtureFingerprint,

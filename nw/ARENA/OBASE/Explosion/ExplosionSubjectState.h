@@ -47,6 +47,18 @@ struct ExplosionSoundProbeSummary
     int rolledBackSounds;
 };
 
+struct ExplosionParticleProbeSummary
+{
+    int startedBranches;
+    int simpleParticles;
+    int snakeParticles;
+    int rays;
+    int dependencyGateSkips;
+    int moveSteps;
+    int expiredParents;
+    int rolledBackBranches;
+};
+
 void ExplosionSubjectState_Link();
 bool ExplosionSubjectState_TableReady(SimulationContext *context,
                                       int expectedCapacity);
@@ -63,6 +75,11 @@ bool ExplosionSubjectState_ParentSoundMatches(
     SimulationContext *context, const KR_ObjectID &parent,
     const WAVObj *wav, const CFVector3 &position,
     bool playing, int playCount);
+bool ExplosionSubjectState_ParentParticleCounts(
+    SimulationContext *context, const KR_ObjectID &parent,
+    int *simpleParticles, int *snakeParticles, int *rays);
+int ExplosionSubjectState_ParticleBranchLiveCount();
+int ExplosionSubjectState_ParticleBranchCapacity();
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context);
 const char *ExplosionSubjectState_LightProbeAttributeName(
     SimulationContext *context);
@@ -93,5 +110,8 @@ bool ExplosionSubjectState_ProbeLightLifecycle(
 bool ExplosionSubjectState_ProbeSoundLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, ExplosionSoundProbeSummary *summary);
+bool ExplosionSubjectState_ProbeParticleLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionParticleProbeSummary *summary);
 
 #endif
