@@ -102,7 +102,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE = 1ull << 25,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE = 1ull << 26,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE = 1ull << 27,
-  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE = 1ull << 28
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE = 1ull << 28,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE = 1ull << 29
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -153,6 +154,15 @@ int RecoveredArenaSeance_ExplosionPieceProbeDependencySkips();
 int RecoveredArenaSeance_ExplosionPieceProbeMoveSteps();
 int RecoveredArenaSeance_ExplosionPieceProbeExpiredParents();
 int RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces();
+bool RecoveredArenaSeance_ExplosionTraceReady();
+unsigned long long RecoveredArenaSeance_ExplosionTraceReferenceFingerprint();
+int RecoveredArenaSeance_ExplosionTraceProbeStartedPieces();
+int RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips();
+int RecoveredArenaSeance_ExplosionTraceProbePuffEvents();
+int RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren();
+int RecoveredArenaSeance_ExplosionTraceProbeMoveSteps();
+int RecoveredArenaSeance_ExplosionTraceProbeExpiredParents();
+int RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces();
 int RecoveredArenaSeance_ExplosionSubjectCapacity();
 unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint();
 int RecoveredArenaSeance_ExplosionProbeInvalidStarts();

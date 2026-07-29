@@ -185,6 +185,20 @@ bool ExplosionAttributeState_IsKnownPieceReferenceRoster(
     SimulationContext *context);
 void ExplosionAttributeState_ClearPieceReferences(
     SimulationContext *context);
+bool ExplosionAttributeState_TraceCachesUnresolved(
+    SimulationContext *context);
+bool ExplosionAttributeState_ProbeTraceReferenceAtomicity(
+    SimulationContext *context);
+bool ExplosionAttributeState_ResolveTraceReferences(
+    SimulationContext *context);
+bool ExplosionAttributeState_TraceReferencesResolved(
+    SimulationContext *context);
+unsigned long long ExplosionAttributeState_TraceReferenceFingerprint(
+    SimulationContext *context);
+bool ExplosionAttributeState_IsKnownTraceReferenceRoster(
+    SimulationContext *context);
+void ExplosionAttributeState_ClearTraceReferences(
+    SimulationContext *context);
 bool ExplosionAttributeState_ParticleCachesUnresolved(
     SimulationContext *context);
 bool ExplosionAttributeState_ProbeParticleVisualAtomicity(

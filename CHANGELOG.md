@@ -7,6 +7,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Activated Explosion tag `3` as a real model-backed traced Piece. It preserves
+  doubled Piece speed, ballistic/terrain motion, exact FPS gates and the May
+  four-parent quota, then starts one independent common `Smoke.Attr.Trace`
+  subject per surviving armed Piece.
+- Added an atomic Explosion-to-Smoke trace reference transaction with nine
+  exact May identities, missing-reference rollback and clean source-only
+  deferral. Startup now reports the trace fingerprint and seven lifecycle
+  counters separately from the still-deferred Bullet trail.
+- Coalesced January's redundant one-NEWPUFF-chain-per-Piece scheduling to one
+  bounded chain per Explosion parent. Admission and a real three-frame proof
+  cover NEWPUFF, parent detach with surviving Smoke, child rollback, natural
+  expiry and exact event/branch/quota cleanup.
+- Added a measured Player-to-Vehicle readiness document. It records that retail
+  Player state is embedded in `Vehicle.Default`, the real vessel/dynamics core
+  already exists, and the remaining critical path is observer-to-Vehicle input,
+  tick and camera ownership rather than another Player object implementation.
 - Activated the May `Explosion::m_useLight` gate through the existing
   transactional light chain. Valid Explosion commands now retain a rendering
   owner until `m_lightTimeLife`, publish the exact offset/color/radius and

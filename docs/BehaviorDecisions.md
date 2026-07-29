@@ -2234,8 +2234,9 @@ Status: accepted on 2026-07-29.
 Ordinary Piece is branch tag `2`, created after ray/simple/snake and before
 traced Piece and standalone Smoke. It is now active without admitting tag `3`
 Piece-with-smoke: that branch owns recurring `EXPLOSION_NEWPUFF`, a global
-four-parent trace quota and the known first-step `m_viewTrace[-1]` hazard, so it
-remains a separate fail-closed frontier.
+four-parent trace quota and common-Smoke children, so it remains a separate
+fail-closed frontier at this historical decision. BD-063 activates it and
+records that `m_viewTrace[-1]` belongs to Bullet instead.
 
 ExplosionAttr resolves every `m_pieceName` through the already decoded Skin
 model owner in a two-phase transaction. All model pointers and one stable
@@ -2274,3 +2275,45 @@ launches with all 18 installed/mounted and all 18 configuration pairs
 identical, and 4/4 waited executable smokes publishing Piece readiness,
 reference identity, lifecycle counters, the resource-backed ballistic model
 marker, `level-ready` and `runtime_shutdown=clean`.
+
+## BD-063: activate traced Explosion Piece with one bounded NEWPUFF owner
+
+Status: accepted on 2026-07-29.
+
+Explosion tag `3` is the model-backed Piece-with-smoke branch, not the Bullet
+trail buffer. It reuses the ordinary Piece model, rotations, lifetime and
+ballistic/terrain termination, samples speed from twice the configured Piece
+range, and preserves the strict `frameSec > 0.1` disable and `> 0.07` quarter
+gates. The first safe implementation had incorrectly associated this feature
+with Bullet's `m_viewTrace[-1]` underflow; CQ-113 records the corrected source
+ownership and leaves that Bullet hazard deferred.
+
+Every ExplosionAttr now resolves `m_traceSmokeName` atomically against the
+real common Smoke attribute and subject table after Piece models are ready.
+The resolved identity hashes the Smoke roster, Piece reference identity,
+sorted ExplosionAttr names, trace counts and puff interval. Nine exact May
+fingerprints are admitted; a substituted missing Smoke name proves no partial
+cache publication, and the source-only fixture proves clean deferral.
+
+The January source queues one identical recurring NEWPUFF chain per traced
+Piece even though every event arms every traced Piece. This recovery coalesces
+those observably redundant chains into one bounded event per Explosion parent.
+That is an intentional safety divergence: the interval and resulting Smoke
+creation are preserved while event-pool pressure is no longer multiplied by
+branch count. The global four-parent trace quota remains exact. Natural expiry,
+explicit removal and seance teardown cancel the parent chain and release the
+quota once.
+
+On the next MOVE after NEWPUFF, every armed live Piece synchronously creates a
+real `Smoke.Attr.Trace` subject at its current ballistic position using the
+legacy previous-MOVE timestamp. These Smoke children are independent: removing
+the Explosion removes its model branches and events but deliberately leaves
+already emitted Smoke alive until the Smoke owner expires or is rolled back.
+
+Admission proves atomic references, positive Piece creation, one NEWPUFF event,
+one Smoke child per surviving traced Piece, the four-parent/fifth-parent quota
+gate, natural expiry and exact rollback. The retail frame proof renders the
+real common Smoke sprites, removes the Explosion, observes the same sprites in
+the detached-parent frame, removes the Smoke subjects, and observes no further
+draw in the cleared frame. Diagnostics expose all seven lifecycle counters and
+separate the still-deferred Bullet first-step index guard.

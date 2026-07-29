@@ -1729,26 +1729,65 @@ Status vocabulary:
 - Revisit when: mod manifests can introduce model identities. Extend the
   declared content allowlist; do not weaken all-or-none reference publication.
 
-### CQ-112: Piece lifetime zero is valid, while traced Piece is still unsafe
+### CQ-112: Piece lifetime zero is valid and applies to both model branches
 
-- Status: `RETAIL_QUIRK_PRESERVED`, `PORTABILITY_FIX_ACCEPTED`,
-  `DEFERRED_TRACE_HAZARD`.
+- Status: `RETAIL_QUIRK_PRESERVED`, `PORTABILITY_FIX_ACCEPTED`.
 - Evidence: the common May Explosion program sets a live 2--3 Piece preset to
   zero speed and zero lifetime; the original creates it and lets MOVE remove it.
   Ordinary Piece uses the strict `>0.1` disable and `>0.07` quarter gates,
-  ballistic half-gravity and terrain-plane termination. Tag `3` separately
-  schedules `EXPLOSION_NEWPUFF`, retains a four-parent quota and accesses
-  `m_viewTrace[m_viewTraceLast]` before the first trace index is established.
+  ballistic half-gravity and terrain-plane termination. Tag `3` uses the same
+  lifetime fields and model motion, but separately schedules
+  `EXPLOSION_NEWPUFF` and retains a four-parent quota.
 - Handling: accept finite non-negative Piece lifetime, preserve exact sampling
   and frame gates, and bound ordinary Piece in the shared 128/500 pools. Sample
   terrain only from a live current scene; headless probes use lifetime expiry.
-  Keep traced Piece disabled until its first-step index and puff ownership are
-  specified without copying the underflow.
+  BD-063 extends the same rule to tag `3` without inventing a separate trace
+  position buffer.
 - Regression contract: create a positive-lifetime Piece roster, prove a
   missing-model gate, drive natural expiry, verify exact parent/pool rollback,
   then observe one real model frame and zero added draws after detach.
-- Revisit when: tag `3` is activated. Require a dedicated NEWPUFF queue test,
-  trace-index bounds, four-parent quota reconstruction and full child rollback.
+- Revisit when: mod data introduces negative or non-finite lifetime values.
+  Such content remains invalid rather than being normalized silently.
+
+### CQ-113: Explosion trace and Bullet trace are unrelated mechanisms
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: Explosion tag `3` stores a ballistic Piece and a boolean
+  `m_createPuffNow`; `EXPLOSION_NEWPUFF` arms that boolean and the next MOVE
+  creates a common `Smoke` subject at the computed Piece position. It never
+  indexes `m_viewTrace`. The actual first-step `m_viewTrace[-1]` read is in
+  `Bullet::traceStep()` when `m_traceCurrentLength` is zero.
+- Handling: activate Explosion's Piece-with-smoke graph independently. Keep the
+  Bullet trail disabled until its first-step index is guarded and tested. Use
+  separate diagnostics: `explosion_trace=coalesced-NEWPUFF-common-Smoke-4-parent-quota`
+  and `bullet_trace=deferred-first-step-index-guard`.
+- Regression contract: the Explosion test must create real common Smoke and
+  never allocate a trace-position array; the future Bullet test must cover a
+  zero-length first step explicitly.
+- Revisit when: Bullet trail recovery begins. Do not transfer assumptions or
+  storage ownership from the Explosion implementation.
+
+### CQ-114: repeated NEWPUFF chains are coalesced but Smoke children stay independent
+
+- Status: `SOURCE_CONFIRMED`, `INTENTIONAL_SAFETY_DIVERGENCE`.
+- Evidence: January queues one identical recurring `EXPLOSION_NEWPUFF` chain
+  for every traced Piece, while every event arms every traced Piece. The chains
+  are therefore redundant and multiply event pressure without changing the
+  visible decision. May retains a global maximum of four trace-owning Explosion
+  parents. Each armed Piece creates a separate common `Smoke` subject, and
+  removing the Explosion does not remove those children.
+- Handling: own one recurring NEWPUFF chain per Explosion parent, preserve the
+  exact interval, tag ordering, doubled Piece speed, FPS gates and four-parent
+  quota. Parent removal cancels MOVE/NEWPUFF and releases its branch/quota once;
+  emitted Smoke continues under its own MOVE/removal lifecycle.
+- Regression contract: prove one event arms every live traced Piece, four
+  parents acquire the quota while the fifth skips tag `3`, parent rollback
+  leaves all emitted Smoke alive, and explicit Smoke rollback returns every
+  table/event/pool count to zero. A three-frame draw test covers visible parent,
+  detached parent with surviving Smoke, and cleared Smoke.
+- Revisit when: deterministic replay records event identities rather than
+  resulting simulation state. Version this coalescing decision if redundant
+  legacy event multiplicity becomes observable.
 
 ## Maintenance rule
 

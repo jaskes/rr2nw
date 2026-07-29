@@ -578,7 +578,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_subject_capacity=" + std::to_string(
                RecoveredArenaSeance_ExplosionSubjectCapacity()));
   log.Line(
-      "explosion_subject_mode=bounded-impact-radial-damage-impulse-light-sound-particles-smoke-piece");
+      "explosion_subject_mode=bounded-impact-radial-damage-impulse-light-sound-particles-smoke-piece-trace");
   log.Line("explosion_subject_impulse=" +
            std::to_string(
                RecoveredGameServices_ExplosionImpulseReady() ? 1 : 0));
@@ -657,7 +657,27 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_piece_probe_rolled_back_pieces=" + std::to_string(
                RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces()));
   log.Line("explosion_piece_models=resource-backed-ballistic-land-dynamic");
-  log.Line("explosion_traced_piece=deferred");
+  log.Line("explosion_trace_initialized=" +
+           std::to_string(
+               RecoveredGameServices_ExplosionTraceReady() ? 1 : 0));
+  log.Line("explosion_trace_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceReferenceFingerprint()));
+  log.Line("explosion_trace_probe_started_pieces=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceProbeStartedPieces()));
+  log.Line("explosion_trace_probe_quota_gate_skips=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips()));
+  log.Line("explosion_trace_probe_puff_events=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceProbePuffEvents()));
+  log.Line("explosion_trace_probe_smoke_children=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren()));
+  log.Line("explosion_trace_probe_move_steps=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceProbeMoveSteps()));
+  log.Line("explosion_trace_probe_expired_parents=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceProbeExpiredParents()));
+  log.Line("explosion_trace_probe_rolled_back_pieces=" + std::to_string(
+               RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces()));
+  log.Line("explosion_trace=coalesced-NEWPUFF-common-Smoke-4-parent-quota");
+  log.Line("bullet_trace=deferred-first-step-index-guard");
   log.Line("vehicle_vessel_mass=" + std::to_string(
                RecoveredGameServices_VehicleVesselMass()));
   log.Line("explosion_subject_fingerprint=" + std::to_string(

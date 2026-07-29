@@ -234,7 +234,7 @@ int Fail(const char* message) {
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d "
-      "explosion_piece=%d "
+      "explosion_piece=%d explosion_trace=%d "
       "vehicle_attrs=%d taxi=%d taxi_refs=%d bullet=%d bullet_refs=%d "
       "bullet_ground_spark=%d bullet_barrel_smoke=%d smoker=%d "
       "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
@@ -259,6 +259,7 @@ int Fail(const char* message) {
       RecoveredGameServices_SmokeAttributesReady() ? 1 : 0,
       RecoveredGameServices_ExplosionAttributesReady() ? 1 : 0,
       RecoveredGameServices_ExplosionPieceReady() ? 1 : 0,
+      RecoveredGameServices_ExplosionTraceReady() ? 1 : 0,
       RecoveredGameServices_VehicleAttributesReady() ? 1 : 0,
       RecoveredGameServices_TaxiAttributesReady() ? 1 : 0,
       RecoveredGameServices_TaxiReferencesReady() ? 1 : 0,
@@ -321,6 +322,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ExplosionParticlesReady() &&
          !RecoveredGameServices_ExplosionSmokeReady() &&
          !RecoveredGameServices_ExplosionPieceReady() &&
+         !RecoveredGameServices_ExplosionTraceReady() &&
          RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionSoundProbeStarted() == -1 &&
          RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() == -1 &&
@@ -346,6 +348,14 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_ExplosionPieceProbeMoveSteps() == -1 &&
          RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() == -1 &&
          RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceReferenceFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionTraceProbeStartedPieces() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbePuffEvents() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeMoveSteps() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeExpiredParents() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -356,6 +366,7 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_ExplosionProbeDamageApplications() == -1 &&
          ExplosionSubjectState_LiveCount() == 0 &&
          ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
+         ExplosionSubjectState_TracedParentCount() == 0 &&
          !RecoveredGameServices_VehicleAttributesReady() &&
          RecoveredGameServices_VehicleVesselMass() == 0.0 &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
@@ -920,10 +931,12 @@ bool ExerciseVisibleExplosionParticles() {
        !RecoveredGameServices_ExplosionParticlesReady() ||
        !RecoveredGameServices_ExplosionSmokeReady() ||
       !RecoveredGameServices_ExplosionPieceReady() ||
+      !RecoveredGameServices_ExplosionTraceReady() ||
       !ExplosionSubjectState_LightRosterReady(g_super.m_context) ||
       _pGRDrawParticle == nullptr || _pGRDrawAlphaSprite == nullptr ||
       ExplosionSubjectState_LiveCount() != 0 ||
       ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
+      ExplosionSubjectState_TracedParentCount() != 0 ||
       g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
       CViewObject::EnabledLights() != 0) {
     return false;
@@ -981,16 +994,19 @@ bool ExerciseVisibleExplosionParticles() {
   int rays = -1;
   int smokeSprites = -1;
   int pieces = -1;
+  int tracedPieces = -1;
   const bool particlesOwned = !explosion.isNUL() &&
       ExplosionSubjectState_ParentParticleCounts(
           context, explosion, &simpleParticles, &snakeParticles, &rays,
-          &smokeSprites, &pieces);
+          &smokeSprites, &pieces, &tracedPieces);
   const int ownedBranches =
-      simpleParticles + snakeParticles + rays + smokeSprites + pieces;
+      simpleParticles + snakeParticles + rays + smokeSprites + pieces +
+      tracedPieces;
   if (!executed || damageApplications != 0 || explosion.isNUL() ||
       ExplosionSubjectState_LiveCount() != 1 ||
       !particlesOwned || simpleParticles <= 0 || snakeParticles <= 0 ||
-      rays < 0 || smokeSprites <= 0 || pieces <= 0 || ownedBranches <= 0 ||
+      rays < 0 || smokeSprites <= 0 || pieces <= 0 || tracedPieces <= 0 ||
+      ownedBranches <= 0 || ExplosionSubjectState_TracedParentCount() != 1 ||
       ExplosionSubjectState_ParticleBranchLiveCount() !=
           branchesBefore + ownedBranches ||
       SoundObjectState_LiveCount() != soundsBefore + 1 ||
@@ -1007,6 +1023,7 @@ bool ExerciseVisibleExplosionParticles() {
   bool detachedFrame = false;
   bool lightPublished = false;
   bool ownedMove = false;
+  bool ownedPuff = false;
   int drawsAfterVisibleFrame = 0;
   int smokeDrawsAfterVisibleFrame = 0;
   const int pieceDrawsBefore = ExplosionSubjectState_PieceDrawCount();
@@ -1035,6 +1052,7 @@ bool ExerciseVisibleExplosionParticles() {
         _gr_pLights[0].power0 == attribute->m_brightness[brightnessIndex] &&
         _gr_pLights[0].color == attribute->m_lightColor;
     ownedMove = context->removeEvent(EXPLOSION_MOVE, explosion) != 0;
+    ownedPuff = context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0;
     if (context->isExist(explosion)) context->removeObject(explosion);
     detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
     pieceDrawsAfterDetachedFrame = ExplosionSubjectState_PieceDrawCount();
@@ -1042,9 +1060,12 @@ bool ExerciseVisibleExplosionParticles() {
   const bool rolledBack = !context->isExist(explosion) &&
       ExplosionSubjectState_LiveCount() == 0 &&
       ExplosionSubjectState_ParticleBranchLiveCount() == branchesBefore &&
+      ExplosionSubjectState_TracedParentCount() == 0 &&
+      SmokeSubjectState_LiveCount() == 0 &&
       SoundObjectState_LiveCount() == soundsBefore;
   if (context->isExist(explosion)) context->removeObject(explosion);
-  return lightPublished && ownedMove && rolledBack && detachedFrame &&
+  return lightPublished && ownedMove && ownedPuff && rolledBack &&
+         detachedFrame &&
          g_particleDrawValid && drawsAfterVisibleFrame > 0 &&
          g_particleDraws == drawsAfterVisibleFrame &&
          g_alphaSpriteDrawValid && smokeDrawsAfterVisibleFrame > 0 &&
@@ -1057,7 +1078,202 @@ bool ExerciseVisibleExplosionParticles() {
          g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
          SoundObjectState_LiveCount() == soundsBefore &&
          !context->isExist(kProbeName) &&
-         context->removeEvent(EXPLOSION_MOVE, explosion) == 0;
+         context->removeEvent(EXPLOSION_MOVE, explosion) == 0 &&
+         context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0;
+}
+
+bool ExerciseVisibleExplosionTrace() {
+  if (g_super.m_context == nullptr ||
+      !RecoveredGameServices_ExplosionTraceReady() ||
+      !RecoveredGameServices_SmokeRenderingReady() ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
+      ExplosionSubjectState_TracedParentCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0) {
+    return false;
+  }
+  SimulationContext* context = g_super.m_context;
+  const char* attributeName =
+      ExplosionSubjectState_TraceProbeAttributeName(context);
+  KR_ObjectID attributeID = attributeName == nullptr
+      ? KR_ObjectID::NUL()
+      : context->searchObject(attributeName);
+  AttributeExplosion* attribute = attributeID.isNUL()
+      ? nullptr
+      : static_cast<AttributeExplosion*>(
+            __attrExplosionTable.searchAttribute(attributeID));
+  AttributeSmoke* smokeAttribute = attribute == nullptr ||
+          attribute->m_smokeAttrID.isNUL()
+      ? nullptr
+      : static_cast<AttributeSmoke*>(
+            __attrSmokeTable.searchAttribute(attribute->m_smokeAttrID));
+  const ct_ClassTableID attributeTable =
+      g_arena.searchSeanceClassTable("ExplosionAttr");
+  const ct_ClassTableID subjectTable =
+      g_arena.searchSeanceClassTable("Explosion");
+  const int attributeIndex = attributeTable == ct_NULLID ||
+          attributeID.isNUL()
+      ? -1
+      : g_arena.getAttributeIndex(attributeTable, attributeID);
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  static const char kProbeName[] = "Explosion.Trace.Rendering.Probe";
+  static const char kSmokeName[] = "Smok.Static";
+  if (attribute == nullptr || smokeAttribute == nullptr ||
+      smokeAttribute->m_cacheImage == nullptr ||
+      smokeAttribute->m_maxBlob <= 0 ||
+      attribute->m_moveTimeInc <= 0.0 ||
+      attribute->m_traceNewPuffTime <= 0.0 ||
+      attributeIndex == -1 || subjectTable == ct_NULLID ||
+      observer == nullptr || context->isExist(kProbeName) ||
+      context->isExist(kSmokeName)) {
+    return false;
+  }
+
+  const double currentTime =
+      (std::max)(Session::m_moment, Session::m_viewTime);
+  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  const CFVector3 position(observer->x, observer->y + 32.0,
+                           observer->z - 96.0);
+  ExplosionImpactRequest request = {
+      position, timeStamp, KR_ObjectID::NUL(), subjectTable,
+      attributeIndex, kProbeName};
+  int damageApplications = -1;
+  const bool executed = ExplosionSubjectState_ExecuteNow(
+      context, request, &damageApplications);
+  KR_ObjectID explosion = context->searchObject(kProbeName);
+
+  auto rollback = [&]() {
+    if (!explosion.isNUL() && context->isExist(explosion)) {
+      context->removeObject(explosion);
+    }
+    int removed = 0;
+    while (SmokeSubjectState_LiveCount() > 0 && removed < 128) {
+      KR_ObjectID smoke = context->searchObject(kSmokeName);
+      if (smoke.isNUL() ||
+          !SmokeSubjectState_RollbackStarted(context, smoke)) {
+        break;
+      }
+      ++removed;
+    }
+  };
+
+  int tracedPieces = 0;
+  bool quotaHeld = false;
+  double firstPuffTime = 0.0;
+  int startedPuffs = 0;
+  KR_ObjectID lastPuff = KR_ObjectID::NUL();
+  if (!executed || damageApplications != 0 || explosion.isNUL() ||
+      !ExplosionSubjectState_ParentTraceState(
+          context, explosion, &tracedPieces, &quotaHeld,
+          &firstPuffTime, &startedPuffs, &lastPuff) ||
+      tracedPieces <= 0 || !quotaHeld || firstPuffTime <= timeStamp ||
+      startedPuffs != 0 || !lastPuff.isNUL() ||
+      ExplosionSubjectState_TracedParentCount() != 1) {
+    rollback();
+    return false;
+  }
+
+  double moveTime = timeStamp + attribute->m_moveTimeInc;
+  int moveSteps = 0;
+  while (moveTime + 1.0e-9 < firstPuffTime && moveSteps < 4096) {
+    if (context->removeEvent(EXPLOSION_MOVE, explosion) == 0) {
+      rollback();
+      return false;
+    }
+    KR_Event move;
+    move.label = EXPLOSION_MOVE;
+    move.source = explosion;
+    move.destination = explosion;
+    move.timeStamp = moveTime;
+    context->sendEventNow(move);
+    if (!context->isExist(explosion)) {
+      rollback();
+      return false;
+    }
+    moveTime += attribute->m_moveTimeInc;
+    ++moveSteps;
+  }
+  if (moveSteps >= 4096 ||
+      context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0) {
+    rollback();
+    return false;
+  }
+  KR_Event puff;
+  puff.label = EXPLOSION_NEWPUFF;
+  puff.source = explosion;
+  puff.destination = explosion;
+  puff.timeStamp = firstPuffTime;
+  context->sendEventNow(puff);
+  if (context->removeEvent(EXPLOSION_MOVE, explosion) == 0) {
+    rollback();
+    return false;
+  }
+  KR_Event move;
+  move.label = EXPLOSION_MOVE;
+  move.source = explosion;
+  move.destination = explosion;
+  move.timeStamp = moveTime;
+  context->sendEventNow(move);
+  ++moveSteps;
+
+  if (!context->isExist(explosion) ||
+      !ExplosionSubjectState_ParentTraceState(
+          context, explosion, &tracedPieces, &quotaHeld,
+          &firstPuffTime, &startedPuffs, &lastPuff) ||
+      startedPuffs <= 0 || lastPuff.isNUL() ||
+      !context->isExist(lastPuff) ||
+      SmokeSubjectState_LiveCount() != startedPuffs) {
+    rollback();
+    return false;
+  }
+
+  const dword framesBefore = dwFrames;
+  bool visibleFrame = false;
+  bool detachedParentFrame = false;
+  bool clearedFrame = false;
+  int visibleDraws = 0;
+  int detachedDraws = 0;
+  int clearedDraws = 0;
+  KR_ObjectID lastSmoke = lastPuff;
+  {
+    ScopedAlphaSpriteCapture capture(smokeAttribute->m_cacheImage);
+    visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
+    visibleDraws = g_alphaSpriteDraws;
+    context->removeObject(explosion);
+    detachedParentFrame = RecoveredGameServices_RunFrame() != FALSE;
+    detachedDraws = g_alphaSpriteDraws;
+    int removed = 0;
+    while (SmokeSubjectState_LiveCount() > 0 &&
+           removed < startedPuffs) {
+      KR_ObjectID smoke = context->searchObject(kSmokeName);
+      if (smoke.isNUL() ||
+          !SmokeSubjectState_RollbackStarted(context, smoke)) {
+        break;
+      }
+      ++removed;
+    }
+    clearedFrame = removed == startedPuffs &&
+        RecoveredGameServices_RunFrame() != FALSE;
+    clearedDraws = g_alphaSpriteDraws;
+  }
+
+  const bool clean = !context->isExist(explosion) &&
+      !context->isExist(lastSmoke) &&
+      ExplosionSubjectState_LiveCount() == 0 &&
+      ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
+      ExplosionSubjectState_TracedParentCount() == 0 &&
+      SmokeSubjectState_LiveCount() == 0 &&
+      context->removeEvent(EXPLOSION_MOVE, explosion) == 0 &&
+      context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0 &&
+      context->removeEvent(fou_EVC_MOVING, lastSmoke) == 0;
+  if (!clean) rollback();
+  return visibleFrame && detachedParentFrame && clearedFrame && clean &&
+      g_alphaSpriteDrawValid && visibleDraws > 0 &&
+      detachedDraws == visibleDraws * 2 &&
+      clearedDraws == detachedDraws &&
+      visibleDraws == startedPuffs * smokeAttribute->m_maxBlob &&
+      moveSteps > 0 && dwFrames == framesBefore + 3;
 }
 
 bool ExerciseVisibleSpark() {
@@ -1371,6 +1587,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ExplosionParticlesReady() ||
       !RecoveredGameServices_ExplosionSmokeReady() ||
       !RecoveredGameServices_ExplosionPieceReady() ||
+      !RecoveredGameServices_ExplosionTraceReady() ||
       !RecoveredGameServices_VehicleAttributesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
@@ -1479,6 +1696,9 @@ int main(int argc, char** argv) {
   const unsigned long long explosionPieceReferenceFingerprint =
       ExplosionAttributeState_PieceReferenceFingerprint(
           g_super.m_context);
+  const unsigned long long explosionTraceReferenceFingerprint =
+      ExplosionAttributeState_TraceReferenceFingerprint(
+          g_super.m_context);
   const int explosionPieceStartedPieces =
       RecoveredArenaSeance_ExplosionPieceProbeStartedPieces();
   const int explosionPieceDependencySkips =
@@ -1489,6 +1709,20 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_ExplosionPieceProbeExpiredParents();
   const int explosionPieceRolledBackPieces =
       RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces();
+  const int explosionTraceStartedPieces =
+      RecoveredArenaSeance_ExplosionTraceProbeStartedPieces();
+  const int explosionTraceQuotaSkips =
+      RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips();
+  const int explosionTracePuffEvents =
+      RecoveredArenaSeance_ExplosionTraceProbePuffEvents();
+  const int explosionTraceSmokeChildren =
+      RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren();
+  const int explosionTraceMoveSteps =
+      RecoveredArenaSeance_ExplosionTraceProbeMoveSteps();
+  const int explosionTraceExpiredParents =
+      RecoveredArenaSeance_ExplosionTraceProbeExpiredParents();
+  const int explosionTraceRolledBackPieces =
+      RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces();
   const int explosionSmokeStartedSprites =
       RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites();
   const int explosionSmokeDependencySkips =
@@ -1683,7 +1917,20 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() != 1 ||
       RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() !=
           RecoveredArenaSeance_ExplosionPieceProbeStartedPieces() ||
+      !RecoveredGameServices_ExplosionTraceReady() ||
+      !ExplosionAttributeState_TraceReferencesResolved(g_super.m_context) ||
+      !ExplosionAttributeState_IsKnownTraceReferenceRoster(
+          g_super.m_context) ||
+      explosionTraceReferenceFingerprint == 0 ||
+      RecoveredArenaSeance_ExplosionTraceReferenceFingerprint() !=
+          explosionTraceReferenceFingerprint ||
+      explosionTraceStartedPieces <= 0 || explosionTraceQuotaSkips != 1 ||
+      explosionTracePuffEvents != 1 ||
+      explosionTraceSmokeChildren <= 0 || explosionTraceMoveSteps <= 0 ||
+      explosionTraceExpiredParents != 1 ||
+      explosionTraceRolledBackPieces != explosionTraceStartedPieces ||
       ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
+      ExplosionSubjectState_TracedParentCount() != 0 ||
       ExplosionSubjectState_ParticleBranchCapacity() != 500 ||
       !ExplosionAttributeState_SoundReferencesResolved(g_super.m_context) ||
       !ExplosionAttributeState_IsKnownSoundReferenceRoster(
@@ -1882,6 +2129,11 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("visible Explosion particle/light/detach rollback failed");
   }
+  if (!ExerciseVisibleExplosionTrace()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("visible Explosion traced-Piece/Smoke/detach rollback failed");
+  }
   if (!ExerciseVisibleSpark()) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -1934,6 +2186,20 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() != 1 ||
       RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() !=
           RecoveredArenaSeance_ExplosionPieceProbeStartedPieces() ||
+      ExplosionAttributeState_TraceReferenceFingerprint(
+          g_super.m_context) != explosionTraceReferenceFingerprint ||
+      !RecoveredGameServices_ExplosionTraceReady() ||
+      RecoveredArenaSeance_ExplosionTraceReferenceFingerprint() !=
+          explosionTraceReferenceFingerprint ||
+      RecoveredArenaSeance_ExplosionTraceProbeStartedPieces() <= 0 ||
+      RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips() != 1 ||
+      RecoveredArenaSeance_ExplosionTraceProbePuffEvents() != 1 ||
+      RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren() <= 0 ||
+      RecoveredArenaSeance_ExplosionTraceProbeMoveSteps() <= 0 ||
+      RecoveredArenaSeance_ExplosionTraceProbeExpiredParents() != 1 ||
+      RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces() !=
+          RecoveredArenaSeance_ExplosionTraceProbeStartedPieces() ||
+      ExplosionSubjectState_TracedParentCount() != 0 ||
       ExplosionSubjectState_Capacity() != explosionSubjectCapacity ||
       ExplosionSubjectState_LiveCount() != 0 ||
       ExplosionSubjectState_Fingerprint(g_super.m_context) !=
@@ -2097,7 +2363,7 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=15 hooks=12 hardware=legacy "
+  std::printf("bounded services frames=18 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
                "smoke_simulation=START-MOVE-remove "
@@ -2115,6 +2381,8 @@ int main(int argc, char** argv) {
               "frame=alpha-draw-detach "
               "explosion_piece=%d/%d/%d/%d/%d refs=%llu "
               "frame=model-draw-detach "
+              "explosion_trace=%d/%d/%d/%d/%d/%d/%d refs=%llu "
+              "frame=NEWPUFF-common-Smoke-detach quota=4 "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
@@ -2171,6 +2439,14 @@ int main(int argc, char** argv) {
                explosionPieceExpiredParents,
                explosionPieceRolledBackPieces,
                explosionPieceReferenceFingerprint,
+               explosionTraceStartedPieces,
+               explosionTraceQuotaSkips,
+               explosionTracePuffEvents,
+               explosionTraceSmokeChildren,
+               explosionTraceMoveSteps,
+               explosionTraceExpiredParents,
+               explosionTraceRolledBackPieces,
+               explosionTraceReferenceFingerprint,
                 vehicleAttributeRosterSize, vehicleAttributeCapacity,
                 vehicleAttributeFingerprint, vehicleVesselMass,
                 taxiRosterSize, taxiCapacity, taxiFingerprint,

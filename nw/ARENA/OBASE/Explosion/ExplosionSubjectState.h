@@ -77,6 +77,17 @@ struct ExplosionPieceProbeSummary
     int rolledBackPieces;
 };
 
+struct ExplosionTraceProbeSummary
+{
+    int startedPieces;
+    int quotaGateSkips;
+    int puffEvents;
+    int smokeChildren;
+    int moveSteps;
+    int expiredParents;
+    int rolledBackPieces;
+};
+
 void ExplosionSubjectState_Link();
 bool ExplosionSubjectState_TableReady(SimulationContext *context,
                                       int expectedCapacity);
@@ -96,16 +107,25 @@ bool ExplosionSubjectState_ParentSoundMatches(
 bool ExplosionSubjectState_ParentParticleCounts(
     SimulationContext *context, const KR_ObjectID &parent,
     int *simpleParticles, int *snakeParticles, int *rays,
-    int *smokeSprites = NULL, int *pieces = NULL);
+    int *smokeSprites = NULL, int *pieces = NULL,
+    int *tracedPieces = NULL);
+bool ExplosionSubjectState_ParentTraceState(
+    SimulationContext *context, const KR_ObjectID &parent,
+    int *tracedPieces, bool *quotaHeld, double *nextPuffTime,
+    int *startedPuffs, KR_ObjectID *lastPuff);
 int ExplosionSubjectState_ParticleBranchLiveCount();
 int ExplosionSubjectState_ParticleBranchCapacity();
 int ExplosionSubjectState_PieceDrawCount();
+int ExplosionSubjectState_TracedParentCount();
+int ExplosionSubjectState_TracePuffCount();
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context);
 const char *ExplosionSubjectState_LightProbeAttributeName(
     SimulationContext *context);
 const char *ExplosionSubjectState_SoundProbeAttributeName(
     SimulationContext *context);
 const char *ExplosionSubjectState_PieceProbeAttributeName(
+    SimulationContext *context);
+const char *ExplosionSubjectState_TraceProbeAttributeName(
     SimulationContext *context);
 void ExplosionSubjectState_ReleaseLightFrame();
 unsigned long long ExplosionSubjectState_Fingerprint(
@@ -141,5 +161,8 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
 bool ExplosionSubjectState_ProbePieceLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, ExplosionPieceProbeSummary *summary);
+bool ExplosionSubjectState_ProbeTraceLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionTraceProbeSummary *summary);
 
 #endif

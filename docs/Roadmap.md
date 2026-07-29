@@ -586,10 +586,12 @@ proven by a real alpha-sprite frame plus full parent rollback. Ordinary Piece
 now resolves `Expl.Piece`/`Expl.Piece.Meat` through the real Skin model owner,
 preserves its FPS gates, rotations, ballistic/terrain lifetime and the valid
 zero-lifetime retail preset, renders as one land dynamic per branch and proves
-model draw/detach plus exact 128/500-pool rollback. Traced Piece and
-Piece-with-smoke remain one separate resource-backed slice. Trace follows only
-after the known first-step `m_viewTrace[-1]` bug is replaced rather than copied.
-Then resolve Vehicle's
+model draw/detach plus exact 128/500-pool rollback. Traced Piece/Piece-with-smoke
+is now active too: one bounded NEWPUFF chain per parent arms the real model
+branches, starts independent common Smoke children and enforces the exact
+four-parent quota. A three-frame test proves parent-present, parent-detached and
+Smoke-cleared drawing. The known first-step `m_viewTrace[-1]` bug belongs to the
+still-deferred Bullet trail, not Explosion. Next resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this
 1.0 frontier.

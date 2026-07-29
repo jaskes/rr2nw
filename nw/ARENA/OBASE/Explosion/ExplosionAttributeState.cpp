@@ -11,6 +11,8 @@
 #include "ExplosionSubjectState.h"
 #include "h/cachesmoke.h"
 #include "obase/skin/SkinResourceState.h"
+#include "obase/smoke/SmokeAttributeState.h"
+#include "obase/smoke/SmokeSubjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
@@ -41,6 +43,15 @@ struct PieceReferenceRuntimeState
 };
 
 PieceReferenceRuntimeState g_pieceReferenceState = {};
+
+struct TraceReferenceRuntimeState
+{
+    SimulationContext *context;
+    unsigned long long fingerprint;
+    bool ready;
+};
+
+TraceReferenceRuntimeState g_traceReferenceState = {};
 
 struct SmokeVisualRuntimeState
 {
@@ -219,13 +230,29 @@ bool SmokeVisualCacheIsZero(const AttributeExplosion &attr)
 
 bool DeferredReferencesAreUnresolved(AttributeExplosion &attr)
 {
-    if (attr.m_smokeTableID != ct_NULLID ||
-        !attr.m_smokeAttrID.isNUL())
-        return false;
     for (int i = 0; i < AttributeExplosion::MAX_BRIGHT; ++i)
         if (attr.m_brightness[i] != LightBrightness(i))
             return false;
     return true;
+}
+
+bool TraceCacheIsCoherent(SimulationContext *context,
+                          AttributeExplosion &attr)
+{
+    if (!g_traceReferenceState.ready)
+        return attr.m_smokeTableID == ct_NULLID &&
+               attr.m_smokeAttrID.isNUL();
+    if (g_traceReferenceState.context != context ||
+        attr.m_smokeTableID == ct_NULLID || attr.m_smokeAttrID.isNUL())
+        return false;
+    KR_ObjectID smokeAttribute = KR_ObjectID::NUL();
+    return attr.m_smokeTableID ==
+               g_arena.searchSeanceClassTable("Smoke") &&
+           SmokeAttributeState_Resolve(
+               context, attr.m_traceSmokeName, &smokeAttribute) &&
+           smokeAttribute == attr.m_smokeAttrID &&
+           SmokeSubjectState_SimulationSupported(
+               context, attr.m_traceSmokeName);
 }
 
 bool PieceCacheIsCoherent(SimulationContext *context,
@@ -375,7 +402,8 @@ double PositiveRoot(double a, double b, double c)
 bool SmokeNumbersReady(const AttributeExplosion &attr)
 {
     const int maximumBranches = attr.m_maxRayCnt + attr.m_maxPartCnt +
-        attr.m_maxPartSnCnt + attr.m_maxPieceCnt + attr.m_maxSmokeCnt;
+        attr.m_maxPartSnCnt + attr.m_maxPieceCnt +
+        attr.m_maxPieceSmokeCnt + attr.m_maxSmokeCnt;
     if (!CountRange(attr.m_minSmokeCnt, attr.m_maxSmokeCnt) ||
         maximumBranches > kExplosionParticleBranchCapacity ||
         attr.m_smokeName[0] == 0)
@@ -413,7 +441,8 @@ bool SmokeNumbersReady(const AttributeExplosion &attr)
 bool PieceNumbersReady(const AttributeExplosion &attr)
 {
     const int maximumBranches = attr.m_maxRayCnt + attr.m_maxPartCnt +
-        attr.m_maxPartSnCnt + attr.m_maxPieceCnt + attr.m_maxSmokeCnt;
+        attr.m_maxPartSnCnt + attr.m_maxPieceCnt +
+        attr.m_maxPieceSmokeCnt + attr.m_maxSmokeCnt;
     if (!CountRange(attr.m_minPieceCnt, attr.m_maxPieceCnt) ||
         maximumBranches > kExplosionParticleBranchCapacity ||
         attr.m_pieceName[0] == 0)
@@ -431,6 +460,21 @@ bool PieceNumbersReady(const AttributeExplosion &attr)
                        attr.m_maxPieceOxSpeed) &&
            std::isfinite(attr.m_createRadius) &&
            attr.m_createRadius >= 0.0;
+}
+
+bool TraceNumbersReady(const AttributeExplosion &attr)
+{
+    const int maximumBranches = attr.m_maxRayCnt + attr.m_maxPartCnt +
+        attr.m_maxPartSnCnt + attr.m_maxPieceCnt +
+        attr.m_maxPieceSmokeCnt + attr.m_maxSmokeCnt;
+    return CountRange(attr.m_minPieceSmokeCnt,
+                      attr.m_maxPieceSmokeCnt) &&
+           maximumBranches <= kExplosionParticleBranchCapacity &&
+           attr.m_traceSmokeName[0] != 0 &&
+           std::isfinite(attr.m_traceNewPuffTime) &&
+           attr.m_traceNewPuffTime > 0.0 &&
+           attr.m_traceNewPuffTime <= 15.0 &&
+           PieceNumbersReady(attr);
 }
 
 bool BuildSmokeVisualCache(const AttributeExplosion &attr,
@@ -502,7 +546,8 @@ bool CachesAreCoherent(AttributeExplosion &attr)
 {
     if (!DeferredReferencesAreUnresolved(attr) ||
         !SoundCacheIsCoherent(attr) ||
-        !PieceCacheIsCoherent(g_arena.getContext(), attr))
+        !PieceCacheIsCoherent(g_arena.getContext(), attr) ||
+        !TraceCacheIsCoherent(g_arena.getContext(), attr))
         return false;
     if (g_smokeVisualState.ready)
     {
@@ -1219,6 +1264,188 @@ void ExplosionAttributeState_ClearPieceReferences(
         return;
     __attrExplosionTable.userFind(ClearPieceReference, NULL);
     g_pieceReferenceState = PieceReferenceRuntimeState{};
+}
+
+bool ExplosionAttributeState_TraceCachesUnresolved(
+    SimulationContext *context)
+{
+    if (g_traceReferenceState.ready)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (attribute == NULL || attribute->m_smokeTableID != ct_NULLID ||
+            !attribute->m_smokeAttrID.isNUL())
+            return false;
+    }
+    return true;
+}
+
+bool ExplosionAttributeState_ProbeTraceReferenceAtomicity(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) || collector.entries.empty() ||
+        !ExplosionAttributeState_PieceReferencesResolved(context) ||
+        !ExplosionAttributeState_TraceCachesUnresolved(context))
+        return false;
+    AttributeExplosion *probe = collector.entries.front().attribute;
+    if (probe == NULL)
+        return false;
+    const unsigned long long before =
+        ExplosionAttributeState_Fingerprint(context);
+    ct_AttrStr saved = {};
+    std::memcpy(saved, probe->m_traceSmokeName, sizeof(saved));
+    std::strncpy(probe->m_traceSmokeName,
+                 "Explosion.Missing.Trace.Smoke.Reference.Probe",
+                 sizeof(ct_AttrStr) - 1);
+    probe->m_traceSmokeName[sizeof(ct_AttrStr) - 1] = 0;
+    const bool rejected =
+        !ExplosionAttributeState_ResolveTraceReferences(context) &&
+        ExplosionAttributeState_TraceCachesUnresolved(context);
+    std::memcpy(probe->m_traceSmokeName, saved, sizeof(saved));
+    return rejected && before != 0 &&
+           ExplosionAttributeState_Fingerprint(context) == before &&
+           ExplosionAttributeState_TraceCachesUnresolved(context);
+}
+
+bool ExplosionAttributeState_ResolveTraceReferences(
+    SimulationContext *context)
+{
+    if (g_traceReferenceState.ready)
+        return ExplosionAttributeState_TraceReferencesResolved(context);
+    RosterCollector collector = {};
+    if (context == NULL || g_arena.getContext() != context ||
+        !CollectRoster(context, collector) ||
+        !ExplosionAttributeState_PieceReferencesResolved(context) ||
+        !ExplosionAttributeState_TraceCachesUnresolved(context))
+        return false;
+
+    const ct_ClassTableID smokeTable =
+        g_arena.searchSeanceClassTable("Smoke");
+    const unsigned long long smokeFingerprint =
+        SmokeAttributeState_RetailFingerprint(context);
+    const unsigned long long pieceFingerprint =
+        ExplosionAttributeState_PieceReferenceFingerprint(context);
+    if (smokeTable == ct_NULLID || smokeFingerprint == 0 ||
+        pieceFingerprint == 0)
+        return false;
+    std::vector<KR_ObjectID> smokeAttributes(
+        collector.entries.size(), KR_ObjectID::NUL());
+    unsigned long long hash = kHashOffset;
+    HashBytes(hash, &smokeFingerprint, sizeof(smokeFingerprint));
+    HashBytes(hash, &pieceFingerprint, sizeof(pieceFingerprint));
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (attribute == NULL || !TraceNumbersReady(*attribute) ||
+            !SmokeAttributeState_Resolve(
+                context, attribute->m_traceSmokeName,
+                &smokeAttributes[index]) ||
+            !SmokeSubjectState_SimulationSupported(
+                context, attribute->m_traceSmokeName))
+            return false;
+        HashString(hash, collector.entries[index].name.c_str());
+        HashString(hash, attribute->m_traceSmokeName);
+        HashBytes(hash, &attribute->m_minPieceSmokeCnt,
+                  sizeof(attribute->m_minPieceSmokeCnt));
+        HashBytes(hash, &attribute->m_maxPieceSmokeCnt,
+                  sizeof(attribute->m_maxPieceSmokeCnt));
+        HashBytes(hash, &attribute->m_traceNewPuffTime,
+                  sizeof(attribute->m_traceNewPuffTime));
+    }
+    if (hash == 0)
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        collector.entries[index].attribute->m_smokeTableID = smokeTable;
+        collector.entries[index].attribute->m_smokeAttrID =
+            smokeAttributes[index];
+    }
+    g_traceReferenceState.context = context;
+    g_traceReferenceState.fingerprint = hash;
+    g_traceReferenceState.ready = true;
+    if (ExplosionAttributeState_TraceReferencesResolved(context))
+        return true;
+    ExplosionAttributeState_ClearTraceReferences(context);
+    return false;
+}
+
+bool ExplosionAttributeState_TraceReferencesResolved(
+    SimulationContext *context)
+{
+    if (!g_traceReferenceState.ready || context == NULL ||
+        g_traceReferenceState.context != context ||
+        g_arena.getContext() != context ||
+        !ExplosionAttributeState_PieceReferencesResolved(context))
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (attribute == NULL || !TraceNumbersReady(*attribute) ||
+            !TraceCacheIsCoherent(context, *attribute))
+            return false;
+    }
+    return true;
+}
+
+unsigned long long ExplosionAttributeState_TraceReferenceFingerprint(
+    SimulationContext *context)
+{
+    return ExplosionAttributeState_TraceReferencesResolved(context)
+               ? g_traceReferenceState.fingerprint
+               : 0;
+}
+
+bool ExplosionAttributeState_IsKnownTraceReferenceRoster(
+    SimulationContext *context)
+{
+    switch (ExplosionAttributeState_TraceReferenceFingerprint(context))
+    {
+    case 15479875903557427417ull:  // Level.01D
+    case 14176899255950351083ull:  // Level.01N
+    case 8549830335675231037ull:   // Level.02D
+    case 7224868523921463240ull:   // Level.02N
+    case 2178156965531948188ull:   // Level.03N
+    case 18052888668054315656ull:  // Level.04D
+    case 1363236821580030428ull:   // Level.05D
+    case 410141187708350623ull:    // Level.06N
+    case 4161868981050679744ull:   // Level.07N
+        return true;
+    default:
+        return false;
+    }
+}
+
+namespace {
+
+bool ClearTraceReference(const KR_ObjectID object, void *)
+{
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (attribute == NULL)
+        return false;
+    attribute->m_smokeTableID = ct_NULLID;
+    attribute->m_smokeAttrID = KR_ObjectID::NUL();
+    return true;
+}
+
+}  // namespace
+
+void ExplosionAttributeState_ClearTraceReferences(
+    SimulationContext *context)
+{
+    if (!g_traceReferenceState.ready ||
+        g_traceReferenceState.context != context)
+        return;
+    __attrExplosionTable.userFind(ClearTraceReference, NULL);
+    g_traceReferenceState = TraceReferenceRuntimeState{};
 }
 
 bool ExplosionAttributeState_ParticleCachesUnresolved(

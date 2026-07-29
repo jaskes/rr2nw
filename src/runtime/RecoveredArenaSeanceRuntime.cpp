@@ -605,6 +605,7 @@ struct RecoveredArenaSeanceState {
   bool explosionParticlesReady;
   bool explosionSmokeReady;
   bool explosionPieceReady;
+  bool explosionTraceReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -688,6 +689,14 @@ struct RecoveredArenaSeanceState {
   int explosionPieceProbeMoveSteps;
   int explosionPieceProbeExpiredParents;
   int explosionPieceProbeRolledBackPieces;
+  unsigned long long explosionTraceReferenceFingerprint;
+  int explosionTraceProbeStartedPieces;
+  int explosionTraceProbeQuotaGateSkips;
+  int explosionTraceProbePuffEvents;
+  int explosionTraceProbeSmokeChildren;
+  int explosionTraceProbeMoveSteps;
+  int explosionTraceProbeExpiredParents;
+  int explosionTraceProbeRolledBackPieces;
   int bulletSubjectProbeMoveCount;
   int bulletCollisionScheduledChecks;
   int bulletCollisionExecutedChecks;
@@ -2343,6 +2352,82 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
   g_state.explosionSoundProbeRollbacks = soundProbe.rolledBackSounds;
   g_state.explosionSoundReady = true;
 
+  if (g_state.skinModelCount == 0) {
+    if (ExplosionAttributeState_ResolveTraceReferences(context) ||
+        !ExplosionAttributeState_TraceCachesUnresolved(context)) {
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE,
+          "source-only Explosion trace fixture leaked Smoke references");
+      return false;
+    }
+  } else {
+    if (!ExplosionAttributeState_ProbeTraceReferenceAtomicity(context) ||
+        !ExplosionAttributeState_ResolveTraceReferences(context) ||
+        !ExplosionAttributeState_TraceReferencesResolved(context)) {
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE,
+          "ExplosionAttr could not resolve traced Piece Smoke references "
+          "atomically");
+      return false;
+    }
+    g_state.explosionTraceReferenceFingerprint =
+        ExplosionAttributeState_TraceReferenceFingerprint(context);
+    if (g_state.explosionTraceReferenceFingerprint == 0 ||
+        !ExplosionAttributeState_IsKnownTraceReferenceRoster(context)) {
+      char message[192] = {};
+      std::snprintf(message, sizeof(message),
+                    "Explosion trace references are not a bounded retail "
+                    "roster (fingerprint=%llu)",
+                    g_state.explosionTraceReferenceFingerprint);
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE,
+          message);
+      return false;
+    }
+    const char* traceProbeAttribute =
+        ExplosionSubjectState_TraceProbeAttributeName(context);
+    ExplosionTraceProbeSummary traceProbe = {};
+    if (traceProbeAttribute == nullptr ||
+        !ExplosionSubjectState_ProbeTraceLifecycle(
+            context, traceProbeAttribute, Session::m_moment, &traceProbe) ||
+        traceProbe.startedPieces <= 0 ||
+        traceProbe.quotaGateSkips != 1 || traceProbe.puffEvents != 1 ||
+        traceProbe.smokeChildren <= 0 || traceProbe.moveSteps <= 0 ||
+        traceProbe.expiredParents != 1 ||
+        traceProbe.rolledBackPieces != traceProbe.startedPieces ||
+        ExplosionSubjectState_LiveCount() != 0 ||
+        ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
+        ExplosionSubjectState_TracedParentCount() != 0 ||
+        SmokeSubjectState_LiveCount() != 0) {
+      char message[320] = {};
+      std::snprintf(
+          message, sizeof(message),
+          "Explosion trace start/quota/puff/smoke/move/expiry/rollback "
+          "probe failed (piece=%d quota=%d puff=%d smoke=%d move=%d "
+          "expired=%d rollback=%d live=%d/%d/%d/%d)",
+          traceProbe.startedPieces, traceProbe.quotaGateSkips,
+          traceProbe.puffEvents, traceProbe.smokeChildren,
+          traceProbe.moveSteps, traceProbe.expiredParents,
+          traceProbe.rolledBackPieces, ExplosionSubjectState_LiveCount(),
+          ExplosionSubjectState_ParticleBranchLiveCount(),
+          ExplosionSubjectState_TracedParentCount(),
+          SmokeSubjectState_LiveCount());
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE,
+          message);
+      return false;
+    }
+    g_state.explosionTraceProbeStartedPieces = traceProbe.startedPieces;
+    g_state.explosionTraceProbeQuotaGateSkips = traceProbe.quotaGateSkips;
+    g_state.explosionTraceProbePuffEvents = traceProbe.puffEvents;
+    g_state.explosionTraceProbeSmokeChildren = traceProbe.smokeChildren;
+    g_state.explosionTraceProbeMoveSteps = traceProbe.moveSteps;
+    g_state.explosionTraceProbeExpiredParents = traceProbe.expiredParents;
+    g_state.explosionTraceProbeRolledBackPieces =
+        traceProbe.rolledBackPieces;
+    g_state.explosionTraceReady = true;
+  }
+
   // The repository CI fixture deliberately has no model assets. Keep that
   // source-only fixture useful, while requiring real Corpse references for
   // every retail Level whose Skin catalog is populated.
@@ -2637,6 +2722,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  ExplosionAttributeState_ClearTraceReferences(g_arena.getContext());
   ExplosionAttributeState_ClearPieceReferences(g_arena.getContext());
   ExplosionAttributeState_ClearSmokeVisuals(g_arena.getContext());
   SmokeVisualState_Release();
@@ -2671,6 +2757,7 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionParticlesReady = false;
   g_state.explosionSmokeReady = false;
   g_state.explosionPieceReady = false;
+  g_state.explosionTraceReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -2704,6 +2791,14 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionPieceProbeMoveSteps = 0;
   g_state.explosionPieceProbeExpiredParents = 0;
   g_state.explosionPieceProbeRolledBackPieces = 0;
+  g_state.explosionTraceReferenceFingerprint = 0;
+  g_state.explosionTraceProbeStartedPieces = 0;
+  g_state.explosionTraceProbeQuotaGateSkips = 0;
+  g_state.explosionTraceProbePuffEvents = 0;
+  g_state.explosionTraceProbeSmokeChildren = 0;
+  g_state.explosionTraceProbeMoveSteps = 0;
+  g_state.explosionTraceProbeExpiredParents = 0;
+  g_state.explosionTraceProbeRolledBackPieces = 0;
   g_state.vehicleAttributesReady = false;
   g_state.vehicleAttributeCount = 0;
   g_state.vehicleAttributeCapacity = 0;
@@ -3032,6 +3127,59 @@ int RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() {
 int RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() {
   return g_state.explosionPieceReady
              ? g_state.explosionPieceProbeRolledBackPieces
+             : -1;
+}
+
+bool RecoveredArenaSeance_ExplosionTraceReady() {
+  return g_state.explosionTraceReady;
+}
+
+unsigned long long
+RecoveredArenaSeance_ExplosionTraceReferenceFingerprint() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceReferenceFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_ExplosionTraceProbeStartedPieces() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceProbeStartedPieces
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceProbeQuotaGateSkips
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionTraceProbePuffEvents() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceProbePuffEvents
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceProbeSmokeChildren
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionTraceProbeMoveSteps() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceProbeMoveSteps
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionTraceProbeExpiredParents() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceProbeExpiredParents
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces() {
+  return g_state.explosionTraceReady
+             ? g_state.explosionTraceProbeRolledBackPieces
              : -1;
 }
 

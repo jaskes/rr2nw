@@ -2120,15 +2120,46 @@ recurring MOVE, natural expiry and exact rollback. The retail service smoke
 then observes a real `CViewObjectRef::Draw()` in one software frame and no added
 Piece draw after parent detach.
 
-Tag `3` is intentionally not folded into this change. Its recurring
-`EXPLOSION_NEWPUFF`, four-parent trace quota and first-step
-`m_viewTrace[-1]` access require a dedicated bounded trace owner.
+Tag `3` is intentionally not folded into this historical Piece checkpoint. Its
+recurring `EXPLOSION_NEWPUFF`, common-Smoke children and four-parent quota
+require a dedicated bounded owner. The earlier association with
+`m_viewTrace[-1]` was incorrect: that first-step underflow belongs to the
+separate Bullet trail implementation.
 
 Final verification passes 51/51 CTest in both configurations, 36/36 retail
 service launches with every installed/mounted and Debug/Release summary pair
 identical, and 4/4 waited executable runtime smokes. Diagnostics publish
 `explosion_piece_initialized=1`, the exact reference fingerprint and five
 lifecycle counters, `explosion_piece_models=resource-backed-ballistic-land-dynamic`,
+`marker=level-ready` and `runtime_shutdown=clean`.
+
+### Traced Explosion Piece and common-Smoke frontier
+
+Tag `3` now reuses the ordinary Piece model/drawable and preserves the source
+creation order, doubled speed, rotations, ballistic motion, terrain/lifetime
+termination and frame gates. `ExplosionAttributeState` resolves every
+`m_traceSmokeName` against the live common Smoke attribute/table only after the
+Piece model transaction, and admits nine exact May identities. Missing-name
+injection and the assetless source fixture prove all-or-none publication.
+
+The original creates one identical recurring `EXPLOSION_NEWPUFF` chain per
+Piece even though each event arms all traced Pieces. The modern owner coalesces
+that redundancy to one bounded chain per Explosion parent, while preserving
+the interval and the exact global four-parent quota. The following MOVE starts
+one independent real Smoke subject per surviving armed Piece using the legacy
+previous-MOVE timestamp. Removing the parent cancels MOVE/NEWPUFF and releases
+its branch/quota ownership, but intentionally does not remove emitted Smoke.
+
+Admission proves positive creation, the fifth-parent quota skip, one puff event,
+real Smoke children, natural expiry and full rollback. The retail test adds
+three real drawable frames: parent plus Smoke, detached parent with the same
+Smoke, and cleared Smoke with no additional alpha draw. Startup diagnostics
+publish the exact trace identity and seven counters. Bullet's unrelated
+`m_viewTrace[-1]` first-step guard remains deferred and is named separately.
+
+Final verification passes 51/51 CTest in Debug and Release, all 36/36 retail
+service launches with exact installed/mounted and Debug/Release summaries for
+every Level, and 4/4 waited executable smokes publishing trace readiness,
 `marker=level-ready` and `runtime_shutdown=clean`.
 
 ## Expansion order
@@ -2197,8 +2228,8 @@ lifecycle counters, `explosion_piece_models=resource-backed-ballistic-land-dynam
    Explosion SET_WAV/MOVE_TO/START(1) command with parent-owned rollback are
    active. The bounded Explosion simple/snake/ray graph now renders through a
    safe software particle path and owns recurring expiry/rollback. Standalone
-   Smoke and ordinary model-backed Piece are active with real frame/detach
-   proof. Actual audio output, traced Piece/Piece-with-smoke and Bullet trace
+   Smoke, ordinary model-backed Piece and traced Piece/Piece-with-smoke are
+   active with real frame/detach proof. Actual audio output and Bullet trace
    remain deferred.
    Vehicle's own
    Panel/Taxi/Bullet

@@ -18,6 +18,17 @@ struct SmokeDirectionalStartRequest
     const char *objectName;
 };
 
+struct SmokeStaticStartRequest
+{
+    CFVector3 position;
+    double timeStamp;
+    KR_ObjectID source;
+    ct_ClassTableID subjectTable;
+    KR_ObjectID attribute;
+    const char *attributeName;
+    const char *objectName;
+};
+
 void SmokeSubjectState_Link();
 bool SmokeSubjectState_TableReady(SimulationContext *context,
                                   int expectedCapacity);
@@ -35,6 +46,10 @@ bool SmokeSubjectState_ProbeSimulationLifecycle(
 bool SmokeSubjectState_StartWithDirection(
     SimulationContext *context,
     const SmokeDirectionalStartRequest &request,
+    KR_ObjectID *child);
+bool SmokeSubjectState_StartAtPosition(
+    SimulationContext *context,
+    const SmokeStaticStartRequest &request,
     KR_ObjectID *child);
 bool SmokeSubjectState_RollbackStarted(
     SimulationContext *context, const KR_ObjectID &child);

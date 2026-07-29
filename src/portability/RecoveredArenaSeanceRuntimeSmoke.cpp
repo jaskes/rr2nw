@@ -479,6 +479,15 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ExplosionPieceProbeMoveSteps() == -1 &&
          RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() == -1 &&
          RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() == -1 &&
+         !RecoveredArenaSeance_ExplosionTraceReady() &&
+         RecoveredArenaSeance_ExplosionTraceReferenceFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionTraceProbeStartedPieces() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbePuffEvents() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeMoveSteps() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeExpiredParents() == -1 &&
+         RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -668,6 +677,15 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_ExplosionPieceProbeMoveSteps() != -1 ||
       RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() != -1 ||
       RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() != -1 ||
+      RecoveredArenaSeance_ExplosionTraceReady() ||
+      RecoveredArenaSeance_ExplosionTraceReferenceFingerprint() != 0 ||
+      RecoveredArenaSeance_ExplosionTraceProbeStartedPieces() != -1 ||
+      RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips() != -1 ||
+      RecoveredArenaSeance_ExplosionTraceProbePuffEvents() != -1 ||
+      RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren() != -1 ||
+      RecoveredArenaSeance_ExplosionTraceProbeMoveSteps() != -1 ||
+      RecoveredArenaSeance_ExplosionTraceProbeExpiredParents() != -1 ||
+      RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces() != -1 ||
       RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||

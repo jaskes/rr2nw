@@ -20,6 +20,8 @@
 #include "kernel/h/s_debug.h"
 #include "kernel/h/session.h"
 #include "message/explmsg.h"
+#include "message/fountmsg.h"
+#include "obase/smoke/SmokeSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
 #include "storage/h/subject.h"
 
@@ -29,6 +31,7 @@ const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 const int kParticleBranchCapacity = 500;
 const int kParticleBranchPerExplosion = 128;
+const int kMaximumTracedExplosionParents = 4;
 const double kRayTimeLife = 0.6;
 const double kExplosionMaximumTimeLife = 15.0;
 const double kPi = 3.14159265358979323846;
@@ -40,6 +43,8 @@ int g_allocationRollbacks = 0;
 int g_queueRollbacks = 0;
 int g_particleBranchesLive = 0;
 int g_pieceDrawCalls = 0;
+int g_tracedExplosionParents = 0;
+int g_tracePuffsStarted = 0;
 SimulationContext *g_impulseContext = NULL;
 KR_ObjectID g_impulseTarget = KR_ObjectID::NUL();
 void *g_impulseUser = NULL;
@@ -50,6 +55,7 @@ enum ExplosionParticleBranchType
     EXPLOSION_PARTICLE_SIMPLE = 0,
     EXPLOSION_PARTICLE_SNAKE = 1,
     EXPLOSION_PARTICLE_PIECE = 2,
+    EXPLOSION_PARTICLE_TRACED_PIECE = 3,
     EXPLOSION_PARTICLE_RAY = 4,
     EXPLOSION_PARTICLE_SMOKE = 5
 };
@@ -106,6 +112,7 @@ struct ExplosionParticleBranch
     int tailCount;
     unsigned long color;
     bool active;
+    bool createPuffNow;
     bool landDynamicPublished;
     CViewObjectRef skin;
     ExplosionPieceDrawable drawable;
@@ -135,6 +142,7 @@ struct ExplosionParticleBranch
         tailCount = 0;
         color = 0;
         active = false;
+        createPuffNow = false;
         landDynamicPublished = false;
     }
 };
@@ -283,6 +291,13 @@ struct PieceProbeAttribute
     double timeLife;
 };
 
+struct TraceProbeAttribute
+{
+    SimulationContext *context;
+    const char *name;
+    double timeLife;
+};
+
 bool ValidateLightAttribute(const KR_ObjectID object, void *user)
 {
     LightRosterProbe *probe = static_cast<LightRosterProbe *>(user);
@@ -356,6 +371,36 @@ bool SelectPieceProbeAttribute(const KR_ObjectID object, void *user)
         attribute->m_minPieceCnt <= 0 ||
         attribute->m_maxPieceCnt < attribute->m_minPieceCnt ||
         attribute->m_minPieceTimeLife <= 0.0)
+        return true;
+    const char *name = probe->context->searchObject(object);
+    if (name != NULL &&
+        (probe->name == NULL ||
+         attribute->m_minPieceTimeLife > probe->timeLife ||
+         (attribute->m_minPieceTimeLife == probe->timeLife &&
+          std::strcmp(name, probe->name) < 0)))
+    {
+        probe->name = name;
+        probe->timeLife = attribute->m_minPieceTimeLife;
+    }
+    return true;
+}
+
+bool SelectTraceProbeAttribute(const KR_ObjectID object, void *user)
+{
+    TraceProbeAttribute *probe =
+        static_cast<TraceProbeAttribute *>(user);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (probe == NULL || probe->context == NULL)
+        return false;
+    if (attribute == NULL || attribute->m_cacheSkin == NULL ||
+        attribute->m_smokeTableID == ct_NULLID ||
+        attribute->m_smokeAttrID.isNUL() ||
+        attribute->m_minPieceSmokeCnt <= 0 ||
+        attribute->m_maxPieceSmokeCnt <
+            attribute->m_minPieceSmokeCnt ||
+        attribute->m_minPieceTimeLife <= 0.0 ||
+        attribute->m_traceNewPuffTime <= 0.0)
         return true;
     const char *name = probe->context->searchObject(object);
     if (name != NULL &&
@@ -504,7 +549,8 @@ class BoundedExplosion : public ct_Subject
         {
             ExplosionParticleBranch &branch = m_particles[index];
             if (!branch.active ||
-                branch.type != EXPLOSION_PARTICLE_PIECE ||
+                (branch.type != EXPLOSION_PARTICLE_PIECE &&
+                 branch.type != EXPLOSION_PARTICLE_TRACED_PIECE) ||
                 branch.skin.Model() == NULL)
                 continue;
             CFMatrix3x4 &matrix = branch.skin.GetDirModify();
@@ -520,7 +566,9 @@ class BoundedExplosion : public ct_Subject
             list.Load(&branch.drawable);
             branch.landDynamicPublished = true;
         }
-        if (m_particleCount > particleCount(EXPLOSION_PARTICLE_PIECE) &&
+        if (m_particleCount >
+                particleCount(EXPLOSION_PARTICLE_PIECE) +
+                    particleCount(EXPLOSION_PARTICLE_TRACED_PIECE) &&
             (_pGRDrawParticle != NULL || _pGRDrawAlphaSprite != NULL))
         {
             m_particleDrawable.prepare(m_position, m_attribute->m_radius);
@@ -561,6 +609,7 @@ class BoundedExplosion : public ct_Subject
         {
             context->removeEvent(EXPLOSION_START, getObjectID());
             context->removeEvent(EXPLOSION_MOVE, getObjectID());
+            context->removeEvent(EXPLOSION_NEWPUFF, getObjectID());
             if (!IsNul(m_sound))
                 SoundObjectState_RollbackOwned(context, &m_sound);
         }
@@ -571,6 +620,7 @@ class BoundedExplosion : public ct_Subject
                 scene->RemoveLandDynamic(&m_particleDrawable);
             m_particleDynamicPublished = false;
         }
+        releaseTraceQuota();
         releaseParticles();
         ct_Subject::removeNotify();
         resetState();
@@ -584,6 +634,8 @@ class BoundedExplosion : public ct_Subject
             return start(event);
         case EXPLOSION_MOVE:
             return expire(event);
+        case EXPLOSION_NEWPUFF:
+            return newPuff(event);
         case KR_WAKE_UP:
             return 1;
         default:
@@ -600,7 +652,9 @@ class BoundedExplosion : public ct_Subject
                m_position.x == 0.0 && m_position.y == 0.0 &&
                m_position.z == 0.0 && m_startTime == 0.0 &&
                m_landY == 0.0 && !m_landHeightReady &&
-               !m_particleDynamicPublished;
+               !m_particleDynamicPublished && !m_traceQuotaHeld &&
+               m_nextPuffTime == 0.0 && m_tracePuffsStarted == 0 &&
+               IsNul(m_lastTracePuff);
     }
 
     bool lightActive() const { return m_lightActive; }
@@ -609,6 +663,10 @@ class BoundedExplosion : public ct_Subject
     double startTime() const { return m_startTime; }
     int particleCount() const { return m_particleCount; }
     double nextMoveTime() const { return m_nextMoveTime; }
+    double nextPuffTime() const { return m_nextPuffTime; }
+    bool traceQuotaHeld() const { return m_traceQuotaHeld; }
+    int tracePuffsStarted() const { return m_tracePuffsStarted; }
+    const KR_ObjectID &lastTracePuff() const { return m_lastTracePuff; }
 
     int particleCount(ExplosionParticleBranchType type) const
     {
@@ -632,6 +690,7 @@ class BoundedExplosion : public ct_Subject
         m_startTime = 0.0;
         m_nextMoveTime = 0.0;
         m_previousMoveTime = 0.0;
+        m_nextPuffTime = 0.0;
         m_damageApplications = 0;
         m_landY = 0.0;
         m_particleCount = 0;
@@ -639,6 +698,9 @@ class BoundedExplosion : public ct_Subject
         m_lightActive = false;
         m_landHeightReady = false;
         m_particleDynamicPublished = false;
+        m_traceQuotaHeld = false;
+        m_tracePuffsStarted = 0;
+        m_lastTracePuff = KR_ObjectID::NUL();
         for (int index = 0; index < kParticleBranchPerExplosion; ++index)
             m_particles[index].reset();
     }
@@ -685,6 +747,18 @@ class BoundedExplosion : public ct_Subject
     {
         for (int index = 0; index < kParticleBranchPerExplosion; ++index)
             deactivateParticle(m_particles[index]);
+    }
+
+    void releaseTraceQuota()
+    {
+        if (context != NULL)
+            context->removeEvent(EXPLOSION_NEWPUFF, getObjectID());
+        m_nextPuffTime = 0.0;
+        if (!m_traceQuotaHeld)
+            return;
+        m_traceQuotaHeld = false;
+        if (g_tracedExplosionParents > 0)
+            --g_tracedExplosionParents;
     }
 
     CFVector3 randomDirection(int seed, CFVector3 *spawnOffset) const
@@ -841,6 +915,63 @@ class BoundedExplosion : public ct_Subject
             }
         }
 
+        if (ExplosionAttributeState_TraceReferencesResolved(context) &&
+            m_attribute->m_cacheSkin != NULL &&
+            std::isfinite(m_attribute->m_cacheSkin->Radius()) &&
+            m_attribute->m_cacheSkin->Radius() > 0.0 &&
+            g_tracedExplosionParents < kMaximumTracedExplosionParents)
+        {
+            count = context->rnd_i(
+                m_attribute->m_minPieceSmokeCnt,
+                m_attribute->m_maxPieceSmokeCnt);
+            if (Session::m_frameSec > 0.1)
+                count = 0;
+            else if (Session::m_frameSec > 0.07)
+                count >>= 2;
+            int tracedCreated = 0;
+            for (int index = 0; index < count; ++index)
+            {
+                ExplosionParticleBranch *branch =
+                    allocateParticle(EXPLOSION_PARTICLE_TRACED_PIECE);
+                if (branch == NULL)
+                    break;
+                branch->timeOfLife = context->rnd_f(
+                    m_attribute->m_minPieceTimeLife,
+                    m_attribute->m_maxPieceTimeLife);
+                branch->skin.Attach(m_attribute->m_cacheSkin);
+                CFVector3 spawnOffset;
+                const CFVector3 direction =
+                    randomDirection(created, &spawnOffset);
+                branch->start = m_position + spawnOffset;
+                branch->velocity = Normal(direction) * context->rnd_f(
+                    m_attribute->m_minPieceSpeed * 2.0,
+                    m_attribute->m_maxPieceSpeed * 2.0);
+                branch->rotationOySpeed = context->rnd_f(
+                    m_attribute->m_minPieceOySpeed,
+                    m_attribute->m_maxPieceOySpeed);
+                branch->rotationOxSpeed = context->rnd_f(
+                    m_attribute->m_minPieceOxSpeed,
+                    m_attribute->m_maxPieceOxSpeed);
+                ++created;
+                ++tracedCreated;
+            }
+            if (tracedCreated > 0)
+            {
+                m_traceQuotaHeld = true;
+                ++g_tracedExplosionParents;
+                if (!scheduleNextPuff(m_startTime))
+                {
+                    releaseTraceQuota();
+                    for (int index = 0;
+                         index < kParticleBranchPerExplosion; ++index)
+                        if (m_particles[index].active &&
+                            m_particles[index].type ==
+                                EXPLOSION_PARTICLE_TRACED_PIECE)
+                            deactivateParticle(m_particles[index]);
+                }
+            }
+        }
+
         if (!ExplosionAttributeState_SmokeVisualsResolved(context))
             return created;
         count = context->rnd_i(
@@ -946,13 +1077,37 @@ class BoundedExplosion : public ct_Subject
             ExplosionParticleBranch &branch = m_particles[index];
             if (!branch.active)
                 continue;
-            if (branch.type == EXPLOSION_PARTICLE_PIECE)
+            if (branch.type == EXPLOSION_PARTICLE_PIECE ||
+                branch.type == EXPLOSION_PARTICLE_TRACED_PIECE)
             {
-                const double height = branch.start.y +
-                    branch.velocity.y * elapsed - 4.9 * elapsed * elapsed;
+                const CFVector3 position = branch.start + CFVector3(
+                    branch.velocity.x * elapsed,
+                    branch.velocity.y * elapsed - 4.9 * elapsed * elapsed,
+                    branch.velocity.z * elapsed);
                 if (elapsed > branch.timeOfLife ||
-                    (m_landHeightReady && height < m_landY))
+                    (m_landHeightReady && position.y < m_landY))
+                {
                     deactivateParticle(branch);
+                    continue;
+                }
+                if (branch.type == EXPLOSION_PARTICLE_TRACED_PIECE &&
+                    branch.createPuffNow)
+                {
+                    SmokeStaticStartRequest request = {
+                        position, m_previousMoveTime, getObjectID(),
+                        m_attribute->m_smokeTableID,
+                        m_attribute->m_smokeAttrID,
+                        m_attribute->m_traceSmokeName, "Smok.Static"};
+                    KR_ObjectID child = KR_ObjectID::NUL();
+                    if (SmokeSubjectState_StartAtPosition(
+                            context, request, &child))
+                    {
+                        m_lastTracePuff = child;
+                        ++m_tracePuffsStarted;
+                        ++g_tracePuffsStarted;
+                    }
+                    branch.createPuffNow = false;
+                }
                 continue;
             }
             if (branch.type == EXPLOSION_PARTICLE_SMOKE)
@@ -978,6 +1133,9 @@ class BoundedExplosion : public ct_Subject
             else
                 deactivateParticle(branch);
         }
+        if (m_traceQuotaHeld &&
+            particleCount(EXPLOSION_PARTICLE_TRACED_PIECE) == 0)
+            releaseTraceQuota();
     }
 
     bool scheduleNextMove(double currentTime)
@@ -997,6 +1155,51 @@ class BoundedExplosion : public ct_Subject
         context->addEvent(move);
         m_nextMoveTime = next;
         return true;
+    }
+
+    bool scheduleNextPuff(double currentTime)
+    {
+        if (!m_traceQuotaHeld || m_attribute == NULL ||
+            particleCount(EXPLOSION_PARTICLE_TRACED_PIECE) == 0)
+            return false;
+        const double next =
+            currentTime + m_attribute->m_traceNewPuffTime;
+        const double deadline =
+            m_startTime + kExplosionMaximumTimeLife;
+        if (!std::isfinite(next) || next <= currentTime || next > deadline)
+            return false;
+        KR_Event puff;
+        puff.label = EXPLOSION_NEWPUFF;
+        puff.source = getObjectID();
+        puff.destination = getObjectID();
+        puff.timeStamp = next;
+        context->addEvent(puff);
+        m_nextPuffTime = next;
+        return true;
+    }
+
+    int newPuff(KR_Event &event)
+    {
+        if (!m_started || m_attribute == NULL || context == NULL ||
+            !m_traceQuotaHeld || event.source != getObjectID() ||
+            event.destination != getObjectID() || event.data.size() != 0 ||
+            !std::isfinite(event.timeStamp) ||
+            !NearlyEqual(event.timeStamp, m_nextPuffTime))
+            return 0;
+        int tracedPieces = 0;
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+        {
+            ExplosionParticleBranch &branch = m_particles[index];
+            if (!branch.active ||
+                branch.type != EXPLOSION_PARTICLE_TRACED_PIECE)
+                continue;
+            branch.createPuffNow = true;
+            ++tracedPieces;
+        }
+        m_nextPuffTime = 0.0;
+        if (tracedPieces == 0 || !scheduleNextPuff(event.timeStamp))
+            releaseTraceQuota();
+        return 1;
     }
 
     int start(KR_Event &event)
@@ -1115,6 +1318,7 @@ class BoundedExplosion : public ct_Subject
     double m_startTime;
     double m_nextMoveTime;
     double m_previousMoveTime;
+    double m_nextPuffTime;
     int m_damageApplications;
     ExplosionParticleBranch
         m_particles[kParticleBranchPerExplosion];
@@ -1124,6 +1328,9 @@ class BoundedExplosion : public ct_Subject
     bool m_lightActive;
     bool m_landHeightReady;
     bool m_particleDynamicPublished;
+    bool m_traceQuotaHeld;
+    int m_tracePuffsStarted;
+    KR_ObjectID m_lastTracePuff;
     double m_landY;
 };
 
@@ -1232,7 +1439,8 @@ void BoundedExplosion::drawParticles()
             GRDrawAlphaSprite(&sprite);
             continue;
         }
-        if (branch.type == EXPLOSION_PARTICLE_PIECE)
+        if (branch.type == EXPLOSION_PARTICLE_PIECE ||
+            branch.type == EXPLOSION_PARTICLE_TRACED_PIECE)
             continue;
         if (_pGRDrawParticle == NULL)
             continue;
@@ -1329,6 +1537,8 @@ class BoundedExplosionTable : public ct_SubjectTable
         g_queueRollbacks = 0;
         g_particleBranchesLive = 0;
         g_pieceDrawCalls = 0;
+        g_tracedExplosionParents = 0;
+        g_tracePuffsStarted = 0;
         ResetImpulseBinding();
     }
 
@@ -1344,6 +1554,8 @@ class BoundedExplosionTable : public ct_SubjectTable
         g_queueRollbacks = 0;
         g_particleBranchesLive = 0;
         g_pieceDrawCalls = 0;
+        g_tracedExplosionParents = 0;
+        g_tracePuffsStarted = 0;
         ResetImpulseBinding();
     }
 
@@ -1533,7 +1745,7 @@ bool ExplosionSubjectState_ParentSoundMatches(
 bool ExplosionSubjectState_ParentParticleCounts(
     SimulationContext *context, const KR_ObjectID &parent,
     int *simpleParticles, int *snakeParticles, int *rays,
-    int *smokeSprites, int *pieces)
+    int *smokeSprites, int *pieces, int *tracedPieces)
 {
     if (simpleParticles == NULL || snakeParticles == NULL || rays == NULL)
         return false;
@@ -1544,6 +1756,8 @@ bool ExplosionSubjectState_ParentParticleCounts(
         *smokeSprites = 0;
     if (pieces != NULL)
         *pieces = 0;
+    if (tracedPieces != NULL)
+        *tracedPieces = 0;
     BoundedExplosion *object = g_explosionTable.find(parent);
     if (context == NULL || g_arena.getContext() != context ||
         !context->isExist(parent) || object == NULL)
@@ -1557,12 +1771,43 @@ bool ExplosionSubjectState_ParentParticleCounts(
         object->particleCount(EXPLOSION_PARTICLE_SMOKE);
     const int piece =
         object->particleCount(EXPLOSION_PARTICLE_PIECE);
+    const int traced =
+        object->particleCount(EXPLOSION_PARTICLE_TRACED_PIECE);
     if (smokeSprites != NULL)
         *smokeSprites = smoke;
     if (pieces != NULL)
         *pieces = piece;
-    return *simpleParticles + *snakeParticles + *rays + smoke + piece ==
+    if (tracedPieces != NULL)
+        *tracedPieces = traced;
+    return *simpleParticles + *snakeParticles + *rays + smoke + piece +
+               traced ==
            object->particleCount();
+}
+
+bool ExplosionSubjectState_ParentTraceState(
+    SimulationContext *context, const KR_ObjectID &parent,
+    int *tracedPieces, bool *quotaHeld, double *nextPuffTime,
+    int *startedPuffs, KR_ObjectID *lastPuff)
+{
+    if (tracedPieces == NULL || quotaHeld == NULL ||
+        nextPuffTime == NULL || startedPuffs == NULL || lastPuff == NULL)
+        return false;
+    *tracedPieces = 0;
+    *quotaHeld = false;
+    *nextPuffTime = 0.0;
+    *startedPuffs = 0;
+    *lastPuff = KR_ObjectID::NUL();
+    BoundedExplosion *object = g_explosionTable.find(parent);
+    if (context == NULL || g_arena.getContext() != context ||
+        !context->isExist(parent) || object == NULL)
+        return false;
+    *tracedPieces =
+        object->particleCount(EXPLOSION_PARTICLE_TRACED_PIECE);
+    *quotaHeld = object->traceQuotaHeld();
+    *nextPuffTime = object->nextPuffTime();
+    *startedPuffs = object->tracePuffsStarted();
+    *lastPuff = object->lastTracePuff();
+    return true;
 }
 
 int ExplosionSubjectState_ParticleBranchLiveCount()
@@ -1578,6 +1823,16 @@ int ExplosionSubjectState_ParticleBranchCapacity()
 int ExplosionSubjectState_PieceDrawCount()
 {
     return g_pieceDrawCalls;
+}
+
+int ExplosionSubjectState_TracedParentCount()
+{
+    return g_tracedExplosionParents;
+}
+
+int ExplosionSubjectState_TracePuffCount()
+{
+    return g_tracePuffsStarted;
 }
 
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context)
@@ -1622,6 +1877,17 @@ const char *ExplosionSubjectState_PieceProbeAttributeName(
     return probe.name;
 }
 
+const char *ExplosionSubjectState_TraceProbeAttributeName(
+    SimulationContext *context)
+{
+    if (context == NULL || g_arena.getContext() != context ||
+        !ExplosionAttributeState_TraceReferencesResolved(context))
+        return NULL;
+    TraceProbeAttribute probe = {context, NULL, 0.0};
+    __attrExplosionTable.userFind(SelectTraceProbeAttribute, &probe);
+    return probe.name;
+}
+
 void ExplosionSubjectState_ReleaseLightFrame()
 {
     CViewObject::EnableLights(0);
@@ -1651,7 +1917,10 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     const int simplePiece = 1;
     const int pieceModelDynamicDraw = 1;
     const int pieceBallisticGroundGate = 1;
-    const int tracedPieceDeferred = 1;
+    const int tracedPiece = 1;
+    const int traceSmokeChild = 1;
+    const int boundedTraceParentQuota = kMaximumTracedExplosionParents;
+    const int coalescedPuffEventChain = 1;
     const int globalParticleCapacity = kParticleBranchCapacity;
     const int perExplosionParticleCapacity =
         kParticleBranchPerExplosion;
@@ -1681,8 +1950,12 @@ unsigned long long ExplosionSubjectState_Fingerprint(
               sizeof(pieceModelDynamicDraw));
     HashBytes(hash, &pieceBallisticGroundGate,
               sizeof(pieceBallisticGroundGate));
-    HashBytes(hash, &tracedPieceDeferred,
-              sizeof(tracedPieceDeferred));
+    HashBytes(hash, &tracedPiece, sizeof(tracedPiece));
+    HashBytes(hash, &traceSmokeChild, sizeof(traceSmokeChild));
+    HashBytes(hash, &boundedTraceParentQuota,
+              sizeof(boundedTraceParentQuota));
+    HashBytes(hash, &coalescedPuffEventChain,
+              sizeof(coalescedPuffEventChain));
     HashBytes(hash, &globalParticleCapacity,
               sizeof(globalParticleCapacity));
     HashBytes(hash, &perExplosionParticleCapacity,
@@ -2443,8 +2716,18 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
 
     const double savedFrameSec = Session::m_frameSec;
     const double savedMoveTimeInc = attribute->m_moveTimeInc;
+    const int savedMinimumTracedPieces =
+        attribute->m_minPieceSmokeCnt;
+    const int savedMaximumTracedPieces =
+        attribute->m_maxPieceSmokeCnt;
     Session::m_frameSec = 0.04;
     attribute->m_moveTimeInc = 0.25;
+    // This probe owns only the aggregate Explosion smoke branch.  Once the
+    // traced-Piece reference layer is active, isolate it from recurring
+    // NEWPUFF/common-Smoke children so its expiry and rollback assertions do
+    // not become dependent on the order in which admission probes run.
+    attribute->m_minPieceSmokeCnt = 0;
+    attribute->m_maxPieceSmokeCnt = 0;
     const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
     ExplosionImpactRequest request = {
         CFVector3(37.0, 23.0, -53.0), ts, KR_ObjectID::NUL(),
@@ -2473,6 +2756,8 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
     {
         Session::m_frameSec = savedFrameSec;
         attribute->m_moveTimeInc = savedMoveTimeInc;
+        attribute->m_minPieceSmokeCnt = savedMinimumTracedPieces;
+        attribute->m_maxPieceSmokeCnt = savedMaximumTracedPieces;
         return false;
     }
     summary->startedSprites = smoke;
@@ -2504,6 +2789,8 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
     {
         Session::m_frameSec = savedFrameSec;
         attribute->m_moveTimeInc = savedMoveTimeInc;
+        attribute->m_minPieceSmokeCnt = savedMinimumTracedPieces;
+        attribute->m_maxPieceSmokeCnt = savedMaximumTracedPieces;
         return false;
     }
     summary->dependencyGateSkips = 1;
@@ -2547,6 +2834,8 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
     RemoveIfPresent(context, parent);
     Session::m_frameSec = savedFrameSec;
     attribute->m_moveTimeInc = savedMoveTimeInc;
+    attribute->m_minPieceSmokeCnt = savedMinimumTracedPieces;
+    attribute->m_maxPieceSmokeCnt = savedMaximumTracedPieces;
     if (!expired)
         return false;
     summary->moveSteps = moveSteps;
@@ -2705,4 +2994,296 @@ bool ExplosionSubjectState_ProbePieceLifecycle(
            !context->isExist("Explosion.Piece.DependencyGate.Probe") &&
            !context->isExist("Explosion.Piece.Expiry.Probe") &&
            ExplosionAttributeState_PieceReferencesResolved(context);
+}
+
+bool ExplosionSubjectState_ProbeTraceLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionTraceProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_explosionTable.liveCount() != 0 ||
+        g_particleBranchesLive != 0 || g_tracedExplosionParents != 0 ||
+        SmokeSubjectState_LiveCount() != 0 ||
+        !ExplosionAttributeState_TraceReferencesResolved(context))
+        return false;
+
+    const KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("ExplosionAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Explosion");
+    const int attributeIndex = attributeTable == ct_NULLID
+        ? -1
+        : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (IsNul(attributeID) || !ImpactAttributeReady(attribute) ||
+        subjectTable == ct_NULLID || attributeIndex == -1 ||
+        attribute->m_cacheSkin == NULL ||
+        attribute->m_smokeTableID == ct_NULLID ||
+        attribute->m_smokeAttrID.isNUL() ||
+        attribute->m_minPieceSmokeCnt <= 0 ||
+        attribute->m_minPieceTimeLife <= 0.0)
+        return false;
+
+    const double savedFrameSec = Session::m_frameSec;
+    const double savedMoveTimeInc = attribute->m_moveTimeInc;
+    Session::m_frameSec = 0.04;
+    attribute->m_moveTimeInc = 0.05;
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    KR_ObjectID cleanupParents[7] = {};
+    int cleanupParentCount = 0;
+    bool succeeded = false;
+
+    do
+    {
+        ExplosionImpactRequest request = {
+            // Keep the admission trajectory far above any retail terrain so
+            // the first NEWPUFF/MOVE pair proves Smoke creation instead of
+            // nondeterministically losing every piece to a ground crossing.
+            CFVector3(43.0, 10000.0, -59.0), ts,
+            KR_ObjectID::NUL(), subjectTable, attributeIndex,
+            "Explosion.Trace.Rollback.Probe"};
+        int damageApplications = -1;
+        if (!ExplosionSubjectState_ExecuteNow(
+                context, request, &damageApplications) ||
+            damageApplications != 0)
+            break;
+        KR_ObjectID parent =
+            context->searchObject("Explosion.Trace.Rollback.Probe");
+        cleanupParents[cleanupParentCount++] = parent;
+        BoundedExplosion *object = g_explosionTable.find(parent);
+        int tracedPieces = 0;
+        bool quotaHeld = false;
+        double nextPuffTime = 0.0;
+        int startedPuffs = 0;
+        KR_ObjectID lastPuff = KR_ObjectID::NUL();
+        if (IsNul(parent) || object == NULL ||
+            !ExplosionSubjectState_ParentTraceState(
+                context, parent, &tracedPieces, &quotaHeld,
+                &nextPuffTime, &startedPuffs, &lastPuff) ||
+            tracedPieces < attribute->m_minPieceSmokeCnt ||
+            tracedPieces > attribute->m_maxPieceSmokeCnt ||
+            !quotaHeld || nextPuffTime <= ts || startedPuffs != 0 ||
+            !IsNul(lastPuff) || g_tracedExplosionParents != 1)
+            break;
+        summary->startedPieces = tracedPieces;
+
+        int moveSteps = 0;
+        while (context->isExist(parent) &&
+               object->nextMoveTime() <= nextPuffTime &&
+               moveSteps < 4096)
+        {
+            const double moveTime = object->nextMoveTime();
+            if (moveTime <= 0.0 ||
+                context->removeEvent(EXPLOSION_MOVE, parent) == 0)
+                break;
+            KR_Event move;
+            move.label = EXPLOSION_MOVE;
+            move.source = parent;
+            move.destination = parent;
+            move.timeStamp = moveTime;
+            if (object->receiveEvent(move) != 1)
+                break;
+            ++moveSteps;
+            object = g_explosionTable.find(parent);
+            if (object == NULL)
+                break;
+        }
+        if (!context->isExist(parent) || object == NULL ||
+            moveSteps >= 4096 ||
+            context->removeEvent(EXPLOSION_NEWPUFF, parent) == 0)
+            break;
+        KR_Event puff;
+        puff.label = EXPLOSION_NEWPUFF;
+        puff.source = parent;
+        puff.destination = parent;
+        puff.timeStamp = nextPuffTime;
+        if (object->receiveEvent(puff) != 1)
+            break;
+        ++summary->puffEvents;
+
+        const double moveTime = object->nextMoveTime();
+        // Context inserts a newly queued event before an older event with the
+        // same timestamp.  The recurring MOVE at the first puff timestamp is
+        // therefore still pending after NEWPUFF has armed the traced pieces;
+        // executing that equal-time MOVE is what emits their first Smoke.
+        if ((moveTime < nextPuffTime &&
+             !NearlyEqual(moveTime, nextPuffTime)) ||
+            context->removeEvent(EXPLOSION_MOVE, parent) == 0)
+            break;
+        KR_Event move;
+        move.label = EXPLOSION_MOVE;
+        move.source = parent;
+        move.destination = parent;
+        move.timeStamp = moveTime;
+        if (object->receiveEvent(move) != 1)
+            break;
+        ++moveSteps;
+        const bool traceStateReady =
+            ExplosionSubjectState_ParentTraceState(
+                context, parent, &tracedPieces, &quotaHeld,
+                &nextPuffTime, &startedPuffs, &lastPuff);
+        summary->smokeChildren = startedPuffs;
+        summary->moveSteps = moveSteps;
+        if (!traceStateReady ||
+            startedPuffs <= 0 || IsNul(lastPuff) ||
+            !context->isExist(lastPuff) ||
+            SmokeSubjectState_LiveCount() != startedPuffs)
+            break;
+
+        context->removeObject(parent);
+        cleanupParents[0] = KR_ObjectID::NUL();
+        if (context->isExist(parent) ||
+            context->removeEvent(EXPLOSION_MOVE, parent) != 0 ||
+            context->removeEvent(EXPLOSION_NEWPUFF, parent) != 0 ||
+            g_explosionTable.liveCount() != 0 ||
+            g_particleBranchesLive != 0 ||
+            g_tracedExplosionParents != 0 ||
+            SmokeSubjectState_LiveCount() != startedPuffs)
+            break;
+        summary->rolledBackPieces = summary->startedPieces;
+        int rolledBackPuffs = 0;
+        while (SmokeSubjectState_LiveCount() > 0 &&
+               rolledBackPuffs < startedPuffs)
+        {
+            const KR_ObjectID puff =
+                context->searchObject("Smok.Static");
+            if (IsNul(puff) ||
+                !SmokeSubjectState_RollbackStarted(context, puff))
+                break;
+            ++rolledBackPuffs;
+        }
+        if (rolledBackPuffs != startedPuffs ||
+            SmokeSubjectState_LiveCount() != 0)
+            break;
+        bool quotaReady = true;
+        for (int index = 0; index < 5; ++index)
+        {
+            char name[64] = {};
+            std::snprintf(name, sizeof(name),
+                          "Explosion.Trace.Quota.%d", index);
+            request.timeStamp = ts + 2.0 + index * 0.1;
+            request.objectName = name;
+            damageApplications = -1;
+            if (!ExplosionSubjectState_ExecuteNow(
+                    context, request, &damageApplications) ||
+                damageApplications != 0)
+            {
+                quotaReady = false;
+                break;
+            }
+            const KR_ObjectID quotaParent = context->searchObject(name);
+            cleanupParents[cleanupParentCount++] = quotaParent;
+            int quotaPieces = 0;
+            bool held = false;
+            double quotaPuffTime = 0.0;
+            int quotaPuffs = 0;
+            KR_ObjectID quotaLast = KR_ObjectID::NUL();
+            if (IsNul(quotaParent) ||
+                !ExplosionSubjectState_ParentTraceState(
+                    context, quotaParent, &quotaPieces, &held,
+                    &quotaPuffTime, &quotaPuffs, &quotaLast) ||
+                (index < kMaximumTracedExplosionParents &&
+                 (quotaPieces <= 0 || !held)) ||
+                (index == kMaximumTracedExplosionParents &&
+                 (quotaPieces != 0 || held)))
+            {
+                quotaReady = false;
+                break;
+            }
+        }
+        if (!quotaReady ||
+            g_tracedExplosionParents != kMaximumTracedExplosionParents)
+            break;
+        summary->quotaGateSkips = 1;
+        for (int index = 1; index < cleanupParentCount; ++index)
+        {
+            if (!IsNul(cleanupParents[index]) &&
+                context->isExist(cleanupParents[index]))
+                context->removeObject(cleanupParents[index]);
+            cleanupParents[index] = KR_ObjectID::NUL();
+        }
+        cleanupParentCount = 0;
+        if (g_explosionTable.liveCount() != 0 ||
+            g_particleBranchesLive != 0 ||
+            g_tracedExplosionParents != 0 ||
+            SmokeSubjectState_LiveCount() != 0)
+            break;
+
+        request.timeStamp = ts + 4.0;
+        request.objectName = "Explosion.Trace.Expiry.Probe";
+        damageApplications = -1;
+        if (!ExplosionSubjectState_ExecuteNow(
+                context, request, &damageApplications) ||
+            damageApplications != 0)
+            break;
+        parent = context->searchObject("Explosion.Trace.Expiry.Probe");
+        cleanupParents[cleanupParentCount++] = parent;
+        object = g_explosionTable.find(parent);
+        if (IsNul(parent) || object == NULL ||
+            object->particleCount(
+                EXPLOSION_PARTICLE_TRACED_PIECE) <= 0 ||
+            context->removeEvent(EXPLOSION_NEWPUFF, parent) == 0)
+            break;
+        int expiryMoves = 0;
+        while (context->isExist(parent) && expiryMoves < 4096)
+        {
+            object = g_explosionTable.find(parent);
+            if (object == NULL || object->nextMoveTime() <= 0.0 ||
+                context->removeEvent(EXPLOSION_MOVE, parent) == 0)
+                break;
+            KR_Event expiryMove;
+            expiryMove.label = EXPLOSION_MOVE;
+            expiryMove.source = parent;
+            expiryMove.destination = parent;
+            expiryMove.timeStamp = object->nextMoveTime();
+            if (object->receiveEvent(expiryMove) != 1)
+                break;
+            ++expiryMoves;
+        }
+        if (context->isExist(parent) || expiryMoves <= 0 ||
+            expiryMoves >= 4096 || g_explosionTable.liveCount() != 0 ||
+            g_particleBranchesLive != 0 ||
+            g_tracedExplosionParents != 0 ||
+            SmokeSubjectState_LiveCount() != 0 ||
+            context->removeEvent(EXPLOSION_MOVE, parent) != 0 ||
+            context->removeEvent(EXPLOSION_NEWPUFF, parent) != 0)
+            break;
+        cleanupParents[0] = KR_ObjectID::NUL();
+        cleanupParentCount = 0;
+        summary->moveSteps += expiryMoves;
+        summary->expiredParents = 1;
+        succeeded = true;
+    }
+    while (false);
+
+    for (int index = 0; index < cleanupParentCount; ++index)
+        if (!IsNul(cleanupParents[index]) &&
+            context->isExist(cleanupParents[index]))
+            context->removeObject(cleanupParents[index]);
+    int cleanupPuffs = 0;
+    while (SmokeSubjectState_LiveCount() > 0 && cleanupPuffs < 128)
+    {
+        const KR_ObjectID puff = context->searchObject("Smok.Static");
+        if (IsNul(puff) ||
+            !SmokeSubjectState_RollbackStarted(context, puff))
+            break;
+        ++cleanupPuffs;
+    }
+    Session::m_frameSec = savedFrameSec;
+    attribute->m_moveTimeInc = savedMoveTimeInc;
+    return succeeded && summary->startedPieces > 0 &&
+           summary->quotaGateSkips == 1 && summary->puffEvents == 1 &&
+           summary->smokeChildren > 0 && summary->moveSteps > 0 &&
+           summary->expiredParents == 1 &&
+           summary->rolledBackPieces == summary->startedPieces &&
+           g_explosionTable.liveCount() == 0 &&
+           g_particleBranchesLive == 0 &&
+           g_tracedExplosionParents == 0 &&
+           SmokeSubjectState_LiveCount() == 0 &&
+           ExplosionAttributeState_TraceReferencesResolved(context);
 }

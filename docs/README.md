@@ -17,6 +17,9 @@
 - [CompatibilityLedger.md](CompatibilityLedger.md) — живой реестр странностей
   legacy-кода, retail-данных и сериализаторов с доказательствами, текущей
   обработкой и условиями пересмотра.
+- [PlayerVehicleReadiness.md](PlayerVehicleReadiness.md) — current evidence,
+  ownership gaps and the shortest gated path from the recovery observer to a
+  real drivable `Vehicle.Default`.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где
   исторические источники или возможные реализации расходятся.
 

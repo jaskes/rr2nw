@@ -776,7 +776,8 @@ Retail scripts нельзя молча копировать поверх source 
 - Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. Ordinary tag `2`,
   its creation order, random-field order, FPS gates, rotations, ballistic
   movement, terrain/lifetime expiry and dynamic rendering are active. Tag `3`
-  Piece-with-smoke and its trace/NEWPUFF graph remain deferred.
+  Piece-with-smoke and its trace/NEWPUFF graph are covered separately by
+  RP-SCRIPT-025.
 - ExplosionAttr Piece references publish atomically against the decoded Skin
   model owner. `Expl.Piece` maps to `piece.vbc` in every May Level;
   Level.02D/02N additionally use `Expl.Piece.Meat` from `meat4.vbc`. The public
@@ -806,6 +807,45 @@ Retail scripts нельзя молча копировать поверх source 
   with 18/18 installed/mounted and 18/18 configuration summaries identical,
   plus 4/4 waited executable smokes with Piece readiness, exact reference
   identity, model marker, `level-ready` and clean shutdown.
+
+### RP-SCRIPT-025: Explosion tag 3 emits independent common Smoke children
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `INTENTIONAL_SAFETY_DIVERGENCE`. Tag `3` uses the real Piece model, doubled
+  speed range, ballistic/terrain lifetime, exact FPS gates, the four-parent
+  quota and recurring NEWPUFF behavior. One event chain per parent replaces
+  January's redundant one-chain-per-Piece scheduling; every event still arms
+  every live traced Piece.
+- `m_traceSmokeName` resolves atomically through the real common Smoke table
+  after Piece references. The source-only fixture remains unresolved. May
+  reference fingerprints are:
+
+| Level | Trace reference fingerprint | Probe `piece/quota/puff/smoke/move/expire/rollback` |
+| --- | ---: | ---: |
+| Level.01D | `15479875903557427417` | `5/1/1/5/301/1/5` |
+| Level.01N | `14176899255950351083` | `5/1/1/5/301/1/5` |
+| Level.02D | `8549830335675231037` | `3/1/1/3/301/1/3` |
+| Level.02N | `7224868523921463240` | `3/1/1/3/301/1/3` |
+| Level.03N | `2178156965531948188` | `5/1/1/5/301/1/5` |
+| Level.04D | `18052888668054315656` | `4/1/1/4/301/1/4` |
+| Level.05D | `1363236821580030428` | `5/1/1/5/301/1/5` |
+| Level.06N | `410141187708350623` | `5/1/1/5/301/1/5` |
+| Level.07N | `4161868981050679744` | `5/1/1/5/301/1/5` |
+
+- On the MOVE after NEWPUFF, each surviving Piece creates one real
+  `Smoke.Attr.Trace` subject. Parent removal cancels Explosion MOVE/NEWPUFF,
+  releases the trace quota and model branches, but emitted Smoke remains alive
+  under its own event chain.
+- Admission proves the four-parent/fifth-parent gate, natural expiry and exact
+  pool cleanup. A retail three-frame proof observes common Smoke draws with the
+  parent present, the same draws after parent detach, and no new draws after
+  child rollback.
+- Explosion trace is not Bullet trace. The still-deferred first-step
+  `m_viewTrace[-1]` hazard belongs to `Bullet::traceStep()` and has its own
+  diagnostic marker.
+- Verification passes 51/51 CTest in both configurations, 36/36 retail service
+  launches with exact E/G and Debug/Release summaries for all nine Levels, and
+  4/4 waited executable smokes with trace readiness and clean shutdown.
 
 ## Behavioral parity matrix
 
