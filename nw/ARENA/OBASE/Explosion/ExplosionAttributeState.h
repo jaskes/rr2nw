@@ -151,5 +151,17 @@ bool ExplosionAttributeState_ResolveEncodedIndex(
     AttributeExplosion **attribute);
 const char *ExplosionAttributeState_FirstAttributeName(
     SimulationContext *context);
+bool ExplosionAttributeState_SoundCachesUnresolved(
+    SimulationContext *context);
+bool ExplosionAttributeState_ProbeSoundReferenceAtomicity(
+    SimulationContext *context);
+bool ExplosionAttributeState_ResolveSoundReferences(
+    SimulationContext *context);
+bool ExplosionAttributeState_SoundReferencesResolved(
+    SimulationContext *context);
+unsigned long long ExplosionAttributeState_SoundReferenceFingerprint(
+    SimulationContext *context);
+bool ExplosionAttributeState_IsKnownSoundReferenceRoster(
+    SimulationContext *context);
 
 #endif

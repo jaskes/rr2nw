@@ -1816,6 +1816,7 @@ add_library(rr2nw_arena_explosion_attribute_state STATIC
 target_link_libraries(rr2nw_arena_explosion_attribute_state PUBLIC
   rr2nw_arena_light_chain
   rr2nw_arena_level_state
+  rr2nw_arena_sound_object_state
   rr2nw_arena_storage
 )
 target_include_directories(rr2nw_arena_explosion_attribute_state PUBLIC

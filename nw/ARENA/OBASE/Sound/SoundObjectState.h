@@ -1,8 +1,10 @@
 #ifndef RR2NW_SOUND_OBJECT_STATE_H
 #define RR2NW_SOUND_OBJECT_STATE_H
 
+#include "mathlib.h"
+#include "storage/h/classtab.h"
+
 class SimulationContext;
-class KR_ObjectID;
 class WAVObj;
 
 void SoundObjectState_Link();
@@ -19,6 +21,13 @@ bool SoundObjectState_Matches(const KR_ObjectID &objectID,
                               bool positionValid,
                               bool playing,
                               int playCount);
+bool SoundObjectState_StartOneShot(
+    SimulationContext *context, const KR_ObjectID &source,
+    ct_ClassTableID soundTable, WAVObj *wav,
+    const CFVector3 &position, double timeStamp,
+    KR_ObjectID *child);
+bool SoundObjectState_RollbackOwned(
+    SimulationContext *context, KR_ObjectID *child);
 bool SoundObjectState_ProbeLifecycle(SimulationContext *context,
                                      const char *wavName,
                                      double timeStamp);

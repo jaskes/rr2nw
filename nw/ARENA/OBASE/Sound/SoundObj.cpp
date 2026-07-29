@@ -415,6 +415,92 @@ bool SoundObjectState_Matches(const KR_ObjectID &objectID,
     return position.x == x && position.y == y && position.z == z;
  }
 
+bool SoundObjectState_RollbackOwned(
+    SimulationContext *context, KR_ObjectID *child)
+ {
+    if (context == 0 || child == 0 || child->isNUL() ||
+        !context->isExist(*child) || __classTable.find(*child) == 0)
+        return false;
+    const int before = __classTable.liveCount();
+    const KR_ObjectID owned = *child;
+    context->removeObject(owned);
+    if (context->isExist(owned) || __classTable.find(owned) != 0 ||
+        __classTable.liveCount() != before - 1)
+        return false;
+    *child = KR_ObjectID::NUL();
+    return true;
+ }
+
+bool SoundObjectState_StartOneShot(
+    SimulationContext *context, const KR_ObjectID &source,
+    ct_ClassTableID soundTable, WAVObj *wav,
+    const CFVector3 &position, double timeStamp,
+    KR_ObjectID *child)
+ {
+    if (child == 0)
+        return false;
+    *child = KR_ObjectID::NUL();
+    const ct_ClassTableID expectedTable =
+        g_arena.searchSeanceClassTable("SoundObj");
+    KR_ObjectID mutableSource(source);
+    if (context == 0 || g_arena.getContext() != context ||
+        mutableSource.isNUL() || !context->isExist(source) ||
+        soundTable == ct_NULLID || soundTable != expectedTable ||
+        !WAVResourceState_IsLoadedPointer(wav) ||
+        !std::isfinite(position.x) || !std::isfinite(position.y) ||
+        !std::isfinite(position.z) || !std::isfinite(timeStamp) ||
+        timeStamp < 0.1 || __classTable.capacity() <= 0 ||
+        __classTable.liveCount() >= __classTable.capacity())
+        return false;
+
+    const int baseline = __classTable.liveCount();
+    ct_ClassTableID resolvedTable = soundTable;
+    updateSound(source, context, resolvedTable, wav, *child);
+    if (child->isNUL() || __classTable.liveCount() != baseline + 1 ||
+        !SoundObjectState_Matches(
+            *child, wav, 0.0, 0.0, 0.0, false, false, 0))
+    {
+        if (!child->isNUL() && context->isExist(*child))
+            SoundObjectState_RollbackOwned(context, child);
+        return false;
+    }
+
+    KR_Event event;
+    event.label = snd_EV_MOVE_TO;
+    event.source = source;
+    event.destination = *child;
+    event.timeStamp = timeStamp;
+    event.data.open(EDO_WRITE)
+        .putDouble(position.x)
+        .putDouble(position.y)
+        .putDouble(position.z)
+        .close();
+    context->sendEventNow(event);
+    if (!SoundObjectState_Matches(
+            *child, wav, position.x, position.y, position.z,
+            true, false, 0))
+    {
+        SoundObjectState_RollbackOwned(context, child);
+        return false;
+    }
+
+    event = KR_Event();
+    event.label = snd_EV_START;
+    event.source = source;
+    event.destination = *child;
+    event.timeStamp = timeStamp;
+    event.data.open(EDO_WRITE).putInt(1).close();
+    context->sendEventNow(event);
+    if (!SoundObjectState_Matches(
+            *child, wav, position.x, position.y, position.z,
+            true, true, 1))
+    {
+        SoundObjectState_RollbackOwned(context, child);
+        return false;
+    }
+    return true;
+ }
+
 unsigned long long SoundObjectState_Fingerprint(SimulationContext *context)
  {
     if (!SoundObjectState_TableReady(context, __classTable.capacity()))

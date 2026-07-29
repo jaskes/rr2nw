@@ -694,6 +694,26 @@ Retail scripts нельзя молча копировать поверх source 
   launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
   smokes with `level-ready` and clean shutdown.
 
+### RP-SCRIPT-021: Explosion emits the January/May one-shot sound command
+
+- Classification: `RETAIL_REQUIRED`, `DEVICE_FREE_COMMAND_ONLY`. A valid
+  ExplosionAttr with a sound name resolves its loaded WAV and the exact
+  SoundObj table atomically; empty sound names stay disabled.
+- Explosion START creates the retail-named `"snd.snd"` child, sends the exact
+  position and `START(1)`, and owns that child until Explosion removal. Same-name
+  children are legal and rollback always uses ObjectID.
+- Admission proves one successful child, one dependency-gate skip and one exact
+  parent rollback. A real sound-and-light Explosion crosses a software frame
+  with verified WAV/position/play state and expiry returns SoundObj to the
+  pre-existing Farter baseline.
+- The May-only global gate at `0x007870BC` remains intentionally unnamed.
+  Current readiness validates the logical command boundary; audible playback,
+  WAV duration and sound-only parent lifetime remain deferred with the audio or
+  particle owner.
+- Separate reference fingerprints cover all nine May Levels and the public
+  source fixture. Startup diagnostics publish readiness, fingerprint,
+  `1/1/1`, `START(1)` and `backend=device-free`.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

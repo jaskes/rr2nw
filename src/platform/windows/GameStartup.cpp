@@ -585,9 +585,24 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(
                RecoveredGameServices_ExplosionLightReady() ? 1 : 0));
   log.Line("explosion_subject_light_lifecycle=useLight-brightness-frame-expiry");
+  log.Line("explosion_subject_sound=" +
+           std::to_string(
+               RecoveredGameServices_ExplosionSoundReady() ? 1 : 0));
+  log.Line("explosion_subject_sound_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_ExplosionSoundReferenceFingerprint()));
+  log.Line("explosion_subject_sound_probe_started=" + std::to_string(
+               RecoveredArenaSeance_ExplosionSoundProbeStarted()));
+  log.Line("explosion_subject_sound_probe_dependency_skips=" +
+           std::to_string(
+               RecoveredArenaSeance_ExplosionSoundProbeDependencySkips()));
+  log.Line("explosion_subject_sound_probe_rollbacks=" + std::to_string(
+               RecoveredArenaSeance_ExplosionSoundProbeRollbacks()));
+  log.Line(
+      "explosion_subject_sound_lifecycle=SET_WAV-MOVE_TO-START(1)-parent-rollback");
+  log.Line("explosion_subject_sound_backend=device-free");
   log.Line("vehicle_vessel_mass=" + std::to_string(
                RecoveredGameServices_VehicleVesselMass()));
-  log.Line("explosion_subject_particles_sound=deferred");
+  log.Line("explosion_subject_particles=deferred");
   log.Line("explosion_subject_fingerprint=" + std::to_string(
                RecoveredArenaSeance_ExplosionSubjectFingerprint()));
   log.Line("explosion_probe_invalid_starts=" + std::to_string(
@@ -930,7 +945,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
       "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
-      "attribute-bullet-collision-impact-explosion-damage-vehicle-bootstrap");
+      "attribute-bullet-collision-impact-explosion-damage-sound-vehicle-bootstrap");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line("observer_controls=W,S,A,D,Space,LCtrl,arrows,Escape");
   log.Line("service_hooks=12");

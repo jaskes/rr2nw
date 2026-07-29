@@ -1604,6 +1604,42 @@ Status vocabulary:
   object support and the distinction between start attribution and lifecycle
   ownership.
 
+### CQ-105: Explosion sound caches are optional script data but atomic runtime references
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `ATOMIC_REFERENCE_BOUNDARY`.
+- Evidence: January stores `m_soundName`, `m_wav` and `m_ctsndID` in
+  ExplosionAttr; `update()` resolves both runtime fields together. May retail
+  uses `wav.Explosion`, `wav.Water`, `wav.Death` and `wav.Death3`, while some
+  attributes deliberately have an empty sound name.
+- Handling: keep script hashing independent of runtime pointers. A separate
+  pass preflights every non-empty name and the SoundObj table, then commits all
+  pairs. Empty names must remain null/null, and a half-resolved pair invalidates
+  the roster. Reference identity hashes symbolic names rather than pointers or
+  numeric table IDs.
+- Regression contract: admit eight unique retail reference fingerprints across
+  all nine May Levels plus the synthetic fixture; fail closed without partial
+  writes when any WAV/table dependency is absent.
+- Revisit when: mods can replace Explosion WAV identities. Extend the bounded
+  manifest rather than weakening atomicity or hashing process addresses.
+
+### CQ-106: May gates Explosion sound through an unidentified global
+
+- Status: `BINARY_CONFIRMED`, `IDENTITY_UNRESOLVED`, `SAFE_BOUNDARY`.
+- Evidence: May checks global `0x007870BC` at `0x0050BDBC`--`0x0050BDC3`
+  between SoundObj creation and MOVE_TO/START. The same global is changed by
+  other sound-like code, but available symbols do not prove whether it is an
+  audio-ready, runtime-active or other gate. January has no equivalent test.
+- Handling: do not invent a field name or emulate the raw address. The modern
+  device-free path requires a live context, source, loaded WAV, exact SoundObj
+  table, finite timestamp/position and available capacity, then verifies every
+  synchronous state transition. This is a conservative logical-command gate,
+  not a claim that hardware playback is active.
+- Regression contract: counters `1/1/1` prove start, missing-reference skip and
+  parent-owned rollback; a real retained Explosion crosses one frame with
+  START count one and returns SoundObj to its prior Farter-owned baseline.
+- Revisit when: the RSX/audio replacement identifies the global semantically.
+  Add audible output and duration ownership only with direct evidence.
+
 ## Maintenance rule
 
 When a new quirk is found:

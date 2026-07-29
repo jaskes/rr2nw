@@ -5,6 +5,7 @@
 #include "storage/h/classtab.h"
 
 class SimulationContext;
+class WAVObj;
 
 typedef bool (*ExplosionImpulseDispatch)(void *user,
                                          const CFVector3 &impulse,
@@ -39,6 +40,13 @@ struct ExplosionImpactProbeSummary
     double impulseFactor;
 };
 
+struct ExplosionSoundProbeSummary
+{
+    int startedSounds;
+    int dependencyGateSkips;
+    int rolledBackSounds;
+};
+
 void ExplosionSubjectState_Link();
 bool ExplosionSubjectState_TableReady(SimulationContext *context,
                                       int expectedCapacity);
@@ -51,8 +59,14 @@ void ExplosionSubjectState_UnbindImpulseTarget(
     SimulationContext *context);
 bool ExplosionSubjectState_ImpulseTargetReady(
     SimulationContext *context, const KR_ObjectID &target);
+bool ExplosionSubjectState_ParentSoundMatches(
+    SimulationContext *context, const KR_ObjectID &parent,
+    const WAVObj *wav, const CFVector3 &position,
+    bool playing, int playCount);
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context);
 const char *ExplosionSubjectState_LightProbeAttributeName(
+    SimulationContext *context);
+const char *ExplosionSubjectState_SoundProbeAttributeName(
     SimulationContext *context);
 void ExplosionSubjectState_ReleaseLightFrame();
 unsigned long long ExplosionSubjectState_Fingerprint(
@@ -76,5 +90,8 @@ bool ExplosionSubjectState_ProbeDamageLifecycle(
 bool ExplosionSubjectState_ProbeLightLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp);
+bool ExplosionSubjectState_ProbeSoundLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionSoundProbeSummary *summary);
 
 #endif

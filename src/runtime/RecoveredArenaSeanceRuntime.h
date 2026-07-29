@@ -98,7 +98,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_SPARK_VISUAL_RESOURCE_FAILURE = 1ull << 21,
   RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_LIFECYCLE_FAILURE = 1ull << 22,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_GROUND_SPARK_FAILURE = 1ull << 23,
-  RECOVERED_ARENA_SEANCE_EXT_BULLET_BARREL_SMOKE_FAILURE = 1ull << 24
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_BARREL_SMOKE_FAILURE = 1ull << 24,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE = 1ull << 25
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -120,6 +121,11 @@ bool RecoveredArenaSeance_ExplosionAttributesReady();
 bool RecoveredArenaSeance_ExplosionSubjectReady();
 bool RecoveredArenaSeance_ExplosionImpulseReady();
 bool RecoveredArenaSeance_ExplosionLightReady();
+bool RecoveredArenaSeance_ExplosionSoundReady();
+unsigned long long RecoveredArenaSeance_ExplosionSoundReferenceFingerprint();
+int RecoveredArenaSeance_ExplosionSoundProbeStarted();
+int RecoveredArenaSeance_ExplosionSoundProbeDependencySkips();
+int RecoveredArenaSeance_ExplosionSoundProbeRollbacks();
 int RecoveredArenaSeance_ExplosionSubjectCapacity();
 unsigned long long RecoveredArenaSeance_ExplosionSubjectFingerprint();
 int RecoveredArenaSeance_ExplosionProbeInvalidStarts();

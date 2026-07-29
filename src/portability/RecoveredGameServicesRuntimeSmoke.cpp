@@ -286,6 +286,11 @@ bool IsServiceReleased() {
          !RecoveredGameServices_ExplosionSubjectReady() &&
          !RecoveredGameServices_ExplosionImpulseReady() &&
          !RecoveredGameServices_ExplosionLightReady() &&
+         !RecoveredGameServices_ExplosionSoundReady() &&
+         RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionSoundProbeStarted() == -1 &&
+         RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() == -1 &&
+         RecoveredArenaSeance_ExplosionSoundProbeRollbacks() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -855,6 +860,7 @@ bool ExerciseVisibleSmokerLightCorona() {
 bool ExerciseVisibleExplosionLight() {
   if (g_super.m_context == nullptr ||
       !RecoveredGameServices_ExplosionLightReady() ||
+      !RecoveredGameServices_ExplosionSoundReady() ||
       !ExplosionSubjectState_LightRosterReady(g_super.m_context) ||
       ExplosionSubjectState_LiveCount() != 0 ||
       g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
@@ -863,7 +869,7 @@ bool ExerciseVisibleExplosionLight() {
   }
   SimulationContext* context = g_super.m_context;
   const char* attributeName =
-      ExplosionSubjectState_LightProbeAttributeName(context);
+      ExplosionSubjectState_SoundProbeAttributeName(context);
   KR_ObjectID attributeID = attributeName == nullptr
       ? KR_ObjectID::NUL()
       : context->searchObject(attributeName);
@@ -883,6 +889,7 @@ bool ExerciseVisibleExplosionLight() {
       RecoveredGameServices_ObserverState();
   static const char kProbeName[] = "Explosion.Light.Rendering.Probe";
   if (attribute == nullptr || !attribute->m_useLight ||
+      attribute->m_wav == nullptr || attribute->m_ctsndID == ct_NULLID ||
       attribute->m_lightTimeLife <= 0.0 ||
       attribute->m_lightRadius <= 0.0 || attributeIndex == -1 ||
       subjectTable == ct_NULLID || observer == nullptr ||
@@ -899,11 +906,15 @@ bool ExerciseVisibleExplosionLight() {
       position, timeStamp, KR_ObjectID::NUL(), subjectTable,
       attributeIndex, kProbeName};
   int damageApplications = -1;
+  const int soundsBefore = SoundObjectState_LiveCount();
   const bool executed = ExplosionSubjectState_ExecuteNow(
       context, request, &damageApplications);
   KR_ObjectID explosion = context->searchObject(kProbeName);
   if (!executed || damageApplications != 0 || explosion.isNUL() ||
-      ExplosionSubjectState_LiveCount() != 1) {
+      ExplosionSubjectState_LiveCount() != 1 ||
+      SoundObjectState_LiveCount() != soundsBefore + 1 ||
+      !ExplosionSubjectState_ParentSoundMatches(
+          context, explosion, attribute->m_wav, position, true, 1)) {
     if (!explosion.isNUL() && context->isExist(explosion)) {
       context->removeObject(explosion);
     }
@@ -940,7 +951,8 @@ bool ExerciseVisibleExplosionLight() {
     context->sendEventNow(expiry);
   }
   const bool expired = !context->isExist(explosion) &&
-      ExplosionSubjectState_LiveCount() == 0;
+      ExplosionSubjectState_LiveCount() == 0 &&
+      SoundObjectState_LiveCount() == soundsBefore;
   const bool detachedFrame =
       RecoveredGameServices_RunFrame() != FALSE;
   if (context->isExist(explosion)) context->removeObject(explosion);
@@ -948,6 +960,7 @@ bool ExerciseVisibleExplosionLight() {
          dwFrames == framesBefore + 2 &&
          CViewObject::EnabledLights() == 0 &&
          g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+         SoundObjectState_LiveCount() == soundsBefore &&
          !context->isExist(kProbeName) &&
          context->removeEvent(EXPLOSION_MOVE, explosion) == 0;
 }
@@ -1259,6 +1272,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ExplosionSubjectReady() ||
       !RecoveredGameServices_ExplosionImpulseReady() ||
       !RecoveredGameServices_ExplosionLightReady() ||
+      !RecoveredGameServices_ExplosionSoundReady() ||
        !RecoveredGameServices_VehicleAttributesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
@@ -1355,6 +1369,9 @@ int main(int argc, char** argv) {
       ExplosionSubjectState_Capacity();
   const unsigned long long explosionSubjectFingerprint =
       ExplosionSubjectState_Fingerprint(g_super.m_context);
+  const unsigned long long explosionSoundReferenceFingerprint =
+      ExplosionAttributeState_SoundReferenceFingerprint(
+          g_super.m_context);
   const unsigned long long taxiFingerprint =
       TaxiAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long taxiReferenceFingerprint =
@@ -1480,6 +1497,16 @@ int main(int argc, char** argv) {
           explosionSubjectFingerprint ||
       !RecoveredGameServices_ExplosionImpulseReady() ||
       !RecoveredGameServices_ExplosionLightReady() ||
+      !RecoveredGameServices_ExplosionSoundReady() ||
+      !ExplosionAttributeState_SoundReferencesResolved(g_super.m_context) ||
+      !ExplosionAttributeState_IsKnownSoundReferenceRoster(
+          g_super.m_context) ||
+      explosionSoundReferenceFingerprint == 0 ||
+      RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() !=
+          explosionSoundReferenceFingerprint ||
+      RecoveredArenaSeance_ExplosionSoundProbeStarted() != 1 ||
+      RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() != 1 ||
+      RecoveredArenaSeance_ExplosionSoundProbeRollbacks() != 1 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
       RecoveredArenaSeance_ExplosionProbeAllocationRollbacks() != 1 ||
       RecoveredArenaSeance_ExplosionProbeQueuedCommands() != 1 ||
@@ -1872,6 +1899,7 @@ int main(int argc, char** argv) {
               "fingerprint=%llu "
               "explosion_probe=2/1/1/1/1/0 "
               "explosion_light=useLight-brightness-frame-expiry "
+              "explosion_sound=1/1/1-device-free refs=%llu "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
@@ -1906,6 +1934,7 @@ int main(int argc, char** argv) {
                smokeVisualResourceFingerprint,
                explosionRosterSize, explosionFingerprint,
               explosionSubjectCapacity, explosionSubjectFingerprint,
+              explosionSoundReferenceFingerprint,
               vehicleAttributeRosterSize, vehicleAttributeCapacity,
               vehicleAttributeFingerprint, vehicleVesselMass,
               taxiRosterSize, taxiCapacity, taxiFingerprint,

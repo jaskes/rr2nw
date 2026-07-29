@@ -19,6 +19,7 @@
 #include "kernel/h/s_debug.h"
 #include "kernel/h/session.h"
 #include "message/explmsg.h"
+#include "obase/sound/SoundObjectState.h"
 #include "storage/h/subject.h"
 
 namespace {
@@ -132,6 +133,13 @@ struct LightProbeAttribute
     double timeLife;
 };
 
+struct SoundProbeAttribute
+{
+    SimulationContext *context;
+    const char *name;
+    double timeLife;
+};
+
 bool ValidateLightAttribute(const KR_ObjectID object, void *user)
 {
     LightRosterProbe *probe = static_cast<LightRosterProbe *>(user);
@@ -157,6 +165,29 @@ bool SelectLightProbeAttribute(const KR_ObjectID object, void *user)
     if (probe == NULL || probe->context == NULL)
         return false;
     if (!LightAttributeReady(attribute))
+        return true;
+    const char *name = probe->context->searchObject(object);
+    if (name != NULL &&
+        (probe->name == NULL || attribute->m_lightTimeLife > probe->timeLife ||
+         (attribute->m_lightTimeLife == probe->timeLife &&
+          std::strcmp(name, probe->name) < 0)))
+    {
+        probe->name = name;
+        probe->timeLife = attribute->m_lightTimeLife;
+    }
+    return true;
+}
+
+bool SelectSoundProbeAttribute(const KR_ObjectID object, void *user)
+{
+    SoundProbeAttribute *probe =
+        static_cast<SoundProbeAttribute *>(user);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (probe == NULL || probe->context == NULL)
+        return false;
+    if (!LightAttributeReady(attribute) || attribute->m_soundName[0] == 0 ||
+        attribute->m_wav == NULL || attribute->m_ctsndID == ct_NULLID)
         return true;
     const char *name = probe->context->searchObject(object);
     if (name != NULL &&
@@ -305,6 +336,8 @@ class BoundedExplosion : public ct_Subject
         {
             context->removeEvent(EXPLOSION_START, getObjectID());
             context->removeEvent(EXPLOSION_MOVE, getObjectID());
+            if (!IsNul(m_sound))
+                SoundObjectState_RollbackOwned(context, &m_sound);
         }
         ct_Subject::removeNotify();
         resetState();
@@ -328,12 +361,14 @@ class BoundedExplosion : public ct_Subject
     bool clean()
     {
         return !m_started && !m_lightActive && m_attribute == NULL &&
+               IsNul(m_sound) &&
                IsNul(m_damageOwner) && m_damageApplications == 0 &&
                m_position.x == 0.0 && m_position.y == 0.0 &&
                m_position.z == 0.0 && m_startTime == 0.0;
     }
 
     bool lightActive() const { return m_lightActive; }
+    const KR_ObjectID &sound() const { return m_sound; }
     AttributeExplosion *attribute() const { return m_attribute; }
     double startTime() const { return m_startTime; }
 
@@ -343,6 +378,7 @@ class BoundedExplosion : public ct_Subject
         m_position = CFVector3(0.0, 0.0, 0.0);
         m_attribute = NULL;
         m_damageOwner = KR_ObjectID::NUL();
+        m_sound = KR_ObjectID::NUL();
         m_startTime = 0.0;
         m_damageApplications = 0;
         m_started = false;
@@ -392,6 +428,12 @@ class BoundedExplosion : public ct_Subject
         ++g_executedCommands;
         g_damageApplications += m_damageApplications;
 
+        if (attribute->m_soundName[0] != 0 && attribute->m_wav != NULL &&
+            attribute->m_ctsndID != ct_NULLID)
+            SoundObjectState_StartOneShot(
+                context, getObjectID(), attribute->m_ctsndID,
+                attribute->m_wav, position, event.timeStamp, &m_sound);
+
         const KR_ObjectID self = getObjectID();
         const double expiryTime =
             event.timeStamp + attribute->m_lightTimeLife;
@@ -429,6 +471,7 @@ class BoundedExplosion : public ct_Subject
 
     AttributeExplosion *m_attribute;
     KR_ObjectID m_damageOwner;
+    KR_ObjectID m_sound;
     double m_startTime;
     int m_damageApplications;
     bool m_started;
@@ -637,6 +680,20 @@ bool ExplosionSubjectState_ImpulseTargetReady(
            context->isExist(target) && g_impulseDispatch != NULL;
 }
 
+bool ExplosionSubjectState_ParentSoundMatches(
+    SimulationContext *context, const KR_ObjectID &parent,
+    const WAVObj *wav, const CFVector3 &position,
+    bool playing, int playCount)
+{
+    BoundedExplosion *object = g_explosionTable.find(parent);
+    return context != NULL && g_arena.getContext() == context &&
+           context->isExist(parent) && object != NULL &&
+           !IsNul(object->sound()) &&
+           SoundObjectState_Matches(
+               object->sound(), wav, position.x, position.y, position.z,
+               true, playing, playCount);
+}
+
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context)
 {
     if (context == NULL || g_arena.getContext() != context)
@@ -654,6 +711,17 @@ const char *ExplosionSubjectState_LightProbeAttributeName(
         return NULL;
     LightProbeAttribute probe = {context, NULL, 0.0};
     __attrExplosionTable.userFind(SelectLightProbeAttribute, &probe);
+    return probe.name;
+}
+
+const char *ExplosionSubjectState_SoundProbeAttributeName(
+    SimulationContext *context)
+{
+    if (context == NULL || g_arena.getContext() != context ||
+        !ExplosionAttributeState_SoundReferencesResolved(context))
+        return NULL;
+    SoundProbeAttribute probe = {context, NULL, 0.0};
+    __attrExplosionTable.userFind(SelectSoundProbeAttribute, &probe);
     return probe.name;
 }
 
@@ -681,7 +749,9 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     const int impulse = 1;
     const int light = 1;
     const int particles = 0;
-    const int sound = 0;
+    const int sound = 1;
+    const int parentOwnedSound = 1;
+    const int oneShotCount = 1;
     HashString(hash, "Explosion");
     HashBytes(hash, &capacity, sizeof(capacity));
     HashBytes(hash, &rendering, sizeof(rendering));
@@ -696,6 +766,8 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     HashBytes(hash, &light, sizeof(light));
     HashBytes(hash, &particles, sizeof(particles));
     HashBytes(hash, &sound, sizeof(sound));
+    HashBytes(hash, &parentOwnedSound, sizeof(parentOwnedSound));
+    HashBytes(hash, &oneShotCount, sizeof(oneShotCount));
     return hash;
 }
 
@@ -1153,4 +1225,94 @@ bool ExplosionSubjectState_ProbeLightLifecycle(
             context->removeEvent(EXPLOSION_MOVE, child) == 0) &&
            g_lightChain.m_count == 0 && g_lightChain.m_list == NULL &&
            CViewObject::EnabledLights() == 0;
+}
+
+bool ExplosionSubjectState_ProbeSoundLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionSoundProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_explosionTable.liveCount() != 0 ||
+        SoundObjectState_LiveCount() != 0 ||
+        !ExplosionAttributeState_SoundReferencesResolved(context))
+        return false;
+
+    const KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("ExplosionAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Explosion");
+    const int attributeIndex = attributeTable == ct_NULLID
+        ? -1
+        : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (IsNul(attributeID) || !ImpactAttributeReady(attribute) ||
+        !LightAttributeReady(attribute) || attribute->m_soundName[0] == 0 ||
+        attribute->m_wav == NULL || attribute->m_ctsndID == ct_NULLID ||
+        subjectTable == ct_NULLID || attributeIndex == -1)
+        return false;
+
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    const CFVector3 position(43.0, 17.0, -61.0);
+    ExplosionImpactRequest request = {
+        position, ts, KR_ObjectID::NUL(), subjectTable, attributeIndex,
+        "Explosion.Sound.Parent.Probe"};
+    int damageApplications = -1;
+    const bool executed = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    const KR_ObjectID parent =
+        context->searchObject("Explosion.Sound.Parent.Probe");
+    BoundedExplosion *object = g_explosionTable.find(parent);
+    const KR_ObjectID sound = object == NULL
+        ? KR_ObjectID::NUL()
+        : object->sound();
+    const bool started = executed && damageApplications == 0 &&
+        !IsNul(parent) && object != NULL && object->lightActive() &&
+        !IsNul(sound) && SoundObjectState_LiveCount() == 1 &&
+        SoundObjectState_Matches(
+            sound, attribute->m_wav, position.x, position.y, position.z,
+            true, true, 1);
+    RemoveIfPresent(context, parent);
+    const bool rolledBack = started && !context->isExist(parent) &&
+        !context->isExist(sound) && g_explosionTable.liveCount() == 0 &&
+        SoundObjectState_LiveCount() == 0;
+    if (!rolledBack)
+    {
+        RemoveIfPresent(context, parent);
+        RemoveIfPresent(context, sound);
+        return false;
+    }
+    summary->startedSounds = 1;
+    summary->rolledBackSounds = 1;
+
+    WAVObj *savedWav = attribute->m_wav;
+    const ct_ClassTableID savedTable = attribute->m_ctsndID;
+    attribute->m_wav = NULL;
+    attribute->m_ctsndID = ct_NULLID;
+    request.timeStamp = ts + 1.0;
+    request.objectName = "Explosion.Sound.DependencyGate.Probe";
+    damageApplications = -1;
+    const bool gatedExecuted = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    const KR_ObjectID gatedParent =
+        context->searchObject("Explosion.Sound.DependencyGate.Probe");
+    BoundedExplosion *gatedObject = g_explosionTable.find(gatedParent);
+    const bool dependencySkipped = gatedExecuted &&
+        damageApplications == 0 && !IsNul(gatedParent) &&
+        gatedObject != NULL && gatedObject->lightActive() &&
+        IsNul(gatedObject->sound()) && SoundObjectState_LiveCount() == 0;
+    attribute->m_wav = savedWav;
+    attribute->m_ctsndID = savedTable;
+    RemoveIfPresent(context, gatedParent);
+    if (!dependencySkipped || g_explosionTable.liveCount() != 0 ||
+        SoundObjectState_LiveCount() != 0 ||
+        !ExplosionAttributeState_SoundReferencesResolved(context))
+        return false;
+    summary->dependencyGateSkips = 1;
+    return !context->isExist("Explosion.Sound.Parent.Probe") &&
+           !context->isExist("Explosion.Sound.DependencyGate.Probe");
 }

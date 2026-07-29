@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "ExplosionSubjectState.h"
+#include "obase/sound/WAVResourceState.h"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
 #include "storage/h/subject.h"
@@ -147,13 +148,12 @@ void HashAttribute(unsigned long long &hash, AttributeExplosion &attr)
 #undef RR2NW_EXPLOSION_HASH
 }
 
-bool CachesAreUnresolved(AttributeExplosion &attr)
+bool NonSoundCachesAreUnresolved(AttributeExplosion &attr)
 {
     if (attr.m_color0 != 0 || attr.m_color1 != 0 || attr.m_color2 != 0 ||
         attr.m_color3 != 0 || attr.m_hTexture != NULL ||
         attr.m_colorSnTail != 0 || attr.m_colorSnHead != 0 ||
         attr.m_colorSnCenter != 0 || attr.m_cacheSkin != NULL ||
-        attr.m_wav != NULL || attr.m_ctsndID != ct_NULLID ||
         attr.m_rayColor != 0 || attr.m_smokeTableID != ct_NULLID ||
         !attr.m_smokeAttrID.isNUL())
         return false;
@@ -164,6 +164,23 @@ bool CachesAreUnresolved(AttributeExplosion &attr)
         if (attr.m_colBuf[i] != 0)
             return false;
     return true;
+}
+
+bool SoundCacheIsCoherent(AttributeExplosion &attr)
+{
+    if (attr.m_soundName[0] == 0)
+        return attr.m_wav == NULL && attr.m_ctsndID == ct_NULLID;
+    if (attr.m_wav == NULL || attr.m_ctsndID == ct_NULLID)
+        return attr.m_wav == NULL && attr.m_ctsndID == ct_NULLID;
+    return WAVResourceState_IsLoadedPointer(attr.m_wav) &&
+           attr.m_ctsndID ==
+               g_arena.searchSeanceClassTable("SoundObj");
+}
+
+bool CachesAreCoherent(AttributeExplosion &attr)
+{
+    return NonSoundCachesAreUnresolved(attr) &&
+           SoundCacheIsCoherent(attr);
 }
 
 struct RosterEntry
@@ -185,7 +202,7 @@ bool CollectRosterEntry(const KR_ObjectID object, void *user)
     const char *name = collector->context->searchObject(object);
     AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
         __attrExplosionTable.searchAttribute(object));
-    if (name == NULL || attribute == NULL || !CachesAreUnresolved(*attribute))
+    if (name == NULL || attribute == NULL || !CachesAreCoherent(*attribute))
     {
         collector->valid = false;
         return false;
@@ -213,6 +230,36 @@ bool CollectRoster(SimulationContext *context, RosterCollector &collector)
         return false;
     std::sort(collector.entries.begin(), collector.entries.end(),
               RosterEntryLess);
+    return true;
+}
+
+bool SoundReferencesMatch(SimulationContext *context,
+                          const RosterCollector &collector)
+{
+    if (context == NULL)
+        return false;
+    const ct_ClassTableID soundTable =
+        g_arena.searchSeanceClassTable("SoundObj");
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (attribute == NULL)
+            return false;
+        if (attribute->m_soundName[0] == 0)
+        {
+            if (attribute->m_wav != NULL ||
+                attribute->m_ctsndID != ct_NULLID)
+                return false;
+            continue;
+        }
+        WAVObj *expected = NULL;
+        if (soundTable == ct_NULLID ||
+            !WAVResourceState_ResolveLoaded(
+                context, attribute->m_soundName, &expected) ||
+            attribute->m_wav != expected ||
+            attribute->m_ctsndID != soundTable)
+            return false;
+    }
     return true;
 }
 
@@ -513,6 +560,149 @@ const char *ExplosionAttributeState_FirstAttributeName(
         collector.entries.front().attribute->getObjectID());
 }
 
+bool ExplosionAttributeState_SoundCachesUnresolved(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        const AttributeExplosion *attribute =
+            collector.entries[index].attribute;
+        if (attribute == NULL || attribute->m_wav != NULL ||
+            attribute->m_ctsndID != ct_NULLID)
+            return false;
+    }
+    return true;
+}
+
+bool ExplosionAttributeState_ProbeSoundReferenceAtomicity(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) ||
+        !ExplosionAttributeState_SoundCachesUnresolved(context))
+        return false;
+    AttributeExplosion *probe = NULL;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        if (collector.entries[index].attribute->m_soundName[0] != 0)
+        {
+            probe = collector.entries[index].attribute;
+            break;
+        }
+    if (probe == NULL)
+        return false;
+
+    const unsigned long long before =
+        ExplosionAttributeState_Fingerprint(context);
+    ct_AttrStr saved = {};
+    std::memcpy(saved, probe->m_soundName, sizeof(saved));
+    static const char missing[] =
+        "wav.Explosion.Missing.Reference.Probe";
+    std::strncpy(probe->m_soundName, missing, sizeof(ct_AttrStr) - 1);
+    probe->m_soundName[sizeof(ct_AttrStr) - 1] = 0;
+    const bool rejected =
+        !ExplosionAttributeState_ResolveSoundReferences(context) &&
+        ExplosionAttributeState_SoundCachesUnresolved(context);
+    std::memcpy(probe->m_soundName, saved, sizeof(saved));
+    return rejected && before != 0 &&
+           ExplosionAttributeState_Fingerprint(context) == before &&
+           ExplosionAttributeState_SoundCachesUnresolved(context);
+}
+
+bool ExplosionAttributeState_ResolveSoundReferences(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    if (ExplosionAttributeState_SoundReferencesResolved(context))
+        return true;
+    if (!ExplosionAttributeState_SoundCachesUnresolved(context))
+        return false;
+
+    const ct_ClassTableID soundTable =
+        g_arena.searchSeanceClassTable("SoundObj");
+    if (soundTable == ct_NULLID)
+        return false;
+    std::vector<WAVObj *> resolved(collector.entries.size(), NULL);
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (attribute->m_soundName[0] != 0 &&
+            !WAVResourceState_ResolveLoaded(
+                context, attribute->m_soundName, &resolved[index]))
+            return false;
+    }
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        if (resolved[index] != NULL)
+        {
+            attribute->m_wav = resolved[index];
+            attribute->m_ctsndID = soundTable;
+        }
+    }
+    return ExplosionAttributeState_SoundReferencesResolved(context);
+}
+
+bool ExplosionAttributeState_SoundReferencesResolved(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    return CollectRoster(context, collector) &&
+           SoundReferencesMatch(context, collector);
+}
+
+unsigned long long ExplosionAttributeState_SoundReferenceFingerprint(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) ||
+        !SoundReferencesMatch(context, collector))
+        return 0;
+    unsigned long long hash = kHashOffset;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        const AttributeExplosion *attribute =
+            collector.entries[index].attribute;
+        const int hasSound = attribute->m_wav != NULL ? 1 : 0;
+        HashString(hash, collector.entries[index].name.c_str());
+        HashString(hash, attribute->m_soundName);
+        HashBytes(hash, &hasSound, sizeof(hasSound));
+        HashString(hash, hasSound != 0 ? "SoundObj" : "");
+    }
+    return hash;
+}
+
+bool ExplosionAttributeState_IsKnownSoundReferenceRoster(
+    SimulationContext *context)
+{
+    // Eight unique fingerprints cover all nine May 1999 retail Levels;
+    // Level.02D and Level.02N intentionally share one Explosion roster. The
+    // final value is the public synthetic CI fixture.
+    static const unsigned long long known[] = {
+        7051910668383799273ull,
+        15092396144486889759ull,
+        17401771998902862174ull,
+        14238615547237436625ull,
+        2531665149624624247ull,
+        5871769213204022095ull,
+        1730424902088667495ull,
+        642793402395061051ull,
+        269906130094892008ull
+    };
+    const unsigned long long fingerprint =
+        ExplosionAttributeState_SoundReferenceFingerprint(context);
+    for (int index = 0;
+         index < static_cast<int>(sizeof(known) / sizeof(known[0]));
+         ++index)
+        if (fingerprint == known[index])
+            return true;
+    return false;
+}
+
 bool ExplosionAttributeState_IsKnownRoster(SimulationContext *context)
 {
     // Eight unique fingerprints cover all nine May 1999 retail Levels;
@@ -527,7 +717,7 @@ bool ExplosionAttributeState_IsKnownRoster(SimulationContext *context)
         17713080548385097020ull,
         2278948764680578997ull,
         13266148710419836005ull,
-        7518588989293452268ull
+        2082493637237996457ull
     };
     const unsigned long long fingerprint =
         ExplosionAttributeState_Fingerprint(context);

@@ -2098,3 +2098,41 @@ Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
 launches with 18/18 byte-identical installed/mounted summaries, and 4/4 waited
 executable smokes reporting the new readiness/gate markers, `level-ready` and
 `runtime_shutdown=clean`.
+
+## BD-059: restore Explosion one-shot sound as a parent-owned device-free command
+
+Status: accepted on 2026-07-29.
+
+January `Explosion::receiveEvent(EXPLOSION_START)` calls `updateSound()` with
+the resolved ExplosionAttr WAV and SoundObj table, then synchronously sends the
+Explosion position through `snd_EV_MOVE_TO` and starts one play through
+`snd_EV_START(1)`. `removeNotify()` removes the exact child. The preserved May
+binary retains the same block at `0x0050BD2C`--`0x0050BFCA`: the helper call is
+at `0x0050BD5B`, MOVE_TO uses label `0x55F1`, START uses `0x55F3`, and the
+payload is one. May additionally tests global `0x007870BC`; its exact symbol is
+not yet proven, so the modern code does not give it a speculative name.
+
+ExplosionAttr sound references now resolve in a separate two-phase pass after
+WAVObj and SoundObj publication. Every non-empty `m_soundName` must resolve to
+a loaded WAV and the exact SoundObj table before any attribute is changed;
+empty names remain null/null. Script-visible Explosion fingerprints therefore
+remain stable before and after resolution, while a separate symbolic reference
+fingerprint admits eight unique May rosters across nine Levels plus the public
+source fixture.
+
+A bounded Explosion creates the child only after its impact state is valid.
+The shared SoundObj bridge verifies SET_WAV, the exact three-double position and
+START count one. Failure is best-effort presentation and never suppresses
+damage, impulse or light. Parent removal owns exact ObjectID rollback; duplicate
+legacy name `"snd.snd"` is not treated as unique. Admission proves one start,
+one unresolved-dependency skip and one parent rollback, with both pools back at
+their baselines. The retail frame proof keeps a sound-and-light Explosion alive
+for a real software frame, validates the command state, then proves expiry
+removes both parent and child.
+
+This frontier deliberately claims command parity, not audible output. SoundObj
+remains device-free, and no fake WAV duration is invented. Explosions whose
+only lifetime owner would be sound still lose the logical child when the
+parent is removed; full playback/lifetime waits for the audio backend or the
+original particle owner. Diagnostics say `backend=device-free`, publish the
+reference fingerprint and counters `1/1/1`, and keep particles deferred.

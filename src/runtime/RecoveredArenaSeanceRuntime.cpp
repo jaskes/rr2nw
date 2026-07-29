@@ -601,6 +601,7 @@ struct RecoveredArenaSeanceState {
   bool explosionSubjectReady;
   bool explosionImpulseReady;
   bool explosionLightReady;
+  bool explosionSoundReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -659,6 +660,10 @@ struct RecoveredArenaSeanceState {
   int explosionProbeQueueRollbacks;
   int explosionProbeExecutedCommands;
   int explosionProbeDamageApplications;
+  unsigned long long explosionSoundReferenceFingerprint;
+  int explosionSoundProbeStarted;
+  int explosionSoundProbeDependencySkips;
+  int explosionSoundProbeRollbacks;
   int bulletSubjectProbeMoveCount;
   int bulletCollisionScheduledChecks;
   int bulletCollisionExecutedChecks;
@@ -2068,6 +2073,52 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
   g_state.farterReferencesReady = true;
   g_state.farterRuntimeReady = false;
 
+  if (!ExplosionAttributeState_ProbeSoundReferenceAtomicity(context) ||
+      !ExplosionAttributeState_ResolveSoundReferences(context) ||
+      !ExplosionAttributeState_SoundReferencesResolved(context)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE,
+        "ExplosionAttr could not resolve its loaded WAV/SoundObj references "
+        "atomically");
+    return false;
+  }
+  g_state.explosionSoundReferenceFingerprint =
+      ExplosionAttributeState_SoundReferenceFingerprint(context);
+  if (g_state.explosionSoundReferenceFingerprint == 0 ||
+      !ExplosionAttributeState_IsKnownSoundReferenceRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "ExplosionAttr sound references are not a bounded roster "
+                  "(fingerprint=%llu)",
+                  g_state.explosionSoundReferenceFingerprint);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
+  const char* soundProbeAttribute =
+      ExplosionSubjectState_SoundProbeAttributeName(context);
+  ExplosionSoundProbeSummary soundProbe = {};
+  if (soundProbeAttribute == nullptr ||
+      !ExplosionSubjectState_ProbeSoundLifecycle(
+          context, soundProbeAttribute, Session::m_moment, &soundProbe) ||
+      soundProbe.startedSounds != 1 ||
+      soundProbe.dependencyGateSkips != 1 ||
+      soundProbe.rolledBackSounds != 1 ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      SoundObjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SOUND_LIFECYCLE_FAILURE,
+        "Explosion one-shot start/dependency-gate/parent rollback probe "
+        "failed");
+    return false;
+  }
+  g_state.explosionSoundProbeStarted = soundProbe.startedSounds;
+  g_state.explosionSoundProbeDependencySkips =
+      soundProbe.dependencyGateSkips;
+  g_state.explosionSoundProbeRollbacks = soundProbe.rolledBackSounds;
+  g_state.explosionSoundReady = true;
+
   // The repository CI fixture deliberately has no model assets. Keep that
   // source-only fixture useful, while requiring real Corpse references for
   // every retail Level whose Skin catalog is populated.
@@ -2388,6 +2439,7 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionSubjectReady = false;
   g_state.explosionImpulseReady = false;
   g_state.explosionLightReady = false;
+  g_state.explosionSoundReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -2396,6 +2448,10 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionProbeQueueRollbacks = 0;
   g_state.explosionProbeExecutedCommands = 0;
   g_state.explosionProbeDamageApplications = 0;
+  g_state.explosionSoundReferenceFingerprint = 0;
+  g_state.explosionSoundProbeStarted = 0;
+  g_state.explosionSoundProbeDependencySkips = 0;
+  g_state.explosionSoundProbeRollbacks = 0;
   g_state.vehicleAttributesReady = false;
   g_state.vehicleAttributeCount = 0;
   g_state.vehicleAttributeCapacity = 0;
@@ -2558,6 +2614,32 @@ bool RecoveredArenaSeance_ExplosionImpulseReady() {
 
 bool RecoveredArenaSeance_ExplosionLightReady() {
   return g_state.explosionLightReady;
+}
+
+bool RecoveredArenaSeance_ExplosionSoundReady() {
+  return g_state.explosionSoundReady;
+}
+
+unsigned long long RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() {
+  return g_state.explosionSoundReady
+             ? g_state.explosionSoundReferenceFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_ExplosionSoundProbeStarted() {
+  return g_state.explosionSoundReady ? g_state.explosionSoundProbeStarted : -1;
+}
+
+int RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() {
+  return g_state.explosionSoundReady
+             ? g_state.explosionSoundProbeDependencySkips
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionSoundProbeRollbacks() {
+  return g_state.explosionSoundReady
+             ? g_state.explosionSoundProbeRollbacks
+             : -1;
 }
 
 int RecoveredArenaSeance_ExplosionSubjectCapacity() {

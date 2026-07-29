@@ -54,6 +54,7 @@ namespace {
 
 unsigned long long g_explosionFixtureFingerprint = 0;
 unsigned long long g_explosionSubjectFixtureFingerprint = 0;
+unsigned long long g_explosionSoundFixtureFingerprint = 0;
 unsigned long long g_vehicleFixtureFingerprint = 0;
 unsigned long long g_taxiFixtureFingerprint = 0;
 unsigned long long g_bulletFixtureFingerprint = 0;
@@ -447,6 +448,11 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_ExplosionSubjectReady() &&
          !RecoveredArenaSeance_ExplosionImpulseReady() &&
          !RecoveredArenaSeance_ExplosionLightReady() &&
+         !RecoveredArenaSeance_ExplosionSoundReady() &&
+         RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionSoundProbeStarted() == -1 &&
+         RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() == -1 &&
+         RecoveredArenaSeance_ExplosionSoundProbeRollbacks() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -595,6 +601,11 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_ExplosionSubjectReady() ||
       !RecoveredArenaSeance_ExplosionImpulseReady() ||
       !RecoveredArenaSeance_ExplosionLightReady() ||
+      !RecoveredArenaSeance_ExplosionSoundReady() ||
+      RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() == 0 ||
+      RecoveredArenaSeance_ExplosionSoundProbeStarted() != 1 ||
+      RecoveredArenaSeance_ExplosionSoundProbeDependencySkips() != 1 ||
+      RecoveredArenaSeance_ExplosionSoundProbeRollbacks() != 1 ||
       RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
@@ -773,6 +784,10 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionSubjectState_LiveCount() == 0 &&
       ExplosionSubjectState_Fingerprint(&context) ==
           RecoveredArenaSeance_ExplosionSubjectFingerprint() &&
+      ExplosionAttributeState_SoundReferencesResolved(&context) &&
+      ExplosionAttributeState_IsKnownSoundReferenceRoster(&context) &&
+      ExplosionAttributeState_SoundReferenceFingerprint(&context) ==
+          RecoveredArenaSeance_ExplosionSoundReferenceFingerprint() &&
       ExplosionSubjectState_ImpulseTargetReady(&context, vehicle) &&
       VehicleAttributeState_IsKnownRoster(&context) &&
       VehicleAttributeState_RosterSize(&context) == 3 &&
@@ -838,7 +853,9 @@ bool RunCycle(bool expectVisualResources) {
       explosionAttribute->m_impulseCoeff == 1234 &&
       explosionAttribute->m_hTexture == nullptr &&
       explosionAttribute->m_cacheSkin == nullptr &&
-      explosionAttribute->m_wav == nullptr &&
+      WAVResourceState_IsLoadedPointer(explosionAttribute->m_wav) &&
+      explosionAttribute->m_ctsndID ==
+          g_arena.searchSeanceClassTable("SoundObj") &&
       g_vehicle != nullptr &&
        context.queryInterface(vehicle, IVehicleIID) == g_vehicle;
   const bool dynamicBulletCollision =
@@ -851,6 +868,8 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionAttributeState_Fingerprint(&context);
   const unsigned long long explosionSubjectFingerprint =
       ExplosionSubjectState_Fingerprint(&context);
+  const unsigned long long explosionSoundFingerprint =
+      ExplosionAttributeState_SoundReferenceFingerprint(&context);
   const unsigned long long vehicleFingerprint =
       VehicleAttributeState_Fingerprint(&context);
   const unsigned long long taxiFingerprint =
@@ -890,6 +909,8 @@ bool RunCycle(bool expectVisualResources) {
        g_explosionFixtureFingerprint == explosionFingerprint) &&
       (g_explosionSubjectFixtureFingerprint == 0 ||
        g_explosionSubjectFixtureFingerprint == explosionSubjectFingerprint) &&
+      (g_explosionSoundFixtureFingerprint == 0 ||
+       g_explosionSoundFixtureFingerprint == explosionSoundFingerprint) &&
       (g_vehicleFixtureFingerprint == 0 ||
        g_vehicleFixtureFingerprint == vehicleFingerprint) &&
       (g_taxiFixtureFingerprint == 0 ||
@@ -931,6 +952,7 @@ bool RunCycle(bool expectVisualResources) {
        g_skinCatalogFixtureFingerprint == skinCatalogFingerprint);
   g_explosionFixtureFingerprint = explosionFingerprint;
   g_explosionSubjectFixtureFingerprint = explosionSubjectFingerprint;
+  g_explosionSoundFixtureFingerprint = explosionSoundFingerprint;
   g_vehicleFixtureFingerprint = vehicleFingerprint;
   g_taxiFixtureFingerprint = taxiFingerprint;
   g_bulletFixtureFingerprint = bulletFingerprint;
@@ -1016,6 +1038,7 @@ int main(int argc, char** argv) {
       "  New(ctID, \"Expl.Test.0\", objectID, cachePos);\r\n"
       "  SetAttribute_i(objectID, cachePos, \"m_useLight\", 1);\r\n"
       "  SetAttribute_f(objectID, cachePos, \"m_impulseCoeff\", 1234);\r\n"
+      "  SetAttribute_s(objectID, cachePos, \"m_soundName\", \"wav.Explosion\");\r\n"
       "  New(ctID, \"Expl.Test.1\", objectID, cachePos);\r\n"
       "  New(ctID, \"Expl.Test.2\", objectID, cachePos);\r\n"
       "  New(ctID, \"Expl.Test.3\", objectID, cachePos);\r\n"
@@ -1740,6 +1763,7 @@ int main(int argc, char** argv) {
               "skin_resources=preflight-empty-fixture "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
               "explosion_impulse=local-vehicle-factor-5-offset-proof "
+               "explosion_sound=1/1/1-device-free refs=%llu "
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
                "bullet_attrs=4/4 "
@@ -1774,6 +1798,7 @@ int main(int argc, char** argv) {
               "corpse_subject_fingerprint=%llu "
               "skin_catalog_fingerprint=%llu "
               "rollback=idempotent\n",
+              g_explosionSoundFixtureFingerprint,
               g_explosionFixtureFingerprint,
               g_vehicleFixtureFingerprint,
               g_bulletFixtureFingerprint,

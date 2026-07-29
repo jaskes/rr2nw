@@ -1946,15 +1946,19 @@ The retail service smoke places a real Explosion in front of the observer,
 runs a visible software frame, expires the object, then runs a detached frame
 with zero lights. The following Spark frontier activates the ground child and
 its sprite/light owner. The following barrel-Smoke frontier now activates the
-FPS-gated directional Smoke start; sound, the full visual Explosion graph and
-trace drawing remain separate frontiers.
+FPS-gated directional Smoke start. The subsequent sound frontier atomically
+resolves every Explosion WAV/SoundObj pair and activates the exact device-free
+SET_WAV/MOVE_TO/START(1) command with parent-owned rollback. Actual audio
+output, the remaining visual Explosion graph and trace drawing remain separate
+frontiers.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 byte-identical installed/mounted summaries, and
 4/4 waited executable runtime smokes. The executable logs publish an active
 bounded Explosion pool, lifecycle counters `2/1/1/1/1/0`, Bullet effect
 counters `2/3/1/3`, `explosion_subject_light=1`, the exact light-lifecycle
-marker and `runtime_shutdown=clean`.
+marker, Explosion sound counters `1/1/1`, `backend=device-free` and
+`runtime_shutdown=clean`.
 
 ### Retail Spark rendering and Bullet ground-child frontier
 
@@ -2017,10 +2021,11 @@ Admission proves threshold start, frame skip, attribute skip and rollback as
 service smoke then starts a real child in front of the observer, captures the
 full alpha-sprite blob draw, removes it and proves a clean following frame.
 Startup diagnostics publish readiness, all four counters and the explicit
-`frameSec<=0.09` contract. Start/collision Spark remain intentionally inactive;
-the next narrow projectile-presentation work is Explosion sound/particles,
-while Bullet trace stays behind replacement of the known first-step
-`m_viewTrace[-1]` access.
+`frameSec<=0.09` contract. Start/collision Spark remain intentionally inactive.
+Explosion now resolves all WAV/SoundObj references atomically and executes the
+exact device-free SET_WAV/MOVE_TO/START(1) command with parent-owned rollback;
+particles and actual audio output remain separate. Bullet trace stays behind
+replacement of the known first-step `m_viewTrace[-1]` access.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 byte-identical installed/mounted summaries, and
@@ -2090,8 +2095,10 @@ service launches with 18/18 byte-identical installed/mounted summaries, and
    vessel mass are active. The May `m_useLight` gate, exact derived brightness,
    one-light frame publication and self-owned expiry are also active. Exact
    six-phase Spark sprite/light rendering, May phase timing, expiry and Bullet
-   ground-child rollback are active as well. Barrel Smoke, Explosion
-   sound/particles and Bullet trace remain deferred. Vehicle's own
+   ground-child rollback are active as well. Barrel Smoke and the exact
+   Explosion SET_WAV/MOVE_TO/START(1) command with parent-owned rollback are
+   active. Actual audio output, Explosion particles and Bullet trace remain
+   deferred. Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
    attribute groups, Skin

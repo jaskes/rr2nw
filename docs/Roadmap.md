@@ -576,9 +576,10 @@ with child-owned rollback. The barrel-Smoke slice is also complete: exact
 `m_useBarellSmoke` and strict `frameSec<=0.09` gates synchronously start the
 real directional Smoke owner, with child-owned movement, exact rollback and a
 visible/detached frame proof. Start/collision Spark remain inactive because the
-January calls are commented out. The next safe slices are independently
-bounded Explosion sound and remaining particles. Trace follows only after the known first-step
-`m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
+January calls are commented out. Explosion now has the bounded device-free
+SET_WAV/MOVE_TO/START(1) command and exact parent rollback; actual audio output
+and remaining particles stay independent future slices. Trace follows only
+after the known first-step `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this
 1.0 frontier.
