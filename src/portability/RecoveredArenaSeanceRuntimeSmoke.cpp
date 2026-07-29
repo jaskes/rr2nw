@@ -622,6 +622,46 @@ bool IsReleased(SimulationContext& context) {
          SparkSubjectState_Capacity() == 0 &&
          SparkSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_RouteReady() &&
+         !RecoveredArenaSeance_PeopleAttributesReady() &&
+         !RecoveredArenaSeance_PeopleReferencesReady() &&
+         !RecoveredArenaSeance_PeopleSubjectReady() &&
+         RecoveredArenaSeance_PeopleAttributeCapacity() == -1 &&
+         RecoveredArenaSeance_PeopleAttributeCount() == -1 &&
+         RecoveredArenaSeance_PeopleSubjectCapacity() == -1 &&
+         RecoveredArenaSeance_PeopleSubjectCount() == -1 &&
+         RecoveredArenaSeance_PeopleAttributeFingerprint() == 0 &&
+         RecoveredArenaSeance_PeopleSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_PeopleProbeScheduledMoves() == -1 &&
+         RecoveredArenaSeance_PeopleProbeBulletDamageApplications() == -1 &&
+         RecoveredArenaSeance_PeopleProbeDeathTransitions() == -1 &&
+         RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() == -1 &&
+         RecoveredArenaSeance_PeopleProbeRollbacks() == -1 &&
+         !RecoveredArenaSeance_TankCannonAttributesReady() &&
+         !RecoveredArenaSeance_TankReferencesReady() &&
+         !RecoveredArenaSeance_TankCannonSubjectTablesReady() &&
+         RecoveredArenaSeance_CannonAttributeCapacity() == -1 &&
+         RecoveredArenaSeance_CannonAttributeCount() == -1 &&
+         RecoveredArenaSeance_CannonSubjectCapacity() == -1 &&
+         RecoveredArenaSeance_CannonSubjectCount() == -1 &&
+         RecoveredArenaSeance_CannonAttributeFingerprint() == 0 &&
+         RecoveredArenaSeance_CannonSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_TankAttributeCapacity() == -1 &&
+         RecoveredArenaSeance_TankAttributeCount() == -1 &&
+         RecoveredArenaSeance_TankSubjectCapacity() == -1 &&
+         RecoveredArenaSeance_TankSubjectCount() == -1 &&
+         RecoveredArenaSeance_TankAttributeFingerprint() == 0 &&
+         RecoveredArenaSeance_TankSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_TankProbeAvailable() == -1 &&
+         RecoveredArenaSeance_TankProbeValidStarts() == -1 &&
+         RecoveredArenaSeance_TankProbeDynamicReady() == -1 &&
+         RecoveredArenaSeance_TankProbeRenderReady() == -1 &&
+         RecoveredArenaSeance_TankProbeCannonReady() == -1 &&
+         RecoveredArenaSeance_TankProbeScheduledMoves() == -1 &&
+         RecoveredArenaSeance_TankProbeBulletDamageApplications() == -1 &&
+         RecoveredArenaSeance_TankProbeDeathTransitions() == -1 &&
+         RecoveredArenaSeance_TankProbeDeathEffects() == -1 &&
+         RecoveredArenaSeance_TankProbeSaveStateRoundTrips() == -1 &&
+         RecoveredArenaSeance_TankProbeRollbacks() == -1 &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
          RecoveredArenaSeance_VehicleVesselMass() == 0.0 &&
          !context.isExist("Storage") && !context.isExist("Bird.Attr.0") &&
@@ -844,6 +884,46 @@ bool RunCycle(bool expectVisualResources) {
       SparkSubjectState_Capacity() != 40 ||
       SparkSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_RouteReady() ||
+      !RecoveredArenaSeance_PeopleAttributesReady() ||
+      !RecoveredArenaSeance_PeopleReferencesReady() ||
+      !RecoveredArenaSeance_PeopleSubjectReady() ||
+      RecoveredArenaSeance_PeopleAttributeCapacity() != 0 ||
+      RecoveredArenaSeance_PeopleAttributeCount() != 0 ||
+      RecoveredArenaSeance_PeopleSubjectCapacity() != 0 ||
+      RecoveredArenaSeance_PeopleSubjectCount() != 0 ||
+      RecoveredArenaSeance_PeopleAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_PeopleSubjectFingerprint() == 0 ||
+      RecoveredArenaSeance_PeopleProbeScheduledMoves() != 0 ||
+      RecoveredArenaSeance_PeopleProbeBulletDamageApplications() != 0 ||
+      RecoveredArenaSeance_PeopleProbeDeathTransitions() != 0 ||
+      RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() != 0 ||
+      RecoveredArenaSeance_PeopleProbeRollbacks() != 0 ||
+      !RecoveredArenaSeance_TankCannonAttributesReady() ||
+      !RecoveredArenaSeance_TankReferencesReady() ||
+      !RecoveredArenaSeance_TankCannonSubjectTablesReady() ||
+      RecoveredArenaSeance_CannonAttributeCapacity() != 2 ||
+      RecoveredArenaSeance_CannonAttributeCount() != 2 ||
+      RecoveredArenaSeance_CannonSubjectCapacity() != 140 ||
+      RecoveredArenaSeance_CannonSubjectCount() != 0 ||
+      RecoveredArenaSeance_CannonAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_CannonSubjectFingerprint() == 0 ||
+      RecoveredArenaSeance_TankAttributeCapacity() != 2 ||
+      RecoveredArenaSeance_TankAttributeCount() != 0 ||
+      RecoveredArenaSeance_TankSubjectCapacity() != 64 ||
+      RecoveredArenaSeance_TankSubjectCount() != 0 ||
+      RecoveredArenaSeance_TankAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_TankSubjectFingerprint() == 0 ||
+      RecoveredArenaSeance_TankProbeAvailable() != 0 ||
+      RecoveredArenaSeance_TankProbeValidStarts() != 0 ||
+      RecoveredArenaSeance_TankProbeDynamicReady() != 0 ||
+      RecoveredArenaSeance_TankProbeRenderReady() != 0 ||
+      RecoveredArenaSeance_TankProbeCannonReady() != 0 ||
+      RecoveredArenaSeance_TankProbeScheduledMoves() != 0 ||
+      RecoveredArenaSeance_TankProbeBulletDamageApplications() != 0 ||
+      RecoveredArenaSeance_TankProbeDeathTransitions() != 0 ||
+      RecoveredArenaSeance_TankProbeDeathEffects() != 0 ||
+      RecoveredArenaSeance_TankProbeSaveStateRoundTrips() != 0 ||
+      RecoveredArenaSeance_TankProbeRollbacks() != 1 ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_VehicleVesselMass() != 1000.0 ||
       RecoveredArenaSeance_Issues() != 0 ||
@@ -1152,8 +1232,8 @@ bool RunCycle(bool expectVisualResources) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 14) {
-    return Fail("expected a fixture directory and twelve retail-script sources");
+  if (argc != 18) {
+    return Fail("expected a fixture directory and thirteen retail-script sources");
   }
 
   RecoveredArenaSeance_Release();
@@ -1231,6 +1311,14 @@ int main(int argc, char** argv) {
       " ctIDSkin := s_AddClassTable(\"Skin\",2);\r\n"
       " ctIDSkin := s_AddClassTable(\"SkinSpr\",1);\r\n"
       "}\r\n";
+  const char setTankFixture[] =
+      "func void main_CreateTanks()\r\n"
+      "{\r\n"
+      " s_AddClassTable(\"TankGroup\",30);\r\n"
+      " s_AddClassTable(\"Tank\",64);\r\n"
+      "}\r\n";
+  const char emptyPeopleSupportFixture[] =
+      "// Level.03N source-only fixture has no populated People helpers\r\n";
   const std::string config = JoinPath(levelDirectory, "vessels.cfg");
   const std::string smokeSprite = JoinPath(levelDirectory, "SMOKE.SPR");
   const std::string flameSprite = JoinPath(levelDirectory, "FLAME.SPR");
@@ -1257,6 +1345,13 @@ int main(int argc, char** argv) {
   const std::string localMainCopy =
       JoinPath(scincDirectory, "LOCALMAIN.SCI");
   const std::string loadWavCopy = JoinPath(scincDirectory, "LOADWAV.SCI");
+  const std::string routeCopy = JoinPath(scincDirectory, "load_route.sci");
+  const std::string peopleCopy = JoinPath(scincDirectory, "PEOPLE.SCI");
+  const std::string setPeopleCopy = JoinPath(scincDirectory, "set_people.sci");
+  const std::string tankCopy = JoinPath(scincDirectory, "TANK.SCI");
+  const std::string setTankCopy = JoinPath(scincDirectory, "set_tank.sci");
+  const std::string unitsCopy = JoinPath(scincDirectory, "units.sci");
+  const std::string sysfCopy = JoinPath(fixtureDirectory, "SYSF.SCI");
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(smokeSprite.c_str());
   DeleteFileA(flameSprite.c_str());
@@ -1278,7 +1373,16 @@ int main(int argc, char** argv) {
   DeleteFileA(skinCopy.c_str());
   DeleteFileA(localMainCopy.c_str());
   DeleteFileA(loadWavCopy.c_str());
+  DeleteFileA(routeCopy.c_str());
+  DeleteFileA(peopleCopy.c_str());
+  DeleteFileA(setPeopleCopy.c_str());
+  DeleteFileA(tankCopy.c_str());
+  DeleteFileA(setTankCopy.c_str());
+  DeleteFileA(unitsCopy.c_str());
+  DeleteFileA(sysfCopy.c_str());
   if (!WriteFile(config, fixture) ||
+      !WriteFile(unitsCopy, emptyPeopleSupportFixture) ||
+      !WriteFile(sysfCopy, emptyPeopleSupportFixture) ||
       SetCurrentDirectoryA(levelDirectory.c_str()) == FALSE) {
     return Fail("could not prepare retail-script Arena fixture");
   }
@@ -1295,6 +1399,23 @@ int main(int argc, char** argv) {
       CopyFileA(argv[8], loadWavCopy.c_str(), FALSE) == FALSE) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not copy WAV metadata sources into Arena fixture");
+  }
+  if (CopyFileA(argv[14], routeCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[15], peopleCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[16], setPeopleCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[17], tankCopy.c_str(), FALSE) == FALSE) {
+    return Fail("could not copy Level-local Route/People/Tank sources");
+  }
+
+  SimulationContext missingSetTankContext(64, 128);
+  const bool missingSetTankRejected =
+      RecoveredArenaSeance_Initialize(&missingSetTankContext, 0.0) == FALSE &&
+      (RecoveredArenaSeance_ExtendedIssues() &
+       RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SOURCE_UNAVAILABLE) != 0 &&
+      RecoveredArenaSeance_Issues() == 0 && IsReleased(missingSetTankContext);
+  if (!WriteFile(setTankCopy, setTankFixture)) {
+    SetCurrentDirectoryA(originalDirectory.c_str());
+    return Fail("could not write Level-local set_tank.sci fixture");
   }
 
   SimulationContext missingVehicleContext(64, 128);
@@ -1816,11 +1937,17 @@ int main(int argc, char** argv) {
   DeleteFileA(skinCopy.c_str());
   DeleteFileA(localMainCopy.c_str());
   DeleteFileA(loadWavCopy.c_str());
+  DeleteFileA(routeCopy.c_str());
+  DeleteFileA(peopleCopy.c_str());
+  DeleteFileA(setPeopleCopy.c_str());
+  DeleteFileA(setTankCopy.c_str());
+  DeleteFileA(unitsCopy.c_str());
   DeleteFileA(smokeSprite.c_str());
   DeleteFileA(flameSprite.c_str());
   DeleteFileA(coronaSprite.c_str());
   RemoveDirectoryA(scincDirectory.c_str());
   RemoveDirectoryA(levelDirectory.c_str());
+  DeleteFileA(sysfCopy.c_str());
   RemoveDirectoryA(fixtureDirectory.c_str());
 
   if (!missingSourceRejected) {
@@ -1828,6 +1955,9 @@ int main(int argc, char** argv) {
   }
   if (!missingWavSourceRejected) {
     return Fail("missing WAV metadata sources were not rejected transactionally");
+  }
+  if (!missingSetTankRejected) {
+    return Fail("missing set_tank.sci was not rejected transactionally");
   }
   if (!missingExplosionRootRejected || !missingExplosionLocalRejected) {
     return Fail("missing retail Explosion fragments were not rejected "
@@ -1910,6 +2040,7 @@ int main(int argc, char** argv) {
   std::printf("bounded arena seance cycles=3 source-only-visual=deferred "
               "missing-smoke=rollback "
               "missing-wav=rollback "
+              "missing-set-tank=rollback "
                "missing-explosion-root-local=rollback "
                "missing-vehicle=rollback "
                "missing-taxi=rollback tableless-taxi=rollback "

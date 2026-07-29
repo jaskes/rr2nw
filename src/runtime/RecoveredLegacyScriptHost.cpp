@@ -14,7 +14,9 @@
 #include "message/lampmsg.h"
 #include "message/sparkmsg.h"
 #include "message/routmsg.h"
+#include "message/peopmsg.h"
 #include "obase/route/route.h"
+#include "i/unit.i"
 #include "storage/h/subject.h"
 
 namespace {
@@ -89,6 +91,22 @@ void ScriptSearchObjectID(TProcessContext* pc, void* userData) {
   }
 }
 
+void ScriptForceRemoveObject(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->ForceRemoveObject(SC_PARS(0));
+}
+
+void ScriptRemoveObject(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->RemoveObject(SC_PARS(1), SC_PARF(0));
+}
+
+void ScriptSearchSeanceClassTable(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  SC_PARI(1) =
+      host == nullptr ? ct_NULLID : host->SearchClassTable(SC_PARS(0));
+}
+
 void ScriptAddClassTable(TProcessContext* pc, void* userData) {
   RecoveredLegacyScriptHost* host = Host(userData);
   SC_PARI(2) =
@@ -123,6 +141,13 @@ void ScriptLoadRoute(TProcessContext* pc, void* userData) {
   if (host != nullptr) {
     host->LoadRoute(SC_PARI(2), SC_PARS(1), SC_PARS(0));
   }
+}
+
+void ScriptSetCommander(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  SC_PARI(2) = host == nullptr
+                   ? 0
+                   : host->SetCommander(SC_PARS(1), SC_PARS(0));
 }
 
 void ConstSparkSetPhaseCount(TStackCell* cell) {
@@ -161,9 +186,17 @@ void ConstLampSetEndPosition(TStackCell* cell) {
 
 void ConstSkinLoad(TStackCell* cell) { cell->i = sk_EV_LOAD; }
 
+void ConstSkinProgram(TStackCell* cell) { cell->i = sk_EV_PROG; }
+
 void ConstTaxiSetToPosition(TStackCell* cell) {
   // Preserved May retail nw.exe constant callback at 0x00590FC0.
   cell->i = 0x139A;
+}
+
+void ConstPeopleStart(TStackCell* cell) { cell->i = pe_EVCMD_START; }
+
+void ConstPeopleStartExtended(TStackCell* cell) {
+  cell->i = pe_EVCMD_START_EX;
 }
 
 TLinkExtern g_bindings[] = {
@@ -177,11 +210,16 @@ TLinkExtern g_bindings[] = {
     {"s_WriteObjectID", ScriptWriteObjectID, nullptr},
     {"s_SendEventNow", ScriptSendEventNow, nullptr},
     {"s_SearchObjectID", ScriptSearchObjectID, nullptr},
+    {"s_SearchObjectIDNoWarning", ScriptSearchObjectID, nullptr},
+    {"s_RemoveObject", ScriptRemoveObject, nullptr},
+    {"s_ForceRemoveObject", ScriptForceRemoveObject, nullptr},
+    {"s_SearchSeanceClassTable", ScriptSearchSeanceClassTable, nullptr},
     {"s_AddClassTable", ScriptAddClassTable, nullptr},
     {"s_New", ScriptNewObject, nullptr},
     {"s_NewObject", ScriptNewObjectWithoutResult, nullptr},
     {"s_NewObjectN", ScriptNewObjectByClass, nullptr},
     {"s_LoadRoute", ScriptLoadRoute, nullptr},
+    {"s_SetCommander", ScriptSetCommander, nullptr},
     {nullptr, nullptr, nullptr}};
 
 TLinkConstExtern g_constants[] = {
@@ -197,7 +235,10 @@ TLinkConstExtern g_constants[] = {
     {"lmp_EV_START", ConstLampStart, 0},
     {"lmp_EV_SETENDPOS", ConstLampSetEndPosition, 0},
     {"sk_EV_LOAD", ConstSkinLoad, 0},
+    {"sk_EV_PROG", ConstSkinProgram, 0},
     {"taxi_SET_TO_POS", ConstTaxiSetToPosition, 0},
+    {"pe_EVCMD_START", ConstPeopleStart, 0},
+    {"pe_EVCMD_START_EX", ConstPeopleStartExtended, 0},
     {nullptr, nullptr, 0}};
 
 }  // namespace
@@ -310,6 +351,37 @@ KR_ObjectID RecoveredLegacyScriptHost::SearchObject(const char* name) {
              : KR_ObjectID::NUL();
 }
 
+int RecoveredLegacyScriptHost::SearchClassTable(const char* name) {
+  if (!ArenaReady("search class table") || name == nullptr) return ct_NULLID;
+  return m_arena->searchSeanceClassTable(name);
+}
+
+bool RecoveredLegacyScriptHost::RemoveObject(const char* name, double from) {
+  if (!ArenaReady("remove object") || name == nullptr) return false;
+  SimulationContext* context = m_arena->getContext();
+  if (!context->isExist(name)) return true;
+
+  const KR_ObjectID object = context->searchObject(name);
+  // Retail scripts pass a level-local absolute moment (and use zero for an
+  // immediate removal).  Reuse ct_Storage's original delayed-delete event so
+  // the operation participates in the same scheduler and saveable event
+  // queue as native subjects.
+  if (from <= Session::m_moment) {
+    m_arena->delObject(object);
+    return !context->isExist(name);
+  }
+  m_arena->delObject(object, from);
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::ForceRemoveObject(const char* name) {
+  if (!ArenaReady("force remove object") || name == nullptr) return false;
+  SimulationContext* context = m_arena->getContext();
+  if (!context->isExist(name)) return true;
+  context->removeObject(context->searchObject(name));
+  return !context->isExist(name);
+}
+
 int RecoveredLegacyScriptHost::AddClassTable(const char* name, int capacity) {
   if (!ArenaReady("add class table") || name == nullptr) return ct_NULLID;
   const int table = m_arena->addClassTable(name, capacity);
@@ -361,6 +433,27 @@ KR_ObjectID RecoveredLegacyScriptHost::LoadRoute(
     return KR_ObjectID::NUL();
   }
 
+  // Many retail LEVEL0 rosters request the same symbolic route once per
+  // subject.  The original context allowed duplicate names, but every later
+  // search returned the first object, leaving the duplicate route nodes
+  // unreachable and eventually exhausting Route's fixed 3000-node arena.
+  // Reuse the already published route: this preserves the identity scripts
+  // actually observe and keeps the legacy save payload/layout unchanged.
+  SimulationContext* context = m_arena->getContext();
+  if (context->isExist(routeName)) {
+    const KR_ObjectID existingID = context->searchObject(routeName);
+    IRouteObject* existing = static_cast<IRouteObject*>(
+        context->queryInterface(existingID, IRouteObjectIID));
+    if (existing == nullptr) {
+      Report(RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_INTERFACE_FAILURE,
+             "existing symbolic route does not expose IRouteObjectIID");
+    } else if (existing->GetNodeCnt() <= 0) {
+      Report(RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_LOAD_FAILURE,
+             "existing symbolic route did not publish any nodes");
+    }
+    return existingID;
+  }
+
   const int previousNodeCount = Route::m_totalNodePos;
   KR_ObjectID routeID = NewObject(classTable, routeName);
   if (routeID.isNUL()) return routeID;
@@ -384,6 +477,21 @@ KR_ObjectID RecoveredLegacyScriptHost::LoadRoute(
            "script route file did not publish any nodes");
   }
   return routeID;
+}
+
+int RecoveredLegacyScriptHost::SetCommander(const char* objectName,
+                                             const char* commanderName) {
+  if (!ArenaReady("set commander") || objectName == nullptr ||
+      commanderName == nullptr)
+    return 0;
+  KR_ObjectID object = SearchObject(objectName);
+  KR_ObjectID commander = SearchObject(commanderName);
+  if (object.isNUL() || commander.isNUL()) return 0;
+  IUnit* unit = static_cast<IUnit*>(
+      m_arena->getContext()->queryInterface(object, IUnitIID));
+  if (unit == nullptr) return 0;
+  unit->setCommander(commander);
+  return 1;
 }
 
 TLinkExtern* RecoveredLegacyScriptHost::Bindings() { return g_bindings; }

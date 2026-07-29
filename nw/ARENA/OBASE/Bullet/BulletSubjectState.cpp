@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <new>
+#include <vector>
 
 #define LAST_H__SCENE
 #include "game.h"
@@ -544,8 +546,16 @@ class BoundedBullet : public ct_Subject
                 if (object == NULL)
                     continue;
                 const CFVector3 targetPosition = object->getPos();
-                const CFVector3 targetVelocity =
-                    object->getMoveDir() * object->getMoveSpeed();
+                const double targetSpeed = object->getMoveSpeed();
+                CFVector3 targetVelocity(0.0, 0.0, 0.0);
+                if (std::isfinite(targetSpeed) && targetSpeed > 1.0e-8)
+                {
+                    const CFVector3 targetDirection = object->getMoveDir();
+                    if (!FiniteVector(targetDirection))
+                        targetVelocity = CFVector3(0.0, 0.0, 0.0);
+                    else
+                        targetVelocity = targetDirection * targetSpeed;
+                }
                 const double targetRadius = object->getRadius();
                 double candidateTime = 0.0;
                 if (!FiniteVector(targetPosition) ||
@@ -788,6 +798,16 @@ bool RemoveIfPresent(SimulationContext *context, KR_ObjectID object)
     if (!object.isNUL() && context->isExist(object))
         context->removeObject(object);
     return object.isNUL() || !context->isExist(object);
+}
+
+bool CollectObjectID(KR_ObjectID object, void *user)
+{
+    std::vector<KR_ObjectID> *objects =
+        static_cast<std::vector<KR_ObjectID> *>(user);
+    if (objects == NULL)
+        return false;
+    objects->push_back(object);
+    return true;
 }
 
 bool BuildStartEvent(KR_Event &event, KR_ObjectID destination,
@@ -1269,9 +1289,12 @@ bool BulletSubjectState_ProbeDynamicCollisionLifecycle(
     const KR_ObjectID &target, double timeStamp)
 {
     const int baseline = g_bulletTable.liveCount();
+    const int baselineExplosions = ExplosionSubjectState_LiveCount();
+    const int baselineSmokes = SmokeSubjectState_LiveCount();
     KR_ObjectID targetID = target;
     if (context == NULL || attributeName == NULL || attributeName[0] == 0 ||
         targetID.isNUL() || !context->isExist(targetID) || baseline != 0 ||
+        baselineExplosions != 0 || baselineSmokes != 0 ||
         !BulletSubjectState_TableReady(context, g_bulletTable.capacity()))
         return false;
     IDynamicObject *dynamic = static_cast<IDynamicObject *>(
@@ -1322,13 +1345,79 @@ bool BulletSubjectState_ProbeDynamicCollisionLifecycle(
     event.source = bullet;
     event.destination = bullet;
     event.timeStamp = ts;
-    const bool hit = bulletObject->receiveEvent(event) == 1 &&
-                     !context->isExist(bullet);
+    const unsigned int dynamicImpactsBefore =
+        g_runtimeTelemetry.dynamicImpacts;
+    const int collisionAccepted = bulletObject->receiveEvent(event);
+    const bool hit = collisionAccepted == 1 &&
+                     !context->isExist(bullet) &&
+                     g_runtimeTelemetry.dynamicImpacts ==
+                         dynamicImpactsBefore + 1;
     RemoveIfPresent(context, bullet);
-    return hit && context->removeEvent(b_EVC_MOVING, bullet) == 0 &&
+
+    bool impactClean = hit;
+    if (context->isExist("Expl.Bullet.Impact"))
+    {
+        KR_ObjectID impact = context->searchObject("Expl.Bullet.Impact");
+        impactClean = !impact.isNUL() &&
+            ExplosionSubjectState_RollbackQueued(context, &impact, 1);
+    }
+    ExplosionImpactRequest damageRequest = {
+        targetPosition, ts, g_arena.getObjectID(),
+        attribute->m_cacheExplosionTable, attribute->m_cacheExplAttr,
+        "Explosion.Bullet.DynamicDamage.Probe"};
+    int damageApplications = 0;
+    const bool damageGraphPublished =
+        attribute->m_cacheExplosionTable != ct_NULLID &&
+        attribute->m_cacheExplAttr != ct_NULLID;
+    const bool damageExecuted = !damageGraphPublished ||
+        (impactClean && ExplosionSubjectState_ExecuteNow(
+             context, damageRequest, &damageApplications) &&
+         damageApplications == 1);
+    if (context->isExist("Explosion.Bullet.DynamicDamage.Probe"))
+    {
+        const KR_ObjectID damageExplosion =
+            context->searchObject("Explosion.Bullet.DynamicDamage.Probe");
+        RemoveIfPresent(context, damageExplosion);
+    }
+    // A traced Explosion branch can publish its first real smoke puff during
+    // the immediate damage step.  The Explosion owner deliberately does not
+    // own that independently scheduled child, so the bounded probe must roll
+    // it back explicitly just like the queued impact/explosion subjects.
+    bool smokeClean = true;
+    std::vector<KR_ObjectID> spawnedSmokes;
+    const ct_ClassTableID smokeTable =
+        g_arena.searchSeanceClassTable("Smoke");
+    if (smokeTable != ct_NULLID)
+        g_arena.userFind(smokeTable, CollectObjectID, &spawnedSmokes);
+    for (std::vector<KR_ObjectID>::reverse_iterator smoke =
+             spawnedSmokes.rbegin();
+         smoke != spawnedSmokes.rend(); ++smoke)
+    {
+        smokeClean = SmokeSubjectState_RollbackStarted(context, *smoke) &&
+                     smokeClean;
+    }
+    smokeClean = smokeClean &&
+                 SmokeSubjectState_LiveCount() == baselineSmokes;
+
+    const bool result = hit && impactClean && damageExecuted && smokeClean &&
+           context->removeEvent(b_EVC_MOVING, bullet) == 0 &&
            context->removeEvent(b_EVC_CHECK_COLLISION, bullet) == 0 &&
            g_bulletTable.liveCount() == baseline &&
-           !context->isExist("Bullet.Subject.DynamicCollision.Probe");
+           ExplosionSubjectState_LiveCount() == baselineExplosions &&
+           SmokeSubjectState_LiveCount() == baselineSmokes &&
+           !context->isExist("Bullet.Subject.DynamicCollision.Probe") &&
+           !context->isExist("Expl.Bullet.Impact") &&
+           !context->isExist("Explosion.Bullet.DynamicDamage.Probe");
+    if (!result)
+        std::fprintf(stderr,
+             "Bullet dynamic probe rollback: hit=%i impact=%i damage=%i/%i "
+             "smoke=%i live=%i/%i/%i\n",
+             hit ? 1 : 0, impactClean ? 1 : 0,
+             damageExecuted ? 1 : 0, damageApplications,
+             smokeClean ? 1 : 0, g_bulletTable.liveCount(),
+             ExplosionSubjectState_LiveCount(),
+             SmokeSubjectState_LiveCount());
+    return result;
 }
 
 bool BulletSubjectState_ProbeImpactEffectLifecycle(

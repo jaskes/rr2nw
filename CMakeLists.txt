@@ -3008,6 +3008,125 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_obase_people_full STATIC
+  nw/ARENA/OBASE/People/PEOPLE.CPP
+  nw/ARENA/OBASE/People/PEOPLE.H
+  nw/ARENA/OBASE/People/PDY_OBJ.CPP
+  nw/ARENA/OBASE/People/PeopleSubjectState.cpp
+  nw/ARENA/OBASE/People/PeopleSubjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_people_full PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_obase_route
+  rr2nw_arena_physics
+  rr2nw_arena_bullet_attribute_state
+  rr2nw_arena_explosion_attribute_state
+  rr2nw_arena_obase_corpse_full
+  rr2nw_arena_sound_object_state
+  rr2nw_arena_skin_resource_state
+  rr2nw_scene_draw_state
+)
+target_include_directories(rr2nw_arena_obase_people_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/People
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_people_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_people_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_people_full PRIVATE
+    /W4 /permissive- /wd4081 /wd4244
+  )
+endif()
+
+add_library(rr2nw_arena_obase_cannon_full STATIC
+  nw/ARENA/OBASE/Cannon/Cannon.cpp
+  nw/ARENA/OBASE/Cannon/Cannon.h
+  nw/ARENA/OBASE/Cannon/CannonSubjectState.cpp
+  nw/ARENA/OBASE/Cannon/CannonSubjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_cannon_full PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_physics
+  rr2nw_arena_bullet_attribute_state
+  rr2nw_arena_sound_object_state
+  rr2nw_scene_draw_state
+)
+target_include_directories(rr2nw_arena_obase_cannon_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Cannon
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_cannon_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_cannon_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_cannon_full PRIVATE
+    /W4 /permissive /wd4081 /wd4244 /wd4867
+  )
+endif()
+
+add_library(rr2nw_arena_obase_tank_full STATIC
+  nw/ARENA/OBASE/Tank/TANK.CPP
+  nw/ARENA/OBASE/Tank/TANK.H
+  nw/ARENA/OBASE/Tank/TANK_2.CPP
+  nw/ARENA/OBASE/Tank/TANK_3.CPP
+  nw/ARENA/OBASE/Tank/T_DYNOBJ.CPP
+  nw/ARENA/OBASE/Tank/Nearai.cpp
+  nw/ARENA/OBASE/Tank/NEARAI.H
+  nw/ARENA/OBASE/Tank/TankSubjectState.cpp
+  nw/ARENA/OBASE/Tank/TankSubjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_tank_full PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_physics
+  rr2nw_arena_obase_cannon_full
+  rr2nw_arena_bullet_attribute_state
+  rr2nw_arena_explosion_attribute_state
+  rr2nw_arena_obase_corpse_full
+  rr2nw_arena_sound_object_state
+  rr2nw_arena_skin_resource_state
+  rr2nw_scene_draw_state
+)
+target_include_directories(rr2nw_arena_obase_tank_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Tank
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_tank_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_tank_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_tank_full PRIVATE
+    /W3 /permissive /wd4081 /wd4244 /wd4867
+  )
+endif()
+
 add_library(rr2nw_game_entry_runtime STATIC
   src/runtime/GameEntryRuntimeState.cpp
   src/runtime/GameEntryRuntimeState.h
@@ -3255,6 +3374,9 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_time_runtime_state
   rr2nw_arena_obase_vehicle
   rr2nw_arena_obase_taxi_full
+  rr2nw_arena_obase_people_full
+  rr2nw_arena_obase_cannon_full
+  rr2nw_arena_obase_tank_full
   rr2nw_arena_bird_attribute_state
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_obase_orphan_full
@@ -4336,8 +4458,12 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_farter.sci"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/TAXI.SCI"
             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/VEHICLE.SCI"
-            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/BULLET.SCI"
-            "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/bullet_loc.sci"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/BULLET.SCI"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/bullet_loc.sci"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/load_route.sci"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/PEOPLE.SCI"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_people.sci"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/TANK.SCI"
   )
   add_test(
     NAME peripheral-attribute-state-smoke

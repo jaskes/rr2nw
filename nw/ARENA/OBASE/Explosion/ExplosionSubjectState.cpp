@@ -658,6 +658,7 @@ class BoundedExplosion : public ct_Subject
     }
 
     bool lightActive() const { return m_lightActive; }
+    bool started() const { return m_started; }
     const KR_ObjectID &sound() const { return m_sound; }
     AttributeExplosion *attribute() const { return m_attribute; }
     double startTime() const { return m_startTime; }
@@ -2077,7 +2078,7 @@ bool ExplosionSubjectState_ExecuteNow(
     const bool retained = context->isExist(child) != 0;
     const bool complete = accepted == 1 &&
                           g_executedCommands == beforeCommands + 1 &&
-                          ((retained && object->lightActive()) ||
+                          ((retained && object->started()) ||
                            (!retained && object->clean()));
     if (!complete)
         RemoveIfPresent(context, child);

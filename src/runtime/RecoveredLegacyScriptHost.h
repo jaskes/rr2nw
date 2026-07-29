@@ -19,7 +19,7 @@ enum ERecoveredLegacyScriptHostIssue {
 
 class RecoveredLegacyScriptHost {
  public:
-  enum { kConstantCount = 13 };
+  enum { kConstantCount = 16 };
 
   explicit RecoveredLegacyScriptHost(ct_Arena* arena);
 
@@ -39,11 +39,15 @@ class RecoveredLegacyScriptHost {
   void SendEventNow(int eventIndex, int label,
                     const KR_ObjectID& destination);
   KR_ObjectID SearchObject(const char* name);
+  int SearchClassTable(const char* name);
+  bool RemoveObject(const char* name, double from);
+  bool ForceRemoveObject(const char* name);
   int AddClassTable(const char* name, int capacity);
   KR_ObjectID NewObject(int classTable, const char* name);
   KR_ObjectID NewObject(const char* className, const char* name);
   KR_ObjectID LoadRoute(int classTable, const char* fileName,
                         const char* routeName);
+  int SetCommander(const char* objectName, const char* commanderName);
   bool WriteScriptInteger(TProcessContext* process, int reference,
                           int value);
 

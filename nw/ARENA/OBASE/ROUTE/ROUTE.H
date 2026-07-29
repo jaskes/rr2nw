@@ -14,7 +14,12 @@
 #include "i/route.i"
 
 
-#define ROUTE_MAX_NODE_NUM 3000
+// The recovered January source snapshot used 3000 nodes, but the May retail
+// Level.02 population exceeds that bound with valid, uniquely named routes.
+// Keep a bounded static arena (and its deterministic serializer) while
+// matching the released data set instead of failing halfway through LEVEL0.
+#define ROUTE_LEGACY_SOURCE_NODE_NUM 3000
+#define ROUTE_MAX_NODE_NUM 8192
 
 class CChannelMap;
 

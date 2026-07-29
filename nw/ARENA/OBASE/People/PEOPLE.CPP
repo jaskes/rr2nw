@@ -235,6 +235,11 @@ People::People()
     m_attr = 0;//&__defaultAttr;
  }
 
+double People::movementSpeed() const
+{
+    return m_attr == 0 ? 0.0 : m_attr->m_speed;
+}
+
  //============================================================
 People::~People()
  {
@@ -1000,10 +1005,15 @@ int People::receiveEvent( KR_Event &event )
          break;
 
 case pe_EVCMD_START:
+case pe_EVCMD_START_EX:
  {
      //KR_ObjectID attrID;
      char        route[50];
      double      timeStart = 0;
+     int         startNode = 0;
+     int         backSpaceNode = -1;
+     double      startMoveTime = 0;
+     const int   extendedStart = event.label == pe_EVCMD_START_EX;
 
      m_lastMoveTimeStamp = event.timeStamp;
      m_lastMoveDeltaT    = 0;
@@ -1011,8 +1021,20 @@ case pe_EVCMD_START:
      event.data.open(EDO_READ)
                  .getObjectID(m_peopleAttrID)
                  .getStr     (route,sizeof(route)-1)
-                 .getDouble  (timeStart)
-               .close();
+                 .getDouble  (timeStart);
+     // January scripts ended after timeStart.  May retail added startNode to
+     // the normal payload and two more fields to pe_EVCMD_START_EX.  Accept
+     // both layouts so archived January data remains usable.
+     if(  event.data.remaining() > 0  )
+          event.data.getInt(startNode);
+     if(  extendedStart && event.data.remaining() > 0  )
+          event.data.getInt(backSpaceNode);
+     if(  extendedStart && event.data.remaining() > 0  )
+          event.data.getDouble(startMoveTime);
+     event.data.close();
+
+     m_startBackSpaceNode = backSpaceNode;
+     m_startMoveDelay = startMoveTime;
      double  viewTime = event.timeStamp+timeStart+context->rnd_f(0.1);
 
 	 setPeopleAttr();
@@ -1062,7 +1084,6 @@ case pe_EVCMD_START:
     else m_routeID = context->searchObject( route );
     m_prevTime = viewTime;
 
-    m_curNode = 0;
     m_calcPosInc = m_attr->m_timeInc;
 
     IRouteObject *ri = (IRouteObject*)
@@ -1083,32 +1104,67 @@ case pe_EVCMD_START:
     ri->AddRef();
 
     {
-         setPosition( ri->GetNode(0) );
-         CFVector3 nextNode(ri->GetNode(1));
+         int nodeCount = ri->GetNodeCnt();
+         if(  startNode < 0  )
+              startNode = 0;
+         else
+         if(  startNode >= nodeCount  )
+              startNode = nodeCount-1;
+
+         m_curNode = startNode;
+         setPosition( ri->GetNode(m_curNode) );
+         CFVector3 nextNode(ri->GetNode((m_curNode+1)%nodeCount));
 
          CFVector3 pos(getPosition());
          setHAngleFixDir( atan2( nextNode.z-pos.z, nextNode.x-pos.x ) );
-         m_dir.y = 0;
-         double dist = hypot(nextNode.z-pos.z, nextNode.x-pos.x );
          m_nextNode = nextNode;
-
-         if(  m_attr->m_speed > 1e-3 )
-         {
-              event.label       = pe_EVC_NEXTNODE;
-              event.timeStamp   = viewTime + dist/m_attr->m_speed;
-              issueEvent( event );
-         }
+         // The May executable exposes the subject at viewTime but keeps it
+         // stationary until pe_EV_STARTMOVE.  This is how mission scripts
+         // stagger columns and aircraft without changing their spawn time.
+         m_dir = CFVector3(0,0,0);
     }
-    event.label       = pe_EVC_MOVE;
+    event.label       = pe_EV_STARTMOVE;
     event.source      = getObjectID();
     event.destination = getObjectID();
-    event.timeStamp   = viewTime;
+    event.timeStamp   = viewTime + m_startMoveDelay;
     issueEvent( event );
     event.label       = pe_EV_STARTSHOW;
+    event.timeStamp   = viewTime;
     issueEvent( event );
  }
  m_lastMovePos = getPosition();
  break;
+
+    case pe_EV_STARTMOVE:
+     {
+         IRouteObject *ri = (IRouteObject*)
+              (context->queryInterface(m_routeID,IRouteObjectIID));
+         if(  ri == 0 || m_attr == 0 || ri->GetNodeCnt() < 2  )
+              break;
+
+         CFVector3 pos(getPosition());
+         CFVector3 nextNode(m_nextNode);
+         setHAngleFixDir( atan2(nextNode.z-pos.z,nextNode.x-pos.x) );
+         m_dir.y = 0;
+         m_prevTime = event.timeStamp;
+         m_lastMoveTimeStamp = event.timeStamp;
+         m_lastMoveDeltaT = 0;
+
+         if(  m_attr->m_speed > 1e-3  )
+         {
+              double dist = Abs(nextNode-pos);
+              event.label = pe_EVC_NEXTNODE;
+              event.timeStamp += dist/m_attr->m_speed;
+              issueEvent(event);
+         }
+
+         event.label = pe_EVC_MOVE;
+         event.source = getObjectID();
+         event.destination = getObjectID();
+         event.timeStamp = m_prevTime;
+         issueEvent(event);
+     }
+     break;
 
     case pe_EVCMD_STOP:
             context->removeEvent(pe_EVC_MOVE,getObjectID());
@@ -1157,6 +1213,8 @@ void People::addNotify()
     m_prevStartShoot = 0;
     m_stoped         = 0;
     m_isClz          = 0;
+    m_startBackSpaceNode = -1;
+    m_startMoveDelay = 0;
     m_rotateOx = m_rotateOy = m_rotateOz = 0;
 }
 

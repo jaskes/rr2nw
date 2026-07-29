@@ -874,3 +874,36 @@ Secondary fire and Bullet muzzle sound remain smaller combat follow-ups.
 Save-state and a multi-Level manual driving/combat pass remain 1.0 gates.
 Linux/macOS and multiplayer remain deferred until the Windows gameplay owner is
 stable.
+
+## Current Windows frontier after People and Tank lifecycle admission
+
+The Level-zero population frontier is now split according to retail ownership.
+People is a real persistent Level-local population: its exact script roster,
+drawable/dynamic references, delayed movement scheduler, damage/death state,
+sound ownership and reconstruction are active. Tank/Cannon tables and
+attributes are equally real, but their initial subject rosters are correctly
+empty because mission Commander/TankGroup scripts create them later.
+
+The mission-ready Tank proof is no longer synthetic state. It allocates a real
+Tank, creates the attribute-selected Cannon children, advances the original
+movement state machine, receives a real Bullet/Explosion hit, produces the
+retail Tank Explosion/Corpse death children, serializes stable payload state
+and proves complete rollback. Levels with an intentionally empty TankAttr
+roster and the Level that omits Tank/Cannon entirely are explicit N/A results.
+
+The next large Windows-first slice is therefore:
+
+1. compile and publish Commander and TankGroup with exact mission ownership;
+2. execute the smallest real mission spawn path and retain stable object IDs,
+   group membership and scheduled behavior across a live frame loop;
+3. add versioned active-world save records that reconstruct symbolic
+   references and event queues rather than persisting cached pointers;
+4. run a manual multi-Level driving, F1, People/Tank combat, alt-tab, save/load
+   and shutdown acceptance pass;
+5. only then widen toward mods, secondary weapons and an audible backend.
+
+The enlarged Route arena is a released-data compatibility fix, not a new save
+format. January's 3000-node snapshot was too small for the May Level.02
+population; the bounded May arena is 8192 and duplicate symbolic route loads
+reuse the already visible Route. Existing raw Route saves require a versioned
+migration before compatibility can be claimed.

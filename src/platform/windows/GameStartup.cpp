@@ -1130,7 +1130,88 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(
                RecoveredArenaSeance_SparkProbePhaseTransitions()) +
            "/" +
-           std::to_string(RecoveredArenaSeance_SparkProbeExpirations()));
+            std::to_string(RecoveredArenaSeance_SparkProbeExpirations()));
+  log.Line("people_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_PeopleAttributesReady() ? 1 : 0));
+  log.Line("people_attribute_count=" +
+           std::to_string(RecoveredArenaSeance_PeopleAttributeCount()));
+  log.Line("people_attribute_capacity=" +
+           std::to_string(RecoveredArenaSeance_PeopleAttributeCapacity()));
+  log.Line("people_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_PeopleAttributeFingerprint()));
+  log.Line("people_references_resolved=" +
+           std::to_string(
+               RecoveredGameServices_PeopleReferencesReady() ? 1 : 0));
+  log.Line("people_subject_initialized=" +
+           std::to_string(
+               RecoveredGameServices_PeopleSubjectReady() ? 1 : 0));
+  log.Line("people_subject_count=" +
+           std::to_string(RecoveredArenaSeance_PeopleSubjectCount()));
+  log.Line("people_subject_sound_count=" +
+           std::to_string(
+               RecoveredArenaSeance_PeopleSubjectSoundCount()));
+  log.Line("people_subject_capacity=" +
+           std::to_string(RecoveredArenaSeance_PeopleSubjectCapacity()));
+  log.Line("people_subject_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_PeopleSubjectFingerprint()));
+  log.Line("people_lifecycle_probe=" +
+           std::to_string(RecoveredArenaSeance_PeopleProbeScheduledMoves()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleProbeBulletDamageApplications()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleProbeDeathTransitions()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_PeopleProbeRollbacks()));
+  log.Line("tank_cannon_attributes_initialized=" +
+           std::to_string(
+               RecoveredGameServices_TankCannonAttributesReady() ? 1 : 0));
+  log.Line("tank_references_resolved=" +
+           std::to_string(
+               RecoveredGameServices_TankReferencesReady() ? 1 : 0));
+  log.Line("tank_cannon_subject_tables_initialized=" +
+           std::to_string(
+               RecoveredGameServices_TankCannonSubjectTablesReady() ? 1 : 0));
+  log.Line("tank_attribute_roster=" +
+           std::to_string(RecoveredArenaSeance_TankAttributeCount()) + "/" +
+           std::to_string(RecoveredArenaSeance_TankAttributeCapacity()));
+  log.Line("cannon_attribute_roster=" +
+           std::to_string(RecoveredArenaSeance_CannonAttributeCount()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_CannonAttributeCapacity()));
+  log.Line("tank_subject_roster=" +
+           std::to_string(RecoveredArenaSeance_TankSubjectCount()) + "/" +
+           std::to_string(RecoveredArenaSeance_TankSubjectCapacity()));
+  log.Line("cannon_subject_roster=" +
+           std::to_string(RecoveredArenaSeance_CannonSubjectCount()) + "/" +
+           std::to_string(RecoveredArenaSeance_CannonSubjectCapacity()));
+  log.Line("tank_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_TankAttributeFingerprint()));
+  log.Line("cannon_attribute_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_CannonAttributeFingerprint()));
+  log.Line("tank_lifecycle_probe=" +
+           std::to_string(RecoveredArenaSeance_TankProbeAvailable()) + "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeValidStarts()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeDynamicReady()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeRenderReady()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeCannonReady()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeScheduledMoves()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_TankProbeBulletDamageApplications()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_TankProbeDeathTransitions()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_TankProbeDeathEffects()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_TankProbeSaveStateRoundTrips()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeRollbacks()));
   log.Line("bullet_ground_spark_initialized=" +
            std::to_string(
                RecoveredGameServices_BulletGroundSparkReady() ? 1 : 0));

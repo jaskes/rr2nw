@@ -110,7 +110,19 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_LIFECYCLE_FAILURE = 1ull << 33,
   RECOVERED_ARENA_SEANCE_EXT_ORPHAN_REFERENCE_INVALID = 1ull << 34,
   RECOVERED_ARENA_SEANCE_EXT_ORPHAN_SUBJECT_TABLE_FAILURE = 1ull << 35,
-  RECOVERED_ARENA_SEANCE_EXT_ORPHAN_SUBJECT_LIFECYCLE_FAILURE = 1ull << 36
+  RECOVERED_ARENA_SEANCE_EXT_ORPHAN_SUBJECT_LIFECYCLE_FAILURE = 1ull << 36,
+  RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_SOURCE_UNAVAILABLE = 1ull << 37,
+  RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_ROSTER_INVALID = 1ull << 38,
+  RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_SOURCE_UNAVAILABLE = 1ull << 39,
+  RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_ROSTER_INVALID = 1ull << 40,
+  RECOVERED_ARENA_SEANCE_EXT_PEOPLE_REFERENCE_INVALID = 1ull << 41,
+  RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE = 1ull << 42,
+  RECOVERED_ARENA_SEANCE_EXT_ROUTE_SOURCE_UNAVAILABLE = 1ull << 43,
+  RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SOURCE_UNAVAILABLE = 1ull << 44,
+  RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_ATTRIBUTE_ROSTER_INVALID = 1ull << 45,
+  RECOVERED_ARENA_SEANCE_EXT_TANK_REFERENCE_INVALID = 1ull << 46,
+  RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SUBJECT_TABLE_FAILURE = 1ull << 47,
+  RECOVERED_ARENA_SEANCE_EXT_TANK_LIFECYCLE_FAILURE = 1ull << 48
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -304,6 +316,47 @@ int RecoveredArenaSeance_SparkProbeQueueRollbacks();
 int RecoveredArenaSeance_SparkProbePhaseTransitions();
 int RecoveredArenaSeance_SparkProbeExpirations();
 bool RecoveredArenaSeance_RouteReady();
+bool RecoveredArenaSeance_PeopleAttributesReady();
+bool RecoveredArenaSeance_PeopleReferencesReady();
+bool RecoveredArenaSeance_PeopleSubjectReady();
+int RecoveredArenaSeance_PeopleAttributeCapacity();
+int RecoveredArenaSeance_PeopleAttributeCount();
+int RecoveredArenaSeance_PeopleSubjectCapacity();
+int RecoveredArenaSeance_PeopleSubjectCount();
+int RecoveredArenaSeance_PeopleSubjectSoundCount();
+unsigned long long RecoveredArenaSeance_PeopleAttributeFingerprint();
+unsigned long long RecoveredArenaSeance_PeopleSubjectFingerprint();
+int RecoveredArenaSeance_PeopleProbeScheduledMoves();
+int RecoveredArenaSeance_PeopleProbeBulletDamageApplications();
+int RecoveredArenaSeance_PeopleProbeDeathTransitions();
+int RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips();
+int RecoveredArenaSeance_PeopleProbeRollbacks();
+bool RecoveredArenaSeance_TankCannonAttributesReady();
+bool RecoveredArenaSeance_TankReferencesReady();
+bool RecoveredArenaSeance_TankCannonSubjectTablesReady();
+int RecoveredArenaSeance_CannonAttributeCapacity();
+int RecoveredArenaSeance_CannonAttributeCount();
+int RecoveredArenaSeance_CannonSubjectCapacity();
+int RecoveredArenaSeance_CannonSubjectCount();
+unsigned long long RecoveredArenaSeance_CannonAttributeFingerprint();
+unsigned long long RecoveredArenaSeance_CannonSubjectFingerprint();
+int RecoveredArenaSeance_TankAttributeCapacity();
+int RecoveredArenaSeance_TankAttributeCount();
+int RecoveredArenaSeance_TankSubjectCapacity();
+int RecoveredArenaSeance_TankSubjectCount();
+unsigned long long RecoveredArenaSeance_TankAttributeFingerprint();
+unsigned long long RecoveredArenaSeance_TankSubjectFingerprint();
+int RecoveredArenaSeance_TankProbeAvailable();
+int RecoveredArenaSeance_TankProbeValidStarts();
+int RecoveredArenaSeance_TankProbeDynamicReady();
+int RecoveredArenaSeance_TankProbeRenderReady();
+int RecoveredArenaSeance_TankProbeCannonReady();
+int RecoveredArenaSeance_TankProbeScheduledMoves();
+int RecoveredArenaSeance_TankProbeBulletDamageApplications();
+int RecoveredArenaSeance_TankProbeDeathTransitions();
+int RecoveredArenaSeance_TankProbeDeathEffects();
+int RecoveredArenaSeance_TankProbeSaveStateRoundTrips();
+int RecoveredArenaSeance_TankProbeRollbacks();
 bool RecoveredArenaSeance_VehicleReady();
 double RecoveredArenaSeance_VehicleVesselMass();
 unsigned long long RecoveredArenaSeance_Issues();

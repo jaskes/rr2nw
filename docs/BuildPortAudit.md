@@ -2569,3 +2569,41 @@ list admission. `PreDraw()` provides an independent final guard for non-finite
 vertices and derives a safe reciprocal-depth shift from actual transformed
 geometry when the stored model radius is insufficient. This is a production
 stability boundary, not a test-only camera workaround.
+
+## People, Tank and Cannon activation boundary
+
+`PEOPLE.CPP`, `PDY_OBJ.CPP`, all preserved Tank translation units and
+`Cannon.cpp` now build as explicit modern archives linked by the recovered
+service runtime. New table-owned state adapters expose capacities, exact
+Level-local rosters, semantic fingerprints, reference readiness and bounded
+lifecycle summaries without replacing the original subject handlers.
+
+The bootstrap support closure now admits the real People script dependencies,
+including Route loading, object removal, class-table lookup, commander binding,
+Skin program constants and both People start commands. Repeated symbolic Route
+loads are deduplicated at the identity visible to scripts. The fixed Route
+arena grows from the January source value 3000 to a bounded 8192 because valid
+May Level.02 data exceeds the older limit.
+
+May `pe_EVCMD_START_EX` was recovered from `nw.exe`: the extra back-space node
+is retained as persistent state, while movement begins only after the extra
+delay through a private start-move event. The lifecycle probe executes the
+actual drawable/dynamic and scheduler handlers, not a parallel model.
+
+Tank attributes are finalized at the original post-dependency boundary before
+any subject is allocated. The bounded probe found and fixes an original
+`addCannon` error that tested an uninitialized event destination instead of the
+new Cannon ID. Tank removal now explicitly owns Cannon teardown and clears its
+SoundObj; Tank and Cannon table bounds reject `index == capacity`. Visible
+Tank death also creates and rolls back one real Explosion and Corpse.
+
+Stable `PeopleData` and `TankData`/Cannon-ID payloads pass the existing PIN
+save stream, and whole-seance reconstruction restores every script identity.
+Cached models, interfaces and numeric attribute indices remain reconstructed
+state and must not become fields in a future versioned save format.
+
+The gate passes 51/51 CTest in both Debug and Release, 36/36 retail service
+launches over all installed/mounted Levels, and 4/4 waited bounded executable
+launches. Levels with Tank attributes report an eleven-part all-one lifecycle;
+the empty/absent Tank layers report an explicit not-applicable result plus a
+successful rollback.

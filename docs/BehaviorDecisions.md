@@ -2730,3 +2730,48 @@ for the frame without mutating simulation, collision, effects or serialized
 state. Verification must include repeated Debug `Level.05D` unsafe drops,
 require at least one admitted Orphan drawable frame before impact, and still
 observe natural movement, Explosion and complete removal.
+
+## BD-073: admit retail People now and Tank through an exact mission-ready boundary
+
+Status: accepted on 2026-07-30.
+
+The Level bootstrap now executes the real Level-local People population and
+publishes exact PeopleAttr/People capacities, counts, symbolic fingerprints
+and owned SoundObj counts. Every admitted People has its retail Attribute,
+Route, Skin model/interface, state stack and dynamic interface. The bounded
+lifecycle creates one temporary real People from a moving retail exemplar,
+executes STARTSHOW and the scheduled route transition, takes Bullet/Explosion
+damage, enters the original killed state, round-trips `PeopleData`, and then
+restores the complete roster, sound count and fingerprint.
+
+The January source tree did not contain the extended May start event used by
+retail `CreateManEx`. Disassembly of both byte-identical installed and mounted
+May `nw.exe` copies establishes its six-field payload: Attribute, Route,
+start time, start node, back-space node and movement delay. The subject is
+shown at the start time but remains stationary until the private delayed
+start-move event schedules the preserved MOVE/NEXTNODE loop. The recovered
+handler accepts the shorter January payload as a compatibility subset and
+appends new labels so no January event value changes.
+
+Tank and Cannon now compile from their full preserved implementations. The
+Level-local TANK script publishes exact attribute rosters plus pristine Tank
+and Cannon subject owners. An empty initial Tank pool is the retail result:
+mission `SYSF.SCI` creates Commander/TankGroup and only then creates each Tank.
+The runtime therefore must not invent persistent Level-zero tanks. Instead a
+bounded mission-readiness proof creates one real Tank from a retail attribute,
+attaches its model and Cannon children, executes `t_EVC_MOVING`, takes a real
+Bullet -> Explosion -> IUnit hit, creates its own visible Explosion and Corpse
+on death, round-trips `TankData` plus Cannon IDs, and removes every child,
+event and sound before publishing the original empty fingerprint.
+
+This is save-state preparation, not a legacy-save compatibility claim. Raw
+stable data payloads cross the existing PIN save stream and complete seance
+teardown/reconstruction proves ownership. A versioned importer still must
+rebuild cached pointers, mission Commander/Group membership and scheduled
+event semantics before old retail saves are admitted.
+
+Verification passes 51/51 CTest in Debug and Release, plus all 36 retail
+service launches across nine Levels, both configurations and installed/mounted
+data. Four waited `rr2nw.exe --runtime-smoke` launches publish the People and
+Tank lifecycle summaries, reach `marker=level-ready` and finish with
+`runtime_shutdown=clean`.

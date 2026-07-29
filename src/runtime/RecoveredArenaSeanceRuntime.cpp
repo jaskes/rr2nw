@@ -3,8 +3,11 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <map>
 #include <new>
+#include <set>
 #include <string>
+#include <vector>
 
 class CGRPanel;
 #include "h/vehicle.h"
@@ -23,6 +26,9 @@ class CGRPanel;
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/orphan/OrphanSubjectState.h"
+#include "obase/people/PeopleSubjectState.h"
+#include "obase/cannon/CannonSubjectState.h"
+#include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkSubjectState.h"
@@ -85,6 +91,14 @@ constexpr const char kSmokerAttributeProgramName[] =
     "recovered_retail_smoker_attribute_bootstrap";
 constexpr const char kWavMetadataProgramName[] =
     "recovered_retail_wav_metadata_bootstrap";
+constexpr const char kRouteProgramName[] =
+    "recovered_retail_route_bootstrap";
+constexpr const char kPeopleAttributeProgramName[] =
+    "recovered_retail_people_attribute_bootstrap";
+constexpr const char kPeopleSubjectProgramName[] =
+    "recovered_retail_people_subject_bootstrap";
+constexpr const char kTankCannonAttributeProgramName[] =
+    "recovered_retail_tank_cannon_attribute_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol for the small common Bird/Portal/Orphan/Artefact/Spark/Route slice.
@@ -111,6 +125,7 @@ func void s_WriteStr(int event, str value) extern;
 func void s_WriteObjectID(int event, int objectID, int cachePos) extern;
 func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
 func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
+func int s_SearchSeanceClassTable(str tableName) extern;
 func int s_AddClassTable(str className, int maxTableSize) extern;
 func void s_New(int classTableID, str name, var int objectID, var int cachePos) extern;
 func void s_NewObject(int classTableID, str name) extern;
@@ -199,8 +214,6 @@ var int sparkAttrTable, routeTable, birdAttrTable, portalTable;
 var int orphanAttrTable, artefactAttrTable, objectID, cachePos;
 {
   sparkAttrTable := s_AddClassTable("SparkAttr", 3);
-  routeTable := s_AddClassTable("Route", 100);
-
   birdAttrTable := s_AddClassTable("BirdAttr", 1);
   s_New(birdAttrTable, "Bird.Attr.0", objectID, cachePos);
   SetAttributeFloat(objectID, cachePos, "m_speed", 2.0);
@@ -232,6 +245,7 @@ const int KR_SET_ATTR = 1;
 const int NO_LAND = 0;
 const int ON_LAND = 1;
 const int ON_WATER = 2;
+const int ON_OBJECTS = 3;
 const float INFINITY_TIME = -1;
 const int LIGHT_COLOR_RED = 1;
 const int LIGHT_COLOR_GREEN = 2;
@@ -248,6 +262,9 @@ const int START_FARTING extern;
 const int lmp_EV_START extern;
 const int lmp_EV_SETENDPOS extern;
 const int taxi_SET_TO_POS extern;
+  const int pe_EVCMD_START extern;
+  const int pe_EVCMD_START_EX extern;
+  const int sk_EV_PROG extern;
 
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
@@ -257,11 +274,18 @@ func void s_WriteStr(int event, str value) extern;
 func void s_WriteObjectID(int event, int objectID, int cachePos) extern;
 func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
 func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
+func void s_SearchObjectIDNoWarning(var int objectID, var int cachePos,
+                                    str name) extern;
+func void s_RemoveObject(str objectName, float from) extern;
+func void s_ForceRemoveObject(str objectName) extern;
 func int s_AddClassTable(str className, int maxTableSize) extern;
 func void s_New(int classTableID, str name,
                 var int objectID, var int cachePos) extern;
 func void s_NewObject(int classTableID, str name) extern;
 func void s_NewObjectN(str className, str name) extern;
+func void s_LoadRoute(int classTableID, str fileName, str routeName) extern;
+func int s_SearchSeanceClassTable(str tableName) extern;
+func int s_SetCommander(str objectName, str commanderName) extern;
 
 func int ConvertColor(int r, int g, int b)
 {
@@ -317,6 +341,52 @@ var int event;
   s_WriteStr(event, value);
   s_CloseEventData(event);
   s_SendEventNow(event, s_ATTR_MSG_SET_STR, objectID, cachePos);
+}
+
+// Exact SYS.SCI helper required by populated People scripts.  The event is
+// delivered to the real Skin object; this is not a parser-only compatibility
+// shim.
+func void SetAnimateBlock(int objectID, int cachePos,
+                          int animateSet, int position, str name)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  if animateSet = 0
+  then s_WriteStr(event, "set0");
+  else s_WriteStr(event, "set");
+  s_WriteInt(event, position);
+  s_WriteStr(event, name);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_PROG, objectID, cachePos);
+}
+
+// Exact DEFINES.SCI helpers used by retail People and Tank animation setup.
+func void CreateAnimSets(var int objectID, var int cachePos,
+                         str skinName, int initialSet, int count)
+var int event;
+{
+  s_SearchObjectID(objectID, cachePos, skinName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, "createAniSets");
+  s_WriteInt(event, initialSet);
+  s_WriteInt(event, count);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_PROG, objectID, cachePos);
+}
+
+func void CreateAnimSetsAuto(var int objectID, var int cachePos,
+                             str skinName, int initialSet,
+                             int count, int programLength)
+var int event;
+{
+  s_SearchObjectID(objectID, cachePos, skinName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, "createAniSetsAuto");
+  s_WriteInt(event, initialSet);
+  s_WriteInt(event, count);
+  s_WriteInt(event, programLength);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_PROG, objectID, cachePos);
 }
 
 func void fount_SetColors(int objectID, int cachePos,
@@ -451,6 +521,35 @@ func void main()
 }
 )RR2NW_SCRIPT";
 
+const char kRouteBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_LoadRoute();
+}
+)RR2NW_SCRIPT";
+
+const char kPeopleAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreatePeopleAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kPeopleSubjectBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreatePeoples();
+  SetAnimatePeople();
+}
+)RR2NW_SCRIPT";
+
+const char kTankCannonAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateCannonsAndTankAttr();
+}
+)RR2NW_SCRIPT";
+
 const char kSmokerAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
@@ -545,6 +644,285 @@ bool ReadBoundedRetailAttributeSource(const char* relativePath,
   return read && source->find('\0') == std::string::npos;
 }
 
+struct ScriptFunctionDefinition {
+  std::string source;
+  std::string scan;
+};
+
+bool IsScriptIdentifierCharacter(char value) {
+  return std::isalnum(static_cast<unsigned char>(value)) || value == '_';
+}
+
+std::string SanitizeScriptForStructure(const std::string& source) {
+  std::string result(source);
+  enum State { kCode, kLineComment, kBlockComment, kString } state = kCode;
+  for (std::size_t i = 0; i < result.size(); ++i) {
+    const char value = source[i];
+    const char next = i + 1 < source.size() ? source[i + 1] : 0;
+    if (state == kCode) {
+      if (value == '/' && next == '/') {
+        result[i] = result[i + 1] = ' ';
+        ++i;
+        state = kLineComment;
+      } else if (value == '/' && next == '*') {
+        result[i] = result[i + 1] = ' ';
+        ++i;
+        state = kBlockComment;
+      } else if (value == '"') {
+        result[i] = ' ';
+        state = kString;
+      }
+    } else if (state == kLineComment) {
+      if (value == '\r' || value == '\n') {
+        state = kCode;
+      } else {
+        result[i] = ' ';
+      }
+    } else if (state == kBlockComment) {
+      result[i] = ' ';
+      if (value == '*' && next == '/') {
+        result[i + 1] = ' ';
+        ++i;
+        state = kCode;
+      }
+    } else {
+      result[i] = ' ';
+      if (value == '"') state = kCode;
+    }
+  }
+  return result;
+}
+
+void ParseScriptFunctions(
+    const std::string& source,
+    std::map<std::string, ScriptFunctionDefinition>* definitions,
+    bool replaceExisting) {
+  if (definitions == nullptr) return;
+  const std::string scan = SanitizeScriptForStructure(source);
+  std::size_t position = 0;
+  while ((position = scan.find("func", position)) != std::string::npos) {
+    const std::size_t keywordEnd = position + 4;
+    if ((position > 0 && IsScriptIdentifierCharacter(scan[position - 1])) ||
+        (keywordEnd < scan.size() &&
+         IsScriptIdentifierCharacter(scan[keywordEnd]))) {
+      position = keywordEnd;
+      continue;
+    }
+    std::size_t cursor = keywordEnd;
+    while (cursor < scan.size() &&
+           std::isspace(static_cast<unsigned char>(scan[cursor])))
+      ++cursor;
+    while (cursor < scan.size() && IsScriptIdentifierCharacter(scan[cursor]))
+      ++cursor;
+    while (cursor < scan.size() &&
+           std::isspace(static_cast<unsigned char>(scan[cursor])))
+      ++cursor;
+    const std::size_t nameBegin = cursor;
+    while (cursor < scan.size() && IsScriptIdentifierCharacter(scan[cursor]))
+      ++cursor;
+    if (cursor == nameBegin) {
+      position = keywordEnd;
+      continue;
+    }
+    const std::string name = scan.substr(nameBegin, cursor - nameBegin);
+    const std::size_t openBrace = scan.find('{', cursor);
+    const std::size_t nextFunction = scan.find("func", cursor);
+    const std::size_t external = scan.find("extern", cursor);
+    if (openBrace == std::string::npos ||
+        (nextFunction != std::string::npos && nextFunction < openBrace) ||
+        (external != std::string::npos && external < openBrace)) {
+      position = cursor;
+      continue;
+    }
+    int depth = 1;
+    std::size_t end = openBrace + 1;
+    while (end < scan.size() && depth > 0) {
+      if (scan[end] == '{') ++depth;
+      if (scan[end] == '}') --depth;
+      ++end;
+    }
+    if (depth != 0) return;
+    if (replaceExisting || definitions->find(name) == definitions->end()) {
+      ScriptFunctionDefinition definition = {
+          source.substr(position, end - position),
+          scan.substr(position, end - position)};
+      (*definitions)[name] = definition;
+    }
+    position = end;
+  }
+}
+
+void CollectScriptCalls(const std::string& scan,
+                        const std::map<std::string, ScriptFunctionDefinition>&
+                            available,
+                        const std::set<std::string>& alreadyDefined,
+                        std::set<std::string>* selected,
+                        std::vector<std::string>* queue) {
+  if (selected == nullptr || queue == nullptr) return;
+  std::size_t position = 0;
+  while (position < scan.size()) {
+    if (!std::isalpha(static_cast<unsigned char>(scan[position])) &&
+        scan[position] != '_') {
+      ++position;
+      continue;
+    }
+    const std::size_t begin = position++;
+    while (position < scan.size() &&
+           IsScriptIdentifierCharacter(scan[position]))
+      ++position;
+    const std::string name = scan.substr(begin, position - begin);
+    std::size_t after = position;
+    while (after < scan.size() &&
+           std::isspace(static_cast<unsigned char>(scan[after])))
+      ++after;
+    if (after < scan.size() && scan[after] == '(' &&
+        available.find(name) != available.end() &&
+        alreadyDefined.find(name) == alreadyDefined.end() &&
+        selected->insert(name).second) {
+      queue->push_back(name);
+    }
+  }
+}
+
+bool AppendScriptFunctionClosure(
+    const std::string& name,
+    const std::map<std::string, ScriptFunctionDefinition>& available,
+    const std::set<std::string>& alreadyDefined,
+    std::set<std::string>* emitted, std::set<std::string>* visiting,
+    std::string* supportSource) {
+  if (emitted == nullptr || visiting == nullptr || supportSource == nullptr)
+    return false;
+  if (alreadyDefined.find(name) != alreadyDefined.end() ||
+      emitted->find(name) != emitted->end())
+    return true;
+  const std::map<std::string, ScriptFunctionDefinition>::const_iterator it =
+      available.find(name);
+  if (it == available.end() || !visiting->insert(name).second) return false;
+
+  std::set<std::string> selected;
+  std::vector<std::string> dependencies;
+  const std::size_t body = it->second.scan.find('{');
+  if (body == std::string::npos) return false;
+  CollectScriptCalls(it->second.scan.substr(body + 1), available,
+                     alreadyDefined, &selected, &dependencies);
+  for (std::size_t i = 0; i < dependencies.size(); ++i) {
+    if (!AppendScriptFunctionClosure(dependencies[i], available,
+                                     alreadyDefined, emitted, visiting,
+                                     supportSource))
+      return false;
+  }
+  visiting->erase(name);
+  try {
+    supportSource->append(it->second.source);
+    supportSource->push_back('\n');
+    emitted->insert(name);
+  } catch (...) {
+    return false;
+  }
+  return true;
+}
+
+bool BuildPeopleSupportClosure(const std::string& peopleSource,
+                               const std::string& subjectSource,
+                               const std::string& unitsSource,
+                               const std::string& sysfSource,
+                               std::string* supportSource) {
+  if (supportSource == nullptr) return false;
+  std::map<std::string, ScriptFunctionDefinition> available;
+  ParseScriptFunctions(unitsSource, &available, true);
+  ParseScriptFunctions(sysfSource, &available, false);
+
+  std::map<std::string, ScriptFunctionDefinition> rootDefinitions;
+  ParseScriptFunctions(peopleSource, &rootDefinitions, true);
+  ParseScriptFunctions(subjectSource, &rootDefinitions, true);
+  std::set<std::string> alreadyDefined;
+  for (std::map<std::string, ScriptFunctionDefinition>::const_iterator it =
+           rootDefinitions.begin();
+       it != rootDefinitions.end(); ++it)
+    alreadyDefined.insert(it->first);
+
+  std::set<std::string> selected;
+  std::vector<std::string> roots;
+  CollectScriptCalls(SanitizeScriptForStructure(peopleSource), available,
+                     alreadyDefined, &selected, &roots);
+  CollectScriptCalls(SanitizeScriptForStructure(subjectSource), available,
+                     alreadyDefined, &selected, &roots);
+  supportSource->clear();
+  std::set<std::string> emitted;
+  std::set<std::string> visiting;
+  for (std::size_t i = 0; i < roots.size(); ++i)
+    if (!AppendScriptFunctionClosure(roots[i], available, alreadyDefined,
+                                     &emitted, &visiting, supportSource))
+      return false;
+  return true;
+}
+
+bool IsPeopleCreationPrimitive(const std::string& name) {
+  return name == "CreateMan" || name == "CreateManEx" ||
+         name == "CreateManName" || name == "CreateManNum";
+}
+
+int CountPeopleCreationsInFunction(
+    const std::string& name,
+    const std::map<std::string, ScriptFunctionDefinition>& definitions,
+    std::set<std::string>* visiting, bool* valid) {
+  if (visiting == nullptr || valid == nullptr || !*valid) return 0;
+  if (IsPeopleCreationPrimitive(name)) return 1;
+  const std::map<std::string, ScriptFunctionDefinition>::const_iterator it =
+      definitions.find(name);
+  if (it == definitions.end()) return 0;
+  if (!visiting->insert(name).second) {
+    *valid = false;
+    return 0;
+  }
+
+  const std::string& scan = it->second.scan;
+  std::size_t position = scan.find('{');
+  int count = 0;
+  if (position != std::string::npos) ++position;
+  while (position < scan.size()) {
+    if (!std::isalpha(static_cast<unsigned char>(scan[position])) &&
+        scan[position] != '_') {
+      ++position;
+      continue;
+    }
+    const std::size_t begin = position++;
+    while (position < scan.size() &&
+           IsScriptIdentifierCharacter(scan[position]))
+      ++position;
+    const std::string call = scan.substr(begin, position - begin);
+    std::size_t after = position;
+    while (after < scan.size() &&
+           std::isspace(static_cast<unsigned char>(scan[after])))
+      ++after;
+    if (after < scan.size() && scan[after] == '(' &&
+        (IsPeopleCreationPrimitive(call) ||
+         definitions.find(call) != definitions.end())) {
+      count += CountPeopleCreationsInFunction(call, definitions, visiting,
+                                              valid);
+      if (!*valid) break;
+    }
+  }
+  visiting->erase(name);
+  return count;
+}
+
+int CountPeopleCreations(const std::string& peopleSource,
+                         const std::string& subjectSource,
+                         const std::string& unitsSource,
+                         const std::string& sysfSource) {
+  std::map<std::string, ScriptFunctionDefinition> definitions;
+  ParseScriptFunctions(sysfSource, &definitions, true);
+  ParseScriptFunctions(unitsSource, &definitions, true);
+  ParseScriptFunctions(peopleSource, &definitions, true);
+  ParseScriptFunctions(subjectSource, &definitions, true);
+  bool valid = true;
+  std::set<std::string> visiting;
+  const int count = CountPeopleCreationsInFunction(
+      "main_CreatePeoples", definitions, &visiting, &valid);
+  return valid ? count : -1;
+}
+
 struct FarterSubjectScriptSummary {
   bool tablePresent;
   int objectCount;
@@ -559,6 +937,167 @@ int CountTextOccurrences(const std::string& text, const char* pattern) {
     position += length;
   }
   return count;
+}
+
+int CountStandaloneCalls(const std::string& text, const char* functionName) {
+  const std::string marker = std::string(functionName) + "(";
+  int count = 0;
+  std::size_t position = 0;
+  while ((position = text.find(marker, position)) != std::string::npos) {
+    const bool standalone =
+        position == 0 ||
+        (!std::isalnum(static_cast<unsigned char>(text[position - 1])) &&
+         text[position - 1] != '_');
+    if (standalone) ++count;
+    position += marker.size();
+  }
+  return count;
+}
+
+bool CompactScriptSource(const std::string& source, std::string* compact) {
+  if (compact == nullptr) return false;
+  compact->clear();
+  try {
+    compact->reserve(source.size());
+  } catch (...) {
+    return false;
+  }
+  bool lineComment = false;
+  bool blockComment = false;
+  bool quoted = false;
+  for (std::size_t index = 0; index < source.size(); ++index) {
+    const char current = source[index];
+    const char next = index + 1 < source.size() ? source[index + 1] : '\0';
+    if (lineComment) {
+      if (current == '\r' || current == '\n') lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (current == '*' && next == '/') {
+        blockComment = false;
+        ++index;
+      }
+      continue;
+    }
+    if (!quoted && current == '/' && next == '/') {
+      lineComment = true;
+      ++index;
+      continue;
+    }
+    if (!quoted && current == '/' && next == '*') {
+      blockComment = true;
+      ++index;
+      continue;
+    }
+    if (quoted && current == '\\' && next != '\0') {
+      compact->push_back(current);
+      compact->push_back(next);
+      ++index;
+      continue;
+    }
+    if (current == '"') quoted = !quoted;
+    if (quoted || !std::isspace(static_cast<unsigned char>(current)))
+      compact->push_back(current);
+  }
+  return !blockComment && !quoted;
+}
+
+int InspectSingleTableCapacity(const std::string& compact,
+                               const char* tableName,
+                               bool allowAbsent) {
+  const std::string marker =
+      std::string("s_AddClassTable(\"") + tableName + "\",";
+  const std::size_t first = compact.find(marker);
+  if (first == std::string::npos) return allowAbsent ? 0 : -1;
+  if (compact.find(marker, first + marker.size()) != std::string::npos)
+    return -1;
+  std::size_t position = first + marker.size();
+  int capacity = 0;
+  int digits = 0;
+  while (position < compact.size() &&
+         std::isdigit(static_cast<unsigned char>(compact[position]))) {
+    capacity = capacity * 10 + compact[position] - '0';
+    ++position;
+    ++digits;
+  }
+  return digits > 0 && capacity > 0 && capacity <= 512 ? capacity : -1;
+}
+
+struct PeopleScriptSummary {
+  int attributeCapacity;
+  int attributeCount;
+  int subjectCapacity;
+  int subjectCount;
+};
+
+struct TankCannonScriptSummary {
+  int cannonAttributeCapacity;
+  int tankAttributeCapacity;
+  int cannonSubjectCapacity;
+  int tankSubjectCapacity;
+};
+
+bool InspectTankCannonScripts(const std::string& attributeSource,
+                              const std::string& localMainSource,
+                              const std::string& setTankSource,
+                              TankCannonScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  std::string attributes;
+  std::string localMain;
+  std::string setTank;
+  if (!CompactScriptSource(attributeSource, &attributes) ||
+      !CompactScriptSource(localMainSource, &localMain) ||
+      !CompactScriptSource(setTankSource, &setTank))
+    return false;
+  const int cannonAttributeCapacity =
+      InspectSingleTableCapacity(attributes, "CannonAttr", true);
+  const int tankAttributeCapacity =
+      InspectSingleTableCapacity(attributes, "TankAttr", true);
+  const int cannonSubjectCapacity =
+      InspectSingleTableCapacity(localMain, "Cannon", false);
+  const int tankSubjectCapacity =
+      InspectSingleTableCapacity(setTank, "Tank", false);
+  if (cannonAttributeCapacity < 0 || tankAttributeCapacity < 0 ||
+      cannonSubjectCapacity <= 0 || tankSubjectCapacity <= 0)
+    return false;
+  summary->cannonAttributeCapacity = cannonAttributeCapacity;
+  summary->tankAttributeCapacity = tankAttributeCapacity;
+  summary->cannonSubjectCapacity = cannonSubjectCapacity;
+  summary->tankSubjectCapacity = tankSubjectCapacity;
+  return true;
+}
+
+bool InspectPeopleScripts(const std::string& attributeSource,
+                          const std::string& subjectSource,
+                          const std::string& unitsSource,
+                          const std::string& sysfSource,
+                          PeopleScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  std::string attributes;
+  std::string subjects;
+  if (!CompactScriptSource(attributeSource, &attributes) ||
+      !CompactScriptSource(subjectSource, &subjects))
+    return false;
+  const int attributeCapacity =
+      InspectSingleTableCapacity(attributes, "PeopleAttr", true);
+  const int subjectCapacity =
+      InspectSingleTableCapacity(subjects, "People", true);
+  if (attributeCapacity < 0 || subjectCapacity < 0) return false;
+  const int attributeCount =
+      CountStandaloneCalls(attributes, "CreatePeopleAttr");
+  const int subjectCount = CountPeopleCreations(
+      attributeSource, subjectSource, unitsSource, sysfSource);
+  if (attributeCount < 0 || subjectCount < 0 ||
+      (attributeCapacity == 0 && attributeCount != 0) ||
+      (subjectCapacity == 0 && subjectCount != 0) ||
+      attributeCount > attributeCapacity ||
+      (subjectCapacity > 0 && subjectCount >= subjectCapacity))
+    return false;
+  summary->attributeCapacity = attributeCapacity;
+  summary->attributeCount = attributeCount;
+  summary->subjectCapacity = subjectCapacity;
+  summary->subjectCount = subjectCount;
+  return true;
 }
 
 bool InspectFarterSubjectScript(const std::string& source,
@@ -803,6 +1342,12 @@ struct RecoveredArenaSeanceState {
   bool sparkSubjectReady;
   bool sparkVisualResourcesReady;
   bool routeReady;
+  bool peopleAttributesReady;
+  bool peopleReferencesReady;
+  bool peopleSubjectReady;
+  bool tankCannonAttributesReady;
+  bool tankReferencesReady;
+  bool tankCannonSubjectTablesReady;
   bool vehicleReady;
   int vehicleAttributeCount;
   int vehicleAttributeCapacity;
@@ -925,6 +1470,41 @@ struct RecoveredArenaSeanceState {
   unsigned long long smokeVisualResourceFingerprint;
   int dynSmokerCapacity;
   unsigned long long dynSmokerFingerprint;
+  int peopleAttributeCapacity;
+  int peopleAttributeCount;
+  int peopleSubjectCapacity;
+  int peopleSubjectCount;
+  int peopleSubjectSoundCount;
+  unsigned long long peopleAttributeFingerprint;
+  unsigned long long peopleSubjectFingerprint;
+  int peopleProbeScheduledMoves;
+  int peopleProbeBulletDamageApplications;
+  int peopleProbeDeathTransitions;
+  int peopleProbeSaveStateRoundTrips;
+  int peopleProbeRollbacks;
+  int cannonAttributeCapacity;
+  int cannonAttributeCount;
+  int cannonSubjectCapacity;
+  int cannonSubjectCount;
+  int tankAttributeCapacity;
+  int tankAttributeCount;
+  int tankSubjectCapacity;
+  int tankSubjectCount;
+  unsigned long long cannonAttributeFingerprint;
+  unsigned long long cannonSubjectFingerprint;
+  unsigned long long tankAttributeFingerprint;
+  unsigned long long tankSubjectFingerprint;
+  int tankProbeAvailable;
+  int tankProbeValidStarts;
+  int tankProbeDynamicReady;
+  int tankProbeRenderReady;
+  int tankProbeCannonReady;
+  int tankProbeScheduledMoves;
+  int tankProbeBulletDamageApplications;
+  int tankProbeDeathTransitions;
+  int tankProbeDeathEffects;
+  int tankProbeSaveStateRoundTrips;
+  int tankProbeRollbacks;
   char lastError[256];
 };
 
@@ -1201,6 +1781,205 @@ bool RunBulletAttributeBootstrap(SimulationContext* context,
       kBulletAttributeBootstrapSuffix, kBulletAttributeProgramName,
       RECOVERED_ARENA_SEANCE_EXT_BULLET_ATTRIBUTE_SOURCE_UNAVAILABLE,
       "BULLET.SCI + SCINC\\bullet_loc.sci", true);
+}
+
+bool RunRouteBootstrap(SimulationContext* context, double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "SCINC\\load_route.sci", nullptr,
+      kRouteBootstrapSuffix, kRouteProgramName,
+      RECOVERED_ARENA_SEANCE_EXT_ROUTE_SOURCE_UNAVAILABLE,
+      "SCINC\\load_route.sci", true);
+}
+
+bool ReadPeopleScriptSummary(PeopleScriptSummary* summary) {
+  std::string attributeSource;
+  std::string subjectSource;
+  std::string unitsSource;
+  std::string sysfSource;
+  if (summary == nullptr ||
+      !ReadBoundedRetailAttributeSource("SCINC\\PEOPLE.SCI",
+                                        &attributeSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\set_people.sci",
+                                        &subjectSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\units.sci", &unitsSource) ||
+      !ReadBoundedRetailAttributeSource("..\\SYSF.SCI", &sysfSource)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_SOURCE_UNAVAILABLE |
+            RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_SOURCE_UNAVAILABLE,
+        "could not read Level-local PEOPLE.SCI/set_people.sci/units.sci/SYSF.SCI");
+    return false;
+  }
+  if (!InspectPeopleScripts(attributeSource, subjectSource, unitsSource,
+                            sysfSource, summary)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_ROSTER_INVALID |
+            RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_ROSTER_INVALID,
+        "Level-local People table/call shape is invalid");
+    return false;
+  }
+  return true;
+}
+
+bool RunPeopleAttributeBootstrap(SimulationContext* context,
+                                 double startTime) {
+  std::string peopleSource;
+  std::string unitsSource;
+  std::string sysfSource;
+  if (!ReadBoundedRetailAttributeSource("SCINC\\PEOPLE.SCI",
+                                        &peopleSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\units.sci", &unitsSource) ||
+      !ReadBoundedRetailAttributeSource("..\\SYSF.SCI", &sysfSource)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+        "could not read bounded PEOPLE.SCI/units.sci/SYSF.SCI");
+    return false;
+  }
+  std::string supportSource;
+  if (!BuildPeopleSupportClosure(peopleSource, std::string(), unitsSource,
+                                 sysfSource, &supportSource)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_SOURCE_UNAVAILABLE,
+        "could not build bounded People attribute support closure");
+    return false;
+  }
+  std::string program;
+  try {
+    program.reserve(sizeof(kRetailAttributeBootstrapPrefix) +
+                    supportSource.size() + peopleSource.size() +
+                    sizeof(kPeopleAttributeBootstrapSuffix) + 3u);
+    program.append(kRetailAttributeBootstrapPrefix);
+    program.append(supportSource);
+    program.append(peopleSource);
+    program.push_back('\n');
+    program.append(kPeopleAttributeBootstrapSuffix);
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
+           "could not allocate bounded People attribute bootstrap source");
+    return false;
+  }
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kPeopleAttributeProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
+}
+
+bool RunPeopleSubjectBootstrap(SimulationContext* context,
+                               double startTime) {
+  std::string peopleSource;
+  std::string subjectSource;
+  std::string unitsSource;
+  std::string sysfSource;
+  if (!ReadBoundedRetailAttributeSource("SCINC\\PEOPLE.SCI", &peopleSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\set_people.sci",
+                                        &subjectSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\units.sci", &unitsSource) ||
+      !ReadBoundedRetailAttributeSource("..\\SYSF.SCI", &sysfSource)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_SOURCE_UNAVAILABLE,
+        "could not read bounded PEOPLE.SCI/set_people.sci/units.sci/SYSF.SCI");
+    return false;
+  }
+
+  std::string supportSource;
+  if (!BuildPeopleSupportClosure(peopleSource, subjectSource, unitsSource,
+                                 sysfSource, &supportSource)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_SOURCE_UNAVAILABLE,
+        "could not build bounded People support-function closure");
+    return false;
+  }
+
+  std::string program;
+  try {
+    program.reserve(sizeof(kRetailAttributeBootstrapPrefix) +
+                    supportSource.size() + peopleSource.size() +
+                    subjectSource.size() +
+                    sizeof(kPeopleSubjectBootstrapSuffix) + 4u);
+    program.append(kRetailAttributeBootstrapPrefix);
+    program.append(supportSource);
+    program.append(peopleSource);
+    program.push_back('\n');
+    program.append(subjectSource);
+    program.push_back('\n');
+    program.append(kPeopleSubjectBootstrapSuffix);
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
+           "could not allocate bounded People subject bootstrap source");
+    return false;
+  }
+
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kPeopleSubjectProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
+}
+
+bool ReadTankCannonScriptSummary(TankCannonScriptSummary* summary) {
+  std::string attributeSource;
+  std::string localMainSource;
+  std::string setTankSource;
+  if (summary == nullptr ||
+      !ReadBoundedRetailAttributeSource("SCINC\\TANK.SCI",
+                                        &attributeSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\localmain.sci",
+                                        &localMainSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\set_tank.sci",
+                                        &setTankSource)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SOURCE_UNAVAILABLE,
+        "could not read Level-local TANK.SCI/localmain.sci/set_tank.sci");
+    return false;
+  }
+  if (!InspectTankCannonScripts(attributeSource, localMainSource,
+                                setTankSource, summary)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_ATTRIBUTE_ROSTER_INVALID |
+            RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SUBJECT_TABLE_FAILURE,
+        "Level-local Tank/Cannon table shape is invalid");
+    return false;
+  }
+  return true;
+}
+
+bool RunTankCannonAttributeBootstrap(SimulationContext* context,
+                                     double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "SCINC\\TANK.SCI", nullptr,
+      kTankCannonAttributeBootstrapSuffix, kTankCannonAttributeProgramName,
+      RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SOURCE_UNAVAILABLE,
+      "SCINC\\TANK.SCI", true);
+}
+
+bool InitializeTankCannonSubjectTables(
+    SimulationContext* context, const TankCannonScriptSummary& script) {
+  if (context == nullptr ||
+      g_arena.addClassTable("Cannon", script.cannonSubjectCapacity) ==
+          ct_NULLID ||
+      g_arena.addClassTable("Tank", script.tankSubjectCapacity) == ct_NULLID) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SUBJECT_TABLE_FAILURE,
+        "could not create exact Level-local Cannon/Tank subject tables");
+    return false;
+  }
+  CannonSubjectState_SetExpectedCapacities(
+      script.cannonAttributeCapacity, script.cannonSubjectCapacity);
+  TankSubjectState_SetExpectedCapacities(
+      script.tankAttributeCapacity, script.tankSubjectCapacity);
+  return true;
 }
 
 bool RunWavMetadataBootstrap(SimulationContext* context, double startTime,
@@ -2935,6 +3714,260 @@ bool PublishFarterSubject(SimulationContext* context, double startTime) {
   return true;
 }
 
+bool PublishPeopleAttributes(SimulationContext* context,
+                             const PeopleScriptSummary& script) {
+  const bool tablePresent =
+      g_arena.searchSeanceClassTable("PeopleAttr") != ct_NULLID;
+  if (tablePresent != (script.attributeCapacity > 0) ||
+      PeopleSubjectState_AttributeCapacity() != script.attributeCapacity ||
+      PeopleSubjectState_AttributeCount(context) != script.attributeCount) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_ROSTER_INVALID,
+        "PeopleAttr owner does not match Level-local PEOPLE.SCI");
+    return false;
+  }
+  const unsigned long long fingerprint =
+      PeopleSubjectState_AttributeFingerprint(context);
+  if (fingerprint == 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_ROSTER_INVALID,
+        "PeopleAttr roster has no stable identity");
+    return false;
+  }
+  g_state.peopleAttributeCapacity = script.attributeCapacity;
+  g_state.peopleAttributeCount = script.attributeCount;
+  g_state.peopleAttributeFingerprint = fingerprint;
+  g_state.peopleAttributesReady = true;
+  return true;
+}
+
+bool PublishTankCannonAttributes(
+    SimulationContext* context, const TankCannonScriptSummary& script) {
+  const int cannonCount = CannonSubjectState_AttributeCount(context);
+  const int tankCount = TankSubjectState_AttributeCount(context);
+  const unsigned long long cannonFingerprint =
+      CannonSubjectState_AttributeFingerprint(context);
+  const unsigned long long tankFingerprint =
+      TankSubjectState_AttributeFingerprint(context);
+  const bool cannonTablePresent =
+      g_arena.searchSeanceClassTable("CannonAttr") != ct_NULLID;
+  const bool tankTablePresent =
+      g_arena.searchSeanceClassTable("TankAttr") != ct_NULLID;
+  if (cannonTablePresent != (script.cannonAttributeCapacity > 0) ||
+      tankTablePresent != (script.tankAttributeCapacity > 0) ||
+      CannonSubjectState_AttributeCapacity() !=
+          script.cannonAttributeCapacity ||
+      TankSubjectState_AttributeCapacity() != script.tankAttributeCapacity ||
+      cannonCount < 0 || cannonCount > script.cannonAttributeCapacity ||
+      tankCount < 0 || tankCount > script.tankAttributeCapacity ||
+      cannonFingerprint == 0 || tankFingerprint == 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_ATTRIBUTE_ROSTER_INVALID,
+        "CannonAttr/TankAttr owner does not match Level-local TANK.SCI");
+    return false;
+  }
+  g_state.cannonAttributeCapacity = script.cannonAttributeCapacity;
+  g_state.cannonAttributeCount = cannonCount;
+  g_state.tankAttributeCapacity = script.tankAttributeCapacity;
+  g_state.tankAttributeCount = tankCount;
+  g_state.cannonAttributeFingerprint = cannonFingerprint;
+  g_state.tankAttributeFingerprint = tankFingerprint;
+  g_state.tankCannonAttributesReady = true;
+  return true;
+}
+
+bool PublishTankReferences(SimulationContext* context, double startTime) {
+  if (g_state.tankAttributeCount > 0 &&
+      !TankSubjectState_UpdateAttributes(context, startTime)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TANK_REFERENCE_INVALID,
+                   "TankAttr finalization failed");
+    return false;
+  }
+  const bool referencesResolved =
+      TankSubjectState_AttributeReferencesResolved(context);
+  if (!g_state.tankCannonAttributesReady || !referencesResolved ||
+      CannonSubjectState_AttributeFingerprint(context) !=
+          g_state.cannonAttributeFingerprint ||
+      TankSubjectState_AttributeFingerprint(context) !=
+          g_state.tankAttributeFingerprint) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Tank attribute dependencies are unresolved or unstable: %s",
+                  referencesResolved ? "fingerprint" :
+                      TankSubjectState_FirstUnresolvedReference());
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TANK_REFERENCE_INVALID, message);
+    return false;
+  }
+  g_state.tankReferencesReady = true;
+  return true;
+}
+
+bool PublishTankCannonSubjectTables(
+    SimulationContext* context, const TankCannonScriptSummary& script) {
+  const int cannonCount = CannonSubjectState_LiveCount(context);
+  const int tankCount = TankSubjectState_LiveCount(context);
+  const unsigned long long cannonFingerprint =
+      CannonSubjectState_SubjectFingerprint(context);
+  const unsigned long long tankFingerprint =
+      TankSubjectState_SubjectFingerprint(context);
+  if (!g_state.tankReferencesReady ||
+      CannonSubjectState_SubjectCapacity() != script.cannonSubjectCapacity ||
+      TankSubjectState_SubjectCapacity() != script.tankSubjectCapacity ||
+      cannonCount != 0 || tankCount != 0 || cannonFingerprint == 0 ||
+      tankFingerprint == 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SUBJECT_TABLE_FAILURE,
+        "Level-local Cannon/Tank subject owners are not pristine");
+    return false;
+  }
+  g_state.cannonSubjectCapacity = script.cannonSubjectCapacity;
+  g_state.cannonSubjectCount = cannonCount;
+  g_state.tankSubjectCapacity = script.tankSubjectCapacity;
+  g_state.tankSubjectCount = tankCount;
+  g_state.cannonSubjectFingerprint = cannonFingerprint;
+  g_state.tankSubjectFingerprint = tankFingerprint;
+  g_state.tankCannonSubjectTablesReady = true;
+  return true;
+}
+
+bool PublishTankLifecycle(SimulationContext* context, double startTime) {
+  if (!g_state.tankCannonSubjectTablesReady || !g_state.vehicleReady) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TANK_LIFECYCLE_FAILURE,
+                   "Tank lifecycle requires pristine owners and Vehicle");
+    return false;
+  }
+  STankLifecycleProbeSummary probe = {};
+  if (g_state.tankAttributeCount > 0) {
+    if (!TankSubjectState_ProbeLifecycle(context, startTime, &probe)) {
+      char message[256] = {};
+      std::snprintf(
+          message, sizeof(message),
+          "Tank probe available/start/dyn/render/cannon/move/bullet/death/"
+          "effects/save/rollback=%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
+          probe.available, probe.validStarts, probe.dynamicReady,
+          probe.renderReady, probe.cannonReady, probe.scheduledMoves,
+          probe.bulletDamageApplications, probe.deathTransitions,
+          probe.deathEffects, probe.saveStateRoundTrips, probe.rollbacks);
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TANK_LIFECYCLE_FAILURE,
+                     message);
+      return false;
+    }
+  } else {
+    // Retail Level.06 creates an empty TankAttr owner; Level.07 omits the
+    // entire Tank/Cannon layer. Both are exact not-applicable outcomes.
+    probe.rollbacks = 1;
+  }
+  g_state.tankProbeAvailable = probe.available;
+  g_state.tankProbeValidStarts = probe.validStarts;
+  g_state.tankProbeDynamicReady = probe.dynamicReady;
+  g_state.tankProbeRenderReady = probe.renderReady;
+  g_state.tankProbeCannonReady = probe.cannonReady;
+  g_state.tankProbeScheduledMoves = probe.scheduledMoves;
+  g_state.tankProbeBulletDamageApplications =
+      probe.bulletDamageApplications;
+  g_state.tankProbeDeathTransitions = probe.deathTransitions;
+  g_state.tankProbeDeathEffects = probe.deathEffects;
+  g_state.tankProbeSaveStateRoundTrips = probe.saveStateRoundTrips;
+  g_state.tankProbeRollbacks = probe.rollbacks;
+  return true;
+}
+
+bool PublishPeopleReferences(SimulationContext* context, double startTime) {
+  if (!g_state.peopleAttributesReady) return false;
+  if (g_state.peopleAttributeCount > 0) {
+    // This is the original LEVEL0.SC s_UpdateAttributes boundary. It runs only
+    // after Skin, WAV, Bullet, Smoke, Explosion and Corpse have committed, so
+    // PeopleAttr::update cannot observe a partially published dependency graph.
+    if (!PeopleSubjectState_UpdateAttributes(context, startTime)) {
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_REFERENCE_INVALID,
+                     "PeopleAttr finalization failed");
+      return false;
+    }
+  }
+  const bool bulletGraphStable = g_state.bulletReferencesReady
+      ? BulletAttributeState_ReferencesResolved(context) &&
+            BulletAttributeState_ReferenceFingerprint(context) ==
+                g_state.bulletReferenceFingerprint
+      : g_state.bulletReferenceFingerprint == 0 &&
+            BulletAttributeState_CachesUnresolved(context);
+  if (PeopleSubjectState_AttributeFingerprint(context) !=
+          g_state.peopleAttributeFingerprint ||
+      !bulletGraphStable) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_REFERENCE_INVALID,
+                   "PeopleAttr finalization changed a committed dependency graph");
+    return false;
+  }
+  g_state.peopleReferencesReady = true;
+  return true;
+}
+
+bool PublishPeopleSubject(SimulationContext* context, double startTime,
+                          const PeopleScriptSummary& script) {
+  if (!g_state.peopleReferencesReady) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_ROSTER_INVALID,
+                   "People references were not published before population");
+    return false;
+  }
+  if (!RunPeopleSubjectBootstrap(context, startTime)) return false;
+  const bool tablesReady = PeopleSubjectState_TablesReady(
+      context, script.attributeCapacity, script.subjectCapacity);
+  const int liveCount = PeopleSubjectState_LiveCount(context);
+  const bool allReady = PeopleSubjectState_AllReady(context);
+  if (!tablesReady || liveCount != script.subjectCount || !allReady) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "People first=%s table=%d live=%d expected=%d ready=%d",
+                  allReady ? "none" : PeopleSubjectState_FirstNotReady(),
+                  tablesReady ? 1 : 0, liveCount, script.subjectCount,
+                  allReady ? 1 : 0);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_ROSTER_INVALID,
+                   message);
+    return false;
+  }
+  const unsigned long long fingerprint =
+      PeopleSubjectState_SubjectFingerprint(context);
+  if (fingerprint == 0) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_ROSTER_INVALID,
+                   "People subject roster has no stable identity");
+    return false;
+  }
+
+  if (script.subjectCount > 0) {
+    SPeopleLifecycleProbeSummary probe = {};
+    if (!PeopleSubjectState_ProbeLifecycle(context, startTime, &probe)) {
+      char message[256] = {};
+      std::snprintf(
+          message, sizeof(message),
+          "People probe start/dyn/render/move/bullet/death/save/rollback="
+          "%d/%d/%d/%d/%d/%d/%d/%d",
+          probe.validStarts, probe.dynamicReady, probe.renderReady,
+          probe.scheduledMoves, probe.bulletDamageApplications,
+          probe.deathTransitions, probe.saveStateRoundTrips, probe.rollbacks);
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                     message);
+      return false;
+    }
+    g_state.peopleProbeScheduledMoves = probe.scheduledMoves;
+    g_state.peopleProbeBulletDamageApplications =
+        probe.bulletDamageApplications;
+    g_state.peopleProbeDeathTransitions = probe.deathTransitions;
+    g_state.peopleProbeSaveStateRoundTrips = probe.saveStateRoundTrips;
+    g_state.peopleProbeRollbacks = probe.rollbacks;
+  }
+  g_state.peopleSubjectCapacity = script.subjectCapacity;
+  g_state.peopleSubjectCount = script.subjectCount;
+  g_state.peopleSubjectSoundCount = PeopleSubjectState_SoundCount(context);
+  if (g_state.peopleSubjectSoundCount < 0 ||
+      g_state.peopleSubjectSoundCount > script.subjectCount) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_ROSTER_INVALID,
+                   "People-owned SoundObj roster is inconsistent");
+    return false;
+  }
+  g_state.peopleSubjectFingerprint = fingerprint;
+  g_state.peopleSubjectReady = true;
+  return true;
+}
+
 }  // namespace
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -2954,6 +3987,9 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   ArtefactAttributeState_Link();
   OrphanAttributeState_Link();
   OrphanSubjectState_Link();
+  PeopleSubjectState_Link();
+  CannonSubjectState_Link();
+  TankSubjectState_Link();
   PortalClassTable_Link();
   SparkAttributeState_Link();
   SparkSubjectState_Link();
@@ -2991,13 +4027,27 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 
   try {
     TaxiSubjectScriptSummary taxiSubjectScript = {};
+    PeopleScriptSummary peopleScript = {};
+    TankCannonScriptSummary tankCannonScript = {};
     SRecoveredWavMetadataCatalog wavCatalog = {};
     // local_createTables() owns WAVObj before LEVEL0.SC creates attributes.
     if (!RunWavMetadataBootstrap(context, startTime, &wavCatalog)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
-    if (!RunCommonAttributeBootstrap(context, startTime)) {
+    if (!ReadPeopleScriptSummary(&peopleScript)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    PeopleSubjectState_SetExpectedCapacities(
+        peopleScript.attributeCapacity, peopleScript.subjectCapacity);
+    if (!ReadTankCannonScriptSummary(&tankCannonScript) ||
+        !InitializeTankCannonSubjectTables(context, tankCannonScript)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunRouteBootstrap(context, startTime) ||
+        !RunCommonAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -3013,11 +4063,19 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    if (!RunTankCannonAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
     if (!RunTaxiAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
     if (!RunSmokerAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunPeopleAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -3052,8 +4110,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         !PublishSmokerAttributes(context) ||
         !PublishFarterAttributes(context) ||
         !PublishLampAttributes(context) ||
-        !PublishCorpseAttributes(context) ||
-        !PublishBulletAttributes(context)) {
+         !PublishCorpseAttributes(context) ||
+         !PublishBulletAttributes(context) ||
+         !PublishPeopleAttributes(context, peopleScript) ||
+         !PublishTankCannonAttributes(context, tankCannonScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -3073,7 +4133,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
 
     if (!PublishBulletReferences(context) ||
-        !PublishVehicleReferences(context)) {
+        !PublishVehicleReferences(context) ||
+        !PublishPeopleReferences(context, startTime) ||
+        !PublishTankReferences(context, startTime) ||
+        !PublishTankCannonSubjectTables(context, tankCannonScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -3084,6 +4147,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
 
     if (!PublishVehicle(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!PublishTankLifecycle(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -3098,6 +4165,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         RecoveredArenaSeance_Release();
         return FALSE;
       }
+    }
+    if (!PublishPeopleSubject(context, startTime, peopleScript)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
     }
   } catch (const std::bad_alloc&) {
     Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
@@ -3131,6 +4202,50 @@ void RecoveredArenaSeance_Release() {
   ExplosionAttributeState_ClearParticleVisuals(g_arena.getContext());
   g_state.vehicleReady = false;
   g_state.routeReady = false;
+  g_state.peopleAttributesReady = false;
+  g_state.peopleReferencesReady = false;
+  g_state.peopleSubjectReady = false;
+  g_state.peopleAttributeCapacity = 0;
+  g_state.peopleAttributeCount = 0;
+  g_state.peopleSubjectCapacity = 0;
+  g_state.peopleSubjectCount = 0;
+  g_state.peopleSubjectSoundCount = 0;
+  g_state.peopleAttributeFingerprint = 0;
+  g_state.peopleSubjectFingerprint = 0;
+  g_state.peopleProbeScheduledMoves = 0;
+  g_state.peopleProbeBulletDamageApplications = 0;
+  g_state.peopleProbeDeathTransitions = 0;
+  g_state.peopleProbeSaveStateRoundTrips = 0;
+  g_state.peopleProbeRollbacks = 0;
+  PeopleSubjectState_SetExpectedCapacities(0, 0);
+  g_state.tankCannonAttributesReady = false;
+  g_state.tankReferencesReady = false;
+  g_state.tankCannonSubjectTablesReady = false;
+  g_state.cannonAttributeCapacity = 0;
+  g_state.cannonAttributeCount = 0;
+  g_state.cannonSubjectCapacity = 0;
+  g_state.cannonSubjectCount = 0;
+  g_state.tankAttributeCapacity = 0;
+  g_state.tankAttributeCount = 0;
+  g_state.tankSubjectCapacity = 0;
+  g_state.tankSubjectCount = 0;
+  g_state.cannonAttributeFingerprint = 0;
+  g_state.cannonSubjectFingerprint = 0;
+  g_state.tankAttributeFingerprint = 0;
+  g_state.tankSubjectFingerprint = 0;
+  g_state.tankProbeAvailable = 0;
+  g_state.tankProbeValidStarts = 0;
+  g_state.tankProbeDynamicReady = 0;
+  g_state.tankProbeRenderReady = 0;
+  g_state.tankProbeCannonReady = 0;
+  g_state.tankProbeScheduledMoves = 0;
+  g_state.tankProbeBulletDamageApplications = 0;
+  g_state.tankProbeDeathTransitions = 0;
+  g_state.tankProbeDeathEffects = 0;
+  g_state.tankProbeSaveStateRoundTrips = 0;
+  g_state.tankProbeRollbacks = 0;
+  CannonSubjectState_SetExpectedCapacities(0, 0);
+  TankSubjectState_SetExpectedCapacities(0, 0);
   g_state.sparkAttributesReady = false;
   g_state.sparkSubjectReady = false;
   g_state.sparkVisualResourcesReady = false;
@@ -3322,6 +4437,197 @@ bool RecoveredArenaSeance_ScriptCompleted() {
 }
 
 bool RecoveredArenaSeance_RouteReady() { return g_state.routeReady; }
+
+bool RecoveredArenaSeance_PeopleAttributesReady() {
+  return g_state.peopleAttributesReady;
+}
+
+bool RecoveredArenaSeance_PeopleReferencesReady() {
+  return g_state.peopleReferencesReady;
+}
+
+bool RecoveredArenaSeance_PeopleSubjectReady() {
+  return g_state.peopleSubjectReady;
+}
+
+int RecoveredArenaSeance_PeopleAttributeCapacity() {
+  return g_state.peopleAttributesReady ? g_state.peopleAttributeCapacity : -1;
+}
+
+int RecoveredArenaSeance_PeopleAttributeCount() {
+  return g_state.peopleAttributesReady ? g_state.peopleAttributeCount : -1;
+}
+
+int RecoveredArenaSeance_PeopleSubjectCapacity() {
+  return g_state.peopleSubjectReady ? g_state.peopleSubjectCapacity : -1;
+}
+
+int RecoveredArenaSeance_PeopleSubjectCount() {
+  return g_state.peopleSubjectReady ? g_state.peopleSubjectCount : -1;
+}
+
+int RecoveredArenaSeance_PeopleSubjectSoundCount() {
+  return g_state.peopleSubjectReady ? g_state.peopleSubjectSoundCount : -1;
+}
+
+unsigned long long RecoveredArenaSeance_PeopleAttributeFingerprint() {
+  return g_state.peopleAttributesReady ? g_state.peopleAttributeFingerprint : 0;
+}
+
+unsigned long long RecoveredArenaSeance_PeopleSubjectFingerprint() {
+  return g_state.peopleSubjectReady ? g_state.peopleSubjectFingerprint : 0;
+}
+
+int RecoveredArenaSeance_PeopleProbeScheduledMoves() {
+  return g_state.peopleSubjectReady ? g_state.peopleProbeScheduledMoves : -1;
+}
+
+int RecoveredArenaSeance_PeopleProbeBulletDamageApplications() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleProbeBulletDamageApplications
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleProbeDeathTransitions() {
+  return g_state.peopleSubjectReady ? g_state.peopleProbeDeathTransitions : -1;
+}
+
+int RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleProbeSaveStateRoundTrips
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleProbeRollbacks() {
+  return g_state.peopleSubjectReady ? g_state.peopleProbeRollbacks : -1;
+}
+
+bool RecoveredArenaSeance_TankCannonAttributesReady() {
+  return g_state.tankCannonAttributesReady;
+}
+
+bool RecoveredArenaSeance_TankReferencesReady() {
+  return g_state.tankReferencesReady;
+}
+
+bool RecoveredArenaSeance_TankCannonSubjectTablesReady() {
+  return g_state.tankCannonSubjectTablesReady;
+}
+
+int RecoveredArenaSeance_CannonAttributeCapacity() {
+  return g_state.tankCannonAttributesReady ? g_state.cannonAttributeCapacity
+                                           : -1;
+}
+
+int RecoveredArenaSeance_CannonAttributeCount() {
+  return g_state.tankCannonAttributesReady ? g_state.cannonAttributeCount : -1;
+}
+
+int RecoveredArenaSeance_CannonSubjectCapacity() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.cannonSubjectCapacity
+                                              : -1;
+}
+
+int RecoveredArenaSeance_CannonSubjectCount() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.cannonSubjectCount : -1;
+}
+
+unsigned long long RecoveredArenaSeance_CannonAttributeFingerprint() {
+  return g_state.tankCannonAttributesReady
+             ? g_state.cannonAttributeFingerprint
+             : 0;
+}
+
+unsigned long long RecoveredArenaSeance_CannonSubjectFingerprint() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.cannonSubjectFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_TankAttributeCapacity() {
+  return g_state.tankCannonAttributesReady ? g_state.tankAttributeCapacity
+                                           : -1;
+}
+
+int RecoveredArenaSeance_TankAttributeCount() {
+  return g_state.tankCannonAttributesReady ? g_state.tankAttributeCount : -1;
+}
+
+int RecoveredArenaSeance_TankSubjectCapacity() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankSubjectCapacity
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankSubjectCount() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankSubjectCount : -1;
+}
+
+unsigned long long RecoveredArenaSeance_TankAttributeFingerprint() {
+  return g_state.tankCannonAttributesReady ? g_state.tankAttributeFingerprint
+                                           : 0;
+}
+
+unsigned long long RecoveredArenaSeance_TankSubjectFingerprint() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankSubjectFingerprint
+                                              : 0;
+}
+
+int RecoveredArenaSeance_TankProbeAvailable() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeAvailable : -1;
+}
+
+int RecoveredArenaSeance_TankProbeValidStarts() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeValidStarts
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeDynamicReady() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeDynamicReady
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeRenderReady() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeRenderReady
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeCannonReady() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeCannonReady
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeScheduledMoves() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeScheduledMoves
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeBulletDamageApplications() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.tankProbeBulletDamageApplications
+             : -1;
+}
+
+int RecoveredArenaSeance_TankProbeDeathTransitions() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.tankProbeDeathTransitions
+             : -1;
+}
+
+int RecoveredArenaSeance_TankProbeDeathEffects() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeDeathEffects
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeSaveStateRoundTrips() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.tankProbeSaveStateRoundTrips
+             : -1;
+}
+
+int RecoveredArenaSeance_TankProbeRollbacks() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeRollbacks
+                                              : -1;
+}
 
 bool RecoveredArenaSeance_BirdAttributesReady() {
   return g_state.birdAttributesReady;

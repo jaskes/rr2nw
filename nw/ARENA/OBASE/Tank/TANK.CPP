@@ -375,7 +375,7 @@ void addCannon( Tank &tank, int index, double ts )
     KR_ObjectID cannon = g_arena.newObject( tank.m_attr->m_cacheCannonTable,
                                             "Tank.Cannon");
 
-    if(  event.destination.isNUL()  )
+    if(  cannon.isNUL()  )
          return;
 
     event.label       = KR_SET_ATTR;
@@ -443,7 +443,21 @@ void Tank::removeNotify()
     carrierRemoveNotify(context,Session::m_moment);
 
     if(  !m_snd.isNUL()  )
+    {
          context->removeObject( m_snd );
+         m_snd = KR_ObjectID::NUL();
+    }
+
+    // Cannons are created by Tank::onSetAttr and their master link is not an
+    // ownership relation understood by Storage. Remove them explicitly so a
+    // dead or rolled-back Tank cannot leave live Cannon subjects behind.
+    while( m_cannons.getCount() > 0 )
+    {
+         KR_ObjectID cannon = m_cannons[m_cannons.getCount()-1];
+         m_cannons.del(m_cannons.getCount()-1);
+         if( context->isExist(cannon) )
+              context->removeObject(cannon);
+    }
 
     ct_Subject::removeNotify();    
     // insert your code this
@@ -1079,8 +1093,8 @@ void TankTable::freeObjects()
 
  //============================================================
 ct_Object *TankTable::getObjectPTR( int index )
- {
-    s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"TankTable::getObjectPTR");
+{
+    s_ASSERT( index >= 0 && index < m_maxObjectQnty ,"TankTable::getObjectPTR");
     return &(m_table[ index ]);
  }
 

@@ -710,8 +710,8 @@ void CannonTable::freeObjects()
 
  //============================================================
 ct_Object *CannonTable::getObjectPTR( int index )
- {
-    s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"CannonTable::getObjectPTR");
+{
+    s_ASSERT( index >= 0 && index < m_maxObjectQnty ,"CannonTable::getObjectPTR");
     return &(m_table[ index ]);
  }
 

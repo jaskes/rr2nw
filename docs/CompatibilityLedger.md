@@ -1995,6 +1995,84 @@ Status vocabulary:
 - Revisit when: simulation and view time are unified. Preserve bounded visual
   interpolation even if the clocks later share one explicit tick type.
 
+### CQ-124: May People extended start was absent from the January sources
+
+- Status: `BINARY_CONFIRMED`, `BEHAVIOR_PRESERVED`.
+- Evidence: May `SYSF.SCI` sends two extra fields through `CreateManEx`.
+  Disassembly of the byte-identical installed/mounted `nw.exe` shows a stored
+  back-space node and a delayed private start-move event; the subject is
+  visible but stationary before that event.
+- Handling: append the extended and private labels without renumbering January
+  messages, accept both payload lengths, persist both fields and schedule the
+  original MOVE/NEXTNODE loop only after the delay.
+- Revisit when: a March executable becomes available. Compare its handler and
+  add it as a separate baseline rather than overwriting January or May.
+
+### CQ-125: Tank Cannon creation tested uninitialized event state
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `addCannon` stored the new ObjectID in `cannon` but tested
+  `event.destination.isNUL()` before assigning that field. Outcome depended on
+  stack contents and could omit or mis-handle a valid Cannon.
+- Handling: test the returned Cannon ID, then set its attribute and register it
+  in the Tank-owned set. The real lifecycle requires the exact configured
+  Cannon count and interface readiness.
+- Revisit when: mission Tank creation is admitted; keep allocation failure
+  transactional across all requested Cannon children.
+
+### CQ-126: Tank removal did not own its Cannon children
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `onSetAttr` allocates Cannons and stores their IDs, while the old
+  `removeNotify` removed only the Tank SoundObj. Cannon master links are not a
+  Storage ownership edge. Tank/Cannon tables also accepted one-past indices.
+- Handling: remove every owned Cannon before subject teardown, clear the sound
+  ID after removal and use strict `< capacity` bounds for both pools.
+- Regression contract: Bullet damage, visible death and forced rollback must
+  restore zero Tank/Cannon subjects, baseline SoundObj count and both owner
+  fingerprints.
+- Revisit when: detachable weapons become a mod feature. Introduce an explicit
+  ownership transfer instead of weakening parent teardown.
+
+### CQ-127: Level-zero Tank population is intentionally empty
+
+- Status: `SOURCE_CONFIRMED`, `BEHAVIOR_PRESERVED`.
+- Evidence: Level setup creates TankAttr/CannonAttr and subject tables, but
+  `SYSF.SCI` creates TankGroup/Commander membership before each mission Tank.
+  Level.06 has an empty TankAttr roster and Level.07 omits the layer.
+- Handling: publish exact empty initial subject owners and use a temporary real
+  Tank only as a rolled-back mission-readiness proof. Do not synthesize
+  persistent tanks during LEVEL0.
+- Revisit when: Commander/TankGroup and the first mission start script execute
+  under the recovered scheduler.
+
+### CQ-128: January Route capacity and duplicate names do not fit May data
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_DATA_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the January static pool holds 3000 nodes. Valid May Level.02
+  population crosses that limit, and repeated per-People route requests can
+  allocate unreachable duplicate objects because later name lookup returns the
+  first identity.
+- Handling: retain a bounded static serializer with capacity 8192 and reuse an
+  already published symbolic Route after validating its interface/node count.
+- Revisit when: versioned saves are implemented. Raw January/May array sizes
+  need explicit migration; current work does not claim old Route-save import.
+
+### CQ-129: legacy subject saves expose compiler layout and unused ID slots
+
+- Status: `SOURCE_CONFIRMED`, `FORMAT_DEBT_RECORDED`.
+- Evidence: People and Tank write `sizeof(PeopleData)`/`sizeof(TankData)` as raw
+  bytes. `KR_SetOfID::dump` additionally writes all ten ObjectID slots even
+  though only `m_count` entries are meaningful; unused slots are not
+  initialized by its constructor.
+- Handling: the current x86 MSVC proof requires a same-process PIN stream
+  round-trip and compares only semantic Cannon entries after load. It does not
+  use raw bytes as a cross-build fingerprint or expose them as a mod format.
+- Revisit when: active-world saves are admitted. Define field-by-field,
+  versioned records, zero unused slots and reconstruct cached pointers and
+  ObjectIDs through symbolic references.
+
 ## Maintenance rule
 
 When a new quirk is found:

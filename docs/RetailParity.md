@@ -1033,6 +1033,27 @@ Retail scripts нельзя молча копировать поверх source 
   service matrix without reruns, a 10/10 `Level.05D` Debug repetition and 4/4
   waited executable smokes with observability, level-ready and clean shutdown.
 
+### RP-SCRIPT-032: People population and mission-ready Tank lifecycle
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. Real Level-local PEOPLE/SET_PEOPLE scripts own
+  the complete persistent People population. TANK scripts own Tank/Cannon
+  attributes and empty initial subject pools; later mission SYSF code owns
+  persistent Tank creation through Commander/TankGroup.
+- Every People resolves its Attribute, Route, Skin and dynamic interface. The
+  May extended start payload and delayed movement event are recovered from the
+  retail executable while the shorter January event remains accepted.
+- Full preserved Tank/Cannon code is linked. A bounded real Tank proves model,
+  Cannon ownership, original movement scheduling, Bullet/Explosion damage,
+  visible Explosion/Corpse death effects, stable data serialization and exact
+  rollback to the empty Level-zero pools.
+- The proof deliberately does not manufacture mission Tanks or claim legacy
+  save import. Commander/TankGroup execution and versioned reconstruction of
+  mission membership/event queues are the next parity boundary.
+- Verification passes 51/51 CTest in both configurations, all 36/36 retail
+  service launches and 4/4 waited executable smokes with level-ready and clean
+  shutdown markers.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

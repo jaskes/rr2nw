@@ -538,6 +538,23 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_SparkProbePhaseTransitions() == -1 &&
          RecoveredArenaSeance_SparkProbeExpirations() == -1 &&
          !RecoveredGameServices_RouteReady() &&
+         !RecoveredGameServices_PeopleAttributesReady() &&
+         !RecoveredGameServices_PeopleReferencesReady() &&
+         !RecoveredGameServices_PeopleSubjectReady() &&
+         !RecoveredGameServices_TankCannonAttributesReady() &&
+         !RecoveredGameServices_TankReferencesReady() &&
+         !RecoveredGameServices_TankCannonSubjectTablesReady() &&
+         RecoveredArenaSeance_TankProbeAvailable() == -1 &&
+         RecoveredArenaSeance_TankProbeValidStarts() == -1 &&
+         RecoveredArenaSeance_TankProbeDynamicReady() == -1 &&
+         RecoveredArenaSeance_TankProbeRenderReady() == -1 &&
+         RecoveredArenaSeance_TankProbeCannonReady() == -1 &&
+         RecoveredArenaSeance_TankProbeScheduledMoves() == -1 &&
+         RecoveredArenaSeance_TankProbeBulletDamageApplications() == -1 &&
+         RecoveredArenaSeance_TankProbeDeathTransitions() == -1 &&
+         RecoveredArenaSeance_TankProbeDeathEffects() == -1 &&
+         RecoveredArenaSeance_TankProbeSaveStateRoundTrips() == -1 &&
+         RecoveredArenaSeance_TankProbeRollbacks() == -1 &&
          !RecoveredGameServices_VehicleReady() &&
          !RecoveredArenaSeance_IsOpen() && g_vehicle == nullptr &&
          RecoveredGameServices_ObserverState() == nullptr &&
@@ -2272,6 +2289,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SparkProbePhaseTransitions() != 5 ||
       RecoveredArenaSeance_SparkProbeExpirations() != 1 ||
       !RecoveredGameServices_RouteReady() ||
+      !RecoveredGameServices_PeopleAttributesReady() ||
+      !RecoveredGameServices_PeopleReferencesReady() ||
+      !RecoveredGameServices_PeopleSubjectReady() ||
+      !RecoveredGameServices_TankCannonAttributesReady() ||
+      !RecoveredGameServices_TankReferencesReady() ||
+      !RecoveredGameServices_TankCannonSubjectTablesReady() ||
       !RecoveredGameServices_VehicleReady() ||
       !RecoveredGameServices_VehicleMovementReady() ||
       RecoveredGameServices_VehicleRuntimeFingerprint() == 0 ||
@@ -2306,33 +2329,56 @@ int main(int argc, char** argv) {
         "recovered Hardware, Arena, common attributes, Portal, Spark, Route, "
         "Vehicle or observer was not published");
   }
-  if (!SmokeSubjectState_SimulationSupported(
-          g_super.m_context, "Smoke.Attr.Trace") ||
-      !SmokeSubjectState_ProbeSimulationLifecycle(
-          g_super.m_context, "Smoke.Attr.Trace", Session::m_moment) ||
-      !SmokeSubjectState_SimulationSupported(
-          g_super.m_context, "Smoke.Attr.FireArea") ||
-      !SmokeSubjectState_ProbeSimulationLifecycle(
-          g_super.m_context, "Smoke.Attr.FireArea", Session::m_moment) ||
-      !SmokerSubjectState_EmissionSupported(
-          g_super.m_context, "Smoker.Attr.Corpse") ||
-      !SmokerSubjectState_ProbeEmissionLifecycle(
-          g_super.m_context, "Smoker.Attr.Corpse", Session::m_moment) ||
-      !SmokerSubjectState_EmissionSupported(
-          g_super.m_context, "Smoker.Attr.FireArea") ||
-      !SmokerSubjectState_ProbeEmissionLifecycle(
-          g_super.m_context, "Smoker.Attr.FireArea", Session::m_moment) ||
-      !SmokerSubjectState_LightCoronaSupported(
-          g_super.m_context, "Smoker.Attr.FireMd") ||
-      !SmokerSubjectState_ProbeLightCoronaLifecycle(
-          g_super.m_context, "Smoker.Attr.FireMd", Session::m_moment) ||
-      !SoundObjectState_ProbeLifecycle(
-          g_super.m_context, "wav.Explosion", Session::m_moment) ||
-      SmokeSubjectState_LiveCount() != 0 ||
-      SmokerSubjectState_DynLiveCount() != 0 ||
-      SoundObjectState_LiveCount() !=
-          RecoveredArenaSeance_FarterScriptObjectCount() +
-              RecoveredArenaSeance_TaxiSubjectSoundCount()) {
+  const bool smokeTraceSupported = SmokeSubjectState_SimulationSupported(
+      g_super.m_context, "Smoke.Attr.Trace");
+  const bool smokeTraceProbe = smokeTraceSupported &&
+      SmokeSubjectState_ProbeSimulationLifecycle(
+          g_super.m_context, "Smoke.Attr.Trace", Session::m_moment);
+  const bool smokeFireSupported = SmokeSubjectState_SimulationSupported(
+      g_super.m_context, "Smoke.Attr.FireArea");
+  const bool smokeFireProbe = smokeFireSupported &&
+      SmokeSubjectState_ProbeSimulationLifecycle(
+          g_super.m_context, "Smoke.Attr.FireArea", Session::m_moment);
+  const bool corpseSmokerSupported = SmokerSubjectState_EmissionSupported(
+      g_super.m_context, "Smoker.Attr.Corpse");
+  const bool corpseSmokerProbe = corpseSmokerSupported &&
+      SmokerSubjectState_ProbeEmissionLifecycle(
+          g_super.m_context, "Smoker.Attr.Corpse", Session::m_moment);
+  const bool fireSmokerSupported = SmokerSubjectState_EmissionSupported(
+      g_super.m_context, "Smoker.Attr.FireArea");
+  const bool fireSmokerProbe = fireSmokerSupported &&
+      SmokerSubjectState_ProbeEmissionLifecycle(
+          g_super.m_context, "Smoker.Attr.FireArea", Session::m_moment);
+  const bool coronaSupported = SmokerSubjectState_LightCoronaSupported(
+      g_super.m_context, "Smoker.Attr.FireMd");
+  const bool coronaProbe = coronaSupported &&
+      SmokerSubjectState_ProbeLightCoronaLifecycle(
+          g_super.m_context, "Smoker.Attr.FireMd", Session::m_moment);
+  const bool soundProbe = SoundObjectState_ProbeLifecycle(
+      g_super.m_context, "wav.Explosion", Session::m_moment);
+  const int smokeLive = SmokeSubjectState_LiveCount();
+  const int dynSmokerLive = SmokerSubjectState_DynLiveCount();
+  const int soundLive = SoundObjectState_LiveCount();
+  const int expectedSoundLive =
+      RecoveredArenaSeance_FarterScriptObjectCount() +
+      RecoveredArenaSeance_TaxiSubjectSoundCount() +
+      RecoveredArenaSeance_PeopleSubjectSoundCount();
+  if (!smokeTraceProbe || !smokeFireProbe || !corpseSmokerProbe ||
+      !fireSmokerProbe || !coronaProbe || !soundProbe ||
+      smokeLive != 0 || dynSmokerLive != 0 ||
+      soundLive != expectedSoundLive) {
+    std::fprintf(
+        stderr,
+        "effect-lifecycle diagnostics trace=%d/%d fire=%d/%d "
+        "corpse=%d/%d fire_smoker=%d/%d corona=%d/%d sound=%d "
+        "live=%d/%d/%d expected_sound=%d\n",
+        smokeTraceSupported ? 1 : 0, smokeTraceProbe ? 1 : 0,
+        smokeFireSupported ? 1 : 0, smokeFireProbe ? 1 : 0,
+        corpseSmokerSupported ? 1 : 0, corpseSmokerProbe ? 1 : 0,
+        fireSmokerSupported ? 1 : 0, fireSmokerProbe ? 1 : 0,
+        coronaSupported ? 1 : 0, coronaProbe ? 1 : 0,
+        soundProbe ? 1 : 0, smokeLive, dynSmokerLive, soundLive,
+        expectedSoundLive);
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail(
@@ -2452,6 +2498,75 @@ int main(int argc, char** argv) {
       BulletAttributeState_SubjectCapacity();
   const unsigned long long bulletSubjectFingerprint =
       BulletSubjectState_Fingerprint(g_super.m_context);
+  const int peopleAttributeCount =
+      RecoveredArenaSeance_PeopleAttributeCount();
+  const int peopleAttributeCapacity =
+      RecoveredArenaSeance_PeopleAttributeCapacity();
+  const int peopleSubjectCount =
+      RecoveredArenaSeance_PeopleSubjectCount();
+  const int peopleSubjectCapacity =
+      RecoveredArenaSeance_PeopleSubjectCapacity();
+  const int peopleSubjectSoundCount =
+      RecoveredArenaSeance_PeopleSubjectSoundCount();
+  const unsigned long long peopleAttributeFingerprint =
+      RecoveredArenaSeance_PeopleAttributeFingerprint();
+  const unsigned long long peopleSubjectFingerprint =
+      RecoveredArenaSeance_PeopleSubjectFingerprint();
+  const int peopleProbeScheduledMoves =
+      RecoveredArenaSeance_PeopleProbeScheduledMoves();
+  const int peopleProbeBulletDamage =
+      RecoveredArenaSeance_PeopleProbeBulletDamageApplications();
+  const int peopleProbeDeathTransitions =
+      RecoveredArenaSeance_PeopleProbeDeathTransitions();
+  const int peopleProbeSaveRoundTrips =
+      RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips();
+  const int peopleProbeRollbacks =
+      RecoveredArenaSeance_PeopleProbeRollbacks();
+  const int tankAttributeCount =
+      RecoveredArenaSeance_TankAttributeCount();
+  const int tankAttributeCapacity =
+      RecoveredArenaSeance_TankAttributeCapacity();
+  const int tankSubjectCount = RecoveredArenaSeance_TankSubjectCount();
+  const int tankSubjectCapacity =
+      RecoveredArenaSeance_TankSubjectCapacity();
+  const unsigned long long tankAttributeFingerprint =
+      RecoveredArenaSeance_TankAttributeFingerprint();
+  const unsigned long long tankSubjectFingerprint =
+      RecoveredArenaSeance_TankSubjectFingerprint();
+  const int tankProbeAvailable =
+      RecoveredArenaSeance_TankProbeAvailable();
+  const int tankProbeValidStarts =
+      RecoveredArenaSeance_TankProbeValidStarts();
+  const int tankProbeDynamicReady =
+      RecoveredArenaSeance_TankProbeDynamicReady();
+  const int tankProbeRenderReady =
+      RecoveredArenaSeance_TankProbeRenderReady();
+  const int tankProbeCannonReady =
+      RecoveredArenaSeance_TankProbeCannonReady();
+  const int tankProbeScheduledMoves =
+      RecoveredArenaSeance_TankProbeScheduledMoves();
+  const int tankProbeBulletDamage =
+      RecoveredArenaSeance_TankProbeBulletDamageApplications();
+  const int tankProbeDeathTransitions =
+      RecoveredArenaSeance_TankProbeDeathTransitions();
+  const int tankProbeDeathEffects =
+      RecoveredArenaSeance_TankProbeDeathEffects();
+  const int tankProbeSaveRoundTrips =
+      RecoveredArenaSeance_TankProbeSaveStateRoundTrips();
+  const int tankProbeRollbacks =
+      RecoveredArenaSeance_TankProbeRollbacks();
+  const int cannonAttributeCount =
+      RecoveredArenaSeance_CannonAttributeCount();
+  const int cannonAttributeCapacity =
+      RecoveredArenaSeance_CannonAttributeCapacity();
+  const int cannonSubjectCount =
+      RecoveredArenaSeance_CannonSubjectCount();
+  const int cannonSubjectCapacity =
+      RecoveredArenaSeance_CannonSubjectCapacity();
+  const unsigned long long cannonAttributeFingerprint =
+      RecoveredArenaSeance_CannonAttributeFingerprint();
+  const unsigned long long cannonSubjectFingerprint =
+      RecoveredArenaSeance_CannonSubjectFingerprint();
   const unsigned long long vehicleAttributeFingerprint =
       VehicleAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long vehicleReferenceFingerprint =
@@ -2804,7 +2919,8 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SoundDistance() != 300.0 ||
       RecoveredArenaSeance_SoundDistanceSquared() != 90000.0 ||
       SoundObjectState_LiveCount() !=
-          farterScriptObjectCount + taxiSubjectSoundCount ||
+          farterScriptObjectCount + taxiSubjectSoundCount +
+              RecoveredArenaSeance_PeopleSubjectSoundCount() ||
       skinModelCount < 26 ||
       skinModelCount > 52 || skinSpriteCount != 1 ||
       skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
@@ -2842,9 +2958,74 @@ int main(int argc, char** argv) {
       corpseCapacity > 7 ||
       !RecoveredGameServices_CorpseReferencesReady() ||
       corpseReferenceFingerprint == 0 ||
-      !corpseRuntimeReady || corpseSubjectCapacity != 100 ||
-      corpseSubjectFingerprint == 0 ||
-      CorpseSubjectState_LiveCount() != 0) {
+       !corpseRuntimeReady || corpseSubjectCapacity != 100 ||
+       corpseSubjectFingerprint == 0 ||
+       CorpseSubjectState_LiveCount() != 0 ||
+      RecoveredArenaSeance_PeopleAttributeCapacity() < 0 ||
+      RecoveredArenaSeance_PeopleAttributeCount() < 0 ||
+      RecoveredArenaSeance_PeopleAttributeCount() >
+          RecoveredArenaSeance_PeopleAttributeCapacity() ||
+      RecoveredArenaSeance_PeopleSubjectCapacity() < 0 ||
+      RecoveredArenaSeance_PeopleSubjectCount() < 0 ||
+      RecoveredArenaSeance_PeopleSubjectCount() >
+          RecoveredArenaSeance_PeopleSubjectCapacity() ||
+      RecoveredArenaSeance_PeopleSubjectSoundCount() < 0 ||
+      RecoveredArenaSeance_PeopleSubjectSoundCount() >
+          RecoveredArenaSeance_PeopleSubjectCount() ||
+      RecoveredArenaSeance_PeopleAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_PeopleSubjectFingerprint() == 0 ||
+      (RecoveredArenaSeance_PeopleSubjectCount() > 0 &&
+       (RecoveredArenaSeance_PeopleProbeScheduledMoves() != 1 ||
+        RecoveredArenaSeance_PeopleProbeBulletDamageApplications() != 1 ||
+        RecoveredArenaSeance_PeopleProbeDeathTransitions() != 1 ||
+        RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() != 1 ||
+        RecoveredArenaSeance_PeopleProbeRollbacks() != 1)) ||
+      (RecoveredArenaSeance_PeopleSubjectCount() == 0 &&
+       (RecoveredArenaSeance_PeopleProbeScheduledMoves() != 0 ||
+        RecoveredArenaSeance_PeopleProbeBulletDamageApplications() != 0 ||
+        RecoveredArenaSeance_PeopleProbeDeathTransitions() != 0 ||
+        RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() != 0 ||
+        RecoveredArenaSeance_PeopleProbeRollbacks() != 0)) ||
+      RecoveredArenaSeance_CannonAttributeCapacity() < 0 ||
+      RecoveredArenaSeance_CannonAttributeCount() < 0 ||
+      RecoveredArenaSeance_CannonAttributeCount() >
+          RecoveredArenaSeance_CannonAttributeCapacity() ||
+      RecoveredArenaSeance_CannonSubjectCapacity() <= 0 ||
+      RecoveredArenaSeance_CannonSubjectCount() != 0 ||
+      RecoveredArenaSeance_CannonAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_CannonSubjectFingerprint() == 0 ||
+      RecoveredArenaSeance_TankAttributeCapacity() < 0 ||
+      RecoveredArenaSeance_TankAttributeCount() < 0 ||
+      RecoveredArenaSeance_TankAttributeCount() >
+          RecoveredArenaSeance_TankAttributeCapacity() ||
+      RecoveredArenaSeance_TankSubjectCapacity() <= 0 ||
+      RecoveredArenaSeance_TankSubjectCount() != 0 ||
+      RecoveredArenaSeance_TankAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_TankSubjectFingerprint() == 0 ||
+      (RecoveredArenaSeance_TankAttributeCount() > 0 &&
+       (RecoveredArenaSeance_TankProbeAvailable() != 1 ||
+        RecoveredArenaSeance_TankProbeValidStarts() != 1 ||
+        RecoveredArenaSeance_TankProbeDynamicReady() != 1 ||
+        RecoveredArenaSeance_TankProbeRenderReady() != 1 ||
+        RecoveredArenaSeance_TankProbeCannonReady() != 1 ||
+        RecoveredArenaSeance_TankProbeScheduledMoves() != 1 ||
+        RecoveredArenaSeance_TankProbeBulletDamageApplications() != 1 ||
+        RecoveredArenaSeance_TankProbeDeathTransitions() != 1 ||
+        RecoveredArenaSeance_TankProbeDeathEffects() != 1 ||
+        RecoveredArenaSeance_TankProbeSaveStateRoundTrips() != 1 ||
+        RecoveredArenaSeance_TankProbeRollbacks() != 1)) ||
+      (RecoveredArenaSeance_TankAttributeCount() == 0 &&
+       (RecoveredArenaSeance_TankProbeAvailable() != 0 ||
+        RecoveredArenaSeance_TankProbeValidStarts() != 0 ||
+        RecoveredArenaSeance_TankProbeDynamicReady() != 0 ||
+        RecoveredArenaSeance_TankProbeRenderReady() != 0 ||
+        RecoveredArenaSeance_TankProbeCannonReady() != 0 ||
+        RecoveredArenaSeance_TankProbeScheduledMoves() != 0 ||
+        RecoveredArenaSeance_TankProbeBulletDamageApplications() != 0 ||
+        RecoveredArenaSeance_TankProbeDeathTransitions() != 0 ||
+        RecoveredArenaSeance_TankProbeDeathEffects() != 0 ||
+        RecoveredArenaSeance_TankProbeSaveStateRoundTrips() != 0 ||
+        RecoveredArenaSeance_TankProbeRollbacks() != 1))) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("level-aware Arena subject/attribute roster is invalid");
@@ -3566,7 +3747,8 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SoundObjectFingerprint() !=
           soundObjectFingerprint ||
       SoundObjectState_LiveCount() !=
-          farterScriptObjectCount + taxiSubjectSoundCount ||
+          farterScriptObjectCount + taxiSubjectSoundCount +
+              RecoveredArenaSeance_PeopleSubjectSoundCount() ||
       FarterAttributeState_Fingerprint(g_super.m_context) !=
           farterFingerprint ||
       FarterAttributeState_RosterSize(g_super.m_context) !=
@@ -3612,6 +3794,64 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_CorpseSubjectFingerprint() !=
           corpseSubjectFingerprint ||
       CorpseSubjectState_LiveCount() != 0 ||
+      RecoveredArenaSeance_PeopleAttributeCount() != peopleAttributeCount ||
+      RecoveredArenaSeance_PeopleAttributeCapacity() !=
+          peopleAttributeCapacity ||
+      RecoveredArenaSeance_PeopleSubjectCount() != peopleSubjectCount ||
+      RecoveredArenaSeance_PeopleSubjectCapacity() !=
+          peopleSubjectCapacity ||
+      RecoveredArenaSeance_PeopleSubjectSoundCount() !=
+          peopleSubjectSoundCount ||
+      RecoveredArenaSeance_PeopleAttributeFingerprint() !=
+          peopleAttributeFingerprint ||
+      RecoveredArenaSeance_PeopleSubjectFingerprint() !=
+          peopleSubjectFingerprint ||
+      RecoveredArenaSeance_PeopleProbeScheduledMoves() !=
+          peopleProbeScheduledMoves ||
+      RecoveredArenaSeance_PeopleProbeBulletDamageApplications() !=
+          peopleProbeBulletDamage ||
+      RecoveredArenaSeance_PeopleProbeDeathTransitions() !=
+          peopleProbeDeathTransitions ||
+      RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() !=
+          peopleProbeSaveRoundTrips ||
+      RecoveredArenaSeance_PeopleProbeRollbacks() !=
+          peopleProbeRollbacks ||
+      RecoveredArenaSeance_TankAttributeCount() != tankAttributeCount ||
+      RecoveredArenaSeance_TankAttributeCapacity() !=
+          tankAttributeCapacity ||
+      RecoveredArenaSeance_TankSubjectCount() != tankSubjectCount ||
+      RecoveredArenaSeance_TankSubjectCapacity() != tankSubjectCapacity ||
+      RecoveredArenaSeance_TankAttributeFingerprint() !=
+          tankAttributeFingerprint ||
+      RecoveredArenaSeance_TankSubjectFingerprint() !=
+          tankSubjectFingerprint ||
+      RecoveredArenaSeance_TankProbeAvailable() != tankProbeAvailable ||
+      RecoveredArenaSeance_TankProbeValidStarts() != tankProbeValidStarts ||
+      RecoveredArenaSeance_TankProbeDynamicReady() != tankProbeDynamicReady ||
+      RecoveredArenaSeance_TankProbeRenderReady() != tankProbeRenderReady ||
+      RecoveredArenaSeance_TankProbeCannonReady() != tankProbeCannonReady ||
+      RecoveredArenaSeance_TankProbeScheduledMoves() !=
+          tankProbeScheduledMoves ||
+      RecoveredArenaSeance_TankProbeBulletDamageApplications() !=
+          tankProbeBulletDamage ||
+      RecoveredArenaSeance_TankProbeDeathTransitions() !=
+          tankProbeDeathTransitions ||
+      RecoveredArenaSeance_TankProbeDeathEffects() !=
+          tankProbeDeathEffects ||
+      RecoveredArenaSeance_TankProbeSaveStateRoundTrips() !=
+          tankProbeSaveRoundTrips ||
+      RecoveredArenaSeance_TankProbeRollbacks() != tankProbeRollbacks ||
+      RecoveredArenaSeance_CannonAttributeCount() !=
+          cannonAttributeCount ||
+      RecoveredArenaSeance_CannonAttributeCapacity() !=
+          cannonAttributeCapacity ||
+      RecoveredArenaSeance_CannonSubjectCount() != cannonSubjectCount ||
+      RecoveredArenaSeance_CannonSubjectCapacity() !=
+          cannonSubjectCapacity ||
+      RecoveredArenaSeance_CannonAttributeFingerprint() !=
+          cannonAttributeFingerprint ||
+      RecoveredArenaSeance_CannonSubjectFingerprint() !=
+          cannonSubjectFingerprint ||
       RecoveredArenaSeance_SkinCatalogFingerprint() !=
           skinCatalogFingerprint ||
       RecoveredArenaSeance_SkinResourceFingerprint() !=
@@ -3701,9 +3941,13 @@ int main(int argc, char** argv) {
               "corpse_subject=%d fingerprint=%llu live=0 "
                "skin_models=%d skin_sprites=%d skin_catalog=%llu "
                "skin_resources=%llu "
-               "spark=0/%d-sprite-light-May-phase spark_subject=%llu "
-               "spark_visual=%llu spark_probe=2/1/1/5/1 "
-               "route=table vehicle=real observer=fallback-suspended\n",
+                "spark=0/%d-sprite-light-May-phase spark_subject=%llu "
+                "spark_visual=%llu spark_probe=2/1/1/5/1 "
+                "people=%d/%d sound=%d attrs=%d/%d probe=%d/%d/%d/%d/%d "
+                "tank_attrs=%d/%d cannon_attrs=%d/%d "
+                "tank_subject=%d/%d cannon_subject=%d/%d "
+                "tank_probe=%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d "
+                "route=table vehicle=real observer=fallback-suspended\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,
                explosionRosterSize, explosionFingerprint,
@@ -3782,6 +4026,22 @@ int main(int argc, char** argv) {
                skinModelCount,
                skinSpriteCount, skinCatalogFingerprint,
                skinResourceFingerprint, sparkSubjectCapacity,
-               sparkSubjectFingerprint, sparkVisualResourceFingerprint);
+               sparkSubjectFingerprint, sparkVisualResourceFingerprint,
+               peopleSubjectCount, peopleSubjectCapacity,
+               peopleSubjectSoundCount,
+               peopleAttributeCount, peopleAttributeCapacity,
+               peopleProbeScheduledMoves, peopleProbeBulletDamage,
+               peopleProbeDeathTransitions, peopleProbeSaveRoundTrips,
+               peopleProbeRollbacks,
+               tankAttributeCount, tankAttributeCapacity,
+               cannonAttributeCount, cannonAttributeCapacity,
+               tankSubjectCount, tankSubjectCapacity,
+               cannonSubjectCount, cannonSubjectCapacity,
+               tankProbeAvailable, tankProbeValidStarts,
+               tankProbeDynamicReady, tankProbeRenderReady,
+               tankProbeCannonReady, tankProbeScheduledMoves,
+               tankProbeBulletDamage, tankProbeDeathTransitions,
+               tankProbeDeathEffects, tankProbeSaveRoundTrips,
+               tankProbeRollbacks);
   return EXIT_SUCCESS;
 }

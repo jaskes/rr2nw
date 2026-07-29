@@ -17,6 +17,12 @@ enum
     pe_EVC_NEXTRNDNODE,
     pe_EV_STARTSHOW,
     pe_EV_SETAUTOANIM,
+    // May retail SYSF.SCI extended start payload.  Appended to preserve every
+    // January event value used by the recovered source tree.
+    pe_EVCMD_START_EX,
+    // May retail's private transition from a visible, stationary subject to
+    // active route movement.  CreateManEx schedules it after startMoveTime.
+    pe_EV_STARTMOVE,
  };
 
 #endif

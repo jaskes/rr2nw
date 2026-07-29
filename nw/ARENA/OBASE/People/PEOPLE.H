@@ -82,6 +82,12 @@ typedef struct {
 
     int                    m_stoped;
     int                    m_isClz;
+
+    // May retail CreateManEx state.  The released executable persists the
+    // back-space node even though its movement code never reads it; keeping
+    // both values makes the recovered state explicit and save-ready.
+    int                    m_startBackSpaceNode;
+    double                 m_startMoveDelay;
 } PeopleData;
 
 class People : public ct_Subject,
@@ -107,6 +113,7 @@ class People : public ct_Subject,
     void     onKilled( const CFVector3 &explPos, double ts );
     void     onShoot(double ts);
     bool     isShooter();
+    double   movementSpeed() const;
 	
              People();
     virtual ~People();
