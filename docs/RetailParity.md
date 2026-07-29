@@ -651,7 +651,8 @@ Retail scripts нельзя молча копировать поверх source 
 
 - Classification: `RETAIL_REQUIRED`. Exact six-phase Spark presentation and
   the active Bullet ground-removal child are restored; start/collision Sparks
-  and barrel Smoke remain deferred.
+  remain inactive because their January calls are commented out. Barrel Smoke
+  is restored separately by RP-SCRIPT-020.
 - Every May Level loads the single `SkinSpr` identity `sk.Fusion.0` and creates
   `Spark.Flash` plus an empty `Spark(40)` pool. Startup resolves that loaded
   sprite only after validating every UV rectangle and phase field, then records
@@ -673,6 +674,25 @@ Retail scripts нельзя молча копировать поверх source 
   launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
   smokes publishing Spark fingerprints, `2/1/1/5/1`, Bullet `1/1`,
   `level-ready` and clean shutdown.
+
+### RP-SCRIPT-020: Bullet barrel Smoke preserves the May FPS gate
+
+- Classification: `RETAIL_REQUIRED`. The January source and May executable
+  both gate the active barrel Smoke start by `m_useBarellSmoke` and the strict
+  condition `Session::m_frameSec <= 0.09`.
+- Startup resolves an actual enabled BulletAttr and its SmokeAttr dependency.
+  At exact threshold it synchronously creates `"Smok."` using the Bullet
+  position and raw direction; `0.090001` and a disabled attribute each create
+  nothing without invalidating the projectile.
+- Smoke owns its post-start moving event. Admission removes the parent first,
+  rolls back the exact child ObjectID, and requires empty object/event pools;
+  duplicate symbolic child names remain valid Arena behavior.
+- A real observer-frame proof draws the selected SmokeAttr's full alpha-sprite
+  blob count and a following detached frame draws none. Diagnostics publish
+  readiness, counters `1/1/1/1`, and `frameSec<=0.09`.
+- Verification passes 51/51 CTest in both configurations, 36/36 May service
+  launches with 18/18 byte-identical E/G summaries, and 4/4 waited executable
+  smokes with `level-ready` and clean shutdown.
 
 ## Behavioral parity matrix
 

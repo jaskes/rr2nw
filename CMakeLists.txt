@@ -2271,6 +2271,7 @@ endif()
 
 add_library(rr2nw_arena_smoke_subject_state STATIC
   nw/ARENA/OBASE/Smoke/Smoke.cpp
+  nw/ARENA/OBASE/Smoke/SmokeDirectionalStartState.cpp
   nw/ARENA/OBASE/Smoke/SmokeSubjectState.h
 )
 target_link_libraries(rr2nw_arena_smoke_subject_state PUBLIC
@@ -2481,6 +2482,7 @@ target_link_libraries(rr2nw_arena_bullet_attribute_state PUBLIC
   rr2nw_arena_explosion_attribute_state
   rr2nw_arena_obase_spark_full
   rr2nw_arena_skin_resource_state
+  rr2nw_arena_smoke_subject_state
   rr2nw_arena_smoke_texture_cache
   rr2nw_arena_storage
   rr2nw_arena_wav_resource_state

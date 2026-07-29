@@ -472,6 +472,7 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_BulletSubjectReady() &&
          !RecoveredArenaSeance_BulletImpactEffectsReady() &&
          !RecoveredArenaSeance_BulletGroundSparkReady() &&
+         !RecoveredArenaSeance_BulletBarrelSmokeReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
@@ -491,6 +492,10 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_BulletEffectRolledBackChildren() == -1 &&
          RecoveredArenaSeance_BulletGroundSparkQueued() == -1 &&
          RecoveredArenaSeance_BulletGroundSparkRolledBack() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeRollbacks() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
@@ -615,6 +620,7 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_BulletSubjectReady() ||
       RecoveredArenaSeance_BulletImpactEffectsReady() ||
       RecoveredArenaSeance_BulletGroundSparkReady() ||
+      RecoveredArenaSeance_BulletBarrelSmokeReady() ||
       RecoveredArenaSeance_BulletAttributeCount() != 4 ||
       RecoveredArenaSeance_BulletAttributeCapacity() != 4 ||
       RecoveredArenaSeance_BulletSubjectCapacity() != 500 ||
@@ -632,6 +638,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_BulletEffectRolledBackChildren() != -1 ||
       RecoveredArenaSeance_BulletGroundSparkQueued() != -1 ||
       RecoveredArenaSeance_BulletGroundSparkRolledBack() != -1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts() != -1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() != -1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() != -1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeRollbacks() != -1 ||
       BulletSubjectState_LiveCount() != 0 ||
       RecoveredArenaSeance_BulletAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_BulletReferenceFingerprint() != 0 ||

@@ -50,6 +50,7 @@ bool RecoveredGameServices_BulletSubjectRegistrationReady();
 bool RecoveredGameServices_BulletSubjectReady();
 bool RecoveredGameServices_BulletImpactEffectsReady();
 bool RecoveredGameServices_BulletGroundSparkReady();
+bool RecoveredGameServices_BulletBarrelSmokeReady();
 bool RecoveredGameServices_FarterAttributesReady();
 bool RecoveredGameServices_FarterReferencesReady();
 bool RecoveredGameServices_FarterRuntimeReady();

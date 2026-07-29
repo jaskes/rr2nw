@@ -28,6 +28,14 @@ struct BulletGroundSparkProbeSummary
     int rolledBackSparks;
 };
 
+struct BulletBarrelSmokeProbeSummary
+{
+    int thresholdStarts;
+    int frameGateSkips;
+    int attributeGateSkips;
+    int rolledBackSmokes;
+};
+
 void BulletSubjectState_Link();
 bool BulletSubjectState_TableReady(SimulationContext *context, int capacity);
 int BulletSubjectState_Capacity();
@@ -49,5 +57,8 @@ bool BulletSubjectState_ProbeImpactEffectLifecycle(
 bool BulletSubjectState_ProbeGroundSparkLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, BulletGroundSparkProbeSummary *summary);
+bool BulletSubjectState_ProbeBarrelSmokeLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, BulletBarrelSmokeProbeSummary *summary);
 
 #endif

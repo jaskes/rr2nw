@@ -117,5 +117,7 @@ bool BulletAttributeState_ResolveEncodedIndex(
     AttributeBullet **attribute);
 const char *BulletAttributeState_FirstAttributeName(
     SimulationContext *context);
+const char *BulletAttributeState_FirstBarrelSmokeAttributeName(
+    SimulationContext *context);
 
 #endif

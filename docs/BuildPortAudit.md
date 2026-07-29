@@ -1945,8 +1945,9 @@ Hermetic admission inspects the exact half-life graph light and full rollback.
 The retail service smoke places a real Explosion in front of the observer,
 runs a visible software frame, expires the object, then runs a detached frame
 with zero lights. The following Spark frontier activates the ground child and
-its sprite/light owner; barrel Smoke, sound, the full visual Explosion graph
-and trace drawing remain separate frontiers.
+its sprite/light owner. The following barrel-Smoke frontier now activates the
+FPS-gated directional Smoke start; sound, the full visual Explosion graph and
+trace drawing remain separate frontiers.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 byte-identical installed/mounted summaries, and
@@ -1981,18 +1982,51 @@ no leaked draw/light/event/object state. Both normal initialization and full
 reconstruction reproduce the same fingerprints and `2/1/1/5/1` counters.
 
 Bullet free flight creates this child on both immediate and moved ground
-removal. Only that source-active branch is enabled; start/collision Spark and
-barrel Smoke remain isolated. Because the Bullet is removed immediately, the
+removal. Only that source-active Spark branch is enabled; start/collision Spark
+remain inactive, while barrel Smoke is handled by the next bounded section.
+Because the Bullet is removed immediately, the
 child owns its event identity. A dedicated probe observes one queued child,
 rolls it back and proves empty Bullet/Spark pools. Startup diagnostics publish
 visual readiness, both Spark fingerprints, lifecycle counters and Bullet
 ground-child `1/1`.
 
+Final verification for this slice passes 51/51 CTest in Debug and Release,
+36/36 retail service launches with 18/18 byte-identical installed/mounted
+summaries, and 4/4 waited executable runtime smokes.
+
+### Retail Bullet barrel-Smoke frontier
+
+January source and the May executable both make barrel Smoke an active but
+frame-rate-dependent presentation child. May's single `0.09` double at
+`0x00606B12` feeds the strict comparison at `0x0058510F`--`0x0058511E`; the
+synchronous start dispatch ends at `0x0058538E`. The modern bridge consequently
+emits at exact `Session::m_frameSec == 0.09` and skips only above it. It also
+preserves the independent `m_useBarellSmoke` gate, raw launch direction, exact
+SmokeAttr reference and repeated `"Smok."` symbolic name.
+
+The bridge reuses the complete admitted Smoke implementation rather than
+adding another particle owner. The Bullet attributes and state depend only on
+its modern interface, leaving the CP1251 legacy Smoke source untouched. A
+synchronous start transfers subsequent movement to the Smoke's own event
+identity; exact ObjectID rollback remains possible even after removing the
+parent Bullet. Optional Smoke failure never blocks valid ballistics, while a
+later mandatory Bullet-start failure removes any child it already created.
+
+Admission proves threshold start, frame skip, attribute skip and rollback as
+`1/1/1/1`, with all temporary global and attribute state restored. The retail
+service smoke then starts a real child in front of the observer, captures the
+full alpha-sprite blob draw, removes it and proves a clean following frame.
+Startup diagnostics publish readiness, all four counters and the explicit
+`frameSec<=0.09` contract. Start/collision Spark remain intentionally inactive;
+the next narrow projectile-presentation work is Explosion sound/particles,
+while Bullet trace stays behind replacement of the known first-step
+`m_viewTrace[-1]` access.
+
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 byte-identical installed/mounted summaries, and
-4/4 waited executable runtime smokes. The next narrow projectile presentation
-frontier is the FPS-gated barrel Smoke branch; start/collision Spark, Explosion
-sound/particles and Bullet trace remain separately gated.
+4/4 waited executable runtime smokes. Every executable log publishes
+`bullet_barrel_smoke_initialized=1`, probe `1/1/1/1`, the exact frame gate,
+`level-ready` and `runtime_shutdown=clean`.
 
 ## Expansion order
 

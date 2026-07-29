@@ -1887,8 +1887,9 @@ binary proves that `m_useLight` gates light creation and that
 source does not establish the complete May target-dispatch contract. BD-055
 subsequently admitted impulse, and BD-056 admitted the independently bounded
 light lifetime. BD-057 subsequently activates the ground Spark child and its
-own sprite/light lifecycle; barrel Smoke, Explosion sound/particles and Bullet
-trace remain separate transactions.
+own sprite/light lifecycle. BD-058 subsequently activates the bounded barrel
+Smoke start; Explosion sound/particles and Bullet trace remain separate
+transactions.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May
 game-service launches with 18/18 byte-identical installed/mounted summaries,
@@ -1985,8 +1986,8 @@ Fingerprints and diagnostics now report rendering and light active through
 `explosion_subject_light=1` and
 `explosion_subject_light_lifecycle=useLight-brightness-frame-expiry`.
 BD-057 subsequently activates the ground Spark child and its independent
-sprite/light lifetime. Explosion particles/sound, barrel Smoke and Bullet trace
-remain deferred.
+sprite/light lifetime. BD-058 subsequently activates barrel Smoke. Explosion
+particles/sound and Bullet trace remain deferred.
 
 Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
 launches with 18/18 byte-identical installed/mounted summaries, and 4/4 waited
@@ -2032,7 +2033,8 @@ self-owned rather than retaining the soon-to-be-removed Bullet as event source:
 that intentional ownership split makes child rollback exact while preserving
 the same position, attribute and timestamp. Spark allocation remains a
 best-effort presentation effect and cannot prevent the Bullet's required ground
-removal. Start/collision sparks and barrel Smoke are still separate frontiers.
+removal. Start/collision sparks remain inactive because their January calls are
+commented out; BD-058 handles the independently active barrel Smoke branch.
 
 Admission rejects malformed payload and encoded attribute starts, proves one
 queued CREATE and rollback, walks five visible phase transitions and one final
@@ -2050,3 +2052,49 @@ and lifecycle metrics as unavailable (`-1`), never as a successful zero-count
 probe. Real retail startup requires visual resolution, stable subject/resource
 fingerprints and counters `2/1/1/5/1`. Diagnostics additionally publish the
 Bullet ground transaction `1/1`.
+
+## BD-058: activate retail Bullet barrel Smoke with its exact frame gate
+
+Status: accepted on 2026-07-29.
+
+The January Bullet source calls `createSmoke()` during `b_EV_START` only when
+the selected `BulletAttr` has `m_useBarellSmoke != 0`. The helper first returns
+when `Session::m_frameSec > 0.09`, then synchronously sends
+`fou_EVCMD_START_WITHDIR` to a new Smoke object named `"Smok."`. Its payload is
+the resolved SmokeAttr ObjectID, launch position and the unnormalised Bullet
+direction; the Bullet ObjectID is the start-event source. The preserved May
+retail binary keeps the same strict boundary: the single `0.09` constant is at
+`0x00606B12`, the comparison and strict `ja` are at
+`0x0058510F`--`0x0058511E`, and the synchronous dispatch ends at
+`0x0058538E`. Exact `0.09` therefore emits Smoke, while `0.090001` does not.
+
+The modern Bullet start preserves that contract after its own state is valid
+and before ground handling or movement scheduling. It uses the raw direction,
+does not require a unique symbolic name, and treats Smoke as best-effort
+presentation: missing source-only dependencies, a disabled attribute, the
+strict frame gate or a failed child allocation cannot prevent an otherwise
+valid Bullet start. A later mandatory Bullet-start failure rolls back the exact
+created Smoke ObjectID.
+
+Smoke consumes the synchronous start before the Bullet can disappear and then
+owns its `fou_EVC_MOVING` event itself. The bridge therefore verifies the live
+child after dispatch, and rollback removes that self-owned event and exact
+ObjectID. It never searches `"Smok."` as a uniqueness guard because concurrent
+Bullets are allowed to create same-name children. It also leaves the original
+CP1251 Smoke implementation untouched and reuses its admitted simulation,
+terrain placement, sprite rendering and teardown paths.
+
+Admission proves one child at exact threshold, one frame-gate skip, one
+attribute-gate skip and one rollback. It removes the parent Bullet before the
+rollback to prove the child event is independent, restores the temporarily
+modified frame/attribute state and requires empty Bullet/Smoke/event pools. A
+retail service frame starts a real barrel Smoke in front of the observer,
+draws exactly the selected SmokeAttr blob count, removes it and verifies a
+following detached frame with no residual sprite or moving event. Diagnostics
+publish `bullet_barrel_smoke_initialized=1`, probe `1/1/1/1` and the explicit
+`frameSec<=0.09` contract.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 May service
+launches with 18/18 byte-identical installed/mounted summaries, and 4/4 waited
+executable smokes reporting the new readiness/gate markers, `level-ready` and
+`runtime_shutdown=clean`.

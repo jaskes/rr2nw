@@ -583,6 +583,10 @@ bool RecoveredGameServices_BulletGroundSparkReady() {
   return RecoveredArenaSeance_BulletGroundSparkReady();
 }
 
+bool RecoveredGameServices_BulletBarrelSmokeReady() {
+  return RecoveredArenaSeance_BulletBarrelSmokeReady();
+}
+
 bool RecoveredGameServices_FarterAttributesReady() {
   return RecoveredArenaSeance_FarterAttributesReady();
 }
@@ -713,6 +717,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_BulletSubjectReady() &&
          RecoveredGameServices_BulletImpactEffectsReady() &&
          RecoveredGameServices_BulletGroundSparkReady() &&
+         RecoveredGameServices_BulletBarrelSmokeReady() &&
          RecoveredGameServices_FarterAttributesReady() &&
          RecoveredGameServices_FarterReferencesReady() &&
          RecoveredGameServices_FarterRuntimeReady() &&

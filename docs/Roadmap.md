@@ -572,9 +572,12 @@ explicit self-owned expiry prove full detach on the following frame. The Spark
 slice is also complete: exact `Spark.Flash` resolves `sk.Fusion.0`, preserves
 the May schedule-before-phase-increment timing, publishes its sprite/light and
 expires without residual scene state. Bullet ground removal queues that child
-with child-owned rollback. The next safe slice is the FPS-gated barrel Smoke;
-start/collision Spark, Explosion sound and remaining particles stay behind
-separate lifecycle transactions. Trace follows only after the known first-step
+with child-owned rollback. The barrel-Smoke slice is also complete: exact
+`m_useBarellSmoke` and strict `frameSec<=0.09` gates synchronously start the
+real directional Smoke owner, with child-owned movement, exact rollback and a
+visible/detached frame proof. Start/collision Spark remain inactive because the
+January calls are commented out. The next safe slices are independently
+bounded Explosion sound and remaining particles. Trace follows only after the known first-step
 `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this

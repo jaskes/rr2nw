@@ -802,3 +802,20 @@ const char *BulletAttributeState_FirstAttributeName(
     return context->searchObject(
         collector.entries.front().attribute->getObjectID());
 }
+
+const char *BulletAttributeState_FirstBarrelSmokeAttributeName(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return NULL;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeBullet *attribute = collector.entries[i].attribute;
+        if (attribute != NULL && attribute->m_useBarellSmoke != 0 &&
+            attribute->m_smokeTableID != ct_NULLID &&
+            !attribute->m_smokeAttrID.isNUL())
+            return context->searchObject(attribute->getObjectID());
+    }
+    return NULL;
+}

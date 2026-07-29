@@ -1426,16 +1426,16 @@ Status vocabulary:
   bounded sphere inputs and a strictly downward non-zero waterline segment.
   Collision cadence and removal are active. BD-054 now turns the retained
   `m_bulletMaster` into an explicit damage-owner payload and queues bounded
-  splash/impact Explosion commands; Spark, barrel Smoke and presentation
-  effects remain off.
+  splash/impact Explosion commands. BD-057 and BD-058 subsequently activate
+  the separately bounded ground Spark and barrel Smoke presentation children.
 - Regression contract: four sphere cases, three earliest-hit cases and four
   waterline cases run in every seance. Source-only admission expects zero scene
   queries, game-service admission expects one real query, and the Arena smoke
   collides with a safe real `IDynamicObject`. Every path ends with zero probe
   Bullets and no queued Bullet events.
-- Revisit when: attach Spark, barrel Smoke or other presentation children.
-  Preserve the admitted splash-before-impact order and all-or-none child
-  allocation before extending the transaction.
+- Revisit when: attach additional collision presentation children. Preserve
+  the admitted splash-before-impact order and all-or-none child allocation
+  before extending the transaction.
 
 ### CQ-097: the legacy Explosion event source is not its lifecycle owner
 
@@ -1563,6 +1563,46 @@ Status vocabulary:
 - Revisit when: a general child-event reservation API replaces the fixed queue.
   Keep parent identity separate from lifecycle ownership even if the request
   becomes fully atomic.
+
+### CQ-103: barrel Smoke deliberately depends on rendered frame duration
+
+- Status: `RETAIL_QUIRK_PRESERVED`, `PRESENTATION_TIMING_CONTRACT`.
+- Evidence: January `Bullet::createSmoke()` returns only when
+  `Session::m_frameSec > 0.09`. May retail keeps the sole `0.09` double at
+  `0x00606B12` and a strict `ja` from the comparison at
+  `0x0058510F`--`0x0058511E`; exact equality is admitted. The condition affects
+  optional presentation, not ballistics.
+- Handling: preserve the strict gate literally. An enabled BulletAttr emits at
+  `0.09` and skips at `0.090001`; a disabled attribute skips independently.
+  Source-only fixtures with unresolved Smoke references keep a valid Bullet
+  but emit no placeholder child.
+- Regression contract: prove threshold start, frame-gate skip, attribute-gate
+  skip and exact rollback as counters `1/1/1/1`, restoring both global frame
+  duration and the temporarily toggled attribute after the probe.
+- Revisit when: fixed-tick or replay work separates simulation and presentation
+  clocks. Keep this as a recorded presentation policy instead of allowing it to
+  influence deterministic Bullet state.
+
+### CQ-104: synchronous Smoke start transfers lifecycle ownership from Bullet
+
+- Status: `SOURCE_CONFIRMED`, `EVENT_OWNERSHIP_TRANSFER`.
+- Evidence: the Bullet is source of the synchronous
+  `fou_EVCMD_START_WITHDIR`, but Smoke schedules its subsequent
+  `fou_EVC_MOVING` with its own ObjectID. A Bullet may be removed immediately
+  at ground level after creating that child. Every helper also uses the same
+  symbolic name `"Smok."`.
+- Handling: validate the child immediately after synchronous dispatch, then
+  roll it back by returned ObjectID and its self-owned moving event. Never use
+  symbolic-name existence as a creation guard. Smoke allocation is optional;
+  mandatory Bullet-start rollback nevertheless removes any child already
+  created by that start.
+- Regression contract: create one child, remove its parent, prove its moving
+  event survives under the child identity, cancel that exact event/object and
+  require no Bullet, Smoke, event or same-name residue. A real frame must draw
+  the expected alpha sprites and the detached next frame must draw none.
+- Revisit when: a general transactional child API exists. Preserve same-name
+  object support and the distinction between start attribution and lifecycle
+  ownership.
 
 ## Maintenance rule
 

@@ -610,6 +610,7 @@ struct RecoveredArenaSeanceState {
   bool bulletSubjectReady;
   bool bulletImpactEffectsReady;
   bool bulletGroundSparkReady;
+  bool bulletBarrelSmokeReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -671,6 +672,10 @@ struct RecoveredArenaSeanceState {
   int bulletEffectRolledBackChildren;
   int bulletGroundSparkQueued;
   int bulletGroundSparkRolledBack;
+  int bulletBarrelSmokeThresholdStarts;
+  int bulletBarrelSmokeFrameGateSkips;
+  int bulletBarrelSmokeAttributeGateSkips;
+  int bulletBarrelSmokeRollbacks;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
@@ -1766,6 +1771,24 @@ bool PublishBulletReferences(SimulationContext* context) {
         "Bullet ground removal did not queue/rollback one self-owned Spark");
     return false;
   }
+  const char* barrelSmokeAttribute =
+      BulletAttributeState_FirstBarrelSmokeAttributeName(context);
+  BulletBarrelSmokeProbeSummary barrelSmokeSummary = {};
+  if (barrelSmokeAttribute == nullptr ||
+      !BulletSubjectState_ProbeBarrelSmokeLifecycle(
+          context, barrelSmokeAttribute, Session::m_moment,
+          &barrelSmokeSummary) ||
+      barrelSmokeSummary.thresholdStarts != 1 ||
+      barrelSmokeSummary.frameGateSkips != 1 ||
+      barrelSmokeSummary.attributeGateSkips != 1 ||
+      barrelSmokeSummary.rolledBackSmokes != 1 ||
+      BulletSubjectState_LiveCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_BARREL_SMOKE_FAILURE,
+        "Bullet barrel Smoke threshold/gates/rollback probe failed");
+    return false;
+  }
   g_state.bulletEffectQueuedBatches = effectSummary.queuedBatches;
   g_state.bulletEffectQueuedChildren = effectSummary.queuedChildren;
   g_state.bulletEffectSplashFirstCases = effectSummary.splashFirstCases;
@@ -1773,8 +1796,17 @@ bool PublishBulletReferences(SimulationContext* context) {
       effectSummary.rolledBackChildren;
   g_state.bulletGroundSparkQueued = sparkSummary.queuedSparks;
   g_state.bulletGroundSparkRolledBack = sparkSummary.rolledBackSparks;
+  g_state.bulletBarrelSmokeThresholdStarts =
+      barrelSmokeSummary.thresholdStarts;
+  g_state.bulletBarrelSmokeFrameGateSkips =
+      barrelSmokeSummary.frameGateSkips;
+  g_state.bulletBarrelSmokeAttributeGateSkips =
+      barrelSmokeSummary.attributeGateSkips;
+  g_state.bulletBarrelSmokeRollbacks =
+      barrelSmokeSummary.rolledBackSmokes;
   g_state.bulletImpactEffectsReady = true;
   g_state.bulletGroundSparkReady = true;
+  g_state.bulletBarrelSmokeReady = true;
   g_state.bulletReferencesReady = true;
   return true;
 }
@@ -2378,6 +2410,7 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletSubjectReady = false;
   g_state.bulletImpactEffectsReady = false;
   g_state.bulletGroundSparkReady = false;
+  g_state.bulletBarrelSmokeReady = false;
   g_state.bulletAttributeCount = 0;
   g_state.bulletAttributeCapacity = 0;
   g_state.bulletSubjectCapacity = 0;
@@ -2397,6 +2430,10 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletEffectRolledBackChildren = 0;
   g_state.bulletGroundSparkQueued = 0;
   g_state.bulletGroundSparkRolledBack = 0;
+  g_state.bulletBarrelSmokeThresholdStarts = 0;
+  g_state.bulletBarrelSmokeFrameGateSkips = 0;
+  g_state.bulletBarrelSmokeAttributeGateSkips = 0;
+  g_state.bulletBarrelSmokeRollbacks = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -2640,6 +2677,10 @@ bool RecoveredArenaSeance_BulletGroundSparkReady() {
   return g_state.bulletGroundSparkReady;
 }
 
+bool RecoveredArenaSeance_BulletBarrelSmokeReady() {
+  return g_state.bulletBarrelSmokeReady;
+}
+
 int RecoveredArenaSeance_BulletSubjectCapacity() {
   return g_state.bulletSubjectRegistrationReady
              ? g_state.bulletSubjectCapacity
@@ -2717,6 +2758,30 @@ int RecoveredArenaSeance_BulletGroundSparkQueued() {
 int RecoveredArenaSeance_BulletGroundSparkRolledBack() {
   return g_state.bulletGroundSparkReady
              ? g_state.bulletGroundSparkRolledBack
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts() {
+  return g_state.bulletBarrelSmokeReady
+             ? g_state.bulletBarrelSmokeThresholdStarts
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() {
+  return g_state.bulletBarrelSmokeReady
+             ? g_state.bulletBarrelSmokeFrameGateSkips
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() {
+  return g_state.bulletBarrelSmokeReady
+             ? g_state.bulletBarrelSmokeAttributeGateSkips
+             : -1;
+}
+
+int RecoveredArenaSeance_BulletBarrelSmokeRollbacks() {
+  return g_state.bulletBarrelSmokeReady
+             ? g_state.bulletBarrelSmokeRollbacks
              : -1;
 }
 

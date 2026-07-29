@@ -6,6 +6,7 @@
 #define LAST_H__SCENE
 #include "game.h"
 #include "dmap.h"
+#include "enum/SpaceEnum.h"
 #include "graph.h"
 #include "hardware.h"
 #include "h/cachesmoke.h"
@@ -13,6 +14,7 @@
 #include "h/super.h"
 #include "h/vehicle.h"
 #include "kernel/h/session.h"
+#include "message/bulmsg.h"
 #include "message/fountmsg.h"
 #include "message/hardmsg.h"
 #include "message/explmsg.h"
@@ -203,7 +205,8 @@ int Fail(const char* message) {
       "game-services-runtime-smoke: %s (services=%u entry=%u missing=%u "
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d "
-      "vehicle_attrs=%d taxi=%d taxi_refs=%d bullet=%d bullet_refs=%d smoker=%d "
+      "vehicle_attrs=%d taxi=%d taxi_refs=%d bullet=%d bullet_refs=%d "
+      "bullet_ground_spark=%d bullet_barrel_smoke=%d smoker=%d "
       "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
       "farter=%d lamp=%d corpse=%d corpse_subject=%d "
       "wav=%d sound=%d skin=%d spark=%d "
@@ -230,6 +233,8 @@ int Fail(const char* message) {
       RecoveredGameServices_TaxiReferencesReady() ? 1 : 0,
       RecoveredGameServices_BulletAttributesReady() ? 1 : 0,
       RecoveredGameServices_BulletReferencesReady() ? 1 : 0,
+      RecoveredGameServices_BulletGroundSparkReady() ? 1 : 0,
+      RecoveredGameServices_BulletBarrelSmokeReady() ? 1 : 0,
       RecoveredGameServices_SmokerAttributesReady() ? 1 : 0,
       RecoveredGameServices_DynSmokerReady() ? 1 : 0,
       RecoveredGameServices_SmokerEmissionReady() ? 1 : 0,
@@ -307,6 +312,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_BulletSubjectReady() &&
          !RecoveredGameServices_BulletImpactEffectsReady() &&
          !RecoveredGameServices_BulletGroundSparkReady() &&
+         !RecoveredGameServices_BulletBarrelSmokeReady() &&
          RecoveredArenaSeance_BulletAttributeCount() == -1 &&
          RecoveredArenaSeance_BulletAttributeCapacity() == 0 &&
          RecoveredArenaSeance_BulletAttributeFingerprint() == 0 &&
@@ -326,6 +332,10 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_BulletEffectRolledBackChildren() == -1 &&
          RecoveredArenaSeance_BulletGroundSparkQueued() == -1 &&
          RecoveredArenaSeance_BulletGroundSparkRolledBack() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() == -1 &&
+         RecoveredArenaSeance_BulletBarrelSmokeRollbacks() == -1 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SmokerAttributesReady() &&
          !RecoveredGameServices_SmokerReferencesReady() &&
@@ -494,6 +504,128 @@ bool ExerciseVisibleSmoke() {
          !context->isExist(kProbeName) &&
          SmokeSubjectState_LiveCount() == 0 &&
          context->removeEvent(fou_EVC_MOVING, object) == 0;
+}
+
+bool ExerciseVisibleBulletBarrelSmoke() {
+  if (g_super.m_context == nullptr ||
+      !RecoveredGameServices_BulletBarrelSmokeReady() ||
+      !RecoveredGameServices_SmokeRenderingReady() ||
+      BulletSubjectState_LiveCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0) {
+    return false;
+  }
+  SimulationContext* context = g_super.m_context;
+  const char* bulletAttributeName =
+      BulletAttributeState_FirstBarrelSmokeAttributeName(context);
+  KR_ObjectID bulletAttributeID = bulletAttributeName == nullptr
+      ? KR_ObjectID::NUL()
+      : context->searchObject(bulletAttributeName);
+  AttributeBullet* bulletAttribute = bulletAttributeID.isNUL()
+      ? nullptr
+      : static_cast<AttributeBullet*>(
+            __bulletAttrTable.searchAttribute(bulletAttributeID));
+  const ct_ClassTableID bulletAttributeTable =
+      g_arena.searchSeanceClassTable("BulletAttr");
+  const ct_ClassTableID bulletTable =
+      g_arena.searchSeanceClassTable("Bullet");
+  const int bulletAttributeIndex =
+      bulletAttributeTable == ct_NULLID || bulletAttributeID.isNUL()
+          ? -1
+          : g_arena.getAttributeIndex(
+                bulletAttributeTable, bulletAttributeID);
+  AttributeSmoke* smokeAttribute = bulletAttribute == nullptr ||
+          bulletAttribute->m_smokeAttrID.isNUL()
+      ? nullptr
+      : static_cast<AttributeSmoke*>(__attrSmokeTable.searchAttribute(
+            bulletAttribute->m_smokeAttrID));
+  const SRecoveredObserverState* observer =
+      RecoveredGameServices_ObserverState();
+  static const char kBulletName[] =
+      "Bullet.BarrelSmoke.Rendering.Probe";
+  if (bulletAttribute == nullptr || smokeAttribute == nullptr ||
+      bulletAttribute->m_useBarellSmoke == 0 ||
+      bulletAttributeIndex == -1 || bulletTable == ct_NULLID ||
+      smokeAttribute->m_cacheImage == nullptr ||
+      smokeAttribute->m_maxBlob <= 0 || observer == nullptr ||
+      context->isExist(kBulletName) || context->isExist("Smok.")) {
+    return false;
+  }
+
+  KR_ObjectID bullet = g_arena.newObject(bulletTable, kBulletName);
+  if (bullet.isNUL()) return false;
+  const double currentTime =
+      (std::max)(Session::m_moment, Session::m_viewTime);
+  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  const CFVector3 position(
+      observer->x, observer->y, observer->z - 64.0);
+  const CFVector3 direction(0.0, 0.0, -1.0);
+  KR_Event event;
+  event.label = b_EV_START;
+  event.source = g_arena.getObjectID();
+  event.destination = bullet;
+  event.timeStamp = timeStamp;
+  event.data.open(EDO_WRITE)
+      .descend(VECTOR3D_F, 0)
+        .putDouble(position.x)
+        .putDouble(position.y)
+        .putDouble(position.z)
+      .ascend()
+      .descend(VECTOR3D_F, 0)
+        .putDouble(direction.x)
+        .putDouble(direction.y)
+        .putDouble(direction.z)
+      .ascend()
+      .putInt(bulletAttributeIndex)
+      .putObjectID(g_arena.getObjectID())
+      .close();
+  const double previousFrameSec = Session::m_frameSec;
+  Session::m_frameSec = 0.09;
+  context->sendEventNow(event);
+  Session::m_frameSec = previousFrameSec;
+
+  KR_ObjectID smoke = context->searchObject("Smok.");
+  const bool started = context->isExist(kBulletName) &&
+      !smoke.isNUL() && context->isExist(smoke) &&
+      BulletSubjectState_LiveCount() == 1 &&
+      SmokeSubjectState_LiveCount() == 1;
+  if (!started) {
+    context->removeEvent(fou_EVC_MOVING, smoke);
+    if (!smoke.isNUL() && context->isExist(smoke)) {
+      context->removeObject(smoke);
+    }
+    if (context->isExist(bullet)) context->removeObject(bullet);
+    return false;
+  }
+  context->removeObject(bullet);
+  const bool childOwnsMoving =
+      context->removeEvent(fou_EVC_MOVING, smoke) != 0;
+  if (!childOwnsMoving || !context->isExist(smoke) ||
+      BulletSubjectState_LiveCount() != 0) {
+    if (context->isExist(smoke)) context->removeObject(smoke);
+    return false;
+  }
+
+  const dword framesBefore = dwFrames;
+  bool visibleFrame = false;
+  bool detachedFrame = false;
+  int drawsAfterVisibleFrame = 0;
+  {
+    ScopedAlphaSpriteCapture capture(smokeAttribute->m_cacheImage);
+    visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
+    drawsAfterVisibleFrame = g_alphaSpriteDraws;
+    context->removeObject(smoke);
+    detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
+  }
+  return visibleFrame && detachedFrame && g_alphaSpriteDrawValid &&
+         drawsAfterVisibleFrame == smokeAttribute->m_maxBlob &&
+         g_alphaSpriteDraws == drawsAfterVisibleFrame &&
+         dwFrames == framesBefore + 2 &&
+         !context->isExist(kBulletName) && !context->isExist("Smok.") &&
+         BulletSubjectState_LiveCount() == 0 &&
+         SmokeSubjectState_LiveCount() == 0 &&
+         context->removeEvent(b_EVC_MOVING, bullet) == 0 &&
+         context->removeEvent(b_EVC_CHECK_COLLISION, bullet) == 0 &&
+         context->removeEvent(fou_EVC_MOVING, smoke) == 0;
 }
 
 bool ExerciseVisibleSmokerEmission() {
@@ -1136,6 +1268,7 @@ int main(int argc, char** argv) {
        !RecoveredGameServices_BulletSubjectReady() ||
        !RecoveredGameServices_BulletImpactEffectsReady() ||
        !RecoveredGameServices_BulletGroundSparkReady() ||
+       !RecoveredGameServices_BulletBarrelSmokeReady() ||
       !RecoveredGameServices_SmokerAttributesReady() ||
       !RecoveredGameServices_SmokerReferencesReady() ||
       !RecoveredGameServices_SmokerRuntimeReady() ||
@@ -1390,6 +1523,10 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletEffectRolledBackChildren() != 3 ||
       RecoveredArenaSeance_BulletGroundSparkQueued() != 1 ||
       RecoveredArenaSeance_BulletGroundSparkRolledBack() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeRollbacks() != 1 ||
       !BulletAttributeState_IsKnownRoster(g_super.m_context) ||
       !BulletAttributeState_ReferencesResolved(g_super.m_context) ||
       !BulletAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
@@ -1511,6 +1648,11 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("visible Smoke scene/draw/detach rollback failed");
   }
+  if (!ExerciseVisibleBulletBarrelSmoke()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("visible Bullet barrel Smoke threshold/detach failed");
+  }
   if (!ExerciseVisibleSmokerEmission()) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -1608,6 +1750,10 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletEffectRolledBackChildren() != 3 ||
       RecoveredArenaSeance_BulletGroundSparkQueued() != 1 ||
       RecoveredArenaSeance_BulletGroundSparkRolledBack() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() != 1 ||
+      RecoveredArenaSeance_BulletBarrelSmokeRollbacks() != 1 ||
       VehicleAttributeState_Fingerprint(g_super.m_context) !=
           vehicleAttributeFingerprint ||
       VehicleAttributeState_RosterSize(g_super.m_context) !=
@@ -1715,7 +1861,7 @@ int main(int argc, char** argv) {
     return Fail("complete service shutdown failed");
   }
 
-  std::printf("bounded services frames=13 hooks=12 hardware=legacy "
+  std::printf("bounded services frames=15 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "
                "smoke_simulation=START-MOVE-remove "
@@ -1730,10 +1876,11 @@ int main(int argc, char** argv) {
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
-              "bullet_subject=0/%d-ballistic-collision-impact-ground-waterline "
+              "bullet_subject=0/%d-ballistic-collision-impact-ground-waterline-barrel-smoke "
                "bullet_subject_fingerprint=%llu bullet_probe_moves=2 "
                "bullet_collision=2/1/4/3/4/1 bullet_effects=2/3/1/3 "
                "bullet_ground_spark=1/1 "
+               "bullet_barrel_smoke=1/1/1/1-frameSec<=0.09 "
               "smoker_attrs=%d/%d smoker_fingerprint=%llu "
               "smoker_refs=%llu smoker_runtime=%d "
               "dyn_smoker=%d fingerprint=%llu "

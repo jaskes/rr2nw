@@ -1,7 +1,22 @@
 #ifndef RR2NW_SMOKE_SUBJECT_STATE_H
 #define RR2NW_SMOKE_SUBJECT_STATE_H
 
+#include "mathlib.h"
+#include "storage/h/classtab.h"
+
 class SimulationContext;
+
+struct SmokeDirectionalStartRequest
+{
+    CFVector3 position;
+    CFVector3 direction;
+    double timeStamp;
+    KR_ObjectID source;
+    ct_ClassTableID subjectTable;
+    KR_ObjectID attribute;
+    const char *attributeName;
+    const char *objectName;
+};
 
 void SmokeSubjectState_Link();
 bool SmokeSubjectState_TableReady(SimulationContext *context,
@@ -17,5 +32,11 @@ bool SmokeSubjectState_RenderingSupported(
 bool SmokeSubjectState_ProbeSimulationLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp);
+bool SmokeSubjectState_StartWithDirection(
+    SimulationContext *context,
+    const SmokeDirectionalStartRequest &request,
+    KR_ObjectID *child);
+bool SmokeSubjectState_RollbackStarted(
+    SimulationContext *context, const KR_ObjectID &child);
 
 #endif

@@ -12,11 +12,14 @@
 #include "i/dynobj.i"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
+#include "kernel/h/session.h"
 #include "message/a_msg.h"
 #include "message/bulmsg.h"
+#include "message/fountmsg.h"
 #include "message/funitmsg.h"
 #include "message/sparkmsg.h"
 #include "obase/explosion/ExplosionSubjectState.h"
+#include "obase/smoke/SmokeSubjectState.h"
 #include "obase/spark/SparkSubjectState.h"
 #include "storage/h/subject.h"
 
@@ -213,6 +216,40 @@ bool QueueGroundSpark(SimulationContext *context,
         position, timeStamp, attribute->m_cacheSparkTable,
         attribute->m_cacheSparkAttr, "S"};
     return SparkSubjectState_QueueCreate(context, request, child);
+}
+
+bool StartBarrelSmoke(SimulationContext *context,
+                      AttributeBullet *attribute,
+                      const KR_ObjectID &source,
+                      const CFVector3 &position,
+                      const CFVector3 &direction,
+                      double timeStamp, KR_ObjectID *child)
+{
+    if (child == NULL)
+        return false;
+    *child = KR_ObjectID::NUL();
+    if (context == NULL || attribute == NULL ||
+        !FiniteVector(position) || !FiniteVector(direction) ||
+        !std::isfinite(timeStamp) || timeStamp < 0.1 ||
+        !std::isfinite(Session::m_frameSec))
+        return false;
+    if (attribute->m_useBarellSmoke == 0 ||
+        Session::m_frameSec > 0.09)
+        return true;
+    // The source-only fixture deliberately leaves the dependency transaction
+    // unresolved. The presentation branch remains a valid no-op there.
+    if (attribute->m_smokeTableID == ct_NULLID ||
+        attribute->m_smokeAttrID.isNUL())
+        return true;
+    if (!SmokeSubjectState_RenderingSupported(
+            context, attribute->m_smokeAttrName))
+        return false;
+    SmokeDirectionalStartRequest request = {
+        position, direction, timeStamp, source,
+        attribute->m_smokeTableID, attribute->m_smokeAttrID,
+        attribute->m_smokeAttrName, "Smok."};
+    return SmokeSubjectState_StartWithDirection(
+        context, request, child);
 }
 
 void HashBytes(unsigned long long &hash, const void *data, int size)
@@ -420,6 +457,9 @@ class BoundedBullet : public ct_Subject
             m_hasWaterline = std::isfinite(m_waterline) != 0;
         }
         setPosition(position);
+        KR_ObjectID barrelSmoke = KR_ObjectID::NUL();
+        StartBarrelSmoke(context, attribute, getObjectID(), position,
+                         direction, event.timeStamp, &barrelSmoke);
         if (position.y <= 0.0)
         {
             KR_ObjectID spark = KR_ObjectID::NUL();
@@ -434,6 +474,9 @@ class BoundedBullet : public ct_Subject
                               attribute->m_moveTimeIncrement) ||
             !scheduleCollision(event.timeStamp))
         {
+            if (!barrelSmoke.isNUL() && context->isExist(barrelSmoke))
+                SmokeSubjectState_RollbackStarted(
+                    context, barrelSmoke);
             context->removeEvent(b_EVC_MOVING, getObjectID());
             context->removeEvent(b_EVC_CHECK_COLLISION, getObjectID());
             setPosition(CFVector3(0.0, 0.0, 0.0));
@@ -767,6 +810,9 @@ unsigned long long BulletSubjectState_Fingerprint(
     const int splashCommands = 1;
     const int visualEffects = 1;
     const int groundSpark = 1;
+    const int barrelSmoke = 1;
+    const int strictFrameGate = 1;
+    const int directionalSmokeStart = 1;
     HashString(hash, "Bullet");
     HashBytes(hash, &capacity, sizeof(capacity));
     HashBytes(hash, &rendering, sizeof(rendering));
@@ -782,6 +828,10 @@ unsigned long long BulletSubjectState_Fingerprint(
     HashBytes(hash, &splashCommands, sizeof(splashCommands));
     HashBytes(hash, &visualEffects, sizeof(visualEffects));
     HashBytes(hash, &groundSpark, sizeof(groundSpark));
+    HashBytes(hash, &barrelSmoke, sizeof(barrelSmoke));
+    HashBytes(hash, &strictFrameGate, sizeof(strictFrameGate));
+    HashBytes(hash, &directionalSmokeStart,
+              sizeof(directionalSmokeStart));
     return hash;
 }
 
@@ -1312,7 +1362,10 @@ bool BulletSubjectState_ProbeGroundSparkLifecycle(
                     CFVector3(0.0, 0.001, 0.0),
                     CFVector3(0.0, -1.0, 0.0),
                     attributeIndex, source);
+    const double previousFrameSec = Session::m_frameSec;
+    Session::m_frameSec = 0.090001;
     context->sendEventNow(event);
+    Session::m_frameSec = previousFrameSec;
     const bool started = !bullet.isNUL() && object != NULL &&
         object->started() &&
         context->removeEvent(b_EVC_MOVING, bullet) != 0;
@@ -1348,4 +1401,114 @@ bool BulletSubjectState_ProbeGroundSparkLifecycle(
            context->removeEvent(sp_EVC_LIFE, spark) == 0 &&
            !context->isExist("Bullet.GroundSpark.Probe") &&
            !context->isExist("S");
+}
+
+bool BulletSubjectState_ProbeBarrelSmokeLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, BulletBarrelSmokeProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_bulletTable.liveCount() != 0 ||
+        SmokeSubjectState_LiveCount() != 0)
+        return false;
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeBullet *attribute = static_cast<AttributeBullet *>(
+        __bulletAttrTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("BulletAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Bullet");
+    const int attributeIndex = attributeTable == ct_NULLID ||
+            attributeID.isNUL()
+        ? -1
+        : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (attribute == NULL || attributeIndex == -1 ||
+        subjectTable == ct_NULLID || attribute->m_useBarellSmoke == 0 ||
+        attribute->m_smokeTableID == ct_NULLID ||
+        attribute->m_smokeAttrID.isNUL() ||
+        !SmokeSubjectState_RenderingSupported(
+            context, attribute->m_smokeAttrName))
+        return false;
+
+    const double previousFrameSec = Session::m_frameSec;
+    const int previousUseBarrelSmoke = attribute->m_useBarellSmoke;
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    const KR_ObjectID source = g_arena.getObjectID();
+    const CFVector3 position(0.0, 10.0, 0.0);
+    const CFVector3 direction(0.0, 0.0, -1.0);
+    KR_Event event;
+
+    Session::m_frameSec = 0.09;
+    KR_ObjectID thresholdBullet = g_arena.newObject(
+        subjectTable, "Bullet.BarrelSmoke.Threshold.Probe");
+    BoundedBullet *thresholdObject = g_bulletTable.find(thresholdBullet);
+    BuildStartEvent(event, thresholdBullet, source, ts, position,
+                    direction, attributeIndex, source);
+    context->sendEventNow(event);
+    KR_ObjectID thresholdSmoke = context->searchObject("Smok.");
+    const bool thresholdStarted = !thresholdBullet.isNUL() &&
+        thresholdObject != NULL && thresholdObject->started() &&
+        !thresholdSmoke.isNUL() &&
+        SmokeSubjectState_LiveCount() == 1;
+    summary->thresholdStarts = thresholdStarted ? 1 : 0;
+    RemoveIfPresent(context, thresholdBullet);
+    const bool thresholdRolledBack = thresholdStarted &&
+        SmokeSubjectState_RollbackStarted(context, thresholdSmoke);
+    summary->rolledBackSmokes = thresholdRolledBack ? 1 : 0;
+
+    Session::m_frameSec = 0.090001;
+    KR_ObjectID frameGateBullet = g_arena.newObject(
+        subjectTable, "Bullet.BarrelSmoke.FrameGate.Probe");
+    BoundedBullet *frameGateObject = g_bulletTable.find(frameGateBullet);
+    BuildStartEvent(event, frameGateBullet, source, ts + 1.0,
+                    position, direction, attributeIndex, source);
+    context->sendEventNow(event);
+    KR_ObjectID frameGateSmoke = KR_ObjectID::NUL();
+    const bool frameGateSkipped = !frameGateBullet.isNUL() &&
+        frameGateObject != NULL && frameGateObject->started() &&
+        frameGateSmoke.isNUL() &&
+        SmokeSubjectState_LiveCount() == 0;
+    summary->frameGateSkips = frameGateSkipped ? 1 : 0;
+    RemoveIfPresent(context, frameGateBullet);
+
+    Session::m_frameSec = 0.09;
+    attribute->m_useBarellSmoke = 0;
+    KR_ObjectID attributeGateBullet = g_arena.newObject(
+        subjectTable, "Bullet.BarrelSmoke.AttributeGate.Probe");
+    BoundedBullet *attributeGateObject =
+        g_bulletTable.find(attributeGateBullet);
+    BuildStartEvent(event, attributeGateBullet, source, ts + 2.0,
+                    position, direction, attributeIndex, source);
+    context->sendEventNow(event);
+    KR_ObjectID attributeGateSmoke = KR_ObjectID::NUL();
+    const bool attributeGateSkipped = !attributeGateBullet.isNUL() &&
+        attributeGateObject != NULL && attributeGateObject->started() &&
+        attributeGateSmoke.isNUL() &&
+        SmokeSubjectState_LiveCount() == 0;
+    summary->attributeGateSkips = attributeGateSkipped ? 1 : 0;
+    RemoveIfPresent(context, attributeGateBullet);
+
+    attribute->m_useBarellSmoke = previousUseBarrelSmoke;
+    Session::m_frameSec = previousFrameSec;
+    RemoveIfPresent(context, thresholdBullet);
+    RemoveIfPresent(context, thresholdSmoke);
+    RemoveIfPresent(context, frameGateBullet);
+    RemoveIfPresent(context, frameGateSmoke);
+    RemoveIfPresent(context, attributeGateBullet);
+    RemoveIfPresent(context, attributeGateSmoke);
+    return thresholdStarted && thresholdRolledBack &&
+           frameGateSkipped && attributeGateSkipped &&
+           summary->thresholdStarts == 1 &&
+           summary->frameGateSkips == 1 &&
+           summary->attributeGateSkips == 1 &&
+           summary->rolledBackSmokes == 1 &&
+           g_bulletTable.liveCount() == 0 &&
+           SmokeSubjectState_LiveCount() == 0 &&
+           !context->isExist("Bullet.BarrelSmoke.Threshold.Probe") &&
+           !context->isExist("Bullet.BarrelSmoke.FrameGate.Probe") &&
+           !context->isExist("Bullet.BarrelSmoke.AttributeGate.Probe") &&
+           !context->isExist("Smok.");
 }

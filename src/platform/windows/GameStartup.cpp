@@ -840,6 +840,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_BulletGroundSparkQueued()) +
            "/" + std::to_string(
                RecoveredArenaSeance_BulletGroundSparkRolledBack()));
+  log.Line("bullet_barrel_smoke_initialized=" +
+           std::to_string(
+               RecoveredGameServices_BulletBarrelSmokeReady() ? 1 : 0));
+  log.Line("bullet_barrel_smoke_probe=" + std::to_string(
+               RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_BulletBarrelSmokeRollbacks()));
+  log.Line("bullet_barrel_smoke_frame_gate=frameSec<=0.09");
   log.Line("route_table_initialized=" +
            std::to_string(RecoveredGameServices_RouteReady() ? 1 : 0));
   log.Line("vehicle_default_initialized=" +

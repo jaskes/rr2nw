@@ -97,7 +97,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_LIGHT_LIFECYCLE_FAILURE = 1ull << 20,
   RECOVERED_ARENA_SEANCE_EXT_SPARK_VISUAL_RESOURCE_FAILURE = 1ull << 21,
   RECOVERED_ARENA_SEANCE_EXT_SPARK_SUBJECT_LIFECYCLE_FAILURE = 1ull << 22,
-  RECOVERED_ARENA_SEANCE_EXT_BULLET_GROUND_SPARK_FAILURE = 1ull << 23
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_GROUND_SPARK_FAILURE = 1ull << 23,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_BARREL_SMOKE_FAILURE = 1ull << 24
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -144,6 +145,7 @@ bool RecoveredArenaSeance_BulletSubjectRegistrationReady();
 bool RecoveredArenaSeance_BulletSubjectReady();
 bool RecoveredArenaSeance_BulletImpactEffectsReady();
 bool RecoveredArenaSeance_BulletGroundSparkReady();
+bool RecoveredArenaSeance_BulletBarrelSmokeReady();
 int RecoveredArenaSeance_BulletSubjectCapacity();
 unsigned long long RecoveredArenaSeance_BulletSubjectFingerprint();
 int RecoveredArenaSeance_BulletSubjectProbeMoveCount();
@@ -159,6 +161,10 @@ int RecoveredArenaSeance_BulletEffectSplashFirstCases();
 int RecoveredArenaSeance_BulletEffectRolledBackChildren();
 int RecoveredArenaSeance_BulletGroundSparkQueued();
 int RecoveredArenaSeance_BulletGroundSparkRolledBack();
+int RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts();
+int RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips();
+int RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips();
+int RecoveredArenaSeance_BulletBarrelSmokeRollbacks();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();
