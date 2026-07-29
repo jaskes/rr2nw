@@ -2615,3 +2615,49 @@ compared byte-for-byte, while semantic content identities remain stable. All
 4/4 waited `rr2nw.exe --runtime-smoke` launches publish the new proximity and
 panel diagnostics, preserve Hardware subscription, reach `marker=level-ready`
 and finish with `runtime_shutdown=clean`.
+
+## BD-070: route focus-safe primary fire through the live Vehicle and Bullet graph
+
+Status: accepted on 2026-07-29.
+
+The recovered Hardware owner now enables mouse input and binds `MouseL` to the
+original `FIRE_PRIMARY` action. The modern Vehicle control boundary admits that
+action without replacing `Vehicle::receiveEvent()`, its recurring
+`EV_VEHICLE_FIRE` schedule or `Vehicle::onFire()`. Primary fire joins the held
+action set, so losing application focus while the button is down sends one
+zero-valued release, clears the latch and suppresses inactive clicks until a
+fresh press after focus recovery.
+
+Retail gating remains authoritative. A type-0 default Vehicle consumes the
+button but does not shoot. `Level.01D` and `Level.01N` expose a different valid
+gate: their selected type-1 `CarSmall` attribute has an intentionally empty
+primary Bullet slot. Armed type-1 Vehicles resolve the already published
+BulletAttr index, allocate a real Bullet and enter the existing scheduled
+flight/collision implementation. The bounded proof raises the firing Vehicle
+ten world units and levels its direction only inside the test; it adds no
+target or collision geometry. Two real presses must therefore produce exactly
+two accepted starts, movement, collision checks, a natural scene or dynamic
+impact, an Explosion child, particle branches, an impact SoundObj and at least
+one software frame containing a live projectile/effect.
+
+Bullet telemetry is read-only and table-owned. It records accepted, rejected
+and rolled-back starts, movement/check/impact paths, waterline, impact children,
+ground removal, barrel Smoke and live/peak counts. Service observation uses
+counter deltas from an explicit window; `tablePeakLiveBullets` intentionally
+remains the allocation-lifetime high-water mark and is not presented as a
+window delta. Explosion, particle, Smoke, Spark and SoundObj maxima are sampled
+relative to their live counts when the observation starts. Normal seance
+teardown remains the owner of every projectile and child and reconstruction
+must return the original retail identities.
+
+This decision proves impact audio, not muzzle audio. The recovered Bullet still
+does not start `BulletAttr::m_shootSndName`; secondary fire and its ammunition
+rules also remain deferred. The executable's bounded two-frame runtime smoke
+publishes observation readiness but does not synthesize a player click.
+
+Final verification passes 51/51 CTest in Debug and Release, all 36/36 retail
+service launches across installed and mounted data with no reruns, a 10/10
+repeat of the formerly frame-sensitive `Level.05D` Debug case, and 4/4 waited
+`rr2nw.exe --runtime-smoke` launches. Every executable reports primary-fire
+observation readiness, preserves the Hardware subscription, reaches
+`marker=level-ready` and ends with `runtime_shutdown=clean`.

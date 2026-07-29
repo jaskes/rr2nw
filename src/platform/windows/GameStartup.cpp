@@ -823,6 +823,53 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(taxiHandoff.postTransitionFrames));
   log.Line("taxi_vehicle_post_transition_distance=" +
            std::to_string(taxiHandoff.postTransitionDistance));
+  SRecoveredVehiclePrimaryFireTelemetry primaryFire = {};
+  const bool primaryFireInspected =
+      RecoveredGameServices_VehiclePrimaryFireTelemetry(&primaryFire);
+  log.Line("vehicle_primary_fire_observable=" +
+           std::to_string(primaryFireInspected ? 1 : 0));
+  log.Line("vehicle_primary_fire_trigger_presses=" +
+           std::to_string(primaryFire.triggerPresses));
+  log.Line("vehicle_primary_fire_accepted_shots=" +
+           std::to_string(primaryFire.acceptedShots));
+  log.Line("vehicle_primary_fire_rolled_back_shots=" +
+           std::to_string(primaryFire.rolledBackShots));
+  log.Line("vehicle_primary_fire_move_events=" +
+           std::to_string(primaryFire.moveEvents));
+  log.Line("vehicle_primary_fire_collision_checks=" +
+           std::to_string(primaryFire.collisionChecks));
+  log.Line("vehicle_primary_fire_scene_impacts=" +
+           std::to_string(primaryFire.sceneImpacts));
+  log.Line("vehicle_primary_fire_dynamic_impacts=" +
+           std::to_string(primaryFire.dynamicImpacts));
+  log.Line("vehicle_primary_fire_waterline_splashes=" +
+           std::to_string(primaryFire.waterlineSplashes));
+  log.Line("vehicle_primary_fire_effect_children=" +
+           std::to_string(primaryFire.impactEffectChildren));
+  log.Line("vehicle_primary_fire_ground_removals=" +
+           std::to_string(primaryFire.groundRemovals));
+  log.Line("vehicle_primary_fire_barrel_smokes=" +
+           std::to_string(primaryFire.barrelSmokeStarts));
+  log.Line("vehicle_primary_fire_live_bullets=" +
+           std::to_string(primaryFire.liveBullets));
+  log.Line("vehicle_primary_fire_peak_bullets=" +
+           std::to_string(primaryFire.tablePeakLiveBullets));
+  log.Line("vehicle_primary_fire_max_explosions=" +
+           std::to_string(primaryFire.maximumExplosionSubjects));
+  log.Line("vehicle_primary_fire_max_particles=" +
+           std::to_string(primaryFire.maximumParticleBranches));
+  log.Line("vehicle_primary_fire_max_smokes=" +
+           std::to_string(primaryFire.maximumSmokeSubjects));
+  log.Line("vehicle_primary_fire_max_sparks=" +
+           std::to_string(primaryFire.maximumSparkSubjects));
+  log.Line("vehicle_primary_fire_max_sounds=" +
+           std::to_string(primaryFire.maximumSoundObjects));
+  log.Line("vehicle_primary_fire_rendered_frames=" +
+           std::to_string(primaryFire.renderedFramesAfterShot));
+  log.Line("vehicle_primary_fire_effect_render_frames=" +
+           std::to_string(primaryFire.effectRenderFrames));
+  log.Line("vehicle_primary_fire_hardware_subscription_preserved=" +
+           std::to_string(primaryFire.hardwareSubscriptionPreserved));
   log.Line("bullet_attributes_initialized=" + std::to_string(
                RecoveredArenaSeance_BulletAttributesReady() ? 1 : 0));
   log.Line("bullet_attribute_count=" +

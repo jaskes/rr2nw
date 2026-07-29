@@ -833,3 +833,27 @@ Lua, native plugin ABI и новые C++ object classes откладываютс
    cockpit, F1, стрельбы, alt-tab и чистого выхода на нескольких уровнях.
 
 Linux/macOS и multiplayer остаются за пределами этого Windows-first среза 1.0.
+
+## Current Windows frontier after live primary fire
+
+The primary-combat slice is complete. `MouseL` now travels through recovered
+Hardware, the original Vehicle fire latch/repeat event and the real Bullet
+flight/collision/effect graph. Armed retail Vehicles produce visible natural
+impacts and impact sound; type-0 and intentionally unarmed type-1 attributes
+retain their no-projectile behavior. Focus loss releases held fire and normal
+seance reconstruction removes every projectile and effect.
+
+The next large 1.0 slice is the minimum People/Tank/Orphan embodiment graph:
+
+1. publish exact Level-local dependencies and stable object identities;
+2. execute leave-Vehicle without destroying or orphaning the controlled world
+   object;
+3. transfer camera/input to the on-foot Player owner with focus-safe fallback;
+4. prove movement, nearby re-entry and restoration of Vehicle cockpit/control;
+5. roll the entire transition back through normal seance teardown and
+   reconstruction.
+
+Secondary fire and Bullet muzzle sound remain smaller combat follow-ups.
+Save-state and a multi-Level manual driving/combat pass remain 1.0 gates.
+Linux/macOS and multiplayer remain deferred until the Windows gameplay owner is
+stable.

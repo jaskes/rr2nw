@@ -2475,8 +2475,50 @@ Exact world-contact frame counts are scheduler observations, not semantic
 fingerprints. Four waited executable smokes additionally reach level-ready and
 clean shutdown with the new diagnostics.
 
-The next Windows-first OBASE frontier is player combat and embodiment: connect
-Vehicle primary fire to the already recovered Bullet/effect graph, then admit
-the smallest People/Tank/Orphan slice needed for leaving and re-entering a
-Vehicle. Save-state and manual feel checks remain explicit gates; Linux/macOS
-and multiplayer remain outside this 1.0 tranche.
+## Live Vehicle primary-fire frontier
+
+Primary fire now crosses the complete production path. Recovered Hardware owns
+the mouse, translates `MouseL`, and delivers `FIRE_PRIMARY` to the same
+exclusive Vehicle subscriber used for driving. The modern whitelist no longer
+rejects that original action. `Vehicle::receiveEvent()` retains its retail
+press/release latch and 0.2-second repeating event; focus loss now releases the
+held mouse action just like throttle and steering, while inactive clicks are
+counted and suppressed.
+
+The retail Vehicle attribute decides whether a projectile exists. Type-0
+defaults do not fire. The selected `CarSmall` in `Level.01D`/`Level.01N` is a
+type-1 Vehicle with an intentionally empty primary Bullet reference and is
+also accepted as an unarmed result. An armed type-1 Vehicle creates a real
+bounded Bullet. The proof observes its scheduled moves and collision queries,
+requires a natural scene/dynamic impact, then follows the already recovered
+Explosion, particle, Smoke/Spark and SoundObj children through a rendered
+software frame. It raises and levels the Vehicle only inside the bounded test
+to give the projectile room to move; retail terrain and collision geometry are
+not modified.
+
+The Bullet table exposes observation-only lifetime counters. A service
+observation snapshots them for per-scenario deltas and separately publishes
+the table's lifetime peak, plus relative live maxima for Explosion, particles,
+Smoke, Spark and SoundObj. Startup diagnostics expose the complete chain but a
+two-frame `--runtime-smoke` remains passive and therefore normally reports zero
+trigger presses and shots. Normal Level teardown destroys the complete effect
+graph, and the existing second seance proves reconstruction without residue.
+
+Vehicle-owned primary muzzle audio is not claimed: `m_shootSndName` is still
+not started by the bounded Bullet, while the observed sound is the retail
+impact Explosion. Secondary fire remains a separate small combat slice.
+Frame-sensitive visual probes now use the active Vehicle camera; Explosion
+Piece/trace probes additionally sample real terrain and begin above it instead
+of immediately expiring below the land surface.
+
+Both full builds and 51/51 CTest suites pass. The complete retail service gate
+passes 36/36 launches across Debug/Release, all nine Levels and both `E:` and
+mounted `G:` roots without reruns; the previous `Level.05D` Debug visual flake
+also passes 10/10. Four waited real executable smokes exit zero with
+primary-fire observability, `level-ready` and clean shutdown.
+
+The next Windows-first OBASE frontier is embodiment: admit the smallest
+People/Tank/Orphan graph needed to leave and re-enter a Vehicle. Secondary
+fire/muzzle sound can remain a contained follow-up. Save-state and manual feel
+checks remain explicit gates; Linux/macOS and multiplayer remain outside this
+1.0 tranche.

@@ -36,12 +36,31 @@ struct BulletBarrelSmokeProbeSummary
     int rolledBackSmokes;
 };
 
+struct BulletRuntimeTelemetry
+{
+    unsigned int acceptedStarts;
+    unsigned int rejectedStarts;
+    unsigned int rolledBackStarts;
+    unsigned int moveEvents;
+    unsigned int collisionChecks;
+    unsigned int sceneImpacts;
+    unsigned int dynamicImpacts;
+    unsigned int waterlineSplashes;
+    unsigned int impactEffectChildren;
+    unsigned int groundRemovals;
+    unsigned int barrelSmokeStarts;
+    unsigned int liveBullets;
+    unsigned int peakLiveBullets;
+};
+
 void BulletSubjectState_Link();
 bool BulletSubjectState_TableReady(SimulationContext *context, int capacity);
 int BulletSubjectState_Capacity();
 int BulletSubjectState_LiveCount();
 unsigned long long BulletSubjectState_Fingerprint(
     SimulationContext *context);
+bool BulletSubjectState_RuntimeTelemetry(
+    SimulationContext *context, BulletRuntimeTelemetry *telemetry);
 bool BulletSubjectState_ProbeBallisticLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, int *moveCount);

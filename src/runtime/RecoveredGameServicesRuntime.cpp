@@ -30,8 +30,12 @@
 #include "SupervisorShutdownState.h"
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
+#include "obase/bullet/BulletSubjectState.h"
+#include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "obase/sound/SoundObjectState.h"
+#include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
 
@@ -249,6 +253,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_handoffAttribute = KR_ObjectID::NUL();
     m_handoffTaxiCount = 0;
     m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
+    m_primaryFirePresses = 0;
   }
 
   void addNotify() override { KR_Object::addNotify(); }
@@ -299,6 +304,9 @@ class RecoveredVehicleControlInput final : public KR_Object {
       }
       return 1;
     }
+
+    if (action == FIRE_PRIMARY && down > 0.0)
+      ++m_primaryFirePresses;
 
     STaxiVehicleProximityState proximity = {};
     SRecoveredVehicleRuntimeState before = {};
@@ -367,6 +375,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
     return count;
   }
   int LastInputFailure() const { return m_lastInputFailure; }
+  unsigned int PrimaryFirePresses() const { return m_primaryFirePresses; }
 
   void ObserveVehicleHandoff() {
     if (getContext() == nullptr || m_vehicle.isNUL()) return;
@@ -456,7 +465,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
   }
 
  private:
-  static constexpr int kHeldActionCount = 10;
+  static constexpr int kHeldActionCount = 11;
 
   static int HeldActionIndex(int action) {
     switch (action) {
@@ -470,6 +479,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
       case TURN_RIGHT: return 7;
       case LOOK_UP: return 8;
       case LOOK_DOWN: return 9;
+      case FIRE_PRIMARY: return 10;
       default: return -1;
     }
   }
@@ -478,7 +488,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
     static const int actions[kHeldActionCount] = {
         MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
         STRAFE_UP, STRAFE_DOWN, TURN_LEFT, TURN_RIGHT,
-        LOOK_UP, LOOK_DOWN};
+        LOOK_UP, LOOK_DOWN, FIRE_PRIMARY};
     return actions[index];
   }
 
@@ -528,6 +538,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
   KR_ObjectID m_handoffAttribute = KR_ObjectID::NUL();
   int m_handoffTaxiCount = 0;
   CFVector3 m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
+  unsigned int m_primaryFirePresses = 0;
 };
 
 unsigned int g_issues = 0;
@@ -555,6 +566,16 @@ SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
 CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
 CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
 bool g_vehicleDriveTelemetryReady = false;
+bool g_primaryFireTelemetryReady = false;
+BulletRuntimeTelemetry g_primaryFireBulletBaseline = {};
+SRecoveredVehiclePrimaryFireTelemetry g_primaryFireTelemetry = {};
+unsigned int g_primaryFireTriggerBaseline = 0;
+int g_primaryFireExplosionBaseline = 0;
+int g_primaryFireParticleBaseline = 0;
+int g_primaryFireSmokeBaseline = 0;
+int g_primaryFireSparkBaseline = 0;
+int g_primaryFireSoundBaseline = 0;
+bool g_primaryFireEffectPresent = false;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 
@@ -579,6 +600,7 @@ bool ConfigureHardwareControls() {
       !BindHardwareControl(TURN_RIGHT, "Right") ||
       !BindHardwareControl(LOOK_UP, "Up") ||
       !BindHardwareControl(LOOK_DOWN, "Down") ||
+      !BindHardwareControl(FIRE_PRIMARY, "MouseL") ||
       !BindHardwareControl(STOP_VEHICLE, "X") ||
       !BindHardwareControl(CHANGE_VEHICLE, "F1") ||
       !BindHardwareControl(EXIT, "Esc")) {
@@ -661,6 +683,113 @@ void UpdateVehicleDriveTelemetry(
       (std::max)(state.dynamicCollisionFrameCount, 0));
 }
 
+unsigned int NonNegativeDifference(int current, int baseline) {
+  return static_cast<unsigned int>((std::max)(current - baseline, 0));
+}
+
+unsigned int CounterDifference(unsigned int current,
+                               unsigned int baseline) {
+  return current < baseline ? 0u : current - baseline;
+}
+
+bool BeginPrimaryFireTelemetry(SimulationContext* context) {
+  if (!BulletSubjectState_RuntimeTelemetry(
+          context, &g_primaryFireBulletBaseline))
+    return false;
+  g_primaryFireTelemetry = {};
+  g_primaryFireTriggerBaseline =
+      g_vehicleControlInput.PrimaryFirePresses();
+  g_primaryFireExplosionBaseline = ExplosionSubjectState_LiveCount();
+  g_primaryFireParticleBaseline =
+      ExplosionSubjectState_ParticleBranchLiveCount();
+  g_primaryFireSmokeBaseline = SmokeSubjectState_LiveCount();
+  g_primaryFireSparkBaseline = SparkSubjectState_LiveCount();
+  g_primaryFireSoundBaseline = SoundObjectState_LiveCount();
+  g_primaryFireTelemetryReady = true;
+  g_primaryFireEffectPresent = false;
+  return true;
+}
+
+void UpdatePrimaryFireTelemetry(SimulationContext* context) {
+  if (!g_primaryFireTelemetryReady || context == nullptr)
+    return;
+  BulletRuntimeTelemetry current = {};
+  if (!BulletSubjectState_RuntimeTelemetry(context, &current))
+    return;
+  g_primaryFireTelemetry.triggerPresses =
+      CounterDifference(g_vehicleControlInput.PrimaryFirePresses(),
+                        g_primaryFireTriggerBaseline);
+  g_primaryFireTelemetry.acceptedShots = CounterDifference(
+      current.acceptedStarts, g_primaryFireBulletBaseline.acceptedStarts);
+  g_primaryFireTelemetry.rolledBackShots = CounterDifference(
+      current.rolledBackStarts,
+      g_primaryFireBulletBaseline.rolledBackStarts);
+  g_primaryFireTelemetry.moveEvents = CounterDifference(
+      current.moveEvents, g_primaryFireBulletBaseline.moveEvents);
+  g_primaryFireTelemetry.collisionChecks = CounterDifference(
+      current.collisionChecks,
+      g_primaryFireBulletBaseline.collisionChecks);
+  g_primaryFireTelemetry.sceneImpacts = CounterDifference(
+      current.sceneImpacts, g_primaryFireBulletBaseline.sceneImpacts);
+  g_primaryFireTelemetry.dynamicImpacts = CounterDifference(
+      current.dynamicImpacts, g_primaryFireBulletBaseline.dynamicImpacts);
+  g_primaryFireTelemetry.waterlineSplashes = CounterDifference(
+      current.waterlineSplashes,
+      g_primaryFireBulletBaseline.waterlineSplashes);
+  g_primaryFireTelemetry.impactEffectChildren = CounterDifference(
+      current.impactEffectChildren,
+      g_primaryFireBulletBaseline.impactEffectChildren);
+  g_primaryFireTelemetry.groundRemovals = CounterDifference(
+      current.groundRemovals,
+      g_primaryFireBulletBaseline.groundRemovals);
+  g_primaryFireTelemetry.barrelSmokeStarts = CounterDifference(
+      current.barrelSmokeStarts,
+      g_primaryFireBulletBaseline.barrelSmokeStarts);
+  g_primaryFireTelemetry.liveBullets = current.liveBullets;
+  g_primaryFireTelemetry.tablePeakLiveBullets =
+      current.peakLiveBullets;
+  const unsigned int explosionSubjects = NonNegativeDifference(
+      ExplosionSubjectState_LiveCount(), g_primaryFireExplosionBaseline);
+  const unsigned int particleBranches = NonNegativeDifference(
+      ExplosionSubjectState_ParticleBranchLiveCount(),
+      g_primaryFireParticleBaseline);
+  const unsigned int smokeSubjects = NonNegativeDifference(
+      SmokeSubjectState_LiveCount(), g_primaryFireSmokeBaseline);
+  const unsigned int sparkSubjects = NonNegativeDifference(
+      SparkSubjectState_LiveCount(), g_primaryFireSparkBaseline);
+  const unsigned int soundObjects = NonNegativeDifference(
+      SoundObjectState_LiveCount(), g_primaryFireSoundBaseline);
+  g_primaryFireTelemetry.maximumExplosionSubjects = (std::max)(
+      g_primaryFireTelemetry.maximumExplosionSubjects,
+      explosionSubjects);
+  g_primaryFireTelemetry.maximumParticleBranches = (std::max)(
+      g_primaryFireTelemetry.maximumParticleBranches,
+      particleBranches);
+  g_primaryFireTelemetry.maximumSmokeSubjects = (std::max)(
+      g_primaryFireTelemetry.maximumSmokeSubjects,
+      smokeSubjects);
+  g_primaryFireTelemetry.maximumSparkSubjects = (std::max)(
+      g_primaryFireTelemetry.maximumSparkSubjects,
+      sparkSubjects);
+  g_primaryFireTelemetry.maximumSoundObjects = (std::max)(
+      g_primaryFireTelemetry.maximumSoundObjects,
+      soundObjects);
+  g_primaryFireEffectPresent = current.liveBullets != 0 ||
+      explosionSubjects != 0 || particleBranches != 0 ||
+      smokeSubjects != 0 || sparkSubjects != 0;
+  g_primaryFireTelemetry.hardwareSubscriptionPreserved =
+      g_vehicleControlInput.IsSubscribed() ? 1 : 0;
+}
+
+void RecordPrimaryFireRenderFrame() {
+  if (!g_primaryFireTelemetryReady ||
+      g_primaryFireTelemetry.acceptedShots == 0)
+    return;
+  ++g_primaryFireTelemetry.renderedFramesAfterShot;
+  if (g_primaryFireEffectPresent)
+    ++g_primaryFireTelemetry.effectRenderFrames;
+}
+
 void BeginVehicleDriveTelemetry(
     const SRecoveredVehicleRuntimeState& state) {
   g_vehicleDriveTelemetry = {};
@@ -701,6 +830,7 @@ void StopVehicleControl(bool restoreObserver,
   }
   Vehicle::preserveExternalControlSubscription(false);
   g_vehicleControlReady = false;
+  g_primaryFireTelemetryReady = false;
 }
 
 bool BeginVehicleControl(SimulationContext* context,
@@ -741,6 +871,10 @@ bool BeginVehicleControl(SimulationContext* context,
   }
 
   BeginVehicleDriveTelemetry(state);
+  if (!BeginPrimaryFireTelemetry(context)) {
+    StopVehicleControl(true, &position);
+    return false;
+  }
 
   Vehicle::preserveExternalControlSubscription(true);
   Vehicle* controlledVehicle = static_cast<Vehicle*>(
@@ -836,6 +970,16 @@ void EndBoundedSession() {
   g_vehicleTelemetryStartPosition = CFVector3(0.0, 0.0, 0.0);
   g_vehicleTelemetryStartForward = CFVector3(0.0, 0.0, 1.0);
   g_vehicleDriveTelemetryReady = false;
+  g_primaryFireTelemetryReady = false;
+  g_primaryFireBulletBaseline = {};
+  g_primaryFireTelemetry = {};
+  g_primaryFireTriggerBaseline = 0;
+  g_primaryFireExplosionBaseline = 0;
+  g_primaryFireParticleBaseline = 0;
+  g_primaryFireSmokeBaseline = 0;
+  g_primaryFireSparkBaseline = 0;
+  g_primaryFireSoundBaseline = 0;
+  g_primaryFireEffectPresent = false;
   g_vehicleControlInput.Reset(KR_ObjectID::NUL());
 
   const SFrameRuntimeHooks emptyFrameHooks = {};
@@ -882,7 +1026,7 @@ void InitializeSession() {
     g_windowQuitRequested = false;
     Session::m_realTimer = &g_timer;
     g_hardware.m_ctrlUse.keyboard = TRUE;
-    g_hardware.m_ctrlUse.mouse = FALSE;
+    g_hardware.m_ctrlUse.mouse = TRUE;
     g_hardware.m_ctrlUse.joystick = FALSE;
     Session::m_hardware = &g_hardware;
 
@@ -1421,6 +1565,21 @@ bool RecoveredGameServices_TaxiVehicleHandoffTelemetry(
          g_vehicleControlInput.HandoffTelemetry(telemetry);
 }
 
+bool RecoveredGameServices_BeginVehiclePrimaryFireObservation() {
+  return g_vehicleControlReady &&
+         BeginPrimaryFireTelemetry(g_super.m_context);
+}
+
+bool RecoveredGameServices_VehiclePrimaryFireTelemetry(
+    SRecoveredVehiclePrimaryFireTelemetry* telemetry) {
+  if (!g_vehicleControlReady || !g_primaryFireTelemetryReady ||
+      telemetry == nullptr)
+    return false;
+  UpdatePrimaryFireTelemetry(g_super.m_context);
+  *telemetry = g_primaryFireTelemetry;
+  return true;
+}
+
 bool RecoveredGameServices_VehicleControlReady() {
   return g_vehicleControlReady;
 }
@@ -1630,6 +1789,7 @@ int RecoveredGameServices_RunFrame() {
       } else {
         UpdateVehicleDriveTelemetry(telemetryState);
         g_vehicleControlInput.ObserveVehicleHandoff();
+        UpdatePrimaryFireTelemetry(g_super.m_context);
       }
     }
   }
@@ -1671,5 +1831,6 @@ int RecoveredGameServices_RunFrame() {
     Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
     return FALSE;
   }
+  RecordPrimaryFireRenderFrame();
   return TRUE;
 }

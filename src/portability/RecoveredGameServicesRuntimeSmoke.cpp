@@ -764,6 +764,159 @@ bool ExerciseInteractiveTaxiHandoff() {
          RecoveredGameServices_VehicleIgnoredEvents() == 0;
 }
 
+bool PrepareVehiclePrimaryFire(Vehicle* vehicle,
+                               SRecoveredVehicleRuntimeState* armedState) {
+  if (vehicle == nullptr || armedState == nullptr ||
+      !IsVehicleControlActive(vehicle->getObjectID(), armedState))
+    return false;
+  vehicle->Stop();
+  CFMatrix3x4 levelDirection;
+  levelDirection.LoadIdentity();
+  vehicle->SetDir(levelDirection);
+  const CFVector3 firingPosition =
+      armedState->position + CFVector3(0.0, 10.0, 0.0);
+  vehicle->SetPos(firingPosition);
+  CFMatrix3x4 observedDirection;
+  vehicle->getMatrix(observedDirection);
+  return IsVehicleControlActive(vehicle->getObjectID(), armedState) &&
+         std::fabs((-observedDirection.Column(2)).y) <= 1.0e-7 &&
+         std::fabs(armedState->position.y - firingPosition.y) <= 1.0e-7 &&
+         std::isfinite(armedState->position.x) &&
+         std::isfinite(armedState->position.y) &&
+         std::isfinite(armedState->position.z);
+}
+
+bool ExerciseVehiclePrimaryFire() {
+  SimulationContext* context = g_super.m_context;
+  if (context == nullptr) return false;
+  KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
+  Vehicle* vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
+      context->queryInterface(vehicleID, IVehicleIID));
+  if (vehicle == nullptr ||
+      !RecoveredGameServices_BeginVehiclePrimaryFireObservation())
+    return false;
+
+  SRecoveredVehiclePrimaryFireTelemetry before = {};
+  if (!RecoveredGameServices_VehiclePrimaryFireTelemetry(&before))
+    return false;
+  const unsigned int inputBefore = RecoveredGameServices_VehicleInputEvents();
+  const unsigned int forwardedBefore =
+      RecoveredGameServices_VehicleForwardedEvents();
+  const unsigned int housekeepingBefore =
+      RecoveredGameServices_VehicleHousekeepingEvents();
+  const unsigned int focusLossBefore =
+      RecoveredGameServices_VehicleFocusLossCount();
+  const unsigned int focusGainBefore =
+      RecoveredGameServices_VehicleFocusGainCount();
+  const unsigned int syntheticBefore =
+      RecoveredGameServices_VehicleSyntheticReleaseCount();
+  const unsigned int suppressedBefore =
+      RecoveredGameServices_VehicleSuppressedInputCount();
+
+  SRecoveredVehicleRuntimeState initialState = {};
+  AttributeVehicle* initialAttribute =
+      !IsVehicleControlActive(vehicleID, &initialState)
+          ? nullptr
+          : static_cast<AttributeVehicle*>(
+                __attrVehicleTable.searchAttribute(initialState.attribute));
+  if (initialAttribute == nullptr) return false;
+  const bool primaryFireGated =
+      vehicle->taxiChangeEnabled() ||
+      initialAttribute->m_bulletAttrIndex == -1;
+  if (primaryFireGated) {
+    if (!SendHardwareButton("MouseL", TRUE) ||
+        !RunVehicleFrameAfter(0.01) ||
+        !SendHardwareButton("MouseL", FALSE) ||
+        !RunVehicleFrameAfter(0.01))
+      return false;
+    SRecoveredVehiclePrimaryFireTelemetry gated = {};
+    return RecoveredGameServices_VehiclePrimaryFireTelemetry(&gated) &&
+           gated.triggerPresses == before.triggerPresses + 1 &&
+           gated.acceptedShots == before.acceptedShots &&
+           gated.hardwareSubscriptionPreserved == 1 &&
+           RecoveredGameServices_VehicleInputEvents() == inputBefore + 4 &&
+           RecoveredGameServices_VehicleForwardedEvents() ==
+               forwardedBefore + 2 &&
+           RecoveredGameServices_VehicleHousekeepingEvents() ==
+               housekeepingBefore + 2;
+  }
+
+  SRecoveredVehicleRuntimeState armedState = {};
+  if (!PrepareVehiclePrimaryFire(vehicle, &armedState) ||
+      !SendHardwareButton("MouseL", TRUE) ||
+      !RunVehicleFrameAfter(0.01) ||
+      !SendHardwareButton("MouseL", FALSE))
+    return false;
+
+  // Let the retail 0.2-second repeat event observe the released first shot
+  // before starting a second press.
+  for (int cooldownFrame = 0; cooldownFrame < 10; ++cooldownFrame)
+    if (!RunVehicleFrameAfter(0.025)) return false;
+
+  // Fire once more and lose focus while the physical action is still held.
+  // The recovered owner must synthesize the release, suppress inactive
+  // clicks and require a fresh press after focus returns.
+  if (!RunVehicleFrameAfter(0.01) ||
+      !SendHardwareButton("MouseL", TRUE) ||
+      !RunVehicleFrameAfter(0.01) ||
+      !RecoveredGameServices_SetApplicationActive(false) ||
+      !SendHardwareButton("MouseL", TRUE) ||
+      !SendHardwareButton("MouseL", FALSE))
+    return false;
+
+  SRecoveredVehiclePrimaryFireTelemetry fire = {};
+  bool complete = false;
+  for (int frame = 0; frame < 120; ++frame) {
+    if (!RunVehicleFrameAfter(0.025) ||
+        !RecoveredGameServices_VehiclePrimaryFireTelemetry(&fire))
+      return false;
+    if (fire.acceptedShots >= before.acceptedShots + 2 &&
+        fire.moveEvents > before.moveEvents &&
+        fire.collisionChecks > before.collisionChecks &&
+        fire.sceneImpacts + fire.dynamicImpacts >
+            before.sceneImpacts + before.dynamicImpacts &&
+        fire.impactEffectChildren > before.impactEffectChildren &&
+        fire.maximumExplosionSubjects > before.maximumExplosionSubjects &&
+        fire.maximumParticleBranches > before.maximumParticleBranches &&
+        fire.maximumSoundObjects > before.maximumSoundObjects &&
+        fire.effectRenderFrames > before.effectRenderFrames) {
+      complete = true;
+      break;
+    }
+  }
+
+  if (!RecoveredGameServices_SetApplicationActive(true))
+    return false;
+
+  const unsigned int inputDelta =
+      RecoveredGameServices_VehicleInputEvents() - inputBefore;
+  const unsigned int forwardedDelta =
+      RecoveredGameServices_VehicleForwardedEvents() - forwardedBefore;
+  const unsigned int housekeepingDelta =
+      RecoveredGameServices_VehicleHousekeepingEvents() -
+      housekeepingBefore;
+  const unsigned int suppressedDelta =
+      RecoveredGameServices_VehicleSuppressedInputCount() -
+      suppressedBefore;
+
+  return complete &&
+         fire.triggerPresses == before.triggerPresses + 2 &&
+         fire.acceptedShots == before.acceptedShots + 2 &&
+         fire.rolledBackShots == before.rolledBackShots &&
+         fire.hardwareSubscriptionPreserved == 1 &&
+         inputDelta >= 10 && inputDelta == housekeepingDelta * 2 &&
+         forwardedDelta == 3 && suppressedDelta >= 2 &&
+         forwardedDelta + suppressedDelta == housekeepingDelta &&
+         RecoveredGameServices_VehicleFocusLossCount() ==
+             focusLossBefore + 1 &&
+         RecoveredGameServices_VehicleFocusGainCount() ==
+             focusGainBefore + 1 &&
+         RecoveredGameServices_VehicleSyntheticReleaseCount() ==
+             syntheticBefore + 1 &&
+         RecoveredGameServices_VehicleActiveActionCount() == 0 &&
+         RecoveredGameServices_VehicleIgnoredEvents() == 0;
+}
+
 bool VisibleProbePosition(double verticalOffset, double forwardDistance,
                           CFVector3* position) {
   if (position == nullptr || g_super.m_context == nullptr) return false;
@@ -789,6 +942,23 @@ bool VisibleProbePosition(double verticalOffset, double forwardDistance,
   }
   return std::isfinite(position->x) && std::isfinite(position->y) &&
          std::isfinite(position->z);
+}
+
+bool VisibleProbeAboveTerrain(double clearance, double forwardDistance,
+                              CFVector3* position) {
+  if (position == nullptr || !std::isfinite(clearance) || clearance <= 0.0 ||
+      !VisibleProbePosition(0.0, forwardDistance, position))
+    return false;
+  CViewScene* scene = CViewScene::Current();
+  if (scene == nullptr || scene->GetTerrain() == nullptr) return false;
+  CFVector3 normal;
+  double landY = 0.0;
+  scene->GetTerrain()->GetPlane(*position, normal, landY);
+  if (!std::isfinite(landY) || !std::isfinite(normal.x) ||
+      !std::isfinite(normal.y) || !std::isfinite(normal.z))
+    return false;
+  position->y = landY + clearance;
+  return std::isfinite(position->y);
 }
 
 bool ExerciseVisibleSmoke() {
@@ -891,15 +1061,15 @@ bool ExerciseVisibleBulletBarrelSmoke() {
       ? nullptr
       : static_cast<AttributeSmoke*>(__attrSmokeTable.searchAttribute(
             bulletAttribute->m_smokeAttrID));
-  const SRecoveredObserverState* observer =
-      RecoveredGameServices_ObserverState();
+  CFVector3 position;
   static const char kBulletName[] =
       "Bullet.BarrelSmoke.Rendering.Probe";
   if (bulletAttribute == nullptr || smokeAttribute == nullptr ||
       bulletAttribute->m_useBarellSmoke == 0 ||
       bulletAttributeIndex == -1 || bulletTable == ct_NULLID ||
       smokeAttribute->m_cacheImage == nullptr ||
-      smokeAttribute->m_maxBlob <= 0 || observer == nullptr ||
+      smokeAttribute->m_maxBlob <= 0 ||
+      !VisibleProbePosition(0.0, 64.0, &position) ||
       context->isExist(kBulletName) || context->isExist("Smok.")) {
     return false;
   }
@@ -909,8 +1079,6 @@ bool ExerciseVisibleBulletBarrelSmoke() {
   const double currentTime =
       (std::max)(Session::m_moment, Session::m_viewTime);
   const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
-  const CFVector3 position(
-      observer->x, observer->y, observer->z - 64.0);
   const CFVector3 direction(0.0, 0.0, -1.0);
   KR_Event event;
   event.label = b_EV_START;
@@ -1002,15 +1170,15 @@ bool ExerciseVisibleSmokerEmission() {
           : static_cast<AttributeSmoke*>(
                 __attrSmokeTable.searchAttribute(
                     smokerAttribute->m_smokeAttrID));
-  const SRecoveredObserverState* observer =
-      RecoveredGameServices_ObserverState();
+  CFVector3 position;
   const ct_ClassTableID table =
       g_arena.searchSeanceClassTable("DynSmoker");
   static const char kProbeName[] = "DynSmoker.Rendering.Probe";
   static const char kSmokeName[] = "Smok.Static";
   if (smokerAttribute == nullptr || smokeAttribute == nullptr ||
       smokeAttribute->m_cacheImage == nullptr ||
-      smokeAttribute->m_maxBlob <= 0 || observer == nullptr ||
+      smokeAttribute->m_maxBlob <= 0 ||
+      !VisibleProbePosition(0.0, 64.0, &position) ||
       table == ct_NULLID || context->isExist(kProbeName) ||
       context->isExist(kSmokeName)) {
     return false;
@@ -1025,9 +1193,9 @@ bool ExerciseVisibleSmokerEmission() {
   event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
   event.data.open(EDO_WRITE)
       .putObjectID(smokerAttributeID)
-      .putDouble(observer->x)
-      .putDouble(observer->y)
-      .putDouble(observer->z - 64.0)
+      .putDouble(position.x)
+      .putDouble(position.y)
+      .putDouble(position.z)
       .close();
   context->sendEventNow(event);
 
@@ -1106,15 +1274,15 @@ bool ExerciseVisibleSmokerLightCorona() {
       ? nullptr
       : static_cast<AttributeSmoker*>(
             __attrSmokerTable.searchAttribute(attributeID));
-  const SRecoveredObserverState* observer =
-      RecoveredGameServices_ObserverState();
+  CFVector3 position;
   const ct_ClassTableID table =
       g_arena.searchSeanceClassTable("DynSmoker");
   static const char kProbeName[] = "DynSmoker.LightCorona.Rendering.Probe";
   static const char kSmokeName[] = "Smok.Static";
   if (attribute == nullptr || !attribute->m_useLight ||
       !attribute->m_useCorona || attribute->m_coronaHText == nullptr ||
-      attribute->m_coronaColor == 0 || observer == nullptr ||
+      attribute->m_coronaColor == 0 ||
+      !VisibleProbePosition(0.0, 64.0, &position) ||
       table == ct_NULLID || context->isExist(kProbeName) ||
       context->isExist(kSmokeName)) {
     return false;
@@ -1129,9 +1297,9 @@ bool ExerciseVisibleSmokerLightCorona() {
   event.timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
   event.data.open(EDO_WRITE)
       .putObjectID(attributeID)
-      .putDouble(observer->x)
-      .putDouble(observer->y)
-      .putDouble(observer->z - 64.0)
+      .putDouble(position.x)
+      .putDouble(position.y)
+      .putDouble(position.z)
       .close();
   context->sendEventNow(event);
 
@@ -1240,8 +1408,7 @@ bool ExerciseVisibleExplosionParticles() {
           attributeID.isNUL()
       ? -1
       : g_arena.getAttributeIndex(attributeTable, attributeID);
-  const SRecoveredObserverState* observer =
-      RecoveredGameServices_ObserverState();
+  CFVector3 position;
   static const char kProbeName[] = "Explosion.Light.Rendering.Probe";
   if (attribute == nullptr || !attribute->m_useLight ||
       attribute->m_wav == nullptr || attribute->m_ctsndID == ct_NULLID ||
@@ -1250,7 +1417,8 @@ bool ExerciseVisibleExplosionParticles() {
       attribute->m_cacheSkin->Radius() <= 0.0 ||
       attribute->m_lightTimeLife <= 0.0 ||
       attribute->m_lightRadius <= 0.0 || attributeIndex == -1 ||
-      subjectTable == ct_NULLID || observer == nullptr ||
+      subjectTable == ct_NULLID ||
+      !VisibleProbeAboveTerrain(32.0, 128.0, &position) ||
       context->isExist(kProbeName)) {
     return false;
   }
@@ -1258,8 +1426,6 @@ bool ExerciseVisibleExplosionParticles() {
   const double currentTime =
       (std::max)(Session::m_moment, Session::m_viewTime);
   const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
-  const CFVector3 position(observer->x, observer->y,
-                           observer->z - 64.0);
   ExplosionImpactRequest request = {
       position, timeStamp, KR_ObjectID::NUL(), subjectTable,
       attributeIndex, kProbeName};
@@ -1396,8 +1562,7 @@ bool ExerciseVisibleExplosionTrace() {
           attributeID.isNUL()
       ? -1
       : g_arena.getAttributeIndex(attributeTable, attributeID);
-  const SRecoveredObserverState* observer =
-      RecoveredGameServices_ObserverState();
+  CFVector3 position;
   static const char kProbeName[] = "Explosion.Trace.Rendering.Probe";
   static const char kSmokeName[] = "Smok.Static";
   if (attribute == nullptr || smokeAttribute == nullptr ||
@@ -1406,7 +1571,8 @@ bool ExerciseVisibleExplosionTrace() {
       attribute->m_moveTimeInc <= 0.0 ||
       attribute->m_traceNewPuffTime <= 0.0 ||
       attributeIndex == -1 || subjectTable == ct_NULLID ||
-      observer == nullptr || context->isExist(kProbeName) ||
+      !VisibleProbeAboveTerrain(32.0, 128.0, &position) ||
+      context->isExist(kProbeName) ||
       context->isExist(kSmokeName)) {
     return false;
   }
@@ -1414,8 +1580,6 @@ bool ExerciseVisibleExplosionTrace() {
   const double currentTime =
       (std::max)(Session::m_moment, Session::m_viewTime);
   const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
-  const CFVector3 position(observer->x, observer->y + 32.0,
-                           observer->z - 96.0);
   ExplosionImpactRequest request = {
       position, timeStamp, KR_ObjectID::NUL(), subjectTable,
       attributeIndex, kProbeName};
@@ -1451,6 +1615,16 @@ bool ExerciseVisibleExplosionTrace() {
       tracedPieces <= 0 || !quotaHeld || firstPuffTime <= timeStamp ||
       startedPuffs != 0 || !lastPuff.isNUL() ||
       ExplosionSubjectState_TracedParentCount() != 1) {
+    std::fprintf(stderr,
+                 "explosion-trace start executed=%d damage=%d explosion=%d "
+                 "traced=%d quota=%d first=%.9f time=%.9f puffs=%d "
+                 "last=%d parents=%d pos=%.3f/%.3f/%.3f\n",
+                 executed ? 1 : 0, damageApplications,
+                 explosion.isNUL() ? 0 : 1, tracedPieces,
+                 quotaHeld ? 1 : 0, firstPuffTime, timeStamp,
+                 startedPuffs, lastPuff.isNUL() ? 0 : 1,
+                 ExplosionSubjectState_TracedParentCount(),
+                 position.x, position.y, position.z);
     rollback();
     return false;
   }
@@ -1459,6 +1633,8 @@ bool ExerciseVisibleExplosionTrace() {
   int moveSteps = 0;
   while (moveTime + 1.0e-9 < firstPuffTime && moveSteps < 4096) {
     if (context->removeEvent(EXPLOSION_MOVE, explosion) == 0) {
+      std::fprintf(stderr, "explosion-trace missing MOVE at step=%d\n",
+                   moveSteps);
       rollback();
       return false;
     }
@@ -1469,14 +1645,21 @@ bool ExerciseVisibleExplosionTrace() {
     move.timeStamp = moveTime;
     context->sendEventNow(move);
     if (!context->isExist(explosion)) {
+      std::fprintf(stderr, "explosion-trace parent expired at step=%d\n",
+                   moveSteps);
       rollback();
       return false;
     }
     moveTime += attribute->m_moveTimeInc;
     ++moveSteps;
   }
-  if (moveSteps >= 4096 ||
-      context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0) {
+  const bool puffEventOwned =
+      context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0;
+  if (moveSteps >= 4096 || !puffEventOwned) {
+    std::fprintf(stderr,
+                 "explosion-trace pre-puff steps=%d event=%d\n",
+                 moveSteps,
+                 puffEventOwned ? 1 : 0);
     rollback();
     return false;
   }
@@ -1487,6 +1670,7 @@ bool ExerciseVisibleExplosionTrace() {
   puff.timeStamp = firstPuffTime;
   context->sendEventNow(puff);
   if (context->removeEvent(EXPLOSION_MOVE, explosion) == 0) {
+    std::fprintf(stderr, "explosion-trace missing post-puff MOVE\n");
     rollback();
     return false;
   }
@@ -1505,6 +1689,16 @@ bool ExerciseVisibleExplosionTrace() {
       startedPuffs <= 0 || lastPuff.isNUL() ||
       !context->isExist(lastPuff) ||
       SmokeSubjectState_LiveCount() != startedPuffs) {
+    std::fprintf(stderr,
+                 "explosion-trace post-puff parent=%d state=%d puffs=%d "
+                 "last=%d exists=%d live=%d\n",
+                 context->isExist(explosion) ? 1 : 0,
+                 ExplosionSubjectState_ParentTraceState(
+                     context, explosion, &tracedPieces, &quotaHeld,
+                     &firstPuffTime, &startedPuffs, &lastPuff) ? 1 : 0,
+                 startedPuffs, lastPuff.isNUL() ? 0 : 1,
+                 !lastPuff.isNUL() && context->isExist(lastPuff) ? 1 : 0,
+                 SmokeSubjectState_LiveCount());
     rollback();
     return false;
   }
@@ -1549,12 +1743,24 @@ bool ExerciseVisibleExplosionTrace() {
       context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0 &&
       context->removeEvent(fou_EVC_MOVING, lastSmoke) == 0;
   if (!clean) rollback();
-  return visibleFrame && detachedParentFrame && clearedFrame && clean &&
+  const bool result = visibleFrame && detachedParentFrame && clearedFrame && clean &&
       g_alphaSpriteDrawValid && visibleDraws > 0 &&
       detachedDraws == visibleDraws * 2 &&
       clearedDraws == detachedDraws &&
       visibleDraws == startedPuffs * smokeAttribute->m_maxBlob &&
       moveSteps > 0 && dwFrames == framesBefore + 3;
+  if (!result)
+    std::fprintf(stderr,
+                 "explosion-trace render visible=%d detached=%d cleared=%d "
+                 "clean=%d valid=%d draws=%d/%d/%d expected=%d puffs=%d "
+                 "steps=%d frames=%lu/%lu\n",
+                 visibleFrame ? 1 : 0, detachedParentFrame ? 1 : 0,
+                 clearedFrame ? 1 : 0, clean ? 1 : 0,
+                 g_alphaSpriteDrawValid ? 1 : 0, visibleDraws,
+                 detachedDraws, clearedDraws,
+                 startedPuffs * smokeAttribute->m_maxBlob,
+                 startedPuffs, moveSteps, dwFrames, framesBefore + 3);
+  return result;
 }
 
 bool ExerciseVisibleSpark() {
@@ -1579,13 +1785,13 @@ bool ExerciseVisibleSpark() {
           attributeID.isNUL()
       ? -1
       : g_arena.getAttributeIndex(attributeTable, attributeID);
-  const SRecoveredObserverState* observer =
-      RecoveredGameServices_ObserverState();
+  CFVector3 position;
   static const char kProbeName[] = "Spark.Rendering.Probe";
   if (attribute == nullptr || attribute->m_cacheSkin == nullptr ||
       attribute->m_cacheSkin->HImage() == nullptr ||
       attribute->m_phaseCnt != 6 || attributeIndex == -1 ||
-      subjectTable == ct_NULLID || observer == nullptr ||
+      subjectTable == ct_NULLID ||
+      !VisibleProbePosition(0.0, 64.0, &position) ||
       context->isExist(kProbeName)) {
     return false;
   }
@@ -1594,8 +1800,7 @@ bool ExerciseVisibleSpark() {
       (std::max)(Session::m_moment, Session::m_viewTime);
   const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
   SparkCreateRequest request = {
-      CFVector3(observer->x, observer->y, observer->z - 64.0),
-      timeStamp, subjectTable, attributeIndex, kProbeName};
+      position, timeStamp, subjectTable, attributeIndex, kProbeName};
   KR_ObjectID spark = KR_ObjectID::NUL();
   const bool started = SparkSubjectState_ExecuteNow(
       context, request, &spark);
@@ -2919,6 +3124,45 @@ int main(int argc, char** argv) {
     return Fail("F1 Taxi handoff/panel/post-transition drive failed");
   }
 
+  if (!ExerciseVehiclePrimaryFire()) {
+    SRecoveredVehiclePrimaryFireTelemetry fire = {};
+    const bool inspected =
+        RecoveredGameServices_VehiclePrimaryFireTelemetry(&fire);
+    std::fprintf(stderr,
+                 "vehicle-fire diagnostics inspected=%d trigger=%u "
+                 "shots=%u rollback=%u moves=%u checks=%u scene=%u "
+                 "dynamic=%u water=%u children=%u ground=%u barrel=%u "
+                 "live=%u peak=%u explosions=%u particles=%u smokes=%u "
+                 "sparks=%u sounds=%u render=%u effect_render=%u "
+                 "subscription=%d input=%u forwarded=%u housekeeping=%u "
+                 "focus=%u/%u releases=%u suppressed=%u active=%u "
+                 "ignored=%u\n",
+                 inspected ? 1 : 0, fire.triggerPresses,
+                 fire.acceptedShots, fire.rolledBackShots, fire.moveEvents,
+                 fire.collisionChecks, fire.sceneImpacts,
+                 fire.dynamicImpacts, fire.waterlineSplashes,
+                 fire.impactEffectChildren, fire.groundRemovals,
+                 fire.barrelSmokeStarts, fire.liveBullets,
+                 fire.tablePeakLiveBullets,
+                 fire.maximumExplosionSubjects,
+                 fire.maximumParticleBranches, fire.maximumSmokeSubjects,
+                 fire.maximumSparkSubjects, fire.maximumSoundObjects,
+                 fire.renderedFramesAfterShot, fire.effectRenderFrames,
+                 fire.hardwareSubscriptionPreserved,
+                 RecoveredGameServices_VehicleInputEvents(),
+                 RecoveredGameServices_VehicleForwardedEvents(),
+                 RecoveredGameServices_VehicleHousekeepingEvents(),
+                 RecoveredGameServices_VehicleFocusLossCount(),
+                 RecoveredGameServices_VehicleFocusGainCount(),
+                 RecoveredGameServices_VehicleSyntheticReleaseCount(),
+                 RecoveredGameServices_VehicleSuppressedInputCount(),
+                 RecoveredGameServices_VehicleActiveActionCount(),
+                 RecoveredGameServices_VehicleIgnoredEvents());
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("MouseL Vehicle primary-fire/effect chain failed");
+  }
+
   KR_Event unsupported;
   unsupported.label = lev_SAVE;
   if (g_super.m_level.receiveEvent(unsupported) != 0 ||
@@ -3229,6 +3473,7 @@ int main(int argc, char** argv) {
                "taxi_lifecycle=1/1/1/1/2 "
                "taxi_vehicle=%d/%d/%d/%d/%d/%d/%d/%d "
                "taxi_handoff=F1-nearest-panel-drive-rollback "
+               "vehicle_fire=MouseL-Bullet-impact-visual-sound-focus-rollback "
                "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
               "bullet_subject=0/%d-ballistic-collision-impact-ground-waterline-barrel-smoke "

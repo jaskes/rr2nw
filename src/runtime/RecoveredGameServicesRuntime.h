@@ -64,6 +64,30 @@ struct SRecoveredTaxiVehicleHandoffTelemetry {
   int hardwareSubscriptionPreserved;
 };
 
+struct SRecoveredVehiclePrimaryFireTelemetry {
+  unsigned int triggerPresses;
+  unsigned int acceptedShots;
+  unsigned int rolledBackShots;
+  unsigned int moveEvents;
+  unsigned int collisionChecks;
+  unsigned int sceneImpacts;
+  unsigned int dynamicImpacts;
+  unsigned int waterlineSplashes;
+  unsigned int impactEffectChildren;
+  unsigned int groundRemovals;
+  unsigned int barrelSmokeStarts;
+  unsigned int liveBullets;
+  unsigned int tablePeakLiveBullets;
+  unsigned int maximumExplosionSubjects;
+  unsigned int maximumParticleBranches;
+  unsigned int maximumSmokeSubjects;
+  unsigned int maximumSparkSubjects;
+  unsigned int maximumSoundObjects;
+  unsigned int renderedFramesAfterShot;
+  unsigned int effectRenderFrames;
+  int hardwareSubscriptionPreserved;
+};
+
 void RecoveredGameServices_UseRuntime();
 void RecoveredGameServices_Release();
 bool RecoveredGameServices_PlatformReady();
@@ -148,6 +172,9 @@ int RecoveredGameServices_TaxiVehicleProbeRemovedTaxis();
 int RecoveredGameServices_TaxiVehicleProbeRollbacks();
 bool RecoveredGameServices_TaxiVehicleHandoffTelemetry(
     SRecoveredTaxiVehicleHandoffTelemetry* telemetry);
+bool RecoveredGameServices_BeginVehiclePrimaryFireObservation();
+bool RecoveredGameServices_VehiclePrimaryFireTelemetry(
+    SRecoveredVehiclePrimaryFireTelemetry* telemetry);
 bool RecoveredGameServices_VehicleControlReady();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();

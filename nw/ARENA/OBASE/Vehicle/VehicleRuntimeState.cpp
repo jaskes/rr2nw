@@ -476,6 +476,7 @@ bool VehicleRuntimeState_ApplyControlAt(
     case LOOK_DOWN:
     case TURN_LEFT:
     case TURN_RIGHT:
+    case FIRE_PRIMARY:
     case STOP_VEHICLE:
     case CHANGE_VEHICLE:
         break;

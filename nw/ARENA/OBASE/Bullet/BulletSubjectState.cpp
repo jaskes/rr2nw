@@ -1,5 +1,6 @@
 #include "BulletSubjectState.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <new>
@@ -43,6 +44,15 @@ struct BulletImpact
     double time;
     KR_ObjectID object;
 };
+
+BulletRuntimeTelemetry g_runtimeTelemetry = {};
+unsigned int g_activeBullets = 0;
+
+void ResetRuntimeTelemetry()
+{
+    std::memset(&g_runtimeTelemetry, 0, sizeof(g_runtimeTelemetry));
+    g_activeBullets = 0;
+}
 
 bool FiniteVector(const CFVector3 &value)
 {
@@ -286,6 +296,7 @@ class BoundedBullet : public ct_Subject
 
     virtual void removeNotify()
     {
+        releaseActiveCount();
         if (context != NULL)
         {
             context->removeEvent(b_EVC_MOVING, getObjectID());
@@ -342,6 +353,21 @@ class BoundedBullet : public ct_Subject
     int sceneQueryCount() const { return m_sceneQueryCount; }
 
  private:
+    void releaseActiveCount()
+    {
+        if (!m_countedActive)
+            return;
+        if (g_activeBullets > 0)
+            --g_activeBullets;
+        m_countedActive = false;
+    }
+
+    int rejectStart()
+    {
+        ++g_runtimeTelemetry.rejectedStarts;
+        return 0;
+    }
+
     void resetState()
     {
         m_position = CFVector3(0.0, 0.0, 0.0);
@@ -360,6 +386,7 @@ class BoundedBullet : public ct_Subject
         m_crossedWaterline = false;
         m_collisionCheckCount = 0;
         m_sceneQueryCount = 0;
+        m_countedActive = false;
     }
 
     bool scheduleMove(double previousTimeStamp, double timeStamp)
@@ -401,12 +428,12 @@ class BoundedBullet : public ct_Subject
                              sizeof(KR_ObjectID));
         if (m_started || context == NULL || !std::isfinite(event.timeStamp) ||
             event.timeStamp < 0.1)
-            return 0;
+            return rejectStart();
         s_EventData &data = event.data.open(EDO_READ);
         if (data.remaining() != expectedSize)
         {
             data.close();
-            return 0;
+            return rejectStart();
         }
         CFVector3 position;
         CFVector3 direction;
@@ -438,7 +465,7 @@ class BoundedBullet : public ct_Subject
             attribute->m_moveTimeIncrement <= 0.0 ||
             !std::isfinite(attribute->m_chkClzTimeIncrement) ||
             attribute->m_chkClzTimeIncrement <= 0.0)
-            return 0;
+            return rejectStart();
 
         const double inverseLength = 1.0 / std::sqrt(directionLength2);
         m_attribute = attribute;
@@ -448,6 +475,11 @@ class BoundedBullet : public ct_Subject
         m_initialDirection = direction * inverseLength;
         m_velocity = m_initialDirection * attribute->m_startSpeed;
         m_started = true;
+        m_countedActive = true;
+        ++g_activeBullets;
+        ++g_runtimeTelemetry.acceptedStarts;
+        g_runtimeTelemetry.peakLiveBullets = (std::max)(
+            g_runtimeTelemetry.peakLiveBullets, g_activeBullets);
         m_moveCount = 0;
         m_lastMoveTimeStamp = event.timeStamp;
         CViewScene *scene = CViewScene::Current();
@@ -460,11 +492,14 @@ class BoundedBullet : public ct_Subject
         KR_ObjectID barrelSmoke = KR_ObjectID::NUL();
         StartBarrelSmoke(context, attribute, getObjectID(), position,
                          direction, event.timeStamp, &barrelSmoke);
+        if (!barrelSmoke.isNUL())
+            ++g_runtimeTelemetry.barrelSmokeStarts;
         if (position.y <= 0.0)
         {
             KR_ObjectID spark = KR_ObjectID::NUL();
             QueueGroundSpark(context, m_attribute, m_position,
                              event.timeStamp, &spark);
+            ++g_runtimeTelemetry.groundRemovals;
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
             return 1;
@@ -480,6 +515,8 @@ class BoundedBullet : public ct_Subject
             context->removeEvent(b_EVC_MOVING, getObjectID());
             context->removeEvent(b_EVC_CHECK_COLLISION, getObjectID());
             setPosition(CFVector3(0.0, 0.0, 0.0));
+            ++g_runtimeTelemetry.rolledBackStarts;
+            releaseActiveCount();
             resetState();
             return 0;
         }
@@ -575,10 +612,14 @@ class BoundedBullet : public ct_Subject
                                 horizon, &waterTime);
         const BulletImpact impact = findImpact(horizon);
         ++m_collisionCheckCount;
+        ++g_runtimeTelemetry.collisionChecks;
         const bool splashBeforeImpact = waterHit &&
             (impact.kind == BULLET_IMPACT_NONE || waterTime < impact.time);
         if (splashBeforeImpact)
+        {
             m_crossedWaterline = true;
+            ++g_runtimeTelemetry.waterlineSplashes;
+        }
 
         KR_ObjectID effectChildren[2] = {
             KR_ObjectID::NUL(), KR_ObjectID::NUL()};
@@ -588,9 +629,15 @@ class BoundedBullet : public ct_Subject
                            splashBeforeImpact, waterTime,
                            impact.kind != BULLET_IMPACT_NONE, impact.time,
                            effectChildren, &effectChildCount);
+        g_runtimeTelemetry.impactEffectChildren +=
+            static_cast<unsigned int>((std::max)(effectChildCount, 0));
 
         if (impact.kind != BULLET_IMPACT_NONE)
         {
+            if (impact.kind == BULLET_IMPACT_SCENE)
+                ++g_runtimeTelemetry.sceneImpacts;
+            else if (impact.kind == BULLET_IMPACT_DYNAMIC)
+                ++g_runtimeTelemetry.dynamicImpacts;
             context->removeEvent(b_EVC_MOVING, getObjectID());
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
@@ -636,12 +683,14 @@ class BoundedBullet : public ct_Subject
         m_velocity = nextVelocity;
         m_lastMoveTimeStamp = event.timeStamp;
         ++m_moveCount;
+        ++g_runtimeTelemetry.moveEvents;
         setPosition(nextPosition);
         if (m_position.y <= 0.0)
         {
             KR_ObjectID spark = KR_ObjectID::NUL();
             QueueGroundSpark(context, m_attribute, m_position,
                              event.timeStamp, &spark);
+            ++g_runtimeTelemetry.groundRemovals;
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
             return 1;
@@ -671,6 +720,7 @@ class BoundedBullet : public ct_Subject
     bool m_crossedWaterline;
     int m_collisionCheckCount;
     int m_sceneQueryCount;
+    bool m_countedActive;
 };
 
 class BoundedBulletTable : public ct_SubjectTable
@@ -683,6 +733,7 @@ class BoundedBulletTable : public ct_SubjectTable
 
     virtual void allocObjects(int objectQnty)
     {
+        ResetRuntimeTelemetry();
         m_table = new (std::nothrow) BoundedBullet[objectQnty];
         if (m_table == NULL)
             m_maxObjectQnty = 0;
@@ -693,6 +744,7 @@ class BoundedBulletTable : public ct_SubjectTable
         delete [] m_table;
         m_table = NULL;
         m_maxObjectQnty = 0;
+        ResetRuntimeTelemetry();
     }
 
     virtual ct_Object *getObjectPTR(int index)
@@ -833,6 +885,19 @@ unsigned long long BulletSubjectState_Fingerprint(
     HashBytes(hash, &directionalSmokeStart,
               sizeof(directionalSmokeStart));
     return hash;
+}
+
+bool BulletSubjectState_RuntimeTelemetry(
+    SimulationContext *context, BulletRuntimeTelemetry *telemetry)
+{
+    const int capacity = g_bulletTable.capacity();
+    if (telemetry == NULL ||
+        !BulletSubjectState_TableReady(context, capacity))
+        return false;
+    *telemetry = g_runtimeTelemetry;
+    telemetry->liveBullets = static_cast<unsigned int>(
+        (std::max)(g_bulletTable.liveCount(), 0));
+    return true;
 }
 
 bool BulletSubjectState_ProbeBallisticLifecycle(

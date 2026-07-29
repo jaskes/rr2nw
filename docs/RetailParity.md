@@ -992,6 +992,46 @@ Retail scripts нельзя молча копировать поверх source 
   Vehicle graph, its exact semantic fingerprint, `level-ready` and a clean
   runtime shutdown.
 
+### RP-SCRIPT-030: F1 enters a real nearby Taxi target and owns its cockpit
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. The runtime reads
+  each Level's real `SET_TAXI.SCI`, publishes its exact Taxi roster and applies
+  the original nearest-target-inside-20-units rule.
+- A real F1 press/release travels through Hardware and Vehicle. The transition
+  transfers the target VehicleAttr and pose, removes the Taxi only after a
+  successful Vehicle change, keeps exclusive input subscribed, opens/draws a
+  real panel when named and drives the replacement for 40 frames. Level.06N is
+  the explicit valid empty roster.
+- Full service teardown and reconstruction restore the original Vehicle/Taxi
+  identities and counts. Verification passes 51/51 CTest in both
+  configurations, 36/36 installed/mounted retail service launches and 4/4
+  waited executable smokes.
+
+### RP-SCRIPT-031: primary fire reaches real Bullet impact and visible effects
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. `MouseL` now enters the original Hardware action,
+  Vehicle fire latch/repeat event and already admitted Bullet subject graph.
+- Retail gates are preserved. Type-0 Vehicle attributes accept the control but
+  do not call `Shoot`; the selected type-1 `CarSmall` on 01D/01N intentionally
+  has no primary BulletAttr and produces no projectile. Armed type-1 Vehicles
+  must produce exactly two accepted starts from two active presses.
+- The positive proof observes scheduled Bullet movement and collision checks,
+  a natural scene or dynamic impact, an Explosion child, live particle
+  branches, impact SoundObj and a software frame containing a projectile or
+  effect. It does not insert a target. Test-only firing height/direction give
+  the real ballistic path room to advance and are discarded with the seance.
+- `MouseL` is focus-safe: losing focus during the second held press produces
+  one synthetic release, suppresses inactive down/up input, creates no third
+  shot and leaves zero held actions. The Hardware subscription survives.
+- Impact Explosion audio is proven. Bullet muzzle `m_shootSndName` and
+  secondary fire remain explicitly deferred. The table peak Bullet count is a
+  lifetime high-water mark; per-proof shot/move/impact counters are deltas from
+  an explicit observation window.
+- Verification passes 51/51 CTest in Debug and Release, the full 36/36 retail
+  service matrix without reruns, a 10/10 `Level.05D` Debug repetition and 4/4
+  waited executable smokes with observability, level-ready and clean shutdown.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

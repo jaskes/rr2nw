@@ -1,6 +1,6 @@
 # Player to Vehicle vertical-slice readiness
 
-Snapshot: 2026-07-29, after the interactive Taxi/cockpit proof.
+Snapshot: 2026-07-29, after the live Vehicle primary-fire proof.
 
 ## What “drive through the real world” means
 
@@ -9,8 +9,9 @@ loads a May Level, creates the retail `Vehicle.Default`, places its selected
 vessel at `[Vessel] Init`, routes hardware actions into that Vehicle, advances
 its dynamics once per simulation frame, builds the camera from the vessel and
 renders the already decoded world assets while movement and teardown remain
-bounded. Cockpit and Taxi/change-vehicle are now completed follow-on slices;
-weapons, on-foot embodiment and missions remain separate readiness gates.
+bounded. Cockpit, Taxi/change-vehicle and primary fire are now completed
+follow-on slices; secondary fire, on-foot embodiment and missions remain
+separate readiness gates.
 
 ## Proven foundations
 
@@ -64,10 +65,11 @@ weapons, on-foot embodiment and missions remain separate readiness gates.
   smokes with two live Vehicle/camera frames, zero fallback/input failure and
   clean shutdown. Semantic retail identities match across roots; exact
   world-contact frame counts remain scheduler-sensitive observations.
-- Combat support below Vehicle is substantially present: Bullet attributes and
-  subject flight/collision/effects, Explosion/Spark/Smoke children and rollback
-  are active. This is useful after movement, but it is not a substitute for the
-  remaining Vehicle gameplay graph.
+- Live primary combat now crosses `MouseL` -> Hardware -> Vehicle -> Bullet ->
+  scheduled flight/collision -> Explosion/particle/impact SoundObj -> rendered
+  software frame. Focus loss releases a held fire action and inactive clicks
+  cannot leave autofire latched. Type-0 Vehicles and the intentionally unarmed
+  type-1 `CarSmall` on Level.01D/01N retain their retail no-projectile result.
 
 ## Remaining gap to a manually proven drivable build
 
@@ -116,9 +118,11 @@ The shortest safe implementation sequence is:
   radius, transfer Vehicle state, remove the Taxi, drive the replacement and
   prove complete seance reconstruction. Leave-vehicle/on-foot behavior remains
   with the People/Tank/Orphan frontier.
-- Add primary fire now that Vehicle owns Bullet caches. Its recurring fire
-  events need allocation/quota/rollback tests through the already active
-  Bullet/Explosion/Spark/Smoke graph. Secondary fire and sound follow.
+- **Complete for primary fire:** deliver `MouseL` through Hardware and the
+  recurring Vehicle fire event, prove two real Bullet starts, movement,
+  natural collision, rendered impact effects, impact sound, focus-safe release
+  and complete seance rollback. Secondary fire and the still-unused Bullet
+  muzzle-sound reference follow as separate work.
 - Exercise embedded Player faction/mission/save state after the movement owner
   is stable. Its fixed-size legacy serialization still needs the broader save
   format audit before 1.0.
@@ -126,19 +130,22 @@ The shortest safe implementation sequence is:
 ## Current estimate
 
 The reusable platform/world/asset foundation for this slice is roughly
-90% complete. The automated Vehicle/Taxi/cockpit vertical slice is roughly
-95% complete: persistent input, timing, movement, steering, stop-command
-routing, focus recovery, camera, world contacts, real F1 handoff, panel draw
-and replacement driving are in place. Human input feel/visibility still needs
-a manual drive. Weapons and on-foot embodiment remain subsequent slices and
-are not included in that percentage.
+90% complete. The automated Vehicle/Taxi/cockpit/primary-combat vertical slice
+is roughly 97% complete: persistent input, timing, movement, steering,
+stop-command routing, focus recovery, camera, world contacts, real F1 handoff,
+panel draw, replacement driving and primary projectile/effect delivery are in
+place. Human input feel/visibility still needs a manual drive. Secondary fire,
+muzzle sound and on-foot embodiment remain subsequent slices and are not
+included in that percentage.
 
 These percentages are engineering orientation, not schedule claims. Readiness
 is gated by the proofs above, not by line count.
 
 The current automated evidence is green in both compiler configurations:
 51/51 CTest per configuration, 36/36 installed/mounted retail service launches
-and 4/4 waited executable runtime smokes. The positive static-collision proof
-on `Level.04D` appears in both Debug and Release; the formerly flaky visual
-Smoke case also passes a 10/10 Debug repetition after following the Vehicle
-camera instead of the suspended observer.
+without reruns and 4/4 waited executable runtime smokes. The primary-fire
+matrix covers armed, type-0 and unarmed type-1 gates. The positive
+static-collision proof on `Level.04D` remains present; the formerly flaky
+`Level.05D` Debug visual path also passes a 10/10 repetition after all visual
+probes follow the active Vehicle camera and traced effects start above sampled
+terrain.

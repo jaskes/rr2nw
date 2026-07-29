@@ -1897,6 +1897,51 @@ Status vocabulary:
   pointers to survive a resource reload; never patch individual entries in
   place.
 
+### CQ-119: primary mouse fire crossed two modern admission gaps
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: retail `green_hardware.sci` maps `FIRE_PRIMARY` to `MouseL`, and
+  `Vehicle::receiveEvent()` owns a repeating press/release schedule. The
+  recovered runtime had disabled Hardware mouse use and its modern Vehicle
+  control whitelist rejected `FIRE_PRIMARY`; the focus-safe held-action set
+  also covered keyboard movement only. A lost mouse-up could therefore latch
+  repeated fire once the route was enabled.
+- Handling: enable the existing Hardware mouse path, bind the retail action,
+  admit it through the narrow Vehicle wrapper and track it as the eleventh
+  continuous action. Focus loss forwards exactly one zero-valued release;
+  inactive clicks are suppressed and focus recovery requires a fresh press.
+  Preserve `Vehicle::onFire()` gating: type-0 defaults do not shoot, while an
+  empty type-1 Bullet slot (the selected `CarSmall` on 01D/01N) is a valid
+  unarmed retail result.
+- Regression contract: armed Levels must produce exactly two accepted Bullet
+  starts from two active presses, then expose movement, collision, impact
+  children and rendered effects; focus loss during the second hold must leave
+  zero active actions and no extra shot. Type-0 and empty-primary cases must
+  forward the Hardware pair without allocating a Bullet.
+- Revisit when: configurable controls, raw input, replay or SDL replace Win32
+  Hardware. Mouse capture and focus generation must remain part of the same
+  recorded input transaction as movement controls.
+
+### CQ-120: frozen-observer visual probes became invalid after Vehicle camera handoff
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `TEST_ENVIRONMENT_ONLY`.
+- Evidence: the fallback observer deliberately stops moving after Vehicle owns
+  the camera. Smoke, barrel-Smoke, DynSmoker and Explosion probes placed near
+  that old observer could be culled although their subject lifecycle was
+  correct. Traced Explosion Pieces could additionally begin below the real
+  Level terrain and expire before their first observable frame.
+- Handling: test-only visual placement follows the inspected active Vehicle
+  position/direction. Explosion particle and trace probes sample the actual
+  terrain plane and start with finite positive clearance. No production
+  camera, object position, collision geometry or renderer rule changes.
+- Regression contract: the complete 36-case retail matrix must pass with no
+  reruns, and the previously frame-sensitive `Level.05D` Debug path must pass
+  10/10. A visible frame, detach frame and cleared frame must retain exact draw
+  and owner rollback counts.
+- Revisit when: deterministic capture cameras replace the current live-window
+  visual checks. Keep world placement derived from the active view and real
+  terrain rather than a stale observer snapshot.
+
 ## Maintenance rule
 
 When a new quirk is found:
