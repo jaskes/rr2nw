@@ -1,6 +1,6 @@
 # Player to Vehicle vertical-slice readiness
 
-Snapshot: 2026-07-29, after RP-SCRIPT-029.
+Snapshot: 2026-07-29, after the interactive Taxi/cockpit proof.
 
 ## What “drive through the real world” means
 
@@ -9,8 +9,8 @@ loads a May Level, creates the retail `Vehicle.Default`, places its selected
 vessel at `[Vessel] Init`, routes hardware actions into that Vehicle, advances
 its dynamics once per simulation frame, builds the camera from the vessel and
 renders the already decoded world assets while movement and teardown remain
-bounded. A cockpit panel, weapons, Taxi entry/exit and missions may follow this
-first movement proof; they must not be confused with basic drive readiness.
+bounded. Cockpit and Taxi/change-vehicle are now completed follow-on slices;
+weapons, on-foot embodiment and missions remain separate readiness gates.
 
 ## Proven foundations
 
@@ -60,9 +60,10 @@ first movement proof; they must not be confused with basic drive readiness.
   admission proves real Level-dependent terrain/dynamics rather than a
   synthetic position increment.
 - Final automated verification passes 51/51 CTest in both configurations,
-  36/36 installed/mounted retail service launches without a root or build-mode
-  mismatch, and 4/4 waited executable smokes with two live Vehicle/camera
-  frames, zero fallback/input failure and clean shutdown.
+  36/36 installed/mounted retail service launches, and 4/4 waited executable
+  smokes with two live Vehicle/camera frames, zero fallback/input failure and
+  clean shutdown. Semantic retail identities match across roots; exact
+  world-contact frame counts remain scheduler-sensitive observations.
 - Combat support below Vehicle is substantially present: Bullet attributes and
   subject flight/collision/effects, Explosion/Spark/Smoke children and rollback
   are active. This is useful after movement, but it is not a substitute for the
@@ -94,7 +95,9 @@ The shortest safe implementation sequence is:
    persistent frame, prove real Hardware motion and deterministic shutdown, and
    cap long presentation stalls without feeding unsafe physics deltas.
 6. **Automated portion complete:** prove forward movement, heading change,
-   original stop, focus release/rearm, ground contact and a real static bump.
+   original stop-command routing, focus release/rearm, ground contact and a
+   real static bump. Post-terrain-frame speed is observational because contact
+   response can follow `Stop()` in the same frame.
    The remaining manual smoke is Level.01D visibility/input feel, slope,
    obstacle, real alt-tab/window messages and exit; later repeat on an admitted
    EMV/air-like roster before broadening human testing.
@@ -104,16 +107,18 @@ The shortest safe implementation sequence is:
 - **Complete:** resolve Vehicle's Panel, Taxi and primary/secondary Bullet
   caches atomically. A late missing-panel probe proves that temporary panels
   and all symbolic references roll back before any roster entry commits.
-- **Complete at the attribute owner:** load every non-empty retail panel and
-  require a valid current-resolution software viewport. Opening/drawing a
-  cockpit remains tied to a later live change-vehicle slice; the default
-  Vehicle attributes intentionally name no panel.
-- Activate the relevant Taxi/Orphan subject slice for enter/leave/change
-  vehicle. Exact Taxi attributes and their Vehicle/Corpse references are ready,
-  and Vehicle now owns their IDs, but `SET_TAXI.SCI` and live Taxi objects are
-  not.
-- Add primary fire only after Vehicle owns Bullet caches and its recurring fire
-  events have allocation/rollback tests. Secondary fire and sound follow.
+- **Complete:** load every non-empty retail panel, require a valid
+  current-resolution software viewport, open/draw it through a real
+  F1-to-Taxi transition and preserve Hardware ownership. Default Vehicle
+  attributes intentionally keep their valid empty-panel state.
+- **Complete for change-vehicle:** execute each Level's `SET_TAXI.SCI`, publish
+  live Taxi objects, choose the nearest target inside the original 20-unit
+  radius, transfer Vehicle state, remove the Taxi, drive the replacement and
+  prove complete seance reconstruction. Leave-vehicle/on-foot behavior remains
+  with the People/Tank/Orphan frontier.
+- Add primary fire now that Vehicle owns Bullet caches. Its recurring fire
+  events need allocation/quota/rollback tests through the already active
+  Bullet/Explosion/Spark/Smoke graph. Secondary fire and sound follow.
 - Exercise embedded Player faction/mission/save state after the movement owner
   is stable. Its fixed-size legacy serialization still needs the broader save
   format audit before 1.0.
@@ -121,11 +126,12 @@ The shortest safe implementation sequence is:
 ## Current estimate
 
 The reusable platform/world/asset foundation for this slice is roughly
-90% complete. The automated end-to-end driving slice is roughly 90--95%
-complete: persistent input, timing, movement, steering, stop, focus recovery,
-camera and world-contact observation are in place. Human input feel/visibility
-still needs a manual drive. Real cockpit, Taxi/change-vehicle and weapons remain
-subsequent slices and are not included in that percentage.
+90% complete. The automated Vehicle/Taxi/cockpit vertical slice is roughly
+95% complete: persistent input, timing, movement, steering, stop-command
+routing, focus recovery, camera, world contacts, real F1 handoff, panel draw
+and replacement driving are in place. Human input feel/visibility still needs
+a manual drive. Weapons and on-foot embodiment remain subsequent slices and
+are not included in that percentage.
 
 These percentages are engineering orientation, not schedule claims. Readiness
 is gated by the proofs above, not by line count.

@@ -2438,6 +2438,45 @@ valid no-target result.
 F1 is now mapped to the existing `CHANGE_VEHICLE` action. Panel changes keep
 the recovered Hardware owner subscribed, preventing the legacy
 `openPanel()`/`closePanel()` calls from stealing the exclusive input channel.
-The remaining frontier is an interactive F1 run through a real non-empty Taxi
-panel and then normal driving/rendering after the change, rather than another
-synthetic ownership bridge.
+The direct transaction remains useful as a narrow admission/rollback proof;
+the following live slice now owns the interactive path.
+
+## Interactive Taxi cockpit and replacement-Vehicle frontier
+
+The recovered runtime now observes the original 20-unit Taxi activation rule
+without changing it. A read-only Taxi inspection reports the nearest target,
+distance, total roster and nearby count. Interactive admission places the real
+Vehicle at a chosen retail Taxi, sends F1 through Win32 Hardware, and requires
+the nearest Taxi to transfer its VehicleAttr and disappear. Same-attribute
+targets are recognized by removal, while F1 on a type-1 replacement Vehicle
+remains the original leave-vehicle behavior and is not mislabeled as a Taxi
+attempt.
+
+Panel lifetime is now part of the persistent service owner. Initial Vehicle
+control opens its current panel, each rendered frame draws the open panel after
+the world, and shutdown closes it before the Hardware owner unsubscribes. Both
+the software lifecycle and preserved full `PANEL.CPP` target expose readiness,
+open state and a draw counter. The counter changes only for an actual parsed,
+open, current-resolution cockpit. Empty panel names remain valid retail data.
+
+Level.02N and Level.03N provide positive panel-bearing Taxi cases. The bounded
+test proves proximity, F1 press/release, attribute transfer, Taxi removal,
+panel open/draw, preserved exclusive input, and positive movement over 40
+post-transition W frames. Full service teardown and reconstruction then prove
+that no modified Taxi/Vehicle state leaks across a seance. Startup diagnostics
+publish the same proximity, attempt, removal, panel and post-drive observations
+for manual runs; the two-frame executable smoke intentionally reports the
+current passive state rather than synthesizing an F1 input.
+
+Both panel targets build in Debug and Release, both CTest configurations pass
+51/51, the installed/mounted Level.02N service proof passes 4/4, and the full
+nine-Level by two-root by two-configuration sweep passes 36/36 executions.
+Exact world-contact frame counts are scheduler observations, not semantic
+fingerprints. Four waited executable smokes additionally reach level-ready and
+clean shutdown with the new diagnostics.
+
+The next Windows-first OBASE frontier is player combat and embodiment: connect
+Vehicle primary fire to the already recovered Bullet/effect graph, then admit
+the smallest People/Tank/Orphan slice needed for leaving and re-entering a
+Vehicle. Save-state and manual feel checks remain explicit gates; Linux/macOS
+and multiplayer remain outside this 1.0 tranche.

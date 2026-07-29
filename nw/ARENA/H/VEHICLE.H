@@ -265,6 +265,10 @@ public:
     void         openPanel      (double ts);
     void         drawPanel      ();
     void         closePanel     (double ts);
+    bool         panelReady     () const;
+    bool         panelOpen      () const;
+    unsigned int panelDrawCount () const;
+    bool         taxiChangeEnabled() const;
     static void  preserveExternalControlSubscription(bool preserve);
     void         onChangeVehicle(double ts);
     void         onFire         ( double timeStamp );

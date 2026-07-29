@@ -97,6 +97,7 @@ CGRPanel::CGRPanel(const char *filename)
 
   resolCount = 0;
   currentPanel = NULL;
+  drawCount = 0;
 
   if (fp == NULL) return;
 
@@ -478,6 +479,22 @@ void CGRPanel::SetResolution(int width, int height)
 }
 
 //=====================================================================
+int CGRPanel::IsReady() const
+{
+  return resolCount > 0 && currentPanel != NULL &&
+         currentPanel->panelViewport != NULL;
+}
+
+int CGRPanel::IsOpen() const
+{
+  return IsReady() && currentPanel->open;
+}
+
+unsigned int CGRPanel::DrawCount() const
+{
+  return drawCount;
+}
+
 SGRViewport * CGRPanel::Open()
 {
   if (resolCount == 0 || currentPanel == NULL) return NULL;
@@ -528,7 +545,9 @@ void CGRPanel::Draw()
   //if (resolCount == 0 || currentPanel == NULL) return;
   //if (! currentPanel->open) return;
 
-  if (drawPanel && currentPanel != NULL && currentPanel->open) {
+  if (drawPanel && IsOpen()) {
+
+  ++drawCount;
 
   DrawControlsFirst();
 

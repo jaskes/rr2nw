@@ -786,6 +786,43 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_TaxiVehicleProbeRemovedTaxis()));
   log.Line("taxi_vehicle_probe_rollbacks=" + std::to_string(
                RecoveredGameServices_TaxiVehicleProbeRollbacks()));
+  SRecoveredTaxiVehicleHandoffTelemetry taxiHandoff = {};
+  const bool taxiHandoffInspected =
+      RecoveredGameServices_TaxiVehicleHandoffTelemetry(&taxiHandoff);
+  log.Line("taxi_vehicle_handoff_observable=" +
+           std::to_string(taxiHandoffInspected ? 1 : 0));
+  log.Line("taxi_vehicle_nearest_distance=" +
+           std::to_string(taxiHandoff.nearestTaxiDistance));
+  log.Line("taxi_vehicle_activation_distance=" +
+           std::to_string(taxiHandoff.activationDistance));
+  log.Line("taxi_vehicle_available=" +
+           std::to_string(taxiHandoff.availableTaxis));
+  log.Line("taxi_vehicle_nearby=" +
+           std::to_string(taxiHandoff.nearbyTaxis));
+  log.Line("taxi_vehicle_handoff_attempts=" +
+           std::to_string(taxiHandoff.attempts));
+  log.Line("taxi_vehicle_handoff_pending=" +
+           std::to_string(taxiHandoff.pendingTransitions));
+  log.Line("taxi_vehicle_handoff_successes=" +
+           std::to_string(taxiHandoff.successfulTransitions));
+  log.Line("taxi_vehicle_handoff_no_targets=" +
+           std::to_string(taxiHandoff.noTargetAttempts));
+  log.Line("taxi_vehicle_handoff_removed_taxis=" +
+           std::to_string(taxiHandoff.removedTaxis));
+  log.Line("taxi_vehicle_panel_ready=" +
+           std::to_string(taxiHandoff.panelReady));
+  log.Line("taxi_vehicle_panel_open=" +
+           std::to_string(taxiHandoff.panelOpen));
+  log.Line("taxi_vehicle_panel_open_transitions=" +
+           std::to_string(taxiHandoff.panelOpenTransitions));
+  log.Line("taxi_vehicle_panel_draws=" +
+           std::to_string(taxiHandoff.panelDraws));
+  log.Line("taxi_vehicle_hardware_subscription_preserved=" +
+           std::to_string(taxiHandoff.hardwareSubscriptionPreserved));
+  log.Line("taxi_vehicle_post_transition_frames=" +
+           std::to_string(taxiHandoff.postTransitionFrames));
+  log.Line("taxi_vehicle_post_transition_distance=" +
+           std::to_string(taxiHandoff.postTransitionDistance));
   log.Line("bullet_attributes_initialized=" + std::to_string(
                RecoveredArenaSeance_BulletAttributesReady() ? 1 : 0));
   log.Line("bullet_attribute_count=" +

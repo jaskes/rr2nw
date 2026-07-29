@@ -1405,6 +1405,42 @@ bool TaxiSubjectState_ProbeVehicleTransition(
            summary->rollbacks == 1;
 }
 
+bool TaxiSubjectState_InspectVehicleProximity(
+    SimulationContext *context, const KR_ObjectID &vehicleObject,
+    STaxiVehicleProximityState *state)
+{
+    if (state == NULL)
+        return false;
+    std::memset(state, 0, sizeof(*state));
+    state->nearestTaxi = KR_ObjectID::NUL();
+    state->nearestDistance = 1.0e10;
+    state->activationDistance = 20.0;
+    Vehicle *vehicle = context == NULL ? NULL : static_cast<Vehicle *>(
+        context->queryInterface(vehicleObject, IVehicleIID));
+    TaxiSubjectCollector collector = {};
+    if (vehicle == NULL || !CollectTaxiSubjects(context, collector))
+        return false;
+    state->availableTaxis = static_cast<int>(collector.records.size());
+    const CFVector3 position = vehicle->Pos();
+    for (std::size_t index = 0; index < collector.records.size(); ++index)
+    {
+        const double distance = Abs(
+            position - collector.records[index].taxi->taxiPos());
+        if (!std::isfinite(distance))
+            return false;
+        if (distance < state->activationDistance)
+            ++state->nearbyTaxis;
+        if (distance < state->nearestDistance)
+        {
+            state->nearestDistance = distance;
+            state->nearestTaxi = collector.records[index].object;
+        }
+    }
+    if (collector.records.empty())
+        state->nearestDistance = -1.0;
+    return true;
+}
+
 KR_ObjectID TaxiSubjectState_FirstObject(SimulationContext *context)
 {
     TaxiSubjectCollector collector = {};
@@ -1412,6 +1448,24 @@ KR_ObjectID TaxiSubjectState_FirstObject(SimulationContext *context)
                    !collector.records.empty()
                ? collector.records.front().object
                : KR_ObjectID::NUL();
+}
+
+KR_ObjectID TaxiSubjectState_FirstPanelVehicleObject(
+    SimulationContext *context)
+{
+    TaxiSubjectCollector collector = {};
+    if (!CollectTaxiSubjects(context, collector))
+        return KR_ObjectID::NUL();
+    for (std::size_t index = 0; index < collector.records.size(); ++index)
+    {
+        AttributeVehicle *attribute = static_cast<AttributeVehicle *>(
+            __attrVehicleTable.searchAttribute(
+                collector.records[index].taxi->getAttributeForVehicle()));
+        if (attribute != NULL && attribute->m_panel != NULL &&
+            attribute->m_panel->IsReady())
+            return collector.records[index].object;
+    }
+    return KR_ObjectID::NUL();
 }
 
 /* End of file C:\NW\ARENA\OBASE\Taxi\Taxi.cpp */

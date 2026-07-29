@@ -253,6 +253,7 @@ CGRPanel::CGRPanel(const char *filename)
     currentPanel = NULL;
     drawCrosshair = 1;
     drawPanel = 1;
+    drawCount = 0;
     memset(panel,0,sizeof(panel));
 
     if( filename == NULL || _dL.currDevice == NULL ||
@@ -585,6 +586,16 @@ int CGRPanel::IsReady() const
            currentPanel->panelViewport != NULL;
 }
 
+int CGRPanel::IsOpen() const
+{
+    return IsReady() && currentPanel->open;
+}
+
+unsigned int CGRPanel::DrawCount() const
+{
+    return drawCount;
+}
+
 SGRViewport *CGRPanel::Open()
 {
     if( resolCount == 0 || currentPanel == NULL ||
@@ -836,6 +847,7 @@ void CGRPanel::Draw()
     if( drawPanel && currentPanel != NULL && currentPanel->open &&
         currentPanel->width == _gr_nScreenWidth &&
         currentPanel->height == _gr_nScreenHeight ) {
+        ++drawCount;
         DrawControlsFirst();
         if( currentPanel->pSWPanel != NULL ) {
             std::map<CGRPanel*,PanelRuntimeMetadata>::iterator metadata =

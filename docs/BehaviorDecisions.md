@@ -2558,3 +2558,60 @@ Bullet barrel-smoke visibility checks required one immediate rerun and then
 passed. Debug and Release `rr2nw.exe --runtime-smoke` both select Level.05D,
 publish 66/100 Taxi with fingerprint `17059619840418952929`, report zero
 service issues, reach `level-ready` and shut down cleanly.
+
+## BD-069: make the interactive Taxi handoff, cockpit and replacement drive observable
+
+Status: accepted on 2026-07-29.
+
+The earlier Taxi admission probe called the transition boundary directly. It
+proved transfer and rollback, but it did not prove that a player key reached
+that boundary, that the retail proximity rule selected the target, or that the
+new cockpit survived the recovered Hardware owner. The live proof now sends an
+actual F1 press and release through the unchanged Win32 Hardware translator and
+the exclusive Vehicle subscriber. It relocates the current Vehicle only for
+the bounded test, to the position of a real Taxi whose target has a panel when
+one exists. The production rule remains the original one: only Taxi objects
+strictly inside 20 world units are candidates and the nearest candidate wins.
+
+Taxi handoff telemetry is observation-only. It publishes the nearest Taxi and
+distance, the exact activation distance, roster and nearby counts, attempts,
+pending and successful transitions, removed Taxi objects, post-transition
+frames/displacement, panel state/draws and whether the Hardware subscription
+survived. F1 on a non-default Vehicle is the original leave-vehicle action and
+is deliberately not counted as another Taxi attempt. A transition is accepted
+when either the Vehicle attribute changes or the selected Taxi disappears, so
+a valid Taxi targeting the current attribute cannot leave telemetry pending.
+
+The recovered control owner opens the selected Vehicle panel when it assumes
+control, closes it before releasing that control and draws it after the world
+on every rendered frame. Panel draw accounting advances only when a parsed
+panel is open at the current software resolution; an empty panel remains a
+valid no-cockpit state. The legacy and software panel implementations expose
+the same readiness/open/draw contract. Subscription preservation remains set
+across `setVehicleAttr()`'s close/open pair, so changing the viewport cannot
+steal input from the recovered Hardware adapter.
+
+The positive retail proof uses real panel-bearing Taxi targets on Level.02N
+and Level.03N. It proves the 20-unit proximity result, exact F1 Hardware event
+deltas, VehicleAttr transfer, one Taxi removal, a real panel open and draw,
+then 40 W-driven frames with positive horizontal displacement in the
+replacement Vehicle. The ordinary service shutdown and complete
+reconstruction retain the existing roster/reference fingerprints, providing
+the full seance rollback proof. Level.06N remains the explicit valid empty
+Taxi case, and Levels whose selected target has an empty panel remain valid.
+
+The strengthened drive scenario still routes X to the original `Stop()` path,
+but speed sampled after a complete terrain/dynamics frame is not a golden
+zero: contact response may accelerate the vessel again within that frame. The
+automated contract therefore proves delivery, release and continued control;
+the perceived stop remains part of the manual driving acceptance pass.
+
+Verification passes 51/51 CTest in Debug and Release, builds both the software
+and preserved full legacy panel targets, and passes 4/4 Level.02N service
+proofs across Debug/Release and installed/mounted data. The wider nine-Level
+Debug/Release installed/mounted sweep passes all 36 individual launches;
+scheduler-sensitive `vehicle_world` contact-frame counts are intentionally not
+compared byte-for-byte, while semantic content identities remain stable. All
+4/4 waited `rr2nw.exe --runtime-smoke` launches publish the new proximity and
+panel diagnostics, preserve Hardware subscription, reach `marker=level-ready`
+and finish with `runtime_shutdown=clean`.

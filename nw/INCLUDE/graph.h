@@ -659,6 +659,7 @@ class CGRPanel {
        //int    currentFlag;
        int      drawCrosshair;
        int      drawPanel;
+       unsigned int drawCount;
        CGRImage crosshair;
 
        void DrawSector(SControl *ct, float a0, float a1, unsigned long color);
@@ -672,6 +673,8 @@ class CGRPanel {
 
        void SetResolution(int width, int height);
        int IsReady() const;
+       int IsOpen() const;
+       unsigned int DrawCount() const;
        SGRViewport * Open();
        void Draw();
        void Close();

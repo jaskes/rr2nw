@@ -237,6 +237,18 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_quitRequested = false;
     m_forwardingFailed = false;
     m_lastInputFailure = 0;
+    m_handoffAttempts = 0;
+    m_handoffPending = false;
+    m_handoffSuccesses = 0;
+    m_handoffNoTargets = 0;
+    m_handoffRemovedTaxis = 0;
+    m_handoffPanelOpens = 0;
+    m_handoffPanelDrawBaseline = 0;
+    m_handoffPostFrames = 0;
+    m_handoffPostDistance = 0.0;
+    m_handoffAttribute = KR_ObjectID::NUL();
+    m_handoffTaxiCount = 0;
+    m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
   }
 
   void addNotify() override { KR_Object::addNotify(); }
@@ -288,6 +300,25 @@ class RecoveredVehicleControlInput final : public KR_Object {
       return 1;
     }
 
+    STaxiVehicleProximityState proximity = {};
+    SRecoveredVehicleRuntimeState before = {};
+    Vehicle* currentVehicle = getContext() == nullptr || m_vehicle.isNUL() ?
+        nullptr : static_cast<Vehicle*>(
+            getContext()->queryInterface(m_vehicle, IVehicleIID));
+    const bool handoffAttempt = action == CHANGE_VEHICLE && down > 0.0 &&
+        currentVehicle != nullptr && currentVehicle->taxiChangeEnabled();
+    if (handoffAttempt) {
+      ++m_handoffAttempts;
+      if (!TaxiSubjectState_InspectVehicleProximity(
+              getContext(), m_vehicle, &proximity) ||
+          !VehicleRuntimeState_Inspect(getContext(), m_vehicle, &before)) {
+        ++m_ignoredEvents;
+        m_forwardingFailed = true;
+        m_lastInputFailure = 7;
+        return 1;
+      }
+    }
+
     if (getContext() == nullptr || m_vehicle.isNUL() ||
         !getContext()->isExist(m_vehicle) ||
         !VehicleRuntimeState_ApplyLiveControlAt(
@@ -298,6 +329,15 @@ class RecoveredVehicleControlInput final : public KR_Object {
       return 1;
     }
     ++m_forwardedEvents;
+    if (handoffAttempt) {
+      if (proximity.nearbyTaxis == 0) {
+        ++m_handoffNoTargets;
+      } else {
+        m_handoffPending = true;
+        m_handoffAttribute = before.attribute;
+        m_handoffTaxiCount = proximity.availableTaxis;
+      }
+    }
     const int heldIndex = HeldActionIndex(action);
     if (heldIndex >= 0) m_heldActions[heldIndex] = down;
     return 1;
@@ -327,6 +367,65 @@ class RecoveredVehicleControlInput final : public KR_Object {
     return count;
   }
   int LastInputFailure() const { return m_lastInputFailure; }
+
+  void ObserveVehicleHandoff() {
+    if (getContext() == nullptr || m_vehicle.isNUL()) return;
+    SRecoveredVehicleRuntimeState state = {};
+    if (!VehicleRuntimeState_Inspect(getContext(), m_vehicle, &state)) return;
+    Vehicle* vehicle = static_cast<Vehicle*>(
+        getContext()->queryInterface(m_vehicle, IVehicleIID));
+    const int taxiCount = TaxiSubjectState_LiveCount();
+    if (m_handoffPending &&
+        (state.attribute != m_handoffAttribute ||
+         taxiCount + 1 == m_handoffTaxiCount)) {
+      ++m_handoffSuccesses;
+      if (taxiCount + 1 == m_handoffTaxiCount) ++m_handoffRemovedTaxis;
+      if (vehicle != nullptr && vehicle->panelOpen()) ++m_handoffPanelOpens;
+      m_handoffPanelDrawBaseline =
+          vehicle == nullptr ? 0 : vehicle->panelDrawCount();
+      m_handoffPosition = state.position;
+      m_handoffPostFrames = 0;
+      m_handoffPostDistance = 0.0;
+      m_handoffPending = false;
+    } else if (m_handoffSuccesses != 0) {
+      const double dx = state.position.x - m_handoffPosition.x;
+      const double dz = state.position.z - m_handoffPosition.z;
+      m_handoffPostDistance = (std::max)(
+          m_handoffPostDistance, std::sqrt(dx * dx + dz * dz));
+      ++m_handoffPostFrames;
+    }
+  }
+
+  bool HandoffTelemetry(SRecoveredTaxiVehicleHandoffTelemetry* telemetry) {
+    if (telemetry == nullptr || getContext() == nullptr ||
+        m_vehicle.isNUL()) return false;
+    STaxiVehicleProximityState proximity = {};
+    if (!TaxiSubjectState_InspectVehicleProximity(
+            getContext(), m_vehicle, &proximity)) return false;
+    Vehicle* vehicle = static_cast<Vehicle*>(
+        getContext()->queryInterface(m_vehicle, IVehicleIID));
+    *telemetry = {};
+    telemetry->nearestTaxiDistance = proximity.nearestDistance;
+    telemetry->activationDistance = proximity.activationDistance;
+    telemetry->postTransitionDistance = m_handoffPostDistance;
+    telemetry->availableTaxis = static_cast<unsigned int>(proximity.availableTaxis);
+    telemetry->nearbyTaxis = static_cast<unsigned int>(proximity.nearbyTaxis);
+    telemetry->attempts = m_handoffAttempts;
+    telemetry->pendingTransitions = m_handoffPending ? 1u : 0u;
+    telemetry->successfulTransitions = m_handoffSuccesses;
+    telemetry->noTargetAttempts = m_handoffNoTargets;
+    telemetry->removedTaxis = m_handoffRemovedTaxis;
+    telemetry->panelOpenTransitions = m_handoffPanelOpens;
+    const unsigned int panelDrawCount =
+        vehicle == nullptr ? 0u : vehicle->panelDrawCount();
+    telemetry->panelDraws = panelDrawCount < m_handoffPanelDrawBaseline ?
+        0u : panelDrawCount - m_handoffPanelDrawBaseline;
+    telemetry->postTransitionFrames = m_handoffPostFrames;
+    telemetry->panelReady = vehicle != nullptr && vehicle->panelReady();
+    telemetry->panelOpen = vehicle != nullptr && vehicle->panelOpen();
+    telemetry->hardwareSubscriptionPreserved = m_subscribed ? 1 : 0;
+    return true;
+  }
 
   bool SetApplicationActive(bool active, double eventTime) {
     if (m_applicationActive == active) return true;
@@ -417,6 +516,18 @@ class RecoveredVehicleControlInput final : public KR_Object {
   bool m_forwardingFailed = false;
   int m_lastInputFailure = 0;
   bool m_subscribed = false;
+  unsigned int m_handoffAttempts = 0;
+  bool m_handoffPending = false;
+  unsigned int m_handoffSuccesses = 0;
+  unsigned int m_handoffNoTargets = 0;
+  unsigned int m_handoffRemovedTaxis = 0;
+  unsigned int m_handoffPanelOpens = 0;
+  unsigned int m_handoffPanelDrawBaseline = 0;
+  unsigned int m_handoffPostFrames = 0;
+  double m_handoffPostDistance = 0.0;
+  KR_ObjectID m_handoffAttribute = KR_ObjectID::NUL();
+  int m_handoffTaxiCount = 0;
+  CFVector3 m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
 };
 
 unsigned int g_issues = 0;
@@ -572,6 +683,10 @@ void StopVehicleControl(bool restoreObserver,
                         const CFVector3* observerPosition) {
   SimulationContext* context = g_super.m_context;
   if (context != nullptr) {
+    KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
+    Vehicle* vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
+        context->queryInterface(vehicleID, IVehicleIID));
+    if (vehicle != nullptr) vehicle->closePanel(Session::m_moment);
     if (g_vehicleControlInput.getContext() == context) {
       g_vehicleControlInput.Unsubscribe();
       RemoveAttachedObject(context, &g_vehicleControlInput);
@@ -628,6 +743,13 @@ bool BeginVehicleControl(SimulationContext* context,
   BeginVehicleDriveTelemetry(state);
 
   Vehicle::preserveExternalControlSubscription(true);
+  Vehicle* controlledVehicle = static_cast<Vehicle*>(
+      context->queryInterface(vehicle, IVehicleIID));
+  if (controlledVehicle == nullptr) {
+    StopVehicleControl(true, &position);
+    return false;
+  }
+  controlledVehicle->openPanel(startTime);
   g_vehicleControlReady = true;
   g_vehicleFallbackActive = false;
   g_vehicleFrameCount = 0;
@@ -1293,6 +1415,12 @@ int RecoveredGameServices_TaxiVehicleProbeRollbacks() {
              : -1;
 }
 
+bool RecoveredGameServices_TaxiVehicleHandoffTelemetry(
+    SRecoveredTaxiVehicleHandoffTelemetry* telemetry) {
+  return g_vehicleControlReady &&
+         g_vehicleControlInput.HandoffTelemetry(telemetry);
+}
+
 bool RecoveredGameServices_VehicleControlReady() {
   return g_vehicleControlReady;
 }
@@ -1501,6 +1629,7 @@ int RecoveredGameServices_RunFrame() {
         vehicleFrame = false;
       } else {
         UpdateVehicleDriveTelemetry(telemetryState);
+        g_vehicleControlInput.ObserveVehicleHandoff();
       }
     }
   }
@@ -1531,6 +1660,8 @@ int RecoveredGameServices_RunFrame() {
   SUA_BeginRender(ZAV_Scene(), dynamics);
   g_debugMap.Draw();
   ZAV_RenderFrame(&direction, dynamics);
+  if (g_vehicleControlReady && g_vehicle != nullptr)
+    g_vehicle->drawPanel();
   ZAV_PrintFrameInfo();
   SUA_EndRender(ZAV_Scene());
   ZAV_EndRenderFrame();

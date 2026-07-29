@@ -26,6 +26,15 @@ struct STaxiVehicleTransitionProbeSummary
     int rollbacks;
 };
 
+struct STaxiVehicleProximityState
+{
+    KR_ObjectID nearestTaxi;
+    double nearestDistance;
+    double activationDistance;
+    int availableTaxis;
+    int nearbyTaxis;
+};
+
 void TaxiSubjectState_Link();
 bool TaxiSubjectState_TableReady(SimulationContext *context,
                                  int expectedCapacity);
@@ -42,6 +51,11 @@ bool TaxiSubjectState_ProbeLifecycle(
 bool TaxiSubjectState_ProbeVehicleTransition(
     SimulationContext *context, const KR_ObjectID &vehicle,
     double timeStamp, STaxiVehicleTransitionProbeSummary *summary);
+bool TaxiSubjectState_InspectVehicleProximity(
+    SimulationContext *context, const KR_ObjectID &vehicle,
+    STaxiVehicleProximityState *state);
 KR_ObjectID TaxiSubjectState_FirstObject(SimulationContext *context);
+KR_ObjectID TaxiSubjectState_FirstPanelVehicleObject(
+    SimulationContext *context);
 
 #endif

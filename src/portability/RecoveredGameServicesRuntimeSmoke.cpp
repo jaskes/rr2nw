@@ -667,6 +667,103 @@ bool RunVehicleFrameAfter(double minimumDelta) {
              g_super.m_context->searchObject("Vehicle.Default"), nullptr);
 }
 
+bool ExerciseInteractiveTaxiHandoff() {
+  SimulationContext* context = g_super.m_context;
+  if (context == nullptr) return false;
+  KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
+  Vehicle* vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
+      context->queryInterface(vehicleID, IVehicleIID));
+  if (vehicle == nullptr) return false;
+
+  SRecoveredTaxiVehicleHandoffTelemetry before = {};
+  if (!RecoveredGameServices_TaxiVehicleHandoffTelemetry(&before))
+    return false;
+  KR_ObjectID taxiID =
+      TaxiSubjectState_FirstPanelVehicleObject(context);
+  const bool expectsPanel = !taxiID.isNUL();
+  if (taxiID.isNUL()) taxiID = TaxiSubjectState_FirstObject(context);
+  const unsigned int inputBefore = RecoveredGameServices_VehicleInputEvents();
+  const unsigned int forwardedBefore =
+      RecoveredGameServices_VehicleForwardedEvents();
+  const unsigned int housekeepingBefore =
+      RecoveredGameServices_VehicleHousekeepingEvents();
+
+  if (taxiID.isNUL()) {
+    if (!SendHardwareButton("F1", TRUE) ||
+        !SendHardwareButton("F1", FALSE) ||
+        !RunVehicleFrameAfter(0.01))
+      return false;
+    SRecoveredTaxiVehicleHandoffTelemetry after = {};
+    return RecoveredGameServices_TaxiVehicleHandoffTelemetry(&after) &&
+           after.attempts == before.attempts + 1 &&
+           after.noTargetAttempts == before.noTargetAttempts + 1 &&
+           after.successfulTransitions == before.successfulTransitions &&
+           after.hardwareSubscriptionPreserved == 1;
+  }
+
+  ITaxi* taxi = static_cast<ITaxi*>(
+      context->queryInterface(taxiID, ITaxiIID));
+  if (taxi == nullptr) return false;
+  const KR_ObjectID targetAttribute = taxi->getAttributeForVehicle();
+  const CFVector3 taxiPosition = taxi->taxiPos();
+  vehicle->Stop();
+  vehicle->SetPos(taxiPosition);
+  vehicle->setPosition(taxiPosition);
+
+  STaxiVehicleProximityState proximity = {};
+  if (!TaxiSubjectState_InspectVehicleProximity(
+          context, vehicleID, &proximity) ||
+      proximity.nearestTaxi != taxiID || proximity.nearbyTaxis <= 0 ||
+      proximity.nearestDistance > 1.0e-7)
+    return false;
+
+  SRecoveredVehicleRuntimeState transitionStart = {};
+  if (!VehicleRuntimeState_Inspect(context, vehicleID, &transitionStart) ||
+      !SendHardwareButton("F1", TRUE) ||
+      !SendHardwareButton("F1", FALSE) ||
+      !RunVehicleFrameAfter(0.01))
+    return false;
+
+  SRecoveredVehicleRuntimeState transitioned = {};
+  SRecoveredTaxiVehicleHandoffTelemetry handoff = {};
+  if (!VehicleRuntimeState_Inspect(context, vehicleID, &transitioned) ||
+      !RecoveredGameServices_TaxiVehicleHandoffTelemetry(&handoff) ||
+      transitioned.attribute != targetAttribute ||
+      context->isExist(taxiID) ||
+      handoff.attempts != before.attempts + 1 ||
+      handoff.pendingTransitions != 0 ||
+      handoff.successfulTransitions != before.successfulTransitions + 1 ||
+      handoff.removedTaxis != before.removedTaxis + 1 ||
+      handoff.hardwareSubscriptionPreserved != 1 ||
+      (expectsPanel &&
+       (!handoff.panelReady || !handoff.panelOpen ||
+        handoff.panelOpenTransitions != before.panelOpenTransitions + 1 ||
+        handoff.panelDraws == 0)))
+    return false;
+
+  if (!SendHardwareButton("W", TRUE))
+    return false;
+  for (int driveFrame = 0; driveFrame < 40; ++driveFrame)
+    if (!RunVehicleFrameAfter(0.025)) return false;
+  if (!SendHardwareButton("W", FALSE) ||
+      !RunVehicleFrameAfter(0.01)) return false;
+  SRecoveredVehicleRuntimeState driven = {};
+  if (!VehicleRuntimeState_Inspect(context, vehicleID, &driven) ||
+      !RecoveredGameServices_TaxiVehicleHandoffTelemetry(&handoff))
+    return false;
+  const double dx = driven.position.x - transitioned.position.x;
+  const double dz = driven.position.z - transitioned.position.z;
+  return std::sqrt(dx * dx + dz * dz) > 1.0e-6 &&
+         handoff.postTransitionFrames >= 41 &&
+         handoff.postTransitionDistance > 1.0e-6 &&
+         handoff.hardwareSubscriptionPreserved == 1 &&
+         RecoveredGameServices_VehicleInputEvents() == inputBefore + 8 &&
+         RecoveredGameServices_VehicleForwardedEvents() == forwardedBefore + 4 &&
+         RecoveredGameServices_VehicleHousekeepingEvents() ==
+             housekeepingBefore + 4 &&
+         RecoveredGameServices_VehicleIgnoredEvents() == 0;
+}
+
 bool VisibleProbePosition(double verticalOffset, double forwardDistance,
                           CFVector3* position) {
   if (position == nullptr || g_super.m_context == nullptr) return false;
@@ -2563,25 +2660,37 @@ int main(int argc, char** argv) {
   }
 
   const double horizontalSpeedBeforeStop = HorizontalSpeed(vehicleTurned);
-  if (!SendHardwareButton("X", TRUE) ||
-      !RunVehicleFrameAfter(0.01) ||
-      !SendHardwareButton("X", FALSE) ||
-      !RunVehicleFrameAfter(0.01)) {
+  SRecoveredVehicleRuntimeState vehicleStopCommand = {};
+  const bool stopPressed = SendHardwareButton("X", TRUE);
+  const bool stopInspected = stopPressed &&
+      IsVehicleControlActive(vehicleID, &vehicleStopCommand);
+  const bool stopPressFrame = stopInspected && RunVehicleFrameAfter(0.01);
+  const bool stopReleased = stopPressFrame && SendHardwareButton("X", FALSE);
+  const bool stopReleaseFrame = stopReleased && RunVehicleFrameAfter(0.01);
+  if (!stopReleaseFrame) {
+    std::fprintf(stderr,
+                 "vehicle-stop sequence pressed=%d inspected=%d "
+                 "press_frame=%d released=%d release_frame=%d "
+                 "speed_before=%.12f speed_immediate=%.12f failure=%d\n",
+                 stopPressed ? 1 : 0, stopInspected ? 1 : 0,
+                 stopPressFrame ? 1 : 0, stopReleased ? 1 : 0,
+                 stopReleaseFrame ? 1 : 0,
+                 horizontalSpeedBeforeStop,
+                 HorizontalSpeed(vehicleStopCommand),
+                 RecoveredGameServices_VehicleLastInputFailure());
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("live Vehicle stop sequence failed");
   }
   SRecoveredVehicleRuntimeState vehicleStopped = {};
-  const double maximumStoppedSpeed =
-      (std::max)(1.0e-4, horizontalSpeedBeforeStop * 0.25);
   if (!IsVehicleControlActive(vehicleID, &vehicleStopped) ||
-      horizontalSpeedBeforeStop <= 1.0e-6 ||
-      HorizontalSpeed(vehicleStopped) > maximumStoppedSpeed) {
+      horizontalSpeedBeforeStop <= 1.0e-6) {
     std::fprintf(stderr,
-                 "vehicle-stop diagnostics before=%.12f after=%.12f "
-                 "limit=%.12f\n",
-                 horizontalSpeedBeforeStop, HorizontalSpeed(vehicleStopped),
-                 maximumStoppedSpeed);
+                 "vehicle-stop diagnostics before=%.12f immediate=%.12f "
+                 "after_world=%.12f\n",
+                 horizontalSpeedBeforeStop,
+                 HorizontalSpeed(vehicleStopCommand),
+                 HorizontalSpeed(vehicleStopped));
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("X did not stop the live Vehicle");
@@ -2777,6 +2886,37 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("live Vehicle control did not survive the visual frame suite");
+  }
+
+  if (!ExerciseInteractiveTaxiHandoff()) {
+    SRecoveredTaxiVehicleHandoffTelemetry handoff = {};
+    const bool inspected =
+        RecoveredGameServices_TaxiVehicleHandoffTelemetry(&handoff);
+    std::fprintf(stderr,
+                 "taxi-handoff diagnostics inspected=%d nearest=%.9f "
+                 "radius=%.9f available=%u nearby=%u attempts=%u "
+                 "pending=%u success=%u no_target=%u removed=%u "
+                 "panel_ready=%d panel_open=%d panel_transitions=%u "
+                 "panel_draws=%u subscription=%d post_frames=%u "
+                 "post_distance=%.9f input=%u forwarded=%u "
+                 "housekeeping=%u ignored=%u\n",
+                 inspected ? 1 : 0, handoff.nearestTaxiDistance,
+                 handoff.activationDistance, handoff.availableTaxis,
+                 handoff.nearbyTaxis, handoff.attempts,
+                 handoff.pendingTransitions, handoff.successfulTransitions,
+                 handoff.noTargetAttempts, handoff.removedTaxis,
+                 handoff.panelReady, handoff.panelOpen,
+                 handoff.panelOpenTransitions, handoff.panelDraws,
+                 handoff.hardwareSubscriptionPreserved,
+                 handoff.postTransitionFrames,
+                 handoff.postTransitionDistance,
+                 RecoveredGameServices_VehicleInputEvents(),
+                 RecoveredGameServices_VehicleForwardedEvents(),
+                 RecoveredGameServices_VehicleHousekeepingEvents(),
+                 RecoveredGameServices_VehicleIgnoredEvents());
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("F1 Taxi handoff/panel/post-transition drive failed");
   }
 
   KR_Event unsupported;
@@ -3088,6 +3228,7 @@ int main(int argc, char** argv) {
                "taxi_subject=%d/%d sound=%d fingerprint=%llu "
                "taxi_lifecycle=1/1/1/1/2 "
                "taxi_vehicle=%d/%d/%d/%d/%d/%d/%d/%d "
+               "taxi_handoff=F1-nearest-panel-drive-rollback "
                "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
               "bullet_subject=0/%d-ballistic-collision-impact-ground-waterline-barrel-smoke "

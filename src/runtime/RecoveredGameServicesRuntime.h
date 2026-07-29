@@ -45,6 +45,25 @@ struct SRecoveredVehicleDriveTelemetry {
   unsigned int dynamicCollisionFrames;
 };
 
+struct SRecoveredTaxiVehicleHandoffTelemetry {
+  double nearestTaxiDistance;
+  double activationDistance;
+  double postTransitionDistance;
+  unsigned int availableTaxis;
+  unsigned int nearbyTaxis;
+  unsigned int attempts;
+  unsigned int pendingTransitions;
+  unsigned int successfulTransitions;
+  unsigned int noTargetAttempts;
+  unsigned int removedTaxis;
+  unsigned int panelOpenTransitions;
+  unsigned int panelDraws;
+  unsigned int postTransitionFrames;
+  int panelReady;
+  int panelOpen;
+  int hardwareSubscriptionPreserved;
+};
+
 void RecoveredGameServices_UseRuntime();
 void RecoveredGameServices_Release();
 bool RecoveredGameServices_PlatformReady();
@@ -127,6 +146,8 @@ int RecoveredGameServices_TaxiVehicleProbePoseTransfers();
 int RecoveredGameServices_TaxiVehicleProbePayloadTransfers();
 int RecoveredGameServices_TaxiVehicleProbeRemovedTaxis();
 int RecoveredGameServices_TaxiVehicleProbeRollbacks();
+bool RecoveredGameServices_TaxiVehicleHandoffTelemetry(
+    SRecoveredTaxiVehicleHandoffTelemetry* telemetry);
 bool RecoveredGameServices_VehicleControlReady();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();

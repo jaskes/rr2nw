@@ -718,6 +718,26 @@ void Vehicle::drawPanel()
          m_panel->Draw();
 }
 
+bool Vehicle::panelReady() const
+{
+    return m_panel != 0 && m_panel->IsReady();
+}
+
+bool Vehicle::panelOpen() const
+{
+    return m_panel != 0 && m_panel->IsOpen();
+}
+
+unsigned int Vehicle::panelDrawCount() const
+{
+    return m_panel == 0 ? 0 : m_panel->DrawCount();
+}
+
+bool Vehicle::taxiChangeEnabled() const
+{
+    return m_attr != 0 && m_attr->m_type == 0;
+}
+
 void Vehicle::closePanel(double ts)
 {
     if(  m_panel != 0  )
