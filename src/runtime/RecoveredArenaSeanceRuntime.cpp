@@ -22,6 +22,7 @@ class CGRPanel;
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
+#include "obase/orphan/OrphanSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkSubjectState.h"
@@ -53,6 +54,7 @@ constexpr int kDynSmokerCapacity = 50 + 12;
 constexpr int kSmokeCapacity = 300;
 constexpr int kSoundObjectCapacity = 250;
 constexpr int kFarterSubjectCapacity = 25;
+constexpr int kOrphanSubjectCapacity = 5;
 constexpr int kCorpseSubjectCapacity = 100;
 constexpr int kSparkSubjectCapacity = 40;
 constexpr double kDeviceFreeSoundDistance = 300.0;
@@ -753,6 +755,8 @@ struct RecoveredArenaSeanceState {
   bool birdAttributesReady;
   bool portalReady;
   bool orphanAttributesReady;
+  bool orphanReferencesReady;
+  bool orphanSubjectReady;
   bool artefactAttributesReady;
   bool smokeAttributesReady;
   bool smokeSubjectReady;
@@ -805,6 +809,9 @@ struct RecoveredArenaSeanceState {
   unsigned long long vehicleAttributeFingerprint;
   unsigned long long vehicleReferenceFingerprint;
   unsigned long long taxiReferenceFingerprint;
+  unsigned long long orphanReferenceFingerprint;
+  int orphanSubjectCapacity;
+  unsigned long long orphanSubjectFingerprint;
   int taxiSubjectCapacity;
   int taxiSubjectCount;
   int taxiSubjectSoundCount;
@@ -1330,6 +1337,27 @@ bool InitializeCorpseSubjectTable(SimulationContext* context) {
     return false;
   }
   g_state.corpseSubjectReady = true;
+  return true;
+}
+
+bool InitializeOrphanSubjectTable(SimulationContext* context) {
+  if (!OrphanSubjectState_CreateTable(context, kOrphanSubjectCapacity) ||
+      !OrphanSubjectState_TableReady(context, kOrphanSubjectCapacity) ||
+      OrphanSubjectState_LiveCount() != 0 ||
+      !OrphanSubjectState_AllReady(context)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ORPHAN_SUBJECT_TABLE_FAILURE,
+                   "could not create the empty retail Orphan(5) table");
+    return false;
+  }
+  g_state.orphanSubjectCapacity = OrphanSubjectState_Capacity();
+  g_state.orphanSubjectFingerprint =
+      OrphanSubjectState_Fingerprint(context);
+  if (g_state.orphanSubjectFingerprint == 0) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ORPHAN_SUBJECT_TABLE_FAILURE,
+                   "retail Orphan table did not publish a stable empty pool");
+    return false;
+  }
+  g_state.orphanSubjectReady = true;
   return true;
 }
 
@@ -2457,6 +2485,36 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
     g_state.taxiReferencesReady = true;
   }
 
+  if (g_state.skinModelCount == 0) {
+    if (OrphanAttributeState_ResolveReferences(context) ||
+        !OrphanAttributeState_CachesUnresolved(context)) {
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ORPHAN_REFERENCE_INVALID,
+                     "source-only Orphan fixture leaked partial references");
+      return false;
+    }
+  } else {
+    if (!OrphanAttributeState_ResolveReferences(context) ||
+        !OrphanAttributeState_ReferencesResolved(context)) {
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ORPHAN_REFERENCE_INVALID,
+                     "Orphan.Attr.Default could not resolve Explosion/Smoke "
+                     "references atomically");
+      return false;
+    }
+    g_state.orphanReferenceFingerprint =
+        OrphanAttributeState_ReferenceFingerprint(context);
+    if (g_state.orphanReferenceFingerprint == 0 ||
+        !OrphanAttributeState_RuntimeReady(context)) {
+      char message[192] = {};
+      std::snprintf(message, sizeof(message),
+                    "Orphan references are incomplete (fingerprint=%llu)",
+                    g_state.orphanReferenceFingerprint);
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ORPHAN_REFERENCE_INVALID,
+                     message);
+      return false;
+    }
+    g_state.orphanReferencesReady = true;
+  }
+
   if (!SmokerAttributeState_ResolveReferences(context) ||
       !SmokerAttributeState_ReferencesResolved(context)) {
     Report(RECOVERED_ARENA_SEANCE_SMOKER_REFERENCE_INVALID,
@@ -2895,6 +2953,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   BulletSubjectState_Link();
   ArtefactAttributeState_Link();
   OrphanAttributeState_Link();
+  OrphanSubjectState_Link();
   PortalClassTable_Link();
   SparkAttributeState_Link();
   SparkSubjectState_Link();
@@ -2922,6 +2981,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     return FALSE;
   }
   if (!InitializeCorpseSubjectTable(context)) {
+    RecoveredArenaSeance_Release();
+    return FALSE;
+  }
+  if (!InitializeOrphanSubjectTable(context)) {
     RecoveredArenaSeance_Release();
     return FALSE;
   }
@@ -3056,6 +3119,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  OrphanAttributeState_ClearReferences(g_arena.getContext());
   VehicleAttributeState_ClearReferences(g_arena.getContext());
   ExplosionAttributeState_ClearTraceReferences(g_arena.getContext());
   ExplosionAttributeState_ClearPieceReferences(g_arena.getContext());
@@ -3227,6 +3291,11 @@ void RecoveredArenaSeance_Release() {
   g_state.skinResourceFingerprint = 0;
   g_state.artefactAttributesReady = false;
   g_state.orphanAttributesReady = false;
+  g_state.orphanReferencesReady = false;
+  g_state.orphanReferenceFingerprint = 0;
+  g_state.orphanSubjectReady = false;
+  g_state.orphanSubjectCapacity = 0;
+  g_state.orphanSubjectFingerprint = 0;
   g_state.portalReady = false;
   g_state.birdAttributesReady = false;
   g_state.scriptCompleted = false;
@@ -3262,6 +3331,34 @@ bool RecoveredArenaSeance_PortalReady() { return g_state.portalReady; }
 
 bool RecoveredArenaSeance_OrphanAttributesReady() {
   return g_state.orphanAttributesReady;
+}
+
+bool RecoveredArenaSeance_OrphanReferencesReady() {
+  return g_state.orphanReferencesReady;
+}
+
+unsigned long long RecoveredArenaSeance_OrphanReferenceFingerprint() {
+  return g_state.orphanReferencesReady
+             ? g_state.orphanReferenceFingerprint
+             : 0;
+}
+
+bool RecoveredArenaSeance_OrphanSubjectReady() {
+  return g_state.orphanSubjectReady;
+}
+
+int RecoveredArenaSeance_OrphanSubjectCapacity() {
+  return g_state.orphanSubjectReady ? g_state.orphanSubjectCapacity : 0;
+}
+
+int RecoveredArenaSeance_OrphanSubjectCount() {
+  return g_state.orphanSubjectReady ? OrphanSubjectState_LiveCount() : 0;
+}
+
+unsigned long long RecoveredArenaSeance_OrphanSubjectFingerprint() {
+  return g_state.orphanSubjectReady
+             ? g_state.orphanSubjectFingerprint
+             : 0;
 }
 
 bool RecoveredArenaSeance_ArtefactAttributesReady() {

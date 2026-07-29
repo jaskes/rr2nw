@@ -88,6 +88,26 @@ struct SRecoveredVehiclePrimaryFireTelemetry {
   int hardwareSubscriptionPreserved;
 };
 
+struct SRecoveredVehicleEmbodimentTelemetry {
+  unsigned int exitAttempts;
+  unsigned int safeExitCompletions;
+  unsigned int unsafeExitCompletions;
+  unsigned int droppedTaxis;
+  unsigned int droppedOrphans;
+  unsigned int reentryAttempts;
+  unsigned int reentryCompletions;
+  unsigned int panelCloseTransitions;
+  unsigned int panelReopenTransitions;
+  unsigned int orphanMoveEvents;
+  unsigned int orphanImpacts;
+  unsigned int orphanExplosions;
+  unsigned int orphanSmokeStarts;
+  unsigned int orphanRenderFrames;
+  unsigned int liveOrphans;
+  int exitPending;
+  int hardwareSubscriptionPreserved;
+};
+
 void RecoveredGameServices_UseRuntime();
 void RecoveredGameServices_Release();
 bool RecoveredGameServices_PlatformReady();
@@ -98,6 +118,12 @@ bool RecoveredGameServices_SeanceReady();
 bool RecoveredGameServices_BirdAttributesReady();
 bool RecoveredGameServices_PortalReady();
 bool RecoveredGameServices_OrphanAttributesReady();
+bool RecoveredGameServices_OrphanReferencesReady();
+unsigned long long RecoveredGameServices_OrphanReferenceFingerprint();
+bool RecoveredGameServices_OrphanSubjectReady();
+int RecoveredGameServices_OrphanSubjectCapacity();
+int RecoveredGameServices_OrphanSubjectCount();
+unsigned long long RecoveredGameServices_OrphanSubjectFingerprint();
 bool RecoveredGameServices_ArtefactAttributesReady();
 bool RecoveredGameServices_SmokeAttributesReady();
 bool RecoveredGameServices_SmokeSubjectReady();
@@ -172,6 +198,8 @@ int RecoveredGameServices_TaxiVehicleProbeRemovedTaxis();
 int RecoveredGameServices_TaxiVehicleProbeRollbacks();
 bool RecoveredGameServices_TaxiVehicleHandoffTelemetry(
     SRecoveredTaxiVehicleHandoffTelemetry* telemetry);
+bool RecoveredGameServices_VehicleEmbodimentTelemetry(
+    SRecoveredVehicleEmbodimentTelemetry* telemetry);
 bool RecoveredGameServices_BeginVehiclePrimaryFireObservation();
 bool RecoveredGameServices_VehiclePrimaryFireTelemetry(
     SRecoveredVehiclePrimaryFireTelemetry* telemetry);

@@ -40,7 +40,7 @@ class Orphan :
          public OrphanData
 {
 
-	void setOrphanAttr();
+	bool setOrphanAttr();
 
  public:
 
@@ -88,7 +88,8 @@ class Orphan :
 	virtual bool	dump(PIN_SaveFile & sf);
 	virtual bool	load(PIN_SaveFile & );
 	virtual void	loadNotify();
-	virtual bool	shouldDump () { return true; } 
+	virtual bool	shouldDump () { return true; }
+	bool runtimeReady() const;
 };
 
 #endif // ifndef __Orphan_H__INCLUDED

@@ -107,7 +107,10 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID = 1ull << 30,
   RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_SOURCE_UNAVAILABLE = 1ull << 31,
   RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_ROSTER_INVALID = 1ull << 32,
-  RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_LIFECYCLE_FAILURE = 1ull << 33
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_LIFECYCLE_FAILURE = 1ull << 33,
+  RECOVERED_ARENA_SEANCE_EXT_ORPHAN_REFERENCE_INVALID = 1ull << 34,
+  RECOVERED_ARENA_SEANCE_EXT_ORPHAN_SUBJECT_TABLE_FAILURE = 1ull << 35,
+  RECOVERED_ARENA_SEANCE_EXT_ORPHAN_SUBJECT_LIFECYCLE_FAILURE = 1ull << 36
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -118,6 +121,12 @@ bool RecoveredArenaSeance_ScriptCompleted();
 bool RecoveredArenaSeance_BirdAttributesReady();
 bool RecoveredArenaSeance_PortalReady();
 bool RecoveredArenaSeance_OrphanAttributesReady();
+bool RecoveredArenaSeance_OrphanReferencesReady();
+unsigned long long RecoveredArenaSeance_OrphanReferenceFingerprint();
+bool RecoveredArenaSeance_OrphanSubjectReady();
+int RecoveredArenaSeance_OrphanSubjectCapacity();
+int RecoveredArenaSeance_OrphanSubjectCount();
+unsigned long long RecoveredArenaSeance_OrphanSubjectFingerprint();
 bool RecoveredArenaSeance_ArtefactAttributesReady();
 bool RecoveredArenaSeance_SmokeAttributesReady();
 bool RecoveredArenaSeance_SmokeSubjectReady();

@@ -32,6 +32,7 @@
 #include "ZavSceneState.h"
 #include "obase/bullet/BulletSubjectState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
+#include "obase/orphan/OrphanSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
@@ -254,6 +255,20 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_handoffTaxiCount = 0;
     m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
     m_primaryFirePresses = 0;
+    m_exitAttempts = 0;
+    m_exitPending = false;
+    m_exitSafeCompletions = 0;
+    m_exitUnsafeCompletions = 0;
+    m_exitDroppedTaxis = 0;
+    m_exitDroppedOrphans = 0;
+    m_exitTaxiCount = 0;
+    m_exitOrphanCount = 0;
+    m_exitAttribute = KR_ObjectID::NUL();
+    m_exitPanelWasOpen = false;
+    m_exitPanelCloses = 0;
+    m_reentryAttempts = 0;
+    m_reentryCompletions = 0;
+    m_reentryPanelOpens = 0;
   }
 
   void addNotify() override { KR_Object::addNotify(); }
@@ -315,8 +330,11 @@ class RecoveredVehicleControlInput final : public KR_Object {
             getContext()->queryInterface(m_vehicle, IVehicleIID));
     const bool handoffAttempt = action == CHANGE_VEHICLE && down > 0.0 &&
         currentVehicle != nullptr && currentVehicle->taxiChangeEnabled();
+    const bool exitAttempt = action == CHANGE_VEHICLE && down > 0.0 &&
+        currentVehicle != nullptr && !currentVehicle->taxiChangeEnabled();
     if (handoffAttempt) {
       ++m_handoffAttempts;
+      ++m_reentryAttempts;
       if (!TaxiSubjectState_InspectVehicleProximity(
               getContext(), m_vehicle, &proximity) ||
           !VehicleRuntimeState_Inspect(getContext(), m_vehicle, &before)) {
@@ -326,6 +344,20 @@ class RecoveredVehicleControlInput final : public KR_Object {
         return 1;
       }
     }
+    if (exitAttempt) {
+      if (!VehicleRuntimeState_Inspect(getContext(), m_vehicle, &before)) {
+        ++m_ignoredEvents;
+        m_forwardingFailed = true;
+        m_lastInputFailure = 8;
+        return 1;
+      }
+      ++m_exitAttempts;
+      m_exitPending = true;
+      m_exitAttribute = before.attribute;
+      m_exitTaxiCount = TaxiSubjectState_LiveCount();
+      m_exitOrphanCount = OrphanSubjectState_LiveCount();
+      m_exitPanelWasOpen = currentVehicle->panelOpen();
+    }
 
     if (getContext() == nullptr || m_vehicle.isNUL() ||
         !getContext()->isExist(m_vehicle) ||
@@ -334,6 +366,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
       ++m_ignoredEvents;
       m_forwardingFailed = true;
       m_lastInputFailure = VehicleRuntimeState_LastControlFailure();
+      if (exitAttempt) m_exitPending = false;
       return 1;
     }
     ++m_forwardedEvents;
@@ -384,12 +417,29 @@ class RecoveredVehicleControlInput final : public KR_Object {
     Vehicle* vehicle = static_cast<Vehicle*>(
         getContext()->queryInterface(m_vehicle, IVehicleIID));
     const int taxiCount = TaxiSubjectState_LiveCount();
+    const int orphanCount = OrphanSubjectState_LiveCount();
+    if (m_exitPending && state.attribute != m_exitAttribute) {
+      if (taxiCount == m_exitTaxiCount + 1) {
+        ++m_exitSafeCompletions;
+        ++m_exitDroppedTaxis;
+        m_exitPending = false;
+      } else if (orphanCount == m_exitOrphanCount + 1) {
+        ++m_exitUnsafeCompletions;
+        ++m_exitDroppedOrphans;
+        m_exitPending = false;
+      }
+      if (!m_exitPending && m_exitPanelWasOpen &&
+          vehicle != nullptr && !vehicle->panelOpen())
+        ++m_exitPanelCloses;
+    }
     if (m_handoffPending &&
         (state.attribute != m_handoffAttribute ||
          taxiCount + 1 == m_handoffTaxiCount)) {
       ++m_handoffSuccesses;
       if (taxiCount + 1 == m_handoffTaxiCount) ++m_handoffRemovedTaxis;
       if (vehicle != nullptr && vehicle->panelOpen()) ++m_handoffPanelOpens;
+      ++m_reentryCompletions;
+      if (vehicle != nullptr && vehicle->panelOpen()) ++m_reentryPanelOpens;
       m_handoffPanelDrawBaseline =
           vehicle == nullptr ? 0 : vehicle->panelDrawCount();
       m_handoffPosition = state.position;
@@ -432,6 +482,38 @@ class RecoveredVehicleControlInput final : public KR_Object {
     telemetry->postTransitionFrames = m_handoffPostFrames;
     telemetry->panelReady = vehicle != nullptr && vehicle->panelReady();
     telemetry->panelOpen = vehicle != nullptr && vehicle->panelOpen();
+    telemetry->hardwareSubscriptionPreserved = m_subscribed ? 1 : 0;
+    return true;
+  }
+
+  bool EmbodimentTelemetry(SRecoveredVehicleEmbodimentTelemetry* telemetry) {
+    if (telemetry == nullptr || getContext() == nullptr ||
+        m_vehicle.isNUL()) return false;
+    SOrphanSubjectRuntimeTelemetry orphan = {};
+    if (!OrphanSubjectState_RuntimeTelemetry(getContext(), &orphan))
+      return false;
+    *telemetry = {};
+    telemetry->exitAttempts = m_exitAttempts;
+    telemetry->safeExitCompletions = m_exitSafeCompletions;
+    telemetry->unsafeExitCompletions = m_exitUnsafeCompletions;
+    telemetry->droppedTaxis = m_exitDroppedTaxis;
+    telemetry->droppedOrphans = m_exitDroppedOrphans;
+    telemetry->reentryAttempts = m_reentryAttempts;
+    telemetry->reentryCompletions = m_reentryCompletions;
+    telemetry->panelCloseTransitions = m_exitPanelCloses;
+    telemetry->panelReopenTransitions = m_reentryPanelOpens;
+    telemetry->orphanMoveEvents =
+        static_cast<unsigned int>(orphan.moveEvents);
+    telemetry->orphanImpacts = static_cast<unsigned int>(orphan.impacts);
+    telemetry->orphanExplosions =
+        static_cast<unsigned int>(orphan.explosionStarts);
+    telemetry->orphanSmokeStarts =
+        static_cast<unsigned int>(orphan.smokeStarts);
+    telemetry->orphanRenderFrames =
+        static_cast<unsigned int>(orphan.renderFrames);
+    telemetry->liveOrphans =
+        static_cast<unsigned int>(OrphanSubjectState_LiveCount());
+    telemetry->exitPending = m_exitPending ? 1 : 0;
     telemetry->hardwareSubscriptionPreserved = m_subscribed ? 1 : 0;
     return true;
   }
@@ -539,6 +621,20 @@ class RecoveredVehicleControlInput final : public KR_Object {
   int m_handoffTaxiCount = 0;
   CFVector3 m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
   unsigned int m_primaryFirePresses = 0;
+  unsigned int m_exitAttempts = 0;
+  bool m_exitPending = false;
+  unsigned int m_exitSafeCompletions = 0;
+  unsigned int m_exitUnsafeCompletions = 0;
+  unsigned int m_exitDroppedTaxis = 0;
+  unsigned int m_exitDroppedOrphans = 0;
+  int m_exitTaxiCount = 0;
+  int m_exitOrphanCount = 0;
+  KR_ObjectID m_exitAttribute = KR_ObjectID::NUL();
+  bool m_exitPanelWasOpen = false;
+  unsigned int m_exitPanelCloses = 0;
+  unsigned int m_reentryAttempts = 0;
+  unsigned int m_reentryCompletions = 0;
+  unsigned int m_reentryPanelOpens = 0;
 };
 
 unsigned int g_issues = 0;
@@ -1237,6 +1333,30 @@ bool RecoveredGameServices_OrphanAttributesReady() {
   return RecoveredArenaSeance_OrphanAttributesReady();
 }
 
+bool RecoveredGameServices_OrphanReferencesReady() {
+  return RecoveredArenaSeance_OrphanReferencesReady();
+}
+
+unsigned long long RecoveredGameServices_OrphanReferenceFingerprint() {
+  return RecoveredArenaSeance_OrphanReferenceFingerprint();
+}
+
+bool RecoveredGameServices_OrphanSubjectReady() {
+  return RecoveredArenaSeance_OrphanSubjectReady();
+}
+
+int RecoveredGameServices_OrphanSubjectCapacity() {
+  return RecoveredArenaSeance_OrphanSubjectCapacity();
+}
+
+int RecoveredGameServices_OrphanSubjectCount() {
+  return RecoveredArenaSeance_OrphanSubjectCount();
+}
+
+unsigned long long RecoveredGameServices_OrphanSubjectFingerprint() {
+  return RecoveredArenaSeance_OrphanSubjectFingerprint();
+}
+
 bool RecoveredGameServices_ArtefactAttributesReady() {
   return RecoveredArenaSeance_ArtefactAttributesReady();
 }
@@ -1565,6 +1685,12 @@ bool RecoveredGameServices_TaxiVehicleHandoffTelemetry(
          g_vehicleControlInput.HandoffTelemetry(telemetry);
 }
 
+bool RecoveredGameServices_VehicleEmbodimentTelemetry(
+    SRecoveredVehicleEmbodimentTelemetry* telemetry) {
+  return g_vehicleControlReady &&
+         g_vehicleControlInput.EmbodimentTelemetry(telemetry);
+}
+
 bool RecoveredGameServices_BeginVehiclePrimaryFireObservation() {
   return g_vehicleControlReady &&
          BeginPrimaryFireTelemetry(g_super.m_context);
@@ -1681,6 +1807,8 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_BirdAttributesReady() &&
          RecoveredGameServices_PortalReady() &&
          RecoveredGameServices_OrphanAttributesReady() &&
+         RecoveredGameServices_OrphanReferencesReady() &&
+         RecoveredGameServices_OrphanSubjectReady() &&
          RecoveredGameServices_ArtefactAttributesReady() &&
          RecoveredGameServices_SmokeAttributesReady() &&
          RecoveredGameServices_SmokeSubjectReady() &&

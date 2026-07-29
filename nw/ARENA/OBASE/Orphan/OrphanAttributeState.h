@@ -4,6 +4,7 @@
 #include "storage/h/attr.h"
 
 class CViewObjectModel;
+class SimulationContext;
 
 class AttributeOrphan : public ct_Attribute
 {
@@ -79,5 +80,12 @@ extern AttributeTableOrphan __attrOrphanTable;
 
 void OrphanAttributeState_Link();
 bool OrphanAttributeState_IsRetailDefault(const KR_ObjectID &objectID);
+bool OrphanAttributeState_CachesUnresolved(SimulationContext *context);
+bool OrphanAttributeState_ResolveReferences(SimulationContext *context);
+bool OrphanAttributeState_ReferencesResolved(SimulationContext *context);
+bool OrphanAttributeState_RuntimeReady(SimulationContext *context);
+unsigned long long OrphanAttributeState_ReferenceFingerprint(
+    SimulationContext *context);
+void OrphanAttributeState_ClearReferences(SimulationContext *context);
 
 #endif

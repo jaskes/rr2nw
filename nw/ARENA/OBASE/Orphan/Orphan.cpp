@@ -4,6 +4,14 @@
 * Ver   1.0 
 */
 #include "Orphan.h"
+#include "OrphanSubjectState.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <new>
+#include <string>
+#include <vector>
 #include "kernel/h/context.h"
 #include "kernel/h/echo.h"
 #include "kernel/h/s_debug.h"
@@ -21,6 +29,16 @@
 #ifndef RR2NW_ORPHAN_ATTRIBUTE_STATE_EXTERNAL
 #include "OrphanAttributeState.inl"
 #endif
+
+namespace {
+
+const unsigned long long kOrphanSubjectHashOffset =
+    14695981039346656037ull;
+const unsigned long long kOrphanSubjectHashPrime = 1099511628211ull;
+int g_orphanSubjectCapacity = 0;
+SOrphanSubjectRuntimeTelemetry g_orphanTelemetry = {};
+
+}
 
 
 static void AnimateCallBack1(CViewObjectBaseSet *,CViewObjectBase *pBase,CViewObjectRef *ref);
@@ -75,10 +93,21 @@ static OrphanTable  __classTable;
 
 //============================================================
 Orphan::Orphan()
-: m_viewDynObj(m_skin)     
+: m_viewDynObj(m_skin)
 {
-    m_taxiAttr	= 0;
-	m_attr		= 0;
+    m_orphanAttrID = KR_ObjectID::NUL();
+    m_snd = KR_ObjectID::NUL();
+    m_ctsndID = ct_NULLID;
+    m_speed = CFVector3(0.0, 0.0, 0.0);
+    m_damage = 0.0;
+    m_lastEventTime = 0.0;
+    m_dir.LoadIdentity();
+    m_lastMovePos = CFVector3(0.0, 0.0, 0.0);
+    m_lastMoveDeltaT = 0.0;
+    m_lastMoveTimeStamp = 0.0;
+    m_taxiAttr = NULL;
+	m_attr = NULL;
+    m_wav = NULL;
 }
 
 //============================================================
@@ -89,11 +118,18 @@ Orphan::~Orphan()
 
 void Orphan::KillMe(CFVector3 & newPos, double ts)
 {
+	if (!runtimeReady())
+	{
+		context->removeObject(getObjectID());
+		return;
+	}
+	++g_orphanTelemetry.impacts;
 	createExplosion(newPos, ts,
 					getObjectID(),
 					m_attr->m_cacheExplosionTable,
 					m_attr->m_cacheExplAttr
 					);
+	++g_orphanTelemetry.explosionStarts;
 
 	double clzTime;
 	KR_ObjectID oID;
@@ -127,15 +163,41 @@ void Orphan::KillMe(CFVector3 & newPos, double ts)
 
 
 
-void Orphan::setOrphanAttr()
+bool Orphan::setOrphanAttr()
 {
 	ct_Attribute *attr = __attrTaxiTable.searchAttribute(m_orphanAttrID);
-	
+	m_taxiAttr = NULL;
+	m_attr = NULL;
+	m_wav = NULL;
+	m_snd = KR_ObjectID::NUL();
+	m_ctsndID = ct_NULLID;
+
 	if( attr==NULL )
+	{
 		echo( "Orphan::receiveEvent: Unknown attribute %s",
+		context == NULL ? "<no context>" :
 		context->searchObject(m_orphanAttrID));
-	else 
-		m_taxiAttr = (AttributeTaxi *)attr;
+		return false;
+	}
+	AttributeTaxi *taxiAttr = static_cast<AttributeTaxi *>(attr);
+	if (taxiAttr->m_cacheSkin == NULL || taxiAttr->m_skinID.isNUL() ||
+		taxiAttr->m_attrForVehicle.isNUL())
+		return false;
+
+	AttributeOrphan *orphanAttr = static_cast<AttributeOrphan *>(
+		__attrOrphanTable.searchAttribute(
+			context->searchObject("Orphan.Attr.Default")));
+	ISkin *skin = static_cast<ISkin *>(
+		context->queryInterface(taxiAttr->m_skinID, ISkinIID));
+	AttributeVehicle *vehicleAttr = static_cast<AttributeVehicle *>(
+		__attrVehicleTable.searchAttribute(taxiAttr->m_attrForVehicle));
+	if (orphanAttr == NULL || skin == NULL ||
+		vehicleAttr == NULL ||
+		!OrphanAttributeState_RuntimeReady(context))
+		return false;
+
+	m_taxiAttr = taxiAttr;
+	m_attr = orphanAttr;
 	
 	
 	// Sound stuff, we can determine sound scheme for the orphan from
@@ -143,41 +205,16 @@ void Orphan::setOrphanAttr()
 	// m_attrForVehicleName attribute of taxi
 	
 	
-	KR_ObjectID	vehicleAttrID = context->searchObject(m_taxiAttr->m_attrForVehicleName);
-	
-	attr =__attrVehicleTable.searchAttribute(vehicleAttrID);
-	if( attr==NULL )
-		echo( "Vehicle::receiveEvent: Unknown attribute %s",
-		context->searchObject(vehicleAttrID));
-	else 
+	if (!SetSoundAttr(getObjectID(), context, vehicleAttr->m_soundName,
+		m_ctsndID, (void *)&m_wav))
+		m_wav = NULL;
+	if (m_wav)
 	{
-		AttributeVehicle * vehicleAttr = (AttributeVehicle *) attr;
-		
-		if (!SetSoundAttr(	getObjectID(), 
-			context,
-			vehicleAttr->m_soundName,
-			m_ctsndID, (void *)&m_wav))
-			m_wav = NULL;
-		
-		if (m_wav)
-		{
-			updateSound( getObjectID(),
-				context,
-				m_ctsndID,
-				m_wav,
-				m_snd );
-			
-			m_audibleThisFrame = 1;
-			onEnterAudibleZone(m_lastEventTime = Session::m_moment);
-		}		
+		updateSound(getObjectID(), context, m_ctsndID, m_wav, m_snd);
+		m_audibleThisFrame = 1;
+		onEnterAudibleZone(m_lastEventTime);
+		++g_orphanTelemetry.soundStarts;
 	}
-	
-
-	attr = __attrOrphanTable.searchAttribute(context->searchObject("Orphan.Attr.Default"));
-	if( attr==NULL )
-		echo( "Orphan::receiveEvent: Unknown attribute Orphan.Attr.Default");
-	else 
-		m_attr = (AttributeOrphan *)attr;
 
 	m_skin.Attach(m_taxiAttr->m_cacheSkin);
 	m_skin.GetDirModify().LoadIdentity();
@@ -189,10 +226,9 @@ void Orphan::setOrphanAttr()
 	if(  strcmp(m_taxiAttr->m_skinName,"sk.Taxi.cln_f08")==0 )
 		m_skin.SetAnimationCallback(AnimateCallBack2); 
 
-        ISkin *askin = (ISkin*)(context->queryInterface(m_taxiAttr->m_skinID, ISkinIID));
-
-        if( askin && askin->isAutoAnim()  )
-            askin->skinSetAnimAuto(&m_skin);
+        if( skin->isAutoAnim()  )
+            skin->skinSetAnimAuto(&m_skin);
+	return runtimeReady();
 }
 
 
@@ -203,6 +239,10 @@ int Orphan::receiveEvent( KR_Event &event )
     {
     case t_EVC_MOVING:
 		{
+			if (!runtimeReady() || !std::isfinite(event.timeStamp) ||
+				event.timeStamp <= m_lastEventTime)
+				return 0;
+			++g_orphanTelemetry.moveEvents;
 			double dt = event.timeStamp - m_lastEventTime;
 			m_lastMovePos    = getPosition();
                         m_lastMoveDeltaT = dt;
@@ -226,11 +266,17 @@ int Orphan::receiveEvent( KR_Event &event )
 			     KillMe(newPos, event.timeStamp);
 			else
 			{
-				m_lastEventTime = Session::m_moment;
+				m_lastEventTime = event.timeStamp;
 				//event.timeStamp += m_attr->m_deltaT;
-				
+
 				double haze = CViewFigure::HazeMax();
-				event.timeStamp += m_attr->m_deltaT*(Abs(g_vehicle->getPos()-getPosition())+haze*0.2)/haze;
+				double delay = m_attr->m_deltaT;
+				if (g_vehicle != NULL && std::isfinite(haze) && haze > 0.001)
+					delay *= (Abs(g_vehicle->getPos()-getPosition())+
+						      haze*0.2)/haze;
+				if (!std::isfinite(delay) || delay <= 0.0)
+					delay = m_attr->m_deltaT;
+				event.timeStamp += delay;
 				
 				issueEvent(event);					
 				setPosition(newPos);
@@ -259,6 +305,7 @@ int Orphan::receiveEvent( KR_Event &event )
 								 m_attr->m_smokeTableID,
 								m_attr->m_smokeAttrID
 								);
+					++g_orphanTelemetry.smokeStarts;
 				}
 
 				
@@ -271,23 +318,33 @@ int Orphan::receiveEvent( KR_Event &event )
 		
 		// FIXME	
     case t_EV_ONCOLLISION:
-		
+		if (!runtimeReady())
+			return 0;
+		++g_orphanTelemetry.impacts;
 		createExplosion(getPosition(), event.timeStamp,
 			getObjectID(),
 			m_attr->m_cacheExplosionTable,
 			m_attr->m_cacheExplAttr
 			);
+		++g_orphanTelemetry.explosionStarts;
 		
 		context->removeObject( getObjectID() );
 		break;
 		
 		
-    case EV_VEHICLE_DROP_TAXI:	
+    case EV_VEHICLE_DROP_TAXI:
 		{
 			CFVector3 pos;
-			
-			//KR_ObjectID oID;
-                        int bcnt; // skolko bilo pul :(
+			int bcnt;
+			const int expectedSize = static_cast<int>(
+				sizeof(KR_ObjectID) + sizeof(double) * 4 + sizeof(int));
+			if (event.data.size() != expectedSize ||
+				!std::isfinite(event.timeStamp) || event.timeStamp < 0.1)
+			{
+				++g_orphanTelemetry.rejectedDrops;
+				context->removeObject(getObjectID());
+				return 0;
+			}
 
 			event.data.open(EDO_READ)
 				.getObjectID(m_orphanAttrID)
@@ -295,18 +352,32 @@ int Orphan::receiveEvent( KR_Event &event )
 				.getDouble(pos.y)
 				.getDouble(pos.z)
 				.getDouble(m_damage)
-                                .getInt(bcnt)
+				.getInt(bcnt)
 				.close();
+			if (m_orphanAttrID.isNUL() || g_vehicle == NULL ||
+				!std::isfinite(pos.x) ||
+				!std::isfinite(pos.y) || !std::isfinite(pos.z) ||
+				!std::isfinite(m_damage))
+			{
+				++g_orphanTelemetry.rejectedDrops;
+				context->removeObject(getObjectID());
+				return 0;
+			}
 			
 			m_lastMovePos    = pos;
                         m_lastMoveDeltaT = 0;
                         m_lastMoveTimeStamp = event.timeStamp;
-
-			setOrphanAttr();
-			
 			m_lastEventTime = event.timeStamp;
-									
-				
+
+			if (!setOrphanAttr())
+			{
+				++g_orphanTelemetry.rejectedDrops;
+				context->removeObject(getObjectID());
+				return 0;
+			}
+			++g_orphanTelemetry.acceptedDrops;
+
+
 			//CFMatrix3x4 newDir;
 			m_dir.LoadIdentity().LoadTransposed(g_vehicle->GetDir());
 			
@@ -333,7 +404,10 @@ int Orphan::receiveEvent( KR_Event &event )
 					m_speed = - m.Column(2) * 30;
 					m_speed.y = -10;
 				}
-				
+			const int liveObjects = OrphanSubjectState_LiveCount();
+			if (liveObjects > g_orphanTelemetry.peakLiveObjects)
+				g_orphanTelemetry.peakLiveObjects = liveObjects;
+
 		}
 		break;
 		
@@ -349,7 +423,20 @@ int Orphan::receiveEvent( KR_Event &event )
  void Orphan::addNotify()
  {
 	 ct_Subject::addNotify();
+	 m_orphanAttrID = KR_ObjectID::NUL();
 	 m_snd = KR_ObjectID::NUL();
+	 m_ctsndID = ct_NULLID;
+	 m_speed = CFVector3(0.0, 0.0, 0.0);
+	 m_damage = 0.0;
+	 m_lastEventTime = 0.0;
+	 m_dir.LoadIdentity();
+	 m_lastMovePos = CFVector3(0.0, 0.0, 0.0);
+	 m_lastMoveDeltaT = 0.0;
+	 m_lastMoveTimeStamp = 0.0;
+	 m_taxiAttr = NULL;
+	 m_attr = NULL;
+	 m_wav = NULL;
+	 m_audibleThisFrame = 0;
  }
  
  //============================================================
@@ -357,6 +444,10 @@ int Orphan::receiveEvent( KR_Event &event )
  {
 	 if(  !m_snd.isNUL()  )
          context->removeObject( m_snd );
+	 m_snd = KR_ObjectID::NUL();
+	 m_taxiAttr = NULL;
+	 m_attr = NULL;
+	 m_wav = NULL;
 	 
 	 ct_Subject::removeNotify();
  }
@@ -375,10 +466,12 @@ int Orphan::receiveEvent( KR_Event &event )
  //============================================================
  void OrphanTable::allocObjects( int objectQnty )
  {
-	 m_table = new Orphan[ objectQnty ];
-	 
+	 m_table = new (std::nothrow) Orphan[ objectQnty ];
+
 	 if(  m_table == NULL  )
          m_maxObjectQnty = 0;
+	 g_orphanSubjectCapacity = m_table == NULL ? 0 : objectQnty;
+	 std::memset(&g_orphanTelemetry, 0, sizeof(g_orphanTelemetry));
  }
  
  //============================================================
@@ -387,12 +480,14 @@ int Orphan::receiveEvent( KR_Event &event )
 	 delete [] m_table;
 	 m_table = NULL;
 	 m_maxObjectQnty = 0;
+	 g_orphanSubjectCapacity = 0;
+	 std::memset(&g_orphanTelemetry, 0, sizeof(g_orphanTelemetry));
  }
  
  //============================================================
  ct_Object *OrphanTable::getObjectPTR( int index )
  {
-	 s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"OrphanTable::getObjectPTR");
+	 s_ASSERT( index >= 0 && index < m_maxObjectQnty ,"OrphanTable::getObjectPTR");
 	 return &(m_table[ index ]);
  }
  
@@ -401,16 +496,31 @@ int Orphan::receiveEvent( KR_Event &event )
  //============================================================
  void Orphan::render   ( CViewDynamicList &list, double ts)
  {
+	 if (!runtimeReady())
+		 return;
 	 CFMatrix3x4 &m = m_skin.GetDirModify();
          CFVector3 p(getPosition());
+	 if (!std::isfinite(ts) || !std::isfinite(p.x) ||
+		 !std::isfinite(p.y) || !std::isfinite(p.z))
+		 return;
 
          if(  m_lastMoveDeltaT >0.001 && m_lastMoveDeltaT < 0.2 )
-              p += (getPosition()-m_lastMovePos)*
-                   ((ts-m_lastMoveTimeStamp)/m_lastMoveDeltaT);
+	 {
+		 double ratio = (ts-m_lastMoveTimeStamp)/m_lastMoveDeltaT;
+		 if (!std::isfinite(ratio))
+			 return;
+		 if (ratio < 0.0) ratio = 0.0;
+		 if (ratio > 1.0) ratio = 1.0;
+		 p += (getPosition()-m_lastMovePos)*ratio;
+	 }
+	 if (!std::isfinite(p.x) || !std::isfinite(p.y) ||
+		 !std::isfinite(p.z))
+		 return;
 	 m.LoadOffset(p);
-	 
+
 	 m_viewDynObj.prepareToRender();
 	 list.Load( &m_viewDynObj );
+	 ++g_orphanTelemetry.renderFrames;
  }
  
  
@@ -458,7 +568,7 @@ int Orphan::receiveEvent( KR_Event &event )
  {
 	 return m_skin.Model()->Center();
  }
- 
+
  //============================================================
  double     Orphan::getRadius   () // Относительно центра
  {
@@ -486,7 +596,8 @@ int Orphan::receiveEvent( KR_Event &event )
  //============================================================
  void      Orphan::getMatrix   ( CFMatrix3x4 &m )
  {
-	 m.LoadIdentity(); 
+	 m = GetDir();
+	 m.LoadOffset(getPosition());
  }
  
  // IUnit interface
@@ -505,8 +616,8 @@ int Orphan::receiveEvent( KR_Event &event )
  
  
  //============================================================
- 
- 
+
+
  void Orphan::onExitAudibleZone(double ts) 
  {
 	 
@@ -583,9 +694,226 @@ bool	Orphan::load(PIN_SaveFile & sf)
 
 void	Orphan::loadNotify()
 {
-	ct_Subject::loadNotify(); 
-	setOrphanAttr();
-	SetDir(m_dir);
+	ct_Subject::loadNotify();
+	if (setOrphanAttr())
+		SetDir(m_dir);
 }
- 
+
+bool Orphan::runtimeReady() const
+{
+	return context != NULL && m_taxiAttr != NULL && m_attr != NULL &&
+		m_taxiAttr->m_cacheSkin != NULL &&
+		!m_taxiAttr->m_skinID.isNUL() &&
+		!m_taxiAttr->m_attrForVehicle.isNUL() &&
+		m_skin.Model() != NULL &&
+		OrphanAttributeState_RuntimeReady(context);
+}
+
+namespace {
+
+struct OrphanSubjectRecord
+{
+	KR_ObjectID object;
+	Orphan *orphan;
+	std::string taxiAttribute;
+};
+
+struct OrphanSubjectCollector
+{
+	SimulationContext *context;
+	std::vector<OrphanSubjectRecord> records;
+	bool valid;
+};
+
+void OrphanSubjectHashBytes(unsigned long long &hash,
+							const void *data, int size)
+{
+	const unsigned char *bytes = static_cast<const unsigned char *>(data);
+	for (int index = 0; index < size; ++index)
+	{
+		hash ^= bytes[index];
+		hash *= kOrphanSubjectHashPrime;
+	}
+}
+
+void OrphanSubjectHashString(unsigned long long &hash, const char *value)
+{
+	if (value == NULL)
+		value = "";
+	OrphanSubjectHashBytes(hash, value,
+		static_cast<int>(std::strlen(value)) + 1);
+}
+
+void OrphanSubjectHashVector(unsigned long long &hash,
+							 const CFVector3 &value)
+{
+	OrphanSubjectHashBytes(hash, &value.x, sizeof(value.x));
+	OrphanSubjectHashBytes(hash, &value.y, sizeof(value.y));
+	OrphanSubjectHashBytes(hash, &value.z, sizeof(value.z));
+}
+
+Orphan *ResolveOrphan(SimulationContext *context, KR_ObjectID object)
+{
+	if (context == NULL || object.isNUL() || !context->isExist(object))
+		return NULL;
+	IDynamicObject *dynamicObject = static_cast<IDynamicObject *>(
+		context->queryInterface(object, IDynamicObjectIID));
+	return dynamicObject == NULL ? NULL :
+		dynamic_cast<Orphan *>(dynamicObject);
+}
+
+bool CountOrphanSubject(const KR_ObjectID, void *user)
+{
+	++(*static_cast<int *>(user));
+	return true;
+}
+
+bool CollectOrphanSubject(const KR_ObjectID object, void *user)
+{
+	OrphanSubjectCollector *collector =
+		static_cast<OrphanSubjectCollector *>(user);
+	Orphan *orphan = ResolveOrphan(collector->context, object);
+	const char *attribute = orphan == NULL ? NULL :
+		collector->context->searchObject(orphan->m_orphanAttrID);
+	if (orphan == NULL || attribute == NULL || !orphan->runtimeReady())
+	{
+		collector->valid = false;
+		return false;
+	}
+	OrphanSubjectRecord record = {object, orphan, attribute};
+	collector->records.push_back(record);
+	return true;
+}
+
+bool OrphanSubjectRecordLess(const OrphanSubjectRecord &left,
+							 const OrphanSubjectRecord &right)
+{
+	if (left.taxiAttribute != right.taxiAttribute)
+		return left.taxiAttribute < right.taxiAttribute;
+	const CFVector3 leftPosition = left.orphan->getPosition();
+	const CFVector3 rightPosition = right.orphan->getPosition();
+	if (leftPosition.x != rightPosition.x)
+		return leftPosition.x < rightPosition.x;
+	if (leftPosition.y != rightPosition.y)
+		return leftPosition.y < rightPosition.y;
+	return leftPosition.z < rightPosition.z;
+}
+
+bool CollectOrphanSubjects(SimulationContext *context,
+						   OrphanSubjectCollector &collector)
+{
+	const ct_ClassTableID table =
+		g_arena.searchSeanceClassTable("Orphan");
+	if (context == NULL || g_arena.getContext() != context ||
+		table == ct_NULLID || g_orphanSubjectCapacity <= 0)
+		return false;
+	collector.context = context;
+	collector.valid = true;
+	g_arena.userFind(table, CollectOrphanSubject, &collector);
+	if (!collector.valid)
+		return false;
+	std::sort(collector.records.begin(), collector.records.end(),
+		OrphanSubjectRecordLess);
+	return true;
+}
+
+}  // namespace
+
+void OrphanSubjectState_Link()
+{
+}
+
+bool OrphanSubjectState_CreateTable(SimulationContext *context,
+								int capacity)
+{
+	if (context == NULL || capacity <= 0 ||
+		g_arena.getContext() != context)
+		return false;
+	const ct_ClassTableID table =
+		g_arena.addClassTable("Orphan", capacity);
+	return table != ct_NULLID &&
+		g_arena.searchSeanceClassTable("Orphan") == table &&
+		g_orphanSubjectCapacity == capacity;
+}
+
+bool OrphanSubjectState_TableReady(SimulationContext *context,
+							   int expectedCapacity)
+{
+	return context != NULL && g_arena.getContext() == context &&
+		expectedCapacity > 0 &&
+		g_orphanSubjectCapacity == expectedCapacity &&
+		g_arena.searchSeanceClassTable("Orphan") != ct_NULLID;
+}
+
+int OrphanSubjectState_Capacity()
+{
+	return g_arena.searchSeanceClassTable("Orphan") == ct_NULLID ? 0 :
+		g_orphanSubjectCapacity;
+}
+
+int OrphanSubjectState_LiveCount()
+{
+	const ct_ClassTableID table =
+		g_arena.searchSeanceClassTable("Orphan");
+	if (table == ct_NULLID || g_orphanSubjectCapacity <= 0)
+		return 0;
+	int count = 0;
+	g_arena.userFind(table, CountOrphanSubject, &count);
+	return count;
+}
+
+bool OrphanSubjectState_AllReady(SimulationContext *context)
+{
+	OrphanSubjectCollector collector = {};
+	return CollectOrphanSubjects(context, collector);
+}
+
+unsigned long long OrphanSubjectState_Fingerprint(
+	SimulationContext *context)
+{
+	OrphanSubjectCollector collector = {};
+	if (!CollectOrphanSubjects(context, collector))
+		return 0;
+	unsigned long long hash = kOrphanSubjectHashOffset;
+	OrphanSubjectHashString(hash, "Orphan");
+	OrphanSubjectHashBytes(hash, &g_orphanSubjectCapacity,
+		sizeof(g_orphanSubjectCapacity));
+	const int count = static_cast<int>(collector.records.size());
+	OrphanSubjectHashBytes(hash, &count, sizeof(count));
+	for (std::size_t index = 0; index < collector.records.size(); ++index)
+	{
+		Orphan *orphan = collector.records[index].orphan;
+		OrphanSubjectHashString(hash,
+			collector.records[index].taxiAttribute.c_str());
+		OrphanSubjectHashVector(hash, orphan->getPosition());
+		OrphanSubjectHashVector(hash, orphan->m_speed);
+		OrphanSubjectHashBytes(hash, &orphan->m_damage,
+			sizeof(orphan->m_damage));
+		const int sound = orphan->m_snd.isNUL() ? 0 : 1;
+		OrphanSubjectHashBytes(hash, &sound, sizeof(sound));
+	}
+	return hash;
+}
+
+bool OrphanSubjectState_RuntimeTelemetry(
+	SimulationContext *context,
+	SOrphanSubjectRuntimeTelemetry *telemetry)
+{
+	if (telemetry == NULL || context == NULL ||
+		g_arena.getContext() != context ||
+		!OrphanSubjectState_TableReady(context,
+			g_orphanSubjectCapacity))
+		return false;
+	*telemetry = g_orphanTelemetry;
+	return true;
+}
+
+KR_ObjectID OrphanSubjectState_FirstObject(SimulationContext *context)
+{
+	OrphanSubjectCollector collector = {};
+	return CollectOrphanSubjects(context, collector) &&
+		!collector.records.empty() ? collector.records.front().object :
+		KR_ObjectID::NUL();
+}
+
  /* End of file C:\NW\ARENA\OBASE\Orphan\Orphan.cpp */

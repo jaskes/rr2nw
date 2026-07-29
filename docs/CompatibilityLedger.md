@@ -1942,6 +1942,59 @@ Status vocabulary:
   visual checks. Keep world placement derived from the active view and real
   terrain rather than a stale observer snapshot.
 
+### CQ-121: F1 exit does not allocate a separate Player subject
+
+- Status: `SOURCE_CONFIRMED`, `BEHAVIOR_PRESERVED`.
+- Evidence: type-1 `Vehicle::onChangeVehicle()` calls `LeaveVehicle()`, which
+  creates Taxi or Orphan for the abandoned body and then sends `KR_SET_ATTR`
+  with `m_vehicleAttrDefaultID` to the same `Vehicle.Default`. Camera, input and
+  player identity never transfer to People or another Player object.
+- Handling: retain `Vehicle.Default` as the persistent owner. Observe safe
+  exit, type-0 state, nearby Taxi re-entry and panel close/reopen around the
+  original F1 path. Defer People/Tank to population and combat work.
+- Regression contract: safe F1 adds exactly one Taxi and no Orphan, changes
+  the attribute without changing the controlled ObjectID, and a second nearby
+  F1 consumes the Taxi and restores the original attribute and cockpit.
+- Revisit when: mods request a true pedestrian avatar. Add it as a versioned
+  gameplay extension rather than silently redefining retail F1 semantics.
+
+### CQ-122: pooled Orphan reused uninitialized transient state
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`,
+  `REFERENCE_TRANSACTION`.
+- Evidence: the legacy constructor initialized only two pointers; drop events
+  trusted payload shape, missing TaxiAttr was logged and then dereferenced, the
+  subject table accepted `index == capacity`, and scheduled movement sampled
+  `Session::m_moment` independently of its event timestamp. Static compilation
+  had hidden these paths because the full target was not linked to services.
+- Handling: reset every non-serialized transient on allocation/removal,
+  validate payload/time/finiteness, atomically resolve Taxi/Skin/Vehicle plus
+  Orphan Explosion/Smoke references, fix the bound and drive scheduling from
+  the admitted event time. Preserve the fixed `OrphanData` save layout.
+- Regression contract: every Level creates an empty `Orphan(5)` pool; unsafe
+  F1 must create one runtime-ready object, execute MOVE and scene impact, start
+  Explosion, remove the Orphan and leave teardown/reconstruction clean.
+- Revisit when: save import exercises a live falling Orphan. Add an explicit
+  versioned transient reconstruction policy; never serialize cached pointers.
+
+### CQ-123: unbounded Orphan render interpolation reached invalid reciprocal depth
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the first strict drawable proof reproduced a Debug assertion in
+  `VIEW/OBJECT.CPP` on retail `Level.05D` from both installed and mounted data.
+  `Orphan::render()` divided timestamps from adjacent systems without bounding
+  the ratio; Release disabled the assertion but accepted the invalid result.
+- Handling: require finite render inputs, clamp interpolation to `[0,1]` and
+  count only drawables actually loaded into the dynamic list. At the renderer
+  boundary, reject non-finite transformed vertices and reduce depth precision
+  when actual near geometry contradicts the model-radius estimate.
+- Regression contract: repeated Debug `Level.05D` unsafe exits must produce a
+  real drawable Orphan frame, scheduled movement, natural impact/Explosion and
+  zero live Orphans without an assertion. The full 36-case retail matrix and
+  both CTest configurations remain mandatory.
+- Revisit when: simulation and view time are unified. Preserve bounded visual
+  interpolation even if the clocks later share one explicit tick type.
+
 ## Maintenance rule
 
 When a new quirk is found:

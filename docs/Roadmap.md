@@ -844,15 +844,31 @@ deferred. Type-0 and intentionally unarmed type-1 attributes retain their
 no-projectile behavior. Focus loss releases held fire and normal seance
 reconstruction removes every projectile and effect.
 
-The next large 1.0 slice is the minimum People/Tank/Orphan embodiment graph:
+The source-confirmed embodiment slice is now complete and corrected an earlier
+planning assumption: retail F1 does not allocate or transfer control to an
+on-foot Player. The same `Vehicle.Default` switches to
+`Vehicle.Attr.default`; the abandoned body becomes a safe Taxi or an unsafe
+falling Orphan. The runtime now owns the exact `Orphan(5)` table, resolves its
+Explosion/Smoke references transactionally, and exposes lifecycle telemetry.
 
-1. publish exact Level-local dependencies and stable object identities;
-2. execute leave-Vehicle without destroying or orphaning the controlled world
-   object;
-3. transfer camera/input to the on-foot Player owner with focus-safe fallback;
-4. prove movement, nearby re-entry and restoration of Vehicle cockpit/control;
-5. roll the entire transition back through normal seance teardown and
-   reconstruction.
+The automated retail scenario proves both branches. Safe F1 closes the
+cockpit, creates a payload-carrying Taxi, keeps camera/input on the same
+ObjectID, and a second nearby F1 consumes the Taxi and restores the original
+VehicleAttr/cockpit. Unsafe elevated F1 creates a real Orphan, executes
+scheduled fall, scene collision and Explosion, then normal teardown and a
+second seance prove full rollback.
+
+The next large 1.0 slice is therefore the People/Tank population and combat
+graph rather than an invented Player handoff:
+
+1. publish the smallest exact People/Tank attribute and subject rosters;
+2. activate their stable identities, drawable/dynamic references and bounded
+   scheduled behavior;
+3. prove Vehicle/Bullet interaction, damage/death effects and mission-facing
+   ownership without changing the completed player embodiment contract;
+4. add save-state coverage for the active gameplay graph and reconstruct it
+   through normal seance teardown;
+5. perform the multi-Level human drive/F1/fire/alt-tab/exit acceptance pass.
 
 Secondary fire and Bullet muzzle sound remain smaller combat follow-ups.
 Save-state and a multi-Level manual driving/combat pass remain 1.0 gates.

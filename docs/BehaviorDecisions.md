@@ -2663,3 +2663,70 @@ repeat of the formerly frame-sensitive `Level.05D` Debug case, and 4/4 waited
 `rr2nw.exe --runtime-smoke` launches. Every executable reports primary-fire
 observation readiness, preserves the Hardware subscription, reaches
 `marker=level-ready` and ends with `runtime_shutdown=clean`.
+
+## BD-071: preserve Vehicle.Default as the player embodiment across F1 exit
+
+Status: accepted on 2026-07-29.
+
+Source archaeology corrected the earlier People/Player assumption. The retail
+F1 exit path does not create a separate on-foot Player subject. The controlled
+object remains `Vehicle.Default`; `Vehicle::LeaveVehicle()` changes it back to
+`Vehicle.Attr.default`, moves it through the vehicle-specific exit offset and
+keeps its camera/input ownership. The object being left becomes a `Taxi` when
+the downward ground test is safe, or an `Orphan` when the drop exceeds one
+second or lands on another dynamic object. People and Tank remain later world
+population/combat work, not prerequisites for the first honest embodiment
+cycle.
+
+The recovered runtime therefore preserves this original identity instead of
+inventing an on-foot owner. Safe F1 must close the current cockpit, create one
+real Taxi with the selected TaxiAttr, damage and secondary-ammunition payload,
+switch the same Vehicle object to type 0 and retain the exclusive Hardware
+subscription. A second nearby F1 must consume that Taxi, restore its
+VehicleAttr/payload/pose, reopen the cockpit where one exists and continue to
+use the same camera and control object.
+
+Unsafe F1 uses the production `Orphan(5)` pool. `Orphan.Attr.Default` resolves
+Explosion and Smoke dependencies atomically before the pool is admitted. The
+abandoned vehicle retains the real Taxi skin and vehicle sound scheme, executes
+scheduled falling motion, collides with the real scene and starts the existing
+Explosion/optional Smoke/Corpse effects. Malformed payloads, missing resources
+and stale pooled pointers fail closed rather than leaving a half-initialized
+drawable subject.
+
+Embodiment telemetry is observation-only: exit attempts, safe/unsafe results,
+dropped Taxi/Orphan counts, re-entry, cockpit transitions, Orphan
+move/impact/effect counters and Hardware ownership. Normal seance teardown
+remains the only persistent owner and must clear the Orphan references, pool,
+scheduled events and every child effect before reconstruction.
+
+Verification passes 51/51 CTest in Debug and Release, plus 36/36 retail
+service launches across all nine Levels, installed and mounted roots, and both
+configurations. Four bounded executable smokes publish resolved Orphan
+references, capacity five, an empty initial pool and embodiment observability,
+then reach `marker=level-ready` and `runtime_shutdown=clean`.
+
+## BD-072: bound Orphan interpolation and fail closed at software projection
+
+Status: accepted on 2026-07-29.
+
+The first drawable Orphan proof exposed a real `Level.05D` Debug crash at the
+legacy reciprocal-depth assertion. Orphan render interpolation accepted an
+unbounded ratio between the view timestamp and its last simulation event. A
+late frame could therefore extrapolate a valid falling body far outside its
+current tick; malformed/non-finite transformed geometry then reached the
+software projector. Release merely hid the assertion and continued with an
+invalid depth value.
+
+Orphan rendering now requires finite time and position, clamps interpolation
+to the current `[0,1]` simulation interval and records a render frame only
+after loading a real drawable. The software renderer independently rejects a
+non-finite transformed vertex and tightens per-object reciprocal-depth
+precision from the actual nearest transformed vertex when a model radius is
+too optimistic. Normal finite geometry keeps the original precision path.
+
+The behavior remains fail-closed: an invalid visual sample skips that object
+for the frame without mutating simulation, collision, effects or serialized
+state. Verification must include repeated Debug `Level.05D` unsafe drops,
+require at least one admitted Orphan drawable frame before impact, and still
+observe natural movement, Explosion and complete removal.

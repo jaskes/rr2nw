@@ -542,6 +542,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("orphan_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_OrphanAttributesReady() ? 1 : 0));
+  log.Line("orphan_references_initialized=" +
+           std::to_string(
+               RecoveredGameServices_OrphanReferencesReady() ? 1 : 0));
+  log.Line("orphan_reference_fingerprint=" + std::to_string(
+               RecoveredGameServices_OrphanReferenceFingerprint()));
+  log.Line("orphan_subject_initialized=" +
+           std::to_string(
+               RecoveredGameServices_OrphanSubjectReady() ? 1 : 0));
+  log.Line("orphan_subject_capacity=" + std::to_string(
+               RecoveredGameServices_OrphanSubjectCapacity()));
+  log.Line("orphan_subject_count=" + std::to_string(
+               RecoveredGameServices_OrphanSubjectCount()));
+  log.Line("orphan_subject_fingerprint=" + std::to_string(
+               RecoveredGameServices_OrphanSubjectFingerprint()));
   log.Line("artefact_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_ArtefactAttributesReady() ? 1 : 0));
@@ -823,6 +837,45 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(taxiHandoff.postTransitionFrames));
   log.Line("taxi_vehicle_post_transition_distance=" +
            std::to_string(taxiHandoff.postTransitionDistance));
+  SRecoveredVehicleEmbodimentTelemetry embodiment = {};
+  const bool embodimentInspected =
+      RecoveredGameServices_VehicleEmbodimentTelemetry(&embodiment);
+  log.Line("vehicle_embodiment_observable=" +
+           std::to_string(embodimentInspected ? 1 : 0));
+  log.Line("vehicle_exit_attempts=" +
+           std::to_string(embodiment.exitAttempts));
+  log.Line("vehicle_safe_exit_completions=" +
+           std::to_string(embodiment.safeExitCompletions));
+  log.Line("vehicle_unsafe_exit_completions=" +
+           std::to_string(embodiment.unsafeExitCompletions));
+  log.Line("vehicle_dropped_taxis=" +
+           std::to_string(embodiment.droppedTaxis));
+  log.Line("vehicle_dropped_orphans=" +
+           std::to_string(embodiment.droppedOrphans));
+  log.Line("vehicle_reentry_attempts=" +
+           std::to_string(embodiment.reentryAttempts));
+  log.Line("vehicle_reentry_completions=" +
+           std::to_string(embodiment.reentryCompletions));
+  log.Line("vehicle_panel_close_transitions=" +
+           std::to_string(embodiment.panelCloseTransitions));
+  log.Line("vehicle_panel_reopen_transitions=" +
+           std::to_string(embodiment.panelReopenTransitions));
+  log.Line("orphan_move_events=" +
+           std::to_string(embodiment.orphanMoveEvents));
+  log.Line("orphan_impacts=" +
+           std::to_string(embodiment.orphanImpacts));
+  log.Line("orphan_explosions=" +
+           std::to_string(embodiment.orphanExplosions));
+  log.Line("orphan_smoke_starts=" +
+           std::to_string(embodiment.orphanSmokeStarts));
+  log.Line("orphan_render_frames=" +
+           std::to_string(embodiment.orphanRenderFrames));
+  log.Line("orphan_live_objects=" +
+           std::to_string(embodiment.liveOrphans));
+  log.Line("vehicle_exit_pending=" +
+           std::to_string(embodiment.exitPending));
+  log.Line("vehicle_embodiment_hardware_subscription_preserved=" +
+           std::to_string(embodiment.hardwareSubscriptionPreserved));
   SRecoveredVehiclePrimaryFireTelemetry primaryFire = {};
   const bool primaryFireInspected =
       RecoveredGameServices_VehiclePrimaryFireTelemetry(&primaryFire);

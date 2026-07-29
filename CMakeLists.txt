@@ -366,6 +366,7 @@ target_compile_definitions(rr2nw_arena_orphan_attribute_state PRIVATE
 
 add_library(rr2nw_arena_obase_orphan_full STATIC
   nw/ARENA/OBASE/Orphan/Orphan.cpp
+  nw/ARENA/OBASE/Orphan/OrphanSubjectState.h
 )
 target_link_libraries(rr2nw_arena_obase_orphan_full PUBLIC
   rr2nw_arena_orphan_attribute_state
@@ -3256,7 +3257,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_obase_taxi_full
   rr2nw_arena_bird_attribute_state
   rr2nw_arena_artefact_attribute_state
-  rr2nw_arena_orphan_attribute_state
+  rr2nw_arena_obase_orphan_full
   rr2nw_arena_obase_portal
   rr2nw_arena_bullet_attribute_state
   rr2nw_arena_explosion_attribute_state

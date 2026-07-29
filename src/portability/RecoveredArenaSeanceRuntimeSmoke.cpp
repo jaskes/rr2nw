@@ -32,6 +32,7 @@ class CGRPanel;
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
+#include "obase/orphan/OrphanSubjectState.h"
 #include "obase/route/route.h"
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
@@ -443,6 +444,13 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_BirdAttributesReady() &&
          !RecoveredArenaSeance_PortalReady() &&
          !RecoveredArenaSeance_OrphanAttributesReady() &&
+         !RecoveredArenaSeance_OrphanReferencesReady() &&
+         RecoveredArenaSeance_OrphanReferenceFingerprint() == 0 &&
+         !RecoveredArenaSeance_OrphanSubjectReady() &&
+         RecoveredArenaSeance_OrphanSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_OrphanSubjectCount() == 0 &&
+         RecoveredArenaSeance_OrphanSubjectFingerprint() == 0 &&
+         OrphanSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_ArtefactAttributesReady() &&
          !RecoveredArenaSeance_SmokeAttributesReady() &&
          !RecoveredArenaSeance_SmokeSubjectReady() &&
@@ -644,6 +652,13 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_BirdAttributesReady() ||
       !RecoveredArenaSeance_PortalReady() ||
       !RecoveredArenaSeance_OrphanAttributesReady() ||
+      RecoveredArenaSeance_OrphanReferencesReady() ||
+      RecoveredArenaSeance_OrphanReferenceFingerprint() != 0 ||
+      !RecoveredArenaSeance_OrphanSubjectReady() ||
+      RecoveredArenaSeance_OrphanSubjectCapacity() != 5 ||
+      RecoveredArenaSeance_OrphanSubjectCount() != 0 ||
+      RecoveredArenaSeance_OrphanSubjectFingerprint() == 0 ||
+      OrphanSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_ArtefactAttributesReady() ||
        !RecoveredArenaSeance_SmokeAttributesReady() ||
        !RecoveredArenaSeance_SmokeSubjectReady() ||
@@ -836,6 +851,7 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("BirdAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Portal") == ct_NULLID ||
       g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Orphan") == ct_NULLID ||
       g_arena.searchSeanceClassTable("ArtefactAttr") == ct_NULLID ||
        g_arena.searchSeanceClassTable("SmokeAttr") == ct_NULLID ||
        g_arena.searchSeanceClassTable("Smoke") == ct_NULLID ||

@@ -2,6 +2,8 @@
 #include"_view.h"
 #endif
 
+#include <cmath>
+
 #ifndef RR2NW_VIEW_OBJECT_STATE_ONLY
 #include"brend.h"
 
@@ -796,6 +798,34 @@ inline	int CViewObjectBase::PreDraw(bool bWaterSplit)
 		}
 		#ifdef _DEBUG
 			__nVertCnt += m_nVertices;
+		#endif
+
+		#if _USE_OWNGR
+			// The legacy precision estimate trusts the model bounding radius. A
+			// malformed or camera-intersecting skin can place a real vertex closer
+			// than that estimate and overflow the software renderer's 16-bit
+			// reciprocal-depth range. Tighten the per-object shift from transformed
+			// vertices before projecting them; valid models retain the old shift.
+			double fNearestVisibleZ = CViewObject::m_fBackClip;
+			for( int i = 0 ; i < m_nVertices ; i++ ) {
+				if( !std::isfinite(m_pVertImages[i].v3.x) ||
+					!std::isfinite(m_pVertImages[i].v3.y) ||
+					!std::isfinite(m_pVertImages[i].v3.z) )
+					return CViewObject::ZCF_FRONT;
+				double fVertexZ = m_pVertImages[i].v3.z;
+				if( !(fVertexZ >= CViewObject::m_fFrontClip) ) {
+					fNearestVisibleZ = CViewObject::m_fFrontClip;
+					break;
+				}
+				if( fVertexZ < fNearestVisibleZ )
+					fNearestVisibleZ = fVertexZ;
+			}
+			int nSafeZ1Shift = Max(CViewObject::m_z1MinShift,
+				Round(log2(Max(CViewObject::m_fFrontClip,fNearestVisibleZ))-0.5));
+			if( m_z1Shift > nSafeZ1Shift ) {
+				m_z1Shift = nSafeZ1Shift;
+				m_fz1Scale = 1<<(m_z1Shift+16);
+			}
 		#endif
 
 		//int	 nFrontClip = CViewObject::m_fFrontClip*fIntegerPrec;

@@ -149,3 +149,29 @@ static-collision proof on `Level.04D` remains present; the formerly flaky
 `Level.05D` Debug visual path also passes a 10/10 repetition after all visual
 probes follow the active Vehicle camera and traced effects start above sampled
 terrain.
+
+## Embodiment correction and current status
+
+The source-confirmed retail embodiment is now automated. F1 does not hand
+control to a People/on-foot object: the same `Vehicle.Default` switches between
+its type-1 vehicle attribute and `Vehicle.Attr.default`. On safe ground the
+abandoned body becomes a live Taxi and can be taken back immediately; on an
+unsafe drop it becomes a bounded Orphan which falls, collides and explodes.
+
+The safe scenario proves ObjectID/control continuity, panel close/reopen,
+payload-preserving Taxi creation/removal, nearby re-entry and continued
+Hardware subscription. The unsafe scenario proves the real Orphan(5) table,
+scheduled movement, natural scene impact and Explosion effect before normal
+seance rollback. People/Tank are no longer listed as blockers for entering and
+leaving the player's vehicle; they remain the next population/AI/combat graph.
+
+Accordingly, the automated Vehicle/Taxi/cockpit/primary-fire/embodiment slice
+is functionally closed. Remaining 1.0 gates are a human driving/visibility/F1
+feel pass, wider mission entities and AI, save/load, secondary weapon details,
+and later packaging/content validation. The percentage remains an orientation,
+not permission to call the game fully playable before those gates pass.
+
+Current automated evidence for this corrected slice is 51/51 CTest in Debug
+and Release, 36/36 Level/configuration/root service launches, and 4/4 bounded
+real executables reaching level-ready and clean shutdown. This closes the
+automated ownership question; the manual feel/visibility gate remains.

@@ -2523,3 +2523,49 @@ People/Tank/Orphan graph needed to leave and re-enter a Vehicle. Secondary
 fire/muzzle sound can remain a contained follow-up. Save-state and manual feel
 checks remain explicit gates; Linux/macOS and multiplayer remain outside this
 1.0 tranche.
+
+## Vehicle exit and Orphan subject frontier
+
+The retail exit graph is smaller than the provisional plan suggested. There is
+no separately allocated pedestrian Player in `Vehicle::LeaveVehicle()`.
+`Vehicle.Default` remains the controlled identity and changes to its type-0
+default attribute. The abandoned type-1 body is the new subject: a re-enterable
+`Taxi` on safe ground, or a falling non-`ITaxi` `Orphan` for unsafe drops.
+
+The preserved `Orphan.cpp` is now linked into the recovered service runtime.
+Its class table owns the exact Level-local capacity of five, while the common
+attribute keeps its retail `deltaT=0.2`, collision threshold, Explosion and
+Smoke names. Explosion/Smoke references use a two-phase preflight and semantic
+fingerprint; the empty subject pool has a separate stable fingerprint.
+
+Modern admission also closes legacy pool hazards: every transient field is
+reset on allocation, event size/timestamp/coordinates are checked before any
+resource commit, Taxi/Skin/Vehicle/Orphan dependencies are preflighted, the
+one-past table assertion is fixed, movement uses the event timestamp rather
+than a second global-time sample, and renderer/dynamic access is gated on a
+fully ready subject. Runtime telemetry follows accepted/rejected drops,
+scheduled moves, impacts, Explosion/Smoke/Sound starts, renders and peak live
+objects without changing serialized `OrphanData`.
+
+The bounded retail service scenario now performs both production branches:
+safe F1 creates a Taxi, switches the same player object to type 0, closes the
+panel, then a second F1 removes that Taxi and restores cockpit/control; unsafe
+F1 from finite elevated terrain creates an Orphan and waits for real movement,
+scene impact and Explosion. The next seance reconstruction is the rollback
+gate. People/Tank activation follows as world population and combat behavior,
+not as an artificial prerequisite for leaving the vehicle.
+
+The completed gate is 51/51 CTest in each configuration, 18/18 Debug and 18/18
+Release retail service launches across installed and mounted copies, and 4/4
+bounded executable smokes with Orphan reference/table diagnostics and clean
+shutdown. `Level.06N` retains its exact empty Taxi roster and therefore records
+the type-0 no-vehicle branch instead of receiving a synthetic target.
+
+The strict drawable gate additionally found a software projection crash on
+`Level.05D`: Orphan view interpolation could escape its current simulation
+interval and feed invalid transformed coordinates to `OBJECT.CPP`. The render
+path now clamps interpolation and rejects non-finite positions before dynamic
+list admission. `PreDraw()` provides an independent final guard for non-finite
+vertices and derives a safe reciprocal-depth shift from actual transformed
+geometry when the stored model radius is insufficient. This is a production
+stability boundary, not a test-only camera workaround.

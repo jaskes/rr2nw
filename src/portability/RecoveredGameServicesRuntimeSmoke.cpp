@@ -31,6 +31,7 @@
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
+#include "obase/orphan/OrphanSubjectState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/smoke/SmokerAttributeState.h"
@@ -323,6 +324,12 @@ bool IsServiceReleased() {
          !RecoveredGameServices_BirdAttributesReady() &&
          !RecoveredGameServices_PortalReady() &&
          !RecoveredGameServices_OrphanAttributesReady() &&
+         !RecoveredGameServices_OrphanReferencesReady() &&
+         RecoveredGameServices_OrphanReferenceFingerprint() == 0 &&
+         !RecoveredGameServices_OrphanSubjectReady() &&
+         RecoveredGameServices_OrphanSubjectCapacity() == 0 &&
+         RecoveredGameServices_OrphanSubjectCount() == 0 &&
+         RecoveredGameServices_OrphanSubjectFingerprint() == 0 &&
          !RecoveredGameServices_ArtefactAttributesReady() &&
          !RecoveredGameServices_SmokeAttributesReady() &&
          !RecoveredGameServices_SmokeSubjectReady() &&
@@ -762,6 +769,149 @@ bool ExerciseInteractiveTaxiHandoff() {
          RecoveredGameServices_VehicleHousekeepingEvents() ==
              housekeepingBefore + 4 &&
          RecoveredGameServices_VehicleIgnoredEvents() == 0;
+}
+
+bool ExerciseSafeVehicleExitAndReentry() {
+  SimulationContext* context = g_super.m_context;
+  if (context == nullptr) return false;
+  KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
+  Vehicle* vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
+      context->queryInterface(vehicleID, IVehicleIID));
+  SRecoveredVehicleRuntimeState beforeState = {};
+  SRecoveredVehicleEmbodimentTelemetry before = {};
+  if (vehicle == nullptr ||
+      !VehicleRuntimeState_Inspect(context, vehicleID, &beforeState) ||
+      !RecoveredGameServices_VehicleEmbodimentTelemetry(&before))
+    return false;
+  if (vehicle->taxiChangeEnabled())
+    return TaxiSubjectState_LiveCount() == 0 &&
+           OrphanSubjectState_LiveCount() == 0 &&
+           before.exitAttempts == 0 && before.exitPending == 0 &&
+           before.hardwareSubscriptionPreserved == 1;
+
+  const int taxiCount = TaxiSubjectState_LiveCount();
+  const int orphanCount = OrphanSubjectState_LiveCount();
+  const bool panelWasOpen = vehicle->panelOpen();
+  if (!SendHardwareButton("F1", TRUE) ||
+      !SendHardwareButton("F1", FALSE) ||
+      !RunVehicleFrameAfter(0.01))
+    return false;
+
+  SRecoveredVehicleRuntimeState exitedState = {};
+  SRecoveredVehicleEmbodimentTelemetry exited = {};
+  STaxiVehicleProximityState proximity = {};
+  if (!VehicleRuntimeState_Inspect(context, vehicleID, &exitedState) ||
+      !RecoveredGameServices_VehicleEmbodimentTelemetry(&exited) ||
+      !TaxiSubjectState_InspectVehicleProximity(
+          context, vehicleID, &proximity) ||
+      exitedState.attribute == beforeState.attribute ||
+      !vehicle->taxiChangeEnabled() ||
+      TaxiSubjectState_LiveCount() != taxiCount + 1 ||
+      OrphanSubjectState_LiveCount() != orphanCount ||
+      proximity.nearbyTaxis <= 0 || proximity.nearestTaxi.isNUL() ||
+      proximity.nearestDistance >= proximity.activationDistance ||
+      exited.exitAttempts != before.exitAttempts + 1 ||
+      exited.safeExitCompletions != before.safeExitCompletions + 1 ||
+      exited.unsafeExitCompletions != before.unsafeExitCompletions ||
+      exited.droppedTaxis != before.droppedTaxis + 1 ||
+      exited.droppedOrphans != before.droppedOrphans ||
+      exited.exitPending != 0 ||
+      exited.hardwareSubscriptionPreserved != 1 ||
+      (panelWasOpen &&
+       (vehicle->panelOpen() ||
+        exited.panelCloseTransitions != before.panelCloseTransitions + 1)))
+    return false;
+
+  if (!SendHardwareButton("F1", TRUE) ||
+      !SendHardwareButton("F1", FALSE))
+    return false;
+  bool reentered = false;
+  for (int frame = 0; frame < 120; ++frame) {
+    if (!RunVehicleFrameAfter(0.025) ||
+        !VehicleRuntimeState_Inspect(context, vehicleID, &exitedState))
+      return false;
+    if (exitedState.attribute == beforeState.attribute &&
+        TaxiSubjectState_LiveCount() == taxiCount) {
+      reentered = true;
+      break;
+    }
+  }
+
+  SRecoveredVehicleEmbodimentTelemetry complete = {};
+  return reentered && !vehicle->taxiChangeEnabled() &&
+         OrphanSubjectState_LiveCount() == orphanCount &&
+         RecoveredGameServices_VehicleEmbodimentTelemetry(&complete) &&
+         complete.reentryAttempts == before.reentryAttempts + 1 &&
+         complete.reentryCompletions == before.reentryCompletions + 1 &&
+         complete.hardwareSubscriptionPreserved == 1 &&
+         (!panelWasOpen ||
+          (vehicle->panelOpen() &&
+           complete.panelReopenTransitions ==
+               before.panelReopenTransitions + 1));
+}
+
+bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
+  SimulationContext* context = g_super.m_context;
+  if (context == nullptr) return false;
+  KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
+  Vehicle* vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
+      context->queryInterface(vehicleID, IVehicleIID));
+  SRecoveredVehicleRuntimeState vehicleState = {};
+  SRecoveredVehicleEmbodimentTelemetry before = {};
+  if (vehicle == nullptr ||
+      !VehicleRuntimeState_Inspect(context, vehicleID, &vehicleState) ||
+      !RecoveredGameServices_VehicleEmbodimentTelemetry(&before))
+    return false;
+  if (vehicle->taxiChangeEnabled())
+    return OrphanSubjectState_LiveCount() == 0 &&
+           before.unsafeExitCompletions == 0 && before.exitPending == 0 &&
+           before.hardwareSubscriptionPreserved == 1;
+
+  const int taxiCount = TaxiSubjectState_LiveCount();
+  const int orphanCount = OrphanSubjectState_LiveCount();
+  vehicle->Stop();
+  CFMatrix3x4 direction;
+  direction.LoadIdentity();
+  vehicle->SetDir(direction);
+  const CFVector3 elevated =
+      vehicleState.position + CFVector3(0.0, 40.0, 0.0);
+  vehicle->SetPos(elevated);
+  vehicle->setPosition(elevated);
+
+  if (!SendHardwareButton("F1", TRUE) ||
+      !SendHardwareButton("F1", FALSE) ||
+      !RunVehicleFrameAfter(0.01))
+    return false;
+
+  SRecoveredVehicleEmbodimentTelemetry dropped = {};
+  if (!RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped) ||
+      !vehicle->taxiChangeEnabled() ||
+      TaxiSubjectState_LiveCount() != taxiCount ||
+      OrphanSubjectState_LiveCount() != orphanCount + 1 ||
+      dropped.exitAttempts != before.exitAttempts + 1 ||
+      dropped.safeExitCompletions != before.safeExitCompletions ||
+      dropped.unsafeExitCompletions != before.unsafeExitCompletions + 1 ||
+      dropped.droppedOrphans != before.droppedOrphans + 1 ||
+      dropped.exitPending != 0 ||
+      dropped.hardwareSubscriptionPreserved != 1)
+    return false;
+
+  bool impacted = false;
+  for (int frame = 0; frame < 320; ++frame) {
+    if (!RunVehicleFrameAfter(0.025) ||
+        !RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped))
+      return false;
+    if (OrphanSubjectState_LiveCount() == orphanCount &&
+        dropped.orphanMoveEvents > before.orphanMoveEvents &&
+        dropped.orphanImpacts > before.orphanImpacts &&
+        dropped.orphanExplosions > before.orphanExplosions &&
+        dropped.orphanRenderFrames > before.orphanRenderFrames) {
+      impacted = true;
+      break;
+    }
+  }
+  return impacted && dropped.liveOrphans == 0 &&
+         dropped.hardwareSubscriptionPreserved == 1;
 }
 
 bool PrepareVehiclePrimaryFire(Vehicle* vehicle,
@@ -2059,6 +2209,12 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_BirdAttributesReady() ||
       !RecoveredGameServices_PortalReady() ||
       !RecoveredGameServices_OrphanAttributesReady() ||
+      !RecoveredGameServices_OrphanReferencesReady() ||
+      !RecoveredGameServices_OrphanSubjectReady() ||
+      RecoveredGameServices_OrphanSubjectCapacity() != 5 ||
+      RecoveredGameServices_OrphanSubjectCount() != 0 ||
+      RecoveredGameServices_OrphanReferenceFingerprint() == 0 ||
+      RecoveredGameServices_OrphanSubjectFingerprint() == 0 ||
       !RecoveredGameServices_ArtefactAttributesReady() ||
       !RecoveredGameServices_SmokeAttributesReady() ||
       !RecoveredGameServices_SmokeSubjectReady() ||
@@ -3124,6 +3280,28 @@ int main(int argc, char** argv) {
     return Fail("F1 Taxi handoff/panel/post-transition drive failed");
   }
 
+  if (!ExerciseSafeVehicleExitAndReentry()) {
+    SRecoveredVehicleEmbodimentTelemetry embodiment = {};
+    const bool inspected =
+        RecoveredGameServices_VehicleEmbodimentTelemetry(&embodiment);
+    std::fprintf(stderr,
+                 "safe embodiment inspected=%d exit=%u safe=%u unsafe=%u "
+                 "taxi=%u orphan=%u reentry=%u/%u panel=%u/%u "
+                 "pending=%d live=%u subscription=%d\n",
+                 inspected ? 1 : 0, embodiment.exitAttempts,
+                 embodiment.safeExitCompletions,
+                 embodiment.unsafeExitCompletions,
+                 embodiment.droppedTaxis, embodiment.droppedOrphans,
+                 embodiment.reentryAttempts, embodiment.reentryCompletions,
+                 embodiment.panelCloseTransitions,
+                 embodiment.panelReopenTransitions, embodiment.exitPending,
+                 embodiment.liveOrphans,
+                 embodiment.hardwareSubscriptionPreserved);
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("safe F1 Vehicle exit/Taxi re-entry failed");
+  }
+
   if (!ExerciseVehiclePrimaryFire()) {
     SRecoveredVehiclePrimaryFireTelemetry fire = {};
     const bool inspected =
@@ -3161,6 +3339,29 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("MouseL Vehicle primary-fire/effect chain failed");
+  }
+
+  if (!ExerciseUnsafeVehicleExitAndOrphanImpact()) {
+    SRecoveredVehicleEmbodimentTelemetry embodiment = {};
+    const bool inspected =
+        RecoveredGameServices_VehicleEmbodimentTelemetry(&embodiment);
+    std::fprintf(stderr,
+                 "unsafe embodiment inspected=%d exit=%u safe=%u unsafe=%u "
+                 "taxi=%u orphan=%u moves=%u impacts=%u explosions=%u "
+                 "smoke=%u renders=%u pending=%d live=%u subscription=%d\n",
+                 inspected ? 1 : 0, embodiment.exitAttempts,
+                 embodiment.safeExitCompletions,
+                 embodiment.unsafeExitCompletions,
+                 embodiment.droppedTaxis, embodiment.droppedOrphans,
+                 embodiment.orphanMoveEvents, embodiment.orphanImpacts,
+                 embodiment.orphanExplosions,
+                 embodiment.orphanSmokeStarts,
+                 embodiment.orphanRenderFrames, embodiment.exitPending,
+                 embodiment.liveOrphans,
+                 embodiment.hardwareSubscriptionPreserved);
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("unsafe F1 Vehicle exit/Orphan impact failed");
   }
 
   KR_Event unsupported;
@@ -3473,6 +3674,7 @@ int main(int argc, char** argv) {
                "taxi_lifecycle=1/1/1/1/2 "
                "taxi_vehicle=%d/%d/%d/%d/%d/%d/%d/%d "
                "taxi_handoff=F1-nearest-panel-drive-rollback "
+               "vehicle_embodiment=F1-safe-Taxi-reentry-unsafe-Orphan-impact-rollback "
                "vehicle_fire=MouseL-Bullet-impact-visual-sound-focus-rollback "
                "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
