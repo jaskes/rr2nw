@@ -2518,3 +2518,43 @@ events will copy the already resolved panel pointer through the original
 `setVehicleAttr()` boundary. Opening/drawing that viewport is deliberately the
 next live Taxi/change-vehicle slice, not an implicit side effect of reference
 publication.
+
+## BD-068: execute retail SET_TAXI and make vehicle changes transactional
+
+Status: accepted on 2026-07-29.
+
+Taxi subjects are created from each Level's real `SCINC\SET_TAXI.SCI`; the
+runtime does not synthesize a common roster. Admission strips comments, finds
+the variable assigned by `s_AddClassTable("Taxi", capacity)`, counts only calls
+using that variable, and accepts the observed May capacity/count pairs. This is
+necessary because 02D, 02N and 03N use `nTaxiCTID` while the other scripts use
+`ctID`. The executable callback confirms event 5018 and the payload ordering
+ObjectID, x, z, negative-y, angle. Unknown shapes fail before the Level is
+published.
+
+The original change-vehicle sequence removed the Taxi while later work could
+still fail. The recovered boundary therefore resolves all interfaces and the
+target VehicleAttr, validates the vessel implementation, and changes the
+Vehicle before removing the Taxi. `setVehicleAttr()` returns failure and keeps
+the previous vehicle state for missing attributes or unsupported vessel types.
+The admission probe invokes the same boundary, verifies attribute/pose/payload
+transfer and Taxi removal, and then restores the exact Vehicle and Taxi state.
+It also proves that a NUL target cannot mutate the Vehicle. Level 06N contains
+no Taxi objects, so its accepted result is one rejected invalid target and one
+rollback with no transfer counters.
+
+F1 maps to `CHANGE_VEHICLE`. The recovered Hardware adapter remains the single
+input subscriber while a legacy panel is closed and opened; panel viewport
+ownership still changes normally. Source-only tests publish Taxi attributes
+but defer subjects when no Skin model catalog exists. This keeps CI honest
+about its assets while retail service tests cover the complete path.
+
+Verification passes 51/51 CTest in Debug and Release. The Release retail
+matrix passes 18/18 Levels across the installed `E:` tree and mounted `G:`
+tree; every non-empty roster reports all eight transition counters as one,
+while 06N reports the expected empty `0/1/0/0/0/0/0/1` transaction. Debug
+reaches the same Taxi result on all 18 paths; two unrelated frame-sensitive
+Bullet barrel-smoke visibility checks required one immediate rerun and then
+passed. Debug and Release `rr2nw.exe --runtime-smoke` both select Level.05D,
+publish 66/100 Taxi with fingerprint `17059619840418952929`, report zero
+service issues, reach `level-ready` and shut down cleanly.

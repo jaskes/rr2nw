@@ -39,6 +39,7 @@
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
 #include "obase/taxi/Taxi.h"
+#include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
 #include "obase/sound/SoundObjectState.h"
@@ -243,6 +244,7 @@ int Fail(const char* message) {
       "farter=%d lamp=%d corpse=%d corpse_subject=%d "
       "wav=%d sound=%d skin=%d spark=%d "
       "route=%d vehicle=%d vehicle_move=%d "
+      "taxi_subject=%d taxi_shape=%d/%d/%d taxi_transition=%d/%d/%d/%d/%d/%d/%d/%d/%d "
       "arena_issues=%llu arena_extended_issues=%llu arena_error=%s "
       "level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
@@ -285,6 +287,19 @@ int Fail(const char* message) {
       RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
       RecoveredGameServices_VehicleMovementReady() ? 1 : 0,
+      RecoveredGameServices_TaxiSubjectReady() ? 1 : 0,
+      RecoveredArenaSeance_TaxiSubjectCount(),
+      RecoveredArenaSeance_TaxiSubjectCapacity(),
+      RecoveredArenaSeance_TaxiSubjectSoundCount(),
+      RecoveredGameServices_TaxiVehicleTransitionReady() ? 1 : 0,
+      RecoveredGameServices_TaxiVehicleProbeAvailableTaxis(),
+      RecoveredGameServices_TaxiVehicleProbeInvalidTargets(),
+      RecoveredGameServices_TaxiVehicleProbeTransitions(),
+      RecoveredGameServices_TaxiVehicleProbeAttributeTransfers(),
+      RecoveredGameServices_TaxiVehicleProbePoseTransfers(),
+      RecoveredGameServices_TaxiVehicleProbePayloadTransfers(),
+      RecoveredGameServices_TaxiVehicleProbeRemovedTaxis(),
+      RecoveredGameServices_TaxiVehicleProbeRollbacks(),
       RecoveredArenaSeance_Issues(), RecoveredArenaSeance_ExtendedIssues(),
       RecoveredArenaSeance_LastError(),
       RecoveredGameLevel_IsReady() ? 1 : 0,
@@ -404,12 +419,34 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
          RecoveredArenaSeance_VehicleAttributeFingerprint() == 0 &&
          RecoveredArenaSeance_VehicleReferenceFingerprint() == 0 &&
-         !RecoveredGameServices_TaxiAttributesReady() &&
-         !RecoveredGameServices_TaxiReferencesReady() &&
-         RecoveredArenaSeance_TaxiAttributeCount() == -1 &&
-         RecoveredArenaSeance_TaxiAttributeCapacity() == 0 &&
-         RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 &&
-         RecoveredArenaSeance_TaxiReferenceFingerprint() == 0 &&
+          !RecoveredGameServices_TaxiAttributesReady() &&
+          !RecoveredGameServices_TaxiReferencesReady() &&
+          !RecoveredGameServices_TaxiSubjectReady() &&
+          RecoveredArenaSeance_TaxiAttributeCount() == -1 &&
+          RecoveredArenaSeance_TaxiAttributeCapacity() == 0 &&
+          RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 &&
+          RecoveredArenaSeance_TaxiReferenceFingerprint() == 0 &&
+          RecoveredArenaSeance_TaxiSubjectCapacity() == 0 &&
+          RecoveredArenaSeance_TaxiSubjectCount() == 0 &&
+          RecoveredArenaSeance_TaxiSubjectSoundCount() == 0 &&
+          RecoveredArenaSeance_TaxiSubjectFingerprint() == 0 &&
+          RecoveredArenaSeance_TaxiProbeInvalidStarts() == 0 &&
+          RecoveredArenaSeance_TaxiProbeValidStarts() == 0 &&
+          RecoveredArenaSeance_TaxiProbeRenderReady() == 0 &&
+          RecoveredArenaSeance_TaxiProbeSoundReady() == 0 &&
+          RecoveredArenaSeance_TaxiProbeRollbacks() == 0 &&
+          TaxiSubjectState_Capacity() == 0 &&
+          TaxiSubjectState_LiveCount() == 0 &&
+          TaxiSubjectState_SoundCount() == 0 &&
+          !RecoveredGameServices_TaxiVehicleTransitionReady() &&
+          RecoveredGameServices_TaxiVehicleProbeAvailableTaxis() == -1 &&
+          RecoveredGameServices_TaxiVehicleProbeInvalidTargets() == -1 &&
+          RecoveredGameServices_TaxiVehicleProbeTransitions() == -1 &&
+          RecoveredGameServices_TaxiVehicleProbeAttributeTransfers() == -1 &&
+          RecoveredGameServices_TaxiVehicleProbePoseTransfers() == -1 &&
+          RecoveredGameServices_TaxiVehicleProbePayloadTransfers() == -1 &&
+          RecoveredGameServices_TaxiVehicleProbeRemovedTaxis() == -1 &&
+          RecoveredGameServices_TaxiVehicleProbeRollbacks() == -1 &&
          !RecoveredGameServices_BulletAttributesReady() &&
          !RecoveredGameServices_BulletReferencesReady() &&
          !RecoveredGameServices_BulletSubjectRegistrationReady() &&
@@ -1739,6 +1776,8 @@ int main(int argc, char** argv) {
        !RecoveredGameServices_VehicleReferencesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
+       !RecoveredGameServices_TaxiSubjectReady() ||
+       !RecoveredGameServices_TaxiVehicleTransitionReady() ||
        !RecoveredGameServices_BulletAttributesReady() ||
        !RecoveredGameServices_BulletReferencesReady() ||
        !RecoveredGameServices_BulletSubjectRegistrationReady() ||
@@ -1834,7 +1873,8 @@ int main(int argc, char** argv) {
       SmokeSubjectState_LiveCount() != 0 ||
       SmokerSubjectState_DynLiveCount() != 0 ||
       SoundObjectState_LiveCount() !=
-          RecoveredArenaSeance_FarterScriptObjectCount()) {
+          RecoveredArenaSeance_FarterScriptObjectCount() +
+              RecoveredArenaSeance_TaxiSubjectSoundCount()) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail(
@@ -1920,6 +1960,29 @@ int main(int argc, char** argv) {
   const int taxiRosterSize =
       TaxiAttributeState_RosterSize(g_super.m_context);
   const int taxiCapacity = TaxiAttributeState_Capacity();
+  const int taxiSubjectCapacity =
+      RecoveredArenaSeance_TaxiSubjectCapacity();
+  const int taxiSubjectCount = RecoveredArenaSeance_TaxiSubjectCount();
+  const int taxiSubjectSoundCount =
+      RecoveredArenaSeance_TaxiSubjectSoundCount();
+  const unsigned long long taxiSubjectFingerprint =
+      RecoveredArenaSeance_TaxiSubjectFingerprint();
+  const int taxiVehicleAvailableTaxis =
+      RecoveredGameServices_TaxiVehicleProbeAvailableTaxis();
+  const int taxiVehicleInvalidTargets =
+      RecoveredGameServices_TaxiVehicleProbeInvalidTargets();
+  const int taxiVehicleTransitions =
+      RecoveredGameServices_TaxiVehicleProbeTransitions();
+  const int taxiVehicleAttributeTransfers =
+      RecoveredGameServices_TaxiVehicleProbeAttributeTransfers();
+  const int taxiVehiclePoseTransfers =
+      RecoveredGameServices_TaxiVehicleProbePoseTransfers();
+  const int taxiVehiclePayloadTransfers =
+      RecoveredGameServices_TaxiVehicleProbePayloadTransfers();
+  const int taxiVehicleRemovedTaxis =
+      RecoveredGameServices_TaxiVehicleProbeRemovedTaxis();
+  const int taxiVehicleRollbacks =
+      RecoveredGameServices_TaxiVehicleProbeRollbacks();
   const unsigned long long bulletFingerprint =
       BulletAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long bulletReferenceFingerprint =
@@ -2147,6 +2210,53 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TaxiAttributeFingerprint() != taxiFingerprint ||
       RecoveredArenaSeance_TaxiReferenceFingerprint() !=
           taxiReferenceFingerprint ||
+      !RecoveredGameServices_TaxiSubjectReady() ||
+      TaxiSubjectState_Capacity() != taxiSubjectCapacity ||
+      TaxiSubjectState_LiveCount() != taxiSubjectCount ||
+      TaxiSubjectState_SoundCount() != taxiSubjectSoundCount ||
+      TaxiSubjectState_Fingerprint(g_super.m_context) !=
+          taxiSubjectFingerprint ||
+      RecoveredArenaSeance_TaxiSubjectCapacity() != taxiSubjectCapacity ||
+      RecoveredArenaSeance_TaxiSubjectCount() != taxiSubjectCount ||
+      RecoveredArenaSeance_TaxiSubjectSoundCount() != taxiSubjectSoundCount ||
+      RecoveredArenaSeance_TaxiSubjectFingerprint() !=
+          taxiSubjectFingerprint ||
+      !RecoveredGameServices_TaxiVehicleTransitionReady() ||
+      RecoveredGameServices_TaxiVehicleProbeAvailableTaxis() !=
+          taxiVehicleAvailableTaxis ||
+      RecoveredGameServices_TaxiVehicleProbeInvalidTargets() !=
+          taxiVehicleInvalidTargets ||
+      RecoveredGameServices_TaxiVehicleProbeTransitions() !=
+          taxiVehicleTransitions ||
+      RecoveredGameServices_TaxiVehicleProbeAttributeTransfers() !=
+          taxiVehicleAttributeTransfers ||
+      RecoveredGameServices_TaxiVehicleProbePoseTransfers() !=
+          taxiVehiclePoseTransfers ||
+      RecoveredGameServices_TaxiVehicleProbePayloadTransfers() !=
+          taxiVehiclePayloadTransfers ||
+      RecoveredGameServices_TaxiVehicleProbeRemovedTaxis() !=
+          taxiVehicleRemovedTaxis ||
+      RecoveredGameServices_TaxiVehicleProbeRollbacks() !=
+          taxiVehicleRollbacks ||
+      !TaxiSubjectState_IsKnownRetailRoster(g_super.m_context) ||
+      TaxiSubjectState_Capacity() != taxiSubjectCapacity ||
+      TaxiSubjectState_LiveCount() != taxiSubjectCount ||
+      TaxiSubjectState_SoundCount() != taxiSubjectSoundCount ||
+      TaxiSubjectState_Fingerprint(g_super.m_context) !=
+          taxiSubjectFingerprint ||
+      taxiSubjectFingerprint == 0 ||
+      RecoveredArenaSeance_TaxiProbeInvalidStarts() != 1 ||
+      RecoveredArenaSeance_TaxiProbeValidStarts() != 1 ||
+      RecoveredArenaSeance_TaxiProbeRenderReady() != 1 ||
+      RecoveredArenaSeance_TaxiProbeSoundReady() != 1 ||
+      RecoveredArenaSeance_TaxiProbeRollbacks() != 2 ||
+      taxiVehicleInvalidTargets != 1 || taxiVehicleRollbacks != 1 ||
+      taxiVehicleAvailableTaxis != (taxiSubjectCount == 0 ? 0 : 1) ||
+      taxiVehicleTransitions != (taxiSubjectCount == 0 ? 0 : 1) ||
+      taxiVehicleAttributeTransfers != (taxiSubjectCount == 0 ? 0 : 1) ||
+      taxiVehiclePoseTransfers != (taxiSubjectCount == 0 ? 0 : 1) ||
+      taxiVehiclePayloadTransfers != (taxiSubjectCount == 0 ? 0 : 1) ||
+      taxiVehicleRemovedTaxis != (taxiSubjectCount == 0 ? 0 : 1) ||
       bulletFingerprint == 0 || bulletReferenceFingerprint == 0 ||
       bulletRosterSize < 3 || bulletRosterSize > 15 ||
       bulletCapacity != bulletRosterSize ||
@@ -2235,7 +2345,8 @@ int main(int argc, char** argv) {
       !RecoveredArenaSeance_SoundDistanceReady() ||
       RecoveredArenaSeance_SoundDistance() != 300.0 ||
       RecoveredArenaSeance_SoundDistanceSquared() != 90000.0 ||
-      SoundObjectState_LiveCount() != farterScriptObjectCount ||
+      SoundObjectState_LiveCount() !=
+          farterScriptObjectCount + taxiSubjectSoundCount ||
       skinModelCount < 26 ||
       skinModelCount > 52 || skinSpriteCount != 1 ||
       skinCatalogFingerprint == 0 || skinResourceFingerprint == 0 ||
@@ -2747,6 +2858,34 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TaxiAttributeFingerprint() != taxiFingerprint ||
       RecoveredArenaSeance_TaxiReferenceFingerprint() !=
           taxiReferenceFingerprint ||
+      !RecoveredGameServices_TaxiSubjectReady() ||
+      TaxiSubjectState_Capacity() != taxiSubjectCapacity ||
+      TaxiSubjectState_LiveCount() != taxiSubjectCount ||
+      TaxiSubjectState_SoundCount() != taxiSubjectSoundCount ||
+      TaxiSubjectState_Fingerprint(g_super.m_context) !=
+          taxiSubjectFingerprint ||
+      RecoveredArenaSeance_TaxiSubjectCapacity() != taxiSubjectCapacity ||
+      RecoveredArenaSeance_TaxiSubjectCount() != taxiSubjectCount ||
+      RecoveredArenaSeance_TaxiSubjectSoundCount() != taxiSubjectSoundCount ||
+      RecoveredArenaSeance_TaxiSubjectFingerprint() !=
+          taxiSubjectFingerprint ||
+      !RecoveredGameServices_TaxiVehicleTransitionReady() ||
+      RecoveredGameServices_TaxiVehicleProbeAvailableTaxis() !=
+          taxiVehicleAvailableTaxis ||
+      RecoveredGameServices_TaxiVehicleProbeInvalidTargets() !=
+          taxiVehicleInvalidTargets ||
+      RecoveredGameServices_TaxiVehicleProbeTransitions() !=
+          taxiVehicleTransitions ||
+      RecoveredGameServices_TaxiVehicleProbeAttributeTransfers() !=
+          taxiVehicleAttributeTransfers ||
+      RecoveredGameServices_TaxiVehicleProbePoseTransfers() !=
+          taxiVehiclePoseTransfers ||
+      RecoveredGameServices_TaxiVehicleProbePayloadTransfers() !=
+          taxiVehiclePayloadTransfers ||
+      RecoveredGameServices_TaxiVehicleProbeRemovedTaxis() !=
+          taxiVehicleRemovedTaxis ||
+      RecoveredGameServices_TaxiVehicleProbeRollbacks() !=
+          taxiVehicleRollbacks ||
       BulletAttributeState_Fingerprint(g_super.m_context) !=
           bulletFingerprint ||
       BulletAttributeState_RosterSize(g_super.m_context) !=
@@ -2841,7 +2980,8 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SoundObjectCapacity() != soundObjectCapacity ||
       RecoveredArenaSeance_SoundObjectFingerprint() !=
           soundObjectFingerprint ||
-      SoundObjectState_LiveCount() != farterScriptObjectCount ||
+      SoundObjectState_LiveCount() !=
+          farterScriptObjectCount + taxiSubjectSoundCount ||
       FarterAttributeState_Fingerprint(g_super.m_context) !=
           farterFingerprint ||
       FarterAttributeState_RosterSize(g_super.m_context) !=
@@ -2943,9 +3083,12 @@ int main(int argc, char** argv) {
               "vehicle_control=Hardware-exclusive-26/11/13/0 "
               "vehicle_focus=loss/gain-1/1 release=1 suppressed=2 stop=X "
               "vehicle_world=%u/%u/%u/%u "
-              "vehicle_frames=42 dropped>=1 camera=Vehicle.Default fallback=0 "
-              "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
-              "bullet_attrs=%d/%d bullet_fingerprint=%llu "
+               "vehicle_frames=42 dropped>=1 camera=Vehicle.Default fallback=0 "
+               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
+               "taxi_subject=%d/%d sound=%d fingerprint=%llu "
+               "taxi_lifecycle=1/1/1/1/2 "
+               "taxi_vehicle=%d/%d/%d/%d/%d/%d/%d/%d "
+               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
               "bullet_subject=0/%d-ballistic-collision-impact-ground-waterline-barrel-smoke "
                "bullet_subject_fingerprint=%llu bullet_probe_moves=2 "
@@ -3020,9 +3163,15 @@ int main(int argc, char** argv) {
                 vehicleDriveTelemetry.staticCollisionFrames,
                 vehicleDriveTelemetry.landCollisionFrames,
                 vehicleDriveTelemetry.dynamicCollisionFrames,
-                taxiRosterSize, taxiCapacity, taxiFingerprint,
-                taxiReferenceFingerprint,
-                bulletRosterSize, bulletCapacity, bulletFingerprint,
+                 taxiRosterSize, taxiCapacity, taxiFingerprint,
+                 taxiReferenceFingerprint,
+                 taxiSubjectCount, taxiSubjectCapacity,
+                 taxiSubjectSoundCount, taxiSubjectFingerprint,
+                 taxiVehicleAvailableTaxis, taxiVehicleInvalidTargets,
+                 taxiVehicleTransitions, taxiVehicleAttributeTransfers,
+                 taxiVehiclePoseTransfers, taxiVehiclePayloadTransfers,
+                 taxiVehicleRemovedTaxis, taxiVehicleRollbacks,
+                 bulletRosterSize, bulletCapacity, bulletFingerprint,
                 bulletReferenceFingerprint, bulletSubjectCapacity,
                 bulletSubjectFingerprint,
               smokerRosterSize, smokerCapacity, smokerFingerprint,

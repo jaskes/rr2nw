@@ -477,6 +477,7 @@ bool VehicleRuntimeState_ApplyControlAt(
     case TURN_LEFT:
     case TURN_RIGHT:
     case STOP_VEHICLE:
+    case CHANGE_VEHICLE:
         break;
     default:
         g_lastControlFailure = 4;

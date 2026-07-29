@@ -8,6 +8,14 @@
 #include "game.h"
 #include "scene.h"
 #include "Taxi.h"
+#include "TaxiSubjectState.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <new>
+#include <string>
+#include <vector>
 
 #include "kernel/h/context.h"
 #include "kernel/h/echo.h"
@@ -28,6 +36,14 @@
 
 static void AnimateCallBack1(CViewObjectBaseSet *,CViewObjectBase *pBase,CViewObjectRef *ref);
 static void AnimateCallBack2(CViewObjectBaseSet *,CViewObjectBase *pBase,CViewObjectRef *ref);
+
+namespace {
+
+const unsigned long long kTaxiSubjectHashOffset = 14695981039346656037ull;
+const unsigned long long kTaxiSubjectHashPrime = 1099511628211ull;
+int g_taxiSubjectCapacity = 0;
+
+}
 
 
  //===========================================================================
@@ -67,7 +83,9 @@ bool TaxiTable::isAudible()
 
 
 static TaxiTable  __classTable;
+#ifndef RR2NW_TAXI_ATTRIBUTE_STATE_EXTERNAL
 AttributeTableTaxi __attrTaxiTable;
+#endif
 
  /*********************************
   *
@@ -77,9 +95,17 @@ AttributeTableTaxi __attrTaxiTable;
 
  //============================================================
 Taxi::Taxi()
-    : m_viewDynObj(m_skin)     
+    : m_viewDynObj(m_skin)
  {
+    m_taxiAttrID = KR_ObjectID::NUL();
+    m_snd = KR_ObjectID::NUL();
+    m_ctsndID = ct_NULLID;
+    m_damage = 0.0;
+    m_bulletCnt = 0;
+    m_taxiDir.LoadIdentity();
     m_attr = 0;//&__defaultAttr;
+    m_askin = 0;
+    m_wav = 0;
  }
 
  //============================================================
@@ -109,8 +135,10 @@ void Taxi::setPosition ( const CFVector3 &pos )
 	}
 }
 
-void Taxi::onExitAudibleZone(double ts) 
+void Taxi::onExitAudibleZone(double ts)
 {
+	if (!std::isfinite(ts) || ts < 0.1)
+		ts = 0.1;
 
         if(  !m_snd.isNUL()  )
         {  
@@ -123,8 +151,10 @@ void Taxi::onExitAudibleZone(double ts)
          }
 }
 
-void Taxi::onEnterAudibleZone(double ts) 
+void Taxi::onEnterAudibleZone(double ts)
 {
+	if (!std::isfinite(ts) || ts < 0.1)
+		ts = 0.1;
 
         // Sound
          if(  !m_snd.isNUL() )
@@ -144,14 +174,23 @@ void Taxi::onEnterAudibleZone(double ts)
 
 
 
-void Taxi::setTaxiAttr()
+bool Taxi::setTaxiAttr()
 {
         ct_Attribute *attr = __attrTaxiTable.searchAttribute(m_taxiAttrID);
         if( attr==NULL )
+        {
+             const char *name = context == NULL ? NULL :
+                                context->searchObject(m_taxiAttrID);
              echo( "Taxi::receiveEvent: Unknown attribute %s",
-                   context->searchObject(m_taxiAttrID));
-        else 
-			m_attr = (AttributeTaxi*)attr;
+                   name == NULL ? "<unknown>" : name);
+             m_attr = NULL;
+             return false;
+        }
+        m_attr = (AttributeTaxi*)attr;
+
+        if (m_attr->m_cacheSkin == NULL || m_attr->m_skinID.isNUL() ||
+            m_attr->m_attrForVehicle.isNUL())
+            return false;
 
         m_skin.Attach(m_attr->m_cacheSkin);
 		m_skin.GetDirModify().LoadIdentity();
@@ -164,6 +203,8 @@ void Taxi::setTaxiAttr()
 			m_skin.SetAnimationCallback(AnimateCallBack2); 
 
 	m_askin = (ISkin*)(context->queryInterface(m_attr->m_skinID, ISkinIID));
+        if (m_askin == NULL)
+            return false;
         if( m_askin->isAutoAnim()  )
             m_askin->skinSetAnimAuto(&m_skin);
 
@@ -174,8 +215,12 @@ void Taxi::setTaxiAttr()
 			attr =__attrVehicleTable.searchAttribute(vehicleAttrID);
 			
 			if( attr==NULL )
+			{
+				const char *name = context == NULL ? NULL :
+				                   context->searchObject(vehicleAttrID);
 				echo( "Vehicle::receiveEvent: Unknown attribute %s",
-				context->searchObject(vehicleAttrID));
+				      name == NULL ? "<unknown>" : name);
+			}
 			else 
 			{
 				AttributeVehicle * vehicleAttr = (AttributeVehicle *) attr;
@@ -200,6 +245,7 @@ void Taxi::setTaxiAttr()
 			}	// attribute found
 		} // buzzing
 
+        return m_skin.Model() != NULL;
 }
 
  //============================================================
@@ -229,13 +275,13 @@ int Taxi::receiveEvent( KR_Event &event )
 
              if( 
                  checkCollision( 
-                     from,    // начало движения
-                     toDir,    // напрвление со скоростью
-                     1,                        //g_walkAttr0.fRadius,      // радиус
-                     500,                        // время для проверки
-                     getObjectID(),  // кого игнорировать
-                     clzTime,                   // время, через которое стукнемся
-                     oID                        // объект, о который стукнемся
+                     from,    // РЅР°С‡Р°Р»Рѕ РґРІРёР¶РµРЅРёСЏ
+                     toDir,    // РЅР°РїСЂРІР»РµРЅРёРµ СЃРѕ СЃРєРѕСЂРѕСЃС‚СЊСЋ
+                     1,                        //g_walkAttr0.fRadius,      // СЂР°РґРёСѓСЃ
+                     500,                        // РІСЂРµРјСЏ РґР»СЏ РїСЂРѕРІРµСЂРєРё
+                     getObjectID(),  // РєРѕРіРѕ РёРіРЅРѕСЂРёСЂРѕРІР°С‚СЊ
+                     clzTime,                   // РІСЂРµРјСЏ, С‡РµСЂРµР· РєРѕС‚РѕСЂРѕРµ СЃС‚СѓРєРЅРµРјСЃСЏ
+                     oID                        // РѕР±СЉРµРєС‚, Рѕ РєРѕС‚РѕСЂС‹Р№ СЃС‚СѓРєРЅРµРјСЃСЏ
                    ))
              {
                    KR_Event ev;
@@ -266,7 +312,8 @@ int Taxi::receiveEvent( KR_Event &event )
                                 .getInt   (m_bulletCnt)
 				.close();
 			
-			setTaxiAttr();
+			if (!setTaxiAttr())
+				return 0;
 			
 			
 			SBumpDef def;
@@ -327,7 +374,8 @@ int Taxi::receiveEvent( KR_Event &event )
 				.getDouble(pos.z)
 				.close();
 			
-			setTaxiAttr();
+			if (!setTaxiAttr())
+				return 0;
 			
 			m_damage = m_attr->m_initialDamage;
 			
@@ -344,28 +392,28 @@ int Taxi::receiveEvent( KR_Event &event )
 			
 			if( 
 				checkCollision( 
-				from,    // начало движения
-				toDir,    // напрвление со скоростью
-				1,                        //g_walkAttr0.fRadius,      // радиус
-				500,                        // время для проверки
-				ignored,  // кого игнорировать
-				clzTime,                   // время, через которое стукнемся
-				oID                        // объект, о который стукнемся
+				from,    // РЅР°С‡Р°Р»Рѕ РґРІРёР¶РµРЅРёСЏ
+				toDir,    // РЅР°РїСЂРІР»РµРЅРёРµ СЃРѕ СЃРєРѕСЂРѕСЃС‚СЊСЋ
+				1,                        //g_walkAttr0.fRadius,      // СЂР°РґРёСѓСЃ
+				500,                        // РІСЂРµРјСЏ РґР»СЏ РїСЂРѕРІРµСЂРєРё
+				ignored,  // РєРѕРіРѕ РёРіРЅРѕСЂРёСЂРѕРІР°С‚СЊ
+				clzTime,                   // РІСЂРµРјСЏ, С‡РµСЂРµР· РєРѕС‚РѕСЂРѕРµ СЃС‚СѓРєРЅРµРјСЃСЏ
+				oID                        // РѕР±СЉРµРєС‚, Рѕ РєРѕС‚РѕСЂС‹Р№ СЃС‚СѓРєРЅРµРјСЃСЏ
 				))
 			{
 				
-				for( int i = 1; !oID.isNUL(); ++i )
+				for( int i = 1; !oID.isNUL() && i <= 512; ++i )
 				{
 					from = pos+CFVector3(i,500,0);
 					
 					if(  !checkCollision( 
-						from,    // начало движения
-						toDir,    // напрвление со скоростью
-						1,                        //g_walkAttr0.fRadius,      // радиус
-						500,                        // время для проверки
-						ignored,                   // кого игнорировать
-						clzTime,                   // время, через которое стукнемся
-						oID                        // объект, о который стукнемся
+						from,    // РЅР°С‡Р°Р»Рѕ РґРІРёР¶РµРЅРёСЏ
+						toDir,    // РЅР°РїСЂРІР»РµРЅРёРµ СЃРѕ СЃРєРѕСЂРѕСЃС‚СЊСЋ
+						1,                        //g_walkAttr0.fRadius,      // СЂР°РґРёСѓСЃ
+						500,                        // РІСЂРµРјСЏ РґР»СЏ РїСЂРѕРІРµСЂРєРё
+						ignored,                   // РєРѕРіРѕ РёРіРЅРѕСЂРёСЂРѕРІР°С‚СЊ
+						clzTime,                   // РІСЂРµРјСЏ, С‡РµСЂРµР· РєРѕС‚РѕСЂРѕРµ СЃС‚СѓРєРЅРµРјСЃСЏ
+						oID                        // РѕР±СЉРµРєС‚, Рѕ РєРѕС‚РѕСЂС‹Р№ СЃС‚СѓРєРЅРµРјСЃСЏ
 						))
 					{
 						double height;
@@ -394,6 +442,43 @@ int Taxi::receiveEvent( KR_Event &event )
 		}
      break;
 
+    // May retail added taxi_SET_TO_POS immediately after the January
+    // t_EV_SET_ATTR_POS label. The preserved retail nw.exe resolves the
+    // external constant to 0x139A (5018) and consumes ObjectID plus four
+    // doubles: engine-space x/y/z and horizontal angle.
+    case 0x139A:
+		{
+			double hAngle = 0.0;
+			event.data.open(EDO_READ)
+				.getObjectID(m_taxiAttrID)
+				.getDouble(pos.x)
+				.getDouble(pos.y)
+				.getDouble(pos.z)
+				.getDouble(hAngle)
+				.close();
+			if (!std::isfinite(pos.x) || !std::isfinite(pos.y) ||
+				!std::isfinite(pos.z) || !std::isfinite(hAngle) ||
+				!setTaxiAttr())
+				return 0;
+
+			m_damage = m_attr->m_initialDamage;
+			m_taxiDir.LoadIdentity().RotateOyL(hAngle);
+			SetDir(m_taxiDir);
+
+			SBumpDef def;
+			def.start = pos;
+			def.vel = CFVector3(0,-100,0);
+			def.fRadius = 1.0;
+			def.nBumpFlags = 0;
+			def.fMass = 1.0;
+			def.fTime = 500.0;
+			if (ZAV_Scene() != NULL && ZAV_Scene()->Order() != NULL &&
+				ZAV_Scene()->Order()->Bump(def))
+				pos += def.vel * def.fTime;
+			setPosition(pos);
+		}
+		break;
+
     default: return 0;
     }
     return 1;
@@ -408,6 +493,23 @@ void Taxi::addNotify()
     m_bulletCnt = g_levelAttr.m_maxSecBulletCnt;
  }
 
+bool Taxi::runtimeReady() const
+{
+    KR_ObjectID taxiAttribute = m_taxiAttrID;
+    KR_ObjectID skin = m_attr == NULL ? KR_ObjectID::NUL()
+                                      : m_attr->m_skinID;
+    KR_ObjectID vehicleAttribute =
+        m_attr == NULL ? KR_ObjectID::NUL()
+                       : m_attr->m_attrForVehicle;
+    KR_ObjectID sound = m_snd;
+    return context != NULL && m_attr != NULL &&
+           m_attr->m_cacheSkin != NULL && !taxiAttribute.isNUL() &&
+           !skin.isNUL() && !vehicleAttribute.isNUL() &&
+           m_skin.Model() != NULL && m_askin != NULL &&
+           std::isfinite(m_damage) &&
+           (!m_attr->m_buzzing || (m_wav != NULL && !sound.isNUL()));
+}
+
  //============================================================
 void Taxi::removeNotify()
  {
@@ -415,7 +517,14 @@ void Taxi::removeNotify()
          context->removeObject( m_snd );
 
     ct_Subject::removeNotify();
-    // insert your code this
+    // Pooled Taxi slots are reused. Never let a failed later start remove a
+    // SoundObj whose numeric ObjectID has already been recycled.
+    m_snd = KR_ObjectID::NUL();
+    m_ctsndID = ct_NULLID;
+    m_wav = NULL;
+    m_askin = NULL;
+    m_attr = NULL;
+    m_audibleThisFrame = 0;
  }
 
  //============================================================
@@ -432,10 +541,15 @@ void Taxi::draw()
  //============================================================
 void TaxiTable::allocObjects( int objectQnty )
  {
-    m_table = new Taxi[ objectQnty ];
+    m_table = new (std::nothrow) Taxi[ objectQnty ];
 
     if(  m_table == NULL  )
+    {
          m_maxObjectQnty = 0;
+         g_taxiSubjectCapacity = 0;
+    }
+    else
+         g_taxiSubjectCapacity = objectQnty;
  }
 
  //============================================================
@@ -444,12 +558,13 @@ void TaxiTable::freeObjects()
     delete [] m_table;
     m_table = NULL;
     m_maxObjectQnty = 0;
+    g_taxiSubjectCapacity = 0;
  }
 
  //============================================================
 ct_Object *TaxiTable::getObjectPTR( int index )
  {
-    s_ASSERT( index >= 0 && index <= m_maxObjectQnty ,"TaxiTable::getObjectPTR");
+    s_ASSERT( index >= 0 && index < m_maxObjectQnty ,"TaxiTable::getObjectPTR");
     return &(m_table[ index ]);
  }
 
@@ -458,6 +573,8 @@ ct_Object *TaxiTable::getObjectPTR( int index )
   *   AttributeTable implementation
   *
   *************************************/
+
+#ifndef RR2NW_TAXI_ATTRIBUTE_STATE_EXTERNAL
 
  //============================================================
 void AttributeTableTaxi::allocObjects( int objectQnty )
@@ -482,6 +599,8 @@ ct_Object *AttributeTableTaxi::getObjectPTR( int index )
     s_ASSERT(index>=0 && index <m_maxObjectQnty,"AttributeTable::getObjectPTR");
     return &(m_table[ index ]);
  }
+
+#endif
 
 
  //============================================================
@@ -515,6 +634,7 @@ CFVector3  Taxi::realPosition() {  return getPosition();  }
  //============================================================
 
 
+#ifndef RR2NW_TAXI_ATTRIBUTE_STATE_EXTERNAL
 void AttributeTaxi::update(double ts)
 {
 
@@ -546,6 +666,8 @@ void AttributeTaxi::update(double ts)
 
 }
 
+#endif
+
 
 
 
@@ -576,31 +698,31 @@ CFVector3  Taxi::getUpVector ()
 }
 
  //============================================================
-CFVector3  Taxi::getCenter   () // Относительно 0 объекта
+CFVector3  Taxi::getCenter   () // РћС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ 0 РѕР±СЉРµРєС‚Р°
 {
     return m_skin.Model()->Center();
 }
 
  //============================================================
-double     Taxi::getRadius   () // Относительно центра
+double     Taxi::getRadius   () // РћС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ С†РµРЅС‚СЂР°
 {
     return m_skin.Model()->Radius();
 }
 
  //============================================================
-double     Taxi::getRadius0  () // Относительно 0 объекта
+double     Taxi::getRadius0  () // РћС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ 0 РѕР±СЉРµРєС‚Р°
 {
     return m_skin.Model()->Radius0();
 }
 
  //============================================================
-CFVector3  Taxi::getMoveDir  () // Направление движения
+CFVector3  Taxi::getMoveDir  () // РќР°РїСЂР°РІР»РµРЅРёРµ РґРІРёР¶РµРЅРёСЏ
 {
     return CFVector3(0,1,0);
 }
 
  //============================================================
-double     Taxi::getMoveSpeed() // Скорость
+double     Taxi::getMoveSpeed() // РЎРєРѕСЂРѕСЃС‚СЊ
 {
     return 0;
 }
@@ -614,7 +736,7 @@ void      Taxi::getMatrix   ( CFMatrix3x4 &m )
 
     // IUnit interface
  //============================================================
-double Taxi::getPower() // Сила юнита 0..10
+double Taxi::getPower() // РЎРёР»Р° СЋРЅРёС‚Р° 0..10
 {
     return 0.0;
 }
@@ -626,7 +748,7 @@ int    Taxi::isFriend( const KR_ObjectID & )
 }
 
  //============================================================
-double Taxi::getDamage() // Целостность от 0..1
+double Taxi::getDamage() // Р¦РµР»РѕСЃС‚РЅРѕСЃС‚СЊ РѕС‚ 0..1
 {
     return m_damage;
 }
@@ -739,9 +861,557 @@ void	Taxi::loadNotify()
 {
 	ct_Subject::loadNotify();
 	setTaxiAttr();
-	SetDir(m_taxiDir);		
+	SetDir(m_taxiDir);
 	CFVector3 pos = getPosition();
 	setPosition(pos);
+}
+
+namespace {
+
+struct TaxiSubjectRecord
+{
+    KR_ObjectID object;
+    Taxi *taxi;
+    std::string taxiAttribute;
+    std::string vehicleAttribute;
+};
+
+struct TaxiSubjectCollector
+{
+    SimulationContext *context;
+    std::vector<TaxiSubjectRecord> records;
+    bool valid;
+};
+
+void TaxiSubjectHashBytes(unsigned long long &hash,
+                          const void *data, int size)
+{
+    const unsigned char *bytes = static_cast<const unsigned char *>(data);
+    for (int index = 0; index < size; ++index)
+    {
+        hash ^= bytes[index];
+        hash *= kTaxiSubjectHashPrime;
+    }
+}
+
+void TaxiSubjectHashString(unsigned long long &hash, const char *value)
+{
+    if (value == NULL)
+        value = "";
+    TaxiSubjectHashBytes(hash, value,
+                         static_cast<int>(std::strlen(value)) + 1);
+}
+
+void TaxiSubjectHashVector(unsigned long long &hash,
+                           const CFVector3 &value)
+{
+    TaxiSubjectHashBytes(hash, &value.x, sizeof(value.x));
+    TaxiSubjectHashBytes(hash, &value.y, sizeof(value.y));
+    TaxiSubjectHashBytes(hash, &value.z, sizeof(value.z));
+}
+
+void TaxiSubjectHashMatrix(unsigned long long &hash,
+                           const CFMatrix3x4 &value)
+{
+    TaxiSubjectHashVector(hash, value.Row(0));
+    TaxiSubjectHashVector(hash, value.Row(1));
+    TaxiSubjectHashVector(hash, value.Row(2));
+    TaxiSubjectHashVector(hash, value.Offset());
+}
+
+Taxi *ResolveTaxi(SimulationContext *context, const KR_ObjectID &object)
+{
+    KR_ObjectID candidate = object;
+    if (context == NULL || candidate.isNUL() ||
+        !context->isExist(object))
+        return NULL;
+    ITaxi *taxiInterface = static_cast<ITaxi *>(
+        context->queryInterface(object, ITaxiIID));
+    return taxiInterface == NULL
+               ? NULL
+               : dynamic_cast<Taxi *>(taxiInterface);
+}
+
+bool CollectTaxiSubject(const KR_ObjectID object, void *user)
+{
+    TaxiSubjectCollector *collector =
+        static_cast<TaxiSubjectCollector *>(user);
+    Taxi *taxi = ResolveTaxi(collector->context, object);
+    const char *taxiAttribute =
+        taxi == NULL ? NULL : collector->context->searchObject(
+                                  taxi->taxiAttributeID());
+    const char *vehicleAttribute =
+        taxi == NULL ? NULL : collector->context->searchObject(
+                                  taxi->getAttributeForVehicle());
+    if (taxi == NULL || taxiAttribute == NULL || vehicleAttribute == NULL ||
+        !taxi->runtimeReady())
+    {
+        collector->valid = false;
+        return false;
+    }
+    TaxiSubjectRecord record = {
+        object, taxi, taxiAttribute, vehicleAttribute};
+    collector->records.push_back(record);
+    return true;
+}
+
+bool TaxiSubjectRecordLess(const TaxiSubjectRecord &left,
+                           const TaxiSubjectRecord &right)
+{
+    if (left.taxiAttribute != right.taxiAttribute)
+        return left.taxiAttribute < right.taxiAttribute;
+    const CFVector3 leftPosition = left.taxi->taxiPos();
+    const CFVector3 rightPosition = right.taxi->taxiPos();
+    if (leftPosition.x != rightPosition.x)
+        return leftPosition.x < rightPosition.x;
+    if (leftPosition.y != rightPosition.y)
+        return leftPosition.y < rightPosition.y;
+    if (leftPosition.z != rightPosition.z)
+        return leftPosition.z < rightPosition.z;
+    return left.vehicleAttribute < right.vehicleAttribute;
+}
+
+bool CollectTaxiSubjects(SimulationContext *context,
+                         TaxiSubjectCollector &collector)
+{
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Taxi");
+    if (context == NULL || g_arena.getContext() != context ||
+        table == ct_NULLID || g_taxiSubjectCapacity <= 0)
+        return false;
+    collector.context = context;
+    collector.valid = true;
+    g_arena.userFind(table, CollectTaxiSubject, &collector);
+    if (!collector.valid)
+        return false;
+    std::sort(collector.records.begin(), collector.records.end(),
+              TaxiSubjectRecordLess);
+    return true;
+}
+
+bool CaptureTaxiAttribute(const KR_ObjectID object, void *user)
+{
+    KR_ObjectID *attribute = static_cast<KR_ObjectID *>(user);
+    if (attribute->isNUL())
+        *attribute = object;
+    return false;
+}
+
+bool SendTaxiStart(Taxi *taxi, const KR_ObjectID &attribute,
+                   const CFVector3 &position, double angle,
+                   double timeStamp)
+{
+    if (taxi == NULL)
+        return false;
+    KR_Event event;
+    event.label = 0x139A;
+    event.destination = taxi->getObjectID();
+    event.source = taxi->getObjectID();
+    event.timeStamp = timeStamp;
+    event.data.open(EDO_WRITE)
+              .putObjectID(attribute)
+              .putDouble(position.x)
+              .putDouble(position.y)
+              .putDouble(position.z)
+              .putDouble(angle)
+              .close();
+    return taxi->receiveEvent(event) == 1;
+}
+
+bool TaxiSubjectNearlyEqual(double left, double right,
+                            double tolerance = 1.0e-7)
+{
+    return std::fabs(left - right) <= tolerance;
+}
+
+bool TaxiSubjectNearlyEqual(const CFVector3 &left,
+                            const CFVector3 &right,
+                            double tolerance = 1.0e-7)
+{
+    return TaxiSubjectNearlyEqual(left.x, right.x, tolerance) &&
+           TaxiSubjectNearlyEqual(left.y, right.y, tolerance) &&
+           TaxiSubjectNearlyEqual(left.z, right.z, tolerance);
+}
+
+bool TaxiSubjectNearlyEqual(const CFMatrix3x4 &left,
+                            const CFMatrix3x4 &right,
+                            double tolerance = 1.0e-7)
+{
+    return TaxiSubjectNearlyEqual(left.Row(0), right.Row(0), tolerance) &&
+           TaxiSubjectNearlyEqual(left.Row(1), right.Row(1), tolerance) &&
+           TaxiSubjectNearlyEqual(left.Row(2), right.Row(2), tolerance) &&
+           TaxiSubjectNearlyEqual(left.Offset(), right.Offset(), tolerance);
+}
+
+struct TaxiVehicleSnapshot
+{
+    KR_ObjectID attribute;
+    CFVector3 position;
+    CFVector3 subjectPosition;
+    CFVector3 speed;
+    CFMatrix3x4 direction;
+    double damage;
+    double lastTime;
+    int bullets;
+    int takingTaxi;
+};
+
+bool CaptureTaxiVehicle(Vehicle *vehicle, TaxiVehicleSnapshot *snapshot)
+{
+    if (vehicle == NULL || snapshot == NULL ||
+        vehicle->getContext() == NULL || vehicle->m_vehicleAttrID.isNUL())
+        return false;
+    snapshot->attribute = vehicle->m_vehicleAttrID;
+    snapshot->position = vehicle->Pos();
+    snapshot->subjectPosition = vehicle->getPosition();
+    snapshot->speed = vehicle->Speed();
+    snapshot->direction = vehicle->GetDir();
+    snapshot->damage = vehicle->m_damage;
+    snapshot->lastTime = vehicle->m_lastTime;
+    snapshot->bullets = vehicle->m_secBulletCnt;
+    snapshot->takingTaxi = Vehicle::m_isTakingTaxiNow;
+    return std::isfinite(snapshot->damage) &&
+           std::isfinite(snapshot->lastTime) &&
+           TaxiSubjectNearlyEqual(snapshot->speed,
+                                  CFVector3(0.0, 0.0, 0.0));
+}
+
+bool TaxiVehicleMatches(Vehicle *vehicle,
+                        const TaxiVehicleSnapshot &snapshot)
+{
+    return vehicle != NULL &&
+           vehicle->m_vehicleAttrID == snapshot.attribute &&
+           TaxiSubjectNearlyEqual(vehicle->Pos(), snapshot.position) &&
+           TaxiSubjectNearlyEqual(vehicle->getPosition(),
+                                  snapshot.subjectPosition) &&
+           TaxiSubjectNearlyEqual(vehicle->Speed(), snapshot.speed) &&
+           TaxiSubjectNearlyEqual(vehicle->GetDir(), snapshot.direction) &&
+           TaxiSubjectNearlyEqual(vehicle->m_damage, snapshot.damage) &&
+           TaxiSubjectNearlyEqual(vehicle->m_lastTime, snapshot.lastTime) &&
+           vehicle->m_secBulletCnt == snapshot.bullets &&
+           Vehicle::m_isTakingTaxiNow == snapshot.takingTaxi;
+}
+
+bool RestoreTaxiVehicle(Vehicle *vehicle,
+                        const TaxiVehicleSnapshot &snapshot,
+                        double timeStamp)
+{
+    if (vehicle == NULL)
+        return false;
+    KR_Event event;
+    event.label = KR_SET_ATTR;
+    event.destination = vehicle->getObjectID();
+    event.source = vehicle->getObjectID();
+    event.timeStamp = timeStamp;
+    event.data.open(EDO_WRITE)
+              .putObjectID(snapshot.attribute)
+              .close();
+    vehicle->setAttr(event);
+    if (vehicle->m_vehicleAttrID != snapshot.attribute)
+        return false;
+    vehicle->Restart();
+    vehicle->SetDir(snapshot.direction);
+    vehicle->SetPos(snapshot.position);
+    vehicle->Stop();
+    vehicle->setPosition(snapshot.subjectPosition);
+    vehicle->m_damage = snapshot.damage;
+    vehicle->m_lastTime = snapshot.lastTime;
+    vehicle->m_secBulletCnt = snapshot.bullets;
+    Vehicle::m_isTakingTaxiNow = snapshot.takingTaxi;
+    return TaxiVehicleMatches(vehicle, snapshot);
+}
+
+}  // namespace
+
+void TaxiSubjectState_Link()
+{
+}
+
+bool TaxiSubjectState_TableReady(SimulationContext *context,
+                                 int expectedCapacity)
+{
+    return context != NULL && g_arena.getContext() == context &&
+           expectedCapacity > 0 &&
+           g_taxiSubjectCapacity == expectedCapacity &&
+           g_arena.searchSeanceClassTable("Taxi") != ct_NULLID;
+}
+
+int TaxiSubjectState_Capacity()
+{
+    return g_arena.searchSeanceClassTable("Taxi") == ct_NULLID
+               ? 0
+               : g_taxiSubjectCapacity;
+}
+
+int TaxiSubjectState_LiveCount()
+{
+    TaxiSubjectCollector collector = {};
+    SimulationContext *context = g_arena.getContext();
+    if (!CollectTaxiSubjects(context, collector))
+        return 0;
+    return static_cast<int>(collector.records.size());
+}
+
+int TaxiSubjectState_SoundCount()
+{
+    TaxiSubjectCollector collector = {};
+    if (!CollectTaxiSubjects(g_arena.getContext(), collector))
+        return 0;
+    int count = 0;
+    for (std::size_t index = 0; index < collector.records.size(); ++index)
+        if (!collector.records[index].taxi->m_snd.isNUL())
+            ++count;
+    return count;
+}
+
+bool TaxiSubjectState_AllReady(SimulationContext *context)
+{
+    TaxiSubjectCollector collector = {};
+    return CollectTaxiSubjects(context, collector);
+}
+
+unsigned long long TaxiSubjectState_Fingerprint(
+    SimulationContext *context)
+{
+    TaxiSubjectCollector collector = {};
+    if (!CollectTaxiSubjects(context, collector))
+        return 0;
+    unsigned long long hash = kTaxiSubjectHashOffset;
+    TaxiSubjectHashString(hash, "Taxi");
+    TaxiSubjectHashBytes(hash, &g_taxiSubjectCapacity,
+                         sizeof(g_taxiSubjectCapacity));
+    const int count = static_cast<int>(collector.records.size());
+    TaxiSubjectHashBytes(hash, &count, sizeof(count));
+    for (std::size_t index = 0; index < collector.records.size(); ++index)
+    {
+        Taxi *taxi = collector.records[index].taxi;
+        TaxiSubjectHashString(
+            hash, collector.records[index].taxiAttribute.c_str());
+        TaxiSubjectHashString(
+            hash, collector.records[index].vehicleAttribute.c_str());
+        TaxiSubjectHashVector(hash, taxi->taxiPos());
+        TaxiSubjectHashMatrix(hash, taxi->GetDir());
+        const double damage = taxi->getDamage();
+        const int bullets = taxi->taxiGetBulletCnt();
+        const int sound = taxi->m_snd.isNUL() ? 0 : 1;
+        TaxiSubjectHashBytes(hash, &damage, sizeof(damage));
+        TaxiSubjectHashBytes(hash, &bullets, sizeof(bullets));
+        TaxiSubjectHashBytes(hash, &sound, sizeof(sound));
+    }
+    return hash;
+}
+
+bool TaxiSubjectState_IsKnownRetailRoster(SimulationContext *context)
+{
+    const int capacity = TaxiSubjectState_Capacity();
+    const int count = TaxiSubjectState_LiveCount();
+    if (!TaxiSubjectState_AllReady(context) ||
+        TaxiSubjectState_Fingerprint(context) == 0)
+        return false;
+    return (capacity == 100 &&
+            (count == 20 || count == 35 || count == 38 || count == 66)) ||
+           (capacity == 150 && (count == 28 || count == 93)) ||
+           (capacity == 80 && count == 0) ||
+           (capacity == 20 && count == 1) ||
+           (capacity == 4 && count == 2);
+}
+
+bool TaxiSubjectState_ProbeLifecycle(
+    SimulationContext *context, double timeStamp,
+    STaxiSubjectLifecycleProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Taxi");
+    const int baselineCount = TaxiSubjectState_LiveCount();
+    const int baselineSounds = TaxiSubjectState_SoundCount();
+    const unsigned long long baselineFingerprint =
+        TaxiSubjectState_Fingerprint(context);
+    if (context == NULL || table == ct_NULLID || baselineFingerprint == 0 ||
+        baselineCount >= TaxiSubjectState_Capacity())
+        return false;
+
+    KR_ObjectID attribute = KR_ObjectID::NUL();
+    __attrTaxiTable.userFind(CaptureTaxiAttribute, &attribute);
+    if (attribute.isNUL())
+        return false;
+
+    KR_ObjectID invalid =
+        g_arena.newObject(table, "Taxi.Subject.Invalid.Probe");
+    Taxi *invalidTaxi = ResolveTaxi(context, invalid);
+    const bool invalidRejected =
+        invalidTaxi != NULL &&
+        !SendTaxiStart(invalidTaxi, KR_ObjectID::NUL(),
+                       CFVector3(32.0, 500.0, -32.0), 0.0, timeStamp) &&
+        !invalidTaxi->runtimeReady();
+    if (!invalid.isNUL())
+        context->removeObject(invalid);
+    if (!invalidRejected || TaxiSubjectState_LiveCount() != baselineCount ||
+        TaxiSubjectState_SoundCount() != baselineSounds)
+        return false;
+    summary->invalidStarts = 1;
+
+    KR_ObjectID valid =
+        g_arena.newObject(table, "Taxi.Subject.Valid.Probe");
+    Taxi *validTaxi = ResolveTaxi(context, valid);
+    const bool started =
+        validTaxi != NULL &&
+        SendTaxiStart(validTaxi, attribute,
+                      CFVector3(32.0, 500.0, -32.0), 0.0, timeStamp) &&
+        validTaxi->runtimeReady();
+    if (started)
+    {
+        summary->validStarts = 1;
+        summary->renderReady = validTaxi->m_skin.Model() != NULL ? 1 : 0;
+        summary->soundReady =
+            !validTaxi->m_attr->m_buzzing || !validTaxi->m_snd.isNUL()
+                ? 1
+                : 0;
+    }
+    if (!valid.isNUL())
+        context->removeObject(valid);
+    if (TaxiSubjectState_LiveCount() == baselineCount &&
+        TaxiSubjectState_SoundCount() == baselineSounds &&
+        TaxiSubjectState_Fingerprint(context) == baselineFingerprint)
+        summary->rollbacks = 2;
+    return started && summary->invalidStarts == 1 &&
+           summary->validStarts == 1 && summary->renderReady == 1 &&
+           summary->soundReady == 1 && summary->rollbacks == 2;
+}
+
+bool TaxiSubjectState_ProbeVehicleTransition(
+    SimulationContext *context, const KR_ObjectID &vehicleObject,
+    double timeStamp, STaxiVehicleTransitionProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || g_arena.getContext() != context ||
+        !std::isfinite(timeStamp))
+        return false;
+
+    Vehicle *vehicle = static_cast<Vehicle *>(
+        context->queryInterface(vehicleObject, IVehicleIID));
+    TaxiVehicleSnapshot vehicleBefore = {};
+    if (!CaptureTaxiVehicle(vehicle, &vehicleBefore))
+        return false;
+
+    if (!vehicle->tryTakeTaxi(KR_ObjectID::NUL(), timeStamp, false) &&
+        TaxiVehicleMatches(vehicle, vehicleBefore))
+        summary->invalidTargets = 1;
+    else
+        return false;
+
+    KR_Event invalidAttribute;
+    invalidAttribute.label = KR_SET_ATTR;
+    invalidAttribute.destination = vehicleObject;
+    invalidAttribute.source = vehicleObject;
+    invalidAttribute.timeStamp = timeStamp;
+    invalidAttribute.data.open(EDO_WRITE)
+                         .putObjectID(KR_ObjectID::NUL())
+                         .close();
+    vehicle->setAttr(invalidAttribute);
+    if (!TaxiVehicleMatches(vehicle, vehicleBefore))
+        return false;
+
+    TaxiSubjectCollector collector = {};
+    if (!CollectTaxiSubjects(context, collector))
+        return false;
+    const int baselineCount = static_cast<int>(collector.records.size());
+    const int baselineSounds = TaxiSubjectState_SoundCount();
+    const unsigned long long baselineFingerprint =
+        TaxiSubjectState_Fingerprint(context);
+    if (baselineFingerprint == 0)
+        return false;
+    if (collector.records.empty())
+    {
+        summary->rollbacks = 1;
+        return summary->invalidTargets == 1 &&
+               TaxiVehicleMatches(vehicle, vehicleBefore);
+    }
+
+    summary->availableTaxis = 1;
+    Taxi *taxi = collector.records.front().taxi;
+    const KR_ObjectID taxiObject = collector.records.front().object;
+    const KR_ObjectID taxiAttribute = taxi->taxiAttributeID();
+    const KR_ObjectID vehicleAttribute = taxi->getAttributeForVehicle();
+    const CFVector3 taxiPosition = taxi->taxiPos();
+    const CFMatrix3x4 taxiDirection = taxi->GetDir();
+    const CFMatrix3x4 taxiStoredDirection = taxi->m_taxiDir;
+    const double taxiDamage = taxi->getDamage();
+    const int taxiBullets = taxi->taxiGetBulletCnt();
+    AttributeVehicle *targetAttribute = static_cast<AttributeVehicle *>(
+        __attrVehicleTable.searchAttribute(vehicleAttribute));
+    if (targetAttribute == NULL)
+        return false;
+
+    CFMatrix3x4 expectedDirection;
+    expectedDirection.LoadTransposed(taxiDirection);
+    const CFVector3 expectedPosition =
+        taxiPosition + CFVector3(0.0, targetAttribute->m_bornY, 0.0);
+    const bool transitioned =
+        vehicle->tryTakeTaxi(taxiObject, timeStamp, false);
+    if (transitioned)
+        summary->transitions = 1;
+    if (transitioned && vehicle->m_vehicleAttrID == vehicleAttribute)
+        summary->attributeTransfers = 1;
+    if (transitioned &&
+        TaxiSubjectNearlyEqual(vehicle->GetDir(), expectedDirection) &&
+        TaxiSubjectNearlyEqual(vehicle->Pos(), expectedPosition))
+        summary->poseTransfers = 1;
+    if (transitioned &&
+        TaxiSubjectNearlyEqual(vehicle->m_damage, taxiDamage) &&
+        vehicle->m_secBulletCnt == taxiBullets)
+        summary->payloadTransfers = 1;
+    if (transitioned && !context->isExist(taxiObject) &&
+        TaxiSubjectState_LiveCount() == baselineCount - 1)
+        summary->removedTaxis = 1;
+
+    const bool vehicleRestored =
+        RestoreTaxiVehicle(vehicle, vehicleBefore, timeStamp);
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Taxi");
+    KR_ObjectID replacement =
+        g_arena.newObject(table, "Taxi.VehicleTransition.Rollback");
+    Taxi *replacementTaxi = ResolveTaxi(context, replacement);
+    bool taxiRestored =
+        replacementTaxi != NULL &&
+        SendTaxiStart(replacementTaxi, taxiAttribute, taxiPosition,
+                      0.0, timeStamp);
+    if (taxiRestored)
+    {
+        replacementTaxi->m_damage = taxiDamage;
+        replacementTaxi->m_bulletCnt = taxiBullets;
+        replacementTaxi->m_taxiDir = taxiStoredDirection;
+        replacementTaxi->SetDir(taxiDirection);
+        replacementTaxi->setPosition(taxiPosition);
+        taxiRestored = replacementTaxi->runtimeReady();
+    }
+
+    if (vehicleRestored && taxiRestored &&
+        TaxiSubjectState_LiveCount() == baselineCount &&
+        TaxiSubjectState_SoundCount() == baselineSounds &&
+        TaxiSubjectState_Fingerprint(context) == baselineFingerprint)
+        summary->rollbacks = 1;
+
+    return summary->invalidTargets == 1 &&
+           summary->transitions == 1 &&
+           summary->attributeTransfers == 1 &&
+           summary->poseTransfers == 1 &&
+           summary->payloadTransfers == 1 &&
+           summary->removedTaxis == 1 &&
+           summary->rollbacks == 1;
+}
+
+KR_ObjectID TaxiSubjectState_FirstObject(SimulationContext *context)
+{
+    TaxiSubjectCollector collector = {};
+    return CollectTaxiSubjects(context, collector) &&
+                   !collector.records.empty()
+               ? collector.records.front().object
+               : KR_ObjectID::NUL();
 }
 
 /* End of file C:\NW\ARENA\OBASE\Taxi\Taxi.cpp */

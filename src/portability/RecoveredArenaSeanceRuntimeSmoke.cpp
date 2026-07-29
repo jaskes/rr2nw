@@ -40,6 +40,7 @@ class CGRPanel;
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
+#include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "h/cachesmoke.h"
 #include "obase/sound/SoundObjectState.h"
@@ -275,8 +276,8 @@ int Fail(const char* message) {
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
                "smoke=%d explosion=%d vehicle_attrs=%d vehicle_refs=%d "
-               "taxi=%d "
-               "taxi_refs=%d bullet=%d bullet_refs=%d smoker=%d dyn_smoker=%d "
+               "taxi=%d taxi_refs=%d taxi_subject=%d "
+               "bullet=%d bullet_refs=%d smoker=%d dyn_smoker=%d "
                "farter=%d lamp=%d corpse=%d corpse_subject=%d "
                "wav=%d sound=%d skin=%d "
                "spark=%d route=%d vehicle=%d "
@@ -293,6 +294,7 @@ int Fail(const char* message) {
                RecoveredArenaSeance_VehicleReferencesReady() ? 1 : 0,
                RecoveredArenaSeance_TaxiAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_TaxiReferencesReady() ? 1 : 0,
+               RecoveredArenaSeance_TaxiSubjectReady() ? 1 : 0,
                RecoveredArenaSeance_BulletAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_BulletReferencesReady() ? 1 : 0,
                RecoveredArenaSeance_SmokerAttributesReady() ? 1 : 0,
@@ -514,6 +516,19 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_TaxiAttributeCapacity() == 0 &&
          RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 &&
          RecoveredArenaSeance_TaxiReferenceFingerprint() == 0 &&
+         !RecoveredArenaSeance_TaxiSubjectReady() &&
+         RecoveredArenaSeance_TaxiSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_TaxiSubjectCount() == 0 &&
+         RecoveredArenaSeance_TaxiSubjectSoundCount() == 0 &&
+         RecoveredArenaSeance_TaxiSubjectFingerprint() == 0 &&
+         RecoveredArenaSeance_TaxiProbeInvalidStarts() == 0 &&
+         RecoveredArenaSeance_TaxiProbeValidStarts() == 0 &&
+         RecoveredArenaSeance_TaxiProbeRenderReady() == 0 &&
+         RecoveredArenaSeance_TaxiProbeSoundReady() == 0 &&
+         RecoveredArenaSeance_TaxiProbeRollbacks() == 0 &&
+         TaxiSubjectState_Capacity() == 0 &&
+         TaxiSubjectState_LiveCount() == 0 &&
+         TaxiSubjectState_SoundCount() == 0 &&
          !RecoveredArenaSeance_BulletAttributesReady() &&
          !RecoveredArenaSeance_BulletReferencesReady() &&
          !RecoveredArenaSeance_BulletSubjectRegistrationReady() &&
@@ -714,6 +729,19 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_TaxiAttributeCapacity() != 7 ||
       RecoveredArenaSeance_TaxiAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_TaxiReferenceFingerprint() != 0 ||
+      RecoveredArenaSeance_TaxiSubjectReady() ||
+      RecoveredArenaSeance_TaxiSubjectCapacity() != 0 ||
+      RecoveredArenaSeance_TaxiSubjectCount() != 0 ||
+      RecoveredArenaSeance_TaxiSubjectSoundCount() != 0 ||
+      RecoveredArenaSeance_TaxiSubjectFingerprint() != 0 ||
+      RecoveredArenaSeance_TaxiProbeInvalidStarts() != 0 ||
+      RecoveredArenaSeance_TaxiProbeValidStarts() != 0 ||
+      RecoveredArenaSeance_TaxiProbeRenderReady() != 0 ||
+      RecoveredArenaSeance_TaxiProbeSoundReady() != 0 ||
+      RecoveredArenaSeance_TaxiProbeRollbacks() != 0 ||
+      TaxiSubjectState_Capacity() != 0 ||
+      TaxiSubjectState_LiveCount() != 0 ||
+      TaxiSubjectState_SoundCount() != 0 ||
       !RecoveredArenaSeance_BulletAttributesReady() ||
       RecoveredArenaSeance_BulletReferencesReady() ||
       !RecoveredArenaSeance_BulletSubjectRegistrationReady() ||
@@ -816,6 +844,7 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("BulletAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Bullet") == ct_NULLID ||
       g_arena.searchSeanceClassTable("TaxiAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Taxi") != ct_NULLID ||
       g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("DynSmoker") == ct_NULLID ||
       g_arena.searchSeanceClassTable("WAVObj") == ct_NULLID ||

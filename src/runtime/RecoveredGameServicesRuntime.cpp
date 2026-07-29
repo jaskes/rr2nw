@@ -14,6 +14,7 @@
 #include "graph.h"
 #include "hardware.h"
 #include "h/super.h"
+#include "h/vehicle.h"
 #include "kernel/h/session.h"
 #include "message/hardmsg.h"
 #include "suavik.h"
@@ -31,6 +32,7 @@
 #include "ZavSceneState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
 
 namespace {
@@ -426,6 +428,7 @@ bool g_loopReady = false;
 bool g_hardwareReady = false;
 bool g_windowQuitRequested = false;
 bool g_vehicleMovementReady = false;
+bool g_taxiVehicleTransitionReady = false;
 bool g_vehicleControlReady = false;
 bool g_vehicleFallbackActive = false;
 unsigned int g_vehicleFrameCount = 0;
@@ -436,6 +439,7 @@ unsigned int g_vehicleFallbackReason = 0;
 unsigned long long g_vehicleRuntimeFingerprint = 0;
 int g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
 SRecoveredVehicleMovementProbeSummary g_vehicleMovementProbe = {};
+STaxiVehicleTransitionProbeSummary g_taxiVehicleTransitionProbe = {};
 SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
 CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
 CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
@@ -465,6 +469,7 @@ bool ConfigureHardwareControls() {
       !BindHardwareControl(LOOK_UP, "Up") ||
       !BindHardwareControl(LOOK_DOWN, "Down") ||
       !BindHardwareControl(STOP_VEHICLE, "X") ||
+      !BindHardwareControl(CHANGE_VEHICLE, "F1") ||
       !BindHardwareControl(EXIT, "Esc")) {
     return false;
   }
@@ -579,6 +584,7 @@ void StopVehicleControl(bool restoreObserver,
       g_observerInput.Resume();
     }
   }
+  Vehicle::preserveExternalControlSubscription(false);
   g_vehicleControlReady = false;
 }
 
@@ -591,6 +597,7 @@ bool BeginVehicleControl(SimulationContext* context,
       !VehicleRuntimeState_IsClean(context)) {
     return false;
   }
+  Vehicle::preserveExternalControlSubscription(false);
 
   const double timerTime = g_timer.GetTime();
   const double startTime =
@@ -620,6 +627,7 @@ bool BeginVehicleControl(SimulationContext* context,
 
   BeginVehicleDriveTelemetry(state);
 
+  Vehicle::preserveExternalControlSubscription(true);
   g_vehicleControlReady = true;
   g_vehicleFallbackActive = false;
   g_vehicleFrameCount = 0;
@@ -690,6 +698,7 @@ void EndBoundedSession() {
   g_hardwareReady = false;
   g_windowQuitRequested = false;
   g_vehicleMovementReady = false;
+  g_taxiVehicleTransitionReady = false;
   g_vehicleControlReady = false;
   g_vehicleFallbackActive = false;
   g_vehicleFrameCount = 0;
@@ -700,6 +709,7 @@ void EndBoundedSession() {
   g_vehicleRuntimeFingerprint = 0;
   g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
   g_vehicleMovementProbe = {};
+  g_taxiVehicleTransitionProbe = {};
   g_vehicleDriveTelemetry = {};
   g_vehicleTelemetryStartPosition = CFVector3(0.0, 0.0, 0.0);
   g_vehicleTelemetryStartForward = CFVector3(0.0, 0.0, 1.0);
@@ -815,6 +825,14 @@ void InitializeSession() {
     }
     g_vehicleVesselKind = vehicleState.vesselKind;
     g_vehicleMovementReady = true;
+    if (!TaxiSubjectState_ProbeVehicleTransition(
+            g_super.m_context, vehicle, vehicleStartTime,
+            &g_taxiVehicleTransitionProbe)) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_TAXI_VEHICLE_TRANSITION_FAILURE);
+      return;
+    }
+    g_taxiVehicleTransitionReady = true;
     if (!BeginVehicleControl(g_super.m_context, vehicle,
                              observerPosition)) {
       EndBoundedSession();
@@ -1036,6 +1054,10 @@ bool RecoveredGameServices_TaxiReferencesReady() {
   return RecoveredArenaSeance_TaxiReferencesReady();
 }
 
+bool RecoveredGameServices_TaxiSubjectReady() {
+  return RecoveredArenaSeance_TaxiSubjectReady();
+}
+
 bool RecoveredGameServices_BulletAttributesReady() {
   return RecoveredArenaSeance_BulletAttributesReady();
 }
@@ -1219,6 +1241,58 @@ double RecoveredGameServices_VehicleProbeHorizontalDistance() {
                                 : 0.0;
 }
 
+bool RecoveredGameServices_TaxiVehicleTransitionReady() {
+  return g_taxiVehicleTransitionReady;
+}
+
+int RecoveredGameServices_TaxiVehicleProbeAvailableTaxis() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.availableTaxis
+             : -1;
+}
+
+int RecoveredGameServices_TaxiVehicleProbeInvalidTargets() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.invalidTargets
+             : -1;
+}
+
+int RecoveredGameServices_TaxiVehicleProbeTransitions() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.transitions
+             : -1;
+}
+
+int RecoveredGameServices_TaxiVehicleProbeAttributeTransfers() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.attributeTransfers
+             : -1;
+}
+
+int RecoveredGameServices_TaxiVehicleProbePoseTransfers() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.poseTransfers
+             : -1;
+}
+
+int RecoveredGameServices_TaxiVehicleProbePayloadTransfers() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.payloadTransfers
+             : -1;
+}
+
+int RecoveredGameServices_TaxiVehicleProbeRemovedTaxis() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.removedTaxis
+             : -1;
+}
+
+int RecoveredGameServices_TaxiVehicleProbeRollbacks() {
+  return g_taxiVehicleTransitionReady
+             ? g_taxiVehicleTransitionProbe.rollbacks
+             : -1;
+}
+
 bool RecoveredGameServices_VehicleControlReady() {
   return g_vehicleControlReady;
 }
@@ -1338,6 +1412,8 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_VehicleReferencesReady() &&
          RecoveredGameServices_TaxiAttributesReady() &&
          RecoveredGameServices_TaxiReferencesReady() &&
+         RecoveredGameServices_TaxiSubjectReady() &&
+         RecoveredGameServices_TaxiVehicleTransitionReady() &&
          RecoveredGameServices_BulletAttributesReady() &&
          RecoveredGameServices_BulletReferencesReady() &&
          RecoveredGameServices_BulletSubjectRegistrationReady() &&

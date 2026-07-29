@@ -747,6 +747,45 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_TaxiReferencesReady() ? 1 : 0));
   log.Line("taxi_reference_fingerprint=" + std::to_string(
                RecoveredArenaSeance_TaxiReferenceFingerprint()));
+  log.Line("taxi_subject_initialized=" +
+           std::to_string(RecoveredGameServices_TaxiSubjectReady() ? 1 : 0));
+  log.Line("taxi_subject_capacity=" +
+           std::to_string(RecoveredArenaSeance_TaxiSubjectCapacity()));
+  log.Line("taxi_subject_count=" +
+           std::to_string(RecoveredArenaSeance_TaxiSubjectCount()));
+  log.Line("taxi_subject_sound_count=" +
+           std::to_string(RecoveredArenaSeance_TaxiSubjectSoundCount()));
+  log.Line("taxi_subject_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_TaxiSubjectFingerprint()));
+  log.Line("taxi_probe_invalid_starts=" + std::to_string(
+               RecoveredArenaSeance_TaxiProbeInvalidStarts()));
+  log.Line("taxi_probe_valid_starts=" + std::to_string(
+               RecoveredArenaSeance_TaxiProbeValidStarts()));
+  log.Line("taxi_probe_render_ready=" + std::to_string(
+               RecoveredArenaSeance_TaxiProbeRenderReady()));
+  log.Line("taxi_probe_sound_ready=" + std::to_string(
+               RecoveredArenaSeance_TaxiProbeSoundReady()));
+  log.Line("taxi_probe_rollbacks=" +
+           std::to_string(RecoveredArenaSeance_TaxiProbeRollbacks()));
+  log.Line("taxi_event_set_to_position=5018");
+  log.Line("taxi_vehicle_transition_initialized=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleTransitionReady() ? 1 : 0));
+  log.Line("taxi_vehicle_probe_available_taxis=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbeAvailableTaxis()));
+  log.Line("taxi_vehicle_probe_invalid_targets=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbeInvalidTargets()));
+  log.Line("taxi_vehicle_probe_transitions=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbeTransitions()));
+  log.Line("taxi_vehicle_probe_attribute_transfers=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbeAttributeTransfers()));
+  log.Line("taxi_vehicle_probe_pose_transfers=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbePoseTransfers()));
+  log.Line("taxi_vehicle_probe_payload_transfers=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbePayloadTransfers()));
+  log.Line("taxi_vehicle_probe_removed_taxis=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbeRemovedTaxis()));
+  log.Line("taxi_vehicle_probe_rollbacks=" + std::to_string(
+               RecoveredGameServices_TaxiVehicleProbeRollbacks()));
   log.Line("bullet_attributes_initialized=" + std::to_string(
                RecoveredArenaSeance_BulletAttributesReady() ? 1 : 0));
   log.Line("bullet_attribute_count=" +
@@ -1124,11 +1163,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
-      "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
-      "attribute-bullet-collision-impact-explosion-damage-sound-particles-"
-      "vehicle-bootstrap");
+       "simulation-visual-lamp-skin-resource-smoke-explosion-attribute-taxi-"
+       "attribute-bullet-collision-impact-explosion-damage-sound-particles-"
+       "vehicle-bootstrap-taxi-subject-vehicle-transition");
   log.Line("vehicle_object=Vehicle.Default");
-  log.Line("vehicle_controls=W,S,A,D,Space,LCtrl,arrows,X-stop,Escape");
+  log.Line(
+      "vehicle_controls=W,S,A,D,Space,LCtrl,arrows,X-stop,F1-change,Escape");
   log.Line("observer_mode=fallback-suspended");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));

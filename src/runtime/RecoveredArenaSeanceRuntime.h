@@ -104,7 +104,10 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE = 1ull << 27,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE = 1ull << 28,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE = 1ull << 29,
-  RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID = 1ull << 30
+  RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID = 1ull << 30,
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_SOURCE_UNAVAILABLE = 1ull << 31,
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_ROSTER_INVALID = 1ull << 32,
+  RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_LIFECYCLE_FAILURE = 1ull << 33
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -181,6 +184,16 @@ unsigned long long RecoveredArenaSeance_VehicleReferenceFingerprint();
 bool RecoveredArenaSeance_TaxiAttributesReady();
 bool RecoveredArenaSeance_TaxiReferencesReady();
 unsigned long long RecoveredArenaSeance_TaxiReferenceFingerprint();
+bool RecoveredArenaSeance_TaxiSubjectReady();
+int RecoveredArenaSeance_TaxiSubjectCapacity();
+int RecoveredArenaSeance_TaxiSubjectCount();
+int RecoveredArenaSeance_TaxiSubjectSoundCount();
+unsigned long long RecoveredArenaSeance_TaxiSubjectFingerprint();
+int RecoveredArenaSeance_TaxiProbeInvalidStarts();
+int RecoveredArenaSeance_TaxiProbeValidStarts();
+int RecoveredArenaSeance_TaxiProbeRenderReady();
+int RecoveredArenaSeance_TaxiProbeSoundReady();
+int RecoveredArenaSeance_TaxiProbeRollbacks();
 bool RecoveredArenaSeance_BulletAttributesReady();
 bool RecoveredArenaSeance_BulletReferencesReady();
 int RecoveredArenaSeance_BulletAttributeCount();

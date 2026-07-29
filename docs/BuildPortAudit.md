@@ -2393,3 +2393,51 @@ fresh resolution still verifies their real cached values. The next OBASE
 frontier is `SET_TAXI.SCI` and a bounded live Taxi/change-vehicle transaction,
 after which the already owned panel can be opened and drawn through the
 original Vehicle boundary.
+
+## Live Taxi roster and Taxi-to-Vehicle transaction
+
+The next OBASE frontier is now recovered. `SCINC\SET_TAXI.SCI` is read beside
+the selected Level only after the Taxi, Vehicle, Skin and SoundObj dependency
+graphs have committed. Its class-table assignment is parsed independently of
+the script author's local variable name (`ctID` and `nTaxiCTID` both occur in
+the May data), comments are excluded, and only the nine observed retail roster
+shapes plus the two-object hermetic fixture are admitted:
+
+| Level | Taxi capacity | Live Taxi objects |
+| --- | ---: | ---: |
+| 01D | 100 | 35 |
+| 01N | 150 | 28 |
+| 02D / 02N | 100 | 38 |
+| 03N | 150 | 93 |
+| 04D | 100 | 20 |
+| 05D | 100 | 66 |
+| 06N | 80 | 0 |
+| 07N | 20 | 1 |
+
+The script compatibility helper uses the retail event `5018` (`0x139A`) for
+the four-field Taxi start form. The recovered payload is ObjectID followed by
+`x`, `z`, `-y` and horizontal angle; this matches the May SYSF callback at
+`0x00590FC0`. The older two-coordinate form continues to use `KR_SET_ATTR`.
+Every live Taxi must resolve its TaxiAttr, target VehicleAttr, model and
+optional buzzing SoundObj before the roster publishes. Startup records roster
+capacity/count/sound count, a semantic fingerprint, and the validation and
+rollback counters. The source-only January fixture has no Skin models, so it
+retains attribute-only coverage and deliberately does not fabricate Taxi
+subjects.
+
+`Vehicle::setVehicleAttr()` now validates the complete target and supported
+vessel kind before mutating the active vehicle. The public transition boundary
+rejects invalid Taxi IDs without mutation, transfers the target attribute,
+damage, secondary ammunition, transposed orientation and born-height-adjusted
+position, and removes the Taxi only after the transfer can succeed. A bounded
+probe performs that real transition, proves each transferred field and object
+removal, then recreates the Taxi through event 5018 and restores both objects
+to their exact pre-probe fingerprints. The empty 06N roster has an explicit
+valid no-target result.
+
+F1 is now mapped to the existing `CHANGE_VEHICLE` action. Panel changes keep
+the recovered Hardware owner subscribed, preventing the legacy
+`openPanel()`/`closePanel()` calls from stealing the exclusive input channel.
+The remaining frontier is an interactive F1 run through a real non-empty Taxi
+panel and then normal driving/rendering after the change, rather than another
+synthetic ownership bridge.

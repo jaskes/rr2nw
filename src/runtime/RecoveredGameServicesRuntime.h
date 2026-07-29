@@ -11,7 +11,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_UNSUPPORTED_LEVEL_EVENT = 1u << 7,
   RECOVERED_GAME_SERVICES_SEANCE_FAILURE = 1u << 8,
   RECOVERED_GAME_SERVICES_VEHICLE_MOVEMENT_FAILURE = 1u << 9,
-  RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE = 1u << 10
+  RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE = 1u << 10,
+  RECOVERED_GAME_SERVICES_TAXI_VEHICLE_TRANSITION_FAILURE = 1u << 11
 };
 
 struct SRecoveredObserverState {
@@ -73,6 +74,7 @@ bool RecoveredGameServices_VehicleAttributesReady();
 bool RecoveredGameServices_VehicleReferencesReady();
 bool RecoveredGameServices_TaxiAttributesReady();
 bool RecoveredGameServices_TaxiReferencesReady();
+bool RecoveredGameServices_TaxiSubjectReady();
 bool RecoveredGameServices_BulletAttributesReady();
 bool RecoveredGameServices_BulletReferencesReady();
 bool RecoveredGameServices_BulletSubjectRegistrationReady();
@@ -116,6 +118,15 @@ int RecoveredGameServices_VehicleProbeTurnEvents();
 int RecoveredGameServices_VehicleProbeCameraTransitions();
 int RecoveredGameServices_VehicleProbeRollbacks();
 double RecoveredGameServices_VehicleProbeHorizontalDistance();
+bool RecoveredGameServices_TaxiVehicleTransitionReady();
+int RecoveredGameServices_TaxiVehicleProbeAvailableTaxis();
+int RecoveredGameServices_TaxiVehicleProbeInvalidTargets();
+int RecoveredGameServices_TaxiVehicleProbeTransitions();
+int RecoveredGameServices_TaxiVehicleProbeAttributeTransfers();
+int RecoveredGameServices_TaxiVehicleProbePoseTransfers();
+int RecoveredGameServices_TaxiVehicleProbePayloadTransfers();
+int RecoveredGameServices_TaxiVehicleProbeRemovedTaxis();
+int RecoveredGameServices_TaxiVehicleProbeRollbacks();
 bool RecoveredGameServices_VehicleControlReady();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();

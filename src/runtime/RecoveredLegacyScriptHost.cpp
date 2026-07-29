@@ -161,6 +161,11 @@ void ConstLampSetEndPosition(TStackCell* cell) {
 
 void ConstSkinLoad(TStackCell* cell) { cell->i = sk_EV_LOAD; }
 
+void ConstTaxiSetToPosition(TStackCell* cell) {
+  // Preserved May retail nw.exe constant callback at 0x00590FC0.
+  cell->i = 0x139A;
+}
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
@@ -192,6 +197,7 @@ TLinkConstExtern g_constants[] = {
     {"lmp_EV_START", ConstLampStart, 0},
     {"lmp_EV_SETENDPOS", ConstLampSetEndPosition, 0},
     {"sk_EV_LOAD", ConstSkinLoad, 0},
+    {"taxi_SET_TO_POS", ConstTaxiSetToPosition, 0},
     {nullptr, nullptr, 0}};
 
 }  // namespace

@@ -41,7 +41,7 @@ class AttributeTaxi : public ct_Attribute
     ct_AttrStr      m_corpseAttrName         ;  // 
     double          m_initialDamage          ;  // 
     double          m_yOffset                ;  // 
-    int             m_buzzing                ;  // Звучит или нет
+    int             m_buzzing                ;  // Р—РІСѓС‡РёС‚ РёР»Рё РЅРµС‚
 
     AttributeTaxi()
     {
@@ -98,7 +98,7 @@ typedef struct {
 	CFMatrix3x4 m_taxiDir;
 } TaxiData;
 
-class Taxi : 
+class Taxi :
          public ct_Subject,
          public IDynamicObject,
          public IUnit,
@@ -106,7 +106,7 @@ class Taxi :
          public TaxiData
 
 {
- void setTaxiAttr();
+ bool setTaxiAttr();
 
  public:
     AttributeTaxi         *m_attr;
@@ -135,17 +135,17 @@ class Taxi :
     virtual CFVector3  getPos      ();
     virtual double     getHAngle   ();
     virtual CFVector3  getUpVector ();
-    virtual CFVector3  getCenter   (); // Относительно 0 объекта
-    virtual double     getRadius   (); // Относительно центра
-    virtual double     getRadius0  (); // Относительно 0 объекта
-    virtual CFVector3  getMoveDir  (); // Направление движения
-    virtual double     getMoveSpeed(); // Скорость
+    virtual CFVector3  getCenter   (); // РћС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ 0 РѕР±СЉРµРєС‚Р°
+    virtual double     getRadius   (); // РћС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ С†РµРЅС‚СЂР°
+    virtual double     getRadius0  (); // РћС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ 0 РѕР±СЉРµРєС‚Р°
+    virtual CFVector3  getMoveDir  (); // РќР°РїСЂР°РІР»РµРЅРёРµ РґРІРёР¶РµРЅРёСЏ
+    virtual double     getMoveSpeed(); // РЎРєРѕСЂРѕСЃС‚СЊ
     virtual void       getMatrix   ( CFMatrix3x4 &m );
 
     // IUnit interface
-    virtual double getPower(); // Сила юнита 0..10
+    virtual double getPower(); // РЎРёР»Р° СЋРЅРёС‚Р° 0..10
     virtual int    isFriend( const KR_ObjectID &commanderID );
-    virtual double getDamage(); // Целостность от 0..1
+    virtual double getDamage(); // Р¦РµР»РѕСЃС‚РЅРѕСЃС‚СЊ РѕС‚ 0..1
     virtual double desireShoot();
     virtual void   setDamage  ( double d, const CFVector3 &pos, double ts, KR_ObjectID );
     virtual KR_ObjectID getCommander();
@@ -157,8 +157,11 @@ class Taxi :
     virtual void        taxiSetBulletCnt(int cnt);
     virtual int         taxiGetBulletCnt();
 
+    bool runtimeReady() const;
+    KR_ObjectID taxiAttributeID() const { return m_taxiAttrID; }
+
 //  IDynamicObject
-    virtual double 	getMass	   () {return 1;}	// Масса
+    virtual double 	getMass	   () {return 1;}	// РњР°СЃСЃР°
     virtual TCCFMatrix3x4 &GetDir  () {return m_skin.GetDir(); }
     virtual void SetDir(TCSFMatrix3x4 &dir) { m_skin.GetDirModify() = dir; }
 

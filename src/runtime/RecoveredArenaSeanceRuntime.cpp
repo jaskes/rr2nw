@@ -26,6 +26,7 @@ class CGRPanel;
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
+#include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
@@ -64,6 +65,8 @@ constexpr const char kExplosionAttributeProgramName[] =
     "recovered_retail_explosion_attribute_bootstrap";
 constexpr const char kTaxiAttributeProgramName[] =
     "recovered_retail_taxi_attribute_bootstrap";
+constexpr const char kTaxiSubjectProgramName[] =
+    "recovered_retail_taxi_subject_bootstrap";
 constexpr const char kVehicleAttributeProgramName[] =
     "recovered_retail_vehicle_attribute_bootstrap";
 constexpr const char kFarterAttributeProgramName[] =
@@ -242,6 +245,7 @@ const int fou_EVCMD_START extern;
 const int START_FARTING extern;
 const int lmp_EV_START extern;
 const int lmp_EV_SETENDPOS extern;
+const int taxi_SET_TO_POS extern;
 
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
@@ -327,6 +331,53 @@ func void fount_SetColors(int objectID, int cachePos,
 
 )RR2NW_SCRIPT";
 
+const char kTaxiSubjectBootstrapHelpers[] = R"RR2NW_SCRIPT(
+func void CreateTaxi3DEx(int classTableID, vector position,
+                         float horizontalAngle, str attributeName,
+                         str objectName, int eventLabel)
+var int objectID, cachePos, attributeID, attributeCachePos, event;
+{
+  s_New(classTableID, objectName, objectID, cachePos);
+  s_SearchObjectID(attributeID, attributeCachePos, attributeName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteObjectID(event, attributeID, attributeCachePos);
+  s_WriteFloat(event, position.x);
+  s_WriteFloat(event, position.z);
+  s_WriteFloat(event, -position.y);
+  s_WriteFloat(event, horizontalAngle);
+  s_CloseEventData(event);
+  s_SendEventNow(event, eventLabel, objectID, cachePos);
+}
+
+func void CreateTaxiNameEx(int classTableID, vector position,
+                           str attributeName, str objectName,
+                           int eventLabel)
+var int objectID, cachePos, attributeID, attributeCachePos, event;
+{
+  s_New(classTableID, objectName, objectID, cachePos);
+  s_SearchObjectID(attributeID, attributeCachePos, attributeName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteObjectID(event, attributeID, attributeCachePos);
+  s_WriteFloat(event, position.x);
+  s_WriteFloat(event, -position.y);
+  s_CloseEventData(event);
+  s_SendEventNow(event, eventLabel, objectID, cachePos);
+}
+
+func void CreateTaxi3D(int classTableID, vector position,
+                       float horizontalAngle, str attributeName)
+{
+  CreateTaxi3DEx(classTableID, position, horizontalAngle, attributeName,
+                 "Taxi.Obj", taxi_SET_TO_POS);
+}
+
+func void CreateTaxi(int classTableID, vector position, str attributeName)
+{
+  CreateTaxiNameEx(classTableID, position, attributeName,
+                   "Taxi.Obj", KR_SET_ATTR);
+}
+)RR2NW_SCRIPT";
+
 const char kSmokeAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
@@ -352,6 +403,13 @@ const char kTaxiAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
   main_CreateTaxiAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kTaxiSubjectBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateTaxi();
 }
 )RR2NW_SCRIPT";
 
@@ -565,6 +623,108 @@ bool InspectFarterSubjectScript(const std::string& source,
   return true;
 }
 
+struct TaxiSubjectScriptSummary {
+  int capacity;
+  int objectCount;
+};
+
+bool InspectTaxiSubjectScript(const std::string& source,
+                              TaxiSubjectScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  std::string compact;
+  try {
+    compact.reserve(source.size());
+  } catch (...) {
+    return false;
+  }
+  bool lineComment = false;
+  bool blockComment = false;
+  bool quoted = false;
+  for (std::size_t index = 0; index < source.size(); ++index) {
+    const char current = source[index];
+    const char next = index + 1 < source.size() ? source[index + 1] : '\0';
+    if (lineComment) {
+      if (current == '\r' || current == '\n') lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (current == '*' && next == '/') {
+        blockComment = false;
+        ++index;
+      }
+      continue;
+    }
+    if (!quoted && current == '/' && next == '/') {
+      lineComment = true;
+      ++index;
+      continue;
+    }
+    if (!quoted && current == '/' && next == '*') {
+      blockComment = true;
+      ++index;
+      continue;
+    }
+    if (quoted && current == '\\' && next != '\0') {
+      compact.push_back(current);
+      compact.push_back(next);
+      ++index;
+      continue;
+    }
+    if (current == '"') quoted = !quoted;
+    if (quoted || !std::isspace(static_cast<unsigned char>(current)))
+      compact.push_back(current);
+  }
+  if (blockComment || quoted) return false;
+
+  static const char tableMarker[] = "s_AddClassTable(\"Taxi\",";
+  const std::size_t table = compact.find(tableMarker);
+  if (table == std::string::npos ||
+      compact.find(tableMarker, table + 1) != std::string::npos)
+    return false;
+  const std::size_t assignment = compact.rfind(":=", table);
+  if (assignment == std::string::npos || assignment + 2u != table)
+    return false;
+  std::size_t variableStart = assignment;
+  while (variableStart > 0) {
+    const unsigned char character =
+        static_cast<unsigned char>(compact[variableStart - 1]);
+    if (!std::isalnum(character) && character != '_') break;
+    --variableStart;
+  }
+  if (variableStart == assignment) return false;
+  const std::string tableVariable =
+      compact.substr(variableStart, assignment - variableStart);
+  std::size_t position = table + sizeof(tableMarker) - 1u;
+  int capacity = 0;
+  int digits = 0;
+  while (position < compact.size() &&
+         std::isdigit(static_cast<unsigned char>(compact[position]))) {
+    capacity = capacity * 10 + (compact[position] - '0');
+    ++position;
+    ++digits;
+  }
+  const std::string createTaxi =
+      std::string("CreateTaxi(") + tableVariable + ',';
+  const std::string createTaxi3D =
+      std::string("CreateTaxi3D(") + tableVariable + ',';
+  const int objectCount = CountTextOccurrences(compact, createTaxi.c_str()) +
+                          CountTextOccurrences(compact,
+                                               createTaxi3D.c_str());
+  const bool knownShape =
+      (capacity == 100 &&
+       (objectCount == 20 || objectCount == 35 || objectCount == 38 ||
+        objectCount == 66)) ||
+      (capacity == 150 &&
+       (objectCount == 28 || objectCount == 93)) ||
+      (capacity == 80 && objectCount == 0) ||
+      (capacity == 20 && objectCount == 1) ||
+      (capacity == 4 && objectCount == 2);
+  if (digits == 0 || objectCount >= capacity || !knownShape) return false;
+  summary->capacity = capacity;
+  summary->objectCount = objectCount;
+  return true;
+}
+
 int InspectVehicleAttributeCapacity(const std::string& source) {
   static const char marker[] = "s_AddClassTable(\"VehicleAttr\",";
   const std::size_t markerPosition = source.find(marker);
@@ -610,6 +770,7 @@ struct RecoveredArenaSeanceState {
   bool vehicleReferencesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
+  bool taxiSubjectReady;
   bool bulletAttributesReady;
   bool bulletReferencesReady;
   bool bulletSubjectRegistrationReady;
@@ -644,6 +805,15 @@ struct RecoveredArenaSeanceState {
   unsigned long long vehicleAttributeFingerprint;
   unsigned long long vehicleReferenceFingerprint;
   unsigned long long taxiReferenceFingerprint;
+  int taxiSubjectCapacity;
+  int taxiSubjectCount;
+  int taxiSubjectSoundCount;
+  unsigned long long taxiSubjectFingerprint;
+  int taxiProbeInvalidStarts;
+  int taxiProbeValidStarts;
+  int taxiProbeRenderReady;
+  int taxiProbeSoundReady;
+  int taxiProbeRollbacks;
   int bulletAttributeCount;
   int bulletAttributeCapacity;
   int bulletSubjectCapacity;
@@ -913,6 +1083,53 @@ bool RunTaxiAttributeBootstrap(SimulationContext* context,
       kTaxiAttributeBootstrapSuffix, kTaxiAttributeProgramName,
       RECOVERED_ARENA_SEANCE_EXT_TAXI_ATTRIBUTE_SOURCE_UNAVAILABLE,
       "SCINC\\TAXI.SCI", true);
+}
+
+bool RunTaxiSubjectBootstrap(SimulationContext* context,
+                             double startTime,
+                             TaxiSubjectScriptSummary* summary) {
+  std::string source;
+  if (!ReadBoundedRetailAttributeSource("SCINC\\SET_TAXI.SCI", &source)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_SOURCE_UNAVAILABLE,
+        "could not read bounded retail SCINC\\SET_TAXI.SCI beside selected "
+        "Level");
+    return false;
+  }
+  if (!InspectTaxiSubjectScript(source, summary)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_ROSTER_INVALID,
+        "SCINC\\SET_TAXI.SCI is not an admitted retail Taxi roster");
+    return false;
+  }
+
+  std::string program;
+  try {
+    program.reserve(sizeof(kRetailAttributeBootstrapPrefix) +
+                    sizeof(kTaxiSubjectBootstrapHelpers) + source.size() +
+                    sizeof(kTaxiSubjectBootstrapSuffix) + 3u);
+    program.append(kRetailAttributeBootstrapPrefix);
+    program.append(kTaxiSubjectBootstrapHelpers);
+    program.append(source);
+    program.push_back('\n');
+    program.append(kTaxiSubjectBootstrapSuffix);
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
+           "could not allocate bounded retail Taxi subject bootstrap");
+    return false;
+  }
+
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kTaxiSubjectProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
 }
 
 bool RunVehicleAttributeBootstrap(SimulationContext* context,
@@ -1970,6 +2187,61 @@ bool PublishVehicleReferences(SimulationContext* context) {
   return true;
 }
 
+bool PublishTaxiSubject(SimulationContext* context, double startTime,
+                        const TaxiSubjectScriptSummary& script) {
+  const int capacity = TaxiSubjectState_Capacity();
+  const int count = TaxiSubjectState_LiveCount();
+  const int sounds = TaxiSubjectState_SoundCount();
+  const unsigned long long fingerprint =
+      TaxiSubjectState_Fingerprint(context);
+  if (!TaxiSubjectState_TableReady(context, script.capacity) ||
+      capacity != script.capacity || count != script.objectCount ||
+      !TaxiSubjectState_AllReady(context) || fingerprint == 0 ||
+      !TaxiSubjectState_IsKnownRetailRoster(context)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "retail Taxi subjects are not exact or runtime-ready "
+                  "(capacity=%d/%d count=%d/%d sound=%d fingerprint=%llu)",
+                  capacity, script.capacity, count, script.objectCount,
+                  sounds, fingerprint);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_ROSTER_INVALID,
+                   message);
+    return false;
+  }
+
+  STaxiSubjectLifecycleProbeSummary probe = {};
+  if (!TaxiSubjectState_ProbeLifecycle(
+          context, startTime < 0.1 ? 0.1 : startTime, &probe) ||
+      TaxiSubjectState_LiveCount() != count ||
+      TaxiSubjectState_SoundCount() != sounds ||
+      TaxiSubjectState_Fingerprint(context) != fingerprint) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Taxi create/render/sound rollback probe failed "
+                  "(%d/%d/%d/%d/%d live=%d sound=%d)",
+                  probe.invalidStarts, probe.validStarts,
+                  probe.renderReady, probe.soundReady, probe.rollbacks,
+                  TaxiSubjectState_LiveCount(),
+                  TaxiSubjectState_SoundCount());
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_TAXI_SUBJECT_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
+
+  g_state.taxiSubjectCapacity = capacity;
+  g_state.taxiSubjectCount = count;
+  g_state.taxiSubjectSoundCount = sounds;
+  g_state.taxiSubjectFingerprint = fingerprint;
+  g_state.taxiProbeInvalidStarts = probe.invalidStarts;
+  g_state.taxiProbeValidStarts = probe.validStarts;
+  g_state.taxiProbeRenderReady = probe.renderReady;
+  g_state.taxiProbeSoundReady = probe.soundReady;
+  g_state.taxiProbeRollbacks = probe.rollbacks;
+  g_state.taxiSubjectReady = true;
+  return true;
+}
+
 bool PublishLampAttributes(SimulationContext* context) {
   if (g_arena.searchSeanceClassTable("LampAttr") == ct_NULLID) {
     Report(RECOVERED_ARENA_SEANCE_LAMP_ATTRIBUTE_TABLE_MISSING,
@@ -2632,6 +2904,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   ExplosionAttributeState_Link();
   VehicleAttributeState_Link();
   TaxiAttributeState_Link();
+  TaxiSubjectState_Link();
   FarterAttributeState_Link();
   FarterSubjectState_Link();
   LampAttributeState_Link();
@@ -2654,6 +2927,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   }
 
   try {
+    TaxiSubjectScriptSummary taxiSubjectScript = {};
     SRecoveredWavMetadataCatalog wavCatalog = {};
     // local_createTables() owns WAVObj before LEVEL0.SC creates attributes.
     if (!RunWavMetadataBootstrap(context, startTime, &wavCatalog)) {
@@ -2749,6 +3023,18 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     if (!PublishVehicle(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
+    }
+    // The source-only CI fixture deliberately has no model resources, so its
+    // TaxiAttr graph remains unresolved just like the other deferred visual
+    // frontiers. A retail level with resolved Skin/Vehicle/Corpse references
+    // must create and validate every parked vehicle before becoming ready.
+    if (g_state.taxiReferencesReady) {
+      if (!RunTaxiSubjectBootstrap(
+              context, startTime, &taxiSubjectScript) ||
+          !PublishTaxiSubject(context, startTime, taxiSubjectScript)) {
+        RecoveredArenaSeance_Release();
+        return FALSE;
+      }
     }
   } catch (const std::bad_alloc&) {
     Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
@@ -2858,6 +3144,16 @@ void RecoveredArenaSeance_Release() {
   g_state.taxiAttributesReady = false;
   g_state.taxiReferencesReady = false;
   g_state.taxiReferenceFingerprint = 0;
+  g_state.taxiSubjectReady = false;
+  g_state.taxiSubjectCapacity = 0;
+  g_state.taxiSubjectCount = 0;
+  g_state.taxiSubjectSoundCount = 0;
+  g_state.taxiSubjectFingerprint = 0;
+  g_state.taxiProbeInvalidStarts = 0;
+  g_state.taxiProbeValidStarts = 0;
+  g_state.taxiProbeRenderReady = 0;
+  g_state.taxiProbeSoundReady = 0;
+  g_state.taxiProbeRollbacks = 0;
   g_state.bulletAttributesReady = false;
   g_state.bulletReferencesReady = false;
   g_state.bulletSubjectRegistrationReady = false;
@@ -3315,6 +3611,46 @@ bool RecoveredArenaSeance_TaxiReferencesReady() {
 
 unsigned long long RecoveredArenaSeance_TaxiReferenceFingerprint() {
   return g_state.taxiReferencesReady ? g_state.taxiReferenceFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_TaxiSubjectReady() {
+  return g_state.taxiSubjectReady;
+}
+
+int RecoveredArenaSeance_TaxiSubjectCapacity() {
+  return g_state.taxiSubjectReady ? g_state.taxiSubjectCapacity : 0;
+}
+
+int RecoveredArenaSeance_TaxiSubjectCount() {
+  return g_state.taxiSubjectReady ? g_state.taxiSubjectCount : 0;
+}
+
+int RecoveredArenaSeance_TaxiSubjectSoundCount() {
+  return g_state.taxiSubjectReady ? g_state.taxiSubjectSoundCount : 0;
+}
+
+unsigned long long RecoveredArenaSeance_TaxiSubjectFingerprint() {
+  return g_state.taxiSubjectReady ? g_state.taxiSubjectFingerprint : 0;
+}
+
+int RecoveredArenaSeance_TaxiProbeInvalidStarts() {
+  return g_state.taxiSubjectReady ? g_state.taxiProbeInvalidStarts : 0;
+}
+
+int RecoveredArenaSeance_TaxiProbeValidStarts() {
+  return g_state.taxiSubjectReady ? g_state.taxiProbeValidStarts : 0;
+}
+
+int RecoveredArenaSeance_TaxiProbeRenderReady() {
+  return g_state.taxiSubjectReady ? g_state.taxiProbeRenderReady : 0;
+}
+
+int RecoveredArenaSeance_TaxiProbeSoundReady() {
+  return g_state.taxiSubjectReady ? g_state.taxiProbeSoundReady : 0;
+}
+
+int RecoveredArenaSeance_TaxiProbeRollbacks() {
+  return g_state.taxiSubjectReady ? g_state.taxiProbeRollbacks : 0;
 }
 
 bool RecoveredArenaSeance_BulletAttributesReady() {

@@ -51,6 +51,10 @@ CVesselEmv     g_emv;
 CVesselWheels  g_tank;
 CVesselWheels  g_walk;
 
+namespace
+{
+bool g_preserveExternalControlSubscription = false;
+}
 
 
 //==========================================================================
@@ -221,31 +225,31 @@ CFVector3  Vehicle::getUpVector ()
 }
 
  //============================================================
-CFVector3  Vehicle::getCenter   () // Îòíîñèòåëüíî 0 îáúåêòà
+CFVector3  Vehicle::getCenter   () // ÐžÑ‚Ð½Ð¾ÑÐ¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ 0 Ð¾Ð±ÑŠÐµÐºÑ‚Ð°
 {
     return CFVector3(0,m_attr->m_centerOffsetY,0);
 }
 
  //============================================================
-double     Vehicle::getRadius   () // Îòíîñèòåëüíî öåíòðà
+double     Vehicle::getRadius   () // ÐžÑ‚Ð½Ð¾ÑÐ¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ Ñ†ÐµÐ½Ñ‚Ñ€Ð°
 {
     return m_attr->m_radius;
 }
 
  //============================================================
-double     Vehicle::getRadius0  () // Îòíîñèòåëüíî 0 îáúåêòà
+double     Vehicle::getRadius0  () // ÐžÑ‚Ð½Ð¾ÑÐ¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ 0 Ð¾Ð±ÑŠÐµÐºÑ‚Ð°
 {
     return m_attr->m_radius0;
 }
 
  //============================================================
-CFVector3  Vehicle::getMoveDir  () // Íàïðàâëåíèå äâèæåíèÿ
+CFVector3  Vehicle::getMoveDir  () // ÐÐ°Ð¿Ñ€Ð°Ð²Ð»ÐµÐ½Ð¸Ðµ Ð´Ð²Ð¸Ð¶ÐµÐ½Ð¸Ñ
 {
     return Normal(m_vessel->Speed());
 }
 
  //============================================================
-double     Vehicle::getMoveSpeed() // Ñêîðîñòü
+double     Vehicle::getMoveSpeed() // Ð¡ÐºÐ¾Ñ€Ð¾ÑÑ‚ÑŒ
 {
     return Abs(m_vessel->Speed());
 }
@@ -288,7 +292,7 @@ void       Vehicle::getMatrix   ( CFMatrix3x4 &m )
 
     // IUnit interface
  //============================================================
-double Vehicle::getPower() // Ñèëà þíèòà 0..10
+double Vehicle::getPower() // Ð¡Ð¸Ð»Ð° ÑŽÐ½Ð¸Ñ‚Ð° 0..10
 {
 	return m_attr->m_power;
 }
@@ -305,7 +309,7 @@ KR_ObjectID Vehicle::getCommander()
 }
 
  //============================================================
-double Vehicle::getDamage() // Öåëîñòíîñòü îò 0..1
+double Vehicle::getDamage() // Ð¦ÐµÐ»Ð¾ÑÑ‚Ð½Ð¾ÑÑ‚ÑŒ Ð¾Ñ‚ 0..1
 {
     return m_damage;
 }
@@ -403,7 +407,7 @@ void Vehicle::setBriefingSound(char * name, int cycle, double ts)
 	event.destination = wavID;
 	event.source      = getObjectID();
 	event.timeStamp   = ts;
-	context->sendEventNow( event ); // Âîçâðàùàåò àäðåñ WAV-îáúåêòà
+	context->sendEventNow( event ); // Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ Ð°Ð´Ñ€ÐµÑ WAV-Ð¾Ð±ÑŠÐµÐºÑ‚Ð°
 	
 	WAVObj    *wav;	
 	
@@ -494,7 +498,7 @@ void Vehicle::updateSound(double ts)
 	event.destination = wavID;
 	event.source      = getObjectID();
 	event.timeStamp   = ts;
-	context->sendEventNow( event ); // Âîçâðàùàåò àäðåñ WAV-îáúåêòà
+	context->sendEventNow( event ); // Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ Ð°Ð´Ñ€ÐµÑ WAV-Ð¾Ð±ÑŠÐµÐºÑ‚Ð°
 	
 	WAVObj    *wav;	
 	
@@ -564,10 +568,10 @@ bool Vehicle::MasterBumpCallBack( ct_Subject  * master, SBumpDef &def )
     CFVector3 oPos, oSpeed;
     KR_ObjectID oID;
     checkDynamicCollision(
-			def, // ìû
-                     veh->getObjectID(),  // êîãî èãíîðèðîâàòü
-                     oID,     // îáúåêò, î êîòîðûé ñòóêíåìñÿ
-                     oPos,    // ïîçèöèÿ îáúåêòà
+			def, // Ð¼Ñ‹
+                     veh->getObjectID(),  // ÐºÐ¾Ð³Ð¾ Ð¸Ð³Ð½Ð¾Ñ€Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ
+                     oID,     // Ð¾Ð±ÑŠÐµÐºÑ‚, Ð¾ ÐºÐ¾Ñ‚Ð¾Ñ€Ñ‹Ð¹ ÑÑ‚ÑƒÐºÐ½ÐµÐ¼ÑÑ
+                     oPos,    // Ð¿Ð¾Ð·Ð¸Ñ†Ð¸Ñ Ð¾Ð±ÑŠÐµÐºÑ‚Ð°
                      oRadius,
                      oSpeed,
                      s_curTime );
@@ -586,72 +590,82 @@ bool Vehicle::MasterBumpCallBack( ct_Subject  * master, SBumpDef &def )
 
 void Vehicle::setAttr(KR_Event &event)
 {
-   
+   KR_ObjectID nextAttribute;
    event.data.open(EDO_READ)
-               .getObjectID(m_vehicleAttrID )
+               .getObjectID(nextAttribute)
              .close();
 
-   setVehicleAttr();
+   const KR_ObjectID previousAttribute = m_vehicleAttrID;
+   m_vehicleAttrID = nextAttribute;
+   if (!setVehicleAttr())
+       m_vehicleAttrID = previousAttribute;
 }
 
 
-void Vehicle::setVehicleAttr()
+bool Vehicle::setVehicleAttr()
 {
    ct_Attribute *attr =__attrVehicleTable.searchAttribute(m_vehicleAttrID);
    if( attr==NULL )
-        echo( "Vehicle::receiveEvent: Unknown attribute %s",
-              context->searchObject(m_vehicleAttrID));
-   else 
    {
-        m_attr = (AttributeVehicle*)attr;
-        m_panel = m_attr->m_panel;
+        const char *name = context == 0 ? 0 :
+                           context->searchObject(m_vehicleAttrID);
+        echo( "Vehicle::receiveEvent: Unknown attribute %s",
+              name == 0 ? "<unknown>" : name);
+        return false;
+   }
 
-        if(  strcmp(m_attr->m_dynamic,"Dragon")==0  )
+   AttributeVehicle *nextAttr = (AttributeVehicle*)attr;
+   IVessel *nextVessel = 0;
+
+        if(  strcmp(nextAttr->m_dynamic,"Dragon")==0  )
         {
              g_emv.Attach(&g_emvAttrDragon);
-             m_vessel = &g_emv;
+             nextVessel = &g_emv;
         }
         else
-        if(  strcmp(m_attr->m_dynamic,"Emveshka")==0  )
+        if(  strcmp(nextAttr->m_dynamic,"Emveshka")==0  )
         {
              g_emv.Attach(&g_emvAttr0);
-             m_vessel = &g_emv;
+             nextVessel = &g_emv;
         }
         else
-        if(  strcmp(m_attr->m_dynamic,"TankGenn0")==0  )
+        if(  strcmp(nextAttr->m_dynamic,"TankGenn0")==0  )
         {
              g_walk.Attach(&g_walkAttr0);
-             m_vessel = &g_walk;
+             nextVessel = &g_walk;
         }
         else
-        if(  strcmp(m_attr->m_dynamic,"Dead")==0  )
+        if(  strcmp(nextAttr->m_dynamic,"Dead")==0  )
         {
              g_walk.Attach(&g_dead);
-             m_vessel = &g_walk;
+             nextVessel = &g_walk;
         }
         else
-        if(  strcmp(m_attr->m_dynamic,"TankGenn1")==0  )
+        if(  strcmp(nextAttr->m_dynamic,"TankGenn1")==0  )
         {
              g_tank.Attach(&g_tankAttr1);
-             m_vessel = &g_tank;
+             nextVessel = &g_tank;
         }
         else
-        if(  strcmp(m_attr->m_dynamic,"TankGenn2")==0  )
+        if(  strcmp(nextAttr->m_dynamic,"TankGenn2")==0  )
         {
              g_tank.Attach(&g_tankAttr2);
-             m_vessel = &g_tank;
+             nextVessel = &g_tank;
         }
         else
-        if(  strcmp(m_attr->m_dynamic,"TankGenn3")==0  )
+        if(  strcmp(nextAttr->m_dynamic,"TankGenn3")==0  )
         {
              g_tank.Attach(&g_tankAttr3);
-             m_vessel = &g_tank;
+             nextVessel = &g_tank;
         }
         else
         {
-             s_ASSERTNQ1("Vehicle::Unknown dynamic %s",m_attr->m_dynamic);
-             m_vessel = 0;//&g_vesselEmveshka;
+             s_ASSERTNQ1("Vehicle::Unknown dynamic %s",nextAttr->m_dynamic);
+             return false;
         }
+        m_attr = nextAttr;
+        m_panel = m_attr->m_panel;
+        m_vessel = nextVessel;
         m_vessel->Restart();
         m_vessel->SetMaster( this, MasterBumpCallBack );
 
@@ -663,7 +677,7 @@ void Vehicle::setVehicleAttr()
             0,5120, 0, 245*1.25, -5120, 0
         };
         m_vessel->SetBounds(bounds);
-   }
+        return true;
 }
 
 extern SGRViewport *ZAV_Viewport();
@@ -681,6 +695,8 @@ void Vehicle::openPanel(double ts)
          }
     }
     else GRSetViewport( ZAV_Viewport() );
+	if (g_preserveExternalControlSubscription)
+		return;
 	KR_Event event;
 
 	event.source	  = getObjectID();
@@ -706,6 +722,8 @@ void Vehicle::closePanel(double ts)
 {
     if(  m_panel != 0  )
          m_panel->Close();
+	if (g_preserveExternalControlSubscription)
+		return;
 	KR_Event event;
 
     event.timeStamp   = ts;
@@ -716,6 +734,11 @@ void Vehicle::closePanel(double ts)
 				.putObjectID(getObjectID())
 			  .close();
 	getContext()->sendEventNow(event);
+}
+
+void Vehicle::preserveExternalControlSubscription(bool preserve)
+{
+	g_preserveExternalControlSubscription = preserve;
 }
 
 void Vehicle::onChangeVehicle(double ts)
@@ -759,7 +782,7 @@ void Vehicle::onChangeVehicle(double ts)
 			}
 			
 			/*
-			* Òàêñè ïîéìàëè, Òåïåðü íóæíî ñåñòü
+			* Ð¢Ð°ÐºÑÐ¸ Ð¿Ð¾Ð¹Ð¼Ð°Ð»Ð¸, Ð¢ÐµÐ¿ÐµÑ€ÑŒ Ð½ÑƒÐ¶Ð½Ð¾ ÑÐµÑÑ‚ÑŒ
 			*/
 			if(  !nearest.isNUL()  )
 			{
@@ -832,12 +855,12 @@ void Vehicle::onChangeVehicle(double ts)
 
 
 			if(!checkCollision( 
-				getPosition(),			  // íà÷àëî äâèæåíèÿ
-				CFVector3(0,-9.8,0),		  // íàïðâëåíèå ñî ñêîðîñòüþ
-				1,                        //g_walkAttr0.fRadius,      // ðàäèóñ
-				5000,                     // âðåìÿ äëÿ ïðîâåðêè
-				g_vehicle->getObjectID(), // êîãî èãíîðèðîâàòü
-				dropTime,                 // âðåìÿ, ÷åðåç êîòîðîå ñòóêíåìñÿ
+				getPosition(),			  // Ð½Ð°Ñ‡Ð°Ð»Ð¾ Ð´Ð²Ð¸Ð¶ÐµÐ½Ð¸Ñ
+				CFVector3(0,-9.8,0),		  // Ð½Ð°Ð¿Ñ€Ð²Ð»ÐµÐ½Ð¸Ðµ ÑÐ¾ ÑÐºÐ¾Ñ€Ð¾ÑÑ‚ÑŒÑŽ
+				1,                        //g_walkAttr0.fRadius,      // Ñ€Ð°Ð´Ð¸ÑƒÑ
+				5000,                     // Ð²Ñ€ÐµÐ¼Ñ Ð´Ð»Ñ Ð¿Ñ€Ð¾Ð²ÐµÑ€ÐºÐ¸
+				g_vehicle->getObjectID(), // ÐºÐ¾Ð³Ð¾ Ð¸Ð³Ð½Ð¾Ñ€Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ
+				dropTime,                 // Ð²Ñ€ÐµÐ¼Ñ, Ñ‡ÐµÑ€ÐµÐ· ÐºÐ¾Ñ‚Ð¾Ñ€Ð¾Ðµ ÑÑ‚ÑƒÐºÐ½ÐµÐ¼ÑÑ
 				oID))
 			{
 				ASSERT(0);
@@ -880,13 +903,13 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 	double clzTime;
 	
 	if(!checkCollision( 
-		from,     // íà÷àëî äâèæåíèÿ
-		toDir,    // íàïðâëåíèå ñî ñêîðîñòüþ
-		1,                        //g_walkAttr0.fRadius,      // ðàäèóñ
-		1,                        // âðåìÿ äëÿ ïðîâåðêè
-		g_vehicle->getObjectID(),            // êîãî èãíîðèðîâàòü
-		clzTime,                  // âðåìÿ, ÷åðåç êîòîðîå ñòóêíåìñÿ
-		oID))                     // îáúåêò, î êîòîðûé ñòóêíåìñÿ
+		from,     // Ð½Ð°Ñ‡Ð°Ð»Ð¾ Ð´Ð²Ð¸Ð¶ÐµÐ½Ð¸Ñ
+		toDir,    // Ð½Ð°Ð¿Ñ€Ð²Ð»ÐµÐ½Ð¸Ðµ ÑÐ¾ ÑÐºÐ¾Ñ€Ð¾ÑÑ‚ÑŒÑŽ
+		1,                        //g_walkAttr0.fRadius,      // Ñ€Ð°Ð´Ð¸ÑƒÑ
+		1,                        // Ð²Ñ€ÐµÐ¼Ñ Ð´Ð»Ñ Ð¿Ñ€Ð¾Ð²ÐµÑ€ÐºÐ¸
+		g_vehicle->getObjectID(),            // ÐºÐ¾Ð³Ð¾ Ð¸Ð³Ð½Ð¾Ñ€Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ
+		clzTime,                  // Ð²Ñ€ÐµÐ¼Ñ, Ñ‡ÐµÑ€ÐµÐ· ÐºÐ¾Ñ‚Ð¾Ñ€Ð¾Ðµ ÑÑ‚ÑƒÐºÐ½ÐµÐ¼ÑÑ
+		oID))                     // Ð¾Ð±ÑŠÐµÐºÑ‚, Ð¾ ÐºÐ¾Ñ‚Ð¾Ñ€Ñ‹Ð¹ ÑÑ‚ÑƒÐºÐ½ÐµÐ¼ÑÑ
 		clzTime = 1;
 	
 	
@@ -897,13 +920,13 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 	if (!mustDie)
 	{
 		
-		if (makeOrphan)	// ñîçäàåì ñèðîòó
+		if (makeOrphan)	// ÑÐ¾Ð·Ð´Ð°ÐµÐ¼ ÑÐ¸Ñ€Ð¾Ñ‚Ñƒ
 		{
 			event.destination = g_arena.newObject("Orphan","Orphan.Object");	
 			if(  event.destination.isNUL()  )
 				return;
 		}
-		else	// Ñîçäàåì òàêñè, äëÿ òîãî, ÷òîáû åãî áðîñèòü
+		else	// Ð¡Ð¾Ð·Ð´Ð°ÐµÐ¼ Ñ‚Ð°ÐºÑÐ¸, Ð´Ð»Ñ Ñ‚Ð¾Ð³Ð¾, Ñ‡Ñ‚Ð¾Ð±Ñ‹ ÐµÐ³Ð¾ Ð±Ñ€Ð¾ÑÐ¸Ñ‚ÑŒ
 		{								
 			event.destination = g_arena.newObject("Taxi","Taxi.Object");
 			if(  event.destination.isNUL()  )
@@ -925,7 +948,7 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 		context->sendEventNow( event );
 		SetPos( from+toDir*clzTime );
 	}
-		else	// òðóï
+		else	// Ñ‚Ñ€ÑƒÐ¿
 	{
 		
 
@@ -937,7 +960,7 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 		m_lastEventTime   = Session::m_moment;
                 g_GameConsole.PrintUrgent("You're dead, loser!", 40, GameConsole::CENTER);
 
-		// òðóï
+		// Ñ‚Ñ€ÑƒÐ¿
 
 		AttributeTaxi * taxiAttr = (AttributeTaxi *) __attrTaxiTable.searchAttribute(m_attr->m_taxiID);
 
@@ -948,12 +971,12 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 						taxiAttr->m_cacheCorpseTable, 
 						taxiAttr->m_cacheCorpseAttr);
 
-		SetPos( CFVector3(0,0,0));	// ÷òîáû íå ñòðåëÿëè ïî äîõëÿêàì
-		m_currentTaxiOurPos.y -= 1.5;		// Íà÷èíàåì âçëåòàòü ââåðõ ñ 1.5 ìåòðîâ
+		SetPos( CFVector3(0,0,0));	// Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð½Ðµ ÑÑ‚Ñ€ÐµÐ»ÑÐ»Ð¸ Ð¿Ð¾ Ð´Ð¾Ñ…Ð»ÑÐºÐ°Ð¼
+		m_currentTaxiOurPos.y -= 1.5;		// ÐÐ°Ñ‡Ð¸Ð½Ð°ÐµÐ¼ Ð²Ð·Ð»ÐµÑ‚Ð°Ñ‚ÑŒ Ð²Ð²ÐµÑ€Ñ… Ñ 1.5 Ð¼ÐµÑ‚Ñ€Ð¾Ð²
 	}
 	
        /*
-	* Ñàäèìñÿ íà óìîë÷àëüíóþ
+	* Ð¡Ð°Ð´Ð¸Ð¼ÑÑ Ð½Ð° ÑƒÐ¼Ð¾Ð»Ñ‡Ð°Ð»ÑŒÐ½ÑƒÑŽ
 	*/
 	
 	
@@ -978,48 +1001,63 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 void  Vehicle::onSetTaxi( KR_Event & event)
 {
 	KR_ObjectID nearest;
-	
+
 	event.data.open(EDO_READ)
 		.getObjectID(nearest)
 	.close();
-	
+	if (!tryTakeTaxi(nearest, event.timeStamp, true))
+		m_isTakingTaxiNow = 0;
+}
 
-	ITaxi *ti = (ITaxi*)(context->queryInterface( nearest, ITaxiIID ));
-	IDynamicObject *ido = (IDynamicObject*)(context->queryInterface( nearest, IDynamicObjectIID ));
-	IUnit *unit = (IUnit *)(context->queryInterface( nearest, IUnitIID ));
+bool Vehicle::tryTakeTaxi(const KR_ObjectID &nearest, double timeStamp,
+                          bool updatePanel)
+{
+	KR_ObjectID nearestCopy = nearest;
+	if (context == 0 || nearestCopy.isNUL() || !context->isExist(nearest))
+		return false;
 
-	if(  ti == 0 || ido == 0 || unit == 0  )
+	ITaxi *ti = (ITaxi*)(context->queryInterface(nearest, ITaxiIID));
+	IDynamicObject *ido =
+		(IDynamicObject*)(context->queryInterface(nearest, IDynamicObjectIID));
+	IUnit *unit = (IUnit*)(context->queryInterface(nearest, IUnitIID));
+	if (ti == 0 || ido == 0 || unit == 0)
 	{
 		const char *name = context->searchObject(nearest);
-		if(  name == 0  )
-			name = "<unknown>";
-		echo("Vehicle::onSetTaxi: bad taxi object %s", name);
-		return;
+		echo("Vehicle::onSetTaxi: bad taxi object %s",
+			 name == 0 ? "<unknown>" : name);
+		return false;
 	}
 
-        m_secBulletCnt = ti->taxiGetBulletCnt( );
-	m_damage = unit->getDamage();
-	
-	event.label       = KR_SET_ATTR;
-	event.destination = getObjectID();
-	event.source      = getObjectID();
-	event.data.open(EDO_WRITE)
-		.putObjectID(ti->getAttributeForVehicle())
-		.close();
-	closePanel(event.timeStamp);
-	setAttr( event );
-	openPanel(event.timeStamp);
-	
-	CFMatrix3x4 m;
-	m.LoadTransposed(ido->GetDir());
-	SetDir(m);
-	
-	//setPosition( ti->taxiPos()+CFVector3(0,m_attr->m_bornY,0) );
-	SetPos( ti->taxiPos()+CFVector3(0,m_attr->m_bornY,0) );
-	
-	context->removeObject( nearest );
+	KR_ObjectID nextAttribute = ti->getAttributeForVehicle();
+	if (nextAttribute.isNUL() ||
+		__attrVehicleTable.searchAttribute(nextAttribute) == 0)
+		return false;
 
+	const KR_ObjectID previousAttribute = m_vehicleAttrID;
+	if (updatePanel)
+		closePanel(timeStamp);
+	m_vehicleAttrID = nextAttribute;
+	if (!setVehicleAttr())
+	{
+		m_vehicleAttrID = previousAttribute;
+		setVehicleAttr();
+		if (updatePanel)
+			openPanel(timeStamp);
+		return false;
+	}
+	if (updatePanel)
+		openPanel(timeStamp);
+
+	m_secBulletCnt = ti->taxiGetBulletCnt();
+	m_damage = unit->getDamage();
+	CFMatrix3x4 direction;
+	direction.LoadTransposed(ido->GetDir());
+	SetDir(direction);
+	SetPos(ti->taxiPos() + CFVector3(0, m_attr->m_bornY, 0));
+
+	context->removeObject(nearest);
 	m_isTakingTaxiNow = 0;
+	return !context->isExist(nearest) && m_vehicleAttrID == nextAttribute;
 }
 
 static int Shoot(

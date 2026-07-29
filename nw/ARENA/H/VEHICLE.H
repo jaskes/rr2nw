@@ -189,8 +189,8 @@ class Vehicle :
     WAVObj    *m_wav;	
     
 
-    void LeaveVehicle(double ts, BOOL makeOrphan);	
-	void setVehicleAttr();
+    void LeaveVehicle(double ts, BOOL makeOrphan);
+	bool setVehicleAttr();
 	void InitSound();
 private:
     Player      m_player;
@@ -231,17 +231,17 @@ public:
     virtual CFVector3  getPos      ();
     virtual double     getHAngle   ();
     virtual CFVector3  getUpVector ();
-    virtual CFVector3  getCenter   (); // Îòíîñèòåëüíî 0 îáúåêòà
-    virtual double     getRadius   (); // Îòíîñèòåëüíî öåíòðà
-    virtual double     getRadius0  (); // Îòíîñèòåëüíî 0 îáúåêòà
-    virtual CFVector3  getMoveDir  (); // Íàïðàâëåíèå äâèæåíèÿ
-    virtual double     getMoveSpeed(); // Ñêîðîñòü
+    virtual CFVector3  getCenter   (); // ÐžÑ‚Ð½Ð¾ÑÐ¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ 0 Ð¾Ð±ÑŠÐµÐºÑ‚Ð°
+    virtual double     getRadius   (); // ÐžÑ‚Ð½Ð¾ÑÐ¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ Ñ†ÐµÐ½Ñ‚Ñ€Ð°
+    virtual double     getRadius0  (); // ÐžÑ‚Ð½Ð¾ÑÐ¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ 0 Ð¾Ð±ÑŠÐµÐºÑ‚Ð°
+    virtual CFVector3  getMoveDir  (); // ÐÐ°Ð¿Ñ€Ð°Ð²Ð»ÐµÐ½Ð¸Ðµ Ð´Ð²Ð¸Ð¶ÐµÐ½Ð¸Ñ
+    virtual double     getMoveSpeed(); // Ð¡ÐºÐ¾Ñ€Ð¾ÑÑ‚ÑŒ
     virtual void       getMatrix   ( CFMatrix3x4 &m );
 
     // IUnit interface
-    virtual double getPower(); // Ñèëà þíèòà 0..10
+    virtual double getPower(); // Ð¡Ð¸Ð»Ð° ÑŽÐ½Ð¸Ñ‚Ð° 0..10
     virtual int    isFriend( const KR_ObjectID &commanderID );
-    virtual double getDamage(); // Öåëîñòíîñòü îò 0..1
+    virtual double getDamage(); // Ð¦ÐµÐ»Ð¾ÑÑ‚Ð½Ð¾ÑÑ‚ÑŒ Ð¾Ñ‚ 0..1
     virtual double desireShoot();
     virtual void   setDamage  ( double d, const CFVector3 &pos, double ts,KR_ObjectID from );
     virtual KR_ObjectID getCommander();
@@ -265,11 +265,14 @@ public:
     void         openPanel      (double ts);
     void         drawPanel      ();
     void         closePanel     (double ts);
+    static void  preserveExternalControlSubscription(bool preserve);
     void         onChangeVehicle(double ts);
     void         onFire         ( double timeStamp );
     void         onFireSec      ( double timeStamp );
 
-    void         onSetTaxi              (KR_Event & event);     
+    void         onSetTaxi              (KR_Event & event);
+    bool         tryTakeTaxi(const KR_ObjectID &taxi,
+                             double timeStamp, bool updatePanel);
     CFVector3	 Speed() { return m_vessel->Speed(); }
     bool         ApplyExplosionImpulse(const CFVector3 &impulse,
                                        double factor);

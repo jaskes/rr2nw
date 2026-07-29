@@ -2973,6 +2973,40 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_arena_taxi_attribute_state
 )
 
+add_library(rr2nw_arena_obase_taxi_full STATIC
+  nw/ARENA/OBASE/Taxi/Taxi.cpp
+  nw/ARENA/OBASE/Taxi/Taxi.h
+  nw/ARENA/OBASE/Taxi/TaxiSubjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_taxi_full PUBLIC
+  rr2nw_arena_taxi_attribute_state
+  rr2nw_arena_obase_vehicle
+  rr2nw_arena_obase_corpse_full
+  rr2nw_arena_sound_object_state
+)
+target_include_directories(rr2nw_arena_obase_taxi_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Taxi
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_taxi_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_taxi_full PRIVATE
+  __NT__
+  RR2NW_TAXI_ATTRIBUTE_STATE_EXTERNAL
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_taxi_full PRIVATE
+    /W4 /permissive- /wd4081 /wd4244
+  )
+endif()
+
 add_library(rr2nw_game_entry_runtime STATIC
   src/runtime/GameEntryRuntimeState.cpp
   src/runtime/GameEntryRuntimeState.h
@@ -3219,6 +3253,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state
   rr2nw_arena_obase_vehicle
+  rr2nw_arena_obase_taxi_full
   rr2nw_arena_bird_attribute_state
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_orphan_attribute_state
