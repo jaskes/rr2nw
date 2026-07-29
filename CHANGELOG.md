@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added a bounded runtime owner for the real `Vehicle.Default`. It validates
+  the selected retail vessel, preserves public Vehicle/Subject position,
+  direction, speed and time state independently, and rolls activation back
+  exactly without changing the legacy class layout.
+- Proved original Vehicle control and physics on all nine May Levels: W and
+  right-turn `CTRL_BUTTONS_MSG` events pass through `Vehicle::receiveEvent()`,
+  172 bounded steps execute the real `BeginPreStep()`/`UpdatePos()` path,
+  horizontal movement and vessel-camera change are required, and all state is
+  restored before the persistent observer loop begins.
+- Added an exact retail Vehicle runtime fingerprint, lifecycle counters and
+  startup diagnostics. Installed/mounted and Debug/Release runs agree on
+  identity `14754063850192062311`; diagnostics explicitly retain observer input
+  ownership until the next transactional handoff slice.
 - Activated Explosion tag `3` as a real model-backed traced Piece. It preserves
   doubled Piece speed, ballistic/terrain motion, exact FPS gates and the May
   four-parent quota, then starts one independent common `Smoke.Attr.Trace`

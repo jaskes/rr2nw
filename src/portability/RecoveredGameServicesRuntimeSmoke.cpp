@@ -40,6 +40,7 @@
 #include "obase/taxi/TaxiAttributeState.h"
 #include "obase/taxi/Taxi.h"
 #include "obase/vehicle/VehicleAttributeState.h"
+#include "obase/vehicle/VehicleRuntimeState.h"
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "sound.h"
@@ -240,7 +241,7 @@ int Fail(const char* message) {
       "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
       "farter=%d lamp=%d corpse=%d corpse_subject=%d "
       "wav=%d sound=%d skin=%d spark=%d "
-      "route=%d vehicle=%d "
+      "route=%d vehicle=%d vehicle_move=%d "
       "arena_issues=%llu arena_extended_issues=%llu arena_error=%s "
       "level=%d graph=%d "
       "frame=%u context=%p publisher=%p timer=%p scene=%p current=%p "
@@ -281,6 +282,7 @@ int Fail(const char* message) {
       RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
       RecoveredGameServices_RouteReady() ? 1 : 0,
       RecoveredGameServices_VehicleReady() ? 1 : 0,
+      RecoveredGameServices_VehicleMovementReady() ? 1 : 0,
       RecoveredArenaSeance_Issues(), RecoveredArenaSeance_ExtendedIssues(),
       RecoveredArenaSeance_LastError(),
       RecoveredGameLevel_IsReady() ? 1 : 0,
@@ -369,6 +371,20 @@ bool IsServiceReleased() {
          ExplosionSubjectState_TracedParentCount() == 0 &&
          !RecoveredGameServices_VehicleAttributesReady() &&
          RecoveredGameServices_VehicleVesselMass() == 0.0 &&
+         !RecoveredGameServices_VehicleMovementReady() &&
+         RecoveredGameServices_VehicleRuntimeFingerprint() == 0 &&
+         RecoveredGameServices_VehicleVesselKind() ==
+             RECOVERED_VEHICLE_VESSEL_UNKNOWN &&
+         RecoveredGameServices_VehicleProbeInvalidActivations() == -1 &&
+         RecoveredGameServices_VehicleProbeActivations() == -1 &&
+         RecoveredGameServices_VehicleProbeStationarySteps() == -1 &&
+         RecoveredGameServices_VehicleProbeThrottleEvents() == -1 &&
+         RecoveredGameServices_VehicleProbeMovementSteps() == -1 &&
+         RecoveredGameServices_VehicleProbeTurnEvents() == -1 &&
+         RecoveredGameServices_VehicleProbeCameraTransitions() == -1 &&
+         RecoveredGameServices_VehicleProbeRollbacks() == -1 &&
+         RecoveredGameServices_VehicleProbeHorizontalDistance() == 0.0 &&
+         VehicleRuntimeState_IsClean(nullptr) &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
          RecoveredArenaSeance_VehicleAttributeFingerprint() == 0 &&
@@ -1628,6 +1644,22 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SparkProbeExpirations() != 1 ||
       !RecoveredGameServices_RouteReady() ||
       !RecoveredGameServices_VehicleReady() ||
+      !RecoveredGameServices_VehicleMovementReady() ||
+      RecoveredGameServices_VehicleRuntimeFingerprint() == 0 ||
+      (RecoveredGameServices_VehicleVesselKind() !=
+           RECOVERED_VEHICLE_VESSEL_EMV &&
+       RecoveredGameServices_VehicleVesselKind() !=
+           RECOVERED_VEHICLE_VESSEL_WHEELS) ||
+      RecoveredGameServices_VehicleProbeInvalidActivations() != 2 ||
+      RecoveredGameServices_VehicleProbeActivations() != 1 ||
+      RecoveredGameServices_VehicleProbeStationarySteps() != 1 ||
+      RecoveredGameServices_VehicleProbeThrottleEvents() != 2 ||
+      RecoveredGameServices_VehicleProbeMovementSteps() != 172 ||
+      RecoveredGameServices_VehicleProbeTurnEvents() != 2 ||
+      RecoveredGameServices_VehicleProbeCameraTransitions() != 1 ||
+      RecoveredGameServices_VehicleProbeRollbacks() != 1 ||
+      RecoveredGameServices_VehicleProbeHorizontalDistance() <= 0.01 ||
+      !VehicleRuntimeState_IsClean(g_super.m_context) ||
       RecoveredGameServices_VehicleVesselMass() <= 0.0 ||
       RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
@@ -1774,6 +1806,28 @@ int main(int argc, char** argv) {
   const int vehicleAttributeCapacity = VehicleAttributeState_Capacity();
   const double vehicleVesselMass =
       RecoveredGameServices_VehicleVesselMass();
+  const unsigned long long vehicleRuntimeFingerprint =
+      RecoveredGameServices_VehicleRuntimeFingerprint();
+  const int vehicleVesselKind =
+      RecoveredGameServices_VehicleVesselKind();
+  const int vehicleProbeInvalidActivations =
+      RecoveredGameServices_VehicleProbeInvalidActivations();
+  const int vehicleProbeActivations =
+      RecoveredGameServices_VehicleProbeActivations();
+  const int vehicleProbeStationarySteps =
+      RecoveredGameServices_VehicleProbeStationarySteps();
+  const int vehicleProbeThrottleEvents =
+      RecoveredGameServices_VehicleProbeThrottleEvents();
+  const int vehicleProbeMovementSteps =
+      RecoveredGameServices_VehicleProbeMovementSteps();
+  const int vehicleProbeTurnEvents =
+      RecoveredGameServices_VehicleProbeTurnEvents();
+  const int vehicleProbeCameraTransitions =
+      RecoveredGameServices_VehicleProbeCameraTransitions();
+  const int vehicleProbeRollbacks =
+      RecoveredGameServices_VehicleProbeRollbacks();
+  const double vehicleProbeHorizontalDistance =
+      RecoveredGameServices_VehicleProbeHorizontalDistance();
   const unsigned long long smokerFingerprint =
       SmokerAttributeState_Fingerprint(g_super.m_context);
   const unsigned long long smokerReferenceFingerprint =
@@ -2011,6 +2065,22 @@ int main(int argc, char** argv) {
           vehicleAttributeCapacity ||
       RecoveredArenaSeance_VehicleAttributeFingerprint() !=
           vehicleAttributeFingerprint ||
+      !RecoveredGameServices_VehicleMovementReady() ||
+      vehicleRuntimeFingerprint == 0 ||
+      !VehicleRuntimeState_IsKnownRetailIdentity(
+          g_super.m_context, vehicleID) ||
+      (vehicleVesselKind != RECOVERED_VEHICLE_VESSEL_EMV &&
+       vehicleVesselKind != RECOVERED_VEHICLE_VESSEL_WHEELS) ||
+      vehicleProbeInvalidActivations != 2 ||
+      vehicleProbeActivations != 1 ||
+      vehicleProbeStationarySteps != 1 ||
+      vehicleProbeThrottleEvents != 2 ||
+      vehicleProbeMovementSteps != 172 ||
+      vehicleProbeTurnEvents != 2 ||
+      vehicleProbeCameraTransitions != 1 ||
+      vehicleProbeRollbacks != 1 ||
+      vehicleProbeHorizontalDistance <= 0.01 ||
+      !VehicleRuntimeState_IsClean(g_super.m_context) ||
       smokerFingerprint == 0 ||
       smokerRosterSize != 12 || smokerCapacity != 12 ||
       smokerReferenceFingerprint == 0 || !smokerRuntimeReady ||
@@ -2264,6 +2334,29 @@ int main(int argc, char** argv) {
       !VehicleAttributeState_CachesUnresolved(g_super.m_context) ||
       RecoveredArenaSeance_VehicleAttributeFingerprint() !=
           vehicleAttributeFingerprint ||
+      !RecoveredGameServices_VehicleMovementReady() ||
+      RecoveredGameServices_VehicleRuntimeFingerprint() !=
+          vehicleRuntimeFingerprint ||
+      RecoveredGameServices_VehicleVesselKind() != vehicleVesselKind ||
+      RecoveredGameServices_VehicleProbeInvalidActivations() !=
+          vehicleProbeInvalidActivations ||
+      RecoveredGameServices_VehicleProbeActivations() !=
+          vehicleProbeActivations ||
+      RecoveredGameServices_VehicleProbeStationarySteps() !=
+          vehicleProbeStationarySteps ||
+      RecoveredGameServices_VehicleProbeThrottleEvents() !=
+          vehicleProbeThrottleEvents ||
+      RecoveredGameServices_VehicleProbeMovementSteps() !=
+          vehicleProbeMovementSteps ||
+      RecoveredGameServices_VehicleProbeTurnEvents() !=
+          vehicleProbeTurnEvents ||
+      RecoveredGameServices_VehicleProbeCameraTransitions() !=
+          vehicleProbeCameraTransitions ||
+      RecoveredGameServices_VehicleProbeRollbacks() !=
+          vehicleProbeRollbacks ||
+      std::fabs(RecoveredGameServices_VehicleProbeHorizontalDistance() -
+                vehicleProbeHorizontalDistance) > 1.0e-9 ||
+      !VehicleRuntimeState_IsClean(g_super.m_context) ||
       SmokerAttributeState_Fingerprint(g_super.m_context) !=
           smokerFingerprint ||
       SmokerAttributeState_RosterSize(g_super.m_context) !=
@@ -2384,6 +2477,8 @@ int main(int argc, char** argv) {
               "explosion_trace=%d/%d/%d/%d/%d/%d/%d refs=%llu "
               "frame=NEWPUFF-common-Smoke-detach quota=4 "
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
+              "vehicle_runtime=bounded-UpdatePos kind=%d fingerprint=%llu "
+              "probe=%d/%d/%d/%d/%d/%d/%d/%d distance=%.6f "
               "taxi_attrs=%d/%d taxi_fingerprint=%llu taxi_refs=%llu "
               "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
@@ -2449,6 +2544,12 @@ int main(int argc, char** argv) {
                explosionTraceReferenceFingerprint,
                 vehicleAttributeRosterSize, vehicleAttributeCapacity,
                 vehicleAttributeFingerprint, vehicleVesselMass,
+                vehicleVesselKind, vehicleRuntimeFingerprint,
+                vehicleProbeInvalidActivations, vehicleProbeActivations,
+                vehicleProbeStationarySteps, vehicleProbeThrottleEvents,
+                vehicleProbeMovementSteps, vehicleProbeTurnEvents,
+                vehicleProbeCameraTransitions, vehicleProbeRollbacks,
+                vehicleProbeHorizontalDistance,
                 taxiRosterSize, taxiCapacity, taxiFingerprint,
                 taxiReferenceFingerprint,
                 bulletRosterSize, bulletCapacity, bulletFingerprint,

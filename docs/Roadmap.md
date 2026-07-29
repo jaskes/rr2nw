@@ -422,15 +422,17 @@ retail Corpse structurally runtime-ready without claiming visible smoke. The
 dependency audit now resolves SmokerAttr's Smoke references; Smoke resource
 caches, emitted-Smoke drawing and the complete Smoker MOVE/light/corona path
 are active. The capacity-250 `SoundObj` command-state pool is also active while
-its replacement audio output backend remains deliberately separate. Activate
-the Farter consumer and continue in rollback-tested groups before the heavier
-People/Tank/Taxi/Bullet graph, until unchanged retail
-`LEVEL0.SC` can replace the bootstrap. Then verify the already attached
-Vessel, apply
-`[Vessel] Init`, enter recovered pre-step/event/update processing and transfer
-Hardware subscription and camera ownership from the temporary observer. Menu,
-Briefing, Console, save/load/restart transitions, RSX/audio and active DebugMap
-rendering remain separately reversible later tranches.
+its replacement audio output backend remains deliberately separate. Farter,
+Taxi attributes/references, Bullet movement/effects and the Explosion
+presentation branches now execute in rollback-tested groups. The already
+attached Vessel is verified at `[Vessel] Init`: original control messages,
+bounded pre-step/`UpdatePos()` processing, positive movement and a vessel camera
+pass on all nine May Levels with exact rollback. Next transfer Hardware,
+persistent tick and camera ownership from the temporary observer, while the
+remaining People/Tank/Taxi subject graph is expanded until unchanged retail
+`LEVEL0.SC` can replace the bootstrap. Menu, Briefing, Console,
+save/load/restart transitions, RSX/audio and active DebugMap rendering remain
+separately reversible later tranches.
 
 The manifest frontier raises the automated matrix to 44/44 tests in both
 configurations. Its retail gate is 18/18 direct Level graphs with 9/9 matching
@@ -591,10 +593,14 @@ is now active too: one bounded NEWPUFF chain per parent arms the real model
 branches, starts independent common Smoke children and enforces the exact
 four-parent quota. A three-frame test proves parent-present, parent-detached and
 Smoke-cleared drawing. The known first-step `m_viewTrace[-1]` bug belongs to the
-still-deferred Bullet trail, not Explosion. Next resolve Vehicle's
-Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
-ahead of People and Tank, and live network or replay work remains outside this
-1.0 frontier.
+still-deferred Bullet trail, not Explosion. The real Vehicle movement frontier
+is now bounded too: exact retail identity, W/turn control, 172 original
+`UpdatePos()` steps, positive displacement, vessel camera and clean rollback
+pass across the complete E/G and Debug/Release matrix. Next make the temporary
+observer-to-Vehicle Hardware/tick/camera handoff transactional, then resolve
+Vehicle's Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi
+creation remains ahead of People and Tank, and live network or replay work
+remains outside this 1.0 frontier.
 
 ### Цель
 

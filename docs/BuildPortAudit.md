@@ -2162,6 +2162,45 @@ service launches with exact installed/mounted and Debug/Release summaries for
 every Level, and 4/4 waited executable smokes publishing trace readiness,
 `marker=level-ready` and `runtime_shutdown=clean`.
 
+### Bounded Vehicle movement and camera admission
+
+The executable service boundary now goes beyond publication and impulse-only
+use of `Vehicle.Default`. `VehicleRuntimeState` resolves the actual Vehicle and
+selected `AttributeVehicle`, classifies the attached `CVesselWheels`/
+`CVesselEmv`, validates finite state and hashes the attribute name, dynamic
+name, vessel kind and mass. Measurement across all May data produced one exact
+admitted identity, `14754063850192062311` (`CVesselWheels`, mass `900`).
+
+No field was added to the legacy class and the invalid-UTF-8 `VEHICLE.H` was not
+rewritten. The bounded owner uses the existing public ABI and keeps public
+vessel position separate from inherited Subject position because wheeled
+`SetPos()` legitimately stores its internal center there. Activation is
+restricted to a stopped pristine Vehicle, snapshots both positions, speed,
+direction and three time owners, performs the real restart/placement, and can
+return every observed field to the original state.
+
+The advance boundary accepts only finite monotonic deltas up to `0.05` seconds,
+sets the Session view time and invokes the original active main-loop sequence:
+`BeginPreStep()` then `Vehicle::UpdatePos()`. It deliberately does not revive
+the commented `VEHICLE_UPDATE_POS` event case. Input is delivered as real
+`CTRL_BUTTONS_MSG` events through `Vehicle::receiveEvent()`, and the camera is
+derived from `GetDir()` translated by `-Pos()`.
+
+Production admission rejects NaN position and zero time, then proves one
+stationary step, W down/up, right down/up, 172 real dynamics steps, positive
+horizontal displacement, camera transition and exact rollback. All nine
+Levels pass from installed and mounted roots in Debug and Release; measured
+movement ranges from `1.048754` (04D) to `66.229913` (05D) while runtime
+identity and counters remain exact. Startup publishes every counter and states
+that the observer still owns control, preventing this bounded proof from being
+mistaken for interactive Vehicle readiness.
+
+Final verification passes 51/51 CTest in each configuration, the 36/36 retail
+service matrix and 4/4 executable smokes with `marker=level-ready` and
+`runtime_shutdown=clean`. The next narrow frontier is transactional
+Hardware/quit/tick/camera handoff from `RecoveredObserver` to this already
+measured Vehicle owner, followed by terrain/static-collision manual driving.
+
 ## Expansion order
 
 1. **Complete:** compile the `DESIGN.LIB` math/filesystem boundary and exercise
@@ -2229,8 +2268,11 @@ every Level, and 4/4 waited executable smokes publishing trace readiness,
    active. The bounded Explosion simple/snake/ray graph now renders through a
    safe software particle path and owns recurring expiry/rollback. Standalone
    Smoke, ordinary model-backed Piece and traced Piece/Piece-with-smoke are
-   active with real frame/detach proof. Actual audio output and Bullet trace
-   remain deferred.
+   active with real frame/detach proof. The real `Vehicle.Default` now also
+   accepts original throttle/turn controls, advances 172 bounded
+   `UpdatePos()` steps, produces a vessel camera and rolls its public state
+   back exactly on all nine Levels. Actual interactive Vehicle ownership,
+   audio output and Bullet trace remain deferred.
    Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining
@@ -2247,9 +2289,11 @@ every Level, and 4/4 waited executable smokes publishing trace readiness,
    land dynamics, initializes DEP-safe bush rendering and is now published by
    `ZAV_InitLevel`. A real Session/Publisher/Level/Hardware graph now presents
    software frames, drives a persistent observer through legacy actions and
-   tears down cleanly. Arena/script seance creation and the real Vehicle object
-   are now complete; expand the OBASE/script binding roster, run full retail
-   `LEVEL0.SC`, then hand the camera to the initialized Vehicle/player.
+   tears down cleanly. Arena/script seance creation, the real Vehicle object and
+   bounded movement/camera proof are now complete; next transfer Hardware,
+   persistent tick and camera ownership transactionally from the observer to
+   the initialized Vehicle/player, while continuing the remaining OBASE/script
+   expansion toward full retail `LEVEL0.SC`.
    RSX/audio and active DebugMap remain later isolated boundaries.
 7. **Complete:** advance the executable from pre-content-ready to a
    deterministic level-ready marker while retaining the synthetic preflight

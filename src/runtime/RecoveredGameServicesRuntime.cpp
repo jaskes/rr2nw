@@ -31,6 +31,7 @@
 #include "ZavSceneState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
+#include "obase/vehicle/VehicleRuntimeState.h"
 
 namespace {
 
@@ -202,6 +203,10 @@ bool g_sessionAttached = false;
 bool g_loopReady = false;
 bool g_hardwareReady = false;
 bool g_windowQuitRequested = false;
+bool g_vehicleMovementReady = false;
+unsigned long long g_vehicleRuntimeFingerprint = 0;
+int g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
+SRecoveredVehicleMovementProbeSummary g_vehicleMovementProbe = {};
 RecoveredObserverInput g_observerInput;
 
 void Report(unsigned int issue) { g_issues |= issue; }
@@ -254,6 +259,7 @@ void EndBoundedSession() {
   SUA_BindSession(nullptr);
 
   if (g_super.m_context != nullptr) {
+    VehicleRuntimeState_Reset(g_super.m_context);
     // Arena owns all script-created class-table objects. Release that graph
     // while its context and the legacy services it may notify still exist.
     RecoveredArenaSeance_Release();
@@ -281,6 +287,10 @@ void EndBoundedSession() {
   Session::m_hardware = nullptr;
   g_hardwareReady = false;
   g_windowQuitRequested = false;
+  g_vehicleMovementReady = false;
+  g_vehicleRuntimeFingerprint = 0;
+  g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
+  g_vehicleMovementProbe = {};
 
   const SFrameRuntimeHooks emptyFrameHooks = {};
   Frame_ConfigureRuntime(emptyFrameHooks);
@@ -368,6 +378,29 @@ void InitializeSession() {
       Report(RECOVERED_GAME_SERVICES_SEANCE_FAILURE);
       return;
     }
+
+    KR_ObjectID vehicle =
+        g_super.m_context->searchObject("Vehicle.Default");
+    SRecoveredVehicleRuntimeState vehicleState = {};
+    const double vehicleStartTime =
+        Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
+    g_vehicleRuntimeFingerprint =
+        VehicleRuntimeState_IdentityFingerprint(g_super.m_context, vehicle);
+    if (vehicle.isNUL() || g_vehicleRuntimeFingerprint == 0 ||
+        !VehicleRuntimeState_IsKnownRetailIdentity(
+            g_super.m_context, vehicle) ||
+        !VehicleRuntimeState_Inspect(
+            g_super.m_context, vehicle, &vehicleState) ||
+        !VehicleRuntimeState_ProbeMovement(
+            g_super.m_context, vehicle, observerPosition,
+            vehicleStartTime, &g_vehicleMovementProbe) ||
+        !VehicleRuntimeState_IsClean(g_super.m_context)) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_VEHICLE_MOVEMENT_FAILURE);
+      return;
+    }
+    g_vehicleVesselKind = vehicleState.vesselKind;
+    g_vehicleMovementReady = true;
 
     Frame_BindRecoveredSoftware();
     RecoveredSoftwareGraph_ConfigureWindowMessageHook(
@@ -709,6 +742,59 @@ double RecoveredGameServices_VehicleVesselMass() {
   return RecoveredArenaSeance_VehicleVesselMass();
 }
 
+bool RecoveredGameServices_VehicleMovementReady() {
+  return g_vehicleMovementReady;
+}
+
+unsigned long long RecoveredGameServices_VehicleRuntimeFingerprint() {
+  return g_vehicleMovementReady ? g_vehicleRuntimeFingerprint : 0;
+}
+
+int RecoveredGameServices_VehicleVesselKind() {
+  return g_vehicleMovementReady ? g_vehicleVesselKind
+                                : RECOVERED_VEHICLE_VESSEL_UNKNOWN;
+}
+
+int RecoveredGameServices_VehicleProbeInvalidActivations() {
+  return g_vehicleMovementReady
+             ? g_vehicleMovementProbe.invalidActivationRejections
+             : -1;
+}
+
+int RecoveredGameServices_VehicleProbeActivations() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.activations : -1;
+}
+
+int RecoveredGameServices_VehicleProbeStationarySteps() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.stationarySteps : -1;
+}
+
+int RecoveredGameServices_VehicleProbeThrottleEvents() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.throttleEvents : -1;
+}
+
+int RecoveredGameServices_VehicleProbeMovementSteps() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.movementSteps : -1;
+}
+
+int RecoveredGameServices_VehicleProbeTurnEvents() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.turnEvents : -1;
+}
+
+int RecoveredGameServices_VehicleProbeCameraTransitions() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.cameraTransitions
+                                : -1;
+}
+
+int RecoveredGameServices_VehicleProbeRollbacks() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.rollbacks : -1;
+}
+
+double RecoveredGameServices_VehicleProbeHorizontalDistance() {
+  return g_vehicleMovementReady ? g_vehicleMovementProbe.horizontalDistance
+                                : 0.0;
+}
+
 bool RecoveredGameServices_QuitRequested() {
   return g_observerInput.QuitRequested() || g_windowQuitRequested;
 }
@@ -765,6 +851,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_SparkRenderingReady() &&
          RecoveredGameServices_RouteReady() &&
          RecoveredGameServices_VehicleReady() &&
+         RecoveredGameServices_VehicleMovementReady() &&
          RecoveredGameLevel_IsReady() && Frame_RuntimeReady(false);
 }
 

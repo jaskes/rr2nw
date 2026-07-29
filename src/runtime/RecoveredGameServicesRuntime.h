@@ -9,7 +9,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_FRAME_FAILURE = 1u << 5,
   RECOVERED_GAME_SERVICES_ACTIVE_DEBUG_MAP_UNAVAILABLE = 1u << 6,
   RECOVERED_GAME_SERVICES_UNSUPPORTED_LEVEL_EVENT = 1u << 7,
-  RECOVERED_GAME_SERVICES_SEANCE_FAILURE = 1u << 8
+  RECOVERED_GAME_SERVICES_SEANCE_FAILURE = 1u << 8,
+  RECOVERED_GAME_SERVICES_VEHICLE_MOVEMENT_FAILURE = 1u << 9
 };
 
 struct SRecoveredObserverState {
@@ -80,6 +81,18 @@ bool RecoveredGameServices_SparkRenderingReady();
 bool RecoveredGameServices_RouteReady();
 bool RecoveredGameServices_VehicleReady();
 double RecoveredGameServices_VehicleVesselMass();
+bool RecoveredGameServices_VehicleMovementReady();
+unsigned long long RecoveredGameServices_VehicleRuntimeFingerprint();
+int RecoveredGameServices_VehicleVesselKind();
+int RecoveredGameServices_VehicleProbeInvalidActivations();
+int RecoveredGameServices_VehicleProbeActivations();
+int RecoveredGameServices_VehicleProbeStationarySteps();
+int RecoveredGameServices_VehicleProbeThrottleEvents();
+int RecoveredGameServices_VehicleProbeMovementSteps();
+int RecoveredGameServices_VehicleProbeTurnEvents();
+int RecoveredGameServices_VehicleProbeCameraTransitions();
+int RecoveredGameServices_VehicleProbeRollbacks();
+double RecoveredGameServices_VehicleProbeHorizontalDistance();
 bool RecoveredGameServices_QuitRequested();
 bool RecoveredGameServices_IsReady();
 unsigned int RecoveredGameServices_Issues();

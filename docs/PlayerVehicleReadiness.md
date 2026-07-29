@@ -1,6 +1,6 @@
 # Player to Vehicle vertical-slice readiness
 
-Snapshot: 2026-07-29, after RP-SCRIPT-025.
+Snapshot: 2026-07-29, after RP-SCRIPT-026.
 
 ## What “drive through the real world” means
 
@@ -31,6 +31,17 @@ first movement proof; they must not be confused with basic drive readiness.
   raise, jump, stop), collision callback, step functions and camera matrix are
   compiled. `Vehicle::receiveEvent()` already decodes the legacy control
   messages.
+- A bounded runtime owner now inspects the real `Vehicle.Default`, admits the
+  exact retail `CVesselWheels`/mass identity, places it at `[Vessel] Init`,
+  delivers real `CTRL_BUTTONS_MSG` actions and advances the original
+  `Vehicle::UpdatePos()` path with a maximum `0.05` second step. The admission
+  probe proves a stationary step, W down/up, right steering, 172 movement
+  steps, camera change, positive horizontal movement and exact rollback.
+- All nine installed and mounted May Levels produce the same Vehicle runtime
+  fingerprint (`14754063850192062311`) in Debug and Release. Their measured
+  four-second horizontal distances range from `1.048754` to `66.229913`, so
+  admission proves real Level-dependent terrain/dynamics rather than a
+  synthetic position increment.
 - Combat support below Vehicle is substantially present: Bullet attributes and
   subject flight/collision/effects, Explosion/Spark/Smoke children and rollback
   are active. This is useful after movement, but it is not a substitute for the
@@ -39,31 +50,31 @@ first movement proof; they must not be confused with basic drive readiness.
 ## Critical gap to the first drivable build
 
 The current executable deliberately keeps the recovery observer in control.
-`Vehicle::receiveEvent(VEHICLE_UPDATE_POS)` still has `UpdatePos()` commented
-out, `RecoveredGameServices_RunFrame()` advances the temporary observer and
-builds its camera, and Hardware subscribes that observer exclusively. The real
-Vehicle therefore has valid attributes and a vessel but neither owns input nor
-advances/renders the player camera.
+The real Vehicle now demonstrably accepts input, advances and produces a
+camera, but only inside a startup admission transaction that restores every
+public position/direction/time field before gameplay frames begin.
+`RecoveredGameServices_RunFrame()` still advances the temporary observer and
+Hardware subscribes that observer exclusively. The remaining critical gap is
+therefore the transactional transfer of persistent input, tick and camera
+ownership, followed by collision-focused manual driving.
 
 The shortest safe implementation sequence is:
 
-1. Add a read-only Vehicle runtime-state API: selected attribute/dynamic,
-   vessel kind, position, direction, speed, mass and clean-state checks. Reject
-   a missing/unknown dynamic before dereferencing `m_vessel`.
-2. Build a bounded Vehicle activation transaction. Place `Vehicle.Default` at
-   `[Vessel] Init`, initialize its direction and terrain-safe height, establish
-   the first timestamp, and prove rollback to the pre-activation state.
-3. Add one explicit `Vehicle::Advance(delta/time)` boundary around
-   `AccumPreStep`, `PreStep`, `NextFrame` and `ApplyStep`. Do not simply restore
-   the commented event until monotonic time, maximum delta and failure cleanup
-   are specified.
+1. **Complete:** add a read-only Vehicle runtime-state API with exact retail
+   identity, selected dynamic/vessel kind, public state and clean-owner checks.
+2. **Complete:** build a bounded activation at `[Vessel] Init`, establish the
+   first timestamp and prove exact rollback without changing the legacy class
+   layout or relying on its private serializer.
+3. **Complete:** add a monotonic, finite, maximum-`0.05`-second advance boundary
+   around the original `Vehicle::UpdatePos()` sequence. Invalid activation and
+   step inputs fail closed.
 4. Add a handoff mode in game services: unsubscribe `RecoveredObserver`,
    subscribe `Vehicle.Default`, retain Escape/quit ownership, and restore the
    observer transactionally if activation fails.
-5. Build the view matrix from the vessel position/direction after each advance.
-   Prove a stationary frame, a W-down acceleration sequence, W-up coast/stop,
-   steering, terrain collision and deterministic detach. The observer remains
-   a diagnostic fallback only.
+5. **Synthetic portion complete:** the view matrix is built from vessel
+   position/direction and changes after W/steering. Connect it to the persistent
+   frame owner, then prove terrain collision and deterministic detach while the
+   observer remains a diagnostic fallback.
 6. Run the first manual smoke on Level.01D: spawn, drive forward, turn, stop,
    traverse a slope, collide with a static obstacle, alt-tab and exit. Repeat on
    one wheeled and one EMV/air-like roster before broadening to all nine Levels.
@@ -87,11 +98,11 @@ The shortest safe implementation sequence is:
 ## Current estimate
 
 The reusable platform/world/asset foundation for this slice is roughly
-75--80% complete. The end-to-end drivable slice is roughly 50--55% complete:
-the remaining half is small in file count but high-risk because it transfers
-input, timing, camera and collision ownership at once. A “vehicle moves under
-synthetic input in a headless test” milestone should precede the first manual
-drive; real cockpit, Taxi/change-vehicle and weapons are subsequent slices.
+80--85% complete. The end-to-end drivable slice is roughly 65--70% complete:
+the headless real-physics movement milestone is now passed, but the remaining
+work is high-risk because it transfers persistent input, timing and camera
+ownership and then exposes terrain/static collision to manual play. Real
+cockpit, Taxi/change-vehicle and weapons remain subsequent slices.
 
 These percentages are engineering orientation, not schedule claims. Readiness
 is gated by the proofs above, not by line count.

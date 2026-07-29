@@ -847,6 +847,42 @@ Retail scripts нельзя молча копировать поверх source 
   launches with exact E/G and Debug/Release summaries for all nine Levels, and
   4/4 waited executable smokes with trace readiness and clean shutdown.
 
+### RP-SCRIPT-026: Vehicle.Default executes bounded real vessel movement
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. The real
+  script-created Vehicle, embedded Player, selected wheeled vessel, legacy
+  control decoder, dynamics step and vessel-derived camera are active inside a
+  transactional admission probe. Persistent Hardware/camera ownership remains
+  with the recovery observer and is the next frontier.
+- Every May Level resolves the same runtime identity
+  `14754063850192062311`: `Vehicle.Default`, its exact attribute/dynamic,
+  `CVesselWheels` and mass `900`. Unknown non-zero identities are rejected.
+- The probe rejects two invalid activations, performs one valid activation and
+  one stationary step, sends two throttle plus two turn events, advances 172
+  bounded real `UpdatePos()` steps, observes one camera transition and performs
+  one exact rollback: `2/1/1/2/172/2/1/1`.
+- Measured horizontal distances are identical between the installed and
+  mounted data and between Debug and Release:
+
+| Level | Runtime fingerprint | Vessel kind | Horizontal distance |
+| --- | ---: | ---: | ---: |
+| Level.01D | `14754063850192062311` | wheels | `43.785771` |
+| Level.01N | `14754063850192062311` | wheels | `2.509000` |
+| Level.02D | `14754063850192062311` | wheels | `39.716196` |
+| Level.02N | `14754063850192062311` | wheels | `39.716196` |
+| Level.03N | `14754063850192062311` | wheels | `9.179327` |
+| Level.04D | `14754063850192062311` | wheels | `1.048754` |
+| Level.05D | `14754063850192062311` | wheels | `66.229913` |
+| Level.06N | `14754063850192062311` | wheels | `47.074488` |
+| Level.07N | `14754063850192062311` | wheels | `40.189974` |
+
+- `vehicle_runtime=retail-spawn-bounded-UpdatePos-camera-rollback` and
+  `vehicle_control_owner=probe-only-observer-retained` distinguish proven
+  physics from the still-deferred interactive handoff.
+- Verification passes 51/51 CTest in both configurations, 36/36 retail service
+  launches with exact E/G and Debug/Release results, and 4/4 waited executable
+  smokes with `level-ready` and clean shutdown.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

@@ -2317,3 +2317,49 @@ real common Smoke sprites, removes the Explosion, observes the same sprites in
 the detached-parent frame, removes the Smoke subjects, and observes no further
 draw in the cleared frame. Diagnostics expose all seven lifecycle counters and
 separate the still-deferred Bullet first-step index guard.
+
+## BD-064: prove real Vehicle movement before transferring observer ownership
+
+Status: accepted on 2026-07-29.
+
+The retail Player is embedded in `Vehicle::m_player`; recovery therefore does
+not create a parallel Player subject. A new bounded runtime owner resolves the
+script-created `Vehicle.Default`, inspects its selected `AttributeVehicle` and
+vessel, and admits only the measured May identity
+`14754063850192062311` (`CVesselWheels`, mass `900`). Unknown dynamics fail
+before their physics is exercised.
+
+Activation is deliberately narrower than a general Vehicle save/restore API.
+It accepts only a finite retail spawn, a valid initial timestamp and a pristine
+stopped Vehicle. It snapshots the public vessel position, subject position,
+speed, direction, `m_lastTime`, `Vehicle::s_curTime` and Session view time;
+then it restarts, places and stops the real vessel. This avoids changing the
+legacy class/header layout or depending on its assertion-driven private cache
+serializer.
+
+Movement uses the original public frame boundary: `BeginPreStep()` followed by
+`Vehicle::UpdatePos()`, whose source executes `AccumPreStep`, `PreStep`,
+`NextFrame` and `ApplyStep`. Each requested target time must be finite,
+monotonic and no more than `0.05` seconds ahead. The old commented
+`VEHICLE_UPDATE_POS` event case remains untouched until persistent ownership is
+designed explicitly.
+
+The admission probe sends the original `CTRL_BUTTONS_MSG` through
+`Vehicle::receiveEvent()`: W down, W up, right down and right up. It proves one
+stationary step, 172 advancing steps, positive horizontal motion and a camera
+transition derived from `GetDir()` plus `-Pos()`. Rollback restarts and restores
+every captured public field, then requires a clean global owner. Wheeled
+`SetPos()` legitimately gives the subject its internal vessel center rather
+than making `Subject::getPosition()` byte-identical to public `Vehicle::Pos()`;
+both positions are therefore captured and restored independently.
+
+This is a startup admission proof, not interactive driving. Hardware and the
+persistent camera remain owned by `RecoveredObserver`, and diagnostics state
+`vehicle_control_owner=probe-only-observer-retained`. The next decision must
+make observer-to-Vehicle subscription, quit ownership, persistent tick and
+camera handoff one rollback-safe transaction.
+
+Verification passes 51/51 CTest in Debug and Release, all 36/36 installed/
+mounted retail service launches with identical configuration pairs, and 4/4
+waited executable smokes publishing the bounded Vehicle marker,
+`marker=level-ready` and `runtime_shutdown=clean`.

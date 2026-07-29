@@ -1789,6 +1789,31 @@ Status vocabulary:
   resulting simulation state. Version this coalescing decision if redundant
   legacy event multiplicity becomes observable.
 
+### CQ-115: wheeled Vehicle public position and Subject center are distinct
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_BOUNDARY_ACCEPTED`.
+- Evidence: the selected May `Vehicle.Default` uses `CVesselWheels` with mass
+  `900`. Its `SetPos()` updates the public vessel position while the inherited
+  Subject position represents the vessel's internal center and is not required
+  to compare equal. The original main loop calls `BeginPreStep()` and then
+  `UpdatePos()` directly; the commented `VEHICLE_UPDATE_POS` receive-event case
+  is not the active source path.
+- Handling: keep both positions as separately captured/restored state. Admit
+  only runtime fingerprint `14754063850192062311`; accept activation only from
+  a pristine stopped Vehicle; require finite monotonic steps no larger than
+  `0.05`; drive the public `receiveEvent(CTRL_BUTTONS_MSG)` and
+  `UpdatePos()` APIs. Do not modify the non-UTF-8 legacy `VEHICLE.H` layout and
+  do not serialize pointers or manufacture equality between the two positions.
+- Regression contract: reject NaN position, zero activation time, a
+  non-advancing timestamp and an oversized step without state mutation; prove
+  stationary, W-down/W-up and right-down/right-up control, exactly 172
+  advancing steps, positive Level-dependent horizontal movement, camera
+  transition and exact rollback of position, Subject center, direction, speed
+  and time state.
+- Revisit when: persistent Vehicle ownership or save/load is admitted. The
+  bounded pristine-state transaction is not a general replacement for the
+  legacy Vehicle serializer.
+
 ## Maintenance rule
 
 When a new quirk is found:

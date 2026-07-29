@@ -703,6 +703,31 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_VehicleAttributeCapacity()));
   log.Line("vehicle_attribute_fingerprint=" + std::to_string(
                RecoveredArenaSeance_VehicleAttributeFingerprint()));
+  log.Line("vehicle_movement_initialized=" +
+           std::to_string(
+               RecoveredGameServices_VehicleMovementReady() ? 1 : 0));
+  log.Line("vehicle_runtime_fingerprint=" + std::to_string(
+               RecoveredGameServices_VehicleRuntimeFingerprint()));
+  log.Line("vehicle_vessel_kind=" + std::to_string(
+               RecoveredGameServices_VehicleVesselKind()));
+  log.Line("vehicle_probe_invalid_activations=" + std::to_string(
+               RecoveredGameServices_VehicleProbeInvalidActivations()));
+  log.Line("vehicle_probe_activations=" + std::to_string(
+               RecoveredGameServices_VehicleProbeActivations()));
+  log.Line("vehicle_probe_stationary_steps=" + std::to_string(
+               RecoveredGameServices_VehicleProbeStationarySteps()));
+  log.Line("vehicle_probe_throttle_events=" + std::to_string(
+               RecoveredGameServices_VehicleProbeThrottleEvents()));
+  log.Line("vehicle_probe_movement_steps=" + std::to_string(
+               RecoveredGameServices_VehicleProbeMovementSteps()));
+  log.Line("vehicle_probe_turn_events=" + std::to_string(
+               RecoveredGameServices_VehicleProbeTurnEvents()));
+  log.Line("vehicle_probe_camera_transitions=" + std::to_string(
+               RecoveredGameServices_VehicleProbeCameraTransitions()));
+  log.Line("vehicle_probe_rollbacks=" + std::to_string(
+               RecoveredGameServices_VehicleProbeRollbacks()));
+  log.Line("vehicle_probe_horizontal_distance=" + std::to_string(
+               RecoveredGameServices_VehicleProbeHorizontalDistance()));
   log.Line("taxi_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_TaxiAttributesReady() ? 1 : 0));
@@ -1018,6 +1043,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                                             : "interactive-observer"));
   log.Line("input_mode=legacy-hardware-keyboard");
   log.Line("camera_mode=recovered-observer");
+  log.Line("vehicle_control_owner=probe-only-observer-retained");
+  log.Line("vehicle_runtime=retail-spawn-bounded-UpdatePos-camera-rollback");
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"
