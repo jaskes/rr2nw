@@ -671,6 +671,7 @@ class CGRPanel {
        ~CGRPanel();
 
        void SetResolution(int width, int height);
+       int IsReady() const;
        SGRViewport * Open();
        void Draw();
        void Close();

@@ -606,10 +606,15 @@ software frame uses the real vessel camera. Focus loss now releases held
 Vehicle actions, inactive input is suppressed, X executes the original stop,
 and the retail matrix proves heading change, ground contact and a real static
 collision on `Level.04D`. Manual input feel and real window alt-tab remain an
-acceptance smoke rather than an implementation blocker. Next resolve Vehicle's
-Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi
-creation remains ahead of People and Tank, and live network or replay work
-remains outside this 1.0 frontier.
+acceptance smoke rather than an implementation blocker. Vehicle's
+Bullet/Panel/Taxi caches now resolve through a full-roster transaction:
+optional empty weapon slots stay `-1`, named Taxi/Bullet targets are validated,
+all non-empty panels parse at the current software resolution, and a
+deliberately missing late panel rolls every temporary owner back. Seven stable
+May reference identities match the installed and mounted roots. The next
+frontier is live Taxi creation from `SET_TAXI.SCI`, followed by a bounded
+change-vehicle/panel-open proof. Taxi remains ahead of People and Tank, and
+live network or replay work remains outside this 1.0 frontier.
 
 ### Цель
 

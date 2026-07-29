@@ -2473,3 +2473,48 @@ repeat of the previously flaky `Level.04D` Debug case, and 4/4 waited
 the positive `Level.04D` static contact, and each executable log publishes the
 new focus/drive/collision fields before `marker=level-ready` and
 `runtime_shutdown=clean`.
+
+## BD-067: publish Vehicle Panel/Taxi/Bullet caches as one owned transaction
+
+Status: accepted on 2026-07-29.
+
+Legacy `AttributeVehicle::update()` performed five independent side effects:
+it allocated a `CGRPanel`, resolved a Taxi ObjectID, looked up the Bullet
+subject table and encoded primary/secondary BulletAttr indices. Assertions and
+immediate writes meant a missing late panel or attribute could leave a partial
+roster, leak a panel or terminate startup. The recovered runtime does not call
+that path.
+
+Resolution now has two phases. First, the complete sorted VehicleAttr roster
+preflights `TaxiAttr`, `Bullet` and `BulletAttr`; a non-empty Taxi name must
+belong to the TaxiAttr table, and optional empty weapon names retain the source
+sentinel `-1`. A type-1 Vehicle cannot omit Taxi. Second, every non-empty panel
+is constructed into temporary ownership, selects the current software screen
+resolution and must expose a valid viewport. Only after the last panel succeeds
+do `m_panel`, `m_taxiID`, `m_bulletTable`, `m_bulletAttrIndex` and
+`m_bulletSecAttrIndex` commit for every entry.
+
+The admission probe corrupts the last non-empty panel name after all symbolic
+preflight can succeed. Earlier temporary panels are therefore allocated before
+the intended late failure; all are destroyed and every public cache remains at
+its unresolved sentinel. The source-only fixture has no panels and instead
+corrupts a late secondary Bullet name, preserving the same no-partial-commit
+contract. Normal release deletes committed panels and clears all cache fields
+before Arena tables are destroyed, so `AttributeVehicle::removeNotify()` sees
+null and cannot double-delete.
+
+Reference identity excludes pointers and process-local numeric table/index
+values. It hashes the exact raw Vehicle roster plus resolved symbolic Taxi,
+Bullet-table and BulletAttr names and panel-presence state. Seven May values
+cover all nine Levels: `11147578212364682483`, `8581060582414102617`,
+`14583411795748371463`, `11044825111055254158`, `972386879584597554`,
+`4619298710525903342` and `12337669689485639293`. The hermetic January fixture
+is `9664253753635626231` and intentionally invents no panel asset.
+
+`Vehicle.Default` keeps a pointer to the same selected AttributeVehicle object,
+so Taxi and Bullet caches become visible immediately after commit. Every retail
+default attribute names an empty panel; later `KR_SET_ATTR` change-vehicle
+events will copy the already resolved panel pointer through the original
+`setVehicleAttr()` boundary. Opening/drawing that viewport is deliberately the
+next live Taxi/change-vehicle slice, not an implicit side effect of reference
+publication.

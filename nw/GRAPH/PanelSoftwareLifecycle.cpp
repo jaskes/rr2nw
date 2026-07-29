@@ -579,6 +579,12 @@ void CGRPanel::SetResolution(int width,int height)
         }
 }
 
+int CGRPanel::IsReady() const
+{
+    return resolCount > 0 && currentPanel != NULL &&
+           currentPanel->panelViewport != NULL;
+}
+
 SGRViewport *CGRPanel::Open()
 {
     if( resolCount == 0 || currentPanel == NULL ||

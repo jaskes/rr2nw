@@ -103,7 +103,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PARTICLE_LIFECYCLE_FAILURE = 1ull << 26,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_SMOKE_LIFECYCLE_FAILURE = 1ull << 27,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE = 1ull << 28,
-  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE = 1ull << 29
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_TRACE_LIFECYCLE_FAILURE = 1ull << 29,
+  RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID = 1ull << 30
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -172,9 +173,11 @@ int RecoveredArenaSeance_ExplosionProbeQueueRollbacks();
 int RecoveredArenaSeance_ExplosionProbeExecutedCommands();
 int RecoveredArenaSeance_ExplosionProbeDamageApplications();
 bool RecoveredArenaSeance_VehicleAttributesReady();
+bool RecoveredArenaSeance_VehicleReferencesReady();
 int RecoveredArenaSeance_VehicleAttributeCount();
 int RecoveredArenaSeance_VehicleAttributeCapacity();
 unsigned long long RecoveredArenaSeance_VehicleAttributeFingerprint();
+unsigned long long RecoveredArenaSeance_VehicleReferenceFingerprint();
 bool RecoveredArenaSeance_TaxiAttributesReady();
 bool RecoveredArenaSeance_TaxiReferencesReady();
 unsigned long long RecoveredArenaSeance_TaxiReferenceFingerprint();

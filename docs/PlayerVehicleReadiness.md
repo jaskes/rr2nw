@@ -1,6 +1,6 @@
 # Player to Vehicle vertical-slice readiness
 
-Snapshot: 2026-07-29, after RP-SCRIPT-028.
+Snapshot: 2026-07-29, after RP-SCRIPT-029.
 
 ## What “drive through the real world” means
 
@@ -101,14 +101,17 @@ The shortest safe implementation sequence is:
 
 ## Work immediately after movement
 
-- Resolve Vehicle's remaining Panel, Taxi and primary/secondary Bullet caches
-  atomically. `AttributeVehicle::update()` is still assertion-driven and
-  mutates these fields while resolving them.
-- Admit panel loading and viewport ownership without requiring the cockpit for
-  the headless movement gate.
+- **Complete:** resolve Vehicle's Panel, Taxi and primary/secondary Bullet
+  caches atomically. A late missing-panel probe proves that temporary panels
+  and all symbolic references roll back before any roster entry commits.
+- **Complete at the attribute owner:** load every non-empty retail panel and
+  require a valid current-resolution software viewport. Opening/drawing a
+  cockpit remains tied to a later live change-vehicle slice; the default
+  Vehicle attributes intentionally name no panel.
 - Activate the relevant Taxi/Orphan subject slice for enter/leave/change
   vehicle. Exact Taxi attributes and their Vehicle/Corpse references are ready,
-  but `SET_TAXI.SCI` and live Taxi objects are not.
+  and Vehicle now owns their IDs, but `SET_TAXI.SCI` and live Taxi objects are
+  not.
 - Add primary fire only after Vehicle owns Bullet caches and its recurring fire
   events have allocation/rollback tests. Secondary fire and sound follow.
 - Exercise embedded Player faction/mission/save state after the movement owner

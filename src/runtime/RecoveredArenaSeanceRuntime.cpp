@@ -607,6 +607,7 @@ struct RecoveredArenaSeanceState {
   bool explosionPieceReady;
   bool explosionTraceReady;
   bool vehicleAttributesReady;
+  bool vehicleReferencesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
   bool bulletAttributesReady;
@@ -641,6 +642,7 @@ struct RecoveredArenaSeanceState {
   int vehicleAttributeCount;
   int vehicleAttributeCapacity;
   unsigned long long vehicleAttributeFingerprint;
+  unsigned long long vehicleReferenceFingerprint;
   unsigned long long taxiReferenceFingerprint;
   int bulletAttributeCount;
   int bulletAttributeCapacity;
@@ -1162,6 +1164,14 @@ bool PublishVehicle(SimulationContext* context) {
   if (g_vehicle == nullptr) {
     Report(RECOVERED_ARENA_SEANCE_VEHICLE_INTERFACE_MISSING,
            "Vehicle.Default does not expose IVehicleIID");
+    return false;
+  }
+
+  if (!g_state.vehicleReferencesReady ||
+      !VehicleAttributeState_ReferencesResolved(context)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID,
+                   "Vehicle.Default reached publication before its "
+                   "attribute reference graph");
     return false;
   }
 
@@ -1920,6 +1930,43 @@ bool PublishBulletReferences(SimulationContext* context) {
   g_state.bulletGroundSparkReady = true;
   g_state.bulletBarrelSmokeReady = true;
   g_state.bulletReferencesReady = true;
+  return true;
+}
+
+bool PublishVehicleReferences(SimulationContext* context) {
+  if (!g_state.vehicleAttributesReady ||
+      !g_state.bulletAttributesReady ||
+      !g_state.taxiAttributesReady) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID,
+                   "VehicleAttr dependencies are not ready for resolution");
+    return false;
+  }
+  if (!VehicleAttributeState_ProbeReferenceAtomicity(context) ||
+      !VehicleAttributeState_ResolveReferences(context) ||
+      !VehicleAttributeState_ReferencesResolved(context)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "VehicleAttr could not resolve Panel/Taxi/Bullet "
+                  "references atomically: %s",
+                  VehicleAttributeState_LastError());
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID,
+                   message);
+    return false;
+  }
+  g_state.vehicleReferenceFingerprint =
+      VehicleAttributeState_ReferenceFingerprint(context);
+  if (g_state.vehicleReferenceFingerprint == 0 ||
+      !VehicleAttributeState_IsKnownReferenceRoster(context)) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "VehicleAttr resolved references are not a bounded "
+                  "roster (fingerprint=%llu)",
+                  g_state.vehicleReferenceFingerprint);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_VEHICLE_REFERENCE_INVALID,
+                   message);
+    return false;
+  }
+  g_state.vehicleReferencesReady = true;
   return true;
 }
 
@@ -2688,7 +2735,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
 
-    if (!PublishBulletReferences(context)) {
+    if (!PublishBulletReferences(context) ||
+        !PublishVehicleReferences(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -2722,6 +2770,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  VehicleAttributeState_ClearReferences(g_arena.getContext());
   ExplosionAttributeState_ClearTraceReferences(g_arena.getContext());
   ExplosionAttributeState_ClearPieceReferences(g_arena.getContext());
   ExplosionAttributeState_ClearSmokeVisuals(g_arena.getContext());
@@ -2800,9 +2849,11 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionTraceProbeExpiredParents = 0;
   g_state.explosionTraceProbeRolledBackPieces = 0;
   g_state.vehicleAttributesReady = false;
+  g_state.vehicleReferencesReady = false;
   g_state.vehicleAttributeCount = 0;
   g_state.vehicleAttributeCapacity = 0;
   g_state.vehicleAttributeFingerprint = 0;
+  g_state.vehicleReferenceFingerprint = 0;
   VehicleAttributeState_SetCapacity(0);
   g_state.taxiAttributesReady = false;
   g_state.taxiReferencesReady = false;
@@ -3230,6 +3281,10 @@ bool RecoveredArenaSeance_VehicleAttributesReady() {
   return g_state.vehicleAttributesReady;
 }
 
+bool RecoveredArenaSeance_VehicleReferencesReady() {
+  return g_state.vehicleReferencesReady;
+}
+
 int RecoveredArenaSeance_VehicleAttributeCount() {
   return g_state.vehicleAttributesReady ? g_state.vehicleAttributeCount : -1;
 }
@@ -3241,6 +3296,12 @@ int RecoveredArenaSeance_VehicleAttributeCapacity() {
 unsigned long long RecoveredArenaSeance_VehicleAttributeFingerprint() {
   return g_state.vehicleAttributesReady
              ? g_state.vehicleAttributeFingerprint
+             : 0;
+}
+
+unsigned long long RecoveredArenaSeance_VehicleReferenceFingerprint() {
+  return g_state.vehicleReferencesReady
+             ? g_state.vehicleReferenceFingerprint
              : 0;
 }
 

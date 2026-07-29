@@ -236,7 +236,8 @@ int Fail(const char* message) {
       "platform=%d session=%d loop=%d hardware=%d seance=%d bird=%d "
       "portal=%d orphan=%d artefact=%d smoke=%d explosion=%d "
       "explosion_piece=%d explosion_trace=%d "
-      "vehicle_attrs=%d taxi=%d taxi_refs=%d bullet=%d bullet_refs=%d "
+      "vehicle_attrs=%d vehicle_refs=%d taxi=%d taxi_refs=%d "
+      "bullet=%d bullet_refs=%d "
       "bullet_ground_spark=%d bullet_barrel_smoke=%d smoker=%d "
       "dyn_smoker=%d smoker_emission=%d smoker_light_corona=%d "
       "farter=%d lamp=%d corpse=%d corpse_subject=%d "
@@ -262,6 +263,7 @@ int Fail(const char* message) {
       RecoveredGameServices_ExplosionPieceReady() ? 1 : 0,
       RecoveredGameServices_ExplosionTraceReady() ? 1 : 0,
       RecoveredGameServices_VehicleAttributesReady() ? 1 : 0,
+      RecoveredGameServices_VehicleReferencesReady() ? 1 : 0,
       RecoveredGameServices_TaxiAttributesReady() ? 1 : 0,
       RecoveredGameServices_TaxiReferencesReady() ? 1 : 0,
       RecoveredGameServices_BulletAttributesReady() ? 1 : 0,
@@ -370,6 +372,7 @@ bool IsServiceReleased() {
          ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
          ExplosionSubjectState_TracedParentCount() == 0 &&
          !RecoveredGameServices_VehicleAttributesReady() &&
+         !RecoveredGameServices_VehicleReferencesReady() &&
          RecoveredGameServices_VehicleVesselMass() == 0.0 &&
          !RecoveredGameServices_VehicleMovementReady() &&
          RecoveredGameServices_VehicleRuntimeFingerprint() == 0 &&
@@ -400,6 +403,7 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
          RecoveredArenaSeance_VehicleAttributeFingerprint() == 0 &&
+         RecoveredArenaSeance_VehicleReferenceFingerprint() == 0 &&
          !RecoveredGameServices_TaxiAttributesReady() &&
          !RecoveredGameServices_TaxiReferencesReady() &&
          RecoveredArenaSeance_TaxiAttributeCount() == -1 &&
@@ -1732,6 +1736,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_ExplosionPieceReady() ||
       !RecoveredGameServices_ExplosionTraceReady() ||
       !RecoveredGameServices_VehicleAttributesReady() ||
+       !RecoveredGameServices_VehicleReferencesReady() ||
        !RecoveredGameServices_TaxiAttributesReady() ||
        !RecoveredGameServices_TaxiReferencesReady() ||
        !RecoveredGameServices_BulletAttributesReady() ||
@@ -1928,6 +1933,8 @@ int main(int argc, char** argv) {
       BulletSubjectState_Fingerprint(g_super.m_context);
   const unsigned long long vehicleAttributeFingerprint =
       VehicleAttributeState_Fingerprint(g_super.m_context);
+  const unsigned long long vehicleReferenceFingerprint =
+      VehicleAttributeState_ReferenceFingerprint(g_super.m_context);
   const int vehicleAttributeRosterSize =
       VehicleAttributeState_RosterSize(g_super.m_context);
   const int vehicleAttributeCapacity = VehicleAttributeState_Capacity();
@@ -2181,17 +2188,21 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_BulletSubjectCapacity() !=
           bulletSubjectCapacity ||
       vehicleAttributeFingerprint == 0 ||
+      vehicleReferenceFingerprint == 0 ||
       vehicleAttributeRosterSize < 3 || vehicleAttributeRosterSize > 9 ||
       vehicleAttributeCapacity < vehicleAttributeRosterSize ||
       vehicleAttributeCapacity > 10 ||
       !VehicleAttributeState_IsKnownRoster(g_super.m_context) ||
-      !VehicleAttributeState_CachesUnresolved(g_super.m_context) ||
+      !VehicleAttributeState_ReferencesResolved(g_super.m_context) ||
+      !VehicleAttributeState_IsKnownReferenceRoster(g_super.m_context) ||
       RecoveredArenaSeance_VehicleAttributeCount() !=
           vehicleAttributeRosterSize ||
       RecoveredArenaSeance_VehicleAttributeCapacity() !=
           vehicleAttributeCapacity ||
       RecoveredArenaSeance_VehicleAttributeFingerprint() !=
           vehicleAttributeFingerprint ||
+      RecoveredArenaSeance_VehicleReferenceFingerprint() !=
+          vehicleReferenceFingerprint ||
       !RecoveredGameServices_VehicleMovementReady() ||
       vehicleRuntimeFingerprint == 0 ||
       !VehicleRuntimeState_IsKnownRetailIdentity(
@@ -2778,9 +2789,11 @@ int main(int argc, char** argv) {
       VehicleAttributeState_RosterSize(g_super.m_context) !=
           vehicleAttributeRosterSize ||
       VehicleAttributeState_Capacity() != vehicleAttributeCapacity ||
-      !VehicleAttributeState_CachesUnresolved(g_super.m_context) ||
+      !VehicleAttributeState_ReferencesResolved(g_super.m_context) ||
       RecoveredArenaSeance_VehicleAttributeFingerprint() !=
           vehicleAttributeFingerprint ||
+      RecoveredArenaSeance_VehicleReferenceFingerprint() !=
+          vehicleReferenceFingerprint ||
       !RecoveredGameServices_VehicleMovementReady() ||
       RecoveredGameServices_VehicleRuntimeFingerprint() !=
           vehicleRuntimeFingerprint ||
@@ -2923,7 +2936,8 @@ int main(int argc, char** argv) {
               "frame=model-draw-detach "
               "explosion_trace=%d/%d/%d/%d/%d/%d/%d refs=%llu "
               "frame=NEWPUFF-common-Smoke-detach quota=4 "
-              "vehicle_attrs=%d/%d vehicle_fingerprint=%llu mass=%.0f "
+              "vehicle_attrs=%d/%d vehicle_fingerprint=%llu "
+              "vehicle_refs=%llu mass=%.0f "
               "vehicle_runtime=live-BeginPreStep-UpdatePos kind=%d fingerprint=%llu "
               "probe=%d/%d/%d/%d/%d/%d/%d/%d distance=%.6f "
               "vehicle_control=Hardware-exclusive-26/11/13/0 "
@@ -2994,7 +3008,8 @@ int main(int argc, char** argv) {
                explosionTraceRolledBackPieces,
                explosionTraceReferenceFingerprint,
                 vehicleAttributeRosterSize, vehicleAttributeCapacity,
-                vehicleAttributeFingerprint, vehicleVesselMass,
+                vehicleAttributeFingerprint, vehicleReferenceFingerprint,
+                vehicleVesselMass,
                 vehicleVesselKind, vehicleRuntimeFingerprint,
                 vehicleProbeInvalidActivations, vehicleProbeActivations,
                 vehicleProbeStationarySteps, vehicleProbeThrottleEvents,

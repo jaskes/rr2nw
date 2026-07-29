@@ -510,7 +510,9 @@ Retail scripts нельзя молча копировать поверх source 
 - The production host executes each selected `SCINC/VEHICLE.SCI` before Smoke,
   Explosion and Taxi, invoking the original Vehicle attribute and default
   Vehicle creation functions. The former synthetic capacity-2 attribute table
-  is gone. Vehicle's own Panel/Taxi/Bullet caches stay unresolved by design.
+  is gone. This raw RP-SCRIPT-016 publication keeps Vehicle's own
+  Panel/Taxi/Bullet caches unresolved; RP-SCRIPT-029 now resolves them later in
+  the same startup after every dependent table/resource is ready.
 - The May Vehicle matrix is Level.01D/01N `8/8`, Level.02D/02N `6/6`,
   Level.03N `7/7`, Level.04D `8/8`, Level.05D `9/10`, Level.06N `5/5` and
   Level.07N `3/3`. Seven exact raw fingerprints are admitted and match for
@@ -954,6 +956,41 @@ Retail scripts нельзя молча копировать поверх source 
   `rr2nw.exe --runtime-smoke` launches. Release independently observes the
   positive `Level.04D` static contact; every executable log publishes the new
   telemetry and ends with the level-ready marker and clean shutdown.
+
+### RP-SCRIPT-029: Vehicle publishes exact Panel/Taxi/Bullet references atomically
+
+- Classification: `RETAIL_REQUIRED`, `PORTABILITY_FIX_ACCEPTED`. This admits
+  VehicleAttr dependency ownership; it does not yet create live Taxi subjects,
+  switch the player's Vehicle or open a cockpit viewport.
+- The exact raw Vehicle matrix from RP-SCRIPT-016 remains unchanged. For every
+  entry, a non-empty Taxi name resolves to a real TaxiAttr ObjectID, the Bullet
+  subject table resolves once, and non-empty primary/secondary names resolve to
+  exact BulletAttr indices. Empty weapon names retain `-1`; empty type-0 Taxi
+  names retain NUL rather than receiving a fabricated fallback.
+- Every non-empty `m_panelName` from all nine installed and mounted Levels
+  opens as a real retail panel and selects the current software screen
+  resolution. The owner exposes a read-only readiness check; resolution does
+  not open the panel or replace the active world viewport.
+- A deliberately missing last panel runs after all non-visual dependencies and
+  after earlier panels can allocate. The complete transaction must fail with
+  every Vehicle cache still unresolved and all temporary panels released. The
+  intact roster then commits all five cache fields together, validates them
+  against fresh lookup and clears them before Arena teardown.
+- Seven semantic May fingerprints follow the raw Level grouping:
+  `11147578212364682483`, `8581060582414102617`, `14583411795748371463`,
+  `11044825111055254158`, `972386879584597554`, `4619298710525903342` and
+  `12337669689485639293`. They hash symbolic targets and panel presence, not
+  pointers or process-local numeric IDs, and match each E/G pair. The separate
+  panel-less January fixture is `9664253753635626231`.
+- Startup publishes `vehicle_references_resolved=1` plus the reference
+  fingerprint. Any unknown graph uses the dedicated extended issue bit and
+  closes the complete seance; normal shutdown returns readiness and fingerprint
+  to zero.
+- Verification passes 51/51 CTest in Debug and Release, all 36/36 retail
+  game-service launches across the installed and mounted roots, and 4/4 waited
+  `rr2nw.exe --runtime-smoke` launches. Every executable publishes a resolved
+  Vehicle graph, its exact semantic fingerprint, `level-ready` and a clean
+  runtime shutdown.
 
 ## Behavioral parity matrix
 

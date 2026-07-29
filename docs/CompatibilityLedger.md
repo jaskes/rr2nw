@@ -1258,12 +1258,11 @@ Status vocabulary:
   seven SHA-256/roster groups recorded in `DataProvenance.md`.
 - Handling: execute exact Level-local `main_CreateVehicleAttr()` and
   `main_CreateVehicle()` before Smoke/Explosion/Taxi, hash all 27 implemented
-  raw fields, and require a known count/capacity/fingerprint. The resulting
-  Vehicle caches intentionally remain unresolved until Panel/Taxi/Bullet
-  dependencies are admitted.
-- Revisit when: Vehicle's own `update()` graph is activated. Replace the
-  unresolved-cache invariant with the same preflight/commit discipline used
-  for Taxi, without weakening raw roster identity.
+  raw fields, and require a known count/capacity/fingerprint. Raw publication
+  first requires unresolved sentinels; CQ-118 now admits Panel/Taxi/Bullet
+  dependencies later in startup through a separate roster-wide transaction.
+- Revisit when: live mods can replace a published Vehicle roster. Preserve the
+  raw identity gate independently from generation-tagged reference reloads.
 
 ### CQ-087: Level.03N writes a non-existent Vehicle `m_initialDamage` field
 
@@ -1870,6 +1869,33 @@ Status vocabulary:
 - Revisit when: configurable bindings, raw input, replay or SDL input replaces
   Win32 Hardware. Focus-generation ordering must then be part of the recorded
   input contract rather than inferred from queued window messages.
+
+### CQ-118: Vehicle reference resolution mixed allocation, lookup and publication
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`,
+  `REFERENCE_TRANSACTION`.
+- Evidence: legacy `AttributeVehicle::update()` immediately stores a newly
+  allocated `CGRPanel`, Taxi ObjectID, Bullet subject-table ID and two encoded
+  BulletAttr indices. It asserts only selected missing targets and has no
+  roster-wide rollback. Retail also deliberately uses empty primary/secondary
+  weapon names and, for type-0 entries, an optional empty Taxi name.
+- Handling: preflight every symbolic target for the complete sorted roster,
+  preserve empty Bullet slots as `-1`, require Taxi for type-1 entries, then
+  load all non-empty panels into temporary ownership and validate the current
+  software resolution. Commit all five cache fields only after the final panel
+  succeeds. Release deletes panels and clears sentinels before attribute-table
+  teardown. Readiness compares the real pointer/ObjectID/table/index values;
+  fingerprints use only stable symbolic identities and panel presence.
+- Regression contract: corrupt the last non-empty retail panel so earlier
+  panels have already allocated, require resolution failure, unchanged raw
+  fingerprint, all caches unresolved and no retained temporary panel. Then
+  resolve the intact roster, match one of seven exact May semantic identities,
+  reconstruct it identically and clear it idempotently. The panel-less January
+  fixture corrupts its last secondary Bullet name to exercise the same contract.
+- Revisit when: live mods or resolution hot-switch can replace Vehicle assets.
+  Introduce generation-tagged panel/reference owners before allowing cached
+  pointers to survive a resource reload; never patch individual entries in
+  place.
 
 ## Maintenance rule
 

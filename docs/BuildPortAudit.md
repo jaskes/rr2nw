@@ -2367,3 +2367,29 @@ bounded path. Exact contact-frame counts are scheduler-sensitive observation,
 not golden output. The surrounding suites pass 51/51 CTest
 in each configuration, and all 4/4 waited executable runtime smokes publish the
 new diagnostics, reach `marker=level-ready` and shut down cleanly.
+
+## Atomic Vehicle dependency and panel ownership
+
+The final raw VehicleAttr cache gap is closed without re-enabling the legacy
+assertion-driven `AttributeVehicle::update()`. A modern owner first resolves
+the complete Taxi/Bullet graph into temporary records, preserving exact empty
+slot semantics, then constructs every named `CGRPanel` under temporary
+ownership. `CGRPanel::IsReady()` is a data-free ABI addition that reports only
+whether parsing and current-resolution viewport selection succeeded.
+
+Publication is roster-wide: no Vehicle attribute changes until every symbolic
+target and panel is ready. The admission probe replaces the last panel name
+with a missing path, ensuring earlier allocations are exercised, and requires
+all temporary panels plus all five public caches to roll back. Release deletes
+committed panels before Arena removes the attribute table and resets the new
+readiness/fingerprint diagnostics. Source-only CI follows the same transaction
+with a missing secondary Bullet target because that fixture owns no panel
+files.
+
+All nine installed and mounted Levels load their exact non-empty panels at the
+software graph's current resolution and publish one of seven stable semantic
+reference identities. Process pointers and numeric Arena IDs remain excluded;
+fresh resolution still verifies their real cached values. The next OBASE
+frontier is `SET_TAXI.SCI` and a bounded live Taxi/change-vehicle transaction,
+after which the already owned panel can be opened and drawn through the
+original Vehicle boundary.

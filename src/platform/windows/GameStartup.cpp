@@ -703,6 +703,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_VehicleAttributeCapacity()));
   log.Line("vehicle_attribute_fingerprint=" + std::to_string(
                RecoveredArenaSeance_VehicleAttributeFingerprint()));
+  log.Line("vehicle_references_resolved=" +
+           std::to_string(
+               RecoveredGameServices_VehicleReferencesReady() ? 1 : 0));
+  log.Line("vehicle_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_VehicleReferenceFingerprint()));
   log.Line("vehicle_movement_initialized=" +
            std::to_string(
                RecoveredGameServices_VehicleMovementReady() ? 1 : 0));

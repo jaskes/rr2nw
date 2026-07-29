@@ -1024,6 +1024,10 @@ bool RecoveredGameServices_VehicleAttributesReady() {
   return RecoveredArenaSeance_VehicleAttributesReady();
 }
 
+bool RecoveredGameServices_VehicleReferencesReady() {
+  return RecoveredArenaSeance_VehicleReferencesReady();
+}
+
 bool RecoveredGameServices_TaxiAttributesReady() {
   return RecoveredArenaSeance_TaxiAttributesReady();
 }
@@ -1331,6 +1335,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_ExplosionPieceReady() &&
          RecoveredGameServices_ExplosionTraceReady() &&
          RecoveredGameServices_VehicleAttributesReady() &&
+         RecoveredGameServices_VehicleReferencesReady() &&
          RecoveredGameServices_TaxiAttributesReady() &&
          RecoveredGameServices_TaxiReferencesReady() &&
          RecoveredGameServices_BulletAttributesReady() &&

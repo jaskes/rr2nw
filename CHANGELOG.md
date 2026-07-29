@@ -7,6 +7,20 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Replaced legacy `AttributeVehicle::update()` cache mutation with one roster-
+  wide Panel/Taxi/Bullet transaction. Every symbolic Taxi and optional primary/
+  secondary Bullet target resolves before any panel is allocated; every real
+  non-empty retail `.PNL` must then parse and own the current software viewport
+  resolution before all five cache fields commit together.
+- Added a late missing-panel atomicity proof, exact cache validation, stable
+  semantic Vehicle-reference fingerprints and release-time panel destruction.
+  Empty retail weapon slots remain `-1`, empty type-0 Taxi slots remain null,
+  and failure releases all temporary panels without publishing any ObjectID,
+  table or attribute index.
+- Published Vehicle-reference readiness and diagnostics through the Arena,
+  service and executable boundaries. Seven May identities cover all nine
+  Levels and match across the installed and mounted data roots; the separate
+  source fixture is admitted without inventing panel data.
 - Added a bounded runtime owner for the real `Vehicle.Default`. It validates
   the selected retail vessel, preserves public Vehicle/Subject position,
   direction, speed and time state independently, and rolls activation back

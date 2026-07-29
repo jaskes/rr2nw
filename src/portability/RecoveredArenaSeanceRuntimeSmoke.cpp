@@ -58,6 +58,7 @@ unsigned long long g_explosionSoundFixtureFingerprint = 0;
 unsigned long long g_explosionParticleFixtureFingerprint = 0;
 unsigned long long g_explosionSmokeFixtureFingerprint = 0;
 unsigned long long g_vehicleFixtureFingerprint = 0;
+unsigned long long g_vehicleReferenceFixtureFingerprint = 0;
 unsigned long long g_taxiFixtureFingerprint = 0;
 unsigned long long g_bulletFixtureFingerprint = 0;
 unsigned long long g_bulletReferenceFixtureFingerprint = 0;
@@ -273,7 +274,8 @@ int Fail(const char* message) {
   std::fprintf(stderr,
                "recovered-arena-seance-runtime-smoke: %s "
                "(open=%d script=%d bird=%d portal=%d orphan=%d artefact=%d "
-               "smoke=%d explosion=%d vehicle_attrs=%d taxi=%d "
+               "smoke=%d explosion=%d vehicle_attrs=%d vehicle_refs=%d "
+               "taxi=%d "
                "taxi_refs=%d bullet=%d bullet_refs=%d smoker=%d dyn_smoker=%d "
                "farter=%d lamp=%d corpse=%d corpse_subject=%d "
                "wav=%d sound=%d skin=%d "
@@ -288,6 +290,7 @@ int Fail(const char* message) {
                RecoveredArenaSeance_SmokeAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_ExplosionAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_VehicleAttributesReady() ? 1 : 0,
+               RecoveredArenaSeance_VehicleReferencesReady() ? 1 : 0,
                RecoveredArenaSeance_TaxiAttributesReady() ? 1 : 0,
                RecoveredArenaSeance_TaxiReferencesReady() ? 1 : 0,
                RecoveredArenaSeance_BulletAttributesReady() ? 1 : 0,
@@ -500,9 +503,11 @@ bool IsReleased(SimulationContext& context) {
          ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
          ExplosionSubjectState_PieceDrawCount() == 0 &&
          !RecoveredArenaSeance_VehicleAttributesReady() &&
+         !RecoveredArenaSeance_VehicleReferencesReady() &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
          RecoveredArenaSeance_VehicleAttributeFingerprint() == 0 &&
+         RecoveredArenaSeance_VehicleReferenceFingerprint() == 0 &&
          !RecoveredArenaSeance_TaxiAttributesReady() &&
          !RecoveredArenaSeance_TaxiReferencesReady() &&
          RecoveredArenaSeance_TaxiAttributeCount() == -1 &&
@@ -698,9 +703,11 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
       ExplosionSubjectState_ParticleBranchCapacity() != 500 ||
       !RecoveredArenaSeance_VehicleAttributesReady() ||
+      !RecoveredArenaSeance_VehicleReferencesReady() ||
       RecoveredArenaSeance_VehicleAttributeCount() != 3 ||
       RecoveredArenaSeance_VehicleAttributeCapacity() != 8 ||
       RecoveredArenaSeance_VehicleAttributeFingerprint() == 0 ||
+      RecoveredArenaSeance_VehicleReferenceFingerprint() == 0 ||
       !RecoveredArenaSeance_TaxiAttributesReady() ||
       RecoveredArenaSeance_TaxiReferencesReady() ||
       RecoveredArenaSeance_TaxiAttributeCount() != 2 ||
@@ -885,7 +892,10 @@ bool RunCycle(bool expectVisualResources) {
       VehicleAttributeState_IsKnownRoster(&context) &&
       VehicleAttributeState_RosterSize(&context) == 3 &&
       VehicleAttributeState_Capacity() == 8 &&
-      VehicleAttributeState_CachesUnresolved(&context) &&
+      VehicleAttributeState_ReferencesResolved(&context) &&
+      VehicleAttributeState_IsKnownReferenceRoster(&context) &&
+      VehicleAttributeState_ReferenceFingerprint(&context) ==
+          RecoveredArenaSeance_VehicleReferenceFingerprint() &&
       TaxiAttributeState_IsKnownRoster(&context) &&
       TaxiAttributeState_RosterSize(&context) == 2 &&
       TaxiAttributeState_Capacity() == 7 &&
@@ -972,6 +982,8 @@ bool RunCycle(bool expectVisualResources) {
       ExplosionAttributeState_SmokeVisualFingerprint(&context);
   const unsigned long long vehicleFingerprint =
       VehicleAttributeState_Fingerprint(&context);
+  const unsigned long long vehicleReferenceFingerprint =
+      VehicleAttributeState_ReferenceFingerprint(&context);
   const unsigned long long taxiFingerprint =
       TaxiAttributeState_Fingerprint(&context);
   const unsigned long long bulletFingerprint =
@@ -1018,6 +1030,9 @@ bool RunCycle(bool expectVisualResources) {
        g_explosionSmokeFixtureFingerprint == explosionSmokeFingerprint) &&
       (g_vehicleFixtureFingerprint == 0 ||
        g_vehicleFixtureFingerprint == vehicleFingerprint) &&
+      (g_vehicleReferenceFixtureFingerprint == 0 ||
+       g_vehicleReferenceFixtureFingerprint ==
+           vehicleReferenceFingerprint) &&
       (g_taxiFixtureFingerprint == 0 ||
        g_taxiFixtureFingerprint == taxiFingerprint) &&
       (g_bulletFixtureFingerprint == 0 ||
@@ -1061,6 +1076,7 @@ bool RunCycle(bool expectVisualResources) {
   g_explosionParticleFixtureFingerprint = explosionParticleFingerprint;
   g_explosionSmokeFixtureFingerprint = explosionSmokeFingerprint;
   g_vehicleFixtureFingerprint = vehicleFingerprint;
+  g_vehicleReferenceFixtureFingerprint = vehicleReferenceFingerprint;
   g_taxiFixtureFingerprint = taxiFingerprint;
   g_bulletFixtureFingerprint = bulletFingerprint;
   g_bulletReferenceFixtureFingerprint = bulletReferenceFingerprint;
@@ -1874,7 +1890,7 @@ int main(int argc, char** argv) {
                "explosion_particles=bounded-simple-snake-ray visual=%llu "
                "explosion_smoke=standalone-alpha-sprite visual=%llu "
                "explosion_piece=source-only-deferred "
-               "vehicle_attrs=3/8-unresolved "
+               "vehicle_attrs=3/8 vehicle_refs=Panel-Taxi-Bullet-atomic "
                "taxi_attrs=2/7-atomic-source-only "
                "bullet_attrs=4/4 "
                "bullet_subject=0/500-ballistic-collision-ground-waterline "
@@ -1892,6 +1908,7 @@ int main(int argc, char** argv) {
               "spark=Spark.Flash route=table "
               "vehicle=Vehicle.Default "
               "explosion_fingerprint=%llu vehicle_fingerprint=%llu "
+              "vehicle_reference_fingerprint=%llu "
               "bullet_fingerprint=%llu bullet_reference_fingerprint=%llu "
               "bullet_subject_fingerprint=%llu "
               "smoker_fingerprint=%llu "
@@ -1913,6 +1930,7 @@ int main(int argc, char** argv) {
               g_explosionSmokeFixtureFingerprint,
               g_explosionFixtureFingerprint,
               g_vehicleFixtureFingerprint,
+              g_vehicleReferenceFixtureFingerprint,
               g_bulletFixtureFingerprint,
               g_bulletReferenceFixtureFingerprint,
               g_bulletSubjectFixtureFingerprint,
