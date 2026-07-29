@@ -582,10 +582,14 @@ stays an independent future slice. Its bounded simple/snake/ray particle owner,
 recurring lifetime, safe software raster and exact rollback are now active.
 The standalone Smoke limb now uses an atomically published SPR/gradient,
 preserves the source atlas, drift, opacity/radius and `>0.1` frame gate, and is
-proven by a real alpha-sprite frame plus full parent rollback. Piece and
-traced-piece limbs remain separate resource-backed slices.
-Trace follows only
-after the known first-step `m_viewTrace[-1]` bug is replaced rather than copied. Then resolve Vehicle's
+proven by a real alpha-sprite frame plus full parent rollback. Ordinary Piece
+now resolves `Expl.Piece`/`Expl.Piece.Meat` through the real Skin model owner,
+preserves its FPS gates, rotations, ballistic/terrain lifetime and the valid
+zero-lifetime retail preset, renders as one land dynamic per branch and proves
+model draw/detach plus exact 128/500-pool rollback. Traced Piece and
+Piece-with-smoke remain one separate resource-backed slice. Trace follows only
+after the known first-step `m_viewTrace[-1]` bug is replaced rather than copied.
+Then resolve Vehicle's
 Bullet/Panel/Taxi caches before attempting `SET_TAXI.SCI`. Taxi creation remains
 ahead of People and Tank, and live network or replay work remains outside this
 1.0 frontier.

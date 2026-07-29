@@ -44,6 +44,7 @@ bool RecoveredGameServices_ExplosionLightReady();
 bool RecoveredGameServices_ExplosionSoundReady();
 bool RecoveredGameServices_ExplosionParticlesReady();
 bool RecoveredGameServices_ExplosionSmokeReady();
+bool RecoveredGameServices_ExplosionPieceReady();
 bool RecoveredGameServices_VehicleAttributesReady();
 bool RecoveredGameServices_TaxiAttributesReady();
 bool RecoveredGameServices_TaxiReferencesReady();

@@ -39,6 +39,7 @@ int g_impulseApplications = 0;
 int g_allocationRollbacks = 0;
 int g_queueRollbacks = 0;
 int g_particleBranchesLive = 0;
+int g_pieceDrawCalls = 0;
 SimulationContext *g_impulseContext = NULL;
 KR_ObjectID g_impulseTarget = KR_ObjectID::NUL();
 void *g_impulseUser = NULL;
@@ -48,8 +49,35 @@ enum ExplosionParticleBranchType
 {
     EXPLOSION_PARTICLE_SIMPLE = 0,
     EXPLOSION_PARTICLE_SNAKE = 1,
+    EXPLOSION_PARTICLE_PIECE = 2,
     EXPLOSION_PARTICLE_RAY = 4,
     EXPLOSION_PARTICLE_SMOKE = 5
+};
+
+class ExplosionPieceDrawable : public CViewSphericDynamic
+{
+ public:
+    explicit ExplosionPieceDrawable(CViewObjectRef &skin) : m_skin(skin) {}
+
+    void prepare()
+    {
+        m_dynBase = m_dynBase1 = m_bump.start = m_skin.Center();
+        m_bump.vel = CFVector3(0.0, 0.0, 0.0);
+        m_bump.fTime = 0.0;
+        m_bump.fRadius = m_skin.Model()->Radius();
+    }
+
+    virtual void Draw()
+    {
+        if (m_skin.Model() == NULL)
+            return;
+        m_skin.LoadLights(m_dwLights);
+        m_skin.Draw();
+        ++g_pieceDrawCalls;
+    }
+
+ private:
+    CViewObjectRef &m_skin;
 };
 
 struct ExplosionParticleBranch
@@ -61,6 +89,8 @@ struct ExplosionParticleBranch
     double timeOfLife;
     double rayAngle;
     double rayWidth;
+    double rotationOySpeed;
+    double rotationOxSpeed;
     double radiusA;
     double radiusB;
     double opacityA;
@@ -76,6 +106,11 @@ struct ExplosionParticleBranch
     int tailCount;
     unsigned long color;
     bool active;
+    bool landDynamicPublished;
+    CViewObjectRef skin;
+    ExplosionPieceDrawable drawable;
+
+    ExplosionParticleBranch() : drawable(skin) { reset(); }
 
     void reset()
     {
@@ -86,6 +121,8 @@ struct ExplosionParticleBranch
         timeOfLife = 0.0;
         rayAngle = 0.0;
         rayWidth = 0.0;
+        rotationOySpeed = 0.0;
+        rotationOxSpeed = 0.0;
         radiusA = 0.0;
         radiusB = 0.0;
         opacityA = 0.0;
@@ -98,6 +135,7 @@ struct ExplosionParticleBranch
         tailCount = 0;
         color = 0;
         active = false;
+        landDynamicPublished = false;
     }
 };
 
@@ -238,6 +276,13 @@ struct SoundProbeAttribute
     double timeLife;
 };
 
+struct PieceProbeAttribute
+{
+    SimulationContext *context;
+    const char *name;
+    double timeLife;
+};
+
 bool ValidateLightAttribute(const KR_ObjectID object, void *user)
 {
     LightRosterProbe *probe = static_cast<LightRosterProbe *>(user);
@@ -295,6 +340,32 @@ bool SelectSoundProbeAttribute(const KR_ObjectID object, void *user)
     {
         probe->name = name;
         probe->timeLife = attribute->m_lightTimeLife;
+    }
+    return true;
+}
+
+bool SelectPieceProbeAttribute(const KR_ObjectID object, void *user)
+{
+    PieceProbeAttribute *probe =
+        static_cast<PieceProbeAttribute *>(user);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (probe == NULL || probe->context == NULL)
+        return false;
+    if (attribute == NULL || attribute->m_cacheSkin == NULL ||
+        attribute->m_minPieceCnt <= 0 ||
+        attribute->m_maxPieceCnt < attribute->m_minPieceCnt ||
+        attribute->m_minPieceTimeLife <= 0.0)
+        return true;
+    const char *name = probe->context->searchObject(object);
+    if (name != NULL &&
+        (probe->name == NULL ||
+         attribute->m_minPieceTimeLife > probe->timeLife ||
+         (attribute->m_minPieceTimeLife == probe->timeLife &&
+          std::strcmp(name, probe->name) < 0)))
+    {
+        probe->name = name;
+        probe->timeLife = attribute->m_minPieceTimeLife;
     }
     return true;
 }
@@ -428,18 +499,54 @@ class BoundedExplosion : public ct_Subject
                     m_attribute->m_lightRadius);
             }
         }
-        if (m_particleCount > 0 &&
+        const double pieceElapsed = m_previousMoveTime - m_startTime;
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+        {
+            ExplosionParticleBranch &branch = m_particles[index];
+            if (!branch.active ||
+                branch.type != EXPLOSION_PARTICLE_PIECE ||
+                branch.skin.Model() == NULL)
+                continue;
+            CFMatrix3x4 &matrix = branch.skin.GetDirModify();
+            matrix.LoadIdentity();
+            matrix.RotateOyL(branch.rotationOySpeed * pieceElapsed);
+            matrix.RotateOxL(branch.rotationOxSpeed * pieceElapsed);
+            matrix.TranslateL(branch.start + CFVector3(
+                branch.velocity.x * pieceElapsed,
+                branch.velocity.y * pieceElapsed -
+                    4.9 * pieceElapsed * pieceElapsed,
+                branch.velocity.z * pieceElapsed));
+            branch.drawable.prepare();
+            list.Load(&branch.drawable);
+            branch.landDynamicPublished = true;
+        }
+        if (m_particleCount > particleCount(EXPLOSION_PARTICLE_PIECE) &&
             (_pGRDrawParticle != NULL || _pGRDrawAlphaSprite != NULL))
         {
             m_particleDrawable.prepare(m_position, m_attribute->m_radius);
             list.Load(&m_particleDrawable);
+            m_particleDynamicPublished = true;
         }
     }
 
     virtual void endRender(CViewScene *scene)
     {
-        if (scene != NULL && m_started && m_particleCount > 0)
+        if (scene == NULL || !m_started)
+            return;
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+        {
+            ExplosionParticleBranch &branch = m_particles[index];
+            if (branch.landDynamicPublished)
+            {
+                scene->RemoveLandDynamic(&branch.drawable);
+                branch.landDynamicPublished = false;
+            }
+        }
+        if (m_particleDynamicPublished)
+        {
             scene->RemoveLandDynamic(&m_particleDrawable);
+            m_particleDynamicPublished = false;
+        }
     }
 
     virtual void addNotify()
@@ -456,6 +563,13 @@ class BoundedExplosion : public ct_Subject
             context->removeEvent(EXPLOSION_MOVE, getObjectID());
             if (!IsNul(m_sound))
                 SoundObjectState_RollbackOwned(context, &m_sound);
+        }
+        if (m_particleDynamicPublished)
+        {
+            CViewScene *scene = CViewScene::Current();
+            if (scene != NULL)
+                scene->RemoveLandDynamic(&m_particleDrawable);
+            m_particleDynamicPublished = false;
         }
         releaseParticles();
         ct_Subject::removeNotify();
@@ -484,7 +598,9 @@ class BoundedExplosion : public ct_Subject
                m_nextMoveTime == 0.0 && m_previousMoveTime == 0.0 &&
                IsNul(m_damageOwner) && m_damageApplications == 0 &&
                m_position.x == 0.0 && m_position.y == 0.0 &&
-               m_position.z == 0.0 && m_startTime == 0.0;
+               m_position.z == 0.0 && m_startTime == 0.0 &&
+               m_landY == 0.0 && !m_landHeightReady &&
+               !m_particleDynamicPublished;
     }
 
     bool lightActive() const { return m_lightActive; }
@@ -517,9 +633,12 @@ class BoundedExplosion : public ct_Subject
         m_nextMoveTime = 0.0;
         m_previousMoveTime = 0.0;
         m_damageApplications = 0;
+        m_landY = 0.0;
         m_particleCount = 0;
         m_started = false;
         m_lightActive = false;
+        m_landHeightReady = false;
+        m_particleDynamicPublished = false;
         for (int index = 0; index < kParticleBranchPerExplosion; ++index)
             m_particles[index].reset();
     }
@@ -548,6 +667,13 @@ class BoundedExplosion : public ct_Subject
     {
         if (!branch.active)
             return;
+        if (branch.landDynamicPublished)
+        {
+            CViewScene *scene = CViewScene::Current();
+            if (scene != NULL)
+                scene->RemoveLandDynamic(&branch.drawable);
+            branch.landDynamicPublished = false;
+        }
         branch.reset();
         if (m_particleCount > 0)
             --m_particleCount;
@@ -678,6 +804,43 @@ class BoundedExplosion : public ct_Subject
             }
         }
 
+        if (m_attribute->m_cacheSkin != NULL &&
+            std::isfinite(m_attribute->m_cacheSkin->Radius()) &&
+            m_attribute->m_cacheSkin->Radius() > 0.0)
+        {
+            count = context->rnd_i(
+                m_attribute->m_minPieceCnt, m_attribute->m_maxPieceCnt);
+            if (Session::m_frameSec > 0.1)
+                count = 0;
+            else if (Session::m_frameSec > 0.07)
+                count >>= 2;
+            for (int index = 0; index < count; ++index)
+            {
+                ExplosionParticleBranch *branch =
+                    allocateParticle(EXPLOSION_PARTICLE_PIECE);
+                if (branch == NULL)
+                    return created;
+                branch->timeOfLife = context->rnd_f(
+                    m_attribute->m_minPieceTimeLife,
+                    m_attribute->m_maxPieceTimeLife);
+                branch->skin.Attach(m_attribute->m_cacheSkin);
+                CFVector3 spawnOffset;
+                const CFVector3 direction =
+                    randomDirection(created, &spawnOffset);
+                branch->start = m_position + spawnOffset;
+                branch->velocity = Normal(direction) * context->rnd_f(
+                    m_attribute->m_minPieceSpeed,
+                    m_attribute->m_maxPieceSpeed);
+                branch->rotationOySpeed = context->rnd_f(
+                    m_attribute->m_minPieceOySpeed,
+                    m_attribute->m_maxPieceOySpeed);
+                branch->rotationOxSpeed = context->rnd_f(
+                    m_attribute->m_minPieceOxSpeed,
+                    m_attribute->m_maxPieceOxSpeed);
+                ++created;
+            }
+        }
+
         if (!ExplosionAttributeState_SmokeVisualsResolved(context))
             return created;
         count = context->rnd_i(
@@ -783,6 +946,15 @@ class BoundedExplosion : public ct_Subject
             ExplosionParticleBranch &branch = m_particles[index];
             if (!branch.active)
                 continue;
+            if (branch.type == EXPLOSION_PARTICLE_PIECE)
+            {
+                const double height = branch.start.y +
+                    branch.velocity.y * elapsed - 4.9 * elapsed * elapsed;
+                if (elapsed > branch.timeOfLife ||
+                    (m_landHeightReady && height < m_landY))
+                    deactivateParticle(branch);
+                continue;
+            }
             if (branch.type == EXPLOSION_PARTICLE_SMOKE)
             {
                 if (elapsed > branch.timeOfLife)
@@ -866,6 +1038,18 @@ class BoundedExplosion : public ct_Subject
         m_startTime = event.timeStamp;
         m_previousMoveTime = event.timeStamp;
         setPosition(position);
+        CViewScene *scene = CViewScene::Current();
+        if (scene != NULL && scene->GetTerrain() != NULL)
+        {
+            CFVector3 normal;
+            double landY = 0.0;
+            scene->GetTerrain()->GetPlane(position, normal, landY);
+            if (std::isfinite(landY) && FiniteVector(normal))
+            {
+                m_landY = landY;
+                m_landHeightReady = true;
+            }
+        }
         m_damageApplications = ApplyRadialDamage(
             context, *attribute, position, event.timeStamp, damageOwner);
         ++g_executedCommands;
@@ -938,6 +1122,9 @@ class BoundedExplosion : public ct_Subject
     int m_particleCount;
     bool m_started;
     bool m_lightActive;
+    bool m_landHeightReady;
+    bool m_particleDynamicPublished;
+    double m_landY;
 };
 
 void ExplosionParticleDrawable::prepare(
@@ -1045,6 +1232,8 @@ void BoundedExplosion::drawParticles()
             GRDrawAlphaSprite(&sprite);
             continue;
         }
+        if (branch.type == EXPLOSION_PARTICLE_PIECE)
+            continue;
         if (_pGRDrawParticle == NULL)
             continue;
         if (branch.type == EXPLOSION_PARTICLE_RAY)
@@ -1139,6 +1328,7 @@ class BoundedExplosionTable : public ct_SubjectTable
         g_allocationRollbacks = 0;
         g_queueRollbacks = 0;
         g_particleBranchesLive = 0;
+        g_pieceDrawCalls = 0;
         ResetImpulseBinding();
     }
 
@@ -1153,6 +1343,7 @@ class BoundedExplosionTable : public ct_SubjectTable
         g_allocationRollbacks = 0;
         g_queueRollbacks = 0;
         g_particleBranchesLive = 0;
+        g_pieceDrawCalls = 0;
         ResetImpulseBinding();
     }
 
@@ -1342,7 +1533,7 @@ bool ExplosionSubjectState_ParentSoundMatches(
 bool ExplosionSubjectState_ParentParticleCounts(
     SimulationContext *context, const KR_ObjectID &parent,
     int *simpleParticles, int *snakeParticles, int *rays,
-    int *smokeSprites)
+    int *smokeSprites, int *pieces)
 {
     if (simpleParticles == NULL || snakeParticles == NULL || rays == NULL)
         return false;
@@ -1351,6 +1542,8 @@ bool ExplosionSubjectState_ParentParticleCounts(
     *rays = 0;
     if (smokeSprites != NULL)
         *smokeSprites = 0;
+    if (pieces != NULL)
+        *pieces = 0;
     BoundedExplosion *object = g_explosionTable.find(parent);
     if (context == NULL || g_arena.getContext() != context ||
         !context->isExist(parent) || object == NULL)
@@ -1362,9 +1555,13 @@ bool ExplosionSubjectState_ParentParticleCounts(
     *rays = object->particleCount(EXPLOSION_PARTICLE_RAY);
     const int smoke =
         object->particleCount(EXPLOSION_PARTICLE_SMOKE);
+    const int piece =
+        object->particleCount(EXPLOSION_PARTICLE_PIECE);
     if (smokeSprites != NULL)
         *smokeSprites = smoke;
-    return *simpleParticles + *snakeParticles + *rays + smoke ==
+    if (pieces != NULL)
+        *pieces = piece;
+    return *simpleParticles + *snakeParticles + *rays + smoke + piece ==
            object->particleCount();
 }
 
@@ -1376,6 +1573,11 @@ int ExplosionSubjectState_ParticleBranchLiveCount()
 int ExplosionSubjectState_ParticleBranchCapacity()
 {
     return kParticleBranchCapacity;
+}
+
+int ExplosionSubjectState_PieceDrawCount()
+{
+    return g_pieceDrawCalls;
 }
 
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context)
@@ -1409,6 +1611,17 @@ const char *ExplosionSubjectState_SoundProbeAttributeName(
     return probe.name;
 }
 
+const char *ExplosionSubjectState_PieceProbeAttributeName(
+    SimulationContext *context)
+{
+    if (context == NULL || g_arena.getContext() != context ||
+        !ExplosionAttributeState_PieceReferencesResolved(context))
+        return NULL;
+    PieceProbeAttribute probe = {context, NULL, 0.0};
+    __attrExplosionTable.userFind(SelectPieceProbeAttribute, &probe);
+    return probe.name;
+}
+
 void ExplosionSubjectState_ReleaseLightFrame()
 {
     CViewObject::EnableLights(0);
@@ -1435,6 +1648,10 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     const int particles = 1;
     const int simpleSnakeRay = 1;
     const int standaloneSmokeSprite = 1;
+    const int simplePiece = 1;
+    const int pieceModelDynamicDraw = 1;
+    const int pieceBallisticGroundGate = 1;
+    const int tracedPieceDeferred = 1;
     const int globalParticleCapacity = kParticleBranchCapacity;
     const int perExplosionParticleCapacity =
         kParticleBranchPerExplosion;
@@ -1459,6 +1676,13 @@ unsigned long long ExplosionSubjectState_Fingerprint(
     HashBytes(hash, &simpleSnakeRay, sizeof(simpleSnakeRay));
     HashBytes(hash, &standaloneSmokeSprite,
               sizeof(standaloneSmokeSprite));
+    HashBytes(hash, &simplePiece, sizeof(simplePiece));
+    HashBytes(hash, &pieceModelDynamicDraw,
+              sizeof(pieceModelDynamicDraw));
+    HashBytes(hash, &pieceBallisticGroundGate,
+              sizeof(pieceBallisticGroundGate));
+    HashBytes(hash, &tracedPieceDeferred,
+              sizeof(tracedPieceDeferred));
     HashBytes(hash, &globalParticleCapacity,
               sizeof(globalParticleCapacity));
     HashBytes(hash, &perExplosionParticleCapacity,
@@ -2078,9 +2302,10 @@ bool ExplosionSubjectState_ProbeParticleLifecycle(
     int simple = 0;
     int snake = 0;
     int rays = 0;
+    int pieces = 0;
     const bool countsReady = executed && damageApplications == 0 &&
         !IsNul(parent) && ExplosionSubjectState_ParentParticleCounts(
-            context, parent, &simple, &snake, &rays) &&
+            context, parent, &simple, &snake, &rays, NULL, &pieces) &&
         simple >= attribute->m_minPartCnt &&
         simple <= attribute->m_maxPartCnt &&
         snake >= attribute->m_minPartSnCnt &&
@@ -2088,8 +2313,9 @@ bool ExplosionSubjectState_ProbeParticleLifecycle(
         rays >= attribute->m_minRayCnt &&
         rays <= attribute->m_maxRayCnt &&
         simple + snake + rays > 0 &&
-        g_particleBranchesLive == simple + snake + rays;
-    const int rollbackCount = g_particleBranchesLive;
+        pieces >= 0 &&
+        g_particleBranchesLive == simple + snake + rays + pieces;
+    const int rollbackCount = simple + snake + rays;
     RemoveIfPresent(context, parent);
     const bool rollbackReady = countsReady &&
         g_explosionTable.liveCount() == 0 &&
@@ -2120,12 +2346,14 @@ bool ExplosionSubjectState_ProbeParticleLifecycle(
     int gatedSimple = -1;
     int gatedSnake = -1;
     int gatedRays = -1;
+    int gatedPieces = -1;
     const bool dependencySkipped = gatedExecuted &&
         damageApplications == 0 && !IsNul(parent) &&
         ExplosionSubjectState_ParentParticleCounts(
-            context, parent, &gatedSimple, &gatedSnake, &gatedRays) &&
+            context, parent, &gatedSimple, &gatedSnake, &gatedRays,
+            NULL, &gatedPieces) &&
         gatedSimple == 0 && gatedSnake == 0 && gatedRays == 0 &&
-        g_particleBranchesLive == 0;
+        gatedPieces >= 0 && g_particleBranchesLive == gatedPieces;
     RemoveIfPresent(context, parent);
     if (!dependencySkipped || g_explosionTable.liveCount() != 0 ||
         g_particleBranchesLive != 0 ||
@@ -2230,12 +2458,13 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
     int snake = 0;
     int rays = 0;
     int smoke = 0;
+    int pieces = 0;
     const bool countsReady = executed && damageApplications == 0 &&
         !IsNul(parent) && ExplosionSubjectState_ParentParticleCounts(
-            context, parent, &simple, &snake, &rays, &smoke) &&
+            context, parent, &simple, &snake, &rays, &smoke, &pieces) &&
         smoke >= attribute->m_minSmokeCnt &&
         smoke <= attribute->m_maxSmokeCnt && smoke > 0 &&
-        g_particleBranchesLive == simple + snake + rays + smoke;
+        g_particleBranchesLive == simple + snake + rays + smoke + pieces;
     RemoveIfPresent(context, parent);
     const bool rollbackReady = countsReady &&
         g_explosionTable.liveCount() == 0 &&
@@ -2261,11 +2490,13 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
     parent = context->searchObject(
         "Explosion.Smoke.DependencyGate.Probe");
     int gatedSmoke = -1;
+    int gatedPieces = -1;
     const bool dependencySkipped = gatedExecuted &&
         damageApplications == 0 && !IsNul(parent) &&
         ExplosionSubjectState_ParentParticleCounts(
-            context, parent, &simple, &snake, &rays, &gatedSmoke) &&
-        gatedSmoke == 0;
+            context, parent, &simple, &snake, &rays, &gatedSmoke,
+            &gatedPieces) &&
+        gatedSmoke == 0 && gatedPieces >= 0;
     RemoveIfPresent(context, parent);
     if (!dependencySkipped || g_explosionTable.liveCount() != 0 ||
         g_particleBranchesLive != 0 ||
@@ -2324,4 +2555,154 @@ bool ExplosionSubjectState_ProbeSmokeLifecycle(
            !context->isExist("Explosion.Smoke.DependencyGate.Probe") &&
            !context->isExist("Explosion.Smoke.Expiry.Probe") &&
            ExplosionAttributeState_SmokeVisualsResolved(context);
+}
+
+bool ExplosionSubjectState_ProbePieceLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionPieceProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_explosionTable.liveCount() != 0 ||
+        g_particleBranchesLive != 0 ||
+        !ExplosionAttributeState_PieceReferencesResolved(context))
+        return false;
+
+    const KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("ExplosionAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Explosion");
+    const int attributeIndex = attributeTable == ct_NULLID
+        ? -1
+        : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (IsNul(attributeID) || !ImpactAttributeReady(attribute) ||
+        subjectTable == ct_NULLID || attributeIndex == -1 ||
+        attribute->m_cacheSkin == NULL || attribute->m_minPieceCnt <= 0)
+        return false;
+
+    const double savedFrameSec = Session::m_frameSec;
+    const double savedMoveTimeInc = attribute->m_moveTimeInc;
+    Session::m_frameSec = 0.04;
+    attribute->m_moveTimeInc = 0.25;
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    ExplosionImpactRequest request = {
+        CFVector3(43.0, 29.0, -59.0), ts, KR_ObjectID::NUL(),
+        subjectTable, attributeIndex, "Explosion.Piece.Rollback.Probe"};
+    int damageApplications = -1;
+    const bool executed = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    KR_ObjectID parent =
+        context->searchObject("Explosion.Piece.Rollback.Probe");
+    int simple = 0;
+    int snake = 0;
+    int rays = 0;
+    int smoke = 0;
+    int pieces = 0;
+    const bool countsReady = executed && damageApplications == 0 &&
+        !IsNul(parent) && ExplosionSubjectState_ParentParticleCounts(
+            context, parent, &simple, &snake, &rays, &smoke, &pieces) &&
+        pieces >= attribute->m_minPieceCnt &&
+        pieces <= attribute->m_maxPieceCnt && pieces > 0 &&
+        g_particleBranchesLive ==
+            simple + snake + rays + smoke + pieces;
+    RemoveIfPresent(context, parent);
+    if (!countsReady || g_explosionTable.liveCount() != 0 ||
+        g_particleBranchesLive != 0)
+    {
+        Session::m_frameSec = savedFrameSec;
+        attribute->m_moveTimeInc = savedMoveTimeInc;
+        return false;
+    }
+    summary->startedPieces = pieces;
+    summary->rolledBackPieces = pieces;
+
+    CViewObjectModel *savedSkin = attribute->m_cacheSkin;
+    attribute->m_cacheSkin = NULL;
+    request.timeStamp = ts + 1.0;
+    request.objectName = "Explosion.Piece.DependencyGate.Probe";
+    damageApplications = -1;
+    const bool gatedExecuted = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    attribute->m_cacheSkin = savedSkin;
+    parent = context->isExist("Explosion.Piece.DependencyGate.Probe")
+        ? context->searchObject("Explosion.Piece.DependencyGate.Probe")
+        : KR_ObjectID::NUL();
+    int gatedPieces = -1;
+    const bool parentRemovedByEmptyGate = IsNul(parent) &&
+        g_explosionTable.liveCount() == 0 && g_particleBranchesLive == 0;
+    const bool parentRetainedWithoutPieces = !IsNul(parent) &&
+        ExplosionSubjectState_ParentParticleCounts(
+            context, parent, &simple, &snake, &rays, &smoke,
+            &gatedPieces) && gatedPieces == 0;
+    const bool dependencySkipped = damageApplications == 0 &&
+        ((!gatedExecuted && parentRemovedByEmptyGate) ||
+         (gatedExecuted &&
+          (parentRemovedByEmptyGate || parentRetainedWithoutPieces)));
+    RemoveIfPresent(context, parent);
+    if (!dependencySkipped || g_explosionTable.liveCount() != 0 ||
+        g_particleBranchesLive != 0 ||
+        !ExplosionAttributeState_PieceReferencesResolved(context))
+    {
+        Session::m_frameSec = savedFrameSec;
+        attribute->m_moveTimeInc = savedMoveTimeInc;
+        return false;
+    }
+    summary->dependencyGateSkips = 1;
+
+    request.timeStamp = ts + 2.0;
+    request.objectName = "Explosion.Piece.Expiry.Probe";
+    damageApplications = -1;
+    const bool lifecycleExecuted = ExplosionSubjectState_ExecuteNow(
+        context, request, &damageApplications);
+    parent = context->searchObject("Explosion.Piece.Expiry.Probe");
+    BoundedExplosion *object = g_explosionTable.find(parent);
+    bool lifecycleReady = lifecycleExecuted && damageApplications == 0 &&
+        !IsNul(parent) && object != NULL &&
+        object->particleCount(EXPLOSION_PARTICLE_PIECE) > 0;
+    bool piecesExpired = false;
+    int moveSteps = 0;
+    while (lifecycleReady && context->isExist(parent) && moveSteps < 4096)
+    {
+        object = g_explosionTable.find(parent);
+        if (object == NULL || object->nextMoveTime() <= 0.0 ||
+            context->removeEvent(EXPLOSION_MOVE, parent) == 0)
+        {
+            lifecycleReady = false;
+            break;
+        }
+        KR_Event move;
+        move.label = EXPLOSION_MOVE;
+        move.source = parent;
+        move.destination = parent;
+        move.timeStamp = object->nextMoveTime();
+        if (object->receiveEvent(move) != 1)
+        {
+            lifecycleReady = false;
+            break;
+        }
+        ++moveSteps;
+        object = g_explosionTable.find(parent);
+        if (object == NULL ||
+            object->particleCount(EXPLOSION_PARTICLE_PIECE) == 0)
+            piecesExpired = true;
+    }
+    const bool expired = lifecycleReady && piecesExpired &&
+        !context->isExist(parent) && moveSteps > 0 && moveSteps < 4096 &&
+        g_explosionTable.liveCount() == 0 && g_particleBranchesLive == 0;
+    RemoveIfPresent(context, parent);
+    Session::m_frameSec = savedFrameSec;
+    attribute->m_moveTimeInc = savedMoveTimeInc;
+    if (!expired)
+        return false;
+    summary->moveSteps = moveSteps;
+    summary->expiredParents = 1;
+    return !context->isExist("Explosion.Piece.Rollback.Probe") &&
+           !context->isExist("Explosion.Piece.DependencyGate.Probe") &&
+           !context->isExist("Explosion.Piece.Expiry.Probe") &&
+           ExplosionAttributeState_PieceReferencesResolved(context);
 }

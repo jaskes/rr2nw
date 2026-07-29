@@ -10,6 +10,7 @@
 #include "filesys.h"
 #include "ExplosionSubjectState.h"
 #include "h/cachesmoke.h"
+#include "obase/skin/SkinResourceState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
@@ -31,6 +32,15 @@ struct ParticleVisualRuntimeState
 };
 
 ParticleVisualRuntimeState g_particleVisualState = {};
+
+struct PieceReferenceRuntimeState
+{
+    SimulationContext *context;
+    unsigned long long fingerprint;
+    bool ready;
+};
+
+PieceReferenceRuntimeState g_pieceReferenceState = {};
 
 struct SmokeVisualRuntimeState
 {
@@ -209,13 +219,28 @@ bool SmokeVisualCacheIsZero(const AttributeExplosion &attr)
 
 bool DeferredReferencesAreUnresolved(AttributeExplosion &attr)
 {
-    if (attr.m_cacheSkin != NULL || attr.m_smokeTableID != ct_NULLID ||
+    if (attr.m_smokeTableID != ct_NULLID ||
         !attr.m_smokeAttrID.isNUL())
         return false;
     for (int i = 0; i < AttributeExplosion::MAX_BRIGHT; ++i)
         if (attr.m_brightness[i] != LightBrightness(i))
             return false;
     return true;
+}
+
+bool PieceCacheIsCoherent(SimulationContext *context,
+                          AttributeExplosion &attr)
+{
+    if (!g_pieceReferenceState.ready)
+        return attr.m_cacheSkin == NULL;
+    if (g_pieceReferenceState.context != context ||
+        attr.m_cacheSkin == NULL)
+        return false;
+    KR_ObjectID modelID = KR_ObjectID::NUL();
+    CViewObjectModel *model = NULL;
+    return SkinResourceState_ResolveLoadedModel(
+               context, attr.m_pieceName, &modelID, &model) &&
+           model == attr.m_cacheSkin;
 }
 
 int Red(const int color) { return (color >> 16) & 255; }
@@ -350,7 +375,7 @@ double PositiveRoot(double a, double b, double c)
 bool SmokeNumbersReady(const AttributeExplosion &attr)
 {
     const int maximumBranches = attr.m_maxRayCnt + attr.m_maxPartCnt +
-        attr.m_maxPartSnCnt + attr.m_maxSmokeCnt;
+        attr.m_maxPartSnCnt + attr.m_maxPieceCnt + attr.m_maxSmokeCnt;
     if (!CountRange(attr.m_minSmokeCnt, attr.m_maxSmokeCnt) ||
         maximumBranches > kExplosionParticleBranchCapacity ||
         attr.m_smokeName[0] == 0)
@@ -383,6 +408,29 @@ bool SmokeNumbersReady(const AttributeExplosion &attr)
         attr.m_minSmokeA, attr.m_minSmokeB, attr.m_minSmokeC);
     return std::isfinite(opacityLife) && opacityLife > 0.0 &&
            std::isfinite(radiusLife) && radiusLife > 0.0;
+}
+
+bool PieceNumbersReady(const AttributeExplosion &attr)
+{
+    const int maximumBranches = attr.m_maxRayCnt + attr.m_maxPartCnt +
+        attr.m_maxPartSnCnt + attr.m_maxPieceCnt + attr.m_maxSmokeCnt;
+    if (!CountRange(attr.m_minPieceCnt, attr.m_maxPieceCnt) ||
+        maximumBranches > kExplosionParticleBranchCapacity ||
+        attr.m_pieceName[0] == 0)
+        return false;
+    if (attr.m_maxPieceCnt == 0)
+        return true;
+    return FiniteRange(attr.m_minPieceSpeed, attr.m_maxPieceSpeed) &&
+           attr.m_minPieceSpeed >= 0.0 &&
+           FiniteRange(attr.m_minPieceTimeLife,
+                       attr.m_maxPieceTimeLife) &&
+           attr.m_minPieceTimeLife >= 0.0 &&
+           FiniteRange(attr.m_minPieceOySpeed,
+                       attr.m_maxPieceOySpeed) &&
+           FiniteRange(attr.m_minPieceOxSpeed,
+                       attr.m_maxPieceOxSpeed) &&
+           std::isfinite(attr.m_createRadius) &&
+           attr.m_createRadius >= 0.0;
 }
 
 bool BuildSmokeVisualCache(const AttributeExplosion &attr,
@@ -453,7 +501,8 @@ bool SoundCacheIsCoherent(AttributeExplosion &attr)
 bool CachesAreCoherent(AttributeExplosion &attr)
 {
     if (!DeferredReferencesAreUnresolved(attr) ||
-        !SoundCacheIsCoherent(attr))
+        !SoundCacheIsCoherent(attr) ||
+        !PieceCacheIsCoherent(g_arena.getContext(), attr))
         return false;
     if (g_smokeVisualState.ready)
     {
@@ -985,6 +1034,191 @@ bool ExplosionAttributeState_IsKnownSoundReferenceRoster(
         if (fingerprint == known[index])
             return true;
     return false;
+}
+
+bool ExplosionAttributeState_PieceCachesUnresolved(
+    SimulationContext *context)
+{
+    if (g_pieceReferenceState.ready)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        if (collector.entries[index].attribute == NULL ||
+            collector.entries[index].attribute->m_cacheSkin != NULL)
+            return false;
+    return true;
+}
+
+bool ExplosionAttributeState_ProbePieceReferenceAtomicity(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) || collector.entries.empty() ||
+        !ExplosionAttributeState_PieceCachesUnresolved(context))
+        return false;
+    AttributeExplosion *probe = collector.entries.front().attribute;
+    if (probe == NULL)
+        return false;
+    const unsigned long long before =
+        ExplosionAttributeState_Fingerprint(context);
+    ct_AttrStr saved = {};
+    std::memcpy(saved, probe->m_pieceName, sizeof(saved));
+    std::strncpy(probe->m_pieceName,
+                 "Explosion.Missing.Piece.Reference.Probe",
+                 sizeof(ct_AttrStr) - 1);
+    probe->m_pieceName[sizeof(ct_AttrStr) - 1] = 0;
+    const bool rejected =
+        !ExplosionAttributeState_ResolvePieceReferences(context) &&
+        ExplosionAttributeState_PieceCachesUnresolved(context);
+    std::memcpy(probe->m_pieceName, saved, sizeof(saved));
+    return rejected && before != 0 &&
+           ExplosionAttributeState_Fingerprint(context) == before &&
+           ExplosionAttributeState_PieceCachesUnresolved(context);
+}
+
+bool ExplosionAttributeState_ResolvePieceReferences(
+    SimulationContext *context)
+{
+    if (g_pieceReferenceState.ready)
+        return ExplosionAttributeState_PieceReferencesResolved(context);
+    RosterCollector collector = {};
+    if (context == NULL || g_arena.getContext() != context ||
+        !CollectRoster(context, collector) ||
+        !ExplosionAttributeState_PieceCachesUnresolved(context))
+        return false;
+
+    std::vector<CViewObjectModel *> models(collector.entries.size(), NULL);
+    unsigned long long hash = kHashOffset;
+    const unsigned long long skinFingerprint =
+        SkinResourceState_Fingerprint(context);
+    if (skinFingerprint == 0)
+        return false;
+    HashBytes(hash, &skinFingerprint, sizeof(skinFingerprint));
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeExplosion *attribute = collector.entries[index].attribute;
+        KR_ObjectID modelID = KR_ObjectID::NUL();
+        if (attribute == NULL || !PieceNumbersReady(*attribute) ||
+            !SkinResourceState_ResolveLoadedModel(
+                context, attribute->m_pieceName, &modelID, &models[index]) ||
+            models[index] == NULL)
+            return false;
+        HashString(hash, collector.entries[index].name.c_str());
+        HashString(hash, attribute->m_pieceName);
+        HashBytes(hash, &attribute->m_minPieceCnt,
+                  sizeof(attribute->m_minPieceCnt));
+        HashBytes(hash, &attribute->m_maxPieceCnt,
+                  sizeof(attribute->m_maxPieceCnt));
+        HashBytes(hash, &attribute->m_createRadius,
+                  sizeof(attribute->m_createRadius));
+        HashBytes(hash, &attribute->m_minPieceSpeed,
+                  sizeof(attribute->m_minPieceSpeed));
+        HashBytes(hash, &attribute->m_maxPieceSpeed,
+                  sizeof(attribute->m_maxPieceSpeed));
+        HashBytes(hash, &attribute->m_minPieceTimeLife,
+                  sizeof(attribute->m_minPieceTimeLife));
+        HashBytes(hash, &attribute->m_maxPieceTimeLife,
+                  sizeof(attribute->m_maxPieceTimeLife));
+        HashBytes(hash, &attribute->m_minPieceOySpeed,
+                  sizeof(attribute->m_minPieceOySpeed));
+        HashBytes(hash, &attribute->m_maxPieceOySpeed,
+                  sizeof(attribute->m_maxPieceOySpeed));
+        HashBytes(hash, &attribute->m_minPieceOxSpeed,
+                  sizeof(attribute->m_minPieceOxSpeed));
+        HashBytes(hash, &attribute->m_maxPieceOxSpeed,
+                  sizeof(attribute->m_maxPieceOxSpeed));
+    }
+    if (hash == 0)
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        collector.entries[index].attribute->m_cacheSkin = models[index];
+    g_pieceReferenceState.context = context;
+    g_pieceReferenceState.fingerprint = hash;
+    g_pieceReferenceState.ready = true;
+    if (ExplosionAttributeState_PieceReferencesResolved(context))
+        return true;
+    ExplosionAttributeState_ClearPieceReferences(context);
+    return false;
+}
+
+bool ExplosionAttributeState_PieceReferencesResolved(
+    SimulationContext *context)
+{
+    if (!g_pieceReferenceState.ready || context == NULL ||
+        g_pieceReferenceState.context != context ||
+        g_arena.getContext() != context)
+        return false;
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+        if (collector.entries[index].attribute == NULL ||
+            !PieceNumbersReady(*collector.entries[index].attribute) ||
+            !PieceCacheIsCoherent(
+                context, *collector.entries[index].attribute))
+            return false;
+    return true;
+}
+
+unsigned long long ExplosionAttributeState_PieceReferenceFingerprint(
+    SimulationContext *context)
+{
+    return ExplosionAttributeState_PieceReferencesResolved(context)
+               ? g_pieceReferenceState.fingerprint
+               : 0;
+}
+
+bool ExplosionAttributeState_IsKnownPieceReferenceRoster(
+    SimulationContext *context)
+{
+    // All nine May Levels have distinct identities because the stable Skin
+    // resource fingerprint is part of this reference boundary. The public
+    // source-only fixture has no models and therefore no admitted identity.
+    static const unsigned long long known[] = {
+        10858579075849477158ull,
+        15412155324146565245ull,
+        12088847358046740838ull,
+        1447488070421285330ull,
+        2283975727666402247ull,
+        3811121173281572650ull,
+        17413076670720599451ull,
+        466559467415829808ull,
+        5156984387642384829ull
+    };
+    const unsigned long long fingerprint =
+        ExplosionAttributeState_PieceReferenceFingerprint(context);
+    for (int index = 0;
+         index < static_cast<int>(sizeof(known) / sizeof(known[0]));
+         ++index)
+        if (fingerprint == known[index])
+            return true;
+    return false;
+}
+
+namespace {
+
+bool ClearPieceReference(const KR_ObjectID object, void *)
+{
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(object));
+    if (attribute == NULL)
+        return false;
+    attribute->m_cacheSkin = NULL;
+    return true;
+}
+
+}  // namespace
+
+void ExplosionAttributeState_ClearPieceReferences(
+    SimulationContext *context)
+{
+    if (!g_pieceReferenceState.ready ||
+        g_pieceReferenceState.context != context)
+        return;
+    __attrExplosionTable.userFind(ClearPieceReference, NULL);
+    g_pieceReferenceState = PieceReferenceRuntimeState{};
 }
 
 bool ExplosionAttributeState_ParticleCachesUnresolved(

@@ -147,6 +147,23 @@ and
 They are admitted only as a hermetic `4/4` source and rollback fixture. No May
 Bullet script is copied into public Git.
 
+## Explosion Piece model identities
+
+The 2026-07-29 read-only sweep checked both Piece models in every one of the
+nine installed May Level directories and every matching directory under the
+mounted disc at `G:\nw`. All 18 installed/mounted copies in each group are
+byte-identical:
+
+- `piece.vbc`, loaded as `Expl.Piece`: 3,880 bytes, SHA-256
+  `C1DE7201BDEAA88064EFAC3183B89504A2CCBBC637DEF0BCADE91C8B041485A5`;
+- `meat4.vbc`, loaded as `Expl.Piece.Meat`: 4,427 bytes, SHA-256
+  `31212BDBEFBDFC5BFE92EC1CA01EA46230EBFEF81E67D4C813EC6050ACD1C199`.
+
+Every May Skin catalog declares both names. The common Explosion source uses
+`Expl.Piece`; only the Level.02D and Level.02N local Explosion fragments contain
+an explicit `m_pieceName` override to `Expl.Piece.Meat`. These hashes are
+provenance evidence only: neither model is copied into public Git.
+
 ## User-generated/private artifacts
 
 В установке обнаружены пользовательские `save0` и `save1`. Они полезны для

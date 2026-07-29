@@ -2192,7 +2192,9 @@ January source and the May executable keep standalone Smoke as branch tag `5`
 inside the Explosion owner. It is not a child from the shared `Smoke(300)`
 table. The modern branch therefore shares the existing fixed 128-per-parent and
 500-global Explosion budgets, parent event ownership and 15-second hard stop.
-Piece, Piece-with-smoke and trace remain fail-closed.
+At this decision boundary Piece, Piece-with-smoke and trace remained
+fail-closed; BD-062 subsequently admits ordinary Piece while keeping the
+trace-owning Piece-with-smoke branch closed.
 
 Explosion smoke resources publish only after the common Smoke visual
 transaction. Admission preflights every distinct `m_smokeName`, the exact
@@ -2224,3 +2226,51 @@ launches with 18/18 identical installed/mounted summaries and no
 configuration mismatch, and 4/4 executable smokes publishing one real
 Explosion smoke sprite, the resource-backed alpha-sprite raster marker,
 `level-ready` and `runtime_shutdown=clean`.
+
+## BD-062: activate ordinary Explosion Piece through loaded Skin models
+
+Status: accepted on 2026-07-29.
+
+Ordinary Piece is branch tag `2`, created after ray/simple/snake and before
+traced Piece and standalone Smoke. It is now active without admitting tag `3`
+Piece-with-smoke: that branch owns recurring `EXPLOSION_NEWPUFF`, a global
+four-parent trace quota and the known first-step `m_viewTrace[-1]` hazard, so it
+remains a separate fail-closed frontier.
+
+ExplosionAttr resolves every `m_pieceName` through the already decoded Skin
+model owner in a two-phase transaction. All model pointers and one stable
+fingerprint publish together only after every attribute preflights; a missing
+model leaves the complete roster untouched. May data uses the common
+`Expl.Piece`/`piece.vbc` model, while Level.02D and Level.02N also select
+`Expl.Piece.Meat`/`meat4.vbc`. The public source-only fixture intentionally has
+no loaded Skin model and therefore proves clean deferral rather than receiving
+a fabricated object.
+
+Creation preserves the source gates and random-field order: lifetime; three
+axis creation offset; speed; Oy speed; Ox speed. Count becomes zero above
+`frameSec > 0.1` and quarters above `0.07`; normal operation keeps the shared
+128-per-parent and 500-global branch budgets. Retail's valid 2--3 Piece preset
+with a zero lifetime is retained as an immediate-expiry effect instead of being
+rejected as corrupt content.
+
+Each branch attaches a real `CViewObjectRef`, applies Oy/Ox rotation and the
+ballistic `v*T - 4.9*T*T` vertical term, then enters the existing land-dynamic
+list with the loaded model radius and light mask. START samples the real terrain
+plane when a current scene is available; MOVE removes a Piece on lifetime or
+ground crossing. Headless admission deliberately falls back to the bounded
+lifetime rule because it has no terrain owner. Frame end, parent detach,
+natural expiry, allocation failure and seance release all remove the exact
+dynamic and decrement each pool exactly once.
+
+Admission proves atomic reference failure, positive Piece creation, dependency
+gating, repeated MOVE, expiry and exact rollback. The retail service proof
+additionally observes a real model `Draw()` during one software frame, removes
+the parent and proves the detached frame adds no Piece draw. Nine exact May
+reference identities are admitted and agree across installed/mounted roots and
+Debug/Release; no generic non-zero fingerprint path remains.
+
+Verification passes 51/51 CTest in both configurations, 36/36 retail service
+launches with all 18 installed/mounted and all 18 configuration pairs
+identical, and 4/4 waited executable smokes publishing Piece readiness,
+reference identity, lifecycle counters, the resource-backed ballistic model
+marker, `level-ready` and `runtime_shutdown=clean`.

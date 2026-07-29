@@ -68,6 +68,15 @@ struct ExplosionSmokeProbeSummary
     int rolledBackSprites;
 };
 
+struct ExplosionPieceProbeSummary
+{
+    int startedPieces;
+    int dependencyGateSkips;
+    int moveSteps;
+    int expiredParents;
+    int rolledBackPieces;
+};
+
 void ExplosionSubjectState_Link();
 bool ExplosionSubjectState_TableReady(SimulationContext *context,
                                       int expectedCapacity);
@@ -87,13 +96,16 @@ bool ExplosionSubjectState_ParentSoundMatches(
 bool ExplosionSubjectState_ParentParticleCounts(
     SimulationContext *context, const KR_ObjectID &parent,
     int *simpleParticles, int *snakeParticles, int *rays,
-    int *smokeSprites = NULL);
+    int *smokeSprites = NULL, int *pieces = NULL);
 int ExplosionSubjectState_ParticleBranchLiveCount();
 int ExplosionSubjectState_ParticleBranchCapacity();
+int ExplosionSubjectState_PieceDrawCount();
 bool ExplosionSubjectState_LightRosterReady(SimulationContext *context);
 const char *ExplosionSubjectState_LightProbeAttributeName(
     SimulationContext *context);
 const char *ExplosionSubjectState_SoundProbeAttributeName(
+    SimulationContext *context);
+const char *ExplosionSubjectState_PieceProbeAttributeName(
     SimulationContext *context);
 void ExplosionSubjectState_ReleaseLightFrame();
 unsigned long long ExplosionSubjectState_Fingerprint(
@@ -126,5 +138,8 @@ bool ExplosionSubjectState_ProbeParticleLifecycle(
 bool ExplosionSubjectState_ProbeSmokeLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, ExplosionSmokeProbeSummary *summary);
+bool ExplosionSubjectState_ProbePieceLifecycle(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionPieceProbeSummary *summary);
 
 #endif

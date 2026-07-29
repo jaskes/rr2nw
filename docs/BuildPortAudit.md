@@ -2025,8 +2025,9 @@ Startup diagnostics publish readiness, all four counters and the explicit
 Explosion now resolves all WAV/SoundObj references atomically and executes the
 exact device-free SET_WAV/MOVE_TO/START(1) command with parent-owned rollback;
 its bounded simple/snake/ray owner and safe software particle raster are now
-active. Piece/trace limbs and actual audio output remain separate. Bullet trace stays behind
-replacement of the known first-step `m_viewTrace[-1]` access.
+active. At that checkpoint Piece/trace limbs and actual audio output remained
+separate. Bullet trace stays behind replacement of the known first-step
+`m_viewTrace[-1]` access.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 byte-identical installed/mounted summaries, and
@@ -2083,14 +2084,52 @@ Smoke shares the 128 local/500 global branch budgets. The new admission probe
 covers positive creation, alpha-draw dependency gating, recurring MOVE,
 natural expiry and exact parent rollback. The retail service smoke additionally
 captures a real alpha sprite during the Explosion light/sound/particle frame.
-Startup now publishes readiness, content fingerprint, five lifecycle counters
-and marks only Piece/trace as deferred.
+At that checkpoint startup published readiness, content fingerprint, five
+lifecycle counters and marked only Piece/trace as deferred; the next frontier
+activates ordinary Piece while retaining the traced branch boundary.
 
 Final verification passes 51/51 CTest in Debug and Release, 36/36 retail
 service launches with 18/18 identical installed/mounted summaries, and 4/4
 executable runtime smokes. Every executable log contains `level-ready`,
 `explosion_smoke_sprites=1`, the resource-backed alpha-sprite raster marker
 and `runtime_shutdown=clean`.
+
+### Model-backed Explosion Piece frontier
+
+The ordinary Piece limb now consumes the real decoded Skin model graph.
+`ExplosionAttributeState` preflights every Piece name and numeric range, hashes
+the complete symbolic roster plus the stable Skin-resource identity, and only
+then publishes all model pointers. One deliberately missing name proves the
+transaction cannot leak a partial cache. The assetless public fixture remains
+valid as an explicitly unresolved source-only case; every May Level must match
+one of nine exact resolved identities.
+
+`BoundedExplosion` adds tag `2` to the existing fixed branch store. Creation
+keeps the January/May lifetime-offset-speed-Oy-Ox sampling order and strict FPS
+gates. The common retail zero-lifetime Piece preset is accepted. Each branch
+owns a `CViewObjectRef` and a matching `CViewSphericDynamic`, applies the source
+rotations and ballistic translation, derives its bump radius from the loaded
+model and submits through the real land-dynamic list. MOVE terminates by
+lifetime or the terrain plane sampled at START; a headless admission context
+uses the safe bounded lifetime fallback.
+
+Frame end and every exceptional teardown path remove the aggregate Explosion
+dynamic and each Piece dynamic independently before returning their 128-local/
+500-global slots. Admission covers positive creation, a missing-model gate,
+recurring MOVE, natural expiry and exact rollback. The retail service smoke
+then observes a real `CViewObjectRef::Draw()` in one software frame and no added
+Piece draw after parent detach.
+
+Tag `3` is intentionally not folded into this change. Its recurring
+`EXPLOSION_NEWPUFF`, four-parent trace quota and first-step
+`m_viewTrace[-1]` access require a dedicated bounded trace owner.
+
+Final verification passes 51/51 CTest in both configurations, 36/36 retail
+service launches with every installed/mounted and Debug/Release summary pair
+identical, and 4/4 waited executable runtime smokes. Diagnostics publish
+`explosion_piece_initialized=1`, the exact reference fingerprint and five
+lifecycle counters, `explosion_piece_models=resource-backed-ballistic-land-dynamic`,
+`marker=level-ready` and `runtime_shutdown=clean`.
 
 ## Expansion order
 
@@ -2157,8 +2196,10 @@ and `runtime_shutdown=clean`.
    ground-child rollback are active as well. Barrel Smoke and the exact
    Explosion SET_WAV/MOVE_TO/START(1) command with parent-owned rollback are
    active. The bounded Explosion simple/snake/ray graph now renders through a
-   safe software particle path and owns recurring expiry/rollback. Actual audio
-   output, Explosion Piece/traced-Piece limbs and Bullet trace remain deferred.
+   safe software particle path and owns recurring expiry/rollback. Standalone
+   Smoke and ordinary model-backed Piece are active with real frame/detach
+   proof. Actual audio output, traced Piece/Piece-with-smoke and Bullet trace
+   remain deferred.
    Vehicle's own
    Panel/Taxi/Bullet
    caches, the remaining live Bullet graph, remaining

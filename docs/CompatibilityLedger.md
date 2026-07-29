@@ -1705,6 +1705,51 @@ Status vocabulary:
 - Revisit when: emission quality becomes configurable. Compatibility mode must
   keep the original `>0.1` threshold.
 
+### CQ-111: ordinary Piece references are models, not generic Skin metadata
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_REQUIRED_OWNER`,
+  `ATOMIC_RESOURCE_BOUNDARY`.
+- Evidence: January `AttributeExplosion::update()` resolves `m_pieceName` to a
+  loaded model and every ordinary Piece attaches that model to a
+  `CViewObjectRef`. All nine May Skin programs load `Expl.Piece` from
+  `piece.vbc`; Level.02D/02N additionally set one ExplosionAttr to
+  `Expl.Piece.Meat`, loaded from `meat4.vbc`.
+- Handling: preflight the complete sorted ExplosionAttr roster against live
+  Skin models, include the stable Skin-resource identity in the fingerprint,
+  and commit every `m_cacheSkin` together. The public source fixture has zero
+  models and remains explicitly deferred. Unknown non-zero identities are not
+  accepted.
+- Regression contract: substitute one missing Piece name and require zero
+  partial pointers/fingerprint; admit these May fingerprints in Level order:
+  `10858579075849477158`, `15412155324146565245`,
+  `12088847358046740838`, `1447488070421285330`,
+  `2283975727666402247`, `3811121173281572650`,
+  `17413076670720599451`, `466559467415829808`, and
+  `5156984387642384829`.
+- Revisit when: mod manifests can introduce model identities. Extend the
+  declared content allowlist; do not weaken all-or-none reference publication.
+
+### CQ-112: Piece lifetime zero is valid, while traced Piece is still unsafe
+
+- Status: `RETAIL_QUIRK_PRESERVED`, `PORTABILITY_FIX_ACCEPTED`,
+  `DEFERRED_TRACE_HAZARD`.
+- Evidence: the common May Explosion program sets a live 2--3 Piece preset to
+  zero speed and zero lifetime; the original creates it and lets MOVE remove it.
+  Ordinary Piece uses the strict `>0.1` disable and `>0.07` quarter gates,
+  ballistic half-gravity and terrain-plane termination. Tag `3` separately
+  schedules `EXPLOSION_NEWPUFF`, retains a four-parent quota and accesses
+  `m_viewTrace[m_viewTraceLast]` before the first trace index is established.
+- Handling: accept finite non-negative Piece lifetime, preserve exact sampling
+  and frame gates, and bound ordinary Piece in the shared 128/500 pools. Sample
+  terrain only from a live current scene; headless probes use lifetime expiry.
+  Keep traced Piece disabled until its first-step index and puff ownership are
+  specified without copying the underflow.
+- Regression contract: create a positive-lifetime Piece roster, prove a
+  missing-model gate, drive natural expiry, verify exact parent/pool rollback,
+  then observe one real model frame and zero added draws after detach.
+- Revisit when: tag `3` is activated. Require a dedicated NEWPUFF queue test,
+  trace-index bounds, four-parent quota reconstruction and full child rollback.
+
 ## Maintenance rule
 
 When a new quirk is found:

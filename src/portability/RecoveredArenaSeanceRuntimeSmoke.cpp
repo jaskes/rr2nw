@@ -472,6 +472,13 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() == -1 &&
          RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() == -1 &&
          RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() == -1 &&
+         !RecoveredArenaSeance_ExplosionPieceReady() &&
+         RecoveredArenaSeance_ExplosionPieceReferenceFingerprint() == 0 &&
+         RecoveredArenaSeance_ExplosionPieceProbeStartedPieces() == -1 &&
+         RecoveredArenaSeance_ExplosionPieceProbeDependencySkips() == -1 &&
+         RecoveredArenaSeance_ExplosionPieceProbeMoveSteps() == -1 &&
+         RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() == -1 &&
+         RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() == -1 &&
          RecoveredArenaSeance_ExplosionSubjectCapacity() == 0 &&
          RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_ExplosionProbeInvalidStarts() == -1 &&
@@ -482,6 +489,7 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ExplosionProbeDamageApplications() == -1 &&
          ExplosionSubjectState_LiveCount() == 0 &&
          ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
+         ExplosionSubjectState_PieceDrawCount() == 0 &&
          !RecoveredArenaSeance_VehicleAttributesReady() &&
          RecoveredArenaSeance_VehicleAttributeCount() == -1 &&
          RecoveredArenaSeance_VehicleAttributeCapacity() == 0 &&
@@ -647,12 +655,19 @@ bool RunCycle(bool expectVisualResources) {
         RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() != 1 ||
         RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() !=
             RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites())) ||
-      (!expectVisualResources &&
+       (!expectVisualResources &&
        (RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites() != -1 ||
         RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips() != -1 ||
         RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps() != -1 ||
         RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() != -1 ||
-        RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() != -1)) ||
+         RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() != -1)) ||
+      RecoveredArenaSeance_ExplosionPieceReady() ||
+      RecoveredArenaSeance_ExplosionPieceReferenceFingerprint() != 0 ||
+      RecoveredArenaSeance_ExplosionPieceProbeStartedPieces() != -1 ||
+      RecoveredArenaSeance_ExplosionPieceProbeDependencySkips() != -1 ||
+      RecoveredArenaSeance_ExplosionPieceProbeMoveSteps() != -1 ||
+      RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() != -1 ||
+      RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() != -1 ||
       RecoveredArenaSeance_ExplosionSubjectCapacity() != 2 ||
       RecoveredArenaSeance_ExplosionSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_ExplosionProbeInvalidStarts() != 2 ||
@@ -914,6 +929,8 @@ bool RunCycle(bool expectVisualResources) {
       ((explosionAttribute->m_hTexture != nullptr) ==
        expectVisualResources) &&
       explosionAttribute->m_cacheSkin == nullptr &&
+      ExplosionAttributeState_PieceCachesUnresolved(&context) &&
+      !ExplosionAttributeState_PieceReferencesResolved(&context) &&
       WAVResourceState_IsLoadedPointer(explosionAttribute->m_wav) &&
       explosionAttribute->m_ctsndID ==
           g_arena.searchSeanceClassTable("SoundObj") &&
@@ -1838,6 +1855,7 @@ int main(int argc, char** argv) {
                "explosion_sound=1/1/1-device-free refs=%llu "
                "explosion_particles=bounded-simple-snake-ray visual=%llu "
                "explosion_smoke=standalone-alpha-sprite visual=%llu "
+               "explosion_piece=source-only-deferred "
                "vehicle_attrs=3/8-unresolved "
                "taxi_attrs=2/7-atomic-source-only "
                "bullet_attrs=4/4 "

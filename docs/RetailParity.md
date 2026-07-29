@@ -752,7 +752,8 @@ Retail scripts нельзя молча копировать поверх source 
 - Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. Standalone Smoke
   tag `5`, source creation order within the branch, polynomial size/opacity,
   atlas morphing, drift/damping, MOVE expiry and the `>0.1` quarter-count gate
-  are active. Piece and traced-piece tags `2/3` remain deferred.
+  are active. At this checkpoint Piece and traced-piece tags `2/3` remained
+  deferred; RP-SCRIPT-024 subsequently activates ordinary tag `2`.
 - ExplosionAttr smoke visuals use an independent all-or-none transaction over
   the shared ten-entry texture cache. Exact 256x256 SPR validation, 24 derived
   transparent colors and a content fingerprint precede publication.
@@ -769,6 +770,42 @@ Retail scripts нельзя молча копировать поверх source 
   service launches with 18/18 identical installed/mounted summaries, and 4/4
   executable smokes proving `level-ready`, one Explosion smoke sprite, the
   resource-backed alpha-sprite raster and clean shutdown.
+
+### RP-SCRIPT-024: Explosion owns ordinary model-backed Piece branches
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. Ordinary tag `2`,
+  its creation order, random-field order, FPS gates, rotations, ballistic
+  movement, terrain/lifetime expiry and dynamic rendering are active. Tag `3`
+  Piece-with-smoke and its trace/NEWPUFF graph remain deferred.
+- ExplosionAttr Piece references publish atomically against the decoded Skin
+  model owner. `Expl.Piece` maps to `piece.vbc` in every May Level;
+  Level.02D/02N additionally use `Expl.Piece.Meat` from `meat4.vbc`. The public
+  no-model fixture remains source-only and has no resolved Piece identity.
+- May reference fingerprints and deterministic lifecycle summaries are:
+
+| Level | Piece reference fingerprint | Probe `start/gate/move/expire/rollback` |
+| --- | ---: | ---: |
+| Level.01D | `10858579075849477158` | `6/1/3/1/6` |
+| Level.01N | `15412155324146565245` | `6/1/3/1/6` |
+| Level.02D | `12088847358046740838` | `5/1/3/1/5` |
+| Level.02N | `1447488070421285330` | `5/1/3/1/5` |
+| Level.03N | `2283975727666402247` | `6/1/3/1/6` |
+| Level.04D | `3811121173281572650` | `7/1/3/1/7` |
+| Level.05D | `17413076670720599451` | `6/1/3/1/6` |
+| Level.06N | `466559467415829808` | `7/1/3/1/7` |
+| Level.07N | `5156984387642384829` | `7/1/3/1/7` |
+
+- The common retail zero-lifetime 2--3 Piece preset is valid and expires on
+  MOVE. Positive admission uses a longer-lived attribute, while production
+  preserves zero as an immediate effect rather than changing content.
+- Each active Piece attaches a real `CViewObjectRef` and is submitted as its
+  own land dynamic. A full retail software frame records model draws, and the
+  frame after parent removal records no additional draw. Every branch shares
+  the existing 128 local/500 global Explosion caps and rolls back exactly.
+- Verification passes 51/51 CTest in Debug and Release, 36/36 retail services
+  with 18/18 installed/mounted and 18/18 configuration summaries identical,
+  plus 4/4 waited executable smokes with Piece readiness, exact reference
+  identity, model marker, `level-ready` and clean shutdown.
 
 ## Behavioral parity matrix
 

@@ -604,6 +604,7 @@ struct RecoveredArenaSeanceState {
   bool explosionSoundReady;
   bool explosionParticlesReady;
   bool explosionSmokeReady;
+  bool explosionPieceReady;
   bool vehicleAttributesReady;
   bool taxiAttributesReady;
   bool taxiReferencesReady;
@@ -681,6 +682,12 @@ struct RecoveredArenaSeanceState {
   int explosionSmokeProbeMoveSteps;
   int explosionSmokeProbeExpiredParents;
   int explosionSmokeProbeRolledBackSprites;
+  unsigned long long explosionPieceReferenceFingerprint;
+  int explosionPieceProbeStartedPieces;
+  int explosionPieceProbeDependencySkips;
+  int explosionPieceProbeMoveSteps;
+  int explosionPieceProbeExpiredParents;
+  int explosionPieceProbeRolledBackPieces;
   int bulletSubjectProbeMoveCount;
   int bulletCollisionScheduledChecks;
   int bulletCollisionExecutedChecks;
@@ -2164,6 +2171,77 @@ bool PublishDependentAttributeReferences(SimulationContext* context) {
   g_state.farterReferencesReady = true;
   g_state.farterRuntimeReady = false;
 
+  // The source-only parser fixture intentionally declares an empty Skin
+  // roster. It must exercise the complete Piece preflight without publishing
+  // a model pointer. Every May retail Level owns Expl.Piece and therefore must
+  // publish the full reference and lifecycle boundary.
+  if (g_state.skinModelCount == 0) {
+    if (ExplosionAttributeState_ResolvePieceReferences(context) ||
+        !ExplosionAttributeState_PieceCachesUnresolved(context)) {
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE,
+          "source-only Explosion Piece fixture leaked a model reference");
+      return false;
+    }
+  } else {
+    if (!ExplosionAttributeState_ProbePieceReferenceAtomicity(context) ||
+        !ExplosionAttributeState_ResolvePieceReferences(context) ||
+        !ExplosionAttributeState_PieceReferencesResolved(context)) {
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE,
+          "ExplosionAttr could not resolve Piece Skin references atomically");
+      return false;
+    }
+    g_state.explosionPieceReferenceFingerprint =
+        ExplosionAttributeState_PieceReferenceFingerprint(context);
+    if (g_state.explosionPieceReferenceFingerprint == 0 ||
+        !ExplosionAttributeState_IsKnownPieceReferenceRoster(context)) {
+      char message[192] = {};
+      std::snprintf(message, sizeof(message),
+                    "Explosion Piece references are not a bounded retail "
+                    "roster (fingerprint=%llu)",
+                    g_state.explosionPieceReferenceFingerprint);
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE,
+          message);
+      return false;
+    }
+    const char* pieceProbeAttribute =
+        ExplosionSubjectState_PieceProbeAttributeName(context);
+    ExplosionPieceProbeSummary pieceProbe = {};
+    if (pieceProbeAttribute == nullptr ||
+        !ExplosionSubjectState_ProbePieceLifecycle(
+            context, pieceProbeAttribute, Session::m_moment, &pieceProbe) ||
+        pieceProbe.startedPieces <= 0 ||
+        pieceProbe.dependencyGateSkips != 1 ||
+        pieceProbe.moveSteps <= 0 || pieceProbe.expiredParents != 1 ||
+        pieceProbe.rolledBackPieces != pieceProbe.startedPieces ||
+        ExplosionSubjectState_LiveCount() != 0 ||
+        ExplosionSubjectState_ParticleBranchLiveCount() != 0) {
+      char message[256] = {};
+      std::snprintf(
+          message, sizeof(message),
+          "Explosion Piece start/gate/move/expiry/rollback probe failed "
+          "(piece=%d gate=%d move=%d expired=%d rollback=%d live=%d/%d)",
+          pieceProbe.startedPieces, pieceProbe.dependencyGateSkips,
+          pieceProbe.moveSteps, pieceProbe.expiredParents,
+          pieceProbe.rolledBackPieces, ExplosionSubjectState_LiveCount(),
+          ExplosionSubjectState_ParticleBranchLiveCount());
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_PIECE_LIFECYCLE_FAILURE,
+          message);
+      return false;
+    }
+    g_state.explosionPieceProbeStartedPieces = pieceProbe.startedPieces;
+    g_state.explosionPieceProbeDependencySkips =
+        pieceProbe.dependencyGateSkips;
+    g_state.explosionPieceProbeMoveSteps = pieceProbe.moveSteps;
+    g_state.explosionPieceProbeExpiredParents = pieceProbe.expiredParents;
+    g_state.explosionPieceProbeRolledBackPieces =
+        pieceProbe.rolledBackPieces;
+    g_state.explosionPieceReady = true;
+  }
+
   if (!ExplosionAttributeState_ProbeParticleVisualAtomicity(context) ||
       !ExplosionAttributeState_ResolveParticleVisuals(context) ||
       !ExplosionAttributeState_ParticleVisualsResolved(context)) {
@@ -2559,6 +2637,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  ExplosionAttributeState_ClearPieceReferences(g_arena.getContext());
   ExplosionAttributeState_ClearSmokeVisuals(g_arena.getContext());
   SmokeVisualState_Release();
   SparkAttributeState_ClearVisualResources(g_arena.getContext());
@@ -2591,6 +2670,7 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionSoundReady = false;
   g_state.explosionParticlesReady = false;
   g_state.explosionSmokeReady = false;
+  g_state.explosionPieceReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -2618,6 +2698,12 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionSmokeProbeMoveSteps = 0;
   g_state.explosionSmokeProbeExpiredParents = 0;
   g_state.explosionSmokeProbeRolledBackSprites = 0;
+  g_state.explosionPieceReferenceFingerprint = 0;
+  g_state.explosionPieceProbeStartedPieces = 0;
+  g_state.explosionPieceProbeDependencySkips = 0;
+  g_state.explosionPieceProbeMoveSteps = 0;
+  g_state.explosionPieceProbeExpiredParents = 0;
+  g_state.explosionPieceProbeRolledBackPieces = 0;
   g_state.vehicleAttributesReady = false;
   g_state.vehicleAttributeCount = 0;
   g_state.vehicleAttributeCapacity = 0;
@@ -2905,6 +2991,47 @@ int RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents() {
 int RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites() {
   return g_state.explosionSmokeReady
              ? g_state.explosionSmokeProbeRolledBackSprites
+             : -1;
+}
+
+bool RecoveredArenaSeance_ExplosionPieceReady() {
+  return g_state.explosionPieceReady;
+}
+
+unsigned long long
+RecoveredArenaSeance_ExplosionPieceReferenceFingerprint() {
+  return g_state.explosionPieceReady
+             ? g_state.explosionPieceReferenceFingerprint
+             : 0;
+}
+
+int RecoveredArenaSeance_ExplosionPieceProbeStartedPieces() {
+  return g_state.explosionPieceReady
+             ? g_state.explosionPieceProbeStartedPieces
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionPieceProbeDependencySkips() {
+  return g_state.explosionPieceReady
+             ? g_state.explosionPieceProbeDependencySkips
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionPieceProbeMoveSteps() {
+  return g_state.explosionPieceReady
+             ? g_state.explosionPieceProbeMoveSteps
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionPieceProbeExpiredParents() {
+  return g_state.explosionPieceReady
+             ? g_state.explosionPieceProbeExpiredParents
+             : -1;
+}
+
+int RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces() {
+  return g_state.explosionPieceReady
+             ? g_state.explosionPieceProbeRolledBackPieces
              : -1;
 }
 

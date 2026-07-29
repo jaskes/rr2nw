@@ -578,7 +578,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_subject_capacity=" + std::to_string(
                RecoveredArenaSeance_ExplosionSubjectCapacity()));
   log.Line(
-      "explosion_subject_mode=bounded-impact-radial-damage-impulse-light-sound-particles-smoke");
+      "explosion_subject_mode=bounded-impact-radial-damage-impulse-light-sound-particles-smoke-piece");
   log.Line("explosion_subject_impulse=" +
            std::to_string(
                RecoveredGameServices_ExplosionImpulseReady() ? 1 : 0));
@@ -641,7 +641,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_smoke_probe_rolled_back_sprites=" + std::to_string(
                RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites()));
   log.Line("explosion_smoke_raster=resource-backed-alpha-sprite-256-atlas");
-  log.Line("explosion_piece_trace=deferred");
+  log.Line("explosion_piece_initialized=" +
+           std::to_string(
+               RecoveredGameServices_ExplosionPieceReady() ? 1 : 0));
+  log.Line("explosion_piece_reference_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_ExplosionPieceReferenceFingerprint()));
+  log.Line("explosion_piece_probe_started_pieces=" + std::to_string(
+               RecoveredArenaSeance_ExplosionPieceProbeStartedPieces()));
+  log.Line("explosion_piece_probe_dependency_skips=" + std::to_string(
+               RecoveredArenaSeance_ExplosionPieceProbeDependencySkips()));
+  log.Line("explosion_piece_probe_move_steps=" + std::to_string(
+               RecoveredArenaSeance_ExplosionPieceProbeMoveSteps()));
+  log.Line("explosion_piece_probe_expired_parents=" + std::to_string(
+               RecoveredArenaSeance_ExplosionPieceProbeExpiredParents()));
+  log.Line("explosion_piece_probe_rolled_back_pieces=" + std::to_string(
+               RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces()));
+  log.Line("explosion_piece_models=resource-backed-ballistic-land-dynamic");
+  log.Line("explosion_traced_piece=deferred");
   log.Line("vehicle_vessel_mass=" + std::to_string(
                RecoveredGameServices_VehicleVesselMass()));
   log.Line("explosion_subject_fingerprint=" + std::to_string(
