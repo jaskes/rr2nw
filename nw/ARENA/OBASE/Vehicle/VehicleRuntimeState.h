@@ -74,6 +74,8 @@ bool VehicleRuntimeState_ApplyLiveControlAt(
     SimulationContext *context, int action, double down,
     double eventTime);
 int VehicleRuntimeState_LastControlFailure();
+int VehicleRuntimeState_LastFrameFailure();
+int VehicleRuntimeState_LastFrameReadinessIssue();
 bool VehicleRuntimeState_SynchronizeFirstFrame(
     SimulationContext *context, double startTime);
 bool VehicleRuntimeState_BeginFrame(SimulationContext *context);

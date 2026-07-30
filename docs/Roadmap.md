@@ -946,3 +946,46 @@ symbolic owner `Vehicle.Default`, so subsequent AI activation cannot corrupt
 input/replay diagnostics. This leaves the versioned world envelope and event
 queue as the next implementation slice rather than an unresolved admission
 bug.
+
+## Current Windows frontier after software renderer recovery
+
+The manual visibility blocker is closed. `rr2nw.exe` now renders an actual
+textured retail Level: sky, mountains, water, terrain, bushes and active scene
+objects use the recovered TXR assets through a scalar scanline rasterizer.
+Moving the Vehicle camera produces a clean new frame rather than smearing the
+previous one. Polygon admission and rejection are now measurable instead of
+being inferred from missing scenery.
+
+This recovery deliberately keeps the legacy renderer architecture. It does
+not introduce SDL, a GPU rewrite or a z-buffer. The production boundary owns
+the physical frame, centered viewport, clip rectangle, perspective divide,
+palette shading, haze and transparency. Bump/light-through add modes remain
+counted approximations until dedicated parity fixtures exist.
+
+The newly visible workload also closed two stability holes needed for human
+testing: wall-clock stalls cannot advance one simulation sample by more than
+50 ms, and F1 Taxi re-entry safely reinitializes a vessel replaced inside an
+open frame. Non-finite Taxi surface orientation can no longer poison the
+player Vehicle.
+
+Admission proof for this renderer slice is complete: 52/52 CTest passes in
+Debug and Release, 36/36 parallel Debug retail-service stress launches,
+18/18 final Release service launches and 4/4 waited `rr2nw.exe` smokes. The
+installed game root is `E:\Games\The Next Worlds`; the mounted-disc root is
+`G:\nw`, where the disc's `game.cfg` actually resides.
+
+The next Windows-first slice returns to active-world persistence and human
+acceptance with a usable picture:
+
+1. manually drive several Levels and record visibility, steering, F1,
+   People/Tank combat, alt-tab and shutdown results;
+2. correct remaining visual parity issues in bounded order: clipping seams,
+   bump/light-through, palette tuning and scalar performance;
+3. define the versioned active-world envelope and symbolic event restore order;
+4. add atomic save/load plus corruption diagnostics and repeat the visual
+   acceptance after reconstruction;
+5. only then widen toward data-pack mods, secondary weapons and audio output.
+
+Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
+for Windows gameplay observation, not yet a final optimized or pixel-identical
+release renderer.

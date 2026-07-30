@@ -30,7 +30,11 @@ void CViewScene::Draw(TCSFMatrix3x4& viewDirection,
       m_pTerrain->Waterline());
 
   if (!CViewObject::IsBelowWater()) {
-    GRClearScreen();
+    // The retail software path relied on the sky to touch every pixel.  That
+    // assumption turns a single rejected sky polygon into persistent trails
+    // in a DIB-backed modern window, so establish a deterministic background
+    // before drawing the real sky.
+    GRClearScreen(TRUE, CPaletteTranslator::Haze(0).nColor);
     const dword lights = CViewObject::EnabledLights();
     CViewObject::EnableLights(0);
     CFMatrix3x4 skyDirection = viewDirection;

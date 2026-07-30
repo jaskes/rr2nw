@@ -2161,6 +2161,81 @@ Status vocabulary:
   ticks and each scheduled fire command separately from later Bullet-start
   acceptance so replay diagnostics do not infer causality from frame samples.
 
+### CQ-135: the retail software scene does not clear every above-water frame
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the preserved scene calls `GRClearScreen()` with its default false
+  clear flag above water because the retail sky path was expected to cover the
+  viewport. The former recovered dispatcher rejected textured sky and terrain
+  polygons, leaving preceding pixels visible during camera motion.
+- Handling: clear the entire physical software buffer at recovered frame entry
+  and use an explicit haze-color viewport clear before the scene. Polygon
+  rejection remains observable, but it can no longer create frame trails.
+- Revisit when: multiple viewports or resolution switching are activated.
+  Preserve the full-buffer ownership boundary and prove each viewport cannot
+  retain pixels outside its own draw.
+
+### CQ-136: bump and light-through polygons need retail mix-table parity
+
+- Status: `SOURCE_CONFIRMED`, `BOUNDED_APPROXIMATION`.
+- Evidence: preserved ASM/ANG paths use specialized bump coordinates and
+  light-mix tables. The recovered scalar renderer has exact base texture,
+  perspective, haze, Gouraud and transparency behavior but does not yet
+  reproduce those add-mode equations.
+- Handling: render the base texture and haze instead of rejecting the polygon;
+  count every approximated bump or light polygon in the diagnostic archive.
+- Revisit when: a deterministic screenshot fixture covers each add mode. Port
+  the original equations one mode at a time and require the approximation
+  counters to reach zero before claiming pixel parity.
+
+### CQ-137: expensive frames advanced events farther than Vehicle physics
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `a_TTimer::GetTime` discarded only gaps above two seconds, while
+  recovered Vehicle physics already capped one update at 50 ms. Real scalar
+  rendering produced intermediate wall-clock gaps which expired Explosion
+  visuals before drawing and could reach invalid Vehicle dynamics. It also
+  exposed a Taxi re-entry whose surface-derived direction contained NaN.
+- Handling: cap each timer sample at 50 ms and publish discarded sample/time
+  counters. Reinitialize a vessel replaced inside an open physics frame. Reject
+  a non-finite Taxi direction and reuse the abandoned Vehicle direction.
+- Revisit when: fixed-tick simulation/replay owns time. Replace this cap with
+  an accumulator and explicit interpolation while retaining pause, NaN and
+  mid-frame owner-change regressions.
+
+### CQ-138: render view time may lead simulation time in synthetic probes
+
+- Status: `SOURCE_CONFIRMED`, `TEST_CONTRACT_ACCEPTED`.
+- Evidence: under parallel Debug raster load, `Session::m_viewTime` could be
+  ahead of `Session::m_moment`. A probe stamped with their maximum therefore
+  created an otherwise valid Explosion in the future of the simulation frame,
+  intermittently producing zero visible draws. Traced Explosion pieces could
+  also start independent `Smok.Static` subjects before parent removal.
+- Handling: stamp injected gameplay effects with the current finite simulation
+  moment. Preserve independent Smoke lifetime in production; when a bounded
+  probe owns those children, roll them back explicitly by subject lifecycle
+  rather than requiring parent removal to cascade through an ownership edge
+  which does not exist.
+- Revisit when: fixed-tick simulation and interpolation receive separate clock
+  APIs. Make event-time and render-time types impossible to interchange, and
+  retain a stressed visual lifecycle matrix.
+
+### CQ-139: one final Release Level.06N service exit did not reproduce
+
+- Status: `OBSERVED_NON_REPRODUCED`.
+- Evidence: one `Release`/installed-data `Level.06N` process returned exit 1
+  during a four-lane final matrix whose child output had been discarded. The
+  same final binary then passed an immediate logged retry, eight simultaneous
+  Level.06N launches split across installed and mounted data, and two complete
+  logged nine-Level installed-data Release passes: 27 consecutive successes.
+  Four waited `rr2nw.exe` smokes also remained clean.
+- Handling: do not weaken a gameplay or renderer assertion without a captured
+  cause. Keep per-Level output for future stress matrices and treat another
+  occurrence as actionable only with its first failing diagnostic preserved.
+- Revisit when: any Release retail-service run returns nonzero again. Compare
+  its first failure marker with CQ-137/CQ-138 before changing production time
+  or lifecycle behavior.
+
 ## Maintenance rule
 
 When a new quirk is found:

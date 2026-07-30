@@ -1793,6 +1793,14 @@ int RecoveredGameServices_VehicleLastInputFailure() {
   return g_vehicleControlInput.LastInputFailure();
 }
 
+int RecoveredGameServices_VehicleLastFrameFailure() {
+  return VehicleRuntimeState_LastFrameFailure();
+}
+
+int RecoveredGameServices_VehicleLastFrameReadinessIssue() {
+  return VehicleRuntimeState_LastFrameReadinessIssue();
+}
+
 bool RecoveredGameServices_VehicleDriveTelemetry(
     SRecoveredVehicleDriveTelemetry* telemetry) {
   if (!g_vehicleDriveTelemetryReady || telemetry == nullptr) return false;
@@ -1955,7 +1963,10 @@ int RecoveredGameServices_RunFrame() {
   if (!vehicleFrame) g_observerInput.Advance(Session::m_frameSec);
 
   Frame_ClearRuntimeIssues();
-  if (!GRStartScene()) {
+  // Own the complete physical framebuffer at the recovered loop boundary.
+  // Viewport-local clears performed by the scene remain valid, while pixels
+  // outside a future cockpit/secondary viewport can never retain an old frame.
+  if (!GRSoftwareBeginFrame(GRFillColor(0, 0, 0)) || !GRStartScene()) {
     Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
     return FALSE;
   }

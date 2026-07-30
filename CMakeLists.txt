@@ -3704,6 +3704,22 @@ target_compile_definitions(rr2nw_graph_runtime_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_software_polygon_rasterizer_smoke
+  src/portability/SoftwarePolygonRasterizerSmoke.cpp
+)
+target_link_libraries(rr2nw_software_polygon_rasterizer_smoke PRIVATE
+  rr2nw_graph_software_texture
+)
+target_compile_features(
+  rr2nw_software_polygon_rasterizer_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_software_polygon_rasterizer_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_frame_runtime_smoke
   src/portability/FrameRuntimeSmoke.cpp
 )
@@ -4266,6 +4282,9 @@ if(MSVC)
   target_compile_options(rr2nw_view_state_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_scene_draw_smoke PRIVATE /W4 /permissive-)
   target_compile_options(rr2nw_graph_runtime_smoke PRIVATE /W4 /permissive-)
+  target_compile_options(
+    rr2nw_software_polygon_rasterizer_smoke PRIVATE /W4 /permissive-
+  )
   target_compile_options(rr2nw_frame_runtime_smoke PRIVATE /W4 /permissive-)
   target_compile_options(
     rr2nw_recovered_software_frame_smoke PRIVATE /W4 /permissive-
@@ -4445,6 +4464,10 @@ if(BUILD_TESTING)
   add_test(NAME legacy-view-state-smoke COMMAND rr2nw_view_state_smoke)
   add_test(NAME legacy-scene-draw-smoke COMMAND rr2nw_scene_draw_smoke)
   add_test(NAME legacy-graph-runtime-smoke COMMAND rr2nw_graph_runtime_smoke)
+  add_test(
+    NAME software-polygon-rasterizer-smoke
+    COMMAND rr2nw_software_polygon_rasterizer_smoke
+  )
   add_test(NAME legacy-frame-runtime-smoke COMMAND rr2nw_frame_runtime_smoke)
   add_test(
     NAME recovered-software-frame-smoke

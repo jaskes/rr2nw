@@ -1,4 +1,5 @@
 #include "graph.h"
+#include "GraphSoftwareTextureInternal.h"
 #include "sd1_epal.h"
 
 #include <algorithm>
@@ -12,36 +13,12 @@ extern TExtendedPalette _EPal;
 
 namespace {
 
-const std::uint32_t kSoftwareTextureMagic = 0x52525854UL;
 const long kMaxTextureDimension = 4096;
 const std::uint64_t kMaxTexturePixels = 64ULL*1024ULL*1024ULL;
 
-// Preserve the recovered software-visible STextDB prefix. Legacy software
-// rasterizers address flags, row offsets and pixels through this layout.
-struct SoftwareTexture {
-    unsigned long flags;
-    unsigned long counter;
-    int *textureCache;
-    unsigned char *dataPtr;
-    char filename[64];
-    TTextureLoadFunc loadFunc;
-    void *loadFuncUserPar;
-    TTextureLoadIntFunc loadIntFunc;
-    unsigned long size;
-    long w;
-    long h;
-    std::uint32_t magic;
-};
-
-static_assert(sizeof(void *) == 4 && sizeof(unsigned long) == 4,
-              "recovered software texture handles require the Win32 ABI");
-static_assert(offsetof(SoftwareTexture,textureCache) == 8 &&
-                  offsetof(SoftwareTexture,dataPtr) == 12 &&
-                  offsetof(SoftwareTexture,filename) == 16 &&
-                  offsetof(SoftwareTexture,size) == 92 &&
-                  offsetof(SoftwareTexture,w) == 96 &&
-                  offsetof(SoftwareTexture,h) == 100,
-              "software-visible STextDB prefix layout changed");
+using rr2nw_software::kSoftwareTextureMagic;
+using rr2nw_software::SoftwareTexture;
+using rr2nw_software::TextureFromHandle;
 
 bool ValidDimensions(long width,long height)
 {
@@ -49,13 +26,6 @@ bool ValidDimensions(long width,long height)
         height > kMaxTextureDimension ) return false;
     return static_cast<std::uint64_t>(width)*
                static_cast<std::uint64_t>(height) <= kMaxTexturePixels;
-}
-
-SoftwareTexture *AsSoftwareTexture(void *handle)
-{
-    SoftwareTexture *texture = static_cast<SoftwareTexture *>(handle);
-    return texture != NULL && texture->magic == kSoftwareTextureMagic ?
-           texture : NULL;
 }
 
 bool AllocateTextureStorage(SoftwareTexture *texture,long width,long height)
@@ -90,7 +60,7 @@ bool AllocateTextureStorage(SoftwareTexture *texture,long width,long height)
 
 void DestroySoftwareTexture(void *handle)
 {
-    SoftwareTexture *texture = AsSoftwareTexture(handle);
+    SoftwareTexture *texture = TextureFromHandle(handle);
     if( texture == NULL ) return;
     if( texture->textureCache != NULL )
         delete [] (texture->textureCache-texture->h*2);
@@ -109,7 +79,7 @@ void *LoadSoftwareTexture(void *handle,unsigned char *palette,int paletteCount,
     const long width = static_cast<long>(*TEXT_WIDTH_PTR(source));
     if( !ValidDimensions(width,height) ) return NULL;
 
-    SoftwareTexture *texture = AsSoftwareTexture(handle);
+    SoftwareTexture *texture = TextureFromHandle(handle);
     const bool created = handle == NULL;
     if( !created && texture == NULL ) return NULL;
     if( created ) {
@@ -216,7 +186,7 @@ void DrawSoftwareAlphaSprite(SGRAlphaSprite *sprite)
         _gr_nScreenWidth <= 0 || _gr_nScreenHeight <= 0 ||
         sprite->x1 <= sprite->x0 || sprite->y1 <= sprite->y0 ) return;
 
-    SoftwareTexture *texture = AsSoftwareTexture(sprite->hTexture);
+    SoftwareTexture *texture = TextureFromHandle(sprite->hTexture);
     if( texture == NULL || texture->dataPtr == NULL || texture->w <= 0 ||
         texture->h <= 0 || sprite->color == 0 ) return;
 
@@ -285,7 +255,7 @@ void DrawSoftwareSprite(int x0,int y0,int x1,int y1,
     if( _dL.currDevice == NULL || _dL.currDevice->swHw != GR_SOFTWARE ||
         _gr_pScreen == NULL || x1 <= x0 || y1 <= y0 ) return;
 
-    SoftwareTexture *texture = AsSoftwareTexture(handle);
+    SoftwareTexture *texture = TextureFromHandle(handle);
     if( texture == NULL || texture->dataPtr == NULL || texture->w <= 0 ||
         texture->h <= 0 ) return;
 
@@ -390,7 +360,6 @@ void DrawSoftwareParticle(int x,int y,int size,int inverseZ,
     }
 }
 
-void SetSoftwareZPrecision(int) {}
 void SetSoftwareBump(int, int) {}
 
 }  // namespace
@@ -403,13 +372,12 @@ void (*_pGRDrawSprite)(int,int,int,int,int,int,int,int,int,void *) =
     DrawSoftwareSprite;
 void (*_pGRDrawParticle)(int,int,int,int,unsigned long) =
     DrawSoftwareParticle;
-void (*_pGRSetZPrecision)(int) = SetSoftwareZPrecision;
 void (*_pGRSetBump)(int,int) = SetSoftwareBump;
 
 void GRSetTextureLoadFunc(GR_HTEXTURE handle,const char *fileName,
                           TTextureLoadFunc loadFunc,void *user)
 {
-    SoftwareTexture *texture = AsSoftwareTexture(handle);
+    SoftwareTexture *texture = TextureFromHandle(handle);
     if( texture == NULL ) return;
     if( fileName == NULL ) fileName = "";
     std::strncpy(texture->filename,fileName,sizeof(texture->filename)-1);
@@ -426,6 +394,6 @@ void GRReInitTextureDB()
 
 void GRSetTextureLoadIntFunc(GR_HTEXTURE handle,TTextureLoadIntFunc loadFunc)
 {
-    SoftwareTexture *texture = AsSoftwareTexture(handle);
+    SoftwareTexture *texture = TextureFromHandle(handle);
     if( texture != NULL ) texture->loadIntFunc = loadFunc;
 }

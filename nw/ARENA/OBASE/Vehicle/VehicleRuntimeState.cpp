@@ -26,6 +26,7 @@ struct VehicleRuntimeOwner
     SimulationContext *context;
     Vehicle *vehicle;
     KR_ObjectID object;
+    KR_ObjectID frameAttribute;
     CFVector3 savedPosition;
     CFVector3 savedSubjectPosition;
     CFVector3 savedSpeed;
@@ -46,6 +47,7 @@ struct VehicleRuntimeOwner
 
     VehicleRuntimeOwner()
         : context(NULL), vehicle(NULL), object(KR_ObjectID::NUL()),
+          frameAttribute(KR_ObjectID::NUL()),
           savedPosition(0.0, 0.0, 0.0),
           savedSubjectPosition(0.0, 0.0, 0.0),
           savedSpeed(0.0, 0.0, 0.0), savedLastTime(0.0),
@@ -61,6 +63,8 @@ struct VehicleRuntimeOwner
 
 VehicleRuntimeOwner g_owner;
 int g_lastControlFailure = 0;
+int g_lastFrameFailure = 0;
+int g_lastFrameReadinessIssue = 0;
 
 bool IsNul(const KR_ObjectID &object)
 {
@@ -127,6 +131,7 @@ void ClearOwner()
     g_owner.context = NULL;
     g_owner.vehicle = NULL;
     g_owner.object = KR_ObjectID::NUL();
+    g_owner.frameAttribute = KR_ObjectID::NUL();
     g_owner.savedPosition = CFVector3(0.0, 0.0, 0.0);
     g_owner.savedSubjectPosition = CFVector3(0.0, 0.0, 0.0);
     g_owner.savedSpeed = CFVector3(0.0, 0.0, 0.0);
@@ -222,6 +227,36 @@ bool VehicleReady(Vehicle *vehicle)
            FiniteMatrix(vehicle->GetDir()) &&
            FiniteVector(vehicle->getPosition()) &&
            std::isfinite(vehicle->m_lastTime);
+}
+
+int VehicleReadinessIssue(Vehicle *vehicle)
+{
+    int issue = 0;
+    AttributeVehicle *attribute = ResolveAttribute(vehicle);
+    if (vehicle == NULL || vehicle->getContext() == NULL) issue |= 1;
+    if (attribute == NULL) issue |= 2;
+    if (attribute == NULL ||
+        VesselKind(attribute) == RECOVERED_VEHICLE_VESSEL_UNKNOWN) issue |= 4;
+    if (vehicle != NULL)
+    {
+        const double mass = vehicle->VesselMass();
+        if (!std::isfinite(mass) || mass <= 0.0)
+        {
+            // VesselMass is the null-safe ownership probe.  The remaining
+            // accessors delegate directly to m_vessel and must not be used to
+            // diagnose a missing vessel.
+            issue |= 8 | 16 | 32 | 64;
+        }
+        else
+        {
+            if (!FiniteVector(vehicle->Pos())) issue |= 16;
+            if (!FiniteVector(vehicle->Speed())) issue |= 32;
+            if (!FiniteMatrix(vehicle->GetDir())) issue |= 64;
+        }
+        if (!FiniteVector(vehicle->getPosition())) issue |= 128;
+        if (!std::isfinite(vehicle->m_lastTime)) issue |= 256;
+    }
+    return issue;
 }
 
 bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
@@ -580,72 +615,143 @@ bool VehicleRuntimeState_BeginFrame(SimulationContext *context)
         g_owner.frameBegun || !VehicleReady(g_owner.vehicle))
         return false;
 
+    g_owner.frameAttribute = g_owner.vehicle->m_vehicleAttrID;
     g_owner.vehicle->BeginPreStep();
     g_owner.frameBegun = true;
     return VehicleReady(g_owner.vehicle);
 }
 
+static bool PrepareCurrentVesselForFrameCompletion()
+{
+    g_lastFrameReadinessIssue = 0;
+    if (!g_owner.frameBegun || g_owner.vehicle == NULL)
+        return false;
+    if (g_owner.vehicle->m_vehicleAttrID != g_owner.frameAttribute)
+    {
+        // SET_TAXI/F1 can replace and restart the underlying vessel while the
+        // event queue is processed between BeginFrame and CompleteFrame.  The
+        // old vessel owned the earlier BeginPreStep; initialize the new one
+        // before UpdatePos instead of feeding it a half-open frame.
+        if (!VehicleReady(g_owner.vehicle))
+        {
+            g_lastFrameReadinessIssue =
+                VehicleReadinessIssue(g_owner.vehicle);
+            return false;
+        }
+        g_owner.vehicle->BeginPreStep();
+        g_owner.frameAttribute = g_owner.vehicle->m_vehicleAttrID;
+    }
+    const bool ready = VehicleReady(g_owner.vehicle);
+    if (!ready)
+        g_lastFrameReadinessIssue = VehicleReadinessIssue(g_owner.vehicle);
+    return ready;
+}
+
 bool VehicleRuntimeState_CompleteFrame(
     SimulationContext *context, double targetTime)
 {
+    g_lastFrameFailure = 0;
+    g_lastFrameReadinessIssue = 0;
     if (!g_owner.active || context == NULL ||
         g_owner.context != context || g_owner.vehicle == NULL ||
         !g_owner.frameBegun || !std::isfinite(targetTime))
+    {
+        g_lastFrameFailure = 10;
         return false;
+    }
     const double deltaTime = targetTime - g_owner.lastTime;
     if (!std::isfinite(deltaTime) || deltaTime <= 0.0 ||
         deltaTime > kMaximumStep + kTimeEpsilon)
     {
+        g_lastFrameFailure = 11;
         g_owner.frameBegun = false;
+        g_owner.frameAttribute = KR_ObjectID::NUL();
         return false;
     }
 
+    if (!PrepareCurrentVesselForFrameCompletion())
+    {
+        g_lastFrameFailure = 12;
+        g_owner.frameBegun = false;
+        g_owner.frameAttribute = KR_ObjectID::NUL();
+        return false;
+    }
     Session::m_viewTime = targetTime;
     g_owner.vehicle->UpdatePos();
     RecordFrameCollision();
     g_owner.lastTime = targetTime;
     ++g_owner.advanceCount;
     g_owner.frameBegun = false;
+    g_owner.frameAttribute = KR_ObjectID::NUL();
     SRecoveredVehicleRuntimeState state = {};
-    return ReadState(g_owner.vehicle, &state) && state.active &&
-           !state.frameBegun &&
-           state.advanceCount == g_owner.advanceCount &&
-           NearlyEqual(state.lastTime, targetTime);
+    const bool valid = ReadState(g_owner.vehicle, &state) && state.active &&
+        !state.frameBegun &&
+        state.advanceCount == g_owner.advanceCount &&
+        NearlyEqual(state.lastTime, targetTime);
+    if (!valid) g_lastFrameFailure = 13;
+    return valid;
 }
 
 bool VehicleRuntimeState_CompleteLiveFrame(
     SimulationContext *context, double targetTime,
     bool *droppedTime)
 {
+    g_lastFrameFailure = 0;
+    g_lastFrameReadinessIssue = 0;
     if (droppedTime == NULL)
+    {
+        g_lastFrameFailure = 1;
         return false;
+    }
     *droppedTime = false;
     if (!g_owner.active || context == NULL ||
         g_owner.context != context || g_owner.vehicle == NULL ||
         !g_owner.frameBegun || !std::isfinite(targetTime))
+    {
+        g_lastFrameFailure = 2;
         return false;
+    }
     const double deltaTime = targetTime - g_owner.lastTime;
     if (!std::isfinite(deltaTime) || deltaTime < 0.0)
     {
+        g_lastFrameFailure = 3;
         g_owner.frameBegun = false;
+        g_owner.frameAttribute = KR_ObjectID::NUL();
         return false;
     }
     if (deltaTime == 0.0)
     {
+        if (!PrepareCurrentVesselForFrameCompletion())
+        {
+            g_lastFrameFailure = 4;
+            g_owner.frameBegun = false;
+            g_owner.frameAttribute = KR_ObjectID::NUL();
+            return false;
+        }
         Session::m_viewTime = targetTime;
         g_owner.vehicle->UpdatePos();
         RecordFrameCollision();
         ++g_owner.advanceCount;
         g_owner.frameBegun = false;
+        g_owner.frameAttribute = KR_ObjectID::NUL();
         SRecoveredVehicleRuntimeState state = {};
-        return ReadState(g_owner.vehicle, &state) && state.active &&
-               !state.frameBegun &&
-               state.advanceCount == g_owner.advanceCount &&
-               NearlyEqual(state.lastTime, targetTime);
+        const bool valid = ReadState(g_owner.vehicle, &state) && state.active &&
+            !state.frameBegun &&
+            state.advanceCount == g_owner.advanceCount &&
+            NearlyEqual(state.lastTime, targetTime);
+        if (!valid) g_lastFrameFailure = 5;
+        return valid;
     }
     if (deltaTime <= kMaximumStep + kTimeEpsilon)
         return VehicleRuntimeState_CompleteFrame(context, targetTime);
 
+    if (!PrepareCurrentVesselForFrameCompletion())
+    {
+        g_lastFrameFailure = 6;
+        g_owner.frameBegun = false;
+        g_owner.frameAttribute = KR_ObjectID::NUL();
+        return false;
+    }
     const double physicsTarget = g_owner.lastTime + kMaximumStep;
     Session::m_viewTime = physicsTarget;
     g_owner.vehicle->UpdatePos();
@@ -656,12 +762,25 @@ bool VehicleRuntimeState_CompleteLiveFrame(
     g_owner.lastTime = targetTime;
     ++g_owner.advanceCount;
     g_owner.frameBegun = false;
+    g_owner.frameAttribute = KR_ObjectID::NUL();
     *droppedTime = true;
     SRecoveredVehicleRuntimeState state = {};
-    return ReadState(g_owner.vehicle, &state) && state.active &&
-           !state.frameBegun &&
-           state.advanceCount == g_owner.advanceCount &&
-           NearlyEqual(state.lastTime, targetTime);
+    const bool valid = ReadState(g_owner.vehicle, &state) && state.active &&
+        !state.frameBegun &&
+        state.advanceCount == g_owner.advanceCount &&
+        NearlyEqual(state.lastTime, targetTime);
+    if (!valid) g_lastFrameFailure = 7;
+    return valid;
+}
+
+int VehicleRuntimeState_LastFrameFailure()
+{
+    return g_lastFrameFailure;
+}
+
+int VehicleRuntimeState_LastFrameReadinessIssue()
+{
+    return g_lastFrameReadinessIssue;
 }
 
 bool VehicleRuntimeState_BuildCamera(

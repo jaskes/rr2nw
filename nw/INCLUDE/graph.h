@@ -225,6 +225,29 @@ typedef struct {
 #define    GR_POLY_ADD_BUMP         (2  *4)
 #define    GR_POLY_ADD_LIGHTTHROUGH (4  *4)
 
+// Modern scalar software-rasterizer diagnostics.  Counters are deliberately
+// POD so the Win32 startup layer and smoke tests can consume them without
+// owning renderer state.
+typedef struct {
+   unsigned long long frames;
+   unsigned long long submitted;
+   unsigned long long accepted;
+   unsigned long long rasterized;
+   unsigned long long rejectedInvalid;
+   unsigned long long rejectedUnsupported;
+   unsigned long long rejectedOutside;
+   unsigned long long rejectedTexture;
+   unsigned long long coveredPixels;
+   unsigned long long writtenPixels;
+   unsigned long long hazePixels;
+   unsigned long long transparentPixels;
+   unsigned long long approximatedBumpPolygons;
+   unsigned long long approximatedLightPolygons;
+   unsigned long long submittedByType[TYPE_COUNT];
+   unsigned long long acceptedByType[TYPE_COUNT];
+   unsigned long long rasterizedByType[TYPE_COUNT];
+} SGRSoftwareRasterStats;
+
 
 typedef struct {
    unsigned char * pTable;
@@ -718,6 +741,10 @@ unsigned long GRFillColor(int r, int g, int b);
 unsigned long GRCreateColor(int r, int g, int b);
 unsigned long GRTransparentColor(int r, int g, int b);
 int GRClearScreen(BOOL fClr = FALSE, long fColor = 0);
+int GRSoftwareBeginFrame(long fColor = 0);
+void GRSoftwareGetFrameStats(SGRSoftwareRasterStats *stats);
+void GRSoftwareGetTotalStats(SGRSoftwareRasterStats *stats);
+void GRSoftwareResetTotalStats();
 int GRDumpScreen();
 void GRInitBump();
 int GREndScene();

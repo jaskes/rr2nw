@@ -171,7 +171,27 @@ feel pass, wider mission entities and AI, save/load, secondary weapon details,
 and later packaging/content validation. The percentage remains an orientation,
 not permission to call the game fully playable before those gates pass.
 
-Current automated evidence for this corrected slice is 51/51 CTest in Debug
-and Release, 36/36 Level/configuration/root service launches, and 4/4 bounded
-real executables reaching level-ready and clean shutdown. This closes the
-automated ownership question; the manual feel/visibility gate remains.
+Current automated evidence is 52/52 CTest in Debug and Release, 36/36 parallel
+Debug retail-service stress launches, 18/18 final Release service launches,
+and 4/4 bounded real executables reaching level-ready and clean shutdown. This
+closes the automated renderer/ownership question; the manual driving and visual
+parity gate remains.
+
+## Renderer recovery update
+
+The visibility half of the manual gate is no longer blocked by the former
+flat-only polygon dispatcher. The executable draws the real textured Level and
+the physical framebuffer is cleared for every frame, so camera movement has no
+cursor-like trails. A focused raster test and per-type runtime counters make
+texture, perspective, sprite, alpha, Gouraud and haze failures independently
+observable.
+
+The heavier frame also exercised the completed Vehicle contract under realistic
+presentation cost. Timer samples are capped at 50 ms, F1 re-entry may replace a
+vessel inside an open frame without losing control/camera ownership, and a
+non-finite Taxi surface direction falls back before entering Vehicle state.
+
+The remaining human gate is now about play feel and parity rather than whether
+there is a scene: drive several Levels, compare clipping/fog/palette behavior,
+exercise F1/fire/alt-tab and record clean shutdown. Bump/light-through lighting
+is still approximated and scalar performance still needs profiling before 1.0.

@@ -11,7 +11,9 @@
 #include "RecoveredRetailScriptManifest.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
+#include "graph.h"
 #include "obase/explosion/ExplosionSubjectState.h"
+#include "suavik.h"
 
 #include <shlobj.h>
 
@@ -1360,12 +1362,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleActiveActionCount()));
   log.Line("vehicle_last_input_failure=" + std::to_string(
                RecoveredGameServices_VehicleLastInputFailure()));
+  log.Line("vehicle_last_frame_failure=" + std::to_string(
+               RecoveredGameServices_VehicleLastFrameFailure()));
+  log.Line("vehicle_last_frame_readiness_issue=" + std::to_string(
+               RecoveredGameServices_VehicleLastFrameReadinessIssue()));
   log.Line("vehicle_frame_count=" + std::to_string(
                RecoveredGameServices_VehicleFrameCount()));
   log.Line("vehicle_camera_frame_count=" + std::to_string(
                RecoveredGameServices_VehicleCameraFrameCount()));
   log.Line("vehicle_dropped_time_frame_count=" + std::to_string(
                RecoveredGameServices_VehicleDroppedTimeFrameCount()));
+  log.Line("timer_clamped_sample_count=" + std::to_string(
+               SUA_ClampedTimerSampleCount()));
+  log.Line("timer_clamped_seconds=" + std::to_string(
+               SUA_ClampedTimerSeconds()));
   log.Line("vehicle_fallback_count=" + std::to_string(
                RecoveredGameServices_VehicleFallbackCount()));
   log.Line("vehicle_fallback_reason=" + std::to_string(
@@ -1417,6 +1427,48 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("observer_mode=fallback-suspended");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));
+  SGRSoftwareRasterStats rasterStats = {};
+  GRSoftwareGetTotalStats(&rasterStats);
+  log.Line("renderer_frames=" + std::to_string(rasterStats.frames));
+  log.Line("renderer_polygons_submitted=" +
+           std::to_string(rasterStats.submitted));
+  log.Line("renderer_polygons_accepted=" +
+           std::to_string(rasterStats.accepted));
+  log.Line("renderer_polygons_rasterized=" +
+           std::to_string(rasterStats.rasterized));
+  log.Line("renderer_rejected_invalid=" +
+           std::to_string(rasterStats.rejectedInvalid));
+  log.Line("renderer_rejected_unsupported=" +
+           std::to_string(rasterStats.rejectedUnsupported));
+  log.Line("renderer_rejected_outside=" +
+           std::to_string(rasterStats.rejectedOutside));
+  log.Line("renderer_rejected_texture=" +
+           std::to_string(rasterStats.rejectedTexture));
+  log.Line("renderer_pixels_covered=" +
+           std::to_string(rasterStats.coveredPixels));
+  log.Line("renderer_pixels_written=" +
+           std::to_string(rasterStats.writtenPixels));
+  log.Line("renderer_pixels_hazed=" +
+           std::to_string(rasterStats.hazePixels));
+  log.Line("renderer_pixels_transparent=" +
+           std::to_string(rasterStats.transparentPixels));
+  log.Line("renderer_approximated_bump_polygons=" +
+           std::to_string(rasterStats.approximatedBumpPolygons));
+  log.Line("renderer_approximated_light_polygons=" +
+           std::to_string(rasterStats.approximatedLightPolygons));
+  static const char* const kPolygonTypeNames[TYPE_COUNT] = {
+      "flat", "transparent", "gouraud", "texture_perspective",
+      "texture_linear", "sprite_perspective", "texture_alpha",
+      "sprite_linear", "gouraud_rgb", "texture_sampled",
+      "sprite_mip", "texture_gouraud"};
+  for (int type = 0; type < TYPE_COUNT; ++type) {
+    const std::string prefix =
+        std::string("renderer_type_") + kPolygonTypeNames[type];
+    log.Line(prefix + "=" +
+             std::to_string(rasterStats.submittedByType[type]) + "/" +
+             std::to_string(rasterStats.acceptedByType[type]) + "/" +
+             std::to_string(rasterStats.rasterizedByType[type]));
+  }
   log.Line("game_services_issues=" +
            std::to_string(RecoveredGameServices_Issues()));
   const SRecoveredObserverState* observer =

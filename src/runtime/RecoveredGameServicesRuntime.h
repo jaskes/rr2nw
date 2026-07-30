@@ -223,6 +223,8 @@ unsigned int RecoveredGameServices_VehicleSyntheticReleaseCount();
 unsigned int RecoveredGameServices_VehicleSuppressedInputCount();
 unsigned int RecoveredGameServices_VehicleActiveActionCount();
 int RecoveredGameServices_VehicleLastInputFailure();
+int RecoveredGameServices_VehicleLastFrameFailure();
+int RecoveredGameServices_VehicleLastFrameReadinessIssue();
 bool RecoveredGameServices_VehicleDriveTelemetry(
     SRecoveredVehicleDriveTelemetry* telemetry);
 unsigned int RecoveredGameServices_VehicleFrameCount();

@@ -46,6 +46,7 @@
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "sound.h"
+#include "suavik.h"
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
@@ -1300,9 +1301,9 @@ bool ExerciseVisibleBulletBarrelSmoke() {
 
   KR_ObjectID bullet = g_arena.newObject(bulletTable, kBulletName);
   if (bullet.isNUL()) return false;
-  const double currentTime =
-      (std::max)(Session::m_moment, Session::m_viewTime);
-  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  const double currentTime = Session::m_moment;
+  const double timeStamp = !std::isfinite(currentTime) || currentTime < 0.1
+      ? 0.1 : currentTime;
   const CFVector3 direction(0.0, 0.0, -1.0);
   KR_Event event;
   event.label = b_EV_START;
@@ -1610,6 +1611,7 @@ bool ExerciseVisibleExplosionParticles() {
       ExplosionSubjectState_LiveCount() != 0 ||
       ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
       ExplosionSubjectState_TracedParentCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0 ||
       g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
       CViewObject::EnabledLights() != 0) {
     return false;
@@ -1647,9 +1649,9 @@ bool ExerciseVisibleExplosionParticles() {
     return false;
   }
 
-  const double currentTime =
-      (std::max)(Session::m_moment, Session::m_viewTime);
-  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  const double currentTime = Session::m_moment;
+  const double timeStamp = !std::isfinite(currentTime) || currentTime < 0.1
+      ? 0.1 : currentTime;
   ExplosionImpactRequest request = {
       position, timeStamp, KR_ObjectID::NUL(), subjectTable,
       attributeIndex, kProbeName};
@@ -1728,14 +1730,30 @@ bool ExerciseVisibleExplosionParticles() {
     detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
     pieceDrawsAfterDetachedFrame = ExplosionSubjectState_PieceDrawCount();
   }
+  int removedTracePuffs = 0;
+  while (SmokeSubjectState_LiveCount() > 0 && removedTracePuffs < 128) {
+    KR_ObjectID smoke = context->searchObject("Smok.Static");
+    if (smoke.isNUL() ||
+        !SmokeSubjectState_RollbackStarted(context, smoke)) {
+      break;
+    }
+    ++removedTracePuffs;
+  }
+  const int liveExplosions = ExplosionSubjectState_LiveCount();
+  const int liveBranches =
+      ExplosionSubjectState_ParticleBranchLiveCount();
+  const int tracedParents = ExplosionSubjectState_TracedParentCount();
+  const int liveSmoke = SmokeSubjectState_LiveCount();
+  const int liveSounds = SoundObjectState_LiveCount();
   const bool rolledBack = !context->isExist(explosion) &&
-      ExplosionSubjectState_LiveCount() == 0 &&
-      ExplosionSubjectState_ParticleBranchLiveCount() == branchesBefore &&
-      ExplosionSubjectState_TracedParentCount() == 0 &&
-      SmokeSubjectState_LiveCount() == 0 &&
-      SoundObjectState_LiveCount() == soundsBefore;
+      liveExplosions == 0 && liveBranches == branchesBefore &&
+      tracedParents == 0 && liveSmoke == 0 && liveSounds == soundsBefore;
   if (context->isExist(explosion)) context->removeObject(explosion);
-  return lightPublished && ownedMove && ownedPuff && rolledBack &&
+  const bool moveCleared =
+      context->removeEvent(EXPLOSION_MOVE, explosion) == 0;
+  const bool puffCleared =
+      context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0;
+  const bool result = lightPublished && ownedMove && ownedPuff && rolledBack &&
          detachedFrame &&
          g_particleDrawValid && drawsAfterVisibleFrame > 0 &&
          g_particleDraws == drawsAfterVisibleFrame &&
@@ -1749,8 +1767,31 @@ bool ExerciseVisibleExplosionParticles() {
          g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
          SoundObjectState_LiveCount() == soundsBefore &&
          !context->isExist(kProbeName) &&
-         context->removeEvent(EXPLOSION_MOVE, explosion) == 0 &&
-         context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0;
+         moveCleared && puffCleared;
+  if (!result) {
+    std::fprintf(
+        stderr,
+        "explosion-render light=%d move=%d puff=%d rollback=%d detach=%d "
+        "particle=%d draws=%d/%d alpha=%d smoke=%d/%d piece=%d/%d/%d "
+        "frames=%lu/%lu lights=%d chain=%d/%d live=%d/%d/%d/%d/%d "
+        "expected_branch_sound=%d/%d exists=%d "
+        "events=%d/%d moment=%.9f stamp=%.9f life=%.9f\n",
+        lightPublished ? 1 : 0, ownedMove ? 1 : 0, ownedPuff ? 1 : 0,
+        rolledBack ? 1 : 0, detachedFrame ? 1 : 0,
+        g_particleDrawValid ? 1 : 0, drawsAfterVisibleFrame,
+        g_particleDraws, g_alphaSpriteDrawValid ? 1 : 0,
+        smokeDrawsAfterVisibleFrame, g_alphaSpriteDraws,
+        pieceDrawsBefore, pieceDrawsAfterVisibleFrame,
+        pieceDrawsAfterDetachedFrame, dwFrames, framesBefore + 2,
+        CViewObject::EnabledLights(), g_lightChain.m_count,
+        g_lightChain.m_list == nullptr ? 0 : 1,
+        liveExplosions, liveBranches, tracedParents, liveSmoke, liveSounds,
+        branchesBefore, soundsBefore,
+        context->isExist(kProbeName) ? 1 : 0,
+        moveCleared ? 0 : 1, puffCleared ? 0 : 1,
+        Session::m_moment, timeStamp, attribute->m_lightTimeLife);
+  }
+  return result;
 }
 
 bool ExerciseVisibleExplosionTrace() {
@@ -1801,9 +1842,9 @@ bool ExerciseVisibleExplosionTrace() {
     return false;
   }
 
-  const double currentTime =
-      (std::max)(Session::m_moment, Session::m_viewTime);
-  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  const double currentTime = Session::m_moment;
+  const double timeStamp = !std::isfinite(currentTime) || currentTime < 0.1
+      ? 0.1 : currentTime;
   ExplosionImpactRequest request = {
       position, timeStamp, KR_ObjectID::NUL(), subjectTable,
       attributeIndex, kProbeName};
@@ -1977,13 +2018,15 @@ bool ExerciseVisibleExplosionTrace() {
     std::fprintf(stderr,
                  "explosion-trace render visible=%d detached=%d cleared=%d "
                  "clean=%d valid=%d draws=%d/%d/%d expected=%d puffs=%d "
-                 "steps=%d frames=%lu/%lu\n",
+                 "steps=%d frames=%lu/%lu moment=%.9f stamp=%.9f "
+                 "first_puff=%.9f move=%.9f\n",
                  visibleFrame ? 1 : 0, detachedParentFrame ? 1 : 0,
                  clearedFrame ? 1 : 0, clean ? 1 : 0,
                  g_alphaSpriteDrawValid ? 1 : 0, visibleDraws,
                  detachedDraws, clearedDraws,
                  startedPuffs * smokeAttribute->m_maxBlob,
-                 startedPuffs, moveSteps, dwFrames, framesBefore + 3);
+                 startedPuffs, moveSteps, dwFrames, framesBefore + 3,
+                 Session::m_moment, timeStamp, firstPuffTime, moveTime);
   return result;
 }
 
@@ -2020,9 +2063,9 @@ bool ExerciseVisibleSpark() {
     return false;
   }
 
-  const double currentTime =
-      (std::max)(Session::m_moment, Session::m_viewTime);
-  const double timeStamp = currentTime < 0.1 ? 0.1 : currentTime;
+  const double currentTime = Session::m_moment;
+  const double timeStamp = !std::isfinite(currentTime) || currentTime < 0.1
+      ? 0.1 : currentTime;
   SparkCreateRequest request = {
       position, timeStamp, subjectTable, attributeIndex, kProbeName};
   KR_ObjectID spark = KR_ObjectID::NUL();
@@ -3581,7 +3624,9 @@ int main(int argc, char** argv) {
     std::fprintf(stderr,
                  "safe embodiment inspected=%d exit=%u safe=%u unsafe=%u "
                  "taxi=%u orphan=%u reentry=%u/%u panel=%u/%u "
-                 "pending=%d live=%u subscription=%d\n",
+                 "pending=%d live=%u subscription=%d "
+                 "control=%d/%d/%u/%d/%d/%d "
+                 "timer=%u/%.6f\n",
                  inspected ? 1 : 0, embodiment.exitAttempts,
                  embodiment.safeExitCompletions,
                  embodiment.unsafeExitCompletions,
@@ -3590,7 +3635,14 @@ int main(int argc, char** argv) {
                  embodiment.panelCloseTransitions,
                  embodiment.panelReopenTransitions, embodiment.exitPending,
                  embodiment.liveOrphans,
-                 embodiment.hardwareSubscriptionPreserved);
+                 embodiment.hardwareSubscriptionPreserved,
+                 RecoveredGameServices_VehicleControlReady() ? 1 : 0,
+                 RecoveredGameServices_VehicleFallbackActive() ? 1 : 0,
+                 RecoveredGameServices_VehicleFallbackReason(),
+                 RecoveredGameServices_VehicleLastInputFailure(),
+                 VehicleRuntimeState_LastFrameFailure(),
+                 VehicleRuntimeState_LastFrameReadinessIssue(),
+                 SUA_ClampedTimerSampleCount(), SUA_ClampedTimerSeconds());
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("safe F1 Vehicle exit/Taxi re-entry failed");

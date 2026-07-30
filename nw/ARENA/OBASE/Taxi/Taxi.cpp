@@ -43,6 +43,20 @@ const unsigned long long kTaxiSubjectHashOffset = 14695981039346656037ull;
 const unsigned long long kTaxiSubjectHashPrime = 1099511628211ull;
 int g_taxiSubjectCapacity = 0;
 
+bool FiniteTaxiDirection(const CFMatrix3x4& direction)
+{
+    for (int row = 0; row < 3; ++row)
+    {
+        const CFVector3 value = direction.Row(row);
+        if (!std::isfinite(value.x) || !std::isfinite(value.y) ||
+            !std::isfinite(value.z))
+            return false;
+    }
+    const CFVector3 offset = direction.Offset();
+    return std::isfinite(offset.x) && std::isfinite(offset.y) &&
+           std::isfinite(offset.z);
+}
+
 }
 
 
@@ -298,9 +312,12 @@ int Taxi::receiveEvent( KR_Event &event )
            }
            break;
 
-    case EV_VEHICLE_DROP_TAXI:
+	case EV_VEHICLE_DROP_TAXI:
 		{
-			
+			CFMatrix3x4 fallbackDirection;
+			fallbackDirection.LoadTransposed(g_vehicle->GetDir());
+			if (!FiniteTaxiDirection(fallbackDirection))
+				fallbackDirection.LoadIdentity();
 			
 			//KR_ObjectID oID;
 			event.data.open(EDO_READ)
@@ -337,6 +354,8 @@ int Taxi::receiveEvent( KR_Event &event )
 					.RestoreEuler(CFMatrix3x4::AXIS_OY,fAngleY,CFMatrix3x4::AXIS_OX,fAngleX,CFMatrix3x4::AXIS_OZ,fAngleZ);
 				
 				GetMatrixByAngles( m_taxiDir, normal, -fAngleY - M_PI_2);
+				if (!FiniteTaxiDirection(m_taxiDir))
+					m_taxiDir = fallbackDirection;
 				
 				
 				SetDir(m_taxiDir);

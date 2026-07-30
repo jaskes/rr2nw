@@ -2826,3 +2826,67 @@ specific E/G ownership pairs match, and the nine published Commander/TankGroup
 signatures remain identical between Debug and Release. Every executable reaches
 `marker=level-ready`, publishes Commander/mission diagnostics and finishes with
 `runtime_shutdown=clean`.
+
+## BD-075: restore the complete scalar software frame before widening gameplay
+
+Status: accepted on 2026-07-30.
+
+The recovered Windows renderer now owns the complete 640x480 physical buffer
+at frame entry and clears it independently of the current cockpit viewport.
+Scene-local clears remain valid, but a missing sky pixel, a secondary viewport
+or a failed polygon can no longer expose data from the preceding frame. This
+closes the cursor-like trails seen during the first manual moving-camera pass.
+
+The production polygon boundary accepts all twelve legacy base types. Flat,
+Gouraud, RGB Gouraud, linear and perspective texture mapping, color-keyed
+sprites, alpha textures, sampled/mip aliases, haze and palette transparency
+are implemented in a bounded scalar scanline rasterizer. Perspective types
+interpolate `u/z`, `v/z` and `1/z`; texture handles use the exact recovered TXR
+owner instead of treating the public opaque handle as raw pixels. Submitted,
+accepted, outside, unsupported and missing-texture polygons plus covered and
+written pixels are reported per frame, in totals and by legacy type.
+
+The preserved bump and light-through add modes are accepted as explicit
+textured approximations. Their counts are diagnostic debt, not a claim of
+pixel-identical retail lighting. Restoring their original mix-table equations
+requires dedicated visual fixtures and must not block the now-visible base
+scene.
+
+Making the real scene expensive exposed two independent stability defects.
+One timer sample is now capped at 50 ms, matching the existing Vehicle physics
+ceiling; excess wall time is discarded and diagnosed rather than advancing
+the event graph ahead of physics. This is a variable-step safety cap, not the
+future fixed simulation tick. F1 Taxi re-entry can also replace the underlying
+vessel between `BeginPreStep` and `UpdatePos`, so the new vessel receives its
+own frame initialization. A non-finite Taxi surface orientation falls back to
+the finite direction of the abandoned Vehicle before it can poison the
+replacement vessel.
+
+Regression contract: `software-polygon-rasterizer-smoke` checks actual output
+pixels and exact telemetry for flat, Gouraud, linear/perspective texture,
+sprite key, alpha, haze, outside, missing-texture and unsupported cases. The
+normal Debug/Release matrix is now 52 tests. Real executable proof must show a
+textured retail Level on two different Vehicle positions with no retained
+pixels, zero unsupported/missing-texture polygons and clean shutdown.
+
+Final verification passes 52/52 CTest in Debug and Release, a 36/36 parallel
+Debug retail-service stress across two complete passes of installed and
+mounted data, and 18/18 Release retail-service launches on the final harness.
+All 4/4 waited `rr2nw.exe --runtime-smoke` combinations reach `level-ready`
+and `runtime_shutdown=clean`, with zero invalid, unsupported or missing-texture
+polygons and zero Vehicle frame/readiness failures. The mounted disc data root
+is `G:\nw`; `G:\` intentionally fails validation because `game.cfg` lives
+inside the `nw` directory.
+
+The stress matrix also corrected the visual-probe clock contract. Synthetic
+effects are stamped with `Session::m_moment`, never the potentially leading
+interpolated `m_viewTime`. Traced pieces may create independent `Smok.Static`
+subjects which correctly outlive their parent Explosion, so probe rollback
+removes those owned children explicitly instead of mistaking them for a
+production leak.
+
+One later four-lane verification reported a single discarded-output Release
+`Level.06N` exit. It did not reproduce in an immediate logged retry, eight
+parallel Level.06N runs or two complete logged installed-data Release passes
+(27 consecutive successes total). This observation remains CQ-139 rather than
+being silently folded into the clean evidence.

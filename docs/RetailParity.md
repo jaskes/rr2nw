@@ -1090,6 +1090,34 @@ Retail scripts нельзя молча копировать поверх source 
   launches, 18/18 matching E/G ownership pairs and 4/4 waited executable
   smokes with Commander/mission diagnostics, level-ready and clean shutdown.
 
+### RP-RENDER-001: the recovered executable renders a real textured Level
+
+- Classification: `PARTIAL_RETAIL`, `PORTABILITY_FIX_ACCEPTED`. The software
+  path now implements every legacy base polygon type used by the scene rather
+  than accepting only flat and transparent polygons.
+- Perspective texture modes interpolate reciprocal depth; linear texture and
+  sprite modes retain linear UVs. Palette Gouraud, RGB Gouraud, haze, alpha
+  textures, color keys and palette transparency have scalar implementations.
+- The complete physical frame is cleared before every render. A moving Vehicle
+  camera therefore produces independent frames with no retained trails even
+  if clipping or a future secondary viewport leaves pixels uncovered.
+- Renderer diagnostics publish submitted/accepted/rasterized polygons, four
+  rejection classes, covered/written/haze/transparent pixels, approximation
+  counts and all twelve per-type triples. A focused regression validates real
+  pixels rather than link success alone.
+- Interactive installed-data evidence shows the retail sky, mountains, water,
+  terrain and foliage from two different Vehicle positions. The captured run
+  has zero invalid, unsupported or missing-texture rejects and shuts down
+  through the normal window path.
+- Bump and light-through add modes remain explicit bounded approximations.
+  Pixel-identical retail lighting, renderer optimization and resolution
+  switching remain later parity work; they do not make the base scene empty.
+- Final verification passes 52/52 CTest in both configurations, 36/36 parallel
+  Debug retail-service stress launches, 18/18 Release retail-service launches
+  and 4/4 waited real executables across installed `E:` and mounted `G:\nw`
+  data. All executable smokes report clean shutdown and zero renderer type or
+  texture rejects.
+
 ## Behavioral parity matrix
 
 Минимальные domains:

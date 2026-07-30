@@ -1,4 +1,5 @@
 #include "graph.h"
+#include "GraphSoftwareTextureInternal.h"
 #include "sd1_epal.h"
 
 #include <algorithm>
@@ -65,100 +66,499 @@ void (*_pGRSetClipRect)(void) = NULL;
 
 namespace {
 
-int DrawSoftwarePolygon()
-{
-    if( _dL.currDevice == NULL ||
-        _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
-        _gr_nScreenWidth <= 0 || _gr_nScreenHeight <= 0 ||
-        _gr_polygon.nVertices < 3 ||
-        _gr_polygon.nVertices > GR_MAX_VERTEX ) return FALSE;
+using rr2nw_software::SoftwareTexture;
+using rr2nw_software::TextureFromHandle;
 
-    const bool flat = _gr_polygon.dwFullType == GR_POLY_FLAT;
-    const bool transparent =
-        _gr_polygon.dwFullType == GR_POLY_TRANSPARENT;
-    if( !flat && !transparent ) return FALSE;
+constexpr double kFixed16Scale = 65536.0;
+constexpr double kSpanEpsilon = 1.0e-9;
 
-    const unsigned char *transparentTable = NULL;
-    if( transparent ) {
-        const std::uintptr_t tableAddress = static_cast<std::uintptr_t>(
-            static_cast<unsigned long>(_gr_polygon.dwColor.color));
-        if( tableAddress == 0 ) return FALSE;
-        transparentTable = reinterpret_cast<const unsigned char *>(
-            tableAddress) + ((_gr_polygon.dwOpacity & 0xF0) << 4);
+struct ClipBounds {
+  int left;
+  int top;
+  int right;
+  int bottom;
+};
+
+struct RasterVertex {
+  double x;
+  double y;
+  double inverseZ;
+  double u;
+  double v;
+  double uInverseZ;
+  double vInverseZ;
+  double shade;
+  double red;
+  double green;
+  double blue;
+};
+
+struct EdgeSample {
+  double x;
+  double inverseZ;
+  double u;
+  double v;
+  double uInverseZ;
+  double vInverseZ;
+  double shade;
+  double red;
+  double green;
+  double blue;
+};
+
+SGRSoftwareRasterStats g_frameRasterStats = {};
+SGRSoftwareRasterStats g_totalRasterStats = {};
+int g_zPrecision = 0;
+int g_hazeStart = 0;
+int g_hazeLength = 0;
+
+void AddStat(unsigned long long SGRSoftwareRasterStats::*member,
+             unsigned long long value = 1) {
+  g_frameRasterStats.*member += value;
+  g_totalRasterStats.*member += value;
+}
+
+int PolygonTypeIndex(long fullType) {
+  if (fullType < 0 || fullType % ADD_TYPE_SIZE != 0) return -1;
+  const long index = fullType / ADD_TYPE_SIZE;
+  return index >= 0 && index < TYPE_COUNT ? static_cast<int>(index) : -1;
+}
+
+void AddSubmittedType(int type) {
+  if (type < 0) return;
+  ++g_frameRasterStats.submittedByType[type];
+  ++g_totalRasterStats.submittedByType[type];
+}
+
+void AddAcceptedType(int type) {
+  ++g_frameRasterStats.acceptedByType[type];
+  ++g_totalRasterStats.acceptedByType[type];
+}
+
+void AddRasterizedType(int type) {
+  ++g_frameRasterStats.rasterizedByType[type];
+  ++g_totalRasterStats.rasterizedByType[type];
+}
+
+bool GetClipBounds(ClipBounds* bounds) {
+  bounds->left = static_cast<int>(_gr_clipRect.left);
+  bounds->top = static_cast<int>(_gr_clipRect.top);
+  bounds->right = static_cast<int>(_gr_clipRect.right);
+  bounds->bottom = static_cast<int>(_gr_clipRect.bottom);
+  if (bounds->right <= bounds->left || bounds->bottom <= bounds->top) {
+    bounds->left = -_gr_nScreenOriginX;
+    bounds->top = -_gr_nScreenOriginY;
+    bounds->right = _gr_nScreenWidth - _gr_nScreenOriginX;
+    bounds->bottom = _gr_nScreenHeight - _gr_nScreenOriginY;
+  }
+  bounds->left = (std::max)(bounds->left, -_gr_nScreenOriginX);
+  bounds->top = (std::max)(bounds->top, -_gr_nScreenOriginY);
+  bounds->right = (std::min)(
+      bounds->right, _gr_nScreenWidth - _gr_nScreenOriginX);
+  bounds->bottom = (std::min)(
+      bounds->bottom, _gr_nScreenHeight - _gr_nScreenOriginY);
+  return bounds->right > bounds->left && bounds->bottom > bounds->top;
+}
+
+bool IsTexturedType(int type) {
+  return type == GR_POLY_TEXTURE_PERSP / ADD_TYPE_SIZE ||
+         type == GR_POLY_TEXTURE_LIN / ADD_TYPE_SIZE ||
+         type == GR_POLY_SPRITE_PERSP / ADD_TYPE_SIZE ||
+         type == GR_POLY_TEXTURE_ALPHA / ADD_TYPE_SIZE ||
+         type == GR_POLY_SPRITE_LIN / ADD_TYPE_SIZE ||
+         type == GR_POLY_TEXTURE_SMP / ADD_TYPE_SIZE ||
+         type == GR_POLY_SPRITE_MIP / ADD_TYPE_SIZE ||
+         type == GR_POLY_TEXTURE_GOURAUD / ADD_TYPE_SIZE;
+}
+
+bool IsPerspectiveType(int type) {
+  return type == GR_POLY_TEXTURE_PERSP / ADD_TYPE_SIZE ||
+         type == GR_POLY_SPRITE_PERSP / ADD_TYPE_SIZE ||
+         type == GR_POLY_TEXTURE_ALPHA / ADD_TYPE_SIZE ||
+         type == GR_POLY_TEXTURE_SMP / ADD_TYPE_SIZE ||
+         type == GR_POLY_SPRITE_MIP / ADD_TYPE_SIZE ||
+         type == GR_POLY_TEXTURE_GOURAUD / ADD_TYPE_SIZE;
+}
+
+bool IsSpriteType(int type) {
+  return type == GR_POLY_SPRITE_PERSP / ADD_TYPE_SIZE ||
+         type == GR_POLY_SPRITE_LIN / ADD_TYPE_SIZE ||
+         type == GR_POLY_SPRITE_MIP / ADD_TYPE_SIZE;
+}
+
+double FixedGouraudShade(const UGRVertex& vertex) {
+  return static_cast<double>(vertex.gouraud.b) / kFixed16Scale;
+}
+
+double TextureGouraudShade(const UGRVertex& vertex) {
+  const std::uint32_t raw = static_cast<std::uint32_t>(vertex.gouraud.b);
+  return static_cast<double>((raw >> 8) & 0xffU) * 15.0 / 255.0;
+}
+
+RasterVertex BuildRasterVertex(const UGRVertex& vertex, int type) {
+  RasterVertex result = {};
+  result.x = static_cast<double>(vertex.any.x);
+  result.y = static_cast<double>(vertex.any.y);
+  result.inverseZ = static_cast<double>(vertex.any.iz);
+  result.u = static_cast<double>(vertex.texture.u) / kFixed16Scale;
+  result.v = static_cast<double>(vertex.texture.v) / kFixed16Scale;
+  result.uInverseZ = result.u * result.inverseZ;
+  result.vInverseZ = result.v * result.inverseZ;
+  if (type == GR_POLY_GOURAUD / ADD_TYPE_SIZE) {
+    result.shade = FixedGouraudShade(vertex);
+  } else if (type == GR_POLY_TEXTURE_GOURAUD / ADD_TYPE_SIZE) {
+    result.shade = TextureGouraudShade(vertex);
+  }
+  if (type == GR_POLY_GOURAUD_RGB / ADD_TYPE_SIZE) {
+    const std::uint32_t color =
+        static_cast<std::uint32_t>(vertex.gouraud.b);
+    result.red = static_cast<double>((color >> 16) & 0xffU);
+    result.green = static_cast<double>((color >> 8) & 0xffU);
+    result.blue = static_cast<double>(color & 0xffU);
+  }
+  return result;
+}
+
+double Lerp(double first, double second, double ratio) {
+  return first + (second - first) * ratio;
+}
+
+EdgeSample InterpolateEdge(const RasterVertex& first,
+                           const RasterVertex& second, double ratio) {
+  EdgeSample result = {};
+  result.x = Lerp(first.x, second.x, ratio);
+  result.inverseZ = Lerp(first.inverseZ, second.inverseZ, ratio);
+  result.u = Lerp(first.u, second.u, ratio);
+  result.v = Lerp(first.v, second.v, ratio);
+  result.uInverseZ =
+      Lerp(first.uInverseZ, second.uInverseZ, ratio);
+  result.vInverseZ =
+      Lerp(first.vInverseZ, second.vInverseZ, ratio);
+  result.shade = Lerp(first.shade, second.shade, ratio);
+  result.red = Lerp(first.red, second.red, ratio);
+  result.green = Lerp(first.green, second.green, ratio);
+  result.blue = Lerp(first.blue, second.blue, ratio);
+  return result;
+}
+
+int ClampInt(int value, int minimum, int maximum) {
+  return (std::max)(minimum, (std::min)(value, maximum));
+}
+
+unsigned char SampleTexture(const SoftwareTexture& texture,
+                            double u, double v) {
+  const auto coordinate = [](double value, long dimension) {
+    if (!std::isfinite(value) || value <= 0.0) return 0;
+    const double maximum = static_cast<double>(dimension - 1);
+    if (value >= maximum) return static_cast<int>(dimension - 1);
+    return static_cast<int>(std::floor(value));
+  };
+  const int x = coordinate(u, texture.w);
+  const int y = coordinate(v, texture.h);
+  return texture.dataPtr[static_cast<std::size_t>(y) * texture.w + x];
+}
+
+unsigned char ApplyGouraud(unsigned char color, double shade) {
+  if (_gr_pGouraud == NULL) return color;
+  const int layer = ClampInt(static_cast<int>(std::floor(shade + 0.5)),
+                             0, 15);
+  return _gr_pGouraud[static_cast<unsigned int>(color) * 16U + layer];
+}
+
+unsigned char ApplyHaze(unsigned char color, double inverseZ) {
+  if (_gr_pHaze == NULL || g_hazeStart <= 0 || g_hazeLength <= 0 ||
+      inverseZ <= 0.0) {
+    return color;
+  }
+  const double depthScale = std::ldexp(kFixed16Scale, g_zPrecision);
+  const double distance = depthScale / inverseZ;
+  if (distance <= g_hazeStart) return color;
+
+  const double hazeEnd = static_cast<double>(g_hazeStart + g_hazeLength);
+  int layer = 0;
+  if (distance < hazeEnd) {
+    layer = ClampInt(static_cast<int>(std::floor(
+                         (hazeEnd - distance) * 16.0 / g_hazeLength)),
+                     0, 15);
+  }
+  return _gr_pHaze[layer * 256 + color];
+}
+
+void SetSoftwareZPrecision(int precision) {
+  g_zPrecision = ClampInt(precision, -16, 14);
+}
+
+int DrawSoftwarePolygon() {
+  AddStat(&SGRSoftwareRasterStats::submitted);
+  const int type = PolygonTypeIndex(_gr_polygon.dwFullType);
+  AddSubmittedType(type);
+
+  if (_dL.currDevice == NULL ||
+      _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
+      _gr_nScreenWidth <= 0 || _gr_nScreenHeight <= 0 ||
+      _gr_polygon.nVertices < 3 ||
+      _gr_polygon.nVertices > GR_MAX_VERTEX) {
+    AddStat(&SGRSoftwareRasterStats::rejectedInvalid);
+    return FALSE;
+  }
+  if (type < 0) {
+    AddStat(&SGRSoftwareRasterStats::rejectedUnsupported);
+    return FALSE;
+  }
+
+  ClipBounds clip = {};
+  if (!GetClipBounds(&clip)) {
+    AddStat(&SGRSoftwareRasterStats::rejectedInvalid);
+    return FALSE;
+  }
+
+  const bool textured = IsTexturedType(type);
+  const bool perspective = IsPerspectiveType(type);
+  const bool sprite = IsSpriteType(type);
+  const bool alpha = type == GR_POLY_TEXTURE_ALPHA / ADD_TYPE_SIZE;
+  const bool gouraud = type == GR_POLY_GOURAUD / ADD_TYPE_SIZE;
+  const bool gouraudRgb = type == GR_POLY_GOURAUD_RGB / ADD_TYPE_SIZE;
+  const bool textureGouraud =
+      type == GR_POLY_TEXTURE_GOURAUD / ADD_TYPE_SIZE;
+  const bool flatTransparent =
+      type == GR_POLY_TRANSPARENT / ADD_TYPE_SIZE;
+
+  SoftwareTexture* texture = NULL;
+  if (textured) {
+    texture = TextureFromHandle(_gr_polygon.hTexture);
+    if (texture == NULL || texture->dataPtr == NULL || texture->w <= 0 ||
+        texture->h <= 0) {
+      AddStat(&SGRSoftwareRasterStats::rejectedTexture);
+      return FALSE;
     }
+  }
 
-    int clipLeft = static_cast<int>(_gr_clipRect.left);
-    int clipTop = static_cast<int>(_gr_clipRect.top);
-    int clipRight = static_cast<int>(_gr_clipRect.right);
-    int clipBottom = static_cast<int>(_gr_clipRect.bottom);
-    if( clipRight <= clipLeft || clipBottom <= clipTop ) {
-        clipLeft = -_gr_nScreenOriginX;
-        clipTop = -_gr_nScreenOriginY;
-        clipRight = _gr_nScreenWidth-_gr_nScreenOriginX;
-        clipBottom = _gr_nScreenHeight-_gr_nScreenOriginY;
+  const unsigned char* blendTable = NULL;
+  if (flatTransparent || alpha) {
+    const std::uintptr_t address = static_cast<std::uintptr_t>(
+        static_cast<unsigned long>(_gr_polygon.dwColor.color));
+    if (address == 0) {
+      AddStat(&SGRSoftwareRasterStats::rejectedInvalid);
+      return FALSE;
     }
-    clipLeft = (std::max)(clipLeft,-_gr_nScreenOriginX);
-    clipTop = (std::max)(clipTop,-_gr_nScreenOriginY);
-    clipRight = (std::min)(
-        clipRight,_gr_nScreenWidth-_gr_nScreenOriginX);
-    clipBottom = (std::min)(
-        clipBottom,_gr_nScreenHeight-_gr_nScreenOriginY);
-    if( clipRight <= clipLeft || clipBottom <= clipTop ) return FALSE;
-
-    int minY = _gr_vertices[0].any.y;
-    int maxY = minY;
-    for( int i = 1; i < _gr_polygon.nVertices; ++i ) {
-        minY = (std::min)(minY,_gr_vertices[i].any.y);
-        maxY = (std::max)(maxY,_gr_vertices[i].any.y);
+    blendTable = reinterpret_cast<const unsigned char*>(address);
+    if (flatTransparent) {
+      const int opacity = ClampInt(_gr_polygon.dwOpacity >> 4, 0, 15);
+      blendTable += opacity * 256;
     }
-    minY = (std::max)(minY,clipTop);
-    maxY = (std::min)(maxY,clipBottom);
+  }
 
-    double intersections[GR_MAX_VERTEX];
-    for( int y = minY; y < maxY; ++y ) {
-        const double scanY = static_cast<double>(y)+0.5;
-        int count = 0;
-        for( int i = 0; i < _gr_polygon.nVertices; ++i ) {
-            const UGRVertex &first = _gr_vertices[i];
-            const UGRVertex &second =
-                _gr_vertices[(i+1)%_gr_polygon.nVertices];
-            const double y0 = first.any.y;
-            const double y1 = second.any.y;
-            if( (y0 <= scanY && scanY < y1) ||
-                (y1 <= scanY && scanY < y0) ) {
-                intersections[count++] = first.any.x+
-                    (scanY-y0)*(second.any.x-first.any.x)/(y1-y0);
-            }
-        }
-        std::sort(intersections,intersections+count);
-        for( int edge = 0; edge+1 < count; edge += 2 ) {
-            int x0 = static_cast<int>(std::ceil(intersections[edge]-0.5));
-            int x1 = static_cast<int>(
-                std::ceil(intersections[edge+1]-0.5))-1;
-            x0 = (std::max)(x0,clipLeft);
-            x1 = (std::min)(x1,clipRight-1);
-            if( x1 < x0 ) continue;
-
-            unsigned char *pixel = _gr_pScreen+
-                static_cast<std::size_t>(y+_gr_nScreenOriginY)*
-                    _gr_nScreenWidth+
-                x0+_gr_nScreenOriginX;
-            if( flat ) {
-                std::memset(pixel,
-                    static_cast<unsigned char>(_gr_polygon.dwColor.color),
-                    static_cast<std::size_t>(x1-x0+1));
-            } else {
-                for( int x = x0; x <= x1; ++x,++pixel )
-                    *pixel = transparentTable[*pixel];
-            }
-        }
+  RasterVertex vertices[GR_MAX_VERTEX] = {};
+  double minimumX = static_cast<double>(_gr_vertices[0].any.x);
+  double maximumX = minimumX;
+  double minimumY = static_cast<double>(_gr_vertices[0].any.y);
+  double maximumY = minimumY;
+  for (int index = 0; index < _gr_polygon.nVertices; ++index) {
+    vertices[index] = BuildRasterVertex(_gr_vertices[index], type);
+    minimumX = (std::min)(minimumX, vertices[index].x);
+    maximumX = (std::max)(maximumX, vertices[index].x);
+    minimumY = (std::min)(minimumY, vertices[index].y);
+    maximumY = (std::max)(maximumY, vertices[index].y);
+    if ((perspective || (_gr_polygon.dwAddType & GR_POLY_ADD_HAZE)) &&
+        vertices[index].inverseZ <= 0.0) {
+      AddStat(&SGRSoftwareRasterStats::rejectedInvalid);
+      return FALSE;
     }
+  }
+
+  if (maximumX <= clip.left || minimumX >= clip.right ||
+      maximumY <= clip.top || minimumY >= clip.bottom) {
+    AddStat(&SGRSoftwareRasterStats::rejectedOutside);
     return TRUE;
+  }
+
+  AddStat(&SGRSoftwareRasterStats::accepted);
+  AddAcceptedType(type);
+  if ((_gr_polygon.dwAddType & GR_POLY_ADD_BUMP) != 0) {
+    AddStat(&SGRSoftwareRasterStats::approximatedBumpPolygons);
+  }
+  if ((_gr_polygon.dwAddType & GR_POLY_ADD_LIGHTTHROUGH) != 0 ||
+      _gr_polygon.nLights != 0) {
+    AddStat(&SGRSoftwareRasterStats::approximatedLightPolygons);
+  }
+
+  int firstY = static_cast<int>(std::ceil(minimumY - 0.5));
+  int endY = static_cast<int>(std::ceil(maximumY - 0.5));
+  firstY = (std::max)(firstY, clip.top);
+  endY = (std::min)(endY, clip.bottom);
+
+  const bool useHaze =
+      (_gr_polygon.dwAddType & GR_POLY_ADD_HAZE) != 0;
+  const unsigned char flatColor =
+      static_cast<unsigned char>(_gr_polygon.dwColor.color & 0xff);
+  const int polygonOpacity = ClampInt(_gr_polygon.dwOpacity >> 4, 0, 15);
+  unsigned long long covered = 0;
+  unsigned long long written = 0;
+  unsigned long long hazed = 0;
+  unsigned long long transparentWrites = 0;
+
+  EdgeSample intersections[GR_MAX_VERTEX] = {};
+  for (int y = firstY; y < endY; ++y) {
+    const double scanY = static_cast<double>(y) + 0.5;
+    int intersectionCount = 0;
+    for (int index = 0; index < _gr_polygon.nVertices; ++index) {
+      const RasterVertex& first = vertices[index];
+      const RasterVertex& second =
+          vertices[(index + 1) % _gr_polygon.nVertices];
+      if ((first.y <= scanY && scanY < second.y) ||
+          (second.y <= scanY && scanY < first.y)) {
+        const double ratio = (scanY - first.y) / (second.y - first.y);
+        intersections[intersectionCount++] =
+            InterpolateEdge(first, second, ratio);
+      }
+    }
+    std::sort(intersections, intersections + intersectionCount,
+              [](const EdgeSample& first, const EdgeSample& second) {
+                return first.x < second.x;
+              });
+
+    for (int edge = 0; edge + 1 < intersectionCount; edge += 2) {
+      const EdgeSample& left = intersections[edge];
+      const EdgeSample& right = intersections[edge + 1];
+      const double span = right.x - left.x;
+      if (span <= kSpanEpsilon) continue;
+
+      int firstX = static_cast<int>(std::ceil(left.x - 0.5));
+      int endX = static_cast<int>(std::ceil(right.x - 0.5));
+      firstX = (std::max)(firstX, clip.left);
+      endX = (std::min)(endX, clip.right);
+      if (endX <= firstX) continue;
+
+      const double firstRatio =
+          (static_cast<double>(firstX) + 0.5 - left.x) / span;
+      const double ratioStep = 1.0 / span;
+      double inverseZ = Lerp(left.inverseZ, right.inverseZ, firstRatio);
+      double u = Lerp(left.u, right.u, firstRatio);
+      double v = Lerp(left.v, right.v, firstRatio);
+      double uInverseZ =
+          Lerp(left.uInverseZ, right.uInverseZ, firstRatio);
+      double vInverseZ =
+          Lerp(left.vInverseZ, right.vInverseZ, firstRatio);
+      double shade = Lerp(left.shade, right.shade, firstRatio);
+      double red = Lerp(left.red, right.red, firstRatio);
+      double green = Lerp(left.green, right.green, firstRatio);
+      double blue = Lerp(left.blue, right.blue, firstRatio);
+
+      const double inverseZStep =
+          (right.inverseZ - left.inverseZ) * ratioStep;
+      const double uStep = (right.u - left.u) * ratioStep;
+      const double vStep = (right.v - left.v) * ratioStep;
+      const double uInverseZStep =
+          (right.uInverseZ - left.uInverseZ) * ratioStep;
+      const double vInverseZStep =
+          (right.vInverseZ - left.vInverseZ) * ratioStep;
+      const double shadeStep = (right.shade - left.shade) * ratioStep;
+      const double redStep = (right.red - left.red) * ratioStep;
+      const double greenStep = (right.green - left.green) * ratioStep;
+      const double blueStep = (right.blue - left.blue) * ratioStep;
+
+      unsigned char* destination = _gr_pScreen +
+          static_cast<std::size_t>(y + _gr_nScreenOriginY) *
+              _gr_nScreenWidth +
+          firstX + _gr_nScreenOriginX;
+      for (int x = firstX; x < endX; ++x, ++destination) {
+        ++covered;
+        unsigned char color = flatColor;
+        unsigned char textureValue = 0;
+        if (textured) {
+          double textureU = u;
+          double textureV = v;
+          if (perspective) {
+            if (inverseZ <= kSpanEpsilon) {
+              inverseZ += inverseZStep;
+              u += uStep;
+              v += vStep;
+              uInverseZ += uInverseZStep;
+              vInverseZ += vInverseZStep;
+              shade += shadeStep;
+              red += redStep;
+              green += greenStep;
+              blue += blueStep;
+              continue;
+            }
+            textureU = uInverseZ / inverseZ;
+            textureV = vInverseZ / inverseZ;
+          }
+          textureValue = SampleTexture(*texture, textureU, textureV);
+          color = textureValue;
+          if (sprite && textureValue == 0) {
+            inverseZ += inverseZStep;
+            u += uStep;
+            v += vStep;
+            uInverseZ += uInverseZStep;
+            vInverseZ += vInverseZStep;
+            shade += shadeStep;
+            red += redStep;
+            green += greenStep;
+            blue += blueStep;
+            continue;
+          }
+        }
+
+        if (gouraud || textureGouraud) {
+          color = ApplyGouraud(color, shade);
+        } else if (gouraudRgb) {
+          const int r = ClampInt(static_cast<int>(std::floor(red + 0.5)),
+                                 0, 255);
+          const int g = ClampInt(static_cast<int>(std::floor(green + 0.5)),
+                                 0, 255);
+          const int b = ClampInt(static_cast<int>(std::floor(blue + 0.5)),
+                                 0, 255);
+          color = static_cast<unsigned char>(epal_Match(_EPal, RGB_i(r, g, b)));
+        }
+
+        if (flatTransparent) {
+          color = blendTable[*destination];
+          ++transparentWrites;
+        } else if (alpha) {
+          int textureAlpha = ClampInt(textureValue, 0, 15);
+          if (polygonOpacity < 15) {
+            textureAlpha = polygonOpacity * (textureAlpha + 1) >> 4;
+          }
+          color = blendTable[textureAlpha * 256 + *destination];
+          ++transparentWrites;
+        }
+
+        if (useHaze) {
+          color = ApplyHaze(color, inverseZ);
+          ++hazed;
+        }
+        *destination = color;
+        ++written;
+
+        inverseZ += inverseZStep;
+        u += uStep;
+        v += vStep;
+        uInverseZ += uInverseZStep;
+        vInverseZ += vInverseZStep;
+        shade += shadeStep;
+        red += redStep;
+        green += greenStep;
+        blue += blueStep;
+      }
+    }
+  }
+
+  AddStat(&SGRSoftwareRasterStats::coveredPixels, covered);
+  AddStat(&SGRSoftwareRasterStats::writtenPixels, written);
+  AddStat(&SGRSoftwareRasterStats::hazePixels, hazed);
+  AddStat(&SGRSoftwareRasterStats::transparentPixels, transparentWrites);
+  if (covered != 0) {
+    AddStat(&SGRSoftwareRasterStats::rasterized);
+    AddRasterizedType(type);
+  }
+  return TRUE;
 }
 
 }  // namespace
 
 int (*_pGRDrawPolygonPCCW)(void) = DrawSoftwarePolygon;
+void (*_pGRSetZPrecision)(int) = SetSoftwareZPrecision;
 
 void GRSetViewport(SGRViewport *pViewport)
 {
@@ -284,6 +684,8 @@ int GRSetHaze(int start,int length,SGRColorDef *definition)
 
     __HazeStartInt = static_cast<int>(65536.0/start);
     __HazeLen = static_cast<float>(start+length);
+    g_hazeStart = start;
+    g_hazeLength = length;
     _gr_pHaze = definition->pTable;
     return TRUE;
 }
@@ -394,6 +796,36 @@ int GRClearScreen(BOOL fClr,long fColor)
         std::memset(row,static_cast<unsigned char>(fColor),
                     static_cast<std::size_t>(right-left));
     return TRUE;
+}
+
+int GRSoftwareBeginFrame(long fColor)
+{
+    if( _dL.currDevice == NULL ||
+        _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
+        _gr_nScreenWidth <= 0 || _gr_nScreenHeight <= 0 ) return FALSE;
+
+    std::memset(&g_frameRasterStats,0,sizeof(g_frameRasterStats));
+    g_frameRasterStats.frames = 1;
+    ++g_totalRasterStats.frames;
+    std::memset(_gr_pScreen,static_cast<unsigned char>(fColor),
+                static_cast<std::size_t>(_gr_nScreenWidth)*
+                    _gr_nScreenHeight);
+    return TRUE;
+}
+
+void GRSoftwareGetFrameStats(SGRSoftwareRasterStats *stats)
+{
+    if( stats != NULL ) *stats = g_frameRasterStats;
+}
+
+void GRSoftwareGetTotalStats(SGRSoftwareRasterStats *stats)
+{
+    if( stats != NULL ) *stats = g_totalRasterStats;
+}
+
+void GRSoftwareResetTotalStats()
+{
+    std::memset(&g_totalRasterStats,0,sizeof(g_totalRasterStats));
 }
 
 void GRZBufferEnable(int enable)
