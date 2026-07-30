@@ -2650,3 +2650,33 @@ service launches and 18/18 matching E/G ownership pairs. The active Level.04D
 case also passes three additional consecutive Debug repetitions. All 4/4
 waited real executables exit zero, publish Commander and mission lifecycle
 diagnostics, reach `marker=level-ready` and record `runtime_shutdown=clean`.
+
+## Windows retail selector and renderer acceptance boundary
+
+The modern executable can now select all nine configured retail Levels by
+numeric slot or symbolic name without mutating `game.cfg`. The launch smoke
+tests default, numeric, case-insensitive symbolic and invalid selection and
+checks the synthetic data fixture after every override.
+
+`Invoke-RetailLevelMatrix.ps1` turns that entry point into a repeatable
+installed/mounted, Debug/Release gate. A case requires the requested Level,
+`level-ready`, clean shutdown, real accepted/rasterized polygons, a non-empty
+framebuffer fingerprint, a loaded DITH table and zero invalid, unsupported,
+missing-texture or add-mode approximation counters. Output is local and ignored:
+each case owns diagnostics and `result.json`, with aggregate JSON/CSV plus an
+optional manual checklist.
+
+The renderer audit recovered two formerly approximate paths. DITH offsets are
+decoded using their retail source pitch and translated to each compact texture
+before a checked neighbour sample. The palette-light owner copies the complete
+retail mix table, precomputes the archived quadratic light coefficients once
+per polygon and applies the result before haze. A focused test also proves
+physical-frame clearing and seam-free adjacent top-left-rule polygons.
+
+The final gate is 52/52 CTest in Debug and Release plus 36/36 real executable
+cases: nine Levels from `E:\Games\The Next Worlds` and `G:\nw` in both
+configurations. All cases render two non-empty frames and exit cleanly with
+zero invalid/unsupported/missing-texture rejects and zero BUMP/light
+approximations. This closes the Windows renderer acceptance prerequisite for
+the versioned active-world save/load work; it does not claim pixel-identical
+Watcom ASM or Direct3D output.

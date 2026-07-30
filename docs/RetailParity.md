@@ -1103,20 +1103,26 @@ Retail scripts нельзя молча копировать поверх source 
   if clipping or a future secondary viewport leaves pixels uncovered.
 - Renderer diagnostics publish submitted/accepted/rasterized polygons, four
   rejection classes, covered/written/haze/transparent pixels, approximation
-  counts and all twelve per-type triples. A focused regression validates real
-  pixels rather than link success alone.
+  counts, applied/ignored add modes, a framebuffer fingerprint and all twelve
+  per-type triples. A focused regression validates real pixels, full-frame
+  clearing and adjacent top-left-rule seams rather than link success alone.
 - Interactive installed-data evidence shows the retail sky, mountains, water,
   terrain and foliage from two different Vehicle positions. The captured run
   has zero invalid, unsupported or missing-texture rejects and shuts down
   through the normal window path.
-- Bump and light-through add modes remain explicit bounded approximations.
-  Pixel-identical retail lighting, renderer optimization and resolution
-  switching remain later parity work; they do not make the base scene empty.
-- Final verification passes 52/52 CTest in both configurations, 36/36 parallel
-  Debug retail-service stress launches, 18/18 Release retail-service launches
-  and 4/4 waited real executables across installed `E:` and mounted `G:\nw`
-  data. All executable smokes report clean shutdown and zero renderer type or
-  texture rejects.
+- Perspective BUMP polygons use the retail 64x64 DITH texel-neighbour table;
+  its 512-pitch offsets are translated to the actual tightly packed texture.
+  Non-perspective BUMP flags retain the original no-op dispatch. Active light
+  masks use the retail eight-colour/32-layer palette table and the archived
+  quadratic screen-space equation; LIGHTTHROUGH flags and applied lights are
+  reported separately.
+- `--start-level` selects a configured slot/name without modifying `game.cfg`.
+  Final verification passes 52/52 CTest in both configurations and a dedicated
+  36/36 `rr2nw.exe` matrix across nine Levels, installed `E:` and mounted
+  `G:\nw` data and Debug/Release. Every case has non-empty framebuffer evidence,
+  clean shutdown, zero renderer type/texture rejects and zero add-mode
+  approximations. Pixel-identical ASM rounding, active-light screenshot parity,
+  renderer optimization and resolution switching remain later visual work.
 
 ## Behavioral parity matrix
 

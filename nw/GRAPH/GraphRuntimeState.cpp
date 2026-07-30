@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdint>
 #include <cstring>
 
@@ -111,6 +112,11 @@ SGRSoftwareRasterStats g_totalRasterStats = {};
 int g_zPrecision = 0;
 int g_hazeStart = 0;
 int g_hazeLength = 0;
+unsigned char g_frameClearColor = 0;
+bool g_ditherTableReady = false;
+int g_ditherTextureStride = 0;
+unsigned char g_lightMixTable[LIGHT_COLOR_COUNT*32*256] = {};
+bool g_lightMixTableReady = false;
 
 void AddStat(unsigned long long SGRSoftwareRasterStats::*member,
              unsigned long long value = 1) {
@@ -138,6 +144,30 @@ void AddAcceptedType(int type) {
 void AddRasterizedType(int type) {
   ++g_frameRasterStats.rasterizedByType[type];
   ++g_totalRasterStats.rasterizedByType[type];
+}
+
+void PopulateFramebufferFingerprint(SGRSoftwareRasterStats* stats) {
+  stats->framebufferHash = 0;
+  stats->framebufferNonClearPixels = 0;
+  if (_gr_pScreen == NULL || _gr_nScreenWidth <= 0 ||
+      _gr_nScreenHeight <= 0) {
+    return;
+  }
+
+  constexpr std::uint64_t kFnvOffset = UINT64_C(14695981039346656037);
+  constexpr std::uint64_t kFnvPrime = UINT64_C(1099511628211);
+  std::uint64_t hash = kFnvOffset;
+  const std::size_t size = static_cast<std::size_t>(_gr_nScreenWidth) *
+                           _gr_nScreenHeight;
+  for (std::size_t index = 0; index < size; ++index) {
+    const unsigned char value = _gr_pScreen[index];
+    hash ^= value;
+    hash *= kFnvPrime;
+    if (value != g_frameClearColor) {
+      ++stats->framebufferNonClearPixels;
+    }
+  }
+  stats->framebufferHash = hash;
 }
 
 bool GetClipBounds(ClipBounds* bounds) {
@@ -246,7 +276,7 @@ int ClampInt(int value, int minimum, int maximum) {
 }
 
 unsigned char SampleTexture(const SoftwareTexture& texture,
-                            double u, double v) {
+                            double u, double v, bool dither) {
   const auto coordinate = [](double value, long dimension) {
     if (!std::isfinite(value) || value <= 0.0) return 0;
     const double maximum = static_cast<double>(dimension - 1);
@@ -255,7 +285,30 @@ unsigned char SampleTexture(const SoftwareTexture& texture,
   };
   const int x = coordinate(u, texture.w);
   const int y = coordinate(v, texture.h);
-  return texture.dataPtr[static_cast<std::size_t>(y) * texture.w + x];
+  const std::size_t size = static_cast<std::size_t>(texture.w) * texture.h;
+  std::size_t index = static_cast<std::size_t>(y) * texture.w + x;
+  if (dither && g_ditherTableReady) {
+    const double uFraction = u - std::floor(u);
+    const double vFraction = v - std::floor(v);
+    const int uIndex = ClampInt(
+        static_cast<int>(std::floor(uFraction * 64.0)), 0, 63);
+    const int vIndex = ClampInt(
+        static_cast<int>(std::floor(vFraction * 64.0)), 0, 63);
+    const long sourceOffset = _gr_pDiserTable[uIndex * 64 + vIndex];
+    // DITH.DTH stores a neighbouring texel as dy * sourcePitch + dx.  The
+    // recovered texture owner keeps each image tightly packed, so translate
+    // that vector to the texture's actual row pitch instead of requiring the
+    // retail table pitch (512) as the texture width.
+    const long rowOffset = sourceOffset / g_ditherTextureStride;
+    const long columnOffset =
+        sourceOffset - rowOffset * g_ditherTextureStride;
+    const long long shifted = static_cast<long long>(index) +
+        static_cast<long long>(rowOffset) * texture.w + columnOffset;
+    if (shifted >= 0 && static_cast<unsigned long long>(shifted) < size) {
+      index = static_cast<std::size_t>(shifted);
+    }
+  }
+  return texture.dataPtr[index];
 }
 
 unsigned char ApplyGouraud(unsigned char color, double shade) {
@@ -282,6 +335,124 @@ unsigned char ApplyHaze(unsigned char color, double inverseZ) {
                      0, 15);
   }
   return _gr_pHaze[layer * 256 + color];
+}
+
+struct PreparedLight {
+  const unsigned char* mixTable;
+  double fixedBase;
+  double numeratorA;
+  double numeratorB0;
+  double numeratorB1;
+  double numeratorC2;
+  double numeratorC1;
+  double numeratorC0;
+  double denominatorA;
+  double denominatorB0;
+  double denominatorB1;
+  double denominatorC2;
+  double denominatorC1;
+  double denominatorC0;
+};
+
+int PrepareDynamicLights(bool lightThrough, PreparedLight* prepared) {
+  if (!g_lightMixTableReady || _gr_polygon.nLights == 0) return 0;
+
+  int count = 0;
+  unsigned long mask = _gr_polygon.nLights;
+  for (int index = 0; index < LIGHT_SOURCE_COUNT && mask != 0;
+       ++index, mask >>= 1) {
+    if ((mask & 1UL) == 0) continue;
+    const SGRLight& light = _gr_pLights[index];
+    if (light.type != GR_LIGHT || !std::isfinite(light.x) ||
+        !std::isfinite(light.y) || !std::isfinite(light.z) ||
+        !std::isfinite(light.r) || light.r <= 0.0f ||
+        light.color < 0 || light.color >= LIGHT_COLOR_COUNT) {
+      continue;
+    }
+
+    double planeDistance =
+        light.x * _gr_polygon.a + light.y * _gr_polygon.b +
+        light.z * _gr_polygon.c - _gr_polygon.d;
+    if (lightThrough) planeDistance = std::fabs(planeDistance);
+    if (planeDistance < 0.0 || planeDistance > light.r) continue;
+
+    const int maximum = ClampInt(light.power0 >> 3, 0, 31);
+    if (maximum == 0) continue;
+    const double sourceLengthSquared =
+        static_cast<double>(light.x) * light.x +
+        static_cast<double>(light.y) * light.y +
+        static_cast<double>(light.z) * light.z;
+    PreparedLight& result = prepared[count++];
+    result.mixTable = g_lightMixTable + light.color * 32 * 256;
+    result.fixedBase = -maximum * kFixed16Scale;
+    const double lightScale = result.fixedBase /
+                              (static_cast<double>(light.r) * light.r);
+    const double a = _gr_polygon.a;
+    const double b = _gr_polygon.b;
+    const double c = _gr_polygon.c;
+    const double d = _gr_polygon.d;
+    result.numeratorA =
+        (a * a * sourceLengthSquared + d * (d - 2.0 * a * light.x)) *
+        _kXX * lightScale;
+    result.numeratorB0 =
+        -2.0 * (a * b * sourceLengthSquared -
+                d * (b * light.x + a * light.y)) *
+        _kXY * lightScale;
+    result.numeratorB1 =
+        -2.0 * (a * c * sourceLengthSquared -
+                d * (c * light.x + a * light.z)) *
+        _kX * lightScale;
+    result.numeratorC2 =
+        (b * b * sourceLengthSquared + d * (d - 2.0 * b * light.y)) *
+        _kYY * lightScale;
+    result.numeratorC1 =
+        2.0 * (c * b * sourceLengthSquared -
+               d * (c * light.y + b * light.z)) *
+        _kY * lightScale;
+    result.numeratorC0 =
+        (c * c * sourceLengthSquared + d * (d - 2.0 * c * light.z)) *
+        lightScale;
+    result.denominatorA = a * a * _kXX;
+    result.denominatorB0 = -2.0 * a * b * _kXY;
+    result.denominatorB1 = -2.0 * a * c * _kX;
+    result.denominatorC2 = b * b * _kYY;
+    result.denominatorC1 = 2.0 * b * c * _kY;
+    result.denominatorC0 = c * c;
+  }
+  return count;
+}
+
+unsigned char ApplyDynamicLights(unsigned char color, int x, int y,
+                                 const PreparedLight* lights, int lightCount,
+                                 unsigned long long* applications) {
+  const double screenX = static_cast<double>(x);
+  const double screenY = static_cast<double>(y);
+  for (int index = 0; index < lightCount; ++index) {
+    const PreparedLight& light = lights[index];
+    const double numerator =
+        light.numeratorA * screenX * screenX +
+        (light.numeratorB0 * screenY + light.numeratorB1) * screenX +
+        light.numeratorC2 * screenY * screenY +
+        light.numeratorC1 * screenY + light.numeratorC0;
+    const double denominator =
+        light.denominatorA * screenX * screenX +
+        (light.denominatorB0 * screenY + light.denominatorB1) * screenX +
+        light.denominatorC2 * screenY * screenY +
+        light.denominatorC1 * screenY + light.denominatorC0;
+    if (!std::isfinite(numerator) || !std::isfinite(denominator) ||
+        std::fabs(denominator) <= kSpanEpsilon) {
+      continue;
+    }
+    const double fixedLayer = numerator / denominator - light.fixedBase;
+    if (!std::isfinite(fixedLayer) || fixedLayer <= 0.0) continue;
+    const int layer = ClampInt(static_cast<int>(std::floor(
+                                   fixedLayer / kFixed16Scale + 0.5)),
+                               0, 31);
+    if (layer == 0) continue;
+    color = light.mixTable[layer * 256 + color];
+    ++(*applications);
+  }
+  return color;
 }
 
 void SetSoftwareZPrecision(int precision) {
@@ -322,7 +493,6 @@ int DrawSoftwarePolygon() {
       type == GR_POLY_TEXTURE_GOURAUD / ADD_TYPE_SIZE;
   const bool flatTransparent =
       type == GR_POLY_TRANSPARENT / ADD_TYPE_SIZE;
-
   SoftwareTexture* texture = NULL;
   if (textured) {
     texture = TextureFromHandle(_gr_polygon.hTexture);
@@ -332,6 +502,21 @@ int DrawSoftwarePolygon() {
       return FALSE;
     }
   }
+  const bool bumpRequested =
+      (_gr_polygon.dwAddType & GR_POLY_ADD_BUMP) != 0;
+  // The original draw dispatch routes BUMP only for TEXTURE_P_TYPE to
+  // ADrawDiserTexture32.  Every other polygon type keeps its ordinary draw
+  // routine even when the add-type bit is present.
+  const bool bumpDitherEligible =
+      bumpRequested && type == GR_POLY_TEXTURE_PERSP / ADD_TYPE_SIZE;
+  const bool ditheredBump =
+      bumpDitherEligible &&
+      g_ditherTableReady && g_ditherTextureStride > 0 && texture != NULL;
+  PreparedLight preparedLights[LIGHT_SOURCE_COUNT] = {};
+  const int preparedLightCount = PrepareDynamicLights(
+      (_gr_polygon.dwAddType & GR_POLY_ADD_LIGHTTHROUGH) != 0,
+      preparedLights);
+  const bool dynamicLighting = preparedLightCount != 0;
 
   const unsigned char* blendTable = NULL;
   if (flatTransparent || alpha) {
@@ -374,11 +559,22 @@ int DrawSoftwarePolygon() {
 
   AddStat(&SGRSoftwareRasterStats::accepted);
   AddAcceptedType(type);
-  if ((_gr_polygon.dwAddType & GR_POLY_ADD_BUMP) != 0) {
-    AddStat(&SGRSoftwareRasterStats::approximatedBumpPolygons);
+  if (bumpRequested) {
+    if (ditheredBump) {
+      AddStat(&SGRSoftwareRasterStats::ditheredBumpPolygons);
+    } else if (bumpDitherEligible) {
+      AddStat(&SGRSoftwareRasterStats::approximatedBumpPolygons);
+    } else {
+      AddStat(
+          &SGRSoftwareRasterStats::ignoredNonPerspectiveBumpPolygons);
+    }
   }
-  if ((_gr_polygon.dwAddType & GR_POLY_ADD_LIGHTTHROUGH) != 0 ||
-      _gr_polygon.nLights != 0) {
+  if ((_gr_polygon.dwAddType & GR_POLY_ADD_LIGHTTHROUGH) != 0) {
+    AddStat(&SGRSoftwareRasterStats::lightThroughPolygons);
+  }
+  if (dynamicLighting) {
+    AddStat(&SGRSoftwareRasterStats::litPolygons);
+  } else if (_gr_polygon.nLights != 0 && !g_lightMixTableReady) {
     AddStat(&SGRSoftwareRasterStats::approximatedLightPolygons);
   }
 
@@ -396,6 +592,7 @@ int DrawSoftwarePolygon() {
   unsigned long long written = 0;
   unsigned long long hazed = 0;
   unsigned long long transparentWrites = 0;
+  unsigned long long lightApplications = 0;
 
   EdgeSample intersections[GR_MAX_VERTEX] = {};
   for (int y = firstY; y < endY; ++y) {
@@ -484,7 +681,8 @@ int DrawSoftwarePolygon() {
             textureU = uInverseZ / inverseZ;
             textureV = vInverseZ / inverseZ;
           }
-          textureValue = SampleTexture(*texture, textureU, textureV);
+          textureValue =
+              SampleTexture(*texture, textureU, textureV, ditheredBump);
           color = textureValue;
           if (sprite && textureValue == 0) {
             inverseZ += inverseZStep;
@@ -524,6 +722,11 @@ int DrawSoftwarePolygon() {
           ++transparentWrites;
         }
 
+        if (dynamicLighting) {
+          color = ApplyDynamicLights(color, x, y, preparedLights,
+                                     preparedLightCount,
+                                     &lightApplications);
+        }
         if (useHaze) {
           color = ApplyHaze(color, inverseZ);
           ++hazed;
@@ -548,6 +751,7 @@ int DrawSoftwarePolygon() {
   AddStat(&SGRSoftwareRasterStats::writtenPixels, written);
   AddStat(&SGRSoftwareRasterStats::hazePixels, hazed);
   AddStat(&SGRSoftwareRasterStats::transparentPixels, transparentWrites);
+  AddStat(&SGRSoftwareRasterStats::litPixels, lightApplications);
   if (covered != 0) {
     AddStat(&SGRSoftwareRasterStats::rasterized);
     AddRasterizedType(type);
@@ -712,9 +916,13 @@ void GRSetPaletteTables(SGRColorDef *pTransparency,int nTranspCount,
 
 void SetMixLightTable(unsigned char *table)
 {
-    // The recovered software graph has not initialized the legacy light-mix
-    // allocation. The original implementation is also a no-op in that state.
-    (void)table;
+    if( table == NULL ) {
+        std::memset(g_lightMixTable,0,sizeof(g_lightMixTable));
+        g_lightMixTableReady = false;
+        return;
+    }
+    std::memcpy(g_lightMixTable,table,sizeof(g_lightMixTable));
+    g_lightMixTableReady = true;
 }
 
 unsigned long GRTransparentColor(int r,int g,int b)
@@ -807,20 +1015,72 @@ int GRSoftwareBeginFrame(long fColor)
     std::memset(&g_frameRasterStats,0,sizeof(g_frameRasterStats));
     g_frameRasterStats.frames = 1;
     ++g_totalRasterStats.frames;
-    std::memset(_gr_pScreen,static_cast<unsigned char>(fColor),
+    g_frameClearColor = static_cast<unsigned char>(fColor);
+    std::memset(_gr_pScreen,g_frameClearColor,
                 static_cast<std::size_t>(_gr_nScreenWidth)*
                     _gr_nScreenHeight);
     return TRUE;
 }
 
+int GRSoftwareLoadDitherTable(const char *path)
+{
+    std::memset(_gr_pDiserTable,0,sizeof(_gr_pDiserTable));
+    g_ditherTextureStride = 0;
+    g_ditherTableReady = false;
+    if( path == NULL || path[0] == '\0' ) return FALSE;
+    std::FILE *file = std::fopen(path,"rb");
+    if( file == NULL ) return FALSE;
+
+    unsigned char header[6] = {};
+    std::int32_t table[64*64] = {};
+    const bool read = std::fread(header,1,sizeof(header),file) == sizeof(header) &&
+        std::fread(table,sizeof(table[0]),64*64,file) == 64*64;
+    std::fclose(file);
+    const unsigned int width =
+        static_cast<unsigned int>(header[0]) |
+        (static_cast<unsigned int>(header[1]) << 8);
+    const unsigned int height =
+        static_cast<unsigned int>(header[2]) |
+        (static_cast<unsigned int>(header[3]) << 8);
+    const unsigned int stride =
+        static_cast<unsigned int>(header[4]) |
+        (static_cast<unsigned int>(header[5]) << 8);
+    if( !read || width != 64 || height != 64 || stride == 0 ||
+        stride > 4096 ) return FALSE;
+
+    for( int index = 0; index < 64*64; ++index )
+        _gr_pDiserTable[index] = static_cast<long>(table[index]);
+    g_ditherTextureStride = static_cast<int>(stride);
+    g_ditherTableReady = true;
+    return TRUE;
+}
+
+void GRSoftwareClearDitherTable()
+{
+    std::memset(_gr_pDiserTable,0,sizeof(_gr_pDiserTable));
+    g_ditherTextureStride = 0;
+    g_ditherTableReady = false;
+}
+
+int GRSoftwareDitherTableReady()
+{
+    return g_ditherTableReady ? TRUE : FALSE;
+}
+
 void GRSoftwareGetFrameStats(SGRSoftwareRasterStats *stats)
 {
-    if( stats != NULL ) *stats = g_frameRasterStats;
+    if( stats != NULL ) {
+        *stats = g_frameRasterStats;
+        PopulateFramebufferFingerprint(stats);
+    }
 }
 
 void GRSoftwareGetTotalStats(SGRSoftwareRasterStats *stats)
 {
-    if( stats != NULL ) *stats = g_totalRasterStats;
+    if( stats != NULL ) {
+        *stats = g_totalRasterStats;
+        PopulateFramebufferFingerprint(stats);
+    }
 }
 
 void GRSoftwareResetTotalStats()

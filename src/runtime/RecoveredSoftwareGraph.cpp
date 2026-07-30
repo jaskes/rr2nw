@@ -98,6 +98,8 @@ bool CreateSoftwareWindow(HINSTANCE instance) {
 
 void FinishSoftwareGraph() {
   RecoveredLevelRuntime_Release();
+  GRSoftwareClearDitherTable();
+  SetMixLightTable(nullptr);
 
   if (_gr_hDC != nullptr && _gr_hWnd != nullptr) {
     ReleaseDC(_gr_hWnd, _gr_hDC);

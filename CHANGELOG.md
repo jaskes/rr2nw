@@ -7,6 +7,24 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added a read-only `--start-level` override accepting configured slot numbers
+  or case-insensitive Level names. Startup records whether selection came from
+  `game.cfg` or the command line, rejects invalid names before Level mutation
+  and never edits retail data.
+- Added a Windows retail acceptance harness for all nine Levels across one or
+  more data roots and Debug/Release. Each case retains diagnostics plus JSON/CSV
+  evidence; interactive runs also create a visibility/input/F1/combat/Alt-Tab
+  checklist.
+- Added framebuffer fingerprints, non-clear pixel counts, full add-mode
+  telemetry and a seam/second-frame raster regression. The acceptance gate now
+  requires real rasterized output, clean shutdown, zero type/texture rejects
+  and zero BUMP/light approximations.
+- Restored the legacy software BUMP path from `DITH.DTH`, translating its
+  encoded source-pitch neighbour offsets to tightly packed modern textures with
+  bounds checks while preserving the original non-perspective no-op dispatch.
+- Restored palette dynamic lighting from the complete retail mix table and the
+  archived quadratic screen-space equation. Diagnostics distinguish
+  LIGHTTHROUGH flags, active light polygons/pixels and missing-table fallback.
 - Replaced legacy `AttributeVehicle::update()` cache mutation with one roster-
   wide Panel/Taxi/Bullet transaction. Every symbolic Taxi and optional primary/
   secondary Bullet target resolves before any panel is allocated; every real

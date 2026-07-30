@@ -959,8 +959,10 @@ being inferred from missing scenery.
 This recovery deliberately keeps the legacy renderer architecture. It does
 not introduce SDL, a GPU rewrite or a z-buffer. The production boundary owns
 the physical frame, centered viewport, clip rectangle, perspective divide,
-palette shading, haze and transparency. Bump/light-through add modes remain
-counted approximations until dedicated parity fixtures exist.
+palette shading, haze and transparency. The software BUMP dispatcher now uses
+the retail 64x64 DITH neighbour table with safe pitch translation. Active
+light masks retain the retail palette table and archived quadratic equation;
+telemetry distinguishes a LIGHTTHROUGH flag from a light actually applied.
 
 The newly visible workload also closed two stability holes needed for human
 testing: wall-clock stalls cannot advance one simulation sample by more than
@@ -969,21 +971,27 @@ open frame. Non-finite Taxi surface orientation can no longer poison the
 player Vehicle.
 
 Admission proof for this renderer slice is complete: 52/52 CTest passes in
-Debug and Release, 36/36 parallel Debug retail-service stress launches,
-18/18 final Release service launches and 4/4 waited `rr2nw.exe` smokes. The
-installed game root is `E:\Games\The Next Worlds`; the mounted-disc root is
-`G:\nw`, where the disc's `game.cfg` actually resides.
+Debug and Release and a dedicated 36/36 executable matrix loads all nine Levels
+from both `E:\Games\The Next Worlds` and `G:\nw` in both configurations. Every
+case produces two non-empty fingerprinted frames, clean shutdown, zero invalid,
+unsupported or missing-texture rejects and zero BUMP/light approximations.
+`G:\nw` is the mounted-disc root where `game.cfg` actually resides.
 
-The next Windows-first slice returns to active-world persistence and human
-acceptance with a usable picture:
+The Windows renderer/selection acceptance frontier is now closed. A symbolic
+or numeric `--start-level` override selects any configured Level in memory and
+never rewrites retail `game.cfg`; the automated and interactive harness retains
+per-case logs, JSON/CSV evidence and a manual checklist.
 
-1. manually drive several Levels and record visibility, steering, F1,
-   People/Tank combat, alt-tab and shutdown results;
-2. correct remaining visual parity issues in bounded order: clipping seams,
-   bump/light-through, palette tuning and scalar performance;
-3. define the versioned active-world envelope and symbolic event restore order;
-4. add atomic save/load plus corruption diagnostics and repeat the visual
+The next Windows-first slice returns to active-world persistence with a usable
+picture:
+
+1. define the versioned active-world envelope and symbolic event restore order;
+2. capture Vehicle, People, Tank/Cannon, Commander/TankGroup, Bullet/effects,
+   scheduler, RNG and Level-local identities without serializing pointers;
+3. add atomic save/load plus corruption diagnostics and repeat the visual
    acceptance after reconstruction;
+4. continue manual driving evidence for F1, combat, Alt-Tab, palette tuning and
+   performance without blocking the persistence implementation;
 5. only then widen toward data-pack mods, secondary weapons and audio output.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient

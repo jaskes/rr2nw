@@ -20,6 +20,9 @@
 - [PlayerVehicleReadiness.md](PlayerVehicleReadiness.md) — current evidence,
   ownership gaps and the shortest gated path from the recovery observer to a
   real drivable `Vehicle.Default`.
+- [ManualAcceptance.md](ManualAcceptance.md) — commands and evidence contract
+  for selecting, automatically sweeping and manually checking all retail
+  Levels on Windows.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где
   исторические источники или возможные реализации расходятся.
 

@@ -37,6 +37,27 @@ See the detailed [Windows-first roadmap](docs/Roadmap.md) and
 
 ## Current status
 
+The current `develop` frontier produces a modern MSVC Win32 `rr2nw.exe` that
+loads all nine May retail Levels from an installation or mounted CD, constructs
+the recovered gameplay/service graph and renders the real textured scene. The
+software path owns and clears the 640x480 frame, supports all twelve submitted
+polygon families, perspective textures, Gouraud shading, haze, transparency,
+the retail `DITH.DTH` texel-offset mode and palette-driven dynamic lights.
+
+`Vehicle.Default` owns live input, physics and camera state. The admitted graph
+also includes Taxi/F1 transitions, cockpit panels, primary fire and Bullet
+effects, People, Tank/Cannon and the first Commander/TankGroup mission chain.
+Initialization and teardown are transactional, diagnostics publish renderer and
+gameplay evidence, and the normal Debug/Release suite currently contains 52
+tests. Active-world persistence, broader manual campaign acceptance and final
+visual parity remain open; Linux/macOS and multiplayer remain post-1.0 work.
+
+Use [the Windows retail acceptance guide](docs/ManualAcceptance.md) to select a
+Level without editing `game.cfg`, sweep all retail Levels or record a manual
+driving/Alt-Tab result.
+
+### Earlier M1 integration notes
+
 Milestone M0 is complete: deterministic manifests, source/retail diff, stable
 parity IDs, PE inspection, a verified read-only retail fixture, private Windows
 state capture and a bounded launch observer are implemented and tested. M1 is
@@ -113,15 +134,16 @@ the disabled legacy sprite/laser raster bodies explicitly outside this gate.
 The normal build also produces `rr2nw.exe`; its automated launch contract uses
 a synthetic nine-level fixture and verifies that startup does not alter data.
 
-An original retail directory can be inspected without entering gameplay:
+An original retail Level can be selected without changing its `game.cfg`:
 
 ```powershell
-.\build\windows-msvc-x86\Debug\rr2nw.exe --data-dir X:\path\to\retail\nw
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" --data-dir "X:\path\to\retail\nw" --start-level "Level.03N"
 ```
 
-The current EXE deliberately reports that the recovered runtime is not yet
-connected after reaching `retail-data-ready`; it is a controlled integration
-frontier, not a claim that a level already renders.
+The executable reads retail content in place and writes diagnostics to the user
+log directory (or an explicit `--diagnostics-dir`). It does not modify the
+selected retail root. See [ManualAcceptance.md](docs/ManualAcceptance.md) for
+the automated and interactive evidence contracts.
 
 ## Verified baseline findings
 

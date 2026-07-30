@@ -2177,16 +2177,25 @@ Status vocabulary:
 
 ### CQ-136: bump and light-through polygons need retail mix-table parity
 
-- Status: `SOURCE_CONFIRMED`, `BOUNDED_APPROXIMATION`.
-- Evidence: preserved ASM/ANG paths use specialized bump coordinates and
-  light-mix tables. The recovered scalar renderer has exact base texture,
-  perspective, haze, Gouraud and transparency behavior but does not yet
-  reproduce those add-mode equations.
-- Handling: render the base texture and haze instead of rejecting the polygon;
-  count every approximated bump or light polygon in the diagnostic archive.
-- Revisit when: a deterministic screenshot fixture covers each add mode. Port
-  the original equations one mode at a time and require the approximation
-  counters to reach zero before claiming pixel parity.
+- Status: `SOURCE_CONFIRMED`, `SOFTWARE_PATH_RECOVERED`,
+  `VISUAL_PARITY_PENDING`.
+- Evidence: `drawpoly.asm` routes only perspective textured BUMP polygons to
+  `ADrawDiserTexture32`; `diser.asm` indexes the 64x64 offset table loaded by
+  `graph.cpp`. The May `DITH.DTH` contains source-pitch neighbour offsets for a
+  512-pixel row. `light.cpp::ASM_PrepareLightSource` and
+  `light1.ASM::ADrawLightPer8` preserve the quadratic screen-space numerator,
+  denominator and 0..31 palette-mix lookup used by active light masks.
+- Handling: decode each DITH offset as `(dx, dy)`, translate it to the tightly
+  packed modern texture pitch and bounds-check the resulting texel. Preserve
+  the original dispatch that ignores BUMP on non-perspective base types.
+  Retain the complete eight-colour, 32-layer light table and evaluate the
+  archived quadratic equation before haze. Count requested, ignored, applied
+  and approximated modes separately; automated retail acceptance requires
+  both approximation counters to stay zero.
+- Revisit when: moving-camera fixtures contain active world lights and permit
+  screenshot comparison with the May software renderer. Scalar per-pixel
+  evaluation preserves the archived equation but does not yet claim identical
+  eight-pixel ASM interpolation rounding or Direct3D output.
 
 ### CQ-137: expensive frames advanced events farther than Vehicle physics
 

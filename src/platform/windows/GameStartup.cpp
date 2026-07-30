@@ -18,7 +18,9 @@
 #include <shlobj.h>
 
 #include <array>
+#include <cerrno>
 #include <cstdio>
+#include <cwchar>
 #include <string>
 #include <vector>
 
@@ -43,6 +45,7 @@ constexpr int kRetailLevelCount = 9;
 struct StartupOptions {
   std::wstring dataDirectory;
   std::wstring diagnosticsDirectory;
+  std::wstring startLevel;
   bool launchSmoke = false;
   bool runtimeSmoke = false;
   bool showHelp = false;
@@ -230,6 +233,13 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       }
     } else if (argument.compare(0, 18, L"--diagnostics-dir=") == 0) {
       options->diagnosticsDirectory = argument.substr(18);
+    } else if (argument == L"--start-level") {
+      if (!ParseOptionValue(argc, argv, &index, L"--start-level",
+                            &options->startLevel, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 14, L"--start-level=") == 0) {
+      options->startLevel = argument.substr(14);
     } else {
       *failure = std::wstring(L"unknown argument: ") + argument;
       return false;
@@ -373,6 +383,37 @@ bool LocateRetailData(const StartupOptions& options, RetailData* data,
   return false;
 }
 
+bool SelectStartLevel(const StartupOptions& options, RetailData* data,
+                      std::wstring* failure) {
+  if (options.startLevel.empty()) {
+    return true;
+  }
+
+  errno = 0;
+  wchar_t* end = nullptr;
+  const long numeric = std::wcstol(options.startLevel.c_str(), &end, 10);
+  if (errno == 0 && end != options.startLevel.c_str() && *end == L'\0') {
+    if (numeric < 0 || numeric >= kRetailLevelCount) {
+      *failure = L"--start-level index must be between 0 and 8";
+      return false;
+    }
+    data->startLevel = static_cast<int>(numeric);
+    return true;
+  }
+
+  for (int index = 0; index < kRetailLevelCount; ++index) {
+    if (_wcsicmp(options.startLevel.c_str(),
+                 data->levels[static_cast<std::size_t>(index)].c_str()) == 0) {
+      data->startLevel = index;
+      return true;
+    }
+  }
+
+  *failure = L"--start-level must be an index from 0 to 8 or a Level name "
+             L"listed in game.cfg";
+  return false;
+}
+
 void ShowMessage(bool silent, UINT icon, const wchar_t* title,
                  const std::wstring& text) {
   if (!silent) {
@@ -400,7 +441,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
 
   if (options.showHelp) {
     ShowMessage(false, MB_ICONINFORMATION, L"RR2NW command line",
-                L"rr2nw.exe [--data-dir <path>] [--diagnostics-dir <path>]\n"
+                L"rr2nw.exe [--data-dir <path>] [--start-level <index|name>]\n"
+                L"          [--diagnostics-dir <path>]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--version] [--help]");
     return kSuccess;
@@ -447,9 +489,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 failure + L"\n\nDiagnostic log:\n" + log.path());
     return kDataNotReady;
   }
+  if (!SelectStartLevel(options, &data, &failure)) {
+    log.WideLine("failure", failure);
+    log.WideLine("start_level_requested", options.startLevel);
+    log.Line("marker=level-selection-invalid");
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW level selection error",
+                failure + L"\n\nDiagnostic log:\n" + log.path());
+    return kInvalidArguments;
+  }
 
   log.WideLine("data_dir", data.root);
   log.Line("retail_level_count=9");
+  log.Line(std::string("start_level_source=") +
+           (options.startLevel.empty() ? "game.cfg" : "command-line"));
+  if (!options.startLevel.empty()) {
+    log.WideLine("start_level_requested", options.startLevel);
+  }
   log.Line("start_level=" + std::to_string(data.startLevel));
   log.WideLine("start_level_dir",
                data.levels[static_cast<std::size_t>(data.startLevel)]);
@@ -477,13 +533,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                     log.path());
     return kRuntimeNotReady;
   }
+  std::string ditherTablePath;
+  if (!WideToSystemPath(JoinPath(data.root, L"DITH.DTH"),
+                        &ditherTablePath)) {
+    log.Line("failure=DITH.DTH path is not representable by the Windows ANSI "
+             "code page");
+    log.Line("marker=level-not-ready");
+    return kRuntimeNotReady;
+  }
 
   RecoveredGameServices_UseRuntime();
   const bool graphInitialized = ZAV_InitGraph(instance) != FALSE;
   log.Line(std::string("graph_initialized=") +
            (graphInitialized ? "1" : "0"));
+  const bool ditherTableLoaded =
+      graphInitialized &&
+      GRSoftwareLoadDitherTable(ditherTablePath.c_str()) != FALSE;
+  log.Line(std::string("software_dither_table_loaded=") +
+           (ditherTableLoaded ? "1" : "0"));
   const bool levelInitialized =
-      graphInitialized && ZAV_InitLevel(levelDirectory.c_str()) != FALSE;
+      ditherTableLoaded && ZAV_InitLevel(levelDirectory.c_str()) != FALSE;
   log.Line(std::string("level_initialized=") +
            (levelInitialized ? "1" : "0"));
   if (!levelInitialized || !RecoveredGameLevel_IsReady()) {
@@ -1454,8 +1523,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(rasterStats.transparentPixels));
   log.Line("renderer_approximated_bump_polygons=" +
            std::to_string(rasterStats.approximatedBumpPolygons));
+  log.Line("renderer_ignored_nonperspective_bump_polygons=" +
+           std::to_string(
+               rasterStats.ignoredNonPerspectiveBumpPolygons));
   log.Line("renderer_approximated_light_polygons=" +
            std::to_string(rasterStats.approximatedLightPolygons));
+  log.Line("renderer_dithered_bump_polygons=" +
+           std::to_string(rasterStats.ditheredBumpPolygons));
+  log.Line("renderer_light_through_polygons=" +
+           std::to_string(rasterStats.lightThroughPolygons));
+  log.Line("renderer_lit_polygons=" +
+           std::to_string(rasterStats.litPolygons));
+  log.Line("renderer_lit_pixels=" +
+           std::to_string(rasterStats.litPixels));
+  log.Line("renderer_framebuffer_hash=" +
+           std::to_string(rasterStats.framebufferHash));
+  log.Line("renderer_framebuffer_nonclear_pixels=" +
+           std::to_string(rasterStats.framebufferNonClearPixels));
   static const char* const kPolygonTypeNames[TYPE_COUNT] = {
       "flat", "transparent", "gouraud", "texture_perspective",
       "texture_linear", "sprite_perspective", "texture_alpha",

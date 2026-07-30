@@ -1,9 +1,12 @@
 #include "graph.h"
 #include "sd1_epal.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <vector>
 
@@ -68,6 +71,18 @@ GR_HTEXTURE CreateTexture(unsigned long flags,
   unsigned char* source = reinterpret_cast<unsigned char*>(storage.data() + 3);
   std::memcpy(source, pixels, 16);
   return GRLoadTextureToDB(nullptr, nullptr, 0, source);
+}
+
+bool WriteDitherFixture(const char* path) {
+  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+  if (!stream) return false;
+  const std::uint16_t header[3] = {64, 64, 512};
+  const std::int32_t offset = 513;
+  stream.write(reinterpret_cast<const char*>(header), sizeof(header));
+  for (int index = 0; index < 64 * 64; ++index) {
+    stream.write(reinterpret_cast<const char*>(&offset), sizeof(offset));
+  }
+  return stream.good();
 }
 
 }  // namespace
@@ -166,6 +181,81 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  const char* ditherPath = "rr2nw-software-dither-smoke.dth";
+  if (!Expect(WriteDitherFixture(ditherPath) &&
+                  GRSoftwareLoadDitherTable(ditherPath) == TRUE &&
+                  GRSoftwareDitherTableReady() == TRUE,
+              "software dither table did not load")) {
+    std::remove(ditherPath);
+    GRDeleteTextureFromDB(opaqueTexture);
+    GRReleaseViewport(viewport);
+    return EXIT_FAILURE;
+  }
+  SetQuad(-28, -6, -20, 2, 65536);
+  SetTextureCoordinates(3);
+  _gr_polygon.dwFullType = GR_POLY_TEXTURE_PERSP;
+  _gr_polygon.dwAddType = GR_POLY_ADD_BUMP;
+  _gr_polygon.hTexture = opaqueTexture;
+  if (!Expect(GRDrawPolygonPCCW() == TRUE && Pixel(screen, -24, -2) == 11,
+              "dithered perspective texture did not translate source pitch")) {
+    GRSoftwareClearDitherTable();
+    std::remove(ditherPath);
+    GRDeleteTextureFromDB(opaqueTexture);
+    GRReleaseViewport(viewport);
+    return EXIT_FAILURE;
+  }
+  GRSoftwareClearDitherTable();
+  std::remove(ditherPath);
+  _gr_polygon.dwAddType = GR_POLY_ADD_NONE;
+
+  SetQuad(6, -6, 14, 2, 65536);
+  _gr_polygon.dwFullType = GR_POLY_FLAT;
+  _gr_polygon.dwAddType = GR_POLY_ADD_BUMP;
+  _gr_polygon.dwColor.color = 33;
+  if (!Expect(GRDrawPolygonPCCW() == TRUE && Pixel(screen, 10, -2) == 33,
+              "non-perspective BUMP flag changed the legacy draw dispatch")) {
+    GRDeleteTextureFromDB(opaqueTexture);
+    GRReleaseViewport(viewport);
+    return EXIT_FAILURE;
+  }
+  _gr_polygon.dwAddType = GR_POLY_ADD_NONE;
+
+  std::vector<unsigned char> lightTable(LIGHT_COLOR_COUNT * 32 * 256, 0);
+  for (int lightColor = 0; lightColor < LIGHT_COLOR_COUNT; ++lightColor) {
+    for (int layer = 0; layer < 32; ++layer) {
+      for (int color = 0; color < 256; ++color) {
+        lightTable[(lightColor * 32 + layer) * 256 + color] =
+            static_cast<unsigned char>((std::min)(255, color + layer));
+      }
+    }
+  }
+  SetMixLightTable(lightTable.data());
+  std::memset(&_gr_pLights[0], 0, sizeof(_gr_pLights[0]));
+  _gr_pLights[0].type = GR_LIGHT;
+  _gr_pLights[0].z = -1.0f;
+  _gr_pLights[0].r = 10.0f;
+  _gr_pLights[0].power0 = 248;
+  _gr_pLights[0].color = LIGHT_COLOR_WHITE;
+  SetQuad(-4, -4, 4, 4, 65536);
+  _gr_polygon.dwFullType = GR_POLY_FLAT;
+  _gr_polygon.dwAddType = GR_POLY_ADD_LIGHTTHROUGH;
+  _gr_polygon.dwColor.color = 10;
+  _gr_polygon.a = 0.0f;
+  _gr_polygon.b = 0.0f;
+  _gr_polygon.c = 1.0f;
+  _gr_polygon.d = -1.0f;
+  _gr_polygon.nLights = 1;
+  if (!Expect(GRDrawPolygonPCCW() == TRUE && Pixel(screen, 0, 0) == 41,
+              "dynamic light did not use the retail palette mix table")) {
+    SetMixLightTable(nullptr);
+    GRDeleteTextureFromDB(opaqueTexture);
+    GRReleaseViewport(viewport);
+    return EXIT_FAILURE;
+  }
+  SetMixLightTable(nullptr);
+  _gr_polygon.nLights = 0;
+  _gr_polygon.dwAddType = GR_POLY_ADD_NONE;
+
   const unsigned char spritePixels[16] = {
       0, 0, 0, 0, 0, 9, 9, 0,
       0, 9, 9, 0, 0, 0, 0, 0};
@@ -257,17 +347,69 @@ int main() {
   GRSoftwareGetFrameStats(&frame);
   GRSoftwareGetTotalStats(&total);
   const bool telemetryValid =
-      frame.frames == 1 && total.frames == 1 && frame.submitted == 10 &&
-      frame.accepted == 7 && frame.rasterized == 7 &&
+      frame.frames == 1 && total.frames == 1 && frame.submitted == 13 &&
+      frame.accepted == 10 && frame.rasterized == 10 &&
       frame.rejectedOutside == 1 && frame.rejectedTexture == 1 &&
       frame.rejectedUnsupported == 1 && frame.writtenPixels != 0 &&
       frame.hazePixels != 0 && frame.transparentPixels != 0 &&
-      frame.rasterizedByType[GR_POLY_TEXTURE_PERSP / ADD_TYPE_SIZE] == 1 &&
+      frame.ditheredBumpPolygons == 1 &&
+      frame.approximatedBumpPolygons == 0 &&
+      frame.ignoredNonPerspectiveBumpPolygons == 1 &&
+      frame.lightThroughPolygons == 1 &&
+      frame.litPolygons == 1 && frame.litPixels != 0 &&
+      frame.approximatedLightPolygons == 0 &&
+      frame.framebufferHash != 0 && frame.framebufferNonClearPixels != 0 &&
+      frame.rasterizedByType[GR_POLY_TEXTURE_PERSP / ADD_TYPE_SIZE] == 2 &&
       frame.rasterizedByType[GR_POLY_TEXTURE_LIN / ADD_TYPE_SIZE] == 1 &&
       frame.rasterizedByType[GR_POLY_SPRITE_PERSP / ADD_TYPE_SIZE] == 1 &&
       frame.rasterizedByType[GR_POLY_TEXTURE_ALPHA / ADD_TYPE_SIZE] == 1;
   if (!Expect(telemetryValid,
               "accepted/rejected polygon telemetry changed")) {
+    return EXIT_FAILURE;
+  }
+
+  const unsigned long long firstFrameHash = frame.framebufferHash;
+  if (!Expect(GRSoftwareBeginFrame(5) == TRUE,
+              "second full-frame clear failed")) {
+    return EXIT_FAILURE;
+  }
+  SetQuad(10, 10, 18, 18, 65536);
+  _gr_polygon.dwFullType = GR_POLY_FLAT;
+  _gr_polygon.dwColor.color = 91;
+  if (!Expect(GRDrawPolygonPCCW() == TRUE,
+              "second frame polygon did not rasterize")) {
+    return EXIT_FAILURE;
+  }
+  SetQuad(-16, 10, -8, 18, 65536);
+  _gr_polygon.dwFullType = GR_POLY_FLAT;
+  _gr_polygon.dwColor.color = 92;
+  if (!Expect(GRDrawPolygonPCCW() == TRUE,
+              "left adjacent polygon did not rasterize")) {
+    return EXIT_FAILURE;
+  }
+  SetQuad(-8, 10, 0, 18, 65536);
+  _gr_polygon.dwFullType = GR_POLY_FLAT;
+  _gr_polygon.dwColor.color = 92;
+  if (!Expect(GRDrawPolygonPCCW() == TRUE,
+              "right adjacent polygon did not rasterize")) {
+    return EXIT_FAILURE;
+  }
+  bool seamFree = true;
+  for (int y = 10; y < 18; ++y) {
+    for (int x = -16; x < 0; ++x) {
+      seamFree = seamFree && Pixel(screen, x, y) == 92;
+    }
+  }
+  SGRSoftwareRasterStats secondFrame = {};
+  GRSoftwareGetFrameStats(&secondFrame);
+  if (!Expect(Pixel(screen, -24, -24) == 5,
+              "second frame retained a polygon from the previous frame") ||
+      !Expect(secondFrame.framebufferHash != firstFrameHash,
+              "distinct frames produced the same framebuffer hash") ||
+      !Expect(secondFrame.framebufferNonClearPixels != 0,
+              "second frame fingerprint reported an empty framebuffer") ||
+      !Expect(seamFree,
+              "adjacent top-left-rule polygons left a clipping seam")) {
     return EXIT_FAILURE;
   }
 

@@ -2890,3 +2890,48 @@ One later four-lane verification reported a single discarded-output Release
 parallel Level.06N runs or two complete logged installed-data Release passes
 (27 consecutive successes total). This observation remains CQ-139 rather than
 being silently folded into the clean evidence.
+
+## BD-076: close Windows Level selection and software add-mode acceptance
+
+Status: accepted on 2026-07-30.
+
+Retail `game.cfg` remains read-only. `rr2nw.exe --start-level` accepts either a
+configured slot from 0 through 8 or a case-insensitive exact directory name
+from `[Levels]`. The command-line value overrides `[Init]/StartLevel` only in
+memory; omission preserves the configured default, while an invalid value
+fails before Level initialization and records the requested value. Synthetic
+launch coverage proves the fixture bytes remain unchanged.
+
+The legacy software BUMP mode is no longer a generic approximation.
+`drawpoly.asm` selects `ADrawDiserTexture32` only for perspective textured
+polygons, and the May `DITH.DTH` supplies its 64x64 neighbour-offset field.
+Offsets encoded against the table's source pitch are decomposed into `(dx,dy)`
+and translated to the tightly packed modern texture pitch with a bounds check.
+Other base types preserve the original ordinary draw dispatch even when their
+add-type contains BUMP, and telemetry reports that intentional no-op separately.
+
+Dynamic palette light ownership is also restored. `SetMixLightTable` retains
+all eight colours, 32 strength layers and 256 base colours. The scalar path
+prepares the numerator and denominator coefficients preserved by
+`ASM_PrepareLightSource`, evaluates the quadratic screen-space equation from
+`ADrawLightPer8`, applies the palette result before haze and uses absolute plane
+distance for LIGHTTHROUGH. A flagged polygon with `nLights == 0` is correctly a
+no-op and is not misreported as an approximation. The implementation preserves
+the recovered equation but does not claim byte-identical rounding with the
+assembly routine's eight-pixel interpolation.
+
+The raster contract now proves full physical-frame clearing, distinct
+framebuffer hashes, non-clear coverage and two adjacent top-left-rule quads
+without a seam. Startup publishes requested/accepted/rasterized/rejected counts,
+DITH use, ignored/approximated BUMP modes, LIGHTTHROUGH, applied light polygons
+and pixels, plus the final framebuffer fingerprint.
+
+The dedicated acceptance harness selects and runs every configured Level from
+both `E:\Games\The Next Worlds` and `G:\nw` in Debug and Release without
+modifying either root. Its 36/36 final matrix produces real non-empty frames,
+reaches `marker=level-ready`, exits cleanly and reports zero invalid,
+unsupported or missing-texture rejects and zero BUMP/light approximations.
+Normal CTest remains 52/52 in both configurations. Active-light screenshot
+parity, exact historical rounding, palette tuning, resolution switching and
+optimization remain bounded visual follow-up; they no longer block the next
+versioned active-world save/load frontier.
