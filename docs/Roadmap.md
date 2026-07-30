@@ -1007,12 +1007,12 @@ The next Windows-first persistence work is deliberately incremental:
 2. [done] add Vehicle/player, the complete Level-local People roster and the
    Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
    private scheduler state;
-3. [in progress] add transient combat and mission ownership: live Bullet flight, the
+3. [done] add transient combat and mission ownership: live Bullet flight, the
    parent-owned Explosion particle graph, detached Spark and Smoke, and the
    Corpse/DynSmoker owner graph plus queued Explosion/Spark/Corpse creation are
-   done; Player mission state and typed mission checks are done; the
-   input/control journal and authoritative deterministic RNG remain;
-4. reconstruct a complete Level in a fresh context, compare the whole-world
+   done; Player mission state, typed mission checks, authoritative clock/RNG
+   and the external input/control journal are admitted;
+4. [in progress] reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
    checklist; retail-save import remains separate;
@@ -1124,14 +1124,26 @@ event/view clocks, frame delta, timer aspect and timer-clamp counters. The RNG
 uses an explicit MSVC-compatible LCG with a 32-bit state and 64-bit draw count;
 `SimulationContext`, script `RNDI/RNDF` and Tank spawn share it, while visual
 CRT randomness remains isolated. Retail diagnostics are `12/4`, `12/12/4`
-and `continuation_state_probe=1/1/12/<draws>/1`. Debug and Release pass 55/55
-CTest and the installed/mounted retail matrix passes 36/36.
+and `continuation_state_probe=1/1/12/<draws>/1`. CTJ1 additionally proves the
+normalized command seam and local deterministic Vehicle replay. Debug and
+Release pass 56/56 CTest and the installed/mounted retail matrix passes 36/36.
 
-The next persistence slice is the external input/control journal. Explicit
-hit/damage/death records should only be added where
-source inspection finds a queued transition; current damage/death paths are
-synchronous and already materialize in owner state. Complete fresh-Level
-reconstruction and public save controls follow.
+The external input/control journal is now admitted as
+[`CTJ1`](ReplayJournal.md). It records the
+accepted normalized Vehicle command stream by authoritative tick, retains the
+clock/RNG checkpoint and focus/held-action lifecycle, rejects malformed input
+without mutation and proves a 28-frame local replay against equal Vehicle,
+clock and RNG state. The live Hardware path records the same contract. This is
+the replay seam, not yet a public replay player or a fixed-tick conversion.
+
+The next persistence slice is complete fresh-Level reconstruction: combine the
+twelve owner phases, EVT1, clock/RNG and a sealed CTJ1 boundary in a new
+context, compare the whole-world fingerprint, then repeat visible driving and
+focus acceptance after load. Only after that proof should atomic user-facing
+save/load slots and the manual multi-Level save checklist be exposed.
+Explicit hit/damage/death records should still be added only where source
+inspection finds a queued transition; current synchronous paths already
+materialize in owner state.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical

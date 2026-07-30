@@ -12,7 +12,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_SEANCE_FAILURE = 1u << 8,
   RECOVERED_GAME_SERVICES_VEHICLE_MOVEMENT_FAILURE = 1u << 9,
   RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE = 1u << 10,
-  RECOVERED_GAME_SERVICES_TAXI_VEHICLE_TRANSITION_FAILURE = 1u << 11
+  RECOVERED_GAME_SERVICES_TAXI_VEHICLE_TRANSITION_FAILURE = 1u << 11,
+  RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE = 1u << 12
 };
 
 struct SRecoveredObserverState {
@@ -106,6 +107,37 @@ struct SRecoveredVehicleEmbodimentTelemetry {
   unsigned int liveOrphans;
   int exitPending;
   int hardwareSubscriptionPreserved;
+};
+
+struct SRecoveredVehicleControlJournalTelemetry {
+  unsigned long long checkpointTick;
+  unsigned long long lastRecordTick;
+  unsigned long long journalFingerprint;
+  unsigned int recordCount;
+  unsigned int actionRecords;
+  unsigned int focusRecords;
+  unsigned int encodedBytes;
+  unsigned int appendFailures;
+  int recording;
+  int applicationActive;
+};
+
+struct SRecoveredVehicleControlReplayTelemetry {
+  unsigned long long journalFingerprint;
+  unsigned long long recordedStateFingerprint;
+  unsigned long long replayedStateFingerprint;
+  unsigned int encodedBytes;
+  int recordings;
+  int replays;
+  int codecRoundTrips;
+  int actionRecords;
+  int focusRecords;
+  int syntheticReleases;
+  int simulationFrames;
+  int stateMatches;
+  int clockMatches;
+  int randomMatches;
+  int rollbacks;
 };
 
 void RecoveredGameServices_UseRuntime();
@@ -210,6 +242,11 @@ bool RecoveredGameServices_BeginVehiclePrimaryFireObservation();
 bool RecoveredGameServices_VehiclePrimaryFireTelemetry(
     SRecoveredVehiclePrimaryFireTelemetry* telemetry);
 bool RecoveredGameServices_VehicleControlReady();
+bool RecoveredGameServices_VehicleControlReplayReady();
+bool RecoveredGameServices_VehicleControlReplayTelemetry(
+    SRecoveredVehicleControlReplayTelemetry* telemetry);
+bool RecoveredGameServices_VehicleControlJournalTelemetry(
+    SRecoveredVehicleControlJournalTelemetry* telemetry);
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();
 unsigned int RecoveredGameServices_VehicleForwardedEvents();

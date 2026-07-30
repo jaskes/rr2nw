@@ -838,6 +838,35 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleProbeRollbacks()));
   log.Line("vehicle_probe_horizontal_distance=" + std::to_string(
                RecoveredGameServices_VehicleProbeHorizontalDistance()));
+  log.Line("vehicle_control_replay_ready=" + std::to_string(
+               RecoveredGameServices_VehicleControlReplayReady() ? 1 : 0));
+  SRecoveredVehicleControlReplayTelemetry replayTelemetry = {};
+  if (RecoveredGameServices_VehicleControlReplayTelemetry(
+          &replayTelemetry)) {
+    log.Line("vehicle_control_replay_records=" + std::to_string(
+                 replayTelemetry.actionRecords) + "/" +
+             std::to_string(replayTelemetry.focusRecords));
+    log.Line("vehicle_control_replay_synthetic_releases=" +
+             std::to_string(replayTelemetry.syntheticReleases));
+    log.Line("vehicle_control_replay_frames=" +
+             std::to_string(replayTelemetry.simulationFrames));
+    log.Line("vehicle_control_replay_state_match=" +
+             std::to_string(replayTelemetry.stateMatches));
+    log.Line("vehicle_control_replay_clock_match=" +
+             std::to_string(replayTelemetry.clockMatches));
+    log.Line("vehicle_control_replay_random_match=" +
+             std::to_string(replayTelemetry.randomMatches));
+    log.Line("vehicle_control_replay_rollbacks=" +
+             std::to_string(replayTelemetry.rollbacks));
+    log.Line("vehicle_control_replay_encoded_bytes=" +
+             std::to_string(replayTelemetry.encodedBytes));
+    log.Line("vehicle_control_replay_journal_fingerprint=" +
+             std::to_string(replayTelemetry.journalFingerprint));
+    log.Line("vehicle_control_replay_state_fingerprints=" +
+             std::to_string(replayTelemetry.recordedStateFingerprint) +
+             "/" +
+             std::to_string(replayTelemetry.replayedStateFingerprint));
+  }
   log.Line("taxi_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_TaxiAttributesReady() ? 1 : 0));
@@ -1582,6 +1611,28 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleSuppressedInputCount()));
   log.Line("vehicle_active_action_count=" + std::to_string(
                RecoveredGameServices_VehicleActiveActionCount()));
+  SRecoveredVehicleControlJournalTelemetry journalTelemetry = {};
+  if (RecoveredGameServices_VehicleControlJournalTelemetry(
+          &journalTelemetry)) {
+    log.Line("vehicle_control_journal_recording=" +
+             std::to_string(journalTelemetry.recording));
+    log.Line("vehicle_control_journal_records=" +
+             std::to_string(journalTelemetry.recordCount));
+    log.Line("vehicle_control_journal_action_records=" +
+             std::to_string(journalTelemetry.actionRecords));
+    log.Line("vehicle_control_journal_focus_records=" +
+             std::to_string(journalTelemetry.focusRecords));
+    log.Line("vehicle_control_journal_checkpoint_tick=" +
+             std::to_string(journalTelemetry.checkpointTick));
+    log.Line("vehicle_control_journal_last_tick=" +
+             std::to_string(journalTelemetry.lastRecordTick));
+    log.Line("vehicle_control_journal_encoded_bytes=" +
+             std::to_string(journalTelemetry.encodedBytes));
+    log.Line("vehicle_control_journal_fingerprint=" +
+             std::to_string(journalTelemetry.journalFingerprint));
+    log.Line("vehicle_control_journal_append_failures=" +
+             std::to_string(journalTelemetry.appendFailures));
+  }
   log.Line("vehicle_last_input_failure=" + std::to_string(
                RecoveredGameServices_VehicleLastInputFailure()));
   log.Line("vehicle_last_frame_failure=" + std::to_string(

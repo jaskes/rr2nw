@@ -3462,6 +3462,10 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredArenaSeanceRuntime.h
   src/runtime/RecoveredGameServicesRuntime.cpp
   src/runtime/RecoveredGameServicesRuntime.h
+  src/runtime/VehicleControlJournal.cpp
+  src/runtime/VehicleControlJournal.h
+  src/runtime/VehicleControlReplayProbe.cpp
+  src/runtime/VehicleControlReplayProbe.h
 )
 target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_active_world_save
@@ -4178,6 +4182,22 @@ target_compile_definitions(
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_vehicle_control_journal_smoke
+  src/portability/VehicleControlJournalSmoke.cpp
+)
+target_link_libraries(rr2nw_vehicle_control_journal_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_vehicle_control_journal_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_vehicle_control_journal_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_active_world_fresh_restore_smoke
   src/portability/ActiveWorldFreshRestoreSmoke.cpp
 )
@@ -4456,6 +4476,9 @@ if(MSVC)
     rr2nw_recovered_game_services_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_vehicle_control_journal_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_active_world_save_smoke PRIVATE /W4 /permissive-
   )
   target_compile_options(
@@ -4629,6 +4652,10 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-game-services-runtime-smoke
     COMMAND rr2nw_recovered_game_services_runtime_smoke
+  )
+  add_test(
+    NAME vehicle-control-journal-smoke
+    COMMAND rr2nw_vehicle_control_journal_smoke
   )
   add_test(
     NAME recovered-arena-seance-runtime-smoke

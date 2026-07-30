@@ -3083,3 +3083,35 @@ proves exact continuation, and proves malformed RNG and invalid clock records
 do not mutate live state. Runtime diagnostics are `12/4`, `12/12/4` and
 `continuation_state_probe=1/1/12/<draws>/1`. Debug and Release pass 55/55
 CTest; both retail roots across all nine Levels pass 36/36.
+
+## CTJ1 normalized control journal and local Vehicle replay
+
+The platform/input boundary now has a canonical `CTJ1` version-1 codec. It is
+fed only after `KR_Hardware` has translated a physical input and
+`RecoveredVehicleControl` has rejected `SYS_KEY`, `EXIT`, inactive input and
+failed Vehicle commands. Records use stable target `Vehicle.Default`, the
+authoritative simulation tick, contiguous sequence and the bounded simulation
+time returned by `VehicleRuntimeState`; Windows key code, repeat and raw
+message time are not serialized.
+
+The header owns the starting CLK1/RNG checkpoint, application-active state and
+eleven held-action values. Focus is a distinct transition and replay derives
+held releases from it, avoiding duplicate action records. The codec is
+little-endian and bounded, decodes through a temporary object, rejects malformed
+ordering/values/truncation/version/trailing bytes and prevents post-seal
+appends. Checkpoint application restores the previous clock/RNG pair if either
+new half fails.
+
+The production admission probe drives the real retail Vehicle for 28 frames:
+forward press, right-turn press/release, focus loss with one derived release and
+focus recovery. It then rolls the Vehicle back, reapplies the encoded
+checkpoint, replays the five records and requires equal physical, control and
+collision state fingerprints plus exact clock/RNG state. A second rollback
+must restore the original Level. The normal Hardware owner simultaneously
+maintains a live journal; the Level.03N visual/input suite observes 11 action
+and two focus records with no append failure.
+
+One hermetic codec/checkpoint smoke raises the normal matrix to 56/56 in Debug
+and Release. The existing installed/mounted nine-Level matrix remains 36/36.
+CTJ1 is not yet embedded in a public save and the ordinary live loop remains
+variable-rate; complete fresh-Level reconstruction is the next gate.

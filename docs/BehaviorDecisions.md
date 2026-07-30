@@ -3437,3 +3437,42 @@ The proof contract is `12/4`, `12/12/4` and
 round-trip and rejected-mutation smoke. The next boundary is the external
 input/control journal; render-time clocks and cosmetic RNG remain deliberately
 outside the simulation record.
+
+## BD-090: journal normalized accepted controls, not Windows messages
+
+Status: accepted on 2026-07-30.
+
+`CTJ1` version 1 is the first external control/replay contract. It starts from
+the authoritative `CLK1` clock and simulation RNG checkpoints, stable target
+name `Vehicle.Default`, application-focus state and the eleven held gameplay
+actions. Every admitted record carries the simulation tick, a monotonic
+sequence number and the bounded simulation time actually accepted by Vehicle.
+The raw Win32 key code, repeat flag and unbounded message timestamp never cross
+the journal boundary.
+
+Only normalized actions successfully forwarded to Vehicle are recorded.
+`SYS_KEY`, `EXIT`, inactive/suppressed input and failed commands are excluded.
+Application focus is a separate record kind. A focus-loss replay regenerates
+the same releases from the held-action state; it does not store a second set of
+release records that could be applied twice. The accepted action vocabulary is
+the same bounded set enforced by `VehicleRuntimeState_ApplyControlAt`.
+
+The codec is little-endian, length-bounded and mutation-safe. It rejects wrong
+magic/version, truncation, non-finite or out-of-range control values, backward
+tick/time order, broken sequence numbers and appends after seal. Applying its
+clock/RNG checkpoint is transactional and restores the old continuation state
+if either half fails.
+
+The production admission proof executes gas, turn, focus loss/recovery and 28
+real Vehicle simulation frames, rolls the Vehicle back, reapplies CTJ1 and
+requires equal physical/collision/control state fingerprints, clock and RNG.
+Both activations roll back to the original Level. The ordinary Hardware path
+simultaneously records every accepted live action and focus transition; the
+retail Level.03N smoke observes `11/2` records with no append failure at its
+visual-driving checkpoint.
+
+This is not yet a public replay player or a claim that the live variable-rate
+loop is fixed-tick. CTJ1 establishes the command/checkpoint seam and a local
+deterministic proof. The next persistence step is to attach a sealed journal to
+complete fresh-Level reconstruction, then expose save/load slots and longer
+state-hash replay checks.

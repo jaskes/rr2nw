@@ -7,6 +7,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added canonical `CTJ1` normalized Vehicle control journaling. The bounded
+  little-endian format owns stable target identity, authoritative clock/RNG
+  checkpoint, initial focus/held-action state, tick/sequence-stamped accepted
+  actions, explicit focus transitions and a sealed final boundary. Raw Windows
+  codes/repeat/timestamps, `SYS_KEY`, `EXIT`, suppressed input and rejected
+  commands never enter the journal.
+- Added a real-physics local replay proof: forward and turn controls plus focus
+  loss/recovery are recorded across 28 Vehicle frames, rolled back and replayed
+  from the embedded checkpoint. Admission requires identical Vehicle/control/
+  collision state fingerprints, clock and RNG plus two complete rollbacks.
+  The live Level.03N Hardware path separately proves 11 action and two focus
+  records without append failure.
+- Added CTJ1 codec/checkpoint regression coverage and startup diagnostics for
+  live record counts, ticks, encoded size, journal/state fingerprints and
+  replay matches. The normal Debug/Release matrix advances to 56/56 CTest; the
+  installed/mounted retail matrix remains 36/36.
 - Added authoritative continuation state to active-world v1. The twelfth
   `CLK1` section stores session tick, event/view clocks, frame delta, timer
   aspect and timer-clamp diagnostics; envelope tick/time must agree exactly.

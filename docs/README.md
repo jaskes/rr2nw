@@ -45,3 +45,9 @@
 Локальный `WINDOWS_AGENT_HANDOFF.md` предназначен для текущего состояния
 рабочей машины и не является публичной историей проекта. Диагностика, дампы,
 приватные retail-данные и сохранения также не должны попадать в релизный Git.
+
+## Replay journal
+
+- [ReplayJournal.md](ReplayJournal.md) documents the CTJ1
+  normalized-control format, focus/held-action semantics, checkpoint contract,
+  local Vehicle replay proof and current limits.

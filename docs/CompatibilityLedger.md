@@ -2624,9 +2624,36 @@ Status vocabulary:
   and non-mutating rejection. Active-world success and deliberate rollback
   both require exact clock/RNG matches; diagnostics advance to `12/4`,
   `12/12/4` and `continuation_state_probe=1/1/12/<draws>/1`.
-- Revisit when: the input/control journal is admitted. Journal entries must be
-  stamped with this simulation tick, not Win32 message time, and replay must
-  verify the RNG draw count at checkpoints.
+- Follow-up: CTJ1 now stamps accepted controls with this simulation tick and
+  verifies the clock/RNG checkpoint around local replay.
+- Revisit when: a fixed-tick scheduler adds periodic whole-world hashes and
+  longer replay divergence diagnostics.
+
+### CQ-155: Hardware emits housekeeping first and focus loss owns releases
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: each translated keyboard input emits a `SYS_KEY` notification
+  before its mapped `CTRL_BUTTONS_MSG`. The payload also contains a physical
+  code/repeat pair that is binding- and platform-specific. While the app is
+  inactive, gameplay commands are intentionally suppressed. Losing focus with
+  a held throttle, turn, look or fire action synthesizes zero-valued releases
+  so the Vehicle cannot remain latched.
+- Handling: CTJ1 records only successfully accepted normalized actions after
+  the `SYS_KEY`/focus filters. Records use `Session::m_simulationTick`, stable
+  target identity and the bounded Vehicle simulation time returned by the
+  control seam; raw Win32 message time/code/repeat are excluded. Focus is one
+  explicit transition whose replay derives releases from the captured held
+  state.
+- Verification: the codec smoke covers canonical round-trip, fingerprint,
+  truncation/magic/sequence/seal rejection and atomic clock/RNG application.
+  The retail Vehicle proof records three actions and two focus transitions,
+  executes 28 frames, regenerates one release and matches state, clock and RNG
+  after replay plus two full rollbacks. Live Level.03N input records `11/2`
+  action/focus entries without overflow or append failure.
+- Revisit when: the variable-rate live loop is replaced by a fixed simulation
+  scheduler. At that point replay should advance only by tick and periodic
+  canonical state hashes, retaining accepted simulation time solely for format
+  migration and forensic diagnostics.
 
 ## Maintenance rule
 

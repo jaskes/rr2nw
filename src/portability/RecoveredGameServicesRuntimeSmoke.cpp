@@ -411,6 +411,9 @@ bool IsServiceReleased() {
          RecoveredGameServices_VehicleProbeRollbacks() == -1 &&
          RecoveredGameServices_VehicleProbeHorizontalDistance() == 0.0 &&
          !RecoveredGameServices_VehicleControlReady() &&
+         !RecoveredGameServices_VehicleControlReplayReady() &&
+         !RecoveredGameServices_VehicleControlReplayTelemetry(nullptr) &&
+         !RecoveredGameServices_VehicleControlJournalTelemetry(nullptr) &&
          !RecoveredGameServices_VehicleFallbackActive() &&
          RecoveredGameServices_VehicleInputEvents() == 0 &&
          RecoveredGameServices_VehicleForwardedEvents() == 0 &&
@@ -2305,6 +2308,43 @@ int main(int argc, char** argv) {
     return Fail("service initialization failed");
   }
 
+  SRecoveredVehicleControlReplayTelemetry replayTelemetry = {};
+  SRecoveredVehicleControlJournalTelemetry initialJournalTelemetry = {};
+  if (!RecoveredGameServices_VehicleControlReplayReady() ||
+      !RecoveredGameServices_VehicleControlReplayTelemetry(
+          &replayTelemetry) ||
+      replayTelemetry.recordings != 1 || replayTelemetry.replays != 1 ||
+      replayTelemetry.codecRoundTrips != 1 ||
+      replayTelemetry.actionRecords != 3 ||
+      replayTelemetry.focusRecords != 2 ||
+      replayTelemetry.syntheticReleases != 1 ||
+      replayTelemetry.simulationFrames != 28 ||
+      replayTelemetry.stateMatches != 1 ||
+      replayTelemetry.clockMatches != 1 ||
+      replayTelemetry.randomMatches != 1 ||
+      replayTelemetry.rollbacks != 2 ||
+      replayTelemetry.encodedBytes == 0 ||
+      replayTelemetry.journalFingerprint == 0 ||
+      replayTelemetry.recordedStateFingerprint == 0 ||
+      replayTelemetry.recordedStateFingerprint !=
+          replayTelemetry.replayedStateFingerprint ||
+      !RecoveredGameServices_VehicleControlJournalTelemetry(
+          &initialJournalTelemetry) ||
+      initialJournalTelemetry.checkpointTick >
+          initialJournalTelemetry.lastRecordTick ||
+      initialJournalTelemetry.recordCount != 0 ||
+      initialJournalTelemetry.actionRecords != 0 ||
+      initialJournalTelemetry.focusRecords != 0 ||
+      initialJournalTelemetry.encodedBytes == 0 ||
+      initialJournalTelemetry.journalFingerprint == 0 ||
+      initialJournalTelemetry.appendFailures != 0 ||
+      initialJournalTelemetry.recording != 1 ||
+      initialJournalTelemetry.applicationActive != 1) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Vehicle control journal/replay proof was not admitted");
+  }
+
   KR_Event wake;
   wake.label = KR_WAKE_UP;
   if (g_super.m_level.receiveEvent(wake) != 1) {
@@ -3532,6 +3572,10 @@ int main(int argc, char** argv) {
   SRecoveredVehicleDriveTelemetry vehicleDriveTelemetry = {};
   const bool vehicleDriveTelemetryInspected =
       RecoveredGameServices_VehicleDriveTelemetry(&vehicleDriveTelemetry);
+  SRecoveredVehicleControlJournalTelemetry controlJournalTelemetry = {};
+  const bool controlJournalInspected =
+      RecoveredGameServices_VehicleControlJournalTelemetry(
+          &controlJournalTelemetry);
   if (!vehicleVisualControlActive || dwFrames != 42 ||
       RecoveredGameServices_VehicleInputEvents() != 26 ||
       RecoveredGameServices_VehicleForwardedEvents() != 11 ||
@@ -3549,6 +3593,17 @@ int main(int argc, char** argv) {
       RecoveredGameServices_VehicleDroppedTimeFrameCount() < 1 ||
       RecoveredGameServices_VehicleFallbackCount() != 0 ||
       RecoveredGameServices_VehicleFallbackReason() != 0 ||
+      !controlJournalInspected ||
+      controlJournalTelemetry.recordCount != 13 ||
+      controlJournalTelemetry.actionRecords != 11 ||
+      controlJournalTelemetry.focusRecords != 2 ||
+      controlJournalTelemetry.lastRecordTick <
+          controlJournalTelemetry.checkpointTick ||
+      controlJournalTelemetry.encodedBytes == 0 ||
+      controlJournalTelemetry.journalFingerprint == 0 ||
+      controlJournalTelemetry.appendFailures != 0 ||
+      controlJournalTelemetry.recording != 1 ||
+      controlJournalTelemetry.applicationActive != 1 ||
       !vehicleDriveTelemetryInspected ||
       vehicleDriveTelemetry.maximumHorizontalDistance <= 1.0e-6 ||
       vehicleDriveTelemetry.maximumSpeedMagnitude <= 1.0e-6 ||

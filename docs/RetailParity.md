@@ -1242,16 +1242,18 @@ This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
 RC requirement for complete world state or manual save points. Player mission
-state, queued effect creation and mission checks are covered; external
-input/control journaling, complete fresh-Level
-construction and user controls remain required. Explicit damage/death records
+state, queued effect creation, mission checks and the external Vehicle control
+journal seam are covered; complete fresh-Level construction and user controls
+remain required. Explicit damage/death records
 remain conditional on finding a genuinely queued transition rather than the
 already captured synchronous owner mutations.
 
 The current admission gate publishes twelve owner sections and twelve
 owner/reference phases and successful mission/effect rollback proofs through
 MSH1 plus EVT1. `CLK1` and the envelope RNG state additionally preserve the
-authoritative continuation boundary. Debug and Release pass 55/55 CTest and
+authoritative continuation boundary. CTJ1 adds the accepted normalized control
+stream and a local Vehicle replay proof without changing the twelve owner
+phases. Debug and Release pass 56/56 CTest and
 the installed/mounted matrix passes 36/36. The bounded probes leave Player missions and all Corpse,
 DynSmoker, Smoke, Spark, Explosion and Bullet pools at baseline before the
 playable Level begins.
@@ -1306,6 +1308,26 @@ playable Level begins.
   complete fresh-Level load and public save controls remain outside this
   tranche. The admitted implementation passes 55/55 CTest in both
   configurations and all 36 retail Level cases.
+
+### RP-SAVE-010: accepted Vehicle controls form a deterministic journal seam
+
+- `CTJ1` stores a stable Vehicle target, initial focus/held-action state, the
+  authoritative clock and simulation RNG checkpoint, ordered tick-stamped
+  normalized actions, explicit focus transitions and a sealed final boundary.
+- Physical key codes, repeat flags, `SYS_KEY`, `EXIT`, suppressed inputs and
+  failed Vehicle commands are not replay data. The stored event time is the
+  bounded simulation time accepted by Vehicle, not the raw Windows timestamp.
+- The real-physics proof records gas and turn commands, loses/regains focus,
+  advances 28 frames and regenerates one held-action release. Replay begins
+  from the encoded clock/RNG checkpoint and must produce equal complete
+  Vehicle runtime fingerprints, clock, RNG and rollback state.
+- The live Hardware path records through the same codec. The Level.03N
+  driving/focus acceptance sees 11 action records and two focus records with a
+  non-zero journal fingerprint and no append failure.
+- This tranche adds one hermetic codec smoke and therefore raises the expected
+  Debug/Release CTest count to 56. It does not yet embed CTJ1 in a public save,
+  rebuild a complete Level from disk, or claim a finished fixed-tick replay
+  player. Those remain the next save/replay frontier.
 
 ## Binary analysis boundary
 

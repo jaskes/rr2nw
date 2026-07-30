@@ -28,6 +28,8 @@
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
 #include "SupervisorShutdownState.h"
+#include "VehicleControlJournal.h"
+#include "VehicleControlReplayProbe.h"
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
 #include "obase/bullet/BulletSubjectState.h"
@@ -269,6 +271,9 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_reentryAttempts = 0;
     m_reentryCompletions = 0;
     m_reentryPanelOpens = 0;
+    m_controlJournal = {};
+    m_controlJournalRecording = false;
+    m_controlJournalAppendFailures = 0;
   }
 
   void addNotify() override { KR_Object::addNotify(); }
@@ -370,6 +375,13 @@ class RecoveredVehicleControlInput final : public KR_Object {
       return 1;
     }
     ++m_forwardedEvents;
+    if (m_controlJournalRecording &&
+        !VehicleControlJournal_AppendAction(
+            &m_controlJournal, Session::m_simulationTick,
+            VehicleRuntimeState_LastAppliedControlTime(), action, down)) {
+      ++m_controlJournalAppendFailures;
+      m_controlJournalRecording = false;
+    }
     if (handoffAttempt) {
       if (proximity.nearbyTaxis == 0) {
         ++m_handoffNoTargets;
@@ -389,6 +401,41 @@ class RecoveredVehicleControlInput final : public KR_Object {
   bool Subscribe() { return SetSubscribed(true); }
   bool Unsubscribe() { return SetSubscribed(false); }
   bool IsSubscribed() const { return m_subscribed; }
+  bool BeginControlJournal() {
+    if (getContext() == nullptr || m_vehicle.isNUL() ||
+        !getContext()->isExist(m_vehicle) || m_controlJournalRecording)
+      return false;
+    m_controlJournal = {};
+    m_controlJournalAppendFailures = 0;
+    m_controlJournalRecording = VehicleControlJournal_Begin(
+        "Vehicle.Default", m_applicationActive, m_heldActions,
+        &m_controlJournal);
+    return m_controlJournalRecording;
+  }
+  bool ControlJournalTelemetry(
+      SRecoveredVehicleControlJournalTelemetry* telemetry) const {
+    if (telemetry == nullptr || m_controlJournal.target.empty()) return false;
+    SVehicleControlJournalStatistics statistics = {};
+    std::vector<std::uint8_t> encoded;
+    if (!VehicleControlJournal_Statistics(
+            m_controlJournal, &statistics) ||
+        !VehicleControlJournal_Encode(m_controlJournal, &encoded))
+      return false;
+    *telemetry = {};
+    telemetry->checkpointTick = m_controlJournal.checkpointTick;
+    telemetry->lastRecordTick = statistics.lastTick;
+    telemetry->journalFingerprint =
+        VehicleControlJournal_Fingerprint(m_controlJournal);
+    telemetry->recordCount = static_cast<unsigned int>(
+        m_controlJournal.records.size());
+    telemetry->actionRecords = statistics.actionRecords;
+    telemetry->focusRecords = statistics.focusRecords;
+    telemetry->encodedBytes = static_cast<unsigned int>(encoded.size());
+    telemetry->appendFailures = m_controlJournalAppendFailures;
+    telemetry->recording = m_controlJournalRecording ? 1 : 0;
+    telemetry->applicationActive = m_applicationActive ? 1 : 0;
+    return telemetry->journalFingerprint != 0;
+  }
   bool QuitRequested() const { return m_quitRequested; }
   bool ForwardingFailed() const { return m_forwardingFailed; }
   unsigned int InputEvents() const { return m_inputEvents; }
@@ -523,6 +570,13 @@ class RecoveredVehicleControlInput final : public KR_Object {
     if (active) {
       m_applicationActive = true;
       ++m_focusGains;
+      if (m_controlJournalRecording &&
+          !VehicleControlJournal_AppendFocus(
+              &m_controlJournal, Session::m_simulationTick,
+              JournalEventTime(eventTime), true)) {
+        ++m_controlJournalAppendFailures;
+        m_controlJournalRecording = false;
+      }
       return true;
     }
 
@@ -543,11 +597,29 @@ class RecoveredVehicleControlInput final : public KR_Object {
       }
       m_heldActions[index] = 0.0;
     }
+    if (succeeded && m_controlJournalRecording &&
+        !VehicleControlJournal_AppendFocus(
+            &m_controlJournal, Session::m_simulationTick,
+            JournalEventTime(eventTime), false)) {
+      ++m_controlJournalAppendFailures;
+      m_controlJournalRecording = false;
+    }
     return succeeded;
   }
 
  private:
   static constexpr int kHeldActionCount = 11;
+
+  double JournalEventTime(double requested) const {
+    SRecoveredVehicleRuntimeState state = {};
+    KR_ObjectID vehicle = m_vehicle;
+    if (getContext() == nullptr || vehicle.isNUL() ||
+        !VehicleRuntimeState_Inspect(getContext(), m_vehicle, &state) ||
+        !std::isfinite(requested))
+      return -1.0;
+    return (std::max)(state.lastTime,
+                      (std::min)(requested, state.lastTime + 0.05));
+  }
 
   static int HeldActionIndex(int action) {
     switch (action) {
@@ -635,6 +707,9 @@ class RecoveredVehicleControlInput final : public KR_Object {
   unsigned int m_reentryAttempts = 0;
   unsigned int m_reentryCompletions = 0;
   unsigned int m_reentryPanelOpens = 0;
+  SVehicleControlJournal m_controlJournal;
+  bool m_controlJournalRecording = false;
+  unsigned int m_controlJournalAppendFailures = 0;
 };
 
 unsigned int g_issues = 0;
@@ -647,6 +722,7 @@ bool g_hardwareReady = false;
 bool g_windowQuitRequested = false;
 bool g_vehicleMovementReady = false;
 bool g_taxiVehicleTransitionReady = false;
+bool g_vehicleControlReplayReady = false;
 bool g_vehicleControlReady = false;
 bool g_vehicleFallbackActive = false;
 unsigned int g_vehicleFrameCount = 0;
@@ -658,6 +734,7 @@ unsigned long long g_vehicleRuntimeFingerprint = 0;
 int g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
 SRecoveredVehicleMovementProbeSummary g_vehicleMovementProbe = {};
 STaxiVehicleTransitionProbeSummary g_taxiVehicleTransitionProbe = {};
+SRecoveredVehicleControlReplayProbeSummary g_vehicleControlReplayProbe = {};
 SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
 CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
 CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
@@ -950,8 +1027,11 @@ bool BeginVehicleControl(SimulationContext* context,
   }
 
   g_vehicleControlInput.Reset(vehicle);
-  if (context->addObject("RecoveredVehicleControl",
-                         &g_vehicleControlInput).isNUL() ||
+  const bool controlAdded = !context->addObject(
+      "RecoveredVehicleControl", &g_vehicleControlInput).isNUL();
+  const bool journalReady = controlAdded &&
+      g_vehicleControlInput.BeginControlJournal();
+  if (!controlAdded || !journalReady ||
       !g_observerInput.Suspend() ||
       !g_vehicleControlInput.Subscribe()) {
     StopVehicleControl(true, &position);
@@ -1052,6 +1132,7 @@ void EndBoundedSession() {
   g_windowQuitRequested = false;
   g_vehicleMovementReady = false;
   g_taxiVehicleTransitionReady = false;
+  g_vehicleControlReplayReady = false;
   g_vehicleControlReady = false;
   g_vehicleFallbackActive = false;
   g_vehicleFrameCount = 0;
@@ -1063,6 +1144,7 @@ void EndBoundedSession() {
   g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
   g_vehicleMovementProbe = {};
   g_taxiVehicleTransitionProbe = {};
+  g_vehicleControlReplayProbe = {};
   g_vehicleDriveTelemetry = {};
   g_vehicleTelemetryStartPosition = CFVector3(0.0, 0.0, 0.0);
   g_vehicleTelemetryStartForward = CFVector3(0.0, 0.0, 1.0);
@@ -1188,6 +1270,15 @@ void InitializeSession() {
     }
     g_vehicleVesselKind = vehicleState.vesselKind;
     g_vehicleMovementReady = true;
+    const bool replayProbeReady = VehicleControlReplayProbe_Run(
+            g_super.m_context, vehicle, observerPosition,
+            vehicleStartTime, &g_vehicleControlReplayProbe);
+    if (!replayProbeReady) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE);
+      return;
+    }
+    g_vehicleControlReplayReady = true;
     if (!TaxiSubjectState_ProbeVehicleTransition(
             g_super.m_context, vehicle, vehicleStartTime,
             &g_taxiVehicleTransitionProbe)) {
@@ -1735,6 +1826,43 @@ bool RecoveredGameServices_VehicleControlReady() {
   return g_vehicleControlReady;
 }
 
+bool RecoveredGameServices_VehicleControlReplayReady() {
+  return g_vehicleControlReplayReady;
+}
+
+bool RecoveredGameServices_VehicleControlReplayTelemetry(
+    SRecoveredVehicleControlReplayTelemetry* telemetry) {
+  if (!g_vehicleControlReplayReady || telemetry == nullptr) return false;
+  *telemetry = {};
+  telemetry->journalFingerprint =
+      g_vehicleControlReplayProbe.journalFingerprint;
+  telemetry->recordedStateFingerprint =
+      g_vehicleControlReplayProbe.recordedStateFingerprint;
+  telemetry->replayedStateFingerprint =
+      g_vehicleControlReplayProbe.replayedStateFingerprint;
+  telemetry->encodedBytes = g_vehicleControlReplayProbe.encodedBytes;
+  telemetry->recordings = g_vehicleControlReplayProbe.recordings;
+  telemetry->replays = g_vehicleControlReplayProbe.replays;
+  telemetry->codecRoundTrips = g_vehicleControlReplayProbe.codecRoundTrips;
+  telemetry->actionRecords = g_vehicleControlReplayProbe.actionRecords;
+  telemetry->focusRecords = g_vehicleControlReplayProbe.focusRecords;
+  telemetry->syntheticReleases =
+      g_vehicleControlReplayProbe.syntheticReleases;
+  telemetry->simulationFrames =
+      g_vehicleControlReplayProbe.simulationFrames;
+  telemetry->stateMatches = g_vehicleControlReplayProbe.stateMatches;
+  telemetry->clockMatches = g_vehicleControlReplayProbe.clockMatches;
+  telemetry->randomMatches = g_vehicleControlReplayProbe.randomMatches;
+  telemetry->rollbacks = g_vehicleControlReplayProbe.rollbacks;
+  return true;
+}
+
+bool RecoveredGameServices_VehicleControlJournalTelemetry(
+    SRecoveredVehicleControlJournalTelemetry* telemetry) {
+  return g_vehicleControlReady &&
+         g_vehicleControlInput.ControlJournalTelemetry(telemetry);
+}
+
 bool RecoveredGameServices_VehicleFallbackActive() {
   return g_vehicleFallbackActive;
 }
@@ -1898,6 +2026,7 @@ bool RecoveredGameServices_IsReady() {
          RecoveredGameServices_TankCannonSubjectTablesReady() &&
          RecoveredGameServices_VehicleReady() &&
          RecoveredGameServices_VehicleMovementReady() &&
+         RecoveredGameServices_VehicleControlReplayReady() &&
          (RecoveredGameServices_VehicleControlReady() ||
           RecoveredGameServices_VehicleFallbackActive()) &&
          RecoveredGameLevel_IsReady() && Frame_RuntimeReady(false);

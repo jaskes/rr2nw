@@ -63,6 +63,7 @@ struct VehicleRuntimeOwner
 
 VehicleRuntimeOwner g_owner;
 int g_lastControlFailure = 0;
+double g_lastAppliedControlTime = -1.0;
 int g_lastFrameFailure = 0;
 int g_lastFrameReadinessIssue = 0;
 
@@ -480,6 +481,7 @@ bool VehicleRuntimeState_ApplyControlAt(
     double eventTime)
 {
     g_lastControlFailure = 0;
+    g_lastAppliedControlTime = -1.0;
     if (!g_owner.active || context == NULL ||
         g_owner.context != context || g_owner.vehicle == NULL)
     {
@@ -544,12 +546,18 @@ bool VehicleRuntimeState_ApplyControlAt(
         return false;
     }
     ++g_owner.controlEventCount;
+    g_lastAppliedControlTime = eventTime;
     return true;
 }
 
 int VehicleRuntimeState_LastControlFailure()
 {
     return g_lastControlFailure;
+}
+
+double VehicleRuntimeState_LastAppliedControlTime()
+{
+    return g_lastAppliedControlTime;
 }
 
 bool VehicleRuntimeState_ApplyLiveControlAt(
