@@ -1,5 +1,6 @@
 #include "CorpseSubjectState.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "Corpse.h"
@@ -120,6 +121,38 @@ bool CorpseSubjectState_CollectObjects(std::vector<KR_ObjectID> *objects)
     if (table == ct_NULLID)
         return true;
     g_arena.userFind(table, CollectCorpseSubject, objects);
+    return true;
+}
+
+bool CorpseSubjectState_IsPending(
+    SimulationContext *context, const KR_ObjectID &object)
+{
+    Corpse *corpse = CorpseSubjectState_Find(context, object);
+    return corpse != NULL && corpse->context == context &&
+           corpse->m_attr == NULL && corpse->m_attributeIndex == -1 &&
+           corpse->m_smoke.isNUL() && corpse->m_fire.isNUL() &&
+           !corpse->m_dynamicPublished;
+}
+
+bool CorpseSubjectState_CollectPending(
+    SimulationContext *context, const char *objectName,
+    std::vector<KR_ObjectID> *objects)
+{
+    std::vector<KR_ObjectID> roster;
+    if (context == NULL || objectName == NULL || objects == NULL ||
+        !CorpseSubjectState_CollectObjects(&roster))
+        return false;
+    objects->clear();
+    for (std::size_t index = 0; index < roster.size(); ++index)
+    {
+        const char *name = context->searchObject(roster[index]);
+        if (CorpseSubjectState_IsPending(context, roster[index]) &&
+            name != NULL && std::strcmp(name, objectName) == 0)
+            objects->push_back(roster[index]);
+    }
+    std::sort(objects->begin(), objects->end(),
+              [](const KR_ObjectID &left, const KR_ObjectID &right)
+              { return left.id < right.id; });
     return true;
 }
 

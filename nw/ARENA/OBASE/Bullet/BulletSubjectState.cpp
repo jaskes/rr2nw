@@ -452,10 +452,9 @@ class BoundedBullet : public ct_Subject
         record->attribute =
             ObjectName(world, m_attribute->getObjectID());
         record->master = ObjectName(world, m_master);
-        if (record->name.empty() || record->attribute.empty() ||
-            record->master.empty())
+        if (record->name.empty() || record->attribute.empty())
             return FailActiveWorld(
-                "live Bullet symbolic owner/attribute/master is missing");
+                "live Bullet symbolic owner/attribute is missing");
         if (!record->master.empty() &&
             (!world->isExist(record->master.c_str()) ||
              world->searchObject(record->master.c_str()) != m_master))
@@ -1147,7 +1146,6 @@ bool CollectStableRoster(SimulationContext *context,
 bool ValidateStableRecord(const StableBulletRecord &record)
 {
     return !record.name.empty() && !record.attribute.empty() &&
-           !record.master.empty() &&
            record.name.size() <= kMaximumActiveWorldString &&
            record.attribute.size() <= kMaximumActiveWorldString &&
            record.master.size() <= kMaximumActiveWorldString &&
@@ -2460,11 +2458,15 @@ bool BulletActiveWorldState_ProbeFlightRoundTrip(
         if (dynamic != NULL && FiniteVector(dynamic->getPos()))
             position = dynamic->getPos() + CFVector3(0.0, 10.0, 0.0);
         const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+        // Use a generation-mismatched ID in the live master's former slot.
+        // It models a projectile whose shooter was removed before the save.
+        const KR_ObjectID staleMaster(master.id ^ 0x40000000L,
+                                      master.getCachePos());
         KR_Event start;
         Session::m_frameSec = 0.090001;
         if (!BuildStartEvent(start, original, master, ts, position,
                              CFVector3(0.0, 1.0, 0.0), attributeIndex,
-                             master))
+                             staleMaster))
         {
             FailActiveWorld("Bullet active-world probe start encoding failed");
             break;
@@ -2554,6 +2556,7 @@ bool BulletActiveWorldState_ProbeFlightRoundTrip(
         summary->reconstructedOwners = 1;
         summary->stableRoundTrips = 2;
         summary->resumedMoves = 1;
+        summary->tombstonedMasters = 1;
         summary->fingerprint = fingerprint;
         success = true;
     } while (false);

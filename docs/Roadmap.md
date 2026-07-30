@@ -1009,9 +1009,9 @@ The next Windows-first persistence work is deliberately incremental:
    private scheduler state;
 3. [in progress] add transient combat ownership: live Bullet flight, the
    parent-owned Explosion particle graph, detached Spark and Smoke, and the
-   Corpse/DynSmoker owner graph are done; queued effect creation, mission state,
-   the remaining semantic event queue and an authoritative deterministic RNG
-   remain;
+   Corpse/DynSmoker owner graph plus queued Explosion/Spark/Corpse creation are
+   done; mission state, the remaining non-effect semantic queue and an
+   authoritative deterministic RNG remain;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
@@ -1102,10 +1102,17 @@ frame-publication flags are reset explicitly, while detached emitted Smoke
 remains owned by SMK1. Admission passes 54/54 CTest in Debug and Release plus
 all 36 retail matrix cases.
 
-The next large persistence slice completes the remaining damage/death effect
-boundary: semantic hit/death and queued effect events, projectiles whose master
-disappears before capture and their rollback order.
-After that come the remaining mission queue and authoritative RNG, followed by
+The queued-effect half of that boundary is now admitted. EVT1 stores real
+pending `EXPLOSION_START`, `sp_EV_CREATE` and `CORPSE_START_ROTTING` commands
+through symbolic attribute/relation identities and duplicate-name ordinals.
+The ten owner sections exclude not-yet-started destinations, restore recreates
+three pending owners under fresh ObjectIDs, equal-time queue order survives,
+and the deliberate validation failure rolls the entire owner/event transaction
+back. Retail diagnostics are `10/3`, `10/10/3`; BUL1 additionally proves a
+missing master is restored as a safe tombstone in `1/2/1/1/2/1/1`.
+
+The next persistence slice is the remaining mission/input queue and explicit
+semantic hit/damage/death records, followed by authoritative clock/RNG state,
 a complete fresh-Level reconstruction and public save controls.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient

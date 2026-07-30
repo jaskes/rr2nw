@@ -16,6 +16,8 @@ namespace {
 
 constexpr int kDirectEvent = 1999;
 constexpr int kQueuedEvent = 2000;
+constexpr int kEqualFirstEvent = 2001;
+constexpr int kEqualSecondEvent = 2002;
 
 int Fail(const char* message) {
   std::cerr << "legacy-context-route-smoke: " << message << '\n';
@@ -46,6 +48,7 @@ bool ExerciseContext() {
   KR_ObjectID id = context.addObject("context.probe", &probe);
   const char* symbolic_name = context.searchObject(id);
   if (id.isNUL() || probe.getContext() != &context ||
+      context.objectFreeCount() != 7 ||
       context.searchObject("context.probe") != id ||
       symbolic_name == nullptr ||
       std::strcmp(symbolic_name, "context.probe") != 0 ||
@@ -77,9 +80,30 @@ bool ExerciseContext() {
     return false;
   }
 
+  KR_Event equal_first(kEqualFirstEvent, 4.0, id, id);
+  KR_Event equal_second(kEqualSecondEvent, 4.0, KR_ObjectID::NUL(), id);
+  context.addEvent(equal_first);
+  context.addEvent(equal_second);
+  KR_Event all[3];
+  KR_Event destination[2];
+  if (context.eventCount() != 2 || context.eventFreeCount() != 6 ||
+      context.copyAllEvents(all, 3) != 2 ||
+      all[0].label != kEqualSecondEvent ||
+      all[1].label != kEqualFirstEvent ||
+      context.copyEventsTo(kEqualSecondEvent, id, destination, 2) != 1 ||
+      destination[0].source != KR_ObjectID::NUL() ||
+      context.removeEventsTo(kEqualSecondEvent, id) != 1 ||
+      context.copyEventsTo(kEqualSecondEvent, id, nullptr, 0) != 0 ||
+      context.eventCount() != 1 || context.eventFreeCount() != 7 ||
+      context.removeEventsTo(kEqualFirstEvent, id) != 1 ||
+      context.eventCount() != 0 || context.eventFreeCount() != 8) {
+    return false;
+  }
+
   context.removeObject(id);
   return probe.getContext() == nullptr && probe.getObjectID().isNUL() &&
-         !context.isExist(id) && !context.isExist("context.probe");
+         !context.isExist(id) && !context.isExist("context.probe") &&
+         context.objectFreeCount() == 8;
 }
 
 bool ExerciseRouteGeometry() {

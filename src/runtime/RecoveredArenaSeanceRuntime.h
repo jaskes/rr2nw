@@ -272,6 +272,7 @@ int RecoveredArenaSeance_BulletActiveWorldRollbacks();
 int RecoveredArenaSeance_BulletActiveWorldReconstructedIDs();
 int RecoveredArenaSeance_BulletActiveWorldStableRoundTrips();
 int RecoveredArenaSeance_BulletActiveWorldResumedMoves();
+int RecoveredArenaSeance_BulletActiveWorldTombstonedMasters();
 unsigned long long RecoveredArenaSeance_BulletActiveWorldFingerprint();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();

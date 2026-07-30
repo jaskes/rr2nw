@@ -1559,6 +1559,7 @@ struct RecoveredArenaSeanceState {
   int bulletActiveWorldReconstructedIDs;
   int bulletActiveWorldStableRoundTrips;
   int bulletActiveWorldResumedMoves;
+  int bulletActiveWorldTombstonedMasters;
   unsigned long long bulletActiveWorldFingerprint;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
@@ -2588,15 +2589,18 @@ bool PublishBulletActiveWorld(SimulationContext* context,
       summary.capturedOwners != 1 || summary.schedulerEvents != 2 ||
       summary.stagedRollbacks != 1 || summary.reconstructedOwners != 1 ||
       summary.stableRoundTrips != 2 || summary.resumedMoves != 1 ||
+      summary.tombstonedMasters != 1 ||
       summary.fingerprint == 0 ||
       BulletSubjectState_LiveCount() != 0) {
     char message[320] = {};
     std::snprintf(message, sizeof(message),
                   "BUL1 flight owners/events/rollback/recreated/roundtrips/"
-                  "resumed/fingerprint=%d/%d/%d/%d/%d/%d/%llu: %.140s",
+                  "resumed/tombstones/fingerprint="
+                  "%d/%d/%d/%d/%d/%d/%d/%llu: %.140s",
                   summary.capturedOwners, summary.schedulerEvents,
                   summary.stagedRollbacks, summary.reconstructedOwners,
                   summary.stableRoundTrips, summary.resumedMoves,
+                  summary.tombstonedMasters,
                   summary.fingerprint,
                   BulletActiveWorldState_LastFailure());
     ReportExtended(RECOVERED_ARENA_SEANCE_EXT_BULLET_ACTIVE_WORLD_FAILURE,
@@ -2610,6 +2614,8 @@ bool PublishBulletActiveWorld(SimulationContext* context,
       summary.reconstructedOwners;
   g_state.bulletActiveWorldStableRoundTrips = summary.stableRoundTrips;
   g_state.bulletActiveWorldResumedMoves = summary.resumedMoves;
+  g_state.bulletActiveWorldTombstonedMasters =
+      summary.tombstonedMasters;
   g_state.bulletActiveWorldFingerprint = summary.fingerprint;
   g_state.bulletActiveWorldReady = true;
   return true;
@@ -5577,6 +5583,7 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletActiveWorldReconstructedIDs = 0;
   g_state.bulletActiveWorldStableRoundTrips = 0;
   g_state.bulletActiveWorldResumedMoves = 0;
+  g_state.bulletActiveWorldTombstonedMasters = 0;
   g_state.bulletActiveWorldFingerprint = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
@@ -6661,6 +6668,11 @@ int RecoveredArenaSeance_BulletActiveWorldStableRoundTrips() {
 int RecoveredArenaSeance_BulletActiveWorldResumedMoves() {
   return g_state.bulletActiveWorldReady
              ? g_state.bulletActiveWorldResumedMoves : -1;
+}
+
+int RecoveredArenaSeance_BulletActiveWorldTombstonedMasters() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldTombstonedMasters : -1;
 }
 
 unsigned long long RecoveredArenaSeance_BulletActiveWorldFingerprint() {

@@ -3003,3 +3003,34 @@ Corpse, DynSmoker and detached Smoke pools return to baseline. Diagnostics are
 `corpse_active_world_probe=2/4/8/1/6/2/1/1`. Debug and Release pass 54/54
 CTest; all nine Levels from both `E:\Games\The Next Worlds` and `G:\nw` pass
 the 36/36 executable matrix.
+
+## EVT1 queued-effect reconstruction and stale Bullet masters
+
+The active-world envelope now uses its existing semantic-event array for three
+pending effect commands: Explosion START, Spark CREATE and Corpse
+START_ROTTING. This remains ten owner sections. Pending destinations are
+excluded from EXP1/SPK1/COR1 until their creation command executes, preventing
+the same transition from being serialized in two ownership domains.
+
+EVT1 is field-level and stable: destination name/ordinal, symbolic attribute,
+position, timestamp/order and symbolic-or-tombstoned external references.
+Restore preflights the entire batch, recreates pending destinations under new
+ObjectIDs, rebuilds current encoded attribute indices, reverses insertion to
+preserve equal-time legacy ordering and requires exact canonical recapture.
+Rollback replaces both owner state and the pre-transaction admitted queue.
+
+`SimulationContext` gained bounded all-event and destination-route operations
+plus queue/free counts; the legacy `Context.cpp` encoding remains untouched in
+a separate modern translation unit. BUL1 now treats a disappeared master as a
+canonical empty symbolic reference and safely restores NUL ownership while
+retaining its two private events and resumed movement.
+
+Retail admission markers advance from `10/0`, `10/10/0` and
+`1/2/1/1/2/1` to `10/3`, `10/10/3` and `1/2/1/1/2/1/1`. Source-only data,
+which intentionally lacks the visual dependencies needed for the three live
+probe commands, retains a valid empty EVT1 array.
+
+The completed admission passes 54/54 CTest in both Debug and Release. The
+executable retail matrix also passes 36/36: all nine configured Levels from
+both `E:\Games\The Next Worlds` and `G:\nw`, in both configurations, render
+two real frames and finish with a clean transactional EVT1 proof.

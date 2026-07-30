@@ -18,6 +18,11 @@ int CorpseSubjectState_LiveCount();
 Corpse *CorpseSubjectState_Find(SimulationContext *context,
                                const KR_ObjectID &object);
 bool CorpseSubjectState_CollectObjects(std::vector<KR_ObjectID> *objects);
+bool CorpseSubjectState_IsPending(
+    SimulationContext *context, const KR_ObjectID &object);
+bool CorpseSubjectState_CollectPending(
+    SimulationContext *context, const char *objectName,
+    std::vector<KR_ObjectID> *objects);
 unsigned long long CorpseSubjectState_Fingerprint(
     SimulationContext *context);
 

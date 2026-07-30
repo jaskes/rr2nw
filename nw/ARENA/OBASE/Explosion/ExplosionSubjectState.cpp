@@ -1973,6 +1973,16 @@ bool CollectStableRoster(SimulationContext *context,
         g_arena.getContext() != context)
         return false;
     g_explosionTable.collect(objects);
+    objects->erase(
+        std::remove_if(objects->begin(), objects->end(),
+                       [context](BoundedExplosion *object)
+                       {
+                           return !object->started() &&
+                               context->copyEventsTo(
+                                   EXPLOSION_START,
+                                   object->getObjectID(), NULL, 0) != 0;
+                       }),
+        objects->end());
     std::sort(objects->begin(), objects->end(),
               [context](BoundedExplosion *left,
                         BoundedExplosion *right) {
@@ -2391,6 +2401,39 @@ int ExplosionSubjectState_Capacity()
 int ExplosionSubjectState_LiveCount()
 {
     return g_explosionTable.liveCount();
+}
+
+bool ExplosionSubjectState_IsPending(
+    SimulationContext *context, const KR_ObjectID &object)
+{
+    BoundedExplosion *explosion = context == NULL
+        ? NULL : g_explosionTable.find(object);
+    return explosion != NULL && explosion->context == context &&
+           explosion->clean();
+}
+
+bool ExplosionSubjectState_CollectPending(
+    SimulationContext *context, const char *objectName,
+    std::vector<KR_ObjectID> *objects)
+{
+    if (context == NULL || objectName == NULL || objects == NULL ||
+        g_arena.getContext() != context)
+        return false;
+    std::vector<BoundedExplosion *> roster;
+    g_explosionTable.collect(&roster);
+    objects->clear();
+    for (std::size_t index = 0; index < roster.size(); ++index)
+    {
+        const char *name = context->searchObject(
+            roster[index]->getObjectID());
+        if (roster[index]->clean() && name != NULL &&
+            std::strcmp(name, objectName) == 0)
+            objects->push_back(roster[index]->getObjectID());
+    }
+    std::sort(objects->begin(), objects->end(),
+              [](const KR_ObjectID &left, const KR_ObjectID &right)
+              { return left.id < right.id; });
+    return true;
 }
 
 bool ExplosionSubjectState_BindImpulseTarget(

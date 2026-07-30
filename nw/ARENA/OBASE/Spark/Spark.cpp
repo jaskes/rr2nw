@@ -220,7 +220,13 @@ bool CollectStableRoster(SimulationContext *context,
     objects->clear();
     for (ct_Subject *subject = __classTable.findFirstSubject();
          subject != NULL; subject = __classTable.findNextSubject(subject))
-        objects->push_back(static_cast<Spark *>(subject));
+    {
+        Spark *object = static_cast<Spark *>(subject);
+        if (object->m_started ||
+            context->copyEventsTo(sp_EV_CREATE,
+                                  object->getObjectID(), NULL, 0) == 0)
+            objects->push_back(object);
+    }
     std::sort(objects->begin(), objects->end(),
               [context](const Spark *left, const Spark *right)
               {
@@ -697,6 +703,36 @@ int SparkSubjectState_Capacity()
 int SparkSubjectState_LiveCount()
 {
     return __classTable.liveCount();
+}
+
+bool SparkSubjectState_IsPending(
+    SimulationContext *context, const KR_ObjectID &object)
+{
+    Spark *spark = context == NULL ? NULL : __classTable.find(object);
+    return spark != NULL && spark->context == context && spark->clean();
+}
+
+bool SparkSubjectState_CollectPending(
+    SimulationContext *context, const char *objectName,
+    std::vector<KR_ObjectID> *objects)
+{
+    if (context == NULL || objectName == NULL || objects == NULL ||
+        g_arena.getContext() != context)
+        return false;
+    objects->clear();
+    for (ct_Subject *subject = __classTable.findFirstSubject();
+         subject != NULL; subject = __classTable.findNextSubject(subject))
+    {
+        Spark *spark = static_cast<Spark *>(subject);
+        const char *name = context->searchObject(spark->getObjectID());
+        if (spark->clean() && name != NULL &&
+            std::strcmp(name, objectName) == 0)
+            objects->push_back(spark->getObjectID());
+    }
+    std::sort(objects->begin(), objects->end(),
+              [](const KR_ObjectID &left, const KR_ObjectID &right)
+              { return left.id < right.id; });
+    return true;
 }
 
 unsigned long long SparkSubjectState_Fingerprint(SimulationContext *context)

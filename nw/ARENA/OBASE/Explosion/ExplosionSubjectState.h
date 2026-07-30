@@ -4,6 +4,8 @@
 #include "mathlib.h"
 #include "storage/h/classtab.h"
 
+#include <vector>
+
 class SimulationContext;
 class WAVObj;
 
@@ -93,6 +95,11 @@ bool ExplosionSubjectState_TableReady(SimulationContext *context,
                                       int expectedCapacity);
 int ExplosionSubjectState_Capacity();
 int ExplosionSubjectState_LiveCount();
+bool ExplosionSubjectState_IsPending(
+    SimulationContext *context, const KR_ObjectID &object);
+bool ExplosionSubjectState_CollectPending(
+    SimulationContext *context, const char *objectName,
+    std::vector<KR_ObjectID> *objects);
 bool ExplosionSubjectState_BindImpulseTarget(
     SimulationContext *context, const KR_ObjectID &target,
     void *user, ExplosionImpulseDispatch dispatch);

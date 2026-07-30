@@ -2560,6 +2560,31 @@ Status vocabulary:
 - Revisit when: the generic semantic queue is admitted. It must skip the three
   private COR1 labels and must not resurrect ignored START payload bytes.
 
+### CQ-152: queued creation may outlive its source and equal times reverse on insert
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `SimulationContext::addEvent` inserts before an existing event when
+  `new.timeStamp <= old.timeStamp`. `removeEvent` and `copyEvents` historically
+  route by source, while Corpse and legacy Explosion creation route to a newly
+  allocated destination from a different, potentially dying source. A source
+  removal therefore cannot reliably enumerate or cancel the pending command.
+- Handling: the modern kernel exposes bounded whole-queue inspection,
+  destination-filtered copying/removal and queue/free counts. EVT1 selects only
+  the three pending effect labels, resolves duplicate destinations by
+  name/creation ordinal and inserts a reconstructed batch in reverse. Missing
+  source, Corpse parent, Explosion damage owner and Bullet master are explicit
+  tombstones, never stale numeric IDs.
+- Verification: the kernel route smoke checks whole-queue order, a NUL-source
+  destination lookup, destination removal and exact pool counts. The retail
+  probe queues all three effects at the same timestamp, destroys the originals,
+  restores them under fresh IDs and passes an intentional full rollback with
+  `10/3`, `10/10/3` and `1/1` integrity markers. BUL1 reports the additional
+  tombstone proof as `1/2/1/1/2/1/1`.
+- Revisit when: mission/input and explicit hit/damage/death events enter EVT1.
+  Give each a field-level payload codec and owner classification; do not admit
+  arbitrary raw `s_EventData` bytes or duplicate owner-private schedulers.
+
 ## Maintenance rule
 
 When a new quirk is found:

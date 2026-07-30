@@ -3333,3 +3333,40 @@ launches.
 
 Queued effect creation, external hit/death semantics, mission state, the
 generic event queue and authoritative RNG remain later sections.
+
+## BD-087: queued effects are EVT1 records, not an eleventh owner section
+
+Status: accepted on 2026-07-30.
+
+The active-world container already has a versioned semantic-event array, so
+pending Explosion, Spark and Corpse creation does not add another owner
+section. EVT1 admits exactly `EXPLOSION_START`, `sp_EV_CREATE` and
+`CORPSE_START_ROTTING`. EXP1, SPK1 and COR1 continue to own only started
+objects and their private MOVE/LIFE/death schedulers; a not-yet-started object
+with a queued creation event is excluded from those rosters and encoded once.
+
+An EVT1 record stores the event label/time/order, symbolic attribute, position,
+destination name plus same-name ordinal, and symbolic or tombstoned source,
+damage-owner/parent references. Encoded attribute indices and ObjectIDs never
+cross the boundary. A stale relation becomes NUL on restore. The legacy queue
+prepends a newly inserted equal-time event, so restore builds the full batch
+and inserts it in reverse to preserve captured equal-time order.
+
+Restore validates every event and dependency before mutation, removes the
+current admitted effect queue, allocates pending destinations under fresh IDs,
+rebuilds payloads with current encoded indices and only then queues the batch.
+The ordinary intentional validation failure also replaces the pre-transaction
+event snapshot, not only the ten owner graphs. Destination-routed removal is
+required because historical Corpse/Explosion producers may use a dying source
+whose ID is no longer live.
+
+The production proof queues one real Explosion, Spark and Corpse at one
+timestamp, captures `10/3`, deletes all three originals, restores
+`10/10/3`, performs a second complete rollback and removes only the synthetic
+probe destinations before gameplay continues. BUL1 separately accepts an
+empty master name as a tombstone and proves resumed movement after two
+fresh-ID reconstructions. The marker is
+`bullet_active_world_probe=1/2/1/1/2/1/1`.
+
+Mission/input events and explicit external hit/damage/death records remain the
+next semantic boundary. Owner-private scheduler labels remain excluded.

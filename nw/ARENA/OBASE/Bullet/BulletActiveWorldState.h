@@ -15,6 +15,7 @@ struct BulletActiveWorldProbeSummary
     int reconstructedOwners;
     int stableRoundTrips;
     int resumedMoves;
+    int tombstonedMasters;
     unsigned long long fingerprint;
 };
 

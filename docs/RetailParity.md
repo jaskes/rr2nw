@@ -1252,6 +1252,19 @@ phases and successful fresh-ID/rollback/resumption proofs through COR1. The
 bounded live effect probes leave their Corpse, DynSmoker, Smoke, Spark,
 Explosion and Bullet pools at baseline before the playable Level begins.
 
+### RP-SAVE-007: pending effect creation survives fresh-ID reconstruction
+
+- EVT1 owns queued Explosion START, Spark CREATE and Corpse START_ROTTING
+  records in the existing event array; the owner section count remains ten.
+- Retail startup queues all three commands at one timestamp, captures symbolic
+  attributes and references, removes their original pending destinations and
+  reconstructs them under fresh IDs after owner/reference restore.
+- Equal-time order, NUL/tombstoned references and the complete rollback path
+  are required. Diagnostics are `10/3`, `10/10/3`, `1/1`; BUL1 reports a
+  stale-master round trip as `1/2/1/1/2/1/1`.
+- This does not yet admit mission/input events, arbitrary event payloads,
+  deterministic RNG/clock state or public save controls.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

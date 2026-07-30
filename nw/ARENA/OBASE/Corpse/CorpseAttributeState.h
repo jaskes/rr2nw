@@ -59,6 +59,9 @@ bool CorpseAttributeState_CachesUnresolved(SimulationContext *context);
 bool CorpseAttributeState_ResolveReferences(SimulationContext *context);
 bool CorpseAttributeState_ReferencesResolved(SimulationContext *context);
 bool CorpseAttributeState_RuntimeReady(SimulationContext *context);
+bool CorpseAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeCorpse **attribute);
 unsigned long long CorpseAttributeState_ReferenceFingerprint(
     SimulationContext *context);
 bool CorpseAttributeState_IsKnownReferenceRoster(

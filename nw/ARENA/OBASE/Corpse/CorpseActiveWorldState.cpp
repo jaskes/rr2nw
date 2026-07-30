@@ -369,7 +369,10 @@ bool CollectCorpseRoster(SimulationContext *context,
         Corpse *object = CorpseSubjectState_Find(context, ids[index]);
         if (object == NULL)
             return false;
-        objects->push_back(object);
+        if (object->m_attr != NULL ||
+            context->copyEventsTo(CORPSE_START_ROTTING,
+                                  object->getObjectID(), NULL, 0) == 0)
+            objects->push_back(object);
     }
     std::sort(objects->begin(), objects->end(),
               [context](const Corpse *left, const Corpse *right)

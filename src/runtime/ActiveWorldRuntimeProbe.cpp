@@ -1,6 +1,7 @@
 #include "ActiveWorldRuntimeProbe.h"
 
 #include "ActiveWorldSave.h"
+#include "ActiveWorldSemanticEvents.h"
 
 #include "kernel/h/context.h"
 #include "obase/comander/CommanderState.h"
@@ -205,6 +206,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     sparkBackup_.clear();
     smokeBackup_.clear();
     corpseBackup_.clear();
+    semanticBackup_.clear();
+    stagedEvents_.clear();
     createdCommanders_.clear();
     createdTankGroups_.clear();
     createdVehicles_.clear();
@@ -215,6 +218,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdSparks_.clear();
     createdSmokes_.clear();
     createdCorpses_.clear();
+    createdSemanticOwners_.clear();
     if (!CommanderState_CaptureStable(context_, &commanderBackup_) ||
         !TankGroupState_CaptureStable(context_, &tankGroupBackup_) ||
         !VehicleActiveWorldState_CaptureStable(context_, &vehicleBackup_) ||
@@ -225,7 +229,9 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                                                   &explosionBackup_) ||
         !SparkActiveWorldState_CaptureStable(context_, &sparkBackup_) ||
         !SmokeActiveWorldState_CaptureStable(context_, &smokeBackup_) ||
-        !CorpseActiveWorldState_CaptureStable(context_, &corpseBackup_)) {
+        !CorpseActiveWorldState_CaptureStable(context_, &corpseBackup_) ||
+        !ActiveWorldSemanticEvents_Capture(
+            context_, &semanticBackup_, failure)) {
       SetFailure(failure, "active-world live owner backup failed");
       began_ = false;
       return false;
@@ -411,11 +417,15 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     return true;
   }
 
-  bool RestoreEvent(const SActiveWorldEvent&, std::string* failure) override {
-    SetFailure(failure,
-               "semantic event import is not connected to SimulationContext");
+  bool RestoreEvent(const SActiveWorldEvent& event,
+                    std::string* failure) override {
+    if (!began_ || event.sequence != stagedEvents_.size()) {
+      SetFailure(failure, "EVT1 restore order is invalid");
+      return false;
+    }
+    stagedEvents_.push_back(event);
     ++eventPhases_;
-    return false;
+    return true;
   }
 
   bool Validate(std::uint64_t expectedWorldFingerprint,
@@ -426,6 +436,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       SetFailure(failure, "active-world staged fingerprint is invalid");
       return false;
     }
+    if (stagedEvents_.size() != snapshot_->events.size() ||
+        !ActiveWorldSemanticEvents_Validate(stagedEvents_, failure) ||
+        !ActiveWorldSemanticEvents_Replace(
+            context_, stagedEvents_, &createdSemanticOwners_, failure) ||
+        !ActiveWorldSemanticEvents_Matches(context_, stagedEvents_))
+      return false;
     if (rejectValidation_) {
       SetFailure(failure, "intentional rollback probe");
       return false;
@@ -476,6 +492,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, smokeBackup_) && clean;
       clean = CorpseActiveWorldState_ApplyStableReferences(
                   context_, corpseBackup_) && clean;
+      std::vector<KR_ObjectID> restoredSemanticOwners;
+      clean = ActiveWorldSemanticEvents_Replace(
+                  context_, semanticBackup_, &restoredSemanticOwners,
+                  nullptr) && clean;
+      restoredSemanticOwners.clear();
+      createdSemanticOwners_.clear();
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
               TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
               VehicleActiveWorldState_MatchesStable(context_, vehicleBackup_) &&
@@ -490,15 +512,21 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, smokeBackup_) &&
               CorpseActiveWorldState_MatchesStable(
                   context_, corpseBackup_) &&
+              ActiveWorldSemanticEvents_Matches(
+                  context_, semanticBackup_) &&
               clean;
     }
     staged_.clear();
+    stagedEvents_.clear();
     rolledBack_ = true;
     rollbackClean_ = clean;
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 10;
+    return began_ && committed_ && !rolledBack_ && staged_.size() == 10 &&
+           snapshot_ != nullptr && stagedEvents_.size() ==
+               snapshot_->events.size() &&
+           ActiveWorldSemanticEvents_Matches(context_, stagedEvents_);
   }
   bool RolledBackCleanly() const {
     return began_ && !committed_ && rolledBack_ && staged_.empty() &&
@@ -507,7 +535,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
            createdPeople_.empty() && createdTanks_.empty() &&
            createdBullets_.empty() && createdExplosions_.empty() &&
            createdSparks_.empty() && createdSmokes_.empty() &&
-           createdCorpses_.empty();
+           createdCorpses_.empty() && createdSemanticOwners_.empty() &&
+           stagedEvents_.empty();
   }
   int ownerPhases() const { return ownerPhases_; }
   int referencePhases() const { return referencePhases_; }
@@ -546,6 +575,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> sparkBackup_;
   std::vector<std::uint8_t> smokeBackup_;
   std::vector<std::uint8_t> corpseBackup_;
+  std::vector<SActiveWorldEvent> semanticBackup_;
+  std::vector<SActiveWorldEvent> stagedEvents_;
   std::vector<KR_ObjectID> createdCommanders_;
   std::vector<KR_ObjectID> createdTankGroups_;
   std::vector<KR_ObjectID> createdVehicles_;
@@ -556,6 +587,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<KR_ObjectID> createdSparks_;
   std::vector<KR_ObjectID> createdSmokes_;
   std::vector<KR_ObjectID> createdCorpses_;
+  std::vector<KR_ObjectID> createdSemanticOwners_;
 };
 
 }  // namespace
@@ -582,7 +614,16 @@ bool ActiveWorldRuntime_CaptureProbe(
   snapshot.simulationTick = simulationTick;
   snapshot.simulationTime = simulationTime;
   snapshot.level = level;
+  bool stagedProbeEvents = false;
+  if (!ActiveWorldSemanticEvents_StageProbe(
+          context, simulationTime + 30.0, &stagedProbeEvents, failure))
+    return false;
+  const auto cleanupProbeEvents = [&]() {
+    return !stagedProbeEvents ||
+           ActiveWorldSemanticEvents_ClearProbe(context, failure);
+  };
   if (!CaptureOwnerSections(context, &snapshot.sections)) {
+    cleanupProbeEvents();
     SetFailure(failure,
                "Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/"
                "Spark/Smoke/Corpse "
@@ -590,14 +631,21 @@ bool ActiveWorldRuntime_CaptureProbe(
                "capture failed");
     return false;
   }
+  if (!ActiveWorldSemanticEvents_Capture(
+          context, &snapshot.events, failure)) {
+    cleanupProbeEvents();
+    return false;
+  }
 
   SActiveWorldSaveStatus status;
   if (!ActiveWorldSave_Encode(snapshot, bytes, &status)) {
+    cleanupProbeEvents();
     SetFailure(failure, status.detail);
     return false;
   }
   SActiveWorldSnapshot decoded;
   if (!ActiveWorldSave_Decode(*bytes, &decoded, &status)) {
+    cleanupProbeEvents();
     SetFailure(failure, status.detail);
     return false;
   }
@@ -605,13 +653,17 @@ bool ActiveWorldRuntime_CaptureProbe(
   corrupt[corrupt.size() / 2] ^= 0x40;
   if (ActiveWorldSave_Decode(corrupt, &decoded, &status) ||
       status.error != EActiveWorldSaveError::IntegrityMismatch) {
+    cleanupProbeEvents();
     SetFailure(failure, "active-world corruption probe was accepted");
     return false;
   }
   if (!ActiveWorldSave_Decode(*bytes, &decoded, &status)) {
+    cleanupProbeEvents();
     SetFailure(failure, status.detail);
     return false;
   }
+  if (!cleanupProbeEvents())
+    return false;
   summary->sections = static_cast<int>(decoded.sections.size());
   summary->events = static_cast<int>(decoded.events.size());
   summary->corruptionRejects = 1;
@@ -637,6 +689,7 @@ bool ActiveWorldRuntime_RestoreProbe(
   RuntimeRestoreTarget success(context, false);
   if (!ActiveWorldSave_RestoreTransactional(snapshot, &success, &status) ||
       !success.Successful()) {
+    ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
     SetFailure(failure, status.detail);
     return false;
   }
@@ -644,15 +697,20 @@ bool ActiveWorldRuntime_RestoreProbe(
   if (ActiveWorldSave_RestoreTransactional(snapshot, &rollback, &status) ||
       status.error != EActiveWorldSaveError::RestoreValidationFailed ||
       !rollback.RolledBackCleanly()) {
+    ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
     SetFailure(failure, "active-world rollback probe did not unwind staging");
     return false;
   }
   for (const SActiveWorldSection& section : snapshot.sections) {
     if (!OwnerMatchesWorld(context, section)) {
       SetFailure(failure, "active-world rollback changed the live graph");
+      ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
       return false;
     }
   }
+  if (!ActiveWorldSemanticEvents_Matches(context, snapshot.events) ||
+      !ActiveWorldSemanticEvents_ClearProbe(context, failure))
+    return false;
 
   summary->ownerPhases = success.ownerPhases();
   summary->referencePhases = success.referencePhases();

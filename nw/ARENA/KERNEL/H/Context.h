@@ -102,6 +102,23 @@ class SimulationContext : public SimulationContextData
                                     KR_Event     *events,
                                     int           capacity
                                    ) const;
+      int          copyAllEvents  (
+                                    KR_Event     *events,
+                                    int           capacity
+                                   ) const;
+      int          copyEventsTo   (
+                                    KR_EventLabel label,
+                                    KR_ObjectID   destination,
+                                    KR_Event     *events,
+                                    int           capacity
+                                   ) const;
+      int          removeEventsTo (
+                                    KR_EventLabel label,
+                                    KR_ObjectID   destination
+                                   );
+      int          eventCount     () const;
+      int          eventFreeCount () const;
+      int          objectFreeCount() const;
       KR_ObjectID  addObject       (
                                     const char name[],
                                     KR_Object *object

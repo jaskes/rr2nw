@@ -4,6 +4,8 @@
 #include "mathlib.h"
 #include "storage/h/classtab.h"
 
+#include <vector>
+
 class SimulationContext;
 
 struct SparkCreateRequest
@@ -29,6 +31,11 @@ bool SparkSubjectState_TableReady(SimulationContext *context,
                                   int expectedCapacity);
 int SparkSubjectState_Capacity();
 int SparkSubjectState_LiveCount();
+bool SparkSubjectState_IsPending(
+    SimulationContext *context, const KR_ObjectID &object);
+bool SparkSubjectState_CollectPending(
+    SimulationContext *context, const char *objectName,
+    std::vector<KR_ObjectID> *objects);
 unsigned long long SparkSubjectState_Fingerprint(
     SimulationContext *context);
 bool SparkSubjectState_QueueCreate(

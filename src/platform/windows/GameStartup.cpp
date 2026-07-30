@@ -1052,7 +1052,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(
                RecoveredArenaSeance_BulletActiveWorldStableRoundTrips()) + "/" +
            std::to_string(
-               RecoveredArenaSeance_BulletActiveWorldResumedMoves()));
+               RecoveredArenaSeance_BulletActiveWorldResumedMoves()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldTombstonedMasters()));
   log.Line("bullet_active_world_fingerprint=" + std::to_string(
                RecoveredArenaSeance_BulletActiveWorldFingerprint()));
   log.Line("bullet_collision_scheduled_checks=" + std::to_string(

@@ -364,6 +364,35 @@ bool CorpseAttributeState_RuntimeReady(SimulationContext *context)
     return true;
 }
 
+bool CorpseAttributeState_ResolveEncodedIndex(
+    SimulationContext *context, int encodedIndex,
+    AttributeCorpse **attribute)
+{
+    if (attribute == NULL)
+        return false;
+    *attribute = NULL;
+    if (context == NULL || g_arena.getContext() != context ||
+        encodedIndex == -1)
+        return false;
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("CorpseAttr");
+    CorpseRosterCollector collector = {};
+    if (table == ct_NULLID || !CollectCorpseRoster(context, collector))
+        return false;
+    for (std::size_t index = 0; index < collector.entries.size(); ++index)
+    {
+        AttributeCorpse *candidate = collector.entries[index].attribute;
+        if (candidate != NULL &&
+            g_arena.getAttributeIndex(table, candidate->getObjectID()) ==
+                encodedIndex)
+        {
+            *attribute = candidate;
+            return true;
+        }
+    }
+    return false;
+}
+
 unsigned long long CorpseAttributeState_ReferenceFingerprint(
     SimulationContext *context)
 {

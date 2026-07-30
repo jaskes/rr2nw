@@ -52,9 +52,10 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `10/0` for ten
+- active-world format v1 is initialized with `10/3` for ten
   Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark/Smoke/Corpse
-  owner sections and zero generic events, then reports `10/10/0`
+  owner sections and three versioned queued effect events, then reports
+  `10/10/3`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `active_world_created_owners` is `2` for Level.04D, where the restore
@@ -63,9 +64,10 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - `vehicle_active_world_probe` is `1/1` with a non-zero fingerprint: every
   Level has destroyed `Vehicle.Default`, rolled one staged owner back and
   reconstructed the final owner under a new ObjectID before rendering.
-- `bullet_active_world_probe` is `1/2/1/1/2/1` with a non-zero fingerprint:
-  one real Vehicle-owned Bullet and both private events survive two fresh-ID
-  reconstructions, one staged rollback and an executed post-restore movement.
+- `bullet_active_world_probe` is `1/2/1/1/2/1/1` with a non-zero fingerprint:
+  one real Bullet whose master is already stale and both private events survive
+  two fresh-ID reconstructions, one staged rollback, tombstone reconstruction
+  and an executed post-restore movement.
 - `explosion_active_world_probe` is
   `1/<branches>/<events>/1/1/1/2/1`, with non-zero branch/event counts and a
   non-zero fingerprint: a real sound-bearing Explosion graph survives staged
