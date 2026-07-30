@@ -117,15 +117,28 @@ record counts, encoded size, fingerprint, append failures, recording state and
 application-active state. Startup diagnostics separately publish the local
 replay proof and live journal.
 
+## LCN1 resume contract
+
+[`LCN1`](LevelContinuation.md) now seals a copy of the live journal at the exact
+AWV1 tick/time boundary. After fresh-session world restore, the controller
+derives final focus and held-action state from the sealed records, rebases its
+live Vehicle owner to the restored timestamp, clears the sealed bit and resumes
+recording. The next record may occur at the same boundary or later; appending a
+record before the sealed final tick/time remains invalid. A period of restored
+frames without input may therefore advance the eventual next seal beyond the
+last journal record without inventing no-op commands.
+
+The executable proof destroys and recreates the Level context, restores LCN1,
+presses forward for four frames, releases it and advances once more. The
+journal must gain exactly two actions with no append failure while the Vehicle
+moves from its restored position.
+
 ## Current limits and next step
 
-CTJ1 proves the command seam and deterministic local replay from a controlled
-checkpoint. It does not yet make the normal variable-rate Windows loop a fixed
-tick scheduler, embed replay in a public save slot, reconstruct the entire
-Level from disk, emit periodic whole-world hashes, or provide seek/fast-forward.
+CTJ1 now crosses fresh-Level reconstruction but is not yet exposed as a replay
+file or public save slot. The normal Windows loop remains variable-rate; there
+are no periodic hashes, seeking or fast-forward.
 
-The next step is to combine a sealed CTJ1 boundary with the twelve active-world
-owner/reference phases and EVT1 in a fresh context, compare the whole-world
-fingerprint, then repeat visual driving and focus acceptance after load. A
-fixed-tick scheduler and longer hash-checked replay follow that persistence
-gate; multiplayer remains later.
+The next persistence step is atomic named LCN1 slots and a multi-Level manual
+load checklist. A fixed-tick scheduler and longer hash-checked replay follow
+that gate; multiplayer remains later.

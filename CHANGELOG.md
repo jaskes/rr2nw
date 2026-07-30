@@ -7,6 +7,29 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added canonical `LCN1` fresh-Level continuation. The bounded container binds
+  one AWV1 admitted-world snapshot and one sealed CTJ1 journal at the exact
+  same clock/RNG boundary, validates retail content/Level/Vehicle identity and
+  rejects corruption or truncation without partial decode.
+- Added a real destroyed-context continuation proof. The service smoke captures
+  after 24 Vehicle frames, destroys and recreates the retail Level, restores all
+  twelve owner/reference phases plus EVT1, requires an exact non-mutating world
+  recapture and drives five further frames while appending two new controls.
+- Made fresh-session restore transactional across world and input state. Target
+  and rollback clocks are pre-applied before owner references, the modern
+  Vehicle controller rebases to restored `lastTime`, and any post-mutation
+  failure restores a target-session LCN1 backup and its journal.
+- Added LCN1 codec/lifecycle regression coverage and a dedicated retail sweep
+  harness, `Invoke-FreshLevelContinuationMatrix.ps1`, with per-case logs and a
+  CSV proof summary.
+- Completed the final Windows gate at 57/57 CTest in both Debug and Release,
+  36/36 fresh-Level continuation cases and 36/36 existing retail runtime cases
+  across the installed and mounted-disc roots.
+- Made the retail continuation smoke independent of host timing: `X` is now
+  proved while throttle is still held, Explosion trace teardown explicitly
+  detaches MOVE/NEWPUFF before removing its parent, and live failure telemetry
+  is captured before service teardown. The Level.04D oracle now reflects its
+  one source spawn, one reconstructed graph and three stable-state proofs.
 - Added canonical `CTJ1` normalized Vehicle control journaling. The bounded
   little-endian format owns stable target identity, authoritative clock/RNG
   checkpoint, initial focus/held-action state, tick/sequence-stamped accepted

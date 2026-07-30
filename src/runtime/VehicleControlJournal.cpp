@@ -108,7 +108,9 @@ bool Append(SVehicleControlJournal* journal,
       journal->records.size() >= kMaximumRecords || !ValidRecord(record))
     return false;
   if (record.tick < journal->checkpointTick ||
-      record.eventTime < journal->checkpointTime)
+      record.eventTime < journal->checkpointTime ||
+      record.tick < journal->finalTick ||
+      record.eventTime < journal->finalTime)
     return false;
   if (!journal->records.empty()) {
     const SVehicleControlJournalRecord& previous = journal->records.back();
@@ -244,6 +246,49 @@ bool VehicleControlJournal_Seal(
   return VehicleControlJournal_Validate(*journal);
 }
 
+bool VehicleControlJournal_DeriveLifecycle(
+    const SVehicleControlJournal& journal, bool* applicationActive,
+    double heldActions[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT]) {
+  if (applicationActive == nullptr || heldActions == nullptr ||
+      !VehicleControlJournal_Validate(journal))
+    return false;
+  bool active = journal.initialApplicationActive;
+  double held[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT] = {};
+  for (std::size_t index = 0;
+       index < VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT; ++index)
+    held[index] = journal.initialHeldActions[index];
+  for (const SVehicleControlJournalRecord& record : journal.records) {
+    if (record.kind == VEHICLE_CONTROL_JOURNAL_ACTION) {
+      if (!active) return false;
+      const int heldIndex =
+          VehicleControlJournal_HeldActionIndex(record.action);
+      if (heldIndex >= 0) held[heldIndex] = record.value;
+      continue;
+    }
+    const bool nextActive = record.value != 0.0;
+    if (nextActive == active) return false;
+    if (!nextActive)
+      for (double& value : held) value = 0.0;
+    active = nextActive;
+  }
+  *applicationActive = active;
+  for (std::size_t index = 0;
+       index < VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT; ++index)
+    heldActions[index] = held[index];
+  return true;
+}
+
+bool VehicleControlJournal_Resume(SVehicleControlJournal* journal) {
+  bool active = false;
+  double held[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT] = {};
+  if (journal == nullptr || !journal->sealed ||
+      !VehicleControlJournal_DeriveLifecycle(*journal, &active, held))
+    return false;
+  (void)active;
+  journal->sealed = false;
+  return VehicleControlJournal_Validate(*journal);
+}
+
 bool VehicleControlJournal_Validate(
     const SVehicleControlJournal& journal) {
   if (journal.target.empty() ||
@@ -276,11 +321,8 @@ bool VehicleControlJournal_Validate(
     previousTime = record.eventTime;
   }
   if (!std::isfinite(journal.finalTime)) return false;
-  if (journal.sealed)
-    return journal.finalTick >= previousTick &&
-           journal.finalTime >= previousTime;
-  return journal.finalTick == previousTick &&
-         journal.finalTime == previousTime;
+  return journal.finalTick >= previousTick &&
+         journal.finalTime >= previousTime;
 }
 
 bool VehicleControlJournal_Statistics(

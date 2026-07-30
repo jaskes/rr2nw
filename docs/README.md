@@ -51,3 +51,6 @@
 - [ReplayJournal.md](ReplayJournal.md) documents the CTJ1
   normalized-control format, focus/held-action semantics, checkpoint contract,
   local Vehicle replay proof and current limits.
+- [LevelContinuation.md](LevelContinuation.md) documents the LCN1 container,
+  stable capture boundary, fresh-session transactional restore, whole-world
+  recapture proof and resumed Vehicle control journal.

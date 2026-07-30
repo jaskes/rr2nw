@@ -79,6 +79,10 @@ int VehicleRuntimeState_LastFrameFailure();
 int VehicleRuntimeState_LastFrameReadinessIssue();
 bool VehicleRuntimeState_SynchronizeFirstFrame(
     SimulationContext *context, double startTime);
+// Rebind the modern live-control owner to a Vehicle restored in place by the
+// active-world transaction. This preserves controller ownership and counters
+// while adopting the authoritative restored frame boundary.
+bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context);
 bool VehicleRuntimeState_BeginFrame(SimulationContext *context);
 bool VehicleRuntimeState_CompleteFrame(
     SimulationContext *context, double targetTime);

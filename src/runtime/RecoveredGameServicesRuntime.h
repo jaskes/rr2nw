@@ -1,5 +1,7 @@
 #pragma once
 
+#include "LevelContinuation.h"
+
 enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_COM_FAILURE = 1u << 0,
   RECOVERED_GAME_SERVICES_MISSING_PLATFORM = 1u << 1,
@@ -247,6 +249,13 @@ bool RecoveredGameServices_VehicleControlReplayTelemetry(
     SRecoveredVehicleControlReplayTelemetry* telemetry);
 bool RecoveredGameServices_VehicleControlJournalTelemetry(
     SRecoveredVehicleControlJournalTelemetry* telemetry);
+bool RecoveredGameServices_CaptureLevelContinuation(
+    std::vector<std::uint8_t>* bytes,
+    SLevelContinuationSummary* summary);
+bool RecoveredGameServices_RestoreLevelContinuation(
+    const std::vector<std::uint8_t>& bytes,
+    SLevelContinuationSummary* summary);
+const char* RecoveredGameServices_LastLevelContinuationError();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();
 unsigned int RecoveredGameServices_VehicleForwardedEvents();

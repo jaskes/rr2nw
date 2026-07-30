@@ -3454,6 +3454,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/ActiveWorldSemanticEvents.h
   src/runtime/ClockActiveWorldState.cpp
   src/runtime/ClockActiveWorldState.h
+  src/runtime/LevelContinuation.cpp
+  src/runtime/LevelContinuation.h
   src/runtime/MissionActiveWorldState.cpp
   src/runtime/MissionActiveWorldState.h
   src/runtime/ActiveWorldRuntimeProbe.cpp
@@ -4198,6 +4200,22 @@ target_compile_definitions(
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_level_continuation_smoke
+  src/portability/LevelContinuationSmoke.cpp
+)
+target_link_libraries(rr2nw_level_continuation_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_level_continuation_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_level_continuation_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_active_world_fresh_restore_smoke
   src/portability/ActiveWorldFreshRestoreSmoke.cpp
 )
@@ -4479,6 +4497,9 @@ if(MSVC)
     rr2nw_vehicle_control_journal_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_level_continuation_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_active_world_save_smoke PRIVATE /W4 /permissive-
   )
   target_compile_options(
@@ -4656,6 +4677,10 @@ if(BUILD_TESTING)
   add_test(
     NAME vehicle-control-journal-smoke
     COMMAND rr2nw_vehicle_control_journal_smoke
+  )
+  add_test(
+    NAME level-continuation-smoke
+    COMMAND rr2nw_level_continuation_smoke
   )
   add_test(
     NAME recovered-arena-seance-runtime-smoke

@@ -3115,3 +3115,38 @@ One hermetic codec/checkpoint smoke raises the normal matrix to 56/56 in Debug
 and Release. The existing installed/mounted nine-Level matrix remains 36/36.
 CTJ1 is not yet embedded in a public save and the ordinary live loop remains
 variable-rate; complete fresh-Level reconstruction is the next gate.
+
+## LCN1 fresh Level continuation
+
+`LevelContinuation` adds a bounded LCN1 wrapper around canonical AWV1 bytes and
+a sealed CTJ1 journal. Encoding requires identical final tick/time and RNG
+algorithm; decoding verifies the wrapper fingerprint and both embedded codecs
+without partially assigning the destination. Restore also checks the active
+retail content fingerprint, Level name and symbolic Vehicle target.
+
+`ActiveWorldRuntimeProbe` now exposes fixture-free production capture and a
+committing production restore while retaining the existing synthetic capture,
+corruption and deliberate rollback path unchanged for startup admission.
+Capture failures identify the exact owner codec or invalid clock fields.
+
+Fresh-session testing exposed ordering hidden by the old same-context probe.
+Target CLK1 is applied before any owner references and backup CLK1 before
+rollback references. After world commit, the modern Vehicle-control owner must
+adopt the restored Vehicle `lastTime` before CTJ1 becomes appendable. The
+service wrapper first captures a target LCN1 backup and restores both its world
+and journal if any later proof or adoption fails.
+
+The real service smoke now performs two complete Level lifecycles. It captures
+after 24 normal Vehicle frames, tears down and reconstructs services, restores
+all 12/12 phases, compares a non-mutating whole admitted-world recapture and
+then drives five more frames while appending two controls. The dedicated
+`Invoke-FreshLevelContinuationMatrix.ps1` harness repeats this proof for the
+configured retail Levels and retains per-case output plus a CSV summary.
+
+Fresh-matrix hardening also removed three false host-time assumptions from the
+proof. Level.04D publishes one source AER00 spawn and three stable-state proofs
+(Commander, TankGroup and reconstructed active world), `X` is exercised while
+forward throttle is still held, and Explosion trace teardown detaches both
+scheduled parent events before parent removal. Final verification is 57/57
+CTest per configuration, 36/36 fresh-continuation runs and 36/36 ordinary
+retail runtime runs across `E:\Games\The Next Worlds` and `G:\nw`.

@@ -1012,8 +1012,9 @@ The next Windows-first persistence work is deliberately incremental:
    Corpse/DynSmoker owner graph plus queued Explosion/Spark/Corpse creation are
    done; Player mission state, typed mission checks, authoritative clock/RNG
    and the external input/control journal are admitted;
-4. [in progress] reconstruct a complete Level in a fresh context, compare the whole-world
-   fingerprint and repeat the visual/driving acceptance after load;
+4. [done] reconstruct a complete admitted Level state in a fresh context,
+   compare the whole-world fingerprint and repeat real Vehicle driving after
+   load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
    checklist; retail-save import remains separate;
 6. after that gate, widen toward data-pack mods, secondary weapons and audio.
@@ -1136,11 +1137,24 @@ without mutation and proves a 28-frame local replay against equal Vehicle,
 clock and RNG state. The live Hardware path records the same contract. This is
 the replay seam, not yet a public replay player or a fixed-tick conversion.
 
-The next persistence slice is complete fresh-Level reconstruction: combine the
-twelve owner phases, EVT1, clock/RNG and a sealed CTJ1 boundary in a new
-context, compare the whole-world fingerprint, then repeat visible driving and
-focus acceptance after load. Only after that proof should atomic user-facing
-save/load slots and the manual multi-Level save checklist be exposed.
+Fresh-Level reconstruction is now admitted through
+[`LCN1`](LevelContinuation.md). It combines the twelve owner/reference phases,
+EVT1, clock/RNG and a sealed CTJ1 boundary, destroys and recreates the complete
+Level service context, requires an exact recaptured admitted-world fingerprint
+and resumes the original input journal. Five real post-restore Vehicle frames
+prove movement continues without fallback. Fresh-session clock ordering and
+the live-control owner's stale `lastTime` were both corrected rather than
+hidden by a same-context test.
+
+The completed Windows gate passes 57/57 CTest in Debug and Release, 36/36
+fresh-Level continuation runs and the independent 36/36 ordinary retail
+runtime matrix across both `E:` and `G:` roots.
+
+The next persistence slice is item 5: atomic user-facing save/load slots around
+LCN1 and the manual multi-Level save checklist. Slot work must retain content/
+Level compatibility checks, backup rollback, stable-frame capture rejection
+and clean diagnostics. It must not claim retail-save compatibility or silently
+serialize owner families outside the admitted graph.
 Explicit hit/damage/death records should still be added only where source
 inspection finds a queued transition; current synchronous paths already
 materialize in owner state.

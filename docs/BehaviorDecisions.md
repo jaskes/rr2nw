@@ -3476,3 +3476,43 @@ loop is fixed-tick. CTJ1 establishes the command/checkpoint seam and a local
 deterministic proof. The next persistence step is to attach a sealed journal to
 complete fresh-Level reconstruction, then expose save/load slots and longer
 state-hash replay checks.
+
+## BD-091: bind world and controls at one fresh-Level boundary
+
+Status: accepted on 2026-07-30.
+
+`LCN1` version 1 contains exactly one canonical AWV1 snapshot and one sealed
+CTJ1 journal. Their final tick/time and simulation RNG algorithm must agree;
+the current retail content fingerprint, Level identity and symbolic
+`Vehicle.Default` target must also agree before restore. This makes one
+continuation boundary authoritative instead of attempting to coordinate two
+independently named files.
+
+Production capture omits all synthetic active-world admission fixtures and is
+legal only at a stable owner/drawable/clock boundary. It seals a copy of the
+live journal, so saving does not stop current recording. A fresh target session
+is backed up as another LCN1 before mutation. The saved clock is pre-applied
+before owner references because restored Vehicle timestamps may be far ahead of
+a new session; rollback pre-applies the backup clock for the inverse reason.
+
+After the twelve owner and twelve reference phases plus EVT1 commit, restore
+non-mutatingly recaptures the admitted world and requires the exact source
+fingerprint. The live Vehicle-control owner is then rebased to the restored
+Vehicle timestamp and adopts the derived focus/held lifecycle from CTJ1 before
+the journal is made appendable. Any post-mutation failure restores both the
+backup world and backup journal.
+
+The acceptance proof destroys the complete first Level context, starts the
+same retail Level again, restores the old LCN1 and drives five more frames.
+Numeric ObjectID inequality is deliberately not a requirement: IDs are scoped
+to each context and deterministic pool allocation may reuse a bit pattern;
+symbolic reconstruction and canonical recapture are the identity proof.
+
+The Windows acceptance gate is 57/57 CTest in both configurations plus two
+independent 36/36 retail sweeps: the ordinary runtime matrix and the
+destroyed-context LCN1 matrix. The latter covers all nine configured Levels,
+both the installed and mounted-disc roots, and Debug/Release.
+
+This closes fresh-Level continuation, not public save UI. Atomic named slots,
+manual multi-Level load evidence and any owner families outside the admitted
+dynamic graph remain the next gate.

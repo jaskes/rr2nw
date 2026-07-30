@@ -2655,6 +2655,62 @@ Status vocabulary:
   canonical state hashes, retaining accepted simulation time solely for format
   migration and forensic diagnostics.
 
+### CQ-156: a fresh restore has two time owners before control adoption
+
+- Status: `SOURCE_CONFIRMED`, `RUNTIME_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: same-context AWV1 restore never exposed a large clock difference.
+  In a destroyed/recreated retail Level, restoring `Vehicle::m_lastTime` before
+  the final Clock section allowed synchronous dynamics to observe the new
+  session's near-zero time. After that was fixed, the separate modern live-
+  control owner still retained its target-session `lastTime`; its first capped
+  frame fed that old timestamp to the restored Vessel and triggered a negative
+  `fDeltaT` assertion. Capture also correctly rejected an effect with an open
+  drawable frame and a deliberate stall frame whose transient `frameSec`
+  exceeded the CLK1 serialization ceiling.
+- Handling: production capture reports the exact unstable owner or all invalid
+  clock fields. Restore validates and pre-applies target CLK1 before symbolic
+  owner references, repeats exact Clock application in its canonical phase,
+  and pre-applies backup CLK1 during rollback. Successful CTJ1 adoption calls
+  `VehicleRuntimeState_RebaseRestoredOwner` before journal resume. Capture in
+  the service proof occurs after a normal completed frame, before deliberate
+  stall/effect probes.
+- Verification: the service smoke captures after 24 frames, destroys and
+  recreates the context, restores all `12/12` phases, recaptures the exact
+  world fingerprint and advances five real Vehicle frames with two newly
+  appended controls, no fallback and clean shutdown. LCN1 content/Level/target
+  mismatch is rejected before world mutation and post-mutation failure invokes
+  the backup world/journal restore.
+- Revisit when: a fixed-tick scheduler replaces transient `frameSec` and the
+  save command is integrated into the main loop. Keep one explicit quiescent
+  capture point and the two-owner time rebase regression; do not make open
+  renderer publications serializable.
+
+### CQ-157: retail continuation proofs must own their event and input boundary
+
+- Status: `RUNTIME_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the first all-Level LCN1 sweep exposed three stale smoke-oracle
+  assumptions. Level.04D performs one source AER00 spawn, reconstructs that
+  saved graph once and therefore publishes three stable-state proofs (the
+  direct Commander and TankGroup round trips plus the active-world restore),
+  not two source spawns. The Vehicle stop probe released `W` before checking
+  `X`, so a fast Release frame could naturally reach zero speed. Explosion
+  trace removed its parent before explicitly detaching MOVE/NEWPUFF, leaving
+  success dependent on whether the next real-time frame consumed those events.
+- Handling: Level.04D admission expects `1/4/1/1/3/1/1` for spawn/links/
+  scheduler/stable/reconstructed/rollback telemetry. The stop proof presses
+  `X` while forward throttle is still held, then releases `W`. Explosion trace
+  detaches both parent events before parent removal and proves the queue remains
+  empty after the detached child frames. Roster failures print live telemetry
+  before teardown instead of reporting an erased all-zero service state.
+- Verification: 57/57 CTest passes in Debug and Release. The final dedicated
+  fresh-continuation sweep passes 36/36 across nine Levels, both retail roots
+  and both configurations; the independent ordinary retail matrix also passes
+  36/36.
+- Revisit when: the smoke moves to a fixed synthetic clock. Keep explicit
+  event ownership and a stop-under-active-throttle assertion even when host
+  timing no longer varies.
+
 ## Maintenance rule
 
 When a new quirk is found:

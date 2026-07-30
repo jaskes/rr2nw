@@ -68,6 +68,10 @@ bool VehicleControlJournal_AppendFocus(
 bool VehicleControlJournal_Seal(
     SVehicleControlJournal* journal, std::uint64_t finalTick,
     double finalTime);
+bool VehicleControlJournal_DeriveLifecycle(
+    const SVehicleControlJournal& journal, bool* applicationActive,
+    double heldActions[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT]);
+bool VehicleControlJournal_Resume(SVehicleControlJournal* journal);
 bool VehicleControlJournal_Validate(
     const SVehicleControlJournal& journal);
 bool VehicleControlJournal_Statistics(

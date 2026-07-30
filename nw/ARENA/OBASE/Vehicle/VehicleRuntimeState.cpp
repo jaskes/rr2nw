@@ -600,6 +600,23 @@ bool VehicleRuntimeState_SynchronizeFirstFrame(
     return VehicleReady(g_owner.vehicle);
 }
 
+bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context)
+{
+    if (!g_owner.active || context == NULL || g_owner.context != context ||
+        g_owner.vehicle == NULL || g_owner.frameBegun ||
+        !context->isExist(g_owner.object) || !VehicleReady(g_owner.vehicle))
+        return false;
+    SRecoveredVehicleRuntimeState restored = {};
+    if (!ReadState(g_owner.vehicle, &restored) || !restored.active ||
+        !std::isfinite(restored.lastTime) || restored.lastTime < 0.1 ||
+        !std::isfinite(Session::m_viewTime) ||
+        Session::m_viewTime + kTimeEpsilon < restored.lastTime)
+        return false;
+    g_owner.lastTime = restored.lastTime;
+    g_owner.frameAttribute = KR_ObjectID::NUL();
+    return true;
+}
+
 bool VehicleRuntimeState_Advance(
     SimulationContext *context, double targetTime)
 {

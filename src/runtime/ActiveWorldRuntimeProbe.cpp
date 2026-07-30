@@ -21,6 +21,7 @@
 #include "message/recrcenmsg.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <utility>
 
 namespace {
@@ -30,20 +31,26 @@ void SetFailure(std::string* failure, const std::string& message) {
 }
 
 bool CaptureOwnerSections(SimulationContext* context,
-                          std::vector<SActiveWorldSection>* sections) {
+                          std::vector<SActiveWorldSection>* sections,
+                          std::string* failure) {
   if (context == nullptr || sections == nullptr) return false;
   SActiveWorldSection commanders = {};
   commanders.kind = EActiveWorldSectionKind::Commander;
   commanders.schemaVersion = 1;
   commanders.owner = "Commander";
-  if (!CommanderState_CaptureStable(context, &commanders.payload))
+  if (!CommanderState_CaptureStable(context, &commanders.payload)) {
+    SetFailure(failure, "Commander stable capture failed");
     return false;
+  }
 
   SActiveWorldSection groups = {};
   groups.kind = EActiveWorldSectionKind::TankGroup;
   groups.schemaVersion = 1;
   groups.owner = "TankGroup";
-  if (!TankGroupState_CaptureStable(context, &groups.payload)) return false;
+  if (!TankGroupState_CaptureStable(context, &groups.payload)) {
+    SetFailure(failure, "TankGroup stable capture failed");
+    return false;
+  }
 
   sections->clear();
   sections->push_back(std::move(commanders));
@@ -53,40 +60,50 @@ bool CaptureOwnerSections(SimulationContext* context,
   people.kind = EActiveWorldSectionKind::People;
   people.schemaVersion = 1;
   people.owner = "People";
-  if (!PeopleActiveWorldState_CaptureStable(context, &people.payload))
+  if (!PeopleActiveWorldState_CaptureStable(context, &people.payload)) {
+    SetFailure(failure, "People stable capture failed");
     return false;
+  }
   sections->push_back(std::move(people));
 
   SActiveWorldSection tanks = {};
   tanks.kind = EActiveWorldSectionKind::Tank;
   tanks.schemaVersion = 1;
   tanks.owner = "Tank";
-  if (!TankActiveWorldState_CaptureStable(context, &tanks.payload))
+  if (!TankActiveWorldState_CaptureStable(context, &tanks.payload)) {
+    SetFailure(failure, TankActiveWorldState_LastFailure());
     return false;
+  }
   sections->push_back(std::move(tanks));
 
   SActiveWorldSection vehicle = {};
   vehicle.kind = EActiveWorldSectionKind::Vehicle;
   vehicle.schemaVersion = 1;
   vehicle.owner = "Vehicle";
-  if (!VehicleActiveWorldState_CaptureStable(context, &vehicle.payload))
+  if (!VehicleActiveWorldState_CaptureStable(context, &vehicle.payload)) {
+    SetFailure(failure, "Vehicle stable capture failed");
     return false;
+  }
   sections->push_back(std::move(vehicle));
 
   SActiveWorldSection mission = {};
   mission.kind = EActiveWorldSectionKind::Mission;
   mission.schemaVersion = 1;
   mission.owner = "Mission";
-  if (!MissionActiveWorldState_CaptureStable(context, &mission.payload))
+  if (!MissionActiveWorldState_CaptureStable(context, &mission.payload)) {
+    SetFailure(failure, MissionActiveWorldState_LastFailure());
     return false;
+  }
   sections->push_back(std::move(mission));
 
   SActiveWorldSection bullets = {};
   bullets.kind = EActiveWorldSectionKind::Bullet;
   bullets.schemaVersion = 1;
   bullets.owner = "Bullet";
-  if (!BulletActiveWorldState_CaptureStable(context, &bullets.payload))
+  if (!BulletActiveWorldState_CaptureStable(context, &bullets.payload)) {
+    SetFailure(failure, BulletActiveWorldState_LastFailure());
     return false;
+  }
   sections->push_back(std::move(bullets));
 
   SActiveWorldSection explosions = {};
@@ -94,40 +111,50 @@ bool CaptureOwnerSections(SimulationContext* context,
   explosions.schemaVersion = 1;
   explosions.owner = "Explosion";
   if (!ExplosionActiveWorldState_CaptureStable(context,
-                                                &explosions.payload))
+                                                &explosions.payload)) {
+    SetFailure(failure, ExplosionActiveWorldState_LastFailure());
     return false;
+  }
   sections->push_back(std::move(explosions));
 
   SActiveWorldSection sparks = {};
   sparks.kind = EActiveWorldSectionKind::Spark;
   sparks.schemaVersion = 1;
   sparks.owner = "Spark";
-  if (!SparkActiveWorldState_CaptureStable(context, &sparks.payload))
+  if (!SparkActiveWorldState_CaptureStable(context, &sparks.payload)) {
+    SetFailure(failure, SparkActiveWorldState_LastFailure());
     return false;
+  }
   sections->push_back(std::move(sparks));
 
   SActiveWorldSection smokes = {};
   smokes.kind = EActiveWorldSectionKind::Smoke;
   smokes.schemaVersion = 1;
   smokes.owner = "Smoke";
-  if (!SmokeActiveWorldState_CaptureStable(context, &smokes.payload))
+  if (!SmokeActiveWorldState_CaptureStable(context, &smokes.payload)) {
+    SetFailure(failure, SmokeActiveWorldState_LastFailure());
     return false;
+  }
   sections->push_back(std::move(smokes));
 
   SActiveWorldSection corpses = {};
   corpses.kind = EActiveWorldSectionKind::Corpse;
   corpses.schemaVersion = 1;
   corpses.owner = "Corpse";
-  if (!CorpseActiveWorldState_CaptureStable(context, &corpses.payload))
+  if (!CorpseActiveWorldState_CaptureStable(context, &corpses.payload)) {
+    SetFailure(failure, CorpseActiveWorldState_LastFailure());
     return false;
+  }
   sections->push_back(std::move(corpses));
 
   SActiveWorldSection clock = {};
   clock.kind = EActiveWorldSectionKind::Clock;
   clock.schemaVersion = 1;
   clock.owner = "Clock";
-  if (!ClockActiveWorldState_CaptureStable(&clock.payload))
+  if (!ClockActiveWorldState_CaptureStable(&clock.payload)) {
+    SetFailure(failure, "Clock stable capture failed");
     return false;
+  }
   sections->push_back(std::move(clock));
 
   return true;
@@ -277,11 +304,43 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       began_ = false;
       return false;
     }
+    const SActiveWorldSection* targetClock = nullptr;
+    for (const SActiveWorldSection& section : snapshot.sections)
+      if (section.kind == EActiveWorldSectionKind::Clock) {
+        targetClock = &section;
+        break;
+      }
+    if (targetClock == nullptr || !ValidateOwnerCodec(*targetClock) ||
+        !ClockActiveWorldState_MetadataMatches(
+            targetClock->payload, snapshot.simulationTick,
+            snapshot.simulationTime)) {
+      SetFailure(failure, "active-world target clock is invalid");
+      began_ = false;
+      return false;
+    }
     // Owner reconstruction may temporarily invalidate a queued mission index.
     // Remove semantic events while their original owner graph is still intact;
     // Commit rebuilds the target queue, rollback rebuilds this exact backup.
     if (!ActiveWorldSemanticEvents_Clear(context_, failure)) {
       SetFailure(failure, "active-world live event detachment failed");
+      began_ = false;
+      return false;
+    }
+    // Owner state contains absolute scheduler timestamps. Put the transaction
+    // on the saved continuation boundary before any owner is reconstructed;
+    // the canonical Clock section later proves and reapplies the same state.
+    if (!ClockActiveWorldState_ApplyStableReferences(targetClock->payload) ||
+        !ClockActiveWorldState_MatchesStable(targetClock->payload)) {
+      std::vector<KR_ObjectID> restoredSemanticOwners;
+      const bool clockRestored = ClockActiveWorldState_ApplyStableReferences(
+          clockBackup_);
+      const bool eventsRestored = ActiveWorldSemanticEvents_Replace(
+          context_, semanticBackup_, &restoredSemanticOwners, nullptr);
+      restoredSemanticOwners.clear();
+      SetFailure(failure,
+                 clockRestored && eventsRestored
+                     ? "active-world target clock preapply failed"
+                     : "active-world target clock preapply rollback failed");
       began_ = false;
       return false;
     }
@@ -569,6 +628,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       TankActiveWorldState_RemoveStableOwners(context_, &createdTanks_);
       TankGroupState_RemoveStableOwners(context_, &createdTankGroups_);
       CommanderState_RemoveStableOwners(context_, &createdCommanders_);
+      // Re-establish the original scheduler boundary before rebuilding live
+      // owner timestamps. The final Clock pass below remains the proof that
+      // reconstruction itself did not drift the boundary.
+      clean = ClockActiveWorldState_ApplyStableReferences(
+                  clockBackup_) && clean;
       clean = CommanderState_ApplyStableReferences(
                   context_, commanderBackup_) && clean;
       clean = TankGroupState_ApplyStableReferences(
@@ -723,10 +787,13 @@ SActiveWorldRuntimeProbeSummary::SActiveWorldRuntimeProbeSummary()
       corruptionRejects(0), rollbacks(0), containerBytes(0),
       worldFingerprint(0) {}
 
-bool ActiveWorldRuntime_CaptureProbe(
+namespace {
+
+bool CaptureRuntime(
     SimulationContext* context, std::uint64_t contentFingerprint,
     const std::string& level, std::vector<std::uint8_t>* bytes,
-    SActiveWorldRuntimeProbeSummary* summary, std::string* failure) {
+    SActiveWorldRuntimeProbeSummary* summary, std::string* failure,
+    bool stageFixtures, bool testCorruption) {
   if (bytes == nullptr || summary == nullptr) {
     SetFailure(failure, "active-world capture arguments are invalid");
     return false;
@@ -738,19 +805,29 @@ bool ActiveWorldRuntime_CaptureProbe(
   snapshot.level = level;
   SSimulationClockState clockState;
   if (!SUA_CaptureSimulationClock(&clockState)) {
-    SetFailure(failure, "authoritative simulation clock is invalid");
+    char detail[320] = {};
+    std::snprintf(
+        detail, sizeof(detail),
+        "authoritative simulation clock is invalid "
+        "(tick=%llu event=%.17g view=%.17g frame=%.17g "
+        "aspect=%.17g clamped=%u/%.17g)",
+        static_cast<unsigned long long>(clockState.tick),
+        clockState.eventMoment, clockState.viewTime,
+        clockState.frameSeconds, clockState.timerAspect,
+        clockState.clampedSamples, clockState.clampedSeconds);
+    SetFailure(failure, detail);
     return false;
   }
   const double probeTime =
       (std::max)(clockState.eventMoment, clockState.viewTime);
   bool stagedMission = false;
-  if (!MissionActiveWorldState_StageProbe(
+  if (stageFixtures && !MissionActiveWorldState_StageProbe(
           context, probeTime + 30.0, &stagedMission)) {
     SetFailure(failure, MissionActiveWorldState_LastFailure());
     return false;
   }
   bool stagedProbeEvents = false;
-  if (!ActiveWorldSemanticEvents_StageProbe(
+  if (stageFixtures && !ActiveWorldSemanticEvents_StageProbe(
           context, probeTime + 30.0, &stagedProbeEvents, failure)) {
     if (stagedMission)
       MissionActiveWorldState_ClearProbe(context);
@@ -773,13 +850,8 @@ bool ActiveWorldRuntime_CaptureProbe(
   snapshot.simulationTime =
       (std::max)(clockState.eventMoment, clockState.viewTime);
   snapshot.rngAlgorithm = SimulationRandom_Algorithm();
-  if (!CaptureOwnerSections(context, &snapshot.sections)) {
+  if (!CaptureOwnerSections(context, &snapshot.sections, failure)) {
     cleanupProbeEvents();
-    SetFailure(failure,
-               "Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/"
-               "Spark/Smoke/Corpse/Mission/Clock "
-               "stable "
-               "capture failed");
     return false;
   }
   if (!ActiveWorldSemanticEvents_Capture(
@@ -800,18 +872,20 @@ bool ActiveWorldRuntime_CaptureProbe(
     SetFailure(failure, status.detail);
     return false;
   }
-  std::vector<std::uint8_t> corrupt = *bytes;
-  corrupt[corrupt.size() / 2] ^= 0x40;
-  if (ActiveWorldSave_Decode(corrupt, &decoded, &status) ||
-      status.error != EActiveWorldSaveError::IntegrityMismatch) {
-    cleanupProbeEvents();
-    SetFailure(failure, "active-world corruption probe was accepted");
-    return false;
-  }
-  if (!ActiveWorldSave_Decode(*bytes, &decoded, &status)) {
-    cleanupProbeEvents();
-    SetFailure(failure, status.detail);
-    return false;
+  if (testCorruption) {
+    std::vector<std::uint8_t> corrupt = *bytes;
+    corrupt[corrupt.size() / 2] ^= 0x40;
+    if (ActiveWorldSave_Decode(corrupt, &decoded, &status) ||
+        status.error != EActiveWorldSaveError::IntegrityMismatch) {
+      cleanupProbeEvents();
+      SetFailure(failure, "active-world corruption probe was accepted");
+      return false;
+    }
+    if (!ActiveWorldSave_Decode(*bytes, &decoded, &status)) {
+      cleanupProbeEvents();
+      SetFailure(failure, status.detail);
+      return false;
+    }
   }
   if (!cleanupProbeEvents())
     return false;
@@ -847,15 +921,36 @@ bool ActiveWorldRuntime_CaptureProbe(
     SetFailure(failure, "simulation RNG state is invalid");
     return false;
   }
-  summary->corruptionRejects = 1;
+  summary->corruptionRejects = testCorruption ? 1 : 0;
   summary->containerBytes = bytes->size();
   summary->worldFingerprint = decoded.worldFingerprint;
   return true;
 }
 
-bool ActiveWorldRuntime_RestoreProbe(
-    SimulationContext* context, const std::vector<std::uint8_t>& bytes,
+}  // namespace
+
+bool ActiveWorldRuntime_CaptureProbe(
+    SimulationContext* context, std::uint64_t contentFingerprint,
+    const std::string& level, std::vector<std::uint8_t>* bytes,
     SActiveWorldRuntimeProbeSummary* summary, std::string* failure) {
+  return CaptureRuntime(context, contentFingerprint, level, bytes, summary,
+                        failure, true, true);
+}
+
+bool ActiveWorldRuntime_Capture(
+    SimulationContext* context, std::uint64_t contentFingerprint,
+    const std::string& level, std::vector<std::uint8_t>* bytes,
+    SActiveWorldRuntimeProbeSummary* summary, std::string* failure) {
+  return CaptureRuntime(context, contentFingerprint, level, bytes, summary,
+                        failure, false, false);
+}
+
+namespace {
+
+bool RestoreRuntime(
+    SimulationContext* context, const std::vector<std::uint8_t>& bytes,
+    SActiveWorldRuntimeProbeSummary* summary, std::string* failure,
+    bool runRollbackProbe, bool clearProbeFixtures) {
   if (context == nullptr || summary == nullptr) {
     SetFailure(failure, "active-world restore arguments are invalid");
     return false;
@@ -870,31 +965,42 @@ bool ActiveWorldRuntime_RestoreProbe(
   RuntimeRestoreTarget success(context, false);
   if (!ActiveWorldSave_RestoreTransactional(snapshot, &success, &status) ||
       !success.Successful()) {
-    ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
-    MissionActiveWorldState_ClearProbe(context);
+    if (clearProbeFixtures) {
+      ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
+      MissionActiveWorldState_ClearProbe(context);
+    }
     SetFailure(failure, status.detail);
     return false;
   }
-  RuntimeRestoreTarget rollback(context, true);
-  if (ActiveWorldSave_RestoreTransactional(snapshot, &rollback, &status) ||
-      status.error != EActiveWorldSaveError::RestoreValidationFailed ||
-      !rollback.RolledBackCleanly()) {
-    ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
-    MissionActiveWorldState_ClearProbe(context);
-    SetFailure(failure, "active-world rollback probe did not unwind staging");
-    return false;
+  if (runRollbackProbe) {
+    RuntimeRestoreTarget rollback(context, true);
+    if (ActiveWorldSave_RestoreTransactional(snapshot, &rollback, &status) ||
+        status.error != EActiveWorldSaveError::RestoreValidationFailed ||
+        !rollback.RolledBackCleanly()) {
+      if (clearProbeFixtures) {
+        ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
+        MissionActiveWorldState_ClearProbe(context);
+      }
+      SetFailure(failure,
+                 "active-world rollback probe did not unwind staging");
+      return false;
+    }
   }
   for (const SActiveWorldSection& section : snapshot.sections) {
     if (!OwnerMatchesWorld(context, section)) {
       SetFailure(failure, "active-world rollback changed the live graph");
-      ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
-      MissionActiveWorldState_ClearProbe(context);
+      if (clearProbeFixtures) {
+        ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
+        MissionActiveWorldState_ClearProbe(context);
+      }
       return false;
     }
   }
-  if (!ActiveWorldSemanticEvents_Matches(context, snapshot.events) ||
-      !ActiveWorldSemanticEvents_ClearProbe(context, failure) ||
-      !MissionActiveWorldState_ClearProbe(context))
+  if (!ActiveWorldSemanticEvents_Matches(context, snapshot.events))
+    return false;
+  if (clearProbeFixtures &&
+      (!ActiveWorldSemanticEvents_ClearProbe(context, failure) ||
+       !MissionActiveWorldState_ClearProbe(context)))
     return false;
 
   bool clockMatchesAfterCleanup = false;
@@ -913,7 +1019,21 @@ bool ActiveWorldRuntime_RestoreProbe(
   summary->referencePhases = success.referencePhases();
   summary->eventPhases = success.eventPhases();
   summary->createdOwners = success.createdOwners();
-  summary->rollbacks = 1;
+  summary->rollbacks = runRollbackProbe ? 1 : 0;
   summary->ready = true;
   return true;
+}
+
+}  // namespace
+
+bool ActiveWorldRuntime_RestoreProbe(
+    SimulationContext* context, const std::vector<std::uint8_t>& bytes,
+    SActiveWorldRuntimeProbeSummary* summary, std::string* failure) {
+  return RestoreRuntime(context, bytes, summary, failure, true, true);
+}
+
+bool ActiveWorldRuntime_Restore(
+    SimulationContext* context, const std::vector<std::uint8_t>& bytes,
+    SActiveWorldRuntimeProbeSummary* summary, std::string* failure) {
+  return RestoreRuntime(context, bytes, summary, failure, false, false);
 }

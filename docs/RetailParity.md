@@ -1329,6 +1329,34 @@ playable Level begins.
   rebuild a complete Level from disk, or claim a finished fixed-tick replay
   player. Those remain the next save/replay frontier.
 
+### RP-SAVE-011: LCN1 continues a destroyed and recreated retail Level
+
+- `LCN1` binds one AWV1 admitted-world snapshot and one sealed CTJ1 journal at
+  an identical clock/RNG boundary. Its bounded codec rejects corruption,
+  truncation, trailing bytes, incompatible content/Level identity and an
+  unavailable symbolic Vehicle target without mutating the result.
+- Production capture uses the exact live graph, not the synthetic admission
+  fixtures. The retail proof captures after 24 real Vehicle frames, finishes
+  the existing combat/Taxi/embodiment suite, destroys the complete Level
+  context and starts the same Level normally from retail resources.
+- Restore runs twelve owner and twelve reference phases plus every captured
+  EVT1 record, recaptures the admitted world without mutation and requires the
+  exact source fingerprint. It then rebases the live controller, resumes CTJ1,
+  accepts a new forward press/release and moves through five real frames with
+  no fallback or append failure.
+- A target-session LCN1 backup makes service restore transactional across both
+  world and input state. Target and rollback clocks are applied before their
+  owner references, preventing negative Vehicle deltas across sessions with
+  different elapsed times.
+- The accepted matrix is 57/57 CTest in Debug and Release plus 36/36
+  destroyed-context LCN1 runs and 36/36 ordinary runtime runs across all nine
+  configured Levels and both retail roots. Level.04D's proof records one retail
+  AER00 source spawn and three stable-state round trips: Commander, TankGroup
+  and the reconstructed active world.
+- This is partial save/load evidence, not the RC row's final user experience:
+  Level resources are still loaded normally, named atomic slots and manual
+  save points are pending, and retail-save import is a separate project.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

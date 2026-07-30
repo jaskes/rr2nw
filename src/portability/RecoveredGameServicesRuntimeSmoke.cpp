@@ -1862,6 +1862,8 @@ bool ExerciseVisibleExplosionTrace() {
 
   auto rollback = [&]() {
     if (!explosion.isNUL() && context->isExist(explosion)) {
+      while (context->removeEvent(EXPLOSION_MOVE, explosion) != 0) {}
+      while (context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0) {}
       context->removeObject(explosion);
     }
     int removed = 0;
@@ -1982,11 +1984,17 @@ bool ExerciseVisibleExplosionTrace() {
   int visibleDraws = 0;
   int detachedDraws = 0;
   int clearedDraws = 0;
+  bool parentMoveDetached = false;
+  bool parentPuffDetached = false;
   KR_ObjectID lastSmoke = lastPuff;
   {
     ScopedAlphaSpriteCapture capture(smokeAttribute->m_cacheImage);
     visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
     visibleDraws = g_alphaSpriteDraws;
+    parentMoveDetached =
+        context->removeEvent(EXPLOSION_MOVE, explosion) != 0;
+    parentPuffDetached =
+        context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0;
     context->removeObject(explosion);
     detachedParentFrame = RecoveredGameServices_RunFrame() != FALSE;
     detachedDraws = g_alphaSpriteDraws;
@@ -2005,7 +2013,8 @@ bool ExerciseVisibleExplosionTrace() {
     clearedDraws = g_alphaSpriteDraws;
   }
 
-  const bool clean = !context->isExist(explosion) &&
+  const bool clean = parentMoveDetached && parentPuffDetached &&
+      !context->isExist(explosion) &&
       !context->isExist(lastSmoke) &&
       ExplosionSubjectState_LiveCount() == 0 &&
       ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
@@ -3222,11 +3231,11 @@ int main(int argc, char** argv) {
       (RecoveredArenaSeance_MissionTankAvailable() != 0 &&
        RecoveredArenaSeance_MissionTankAvailable() != 1) ||
       (RecoveredArenaSeance_MissionTankAvailable() == 1 &&
-       (RecoveredArenaSeance_MissionTankSpawns() != 2 ||
+       (RecoveredArenaSeance_MissionTankSpawns() != 1 ||
         RecoveredArenaSeance_MissionTankMembershipLinks() != 4 ||
         RecoveredArenaSeance_MissionTankFindEnemyCycles() != 1 ||
         RecoveredArenaSeance_MissionTankMovingCycles() != 1 ||
-        RecoveredArenaSeance_MissionTankStableRoundTrips() != 2 ||
+        RecoveredArenaSeance_MissionTankStableRoundTrips() != 3 ||
         RecoveredArenaSeance_MissionTankReconstructedIDs() != 1 ||
         RecoveredArenaSeance_MissionTankRollbacks() != 1 ||
         RecoveredArenaSeance_MissionTankFingerprint() == 0)) ||
@@ -3239,9 +3248,11 @@ int main(int argc, char** argv) {
         RecoveredArenaSeance_MissionTankReconstructedIDs() != 0 ||
         RecoveredArenaSeance_MissionTankRollbacks() != 1 ||
         RecoveredArenaSeance_MissionTankFingerprint() != 0))) {
+    const int result =
+        Fail("level-aware Arena subject/attribute roster is invalid");
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("level-aware Arena subject/attribute roster is invalid");
+    return result;
   }
   if (!ValidateReferenceTransaction(taxiReferenceFingerprint,
                                     bulletReferenceFingerprint,
@@ -3374,7 +3385,6 @@ int main(int argc, char** argv) {
     }
   }
   if (!SendHardwareButton("Right", FALSE) ||
-      !SendHardwareButton("W", FALSE) ||
       !RunVehicleFrameAfter(0.01)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -3419,15 +3429,20 @@ int main(int argc, char** argv) {
   const bool stopPressed = SendHardwareButton("X", TRUE);
   const bool stopInspected = stopPressed &&
       IsVehicleControlActive(vehicleID, &vehicleStopCommand);
-  const bool stopPressFrame = stopInspected && RunVehicleFrameAfter(0.01);
+  const bool stopThrottleReleased = stopInspected &&
+      SendHardwareButton("W", FALSE);
+  const bool stopPressFrame = stopThrottleReleased &&
+      RunVehicleFrameAfter(0.01);
   const bool stopReleased = stopPressFrame && SendHardwareButton("X", FALSE);
   const bool stopReleaseFrame = stopReleased && RunVehicleFrameAfter(0.01);
   if (!stopReleaseFrame) {
     std::fprintf(stderr,
                  "vehicle-stop sequence pressed=%d inspected=%d "
-                 "press_frame=%d released=%d release_frame=%d "
+                 "throttle_released=%d press_frame=%d released=%d "
+                 "release_frame=%d "
                  "speed_before=%.12f speed_immediate=%.12f failure=%d\n",
                  stopPressed ? 1 : 0, stopInspected ? 1 : 0,
+                 stopThrottleReleased ? 1 : 0,
                  stopPressFrame ? 1 : 0, stopReleased ? 1 : 0,
                  stopReleaseFrame ? 1 : 0,
                  horizontalSpeedBeforeStop,
@@ -3513,6 +3528,33 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("focus-safe Vehicle input accounting or recovery failed");
+  }
+
+  // Capture after a normal completed frame, at a stable drawable and clock
+  // boundary.  The following stall probe deliberately leaves a diagnostic
+  // frame delta above the serializable clock ceiling, while the later effect
+  // suite intentionally opens transient Explosion/Smoke frames.
+  std::vector<std::uint8_t> levelContinuationBytes;
+  SLevelContinuationSummary capturedContinuation;
+  SRecoveredVehicleRuntimeState continuationVehicle = {};
+  vehicleID = g_super.m_context->searchObject("Vehicle.Default");
+  if (!VehicleRuntimeState_Inspect(
+          g_super.m_context, vehicleID, &continuationVehicle) ||
+      !RecoveredGameServices_CaptureLevelContinuation(
+          &levelContinuationBytes, &capturedContinuation) ||
+      !capturedContinuation.ready || !capturedContinuation.sealedJournal ||
+      !capturedContinuation.boundaryMatches ||
+      !capturedContinuation.worldMatches ||
+      capturedContinuation.sections != 12 ||
+      capturedContinuation.worldFingerprint == 0 ||
+      capturedContinuation.journalFingerprint == 0 ||
+      capturedContinuation.containerFingerprint == 0 ||
+      levelContinuationBytes.empty()) {
+    std::fprintf(stderr, "level continuation capture: %s\n",
+                 RecoveredGameServices_LastLevelContinuationError());
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("live Level continuation capture failed");
   }
 
   const unsigned int droppedFramesBeforeStall =
@@ -4141,6 +4183,98 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("service reconstruction failed");
   }
+  SLevelContinuationSummary restoredContinuation;
+  if (!RecoveredGameServices_RestoreLevelContinuation(
+          levelContinuationBytes, &restoredContinuation) ||
+      !restoredContinuation.ready ||
+      !restoredContinuation.sealedJournal ||
+      !restoredContinuation.boundaryMatches ||
+      !restoredContinuation.worldMatches ||
+      restoredContinuation.sections != 12 ||
+      restoredContinuation.ownerPhases != 12 ||
+      restoredContinuation.referencePhases != 12 ||
+      restoredContinuation.eventPhases != restoredContinuation.events ||
+      restoredContinuation.worldFingerprint !=
+          capturedContinuation.worldFingerprint ||
+      restoredContinuation.restoredWorldFingerprint !=
+          capturedContinuation.worldFingerprint ||
+      restoredContinuation.journalFingerprint !=
+          capturedContinuation.journalFingerprint ||
+      restoredContinuation.containerFingerprint !=
+          capturedContinuation.containerFingerprint) {
+    std::fprintf(stderr,
+                 "fresh-context LCN1 restore: %s "
+                 "phases=%d/%d/%d fingerprints=%llu/%llu/%llu\n",
+                 RecoveredGameServices_LastLevelContinuationError(),
+                 restoredContinuation.ownerPhases,
+                 restoredContinuation.referencePhases,
+                 restoredContinuation.eventPhases,
+                 static_cast<unsigned long long>(
+                     restoredContinuation.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     restoredContinuation.restoredWorldFingerprint),
+                 static_cast<unsigned long long>(
+                     restoredContinuation.containerFingerprint));
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("fresh-context LCN1 restore or whole-world proof failed");
+  }
+
+  vehicleID = g_super.m_context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState restoredVehicle = {};
+  SRecoveredVehicleControlJournalTelemetry resumedJournal = {};
+  if (!VehicleRuntimeState_Inspect(
+          g_super.m_context, vehicleID, &restoredVehicle) ||
+      std::fabs(restoredVehicle.position.x -
+                continuationVehicle.position.x) > 1.0e-7 ||
+      std::fabs(restoredVehicle.position.y -
+                continuationVehicle.position.y) > 1.0e-7 ||
+      std::fabs(restoredVehicle.position.z -
+                continuationVehicle.position.z) > 1.0e-7 ||
+      !RecoveredGameServices_VehicleControlJournalTelemetry(
+          &resumedJournal) || resumedJournal.recording != 1 ||
+      resumedJournal.appendFailures != 0 ||
+      resumedJournal.actionRecords != capturedContinuation.actionRecords ||
+      resumedJournal.focusRecords != capturedContinuation.focusRecords ||
+      !SendHardwareButton("W", TRUE)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("restored Vehicle/control lifecycle was not resumed");
+  }
+  for (int frame = 0; frame < 4; ++frame)
+    if (!RunVehicleFrameAfter(0.025)) {
+      ZAV_DeInitLevel();
+      ZAV_Deinit();
+      return Fail("post-restore Vehicle frame failed");
+    }
+  if (!SendHardwareButton("W", FALSE) ||
+      !RunVehicleFrameAfter(0.01)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("post-restore Vehicle release frame failed");
+  }
+  SRecoveredVehicleRuntimeState continuedVehicle = {};
+  if (!VehicleRuntimeState_Inspect(
+          g_super.m_context, vehicleID, &continuedVehicle)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("post-restore Vehicle state was unavailable");
+  }
+  const double continuationDx =
+      continuedVehicle.position.x - restoredVehicle.position.x;
+  const double continuationDz =
+      continuedVehicle.position.z - restoredVehicle.position.z;
+  if (std::sqrt(continuationDx * continuationDx +
+                continuationDz * continuationDz) <= 1.0e-6 ||
+      !RecoveredGameServices_VehicleControlJournalTelemetry(
+          &resumedJournal) ||
+      resumedJournal.actionRecords !=
+          capturedContinuation.actionRecords + 2u ||
+      resumedJournal.appendFailures != 0) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("restored Vehicle did not continue through real frames");
+  }
   ZAV_DeInitLevel();
   ZAV_Deinit();
   if (!IsServiceReleased() || !IsLevelRolledBack() ||
@@ -4219,6 +4353,9 @@ int main(int argc, char** argv) {
                 "commander=%d/%d hostile=%d fingerprint=%llu "
                 "tank_group=%d mission_tank=%d/%d/%d/%d/%d/%d/%d/%d "
                 "fingerprint=%llu "
+                "level_continuation=LCN1-%d/%d/%d events=%d/%d "
+                "tick=%llu time=%.6f world=%llu journal=%llu container=%llu "
+                "resumed_actions=%u "
                 "route=table vehicle=real observer=fallback-suspended\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,
@@ -4321,6 +4458,21 @@ int main(int argc, char** argv) {
                missionTankMembershipLinks, missionTankFindEnemyCycles,
                missionTankMovingCycles, missionTankStableRoundTrips,
                missionTankReconstructedIDs, missionTankRollbacks,
-               missionTankFingerprint);
+               missionTankFingerprint,
+               restoredContinuation.sections,
+               restoredContinuation.ownerPhases,
+               restoredContinuation.referencePhases,
+               restoredContinuation.events,
+               restoredContinuation.eventPhases,
+               static_cast<unsigned long long>(
+                   restoredContinuation.simulationTick),
+               restoredContinuation.simulationTime,
+               static_cast<unsigned long long>(
+                   restoredContinuation.worldFingerprint),
+               static_cast<unsigned long long>(
+                   restoredContinuation.journalFingerprint),
+               static_cast<unsigned long long>(
+                   restoredContinuation.containerFingerprint),
+               resumedJournal.actionRecords);
   return EXIT_SUCCESS;
 }

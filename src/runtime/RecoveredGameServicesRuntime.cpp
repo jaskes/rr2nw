@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <new>
+#include <string>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -22,12 +23,16 @@
 
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
+#include "LevelContinuation.h"
 #include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
+#include "RecoveredLevelRuntime.h"
+#include "RecoveredRetailScriptManifest.h"
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
 #include "SupervisorShutdownState.h"
+#include "TimeRuntimeState.h"
 #include "VehicleControlJournal.h"
 #include "VehicleControlReplayProbe.h"
 #include "ZavOverallInfoState.h"
@@ -436,6 +441,51 @@ class RecoveredVehicleControlInput final : public KR_Object {
     telemetry->applicationActive = m_applicationActive ? 1 : 0;
     return telemetry->journalFingerprint != 0;
   }
+  bool CopyControlJournal(SVehicleControlJournal* journal) const {
+    if (journal == nullptr || m_controlJournal.target.empty() ||
+        !VehicleControlJournal_Validate(m_controlJournal))
+      return false;
+    *journal = m_controlJournal;
+    return true;
+  }
+  bool CanAdoptControlJournal(
+      const SVehicleControlJournal& journal) const {
+    KR_ObjectID vehicle = m_vehicle;
+    if (getContext() == nullptr || vehicle.isNUL() ||
+        !getContext()->isExist(vehicle) || !journal.sealed ||
+        !VehicleControlJournal_Validate(journal))
+      return false;
+    const KR_ObjectID target =
+        getContext()->searchObject(journal.target.c_str());
+    bool active = false;
+    double held[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT] = {};
+    return target == vehicle &&
+           VehicleControlJournal_DeriveLifecycle(
+               journal, &active, held);
+  }
+  bool AdoptControlJournal(const SVehicleControlJournal& journal) {
+    if (!CanAdoptControlJournal(journal)) return false;
+    SSimulationClockState clock = {};
+    bool active = false;
+    double held[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT] = {};
+    SVehicleControlJournal resumed = journal;
+    if (!SUA_CaptureSimulationClock(&clock) ||
+        clock.tick != journal.finalTick ||
+        (std::max)(clock.eventMoment, clock.viewTime) != journal.finalTime ||
+        !VehicleControlJournal_DeriveLifecycle(
+            journal, &active, held) ||
+        !VehicleRuntimeState_RebaseRestoredOwner(getContext()) ||
+        !VehicleControlJournal_Resume(&resumed))
+      return false;
+    m_controlJournal = resumed;
+    m_controlJournalRecording = true;
+    m_controlJournalAppendFailures = 0;
+    m_applicationActive = active;
+    for (std::size_t index = 0;
+         index < VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT; ++index)
+      m_heldActions[index] = held[index];
+    return true;
+  }
   bool QuitRequested() const { return m_quitRequested; }
   bool ForwardingFailed() const { return m_forwardingFailed; }
   unsigned int InputEvents() const { return m_inputEvents; }
@@ -749,10 +799,34 @@ int g_primaryFireSmokeBaseline = 0;
 int g_primaryFireSparkBaseline = 0;
 int g_primaryFireSoundBaseline = 0;
 bool g_primaryFireEffectPresent = false;
+std::string g_levelContinuationFailure;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 
 void Report(unsigned int issue) { g_issues |= issue; }
+
+std::uint64_t ContinuationContentFingerprint() {
+  const SRecoveredRetailScriptManifestSummary* manifest =
+      RecoveredRetailScriptManifest_IsReady()
+          ? RecoveredRetailScriptManifest_Summary()
+          : nullptr;
+  if (manifest != nullptr && manifest->contentFingerprint != 0)
+    return manifest->contentFingerprint;
+  return RecoveredArenaSeance_ActiveWorldFingerprint();
+}
+
+std::string ContinuationLevelIdentity() {
+  const char* directory = RecoveredLevelRuntime_Directory();
+  if (directory == nullptr || directory[0] == '\0') return "direct-context";
+  std::string path(directory);
+  while (!path.empty() && (path.back() == '\\' || path.back() == '/'))
+    path.pop_back();
+  const std::size_t separator = path.find_last_of("\\/");
+  const std::string name = separator == std::string::npos
+                               ? path
+                               : path.substr(separator + 1);
+  return name.empty() ? "direct-context" : name;
+}
 
 bool BindHardwareControl(int action, const char* keyName) {
   const int code = g_hardware.SearchCode(keyName);
@@ -1159,6 +1233,7 @@ void EndBoundedSession() {
   g_primaryFireSparkBaseline = 0;
   g_primaryFireSoundBaseline = 0;
   g_primaryFireEffectPresent = false;
+  g_levelContinuationFailure.clear();
   g_vehicleControlInput.Reset(KR_ObjectID::NUL());
 
   const SFrameRuntimeHooks emptyFrameHooks = {};
@@ -1861,6 +1936,88 @@ bool RecoveredGameServices_VehicleControlJournalTelemetry(
     SRecoveredVehicleControlJournalTelemetry* telemetry) {
   return g_vehicleControlReady &&
          g_vehicleControlInput.ControlJournalTelemetry(telemetry);
+}
+
+bool RecoveredGameServices_CaptureLevelContinuation(
+    std::vector<std::uint8_t>* bytes,
+    SLevelContinuationSummary* summary) {
+  g_levelContinuationFailure.clear();
+  SVehicleControlJournal journal;
+  if (!g_vehicleControlReady || g_super.m_context == nullptr ||
+      !g_vehicleControlInput.CopyControlJournal(&journal)) {
+    g_levelContinuationFailure =
+        "live Vehicle control journal is unavailable";
+    return false;
+  }
+  return LevelContinuation_Capture(
+      g_super.m_context, ContinuationContentFingerprint(),
+      ContinuationLevelIdentity(), journal, bytes, summary,
+      &g_levelContinuationFailure);
+}
+
+bool RecoveredGameServices_RestoreLevelContinuation(
+    const std::vector<std::uint8_t>& bytes,
+    SLevelContinuationSummary* summary) {
+  if (!g_vehicleControlReady || g_super.m_context == nullptr ||
+      summary == nullptr) {
+    g_levelContinuationFailure =
+        "live Vehicle continuation target is unavailable";
+    return false;
+  }
+  g_levelContinuationFailure.clear();
+  SLevelContinuation incoming;
+  if (!LevelContinuation_Decode(bytes, &incoming) ||
+      !g_vehicleControlInput.CanAdoptControlJournal(
+          incoming.controlJournal)) {
+    g_levelContinuationFailure =
+        "LCN1 journal cannot bind to the live Vehicle controller";
+    return false;
+  }
+
+  std::vector<std::uint8_t> backupBytes;
+  SLevelContinuationSummary backupSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &backupBytes, &backupSummary))
+    return false;
+
+  SVehicleControlJournal restoredJournal;
+  SLevelContinuationSummary restoredSummary;
+  std::string failure;
+  const std::uint64_t contentFingerprint =
+      ContinuationContentFingerprint();
+  const std::string level = ContinuationLevelIdentity();
+  if (LevelContinuation_RestoreWorld(
+          g_super.m_context, bytes, contentFingerprint, level,
+          &restoredJournal,
+          &restoredSummary, &failure) &&
+      g_vehicleControlInput.AdoptControlJournal(restoredJournal)) {
+    *summary = restoredSummary;
+    g_levelContinuationFailure.clear();
+    return true;
+  }
+  g_levelContinuationFailure = failure.empty()
+                                   ? "restored CTJ1 adoption failed"
+                                   : failure;
+
+  SVehicleControlJournal backupJournal;
+  SLevelContinuationSummary rolledBackSummary;
+  std::string rollbackFailure;
+  const bool rolledBack = LevelContinuation_RestoreWorld(
+      g_super.m_context, backupBytes, contentFingerprint, level,
+      &backupJournal,
+      &rolledBackSummary, &rollbackFailure);
+  const bool controlRolledBack =
+      rolledBack && g_vehicleControlInput.AdoptControlJournal(backupJournal);
+  if (!controlRolledBack) {
+    g_levelContinuationFailure += rolledBack
+        ? "; backup CTJ1 adoption failed"
+        : "; backup world restore failed: " + rollbackFailure;
+  }
+  return false;
+}
+
+const char* RecoveredGameServices_LastLevelContinuationError() {
+  return g_levelContinuationFailure.c_str();
 }
 
 bool RecoveredGameServices_VehicleFallbackActive() {
