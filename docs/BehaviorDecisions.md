@@ -3251,3 +3251,43 @@ event, while the other ordinal retains its independent phase. Diagnostics are
 Detached Smoke and Corpse, queued CREATE, semantic damage/death events and the
 generic event queue remain later sections. Admission requires 54/54 CTest in
 Debug and Release plus the full 36-case installed/mounted retail matrix.
+
+## BD-085: persist simulated Smoke blobs, not native SmokeData
+
+Status: accepted on 2026-07-30.
+
+`SMK1` version 1 is the ninth active-world owner section. Each record contains
+the symbolic Smoke and SmokeAttr identities, origin, previous simulation time,
+view-lifetime counter, deferred-removal flag, exact private MOVING timestamp
+and every active blob. A blob is encoded field by field: phase, colour and UVs,
+start/current position, movement and drift vectors, decay multiplier, maximum
+lifetime, radius/opacity coefficients and cubic gradient coefficients. Native
+`SmokeData`, texture handles, pointers, padding and published frame objects are
+excluded; texture references are derived again from the resolved SmokeAttr.
+
+The old START handler reuses its input event as the first MOVING event, leaving
+an ignored START payload attached forever. MOVING never reads that data. SMK1
+therefore owns the semantic label/owner/timestamp edge and reconstructs an
+empty canonical payload. A future generic event section must skip this private
+edge rather than serializing the dead historical bytes a second time.
+
+Capture accepts only fully simulated owners with at least one live blob,
+exactly one self-owned MOVING event and no drawable still published in the open
+frame. Smoke now tracks publication explicitly; endRender and removeNotify
+detach it before the pooled slot is reset. Equal symbolic names are ordered by
+creation identity and reconstructed by ordinal. Restore preflights the
+300-owner pool, attributes and blob limits before mutation, derives texture
+handles, recreates one canonical MOVING edge per owner and requires exact
+recapture. Rollback drains private events before freeing owners.
+
+The production proof starts two `Smoke.ActiveWorld.Probe` owners through the
+real directional START path, advances their one-blob simulations by different
+numbers of MOVING steps, destroys them, rolls a two-owner reconstruction back
+and restores another pair under four fresh IDs. It then executes one restored
+MOVING event, observes changed phase/position and a successor event while the
+other ordinal remains unchanged. Diagnostics are `9/0`, `9/9/0` and
+`smoke_active_world_probe=2/2/2/1/2/2/1`.
+
+Corpse ownership, queued effect creation, semantic damage/death and the generic
+event queue remain later sections. Admission passed 54/54 CTest in Debug and
+Release plus all 36 installed/mounted retail cases.

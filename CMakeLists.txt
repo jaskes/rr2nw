@@ -2244,6 +2244,7 @@ endif()
 
 add_library(rr2nw_arena_obase_smoke_full STATIC
   nw/ARENA/OBASE/Smoke/Smoke.cpp
+  nw/ARENA/OBASE/Smoke/SmokeActiveWorldState.h
   nw/ARENA/OBASE/Smoke/SmokeSubjectState.h
 )
 target_link_libraries(rr2nw_arena_obase_smoke_full PUBLIC
@@ -2280,6 +2281,7 @@ endif()
 add_library(rr2nw_arena_smoke_subject_state STATIC
   nw/ARENA/OBASE/Smoke/Smoke.cpp
   nw/ARENA/OBASE/Smoke/SmokeDirectionalStartState.cpp
+  nw/ARENA/OBASE/Smoke/SmokeActiveWorldState.h
   nw/ARENA/OBASE/Smoke/SmokeSubjectState.h
 )
 target_link_libraries(rr2nw_arena_smoke_subject_state PUBLIC

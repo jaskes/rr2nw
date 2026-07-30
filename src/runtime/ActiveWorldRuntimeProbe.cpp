@@ -9,6 +9,7 @@
 #include "obase/group/TankGroupState.h"
 #include "obase/people/PeopleActiveWorldState.h"
 #include "obase/spark/SparkActiveWorldState.h"
+#include "obase/smoke/SmokeActiveWorldState.h"
 #include "obase/tank/TankActiveWorldState.h"
 #include "obase/vehicle/VehicleActiveWorldState.h"
 
@@ -88,6 +89,14 @@ bool CaptureOwnerSections(SimulationContext* context,
   if (!SparkActiveWorldState_CaptureStable(context, &sparks.payload))
     return false;
   sections->push_back(std::move(sparks));
+
+  SActiveWorldSection smokes = {};
+  smokes.kind = EActiveWorldSectionKind::Smoke;
+  smokes.schemaVersion = 1;
+  smokes.owner = "Smoke";
+  if (!SmokeActiveWorldState_CaptureStable(context, &smokes.payload))
+    return false;
+  sections->push_back(std::move(smokes));
   return true;
 }
 
@@ -118,6 +127,9 @@ bool ValidateOwnerCodec(const SActiveWorldSection& section) {
     case EActiveWorldSectionKind::Spark:
       return section.owner == "Spark" &&
              SparkActiveWorldState_ValidateStable(section.payload);
+    case EActiveWorldSectionKind::Smoke:
+      return section.owner == "Smoke" &&
+             SmokeActiveWorldState_ValidateStable(section.payload);
     default:
       return false;
   }
@@ -143,6 +155,9 @@ bool OwnerMatchesWorld(SimulationContext* context,
                                                        section.payload);
     case EActiveWorldSectionKind::Spark:
       return SparkActiveWorldState_MatchesStable(context,
+                                                  section.payload);
+    case EActiveWorldSectionKind::Smoke:
+      return SmokeActiveWorldState_MatchesStable(context,
                                                   section.payload);
     default:
       return false;
@@ -173,6 +188,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     bulletBackup_.clear();
     explosionBackup_.clear();
     sparkBackup_.clear();
+    smokeBackup_.clear();
     createdCommanders_.clear();
     createdTankGroups_.clear();
     createdVehicles_.clear();
@@ -181,6 +197,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdBullets_.clear();
     createdExplosions_.clear();
     createdSparks_.clear();
+    createdSmokes_.clear();
     if (!CommanderState_CaptureStable(context_, &commanderBackup_) ||
         !TankGroupState_CaptureStable(context_, &tankGroupBackup_) ||
         !VehicleActiveWorldState_CaptureStable(context_, &vehicleBackup_) ||
@@ -189,7 +206,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !BulletActiveWorldState_CaptureStable(context_, &bulletBackup_) ||
         !ExplosionActiveWorldState_CaptureStable(context_,
                                                   &explosionBackup_) ||
-        !SparkActiveWorldState_CaptureStable(context_, &sparkBackup_)) {
+        !SparkActiveWorldState_CaptureStable(context_, &sparkBackup_) ||
+        !SmokeActiveWorldState_CaptureStable(context_, &smokeBackup_)) {
       SetFailure(failure, "active-world live owner backup failed");
       began_ = false;
       return false;
@@ -237,6 +255,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         created = SparkActiveWorldState_CreateStableOwners(
             context_, section.payload, &createdSparks_);
         break;
+      case EActiveWorldSectionKind::Smoke:
+        created = SmokeActiveWorldState_CreateStableOwners(
+            context_, section.payload, &createdSmokes_);
+        break;
       default:
         break;
     }
@@ -260,6 +282,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("active-world Spark allocation failed: ") +
                        SparkActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Smoke &&
+               SmokeActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("active-world Smoke allocation failed: ") +
+                       SmokeActiveWorldState_LastFailure());
       else
         SetFailure(failure, "active-world owner allocation failed");
       return false;
@@ -306,6 +333,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           resolved = SparkActiveWorldState_ApplyStableReferences(
               context_, section.payload);
           break;
+        case EActiveWorldSectionKind::Smoke:
+          resolved = SmokeActiveWorldState_ApplyStableReferences(
+              context_, section.payload);
+          break;
         default:
           break;
       }
@@ -330,6 +361,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("Spark symbolic reconstruction failed: ") +
                        SparkActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Smoke &&
+               SmokeActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("Smoke symbolic reconstruction failed: ") +
+                       SmokeActiveWorldState_LastFailure());
       else
         SetFailure(failure, std::string("symbolic owner references do not ") +
                                 "match the live graph: " + section.owner);
@@ -348,7 +384,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
 
   bool Validate(std::uint64_t expectedWorldFingerprint,
                 std::string* failure) override {
-    if (!began_ || snapshot_ == nullptr || staged_.size() != 8 ||
+    if (!began_ || snapshot_ == nullptr || staged_.size() != 9 ||
         ActiveWorldSave_ComputeWorldFingerprint(*snapshot_) !=
             expectedWorldFingerprint) {
       SetFailure(failure, "active-world staged fingerprint is invalid");
@@ -373,6 +409,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   void Rollback() override {
     bool clean = began_;
     if (began_) {
+      SmokeActiveWorldState_RemoveStableOwners(context_, &createdSmokes_);
       SparkActiveWorldState_RemoveStableOwners(context_, &createdSparks_);
       ExplosionActiveWorldState_RemoveStableOwners(
           context_, &createdExplosions_);
@@ -398,6 +435,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, explosionBackup_) && clean;
       clean = SparkActiveWorldState_ApplyStableReferences(
                   context_, sparkBackup_) && clean;
+      clean = SmokeActiveWorldState_ApplyStableReferences(
+                  context_, smokeBackup_) && clean;
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
               TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
               VehicleActiveWorldState_MatchesStable(context_, vehicleBackup_) &&
@@ -408,6 +447,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, explosionBackup_) &&
               SparkActiveWorldState_MatchesStable(
                   context_, sparkBackup_) &&
+              SmokeActiveWorldState_MatchesStable(
+                  context_, smokeBackup_) &&
               clean;
     }
     staged_.clear();
@@ -416,7 +457,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 8;
+    return began_ && committed_ && !rolledBack_ && staged_.size() == 9;
   }
   bool RolledBackCleanly() const {
     return began_ && !committed_ && rolledBack_ && staged_.empty() &&
@@ -424,7 +465,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
            createdTankGroups_.empty() && createdVehicles_.empty() &&
            createdPeople_.empty() && createdTanks_.empty() &&
            createdBullets_.empty() && createdExplosions_.empty() &&
-           createdSparks_.empty();
+           createdSparks_.empty() && createdSmokes_.empty();
   }
   int ownerPhases() const { return ownerPhases_; }
   int referencePhases() const { return referencePhases_; }
@@ -436,7 +477,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                             createdPeople_.size() + createdTanks_.size() +
                             createdBullets_.size() +
                             createdExplosions_.size() +
-                            createdSparks_.size());
+                            createdSparks_.size() +
+                            createdSmokes_.size());
   }
 
  private:
@@ -459,6 +501,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> bulletBackup_;
   std::vector<std::uint8_t> explosionBackup_;
   std::vector<std::uint8_t> sparkBackup_;
+  std::vector<std::uint8_t> smokeBackup_;
   std::vector<KR_ObjectID> createdCommanders_;
   std::vector<KR_ObjectID> createdTankGroups_;
   std::vector<KR_ObjectID> createdVehicles_;
@@ -467,6 +510,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<KR_ObjectID> createdBullets_;
   std::vector<KR_ObjectID> createdExplosions_;
   std::vector<KR_ObjectID> createdSparks_;
+  std::vector<KR_ObjectID> createdSmokes_;
 };
 
 }  // namespace
@@ -496,7 +540,7 @@ bool ActiveWorldRuntime_CaptureProbe(
   if (!CaptureOwnerSections(context, &snapshot.sections)) {
     SetFailure(failure,
                "Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/"
-               "Spark "
+               "Spark/Smoke "
                "stable "
                "capture failed");
     return false;

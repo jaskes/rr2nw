@@ -2501,6 +2501,33 @@ Status vocabulary:
   CREATE payload in the generic event section and deduplicate it from `SPK1`;
   do not weaken the started-owner invariant or serialize encoded cache indices.
 
+### CQ-150: Smoke MOVING carries dead START bytes and Smoke.cpp was CP1251
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the original Smoke START handlers mutate and immediately resend
+  the same `KR_Event`; later MOVING steps read no payload but keep copying the
+  original attribute/position/direction body. Native `SmokeData` also embeds a
+  process-local texture handle. Separately, `Smoke.cpp` was the remaining
+  Windows-1251 translation unit and could not be safely patched by UTF-8-only
+  modern tooling.
+- Handling: `SMK1` serializes every behavior-bearing owner/blob field and the
+  MOVING label, owner and timestamp, but canonicalizes its ignored payload to
+  empty. Texture handles and frame objects are re-derived. An explicit frame
+  publication flag prevents capture while the drawable is attached. The
+  source file is normalized to UTF-8 without BOM; code and legacy Russian
+  comments are otherwise unchanged.
+- Verification: two equal-name retail Smoke owners are advanced to distinct
+  blob phases, survive staged rollback and final reconstruction under four
+  fresh IDs, and one restored MOVING changes only its ordinal before scheduling
+  a successor. The live marker is `2/2/2/1/2/2/1`; the envelope has nine
+  owner/reference phases. Debug and Release pass 54/54 CTest and all 36 retail
+  matrix cases. Blob fingerprints are transaction identities, not cross-process
+  RNG promises: every independent probe intentionally consumes legacy `rand()`.
+- Revisit when: the generic semantic queue is implemented. It must exclude the
+  private MOVING edge already owned by SMK1 and must not resurrect ignored
+  START payload bytes as observable state.
+
 ## Maintenance rule
 
 When a new quirk is found:

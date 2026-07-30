@@ -216,11 +216,11 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "8/0") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "9/0") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark/Smoke section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "8/8/0") {
+                    $log["active_world_restore_phases"] -ne "9/9/0") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
@@ -278,6 +278,12 @@ foreach ($configurationName in $Configuration) {
                     $log["spark_active_world_probe"] -ne "2/2/1/2/2/1" -or
                     (Get-LogUnsigned $log "spark_active_world_fingerprint") -lt 1) {
                     $issues.Add("Spark SPK1 phase reconstruction proof changed")
+                }
+                if ((Get-LogInteger $log "smoke_active_world_initialized") -ne 1 -or
+                    -not $log.ContainsKey("smoke_active_world_probe") -or
+                    $log["smoke_active_world_probe"] -ne "2/2/2/1/2/2/1" -or
+                    (Get-LogUnsigned $log "smoke_active_world_fingerprint") -lt 1) {
+                    $issues.Add("Smoke SMK1 blob reconstruction proof changed")
                 }
                 if (-not $log.ContainsKey("vehicle_active_world_probe") -or
                     $log["vehicle_active_world_probe"] -ne "1/1" -or
@@ -338,6 +344,8 @@ foreach ($configurationName in $Configuration) {
                 explosion_active_world_fingerprint = Get-LogUnsigned $log "explosion_active_world_fingerprint"
                 spark_active_world_probe = [string]$log["spark_active_world_probe"]
                 spark_active_world_fingerprint = Get-LogUnsigned $log "spark_active_world_fingerprint"
+                smoke_active_world_probe = [string]$log["smoke_active_world_probe"]
+                smoke_active_world_fingerprint = Get-LogUnsigned $log "smoke_active_world_fingerprint"
             }
             $records.Add([pscustomobject]$record)
             $record | ConvertTo-Json -Depth 6 |
@@ -367,7 +375,10 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     active_world_created_owners,
     active_world_container_bytes, active_world_fingerprint,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
-    people_active_world_probe, people_active_world_fingerprint |
+    people_active_world_probe, people_active_world_fingerprint,
+    explosion_active_world_probe, explosion_active_world_fingerprint,
+    spark_active_world_probe, spark_active_world_fingerprint,
+    smoke_active_world_probe, smoke_active_world_fingerprint |
     Export-Csv -LiteralPath (Join-Path $OutputRoot "summary.csv") -NoTypeInformation -Encoding UTF8
 
 if ($Mode -eq "Interactive") {

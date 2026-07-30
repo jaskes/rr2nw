@@ -130,7 +130,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE = 1ull << 53,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_ACTIVE_WORLD_FAILURE = 1ull << 54,
   RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_ACTIVE_WORLD_FAILURE = 1ull << 55,
-  RECOVERED_ARENA_SEANCE_EXT_SPARK_ACTIVE_WORLD_FAILURE = 1ull << 56
+  RECOVERED_ARENA_SEANCE_EXT_SPARK_ACTIVE_WORLD_FAILURE = 1ull << 56,
+  RECOVERED_ARENA_SEANCE_EXT_SMOKE_ACTIVE_WORLD_FAILURE = 1ull << 57
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -349,6 +350,15 @@ int RecoveredArenaSeance_SparkActiveWorldReconstructedIDs();
 int RecoveredArenaSeance_SparkActiveWorldStableRoundTrips();
 int RecoveredArenaSeance_SparkActiveWorldResumedPhases();
 unsigned long long RecoveredArenaSeance_SparkActiveWorldFingerprint();
+bool RecoveredArenaSeance_SmokeActiveWorldReady();
+int RecoveredArenaSeance_SmokeActiveWorldCapturedOwners();
+int RecoveredArenaSeance_SmokeActiveWorldCapturedBlobs();
+int RecoveredArenaSeance_SmokeActiveWorldSchedulerEvents();
+int RecoveredArenaSeance_SmokeActiveWorldRollbacks();
+int RecoveredArenaSeance_SmokeActiveWorldReconstructedIDs();
+int RecoveredArenaSeance_SmokeActiveWorldStableRoundTrips();
+int RecoveredArenaSeance_SmokeActiveWorldResumedMoves();
+unsigned long long RecoveredArenaSeance_SmokeActiveWorldFingerprint();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_PeopleAttributesReady();
 bool RecoveredArenaSeance_PeopleReferencesReady();

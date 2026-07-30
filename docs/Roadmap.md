@@ -1008,8 +1008,8 @@ The next Windows-first persistence work is deliberately incremental:
    Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
    private scheduler state;
 3. [in progress] add transient combat ownership: live Bullet flight, the
-   parent-owned Explosion particle graph and detached started Spark are done;
-   Smoke/Corpse, queued effect creation, mission state, the remaining semantic
+   parent-owned Explosion particle graph, detached Spark and Smoke are done;
+   Corpse, queued effect creation, mission state, the remaining semantic
    event queue and an authoritative deterministic RNG remain;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
@@ -1083,10 +1083,18 @@ restored transition without disturbing the other ordinal. The envelope reports
 `8/0`, `8/8/0` and `spark_active_world_probe=2/2/1/2/2/1`. Queued CREATE is
 deliberately deferred to the semantic event section.
 
+Detached Smoke is now admitted as the ninth section. `SMK1` captures two
+same-name real Smoke owners at different one-blob phases, restores every
+movement/decay coefficient and exact MOVING endpoint under fresh ObjectIDs and
+executes one restored movement without changing the other ordinal. The
+envelope reports `9/0`, `9/9/0` and
+`smoke_active_world_probe=2/2/2/1/2/2/1`. Native texture handles and the
+ignored payload inherited from START are deliberately absent. Admission passes
+54/54 CTest in both configurations and all 36 retail matrix cases.
+
 The next large persistence slice completes the damage/death effect graph:
-detached Smoke and Corpse ownership, semantic hit/death and queued effect
-events, projectiles whose master disappears before capture and their rollback
-order.
+Corpse ownership, semantic hit/death and queued effect events, projectiles
+whose master disappears before capture and their rollback order.
 After that come the remaining mission queue and authoritative RNG, followed by
 a complete fresh-Level reconstruction and public save controls.
 

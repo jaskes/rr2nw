@@ -645,6 +645,15 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_SparkActiveWorldStableRoundTrips() == -1 &&
          RecoveredArenaSeance_SparkActiveWorldResumedPhases() == -1 &&
          RecoveredArenaSeance_SparkActiveWorldFingerprint() == 0 &&
+         !RecoveredArenaSeance_SmokeActiveWorldReady() &&
+         RecoveredArenaSeance_SmokeActiveWorldCapturedOwners() == -1 &&
+         RecoveredArenaSeance_SmokeActiveWorldCapturedBlobs() == -1 &&
+         RecoveredArenaSeance_SmokeActiveWorldSchedulerEvents() == -1 &&
+         RecoveredArenaSeance_SmokeActiveWorldRollbacks() == -1 &&
+         RecoveredArenaSeance_SmokeActiveWorldReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_SmokeActiveWorldStableRoundTrips() == -1 &&
+         RecoveredArenaSeance_SmokeActiveWorldResumedMoves() == -1 &&
+         RecoveredArenaSeance_SmokeActiveWorldFingerprint() == 0 &&
          SparkSubjectState_Capacity() == 0 &&
          SparkSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_RouteReady() &&
@@ -967,6 +976,26 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_SparkActiveWorldStableRoundTrips() != -1 ||
       RecoveredArenaSeance_SparkActiveWorldResumedPhases() != -1 ||
       RecoveredArenaSeance_SparkActiveWorldFingerprint() != 0 ||
+      RecoveredArenaSeance_SmokeActiveWorldReady() !=
+          expectVisualResources ||
+      (expectVisualResources &&
+       (RecoveredArenaSeance_SmokeActiveWorldCapturedOwners() != 2 ||
+        RecoveredArenaSeance_SmokeActiveWorldCapturedBlobs() != 2 ||
+        RecoveredArenaSeance_SmokeActiveWorldSchedulerEvents() != 2 ||
+        RecoveredArenaSeance_SmokeActiveWorldRollbacks() != 1 ||
+        RecoveredArenaSeance_SmokeActiveWorldReconstructedIDs() != 2 ||
+        RecoveredArenaSeance_SmokeActiveWorldStableRoundTrips() != 2 ||
+        RecoveredArenaSeance_SmokeActiveWorldResumedMoves() != 1 ||
+        RecoveredArenaSeance_SmokeActiveWorldFingerprint() == 0)) ||
+      (!expectVisualResources &&
+       (RecoveredArenaSeance_SmokeActiveWorldCapturedOwners() != -1 ||
+        RecoveredArenaSeance_SmokeActiveWorldCapturedBlobs() != -1 ||
+        RecoveredArenaSeance_SmokeActiveWorldSchedulerEvents() != -1 ||
+        RecoveredArenaSeance_SmokeActiveWorldRollbacks() != -1 ||
+        RecoveredArenaSeance_SmokeActiveWorldReconstructedIDs() != -1 ||
+        RecoveredArenaSeance_SmokeActiveWorldStableRoundTrips() != -1 ||
+        RecoveredArenaSeance_SmokeActiveWorldResumedMoves() != -1 ||
+        RecoveredArenaSeance_SmokeActiveWorldFingerprint() != 0)) ||
       SparkSubjectState_Capacity() != 40 ||
       SparkSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_RouteReady() ||
@@ -1032,10 +1061,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 8 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 9 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 8 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 8 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 9 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 9 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||

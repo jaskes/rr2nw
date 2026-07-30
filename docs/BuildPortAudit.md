@@ -2936,3 +2936,35 @@ Smoke/Corpse ownership, queued CREATE, damage/death semantics, mission state,
 generic events, authoritative RNG, complete fresh-Level construction and
 public save slots remain outside this tranche. Admission is 54/54 CTest in
 Debug and Release plus the 36 installed/mounted retail cases.
+
+## Smoke active-world v1 and field-level blob reconstruction
+
+The ninth owner section is canonical `SMK1`. It replaces the legacy raw
+`SmokeData` dump with fixed-width little-endian fields for the owner clock,
+origin, remove flag and every active blob's phase, transforms, UVs, radius,
+opacity and spline coefficients. SmokeAttr is symbolic. Cached texture handles,
+native pointers/layout and renderer publications never enter the record.
+
+The legacy START event is reused as MOVING and retains an ignored payload.
+Because MOVING reads none of it, restore deliberately schedules an empty
+canonical event with the exact saved owner and timestamp. This private event is
+owned by SMK1 and must later be excluded from the generic queue. A new explicit
+publication bit closes the renderer boundary and lets removeNotify detach a
+Smoke that is destroyed during an open frame.
+
+Equal-name owners use the same canonical name/creation-order ordinal strategy
+as SPK1. The runtime starts two real `Smoke.Attr.Trace` objects, advances their
+single blobs to different phases, captures two MOVING endpoints, destroys the
+pair, rolls one fresh pair back and creates a final pair under four new IDs.
+After byte-identical recapture, one restored MOVING changes phase and position,
+queues its successor and leaves the second ordinal unchanged.
+
+Diagnostics advance to `9/0`, `9/9/0` and
+`smoke_active_world_probe=2/2/2/1/2/2/1`. Source-only fixtures without sprites
+still admit an empty canonical SMK1; retail startup must run the live proof.
+The old CP1251 `Smoke.cpp` translation unit was normalized to UTF-8 without BOM
+so modern patching and diagnostics no longer depend on an ANSI code page.
+Debug and Release pass 54/54 CTest and the full installed/mounted matrix passes
+36/36. Per-process blob fingerprints may differ because the probe uses the
+legacy global RNG; each staged and final recapture must still be byte-exact.
+Corpse and queued damage/death effects are the next persistence boundary.

@@ -1254,6 +1254,24 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_SparkActiveWorldResumedPhases()));
   log.Line("spark_active_world_fingerprint=" + std::to_string(
                RecoveredArenaSeance_SparkActiveWorldFingerprint()));
+  log.Line("smoke_active_world_initialized=" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldReady() ? 1 : 0));
+  log.Line("smoke_active_world_probe=" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldCapturedOwners()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldCapturedBlobs()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldSchedulerEvents()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldRollbacks()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldReconstructedIDs()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldStableRoundTrips()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldResumedMoves()));
+  log.Line("smoke_active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SmokeActiveWorldFingerprint()));
   log.Line("people_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_PeopleAttributesReady() ? 1 : 0));

@@ -108,13 +108,15 @@ class Smoke :	public ct_Subject,
 {
 
 	void setSmokeAttr();
-    void resetTransientState();
- 
+
 public:
     
     
     AttributeSmoke   *m_attr;
     s_SmokeObject     m_viewObj;
+    bool              m_dynamicPublished;
+
+    void     resetTransientState();
     
     int      addBlob();
     void     delBlob(int index);

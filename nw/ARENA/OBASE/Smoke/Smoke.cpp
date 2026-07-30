@@ -8,6 +8,7 @@
 #include "game.h"
 #include "scene.h"
 #include "Smoke.h"
+#include "SmokeActiveWorldState.h"
 #include "SmokeSubjectState.h"
 #ifdef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
 #include "SmokeAttributeState.h"
@@ -18,6 +19,13 @@
 #include "message/fountmsg.h"
 #include "h/cachesmoke.h"
 #include "h/phisics.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <string>
+#include <vector>
 
 #if defined(RR2NW_SMOKE_SUBJECT_ONLY) || \
     defined(RR2NW_SMOKE_SIMULATION_ONLY)
@@ -196,6 +204,7 @@ class SmokeTable : public ct_SubjectTable
     virtual ct_Object *getObjectPTR( int index );
     virtual  bool      isRendering();
     int                capacity() const { return m_maxObjectQnty; }
+    Smoke             *find(const KR_ObjectID &object) const;
 };
 
 #ifndef RR2NW_SMOKE_ATTRIBUTE_STATE_EXTERNAL
@@ -285,6 +294,7 @@ void Smoke::resetTransientState()
     m_viewObj.m_master = this;
     m_viewObj.m_visible = false;
     m_viewObj.m_z = 0;
+    m_dynamicPublished = false;
     for( int i = 0; i < MAXSMOKEBLOB; ++i )
          m_blob[i] = SmokeBlob();
  }
@@ -492,7 +502,15 @@ void Smoke::removeNotify()
  {
     if (context != NULL)
          context->removeEvent(fou_EVC_MOVING, getObjectID());
+    if (m_dynamicPublished)
+    {
+         CViewScene *scene = CViewScene::Current();
+         if (scene != NULL)
+              scene->RemoveLandDynamic(&m_viewObj);
+         m_dynamicPublished = false;
+    }
     ct_Subject::removeNotify();
+    resetTransientState();
  }
 
  //============================================================
@@ -586,6 +604,15 @@ ct_Object *SmokeTable::getObjectPTR( int index )
     return &(m_table[ index ]);
  }
 
+Smoke *SmokeTable::find(const KR_ObjectID &object) const
+{
+    for (ct_Subject *subject = findFirstSubject(); subject != NULL;
+         subject = findNextSubject(subject))
+        if (subject->getObjectID() == object)
+            return static_cast<Smoke *>(subject);
+    return NULL;
+}
+
  /*************************************
   *
   *   AttributeTable implementation
@@ -657,7 +684,10 @@ void Smoke::render( CViewDynamicList &list, double )
      m_viewObj.prepareToRender();
 
      if(  m_viewObj.m_visible  )
+     {
           list.Load( &m_viewObj );
+          m_dynamicPublished = true;
+     }
 #endif
 }
 
@@ -667,8 +697,9 @@ void Smoke::endRender( CViewScene *scene )
 #ifdef RR2NW_SMOKE_RENDER_DISABLED
      (void)scene;
 #else
-     if(  m_viewObj.m_visible  )
+     if(  m_dynamicPublished && scene != NULL  )
           scene->RemoveLandDynamic( &m_viewObj );
+     m_dynamicPublished = false;
 #endif
 }
 
@@ -698,7 +729,7 @@ void Smoke::preCreate( SmokeBlob &b )
    }
 
    //
-   //  ÓÓ‰ËÌ‡Ú˚ ‚ ÚÂÍÒÚÛÂ
+   // –ö–æ–æ—Ä–¥–∏–Ω–∞—Ç—ã –≤ —Ç–µ–∫—Å—Ç—É—Ä–µ
    //
    int pos = context->rnd_i()&3;
    int x = (pos& 1)*128,
@@ -713,7 +744,7 @@ void Smoke::preCreate( SmokeBlob &b )
    b.m_color = m_attr->m_cacheColor;
 
    //
-   // œÓÁËˆËˇ ‚ÌÛÚË ÒÙÂ˚
+   // –ü–æ–∑–∏—Ü–∏—è –≤–Ω—É—Ç—Ä–∏ —Å—Ñ–µ—Ä—ã
    //
    CFVector3 p(m_pos);
    if(  morph&4  )
@@ -730,7 +761,7 @@ void Smoke::preCreate( SmokeBlob &b )
    b.m_dirIncrement = context->rnd_f(m_attr->m_minDirInc,m_attr->m_maxDirInc);
 
    //
-   // «‡‰‡ÂÏ ‚ÂÍÚÓ ÒÌÓÒ‡
+   // –ó–∞–¥–∞–µ–º –≤–µ–∫—Ç–æ—Ä —Å–Ω–æ—Å–∞
    //
    CFMatrix3x4 m;
    m.LoadIdentity();
@@ -980,6 +1011,549 @@ namespace {
 
 const unsigned long long kSmokeSubjectHashOffset = 14695981039346656037ull;
 const unsigned long long kSmokeSubjectHashPrime = 1099511628211ull;
+const std::uint32_t kSmokeActiveWorldMagic = 0x314b4d53u; // SMK1
+const std::uint32_t kSmokeActiveWorldVersion = 1u;
+const std::size_t kMaximumActiveWorldSmokes = 4096;
+const std::size_t kMaximumActiveWorldString = MAX_SYMBOLIC_LENGHT - 1;
+
+std::string g_smokeActiveWorldFailure;
+
+struct StableSmokeBlob
+{
+    double phase;
+    std::uint32_t color;
+    int u0;
+    int v0;
+    int u1;
+    int v1;
+    CFVector3 startPosition;
+    CFVector3 position;
+    CFVector3 direction;
+    CFVector3 offsetDirection;
+    double directionIncrement;
+    double maximumTimeLife;
+    double radius;
+    int alpha;
+    double radiusA;
+    double radiusB;
+    double radiusC;
+    double opacityA;
+    double opacityB;
+    double opacityC;
+    double spline0;
+    double spline1;
+    double spline2;
+    double spline3;
+
+    StableSmokeBlob()
+        : phase(0.0), color(0), u0(0), v0(0), u1(0), v1(0),
+          startPosition(0.0, 0.0, 0.0), position(0.0, 0.0, 0.0),
+          direction(0.0, 0.0, 0.0), offsetDirection(0.0, 0.0, 0.0),
+          directionIncrement(0.0), maximumTimeLife(0.0), radius(0.0),
+          alpha(0), radiusA(0.0), radiusB(0.0), radiusC(0.0),
+          opacityA(0.0), opacityB(0.0), opacityC(0.0), spline0(0.0),
+          spline1(0.0), spline2(0.0), spline3(0.0) {}
+};
+
+struct StableSmokeRecord
+{
+    std::string name;
+    std::string attribute;
+    int viewIterations;
+    CFVector3 position;
+    double previousTimeStamp;
+    int removeOnMove;
+    double movingTimeStamp;
+    std::vector<StableSmokeBlob> blobs;
+
+    StableSmokeRecord()
+        : viewIterations(0), position(0.0, 0.0, 0.0),
+          previousTimeStamp(0.0), removeOnMove(0),
+          movingTimeStamp(0.0) {}
+};
+
+bool FailSmokeActiveWorld(const std::string &message)
+{
+    g_smokeActiveWorldFailure = message;
+    return false;
+}
+
+bool SmokeIsNul(const KR_ObjectID &value)
+{
+    KR_ObjectID copy = value;
+    return copy.isNUL() != 0;
+}
+
+bool SmokeFiniteVector(const CFVector3 &value)
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+           std::isfinite(value.z);
+}
+
+std::string SmokeObjectName(SimulationContext *context,
+                            const KR_ObjectID &object)
+{
+    if (context == NULL || SmokeIsNul(object))
+        return std::string();
+    const char *name = context->searchObject(object);
+    return name == NULL ? std::string() : std::string(name);
+}
+
+bool CollectStableSmokeRoster(SimulationContext *context,
+                              std::vector<Smoke *> *objects)
+{
+    if (context == NULL || objects == NULL ||
+        g_arena.getContext() != context)
+        return false;
+    objects->clear();
+    for (ct_Subject *subject = __classTable.findFirstSubject();
+         subject != NULL; subject = __classTable.findNextSubject(subject))
+        objects->push_back(static_cast<Smoke *>(subject));
+    std::sort(objects->begin(), objects->end(),
+              [context](const Smoke *left, const Smoke *right)
+              {
+                  const std::string leftName = SmokeObjectName(
+                      context, left->getObjectID());
+                  const std::string rightName = SmokeObjectName(
+                      context, right->getObjectID());
+                  if (leftName != rightName)
+                      return leftName < rightName;
+                  return left->getObjectID().id < right->getObjectID().id;
+              });
+    return true;
+}
+
+bool ValidateStableSmokeBlob(const StableSmokeBlob &blob)
+{
+    if (!std::isfinite(blob.phase) || blob.phase < 0.0 ||
+        !SmokeFiniteVector(blob.startPosition) ||
+        !SmokeFiniteVector(blob.position) ||
+        !SmokeFiniteVector(blob.direction) ||
+        !SmokeFiniteVector(blob.offsetDirection) ||
+        !std::isfinite(blob.directionIncrement) ||
+        blob.directionIncrement < 0.0 ||
+        !std::isfinite(blob.maximumTimeLife) ||
+        blob.maximumTimeLife <= 0.0 || !std::isfinite(blob.radius) ||
+        blob.radius < 0.001 || blob.alpha <= 0 || blob.alpha > 255 ||
+        !std::isfinite(blob.radiusA) || !std::isfinite(blob.radiusB) ||
+        !std::isfinite(blob.radiusC) || !std::isfinite(blob.opacityA) ||
+        !std::isfinite(blob.opacityB) || !std::isfinite(blob.opacityC) ||
+        !std::isfinite(blob.spline0) || !std::isfinite(blob.spline1) ||
+        !std::isfinite(blob.spline2) || !std::isfinite(blob.spline3))
+        return FailSmokeActiveWorld("SMK1 blob state is invalid");
+    return true;
+}
+
+bool ValidateStableSmokeRecord(const StableSmokeRecord &record)
+{
+    if (record.name.empty() || record.attribute.empty() ||
+        record.name.size() > kMaximumActiveWorldString ||
+        record.attribute.size() > kMaximumActiveWorldString)
+        return FailSmokeActiveWorld(
+            "SMK1 owner/attribute identity is invalid");
+    if (!SmokeFiniteVector(record.position) ||
+        !std::isfinite(record.previousTimeStamp) ||
+        record.previousTimeStamp < 0.1 ||
+        !std::isfinite(record.movingTimeStamp) ||
+        record.movingTimeStamp <= record.previousTimeStamp ||
+        (record.removeOnMove != 0 && record.removeOnMove != 1) ||
+        record.blobs.empty() ||
+        record.blobs.size() > Smoke::MAXSMOKEBLOB)
+        return FailSmokeActiveWorld("SMK1 owner/MOVING state is invalid");
+    for (std::size_t index = 0; index < record.blobs.size(); ++index)
+        if (!ValidateStableSmokeBlob(record.blobs[index]))
+            return false;
+    return true;
+}
+
+StableSmokeBlob CaptureStableSmokeBlob(const SmokeBlob &source)
+{
+    StableSmokeBlob blob;
+    blob.phase = source.m_phase;
+    blob.color = static_cast<std::uint32_t>(source.m_color);
+    blob.u0 = source.u0;
+    blob.v0 = source.v0;
+    blob.u1 = source.u1;
+    blob.v1 = source.v1;
+    blob.startPosition = source.m_startPos;
+    blob.position = source.m_position;
+    blob.direction = source.m_dir;
+    blob.offsetDirection = source.m_ofsDir;
+    blob.directionIncrement = source.m_dirIncrement;
+    blob.maximumTimeLife = source.m_maxTimeLife;
+    blob.radius = source.m_radius;
+    blob.alpha = source.m_alpha;
+    blob.radiusA = source.rA;
+    blob.radiusB = source.rB;
+    blob.radiusC = source.rC;
+    blob.opacityA = source.tA;
+    blob.opacityB = source.tB;
+    blob.opacityC = source.tC;
+    blob.spline0 = source.a0;
+    blob.spline1 = source.a1;
+    blob.spline2 = source.a2;
+    blob.spline3 = source.a3;
+    return blob;
+}
+
+void ApplyStableSmokeBlob(const StableSmokeBlob &source,
+                          GR_HTEXTURE texture, SmokeBlob *blob)
+{
+    *blob = SmokeBlob();
+    blob->m_phase = source.phase;
+    blob->m_color = source.color;
+    blob->u0 = source.u0;
+    blob->v0 = source.v0;
+    blob->u1 = source.u1;
+    blob->v1 = source.v1;
+    blob->m_startPos = source.startPosition;
+    blob->m_position = source.position;
+    blob->m_dir = source.direction;
+    blob->m_ofsDir = source.offsetDirection;
+    blob->m_dirIncrement = source.directionIncrement;
+    blob->m_maxTimeLife = source.maximumTimeLife;
+    blob->m_radius = source.radius;
+    blob->m_alpha = source.alpha;
+    blob->m_ref = texture;
+    blob->rA = source.radiusA;
+    blob->rB = source.radiusB;
+    blob->rC = source.radiusC;
+    blob->tA = source.opacityA;
+    blob->tB = source.opacityB;
+    blob->tC = source.opacityC;
+    blob->a0 = source.spline0;
+    blob->a1 = source.spline1;
+    blob->a2 = source.spline2;
+    blob->a3 = source.spline3;
+}
+
+bool CaptureStableSmokeRecord(SimulationContext *context, Smoke *object,
+                              StableSmokeRecord *record)
+{
+    if (context == NULL || object == NULL || record == NULL ||
+        object->m_dynamicPublished || object->m_attr == NULL ||
+        !SmokeAttributeCanSimulate(object->m_attr) ||
+        object->m_cnt <= 0 || object->m_cnt > Smoke::MAXSMOKEBLOB ||
+        object->m_cnt > object->m_attr->m_maxBlob)
+        return FailSmokeActiveWorld(
+            "live Smoke is not at a stable simulated frame boundary");
+    record->name = SmokeObjectName(context, object->getObjectID());
+    record->attribute = SmokeObjectName(context, object->m_smokeAttrID);
+    record->viewIterations = object->m_viewIter;
+    record->position = object->m_pos;
+    record->previousTimeStamp = object->m_prevTimeStamp;
+    record->removeOnMove = object->m_setRemove;
+    record->blobs.clear();
+    for (int index = 0; index < object->m_cnt; ++index)
+    {
+        if (object->m_blob[index].m_ref != object->m_attr->m_cacheImage)
+            return FailSmokeActiveWorld(
+                "live Smoke blob texture does not match its attribute");
+        record->blobs.push_back(
+            CaptureStableSmokeBlob(object->m_blob[index]));
+    }
+    KR_Event moving[2];
+    const int count = context->copyEvents(
+        fou_EVC_MOVING, object->getObjectID(), moving, 2);
+    if (count != 1 || moving[0].source != object->getObjectID() ||
+        moving[0].destination != object->getObjectID())
+        return FailSmokeActiveWorld(
+            "live Smoke private MOVING boundary is invalid");
+    // MOVING never reads its inherited START payload. SMK1 owns the semantic
+    // label/time edge and deliberately reconstructs an empty canonical body.
+    record->movingTimeStamp = moving[0].timeStamp;
+    return ValidateStableSmokeRecord(*record);
+}
+
+bool CollectStableSmokeRecords(
+    SimulationContext *context, std::vector<StableSmokeRecord> *records)
+{
+    std::vector<Smoke *> objects;
+    if (records == NULL || !CollectStableSmokeRoster(context, &objects))
+        return false;
+    records->clear();
+    for (std::size_t index = 0; index < objects.size(); ++index)
+    {
+        StableSmokeRecord record;
+        if (!CaptureStableSmokeRecord(context, objects[index], &record))
+            return false;
+        records->push_back(record);
+    }
+    return true;
+}
+
+bool StableSmokeRosterMatches(
+    const std::vector<Smoke *> &objects, SimulationContext *context,
+    const std::vector<StableSmokeRecord> &records)
+{
+    if (objects.size() != records.size())
+        return false;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        if (SmokeObjectName(context, objects[index]->getObjectID()) !=
+            records[index].name)
+            return false;
+    return true;
+}
+
+void SmokePutU32(std::vector<unsigned char> *bytes, std::uint32_t value)
+{
+    for (int shift = 0; shift < 32; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(value >> shift));
+}
+
+void SmokePutDouble(std::vector<unsigned char> *bytes, double value)
+{
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    for (int shift = 0; shift < 64; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(bits >> shift));
+}
+
+void SmokePutVector(std::vector<unsigned char> *bytes,
+                    const CFVector3 &value)
+{
+    SmokePutDouble(bytes, value.x);
+    SmokePutDouble(bytes, value.y);
+    SmokePutDouble(bytes, value.z);
+}
+
+bool SmokePutString(std::vector<unsigned char> *bytes,
+                    const std::string &value)
+{
+    if (bytes == NULL || value.empty() ||
+        value.size() > kMaximumActiveWorldString ||
+        value.find('\0') != std::string::npos)
+        return false;
+    SmokePutU32(bytes, static_cast<std::uint32_t>(value.size()));
+    bytes->insert(bytes->end(), value.begin(), value.end());
+    return true;
+}
+
+bool SmokeGetU32(const std::vector<unsigned char> &bytes,
+                 std::size_t *offset, std::uint32_t *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 4)
+        return false;
+    *value = 0;
+    for (int shift = 0; shift < 32; shift += 8)
+        *value |= static_cast<std::uint32_t>(bytes[(*offset)++]) << shift;
+    return true;
+}
+
+bool SmokeGetDouble(const std::vector<unsigned char> &bytes,
+                    std::size_t *offset, double *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 8)
+        return false;
+    std::uint64_t bits = 0;
+    for (int shift = 0; shift < 64; shift += 8)
+        bits |= static_cast<std::uint64_t>(bytes[(*offset)++]) << shift;
+    std::memcpy(value, &bits, sizeof(bits));
+    return true;
+}
+
+bool SmokeGetVector(const std::vector<unsigned char> &bytes,
+                    std::size_t *offset, CFVector3 *value)
+{
+    return value != NULL && SmokeGetDouble(bytes, offset, &value->x) &&
+           SmokeGetDouble(bytes, offset, &value->y) &&
+           SmokeGetDouble(bytes, offset, &value->z);
+}
+
+bool SmokeGetString(const std::vector<unsigned char> &bytes,
+                    std::size_t *offset, std::string *value)
+{
+    std::uint32_t size = 0;
+    if (offset == NULL || value == NULL ||
+        !SmokeGetU32(bytes, offset, &size) || size == 0 ||
+        size > kMaximumActiveWorldString || *offset > bytes.size() ||
+        bytes.size() - *offset < size)
+        return false;
+    value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
+    *offset += size;
+    return value->find('\0') == std::string::npos;
+}
+
+void SmokePutBlob(std::vector<unsigned char> *bytes,
+                  const StableSmokeBlob &blob)
+{
+    SmokePutDouble(bytes, blob.phase);
+    SmokePutU32(bytes, blob.color);
+    SmokePutU32(bytes, static_cast<std::uint32_t>(blob.u0));
+    SmokePutU32(bytes, static_cast<std::uint32_t>(blob.v0));
+    SmokePutU32(bytes, static_cast<std::uint32_t>(blob.u1));
+    SmokePutU32(bytes, static_cast<std::uint32_t>(blob.v1));
+    SmokePutVector(bytes, blob.startPosition);
+    SmokePutVector(bytes, blob.position);
+    SmokePutVector(bytes, blob.direction);
+    SmokePutVector(bytes, blob.offsetDirection);
+    SmokePutDouble(bytes, blob.directionIncrement);
+    SmokePutDouble(bytes, blob.maximumTimeLife);
+    SmokePutDouble(bytes, blob.radius);
+    SmokePutU32(bytes, static_cast<std::uint32_t>(blob.alpha));
+    SmokePutDouble(bytes, blob.radiusA);
+    SmokePutDouble(bytes, blob.radiusB);
+    SmokePutDouble(bytes, blob.radiusC);
+    SmokePutDouble(bytes, blob.opacityA);
+    SmokePutDouble(bytes, blob.opacityB);
+    SmokePutDouble(bytes, blob.opacityC);
+    SmokePutDouble(bytes, blob.spline0);
+    SmokePutDouble(bytes, blob.spline1);
+    SmokePutDouble(bytes, blob.spline2);
+    SmokePutDouble(bytes, blob.spline3);
+}
+
+bool SmokeGetBlob(const std::vector<unsigned char> &bytes,
+                  std::size_t *offset, StableSmokeBlob *blob)
+{
+    std::uint32_t color = 0, u0 = 0, v0 = 0, u1 = 0, v1 = 0, alpha = 0;
+    if (blob == NULL || !SmokeGetDouble(bytes, offset, &blob->phase) ||
+        !SmokeGetU32(bytes, offset, &color) ||
+        !SmokeGetU32(bytes, offset, &u0) ||
+        !SmokeGetU32(bytes, offset, &v0) ||
+        !SmokeGetU32(bytes, offset, &u1) ||
+        !SmokeGetU32(bytes, offset, &v1) ||
+        !SmokeGetVector(bytes, offset, &blob->startPosition) ||
+        !SmokeGetVector(bytes, offset, &blob->position) ||
+        !SmokeGetVector(bytes, offset, &blob->direction) ||
+        !SmokeGetVector(bytes, offset, &blob->offsetDirection) ||
+        !SmokeGetDouble(bytes, offset, &blob->directionIncrement) ||
+        !SmokeGetDouble(bytes, offset, &blob->maximumTimeLife) ||
+        !SmokeGetDouble(bytes, offset, &blob->radius) ||
+        !SmokeGetU32(bytes, offset, &alpha) ||
+        !SmokeGetDouble(bytes, offset, &blob->radiusA) ||
+        !SmokeGetDouble(bytes, offset, &blob->radiusB) ||
+        !SmokeGetDouble(bytes, offset, &blob->radiusC) ||
+        !SmokeGetDouble(bytes, offset, &blob->opacityA) ||
+        !SmokeGetDouble(bytes, offset, &blob->opacityB) ||
+        !SmokeGetDouble(bytes, offset, &blob->opacityC) ||
+        !SmokeGetDouble(bytes, offset, &blob->spline0) ||
+        !SmokeGetDouble(bytes, offset, &blob->spline1) ||
+        !SmokeGetDouble(bytes, offset, &blob->spline2) ||
+        !SmokeGetDouble(bytes, offset, &blob->spline3))
+        return false;
+    blob->color = color;
+    blob->u0 = static_cast<int>(static_cast<std::int32_t>(u0));
+    blob->v0 = static_cast<int>(static_cast<std::int32_t>(v0));
+    blob->u1 = static_cast<int>(static_cast<std::int32_t>(u1));
+    blob->v1 = static_cast<int>(static_cast<std::int32_t>(v1));
+    blob->alpha = static_cast<int>(static_cast<std::int32_t>(alpha));
+    return ValidateStableSmokeBlob(*blob);
+}
+
+bool SmokePutRecord(std::vector<unsigned char> *bytes,
+                    const StableSmokeRecord &record)
+{
+    if (!SmokePutString(bytes, record.name) ||
+        !SmokePutString(bytes, record.attribute))
+        return false;
+    SmokePutU32(bytes, static_cast<std::uint32_t>(record.viewIterations));
+    SmokePutVector(bytes, record.position);
+    SmokePutDouble(bytes, record.previousTimeStamp);
+    SmokePutU32(bytes, static_cast<std::uint32_t>(record.removeOnMove));
+    SmokePutDouble(bytes, record.movingTimeStamp);
+    SmokePutU32(bytes, static_cast<std::uint32_t>(record.blobs.size()));
+    for (std::size_t index = 0; index < record.blobs.size(); ++index)
+        SmokePutBlob(bytes, record.blobs[index]);
+    return true;
+}
+
+bool SmokeGetRecord(const std::vector<unsigned char> &bytes,
+                    std::size_t *offset, StableSmokeRecord *record)
+{
+    std::uint32_t view = 0, remove = 0, count = 0;
+    if (record == NULL ||
+        !SmokeGetString(bytes, offset, &record->name) ||
+        !SmokeGetString(bytes, offset, &record->attribute) ||
+        !SmokeGetU32(bytes, offset, &view) ||
+        !SmokeGetVector(bytes, offset, &record->position) ||
+        !SmokeGetDouble(bytes, offset, &record->previousTimeStamp) ||
+        !SmokeGetU32(bytes, offset, &remove) ||
+        !SmokeGetDouble(bytes, offset, &record->movingTimeStamp) ||
+        !SmokeGetU32(bytes, offset, &count) || count == 0 ||
+        count > Smoke::MAXSMOKEBLOB)
+        return false;
+    record->viewIterations =
+        static_cast<int>(static_cast<std::int32_t>(view));
+    record->removeOnMove = static_cast<int>(remove);
+    record->blobs.clear();
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        StableSmokeBlob blob;
+        if (!SmokeGetBlob(bytes, offset, &blob))
+            return false;
+        record->blobs.push_back(blob);
+    }
+    return ValidateStableSmokeRecord(*record);
+}
+
+bool EncodeStableSmokeRecords(
+    const std::vector<StableSmokeRecord> &records,
+    std::vector<unsigned char> *bytes)
+{
+    if (bytes == NULL || records.size() > kMaximumActiveWorldSmokes)
+        return false;
+    bytes->clear();
+    SmokePutU32(bytes, kSmokeActiveWorldMagic);
+    SmokePutU32(bytes, kSmokeActiveWorldVersion);
+    SmokePutU32(bytes, static_cast<std::uint32_t>(records.size()));
+    for (std::size_t index = 0; index < records.size(); ++index)
+        if (!ValidateStableSmokeRecord(records[index]) ||
+            (index != 0 && records[index - 1].name > records[index].name) ||
+            !SmokePutRecord(bytes, records[index]))
+            return FailSmokeActiveWorld("SMK1 record encoding failed");
+    return true;
+}
+
+bool DecodeStableSmokeRecords(
+    const std::vector<unsigned char> &bytes,
+    std::vector<StableSmokeRecord> *records)
+{
+    std::size_t offset = 0;
+    std::uint32_t magic = 0, version = 0, count = 0;
+    if (records == NULL || !SmokeGetU32(bytes, &offset, &magic) ||
+        !SmokeGetU32(bytes, &offset, &version) ||
+        !SmokeGetU32(bytes, &offset, &count) ||
+        magic != kSmokeActiveWorldMagic ||
+        version != kSmokeActiveWorldVersion ||
+        count > kMaximumActiveWorldSmokes)
+        return false;
+    records->clear();
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        StableSmokeRecord record;
+        if (!SmokeGetRecord(bytes, &offset, &record) ||
+            (!records->empty() && records->back().name > record.name))
+            return false;
+        records->push_back(record);
+    }
+    return offset == bytes.size();
+}
+
+int DrainPrivateSmokeEvents(SimulationContext *context,
+                            const KR_ObjectID &object)
+{
+    if (context == NULL || SmokeIsNul(object))
+        return 0;
+    int removed = 0;
+    while (context->removeEvent(fou_EVC_MOVING, object) == 1)
+        ++removed;
+    while (context->removeEvent(fou_EVCMD_START, object) == 1)
+        ++removed;
+    while (context->removeEvent(fou_EVCMD_START_WITHDIR, object) == 1)
+        ++removed;
+    return removed;
+}
+
+void RemoveSmokeIfPresent(SimulationContext *context,
+                          const KR_ObjectID &object)
+{
+    if (context != NULL && !SmokeIsNul(object) &&
+        context->isExist(object))
+        context->removeObject(object);
+}
 
 void SmokeSubjectHashBytes(unsigned long long &hash, const void *data,
                            int size)
@@ -1241,5 +1815,444 @@ bool SmokeSubjectState_RenderingSupported(
               __attrTable.searchAttribute(attributeID));
     return attribute != NULL && attribute->m_cacheImage != NULL;
 #endif
+}
+
+void SmokeActiveWorldState_Link()
+{
+    SmokeSubjectState_Link();
+}
+
+const char *SmokeActiveWorldState_LastFailure()
+{
+    return g_smokeActiveWorldFailure.c_str();
+}
+
+int SmokeActiveWorldState_BlobCount(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableSmokeRecord> records;
+    if (!DecodeStableSmokeRecords(bytes, &records))
+        return -1;
+    int count = 0;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        count += static_cast<int>(records[index].blobs.size());
+    return count;
+}
+
+int SmokeActiveWorldState_SchedulerEventCount(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableSmokeRecord> records;
+    return DecodeStableSmokeRecords(bytes, &records)
+        ? static_cast<int>(records.size()) : -1;
+}
+
+unsigned long long SmokeActiveWorldState_Fingerprint(
+    SimulationContext *context)
+{
+    std::vector<unsigned char> bytes;
+    if (!SmokeActiveWorldState_CaptureStable(context, &bytes))
+        return 0;
+    unsigned long long hash = kSmokeSubjectHashOffset;
+    if (!bytes.empty())
+        SmokeSubjectHashBytes(hash, &bytes[0],
+                              static_cast<int>(bytes.size()));
+    return hash;
+}
+
+bool SmokeActiveWorldState_CaptureStable(
+    SimulationContext *context, std::vector<unsigned char> *bytes)
+{
+    g_smokeActiveWorldFailure.clear();
+    std::vector<StableSmokeRecord> records;
+    if (!CollectStableSmokeRecords(context, &records))
+    {
+        if (g_smokeActiveWorldFailure.empty())
+            FailSmokeActiveWorld("Smoke stable roster collection failed");
+        return false;
+    }
+    return EncodeStableSmokeRecords(records, bytes);
+}
+
+bool SmokeActiveWorldState_ValidateStable(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableSmokeRecord> records;
+    return DecodeStableSmokeRecords(bytes, &records);
+}
+
+bool SmokeActiveWorldState_MatchesStable(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<unsigned char> current;
+    return SmokeActiveWorldState_CaptureStable(context, &current) &&
+           current == bytes;
+}
+
+bool SmokeActiveWorldState_CollectStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *owners)
+{
+    std::vector<StableSmokeRecord> records;
+    std::vector<Smoke *> objects;
+    if (owners == NULL || !DecodeStableSmokeRecords(bytes, &records) ||
+        !CollectStableSmokeRoster(context, &objects) ||
+        !StableSmokeRosterMatches(objects, context, records))
+        return false;
+    owners->clear();
+    for (std::size_t index = 0; index < objects.size(); ++index)
+        owners->push_back(objects[index]->getObjectID());
+    return true;
+}
+
+bool SmokeActiveWorldState_CreateStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *created)
+{
+    std::vector<StableSmokeRecord> records;
+    std::vector<Smoke *> objects;
+    if (created == NULL || !DecodeStableSmokeRecords(bytes, &records) ||
+        !CollectStableSmokeRoster(context, &objects))
+        return false;
+    if (!created->empty())
+        return FailSmokeActiveWorld("Smoke created-owner list is not empty");
+    if (!objects.empty())
+        return StableSmokeRosterMatches(objects, context, records);
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Smoke");
+    if ((!records.empty() && table == ct_NULLID) ||
+        static_cast<int>(records.size()) >
+            __classTable.capacity() - SmokeSubjectState_LiveCount())
+        return FailSmokeActiveWorld(
+            "Smoke owner table has insufficient capacity");
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        KR_ObjectID object =
+            g_arena.newObject(table, records[index].name.c_str());
+        if (SmokeIsNul(object) || __classTable.find(object) == NULL)
+        {
+            SmokeActiveWorldState_RemoveStableOwners(context, created);
+            return FailSmokeActiveWorld("Smoke owner allocation failed");
+        }
+        created->push_back(object);
+    }
+    objects.clear();
+    if (!CollectStableSmokeRoster(context, &objects) ||
+        !StableSmokeRosterMatches(objects, context, records))
+    {
+        SmokeActiveWorldState_RemoveStableOwners(context, created);
+        return FailSmokeActiveWorld(
+            "Smoke allocated roster is not canonical");
+    }
+    return true;
+}
+
+bool SmokeActiveWorldState_ApplyStableReferences(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableSmokeRecord> records;
+    std::vector<Smoke *> objects;
+    if (context == NULL || !DecodeStableSmokeRecords(bytes, &records) ||
+        !CollectStableSmokeRoster(context, &objects) ||
+        !StableSmokeRosterMatches(objects, context, records))
+        return false;
+    std::vector<AttributeSmoke *> attributes(records.size(), NULL);
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        const KR_ObjectID attributeID =
+            context->searchObject(records[index].attribute.c_str());
+        attributes[index] = SmokeIsNul(attributeID) ? NULL :
+            static_cast<AttributeSmoke *>(
+                __attrTable.searchAttribute(attributeID));
+        if (!SmokeAttributeCanSimulate(attributes[index]))
+            return FailSmokeActiveWorld(
+                "SMK1 SmokeAttr dependency is unresolved");
+        if (records[index].blobs.size() >
+            static_cast<std::size_t>(attributes[index]->m_maxBlob))
+            return FailSmokeActiveWorld(
+                "SMK1 blob roster exceeds the resolved SmokeAttr");
+        for (std::size_t blob = 0;
+             blob < records[index].blobs.size(); ++blob)
+            if (records[index].blobs[blob].phase >
+                attributes[index]->m_maxTimeLife)
+                return FailSmokeActiveWorld(
+                    "SMK1 blob phase exceeds the resolved SmokeAttr");
+    }
+    for (std::size_t index = 0; index < objects.size(); ++index)
+    {
+        if (objects[index]->m_dynamicPublished)
+            return FailSmokeActiveWorld(
+                "SMK1 cannot replace a frame-published Smoke");
+        DrainPrivateSmokeEvents(context, objects[index]->getObjectID());
+        objects[index]->resetTransientState();
+    }
+    for (std::size_t index = 0; index < objects.size(); ++index)
+    {
+        Smoke *object = objects[index];
+        const StableSmokeRecord &record = records[index];
+        object->m_smokeAttrID = attributes[index]->getObjectID();
+        object->m_viewIter = record.viewIterations;
+        object->m_pos = record.position;
+        object->m_prevTimeStamp = record.previousTimeStamp;
+        object->m_setRemove = record.removeOnMove;
+        object->m_attr = attributes[index];
+        object->m_cnt = static_cast<int>(record.blobs.size());
+        object->m_viewObj.m_master = object;
+        object->m_viewObj.m_visible = false;
+        object->m_viewObj.m_z = 0;
+        for (int blob = 0; blob < object->m_cnt; ++blob)
+            ApplyStableSmokeBlob(record.blobs[blob],
+                                 attributes[index]->m_cacheImage,
+                                 &object->m_blob[blob]);
+        KR_Event moving;
+        moving.label = fou_EVC_MOVING;
+        moving.source = object->getObjectID();
+        moving.destination = object->getObjectID();
+        moving.timeStamp = record.movingTimeStamp;
+        moving.data.open(EDO_WRITE).close();
+        context->addEvent(moving);
+    }
+    std::vector<unsigned char> current;
+    if (!SmokeActiveWorldState_CaptureStable(context, &current) ||
+        current != bytes)
+        return FailSmokeActiveWorld("SMK1 canonical recapture differs");
+    return true;
+}
+
+void SmokeActiveWorldState_RemoveStableOwners(
+    SimulationContext *context, std::vector<KR_ObjectID> *created)
+{
+    if (created == NULL)
+        return;
+    if (context != NULL)
+        for (std::vector<KR_ObjectID>::reverse_iterator object =
+                 created->rbegin(); object != created->rend(); ++object)
+        {
+            DrainPrivateSmokeEvents(context, *object);
+            if (context->isExist(*object))
+                context->removeObject(*object);
+        }
+    created->clear();
+}
+
+bool SmokeActiveWorldState_ProbeLiveRoundTrip(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, SmokeActiveWorldProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    g_smokeActiveWorldFailure.clear();
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || SmokeSubjectState_LiveCount() != 0 ||
+        !SmokeSubjectState_RenderingSupported(context, attributeName))
+        return FailSmokeActiveWorld(
+            "Smoke active-world probe requires an empty ready table");
+    const KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeSmoke *attribute = SmokeIsNul(attributeID) ? NULL :
+        static_cast<AttributeSmoke *>(
+            __attrTable.searchAttribute(attributeID));
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Smoke");
+    if (!SmokeAttributeCanSimulate(attribute) ||
+        subjectTable == ct_NULLID || attribute->m_maxBlob != 1)
+        return FailSmokeActiveWorld(
+            "Smoke active-world probe attribute/table is unavailable");
+
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    KR_ObjectID originalFirst = KR_ObjectID::NUL();
+    KR_ObjectID originalSecond = KR_ObjectID::NUL();
+    KR_ObjectID stagedFirst = KR_ObjectID::NUL();
+    KR_ObjectID stagedSecond = KR_ObjectID::NUL();
+    KR_ObjectID restoredFirst = KR_ObjectID::NUL();
+    KR_ObjectID restoredSecond = KR_ObjectID::NUL();
+    std::vector<KR_ObjectID> originalOwners;
+    std::vector<KR_ObjectID> staged;
+    std::vector<KR_ObjectID> restored;
+    bool success = false;
+
+    const auto startSmoke =
+        [context, subjectTable, attributeID](
+            const CFVector3 &position, const CFVector3 &direction,
+            double startTime, KR_ObjectID *owner)
+        {
+            *owner = g_arena.newObject(
+                subjectTable, "Smoke.ActiveWorld.Probe");
+            if (SmokeIsNul(*owner) || !context->isExist(*owner))
+                return false;
+            KR_Event event;
+            event.label = fou_EVCMD_START_WITHDIR;
+            event.source = g_arena.getObjectID();
+            event.destination = *owner;
+            event.timeStamp = startTime;
+            event.data.open(EDO_WRITE)
+                      .putObjectID(attributeID)
+                      .putDouble(position.x)
+                      .putDouble(position.y)
+                      .putDouble(position.z)
+                      .putDouble(direction.x)
+                      .putDouble(direction.y)
+                      .putDouble(direction.z)
+                      .close();
+            context->sendEventNow(event);
+            return context->isExist(*owner) != 0;
+        };
+    const auto advanceSmoke =
+        [context](const KR_ObjectID &owner)
+        {
+            Smoke *object = static_cast<Smoke *>(__classTable.find(owner));
+            KR_Event moving[2];
+            if (object == NULL || context->copyEvents(
+                    fou_EVC_MOVING, owner, moving, 2) != 1 ||
+                context->removeEvent(fou_EVC_MOVING, owner) != 1)
+                return false;
+            const double previous = object->m_prevTimeStamp;
+            context->sendEventNow(moving[0]);
+            return context->isExist(owner) &&
+                   object->m_prevTimeStamp > previous;
+        };
+
+    do
+    {
+        if (!startSmoke(CFVector3(4096.0, 10000.0, -4096.0),
+                        CFVector3(0.0, 1.0, 0.0), ts,
+                        &originalFirst) ||
+            !startSmoke(CFVector3(4104.0, 10008.0, -4104.0),
+                        CFVector3(1.0, 1.0, 0.0), ts + 0.01,
+                        &originalSecond) ||
+            originalFirst == originalSecond)
+        {
+            FailSmokeActiveWorld(
+                "Smoke active-world duplicate-name start failed");
+            break;
+        }
+        if (!advanceSmoke(originalFirst) ||
+            !advanceSmoke(originalSecond) ||
+            !advanceSmoke(originalSecond))
+        {
+            FailSmokeActiveWorld(
+                "Smoke active-world move setup failed");
+            break;
+        }
+
+        std::vector<unsigned char> bytes;
+        if (!SmokeActiveWorldState_CaptureStable(context, &bytes) ||
+            SmokeActiveWorldState_BlobCount(bytes) != 2 ||
+            SmokeActiveWorldState_SchedulerEventCount(bytes) != 2 ||
+            !SmokeActiveWorldState_CollectStableOwners(
+                context, bytes, &originalOwners) ||
+            originalOwners.size() != 2 ||
+            originalOwners[0] != originalFirst ||
+            originalOwners[1] != originalSecond)
+            break;
+        unsigned long long fingerprint = kSmokeSubjectHashOffset;
+        SmokeSubjectHashBytes(fingerprint, &bytes[0],
+                              static_cast<int>(bytes.size()));
+        SmokeActiveWorldState_RemoveStableOwners(
+            context, &originalOwners);
+        if (SmokeSubjectState_LiveCount() != 0)
+        {
+            FailSmokeActiveWorld("SMK1 original teardown failed");
+            break;
+        }
+
+        if (!SmokeActiveWorldState_CreateStableOwners(
+                context, bytes, &staged) || staged.size() != 2 ||
+            staged[0] == originalFirst ||
+            staged[0] == originalSecond ||
+            staged[1] == originalFirst ||
+            staged[1] == originalSecond ||
+            !SmokeActiveWorldState_ApplyStableReferences(context, bytes) ||
+            !SmokeActiveWorldState_MatchesStable(context, bytes))
+        {
+            FailSmokeActiveWorld("SMK1 staged reconstruction failed");
+            break;
+        }
+        stagedFirst = staged[0];
+        stagedSecond = staged[1];
+        SmokeActiveWorldState_RemoveStableOwners(context, &staged);
+        if (SmokeSubjectState_LiveCount() != 0)
+        {
+            FailSmokeActiveWorld(
+                "SMK1 staged rollback retained state");
+            break;
+        }
+
+        if (!SmokeActiveWorldState_CreateStableOwners(
+                context, bytes, &restored) || restored.size() != 2 ||
+            restored[0] == originalFirst ||
+            restored[0] == originalSecond ||
+            restored[0] == stagedFirst ||
+            restored[0] == stagedSecond ||
+            restored[1] == originalFirst ||
+            restored[1] == originalSecond ||
+            restored[1] == stagedFirst ||
+            restored[1] == stagedSecond ||
+            !SmokeActiveWorldState_ApplyStableReferences(context, bytes) ||
+            !SmokeActiveWorldState_MatchesStable(context, bytes))
+        {
+            FailSmokeActiveWorld("SMK1 final reconstruction failed");
+            break;
+        }
+        restoredFirst = restored[0];
+        restoredSecond = restored[1];
+        Smoke *resumed = static_cast<Smoke *>(
+            __classTable.find(restoredFirst));
+        Smoke *unmoved = static_cast<Smoke *>(
+            __classTable.find(restoredSecond));
+        if (resumed == NULL || unmoved == NULL ||
+            resumed->m_cnt != 1 || unmoved->m_cnt != 1)
+        {
+            FailSmokeActiveWorld("SMK1 restored blob state is unavailable");
+            break;
+        }
+        const double resumedPhase = resumed->m_blob[0].m_phase;
+        const double unmovedPhase = unmoved->m_blob[0].m_phase;
+        const CFVector3 resumedPosition = resumed->m_blob[0].m_position;
+        if (!advanceSmoke(restoredFirst) ||
+            resumed->m_blob[0].m_phase <= resumedPhase ||
+            resumed->m_blob[0].m_position == resumedPosition ||
+            unmoved->m_blob[0].m_phase != unmovedPhase ||
+            context->copyEvents(
+                fou_EVC_MOVING, restoredFirst, NULL, 0) != 1)
+        {
+            FailSmokeActiveWorld(
+                "SMK1 restored Smoke did not resume movement");
+            break;
+        }
+
+        summary->capturedOwners = 2;
+        summary->capturedBlobs = 2;
+        summary->schedulerEvents = 2;
+        summary->stagedRollbacks = 1;
+        summary->reconstructedOwners = 2;
+        summary->stableRoundTrips = 2;
+        summary->resumedMoves = 1;
+        summary->fingerprint = fingerprint;
+        success = true;
+    } while (false);
+
+    SmokeActiveWorldState_RemoveStableOwners(context, &restored);
+    SmokeActiveWorldState_RemoveStableOwners(context, &staged);
+    SmokeActiveWorldState_RemoveStableOwners(context, &originalOwners);
+    RemoveSmokeIfPresent(context, originalSecond);
+    RemoveSmokeIfPresent(context, originalFirst);
+    const int lateEvents =
+        DrainPrivateSmokeEvents(context, originalFirst) +
+        DrainPrivateSmokeEvents(context, originalSecond) +
+        DrainPrivateSmokeEvents(context, stagedFirst) +
+        DrainPrivateSmokeEvents(context, stagedSecond) +
+        DrainPrivateSmokeEvents(context, restoredFirst) +
+        DrainPrivateSmokeEvents(context, restoredSecond);
+    const bool clean = SmokeSubjectState_LiveCount() == 0 &&
+        lateEvents == 0;
+    if (!success || !clean)
+    {
+        std::memset(summary, 0, sizeof(*summary));
+        if (g_smokeActiveWorldFailure.empty())
+            FailSmokeActiveWorld("SMK1 probe rollback was not clean");
+        return false;
+    }
+    return true;
 }
 /* End of file C:\NW\ARENA\OBASE\Smoke\Smoke.cpp */

@@ -285,7 +285,7 @@ int main() {
   Player* restoredPlayer = restoredVehicle == nullptr ? nullptr :
       &static_cast<Player&>(restoredVehicle->player());
   const bool fresh = restored.ready && restored.createdOwners == 4 &&
-      restored.ownerPhases == 8 && restored.referencePhases == 8 &&
+      restored.ownerPhases == 9 && restored.referencePhases == 9 &&
       alpha != oldAlpha && beta != oldBeta && group != oldGroup &&
       vehicle != oldVehicle && restoredVehicle != nullptr &&
       g_vehicle == restoredVehicle && restoredPlayer != nullptr &&
