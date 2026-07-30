@@ -3098,6 +3098,8 @@ add_library(rr2nw_arena_obase_tank_full STATIC
   nw/ARENA/OBASE/Tank/NEARAI.H
   nw/ARENA/OBASE/Tank/TankSubjectState.cpp
   nw/ARENA/OBASE/Tank/TankSubjectState.h
+  nw/ARENA/OBASE/Tank/TankActiveWorldState.cpp
+  nw/ARENA/OBASE/Tank/TankActiveWorldState.h
 )
 target_link_libraries(rr2nw_arena_obase_tank_full PUBLIC
   rr2nw_arena_storage

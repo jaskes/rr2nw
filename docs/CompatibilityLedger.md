@@ -2361,6 +2361,34 @@ Status vocabulary:
   Decode payload-bearing external commands by label and schema, and deduplicate
   the six events already owned by `PEO1`.
 
+### CQ-145: Tank and Cannon identity is an owner graph, not a set of raw IDs
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: Tank state contains TankGroup, Commander, enemy, artefact, attribute
+  and selected-Cannon ObjectIDs. Each TankAttr creates an ordered private
+  Cannon array whose scheduler payloads can also contain numeric BulletAttr
+  cache indices. Those values are valid only in one process and class-table
+  allocation. Level.04D supplies the real Commander -> TankGroup -> Tank graph
+  and its Cannon children.
+- Handling: `TAN1` stores symbolic references and equal-name ordinals, identifies
+  each Cannon by its parent-relative ordinal and writes behavior fields and
+  semantic event payloads explicitly. Restore preflights Tank and Cannon free
+  lists, creates the complete owner graph through `KR_SET_ATTR`, regenerates
+  derived caches and restores reciprocal artefact and scheduler links. Cannon's
+  inherited Subject position is canonical zero because `realPosition()` follows
+  its Tank; restoring that dead cache through `setPosition` would manufacture a
+  scene-clamped value.
+- Verification: Level.04D destroys its TankGroup, Tank and all Cannons, proves
+  all tables return to baseline, restores two top-level owners, requires new
+  Group/Tank IDs and new IDs for every Cannon, then compares exact `TAN1` bytes
+  and all four Commander links. Debug and Release pass 54/54 CTest; the full
+  installed/mounted retail matrix passes 36/36.
+- Revisit when: mod data may select a Cannon bullet subject table other than
+  retail `Bullet`, or Bullet/effect owners join the envelope. Version the
+  symbolic subject-table rule and deduplicate events owned by the future
+  generic queue; never serialize CannonAttr or BulletAttr numeric cache slots.
+
 ## Maintenance rule
 
 When a new quirk is found:

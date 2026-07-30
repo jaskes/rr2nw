@@ -3090,3 +3090,46 @@ effect ownership, the complete cross-owner event queue, authoritative RNG,
 fresh-Level construction and user save slots remain later slices. The accepted
 gate is 54/54 CTest in Debug and Release plus the full 36-case retail matrix on
 installed and mounted data in both configurations.
+
+## BD-081: persist Tank and its Cannons as one canonical owner graph
+
+Status: accepted on 2026-07-30.
+
+`TAN1` version 1 treats each Tank and the Cannons created by its `TankAttr` as
+one owner graph. Tank and Cannon behavior state is written field by field with
+fixed-width little-endian primitives. Attribute, TankGroup, Commander, enemy,
+artefact and BulletAttr dependencies are symbolic; process-local ObjectIDs,
+class-table indices, pointers, compiler padding, Skin/Sound objects and derived
+mass, power and cache values never enter the record. Equal-name Tank references
+use the same canonical name-plus-ordinal identity admitted for People. Cannons
+are identified by their ordinal in the parent Tank's attribute-defined child
+list rather than by a globally unique symbolic name.
+
+The record owns all known private Tank and Cannon scheduler labels, including
+drive, movement, rotation, shooting and idle transitions. Event endpoints are
+rebuilt under fresh owner IDs and payload-bearing shoot commands carry a
+symbolic BulletAttr contract instead of a numeric cache slot. The current
+retail graph resolves that contract through the `Bullet` subject table and the
+parent TankAttr; a future mod format that permits a different Cannon bullet
+subject table must version this rule rather than silently reusing it.
+
+Cannon's inherited Subject position is deliberately canonical zero. Its real
+position follows the master Tank and the legacy add path leaves the inherited
+cache at a sentinel origin. Calling `setPosition` while restoring that dead
+field would clamp it to the scene boundary and change bytes without changing
+behavior. Skin, Sound and every other derived child are recreated through the
+normal `KR_SET_ATTR` owner path.
+
+Restore is all-or-nothing for the complete Tank roster. It preflights both
+Tank and Cannon free capacity so the legacy kill-on-overflow policy cannot
+delete unrelated owners, creates every Tank and child Cannon, resolves all
+references, restores private events and reciprocal artefact ownership, then
+requires an exact canonical recapture. Rollback removes owner-local events and
+the entire child graph before a numeric slot can be reused.
+
+Level.04D is the production proof: its TankGroup, Tank and all Cannons are
+removed, the active-world transaction recreates Group and Tank under new IDs,
+every Cannon also receives a new ID, all four Commander ownership links return
+and `TAN1` matches byte for byte. The envelope now reports five owner sections,
+five owner/reference phases and two created owners for that Level. The gate is
+54/54 CTest in Debug and Release plus 36/36 installed/mounted retail launches.

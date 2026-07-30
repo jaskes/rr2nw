@@ -52,14 +52,14 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `4/0` for four
-  Commander/TankGroup/People/Vehicle owner sections and zero generic events,
-  then reports `4/4/0`
+- active-world format v1 is initialized with `5/0` for five
+  Commander/TankGroup/People/Tank/Vehicle owner sections and zero generic
+  events, then reports `5/5/0`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
-- `active_world_created_owners` is `1` for Level.04D, where the restore
-  transaction recreates the removed Group, and `0` for Levels whose saved
-  TankGroup roster is empty;
+- `active_world_created_owners` is `2` for Level.04D, where the restore
+  transaction recreates both the removed TankGroup and its Tank/Cannon owner
+  graph, and `0` for Levels whose saved combat roster is empty;
 - `vehicle_active_world_probe` is `1/1` with a non-zero fingerprint: every
   Level has destroyed `Vehicle.Default`, rolled one staged owner back and
   reconstructed the final owner under a new ObjectID before rendering.
@@ -68,6 +68,9 @@ writes `summary.json` and `summary.csv`. A case passes only when:
   rolled a complete staged population back and restored fresh owners, private
   scheduled behavior and derived sounds. `0/0/1` is valid for retail Levels
   whose People roster is intentionally empty.
+- Level.04D reports `mission_tank_lifecycle_probe=1/1/4/1/1/3/1/1`: its
+  Commander links survive, its TankGroup, Tank and every owned Cannon receive
+  fresh ObjectIDs, and the exact `TAN1` state matches after reconstruction.
 
 The summary retains timings, clipping counts, software dither usage, active
 light passes and framebuffer evidence. It contains local absolute paths and is

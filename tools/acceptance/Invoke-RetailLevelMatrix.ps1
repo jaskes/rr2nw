@@ -216,21 +216,35 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "4/0") {
-                    $issues.Add("active-world Commander/TankGroup/People/Vehicle section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "5/0") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "4/4/0") {
+                    $log["active_world_restore_phases"] -ne "5/5/0") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
                     $log["active_world_integrity_probe"] -ne "1/1") {
                     $issues.Add("active-world corruption/rollback proof changed")
                 }
-                $expectedCreatedOwners = if ($levelName -ieq "Level.04D") { 1 } else { 0 }
+                $expectedCreatedOwners = if ($levelName -ieq "Level.04D") { 2 } else { 0 }
                 if ((Get-LogInteger $log "active_world_created_owners") -ne
                     $expectedCreatedOwners) {
                     $issues.Add("active-world fresh owner allocation proof changed")
+                }
+                if ($levelName -ieq "Level.04D") {
+                    $missionTank = if ($log.ContainsKey("mission_tank_lifecycle_probe")) {
+                        [string]$log["mission_tank_lifecycle_probe"] -split "/"
+                    } else { @() }
+                    if ($missionTank.Count -ne 8 -or
+                        [int]$missionTank[0] -ne 1 -or
+                        [int]$missionTank[1] -ne 1 -or
+                        [int]$missionTank[2] -ne 4 -or
+                        [int]$missionTank[5] -ne 3 -or
+                        [int]$missionTank[6] -ne 1 -or
+                        [int]$missionTank[7] -ne 1) {
+                        $issues.Add("Tank/Cannon TAN1 reconstruction proof changed")
+                    }
                 }
                 if ((Get-LogUnsigned $log "active_world_container_bytes") -lt 1 -or
                     (Get-LogUnsigned $log "active_world_fingerprint") -lt 1) {

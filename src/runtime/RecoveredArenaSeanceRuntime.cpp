@@ -32,6 +32,7 @@ class CGRPanel;
 #include "obase/cannon/CannonSubjectState.h"
 #include "obase/comander/CommanderState.h"
 #include "obase/group/TankGroupState.h"
+#include "obase/tank/TankActiveWorldState.h"
 #include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
@@ -4216,20 +4217,25 @@ void RollBackAER00TankSpawn(SimulationContext* context) {
     if (context->isExist(group)) context->removeObject(group);
   }
   if (!mutableTank.isNUL()) {
-    RemoveAllEvents(context, t_EVC_MOVING, tank);
-    RemoveAllEvents(context, t_EVC_CHECK_ROTATE, tank);
-    RemoveAllEvents(context, UNIT_I_DRIVE, tank);
-    if (context->isExist(tank)) context->removeObject(tank);
+    std::vector<KR_ObjectID> tanks(1, tank);
+    TankActiveWorldState_RemoveStableOwners(context, &tanks);
   }
 }
 
-void RollBackAER00TankGroupOnly(SimulationContext* context) {
-  if (context == nullptr || !context->isExist("C.Group.aer00.00")) return;
-  const KR_ObjectID group = context->searchObject("C.Group.aer00.00");
-  RemoveAllEvents(context, tg_EVC_FIND_ENEMY, group);
-  RemoveAllEvents(context, tg_EVC_MOVING, group);
-  RemoveAllEvents(context, tg_EV_REACHED, group);
-  if (context->isExist(group)) context->removeObject(group);
+void RollBackAER00TankCombatOwners(SimulationContext* context) {
+  if (context == nullptr) return;
+  if (context->isExist("C.Group.aer00.00")) {
+    const KR_ObjectID group = context->searchObject("C.Group.aer00.00");
+    RemoveAllEvents(context, tg_EVC_FIND_ENEMY, group);
+    RemoveAllEvents(context, tg_EVC_MOVING, group);
+    RemoveAllEvents(context, tg_EV_REACHED, group);
+    if (context->isExist(group)) context->removeObject(group);
+  }
+  if (context->isExist("C.Unit.aer00.00")) {
+    std::vector<KR_ObjectID> tanks(
+        1, context->searchObject("C.Unit.aer00.00"));
+    TankActiveWorldState_RemoveStableOwners(context, &tanks);
+  }
 }
 
 unsigned long long ActiveWorldContentFingerprint() {
@@ -4446,6 +4452,18 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
     RollBackAER00TankSpawn(context);
     return false;
   }
+  std::vector<std::uint8_t> tankStableBytes;
+  std::vector<KR_ObjectID> firstOwnedCannons;
+  if (!TankActiveWorldState_CaptureStable(context, &tankStableBytes) ||
+      !TankActiveWorldState_CollectOwnedCannons(
+          context, tankStableBytes, &firstOwnedCannons) ||
+      static_cast<int>(firstOwnedCannons.size()) != firstCannons) {
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        "AER00 Tank/Cannon canonical ownership capture failed");
+    return false;
+  }
 
   STankGroupSchedulerProbeSummary scheduler = {};
   if (!TankGroupState_ProbeScheduler(context, firstGroup, startTime + 1.0,
@@ -4458,24 +4476,30 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
   }
   g_state.missionTankFindEnemyCycles = scheduler.findEnemyCycles;
   g_state.missionTankMovingCycles = scheduler.movingCycles;
-  RollBackAER00TankGroupOnly(context);
+  RollBackAER00TankCombatOwners(context);
   if (context->isExist("C.Group.aer00.00") ||
-      !context->isExist("C.Unit.aer00.00") ||
+      context->isExist("C.Unit.aer00.00") ||
       TankGroupState_LiveCount(context) != baselineGroups ||
-      TankSubjectState_LiveCount(context) != baselineTanks + 1) {
+      TankSubjectState_LiveCount(context) != baselineTanks ||
+      CannonSubjectState_LiveCount(context) != baselineCannons) {
     RollBackAER00TankSpawn(context);
     ReportExtended(
         RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
-        "AER00 owner-only teardown did not retain the Tank dependency");
+        "AER00 combat-owner teardown retained a Tank/Cannon dependency");
     return false;
   }
   if (!RestoreActiveWorldProbe(context, activeWorldBytes,
                                &activeWorldSummary) ||
-      activeWorldSummary.createdOwners != 1) {
+      activeWorldSummary.createdOwners != 2) {
+    const std::string cause = g_state.lastError;
     RollBackAER00TankSpawn(context);
+    char message[320] = {};
+    std::snprintf(message, sizeof(message),
+                  "active-world TankGroup/Tank allocation failed: %.220s",
+                  cause.c_str());
     ReportExtended(
         RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
-        "active-world restore did not allocate the missing TankGroup owner");
+        message);
     return false;
   }
 
@@ -4497,9 +4521,22 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
       TankSubjectState_SubjectFingerprint(context);
   const unsigned long long secondFingerprint =
       MissionTankOwnershipFingerprint(context);
+  std::vector<KR_ObjectID> secondOwnedCannons;
+  const bool cannonIDsReallocated =
+      TankActiveWorldState_CollectOwnedCannons(
+          context, tankStableBytes, &secondOwnedCannons) &&
+      secondOwnedCannons.size() == firstOwnedCannons.size() &&
+      !secondOwnedCannons.empty();
+  bool everyCannonIDChanged = cannonIDsReallocated;
+  for (std::size_t index = 0;
+       index < secondOwnedCannons.size() && everyCannonIDChanged; ++index)
+    everyCannonIDChanged =
+        secondOwnedCannons[index] != firstOwnedCannons[index];
   if (secondFingerprint != firstFingerprint ||
       secondCommander != firstCommander || secondGroup == firstGroup ||
-      secondTank != firstTank || secondLinks != firstLinks) {
+      secondTank == firstTank || secondLinks != firstLinks ||
+      !everyCannonIDChanged ||
+      !TankActiveWorldState_MatchesStable(context, tankStableBytes)) {
     char message[256] = {};
     std::snprintf(
         message, sizeof(message),
@@ -4517,6 +4554,7 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
     return false;
   }
   g_state.missionTankReconstructedIDs = 1;
+  g_state.missionTankStableRoundTrips = 3;
   g_state.missionTankFingerprint = secondFingerprint;
   RollBackAER00TankSpawn(context);
 

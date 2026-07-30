@@ -1146,6 +1146,23 @@ Retail scripts нельзя молча копировать поверх source 
   restored scheduler and Sound counts and complete runtime readiness. The gate
   is 54/54 CTest in Debug and Release and 36/36 retail executable launches.
 
+### RP-SAVE-002: Level.04D reconstructs the Tank/Cannon combat owner graph
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. `TAN1` is a canonical modern record, not the
+  layout of a legacy Tank or Cannon object.
+- A Tank and its attribute-defined Cannons form one restoration unit. Group,
+  Commander, enemy, artefact, attribute and BulletAttr dependencies are
+  symbolic; private scheduler transitions retain exact timestamps and semantic
+  payloads while all runtime IDs and cache indices are regenerated.
+- Level.04D destroys the real TankGroup, Tank and Cannon children, observes
+  baseline table counts, then reconstructs the graph. The Group, Tank and every
+  Cannon must have new ObjectIDs, all four Commander links must return and a
+  canonical recapture must equal the original `TAN1` payload.
+- Verification is 54/54 CTest in Debug and Release and 36/36 retail launches.
+  Level.04D reports five owner sections, five owner/reference phases and two
+  created top-level owners; all other retail Levels admit an empty Tank roster.
+
 ## Behavioral parity matrix
 
 Минимальные domains:
@@ -1167,29 +1184,30 @@ Retail scripts нельзя молча копировать поверх source 
 
 The continuation now owns a new version-1 active-world envelope. It is not a
 retail save format. The automated proof currently covers Commander, TankGroup,
-Vehicle and People symbolic state, plus the generic schema for
+Vehicle, People and Tank/Cannon symbolic state, plus the generic schema for
 Level/content/mod/time, RNG and semantic events. Level.04D demonstrates both
 identity problems: its Group is allocated by the decoder under a new numeric
 ID, while repeated People names require stable ordinals rather than a first-name
-lookup. Every Level separately reconstructs `Vehicle.Default` and its complete
-People population after a deliberately staged rollback. A clean seance
+lookup. Its Tank and every owned Cannon are also allocated under fresh IDs.
+Every Level separately reconstructs `Vehicle.Default` and its complete People
+population after a deliberately staged rollback. A clean seance
 reconstructs Commander, Group and Vehicle owners from no live owner objects;
 the production Level proof performs the stronger resource-backed People
-reconstruction.
+and Tank/Cannon reconstruction.
 
 This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
-RC requirement for complete world state or manual save points. Tank/Cannon,
-mission/Bullet state, Vehicle mission/UI/input queues, the remaining live
+RC requirement for complete world state or manual save points. Mission/Bullet,
+damage/death/effect state, Vehicle mission/UI/input queues, the remaining live
 event queue, authoritative RNG, complete fresh-Level construction and user
 controls remain required.
 
 The current admission gate is 54/54 CTest in Debug and Release and 36/36 real
-Level launches. All cases publish four owner sections, four owner/reference
-phases, `vehicle_active_world_probe=1/1` and a successful People
-owner/event/rollback probe; each symbolic Level has stable Vehicle and People
-fingerprints across both data roots and configurations.
+Level launches. All cases publish five owner sections, five owner/reference
+phases, `vehicle_active_world_probe=1/1` and successful People and Tank/Cannon
+owner/event/rollback probes; each symbolic Level has stable owner fingerprints
+across both data roots and configurations.
 
 ## Binary analysis boundary
 

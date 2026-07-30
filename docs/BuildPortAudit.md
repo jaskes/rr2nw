@@ -2808,3 +2808,36 @@ retail matrix to four owner sections across all 36 installed/mounted and
 Debug/Release cases. Tank/Cannon, mission/Bullet/effect ownership, generic
 event payloads, deterministic RNG, complete fresh-Level construction and
 public save slots remain outside this tranche.
+
+## Tank/Cannon active-world v1 and private combat scheduling
+
+The fifth owner section is a canonical `TAN1` population. A Tank and the
+ordered Cannons created from its TankAttr are encoded as one owner graph. All
+behavior-bearing Subject, Tank, NearAI and Cannon fields use explicit
+fixed-width primitives. TankAttr, CannonAttr, TankGroup, Commander, enemy,
+artefact and BulletAttr dependencies use symbolic names and stable ordinals;
+native pointers, ObjectIDs, class-table cache indices, Skin/Sound state and
+derived physics caches are rebuilt rather than copied.
+
+The codec captures the private Tank and Cannon scheduler labels for movement,
+drive, rotation, idle and shooting. Semantic payloads are decoded before
+storage and rebuilt against the new owner graph. Inert scratch fields are
+canonicalized according to the active state. Cannon's inherited Subject
+position is also canonical zero because real position follows its master and
+the legacy cache is not behavior state. Restore reserves both legacy free
+lists before allocation, preventing kill-on-overflow tables from evicting an
+unrelated owner.
+
+Production Level.04D now removes its TankGroup, Tank and Cannon children,
+checks all three tables return to baseline, and asks the ordinary active-world
+transaction to create the missing Group and Tank. The Tank creation path
+rebuilds every Cannon. Acceptance requires all Group, Tank and Cannon numeric
+IDs to change, the four Commander ownership links to match, the `TAN1` payload
+to recapture exactly and the final seance rollback to remain clean.
+
+Diagnostics therefore advance to `5/0`, `5/5/0` and two created owners for
+Level.04D. Debug and Release each pass 54/54 CTest, and the updated executable
+matrix passes all 36 combinations of nine Levels, both retail roots and both
+builds. Bullet/explosion/corpse ownership, the remaining semantic event queue,
+authoritative RNG, complete fresh-Level construction and public save slots are
+the next persistence boundary.

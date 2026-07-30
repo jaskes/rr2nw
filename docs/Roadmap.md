@@ -1002,9 +1002,9 @@ The next Windows-first persistence work is deliberately incremental:
 
 1. [done] turn Commander/TankGroup validation into fresh-context allocation
    from decoded records, retaining owner-first/reference-second rollback;
-2. [Vehicle/player and People done] add Vehicle/player state and the complete
-   Level-local People roster with dynamic, damage, death, symbolic-reference
-   and scheduler state; Tank/Cannon remains the next independent owner section;
+2. [done] add Vehicle/player, the complete Level-local People roster and the
+   Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
+   private scheduler state;
 3. add mission/Bullet/effect ownership, extract the live `SimulationContext`
    queue into semantic events and introduce an authoritative deterministic RNG;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
@@ -1048,9 +1048,19 @@ ordinals; the affected `Level.04D` and `Level.05D` cases prove that identity is
 not reduced to `searchObject(name)`. The envelope now reports `4/0`, `4/4/0`
 and a per-Level `people_active_world_probe=<owners>/<events>/1`.
 
-The next large persistence slice is Tank/Cannon ownership and its links into
-People/Vehicle/Bullet damage and death state. After that come mission/Bullet
-and effect owners, the remaining semantic kernel queue and authoritative RNG,
+Item 2 is now closed by the fifth Tank section. `TAN1` owns each Tank together
+with its attribute-defined Cannon children, behavior state, symbolic combat
+links and private scheduler events. Level.04D removes the real TankGroup, Tank
+and all Cannons, returns their tables to baseline and reconstructs the graph
+with fresh Group, Tank and Cannon IDs while preserving all four Commander links
+and exact canonical bytes. The envelope reports `5/0`, `5/5/0` and two created
+owners for that Level; the other eight Levels prove the empty Tank roster.
+
+The next large persistence slice is the transient Bullet/damage/death graph:
+Bullet owners and their attribute/source/target links, explosion/effect and
+corpse ownership, semantic hit/death events and their rollback order. It must
+first close deterministic capture and reconstruction of a bounded live combat
+sample. After that come the remaining mission queue and authoritative RNG,
 followed by a complete fresh-Level reconstruction and public save controls.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
