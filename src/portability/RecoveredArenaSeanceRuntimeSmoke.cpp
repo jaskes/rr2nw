@@ -509,6 +509,16 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ExplosionProbeQueueRollbacks() == -1 &&
          RecoveredArenaSeance_ExplosionProbeExecutedCommands() == -1 &&
          RecoveredArenaSeance_ExplosionProbeDamageApplications() == -1 &&
+         !RecoveredArenaSeance_ExplosionActiveWorldReady() &&
+         RecoveredArenaSeance_ExplosionActiveWorldCapturedOwners() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldCapturedBranches() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldSchedulerEvents() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldSoundChildren() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldRollbacks() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldStableRoundTrips() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldResumedMoves() == -1 &&
+         RecoveredArenaSeance_ExplosionActiveWorldFingerprint() == 0 &&
          ExplosionSubjectState_LiveCount() == 0 &&
          ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
          ExplosionSubjectState_PieceDrawCount() == 0 &&
@@ -810,6 +820,17 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_ExplosionProbeQueueRollbacks() != 1 ||
       RecoveredArenaSeance_ExplosionProbeExecutedCommands() != 1 ||
       RecoveredArenaSeance_ExplosionProbeDamageApplications() != 0 ||
+      !RecoveredArenaSeance_ExplosionActiveWorldReady() ||
+      RecoveredArenaSeance_ExplosionActiveWorldCapturedOwners() != 1 ||
+      RecoveredArenaSeance_ExplosionActiveWorldCapturedBranches() <= 0 ||
+      RecoveredArenaSeance_ExplosionActiveWorldSchedulerEvents() < 1 ||
+      RecoveredArenaSeance_ExplosionActiveWorldSchedulerEvents() > 2 ||
+      RecoveredArenaSeance_ExplosionActiveWorldSoundChildren() != 1 ||
+      RecoveredArenaSeance_ExplosionActiveWorldRollbacks() != 1 ||
+      RecoveredArenaSeance_ExplosionActiveWorldReconstructedIDs() != 1 ||
+      RecoveredArenaSeance_ExplosionActiveWorldStableRoundTrips() != 2 ||
+      RecoveredArenaSeance_ExplosionActiveWorldResumedMoves() != 1 ||
+      RecoveredArenaSeance_ExplosionActiveWorldFingerprint() == 0 ||
       ExplosionSubjectState_LiveCount() != 0 ||
       ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
       ExplosionSubjectState_ParticleBranchCapacity() != 500 ||
@@ -995,10 +1016,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 6 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 7 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 6 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 6 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 7 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 7 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||

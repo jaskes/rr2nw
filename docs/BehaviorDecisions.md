@@ -3175,3 +3175,41 @@ the next damage/death owner slice, together with bullets whose master lifetime
 ends before capture and semantic hit/death events. The admission gate remains
 54/54 CTest in Debug and Release plus the full 36-case installed/mounted retail
 matrix.
+
+## BD-083: persist Explosion as the owner of its active particle graph
+
+Status: accepted on 2026-07-30.
+
+`EXP1` version 1 is the seventh active-world owner section. Each live Explosion
+record owns its Subject transform and clocks, light and land interaction state,
+trace quota, optional derived Sound, every bounded internal particle branch and
+the exact timestamps of its private MOVE and optional NEWPUFF events. Stable
+references name the ExplosionAttr and its particle/Sound attributes. Native
+pointers, ObjectIDs, class-table indices, compiler layout, published frame
+drawables, damage-owner/application history and trace-puff observation history
+are excluded.
+
+Capture is admitted only between renderer frames, when no parent or branch has
+a published drawable. Restore resolves all symbolic attributes and visual
+dependencies and checks Explosion, branch, traced-particle and Sound capacity
+before changing the world. The transaction removes the old graph first so the
+fixed 500-branch budget can be redistributed without transient overflow,
+creates every parent under fresh IDs, restores its owned child graph and exact
+private events, and requires byte-identical canonical recapture. Rollback
+removes events, Sound, trace quota and branches before releasing the owner.
+
+The production proof starts a real sound-bearing Explosion through
+`ExplosionSubjectState_ExecuteNow`, captures its complete graph, destroys it,
+rolls one staged replacement back and reconstructs another under fresh parent
+and Sound IDs. It then executes the restored MOVE event and requires another
+MOVE to be queued, proving resumed lifecycle rather than inert bytes. The probe
+position is inside the valid Level bounds: `ct_Subject::setPosition` clamps
+out-of-world Subject coordinates, while an already requested Sound retains its
+caller position, so an invalid synthetic coordinate would manufacture a false
+mismatch before the save boundary.
+
+Detached Smoke created by a later NEWPUFF, Spark and Corpse owners, semantic
+damage/death events and generic queue state remain separate future sections.
+The ordinary envelope now reports seven owner sections and seven
+owner/reference phases. Admission requires 54/54 CTest in Debug and Release
+plus the complete 36-case installed/mounted retail matrix.

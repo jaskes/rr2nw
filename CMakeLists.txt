@@ -1809,6 +1809,7 @@ if(MSVC)
 endif()
 
 add_library(rr2nw_arena_explosion_attribute_state STATIC
+  nw/ARENA/OBASE/Explosion/ExplosionActiveWorldState.h
   nw/ARENA/OBASE/Explosion/ExplosionAttributeState.cpp
   nw/ARENA/OBASE/Explosion/ExplosionAttributeState.h
   nw/ARENA/OBASE/Explosion/ExplosionSubjectState.cpp

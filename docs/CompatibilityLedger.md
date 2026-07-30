@@ -2417,6 +2417,63 @@ Status vocabulary:
   generic stable object identity and explicit effect/death records; do not
   weaken the v1 master check or serialize the stale ObjectID.
 
+### CQ-147: Explosion persistence owns a bounded child graph, not frame output
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: a live Explosion owns private MOVE/NEWPUFF events, an optional
+  Sound, trace quota and branches from the global 500-entry particle pool.
+  During drawing it also publishes transient parent/branch pointers that are
+  valid only for the open frame. Damage application history and detached Smoke
+  children have independent lifetimes. Copying the object or its draw list
+  would retain stale pointers and corrupt shared capacity on restore.
+- Handling: `EXP1` serializes fixed-width parent and branch behavior fields,
+  symbolic attribute dependencies and exact private-event timestamps. Capture
+  fails while drawables are published. Preflight resolves every visual and
+  Sound dependency and checks all bounded pools; restore clears old graphs
+  before redistributing branches, then recreates parent-owned Sound, trace
+  quota, branches and events. Rollback drains events and children before the
+  parent slot is returned.
+- Verification: the runtime creates a real sound-bearing Explosion through
+  `ExplosionSubjectState_ExecuteNow`, captures its branches and two events,
+  destroys it, performs one complete staged rollback and reconstructs another
+  graph under fresh parent and Sound IDs. Canonical bytes survive both round
+  trips and an executed restored MOVE queues its successor. Debug and Release
+  pass 54/54 CTest and the installed/mounted matrix passes 36/36 with seven
+  phases.
+- Compatibility note: `ct_Subject::setPosition` clamps invalid world
+  coordinates, while Sound creation retains the requested caller coordinate.
+  Synthetic Explosion probes must therefore use a valid in-world point; an
+  out-of-range point tests pre-save clamping divergence, not persistence.
+- Revisit when: NEWPUFF-created detached Smoke, Spark/Corpse state or semantic
+  damage/death events enter the envelope. Give each its own stable owner and
+  rollback order rather than extending Explosion ownership across lifetimes.
+
+### CQ-148: a canonical snapshot is not yet a deterministic new simulation
+
+- Status: `RETAIL_CONFIRMED`, `DEFERRED_TO_RNG_AND_CLOCK_SLICE`.
+- Evidence: the current 36-case EXP1 matrix gives eight Levels one identical
+  active-world fingerprint across both roots and configurations, but
+  `Level.04D` retains multiple fingerprints. The same Level already varied in
+  the earlier Tank and BUL1 matrices, before EXP1 existed. Its live mission and
+  Tank graph contains scheduled times derived during startup. Explosion probe
+  branches also come from the process-global C `rand()` stream, so their proof
+  fingerprints legitimately differ between independently generated Debug and
+  Release starts.
+- Handling: require exact bytes and fingerprint before teardown, after staged
+  reconstruction and after final reconstruction within the same transaction.
+  Do not require unrelated process launches to manufacture an identical live
+  state until the simulation clock and PRNG are owned and seeded explicitly.
+  Installed and mounted data must still agree on content and every individual
+  restore must remain atomic.
+- Verification: EXP1 survives two exact recaptures in every accepted run;
+  current and archived Tank/BUL1 matrices establish that `Level.04D`
+  cross-process variation predates this section.
+- Revisit when: the authoritative deterministic RNG and complete event-queue
+  slices begin. Separate destructive/randomized admission probes from playable
+  startup, seed the simulation explicitly and then promote cross-run whole-world
+  fingerprint equality to an acceptance requirement.
+
 ## Maintenance rule
 
 When a new quirk is found:

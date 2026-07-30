@@ -2872,3 +2872,37 @@ Debug and Release pass 54/54 CTest and the 36 installed/mounted retail cases
 pass in both builds. Explosion/Spark/Smoke/Corpse ownership, stale-master
 identity, mission state, generic events, authoritative RNG, complete fresh-Level
 construction and public save slots remain the next persistence boundary.
+
+## Explosion active-world v1 and bounded particle ownership
+
+The seventh owner section is canonical `EXP1`. It stores the Explosion parent,
+its symbolic ExplosionAttr, position and movement clocks, land/light/trace
+state, the optional owned Sound, exact MOVE and NEWPUFF timestamps and every
+active internal branch with its complete radius, velocity, lifetime, colour,
+opacity, rotation, UV and puff-continuation state. Process-local ObjectIDs,
+pointers, native layouts, frame-published drawables and damage/trace history do
+not cross the boundary.
+
+The codec treats the global branch and traced-particle limits as transactional
+resources. It validates and resolves all Explosion, particle visual, Skin and
+Sound references before mutation, removes the captured source graphs, then
+reallocates the full decoded population. This avoids transiently exceeding the
+500-branch pool when one restored owner receives branches released by another.
+Rollback drains owner-local events, removes derived Sound, releases trace quota
+and branches and finally returns the parent slot. Canonical recapture is
+mandatory after both staged and final allocation.
+
+The production probe uses `ExplosionSubjectState_ExecuteNow` at a valid
+in-world coordinate, captures one sound-bearing parent, its real branches and
+two private events, destroys it, rolls a complete staged graph back and
+restores another graph with fresh parent and Sound IDs. Executing the restored
+MOVE must queue the next MOVE. The valid coordinate is part of the test contract
+because the legacy Subject setter clamps out-of-world positions while Sound
+creation retains the caller's requested position.
+
+Diagnostics advance to `7/0`, `7/7/0` and
+`explosion_active_world_probe=<owners>/<branches>/<events>/<sounds>/<rollback>/<recreated>/<roundtrips>/<resumed>`.
+Detached NEWPUFF Smoke, Spark/Corpse ownership, semantic damage/death events,
+mission state, generic events, authoritative RNG, complete fresh-Level
+construction and public save slots remain outside this tranche. Admission is
+54/54 CTest in Debug and Release plus the 36 installed/mounted retail cases.

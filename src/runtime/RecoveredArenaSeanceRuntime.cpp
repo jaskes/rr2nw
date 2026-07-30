@@ -22,6 +22,7 @@ class CGRPanel;
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/explosion/ExplosionActiveWorldState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
@@ -1372,6 +1373,7 @@ struct RecoveredArenaSeanceState {
   bool explosionSmokeReady;
   bool explosionPieceReady;
   bool explosionTraceReady;
+  bool explosionActiveWorldReady;
   bool vehicleAttributesReady;
   bool vehicleReferencesReady;
   bool taxiAttributesReady;
@@ -1495,6 +1497,15 @@ struct RecoveredArenaSeanceState {
   int explosionTraceProbeMoveSteps;
   int explosionTraceProbeExpiredParents;
   int explosionTraceProbeRolledBackPieces;
+  int explosionActiveWorldCapturedOwners;
+  int explosionActiveWorldCapturedBranches;
+  int explosionActiveWorldSchedulerEvents;
+  int explosionActiveWorldSoundChildren;
+  int explosionActiveWorldRollbacks;
+  int explosionActiveWorldReconstructedIDs;
+  int explosionActiveWorldStableRoundTrips;
+  int explosionActiveWorldResumedMoves;
+  unsigned long long explosionActiveWorldFingerprint;
   int bulletSubjectProbeMoveCount;
   int bulletCollisionScheduledChecks;
   int bulletCollisionExecutedChecks;
@@ -2571,6 +2582,54 @@ bool PublishBulletActiveWorld(SimulationContext* context,
   g_state.bulletActiveWorldResumedMoves = summary.resumedMoves;
   g_state.bulletActiveWorldFingerprint = summary.fingerprint;
   g_state.bulletActiveWorldReady = true;
+  return true;
+}
+
+bool PublishExplosionActiveWorld(SimulationContext* context,
+                                 double startTime) {
+  const char* attribute =
+      ExplosionSubjectState_SoundProbeAttributeName(context);
+  ExplosionActiveWorldProbeSummary summary = {};
+  if (!g_state.vehicleReady || !g_state.explosionSubjectReady ||
+      !g_state.explosionSoundReady || !g_state.explosionParticlesReady ||
+      attribute == nullptr ||
+      !ExplosionActiveWorldState_ProbeLiveRoundTrip(
+          context, attribute, startTime, &summary) ||
+      summary.capturedOwners != 1 || summary.capturedBranches <= 0 ||
+      summary.schedulerEvents < 1 || summary.schedulerEvents > 2 ||
+      summary.soundChildren != 1 || summary.stagedRollbacks != 1 ||
+      summary.reconstructedOwners != 1 ||
+      summary.stableRoundTrips != 2 || summary.resumedMoves != 1 ||
+      summary.fingerprint == 0 ||
+      ExplosionSubjectState_LiveCount() != 0 ||
+      ExplosionSubjectState_ParticleBranchLiveCount() != 0 ||
+      ExplosionSubjectState_TracedParentCount() != 0) {
+    char message[384] = {};
+    std::snprintf(
+        message, sizeof(message),
+        "EXP1 owners/branches/events/sounds/rollback/recreated/roundtrips/"
+        "resumed/fingerprint=%d/%d/%d/%d/%d/%d/%d/%d/%llu: %.140s",
+        summary.capturedOwners, summary.capturedBranches,
+        summary.schedulerEvents, summary.soundChildren,
+        summary.stagedRollbacks, summary.reconstructedOwners,
+        summary.stableRoundTrips, summary.resumedMoves,
+        summary.fingerprint, ExplosionActiveWorldState_LastFailure());
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_ACTIVE_WORLD_FAILURE,
+        message);
+    return false;
+  }
+  g_state.explosionActiveWorldCapturedOwners = summary.capturedOwners;
+  g_state.explosionActiveWorldCapturedBranches = summary.capturedBranches;
+  g_state.explosionActiveWorldSchedulerEvents = summary.schedulerEvents;
+  g_state.explosionActiveWorldSoundChildren = summary.soundChildren;
+  g_state.explosionActiveWorldRollbacks = summary.stagedRollbacks;
+  g_state.explosionActiveWorldReconstructedIDs =
+      summary.reconstructedOwners;
+  g_state.explosionActiveWorldStableRoundTrips = summary.stableRoundTrips;
+  g_state.explosionActiveWorldResumedMoves = summary.resumedMoves;
+  g_state.explosionActiveWorldFingerprint = summary.fingerprint;
+  g_state.explosionActiveWorldReady = true;
   return true;
 }
 
@@ -4884,6 +4943,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SmokeSubjectState_Link();
   SmokeVisualState_Link();
   ExplosionAttributeState_Link();
+  ExplosionActiveWorldState_Link();
   VehicleAttributeState_Link();
   VehicleActiveWorldState_Link();
   TaxiAttributeState_Link();
@@ -5039,6 +5099,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
 
     if (!PublishVehicle(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!PublishExplosionActiveWorld(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -5206,6 +5270,7 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionSmokeReady = false;
   g_state.explosionPieceReady = false;
   g_state.explosionTraceReady = false;
+  g_state.explosionActiveWorldReady = false;
   g_state.explosionSubjectCapacity = 0;
   g_state.explosionSubjectFingerprint = 0;
   g_state.explosionProbeInvalidStarts = 0;
@@ -5247,6 +5312,15 @@ void RecoveredArenaSeance_Release() {
   g_state.explosionTraceProbeMoveSteps = 0;
   g_state.explosionTraceProbeExpiredParents = 0;
   g_state.explosionTraceProbeRolledBackPieces = 0;
+  g_state.explosionActiveWorldCapturedOwners = 0;
+  g_state.explosionActiveWorldCapturedBranches = 0;
+  g_state.explosionActiveWorldSchedulerEvents = 0;
+  g_state.explosionActiveWorldSoundChildren = 0;
+  g_state.explosionActiveWorldRollbacks = 0;
+  g_state.explosionActiveWorldReconstructedIDs = 0;
+  g_state.explosionActiveWorldStableRoundTrips = 0;
+  g_state.explosionActiveWorldResumedMoves = 0;
+  g_state.explosionActiveWorldFingerprint = 0;
   g_state.vehicleAttributesReady = false;
   g_state.vehicleReferencesReady = false;
   g_state.vehicleAttributeCount = 0;
@@ -6073,6 +6147,55 @@ int RecoveredArenaSeance_ExplosionProbeDamageApplications() {
   return g_state.explosionSubjectReady
              ? g_state.explosionProbeDamageApplications
              : -1;
+}
+
+bool RecoveredArenaSeance_ExplosionActiveWorldReady() {
+  return g_state.explosionActiveWorldReady;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldCapturedOwners() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldCapturedOwners : -1;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldCapturedBranches() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldCapturedBranches : -1;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldSchedulerEvents() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldSchedulerEvents : -1;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldSoundChildren() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldSoundChildren : -1;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldRollbacks() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldRollbacks : -1;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldReconstructedIDs() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldReconstructedIDs : -1;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldStableRoundTrips() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldStableRoundTrips : -1;
+}
+
+int RecoveredArenaSeance_ExplosionActiveWorldResumedMoves() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldResumedMoves : -1;
+}
+
+unsigned long long RecoveredArenaSeance_ExplosionActiveWorldFingerprint() {
+  return g_state.explosionActiveWorldReady
+             ? g_state.explosionActiveWorldFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_VehicleAttributesReady() {

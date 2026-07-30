@@ -128,7 +128,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE = 1ull << 51,
   RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE = 1ull << 52,
   RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE = 1ull << 53,
-  RECOVERED_ARENA_SEANCE_EXT_BULLET_ACTIVE_WORLD_FAILURE = 1ull << 54
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_ACTIVE_WORLD_FAILURE = 1ull << 54,
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_ACTIVE_WORLD_FAILURE = 1ull << 55
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -202,6 +203,16 @@ int RecoveredArenaSeance_ExplosionProbeQueuedCommands();
 int RecoveredArenaSeance_ExplosionProbeQueueRollbacks();
 int RecoveredArenaSeance_ExplosionProbeExecutedCommands();
 int RecoveredArenaSeance_ExplosionProbeDamageApplications();
+bool RecoveredArenaSeance_ExplosionActiveWorldReady();
+int RecoveredArenaSeance_ExplosionActiveWorldCapturedOwners();
+int RecoveredArenaSeance_ExplosionActiveWorldCapturedBranches();
+int RecoveredArenaSeance_ExplosionActiveWorldSchedulerEvents();
+int RecoveredArenaSeance_ExplosionActiveWorldSoundChildren();
+int RecoveredArenaSeance_ExplosionActiveWorldRollbacks();
+int RecoveredArenaSeance_ExplosionActiveWorldReconstructedIDs();
+int RecoveredArenaSeance_ExplosionActiveWorldStableRoundTrips();
+int RecoveredArenaSeance_ExplosionActiveWorldResumedMoves();
+unsigned long long RecoveredArenaSeance_ExplosionActiveWorldFingerprint();
 bool RecoveredArenaSeance_VehicleAttributesReady();
 bool RecoveredArenaSeance_VehicleReferencesReady();
 int RecoveredArenaSeance_VehicleAttributeCount();

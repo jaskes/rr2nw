@@ -216,11 +216,11 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "6/0") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "7/0") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "6/6/0") {
+                    $log["active_world_restore_phases"] -ne "7/7/0") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
@@ -255,6 +255,23 @@ foreach ($configurationName in $Configuration) {
                     $log["bullet_active_world_probe"] -ne "1/2/1/1/2/1" -or
                     (Get-LogUnsigned $log "bullet_active_world_fingerprint") -lt 1) {
                     $issues.Add("Bullet BUL1 flight reconstruction proof changed")
+                }
+                $explosionActiveWorld = if ($log.ContainsKey("explosion_active_world_probe")) {
+                    [string]$log["explosion_active_world_probe"] -split "/"
+                } else { @() }
+                if ((Get-LogInteger $log "explosion_active_world_initialized") -ne 1 -or
+                    $explosionActiveWorld.Count -ne 8 -or
+                    [int]$explosionActiveWorld[0] -ne 1 -or
+                    [int]$explosionActiveWorld[1] -lt 1 -or
+                    [int]$explosionActiveWorld[2] -lt 1 -or
+                    [int]$explosionActiveWorld[2] -gt 2 -or
+                    [int]$explosionActiveWorld[3] -ne 1 -or
+                    [int]$explosionActiveWorld[4] -ne 1 -or
+                    [int]$explosionActiveWorld[5] -ne 1 -or
+                    [int]$explosionActiveWorld[6] -ne 2 -or
+                    [int]$explosionActiveWorld[7] -ne 1 -or
+                    (Get-LogUnsigned $log "explosion_active_world_fingerprint") -lt 1) {
+                    $issues.Add("Explosion EXP1 graph reconstruction proof changed")
                 }
                 if (-not $log.ContainsKey("vehicle_active_world_probe") -or
                     $log["vehicle_active_world_probe"] -ne "1/1" -or
@@ -311,6 +328,8 @@ foreach ($configurationName in $Configuration) {
                 vehicle_active_world_fingerprint = Get-LogUnsigned $log "vehicle_active_world_fingerprint"
                 people_active_world_probe = [string]$log["people_active_world_probe"]
                 people_active_world_fingerprint = Get-LogUnsigned $log "people_active_world_fingerprint"
+                explosion_active_world_probe = [string]$log["explosion_active_world_probe"]
+                explosion_active_world_fingerprint = Get-LogUnsigned $log "explosion_active_world_fingerprint"
             }
             $records.Add([pscustomobject]$record)
             $record | ConvertTo-Json -Depth 6 |

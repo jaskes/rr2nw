@@ -992,11 +992,13 @@ source-created Tank remains a symbolic dependency; all other Levels retain an
 empty TankGroup roster. Startup and the retail matrix require the resulting
 envelope and phase diagnostics.
 
-Admission proof is now 54/54 CTest in Debug and Release and 36/36 real
-executable runs. Each retail Level has one active-world fingerprint across the
-installed/mounted and Debug/Release quartet; every run also retains a non-empty
-rendered frame and clean shutdown. Level.04D reports one freshly allocated
-owner in all four cases and every empty-Group Level reports zero.
+At that first two-section gate, 54/54 CTest passed in Debug and Release and all
+36 real executable runs produced one active-world fingerprint per Level across
+the installed/mounted and Debug/Release quartet. Every run also retained a
+non-empty rendered frame and clean shutdown. Later Tank scheduling made
+`Level.04D` startup state time-dependent between independent processes; exact
+within-transaction recapture remains mandatory until the deterministic
+clock/RNG slice can restore the stronger cross-run requirement.
 
 The next Windows-first persistence work is deliberately incremental:
 
@@ -1005,9 +1007,10 @@ The next Windows-first persistence work is deliberately incremental:
 2. [done] add Vehicle/player, the complete Level-local People roster and the
    Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
    private scheduler state;
-3. [in progress] add transient combat ownership: live Bullet flight is done;
-   Explosion/Spark/Smoke/Corpse, mission state, the remaining semantic event
-   queue and an authoritative deterministic RNG remain;
+3. [in progress] add transient combat ownership: live Bullet flight and the
+   parent-owned Explosion particle graph are done; detached Spark/Smoke/Corpse,
+   mission state, the remaining semantic event queue and an authoritative
+   deterministic RNG remain;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
@@ -1065,11 +1068,19 @@ envelope reports `6/0`, `6/6/0` and
 `bullet_active_world_probe=1/2/1/1/2/1`; a Level snapshot may legitimately
 contain an empty Bullet roster.
 
-The next large persistence slice is the damage/death effect graph: Explosion,
-Spark, Smoke and Corpse ownership, semantic hit/death events, projectiles whose
-master disappears before capture and their rollback order. After that come the
-remaining mission queue and authoritative RNG, followed by a complete
-fresh-Level reconstruction and public save controls.
+The Explosion part is now admitted as the seventh section. `EXP1` captures a
+real parent, all of its bounded internal particle branches, optional owned
+Sound, trace quota and exact MOVE/NEWPUFF event timestamps. The runtime destroys
+that graph, rolls one complete staged reconstruction back, restores another
+under fresh parent and Sound IDs and executes MOVE to prove scheduling resumes.
+The envelope reports `7/0`, `7/7/0` and
+`explosion_active_world_probe=1/<branches>/<events>/1/1/1/2/1`.
+
+The next large persistence slice completes the damage/death effect graph:
+detached Spark, Smoke and Corpse ownership, semantic hit/death events,
+projectiles whose master disappears before capture and their rollback order.
+After that come the remaining mission queue and authoritative RNG, followed by
+a complete fresh-Level reconstruction and public save controls.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical

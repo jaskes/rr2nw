@@ -2,12 +2,15 @@
 #include "game.h"
 
 #include "ExplosionSubjectState.h"
+#include "ExplosionActiveWorldState.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <string>
 #include <vector>
 
 #include "ExplosionAttributeState.h"
@@ -35,6 +38,10 @@ const int kMaximumTracedExplosionParents = 4;
 const double kRayTimeLife = 0.6;
 const double kExplosionMaximumTimeLife = 15.0;
 const double kPi = 3.14159265358979323846;
+const std::uint32_t kExplosionActiveWorldMagic = 0x31505845u; // EXP1
+const std::uint32_t kExplosionActiveWorldVersion = 1u;
+const std::size_t kMaximumActiveWorldExplosions = 4096;
+const std::size_t kMaximumActiveWorldString = MAX_SYMBOLIC_LENGHT - 1;
 
 int g_executedCommands = 0;
 int g_damageApplications = 0;
@@ -45,6 +52,7 @@ int g_particleBranchesLive = 0;
 int g_pieceDrawCalls = 0;
 int g_tracedExplosionParents = 0;
 int g_tracePuffsStarted = 0;
+std::string g_activeWorldFailure;
 SimulationContext *g_impulseContext = NULL;
 KR_ObjectID g_impulseTarget = KR_ObjectID::NUL();
 void *g_impulseUser = NULL;
@@ -147,6 +155,77 @@ struct ExplosionParticleBranch
     }
 };
 
+struct StableExplosionBranch
+{
+    int type;
+    CFVector3 start;
+    CFVector3 velocity;
+    double radius;
+    double timeOfLife;
+    double rayAngle;
+    double rayWidth;
+    double rotationOySpeed;
+    double rotationOxSpeed;
+    double radiusA;
+    double radiusB;
+    double opacityA;
+    double opacityB;
+    double opacityC;
+    double reciprocalMaximumTime;
+    double multiplier;
+    CFVector3 drift;
+    int u0;
+    int v0;
+    int u1;
+    int v1;
+    int tailCount;
+    std::uint32_t color;
+    int createPuffNow;
+
+    StableExplosionBranch()
+        : type(EXPLOSION_PARTICLE_SIMPLE),
+          start(0.0, 0.0, 0.0), velocity(0.0, 0.0, 0.0),
+          radius(0.0), timeOfLife(0.0), rayAngle(0.0), rayWidth(0.0),
+          rotationOySpeed(0.0), rotationOxSpeed(0.0), radiusA(0.0),
+          radiusB(0.0), opacityA(0.0), opacityB(0.0), opacityC(0.0),
+          reciprocalMaximumTime(0.0), multiplier(0.0),
+          drift(0.0, 0.0, 0.0), u0(0), v0(0), u1(0), v1(0),
+          tailCount(0), color(0), createPuffNow(0) {}
+};
+
+struct StableExplosionRecord
+{
+    std::string name;
+    std::string attribute;
+    CFVector3 position;
+    double startTime;
+    double nextMoveTime;
+    double previousMoveTime;
+    double nextPuffTime;
+    double landY;
+    int lightActive;
+    int landHeightReady;
+    int traceQuotaHeld;
+    int hasSound;
+    double movingTimeStamp;
+    int hasPuffEvent;
+    double puffTimeStamp;
+    std::vector<StableExplosionBranch> branches;
+
+    StableExplosionRecord()
+        : position(0.0, 0.0, 0.0), startTime(0.0),
+          nextMoveTime(0.0), previousMoveTime(0.0), nextPuffTime(0.0),
+          landY(0.0), lightActive(0), landHeightReady(0),
+          traceQuotaHeld(0), hasSound(0), movingTimeStamp(0.0),
+          hasPuffEvent(0), puffTimeStamp(0.0) {}
+};
+
+bool FailActiveWorld(const std::string &message)
+{
+    g_activeWorldFailure = message;
+    return false;
+}
+
 class BoundedExplosion;
 bool NearlyEqual(double actual, double expected);
 
@@ -193,6 +272,16 @@ bool FiniteVector(const CFVector3 &value)
 {
     return std::isfinite(value.x) && std::isfinite(value.y) &&
            std::isfinite(value.z);
+}
+
+std::string ObjectName(SimulationContext *context,
+                       const KR_ObjectID &object)
+{
+    KR_ObjectID mutableObject = object;
+    if (context == NULL || mutableObject.isNUL())
+        return std::string();
+    const char *name = context->searchObject(object);
+    return name == NULL ? std::string() : std::string(name);
 }
 
 bool IsNul(KR_ObjectID value)
@@ -668,6 +757,7 @@ class BoundedExplosion : public ct_Subject
     bool traceQuotaHeld() const { return m_traceQuotaHeld; }
     int tracePuffsStarted() const { return m_tracePuffsStarted; }
     const KR_ObjectID &lastTracePuff() const { return m_lastTracePuff; }
+    double previousMoveTime() const { return m_previousMoveTime; }
 
     int particleCount(ExplosionParticleBranchType type) const
     {
@@ -677,6 +767,202 @@ class BoundedExplosion : public ct_Subject
                 m_particles[index].type == type)
                 ++count;
         return count;
+    }
+
+    bool captureStable(SimulationContext *world,
+                       StableExplosionRecord *record)
+    {
+        if (world == NULL || record == NULL || context != world ||
+            !m_started || m_attribute == NULL ||
+            m_particleDynamicPublished)
+            return FailActiveWorld(
+                "live Explosion is not at a stable frame boundary");
+        record->name = ObjectName(world, getObjectID());
+        record->attribute = ObjectName(world, m_attribute->getObjectID());
+        if (record->name.empty() || record->attribute.empty())
+            return FailActiveWorld(
+                "live Explosion owner/attribute name is missing");
+
+        KR_Event moving[2];
+        KR_Event puff[2];
+        const int movingCount = world->copyEvents(
+            EXPLOSION_MOVE, getObjectID(), moving, 2);
+        const int puffCount = world->copyEvents(
+            EXPLOSION_NEWPUFF, getObjectID(), puff, 2);
+        if (movingCount != 1 || moving[0].source != getObjectID() ||
+            moving[0].destination != getObjectID() ||
+            moving[0].data.size() != 0 ||
+            (m_traceQuotaHeld ? puffCount != 1 : puffCount != 0) ||
+            (puffCount == 1 &&
+             (puff[0].source != getObjectID() ||
+              puff[0].destination != getObjectID() ||
+              puff[0].data.size() != 0)))
+            return FailActiveWorld(
+                "live Explosion private event boundary is invalid");
+
+        record->hasSound = IsNul(m_sound) ? 0 : 1;
+        if (record->hasSound &&
+            (m_attribute->m_wav == NULL ||
+             m_attribute->m_ctsndID == ct_NULLID ||
+             !SoundObjectState_Matches(
+                 m_sound, m_attribute->m_wav,
+                 m_position.x, m_position.y, m_position.z,
+                 true, true, 1)))
+            return FailActiveWorld(
+                "live Explosion owned Sound state is invalid");
+
+        record->position = m_position;
+        record->startTime = m_startTime;
+        record->nextMoveTime = m_nextMoveTime;
+        record->previousMoveTime = m_previousMoveTime;
+        record->nextPuffTime = m_traceQuotaHeld ? m_nextPuffTime : 0.0;
+        record->landY = m_landHeightReady ? m_landY : 0.0;
+        record->lightActive = m_lightActive ? 1 : 0;
+        record->landHeightReady = m_landHeightReady ? 1 : 0;
+        record->traceQuotaHeld = m_traceQuotaHeld ? 1 : 0;
+        record->movingTimeStamp = moving[0].timeStamp;
+        record->hasPuffEvent = puffCount == 1 ? 1 : 0;
+        record->puffTimeStamp = puffCount == 1 ? puff[0].timeStamp : 0.0;
+        record->branches.clear();
+        for (int index = 0; index < kParticleBranchPerExplosion; ++index)
+        {
+            const ExplosionParticleBranch &branch = m_particles[index];
+            if (!branch.active)
+                continue;
+            if (branch.landDynamicPublished)
+                return FailActiveWorld(
+                    "live Explosion Piece is still published in a frame");
+            StableExplosionBranch stable;
+            stable.type = static_cast<int>(branch.type);
+            stable.start = branch.start;
+            stable.velocity = branch.velocity;
+            stable.radius = branch.radius;
+            stable.timeOfLife = branch.timeOfLife;
+            stable.rayAngle = branch.rayAngle;
+            stable.rayWidth = branch.rayWidth;
+            stable.rotationOySpeed = branch.rotationOySpeed;
+            stable.rotationOxSpeed = branch.rotationOxSpeed;
+            stable.radiusA = branch.radiusA;
+            stable.radiusB = branch.radiusB;
+            stable.opacityA = branch.opacityA;
+            stable.opacityB = branch.opacityB;
+            stable.opacityC = branch.opacityC;
+            stable.reciprocalMaximumTime = branch.reciprocalMaximumTime;
+            stable.multiplier = branch.multiplier;
+            stable.drift = branch.drift;
+            stable.u0 = branch.u0;
+            stable.v0 = branch.v0;
+            stable.u1 = branch.u1;
+            stable.v1 = branch.v1;
+            stable.tailCount = branch.tailCount;
+            stable.color = static_cast<std::uint32_t>(branch.color);
+            stable.createPuffNow = branch.createPuffNow ? 1 : 0;
+            record->branches.push_back(stable);
+        }
+        if (static_cast<int>(record->branches.size()) != m_particleCount)
+            return FailActiveWorld(
+                "live Explosion branch accounting is inconsistent");
+        return true;
+    }
+
+    bool applyStable(const StableExplosionRecord &record,
+                     AttributeExplosion *attribute)
+    {
+        if (context == NULL || attribute == NULL)
+            return false;
+        if (!clearStableRuntime())
+            return false;
+
+        m_attribute = attribute;
+        m_position = record.position;
+        m_startTime = record.startTime;
+        m_nextMoveTime = record.nextMoveTime;
+        m_previousMoveTime = record.previousMoveTime;
+        m_nextPuffTime = record.nextPuffTime;
+        m_landY = record.landY;
+        m_lightActive = record.lightActive != 0;
+        m_landHeightReady = record.landHeightReady != 0;
+        m_traceQuotaHeld = record.traceQuotaHeld != 0;
+        m_started = true;
+        setPosition(record.position);
+
+        for (std::size_t index = 0; index < record.branches.size(); ++index)
+        {
+            const StableExplosionBranch &stable = record.branches[index];
+            ExplosionParticleBranch *branch = allocateParticle(
+                static_cast<ExplosionParticleBranchType>(stable.type));
+            if (branch == NULL)
+                return false;
+            branch->start = stable.start;
+            branch->velocity = stable.velocity;
+            branch->radius = stable.radius;
+            branch->timeOfLife = stable.timeOfLife;
+            branch->rayAngle = stable.rayAngle;
+            branch->rayWidth = stable.rayWidth;
+            branch->rotationOySpeed = stable.rotationOySpeed;
+            branch->rotationOxSpeed = stable.rotationOxSpeed;
+            branch->radiusA = stable.radiusA;
+            branch->radiusB = stable.radiusB;
+            branch->opacityA = stable.opacityA;
+            branch->opacityB = stable.opacityB;
+            branch->opacityC = stable.opacityC;
+            branch->reciprocalMaximumTime =
+                stable.reciprocalMaximumTime;
+            branch->multiplier = stable.multiplier;
+            branch->drift = stable.drift;
+            branch->u0 = stable.u0;
+            branch->v0 = stable.v0;
+            branch->u1 = stable.u1;
+            branch->v1 = stable.v1;
+            branch->tailCount = stable.tailCount;
+            branch->color = stable.color;
+            branch->createPuffNow = stable.createPuffNow != 0;
+            if (branch->type == EXPLOSION_PARTICLE_PIECE ||
+                branch->type == EXPLOSION_PARTICLE_TRACED_PIECE)
+                branch->skin.Attach(attribute->m_cacheSkin);
+        }
+        if (m_traceQuotaHeld)
+            ++g_tracedExplosionParents;
+        if (record.hasSound &&
+            !SoundObjectState_StartOneShot(
+                context, getObjectID(), attribute->m_ctsndID,
+                attribute->m_wav, record.position, record.startTime,
+                &m_sound))
+            return false;
+
+        KR_Event moving;
+        moving.label = EXPLOSION_MOVE;
+        moving.source = getObjectID();
+        moving.destination = getObjectID();
+        moving.timeStamp = record.movingTimeStamp;
+        context->addEvent(moving);
+        if (record.hasPuffEvent)
+        {
+            KR_Event puff;
+            puff.label = EXPLOSION_NEWPUFF;
+            puff.source = getObjectID();
+            puff.destination = getObjectID();
+            puff.timeStamp = record.puffTimeStamp;
+            context->addEvent(puff);
+        }
+        return true;
+    }
+
+    bool clearStableRuntime()
+    {
+        if (context == NULL)
+            return false;
+        while (context->removeEvent(EXPLOSION_START, getObjectID()) == 1) {}
+        while (context->removeEvent(EXPLOSION_MOVE, getObjectID()) == 1) {}
+        while (context->removeEvent(
+                   EXPLOSION_NEWPUFF, getObjectID()) == 1) {}
+        if (!IsNul(m_sound) &&
+            !SoundObjectState_RollbackOwned(context, &m_sound))
+            return false;
+        releaseTraceQuota();
+        releaseParticles();
+        resetState();
+        return true;
     }
 
     void drawParticles();
@@ -1590,6 +1876,16 @@ class BoundedExplosionTable : public ct_SubjectTable
         return NULL;
     }
 
+    void collect(std::vector<BoundedExplosion *> *objects) const
+    {
+        if (objects == NULL)
+            return;
+        objects->clear();
+        for (ct_Subject *object = findFirstSubject(); object != NULL;
+             object = findNextSubject(object))
+            objects->push_back(static_cast<BoundedExplosion *>(object));
+    }
+
  private:
     BoundedExplosion *m_table;
 };
@@ -1663,6 +1959,411 @@ bool NearlyEqual(double actual, double expected)
 {
     const double scale = 1.0 + std::fabs(expected);
     return std::fabs(actual - expected) <= 1e-10 * scale;
+}
+
+bool IsBool(int value)
+{
+    return value == 0 || value == 1;
+}
+
+bool CollectStableRoster(SimulationContext *context,
+                         std::vector<BoundedExplosion *> *objects)
+{
+    if (context == NULL || objects == NULL ||
+        g_arena.getContext() != context)
+        return false;
+    g_explosionTable.collect(objects);
+    std::sort(objects->begin(), objects->end(),
+              [context](BoundedExplosion *left,
+                        BoundedExplosion *right) {
+                  const std::string leftName =
+                      ObjectName(context, left->getObjectID());
+                  const std::string rightName =
+                      ObjectName(context, right->getObjectID());
+                  if (leftName != rightName)
+                      return leftName < rightName;
+                  return left->getObjectID().id < right->getObjectID().id;
+              });
+    return true;
+}
+
+bool ValidateStableBranch(const StableExplosionBranch &branch)
+{
+    return branch.type >= EXPLOSION_PARTICLE_SIMPLE &&
+           branch.type <= EXPLOSION_PARTICLE_SMOKE &&
+           FiniteVector(branch.start) && FiniteVector(branch.velocity) &&
+           FiniteVector(branch.drift) &&
+           std::isfinite(branch.radius) &&
+           std::isfinite(branch.timeOfLife) && branch.timeOfLife >= 0.0 &&
+           std::isfinite(branch.rayAngle) &&
+           std::isfinite(branch.rayWidth) &&
+           std::isfinite(branch.rotationOySpeed) &&
+           std::isfinite(branch.rotationOxSpeed) &&
+           std::isfinite(branch.radiusA) &&
+           std::isfinite(branch.radiusB) &&
+           std::isfinite(branch.opacityA) &&
+           std::isfinite(branch.opacityB) &&
+           std::isfinite(branch.opacityC) &&
+           std::isfinite(branch.reciprocalMaximumTime) &&
+           std::isfinite(branch.multiplier) &&
+           branch.tailCount >= 0 && branch.tailCount <= 4096 &&
+           IsBool(branch.createPuffNow);
+}
+
+bool ValidateStableRecord(const StableExplosionRecord &record)
+{
+    if (record.name.empty() || record.attribute.empty() ||
+        record.name.size() > kMaximumActiveWorldString ||
+        record.attribute.size() > kMaximumActiveWorldString)
+        return FailActiveWorld("EXP1 owner/attribute identity is invalid");
+    if (!FiniteVector(record.position) ||
+        !std::isfinite(record.startTime) || record.startTime < 0.1)
+        return FailActiveWorld("EXP1 position/start time is invalid");
+    if (
+        !std::isfinite(record.nextMoveTime) ||
+        record.nextMoveTime <= record.startTime ||
+        !std::isfinite(record.previousMoveTime) ||
+        record.previousMoveTime < record.startTime ||
+        record.previousMoveTime >= record.nextMoveTime)
+        return FailActiveWorld("EXP1 MOVE time chain is invalid");
+    if (!std::isfinite(record.landY) ||
+        !IsBool(record.lightActive) || !IsBool(record.landHeightReady) ||
+        !IsBool(record.traceQuotaHeld) || !IsBool(record.hasSound) ||
+        !std::isfinite(record.movingTimeStamp) ||
+        record.movingTimeStamp != record.nextMoveTime)
+        return FailActiveWorld("EXP1 parent flags/MOVE event are invalid");
+    if (!IsBool(record.hasPuffEvent) ||
+        record.hasPuffEvent != record.traceQuotaHeld)
+        return FailActiveWorld("EXP1 NEWPUFF ownership is invalid");
+    if (record.branches.size() > kParticleBranchPerExplosion ||
+        (record.branches.empty() && !record.lightActive))
+        return FailActiveWorld("EXP1 live branch roster is invalid");
+    if (!record.landHeightReady && record.landY != 0.0)
+        return FailActiveWorld("EXP1 absent terrain sample is not canonical");
+    if (record.hasPuffEvent)
+    {
+        if (!std::isfinite(record.nextPuffTime) ||
+            !std::isfinite(record.puffTimeStamp) ||
+            record.nextPuffTime != record.puffTimeStamp ||
+            record.nextPuffTime <= record.startTime)
+            return FailActiveWorld("EXP1 NEWPUFF time chain is invalid");
+    }
+    else if (record.nextPuffTime != 0.0 || record.puffTimeStamp != 0.0)
+        return FailActiveWorld("EXP1 absent NEWPUFF state is not canonical");
+    int traced = 0;
+    for (std::size_t index = 0; index < record.branches.size(); ++index)
+    {
+        if (!ValidateStableBranch(record.branches[index]))
+            return FailActiveWorld("EXP1 particle branch state is invalid");
+        if (record.branches[index].type ==
+            EXPLOSION_PARTICLE_TRACED_PIECE)
+            ++traced;
+    }
+    if (record.traceQuotaHeld && traced == 0)
+        return FailActiveWorld("EXP1 traced-parent quota has no owner branch");
+    return true;
+}
+
+bool CollectStableRecords(SimulationContext *context,
+                          std::vector<StableExplosionRecord> *records)
+{
+    std::vector<BoundedExplosion *> objects;
+    if (records == NULL || !CollectStableRoster(context, &objects))
+        return false;
+    records->clear();
+    for (std::size_t index = 0; index < objects.size(); ++index)
+    {
+        StableExplosionRecord record;
+        if (!objects[index]->captureStable(context, &record) ||
+            !ValidateStableRecord(record))
+            return false;
+        records->push_back(record);
+    }
+    return true;
+}
+
+bool RosterMatches(const std::vector<BoundedExplosion *> &objects,
+                   SimulationContext *context,
+                   const std::vector<StableExplosionRecord> &records)
+{
+    if (objects.size() != records.size())
+        return false;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        if (ObjectName(context, objects[index]->getObjectID()) !=
+            records[index].name)
+            return false;
+    return true;
+}
+
+void PutU32(std::vector<unsigned char> *bytes, std::uint32_t value)
+{
+    for (int shift = 0; shift < 32; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(value >> shift));
+}
+
+void PutDouble(std::vector<unsigned char> *bytes, double value)
+{
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    for (int shift = 0; shift < 64; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(bits >> shift));
+}
+
+void PutVector(std::vector<unsigned char> *bytes, const CFVector3 &value)
+{
+    PutDouble(bytes, value.x);
+    PutDouble(bytes, value.y);
+    PutDouble(bytes, value.z);
+}
+
+bool PutString(std::vector<unsigned char> *bytes,
+               const std::string &value)
+{
+    if (bytes == NULL || value.size() > kMaximumActiveWorldString ||
+        value.find('\0') != std::string::npos)
+        return false;
+    PutU32(bytes, static_cast<std::uint32_t>(value.size()));
+    bytes->insert(bytes->end(), value.begin(), value.end());
+    return true;
+}
+
+bool GetU32(const std::vector<unsigned char> &bytes, std::size_t *offset,
+            std::uint32_t *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 4)
+        return false;
+    *value = 0;
+    for (int shift = 0; shift < 32; shift += 8)
+        *value |= static_cast<std::uint32_t>(bytes[(*offset)++]) << shift;
+    return true;
+}
+
+bool GetDouble(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, double *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 8)
+        return false;
+    std::uint64_t bits = 0;
+    for (int shift = 0; shift < 64; shift += 8)
+        bits |= static_cast<std::uint64_t>(bytes[(*offset)++]) << shift;
+    std::memcpy(value, &bits, sizeof(bits));
+    return true;
+}
+
+bool GetVector(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, CFVector3 *value)
+{
+    return value != NULL && GetDouble(bytes, offset, &value->x) &&
+           GetDouble(bytes, offset, &value->y) &&
+           GetDouble(bytes, offset, &value->z);
+}
+
+bool GetString(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, std::string *value)
+{
+    std::uint32_t size = 0;
+    if (offset == NULL || value == NULL || !GetU32(bytes, offset, &size) ||
+        size > kMaximumActiveWorldString || *offset > bytes.size() ||
+        bytes.size() - *offset < size)
+        return false;
+    if (size == 0)
+        value->clear();
+    else
+        value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
+    *offset += size;
+    return value->find('\0') == std::string::npos;
+}
+
+void PutBranch(std::vector<unsigned char> *bytes,
+               const StableExplosionBranch &branch)
+{
+    PutU32(bytes, static_cast<std::uint32_t>(branch.type));
+    PutVector(bytes, branch.start);
+    PutVector(bytes, branch.velocity);
+    PutDouble(bytes, branch.radius);
+    PutDouble(bytes, branch.timeOfLife);
+    PutDouble(bytes, branch.rayAngle);
+    PutDouble(bytes, branch.rayWidth);
+    PutDouble(bytes, branch.rotationOySpeed);
+    PutDouble(bytes, branch.rotationOxSpeed);
+    PutDouble(bytes, branch.radiusA);
+    PutDouble(bytes, branch.radiusB);
+    PutDouble(bytes, branch.opacityA);
+    PutDouble(bytes, branch.opacityB);
+    PutDouble(bytes, branch.opacityC);
+    PutDouble(bytes, branch.reciprocalMaximumTime);
+    PutDouble(bytes, branch.multiplier);
+    PutVector(bytes, branch.drift);
+    PutU32(bytes, static_cast<std::uint32_t>(branch.u0));
+    PutU32(bytes, static_cast<std::uint32_t>(branch.v0));
+    PutU32(bytes, static_cast<std::uint32_t>(branch.u1));
+    PutU32(bytes, static_cast<std::uint32_t>(branch.v1));
+    PutU32(bytes, static_cast<std::uint32_t>(branch.tailCount));
+    PutU32(bytes, branch.color);
+    PutU32(bytes, static_cast<std::uint32_t>(branch.createPuffNow));
+}
+
+bool GetBranch(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, StableExplosionBranch *branch)
+{
+    std::uint32_t type = 0, u0 = 0, v0 = 0, u1 = 0, v1 = 0;
+    std::uint32_t tailCount = 0, color = 0, createPuffNow = 0;
+    if (branch == NULL || !GetU32(bytes, offset, &type) ||
+        !GetVector(bytes, offset, &branch->start) ||
+        !GetVector(bytes, offset, &branch->velocity) ||
+        !GetDouble(bytes, offset, &branch->radius) ||
+        !GetDouble(bytes, offset, &branch->timeOfLife) ||
+        !GetDouble(bytes, offset, &branch->rayAngle) ||
+        !GetDouble(bytes, offset, &branch->rayWidth) ||
+        !GetDouble(bytes, offset, &branch->rotationOySpeed) ||
+        !GetDouble(bytes, offset, &branch->rotationOxSpeed) ||
+        !GetDouble(bytes, offset, &branch->radiusA) ||
+        !GetDouble(bytes, offset, &branch->radiusB) ||
+        !GetDouble(bytes, offset, &branch->opacityA) ||
+        !GetDouble(bytes, offset, &branch->opacityB) ||
+        !GetDouble(bytes, offset, &branch->opacityC) ||
+        !GetDouble(bytes, offset, &branch->reciprocalMaximumTime) ||
+        !GetDouble(bytes, offset, &branch->multiplier) ||
+        !GetVector(bytes, offset, &branch->drift) ||
+        !GetU32(bytes, offset, &u0) || !GetU32(bytes, offset, &v0) ||
+        !GetU32(bytes, offset, &u1) || !GetU32(bytes, offset, &v1) ||
+        !GetU32(bytes, offset, &tailCount) ||
+        !GetU32(bytes, offset, &color) ||
+        !GetU32(bytes, offset, &createPuffNow))
+        return false;
+    branch->type = static_cast<int>(type);
+    branch->u0 = static_cast<int>(static_cast<std::int32_t>(u0));
+    branch->v0 = static_cast<int>(static_cast<std::int32_t>(v0));
+    branch->u1 = static_cast<int>(static_cast<std::int32_t>(u1));
+    branch->v1 = static_cast<int>(static_cast<std::int32_t>(v1));
+    branch->tailCount = static_cast<int>(tailCount);
+    branch->color = color;
+    branch->createPuffNow = static_cast<int>(createPuffNow);
+    return ValidateStableBranch(*branch);
+}
+
+bool PutRecord(std::vector<unsigned char> *bytes,
+               const StableExplosionRecord &record)
+{
+    if (!PutString(bytes, record.name) ||
+        !PutString(bytes, record.attribute))
+        return false;
+    PutVector(bytes, record.position);
+    PutDouble(bytes, record.startTime);
+    PutDouble(bytes, record.nextMoveTime);
+    PutDouble(bytes, record.previousMoveTime);
+    PutDouble(bytes, record.nextPuffTime);
+    PutDouble(bytes, record.landY);
+    PutU32(bytes, static_cast<std::uint32_t>(record.lightActive));
+    PutU32(bytes, static_cast<std::uint32_t>(record.landHeightReady));
+    PutU32(bytes, static_cast<std::uint32_t>(record.traceQuotaHeld));
+    PutU32(bytes, static_cast<std::uint32_t>(record.hasSound));
+    PutDouble(bytes, record.movingTimeStamp);
+    PutU32(bytes, static_cast<std::uint32_t>(record.hasPuffEvent));
+    PutDouble(bytes, record.puffTimeStamp);
+    PutU32(bytes, static_cast<std::uint32_t>(record.branches.size()));
+    for (std::size_t index = 0; index < record.branches.size(); ++index)
+        PutBranch(bytes, record.branches[index]);
+    return true;
+}
+
+bool GetRecord(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, StableExplosionRecord *record)
+{
+    std::uint32_t light = 0, land = 0, trace = 0, sound = 0;
+    std::uint32_t hasPuff = 0, count = 0;
+    if (record == NULL || !GetString(bytes, offset, &record->name) ||
+        !GetString(bytes, offset, &record->attribute) ||
+        !GetVector(bytes, offset, &record->position) ||
+        !GetDouble(bytes, offset, &record->startTime) ||
+        !GetDouble(bytes, offset, &record->nextMoveTime) ||
+        !GetDouble(bytes, offset, &record->previousMoveTime) ||
+        !GetDouble(bytes, offset, &record->nextPuffTime) ||
+        !GetDouble(bytes, offset, &record->landY) ||
+        !GetU32(bytes, offset, &light) || !GetU32(bytes, offset, &land) ||
+        !GetU32(bytes, offset, &trace) || !GetU32(bytes, offset, &sound) ||
+        !GetDouble(bytes, offset, &record->movingTimeStamp) ||
+        !GetU32(bytes, offset, &hasPuff) ||
+        !GetDouble(bytes, offset, &record->puffTimeStamp) ||
+        !GetU32(bytes, offset, &count) ||
+        count > kParticleBranchPerExplosion)
+        return false;
+    record->lightActive = static_cast<int>(light);
+    record->landHeightReady = static_cast<int>(land);
+    record->traceQuotaHeld = static_cast<int>(trace);
+    record->hasSound = static_cast<int>(sound);
+    record->hasPuffEvent = static_cast<int>(hasPuff);
+    record->branches.clear();
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        StableExplosionBranch branch;
+        if (!GetBranch(bytes, offset, &branch))
+            return false;
+        record->branches.push_back(branch);
+    }
+    return ValidateStableRecord(*record);
+}
+
+bool EncodeStableRecords(
+    const std::vector<StableExplosionRecord> &records,
+    std::vector<unsigned char> *bytes)
+{
+    if (bytes == NULL || records.size() > kMaximumActiveWorldExplosions)
+        return false;
+    bytes->clear();
+    PutU32(bytes, kExplosionActiveWorldMagic);
+    PutU32(bytes, kExplosionActiveWorldVersion);
+    PutU32(bytes, static_cast<std::uint32_t>(records.size()));
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        if (!ValidateStableRecord(records[index]) ||
+            (index != 0 && records[index - 1].name > records[index].name) ||
+            !PutRecord(bytes, records[index]))
+            return FailActiveWorld("EXP1 record encoding failed");
+    }
+    return true;
+}
+
+bool DecodeStableRecords(const std::vector<unsigned char> &bytes,
+                         std::vector<StableExplosionRecord> *records)
+{
+    std::size_t offset = 0;
+    std::uint32_t magic = 0, version = 0, count = 0;
+    if (records == NULL || !GetU32(bytes, &offset, &magic) ||
+        !GetU32(bytes, &offset, &version) ||
+        !GetU32(bytes, &offset, &count) ||
+        magic != kExplosionActiveWorldMagic ||
+        version != kExplosionActiveWorldVersion ||
+        count > kMaximumActiveWorldExplosions)
+        return false;
+    records->clear();
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        StableExplosionRecord record;
+        if (!GetRecord(bytes, &offset, &record) ||
+            (!records->empty() && records->back().name > record.name))
+            return false;
+        records->push_back(record);
+    }
+    return offset == bytes.size();
+}
+
+int DrainPrivateExplosionEvents(SimulationContext *context,
+                                const KR_ObjectID &object)
+{
+    KR_ObjectID mutableObject = object;
+    if (context == NULL || mutableObject.isNUL())
+        return 0;
+    int removed = 0;
+    while (context->removeEvent(EXPLOSION_START, object) == 1)
+        ++removed;
+    while (context->removeEvent(EXPLOSION_MOVE, object) == 1)
+        ++removed;
+    while (context->removeEvent(EXPLOSION_NEWPUFF, object) == 1)
+        ++removed;
+    return removed;
 }
 
 }  // namespace
@@ -3287,4 +3988,495 @@ bool ExplosionSubjectState_ProbeTraceLifecycle(
            g_tracedExplosionParents == 0 &&
            SmokeSubjectState_LiveCount() == 0 &&
            ExplosionAttributeState_TraceReferencesResolved(context);
+}
+
+void ExplosionActiveWorldState_Link()
+{
+    ExplosionSubjectState_Link();
+}
+
+const char *ExplosionActiveWorldState_LastFailure()
+{
+    return g_activeWorldFailure.c_str();
+}
+
+int ExplosionActiveWorldState_BranchCount(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableExplosionRecord> records;
+    if (!DecodeStableRecords(bytes, &records))
+        return -1;
+    int count = 0;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        count += static_cast<int>(records[index].branches.size());
+    return count;
+}
+
+int ExplosionActiveWorldState_SchedulerEventCount(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableExplosionRecord> records;
+    if (!DecodeStableRecords(bytes, &records))
+        return -1;
+    int count = 0;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        count += 1 + records[index].hasPuffEvent;
+    return count;
+}
+
+unsigned long long ExplosionActiveWorldState_Fingerprint(
+    SimulationContext *context)
+{
+    std::vector<unsigned char> bytes;
+    if (!ExplosionActiveWorldState_CaptureStable(context, &bytes))
+        return 0;
+    unsigned long long hash = kHashOffset;
+    if (!bytes.empty())
+        HashBytes(hash, &bytes[0], static_cast<int>(bytes.size()));
+    return hash;
+}
+
+bool ExplosionActiveWorldState_CaptureStable(
+    SimulationContext *context, std::vector<unsigned char> *bytes)
+{
+    g_activeWorldFailure.clear();
+    std::vector<StableExplosionRecord> records;
+    if (!CollectStableRecords(context, &records))
+    {
+        if (g_activeWorldFailure.empty())
+            FailActiveWorld("Explosion stable roster collection failed");
+        return false;
+    }
+    return EncodeStableRecords(records, bytes);
+}
+
+bool ExplosionActiveWorldState_ValidateStable(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableExplosionRecord> records;
+    return DecodeStableRecords(bytes, &records);
+}
+
+bool ExplosionActiveWorldState_MatchesStable(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<unsigned char> current;
+    return ExplosionActiveWorldState_ValidateStable(bytes) &&
+           ExplosionActiveWorldState_CaptureStable(context, &current) &&
+           current == bytes;
+}
+
+bool ExplosionActiveWorldState_CollectStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *owners)
+{
+    std::vector<StableExplosionRecord> records;
+    std::vector<BoundedExplosion *> objects;
+    if (owners == NULL || !owners->empty() ||
+        !DecodeStableRecords(bytes, &records) ||
+        !CollectStableRoster(context, &objects) ||
+        !RosterMatches(objects, context, records))
+        return false;
+    for (std::size_t index = 0; index < objects.size(); ++index)
+        owners->push_back(objects[index]->getObjectID());
+    return true;
+}
+
+bool ExplosionActiveWorldState_CreateStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *created)
+{
+    std::vector<StableExplosionRecord> records;
+    std::vector<BoundedExplosion *> objects;
+    if (context == NULL || created == NULL || !created->empty() ||
+        !DecodeStableRecords(bytes, &records) ||
+        !CollectStableRoster(context, &objects))
+        return false;
+    if (!objects.empty())
+        return RosterMatches(objects, context, records);
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Explosion");
+    if ((!records.empty() && table == ct_NULLID) ||
+        static_cast<int>(records.size()) >
+            g_explosionTable.capacity() - g_explosionTable.liveCount())
+        return FailActiveWorld(
+            "Explosion owner table has insufficient capacity");
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        KR_ObjectID object =
+            g_arena.newObject(table, records[index].name.c_str());
+        if (object.isNUL() || g_explosionTable.find(object) == NULL)
+        {
+            ExplosionActiveWorldState_RemoveStableOwners(context, created);
+            return FailActiveWorld("Explosion owner allocation failed");
+        }
+        created->push_back(object);
+    }
+    objects.clear();
+    if (!CollectStableRoster(context, &objects) ||
+        !RosterMatches(objects, context, records))
+    {
+        ExplosionActiveWorldState_RemoveStableOwners(context, created);
+        return FailActiveWorld(
+            "Explosion allocated roster is not canonical");
+    }
+    return true;
+}
+
+bool ExplosionActiveWorldState_ApplyStableReferences(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableExplosionRecord> records;
+    std::vector<BoundedExplosion *> objects;
+    if (context == NULL || !DecodeStableRecords(bytes, &records) ||
+        !CollectStableRoster(context, &objects) ||
+        !RosterMatches(objects, context, records))
+        return false;
+
+    std::vector<AttributeExplosion *> attributes(records.size(), NULL);
+    int targetBranches = 0;
+    int targetTracedParents = 0;
+    int targetSounds = 0;
+    int currentOwnedSounds = 0;
+    bool needsParticleVisuals = false;
+    bool needsSmokeVisuals = false;
+    bool needsPieceVisuals = false;
+    bool needsTraceReferences = false;
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        bool recordNeedsPieceVisual = false;
+        if (!context->isExist(records[index].attribute.c_str()))
+            return FailActiveWorld(
+                "EXP1 ExplosionAttr dependency is missing");
+        const KR_ObjectID attributeID =
+            context->searchObject(records[index].attribute.c_str());
+        attributes[index] = static_cast<AttributeExplosion *>(
+            __attrExplosionTable.searchAttribute(attributeID));
+        if (attributes[index] == NULL)
+            return FailActiveWorld(
+                "EXP1 ExplosionAttr dependency has wrong type");
+        targetBranches +=
+            static_cast<int>(records[index].branches.size());
+        targetTracedParents += records[index].traceQuotaHeld;
+        targetSounds += records[index].hasSound;
+        if (!IsNul(objects[index]->sound()))
+            ++currentOwnedSounds;
+        if (records[index].hasSound &&
+            (attributes[index]->m_wav == NULL ||
+             attributes[index]->m_ctsndID == ct_NULLID))
+            return FailActiveWorld(
+                "EXP1 owned Sound dependency is unresolved");
+        for (std::size_t branch = 0;
+             branch < records[index].branches.size(); ++branch)
+        {
+            switch (records[index].branches[branch].type)
+            {
+            case EXPLOSION_PARTICLE_SIMPLE:
+            case EXPLOSION_PARTICLE_SNAKE:
+            case EXPLOSION_PARTICLE_RAY:
+                needsParticleVisuals = true;
+                break;
+            case EXPLOSION_PARTICLE_SMOKE:
+                needsSmokeVisuals = true;
+                break;
+            case EXPLOSION_PARTICLE_PIECE:
+                needsPieceVisuals = true;
+                recordNeedsPieceVisual = true;
+                break;
+            case EXPLOSION_PARTICLE_TRACED_PIECE:
+                needsPieceVisuals = true;
+                recordNeedsPieceVisual = true;
+                needsTraceReferences = true;
+                break;
+            }
+        }
+        if (recordNeedsPieceVisual &&
+            (attributes[index]->m_cacheSkin == NULL ||
+             !std::isfinite(attributes[index]->m_cacheSkin->Radius()) ||
+             attributes[index]->m_cacheSkin->Radius() <= 0.0))
+            return FailActiveWorld(
+                "EXP1 Piece skin dependency is unresolved");
+    }
+    const int foreignSounds =
+        SoundObjectState_LiveCount() - currentOwnedSounds;
+    if (targetBranches > kParticleBranchCapacity ||
+        targetTracedParents > kMaximumTracedExplosionParents)
+        return FailActiveWorld(
+            "EXP1 particle or traced-parent capacity is exceeded");
+    if (foreignSounds < 0 || targetSounds >
+            SoundObjectState_Capacity() - foreignSounds)
+        return FailActiveWorld("EXP1 SoundObj capacity is exceeded");
+    if (needsParticleVisuals &&
+        !ExplosionAttributeState_ParticleVisualsResolved(context))
+        return FailActiveWorld(
+            "EXP1 particle visual dependencies are unresolved");
+    if (needsSmokeVisuals &&
+        !ExplosionAttributeState_SmokeVisualsResolved(context))
+        return FailActiveWorld(
+            "EXP1 smoke visual dependencies are unresolved");
+    if (needsPieceVisuals &&
+        !ExplosionAttributeState_PieceReferencesResolved(context))
+        return FailActiveWorld(
+            "EXP1 Piece dependencies are unresolved");
+    if (needsTraceReferences &&
+        !ExplosionAttributeState_TraceReferencesResolved(context))
+        return FailActiveWorld(
+            "EXP1 traced-Piece dependencies are unresolved");
+
+    // Release every old branch before allocating any new branch. This keeps
+    // a valid 500-branch target from failing only because the roster changed
+    // its per-owner distribution during the transaction.
+    for (std::size_t index = 0; index < objects.size(); ++index)
+        if (!objects[index]->clearStableRuntime())
+            return FailActiveWorld(
+                "EXP1 previous runtime graph release failed");
+    for (std::size_t index = 0; index < records.size(); ++index)
+        if (!objects[index]->applyStable(records[index], attributes[index]))
+        {
+            for (std::size_t cleanup = 0; cleanup < objects.size(); ++cleanup)
+                objects[cleanup]->clearStableRuntime();
+            return FailActiveWorld("EXP1 runtime state application failed");
+        }
+    std::vector<unsigned char> current;
+    if (!ExplosionActiveWorldState_CaptureStable(context, &current) ||
+        current != bytes)
+        return FailActiveWorld("EXP1 canonical recapture differs");
+    return true;
+}
+
+void ExplosionActiveWorldState_RemoveStableOwners(
+    SimulationContext *context, std::vector<KR_ObjectID> *created)
+{
+    if (created == NULL)
+        return;
+    if (context != NULL)
+        for (std::vector<KR_ObjectID>::reverse_iterator object =
+                 created->rbegin(); object != created->rend(); ++object)
+        {
+            DrainPrivateExplosionEvents(context, *object);
+            if (context->isExist(*object))
+                context->removeObject(*object);
+        }
+    created->clear();
+}
+
+bool ExplosionActiveWorldState_ProbeLiveRoundTrip(
+    SimulationContext *context, const char *attributeName,
+    double timeStamp, ExplosionActiveWorldProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    g_activeWorldFailure.clear();
+    if (context == NULL || attributeName == NULL ||
+        attributeName[0] == 0 || g_explosionTable.liveCount() != 0 ||
+        g_particleBranchesLive != 0 || g_tracedExplosionParents != 0)
+        return FailActiveWorld(
+            "Explosion active-world probe requires an empty Explosion graph");
+
+    const KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeExplosion *attribute = static_cast<AttributeExplosion *>(
+        __attrExplosionTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("ExplosionAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Explosion");
+    const int attributeIndex = attributeTable == ct_NULLID ||
+            IsNul(attributeID)
+        ? -1 : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (attribute == NULL || attributeIndex < 0 ||
+        subjectTable == ct_NULLID || attribute->m_wav == NULL ||
+        attribute->m_ctsndID == ct_NULLID)
+        return FailActiveWorld(
+            "Explosion active-world probe attribute/table is unavailable");
+
+    const int executedBefore = g_executedCommands;
+    const int damageBefore = g_damageApplications;
+    const int impulseBefore = g_impulseApplications;
+    const int allocationBefore = g_allocationRollbacks;
+    const int queueBefore = g_queueRollbacks;
+    const int drawBefore = g_pieceDrawCalls;
+    const int puffBefore = g_tracePuffsStarted;
+    const int soundBefore = SoundObjectState_LiveCount();
+    const double frameBefore = Session::m_frameSec;
+    KR_ObjectID original = KR_ObjectID::NUL();
+    KR_ObjectID stagedID = KR_ObjectID::NUL();
+    KR_ObjectID restoredID = KR_ObjectID::NUL();
+    KR_ObjectID firstSound = KR_ObjectID::NUL();
+    KR_ObjectID stagedSound = KR_ObjectID::NUL();
+    KR_ObjectID restoredSound = KR_ObjectID::NUL();
+    std::vector<KR_ObjectID> originalOwners;
+    std::vector<KR_ObjectID> staged;
+    std::vector<KR_ObjectID> restored;
+    bool success = false;
+
+    do
+    {
+        const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+        ExplosionImpactRequest request;
+        request.position = CFVector3(4096.0, 10000.0, -4096.0);
+        request.timeStamp = ts;
+        request.damageOwner = KR_ObjectID::NUL();
+        request.subjectTable = subjectTable;
+        request.attributeIndex = attributeIndex;
+        request.objectName = "Explosion.ActiveWorld.Probe";
+        int damageApplications = -1;
+        Session::m_frameSec = 0.0;
+        const bool executed = ExplosionSubjectState_ExecuteNow(
+            context, request, &damageApplications);
+        Session::m_frameSec = frameBefore;
+        original = context->searchObject(request.objectName);
+        BoundedExplosion *object = g_explosionTable.find(original);
+        if (!executed || original.isNUL() || object == NULL ||
+            object->particleCount() <= 0 || IsNul(object->sound()))
+        {
+            FailActiveWorld(
+                "Explosion active-world probe start was not retained");
+            break;
+        }
+        firstSound = object->sound();
+
+        std::vector<unsigned char> bytes;
+        const int branchCount = object->particleCount();
+        if (!ExplosionActiveWorldState_CaptureStable(context, &bytes))
+            break;
+        const int decodedBranches =
+            ExplosionActiveWorldState_BranchCount(bytes);
+        const int decodedEvents =
+            ExplosionActiveWorldState_SchedulerEventCount(bytes);
+        const bool collected = ExplosionActiveWorldState_CollectStableOwners(
+            context, bytes, &originalOwners);
+        if (decodedBranches != branchCount || decodedEvents < 1 ||
+            decodedEvents > 2 || !collected || originalOwners.size() != 1 ||
+            (originalOwners.size() == 1 && originalOwners[0] != original))
+        {
+            char message[256] = {};
+            std::snprintf(
+                message, sizeof(message),
+                "EXP1 live capture branches=%d/%d events=%d collected=%d "
+                "owners=%u",
+                decodedBranches, branchCount, decodedEvents,
+                collected ? 1 : 0,
+                static_cast<unsigned int>(originalOwners.size()));
+            FailActiveWorld(message);
+            break;
+        }
+        unsigned long long fingerprint = kHashOffset;
+        HashBytes(fingerprint, &bytes[0], static_cast<int>(bytes.size()));
+        ExplosionActiveWorldState_RemoveStableOwners(
+            context, &originalOwners);
+        if (g_explosionTable.liveCount() != 0 ||
+            g_particleBranchesLive != 0 || g_tracedExplosionParents != 0 ||
+            SoundObjectState_LiveCount() != soundBefore)
+        {
+            FailActiveWorld("EXP1 original graph teardown failed");
+            break;
+        }
+
+        if (!ExplosionActiveWorldState_CreateStableOwners(
+                context, bytes, &staged) || staged.size() != 1 ||
+            staged[0] == original ||
+            !ExplosionActiveWorldState_ApplyStableReferences(context, bytes) ||
+            !ExplosionActiveWorldState_MatchesStable(context, bytes))
+        {
+            FailActiveWorld("EXP1 staged reconstruction failed");
+            break;
+        }
+        stagedID = staged[0];
+        object = g_explosionTable.find(stagedID);
+        stagedSound = object == NULL
+            ? KR_ObjectID::NUL() : object->sound();
+        if (stagedSound.isNUL() || stagedSound == firstSound)
+        {
+            FailActiveWorld("EXP1 staged Sound identity was not fresh");
+            break;
+        }
+        ExplosionActiveWorldState_RemoveStableOwners(context, &staged);
+        if (g_explosionTable.liveCount() != 0 ||
+            g_particleBranchesLive != 0 || g_tracedExplosionParents != 0 ||
+            SoundObjectState_LiveCount() != soundBefore)
+        {
+            FailActiveWorld("EXP1 staged rollback retained graph state");
+            break;
+        }
+
+        if (!ExplosionActiveWorldState_CreateStableOwners(
+                context, bytes, &restored) || restored.size() != 1 ||
+            restored[0] == original || restored[0] == stagedID ||
+            !ExplosionActiveWorldState_ApplyStableReferences(context, bytes) ||
+            !ExplosionActiveWorldState_MatchesStable(context, bytes))
+        {
+            FailActiveWorld("EXP1 final reconstruction failed");
+            break;
+        }
+        restoredID = restored[0];
+        BoundedExplosion *resumed = g_explosionTable.find(restoredID);
+        restoredSound = resumed == NULL
+            ? KR_ObjectID::NUL() : resumed->sound();
+        KR_Event pendingMove[2];
+        const int pendingMoveCount = context->copyEvents(
+            EXPLOSION_MOVE, restoredID, pendingMove, 2);
+        const double previousMove = resumed == NULL
+            ? 0.0 : resumed->previousMoveTime();
+        if (resumed == NULL || restoredSound.isNUL() ||
+            restoredSound == firstSound || restoredSound == stagedSound ||
+            pendingMoveCount != 1 ||
+            context->removeEvent(EXPLOSION_MOVE, restoredID) != 1)
+        {
+            FailActiveWorld("EXP1 restored MOVE/Sound state is unavailable");
+            break;
+        }
+        context->sendEventNow(pendingMove[0]);
+        KR_Event nextMove[2];
+        if (!context->isExist(restoredID) ||
+            !NearlyEqual(resumed->previousMoveTime(),
+                         pendingMove[0].timeStamp) ||
+            NearlyEqual(resumed->previousMoveTime(), previousMove) ||
+            context->copyEvents(
+                EXPLOSION_MOVE, restoredID, nextMove, 2) != 1)
+        {
+            FailActiveWorld("EXP1 restored Explosion did not resume movement");
+            break;
+        }
+
+        summary->capturedOwners = 1;
+        summary->capturedBranches = branchCount;
+        summary->schedulerEvents =
+            ExplosionActiveWorldState_SchedulerEventCount(bytes);
+        summary->soundChildren = 1;
+        summary->stagedRollbacks = 1;
+        summary->reconstructedOwners = 1;
+        summary->stableRoundTrips = 2;
+        summary->resumedMoves = 1;
+        summary->fingerprint = fingerprint;
+        success = true;
+    } while (false);
+
+    Session::m_frameSec = frameBefore;
+    ExplosionActiveWorldState_RemoveStableOwners(context, &restored);
+    ExplosionActiveWorldState_RemoveStableOwners(context, &staged);
+    ExplosionActiveWorldState_RemoveStableOwners(context, &originalOwners);
+    RemoveIfPresent(context, original);
+    const int lateEvents =
+        DrainPrivateExplosionEvents(context, original) +
+        DrainPrivateExplosionEvents(context, stagedID) +
+        DrainPrivateExplosionEvents(context, restoredID);
+    const bool clean = g_explosionTable.liveCount() == 0 &&
+        g_particleBranchesLive == 0 && g_tracedExplosionParents == 0 &&
+        SoundObjectState_LiveCount() == soundBefore && lateEvents == 0;
+    g_executedCommands = executedBefore;
+    g_damageApplications = damageBefore;
+    g_impulseApplications = impulseBefore;
+    g_allocationRollbacks = allocationBefore;
+    g_queueRollbacks = queueBefore;
+    g_pieceDrawCalls = drawBefore;
+    g_tracePuffsStarted = puffBefore;
+    if (!success || !clean)
+    {
+        std::memset(summary, 0, sizeof(*summary));
+        if (g_activeWorldFailure.empty())
+            FailActiveWorld("EXP1 probe rollback was not clean");
+        return false;
+    }
+    return true;
 }

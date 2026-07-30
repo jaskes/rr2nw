@@ -762,6 +762,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("explosion_trace_probe_rolled_back_pieces=" + std::to_string(
                RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces()));
   log.Line("explosion_trace=coalesced-NEWPUFF-common-Smoke-4-parent-quota");
+  log.Line("explosion_active_world_initialized=" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldReady() ? 1 : 0));
+  log.Line("explosion_active_world_probe=" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldCapturedOwners()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldCapturedBranches()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldSchedulerEvents()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldSoundChildren()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldRollbacks()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldReconstructedIDs()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldStableRoundTrips()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldResumedMoves()));
+  log.Line("explosion_active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_ExplosionActiveWorldFingerprint()));
   log.Line("bullet_trace=deferred-first-step-index-guard");
   log.Line("vehicle_vessel_mass=" + std::to_string(
                RecoveredGameServices_VehicleVesselMass()));
