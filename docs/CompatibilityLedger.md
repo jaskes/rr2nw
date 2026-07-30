@@ -2245,6 +2245,34 @@ Status vocabulary:
   its first failure marker with CQ-137/CQ-138 before changing production time
   or lifecycle behavior.
 
+### CQ-140: process-local ObjectIDs cannot cross an active-world save boundary
+
+- Status: `SOURCE_CONFIRMED`, `FIRST_OWNER_SLICE_ACCEPTED`.
+- Evidence: Level.04D's retail AER00 source creates the same symbolic
+  `Colony -> C.Group.aer00.00 -> C.Unit.aer00.00` ownership chain twice, while
+  the TankGroup and Tank receive different `KR_ObjectID` values on the second
+  allocation. Commander/TankGroup version-1 records reproduce the same
+  canonical bytes and world fingerprint across those allocations and across
+  the installed and mounted May data.
+- Handling: the new `RR2NWSV1` envelope stores section owners and event
+  endpoints by symbolic identity. It rejects raw ordering drift, duplicates,
+  corrupt payloads, unknown versions and incompatible engine versions before
+  restore begins. Restore stages owners first and resolves symbols only after
+  every section has decoded; post-begin failure rolls staging back.
+- Verification: `active-world-save-smoke` covers canonical owner/event/RNG
+  round-trip, corruption, truncation, future format/engine rejection, atomic
+  replacement and transactional rollback. `recovered-arena-seance-runtime-
+  smoke` covers the source-only empty-group graph. Real Debug Level.04D runs
+  from `E:\Games\The Next Worlds` and `G:\nw` both publish two sections, zero
+  connected events, `2/2/0` restore phases and `1/1` corruption/rollback proof
+  with an identical container fingerprint. The final gate passes 53/53 CTest
+  in Debug and Release and 36/36 retail executable runs; each of the nine
+  Levels has one fingerprint across its installed/mounted and Debug/Release
+  quartet.
+- Revisit when: the next slice can allocate these owners from decoded records.
+  Require a fresh-context restore rather than pre-creation by mission source,
+  then add the live event queue and never fall back to numeric ObjectIDs.
+
 ## Maintenance rule
 
 When a new quirk is found:

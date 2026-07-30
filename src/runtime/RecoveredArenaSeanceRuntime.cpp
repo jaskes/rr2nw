@@ -54,6 +54,10 @@ class CGRPanel;
 
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
+#include "ActiveWorldSave.h"
+#include "ActiveWorldRuntimeProbe.h"
+#include "RecoveredLevelRuntime.h"
+#include "RecoveredRetailScriptManifest.h"
 #include "RecoveredSkinResourceCatalog.h"
 #include "RecoveredWavMetadataCatalog.h"
 
@@ -1405,6 +1409,7 @@ struct RecoveredArenaSeanceState {
   bool tankCannonSubjectTablesReady;
   bool commanderReady;
   bool missionTankLifecycleReady;
+  bool activeWorldPersistenceReady;
   bool vehicleReady;
   int vehicleAttributeCount;
   int vehicleAttributeCapacity;
@@ -1576,6 +1581,15 @@ struct RecoveredArenaSeanceState {
   int missionTankReconstructedIDs;
   int missionTankRollbacks;
   unsigned long long missionTankFingerprint;
+  int activeWorldSections;
+  int activeWorldEvents;
+  int activeWorldOwnerPhases;
+  int activeWorldReferencePhases;
+  int activeWorldEventPhases;
+  int activeWorldCorruptionRejects;
+  int activeWorldRollbacks;
+  unsigned long long activeWorldContainerBytes;
+  unsigned long long activeWorldFingerprint;
   char lastError[256];
 };
 
@@ -4134,6 +4148,82 @@ void RollBackAER00TankSpawn(SimulationContext* context) {
   }
 }
 
+unsigned long long ActiveWorldContentFingerprint() {
+  if (RecoveredRetailScriptManifest_IsReady()) {
+    const SRecoveredRetailScriptManifestSummary* manifest =
+        RecoveredRetailScriptManifest_Summary();
+    if (manifest != nullptr && manifest->contentFingerprint != 0)
+      return manifest->contentFingerprint;
+  }
+  // Direct seance tests intentionally bypass the level preflight. Retain a
+  // deterministic content identity there by folding already committed retail
+  // table fingerprints; normal game startup always uses the script manifest.
+  unsigned long long fingerprint = g_state.commanderFingerprint;
+  fingerprint ^= g_state.tankAttributeFingerprint +
+                 0x9e3779b97f4a7c15ull + (fingerprint << 6) +
+                 (fingerprint >> 2);
+  fingerprint ^= g_state.peopleAttributeFingerprint +
+                 0x9e3779b97f4a7c15ull + (fingerprint << 6) +
+                 (fingerprint >> 2);
+  return fingerprint == 0 ? 0x5252324e57535631ull : fingerprint;
+}
+
+std::string ActiveWorldLevelIdentity() {
+  const char* selected = RecoveredLevelRuntime_Directory();
+  if (selected == nullptr || selected[0] == '\0') return "direct-context";
+  std::string path(selected);
+  while (!path.empty() && (path.back() == '\\' || path.back() == '/'))
+    path.pop_back();
+  const std::size_t separator = path.find_last_of("\\/");
+  const std::string name = separator == std::string::npos
+                               ? path
+                               : path.substr(separator + 1);
+  return name.empty() ? "direct-context" : name;
+}
+
+void PublishActiveWorldSummary(
+    const SActiveWorldRuntimeProbeSummary& summary) {
+  g_state.activeWorldPersistenceReady = summary.ready;
+  g_state.activeWorldSections = summary.sections;
+  g_state.activeWorldEvents = summary.events;
+  g_state.activeWorldOwnerPhases = summary.ownerPhases;
+  g_state.activeWorldReferencePhases = summary.referencePhases;
+  g_state.activeWorldEventPhases = summary.eventPhases;
+  g_state.activeWorldCorruptionRejects = summary.corruptionRejects;
+  g_state.activeWorldRollbacks = summary.rollbacks;
+  g_state.activeWorldContainerBytes =
+      static_cast<unsigned long long>(summary.containerBytes);
+  g_state.activeWorldFingerprint = summary.worldFingerprint;
+}
+
+bool CaptureActiveWorldProbe(
+    SimulationContext* context, double startTime,
+    std::vector<std::uint8_t>* bytes,
+    SActiveWorldRuntimeProbeSummary* summary) {
+  std::string failure;
+  if (ActiveWorldRuntime_CaptureProbe(
+          context, ActiveWorldContentFingerprint(), 0,
+          startTime < 0.0 ? 0.0 : startTime, ActiveWorldLevelIdentity(), bytes,
+          summary, &failure))
+    return true;
+  ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE,
+                 failure.c_str());
+  return false;
+}
+
+bool RestoreActiveWorldProbe(
+    SimulationContext* context, const std::vector<std::uint8_t>& bytes,
+    SActiveWorldRuntimeProbeSummary* summary) {
+  std::string failure;
+  if (ActiveWorldRuntime_RestoreProbe(context, bytes, summary, &failure)) {
+    PublishActiveWorldSummary(*summary);
+    return true;
+  }
+  ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE,
+                 failure.c_str());
+  return false;
+}
+
 unsigned long long MissionTankOwnershipFingerprint(
     SimulationContext* context) {
   const unsigned long long commander = CommanderState_Fingerprint(context);
@@ -4190,7 +4280,14 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
       baselineCommander == 0 || baselineGroup == 0 || baselineTank == 0)
     return false;
 
+  std::vector<std::uint8_t> activeWorldBytes;
+  SActiveWorldRuntimeProbeSummary activeWorldSummary;
   if (!LevelHasRetailAER00TankSpawn()) {
+    if (!CaptureActiveWorldProbe(context, startTime, &activeWorldBytes,
+                                 &activeWorldSummary) ||
+        !RestoreActiveWorldProbe(context, activeWorldBytes,
+                                 &activeWorldSummary))
+      return false;
     g_state.missionTankAvailable = 0;
     g_state.missionTankRollbacks = 1;
     g_state.missionTankLifecycleReady = true;
@@ -4259,6 +4356,11 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
     return false;
   }
   g_state.missionTankStableRoundTrips = 2;
+  if (!CaptureActiveWorldProbe(context, startTime, &activeWorldBytes,
+                               &activeWorldSummary)) {
+    RollBackAER00TankSpawn(context);
+    return false;
+  }
 
   STankGroupSchedulerProbeSummary scheduler = {};
   if (!TankGroupState_ProbeScheduler(context, firstGroup, startTime + 1.0,
@@ -4314,6 +4416,11 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
   }
   g_state.missionTankReconstructedIDs = 1;
   g_state.missionTankFingerprint = secondFingerprint;
+  if (!RestoreActiveWorldProbe(context, activeWorldBytes,
+                               &activeWorldSummary)) {
+    RollBackAER00TankSpawn(context);
+    return false;
+  }
   RollBackAER00TankSpawn(context);
 
   if (TankGroupState_LiveCount(context) != baselineGroups ||
@@ -4706,6 +4813,7 @@ void RecoveredArenaSeance_Release() {
   g_state.tankCannonSubjectTablesReady = false;
   g_state.commanderReady = false;
   g_state.missionTankLifecycleReady = false;
+  g_state.activeWorldPersistenceReady = false;
   g_state.commanderCapacity = 0;
   g_state.commanderCount = 0;
   g_state.commanderHostileLinks = 0;
@@ -4720,6 +4828,15 @@ void RecoveredArenaSeance_Release() {
   g_state.missionTankReconstructedIDs = 0;
   g_state.missionTankRollbacks = 0;
   g_state.missionTankFingerprint = 0;
+  g_state.activeWorldSections = 0;
+  g_state.activeWorldEvents = 0;
+  g_state.activeWorldOwnerPhases = 0;
+  g_state.activeWorldReferencePhases = 0;
+  g_state.activeWorldEventPhases = 0;
+  g_state.activeWorldCorruptionRejects = 0;
+  g_state.activeWorldRollbacks = 0;
+  g_state.activeWorldContainerBytes = 0;
+  g_state.activeWorldFingerprint = 0;
   g_state.cannonAttributeCapacity = 0;
   g_state.cannonAttributeCount = 0;
   g_state.cannonSubjectCapacity = 0;
@@ -5196,6 +5313,65 @@ int RecoveredArenaSeance_MissionTankRollbacks() {
 
 unsigned long long RecoveredArenaSeance_MissionTankFingerprint() {
   return g_state.missionTankLifecycleReady ? g_state.missionTankFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_ActiveWorldPersistenceReady() {
+  return g_state.activeWorldPersistenceReady;
+}
+
+int RecoveredArenaSeance_ActiveWorldFormatVersion() {
+  return g_state.activeWorldPersistenceReady
+             ? static_cast<int>(ActiveWorldSave_FormatVersion())
+             : 0;
+}
+
+int RecoveredArenaSeance_ActiveWorldSections() {
+  return g_state.activeWorldPersistenceReady ? g_state.activeWorldSections : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldEvents() {
+  return g_state.activeWorldPersistenceReady ? g_state.activeWorldEvents : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldOwnerPhases() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldOwnerPhases
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldReferencePhases() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldReferencePhases
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldEventPhases() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldEventPhases
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldCorruptionRejects() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldCorruptionRejects
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldRollbacks() {
+  return g_state.activeWorldPersistenceReady ? g_state.activeWorldRollbacks
+                                             : -1;
+}
+
+unsigned long long RecoveredArenaSeance_ActiveWorldContainerBytes() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldContainerBytes
+             : 0;
+}
+
+unsigned long long RecoveredArenaSeance_ActiveWorldFingerprint() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldFingerprint
+             : 0;
 }
 
 bool RecoveredArenaSeance_BirdAttributesReady() {

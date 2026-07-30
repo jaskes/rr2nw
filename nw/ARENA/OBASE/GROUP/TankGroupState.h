@@ -3,6 +3,8 @@
 
 #include "kernel/h/krtypes.h"
 
+#include <vector>
+
 class SimulationContext;
 
 struct STankGroupSchedulerProbeSummary
@@ -23,6 +25,12 @@ KR_ObjectID TankGroupState_Commander(SimulationContext *context,
 unsigned long long TankGroupState_Fingerprint(SimulationContext *context);
 bool TankGroupState_StableRoundTrip(SimulationContext *context,
                                     const KR_ObjectID &group);
+bool TankGroupState_CaptureStable(
+    SimulationContext *context, std::vector<unsigned char> *bytes);
+bool TankGroupState_ValidateStable(
+    const std::vector<unsigned char> &bytes);
+bool TankGroupState_MatchesStable(
+    SimulationContext *context, const std::vector<unsigned char> &bytes);
 bool TankGroupState_ProbeScheduler(
     SimulationContext *context, const KR_ObjectID &group, double timeStamp,
     STankGroupSchedulerProbeSummary *summary);

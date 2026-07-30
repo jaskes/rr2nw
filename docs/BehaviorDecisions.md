@@ -2935,3 +2935,51 @@ Normal CTest remains 52/52 in both configurations. Active-light screenshot
 parity, exact historical rounding, palette tuning, resolution switching and
 optimization remain bounded visual follow-up; they no longer block the next
 versioned active-world save/load frontier.
+
+## BD-077: admit active-world format v1 in owner-first slices
+
+Status: accepted on 2026-07-30.
+
+The modern save contract is a new format, not a dump of legacy classes and not
+a claim of compatibility with raw retail saves. `RR2NWSV1` uses fixed-width
+little-endian fields and a canonical order. Its top-level metadata contains a
+format and engine compatibility version, retail script/content fingerprint,
+Level identity, sorted mod identities, simulation tick/time and an explicit
+RNG algorithm/state pair. An algorithm value of zero means that the current
+slice has no authoritative RNG state; it must have an empty payload.
+
+World owners are independent versioned sections ordered by owner kind and
+symbolic name. Queued events have a separate semantic representation:
+sequence, tick, timestamp, numeric label, symbolic source/destination and a
+versioned payload. Object IDs, pointers, vtables, allocator state and private
+queue bytes are forbidden. Each variable payload is hashed, the complete
+canonical model has a world fingerprint and the serialized container has a
+trailing checksum. Reads are bounded to 64 MiB, individual payloads to 16 MiB,
+and invalid ordering, duplicates, truncation, corruption and future format or
+engine versions are rejected before the live world is touched.
+
+Restore order is owner staging, symbolic-reference resolution, semantic event
+restore, whole-world validation and commit. Any failure after `Begin` invokes
+rollback. File replacement writes and flushes a same-directory temporary file
+before `MoveFileExW(...REPLACE_EXISTING|WRITE_THROUGH)`; the prior file remains
+the committed value until that final step succeeds.
+
+The first production slice contains Commander and TankGroup sections only.
+Level.04D captures the active AER00 graph, removes it, recreates Group and Tank
+under different process-local IDs and validates both sections against the new
+symbolic graph. A forced validation failure proves that staged data is cleared
+and the live graph remains unchanged. This is a reconstruction/admission proof,
+not yet a menu save command: the Level source still creates the second graph,
+the runtime adapter validates rather than allocates Commander/TankGroup from
+bytes, and the live event queue and RNG are not yet exported.
+
+The next owner slices add Vehicle, People, Tank/Cannon and mission state, then
+the actual `SimulationContext` event queue and deterministic RNG. Only after a
+fresh-context reconstruction can reproduce a complete active world may the UI
+expose save/load slots. Retail-save importing remains a separate compatibility
+project.
+
+Admission proof passes 53/53 CTest in Debug and Release and all 36 retail
+executable cases across nine Levels, both data roots and both configurations.
+Every Level has one stable active-world fingerprint across its four runs,
+reports `2/0`, `2/2/0` and `1/1`, renders non-empty frames and exits cleanly.

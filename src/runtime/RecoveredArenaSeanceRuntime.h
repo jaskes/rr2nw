@@ -125,7 +125,9 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_TANK_LIFECYCLE_FAILURE = 1ull << 48,
   RECOVERED_ARENA_SEANCE_EXT_COMMANDER_SOURCE_OR_ROSTER_INVALID = 1ull << 49,
   RECOVERED_ARENA_SEANCE_EXT_TANK_GROUP_SUBJECT_TABLE_FAILURE = 1ull << 50,
-  RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE = 1ull << 51
+  RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE = 1ull << 51,
+  RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE = 1ull << 52,
+  RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE = 1ull << 53
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -376,6 +378,17 @@ int RecoveredArenaSeance_MissionTankStableRoundTrips();
 int RecoveredArenaSeance_MissionTankReconstructedIDs();
 int RecoveredArenaSeance_MissionTankRollbacks();
 unsigned long long RecoveredArenaSeance_MissionTankFingerprint();
+bool RecoveredArenaSeance_ActiveWorldPersistenceReady();
+int RecoveredArenaSeance_ActiveWorldFormatVersion();
+int RecoveredArenaSeance_ActiveWorldSections();
+int RecoveredArenaSeance_ActiveWorldEvents();
+int RecoveredArenaSeance_ActiveWorldOwnerPhases();
+int RecoveredArenaSeance_ActiveWorldReferencePhases();
+int RecoveredArenaSeance_ActiveWorldEventPhases();
+int RecoveredArenaSeance_ActiveWorldCorruptionRejects();
+int RecoveredArenaSeance_ActiveWorldRollbacks();
+unsigned long long RecoveredArenaSeance_ActiveWorldContainerBytes();
+unsigned long long RecoveredArenaSeance_ActiveWorldFingerprint();
 bool RecoveredArenaSeance_VehicleReady();
 double RecoveredArenaSeance_VehicleVesselMass();
 unsigned long long RecoveredArenaSeance_Issues();

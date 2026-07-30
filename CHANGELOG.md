@@ -7,6 +7,25 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the first versioned active-world container. Its canonical little-
+  endian envelope records engine/content compatibility, Level and mod
+  identities, simulation time/tick, an explicit RNG algorithm/state slot,
+  owner sections, semantic queued events and both per-payload and whole-file
+  integrity fingerprints.
+- Added bounded decoding, unsupported format/engine rejection and atomic
+  Windows save replacement through a flushed same-directory temporary file.
+  Transactional restore always stages owners, resolves references, restores
+  events, validates the world fingerprint and commits, or invokes rollback on
+  every post-begin failure.
+- Connected real Commander and TankGroup version-1 sections to the active
+  Level runtime. Level.04D captures the first retail AER00 ownership graph,
+  removes it, reconstructs new Group/Tank ObjectIDs and proves the saved
+  symbolic state against that second graph. Other Levels prove the canonical
+  empty TankGroup case without fabricating mission population.
+- Added corruption and rollback probes, startup diagnostics and an acceptance
+  gate for the active-world envelope. The hermetic format test covers semantic
+  events and atomic disk I/O; user-facing save/load controls, event-queue
+  extraction and the remaining world owners are intentionally still pending.
 - Added a read-only `--start-level` override accepting configured slot numbers
   or case-insensitive Level names. Startup records whether selection came from
   `game.cfg` or the command line, rejects invalid names before Level mutation

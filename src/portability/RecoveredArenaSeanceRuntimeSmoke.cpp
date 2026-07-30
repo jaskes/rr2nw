@@ -678,6 +678,17 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_MissionTankReconstructedIDs() == -1 &&
          RecoveredArenaSeance_MissionTankRollbacks() == -1 &&
          RecoveredArenaSeance_MissionTankFingerprint() == 0 &&
+         !RecoveredArenaSeance_ActiveWorldPersistenceReady() &&
+         RecoveredArenaSeance_ActiveWorldFormatVersion() == 0 &&
+         RecoveredArenaSeance_ActiveWorldSections() == -1 &&
+         RecoveredArenaSeance_ActiveWorldEvents() == -1 &&
+         RecoveredArenaSeance_ActiveWorldOwnerPhases() == -1 &&
+         RecoveredArenaSeance_ActiveWorldReferencePhases() == -1 &&
+         RecoveredArenaSeance_ActiveWorldEventPhases() == -1 &&
+         RecoveredArenaSeance_ActiveWorldCorruptionRejects() == -1 &&
+         RecoveredArenaSeance_ActiveWorldRollbacks() == -1 &&
+         RecoveredArenaSeance_ActiveWorldContainerBytes() == 0 &&
+         RecoveredArenaSeance_ActiveWorldFingerprint() == 0 &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
          RecoveredArenaSeance_VehicleVesselMass() == 0.0 &&
          !context.isExist("Storage") && !context.isExist("Bird.Attr.0") &&
@@ -957,6 +968,17 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankReconstructedIDs() != 0 ||
       RecoveredArenaSeance_MissionTankRollbacks() != 1 ||
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
+      !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
+      RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 2 ||
+      RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 2 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 2 ||
+      RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
+      RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||
+      RecoveredArenaSeance_ActiveWorldRollbacks() != 1 ||
+      RecoveredArenaSeance_ActiveWorldContainerBytes() == 0 ||
+      RecoveredArenaSeance_ActiveWorldFingerprint() == 0 ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_VehicleVesselMass() != 1000.0 ||
       RecoveredArenaSeance_Issues() != 0 ||

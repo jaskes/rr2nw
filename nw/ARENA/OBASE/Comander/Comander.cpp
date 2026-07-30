@@ -851,7 +851,10 @@ bool GetString(const std::vector<unsigned char> &bytes, std::size_t *offset,
         size > MAX_SYMBOLIC_LENGHT || *offset > bytes.size() ||
         bytes.size() - *offset < size)
         return false;
-    value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
+    if (size == 0)
+        value->clear();
+    else
+        value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
     *offset += size;
     return true;
 }
@@ -1018,5 +1021,28 @@ bool CommanderState_StableRoundTrip(SimulationContext *context)
     return CollectStableRecords(context, &before) &&
            EncodeStableRecords(before, &bytes) &&
            DecodeStableRecords(bytes, &after) && before == after;
+}
+
+bool CommanderState_CaptureStable(
+    SimulationContext *context, std::vector<unsigned char> *bytes)
+{
+    std::vector<StableCommanderRecord> records;
+    return CollectStableRecords(context, &records) &&
+           EncodeStableRecords(records, bytes);
+}
+
+bool CommanderState_ValidateStable(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableCommanderRecord> records;
+    return DecodeStableRecords(bytes, &records);
+}
+
+bool CommanderState_MatchesStable(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableCommanderRecord> current, expected;
+    return CollectStableRecords(context, &current) &&
+           DecodeStableRecords(bytes, &expected) && current == expected;
 }
 

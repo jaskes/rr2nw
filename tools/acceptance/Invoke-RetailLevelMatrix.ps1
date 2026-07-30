@@ -211,6 +211,26 @@ foreach ($configurationName in $Configuration) {
                 if ((Get-LogInteger $log "renderer_framebuffer_nonclear_pixels") -lt 1) {
                     $issues.Add("renderer framebuffer is empty")
                 }
+                if ((Get-LogInteger $log "active_world_persistence_initialized") -ne 1 -or
+                    (Get-LogInteger $log "active_world_format_version") -ne 1) {
+                    $issues.Add("active-world persistence envelope is not initialized")
+                }
+                if (-not $log.ContainsKey("active_world_owner_event_sections") -or
+                    $log["active_world_owner_event_sections"] -ne "2/0") {
+                    $issues.Add("active-world Commander/TankGroup section roster changed")
+                }
+                if (-not $log.ContainsKey("active_world_restore_phases") -or
+                    $log["active_world_restore_phases"] -ne "2/2/0") {
+                    $issues.Add("active-world restore phase proof changed")
+                }
+                if (-not $log.ContainsKey("active_world_integrity_probe") -or
+                    $log["active_world_integrity_probe"] -ne "1/1") {
+                    $issues.Add("active-world corruption/rollback proof changed")
+                }
+                if ((Get-LogUnsigned $log "active_world_container_bytes") -lt 1 -or
+                    (Get-LogUnsigned $log "active_world_fingerprint") -lt 1) {
+                    $issues.Add("active-world container identity is missing")
+                }
             }
 
             $record = [ordered]@{
@@ -241,6 +261,11 @@ foreach ($configurationName in $Configuration) {
                 renderer_lit_pixels = Get-LogInteger $log "renderer_lit_pixels"
                 renderer_framebuffer_hash = Get-LogUnsigned $log "renderer_framebuffer_hash"
                 renderer_nonclear_pixels = Get-LogInteger $log "renderer_framebuffer_nonclear_pixels"
+                active_world_sections = [string]$log["active_world_owner_event_sections"]
+                active_world_restore_phases = [string]$log["active_world_restore_phases"]
+                active_world_integrity_probe = [string]$log["active_world_integrity_probe"]
+                active_world_container_bytes = Get-LogUnsigned $log "active_world_container_bytes"
+                active_world_fingerprint = Get-LogUnsigned $log "active_world_fingerprint"
             }
             $records.Add([pscustomobject]$record)
             $record | ConvertTo-Json -Depth 6 |
@@ -265,7 +290,9 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     renderer_nonperspective_bump_ignored, renderer_dithered_bump, renderer_light_through,
     renderer_light_approximations, renderer_lit_polygons,
     renderer_lit_pixels, renderer_framebuffer_hash,
-    renderer_nonclear_pixels |
+    renderer_nonclear_pixels, active_world_sections,
+    active_world_restore_phases, active_world_integrity_probe,
+    active_world_container_bytes, active_world_fingerprint |
     Export-Csv -LiteralPath (Join-Path $OutputRoot "summary.csv") -NoTypeInformation -Encoding UTF8
 
 if ($Mode -eq "Interactive") {

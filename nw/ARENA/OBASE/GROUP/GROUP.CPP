@@ -391,9 +391,9 @@ int TankGroup::findVarior(const CFVector2 &enemyCoord,double &minDist)
 
  /*******************************
   *
-  * Основная команда - перейти всей группой в новую
-  * точку
-  * Необходимо запустить 2 цикла:
+  * РћСЃРЅРѕРІРЅР°СЏ РєРѕРјР°РЅРґР° - РїРµСЂРµР№С‚Рё РІСЃРµР№ РіСЂСѓРїРїРѕР№ РІ РЅРѕРІСѓСЋ
+  * С‚РѕС‡РєСѓ
+  * РќРµРѕР±С…РѕРґРёРјРѕ Р·Р°РїСѓСЃС‚РёС‚СЊ 2 С†РёРєР»Р°:
   * tg_EVC_FIND_ENEMY
   * tg_EVC_MOVING
   *
@@ -456,9 +456,9 @@ void TankGroup::attackEnemy(KR_ObjectID enemyID, double ts)
 
  /*******************************
   *
-  * Мы прибыли на место.
-  * Возможно необходимо уведомить об этом
-  * командира
+  * РњС‹ РїСЂРёР±С‹Р»Рё РЅР° РјРµСЃС‚Рѕ.
+  * Р’РѕР·РјРѕР¶РЅРѕ РЅРµРѕР±С…РѕРґРёРјРѕ СѓРІРµРґРѕРјРёС‚СЊ РѕР± СЌС‚РѕРј
+  * РєРѕРјР°РЅРґРёСЂР°
   *
   *******************************/
 void TankGroup::move_ReachedF( KR_Event &event )
@@ -478,7 +478,7 @@ void TankGroup::move_ReachedF( KR_Event &event )
     CFVector2 memCoord;
     //dc_CreateCross(0,m_position,10,0,0,1,1,0,"WAIT");
      /*
-      * Просим подождать
+      * РџСЂРѕСЃРёРј РїРѕРґРѕР¶РґР°С‚СЊ
       */
     for( int i = 0; i < m_members.getCount(); ++i )
     {
@@ -498,7 +498,7 @@ void TankGroup::move_ReachedF( KR_Event &event )
          memCoord.y = p.z;
          
          /*
-          * Если член группы Близко просим подождать
+          * Р•СЃР»Рё С‡Р»РµРЅ РіСЂСѓРїРїС‹ Р‘Р»РёР·РєРѕ РїСЂРѕСЃРёРј РїРѕРґРѕР¶РґР°С‚СЊ
           */
          //dc_CreateCross(0,p,10,0,0,1,1,0,"WAIT");
          double moveSpeed   = 0.1,
@@ -530,10 +530,10 @@ void TankGroup::move_ReachedF( KR_Event &event )
 
  /*******************************
   *
-  * При получении события сканируется окружение
-  * на предмет наличия врагов и опять шлется событие
-  * tg_EVC_FIND_ENEMY. Если враг найден, то шлетс
-  * событие tg_EV_TARGET_LOCKED
+  * РџСЂРё РїРѕР»СѓС‡РµРЅРёРё СЃРѕР±С‹С‚РёСЏ СЃРєР°РЅРёСЂСѓРµС‚СЃСЏ РѕРєСЂСѓР¶РµРЅРёРµ
+  * РЅР° РїСЂРµРґРјРµС‚ РЅР°Р»РёС‡РёСЏ РІСЂР°РіРѕРІ Рё РѕРїСЏС‚СЊ С€Р»РµС‚СЃСЏ СЃРѕР±С‹С‚РёРµ
+  * tg_EVC_FIND_ENEMY. Р•СЃР»Рё РІСЂР°Рі РЅР°Р№РґРµРЅ, С‚Рѕ С€Р»РµС‚СЃ
+  * СЃРѕР±С‹С‚РёРµ tg_EV_TARGET_LOCKED
   *
   *******************************/
 void TankGroup::findEnemyFC( KR_Event &event )
@@ -561,9 +561,9 @@ void TankGroup::findEnemyFC( KR_Event &event )
 
  /*******************************
   *
-  * Движение по заданной трассе к указанной точке
-  * Для продолжения цикла испускается tg_EVC_MOVING,
-  * по прибытии на место - tg_EV_REACHED
+  * Р”РІРёР¶РµРЅРёРµ РїРѕ Р·Р°РґР°РЅРЅРѕР№ С‚СЂР°СЃСЃРµ Рє СѓРєР°Р·Р°РЅРЅРѕР№ С‚РѕС‡РєРµ
+  * Р”Р»СЏ РїСЂРѕРґРѕР»Р¶РµРЅРёСЏ С†РёРєР»Р° РёСЃРїСѓСЃРєР°РµС‚СЃСЏ tg_EVC_MOVING,
+  * РїРѕ РїСЂРёР±С‹С‚РёРё РЅР° РјРµСЃС‚Рѕ - tg_EV_REACHED
   *
   *******************************/
 void TankGroup::movingFC( KR_Event &event )
@@ -610,7 +610,7 @@ void TankGroup::movingFC( KR_Event &event )
 
  /*******************************
   *
-  * Вызывается при потере юнитом цели
+  * Р’С‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё РїРѕС‚РµСЂРµ СЋРЅРёС‚РѕРј С†РµР»Рё
   *
   *******************************/
 void TankGroup::unitTargetLost( KR_Event &event )
@@ -858,7 +858,10 @@ bool GetTankGroupString(const std::vector<unsigned char> &bytes,
         size > 4096 || *offset > bytes.size() ||
         bytes.size() - *offset < size)
         return false;
-    value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
+    if (size == 0)
+        value->clear();
+    else
+        value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
     *offset += size;
     return true;
 }
@@ -1047,6 +1050,29 @@ bool TankGroupState_StableRoundTrip(SimulationContext *context,
            EncodeStableTankGroups(beforeRecords, &bytes) &&
            DecodeStableTankGroups(bytes, &afterRecords) &&
            beforeRecords == afterRecords;
+}
+
+bool TankGroupState_CaptureStable(
+    SimulationContext *context, std::vector<unsigned char> *bytes)
+{
+    std::vector<StableTankGroupRecord> records;
+    return CollectStableTankGroups(context, &records) &&
+           EncodeStableTankGroups(records, bytes);
+}
+
+bool TankGroupState_ValidateStable(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableTankGroupRecord> records;
+    return DecodeStableTankGroups(bytes, &records);
+}
+
+bool TankGroupState_MatchesStable(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableTankGroupRecord> current, expected;
+    return CollectStableTankGroups(context, &current) &&
+           DecodeStableTankGroups(bytes, &expected) && current == expected;
 }
 
 bool TankGroupState_ProbeScheduler(

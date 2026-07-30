@@ -3403,13 +3403,24 @@ target_compile_definitions(rr2nw_recovered_legacy_script_runtime PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_active_world_save STATIC
+  src/runtime/ActiveWorldSave.cpp
+  src/runtime/ActiveWorldSave.h
+)
+target_include_directories(rr2nw_active_world_save PUBLIC src/runtime)
+target_compile_features(rr2nw_active_world_save PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_active_world_save PRIVATE UNICODE _UNICODE)
+
 add_library(rr2nw_recovered_game_services_runtime STATIC
+  src/runtime/ActiveWorldRuntimeProbe.cpp
+  src/runtime/ActiveWorldRuntimeProbe.h
   src/runtime/RecoveredArenaSeanceRuntime.cpp
   src/runtime/RecoveredArenaSeanceRuntime.h
   src/runtime/RecoveredGameServicesRuntime.cpp
   src/runtime/RecoveredGameServicesRuntime.h
 )
 target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
+  rr2nw_active_world_save
   rr2nw_arena_obase_debug_map_mission
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state
@@ -3471,6 +3482,7 @@ target_compile_definitions(rr2nw_recovered_game_services_runtime PRIVATE
 )
 
 if(MSVC)
+  target_compile_options(rr2nw_active_world_save PRIVATE /W4 /permissive-)
   target_compile_options(
     rr2nw_scene_runtime_core PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
   )
@@ -3557,6 +3569,17 @@ add_executable(rr2nw_storage_save_smoke
 )
 target_link_libraries(rr2nw_storage_save_smoke PRIVATE rr2nw_arena_storage)
 target_compile_features(rr2nw_storage_save_smoke PRIVATE cxx_std_14)
+
+add_executable(rr2nw_active_world_save_smoke
+  src/portability/ActiveWorldSaveSmoke.cpp
+)
+target_link_libraries(
+  rr2nw_active_world_save_smoke PRIVATE rr2nw_active_world_save
+)
+target_compile_features(rr2nw_active_world_save_smoke PRIVATE cxx_std_14)
+target_compile_definitions(
+  rr2nw_active_world_save_smoke PRIVATE UNICODE _UNICODE
+)
 
 add_executable(rr2nw_context_route_smoke
   src/portability/ContextRouteSmoke.cpp
@@ -4357,6 +4380,9 @@ if(MSVC)
     rr2nw_recovered_game_services_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_active_world_save_smoke PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
     rr2nw_recovered_arena_seance_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -4428,6 +4454,11 @@ if(BUILD_TESTING)
     NAME legacy-storage-save-smoke
     COMMAND rr2nw_storage_save_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/storage-save-smoke.sav"
+  )
+  add_test(
+    NAME active-world-save-smoke
+    COMMAND rr2nw_active_world_save_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/active-world-save-smoke-$<CONFIG>.rr2"
   )
   add_test(
     NAME legacy-context-route-smoke

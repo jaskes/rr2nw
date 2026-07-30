@@ -52,6 +52,9 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
+- active-world format v1 is initialized with `2/0` Commander/TankGroup/event
+  sections, `2/2/0` owner/reference/event restore phases, `1/1`
+  corruption/rollback proof and non-zero container size/fingerprint.
 
 The summary retains timings, clipping counts, software dither usage, active
 light passes and framebuffer evidence. It contains local absolute paths and is
@@ -94,3 +97,8 @@ These checks establish a stable, observable Windows gameplay picture. They do
 not claim pixel identity with every historical Watcom or Direct3D path; any
 remaining discrepancy must be recorded with a Level, frame, telemetry and
 screenshot before changing palette or raster rules.
+
+The active-world diagnostics are an internal admission proof, not a user save
+control. Do not add save/load to the interactive checklist until a decoded
+snapshot can construct all required owners in a fresh context and restore the
+live event queue; until then those manual cells would overstate readiness.

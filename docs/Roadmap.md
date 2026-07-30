@@ -982,17 +982,33 @@ or numeric `--start-level` override selects any configured Level in memory and
 never rewrites retail `game.cfg`; the automated and interactive harness retains
 per-case logs, JSON/CSV evidence and a manual checklist.
 
-The next Windows-first slice returns to active-world persistence with a usable
-picture:
+The first active-world persistence slice is now admitted. Format v1 owns
+canonical Level/content/mod/time/RNG metadata, owner sections, semantic event
+records, bounded decode, integrity checks, atomic file replacement and a
+rollback-enforced restore pipeline. Commander and TankGroup are the first real
+sections. Level.04D captures its AER00 ownership graph and proves the saved
+symbolic state after the source recreates Group/Tank under new ObjectIDs; all
+other Levels retain an empty TankGroup roster. Startup and the retail matrix
+require the resulting envelope and phase diagnostics.
 
-1. define the versioned active-world envelope and symbolic event restore order;
-2. capture Vehicle, People, Tank/Cannon, Commander/TankGroup, Bullet/effects,
-   scheduler, RNG and Level-local identities without serializing pointers;
-3. add atomic save/load plus corruption diagnostics and repeat the visual
-   acceptance after reconstruction;
-4. continue manual driving evidence for F1, combat, Alt-Tab, palette tuning and
-   performance without blocking the persistence implementation;
-5. only then widen toward data-pack mods, secondary weapons and audio output.
+Admission proof is 53/53 CTest in Debug and Release and 36/36 real executable
+runs. Each retail Level has one active-world fingerprint across the installed/
+mounted and Debug/Release quartet; every run also retains a non-empty rendered
+frame and clean shutdown.
+
+The next Windows-first persistence work is deliberately incremental:
+
+1. turn Commander/TankGroup validation into fresh-context allocation from the
+   decoded records, retaining owner-first/reference-second rollback;
+2. add Vehicle and player-control state, then People and Tank/Cannon dynamic,
+   damage, death and scheduler state as independent versioned sections;
+3. add mission/Bullet/effect ownership, extract the live `SimulationContext`
+   queue into semantic events and introduce an authoritative deterministic RNG;
+4. reconstruct a complete Level in a fresh context, compare the whole-world
+   fingerprint and repeat the visual/driving acceptance after load;
+5. only then expose atomic save/load slots and add the manual multi-Level save
+   checklist; retail-save import remains separate;
+6. after that gate, widen toward data-pack mods, secondary weapons and audio.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical

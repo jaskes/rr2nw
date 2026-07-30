@@ -3,6 +3,8 @@
 
 #include "kernel/h/krtypes.h"
 
+#include <vector>
+
 class SimulationContext;
 
 void CommanderState_Link();
@@ -18,5 +20,11 @@ bool CommanderState_IsHostile(SimulationContext *context,
                               const KR_ObjectID &relativeCommander);
 unsigned long long CommanderState_Fingerprint(SimulationContext *context);
 bool CommanderState_StableRoundTrip(SimulationContext *context);
+bool CommanderState_CaptureStable(
+    SimulationContext *context, std::vector<unsigned char> *bytes);
+bool CommanderState_ValidateStable(
+    const std::vector<unsigned char> &bytes);
+bool CommanderState_MatchesStable(
+    SimulationContext *context, const std::vector<unsigned char> &bytes);
 
 #endif

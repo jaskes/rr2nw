@@ -1310,6 +1310,29 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_MissionTankRollbacks()));
   log.Line("mission_tank_fingerprint=" + std::to_string(
                RecoveredArenaSeance_MissionTankFingerprint()));
+  log.Line("active_world_persistence_initialized=" +
+           std::to_string(
+               RecoveredArenaSeance_ActiveWorldPersistenceReady() ? 1 : 0));
+  log.Line("active_world_format_version=" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldFormatVersion()));
+  log.Line("active_world_owner_event_sections=" +
+           std::to_string(RecoveredArenaSeance_ActiveWorldSections()) + "/" +
+           std::to_string(RecoveredArenaSeance_ActiveWorldEvents()));
+  log.Line("active_world_restore_phases=" +
+           std::to_string(RecoveredArenaSeance_ActiveWorldOwnerPhases()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldReferencePhases()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_ActiveWorldEventPhases()));
+  log.Line("active_world_integrity_probe=" +
+           std::to_string(
+               RecoveredArenaSeance_ActiveWorldCorruptionRejects()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_ActiveWorldRollbacks()));
+  log.Line("active_world_container_bytes=" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldContainerBytes()));
+  log.Line("active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldFingerprint()));
   log.Line("bullet_ground_spark_initialized=" +
            std::to_string(
                RecoveredGameServices_BulletGroundSparkReady() ? 1 : 0));

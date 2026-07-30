@@ -1141,6 +1141,22 @@ Retail scripts нельзя молча копировать поверх source 
 | Briefing/FLIC | decoder/timing smoke | audio/video presentation |
 | Mods | validator and example fixture | example mod play smoke |
 
+## Active-world persistence boundary
+
+The continuation now owns a new version-1 active-world envelope. It is not a
+retail save format. The automated proof currently covers Commander and
+TankGroup symbolic state, plus the generic schema for Level/content/mod/time,
+RNG and semantic events. Level.04D demonstrates why symbolic identity is
+mandatory: its reconstructed Group and Tank use new numeric IDs while the
+saved ownership graph remains identical.
+
+This changes the Save/load row from design-only to partial automated evidence:
+canonical file round-trip, atomic replacement, corruption/version rejection,
+ordered transactional phases and rollback are covered. It does not satisfy the
+RC requirement for complete world state or manual save points. Vehicle,
+People, Tank/Cannon, mission/Bullet state, the live event queue, authoritative
+RNG, fresh-context owner allocation and user controls remain required.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

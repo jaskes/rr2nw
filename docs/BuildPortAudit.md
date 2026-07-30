@@ -2680,3 +2680,45 @@ zero invalid/unsupported/missing-texture rejects and zero BUMP/light
 approximations. This closes the Windows renderer acceptance prerequisite for
 the versioned active-world save/load work; it does not claim pixel-identical
 Watcom ASM or Direct3D output.
+
+## Active-world format v1 and first owner admission
+
+The Windows-first persistence frontier now has a real container boundary.
+`ActiveWorldSave` defines the `RR2NWSV1` little-endian envelope with fixed-
+width compatibility/content/Level/mod/time/RNG metadata, sorted versioned owner
+sections and semantic event records. Variable payloads and the complete file
+carry FNV-1a integrity values. Collection, string, payload and total-file limits
+are checked before allocation proceeds. A future format version and a future
+engine compatibility version are distinct failures.
+
+Disk output uses a same-directory process/thread-specific temporary file,
+loops over short writes, flushes it and atomically replaces the destination.
+The generic restore driver validates the in-memory fingerprint before `Begin`,
+then enforces owner, reference, event, validation and commit phases with
+rollback on every subsequent failure.
+
+Commander and TankGroup expose their existing canonical record codecs through
+capture, validate and live-world match adapters. The active Level probe places
+both sections in the envelope. On Level.04D it captures the first retail AER00
+ownership graph and validates after the mission source reconstructs the graph
+with new TankGroup/Tank ObjectIDs. A second restore intentionally fails at
+validation and must clear all staging without changing the live graph. Levels
+without that active mission still publish two sections with a canonical empty
+TankGroup roster; no Tank is synthesized.
+
+Startup now records format, `owner/event`, `owner/reference/event` phases,
+corruption/rollback counts, container bytes and world fingerprint. The retail
+matrix requires `1`, `2/0`, `2/2/0`, `1/1` and non-zero identities respectively.
+The final gate passes 53/53 CTest in Debug and Release plus all 36 retail
+executable cases over nine Levels, `E:\Games\The Next Worlds`, `G:\nw` and
+both configurations. Each Level has one active-world fingerprint across its
+four runs. Level.04D's four identical format-v1 containers are 374 bytes and
+include the active TankGroup; all cases retain non-empty renderer evidence and
+clean shutdown.
+
+This tranche deliberately does not expose user save slots. Runtime semantic
+events are schema-covered but the live `SimulationContext` queue is not yet
+captured, RNG is explicitly absent, and the decoded records validate a graph
+recreated by Level source rather than allocating it themselves. Vehicle,
+People, Tank/Cannon, mission/Bullet state, fresh-context construction and UI
+remain the next persistence work.
