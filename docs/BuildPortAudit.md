@@ -2841,3 +2841,34 @@ matrix passes all 36 combinations of nine Levels, both retail roots and both
 builds. Bullet/explosion/corpse ownership, the remaining semantic event queue,
 authoritative RNG, complete fresh-Level construction and public save slots are
 the next persistence boundary.
+
+## Bullet active-world v1 and resumed private scheduling
+
+The sixth owner section is canonical `BUL1`. It encodes flight transforms,
+velocity, clocks and waterline state field by field, refers to BulletAttr and
+master through symbolic names and stores exactly one MOVING and one
+CHECK_COLLISION timestamp. Native `BulletData`, pointers, ObjectIDs, class-table
+indices, padding and derived telemetry are excluded. Same-name Bullet instances
+are ordered by name and creation identity for a stable roster ordinal.
+
+The v1 capture boundary is intentionally strict: every owner must be started,
+own both private events exactly once and retain a live master whose symbolic
+lookup resolves to that exact ID.
+Restore checks pool capacity, creates owners before resolving dependencies,
+rebuilds both queue endpoints under fresh IDs and requires exact canonical
+recapture. Rollback removes both labels before a Bullet slot can be reused.
+
+The production probe enters through the real `b_EV_START` path, captures one
+Vehicle-owned Bullet and two events, destroys it, rolls a first reconstruction
+back, and creates a final owner under a third ObjectID. It then executes the
+restored MOVING event, verifies that position changes and that the next MOVING
+event is scheduled. Probe telemetry is restored afterward so this internal
+persistence proof is not reported as a player shot.
+
+Diagnostics advance to `6/0`, `6/6/0` and
+`bullet_active_world_probe=1/2/1/1/2/1`. Level.04D still reports two created
+top-level owners because the ordinary Level snapshot contains no live Bullet.
+Debug and Release pass 54/54 CTest and the 36 installed/mounted retail cases
+pass in both builds. Explosion/Spark/Smoke/Corpse ownership, stale-master
+identity, mission state, generic events, authoritative RNG, complete fresh-Level
+construction and public save slots remain the next persistence boundary.

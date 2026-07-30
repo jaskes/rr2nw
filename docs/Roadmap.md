@@ -1005,8 +1005,9 @@ The next Windows-first persistence work is deliberately incremental:
 2. [done] add Vehicle/player, the complete Level-local People roster and the
    Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
    private scheduler state;
-3. add mission/Bullet/effect ownership, extract the live `SimulationContext`
-   queue into semantic events and introduce an authoritative deterministic RNG;
+3. [in progress] add transient combat ownership: live Bullet flight is done;
+   Explosion/Spark/Smoke/Corpse, mission state, the remaining semantic event
+   queue and an authoritative deterministic RNG remain;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
@@ -1056,12 +1057,19 @@ with fresh Group, Tank and Cannon IDs while preserving all four Commander links
 and exact canonical bytes. The envelope reports `5/0`, `5/5/0` and two created
 owners for that Level; the other eight Levels prove the empty Tank roster.
 
-The next large persistence slice is the transient Bullet/damage/death graph:
-Bullet owners and their attribute/source/target links, explosion/effect and
-corpse ownership, semantic hit/death events and their rollback order. It must
-first close deterministic capture and reconstruction of a bounded live combat
-sample. After that come the remaining mission queue and authoritative RNG,
-followed by a complete fresh-Level reconstruction and public save controls.
+The first part of the transient combat slice is now admitted as the sixth
+section. `BUL1` captures a live Bullet, symbolic BulletAttr/master links and its
+two private scheduler events, performs a staged rollback, reconstructs the
+owner under another fresh ID and executes the restored MOVING event. The
+envelope reports `6/0`, `6/6/0` and
+`bullet_active_world_probe=1/2/1/1/2/1`; a Level snapshot may legitimately
+contain an empty Bullet roster.
+
+The next large persistence slice is the damage/death effect graph: Explosion,
+Spark, Smoke and Corpse ownership, semantic hit/death events, projectiles whose
+master disappears before capture and their rollback order. After that come the
+remaining mission queue and authoritative RNG, followed by a complete
+fresh-Level reconstruction and public save controls.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical

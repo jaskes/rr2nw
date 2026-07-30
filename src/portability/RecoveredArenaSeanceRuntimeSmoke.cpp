@@ -567,6 +567,14 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() == -1 &&
          RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() == -1 &&
          RecoveredArenaSeance_BulletBarrelSmokeRollbacks() == -1 &&
+         !RecoveredArenaSeance_BulletActiveWorldReady() &&
+         RecoveredArenaSeance_BulletActiveWorldCapturedOwners() == -1 &&
+         RecoveredArenaSeance_BulletActiveWorldSchedulerEvents() == -1 &&
+         RecoveredArenaSeance_BulletActiveWorldRollbacks() == -1 &&
+         RecoveredArenaSeance_BulletActiveWorldReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_BulletActiveWorldStableRoundTrips() == -1 &&
+         RecoveredArenaSeance_BulletActiveWorldResumedMoves() == -1 &&
+         RecoveredArenaSeance_BulletActiveWorldFingerprint() == 0 &&
          BulletSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_FarterAttributesReady() &&
          !RecoveredArenaSeance_FarterReferencesReady() &&
@@ -858,6 +866,14 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips() != -1 ||
       RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips() != -1 ||
       RecoveredArenaSeance_BulletBarrelSmokeRollbacks() != -1 ||
+      !RecoveredArenaSeance_BulletActiveWorldReady() ||
+      RecoveredArenaSeance_BulletActiveWorldCapturedOwners() != 1 ||
+      RecoveredArenaSeance_BulletActiveWorldSchedulerEvents() != 2 ||
+      RecoveredArenaSeance_BulletActiveWorldRollbacks() != 1 ||
+      RecoveredArenaSeance_BulletActiveWorldReconstructedIDs() != 1 ||
+      RecoveredArenaSeance_BulletActiveWorldStableRoundTrips() != 2 ||
+      RecoveredArenaSeance_BulletActiveWorldResumedMoves() != 1 ||
+      RecoveredArenaSeance_BulletActiveWorldFingerprint() == 0 ||
       BulletSubjectState_LiveCount() != 0 ||
       RecoveredArenaSeance_BulletAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_BulletReferenceFingerprint() != 0 ||
@@ -979,10 +995,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 5 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 6 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 5 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 5 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 6 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 6 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||

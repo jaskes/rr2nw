@@ -3133,3 +3133,45 @@ every Cannon also receives a new ID, all four Commander ownership links return
 and `TAN1` matches byte for byte. The envelope now reports five owner sections,
 five owner/reference phases and two created owners for that Level. The gate is
 54/54 CTest in Debug and Release plus 36/36 installed/mounted retail launches.
+
+## BD-082: persist a live Bullet flight at a strict quiescent boundary
+
+Status: accepted on 2026-07-30.
+
+`BUL1` version 1 is the sixth active-world owner section. It writes each live
+Bullet field by field through fixed-width little-endian primitives: symbolic
+BulletAttr and master names, current/previous/initial transforms, velocity,
+movement and collision clocks, water-crossing state and the exact timestamps
+of the private MOVING and CHECK_COLLISION events. Native `BulletData`, pointers,
+ObjectIDs, class-table indices, compiler padding and derived diagnostic counters
+never enter the record.
+
+Every admitted Bullet must be fully started and own exactly one event of each
+private label. Capture fails closed outside that quiescent boundary. The master
+must still exist and its symbolic lookup must resolve back to the same live ID;
+this first version does not invent an identity for a projectile whose shooter
+has already disappeared or requires a duplicate-name ordinal.
+Bullet owner names are allowed to repeat, so canonical name/creation order and
+the resulting ordinal define the roster while numeric IDs remain process-local.
+
+Restore preflights the bounded Bullet pool, creates owners without references,
+resolves BulletAttr/master dependencies, applies state, recreates both private
+events against the new IDs and requires byte-identical canonical recapture.
+Removal and rollback cancel both event labels before freeing any owner slot.
+Runtime telemetry is derived observation state and is preserved around the
+probe rather than counting a persistence test as a player shot.
+
+The production proof starts one real Vehicle-owned Bullet through `b_EV_START`,
+captures one owner and two queued events, removes it, allocates and rolls back a
+first replacement, then creates a second replacement under a third ObjectID.
+After exact round-trip comparison it executes the restored MOVING event,
+requires a changed finite position and observes the next MOVING event. This
+proves resumed flight rather than inert byte equality. The ordinary envelope
+now reports six owner sections and six owner/reference phases; Level.04D still
+creates two top-level owners because its captured Bullet section is empty.
+
+Explosion, Spark, Smoke and Corpse children are not folded into `BUL1`. They are
+the next damage/death owner slice, together with bullets whose master lifetime
+ends before capture and semantic hit/death events. The admission gate remains
+54/54 CTest in Debug and Release plus the full 36-case installed/mounted retail
+matrix.

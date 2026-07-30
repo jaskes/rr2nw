@@ -127,7 +127,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_TANK_GROUP_SUBJECT_TABLE_FAILURE = 1ull << 50,
   RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE = 1ull << 51,
   RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE = 1ull << 52,
-  RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE = 1ull << 53
+  RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE = 1ull << 53,
+  RECOVERED_ARENA_SEANCE_EXT_BULLET_ACTIVE_WORLD_FAILURE = 1ull << 54
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -250,6 +251,14 @@ int RecoveredArenaSeance_BulletBarrelSmokeThresholdStarts();
 int RecoveredArenaSeance_BulletBarrelSmokeFrameGateSkips();
 int RecoveredArenaSeance_BulletBarrelSmokeAttributeGateSkips();
 int RecoveredArenaSeance_BulletBarrelSmokeRollbacks();
+bool RecoveredArenaSeance_BulletActiveWorldReady();
+int RecoveredArenaSeance_BulletActiveWorldCapturedOwners();
+int RecoveredArenaSeance_BulletActiveWorldSchedulerEvents();
+int RecoveredArenaSeance_BulletActiveWorldRollbacks();
+int RecoveredArenaSeance_BulletActiveWorldReconstructedIDs();
+int RecoveredArenaSeance_BulletActiveWorldStableRoundTrips();
+int RecoveredArenaSeance_BulletActiveWorldResumedMoves();
+unsigned long long RecoveredArenaSeance_BulletActiveWorldFingerprint();
 bool RecoveredArenaSeance_FarterAttributesReady();
 bool RecoveredArenaSeance_LampAttributesReady();
 bool RecoveredArenaSeance_CorpseAttributesReady();

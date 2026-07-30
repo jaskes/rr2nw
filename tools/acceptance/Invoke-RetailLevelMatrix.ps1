@@ -216,11 +216,11 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "5/0") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "6/0") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "5/5/0") {
+                    $log["active_world_restore_phases"] -ne "6/6/0") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
@@ -249,6 +249,12 @@ foreach ($configurationName in $Configuration) {
                 if ((Get-LogUnsigned $log "active_world_container_bytes") -lt 1 -or
                     (Get-LogUnsigned $log "active_world_fingerprint") -lt 1) {
                     $issues.Add("active-world container identity is missing")
+                }
+                if ((Get-LogInteger $log "bullet_active_world_initialized") -ne 1 -or
+                    -not $log.ContainsKey("bullet_active_world_probe") -or
+                    $log["bullet_active_world_probe"] -ne "1/2/1/1/2/1" -or
+                    (Get-LogUnsigned $log "bullet_active_world_fingerprint") -lt 1) {
+                    $issues.Add("Bullet BUL1 flight reconstruction proof changed")
                 }
                 if (-not $log.ContainsKey("vehicle_active_world_probe") -or
                     $log["vehicle_active_world_probe"] -ne "1/1" -or

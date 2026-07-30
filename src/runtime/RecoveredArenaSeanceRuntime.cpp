@@ -17,6 +17,7 @@ class CGRPanel;
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/bullet/BulletAttributeState.h"
+#include "obase/bullet/BulletActiveWorldState.h"
 #include "obase/bullet/BulletSubjectState.h"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
@@ -1383,6 +1384,7 @@ struct RecoveredArenaSeanceState {
   bool bulletImpactEffectsReady;
   bool bulletGroundSparkReady;
   bool bulletBarrelSmokeReady;
+  bool bulletActiveWorldReady;
   bool farterAttributesReady;
   bool farterReferencesReady;
   bool farterRuntimeReady;
@@ -1510,6 +1512,13 @@ struct RecoveredArenaSeanceState {
   int bulletBarrelSmokeFrameGateSkips;
   int bulletBarrelSmokeAttributeGateSkips;
   int bulletBarrelSmokeRollbacks;
+  int bulletActiveWorldCapturedOwners;
+  int bulletActiveWorldSchedulerEvents;
+  int bulletActiveWorldRollbacks;
+  int bulletActiveWorldReconstructedIDs;
+  int bulletActiveWorldStableRoundTrips;
+  int bulletActiveWorldResumedMoves;
+  unsigned long long bulletActiveWorldFingerprint;
   int corpseSubjectCapacity;
   unsigned long long corpseSubjectFingerprint;
   int skinModelCount;
@@ -2521,6 +2530,47 @@ bool PublishVehicle(SimulationContext* context) {
 
   g_state.explosionImpulseReady = true;
   g_state.vehicleReady = true;
+  return true;
+}
+
+bool PublishBulletActiveWorld(SimulationContext* context,
+                              double startTime) {
+  const char* attribute = BulletAttributeState_FirstAttributeName(context);
+  KR_ObjectID master = context == nullptr
+      ? KR_ObjectID::NUL()
+      : context->searchObject("Vehicle.Default");
+  BulletActiveWorldProbeSummary summary = {};
+  if (!g_state.vehicleReady || !g_state.bulletSubjectReady ||
+      attribute == nullptr || master.isNUL() ||
+      !BulletActiveWorldState_ProbeFlightRoundTrip(
+          context, attribute, master, startTime, &summary) ||
+      summary.capturedOwners != 1 || summary.schedulerEvents != 2 ||
+      summary.stagedRollbacks != 1 || summary.reconstructedOwners != 1 ||
+      summary.stableRoundTrips != 2 || summary.resumedMoves != 1 ||
+      summary.fingerprint == 0 ||
+      BulletSubjectState_LiveCount() != 0) {
+    char message[320] = {};
+    std::snprintf(message, sizeof(message),
+                  "BUL1 flight owners/events/rollback/recreated/roundtrips/"
+                  "resumed/fingerprint=%d/%d/%d/%d/%d/%d/%llu: %.140s",
+                  summary.capturedOwners, summary.schedulerEvents,
+                  summary.stagedRollbacks, summary.reconstructedOwners,
+                  summary.stableRoundTrips, summary.resumedMoves,
+                  summary.fingerprint,
+                  BulletActiveWorldState_LastFailure());
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_BULLET_ACTIVE_WORLD_FAILURE,
+                   message);
+    return false;
+  }
+  g_state.bulletActiveWorldCapturedOwners = summary.capturedOwners;
+  g_state.bulletActiveWorldSchedulerEvents = summary.schedulerEvents;
+  g_state.bulletActiveWorldRollbacks = summary.stagedRollbacks;
+  g_state.bulletActiveWorldReconstructedIDs =
+      summary.reconstructedOwners;
+  g_state.bulletActiveWorldStableRoundTrips = summary.stableRoundTrips;
+  g_state.bulletActiveWorldResumedMoves = summary.resumedMoves;
+  g_state.bulletActiveWorldFingerprint = summary.fingerprint;
+  g_state.bulletActiveWorldReady = true;
   return true;
 }
 
@@ -4817,6 +4867,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   BirdAttributeState_Link();
   BulletAttributeState_Link();
   BulletSubjectState_Link();
+  BulletActiveWorldState_Link();
   ArtefactAttributeState_Link();
   OrphanAttributeState_Link();
   OrphanSubjectState_Link();
@@ -4988,6 +5039,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
 
     if (!PublishVehicle(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!PublishBulletActiveWorld(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -5219,6 +5274,7 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletImpactEffectsReady = false;
   g_state.bulletGroundSparkReady = false;
   g_state.bulletBarrelSmokeReady = false;
+  g_state.bulletActiveWorldReady = false;
   g_state.bulletAttributeCount = 0;
   g_state.bulletAttributeCapacity = 0;
   g_state.bulletSubjectCapacity = 0;
@@ -5242,6 +5298,13 @@ void RecoveredArenaSeance_Release() {
   g_state.bulletBarrelSmokeFrameGateSkips = 0;
   g_state.bulletBarrelSmokeAttributeGateSkips = 0;
   g_state.bulletBarrelSmokeRollbacks = 0;
+  g_state.bulletActiveWorldCapturedOwners = 0;
+  g_state.bulletActiveWorldSchedulerEvents = 0;
+  g_state.bulletActiveWorldRollbacks = 0;
+  g_state.bulletActiveWorldReconstructedIDs = 0;
+  g_state.bulletActiveWorldStableRoundTrips = 0;
+  g_state.bulletActiveWorldResumedMoves = 0;
+  g_state.bulletActiveWorldFingerprint = 0;
   g_state.farterAttributesReady = false;
   g_state.farterReferencesReady = false;
   g_state.farterRuntimeReady = false;
@@ -6242,6 +6305,45 @@ int RecoveredArenaSeance_BulletBarrelSmokeRollbacks() {
   return g_state.bulletBarrelSmokeReady
              ? g_state.bulletBarrelSmokeRollbacks
              : -1;
+}
+
+bool RecoveredArenaSeance_BulletActiveWorldReady() {
+  return g_state.bulletActiveWorldReady;
+}
+
+int RecoveredArenaSeance_BulletActiveWorldCapturedOwners() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldCapturedOwners : -1;
+}
+
+int RecoveredArenaSeance_BulletActiveWorldSchedulerEvents() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldSchedulerEvents : -1;
+}
+
+int RecoveredArenaSeance_BulletActiveWorldRollbacks() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldRollbacks : -1;
+}
+
+int RecoveredArenaSeance_BulletActiveWorldReconstructedIDs() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldReconstructedIDs : -1;
+}
+
+int RecoveredArenaSeance_BulletActiveWorldStableRoundTrips() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldStableRoundTrips : -1;
+}
+
+int RecoveredArenaSeance_BulletActiveWorldResumedMoves() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldResumedMoves : -1;
+}
+
+unsigned long long RecoveredArenaSeance_BulletActiveWorldFingerprint() {
+  return g_state.bulletActiveWorldReady
+             ? g_state.bulletActiveWorldFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_FarterAttributesReady() {

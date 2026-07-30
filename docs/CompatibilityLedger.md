@@ -2389,6 +2389,34 @@ Status vocabulary:
   symbolic subject-table rule and deduplicate events owned by the future
   generic queue; never serialize CannonAttr or BulletAttr numeric cache slots.
 
+### CQ-146: a live Bullet cannot persist its native data or raw event endpoints
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: Bullet runtime state contains process-local BulletAttr and master
+  ObjectIDs, while its queued MOVING and CHECK_COLLISION events address the
+  current Bullet ID. Native structure bytes also include compiler-dependent
+  layout. Copying any of them across owner destruction would either target a
+  recycled slot or bind the projectile to the wrong runtime object.
+- Handling: `BUL1` writes explicit little-endian fields, symbolic dependencies
+  and semantic private-event timestamps. It accepts only a started Bullet with
+  exactly one self-owned event of each label and a still-live uniquely named
+  master whose symbolic lookup resolves back to that live ID. Same-name Bullet
+  owners use canonical occurrence order. Restore
+  allocates new owners first, resolves references second, regenerates event
+  endpoints and rejects any non-canonical recapture; rollback removes both
+  labels before freeing slots.
+- Verification: the runtime starts a real Vehicle-owned projectile, captures
+  one owner/two events, destroys it, performs one staged rollback and one final
+  reconstruction under two successive fresh IDs, then executes the restored
+  movement event. Position must change and another MOVING event must be queued.
+  Debug and Release pass 54/54 CTest and the installed/mounted retail matrix
+  passes 36/36 with six owner/reference phases.
+- Revisit when: an in-flight projectile may outlive a removed or duplicate-name
+  shooter, or Explosion/Spark/Smoke/Corpse state joins the save. Introduce a
+  generic stable object identity and explicit effect/death records; do not
+  weaken the v1 master check or serialize the stale ObjectID.
+
 ## Maintenance rule
 
 When a new quirk is found:

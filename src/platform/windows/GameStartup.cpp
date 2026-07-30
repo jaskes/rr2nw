@@ -1019,6 +1019,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_BulletSubjectFingerprint()));
   log.Line("bullet_subject_probe_move_count=" + std::to_string(
                RecoveredArenaSeance_BulletSubjectProbeMoveCount()));
+  log.Line("bullet_active_world_initialized=" + std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldReady() ? 1 : 0));
+  log.Line("bullet_active_world_probe=" + std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldCapturedOwners()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldSchedulerEvents()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldRollbacks()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldReconstructedIDs()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldStableRoundTrips()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldResumedMoves()));
+  log.Line("bullet_active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_BulletActiveWorldFingerprint()));
   log.Line("bullet_collision_scheduled_checks=" + std::to_string(
                RecoveredArenaSeance_BulletCollisionScheduledChecks()));
   log.Line("bullet_collision_executed_checks=" + std::to_string(

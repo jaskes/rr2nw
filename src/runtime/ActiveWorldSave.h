@@ -13,7 +13,8 @@ enum class EActiveWorldSectionKind : std::uint32_t {
   Tank = 4,
   Cannon = 5,
   Vehicle = 6,
-  Mission = 7
+  Mission = 7,
+  Bullet = 8
 };
 
 enum class EActiveWorldSaveError : std::uint32_t {

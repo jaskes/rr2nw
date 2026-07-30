@@ -2479,6 +2479,7 @@ if(MSVC)
 endif()
 
 add_library(rr2nw_arena_bullet_attribute_state STATIC
+  nw/ARENA/OBASE/Bullet/BulletActiveWorldState.h
   nw/ARENA/OBASE/Bullet/BulletAttributeState.cpp
   nw/ARENA/OBASE/Bullet/BulletAttributeState.h
   nw/ARENA/OBASE/Bullet/BulletSubjectState.cpp

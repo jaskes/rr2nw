@@ -52,9 +52,9 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `5/0` for five
-  Commander/TankGroup/People/Tank/Vehicle owner sections and zero generic
-  events, then reports `5/5/0`
+- active-world format v1 is initialized with `6/0` for six
+  Commander/TankGroup/People/Tank/Vehicle/Bullet owner sections and zero generic
+  events, then reports `6/6/0`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `active_world_created_owners` is `2` for Level.04D, where the restore
@@ -63,6 +63,9 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - `vehicle_active_world_probe` is `1/1` with a non-zero fingerprint: every
   Level has destroyed `Vehicle.Default`, rolled one staged owner back and
   reconstructed the final owner under a new ObjectID before rendering.
+- `bullet_active_world_probe` is `1/2/1/1/2/1` with a non-zero fingerprint:
+  one real Vehicle-owned Bullet and both private events survive two fresh-ID
+  reconstructions, one staged rollback and an executed post-restore movement.
 - `people_active_world_probe` is `<owners>/<scheduler-events>/1` with a
   non-zero fingerprint: every Level has destroyed its complete People roster,
   rolled a complete staged population back and restored fresh owners, private
@@ -116,6 +119,6 @@ screenshot before changing palette or raster rules.
 
 The active-world diagnostics are an internal admission proof, not a user save
 control. Do not add save/load to the interactive checklist until a decoded
-snapshot can construct the remaining Tank/Cannon/mission owners and restore
+snapshot can construct the remaining mission/effect owners and restore
 the complete live event and input queues; until then those manual cells would
 overstate readiness.

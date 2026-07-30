@@ -1163,6 +1163,26 @@ Retail scripts нельзя молча копировать поверх source 
   Level.04D reports five owner sections, five owner/reference phases and two
   created top-level owners; all other retail Levels admit an empty Tank roster.
 
+### RP-SAVE-003: a restored Bullet resumes its private flight schedule
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. `BUL1` is a canonical active-world record, not a
+  native retail Bullet dump.
+- The record stores explicit flight/collision fields, symbolic BulletAttr and
+  master dependencies and one exact MOVING plus one CHECK_COLLISION timestamp.
+  Runtime ObjectIDs, table slots, padding and derived telemetry are excluded.
+- The bounded production proof starts a real Vehicle-owned Bullet, destroys it,
+  rolls one fresh reconstruction back and creates a final owner under a third
+  ObjectID. Exact bytes must match, then the restored MOVING event must change
+  position and schedule its successor.
+- Capture deliberately rejects non-started owners, duplicate private events and
+  a missing master or one whose symbolic lookup resolves to a different ID.
+  Explosion/Spark/Smoke/Corpse ownership and a
+  stable identity for an already-deleted master remain the next save slice.
+- Verification is 54/54 CTest in Debug and Release and 36/36 retail launches.
+  Every Level publishes six owner sections, six owner/reference phases and
+  `bullet_active_world_probe=1/2/1/1/2/1` with a non-zero fingerprint.
+
 ## Behavioral parity matrix
 
 Минимальные domains:
@@ -1184,7 +1204,7 @@ Retail scripts нельзя молча копировать поверх source 
 
 The continuation now owns a new version-1 active-world envelope. It is not a
 retail save format. The automated proof currently covers Commander, TankGroup,
-Vehicle, People and Tank/Cannon symbolic state, plus the generic schema for
+Vehicle, People, Tank/Cannon and live Bullet flight state, plus the generic schema for
 Level/content/mod/time, RNG and semantic events. Level.04D demonstrates both
 identity problems: its Group is allocated by the decoder under a new numeric
 ID, while repeated People names require stable ordinals rather than a first-name
@@ -1198,15 +1218,15 @@ and Tank/Cannon reconstruction.
 This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
-RC requirement for complete world state or manual save points. Mission/Bullet,
+RC requirement for complete world state or manual save points. Mission and
 damage/death/effect state, Vehicle mission/UI/input queues, the remaining live
 event queue, authoritative RNG, complete fresh-Level construction and user
 controls remain required.
 
 The current admission gate is 54/54 CTest in Debug and Release and 36/36 real
-Level launches. All cases publish five owner sections, five owner/reference
+Level launches. All cases publish six owner sections, six owner/reference
 phases, `vehicle_active_world_probe=1/1` and successful People and Tank/Cannon
-owner/event/rollback probes; each symbolic Level has stable owner fingerprints
+owner/event/rollback probes plus a resumed Bullet flight proof; each symbolic Level has stable owner fingerprints
 across both data roots and configurations.
 
 ## Binary analysis boundary

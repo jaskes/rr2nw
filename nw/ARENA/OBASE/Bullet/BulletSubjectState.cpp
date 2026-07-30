@@ -1,10 +1,13 @@
 #include "BulletSubjectState.h"
+#include "BulletActiveWorldState.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <string>
 #include <vector>
 
 #define LAST_H__SCENE
@@ -32,6 +35,10 @@ const double kGravity = -9.8;
 const double kBulletCollisionRadius = 0.01;
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
+const std::uint32_t kBulletActiveWorldMagic = 0x314c5542u; // BUL1
+const std::uint32_t kBulletActiveWorldVersion = 1u;
+const std::size_t kMaximumActiveWorldBullets = 4096;
+const std::size_t kMaximumActiveWorldString = MAX_SYMBOLIC_LENGHT - 1;
 
 enum BulletImpactKind
 {
@@ -49,6 +56,42 @@ struct BulletImpact
 
 BulletRuntimeTelemetry g_runtimeTelemetry = {};
 unsigned int g_activeBullets = 0;
+std::string g_activeWorldFailure;
+
+struct StableBulletRecord
+{
+    std::string name;
+    std::string attribute;
+    std::string master;
+    CFVector3 position;
+    CFVector3 previousPosition;
+    CFVector3 velocity;
+    CFVector3 initialPosition;
+    CFVector3 initialDirection;
+    double lastMoveTimeStamp;
+    double lastCollisionTimeStamp;
+    double waterline;
+    int hasWaterline;
+    int crossedWaterline;
+    double movingTimeStamp;
+    double movingPreviousTimeStamp;
+    double collisionTimeStamp;
+
+    StableBulletRecord()
+        : position(0.0, 0.0, 0.0),
+          previousPosition(0.0, 0.0, 0.0), velocity(0.0, 0.0, 0.0),
+          initialPosition(0.0, 0.0, 0.0),
+          initialDirection(0.0, 0.0, 0.0), lastMoveTimeStamp(0.0),
+          lastCollisionTimeStamp(0.0), waterline(0.0), hasWaterline(0),
+          crossedWaterline(0), movingTimeStamp(0.0),
+          movingPreviousTimeStamp(0.0), collisionTimeStamp(0.0) {}
+};
+
+bool FailActiveWorld(const std::string &message)
+{
+    g_activeWorldFailure = message;
+    return false;
+}
 
 struct BulletOwnerRuntimeEntry
 {
@@ -94,6 +137,16 @@ bool FiniteVector(const CFVector3 &value)
 {
     return std::isfinite(value.x) && std::isfinite(value.y) &&
            std::isfinite(value.z);
+}
+
+std::string ObjectName(SimulationContext *context,
+                       const KR_ObjectID &object)
+{
+    KR_ObjectID mutableObject = object;
+    if (context == NULL || mutableObject.isNUL())
+        return std::string();
+    const char *name = context->searchObject(object);
+    return name == NULL ? std::string() : std::string(name);
 }
 
 bool NearlyEqual(double left, double right)
@@ -387,6 +440,122 @@ class BoundedBullet : public ct_Subject
     const CFVector3 &velocity() const { return m_velocity; }
     int collisionCheckCount() const { return m_collisionCheckCount; }
     int sceneQueryCount() const { return m_sceneQueryCount; }
+
+    bool captureStable(SimulationContext *world,
+                       StableBulletRecord *record)
+    {
+        if (world == NULL || record == NULL || !m_started ||
+            m_attribute == NULL || context != world)
+            return FailActiveWorld(
+                "live Bullet is not ready for canonical capture");
+        record->name = ObjectName(world, getObjectID());
+        record->attribute =
+            ObjectName(world, m_attribute->getObjectID());
+        record->master = ObjectName(world, m_master);
+        if (record->name.empty() || record->attribute.empty() ||
+            record->master.empty())
+            return FailActiveWorld(
+                "live Bullet symbolic owner/attribute/master is missing");
+        if (!record->master.empty() &&
+            (!world->isExist(record->master.c_str()) ||
+             world->searchObject(record->master.c_str()) != m_master))
+            return FailActiveWorld(
+                "live Bullet master name is absent or ambiguous");
+
+        KR_Event moving[2];
+        KR_Event collision[2];
+        const int movingCount = world->copyEvents(
+            b_EVC_MOVING, getObjectID(), moving, 2);
+        const int collisionCount = world->copyEvents(
+            b_EVC_CHECK_COLLISION, getObjectID(), collision, 2);
+        if (movingCount != 1 || collisionCount != 1 ||
+            moving[0].source != getObjectID() ||
+            moving[0].destination != getObjectID() ||
+            collision[0].source != getObjectID() ||
+            collision[0].destination != getObjectID() ||
+            collision[0].data.size() != 0)
+            return FailActiveWorld(
+                "live Bullet is outside the quiescent two-event boundary");
+        s_EventData &movingData = moving[0].data.open(EDO_READ);
+        if (movingData.remaining() != static_cast<int>(sizeof(double)))
+        {
+            movingData.close();
+            return FailActiveWorld(
+                "live Bullet moving event payload is invalid");
+        }
+        movingData.getDouble(record->movingPreviousTimeStamp).close();
+
+        record->position = m_position;
+        record->previousPosition = m_previousPosition;
+        record->velocity = m_velocity;
+        record->initialPosition = m_initialPosition;
+        record->initialDirection = m_initialDirection;
+        record->lastMoveTimeStamp = m_lastMoveTimeStamp;
+        record->lastCollisionTimeStamp = m_lastCollisionTimeStamp;
+        record->waterline = m_hasWaterline ? m_waterline : 0.0;
+        record->hasWaterline = m_hasWaterline ? 1 : 0;
+        record->crossedWaterline = m_crossedWaterline ? 1 : 0;
+        record->movingTimeStamp = moving[0].timeStamp;
+        record->collisionTimeStamp = collision[0].timeStamp;
+        return true;
+    }
+
+    bool applyStable(const StableBulletRecord &record,
+                     AttributeBullet *attribute,
+                     const KR_ObjectID &master)
+    {
+        if (context == NULL || attribute == NULL)
+            return false;
+        releaseActiveCount();
+        context->removeEvent(b_EVC_MOVING, getObjectID());
+        context->removeEvent(b_EVC_CHECK_COLLISION, getObjectID());
+        resetState();
+
+        m_previousPosition = record.previousPosition;
+        m_velocity = record.velocity;
+        m_initialPosition = record.initialPosition;
+        m_initialDirection = record.initialDirection;
+        m_attribute = attribute;
+        m_master = master;
+        m_started = true;
+        m_lastMoveTimeStamp = record.lastMoveTimeStamp;
+        m_lastCollisionTimeStamp = record.lastCollisionTimeStamp;
+        m_waterline = record.waterline;
+        m_hasWaterline = record.hasWaterline != 0;
+        m_crossedWaterline = record.crossedWaterline != 0;
+        m_countedActive = true;
+        m_ownerTelemetryIndex = FindOwnerRuntimeEntry(
+            record.master.empty() ? NULL : record.master.c_str(), true);
+        ++g_activeBullets;
+        g_runtimeTelemetry.peakLiveBullets = (std::max)(
+            g_runtimeTelemetry.peakLiveBullets, g_activeBullets);
+        BulletRuntimeTelemetry *owner =
+            OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+        if (owner != NULL)
+        {
+            ++owner->liveBullets;
+            owner->peakLiveBullets = (std::max)(
+                owner->peakLiveBullets, owner->liveBullets);
+        }
+        setPosition(record.position);
+
+        KR_Event moving;
+        moving.label = b_EVC_MOVING;
+        moving.source = getObjectID();
+        moving.destination = getObjectID();
+        moving.timeStamp = record.movingTimeStamp;
+        moving.data.open(EDO_WRITE)
+                   .putDouble(record.movingPreviousTimeStamp)
+                   .close();
+        context->addEvent(moving);
+        KR_Event collision;
+        collision.label = b_EVC_CHECK_COLLISION;
+        collision.source = getObjectID();
+        collision.destination = getObjectID();
+        collision.timeStamp = record.collisionTimeStamp;
+        context->addEvent(collision);
+        return true;
+    }
 
  private:
     void releaseActiveCount()
@@ -869,6 +1038,16 @@ class BoundedBulletTable : public ct_SubjectTable
         return NULL;
     }
 
+    void collect(std::vector<BoundedBullet *> *objects) const
+    {
+        if (objects == NULL)
+            return;
+        objects->clear();
+        for (ct_Subject *object = findFirstSubject(); object != NULL;
+             object = findNextSubject(object))
+            objects->push_back(static_cast<BoundedBullet *>(object));
+    }
+
  private:
     BoundedBullet *m_table;
 };
@@ -880,6 +1059,20 @@ bool RemoveIfPresent(SimulationContext *context, KR_ObjectID object)
     if (!object.isNUL() && context->isExist(object))
         context->removeObject(object);
     return object.isNUL() || !context->isExist(object);
+}
+
+int DrainPrivateBulletEvents(SimulationContext *context,
+                             const KR_ObjectID &object)
+{
+    KR_ObjectID mutableObject = object;
+    if (context == NULL || mutableObject.isNUL())
+        return 0;
+    int removed = 0;
+    while (context->removeEvent(b_EVC_MOVING, object) == 1)
+        ++removed;
+    while (context->removeEvent(b_EVC_CHECK_COLLISION, object) == 1)
+        ++removed;
+    return removed;
 }
 
 bool CollectObjectID(KR_ObjectID object, void *user)
@@ -919,6 +1112,273 @@ bool BuildStartEvent(KR_Event &event, KR_ObjectID destination,
               .putObjectID(master)
               .close();
     return true;
+}
+
+bool IsBool(int value)
+{
+    return value == 0 || value == 1;
+}
+
+bool NearlySame(double left, double right)
+{
+    return left == right;
+}
+
+bool CollectStableRoster(SimulationContext *context,
+                         std::vector<BoundedBullet *> *objects)
+{
+    if (context == NULL || objects == NULL ||
+        g_arena.getContext() != context)
+        return false;
+    g_bulletTable.collect(objects);
+    std::sort(objects->begin(), objects->end(),
+              [context](BoundedBullet *left, BoundedBullet *right) {
+                  const std::string leftName =
+                      ObjectName(context, left->getObjectID());
+                  const std::string rightName =
+                      ObjectName(context, right->getObjectID());
+                  if (leftName != rightName)
+                      return leftName < rightName;
+                  return left->getObjectID().id < right->getObjectID().id;
+              });
+    return true;
+}
+
+bool ValidateStableRecord(const StableBulletRecord &record)
+{
+    return !record.name.empty() && !record.attribute.empty() &&
+           !record.master.empty() &&
+           record.name.size() <= kMaximumActiveWorldString &&
+           record.attribute.size() <= kMaximumActiveWorldString &&
+           record.master.size() <= kMaximumActiveWorldString &&
+           FiniteVector(record.position) &&
+           FiniteVector(record.previousPosition) &&
+           FiniteVector(record.velocity) &&
+           FiniteVector(record.initialPosition) &&
+           FiniteVector(record.initialDirection) &&
+           std::isfinite(record.lastMoveTimeStamp) &&
+           record.lastMoveTimeStamp >= 0.1 &&
+           std::isfinite(record.lastCollisionTimeStamp) &&
+           record.lastCollisionTimeStamp >= 0.1 &&
+           std::isfinite(record.waterline) &&
+           IsBool(record.hasWaterline) &&
+           IsBool(record.crossedWaterline) &&
+           (!record.crossedWaterline || record.hasWaterline) &&
+           (record.hasWaterline || record.waterline == 0.0) &&
+           std::isfinite(record.movingTimeStamp) &&
+           record.movingTimeStamp >= 0.1 &&
+           std::isfinite(record.movingPreviousTimeStamp) &&
+           record.movingPreviousTimeStamp >= 0.1 &&
+           std::isfinite(record.collisionTimeStamp) &&
+           record.collisionTimeStamp >= 0.1 &&
+           NearlySame(record.movingPreviousTimeStamp,
+                      record.lastMoveTimeStamp) &&
+           NearlySame(record.collisionTimeStamp,
+                      record.lastCollisionTimeStamp);
+}
+
+bool CollectStableRecords(SimulationContext *context,
+                          std::vector<StableBulletRecord> *records)
+{
+    std::vector<BoundedBullet *> objects;
+    if (records == NULL || !CollectStableRoster(context, &objects))
+        return false;
+    records->clear();
+    for (std::size_t index = 0; index < objects.size(); ++index)
+    {
+        StableBulletRecord record;
+        if (!objects[index]->captureStable(context, &record) ||
+            !ValidateStableRecord(record))
+            return false;
+        records->push_back(record);
+    }
+    return true;
+}
+
+bool RosterMatches(const std::vector<BoundedBullet *> &objects,
+                   SimulationContext *context,
+                   const std::vector<StableBulletRecord> &records)
+{
+    if (objects.size() != records.size())
+        return false;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        if (ObjectName(context, objects[index]->getObjectID()) !=
+            records[index].name)
+            return false;
+    return true;
+}
+
+void PutU32(std::vector<unsigned char> *bytes, std::uint32_t value)
+{
+    for (int shift = 0; shift < 32; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(value >> shift));
+}
+
+void PutDouble(std::vector<unsigned char> *bytes, double value)
+{
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    for (int shift = 0; shift < 64; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(bits >> shift));
+}
+
+void PutVector(std::vector<unsigned char> *bytes, const CFVector3 &value)
+{
+    PutDouble(bytes, value.x);
+    PutDouble(bytes, value.y);
+    PutDouble(bytes, value.z);
+}
+
+bool PutString(std::vector<unsigned char> *bytes, const std::string &value)
+{
+    if (value.size() > kMaximumActiveWorldString ||
+        value.find('\0') != std::string::npos)
+        return false;
+    PutU32(bytes, static_cast<std::uint32_t>(value.size()));
+    bytes->insert(bytes->end(), value.begin(), value.end());
+    return true;
+}
+
+bool GetU32(const std::vector<unsigned char> &bytes, std::size_t *offset,
+            std::uint32_t *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 4)
+        return false;
+    *value = 0;
+    for (int shift = 0; shift < 32; shift += 8)
+        *value |= static_cast<std::uint32_t>(bytes[(*offset)++]) << shift;
+    return true;
+}
+
+bool GetDouble(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, double *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 8)
+        return false;
+    std::uint64_t bits = 0;
+    for (int shift = 0; shift < 64; shift += 8)
+        bits |= static_cast<std::uint64_t>(bytes[(*offset)++]) << shift;
+    std::memcpy(value, &bits, sizeof(bits));
+    return true;
+}
+
+bool GetVector(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, CFVector3 *value)
+{
+    return value != NULL && GetDouble(bytes, offset, &value->x) &&
+           GetDouble(bytes, offset, &value->y) &&
+           GetDouble(bytes, offset, &value->z);
+}
+
+bool GetString(const std::vector<unsigned char> &bytes,
+               std::size_t *offset, std::string *value)
+{
+    std::uint32_t size = 0;
+    if (offset == NULL || value == NULL || !GetU32(bytes, offset, &size) ||
+        size > kMaximumActiveWorldString || *offset > bytes.size() ||
+        bytes.size() - *offset < size)
+        return false;
+    if (size == 0)
+        value->clear();
+    else
+        value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
+    *offset += size;
+    return value->find('\0') == std::string::npos;
+}
+
+bool PutStableRecord(std::vector<unsigned char> *bytes,
+                     const StableBulletRecord &record)
+{
+    if (!PutString(bytes, record.name) ||
+        !PutString(bytes, record.attribute) ||
+        !PutString(bytes, record.master))
+        return false;
+    PutVector(bytes, record.position);
+    PutVector(bytes, record.previousPosition);
+    PutVector(bytes, record.velocity);
+    PutVector(bytes, record.initialPosition);
+    PutVector(bytes, record.initialDirection);
+    PutDouble(bytes, record.lastMoveTimeStamp);
+    PutDouble(bytes, record.lastCollisionTimeStamp);
+    PutDouble(bytes, record.waterline);
+    PutU32(bytes, static_cast<std::uint32_t>(record.hasWaterline));
+    PutU32(bytes, static_cast<std::uint32_t>(record.crossedWaterline));
+    PutDouble(bytes, record.movingTimeStamp);
+    PutDouble(bytes, record.movingPreviousTimeStamp);
+    PutDouble(bytes, record.collisionTimeStamp);
+    return true;
+}
+
+bool GetStableRecord(const std::vector<unsigned char> &bytes,
+                     std::size_t *offset, StableBulletRecord *record)
+{
+    std::uint32_t hasWaterline = 0, crossedWaterline = 0;
+    if (record == NULL || !GetString(bytes, offset, &record->name) ||
+        !GetString(bytes, offset, &record->attribute) ||
+        !GetString(bytes, offset, &record->master) ||
+        !GetVector(bytes, offset, &record->position) ||
+        !GetVector(bytes, offset, &record->previousPosition) ||
+        !GetVector(bytes, offset, &record->velocity) ||
+        !GetVector(bytes, offset, &record->initialPosition) ||
+        !GetVector(bytes, offset, &record->initialDirection) ||
+        !GetDouble(bytes, offset, &record->lastMoveTimeStamp) ||
+        !GetDouble(bytes, offset, &record->lastCollisionTimeStamp) ||
+        !GetDouble(bytes, offset, &record->waterline) ||
+        !GetU32(bytes, offset, &hasWaterline) ||
+        !GetU32(bytes, offset, &crossedWaterline) ||
+        !GetDouble(bytes, offset, &record->movingTimeStamp) ||
+        !GetDouble(bytes, offset, &record->movingPreviousTimeStamp) ||
+        !GetDouble(bytes, offset, &record->collisionTimeStamp))
+        return false;
+    record->hasWaterline = static_cast<int>(hasWaterline);
+    record->crossedWaterline = static_cast<int>(crossedWaterline);
+    return ValidateStableRecord(*record);
+}
+
+bool EncodeStableRecords(const std::vector<StableBulletRecord> &records,
+                         std::vector<unsigned char> *bytes)
+{
+    if (bytes == NULL || records.size() > kMaximumActiveWorldBullets)
+        return false;
+    bytes->clear();
+    PutU32(bytes, kBulletActiveWorldMagic);
+    PutU32(bytes, kBulletActiveWorldVersion);
+    PutU32(bytes, static_cast<std::uint32_t>(records.size()));
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        if (!ValidateStableRecord(records[index]) ||
+            (index != 0 && records[index - 1].name > records[index].name) ||
+            !PutStableRecord(bytes, records[index]))
+            return FailActiveWorld(
+                "BUL1 record validation/encoding failed");
+    }
+    return true;
+}
+
+bool DecodeStableRecords(const std::vector<unsigned char> &bytes,
+                         std::vector<StableBulletRecord> *records)
+{
+    std::size_t offset = 0;
+    std::uint32_t magic = 0, version = 0, count = 0;
+    if (records == NULL || !GetU32(bytes, &offset, &magic) ||
+        !GetU32(bytes, &offset, &version) ||
+        !GetU32(bytes, &offset, &count) ||
+        magic != kBulletActiveWorldMagic ||
+        version != kBulletActiveWorldVersion ||
+        count > kMaximumActiveWorldBullets)
+        return false;
+    records->clear();
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        StableBulletRecord record;
+        if (!GetStableRecord(bytes, &offset, &record) ||
+            (!records->empty() && records->back().name > record.name))
+            return false;
+        records->push_back(record);
+    }
+    return offset == bytes.size();
 }
 
 }  // namespace
@@ -1763,4 +2223,360 @@ bool BulletSubjectState_ProbeBarrelSmokeLifecycle(
            !context->isExist("Bullet.BarrelSmoke.FrameGate.Probe") &&
            !context->isExist("Bullet.BarrelSmoke.AttributeGate.Probe") &&
            !context->isExist("Smok.");
+}
+
+void BulletActiveWorldState_Link()
+{
+    BulletSubjectState_Link();
+}
+
+const char *BulletActiveWorldState_LastFailure()
+{
+    return g_activeWorldFailure.c_str();
+}
+
+int BulletActiveWorldState_SchedulerEventCount(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableBulletRecord> records;
+    return DecodeStableRecords(bytes, &records)
+               ? static_cast<int>(records.size() * 2) : -1;
+}
+
+unsigned long long BulletActiveWorldState_Fingerprint(
+    SimulationContext *context)
+{
+    std::vector<unsigned char> bytes;
+    if (!BulletActiveWorldState_CaptureStable(context, &bytes))
+        return 0;
+    unsigned long long hash = kHashOffset;
+    if (!bytes.empty())
+        HashBytes(hash, &bytes[0], static_cast<int>(bytes.size()));
+    return hash;
+}
+
+bool BulletActiveWorldState_CaptureStable(
+    SimulationContext *context, std::vector<unsigned char> *bytes)
+{
+    g_activeWorldFailure.clear();
+    std::vector<StableBulletRecord> records;
+    if (!CollectStableRecords(context, &records))
+    {
+        if (g_activeWorldFailure.empty())
+            FailActiveWorld("Bullet stable roster collection failed");
+        return false;
+    }
+    return EncodeStableRecords(records, bytes);
+}
+
+bool BulletActiveWorldState_ValidateStable(
+    const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableBulletRecord> records;
+    return DecodeStableRecords(bytes, &records);
+}
+
+bool BulletActiveWorldState_MatchesStable(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<unsigned char> current;
+    return BulletActiveWorldState_ValidateStable(bytes) &&
+           BulletActiveWorldState_CaptureStable(context, &current) &&
+           current == bytes;
+}
+
+bool BulletActiveWorldState_CollectStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *owners)
+{
+    std::vector<StableBulletRecord> records;
+    std::vector<BoundedBullet *> objects;
+    if (owners == NULL || !owners->empty() ||
+        !DecodeStableRecords(bytes, &records) ||
+        !CollectStableRoster(context, &objects) ||
+        !RosterMatches(objects, context, records))
+        return false;
+    for (std::size_t index = 0; index < objects.size(); ++index)
+        owners->push_back(objects[index]->getObjectID());
+    return true;
+}
+
+bool BulletActiveWorldState_CreateStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *created)
+{
+    std::vector<StableBulletRecord> records;
+    std::vector<BoundedBullet *> objects;
+    if (context == NULL || created == NULL || !created->empty() ||
+        !DecodeStableRecords(bytes, &records) ||
+        !CollectStableRoster(context, &objects))
+        return false;
+    if (!objects.empty())
+        return RosterMatches(objects, context, records);
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Bullet");
+    if ((!records.empty() && table == ct_NULLID) ||
+        static_cast<int>(records.size()) >
+            g_bulletTable.capacity() - g_bulletTable.liveCount())
+        return FailActiveWorld("Bullet owner table has insufficient capacity");
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        KR_ObjectID object =
+            g_arena.newObject(table, records[index].name.c_str());
+        if (object.isNUL() || g_bulletTable.find(object) == NULL)
+        {
+            BulletActiveWorldState_RemoveStableOwners(context, created);
+            return FailActiveWorld("Bullet owner allocation failed");
+        }
+        created->push_back(object);
+    }
+    objects.clear();
+    if (!CollectStableRoster(context, &objects) ||
+        !RosterMatches(objects, context, records))
+    {
+        BulletActiveWorldState_RemoveStableOwners(context, created);
+        return FailActiveWorld("Bullet allocated roster is not canonical");
+    }
+    return true;
+}
+
+bool BulletActiveWorldState_ApplyStableReferences(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableBulletRecord> records;
+    std::vector<BoundedBullet *> objects;
+    if (context == NULL || !DecodeStableRecords(bytes, &records) ||
+        !CollectStableRoster(context, &objects) ||
+        !RosterMatches(objects, context, records))
+        return false;
+    std::vector<AttributeBullet *> attributes(records.size(), NULL);
+    std::vector<KR_ObjectID> masters(records.size(), KR_ObjectID::NUL());
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        if (!context->isExist(records[index].attribute.c_str()))
+            return FailActiveWorld("BUL1 BulletAttr dependency is missing");
+        const KR_ObjectID attribute =
+            context->searchObject(records[index].attribute.c_str());
+        attributes[index] = static_cast<AttributeBullet *>(
+            __bulletAttrTable.searchAttribute(attribute));
+        if (attributes[index] == NULL)
+            return FailActiveWorld("BUL1 BulletAttr dependency has wrong type");
+        if (!records[index].master.empty())
+        {
+            if (!context->isExist(records[index].master.c_str()))
+                return FailActiveWorld("BUL1 master dependency is missing");
+            masters[index] =
+                context->searchObject(records[index].master.c_str());
+            if (ObjectName(context, masters[index]) != records[index].master)
+                return FailActiveWorld("BUL1 master dependency is ambiguous");
+        }
+    }
+    for (std::size_t index = 0; index < records.size(); ++index)
+        if (!objects[index]->applyStable(records[index], attributes[index],
+                                         masters[index]))
+            return FailActiveWorld("BUL1 runtime state application failed");
+    std::vector<unsigned char> current;
+    if (!BulletActiveWorldState_CaptureStable(context, &current) ||
+        current != bytes)
+        return FailActiveWorld("BUL1 canonical recapture differs");
+    return true;
+}
+
+void BulletActiveWorldState_RemoveStableOwners(
+    SimulationContext *context, std::vector<KR_ObjectID> *created)
+{
+    if (created == NULL)
+        return;
+    if (context != NULL)
+        for (std::vector<KR_ObjectID>::reverse_iterator object =
+                 created->rbegin(); object != created->rend(); ++object)
+        {
+            DrainPrivateBulletEvents(context, *object);
+            if (context->isExist(*object))
+                context->removeObject(*object);
+        }
+    created->clear();
+}
+
+bool BulletActiveWorldState_ProbeFlightRoundTrip(
+    SimulationContext *context, const char *attributeName,
+    const KR_ObjectID &master, double timeStamp,
+    BulletActiveWorldProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    g_activeWorldFailure.clear();
+    KR_ObjectID mutableMaster = master;
+    if (context == NULL || attributeName == NULL || attributeName[0] == 0 ||
+        mutableMaster.isNUL() || !context->isExist(master) ||
+        ObjectName(context, master).empty() ||
+        context->searchObject(ObjectName(context, master).c_str()) != master ||
+        g_bulletTable.liveCount() != 0)
+        return FailActiveWorld(
+            "Bullet active-world probe requires one unique live master and "
+            "an empty Bullet pool");
+
+    KR_ObjectID attributeID = context->searchObject(attributeName);
+    AttributeBullet *attribute = static_cast<AttributeBullet *>(
+        __bulletAttrTable.searchAttribute(attributeID));
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("BulletAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Bullet");
+    const int attributeIndex = attributeTable == ct_NULLID ||
+            attributeID.isNUL()
+        ? -1 : g_arena.getAttributeIndex(attributeTable, attributeID);
+    if (attribute == NULL || attributeIndex < 0 ||
+        subjectTable == ct_NULLID)
+        return FailActiveWorld(
+            "Bullet active-world probe attribute/table is unavailable");
+
+    const BulletRuntimeTelemetry telemetryBefore = g_runtimeTelemetry;
+    const unsigned int activeBefore = g_activeBullets;
+    const std::vector<BulletOwnerRuntimeEntry> ownerTelemetryBefore =
+        g_ownerRuntimeTelemetry;
+    const double frameSecBefore = Session::m_frameSec;
+    KR_ObjectID original = KR_ObjectID::NUL();
+    KR_ObjectID stagedID = KR_ObjectID::NUL();
+    KR_ObjectID restoredID = KR_ObjectID::NUL();
+    std::vector<KR_ObjectID> originalOwners;
+    std::vector<KR_ObjectID> staged;
+    std::vector<KR_ObjectID> restored;
+    bool success = false;
+
+    do
+    {
+        original = g_arena.newObject(subjectTable, "B");
+        BoundedBullet *bullet = g_bulletTable.find(original);
+        if (original.isNUL() || bullet == NULL)
+        {
+            FailActiveWorld("Bullet active-world probe allocation failed");
+            break;
+        }
+        CFVector3 position(10.0, 20.0, -5.0);
+        IDynamicObject *dynamic = static_cast<IDynamicObject *>(
+            context->queryInterface(master, IDynamicObjectIID));
+        if (dynamic != NULL && FiniteVector(dynamic->getPos()))
+            position = dynamic->getPos() + CFVector3(0.0, 10.0, 0.0);
+        const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+        KR_Event start;
+        Session::m_frameSec = 0.090001;
+        if (!BuildStartEvent(start, original, master, ts, position,
+                             CFVector3(0.0, 1.0, 0.0), attributeIndex,
+                             master))
+        {
+            FailActiveWorld("Bullet active-world probe start encoding failed");
+            break;
+        }
+        context->sendEventNow(start);
+        Session::m_frameSec = frameSecBefore;
+        if (!bullet->started())
+        {
+            FailActiveWorld("Bullet active-world probe start was rejected");
+            break;
+        }
+
+        std::vector<unsigned char> bytes;
+        if (!BulletActiveWorldState_CaptureStable(context, &bytes) ||
+            BulletActiveWorldState_SchedulerEventCount(bytes) != 2 ||
+            !BulletActiveWorldState_CollectStableOwners(
+                context, bytes, &originalOwners) ||
+            originalOwners.size() != 1 || originalOwners[0] != original)
+        {
+            FailActiveWorld("BUL1 live flight capture failed");
+            break;
+        }
+        const KR_ObjectID first = originalOwners[0];
+        unsigned long long fingerprint = kHashOffset;
+        HashBytes(fingerprint, &bytes[0], static_cast<int>(bytes.size()));
+        BulletActiveWorldState_RemoveStableOwners(context, &originalOwners);
+        if (g_bulletTable.liveCount() != 0)
+        {
+            FailActiveWorld("BUL1 original flight teardown failed");
+            break;
+        }
+
+        if (!BulletActiveWorldState_CreateStableOwners(
+                context, bytes, &staged) || staged.size() != 1 ||
+            staged[0] == first ||
+            !BulletActiveWorldState_ApplyStableReferences(context, bytes) ||
+            !BulletActiveWorldState_MatchesStable(context, bytes))
+        {
+            FailActiveWorld("BUL1 staged reconstruction failed");
+            break;
+        }
+        stagedID = staged[0];
+        BulletActiveWorldState_RemoveStableOwners(context, &staged);
+        if (g_bulletTable.liveCount() != 0)
+        {
+            FailActiveWorld("BUL1 staged rollback retained an owner");
+            break;
+        }
+
+        if (!BulletActiveWorldState_CreateStableOwners(
+                context, bytes, &restored) || restored.size() != 1 ||
+            restored[0] == first || restored[0] == stagedID ||
+            !BulletActiveWorldState_ApplyStableReferences(context, bytes) ||
+            !BulletActiveWorldState_MatchesStable(context, bytes))
+        {
+            FailActiveWorld("BUL1 final reconstruction failed");
+            break;
+        }
+        restoredID = restored[0];
+        BoundedBullet *resumed = g_bulletTable.find(restored[0]);
+        KR_Event pendingMove[2];
+        const int pendingMoveCount = context->copyEvents(
+            b_EVC_MOVING, restored[0], pendingMove, 2);
+        const CFVector3 positionBefore = resumed == NULL
+            ? CFVector3(0.0, 0.0, 0.0) : resumed->getPosition();
+        if (resumed == NULL || pendingMoveCount != 1 ||
+            context->removeEvent(b_EVC_MOVING, restored[0]) != 1)
+        {
+            FailActiveWorld("BUL1 restored moving event is unavailable");
+            break;
+        }
+        context->sendEventNow(pendingMove[0]);
+        KR_Event nextMove[2];
+        const CFVector3 positionAfter = resumed->getPosition();
+        if (!context->isExist(restored[0]) || resumed->moveCount() != 1 ||
+            (positionAfter.x == positionBefore.x &&
+             positionAfter.y == positionBefore.y &&
+             positionAfter.z == positionBefore.z) ||
+            context->copyEvents(b_EVC_MOVING, restored[0], nextMove, 2) != 1)
+        {
+            FailActiveWorld("BUL1 restored flight did not resume movement");
+            break;
+        }
+        summary->capturedOwners = 1;
+        summary->schedulerEvents = 2;
+        summary->stagedRollbacks = 1;
+        summary->reconstructedOwners = 1;
+        summary->stableRoundTrips = 2;
+        summary->resumedMoves = 1;
+        summary->fingerprint = fingerprint;
+        success = true;
+    } while (false);
+
+    Session::m_frameSec = frameSecBefore;
+    BulletActiveWorldState_RemoveStableOwners(context, &restored);
+    BulletActiveWorldState_RemoveStableOwners(context, &staged);
+    BulletActiveWorldState_RemoveStableOwners(context, &originalOwners);
+    RemoveIfPresent(context, original);
+    const int lateEvents =
+        DrainPrivateBulletEvents(context, original) +
+        DrainPrivateBulletEvents(context, stagedID) +
+        DrainPrivateBulletEvents(context, restoredID);
+    const bool clean = g_bulletTable.liveCount() == 0 && lateEvents == 0;
+    g_runtimeTelemetry = telemetryBefore;
+    g_activeBullets = activeBefore;
+    g_ownerRuntimeTelemetry = ownerTelemetryBefore;
+    if (!success || !clean)
+    {
+        std::memset(summary, 0, sizeof(*summary));
+        if (g_activeWorldFailure.empty())
+            FailActiveWorld("BUL1 probe rollback was not clean");
+        return false;
+    }
+    return true;
 }
