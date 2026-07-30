@@ -2,6 +2,7 @@
 #include "game.h"
 #include "filesys.h"
 #include "vs_zav.h"
+#include "VehicleVesselSaveState.h"
 
 //#define	CHECK_DELTAT()	ASSERT(fDeltaT>=0&&fDeltaT<2)
 //#define	CHECK_DELTAT()	(void)0
@@ -830,44 +831,25 @@ void	CVesselEmv::LoadPos(TCCFMatrix3x4 &startPos)
 	m_dir.m[0][3] = m_dir.m[1][3] = m_dir.m[2][3] = 0;
 }
 
-struct SEmvSave {
-	dword			dwSize;
-	SFMatrix3x4		dir;
-	SFVector3		pos;
-	SFVector3	speed;
-	double	fFuelSpeed;
-	double	fThrottle;
-	double	fVertRot;
-	double	fAxisRot;
-	double	fInclination;
-	double	fInclineRot;
-	double	fTurnRot;
-	double	fStrafeInclination;
-	double	fStrafeInclineRot;
-	double	fVertStrafe;
-	double	fTurnRotMouse;
-	double	fVertRotMouse;
-};
-
 TCvoid *CVesselEmv::SaveGame()
 {
-	static SEmvSave	s;
-	s.dwSize = sizeof(s);
-	s.dir 		   		= m_dir;
-	s.pos 		   		= m_position;
+	static SVehicleEmvSaveState	s;
+	s.size = sizeof(s);
+	s.direction 		= m_dir;
+	s.position 		= m_position;
 	s.speed 	   		= m_speed;
-	s.fFuelSpeed   		= m_fFuelSpeed;
-	s.fThrottle    		= m_fThrottle;
-	s.fVertRot 	   		= m_fVertRot;
-	s.fAxisRot 	   		= m_fAxisRot;
-	s.fInclination 		= m_fInclination;
-	s.fInclineRot 		= m_fInclineRot;
-	s.fTurnRot 			= m_fTurnRot;
-	s.fStrafeInclination= m_fStrafeInclination;
-	s.fStrafeInclineRot = m_fStrafeInclineRot;
-	s.fVertStrafe 		= m_fVertStrafe;
-	s.fTurnRotMouse 	= m_fTurnRotMouse;
-	s.fVertRotMouse 	= m_fVertRotMouse;
+	s.fuelSpeed   		= m_fFuelSpeed;
+	s.throttle    		= m_fThrottle;
+	s.verticalRotation 	= m_fVertRot;
+	s.axisRotation 		= m_fAxisRot;
+	s.inclination 		= m_fInclination;
+	s.inclinationRotation = m_fInclineRot;
+	s.turnRotation 		= m_fTurnRot;
+	s.strafeInclination= m_fStrafeInclination;
+	s.strafeInclinationRotation = m_fStrafeInclineRot;
+	s.verticalStrafe 	= m_fVertStrafe;
+	s.mouseTurnRotation 	= m_fTurnRotMouse;
+	s.mouseVerticalRotation = m_fVertRotMouse;
 	//CFVector3	m_fallSpeed;
 
 	return &s;
@@ -875,28 +857,28 @@ TCvoid *CVesselEmv::SaveGame()
 
 bool CVesselEmv::LoadGame(TCvoid *pSavedGame)
 {
-	SEmvSave	&s = *(SEmvSave*)pSavedGame;
-	if( s.dwSize != sizeof(s) ) {
+	SVehicleEmvSaveState	&s = *(SVehicleEmvSaveState*)pSavedGame;
+	if( s.size != sizeof(s) ) {
 		ASSERT(0);
 		return FALSE;
 	}
 	Stop();
-	m_dir = s.dir;
-	m_position = s.pos;
+	m_dir = s.direction;
+	m_position = s.position;
 
 	m_speed               = s.speed;
-	m_fFuelSpeed          = s.fFuelSpeed;
-	m_fThrottle           = s.fThrottle;
-	m_fVertRot            = s.fVertRot;
-	m_fAxisRot            = s.fAxisRot;
-	m_fInclination        = s.fInclination;
-	m_fInclineRot         = s.fInclineRot;
-	m_fTurnRot            = s.fTurnRot;
-	m_fStrafeInclination  = s.fStrafeInclination;
-	m_fStrafeInclineRot   = s.fStrafeInclineRot;
-	m_fVertStrafe         = s.fVertStrafe;
-	m_fTurnRotMouse       = s.fTurnRotMouse;
-	m_fVertRotMouse       = s.fVertRotMouse;
+	m_fFuelSpeed          = s.fuelSpeed;
+	m_fThrottle           = s.throttle;
+	m_fVertRot            = s.verticalRotation;
+	m_fAxisRot            = s.axisRotation;
+	m_fInclination        = s.inclination;
+	m_fInclineRot         = s.inclinationRotation;
+	m_fTurnRot            = s.turnRotation;
+	m_fStrafeInclination  = s.strafeInclination;
+	m_fStrafeInclineRot   = s.strafeInclinationRotation;
+	m_fVertStrafe         = s.verticalStrafe;
+	m_fTurnRotMouse       = s.mouseTurnRotation;
+	m_fVertRotMouse       = s.mouseVerticalRotation;
 
 	return TRUE;
 }
@@ -2084,133 +2066,93 @@ void CVesselWheels::Draw()
 	#endif
 }
 
-struct SWheelsSave {
-	dword			dwSize;
-
-	SFMatrix3x4	dir;
-	SFMatrix3x4 base;
-	SFVector3   pos;
-	SFVector3	speed;
-	SFVector3   moment;
-	SFVector3   groundNormal;
-	SFVector3   lastAccel;
-	double      fFuelAccel;
-	double      fThrottle;
-	int         nForward;
-	bool		bBrakingDone;
-	bool		bTouchGround;
-	int			iBraking;
-	double		fRaise;
-	double      fRaiseSpeed;
-	double      fTurnSpeed;
-	SFVector3	maxHorzSpeed;
-	double		fAccelFactor;
-	double		fJumpOffsetFactor;
-	double		fJumpTimeOut;
-	double		fRessoreWay;
-	double		fWalkPendulumArg;
-	double		fWalkPendulumCoeff;
-	double		fWalkPendSpeedCoeff;
-	double		fMouseTurnSpeed;
-	double		fMouseRaise;
-	double		fMouseRaiseSpeed;
-	double		fJumpT;
-	double		fJumpAccum;
-	double		fJumpDownV;
-	double		fLastFallV;
-	SFVector3	jumpOffset;
-	SFVector3	jumpSpeed;
-	SFVector3	walkPendulumWay;
-	int			nJump;
-};
-
 TCvoid *CVesselWheels::SaveGame()
 {
-	static SWheelsSave	s;
-	s.dwSize = sizeof(s);
-	s.dir 		   			= m_dir;
+	static SVehicleWheelsSaveState	s;
+	s.size = sizeof(s);
+	s.direction 			= m_dir;
 	s.base					= m_base;
-	s.pos 		   			= m_position;
+	s.position 			= m_position;
 	s.speed					= m_speed;
 	s.moment				= m_moment;
 	s.groundNormal			= m_groundNormal;
-	s.lastAccel				= m_lastAccel;
-	s.fFuelAccel			= m_fFuelAccel;
-	s.fThrottle				= m_fThrottle;
-	s.nForward				= m_nForward;
-	s.bBrakingDone			= m_bBrakingDone;
-	s.bTouchGround			= m_bTouchGround;
-	s.iBraking				= m_eBraking;
-	s.fRaise				= m_fRaise;
-	s.fRaiseSpeed			= m_fRaiseSpeed;
-	s.fTurnSpeed			= m_fTurnSpeed;
-	s.maxHorzSpeed			= m_maxHorzSpeed;
-	s.fAccelFactor			= m_fAccelFactor;
-	s.fJumpOffsetFactor 	= m_fJumpOffsetFactor;
-	s.fJumpTimeOut			= m_fJumpTimeOut;
-	s.fRessoreWay			= m_fRessoreWay;
-	s.fWalkPendulumArg  	= m_fWalkPendulumArg;
-	s.fWalkPendulumCoeff	= m_fWalkPendulumCoeff;
-	s.fWalkPendSpeedCoeff	= m_fWalkPendSpeedCoeff;
-	s.fMouseTurnSpeed 		= m_fMouseTurnSpeed;
-	s.fMouseRaise			= m_fMouseRaise;
-	s.fMouseRaiseSpeed 		= m_fMouseRaiseSpeed;
-	s.fJumpT				= m_fJumpT;
-	s.fJumpAccum 			= m_fJumpAccum;
-	s.fJumpDownV			= m_fJumpDownV;
-	s.fLastFallV			= m_fLastFallV;
+	s.lastAcceleration		= m_lastAccel;
+	s.fuelAcceleration		= m_fFuelAccel;
+	s.throttle				= m_fThrottle;
+	s.forward				= m_nForward;
+	s.brakingDone			= m_bBrakingDone;
+	s.touchingGround			= m_bTouchGround;
+	s.braking				= m_eBraking;
+	s.raise					= m_fRaise;
+	s.raiseSpeed				= m_fRaiseSpeed;
+	s.turnSpeed				= m_fTurnSpeed;
+	s.maximumHorizontalSpeed	= m_maxHorzSpeed;
+	s.accelerationFactor		= m_fAccelFactor;
+	s.jumpOffsetFactor 		= m_fJumpOffsetFactor;
+	s.jumpTimeout				= m_fJumpTimeOut;
+	s.suspensionTravel			= m_fRessoreWay;
+	s.walkPendulumArgument  	= m_fWalkPendulumArg;
+	s.walkPendulumCoefficient	= m_fWalkPendulumCoeff;
+	s.walkPendulumSpeedCoefficient = m_fWalkPendSpeedCoeff;
+	s.mouseTurnSpeed 			= m_fMouseTurnSpeed;
+	s.mouseRaise				= m_fMouseRaise;
+	s.mouseRaiseSpeed 			= m_fMouseRaiseSpeed;
+	s.jumpTime					= m_fJumpT;
+	s.jumpAccumulation 			= m_fJumpAccum;
+	s.jumpDownVelocity			= m_fJumpDownV;
+	s.lastFallVelocity			= m_fLastFallV;
 	s.jumpOffset 			= m_jumpOffset;
 	s.jumpSpeed				= m_jumpSpeed;
-	s.walkPendulumWay		= m_walkPendulumWay;
-	s.nJump					= m_nJump;
+	s.walkPendulumTravel	= m_walkPendulumWay;
+	s.jumpPhase				= m_nJump;
 
 	return &s;
 }
 
 bool CVesselWheels::LoadGame(TCvoid *pSavedGame)
 {
-	SWheelsSave	&s = *(SWheelsSave*)pSavedGame;
-	if( s.dwSize != sizeof(s) ) {
+	SVehicleWheelsSaveState	&s = *(SVehicleWheelsSaveState*)pSavedGame;
+	if( s.size != sizeof(s) ) {
 		ASSERT(0);
 		return FALSE;
 	}
 	Stop();
 
-	m_dir                  =   s.dir;
+	m_dir                  =   s.direction;
 	m_base                 =   s.base;
-	m_position             =   s.pos;
+	m_position             =   s.position;
 	m_speed				   =   s.speed;
 	m_moment               =   s.moment;
 	m_groundNormal         =   s.groundNormal;
-	m_lastAccel            =   s.lastAccel;
-	m_fFuelAccel           =   s.fFuelAccel;
-	m_fThrottle            =   s.fThrottle;
-	m_nForward             =   s.nForward;
-	m_bBrakingDone         =   s.bBrakingDone;
-	m_bTouchGround         =   s.bTouchGround;
-	m_eBraking             =   (BRAKING_MODE)s.iBraking;
-	m_fRaise               =   s.fRaise;
-	m_fRaiseSpeed          =   s.fRaiseSpeed;
-	m_fTurnSpeed           =   s.fTurnSpeed;
-	m_maxHorzSpeed         =   s.maxHorzSpeed;
-	m_fAccelFactor         =   s.fAccelFactor;
-	m_fJumpOffsetFactor    =   s.fJumpOffsetFactor;
-	m_fJumpTimeOut         =   s.fJumpTimeOut;
-	m_fRessoreWay          =   s.fRessoreWay;
-	m_fWalkPendulumArg     =   s.fWalkPendulumArg;
-	m_fWalkPendulumCoeff   =   s.fWalkPendulumCoeff;
-	m_fWalkPendSpeedCoeff  =   s.fWalkPendSpeedCoeff;
-	m_fMouseTurnSpeed      =   s.fMouseTurnSpeed;
-	m_fMouseRaise          =   s.fMouseRaise;
-	m_fMouseRaiseSpeed     =   s.fMouseRaiseSpeed;
-	m_fJumpT               =   s.fJumpT;
-	m_fJumpAccum           =   s.fJumpAccum;
-	m_fJumpDownV           =   s.fJumpDownV;
-	m_fLastFallV           =   s.fLastFallV;
+	m_lastAccel            =   s.lastAcceleration;
+	m_fFuelAccel           =   s.fuelAcceleration;
+	m_fThrottle            =   s.throttle;
+	m_nForward             =   s.forward;
+	m_bBrakingDone         =   s.brakingDone;
+	m_bTouchGround         =   s.touchingGround;
+	m_eBraking             =   (BRAKING_MODE)s.braking;
+	m_fRaise               =   s.raise;
+	m_fRaiseSpeed          =   s.raiseSpeed;
+	m_fTurnSpeed           =   s.turnSpeed;
+	m_maxHorzSpeed         =   s.maximumHorizontalSpeed;
+	m_fAccelFactor         =   s.accelerationFactor;
+	m_fJumpOffsetFactor    =   s.jumpOffsetFactor;
+	m_fJumpTimeOut         =   s.jumpTimeout;
+	m_fRessoreWay          =   s.suspensionTravel;
+	m_fWalkPendulumArg     =   s.walkPendulumArgument;
+	m_fWalkPendulumCoeff   =   s.walkPendulumCoefficient;
+	m_fWalkPendSpeedCoeff  =   s.walkPendulumSpeedCoefficient;
+	m_fMouseTurnSpeed      =   s.mouseTurnSpeed;
+	m_fMouseRaise          =   s.mouseRaise;
+	m_fMouseRaiseSpeed     =   s.mouseRaiseSpeed;
+	m_fJumpT               =   s.jumpTime;
+	m_fJumpAccum           =   s.jumpAccumulation;
+	m_fJumpDownV           =   s.jumpDownVelocity;
+	m_fLastFallV           =   s.lastFallVelocity;
 	m_jumpOffset           =   s.jumpOffset;
 	m_jumpSpeed            =   s.jumpSpeed;
-	m_walkPendulumWay      =   s.walkPendulumWay;
-	m_nJump                =   s.nJump;
+	m_walkPendulumWay      =   s.walkPendulumTravel;
+	m_nJump                =   s.jumpPhase;
 
 	return TRUE;
 }

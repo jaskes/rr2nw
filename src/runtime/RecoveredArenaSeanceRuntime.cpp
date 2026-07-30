@@ -37,6 +37,7 @@ class CGRPanel;
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
 #include "obase/taxi/TaxiSubjectState.h"
+#include "obase/vehicle/VehicleActiveWorldState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/smoke/SmokeAttributeState.h"
 #include "obase/smoke/SmokeSubjectState.h"
@@ -1411,6 +1412,9 @@ struct RecoveredArenaSeanceState {
   bool missionTankLifecycleReady;
   bool activeWorldPersistenceReady;
   bool vehicleReady;
+  int vehicleActiveWorldReconstructedIDs;
+  int vehicleActiveWorldRollbacks;
+  unsigned long long vehicleActiveWorldFingerprint;
   int vehicleAttributeCount;
   int vehicleAttributeCapacity;
   unsigned long long vehicleAttributeFingerprint;
@@ -2416,6 +2420,71 @@ bool PublishVehicle(SimulationContext* context) {
                    "attribute reference graph");
     return false;
   }
+
+  std::vector<unsigned char> vehicleState;
+  const unsigned long long vehicleFingerprint =
+      VehicleActiveWorldState_Fingerprint(context);
+  if (vehicleFingerprint == 0 ||
+      VehicleActiveWorldState_LiveCount(context) != 1 ||
+      !VehicleActiveWorldState_CaptureStable(context, &vehicleState) ||
+      !VehicleActiveWorldState_ValidateStable(vehicleState)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE,
+                   "Vehicle.Default could not enter the active-world envelope");
+    return false;
+  }
+
+  std::vector<KR_ObjectID> removed(1, vehicleID);
+  VehicleActiveWorldState_RemoveStableOwners(context, &removed);
+  if (g_vehicle != nullptr || VehicleActiveWorldState_LiveCount(context) != 0) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE,
+                   "Vehicle.Default owner teardown left live runtime state");
+    return false;
+  }
+
+  std::vector<KR_ObjectID> staged;
+  if (!VehicleActiveWorldState_CreateStableOwners(context, vehicleState,
+                                                   &staged) ||
+      staged.size() != 1 || staged.front() == vehicleID) {
+    VehicleActiveWorldState_RemoveStableOwners(context, &staged);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE,
+                   "Vehicle.Default staging did not allocate a fresh owner");
+    return false;
+  }
+  const KR_ObjectID stagedID = staged.front();
+  VehicleActiveWorldState_RemoveStableOwners(context, &staged);
+  if (g_vehicle != nullptr || VehicleActiveWorldState_LiveCount(context) != 0 ||
+      context->isExist(stagedID)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE,
+                   "Vehicle.Default staged-owner rollback leaked state");
+    return false;
+  }
+
+  std::vector<KR_ObjectID> restored;
+  if (!VehicleActiveWorldState_CreateStableOwners(context, vehicleState,
+                                                   &restored) ||
+      restored.size() != 1 || restored.front() == vehicleID ||
+      restored.front() == stagedID ||
+      !VehicleActiveWorldState_ApplyStableReferences(context, vehicleState) ||
+      !VehicleActiveWorldState_MatchesStable(context, vehicleState) ||
+      VehicleActiveWorldState_Fingerprint(context) != vehicleFingerprint) {
+    VehicleActiveWorldState_RemoveStableOwners(context, &restored);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE,
+                   "Vehicle.Default did not survive fresh owner restoration");
+    return false;
+  }
+
+  vehicleID = restored.front();
+  g_vehicle = static_cast<Vehicle*>(
+      context->queryInterface(vehicleID, IVehicleIID));
+  if (g_vehicle == nullptr || g_vehicle->getObjectID() != vehicleID) {
+    VehicleActiveWorldState_RemoveStableOwners(context, &restored);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE,
+                   "restored Vehicle.Default did not publish IVehicleIID");
+    return false;
+  }
+  g_state.vehicleActiveWorldReconstructedIDs = 1;
+  g_state.vehicleActiveWorldRollbacks = 1;
+  g_state.vehicleActiveWorldFingerprint = vehicleFingerprint;
 
   const double mass = g_vehicle->VesselMass();
   const CFVector3 speedBefore = g_vehicle->Speed();
@@ -4603,6 +4672,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SmokeVisualState_Link();
   ExplosionAttributeState_Link();
   VehicleAttributeState_Link();
+  VehicleActiveWorldState_Link();
   TaxiAttributeState_Link();
   TaxiSubjectState_Link();
   FarterAttributeState_Link();
@@ -4814,6 +4884,9 @@ void RecoveredArenaSeance_Release() {
   ExplosionSubjectState_UnbindImpulseTarget(g_arena.getContext());
   ExplosionAttributeState_ClearParticleVisuals(g_arena.getContext());
   g_state.vehicleReady = false;
+  g_state.vehicleActiveWorldReconstructedIDs = 0;
+  g_state.vehicleActiveWorldRollbacks = 0;
+  g_state.vehicleActiveWorldFingerprint = 0;
   g_state.routeReady = false;
   g_state.peopleAttributesReady = false;
   g_state.peopleReferencesReady = false;
@@ -6297,6 +6370,19 @@ int RecoveredArenaSeance_SparkProbeExpirations() {
 }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }
+
+int RecoveredArenaSeance_VehicleActiveWorldReconstructedIDs() {
+  return g_state.vehicleReady ? g_state.vehicleActiveWorldReconstructedIDs
+                              : -1;
+}
+
+int RecoveredArenaSeance_VehicleActiveWorldRollbacks() {
+  return g_state.vehicleReady ? g_state.vehicleActiveWorldRollbacks : -1;
+}
+
+unsigned long long RecoveredArenaSeance_VehicleActiveWorldFingerprint() {
+  return g_state.vehicleReady ? g_state.vehicleActiveWorldFingerprint : 0;
+}
 
 double RecoveredArenaSeance_VehicleVesselMass() {
   return g_state.vehicleReady && g_vehicle != nullptr

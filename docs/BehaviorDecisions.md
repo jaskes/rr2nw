@@ -2972,16 +2972,16 @@ failure restores the previous live graph. This remains an internal admission
 proof rather than a menu save command; Tank and the other active owners, the
 live event queue and RNG are not yet exported.
 
-The next owner slices add Vehicle, People, Tank/Cannon and mission state, then
-the actual `SimulationContext` event queue and deterministic RNG. Only after a
-fresh-context reconstruction can reproduce a complete active world may the UI
-expose save/load slots. Retail-save importing remains a separate compatibility
-project.
+BD-079 adds Vehicle and Player core state. The next owner slices add People,
+Tank/Cannon and mission state, then the actual `SimulationContext` event queue
+and deterministic RNG. Only after a fresh-context reconstruction can reproduce
+a complete active world may the UI expose save/load slots. Retail-save
+importing remains a separate compatibility project.
 
-Admission proof passes 54/54 CTest in Debug and Release and all 36 retail
-executable cases across nine Levels, both data roots and both configurations.
-Every Level has one stable active-world fingerprint across its four runs,
-reports `2/0`, `2/2/0` and `1/1`, renders non-empty frames and exits cleanly.
+The BD-077/078 admission proof passed 54/54 CTest in Debug and Release and all
+36 retail executable cases across nine Levels, both data roots and both
+configurations. At that two-section slice every Level reported `2/0`, `2/2/0`
+and `1/1`; BD-079 supersedes the current roster with the Vehicle section.
 
 ## BD-078: allocate decoded owners before publishing symbolic references
 
@@ -3005,5 +3005,44 @@ new ObjectIDs. Missing member and wrong-class collision cases both preserve an
 empty owner roster. In retail Level.04D the AER00 source creates its Tank and
 Group once; the Group is then removed and allocated by the restore owner phase
 under a new ID while the retained Tank is resolved symbolically. This admits
-fresh Commander/TankGroup construction but deliberately does not claim Tank,
-Vehicle or complete Level allocation yet.
+fresh Commander/TankGroup construction but deliberately does not claim Tank or
+complete Level allocation yet.
+
+## BD-079: encode Vehicle physics field by field and restore its owner first
+
+Status: accepted on 2026-07-30.
+
+Vehicle is a versioned active-world owner, not a raw `Vehicle::SaveGame` byte
+blob. The record stores the symbolic owner and selected/default/dead
+`VehicleAttr` names, Subject position, damage, primary/secondary weapon flags
+and ammunition, skip/briefing clocks, Taxi transition state and Player damage
+and faction status keyed by Commander name. The complete field set exposed by
+the legacy EMV or Wheels `SaveGame` contract is encoded as fixed-width scalars,
+vectors and matrices in canonical little-endian order. Compiler padding,
+pointers, vtables and native `long` width never enter the file.
+
+The owner phase preflights required VehicleAttr objects and actual free-table
+capacity, then creates a missing `Vehicle.Default` without references. The
+reference phase resolves every attribute and Commander before mutation,
+applies the vessel and Player state, and publishes `g_vehicle` only for the
+completed default owner. Rollback resets transient Vehicle runtime state,
+clears `g_vehicle` when it names a removed owner and deletes only owners made
+by the transaction.
+
+Every production Level exercises a stronger boundary before Explosion impulse
+binding: capture the original Vehicle, remove it, allocate and roll back one
+staged replacement, then allocate and fully restore another replacement under
+a third ObjectID. Canonical bytes and fingerprint must be unchanged. The clean
+seance fixture repeats the operation with non-default motion, damage,
+ammunition and two faction records and rejects missing dependencies and
+wrong-class collisions.
+
+Panel and audio caches, mission counters, queued control/events and UI state
+remain excluded because they belong to services or future independent
+sections. This admission therefore proves the persistent Vehicle/Player core,
+not a public save slot or a complete drivable-Level reload.
+
+The admission proof passes 54/54 CTest in Debug and Release and 36/36 real
+Level launches. Every case reports three owner sections, three owner/reference
+phases, one staged Vehicle rollback and one final fresh-ID reconstruction. Each
+Level's Vehicle fingerprint is identical across both data roots and builds.

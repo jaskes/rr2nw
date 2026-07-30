@@ -2845,10 +2845,13 @@ add_library(rr2nw_arena_obase_vehicle STATIC
   nw/ARENA/OBASE/Vehicle/VS_ZAV.CPP
   nw/ARENA/OBASE/Vehicle/VehicleVesselTelemetry.cpp
   nw/ARENA/OBASE/Vehicle/VehicleVesselTelemetry.h
+  nw/ARENA/OBASE/Vehicle/VehicleVesselSaveState.h
   nw/ARENA/OBASE/Vehicle/VehicleAttributeState.cpp
   nw/ARENA/OBASE/Vehicle/VehicleAttributeState.h
   nw/ARENA/OBASE/Vehicle/VehicleRuntimeState.cpp
   nw/ARENA/OBASE/Vehicle/VehicleRuntimeState.h
+  nw/ARENA/OBASE/Vehicle/VehicleActiveWorldState.cpp
+  nw/ARENA/OBASE/Vehicle/VehicleActiveWorldState.h
 )
 target_link_libraries(
   rr2nw_arena_obase_vehicle PUBLIC rr2nw_arena_obase_vehicle_state

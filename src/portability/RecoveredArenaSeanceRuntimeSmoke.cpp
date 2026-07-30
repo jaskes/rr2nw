@@ -971,10 +971,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 2 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 3 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 2 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 2 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 3 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 3 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||
@@ -982,6 +982,9 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_ActiveWorldContainerBytes() == 0 ||
       RecoveredArenaSeance_ActiveWorldFingerprint() == 0 ||
       !RecoveredArenaSeance_VehicleReady() ||
+      RecoveredArenaSeance_VehicleActiveWorldReconstructedIDs() != 1 ||
+      RecoveredArenaSeance_VehicleActiveWorldRollbacks() != 1 ||
+      RecoveredArenaSeance_VehicleActiveWorldFingerprint() == 0 ||
       RecoveredArenaSeance_VehicleVesselMass() != 1000.0 ||
       RecoveredArenaSeance_Issues() != 0 ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||

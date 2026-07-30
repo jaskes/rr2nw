@@ -2265,8 +2265,8 @@ Status vocabulary:
   replacement and transactional rollback. `active-world-fresh-restore-smoke`
   reconstructs both Commander owners and one TankGroup with new IDs. Real
   Level.04D runs from `E:\Games\The Next Worlds` and `G:\nw` allocate the
-  removed Group from decoded state, publish `2/2/0` phases and preserve an
-  identical container fingerprint.
+  removed Group from decoded state, now publish `3/3/0` phases with the Vehicle
+  section, and preserve an identical container fingerprint.
 - Revisit when: Tank/Cannon joins the envelope. Remove the retained Tank
   dependency, reconstruct the complete AER00 chain from decoded records, then
   add the live event queue and never fall back to numeric ObjectIDs.
@@ -2291,6 +2291,32 @@ Status vocabulary:
 - Revisit when: Tank/Cannon and People sections allocate complete subject
   graphs. Use the same explicit-capacity rule for every legacy kill-on-overflow
   pool and retain symbolic collision tests.
+
+### CQ-142: the native Vehicle save structs are not a portable file format
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `Vehicle::SaveGame` delegates to EMV/Wheels implementations that
+  historically wrote native matrices, vectors, scalars and a leading native
+  size value through compiler-shaped structs. Reusing those struct bytes would
+  preserve padding, alignment and type-width assumptions from the legacy ABI;
+  Player relations and VehicleAttr links would still contain process-local
+  ObjectIDs outside that payload.
+- Handling: the active-world Vehicle v1 codec names every vessel field and
+  encodes it with fixed-width little-endian primitives. Attributes and Player
+  Commander relations use symbolic names. Owner creation preflights the free
+  Vehicle table and all attributes; reference application resolves every
+  Commander before mutation; rollback removes only transaction-created owners
+  and clears transient global Vehicle state.
+- Verification: `active-world-fresh-restore-smoke` captures a moving damaged
+  Vehicle with ammunition and two Player faction records, destroys the owner,
+  recreates it under a new ID and compares canonical bytes. Missing dependency
+  and wrong-class collision probes leave no Vehicle and no `g_vehicle`.
+  Production startup additionally removes `Vehicle.Default`, rolls a staged
+  replacement back, restores a second replacement and requires a stable
+  fingerprint before binding Explosion impulses.
+- Revisit when: queued controls, mission counters, panel/audio state or public
+  save slots are added. Keep service-owned caches out of Vehicle v1 and either
+  version them in their owning section or reconstruct them after load.
 
 ## Maintenance rule
 

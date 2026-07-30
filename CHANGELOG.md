@@ -7,6 +7,23 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the Vehicle version-1 active-world section. It serializes selected,
+  default and dead attributes symbolically; the complete legacy EMV/Wheels
+  save-state field set; Subject position; damage, weapon, skip and Taxi clocks;
+  and Player damage/reputation entries keyed by Commander name. It never copies
+  the legacy ABI structs, pointers, table slots or numeric ObjectIDs.
+- Added transactional Vehicle owner allocation and reference publication with
+  capacity/dependency preflight and complete created-owner rollback. Every
+  production Level now captures `Vehicle.Default`, removes it, unwinds one
+  deliberately staged replacement, reconstructs it under a fresh ObjectID and
+  verifies the identical canonical fingerprint before Explosion dispatch is
+  rebound. A clean-seance regression also restores real moving vehicle state
+  and two Player faction records while rejecting dependency and class-name
+  failures without leaking `g_vehicle`.
+- Advanced production diagnostics and acceptance to three owner sections and
+  three owner/reference phases. The completed gate passes 54/54 CTest in both
+  configurations and 36/36 retail launches; each Level has one Vehicle
+  fingerprint across installed/mounted data and Debug/Release.
 - Added the first versioned active-world container. Its canonical little-
   endian envelope records engine/content compatibility, Level and mod
   identities, simulation time/tick, an explicit RNG algorithm/state slot,

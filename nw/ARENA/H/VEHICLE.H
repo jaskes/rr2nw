@@ -281,6 +281,8 @@ public:
     bool         ApplyExplosionImpulse(const CFVector3 &impulse,
                                        double factor);
     double       VesselMass() const;
+    const void  *SaveVesselRuntimeState();
+    bool         LoadVesselRuntimeState(const void *state);
 
     virtual void carrierLoadMatrix  (CFMatrix3x4 &m);
 
@@ -318,6 +320,7 @@ class VehicleTable : public ct_SubjectTable
     virtual void       allocObjects( int objectQnty );
     virtual void       freeObjects ();
     virtual ct_Object *getObjectPTR( int index );
+    int                freeObjectCount() const;
     void    ReadConfig ();
 };
 

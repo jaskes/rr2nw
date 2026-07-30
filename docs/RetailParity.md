@@ -1144,20 +1144,29 @@ Retail scripts нельзя молча копировать поверх source 
 ## Active-world persistence boundary
 
 The continuation now owns a new version-1 active-world envelope. It is not a
-retail save format. The automated proof currently covers Commander and
-TankGroup symbolic state, plus the generic schema for Level/content/mod/time,
+retail save format. The automated proof currently covers Commander, TankGroup
+and Vehicle symbolic state, plus the generic schema for Level/content/mod/time,
 RNG and semantic events. Level.04D demonstrates why symbolic identity is
-mandatory: its Group is now allocated by the decoder under a new numeric ID
-while the retained Tank and Commander resolve by name and the saved ownership
-graph remains identical. A clean seance separately recreates both Commanders
-and the Group from no live owner objects.
+mandatory: its Group is allocated by the decoder under a new numeric ID while
+the retained Tank and Commander resolve by name and the saved ownership graph
+remains identical. Every Level separately removes `Vehicle.Default`, rolls a
+staged replacement back and recreates the final Vehicle under a fresh ID with
+the same field-level vessel, damage, weapon, Taxi and Player/Commander state. A
+clean seance reconstructs both Commanders, the Group and a moving Vehicle from
+no live owner objects.
 
 This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
-RC requirement for complete world state or manual save points. Vehicle,
-People, Tank/Cannon, mission/Bullet state, the live event queue, authoritative
-RNG, complete fresh-Level construction and user controls remain required.
+RC requirement for complete world state or manual save points. People,
+Tank/Cannon, mission/Bullet state, Vehicle mission/UI/input queues, the live
+event queue, authoritative RNG, complete fresh-Level construction and user
+controls remain required.
+
+The current admission gate is 54/54 CTest in Debug and Release and 36/36 real
+Level launches. All cases publish three owner sections, three owner/reference
+phases and `vehicle_active_world_probe=1/1`; each symbolic Level has one
+Vehicle fingerprint across both data roots and configurations.
 
 ## Binary analysis boundary
 

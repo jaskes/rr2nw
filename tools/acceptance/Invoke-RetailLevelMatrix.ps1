@@ -216,11 +216,11 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "2/0") {
-                    $issues.Add("active-world Commander/TankGroup section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "3/0") {
+                    $issues.Add("active-world Commander/TankGroup/Vehicle section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "2/2/0") {
+                    $log["active_world_restore_phases"] -ne "3/3/0") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
@@ -235,6 +235,11 @@ foreach ($configurationName in $Configuration) {
                 if ((Get-LogUnsigned $log "active_world_container_bytes") -lt 1 -or
                     (Get-LogUnsigned $log "active_world_fingerprint") -lt 1) {
                     $issues.Add("active-world container identity is missing")
+                }
+                if (-not $log.ContainsKey("vehicle_active_world_probe") -or
+                    $log["vehicle_active_world_probe"] -ne "1/1" -or
+                    (Get-LogUnsigned $log "vehicle_active_world_fingerprint") -lt 1) {
+                    $issues.Add("Vehicle.Default fresh-owner restore proof changed")
                 }
             }
 
@@ -272,6 +277,8 @@ foreach ($configurationName in $Configuration) {
                 active_world_created_owners = Get-LogInteger $log "active_world_created_owners"
                 active_world_container_bytes = Get-LogUnsigned $log "active_world_container_bytes"
                 active_world_fingerprint = Get-LogUnsigned $log "active_world_fingerprint"
+                vehicle_active_world_probe = [string]$log["vehicle_active_world_probe"]
+                vehicle_active_world_fingerprint = Get-LogUnsigned $log "vehicle_active_world_fingerprint"
             }
             $records.Add([pscustomobject]$record)
             $record | ConvertTo-Json -Depth 6 |
@@ -299,7 +306,8 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     renderer_nonclear_pixels, active_world_sections,
     active_world_restore_phases, active_world_integrity_probe,
     active_world_created_owners,
-    active_world_container_bytes, active_world_fingerprint |
+    active_world_container_bytes, active_world_fingerprint,
+    vehicle_active_world_probe, vehicle_active_world_fingerprint |
     Export-Csv -LiteralPath (Join-Path $OutputRoot "summary.csv") -NoTypeInformation -Encoding UTF8
 
 if ($Mode -eq "Interactive") {

@@ -2704,8 +2704,8 @@ On Level.04D it captures the first retail AER00 ownership graph, removes only
 the Group and has the decoded owner phase allocate it under a new ObjectID; the
 reference phase reconnects Commander, attribute and retained Tank. A second
 restore intentionally fails at validation and must restore the pre-transaction
-graph. Levels without that active mission still publish two sections with a
-canonical empty TankGroup roster; no Tank is synthesized.
+graph. At this first admission, Levels without that active mission published
+two sections with a canonical empty TankGroup roster; no Tank was synthesized.
 
 The separate clean-seance test starts with only the referenced attribute and
 member dependency. It restores two Commander owners and one TankGroup under
@@ -2729,5 +2729,45 @@ clean shutdown.
 This tranche deliberately does not expose user save slots. Runtime semantic
 events are schema-covered but the live `SimulationContext` queue is not yet
 captured and RNG is explicitly absent. Commander/TankGroup allocation is now
-real, but Vehicle, People, Tank/Cannon, mission/Bullet state, complete fresh-
-Level construction and UI remain the next persistence work.
+real. Vehicle, People, Tank/Cannon, mission/Bullet state, complete fresh-Level
+construction and UI remained the next persistence work at that checkpoint.
+
+## Vehicle active-world v1 and Player core
+
+The third active-world section owns the single global-vessel
+`Vehicle.Default`. Its codec does not serialize the native structs consumed by
+the legacy `Vehicle::SaveGame` path. Shared named EMV/Wheels state structs now
+make that complete legacy save field set explicit, while the active-world
+codec writes
+every matrix, vector, scalar and boolean individually in canonical
+little-endian form. It also records symbolic selected/default/dead
+`VehicleAttr` names, Subject position, damage, weapon and Taxi clocks, and
+Player faction state through symbolic Commander names.
+
+Restore follows the existing owner/reference split. The Vehicle owner phase
+counts only missing objects, checks the real free list and creates no
+relationships. Reference application pre-resolves all attributes and
+Commanders, loads the vessel state, publishes the Player table and finally
+publishes `g_vehicle`. Rollback resets transient Vehicle runtime state, clears
+that global when necessary and removes only transaction-created IDs.
+
+The clean-seance regression now restores two Commanders, one TankGroup and one
+moving Vehicle under four fresh ObjectIDs. It verifies damage, ammunition,
+speed and two Player sides, then proves missing symbolic dependencies and a
+wrong-class owner collision unwind completely. Production startup independently
+captures each retail `Vehicle.Default`, removes it, allocates and rolls back a
+staged owner, then recreates the final owner under another ID and requires the
+same canonical fingerprint before Explosion impulse binding.
+
+Startup diagnostics therefore advance from two to three owner sections and
+owner/reference phases and add `vehicle_active_world_probe=1/1`. Panel/audio
+caches, mission counters, service-owned input, People, Tank/Cannon, Bullet and
+live event queue state remain explicitly deferred; no public save/load control
+is exposed by this tranche.
+
+The final gate passes 54/54 CTest in both Debug and Release and 36/36 retail
+executable cases. Startup reports `3/0`, `3/3/0` and
+`vehicle_active_world_probe=1/1` throughout. Each Level's Vehicle fingerprint
+matches across its installed/mounted and Debug/Release quartet; the nine Levels
+resolve to three legitimate fingerprints corresponding to their selected
+retail vessel state rather than one fabricated global default.

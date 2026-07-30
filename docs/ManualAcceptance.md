@@ -52,12 +52,16 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `2/0` Commander/TankGroup/event
-  sections, `2/2/0` owner/reference/event restore phases, `1/1`
+- active-world format v1 is initialized with `3/0`
+  Commander/TankGroup/Vehicle/event sections, `3/3/0`
+  owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `active_world_created_owners` is `1` for Level.04D, where the restore
   transaction recreates the removed Group, and `0` for Levels whose saved
-  TankGroup roster is empty.
+  TankGroup roster is empty;
+- `vehicle_active_world_probe` is `1/1` with a non-zero fingerprint: every
+  Level has destroyed `Vehicle.Default`, rolled one staged owner back and
+  reconstructed the final owner under a new ObjectID before rendering.
 
 The summary retains timings, clipping counts, software dither usage, active
 light passes and framebuffer evidence. It contains local absolute paths and is
@@ -103,6 +107,6 @@ screenshot before changing palette or raster rules.
 
 The active-world diagnostics are an internal admission proof, not a user save
 control. Do not add save/load to the interactive checklist until a decoded
-snapshot can construct the remaining Vehicle/People/Tank/Cannon/mission owners
-and restore the live event queue; until then those manual cells would overstate
-readiness.
+snapshot can construct the remaining People/Tank/Cannon/mission owners and
+restore the live event and input queues; until then those manual cells would
+overstate readiness.

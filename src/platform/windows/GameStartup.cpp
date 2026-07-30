@@ -1335,6 +1335,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_ActiveWorldContainerBytes()));
   log.Line("active_world_fingerprint=" + std::to_string(
                RecoveredArenaSeance_ActiveWorldFingerprint()));
+  log.Line("vehicle_active_world_probe=" +
+           std::to_string(
+               RecoveredArenaSeance_VehicleActiveWorldReconstructedIDs()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_VehicleActiveWorldRollbacks()));
+  log.Line("vehicle_active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_VehicleActiveWorldFingerprint()));
   log.Line("bullet_ground_spark_initialized=" +
            std::to_string(
                RecoveredGameServices_BulletGroundSparkReady() ? 1 : 0));

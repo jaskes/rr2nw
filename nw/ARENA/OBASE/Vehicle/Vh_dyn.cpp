@@ -163,6 +163,15 @@ ct_Object *VehicleTable::getObjectPTR( int index )
     return &(m_table[ index ]);
  }
 
+int VehicleTable::freeObjectCount() const
+ {
+    int count = 0;
+    for (const ct_Object *object = m_freeList; object != NULL;
+         object = object->next())
+        ++count;
+    return count;
+ }
+
  /*************************************
   *
   *   AttributeTable implementation
@@ -281,6 +290,16 @@ bool Vehicle::ApplyExplosionImpulse(const CFVector3 &impulse, double factor)
 double Vehicle::VesselMass() const
 {
     return m_vessel == 0 ? 0.0 : m_vessel->GetMass();
+}
+
+const void *Vehicle::SaveVesselRuntimeState()
+{
+    return m_vessel == 0 ? 0 : m_vessel->SaveGame();
+}
+
+bool Vehicle::LoadVesselRuntimeState(const void *state)
+{
+    return m_vessel != 0 && state != 0 && m_vessel->LoadGame(state);
 }
 
  //============================================================

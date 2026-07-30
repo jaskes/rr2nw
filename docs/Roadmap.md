@@ -1002,8 +1002,9 @@ The next Windows-first persistence work is deliberately incremental:
 
 1. [done] turn Commander/TankGroup validation into fresh-context allocation
    from decoded records, retaining owner-first/reference-second rollback;
-2. add Vehicle and player-control state, then People and Tank/Cannon dynamic,
-   damage, death and scheduler state as independent versioned sections;
+2. [Vehicle/player core done] add Vehicle and player-control state, then
+   People and Tank/Cannon dynamic, damage, death and scheduler state as
+   independent versioned sections;
 3. add mission/Bullet/effect ownership, extract the live `SimulationContext`
    queue into semantic events and introduce an authoritative deterministic RNG;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
@@ -1019,6 +1020,23 @@ back. On retail Level.04D the mission source now runs once; the saved Group is
 removed and the restore transaction itself recreates it and all four ownership
 links. Tank allocation remains deliberately deferred to the Tank/Cannon owner
 section, so this is not yet a complete fresh-Level load.
+
+The Vehicle half of item 2 is also admitted. A third versioned section now
+owns `Vehicle.Default`, including the selected/default/dead attribute names,
+the field-level EMV or Wheels legacy save contract, Subject transform,
+damage/weapons/Taxi clocks and the Player reputation table expressed through
+symbolic Commander names. Every Level removes that owner, rolls one newly
+staged owner back and then reconstructs the final machine under another
+ObjectID before binding Explosion impulses. A clean seance proves the same
+operation with non-default
+speed, damage, ammunition and two faction records. Panel/audio caches,
+missions, queued input and UI save slots remain outside this record; People and
+Tank/Cannon are the next independent owner sections.
+
+Vehicle admission passes 54/54 CTest in Debug and Release plus 36/36 retail
+launches. Each of the nine Levels has one Vehicle fingerprint across its
+installed/mounted and Debug/Release quartet, and every case reports `3/0`,
+`3/3/0` and `vehicle_active_world_probe=1/1`.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical
