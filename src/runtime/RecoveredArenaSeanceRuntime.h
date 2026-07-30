@@ -129,7 +129,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE = 1ull << 52,
   RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_RESTORE_FAILURE = 1ull << 53,
   RECOVERED_ARENA_SEANCE_EXT_BULLET_ACTIVE_WORLD_FAILURE = 1ull << 54,
-  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_ACTIVE_WORLD_FAILURE = 1ull << 55
+  RECOVERED_ARENA_SEANCE_EXT_EXPLOSION_ACTIVE_WORLD_FAILURE = 1ull << 55,
+  RECOVERED_ARENA_SEANCE_EXT_SPARK_ACTIVE_WORLD_FAILURE = 1ull << 56
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -340,6 +341,14 @@ int RecoveredArenaSeance_SparkProbeQueuedCreates();
 int RecoveredArenaSeance_SparkProbeQueueRollbacks();
 int RecoveredArenaSeance_SparkProbePhaseTransitions();
 int RecoveredArenaSeance_SparkProbeExpirations();
+bool RecoveredArenaSeance_SparkActiveWorldReady();
+int RecoveredArenaSeance_SparkActiveWorldCapturedOwners();
+int RecoveredArenaSeance_SparkActiveWorldSchedulerEvents();
+int RecoveredArenaSeance_SparkActiveWorldRollbacks();
+int RecoveredArenaSeance_SparkActiveWorldReconstructedIDs();
+int RecoveredArenaSeance_SparkActiveWorldStableRoundTrips();
+int RecoveredArenaSeance_SparkActiveWorldResumedPhases();
+unsigned long long RecoveredArenaSeance_SparkActiveWorldFingerprint();
 bool RecoveredArenaSeance_RouteReady();
 bool RecoveredArenaSeance_PeopleAttributesReady();
 bool RecoveredArenaSeance_PeopleReferencesReady();

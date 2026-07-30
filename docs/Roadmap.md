@@ -1007,10 +1007,10 @@ The next Windows-first persistence work is deliberately incremental:
 2. [done] add Vehicle/player, the complete Level-local People roster and the
    Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
    private scheduler state;
-3. [in progress] add transient combat ownership: live Bullet flight and the
-   parent-owned Explosion particle graph are done; detached Spark/Smoke/Corpse,
-   mission state, the remaining semantic event queue and an authoritative
-   deterministic RNG remain;
+3. [in progress] add transient combat ownership: live Bullet flight, the
+   parent-owned Explosion particle graph and detached started Spark are done;
+   Smoke/Corpse, queued effect creation, mission state, the remaining semantic
+   event queue and an authoritative deterministic RNG remain;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
@@ -1076,9 +1076,17 @@ under fresh parent and Sound IDs and executes MOVE to prove scheduling resumes.
 The envelope reports `7/0`, `7/7/0` and
 `explosion_active_world_probe=1/<branches>/<events>/1/1/1/2/1`.
 
+The detached Spark part is now admitted as the eighth section. `SPK1` captures
+two same-name owners at different visible phases, restores their symbolic
+SparkAttr and exact LIFE endpoints under fresh ObjectIDs and executes one
+restored transition without disturbing the other ordinal. The envelope reports
+`8/0`, `8/8/0` and `spark_active_world_probe=2/2/1/2/2/1`. Queued CREATE is
+deliberately deferred to the semantic event section.
+
 The next large persistence slice completes the damage/death effect graph:
-detached Spark, Smoke and Corpse ownership, semantic hit/death events,
-projectiles whose master disappears before capture and their rollback order.
+detached Smoke and Corpse ownership, semantic hit/death and queued effect
+events, projectiles whose master disappears before capture and their rollback
+order.
 After that come the remaining mission queue and authoritative RNG, followed by
 a complete fresh-Level reconstruction and public save controls.
 

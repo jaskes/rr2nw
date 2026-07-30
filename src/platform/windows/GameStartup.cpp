@@ -1238,6 +1238,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_SparkProbePhaseTransitions()) +
            "/" +
             std::to_string(RecoveredArenaSeance_SparkProbeExpirations()));
+  log.Line("spark_active_world_initialized=" + std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldReady() ? 1 : 0));
+  log.Line("spark_active_world_probe=" + std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldCapturedOwners()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldSchedulerEvents()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldRollbacks()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldReconstructedIDs()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldStableRoundTrips()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldResumedPhases()));
+  log.Line("spark_active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SparkActiveWorldFingerprint()));
   log.Line("people_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_PeopleAttributesReady() ? 1 : 0));

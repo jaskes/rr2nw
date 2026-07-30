@@ -3213,3 +3213,41 @@ damage/death events and generic queue state remain separate future sections.
 The ordinary envelope now reports seven owner sections and seven
 owner/reference phases. Admission requires 54/54 CTest in Debug and Release
 plus the complete 36-case installed/mounted retail matrix.
+
+## BD-084: persist started Sparks by duplicate-name ordinal and visible phase
+
+Status: accepted on 2026-07-30.
+
+`SPK1` version 1 is the eighth active-world owner section. A record contains
+the symbolic Spark and SparkAttr names, position, current visible phase, exact
+next LIFE timestamp and its single self-owned `sp_EVC_LIFE` endpoint. Native
+object bytes, encoded attribute-table indices, ObjectIDs, pointers and the
+published dynamic-sprite reference are excluded. The format preserves the May
+timing rule from BD-057/CQ-101: after a LIFE transition the next timestamp is
+derived from the phase that was visible before the transition.
+
+Capture accepts only fully started Sparks with exactly one empty-payload LIFE
+event and no queued CREATE. A new explicit publication flag closes the frame
+boundary: capture and restore reject a Spark whose sprite is still attached to
+the current dynamic list, and removeNotify/endRender clear that publication
+exactly. Queued `sp_EV_CREATE` payloads remain in the future generic semantic
+event section rather than being partly duplicated in `SPK1`.
+
+Symbolic Spark names are not unique. The historical Bullet helper creates every
+ground child as `"S"`, so records are canonical name/creation order and an
+equal-name ordinal is their stable identity. Restore preflights the 40-owner
+pool and every SparkAttr/visual dependency, allocates the complete roster under
+fresh numeric IDs, restores state and LIFE endpoints, and requires exact
+canonical recapture. Rollback removes CREATE/LIFE events before returning each
+owner slot.
+
+The production proof starts two same-name Sparks, advances them to different
+phases, captures both owners and events, destroys them, rolls one complete
+two-owner reconstruction back and creates another under four fresh IDs. It
+then executes the restored phase-one LIFE, observes phase two and its successor
+event, while the other ordinal retains its independent phase. Diagnostics are
+`8/0`, `8/8/0` and `spark_active_world_probe=2/2/1/2/2/1`.
+
+Detached Smoke and Corpse, queued CREATE, semantic damage/death events and the
+generic event queue remain later sections. Admission requires 54/54 CTest in
+Debug and Release plus the full 36-case installed/mounted retail matrix.

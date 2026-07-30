@@ -257,6 +257,7 @@ target_compile_definitions(rr2nw_arena_spark_attribute_state PRIVATE
 
 add_library(rr2nw_arena_obase_spark_full STATIC
   nw/ARENA/OBASE/DynObj/DynSpr.cpp
+  nw/ARENA/OBASE/Spark/SparkActiveWorldState.h
   nw/ARENA/OBASE/Spark/Spark.cpp
   nw/ARENA/OBASE/Spark/SparkSubjectState.h
 )

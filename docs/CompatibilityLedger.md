@@ -2474,6 +2474,33 @@ Status vocabulary:
   startup, seed the simulation explicitly and then promote cross-run whole-world
   fingerprint equality to an acceptance requirement.
 
+### CQ-149: Spark identity is an ordinal and its drawable is frame-local
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: Arena accepts simultaneous Spark objects with the same symbolic
+  name and the original Bullet helper uses constant name `"S"`. A started
+  Spark owns one LIFE event, while a not-yet-started Spark instead owns a
+  payload-bearing CREATE. Rendering publishes `m_viewDynSpr` into the scene's
+  transient dynamic list until endRender. Neither a first-name lookup nor a
+  copied drawable/event payload can survive owner reconstruction safely.
+- Handling: `SPK1` canonicalizes started owners by name then creation identity
+  and uses the equal-name ordinal during fresh-ID reconstruction. It stores
+  symbolic SparkAttr identity, position, visible phase and exact LIFE time.
+  Capture rejects queued CREATE and an open-frame publication; restore resolves
+  all visual dependencies before mutation and rollback drains both private
+  labels before freeing owners. The legacy previous-visible-phase timing from
+  CQ-101 is unchanged.
+- Verification: the runtime creates two same-name owners at different phases,
+  captures two LIFE events, performs one two-owner staged rollback and one
+  final two-owner reconstruction, and requires every numeric ID to change.
+  Executing one restored LIFE advances only its ordinal and schedules its
+  successor. Debug and Release pass 54/54 CTest and the retail matrix passes
+  36/36 with eight phases.
+- Revisit when: queued ground Sparks must survive a save. Decode the semantic
+  CREATE payload in the generic event section and deduplicate it from `SPK1`;
+  do not weaken the started-owner invariant or serialize encoded cache indices.
+
 ## Maintenance rule
 
 When a new quirk is found:

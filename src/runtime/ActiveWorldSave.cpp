@@ -86,7 +86,7 @@ bool IsKnownKind(EActiveWorldSectionKind kind) {
   return value >= static_cast<std::uint32_t>(
                       EActiveWorldSectionKind::Commander) &&
          value <= static_cast<std::uint32_t>(
-                      EActiveWorldSectionKind::Explosion);
+                      EActiveWorldSectionKind::Spark);
 }
 
 bool ValidString(const std::string& value, bool allowEmpty) {

@@ -2906,3 +2906,33 @@ Detached NEWPUFF Smoke, Spark/Corpse ownership, semantic damage/death events,
 mission state, generic events, authoritative RNG, complete fresh-Level
 construction and public save slots remain outside this tranche. Admission is
 54/54 CTest in Debug and Release plus the 36 installed/mounted retail cases.
+
+## Spark active-world v1 and duplicate-name phase ownership
+
+The eighth owner section is canonical `SPK1`. It stores each started Spark's
+symbolic owner/attribute names, position, visible phase and exact self-owned
+LIFE timestamp through fixed-width little-endian fields. Encoded class-table
+indices, ObjectIDs, native layout and dynamic-list pointers do not enter the
+record. A queued CREATE is deliberately outside v1 because its payload belongs
+to the future semantic event queue.
+
+Spark now records whether its sprite is published in an open renderer frame.
+Capture and restore fail closed until endRender detaches it; removeNotify also
+removes a surviving publication before resetting the pooled slot. Preflight
+resolves every SparkAttr and sprite, checks the 40-owner pool and validates the
+saved phase against the resolved phase count before any owner state changes.
+
+Same-name Sparks use canonical name/ObjectID order while live and the resulting
+ordinal after reconstruction. The production probe starts two
+`Spark.ActiveWorld.Probe` owners, advances them to phases one and two, saves
+both LIFE events, destroys the pair, rolls a fresh pair back and restores a
+second pair under four new IDs. It executes the first restored LIFE and proves
+only that ordinal advances and reschedules.
+
+Diagnostics advance to `8/0`, `8/8/0` and
+`spark_active_world_probe=2/2/1/2/2/1`. Source-only fixtures without SkinSpr
+still validate a canonical empty `SPK1`; retail startup must run the live proof.
+Smoke/Corpse ownership, queued CREATE, damage/death semantics, mission state,
+generic events, authoritative RNG, complete fresh-Level construction and
+public save slots remain outside this tranche. Admission is 54/54 CTest in
+Debug and Release plus the 36 installed/mounted retail cases.

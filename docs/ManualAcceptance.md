@@ -52,9 +52,9 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `7/0` for seven
-  Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion owner sections and
-  zero generic events, then reports `7/7/0`
+- active-world format v1 is initialized with `8/0` for eight
+  Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark owner sections
+  and zero generic events, then reports `8/8/0`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `active_world_created_owners` is `2` for Level.04D, where the restore
@@ -71,6 +71,10 @@ writes `summary.json` and `summary.csv`. A case passes only when:
   non-zero fingerprint: a real sound-bearing Explosion graph survives staged
   rollback and fresh-ID reconstruction, and its restored MOVE reschedules
   itself.
+- `spark_active_world_probe` is `2/2/1/2/2/1` with a non-zero fingerprint:
+  two same-name Sparks at different visible phases survive staged rollback and
+  fresh-ID reconstruction, after which one restored LIFE advances and
+  reschedules without changing the other ordinal.
 - `people_active_world_probe` is `<owners>/<scheduler-events>/1` with a
   non-zero fingerprint: every Level has destroyed its complete People roster,
   rolled a complete staged population back and restored fresh owners, private

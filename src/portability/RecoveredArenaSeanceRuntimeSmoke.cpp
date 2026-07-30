@@ -637,6 +637,14 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_SparkProbeQueueRollbacks() == -1 &&
          RecoveredArenaSeance_SparkProbePhaseTransitions() == -1 &&
          RecoveredArenaSeance_SparkProbeExpirations() == -1 &&
+         !RecoveredArenaSeance_SparkActiveWorldReady() &&
+         RecoveredArenaSeance_SparkActiveWorldCapturedOwners() == -1 &&
+         RecoveredArenaSeance_SparkActiveWorldSchedulerEvents() == -1 &&
+         RecoveredArenaSeance_SparkActiveWorldRollbacks() == -1 &&
+         RecoveredArenaSeance_SparkActiveWorldReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_SparkActiveWorldStableRoundTrips() == -1 &&
+         RecoveredArenaSeance_SparkActiveWorldResumedPhases() == -1 &&
+         RecoveredArenaSeance_SparkActiveWorldFingerprint() == 0 &&
          SparkSubjectState_Capacity() == 0 &&
          SparkSubjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_RouteReady() &&
@@ -951,6 +959,14 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_SparkProbeQueueRollbacks() != -1 ||
       RecoveredArenaSeance_SparkProbePhaseTransitions() != -1 ||
       RecoveredArenaSeance_SparkProbeExpirations() != -1 ||
+      RecoveredArenaSeance_SparkActiveWorldReady() ||
+      RecoveredArenaSeance_SparkActiveWorldCapturedOwners() != -1 ||
+      RecoveredArenaSeance_SparkActiveWorldSchedulerEvents() != -1 ||
+      RecoveredArenaSeance_SparkActiveWorldRollbacks() != -1 ||
+      RecoveredArenaSeance_SparkActiveWorldReconstructedIDs() != -1 ||
+      RecoveredArenaSeance_SparkActiveWorldStableRoundTrips() != -1 ||
+      RecoveredArenaSeance_SparkActiveWorldResumedPhases() != -1 ||
+      RecoveredArenaSeance_SparkActiveWorldFingerprint() != 0 ||
       SparkSubjectState_Capacity() != 40 ||
       SparkSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_RouteReady() ||
@@ -1016,10 +1032,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 7 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 8 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 7 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 7 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 8 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 8 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||

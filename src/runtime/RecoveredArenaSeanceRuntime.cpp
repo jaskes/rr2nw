@@ -38,6 +38,7 @@ class CGRPanel;
 #include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
+#include "obase/spark/SparkActiveWorldState.h"
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
 #include "obase/taxi/TaxiSubjectState.h"
@@ -1407,6 +1408,7 @@ struct RecoveredArenaSeanceState {
   bool sparkAttributesReady;
   bool sparkSubjectReady;
   bool sparkVisualResourcesReady;
+  bool sparkActiveWorldReady;
   bool routeReady;
   bool peopleAttributesReady;
   bool peopleReferencesReady;
@@ -1453,6 +1455,13 @@ struct RecoveredArenaSeanceState {
   int sparkProbeQueueRollbacks;
   int sparkProbePhaseTransitions;
   int sparkProbeExpirations;
+  int sparkActiveWorldCapturedOwners;
+  int sparkActiveWorldSchedulerEvents;
+  int sparkActiveWorldRollbacks;
+  int sparkActiveWorldReconstructedIDs;
+  int sparkActiveWorldStableRoundTrips;
+  int sparkActiveWorldResumedPhases;
+  unsigned long long sparkActiveWorldFingerprint;
   unsigned long long bulletAttributeFingerprint;
   unsigned long long bulletReferenceFingerprint;
   unsigned long long bulletSubjectFingerprint;
@@ -2630,6 +2639,44 @@ bool PublishExplosionActiveWorld(SimulationContext* context,
   g_state.explosionActiveWorldResumedMoves = summary.resumedMoves;
   g_state.explosionActiveWorldFingerprint = summary.fingerprint;
   g_state.explosionActiveWorldReady = true;
+  return true;
+}
+
+bool PublishSparkActiveWorld(SimulationContext* context,
+                             double startTime) {
+  // The January source-only fixture has no sprite resources. Its canonical
+  // empty SPK1 section is still part of the envelope, but the live phase
+  // reconstruction proof can only run after Spark.Flash resolves its sprite.
+  if (!g_state.sparkVisualResourcesReady) return true;
+  SparkActiveWorldProbeSummary summary = {};
+  if (!g_state.sparkSubjectReady ||
+      !SparkActiveWorldState_ProbeLiveRoundTrip(
+          context, startTime, &summary) ||
+      summary.capturedOwners != 2 || summary.schedulerEvents != 2 ||
+      summary.stagedRollbacks != 1 || summary.reconstructedOwners != 2 ||
+      summary.stableRoundTrips != 2 || summary.resumedPhases != 1 ||
+      summary.fingerprint == 0 || SparkSubjectState_LiveCount() != 0) {
+    char message[320] = {};
+    std::snprintf(
+        message, sizeof(message),
+        "SPK1 owners/events/rollback/recreated/roundtrips/resumed/"
+        "fingerprint=%d/%d/%d/%d/%d/%d/%llu: %.140s",
+        summary.capturedOwners, summary.schedulerEvents,
+        summary.stagedRollbacks, summary.reconstructedOwners,
+        summary.stableRoundTrips, summary.resumedPhases,
+        summary.fingerprint, SparkActiveWorldState_LastFailure());
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SPARK_ACTIVE_WORLD_FAILURE, message);
+    return false;
+  }
+  g_state.sparkActiveWorldCapturedOwners = summary.capturedOwners;
+  g_state.sparkActiveWorldSchedulerEvents = summary.schedulerEvents;
+  g_state.sparkActiveWorldRollbacks = summary.stagedRollbacks;
+  g_state.sparkActiveWorldReconstructedIDs = summary.reconstructedOwners;
+  g_state.sparkActiveWorldStableRoundTrips = summary.stableRoundTrips;
+  g_state.sparkActiveWorldResumedPhases = summary.resumedPhases;
+  g_state.sparkActiveWorldFingerprint = summary.fingerprint;
+  g_state.sparkActiveWorldReady = true;
   return true;
 }
 
@@ -4939,6 +4986,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   PortalClassTable_Link();
   SparkAttributeState_Link();
   SparkSubjectState_Link();
+  SparkActiveWorldState_Link();
   SmokeAttributeState_Link();
   SmokeSubjectState_Link();
   SmokeVisualState_Link();
@@ -5106,6 +5154,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    if (!PublishSparkActiveWorld(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
     if (!PublishBulletActiveWorld(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
@@ -5247,6 +5299,7 @@ void RecoveredArenaSeance_Release() {
   g_state.sparkAttributesReady = false;
   g_state.sparkSubjectReady = false;
   g_state.sparkVisualResourcesReady = false;
+  g_state.sparkActiveWorldReady = false;
   g_state.sparkSubjectCapacity = 0;
   g_state.sparkSubjectFingerprint = 0;
   g_state.sparkVisualResourceFingerprint = 0;
@@ -5255,6 +5308,13 @@ void RecoveredArenaSeance_Release() {
   g_state.sparkProbeQueueRollbacks = 0;
   g_state.sparkProbePhaseTransitions = 0;
   g_state.sparkProbeExpirations = 0;
+  g_state.sparkActiveWorldCapturedOwners = 0;
+  g_state.sparkActiveWorldSchedulerEvents = 0;
+  g_state.sparkActiveWorldRollbacks = 0;
+  g_state.sparkActiveWorldReconstructedIDs = 0;
+  g_state.sparkActiveWorldStableRoundTrips = 0;
+  g_state.sparkActiveWorldResumedPhases = 0;
+  g_state.sparkActiveWorldFingerprint = 0;
   g_state.smokeAttributesReady = false;
   g_state.smokeSubjectReady = false;
   g_state.smokeSubjectCapacity = 0;
@@ -6780,6 +6840,45 @@ int RecoveredArenaSeance_SparkProbePhaseTransitions() {
 int RecoveredArenaSeance_SparkProbeExpirations() {
   return g_state.sparkVisualResourcesReady ? g_state.sparkProbeExpirations
                                            : -1;
+}
+
+bool RecoveredArenaSeance_SparkActiveWorldReady() {
+  return g_state.sparkActiveWorldReady;
+}
+
+int RecoveredArenaSeance_SparkActiveWorldCapturedOwners() {
+  return g_state.sparkActiveWorldReady
+             ? g_state.sparkActiveWorldCapturedOwners : -1;
+}
+
+int RecoveredArenaSeance_SparkActiveWorldSchedulerEvents() {
+  return g_state.sparkActiveWorldReady
+             ? g_state.sparkActiveWorldSchedulerEvents : -1;
+}
+
+int RecoveredArenaSeance_SparkActiveWorldRollbacks() {
+  return g_state.sparkActiveWorldReady
+             ? g_state.sparkActiveWorldRollbacks : -1;
+}
+
+int RecoveredArenaSeance_SparkActiveWorldReconstructedIDs() {
+  return g_state.sparkActiveWorldReady
+             ? g_state.sparkActiveWorldReconstructedIDs : -1;
+}
+
+int RecoveredArenaSeance_SparkActiveWorldStableRoundTrips() {
+  return g_state.sparkActiveWorldReady
+             ? g_state.sparkActiveWorldStableRoundTrips : -1;
+}
+
+int RecoveredArenaSeance_SparkActiveWorldResumedPhases() {
+  return g_state.sparkActiveWorldReady
+             ? g_state.sparkActiveWorldResumedPhases : -1;
+}
+
+unsigned long long RecoveredArenaSeance_SparkActiveWorldFingerprint() {
+  return g_state.sparkActiveWorldReady
+             ? g_state.sparkActiveWorldFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }

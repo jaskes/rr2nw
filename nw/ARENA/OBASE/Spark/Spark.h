@@ -33,6 +33,7 @@ class Spark : public ct_Subject
     int                    m_curPhase;
     double                 m_nextLifeTime;
     bool                   m_started;
+    bool                   m_dynamicPublished;
 
     s_ViewDynamicSprite    m_viewDynSpr;
 

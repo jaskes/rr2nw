@@ -216,11 +216,11 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "7/0") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "8/0") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "7/7/0") {
+                    $log["active_world_restore_phases"] -ne "8/8/0") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
@@ -272,6 +272,12 @@ foreach ($configurationName in $Configuration) {
                     [int]$explosionActiveWorld[7] -ne 1 -or
                     (Get-LogUnsigned $log "explosion_active_world_fingerprint") -lt 1) {
                     $issues.Add("Explosion EXP1 graph reconstruction proof changed")
+                }
+                if ((Get-LogInteger $log "spark_active_world_initialized") -ne 1 -or
+                    -not $log.ContainsKey("spark_active_world_probe") -or
+                    $log["spark_active_world_probe"] -ne "2/2/1/2/2/1" -or
+                    (Get-LogUnsigned $log "spark_active_world_fingerprint") -lt 1) {
+                    $issues.Add("Spark SPK1 phase reconstruction proof changed")
                 }
                 if (-not $log.ContainsKey("vehicle_active_world_probe") -or
                     $log["vehicle_active_world_probe"] -ne "1/1" -or
@@ -330,6 +336,8 @@ foreach ($configurationName in $Configuration) {
                 people_active_world_fingerprint = Get-LogUnsigned $log "people_active_world_fingerprint"
                 explosion_active_world_probe = [string]$log["explosion_active_world_probe"]
                 explosion_active_world_fingerprint = Get-LogUnsigned $log "explosion_active_world_fingerprint"
+                spark_active_world_probe = [string]$log["spark_active_world_probe"]
+                spark_active_world_fingerprint = Get-LogUnsigned $log "spark_active_world_fingerprint"
             }
             $records.Add([pscustomobject]$record)
             $record | ConvertTo-Json -Depth 6 |
