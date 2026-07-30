@@ -1147,15 +1147,17 @@ The continuation now owns a new version-1 active-world envelope. It is not a
 retail save format. The automated proof currently covers Commander and
 TankGroup symbolic state, plus the generic schema for Level/content/mod/time,
 RNG and semantic events. Level.04D demonstrates why symbolic identity is
-mandatory: its reconstructed Group and Tank use new numeric IDs while the
-saved ownership graph remains identical.
+mandatory: its Group is now allocated by the decoder under a new numeric ID
+while the retained Tank and Commander resolve by name and the saved ownership
+graph remains identical. A clean seance separately recreates both Commanders
+and the Group from no live owner objects.
 
 This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
 RC requirement for complete world state or manual save points. Vehicle,
 People, Tank/Cannon, mission/Bullet state, the live event queue, authoritative
-RNG, fresh-context owner allocation and user controls remain required.
+RNG, complete fresh-Level construction and user controls remain required.
 
 ## Binary analysis boundary
 

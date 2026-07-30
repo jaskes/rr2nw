@@ -67,7 +67,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   RuntimeRestoreTarget(SimulationContext* context, bool rejectValidation)
       : context_(context), snapshot_(nullptr), rejectValidation_(rejectValidation),
         began_(false), committed_(false), rolledBack_(false), ownerPhases_(0),
-        referencePhases_(0), eventPhases_(0) {}
+        referencePhases_(0), eventPhases_(0), rollbackClean_(false) {}
 
   bool Begin(const SActiveWorldSnapshot& snapshot,
              std::string* failure) override {
@@ -78,6 +78,16 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     snapshot_ = &snapshot;
     began_ = true;
     staged_.clear();
+    commanderBackup_.clear();
+    tankGroupBackup_.clear();
+    createdCommanders_.clear();
+    createdTankGroups_.clear();
+    if (!CommanderState_CaptureStable(context_, &commanderBackup_) ||
+        !TankGroupState_CaptureStable(context_, &tankGroupBackup_)) {
+      SetFailure(failure, "active-world live owner backup failed");
+      began_ = false;
+      return false;
+    }
     return true;
   }
 
@@ -87,6 +97,23 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       SetFailure(failure, "active-world owner codec rejected a section");
       return false;
     }
+    bool created = false;
+    switch (section.kind) {
+      case EActiveWorldSectionKind::Commander:
+        created = CommanderState_CreateStableOwners(
+            context_, section.payload, &createdCommanders_);
+        break;
+      case EActiveWorldSectionKind::TankGroup:
+        created = TankGroupState_CreateStableOwners(
+            context_, section.payload, &createdTankGroups_);
+        break;
+      default:
+        break;
+    }
+    if (!created) {
+      SetFailure(failure, "active-world owner allocation failed");
+      return false;
+    }
     staged_.push_back(section);
     ++ownerPhases_;
     return true;
@@ -94,7 +121,21 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
 
   bool ResolveReferences(const SActiveWorldSection& section,
                          std::string* failure) override {
-    if (!began_ || !OwnerMatchesWorld(context_, section)) {
+    bool resolved = false;
+    if (began_)
+      switch (section.kind) {
+        case EActiveWorldSectionKind::Commander:
+          resolved = CommanderState_ApplyStableReferences(
+              context_, section.payload);
+          break;
+        case EActiveWorldSectionKind::TankGroup:
+          resolved = TankGroupState_ApplyStableReferences(
+              context_, section.payload);
+          break;
+        default:
+          break;
+      }
+    if (!resolved || !OwnerMatchesWorld(context_, section)) {
       SetFailure(failure,
                  "symbolic owner references do not match the live graph");
       return false;
@@ -135,19 +176,38 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   void Rollback() override {
+    bool clean = began_;
+    if (began_) {
+      TankGroupState_RemoveStableOwners(context_, &createdTankGroups_);
+      CommanderState_RemoveStableOwners(context_, &createdCommanders_);
+      clean = CommanderState_ApplyStableReferences(
+                  context_, commanderBackup_) && clean;
+      clean = TankGroupState_ApplyStableReferences(
+                  context_, tankGroupBackup_) && clean;
+      clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
+              TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
+              clean;
+    }
     staged_.clear();
     rolledBack_ = true;
+    rollbackClean_ = clean;
   }
 
   bool Successful() const {
     return began_ && committed_ && !rolledBack_ && staged_.size() == 2;
   }
   bool RolledBackCleanly() const {
-    return began_ && !committed_ && rolledBack_ && staged_.empty();
+    return began_ && !committed_ && rolledBack_ && staged_.empty() &&
+           rollbackClean_ && createdCommanders_.empty() &&
+           createdTankGroups_.empty();
   }
   int ownerPhases() const { return ownerPhases_; }
   int referencePhases() const { return referencePhases_; }
   int eventPhases() const { return eventPhases_; }
+  int createdOwners() const {
+    return static_cast<int>(createdCommanders_.size() +
+                            createdTankGroups_.size());
+  }
 
  private:
   SimulationContext* context_;
@@ -159,15 +219,21 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   int ownerPhases_;
   int referencePhases_;
   int eventPhases_;
+  bool rollbackClean_;
   std::vector<SActiveWorldSection> staged_;
+  std::vector<std::uint8_t> commanderBackup_;
+  std::vector<std::uint8_t> tankGroupBackup_;
+  std::vector<KR_ObjectID> createdCommanders_;
+  std::vector<KR_ObjectID> createdTankGroups_;
 };
 
 }  // namespace
 
 SActiveWorldRuntimeProbeSummary::SActiveWorldRuntimeProbeSummary()
     : ready(false), sections(0), events(0), ownerPhases(0),
-      referencePhases(0), eventPhases(0), corruptionRejects(0), rollbacks(0),
-      containerBytes(0), worldFingerprint(0) {}
+      referencePhases(0), eventPhases(0), createdOwners(0),
+      corruptionRejects(0), rollbacks(0), containerBytes(0),
+      worldFingerprint(0) {}
 
 bool ActiveWorldRuntime_CaptureProbe(
     SimulationContext* context, std::uint64_t contentFingerprint,
@@ -256,6 +322,7 @@ bool ActiveWorldRuntime_RestoreProbe(
   summary->ownerPhases = success.ownerPhases();
   summary->referencePhases = success.referencePhases();
   summary->eventPhases = success.eventPhases();
+  summary->createdOwners = success.createdOwners();
   summary->rollbacks = 1;
   summary->ready = true;
   return true;

@@ -31,6 +31,13 @@ bool TankGroupState_ValidateStable(
     const std::vector<unsigned char> &bytes);
 bool TankGroupState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes);
+bool TankGroupState_CreateStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *created);
+bool TankGroupState_ApplyStableReferences(
+    SimulationContext *context, const std::vector<unsigned char> &bytes);
+void TankGroupState_RemoveStableOwners(
+    SimulationContext *context, std::vector<KR_ObjectID> *created);
 bool TankGroupState_ProbeScheduler(
     SimulationContext *context, const KR_ObjectID &group, double timeStamp,
     STankGroupSchedulerProbeSummary *summary);

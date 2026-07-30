@@ -54,7 +54,10 @@ writes `summary.json` and `summary.csv`. A case passes only when:
   contains pixels different from its clear colour.
 - active-world format v1 is initialized with `2/0` Commander/TankGroup/event
   sections, `2/2/0` owner/reference/event restore phases, `1/1`
-  corruption/rollback proof and non-zero container size/fingerprint.
+  corruption/rollback proof and non-zero container size/fingerprint;
+- `active_world_created_owners` is `1` for Level.04D, where the restore
+  transaction recreates the removed Group, and `0` for Levels whose saved
+  TankGroup roster is empty.
 
 The summary retains timings, clipping counts, software dither usage, active
 light passes and framebuffer evidence. It contains local absolute paths and is
@@ -100,5 +103,6 @@ screenshot before changing palette or raster rules.
 
 The active-world diagnostics are an internal admission proof, not a user save
 control. Do not add save/load to the interactive checklist until a decoded
-snapshot can construct all required owners in a fresh context and restore the
-live event queue; until then those manual cells would overstate readiness.
+snapshot can construct the remaining Vehicle/People/Tank/Cannon/mission owners
+and restore the live event queue; until then those manual cells would overstate
+readiness.

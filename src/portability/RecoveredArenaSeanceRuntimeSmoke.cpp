@@ -685,6 +685,7 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ActiveWorldOwnerPhases() == -1 &&
          RecoveredArenaSeance_ActiveWorldReferencePhases() == -1 &&
          RecoveredArenaSeance_ActiveWorldEventPhases() == -1 &&
+         RecoveredArenaSeance_ActiveWorldCreatedOwners() == -1 &&
          RecoveredArenaSeance_ActiveWorldCorruptionRejects() == -1 &&
          RecoveredArenaSeance_ActiveWorldRollbacks() == -1 &&
          RecoveredArenaSeance_ActiveWorldContainerBytes() == 0 &&
@@ -975,6 +976,7 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_ActiveWorldOwnerPhases() != 2 ||
       RecoveredArenaSeance_ActiveWorldReferencePhases() != 2 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
+      RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||
       RecoveredArenaSeance_ActiveWorldRollbacks() != 1 ||
       RecoveredArenaSeance_ActiveWorldContainerBytes() == 0 ||

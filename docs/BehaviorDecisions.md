@@ -2965,13 +2965,12 @@ before `MoveFileExW(...REPLACE_EXISTING|WRITE_THROUGH)`; the prior file remains
 the committed value until that final step succeeds.
 
 The first production slice contains Commander and TankGroup sections only.
-Level.04D captures the active AER00 graph, removes it, recreates Group and Tank
-under different process-local IDs and validates both sections against the new
-symbolic graph. A forced validation failure proves that staged data is cleared
-and the live graph remains unchanged. This is a reconstruction/admission proof,
-not yet a menu save command: the Level source still creates the second graph,
-the runtime adapter validates rather than allocates Commander/TankGroup from
-bytes, and the live event queue and RNG are not yet exported.
+BD-078 advances those codecs from validation to real owner allocation:
+Level.04D now removes its source-created Group and the restore transaction
+recreates it from bytes under a new process-local ID. A forced validation
+failure restores the previous live graph. This remains an internal admission
+proof rather than a menu save command; Tank and the other active owners, the
+live event queue and RNG are not yet exported.
 
 The next owner slices add Vehicle, People, Tank/Cannon and mission state, then
 the actual `SimulationContext` event queue and deterministic RNG. Only after a
@@ -2979,7 +2978,32 @@ fresh-context reconstruction can reproduce a complete active world may the UI
 expose save/load slots. Retail-save importing remains a separate compatibility
 project.
 
-Admission proof passes 53/53 CTest in Debug and Release and all 36 retail
+Admission proof passes 54/54 CTest in Debug and Release and all 36 retail
 executable cases across nine Levels, both data roots and both configurations.
 Every Level has one stable active-world fingerprint across its four runs,
 reports `2/0`, `2/2/0` and `1/1`, renders non-empty frames and exits cleanly.
+
+## BD-078: allocate decoded owners before publishing symbolic references
+
+Status: accepted on 2026-07-30.
+
+Commander and TankGroup version-1 records are now construction inputs, not
+only comparison fixtures. The owner phase validates canonical ordering and
+creates each missing symbolic owner without applying relationships. A name
+already owned by the correct class is retained; a wrong-class collision is a
+hard failure. TankGroup restore checks free capacity before calling the legacy
+`CT_KILLINVISIBLE` table so loading can never evict an unrelated live subject.
+
+Only after every owner exists does the reference phase resolve all member,
+Commander and attribute names. Resolution is preflighted completely before a
+record mutates live state. Rollback removes transaction-created TankGroups and
+Commanders, reapplies the captured pre-transaction records and verifies both
+canonical rosters. Process-local IDs are never accepted as fallback identity.
+
+A clean seance proves two Commanders and one TankGroup reconstruct under three
+new ObjectIDs. Missing member and wrong-class collision cases both preserve an
+empty owner roster. In retail Level.04D the AER00 source creates its Tank and
+Group once; the Group is then removed and allocated by the restore owner phase
+under a new ID while the retained Tank is resolved symbolically. This admits
+fresh Commander/TankGroup construction but deliberately does not claim Tank,
+Vehicle or complete Level allocation yet.

@@ -1586,6 +1586,7 @@ struct RecoveredArenaSeanceState {
   int activeWorldOwnerPhases;
   int activeWorldReferencePhases;
   int activeWorldEventPhases;
+  int activeWorldCreatedOwners;
   int activeWorldCorruptionRejects;
   int activeWorldRollbacks;
   unsigned long long activeWorldContainerBytes;
@@ -4148,6 +4149,15 @@ void RollBackAER00TankSpawn(SimulationContext* context) {
   }
 }
 
+void RollBackAER00TankGroupOnly(SimulationContext* context) {
+  if (context == nullptr || !context->isExist("C.Group.aer00.00")) return;
+  const KR_ObjectID group = context->searchObject("C.Group.aer00.00");
+  RemoveAllEvents(context, tg_EVC_FIND_ENEMY, group);
+  RemoveAllEvents(context, tg_EVC_MOVING, group);
+  RemoveAllEvents(context, tg_EV_REACHED, group);
+  if (context->isExist(group)) context->removeObject(group);
+}
+
 unsigned long long ActiveWorldContentFingerprint() {
   if (RecoveredRetailScriptManifest_IsReady()) {
     const SRecoveredRetailScriptManifestSummary* manifest =
@@ -4189,6 +4199,7 @@ void PublishActiveWorldSummary(
   g_state.activeWorldOwnerPhases = summary.ownerPhases;
   g_state.activeWorldReferencePhases = summary.referencePhases;
   g_state.activeWorldEventPhases = summary.eventPhases;
+  g_state.activeWorldCreatedOwners = summary.createdOwners;
   g_state.activeWorldCorruptionRejects = summary.corruptionRejects;
   g_state.activeWorldRollbacks = summary.rollbacks;
   g_state.activeWorldContainerBytes =
@@ -4373,20 +4384,37 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
   }
   g_state.missionTankFindEnemyCycles = scheduler.findEnemyCycles;
   g_state.missionTankMovingCycles = scheduler.movingCycles;
-  RollBackAER00TankSpawn(context);
+  RollBackAER00TankGroupOnly(context);
+  if (context->isExist("C.Group.aer00.00") ||
+      !context->isExist("C.Unit.aer00.00") ||
+      TankGroupState_LiveCount(context) != baselineGroups ||
+      TankSubjectState_LiveCount(context) != baselineTanks + 1) {
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        "AER00 owner-only teardown did not retain the Tank dependency");
+    return false;
+  }
+  if (!RestoreActiveWorldProbe(context, activeWorldBytes,
+                               &activeWorldSummary) ||
+      activeWorldSummary.createdOwners != 1) {
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        "active-world restore did not allocate the missing TankGroup owner");
+    return false;
+  }
 
   KR_ObjectID secondCommander, secondGroup, secondTank;
   int secondLinks = 0;
-  if (!RunRetailAER00TankSpawn(context, startTime + 2.0) ||
-      !ValidateAER00TankOwnership(context, &secondCommander, &secondGroup,
+  if (!ValidateAER00TankOwnership(context, &secondCommander, &secondGroup,
                                   &secondTank, &secondLinks)) {
     RollBackAER00TankSpawn(context);
     ReportExtended(
         RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
-        "reconstructed AER00 spawn ownership is invalid");
+        "restored AER00 symbolic ownership is invalid");
     return false;
   }
-  ++g_state.missionTankSpawns;
   const unsigned long long secondCommanderFingerprint =
       CommanderState_Fingerprint(context);
   const unsigned long long secondGroupFingerprint =
@@ -4397,7 +4425,7 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
       MissionTankOwnershipFingerprint(context);
   if (secondFingerprint != firstFingerprint ||
       secondCommander != firstCommander || secondGroup == firstGroup ||
-      secondTank == firstTank || secondLinks != firstLinks) {
+      secondTank != firstTank || secondLinks != firstLinks) {
     char message[256] = {};
     std::snprintf(
         message, sizeof(message),
@@ -4416,11 +4444,6 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
   }
   g_state.missionTankReconstructedIDs = 1;
   g_state.missionTankFingerprint = secondFingerprint;
-  if (!RestoreActiveWorldProbe(context, activeWorldBytes,
-                               &activeWorldSummary)) {
-    RollBackAER00TankSpawn(context);
-    return false;
-  }
   RollBackAER00TankSpawn(context);
 
   if (TankGroupState_LiveCount(context) != baselineGroups ||
@@ -4833,6 +4856,7 @@ void RecoveredArenaSeance_Release() {
   g_state.activeWorldOwnerPhases = 0;
   g_state.activeWorldReferencePhases = 0;
   g_state.activeWorldEventPhases = 0;
+  g_state.activeWorldCreatedOwners = 0;
   g_state.activeWorldCorruptionRejects = 0;
   g_state.activeWorldRollbacks = 0;
   g_state.activeWorldContainerBytes = 0;
@@ -5348,6 +5372,12 @@ int RecoveredArenaSeance_ActiveWorldReferencePhases() {
 int RecoveredArenaSeance_ActiveWorldEventPhases() {
   return g_state.activeWorldPersistenceReady
              ? g_state.activeWorldEventPhases
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldCreatedOwners() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldCreatedOwners
              : -1;
 }
 

@@ -19,9 +19,16 @@ claim authorship of inherited Logos code or retail data.
   every post-begin failure.
 - Connected real Commander and TankGroup version-1 sections to the active
   Level runtime. Level.04D captures the first retail AER00 ownership graph,
-  removes it, reconstructs new Group/Tank ObjectIDs and proves the saved
-  symbolic state against that second graph. Other Levels prove the canonical
-  empty TankGroup case without fabricating mission population.
+  removes its Group owner and reconstructs that Group directly from decoded
+  state under a new ObjectID while retaining the Tank as an explicit external
+  dependency. Other Levels prove the canonical empty TankGroup case without
+  fabricating mission population.
+- Added transactional Commander/TankGroup owner construction and symbolic
+  reference publication. A clean-seance regression removes two Commanders and
+  one TankGroup, restores all three under new ObjectIDs, rejects a missing
+  member and a wrong-class name collision, and proves both failures leave no
+  partially published owners. The final gate passes 54/54 CTest in Debug and
+  Release plus 36/36 installed/mounted retail Level launches.
 - Added corruption and rollback probes, startup diagnostics and an acceptance
   gate for the active-world envelope. The hermetic format test covers semantic
   events and atomic disk I/O; user-facing save/load controls, event-queue

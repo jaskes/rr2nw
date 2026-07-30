@@ -19,6 +19,7 @@
 #include "storage/h/strgdefs.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -63,6 +64,7 @@ class TankGroupTable : public ct_SubjectTable
     virtual void       freeObjects ();
     virtual ct_Object *getObjectPTR( int index );
     TankGroup         *resolve(const KR_ObjectID &object);
+    int                freeObjectCount() const;
 };
 
 
@@ -121,6 +123,15 @@ TankGroup *TankGroupTable::resolve(const KR_ObjectID &object)
         if (m_table[index].getObjectID() == object)
             return &m_table[index];
     return NULL;
+ }
+
+int TankGroupTable::freeObjectCount() const
+ {
+    int count = 0;
+    for (const ct_Object *object = m_freeList; object != NULL;
+         object = object->next())
+        ++count;
+    return count;
  }
 
 
@@ -966,6 +977,56 @@ bool DecodeStableTankGroups(const std::vector<unsigned char> &bytes,
     return offset == bytes.size();
 }
 
+bool StrictlyOrderedGroupNames(const std::vector<std::string> &names)
+{
+    for (size_t index = 0; index < names.size(); ++index)
+        if (names[index].empty() ||
+            (index != 0 && names[index - 1] >= names[index]))
+            return false;
+    return true;
+}
+
+bool FiniteGroupVector(const CFVector3 &value)
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+           std::isfinite(value.z);
+}
+
+bool ValidateStableTankGroups(
+    const std::vector<StableTankGroupRecord> &records)
+{
+    for (size_t index = 0; index < records.size(); ++index)
+    {
+        const StableTankGroupRecord &record = records[index];
+        if (record.name.empty() || record.commander.empty() ||
+            (index != 0 && records[index - 1].name >= record.name) ||
+            !StrictlyOrderedGroupNames(record.members) ||
+            !FiniteGroupVector(record.position) ||
+            !FiniteGroupVector(record.destination))
+            return false;
+    }
+    return true;
+}
+
+struct ResolvedTankGroupRecord
+{
+    TankGroup *group;
+    KR_ObjectID commander;
+    KR_ObjectID attribute;
+    AttributeTankGroup *attributeObject;
+    std::vector<KR_ObjectID> members;
+};
+
+void RemoveGroupRestoreEvents(SimulationContext *context,
+                              const KR_ObjectID &group)
+{
+    if (context == NULL)
+        return;
+    while (context->removeEvent(tg_EVC_FIND_ENEMY, group) == 1) {}
+    while (context->removeEvent(tg_EVC_MOVING, group) == 1) {}
+    while (context->removeEvent(tg_EV_REACHED, group) == 1) {}
+}
+
 void HashTankGroupBytes(unsigned long long *hash, const void *data,
                         size_t size)
 {
@@ -1064,7 +1125,8 @@ bool TankGroupState_ValidateStable(
     const std::vector<unsigned char> &bytes)
 {
     std::vector<StableTankGroupRecord> records;
-    return DecodeStableTankGroups(bytes, &records);
+    return DecodeStableTankGroups(bytes, &records) &&
+           ValidateStableTankGroups(records);
 }
 
 bool TankGroupState_MatchesStable(
@@ -1072,7 +1134,126 @@ bool TankGroupState_MatchesStable(
 {
     std::vector<StableTankGroupRecord> current, expected;
     return CollectStableTankGroups(context, &current) &&
-           DecodeStableTankGroups(bytes, &expected) && current == expected;
+           DecodeStableTankGroups(bytes, &expected) &&
+           ValidateStableTankGroups(expected) && current == expected;
+}
+
+bool TankGroupState_CreateStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *created)
+{
+    std::vector<StableTankGroupRecord> records;
+    if (context == NULL || created == NULL || !created->empty() ||
+        !DecodeStableTankGroups(bytes, &records) ||
+        !ValidateStableTankGroups(records) ||
+        g_arena.searchSeanceClassTable("TankGroup") == ct_NULLID)
+        return false;
+    int missing = 0;
+    for (size_t index = 0; index < records.size(); ++index)
+        if (!context->isExist(records[index].name.c_str()))
+            ++missing;
+    if (missing > __classTable.freeObjectCount())
+        return false;
+    for (size_t index = 0; index < records.size(); ++index)
+    {
+        const char *name = records[index].name.c_str();
+        if (context->isExist(name))
+        {
+            const KR_ObjectID object = context->searchObject(name);
+            if (__classTable.resolve(object) == NULL)
+            {
+                TankGroupState_RemoveStableOwners(context, created);
+                return false;
+            }
+            continue;
+        }
+        KR_ObjectID object = g_arena.newObject("TankGroup", name);
+        if (object.isNUL())
+        {
+            TankGroupState_RemoveStableOwners(context, created);
+            return false;
+        }
+        RemoveGroupRestoreEvents(context, object);
+        created->push_back(object);
+    }
+    return true;
+}
+
+bool TankGroupState_ApplyStableReferences(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableTankGroupRecord> records;
+    if (context == NULL || !DecodeStableTankGroups(bytes, &records) ||
+        !ValidateStableTankGroups(records))
+        return false;
+    std::vector<ResolvedTankGroupRecord> resolved(records.size());
+    for (size_t index = 0; index < records.size(); ++index)
+    {
+        const StableTankGroupRecord &record = records[index];
+        if (!context->isExist(record.name.c_str()) ||
+            !context->isExist(record.commander.c_str()))
+            return false;
+        resolved[index].group = __classTable.resolve(
+            context->searchObject(record.name.c_str()));
+        resolved[index].commander =
+            context->searchObject(record.commander.c_str());
+        resolved[index].attribute = KR_ObjectID::NUL();
+        resolved[index].attributeObject = &__defaultAttr;
+        if (resolved[index].group == NULL ||
+            context->queryInterface(resolved[index].commander,
+                                    ICommanderIID) == NULL)
+            return false;
+        if (!record.attribute.empty())
+        {
+            if (!context->isExist(record.attribute.c_str()))
+                return false;
+            resolved[index].attribute =
+                context->searchObject(record.attribute.c_str());
+            resolved[index].attributeObject =
+                static_cast<AttributeTankGroup *>(
+                    __attrTable.searchAttribute(resolved[index].attribute));
+            if (resolved[index].attributeObject == NULL)
+                return false;
+        }
+        for (size_t member = 0; member < record.members.size(); ++member)
+        {
+            if (!context->isExist(record.members[member].c_str()))
+                return false;
+            resolved[index].members.push_back(
+                context->searchObject(record.members[member].c_str()));
+        }
+    }
+    for (size_t index = 0; index < records.size(); ++index)
+    {
+        TankGroup *group = resolved[index].group;
+        group->m_commander = resolved[index].commander;
+        group->m_attrID = resolved[index].attribute;
+        group->m_attr = resolved[index].attributeObject;
+        group->m_members.clr();
+        for (size_t member = 0; member < resolved[index].members.size();
+             ++member)
+            group->m_members.add(resolved[index].members[member]);
+        group->m_position = records[index].position;
+        group->setPosition(records[index].position);
+        group->d_mov.m_crd = records[index].destination;
+    }
+    return TankGroupState_MatchesStable(context, bytes);
+}
+
+void TankGroupState_RemoveStableOwners(
+    SimulationContext *context, std::vector<KR_ObjectID> *created)
+{
+    if (created == NULL)
+        return;
+    if (context != NULL)
+        for (std::vector<KR_ObjectID>::reverse_iterator object =
+                 created->rbegin(); object != created->rend(); ++object)
+        {
+            RemoveGroupRestoreEvents(context, *object);
+            if (context->isExist(*object))
+                context->removeObject(*object);
+        }
+    created->clear();
 }
 
 bool TankGroupState_ProbeScheduler(

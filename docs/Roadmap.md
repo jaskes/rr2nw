@@ -986,20 +986,22 @@ The first active-world persistence slice is now admitted. Format v1 owns
 canonical Level/content/mod/time/RNG metadata, owner sections, semantic event
 records, bounded decode, integrity checks, atomic file replacement and a
 rollback-enforced restore pipeline. Commander and TankGroup are the first real
-sections. Level.04D captures its AER00 ownership graph and proves the saved
-symbolic state after the source recreates Group/Tank under new ObjectIDs; all
-other Levels retain an empty TankGroup roster. Startup and the retail matrix
-require the resulting envelope and phase diagnostics.
+sections. Level.04D captures its AER00 ownership graph, removes the Group and
+proves the decoded owner phase can recreate it under a new ObjectID while the
+source-created Tank remains a symbolic dependency; all other Levels retain an
+empty TankGroup roster. Startup and the retail matrix require the resulting
+envelope and phase diagnostics.
 
-Admission proof is 53/53 CTest in Debug and Release and 36/36 real executable
-runs. Each retail Level has one active-world fingerprint across the installed/
-mounted and Debug/Release quartet; every run also retains a non-empty rendered
-frame and clean shutdown.
+Admission proof is now 54/54 CTest in Debug and Release and 36/36 real
+executable runs. Each retail Level has one active-world fingerprint across the
+installed/mounted and Debug/Release quartet; every run also retains a non-empty
+rendered frame and clean shutdown. Level.04D reports one freshly allocated
+owner in all four cases and every empty-Group Level reports zero.
 
 The next Windows-first persistence work is deliberately incremental:
 
-1. turn Commander/TankGroup validation into fresh-context allocation from the
-   decoded records, retaining owner-first/reference-second rollback;
+1. [done] turn Commander/TankGroup validation into fresh-context allocation
+   from decoded records, retaining owner-first/reference-second rollback;
 2. add Vehicle and player-control state, then People and Tank/Cannon dynamic,
    damage, death and scheduler state as independent versioned sections;
 3. add mission/Bullet/effect ownership, extract the live `SimulationContext`
@@ -1009,6 +1011,14 @@ The next Windows-first persistence work is deliberately incremental:
 5. only then expose atomic save/load slots and add the manual multi-Level save
    checklist; retail-save import remains separate;
 6. after that gate, widen toward data-pack mods, secondary weapons and audio.
+
+The first item is admitted: a clean seance reconstructs both Commander owners
+and its TankGroup from the decoded sections with three new ObjectIDs. Missing
+symbolic dependencies and wrong-class name collisions roll every new owner
+back. On retail Level.04D the mission source now runs once; the saved Group is
+removed and the restore transaction itself recreates it and all four ownership
+links. Tank allocation remains deliberately deferred to the Tank/Cannon owner
+section, so this is not yet a complete fresh-Level load.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical

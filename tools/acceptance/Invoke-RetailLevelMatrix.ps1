@@ -227,6 +227,11 @@ foreach ($configurationName in $Configuration) {
                     $log["active_world_integrity_probe"] -ne "1/1") {
                     $issues.Add("active-world corruption/rollback proof changed")
                 }
+                $expectedCreatedOwners = if ($levelName -ieq "Level.04D") { 1 } else { 0 }
+                if ((Get-LogInteger $log "active_world_created_owners") -ne
+                    $expectedCreatedOwners) {
+                    $issues.Add("active-world fresh owner allocation proof changed")
+                }
                 if ((Get-LogUnsigned $log "active_world_container_bytes") -lt 1 -or
                     (Get-LogUnsigned $log "active_world_fingerprint") -lt 1) {
                     $issues.Add("active-world container identity is missing")
@@ -264,6 +269,7 @@ foreach ($configurationName in $Configuration) {
                 active_world_sections = [string]$log["active_world_owner_event_sections"]
                 active_world_restore_phases = [string]$log["active_world_restore_phases"]
                 active_world_integrity_probe = [string]$log["active_world_integrity_probe"]
+                active_world_created_owners = Get-LogInteger $log "active_world_created_owners"
                 active_world_container_bytes = Get-LogUnsigned $log "active_world_container_bytes"
                 active_world_fingerprint = Get-LogUnsigned $log "active_world_fingerprint"
             }
@@ -292,6 +298,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     renderer_lit_pixels, renderer_framebuffer_hash,
     renderer_nonclear_pixels, active_world_sections,
     active_world_restore_phases, active_world_integrity_probe,
+    active_world_created_owners,
     active_world_container_bytes, active_world_fingerprint |
     Export-Csv -LiteralPath (Join-Path $OutputRoot "summary.csv") -NoTypeInformation -Encoding UTF8
 

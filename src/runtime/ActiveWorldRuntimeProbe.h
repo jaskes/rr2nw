@@ -15,6 +15,7 @@ struct SActiveWorldRuntimeProbeSummary {
   int ownerPhases;
   int referencePhases;
   int eventPhases;
+  int createdOwners;
   int corruptionRejects;
   int rollbacks;
   std::size_t containerBytes;

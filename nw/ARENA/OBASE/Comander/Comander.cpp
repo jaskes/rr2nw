@@ -931,6 +931,58 @@ bool DecodeStableRecords(const std::vector<unsigned char> &bytes,
     return offset == bytes.size();
 }
 
+bool StrictlyOrderedNames(const std::vector<std::string> &names)
+{
+    for (std::size_t index = 0; index < names.size(); ++index)
+        if (names[index].empty() ||
+            (index != 0 && names[index - 1] >= names[index]))
+            return false;
+    return true;
+}
+
+bool ValidateStableRecords(const std::vector<StableCommanderRecord> &records)
+{
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        const StableCommanderRecord &record = records[index];
+        if (record.name.empty() ||
+            (index != 0 && records[index - 1].name >= record.name) ||
+            !StrictlyOrderedNames(record.members) ||
+            !StrictlyOrderedNames(record.hostile) ||
+            !StrictlyOrderedNames(record.friendly))
+            return false;
+    }
+    return true;
+}
+
+struct ResolvedCommanderRecord
+{
+    com_Commander *commander;
+    std::vector<KR_ObjectID> members;
+    std::vector<KR_ObjectID> hostile;
+    std::vector<KR_ObjectID> friendly;
+};
+
+bool ResolveNamedObjects(SimulationContext *context,
+                         const std::vector<std::string> &names,
+                         bool requireCommander,
+                         std::vector<KR_ObjectID> *objects)
+{
+    if (context == NULL || objects == NULL)
+        return false;
+    objects->clear();
+    for (std::size_t index = 0; index < names.size(); ++index)
+    {
+        if (!context->isExist(names[index].c_str()))
+            return false;
+        const KR_ObjectID object = context->searchObject(names[index].c_str());
+        if (requireCommander && ResolveCommander(context, object) == NULL)
+            return false;
+        objects->push_back(object);
+    }
+    return true;
+}
+
 void HashBytes(unsigned long long *hash, const void *data, std::size_t size)
 {
     const unsigned char *bytes = static_cast<const unsigned char *>(data);
@@ -1035,7 +1087,8 @@ bool CommanderState_ValidateStable(
     const std::vector<unsigned char> &bytes)
 {
     std::vector<StableCommanderRecord> records;
-    return DecodeStableRecords(bytes, &records);
+    return DecodeStableRecords(bytes, &records) &&
+           ValidateStableRecords(records);
 }
 
 bool CommanderState_MatchesStable(
@@ -1043,6 +1096,102 @@ bool CommanderState_MatchesStable(
 {
     std::vector<StableCommanderRecord> current, expected;
     return CollectStableRecords(context, &current) &&
-           DecodeStableRecords(bytes, &expected) && current == expected;
+           DecodeStableRecords(bytes, &expected) &&
+           ValidateStableRecords(expected) && current == expected;
+}
+
+bool CommanderState_CreateStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *created)
+{
+    std::vector<StableCommanderRecord> records;
+    if (context == NULL || created == NULL || !created->empty() ||
+        !DecodeStableRecords(bytes, &records) ||
+        !ValidateStableRecords(records) ||
+        g_arena.searchSeanceClassTable("Commander") == ct_NULLID)
+        return false;
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        const char *name = records[index].name.c_str();
+        if (context->isExist(name))
+        {
+            const KR_ObjectID object = context->searchObject(name);
+            if (ResolveCommander(context, object) == NULL)
+            {
+                CommanderState_RemoveStableOwners(context, created);
+                return false;
+            }
+            continue;
+        }
+        KR_ObjectID object = g_arena.newObject("Commander", name);
+        if (object.isNUL())
+        {
+            CommanderState_RemoveStableOwners(context, created);
+            return false;
+        }
+        created->push_back(object);
+    }
+    return true;
+}
+
+bool CommanderState_ApplyStableReferences(
+    SimulationContext *context, const std::vector<unsigned char> &bytes)
+{
+    std::vector<StableCommanderRecord> records;
+    if (context == NULL || !DecodeStableRecords(bytes, &records) ||
+        !ValidateStableRecords(records))
+        return false;
+    std::vector<ResolvedCommanderRecord> resolved(records.size());
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        if (!context->isExist(records[index].name.c_str()))
+            return false;
+        const KR_ObjectID object =
+            context->searchObject(records[index].name.c_str());
+        resolved[index].commander = ResolveCommander(context, object);
+        if (resolved[index].commander == NULL ||
+            !ResolveNamedObjects(context, records[index].members, false,
+                                 &resolved[index].members) ||
+            !ResolveNamedObjects(context, records[index].hostile, true,
+                                 &resolved[index].hostile) ||
+            !ResolveNamedObjects(context, records[index].friendly, true,
+                                 &resolved[index].friendly))
+            return false;
+    }
+    for (std::size_t index = 0; index < resolved.size(); ++index)
+    {
+        com_Commander *commander = resolved[index].commander;
+        for (int member = 0; member < MAX_MEMBER; ++member)
+            commander->m_member[member].reset();
+        commander->m_memberQnty =
+            static_cast<int>(resolved[index].members.size());
+        for (int member = 0; member < commander->m_memberQnty; ++member)
+            commander->m_member[member].m_id =
+                resolved[index].members[member];
+        commander->m_hostileCommanders.clr();
+        for (std::size_t hostile = 0;
+             hostile < resolved[index].hostile.size(); ++hostile)
+            commander->m_hostileCommanders.add(
+                resolved[index].hostile[hostile]);
+        commander->m_friendlyCommanders.clr();
+        for (std::size_t friendly = 0;
+             friendly < resolved[index].friendly.size(); ++friendly)
+            commander->m_friendlyCommanders.add(
+                resolved[index].friendly[friendly]);
+    }
+    return CommanderState_MatchesStable(context, bytes);
+}
+
+void CommanderState_RemoveStableOwners(
+    SimulationContext *context, std::vector<KR_ObjectID> *created)
+{
+    if (created == NULL)
+        return;
+    if (context != NULL)
+        for (std::vector<KR_ObjectID>::reverse_iterator object =
+                 created->rbegin(); object != created->rend(); ++object)
+            if (context->isExist(*object))
+                context->removeObject(*object);
+    created->clear();
 }
 

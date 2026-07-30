@@ -1329,6 +1329,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_ActiveWorldCorruptionRejects()) +
            "/" +
            std::to_string(RecoveredArenaSeance_ActiveWorldRollbacks()));
+  log.Line("active_world_created_owners=" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldCreatedOwners()));
   log.Line("active_world_container_bytes=" + std::to_string(
                RecoveredArenaSeance_ActiveWorldContainerBytes()));
   log.Line("active_world_fingerprint=" + std::to_string(

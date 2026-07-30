@@ -2698,19 +2698,29 @@ then enforces owner, reference, event, validation and commit phases with
 rollback on every subsequent failure.
 
 Commander and TankGroup expose their existing canonical record codecs through
-capture, validate and live-world match adapters. The active Level probe places
-both sections in the envelope. On Level.04D it captures the first retail AER00
-ownership graph and validates after the mission source reconstructs the graph
-with new TankGroup/Tank ObjectIDs. A second restore intentionally fails at
-validation and must clear all staging without changing the live graph. Levels
-without that active mission still publish two sections with a canonical empty
-TankGroup roster; no Tank is synthesized.
+capture, canonical validation, owner allocation, symbolic-reference apply and
+rollback adapters. The active Level probe places both sections in the envelope.
+On Level.04D it captures the first retail AER00 ownership graph, removes only
+the Group and has the decoded owner phase allocate it under a new ObjectID; the
+reference phase reconnects Commander, attribute and retained Tank. A second
+restore intentionally fails at validation and must restore the pre-transaction
+graph. Levels without that active mission still publish two sections with a
+canonical empty TankGroup roster; no Tank is synthesized.
+
+The separate clean-seance test starts with only the referenced attribute and
+member dependency. It restores two Commander owners and one TankGroup under
+three new ObjectIDs, then proves that a missing dependency or a name occupied
+by the wrong class removes every transaction-created owner without evicting or
+rewriting the collision. TankGroup capacity is checked before allocation so
+its legacy `CT_KILLINVISIBLE` overflow mode cannot turn restore into an
+unrelated destructive eviction.
 
 Startup now records format, `owner/event`, `owner/reference/event` phases,
-corruption/rollback counts, container bytes and world fingerprint. The retail
-matrix requires `1`, `2/0`, `2/2/0`, `1/1` and non-zero identities respectively.
-The final gate passes 53/53 CTest in Debug and Release plus all 36 retail
-executable cases over nine Levels, `E:\Games\The Next Worlds`, `G:\nw` and
+fresh-owner allocations, corruption/rollback counts, container bytes and world
+fingerprint. The retail matrix requires one fresh owner for Level.04D and zero
+for the other empty-Group snapshots. The final gate passes 54/54 CTest in
+Debug and Release plus all 36 retail executable cases over nine Levels,
+`E:\Games\The Next Worlds`, `G:\nw` and
 both configurations. Each Level has one active-world fingerprint across its
 four runs. Level.04D's four identical format-v1 containers are 374 bytes and
 include the active TankGroup; all cases retain non-empty renderer evidence and
@@ -2718,7 +2728,6 @@ clean shutdown.
 
 This tranche deliberately does not expose user save slots. Runtime semantic
 events are schema-covered but the live `SimulationContext` queue is not yet
-captured, RNG is explicitly absent, and the decoded records validate a graph
-recreated by Level source rather than allocating it themselves. Vehicle,
-People, Tank/Cannon, mission/Bullet state, fresh-context construction and UI
-remain the next persistence work.
+captured and RNG is explicitly absent. Commander/TankGroup allocation is now
+real, but Vehicle, People, Tank/Cannon, mission/Bullet state, complete fresh-
+Level construction and UI remain the next persistence work.

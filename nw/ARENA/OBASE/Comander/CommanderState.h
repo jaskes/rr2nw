@@ -26,5 +26,12 @@ bool CommanderState_ValidateStable(
     const std::vector<unsigned char> &bytes);
 bool CommanderState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes);
+bool CommanderState_CreateStableOwners(
+    SimulationContext *context, const std::vector<unsigned char> &bytes,
+    std::vector<KR_ObjectID> *created);
+bool CommanderState_ApplyStableReferences(
+    SimulationContext *context, const std::vector<unsigned char> &bytes);
+void CommanderState_RemoveStableOwners(
+    SimulationContext *context, std::vector<KR_ObjectID> *created);
 
 #endif

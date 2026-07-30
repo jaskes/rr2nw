@@ -2247,12 +2247,13 @@ Status vocabulary:
 
 ### CQ-140: process-local ObjectIDs cannot cross an active-world save boundary
 
-- Status: `SOURCE_CONFIRMED`, `FIRST_OWNER_SLICE_ACCEPTED`.
-- Evidence: Level.04D's retail AER00 source creates the same symbolic
-  `Colony -> C.Group.aer00.00 -> C.Unit.aer00.00` ownership chain twice, while
-  the TankGroup and Tank receive different `KR_ObjectID` values on the second
-  allocation. Commander/TankGroup version-1 records reproduce the same
-  canonical bytes and world fingerprint across those allocations and across
+- Status: `SOURCE_CONFIRMED`, `FRESH_OWNER_SLICE_ACCEPTED`.
+- Evidence: Level.04D's retail AER00 source creates the symbolic
+  `Colony -> C.Group.aer00.00 -> C.Unit.aer00.00` ownership chain once. The
+  restore proof then removes only `C.Group.aer00.00`, allocates that owner from
+  its decoded record under a new `KR_ObjectID`, and resolves the retained Tank
+  by name. Commander/TankGroup version-1 records preserve the same canonical
+  bytes and world fingerprint across that reconstruction and across
   the installed and mounted May data.
 - Handling: the new `RR2NWSV1` envelope stores section owners and event
   endpoints by symbolic identity. It rejects raw ordering drift, duplicates,
@@ -2261,17 +2262,35 @@ Status vocabulary:
   every section has decoded; post-begin failure rolls staging back.
 - Verification: `active-world-save-smoke` covers canonical owner/event/RNG
   round-trip, corruption, truncation, future format/engine rejection, atomic
-  replacement and transactional rollback. `recovered-arena-seance-runtime-
-  smoke` covers the source-only empty-group graph. Real Debug Level.04D runs
-  from `E:\Games\The Next Worlds` and `G:\nw` both publish two sections, zero
-  connected events, `2/2/0` restore phases and `1/1` corruption/rollback proof
-  with an identical container fingerprint. The final gate passes 53/53 CTest
-  in Debug and Release and 36/36 retail executable runs; each of the nine
-  Levels has one fingerprint across its installed/mounted and Debug/Release
-  quartet.
-- Revisit when: the next slice can allocate these owners from decoded records.
-  Require a fresh-context restore rather than pre-creation by mission source,
-  then add the live event queue and never fall back to numeric ObjectIDs.
+  replacement and transactional rollback. `active-world-fresh-restore-smoke`
+  reconstructs both Commander owners and one TankGroup with new IDs. Real
+  Level.04D runs from `E:\Games\The Next Worlds` and `G:\nw` allocate the
+  removed Group from decoded state, publish `2/2/0` phases and preserve an
+  identical container fingerprint.
+- Revisit when: Tank/Cannon joins the envelope. Remove the retained Tank
+  dependency, reconstruct the complete AER00 chain from decoded records, then
+  add the live event queue and never fall back to numeric ObjectIDs.
+
+### CQ-141: TankGroup restore must not inherit its destructive overflow mode
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the retail TankGroup table uses `CT_KILLINVISIBLE`; calling its
+  ordinary allocator with a full pool can remove an unrelated group instead of
+  returning failure. Save restoration must be transactional and therefore
+  cannot use that behavior as implicit capacity management.
+- Handling: canonicalize and collision-check the decoded roster, count missing
+  owners and compare against the actual free list before allocating anything.
+  Wrong-class collisions fail. Relationships are resolved only after all
+  owners exist, and rollback removes created owners before reapplying the saved
+  pre-transaction Commander/TankGroup graph.
+- Verification: `active-world-fresh-restore-smoke` reconstructs two Commanders
+  and one TankGroup under new IDs, rejects a missing member after owner staging,
+  rejects a symbolic name occupied by another class and observes no leaked
+  owner. Retail Level.04D removes its source-created Group and requires exactly
+  one `active_world_created_owners` allocation from the decoded record.
+- Revisit when: Tank/Cannon and People sections allocate complete subject
+  graphs. Use the same explicit-capacity rule for every legacy kill-on-overflow
+  pool and retain symbolic collision tests.
 
 ## Maintenance rule
 

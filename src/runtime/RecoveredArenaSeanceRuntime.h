@@ -385,6 +385,7 @@ int RecoveredArenaSeance_ActiveWorldEvents();
 int RecoveredArenaSeance_ActiveWorldOwnerPhases();
 int RecoveredArenaSeance_ActiveWorldReferencePhases();
 int RecoveredArenaSeance_ActiveWorldEventPhases();
+int RecoveredArenaSeance_ActiveWorldCreatedOwners();
 int RecoveredArenaSeance_ActiveWorldCorruptionRejects();
 int RecoveredArenaSeance_ActiveWorldRollbacks();
 unsigned long long RecoveredArenaSeance_ActiveWorldContainerBytes();
