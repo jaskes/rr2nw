@@ -20,6 +20,7 @@ class CGRPanel;
 #include "obase/bullet/BulletActiveWorldState.h"
 #include "obase/bullet/BulletSubjectState.h"
 #include "obase/corpse/CorpseAttributeState.h"
+#include "obase/corpse/CorpseActiveWorldState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
 #include "obase/explosion/ExplosionActiveWorldState.h"
@@ -1398,6 +1399,7 @@ struct RecoveredArenaSeanceState {
   bool corpseReferencesReady;
   bool corpseRuntimeReady;
   bool corpseSubjectReady;
+  bool corpseActiveWorldReady;
   bool smokerAttributesReady;
   bool smokerReferencesReady;
   bool smokerRuntimeReady;
@@ -1472,6 +1474,15 @@ struct RecoveredArenaSeanceState {
   int smokeActiveWorldStableRoundTrips;
   int smokeActiveWorldResumedMoves;
   unsigned long long smokeActiveWorldFingerprint;
+  int corpseActiveWorldCapturedOwners;
+  int corpseActiveWorldOwnedSmokers;
+  int corpseActiveWorldSchedulerEvents;
+  int corpseActiveWorldRollbacks;
+  int corpseActiveWorldReconstructedObjects;
+  int corpseActiveWorldStableRoundTrips;
+  int corpseActiveWorldResumedEmissions;
+  int corpseActiveWorldResumedDeaths;
+  unsigned long long corpseActiveWorldFingerprint;
   unsigned long long bulletAttributeFingerprint;
   unsigned long long bulletReferenceFingerprint;
   unsigned long long bulletSubjectFingerprint;
@@ -2728,6 +2739,54 @@ bool PublishSmokeActiveWorld(SimulationContext* context,
   g_state.smokeActiveWorldResumedMoves = summary.resumedMoves;
   g_state.smokeActiveWorldFingerprint = summary.fingerprint;
   g_state.smokeActiveWorldReady = true;
+  return true;
+}
+
+bool PublishCorpseActiveWorld(SimulationContext* context,
+                              double startTime) {
+  // The source-only fixture has no resolved Corpse skin graph. It still owns
+  // a canonical empty COR1 section; the live parent/child proof is retail-only.
+  if (!g_state.corpseRuntimeReady) return true;
+  CorpseActiveWorldProbeSummary summary = {};
+  if (!g_state.corpseSubjectReady || !g_state.dynSmokerReady ||
+      !g_state.smokeSubjectReady ||
+      !CorpseActiveWorldState_ProbeLiveRoundTrip(
+          context, startTime, &summary) ||
+      summary.capturedCorpses != 2 || summary.ownedSmokers != 4 ||
+      summary.schedulerEvents < 6 || summary.schedulerEvents > 10 ||
+      summary.stagedRollbacks != 1 ||
+      summary.reconstructedObjects != 6 ||
+      summary.stableRoundTrips != 2 || summary.resumedEmissions != 1 ||
+      summary.resumedDeaths != 1 || summary.fingerprint == 0 ||
+      CorpseSubjectState_LiveCount() != 0 ||
+      SmokerSubjectState_DynLiveCount() != 0 ||
+      SmokeSubjectState_LiveCount() != 0) {
+    char message[416] = {};
+    std::snprintf(
+        message, sizeof(message),
+        "COR1 corpses/smokers/events/rollback/recreated/roundtrips/"
+        "emissions/deaths/fingerprint=%d/%d/%d/%d/%d/%d/%d/%d/%llu: "
+        "%.140s",
+        summary.capturedCorpses, summary.ownedSmokers,
+        summary.schedulerEvents, summary.stagedRollbacks,
+        summary.reconstructedObjects, summary.stableRoundTrips,
+        summary.resumedEmissions, summary.resumedDeaths,
+        summary.fingerprint, CorpseActiveWorldState_LastFailure());
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_CORPSE_ACTIVE_WORLD_FAILURE, message);
+    return false;
+  }
+  g_state.corpseActiveWorldCapturedOwners = summary.capturedCorpses;
+  g_state.corpseActiveWorldOwnedSmokers = summary.ownedSmokers;
+  g_state.corpseActiveWorldSchedulerEvents = summary.schedulerEvents;
+  g_state.corpseActiveWorldRollbacks = summary.stagedRollbacks;
+  g_state.corpseActiveWorldReconstructedObjects =
+      summary.reconstructedObjects;
+  g_state.corpseActiveWorldStableRoundTrips = summary.stableRoundTrips;
+  g_state.corpseActiveWorldResumedEmissions = summary.resumedEmissions;
+  g_state.corpseActiveWorldResumedDeaths = summary.resumedDeaths;
+  g_state.corpseActiveWorldFingerprint = summary.fingerprint;
+  g_state.corpseActiveWorldReady = true;
   return true;
 }
 
@@ -5039,6 +5098,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SparkSubjectState_Link();
   SparkActiveWorldState_Link();
   SmokeActiveWorldState_Link();
+  CorpseActiveWorldState_Link();
   SmokeAttributeState_Link();
   SmokeSubjectState_Link();
   SmokeVisualState_Link();
@@ -5214,6 +5274,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    if (!PublishCorpseActiveWorld(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
     if (!PublishBulletActiveWorld(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
@@ -5357,6 +5421,7 @@ void RecoveredArenaSeance_Release() {
   g_state.sparkVisualResourcesReady = false;
   g_state.sparkActiveWorldReady = false;
   g_state.smokeActiveWorldReady = false;
+  g_state.corpseActiveWorldReady = false;
   g_state.sparkSubjectCapacity = 0;
   g_state.sparkSubjectFingerprint = 0;
   g_state.sparkVisualResourceFingerprint = 0;
@@ -5380,6 +5445,15 @@ void RecoveredArenaSeance_Release() {
   g_state.smokeActiveWorldStableRoundTrips = 0;
   g_state.smokeActiveWorldResumedMoves = 0;
   g_state.smokeActiveWorldFingerprint = 0;
+  g_state.corpseActiveWorldCapturedOwners = 0;
+  g_state.corpseActiveWorldOwnedSmokers = 0;
+  g_state.corpseActiveWorldSchedulerEvents = 0;
+  g_state.corpseActiveWorldRollbacks = 0;
+  g_state.corpseActiveWorldReconstructedObjects = 0;
+  g_state.corpseActiveWorldStableRoundTrips = 0;
+  g_state.corpseActiveWorldResumedEmissions = 0;
+  g_state.corpseActiveWorldResumedDeaths = 0;
+  g_state.corpseActiveWorldFingerprint = 0;
   g_state.smokeAttributesReady = false;
   g_state.smokeSubjectReady = false;
   g_state.smokeSubjectCapacity = 0;
@@ -6988,6 +7062,55 @@ int RecoveredArenaSeance_SmokeActiveWorldResumedMoves() {
 unsigned long long RecoveredArenaSeance_SmokeActiveWorldFingerprint() {
   return g_state.smokeActiveWorldReady
              ? g_state.smokeActiveWorldFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_CorpseActiveWorldReady() {
+  return g_state.corpseActiveWorldReady;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldCapturedOwners() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldCapturedOwners : -1;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldOwnedSmokers() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldOwnedSmokers : -1;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldSchedulerEvents() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldSchedulerEvents : -1;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldRollbacks() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldRollbacks : -1;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldReconstructedObjects() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldReconstructedObjects : -1;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldStableRoundTrips() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldStableRoundTrips : -1;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldResumedEmissions() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldResumedEmissions : -1;
+}
+
+int RecoveredArenaSeance_CorpseActiveWorldResumedDeaths() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldResumedDeaths : -1;
+}
+
+unsigned long long RecoveredArenaSeance_CorpseActiveWorldFingerprint() {
+  return g_state.corpseActiveWorldReady
+             ? g_state.corpseActiveWorldFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_VehicleReady() { return g_state.vehicleReady; }

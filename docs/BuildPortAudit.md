@@ -2968,3 +2968,38 @@ Debug and Release pass 54/54 CTest and the full installed/mounted matrix passes
 36/36. Per-process blob fingerprints may differ because the probe uses the
 legacy global RNG; each staged and final recapture must still be byte-exact.
 Corpse and queued damage/death effects are the next persistence boundary.
+
+## Corpse active-world v1 and owned DynSmoker reconstruction
+
+The tenth owner section is canonical `COR1`. It stores each Corpse parent and
+its zero to two role-tagged smoke/fire DynSmoker children field by field. Parent
+state includes symbolic CorpseAttr, Subject transform, visibility,
+deferred-death state and the exact death endpoint. Child state includes
+symbolic SmokerAttr, position, emission counter and clock, visibility,
+brightness and exact MOVE/optional REMOVE endpoints. Native ObjectIDs, pointer
+layout, cache indices and renderer-list entries are not serialized.
+
+Corpse and DynSmoker now expose explicit frame-publication state and reset their
+pooled fields on both allocation and removal. Capture rejects a still-published
+model/corona, a shared child, an orphan live DynSmoker and duplicate or
+inconsistent private events. `CViewObjectRef` is deliberately not cleared with
+`Attach(NULL)` because the legacy method dereferences its input; render remains
+gated by the resolved Corpse attribute until apply attaches the new skin.
+
+Restore preflights CorpseAttr/Skin and SmokerAttr resources and both fixed
+subject pools, creates parents before children, applies child records through
+an explicit symbolic-name mapping and reconnects the role edges under fresh
+IDs. Cleanup runs in reverse and drains death, MOVE and REMOVE events before
+returning slots. Parent death and finite child REMOVE retain ignored START
+payload in legacy execution; COR1 reconstructs their observable endpoint with
+an empty canonical payload and leaves detached emitted Smoke to SMK1.
+
+The retail proof creates two parents and four children through the original
+rotting path, captures eight scheduled events on the May attributes, performs
+one six-object staged rollback and one final six-object reconstruction, resumes
+one real Smoke emission and one visible deferred death, then verifies all
+Corpse, DynSmoker and detached Smoke pools return to baseline. Diagnostics are
+`10/0`, `10/10/0` and
+`corpse_active_world_probe=2/4/8/1/6/2/1/1`. Debug and Release pass 54/54
+CTest; all nine Levels from both `E:\Games\The Next Worlds` and `G:\nw` pass
+the 36/36 executable matrix.

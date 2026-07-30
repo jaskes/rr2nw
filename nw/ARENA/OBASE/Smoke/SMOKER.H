@@ -22,6 +22,7 @@ class Smoker : public ct_Subject
     bool               m_sendedMove;
     double             m_brightness;
     s_ViewDynamicCorona m_corona;
+    bool               m_dynamicPublished;
 
     virtual void       onView( double ts );
              Smoker();
@@ -32,7 +33,8 @@ class Smoker : public ct_Subject
     virtual CFVector3 realPosition();
     virtual void render( CViewDynamicList &,double);
     virtual void endRender( CViewScene *scene );
-    virtual bool	shouldDump () { return false; } 
+    virtual bool	shouldDump () { return false; }
+    void resetState();
 };
 
 #endif // ifndef __SMOKER_H__INCLUDED

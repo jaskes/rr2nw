@@ -52,9 +52,9 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `9/0` for nine
-  Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark/Smoke owner
-  sections and zero generic events, then reports `9/9/0`
+- active-world format v1 is initialized with `10/0` for ten
+  Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark/Smoke/Corpse
+  owner sections and zero generic events, then reports `10/10/0`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `active_world_created_owners` is `2` for Level.04D, where the restore
@@ -79,6 +79,12 @@ writes `summary.json` and `summary.csv`. A case passes only when:
   two same-name Smoke owners at different blob phases survive staged rollback
   and fresh-ID reconstruction, after which one restored MOVING changes phase
   and position, reschedules itself and leaves the other ordinal unchanged.
+- `corpse_active_world_probe` is
+  `2/4/<events>/1/6/2/1/1` with a non-zero fingerprint, where `<events>` is
+  between 6 and 10 according to the selected SmokerAttr lifetimes: two real
+  Corpse parents own four smoke/fire DynSmokers, survive staged rollback and
+  fresh-ID reconstruction, then resume one emission and one deferred visible
+  death without retaining any owner or detached Smoke.
 - `people_active_world_probe` is `<owners>/<scheduler-events>/1` with a
   non-zero fingerprint: every Level has destroyed its complete People roster,
   rolled a complete staged population back and restored fresh owners, private

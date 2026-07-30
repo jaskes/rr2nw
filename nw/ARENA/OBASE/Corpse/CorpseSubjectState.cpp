@@ -43,6 +43,14 @@ bool CountCorpseSubject(const KR_ObjectID, void *user)
     return true;
 }
 
+bool CollectCorpseSubject(const KR_ObjectID object, void *user)
+{
+    std::vector<KR_ObjectID> *objects =
+        static_cast<std::vector<KR_ObjectID> *>(user);
+    objects->push_back(object);
+    return true;
+}
+
 }  // namespace
 
 void CorpseSubjectState_Link()
@@ -91,6 +99,28 @@ int CorpseSubjectState_LiveCount()
     int count = 0;
     g_arena.userFind(table, CountCorpseSubject, &count);
     return count;
+}
+
+Corpse *CorpseSubjectState_Find(SimulationContext *context,
+                                const KR_ObjectID &object)
+{
+    if (context == NULL || !context->isExist(object))
+        return NULL;
+    return static_cast<Corpse *>(
+        context->queryInterface(object, IUnknownIID));
+}
+
+bool CorpseSubjectState_CollectObjects(std::vector<KR_ObjectID> *objects)
+{
+    if (objects == NULL)
+        return false;
+    objects->clear();
+    const ct_ClassTableID table =
+        g_arena.searchSeanceClassTable("Corpse");
+    if (table == ct_NULLID)
+        return true;
+    g_arena.userFind(table, CollectCorpseSubject, objects);
+    return true;
 }
 
 unsigned long long CorpseSubjectState_Fingerprint(

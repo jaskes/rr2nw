@@ -1183,6 +1183,28 @@ Retail scripts нельзя молча копировать поверх source 
   Every Level publishes six owner sections, six owner/reference phases and
   `bullet_active_world_probe=1/2/1/1/2/1` with a non-zero fingerprint.
 
+### RP-SAVE-004: Corpse owns its smoke/fire emitters but not emitted Smoke
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. `COR1` is a canonical modern graph record, not a
+  raw Corpse/Smoker memory dump.
+- The parent stores symbolic CorpseAttr and death state. Its role-tagged smoke
+  and fire children store symbolic SmokerAttr, behavior fields and private
+  MOVE/REMOVE endpoints. Detached Smoke emitted by those children is an
+  independent SMK1 owner and is excluded from the graph.
+- Capture rejects open-frame publications, shared or orphan children and
+  inconsistent private events. Restore preflights every Skin/SmokerAttr and
+  both fixed pools, allocates parents then children under fresh IDs, reconnects
+  roles and requires exact canonical recapture. Reverse rollback drains child
+  and parent events before freeing slots.
+- The runtime starts two real rotting corpses and four emitters, rolls one
+  complete six-object graph back, reconstructs another, executes one restored
+  emission and one restored visible death and returns every involved pool to
+  baseline. The admitted May marker is `2/4/8/1/6/2/1/1`.
+- Verification is 54/54 CTest in Debug and Release and 36/36 installed/mounted
+  retail launches. Every case reports ten owner sections and ten
+  owner/reference phases.
+
 ## Behavioral parity matrix
 
 Минимальные domains:
@@ -1204,8 +1226,9 @@ Retail scripts нельзя молча копировать поверх source 
 
 The continuation now owns a new version-1 active-world envelope. It is not a
 retail save format. The automated proof currently covers Commander, TankGroup,
-Vehicle, People, Tank/Cannon and live Bullet flight state, plus the generic schema for
-Level/content/mod/time, RNG and semantic events. Level.04D demonstrates both
+Vehicle, People, Tank/Cannon, Bullet, Explosion, Spark, Smoke and the
+Corpse/DynSmoker graph, plus the generic schema for Level/content/mod/time, RNG
+and semantic events. Level.04D demonstrates both
 identity problems: its Group is allocated by the decoder under a new numeric
 ID, while repeated People names require stable ordinals rather than a first-name
 lookup. Its Tank and every owned Cannon are also allocated under fresh IDs.
@@ -1219,15 +1242,15 @@ This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
 RC requirement for complete world state or manual save points. Mission and
-damage/death/effect state, Vehicle mission/UI/input queues, the remaining live
-event queue, authoritative RNG, complete fresh-Level construction and user
-controls remain required.
+external damage/death semantics, queued effect creation, Vehicle
+mission/UI/input queues, the remaining live event queue, authoritative RNG,
+complete fresh-Level construction and user controls remain required.
 
 The current admission gate is 54/54 CTest in Debug and Release and 36/36 real
-Level launches. All cases publish six owner sections, six owner/reference
-phases, `vehicle_active_world_probe=1/1` and successful People and Tank/Cannon
-owner/event/rollback probes plus a resumed Bullet flight proof; each symbolic Level has stable owner fingerprints
-across both data roots and configurations.
+Level launches. All cases publish ten owner sections, ten owner/reference
+phases and successful fresh-ID/rollback/resumption proofs through COR1. The
+bounded live effect probes leave their Corpse, DynSmoker, Smoke, Spark,
+Explosion and Bullet pools at baseline before the playable Level begins.
 
 ## Binary analysis boundary
 

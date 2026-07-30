@@ -1008,9 +1008,10 @@ The next Windows-first persistence work is deliberately incremental:
    Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
    private scheduler state;
 3. [in progress] add transient combat ownership: live Bullet flight, the
-   parent-owned Explosion particle graph, detached Spark and Smoke are done;
-   Corpse, queued effect creation, mission state, the remaining semantic
-   event queue and an authoritative deterministic RNG remain;
+   parent-owned Explosion particle graph, detached Spark and Smoke, and the
+   Corpse/DynSmoker owner graph are done; queued effect creation, mission state,
+   the remaining semantic event queue and an authoritative deterministic RNG
+   remain;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
@@ -1092,9 +1093,18 @@ envelope reports `9/0`, `9/9/0` and
 ignored payload inherited from START are deliberately absent. Admission passes
 54/54 CTest in both configurations and all 36 retail matrix cases.
 
-The next large persistence slice completes the damage/death effect graph:
-Corpse ownership, semantic hit/death and queued effect events, projectiles
-whose master disappears before capture and their rollback order.
+Corpse is now admitted as the tenth section. `COR1` captures two real parents,
+their four role-tagged DynSmoker children and exact death/MOVE/REMOVE endpoints,
+then proves one six-object rollback, six fresh final IDs, resumed Smoke emission
+and deferred visible death. The envelope reports `10/0`, `10/10/0` and
+`corpse_active_world_probe=2/4/8/1/6/2/1/1`. Pooled parent/child state and
+frame-publication flags are reset explicitly, while detached emitted Smoke
+remains owned by SMK1. Admission passes 54/54 CTest in Debug and Release plus
+all 36 retail matrix cases.
+
+The next large persistence slice completes the remaining damage/death effect
+boundary: semantic hit/death and queued effect events, projectiles whose master
+disappears before capture and their rollback order.
 After that come the remaining mission queue and authoritative RNG, followed by
 a complete fresh-Level reconstruction and public save controls.
 

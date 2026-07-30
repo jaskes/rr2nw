@@ -3291,3 +3291,45 @@ other ordinal remains unchanged. Diagnostics are `9/0`, `9/9/0` and
 Corpse ownership, queued effect creation, semantic damage/death and the generic
 event queue remain later sections. Admission passed 54/54 CTest in Debug and
 Release plus all 36 installed/mounted retail cases.
+
+## BD-086: persist Corpse and its live emitters as one owner graph
+
+Status: accepted on 2026-07-30.
+
+`COR1` version 1 is the tenth active-world owner section. A parent record stores
+the symbolic Corpse/CorpseAttr identities, Subject position, visibility,
+deferred-death flag and exact `CORPSE_TIME_TO_DIE` timestamp. Its zero, one or
+two owned children are explicitly tagged as smoke or fire and store symbolic
+DynSmoker/SmokerAttr identity, position, emission count, start time,
+visibility, brightness and exact MOVE/optional REMOVE endpoints. Native
+ObjectIDs, pointers, table indices, `CViewObjectRef` internals and published
+frame drawables are excluded.
+
+The original start handlers reuse events whose payload has already been read.
+Corpse death and DynSmoker REMOVE never inspect that retained body, so COR1
+owns their label/owner/timestamp semantics and restores an empty canonical
+payload. DynSmoker MOVE is already empty. Detached Smoke emitted by MOVE has
+its own lifetime and remains in `SMK1`; it is never made a child merely because
+the emitting DynSmoker is owned by a Corpse.
+
+Capture fails if a parent or corona is published in an open frame, if one child
+is shared, if any live DynSmoker is orphaned, or if private-event ownership is
+ambiguous. Restore resolves every CorpseAttr skin and SmokerAttr dependency,
+checks both fixed pools, allocates parents then children under fresh IDs,
+matches children back to records independently of table iteration order and
+requires byte-identical canonical recapture. Rollback drains death/MOVE/REMOVE
+events and frees children before parents. Pooled Corpse and Smoker slots now
+reset all behavior and publication flags on add/remove.
+
+The production proof starts two real corpses through `CORPSE_START_ROTTING`,
+captures two parents, four children and their private events, destroys the
+graph, rolls six staged replacements back and reconstructs six final objects.
+It executes one restored child MOVE and removes the resulting independent
+Smoke, then executes one restored death while visible, verifies deferred death
+and completes it through `onHide`. Diagnostics are `10/0`, `10/10/0` and
+`corpse_active_world_probe=2/4/8/1/6/2/1/1` on the admitted May data. The gate
+passes 54/54 CTest in Debug and Release plus all 36 installed/mounted retail
+launches.
+
+Queued effect creation, external hit/death semantics, mission state, the
+generic event queue and authoritative RNG remain later sections.

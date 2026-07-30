@@ -31,6 +31,7 @@ class Corpse :		public ct_Subject,
  public:
 
     strg_SUBJECT_DYNVIEW_DECLARE
+	bool m_dynamicPublished;
 
 	const AttributeCorpse   *m_attr;
 	
@@ -41,6 +42,7 @@ class Corpse :		public ct_Subject,
     virtual void removeNotify();
 
 	void	DestroyMe();
+	void    resetState();
 
 	void onRender();
 	virtual void       onHide(double time);

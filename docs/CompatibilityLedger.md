@@ -2528,6 +2528,38 @@ Status vocabulary:
   private MOVING edge already owned by SMK1 and must not resurrect ignored
   START payload bytes as observable state.
 
+### CQ-151: Corpse reset cannot null-attach its model and owns two emitter lifetimes
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: a Corpse owns its smoke and fire DynSmoker ObjectIDs and destroys
+  both in `DestroyMe`; each child may independently own MOVE and finite REMOVE
+  events and emits detached Smoke with a separate lifetime. The pooled Corpse
+  and DynSmoker implementations did not clear all state or frame-publication
+  state. `CViewObjectRef::Attach(NULL)` dereferences the argument, and calling
+  Subject position publication while a pooled object is only being reset can
+  touch a scene that does not yet exist. Both tempting generic reset patterns
+  caused an immediate runtime-smoke crash during this tranche.
+- Handling: reset plain behavior fields and explicit publication flags only;
+  gate rendering on the resolved attribute instead of null-attaching the old
+  model, and set position only during reference application. `COR1` treats the
+  parent plus role-tagged children as one graph, rejects shared/orphan children
+  and open-frame drawables, resolves symbolic dependencies before mutation and
+  drains all private events during reverse child-first rollback. Child matching
+  and state reset are separate phases so table iteration order cannot erase a
+  previously applied child.
+- Verification: the retail proof reconstructs two parents and four children
+  twice under fresh IDs, resumes a real emission, cleans the detached SMK1
+  owner, defers one visible death and destroys it on hide. The admitted marker
+  is `2/4/8/1/6/2/1/1`; the envelope has ten owner/reference phases. Debug and
+  Release pass 54/54 CTest and the complete installed/mounted matrix passes
+  36/36.
+- Compatibility note: the remaining legacy Cyrillic comments in `Corpse.cpp`
+  were normalized from Windows-1251 to UTF-8 without BOM so modern patching no
+  longer depends on an ANSI code page; executable behavior is unchanged.
+- Revisit when: the generic semantic queue is admitted. It must skip the three
+  private COR1 labels and must not resurrect ignored START payload bytes.
+
 ## Maintenance rule
 
 When a new quirk is found:

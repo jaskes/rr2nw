@@ -157,18 +157,25 @@ static KR_ObjectID SmokerEmitSmoke(const CFVector3 &position,
  //============================================================
 Smoker::Smoker()
  {
-    m_attr = 0;
-    m_position = CFVector3(0,0,0);
-    m_cnt = 0;
-    m_startTime = 0;
-    m_sendedMove = false;
-    m_brightness = 0;
+    resetState();
  }
 
  //============================================================
 Smoker::~Smoker()
  {
  }
+
+void Smoker::resetState()
+{
+    m_attr = 0;
+    m_position = CFVector3(0,0,0);
+    m_cnt = 0;
+    m_startTime = 0;
+    m_sendedMove = false;
+    m_brightness = 0;
+    m_dynamicPublished = false;
+    m_isVisible = false;
+}
 
  //============================================================
 void Smoker::onView(double ts)
@@ -300,12 +307,7 @@ int Smoker::receiveEvent( KR_Event &event )
 void Smoker::addNotify()
  {
     ct_Subject::addNotify();
-    m_attr = 0;
-    m_position = CFVector3(0,0,0);
-    m_cnt = 0;
-    m_startTime = 0;
-    m_sendedMove = false;
-    m_brightness = 0;
+    resetState();
  }
 
  //============================================================
@@ -313,10 +315,22 @@ void Smoker::removeNotify()
  {
     if (context != NULL)
     {
-         context->removeEvent(sm_EV_MOVE, getObjectID());
-         context->removeEvent(sm_EV_REMOVE, getObjectID());
+         while (context->removeEvent(sm_EV_MOVE, getObjectID()) == 1)
+         {
+         }
+         while (context->removeEvent(sm_EV_REMOVE, getObjectID()) == 1)
+         {
+         }
+    }
+    if (m_dynamicPublished)
+    {
+         CViewScene *scene = CViewScene::Current();
+         if (scene != NULL)
+              scene->RemoveLandDynamic(&m_corona);
+         m_dynamicPublished = false;
     }
     ct_Subject::removeNotify();
+    resetState();
  }
 
 
@@ -355,7 +369,7 @@ void Smoker::render( CViewDynamicList &list, double )
 #ifdef RR2NW_SMOKER_LIGHT_CORONA_DISABLED
     (void)list;
 #else
-    if(  m_attr == 0  )
+    if(  m_attr == 0 || m_dynamicPublished  )
          return;
     if(  m_attr->m_useLight  )
          g_lightChain.add( m_position+CFVector3(0,m_attr->m_lightOffset,0), 
@@ -378,6 +392,7 @@ void Smoker::render( CViewDynamicList &list, double )
                                 m_attr->m_coronaHText
                                  );
          list.Load( &m_corona );
+         m_dynamicPublished = true;
     }
 #endif
 }
@@ -387,8 +402,9 @@ void Smoker::endRender( CViewScene *scene )
 #ifdef RR2NW_SMOKER_LIGHT_CORONA_DISABLED
      (void)scene;
 #else
-     if(  m_attr != 0 && m_attr->m_useCorona  )
-          scene->RemoveLandDynamic( &m_corona );
+      if(  m_dynamicPublished && scene != NULL  )
+           scene->RemoveLandDynamic( &m_corona );
+      m_dynamicPublished = false;
 #endif
 }
 
@@ -446,6 +462,29 @@ int SmokerSubjectState_DynLiveCount()
          subject = __classTable2.findNextSubject(subject))
         ++count;
     return count;
+}
+
+Smoker *SmokerSubjectState_FindDyn(const KR_ObjectID &object)
+{
+    for (ct_Subject *subject = __classTable2.findFirstSubject();
+         subject != NULL;
+         subject = __classTable2.findNextSubject(subject))
+        if (subject->getObjectID() == object)
+            return static_cast<Smoker *>(subject);
+    return NULL;
+}
+
+bool SmokerSubjectState_CollectDynObjects(
+    std::vector<KR_ObjectID> *objects)
+{
+    if (objects == NULL)
+        return false;
+    objects->clear();
+    for (ct_Subject *subject = __classTable2.findFirstSubject();
+         subject != NULL;
+         subject = __classTable2.findNextSubject(subject))
+        objects->push_back(subject->getObjectID());
+    return true;
 }
 
 unsigned long long SmokerSubjectState_DynFingerprint(

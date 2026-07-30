@@ -3424,6 +3424,8 @@ target_compile_features(rr2nw_active_world_save PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_active_world_save PRIVATE UNICODE _UNICODE)
 
 add_library(rr2nw_recovered_game_services_runtime STATIC
+  nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.cpp
+  nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.h
   src/runtime/ActiveWorldRuntimeProbe.cpp
   src/runtime/ActiveWorldRuntimeProbe.h
   src/runtime/RecoveredArenaSeanceRuntime.cpp

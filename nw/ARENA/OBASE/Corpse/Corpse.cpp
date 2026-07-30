@@ -32,7 +32,7 @@ static CorpseTable __corpse;
  //============================================================
 strg_CONSTRUCTOR_DYNVIEW(Corpse)
  {
-	m_attr = 0;
+	resetState();
  }
 
  //============================================================
@@ -49,6 +49,17 @@ void Corpse::DestroyMe()
 	context->removeObject(m_smoke);
 	context->removeObject(m_fire);
 	context->removeObject(getObjectID() );
+}
+
+void Corpse::resetState()
+{
+	m_attributeIndex = -1;
+	m_smoke = KR_ObjectID::NUL();
+	m_fire = KR_ObjectID::NUL();
+	m_mustDieNow = 0;
+	m_attr = 0;
+	m_dynamicPublished = false;
+	m_isVisible = false;
 }
 
 void Corpse::onHide(double )
@@ -89,13 +100,13 @@ int Corpse::receiveEvent( KR_Event &event )
 
 
 			if( checkCollision( 
-                     pos /*+ CFVector3(0,5,0)*/ ,    // íà÷àëî äâèæåíèÿ
-                     CFVector3(0,-1,0),    // íàïðâëåíèå ñî ñêîðîñòüþ
-                     1, // ðàäèóñ
-                     50,  // âðåìÿ äëÿ ïðîâåðêè
-                     parentID,  // êîãî èãíîðèðîâàòü
-                     tm, // âðåìÿ, ÷åðåç êîòîðîå ñòóêíåìñÿ
-                     oID      // îáúåêò, î êîòîðûé ñòóêíåìñÿ
+                     pos /*+ CFVector3(0,5,0)*/ ,    // Ð½Ð°Ñ‡Ð°Ð»Ð¾ Ð´Ð²Ð¸Ð¶ÐµÐ½Ð¸Ñ
+                     CFVector3(0,-1,0),    // Ð½Ð°Ð¿Ñ€Ð²Ð»ÐµÐ½Ð¸Ðµ ÑÐ¾ ÑÐºÐ¾Ñ€Ð¾ÑÑ‚ÑŒÑŽ
+                     1, // Ñ€Ð°Ð´Ð¸ÑƒÑ
+                     50,  // Ð²Ñ€ÐµÐ¼Ñ Ð´Ð»Ñ Ð¿Ñ€Ð¾Ð²ÐµÑ€ÐºÐ¸
+                     parentID,  // ÐºÐ¾Ð³Ð¾ Ð¸Ð³Ð½Ð¾Ñ€Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ
+                     tm, // Ð²Ñ€ÐµÐ¼Ñ, Ñ‡ÐµÑ€ÐµÐ· ÐºÐ¾Ñ‚Ð¾Ñ€Ð¾Ðµ ÑÑ‚ÑƒÐºÐ½ÐµÐ¼ÑÑ
+                     oID      // Ð¾Ð±ÑŠÐµÐºÑ‚, Ð¾ ÐºÐ¾Ñ‚Ð¾Ñ€Ñ‹Ð¹ ÑÑ‚ÑƒÐºÐ½ÐµÐ¼ÑÑ
                    ) )
 			{				
 				pos.y -= tm;
@@ -179,7 +190,22 @@ int Corpse::receiveEvent( KR_Event &event )
 
 
 
-strg_SUBJECT_DYNVIEW_IMPLEMENTATION(Corpse)
+void Corpse::render(CViewDynamicList &list, double ts)
+{
+	if (m_attr == NULL || m_dynamicPublished)
+		return;
+	onRender(ts);
+	m_viewDynObj.prepareToRender();
+	list.Load(&m_viewDynObj);
+	m_dynamicPublished = true;
+}
+
+void Corpse::endRender(CViewScene *scene)
+{
+	if (m_dynamicPublished && scene != NULL)
+		scene->RemoveLandDynamic(&m_viewDynObj);
+	m_dynamicPublished = false;
+}
 
  //============================================================
 void Corpse::onRender (double)
@@ -196,14 +222,25 @@ void Corpse::onRender (double)
 void Corpse::addNotify()
  {
     ct_Subject::addNotify();
-    // insert your code this
+	resetState();
  }
 
  //============================================================
 void Corpse::removeNotify()
  {
+	if (context != NULL)
+		while (context->removeEvent(CORPSE_TIME_TO_DIE, getObjectID()) == 1)
+		{
+		}
+	if (m_dynamicPublished)
+	{
+		CViewScene *scene = CViewScene::Current();
+		if (scene != NULL)
+			scene->RemoveLandDynamic(&m_viewDynObj);
+		m_dynamicPublished = false;
+	}
     ct_Subject::removeNotify();
-    // insert your code this
+	resetState();
  }
 
 

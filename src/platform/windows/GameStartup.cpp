@@ -1272,6 +1272,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_SmokeActiveWorldResumedMoves()));
   log.Line("smoke_active_world_fingerprint=" + std::to_string(
                RecoveredArenaSeance_SmokeActiveWorldFingerprint()));
+  log.Line("corpse_active_world_initialized=" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldReady() ? 1 : 0));
+  log.Line("corpse_active_world_probe=" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldCapturedOwners()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldOwnedSmokers()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldSchedulerEvents()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldRollbacks()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldReconstructedObjects()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldStableRoundTrips()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldResumedEmissions()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldResumedDeaths()));
+  log.Line("corpse_active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_CorpseActiveWorldFingerprint()));
   log.Line("people_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_PeopleAttributesReady() ? 1 : 0));
