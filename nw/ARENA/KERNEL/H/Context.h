@@ -96,6 +96,12 @@ class SimulationContext : public SimulationContextData
                                     KR_EventLabel label,
                                     KR_ObjectID   source
                                    );
+      int          copyEvents     (
+                                    KR_EventLabel label,
+                                    KR_ObjectID   source,
+                                    KR_Event     *events,
+                                    int           capacity
+                                   ) const;
       KR_ObjectID  addObject       (
                                     const char name[],
                                     KR_Object *object

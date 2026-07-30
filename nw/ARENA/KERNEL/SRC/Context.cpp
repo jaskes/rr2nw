@@ -226,6 +226,33 @@ int SimulationContext::removeEvent(
  }
 
 // ============================================================================
+int SimulationContext::copyEvents(
+                                  KR_EventLabel label,
+                                  KR_ObjectID   source,
+                                  KR_Event     *events,
+                                  int           capacity
+                                 ) const
+ {
+   if (capacity < 0 || (capacity > 0 && events == NULL))
+      return -1;
+
+   int count = 0;
+   for (KR_EventID current = m_eventQueue;
+        current != END_LIST;
+        current = m_eventIndex[current].next)
+   {
+      const KR_Event &event = m_eventPool[current];
+      if (event.source == source && event.label == label)
+      {
+         if (count < capacity)
+            events[count].getCopy(event);
+         ++count;
+      }
+   }
+   return count;
+ }
+
+// ============================================================================
 KR_EventID SimulationContext::popEvent( KR_TimeDelta timeStamp )
  {
    KR_EventID poped = END_LIST;

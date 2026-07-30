@@ -3046,3 +3046,47 @@ The admission proof passes 54/54 CTest in Debug and Release and 36/36 real
 Level launches. Every case reports three owner sections, three owner/reference
 phases, one staged Vehicle rollback and one final fresh-ID reconstruction. Each
 Level's Vehicle fingerprint is identical across both data roots and builds.
+
+## BD-080: reconstruct People as a canonical population, not raw subject blobs
+
+Status: accepted on 2026-07-30.
+
+People is the fourth active-world owner section. `PEO1` version 1 writes every
+behavior-bearing Subject and People field through fixed-width little-endian
+primitives: transform, route progress, movement/rotation clocks, damage and
+death phases, state stack, enemy links, visibility, delayed start and collision
+state. Attribute, Route, Commander and enemy dependencies are symbolic. Native
+`PeopleData` bytes, compiler padding, cached interfaces, Skin state, Sound
+ObjectIDs and class-table slots are excluded; Skin and Sound are derived again
+through the normal reference publication path.
+
+Retail symbolic names are not unique owner IDs. `Level.04D` and `Level.05D`
+contain repeated People names, which the original `SimulationContext` accepts.
+Canonical roster order is therefore name followed by creation identity, and an
+equal-name record's position is its stable ordinal. Reconstruction creates the
+records in that order under fresh numeric IDs. People-to-People enemy links
+store the target name plus ordinal, while non-People unit links retain their
+symbolic name. Fingerprints use the same deterministic tie-breaker.
+
+Six People-owned scheduler labels are captured directly from the live kernel
+queue with their exact timestamps: MOVE, NEXTNODE, FIND_ENEMY, STARTSHOW,
+SETAUTOANIM and STARTMOVE. The retail start handler reuses its incoming event,
+so STARTMOVE/STARTSHOW may retain an already-read command payload. None of the
+six private handlers reads that data; `PEO1` deliberately canonicalizes the
+inert tail instead of preserving allocator-shaped bytes. Payload-bearing
+external commands remain the responsibility of the future generic semantic
+event section.
+
+Every production Level now captures the whole People roster, holds unique Route
+references across teardown, removes all People and their derived sounds,
+allocates and rolls back one complete staged roster, then recreates and applies
+the final roster. Acceptance requires every owner ID to change, all scheduler
+events to return, exact codec and subject fingerprints, the original People
+sound count and `PeopleSubjectState_AllReady`. The active-world envelope now
+reports four owner sections and four owner/reference phases.
+
+This remains an internal persistence admission. Tank/Cannon, mission/Bullet and
+effect ownership, the complete cross-owner event queue, authoritative RNG,
+fresh-Level construction and user save slots remain later slices. The accepted
+gate is 54/54 CTest in Debug and Release plus the full 36-case retail matrix on
+installed and mounted data in both configurations.

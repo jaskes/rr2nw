@@ -5,6 +5,7 @@
 #include "kernel/h/context.h"
 #include "obase/comander/CommanderState.h"
 #include "obase/group/TankGroupState.h"
+#include "obase/people/PeopleActiveWorldState.h"
 #include "obase/vehicle/VehicleActiveWorldState.h"
 
 #include <utility>
@@ -35,6 +36,14 @@ bool CaptureOwnerSections(SimulationContext* context,
   sections->push_back(std::move(commanders));
   sections->push_back(std::move(groups));
 
+  SActiveWorldSection people = {};
+  people.kind = EActiveWorldSectionKind::People;
+  people.schemaVersion = 1;
+  people.owner = "People";
+  if (!PeopleActiveWorldState_CaptureStable(context, &people.payload))
+    return false;
+  sections->push_back(std::move(people));
+
   SActiveWorldSection vehicle = {};
   vehicle.kind = EActiveWorldSectionKind::Vehicle;
   vehicle.schemaVersion = 1;
@@ -57,6 +66,9 @@ bool ValidateOwnerCodec(const SActiveWorldSection& section) {
     case EActiveWorldSectionKind::Vehicle:
       return section.owner == "Vehicle" &&
              VehicleActiveWorldState_ValidateStable(section.payload);
+    case EActiveWorldSectionKind::People:
+      return section.owner == "People" &&
+             PeopleActiveWorldState_ValidateStable(section.payload);
     default:
       return false;
   }
@@ -71,6 +83,8 @@ bool OwnerMatchesWorld(SimulationContext* context,
       return TankGroupState_MatchesStable(context, section.payload);
     case EActiveWorldSectionKind::Vehicle:
       return VehicleActiveWorldState_MatchesStable(context, section.payload);
+    case EActiveWorldSectionKind::People:
+      return PeopleActiveWorldState_MatchesStable(context, section.payload);
     default:
       return false;
   }
@@ -95,12 +109,15 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     commanderBackup_.clear();
     tankGroupBackup_.clear();
     vehicleBackup_.clear();
+    peopleBackup_.clear();
     createdCommanders_.clear();
     createdTankGroups_.clear();
     createdVehicles_.clear();
+    createdPeople_.clear();
     if (!CommanderState_CaptureStable(context_, &commanderBackup_) ||
         !TankGroupState_CaptureStable(context_, &tankGroupBackup_) ||
-        !VehicleActiveWorldState_CaptureStable(context_, &vehicleBackup_)) {
+        !VehicleActiveWorldState_CaptureStable(context_, &vehicleBackup_) ||
+        !PeopleActiveWorldState_CaptureStable(context_, &peopleBackup_)) {
       SetFailure(failure, "active-world live owner backup failed");
       began_ = false;
       return false;
@@ -127,6 +144,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       case EActiveWorldSectionKind::Vehicle:
         created = VehicleActiveWorldState_CreateStableOwners(
             context_, section.payload, &createdVehicles_);
+        break;
+      case EActiveWorldSectionKind::People:
+        created = PeopleActiveWorldState_CreateStableOwners(
+            context_, section.payload, &createdPeople_);
         break;
       default:
         break;
@@ -157,6 +178,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           resolved = VehicleActiveWorldState_ApplyStableReferences(
               context_, section.payload);
           break;
+        case EActiveWorldSectionKind::People:
+          resolved = PeopleActiveWorldState_ApplyStableReferences(
+              context_, section.payload);
+          break;
         default:
           break;
       }
@@ -178,7 +203,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
 
   bool Validate(std::uint64_t expectedWorldFingerprint,
                 std::string* failure) override {
-    if (!began_ || snapshot_ == nullptr || staged_.size() != 3 ||
+    if (!began_ || snapshot_ == nullptr || staged_.size() != 4 ||
         ActiveWorldSave_ComputeWorldFingerprint(*snapshot_) !=
             expectedWorldFingerprint) {
       SetFailure(failure, "active-world staged fingerprint is invalid");
@@ -203,6 +228,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   void Rollback() override {
     bool clean = began_;
     if (began_) {
+      PeopleActiveWorldState_RemoveStableOwners(context_, &createdPeople_);
       VehicleActiveWorldState_RemoveStableOwners(context_, &createdVehicles_);
       TankGroupState_RemoveStableOwners(context_, &createdTankGroups_);
       CommanderState_RemoveStableOwners(context_, &createdCommanders_);
@@ -212,9 +238,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, tankGroupBackup_) && clean;
       clean = VehicleActiveWorldState_ApplyStableReferences(
                   context_, vehicleBackup_) && clean;
+      clean = PeopleActiveWorldState_ApplyStableReferences(
+                  context_, peopleBackup_) && clean;
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
               TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
               VehicleActiveWorldState_MatchesStable(context_, vehicleBackup_) &&
+              PeopleActiveWorldState_MatchesStable(context_, peopleBackup_) &&
               clean;
     }
     staged_.clear();
@@ -223,12 +252,13 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 3;
+    return began_ && committed_ && !rolledBack_ && staged_.size() == 4;
   }
   bool RolledBackCleanly() const {
     return began_ && !committed_ && rolledBack_ && staged_.empty() &&
            rollbackClean_ && createdCommanders_.empty() &&
-           createdTankGroups_.empty() && createdVehicles_.empty();
+           createdTankGroups_.empty() && createdVehicles_.empty() &&
+           createdPeople_.empty();
   }
   int ownerPhases() const { return ownerPhases_; }
   int referencePhases() const { return referencePhases_; }
@@ -236,7 +266,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   int createdOwners() const {
     return static_cast<int>(createdCommanders_.size() +
                             createdTankGroups_.size() +
-                            createdVehicles_.size());
+                            createdVehicles_.size() +
+                            createdPeople_.size());
   }
 
  private:
@@ -254,9 +285,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> commanderBackup_;
   std::vector<std::uint8_t> tankGroupBackup_;
   std::vector<std::uint8_t> vehicleBackup_;
+  std::vector<std::uint8_t> peopleBackup_;
   std::vector<KR_ObjectID> createdCommanders_;
   std::vector<KR_ObjectID> createdTankGroups_;
   std::vector<KR_ObjectID> createdVehicles_;
+  std::vector<KR_ObjectID> createdPeople_;
 };
 
 }  // namespace
@@ -284,7 +317,8 @@ bool ActiveWorldRuntime_CaptureProbe(
   snapshot.simulationTime = simulationTime;
   snapshot.level = level;
   if (!CaptureOwnerSections(context, &snapshot.sections)) {
-    SetFailure(failure, "Commander/TankGroup/Vehicle stable capture failed");
+    SetFailure(failure,
+               "Commander/TankGroup/Vehicle/People stable capture failed");
     return false;
   }
 

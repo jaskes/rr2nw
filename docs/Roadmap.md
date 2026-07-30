@@ -1002,9 +1002,9 @@ The next Windows-first persistence work is deliberately incremental:
 
 1. [done] turn Commander/TankGroup validation into fresh-context allocation
    from decoded records, retaining owner-first/reference-second rollback;
-2. [Vehicle/player core done] add Vehicle and player-control state, then
-   People and Tank/Cannon dynamic, damage, death and scheduler state as
-   independent versioned sections;
+2. [Vehicle/player and People done] add Vehicle/player state and the complete
+   Level-local People roster with dynamic, damage, death, symbolic-reference
+   and scheduler state; Tank/Cannon remains the next independent owner section;
 3. add mission/Bullet/effect ownership, extract the live `SimulationContext`
    queue into semantic events and introduce an authoritative deterministic RNG;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
@@ -1037,6 +1037,21 @@ Vehicle admission passes 54/54 CTest in Debug and Release plus 36/36 retail
 launches. Each of the nine Levels has one Vehicle fingerprint across its
 installed/mounted and Debug/Release quartet, and every case reports `3/0`,
 `3/3/0` and `vehicle_active_world_probe=1/1`.
+
+The People half of item 2 is now admitted as the fourth section. `PEO1`
+captures every behavior-bearing field, symbolic Attribute/Route/Commander and
+enemy links, plus the exact timestamps of the six People-owned scheduler
+events. All production People are removed, a full staged roster is rolled back
+and the final population is recreated under fresh ObjectIDs with derived Skin
+and Sound resources rebuilt. Repeated retail symbolic names use deterministic
+ordinals; the affected `Level.04D` and `Level.05D` cases prove that identity is
+not reduced to `searchObject(name)`. The envelope now reports `4/0`, `4/4/0`
+and a per-Level `people_active_world_probe=<owners>/<events>/1`.
+
+The next large persistence slice is Tank/Cannon ownership and its links into
+People/Vehicle/Bullet damage and death state. After that come mission/Bullet
+and effect owners, the remaining semantic kernel queue and authoritative RNG,
+followed by a complete fresh-Level reconstruction and public save controls.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical

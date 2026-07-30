@@ -2771,3 +2771,40 @@ executable cases. Startup reports `3/0`, `3/3/0` and
 matches across its installed/mounted and Debug/Release quartet; the nine Levels
 resolve to three legitimate fingerprints corresponding to their selected
 retail vessel state rather than one fabricated global default.
+
+## People active-world v1 and duplicate symbolic identity
+
+The fourth owner section is the complete Level-local People population.
+`PeopleActiveWorldState` encodes explicit fixed-width fields rather than
+`sizeof(PeopleData)`: Subject position, route/movement state, damage and death,
+state stack, delayed-start/collision fields, symbolic dependencies and six
+owner-private scheduler timestamps. Cached interfaces, Skin instances, Sound
+children and process-local IDs are rebuilt through normal runtime ownership.
+
+Kernel inspection gained a read-only bounded event-copy operation. It filters
+the queue by owner source and label without popping or reordering events; the
+People codec accepts at most one of each private scheduler label. The retail
+start handler's retained but unread payload is deliberately canonicalized.
+Removal cancels every captured owner-local label before an object slot can be
+reused, preventing CQ-073's stale-event failure mode.
+
+Two retail Levels invalidated the usual symbolic-uniqueness assumption.
+`Level.04D` and `Level.05D` contain repeated People owner names, so roster
+ordering now breaks name ties by creation ID and serializes the equal-name
+ordinal as stable identity. Apply never calls `searchObject(ownerName)` for a
+People record. The same ordinal disambiguates People enemies; fingerprints use
+the identical order. Route references are held once per unique Route while the
+entire People roster is absent, then released after reconstruction.
+
+Production acceptance destroys every People, verifies its derived Sound child
+count reaches zero, rolls a complete staged allocation back and performs a
+second full allocation/reference/event restore. All IDs must change while
+canonical bytes, subject state, scheduler count, Sound count and readiness stay
+unchanged. Startup and the matrix now require `4/0`, `4/4/0` and
+`people_active_world_probe=<owners>/<events>/1`.
+
+The admitted gate remains 54/54 CTest in Debug and Release and advances the
+retail matrix to four owner sections across all 36 installed/mounted and
+Debug/Release cases. Tank/Cannon, mission/Bullet/effect ownership, generic
+event payloads, deterministic RNG, complete fresh-Level construction and
+public save slots remain outside this tranche.

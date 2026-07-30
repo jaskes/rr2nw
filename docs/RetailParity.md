@@ -1124,6 +1124,28 @@ Retail scripts нельзя молча копировать поверх source 
   approximations. Pixel-identical ASM rounding, active-light screenshot parity,
   renderer optimization and resolution switching remain later visual work.
 
+### RP-SAVE-001: People is a reconstructible active-world owner population
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. `PEO1` encodes People state field by field and
+  reconstructs runtime Skin/Sound references through the normal Level graph;
+  it does not expose January `PeopleData` layout as a modern file format.
+- The complete roster is owner-first. Every production People object is
+  destroyed, one complete replacement roster is allocated and rolled back,
+  then the final roster is created under fresh ObjectIDs before symbolic
+  references and queued private behavior are applied.
+- Symbolic names alone are insufficient: `Level.04D` and `Level.05D` contain
+  repeated People names accepted by the retail kernel. Stable identity uses the
+  ordinal within canonical name/creation order, including People-to-People
+  enemy links.
+- Six self-scheduler labels retain exact timestamps. Reused retail start events
+  may carry an inert already-read payload; it is canonicalized because none of
+  those six handlers consumes it. Payload-bearing external events remain for
+  the generic semantic queue.
+- Verification requires new IDs, exact canonical and subject fingerprints,
+  restored scheduler and Sound counts and complete runtime readiness. The gate
+  is 54/54 CTest in Debug and Release and 36/36 retail executable launches.
+
 ## Behavioral parity matrix
 
 Минимальные domains:
@@ -1144,29 +1166,30 @@ Retail scripts нельзя молча копировать поверх source 
 ## Active-world persistence boundary
 
 The continuation now owns a new version-1 active-world envelope. It is not a
-retail save format. The automated proof currently covers Commander, TankGroup
-and Vehicle symbolic state, plus the generic schema for Level/content/mod/time,
-RNG and semantic events. Level.04D demonstrates why symbolic identity is
-mandatory: its Group is allocated by the decoder under a new numeric ID while
-the retained Tank and Commander resolve by name and the saved ownership graph
-remains identical. Every Level separately removes `Vehicle.Default`, rolls a
-staged replacement back and recreates the final Vehicle under a fresh ID with
-the same field-level vessel, damage, weapon, Taxi and Player/Commander state. A
-clean seance reconstructs both Commanders, the Group and a moving Vehicle from
-no live owner objects.
+retail save format. The automated proof currently covers Commander, TankGroup,
+Vehicle and People symbolic state, plus the generic schema for
+Level/content/mod/time, RNG and semantic events. Level.04D demonstrates both
+identity problems: its Group is allocated by the decoder under a new numeric
+ID, while repeated People names require stable ordinals rather than a first-name
+lookup. Every Level separately reconstructs `Vehicle.Default` and its complete
+People population after a deliberately staged rollback. A clean seance
+reconstructs Commander, Group and Vehicle owners from no live owner objects;
+the production Level proof performs the stronger resource-backed People
+reconstruction.
 
 This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
-RC requirement for complete world state or manual save points. People,
-Tank/Cannon, mission/Bullet state, Vehicle mission/UI/input queues, the live
+RC requirement for complete world state or manual save points. Tank/Cannon,
+mission/Bullet state, Vehicle mission/UI/input queues, the remaining live
 event queue, authoritative RNG, complete fresh-Level construction and user
 controls remain required.
 
 The current admission gate is 54/54 CTest in Debug and Release and 36/36 real
-Level launches. All cases publish three owner sections, three owner/reference
-phases and `vehicle_active_world_probe=1/1`; each symbolic Level has one
-Vehicle fingerprint across both data roots and configurations.
+Level launches. All cases publish four owner sections, four owner/reference
+phases, `vehicle_active_world_probe=1/1` and a successful People
+owner/event/rollback probe; each symbolic Level has stable Vehicle and People
+fingerprints across both data roots and configurations.
 
 ## Binary analysis boundary
 

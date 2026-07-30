@@ -76,8 +76,9 @@ bool ObjectNameLess(const KR_ObjectID &left, const KR_ObjectID &right,
 {
     const char *leftName = context->searchObject(left);
     const char *rightName = context->searchObject(right);
-    return std::strcmp(leftName == NULL ? "" : leftName,
-                       rightName == NULL ? "" : rightName) < 0;
+    const int comparison = std::strcmp(leftName == NULL ? "" : leftName,
+                                       rightName == NULL ? "" : rightName);
+    return comparison != 0 ? comparison < 0 : left.id < right.id;
 }
 
 bool CollectTable(SimulationContext *context, const char *name,

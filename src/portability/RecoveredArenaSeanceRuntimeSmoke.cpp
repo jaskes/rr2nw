@@ -636,6 +636,10 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_PeopleProbeDeathTransitions() == -1 &&
          RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() == -1 &&
          RecoveredArenaSeance_PeopleProbeRollbacks() == -1 &&
+         RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents() == -1 &&
+         RecoveredArenaSeance_PeopleActiveWorldRollbacks() == -1 &&
+         RecoveredArenaSeance_PeopleActiveWorldFingerprint() == 0 &&
          !RecoveredArenaSeance_TankCannonAttributesReady() &&
          !RecoveredArenaSeance_TankReferencesReady() &&
          !RecoveredArenaSeance_TankCannonSubjectTablesReady() &&
@@ -927,6 +931,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_PeopleProbeDeathTransitions() != 0 ||
       RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() != 0 ||
       RecoveredArenaSeance_PeopleProbeRollbacks() != 0 ||
+      RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs() != 0 ||
+      RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents() != 0 ||
+      RecoveredArenaSeance_PeopleActiveWorldRollbacks() != 1 ||
+      RecoveredArenaSeance_PeopleActiveWorldFingerprint() == 0 ||
       !RecoveredArenaSeance_TankCannonAttributesReady() ||
       !RecoveredArenaSeance_TankReferencesReady() ||
       !RecoveredArenaSeance_TankCannonSubjectTablesReady() ||
@@ -971,10 +979,10 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 3 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 4 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 3 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 3 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 4 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 4 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||

@@ -173,6 +173,7 @@ class PeopleTable : public ct_SubjectTable
     virtual ct_Object *getObjectPTR( int index );
     virtual bool       isRendering();
     virtual bool       isAudible();
+    int                freeObjectCount() const;
 
 };
 
@@ -185,6 +186,15 @@ bool PeopleTable::isRendering()
 bool PeopleTable::isAudible()
 {
    return true;
+}
+
+int PeopleTable::freeObjectCount() const
+{
+    int count = 0;
+    for (const ct_Object *object = m_freeList; object != NULL;
+         object = object->next())
+        ++count;
+    return count;
 }
 
  //===========================================================================
@@ -484,6 +494,72 @@ void People::setPeopleAttr()
 //	else
 	if(  strcmp(m_attr->m_skinName,"sk.Taxi.cln_f08")==0 )
 		m_skin.SetAnimationCallback(AnimateCallBack2);
+}
+
+bool People::restoreStableReferences(const KR_ObjectID &attribute,
+                                     const KR_ObjectID &route)
+{
+    if (context == NULL || __attrTable.searchAttribute(attribute) == NULL)
+        return false;
+
+    IRouteObject *newRoute = static_cast<IRouteObject *>(
+        context->queryInterface(route, IRouteObjectIID));
+    if (newRoute == NULL || newRoute->GetNodeCnt() < 2)
+        return false;
+
+    // Take the new reference before releasing the old one.  The two IDs may
+    // name the same Route and Route::DelRef destroys it at a zero count.
+    newRoute->AddRef();
+    if (!m_routeID.isNUL())
+    {
+        IRouteObject *oldRoute = static_cast<IRouteObject *>(
+            context->queryInterface(m_routeID, IRouteObjectIID));
+        if (oldRoute != NULL)
+            oldRoute->DelRef();
+    }
+    if (!m_snd.isNUL() && context->isExist(m_snd))
+        context->removeObject(m_snd);
+
+    m_snd = KR_ObjectID::NUL();
+    m_peopleAttrID = attribute;
+    m_routeID = route;
+    setPeopleAttr();
+    if (!stableReferencesReady())
+    {
+        if (!m_snd.isNUL() && context->isExist(m_snd))
+            context->removeObject(m_snd);
+        m_snd = KR_ObjectID::NUL();
+        m_attr = NULL;
+        m_askin = NULL;
+        m_peopleAttrID = KR_ObjectID::NUL();
+        m_routeID = KR_ObjectID::NUL();
+        newRoute->DelRef();
+        return false;
+    }
+    return true;
+}
+
+bool People::stableReferencesReady() const
+{
+    KR_ObjectID attribute = m_peopleAttrID;
+    KR_ObjectID routeID = m_routeID;
+    if (context == NULL || m_attr == NULL || m_skin.Model() == NULL ||
+        m_askin == NULL || attribute.isNUL() || routeID.isNUL() ||
+        __attrTable.searchAttribute(m_peopleAttrID) == NULL)
+        return false;
+    IRouteObject *route = static_cast<IRouteObject *>(
+        context->queryInterface(m_routeID, IRouteObjectIID));
+    return route != NULL && route->GetNodeCnt() >= 2;
+}
+
+int PeopleFreeObjectCount()
+{
+    return __classTable.freeObjectCount();
+}
+
+bool PeopleAttributeExists(const KR_ObjectID &attribute)
+{
+    return __attrTable.searchAttribute(attribute) != NULL;
 }
 
 //==========================================================================

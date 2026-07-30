@@ -3017,6 +3017,8 @@ add_library(rr2nw_arena_obase_people_full STATIC
   nw/ARENA/OBASE/People/PDY_OBJ.CPP
   nw/ARENA/OBASE/People/PeopleSubjectState.cpp
   nw/ARENA/OBASE/People/PeopleSubjectState.h
+  nw/ARENA/OBASE/People/PeopleActiveWorldState.cpp
+  nw/ARENA/OBASE/People/PeopleActiveWorldState.h
 )
 target_link_libraries(rr2nw_arena_obase_people_full PUBLIC
   rr2nw_arena_storage

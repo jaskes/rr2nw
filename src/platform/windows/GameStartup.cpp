@@ -1236,6 +1236,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips()) +
            "/" +
            std::to_string(RecoveredArenaSeance_PeopleProbeRollbacks()));
+  log.Line("people_active_world_probe=" +
+           std::to_string(
+               RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleActiveWorldRollbacks()));
+  log.Line("people_active_world_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_PeopleActiveWorldFingerprint()));
   log.Line("tank_cannon_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_TankCannonAttributesReady() ? 1 : 0));

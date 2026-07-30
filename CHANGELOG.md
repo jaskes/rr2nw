@@ -7,6 +7,21 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the People version-1 active-world section. `PEO1` encodes the complete
+  behavior-bearing Subject/People state field by field, symbolic Attribute,
+  Route, Commander and enemy references, and the six private People scheduler
+  events with exact timestamps. Runtime Skin/Sound pointers and ObjectIDs are
+  reconstructed from their owners instead of entering the payload.
+- Added transactional reconstruction of the complete Level-local People
+  population. Production startup now removes every People owner, proves an
+  allocation rollback, recreates the whole roster under fresh ObjectIDs,
+  restores references and queued behavior, and requires identical canonical,
+  subject and sound fingerprints before the Level becomes ready.
+- Made duplicate retail People names stable. `Level.04D` and `Level.05D`
+  legitimately contain repeated symbolic owners, so People identity and
+  People-to-People references use deterministic name ordinals rather than the
+  ambiguous first result of `searchObject(name)`. The four-section active-world
+  gate now covers that case across installed/mounted data and Debug/Release.
 - Added the Vehicle version-1 active-world section. It serializes selected,
   default and dead attributes symbolically; the complete legacy EMV/Wheels
   save-state field set; Subject position; damage, weapon, skip and Taxi clocks;

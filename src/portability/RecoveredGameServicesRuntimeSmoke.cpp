@@ -542,6 +542,10 @@ bool IsServiceReleased() {
          !RecoveredGameServices_PeopleAttributesReady() &&
          !RecoveredGameServices_PeopleReferencesReady() &&
          !RecoveredGameServices_PeopleSubjectReady() &&
+         RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents() == -1 &&
+         RecoveredArenaSeance_PeopleActiveWorldRollbacks() == -1 &&
+         RecoveredArenaSeance_PeopleActiveWorldFingerprint() == 0 &&
          !RecoveredGameServices_TankCannonAttributesReady() &&
          !RecoveredGameServices_TankReferencesReady() &&
          !RecoveredGameServices_TankCannonSubjectTablesReady() &&
@@ -2622,6 +2626,14 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips();
   const int peopleProbeRollbacks =
       RecoveredArenaSeance_PeopleProbeRollbacks();
+  const int peopleActiveWorldReconstructedIDs =
+      RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs();
+  const int peopleActiveWorldSchedulerEvents =
+      RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents();
+  const int peopleActiveWorldRollbacks =
+      RecoveredArenaSeance_PeopleActiveWorldRollbacks();
+  const unsigned long long peopleActiveWorldFingerprint =
+      RecoveredArenaSeance_PeopleActiveWorldFingerprint();
   const int tankAttributeCount =
       RecoveredArenaSeance_TankAttributeCount();
   const int tankAttributeCapacity =
@@ -3113,6 +3125,11 @@ int main(int argc, char** argv) {
         RecoveredArenaSeance_PeopleProbeDeathTransitions() != 0 ||
         RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() != 0 ||
         RecoveredArenaSeance_PeopleProbeRollbacks() != 0)) ||
+      RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs() !=
+          RecoveredArenaSeance_PeopleSubjectCount() ||
+      RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents() < 0 ||
+      RecoveredArenaSeance_PeopleActiveWorldRollbacks() != 1 ||
+      RecoveredArenaSeance_PeopleActiveWorldFingerprint() == 0 ||
       RecoveredArenaSeance_CannonAttributeCapacity() < 0 ||
       RecoveredArenaSeance_CannonAttributeCount() < 0 ||
       RecoveredArenaSeance_CannonAttributeCount() >
@@ -3981,6 +3998,14 @@ int main(int argc, char** argv) {
           peopleProbeSaveRoundTrips ||
       RecoveredArenaSeance_PeopleProbeRollbacks() !=
           peopleProbeRollbacks ||
+      RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs() !=
+          peopleActiveWorldReconstructedIDs ||
+      RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents() !=
+          peopleActiveWorldSchedulerEvents ||
+      RecoveredArenaSeance_PeopleActiveWorldRollbacks() !=
+          peopleActiveWorldRollbacks ||
+      RecoveredArenaSeance_PeopleActiveWorldFingerprint() !=
+          peopleActiveWorldFingerprint ||
       RecoveredArenaSeance_TankAttributeCount() != tankAttributeCount ||
       RecoveredArenaSeance_TankAttributeCapacity() !=
           tankAttributeCapacity ||

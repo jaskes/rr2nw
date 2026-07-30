@@ -27,6 +27,7 @@ class CGRPanel;
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/orphan/OrphanSubjectState.h"
+#include "obase/people/PeopleActiveWorldState.h"
 #include "obase/people/PeopleSubjectState.h"
 #include "obase/cannon/CannonSubjectState.h"
 #include "obase/comander/CommanderState.h"
@@ -1405,6 +1406,10 @@ struct RecoveredArenaSeanceState {
   bool peopleAttributesReady;
   bool peopleReferencesReady;
   bool peopleSubjectReady;
+  int peopleActiveWorldReconstructedIDs;
+  int peopleActiveWorldSchedulerEvents;
+  int peopleActiveWorldRollbacks;
+  unsigned long long peopleActiveWorldFingerprint;
   bool tankCannonAttributesReady;
   bool tankReferencesReady;
   bool tankCannonSubjectTablesReady;
@@ -4573,6 +4578,120 @@ bool PublishPeopleReferences(SimulationContext* context, double startTime) {
   return true;
 }
 
+bool ProbePeopleActiveWorldPersistence(
+    SimulationContext* context, int expectedCount, int expectedSounds,
+    unsigned long long expectedSubjectFingerprint) {
+  std::vector<unsigned char> bytes;
+  const int baselineSounds = SoundObjectState_LiveCount();
+  if (context == nullptr || expectedCount < 0 || expectedSounds < 0 ||
+      baselineSounds < expectedSounds ||
+      !PeopleActiveWorldState_CaptureStable(context, &bytes) ||
+      !PeopleActiveWorldState_ValidateStable(bytes) ||
+      !PeopleActiveWorldState_MatchesStable(context, bytes)) {
+    std::string message = "People active-world capture rejected the live roster";
+    const char* codecFailure = PeopleActiveWorldState_LastFailure();
+    if (codecFailure != nullptr && codecFailure[0] != 0) {
+      message += ": ";
+      message += codecFailure;
+    }
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   message.c_str());
+    return false;
+  }
+  const unsigned long long fingerprint =
+      PeopleActiveWorldState_Fingerprint(context);
+  const int schedulerEvents =
+      PeopleActiveWorldState_SchedulerEventCount(bytes);
+  if (fingerprint == 0 || schedulerEvents < 0 ||
+      PeopleActiveWorldState_LiveCount(context) != expectedCount) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   "People active-world identity is invalid");
+    return false;
+  }
+
+  std::vector<KR_ObjectID> oldOwners;
+  std::vector<KR_ObjectID> heldRoutes;
+  if (!PeopleActiveWorldState_CollectStableOwners(context, bytes,
+                                                  &oldOwners) ||
+      !PeopleActiveWorldState_HoldRouteReferences(context, bytes,
+                                                  &heldRoutes)) {
+    PeopleActiveWorldState_ReleaseRouteReferences(context, &heldRoutes);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   "People active-world teardown preflight failed");
+    return false;
+  }
+
+  std::vector<KR_ObjectID> removed = oldOwners;
+  PeopleActiveWorldState_RemoveStableOwners(context, &removed);
+  if (PeopleActiveWorldState_LiveCount(context) != 0 ||
+      PeopleSubjectState_SoundCount(context) != 0 ||
+      SoundObjectState_LiveCount() != baselineSounds - expectedSounds) {
+    PeopleActiveWorldState_ReleaseRouteReferences(context, &heldRoutes);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   "People active-world teardown leaked owners or sounds");
+    return false;
+  }
+
+  // Exercise allocation rollback before committing any references. Route
+  // guards keep shared and People-only paths alive across this empty world.
+  std::vector<KR_ObjectID> staged;
+  if (!PeopleActiveWorldState_CreateStableOwners(context, bytes, &staged) ||
+      static_cast<int>(staged.size()) != expectedCount) {
+    PeopleActiveWorldState_RemoveStableOwners(context, &staged);
+    PeopleActiveWorldState_ReleaseRouteReferences(context, &heldRoutes);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   "People active-world staged allocation failed");
+    return false;
+  }
+  PeopleActiveWorldState_RemoveStableOwners(context, &staged);
+  if (PeopleActiveWorldState_LiveCount(context) != 0 ||
+      SoundObjectState_LiveCount() != baselineSounds - expectedSounds) {
+    PeopleActiveWorldState_ReleaseRouteReferences(context, &heldRoutes);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   "People active-world rollback retained staged owners");
+    return false;
+  }
+
+  std::vector<KR_ObjectID> restored;
+  if (!PeopleActiveWorldState_CreateStableOwners(context, bytes, &restored) ||
+      static_cast<int>(restored.size()) != expectedCount ||
+      !PeopleActiveWorldState_ApplyStableReferences(context, bytes)) {
+    PeopleActiveWorldState_RemoveStableOwners(context, &restored);
+    PeopleActiveWorldState_ReleaseRouteReferences(context, &heldRoutes);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   "People active-world reconstruction failed");
+    return false;
+  }
+  PeopleActiveWorldState_ReleaseRouteReferences(context, &heldRoutes);
+
+  std::vector<KR_ObjectID> newOwners;
+  bool allIDsReallocated =
+      PeopleActiveWorldState_CollectStableOwners(context, bytes, &newOwners) &&
+      newOwners.size() == oldOwners.size();
+  for (std::size_t index = 0;
+       allIDsReallocated && index < oldOwners.size(); ++index)
+    allIDsReallocated = oldOwners[index] != newOwners[index];
+  if (!allIDsReallocated ||
+      !PeopleActiveWorldState_MatchesStable(context, bytes) ||
+      PeopleActiveWorldState_Fingerprint(context) != fingerprint ||
+      PeopleSubjectState_SubjectFingerprint(context) !=
+          expectedSubjectFingerprint ||
+      PeopleActiveWorldState_LiveCount(context) != expectedCount ||
+      PeopleSubjectState_SoundCount(context) != expectedSounds ||
+      SoundObjectState_LiveCount() != baselineSounds ||
+      !PeopleSubjectState_AllReady(context)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   "People active-world reconstruction diverged");
+    return false;
+  }
+
+  g_state.peopleActiveWorldReconstructedIDs = expectedCount;
+  g_state.peopleActiveWorldSchedulerEvents = schedulerEvents;
+  g_state.peopleActiveWorldRollbacks = 1;
+  g_state.peopleActiveWorldFingerprint = fingerprint;
+  return true;
+}
+
 bool PublishPeopleSubject(SimulationContext* context, double startTime,
                           const PeopleScriptSummary& script) {
   if (!g_state.peopleReferencesReady) {
@@ -4635,6 +4754,10 @@ bool PublishPeopleSubject(SimulationContext* context, double startTime,
                    "People-owned SoundObj roster is inconsistent");
     return false;
   }
+  if (!ProbePeopleActiveWorldPersistence(
+          context, script.subjectCount, g_state.peopleSubjectSoundCount,
+          fingerprint))
+    return false;
   g_state.peopleSubjectFingerprint = fingerprint;
   g_state.peopleSubjectReady = true;
   return true;
@@ -4660,6 +4783,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   OrphanAttributeState_Link();
   OrphanSubjectState_Link();
   PeopleSubjectState_Link();
+  PeopleActiveWorldState_Link();
   CannonSubjectState_Link();
   TankSubjectState_Link();
   CommanderState_Link();
@@ -4891,6 +5015,10 @@ void RecoveredArenaSeance_Release() {
   g_state.peopleAttributesReady = false;
   g_state.peopleReferencesReady = false;
   g_state.peopleSubjectReady = false;
+  g_state.peopleActiveWorldReconstructedIDs = 0;
+  g_state.peopleActiveWorldSchedulerEvents = 0;
+  g_state.peopleActiveWorldRollbacks = 0;
+  g_state.peopleActiveWorldFingerprint = 0;
   g_state.peopleAttributeCapacity = 0;
   g_state.peopleAttributeCount = 0;
   g_state.peopleSubjectCapacity = 0;
@@ -5213,6 +5341,28 @@ int RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() {
 
 int RecoveredArenaSeance_PeopleProbeRollbacks() {
   return g_state.peopleSubjectReady ? g_state.peopleProbeRollbacks : -1;
+}
+
+int RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleActiveWorldReconstructedIDs
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleActiveWorldSchedulerEvents() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleActiveWorldSchedulerEvents
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleActiveWorldRollbacks() {
+  return g_state.peopleSubjectReady ? g_state.peopleActiveWorldRollbacks : -1;
+}
+
+unsigned long long RecoveredArenaSeance_PeopleActiveWorldFingerprint() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleActiveWorldFingerprint
+             : 0;
 }
 
 bool RecoveredArenaSeance_TankCannonAttributesReady() {

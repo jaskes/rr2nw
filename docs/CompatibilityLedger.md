@@ -2318,6 +2318,49 @@ Status vocabulary:
   save slots are added. Keep service-owned caches out of Vehicle v1 and either
   version them in their owning section or reconstruct them after load.
 
+### CQ-143: retail People symbolic names are not unique
+
+- Status: `RETAIL_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `Level.04D` and `Level.05D` publish multiple live People objects
+  with the same symbolic name. `SimulationContext::addObject` accepts those
+  duplicates and `searchObject(name)` returns only the first match. A codec
+  that rejected equal names failed both Levels; one that resolved every record
+  through `searchObject(name)` reconstructed the wrong owner ordering.
+- Handling: `PEO1` sorts by symbolic name and then live creation identity. The
+  ordinal within an equal-name run is part of stable People identity even
+  though the process-local ObjectID itself is never serialized. Owners are
+  recreated in record order; owner collection, apply, rollback and fingerprints
+  match the complete ordered roster. People-to-People enemy references encode
+  the same name plus ordinal.
+- Verification: all People in both affected Levels are removed, a complete
+  staged roster is allocated and rolled back, then the final roster is created
+  under new ObjectIDs. Canonical and subject fingerprints match on installed
+  and mounted data in Debug and Release. The other seven Levels exercise unique
+  names and the empty Level.07N People roster.
+- Revisit when: Tank/Cannon and generic event endpoints join the envelope. Use
+  an explicit stable occurrence key for every legacy class that admits duplicate
+  symbolic names; never silently select the first context match.
+
+### CQ-144: People scheduler events can retain an inert start payload
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`, `FORMAT_RULE_ACCEPTED`.
+- Evidence: the People start handler reads `pe_EVCMD_START` or its May extended
+  form, then reuses that same `KR_Event` to schedule STARTMOVE and STARTSHOW
+  without clearing `event.data`. The private handlers for those labels, MOVE,
+  NEXTNODE, FIND_ENEMY and SETAUTOANIM never read payload data. Real Level.01N
+  therefore exposed a non-empty payload on an otherwise owner-local event.
+- Handling: retain label and exact timestamp for the six known self-scheduler
+  events and require their destination to remain the owner. Canonicalize the
+  unused payload to empty when restoring. External commands with semantic data,
+  including animation commands, are not reclassified as People-owned events.
+- Verification: the retail matrix reconstructs each Level's complete private
+  scheduler count and requires the `PEO1` bytes/fingerprint to match after all
+  owners receive new ObjectIDs. Level.01N restores 171 events across 63 People;
+  differing Level populations exercise other counts.
+- Revisit when: the generic `SimulationContext` event section is connected.
+  Decode payload-bearing external commands by label and schema, and deduplicate
+  the six events already owned by `PEO1`.
+
 ## Maintenance rule
 
 When a new quirk is found:

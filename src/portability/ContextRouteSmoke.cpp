@@ -63,6 +63,15 @@ bool ExerciseContext() {
 
   KR_Event queued(kQueuedEvent, 2.0, id, id);
   context.addEvent(queued);
+  KR_Event copied[2];
+  const int copied_count = context.copyEvents(kQueuedEvent, id, copied, 2);
+  if (copied_count != 1 || copied[0].label != kQueuedEvent ||
+      copied[0].source != id || copied[0].destination != id ||
+      !NearlyEqual(copied[0].timeStamp, 2.0) || copied[0].data.size() != 0 ||
+      context.copyEvents(kQueuedEvent, id, nullptr, 0) != 1 ||
+      context.copyEvents(kQueuedEvent, id, nullptr, 1) != -1) {
+    return false;
+  }
   context.poll(3.0);
   if (probe.receive_count != 2 || probe.last_label != kQueuedEvent) {
     return false;

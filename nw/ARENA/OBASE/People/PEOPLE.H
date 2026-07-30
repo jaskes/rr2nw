@@ -177,6 +177,10 @@ class People : public ct_Subject,
     virtual bool  load(PIN_SaveFile & );
     virtual void  loadNotify();
 
+    bool restoreStableReferences(const KR_ObjectID &attribute,
+                                 const KR_ObjectID &route);
+    bool stableReferencesReady() const;
+
     void crashExpl( CFVector3 pos, double time );
     void crashCreateCorpse( CFVector3 pos, double time );
     void moveKilled_FALLOW_checkClz( KR_Event &event );
@@ -188,6 +192,9 @@ class People : public ct_Subject,
     void setHAngle( double hAngle );
     void setHAngleFixDir( double hAngle );
 };
+
+int PeopleFreeObjectCount();
+bool PeopleAttributeExists(const KR_ObjectID &attribute);
 
 
 #pragma warning 004 1

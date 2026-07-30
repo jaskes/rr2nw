@@ -52,8 +52,9 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `3/0`
-  Commander/TankGroup/Vehicle/event sections, `3/3/0`
+- active-world format v1 is initialized with `4/0` for four
+  Commander/TankGroup/People/Vehicle owner sections and zero generic events,
+  then reports `4/4/0`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `active_world_created_owners` is `1` for Level.04D, where the restore
@@ -62,6 +63,11 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - `vehicle_active_world_probe` is `1/1` with a non-zero fingerprint: every
   Level has destroyed `Vehicle.Default`, rolled one staged owner back and
   reconstructed the final owner under a new ObjectID before rendering.
+- `people_active_world_probe` is `<owners>/<scheduler-events>/1` with a
+  non-zero fingerprint: every Level has destroyed its complete People roster,
+  rolled a complete staged population back and restored fresh owners, private
+  scheduled behavior and derived sounds. `0/0/1` is valid for retail Levels
+  whose People roster is intentionally empty.
 
 The summary retains timings, clipping counts, software dither usage, active
 light passes and framebuffer evidence. It contains local absolute paths and is
@@ -107,6 +113,6 @@ screenshot before changing palette or raster rules.
 
 The active-world diagnostics are an internal admission proof, not a user save
 control. Do not add save/load to the interactive checklist until a decoded
-snapshot can construct the remaining People/Tank/Cannon/mission owners and
-restore the live event and input queues; until then those manual cells would
+snapshot can construct the remaining Tank/Cannon/mission owners and restore
+the complete live event and input queues; until then those manual cells would
 overstate readiness.
