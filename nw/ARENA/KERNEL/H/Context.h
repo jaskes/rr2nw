@@ -171,12 +171,6 @@ inline int  SimulationContext::isObjectPollFull()
  {
     return m_freeObjectList == END_LIST;
  }
-inline int     SimulationContext::rnd_i()         { return rand(); }
-inline int     SimulationContext::rnd_i( int max ){ if(max==0)return 0;return rand()%max; }
-inline int     SimulationContext::rnd_i( int min, int max ) {  return min+rnd_i(max-min); }
-inline double  SimulationContext::rnd_f()         { return ((double)(rand()))/RAND_MAX; }
-inline double  SimulationContext::rnd_f(double max) { if(max==0)return 0; return rnd_f()*max; }
-inline double  SimulationContext::rnd_f( double min, double max ) { return min+rnd_f(max-min); }
 
 #endif
 

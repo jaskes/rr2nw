@@ -52,12 +52,16 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `11/4` for eleven
+- active-world format v1 is initialized with `12/4` for twelve
   Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/
-  Corpse owner sections and four versioned semantic events, then reports
-  `11/11/4`
+  Corpse/Clock owner sections and four versioned semantic events, then reports
+  `12/12/4`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
+- `continuation_state_probe` is `1/1/12/<draws>/1`: one canonical `CLK1`
+  record, the explicit MSVC-compatible simulation RNG algorithm, its 12-byte
+  state plus draw counter, at least one retail gameplay draw, and one complete
+  transactional rollback;
 - `mission_active_world_probe` is `1/6/0/1/1`: one bounded Player mission
   contains all six success/failure condition families, no fabricated startup
   Route, one typed future `rc_CHECK_MISSION`, and survives the full rollback;

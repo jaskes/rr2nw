@@ -11,6 +11,8 @@
 #include <windows.h>
 
 #include "ActiveWorldRuntimeProbe.h"
+#include "SimulationRandom.h"
+#include "TimeRuntimeState.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "message/comanmsg.h"
@@ -249,10 +251,17 @@ int main() {
   SActiveWorldRuntimeProbeSummary capture;
   std::string failure;
   if (!ActiveWorldRuntime_CaptureProbe(
-          &context, 0x4652455348435458ull, 17, Session::m_moment,
-          "fresh-context", &bytes, &capture, &failure)) {
+          &context, 0x4652455348435458ull, "fresh-context", &bytes,
+          &capture, &failure)) {
     g_arena.closeSeance();
     return Fail(failure.c_str());
+  }
+  SSimulationClockState capturedClock;
+  std::vector<std::uint8_t> capturedRandom;
+  if (!SUA_CaptureSimulationClock(&capturedClock) ||
+      !SimulationRandom_Capture(&capturedRandom)) {
+    g_arena.closeSeance();
+    return Fail("could not retain the captured continuation boundary");
   }
   const KR_ObjectID oldAlpha = alpha;
   const KR_ObjectID oldBeta = beta;
@@ -270,6 +279,17 @@ int main() {
     return Fail("source owners survived teardown");
   }
 
+  SSimulationClockState divergentClock = capturedClock;
+  divergentClock.tick += 100u;
+  divergentClock.eventMoment += 5.0;
+  divergentClock.viewTime += 5.0;
+  if (!SUA_ApplySimulationClock(divergentClock)) {
+    g_arena.closeSeance();
+    return Fail("could not stage divergent continuation state");
+  }
+  SimulationRandom_Reset(0x12345678u);
+  SimulationRandom_Next();
+
   SActiveWorldRuntimeProbeSummary restored = capture;
   if (!ActiveWorldRuntime_RestoreProbe(
           &context, bytes, &restored, &failure)) {
@@ -285,7 +305,11 @@ int main() {
   Player* restoredPlayer = restoredVehicle == nullptr ? nullptr :
       &static_cast<Player&>(restoredVehicle->player());
   const bool fresh = restored.ready && restored.createdOwners == 4 &&
-      restored.ownerPhases == 11 && restored.referencePhases == 11 &&
+      restored.ownerPhases == 12 && restored.referencePhases == 12 &&
+      restored.clockRecords == 1 && restored.rngAlgorithm == 1 &&
+      restored.rngStateBytes == 12 &&
+      SUA_SimulationClockMatches(capturedClock) &&
+      SimulationRandom_Matches(SimulationRandom_Algorithm(), capturedRandom) &&
       alpha != oldAlpha && beta != oldBeta && group != oldGroup &&
       vehicle != oldVehicle && restoredVehicle != nullptr &&
       g_vehicle == restoredVehicle && restoredPlayer != nullptr &&

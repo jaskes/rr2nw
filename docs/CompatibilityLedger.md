@@ -2608,6 +2608,26 @@ Status vocabulary:
   add a resource-backed summary Route case without weakening missing-resource
   rejection.
 
+### CQ-154: gameplay and presentation historically shared CRT rand
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `SimulationContext::rnd_i/rnd_f`, interpreter `RNDI/RNDF` and Tank
+  spawn jitter consumed CRT `rand()`, as did unrelated Graph, Bush and Briefing
+  presentation paths. Save metadata had RNG/time fields but runtime capture
+  previously populated neither an RNG state nor an authoritative clock.
+- Handling: simulation owns an explicit MSVC-compatible 15-bit LCG reset to
+  seed 1 per seance. Its algorithm, 32-bit state and 64-bit draw count are
+  persisted. Presentation keeps the CRT stream. `CLK1` stores tick, event/view
+  clocks, frame delta, timer aspect and clamp counters; envelope metadata must
+  agree exactly.
+- Verification: a standalone smoke fixes the first three outputs, exact resume
+  and non-mutating rejection. Active-world success and deliberate rollback
+  both require exact clock/RNG matches; diagnostics advance to `12/4`,
+  `12/12/4` and `continuation_state_probe=1/1/12/<draws>/1`.
+- Revisit when: the input/control journal is admitted. Journal entries must be
+  stamped with this simulation tick, not Win32 message time, and replay must
+  verify the RNG draw count at checkpoints.
+
 ## Maintenance rule
 
 When a new quirk is found:

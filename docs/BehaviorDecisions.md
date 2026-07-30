@@ -3409,3 +3409,31 @@ Routes are accepted whenever present. Diagnostics advance to `11/4`,
 External input journaling and authoritative clock/RNG state are the next
 portable continuation boundary. Damage/death remains synchronous owner state
 unless later evidence identifies a genuinely queued external transition.
+
+## BD-089: isolate simulation randomness and persist one authoritative clock
+
+The legacy program used the process-global CRT `rand()` both for gameplay and
+presentation. That makes simulation results depend on how many decorative
+draws a renderer or briefing happened to consume. It also had several related
+time values but no single restorable continuation record.
+
+RR2NW now owns an explicit MSVC-compatible 15-bit LCG for simulation. A seance
+starts from seed 1; `SimulationContext::rnd_i/rnd_f`, script `RNDI/RNDF` and
+Tank spawn jitter consume this stream. Graph, Bush and Briefing remain on CRT
+randomness because they are presentation-only and must not advance gameplay.
+The active-world envelope stores algorithm 1 plus a canonical 12-byte state
+and draw count.
+
+`CLK1` is a field-level twelfth owner section for the session tick,
+event/view clocks, frame seconds, timer aspect and pause-clamp counters.
+`Session::poll()` advances the tick once for each poll with a live context.
+Restore rebases the Win32 wall clock, checks exact envelope/CLK1 agreement and
+applies clock/RNG within the owner transaction. Rollback reapplies the saved
+continuation state only after reconstructed owners and events are unwound, so
+their implementation details cannot consume an observable draw or tick.
+
+The proof contract is `12/4`, `12/12/4` and
+`continuation_state_probe=1/1/12/<draws>/1`, plus a standalone known-sequence,
+round-trip and rejected-mutation smoke. The next boundary is the external
+input/control journal; render-time clocks and cosmetic RNG remain deliberately
+outside the simulation record.

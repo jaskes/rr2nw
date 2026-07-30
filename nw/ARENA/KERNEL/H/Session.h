@@ -8,6 +8,8 @@
 #ifndef _SESSION_HPP_
 #define _SESSION_HPP_
 
+#include <cstdint>
+
 #include "kernel/h/timer.h"
 #include "kernel/h/context.h"
 
@@ -51,6 +53,7 @@ class Session
        static double        m_moment;
        static double        m_viewTime;
        static double        m_frameSec;
+       static std::uint64_t m_simulationTick;
 
        struct SimulationContextElem
        {

@@ -20,6 +20,10 @@ struct SActiveWorldRuntimeProbeSummary {
   int missionConditionReferences;
   int missionRouteReferences;
   int missionCheckEvents;
+  int clockRecords;
+  std::uint32_t rngAlgorithm;
+  int rngStateBytes;
+  std::uint64_t rngDrawCount;
   int corruptionRejects;
   int rollbacks;
   std::size_t containerBytes;
@@ -30,7 +34,6 @@ struct SActiveWorldRuntimeProbeSummary {
 
 bool ActiveWorldRuntime_CaptureProbe(
     SimulationContext* context, std::uint64_t contentFingerprint,
-    std::uint64_t simulationTick, double simulationTime,
     const std::string& level, std::vector<std::uint8_t>* bytes,
     SActiveWorldRuntimeProbeSummary* summary, std::string* failure);
 

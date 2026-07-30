@@ -2,7 +2,10 @@
 
 #include "ActiveWorldSave.h"
 #include "ActiveWorldSemanticEvents.h"
+#include "ClockActiveWorldState.h"
 #include "MissionActiveWorldState.h"
+#include "SimulationRandom.h"
+#include "TimeRuntimeState.h"
 
 #include "kernel/h/context.h"
 #include "obase/comander/CommanderState.h"
@@ -17,6 +20,7 @@
 #include "obase/vehicle/VehicleActiveWorldState.h"
 #include "message/recrcenmsg.h"
 
+#include <algorithm>
 #include <utility>
 
 namespace {
@@ -118,6 +122,14 @@ bool CaptureOwnerSections(SimulationContext* context,
     return false;
   sections->push_back(std::move(corpses));
 
+  SActiveWorldSection clock = {};
+  clock.kind = EActiveWorldSectionKind::Clock;
+  clock.schemaVersion = 1;
+  clock.owner = "Clock";
+  if (!ClockActiveWorldState_CaptureStable(&clock.payload))
+    return false;
+  sections->push_back(std::move(clock));
+
   return true;
 }
 
@@ -157,6 +169,9 @@ bool ValidateOwnerCodec(const SActiveWorldSection& section) {
     case EActiveWorldSectionKind::Corpse:
       return section.owner == "Corpse" &&
              CorpseActiveWorldState_ValidateStable(section.payload);
+    case EActiveWorldSectionKind::Clock:
+      return section.owner == "Clock" &&
+             ClockActiveWorldState_ValidateStable(section.payload);
     default:
       return false;
   }
@@ -191,6 +206,8 @@ bool OwnerMatchesWorld(SimulationContext* context,
     case EActiveWorldSectionKind::Corpse:
       return CorpseActiveWorldState_MatchesStable(context,
                                                    section.payload);
+    case EActiveWorldSectionKind::Clock:
+      return ClockActiveWorldState_MatchesStable(section.payload);
     default:
       return false;
   }
@@ -223,6 +240,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     sparkBackup_.clear();
     smokeBackup_.clear();
     corpseBackup_.clear();
+    clockBackup_.clear();
+    rngBackup_.clear();
     semanticBackup_.clear();
     stagedEvents_.clear();
     createdCommanders_.clear();
@@ -236,6 +255,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdSparks_.clear();
     createdSmokes_.clear();
     createdCorpses_.clear();
+    createdClocks_.clear();
     createdSemanticOwners_.clear();
     if (!CommanderState_CaptureStable(context_, &commanderBackup_) ||
         !TankGroupState_CaptureStable(context_, &tankGroupBackup_) ||
@@ -249,6 +269,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !SparkActiveWorldState_CaptureStable(context_, &sparkBackup_) ||
         !SmokeActiveWorldState_CaptureStable(context_, &smokeBackup_) ||
         !CorpseActiveWorldState_CaptureStable(context_, &corpseBackup_) ||
+        !ClockActiveWorldState_CaptureStable(&clockBackup_) ||
+        !SimulationRandom_Capture(&rngBackup_) ||
         !ActiveWorldSemanticEvents_Capture(
             context_, &semanticBackup_, failure)) {
       SetFailure(failure, "active-world live owner backup failed");
@@ -317,6 +339,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       case EActiveWorldSectionKind::Corpse:
         created = CorpseActiveWorldState_CreateStableOwners(
             context_, section.payload, &createdCorpses_);
+        break;
+      case EActiveWorldSectionKind::Clock:
+        created = ClockActiveWorldState_CreateStableOwners(
+            context_, section.payload, &createdClocks_);
         break;
       default:
         break;
@@ -414,6 +440,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           resolved = CorpseActiveWorldState_ApplyStableReferences(
               context_, section.payload);
           break;
+        case EActiveWorldSectionKind::Clock:
+          resolved = ClockActiveWorldState_ApplyStableReferences(
+              section.payload);
+          break;
         default:
           break;
       }
@@ -475,9 +505,19 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
 
   bool Validate(std::uint64_t expectedWorldFingerprint,
                 std::string* failure) override {
-    if (!began_ || snapshot_ == nullptr || staged_.size() != 11 ||
+    bool clockMetadataMatches = false;
+    if (snapshot_ != nullptr)
+      for (const SActiveWorldSection& section : staged_)
+        if (section.kind == EActiveWorldSectionKind::Clock)
+          clockMetadataMatches = ClockActiveWorldState_MetadataMatches(
+              section.payload, snapshot_->simulationTick,
+              snapshot_->simulationTime);
+    if (!began_ || snapshot_ == nullptr || staged_.size() != 12 ||
         ActiveWorldSave_ComputeWorldFingerprint(*snapshot_) !=
-            expectedWorldFingerprint) {
+            expectedWorldFingerprint ||
+        !clockMetadataMatches ||
+        !SimulationRandom_Validate(snapshot_->rngAlgorithm,
+                                   snapshot_->rngState)) {
       SetFailure(failure, "active-world staged fingerprint is invalid");
       return false;
     }
@@ -485,7 +525,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !ActiveWorldSemanticEvents_Validate(stagedEvents_, failure) ||
         !ActiveWorldSemanticEvents_Replace(
             context_, stagedEvents_, &createdSemanticOwners_, failure) ||
-        !ActiveWorldSemanticEvents_Matches(context_, stagedEvents_))
+        !ActiveWorldSemanticEvents_Matches(context_, stagedEvents_) ||
+        !SimulationRandom_Apply(snapshot_->rngAlgorithm,
+                                snapshot_->rngState) ||
+        !SimulationRandom_Matches(snapshot_->rngAlgorithm,
+                                  snapshot_->rngState))
       return false;
     if (rejectValidation_) {
       SetFailure(failure, "intentional rollback probe");
@@ -512,6 +556,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       clean = ActiveWorldSemanticEvents_Clear(context_, nullptr) && clean;
       createdSemanticOwners_.clear();
       CorpseActiveWorldState_RemoveStableOwners(context_, &createdCorpses_);
+      ClockActiveWorldState_RemoveStableOwners(context_, &createdClocks_);
       MissionActiveWorldState_RemoveStableOwners(
           context_, &createdMissionRoutes_);
       SmokeActiveWorldState_RemoveStableOwners(context_, &createdSmokes_);
@@ -553,6 +598,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, semanticBackup_, &restoredSemanticOwners,
                   nullptr) && clean;
       restoredSemanticOwners.clear();
+      // Owner allocation and event reconstruction may sample RNG or observe
+      // time. Restore the continuation boundary only after that work is done.
+      clean = ClockActiveWorldState_ApplyStableReferences(
+                  clockBackup_) && clean;
+      clean = SimulationRandom_Apply(
+                  SimulationRandom_Algorithm(), rngBackup_) && clean;
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
               TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
               VehicleActiveWorldState_MatchesStable(context_, vehicleBackup_) &&
@@ -569,6 +620,9 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, smokeBackup_) &&
               CorpseActiveWorldState_MatchesStable(
                   context_, corpseBackup_) &&
+              ClockActiveWorldState_MatchesStable(clockBackup_) &&
+              SimulationRandom_Matches(
+                  SimulationRandom_Algorithm(), rngBackup_) &&
               ActiveWorldSemanticEvents_Matches(
                   context_, semanticBackup_) &&
               clean;
@@ -580,10 +634,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 11 &&
+    return began_ && committed_ && !rolledBack_ && staged_.size() == 12 &&
            snapshot_ != nullptr && stagedEvents_.size() ==
                snapshot_->events.size() &&
-           ActiveWorldSemanticEvents_Matches(context_, stagedEvents_);
+           ActiveWorldSemanticEvents_Matches(context_, stagedEvents_) &&
+           SimulationRandom_Matches(snapshot_->rngAlgorithm,
+                                    snapshot_->rngState);
   }
   bool RolledBackCleanly() const {
     return began_ && !committed_ && rolledBack_ && staged_.empty() &&
@@ -593,7 +649,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
            createdPeople_.empty() && createdTanks_.empty() &&
            createdBullets_.empty() && createdExplosions_.empty() &&
            createdSparks_.empty() && createdSmokes_.empty() &&
-           createdCorpses_.empty() && createdSemanticOwners_.empty() &&
+           createdCorpses_.empty() && createdClocks_.empty() &&
+           createdSemanticOwners_.empty() &&
            stagedEvents_.empty();
   }
   int ownerPhases() const { return ownerPhases_; }
@@ -609,7 +666,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                             createdExplosions_.size() +
                             createdSparks_.size() +
                             createdSmokes_.size() +
-                            createdCorpses_.size());
+                            createdCorpses_.size() +
+                            createdClocks_.size());
   }
 
  private:
@@ -635,6 +693,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> sparkBackup_;
   std::vector<std::uint8_t> smokeBackup_;
   std::vector<std::uint8_t> corpseBackup_;
+  std::vector<std::uint8_t> clockBackup_;
+  std::vector<std::uint8_t> rngBackup_;
   std::vector<SActiveWorldEvent> semanticBackup_;
   std::vector<SActiveWorldEvent> stagedEvents_;
   std::vector<KR_ObjectID> createdCommanders_;
@@ -648,6 +708,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<KR_ObjectID> createdSparks_;
   std::vector<KR_ObjectID> createdSmokes_;
   std::vector<KR_ObjectID> createdCorpses_;
+  std::vector<KR_ObjectID> createdClocks_;
   std::vector<KR_ObjectID> createdSemanticOwners_;
 };
 
@@ -658,12 +719,12 @@ SActiveWorldRuntimeProbeSummary::SActiveWorldRuntimeProbeSummary()
       referencePhases(0), eventPhases(0), createdOwners(0),
       missionRecords(0), missionConditionReferences(0),
       missionRouteReferences(0), missionCheckEvents(0),
+      clockRecords(0), rngAlgorithm(0), rngStateBytes(0), rngDrawCount(0),
       corruptionRejects(0), rollbacks(0), containerBytes(0),
       worldFingerprint(0) {}
 
 bool ActiveWorldRuntime_CaptureProbe(
     SimulationContext* context, std::uint64_t contentFingerprint,
-    std::uint64_t simulationTick, double simulationTime,
     const std::string& level, std::vector<std::uint8_t>* bytes,
     SActiveWorldRuntimeProbeSummary* summary, std::string* failure) {
   if (bytes == nullptr || summary == nullptr) {
@@ -674,18 +735,23 @@ bool ActiveWorldRuntime_CaptureProbe(
   SActiveWorldSnapshot snapshot;
   snapshot.engineCompatibility = ActiveWorldSave_EngineCompatibilityVersion();
   snapshot.contentFingerprint = contentFingerprint;
-  snapshot.simulationTick = simulationTick;
-  snapshot.simulationTime = simulationTime;
   snapshot.level = level;
+  SSimulationClockState clockState;
+  if (!SUA_CaptureSimulationClock(&clockState)) {
+    SetFailure(failure, "authoritative simulation clock is invalid");
+    return false;
+  }
+  const double probeTime =
+      (std::max)(clockState.eventMoment, clockState.viewTime);
   bool stagedMission = false;
   if (!MissionActiveWorldState_StageProbe(
-          context, simulationTime + 30.0, &stagedMission)) {
+          context, probeTime + 30.0, &stagedMission)) {
     SetFailure(failure, MissionActiveWorldState_LastFailure());
     return false;
   }
   bool stagedProbeEvents = false;
   if (!ActiveWorldSemanticEvents_StageProbe(
-          context, simulationTime + 30.0, &stagedProbeEvents, failure)) {
+          context, probeTime + 30.0, &stagedProbeEvents, failure)) {
     if (stagedMission)
       MissionActiveWorldState_ClearProbe(context);
     return false;
@@ -697,11 +763,21 @@ bool ActiveWorldRuntime_CaptureProbe(
         MissionActiveWorldState_ClearProbe(context);
     return effectsClean && missionClean;
   };
+  if (!SUA_CaptureSimulationClock(&clockState) ||
+      !SimulationRandom_Capture(&snapshot.rngState)) {
+    cleanupProbeEvents();
+    SetFailure(failure, "authoritative clock/RNG capture failed");
+    return false;
+  }
+  snapshot.simulationTick = clockState.tick;
+  snapshot.simulationTime =
+      (std::max)(clockState.eventMoment, clockState.viewTime);
+  snapshot.rngAlgorithm = SimulationRandom_Algorithm();
   if (!CaptureOwnerSections(context, &snapshot.sections)) {
     cleanupProbeEvents();
     SetFailure(failure,
                "Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/"
-               "Spark/Smoke/Corpse/Mission "
+               "Spark/Smoke/Corpse/Mission/Clock "
                "stable "
                "capture failed");
     return false;
@@ -741,18 +817,36 @@ bool ActiveWorldRuntime_CaptureProbe(
     return false;
   summary->sections = static_cast<int>(decoded.sections.size());
   summary->events = static_cast<int>(decoded.events.size());
-  for (const SActiveWorldSection& section : decoded.sections)
-    if (section.kind == EActiveWorldSectionKind::Mission &&
-        !MissionActiveWorldState_ProbeCounts(
-            section.payload, &summary->missionRecords,
-            &summary->missionConditionReferences,
-            &summary->missionRouteReferences)) {
-      SetFailure(failure, "MSH1 decoded mission telemetry is invalid");
-      return false;
+  for (const SActiveWorldSection& section : decoded.sections) {
+    if (section.kind == EActiveWorldSectionKind::Mission) {
+      if (!MissionActiveWorldState_ProbeCounts(
+              section.payload, &summary->missionRecords,
+              &summary->missionConditionReferences,
+              &summary->missionRouteReferences)) {
+        SetFailure(failure, "MSH1 decoded mission telemetry is invalid");
+        return false;
+      }
+    } else if (section.kind == EActiveWorldSectionKind::Clock) {
+      if (!ClockActiveWorldState_MetadataMatches(
+              section.payload, decoded.simulationTick,
+              decoded.simulationTime)) {
+        SetFailure(failure, "CLK1 metadata diverges from the envelope");
+        return false;
+      }
+      ++summary->clockRecords;
     }
+  }
   for (const SActiveWorldEvent& event : decoded.events)
     if (event.label == rc_CHECK_MISSION)
       ++summary->missionCheckEvents;
+  summary->rngAlgorithm = decoded.rngAlgorithm;
+  summary->rngStateBytes = static_cast<int>(decoded.rngState.size());
+  std::uint32_t rngState = 0;
+  if (!SimulationRandom_Decode(
+          decoded.rngState, &rngState, &summary->rngDrawCount)) {
+    SetFailure(failure, "simulation RNG state is invalid");
+    return false;
+  }
   summary->corruptionRejects = 1;
   summary->containerBytes = bytes->size();
   summary->worldFingerprint = decoded.worldFingerprint;
@@ -802,6 +896,18 @@ bool ActiveWorldRuntime_RestoreProbe(
       !ActiveWorldSemanticEvents_ClearProbe(context, failure) ||
       !MissionActiveWorldState_ClearProbe(context))
     return false;
+
+  bool clockMatchesAfterCleanup = false;
+  for (const SActiveWorldSection& section : snapshot.sections)
+    if (section.kind == EActiveWorldSectionKind::Clock)
+      clockMatchesAfterCleanup = ClockActiveWorldState_MatchesStable(
+          section.payload);
+  if (!clockMatchesAfterCleanup ||
+      !SimulationRandom_Matches(snapshot.rngAlgorithm, snapshot.rngState)) {
+    SetFailure(failure,
+               "authoritative clock/RNG changed after restore cleanup");
+    return false;
+  }
 
   summary->ownerPhases = success.ownerPhases();
   summary->referencePhases = success.referencePhases();

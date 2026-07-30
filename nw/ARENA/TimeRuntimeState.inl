@@ -1,6 +1,8 @@
 #ifndef RR2NW_TIME_RUNTIME_STATE_INL
 #define RR2NW_TIME_RUNTIME_STATE_INL
 
+#include <cmath>
+
 namespace {
 Session *rr2nw_active_session = NULL;
 
@@ -11,6 +13,19 @@ Session *rr2nw_active_session = NULL;
 const double rr2nw_max_timer_sample_ms = 50.0;
 unsigned int rr2nw_clamped_timer_samples = 0;
 double rr2nw_clamped_timer_seconds = 0.0;
+
+void rr2nw_rebase_timer(a_TTimer *timer, double interval)
+{
+    const double unscaled = interval / timer->m_aspect;
+    timer->m_curTime = (unscaled > 0.1 ? unscaled - 0.1 : 0.0) * 1000.0;
+    const DWORD tick = ::GetTickCount();
+    timer->m_prevTime = static_cast<long>(tick);
+    // Rebase message timestamps without depending on how long the process was
+    // paused between capture and restore.
+    timer->m_startTick = static_cast<long>(tick);
+    timer->m_pauseTime = -unscaled;
+    timer->m_deltaTime = 0;
+}
 }
 
 bool a_TTimer::dump(PIN_SaveFile &sf)
@@ -43,6 +58,9 @@ void a_TTimer::Start()
     rr2nw_clamped_timer_samples = 0;
     rr2nw_clamped_timer_seconds = 0.0;
     Session::m_moment = GetTime();
+    Session::m_viewTime = Session::m_moment;
+    Session::m_frameSec = 0.0;
+    Session::m_simulationTick = 0;
 }
 
 void a_TTimer::Wait(double)
@@ -104,6 +122,66 @@ unsigned int SUA_ClampedTimerSampleCount()
 double SUA_ClampedTimerSeconds()
 {
     return rr2nw_clamped_timer_seconds;
+}
+
+SSimulationClockState::SSimulationClockState()
+    : tick(0), eventMoment(0.0), viewTime(0.0), frameSeconds(0.0),
+      timerAspect(1.0), clampedSamples(0), clampedSeconds(0.0)
+{
+}
+
+bool SUA_ValidateSimulationClock(const SSimulationClockState &state)
+{
+    return std::isfinite(state.eventMoment) && state.eventMoment >= 0.0 &&
+           std::isfinite(state.viewTime) && state.viewTime >= 0.0 &&
+           std::isfinite(state.frameSeconds) && state.frameSeconds >= 0.0 &&
+           state.frameSeconds <= 0.1 &&
+           std::isfinite(state.timerAspect) && state.timerAspect > 0.0 &&
+           std::isfinite(state.viewTime / state.timerAspect) &&
+           std::isfinite(state.clampedSeconds) &&
+           state.clampedSeconds >= 0.0;
+}
+
+bool SUA_CaptureSimulationClock(SSimulationClockState *state)
+{
+    if (state == NULL)
+        return false;
+    state->tick = Session::m_simulationTick;
+    state->eventMoment = Session::m_moment;
+    state->viewTime = Session::m_viewTime;
+    state->frameSeconds = Session::m_frameSec;
+    state->timerAspect = g_timer.m_aspect;
+    state->clampedSamples = rr2nw_clamped_timer_samples;
+    state->clampedSeconds = rr2nw_clamped_timer_seconds;
+    return SUA_ValidateSimulationClock(*state);
+}
+
+bool SUA_ApplySimulationClock(const SSimulationClockState &state)
+{
+    if (!SUA_ValidateSimulationClock(state))
+        return false;
+    g_timer.m_aspect = state.timerAspect;
+    rr2nw_rebase_timer(&g_timer, state.viewTime);
+    Session::m_simulationTick = state.tick;
+    Session::m_moment = state.eventMoment;
+    Session::m_viewTime = state.viewTime;
+    Session::m_frameSec = state.frameSeconds;
+    rr2nw_clamped_timer_samples = state.clampedSamples;
+    rr2nw_clamped_timer_seconds = state.clampedSeconds;
+    return true;
+}
+
+bool SUA_SimulationClockMatches(const SSimulationClockState &state)
+{
+    SSimulationClockState current;
+    return SUA_CaptureSimulationClock(&current) &&
+           current.tick == state.tick &&
+           current.eventMoment == state.eventMoment &&
+           current.viewTime == state.viewTime &&
+           current.frameSeconds == state.frameSeconds &&
+           current.timerAspect == state.timerAspect &&
+           current.clampedSamples == state.clampedSamples &&
+           current.clampedSeconds == state.clampedSeconds;
 }
 
 double a_TTimer::GetTimeDiff(double timeStamp)

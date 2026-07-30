@@ -18,7 +18,8 @@ enum class EActiveWorldSectionKind : std::uint32_t {
   Explosion = 9,
   Spark = 10,
   Smoke = 11,
-  Corpse = 12
+  Corpse = 12,
+  Clock = 13
 };
 
 enum class EActiveWorldSaveError : std::uint32_t {

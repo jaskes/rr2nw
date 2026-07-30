@@ -17,6 +17,7 @@
 double  Session::m_moment = 0;
 double  Session::m_viewTime = 0;
 double  Session::m_frameSec = 0;
+std::uint64_t Session::m_simulationTick = 0;
 KR_Hardware  *Session::m_hardware = 0;
 KR_RealTimer *Session::m_realTimer = 0;
 // ============================================================================
@@ -27,6 +28,7 @@ Session::Session(
 // ============================================================================
 {
     m_moment       = 0;
+    m_simulationTick = 0;
 
     m_contextList  = NULL;
     m_observerList = NULL;
@@ -176,6 +178,9 @@ int Session::RemoveObserver(
 int Session::poll()
 {
     int result = (m_contextList != NULL);
+
+    if (result)
+        ++m_simulationTick;
 
     // check hardware
     if ( m_hardware != NULL )

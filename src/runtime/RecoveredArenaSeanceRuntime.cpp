@@ -66,6 +66,7 @@ class CGRPanel;
 #include "ActiveWorldRuntimeProbe.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
+#include "SimulationRandom.h"
 #include "RecoveredSkinResourceCatalog.h"
 #include "RecoveredWavMetadataCatalog.h"
 
@@ -1652,6 +1653,10 @@ struct RecoveredArenaSeanceState {
   int activeWorldMissionConditionReferences;
   int activeWorldMissionRouteReferences;
   int activeWorldMissionCheckEvents;
+  int activeWorldClockRecords;
+  unsigned int activeWorldRngAlgorithm;
+  int activeWorldRngStateBytes;
+  unsigned long long activeWorldRngDrawCount;
   int activeWorldCorruptionRejects;
   int activeWorldRollbacks;
   unsigned long long activeWorldContainerBytes;
@@ -4561,6 +4566,11 @@ void PublishActiveWorldSummary(
       summary.missionConditionReferences;
   g_state.activeWorldMissionRouteReferences = summary.missionRouteReferences;
   g_state.activeWorldMissionCheckEvents = summary.missionCheckEvents;
+  g_state.activeWorldClockRecords = summary.clockRecords;
+  g_state.activeWorldRngAlgorithm = summary.rngAlgorithm;
+  g_state.activeWorldRngStateBytes = summary.rngStateBytes;
+  g_state.activeWorldRngDrawCount =
+      static_cast<unsigned long long>(summary.rngDrawCount);
   g_state.activeWorldCorruptionRejects = summary.corruptionRejects;
   g_state.activeWorldRollbacks = summary.rollbacks;
   g_state.activeWorldContainerBytes =
@@ -4569,14 +4579,12 @@ void PublishActiveWorldSummary(
 }
 
 bool CaptureActiveWorldProbe(
-    SimulationContext* context, double startTime,
-    std::vector<std::uint8_t>* bytes,
+    SimulationContext* context, std::vector<std::uint8_t>* bytes,
     SActiveWorldRuntimeProbeSummary* summary) {
   std::string failure;
   if (ActiveWorldRuntime_CaptureProbe(
-          context, ActiveWorldContentFingerprint(), 0,
-          startTime < 0.0 ? 0.0 : startTime, ActiveWorldLevelIdentity(), bytes,
-          summary, &failure))
+          context, ActiveWorldContentFingerprint(), ActiveWorldLevelIdentity(),
+          bytes, summary, &failure))
     return true;
   ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE,
                  failure.c_str());
@@ -4655,7 +4663,7 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
   std::vector<std::uint8_t> activeWorldBytes;
   SActiveWorldRuntimeProbeSummary activeWorldSummary;
   if (!LevelHasRetailAER00TankSpawn()) {
-    if (!CaptureActiveWorldProbe(context, startTime, &activeWorldBytes,
+    if (!CaptureActiveWorldProbe(context, &activeWorldBytes,
                                  &activeWorldSummary) ||
         !RestoreActiveWorldProbe(context, activeWorldBytes,
                                  &activeWorldSummary))
@@ -4728,7 +4736,7 @@ bool PublishMissionTankLifecycle(SimulationContext* context,
     return false;
   }
   g_state.missionTankStableRoundTrips = 2;
-  if (!CaptureActiveWorldProbe(context, startTime, &activeWorldBytes,
+  if (!CaptureActiveWorldProbe(context, &activeWorldBytes,
                                &activeWorldSummary)) {
     RollBackAER00TankSpawn(context);
     return false;
@@ -5095,6 +5103,11 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     return FALSE;
   }
 
+  // The 1999 code relied on the process-global CRT default seed. Preserve its
+  // deterministic Windows sequence, but reset a simulation-only stream for
+  // each seance so rendering cannot consume gameplay entropy.
+  SimulationRandom_Reset(1u);
+
   BirdAttributeState_Link();
   BulletAttributeState_Link();
   BulletSubjectState_Link();
@@ -5406,6 +5419,10 @@ void RecoveredArenaSeance_Release() {
   g_state.activeWorldMissionConditionReferences = 0;
   g_state.activeWorldMissionRouteReferences = 0;
   g_state.activeWorldMissionCheckEvents = 0;
+  g_state.activeWorldClockRecords = 0;
+  g_state.activeWorldRngAlgorithm = 0;
+  g_state.activeWorldRngStateBytes = 0;
+  g_state.activeWorldRngDrawCount = 0;
   g_state.activeWorldCorruptionRejects = 0;
   g_state.activeWorldRollbacks = 0;
   g_state.activeWorldContainerBytes = 0;
@@ -6020,6 +6037,30 @@ int RecoveredArenaSeance_ActiveWorldMissionCheckEvents() {
   return g_state.activeWorldPersistenceReady
              ? g_state.activeWorldMissionCheckEvents
              : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldClockRecords() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldClockRecords
+             : -1;
+}
+
+unsigned int RecoveredArenaSeance_ActiveWorldRngAlgorithm() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldRngAlgorithm
+             : 0;
+}
+
+int RecoveredArenaSeance_ActiveWorldRngStateBytes() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldRngStateBytes
+             : -1;
+}
+
+unsigned long long RecoveredArenaSeance_ActiveWorldRngDrawCount() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldRngDrawCount
+             : 0;
 }
 
 int RecoveredArenaSeance_ActiveWorldCorruptionRejects() {

@@ -7,6 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added authoritative continuation state to active-world v1. The twelfth
+  `CLK1` section stores session tick, event/view clocks, frame delta, timer
+  aspect and timer-clamp diagnostics; envelope tick/time must agree exactly.
+- Added an explicit MSVC-compatible simulation RNG, reset to seed 1 for every
+  seance and consumed by `SimulationContext`, script `RNDI/RNDF` and Tank spawn
+  jitter. Its algorithm, 32-bit state and 64-bit draw count are persisted in a
+  canonical 12-byte envelope record, independently of visual CRT randomness.
+- Added transactional clock/RNG rollback, continuation diagnostics and a
+  known-sequence smoke. The active-world contract advances to `12/4`,
+  `12/12/4` and `continuation_state_probe=1/1/12/<draws>/1`; malformed state is
+  rejected without changing live globals. Debug and Release pass 55/55 CTest;
+  all 36 installed/mounted retail Level cases pass the updated admission gate.
 - Added the People version-1 active-world section. `PEO1` encodes the complete
   behavior-bearing Subject/People state field by field, symbolic Attribute,
   Route, Commander and enemy references, and the six private People scheduler

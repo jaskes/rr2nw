@@ -1243,15 +1243,16 @@ canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
 RC requirement for complete world state or manual save points. Player mission
 state, queued effect creation and mission checks are covered; external
-input/control journaling, authoritative RNG/clock, complete fresh-Level
+input/control journaling, complete fresh-Level
 construction and user controls remain required. Explicit damage/death records
 remain conditional on finding a genuinely queued transition rather than the
 already captured synchronous owner mutations.
 
-The current admission gate is 54/54 CTest in Debug and Release and 36/36 real
-Level launches. All cases publish eleven owner sections, eleven
+The current admission gate publishes twelve owner sections and twelve
 owner/reference phases and successful mission/effect rollback proofs through
-MSH1 plus EVT1. The bounded probes leave Player missions and all Corpse,
+MSH1 plus EVT1. `CLK1` and the envelope RNG state additionally preserve the
+authoritative continuation boundary. Debug and Release pass 55/55 CTest and
+the installed/mounted matrix passes 36/36. The bounded probes leave Player missions and all Corpse,
 DynSmoker, Smoke, Spark, Explosion and Bullet pools at baseline before the
 playable Level begins.
 
@@ -1283,8 +1284,28 @@ playable Level begins.
 - The retail proof is `mission_active_world_probe=1/6/0/1/1`; envelope markers
   are `11/4`, `11/11/4` and `1/1`. The zero Route count records that startup
   does not fabricate a mission resource before a mission script loads one.
-- Input journaling, deterministic RNG/clock state, complete fresh-Level load
-  and public save controls remain outside this tranche.
+- At this tranche, input journaling, deterministic RNG/clock state, complete
+  fresh-Level load and public save controls still remained outside the boundary.
+
+### RP-SAVE-009: authoritative clock and simulation RNG survive restore
+
+- `CLK1` is the twelfth field-level section. It stores the session tick,
+  event/view time, frame delta, timer aspect and accumulated timer-clamp
+  diagnostics; envelope tick/time must match it exactly.
+- The envelope RNG record identifies an explicit MSVC-compatible 15-bit LCG
+  and stores its 32-bit state plus 64-bit draw count in 12 bytes. Seance startup
+  resets it to the historical default seed.
+- `SimulationContext::rnd_i/rnd_f`, script `RNDI/RNDF` and Tank spawn jitter
+  consume this stream. Renderer, Bush and Briefing randomness remain on the CRT
+  stream and therefore cannot perturb future gameplay draws.
+- Restore applies clock and RNG only inside the transaction. Intentional
+  validation failure restores both after all owner/event rollback work, and
+  malformed continuation records cannot mutate live state.
+- Admission markers are `12/4`, `12/12/4`, `1/1` and
+  `continuation_state_probe=1/1/12/<draws>/1`. External input journaling,
+  complete fresh-Level load and public save controls remain outside this
+  tranche. The admitted implementation passes 55/55 CTest in both
+  configurations and all 36 retail Level cases.
 
 ## Binary analysis boundary
 

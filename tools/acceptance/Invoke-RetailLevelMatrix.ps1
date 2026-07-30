@@ -216,11 +216,11 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "11/4") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "12/4") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse/Clock section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "11/11/4") {
+                    $log["active_world_restore_phases"] -ne "12/12/4") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("mission_active_world_probe") -or
@@ -230,6 +230,17 @@ foreach ($configurationName in $Configuration) {
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
                     $log["active_world_integrity_probe"] -ne "1/1") {
                     $issues.Add("active-world corruption/rollback proof changed")
+                }
+                $continuationState = if ($log.ContainsKey("continuation_state_probe")) {
+                    [string]$log["continuation_state_probe"] -split "/"
+                } else { @() }
+                if ($continuationState.Count -ne 5 -or
+                    [int]$continuationState[0] -ne 1 -or
+                    [int]$continuationState[1] -ne 1 -or
+                    [int]$continuationState[2] -ne 12 -or
+                    [uint64]$continuationState[3] -lt 1 -or
+                    [int]$continuationState[4] -ne 1) {
+                    $issues.Add("authoritative clock/RNG continuation proof changed")
                 }
                 $expectedCreatedOwners = if ($levelName -ieq "Level.04D") { 2 } else { 0 }
                 if ((Get-LogInteger $log "active_world_created_owners") -ne
@@ -356,6 +367,7 @@ foreach ($configurationName in $Configuration) {
                 active_world_integrity_probe = [string]$log["active_world_integrity_probe"]
                 active_world_created_owners = Get-LogInteger $log "active_world_created_owners"
                 mission_active_world_probe = [string]$log["mission_active_world_probe"]
+                continuation_state_probe = [string]$log["continuation_state_probe"]
                 active_world_container_bytes = Get-LogUnsigned $log "active_world_container_bytes"
                 active_world_fingerprint = Get-LogUnsigned $log "active_world_fingerprint"
                 vehicle_active_world_probe = [string]$log["vehicle_active_world_probe"]
@@ -397,6 +409,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     renderer_nonclear_pixels, active_world_sections,
     active_world_restore_phases, active_world_integrity_probe,
     active_world_created_owners, mission_active_world_probe,
+    continuation_state_probe,
     active_world_container_bytes, active_world_fingerprint,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
     people_active_world_probe, people_active_world_fingerprint,

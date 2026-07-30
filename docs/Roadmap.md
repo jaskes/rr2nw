@@ -1118,8 +1118,17 @@ DebugMap lifecycle survive transactional restore; EVT1 also owns a typed
 diagnostics are `11/4`, `11/11/4` and
 `mission_active_world_probe=1/6/0/1/1`.
 
-The next persistence slice is the input/control journal plus authoritative
-clock/RNG state. Explicit hit/damage/death records should only be added where
+Authoritative continuation state is now admitted as the twelfth `CLK1`
+section plus the envelope RNG record. The clock stores the session tick,
+event/view clocks, frame delta, timer aspect and timer-clamp counters. The RNG
+uses an explicit MSVC-compatible LCG with a 32-bit state and 64-bit draw count;
+`SimulationContext`, script `RNDI/RNDF` and Tank spawn share it, while visual
+CRT randomness remains isolated. Retail diagnostics are `12/4`, `12/12/4`
+and `continuation_state_probe=1/1/12/<draws>/1`. Debug and Release pass 55/55
+CTest and the installed/mounted retail matrix passes 36/36.
+
+The next persistence slice is the external input/control journal. Explicit
+hit/damage/death records should only be added where
 source inspection finds a queued transition; current damage/death paths are
 synchronous and already materialize in owner state. Complete fresh-Level
 reconstruction and public save controls follow.

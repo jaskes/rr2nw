@@ -3059,3 +3059,27 @@ Retail startup proves one mission, six condition references, no fabricated
 Route and one future check with `mission_active_world_probe=1/6/0/1/1`.
 Envelope diagnostics are `11/4` and `11/11/4`. Source-only fixtures remain a
 canonical empty MSH1/EVT1 while still exercising all eleven phases.
+
+## Authoritative simulation clock and RNG
+
+The active-world envelope now has a twelfth `CLK1` section. Its canonical
+payload records the 64-bit session tick, event and view clocks, frame delta,
+timer aspect, clamp sample count and discarded clamp duration. The envelope's
+tick and time are derived from this record and restore rejects disagreement.
+The Win32 timer is rebased at apply time, avoiding a wall-clock jump after a
+long save/load pause.
+
+Gameplay randomness no longer aliases the CRT stream used by presentation.
+`SimulationContext`, script VM random opcodes and the Tank spawn jitter use a
+new explicit MSVC-compatible LCG, reset to the historical seed 1 per seance.
+Its envelope record is algorithm 1 plus 12 bytes containing state and draw
+count. The legacy non-UTF-8 Tank source is left byte-preserved; a target-local
+forced-include shim redirects its single `rand()` call.
+
+Transactional restore backs up both globals before owner allocation, applies
+the saved RNG at validation and restores clock/RNG last during rollback.
+Standalone smoke coverage fixes the known first sequence `41, 18467, 6334`,
+proves exact continuation, and proves malformed RNG and invalid clock records
+do not mutate live state. Runtime diagnostics are `12/4`, `12/12/4` and
+`continuation_state_probe=1/1/12/<draws>/1`. Debug and Release pass 55/55
+CTest; both retail roots across all nine Levels pass 36/36.

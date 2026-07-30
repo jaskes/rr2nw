@@ -37,6 +37,18 @@ if(MSVC)
   target_compile_options(rr2nw_legacy_design PRIVATE /W3)
 endif()
 
+add_library(rr2nw_simulation_random STATIC
+  src/runtime/SimulationRandom.cpp
+  src/runtime/SimulationRandom.h
+)
+target_include_directories(rr2nw_simulation_random PUBLIC src/runtime)
+target_compile_features(rr2nw_simulation_random PUBLIC cxx_std_14)
+if(MSVC)
+  target_compile_options(
+    rr2nw_simulation_random PRIVATE /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_script_compiler STATIC
   nw/ARENA/SC/SRC/PCGEN.CPP
   nw/ARENA/SC/SRC/PHEAP.CPP
@@ -67,8 +79,10 @@ add_library(rr2nw_script_runtime STATIC
 target_link_libraries(rr2nw_script_runtime PUBLIC
   rr2nw_script_compiler
   rr2nw_legacy_design
+  rr2nw_simulation_random
 )
 target_include_directories(rr2nw_script_runtime PUBLIC
+  src/runtime
   nw/ARENA/SC/H
   nw/DESIGN.LIB/H
 )
@@ -108,14 +122,19 @@ add_library(rr2nw_arena_kernel STATIC
   nw/ARENA/KERNEL/SRC/SETOFID.CPP
   nw/ARENA/KERNEL/SRC/Context.cpp
   nw/ARENA/KERNEL/SRC/ContextEventQueue.cpp
+  nw/ARENA/KERNEL/SRC/SimulationContextRandom.cpp
   nw/ARENA/KERNEL/SRC/ContextSave.cpp
   nw/ARENA/KERNEL/SRC/Session.cpp
   nw/ARENA/KERNEL/SRC/Echo.cpp
   nw/ARENA/KERNEL/SRC/S_EVDATA.CPP
   nw/ARENA/KERNEL/SRC/Active.cpp
 )
-target_link_libraries(rr2nw_arena_kernel PUBLIC rr2nw_legacy_design)
+target_link_libraries(rr2nw_arena_kernel PUBLIC
+  rr2nw_legacy_design
+  rr2nw_simulation_random
+)
 target_include_directories(rr2nw_arena_kernel PUBLIC
+  src/runtime
   nw/INCLUDE
   nw/DESIGN.LIB/H
   nw/ARENA
@@ -182,6 +201,7 @@ target_compile_definitions(rr2nw_legacy_rsx_ids PRIVATE
 
 add_library(rr2nw_arena_time_runtime_state STATIC
   nw/ARENA/TimeRuntimeState.cpp
+  nw/ARENA/TimeRuntimeState.h
   nw/ARENA/TimeRuntimeState.inl
 )
 target_link_libraries(rr2nw_arena_time_runtime_state PUBLIC
@@ -3108,6 +3128,7 @@ add_library(rr2nw_arena_obase_tank_full STATIC
   nw/ARENA/OBASE/Tank/TankActiveWorldState.h
 )
 target_link_libraries(rr2nw_arena_obase_tank_full PUBLIC
+  rr2nw_simulation_random
   rr2nw_arena_storage
   rr2nw_arena_physics
   rr2nw_arena_obase_cannon_full
@@ -3119,6 +3140,7 @@ target_link_libraries(rr2nw_arena_obase_tank_full PUBLIC
   rr2nw_scene_draw_state
 )
 target_include_directories(rr2nw_arena_obase_tank_full PUBLIC
+  src/runtime
   nw/INCLUDE
   nw/DESIGN.LIB/H
   nw/ARENA
@@ -3137,6 +3159,7 @@ target_compile_definitions(rr2nw_arena_obase_tank_full PRIVATE
 if(MSVC)
   target_compile_options(rr2nw_arena_obase_tank_full PRIVATE
     /W3 /permissive /wd4081 /wd4244 /wd4867
+    /FITankSimulationRandomShim.h
   )
 endif()
 
@@ -3429,6 +3452,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.h
   src/runtime/ActiveWorldSemanticEvents.cpp
   src/runtime/ActiveWorldSemanticEvents.h
+  src/runtime/ClockActiveWorldState.cpp
+  src/runtime/ClockActiveWorldState.h
   src/runtime/MissionActiveWorldState.cpp
   src/runtime/MissionActiveWorldState.h
   src/runtime/ActiveWorldRuntimeProbe.cpp
@@ -3598,6 +3623,22 @@ target_link_libraries(
 target_compile_features(rr2nw_active_world_save_smoke PRIVATE cxx_std_14)
 target_compile_definitions(
   rr2nw_active_world_save_smoke PRIVATE UNICODE _UNICODE
+)
+
+add_executable(rr2nw_simulation_continuation_smoke
+  src/portability/SimulationContinuationSmoke.cpp
+)
+target_link_libraries(rr2nw_simulation_continuation_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_simulation_continuation_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_simulation_continuation_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
 )
 
 add_executable(rr2nw_context_route_smoke
@@ -4418,6 +4459,9 @@ if(MSVC)
     rr2nw_active_world_save_smoke PRIVATE /W4 /permissive-
   )
   target_compile_options(
+    rr2nw_simulation_continuation_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_active_world_fresh_restore_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -4497,6 +4541,10 @@ if(BUILD_TESTING)
     NAME active-world-save-smoke
     COMMAND rr2nw_active_world_save_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/active-world-save-smoke-$<CONFIG>.rr2"
+  )
+  add_test(
+    NAME simulation-continuation-smoke
+    COMMAND rr2nw_simulation_continuation_smoke
   )
   add_test(
     NAME active-world-fresh-restore-smoke
