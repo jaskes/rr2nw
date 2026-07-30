@@ -13,6 +13,14 @@
 #define HANDLE int
 #include "storage\h\savefile.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "CommanderState.h"
+
 
 
 #define MAX_MEMBER 250
@@ -690,4 +698,325 @@ ct_Object *com_CommanderTable::getObjectPTR( int index )
     }
     return &(m_table[index]);
  }
+
+namespace {
+
+struct StableCommanderRecord
+{
+    std::string name;
+    std::vector<std::string> members;
+    std::vector<std::string> hostile;
+    std::vector<std::string> friendly;
+
+    bool operator==(const StableCommanderRecord &other) const
+    {
+        return name == other.name && members == other.members &&
+               hostile == other.hostile && friendly == other.friendly;
+    }
+};
+
+struct CommanderRoster
+{
+    SimulationContext *context;
+    std::vector<com_Commander *> objects;
+    bool valid;
+};
+
+bool CollectCommander(const KR_ObjectID object, void *user)
+{
+    CommanderRoster *roster = static_cast<CommanderRoster *>(user);
+    ICommander *interfaceObject = static_cast<ICommander *>(
+        roster->context->queryInterface(object, ICommanderIID));
+    com_Commander *commander = dynamic_cast<com_Commander *>(interfaceObject);
+    if (commander == NULL || roster->context->searchObject(object) == NULL)
+    {
+        roster->valid = false;
+        return false;
+    }
+    roster->objects.push_back(commander);
+    return true;
+}
+
+com_Commander *ResolveCommander(SimulationContext *context,
+                                const KR_ObjectID &object)
+{
+    if (context == NULL || !context->isExist(object))
+        return NULL;
+    ICommander *interfaceObject = static_cast<ICommander *>(
+        context->queryInterface(object, ICommanderIID));
+    return dynamic_cast<com_Commander *>(interfaceObject);
+}
+
+std::string SymbolicName(SimulationContext *context,
+                         const KR_ObjectID &object)
+{
+    const char *name = context == NULL ? NULL : context->searchObject(object);
+    return name == NULL ? std::string() : std::string(name);
+}
+
+bool CollectStableRecords(SimulationContext *context,
+                          std::vector<StableCommanderRecord> *records)
+{
+    if (context == NULL || records == NULL)
+        return false;
+    CommanderRoster roster = {context, std::vector<com_Commander *>(), true};
+    const ct_ClassTableID table = g_arena.searchSeanceClassTable("Commander");
+    if (table == ct_NULLID)
+        return false;
+    g_arena.userFind(table, CollectCommander, &roster);
+    if (!roster.valid)
+        return false;
+
+    records->clear();
+    for (std::size_t index = 0; index < roster.objects.size(); ++index)
+    {
+        com_Commander *commander = roster.objects[index];
+        StableCommanderRecord record;
+        record.name = SymbolicName(context, commander->getObjectID());
+        if (record.name.empty() || commander->m_memberQnty < 0 ||
+            commander->m_memberQnty > MAX_MEMBER)
+            return false;
+        for (int member = 0; member < commander->m_memberQnty; ++member)
+        {
+            const std::string name =
+                SymbolicName(context, commander->m_member[member].m_id);
+            if (name.empty())
+                return false;
+            record.members.push_back(name);
+        }
+        for (int hostile = 0;
+             hostile < commander->m_hostileCommanders.getCount(); ++hostile)
+        {
+            const std::string name = SymbolicName(
+                context, commander->m_hostileCommanders[hostile]);
+            if (name.empty())
+                return false;
+            record.hostile.push_back(name);
+        }
+        for (int friendly = 0;
+             friendly < commander->m_friendlyCommanders.getCount(); ++friendly)
+        {
+            const std::string name = SymbolicName(
+                context, commander->m_friendlyCommanders[friendly]);
+            if (name.empty())
+                return false;
+            record.friendly.push_back(name);
+        }
+        std::sort(record.members.begin(), record.members.end());
+        std::sort(record.hostile.begin(), record.hostile.end());
+        std::sort(record.friendly.begin(), record.friendly.end());
+        records->push_back(record);
+    }
+    std::sort(records->begin(), records->end(),
+              [](const StableCommanderRecord &left,
+                 const StableCommanderRecord &right)
+              {
+                  return left.name < right.name;
+              });
+    return true;
+}
+
+void PutU32(std::vector<unsigned char> *bytes, std::uint32_t value)
+{
+    for (int shift = 0; shift < 32; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(value >> shift));
+}
+
+bool GetU32(const std::vector<unsigned char> &bytes, std::size_t *offset,
+            std::uint32_t *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 4)
+        return false;
+    *value = 0;
+    for (int shift = 0; shift < 32; shift += 8)
+        *value |= static_cast<std::uint32_t>(bytes[(*offset)++]) << shift;
+    return true;
+}
+
+bool PutString(std::vector<unsigned char> *bytes, const std::string &value)
+{
+    if (bytes == NULL || value.size() > MAX_SYMBOLIC_LENGHT)
+        return false;
+    PutU32(bytes, static_cast<std::uint32_t>(value.size()));
+    bytes->insert(bytes->end(), value.begin(), value.end());
+    return true;
+}
+
+bool GetString(const std::vector<unsigned char> &bytes, std::size_t *offset,
+               std::string *value)
+{
+    std::uint32_t size = 0;
+    if (value == NULL || !GetU32(bytes, offset, &size) ||
+        size > MAX_SYMBOLIC_LENGHT || *offset > bytes.size() ||
+        bytes.size() - *offset < size)
+        return false;
+    value->assign(reinterpret_cast<const char *>(&bytes[*offset]), size);
+    *offset += size;
+    return true;
+}
+
+bool PutStrings(std::vector<unsigned char> *bytes,
+                const std::vector<std::string> &values)
+{
+    if (values.size() > MAX_MEMBER)
+        return false;
+    PutU32(bytes, static_cast<std::uint32_t>(values.size()));
+    for (std::size_t index = 0; index < values.size(); ++index)
+        if (!PutString(bytes, values[index]))
+            return false;
+    return true;
+}
+
+bool GetStrings(const std::vector<unsigned char> &bytes, std::size_t *offset,
+                std::vector<std::string> *values)
+{
+    std::uint32_t count = 0;
+    if (values == NULL || !GetU32(bytes, offset, &count) ||
+        count > MAX_MEMBER)
+        return false;
+    values->clear();
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        std::string value;
+        if (!GetString(bytes, offset, &value))
+            return false;
+        values->push_back(value);
+    }
+    return true;
+}
+
+bool EncodeStableRecords(const std::vector<StableCommanderRecord> &records,
+                         std::vector<unsigned char> *bytes)
+{
+    if (bytes == NULL || records.size() > 512)
+        return false;
+    bytes->clear();
+    PutU32(bytes, 0x52444d43u); // CMDR, little endian
+    PutU32(bytes, 1u);
+    PutU32(bytes, static_cast<std::uint32_t>(records.size()));
+    for (std::size_t index = 0; index < records.size(); ++index)
+        if (!PutString(bytes, records[index].name) ||
+            !PutStrings(bytes, records[index].members) ||
+            !PutStrings(bytes, records[index].hostile) ||
+            !PutStrings(bytes, records[index].friendly))
+            return false;
+    return true;
+}
+
+bool DecodeStableRecords(const std::vector<unsigned char> &bytes,
+                         std::vector<StableCommanderRecord> *records)
+{
+    std::size_t offset = 0;
+    std::uint32_t magic = 0, version = 0, count = 0;
+    if (records == NULL || !GetU32(bytes, &offset, &magic) ||
+        !GetU32(bytes, &offset, &version) ||
+        !GetU32(bytes, &offset, &count) || magic != 0x52444d43u ||
+        version != 1u || count > 512)
+        return false;
+    records->clear();
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        StableCommanderRecord record;
+        if (!GetString(bytes, &offset, &record.name) ||
+            !GetStrings(bytes, &offset, &record.members) ||
+            !GetStrings(bytes, &offset, &record.hostile) ||
+            !GetStrings(bytes, &offset, &record.friendly))
+            return false;
+        records->push_back(record);
+    }
+    return offset == bytes.size();
+}
+
+void HashBytes(unsigned long long *hash, const void *data, std::size_t size)
+{
+    const unsigned char *bytes = static_cast<const unsigned char *>(data);
+    for (std::size_t index = 0; index < size; ++index)
+    {
+        *hash ^= bytes[index];
+        *hash *= 1099511628211ull;
+    }
+}
+
+} // namespace
+
+void CommanderState_Link()
+{
+    (void)CommanderTable.getClassTableID();
+}
+
+int CommanderState_LiveCount(SimulationContext *context)
+{
+    std::vector<StableCommanderRecord> records;
+    return CollectStableRecords(context, &records)
+        ? static_cast<int>(records.size()) : -1;
+}
+
+int CommanderState_HostileLinkCount(SimulationContext *context)
+{
+    CommanderRoster roster = {
+        context, std::vector<com_Commander *>(), context != NULL};
+    const ct_ClassTableID table = context == NULL
+        ? ct_NULLID : g_arena.searchSeanceClassTable("Commander");
+    if (table == ct_NULLID)
+        return -1;
+    g_arena.userFind(table, CollectCommander, &roster);
+    if (!roster.valid)
+        return -1;
+    int links = 0;
+    for (std::size_t index = 0; index < roster.objects.size(); ++index)
+        links += roster.objects[index]->m_hostileCommanders.getCount();
+    return links;
+}
+
+int CommanderState_MemberCount(SimulationContext *context,
+                               const KR_ObjectID &commander)
+{
+    com_Commander *resolved = ResolveCommander(context, commander);
+    return resolved == NULL ? -1 : resolved->m_memberQnty;
+}
+
+bool CommanderState_HasMember(SimulationContext *context,
+                              const KR_ObjectID &commander,
+                              const KR_ObjectID &member)
+{
+    com_Commander *resolved = ResolveCommander(context, commander);
+    if (resolved == NULL)
+        return false;
+    for (int index = 0; index < resolved->m_memberQnty; ++index)
+        if (resolved->m_member[index].m_id == member)
+            return true;
+    return false;
+}
+
+bool CommanderState_IsHostile(SimulationContext *context,
+                              const KR_ObjectID &commander,
+                              const KR_ObjectID &relativeCommander)
+{
+    com_Commander *resolved = ResolveCommander(context, commander);
+    KR_ObjectID mutableRelative = relativeCommander;
+    return resolved != NULL && resolved->isHostile(mutableRelative) != 0;
+}
+
+unsigned long long CommanderState_Fingerprint(SimulationContext *context)
+{
+    std::vector<StableCommanderRecord> records;
+    std::vector<unsigned char> bytes;
+    if (!CollectStableRecords(context, &records) ||
+        !EncodeStableRecords(records, &bytes))
+        return 0;
+    unsigned long long hash = 14695981039346656037ull;
+    if (!bytes.empty())
+        HashBytes(&hash, &bytes[0], bytes.size());
+    return hash;
+}
+
+bool CommanderState_StableRoundTrip(SimulationContext *context)
+{
+    std::vector<StableCommanderRecord> before, after;
+    std::vector<unsigned char> bytes;
+    return CollectStableRecords(context, &before) &&
+           EncodeStableRecords(before, &bytes) &&
+           DecodeStableRecords(bytes, &after) && before == after;
+}
 

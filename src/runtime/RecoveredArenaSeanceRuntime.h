@@ -122,7 +122,10 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_ATTRIBUTE_ROSTER_INVALID = 1ull << 45,
   RECOVERED_ARENA_SEANCE_EXT_TANK_REFERENCE_INVALID = 1ull << 46,
   RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_SUBJECT_TABLE_FAILURE = 1ull << 47,
-  RECOVERED_ARENA_SEANCE_EXT_TANK_LIFECYCLE_FAILURE = 1ull << 48
+  RECOVERED_ARENA_SEANCE_EXT_TANK_LIFECYCLE_FAILURE = 1ull << 48,
+  RECOVERED_ARENA_SEANCE_EXT_COMMANDER_SOURCE_OR_ROSTER_INVALID = 1ull << 49,
+  RECOVERED_ARENA_SEANCE_EXT_TANK_GROUP_SUBJECT_TABLE_FAILURE = 1ull << 50,
+  RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE = 1ull << 51
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -357,6 +360,22 @@ int RecoveredArenaSeance_TankProbeDeathTransitions();
 int RecoveredArenaSeance_TankProbeDeathEffects();
 int RecoveredArenaSeance_TankProbeSaveStateRoundTrips();
 int RecoveredArenaSeance_TankProbeRollbacks();
+bool RecoveredArenaSeance_CommanderReady();
+int RecoveredArenaSeance_CommanderCapacity();
+int RecoveredArenaSeance_CommanderCount();
+int RecoveredArenaSeance_CommanderHostileLinks();
+unsigned long long RecoveredArenaSeance_CommanderFingerprint();
+bool RecoveredArenaSeance_MissionTankLifecycleReady();
+int RecoveredArenaSeance_TankGroupSubjectCapacity();
+int RecoveredArenaSeance_MissionTankAvailable();
+int RecoveredArenaSeance_MissionTankSpawns();
+int RecoveredArenaSeance_MissionTankMembershipLinks();
+int RecoveredArenaSeance_MissionTankFindEnemyCycles();
+int RecoveredArenaSeance_MissionTankMovingCycles();
+int RecoveredArenaSeance_MissionTankStableRoundTrips();
+int RecoveredArenaSeance_MissionTankReconstructedIDs();
+int RecoveredArenaSeance_MissionTankRollbacks();
+unsigned long long RecoveredArenaSeance_MissionTankFingerprint();
 bool RecoveredArenaSeance_VehicleReady();
 double RecoveredArenaSeance_VehicleVesselMass();
 unsigned long long RecoveredArenaSeance_Issues();

@@ -3127,6 +3127,47 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_obase_commander_group_full STATIC
+  nw/ARENA/OBASE/Comander/Comander.cpp
+  nw/ARENA/OBASE/Comander/CommanderState.h
+  nw/ARENA/OBASE/GROUP/GROUP.CPP
+  nw/ARENA/OBASE/GROUP/GROUP.H
+  nw/ARENA/OBASE/GROUP/GROUP_2.CPP
+  nw/ARENA/OBASE/GROUP/TankGroupState.h
+)
+target_link_libraries(rr2nw_arena_obase_commander_group_full PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_obase_route
+  rr2nw_arena_obase_tank_full
+  rr2nw_arena_physics
+  rr2nw_scene_draw_state
+)
+target_include_directories(rr2nw_arena_obase_commander_group_full PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Comander
+  nw/ARENA/OBASE/GROUP
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(
+  rr2nw_arena_obase_commander_group_full PUBLIC cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_arena_obase_commander_group_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_commander_group_full PRIVATE
+    /W3 /permissive /wd4081 /wd4244 /wd4867
+  )
+endif()
+
 add_library(rr2nw_game_entry_runtime STATIC
   src/runtime/GameEntryRuntimeState.cpp
   src/runtime/GameEntryRuntimeState.h
@@ -3377,6 +3418,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_obase_people_full
   rr2nw_arena_obase_cannon_full
   rr2nw_arena_obase_tank_full
+  rr2nw_arena_obase_commander_group_full
   rr2nw_arena_bird_attribute_state
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_obase_orphan_full

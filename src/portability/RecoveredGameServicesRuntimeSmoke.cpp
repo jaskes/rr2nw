@@ -555,6 +555,22 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_TankProbeDeathEffects() == -1 &&
          RecoveredArenaSeance_TankProbeSaveStateRoundTrips() == -1 &&
          RecoveredArenaSeance_TankProbeRollbacks() == -1 &&
+         !RecoveredArenaSeance_CommanderReady() &&
+         RecoveredArenaSeance_CommanderCapacity() == -1 &&
+         RecoveredArenaSeance_CommanderCount() == -1 &&
+         RecoveredArenaSeance_CommanderHostileLinks() == -1 &&
+         RecoveredArenaSeance_CommanderFingerprint() == 0 &&
+         !RecoveredArenaSeance_MissionTankLifecycleReady() &&
+         RecoveredArenaSeance_TankGroupSubjectCapacity() == -1 &&
+         RecoveredArenaSeance_MissionTankAvailable() == -1 &&
+         RecoveredArenaSeance_MissionTankSpawns() == -1 &&
+         RecoveredArenaSeance_MissionTankMembershipLinks() == -1 &&
+         RecoveredArenaSeance_MissionTankFindEnemyCycles() == -1 &&
+         RecoveredArenaSeance_MissionTankMovingCycles() == -1 &&
+         RecoveredArenaSeance_MissionTankStableRoundTrips() == -1 &&
+         RecoveredArenaSeance_MissionTankReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_MissionTankRollbacks() == -1 &&
+         RecoveredArenaSeance_MissionTankFingerprint() == 0 &&
          !RecoveredGameServices_VehicleReady() &&
          !RecoveredArenaSeance_IsOpen() && g_vehicle == nullptr &&
          RecoveredGameServices_ObserverState() == nullptr &&
@@ -1026,19 +1042,33 @@ bool ExerciseVehiclePrimaryFire() {
   if (!RunVehicleFrameAfter(0.01) ||
       !SendHardwareButton("MouseL", TRUE) ||
       !RunVehicleFrameAfter(0.01) ||
-      !RecoveredGameServices_SetApplicationActive(false) ||
+      !RecoveredGameServices_SetApplicationActive(false))
+    return false;
+
+  SRecoveredVehiclePrimaryFireTelemetry released = {};
+  if (!RecoveredGameServices_VehiclePrimaryFireTelemetry(&released) ||
+      released.triggerPresses != before.triggerPresses + 2 ||
       !SendHardwareButton("MouseL", TRUE) ||
       !SendHardwareButton("MouseL", FALSE))
     return false;
 
   SRecoveredVehiclePrimaryFireTelemetry fire = {};
+  const double fireDrainTime = (std::max)(
+      0.35, initialAttribute->m_bulletSlipTime + 0.05);
   bool complete = false;
-  for (int frame = 0; frame < 120; ++frame) {
+  int stableShotFrames = 0;
+  unsigned int previousShots = released.acceptedShots;
+  for (int frame = 0; frame < 160; ++frame) {
     if (!RunVehicleFrameAfter(0.025) ||
         !RecoveredGameServices_VehiclePrimaryFireTelemetry(&fire))
       return false;
-    if (fire.acceptedShots >= before.acceptedShots + 2 &&
-        fire.moveEvents > before.moveEvents &&
+    if (fire.acceptedShots == previousShots) {
+      ++stableShotFrames;
+    } else {
+      previousShots = fire.acceptedShots;
+      stableShotFrames = 0;
+    }
+    if (fire.moveEvents > before.moveEvents &&
         fire.collisionChecks > before.collisionChecks &&
         fire.sceneImpacts + fire.dynamicImpacts >
             before.sceneImpacts + before.dynamicImpacts &&
@@ -1048,9 +1078,18 @@ bool ExerciseVehiclePrimaryFire() {
         fire.maximumSoundObjects > before.maximumSoundObjects &&
         fire.effectRenderFrames > before.effectRenderFrames) {
       complete = true;
-      break;
     }
   }
+  if (!complete || fire.acceptedShots < before.acceptedShots + 2 ||
+      stableShotFrames < 20)
+    return false;
+
+  const unsigned int quiescedShots = fire.acceptedShots;
+  if (
+      !RunVehicleFrameAfter(fireDrainTime) ||
+      !RecoveredGameServices_VehiclePrimaryFireTelemetry(&fire) ||
+      fire.acceptedShots != quiescedShots)
+    return false;
 
   if (!RecoveredGameServices_SetApplicationActive(true))
     return false;
@@ -1066,22 +1105,40 @@ bool ExerciseVehiclePrimaryFire() {
       RecoveredGameServices_VehicleSuppressedInputCount() -
       suppressedBefore;
 
-  return complete &&
-         fire.triggerPresses == before.triggerPresses + 2 &&
-         fire.acceptedShots == before.acceptedShots + 2 &&
-         fire.rolledBackShots == before.rolledBackShots &&
-         fire.hardwareSubscriptionPreserved == 1 &&
-         inputDelta >= 10 && inputDelta == housekeepingDelta * 2 &&
-         forwardedDelta == 3 && suppressedDelta >= 2 &&
-         forwardedDelta + suppressedDelta == housekeepingDelta &&
-         RecoveredGameServices_VehicleFocusLossCount() ==
-             focusLossBefore + 1 &&
-         RecoveredGameServices_VehicleFocusGainCount() ==
-             focusGainBefore + 1 &&
-         RecoveredGameServices_VehicleSyntheticReleaseCount() ==
-             syntheticBefore + 1 &&
-         RecoveredGameServices_VehicleActiveActionCount() == 0 &&
-         RecoveredGameServices_VehicleIgnoredEvents() == 0;
+  const bool succeeded =
+      complete && fire.triggerPresses == before.triggerPresses + 2 &&
+      fire.acceptedShots == quiescedShots &&
+      fire.rolledBackShots == before.rolledBackShots &&
+      fire.hardwareSubscriptionPreserved == 1 && inputDelta >= 10 &&
+      inputDelta == housekeepingDelta * 2 && forwardedDelta == 3 &&
+      suppressedDelta >= 2 &&
+      forwardedDelta + suppressedDelta == housekeepingDelta &&
+      RecoveredGameServices_VehicleFocusLossCount() ==
+          focusLossBefore + 1 &&
+      RecoveredGameServices_VehicleFocusGainCount() == focusGainBefore + 1 &&
+      RecoveredGameServices_VehicleSyntheticReleaseCount() ==
+          syntheticBefore + 1 &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0 &&
+      RecoveredGameServices_VehicleIgnoredEvents() == 0;
+  if (!succeeded) {
+    std::fprintf(stderr,
+                 "vehicle-fire contract complete=%d shots="
+                 "%u/%u/%u input=%u forwarded=%u housekeeping=%u "
+                 "suppressed=%u focus=%u/%u synthetic=%u active=%u "
+                 "ignored=%u\n",
+                 complete ? 1 : 0, before.acceptedShots,
+                 quiescedShots, fire.acceptedShots, inputDelta,
+                 forwardedDelta, housekeepingDelta, suppressedDelta,
+                 RecoveredGameServices_VehicleFocusLossCount() -
+                     focusLossBefore,
+                 RecoveredGameServices_VehicleFocusGainCount() -
+                     focusGainBefore,
+                 RecoveredGameServices_VehicleSyntheticReleaseCount() -
+                     syntheticBefore,
+                 RecoveredGameServices_VehicleActiveActionCount(),
+                 RecoveredGameServices_VehicleIgnoredEvents());
+  }
+  return succeeded;
 }
 
 bool VisibleProbePosition(double verticalOffset, double forwardDistance,
@@ -2555,6 +2612,33 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TankProbeSaveStateRoundTrips();
   const int tankProbeRollbacks =
       RecoveredArenaSeance_TankProbeRollbacks();
+  const int commanderCapacity =
+      RecoveredArenaSeance_CommanderCapacity();
+  const int commanderCount = RecoveredArenaSeance_CommanderCount();
+  const int commanderHostileLinks =
+      RecoveredArenaSeance_CommanderHostileLinks();
+  const unsigned long long commanderFingerprint =
+      RecoveredArenaSeance_CommanderFingerprint();
+  const int tankGroupSubjectCapacity =
+      RecoveredArenaSeance_TankGroupSubjectCapacity();
+  const int missionTankAvailable =
+      RecoveredArenaSeance_MissionTankAvailable();
+  const int missionTankSpawns =
+      RecoveredArenaSeance_MissionTankSpawns();
+  const int missionTankMembershipLinks =
+      RecoveredArenaSeance_MissionTankMembershipLinks();
+  const int missionTankFindEnemyCycles =
+      RecoveredArenaSeance_MissionTankFindEnemyCycles();
+  const int missionTankMovingCycles =
+      RecoveredArenaSeance_MissionTankMovingCycles();
+  const int missionTankStableRoundTrips =
+      RecoveredArenaSeance_MissionTankStableRoundTrips();
+  const int missionTankReconstructedIDs =
+      RecoveredArenaSeance_MissionTankReconstructedIDs();
+  const int missionTankRollbacks =
+      RecoveredArenaSeance_MissionTankRollbacks();
+  const unsigned long long missionTankFingerprint =
+      RecoveredArenaSeance_MissionTankFingerprint();
   const int cannonAttributeCount =
       RecoveredArenaSeance_CannonAttributeCount();
   const int cannonAttributeCapacity =
@@ -3025,7 +3109,36 @@ int main(int argc, char** argv) {
         RecoveredArenaSeance_TankProbeDeathTransitions() != 0 ||
         RecoveredArenaSeance_TankProbeDeathEffects() != 0 ||
         RecoveredArenaSeance_TankProbeSaveStateRoundTrips() != 0 ||
-        RecoveredArenaSeance_TankProbeRollbacks() != 1))) {
+        RecoveredArenaSeance_TankProbeRollbacks() != 1)) ||
+      !RecoveredArenaSeance_CommanderReady() ||
+      RecoveredArenaSeance_CommanderCapacity() <= 0 ||
+      RecoveredArenaSeance_CommanderCount() <= 0 ||
+      RecoveredArenaSeance_CommanderCount() >
+          RecoveredArenaSeance_CommanderCapacity() ||
+      RecoveredArenaSeance_CommanderHostileLinks() < 0 ||
+      RecoveredArenaSeance_CommanderFingerprint() == 0 ||
+      !RecoveredArenaSeance_MissionTankLifecycleReady() ||
+      RecoveredArenaSeance_TankGroupSubjectCapacity() <= 0 ||
+      (RecoveredArenaSeance_MissionTankAvailable() != 0 &&
+       RecoveredArenaSeance_MissionTankAvailable() != 1) ||
+      (RecoveredArenaSeance_MissionTankAvailable() == 1 &&
+       (RecoveredArenaSeance_MissionTankSpawns() != 2 ||
+        RecoveredArenaSeance_MissionTankMembershipLinks() != 4 ||
+        RecoveredArenaSeance_MissionTankFindEnemyCycles() != 1 ||
+        RecoveredArenaSeance_MissionTankMovingCycles() != 1 ||
+        RecoveredArenaSeance_MissionTankStableRoundTrips() != 2 ||
+        RecoveredArenaSeance_MissionTankReconstructedIDs() != 1 ||
+        RecoveredArenaSeance_MissionTankRollbacks() != 1 ||
+        RecoveredArenaSeance_MissionTankFingerprint() == 0)) ||
+      (RecoveredArenaSeance_MissionTankAvailable() == 0 &&
+       (RecoveredArenaSeance_MissionTankSpawns() != 0 ||
+        RecoveredArenaSeance_MissionTankMembershipLinks() != 0 ||
+        RecoveredArenaSeance_MissionTankFindEnemyCycles() != 0 ||
+        RecoveredArenaSeance_MissionTankMovingCycles() != 0 ||
+        RecoveredArenaSeance_MissionTankStableRoundTrips() != 0 ||
+        RecoveredArenaSeance_MissionTankReconstructedIDs() != 0 ||
+        RecoveredArenaSeance_MissionTankRollbacks() != 1 ||
+        RecoveredArenaSeance_MissionTankFingerprint() != 0))) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("level-aware Arena subject/attribute roster is invalid");
@@ -3841,6 +3954,30 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TankProbeSaveStateRoundTrips() !=
           tankProbeSaveRoundTrips ||
       RecoveredArenaSeance_TankProbeRollbacks() != tankProbeRollbacks ||
+      RecoveredArenaSeance_CommanderCapacity() != commanderCapacity ||
+      RecoveredArenaSeance_CommanderCount() != commanderCount ||
+      RecoveredArenaSeance_CommanderHostileLinks() !=
+          commanderHostileLinks ||
+      RecoveredArenaSeance_CommanderFingerprint() !=
+          commanderFingerprint ||
+      RecoveredArenaSeance_TankGroupSubjectCapacity() !=
+          tankGroupSubjectCapacity ||
+      RecoveredArenaSeance_MissionTankAvailable() !=
+          missionTankAvailable ||
+      RecoveredArenaSeance_MissionTankSpawns() != missionTankSpawns ||
+      RecoveredArenaSeance_MissionTankMembershipLinks() !=
+          missionTankMembershipLinks ||
+      RecoveredArenaSeance_MissionTankFindEnemyCycles() !=
+          missionTankFindEnemyCycles ||
+      RecoveredArenaSeance_MissionTankMovingCycles() !=
+          missionTankMovingCycles ||
+      RecoveredArenaSeance_MissionTankStableRoundTrips() !=
+          missionTankStableRoundTrips ||
+      RecoveredArenaSeance_MissionTankReconstructedIDs() !=
+          missionTankReconstructedIDs ||
+      RecoveredArenaSeance_MissionTankRollbacks() != missionTankRollbacks ||
+      RecoveredArenaSeance_MissionTankFingerprint() !=
+          missionTankFingerprint ||
       RecoveredArenaSeance_CannonAttributeCount() !=
           cannonAttributeCount ||
       RecoveredArenaSeance_CannonAttributeCapacity() !=
@@ -3947,6 +4084,9 @@ int main(int argc, char** argv) {
                 "tank_attrs=%d/%d cannon_attrs=%d/%d "
                 "tank_subject=%d/%d cannon_subject=%d/%d "
                 "tank_probe=%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d "
+                "commander=%d/%d hostile=%d fingerprint=%llu "
+                "tank_group=%d mission_tank=%d/%d/%d/%d/%d/%d/%d/%d "
+                "fingerprint=%llu "
                 "route=table vehicle=real observer=fallback-suspended\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,
@@ -4042,6 +4182,13 @@ int main(int argc, char** argv) {
                tankProbeCannonReady, tankProbeScheduledMoves,
                tankProbeBulletDamage, tankProbeDeathTransitions,
                tankProbeDeathEffects, tankProbeSaveRoundTrips,
-               tankProbeRollbacks);
+               tankProbeRollbacks,
+               commanderCount, commanderCapacity, commanderHostileLinks,
+               commanderFingerprint, tankGroupSubjectCapacity,
+               missionTankAvailable, missionTankSpawns,
+               missionTankMembershipLinks, missionTankFindEnemyCycles,
+               missionTankMovingCycles, missionTankStableRoundTrips,
+               missionTankReconstructedIDs, missionTankRollbacks,
+               missionTankFingerprint);
   return EXIT_SUCCESS;
 }

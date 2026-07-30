@@ -13,6 +13,7 @@ class CGRPanel;
 #include "h/vehicle.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "i/unit.i"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/bullet/BulletAttributeState.h"
@@ -28,6 +29,8 @@ class CGRPanel;
 #include "obase/orphan/OrphanSubjectState.h"
 #include "obase/people/PeopleSubjectState.h"
 #include "obase/cannon/CannonSubjectState.h"
+#include "obase/comander/CommanderState.h"
+#include "obase/group/TankGroupState.h"
 #include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
 #include "obase/spark/SparkAttributeState.h"
@@ -44,7 +47,9 @@ class CGRPanel;
 #include "obase/sound/WAVResourceState.h"
 #include "obase/skin/SkinResourceState.h"
 #include "storage/h/subject.h"
+#include "message/groupmsg.h"
 #include "message/skinmsg.h"
+#include "message/unitmsg.h"
 #include "sound.h"
 
 #include "RecoveredLegacyScriptHost.h"
@@ -77,6 +82,10 @@ constexpr const char kTaxiSubjectProgramName[] =
     "recovered_retail_taxi_subject_bootstrap";
 constexpr const char kVehicleAttributeProgramName[] =
     "recovered_retail_vehicle_attribute_bootstrap";
+constexpr const char kCommanderProgramName[] =
+    "recovered_retail_commander_bootstrap";
+constexpr const char kMissionTankProgramName[] =
+    "recovered_retail_mission_tank_probe";
 constexpr const char kFarterAttributeProgramName[] =
     "recovered_retail_farter_attribute_bootstrap";
 constexpr const char kFarterSubjectProgramName[] =
@@ -114,6 +123,8 @@ const int LIGHT_COLOR_YELLOW extern;
 const int s_ATTR_MSG_SET_INT extern;
 const int s_ATTR_MSG_SET_DOUBLE extern;
 const int s_ATTR_MSG_SET_STR extern;
+const int s_GROUP_ADD_MEMBER_N extern;
+const int s_COMMANDER_ADD_MEMBER_N extern;
 
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
@@ -257,6 +268,8 @@ const int LIGHT_COLOR_WHITE = 7;
 const int s_ATTR_MSG_SET_INT extern;
 const int s_ATTR_MSG_SET_DOUBLE extern;
 const int s_ATTR_MSG_SET_STR extern;
+const int s_GROUP_ADD_MEMBER_N extern;
+const int s_COMMANDER_ADD_MEMBER_N extern;
 const int fou_EVCMD_START extern;
 const int START_FARTING extern;
 const int lmp_EV_START extern;
@@ -286,6 +299,10 @@ func void s_NewObjectN(str className, str name) extern;
 func void s_LoadRoute(int classTableID, str fileName, str routeName) extern;
 func int s_SearchSeanceClassTable(str tableName) extern;
 func int s_SetCommander(str objectName, str commanderName) extern;
+func void s_SetHostileCommander(int commanderID, int commanderCachePos,
+                                int relativeID, int relativeCachePos) extern;
+func void s_SetFriendlyCommander(int commanderID, int commanderCachePos,
+                                 int relativeID, int relativeCachePos) extern;
 
 func int ConvertColor(int r, int g, int b)
 {
@@ -1033,8 +1050,16 @@ struct PeopleScriptSummary {
 struct TankCannonScriptSummary {
   int cannonAttributeCapacity;
   int tankAttributeCapacity;
+  int tankGroupSubjectCapacity;
   int cannonSubjectCapacity;
   int tankSubjectCapacity;
+};
+
+struct CommanderScriptSummary {
+  int capacity;
+  int count;
+  int hostilePairs;
+  std::string functionSource;
 };
 
 bool InspectTankCannonScripts(const std::string& attributeSource,
@@ -1055,15 +1080,45 @@ bool InspectTankCannonScripts(const std::string& attributeSource,
       InspectSingleTableCapacity(attributes, "TankAttr", true);
   const int cannonSubjectCapacity =
       InspectSingleTableCapacity(localMain, "Cannon", false);
+  const int tankGroupSubjectCapacity =
+      InspectSingleTableCapacity(setTank, "TankGroup", false);
   const int tankSubjectCapacity =
       InspectSingleTableCapacity(setTank, "Tank", false);
   if (cannonAttributeCapacity < 0 || tankAttributeCapacity < 0 ||
-      cannonSubjectCapacity <= 0 || tankSubjectCapacity <= 0)
+      cannonSubjectCapacity <= 0 || tankGroupSubjectCapacity <= 0 ||
+      tankSubjectCapacity <= 0)
     return false;
   summary->cannonAttributeCapacity = cannonAttributeCapacity;
   summary->tankAttributeCapacity = tankAttributeCapacity;
+  summary->tankGroupSubjectCapacity = tankGroupSubjectCapacity;
   summary->cannonSubjectCapacity = cannonSubjectCapacity;
   summary->tankSubjectCapacity = tankSubjectCapacity;
+  return true;
+}
+
+bool InspectCommanderScript(const std::string& localMainSource,
+                            CommanderScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  std::string compact;
+  if (!CompactScriptSource(localMainSource, &compact)) return false;
+  const int capacity =
+      InspectSingleTableCapacity(compact, "Commander", false);
+  std::map<std::string, ScriptFunctionDefinition> definitions;
+  ParseScriptFunctions(localMainSource, &definitions, true);
+  const std::map<std::string, ScriptFunctionDefinition>::const_iterator it =
+      definitions.find("local_createCommanders");
+  if (capacity <= 0 || it == definitions.end()) return false;
+  std::string functionCompact;
+  if (!CompactScriptSource(it->second.source, &functionCompact)) return false;
+  const int count = CountStandaloneCalls(functionCompact, "s_New") +
+                    CountStandaloneCalls(functionCompact, "s_NewObject");
+  const int hostilePairs =
+      CountStandaloneCalls(functionCompact, "s_SetHostileCommander");
+  if (count <= 0 || count > capacity || hostilePairs < 0) return false;
+  summary->capacity = capacity;
+  summary->count = count;
+  summary->hostilePairs = hostilePairs;
+  summary->functionSource = it->second.source;
   return true;
 }
 
@@ -1348,6 +1403,8 @@ struct RecoveredArenaSeanceState {
   bool tankCannonAttributesReady;
   bool tankReferencesReady;
   bool tankCannonSubjectTablesReady;
+  bool commanderReady;
+  bool missionTankLifecycleReady;
   bool vehicleReady;
   int vehicleAttributeCount;
   int vehicleAttributeCapacity;
@@ -1505,6 +1562,20 @@ struct RecoveredArenaSeanceState {
   int tankProbeDeathEffects;
   int tankProbeSaveStateRoundTrips;
   int tankProbeRollbacks;
+  int commanderCapacity;
+  int commanderCount;
+  int commanderHostileLinks;
+  unsigned long long commanderFingerprint;
+  int tankGroupSubjectCapacity;
+  int missionTankAvailable;
+  int missionTankSpawns;
+  int missionTankMembershipLinks;
+  int missionTankFindEnemyCycles;
+  int missionTankMovingCycles;
+  int missionTankStableRoundTrips;
+  int missionTankReconstructedIDs;
+  int missionTankRollbacks;
+  unsigned long long missionTankFingerprint;
   char lastError[256];
 };
 
@@ -1955,6 +2026,136 @@ bool ReadTankCannonScriptSummary(TankCannonScriptSummary* summary) {
   return true;
 }
 
+bool ReadCommanderScriptSummary(CommanderScriptSummary* summary) {
+  std::string localMainSource;
+  if (summary == nullptr ||
+      !ReadBoundedRetailAttributeSource("SCINC\\localmain.sci",
+                                        &localMainSource) ||
+      !InspectCommanderScript(localMainSource, summary)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_COMMANDER_SOURCE_OR_ROSTER_INVALID,
+        "could not inspect Level-local Commander ownership");
+    return false;
+  }
+  return true;
+}
+
+bool RunCommanderBootstrap(SimulationContext* context, double startTime,
+                           const CommanderScriptSummary& script) {
+  std::string program;
+  std::string commanderFunction = script.functionSource;
+  std::size_t statement = 0;
+  while ((statement = commanderFunction.find("s_AddClassTable", statement)) !=
+         std::string::npos) {
+    const std::size_t end = commanderFunction.find(';', statement);
+    if (end == std::string::npos) break;
+    const std::string call =
+        commanderFunction.substr(statement, end - statement + 1);
+    if (call.find("\"TankGroup\"") != std::string::npos ||
+        call.find("\"Tank\"") != std::string::npos) {
+      for (std::size_t index = statement; index <= end; ++index)
+        if (commanderFunction[index] != '\r' &&
+            commanderFunction[index] != '\n')
+          commanderFunction[index] = ' ';
+    }
+    statement = end + 1;
+  }
+  try {
+    program.reserve(sizeof(kRetailAttributeBootstrapPrefix) +
+                    commanderFunction.size() + 96u);
+    program.append(kRetailAttributeBootstrapPrefix);
+    program.append(commanderFunction);
+    program.append("\nfunc void main()\n{\n"
+                   "  local_createCommanders();\n"
+                   "}\n");
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
+           "could not allocate Commander bootstrap source");
+    return false;
+  }
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kCommanderProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
+}
+
+bool BuildMissionTankSupportSource(std::string* supportSource) {
+  std::string sysSource;
+  std::string sysfSource;
+  if (supportSource == nullptr ||
+      !ReadBoundedRetailAttributeSource("..\\SYS.SCI", &sysSource) ||
+      !ReadBoundedRetailAttributeSource("..\\SYSF.SCI", &sysfSource))
+    return false;
+  std::map<std::string, ScriptFunctionDefinition> available;
+  ParseScriptFunctions(sysSource, &available, true);
+  ParseScriptFunctions(sysfSource, &available, true);
+  const char* rootNames[] = {"CreateGroup", "CreateUnit"};
+  const std::set<std::string> alreadyDefined = {"ChangeObjectAttrN", "New"};
+  std::set<std::string> emitted;
+  std::set<std::string> visiting;
+  supportSource->clear();
+  for (int index = 0; index < 2; ++index)
+    if (!AppendScriptFunctionClosure(rootNames[index], available,
+                                     alreadyDefined, &emitted, &visiting,
+                                     supportSource))
+      return false;
+  return true;
+}
+
+bool LevelHasRetailAER00TankSpawn() {
+  std::string source;
+  std::string compact;
+  if (!ReadBoundedRetailAttributeSource("BRIEF\\AER00.SC", &source))
+    return false;
+  return CompactScriptSource(source, &compact) &&
+         compact.find("comName:=\"Colony\";") != std::string::npos &&
+         compact.find("groupName:=\"C.Group.aer00.00\";") !=
+             std::string::npos &&
+         compact.find("CreateGroup(groupName,comName);") !=
+             std::string::npos &&
+         compact.find(
+             "CreateUnit(\"C.Unit.aer00.00\",groupName,"
+             "\"TankLevEnglAttr\");") != std::string::npos;
+}
+
+bool RunRetailAER00TankSpawn(SimulationContext* context, double startTime) {
+  std::string supportSource;
+  std::string program;
+  if (!BuildMissionTankSupportSource(&supportSource)) return false;
+  try {
+    program.reserve(sizeof(kRetailAttributeBootstrapPrefix) +
+                    supportSource.size() + 256u);
+    program.append(kRetailAttributeBootstrapPrefix);
+    program.append(supportSource);
+    program.append(
+        "\nfunc void main()\n{\n"
+        "  CreateGroup(\"C.Group.aer00.00\", \"Colony\");\n"
+        "  CreateUnit(\"C.Unit.aer00.00\", "
+        "\"C.Group.aer00.00\", \"TankLevEnglAttr\");\n"
+        "}\n");
+  } catch (...) {
+    return false;
+  }
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kMissionTankProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
+}
+
 bool RunTankCannonAttributeBootstrap(SimulationContext* context,
                                      double startTime) {
   return RunRetailAttributeBootstrap(
@@ -1967,6 +2168,8 @@ bool RunTankCannonAttributeBootstrap(SimulationContext* context,
 bool InitializeTankCannonSubjectTables(
     SimulationContext* context, const TankCannonScriptSummary& script) {
   if (context == nullptr ||
+      g_arena.addClassTable("TankGroup", script.tankGroupSubjectCapacity) ==
+          ct_NULLID ||
       g_arena.addClassTable("Cannon", script.cannonSubjectCapacity) ==
           ct_NULLID ||
       g_arena.addClassTable("Tank", script.tankSubjectCapacity) == ct_NULLID) {
@@ -3776,6 +3979,34 @@ bool PublishTankCannonAttributes(
   return true;
 }
 
+bool PublishCommander(SimulationContext* context,
+                      const CommanderScriptSummary& script) {
+  const int count = CommanderState_LiveCount(context);
+  const int hostileLinks = CommanderState_HostileLinkCount(context);
+  const unsigned long long fingerprint =
+      CommanderState_Fingerprint(context);
+  if (count != script.count || hostileLinks != script.hostilePairs * 2 ||
+      fingerprint == 0 || !CommanderState_StableRoundTrip(context)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Commander cap/count/hostile/fingerprint/roundtrip="
+                  "%d/%d/%d/%llu/%d expected=%d/%d/%d",
+                  script.capacity, count, hostileLinks, fingerprint,
+                  CommanderState_StableRoundTrip(context) ? 1 : 0,
+                  script.capacity, script.count, script.hostilePairs * 2);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_COMMANDER_SOURCE_OR_ROSTER_INVALID,
+        message);
+    return false;
+  }
+  g_state.commanderCapacity = script.capacity;
+  g_state.commanderCount = count;
+  g_state.commanderHostileLinks = hostileLinks;
+  g_state.commanderFingerprint = fingerprint;
+  g_state.commanderReady = true;
+  return true;
+}
+
 bool PublishTankReferences(SimulationContext* context, double startTime) {
   if (g_state.tankAttributeCount > 0 &&
       !TankSubjectState_UpdateAttributes(context, startTime)) {
@@ -3811,6 +4042,7 @@ bool PublishTankCannonSubjectTables(
   const unsigned long long tankFingerprint =
       TankSubjectState_SubjectFingerprint(context);
   if (!g_state.tankReferencesReady ||
+      TankGroupState_LiveCount(context) != 0 ||
       CannonSubjectState_SubjectCapacity() != script.cannonSubjectCapacity ||
       TankSubjectState_SubjectCapacity() != script.tankSubjectCapacity ||
       cannonCount != 0 || tankCount != 0 || cannonFingerprint == 0 ||
@@ -3823,6 +4055,7 @@ bool PublishTankCannonSubjectTables(
   g_state.cannonSubjectCapacity = script.cannonSubjectCapacity;
   g_state.cannonSubjectCount = cannonCount;
   g_state.tankSubjectCapacity = script.tankSubjectCapacity;
+  g_state.tankGroupSubjectCapacity = script.tankGroupSubjectCapacity;
   g_state.tankSubjectCount = tankCount;
   g_state.cannonSubjectFingerprint = cannonFingerprint;
   g_state.tankSubjectFingerprint = tankFingerprint;
@@ -3869,6 +4102,246 @@ bool PublishTankLifecycle(SimulationContext* context, double startTime) {
   g_state.tankProbeDeathEffects = probe.deathEffects;
   g_state.tankProbeSaveStateRoundTrips = probe.saveStateRoundTrips;
   g_state.tankProbeRollbacks = probe.rollbacks;
+  return true;
+}
+
+void RemoveAllEvents(SimulationContext* context, int label,
+                     const KR_ObjectID& source) {
+  if (context == nullptr) return;
+  while (context->removeEvent(label, source) == 1) {
+  }
+}
+
+void RollBackAER00TankSpawn(SimulationContext* context) {
+  if (context == nullptr) return;
+  const KR_ObjectID group = context->isExist("C.Group.aer00.00")
+      ? context->searchObject("C.Group.aer00.00") : KR_ObjectID::NUL();
+  const KR_ObjectID tank = context->isExist("C.Unit.aer00.00")
+      ? context->searchObject("C.Unit.aer00.00") : KR_ObjectID::NUL();
+  KR_ObjectID mutableGroup = group;
+  KR_ObjectID mutableTank = tank;
+  if (!mutableGroup.isNUL()) {
+    RemoveAllEvents(context, tg_EVC_FIND_ENEMY, group);
+    RemoveAllEvents(context, tg_EVC_MOVING, group);
+    RemoveAllEvents(context, tg_EV_REACHED, group);
+    if (context->isExist(group)) context->removeObject(group);
+  }
+  if (!mutableTank.isNUL()) {
+    RemoveAllEvents(context, t_EVC_MOVING, tank);
+    RemoveAllEvents(context, t_EVC_CHECK_ROTATE, tank);
+    RemoveAllEvents(context, UNIT_I_DRIVE, tank);
+    if (context->isExist(tank)) context->removeObject(tank);
+  }
+}
+
+unsigned long long MissionTankOwnershipFingerprint(
+    SimulationContext* context) {
+  const unsigned long long commander = CommanderState_Fingerprint(context);
+  const unsigned long long group = TankGroupState_Fingerprint(context);
+  const unsigned long long tank = TankSubjectState_SubjectFingerprint(context);
+  if (commander == 0 || group == 0 || tank == 0) return 0;
+  return commander ^ (group + 0x9e3779b97f4a7c15ull +
+                      (commander << 6) + (commander >> 2)) ^
+         (tank * 1099511628211ull);
+}
+
+bool ValidateAER00TankOwnership(SimulationContext* context,
+                               KR_ObjectID* commander,
+                               KR_ObjectID* group, KR_ObjectID* tank,
+                               int* links) {
+  if (context == nullptr || commander == nullptr || group == nullptr ||
+      tank == nullptr || links == nullptr ||
+      !context->isExist("Colony") ||
+      !context->isExist("C.Group.aer00.00") ||
+      !context->isExist("C.Unit.aer00.00"))
+    return false;
+  *commander = context->searchObject("Colony");
+  *group = context->searchObject("C.Group.aer00.00");
+  *tank = context->searchObject("C.Unit.aer00.00");
+  IUnit* unit = static_cast<IUnit*>(
+      context->queryInterface(*tank, IUnitIID));
+  *links = 0;
+  if (CommanderState_HasMember(context, *commander, *group)) ++*links;
+  if (TankGroupState_Commander(context, *group) == *commander) ++*links;
+  if (TankGroupState_HasMember(context, *group, *tank)) ++*links;
+  if (unit != nullptr && unit->getCommander() == *commander) ++*links;
+  return *links == 4 && unit != nullptr;
+}
+
+bool PublishMissionTankLifecycle(SimulationContext* context,
+                                 double startTime) {
+  if (!g_state.commanderReady || !g_state.tankCannonSubjectTablesReady) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        "mission Tank lifecycle requires Commander and pristine owners");
+    return false;
+  }
+  const int baselineGroups = TankGroupState_LiveCount(context);
+  const int baselineTanks = TankSubjectState_LiveCount(context);
+  const int baselineCannons = CannonSubjectState_LiveCount(context);
+  const int baselineSounds = SoundObjectState_LiveCount();
+  const unsigned long long baselineCommander =
+      CommanderState_Fingerprint(context);
+  const unsigned long long baselineGroup =
+      TankGroupState_Fingerprint(context);
+  const unsigned long long baselineTank =
+      TankSubjectState_SubjectFingerprint(context);
+  if (baselineGroups != 0 || baselineTanks != 0 || baselineCannons != 0 ||
+      baselineCommander == 0 || baselineGroup == 0 || baselineTank == 0)
+    return false;
+
+  if (!LevelHasRetailAER00TankSpawn()) {
+    g_state.missionTankAvailable = 0;
+    g_state.missionTankRollbacks = 1;
+    g_state.missionTankLifecycleReady = true;
+    return true;
+  }
+  g_state.missionTankAvailable = 1;
+  if (!context->isExist("Colony") || !context->isExist("TankLevEnglAttr")) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        "AER00 Tank spawn dependencies are missing");
+    return false;
+  }
+
+  KR_ObjectID firstCommander, firstGroup, firstTank;
+  int firstLinks = 0;
+  const bool firstSpawned =
+      RunRetailAER00TankSpawn(context, startTime + 0.5);
+  const bool firstOwned = firstSpawned &&
+      ValidateAER00TankOwnership(context, &firstCommander, &firstGroup,
+                                 &firstTank, &firstLinks);
+  const int firstCannons = CannonSubjectState_LiveCount(context);
+  if (!firstSpawned || !firstOwned || firstCannons <= baselineCannons) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "first AER00 spawn/owned/links/cannons/baseline="
+                  "%d/%d/%d/%d/%d group=%d tank=%d %.96s",
+                  firstSpawned ? 1 : 0, firstOwned ? 1 : 0, firstLinks,
+                  firstCannons, baselineCannons,
+                  context->isExist("C.Group.aer00.00") ? 1 : 0,
+                  context->isExist("C.Unit.aer00.00") ? 1 : 0,
+                  g_state.lastError);
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
+  g_state.missionTankSpawns = 1;
+  g_state.missionTankMembershipLinks = firstLinks;
+  const unsigned long long firstCommanderFingerprint =
+      CommanderState_Fingerprint(context);
+  const unsigned long long firstGroupFingerprint =
+      TankGroupState_Fingerprint(context);
+  const unsigned long long firstTankFingerprint =
+      TankSubjectState_SubjectFingerprint(context);
+  const unsigned long long firstFingerprint =
+      MissionTankOwnershipFingerprint(context);
+  const bool firstCommanderRoundTrip =
+      CommanderState_StableRoundTrip(context);
+  const bool firstGroupRoundTrip =
+      TankGroupState_StableRoundTrip(context, firstGroup);
+  if (firstFingerprint == 0 || !firstCommanderRoundTrip ||
+      !firstGroupRoundTrip) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "first AER00 stable state=%llu/%llu/%llu combined=%llu "
+                  "roundtrips=%d/%d",
+                  firstCommanderFingerprint, firstGroupFingerprint,
+                  firstTankFingerprint, firstFingerprint,
+                  firstCommanderRoundTrip ? 1 : 0,
+                  firstGroupRoundTrip ? 1 : 0);
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
+  g_state.missionTankStableRoundTrips = 2;
+
+  STankGroupSchedulerProbeSummary scheduler = {};
+  if (!TankGroupState_ProbeScheduler(context, firstGroup, startTime + 1.0,
+                                     &scheduler)) {
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        "AER00 TankGroup scheduler did not repeat");
+    return false;
+  }
+  g_state.missionTankFindEnemyCycles = scheduler.findEnemyCycles;
+  g_state.missionTankMovingCycles = scheduler.movingCycles;
+  RollBackAER00TankSpawn(context);
+
+  KR_ObjectID secondCommander, secondGroup, secondTank;
+  int secondLinks = 0;
+  if (!RunRetailAER00TankSpawn(context, startTime + 2.0) ||
+      !ValidateAER00TankOwnership(context, &secondCommander, &secondGroup,
+                                  &secondTank, &secondLinks)) {
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        "reconstructed AER00 spawn ownership is invalid");
+    return false;
+  }
+  ++g_state.missionTankSpawns;
+  const unsigned long long secondCommanderFingerprint =
+      CommanderState_Fingerprint(context);
+  const unsigned long long secondGroupFingerprint =
+      TankGroupState_Fingerprint(context);
+  const unsigned long long secondTankFingerprint =
+      TankSubjectState_SubjectFingerprint(context);
+  const unsigned long long secondFingerprint =
+      MissionTankOwnershipFingerprint(context);
+  if (secondFingerprint != firstFingerprint ||
+      secondCommander != firstCommander || secondGroup == firstGroup ||
+      secondTank == firstTank || secondLinks != firstLinks) {
+    char message[256] = {};
+    std::snprintf(
+        message, sizeof(message),
+        "AER00 reconstruction combined=%llu/%llu parts="
+        "%llu,%llu,%llu/%llu,%llu,%llu ids=%ld,%ld/%ld,%ld links=%d/%d",
+        firstFingerprint, secondFingerprint, firstCommanderFingerprint,
+        firstGroupFingerprint, firstTankFingerprint,
+        secondCommanderFingerprint, secondGroupFingerprint,
+        secondTankFingerprint, firstGroup.id, secondGroup.id,
+        firstTank.id, secondTank.id, firstLinks, secondLinks);
+    RollBackAER00TankSpawn(context);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
+  g_state.missionTankReconstructedIDs = 1;
+  g_state.missionTankFingerprint = secondFingerprint;
+  RollBackAER00TankSpawn(context);
+
+  if (TankGroupState_LiveCount(context) != baselineGroups ||
+      TankSubjectState_LiveCount(context) != baselineTanks ||
+      CannonSubjectState_LiveCount(context) != baselineCannons ||
+      SoundObjectState_LiveCount() != baselineSounds ||
+      CommanderState_Fingerprint(context) != baselineCommander ||
+      TankGroupState_Fingerprint(context) != baselineGroup ||
+      TankSubjectState_SubjectFingerprint(context) != baselineTank) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "AER00 rollback groups/tanks/cannons/sounds=%d/%d/%d/%d "
+                  "expected=%d/%d/%d/%d fingerprints=%d/%d/%d",
+                  TankGroupState_LiveCount(context),
+                  TankSubjectState_LiveCount(context),
+                  CannonSubjectState_LiveCount(context),
+                  SoundObjectState_LiveCount(), baselineGroups, baselineTanks,
+                  baselineCannons, baselineSounds,
+                  CommanderState_Fingerprint(context) == baselineCommander,
+                  TankGroupState_Fingerprint(context) == baselineGroup,
+                  TankSubjectState_SubjectFingerprint(context) == baselineTank);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_MISSION_TANK_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
+  g_state.missionTankRollbacks = 1;
+  g_state.missionTankLifecycleReady = true;
   return true;
 }
 
@@ -3990,6 +4463,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   PeopleSubjectState_Link();
   CannonSubjectState_Link();
   TankSubjectState_Link();
+  CommanderState_Link();
+  TankGroupState_Link();
   PortalClassTable_Link();
   SparkAttributeState_Link();
   SparkSubjectState_Link();
@@ -4029,13 +4504,17 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     TaxiSubjectScriptSummary taxiSubjectScript = {};
     PeopleScriptSummary peopleScript = {};
     TankCannonScriptSummary tankCannonScript = {};
+    CommanderScriptSummary commanderScript = {};
     SRecoveredWavMetadataCatalog wavCatalog = {};
     // local_createTables() owns WAVObj before LEVEL0.SC creates attributes.
     if (!RunWavMetadataBootstrap(context, startTime, &wavCatalog)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
-    if (!ReadPeopleScriptSummary(&peopleScript)) {
+    if (!ReadCommanderScriptSummary(&commanderScript) ||
+        !RunCommanderBootstrap(context, startTime, commanderScript) ||
+        !PublishCommander(context, commanderScript) ||
+        !ReadPeopleScriptSummary(&peopleScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -4154,6 +4633,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    if (!PublishMissionTankLifecycle(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
     // The source-only CI fixture deliberately has no model resources, so its
     // TaxiAttr graph remains unresolved just like the other deferred visual
     // frontiers. A retail level with resolved Skin/Vehicle/Corpse references
@@ -4221,6 +4704,22 @@ void RecoveredArenaSeance_Release() {
   g_state.tankCannonAttributesReady = false;
   g_state.tankReferencesReady = false;
   g_state.tankCannonSubjectTablesReady = false;
+  g_state.commanderReady = false;
+  g_state.missionTankLifecycleReady = false;
+  g_state.commanderCapacity = 0;
+  g_state.commanderCount = 0;
+  g_state.commanderHostileLinks = 0;
+  g_state.commanderFingerprint = 0;
+  g_state.tankGroupSubjectCapacity = 0;
+  g_state.missionTankAvailable = 0;
+  g_state.missionTankSpawns = 0;
+  g_state.missionTankMembershipLinks = 0;
+  g_state.missionTankFindEnemyCycles = 0;
+  g_state.missionTankMovingCycles = 0;
+  g_state.missionTankStableRoundTrips = 0;
+  g_state.missionTankReconstructedIDs = 0;
+  g_state.missionTankRollbacks = 0;
+  g_state.missionTankFingerprint = 0;
   g_state.cannonAttributeCapacity = 0;
   g_state.cannonAttributeCount = 0;
   g_state.cannonSubjectCapacity = 0;
@@ -4627,6 +5126,76 @@ int RecoveredArenaSeance_TankProbeSaveStateRoundTrips() {
 int RecoveredArenaSeance_TankProbeRollbacks() {
   return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeRollbacks
                                               : -1;
+}
+
+bool RecoveredArenaSeance_CommanderReady() {
+  return g_state.commanderReady;
+}
+
+int RecoveredArenaSeance_CommanderCapacity() {
+  return g_state.commanderReady ? g_state.commanderCapacity : -1;
+}
+
+int RecoveredArenaSeance_CommanderCount() {
+  return g_state.commanderReady ? g_state.commanderCount : -1;
+}
+
+int RecoveredArenaSeance_CommanderHostileLinks() {
+  return g_state.commanderReady ? g_state.commanderHostileLinks : -1;
+}
+
+unsigned long long RecoveredArenaSeance_CommanderFingerprint() {
+  return g_state.commanderReady ? g_state.commanderFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_MissionTankLifecycleReady() {
+  return g_state.missionTankLifecycleReady;
+}
+
+int RecoveredArenaSeance_TankGroupSubjectCapacity() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.tankGroupSubjectCapacity : -1;
+}
+
+int RecoveredArenaSeance_MissionTankAvailable() {
+  return g_state.missionTankLifecycleReady ? g_state.missionTankAvailable : -1;
+}
+
+int RecoveredArenaSeance_MissionTankSpawns() {
+  return g_state.missionTankLifecycleReady ? g_state.missionTankSpawns : -1;
+}
+
+int RecoveredArenaSeance_MissionTankMembershipLinks() {
+  return g_state.missionTankLifecycleReady
+             ? g_state.missionTankMembershipLinks : -1;
+}
+
+int RecoveredArenaSeance_MissionTankFindEnemyCycles() {
+  return g_state.missionTankLifecycleReady
+             ? g_state.missionTankFindEnemyCycles : -1;
+}
+
+int RecoveredArenaSeance_MissionTankMovingCycles() {
+  return g_state.missionTankLifecycleReady
+             ? g_state.missionTankMovingCycles : -1;
+}
+
+int RecoveredArenaSeance_MissionTankStableRoundTrips() {
+  return g_state.missionTankLifecycleReady
+             ? g_state.missionTankStableRoundTrips : -1;
+}
+
+int RecoveredArenaSeance_MissionTankReconstructedIDs() {
+  return g_state.missionTankLifecycleReady
+             ? g_state.missionTankReconstructedIDs : -1;
+}
+
+int RecoveredArenaSeance_MissionTankRollbacks() {
+  return g_state.missionTankLifecycleReady ? g_state.missionTankRollbacks : -1;
+}
+
+unsigned long long RecoveredArenaSeance_MissionTankFingerprint() {
+  return g_state.missionTankLifecycleReady ? g_state.missionTankFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_BirdAttributesReady() {

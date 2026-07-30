@@ -2496,13 +2496,16 @@ software frame. It raises and levels the Vehicle only inside the bounded test
 to give the projectile room to move; retail terrain and collision geometry are
 not modified.
 
-The Bullet table exposes observation-only lifetime counters. A service
-observation snapshots them for per-scenario deltas and separately publishes
-the table's lifetime peak, plus relative live maxima for Explosion, particles,
-Smoke, Spark and SoundObj. Startup diagnostics expose the complete chain but a
-two-frame `--runtime-smoke` remains passive and therefore normally reports zero
-trigger presses and shots. Normal Level teardown destroys the complete effect
-graph, and the existing second seance proves reconstruction without residue.
+The Bullet table exposes observation-only lifetime counters. Accepted
+lifecycles are also partitioned by stable symbolic damage-owner name, so the
+player observation reads only `Vehicle.Default` after mission Tank/Cannon fire
+becomes active. A service observation snapshots those owner counters for
+per-scenario deltas and separately publishes the owner's lifetime peak, plus
+relative live maxima for Explosion, particles, Smoke, Spark and SoundObj.
+Startup diagnostics expose the complete chain but a two-frame
+`--runtime-smoke` remains passive and therefore normally reports zero trigger
+presses and shots. Normal Level teardown destroys the complete effect graph,
+and the existing second seance proves reconstruction without residue.
 
 Audible output is not claimed. The impact creates the retail Explosion
 SoundObj and executes its device-free command state, while `m_shootSndName` is
@@ -2607,3 +2610,43 @@ launches over all installed/mounted Levels, and 4/4 waited bounded executable
 launches. Levels with Tank attributes report an eleven-part all-one lifecycle;
 the empty/absent Tank layers report an explicit not-applicable result plus a
 successful rollback.
+
+## Commander, TankGroup and mission ownership boundary
+
+The preserved `Comander.cpp`, `GROUP.CPP` and `GROUP_2.CPP` now compile in a
+dedicated modern archive. Every Level executes its actual
+`local_createCommanders`; runtime diagnostics publish the exact capacity,
+roster, directed hostile-link count and a stable symbolic fingerprint.
+TankGroup capacity is inspected from the authoritative `set_tank.sci` phase so
+historical duplicate table declarations inside local Commander helpers do not
+compete for Storage ownership.
+
+The first positive mission owner is release-driven rather than synthetic.
+Level.04D's active `BRIEF/AER00.SC` calls the exact `CreateGroup` and
+`CreateUnit` helpers from `SYSF.SCI`, which in turn use `SYS.SCI` membership
+events. The proof validates Commander-to-Group, Group-to-Commander,
+Group-to-Tank and Tank-to-Commander links, the selected Tank attribute/Cannon
+children and original recurring TankGroup find/move events. The same source is
+then executed a second time: Group/Tank ObjectIDs change while the symbolic
+ownership fingerprint remains stable, and final rollback returns all transient
+subject and sound counts to their baselines.
+
+This reconstruction exposed an original pooled-slot bug. `TankGroup::addNotify`
+did not clear member/target sets, attribute ID or movement data, so a reused
+slot retained the removed Tank identity. Allocation now resets those transient
+fields before the original state-machine initialization. The strict table
+lookup also rejects `index == capacity`.
+
+Commander and TankGroup validation use version-1 little-endian records made of
+symbolic names, relation/member lists and explicit numeric vector fields.
+Fingerprints are computed over those encoded bytes; raw ObjectIDs, pointers,
+cache positions, padding and vtables are excluded. The legacy dump functions
+remain unchanged and no retail-save import is claimed. Event-queue capture,
+cross-owner restore ordering and Tank/Cannon migrations remain required before
+public active-world save/load.
+
+The final gate passes 51/51 CTest in both Debug and Release, 36/36 retail
+service launches and 18/18 matching E/G ownership pairs. The active Level.04D
+case also passes three additional consecutive Debug repetitions. All 4/4
+waited real executables exit zero, publish Commander and mission lifecycle
+diagnostics, reach `marker=level-ready` and record `runtime_shutdown=clean`.

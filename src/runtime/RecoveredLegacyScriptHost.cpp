@@ -10,6 +10,8 @@
 #include "message/attrmsg.h"
 #include "message/fartmsg.h"
 #include "message/fountmsg.h"
+#include "message/groupmsg.h"
+#include "message/comanmsg.h"
 #include "message/skinmsg.h"
 #include "message/lampmsg.h"
 #include "message/sparkmsg.h"
@@ -17,6 +19,7 @@
 #include "message/peopmsg.h"
 #include "obase/route/route.h"
 #include "i/unit.i"
+#include "i/commander.i"
 #include "storage/h/subject.h"
 
 namespace {
@@ -150,6 +153,22 @@ void ScriptSetCommander(TProcessContext* pc, void* userData) {
                    : host->SetCommander(SC_PARS(1), SC_PARS(0));
 }
 
+void ScriptSetHostileCommander(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->SetCommanderRelation(KR_ObjectID(SC_PARI(3), SC_PARI(2)),
+                               KR_ObjectID(SC_PARI(1), SC_PARI(0)), true);
+  }
+}
+
+void ScriptSetFriendlyCommander(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->SetCommanderRelation(KR_ObjectID(SC_PARI(3), SC_PARI(2)),
+                               KR_ObjectID(SC_PARI(1), SC_PARI(0)), false);
+  }
+}
+
 void ConstSparkSetPhaseCount(TStackCell* cell) {
   cell->i = sp_EV_SET_PHASE_COUNT;
 }
@@ -199,6 +218,14 @@ void ConstPeopleStartExtended(TStackCell* cell) {
   cell->i = pe_EVCMD_START_EX;
 }
 
+void ConstGroupAddMemberByName(TStackCell* cell) {
+  cell->i = GROUP_ADD_MEMBER_N;
+}
+
+void ConstCommanderAddMemberByName(TStackCell* cell) {
+  cell->i = COMMANDER_ADD_MEMBER_N;
+}
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
@@ -220,6 +247,8 @@ TLinkExtern g_bindings[] = {
     {"s_NewObjectN", ScriptNewObjectByClass, nullptr},
     {"s_LoadRoute", ScriptLoadRoute, nullptr},
     {"s_SetCommander", ScriptSetCommander, nullptr},
+    {"s_SetHostileCommander", ScriptSetHostileCommander, nullptr},
+    {"s_SetFriendlyCommander", ScriptSetFriendlyCommander, nullptr},
     {nullptr, nullptr, nullptr}};
 
 TLinkConstExtern g_constants[] = {
@@ -239,6 +268,8 @@ TLinkConstExtern g_constants[] = {
     {"taxi_SET_TO_POS", ConstTaxiSetToPosition, 0},
     {"pe_EVCMD_START", ConstPeopleStart, 0},
     {"pe_EVCMD_START_EX", ConstPeopleStartExtended, 0},
+    {"s_GROUP_ADD_MEMBER_N", ConstGroupAddMemberByName, 0},
+    {"s_COMMANDER_ADD_MEMBER_N", ConstCommanderAddMemberByName, 0},
     {nullptr, nullptr, 0}};
 
 }  // namespace
@@ -492,6 +523,29 @@ int RecoveredLegacyScriptHost::SetCommander(const char* objectName,
   if (unit == nullptr) return 0;
   unit->setCommander(commander);
   return 1;
+}
+
+bool RecoveredLegacyScriptHost::SetCommanderRelation(
+    const KR_ObjectID& commander, const KR_ObjectID& relativeCommander,
+    bool hostile) {
+  KR_ObjectID mutableLeft = commander;
+  KR_ObjectID mutableRight = relativeCommander;
+  if (!ArenaReady("set commander relation") || mutableLeft.isNUL() ||
+      mutableRight.isNUL())
+    return false;
+  ICommander* left = static_cast<ICommander*>(
+      m_arena->getContext()->queryInterface(commander, ICommanderIID));
+  ICommander* right = static_cast<ICommander*>(m_arena->getContext()->
+      queryInterface(relativeCommander, ICommanderIID));
+  if (left == nullptr || right == nullptr) return false;
+  if (hostile) {
+    left->setHostile(mutableRight);
+    right->setHostile(mutableLeft);
+  } else {
+    left->setFriendly(mutableRight);
+    right->setFriendly(mutableLeft);
+  }
+  return true;
 }
 
 TLinkExtern* RecoveredLegacyScriptHost::Bindings() { return g_bindings; }

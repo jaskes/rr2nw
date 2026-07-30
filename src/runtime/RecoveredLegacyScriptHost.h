@@ -19,7 +19,7 @@ enum ERecoveredLegacyScriptHostIssue {
 
 class RecoveredLegacyScriptHost {
  public:
-  enum { kConstantCount = 16 };
+  enum { kConstantCount = 18 };
 
   explicit RecoveredLegacyScriptHost(ct_Arena* arena);
 
@@ -48,6 +48,9 @@ class RecoveredLegacyScriptHost {
   KR_ObjectID LoadRoute(int classTable, const char* fileName,
                         const char* routeName);
   int SetCommander(const char* objectName, const char* commanderName);
+  bool SetCommanderRelation(const KR_ObjectID& commander,
+                            const KR_ObjectID& relativeCommander,
+                            bool hostile);
   bool WriteScriptInteger(TProcessContext* process, int reference,
                           int value);
 

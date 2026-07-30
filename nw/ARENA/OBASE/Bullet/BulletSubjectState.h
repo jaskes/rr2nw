@@ -61,6 +61,9 @@ unsigned long long BulletSubjectState_Fingerprint(
     SimulationContext *context);
 bool BulletSubjectState_RuntimeTelemetry(
     SimulationContext *context, BulletRuntimeTelemetry *telemetry);
+bool BulletSubjectState_OwnerRuntimeTelemetry(
+    SimulationContext *context, const char *ownerName,
+    BulletRuntimeTelemetry *telemetry);
 bool BulletSubjectState_ProbeBallisticLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, int *moveCount);

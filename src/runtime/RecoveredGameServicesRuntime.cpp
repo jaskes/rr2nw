@@ -663,7 +663,7 @@ CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
 CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
 bool g_vehicleDriveTelemetryReady = false;
 bool g_primaryFireTelemetryReady = false;
-BulletRuntimeTelemetry g_primaryFireBulletBaseline = {};
+BulletRuntimeTelemetry g_primaryFireOwnerBaseline = {};
 SRecoveredVehiclePrimaryFireTelemetry g_primaryFireTelemetry = {};
 unsigned int g_primaryFireTriggerBaseline = 0;
 int g_primaryFireExplosionBaseline = 0;
@@ -789,8 +789,8 @@ unsigned int CounterDifference(unsigned int current,
 }
 
 bool BeginPrimaryFireTelemetry(SimulationContext* context) {
-  if (!BulletSubjectState_RuntimeTelemetry(
-          context, &g_primaryFireBulletBaseline))
+  if (!BulletSubjectState_OwnerRuntimeTelemetry(
+          context, "Vehicle.Default", &g_primaryFireOwnerBaseline))
     return false;
   g_primaryFireTelemetry = {};
   g_primaryFireTriggerBaseline =
@@ -810,37 +810,38 @@ void UpdatePrimaryFireTelemetry(SimulationContext* context) {
   if (!g_primaryFireTelemetryReady || context == nullptr)
     return;
   BulletRuntimeTelemetry current = {};
-  if (!BulletSubjectState_RuntimeTelemetry(context, &current))
+  if (!BulletSubjectState_OwnerRuntimeTelemetry(
+          context, "Vehicle.Default", &current))
     return;
   g_primaryFireTelemetry.triggerPresses =
       CounterDifference(g_vehicleControlInput.PrimaryFirePresses(),
                         g_primaryFireTriggerBaseline);
   g_primaryFireTelemetry.acceptedShots = CounterDifference(
-      current.acceptedStarts, g_primaryFireBulletBaseline.acceptedStarts);
+      current.acceptedStarts, g_primaryFireOwnerBaseline.acceptedStarts);
   g_primaryFireTelemetry.rolledBackShots = CounterDifference(
       current.rolledBackStarts,
-      g_primaryFireBulletBaseline.rolledBackStarts);
+      g_primaryFireOwnerBaseline.rolledBackStarts);
   g_primaryFireTelemetry.moveEvents = CounterDifference(
-      current.moveEvents, g_primaryFireBulletBaseline.moveEvents);
+      current.moveEvents, g_primaryFireOwnerBaseline.moveEvents);
   g_primaryFireTelemetry.collisionChecks = CounterDifference(
       current.collisionChecks,
-      g_primaryFireBulletBaseline.collisionChecks);
+      g_primaryFireOwnerBaseline.collisionChecks);
   g_primaryFireTelemetry.sceneImpacts = CounterDifference(
-      current.sceneImpacts, g_primaryFireBulletBaseline.sceneImpacts);
+      current.sceneImpacts, g_primaryFireOwnerBaseline.sceneImpacts);
   g_primaryFireTelemetry.dynamicImpacts = CounterDifference(
-      current.dynamicImpacts, g_primaryFireBulletBaseline.dynamicImpacts);
+      current.dynamicImpacts, g_primaryFireOwnerBaseline.dynamicImpacts);
   g_primaryFireTelemetry.waterlineSplashes = CounterDifference(
       current.waterlineSplashes,
-      g_primaryFireBulletBaseline.waterlineSplashes);
+      g_primaryFireOwnerBaseline.waterlineSplashes);
   g_primaryFireTelemetry.impactEffectChildren = CounterDifference(
       current.impactEffectChildren,
-      g_primaryFireBulletBaseline.impactEffectChildren);
+      g_primaryFireOwnerBaseline.impactEffectChildren);
   g_primaryFireTelemetry.groundRemovals = CounterDifference(
       current.groundRemovals,
-      g_primaryFireBulletBaseline.groundRemovals);
+      g_primaryFireOwnerBaseline.groundRemovals);
   g_primaryFireTelemetry.barrelSmokeStarts = CounterDifference(
       current.barrelSmokeStarts,
-      g_primaryFireBulletBaseline.barrelSmokeStarts);
+      g_primaryFireOwnerBaseline.barrelSmokeStarts);
   g_primaryFireTelemetry.liveBullets = current.liveBullets;
   g_primaryFireTelemetry.tablePeakLiveBullets =
       current.peakLiveBullets;
@@ -1067,7 +1068,7 @@ void EndBoundedSession() {
   g_vehicleTelemetryStartForward = CFVector3(0.0, 0.0, 1.0);
   g_vehicleDriveTelemetryReady = false;
   g_primaryFireTelemetryReady = false;
-  g_primaryFireBulletBaseline = {};
+  g_primaryFireOwnerBaseline = {};
   g_primaryFireTelemetry = {};
   g_primaryFireTriggerBaseline = 0;
   g_primaryFireExplosionBaseline = 0;

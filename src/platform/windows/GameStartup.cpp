@@ -1212,6 +1212,33 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_TankProbeSaveStateRoundTrips()) +
            "/" +
            std::to_string(RecoveredArenaSeance_TankProbeRollbacks()));
+  log.Line("commander_roster=" +
+           std::to_string(RecoveredArenaSeance_CommanderCount()) + "/" +
+           std::to_string(RecoveredArenaSeance_CommanderCapacity()));
+  log.Line("commander_hostile_links=" +
+           std::to_string(RecoveredArenaSeance_CommanderHostileLinks()));
+  log.Line("commander_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_CommanderFingerprint()));
+  log.Line("tank_group_subject_capacity=" +
+           std::to_string(
+               RecoveredArenaSeance_TankGroupSubjectCapacity()));
+  log.Line("mission_tank_lifecycle_probe=" +
+           std::to_string(RecoveredArenaSeance_MissionTankAvailable()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_MissionTankSpawns()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionTankMembershipLinks()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionTankFindEnemyCycles()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionTankMovingCycles()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionTankStableRoundTrips()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionTankReconstructedIDs()) + "/" +
+           std::to_string(RecoveredArenaSeance_MissionTankRollbacks()));
+  log.Line("mission_tank_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_MissionTankFingerprint()));
   log.Line("bullet_ground_spark_initialized=" +
            std::to_string(
                RecoveredGameServices_BulletGroundSparkReady() ? 1 : 0));

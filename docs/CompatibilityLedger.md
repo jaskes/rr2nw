@@ -1913,11 +1913,12 @@ Status vocabulary:
   Preserve `Vehicle::onFire()` gating: type-0 defaults do not shoot, while an
   empty type-1 Bullet slot (the selected `CarSmall` on 01D/01N) is a valid
   unarmed retail result.
-- Regression contract: armed Levels must produce exactly two accepted Bullet
-  starts from two active presses, then expose movement, collision, impact
-  children and rendered effects; focus loss during the second hold must leave
-  zero active actions and no extra shot. Type-0 and empty-primary cases must
-  forward the Hardware pair without allocating a Bullet.
+- Regression contract: armed Levels must observe two trigger presses and at
+  least two accepted Bullet starts, then expose movement, collision, impact
+  children and rendered effects. Focus loss during the second hold must leave
+  zero active actions; after already-issued starts drain, the accepted count
+  must quiesce across another slip-time window. Type-0 and empty-primary cases
+  must forward the Hardware pair without allocating a Bullet.
 - Revisit when: configurable controls, raw input, replay or SDL replace Win32
   Hardware. Mouse capture and focus generation must remain part of the same
   recorded input transaction as movement controls.
@@ -2072,6 +2073,93 @@ Status vocabulary:
 - Revisit when: active-world saves are admitted. Define field-by-field,
   versioned records, zero unused slots and reconstruct cached pointers and
   ObjectIDs through symbolic references.
+
+### CQ-130: reused TankGroup slots retained dead world references
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `TankGroup::addNotify` initialized its state machine, Commander and
+  position but did not clear `m_members`, `m_lockedTarget`, `m_attrID` or
+  `d_mov`. Storage reuses a fixed subject-table slot after `removeObject`, so a
+  second mission spawn inherited the removed Tank ObjectID and previous
+  destination. The second symbolic roster consequently failed to resolve.
+- Handling: clear both ID sets, restore the default attribute/NUL ID, recreate
+  `MovingData`, and then perform the original initialization. The regression
+  executes the same retail AER00 spawn twice, requires new numeric identities,
+  identical symbolic ownership and pristine final tables.
+- Revisit when: subject pools gain explicit constructors per allocation. Keep
+  the reset contract even if Storage stops reusing in-place objects.
+
+### CQ-131: Commander and Tank table declarations have split script ownership
+
+- Status: `RETAIL_DATA_CONFIRMED`, `BEHAVIOR_PRESERVED`.
+- Evidence: several `local_createCommanders` functions contain historical
+  `s_AddClassTable("TankGroup", ...)` and `s_AddClassTable("Tank", ...)`
+  calls, while released Level setup also executes `set_tank.sci` as the
+  authoritative capacity owner. Executing both declarations in one recovered
+  bootstrap would create duplicate class-table ownership.
+- Handling: inspect and execute the exact Commander function but remove only
+  those two table-declaration statements. Commander creation and relation
+  calls remain exact; TankGroup/Tank capacities come from `set_tank.sci`.
+- Revisit when: the full root script schedule replaces staged bootstrap. At
+  that point preserve original call order and prove that Storage's duplicate
+  table behavior matches the released executable before removing the split.
+
+### CQ-132: Commander and TankGroup raw dumps are not portable save records
+
+- Status: `SOURCE_CONFIRMED`, `FORMAT_DEBT_RECORDED`.
+- Evidence: the legacy dump path writes compiler-layout structures and numeric
+  ObjectIDs. TankGroup additionally dumps `KR_SetOfID`, whose unused slots are
+  process residue, plus active-object state whose event references are owned
+  elsewhere. These bytes cannot reconstruct stable ownership across seances or
+  compiler builds.
+- Handling: use version-1 little-endian semantic records for validation. They
+  encode Commander names/relations/members and TankGroup symbolic ownership,
+  members, position and destination. Fingerprints hash the encoded records,
+  never raw pointers, cache positions, padding or vtables. Existing raw dumps
+  remain untouched and are not advertised as importable.
+- Revisit when: active-world save/load is implemented. Add event-queue records,
+  restore ordering, Tank/Cannon payload migration and explicit old-format
+  detection before exposing a public save command.
+
+### CQ-133: the preserved friendly-Commander script binding marks hostility
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_DATA_NOT_EXERCISED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `nw/ARENA/SC/pin_func.h::s_SetFriendlyCommander` calls
+  `setHostile` on both Commanders. The ICommander contract and the subject's
+  event handler have a separate working `setFriendly` path. Neither installed
+  nor mounted May script data calls the friendly extern; only its declaration
+  is present.
+- Handling: the recovered bounded host maps the friendly-named extern to
+  symmetric `setFriendly` and the hostile extern to symmetric `setHostile`.
+  Current retail fingerprints are unaffected because all released relation
+  calls are hostile.
+- Revisit when: Commander relations become a mod API or a March script set is
+  found. Add an explicit friendly-relation fixture and decide whether a legacy
+  bug-compatibility flag is required for third-party scripts.
+
+### CQ-134: accepted Bullet starts can appear after the input release
+
+- Status: `SOURCE_CONFIRMED`, `TEST_ASSUMPTION_CORRECTED`.
+- Evidence: `EV_VEHICLE_FIRE` is a held-action cadence, not a one-shot mapping.
+  A due Vehicle event can issue a Bullet start which is accepted later when the
+  Bullet event reaches the queue. Dense Level.02 frames therefore produced
+  more than one valid shot per held press, and some accepted-start telemetry
+  appeared after the synthetic release even though the Vehicle latch was
+  already cleared. Once Level.04 gained its real Tank graph, the global Bullet
+  counter also included independent mission Tank/Cannon projectiles and was no
+  longer a valid player-shot counter.
+- Handling: require exactly two physical trigger presses and at least two
+  accepted starts owned by symbolic identity `Vehicle.Default`. Bullet keeps
+  separate accepted/move/check/impact/live/peak telemetry per symbolic damage
+  owner while preserving aggregate whole-world counters. After focus loss,
+  suppress inactive down/up input, drain a bounded simulation window, then
+  require the player-owned count to remain unchanged across an additional
+  interval longer than the retail primary slip time. Movement, natural impact,
+  effects and zero held actions remain mandatory.
+- Revisit when: fixed-tick input/replay is implemented. Record press/release
+  ticks and each scheduled fire command separately from later Bullet-start
+  acceptance so replay diagnostics do not infer causality from frame samples.
 
 ## Maintenance rule
 

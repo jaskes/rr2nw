@@ -50,10 +50,44 @@ struct BulletImpact
 BulletRuntimeTelemetry g_runtimeTelemetry = {};
 unsigned int g_activeBullets = 0;
 
+struct BulletOwnerRuntimeEntry
+{
+    char ownerName[MAX_SYMBOLIC_LENGHT + 1];
+    BulletRuntimeTelemetry telemetry;
+};
+
+std::vector<BulletOwnerRuntimeEntry> g_ownerRuntimeTelemetry;
+
+int FindOwnerRuntimeEntry(const char *ownerName, bool create)
+{
+    if (ownerName == NULL || ownerName[0] == 0)
+        return -1;
+    for (std::size_t index = 0; index < g_ownerRuntimeTelemetry.size();
+         ++index)
+        if (std::strcmp(g_ownerRuntimeTelemetry[index].ownerName,
+                        ownerName) == 0)
+            return static_cast<int>(index);
+    if (!create || std::strlen(ownerName) > MAX_SYMBOLIC_LENGHT)
+        return -1;
+    BulletOwnerRuntimeEntry entry = {};
+    std::strcpy(entry.ownerName, ownerName);
+    g_ownerRuntimeTelemetry.push_back(entry);
+    return static_cast<int>(g_ownerRuntimeTelemetry.size() - 1);
+}
+
+BulletRuntimeTelemetry *OwnerRuntimeTelemetry(int index)
+{
+    if (index < 0 ||
+        static_cast<std::size_t>(index) >= g_ownerRuntimeTelemetry.size())
+        return NULL;
+    return &g_ownerRuntimeTelemetry[static_cast<std::size_t>(index)].telemetry;
+}
+
 void ResetRuntimeTelemetry()
 {
     std::memset(&g_runtimeTelemetry, 0, sizeof(g_runtimeTelemetry));
     g_activeBullets = 0;
+    g_ownerRuntimeTelemetry.clear();
 }
 
 bool FiniteVector(const CFVector3 &value)
@@ -361,6 +395,10 @@ class BoundedBullet : public ct_Subject
             return;
         if (g_activeBullets > 0)
             --g_activeBullets;
+        BulletRuntimeTelemetry *owner =
+            OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+        if (owner != NULL && owner->liveBullets > 0)
+            --owner->liveBullets;
         m_countedActive = false;
     }
 
@@ -389,6 +427,7 @@ class BoundedBullet : public ct_Subject
         m_collisionCheckCount = 0;
         m_sceneQueryCount = 0;
         m_countedActive = false;
+        m_ownerTelemetryIndex = -1;
     }
 
     bool scheduleMove(double previousTimeStamp, double timeStamp)
@@ -472,6 +511,8 @@ class BoundedBullet : public ct_Subject
         const double inverseLength = 1.0 / std::sqrt(directionLength2);
         m_attribute = attribute;
         m_master = master;
+        const char *ownerName = context->searchObject(master);
+        m_ownerTelemetryIndex = FindOwnerRuntimeEntry(ownerName, true);
         m_initialPosition = position;
         m_previousPosition = position;
         m_initialDirection = direction * inverseLength;
@@ -482,6 +523,15 @@ class BoundedBullet : public ct_Subject
         ++g_runtimeTelemetry.acceptedStarts;
         g_runtimeTelemetry.peakLiveBullets = (std::max)(
             g_runtimeTelemetry.peakLiveBullets, g_activeBullets);
+        BulletRuntimeTelemetry *owner =
+            OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+        if (owner != NULL)
+        {
+            ++owner->acceptedStarts;
+            ++owner->liveBullets;
+            owner->peakLiveBullets = (std::max)(
+                owner->peakLiveBullets, owner->liveBullets);
+        }
         m_moveCount = 0;
         m_lastMoveTimeStamp = event.timeStamp;
         CViewScene *scene = CViewScene::Current();
@@ -495,13 +545,19 @@ class BoundedBullet : public ct_Subject
         StartBarrelSmoke(context, attribute, getObjectID(), position,
                          direction, event.timeStamp, &barrelSmoke);
         if (!barrelSmoke.isNUL())
+        {
             ++g_runtimeTelemetry.barrelSmokeStarts;
+            if (owner != NULL)
+                ++owner->barrelSmokeStarts;
+        }
         if (position.y <= 0.0)
         {
             KR_ObjectID spark = KR_ObjectID::NUL();
             QueueGroundSpark(context, m_attribute, m_position,
                              event.timeStamp, &spark);
             ++g_runtimeTelemetry.groundRemovals;
+            if (owner != NULL)
+                ++owner->groundRemovals;
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
             return 1;
@@ -518,6 +574,8 @@ class BoundedBullet : public ct_Subject
             context->removeEvent(b_EVC_CHECK_COLLISION, getObjectID());
             setPosition(CFVector3(0.0, 0.0, 0.0));
             ++g_runtimeTelemetry.rolledBackStarts;
+            if (owner != NULL)
+                ++owner->rolledBackStarts;
             releaseActiveCount();
             resetState();
             return 0;
@@ -623,12 +681,18 @@ class BoundedBullet : public ct_Subject
         const BulletImpact impact = findImpact(horizon);
         ++m_collisionCheckCount;
         ++g_runtimeTelemetry.collisionChecks;
+        BulletRuntimeTelemetry *owner =
+            OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+        if (owner != NULL)
+            ++owner->collisionChecks;
         const bool splashBeforeImpact = waterHit &&
             (impact.kind == BULLET_IMPACT_NONE || waterTime < impact.time);
         if (splashBeforeImpact)
         {
             m_crossedWaterline = true;
             ++g_runtimeTelemetry.waterlineSplashes;
+            if (owner != NULL)
+                ++owner->waterlineSplashes;
         }
 
         KR_ObjectID effectChildren[2] = {
@@ -641,13 +705,24 @@ class BoundedBullet : public ct_Subject
                            effectChildren, &effectChildCount);
         g_runtimeTelemetry.impactEffectChildren +=
             static_cast<unsigned int>((std::max)(effectChildCount, 0));
+        if (owner != NULL)
+            owner->impactEffectChildren +=
+                static_cast<unsigned int>((std::max)(effectChildCount, 0));
 
         if (impact.kind != BULLET_IMPACT_NONE)
         {
             if (impact.kind == BULLET_IMPACT_SCENE)
+            {
                 ++g_runtimeTelemetry.sceneImpacts;
+                if (owner != NULL)
+                    ++owner->sceneImpacts;
+            }
             else if (impact.kind == BULLET_IMPACT_DYNAMIC)
+            {
                 ++g_runtimeTelemetry.dynamicImpacts;
+                if (owner != NULL)
+                    ++owner->dynamicImpacts;
+            }
             context->removeEvent(b_EVC_MOVING, getObjectID());
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
@@ -694,6 +769,10 @@ class BoundedBullet : public ct_Subject
         m_lastMoveTimeStamp = event.timeStamp;
         ++m_moveCount;
         ++g_runtimeTelemetry.moveEvents;
+        BulletRuntimeTelemetry *owner =
+            OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+        if (owner != NULL)
+            ++owner->moveEvents;
         setPosition(nextPosition);
         if (m_position.y <= 0.0)
         {
@@ -701,6 +780,8 @@ class BoundedBullet : public ct_Subject
             QueueGroundSpark(context, m_attribute, m_position,
                              event.timeStamp, &spark);
             ++g_runtimeTelemetry.groundRemovals;
+            if (owner != NULL)
+                ++owner->groundRemovals;
             const KR_ObjectID self = getObjectID();
             context->removeObject(self);
             return 1;
@@ -731,6 +812,7 @@ class BoundedBullet : public ct_Subject
     int m_collisionCheckCount;
     int m_sceneQueryCount;
     bool m_countedActive;
+    int m_ownerTelemetryIndex;
 };
 
 class BoundedBulletTable : public ct_SubjectTable
@@ -917,6 +999,22 @@ bool BulletSubjectState_RuntimeTelemetry(
     *telemetry = g_runtimeTelemetry;
     telemetry->liveBullets = static_cast<unsigned int>(
         (std::max)(g_bulletTable.liveCount(), 0));
+    return true;
+}
+
+bool BulletSubjectState_OwnerRuntimeTelemetry(
+    SimulationContext *context, const char *ownerName,
+    BulletRuntimeTelemetry *telemetry)
+{
+    const int capacity = g_bulletTable.capacity();
+    if (telemetry == NULL || ownerName == NULL || ownerName[0] == 0 ||
+        !BulletSubjectState_TableReady(context, capacity))
+        return false;
+    std::memset(telemetry, 0, sizeof(*telemetry));
+    const int index = FindOwnerRuntimeEntry(ownerName, false);
+    BulletRuntimeTelemetry *owner = OwnerRuntimeTelemetry(index);
+    if (owner != NULL)
+        *telemetry = *owner;
     return true;
 }
 

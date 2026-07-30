@@ -2636,19 +2636,26 @@ BulletAttr index, allocate a real Bullet and enter the existing scheduled
 flight/collision implementation. The bounded proof raises the firing Vehicle
 ten world units and levels its direction only inside the test; it adds no
 target or collision geometry. Two real presses must therefore produce exactly
-two accepted starts, movement, collision checks, a natural scene or dynamic
-impact, an Explosion child, particle branches, an impact SoundObj and at least
-one software frame containing a live projectile/effect.
+two trigger transitions and at least two accepted starts. The original held
+fire schedule may produce additional shots when a heavy frame spans more than
+one `m_bulletSlipTime`; after focus loss the accepted-start counter must reach
+quiescence and remain unchanged across a further slip-time window. Movement,
+collision checks, a natural scene or dynamic impact, an Explosion child,
+particle branches, an impact SoundObj and at least one software frame
+containing a live projectile/effect remain required.
 
 Bullet telemetry is read-only and table-owned. It records accepted, rejected
 and rolled-back starts, movement/check/impact paths, waterline, impact children,
-ground removal, barrel Smoke and live/peak counts. Service observation uses
-counter deltas from an explicit window; `tablePeakLiveBullets` intentionally
-remains the allocation-lifetime high-water mark and is not presented as a
-window delta. Explosion, particle, Smoke, Spark and SoundObj maxima are sampled
-relative to their live counts when the observation starts. Normal seance
-teardown remains the owner of every projectile and child and reconstruction
-must return the original retail identities.
+ground removal, barrel Smoke and live/peak counts. Accepted Bullet lifecycles
+are additionally partitioned by their symbolic damage owner. The player proof
+therefore reads only `Vehicle.Default`; mission Tank/Cannon fire remains visible
+to whole-world telemetry but cannot satisfy or destabilize a player-input
+contract. Service observation uses counter deltas from an explicit window;
+`tablePeakLiveBullets` intentionally remains the owner-lifetime high-water mark
+and is not presented as a window delta. Explosion, particle, Smoke, Spark and
+SoundObj maxima are sampled relative to their live counts when the observation
+starts. Normal seance teardown remains the owner of every projectile and child
+and reconstruction must return the original retail identities.
 
 This decision proves the retail impact SoundObj command path, not audible
 device output or muzzle audio. The SoundObj backend remains device-free and the
@@ -2774,4 +2781,48 @@ Verification passes 51/51 CTest in Debug and Release, plus all 36 retail
 service launches across nine Levels, both configurations and installed/mounted
 data. Four waited `rr2nw.exe --runtime-smoke` launches publish the People and
 Tank lifecycle summaries, reach `marker=level-ready` and finish with
+`runtime_shutdown=clean`.
+
+## BD-074: execute mission Tank ownership through Commander and TankGroup
+
+Status: accepted on 2026-07-30.
+
+Every Level now executes its exact `local_createCommanders` function before
+the People and Tank subject phases commit. Commander remains a persistent
+Level-local owner with the retail capacity, symbolic names and symmetric
+hostile relations. The TankGroup and Tank table declarations embedded in some
+January-style local functions are not executed a second time: their exact
+released capacities remain owned by `set_tank.sci`, while the rest of the
+Commander function executes unchanged.
+
+Persistent mission Tanks are admitted only where released mission source
+actually creates them. In the current May data, `Level.04D/BRIEF/AER00.SC`
+contains an active `CreateGroup`/`CreateUnit` chain. The older Tank graph in
+Level.02 briefing material is commented out and its released mission actors
+are People, so it must not be revived as synthetic Tank population. The
+Level.04 proof executes the exact `SYS.SCI` and `SYSF.SCI` helper closure and
+establishes four real links: Commander owns TankGroup, TankGroup points back
+to Commander, TankGroup owns Tank, and Tank reports the same Commander.
+
+The original TankGroup `FIND_ENEMY` and moving state transitions are exercised
+through their recurring event schedule. The complete source sequence is then
+rolled back and executed again. ObjectIDs must change for the reconstructed
+TankGroup and Tank, while the symbolic ownership fingerprint stays identical.
+Final teardown restores the pristine TankGroup/Tank/Cannon/SoundObj pools and
+the original persistent Commander fingerprint.
+
+Commander and TankGroup now expose version-1 little-endian symbolic records.
+They contain names, relations, membership and TankGroup position/destination;
+they never contain process pointers, cache positions, vtable bytes or raw
+ObjectIDs. The records are an active-world save boundary and reconstruction
+proof, not a user-facing save format and not a claim that retail raw saves can
+already be imported. Event queues, Tank/Cannon state and cross-owner restore
+ordering remain the next save/load frontier.
+
+Final verification passes 51/51 CTest in Debug and Release, all 36/36 retail
+service launches across nine Levels, both configurations and installed/mounted
+data, and 4/4 waited `rr2nw.exe --runtime-smoke` launches. All 18 configuration
+specific E/G ownership pairs match, and the nine published Commander/TankGroup
+signatures remain identical between Debug and Release. Every executable reaches
+`marker=level-ready`, publishes Commander/mission diagnostics and finishes with
 `runtime_shutdown=clean`.

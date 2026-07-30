@@ -1015,20 +1015,25 @@ Retail scripts нельзя молча копировать поверх source 
 - Retail gates are preserved. Type-0 Vehicle attributes accept the control but
   do not call `Shoot`; the selected type-1 `CarSmall` on 01D/01N intentionally
   has no primary BulletAttr and produces no projectile. Armed type-1 Vehicles
-  must produce exactly two accepted starts from two active presses.
+  must observe two active trigger presses and at least two accepted starts.
+  Extra starts already issued by the retail held-fire cadence are valid on a
+  heavy frame; after focus release the count must quiesce and stay fixed.
 - The positive proof observes scheduled Bullet movement and collision checks,
   a natural scene or dynamic impact, an Explosion child, live particle
   branches, impact SoundObj and a software frame containing a projectile or
   effect. It does not insert a target. Test-only firing height/direction give
   the real ballistic path room to advance and are discarded with the seance.
 - `MouseL` is focus-safe: losing focus during the second held press produces
-  one synthetic release, suppresses inactive down/up input, creates no third
-  shot and leaves zero held actions. The Hardware subscription survives.
+  one synthetic release, suppresses inactive down/up input, stops the repeat
+  chain after already-issued Bullet starts drain and leaves zero held actions.
+  The Hardware subscription survives.
 - The impact Explosion's SoundObj command path is proven against the current
   device-free backend; audible output is not. Bullet muzzle `m_shootSndName`
   and secondary fire remain explicitly deferred. The table peak Bullet count
   is a lifetime high-water mark; per-proof shot/move/impact counters are deltas
-  from an explicit observation window.
+  from an explicit observation window scoped to symbolic owner
+  `Vehicle.Default`. Tank/Cannon projectiles retain whole-world telemetry but
+  cannot be mistaken for player fire.
 - Verification passes 51/51 CTest in Debug and Release, the full 36/36 retail
   service matrix without reruns, a 10/10 `Level.05D` Debug repetition and 4/4
   waited executable smokes with observability, level-ready and clean shutdown.
@@ -1053,6 +1058,37 @@ Retail scripts нельзя молча копировать поверх source 
 - Verification passes 51/51 CTest in both configurations, all 36/36 retail
   service launches and 4/4 waited executable smokes with level-ready and clean
   shutdown markers.
+
+### RP-SCRIPT-033: Commander owns the first active mission Tank graph
+
+- Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
+  `PORTABILITY_FIX_ACCEPTED`. Every released Level executes the exact
+  `local_createCommanders` body and publishes its Commander roster, capacity,
+  hostile-link count and symbolic fingerprint. TankGroup/Tank table creation
+  remains owned by the separately executed `set_tank.sci` boundary so legacy
+  local functions cannot allocate the same class tables twice.
+- Released mission truth is source-sensitive. `Level.04D/BRIEF/AER00.SC`
+  actively calls `CreateGroup` and `CreateUnit`; its exact helper closure links
+  `Colony -> C.Group.aer00.00 -> C.Unit.aer00.00`. The older Level.02 Tank
+  sequence is inside comments and its active mission population uses People.
+  Other Levels therefore report an explicit not-applicable mission-Tank result
+  instead of receiving a fabricated spawn.
+- The positive Level.04 proof observes all four bidirectional ownership links,
+  one original recurring find-enemy cycle, one recurring moving cycle, real
+  Tank-selected Cannon creation and complete child rollback. Running the same
+  source a second time must allocate new TankGroup/Tank ObjectIDs but reproduce
+  the same symbolic ownership fingerprint.
+- Reused TankGroup table slots now clear members, locked targets, attribute and
+  moving data before normal initialization. Without that fix a reconstructed
+  group inherited the removed Tank ObjectID and could retain a ghost member or
+  target.
+- Commander and TankGroup round-trip version-1 symbolic little-endian records.
+  These records exclude cache IDs and pointers. They prepare active-world
+  reconstruction; they do not yet serialize the event queue or establish
+  compatibility with raw retail save files.
+- Verification passes 51/51 CTest in Debug and Release, 36/36 retail service
+  launches, 18/18 matching E/G ownership pairs and 4/4 waited executable
+  smokes with Commander/mission diagnostics, level-ready and clean shutdown.
 
 ## Behavioral parity matrix
 

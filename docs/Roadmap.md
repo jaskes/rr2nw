@@ -907,3 +907,42 @@ format. January's 3000-node snapshot was too small for the May Level.02
 population; the bounded May arena is 8192 and duplicate symbolic route loads
 reuse the already visible Route. Existing raw Route saves require a versioned
 migration before compatibility can be claimed.
+
+## Current Windows frontier after Commander and TankGroup admission
+
+The first real mission Tank ownership chain is now connected. All Levels
+publish their exact Commander population and relations. Level.04D additionally
+executes the active retail AER00 `CreateGroup`/`CreateUnit` sequence, proves the
+four Commander/Group/Tank links, advances the original TankGroup scheduler,
+reconstructs the chain under new ObjectIDs with the same symbolic fingerprint,
+and rolls every transient owner back. Levels without an active source sequence
+remain explicit N/A rather than gaining synthetic Tanks.
+
+The next large Windows-first slice is active-world persistence and human
+acceptance:
+
+1. define one top-level versioned save envelope and stable restore order for
+   Commander, TankGroup, People, Tank, Cannon, Vehicle and mission objects;
+2. serialize scheduled events by symbolic destination, label, timestamp/tick
+   and semantic payload instead of copying process-local queue bytes;
+3. reconstruct object ownership first, resolve symbolic references second,
+   restore queued behavior third, then validate whole-world fingerprints;
+4. add corruption/version rejection, atomic temporary-file commit and a
+   diagnostic bundle without advertising raw retail-save compatibility;
+5. run a manual multi-Level pass for driving, F1, People/Tank combat, alt-tab,
+   save/load and clean exit, including the active Level.04 mission owner;
+6. only after that gate, widen toward data-pack mods, secondary weapons and an
+   audible backend.
+
+The new Commander/TankGroup version-1 records are internal reconstruction
+evidence, not yet the public save container. Linux/macOS and multiplayer remain
+deferred until this Windows active-world owner and manual acceptance slice is
+stable.
+
+Admission gate completed on 2026-07-30: 51/51 CTest in Debug and Release,
+36/36 retail services, 18/18 matching installed/mounted ownership pairs and
+4/4 waited real executable smokes. The player Bullet proof is now scoped to
+symbolic owner `Vehicle.Default`, so subsequent AI activation cannot corrupt
+input/replay diagnostics. This leaves the versioned world envelope and event
+queue as the next implementation slice rather than an unresolved admission
+bug.

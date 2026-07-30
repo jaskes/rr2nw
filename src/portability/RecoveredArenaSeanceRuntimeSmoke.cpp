@@ -662,6 +662,22 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_TankProbeDeathEffects() == -1 &&
          RecoveredArenaSeance_TankProbeSaveStateRoundTrips() == -1 &&
          RecoveredArenaSeance_TankProbeRollbacks() == -1 &&
+         !RecoveredArenaSeance_CommanderReady() &&
+         RecoveredArenaSeance_CommanderCapacity() == -1 &&
+         RecoveredArenaSeance_CommanderCount() == -1 &&
+         RecoveredArenaSeance_CommanderHostileLinks() == -1 &&
+         RecoveredArenaSeance_CommanderFingerprint() == 0 &&
+         !RecoveredArenaSeance_MissionTankLifecycleReady() &&
+         RecoveredArenaSeance_TankGroupSubjectCapacity() == -1 &&
+         RecoveredArenaSeance_MissionTankAvailable() == -1 &&
+         RecoveredArenaSeance_MissionTankSpawns() == -1 &&
+         RecoveredArenaSeance_MissionTankMembershipLinks() == -1 &&
+         RecoveredArenaSeance_MissionTankFindEnemyCycles() == -1 &&
+         RecoveredArenaSeance_MissionTankMovingCycles() == -1 &&
+         RecoveredArenaSeance_MissionTankStableRoundTrips() == -1 &&
+         RecoveredArenaSeance_MissionTankReconstructedIDs() == -1 &&
+         RecoveredArenaSeance_MissionTankRollbacks() == -1 &&
+         RecoveredArenaSeance_MissionTankFingerprint() == 0 &&
          !RecoveredArenaSeance_VehicleReady() && g_vehicle == nullptr &&
          RecoveredArenaSeance_VehicleVesselMass() == 0.0 &&
          !context.isExist("Storage") && !context.isExist("Bird.Attr.0") &&
@@ -679,6 +695,7 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("snd.snd") &&
          !context.isExist("Spark.Flash") &&
          !context.isExist("Vehicle.Default") &&
+         !context.isExist("Kingdom") && !context.isExist("Magician") &&
          Route::m_totalNodePos == 0 && g_cacheSmokeCnt == 0;
 }
 
@@ -924,6 +941,22 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_TankProbeDeathEffects() != 0 ||
       RecoveredArenaSeance_TankProbeSaveStateRoundTrips() != 0 ||
       RecoveredArenaSeance_TankProbeRollbacks() != 1 ||
+      !RecoveredArenaSeance_CommanderReady() ||
+      RecoveredArenaSeance_CommanderCapacity() != 2 ||
+      RecoveredArenaSeance_CommanderCount() != 2 ||
+      RecoveredArenaSeance_CommanderHostileLinks() != 0 ||
+      RecoveredArenaSeance_CommanderFingerprint() == 0 ||
+      !RecoveredArenaSeance_MissionTankLifecycleReady() ||
+      RecoveredArenaSeance_TankGroupSubjectCapacity() != 30 ||
+      RecoveredArenaSeance_MissionTankAvailable() != 0 ||
+      RecoveredArenaSeance_MissionTankSpawns() != 0 ||
+      RecoveredArenaSeance_MissionTankMembershipLinks() != 0 ||
+      RecoveredArenaSeance_MissionTankFindEnemyCycles() != 0 ||
+      RecoveredArenaSeance_MissionTankMovingCycles() != 0 ||
+      RecoveredArenaSeance_MissionTankStableRoundTrips() != 0 ||
+      RecoveredArenaSeance_MissionTankReconstructedIDs() != 0 ||
+      RecoveredArenaSeance_MissionTankRollbacks() != 1 ||
+      RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_VehicleReady() ||
       RecoveredArenaSeance_VehicleVesselMass() != 1000.0 ||
       RecoveredArenaSeance_Issues() != 0 ||
@@ -955,8 +988,12 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("SparkAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Spark") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Route") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Commander") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("TankGroup") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Tank") == ct_NULLID ||
       g_arena.searchSeanceClassTable("VehicleAttr") == ct_NULLID ||
-      g_arena.searchSeanceClassTable("Vehicle") == ct_NULLID) {
+      g_arena.searchSeanceClassTable("Vehicle") == ct_NULLID ||
+      !context.isExist("Kingdom") || !context.isExist("Magician")) {
     RecoveredArenaSeance_Release();
     return false;
   }
