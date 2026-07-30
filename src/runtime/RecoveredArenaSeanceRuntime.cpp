@@ -1648,6 +1648,10 @@ struct RecoveredArenaSeanceState {
   int activeWorldReferencePhases;
   int activeWorldEventPhases;
   int activeWorldCreatedOwners;
+  int activeWorldMissionRecords;
+  int activeWorldMissionConditionReferences;
+  int activeWorldMissionRouteReferences;
+  int activeWorldMissionCheckEvents;
   int activeWorldCorruptionRejects;
   int activeWorldRollbacks;
   unsigned long long activeWorldContainerBytes;
@@ -4552,6 +4556,11 @@ void PublishActiveWorldSummary(
   g_state.activeWorldReferencePhases = summary.referencePhases;
   g_state.activeWorldEventPhases = summary.eventPhases;
   g_state.activeWorldCreatedOwners = summary.createdOwners;
+  g_state.activeWorldMissionRecords = summary.missionRecords;
+  g_state.activeWorldMissionConditionReferences =
+      summary.missionConditionReferences;
+  g_state.activeWorldMissionRouteReferences = summary.missionRouteReferences;
+  g_state.activeWorldMissionCheckEvents = summary.missionCheckEvents;
   g_state.activeWorldCorruptionRejects = summary.corruptionRejects;
   g_state.activeWorldRollbacks = summary.rollbacks;
   g_state.activeWorldContainerBytes =
@@ -5393,6 +5402,10 @@ void RecoveredArenaSeance_Release() {
   g_state.activeWorldReferencePhases = 0;
   g_state.activeWorldEventPhases = 0;
   g_state.activeWorldCreatedOwners = 0;
+  g_state.activeWorldMissionRecords = 0;
+  g_state.activeWorldMissionConditionReferences = 0;
+  g_state.activeWorldMissionRouteReferences = 0;
+  g_state.activeWorldMissionCheckEvents = 0;
   g_state.activeWorldCorruptionRejects = 0;
   g_state.activeWorldRollbacks = 0;
   g_state.activeWorldContainerBytes = 0;
@@ -5982,6 +5995,30 @@ int RecoveredArenaSeance_ActiveWorldEventPhases() {
 int RecoveredArenaSeance_ActiveWorldCreatedOwners() {
   return g_state.activeWorldPersistenceReady
              ? g_state.activeWorldCreatedOwners
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldMissionRecords() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldMissionRecords
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldMissionConditionReferences() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldMissionConditionReferences
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldMissionRouteReferences() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldMissionRouteReferences
+             : -1;
+}
+
+int RecoveredArenaSeance_ActiveWorldMissionCheckEvents() {
+  return g_state.activeWorldPersistenceReady
+             ? g_state.activeWorldMissionCheckEvents
              : -1;
 }
 

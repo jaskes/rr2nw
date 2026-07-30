@@ -1432,6 +1432,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_ActiveWorldRollbacks()));
   log.Line("active_world_created_owners=" + std::to_string(
                RecoveredArenaSeance_ActiveWorldCreatedOwners()));
+  log.Line("mission_active_world_probe=" +
+           std::to_string(
+               RecoveredArenaSeance_ActiveWorldMissionRecords()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_ActiveWorldMissionConditionReferences()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldMissionRouteReferences()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldMissionCheckEvents()) + "/" +
+           std::to_string(RecoveredArenaSeance_ActiveWorldRollbacks()));
   log.Line("active_world_container_bytes=" + std::to_string(
                RecoveredArenaSeance_ActiveWorldContainerBytes()));
   log.Line("active_world_fingerprint=" + std::to_string(

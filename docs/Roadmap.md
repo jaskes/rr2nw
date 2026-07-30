@@ -1007,11 +1007,11 @@ The next Windows-first persistence work is deliberately incremental:
 2. [done] add Vehicle/player, the complete Level-local People roster and the
    Tank/Cannon owner graph with dynamic, damage, death, symbolic-reference and
    private scheduler state;
-3. [in progress] add transient combat ownership: live Bullet flight, the
+3. [in progress] add transient combat and mission ownership: live Bullet flight, the
    parent-owned Explosion particle graph, detached Spark and Smoke, and the
    Corpse/DynSmoker owner graph plus queued Explosion/Spark/Corpse creation are
-   done; mission state, the remaining non-effect semantic queue and an
-   authoritative deterministic RNG remain;
+   done; Player mission state and typed mission checks are done; the
+   input/control journal and authoritative deterministic RNG remain;
 4. reconstruct a complete Level in a fresh context, compare the whole-world
    fingerprint and repeat the visual/driving acceptance after load;
 5. only then expose atomic save/load slots and add the manual multi-Level save
@@ -1111,9 +1111,18 @@ and the deliberate validation failure rolls the entire owner/event transaction
 back. Retail diagnostics are `10/3`, `10/10/3`; BUL1 additionally proves a
 missing master is restored as a safe tombstone in `1/2/1/1/2/1/1`.
 
-The next persistence slice is the remaining mission/input queue and explicit
-semantic hit/damage/death records, followed by authoritative clock/RNG state,
-a complete fresh-Level reconstruction and public save controls.
+Mission state is now admitted as the eleventh `MSH1` section. The Player's
+six condition families, counters, optional summary/Route reference and derived
+DebugMap lifecycle survive transactional restore; EVT1 also owns a typed
+`rc_CHECK_MISSION` index without taking ownership of its destination. Retail
+diagnostics are `11/4`, `11/11/4` and
+`mission_active_world_probe=1/6/0/1/1`.
+
+The next persistence slice is the input/control journal plus authoritative
+clock/RNG state. Explicit hit/damage/death records should only be added where
+source inspection finds a queued transition; current damage/death paths are
+synchronous and already materialize in owner state. Complete fresh-Level
+reconstruction and public save controls follow.
 
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical

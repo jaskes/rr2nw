@@ -2,6 +2,7 @@
 
 #include "ActiveWorldSave.h"
 #include "ActiveWorldSemanticEvents.h"
+#include "MissionActiveWorldState.h"
 
 #include "kernel/h/context.h"
 #include "obase/comander/CommanderState.h"
@@ -14,6 +15,7 @@
 #include "obase/smoke/SmokeActiveWorldState.h"
 #include "obase/tank/TankActiveWorldState.h"
 #include "obase/vehicle/VehicleActiveWorldState.h"
+#include "message/recrcenmsg.h"
 
 #include <utility>
 
@@ -67,6 +69,14 @@ bool CaptureOwnerSections(SimulationContext* context,
     return false;
   sections->push_back(std::move(vehicle));
 
+  SActiveWorldSection mission = {};
+  mission.kind = EActiveWorldSectionKind::Mission;
+  mission.schemaVersion = 1;
+  mission.owner = "Mission";
+  if (!MissionActiveWorldState_CaptureStable(context, &mission.payload))
+    return false;
+  sections->push_back(std::move(mission));
+
   SActiveWorldSection bullets = {};
   bullets.kind = EActiveWorldSectionKind::Bullet;
   bullets.schemaVersion = 1;
@@ -107,6 +117,7 @@ bool CaptureOwnerSections(SimulationContext* context,
   if (!CorpseActiveWorldState_CaptureStable(context, &corpses.payload))
     return false;
   sections->push_back(std::move(corpses));
+
   return true;
 }
 
@@ -122,6 +133,9 @@ bool ValidateOwnerCodec(const SActiveWorldSection& section) {
     case EActiveWorldSectionKind::Vehicle:
       return section.owner == "Vehicle" &&
              VehicleActiveWorldState_ValidateStable(section.payload);
+    case EActiveWorldSectionKind::Mission:
+      return section.owner == "Mission" &&
+             MissionActiveWorldState_ValidateStable(section.payload);
     case EActiveWorldSectionKind::People:
       return section.owner == "People" &&
              PeopleActiveWorldState_ValidateStable(section.payload);
@@ -157,6 +171,8 @@ bool OwnerMatchesWorld(SimulationContext* context,
       return TankGroupState_MatchesStable(context, section.payload);
     case EActiveWorldSectionKind::Vehicle:
       return VehicleActiveWorldState_MatchesStable(context, section.payload);
+    case EActiveWorldSectionKind::Mission:
+      return MissionActiveWorldState_MatchesStable(context, section.payload);
     case EActiveWorldSectionKind::People:
       return PeopleActiveWorldState_MatchesStable(context, section.payload);
     case EActiveWorldSectionKind::Tank:
@@ -199,6 +215,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     commanderBackup_.clear();
     tankGroupBackup_.clear();
     vehicleBackup_.clear();
+    missionBackup_.clear();
     peopleBackup_.clear();
     tankBackup_.clear();
     bulletBackup_.clear();
@@ -211,6 +228,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdCommanders_.clear();
     createdTankGroups_.clear();
     createdVehicles_.clear();
+    createdMissionRoutes_.clear();
     createdPeople_.clear();
     createdTanks_.clear();
     createdBullets_.clear();
@@ -222,6 +240,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     if (!CommanderState_CaptureStable(context_, &commanderBackup_) ||
         !TankGroupState_CaptureStable(context_, &tankGroupBackup_) ||
         !VehicleActiveWorldState_CaptureStable(context_, &vehicleBackup_) ||
+        !MissionActiveWorldState_CaptureStable(context_, &missionBackup_) ||
         !PeopleActiveWorldState_CaptureStable(context_, &peopleBackup_) ||
         !TankActiveWorldState_CaptureStable(context_, &tankBackup_) ||
         !BulletActiveWorldState_CaptureStable(context_, &bulletBackup_) ||
@@ -233,6 +252,14 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !ActiveWorldSemanticEvents_Capture(
             context_, &semanticBackup_, failure)) {
       SetFailure(failure, "active-world live owner backup failed");
+      began_ = false;
+      return false;
+    }
+    // Owner reconstruction may temporarily invalidate a queued mission index.
+    // Remove semantic events while their original owner graph is still intact;
+    // Commit rebuilds the target queue, rollback rebuilds this exact backup.
+    if (!ActiveWorldSemanticEvents_Clear(context_, failure)) {
+      SetFailure(failure, "active-world live event detachment failed");
       began_ = false;
       return false;
     }
@@ -258,6 +285,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       case EActiveWorldSectionKind::Vehicle:
         created = VehicleActiveWorldState_CreateStableOwners(
             context_, section.payload, &createdVehicles_);
+        break;
+      case EActiveWorldSectionKind::Mission:
+        created = MissionActiveWorldState_CreateStableOwners(
+            context_, section.payload, &createdMissionRoutes_);
         break;
       case EActiveWorldSectionKind::People:
         created = PeopleActiveWorldState_CreateStableOwners(
@@ -320,6 +351,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("active-world Corpse allocation failed: ") +
                        CorpseActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Mission &&
+               MissionActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("active-world Mission allocation failed: ") +
+                       MissionActiveWorldState_LastFailure());
       else
         SetFailure(failure, "active-world owner allocation failed");
       return false;
@@ -344,6 +380,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           break;
         case EActiveWorldSectionKind::Vehicle:
           resolved = VehicleActiveWorldState_ApplyStableReferences(
+              context_, section.payload);
+          break;
+        case EActiveWorldSectionKind::Mission:
+          resolved = MissionActiveWorldState_ApplyStableReferences(
               context_, section.payload);
           break;
         case EActiveWorldSectionKind::People:
@@ -408,6 +448,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("Corpse symbolic reconstruction failed: ") +
                        CorpseActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Mission &&
+               MissionActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("Mission symbolic reconstruction failed: ") +
+                       MissionActiveWorldState_LastFailure());
       else
         SetFailure(failure, std::string("symbolic owner references do not ") +
                                 "match the live graph: " + section.owner);
@@ -430,7 +475,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
 
   bool Validate(std::uint64_t expectedWorldFingerprint,
                 std::string* failure) override {
-    if (!began_ || snapshot_ == nullptr || staged_.size() != 10 ||
+    if (!began_ || snapshot_ == nullptr || staged_.size() != 11 ||
         ActiveWorldSave_ComputeWorldFingerprint(*snapshot_) !=
             expectedWorldFingerprint) {
       SetFailure(failure, "active-world staged fingerprint is invalid");
@@ -461,7 +506,14 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   void Rollback() override {
     bool clean = began_;
     if (began_) {
+      // Clear the staged queue while MSH1 still describes its mission indices.
+      // Reverting Player first would make a staged rc_CHECK_MISSION impossible
+      // to decode and would prevent the queue from rolling back atomically.
+      clean = ActiveWorldSemanticEvents_Clear(context_, nullptr) && clean;
+      createdSemanticOwners_.clear();
       CorpseActiveWorldState_RemoveStableOwners(context_, &createdCorpses_);
+      MissionActiveWorldState_RemoveStableOwners(
+          context_, &createdMissionRoutes_);
       SmokeActiveWorldState_RemoveStableOwners(context_, &createdSmokes_);
       SparkActiveWorldState_RemoveStableOwners(context_, &createdSparks_);
       ExplosionActiveWorldState_RemoveStableOwners(
@@ -492,15 +544,20 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, smokeBackup_) && clean;
       clean = CorpseActiveWorldState_ApplyStableReferences(
                   context_, corpseBackup_) && clean;
+      // Mission conditions can target any restored owner kind, so rebuild the
+      // Player mission graph only after every ordinary owner is stable.
+      clean = MissionActiveWorldState_ApplyStableReferences(
+                  context_, missionBackup_) && clean;
       std::vector<KR_ObjectID> restoredSemanticOwners;
       clean = ActiveWorldSemanticEvents_Replace(
                   context_, semanticBackup_, &restoredSemanticOwners,
                   nullptr) && clean;
       restoredSemanticOwners.clear();
-      createdSemanticOwners_.clear();
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
               TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
               VehicleActiveWorldState_MatchesStable(context_, vehicleBackup_) &&
+              MissionActiveWorldState_MatchesStable(
+                  context_, missionBackup_) &&
               PeopleActiveWorldState_MatchesStable(context_, peopleBackup_) &&
               TankActiveWorldState_MatchesStable(context_, tankBackup_) &&
               BulletActiveWorldState_MatchesStable(context_, bulletBackup_) &&
@@ -523,7 +580,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 10 &&
+    return began_ && committed_ && !rolledBack_ && staged_.size() == 11 &&
            snapshot_ != nullptr && stagedEvents_.size() ==
                snapshot_->events.size() &&
            ActiveWorldSemanticEvents_Matches(context_, stagedEvents_);
@@ -532,6 +589,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     return began_ && !committed_ && rolledBack_ && staged_.empty() &&
            rollbackClean_ && createdCommanders_.empty() &&
            createdTankGroups_.empty() && createdVehicles_.empty() &&
+           createdMissionRoutes_.empty() &&
            createdPeople_.empty() && createdTanks_.empty() &&
            createdBullets_.empty() && createdExplosions_.empty() &&
            createdSparks_.empty() && createdSmokes_.empty() &&
@@ -545,6 +603,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     return static_cast<int>(createdCommanders_.size() +
                             createdTankGroups_.size() +
                             createdVehicles_.size() +
+                            createdMissionRoutes_.size() +
                             createdPeople_.size() + createdTanks_.size() +
                             createdBullets_.size() +
                             createdExplosions_.size() +
@@ -568,6 +627,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> commanderBackup_;
   std::vector<std::uint8_t> tankGroupBackup_;
   std::vector<std::uint8_t> vehicleBackup_;
+  std::vector<std::uint8_t> missionBackup_;
   std::vector<std::uint8_t> peopleBackup_;
   std::vector<std::uint8_t> tankBackup_;
   std::vector<std::uint8_t> bulletBackup_;
@@ -580,6 +640,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<KR_ObjectID> createdCommanders_;
   std::vector<KR_ObjectID> createdTankGroups_;
   std::vector<KR_ObjectID> createdVehicles_;
+  std::vector<KR_ObjectID> createdMissionRoutes_;
   std::vector<KR_ObjectID> createdPeople_;
   std::vector<KR_ObjectID> createdTanks_;
   std::vector<KR_ObjectID> createdBullets_;
@@ -595,6 +656,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
 SActiveWorldRuntimeProbeSummary::SActiveWorldRuntimeProbeSummary()
     : ready(false), sections(0), events(0), ownerPhases(0),
       referencePhases(0), eventPhases(0), createdOwners(0),
+      missionRecords(0), missionConditionReferences(0),
+      missionRouteReferences(0), missionCheckEvents(0),
       corruptionRejects(0), rollbacks(0), containerBytes(0),
       worldFingerprint(0) {}
 
@@ -614,19 +677,31 @@ bool ActiveWorldRuntime_CaptureProbe(
   snapshot.simulationTick = simulationTick;
   snapshot.simulationTime = simulationTime;
   snapshot.level = level;
+  bool stagedMission = false;
+  if (!MissionActiveWorldState_StageProbe(
+          context, simulationTime + 30.0, &stagedMission)) {
+    SetFailure(failure, MissionActiveWorldState_LastFailure());
+    return false;
+  }
   bool stagedProbeEvents = false;
   if (!ActiveWorldSemanticEvents_StageProbe(
-          context, simulationTime + 30.0, &stagedProbeEvents, failure))
+          context, simulationTime + 30.0, &stagedProbeEvents, failure)) {
+    if (stagedMission)
+      MissionActiveWorldState_ClearProbe(context);
     return false;
+  }
   const auto cleanupProbeEvents = [&]() {
-    return !stagedProbeEvents ||
-           ActiveWorldSemanticEvents_ClearProbe(context, failure);
+    const bool effectsClean = !stagedProbeEvents ||
+        ActiveWorldSemanticEvents_ClearProbe(context, failure);
+    const bool missionClean = !stagedMission ||
+        MissionActiveWorldState_ClearProbe(context);
+    return effectsClean && missionClean;
   };
   if (!CaptureOwnerSections(context, &snapshot.sections)) {
     cleanupProbeEvents();
     SetFailure(failure,
                "Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/"
-               "Spark/Smoke/Corpse "
+               "Spark/Smoke/Corpse/Mission "
                "stable "
                "capture failed");
     return false;
@@ -666,6 +741,18 @@ bool ActiveWorldRuntime_CaptureProbe(
     return false;
   summary->sections = static_cast<int>(decoded.sections.size());
   summary->events = static_cast<int>(decoded.events.size());
+  for (const SActiveWorldSection& section : decoded.sections)
+    if (section.kind == EActiveWorldSectionKind::Mission &&
+        !MissionActiveWorldState_ProbeCounts(
+            section.payload, &summary->missionRecords,
+            &summary->missionConditionReferences,
+            &summary->missionRouteReferences)) {
+      SetFailure(failure, "MSH1 decoded mission telemetry is invalid");
+      return false;
+    }
+  for (const SActiveWorldEvent& event : decoded.events)
+    if (event.label == rc_CHECK_MISSION)
+      ++summary->missionCheckEvents;
   summary->corruptionRejects = 1;
   summary->containerBytes = bytes->size();
   summary->worldFingerprint = decoded.worldFingerprint;
@@ -690,6 +777,7 @@ bool ActiveWorldRuntime_RestoreProbe(
   if (!ActiveWorldSave_RestoreTransactional(snapshot, &success, &status) ||
       !success.Successful()) {
     ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
+    MissionActiveWorldState_ClearProbe(context);
     SetFailure(failure, status.detail);
     return false;
   }
@@ -698,6 +786,7 @@ bool ActiveWorldRuntime_RestoreProbe(
       status.error != EActiveWorldSaveError::RestoreValidationFailed ||
       !rollback.RolledBackCleanly()) {
     ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
+    MissionActiveWorldState_ClearProbe(context);
     SetFailure(failure, "active-world rollback probe did not unwind staging");
     return false;
   }
@@ -705,11 +794,13 @@ bool ActiveWorldRuntime_RestoreProbe(
     if (!OwnerMatchesWorld(context, section)) {
       SetFailure(failure, "active-world rollback changed the live graph");
       ActiveWorldSemanticEvents_ClearProbe(context, nullptr);
+      MissionActiveWorldState_ClearProbe(context);
       return false;
     }
   }
   if (!ActiveWorldSemanticEvents_Matches(context, snapshot.events) ||
-      !ActiveWorldSemanticEvents_ClearProbe(context, failure))
+      !ActiveWorldSemanticEvents_ClearProbe(context, failure) ||
+      !MissionActiveWorldState_ClearProbe(context))
     return false;
 
   summary->ownerPhases = success.ownerPhases();

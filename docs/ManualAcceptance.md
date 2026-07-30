@@ -52,12 +52,15 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `10/3` for ten
-  Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark/Smoke/Corpse
-  owner sections and three versioned queued effect events, then reports
-  `10/10/3`
+- active-world format v1 is initialized with `11/4` for eleven
+  Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/
+  Corpse owner sections and four versioned semantic events, then reports
+  `11/11/4`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
+- `mission_active_world_probe` is `1/6/0/1/1`: one bounded Player mission
+  contains all six success/failure condition families, no fabricated startup
+  Route, one typed future `rc_CHECK_MISSION`, and survives the full rollback;
 - `active_world_created_owners` is `2` for Level.04D, where the restore
   transaction recreates both the removed TankGroup and its Tank/Cannon owner
   graph, and `0` for Levels whose saved combat roster is empty;

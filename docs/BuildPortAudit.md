@@ -3034,3 +3034,28 @@ The completed admission passes 54/54 CTest in both Debug and Release. The
 executable retail matrix also passes 36/36: all nine configured Levels from
 both `E:\Games\The Next Worlds` and `G:\nw`, in both configurations, render
 two real frames and finish with a clean transactional EVT1 proof.
+
+## Mission active-world v1 and typed mission-check events
+
+The eleventh owner section is canonical `MSH1`. It serializes Player mission
+counters, status/ordering, optional bounded summary data and the complete six
+condition-set graph with symbolic or tombstoned references. Reached targets
+retain position/radius. Native `PlayerMission` bytes and derived DebugMap state
+are not serialized; apply reconstructs the fields and calls `loadNotify()`.
+
+Routes are Level resources, not MSH1-owned allocations. Because the legacy
+Route object does not retain its source filename and symbolic names may differ
+from paths, a missing summary Route is a hard dependency failure with complete
+rollback. This avoids loading an unrelated or empty route under a plausible
+name.
+
+EVT1 adds a fourth typed command, `rc_CHECK_MISSION`, whose payload is one
+validated mission index. Its existing symbolic destination is never counted
+as a pending effect owner. The transaction captures and detaches admitted
+events before owner replacement, then rebuilds either the target queue or the
+pre-transaction queue after all MSH1 references are stable.
+
+Retail startup proves one mission, six condition references, no fabricated
+Route and one future check with `mission_active_world_probe=1/6/0/1/1`.
+Envelope diagnostics are `11/4` and `11/11/4`. Source-only fixtures remain a
+canonical empty MSH1/EVT1 while still exercising all eleven phases.

@@ -216,12 +216,16 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "10/3") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Bullet/Explosion/Spark/Smoke/Corpse section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "11/4") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "10/10/3") {
+                    $log["active_world_restore_phases"] -ne "11/11/4") {
                     $issues.Add("active-world restore phase proof changed")
+                }
+                if (-not $log.ContainsKey("mission_active_world_probe") -or
+                    $log["mission_active_world_probe"] -ne "1/6/0/1/1") {
+                    $issues.Add("mission active-world probe mismatch")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
                     $log["active_world_integrity_probe"] -ne "1/1") {
@@ -351,6 +355,7 @@ foreach ($configurationName in $Configuration) {
                 active_world_restore_phases = [string]$log["active_world_restore_phases"]
                 active_world_integrity_probe = [string]$log["active_world_integrity_probe"]
                 active_world_created_owners = Get-LogInteger $log "active_world_created_owners"
+                mission_active_world_probe = [string]$log["mission_active_world_probe"]
                 active_world_container_bytes = Get-LogUnsigned $log "active_world_container_bytes"
                 active_world_fingerprint = Get-LogUnsigned $log "active_world_fingerprint"
                 vehicle_active_world_probe = [string]$log["vehicle_active_world_probe"]
@@ -391,7 +396,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     renderer_lit_pixels, renderer_framebuffer_hash,
     renderer_nonclear_pixels, active_world_sections,
     active_world_restore_phases, active_world_integrity_probe,
-    active_world_created_owners,
+    active_world_created_owners, mission_active_world_probe,
     active_world_container_bytes, active_world_fingerprint,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
     people_active_world_probe, people_active_world_fingerprint,

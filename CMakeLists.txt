@@ -3429,6 +3429,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.h
   src/runtime/ActiveWorldSemanticEvents.cpp
   src/runtime/ActiveWorldSemanticEvents.h
+  src/runtime/MissionActiveWorldState.cpp
+  src/runtime/MissionActiveWorldState.h
   src/runtime/ActiveWorldRuntimeProbe.cpp
   src/runtime/ActiveWorldRuntimeProbe.h
   src/runtime/RecoveredArenaSeanceRuntime.cpp

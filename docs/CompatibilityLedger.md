@@ -2585,6 +2585,29 @@ Status vocabulary:
   Give each a field-level payload codec and owner classification; do not admit
   arbitrary raw `s_EventData` bytes or duplicate owner-private schedulers.
 
+### CQ-153: mission Routes are resources and mission checks do not own destinations
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_CONFIRMED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `PlayerMission` contains six bounded condition sets plus parallel
+  reached positions/radii; its summary references a Route ObjectID and
+  `Player::loadNotify()` derives DebugMap entries from that state.
+  RecruitCenter queues `rc_CHECK_MISSION` with only an integer mission index.
+  Route object names are not guaranteed to be their source file names.
+- Handling: MSH1 stores mission fields and references explicitly, converts
+  stale targets to tombstones and rebuilds DebugMap after apply. A missing
+  summary Route rejects restore instead of calling `Load(objectName)`.
+  EVT1 resolves the mission-check destination as an existing owner and never
+  allocates or deletes it. Queue detachment occurs before owner mutation so
+  rollback is valid even when old and new Player mission counts differ.
+- Verification: the production probe round-trips one mission with all six
+  condition kinds and one typed check; diagnostics are `11/4`, `11/11/4` and
+  `1/6/0/1/1`. Source-only fixtures admit an empty MSH1/EVT1 with 11 phases.
+- Revisit when: RecruitCenter is linked into the recovered bootstrap and real
+  mission scripts execute. Replace the probe surrogate with a live center and
+  add a resource-backed summary Route case without weakening missing-resource
+  rejection.
+
 ## Maintenance rule
 
 When a new quirk is found:

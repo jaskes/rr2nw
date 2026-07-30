@@ -1,8 +1,11 @@
 #include "ActiveWorldSemanticEvents.h"
 
+#include "MissionActiveWorldState.h"
+
 #include "kernel/h/context.h"
 #include "message/corpsemsg.h"
 #include "message/explmsg.h"
+#include "message/recrcenmsg.h"
 #include "message/SPARKMSG.H"
 #include "obase/corpse/CorpseAttributeState.h"
 #include "obase/corpse/CorpseSubjectState.h"
@@ -34,7 +37,8 @@ enum EffectKind
 {
     kEffectExplosion = 1,
     kEffectSpark = 2,
-    kEffectCorpse = 3
+    kEffectCorpse = 3,
+    kMissionCheck = 4
 };
 
 enum ReferenceKind
@@ -53,11 +57,12 @@ struct SemanticRecord
     CFVector3 position;
     ReferenceKind relationKind;
     std::string relation;
+    int missionIndex;
 
     SemanticRecord()
         : kind(kEffectExplosion), ordinal(0),
           sourceKind(kReferenceTombstone), position(0.0, 0.0, 0.0),
-          relationKind(kReferenceTombstone) {}
+          relationKind(kReferenceTombstone), missionIndex(-1) {}
 };
 
 struct Writer
@@ -169,6 +174,8 @@ bool KindFromLabel(int label, EffectKind *kind)
         *kind = kEffectSpark;
     else if (label == CORPSE_START_ROTTING)
         *kind = kEffectCorpse;
+    else if (label == rc_CHECK_MISSION)
+        *kind = kMissionCheck;
     else
         return false;
     return true;
@@ -181,6 +188,7 @@ int LabelForKind(EffectKind kind)
     case kEffectExplosion: return EXPLOSION_START;
     case kEffectSpark: return sp_EV_CREATE;
     case kEffectCorpse: return CORPSE_START_ROTTING;
+    case kMissionCheck: return rc_CHECK_MISSION;
     }
     return -1;
 }
@@ -192,6 +200,7 @@ const char *TableForKind(EffectKind kind)
     case kEffectExplosion: return "Explosion";
     case kEffectSpark: return "Spark";
     case kEffectCorpse: return "Corpse";
+    case kMissionCheck: break;
     }
     return "";
 }
@@ -207,6 +216,8 @@ bool IsPending(SimulationContext *context, EffectKind kind,
         return SparkSubjectState_IsPending(context, object);
     case kEffectCorpse:
         return CorpseSubjectState_IsPending(context, object);
+    case kMissionCheck:
+        return false;
     }
     return false;
 }
@@ -226,6 +237,8 @@ bool CollectPending(SimulationContext *context, EffectKind kind,
     case kEffectCorpse:
         return CorpseSubjectState_CollectPending(
             context, name.c_str(), objects);
+    case kMissionCheck:
+        return false;
     }
     return false;
 }
@@ -323,8 +336,7 @@ bool AttributeIndex(SimulationContext *context, EffectKind kind,
 bool EncodePayload(const SemanticRecord &record,
                    std::vector<std::uint8_t> *payload)
 {
-    if (payload == NULL || record.attribute.empty() ||
-        !FiniteVector(record.position))
+    if (payload == NULL)
         return false;
     payload->clear();
     Writer writer = {payload};
@@ -332,6 +344,16 @@ bool EncodePayload(const SemanticRecord &record,
     writer.U32(static_cast<std::uint32_t>(record.kind));
     writer.U32(record.ordinal);
     writer.U32(static_cast<std::uint32_t>(record.sourceKind));
+    if (record.kind == kMissionCheck)
+    {
+        if (record.ordinal != 0 || record.missionIndex < 0 ||
+            record.missionIndex >= 6)
+            return false;
+        writer.U32(static_cast<std::uint32_t>(record.missionIndex));
+        return true;
+    }
+    if (record.attribute.empty() || !FiniteVector(record.position))
+        return false;
     if (!writer.String(record.attribute))
         return false;
     writer.Double(record.position.x);
@@ -350,17 +372,39 @@ bool DecodePayload(const SActiveWorldEvent &event, SemanticRecord *record)
     std::uint32_t magic = 0, kind = 0, sourceKind = 0, relationKind = 0;
     if (!reader.U32(&magic) || !reader.U32(&kind) ||
         !reader.U32(&record->ordinal) || !reader.U32(&sourceKind) ||
-        !reader.String(&record->attribute) ||
-        !reader.Double(&record->position.x) ||
-        !reader.Double(&record->position.y) ||
-        !reader.Double(&record->position.z) ||
-        !reader.U32(&relationKind) || magic != kPayloadMagic ||
-        kind < kEffectExplosion || kind > kEffectCorpse ||
-        sourceKind > kReferenceSymbolic ||
-        relationKind > kReferenceSymbolic)
+        magic != kPayloadMagic || kind < kEffectExplosion ||
+        kind > kMissionCheck || sourceKind > kReferenceSymbolic)
         return false;
     record->kind = static_cast<EffectKind>(kind);
     record->sourceKind = static_cast<ReferenceKind>(sourceKind);
+    if (record->kind == kMissionCheck)
+    {
+        std::uint32_t missionIndex = 0;
+        if (!reader.U32(&missionIndex) ||
+            missionIndex >= 6 || record->ordinal != 0)
+            return false;
+        record->missionIndex = static_cast<int>(missionIndex);
+        record->attribute.clear();
+        record->position = CFVector3(0.0, 0.0, 0.0);
+        record->relationKind = kReferenceTombstone;
+        record->relation.clear();
+        return reader.offset == event.payload.size() &&
+               event.label == rc_CHECK_MISSION &&
+               !event.destination.empty() &&
+               ((record->sourceKind == kReferenceTombstone &&
+                 event.source.empty()) ||
+                (record->sourceKind == kReferenceSelf &&
+                 event.source == event.destination) ||
+                (record->sourceKind == kReferenceSymbolic &&
+                 !event.source.empty()));
+    }
+    if (!reader.String(&record->attribute) ||
+        !reader.Double(&record->position.x) ||
+        !reader.Double(&record->position.y) ||
+        !reader.Double(&record->position.z) ||
+        !reader.U32(&relationKind) ||
+        relationKind > kReferenceSymbolic)
+        return false;
     record->relationKind = static_cast<ReferenceKind>(relationKind);
     record->relation.clear();
     if (record->relationKind == kReferenceSymbolic &&
@@ -385,11 +429,40 @@ bool DecodeQueuedEvent(SimulationContext *context, KR_Event event,
                        EffectKind kind, SemanticRecord *record)
 {
     if (context == NULL || record == NULL ||
-        !IsPending(context, kind, event.destination) ||
         !std::isfinite(event.timeStamp) || event.timeStamp < 0.1)
         return false;
     const std::string destination = ObjectName(context, event.destination);
-    if (destination.empty() ||
+    if (destination.empty() || !context->isExist(destination.c_str()) ||
+        context->searchObject(destination.c_str()) != event.destination)
+        return false;
+    if (kind == kMissionCheck)
+    {
+        int missionIndex = -1;
+        s_EventData &data = event.data.open(EDO_READ);
+        if (data.remaining() != static_cast<int>(sizeof(int)))
+        {
+            data.close();
+            return false;
+        }
+        data.getInt(missionIndex).close();
+        record->kind = kind;
+        record->ordinal = 0;
+        record->missionIndex = missionIndex;
+        record->sourceKind = event.source == event.destination
+            ? kReferenceSelf : kReferenceTombstone;
+        std::string source;
+        if (event.source != event.destination &&
+            !SymbolicReference(context, event.source,
+                               &record->sourceKind, &source))
+            return false;
+        record->attribute.clear();
+        record->position = CFVector3(0.0, 0.0, 0.0);
+        record->relationKind = kReferenceTombstone;
+        record->relation.clear();
+        return MissionActiveWorldState_MissionIndexValid(
+            context, missionIndex);
+    }
+    if (!IsPending(context, kind, event.destination) ||
         !PendingOrdinal(context, kind, destination, event.destination,
                         &record->ordinal))
         return false;
@@ -501,17 +574,26 @@ bool BuildRuntimeEvent(SimulationContext *context,
     int attributeIndex = -1;
     KR_ObjectID source = KR_ObjectID::NUL();
     KR_ObjectID relation = KR_ObjectID::NUL();
-    if (!AttributeIndex(context, record.kind, record.attribute,
-                        &attributeIndex) ||
-        !ResolveReference(context, record.sourceKind, saved.source,
-                          destination, &source) ||
-        !ResolveReference(context, record.relationKind, record.relation,
-                          destination, &relation))
+    if (!ResolveReference(context, record.sourceKind, saved.source,
+                          destination, &source))
         return false;
     event->label = saved.label;
     event->source = source;
     event->destination = destination;
     event->timeStamp = saved.timeStamp;
+    if (record.kind == kMissionCheck)
+    {
+        if (!MissionActiveWorldState_MissionIndexValid(
+                context, record.missionIndex))
+            return false;
+        event->data.open(EDO_WRITE).putInt(record.missionIndex).close();
+        return true;
+    }
+    if (!AttributeIndex(context, record.kind, record.attribute,
+                        &attributeIndex) ||
+        !ResolveReference(context, record.relationKind, record.relation,
+                          destination, &relation))
+        return false;
     if (record.kind == kEffectExplosion)
         event->data.open(EDO_WRITE)
             .putInt(attributeIndex)
@@ -542,6 +624,15 @@ bool RemovePendingObjects(SimulationContext *context,
     std::vector<KR_ObjectID> remove;
     for (std::size_t index = 0; index < events.size(); ++index)
     {
+        if (records[index].kind == kMissionCheck)
+        {
+            if (!context->isExist(events[index].destination.c_str()))
+                return false;
+            const KR_ObjectID destination =
+                context->searchObject(events[index].destination.c_str());
+            context->removeEventsTo(events[index].label, destination);
+            continue;
+        }
         std::vector<KR_ObjectID> objects;
         if (!CollectPending(context, records[index].kind,
                             events[index].destination, &objects) ||
@@ -612,7 +703,8 @@ bool ActiveWorldSemanticEvents_Capture(
     {
         EffectKind kind;
         if (!KindFromLabel(queued[index].label, &kind) ||
-            !IsPending(context, kind, queued[index].destination))
+            (kind != kMissionCheck &&
+             !IsPending(context, kind, queued[index].destination)))
             continue;
         SemanticRecord record;
         if (!DecodeQueuedEvent(context, queued[index], kind, &record))
@@ -662,12 +754,16 @@ bool ActiveWorldSemanticEvents_Validate(
             SetFailure(failure, "EVT1 semantic event is invalid");
             return false;
         }
-        Group group(static_cast<int>(record.kind),
-                    events[index].destination);
-        if (!ordinals[group].insert(record.ordinal).second)
+        if (record.kind != kMissionCheck)
         {
-            SetFailure(failure, "EVT1 destination identity is duplicated");
-            return false;
+            Group group(static_cast<int>(record.kind),
+                        events[index].destination);
+            if (!ordinals[group].insert(record.ordinal).second)
+            {
+                SetFailure(failure,
+                           "EVT1 destination identity is duplicated");
+                return false;
+            }
         }
     }
     for (std::map<Group, std::set<std::uint32_t> >::const_iterator group =
@@ -700,7 +796,12 @@ bool ActiveWorldSemanticEvents_Replace(
     std::vector<int> attributeIndices(events.size(), -1);
     for (std::size_t index = 0; index < events.size(); ++index)
     {
-        if (!DecodePayload(events[index], &records[index]) ||
+        if (!DecodePayload(events[index], &records[index]))
+        {
+            SetFailure(failure, "EVT1 payload dependency is invalid");
+            return false;
+        }
+        if (records[index].kind != kMissionCheck &&
             !AttributeIndex(context, records[index].kind,
                             records[index].attribute,
                             &attributeIndices[index]))
@@ -721,6 +822,18 @@ bool ActiveWorldSemanticEvents_Replace(
             SetFailure(failure, "EVT1 symbolic dependency is unresolved");
             return false;
         }
+        if (records[index].kind == kMissionCheck &&
+            (!context->isExist(events[index].destination.c_str()) ||
+             ObjectName(context,
+                        context->searchObject(
+                            events[index].destination.c_str())) !=
+                 events[index].destination ||
+             !MissionActiveWorldState_MissionIndexValid(
+                 context, records[index].missionIndex)))
+        {
+            SetFailure(failure, "EVT1 mission dependency is unresolved");
+            return false;
+        }
     }
 
     std::vector<SActiveWorldEvent> current;
@@ -731,16 +844,26 @@ bool ActiveWorldSemanticEvents_Replace(
         SetFailure(failure, "EVT1 event pool has insufficient capacity");
         return false;
     }
-    int required[4] = {0, 0, 0, 0};
-    int released[4] = {0, 0, 0, 0};
+    int required[5] = {0, 0, 0, 0, 0};
+    int released[5] = {0, 0, 0, 0, 0};
+    int requiredPending = 0;
+    int releasedPending = 0;
     for (std::size_t index = 0; index < records.size(); ++index)
-        ++required[records[index].kind];
+        if (records[index].kind != kMissionCheck)
+        {
+            ++required[records[index].kind];
+            ++requiredPending;
+        }
     for (std::size_t index = 0; index < current.size(); ++index)
     {
         SemanticRecord record;
         if (!DecodePayload(current[index], &record))
             return false;
-        ++released[record.kind];
+        if (record.kind != kMissionCheck)
+        {
+            ++released[record.kind];
+            ++releasedPending;
+        }
     }
     if (required[kEffectExplosion] >
             ExplosionSubjectState_Capacity() -
@@ -752,8 +875,7 @@ bool ActiveWorldSemanticEvents_Replace(
         required[kEffectCorpse] >
             CorpseSubjectState_Capacity() - CorpseSubjectState_LiveCount() +
                 released[kEffectCorpse] ||
-        static_cast<int>(events.size()) >
-            context->objectFreeCount() + static_cast<int>(current.size()))
+        requiredPending > context->objectFreeCount() + releasedPending)
     {
         SetFailure(failure, "EVT1 pending owner pool has insufficient capacity");
         return false;
@@ -764,6 +886,15 @@ bool ActiveWorldSemanticEvents_Replace(
     std::vector<KR_ObjectID> destinations(events.size(), KR_ObjectID::NUL());
     for (std::size_t index = 0; index < events.size(); ++index)
     {
+        if (records[index].kind == kMissionCheck)
+        {
+            destinations[index] =
+                context->searchObject(events[index].destination.c_str());
+            if (ObjectName(context, destinations[index]) !=
+                events[index].destination)
+                break;
+            continue;
+        }
         std::vector<KR_ObjectID> objects;
         if (!CollectPending(context, records[index].kind,
                             events[index].destination, &objects))
@@ -806,7 +937,7 @@ bool ActiveWorldSemanticEvents_Replace(
             return false;
         }
     // Legacy addEvent prepends equal timestamps. Reverse insertion preserves
-    // the exact captured order for equal-time Explosion/Spark/Corpse events.
+    // the exact captured order for equal-time effects and mission checks.
     for (std::vector<KR_Event>::reverse_iterator event = runtime.rbegin();
          event != runtime.rend(); ++event)
         context->addEvent(*event);

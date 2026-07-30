@@ -735,6 +735,10 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_ActiveWorldReferencePhases() == -1 &&
          RecoveredArenaSeance_ActiveWorldEventPhases() == -1 &&
          RecoveredArenaSeance_ActiveWorldCreatedOwners() == -1 &&
+         RecoveredArenaSeance_ActiveWorldMissionRecords() == -1 &&
+         RecoveredArenaSeance_ActiveWorldMissionConditionReferences() == -1 &&
+         RecoveredArenaSeance_ActiveWorldMissionRouteReferences() == -1 &&
+         RecoveredArenaSeance_ActiveWorldMissionCheckEvents() == -1 &&
          RecoveredArenaSeance_ActiveWorldCorruptionRejects() == -1 &&
          RecoveredArenaSeance_ActiveWorldRollbacks() == -1 &&
          RecoveredArenaSeance_ActiveWorldContainerBytes() == 0 &&
@@ -1081,12 +1085,16 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 10 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 11 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 10 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 10 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 11 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 11 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
+      RecoveredArenaSeance_ActiveWorldMissionRecords() != 0 ||
+      RecoveredArenaSeance_ActiveWorldMissionConditionReferences() != 0 ||
+      RecoveredArenaSeance_ActiveWorldMissionRouteReferences() != 0 ||
+      RecoveredArenaSeance_ActiveWorldMissionCheckEvents() != 0 ||
       RecoveredArenaSeance_ActiveWorldCorruptionRejects() != 1 ||
       RecoveredArenaSeance_ActiveWorldRollbacks() != 1 ||
       RecoveredArenaSeance_ActiveWorldContainerBytes() == 0 ||

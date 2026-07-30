@@ -1241,16 +1241,19 @@ and Tank/Cannon reconstruction.
 This changes the Save/load row from design-only to partial automated evidence:
 canonical file round-trip, atomic replacement, corruption/version rejection,
 ordered transactional phases and rollback are covered. It does not satisfy the
-RC requirement for complete world state or manual save points. Mission and
-external damage/death semantics, queued effect creation, Vehicle
-mission/UI/input queues, the remaining live event queue, authoritative RNG,
-complete fresh-Level construction and user controls remain required.
+RC requirement for complete world state or manual save points. Player mission
+state, queued effect creation and mission checks are covered; external
+input/control journaling, authoritative RNG/clock, complete fresh-Level
+construction and user controls remain required. Explicit damage/death records
+remain conditional on finding a genuinely queued transition rather than the
+already captured synchronous owner mutations.
 
 The current admission gate is 54/54 CTest in Debug and Release and 36/36 real
-Level launches. All cases publish ten owner sections, ten owner/reference
-phases and successful fresh-ID/rollback/resumption proofs through COR1. The
-bounded live effect probes leave their Corpse, DynSmoker, Smoke, Spark,
-Explosion and Bullet pools at baseline before the playable Level begins.
+Level launches. All cases publish eleven owner sections, eleven
+owner/reference phases and successful mission/effect rollback proofs through
+MSH1 plus EVT1. The bounded probes leave Player missions and all Corpse,
+DynSmoker, Smoke, Spark, Explosion and Bullet pools at baseline before the
+playable Level begins.
 
 ### RP-SAVE-007: pending effect creation survives fresh-ID reconstruction
 
@@ -1264,6 +1267,24 @@ Explosion and Bullet pools at baseline before the playable Level begins.
   stale-master round trip as `1/2/1/1/2/1/1`.
 - This does not yet admit mission/input events, arbitrary event payloads,
   deterministic RNG/clock state or public save controls.
+
+### RP-SAVE-008: active Player mission progress survives transactional restore
+
+- `MSH1` is the eleventh owner section. It owns Player mission counters,
+  status, success/failure ordering, optional summary metadata and all six
+  kill/live/reached condition sets using symbolic references and explicit
+  tombstones.
+- Summary Routes remain Level resources. Restore requires a live matching
+  Route and rolls back on absence or wrong type; DebugMap is derived again by
+  `Player::loadNotify()`.
+- EVT1 admits `rc_CHECK_MISSION` as a fourth typed event with one validated
+  mission index. It reuses an existing symbolic destination and therefore
+  creates no pending owner.
+- The retail proof is `mission_active_world_probe=1/6/0/1/1`; envelope markers
+  are `11/4`, `11/11/4` and `1/1`. The zero Route count records that startup
+  does not fabricate a mission resource before a mission script loads one.
+- Input journaling, deterministic RNG/clock state, complete fresh-Level load
+  and public save controls remain outside this tranche.
 
 ## Binary analysis boundary
 

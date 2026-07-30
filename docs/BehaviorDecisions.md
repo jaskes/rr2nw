@@ -3370,3 +3370,42 @@ fresh-ID reconstructions. The marker is
 
 Mission/input events and explicit external hit/damage/death records remain the
 next semantic boundary. Owner-private scheduler labels remain excluded.
+
+## BD-088: persist Player missions before widening the event queue
+
+Status: accepted on 2026-07-30.
+
+`MSH1` version 1 is the eleventh active-world owner section. It stores the
+playable Vehicle identity, Player mission counters and up to six missions.
+Every mission is field-level: status and success-first ordering, symbolic or
+tombstoned Project/Commander links, optional bounded summary text and Route,
+and all six kill/live/reached condition sets. Reached conditions retain their
+position and radius. Numeric ObjectIDs, native `PlayerMission` layout and the
+derived DebugMap are excluded; `Player::loadNotify()` rebuilds that UI state.
+
+Mission Route objects remain Level resources. MSH1 validates and resolves a
+present symbolic Route but does not guess a file name from its object name or
+silently synthesize an empty path. A missing Route is therefore a dependency
+failure that rolls the whole transaction back. Stale condition targets are
+intentional tombstones and restore as NUL.
+
+EVT1 now also admits `rc_CHECK_MISSION` with an exact checked mission index.
+Unlike the three effect commands, this event does not own or allocate its
+destination: the destination and source are stable symbolic references to
+objects reconstructed by ordinary owner sections. Existing semantic events
+are detached before owner mutation, because a temporary Player replacement
+could otherwise make their mission indices undecodable; commit or rollback
+then rebuilds the corresponding exact queue.
+
+The bounded retail proof adds one in-process mission containing one entry in
+each success/failure kill/live/reached set, including a tombstoned target, and
+one future `rc_CHECK_MISSION`. The early recovered bootstrap has not yet linked
+RecruitCenter and usually has no live Route before a mission starts, so the
+probe uses a live Commander (or Vehicle) as a non-executed future destination
+and omits summary/Route data. Real RecruitCenter destinations and real summary
+Routes are accepted whenever present. Diagnostics advance to `11/4`,
+`11/11/4` and `mission_active_world_probe=1/6/0/1/1`.
+
+External input journaling and authoritative clock/RNG state are the next
+portable continuation boundary. Damage/death remains synchronous owner state
+unless later evidence identifies a genuinely queued external transition.
