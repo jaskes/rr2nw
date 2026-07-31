@@ -58,6 +58,7 @@ struct StartupOptions {
   int startupLoadSlot = -1;
   bool launchSmoke = false;
   bool runtimeSmoke = false;
+  bool debugMenu = false;
   bool showHelp = false;
   bool showVersion = false;
 };
@@ -278,6 +279,8 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->launchSmoke = true;
     } else if (argument == L"--runtime-smoke") {
       options->runtimeSmoke = true;
+    } else if (argument == L"--debug-menu") {
+      options->debugMenu = true;
     } else if (argument == L"--help" || argument == L"-h") {
       options->showHelp = true;
     } else if (argument == L"--version") {
@@ -796,6 +799,72 @@ bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
   return sourceRestored;
 }
 
+bool ProcessDebugLevelSwitch(const RetailData& data,
+                             int* currentLevelIndex, bool silent,
+                             StartupLog* log) {
+  SRecoveredDebugLevelSwitchRequest request;
+  if (!RecoveredGameServices_TakeDebugLevelSwitchRequest(&request))
+    return true;
+
+  const int sourceLevelIndex =
+      FindRetailLevel(data, request.sourceLevel);
+  const int targetLevelIndex =
+      FindRetailLevel(data, request.targetLevel);
+  if (sourceLevelIndex < 0 || sourceLevelIndex != *currentLevelIndex ||
+      targetLevelIndex < 0 || request.sourceContinuation.empty()) {
+    const std::string detail =
+        "debug Level switch no longer matches the active catalog/session";
+    RecoveredGameServices_RecordDebugLevelSwitchResult(
+        request, false, false, false, detail);
+    if (log != nullptr)
+      log->Line("debug_level_switch_preflight_failure=" + detail);
+    ShowMessage(silent, MB_ICONERROR, L"RR2NW debug Level switch error",
+                Utf8ToWide(detail.c_str()));
+    return true;
+  }
+
+  if (log != nullptr)
+    log->Line("debug_level_switch_begin=" + request.sourceLevel + "->" +
+              request.targetLevel);
+  ZAV_DeInitLevel();
+
+  std::string targetFailure;
+  if (StartRecoveredLevel(data, targetLevelIndex, &targetFailure)) {
+    *currentLevelIndex = targetLevelIndex;
+    RecoveredGameServices_RecordDebugLevelSwitchResult(
+        request, true, false, false, std::string());
+    if (log != nullptr)
+      log->Line("debug_level_switch_commit=" + request.targetLevel);
+    return true;
+  }
+
+  ZAV_DeInitLevel();
+  std::string sourceFailure;
+  const bool sourceStarted =
+      StartRecoveredLevel(data, sourceLevelIndex, &sourceFailure);
+  SLevelContinuationSummary restored;
+  const bool sourceRestored =
+      sourceStarted && RecoveredGameServices_RestoreLevelContinuation(
+                           request.sourceContinuation, &restored);
+  std::string detail = "debug Level switch failed: " + targetFailure;
+  if (!sourceRestored) {
+    detail += "; source rollback failed: ";
+    detail += sourceStarted
+                  ? RecoveredGameServices_LastLevelContinuationError()
+                  : sourceFailure;
+  }
+  RecoveredGameServices_RecordDebugLevelSwitchResult(
+      request, false, true, sourceRestored, detail);
+  if (log != nullptr) {
+    log->Line(std::string("debug_level_switch_rollback=") +
+              (sourceRestored ? "restored" : "failed"));
+    log->Line("debug_level_switch_failure=" + detail);
+  }
+  ShowMessage(silent, MB_ICONERROR, L"RR2NW debug Level switch error",
+              Utf8ToWide(detail.c_str()));
+  return sourceRestored;
+}
+
 }  // namespace
 
 int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
@@ -815,7 +884,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--mod <id>]...\n"
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
-                L"          [--launch-smoke] [--runtime-smoke]\n"
+                L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--version] [--help]");
     return kSuccess;
   }
@@ -861,6 +930,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("revision=" RR2NW_BUILD_REVISION);
   log.Line("configuration=" RR2NW_BUILD_CONFIGURATION);
   log.Line("marker=process-ready");
+  log.Line(std::string("debug_menu_requested=") +
+           (options.debugMenu ? "1" : "0"));
 
   RetailData data;
   if (!LocateRetailData(options, &data, &failure)) {
@@ -1048,6 +1119,31 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kRuntimeNotReady;
   }
   log.Line("save_directory_ready=1");
+  std::vector<std::string> debugLevelCatalog;
+  debugLevelCatalog.reserve(data.levels.size());
+  for (const std::wstring& level : data.levels) {
+    const std::string identity = WideToUtf8(level);
+    if (identity.empty()) {
+      log.Line("failure=debug Level identity is not representable as UTF-8");
+      return kRuntimeNotReady;
+    }
+    debugLevelCatalog.push_back(identity);
+  }
+  if (!RecoveredGameServices_ConfigureDebugMenu(
+          options.debugMenu, debugLevelCatalog)) {
+    const SRecoveredDebugMenuState* debugState =
+        RecoveredGameServices_DebugMenuState();
+    const std::string detail =
+        debugState == nullptr || debugState->lastError.empty()
+            ? "debug menu configuration failed"
+            : debugState->lastError;
+    log.Line("failure_debug_menu=" + detail);
+    ShowMessage(options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW debug menu error", Utf8ToWide(detail.c_str()));
+    return kRuntimeNotReady;
+  }
+  log.Line(std::string("debug_menu_configured=") +
+           (options.debugMenu ? "1" : "0"));
   if (options.startupSaveSlot >= 0) {
     log.Line("startup_save_slot=" +
              std::to_string(options.startupSaveSlot + 1));
@@ -1177,6 +1273,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("save_menu_slots=" +
            std::to_string(LevelSaveSlot_Count()));
   log.Line("save_menu_preview_format=PNG-indexed-640x480");
+  const SRecoveredDebugMenuState* debugMenuState =
+      RecoveredGameServices_DebugMenuState();
+  log.Line("debug_menu_native_installed=" +
+           std::to_string(debugMenuState != nullptr &&
+                                  debugMenuState->nativeMenuInstalled
+                              ? 1
+                              : 0));
+  log.Line("debug_menu_vehicle_types=" +
+           std::to_string(debugMenuState == nullptr
+                              ? 0u
+                              : debugMenuState->vehicleTypeCount));
   log.Line("arena_seance_initialized=" +
            std::to_string(RecoveredGameServices_SeanceReady() ? 1 : 0));
   log.Line("bird_attributes_initialized=" +
@@ -2253,9 +2360,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const auto runCompleteFrame = [&]() {
     if (!RecoveredGameServices_RunFrame()) return false;
-    return !RecoveredGameServices_CrossLevelLoadPending() ||
-           ProcessCrossLevelLoad(data, &currentLevelIndex,
-                                 options.runtimeSmoke, &log);
+    if (RecoveredGameServices_CrossLevelLoadPending() &&
+        !ProcessCrossLevelLoad(data, &currentLevelIndex,
+                               options.runtimeSmoke, &log))
+      return false;
+    return !RecoveredGameServices_DebugLevelSwitchPending() ||
+           ProcessDebugLevelSwitch(data, &currentLevelIndex,
+                                   options.runtimeSmoke, &log);
   };
   if (!loopFailed && options.runtimeSmoke) {
     loopFailed = !runCompleteFrame() || !runCompleteFrame();
@@ -2619,6 +2730,45 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              saveMenuState->crossLevelSourceLevel);
     log.Line("save_menu_cross_level_target=" +
              saveMenuState->crossLevelTargetLevel);
+  }
+  debugMenuState = RecoveredGameServices_DebugMenuState();
+  if (debugMenuState != nullptr) {
+    log.Line("debug_menu_catalog_builds=" +
+             std::to_string(debugMenuState->catalogBuilds));
+    log.Line("debug_menu_catalog_failures=" +
+             std::to_string(debugMenuState->catalogFailures));
+    log.Line("debug_menu_requests=" +
+             std::to_string(debugMenuState->requests));
+    log.Line("debug_menu_completed_commands=" +
+             std::to_string(debugMenuState->completedCommands));
+    log.Line("debug_menu_failed_commands=" +
+             std::to_string(debugMenuState->failedCommands));
+    log.Line("debug_menu_rollback_attempts=" +
+             std::to_string(debugMenuState->rollbackAttempts));
+    log.Line("debug_menu_rollback_completions=" +
+             std::to_string(debugMenuState->rollbackCompletions));
+    log.Line("debug_menu_spawned_vehicles=" +
+             std::to_string(debugMenuState->spawnedVehicles));
+    log.Line("debug_menu_entered_vehicles=" +
+             std::to_string(debugMenuState->enteredVehicles));
+    log.Line("debug_menu_stabilized_vehicles=" +
+             std::to_string(debugMenuState->stabilizedVehicles));
+    log.Line("debug_menu_level_switch_requests=" +
+             std::to_string(debugMenuState->levelSwitchRequests));
+    log.Line("debug_menu_completed_level_switches=" +
+             std::to_string(debugMenuState->completedLevelSwitches));
+    log.Line("debug_menu_level_switch_rollbacks=" +
+             std::to_string(debugMenuState->levelSwitchRollbacks));
+    log.Line("debug_menu_level_switch_rollback_failures=" +
+             std::to_string(debugMenuState->levelSwitchRollbackFailures));
+    log.Line("debug_menu_last_action=" + debugMenuState->lastAction);
+    log.Line("debug_menu_last_object=" + debugMenuState->lastObject);
+    log.Line("debug_menu_last_taxi_attribute=" +
+             debugMenuState->lastTaxiAttribute);
+    log.Line("debug_menu_last_vehicle_attribute=" +
+             debugMenuState->lastVehicleAttribute);
+    if (!debugMenuState->lastError.empty())
+      log.Line("debug_menu_last_error=" + debugMenuState->lastError);
   }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();

@@ -76,7 +76,7 @@ Copy-PackageFile $validatorSource 'rr2nw-mod-validator.exe'
 Copy-PackageFile (Join-Path $repositoryRoot 'packaging\windows\README.txt') 'README.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'License.txt') 'License.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'CHANGELOG.md') 'CHANGELOG.md'
-foreach ($document in @('Modding.md', 'ManualAcceptance.md', 'DataProvenance.md', 'ReleaseProcess.md', 'WindowsPackage.md')) {
+foreach ($document in @('Modding.md', 'ManualAcceptance.md', 'DataProvenance.md', 'ReleaseProcess.md', 'WindowsPackage.md', 'DebugMenu.md')) {
     Copy-PackageFile (Join-Path $repositoryRoot "docs\$document") "docs\$document"
 }
 Copy-PackageFile (Join-Path $repositoryRoot 'tools\release\Invoke-WindowsManualCampaign.ps1') 'tools\Invoke-WindowsManualCampaign.ps1'

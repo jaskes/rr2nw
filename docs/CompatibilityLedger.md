@@ -3213,6 +3213,28 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   The available Windows 10 LTSC 19044 package smoke passes; full Windows 10
   human campaign and Windows 11 evidence remain required before RC acceptance.
 
+### CQ-176: native debug commands must not bypass recovered ownership
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `DEBUG_TOOLING_PARTIAL`.
+- Evidence: the active seance already owns resolved Taxi attributes, pooled
+  Taxi subjects, the original Taxi start event, `Vehicle::tryTakeTaxi`, the
+  live Vehicle control owner and LCN1 whole-world rollback. Direct mutation in
+  `WM_COMMAND` would run at an arbitrary simulation/render phase and would
+  create a second, unproved object registry.
+- Handling: `--debug-menu` enumerates the resolved Level-local attribute graph.
+  Menu commands only stage typed indices. The runtime processes them after the
+  presented frame has closed, captures LCN1 before mutation, uses deterministic
+  object names and restores the complete checkpoint on failure. A fresh Level
+  switch is performed by the process coordinator with source rollback.
+- Verification: service smoke rejects a missing TaxiAttr, creates one real
+  Taxi, rejects a duplicate deterministic name and restores live count, sound
+  count and fingerprint. Debug retail smoke requires an installed native menu,
+  a non-empty Level.03N catalog and zero service issues.
+- Revisit when: repair, kill, actor spawn, teleport or mission commands are
+  proposed. Forced death is blocked until `Vehicle::transformMatrix` can no
+  longer terminate the process with `exit(0)` and the full death/camera/save
+  graph has an atomic rollback proof.
+
 ## Maintenance rule
 
 When a new quirk is found:

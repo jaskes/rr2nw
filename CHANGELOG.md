@@ -7,6 +7,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added an opt-in `--debug-menu` Windows surface backed by real Level-local
+  `TaxiAttr -> VehicleAttr` data. It can spawn a real nearby Taxi, spawn and
+  enter through `Vehicle::tryTakeTaxi`, show current Vehicle state, recover the
+  last stable pose and transactionally switch to any active Level.
+- Debug world commands now stage from Win32 and execute only after a fully
+  closed frame. Spawn/enter/stabilize capture LCN1 and roll the complete world
+  back on partial failure; fresh Level switches retain a source checkpoint and
+  deterministic `Debug.Taxi.NNNN` identities. Startup logs expose command,
+  spawn and rollback telemetry.
+
 - Added `rr2nw-mod-validator.exe`, a standalone console validator that reuses
   the production mod parser/resolver, verifies the nine-Level retail catalog
   and derived bases, and applies the pure gameplay-tuning/script-event schema

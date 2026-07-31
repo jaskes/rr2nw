@@ -125,6 +125,10 @@ bool VehicleRuntimeState_SynchronizeFirstFrame(
 // active-world transaction. This preserves controller ownership and counters
 // while adopting the authoritative restored frame boundary.
 bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context);
+// Debug tooling may call this only after a completely closed frame. It uses
+// the runtime owner's proven last-stable pose and leaves the same Vehicle
+// object/attribute under live-control ownership.
+bool VehicleRuntimeState_DebugStabilize(SimulationContext *context);
 bool VehicleRuntimeState_BeginFrame(SimulationContext *context);
 bool VehicleRuntimeState_CompleteFrame(
     SimulationContext *context, double targetTime);

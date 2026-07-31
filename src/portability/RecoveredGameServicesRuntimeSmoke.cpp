@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <string>
+#include <vector>
 
 #define LAST_H__SCENE
 #include "game.h"
@@ -2660,6 +2662,60 @@ bool ValidateReferenceTransaction(
              farterReferenceFingerprint;
 }
 
+bool ExerciseTaxiDebugCatalogAndSpawn(SimulationContext* context,
+                                      const KR_ObjectID& vehicleID) {
+  SRecoveredVehicleRuntimeState vehicle = {};
+  std::vector<STaxiDebugVehicleType> catalog;
+  std::string failure;
+  if (!VehicleRuntimeState_Inspect(context, vehicleID, &vehicle) ||
+      !TaxiSubjectState_DebugVehicleCatalog(context, &catalog, &failure) ||
+      catalog.empty()) {
+    return false;
+  }
+  for (std::size_t index = 1; index < catalog.size(); ++index) {
+    if (catalog[index - 1].taxiAttribute >= catalog[index].taxiAttribute)
+      return false;
+  }
+
+  const int baselineCount = TaxiSubjectState_LiveCount();
+  const int baselineSounds = TaxiSubjectState_SoundCount();
+  const unsigned long long baselineFingerprint =
+      TaxiSubjectState_Fingerprint(context);
+  KR_ObjectID spawned = KR_ObjectID::NUL();
+  if (TaxiSubjectState_DebugSpawn(
+          context, "Taxi.Attr.Debug.Missing", "Debug.Taxi.Invalid",
+          vehicle.position + CFVector3(0.0, 24.0, 16.0), 0.0,
+          (std::max)(0.1, vehicle.lastTime), &spawned, &failure) ||
+      !spawned.isNUL() || TaxiSubjectState_LiveCount() != baselineCount ||
+      TaxiSubjectState_Fingerprint(context) != baselineFingerprint) {
+    return false;
+  }
+
+  if (!TaxiSubjectState_DebugSpawn(
+          context, catalog.front().taxiAttribute.c_str(),
+          "Debug.Taxi.Smoke.0001",
+          vehicle.position + CFVector3(0.0, 24.0, 16.0), 0.0,
+          (std::max)(0.1, vehicle.lastTime), &spawned, &failure) ||
+      spawned.isNUL() || !context->isExist(spawned) ||
+      TaxiSubjectState_LiveCount() != baselineCount + 1) {
+    return false;
+  }
+  KR_ObjectID duplicate = KR_ObjectID::NUL();
+  if (TaxiSubjectState_DebugSpawn(
+          context, catalog.front().taxiAttribute.c_str(),
+          "Debug.Taxi.Smoke.0001",
+          vehicle.position + CFVector3(0.0, 24.0, 18.0), 0.0,
+          (std::max)(0.1, vehicle.lastTime), &duplicate, &failure) ||
+      !duplicate.isNUL() || TaxiSubjectState_LiveCount() != baselineCount + 1) {
+    context->removeObject(spawned);
+    return false;
+  }
+  context->removeObject(spawned);
+  return TaxiSubjectState_LiveCount() == baselineCount &&
+         TaxiSubjectState_SoundCount() == baselineSounds &&
+         TaxiSubjectState_Fingerprint(context) == baselineFingerprint;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -2778,6 +2834,11 @@ int main(int argc, char** argv) {
   KR_ObjectID sparkID = g_super.m_context->searchObject("Spark.Flash");
   KR_ObjectID smokeID =
       g_super.m_context->searchObject("Smoke.Attr.Small");
+  if (!ExerciseTaxiDebugCatalogAndSpawn(g_super.m_context, vehicleID)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Taxi debug catalog/spawn/rollback contract failed");
+  }
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
       !RecoveredGameServices_BirdAttributesReady() ||

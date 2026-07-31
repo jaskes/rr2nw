@@ -839,6 +839,34 @@ bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context)
     return true;
 }
 
+bool VehicleRuntimeState_DebugStabilize(SimulationContext *context)
+{
+    if (!g_owner.active || context == NULL || g_owner.context != context ||
+        g_owner.vehicle == NULL || g_owner.frameBegun ||
+        !context->isExist(g_owner.object) || !VehicleReady(g_owner.vehicle))
+        return false;
+    SRecoveredVehicleRuntimeState before = {};
+    if (!ReadState(g_owner.vehicle, &before) || !before.active)
+        return false;
+    const CFVector3 target = g_owner.lastStableValid
+                                 ? g_owner.lastStablePosition
+                                 : before.position;
+    if (!FiniteVector(target))
+        return false;
+    g_owner.vehicle->Stop();
+    g_owner.vehicle->SetPos(target);
+    g_owner.vehicle->setPosition(target);
+    g_owner.vehicle->m_lastTime = g_owner.lastTime;
+    g_owner.frameAttribute = KR_ObjectID::NUL();
+    g_owner.frameStartValid = false;
+    g_owner.lastStablePosition = target;
+    g_owner.lastStableValid = true;
+    SRecoveredVehicleRuntimeState after = {};
+    return ReadState(g_owner.vehicle, &after) && after.active &&
+           NearlyEqual(after.position, target, 1.0e-5) &&
+           NearlyEqual(after.speed, CFVector3(0.0, 0.0, 0.0), 1.0e-5);
+}
+
 bool VehicleRuntimeState_Advance(
     SimulationContext *context, double targetTime)
 {

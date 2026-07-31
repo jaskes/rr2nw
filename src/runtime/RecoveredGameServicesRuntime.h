@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
 #include "RecoveredFramePreview.h"
@@ -18,7 +23,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE = 1u << 10,
   RECOVERED_GAME_SERVICES_TAXI_VEHICLE_TRANSITION_FAILURE = 1u << 11,
   RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE = 1u << 12,
-  RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE = 1u << 13
+  RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE = 1u << 13,
+  RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE = 1u << 14
 };
 
 struct SRecoveredObserverState {
@@ -247,6 +253,61 @@ struct SRecoveredCrossLevelLoadRequest {
   SLevelContinuationSummary sourceContinuationSummary;
 };
 
+enum ERecoveredDebugMenuAction {
+  RECOVERED_DEBUG_MENU_NONE = 0,
+  RECOVERED_DEBUG_MENU_SPAWN_VEHICLE = 1,
+  RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE = 2,
+  RECOVERED_DEBUG_MENU_SHOW_STATE = 3,
+  RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE = 4,
+  RECOVERED_DEBUG_MENU_SWITCH_LEVEL = 5
+};
+
+struct SRecoveredDebugVehicleType {
+  std::string taxiAttribute;
+  std::string vehicleAttribute;
+};
+
+struct SRecoveredDebugMenuState {
+  bool configured = false;
+  bool nativeMenuInstalled = false;
+  bool pending = false;
+  ERecoveredDebugMenuAction pendingAction = RECOVERED_DEBUG_MENU_NONE;
+  std::size_t pendingIndex = 0;
+  unsigned int catalogBuilds = 0;
+  unsigned int catalogFailures = 0;
+  unsigned int vehicleTypeCount = 0;
+  unsigned int requests = 0;
+  unsigned int completedCommands = 0;
+  unsigned int failedCommands = 0;
+  unsigned int rollbackAttempts = 0;
+  unsigned int rollbackCompletions = 0;
+  unsigned int spawnedVehicles = 0;
+  unsigned int enteredVehicles = 0;
+  unsigned int stabilizedVehicles = 0;
+  unsigned int levelSwitchRequests = 0;
+  unsigned int completedLevelSwitches = 0;
+  unsigned int levelSwitchRollbacks = 0;
+  unsigned int levelSwitchRollbackFailures = 0;
+  unsigned int nextObjectOrdinal = 1;
+  std::string currentLevel;
+  std::string lastAction;
+  std::string lastObject;
+  std::string lastTaxiAttribute;
+  std::string lastVehicleAttribute;
+  std::string lastError;
+};
+
+// A fresh debug Level switch is staged at the same closed frame boundary as
+// save/load. The coordinator owns teardown/startup and can restore the source
+// continuation if target construction fails.
+struct SRecoveredDebugLevelSwitchRequest {
+  bool ready = false;
+  std::string sourceLevel;
+  std::string targetLevel;
+  std::vector<std::uint8_t> sourceContinuation;
+  SLevelContinuationSummary sourceContinuationSummary;
+};
+
 void RecoveredGameServices_UseRuntime();
 void RecoveredGameServices_Release();
 bool RecoveredGameServices_PlatformReady();
@@ -375,6 +436,25 @@ bool RecoveredGameServices_LoadLevelSlot(
 const char* RecoveredGameServices_LastLevelSaveSlotError();
 bool RecoveredGameServices_ConfigureSaveDirectory(
     const std::wstring& directory);
+bool RecoveredGameServices_ConfigureDebugMenu(
+    bool enabled, const std::vector<std::string>& levelCatalog);
+const SRecoveredDebugMenuState* RecoveredGameServices_DebugMenuState();
+std::size_t RecoveredGameServices_DebugVehicleTypeCount();
+bool RecoveredGameServices_DebugVehicleType(
+    std::size_t index, SRecoveredDebugVehicleType* type);
+bool RecoveredGameServices_RequestDebugVehicleSpawn(
+    std::size_t index, bool enterVehicle);
+bool RecoveredGameServices_RequestDebugShowState();
+bool RecoveredGameServices_RequestDebugStabilizeVehicle();
+bool RecoveredGameServices_RequestDebugLevelSwitch(std::size_t index);
+bool RecoveredGameServices_ProcessPendingDebugCommand();
+bool RecoveredGameServices_DebugLevelSwitchPending();
+bool RecoveredGameServices_TakeDebugLevelSwitchRequest(
+    SRecoveredDebugLevelSwitchRequest* request);
+void RecoveredGameServices_RecordDebugLevelSwitchResult(
+    const SRecoveredDebugLevelSwitchRequest& request,
+    bool committed, bool rollbackAttempted, bool rollbackRestored,
+    const std::string& detail);
 bool RecoveredGameServices_RequestSaveSlot(
     std::uint32_t slot, bool allowOverwrite);
 bool RecoveredGameServices_RequestSaveSlotWithMetadata(

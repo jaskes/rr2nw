@@ -1016,6 +1016,40 @@ bool CaptureTaxiAttribute(const KR_ObjectID object, void *user)
     return false;
 }
 
+struct TaxiDebugCatalogCollector
+{
+    SimulationContext *context;
+    std::vector<STaxiDebugVehicleType> *catalog;
+    bool valid;
+};
+
+bool CollectTaxiDebugVehicleType(const KR_ObjectID object, void *user)
+{
+    TaxiDebugCatalogCollector *collector =
+        static_cast<TaxiDebugCatalogCollector *>(user);
+    AttributeTaxi *attribute = static_cast<AttributeTaxi *>(
+        __attrTaxiTable.searchAttribute(object));
+    const char *taxiName = collector->context->searchObject(object);
+    const char *vehicleName = attribute == NULL
+                                  ? NULL
+                                  : collector->context->searchObject(
+                                        attribute->m_attrForVehicle);
+    if (attribute == NULL || taxiName == NULL || taxiName[0] == '\0' ||
+        attribute->m_attrForVehicle.isNUL() || vehicleName == NULL ||
+        vehicleName[0] == '\0' ||
+        __attrVehicleTable.searchAttribute(
+            attribute->m_attrForVehicle) == NULL)
+    {
+        collector->valid = false;
+        return false;
+    }
+    STaxiDebugVehicleType type;
+    type.taxiAttribute = taxiName;
+    type.vehicleAttribute = vehicleName;
+    collector->catalog->push_back(type);
+    return true;
+}
+
 bool SendTaxiStart(Taxi *taxi, const KR_ObjectID &attribute,
                    const CFVector3 &position, double angle,
                    double timeStamp)
@@ -1485,6 +1519,136 @@ KR_ObjectID TaxiSubjectState_FirstPanelVehicleObject(
             return collector.records[index].object;
     }
     return KR_ObjectID::NUL();
+}
+
+bool TaxiSubjectState_DebugVehicleCatalog(
+    SimulationContext *context,
+    std::vector<STaxiDebugVehicleType> *catalog,
+    std::string *failure)
+{
+    if (catalog == NULL || failure == NULL)
+        return false;
+    catalog->clear();
+    failure->clear();
+    if (context == NULL || g_arena.getContext() != context ||
+        g_arena.searchSeanceClassTable("Taxi") == ct_NULLID)
+    {
+        *failure = "Taxi debug catalog requires an active Arena seance";
+        return false;
+    }
+    TaxiDebugCatalogCollector collector = {context, catalog, true};
+    __attrTaxiTable.userFind(CollectTaxiDebugVehicleType, &collector);
+    if (!collector.valid)
+    {
+        catalog->clear();
+        *failure = "a Level-local TaxiAttr has no valid VehicleAttr target";
+        return false;
+    }
+    std::sort(catalog->begin(), catalog->end(),
+              [](const STaxiDebugVehicleType &left,
+                 const STaxiDebugVehicleType &right)
+              {
+                  if (left.taxiAttribute != right.taxiAttribute)
+                      return left.taxiAttribute < right.taxiAttribute;
+                  return left.vehicleAttribute < right.vehicleAttribute;
+              });
+    catalog->erase(
+        std::unique(catalog->begin(), catalog->end(),
+                    [](const STaxiDebugVehicleType &left,
+                       const STaxiDebugVehicleType &right)
+                    {
+                        return left.taxiAttribute == right.taxiAttribute &&
+                               left.vehicleAttribute == right.vehicleAttribute;
+                    }),
+        catalog->end());
+    if (catalog->empty())
+    {
+        *failure = "the active Level defines no spawnable TaxiAttr";
+        return false;
+    }
+    return true;
+}
+
+bool TaxiSubjectState_DebugSpawn(
+    SimulationContext *context, const char *taxiAttribute,
+    const char *objectName, const CFVector3 &position,
+    double angle, double timeStamp, KR_ObjectID *spawned,
+    std::string *failure)
+{
+    if (spawned == NULL || failure == NULL)
+        return false;
+    *spawned = KR_ObjectID::NUL();
+    failure->clear();
+    const ct_ClassTableID table = g_arena.searchSeanceClassTable("Taxi");
+    if (context == NULL || g_arena.getContext() != context ||
+        table == ct_NULLID || taxiAttribute == NULL ||
+        taxiAttribute[0] == '\0' || objectName == NULL ||
+        objectName[0] == '\0' || !std::isfinite(position.x) ||
+        !std::isfinite(position.y) || !std::isfinite(position.z) ||
+        !std::isfinite(angle) || !std::isfinite(timeStamp) ||
+        timeStamp < 0.1)
+    {
+        *failure = "Taxi debug spawn arguments are invalid";
+        return false;
+    }
+    KR_ObjectID existing = context->searchObject(objectName);
+    if (!existing.isNUL())
+    {
+        *failure = "Taxi debug object name already exists";
+        return false;
+    }
+    KR_ObjectID attribute = context->searchObject(taxiAttribute);
+    if (attribute.isNUL() ||
+        __attrTaxiTable.searchAttribute(attribute) == NULL)
+    {
+        *failure = "requested TaxiAttr is not active in this Level";
+        return false;
+    }
+    if (TaxiSubjectState_LiveCount() >= TaxiSubjectState_Capacity())
+    {
+        *failure = "Taxi subject table is full";
+        return false;
+    }
+    KR_ObjectID object = g_arena.newObject(table, objectName);
+    Taxi *taxi = ResolveTaxi(context, object);
+    const bool started = taxi != NULL &&
+        SendTaxiStart(taxi, attribute, position, angle, timeStamp) &&
+        taxi->runtimeReady();
+    if (!started)
+    {
+        if (!object.isNUL() && context->isExist(object))
+            context->removeObject(object);
+        *failure = "real Taxi subject rejected its start event";
+        return false;
+    }
+    *spawned = object;
+    return true;
+}
+
+bool TaxiSubjectState_DebugTakeVehicle(
+    SimulationContext *context, const KR_ObjectID &vehicleObject,
+    const KR_ObjectID &taxiObject, double timeStamp,
+    std::string *failure)
+{
+    if (failure == NULL)
+        return false;
+    failure->clear();
+    Vehicle *vehicle = context == NULL ? NULL : static_cast<Vehicle *>(
+        context->queryInterface(vehicleObject, IVehicleIID));
+    Taxi *taxi = ResolveTaxi(context, taxiObject);
+    if (context == NULL || vehicle == NULL || taxi == NULL ||
+        !taxi->runtimeReady() || !std::isfinite(timeStamp) ||
+        timeStamp < 0.1)
+    {
+        *failure = "Taxi debug enter requires a live Vehicle and Taxi";
+        return false;
+    }
+    if (!vehicle->tryTakeTaxi(taxiObject, timeStamp, true))
+    {
+        *failure = "retail Vehicle::tryTakeTaxi rejected the spawned Taxi";
+        return false;
+    }
+    return true;
 }
 
 /* End of file C:\NW\ARENA\OBASE\Taxi\Taxi.cpp */

@@ -1341,3 +1341,125 @@ mod-save/base-load mismatch proof. It remains gated by 62/62 CTest per Debug
 and Release configuration, 18/18 ordinary installed-Level runs, and complete
 Debug/Release product sequences. Linux/macOS, native x64 and multiplayer
 remain outside the Windows 1.0 blocker set.
+
+## 2026-08-01 Windows-first product frontier after the package manual pass
+
+The automated recovery foundation and the manually playable product are now
+tracked separately. All nine retail Levels construct and render, the modern
+x86 build/test/package/mod/save foundations are substantial, but the first
+package-bound human pass exposed gameplay gaps that automated lifecycle probes
+did not close. Current planning estimates are therefore:
+
+- recovery/build/content foundation: roughly 75-80%;
+- useful free-roaming sandbox: roughly 50-60%;
+- honest Windows 1.0 product: roughly 35-45%.
+
+These are planning ranges, not release percentages. The path to 1.0 is ordered
+by the shortest feedback loop for real human play:
+
+### Frontier A: opt-in debug tooling
+
+Status: first slice implemented.
+
+Provide an opt-in native menu backed by real Level-local tables. Its first
+contract enumerates `TaxiAttr -> VehicleAttr`, stages commands at a closed
+frame boundary, spawns a real Taxi, can enter it through
+`Vehicle::tryTakeTaxi`, reports active Vehicle state, restores the last stable
+pose and performs fresh Level switches with source-world rollback. Normal
+launches remain unchanged. Later additions may include actor spawn, teleport,
+mission inspection, repair and damage only after each real lifecycle is safe.
+
+Gate: deterministic object identity, complete rollback on a rejected command,
+save/load of a spawned object, fresh switching across all nine Levels and
+diagnostic counters tied to the tested executable.
+
+### Frontier B: authoritative Windows input
+
+Replace the remaining legacy `CtrlSet::Translate` polling/translation seam
+with a small modern Windows input adapter. Mouse primary fire, Space jump,
+map binding, focus loss, opposite-direction overlap and key-up delivery must
+be observed at the semantic action boundary. Do not add more gameplay features
+to the legacy translator.
+
+Gate: primary fire reaches the real Bullet graph; held actions never survive
+focus loss or key release; WASD/arrows/mouse/Space/map commands pass repeated
+manual and synthetic sequences without spontaneous motion.
+
+### Frontier C: coherent Vehicle embodiment and death
+
+Unify Taxi spawn height, ground settling, panel/HUD selection, camera ownership,
+entry/exit, destroyed Vehicle behaviour and player death. Remove the legacy
+process-level `exit(0)` from the dead-camera path before adding a debug kill
+command. Repair the handoff that can leave a player at the old position while
+the saved car continues moving.
+
+Gate: representative wheeled, tracked and flying vehicles spawn grounded,
+enter/exit without camera escape, retain the correct panel, fire, take damage,
+die and leave a recoverable diagnostic state rather than terminating the
+process.
+
+### Frontier D: save/load gameplay authority
+
+Make one atomic owner graph cover player embodiment, Vehicle/camera/panel,
+active controls, Taxi/Orphan state, spawned debug objects and Level identity.
+Define when save/load is unavailable rather than surfacing transient frame
+boundary errors to the player. Continue using LCN1/RR2SLOT1 and content
+fingerprints; do not create a second serializer.
+
+Gate: same-Level and cross-Level slots restore on foot and in every admitted
+Vehicle class, including moving/damaged state, exact HUD/camera ownership and
+the debug-spawned world. Failure leaves the source session byte-equivalent at
+the owned-state boundary.
+
+### Frontier E: actors, static mechanisms and animation
+
+Complete the Level-local People/Tank runtime scheduler and remove proximity-
+triggered teleport/freeze behaviour. Finish the deferred May animation opcode
+construction (`ROCKOX`, `ROCKOZ`, `ROTATEOYOut`) and reconnect static callbacks
+such as the Level.05D starting lift. Use the debug menu for repeatable actor and
+mechanism positioning only after their ownership is proven.
+
+Gate: representative robots/people/tanks animate and react at near/far
+boundaries without pose explosions; the Level.05D lift and a cross-section of
+doors/platforms run through their original scripts; all persist through save.
+
+### Frontier F: campaign surface
+
+Recover the map (`M`), quests/objectives, portal transition and required menu
+flows. A portal must request the same transactional Level coordinator used by
+save/load and debug switching, not directly tear down the world from a legacy
+event callback.
+
+Gate: a player can discover objectives, navigate with the map, complete and
+transition a representative mission chain, save before/after a portal and
+continue after restart. Then extend to a complete retail campaign pass.
+
+### Frontier G: audio and presentation
+
+Replace the current device-free sound command state with a maintained Windows
+backend after world/gameplay ownership is stable. Profile slow Levels and
+separate simulation cadence from software-render cost; flying units are a
+measurement target, not a presumed cause. Finish fullscreen/window/DPI,
+Alt-Tab, resolution and diagnostic-crash presentation.
+
+Gate: spatial/effect/vehicle/UI audio survives Level changes and focus changes;
+simulation speed is stable under variable render load; the package passes the
+Windows 10 presentation/focus rows and then the same rows on Windows 11.
+
+### Frontier H: mod UX, full campaign, and 1.0 RC
+
+Keep the existing deterministic stack, validator and bounded data contracts.
+Add an in-game selector/profile only after base gameplay is trustworthy. Run
+the package-bound Windows 10 campaign, a full retail playthrough, then Windows
+11 against the exact same clean candidate. Fixes produce a new package hash
+and a new evidence campaign; manual results are never transferred between
+candidates.
+
+Gate: every Windows 10/11 ledger row passes, all nine Levels and campaign
+transitions are playable, save compatibility and mod identity are documented,
+crashes yield useful diagnostics, and a clean `develop -> master` release tag
+can be reproduced from the published package manifest.
+
+Linux, macOS, native x64 and multiplayer remain post-1.0 work. Replay/control
+journal determinism remains useful research for a later authoritative server,
+but no networking work may displace the Windows campaign gates above.

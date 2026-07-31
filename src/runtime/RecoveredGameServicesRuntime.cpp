@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <ctime>
+#include <iomanip>
 #include <new>
+#include <sstream>
 #include <string>
 
 #define WIN32_LEAN_AND_MEAN
@@ -931,10 +934,18 @@ std::string g_levelSaveSlotFailure;
 SRecoveredSaveMenuState g_saveMenuState;
 SRecoveredCrossLevelLoadRequest g_crossLevelLoadRequest;
 bool g_saveMenuAllowOverwrite = false;
+SRecoveredDebugMenuState g_debugMenuState;
+SRecoveredDebugLevelSwitchRequest g_debugLevelSwitchRequest;
+std::vector<std::string> g_debugLevelCatalog;
+std::vector<SRecoveredDebugVehicleType> g_debugVehicleCatalog;
 HMENU g_nativeMenuBar = nullptr;
 HMENU g_nativeGameMenu = nullptr;
 HMENU g_nativeSaveMenu = nullptr;
 HMENU g_nativeLoadMenu = nullptr;
+HMENU g_nativeDebugMenu = nullptr;
+HMENU g_nativeDebugSpawnMenu = nullptr;
+HMENU g_nativeDebugSpawnEnterMenu = nullptr;
+HMENU g_nativeDebugLevelMenu = nullptr;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 
@@ -973,6 +984,13 @@ constexpr UINT kNativeSaveSlotBase = 0x7200u;
 constexpr UINT kNativeLoadSlotBase = 0x7210u;
 constexpr UINT kNativeOpenSaveDirectory = 0x7220u;
 constexpr UINT kNativeExitGame = 0x7221u;
+constexpr UINT kNativeDebugSpawnBase = 0x7300u;
+constexpr UINT kNativeDebugSpawnEnterBase = 0x7340u;
+constexpr UINT kNativeDebugShowState = 0x7380u;
+constexpr UINT kNativeDebugStabilize = 0x7381u;
+constexpr UINT kNativeDebugLevelBase = 0x7400u;
+constexpr std::size_t kMaximumNativeDebugVehicleTypes = 64u;
+constexpr std::size_t kMaximumNativeDebugLevels = 256u;
 constexpr unsigned int kMaximumStableBoundaryAttempts = 8u;
 
 bool IsRetryableSaveBoundaryFailure(const std::string& detail) {
@@ -1047,6 +1065,69 @@ bool SlotCanBeRequested(const SLevelSaveSlot& archive) {
   return !SlotTargetsCurrentLevel(archive) || SlotIsCompatible(archive);
 }
 
+bool BuildDebugVehicleCatalog() {
+  g_debugVehicleCatalog.clear();
+  g_debugMenuState.vehicleTypeCount = 0;
+  g_debugMenuState.currentLevel = ContinuationLevelIdentity();
+  if (!g_debugMenuState.configured) return true;
+
+  std::vector<STaxiDebugVehicleType> taxiCatalog;
+  std::string failure;
+  ++g_debugMenuState.catalogBuilds;
+  if (!TaxiSubjectState_DebugVehicleCatalog(
+          g_super.m_context, &taxiCatalog, &failure)) {
+    ++g_debugMenuState.catalogFailures;
+    g_debugMenuState.lastError = failure;
+    return false;
+  }
+  if (taxiCatalog.size() > kMaximumNativeDebugVehicleTypes) {
+    ++g_debugMenuState.catalogFailures;
+    g_debugMenuState.lastError =
+        "Level defines more TaxiAttr entries than the native debug menu can "
+        "represent";
+    return false;
+  }
+  g_debugVehicleCatalog.reserve(taxiCatalog.size());
+  for (const STaxiDebugVehicleType& taxi : taxiCatalog) {
+    SRecoveredDebugVehicleType type;
+    type.taxiAttribute = taxi.taxiAttribute;
+    type.vehicleAttribute = taxi.vehicleAttribute;
+    g_debugVehicleCatalog.push_back(type);
+  }
+  g_debugMenuState.vehicleTypeCount =
+      static_cast<unsigned int>(g_debugVehicleCatalog.size());
+  g_debugMenuState.lastError.clear();
+  return true;
+}
+
+bool DebugCommandCanStage() {
+  if (!g_debugMenuState.configured || !g_sessionReady ||
+      g_super.m_context == nullptr) {
+    g_debugMenuState.lastError =
+        "debug menu requires an active recovered Level session";
+    return false;
+  }
+  if (g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending) {
+    g_debugMenuState.lastError =
+        "another world command is already pending";
+    return false;
+  }
+  return true;
+}
+
+bool StageDebugCommand(ERecoveredDebugMenuAction action,
+                       std::size_t index) {
+  g_debugMenuState.lastError.clear();
+  if (!DebugCommandCanStage()) return false;
+  g_debugMenuState.pending = true;
+  g_debugMenuState.pendingAction = action;
+  g_debugMenuState.pendingIndex = index;
+  ++g_debugMenuState.requests;
+  return true;
+}
+
 void RefreshNativeSaveMenu() {
   if (g_nativeSaveMenu == nullptr || g_nativeLoadMenu == nullptr ||
       !g_saveMenuState.configured)
@@ -1096,9 +1177,48 @@ void RefreshNativeSaveMenu() {
   if (_gr_hWnd != nullptr) DrawMenuBar(_gr_hWnd);
 }
 
+void RefreshNativeDebugMenu() {
+  if (g_nativeDebugMenu == nullptr || !g_debugMenuState.configured)
+    return;
+  const bool commandAvailable =
+      g_sessionReady && !g_debugMenuState.pending &&
+      !g_debugLevelSwitchRequest.ready && !g_saveMenuState.pending &&
+      !g_crossLevelLoadRequest.ready &&
+      !g_saveMenuState.crossLevelRestartPending;
+  const UINT state = MF_BYCOMMAND |
+      (commandAvailable ? MF_ENABLED : MF_GRAYED | MF_DISABLED);
+  EnableMenuItem(g_nativeDebugMenu, kNativeDebugShowState, state);
+  EnableMenuItem(g_nativeDebugMenu, kNativeDebugStabilize, state);
+  if (g_nativeDebugSpawnMenu != nullptr) {
+    for (std::size_t index = 0; index < g_debugVehicleCatalog.size(); ++index) {
+      EnableMenuItem(g_nativeDebugSpawnMenu,
+                     kNativeDebugSpawnBase + static_cast<UINT>(index), state);
+      EnableMenuItem(g_nativeDebugSpawnEnterMenu,
+                     kNativeDebugSpawnEnterBase + static_cast<UINT>(index),
+                     state);
+    }
+  }
+  if (g_nativeDebugLevelMenu != nullptr) {
+    for (std::size_t index = 0; index < g_debugLevelCatalog.size(); ++index) {
+      EnableMenuItem(g_nativeDebugLevelMenu,
+                     kNativeDebugLevelBase + static_cast<UINT>(index), state);
+      CheckMenuItem(
+          g_nativeDebugLevelMenu,
+          kNativeDebugLevelBase + static_cast<UINT>(index),
+          MF_BYCOMMAND |
+              (LevelIdentityMatches(g_debugLevelCatalog[index],
+                                    ContinuationLevelIdentity())
+                   ? MF_CHECKED
+                   : MF_UNCHECKED));
+    }
+  }
+  if (_gr_hWnd != nullptr) DrawMenuBar(_gr_hWnd);
+}
+
 void DestroyNativeSaveMenu() {
   if (g_nativeMenuBar == nullptr) {
     g_saveMenuState.nativeMenuInstalled = false;
+    g_debugMenuState.nativeMenuInstalled = false;
     return;
   }
   if (_gr_hWnd != nullptr && GetMenu(_gr_hWnd) == g_nativeMenuBar) {
@@ -1111,7 +1231,12 @@ void DestroyNativeSaveMenu() {
   g_nativeGameMenu = nullptr;
   g_nativeSaveMenu = nullptr;
   g_nativeLoadMenu = nullptr;
+  g_nativeDebugMenu = nullptr;
+  g_nativeDebugSpawnMenu = nullptr;
+  g_nativeDebugSpawnEnterMenu = nullptr;
+  g_nativeDebugLevelMenu = nullptr;
   g_saveMenuState.nativeMenuInstalled = false;
+  g_debugMenuState.nativeMenuInstalled = false;
 }
 
 bool InstallNativeSaveMenu() {
@@ -1183,6 +1308,94 @@ bool InstallNativeSaveMenu() {
                   L"&Game") == FALSE)
     return failConstruction("native menu bar construction failed");
   gameMenuAttached = true;
+
+  HMENU debugMenu = nullptr;
+  HMENU debugSpawnMenu = nullptr;
+  HMENU debugSpawnEnterMenu = nullptr;
+  HMENU debugLevelMenu = nullptr;
+  if (g_debugMenuState.configured) {
+    debugMenu = CreatePopupMenu();
+    debugSpawnMenu = CreatePopupMenu();
+    debugSpawnEnterMenu = CreatePopupMenu();
+    debugLevelMenu = CreatePopupMenu();
+    if (debugMenu == nullptr || debugSpawnMenu == nullptr ||
+        debugSpawnEnterMenu == nullptr || debugLevelMenu == nullptr) {
+      if (debugMenu != nullptr) DestroyMenu(debugMenu);
+      if (debugSpawnMenu != nullptr) DestroyMenu(debugSpawnMenu);
+      if (debugSpawnEnterMenu != nullptr)
+        DestroyMenu(debugSpawnEnterMenu);
+      if (debugLevelMenu != nullptr) DestroyMenu(debugLevelMenu);
+      return failConstruction("CreatePopupMenu for Debug failed");
+    }
+    bool spawnAttached = false;
+    bool enterAttached = false;
+    bool levelAttached = false;
+    const auto failDebugConstruction = [&](const char* detail) {
+      DestroyMenu(debugMenu);
+      if (!spawnAttached) DestroyMenu(debugSpawnMenu);
+      if (!enterAttached) DestroyMenu(debugSpawnEnterMenu);
+      if (!levelAttached) DestroyMenu(debugLevelMenu);
+      return failConstruction(detail);
+    };
+    for (std::size_t index = 0; index < g_debugVehicleCatalog.size();
+         ++index) {
+      std::wstring label =
+          EscapeNativeMenuText(Utf8ToWide(
+              g_debugVehicleCatalog[index].vehicleAttribute));
+      const std::wstring taxi =
+          EscapeNativeMenuText(Utf8ToWide(
+              g_debugVehicleCatalog[index].taxiAttribute));
+      if (label.empty()) label = L"Vehicle";
+      if (!taxi.empty()) label += L"  [" + taxi + L"]";
+      if (AppendMenuW(
+              debugSpawnMenu, MF_STRING,
+              kNativeDebugSpawnBase + static_cast<UINT>(index),
+              label.c_str()) == FALSE ||
+          AppendMenuW(
+              debugSpawnEnterMenu, MF_STRING,
+              kNativeDebugSpawnEnterBase + static_cast<UINT>(index),
+              label.c_str()) == FALSE)
+        return failDebugConstruction(
+            "native Debug vehicle catalog construction failed");
+    }
+    if (AppendMenuW(debugMenu, MF_POPUP,
+                    reinterpret_cast<UINT_PTR>(debugSpawnMenu),
+                    L"Spawn &vehicle nearby") == FALSE)
+      return failDebugConstruction("native Debug spawn submenu failed");
+    spawnAttached = true;
+    if (AppendMenuW(debugMenu, MF_POPUP,
+                    reinterpret_cast<UINT_PTR>(debugSpawnEnterMenu),
+                    L"Spawn and &enter") == FALSE)
+      return failDebugConstruction("native Debug enter submenu failed");
+    enterAttached = true;
+    if (AppendMenuW(debugMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
+        AppendMenuW(debugMenu, MF_STRING, kNativeDebugShowState,
+                    L"Show current &state") == FALSE ||
+        AppendMenuW(debugMenu, MF_STRING, kNativeDebugStabilize,
+                    L"Stop and move to last stable &position") == FALSE ||
+        AppendMenuW(debugMenu, MF_SEPARATOR, 0, nullptr) == FALSE)
+      return failDebugConstruction("native Debug actions failed");
+    for (std::size_t index = 0; index < g_debugLevelCatalog.size(); ++index) {
+      std::wstring label = EscapeNativeMenuText(
+          Utf8ToWide(g_debugLevelCatalog[index]));
+      if (label.empty()) label = L"Level";
+      if (AppendMenuW(
+              debugLevelMenu, MF_STRING,
+              kNativeDebugLevelBase + static_cast<UINT>(index),
+              label.c_str()) == FALSE)
+        return failDebugConstruction(
+            "native Debug Level catalog construction failed");
+    }
+    if (AppendMenuW(debugMenu, MF_POPUP,
+                    reinterpret_cast<UINT_PTR>(debugLevelMenu),
+                    L"Switch &Level (fresh)") == FALSE)
+      return failDebugConstruction("native Debug Level submenu failed");
+    levelAttached = true;
+    if (AppendMenuW(menuBar, MF_POPUP,
+                    reinterpret_cast<UINT_PTR>(debugMenu),
+                    L"&Debug") == FALSE)
+      return failDebugConstruction("native Debug menu bar failed");
+  }
   if (SetMenu(_gr_hWnd, menuBar) == FALSE) {
     return failConstruction("SetMenu failed");
   }
@@ -1190,14 +1403,28 @@ bool InstallNativeSaveMenu() {
   g_nativeGameMenu = gameMenu;
   g_nativeSaveMenu = saveMenu;
   g_nativeLoadMenu = loadMenu;
+  g_nativeDebugMenu = debugMenu;
+  g_nativeDebugSpawnMenu = debugSpawnMenu;
+  g_nativeDebugSpawnEnterMenu = debugSpawnEnterMenu;
+  g_nativeDebugLevelMenu = debugLevelMenu;
   g_saveMenuState.nativeMenuInstalled = true;
+  g_debugMenuState.nativeMenuInstalled =
+      g_debugMenuState.configured;
   ResizeSoftwareWindowForMenu(true);
   RefreshNativeSaveMenu();
+  RefreshNativeDebugMenu();
   return true;
 }
 
 void ResetSaveMenuSession() {
   DestroyNativeSaveMenu();
+  g_debugVehicleCatalog.clear();
+  g_debugMenuState.nativeMenuInstalled = false;
+  g_debugMenuState.pending = false;
+  g_debugMenuState.pendingAction = RECOVERED_DEBUG_MENU_NONE;
+  g_debugMenuState.pendingIndex = 0;
+  g_debugMenuState.vehicleTypeCount = 0;
+  g_debugMenuState.currentLevel.clear();
   g_saveMenuState.pending = false;
   g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_NONE;
   g_saveMenuState.pendingSlot = 0;
@@ -1244,15 +1471,63 @@ void ShowNativeSaveFailure() {
               L"RR2NW save/load error", MB_OK | MB_ICONERROR);
 }
 
+void ShowNativeDebugFailure() {
+  if (_gr_hWnd == nullptr || g_debugMenuState.lastError.empty()) return;
+  const std::wstring detail = Utf8ToWide(g_debugMenuState.lastError);
+  MessageBoxW(_gr_hWnd,
+              detail.empty() ? L"Debug command failed." : detail.c_str(),
+              L"RR2NW debug command error", MB_OK | MB_ICONERROR);
+}
+
 bool HandleNativeSaveMenuMessage(HWND window, UINT message,
                                  WPARAM wParam, LRESULT* result) {
   if (message == WM_INITMENUPOPUP && g_nativeMenuBar != nullptr) {
     RefreshNativeSaveMenu();
+    RefreshNativeDebugMenu();
     *result = 0;
     return true;
   }
   if (message != WM_COMMAND || HIWORD(wParam) != 0) return false;
   const UINT command = LOWORD(wParam);
+  if (command >= kNativeDebugSpawnBase &&
+      command < kNativeDebugSpawnBase +
+                    static_cast<UINT>(g_debugVehicleCatalog.size())) {
+    if (!RecoveredGameServices_RequestDebugVehicleSpawn(
+            command - kNativeDebugSpawnBase, false))
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command >= kNativeDebugSpawnEnterBase &&
+      command < kNativeDebugSpawnEnterBase +
+                    static_cast<UINT>(g_debugVehicleCatalog.size())) {
+    if (!RecoveredGameServices_RequestDebugVehicleSpawn(
+            command - kNativeDebugSpawnEnterBase, true))
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeDebugShowState) {
+    if (!RecoveredGameServices_RequestDebugShowState())
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeDebugStabilize) {
+    if (!RecoveredGameServices_RequestDebugStabilizeVehicle())
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command >= kNativeDebugLevelBase &&
+      command < kNativeDebugLevelBase +
+                    static_cast<UINT>(g_debugLevelCatalog.size())) {
+    if (!RecoveredGameServices_RequestDebugLevelSwitch(
+            command - kNativeDebugLevelBase))
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
   if (command >= kNativeSaveSlotBase &&
       command < kNativeSaveSlotBase + LevelSaveSlot_Count()) {
     const std::uint32_t slot = command - kNativeSaveSlotBase;
@@ -1980,6 +2255,11 @@ void InitializeSession() {
     SUA_ConfigureShutdown(shutdownHooks);
     SUA_ArmShutdown();
     g_sessionReady = true;
+    if (g_debugMenuState.configured && !BuildDebugVehicleCatalog()) {
+      Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
+      EndBoundedSession();
+      return;
+    }
     if (g_saveMenuState.configured && _gr_hWnd != nullptr &&
         !InstallNativeSaveMenu()) {
       Report(RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE);
@@ -2802,7 +3082,8 @@ bool RequestSaveSlotInternal(std::uint32_t slot, bool allowOverwrite,
     return false;
   }
   if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
-      g_saveMenuState.crossLevelRestartPending) {
+      g_saveMenuState.crossLevelRestartPending ||
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -2840,7 +3121,8 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
     return false;
   }
   if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
-      g_saveMenuState.crossLevelRestartPending) {
+      g_saveMenuState.crossLevelRestartPending ||
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
     g_saveMenuState.lastError =
         "save directory cannot change while a command is pending";
     return false;
@@ -2867,6 +3149,326 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
   }
   RefreshNativeSaveMenu();
   return true;
+}
+
+bool RecoveredGameServices_ConfigureDebugMenu(
+    bool enabled, const std::vector<std::string>& levelCatalog) {
+  if (g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
+    g_debugMenuState.lastError =
+        "debug menu cannot be reconfigured while a command is pending";
+    return false;
+  }
+  if (enabled && (levelCatalog.empty() ||
+                  levelCatalog.size() > kMaximumNativeDebugLevels)) {
+    g_debugMenuState.lastError =
+        "debug Level catalog is empty or exceeds the native menu limit";
+    return false;
+  }
+  if (enabled) {
+    for (std::size_t index = 0; index < levelCatalog.size(); ++index) {
+      if (levelCatalog[index].empty()) {
+        g_debugMenuState.lastError =
+            "debug Level catalog contains an empty identity";
+        return false;
+      }
+      for (std::size_t previous = 0; previous < index; ++previous) {
+        if (LevelIdentityMatches(levelCatalog[index],
+                                 levelCatalog[previous])) {
+          g_debugMenuState.lastError =
+              "debug Level catalog contains duplicate identities";
+          return false;
+        }
+      }
+    }
+  }
+
+  DestroyNativeSaveMenu();
+  g_debugMenuState = {};
+  g_debugMenuState.configured = enabled;
+  g_debugLevelCatalog = enabled ? levelCatalog
+                                : std::vector<std::string>();
+  g_debugVehicleCatalog.clear();
+  g_debugLevelSwitchRequest = {};
+  if (enabled && g_sessionReady && !BuildDebugVehicleCatalog()) {
+    Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
+    return false;
+  }
+  if (g_sessionReady && _gr_hWnd != nullptr &&
+      g_saveMenuState.configured && !InstallNativeSaveMenu()) {
+    Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
+    return false;
+  }
+  return true;
+}
+
+const SRecoveredDebugMenuState* RecoveredGameServices_DebugMenuState() {
+  return &g_debugMenuState;
+}
+
+std::size_t RecoveredGameServices_DebugVehicleTypeCount() {
+  return g_debugVehicleCatalog.size();
+}
+
+bool RecoveredGameServices_DebugVehicleType(
+    std::size_t index, SRecoveredDebugVehicleType* type) {
+  if (type == nullptr || index >= g_debugVehicleCatalog.size()) return false;
+  *type = g_debugVehicleCatalog[index];
+  return true;
+}
+
+bool RecoveredGameServices_RequestDebugVehicleSpawn(
+    std::size_t index, bool enterVehicle) {
+  if (index >= g_debugVehicleCatalog.size()) {
+    g_debugMenuState.lastError =
+        "debug vehicle catalog index is outside the active Level";
+    return false;
+  }
+  return StageDebugCommand(
+      enterVehicle ? RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE
+                   : RECOVERED_DEBUG_MENU_SPAWN_VEHICLE,
+      index);
+}
+
+bool RecoveredGameServices_RequestDebugShowState() {
+  return StageDebugCommand(RECOVERED_DEBUG_MENU_SHOW_STATE, 0u);
+}
+
+bool RecoveredGameServices_RequestDebugStabilizeVehicle() {
+  return StageDebugCommand(RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE, 0u);
+}
+
+bool RecoveredGameServices_RequestDebugLevelSwitch(std::size_t index) {
+  if (index >= g_debugLevelCatalog.size()) {
+    g_debugMenuState.lastError =
+        "debug Level catalog index is outside the active catalog";
+    return false;
+  }
+  return StageDebugCommand(RECOVERED_DEBUG_MENU_SWITCH_LEVEL, index);
+}
+
+bool RecoveredGameServices_ProcessPendingDebugCommand() {
+  if (!g_debugMenuState.pending) {
+    g_debugMenuState.lastError = "no debug command is pending";
+    return false;
+  }
+  const ERecoveredDebugMenuAction action =
+      g_debugMenuState.pendingAction;
+  const std::size_t index = g_debugMenuState.pendingIndex;
+  g_debugMenuState.pending = false;
+  g_debugMenuState.pendingAction = RECOVERED_DEBUG_MENU_NONE;
+  g_debugMenuState.pendingIndex = 0;
+  g_debugMenuState.lastError.clear();
+  g_debugMenuState.lastAction.clear();
+
+  KR_ObjectID vehicle = g_super.m_context == nullptr
+                            ? KR_ObjectID::NUL()
+                            : g_super.m_context->searchObject(
+                                  "Vehicle.Default");
+  SRecoveredVehicleRuntimeState vehicleState = {};
+  if (g_super.m_context == nullptr || vehicle.isNUL() ||
+      !VehicleRuntimeState_Inspect(
+          g_super.m_context, vehicle, &vehicleState) ||
+      vehicleState.frameBegun) {
+    g_debugMenuState.lastError =
+        "debug command did not reach a closed Vehicle frame boundary";
+    ++g_debugMenuState.failedCommands;
+    RefreshNativeDebugMenu();
+    return false;
+  }
+
+  if (action == RECOVERED_DEBUG_MENU_SHOW_STATE) {
+    const char* attribute = VehicleRuntimeState_AttributeName(
+        g_super.m_context, vehicle);
+    const char* dynamic = VehicleRuntimeState_DynamicName(
+        g_super.m_context, vehicle);
+    std::ostringstream text;
+    text << std::fixed << std::setprecision(3)
+         << "Level: " << ContinuationLevelIdentity() << "\n"
+         << "VehicleAttr: " << (attribute == nullptr ? "<none>" : attribute)
+         << "\nDynamic: " << (dynamic == nullptr ? "<none>" : dynamic)
+         << "\nPosition: " << vehicleState.position.x << ", "
+         << vehicleState.position.y << ", " << vehicleState.position.z
+         << "\nSpeed: " << vehicleState.speed.x << ", "
+         << vehicleState.speed.y << ", " << vehicleState.speed.z
+         << "\nGround contact: " << vehicleState.touchingGround
+         << "\nTaxi types: " << g_debugVehicleCatalog.size();
+    g_debugMenuState.lastAction = "show-state";
+    ++g_debugMenuState.completedCommands;
+    if (_gr_hWnd != nullptr) {
+      const std::wstring wide = Utf8ToWide(text.str());
+      MessageBoxW(_gr_hWnd, wide.c_str(), L"RR2NW debug state",
+                  MB_OK | MB_ICONINFORMATION);
+    }
+    RefreshNativeDebugMenu();
+    return true;
+  }
+
+  if (action == RECOVERED_DEBUG_MENU_SWITCH_LEVEL) {
+    if (index >= g_debugLevelCatalog.size()) {
+      g_debugMenuState.lastError = "debug Level selection is stale";
+    } else {
+      std::vector<std::uint8_t> source;
+      SLevelContinuationSummary sourceSummary;
+      if (!RecoveredGameServices_CaptureLevelContinuation(
+              &source, &sourceSummary)) {
+        g_debugMenuState.lastError =
+            RecoveredGameServices_LastLevelContinuationError();
+      } else {
+        g_debugLevelSwitchRequest = {};
+        g_debugLevelSwitchRequest.ready = true;
+        g_debugLevelSwitchRequest.sourceLevel =
+            ContinuationLevelIdentity();
+        g_debugLevelSwitchRequest.targetLevel =
+            g_debugLevelCatalog[index];
+        g_debugLevelSwitchRequest.sourceContinuation = std::move(source);
+        g_debugLevelSwitchRequest.sourceContinuationSummary = sourceSummary;
+        g_debugMenuState.lastAction = "switch-level-staged";
+        ++g_debugMenuState.levelSwitchRequests;
+        RefreshNativeDebugMenu();
+        return true;
+      }
+    }
+    ++g_debugMenuState.failedCommands;
+    RefreshNativeDebugMenu();
+    return false;
+  }
+
+  std::vector<std::uint8_t> backup;
+  SLevelContinuationSummary backupSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &backup, &backupSummary)) {
+    g_debugMenuState.lastError =
+        RecoveredGameServices_LastLevelContinuationError();
+    ++g_debugMenuState.failedCommands;
+    RefreshNativeDebugMenu();
+    return false;
+  }
+
+  bool completed = false;
+  bool mutationStarted = false;
+  if (action == RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE) {
+    mutationStarted = true;
+    completed = VehicleRuntimeState_DebugStabilize(g_super.m_context);
+    g_debugMenuState.lastAction = "stabilize-vehicle";
+    if (completed) ++g_debugMenuState.stabilizedVehicles;
+    if (!completed)
+      g_debugMenuState.lastError =
+          "Vehicle runtime rejected last-stable-position recovery";
+  } else if (action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE ||
+             action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE) {
+    if (index >= g_debugVehicleCatalog.size()) {
+      g_debugMenuState.lastError = "debug vehicle selection is stale";
+    } else {
+      const SRecoveredDebugVehicleType type =
+          g_debugVehicleCatalog[index];
+      const CFVector3 forward = HorizontalForward(vehicleState.direction);
+      const CFVector3 position =
+          vehicleState.position + forward * 16.0 +
+          CFVector3(0.0, 24.0, 0.0);
+      const double angle = std::atan2(forward.x, forward.z);
+      const double timeStamp =
+          (std::max)(0.1, (std::max)(Session::m_viewTime,
+                                    vehicleState.lastTime));
+      char objectName[64] = {};
+      std::snprintf(objectName, sizeof(objectName), "Debug.Taxi.%04u",
+                    g_debugMenuState.nextObjectOrdinal);
+      KR_ObjectID spawned = KR_ObjectID::NUL();
+      std::string failure;
+      mutationStarted = true;
+      completed = TaxiSubjectState_DebugSpawn(
+          g_super.m_context, type.taxiAttribute.c_str(), objectName,
+          position, angle, timeStamp, &spawned, &failure);
+      if (completed &&
+          action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE) {
+        completed = TaxiSubjectState_DebugTakeVehicle(
+            g_super.m_context, vehicle, spawned, timeStamp, &failure) &&
+                    VehicleRuntimeState_RebaseRestoredOwner(
+                        g_super.m_context);
+      }
+      if (completed) {
+        g_debugMenuState.lastObject = objectName;
+        g_debugMenuState.lastTaxiAttribute = type.taxiAttribute;
+        g_debugMenuState.lastVehicleAttribute = type.vehicleAttribute;
+        ++g_debugMenuState.nextObjectOrdinal;
+        ++g_debugMenuState.spawnedVehicles;
+        if (action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE)
+          ++g_debugMenuState.enteredVehicles;
+        g_debugMenuState.lastAction =
+            action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE
+                ? "spawn-and-enter-vehicle"
+                : "spawn-vehicle";
+      } else {
+        g_debugMenuState.lastError = failure.empty()
+                                         ? "debug vehicle transition failed"
+                                         : failure;
+      }
+    }
+  } else {
+    g_debugMenuState.lastError = "debug command action is invalid";
+  }
+
+  if (!completed && mutationStarted) {
+    ++g_debugMenuState.rollbackAttempts;
+    SLevelContinuationSummary restored;
+    if (RecoveredGameServices_RestoreLevelContinuation(backup, &restored)) {
+      ++g_debugMenuState.rollbackCompletions;
+    } else {
+      const std::string rollbackFailure =
+          RecoveredGameServices_LastLevelContinuationError();
+      if (!g_debugMenuState.lastError.empty())
+        g_debugMenuState.lastError += "; ";
+      g_debugMenuState.lastError += "debug rollback failed: " +
+                                    rollbackFailure;
+      Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
+    }
+  }
+  if (completed)
+    ++g_debugMenuState.completedCommands;
+  else
+    ++g_debugMenuState.failedCommands;
+  RefreshNativeDebugMenu();
+  return completed;
+}
+
+bool RecoveredGameServices_DebugLevelSwitchPending() {
+  return g_debugLevelSwitchRequest.ready;
+}
+
+bool RecoveredGameServices_TakeDebugLevelSwitchRequest(
+    SRecoveredDebugLevelSwitchRequest* request) {
+  if (request == nullptr || !g_debugLevelSwitchRequest.ready) return false;
+  *request = std::move(g_debugLevelSwitchRequest);
+  g_debugLevelSwitchRequest = {};
+  return request->ready;
+}
+
+void RecoveredGameServices_RecordDebugLevelSwitchResult(
+    const SRecoveredDebugLevelSwitchRequest& request,
+    bool committed, bool rollbackAttempted, bool rollbackRestored,
+    const std::string& detail) {
+  g_debugMenuState.currentLevel = ContinuationLevelIdentity();
+  if (committed) {
+    ++g_debugMenuState.completedLevelSwitches;
+    ++g_debugMenuState.completedCommands;
+    g_debugMenuState.lastAction = "switch-level-commit:" +
+                                  request.sourceLevel + "->" +
+                                  request.targetLevel;
+    g_debugMenuState.lastError.clear();
+  } else {
+    ++g_debugMenuState.failedCommands;
+    g_debugMenuState.lastAction = "switch-level-failure:" +
+                                  request.sourceLevel + "->" +
+                                  request.targetLevel;
+    g_debugMenuState.lastError =
+        detail.empty() ? "debug Level switch failed" : detail;
+    if (rollbackAttempted) {
+      if (rollbackRestored)
+        ++g_debugMenuState.levelSwitchRollbacks;
+      else
+        ++g_debugMenuState.levelSwitchRollbackFailures;
+    }
+  }
+  RefreshNativeDebugMenu();
 }
 
 bool RecoveredGameServices_RequestSaveSlot(
@@ -2896,7 +3498,8 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
     return false;
   }
   if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
-      g_saveMenuState.crossLevelRestartPending) {
+      g_saveMenuState.crossLevelRestartPending ||
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -3436,6 +4039,14 @@ int RecoveredGameServices_RunFrame() {
     return FALSE;
   }
   RecordPrimaryFireRenderFrame();
+  // Debug mutations share the same fully closed boundary as save/load and
+  // are processed first so a later save request can only observe a committed
+  // debug world. WM_COMMAND itself merely stages the operation.
+  if (g_debugMenuState.pending &&
+      !RecoveredGameServices_ProcessPendingDebugCommand() &&
+      !g_debugMenuState.pending) {
+    ShowNativeDebugFailure();
+  }
   // Save/load owns the last boundary of a fully simulated, rendered and
   // presented frame. In particular, every drawable Subject has received its
   // endRender callback before LCN1 attempts to capture the live-world backup.

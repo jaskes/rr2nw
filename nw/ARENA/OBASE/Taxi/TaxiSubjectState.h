@@ -1,7 +1,11 @@
 #ifndef RR2NW_TAXI_SUBJECT_STATE_H
 #define RR2NW_TAXI_SUBJECT_STATE_H
 
+#include <string>
+#include <vector>
+
 #include "kernel/h/krtypes.h"
+#include "mathlib.h"
 
 class SimulationContext;
 
@@ -35,6 +39,15 @@ struct STaxiVehicleProximityState
     int nearbyTaxis;
 };
 
+// Debug tooling deliberately exposes the same Level-local TaxiAttr ->
+// VehicleAttr mapping consumed by the retail transition path.  It does not
+// invent a parallel vehicle registry or accept arbitrary object identifiers.
+struct STaxiDebugVehicleType
+{
+    std::string taxiAttribute;
+    std::string vehicleAttribute;
+};
+
 void TaxiSubjectState_Link();
 bool TaxiSubjectState_TableReady(SimulationContext *context,
                                  int expectedCapacity);
@@ -57,5 +70,18 @@ bool TaxiSubjectState_InspectVehicleProximity(
 KR_ObjectID TaxiSubjectState_FirstObject(SimulationContext *context);
 KR_ObjectID TaxiSubjectState_FirstPanelVehicleObject(
     SimulationContext *context);
+bool TaxiSubjectState_DebugVehicleCatalog(
+    SimulationContext *context,
+    std::vector<STaxiDebugVehicleType> *catalog,
+    std::string *failure);
+bool TaxiSubjectState_DebugSpawn(
+    SimulationContext *context, const char *taxiAttribute,
+    const char *objectName, const CFVector3 &position,
+    double angle, double timeStamp, KR_ObjectID *spawned,
+    std::string *failure);
+bool TaxiSubjectState_DebugTakeVehicle(
+    SimulationContext *context, const KR_ObjectID &vehicle,
+    const KR_ObjectID &taxi, double timeStamp,
+    std::string *failure);
 
 #endif

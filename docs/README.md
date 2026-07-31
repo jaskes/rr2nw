@@ -30,6 +30,8 @@
 - [WindowsPackage.md](WindowsPackage.md) documents the standalone production-
   parser mod validator, deterministic Windows ZIP/SHA-256 gate and package-
   bound Win10/Win11 manual campaign ledger.
+- [DebugMenu.md](DebugMenu.md) documents the opt-in native Windows debug menu,
+  real Level-local Vehicle spawning and its closed-frame rollback contract.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где
   исторические источники или возможные реализации расходятся.
 

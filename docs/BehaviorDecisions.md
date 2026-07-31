@@ -4164,3 +4164,25 @@ smokes do not mark gameplay, presentation or focus cases as human passes. The
 current Windows 10 host may prove automated package operation, but the M5/RC
 manual gate remains open until all Windows 10 and Windows 11 rows pass against
 one clean, non-dirty candidate.
+
+## BD-108: debug UI stages real world commands at the closed frame boundary
+
+Status: first command set accepted on 2026-08-01.
+
+The debug menu is opt-in through `--debug-menu`; ordinary startup exposes no
+Debug menu and changes no gameplay state. Its Vehicle catalog is built from
+the active Level's resolved `TaxiAttr -> VehicleAttr` graph. It must not use a
+hard-coded list, synthetic renderer-only object or a second simulation.
+
+Win32 `WM_COMMAND` owns no world mutation. It stages one typed request, which
+executes only after simulation, render callbacks and presentation have closed
+the frame. Save/load and debug requests exclude one another. Mutating commands
+capture LCN1 first and restore the complete world on partial failure. Debug
+Level switching is coordinated above Level teardown and rolls the source
+continuation back if the target cannot start.
+
+Spawn names are deterministic (`Debug.Taxi.NNNN`) so saves and diagnostics can
+identify them. Raw event labels, arbitrary ObjectIDs and forced death remain
+unavailable. The latter is specifically blocked while the legacy dead-camera
+path can call `exit(0)`; debug tooling must expose defects, not convert them
+into apparently intentional process termination.

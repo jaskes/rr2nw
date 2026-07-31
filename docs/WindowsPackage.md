@@ -89,3 +89,12 @@ The current acceptance areas on each OS are base boot, example mod, window /
 focus / DPI, input, presentation, representative vehicles, campaign mission /
 portal / death, multi-world save/load and diagnostic evidence. Completion is a
 human RC gate against the unpacked artifact; it is not inferred from CTest.
+
+## Development debug menu
+
+Package candidates include [DebugMenu.md](DebugMenu.md). Launching the game
+with `--debug-menu` adds the opt-in native Debug menu for real Level-local
+Vehicle spawn/enter, current-state inspection, stabilization and transactional
+fresh Level switching. It is intended to shorten manual reproduction; using a
+debug command does not by itself pass a campaign row. Record the exact package
+manifest hash and the command sequence in the row notes.
