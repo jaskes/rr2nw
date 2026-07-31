@@ -39,6 +39,7 @@ struct VehicleRuntimeOwner
     CFMatrix3x4 savedDirection;
     CFVector3 frameStartPosition;
     CFVector3 frameStartSubjectPosition;
+    CFVector3 frameStartSpeed;
     CFMatrix3x4 frameStartDirection;
     CFVector3 lastStablePosition;
     double savedLastTime;
@@ -54,6 +55,7 @@ struct VehicleRuntimeOwner
     int dynamicCollisionFrameCount;
     int stabilityRecoveryCount;
     int lastStabilityReason;
+    SRecoveredVehicleStabilityTelemetry stabilityTelemetry;
     bool active;
     bool frameBegun;
     bool frameStartValid;
@@ -67,6 +69,7 @@ struct VehicleRuntimeOwner
           savedSpeed(0.0, 0.0, 0.0),
           frameStartPosition(0.0, 0.0, 0.0),
           frameStartSubjectPosition(0.0, 0.0, 0.0),
+          frameStartSpeed(0.0, 0.0, 0.0),
           lastStablePosition(0.0, 0.0, 0.0), savedLastTime(0.0),
           savedCurrentTime(0.0), savedViewTime(0.0), lastTime(0.0),
           advanceCount(0), controlEventCount(0), lastBumpFlags(BF_NONE),
@@ -79,6 +82,7 @@ struct VehicleRuntimeOwner
     {
         savedDirection.LoadIdentity();
         frameStartDirection.LoadIdentity();
+        std::memset(&stabilityTelemetry, 0, sizeof(stabilityTelemetry));
     }
 };
 
@@ -161,6 +165,7 @@ void ClearOwner()
     g_owner.savedDirection.LoadIdentity();
     g_owner.frameStartPosition = CFVector3(0.0, 0.0, 0.0);
     g_owner.frameStartSubjectPosition = CFVector3(0.0, 0.0, 0.0);
+    g_owner.frameStartSpeed = CFVector3(0.0, 0.0, 0.0);
     g_owner.frameStartDirection.LoadIdentity();
     g_owner.lastStablePosition = CFVector3(0.0, 0.0, 0.0);
     g_owner.savedLastTime = 0.0;
@@ -176,6 +181,8 @@ void ClearOwner()
     g_owner.dynamicCollisionFrameCount = 0;
     g_owner.stabilityRecoveryCount = 0;
     g_owner.lastStabilityReason = RECOVERED_VEHICLE_STABILITY_NONE;
+    std::memset(&g_owner.stabilityTelemetry, 0,
+                sizeof(g_owner.stabilityTelemetry));
     g_owner.active = false;
     g_owner.frameBegun = false;
     g_owner.frameStartValid = false;
@@ -311,10 +318,12 @@ bool CaptureFrameStart()
         return false;
     g_owner.frameStartPosition = g_owner.vehicle->Pos();
     g_owner.frameStartSubjectPosition = g_owner.vehicle->getPosition();
+    g_owner.frameStartSpeed = g_owner.vehicle->Speed();
     g_owner.frameStartDirection = g_owner.vehicle->GetDir();
     g_owner.frameStartValid =
         FiniteVector(g_owner.frameStartPosition) &&
         FiniteVector(g_owner.frameStartSubjectPosition) &&
+        FiniteVector(g_owner.frameStartSpeed) &&
         FiniteMatrix(g_owner.frameStartDirection) &&
         MaximumAbsoluteComponent(g_owner.vehicle->Speed()) <=
             kMaximumStableSpeedComponent &&
@@ -401,7 +410,46 @@ bool StabilizeCompletedFrame(double targetTime)
 {
     const int issue = CompletedFrameStabilityIssue();
     if (issue != RECOVERED_VEHICLE_STABILITY_NONE)
+    {
+        AttributeVehicle *attribute = ResolveAttribute(g_owner.vehicle);
+        SRecoveredVehicleStabilityTelemetry &telemetry =
+            g_owner.stabilityTelemetry;
+        telemetry.recoveryCount = g_owner.stabilityRecoveryCount + 1;
+        telemetry.lastReason = issue;
+        telemetry.vesselKind = VesselKind(attribute);
+        telemetry.bumpFlags = VesselBumpFlags(attribute);
+        telemetry.touchingGround = VesselTouchesGround(attribute) ? 1 : 0;
+        telemetry.frameStartTime = g_owner.lastTime;
+        telemetry.rejectedTime = g_owner.vehicle == NULL
+                                     ? g_owner.lastTime
+                                     : g_owner.vehicle->m_lastTime;
+        telemetry.requestedTargetTime = targetTime;
+        telemetry.frameStartPosition = g_owner.frameStartPosition;
+        telemetry.frameStartSpeed = g_owner.frameStartSpeed;
+        telemetry.rejectedPosition = g_owner.vehicle == NULL
+                                         ? g_owner.frameStartPosition
+                                         : g_owner.vehicle->Pos();
+        telemetry.rejectedSpeed = g_owner.vehicle == NULL
+                                      ? g_owner.frameStartSpeed
+                                      : g_owner.vehicle->Speed();
+        SRecoveredWheelsSurfaceTelemetry surface = {};
+        if (attribute != NULL && RecoveredVehicleVesselWheelsSurface(
+                                     attribute->m_dynamic, &surface))
+        {
+            telemetry.groundX = surface.groundX;
+            telemetry.groundY = surface.groundY;
+            telemetry.groundZ = surface.groundZ;
+            telemetry.groundLength = surface.groundLength;
+            telemetry.forwardTangentLength =
+                surface.forwardTangentLength;
+            telemetry.rightTangentLength = surface.rightTangentLength;
+            telemetry.tangentDot = surface.tangentDot;
+            telemetry.suspensionTravel = surface.suspensionTravel;
+            telemetry.accelerationFactor = surface.accelerationFactor;
+            telemetry.throttle = surface.throttle;
+        }
         return RestoreStableFrame(issue, targetTime);
+    }
     g_owner.lastStablePosition = g_owner.vehicle->Pos();
     g_owner.lastStableValid = true;
     return true;
@@ -518,6 +566,17 @@ bool VehicleRuntimeState_Inspect(
 {
     Vehicle *resolved = ResolveVehicle(context, vehicle);
     return resolved != NULL && ReadState(resolved, state);
+}
+
+bool VehicleRuntimeState_InspectStability(
+    SimulationContext *context,
+    SRecoveredVehicleStabilityTelemetry *telemetry)
+{
+    if (telemetry == NULL || !g_owner.active || context == NULL ||
+        g_owner.context != context)
+        return false;
+    *telemetry = g_owner.stabilityTelemetry;
+    return true;
 }
 
 const char *VehicleRuntimeState_AttributeName(
@@ -1201,11 +1260,14 @@ bool VehicleRuntimeState_ProbeMovement(
                     VehicleRuntimeState_CompleteFrame(context, currentTime);
     }
     SRecoveredVehicleRuntimeState recovered = {};
+    SRecoveredVehicleStabilityTelemetry recoveryTelemetry = {};
     CFMatrix3x4 recoveredCamera;
     if (succeeded)
     {
         succeeded = VehicleRuntimeState_Inspect(
                         context, vehicle, &recovered) &&
+                    VehicleRuntimeState_InspectStability(
+                        context, &recoveryTelemetry) &&
                     recovered.active && !recovered.frameBegun &&
                     recovered.stabilityRecoveryCount ==
                         recoveriesBeforeInjectedImpulse + 1 &&
@@ -1216,6 +1278,20 @@ bool VehicleRuntimeState_ProbeMovement(
                     NearlyEqual(recovered.position, moved.position, 1.0e-5) &&
                     NearlyEqual(recovered.speed,
                                 CFVector3(0.0, 0.0, 0.0), 1.0e-5) &&
+                    recoveryTelemetry.recoveryCount ==
+                        recovered.stabilityRecoveryCount &&
+                    recoveryTelemetry.lastReason ==
+                        recovered.lastStabilityReason &&
+                    recoveryTelemetry.vesselKind == recovered.vesselKind &&
+                    NearlyEqual(recoveryTelemetry.frameStartPosition,
+                                moved.position, 1.0e-5) &&
+                    FiniteVector(recoveryTelemetry.frameStartSpeed) &&
+                    FiniteVector(recoveryTelemetry.rejectedPosition) &&
+                    FiniteVector(recoveryTelemetry.rejectedSpeed) &&
+                    NearlyEqual(recoveryTelemetry.frameStartTime,
+                                currentTime - 0.025, 1.0e-5) &&
+                    NearlyEqual(recoveryTelemetry.requestedTargetTime,
+                                currentTime, 1.0e-5) &&
                     VehicleRuntimeState_BuildCamera(
                         context, &recoveredCamera);
         if (succeeded)

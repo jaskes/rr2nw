@@ -1186,9 +1186,13 @@ while amplifying speed to astronomical values and pulling the Vehicle camera
 through the world before fallback. Completed Vehicle frames now restore and
 stop at their pre-step pose without surrendering input/camera ownership; Taxi
 replacement refreshes that pose after handoff, diagnostics publish the reason,
-and the admission probe forces one real recovery. The primary Wheels
-reflection/penetration cause remains a later physics refinement, with the
-crowded station route recorded as its manual reproduction.
+and the admission probe forces one real recovery. The first primary cause is
+now removed: both legacy vessel types use the complete accumulated frame time
+when converting segmented input displacement into collision-sweep velocity.
+The formerly failing Debug Level.04D X/W boundary completes with zero recovery,
+and any future recovery records its rejected pose, speed, surface basis and
+control state before rollback. Crowded Taxi/dynamic-contact play remains a
+manual acceptance route for finding independent solver faults.
 
 Explicit hit/damage/death records should still be added only where source
 inspection finds a queued transition; current synchronous paths already

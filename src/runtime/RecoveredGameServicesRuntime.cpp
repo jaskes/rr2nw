@@ -1342,6 +1342,57 @@ void UpdateVehicleDriveTelemetry(
   g_vehicleDriveTelemetry.stabilityRecoveries = static_cast<unsigned int>(
       (std::max)(state.stabilityRecoveryCount, 0));
   g_vehicleDriveTelemetry.lastStabilityReason = state.lastStabilityReason;
+  SRecoveredVehicleStabilityTelemetry recovery = {};
+  if (VehicleRuntimeState_InspectStability(
+          g_super.m_context, &recovery)) {
+    g_vehicleDriveTelemetry.recoveryVesselKind = recovery.vesselKind;
+    g_vehicleDriveTelemetry.recoveryBumpFlags = recovery.bumpFlags;
+    g_vehicleDriveTelemetry.recoveryTouchingGround =
+        recovery.touchingGround;
+    g_vehicleDriveTelemetry.recoveryFrameStartTime =
+        recovery.frameStartTime;
+    g_vehicleDriveTelemetry.recoveryRejectedTime = recovery.rejectedTime;
+    g_vehicleDriveTelemetry.recoveryTargetTime =
+        recovery.requestedTargetTime;
+    g_vehicleDriveTelemetry.recoveryFrameStartPositionX =
+        recovery.frameStartPosition.x;
+    g_vehicleDriveTelemetry.recoveryFrameStartPositionY =
+        recovery.frameStartPosition.y;
+    g_vehicleDriveTelemetry.recoveryFrameStartPositionZ =
+        recovery.frameStartPosition.z;
+    g_vehicleDriveTelemetry.recoveryFrameStartSpeedX =
+        recovery.frameStartSpeed.x;
+    g_vehicleDriveTelemetry.recoveryFrameStartSpeedY =
+        recovery.frameStartSpeed.y;
+    g_vehicleDriveTelemetry.recoveryFrameStartSpeedZ =
+        recovery.frameStartSpeed.z;
+    g_vehicleDriveTelemetry.recoveryRejectedPositionX =
+        recovery.rejectedPosition.x;
+    g_vehicleDriveTelemetry.recoveryRejectedPositionY =
+        recovery.rejectedPosition.y;
+    g_vehicleDriveTelemetry.recoveryRejectedPositionZ =
+        recovery.rejectedPosition.z;
+    g_vehicleDriveTelemetry.recoveryRejectedSpeedX =
+        recovery.rejectedSpeed.x;
+    g_vehicleDriveTelemetry.recoveryRejectedSpeedY =
+        recovery.rejectedSpeed.y;
+    g_vehicleDriveTelemetry.recoveryRejectedSpeedZ =
+        recovery.rejectedSpeed.z;
+    g_vehicleDriveTelemetry.recoveryGroundX = recovery.groundX;
+    g_vehicleDriveTelemetry.recoveryGroundY = recovery.groundY;
+    g_vehicleDriveTelemetry.recoveryGroundZ = recovery.groundZ;
+    g_vehicleDriveTelemetry.recoveryGroundLength = recovery.groundLength;
+    g_vehicleDriveTelemetry.recoveryForwardTangentLength =
+        recovery.forwardTangentLength;
+    g_vehicleDriveTelemetry.recoveryRightTangentLength =
+        recovery.rightTangentLength;
+    g_vehicleDriveTelemetry.recoveryTangentDot = recovery.tangentDot;
+    g_vehicleDriveTelemetry.recoverySuspensionTravel =
+        recovery.suspensionTravel;
+    g_vehicleDriveTelemetry.recoveryAccelerationFactor =
+        recovery.accelerationFactor;
+    g_vehicleDriveTelemetry.recoveryThrottle = recovery.throttle;
+  }
 }
 
 unsigned int NonNegativeDifference(int current, int baseline) {

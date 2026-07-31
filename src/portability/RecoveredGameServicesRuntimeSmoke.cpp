@@ -3721,16 +3721,20 @@ int main(int argc, char** argv) {
   }
   SRecoveredVehicleRuntimeState vehicleStopped = {};
   if (!IsVehicleControlActive(vehicleID, &vehicleStopped) ||
-      horizontalSpeedBeforeStop <= 1.0e-6) {
+      horizontalSpeedBeforeStop <= 1.0e-6 ||
+      HorizontalSpeed(vehicleStopped) > 64.0 ||
+      vehicleStopped.stabilityRecoveryCount != 0) {
     std::fprintf(stderr,
                  "vehicle-stop diagnostics before=%.12f immediate=%.12f "
-                 "after_world=%.12f\n",
+                 "after_world=%.12f stability=%d/%d\n",
                  horizontalSpeedBeforeStop,
                  HorizontalSpeed(vehicleStopCommand),
-                 HorizontalSpeed(vehicleStopped));
+                 HorizontalSpeed(vehicleStopped),
+                 vehicleStopped.stabilityRecoveryCount,
+                 vehicleStopped.lastStabilityReason);
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("X did not stop the live Vehicle");
+    return Fail("X did not keep the partitioned Vehicle frame bounded");
   }
 
   if (!SendHardwareButton("W", TRUE) ||
@@ -4011,6 +4015,9 @@ int main(int argc, char** argv) {
       vehicleDriveTelemetry.stabilityRecoveries != 0 ||
       vehicleDriveTelemetry.lastStabilityReason !=
           RECOVERED_VEHICLE_STABILITY_NONE) {
+    SRecoveredVehicleStabilityTelemetry stability = {};
+    const bool stabilityInspected =
+        VehicleRuntimeState_InspectStability(g_super.m_context, &stability);
     std::fprintf(stderr,
                  "vehicle-visual-suite diagnostics ready=%d fallback=%d "
                  "reason=%u input=%u forwarded=%u housekeeping=%u ignored=%u "
@@ -4052,6 +4059,38 @@ int main(int argc, char** argv) {
                  vehicleDriveTelemetry.dynamicCollisionFrames,
                  vehicleDriveTelemetry.stabilityRecoveries,
                  vehicleDriveTelemetry.lastStabilityReason);
+    std::fprintf(stderr,
+                 "vehicle-stability-frame inspected=%d count=%d reason=%d "
+                 "kind=%d bump=%d ground=%d time=%.9f/%.9f/%.9f "
+                 "start_pos=%.9f/%.9f/%.9f start_speed=%.9f/%.9f/%.9f "
+                 "rejected_pos=%.9f/%.9f/%.9f "
+                 "rejected_speed=%.9f/%.9f/%.9f "
+                 "ground=%.9f/%.9f/%.9f len=%.9f "
+                 "tangent=%.9f/%.9f dot=%.9f suspension=%.9f "
+                 "accel_factor=%.9f throttle=%.9f\n",
+                 stabilityInspected ? 1 : 0, stability.recoveryCount,
+                 stability.lastReason, stability.vesselKind,
+                 stability.bumpFlags, stability.touchingGround,
+                 stability.frameStartTime, stability.rejectedTime,
+                 stability.requestedTargetTime,
+                 stability.frameStartPosition.x,
+                 stability.frameStartPosition.y,
+                 stability.frameStartPosition.z,
+                 stability.frameStartSpeed.x,
+                 stability.frameStartSpeed.y,
+                 stability.frameStartSpeed.z,
+                 stability.rejectedPosition.x,
+                 stability.rejectedPosition.y,
+                 stability.rejectedPosition.z,
+                 stability.rejectedSpeed.x,
+                 stability.rejectedSpeed.y,
+                 stability.rejectedSpeed.z,
+                 stability.groundX, stability.groundY, stability.groundZ,
+                 stability.groundLength,
+                 stability.forwardTangentLength,
+                 stability.rightTangentLength, stability.tangentDot,
+                 stability.suspensionTravel,
+                 stability.accelerationFactor, stability.throttle);
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("live Vehicle control did not survive the visual frame suite");

@@ -1991,6 +1991,54 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                   vehicleTelemetry.stabilityRecoveries));
     log.Line("vehicle_last_stability_reason=" + std::to_string(
                   vehicleTelemetry.lastStabilityReason));
+    if (vehicleTelemetry.stabilityRecoveries != 0) {
+      log.Line("vehicle_recovery_identity=" + std::to_string(
+                   vehicleTelemetry.recoveryVesselKind) + "," +
+               std::to_string(vehicleTelemetry.recoveryBumpFlags) + "," +
+               std::to_string(
+                   vehicleTelemetry.recoveryTouchingGround));
+      log.Line("vehicle_recovery_times=" + std::to_string(
+                   vehicleTelemetry.recoveryFrameStartTime) + "," +
+               std::to_string(vehicleTelemetry.recoveryRejectedTime) + "," +
+               std::to_string(vehicleTelemetry.recoveryTargetTime));
+      log.Line("vehicle_recovery_start_position=" + std::to_string(
+                   vehicleTelemetry.recoveryFrameStartPositionX) + "," +
+               std::to_string(
+                   vehicleTelemetry.recoveryFrameStartPositionY) + "," +
+               std::to_string(
+                   vehicleTelemetry.recoveryFrameStartPositionZ));
+      log.Line("vehicle_recovery_start_speed=" + std::to_string(
+                   vehicleTelemetry.recoveryFrameStartSpeedX) + "," +
+               std::to_string(vehicleTelemetry.recoveryFrameStartSpeedY) +
+               "," + std::to_string(
+                   vehicleTelemetry.recoveryFrameStartSpeedZ));
+      log.Line("vehicle_recovery_rejected_position=" + std::to_string(
+                   vehicleTelemetry.recoveryRejectedPositionX) + "," +
+               std::to_string(
+                   vehicleTelemetry.recoveryRejectedPositionY) + "," +
+               std::to_string(
+                   vehicleTelemetry.recoveryRejectedPositionZ));
+      log.Line("vehicle_recovery_rejected_speed=" + std::to_string(
+                   vehicleTelemetry.recoveryRejectedSpeedX) + "," +
+               std::to_string(vehicleTelemetry.recoveryRejectedSpeedY) +
+               "," + std::to_string(
+                   vehicleTelemetry.recoveryRejectedSpeedZ));
+      log.Line("vehicle_recovery_ground=" + std::to_string(
+                   vehicleTelemetry.recoveryGroundX) + "," +
+               std::to_string(vehicleTelemetry.recoveryGroundY) + "," +
+               std::to_string(vehicleTelemetry.recoveryGroundZ) + "," +
+               std::to_string(vehicleTelemetry.recoveryGroundLength));
+      log.Line("vehicle_recovery_tangents=" + std::to_string(
+                   vehicleTelemetry.recoveryForwardTangentLength) + "," +
+               std::to_string(
+                   vehicleTelemetry.recoveryRightTangentLength) + "," +
+               std::to_string(vehicleTelemetry.recoveryTangentDot));
+      log.Line("vehicle_recovery_controls=" + std::to_string(
+                   vehicleTelemetry.recoverySuspensionTravel) + "," +
+               std::to_string(
+                   vehicleTelemetry.recoveryAccelerationFactor) + "," +
+               std::to_string(vehicleTelemetry.recoveryThrottle));
+    }
   }
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"

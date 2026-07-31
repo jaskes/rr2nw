@@ -3719,3 +3719,45 @@ dialog pass that inspects the Load preview, cancels without mutation and
 commits an empty Save slot through the broker. Cross-process synthetic edit
 messages are not accepted as keyboard proof, so Cyrillic entry/read-back is an
 explicit manual 1.0 acceptance step.
+
+## BD-097: preserve accumulated frame time across Vehicle input partitions
+
+Status: accepted on 2026-07-31.
+
+The remaining Debug Level.04D continuation failure happened before save/load
+and before the synthetic visual-effect suite. Control and camera ownership
+were intact, no dynamic collision was reported and the completed-frame guard
+contained one finite `EXCESSIVE_SPEED` result. Rejected-frame inspection
+showed a normal finite terrain basis and a released external action journal;
+the runaway began around the test's `X` stop and `W` release boundary.
+
+`BeginPreStep()` clears one frame accumulator. Each accepted control event may
+then call `AccumPreStep()` for the elapsed portion before changing throttle,
+turn or stop state, and final `UpdatePos()` accumulates the remaining portion.
+Legacy `CVesselWheels::PreStep()` and `CVesselEmv::PreStep()` nevertheless
+divided the resulting whole-frame `m_offset` by only that final function
+argument and overwrote `m_fStepTime` with it. When an event landed near the end
+of a Debug frame, ordinary displacement was divided by roughly three
+milliseconds: the observed Level.04D sequence rose from a normal retail speed
+to components near 162, then 1709 and finally the 2048 guard.
+
+Both vessel implementations now derive collision-sweep velocity and duration
+from the already accumulated `m_fStepTime`. Input ordering, legacy acceleration
+and collision response are unchanged; only numerator and denominator again
+describe the same interval. The direct Level.04D proof completes all 42 live
+Vehicle/effect frames with zero recovery. Its stop regression additionally
+requires a bounded post-command horizontal speed and no stability recovery,
+so weakening or relying on the rollback cannot make the test pass.
+
+The rollback from BD-094 remains the final safety boundary. When it is ever
+used, diagnostics retain the rejected frame's times, vessel/contact identity,
+start and rejected pose/speed, terrain normal/tangent quality, suspension,
+acceleration factor and throttle. These fields are copied before restart and
+written to the Windows log after shutdown, making the next primary solver bug
+inspectable without accepting its state.
+
+The accepted Windows gate is 59/59 CTest in both Debug and Release, 18/18
+fresh-Level continuation cases and 18/18 ordinary executable cases across all
+nine installed retail Levels. The native Save-slot UX and cross-Level load
+proofs additionally pass 2/2 each, and ten consecutive direct Debug Level.04D
+service runs complete without a recurrence.

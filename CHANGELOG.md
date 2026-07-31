@@ -7,6 +7,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added rejected-frame Vehicle telemetry for any contained stability recovery:
+  frame/target times, vessel/contact identity, start/rejected pose and speed,
+  terrain basis, suspension, acceleration factor and throttle now survive the
+  rollback and are written to the Windows diagnostic log.
 - Moved native save/load execution to the end of a fully simulated, ended and
   presented frame. Transient open-publication failures now retain one bounded
   request and retry without a second click or intermediate error dialog.
@@ -720,6 +724,16 @@ claim authorship of inherited Logos code or retail data.
 - Added a direct WAV catalog smoke and expanded Arena/service/executable
   contracts to cover missing/corrupt WAV and Smoker input, reconstruction and
   all nine installed/mounted retail identities.
+
+### Fixed
+
+- Fixed mid-frame Vehicle input partitioning in both `CVesselWheels` and
+  `CVesselEmv`. Their collision sweep had divided an offset accumulated across
+  the whole frame by only the final time slice after a control event; on
+  Level.04D an `X`/`W` boundary turned ordinary movement into speeds of 162,
+  then 1709 and an `EXCESSIVE_SPEED` rollback. Sweep velocity and duration now
+  use the same accumulated frame interval, while the rollback remains as a
+  diagnostic safety net.
 
 ### Changed
 

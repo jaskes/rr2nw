@@ -924,6 +924,12 @@ Retail scripts нельзя молча копировать поверх source 
   existing `STOP_VEHICLE` action. The proof drives forward, steers right over
   twelve physical steps and verifies a changed vessel direction, then proves X
   reduces horizontal speed through the real `CVesselWheels::Stop()` path.
+- Mid-frame commands partition one physical frame without changing its total
+  interval. `CVesselWheels` and `CVesselEmv` now divide the offset accumulated
+  by every `AccumPreStep()` segment by the same accumulated `m_fStepTime` used
+  for the collision sweep. The Level.04D regression requires the X/W boundary
+  to stay below 64 horizontal units with zero completed-frame recovery; the
+  former final-slice denominator produced components of 162 and 1709.
 - Focus loss delivers zero for every held continuous action. Inactive mapped
   actions are counted and suppressed; focus gain requires new input. The exact
   proof result is `26/11/13/0`, focus loss/gain `1/1`, one synthetic release,

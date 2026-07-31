@@ -50,3 +50,44 @@ bool RecoveredVehicleVesselTouchesGround(const char *dynamic)
         return g_tank.TouchingGround();
     return false;
 }
+
+bool RecoveredVehicleVesselWheelsSurface(
+    const char *dynamic, SRecoveredWheelsSurfaceTelemetry *telemetry)
+{
+    if (telemetry == NULL)
+        return false;
+    std::memset(telemetry, 0, sizeof(*telemetry));
+    if (dynamic == NULL)
+        return false;
+    const CVesselWheels *wheels = NULL;
+    if (std::strcmp(dynamic, "TankGenn0") == 0 ||
+        std::strcmp(dynamic, "Dead") == 0)
+        wheels = &g_walk;
+    else if (std::strcmp(dynamic, "TankGenn1") == 0 ||
+             std::strcmp(dynamic, "TankGenn2") == 0 ||
+             std::strcmp(dynamic, "TankGenn3") == 0)
+        wheels = &g_tank;
+    if (wheels == NULL)
+        return false;
+
+    const CFVector3 ground = wheels->GroundNormal();
+    const CFMatrix3x4 &base = wheels->BaseDirection();
+    const CFVector3 forwardAxis(base.m[2][2], 0.0, -base.m[2][0]);
+    const CFVector3 rightAxis(-base.m[0][2], 0.0, base.m[0][0]);
+    const CFVector3 forwardTangent = ground % forwardAxis;
+    const CFVector3 rightTangent = ground % rightAxis;
+    const CFVector3 forwardNormal = Normal(forwardTangent);
+    const CFVector3 rightNormal = Normal(rightTangent);
+    telemetry->ready = 1;
+    telemetry->groundX = ground.x;
+    telemetry->groundY = ground.y;
+    telemetry->groundZ = ground.z;
+    telemetry->groundLength = Abs(ground);
+    telemetry->forwardTangentLength = Abs(forwardTangent);
+    telemetry->rightTangentLength = Abs(rightTangent);
+    telemetry->tangentDot = forwardNormal * rightNormal;
+    telemetry->suspensionTravel = wheels->SuspensionTravel();
+    telemetry->accelerationFactor = wheels->AccelerationFactor();
+    telemetry->throttle = wheels->ThrottleValue();
+    return true;
+}

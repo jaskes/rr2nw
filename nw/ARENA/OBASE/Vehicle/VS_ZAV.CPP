@@ -571,9 +571,13 @@ void	CVesselEmv::PreStep(double fDeltaT)
 	//ASSERT(fDeltaT>=0&&fDeltaT<2);
 
 	m_bump.start = m_position;
-	m_bump.vel = m_offset/(fDeltaT>1e-10?fDeltaT:1e-10);
+	// Input events may split one frame into several AccumPreStep segments.
+	// m_offset spans all of them, so the collision sweep must use their
+	// accumulated duration instead of only the final segment after an event.
+	const double fFrameDeltaT = m_fStepTime;
+	m_bump.vel = m_offset/(fFrameDeltaT>1e-10?fFrameDeltaT:1e-10);
 	//m_bump.vel = m_speed;
-	m_bump.fTime = m_fStepTime = fDeltaT;
+	m_bump.fTime = fFrameDeltaT;
 	//m_bump.fRadius = 2;
 	m_bump.fRadius = m_fBumpRadius;
 	#ifdef __VESSEL_IGNORE_MASTER
@@ -1609,8 +1613,11 @@ void	CVesselWheels::PreStep(double fDeltaT)
 	} // jump processing
 
 	m_bump.start = m_position+CFVector3(0,m_attr->fStepUp*m_fAccelFactor,0);
-	m_bump.vel = m_offset/(fDeltaT>1e-10?fDeltaT:1e-10);
-	m_bump.fTime = m_fStepTime = fDeltaT;
+	// Keep the sweep velocity and duration on the same full-frame interval as
+	// the offset accumulated across mid-frame control events.
+	const double fFrameDeltaT = m_fStepTime;
+	m_bump.vel = m_offset/(fFrameDeltaT>1e-10?fFrameDeltaT:1e-10);
+	m_bump.fTime = fFrameDeltaT;
 	m_bump.fRadius = m_fBumpRadius;
 	m_bump.nBumpFlags = 0;
 	m_bump.dwFlags1 = BF1_ADVANCED;

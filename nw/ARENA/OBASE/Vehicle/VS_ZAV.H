@@ -808,6 +808,11 @@ public:
 	TCCFVector3 Pos() { return m_position+m_base.MultTF(HeadOffset()); }
 	TCCFVector3 Speed() { return m_speed; }
 	bool TouchingGround() const { return m_bTouchGround; }
+	TCCFVector3 GroundNormal() const { return m_groundNormal; }
+	TCCFMatrix3x4 &BaseDirection() const { return m_base; }
+	double SuspensionTravel() const { return m_fRessoreWay; }
+	double AccelerationFactor() const { return m_fAccelFactor; }
+	double ThrottleValue() const { return m_fThrottle; }
 	void ApplyImpulse(TCCFVector3 &impulse, double factor) {
 		m_speed += impulse*(factor/m_attr->fMass);
 	}

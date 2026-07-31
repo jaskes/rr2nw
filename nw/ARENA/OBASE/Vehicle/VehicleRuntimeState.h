@@ -62,11 +62,40 @@ struct SRecoveredVehicleMovementProbeSummary
     double horizontalDistance;
 };
 
+struct SRecoveredVehicleStabilityTelemetry
+{
+    int recoveryCount;
+    int lastReason;
+    int vesselKind;
+    int bumpFlags;
+    int touchingGround;
+    double frameStartTime;
+    double rejectedTime;
+    double requestedTargetTime;
+    CFVector3 frameStartPosition;
+    CFVector3 frameStartSpeed;
+    CFVector3 rejectedPosition;
+    CFVector3 rejectedSpeed;
+    double groundX;
+    double groundY;
+    double groundZ;
+    double groundLength;
+    double forwardTangentLength;
+    double rightTangentLength;
+    double tangentDot;
+    double suspensionTravel;
+    double accelerationFactor;
+    double throttle;
+};
+
 void VehicleRuntimeState_Link();
 bool VehicleRuntimeState_IsClean(SimulationContext *context);
 bool VehicleRuntimeState_Inspect(
     SimulationContext *context, const KR_ObjectID &vehicle,
     SRecoveredVehicleRuntimeState *state);
+bool VehicleRuntimeState_InspectStability(
+    SimulationContext *context,
+    SRecoveredVehicleStabilityTelemetry *telemetry);
 const char *VehicleRuntimeState_AttributeName(
     SimulationContext *context, const KR_ObjectID &vehicle);
 const char *VehicleRuntimeState_DynamicName(

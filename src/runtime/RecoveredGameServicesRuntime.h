@@ -51,6 +51,34 @@ struct SRecoveredVehicleDriveTelemetry {
   unsigned int dynamicCollisionFrames;
   unsigned int stabilityRecoveries;
   int lastStabilityReason;
+  int recoveryVesselKind;
+  int recoveryBumpFlags;
+  int recoveryTouchingGround;
+  double recoveryFrameStartTime;
+  double recoveryRejectedTime;
+  double recoveryTargetTime;
+  double recoveryFrameStartPositionX;
+  double recoveryFrameStartPositionY;
+  double recoveryFrameStartPositionZ;
+  double recoveryFrameStartSpeedX;
+  double recoveryFrameStartSpeedY;
+  double recoveryFrameStartSpeedZ;
+  double recoveryRejectedPositionX;
+  double recoveryRejectedPositionY;
+  double recoveryRejectedPositionZ;
+  double recoveryRejectedSpeedX;
+  double recoveryRejectedSpeedY;
+  double recoveryRejectedSpeedZ;
+  double recoveryGroundX;
+  double recoveryGroundY;
+  double recoveryGroundZ;
+  double recoveryGroundLength;
+  double recoveryForwardTangentLength;
+  double recoveryRightTangentLength;
+  double recoveryTangentDot;
+  double recoverySuspensionTravel;
+  double recoveryAccelerationFactor;
+  double recoveryThrottle;
 };
 
 struct SRecoveredTaxiVehicleHandoffTelemetry {

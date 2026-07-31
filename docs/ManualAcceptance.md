@@ -165,15 +165,19 @@ aircraft. Before changing simulation or culling, compare Level.04D in Release
 on the same route and add per-owner/render-stage timing. Use Release for normal
 manual play unless a Debug assertion is the subject of the test.
 
-The 2026-07-31 post-slot-UX continuation sweep passed 17/18 cases. Release
-Level.04D and every other Level/configuration passed; Debug Level.04D twice
-stopped in the pre-save Vehicle visual suite with control/camera still active,
-zero fallback and one contained `EXCESSIVE_SPEED` recovery. It therefore never
-reached the LCN1/RR2SLOT1 proof. Treat this as the existing Level.04D
-timing/Wheels frontier, not as failed archive or preview evidence: retain the
-stderr marker, require the dedicated Save-slot UX and cross-Level product
-proofs to pass, and do not weaken the stability-recovery assertion merely to
-make the broad matrix green.
+The first 2026-07-31 post-slot-UX continuation sweep passed 17/18 cases. Debug
+Level.04D twice stopped before save/load with one contained `EXCESSIVE_SPEED`
+recovery. Rejected-frame telemetry localized the fault to a control event
+partitioning one physical frame: Wheels divided whole-frame displacement by
+only the final event slice. BD-097 makes both Wheels and EMV use their complete
+accumulated frame interval without weakening the rollback guard.
+
+The post-fix fresh-Level sweep passes 18/18 installed-data cases in Debug and
+Release. Debug Level.04D now completes its live Vehicle/effect sequence and
+LCN1/RR2SLOT1 reconstruction with zero stability recoveries. The independent
+ordinary executable matrix also passes 18/18; Save-slot UX and cross-Level
+product proofs pass 2/2 each. This closes the known Level.04D Wheels runaway,
+while the Release same-route performance comparison below remains open.
 
 The automated service proof now crosses an actual RR2SLOT1 file and reconstructs
 the complete admitted world/input boundary after a destroyed Level. Run its
