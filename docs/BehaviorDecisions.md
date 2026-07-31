@@ -3910,3 +3910,32 @@ Product acceptance uses Level.05D targets `peop.attr.man_c0` and
 exact lifecycle proof per owner, preserves both fingerprints across save/load,
 and separately rejects missing People and Tank targets. The schema smoke also
 rejects every out-of-range value and deferred field.
+
+## BD-102: consume legacy opposing controls as one signed observer axis
+
+Status: accepted on 2026-07-31.
+
+`CtrlSet::Translate()` does not report an independent Boolean state for the
+named action. For every direct/complementary pair it computes the complete
+signed axis at the instant of the triggering Windows message: direct bindings
+are added and complementary bindings are subtracted. Consequently a
+`TURN_RIGHT` release while Left remains held legitimately carries `-1`, and
+the final `TURN_LEFT` release carries `0`.
+
+The recovered free observer originally retained separate Left and Right
+members and subtracted them again during `Advance()`. An overlap sequence
+could therefore leave the member named Right at `-1` after both physical keys
+were released, producing the reported perpetual rotation; W/S, A/D and both
+vertical pairs had the same latent error. The observer now converts either
+name in a pair directly into one canonical forward, strafe, vertical, turn or
+look axis. The Vehicle path remains unchanged because its original handlers
+already apply the same signed-event convention directly to the vessel.
+
+Application deactivation is also an input boundary for the observer. A
+`WM_ACTIVATEAPP(FALSE)` notification clears all five axes, and directional
+messages are ignored until activation returns; Escape remains available for
+shutdown. The hermetic runtime smoke proves both overlap orders for all five
+pairs, final neutrality, unsupported actions, non-finite input and null-owner
+rejection. Visible acceptance repeats the high-frequency arrow/WASD overlap
+and Alt-Tab cases in a retail Level. The accepted automated gate is 61/61
+CTest in both Debug and Release plus all 18 installed-Level runtime cases.

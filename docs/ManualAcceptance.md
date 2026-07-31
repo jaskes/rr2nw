@@ -27,6 +27,24 @@ Names are matched case-insensitively, but they must appear in the selected
 root's `[Levels]` section. With no `--start-level`, the executable continues to
 honour `[Init]/StartLevel` from `game.cfg`.
 
+## Free-observer overlap and focus pass
+
+Run a Level in which the player is still using the free observer, then repeat
+these sequences several times at normal typing speed:
+
+1. hold Right, press Left, release Right, then release Left;
+2. repeat in the opposite order and with Up/Down;
+3. repeat the same overlap/release order for W/S and A/D while moving;
+4. hold one movement key and one arrow, Alt-Tab away, release the keys, then
+   return to the game.
+
+The camera must stop rotating and the observer must stop translating as soon
+as the final key is released. Alt-Tab must neutralize all motion; after return,
+movement begins only on a fresh key press. Needing to tap the opposite key to
+stop, continued drift, or one additional frame of unbounded rotation is a
+failure. This pass targets the observer only; Vehicle controls retain their
+separate focus-safe journal contract.
+
 ## Automated nine-Level matrix
 
 Build the requested configuration first, then run all configured Levels from

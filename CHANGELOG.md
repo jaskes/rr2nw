@@ -771,6 +771,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Fixed sticky free-observer movement and camera rotation when opposite keys
+  overlapped. Legacy Hardware already emits one signed combined value per
+  action pair; the observer now owns one canonical axis instead of retaining
+  contradictory per-key values, and focus loss clears every observer axis.
 - Fixed mid-frame Vehicle input partitioning in both `CVesselWheels` and
   `CVesselEmv`. Their collision sweep had divided an offset accumulated across
   the whole frame by only the final time slice after a control event; on

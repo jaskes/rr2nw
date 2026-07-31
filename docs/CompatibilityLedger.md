@@ -2974,6 +2974,29 @@ Status vocabulary:
   explicit stable ownership and active-subject rebinding; do not extend this
   in-place scalar contract to references or table membership.
 
+### CQ-168: Hardware action names carry a combined signed axis
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: `CtrlSet::Translate()` sums every direct binding and subtracts the
+  complementary action before publishing `CTRL_BUTTONS_MSG`. With Right held,
+  pressing Left publishes `TURN_LEFT=0`; releasing Right next publishes
+  `TURN_RIGHT=-1`; the final Left release publishes `TURN_LEFT=0`. Vehicle's
+  original handler consumes each value immediately, but the recovered free
+  observer retained separate named values and subtracted them a second time.
+- Handling: the observer owns five canonical signed axes. Either member of a
+  direct/complementary pair replaces its complete axis with the correctly
+  oriented event value. Focus loss clears all axes and inactive directional
+  messages cannot repopulate them. No Win32 virtual-key polling or synthetic
+  opposite press is introduced.
+- Verification: the device-independent runtime smoke executes both overlap
+  orders for W/S, A/D, Space/Ctrl, Left/Right and Up/Down, requiring exact
+  intermediate signs and a neutral result after both releases. The Debug
+  and Release gates pass 61/61 CTest each, and all 18 installed-Level runtime
+  cases pass with the reducer installed in the actual observer event path.
+- Revisit when: Hardware is replaced or bindings become analog/multi-device.
+  Preserve the single normalized-axis contract at the input boundary rather
+  than exposing per-key state to simulation or camera owners.
+
 ## Maintenance rule
 
 When a new quirk is found:

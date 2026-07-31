@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 
 #define LAST_H__SCENE
 #include "game.h"
@@ -73,6 +74,73 @@ void (*g_originalAlphaSprite)(SGRAlphaSprite*) = nullptr;
 void (*g_originalSprite)(int, int, int, int, int, int, int, int,
                          int, void*) = nullptr;
 void (*g_originalParticle)(int, int, int, int, unsigned long) = nullptr;
+
+bool ExerciseObserverAxisReducer() {
+  SRecoveredObserverAxes axes = {};
+  const auto exercisePair =
+      [&axes](int positiveAction, int negativeAction,
+              double SRecoveredObserverAxes::*member) {
+        axes = {};
+        if (!RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, positiveAction, 1.0) ||
+            axes.*member != 1.0 ||
+            !RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, negativeAction, 0.0) ||
+            axes.*member != 0.0 ||
+            !RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, positiveAction, -1.0) ||
+            axes.*member != -1.0 ||
+            !RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, negativeAction, 0.0) ||
+            !RecoveredObserverAxes_IsNeutral(axes)) {
+          return false;
+        }
+
+        if (!RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, negativeAction, 1.0) ||
+            axes.*member != -1.0 ||
+            !RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, positiveAction, 0.0) ||
+            axes.*member != 0.0 ||
+            !RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, negativeAction, -1.0) ||
+            axes.*member != 1.0 ||
+            !RecoveredObserverAxes_ApplyLegacyAction(
+                &axes, positiveAction, 0.0) ||
+            !RecoveredObserverAxes_IsNeutral(axes)) {
+          return false;
+        }
+        return true;
+      };
+
+  if (!RecoveredObserverAxes_IsNeutral(axes) ||
+      !exercisePair(MOVE_FORWARD, MOVE_BACKWARD,
+                    &SRecoveredObserverAxes::forward) ||
+      !exercisePair(STRAFE_RIGHT, STRAFE_LEFT,
+                    &SRecoveredObserverAxes::strafe) ||
+      !exercisePair(STRAFE_UP, STRAFE_DOWN,
+                    &SRecoveredObserverAxes::vertical) ||
+      !exercisePair(TURN_RIGHT, TURN_LEFT,
+                    &SRecoveredObserverAxes::turn) ||
+      !exercisePair(LOOK_UP, LOOK_DOWN,
+                    &SRecoveredObserverAxes::look)) {
+    return false;
+  }
+
+  axes.forward = 0.25;
+  const SRecoveredObserverAxes beforeInvalid = axes;
+  if (RecoveredObserverAxes_ApplyLegacyAction(&axes, -1337, 1.0) ||
+      axes.forward != beforeInvalid.forward ||
+      RecoveredObserverAxes_ApplyLegacyAction(
+          &axes, MOVE_FORWARD,
+          (std::numeric_limits<double>::quiet_NaN)()) ||
+      axes.forward != beforeInvalid.forward ||
+      RecoveredObserverAxes_ApplyLegacyAction(
+          nullptr, MOVE_FORWARD, 1.0)) {
+    return false;
+  }
+  return true;
+}
 GR_HTEXTURE g_expectedAlphaTexture = nullptr;
 GR_HTEXTURE g_expectedSpriteTexture = nullptr;
 int g_alphaSpriteDraws = 0;
@@ -2534,6 +2602,10 @@ bool ValidateReferenceTransaction(
 int main(int argc, char** argv) {
   if (argc < 1 || argc > 3) {
     return Fail("expected optional source and target retail Level directories");
+  }
+
+  if (!ExerciseObserverAxisReducer()) {
+    return Fail("observer axis overlap/release contract failed");
   }
 
   RecoveredGameServices_UseRuntime();

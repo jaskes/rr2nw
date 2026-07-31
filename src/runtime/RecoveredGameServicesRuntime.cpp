@@ -62,16 +62,8 @@ class RecoveredObserverInput final : public KR_Object {
 
   void Reset(const CFVector3& position) {
     m_state = {position.x, position.y, position.z, 0.0, 0.0, 0};
-    m_forward = 0.0;
-    m_backward = 0.0;
-    m_left = 0.0;
-    m_right = 0.0;
-    m_up = 0.0;
-    m_down = 0.0;
-    m_turnLeft = 0.0;
-    m_turnRight = 0.0;
-    m_lookUp = 0.0;
-    m_lookDown = 0.0;
+    m_axes = {};
+    m_applicationActive = true;
     m_quitRequested = false;
   }
 
@@ -107,46 +99,16 @@ class RecoveredObserverInput final : public KR_Object {
     (void)repeat;
     ++m_state.inputEvents;
 
-    switch (action) {
-      case MOVE_FORWARD:
-        m_forward = down;
-        break;
-      case MOVE_BACKWARD:
-        m_backward = down;
-        break;
-      case STRAFE_LEFT:
-        m_left = down;
-        break;
-      case STRAFE_RIGHT:
-        m_right = down;
-        break;
-      case STRAFE_UP:
-        m_up = down;
-        break;
-      case STRAFE_DOWN:
-        m_down = down;
-        break;
-      case TURN_LEFT:
-        m_turnLeft = down;
-        break;
-      case TURN_RIGHT:
-        m_turnRight = down;
-        break;
-      case LOOK_UP:
-        m_lookUp = down;
-        break;
-      case LOOK_DOWN:
-        m_lookDown = down;
-        break;
-      case EXIT:
-        if (down > 0.0) {
-          m_quitRequested = true;
-          if (_gr_hWnd != nullptr) PostMessageA(_gr_hWnd, WM_CLOSE, 0, 0);
-        }
-        break;
-      default:
-        break;
+    if (action == EXIT) {
+      if (down > 0.0) {
+        m_quitRequested = true;
+        if (_gr_hWnd != nullptr) PostMessageA(_gr_hWnd, WM_CLOSE, 0, 0);
+      }
+      return 1;
     }
+
+    if (!m_applicationActive) return 1;
+    RecoveredObserverAxes_ApplyLegacyAction(&m_axes, action, down);
     return 1;
   }
 
@@ -157,21 +119,18 @@ class RecoveredObserverInput final : public KR_Object {
         (std::max)(0.0, (std::min)(deltaTime, 0.1));
     const double turnSpeed = 1.5;
     const double moveSpeed = 320.0;
-    m_state.yaw +=
-        (m_turnRight - m_turnLeft) * turnSpeed * boundedDelta;
-    m_state.pitch +=
-        (m_lookUp - m_lookDown) * turnSpeed * boundedDelta;
+    m_state.yaw += m_axes.turn * turnSpeed * boundedDelta;
+    m_state.pitch += m_axes.look * turnSpeed * boundedDelta;
     m_state.pitch = (std::max)(-1.4, (std::min)(m_state.pitch, 1.4));
 
-    const double forward = m_forward - m_backward;
-    const double strafe = m_right - m_left;
-    const double vertical = m_up - m_down;
     const double distance = moveSpeed * boundedDelta;
     const double sinYaw = std::sin(m_state.yaw);
     const double cosYaw = std::cos(m_state.yaw);
-    m_state.x += (sinYaw * forward + cosYaw * strafe) * distance;
-    m_state.y += vertical * distance;
-    m_state.z += (-cosYaw * forward + sinYaw * strafe) * distance;
+    m_state.x +=
+        (sinYaw * m_axes.forward + cosYaw * m_axes.strafe) * distance;
+    m_state.y += m_axes.vertical * distance;
+    m_state.z +=
+        (-cosYaw * m_axes.forward + sinYaw * m_axes.strafe) * distance;
   }
 
   void BuildCamera(CFMatrix3x4* direction) const {
@@ -189,21 +148,15 @@ class RecoveredObserverInput final : public KR_Object {
     return SetSubscribed(false);
   }
   bool Resume() { return SetSubscribed(true); }
+  void SetApplicationActive(bool active) {
+    if (m_applicationActive == active) return;
+    m_applicationActive = active;
+    if (!active) ClearMotion();
+  }
   const SRecoveredObserverState& state() const { return m_state; }
 
  private:
-  void ClearMotion() {
-    m_forward = 0.0;
-    m_backward = 0.0;
-    m_left = 0.0;
-    m_right = 0.0;
-    m_up = 0.0;
-    m_down = 0.0;
-    m_turnLeft = 0.0;
-    m_turnRight = 0.0;
-    m_lookUp = 0.0;
-    m_lookDown = 0.0;
-  }
+  void ClearMotion() { m_axes = {}; }
 
   bool SetSubscribed(bool subscribe) {
     if (m_subscribed == subscribe) return true;
@@ -225,16 +178,8 @@ class RecoveredObserverInput final : public KR_Object {
   }
 
   SRecoveredObserverState m_state = {};
-  double m_forward = 0.0;
-  double m_backward = 0.0;
-  double m_left = 0.0;
-  double m_right = 0.0;
-  double m_up = 0.0;
-  double m_down = 0.0;
-  double m_turnLeft = 0.0;
-  double m_turnRight = 0.0;
-  double m_lookUp = 0.0;
-  double m_lookDown = 0.0;
+  SRecoveredObserverAxes m_axes = {};
+  bool m_applicationActive = true;
   bool m_quitRequested = false;
   bool m_subscribed = false;
 };
@@ -1276,11 +1221,15 @@ LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
   if (!g_hardwareReady || g_hardware.getContext() == nullptr) {
     return DefWindowProcA(window, message, wParam, lParam);
   }
-  if (message == WM_ACTIVATEAPP && g_vehicleControlReady) {
-    const double timerTime = g_timer.GetTime();
-    const double eventTime =
-        !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
-    g_vehicleControlInput.SetApplicationActive(wParam != FALSE, eventTime);
+  if (message == WM_ACTIVATEAPP) {
+    const bool applicationActive = wParam != FALSE;
+    g_observerInput.SetApplicationActive(applicationActive);
+    if (g_vehicleControlReady) {
+      const double timerTime = g_timer.GetTime();
+      const double eventTime =
+          !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
+      g_vehicleControlInput.SetApplicationActive(applicationActive, eventTime);
+    }
   }
   return g_hardware.WndProc(window, message, wParam, lParam);
 }
@@ -1926,6 +1875,52 @@ bool PumpMessages() {
 }
 
 }  // namespace
+
+bool RecoveredObserverAxes_ApplyLegacyAction(
+    SRecoveredObserverAxes* axes, int action, double value) {
+  if (axes == nullptr || !std::isfinite(value)) return false;
+
+  switch (action) {
+    case MOVE_FORWARD:
+      axes->forward = value;
+      return true;
+    case MOVE_BACKWARD:
+      axes->forward = -value;
+      return true;
+    case STRAFE_LEFT:
+      axes->strafe = -value;
+      return true;
+    case STRAFE_RIGHT:
+      axes->strafe = value;
+      return true;
+    case STRAFE_UP:
+      axes->vertical = value;
+      return true;
+    case STRAFE_DOWN:
+      axes->vertical = -value;
+      return true;
+    case TURN_LEFT:
+      axes->turn = -value;
+      return true;
+    case TURN_RIGHT:
+      axes->turn = value;
+      return true;
+    case LOOK_UP:
+      axes->look = value;
+      return true;
+    case LOOK_DOWN:
+      axes->look = -value;
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool RecoveredObserverAxes_IsNeutral(
+    const SRecoveredObserverAxes& axes) {
+  return axes.forward == 0.0 && axes.strafe == 0.0 &&
+         axes.vertical == 0.0 && axes.turn == 0.0 && axes.look == 0.0;
+}
 
 void RecoveredGameServices_UseRuntime() {
   SGameEntryRuntimeHooks hooks = GameEntry_RecoveredRuntimeHooks();

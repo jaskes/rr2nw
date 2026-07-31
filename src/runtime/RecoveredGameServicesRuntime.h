@@ -30,6 +30,22 @@ struct SRecoveredObserverState {
   unsigned int inputEvents;
 };
 
+struct SRecoveredObserverAxes {
+  double forward;
+  double strafe;
+  double vertical;
+  double turn;
+  double look;
+};
+
+// Legacy Hardware emits a signed, already-combined axis value for both names
+// in each opposing action pair. Keep that contract outside the window adapter
+// so overlap/release sequences can be proved without synthesizing Win32 input.
+bool RecoveredObserverAxes_ApplyLegacyAction(
+    SRecoveredObserverAxes* axes, int action, double value);
+bool RecoveredObserverAxes_IsNeutral(
+    const SRecoveredObserverAxes& axes);
+
 struct SRecoveredVehicleDriveTelemetry {
   double positionX;
   double positionY;
