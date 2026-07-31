@@ -11,8 +11,12 @@ struct SRecoveredGameplayTuningSummary {
   unsigned int projectilePatchCount = 0;
   unsigned int projectileBallisticProofs = 0;
   unsigned int projectileBallisticMoves = 0;
+  unsigned int secondaryProjectileReferenceProofs = 0;
+  unsigned int secondaryProjectileBallisticProofs = 0;
+  unsigned int secondaryProjectileBallisticMoves = 0;
   std::uint64_t tuningFingerprint = 0;
   std::uint64_t vehicleAttributeFingerprint = 0;
+  std::uint64_t vehicleReferenceFingerprint = 0;
   std::uint64_t bulletAttributeFingerprint = 0;
   int defaultVehiclePresent = 0;
   double defaultMaxSpeed = 0.0;
@@ -20,7 +24,9 @@ struct SRecoveredGameplayTuningSummary {
   double defaultAccelerationTime = 0.0;
   double defaultTurnSpeed = 0.0;
   double defaultPrimaryFireInterval = 0.0;
+  double defaultSecondaryFireInterval = 0.0;
   double defaultDamagePower = 0.0;
+  char defaultSecondaryProjectile[64] = {};
   int primaryProjectilePresent = 0;
   double primaryProjectileSpeed = 0.0;
 };
@@ -43,6 +49,8 @@ enum ERecoveredGameplayTuningIssue {
 // Vehicle/Bullet attribute rosters exist and before any references resolve.
 // An active mod without that exact manifest target is a valid no-tuning case.
 bool RecoveredGameplayTuning_Apply(SimulationContext* context);
+bool RecoveredGameplayTuning_FinalizeVehicleReferences(
+    SimulationContext* context);
 void RecoveredGameplayTuning_Release(SimulationContext* context);
 bool RecoveredGameplayTuning_IsActive();
 unsigned int RecoveredGameplayTuning_Issues();

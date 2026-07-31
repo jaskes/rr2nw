@@ -1202,7 +1202,7 @@ Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical
 release renderer.
 
-## Current Windows frontier after gameplay tuning schema 1
+## Current Windows frontier after secondary-weapon tuning
 
 The first safe M5/M4 bridge is admitted. `rr2nw.exe --mod-dir <directory>` now
 selects exactly one strict schema-1 read-only overlay. Declared script,
@@ -1222,12 +1222,19 @@ dynamics fail Level startup with complete rollback. Its bytes were already in
 the mod/content fingerprint, so tuned saves inherit the existing fail-closed
 mod binding without a second identity mechanism.
 
+The first reference-bearing extension is also closed. A Vehicle patch may set
+the bounded secondary-fire interval and select an existing Level-local
+`BulletAttr`. The old Vehicle reference transaction must encode the exact
+requested object; a late proof then executes that resolved projectile and
+rolls back its Bullet, Smoke, Spark and private scheduler state before the
+reference fingerprint becomes authoritative.
+
 This closes the initial VFS, first data schema, examples and save-binding
 gates, but not the whole M5 feature list. The next mod slices remain ordered:
 
-1. trace and expose the next least-coupled object attributes (secondary weapon
-   timing/projectile and selected People/Tank values) only with complete
-   lifecycle/save proof;
+1. trace and expose selected People/Tank values only where their
+   movement/damage/death and active-world save ownership can be proven without
+   weakening the known retail rosters;
 2. add declared new-Level/catalog support without allowing mods to replace
    user `game.cfg` directly;
 3. add multiple-mod discovery, dependency/conflict validation and deterministic

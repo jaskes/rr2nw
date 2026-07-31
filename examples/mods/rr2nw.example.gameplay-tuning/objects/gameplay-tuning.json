@@ -8,6 +8,8 @@
       "acceleration_time": 0.5,
       "turn_speed": 160.0,
       "primary_fire_interval": 0.12,
+      "secondary_fire_interval": 0.45,
+      "secondary_projectile": "Bullet.Mina",
       "damage_power": 7.0
     }
   ],

@@ -1467,6 +1467,24 @@ playable Level begins.
   for base startup, exact tuning observations, save, matching restore,
   mod-mismatch rejection and malformed-schema rejection.
 
+### RP-MOD-003: a tuned secondary projectile is proven after reference resolution
+
+- `secondary_fire_interval` changes the same finite scalar consumed by retail
+  `EV_VEHICLE_FIRE` rescheduling. `secondary_projectile` remains bounded by the
+  original 40-byte `ct_AttrStr` and must name an existing selected-Level
+  `BulletAttr`; empty, oversized or absent targets reject before publication.
+- The first transaction snapshots and changes the scalar/string while caches
+  remain unresolved. The later Vehicle reference transaction must encode the
+  requested object exactly. Its complete semantic fingerprint, not merely a
+  non-zero index, becomes the post-tuning admission identity.
+- Every unique changed secondary target executes a real Bullet lifecycle after
+  dependency resolution. Any barrel Smoke and queued ground Spark created by
+  that proof are rolled back with their private events; Bullet, Smoke and Spark
+  live counts must all return to zero before active-world bootstrap.
+- Save/relaunch/load re-applies the same mod transaction and must publish the
+  same Vehicle reference fingerprint. Loading without the mod still rejects at
+  the earlier content/mod identity boundary.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

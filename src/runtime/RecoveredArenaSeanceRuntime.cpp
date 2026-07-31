@@ -3553,6 +3553,12 @@ bool PublishVehicleReferences(SimulationContext* context) {
                    message);
     return false;
   }
+  if (!RecoveredGameplayTuning_FinalizeVehicleReferences(context)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_GAMEPLAY_TUNING_FAILURE,
+        RecoveredGameplayTuning_LastError());
+    return false;
+  }
   g_state.vehicleReferenceFingerprint =
       VehicleAttributeState_ReferenceFingerprint(context);
   if (g_state.vehicleReferenceFingerprint == 0 ||

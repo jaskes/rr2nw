@@ -3837,3 +3837,40 @@ object classes and scripting remain separate decisions. Acceptance proves
 61/61 CTest in both Debug and Release, all 18 ordinary installed-Level runs,
 and the complete base/tune/save/restore/mismatch/malformed product sequence in
 both configurations.
+
+## BD-100: finalize secondary weapon tuning at the resolved reference boundary
+
+Status: accepted on 2026-07-31.
+
+Secondary fire has two legacy owners. `AttributeVehicle::m_bulletSecSlipTime`
+advances the repeated `EV_VEHICLE_FIRE` event, while
+`m_bulletSecAttrName` is only a string until the later Vehicle reference
+transaction converts it into `m_bulletSecAttrIndex`. Schema 1 therefore exposes
+`secondary_fire_interval` and `secondary_projectile`, but does not pretend a
+pre-reference string check is a complete weapon proof.
+
+The initial gameplay transaction validates the finite interval, the
+39-byte `ct_AttrStr` boundary and existence of the requested Level-local
+`BulletAttr`, then snapshots and commits both fields with the other Vehicle
+values. After Bullet and Vehicle dependencies resolve, a second gate requires
+the encoded index to resolve to that exact captured object and records the full
+Vehicle reference fingerprint. Each unique selected projectile must then pass
+the real start/query-speed/two-MOVE/ground-removal lifecycle.
+
+At this late boundary Bullet dependencies are live. The lifecycle may create a
+barrel Smoke or queued ground Spark even though the Bullet itself is removed.
+The probe owns those named children and their private events and must roll them
+back to zero before admission continues. This makes the proof suitable before
+Spark/Smoke active-world reconstruction rather than relying on later teardown
+to hide residue.
+
+The complete tuning source remains part of mod/content/save identity. Product
+acceptance requires exact `0.45/Bullet.Mina` observations, one resolved
+reference proof, a stable reference fingerprint across save/relaunch/load, and
+precise rejection of both an unknown field and an absent secondary target.
+Ammo count/capacity, primary-projectile replacement, `m_shootSecAttrName`,
+impact effects and health remain separate contracts.
+
+Acceptance passed 61/61 CTest in both Debug and Release, the seven-step
+base/tune/save/restore/mismatch/malformed/missing-target product sequence in
+both configurations, and all 18 ordinary installed-Level runtime-smoke cases.

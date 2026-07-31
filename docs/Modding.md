@@ -83,6 +83,8 @@ or `Vehicle.Default` become live.
       "acceleration_time": 0.5,
       "turn_speed": 160.0,
       "primary_fire_interval": 0.12,
+      "secondary_fire_interval": 0.45,
+      "secondary_projectile": "Bullet.Mina",
       "damage_power": 7.0
     }
   ],
@@ -98,7 +100,9 @@ or `Vehicle.Default` become live.
 Top-level and entry keys are exact, case-sensitive and non-extensible. At
 least one non-empty array is required; each array is bounded to 64 entries.
 Symbolic IDs use ASCII letters, digits, `.`, `_` and `-`, are matched against
-the selected Level, and may occur only once case-insensitively.
+the selected Level, and may occur only once case-insensitively. A
+`secondary_projectile` is stored in the original 40-byte `ct_AttrStr`, so its
+symbolic ID is additionally limited to 39 bytes plus the terminator.
 
 | Entry | Field | Schema-1 range | Unit/meaning |
 | --- | --- | ---: | --- |
@@ -107,6 +111,8 @@ the selected Level, and may occur only once case-insensitively.
 | Vehicle | `acceleration_time` | 0.05..30 | seconds to maximum speed |
 | Vehicle | `turn_speed` | 1..720 | degrees/second |
 | Vehicle | `primary_fire_interval` | 0.02..10 | seconds between shots |
+| Vehicle | `secondary_fire_interval` | 0.02..10 | seconds between secondary shots |
+| Vehicle | `secondary_projectile` | existing ID, <=39 bytes | selected Level `BulletAttr` |
 | Vehicle | `damage_power` | 0.1..1000 | `IUnit::getPower`, not health |
 | Projectile | `speed` | 1..2000 | launch metres/second |
 
@@ -114,9 +120,10 @@ Movement fields are currently admitted only for the dynamics the recovered
 player Vehicle can actually instantiate: `Dragon`, `Emveshka`, and
 `TankGenn0` through `TankGenn3`. `Dead`, unknown dynamics and the currently
 unsupported `TankGenn4/5` fail closed. Two Vehicle entries may not tune the
-same process-global dynamic. Weapon/reference names, mass, health/armour,
-secondary fire, impact/explosion graphs and arbitrary legacy field names are
-deliberately not exposed.
+same process-global dynamic. Primary-projectile replacement,
+`m_shootSecAttrName`, ammunition limits, mass, health/armour,
+impact/explosion graphs and arbitrary legacy field names are deliberately not
+exposed.
 
 Application is transactional. The engine first proves the unmodified roster,
 resolves every requested symbolic target and captures all touched values. Only
@@ -125,6 +132,15 @@ coefficients. Every tuned projectile must also complete a real start/query-
 speed/MOVE/ground-removal lifecycle with full rollback. Any parse, range,
 roster, dynamic or ballistic failure rejects Level startup and restores the
 pre-tuning values.
+
+Secondary binding has a second commit gate. After the original Vehicle
+reference transaction resolves every Bullet name to its encoded `BulletAttr`
+index, the tuning layer proves that each changed index is exactly the requested
+object. Each unique selected projectile then completes the same real ballistic
+lifecycle. Resolved barrel-smoke and ground-spark children are rolled back with
+their private events, so the proof must leave Bullet, Smoke and Spark tables at
+their pre-probe counts. Only then is the Vehicle reference fingerprint
+published.
 
 ## Resolution and compatibility
 
@@ -148,8 +164,9 @@ the selected retail Level has the same name.
 Startup diagnostics record the admitted identity, file/byte counts,
 fingerprint, resolution attempts, overlay hits and the combined active content
 fingerprint. An active tuning file additionally reports committed patch
-counts, post-transaction attribute fingerprints, the observed
-`Vehicle.Attr.default` values and real ballistic proof counts.
+counts, post-transaction attribute/reference fingerprints, the observed
+`Vehicle.Attr.default` values, secondary reference proofs and real ballistic
+proof counts.
 
 The repository includes two copyright-free packages. Use
 `rr2nw.example.data-pack` for neutral packaging/resolver admission and
@@ -169,6 +186,7 @@ change:
 - multiple active mods, dependencies, conflicts and mount ordering;
 - automatic discovery and an in-game mod selector;
 - adding Levels to `game.cfg`;
-- health/armour, secondary weapons and complete damage/explosion graphs;
+- health/armour, ammunition rules, primary-projectile replacement and complete
+  damage/explosion graphs;
 - localization routing beyond exact file replacement;
 - Lua, native plugins and new engine object classes.

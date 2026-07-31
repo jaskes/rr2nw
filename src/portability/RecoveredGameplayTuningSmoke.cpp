@@ -26,18 +26,26 @@ int main() {
       "acceleration_time": 5e-1,
       "turn_speed": 160,
       "primary_fire_interval": 0.12,
+      "secondary_fire_interval": 0.45,
+      "secondary_projectile": "Bullet.Mina",
       "damage_power": 7
     }],
     "projectiles": [{"id": "Bullet.Led.Prim", "speed": 180}]
   })JSON";
   const char* projectileOnly =
       R"JSON({"schema":1,"projectiles":[{"id":"Bullet.Sec","speed":90.5}]})JSON";
-  if (!Valid(complete) || !Valid(projectileOnly) ||
+  const char* secondaryOnly =
+      R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","secondary_projectile":"Bullet.Sec","secondary_fire_interval":0.8}]})JSON";
+  if (!Valid(complete) || !Valid(projectileOnly) || !Valid(secondaryOnly) ||
       !Invalid(R"JSON({"schema":2,"vehicles":[{"id":"Vehicle.Attr.default","max_speed":10}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"extra":[],"vehicles":[{"id":"Vehicle.Attr.default","max_speed":10}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","mass":10}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","max_speed":0.1}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","turn_speed":721}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","secondary_fire_interval":0.01}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","secondary_projectile":""}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","secondary_projectile":"Bullet Secondary"}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","secondary_projectile":"Bullet.Secondary.Identifier.That.Is.Too.Long"}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"projectiles":[{"id":"Bullet.Led.Prim","speed":2001}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","max_speed":10},{"id":"vehicle.attr.DEFAULT","max_speed":11}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","max_speed":10}]})JSON") ||
@@ -54,6 +62,6 @@ int main() {
     std::fprintf(stderr, "invalid input did not produce bounded diagnostics\n");
     return EXIT_FAILURE;
   }
-  std::printf("gameplay tuning schema=1 strict vehicle=6 projectile=1\n");
+  std::printf("gameplay tuning schema=1 strict vehicle=8 projectile=1\n");
   return EXIT_SUCCESS;
 }

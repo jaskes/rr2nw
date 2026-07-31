@@ -2926,6 +2926,28 @@ Status vocabulary:
   `TankGenn4/5` gain a recovered live vessel mapping. Preserve recalculation,
   unique ownership and save-identity review.
 
+### CQ-166: a resolved Bullet proof owns its presentation children
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: the first late secondary-projectile proof removed its Bullet and
+  MOVE/CHECK events but left the resolved `Bullet.Mina` ground Spark queued.
+  The following Spark active-world gate correctly rejected a non-empty ready
+  table. The earlier pre-reference projectile proof never exposed this because
+  unresolved visual dependencies are valid no-ops.
+- Handling: `BulletSubjectState_ProbeBallisticLifecycle` now starts only from
+  empty Bullet/Smoke/Spark tables and owns the deterministic `Smok.` and `S`
+  children created by its barrel/ground branches. It invokes the original
+  Smoke-start and Spark-queue rollback paths, drains their events, removes the
+  Bullet, and requires all three live counts and names to return to zero.
+- Verification: the tuned Level.05D product run resolves
+  `Vehicle.Attr.default -> Bullet.Mina`, completes one late two-MOVE proof,
+  then passes the unchanged Spark and Smoke active-world probes with stable
+  fingerprints. The matching save restores the same Vehicle reference
+  fingerprint; an absent `BulletAttr` rejects with a precise Arena error.
+- Revisit when: Bullet effects receive generated stable IDs or a general
+  transaction-owned child registry. Replace the bounded names with explicit
+  ownership, while keeping the zero-residue gate.
+
 ## Maintenance rule
 
 When a new quirk is found:

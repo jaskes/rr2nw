@@ -40,12 +40,16 @@ struct VehiclePatch {
   bool hasAccelerationTime = false;
   bool hasTurnSpeed = false;
   bool hasPrimaryFireInterval = false;
+  bool hasSecondaryFireInterval = false;
+  bool hasSecondaryProjectile = false;
   bool hasDamagePower = false;
   double maxSpeed = 0.0;
   double reverseSpeed = 0.0;
   double accelerationTime = 0.0;
   double turnSpeed = 0.0;
   double primaryFireInterval = 0.0;
+  double secondaryFireInterval = 0.0;
+  std::string secondaryProjectile;
   double damagePower = 0.0;
 };
 
@@ -64,7 +68,11 @@ struct Document {
 struct VehicleRollback {
   AttributeVehicle* attribute = nullptr;
   double primaryFireInterval = 0.0;
+  double secondaryFireInterval = 0.0;
   double damagePower = 0.0;
+  bool secondaryProjectilePatched = false;
+  ct_AttrStr secondaryProjectile = {};
+  AttributeBullet* expectedSecondaryProjectile = nullptr;
   bool vesselCaptured = false;
   SVehicleVesselGameplayState vessel = {};
 };
@@ -81,6 +89,7 @@ SimulationContext* g_context = nullptr;
 unsigned int g_issues = 0;
 char g_lastError[512] = {};
 bool g_active = false;
+bool g_vehicleReferencesFinalized = false;
 
 void Fail(unsigned int issue, const std::string& message) {
   g_issues |= issue;
@@ -280,6 +289,12 @@ bool ParseVehicle(JsonCursor* cursor, VehiclePatch* patch,
     } else if (key == "primary_fire_interval") {
       patch->hasPrimaryFireInterval = true;
       accepted = cursor->Number(&patch->primaryFireInterval);
+    } else if (key == "secondary_fire_interval") {
+      patch->hasSecondaryFireInterval = true;
+      accepted = cursor->Number(&patch->secondaryFireInterval);
+    } else if (key == "secondary_projectile") {
+      patch->hasSecondaryProjectile = true;
+      accepted = cursor->String(&patch->secondaryProjectile);
     } else if (key == "damage_power") {
       patch->hasDamagePower = true;
       accepted = cursor->Number(&patch->damagePower);
@@ -297,7 +312,9 @@ bool ParseVehicle(JsonCursor* cursor, VehiclePatch* patch,
   }
   if (!(patch->hasMaxSpeed || patch->hasReverseSpeed ||
         patch->hasAccelerationTime || patch->hasTurnSpeed ||
-        patch->hasPrimaryFireInterval || patch->hasDamagePower)) {
+        patch->hasPrimaryFireInterval ||
+        patch->hasSecondaryFireInterval ||
+        patch->hasSecondaryProjectile || patch->hasDamagePower)) {
     *failure = "vehicle tuning has no parameter";
     return false;
   }
@@ -309,9 +326,17 @@ bool ParseVehicle(JsonCursor* cursor, VehiclePatch* patch,
       (patch->hasTurnSpeed && !InRange(patch->turnSpeed, 1.0, 720.0)) ||
       (patch->hasPrimaryFireInterval &&
        !InRange(patch->primaryFireInterval, 0.02, 10.0)) ||
+      (patch->hasSecondaryFireInterval &&
+       !InRange(patch->secondaryFireInterval, 0.02, 10.0)) ||
       (patch->hasDamagePower &&
        !InRange(patch->damagePower, 0.1, 1000.0))) {
     *failure = "vehicle tuning value is outside the schema-1 range";
+    return false;
+  }
+  if (patch->hasSecondaryProjectile &&
+      (!ValidIdentifier(patch->secondaryProjectile) ||
+       patch->secondaryProjectile.size() >= sizeof(ct_AttrStr))) {
+    *failure = "secondary_projectile is not a storable symbolic id";
     return false;
   }
   return true;
@@ -483,7 +508,11 @@ void RestoreTransaction() {
        iterator != g_vehicleRollback.rend(); ++iterator) {
     if (iterator->attribute != nullptr) {
       iterator->attribute->m_bulletSlipTime = iterator->primaryFireInterval;
+      iterator->attribute->m_bulletSecSlipTime =
+          iterator->secondaryFireInterval;
       iterator->attribute->m_power = iterator->damagePower;
+      std::memcpy(iterator->attribute->m_bulletSecAttrName,
+                  iterator->secondaryProjectile, sizeof(ct_AttrStr));
     }
     if (iterator->vesselCaptured)
       VehicleGameplayTuning_Restore(&iterator->vessel);
@@ -498,10 +527,12 @@ void ClearState() {
   g_issues = 0;
   g_lastError[0] = '\0';
   g_active = false;
+  g_vehicleReferencesFinalized = false;
 }
 
 bool ResolveTransaction(SimulationContext* context, const Document& document,
                         std::vector<AttributeVehicle*>* vehicles,
+                        std::vector<AttributeBullet*>* secondaryProjectiles,
                         std::vector<AttributeBullet*>* projectiles) {
   std::set<std::string> targets;
   std::set<std::string> dynamics;
@@ -536,6 +567,18 @@ bool ResolveTransaction(SimulationContext* context, const Document& document,
       }
     }
     vehicles->push_back(attribute);
+    AttributeBullet* secondaryProjectile = nullptr;
+    if (patch.hasSecondaryProjectile) {
+      secondaryProjectile = FindProjectile(
+          context, patch.secondaryProjectile);
+      if (secondaryProjectile == nullptr) {
+        Fail(RECOVERED_GAMEPLAY_TUNING_UNKNOWN_TARGET,
+             "unknown secondary BulletAttr tuning target: " +
+                 patch.secondaryProjectile);
+        return false;
+      }
+    }
+    secondaryProjectiles->push_back(secondaryProjectile);
   }
   for (const ProjectilePatch& patch : document.projectiles) {
     const std::string folded = FoldAscii(patch.id);
@@ -561,7 +604,12 @@ void CaptureObservations(SimulationContext* context) {
     SVehicleVesselGameplayState state = {};
     g_summary.defaultVehiclePresent = 1;
     g_summary.defaultPrimaryFireInterval = vehicle->m_bulletSlipTime;
+    g_summary.defaultSecondaryFireInterval =
+        vehicle->m_bulletSecSlipTime;
     g_summary.defaultDamagePower = vehicle->m_power;
+    std::snprintf(g_summary.defaultSecondaryProjectile,
+                  sizeof(g_summary.defaultSecondaryProjectile), "%s",
+                  vehicle->m_bulletSecAttrName);
     if (VehicleGameplayTuning_Capture(vehicle->m_dynamic, &state)) {
       g_summary.defaultMaxSpeed = state.maxSpeed;
       g_summary.defaultReverseSpeed = state.reverseSpeed;
@@ -642,10 +690,13 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
     }
 
     std::vector<AttributeVehicle*> vehicles;
+    std::vector<AttributeBullet*> secondaryProjectiles;
     std::vector<AttributeBullet*> projectiles;
     vehicles.reserve(document.vehicles.size());
+    secondaryProjectiles.reserve(document.vehicles.size());
     projectiles.reserve(document.projectiles.size());
-    if (!ResolveTransaction(context, document, &vehicles, &projectiles))
+    if (!ResolveTransaction(context, document, &vehicles,
+                            &secondaryProjectiles, &projectiles))
       return false;
 
     g_vehicleRollback.reserve(vehicles.size());
@@ -656,7 +707,13 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
       VehicleRollback rollback;
       rollback.attribute = attribute;
       rollback.primaryFireInterval = attribute->m_bulletSlipTime;
+      rollback.secondaryFireInterval = attribute->m_bulletSecSlipTime;
       rollback.damagePower = attribute->m_power;
+      rollback.secondaryProjectilePatched =
+          patch.hasSecondaryProjectile;
+      std::memcpy(rollback.secondaryProjectile,
+                  attribute->m_bulletSecAttrName, sizeof(ct_AttrStr));
+      rollback.expectedSecondaryProjectile = secondaryProjectiles[index];
       const bool vesselPatch = patch.hasMaxSpeed || patch.hasReverseSpeed ||
           patch.hasAccelerationTime || patch.hasTurnSpeed;
       if (vesselPatch &&
@@ -699,6 +756,12 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
       }
       if (patch.hasPrimaryFireInterval)
         attribute->m_bulletSlipTime = patch.primaryFireInterval;
+      if (patch.hasSecondaryFireInterval)
+        attribute->m_bulletSecSlipTime = patch.secondaryFireInterval;
+      if (patch.hasSecondaryProjectile)
+        std::snprintf(attribute->m_bulletSecAttrName,
+                      sizeof(attribute->m_bulletSecAttrName), "%s",
+                      patch.secondaryProjectile.c_str());
       if (patch.hasDamagePower) attribute->m_power = patch.damagePower;
     }
     for (std::size_t index = 0; index < projectiles.size(); ++index)
@@ -756,6 +819,90 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
          "gameplay tuning raised an unexpected exception");
   }
   return false;
+}
+
+bool RecoveredGameplayTuning_FinalizeVehicleReferences(
+    SimulationContext* context) {
+  if (!g_active) return true;
+  if (context == nullptr || context != g_context) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "gameplay tuning reference finalization received the wrong "
+         "SimulationContext");
+    return false;
+  }
+  if (g_vehicleReferencesFinalized) {
+    return VehicleAttributeState_ReferencesResolved(context) &&
+           VehicleAttributeState_ReferenceFingerprint(context) ==
+               g_summary.vehicleReferenceFingerprint;
+  }
+  if (!VehicleAttributeState_ReferencesResolved(context)) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "tuned VehicleAttr references were not completely resolved");
+    return false;
+  }
+
+  AttributeBullet* lifecycleTargets[kMaximumEntries] = {};
+  std::size_t lifecycleTargetCount = 0;
+  unsigned int referenceProofs = 0;
+  for (const VehicleRollback& rollback : g_vehicleRollback) {
+    if (!rollback.secondaryProjectilePatched) continue;
+    AttributeBullet* resolved = nullptr;
+    if (rollback.attribute == nullptr ||
+        rollback.expectedSecondaryProjectile == nullptr ||
+        rollback.attribute->m_bulletSecAttrIndex == -1 ||
+        !BulletAttributeState_ResolveEncodedIndex(
+            context, rollback.attribute->m_bulletSecAttrIndex, &resolved) ||
+        resolved != rollback.expectedSecondaryProjectile) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+           "secondary projectile did not resolve to the requested "
+           "BulletAttr");
+      return false;
+    }
+    ++referenceProofs;
+    bool alreadyScheduled = false;
+    for (std::size_t index = 0; index < lifecycleTargetCount; ++index)
+      if (lifecycleTargets[index] == resolved) alreadyScheduled = true;
+    if (!alreadyScheduled && lifecycleTargetCount >= kMaximumEntries) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+           "too many unique secondary projectile lifecycle targets");
+      return false;
+    }
+    if (!alreadyScheduled)
+      lifecycleTargets[lifecycleTargetCount++] = resolved;
+  }
+
+  unsigned int ballisticProofs = 0;
+  unsigned int ballisticMoves = 0;
+  for (std::size_t index = 0; index < lifecycleTargetCount; ++index) {
+    AttributeBullet* target = lifecycleTargets[index];
+    const char* name = context->searchObject(target->getObjectID());
+    int moveCount = 0;
+    if (name == nullptr || name[0] == '\0' ||
+        !BulletSubjectState_ProbeBallisticLifecycle(
+            context, name, Session::m_moment, &moveCount) ||
+        moveCount != 2 || BulletSubjectState_LiveCount() != 0) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+           std::string("secondary projectile failed resolved ballistic ") +
+               "lifecycle: " + (name == nullptr ? "<unknown>" : name));
+      return false;
+    }
+    ++ballisticProofs;
+    ballisticMoves += static_cast<unsigned int>(moveCount);
+  }
+
+  const std::uint64_t referenceFingerprint =
+      VehicleAttributeState_ReferenceFingerprint(context);
+  if (referenceFingerprint == 0) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "tuned VehicleAttr references have no stable fingerprint");
+    return false;
+  }
+  g_summary.secondaryProjectileReferenceProofs = referenceProofs;
+  g_summary.secondaryProjectileBallisticProofs = ballisticProofs;
+  g_summary.secondaryProjectileBallisticMoves = ballisticMoves;
+  g_summary.vehicleReferenceFingerprint = referenceFingerprint;
+  g_vehicleReferencesFinalized = true;
+  return true;
 }
 
 void RecoveredGameplayTuning_Release(SimulationContext* context) {
@@ -824,9 +971,11 @@ bool RecoveredGameplayTuning_AcceptsBulletRoster(
 bool RecoveredGameplayTuning_AcceptsVehicleReferences(
     SimulationContext* context) {
   if (!g_active) return VehicleAttributeState_IsKnownReferenceRoster(context);
-  return RecoveredGameplayTuning_AcceptsVehicleRoster(context) &&
+  return g_vehicleReferencesFinalized &&
+         RecoveredGameplayTuning_AcceptsVehicleRoster(context) &&
          VehicleAttributeState_ReferencesResolved(context) &&
-         VehicleAttributeState_ReferenceFingerprint(context) != 0;
+         VehicleAttributeState_ReferenceFingerprint(context) ==
+             g_summary.vehicleReferenceFingerprint;
 }
 
 bool RecoveredGameplayTuning_AcceptsBulletReferences(

@@ -40,6 +40,8 @@ $gameplayTuning = @'
       "acceleration_time": 0.5,
       "turn_speed": 160.0,
       "primary_fire_interval": 0.12,
+      "secondary_fire_interval": 0.45,
+      "secondary_projectile": "Bullet.Mina",
       "damage_power": 7.0
     }
   ],
@@ -115,6 +117,43 @@ $invalidManifest = @'
     $invalidManifest,
     [Text.UTF8Encoding]::new($false))
 
+$missingSecondaryMod = Join-Path $OutputRoot "missing-secondary-mod"
+$missingSecondaryObjects = Join-Path $missingSecondaryMod "objects"
+New-Item -ItemType Directory -Force -Path $missingSecondaryObjects | Out-Null
+$missingSecondaryTuning = @'
+{
+  "schema": 1,
+  "vehicles": [
+    {
+      "id": "Vehicle.Attr.default",
+      "secondary_projectile": "Bullet.Does.Not.Exist"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingSecondaryObjects "gameplay-tuning.json"),
+    $missingSecondaryTuning,
+    [Text.UTF8Encoding]::new($false))
+$missingSecondaryManifest = @'
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.acceptance.missing-secondary",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "objects/gameplay-tuning.json",
+      "target": "RR2NW/gameplay-tuning.json"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingSecondaryMod "mod.json"),
+    $missingSecondaryManifest,
+    [Text.UTF8Encoding]::new($false))
+
 function Quote-NativeArgument([string]$Value) {
     if ($Value -notmatch '[\s"]') { return $Value }
     return '"' + ($Value -replace '"', '\"') + '"'
@@ -167,6 +206,7 @@ foreach ($configurationName in $Configuration) {
     $restoreLogs = Join-Path $caseRoot "mod-restore-logs"
     $rejectLogs = Join-Path $caseRoot "base-reject-logs"
     $invalidLogs = Join-Path $caseRoot "invalid-tuning-logs"
+    $missingSecondaryLogs = Join-Path $caseRoot "missing-secondary-logs"
     $baseSaves = Join-Path $caseRoot "base-saves"
     $identitySaves = Join-Path $caseRoot "identity-saves"
     $executable = Join-Path $repositoryRoot "build\windows-msvc-x86\$configurationName\rr2nw.exe"
@@ -228,12 +268,21 @@ foreach ($configurationName in $Configuration) {
             "--diagnostics-dir", $invalidLogs,
             "--save-dir", $baseSaves) 4
 
+        Write-Host "[$configurationName] reject missing secondary projectile"
+        Invoke-BoundedGame $executable @(
+            "--runtime-smoke", "--data-dir", $dataPath,
+            "--mod-dir", $missingSecondaryMod,
+            "--start-level", $Level,
+            "--diagnostics-dir", $missingSecondaryLogs,
+            "--save-dir", $baseSaves) 4
+
         $base = Read-LogMap (Join-Path $baseLogs "rr2nw-startup.log")
         $modded = Read-LogMap (Join-Path $modLogs "rr2nw-startup.log")
         $saved = Read-LogMap (Join-Path $saveLogs "rr2nw-startup.log")
         $restored = Read-LogMap (Join-Path $restoreLogs "rr2nw-startup.log")
         $rejected = Read-LogMap (Join-Path $rejectLogs "rr2nw-startup.log")
         $invalid = Read-LogMap (Join-Path $invalidLogs "rr2nw-startup.log")
+        $missingSecondary = Read-LogMap (Join-Path $missingSecondaryLogs "rr2nw-startup.log")
         Require-Value $base "mod_active" "0"
         Require-Value $base "marker" "level-ready"
         Require-Value $base "runtime_shutdown" "clean"
@@ -246,11 +295,16 @@ foreach ($configurationName in $Configuration) {
         Require-Value $modded "gameplay_tuning_projectile_patches" "1"
         Require-Value $modded "gameplay_tuning_projectile_ballistic_proofs" "1"
         Require-Value $modded "gameplay_tuning_projectile_ballistic_moves" "2"
+        Require-Value $modded "gameplay_tuning_secondary_reference_proofs" "1"
+        Require-Value $modded "gameplay_tuning_secondary_ballistic_proofs" "1"
+        Require-Value $modded "gameplay_tuning_secondary_ballistic_moves" "2"
         Require-Value $modded "gameplay_tuning_default_max_speed" "14.000000"
         Require-Value $modded "gameplay_tuning_default_reverse_speed" "8.000000"
         Require-Value $modded "gameplay_tuning_default_acceleration_time" "0.500000"
         Require-Value $modded "gameplay_tuning_default_turn_speed" "160.000000"
         Require-Value $modded "gameplay_tuning_default_primary_fire_interval" "0.120000"
+        Require-Value $modded "gameplay_tuning_default_secondary_fire_interval" "0.450000"
+        Require-Value $modded "gameplay_tuning_default_secondary_projectile" "Bullet.Mina"
         Require-Value $modded "gameplay_tuning_default_damage_power" "7.000000"
         Require-Value $modded "gameplay_tuning_primary_projectile_speed" "180.000000"
         Require-Value $modded "marker" "level-ready"
@@ -260,7 +314,17 @@ foreach ($configurationName in $Configuration) {
         Require-Value $restored "gameplay_tuning_active" "1"
         Require-Value $restored "save_menu_completed_loads" "1"
         Require-Value $restored "gameplay_tuning_primary_projectile_speed" "180.000000"
+        Require-Value $restored "gameplay_tuning_default_secondary_fire_interval" "0.450000"
+        Require-Value $restored "gameplay_tuning_default_secondary_projectile" "Bullet.Mina"
+        Require-Value $restored "gameplay_tuning_secondary_reference_proofs" "1"
         Require-Value $restored "runtime_shutdown" "clean"
+        $vehicleReferenceFingerprint =
+            [UInt64]$modded["gameplay_tuning_vehicle_reference_fingerprint"]
+        if ($vehicleReferenceFingerprint -eq 0 -or
+            [UInt64]$restored["gameplay_tuning_vehicle_reference_fingerprint"] -ne
+                $vehicleReferenceFingerprint) {
+            throw "secondary reference fingerprint did not survive restore"
+        }
         Require-Value $rejected "mod_active" "0"
         Require-Value $rejected "marker" "loop-not-ready"
         if (-not $rejected.ContainsKey("save_menu_error") -or
@@ -272,6 +336,13 @@ foreach ($configurationName in $Configuration) {
         if (-not $invalid.ContainsKey("arena_seance_error") -or
             $invalid["arena_seance_error"] -notmatch 'unknown key: mass') {
             throw "malformed tuning did not fail closed with a precise error"
+        }
+        Require-Value $missingSecondary "mod_active" "1"
+        Require-Value $missingSecondary "marker" "loop-not-ready"
+        if (-not $missingSecondary.ContainsKey("arena_seance_error") -or
+            $missingSecondary["arena_seance_error"] -notmatch
+                'unknown secondary BulletAttr tuning target') {
+            throw "missing secondary projectile did not fail closed precisely"
         }
         $baseFingerprint = [UInt64]$base["active_content_fingerprint"]
         $modFingerprint = [UInt64]$modded["active_content_fingerprint"]

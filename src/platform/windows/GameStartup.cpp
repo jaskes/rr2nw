@@ -1871,11 +1871,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(tuningSummary->projectileBallisticProofs));
     log.Line("gameplay_tuning_projectile_ballistic_moves=" +
              std::to_string(tuningSummary->projectileBallisticMoves));
+    log.Line("gameplay_tuning_secondary_reference_proofs=" +
+             std::to_string(
+                 tuningSummary->secondaryProjectileReferenceProofs));
+    log.Line("gameplay_tuning_secondary_ballistic_proofs=" +
+             std::to_string(
+                 tuningSummary->secondaryProjectileBallisticProofs));
+    log.Line("gameplay_tuning_secondary_ballistic_moves=" +
+             std::to_string(
+                 tuningSummary->secondaryProjectileBallisticMoves));
     log.Line("gameplay_tuning_fingerprint=" +
              std::to_string(tuningSummary->tuningFingerprint));
     log.Line("gameplay_tuning_vehicle_attribute_fingerprint=" +
              std::to_string(
                  tuningSummary->vehicleAttributeFingerprint));
+    log.Line("gameplay_tuning_vehicle_reference_fingerprint=" +
+             std::to_string(
+                 tuningSummary->vehicleReferenceFingerprint));
     log.Line("gameplay_tuning_bullet_attribute_fingerprint=" +
              std::to_string(
                  tuningSummary->bulletAttributeFingerprint));
@@ -1892,6 +1904,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("gameplay_tuning_default_primary_fire_interval=" +
              std::to_string(
                  tuningSummary->defaultPrimaryFireInterval));
+    log.Line("gameplay_tuning_default_secondary_fire_interval=" +
+             std::to_string(
+                 tuningSummary->defaultSecondaryFireInterval));
+    log.Line(std::string("gameplay_tuning_default_secondary_projectile=") +
+             tuningSummary->defaultSecondaryProjectile);
     log.Line("gameplay_tuning_default_damage_power=" +
              std::to_string(tuningSummary->defaultDamagePower));
     log.Line("gameplay_tuning_primary_projectile_present=" +

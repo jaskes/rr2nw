@@ -7,6 +7,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Extended gameplay tuning with bounded `secondary_fire_interval` and
+  `secondary_projectile` fields. Secondary references now resolve through the
+  original `VehicleAttr -> BulletAttr` index transaction and must pass an
+  exact post-resolution fingerprint plus a real ballistic lifecycle.
+- Made the ballistic admission probe roll back its resolved Spark/Smoke child
+  effects as well as the Bullet and scheduler events. A secondary-weapon proof
+  can no longer leave presentation objects for later active-world bootstrap.
 - Added the first stable data-driven gameplay contract. A mod may declare one
   strict `RR2NW/gameplay-tuning.json` that atomically tunes bounded movement,
   primary-fire, damage-power and projectile-speed fields by verified retail

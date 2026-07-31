@@ -288,7 +288,8 @@ installation's `SMOKE.SCI` plus a generated schema-1 gameplay tuning file; no
 retail bytes are added to the repository. It boots base and tuned Level.05D,
 requires exact Vehicle/projectile observations and a real two-MOVE ballistic
 proof, saves with the mod, requires a content/mod-set rejection without it,
-and separately rejects a tuning file with an unknown field:
+rejects a tuning file with an unknown field, and separately rejects a missing
+secondary `BulletAttr` target:
 
 ```powershell
 & ".\tools\acceptance\Invoke-ModDataPack.ps1" `
@@ -314,9 +315,12 @@ installed-Level runtime-smoke cases.
 
 The log must report `gameplay_tuning_active=1`, one Vehicle patch, one
 projectile patch, `gameplay_tuning_projectile_ballistic_proofs=1`, two MOVE
-steps, the documented `14/8/0.5/160/0.12/7/180` observations and clean
-shutdown. Drive and fire on Level.05D; this is a contract check, not a balanced
-gameplay preset.
+steps, one secondary reference proof, one additional two-MOVE secondary
+ballistic proof, the documented
+`14/8/0.5/160/0.12/0.45/Bullet.Mina/7/180` observations, a non-zero Vehicle
+reference fingerprint and clean shutdown. Save and restore must publish the
+same reference fingerprint. This is a diagnostic contract preset, not a
+balanced gameplay preset.
 
 ## Interactive crowded Taxi stability pass
 

@@ -1060,6 +1060,30 @@ bool RemoveIfPresent(SimulationContext *context, KR_ObjectID object)
     return object.isNUL() || !context->isExist(object);
 }
 
+bool RollbackBallisticProbeEffects(SimulationContext *context)
+{
+    if (context == NULL)
+        return false;
+    bool clean = true;
+    KR_ObjectID smoke = context->searchObject("Smok.");
+    if (!smoke.isNUL())
+    {
+        if (!SmokeSubjectState_RollbackStarted(context, smoke))
+            clean = false;
+        RemoveIfPresent(context, smoke);
+    }
+    KR_ObjectID spark = context->searchObject("S");
+    if (!spark.isNUL())
+    {
+        if (!SparkSubjectState_RollbackQueued(context, spark))
+            clean = false;
+        RemoveIfPresent(context, spark);
+    }
+    return clean && SmokeSubjectState_LiveCount() == 0 &&
+           SparkSubjectState_LiveCount() == 0 &&
+           !context->isExist("Smok.") && !context->isExist("S");
+}
+
 int DrainPrivateBulletEvents(SimulationContext *context,
                              const KR_ObjectID &object)
 {
@@ -1486,6 +1510,8 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
     const int baseline = g_bulletTable.liveCount();
     if (context == NULL || attributeName == NULL || attributeName[0] == 0 ||
         baseline != 0 ||
+        SmokeSubjectState_LiveCount() != 0 ||
+        SparkSubjectState_LiveCount() != 0 ||
         !BulletSubjectState_TableReady(context, g_bulletTable.capacity()))
         return false;
     KR_ObjectID attributeID = context->searchObject(attributeName);
@@ -1592,6 +1618,7 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
     {
         context->removeEvent(b_EVC_MOVING, flight);
         RemoveIfPresent(context, flight);
+        RollbackBallisticProbeEffects(context);
         return false;
     }
 
@@ -1619,7 +1646,9 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
         context->removeEvent(b_EVC_MOVING, flight) != 0;
     *moveCount += flightObject == NULL ? 0 : flightObject->moveCount();
     RemoveIfPresent(context, flight);
-    if (!moved || !secondScheduled || g_bulletTable.liveCount() != baseline)
+    const bool flightEffectsClean = RollbackBallisticProbeEffects(context);
+    if (!moved || !secondScheduled || !flightEffectsClean ||
+        g_bulletTable.liveCount() != baseline)
         return false;
 
     KR_ObjectID ground =
@@ -1645,6 +1674,7 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
     if (groundStarted)
         ++(*moveCount);
     RemoveIfPresent(context, ground);
+    const bool groundEffectsClean = RollbackBallisticProbeEffects(context);
 
     KR_ObjectID rollback =
         g_arena.newObject(subjectTable, "Bullet.Subject.Rollback.Probe");
@@ -1662,6 +1692,7 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
     pendingCollision.timeStamp = ts + 2.0 + delta;
     context->addEvent(pendingCollision);
     RemoveIfPresent(context, rollback);
+    const bool rollbackEffectsClean = RollbackBallisticProbeEffects(context);
     const bool pendingEventsRolledBack = rollbackStarted &&
         context->removeEvent(b_EVC_MOVING, rollback) == 0 &&
         context->removeEvent(b_EVC_CHECK_COLLISION, rollback) == 0;
@@ -1673,9 +1704,12 @@ bool BulletSubjectState_ProbeBallisticLifecycle(
                              reusedObject->clean();
     RemoveIfPresent(context, reused);
 
-    return removedAtGround && pendingEventsRolledBack && reusedClean &&
+    return removedAtGround && groundEffectsClean &&
+           pendingEventsRolledBack && rollbackEffectsClean && reusedClean &&
            *moveCount == 2 &&
            g_bulletTable.liveCount() == baseline &&
+           SmokeSubjectState_LiveCount() == 0 &&
+           SparkSubjectState_LiveCount() == 0 &&
            !context->isExist("Bullet.Subject.InvalidPayload.Probe") &&
            !context->isExist("Bullet.Subject.InvalidAttribute.Probe") &&
            !context->isExist("Bullet.Subject.InvalidDirection.Probe") &&
