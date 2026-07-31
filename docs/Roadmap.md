@@ -1150,11 +1150,18 @@ The completed Windows gate passes 57/57 CTest in Debug and Release, 36/36
 fresh-Level continuation runs and the independent 36/36 ordinary retail
 runtime matrix across both `E:` and `G:` roots.
 
-The next persistence slice is item 5: atomic user-facing save/load slots around
-LCN1 and the manual multi-Level save checklist. Slot work must retain content/
-Level compatibility checks, backup rollback, stable-frame capture rejection
-and clean diagnostics. It must not claim retail-save compatibility or silently
-serialize owner families outside the admitted graph.
+The item-5 storage backend is now admitted as
+[`RR2SLOT1`](SaveSlots.md): eight fixed names, bounded UTF-8 metadata and
+optional PNG preview, exact LCN1 metadata binding, replace-safe Win32 commit,
+committed-file read-back and same-Level destroyed-context load. It retains
+content/Level checks, stable-frame rejection and the existing target-session
+rollback.
+
+The remaining item-5 product slice is main-loop/menu integration, a stable
+per-user save root, framebuffer-to-PNG preview capture, overwrite and
+incompatible-slot UX, plus the interactive save-exit-relaunch-load checklist.
+It must not claim retail-save compatibility or silently serialize owner
+families outside the admitted graph.
 Explicit hit/damage/death records should still be added only where source
 inspection finds a queued transition; current synchronous paths already
 materialize in owner state.

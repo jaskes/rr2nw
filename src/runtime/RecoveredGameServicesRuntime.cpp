@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <ctime>
 #include <new>
 #include <string>
 
@@ -24,6 +25,7 @@
 #include "FrameRuntimeState.h"
 #include "GameEntryRuntimeState.h"
 #include "LevelContinuation.h"
+#include "LevelSaveSlot.h"
 #include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
@@ -800,6 +802,7 @@ int g_primaryFireSparkBaseline = 0;
 int g_primaryFireSoundBaseline = 0;
 bool g_primaryFireEffectPresent = false;
 std::string g_levelContinuationFailure;
+std::string g_levelSaveSlotFailure;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 
@@ -1234,6 +1237,7 @@ void EndBoundedSession() {
   g_primaryFireSoundBaseline = 0;
   g_primaryFireEffectPresent = false;
   g_levelContinuationFailure.clear();
+  g_levelSaveSlotFailure.clear();
   g_vehicleControlInput.Reset(KR_ObjectID::NUL());
 
   const SFrameRuntimeHooks emptyFrameHooks = {};
@@ -2018,6 +2022,106 @@ bool RecoveredGameServices_RestoreLevelContinuation(
 
 const char* RecoveredGameServices_LastLevelContinuationError() {
   return g_levelContinuationFailure.c_str();
+}
+
+bool RecoveredGameServices_SaveLevelSlot(
+    const std::wstring& directory, std::uint32_t slot,
+    const std::string& title, const std::string& description,
+    const std::vector<std::uint8_t>& previewPng,
+    SLevelSaveSlotSummary* slotSummary,
+    SLevelContinuationSummary* continuationSummary) {
+  g_levelSaveSlotFailure.clear();
+  if (directory.empty() || slotSummary == nullptr ||
+      continuationSummary == nullptr) {
+    g_levelSaveSlotFailure = "save slot arguments are invalid";
+    return false;
+  }
+  *slotSummary = {};
+  *continuationSummary = {};
+
+  std::vector<std::uint8_t> continuationBytes;
+  SLevelContinuationSummary captured;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &continuationBytes, &captured)) {
+    g_levelSaveSlotFailure =
+        RecoveredGameServices_LastLevelContinuationError();
+    return false;
+  }
+  const std::time_t now = std::time(nullptr);
+  if (now <= 0) {
+    g_levelSaveSlotFailure = "current UTC save time is unavailable";
+    return false;
+  }
+
+  SLevelSaveSlotStatus status;
+  SLevelSaveSlot archive;
+  if (!LevelSaveSlot_Create(
+          slot, static_cast<std::uint64_t>(now), title, description,
+          previewPng, continuationBytes, &archive, &status) ||
+      !LevelSaveSlot_WriteAtomic(directory, archive, &status)) {
+    g_levelSaveSlotFailure = status.detail;
+    return false;
+  }
+
+  // Read the committed name back through the same bounded decoder. A success
+  // result therefore means the directory contains one complete, loadable
+  // RR2SLOT1 file rather than merely a flushed temporary file.
+  SLevelSaveSlot committed;
+  SLevelSaveSlotSummary committedSummary;
+  if (!LevelSaveSlot_Read(directory, slot, &committed, &status) ||
+      committed.archiveFingerprint != archive.archiveFingerprint ||
+      !LevelSaveSlot_Summarize(committed, &committedSummary, &status)) {
+    g_levelSaveSlotFailure =
+        status.detail.empty()
+            ? "committed save slot read-back fingerprint differs"
+            : status.detail;
+    return false;
+  }
+  *slotSummary = committedSummary;
+  *continuationSummary = captured;
+  return true;
+}
+
+bool RecoveredGameServices_LoadLevelSlot(
+    const std::wstring& directory, std::uint32_t slot,
+    SLevelSaveSlotSummary* slotSummary,
+    SLevelContinuationSummary* continuationSummary) {
+  g_levelSaveSlotFailure.clear();
+  if (directory.empty() || slotSummary == nullptr ||
+      continuationSummary == nullptr) {
+    g_levelSaveSlotFailure = "load slot arguments are invalid";
+    return false;
+  }
+  *slotSummary = {};
+  *continuationSummary = {};
+
+  SLevelSaveSlotStatus status;
+  SLevelSaveSlot archive;
+  SLevelSaveSlotSummary decodedSummary;
+  if (!LevelSaveSlot_Read(directory, slot, &archive, &status) ||
+      !LevelSaveSlot_Summarize(archive, &decodedSummary, &status)) {
+    g_levelSaveSlotFailure = status.detail;
+    return false;
+  }
+  SLevelContinuationSummary restored;
+  if (!RecoveredGameServices_RestoreLevelContinuation(
+          archive.continuation, &restored)) {
+    g_levelSaveSlotFailure =
+        RecoveredGameServices_LastLevelContinuationError();
+    return false;
+  }
+  // RR2SLOT1 validation already bound these fields to the same decoded LCN1,
+  // and RestoreLevelContinuation admits that exact byte vector. Therefore
+  // there is no fallible post-mutation phase here: success publishes both
+  // summaries, while every possible failure occurred before commit or inside
+  // the continuation's own rollback transaction.
+  *slotSummary = decodedSummary;
+  *continuationSummary = restored;
+  return true;
+}
+
+const char* RecoveredGameServices_LastLevelSaveSlotError() {
+  return g_levelSaveSlotFailure.c_str();
 }
 
 bool RecoveredGameServices_VehicleFallbackActive() {

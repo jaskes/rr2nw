@@ -1357,6 +1357,29 @@ playable Level begins.
   Level resources are still loaded normally, named atomic slots and manual
   save points are pending, and retail-save import is a separate project.
 
+### RP-SAVE-012: RR2SLOT1 crosses a real atomic disk boundary
+
+- The modern service wraps one LCN1 in an eight-slot `RR2SLOT1` envelope. Slot
+  filenames are fixed by index; bounded display metadata, compatibility
+  fingerprints, clock boundary and optional PNG preview are data, never path.
+- The complete envelope and inner LCN1/AWV1 are validated before load. Level,
+  content, world, continuation, tick and time metadata must agree exactly, and
+  corrupt/truncated/future or wrong-index files do not mutate the decode
+  destination or live Level.
+- Saving uses a same-directory temporary file, complete short-write loops,
+  flush and replace-through commit, then rereads the named target. Both
+  hermetic and retail proofs show an invalid replacement leaves the prior slot
+  fingerprint loadable.
+- The retail service proof now saves Slot3 after 24 real Vehicle frames,
+  destroys the complete context, recreates the matching Level from retail
+  resources, loads the file and retains the RP-SAVE-011 exact-world and
+  five-frame resumed-control proof. The installed-data acceptance is 18/18
+  slot cases and 18/18 ordinary runtime cases across nine Levels and both
+  configurations, plus 58/58 CTest per configuration.
+- This closes the storage/service boundary, not the final RC user experience.
+  The old `Save*.sav` format is not imported; menu events, per-user root,
+  preview capture and interactive save-exit-relaunch-load UX remain pending.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

@@ -2700,9 +2700,12 @@ Status vocabulary:
 - Handling: Level.04D admission expects `1/4/1/1/3/1/1` for spawn/links/
   scheduler/stable/reconstructed/rollback telemetry. The stop proof presses
   `X` while forward throttle is still held, then releases `W`. Explosion trace
-  detaches both parent events before parent removal and proves the queue remains
-  empty after the detached child frames. Roster failures print live telemetry
-  before teardown instead of reporting an erased all-zero service state.
+  particle and trace fixtures detach both parent events before yielding to
+  their first host-timed draw frame, then remove the parent and prove the queue
+  remains empty after the detached child frames. This ordering matters in slow
+  Debug frames, which can overtake both synthetic timestamps before cleanup.
+  Roster failures print live telemetry before teardown instead of reporting an
+  erased all-zero service state.
 - Verification: 57/57 CTest passes in Debug and Release. The final dedicated
   fresh-continuation sweep passes 36/36 across nine Levels, both retail roots
   and both configurations; the independent ordinary retail matrix also passes
@@ -2710,6 +2713,34 @@ Status vocabulary:
 - Revisit when: the smoke moves to a fixed synthetic clock. Keep explicit
   event ownership and a stop-under-active-throttle assertion even when host
   timing no longer varies.
+
+### CQ-158: slot display metadata must never regain filename authority
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: the retail event path used menu item text in
+  `sprintf("..\\SAVES\\%s", fileName)` and tracked slot identity separately in
+  `saves.cfg`. The recovered menu still exposes exactly eight save and eight
+  load events. A modern UTF-8 title can contain characters that are invalid or
+  structural in a Windows path, and copying a valid slot file under another
+  slot name would otherwise make the menu index ambiguous.
+- Handling: RR2SLOT1 admits only indices `0..7`; the codec maps them to fixed
+  `SlotN.rr2save` names. UTF-8 title/description are bounded payload only.
+  Decode binds the stored slot number, Level, content/world/LCN1 fingerprints
+  and clock to the inner continuation. Save writes beside the target, flushes,
+  atomically replaces it and rereads the committed fingerprint.
+- Verification: the hermetic slot smoke rejects corrupt/truncated archives,
+  detached metadata and a valid Slot3 archive copied to the Slot2 name. It
+  proves valid replacement, an actual MoveFileEx sharing failure and an
+  invalid oversized-metadata replacement that both leave the old fingerprint
+  loadable. The retail proof repeats failed replacement preservation before
+  destroying the Level and loading Slot3.
+  The final installed-data sweep passes 18/18 slot cases and 18/18 ordinary
+  runtime cases across nine Levels and both configurations; CTest is 58/58 in
+  each configuration.
+- Revisit when: menu integration chooses the per-user save root and introduces
+  title editing. Keep titles out of paths, keep slot/file identity checks and
+  add explicit UX for corrupt, incompatible and empty slots rather than
+  silently treating them as valid or deleting them.
 
 ## Maintenance rule
 

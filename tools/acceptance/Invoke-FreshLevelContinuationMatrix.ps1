@@ -109,7 +109,7 @@ foreach ($configurationName in $Configuration) {
             } else { "" }
             $proof = [regex]::Match(
                 $stdout,
-                'level_continuation=LCN1-12/12/12 events=(\d+)/(\d+) tick=(\d+) time=([0-9.]+) world=(\d+) journal=(\d+) container=(\d+) resumed_actions=(\d+)')
+                'level_continuation=LCN1-12/12/12 events=(\d+)/(\d+) tick=(\d+) time=([0-9.]+) world=(\d+) journal=(\d+) container=(\d+) save_slot=RR2SLOT1-(\d+)-(\d+) bytes=(\d+) resumed_actions=(\d+)')
             $issues = [Collections.Generic.List[string]]::new()
             if ($timedOut) { $issues.Add("timeout") }
             # Windows PowerShell 5.1 can expose a null ExitCode when
@@ -129,6 +129,14 @@ foreach ($configurationName in $Configuration) {
                     break
                 }
             }
+            if ($proof.Success -and $proof.Groups[8].Value -ne "3") {
+                $issues.Add("unexpected save slot index")
+            }
+            if ($proof.Success -and
+                ([uint64]$proof.Groups[9].Value -eq 0 -or
+                 [uint64]$proof.Groups[10].Value -eq 0)) {
+                $issues.Add("zero save slot proof")
+            }
             $passed = $issues.Count -eq 0
             $records.Add([pscustomobject]@{
                 Configuration = $configurationName
@@ -140,6 +148,8 @@ foreach ($configurationName in $Configuration) {
                 WorldFingerprint = if ($proof.Success) { [uint64]$proof.Groups[5].Value } else { 0 }
                 JournalFingerprint = if ($proof.Success) { [uint64]$proof.Groups[6].Value } else { 0 }
                 ContainerFingerprint = if ($proof.Success) { [uint64]$proof.Groups[7].Value } else { 0 }
+                SaveSlotFingerprint = if ($proof.Success) { [uint64]$proof.Groups[9].Value } else { 0 }
+                SaveSlotBytes = if ($proof.Success) { [uint64]$proof.Groups[10].Value } else { 0 }
                 Issues = $issues -join '; '
             })
         }

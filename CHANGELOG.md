@@ -7,6 +7,28 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the `RR2SLOT1` v1 named save envelope around canonical LCN1. Exactly
+  eight fixed `Slot0.rr2save` through `Slot7.rr2save` paths carry bounded UTF-8
+  title/description/Level metadata, UTC time, duplicated compatibility and
+  clock fingerprints, an optional bounded PNG preview and one validated LCN1
+  payload.
+- Added replace-safe Windows commits through a same-directory temporary file,
+  complete short-write loops, `FlushFileBuffers` and
+  `MoveFileExW(REPLACE_EXISTING | WRITE_THROUGH)`, followed by committed-file
+  read-back. Invalid or failed replacement leaves the previous slot intact.
+- Added service-level save/load APIs and changed the real destroyed-context
+  proof to cross an actual slot file: save after 24 Vehicle frames, reject one
+  invalid overwrite, destroy/recreate the Level, load slot 3, recapture the
+  exact world and resume control for five more frames.
+- Added a hermetic RR2SLOT1 codec/atomic-file smoke and extended the retail
+  continuation matrix to require non-zero slot size/fingerprint evidence.
+  The accepted local gate is 58/58 CTest per configuration, 18/18 disk-slot
+  continuation cases and 18/18 ordinary runtime cases across all nine
+  installed Levels in Debug and Release.
+- Removed the remaining host-time races from both Explosion particle and trace
+  draw proofs by detaching synthetic MOVE/NEWPUFF records before the first
+  Debug frame; a slow frame can no longer consume them before deterministic
+  rendering and teardown.
 - Added canonical `LCN1` fresh-Level continuation. The bounded container binds
   one AWV1 admitted-world snapshot and one sealed CTJ1 journal at the exact
   same clock/RNG boundary, validates retail content/Level/Vehicle identity and

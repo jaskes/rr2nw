@@ -145,8 +145,22 @@ not claim pixel identity with every historical Watcom or Direct3D path; any
 remaining discrepancy must be recorded with a Level, frame, telemetry and
 screenshot before changing palette or raster rules.
 
-The active-world diagnostics are an internal admission proof, not a user save
-control. Do not add save/load to the interactive checklist until a decoded
-snapshot can construct the remaining mission/effect owners and restore
-the complete live event and input queues; until then those manual cells would
-overstate readiness.
+The automated service proof now crosses an actual RR2SLOT1 file and reconstructs
+the complete admitted world/input boundary after a destroyed Level. Run its
+all-Level disk-slot sweep with:
+
+```powershell
+& ".\tools\acceptance\Invoke-FreshLevelContinuationMatrix.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+Each successful row must contain non-zero `WorldFingerprint`,
+`JournalFingerprint`, `ContainerFingerprint`, `SaveSlotFingerprint` and
+`SaveSlotBytes`. The harness uses a process-scoped temporary save directory and
+removes all eight fixed files after success.
+
+Do not add save/load cells to the visible-game checklist yet. RR2SLOT1 proves
+the storage/service transaction, but the executable menu is not wired to it:
+the final per-user save root, preview capture, overwrite prompt and
+save-exit-relaunch-load interaction are the next product slice.

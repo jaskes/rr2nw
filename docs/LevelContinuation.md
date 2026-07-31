@@ -7,10 +7,11 @@ recovered Windows Level runtime. It binds one canonical `AWV1` active-world
 snapshot to one sealed `CTJ1` normalized-control journal at the same
 authoritative tick and simulation time.
 
-It is an internal persistence boundary, not yet a user-facing save slot and
-not an importer for retail saves. Loading still starts the matching retail
-Level normally so its scripts, attributes, models, textures, sounds and fixed
-pools exist, then overlays the captured dynamic state transactionally.
+It is the internal persistence boundary used by the modern
+[`RR2SLOT1`](SaveSlots.md) save-slot envelope, not an importer for retail
+saves. Loading still starts the matching retail Level normally so its scripts,
+attributes, models, textures, sounds and fixed pools exist, then overlays the
+captured dynamic state transactionally.
 
 ## Container
 
@@ -110,10 +111,9 @@ corruption/truncation rejection, lifecycle derivation and journal resume. The
 retail sweep is automated by
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1`.
 
-The accepted Windows gate is 57/57 CTest in both Debug and Release. The fresh
-continuation sweep passes 36/36 combinations (nine configured Levels, the
-installed and mounted-disc data roots, both configurations), and the existing
-retail runtime matrix independently remains 36/36.
+The original accepted Windows LCN1 gate was 57/57 CTest in both Debug and
+Release. RR2SLOT1 adds one hermetic test and extends the same destroyed-context
+retail proof with a real atomic disk slot.
 
 ## Current limits and next gate
 
@@ -124,7 +124,9 @@ Level resources and derived renderer/audio caches are reloaded, not serialized.
 Live owner families outside that admitted set require their own section before
 they may cross a public save boundary.
 
-The next gate is atomic named save slots around `LCN1`, with metadata and
-screenshot/description, same-Level reload orchestration, non-destructive slot
-replacement and a manual multi-Level checklist. Fixed-tick replay, retail-save
-import, Linux/macOS and multiplayer remain later work.
+Atomic named slots, bounded metadata/optional preview, same-Level reload
+orchestration and non-destructive replacement are now implemented in
+[`SaveSlots.md`](SaveSlots.md). The next gate is main-loop/menu integration,
+the final per-user save root, real preview capture and an interactive
+save-exit-relaunch-load checklist. Fixed-tick replay, retail-save import,
+Linux/macOS and multiplayer remain later work.

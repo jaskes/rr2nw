@@ -54,3 +54,6 @@
 - [LevelContinuation.md](LevelContinuation.md) documents the LCN1 container,
   stable capture boundary, fresh-session transactional restore, whole-world
   recapture proof and resumed Vehicle control journal.
+- [SaveSlots.md](SaveSlots.md) documents the eight fixed RR2SLOT1 files,
+  bounded metadata/preview envelope, atomic replacement and destroyed-Level
+  disk-load proof.

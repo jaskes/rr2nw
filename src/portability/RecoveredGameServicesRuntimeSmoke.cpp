@@ -230,6 +230,28 @@ class ScopedParticleCapture {
   }
 };
 
+void CleanupSaveSlotFixture(const std::wstring& directory) {
+  for (std::uint32_t slot = 0;
+       slot < LevelSaveSlot_Count(); ++slot) {
+    const std::wstring path = LevelSaveSlot_Path(directory, slot);
+    if (!path.empty()) DeleteFileW(path.c_str());
+  }
+  RemoveDirectoryW(directory.c_str());
+}
+
+bool PrepareSaveSlotFixture(std::wstring* directory) {
+  if (directory == nullptr) return false;
+  wchar_t temporaryRoot[MAX_PATH + 1] = {};
+  const DWORD length =
+      GetTempPathW(MAX_PATH, temporaryRoot);
+  if (length == 0 || length > MAX_PATH) return false;
+  *directory = temporaryRoot;
+  *directory += L"rr2nw-level-slot-runtime-";
+  *directory += std::to_wstring(GetCurrentProcessId());
+  CleanupSaveSlotFixture(*directory);
+  return true;
+}
+
 int Fail(const char* message) {
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();
@@ -1709,6 +1731,11 @@ bool ExerciseVisibleExplosionParticles() {
   const int pieceDrawsBefore = ExplosionSubjectState_PieceDrawCount();
   int pieceDrawsAfterVisibleFrame = pieceDrawsBefore;
   int pieceDrawsAfterDetachedFrame = pieceDrawsBefore;
+  // This visual fixture owns its synthetic scheduler boundary. Remove both
+  // records before the first host-timed frame so a slow Debug draw cannot
+  // advance and expire the parent before its one required visible frame.
+  ownedMove = context->removeEvent(EXPLOSION_MOVE, explosion) != 0;
+  ownedPuff = context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0;
   {
     ScopedParticleCapture capture;
     ScopedAlphaSpriteCapture smokeCapture(attribute->m_hTexture);
@@ -1731,8 +1758,6 @@ bool ExerciseVisibleExplosionParticles() {
         _gr_pLights[0].r == attribute->m_lightRadius &&
         _gr_pLights[0].power0 == attribute->m_brightness[brightnessIndex] &&
         _gr_pLights[0].color == attribute->m_lightColor;
-    ownedMove = context->removeEvent(EXPLOSION_MOVE, explosion) != 0;
-    ownedPuff = context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0;
     if (context->isExist(explosion)) context->removeObject(explosion);
     detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
     pieceDrawsAfterDetachedFrame = ExplosionSubjectState_PieceDrawCount();
@@ -1987,14 +2012,18 @@ bool ExerciseVisibleExplosionTrace() {
   bool parentMoveDetached = false;
   bool parentPuffDetached = false;
   KR_ObjectID lastSmoke = lastPuff;
+  // The draw proof owns this synthetic parent's event boundary. Detach both
+  // scheduler records before yielding to a host-timed frame; a slow Debug
+  // frame may otherwise execute either record and turn cleanup into a race
+  // against wall-clock time.
+  parentMoveDetached =
+      context->removeEvent(EXPLOSION_MOVE, explosion) != 0;
+  parentPuffDetached =
+      context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0;
   {
     ScopedAlphaSpriteCapture capture(smokeAttribute->m_cacheImage);
     visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
     visibleDraws = g_alphaSpriteDraws;
-    parentMoveDetached =
-        context->removeEvent(EXPLOSION_MOVE, explosion) != 0;
-    parentPuffDetached =
-        context->removeEvent(EXPLOSION_NEWPUFF, explosion) != 0;
     context->removeObject(explosion);
     detachedParentFrame = RecoveredGameServices_RunFrame() != FALSE;
     detachedDraws = g_alphaSpriteDraws;
@@ -2315,6 +2344,12 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("service initialization failed");
+  }
+  std::wstring saveSlotDirectory;
+  if (!PrepareSaveSlotFixture(&saveSlotDirectory)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("save slot fixture directory is unavailable");
   }
 
   SRecoveredVehicleControlReplayTelemetry replayTelemetry = {};
@@ -3534,14 +3569,24 @@ int main(int argc, char** argv) {
   // boundary.  The following stall probe deliberately leaves a diagnostic
   // frame delta above the serializable clock ceiling, while the later effect
   // suite intentionally opens transient Explosion/Smoke frames.
-  std::vector<std::uint8_t> levelContinuationBytes;
+  SLevelSaveSlotSummary savedSlot;
   SLevelContinuationSummary capturedContinuation;
   SRecoveredVehicleRuntimeState continuationVehicle = {};
   vehicleID = g_super.m_context->searchObject("Vehicle.Default");
   if (!VehicleRuntimeState_Inspect(
           g_super.m_context, vehicleID, &continuationVehicle) ||
-      !RecoveredGameServices_CaptureLevelContinuation(
-          &levelContinuationBytes, &capturedContinuation) ||
+      !RecoveredGameServices_SaveLevelSlot(
+          saveSlotDirectory, 3u, "Runtime checkpoint",
+          "Fresh-Level Vehicle continuation proof", {},
+          &savedSlot, &capturedContinuation) ||
+      !savedSlot.ready || savedSlot.slot != 3u ||
+      savedSlot.level.empty() ||
+      savedSlot.archiveFingerprint == 0 ||
+      savedSlot.continuationFingerprint == 0 ||
+      savedSlot.continuationFingerprint !=
+          capturedContinuation.containerFingerprint ||
+      savedSlot.worldFingerprint !=
+          capturedContinuation.worldFingerprint ||
       !capturedContinuation.ready || !capturedContinuation.sealedJournal ||
       !capturedContinuation.boundaryMatches ||
       !capturedContinuation.worldMatches ||
@@ -3549,12 +3594,29 @@ int main(int argc, char** argv) {
       capturedContinuation.worldFingerprint == 0 ||
       capturedContinuation.journalFingerprint == 0 ||
       capturedContinuation.containerFingerprint == 0 ||
-      levelContinuationBytes.empty()) {
-    std::fprintf(stderr, "level continuation capture: %s\n",
-                 RecoveredGameServices_LastLevelContinuationError());
+      savedSlot.archiveBytes == 0) {
+    std::fprintf(stderr, "level save slot capture: %s\n",
+                 RecoveredGameServices_LastLevelSaveSlotError());
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("live Level continuation capture failed");
+    return Fail("live Level save slot capture failed");
+  }
+  const std::uint64_t committedSlotFingerprint =
+      savedSlot.archiveFingerprint;
+  SLevelSaveSlotSummary rejectedReplacement;
+  SLevelContinuationSummary rejectedContinuation;
+  SLevelSaveSlotStatus slotStatus;
+  SLevelSaveSlot retainedSlot;
+  if (RecoveredGameServices_SaveLevelSlot(
+          saveSlotDirectory, 3u, std::string(),
+          "invalid replacement", {}, &rejectedReplacement,
+          &rejectedContinuation) ||
+      !LevelSaveSlot_Read(saveSlotDirectory, 3u, &retainedSlot,
+                          &slotStatus) ||
+      retainedSlot.archiveFingerprint != committedSlotFingerprint) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("failed live slot replacement changed committed data");
   }
 
   const unsigned int droppedFramesBeforeStall =
@@ -4183,9 +4245,15 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("service reconstruction failed");
   }
+  SLevelSaveSlotSummary loadedSlot;
   SLevelContinuationSummary restoredContinuation;
-  if (!RecoveredGameServices_RestoreLevelContinuation(
-          levelContinuationBytes, &restoredContinuation) ||
+  if (!RecoveredGameServices_LoadLevelSlot(
+          saveSlotDirectory, 3u, &loadedSlot,
+          &restoredContinuation) ||
+      !loadedSlot.ready ||
+      loadedSlot.archiveFingerprint != committedSlotFingerprint ||
+      loadedSlot.continuationFingerprint !=
+          capturedContinuation.containerFingerprint ||
       !restoredContinuation.ready ||
       !restoredContinuation.sealedJournal ||
       !restoredContinuation.boundaryMatches ||
@@ -4203,9 +4271,9 @@ int main(int argc, char** argv) {
       restoredContinuation.containerFingerprint !=
           capturedContinuation.containerFingerprint) {
     std::fprintf(stderr,
-                 "fresh-context LCN1 restore: %s "
+                 "fresh-context RR2SLOT1/LCN1 restore: %s "
                  "phases=%d/%d/%d fingerprints=%llu/%llu/%llu\n",
-                 RecoveredGameServices_LastLevelContinuationError(),
+                 RecoveredGameServices_LastLevelSaveSlotError(),
                  restoredContinuation.ownerPhases,
                  restoredContinuation.referencePhases,
                  restoredContinuation.eventPhases,
@@ -4283,6 +4351,7 @@ int main(int argc, char** argv) {
       snd_distMax2 != initialSoundDistanceSquared) {
     return Fail("complete service shutdown failed");
   }
+  CleanupSaveSlotFixture(saveSlotDirectory);
 
   std::printf("bounded services frames=42 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
@@ -4355,6 +4424,7 @@ int main(int argc, char** argv) {
                 "fingerprint=%llu "
                 "level_continuation=LCN1-%d/%d/%d events=%d/%d "
                 "tick=%llu time=%.6f world=%llu journal=%llu container=%llu "
+                "save_slot=RR2SLOT1-3-%llu bytes=%zu "
                 "resumed_actions=%u "
                 "route=table vehicle=real observer=fallback-suspended\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
@@ -4473,6 +4543,9 @@ int main(int argc, char** argv) {
                    restoredContinuation.journalFingerprint),
                static_cast<unsigned long long>(
                    restoredContinuation.containerFingerprint),
+               static_cast<unsigned long long>(
+                   loadedSlot.archiveFingerprint),
+               loadedSlot.archiveBytes,
                resumedJournal.actionRecords);
   return EXIT_SUCCESS;
 }

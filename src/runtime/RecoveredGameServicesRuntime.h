@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LevelContinuation.h"
+#include "LevelSaveSlot.h"
 
 enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_COM_FAILURE = 1u << 0,
@@ -256,6 +257,17 @@ bool RecoveredGameServices_RestoreLevelContinuation(
     const std::vector<std::uint8_t>& bytes,
     SLevelContinuationSummary* summary);
 const char* RecoveredGameServices_LastLevelContinuationError();
+bool RecoveredGameServices_SaveLevelSlot(
+    const std::wstring& directory, std::uint32_t slot,
+    const std::string& title, const std::string& description,
+    const std::vector<std::uint8_t>& previewPng,
+    SLevelSaveSlotSummary* slotSummary,
+    SLevelContinuationSummary* continuationSummary);
+bool RecoveredGameServices_LoadLevelSlot(
+    const std::wstring& directory, std::uint32_t slot,
+    SLevelSaveSlotSummary* slotSummary,
+    SLevelContinuationSummary* continuationSummary);
+const char* RecoveredGameServices_LastLevelSaveSlotError();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();
 unsigned int RecoveredGameServices_VehicleForwardedEvents();

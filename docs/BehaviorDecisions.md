@@ -3516,3 +3516,40 @@ both the installed and mounted-disc roots, and Debug/Release.
 This closes fresh-Level continuation, not public save UI. Atomic named slots,
 manual multi-Level load evidence and any owner families outside the admitted
 dynamic graph remain the next gate.
+
+## BD-092: make a save slot a fixed atomic envelope, not a menu filename
+
+Status: accepted on 2026-07-31.
+
+`RR2SLOT1` version 1 wraps exactly one canonical LCN1 and duplicates only the
+metadata required to list and reject a slot before restoration: fixed slot
+index, UTC save time, bounded UTF-8 title/description/Level, content/world/
+LCN1 fingerprints and authoritative tick/time. The duplicates must agree with
+the decoded inner AWV1/LCN1 exactly. An optional bounded PNG field is present
+from version 1, while current production capture leaves it empty.
+
+There are exactly eight filenames, `Slot0.rr2save` through `Slot7.rr2save`.
+Display strings never become paths. This preserves the retail eight-slot
+mental model without preserving `sprintf("..\\SAVES\\%s", menuText)` or
+making arbitrary menu text a filesystem authority.
+
+Commit occurs only after complete validation and canonical encoding. A
+same-directory temporary file receives all short writes and
+`FlushFileBuffers`; `MoveFileExW(REPLACE_EXISTING | WRITE_THROUGH)` publishes
+the target. The service rereads the target and checks its archive fingerprint
+before success. Load validates the whole envelope before invoking LCN1, so its
+only mutation phase remains the existing target-backup restore transaction.
+
+The hermetic proof covers corruption, truncation, inner-metadata mismatch,
+slot/file mismatch, valid replacement, a real MoveFileEx sharing failure and
+invalid replacement preserving the prior commit. The real proof saves after
+24 Vehicle frames, rejects an invalid overwrite, destroys/recreates the retail
+Level, loads the disk slot and drives five more frames. The accepted
+installed-data gate is 58/58 CTest in each configuration plus 18/18 slot
+continuations and 18/18 ordinary retail runtime cases over all nine Levels in
+Debug and Release.
+
+This accepts the storage/service boundary, not the menu UX. The main loop must
+own Level restart, save-root policy, preview capture and user diagnostics;
+event dispatch must not destroy its own Level context. Retail `Save*.sav`
+import remains a separate compatibility project.
