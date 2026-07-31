@@ -56,6 +56,46 @@
 
 namespace {
 
+bool CanonicalizeDirectionalAction(
+    SRecoveredObserverAxes* axes, int action, double value,
+    int* canonicalAction, double* canonicalValue) {
+  if (axes == nullptr || canonicalAction == nullptr ||
+      canonicalValue == nullptr ||
+      !RecoveredObserverAxes_ApplyLegacyAction(axes, action, value)) {
+    return false;
+  }
+
+  switch (action) {
+    case MOVE_FORWARD:
+    case MOVE_BACKWARD:
+      *canonicalAction = MOVE_FORWARD;
+      *canonicalValue = axes->forward;
+      return true;
+    case STRAFE_LEFT:
+    case STRAFE_RIGHT:
+      *canonicalAction = STRAFE_RIGHT;
+      *canonicalValue = axes->strafe;
+      return true;
+    case STRAFE_UP:
+    case STRAFE_DOWN:
+      *canonicalAction = STRAFE_UP;
+      *canonicalValue = axes->vertical;
+      return true;
+    case TURN_LEFT:
+    case TURN_RIGHT:
+      *canonicalAction = TURN_RIGHT;
+      *canonicalValue = axes->turn;
+      return true;
+    case LOOK_UP:
+    case LOOK_DOWN:
+      *canonicalAction = LOOK_UP;
+      *canonicalValue = axes->look;
+      return true;
+    default:
+      return false;
+  }
+}
+
 class RecoveredObserverInput final : public KR_Object {
  public:
   RecoveredObserverInput() { Reset(CFVector3(0.0, 0.0, 0.0)); }
@@ -197,6 +237,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_syntheticReleases = 0;
     m_suppressedInputs = 0;
     for (double& value : m_heldActions) value = 0.0;
+    m_directionalAxes = {};
     m_applicationActive = true;
     m_quitRequested = false;
     m_forwardingFailed = false;
@@ -284,6 +325,15 @@ class RecoveredVehicleControlInput final : public KR_Object {
 
     if (action == FIRE_PRIMARY && down > 0.0)
       ++m_primaryFirePresses;
+
+    int canonicalAction = action;
+    double canonicalDown = down;
+    if (CanonicalizeDirectionalAction(
+            &m_directionalAxes, action, down,
+            &canonicalAction, &canonicalDown)) {
+      action = canonicalAction;
+      down = canonicalDown;
+    }
 
     STaxiVehicleProximityState proximity = {};
     SRecoveredVehicleRuntimeState before = {};
@@ -434,8 +484,49 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_controlJournalAppendFailures = 0;
     m_applicationActive = active;
     for (std::size_t index = 0;
-         index < VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT; ++index)
+         index < VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT; ++index) {
       m_heldActions[index] = held[index];
+    }
+    m_directionalAxes = {};
+    if (journal.initialApplicationActive) {
+      for (std::size_t index = 0;
+           index < VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT; ++index) {
+        if (journal.initialHeldActions[index] == 0.0) continue;
+        int canonicalAction = VehicleControlJournal_HeldAction(index);
+        double canonicalValue = journal.initialHeldActions[index];
+        CanonicalizeDirectionalAction(
+            &m_directionalAxes, canonicalAction, canonicalValue,
+            &canonicalAction, &canonicalValue);
+      }
+    }
+    bool journalApplicationActive = journal.initialApplicationActive;
+    for (const SVehicleControlJournalRecord& record : journal.records) {
+      if (record.kind == VEHICLE_CONTROL_JOURNAL_FOCUS) {
+        journalApplicationActive = record.value != 0.0;
+        if (!journalApplicationActive) m_directionalAxes = {};
+        continue;
+      }
+      if (record.kind != VEHICLE_CONTROL_JOURNAL_ACTION ||
+          !journalApplicationActive) {
+        continue;
+      }
+      int canonicalAction = record.action;
+      double canonicalValue = record.value;
+      CanonicalizeDirectionalAction(
+          &m_directionalAxes, record.action, record.value,
+          &canonicalAction, &canonicalValue);
+    }
+    for (int index = 0; index < 10; ++index) m_heldActions[index] = 0.0;
+    m_heldActions[HeldActionIndex(MOVE_FORWARD)] =
+        m_directionalAxes.forward;
+    m_heldActions[HeldActionIndex(STRAFE_RIGHT)] =
+        m_directionalAxes.strafe;
+    m_heldActions[HeldActionIndex(STRAFE_UP)] =
+        m_directionalAxes.vertical;
+    m_heldActions[HeldActionIndex(TURN_RIGHT)] =
+        m_directionalAxes.turn;
+    m_heldActions[HeldActionIndex(LOOK_UP)] =
+        m_directionalAxes.look;
     return true;
   }
   bool QuitRequested() const { return m_quitRequested; }
@@ -455,6 +546,9 @@ class RecoveredVehicleControlInput final : public KR_Object {
       if (value != 0.0) ++count;
     }
     return count;
+  }
+  const SRecoveredObserverAxes& DirectionalAxes() const {
+    return m_directionalAxes;
   }
   int LastInputFailure() const { return m_lastInputFailure; }
   unsigned int PrimaryFirePresses() const { return m_primaryFirePresses; }
@@ -599,6 +693,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
       }
       m_heldActions[index] = 0.0;
     }
+    m_directionalAxes = {};
     if (succeeded && m_controlJournalRecording &&
         !VehicleControlJournal_AppendFocus(
             &m_controlJournal, Session::m_simulationTick,
@@ -677,6 +772,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
   unsigned int m_syntheticReleases = 0;
   unsigned int m_suppressedInputs = 0;
   double m_heldActions[kHeldActionCount] = {};
+  SRecoveredObserverAxes m_directionalAxes = {};
   bool m_applicationActive = true;
   bool m_quitRequested = false;
   bool m_forwardingFailed = false;
@@ -3020,6 +3116,13 @@ unsigned int RecoveredGameServices_VehicleSuppressedInputCount() {
 
 unsigned int RecoveredGameServices_VehicleActiveActionCount() {
   return g_vehicleControlInput.ActiveActionCount();
+}
+
+bool RecoveredGameServices_VehicleControlAxes(
+    SRecoveredObserverAxes* axes) {
+  if (axes == nullptr || !g_vehicleControlReady) return false;
+  *axes = g_vehicleControlInput.DirectionalAxes();
+  return true;
 }
 
 int RecoveredGameServices_VehicleLastInputFailure() {

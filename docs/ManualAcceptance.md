@@ -45,6 +45,19 @@ stop, continued drift, or one additional frame of unbounded rotation is a
 failure. This pass targets the observer only; Vehicle controls retain their
 separate focus-safe journal contract.
 
+Current interactive startup normally transfers ownership immediately to
+`Vehicle.Default`. After closing a Vehicle-controlled run, the diagnostic log
+must additionally contain:
+
+```text
+vehicle_active_action_count=0
+vehicle_control_axes=0.000000,0.000000,0.000000,0.000000,0.000000
+runtime_shutdown=clean
+```
+
+Any non-zero axis identifies the exact family still held in forward, strafe,
+vertical, turn, look order.
+
 ## Automated nine-Level matrix
 
 Build the requested configuration first, then run all configured Levels from

@@ -2997,6 +2997,31 @@ Status vocabulary:
   Preserve the single normalized-axis contract at the input boundary rather
   than exposing per-key state to simulation or camera owners.
 
+### CQ-169: an extended current key must not be polled as its complement
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: arrow bindings retain `CTRL_EXTENDED_KEY` in the action table, but
+  the translator temporarily strips that bit before calling `GetKeyState`.
+  It compared the stripped virtual key with the unstripped incoming code, so
+  the current arrow could never take the explicit `buttonDown` branch. A real
+  release could therefore reuse a stale queue state, matching the much higher
+  observed frequency of Left/Right sticking.
+- Handling: direct and complementary loops compare the original configured
+  action code with the incoming code. Only a genuinely different binding is
+  polled; the triggering key always uses its message state. Vehicle control
+  then canonicalizes paired names before forwarding, held-state accounting and
+  CTJ1 append/adoption.
+- Verification: a hermetic translator proof forces both arrow virtual keys
+  low, submits an explicit extended Right press and release, and requires a
+  positive press plus exact zero release. Two real window-message runs produce
+  a bounded heading change, then finish with `vehicle_active_action_count=0`,
+  `vehicle_control_axes=0,0,0,0,0` and clean shutdown. The final gate passes
+  61/61 CTest in Debug and Release, all 18 installed-Level runtime cases and
+  all 18 destroyed-context continuation/save cases.
+- Revisit when: the legacy translator is replaced. Preserve explicit current-
+  message ownership and test extended/non-extended, overlap, focus and journal
+  boundaries together.
+
 ## Maintenance rule
 
 When a new quirk is found:

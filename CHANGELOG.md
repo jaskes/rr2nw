@@ -771,6 +771,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Fixed extended-arrow release handling in the legacy Hardware translator.
+  The current extended key is now matched by its complete configured code, so
+  `WM_KEYUP` consumes the explicit released state instead of consulting a
+  potentially stale `GetKeyState` result.
+- Normalized Vehicle movement, strafe, vertical, turn and look input into the
+  same five canonical axes used by the fallback observer. Opposite action
+  names no longer leave contradictory held-state or continuation-journal
+  entries, and shutdown diagnostics now publish the final axes.
 - Fixed sticky free-observer movement and camera rotation when opposite keys
   overlapped. Legacy Hardware already emits one signed combined value per
   action pair; the observer now owns one canonical axis instead of retaining

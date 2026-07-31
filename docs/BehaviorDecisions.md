@@ -3939,3 +3939,23 @@ pairs, final neutrality, unsupported actions, non-finite input and null-owner
 rejection. Visible acceptance repeats the high-frequency arrow/WASD overlap
 and Alt-Tab cases in a retail Level. The accepted automated gate is 61/61
 CTest in both Debug and Release plus all 18 installed-Level runtime cases.
+
+The first visible retest established that ordinary startup is controlled by
+`Vehicle.Default`, not the suspended observer, and exposed a second boundary.
+For extended arrows `CtrlSet::Translate()` stripped the configured code to its
+virtual key before comparing it with the still-extended incoming code. The
+comparison could never match, so even the currently processed `WM_KEYUP`
+ignored its explicit zero and queried `GetKeyState` again. Hardware now
+compares the complete configured code and uses `buttonDown` for the triggering
+extended key. Complementary keys still use their actual keyboard state.
+
+Recovered Vehicle control also owns the same canonical five axes. It forwards
+one consistently oriented action per axis, journals that normalized value and
+reconstructs canonical axes when adopting an existing journal. This does not
+remove the retail Wheels acceleration model; it prevents a neutral physical
+state from being represented as an unrelated held action. Startup diagnostics
+publish all five final values as `vehicle_control_axes`.
+
+The completed gate passes 61/61 CTest in both configurations, all 18 ordinary
+installed-Level runtime cases, all 18 destroyed-context continuation cases and
+two real window-message timing variants with a neutral final Vehicle axis.

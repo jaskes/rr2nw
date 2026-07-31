@@ -407,6 +407,8 @@ unsigned int RecoveredGameServices_VehicleFocusGainCount();
 unsigned int RecoveredGameServices_VehicleSyntheticReleaseCount();
 unsigned int RecoveredGameServices_VehicleSuppressedInputCount();
 unsigned int RecoveredGameServices_VehicleActiveActionCount();
+bool RecoveredGameServices_VehicleControlAxes(
+    SRecoveredObserverAxes* axes);
 int RecoveredGameServices_VehicleLastInputFailure();
 int RecoveredGameServices_VehicleLastFrameFailure();
 int RecoveredGameServices_VehicleLastFrameReadinessIssue();

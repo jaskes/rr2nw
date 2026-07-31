@@ -896,6 +896,59 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
   return true;
 }
 
+bool ExerciseExtendedCurrentKeyTranslation() {
+  const int rightCode = g_hardware.SearchCode("Right");
+  const int leftCode = g_hardware.SearchCode("Left");
+  if (rightCode < CTRL_EXTENDED_KEY || leftCode < CTRL_EXTENDED_KEY) {
+    return false;
+  }
+  const int rightVirtualKey = rightCode - CTRL_EXTENDED_KEY;
+  const int leftVirtualKey = leftCode - CTRL_EXTENDED_KEY;
+  if (rightVirtualKey < 0 || rightVirtualKey >= 256 ||
+      leftVirtualKey < 0 || leftVirtualKey >= 256) {
+    return false;
+  }
+
+  BYTE savedKeyboardState[256] = {};
+  BYTE neutralKeyboardState[256] = {};
+  if (GetKeyboardState(savedKeyboardState) == FALSE) return false;
+  std::memcpy(neutralKeyboardState, savedKeyboardState,
+              sizeof(neutralKeyboardState));
+  neutralKeyboardState[rightVirtualKey] = 0;
+  neutralKeyboardState[leftVirtualKey] = 0;
+  if (SetKeyboardState(neutralKeyboardState) == FALSE) return false;
+
+  int actions[MAX_ACTIONS_ON_KEY * 3] = {};
+  double values[MAX_ACTIONS_ON_KEY * 3] = {};
+  const int pressed = g_hardware.m_ctrlTranslator.Translate(
+      CTRL_BUTTONS_MSG, rightCode, TRUE, values, actions);
+  double pressedValue = 0.0;
+  bool pressedFound = false;
+  for (int index = 0; index < pressed; ++index) {
+    if (actions[index] == TURN_RIGHT) {
+      pressedValue = values[index];
+      pressedFound = true;
+    }
+  }
+
+  std::memset(actions, 0, sizeof(actions));
+  std::memset(values, 0, sizeof(values));
+  const int released = g_hardware.m_ctrlTranslator.Translate(
+      CTRL_BUTTONS_MSG, rightCode, FALSE, values, actions);
+  double releasedValue = -1.0;
+  bool releasedFound = false;
+  for (int index = 0; index < released; ++index) {
+    if (actions[index] == TURN_RIGHT) {
+      releasedValue = values[index];
+      releasedFound = true;
+    }
+  }
+  const bool restored =
+      SetKeyboardState(savedKeyboardState) != FALSE;
+  return restored && pressedFound && pressedValue > 0.0 &&
+         pressedValue <= 1.0 && releasedFound && releasedValue == 0.0;
+}
+
 bool WaitForSessionTimeAdvance(double minimumDelta) {
   if (Session::m_realTimer == nullptr || !std::isfinite(minimumDelta) ||
       minimumDelta <= 0.0) {
@@ -2635,6 +2688,11 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("service initialization failed");
+  }
+  if (!ExerciseExtendedCurrentKeyTranslation()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("extended current-key translation ignored explicit state");
   }
   std::wstring saveSlotDirectory;
   if (!PrepareSaveSlotFixture(&saveSlotDirectory)) {
