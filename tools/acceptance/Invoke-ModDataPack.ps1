@@ -26,8 +26,35 @@ if (-not (Test-Path -LiteralPath $sourceScript -PathType Leaf)) {
 
 $proofMod = Join-Path $OutputRoot "proof-mod"
 $proofScripts = Join-Path $proofMod "scripts"
-New-Item -ItemType Directory -Force -Path $proofScripts | Out-Null
+$proofObjects = Join-Path $proofMod "objects"
+New-Item -ItemType Directory -Force -Path $proofScripts,$proofObjects | Out-Null
 Copy-Item -LiteralPath $sourceScript -Destination (Join-Path $proofScripts "SMOKE.SCI") -Force
+$gameplayTuning = @'
+{
+  "schema": 1,
+  "vehicles": [
+    {
+      "id": "Vehicle.Attr.default",
+      "max_speed": 14.0,
+      "reverse_speed": 8.0,
+      "acceleration_time": 0.5,
+      "turn_speed": 160.0,
+      "primary_fire_interval": 0.12,
+      "damage_power": 7.0
+    }
+  ],
+  "projectiles": [
+    {
+      "id": "Bullet.Led.Prim",
+      "speed": 180.0
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $proofObjects "gameplay-tuning.json"),
+    $gameplayTuning,
+    [Text.UTF8Encoding]::new($false))
 $manifest = @'
 {
   "schema": 1,
@@ -38,6 +65,10 @@ $manifest = @'
     {
       "source": "scripts/SMOKE.SCI",
       "target": "SMOKE.SCI"
+    },
+    {
+      "source": "objects/gameplay-tuning.json",
+      "target": "RR2NW/gameplay-tuning.json"
     }
   ]
 }
@@ -45,6 +76,43 @@ $manifest = @'
 [IO.File]::WriteAllText(
     (Join-Path $proofMod "mod.json"),
     $manifest,
+    [Text.UTF8Encoding]::new($false))
+
+$invalidMod = Join-Path $OutputRoot "invalid-tuning-mod"
+$invalidObjects = Join-Path $invalidMod "objects"
+New-Item -ItemType Directory -Force -Path $invalidObjects | Out-Null
+$invalidTuning = @'
+{
+  "schema": 1,
+  "vehicles": [
+    {
+      "id": "Vehicle.Attr.default",
+      "mass": 1.0
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $invalidObjects "gameplay-tuning.json"),
+    $invalidTuning,
+    [Text.UTF8Encoding]::new($false))
+$invalidManifest = @'
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.acceptance.invalid-tuning",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "objects/gameplay-tuning.json",
+      "target": "RR2NW/gameplay-tuning.json"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $invalidMod "mod.json"),
+    $invalidManifest,
     [Text.UTF8Encoding]::new($false))
 
 function Quote-NativeArgument([string]$Value) {
@@ -96,7 +164,9 @@ foreach ($configurationName in $Configuration) {
     $baseLogs = Join-Path $caseRoot "base-logs"
     $modLogs = Join-Path $caseRoot "mod-logs"
     $saveLogs = Join-Path $caseRoot "mod-save-logs"
+    $restoreLogs = Join-Path $caseRoot "mod-restore-logs"
     $rejectLogs = Join-Path $caseRoot "base-reject-logs"
+    $invalidLogs = Join-Path $caseRoot "invalid-tuning-logs"
     $baseSaves = Join-Path $caseRoot "base-saves"
     $identitySaves = Join-Path $caseRoot "identity-saves"
     $executable = Join-Path $repositoryRoot "build\windows-msvc-x86\$configurationName\rr2nw.exe"
@@ -133,6 +203,15 @@ foreach ($configurationName in $Configuration) {
             "--save-dir", $identitySaves,
             "--save-slot", "1") 0
 
+        Write-Host "[$configurationName] restore with matching gameplay tuning"
+        Invoke-BoundedGame $executable @(
+            "--runtime-smoke", "--data-dir", $dataPath,
+            "--mod-dir", $proofMod,
+            "--start-level", $Level,
+            "--diagnostics-dir", $restoreLogs,
+            "--save-dir", $identitySaves,
+            "--load-slot", "1") 0
+
         Write-Host "[$configurationName] reject data-pack save without mod"
         Invoke-BoundedGame $executable @(
             "--runtime-smoke", "--data-dir", $dataPath,
@@ -141,25 +220,58 @@ foreach ($configurationName in $Configuration) {
             "--save-dir", $identitySaves,
             "--load-slot", "1") 4
 
+        Write-Host "[$configurationName] reject malformed gameplay tuning"
+        Invoke-BoundedGame $executable @(
+            "--runtime-smoke", "--data-dir", $dataPath,
+            "--mod-dir", $invalidMod,
+            "--start-level", $Level,
+            "--diagnostics-dir", $invalidLogs,
+            "--save-dir", $baseSaves) 4
+
         $base = Read-LogMap (Join-Path $baseLogs "rr2nw-startup.log")
         $modded = Read-LogMap (Join-Path $modLogs "rr2nw-startup.log")
         $saved = Read-LogMap (Join-Path $saveLogs "rr2nw-startup.log")
+        $restored = Read-LogMap (Join-Path $restoreLogs "rr2nw-startup.log")
         $rejected = Read-LogMap (Join-Path $rejectLogs "rr2nw-startup.log")
+        $invalid = Read-LogMap (Join-Path $invalidLogs "rr2nw-startup.log")
         Require-Value $base "mod_active" "0"
         Require-Value $base "marker" "level-ready"
         Require-Value $base "runtime_shutdown" "clean"
         Require-Value $modded "mod_active" "1"
         Require-Value $modded "mod_id" "rr2nw.acceptance.script-overlay"
-        Require-Value $modded "mod_files" "1"
+        Require-Value $modded "mod_files" "2"
+        Require-Value $modded "gameplay_tuning_active" "1"
+        Require-Value $modded "gameplay_tuning_schema" "1"
+        Require-Value $modded "gameplay_tuning_vehicle_patches" "1"
+        Require-Value $modded "gameplay_tuning_projectile_patches" "1"
+        Require-Value $modded "gameplay_tuning_projectile_ballistic_proofs" "1"
+        Require-Value $modded "gameplay_tuning_projectile_ballistic_moves" "2"
+        Require-Value $modded "gameplay_tuning_default_max_speed" "14.000000"
+        Require-Value $modded "gameplay_tuning_default_reverse_speed" "8.000000"
+        Require-Value $modded "gameplay_tuning_default_acceleration_time" "0.500000"
+        Require-Value $modded "gameplay_tuning_default_turn_speed" "160.000000"
+        Require-Value $modded "gameplay_tuning_default_primary_fire_interval" "0.120000"
+        Require-Value $modded "gameplay_tuning_default_damage_power" "7.000000"
+        Require-Value $modded "gameplay_tuning_primary_projectile_speed" "180.000000"
         Require-Value $modded "marker" "level-ready"
         Require-Value $modded "runtime_shutdown" "clean"
         Require-Value $saved "save_menu_completed_saves" "1"
         Require-Value $saved "runtime_shutdown" "clean"
+        Require-Value $restored "gameplay_tuning_active" "1"
+        Require-Value $restored "save_menu_completed_loads" "1"
+        Require-Value $restored "gameplay_tuning_primary_projectile_speed" "180.000000"
+        Require-Value $restored "runtime_shutdown" "clean"
         Require-Value $rejected "mod_active" "0"
         Require-Value $rejected "marker" "loop-not-ready"
         if (-not $rejected.ContainsKey("save_menu_error") -or
             $rejected["save_menu_error"] -notmatch 'content/mod set') {
             throw "missing explicit content/mod mismatch rejection"
+        }
+        Require-Value $invalid "mod_active" "1"
+        Require-Value $invalid "marker" "loop-not-ready"
+        if (-not $invalid.ContainsKey("arena_seance_error") -or
+            $invalid["arena_seance_error"] -notmatch 'unknown key: mass') {
+            throw "malformed tuning did not fail closed with a precise error"
         }
         $baseFingerprint = [UInt64]$base["active_content_fingerprint"]
         $modFingerprint = [UInt64]$modded["active_content_fingerprint"]
@@ -168,8 +280,8 @@ foreach ($configurationName in $Configuration) {
             $baseFingerprint -eq $modFingerprint) {
             throw "base and modded content identities are not distinct"
         }
-        if ($overrideHits -lt 1) {
-            throw "the real runtime did not consume an overlay file"
+        if ($overrideHits -lt 2) {
+            throw "the real runtime did not consume both overlay files"
         }
     } catch {
         $result = "FAIL"

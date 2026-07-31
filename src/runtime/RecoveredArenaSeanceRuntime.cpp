@@ -65,6 +65,7 @@ class CGRPanel;
 #include "ActiveWorldSave.h"
 #include "ActiveWorldRuntimeProbe.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredGameplayTuningRuntime.h"
 #include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "SimulationRandom.h"
@@ -2440,7 +2441,7 @@ bool PublishVehicleAttributes(SimulationContext* context) {
   const unsigned long long fingerprint =
       VehicleAttributeState_Fingerprint(context);
   if (!VehicleAttributeState_CachesUnresolved(context) ||
-      !VehicleAttributeState_IsKnownRoster(context)) {
+      !RecoveredGameplayTuning_AcceptsVehicleRoster(context)) {
     char message[192] = {};
     std::snprintf(message, sizeof(message),
                   "VehicleAttr objects do not match a bounded unresolved "
@@ -3342,7 +3343,7 @@ bool PublishBulletAttributes(SimulationContext* context) {
     return false;
   }
   if (!BulletAttributeState_CachesUnresolved(context) ||
-      !BulletAttributeState_IsKnownRoster(context)) {
+      !RecoveredGameplayTuning_AcceptsBulletRoster(context)) {
     char message[224] = {};
     std::snprintf(message, sizeof(message),
                   "BulletAttr objects do not match a bounded unresolved "
@@ -3454,7 +3455,7 @@ bool PublishBulletReferences(SimulationContext* context) {
   g_state.bulletReferenceFingerprint =
       BulletAttributeState_ReferenceFingerprint(context);
   if (g_state.bulletReferenceFingerprint == 0 ||
-      !BulletAttributeState_IsKnownReferenceRoster(context)) {
+      !RecoveredGameplayTuning_AcceptsBulletReferences(context)) {
     char message[192] = {};
     std::snprintf(message, sizeof(message),
                   "BulletAttr resolved references are not a bounded roster "
@@ -3555,7 +3556,7 @@ bool PublishVehicleReferences(SimulationContext* context) {
   g_state.vehicleReferenceFingerprint =
       VehicleAttributeState_ReferenceFingerprint(context);
   if (g_state.vehicleReferenceFingerprint == 0 ||
-      !VehicleAttributeState_IsKnownReferenceRoster(context)) {
+      !RecoveredGameplayTuning_AcceptsVehicleReferences(context)) {
     char message[192] = {};
     std::snprintf(message, sizeof(message),
                   "VehicleAttr resolved references are not a bounded "
@@ -5228,6 +5229,13 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    if (!RecoveredGameplayTuning_Apply(context)) {
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_GAMEPLAY_TUNING_FAILURE,
+          RecoveredGameplayTuning_LastError());
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
     if (!PublishSkinResources(context)) {
       RecoveredArenaSeance_Release();
       return FALSE;
@@ -5355,6 +5363,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  RecoveredGameplayTuning_Release(g_arena.getContext());
   OrphanAttributeState_ClearReferences(g_arena.getContext());
   VehicleAttributeState_ClearReferences(g_arena.getContext());
   ExplosionAttributeState_ClearTraceReferences(g_arena.getContext());

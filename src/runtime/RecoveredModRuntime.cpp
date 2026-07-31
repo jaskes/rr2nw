@@ -707,6 +707,46 @@ const SRecoveredModRuntimeSummary* RecoveredModRuntime_Summary() {
   return g_configured ? &g_summary : nullptr;
 }
 
+bool RecoveredModRuntime_HasOverlayTarget(const char* target) {
+  if (!RecoveredModRuntime_IsActive() || target == nullptr ||
+      target[0] == '\0')
+    return false;
+  const std::string folded = FoldPath(target);
+  const auto found = std::lower_bound(
+      g_entries.begin(), g_entries.end(), folded,
+      [](const OverlayEntry& entry, const std::string& value) {
+        return entry.targetFolded < value;
+      });
+  return found != g_entries.end() && found->targetFolded == folded;
+}
+
+FILE* RecoveredModRuntime_OpenOverlayTarget(const char* target,
+                                             long* length) {
+  if (!RecoveredModRuntime_IsActive() || target == nullptr ||
+      target[0] == '\0')
+    return nullptr;
+  ++g_summary.resolveCount;
+  const std::string folded = FoldPath(target);
+  const auto found = std::lower_bound(
+      g_entries.begin(), g_entries.end(), folded,
+      [](const OverlayEntry& entry, const std::string& value) {
+        return entry.targetFolded < value;
+      });
+  if (found == g_entries.end() || found->targetFolded != folded)
+    return nullptr;
+  FILE* file = std::fopen(found->sourceFinal.c_str(), "rb");
+  if (file == nullptr) return nullptr;
+  if (length != nullptr) {
+    if (found->size > static_cast<std::uint64_t>(LONG_MAX)) {
+      std::fclose(file);
+      return nullptr;
+    }
+    *length = static_cast<long>(found->size);
+  }
+  ++g_summary.overrideHitCount;
+  return file;
+}
+
 bool RecoveredModRuntime_ResolveReadPath(const char* requested,
                                          char* resolved,
                                          std::size_t resolvedSize) {

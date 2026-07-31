@@ -2896,6 +2896,8 @@ add_library(rr2nw_arena_obase_vehicle STATIC
   nw/ARENA/OBASE/Vehicle/VehicleVesselTelemetry.cpp
   nw/ARENA/OBASE/Vehicle/VehicleVesselTelemetry.h
   nw/ARENA/OBASE/Vehicle/VehicleVesselSaveState.h
+  nw/ARENA/OBASE/Vehicle/VehicleGameplayTuning.cpp
+  nw/ARENA/OBASE/Vehicle/VehicleGameplayTuning.h
   nw/ARENA/OBASE/Vehicle/VehicleAttributeState.cpp
   nw/ARENA/OBASE/Vehicle/VehicleAttributeState.h
   nw/ARENA/OBASE/Vehicle/VehicleRuntimeState.cpp
@@ -3498,6 +3500,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredFramePreview.h
   src/runtime/RecoveredGameServicesRuntime.cpp
   src/runtime/RecoveredGameServicesRuntime.h
+  src/runtime/RecoveredGameplayTuningRuntime.cpp
+  src/runtime/RecoveredGameplayTuningRuntime.h
   src/runtime/RecoveredSavePreview.cpp
   src/runtime/RecoveredSavePreview.h
   src/runtime/RecoveredSaveSlotDialog.cpp
@@ -4229,6 +4233,22 @@ add_executable(rr2nw_recovered_game_services_runtime_smoke
 target_link_libraries(rr2nw_recovered_game_services_runtime_smoke PRIVATE
   rr2nw_recovered_game_services_runtime
 )
+
+add_executable(rr2nw_recovered_gameplay_tuning_smoke
+  src/portability/RecoveredGameplayTuningSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_gameplay_tuning_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_recovered_gameplay_tuning_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_recovered_gameplay_tuning_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_compile_features(
   rr2nw_recovered_game_services_runtime_smoke PRIVATE cxx_std_14
 )
@@ -4581,6 +4601,9 @@ if(MSVC)
     rr2nw_recovered_game_services_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_recovered_gameplay_tuning_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_vehicle_control_journal_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -4772,6 +4795,10 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-game-services-runtime-smoke
     COMMAND rr2nw_recovered_game_services_runtime_smoke
+  )
+  add_test(
+    NAME recovered-gameplay-tuning-smoke
+    COMMAND rr2nw_recovered_gameplay_tuning_smoke
   )
   add_test(
     NAME vehicle-control-journal-smoke

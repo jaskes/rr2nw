@@ -284,9 +284,11 @@ the game may continue after such a successful rollback, while any non-zero
 ## Data-pack mod pass
 
 The bounded product proof creates an ignored local mod from the selected
-installation's `SMOKE.SCI`; no retail bytes are added to the repository. It
-boots base and modded Level.05D, saves with the mod, then requires an explicit
-content/mod-set rejection when the same slot is loaded without it:
+installation's `SMOKE.SCI` plus a generated schema-1 gameplay tuning file; no
+retail bytes are added to the repository. It boots base and tuned Level.05D,
+requires exact Vehicle/projectile observations and a real two-MOVE ballistic
+proof, saves with the mod, requires a content/mod-set rejection without it,
+and separately rejects a tuning file with an unknown field:
 
 ```powershell
 & ".\tools\acceptance\Invoke-ModDataPack.ps1" `
@@ -295,21 +297,26 @@ content/mod-set rejection when the same slot is loaded without it:
 ```
 
 Both rows must pass with distinct non-zero active content fingerprints and at
-least one real overlay hit. For a visible packaging check, the repository
-example can be admitted without replacing copyrighted content:
+least two real overlay hits. For a visible gameplay check, use the repository
+tuning example:
+
+The accepted 2026-07-31 gate passed this complete sequence in Debug and
+Release, alongside 61/61 CTest per configuration and all 18 ordinary
+installed-Level runtime-smoke cases.
 
 ```powershell
 & ".\build\windows-msvc-x86\Release\rr2nw.exe" `
   --data-dir "E:\Games\The Next Worlds" `
-  --mod-dir "$PWD\examples\mods\rr2nw.example.data-pack" `
-  --start-level "Level.03N" `
-  --diagnostics-dir "$PWD\manual-logs\example-mod"
+  --mod-dir "$PWD\examples\mods\rr2nw.example.gameplay-tuning" `
+  --start-level "Level.05D" `
+  --diagnostics-dir "$PWD\manual-logs\example-gameplay-tuning"
 ```
 
-The log must report `mod_active=1`, ID `rr2nw.example.data-pack`, one admitted
-file, a non-zero mod fingerprint and clean shutdown. Because the example target
-is intentionally unused, zero override hits are valid for this visible check;
-the bounded product proof above is the override-routing gate.
+The log must report `gameplay_tuning_active=1`, one Vehicle patch, one
+projectile patch, `gameplay_tuning_projectile_ballistic_proofs=1`, two MOVE
+steps, the documented `14/8/0.5/160/0.12/7/180` observations and clean
+shutdown. Drive and fire on Level.05D; this is a contract check, not a balanced
+gameplay preset.
 
 ## Interactive crowded Taxi stability pass
 

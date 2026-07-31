@@ -6,6 +6,7 @@
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredGameServicesRuntime.h"
+#include "RecoveredGameplayTuningRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
@@ -891,6 +892,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(RecoveredDrawableScene_Issues()));
     log.Line("game_services_issues=" +
              std::to_string(RecoveredGameServices_Issues()));
+    log.Line("arena_seance_issues=" +
+             std::to_string(RecoveredArenaSeance_Issues()));
+    log.Line("arena_seance_extended_issues=" +
+             std::to_string(RecoveredArenaSeance_ExtendedIssues()));
+    if (RecoveredArenaSeance_LastError()[0] != 0) {
+      log.Line(std::string("arena_seance_error=") +
+               RecoveredArenaSeance_LastError());
+    }
     log.Line("marker=level-not-ready");
     RecoveredGameServices_Release();
     ZAV_Deinit();
@@ -1847,6 +1856,49 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredGameServices_RouteReady() ? 1 : 0));
   log.Line("vehicle_default_initialized=" +
            std::to_string(RecoveredGameServices_VehicleReady() ? 1 : 0));
+  const SRecoveredGameplayTuningSummary* tuningSummary =
+      RecoveredGameplayTuning_Summary();
+  log.Line(std::string("gameplay_tuning_active=") +
+           (RecoveredGameplayTuning_IsActive() ? "1" : "0"));
+  if (tuningSummary != nullptr) {
+    log.Line("gameplay_tuning_schema=" +
+             std::to_string(tuningSummary->schemaVersion));
+    log.Line("gameplay_tuning_vehicle_patches=" +
+             std::to_string(tuningSummary->vehiclePatchCount));
+    log.Line("gameplay_tuning_projectile_patches=" +
+             std::to_string(tuningSummary->projectilePatchCount));
+    log.Line("gameplay_tuning_projectile_ballistic_proofs=" +
+             std::to_string(tuningSummary->projectileBallisticProofs));
+    log.Line("gameplay_tuning_projectile_ballistic_moves=" +
+             std::to_string(tuningSummary->projectileBallisticMoves));
+    log.Line("gameplay_tuning_fingerprint=" +
+             std::to_string(tuningSummary->tuningFingerprint));
+    log.Line("gameplay_tuning_vehicle_attribute_fingerprint=" +
+             std::to_string(
+                 tuningSummary->vehicleAttributeFingerprint));
+    log.Line("gameplay_tuning_bullet_attribute_fingerprint=" +
+             std::to_string(
+                 tuningSummary->bulletAttributeFingerprint));
+    log.Line("gameplay_tuning_default_present=" +
+             std::to_string(tuningSummary->defaultVehiclePresent));
+    log.Line("gameplay_tuning_default_max_speed=" +
+             std::to_string(tuningSummary->defaultMaxSpeed));
+    log.Line("gameplay_tuning_default_reverse_speed=" +
+             std::to_string(tuningSummary->defaultReverseSpeed));
+    log.Line("gameplay_tuning_default_acceleration_time=" +
+             std::to_string(tuningSummary->defaultAccelerationTime));
+    log.Line("gameplay_tuning_default_turn_speed=" +
+             std::to_string(tuningSummary->defaultTurnSpeed));
+    log.Line("gameplay_tuning_default_primary_fire_interval=" +
+             std::to_string(
+                 tuningSummary->defaultPrimaryFireInterval));
+    log.Line("gameplay_tuning_default_damage_power=" +
+             std::to_string(tuningSummary->defaultDamagePower));
+    log.Line("gameplay_tuning_primary_projectile_present=" +
+             std::to_string(tuningSummary->primaryProjectilePresent));
+    log.Line("gameplay_tuning_primary_projectile_speed=" +
+             std::to_string(tuningSummary->primaryProjectileSpeed));
+  }
   log.Line("arena_seance_issues=" +
            std::to_string(RecoveredArenaSeance_Issues()));
   log.Line("arena_seance_extended_issues=" +

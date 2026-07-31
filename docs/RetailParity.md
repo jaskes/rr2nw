@@ -1441,6 +1441,32 @@ playable Level begins.
   not claim multiple mods, dependency ordering, new Level registration, Lua or
   a public native ABI.
 
+### RP-MOD-002: gameplay tuning is a post-retail, pre-reference transaction
+
+- The reserved `RR2NW/gameplay-tuning.json` target is consumed only after the
+  selected Level has produced a known unresolved `VehicleAttr`/`BulletAttr`
+  roster. It cannot replace that proof with arbitrary JSON-owned objects.
+- Schema 1 exposes six Vehicle scalars (`max_speed`, `reverse_speed`,
+  `acceleration_time`, `turn_speed`, `primary_fire_interval`, `damage_power`)
+  and projectile `speed`, all with explicit finite ranges. Unknown keys,
+  duplicate symbolic IDs, absent Level objects, multiple owners of one global
+  dynamic and unsupported dynamics reject atomically.
+- Movement writes target the same `SEmvAttrs`/`SWheelsAttrs` globals loaded by
+  retail `vessels.cfg`, then call their original `update()` functions. Mass,
+  reference strings, health, secondary weapons and damage/effect graphs remain
+  retail because their lifecycle contracts are not yet exposed.
+- Every projectile patch must instantiate the real bounded Bullet, answer its
+  queried launch speed, advance through two validated MOVE stages including
+  gravity, and complete ground removal with zero live residue. Only then are
+  exact post-tuning attribute fingerprints admitted for reference resolution.
+- The complete JSON source is already part of the mod fingerprint, combined
+  content identity and RR2SLOT1/LCN1 compatibility. A tuned save therefore
+  rejects the absent or byte-different package before world mutation.
+- The accepted Windows evidence is 61/61 CTest in each configuration, 18/18
+  ordinary installed-Level runs, and passing Debug/Release product sequences
+  for base startup, exact tuning observations, save, matching restore,
+  mod-mismatch rejection and malformed-schema rejection.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

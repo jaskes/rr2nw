@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the first stable data-driven gameplay contract. A mod may declare one
+  strict `RR2NW/gameplay-tuning.json` that atomically tunes bounded movement,
+  primary-fire, damage-power and projectile-speed fields by verified retail
+  symbolic ID before the live Vehicle/reference graph is published.
+- Added fail-closed ranges, duplicate/unknown-target and supported-dynamic
+  validation, legacy derived-coefficient recalculation, exact post-commit
+  fingerprints and a real rollback-safe ballistic proof for every tuned
+  projectile. Startup diagnostics expose the committed values and proof.
+- Added a copyright-free Level.05D gameplay-tuning example, a hermetic schema
+  regression and product acceptance for exact values, malformed rejection and
+  mod-bound save compatibility. The accepted gate is 61/61 CTest in Debug and
+  Release, 18/18 ordinary retail Level runs, and complete Debug/Release
+  base/tune/save/restore/mismatch/malformed product passes.
 - Added the first Windows data-pack mod/VFS slice. One explicit `--mod-dir`
   admits a strict schema-1 manifest, validates bounded in-root sources and
   exact case-insensitive retail targets, and routes legacy/recovered resource

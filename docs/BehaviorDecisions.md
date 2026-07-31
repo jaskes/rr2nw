@@ -3799,3 +3799,41 @@ tree passes 18/18 ordinary Levels, 18/18 destroyed-context continuations, 2/2
 Save-slot UX, 2/2 cross-Level load and 2/2 mod/save-mismatch acceptance. Multiple
 mods, dependencies, new `game.cfg` Levels, data schemas and Lua remain later
 M5 work rather than accidental promises of schema 1.
+
+## BD-099: tune verified attributes between retail creation and reference publication
+
+Status: accepted on 2026-07-31.
+
+The first gameplay-mod contract does not deserialize new engine objects and
+does not let JSON bypass the recovered retail roster gates. The selected Level
+first runs its original Vehicle and Bullet attribute bootstrap. While every
+cache is still unresolved, the engine proves the untouched roster, parses the
+exact reserved `RR2NW/gameplay-tuning.json`, resolves all symbolic IDs, captures
+every touched scalar/global dynamic, and only then commits the whole document.
+Any failure restores the captured values before the Arena transaction closes.
+
+Schema 1 deliberately exposes only movement speed/reverse/acceleration/turn,
+primary-fire interval, `IUnit::getPower` and projectile launch speed. The old
+`m_power` is called `damage_power`, not durability: live Vehicle damage/health
+is a different owner and remains deferred. Dynamics are changed through a
+Vehicle-owned adapter for `Dragon`, `Emveshka` and `TankGenn0..3`; it calls the
+original `SEmvAttrs::update` or `SWheelsAttrs::update` so internal acceleration,
+turn and friction coefficients cannot remain stale. Mass and arbitrary legacy
+field names are excluded.
+
+After scalar commit, every projectile patch must pass the actual bounded
+Bullet start/query-speed/MOVE/ground-removal lifecycle and leave no object or
+scheduler residue. Attribute publication then accepts only the exact
+post-transaction fingerprints; reference publication additionally requires
+the unchanged symbolic dependency graph to resolve completely. This permits
+intentional numeric divergence without weakening retail identity for any
+uncontrolled field.
+
+The tuning source bytes already participate in BD-098's canonical mod and
+content fingerprints. Save/replay binding therefore needs no parallel tuning
+identity: absent or edited JSON is the same fail-closed content/mod mismatch.
+Multiple mods, hot reload, secondary fire, health/armour, impact effects, new
+object classes and scripting remain separate decisions. Acceptance proves
+61/61 CTest in both Debug and Release, all 18 ordinary installed-Level runs,
+and the complete base/tune/save/restore/mismatch/malformed product sequence in
+both configurations.

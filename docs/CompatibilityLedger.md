@@ -2901,6 +2901,31 @@ Status vocabulary:
   browser or a non-Windows image decoder. Preserve presentation failure as
   non-destructive and keep display metadata out of paths and Level authority.
 
+### CQ-165: VehicleAttr identity and vessel dynamics are separate legacy owners
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: `VehicleTable::ReadConfig()` loads `vessels.cfg` into seven
+  process-global `SEmvAttrs`/`SWheelsAttrs` blocks while `VehicleAttr` stores
+  only a dynamic name such as `TankGenn0`. `Vehicle::setVehicleAttr()` later
+  attaches the live vessel to that global. The public maximum speeds and turn
+  time are not sufficient by themselves: each block caches derived radian,
+  acceleration, friction and reciprocal coefficients in `update()`.
+- Handling: gameplay tuning resolves the Level-local `VehicleAttr`, but all
+  movement writes go through the Vehicle-owned dynamic adapter and immediately
+  call the original `update()`. The transaction snapshots both the attribute
+  scalars and the referenced global block. Two entries may not tune the same
+  global, and `Dead`, `TankGenn4/5` or an unknown dynamic reject instead of
+  silently targeting the wrong vessel. Mass remains excluded because it also
+  participates in live Vehicle/save identity.
+- Verification: the Level.05D product proof observes committed
+  speed/reverse/acceleration/turn values `14/8/0.5/160`, publishes exact
+  post-tuning roster fingerprints, drives the ordinary Vehicle probes, saves
+  with the mod identity and shuts down cleanly. The malformed package and
+  hermetic schema tests fail before active publication.
+- Revisit when: dynamics become per-object rather than process-global or
+  `TankGenn4/5` gain a recovered live vessel mapping. Preserve recalculation,
+  unique ownership and save-identity review.
+
 ## Maintenance rule
 
 When a new quirk is found:

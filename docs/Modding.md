@@ -1,9 +1,10 @@
 # RR2NW data-pack mods
 
 RR2NW currently admits one explicit, read-only data-pack overlay on Windows.
-This is the first VFS slice: it is intended for controlled resource and script
-replacement while the dependency resolver and in-game selector remain future
-work. Lua, native plugins and a public C++ ABI are not part of this contract.
+In addition to exact resource/script replacement, schema 1 now has one narrow
+engine-owned gameplay contract for verified Vehicle and primary-projectile
+parameters. Multiple packages, an in-game selector, Lua, native plugins and a
+public C++ ABI are not part of this contract.
 
 ## Starting a mod
 
@@ -63,6 +64,68 @@ The current bounded limits are 1,024 files, 64 MiB per file, 512 MiB total and
 256 KiB for `mod.json`. Each source must already be a regular file when the mod
 is admitted. The runtime never writes to either the base or mod directory.
 
+## Gameplay tuning schema 1
+
+A manifest may declare one `objects/` source at the reserved exact target
+`RR2NW/gameplay-tuning.json`. It is not a legacy file override: the engine
+reads, validates and commits it after the selected Level has created its
+untouched retail `VehicleAttr` and `BulletAttr` rosters, but before references
+or `Vehicle.Default` become live.
+
+```json
+{
+  "schema": 1,
+  "vehicles": [
+    {
+      "id": "Vehicle.Attr.default",
+      "max_speed": 14.0,
+      "reverse_speed": 8.0,
+      "acceleration_time": 0.5,
+      "turn_speed": 160.0,
+      "primary_fire_interval": 0.12,
+      "damage_power": 7.0
+    }
+  ],
+  "projectiles": [
+    {
+      "id": "Bullet.Led.Prim",
+      "speed": 180.0
+    }
+  ]
+}
+```
+
+Top-level and entry keys are exact, case-sensitive and non-extensible. At
+least one non-empty array is required; each array is bounded to 64 entries.
+Symbolic IDs use ASCII letters, digits, `.`, `_` and `-`, are matched against
+the selected Level, and may occur only once case-insensitively.
+
+| Entry | Field | Schema-1 range | Unit/meaning |
+| --- | --- | ---: | --- |
+| Vehicle | `max_speed` | 0.5..250 | forward metres/second |
+| Vehicle | `reverse_speed` | 0..250 | reverse metres/second |
+| Vehicle | `acceleration_time` | 0.05..30 | seconds to maximum speed |
+| Vehicle | `turn_speed` | 1..720 | degrees/second |
+| Vehicle | `primary_fire_interval` | 0.02..10 | seconds between shots |
+| Vehicle | `damage_power` | 0.1..1000 | `IUnit::getPower`, not health |
+| Projectile | `speed` | 1..2000 | launch metres/second |
+
+Movement fields are currently admitted only for the dynamics the recovered
+player Vehicle can actually instantiate: `Dragon`, `Emveshka`, and
+`TankGenn0` through `TankGenn3`. `Dead`, unknown dynamics and the currently
+unsupported `TankGenn4/5` fail closed. Two Vehicle entries may not tune the
+same process-global dynamic. Weapon/reference names, mass, health/armour,
+secondary fire, impact/explosion graphs and arbitrary legacy field names are
+deliberately not exposed.
+
+Application is transactional. The engine first proves the unmodified roster,
+resolves every requested symbolic target and captures all touched values. Only
+then does it update the complete set and recalculate the legacy derived vessel
+coefficients. Every tuned projectile must also complete a real start/query-
+speed/MOVE/ground-removal lifecycle with full rollback. Any parse, range,
+roster, dynamic or ballistic failure rejects Level startup and restores the
+pre-tuning values.
+
 ## Resolution and compatibility
 
 Resolution is exact and deterministic:
@@ -84,14 +147,28 @@ the selected retail Level has the same name.
 
 Startup diagnostics record the admitted identity, file/byte counts,
 fingerprint, resolution attempts, overlay hits and the combined active content
-fingerprint. The example package is intentionally data-only and contains no
-copyrighted retail resource; use it to validate packaging and startup.
+fingerprint. An active tuning file additionally reports committed patch
+counts, post-transaction attribute fingerprints, the observed
+`Vehicle.Attr.default` values and real ballistic proof counts.
+
+The repository includes two copyright-free packages. Use
+`rr2nw.example.data-pack` for neutral packaging/resolver admission and
+`rr2nw.example.gameplay-tuning` on `Level.05D` for a visible handling/fire
+change:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" `
+  --data-dir "E:\Games\The Next Worlds" `
+  --mod-dir "$PWD\examples\mods\rr2nw.example.gameplay-tuning" `
+  --start-level "Level.05D" `
+  --diagnostics-dir "$PWD\manual-logs\gameplay-tuning"
+```
 
 ## Deliberately deferred
 
 - multiple active mods, dependencies, conflicts and mount ordering;
 - automatic discovery and an in-game mod selector;
 - adding Levels to `game.cfg`;
-- a stable data schema for weapon/vehicle parameters;
+- health/armour, secondary weapons and complete damage/explosion graphs;
 - localization routing beyond exact file replacement;
 - Lua, native plugins and new engine object classes.

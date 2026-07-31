@@ -49,6 +49,13 @@ unsigned int RecoveredModRuntime_Issues();
 const char* RecoveredModRuntime_LastError();
 const SRecoveredModRuntimeSummary* RecoveredModRuntime_Summary();
 
+// Reserved engine-owned data contracts may inspect an exact manifest target
+// without exposing the physical mod directory. These calls never fall back to
+// the base tree: an undeclared target is absent, and a declared target remains
+// covered by the admitted mod fingerprint.
+bool RecoveredModRuntime_HasOverlayTarget(const char* target);
+FILE* RecoveredModRuntime_OpenOverlayTarget(const char* target, long* length);
+
 // Resolves an existing legacy read request. Exact case-insensitive virtual
 // targets win over base data; an unmatched path is returned unchanged.
 bool RecoveredModRuntime_ResolveReadPath(const char* requested,
