@@ -4104,6 +4104,28 @@ if(MSVC)
     /W4 /permissive-
   )
 endif()
+add_executable(rr2nw_mod_validator
+  src/tools/RecoveredModValidator.cpp
+)
+target_link_libraries(rr2nw_mod_validator PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(rr2nw_mod_validator PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_mod_validator PRIVATE
+  UNICODE
+  _UNICODE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+set_target_properties(rr2nw_mod_validator PROPERTIES
+  OUTPUT_NAME rr2nw-mod-validator
+)
+if(MSVC)
+  target_compile_options(rr2nw_mod_validator PRIVATE
+    /W4 /permissive- /wd4081
+  )
+endif()
 target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
   rr2nw_arena_obase_debug_map_mission
   rr2nw_game_entry_runtime
@@ -4843,6 +4865,23 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-script-event-smoke
     COMMAND rr2nw_recovered_script_event_smoke
+  )
+  add_test(
+    NAME recovered-mod-validator-hermetic
+    COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/tools/acceptance/Invoke-ModValidatorHermetic.ps1"
+            -Validator "$<TARGET_FILE:rr2nw_mod_validator>"
+            -ExampleMods "${CMAKE_CURRENT_SOURCE_DIR}/examples/mods"
+            -ScratchRoot "${CMAKE_CURRENT_BINARY_DIR}/mod-validator-smoke/$<CONFIG>"
+  )
+  add_test(
+    NAME windows-package-hermetic
+    COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/tools/acceptance/Invoke-WindowsPackageHermetic.ps1"
+            -PackageScript "${CMAKE_CURRENT_SOURCE_DIR}/tools/release/New-WindowsPackage.ps1"
+            -CampaignScript "${CMAKE_CURRENT_SOURCE_DIR}/tools/release/Invoke-WindowsManualCampaign.ps1"
+            -ScratchRoot "${CMAKE_CURRENT_BINARY_DIR}/windows-package-smoke/$<CONFIG>"
+            -Configuration "$<CONFIG>"
   )
   add_test(
     NAME vehicle-control-journal-smoke

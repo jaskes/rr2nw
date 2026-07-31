@@ -385,6 +385,34 @@ identity mismatch must stop at `loop-not-ready`; raw-label and missing-
 attribute documents must fail during Arena seance construction with precise
 diagnostics. This proves pending EVT1 reconstruction, not only JSON parsing.
 
+## Packaged M5/RC candidate pass
+
+Create and verify a whitelist-only Windows artifact instead of testing the
+build-tree executable:
+
+```powershell
+& ".\tools\release\New-WindowsPackage.ps1" `
+  -DataRoot "E:\Games\The Next Worlds"
+```
+
+The gate must report `Windows package: PASS`, a ZIP SHA-256 and an unpacked
+proof directory. `windows-package-summary.json` must show six validated
+examples, passing base/example runtime smokes, GUI subsystem `2` for
+`rr2nw.exe`, Console subsystem `3` for the validator and ASLR/NX bits on both.
+The stage and extracted copy must contain no `game.cfg`, `LEVEL0.SC`, retail
+EXE/installer, CD image, save or dump.
+
+From the exact unpacked package, initialize the manual matrix:
+
+```powershell
+& ".\tools\Invoke-WindowsManualCampaign.ps1" -PackageRoot $PWD
+```
+
+Record cases on their actual Windows 10 or Windows 11 host. The tool binds the
+ledger to the package-manifest SHA-256 and `-RequireComplete` must remain red
+until all 18 rows pass. Package runtime smokes are automated evidence only and
+must not pre-fill human campaign results.
+
 For an interactive check, copy the example, put the two absolute positions
 near a known camera/start location, and use a short delay. An `explosion` uses
 the selected retail attribute's real damage/impulse rules; `spark` is the safe

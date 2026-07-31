@@ -1255,8 +1255,8 @@ gates, but not the whole M5 feature list. The next mod slices remain ordered:
 4. **closed:** expose selected existing script events only after their
    lifetime/save semantics are documented; evaluate Lua after those
    data-driven contracts are proven;
-5. package the validator/example and run the final Win10/Win11 manual campaign
-   gate before calling the M5/RC frontier complete.
+5. **in progress:** package the validator/examples and run the final
+   Win10/Win11 manual campaign gate before calling the M5/RC frontier complete.
 
 The first item is now closed by schema-1 `levels[]`. Each new identity derives
 from one of the nine immutable retail `game.cfg` entries, owns an isolated
@@ -1304,9 +1304,26 @@ events and private repeating schedulers remain closed. The first event API is
 therefore a data contract with known lifetime, not a disguised native plugin
 ABI. Lua remains deferred until more such contracts are stable.
 
-The next ordered M5 frontier is item 5: finish validator/packaging ergonomics
-and execute the final Win10/Win11 manual campaign gate. The remaining actor
-graphs and eventual in-game selection UI remain later work.
+The tooling half of item 5 is now closed. `rr2nw-mod-validator.exe` reuses the
+production stack runtime, validates the retail/derived catalog and invokes the
+existing pure gameplay-tuning/script-event schema gates. A hermetic smoke
+admits all six shuffled examples, proves dependency closure and rejects both a
+missing source and a raw-label contract in Debug and Release. The aggregate
+test gate advances to 65/65 in each configuration; the ordinary installed-
+Level sweep remains 18/18.
+
+`New-WindowsPackage.ps1` creates a whitelist-only deterministic ZIP with a
+file manifest/SHA-256, verifies GUI/Console subsystem plus ASLR/NX, extracts the
+exact artifact and runs validator, base Level.03N and example-mod smokes from
+the unpacked tree. The available Windows 10 LTSC 19044 host passes that
+automated package gate.
+
+The human half remains open by design. The packaged campaign tool created 18
+package-hash-bound Windows 10/11 rows, all initially PENDING. Full Windows 10
+interaction/campaign evidence and Windows 11 evidence against one clean
+non-dirty candidate are still required before item 5, M5 and the RC frontier
+can be called complete. The remaining actor graphs and eventual in-game
+selection UI remain later work.
 
 The accepted event-product gate adds seven Debug/Release launches: base,
 admission, save, relaunch/load, mod-identity rejection, raw-label rejection and

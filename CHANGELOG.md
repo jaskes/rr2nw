@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added `rr2nw-mod-validator.exe`, a standalone console validator that reuses
+  the production mod parser/resolver, verifies the nine-Level retail catalog
+  and derived bases, and applies the pure gameplay-tuning/script-event schema
+  gates. Its CLI mirrors game stack selection and emits stable reports.
+- Added a whitelist-only deterministic Windows package gate. It stages the GUI
+  game, validator, six copyright-free examples, license and selected docs;
+  verifies PE32 GUI/Console subsystem plus ASLR/NX, writes file hashes, creates
+  a fixed-timestamp ZIP/SHA-256, unpacks it and runs base/example retail smokes.
+- Added a package-manifest-bound 18-row Windows 10/11 manual campaign ledger.
+  It records actual host/build evidence and intentionally leaves human cases
+  pending rather than converting automated runtime smokes into manual passes.
+  The automated gate is 65/65 CTest per configuration, 18/18 installed-Level
+  smokes and byte-identical SHA-256 from two independent package stages.
 - Added strict `RR2NW/script-events.json` schema 1 for delayed, named
   Explosion/Spark creation through existing Level-local attributes. The whole
   document is preflighted, queued through the real legacy subject paths and

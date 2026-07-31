@@ -3188,6 +3188,31 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   the same semantic commands; it must not bypass this boundary with the raw
   legacy event bus.
 
+### CQ-175: offline validation and RC evidence cannot fork runtime truth
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `PACKAGE_AUTOMATION_CONFIRMED`,
+  `MANUAL_RC_PENDING`.
+- Risk: a second schema implementation could accept a package the game rejects;
+  build-tree tests could also be attributed to a different ZIP or host.
+- Handling: `rr2nw-mod-validator.exe` invokes the production stack parser,
+  containment/size checks, dependency resolver, override rules, ordering and
+  fingerprint code. It additionally verifies the retail catalog/derived bases
+  and calls the existing pure reserved-contract validators. Its selection
+  flags match the game and its stable report includes mount order and package
+  fingerprints.
+- Packaging: `New-WindowsPackage.ps1` copies an explicit public whitelist,
+  rejects known retail/user artifacts, verifies PE32 subsystem plus ASLR/NX,
+  records each file SHA-256, creates a fixed-timestamp ZIP, extracts it and
+  runs validator plus base/example runtime smokes from that extracted tree.
+- Verification: 65/65 CTest passes in Debug and Release, including hermetic
+  CLI and deterministic package boundaries; all nine installed Levels pass in
+  each configuration, and independent stages produce byte-identical ZIP
+  SHA-256.
+- Manual boundary: the 18-row Win10/Win11 ledger is keyed by package-manifest
+  SHA-256 and actual OS build. Automated checks never set manual rows to PASS.
+  The available Windows 10 LTSC 19044 package smoke passes; full Windows 10
+  human campaign and Windows 11 evidence remain required before RC acceptance.
+
 ## Maintenance rule
 
 When a new quirk is found:

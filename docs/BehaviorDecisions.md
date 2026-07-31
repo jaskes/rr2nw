@@ -4139,3 +4139,28 @@ non-finite/range violations and duplicate IDs. The Debug/Release product gate
 queues one real Spark and Explosion, proves `2/2` EVT1 capture, saves and loads
 them under matching content identity, rejects the same save without the mod,
 and rejects both a raw `label` key and an absent attribute before the loop.
+
+## BD-107: validator and manual evidence are bound to production contracts
+
+Status: accepted on 2026-07-31.
+
+A separate friendly manifest parser would inevitably drift from game startup.
+The public `rr2nw-mod-validator.exe` therefore calls the production
+`RecoveredModRuntime_ConfigureStack` boundary for paths, relations, ordering,
+overrides and fingerprints. It applies the same nine-entry retail catalog rule
+to derived Level bases and calls the pure validators already owned by the two
+reserved JSON contracts. Runtime-only symbolic roster checks remain a second
+Level-start gate rather than being guessed offline.
+
+The Windows artifact is assembled from an explicit whitelist. Retail media,
+historical installers/executables, saves and dumps are rejected if they enter
+the stage. A sorted file manifest, fixed ZIP timestamps and SHA-256 make the
+candidate reproducible and independently checkable. Admission runs again from
+the extracted archive, not from build-tree binaries.
+
+Manual acceptance belongs to an exact package. Each Windows 10/11 row stores
+the package-manifest SHA-256 and actual host build. Automated base/example
+smokes do not mark gameplay, presentation or focus cases as human passes. The
+current Windows 10 host may prove automated package operation, but the M5/RC
+manual gate remains open until all Windows 10 and Windows 11 rows pass against
+one clean, non-dirty candidate.

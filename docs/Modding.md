@@ -24,6 +24,21 @@ selected retail tree remains the read-only base. An omitted mod option uses the
 historical base paths and preserves the original content fingerprint. An
 invalid package or stack is rejected before Level construction.
 
+Validate a package or complete discovered stack without starting a Level:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw-mod-validator.exe" `
+  --data-dir "E:\Games\The Next Worlds" `
+  --mods-dir "$PWD\examples\mods"
+```
+
+The validator uses the production manifest/runtime resolver and accepts the
+same repeatable `--mod-dir`, `--mods-dir` and `--mod` selection options as the
+game. It additionally checks the effective gameplay-tuning and script-event
+documents with their pure schema validators. Level-local symbolic targets are
+validated again during real Level admission. See
+[WindowsPackage.md](WindowsPackage.md) for reports and packaged usage.
+
 ## Discovery and stack selection
 
 `--mods-dir <root>` discovers only immediate child directories that contain a

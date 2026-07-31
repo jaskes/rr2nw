@@ -1565,6 +1565,25 @@ playable Level begins.
   CTest in each configuration, with 18/18 ordinary and 18/18 fresh-continuation
   retail matrices plus 2/2 event product rows.
 
+### RP-MOD-007: shipped validation and examples use the game resolver
+
+- `rr2nw-mod-validator.exe` consumes the same explicit/discovered selection,
+  production stack parser, mount ordering, target override and fingerprints as
+  `rr2nw.exe`; the tool does not reinterpret schema 1 in PowerShell.
+- The selected retail root must expose the same nine-entry `game.cfg` catalog,
+  `LEVEL0.SC` and physical Level directories. Declared derived bases must be
+  members of that catalog. Effective gameplay-tuning and script-event targets
+  pass their existing pure validators before the report becomes valid.
+- Hermetic Debug/Release evidence admits all six shuffled example directories,
+  proves addon-to-core dependency closure, and rejects a missing source plus a
+  raw-label event document with distinct fail-closed stages. The accepted
+  automated aggregate is 65/65 CTest in each configuration and 18/18 ordinary
+  installed-Level runtime smokes.
+- The Windows package contains both executables, the six copyright-free
+  packages and no retail media. The exact extracted ZIP passes validator, base
+  Level.03N and example-data-pack smokes on Windows 10 LTSC 19044 with clean
+  shutdown. This is automated package parity, not a completed manual campaign.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

@@ -105,6 +105,19 @@ M0 и M1 не требуют ручного прохождения. Неблок
 
 ## Packaging contract
 
+The current concrete candidate gate is:
+
+```powershell
+& ".\tools\release\New-WindowsPackage.ps1" `
+  -DataRoot "E:\Games\The Next Worlds"
+```
+
+It stages only an explicit whitelist, emits a file manifest plus deterministic
+ZIP/SHA-256, verifies PE subsystem/mitigations, extracts the exact archive and
+runs validator plus base/example runtime smokes from the extracted tree. See
+[WindowsPackage.md](WindowsPackage.md). A `-dirty` package is evidence only and
+cannot be tagged or published.
+
 Windows package содержит:
 
 - RR2NW EXE и runtime dependencies;
