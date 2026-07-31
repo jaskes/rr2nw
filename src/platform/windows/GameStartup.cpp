@@ -891,6 +891,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleProbeTurnEvents()));
   log.Line("vehicle_probe_camera_transitions=" + std::to_string(
                RecoveredGameServices_VehicleProbeCameraTransitions()));
+  log.Line("vehicle_probe_stability_recoveries=" + std::to_string(
+               RecoveredGameServices_VehicleProbeStabilityRecoveries()));
   log.Line("vehicle_probe_rollbacks=" + std::to_string(
                RecoveredGameServices_VehicleProbeRollbacks()));
   log.Line("vehicle_probe_horizontal_distance=" + std::to_string(
@@ -1743,7 +1745,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("vehicle_land_collision_frames=" + std::to_string(
                  vehicleTelemetry.landCollisionFrames));
     log.Line("vehicle_dynamic_collision_frames=" + std::to_string(
-                 vehicleTelemetry.dynamicCollisionFrames));
+                  vehicleTelemetry.dynamicCollisionFrames));
+    log.Line("vehicle_stability_recoveries=" + std::to_string(
+                  vehicleTelemetry.stabilityRecoveries));
+    log.Line("vehicle_last_stability_reason=" + std::to_string(
+                  vehicleTelemetry.lastStabilityReason));
   }
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"

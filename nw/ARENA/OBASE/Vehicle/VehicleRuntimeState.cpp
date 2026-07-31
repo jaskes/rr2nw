@@ -20,6 +20,12 @@ const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 const double kMaximumStep = 0.05;
 const double kTimeEpsilon = 1.0e-9;
+// Retail vehicle attributes top out in the low double digits. These limits
+// leave orders of magnitude of headroom while rejecting finite-but-
+// astronomical values produced by a runaway legacy collision response.
+const double kMaximumStableSpeedComponent = 2048.0;
+const double kMaximumStableFrameDisplacement = 4096.0;
+const double kMaximumStableDirectionComponent = 4.0;
 
 struct VehicleRuntimeOwner
 {
@@ -31,6 +37,10 @@ struct VehicleRuntimeOwner
     CFVector3 savedSubjectPosition;
     CFVector3 savedSpeed;
     CFMatrix3x4 savedDirection;
+    CFVector3 frameStartPosition;
+    CFVector3 frameStartSubjectPosition;
+    CFMatrix3x4 frameStartDirection;
+    CFVector3 lastStablePosition;
     double savedLastTime;
     double savedCurrentTime;
     double savedViewTime;
@@ -42,22 +52,33 @@ struct VehicleRuntimeOwner
     int staticCollisionFrameCount;
     int landCollisionFrameCount;
     int dynamicCollisionFrameCount;
+    int stabilityRecoveryCount;
+    int lastStabilityReason;
     bool active;
     bool frameBegun;
+    bool frameStartValid;
+    bool lastStableValid;
 
     VehicleRuntimeOwner()
         : context(NULL), vehicle(NULL), object(KR_ObjectID::NUL()),
           frameAttribute(KR_ObjectID::NUL()),
           savedPosition(0.0, 0.0, 0.0),
           savedSubjectPosition(0.0, 0.0, 0.0),
-          savedSpeed(0.0, 0.0, 0.0), savedLastTime(0.0),
+          savedSpeed(0.0, 0.0, 0.0),
+          frameStartPosition(0.0, 0.0, 0.0),
+          frameStartSubjectPosition(0.0, 0.0, 0.0),
+          lastStablePosition(0.0, 0.0, 0.0), savedLastTime(0.0),
           savedCurrentTime(0.0), savedViewTime(0.0), lastTime(0.0),
           advanceCount(0), controlEventCount(0), lastBumpFlags(BF_NONE),
           groundContactFrameCount(0), staticCollisionFrameCount(0),
           landCollisionFrameCount(0), dynamicCollisionFrameCount(0),
-          active(false), frameBegun(false)
+          stabilityRecoveryCount(0),
+          lastStabilityReason(RECOVERED_VEHICLE_STABILITY_NONE),
+          active(false), frameBegun(false), frameStartValid(false),
+          lastStableValid(false)
     {
         savedDirection.LoadIdentity();
+        frameStartDirection.LoadIdentity();
     }
 };
 
@@ -137,6 +158,10 @@ void ClearOwner()
     g_owner.savedSubjectPosition = CFVector3(0.0, 0.0, 0.0);
     g_owner.savedSpeed = CFVector3(0.0, 0.0, 0.0);
     g_owner.savedDirection.LoadIdentity();
+    g_owner.frameStartPosition = CFVector3(0.0, 0.0, 0.0);
+    g_owner.frameStartSubjectPosition = CFVector3(0.0, 0.0, 0.0);
+    g_owner.frameStartDirection.LoadIdentity();
+    g_owner.lastStablePosition = CFVector3(0.0, 0.0, 0.0);
     g_owner.savedLastTime = 0.0;
     g_owner.savedCurrentTime = 0.0;
     g_owner.savedViewTime = 0.0;
@@ -148,8 +173,12 @@ void ClearOwner()
     g_owner.staticCollisionFrameCount = 0;
     g_owner.landCollisionFrameCount = 0;
     g_owner.dynamicCollisionFrameCount = 0;
+    g_owner.stabilityRecoveryCount = 0;
+    g_owner.lastStabilityReason = RECOVERED_VEHICLE_STABILITY_NONE;
     g_owner.active = false;
     g_owner.frameBegun = false;
+    g_owner.frameStartValid = false;
+    g_owner.lastStableValid = false;
     g_lastControlFailure = 0;
 }
 
@@ -260,6 +289,114 @@ int VehicleReadinessIssue(Vehicle *vehicle)
     return issue;
 }
 
+double MaximumAbsoluteComponent(const CFVector3 &value)
+{
+    return (std::max)((std::max)(std::fabs(value.x), std::fabs(value.y)),
+                      std::fabs(value.z));
+}
+
+double MaximumDirectionComponent(const CFMatrix3x4 &value)
+{
+    return (std::max)(
+        MaximumAbsoluteComponent(value.Row(0)),
+        (std::max)(MaximumAbsoluteComponent(value.Row(1)),
+                   MaximumAbsoluteComponent(value.Row(2))));
+}
+
+bool CaptureFrameStart()
+{
+    if (!VehicleReady(g_owner.vehicle))
+        return false;
+    g_owner.frameStartPosition = g_owner.vehicle->Pos();
+    g_owner.frameStartSubjectPosition = g_owner.vehicle->getPosition();
+    g_owner.frameStartDirection = g_owner.vehicle->GetDir();
+    g_owner.frameStartValid =
+        FiniteVector(g_owner.frameStartPosition) &&
+        FiniteVector(g_owner.frameStartSubjectPosition) &&
+        FiniteMatrix(g_owner.frameStartDirection) &&
+        MaximumAbsoluteComponent(g_owner.vehicle->Speed()) <=
+            kMaximumStableSpeedComponent &&
+        MaximumDirectionComponent(g_owner.frameStartDirection) <=
+            kMaximumStableDirectionComponent;
+    return g_owner.frameStartValid;
+}
+
+int CompletedFrameStabilityIssue()
+{
+    if (!g_owner.frameStartValid || g_owner.vehicle == NULL)
+        return RECOVERED_VEHICLE_STABILITY_RESTORE_FAILED;
+    const double mass = g_owner.vehicle->VesselMass();
+    if (!std::isfinite(mass) || mass <= 0.0)
+        return RECOVERED_VEHICLE_STABILITY_NONFINITE;
+
+    const CFVector3 position = g_owner.vehicle->Pos();
+    const CFVector3 subjectPosition = g_owner.vehicle->getPosition();
+    const CFVector3 speed = g_owner.vehicle->Speed();
+    const CFMatrix3x4 direction = g_owner.vehicle->GetDir();
+    if (!FiniteVector(position) || !FiniteVector(subjectPosition) ||
+        !FiniteVector(speed) || !FiniteMatrix(direction) ||
+        !std::isfinite(g_owner.vehicle->m_lastTime))
+        return RECOVERED_VEHICLE_STABILITY_NONFINITE;
+    if (MaximumDirectionComponent(direction) >
+        kMaximumStableDirectionComponent)
+        return RECOVERED_VEHICLE_STABILITY_INVALID_DIRECTION;
+    if (MaximumAbsoluteComponent(speed) > kMaximumStableSpeedComponent)
+        return RECOVERED_VEHICLE_STABILITY_EXCESSIVE_SPEED;
+    if (MaximumAbsoluteComponent(position - g_owner.frameStartPosition) >
+        kMaximumStableFrameDisplacement)
+        return RECOVERED_VEHICLE_STABILITY_EXCESSIVE_DISPLACEMENT;
+    return RECOVERED_VEHICLE_STABILITY_NONE;
+}
+
+bool RestoreStableFrame(int reason, double targetTime)
+{
+    if (!g_owner.frameStartValid || g_owner.vehicle == NULL ||
+        !std::isfinite(targetTime))
+    {
+        g_owner.lastStabilityReason =
+            RECOVERED_VEHICLE_STABILITY_RESTORE_FAILED;
+        return false;
+    }
+
+    Vehicle *vehicle = g_owner.vehicle;
+    vehicle->Restart();
+    vehicle->SetDir(g_owner.frameStartDirection);
+    vehicle->SetPos(g_owner.frameStartPosition);
+    vehicle->Stop();
+    vehicle->setPosition(g_owner.frameStartSubjectPosition);
+    vehicle->m_lastTime = targetTime;
+    Vehicle::s_curTime = targetTime;
+    Session::m_viewTime = targetTime;
+    if (!VehicleReady(vehicle) ||
+        !NearlyEqual(vehicle->Pos(), g_owner.frameStartPosition, 1.0e-5) ||
+        !NearlyEqual(vehicle->getPosition(),
+                     g_owner.frameStartSubjectPosition, 1.0e-5) ||
+        !NearlyEqual(vehicle->Speed(), CFVector3(0.0, 0.0, 0.0), 1.0e-5) ||
+        !NearlyEqual(vehicle->GetDir(), g_owner.frameStartDirection, 1.0e-5))
+    {
+        g_owner.lastStabilityReason =
+            RECOVERED_VEHICLE_STABILITY_RESTORE_FAILED;
+        return false;
+    }
+
+    ++g_owner.stabilityRecoveryCount;
+    g_owner.lastStabilityReason = reason;
+    g_owner.lastStablePosition = g_owner.frameStartPosition;
+    g_owner.lastStableValid = true;
+    g_owner.lastBumpFlags = BF_NONE;
+    return true;
+}
+
+bool StabilizeCompletedFrame(double targetTime)
+{
+    const int issue = CompletedFrameStabilityIssue();
+    if (issue != RECOVERED_VEHICLE_STABILITY_NONE)
+        return RestoreStableFrame(issue, targetTime);
+    g_owner.lastStablePosition = g_owner.vehicle->Pos();
+    g_owner.lastStableValid = true;
+    return true;
+}
+
 bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
 {
     if (state == NULL)
@@ -295,6 +432,11 @@ bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
         state->active ? g_owner.landCollisionFrameCount : 0;
     state->dynamicCollisionFrameCount =
         state->active ? g_owner.dynamicCollisionFrameCount : 0;
+    state->stabilityRecoveryCount =
+        state->active ? g_owner.stabilityRecoveryCount : 0;
+    state->lastStabilityReason =
+        state->active ? g_owner.lastStabilityReason
+                      : RECOVERED_VEHICLE_STABILITY_NONE;
     return !IsNul(state->object) && !IsNul(state->attribute) &&
            FiniteVector(state->position) &&
            FiniteVector(state->subjectPosition) &&
@@ -445,8 +587,12 @@ bool VehicleRuntimeState_Activate(
     g_owner.staticCollisionFrameCount = 0;
     g_owner.landCollisionFrameCount = 0;
     g_owner.dynamicCollisionFrameCount = 0;
+    g_owner.stabilityRecoveryCount = 0;
+    g_owner.lastStabilityReason = RECOVERED_VEHICLE_STABILITY_NONE;
     g_owner.active = true;
     g_owner.frameBegun = false;
+    g_owner.frameStartValid = false;
+    g_owner.lastStableValid = false;
 
     resolved->Restart();
     resolved->GetDir().LoadIdentity();
@@ -462,7 +608,11 @@ bool VehicleRuntimeState_Activate(
         FiniteVector(activated.subjectPosition) &&
         NearlyEqual(activated.speed, CFVector3(0.0, 0.0, 0.0)) &&
         NearlyEqual(activated.lastTime, startTime))
+    {
+        g_owner.lastStablePosition = activated.position;
+        g_owner.lastStableValid = true;
         return true;
+    }
 
     RestoreOwner();
     ClearOwner();
@@ -614,6 +764,9 @@ bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context)
         return false;
     g_owner.lastTime = restored.lastTime;
     g_owner.frameAttribute = KR_ObjectID::NUL();
+    g_owner.frameStartValid = false;
+    g_owner.lastStablePosition = restored.position;
+    g_owner.lastStableValid = true;
     return true;
 }
 
@@ -642,8 +795,14 @@ bool VehicleRuntimeState_BeginFrame(SimulationContext *context)
 
     g_owner.frameAttribute = g_owner.vehicle->m_vehicleAttrID;
     g_owner.vehicle->BeginPreStep();
+    if (!CaptureFrameStart())
+    {
+        g_owner.frameAttribute = KR_ObjectID::NUL();
+        g_owner.frameStartValid = false;
+        return false;
+    }
     g_owner.frameBegun = true;
-    return VehicleReady(g_owner.vehicle);
+    return true;
 }
 
 static bool PrepareCurrentVesselForFrameCompletion()
@@ -665,6 +824,11 @@ static bool PrepareCurrentVesselForFrameCompletion()
         }
         g_owner.vehicle->BeginPreStep();
         g_owner.frameAttribute = g_owner.vehicle->m_vehicleAttrID;
+        // The Taxi event has atomically replaced, restarted and positioned the
+        // vessel. Roll back any subsequent solver failure to this new car,
+        // never to the body and pose that owned the beginning of the frame.
+        if (!CaptureFrameStart())
+            return false;
     }
     const bool ready = VehicleReady(g_owner.vehicle);
     if (!ready)
@@ -691,6 +855,7 @@ bool VehicleRuntimeState_CompleteFrame(
         g_lastFrameFailure = 11;
         g_owner.frameBegun = false;
         g_owner.frameAttribute = KR_ObjectID::NUL();
+        g_owner.frameStartValid = false;
         return false;
     }
 
@@ -699,15 +864,25 @@ bool VehicleRuntimeState_CompleteFrame(
         g_lastFrameFailure = 12;
         g_owner.frameBegun = false;
         g_owner.frameAttribute = KR_ObjectID::NUL();
+        g_owner.frameStartValid = false;
         return false;
     }
     Session::m_viewTime = targetTime;
     g_owner.vehicle->UpdatePos();
-    RecordFrameCollision();
+    const int recoveriesBefore = g_owner.stabilityRecoveryCount;
+    const bool stable = StabilizeCompletedFrame(targetTime);
+    if (stable && g_owner.stabilityRecoveryCount == recoveriesBefore)
+        RecordFrameCollision();
     g_owner.lastTime = targetTime;
     ++g_owner.advanceCount;
     g_owner.frameBegun = false;
     g_owner.frameAttribute = KR_ObjectID::NUL();
+    g_owner.frameStartValid = false;
+    if (!stable)
+    {
+        g_lastFrameFailure = 13;
+        return false;
+    }
     SRecoveredVehicleRuntimeState state = {};
     const bool valid = ReadState(g_owner.vehicle, &state) && state.active &&
         !state.frameBegun &&
@@ -742,6 +917,7 @@ bool VehicleRuntimeState_CompleteLiveFrame(
         g_lastFrameFailure = 3;
         g_owner.frameBegun = false;
         g_owner.frameAttribute = KR_ObjectID::NUL();
+        g_owner.frameStartValid = false;
         return false;
     }
     if (deltaTime == 0.0)
@@ -751,14 +927,24 @@ bool VehicleRuntimeState_CompleteLiveFrame(
             g_lastFrameFailure = 4;
             g_owner.frameBegun = false;
             g_owner.frameAttribute = KR_ObjectID::NUL();
+            g_owner.frameStartValid = false;
             return false;
         }
         Session::m_viewTime = targetTime;
         g_owner.vehicle->UpdatePos();
-        RecordFrameCollision();
+        const int recoveriesBefore = g_owner.stabilityRecoveryCount;
+        const bool stable = StabilizeCompletedFrame(targetTime);
+        if (stable && g_owner.stabilityRecoveryCount == recoveriesBefore)
+            RecordFrameCollision();
         ++g_owner.advanceCount;
         g_owner.frameBegun = false;
         g_owner.frameAttribute = KR_ObjectID::NUL();
+        g_owner.frameStartValid = false;
+        if (!stable)
+        {
+            g_lastFrameFailure = 5;
+            return false;
+        }
         SRecoveredVehicleRuntimeState state = {};
         const bool valid = ReadState(g_owner.vehicle, &state) && state.active &&
             !state.frameBegun &&
@@ -775,12 +961,16 @@ bool VehicleRuntimeState_CompleteLiveFrame(
         g_lastFrameFailure = 6;
         g_owner.frameBegun = false;
         g_owner.frameAttribute = KR_ObjectID::NUL();
+        g_owner.frameStartValid = false;
         return false;
     }
     const double physicsTarget = g_owner.lastTime + kMaximumStep;
     Session::m_viewTime = physicsTarget;
     g_owner.vehicle->UpdatePos();
-    RecordFrameCollision();
+    const int recoveriesBefore = g_owner.stabilityRecoveryCount;
+    const bool stable = StabilizeCompletedFrame(targetTime);
+    if (stable && g_owner.stabilityRecoveryCount == recoveriesBefore)
+        RecordFrameCollision();
     g_owner.vehicle->m_lastTime = targetTime;
     Vehicle::s_curTime = targetTime;
     Session::m_viewTime = targetTime;
@@ -788,7 +978,13 @@ bool VehicleRuntimeState_CompleteLiveFrame(
     ++g_owner.advanceCount;
     g_owner.frameBegun = false;
     g_owner.frameAttribute = KR_ObjectID::NUL();
+    g_owner.frameStartValid = false;
     *droppedTime = true;
+    if (!stable)
+    {
+        g_lastFrameFailure = 7;
+        return false;
+    }
     SRecoveredVehicleRuntimeState state = {};
     const bool valid = ReadState(g_owner.vehicle, &state) && state.active &&
         !state.frameBegun &&
@@ -817,6 +1013,17 @@ bool VehicleRuntimeState_BuildCamera(
     *direction = g_owner.vehicle->GetDir();
     direction->TranslateR(-g_owner.vehicle->Pos());
     return FiniteMatrix(*direction);
+}
+
+bool VehicleRuntimeState_LastStablePosition(
+    SimulationContext *context, CFVector3 *position)
+{
+    if (!g_owner.active || context == NULL || position == NULL ||
+        g_owner.context != context || !g_owner.lastStableValid ||
+        !FiniteVector(g_owner.lastStablePosition))
+        return false;
+    *position = g_owner.lastStablePosition;
+    return true;
 }
 
 bool VehicleRuntimeState_Rollback(SimulationContext *context)
@@ -961,6 +1168,39 @@ bool VehicleRuntimeState_ProbeMovement(
             succeeded = false;
     }
 
+    // Prove that a finite collision impulse large enough to reproduce the
+    // retail wheels runaway is contained at the active frame boundary. The
+    // owner must keep control and camera ownership while restoring the exact
+    // pre-step pose and stopping the vessel.
+    if (succeeded)
+    {
+        currentTime += 0.025;
+        succeeded = VehicleRuntimeState_BeginFrame(context) &&
+                    g_owner.vehicle->ApplyExplosionImpulse(
+                        CFVector3(1.0e8, 0.0, -1.0e8), 1.0) &&
+                    VehicleRuntimeState_CompleteFrame(context, currentTime);
+    }
+    SRecoveredVehicleRuntimeState recovered = {};
+    CFMatrix3x4 recoveredCamera;
+    if (succeeded)
+    {
+        succeeded = VehicleRuntimeState_Inspect(
+                        context, vehicle, &recovered) &&
+                    recovered.active && !recovered.frameBegun &&
+                    recovered.stabilityRecoveryCount == 1 &&
+                    recovered.lastStabilityReason !=
+                        RECOVERED_VEHICLE_STABILITY_NONE &&
+                    recovered.lastStabilityReason !=
+                        RECOVERED_VEHICLE_STABILITY_RESTORE_FAILED &&
+                    NearlyEqual(recovered.position, moved.position, 1.0e-5) &&
+                    NearlyEqual(recovered.speed,
+                                CFVector3(0.0, 0.0, 0.0), 1.0e-5) &&
+                    VehicleRuntimeState_BuildCamera(
+                        context, &recoveredCamera);
+        if (succeeded)
+            summary->stabilityRecoveries = 1;
+    }
+
     const bool rolledBack = VehicleRuntimeState_Rollback(context);
     if (rolledBack)
         summary->rollbacks = 1;
@@ -973,7 +1213,8 @@ bool VehicleRuntimeState_ProbeMovement(
            summary->activations == 1 && summary->stationarySteps == 1 &&
            summary->throttleEvents == 2 &&
            summary->movementSteps == 172 && summary->turnEvents == 2 &&
-           summary->cameraTransitions == 1 && summary->rollbacks == 1 &&
+           summary->cameraTransitions == 1 &&
+           summary->stabilityRecoveries == 1 && summary->rollbacks == 1 &&
            summary->horizontalDistance > 0.01 &&
            VehicleRuntimeState_IsClean(context);
 }

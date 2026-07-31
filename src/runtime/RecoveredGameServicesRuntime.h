@@ -49,6 +49,8 @@ struct SRecoveredVehicleDriveTelemetry {
   unsigned int staticCollisionFrames;
   unsigned int landCollisionFrames;
   unsigned int dynamicCollisionFrames;
+  unsigned int stabilityRecoveries;
+  int lastStabilityReason;
 };
 
 struct SRecoveredTaxiVehicleHandoffTelemetry {
@@ -255,6 +257,7 @@ int RecoveredGameServices_VehicleProbeThrottleEvents();
 int RecoveredGameServices_VehicleProbeMovementSteps();
 int RecoveredGameServices_VehicleProbeTurnEvents();
 int RecoveredGameServices_VehicleProbeCameraTransitions();
+int RecoveredGameServices_VehicleProbeStabilityRecoveries();
 int RecoveredGameServices_VehicleProbeRollbacks();
 double RecoveredGameServices_VehicleProbeHorizontalDistance();
 bool RecoveredGameServices_TaxiVehicleTransitionReady();

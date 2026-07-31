@@ -429,9 +429,10 @@ bool IsServiceReleased() {
          RecoveredGameServices_VehicleProbeStationarySteps() == -1 &&
          RecoveredGameServices_VehicleProbeThrottleEvents() == -1 &&
          RecoveredGameServices_VehicleProbeMovementSteps() == -1 &&
-         RecoveredGameServices_VehicleProbeTurnEvents() == -1 &&
-         RecoveredGameServices_VehicleProbeCameraTransitions() == -1 &&
-         RecoveredGameServices_VehicleProbeRollbacks() == -1 &&
+          RecoveredGameServices_VehicleProbeTurnEvents() == -1 &&
+          RecoveredGameServices_VehicleProbeCameraTransitions() == -1 &&
+          RecoveredGameServices_VehicleProbeStabilityRecoveries() == -1 &&
+          RecoveredGameServices_VehicleProbeRollbacks() == -1 &&
          RecoveredGameServices_VehicleProbeHorizontalDistance() == 0.0 &&
          !RecoveredGameServices_VehicleControlReady() &&
          !RecoveredGameServices_VehicleControlReplayReady() &&
@@ -2584,9 +2585,10 @@ int main(int argc, char** argv) {
       RecoveredGameServices_VehicleProbeStationarySteps() != 1 ||
       RecoveredGameServices_VehicleProbeThrottleEvents() != 2 ||
       RecoveredGameServices_VehicleProbeMovementSteps() != 172 ||
-      RecoveredGameServices_VehicleProbeTurnEvents() != 2 ||
-      RecoveredGameServices_VehicleProbeCameraTransitions() != 1 ||
-      RecoveredGameServices_VehicleProbeRollbacks() != 1 ||
+       RecoveredGameServices_VehicleProbeTurnEvents() != 2 ||
+       RecoveredGameServices_VehicleProbeCameraTransitions() != 1 ||
+       RecoveredGameServices_VehicleProbeStabilityRecoveries() != 1 ||
+       RecoveredGameServices_VehicleProbeRollbacks() != 1 ||
       RecoveredGameServices_VehicleProbeHorizontalDistance() <= 0.01 ||
       !IsVehicleControlActive(vehicleID, nullptr) ||
       RecoveredGameServices_VehicleVesselMass() <= 0.0 ||
@@ -2906,6 +2908,8 @@ int main(int argc, char** argv) {
       RecoveredGameServices_VehicleProbeTurnEvents();
   const int vehicleProbeCameraTransitions =
       RecoveredGameServices_VehicleProbeCameraTransitions();
+  const int vehicleProbeStabilityRecoveries =
+      RecoveredGameServices_VehicleProbeStabilityRecoveries();
   const int vehicleProbeRollbacks =
       RecoveredGameServices_VehicleProbeRollbacks();
   const double vehicleProbeHorizontalDistance =
@@ -3837,7 +3841,10 @@ int main(int argc, char** argv) {
       vehicleDriveTelemetry.groundContactFrames > 42 ||
       vehicleDriveTelemetry.staticCollisionFrames > 42 ||
       vehicleDriveTelemetry.landCollisionFrames > 42 ||
-      vehicleDriveTelemetry.dynamicCollisionFrames > 42) {
+      vehicleDriveTelemetry.dynamicCollisionFrames > 42 ||
+      vehicleDriveTelemetry.stabilityRecoveries != 0 ||
+      vehicleDriveTelemetry.lastStabilityReason !=
+          RECOVERED_VEHICLE_STABILITY_NONE) {
     std::fprintf(stderr,
                  "vehicle-visual-suite diagnostics ready=%d fallback=%d "
                  "reason=%u input=%u forwarded=%u housekeeping=%u ignored=%u "
@@ -3846,7 +3853,7 @@ int main(int argc, char** argv) {
                  "frame_begun=%d advances=%u controls=%u "
                  "focus=%u/%u release=%u suppressed=%u active_actions=%u "
                  "telemetry=%d distance=%.9f speed=%.9f heading=%.9f "
-                 "ground=%u static=%u land=%u dynamic=%u\n",
+                 "ground=%u static=%u land=%u dynamic=%u stability=%u/%d\n",
                  RecoveredGameServices_VehicleControlReady() ? 1 : 0,
                  RecoveredGameServices_VehicleFallbackActive() ? 1 : 0,
                  RecoveredGameServices_VehicleFallbackReason(),
@@ -3876,7 +3883,9 @@ int main(int argc, char** argv) {
                  vehicleDriveTelemetry.groundContactFrames,
                  vehicleDriveTelemetry.staticCollisionFrames,
                  vehicleDriveTelemetry.landCollisionFrames,
-                 vehicleDriveTelemetry.dynamicCollisionFrames);
+                 vehicleDriveTelemetry.dynamicCollisionFrames,
+                 vehicleDriveTelemetry.stabilityRecoveries,
+                 vehicleDriveTelemetry.lastStabilityReason);
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("live Vehicle control did not survive the visual frame suite");
@@ -4178,6 +4187,8 @@ int main(int argc, char** argv) {
           vehicleProbeTurnEvents ||
       RecoveredGameServices_VehicleProbeCameraTransitions() !=
           vehicleProbeCameraTransitions ||
+      RecoveredGameServices_VehicleProbeStabilityRecoveries() !=
+          vehicleProbeStabilityRecoveries ||
       RecoveredGameServices_VehicleProbeRollbacks() !=
           vehicleProbeRollbacks ||
       std::fabs(RecoveredGameServices_VehicleProbeHorizontalDistance() -
@@ -4581,7 +4592,7 @@ int main(int argc, char** argv) {
               "vehicle_attrs=%d/%d vehicle_fingerprint=%llu "
               "vehicle_refs=%llu mass=%.0f "
               "vehicle_runtime=live-BeginPreStep-UpdatePos kind=%d fingerprint=%llu "
-              "probe=%d/%d/%d/%d/%d/%d/%d/%d distance=%.6f "
+              "probe=%d/%d/%d/%d/%d/%d/%d/%d/%d distance=%.6f "
               "vehicle_control=Hardware-exclusive-26/11/13/0 "
               "vehicle_focus=loss/gain-1/1 release=1 suppressed=2 stop=X "
               "vehicle_world=%u/%u/%u/%u "
@@ -4674,8 +4685,9 @@ int main(int argc, char** argv) {
                 vehicleVesselKind, vehicleRuntimeFingerprint,
                 vehicleProbeInvalidActivations, vehicleProbeActivations,
                 vehicleProbeStationarySteps, vehicleProbeThrottleEvents,
-                vehicleProbeMovementSteps, vehicleProbeTurnEvents,
-                vehicleProbeCameraTransitions, vehicleProbeRollbacks,
+                 vehicleProbeMovementSteps, vehicleProbeTurnEvents,
+                 vehicleProbeCameraTransitions,
+                 vehicleProbeStabilityRecoveries, vehicleProbeRollbacks,
                 vehicleProbeHorizontalDistance,
                 vehicleDriveTelemetry.groundContactFrames,
                 vehicleDriveTelemetry.staticCollisionFrames,

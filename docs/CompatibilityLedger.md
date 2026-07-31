@@ -2797,6 +2797,35 @@ Status vocabulary:
   currently retain their roster and restore state in place; do not generalize
   transient teardown without route, group and cannon ownership proofs.
 
+### CQ-161: a finite Wheels runaway is not a valid camera position
+
+- Status: `RUNTIME_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: a manual Level.05D session entered a car near the station and its
+  People population, then appeared to detach the camera and cross the world.
+  The log instead recorded vessel kind 2, 61 dynamic-collision frames,
+  `y=85068`, speed components around `1e146`, frame failure 13 and fallback
+  reason 4. The Level.05D save itself decoded to a finite stationary Wheels
+  Vehicle around `(1745,84,-2379)`, and Level.03N loaded normally. This is a
+  collision/integration runaway followed by the designed observer fallback,
+  not a corrupt slot or intentional Taxi camera flight.
+- Handling: each modern Vehicle frame captures a rollback pose. A Taxi
+  attribute replacement refreshes it after the new vessel has been restarted
+  and placed. Non-finite state, implausible direction, speed above 2048 per
+  component or displacement above 4096 in one frame restores that pose, stops
+  the vessel and retains Vehicle control/camera ownership. Diagnostics publish
+  recovery count and reason. A fallback that is still required uses the last
+  stable position rather than a merely finite current position.
+- Verification: the real movement probe injects a finite `1e8` impulse between
+  BeginPreStep and UpdatePos, then requires one recovery, exact pose, zero
+  speed, valid camera and complete outer rollback. The Level.05D services smoke
+  completes its interactive Taxi, embodiment, fire and slot contracts without
+  fallback.
+- Revisit when: per-collider telemetry can identify the exact People/Taxi or
+  other dynamic pair that amplified the Wheels response. Correct the primary
+  legacy reflection/penetration calculation only after preserving this guard
+  and proving retail handling of crowded contacts, terrain and stationary
+  overlaps.
+
 ## Maintenance rule
 
 When a new quirk is found:

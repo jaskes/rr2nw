@@ -13,6 +13,16 @@ enum ERecoveredVehicleVesselKind
     RECOVERED_VEHICLE_VESSEL_WHEELS = 2
 };
 
+enum ERecoveredVehicleStabilityReason
+{
+    RECOVERED_VEHICLE_STABILITY_NONE = 0,
+    RECOVERED_VEHICLE_STABILITY_NONFINITE = 1,
+    RECOVERED_VEHICLE_STABILITY_EXCESSIVE_SPEED = 2,
+    RECOVERED_VEHICLE_STABILITY_EXCESSIVE_DISPLACEMENT = 3,
+    RECOVERED_VEHICLE_STABILITY_INVALID_DIRECTION = 4,
+    RECOVERED_VEHICLE_STABILITY_RESTORE_FAILED = 5
+};
+
 struct SRecoveredVehicleRuntimeState
 {
     KR_ObjectID object;
@@ -34,6 +44,8 @@ struct SRecoveredVehicleRuntimeState
     int staticCollisionFrameCount;
     int landCollisionFrameCount;
     int dynamicCollisionFrameCount;
+    int stabilityRecoveryCount;
+    int lastStabilityReason;
 };
 
 struct SRecoveredVehicleMovementProbeSummary
@@ -45,6 +57,7 @@ struct SRecoveredVehicleMovementProbeSummary
     int movementSteps;
     int turnEvents;
     int cameraTransitions;
+    int stabilityRecoveries;
     int rollbacks;
     double horizontalDistance;
 };
@@ -93,6 +106,8 @@ bool VehicleRuntimeState_Advance(
     SimulationContext *context, double targetTime);
 bool VehicleRuntimeState_BuildCamera(
     SimulationContext *context, CFMatrix3x4 *direction);
+bool VehicleRuntimeState_LastStablePosition(
+    SimulationContext *context, CFVector3 *position);
 bool VehicleRuntimeState_Rollback(SimulationContext *context);
 void VehicleRuntimeState_Reset(SimulationContext *context);
 bool VehicleRuntimeState_ProbeMovement(

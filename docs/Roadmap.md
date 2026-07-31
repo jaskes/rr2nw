@@ -1172,6 +1172,17 @@ named by a selected slot, visible preview/title UX and recorded multi-Level
 manual evidence. Same-Level save/load and exit/relaunch/load are available
 now. This still does not claim retail-save compatibility or silently serialize
 owner families outside the admitted graph.
+
+The first crowded-Vehicle containment gate is also admitted. A Level.05D
+manual failure proved that the Wheels dynamic-collision path can remain finite
+while amplifying speed to astronomical values and pulling the Vehicle camera
+through the world before fallback. Completed Vehicle frames now restore and
+stop at their pre-step pose without surrendering input/camera ownership; Taxi
+replacement refreshes that pose after handoff, diagnostics publish the reason,
+and the admission probe forces one real recovery. The primary Wheels
+reflection/penetration cause remains a later physics refinement, with the
+crowded station route recorded as its manual reproduction.
+
 Explicit hit/damage/death records should still be added only where source
 inspection finds a queued transition; current synchronous paths already
 materialize in owner state.

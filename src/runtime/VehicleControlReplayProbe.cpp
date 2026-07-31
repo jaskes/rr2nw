@@ -60,7 +60,9 @@ bool StatesMatch(const SRecoveredVehicleRuntimeState& left,
        left.groundContactFrameCount == right.groundContactFrameCount &&
        left.staticCollisionFrameCount == right.staticCollisionFrameCount &&
        left.landCollisionFrameCount == right.landCollisionFrameCount &&
-       left.dynamicCollisionFrameCount == right.dynamicCollisionFrameCount));
+       left.dynamicCollisionFrameCount == right.dynamicCollisionFrameCount &&
+       left.stabilityRecoveryCount == right.stabilityRecoveryCount &&
+       left.lastStabilityReason == right.lastStabilityReason));
 }
 
 void Hash(std::uint64_t* hash, const void* value, std::size_t size) {
@@ -102,6 +104,10 @@ std::uint64_t StateFingerprint(
        sizeof(state.landCollisionFrameCount));
   Hash(&hash, &state.dynamicCollisionFrameCount,
        sizeof(state.dynamicCollisionFrameCount));
+  Hash(&hash, &state.stabilityRecoveryCount,
+       sizeof(state.stabilityRecoveryCount));
+  Hash(&hash, &state.lastStabilityReason,
+       sizeof(state.lastStabilityReason));
   return hash;
 }
 

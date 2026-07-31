@@ -3602,3 +3602,45 @@ overwrite guards plus a real open-Explosion `1/2` retry in the service smoke,
 59/59 Debug/Release CTest, the 18-case preview-bearing destroyed-context matrix
 and the independent 18-case ordinary executable matrix on the installed
 retail root.
+
+## BD-094: contain finite Vehicle runaways at the completed-frame boundary
+
+Status: accepted on 2026-07-31.
+
+A manual Level.05D drive exposed a failure that looked like a detached camera:
+after entering a car near the station and its People population, the view flew
+through the world. Shutdown telemetry instead showed a Wheels Vehicle at
+`y=85068`, speed components on the order of `1e146`, 61 dynamic-collision
+frames, frame failure 13 and fallback reason 4. Save/load was not the cause;
+the same Level.05D slot restored a finite stationary Vehicle and Level.03N
+loaded normally. The camera followed the impossible Vehicle until the invalid
+completed frame activated the observer fallback.
+
+The modern Vehicle owner now treats every physics step as an atomic kinematic
+transaction. `BeginFrame` captures pose, Subject position and direction after
+`BeginPreStep`. If F1 replaces the vessel between begin and completion, the
+capture is repeated only after the new Taxi attribute has restarted and placed
+the replacement car. A completed frame is rejected as physically unstable if
+it contains non-finite state, a direction basis component above 4, a speed
+component above 2048 or a one-frame displacement above 4096. These limits are
+far outside the retail attributes but below the observed runaway by more than
+140 orders of magnitude.
+
+An unstable frame restarts only the current vessel, restores that frame's
+captured pose/direction/Subject position, stops its speed and advances its
+clock to the accepted boundary. Vehicle input and camera ownership remain
+active; the frame is counted in `vehicle_stability_recoveries`, its reason is
+published in `vehicle_last_stability_reason`, and no collision observation is
+reported for the discarded step. If recovery itself cannot be proved, the
+existing diagnosed fallback remains available, but it now resumes the observer
+at the owner's last stable Vehicle position instead of accepting any merely
+finite coordinate.
+
+The movement admission probe injects a finite `1e8` impulse after a real
+`BeginPreStep`. It requires exactly one recovery, the exact pre-step position,
+zero speed, a valid Vehicle camera and complete outer rollback. The real
+Level.05D service smoke then completes Taxi handoff, safe exit/re-entry,
+primary fire and save/load with zero live fallback. This is a containment and
+diagnostic boundary, not a claim that the original Wheels dynamic-collision
+amplification has been fully explained; that solver remains a separately
+reproducible refinement target.

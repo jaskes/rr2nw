@@ -213,3 +213,26 @@ The slot contains a real 640x480 indexed PNG, but the native menu does not draw
 the thumbnail yet. A slot for another Level stays visible and load-disabled;
 relaunch with that Level's exact `--start-level` before loading it. Automatic
 cross-Level reconstruction is the next UI boundary.
+
+## Interactive crowded Taxi stability pass
+
+Use Release for this visual/physics pass and keep the default per-user slots so
+the known Level.05D save remains available:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.05D" --diagnostics-dir "$PWD\manual-logs\taxi-stability-Level.05D"
+```
+
+1. load the matching Level.05D slot if desired;
+2. travel to the station/crowded settlement and enter a nearby car with F1;
+3. drive, steer and make several contacts near People, Taxi and static geometry;
+4. leave and re-enter once, then continue driving;
+5. exit normally with Escape.
+
+The camera must remain attached to the controlled Vehicle. A discarded
+runaway frame is acceptable containment only if the car stops in place and
+control immediately continues. The matching startup log must report
+`vehicle_fallback_count=0`. Inspect `vehicle_stability_recoveries` and
+`vehicle_last_stability_reason`: `0/0` is a clean pass; a non-zero recovery is
+evidence to retain with the exact route and screenshot for the deeper Wheels
+collision investigation, but must not launch the camera through the world.

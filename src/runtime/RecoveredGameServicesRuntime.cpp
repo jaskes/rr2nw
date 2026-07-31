@@ -1251,6 +1251,9 @@ void UpdateVehicleDriveTelemetry(
       (std::max)(state.landCollisionFrameCount, 0));
   g_vehicleDriveTelemetry.dynamicCollisionFrames = static_cast<unsigned int>(
       (std::max)(state.dynamicCollisionFrameCount, 0));
+  g_vehicleDriveTelemetry.stabilityRecoveries = static_cast<unsigned int>(
+      (std::max)(state.stabilityRecoveryCount, 0));
+  g_vehicleDriveTelemetry.lastStabilityReason = state.lastStabilityReason;
 }
 
 unsigned int NonNegativeDifference(int current, int baseline) {
@@ -1477,11 +1480,16 @@ bool ActivateVehicleFallback(unsigned int reason) {
     KR_ObjectID vehicle =
         g_super.m_context->searchObject("Vehicle.Default");
     SRecoveredVehicleRuntimeState state = {};
-    if (!vehicle.isNUL() && VehicleRuntimeState_Inspect(
-            g_super.m_context, vehicle, &state) && state.active &&
-        std::isfinite(state.position.x) &&
-        std::isfinite(state.position.y) &&
-        std::isfinite(state.position.z)) {
+    CFVector3 stablePosition;
+    if (VehicleRuntimeState_LastStablePosition(
+            g_super.m_context, &stablePosition)) {
+      position = stablePosition;
+    } else if (!vehicle.isNUL() && VehicleRuntimeState_Inspect(
+                   g_super.m_context, vehicle, &state) && state.active &&
+               std::isfinite(state.position.x) &&
+               std::isfinite(state.position.y) &&
+               std::isfinite(state.position.z)) {
+      // This path is only for failures before the first completed frame.
       position = state.position;
     }
   }
@@ -2138,6 +2146,12 @@ int RecoveredGameServices_VehicleProbeTurnEvents() {
 int RecoveredGameServices_VehicleProbeCameraTransitions() {
   return g_vehicleMovementReady ? g_vehicleMovementProbe.cameraTransitions
                                 : -1;
+}
+
+int RecoveredGameServices_VehicleProbeStabilityRecoveries() {
+  return g_vehicleMovementReady
+             ? g_vehicleMovementProbe.stabilityRecoveries
+             : -1;
 }
 
 int RecoveredGameServices_VehicleProbeRollbacks() {
