@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.example.stack-core",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "localization/stack-example.txt",
+      "target": "RR2NW/localization/stack-example.txt"
+    }
+  ]
+}

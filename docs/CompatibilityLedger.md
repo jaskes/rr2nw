@@ -3097,10 +3097,40 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   plus an existing directory not listed by retail `game.cfg` as a base. Debug
   and Release each pass 61/61 CTest and 9/9 fresh-continuation cases; the
   ordinary installed-Level matrix passes 18/18 and the new product matrix 2/2.
-- Revisit when: standalone non-derived Levels, campaign ordering or mod stacks
-  are introduced. Do not turn the user configuration into writable VFS state;
+- Revisit when: standalone non-derived Levels or campaign ordering are
+  introduced. Do not turn the user configuration into writable VFS state;
   catalog composition belongs to admitted package metadata and deterministic
   mount order.
+
+### CQ-172: active mod topology is deterministic and fail-closed
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `MOD_RUNTIME_CONFIRMED`.
+- Evidence: Win32 child enumeration order, repeated CLI argument order and
+  folder names can vary without changing package content. A last-writer-wins
+  overlay would make save identity and effective resources depend on those
+  incidental inputs. The original single-package runtime also had no safe
+  representation for dependencies or target ownership.
+- Handling: all candidates are parsed transactionally, IDs and final paths are
+  unique, dependencies require exact versions and active conflicts reject.
+  Dependency/`load_after`/`overrides` edges form one graph; ready nodes are
+  emitted by folded ID. Duplicate targets require the later package to name
+  their current owner in `overrides`. Limits are 128 candidates, 64 active
+  packages, 4,096 effective files and 1 GiB active declared bytes.
+- Identity: one package retains the established schema-1 fingerprint. A stack
+  hashes the ordered package IDs, versions and complete package fingerprints;
+  save/LCN1 content compatibility therefore includes topology. Inactive
+  discovered candidates and their folder enumeration order do not participate.
+- Verification: the hermetic stack smoke proves three shuffled candidates,
+  transitive selection, stable order/effective bytes and ten fail-closed
+  paths with rollback. `Invoke-ModStack.ps1` proves executable discovery,
+  core/addon derived-Level save/relaunch/load, activate-all conflict rejection
+  and an absent requested-ID rejection. Final admission is 62/62 CTest per
+  configuration, 18/18 ordinary Levels, 18/18 fresh continuations and 2/2
+  stack product rows.
+- Revisit when: semantic version ranges, optional dependencies, user profiles
+  or an in-game selector are designed. They must compile to the same explicit
+  active set and order before Level construction rather than bypassing this
+  boundary.
 
 ## Maintenance rule
 

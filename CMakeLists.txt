@@ -4088,6 +4088,20 @@ target_compile_definitions(rr2nw_mod_runtime_smoke PRIVATE
 if(MSVC)
   target_compile_options(rr2nw_mod_runtime_smoke PRIVATE /W4 /permissive-)
 endif()
+add_executable(rr2nw_mod_stack_runtime_smoke
+  src/portability/RecoveredModStackRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_mod_stack_runtime_smoke PRIVATE rr2nw_mod_runtime)
+target_compile_features(rr2nw_mod_stack_runtime_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_mod_stack_runtime_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_mod_stack_runtime_smoke PRIVATE
+    /W4 /permissive-
+  )
+endif()
 target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
   rr2nw_arena_obase_debug_map_mission
   rr2nw_game_entry_runtime
@@ -4682,6 +4696,11 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/mod-runtime-smoke-$<CONFIG>"
             "${CMAKE_CURRENT_SOURCE_DIR}/examples/mods/rr2nw.example.data-pack"
             "${CMAKE_CURRENT_SOURCE_DIR}/examples/mods/rr2nw.example.derived-level"
+  )
+  add_test(
+    NAME mod-stack-runtime-smoke
+    COMMAND rr2nw_mod_stack_runtime_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/mod-stack-runtime-smoke-$<CONFIG>"
   )
   add_test(
     NAME legacy-tagged-file-smoke

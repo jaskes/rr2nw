@@ -28,6 +28,11 @@ constexpr std::streamoff kMaximumFileSize = 64 * 1024 * 1024;
 constexpr std::uint64_t kMaximumTotalSize = 512ull * 1024ull * 1024ull;
 constexpr std::size_t kMaximumFiles = 1024;
 constexpr std::size_t kMaximumLevels = 64;
+constexpr std::size_t kMaximumRelations = 64;
+constexpr std::size_t kMaximumCandidateMods = 128;
+constexpr std::size_t kMaximumActiveMods = 64;
+constexpr std::size_t kMaximumStackFiles = 4096;
+constexpr std::uint64_t kMaximumStackBytes = 1024ull * 1024ull * 1024ull;
 constexpr std::uint64_t kFnvOffset = 14695981039346656037ull;
 constexpr std::uint64_t kFnvPrime = 1099511628211ull;
 
@@ -37,6 +42,13 @@ struct OverlayEntry {
   std::string targetRelative;
   std::string targetFolded;
   std::uint64_t size = 0;
+  std::string ownerId;
+};
+
+struct DependencyEntry {
+  std::string id;
+  std::string idFolded;
+  std::string version;
 };
 
 struct LevelEntry {
@@ -54,8 +66,14 @@ struct Candidate {
   std::string version;
   int schema = 0;
   int engineApi = 0;
+  bool explicitlySelected = false;
+  bool active = false;
   std::vector<OverlayEntry> entries;
   std::vector<LevelEntry> levels;
+  std::vector<DependencyEntry> dependencies;
+  std::vector<std::string> conflicts;
+  std::vector<std::string> loadAfter;
+  std::vector<std::string> overrides;
   std::uint64_t totalBytes = 0;
   std::uint64_t fingerprint = kFnvOffset;
 };
@@ -70,6 +88,11 @@ struct ManifestLevel {
   std::string base;
 };
 
+struct ManifestDependency {
+  std::string id;
+  std::string version;
+};
+
 struct Manifest {
   int schema = 0;
   int engineApi = 0;
@@ -77,6 +100,19 @@ struct Manifest {
   std::string version;
   std::vector<ManifestFile> files;
   std::vector<ManifestLevel> levels;
+  std::vector<ManifestDependency> dependencies;
+  std::vector<std::string> conflicts;
+  std::vector<std::string> loadAfter;
+  std::vector<std::string> overrides;
+};
+
+struct MountedPackage {
+  std::string id;
+  std::string version;
+  unsigned int fileCount = 0;
+  unsigned int levelCount = 0;
+  std::uint64_t totalBytes = 0;
+  std::uint64_t fingerprint = 0;
 };
 
 std::string g_baseLexical;
@@ -84,6 +120,7 @@ std::string g_baseFinal;
 std::string g_modFinal;
 std::vector<OverlayEntry> g_entries;
 std::vector<LevelEntry> g_levels;
+std::vector<MountedPackage> g_packages;
 std::string g_activeLevelIdentity;
 std::string g_activeLevelBase;
 std::string g_activeLevelIdentityFolded;
@@ -370,6 +407,56 @@ bool ParseLevels(JsonCursor* cursor, std::vector<ManifestLevel>* levels) {
   }
 }
 
+bool ParseDependency(JsonCursor* cursor, ManifestDependency* dependency) {
+  if (!cursor->Consume('{')) return false;
+  bool idSeen = false;
+  bool versionSeen = false;
+  if (cursor->TryConsume('}')) return false;
+  for (;;) {
+    std::string key;
+    if (!cursor->String(&key) || !cursor->Consume(':')) return false;
+    if (key == "id") {
+      if (idSeen || !cursor->String(&dependency->id)) return false;
+      idSeen = true;
+    } else if (key == "version") {
+      if (versionSeen || !cursor->String(&dependency->version)) return false;
+      versionSeen = true;
+    } else {
+      return false;
+    }
+    if (cursor->TryConsume('}')) break;
+    if (!cursor->Consume(',')) return false;
+  }
+  return idSeen && versionSeen;
+}
+
+bool ParseDependencies(JsonCursor* cursor,
+                       std::vector<ManifestDependency>* dependencies) {
+  if (!cursor->Consume('[')) return false;
+  if (cursor->TryConsume(']')) return true;
+  for (;;) {
+    if (dependencies->size() >= kMaximumRelations) return false;
+    ManifestDependency dependency;
+    if (!ParseDependency(cursor, &dependency)) return false;
+    dependencies->push_back(std::move(dependency));
+    if (cursor->TryConsume(']')) return true;
+    if (!cursor->Consume(',')) return false;
+  }
+}
+
+bool ParseStringArray(JsonCursor* cursor, std::vector<std::string>* values) {
+  if (!cursor->Consume('[')) return false;
+  if (cursor->TryConsume(']')) return true;
+  for (;;) {
+    if (values->size() >= kMaximumRelations) return false;
+    std::string value;
+    if (!cursor->String(&value)) return false;
+    values->push_back(std::move(value));
+    if (cursor->TryConsume(']')) return true;
+    if (!cursor->Consume(',')) return false;
+  }
+}
+
 bool ParseManifest(const std::string& text, Manifest* manifest,
                    std::string* failure) {
   JsonCursor cursor(text);
@@ -383,6 +470,10 @@ bool ParseManifest(const std::string& text, Manifest* manifest,
   bool versionSeen = false;
   bool filesSeen = false;
   bool levelsSeen = false;
+  bool dependenciesSeen = false;
+  bool conflictsSeen = false;
+  bool loadAfterSeen = false;
+  bool overridesSeen = false;
   if (cursor.TryConsume('}')) {
     *failure = "manifest object is empty";
     return false;
@@ -409,6 +500,22 @@ bool ParseManifest(const std::string& text, Manifest* manifest,
     } else if (key == "levels") {
       accepted = !levelsSeen && ParseLevels(&cursor, &manifest->levels);
       levelsSeen = true;
+    } else if (key == "dependencies") {
+      accepted = !dependenciesSeen &&
+                 ParseDependencies(&cursor, &manifest->dependencies);
+      dependenciesSeen = true;
+    } else if (key == "conflicts") {
+      accepted = !conflictsSeen &&
+                 ParseStringArray(&cursor, &manifest->conflicts);
+      conflictsSeen = true;
+    } else if (key == "load_after") {
+      accepted = !loadAfterSeen &&
+                 ParseStringArray(&cursor, &manifest->loadAfter);
+      loadAfterSeen = true;
+    } else if (key == "overrides") {
+      accepted = !overridesSeen &&
+                 ParseStringArray(&cursor, &manifest->overrides);
+      overridesSeen = true;
     } else {
       *failure = "manifest contains unknown key: " + key;
       return false;
@@ -459,6 +566,98 @@ bool ValidVersion(const std::string& version) {
     if (version[position++] != '.') return false;
   }
   return components == 3;
+}
+
+bool ContainsText(const std::vector<std::string>& values,
+                  const std::string& value) {
+  return std::binary_search(values.begin(), values.end(), value);
+}
+
+bool NormalizeRelations(const std::vector<std::string>& source,
+                        const std::string& ownerFolded,
+                        const char* relation,
+                        std::vector<std::string>* result) {
+  result->clear();
+  result->reserve(source.size());
+  for (const std::string& id : source) {
+    if (!ValidId(id)) {
+      SetFailure(RECOVERED_MOD_INVALID_RELATION,
+                 "mod relation contains an invalid id",
+                 std::string(relation) + ": " + id);
+      return false;
+    }
+    const std::string folded = FoldPath(id);
+    if (folded == ownerFolded) {
+      SetFailure(RECOVERED_MOD_INVALID_RELATION,
+                 "mod relation cannot reference its owner",
+                 std::string(relation) + ": " + id);
+      return false;
+    }
+    result->push_back(folded);
+  }
+  std::sort(result->begin(), result->end());
+  if (std::adjacent_find(result->begin(), result->end()) != result->end()) {
+    SetFailure(RECOVERED_MOD_INVALID_RELATION,
+               "mod relation contains a duplicate id", relation);
+    return false;
+  }
+  return true;
+}
+
+bool BuildRelations(const Manifest& manifest, Candidate* candidate) {
+  const std::string ownerFolded = FoldPath(manifest.id);
+  candidate->dependencies.reserve(manifest.dependencies.size());
+  for (const ManifestDependency& declared : manifest.dependencies) {
+    if (!ValidId(declared.id) || !ValidVersion(declared.version) ||
+        FoldPath(declared.id) == ownerFolded) {
+      SetFailure(RECOVERED_MOD_INVALID_RELATION,
+                 "mod dependency has an invalid id/version",
+                 declared.id + "@" + declared.version);
+      return false;
+    }
+    DependencyEntry dependency;
+    dependency.id = declared.id;
+    dependency.idFolded = FoldPath(declared.id);
+    dependency.version = declared.version;
+    candidate->dependencies.push_back(std::move(dependency));
+  }
+  std::sort(candidate->dependencies.begin(), candidate->dependencies.end(),
+            [](const DependencyEntry& left, const DependencyEntry& right) {
+              return left.idFolded < right.idFolded;
+            });
+  for (std::size_t index = 1; index < candidate->dependencies.size(); ++index) {
+    if (candidate->dependencies[index - 1].idFolded ==
+        candidate->dependencies[index].idFolded) {
+      SetFailure(RECOVERED_MOD_INVALID_RELATION,
+                 "mod dependencies contain a duplicate id",
+                 candidate->dependencies[index].id);
+      return false;
+    }
+  }
+  if (!NormalizeRelations(manifest.conflicts, ownerFolded, "conflicts",
+                          &candidate->conflicts) ||
+      !NormalizeRelations(manifest.loadAfter, ownerFolded, "load_after",
+                          &candidate->loadAfter) ||
+      !NormalizeRelations(manifest.overrides, ownerFolded, "overrides",
+                          &candidate->overrides))
+    return false;
+  for (const DependencyEntry& dependency : candidate->dependencies) {
+    if (ContainsText(candidate->conflicts, dependency.idFolded)) {
+      SetFailure(RECOVERED_MOD_INVALID_RELATION,
+                 "mod cannot both depend on and conflict with one id",
+                 dependency.id);
+      return false;
+    }
+  }
+  for (const std::string& overridden : candidate->overrides) {
+    if (ContainsText(candidate->conflicts, overridden)) {
+      SetFailure(RECOVERED_MOD_INVALID_RELATION,
+                 "mod cannot both override and conflict with one id",
+                 overridden);
+      return false;
+    }
+  }
+  return true;
 }
 
 bool ValidLevelComponent(const std::string& value) {
@@ -614,6 +813,7 @@ bool BuildCandidate(const char* baseRoot, const char* modDirectory,
                manifest.version);
     return false;
   }
+  if (!BuildRelations(manifest, candidate)) return false;
 
   candidate->levels.reserve(manifest.levels.size());
   for (const ManifestLevel& declared : manifest.levels) {
@@ -672,6 +872,7 @@ bool BuildCandidate(const char* baseRoot, const char* modDirectory,
   candidate->entries.reserve(manifest.files.size());
   for (const ManifestFile& file : manifest.files) {
     OverlayEntry entry;
+    entry.ownerId = manifest.id;
     if (!NormalizeRelative(file.source, &entry.sourceRelative) ||
         !NormalizeRelative(file.target, &entry.targetRelative) ||
         !AllowedSourceCategory(entry.sourceRelative) ||
@@ -739,6 +940,27 @@ bool BuildCandidate(const char* baseRoot, const char* modDirectory,
           static_cast<std::uint64_t>(candidate->engineApi));
   HashText(&candidate->fingerprint, candidate->id);
   HashText(&candidate->fingerprint, candidate->version);
+  if (!candidate->dependencies.empty() || !candidate->conflicts.empty() ||
+      !candidate->loadAfter.empty() || !candidate->overrides.empty()) {
+    HashText(&candidate->fingerprint, "RR2NW-MOD-RELATIONS-1");
+    HashU64(&candidate->fingerprint,
+            static_cast<std::uint64_t>(candidate->dependencies.size()));
+    for (const DependencyEntry& dependency : candidate->dependencies) {
+      HashText(&candidate->fingerprint, dependency.idFolded);
+      HashText(&candidate->fingerprint, dependency.version);
+    }
+    const auto hashIds = [&candidate](const char* name,
+                                      const std::vector<std::string>& ids) {
+      HashText(&candidate->fingerprint, name);
+      HashU64(&candidate->fingerprint,
+              static_cast<std::uint64_t>(ids.size()));
+      for (const std::string& id : ids)
+        HashText(&candidate->fingerprint, id);
+    };
+    hashIds("conflicts", candidate->conflicts);
+    hashIds("load_after", candidate->loadAfter);
+    hashIds("overrides", candidate->overrides);
+  }
   if (!candidate->levels.empty()) {
     HashText(&candidate->fingerprint, "RR2NW-DERIVED-LEVELS-1");
     HashU64(&candidate->fingerprint,
@@ -778,10 +1000,366 @@ std::string RelativeToBase(const std::string& requestedFull) {
   return std::string();
 }
 
+struct StackCandidate {
+  std::string baseLexical;
+  std::string baseFinal;
+  std::vector<OverlayEntry> entries;
+  std::vector<LevelEntry> levels;
+  std::vector<MountedPackage> packages;
+  std::uint64_t totalBytes = 0;
+  std::uint64_t fingerprint = 0;
+  unsigned int candidateCount = 0;
+};
+
+int FindCandidate(const std::vector<Candidate>& candidates,
+                  const std::string& foldedId) {
+  const auto found = std::lower_bound(
+      candidates.begin(), candidates.end(), foldedId,
+      [](const Candidate& candidate, const std::string& value) {
+        return FoldPath(candidate.id) < value;
+      });
+  if (found == candidates.end() || FoldPath(found->id) != foldedId)
+    return -1;
+  return static_cast<int>(found - candidates.begin());
+}
+
+bool AddOrderEdge(std::vector<std::vector<unsigned char>>* edges,
+                  std::vector<unsigned int>* indegree,
+                  int before, int after) {
+  if (before < 0 || after < 0 || before == after) return false;
+  if ((*edges)[static_cast<std::size_t>(before)]
+              [static_cast<std::size_t>(after)] == 0) {
+    (*edges)[static_cast<std::size_t>(before)]
+            [static_cast<std::size_t>(after)] = 1;
+    ++(*indegree)[static_cast<std::size_t>(after)];
+  }
+  return true;
+}
+
+bool SelectAndOrder(std::vector<Candidate>* candidates,
+                    const char* const* requestedIds,
+                    std::size_t requestedIdCount,
+                    bool activateAllCandidates,
+                    std::vector<int>* order) {
+  if (activateAllCandidates)
+    for (Candidate& candidate : *candidates) candidate.active = true;
+  std::vector<std::string> requested;
+  requested.reserve(requestedIdCount);
+  for (std::size_t index = 0; index < requestedIdCount; ++index) {
+    if (requestedIds == nullptr || requestedIds[index] == nullptr ||
+        !ValidId(requestedIds[index])) {
+      SetFailure(RECOVERED_MOD_INVALID_RELATION,
+                 "requested mod id is invalid",
+                 requestedIds == nullptr || requestedIds[index] == nullptr
+                     ? std::string()
+                     : std::string(requestedIds[index]));
+      return false;
+    }
+    requested.push_back(FoldPath(requestedIds[index]));
+  }
+  std::sort(requested.begin(), requested.end());
+  if (std::adjacent_find(requested.begin(), requested.end()) !=
+      requested.end()) {
+    SetFailure(RECOVERED_MOD_INVALID_RELATION,
+               "requested mod list contains a duplicate id");
+    return false;
+  }
+  for (const std::string& id : requested) {
+    const int selected = FindCandidate(*candidates, id);
+    if (selected < 0) {
+      SetFailure(RECOVERED_MOD_MISSING_DEPENDENCY,
+                 "requested mod was not discovered", id);
+      return false;
+    }
+    (*candidates)[static_cast<std::size_t>(selected)].active = true;
+  }
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (Candidate& candidate : *candidates) {
+      if (!candidate.active) continue;
+      for (const DependencyEntry& dependency : candidate.dependencies) {
+        const int found = FindCandidate(*candidates, dependency.idFolded);
+        if (found < 0) {
+          SetFailure(RECOVERED_MOD_MISSING_DEPENDENCY,
+                     "active mod dependency was not discovered",
+                     candidate.id + " -> " + dependency.id);
+          return false;
+        }
+        Candidate& target = (*candidates)[static_cast<std::size_t>(found)];
+        if (target.version != dependency.version) {
+          SetFailure(RECOVERED_MOD_DEPENDENCY_VERSION,
+                     "active mod dependency version does not match",
+                     candidate.id + " -> " + dependency.id + "@" +
+                         dependency.version + " (found " + target.version +
+                         ")");
+          return false;
+        }
+        if (!target.active) {
+          target.active = true;
+          changed = true;
+        }
+      }
+    }
+  }
+
+  std::size_t activeCount = 0;
+  for (const Candidate& candidate : *candidates)
+    if (candidate.active) ++activeCount;
+  if (activeCount > kMaximumActiveMods) {
+    SetFailure(RECOVERED_MOD_STACK_LIMIT,
+               "active mod stack exceeds the 64 package limit");
+    return false;
+  }
+  for (const Candidate& candidate : *candidates) {
+    if (!candidate.active) continue;
+    for (const std::string& conflict : candidate.conflicts) {
+      const int found = FindCandidate(*candidates, conflict);
+      if (found >= 0 &&
+          (*candidates)[static_cast<std::size_t>(found)].active) {
+        SetFailure(RECOVERED_MOD_CONFLICT,
+                   "active mods declare a conflict",
+                   candidate.id + " <-> " +
+                       (*candidates)[static_cast<std::size_t>(found)].id);
+        return false;
+      }
+    }
+  }
+
+  std::vector<std::vector<unsigned char>> edges(
+      candidates->size(),
+      std::vector<unsigned char>(candidates->size(), 0));
+  std::vector<unsigned int> indegree(candidates->size(), 0);
+  for (std::size_t index = 0; index < candidates->size(); ++index) {
+    const Candidate& candidate = (*candidates)[index];
+    if (!candidate.active) continue;
+    for (const DependencyEntry& dependency : candidate.dependencies) {
+      const int found = FindCandidate(*candidates, dependency.idFolded);
+      if (!AddOrderEdge(&edges, &indegree, found,
+                        static_cast<int>(index)))
+        return false;
+    }
+    const auto addSoftEdges = [&](const std::vector<std::string>& ids) {
+      for (const std::string& id : ids) {
+        const int found = FindCandidate(*candidates, id);
+        if (found >= 0 &&
+            (*candidates)[static_cast<std::size_t>(found)].active &&
+            !AddOrderEdge(&edges, &indegree, found,
+                          static_cast<int>(index)))
+          return false;
+      }
+      return true;
+    };
+    if (!addSoftEdges(candidate.loadAfter) ||
+        !addSoftEdges(candidate.overrides)) {
+      SetFailure(RECOVERED_MOD_ORDER_CYCLE,
+                 "mod ordering relation references itself", candidate.id);
+      return false;
+    }
+  }
+
+  order->clear();
+  order->reserve(activeCount);
+  std::vector<unsigned char> emitted(candidates->size(), 0);
+  while (order->size() < activeCount) {
+    int selected = -1;
+    for (std::size_t index = 0; index < candidates->size(); ++index) {
+      if ((*candidates)[index].active && emitted[index] == 0 &&
+          indegree[index] == 0) {
+        selected = static_cast<int>(index);
+        break;
+      }
+    }
+    if (selected < 0) {
+      SetFailure(RECOVERED_MOD_ORDER_CYCLE,
+                 "active mod dependency/mount order contains a cycle");
+      return false;
+    }
+    emitted[static_cast<std::size_t>(selected)] = 1;
+    order->push_back(selected);
+    for (std::size_t next = 0; next < candidates->size(); ++next) {
+      if (edges[static_cast<std::size_t>(selected)][next] != 0)
+        --indegree[next];
+    }
+  }
+  return true;
+}
+
+bool BuildStack(const char* baseRoot,
+                const char* const* candidateDirectories,
+                std::size_t candidateCount,
+                std::size_t explicitDirectoryCount,
+                const char* const* requestedIds,
+                std::size_t requestedIdCount,
+                bool activateAllCandidates,
+                StackCandidate* stack) {
+  Candidate base;
+  if (!BuildCandidate(baseRoot, nullptr, &base)) return false;
+  stack->baseLexical = base.baseLexical;
+  stack->baseFinal = base.baseFinal;
+  stack->candidateCount = static_cast<unsigned int>(candidateCount);
+  if (candidateCount == 0) {
+    if (explicitDirectoryCount != 0 || candidateDirectories != nullptr) {
+      SetFailure(RECOVERED_MOD_CANDIDATE_LIMIT,
+                 "empty mod candidate set has inconsistent arguments");
+      return false;
+    }
+    if (requestedIdCount != 0) {
+      SetFailure(RECOVERED_MOD_MISSING_DEPENDENCY,
+                 "requested mod was not discovered");
+      return false;
+    }
+    return true;
+  }
+  if (candidateCount > kMaximumCandidateMods ||
+      requestedIdCount > kMaximumCandidateMods ||
+      explicitDirectoryCount > candidateCount ||
+      candidateDirectories == nullptr) {
+    SetFailure(RECOVERED_MOD_CANDIDATE_LIMIT,
+               "mod candidate set is invalid or exceeds 128 packages");
+    return false;
+  }
+
+  std::vector<Candidate> candidates;
+  candidates.reserve(candidateCount);
+  for (std::size_t index = 0; index < candidateCount; ++index) {
+    if (candidateDirectories[index] == nullptr ||
+        candidateDirectories[index][0] == '\0') {
+      SetFailure(RECOVERED_MOD_INVALID_DIRECTORY,
+                 "mod candidate directory is empty");
+      return false;
+    }
+    Candidate candidate;
+    if (!BuildCandidate(baseRoot, candidateDirectories[index], &candidate))
+      return false;
+    candidate.explicitlySelected = index < explicitDirectoryCount;
+    candidate.active = candidate.explicitlySelected;
+    candidates.push_back(std::move(candidate));
+  }
+  std::sort(candidates.begin(), candidates.end(),
+            [](const Candidate& left, const Candidate& right) {
+              return FoldPath(left.id) < FoldPath(right.id);
+            });
+  for (std::size_t index = 1; index < candidates.size(); ++index) {
+    if (FoldPath(candidates[index - 1].id) == FoldPath(candidates[index].id)) {
+      SetFailure(RECOVERED_MOD_DUPLICATE_ID,
+                 "mod candidate set contains a duplicate id",
+                 candidates[index].id);
+      return false;
+    }
+  }
+  for (std::size_t left = 0; left < candidates.size(); ++left) {
+    for (std::size_t right = left + 1; right < candidates.size(); ++right) {
+      if (FoldPath(candidates[left].modFinal) ==
+          FoldPath(candidates[right].modFinal)) {
+        SetFailure(RECOVERED_MOD_DUPLICATE_ID,
+                   "mod candidate set contains a duplicate path",
+                   candidates[right].modFinal);
+        return false;
+      }
+    }
+  }
+
+  std::vector<int> order;
+  if (!SelectAndOrder(&candidates, requestedIds, requestedIdCount,
+                      activateAllCandidates, &order))
+    return false;
+
+  for (int orderedIndex : order) {
+    const Candidate& candidate =
+        candidates[static_cast<std::size_t>(orderedIndex)];
+    if (stack->totalBytes + candidate.totalBytes > kMaximumStackBytes) {
+      SetFailure(RECOVERED_MOD_STACK_LIMIT,
+                 "active mod stack exceeds the 1 GiB admitted data limit");
+      return false;
+    }
+    stack->totalBytes += candidate.totalBytes;
+    MountedPackage package;
+    package.id = candidate.id;
+    package.version = candidate.version;
+    package.fileCount = static_cast<unsigned int>(candidate.entries.size());
+    package.levelCount = static_cast<unsigned int>(candidate.levels.size());
+    package.totalBytes = candidate.totalBytes;
+    package.fingerprint = candidate.fingerprint;
+    stack->packages.push_back(std::move(package));
+
+    for (const LevelEntry& level : candidate.levels) {
+      const auto found = std::lower_bound(
+          stack->levels.begin(), stack->levels.end(), level.idFolded,
+          [](const LevelEntry& entry, const std::string& value) {
+            return entry.idFolded < value;
+          });
+      if (found != stack->levels.end() && found->idFolded == level.idFolded) {
+        SetFailure(RECOVERED_MOD_DUPLICATE_LEVEL,
+                   "active mods declare the same Level id", level.id);
+        return false;
+      }
+      stack->levels.insert(found, level);
+    }
+
+    for (const OverlayEntry& entry : candidate.entries) {
+      const auto found = std::lower_bound(
+          stack->entries.begin(), stack->entries.end(), entry.targetFolded,
+          [](const OverlayEntry& existing, const std::string& value) {
+            return existing.targetFolded < value;
+          });
+      if (found != stack->entries.end() &&
+          found->targetFolded == entry.targetFolded) {
+        if (!ContainsText(candidate.overrides, FoldPath(found->ownerId))) {
+          SetFailure(RECOVERED_MOD_TARGET_CONFLICT,
+                     "active mods target the same file without an explicit "
+                     "override",
+                     found->ownerId + " <-> " + candidate.id + ": " +
+                         entry.targetRelative);
+          return false;
+        }
+        *found = entry;
+      } else {
+        stack->entries.insert(found, entry);
+        if (stack->entries.size() > kMaximumStackFiles) {
+          SetFailure(RECOVERED_MOD_STACK_LIMIT,
+                     "active mod stack exceeds 4096 effective files");
+          return false;
+        }
+      }
+    }
+  }
+
+  if (stack->packages.size() == 1) {
+    stack->fingerprint = stack->packages[0].fingerprint;
+  } else if (!stack->packages.empty()) {
+    stack->fingerprint = kFnvOffset;
+    HashText(&stack->fingerprint, "RR2NW-MOD-STACK-1");
+    HashU64(&stack->fingerprint,
+            static_cast<std::uint64_t>(stack->packages.size()));
+    for (const MountedPackage& package : stack->packages) {
+      HashText(&stack->fingerprint, package.id);
+      HashText(&stack->fingerprint, package.version);
+      HashU64(&stack->fingerprint, package.fingerprint);
+    }
+    if (stack->fingerprint == 0) stack->fingerprint = 1;
+  }
+  return true;
+}
+
 }  // namespace
 
 bool RecoveredModRuntime_Configure(const char* baseRoot,
                                    const char* modDirectory) {
+  const char* directories[1] = {modDirectory};
+  const std::size_t count =
+      modDirectory != nullptr && modDirectory[0] != '\0' ? 1u : 0u;
+  return RecoveredModRuntime_ConfigureStack(
+      baseRoot, count == 0 ? nullptr : directories, count, count, nullptr, 0,
+      false);
+}
+
+bool RecoveredModRuntime_ConfigureStack(
+    const char* baseRoot, const char* const* candidateDirectories,
+    std::size_t candidateCount, std::size_t explicitDirectoryCount,
+    const char* const* requestedIds, std::size_t requestedIdCount,
+    bool activateAllCandidates) {
   g_issues = 0;
   g_lastError[0] = '\0';
   if (baseRoot == nullptr || baseRoot[0] == '\0') {
@@ -790,30 +1368,43 @@ bool RecoveredModRuntime_Configure(const char* baseRoot,
     return false;
   }
   try {
-    Candidate candidate;
-    if (!BuildCandidate(baseRoot, modDirectory, &candidate)) return false;
-    const bool active = !candidate.modFinal.empty();
-    g_baseLexical = std::move(candidate.baseLexical);
-    g_baseFinal = std::move(candidate.baseFinal);
-    g_modFinal = std::move(candidate.modFinal);
-    g_entries = std::move(candidate.entries);
-    g_levels = std::move(candidate.levels);
+    StackCandidate stack;
+    if (!BuildStack(baseRoot, candidateDirectories, candidateCount,
+                    explicitDirectoryCount, requestedIds, requestedIdCount,
+                    activateAllCandidates, &stack))
+      return false;
+    const bool active = !stack.packages.empty();
+    g_baseLexical = std::move(stack.baseLexical);
+    g_baseFinal = std::move(stack.baseFinal);
+    g_modFinal.clear();
+    g_entries = std::move(stack.entries);
+    g_levels = std::move(stack.levels);
+    g_packages = std::move(stack.packages);
     g_activeLevelIdentity.clear();
     g_activeLevelBase.clear();
     g_activeLevelIdentityFolded.clear();
     g_activeLevelBaseFolded.clear();
     g_activeLevelDerived = false;
     g_summary = SRecoveredModRuntimeSummary{};
-    g_summary.schemaVersion = candidate.schema;
-    g_summary.engineApi = candidate.engineApi;
-    std::snprintf(g_summary.id, sizeof(g_summary.id), "%s",
-                  candidate.id.c_str());
-    std::snprintf(g_summary.version, sizeof(g_summary.version), "%s",
-                  candidate.version.c_str());
+    g_summary.schemaVersion = active ? kManifestSchema : 0;
+    g_summary.engineApi = active ? kEngineApi : 0;
+    g_summary.candidateCount = stack.candidateCount;
+    g_summary.modCount = static_cast<unsigned int>(g_packages.size());
+    if (g_packages.size() == 1) {
+      std::snprintf(g_summary.id, sizeof(g_summary.id), "%s",
+                    g_packages[0].id.c_str());
+      std::snprintf(g_summary.version, sizeof(g_summary.version), "%s",
+                    g_packages[0].version.c_str());
+    } else if (g_packages.size() > 1) {
+      std::snprintf(g_summary.id, sizeof(g_summary.id), "%s",
+                    "rr2nw.mod-stack");
+      std::snprintf(g_summary.version, sizeof(g_summary.version), "%s",
+                    "1.0.0");
+    }
     g_summary.fileCount = static_cast<unsigned int>(g_entries.size());
     g_summary.levelCount = static_cast<unsigned int>(g_levels.size());
-    g_summary.totalBytes = candidate.totalBytes;
-    g_summary.modFingerprint = active ? candidate.fingerprint : 0;
+    g_summary.totalBytes = stack.totalBytes;
+    g_summary.modFingerprint = active ? stack.fingerprint : 0;
     g_active = active;
     g_configured = true;
     CFileResource::SetReadOpenHook(&RecoveredModRuntime_OpenRead);
@@ -835,6 +1426,7 @@ void RecoveredModRuntime_Release() {
   g_modFinal.clear();
   g_entries.clear();
   g_levels.clear();
+  g_packages.clear();
   g_activeLevelIdentity.clear();
   g_activeLevelBase.clear();
   g_activeLevelIdentityFolded.clear();
@@ -855,6 +1447,27 @@ const char* RecoveredModRuntime_LastError() { return g_lastError; }
 
 const SRecoveredModRuntimeSummary* RecoveredModRuntime_Summary() {
   return g_configured ? &g_summary : nullptr;
+}
+
+unsigned int RecoveredModRuntime_ModCount() {
+  return g_configured ? static_cast<unsigned int>(g_packages.size()) : 0;
+}
+
+bool RecoveredModRuntime_Mod(unsigned int index,
+                             SRecoveredModPackage* package) {
+  if (!g_configured || package == nullptr || index >= g_packages.size())
+    return false;
+  const MountedPackage& mounted = g_packages[index];
+  *package = SRecoveredModPackage{};
+  std::snprintf(package->id, sizeof(package->id), "%s", mounted.id.c_str());
+  std::snprintf(package->version, sizeof(package->version), "%s",
+                mounted.version.c_str());
+  package->mountIndex = index;
+  package->fileCount = mounted.fileCount;
+  package->levelCount = mounted.levelCount;
+  package->totalBytes = mounted.totalBytes;
+  package->fingerprint = mounted.fingerprint;
+  return true;
 }
 
 unsigned int RecoveredModRuntime_LevelCount() {
@@ -1047,10 +1660,23 @@ std::uint64_t RecoveredModRuntime_CombineContentFingerprint(
   if (!RecoveredModRuntime_IsActive() || baseFingerprint == 0)
     return baseFingerprint;
   std::uint64_t hash = kFnvOffset;
-  HashText(&hash, "RR2NW-MOD-CONTENT-1");
-  HashU64(&hash, baseFingerprint);
-  HashText(&hash, g_summary.id);
-  HashText(&hash, g_summary.version);
-  HashU64(&hash, g_summary.modFingerprint);
+  if (g_packages.size() == 1) {
+    // Preserve the schema-1 single-package identity byte-for-byte so existing
+    // saves and continuation journals remain compatible.
+    HashText(&hash, "RR2NW-MOD-CONTENT-1");
+    HashU64(&hash, baseFingerprint);
+    HashText(&hash, g_packages[0].id);
+    HashText(&hash, g_packages[0].version);
+    HashU64(&hash, g_packages[0].fingerprint);
+  } else {
+    HashText(&hash, "RR2NW-MOD-CONTENT-SET-1");
+    HashU64(&hash, baseFingerprint);
+    HashU64(&hash, static_cast<std::uint64_t>(g_packages.size()));
+    for (const MountedPackage& package : g_packages) {
+      HashText(&hash, package.id);
+      HashText(&hash, package.version);
+      HashU64(&hash, package.fingerprint);
+    }
+  }
   return hash == 0 ? 1 : hash;
 }

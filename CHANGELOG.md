@@ -7,6 +7,23 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added deterministic multi-mod stacks. Repeatable `--mod-dir` activates
+  explicit packages; `--mods-dir` discovers immediate child manifests and
+  repeatable `--mod` selects IDs with automatic exact-version dependency
+  closure.
+- Added strict schema-1 `dependencies`, `conflicts`, `load_after` and
+  `overrides` relations. Mount order is topological with stable ID tie-breaking;
+  cycles, missing/wrong dependencies, active conflicts and same-target writes
+  without an owner-specific override fail before Level construction.
+- Bound the ordered active package set to content/save/continuation identity
+  while preserving legacy single-package fingerprints. Startup diagnostics now
+  expose candidate count, active count, mount order and each package identity.
+- Added stack-core/stack-addon examples, a hermetic shuffled-order and
+  fail-closed regression, and `Invoke-ModStack.ps1` product acceptance for
+  discovery, dependency closure, derived-Level save/load, conflict rejection
+  and missing-request rejection. The accepted gate is 62/62 CTest in each
+  configuration, 18/18 ordinary retail Levels, 18/18 fresh continuations and
+  2/2 mod-stack product matrices.
 - Added strict schema-1 derived Level declarations. A package can append a new
   catalog identity backed by one immutable retail `game.cfg` Level, with its
   own exact overlay prefix, deterministic fingerprint and save/LCN1 identity;

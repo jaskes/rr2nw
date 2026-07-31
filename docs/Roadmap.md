@@ -1202,14 +1202,16 @@ Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical
 release renderer.
 
-## Current Windows frontier after People/Tank gameplay tuning
+## Current Windows frontier after deterministic mod stacks
 
-The first safe M5/M4 bridge is admitted. `rr2nw.exe --mod-dir <directory>` now
-selects exactly one strict schema-1 read-only overlay. Declared script,
-model/texture, Skin, WAV, font and terrain reads share one exact-target resolver;
-base-only startup keeps its old paths and fingerprint. The mod's ID/version,
-virtual targets and complete source bytes become part of content/save identity,
-so absent or changed packages fail closed before continuation restore.
+The safe M5/M4 bridge now admits a deterministic stack of strict schema-1
+read-only overlays. Repeatable `--mod-dir` selects explicit packages;
+`--mods-dir` plus repeatable `--mod` supplies discovery and dependency closure.
+Declared script, model/texture, Skin, WAV, font and terrain reads share one
+exact-target resolver; base-only startup keeps its old paths and fingerprint.
+Ordered package IDs/versions, virtual targets, relation metadata and complete
+source bytes become content/save identity, so absent, changed or reordered
+packages fail closed before continuation restore.
 
 The first gameplay schema now sits on that VFS. One reserved
 `RR2NW/gameplay-tuning.json` transaction can address verified Level-local
@@ -1243,8 +1245,8 @@ gates, but not the whole M5 feature list. The next mod slices remain ordered:
 
 1. **closed:** add declared derived-Level/catalog support without allowing mods
    to replace user `game.cfg` directly;
-2. add multiple-mod discovery, dependency/conflict validation and deterministic
-   mount ordering;
+2. **closed:** add multiple-mod discovery, dependency/conflict validation and
+   deterministic mount ordering;
 3. expose further actor/reference fields only after exact active consumer,
    ownership and save migration proofs; armour must not be published merely
    because a legacy attribute item exists;
@@ -1267,8 +1269,32 @@ proves that starting `Level.03N` cannot see the derived target, and rejects both
 an undeclared identity and a non-retail base. It passes 2/2 Debug/Release
 product matrices alongside 61/61 CTest per configuration, 18/18 ordinary
 installed-Level launches and 9/9 fresh-continuation cases per configuration.
-The next ordered M5 frontier is therefore item 2: multiple-mod discovery,
-dependency/conflict validation and deterministic mount ordering.
+The second item is now closed by the transactional stack runtime. Repeatable
+`--mod-dir` activates explicit packages; `--mods-dir` discovers immediate
+children and repeatable `--mod` selects IDs while exact-version dependencies
+close automatically. Active conflicts, missing/wrong dependencies, duplicate
+candidates, cycles and undeclared same-target writes reject before Level
+construction. Dependencies, soft `load_after` edges and explicit `overrides`
+produce one topological order with ID tie-breaking. Only a later package that
+names the current owner in `overrides` may replace its target.
+
+The ordered package set is visible in startup diagnostics and participates in
+content/save/LCN1 identity; a single legacy `--mod-dir` deliberately retains
+its previous fingerprint. A hermetic stack smoke shuffles candidate input,
+proves dependency closure and effective overlay selection, then covers nine
+ten fail-closed relation/collision cases with transactional rollback. The Windows
+product gate discovers three packages from deliberately misleading directory
+names, selects an addon, auto-mounts its core, saves/restores a derived Level
+and separately rejects activate-all conflict plus an absent requested ID.
+
+The next ordered M5 frontier is therefore item 3: expose further proven actor
+and reference fields without opening unverified ownership graphs. The mod
+packager/validator and eventual in-game selection UI remain later work.
+
+The accepted gate is 62/62 CTest in both Debug and Release, 18/18 ordinary
+installed-Level launches, 18/18 fresh destroyed-context continuations and 2/2
+mod-stack product matrices. Debug and Release produced the same ordered stack
+content fingerprint.
 
 The tuning admission adds a hermetic schema gate and a product proof that
 observes the exact committed Vehicle/projectile/People/Tank values, executes a

@@ -1,9 +1,10 @@
 # RR2NW data-pack mods
 
-RR2NW currently admits one explicit, read-only data-pack overlay on Windows.
+RR2NW admits a deterministic stack of read-only data-pack overlays on Windows.
 In addition to exact resource/script replacement and bounded gameplay tuning,
 schema 1 can declare derived Levels that inherit one verified retail Level
-without editing `game.cfg`. Multiple packages, an in-game selector, Lua,
+without editing `game.cfg`. Package discovery, exact-version dependencies,
+conflicts and explicit overrides are supported. An in-game selector, Lua,
 native plugins and a public C++ ABI are not part of this contract.
 
 ## Starting a mod
@@ -17,9 +18,43 @@ Pass the directory that directly contains `mod.json`:
   --start-level "Level.03N"
 ```
 
-The selected retail tree remains the read-only base. An omitted `--mod-dir`
-uses the historical base paths and preserves the original content fingerprint.
-An invalid mod is rejected before Level construction.
+`--mod-dir` is repeatable and every explicitly named directory is active. The
+selected retail tree remains the read-only base. An omitted mod option uses the
+historical base paths and preserves the original content fingerprint. An
+invalid package or stack is rejected before Level construction.
+
+## Discovery and stack selection
+
+`--mods-dir <root>` discovers only immediate child directories that contain a
+regular `mod.json`. Directory enumeration order is irrelevant. Select one or
+more discovered packages by ID with repeatable `--mod <id>`; dependencies are
+activated automatically:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" `
+  --data-dir "E:\Games\The Next Worlds" `
+  --mods-dir "$PWD\examples\mods" `
+  --mod "rr2nw.example.stack-addon" `
+  --start-level "Level.03N"
+```
+
+This selects `rr2nw.example.stack-addon` and automatically mounts its exact
+`rr2nw.example.stack-core@1.0.0` dependency first. If `--mods-dir` is present
+without any `--mod`, every discovered package is selected. Explicit
+`--mod-dir` packages are always selected and may be combined with discovery.
+Duplicate candidate directories, duplicate IDs, duplicate requested IDs and
+requested IDs that were not discovered are errors.
+
+Mount order is a deterministic topological order. Dependencies mount first;
+`load_after` and `overrides` add ordering edges when their named package is
+active. Packages otherwise tie-break by case-insensitive ID, never by directory
+enumeration or command-line order. Cycles reject the complete stack.
+
+The startup log records `mod_candidates`, `mod_count`, `mod_mount_order` and
+per-package ID, version, source file count, declared bytes and fingerprint.
+Unused discovered packages do not affect active content identity. The ordered
+active package identities and fingerprints do, so saves and continuations fail
+closed when a mounted package, its bytes or its resolved order changes.
 
 ## Manifest schema 1
 
@@ -62,7 +97,52 @@ Level selection or user data.
 
 The current bounded limits are 1,024 files, 64 MiB per file, 512 MiB total and
 256 KiB for `mod.json`. Each source must already be a regular file when the mod
-is admitted. The runtime never writes to either the base or mod directory.
+is admitted. A discovered set may contain at most 128 candidates; at most 64
+may become active. The effective stack is bounded to 4,096 virtual targets and
+1 GiB of declared active source data. The runtime never writes to either the
+base or mod directories.
+
+## Package relations and target conflicts
+
+All relation keys are optional strict arrays. Dependencies use exact canonical
+versions; schema 1 deliberately has no version ranges:
+
+```json
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "author.addon",
+  "version": "1.0.0",
+  "dependencies": [
+    {"id": "author.core", "version": "2.1.0"}
+  ],
+  "conflicts": ["author.incompatible"],
+  "load_after": ["author.optional-visuals"],
+  "overrides": ["author.core"],
+  "files": [
+    {
+      "source": "textures/replacement.txr",
+      "target": "Level.03N/original.txr"
+    }
+  ]
+}
+```
+
+- `dependencies` activates the named discovered package, requires the exact
+  version and orders it before the owner;
+- `conflicts` rejects the stack only when both packages are active;
+- `load_after` is a soft ordering relation and is ignored when its target is
+  not active;
+- `overrides` orders the named package first and grants permission to replace
+  that package's exact virtual targets.
+
+Two active packages may not target the same case-insensitive path unless the
+later package explicitly names the current owner in `overrides`. The later
+entry then becomes the effective read target. `overrides` does not grant broad
+filesystem access and cannot bypass protected targets. Derived Level IDs are
+catalog identities rather than files and may never collide, even with an
+override declaration. Self references, duplicate relation IDs, dependency /
+conflict contradictions and override/conflict contradictions are rejected.
 
 ## Derived Level catalog
 
@@ -253,7 +333,7 @@ published.
 
 Resolution is exact and deterministic:
 
-1. an admitted manifest target;
+1. the effective target from the admitted low-to-high package stack;
 2. the original retail path.
 
 Schema 1 does not perform extension guessing or recursively merge directories.
@@ -262,24 +342,29 @@ file-resource hook. Recovered script, Skin, WAV, fixed-font and terrain readers
 use the same resolver. Files not named by a manifest continue to come from the
 base tree.
 
-The canonical mod fingerprint hashes schema/API, ID/version, sorted virtual
-targets and every source byte. Active-world state stores `id@version`, and the
-mod fingerprint is folded into save/replay content identity. A save created
-with a mod therefore fails closed when that mod is absent or changed, even if
-the selected retail Level has the same name.
+Each package fingerprint hashes schema/API, ID/version, declared relations,
+derived Levels, sorted virtual targets and every source byte. Multi-package
+identity then hashes those package identities in resolved mount order.
+Active-world state stores the canonical set of `id@version` values, and the
+ordered stack fingerprint is folded into save/replay content identity. A save
+therefore fails closed when an active package is absent, changed or resolves in
+a different order, even if the selected retail Level has the same name.
 
-Startup diagnostics record the admitted identity, file/byte counts,
-fingerprint, resolution attempts, overlay hits and the combined active content
-fingerprint. An active tuning file additionally reports committed patch
+Startup diagnostics record candidate/active counts, resolved mount order,
+per-package identity/counts/fingerprint, effective file counts, resolution
+attempts, overlay hits and the combined active content fingerprint. An active
+tuning file additionally reports committed patch
 counts, post-transaction attribute/reference fingerprints, the observed
 `Vehicle.Attr.default`, first People and first Tank values, secondary reference
 proofs, real ballistic proofs and exact People/Tank lifecycle proof counts.
 
-The repository includes three copyright-free packages. Use
+The repository includes five copyright-free packages. Use
 `rr2nw.example.data-pack` for neutral packaging/resolver admission and
 `rr2nw.example.gameplay-tuning` on `Level.05D` for a visible handling/fire
 change. `rr2nw.example.derived-level` adds the read-only `Level.Example`
-catalog entry shown above.
+catalog entry shown above. `rr2nw.example.stack-core` and
+`rr2nw.example.stack-addon` demonstrate dependency closure and an explicit
+same-target override.
 
 ```powershell
 & ".\build\windows-msvc-x86\Release\rr2nw.exe" `
@@ -291,8 +376,8 @@ catalog entry shown above.
 
 ## Deliberately deferred
 
-- multiple active mods, dependencies, conflicts and mount ordering;
-- automatic discovery and an in-game mod selector;
+- an in-game mod selector, persistent selection profiles, optional dependencies
+  and semantic version ranges;
 - standalone Levels that do not derive from a verified retail catalog,
   campaign/progression registration and authoring tools;
 - People/Tank armour and reference graphs, Vehicle health/armour, ammunition

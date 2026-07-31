@@ -207,9 +207,11 @@ Schema-1 уже добавляет один безопасный каталог 
 derived Level объявляет новый ID и один из девяти retail Level как физическую
 базу. Legacy code продолжает работать в существующем read-only каталоге, но
 VFS сначала ищет exact target под derived ID, затем под base ID. Активный ID
-передается в save/LCN1 независимо от физического basename. Композиция нескольких
-пакетов, dependencies/conflicts и общий mount order остаются следующим M5
-слоем; `game.cfg` не становится записываемым или заменяемым состоянием.
+передается в save/LCN1 независимо от физического basename. Несколько пакетов
+компонуются до Level construction: exact dependencies, active conflicts и
+`load_after`/`overrides` образуют детерминированный topological mount order.
+Одинаковый target требует owner-specific override; `game.cfg` не становится
+записываемым или заменяемым состоянием.
 
 ## Crash and diagnostics
 

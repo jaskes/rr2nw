@@ -9,12 +9,24 @@ struct SRecoveredModRuntimeSummary {
   int engineApi = 0;
   char id[65] = {};
   char version[33] = {};
+  unsigned int candidateCount = 0;
+  unsigned int modCount = 0;
   unsigned int fileCount = 0;
   unsigned int levelCount = 0;
   std::uint64_t totalBytes = 0;
   std::uint64_t modFingerprint = 0;
   unsigned int resolveCount = 0;
   unsigned int overrideHitCount = 0;
+};
+
+struct SRecoveredModPackage {
+  char id[65] = {};
+  char version[33] = {};
+  unsigned int mountIndex = 0;
+  unsigned int fileCount = 0;
+  unsigned int levelCount = 0;
+  std::uint64_t totalBytes = 0;
+  std::uint64_t fingerprint = 0;
 };
 
 struct SRecoveredModLevel {
@@ -44,7 +56,16 @@ enum ERecoveredModRuntimeIssue {
   RECOVERED_MOD_INVALID_LEVEL_ENTRY = 1u << 18,
   RECOVERED_MOD_DUPLICATE_LEVEL = 1u << 19,
   RECOVERED_MOD_MISSING_LEVEL_BASE = 1u << 20,
-  RECOVERED_MOD_LEVEL_COLLISION = 1u << 21
+  RECOVERED_MOD_LEVEL_COLLISION = 1u << 21,
+  RECOVERED_MOD_CANDIDATE_LIMIT = 1u << 22,
+  RECOVERED_MOD_DUPLICATE_ID = 1u << 23,
+  RECOVERED_MOD_INVALID_RELATION = 1u << 24,
+  RECOVERED_MOD_MISSING_DEPENDENCY = 1u << 25,
+  RECOVERED_MOD_DEPENDENCY_VERSION = 1u << 26,
+  RECOVERED_MOD_CONFLICT = 1u << 27,
+  RECOVERED_MOD_ORDER_CYCLE = 1u << 28,
+  RECOVERED_MOD_TARGET_CONFLICT = 1u << 29,
+  RECOVERED_MOD_STACK_LIMIT = 1u << 30
 };
 
 // Configures one explicit, read-only data-pack overlay. The base-only form is
@@ -52,12 +73,25 @@ enum ERecoveredModRuntimeIssue {
 // mod. Failed configuration never replaces the previously admitted state.
 bool RecoveredModRuntime_Configure(const char* baseRoot,
                                    const char* modDirectory);
+// Candidate directories are parsed transactionally. The first
+// explicitDirectoryCount candidates are always selected; requestedIds select
+// discovered candidates, and activateAllCandidates selects every candidate.
+// Dependencies may activate additional candidates. The committed package list
+// is exposed in deterministic low-to-high mount order.
+bool RecoveredModRuntime_ConfigureStack(
+    const char* baseRoot, const char* const* candidateDirectories,
+    std::size_t candidateCount, std::size_t explicitDirectoryCount,
+    const char* const* requestedIds, std::size_t requestedIdCount,
+    bool activateAllCandidates);
 void RecoveredModRuntime_Release();
 bool RecoveredModRuntime_IsConfigured();
 bool RecoveredModRuntime_IsActive();
 unsigned int RecoveredModRuntime_Issues();
 const char* RecoveredModRuntime_LastError();
 const SRecoveredModRuntimeSummary* RecoveredModRuntime_Summary();
+unsigned int RecoveredModRuntime_ModCount();
+bool RecoveredModRuntime_Mod(unsigned int index,
+                             SRecoveredModPackage* package);
 
 // Schema-1 derived Levels add catalog identities without modifying game.cfg.
 // Each declaration inherits one physical retail Level and may replace files

@@ -1,0 +1,1 @@
+This text comes from stack-addon after its declared stack-core override.

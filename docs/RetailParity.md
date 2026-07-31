@@ -1507,6 +1507,31 @@ playable Level begins.
   fingerprints through mod-bound save/relaunch/load and rejects absent People
   or Tank IDs before the loop becomes ready.
 
+### RP-MOD-005: multiple packages compose before retail Level construction
+
+- Immediate children of `--mods-dir` with a regular `mod.json` are candidates;
+  repeatable `--mod` selects discovered IDs, while repeatable `--mod-dir`
+  remains the explicit compatibility path. Exact-version dependencies activate
+  transitively. Discovery without `--mod` selects all candidates.
+- Candidate enumeration and CLI order cannot affect the result. Dependency,
+  active `load_after` and active `overrides` edges produce one deterministic
+  topological order with ID tie-breaking. Missing/wrong dependencies, active
+  conflicts, cycles and duplicate IDs/final paths reject transactionally.
+- Same-target writes are errors unless the later package explicitly names the
+  existing owner in `overrides`. The effective entry then replaces only that
+  virtual target; protected paths and duplicate derived Level identities remain
+  fail-closed.
+- Ordered active package IDs, versions and package fingerprints bind content,
+  save-slot and LCN1 identity. Inactive discovered packages do not. Existing
+  single-package fingerprints remain unchanged.
+- The hermetic regression proves shuffled-order stability, dependency closure,
+  effective overlay ownership and ten negative paths. The executable product
+  gate discovers three packages, selects addon/core, consumes their derived
+  Level, saves and restores it, then rejects activate-all conflict and a
+  requested undiscovered package. Accepted evidence is 62/62 CTest in each
+  configuration, 18/18 ordinary Levels, 18/18 fresh continuations and 2/2
+  product rows.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

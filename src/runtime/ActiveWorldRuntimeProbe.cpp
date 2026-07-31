@@ -868,9 +868,21 @@ bool CaptureRuntime(
   snapshot.engineCompatibility = ActiveWorldSave_EngineCompatibilityVersion();
   snapshot.contentFingerprint = contentFingerprint;
   snapshot.level = level;
-  const SRecoveredModRuntimeSummary* mod = RecoveredModRuntime_Summary();
-  if (RecoveredModRuntime_IsActive() && mod != nullptr) {
-    snapshot.mods.push_back(std::string(mod->id) + "@" + mod->version);
+  if (RecoveredModRuntime_IsActive()) {
+    const unsigned int count = RecoveredModRuntime_ModCount();
+    snapshot.mods.reserve(count);
+    for (unsigned int index = 0; index < count; ++index) {
+      SRecoveredModPackage package;
+      if (!RecoveredModRuntime_Mod(index, &package)) {
+        SetFailure(failure, "active mod stack enumeration failed");
+        return false;
+      }
+      snapshot.mods.push_back(std::string(package.id) + "@" +
+                              package.version);
+    }
+    // AWS1 keeps this metadata as a canonical set. The order-sensitive mount
+    // identity is already bound by contentFingerprint.
+    std::sort(snapshot.mods.begin(), snapshot.mods.end());
   }
   SSimulationClockState clockState;
   if (!SUA_CaptureSimulationClock(&clockState)) {

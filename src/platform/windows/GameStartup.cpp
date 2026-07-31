@@ -19,6 +19,7 @@
 
 #include <shlobj.h>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdio>
@@ -48,7 +49,9 @@ struct StartupOptions {
   std::wstring dataDirectory;
   std::wstring diagnosticsDirectory;
   std::wstring saveDirectory;
-  std::wstring modDirectory;
+  std::vector<std::wstring> modDirectories;
+  std::wstring modsDirectory;
+  std::vector<std::wstring> selectedMods;
   std::wstring startLevel;
   int startupSaveSlot = -1;
   int startupLoadSlot = -1;
@@ -198,6 +201,45 @@ bool IsFile(const std::wstring& path) {
          (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
+bool DiscoverModDirectories(const std::wstring& root,
+                            std::vector<std::wstring>* directories,
+                            std::wstring* failure) {
+  if (!IsDirectory(root)) {
+    *failure = L"--mods-dir is not an existing directory: " + root;
+    return false;
+  }
+  std::vector<std::wstring> names;
+  WIN32_FIND_DATAW found = {};
+  const std::wstring pattern = JoinPath(root, L"*");
+  HANDLE search = FindFirstFileW(pattern.c_str(), &found);
+  if (search == INVALID_HANDLE_VALUE) {
+    *failure = L"cannot enumerate --mods-dir: " + root;
+    return false;
+  }
+  do {
+    const std::wstring name(found.cFileName);
+    if (name == L"." || name == L".." ||
+        (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+      continue;
+    const std::wstring candidate = JoinPath(root, name);
+    if (IsFile(JoinPath(candidate, L"mod.json"))) names.push_back(name);
+  } while (FindNextFileW(search, &found) != FALSE);
+  const DWORD enumerationError = GetLastError();
+  FindClose(search);
+  if (enumerationError != ERROR_NO_MORE_FILES) {
+    *failure = L"--mods-dir enumeration failed: " + root;
+    return false;
+  }
+  std::sort(names.begin(), names.end(), [](const std::wstring& left,
+                                           const std::wstring& right) {
+    const int folded = _wcsicmp(left.c_str(), right.c_str());
+    return folded == 0 ? left < right : folded < 0;
+  });
+  for (const std::wstring& name : names)
+    directories->push_back(JoinPath(root, name));
+  return true;
+}
+
 bool ParseOptionValue(int argc, wchar_t** argv, int* index,
                       const wchar_t* name, std::wstring* value,
                       std::wstring* failure) {
@@ -247,12 +289,52 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     } else if (argument.compare(0, 11, L"--data-dir=") == 0) {
       options->dataDirectory = argument.substr(11);
     } else if (argument == L"--mod-dir") {
-      if (!ParseOptionValue(argc, argv, &index, L"--mod-dir",
-                            &options->modDirectory, failure)) {
+      std::wstring value;
+      if (!ParseOptionValue(argc, argv, &index, L"--mod-dir", &value,
+                            failure)) {
         return false;
       }
+      options->modDirectories.push_back(value);
     } else if (argument.compare(0, 10, L"--mod-dir=") == 0) {
-      options->modDirectory = argument.substr(10);
+      const std::wstring value = argument.substr(10);
+      if (value.empty()) {
+        *failure = L"empty value for --mod-dir";
+        return false;
+      }
+      options->modDirectories.push_back(value);
+    } else if (argument == L"--mods-dir") {
+      if (!options->modsDirectory.empty()) {
+        *failure = L"--mods-dir may be specified only once";
+        return false;
+      }
+      if (!ParseOptionValue(argc, argv, &index, L"--mods-dir",
+                            &options->modsDirectory, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 11, L"--mods-dir=") == 0) {
+      if (!options->modsDirectory.empty()) {
+        *failure = L"--mods-dir may be specified only once";
+        return false;
+      }
+      options->modsDirectory = argument.substr(11);
+      if (options->modsDirectory.empty()) {
+        *failure = L"empty value for --mods-dir";
+        return false;
+      }
+    } else if (argument == L"--mod") {
+      std::wstring value;
+      if (!ParseOptionValue(argc, argv, &index, L"--mod", &value,
+                            failure)) {
+        return false;
+      }
+      options->selectedMods.push_back(value);
+    } else if (argument.compare(0, 6, L"--mod=") == 0) {
+      const std::wstring value = argument.substr(6);
+      if (value.empty()) {
+        *failure = L"empty value for --mod";
+        return false;
+      }
+      options->selectedMods.push_back(value);
     } else if (argument == L"--diagnostics-dir") {
       if (!ParseOptionValue(argc, argv, &index, L"--diagnostics-dir",
                             &options->diagnosticsDirectory, failure)) {
@@ -728,7 +810,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   if (options.showHelp) {
     ShowMessage(false, MB_ICONINFORMATION, L"RR2NW command line",
                 L"rr2nw.exe [--data-dir <path>] [--start-level <index|name>]\n"
-                L"          [--mod-dir <path>]\n"
+                L"          [--mod-dir <path>]... [--mods-dir <path>]\n"
+                L"          [--mod <id>]...\n"
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
@@ -745,9 +828,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   } else {
     options.diagnosticsDirectory = AbsolutePath(options.diagnosticsDirectory);
   }
-  if (!options.modDirectory.empty()) {
-    options.modDirectory = AbsolutePath(options.modDirectory);
-  }
+  for (std::wstring& directory : options.modDirectories)
+    directory = AbsolutePath(directory);
+  if (!options.modsDirectory.empty())
+    options.modsDirectory = AbsolutePath(options.modsDirectory);
   const bool defaultSaveDirectory = options.saveDirectory.empty();
   if (defaultSaveDirectory) {
     options.saveDirectory = DefaultSaveDirectory();
@@ -788,20 +872,65 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   ModRuntimeScope modRuntimeScope;
   std::string baseDataPath;
-  std::string modDataPath;
   std::string modFailure;
   bool modReady = false;
+  const std::size_t explicitModCount = options.modDirectories.size();
+  std::vector<std::wstring> candidateModDirectories =
+      options.modDirectories;
+  if (!options.modsDirectory.empty() &&
+      !DiscoverModDirectories(options.modsDirectory,
+                              &candidateModDirectories, &failure)) {
+    modFailure = WideToUtf8(failure);
+  }
+  std::vector<std::string> candidateModPaths;
+  std::vector<const char*> candidateModPathPointers;
+  std::vector<std::string> requestedModIds;
+  std::vector<const char*> requestedModIdPointers;
   if (!WideToSystemPath(data.root, &baseDataPath)) {
     modFailure = "base data path is not representable by the Windows ANSI "
                  "code page";
-  } else if (!options.modDirectory.empty() &&
-             !WideToSystemPath(options.modDirectory, &modDataPath)) {
-    modFailure = "mod path is not representable by the Windows ANSI code "
-                 "page";
-  } else {
-    modReady = RecoveredModRuntime_Configure(
+  }
+  if (modFailure.empty()) {
+    candidateModPaths.reserve(candidateModDirectories.size());
+    for (const std::wstring& directory : candidateModDirectories) {
+      std::string path;
+      if (!WideToSystemPath(directory, &path)) {
+        modFailure = "a mod path is not representable by the Windows ANSI "
+                     "code page";
+        break;
+      }
+      candidateModPaths.push_back(std::move(path));
+    }
+  }
+  if (modFailure.empty()) {
+    requestedModIds.reserve(options.selectedMods.size());
+    for (const std::wstring& selected : options.selectedMods) {
+      std::string id;
+      if (!WideToSystemPath(selected, &id)) {
+        modFailure = "a requested mod id is not representable by the "
+                     "Windows ANSI code page";
+        break;
+      }
+      requestedModIds.push_back(std::move(id));
+    }
+  }
+  if (modFailure.empty()) {
+    candidateModPathPointers.reserve(candidateModPaths.size());
+    for (const std::string& path : candidateModPaths)
+      candidateModPathPointers.push_back(path.c_str());
+    requestedModIdPointers.reserve(requestedModIds.size());
+    for (const std::string& id : requestedModIds)
+      requestedModIdPointers.push_back(id.c_str());
+    const bool activateAllDiscovered =
+        !options.modsDirectory.empty() && options.selectedMods.empty();
+    modReady = RecoveredModRuntime_ConfigureStack(
         baseDataPath.c_str(),
-        options.modDirectory.empty() ? nullptr : modDataPath.c_str());
+        candidateModPathPointers.empty() ? nullptr
+                                         : candidateModPathPointers.data(),
+        candidateModPathPointers.size(), explicitModCount,
+        requestedModIdPointers.empty() ? nullptr
+                                       : requestedModIdPointers.data(),
+        requestedModIdPointers.size(), activateAllDiscovered);
     if (!modReady) modFailure = RecoveredModRuntime_LastError();
   }
   if (!modReady) {
@@ -850,8 +979,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       RecoveredModRuntime_Summary();
   log.Line(std::string("mod_active=") +
            (RecoveredModRuntime_IsActive() ? "1" : "0"));
-  if (!options.modDirectory.empty()) {
-    log.WideLine("mod_dir", options.modDirectory);
+  if (options.modDirectories.size() == 1)
+    log.WideLine("mod_dir", options.modDirectories[0]);
+  for (std::size_t index = 0; index < options.modDirectories.size(); ++index) {
+    const std::string key = "mod_dir_" + std::to_string(index);
+    log.WideLine(key.c_str(), options.modDirectories[index]);
+  }
+  if (!options.modsDirectory.empty())
+    log.WideLine("mods_dir", options.modsDirectory);
+  for (std::size_t index = 0; index < options.selectedMods.size(); ++index) {
+    const std::string key = "mod_requested_" + std::to_string(index);
+    log.WideLine(key.c_str(), options.selectedMods[index]);
   }
   if (modSummary != nullptr && RecoveredModRuntime_IsActive()) {
     log.Line("mod_id=" + std::string(modSummary->id));
@@ -863,6 +1001,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("mod_bytes=" + std::to_string(modSummary->totalBytes));
     log.Line("mod_fingerprint=" +
              std::to_string(modSummary->modFingerprint));
+    log.Line("mod_candidates=" +
+             std::to_string(modSummary->candidateCount));
+    log.Line("mod_count=" + std::to_string(modSummary->modCount));
+    std::string mountOrder;
+    for (unsigned int index = 0; index < RecoveredModRuntime_ModCount();
+         ++index) {
+      SRecoveredModPackage package;
+      if (!RecoveredModRuntime_Mod(index, &package)) continue;
+      if (!mountOrder.empty()) mountOrder += ",";
+      mountOrder += package.id;
+      const std::string prefix = "mod_" + std::to_string(index) + "_";
+      log.Line(prefix + "id=" + package.id);
+      log.Line(prefix + "version=" + package.version);
+      log.Line(prefix + "files=" + std::to_string(package.fileCount));
+      log.Line(prefix + "levels=" + std::to_string(package.levelCount));
+      log.Line(prefix + "bytes=" + std::to_string(package.totalBytes));
+      log.Line(prefix + "fingerprint=" +
+               std::to_string(package.fingerprint));
+    }
+    log.Line("mod_mount_order=" + mountOrder);
   }
   log.Line("mod_access=read-only");
   log.WideLine("save_dir", options.saveDirectory);

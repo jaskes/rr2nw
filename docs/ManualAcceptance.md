@@ -341,6 +341,27 @@ The accepted 2026-07-31 gate passed this complete sequence in Debug and
 Release, alongside 61/61 CTest per configuration and all 18 ordinary
 installed-Level runtime-smoke cases.
 
+## Deterministic mod-stack pass
+
+The bounded product proof creates three ignored local candidates. Selecting the
+addon by ID must discover and auto-activate its exact core dependency despite
+misleading directory names, mount `core,addon`, consume the addon's declared
+override of a derived `level.cfg`, then save and restore the same Level/content
+identity. Separate launches activate all candidates to prove conflict rejection
+and request an absent ID to prove discovery failure:
+
+```powershell
+& ".\tools\acceptance\Invoke-ModStack.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+Both rows must pass. The admitted logs must report `mod_candidates=3`,
+`mod_count=2`, `mod_mount_order=rr2nw.acceptance.stack-core,rr2nw.acceptance.stack-addon`,
+one effective file, one derived Level, matching non-zero
+`active_content_fingerprint` values and clean shutdown. Negative logs must end
+at `marker=mod-not-ready` with a conflict or undiscovered-ID diagnosis.
+
 ```powershell
 & ".\build\windows-msvc-x86\Release\rr2nw.exe" `
   --data-dir "E:\Games\The Next Worlds" `

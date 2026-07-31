@@ -4022,3 +4022,42 @@ metadata and relaxed unknown legacy catalogs remain separate future contracts.
 Regression requires alias-only file consumption, base fallback/isolation,
 matching save/load, base-to-derived cross-load and precise pre-mutation failure
 for undeclared/non-retail catalog entries.
+
+## BD-104: resolve mod stacks by declared topology, not discovery order
+
+Status: accepted on 2026-07-31.
+
+Filesystem enumeration and repeated command-line order are not content
+contracts. Every candidate manifest is therefore parsed and validated before
+selection; duplicate physical paths and case-insensitive IDs reject the whole
+candidate set. Explicit `--mod-dir` candidates are active, `--mod` selects a
+discovered ID, and discovery without any selection activates all candidates.
+Exact-version dependencies close transitively over the same admitted set.
+
+The mount graph has dependency, active `load_after` and active `overrides`
+edges. Kahn topological ordering chooses the lowest case-insensitive package ID
+whenever several nodes are ready. A cycle is an admission error. `load_after`
+is soft when its target is inactive; dependencies are not. Version ranges are
+deferred so schema 1 has one unambiguous compatibility result.
+
+There is no implicit last-writer-wins rule. Two active packages targeting the
+same case-insensitive virtual path reject unless the later package explicitly
+names the current owner in `overrides`; that declaration also supplies the
+required ordering edge. Protected paths remain protected and derived Level IDs
+never accept overrides. Active `conflicts` reject symmetrically regardless of
+which manifest declared them.
+
+Only ordered active package identities and fingerprints bind content identity;
+inactive discovered candidates are diagnostic input, not session content. A
+single legacy package retains its prior package/content fingerprint exactly.
+For a stack, AWS1 stores the canonical sorted package-ID set while its ordered
+mount identity is bound by the content fingerprint used by save slots and
+LCN1. Any changed active bytes, versions, relations or effective order thus
+reject restore before world mutation.
+
+Regression shuffles candidates, proves dependency closure plus the winning
+overlay, and rejects missing/wrong dependencies, conflicts, cycles, undeclared
+target collisions, duplicate paths/IDs/requests and absent selections without
+replacing the prior admitted stack. Product acceptance discovers misleadingly
+named directories, saves/restores a derived Level through core/addon and
+rejects both activate-all conflict and an absent requested ID.
