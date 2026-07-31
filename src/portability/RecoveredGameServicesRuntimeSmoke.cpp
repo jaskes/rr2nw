@@ -27,6 +27,7 @@
 #include "obase/bullet/BulletAttributeState.h"
 #include "obase/bullet/BulletSubjectState.h"
 #include "obase/explosion/ExplosionAttributeState.h"
+#include "obase/explosion/ExplosionActiveWorldState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
@@ -1213,6 +1214,84 @@ bool VisibleProbeAboveTerrain(double clearance, double forwardDistance,
     return false;
   position->y = landY + clearance;
   return std::isfinite(position->y);
+}
+
+bool OpenExplosionSaveBoundary(CViewDynamicList* dynamics,
+                               KR_ObjectID* explosion) {
+  if (dynamics == nullptr || explosion == nullptr ||
+      g_super.m_context == nullptr ||
+      ExplosionSubjectState_LiveCount() != 0) {
+    return false;
+  }
+  *explosion = KR_ObjectID::NUL();
+  SimulationContext* context = g_super.m_context;
+  const char* attributeName =
+      ExplosionSubjectState_SoundProbeAttributeName(context);
+  KR_ObjectID attributeID = attributeName == nullptr
+      ? KR_ObjectID::NUL()
+      : context->searchObject(attributeName);
+  AttributeExplosion* attribute = attributeID.isNUL()
+      ? nullptr
+      : static_cast<AttributeExplosion*>(
+            __attrExplosionTable.searchAttribute(attributeID));
+  const ct_ClassTableID attributeTable =
+      g_arena.searchSeanceClassTable("ExplosionAttr");
+  const ct_ClassTableID subjectTable =
+      g_arena.searchSeanceClassTable("Explosion");
+  const int attributeIndex =
+      attributeTable == ct_NULLID || attributeID.isNUL()
+          ? -1
+          : g_arena.getAttributeIndex(attributeTable, attributeID);
+  CFVector3 position;
+  static const char kProbeName[] =
+      "Explosion.SaveBoundary.Retry.Probe";
+  if (attribute == nullptr || attributeIndex == -1 ||
+      subjectTable == ct_NULLID ||
+      !VisibleProbeAboveTerrain(32.0, 128.0, &position) ||
+      context->isExist(kProbeName)) {
+    return false;
+  }
+
+  const double currentTime = Session::m_moment;
+  const double timeStamp =
+      !std::isfinite(currentTime) || currentTime < 0.1
+          ? 0.1
+          : currentTime;
+  const ExplosionImpactRequest request = {
+      position, timeStamp, KR_ObjectID::NUL(), subjectTable,
+      attributeIndex, kProbeName};
+  int damageApplications = -1;
+  if (!ExplosionSubjectState_ExecuteNow(
+          context, request, &damageApplications) ||
+      damageApplications != 0) {
+    return false;
+  }
+  *explosion = context->searchObject(kProbeName);
+  std::vector<unsigned char> stable;
+  if (explosion->isNUL() ||
+      !ExplosionActiveWorldState_CaptureStable(context, &stable)) {
+    if (!explosion->isNUL() && context->isExist(*explosion))
+      context->removeObject(*explosion);
+    *explosion = KR_ObjectID::NUL();
+    return false;
+  }
+
+  g_arena.render(CViewObject::m_viewPointInvMx.Offset(),
+                 CViewFigure::HazeMax(), *dynamics);
+  std::vector<unsigned char> rejected;
+  const bool rejectedAtOpenBoundary =
+      !ExplosionActiveWorldState_CaptureStable(context, &rejected) &&
+      std::string(ExplosionActiveWorldState_LastFailure()).find(
+          "frame boundary") != std::string::npos;
+  if (!rejectedAtOpenBoundary) {
+    g_arena.endRender(ZAV_Scene());
+    dynamics->Clear(FALSE);
+    ExplosionSubjectState_ReleaseLightFrame();
+    if (context->isExist(*explosion)) context->removeObject(*explosion);
+    *explosion = KR_ObjectID::NUL();
+    return false;
+  }
+  return true;
 }
 
 bool ExerciseVisibleSmoke() {
@@ -4290,8 +4369,62 @@ int main(int argc, char** argv) {
   SLevelContinuationSummary restoredContinuation;
   if (RecoveredGameServices_RequestLoadSlot(LevelSaveSlot_Count()) ||
       RecoveredGameServices_SaveMenuState() == nullptr ||
-      RecoveredGameServices_SaveMenuState()->pending ||
-      !RecoveredGameServices_RequestLoadSlot(3u) ||
+      RecoveredGameServices_SaveMenuState()->pending) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("fresh-context load request guard failed");
+  }
+
+  CViewDynamicList openFrameDynamics;
+  KR_ObjectID openFrameExplosion = KR_ObjectID::NUL();
+  if (!OpenExplosionSaveBoundary(
+          &openFrameDynamics, &openFrameExplosion)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Explosion save-boundary fixture failed");
+  }
+  if (!RecoveredGameServices_RequestLoadSlot(3u)) {
+    if (!openFrameExplosion.isNUL()) {
+      g_arena.endRender(ZAV_Scene());
+      openFrameDynamics.Clear(FALSE);
+      ExplosionSubjectState_ReleaseLightFrame();
+    }
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Explosion-boundary slot load was not queued");
+  }
+  if (RecoveredGameServices_ProcessPendingSaveCommand(
+          &loadedSlot, &restoredContinuation)) {
+    // A successful restore has already removed the fixture owner, so the
+    // deliberately open local draw list contains diagnostic-only stale
+    // pointers and must not be traversed during failure cleanup.
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("open Explosion frame unexpectedly admitted slot load");
+  }
+  const SRecoveredSaveMenuState* deferredLoad =
+      RecoveredGameServices_SaveMenuState();
+  const bool loadWasDeferred =
+      deferredLoad != nullptr && deferredLoad->pending &&
+      deferredLoad->pendingAction == RECOVERED_SAVE_MENU_LOAD &&
+      deferredLoad->pendingSlot == 3u &&
+      deferredLoad->pendingAttempts == 1u &&
+      deferredLoad->deferredCommands == 1u &&
+      deferredLoad->lastCommandAttempts == 0u &&
+      deferredLoad->loadRequests == 1u &&
+      deferredLoad->completedLoads == 0u &&
+      deferredLoad->failedCommands == 0u &&
+      deferredLoad->lastError.find("frame boundary") !=
+          std::string::npos;
+
+  g_arena.endRender(ZAV_Scene());
+  openFrameDynamics.Clear(FALSE);
+  ExplosionSubjectState_ReleaseLightFrame();
+  std::vector<unsigned char> closedExplosionState;
+  const bool boundaryClosed =
+      ExplosionActiveWorldState_CaptureStable(
+          g_super.m_context, &closedExplosionState);
+  if (!loadWasDeferred || !boundaryClosed ||
       !RecoveredGameServices_ProcessPendingSaveCommand(
           &loadedSlot, &restoredContinuation) ||
       !loadedSlot.ready ||
@@ -4317,10 +4450,15 @@ int main(int argc, char** argv) {
       RecoveredGameServices_SaveMenuState() == nullptr ||
       RecoveredGameServices_SaveMenuState()->loadRequests != 1u ||
       RecoveredGameServices_SaveMenuState()->completedLoads != 1u ||
-      RecoveredGameServices_SaveMenuState()->failedCommands != 0u) {
+      RecoveredGameServices_SaveMenuState()->failedCommands != 0u ||
+      RecoveredGameServices_SaveMenuState()->pending ||
+      RecoveredGameServices_SaveMenuState()->pendingAttempts != 0u ||
+      RecoveredGameServices_SaveMenuState()->deferredCommands != 1u ||
+      RecoveredGameServices_SaveMenuState()->lastCommandAttempts != 2u) {
     std::fprintf(stderr,
                  "fresh-context menu RR2SLOT1/LCN1 restore: %s "
-                 "phases=%d/%d/%d fingerprints=%llu/%llu/%llu\n",
+                 "phases=%d/%d/%d fingerprints=%llu/%llu/%llu "
+                 "retry=%u/%u/%u pending=%d\n",
                  RecoveredGameServices_SaveMenuState() == nullptr
                      ? "state unavailable"
                      : RecoveredGameServices_SaveMenuState()
@@ -4333,7 +4471,23 @@ int main(int argc, char** argv) {
                  static_cast<unsigned long long>(
                      restoredContinuation.restoredWorldFingerprint),
                  static_cast<unsigned long long>(
-                     restoredContinuation.containerFingerprint));
+                     restoredContinuation.containerFingerprint),
+                 RecoveredGameServices_SaveMenuState() == nullptr
+                     ? 0u
+                     : RecoveredGameServices_SaveMenuState()
+                           ->deferredCommands,
+                 RecoveredGameServices_SaveMenuState() == nullptr
+                     ? 0u
+                     : RecoveredGameServices_SaveMenuState()
+                           ->pendingAttempts,
+                 RecoveredGameServices_SaveMenuState() == nullptr
+                     ? 0u
+                     : RecoveredGameServices_SaveMenuState()
+                           ->lastCommandAttempts,
+                 RecoveredGameServices_SaveMenuState() != nullptr &&
+                         RecoveredGameServices_SaveMenuState()->pending
+                     ? 1
+                     : 0);
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("fresh-context LCN1 restore or whole-world proof failed");
@@ -4478,6 +4632,7 @@ int main(int argc, char** argv) {
                 "save_slot=RR2SLOT1-3-%llu bytes=%zu "
                 "preview=PNG-%llu/%zu "
                 "resumed_actions=%u "
+                "load_retry=1/2 "
                 "route=table vehicle=real observer=fallback-suspended\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
                smokeVisualResourceFingerprint,

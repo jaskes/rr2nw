@@ -1158,11 +1158,14 @@ content/Level checks, stable-frame rejection and the existing target-session
 rollback.
 
 The first item-5 product slice is now connected to the Windows executable. A
-native `Game` menu lists eight fixed slots, queues save/load only at the safe
-frame boundary, confirms destructive choices and distinguishes empty, corrupt
-and incompatible slots. Startup owns `%LOCALAPPDATA%\RR2NW\saves` with a
-`--save-dir` override. Every menu save embeds a validated 640x480 indexed PNG
-captured from the real framebuffer and palette.
+native `Game` menu lists eight fixed slots, queues save/load only at the
+fully-ended/presented frame boundary, confirms destructive choices and
+distinguishes empty, corrupt and incompatible slots. Startup owns
+`%LOCALAPPDATA%\RR2NW\saves` with a `--save-dir` override. Every menu save
+embeds a validated 640x480 indexed PNG captured from the real framebuffer and
+palette. A manual Level.04D Explosion-boundary failure is now reproduced:
+attempt one defers, attempt two loads after `endRender`, and the transaction
+replaces a differing live effect roster with rollback coverage.
 
 The remaining item-5 work is an automatic main-loop restart into the Level
 named by a selected slot, visible preview/title UX and recorded multi-Level

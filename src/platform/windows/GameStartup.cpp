@@ -1828,6 +1828,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(saveMenuState->completedLoads));
     log.Line("save_menu_failed_commands=" +
              std::to_string(saveMenuState->failedCommands));
+    log.Line("save_menu_deferred_commands=" +
+             std::to_string(saveMenuState->deferredCommands));
+    log.Line("save_menu_last_command_attempts=" +
+             std::to_string(saveMenuState->lastCommandAttempts));
   }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();

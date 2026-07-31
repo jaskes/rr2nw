@@ -109,7 +109,7 @@ foreach ($configurationName in $Configuration) {
             } else { "" }
             $proof = [regex]::Match(
                 $stdout,
-                'level_continuation=LCN1-12/12/12 events=(\d+)/(\d+) tick=(\d+) time=([0-9.]+) world=(\d+) journal=(\d+) container=(\d+) save_slot=RR2SLOT1-(\d+)-(\d+) bytes=(\d+) preview=PNG-(\d+)/(\d+) resumed_actions=(\d+)')
+                'level_continuation=LCN1-12/12/12 events=(\d+)/(\d+) tick=(\d+) time=([0-9.]+) world=(\d+) journal=(\d+) container=(\d+) save_slot=RR2SLOT1-(\d+)-(\d+) bytes=(\d+) preview=PNG-(\d+)/(\d+) resumed_actions=(\d+) load_retry=(\d+)/(\d+)')
             $issues = [Collections.Generic.List[string]]::new()
             if ($timedOut) { $issues.Add("timeout") }
             # Windows PowerShell 5.1 can expose a null ExitCode when
@@ -142,6 +142,11 @@ foreach ($configurationName in $Configuration) {
                  [uint64]$proof.Groups[12].Value -eq 0)) {
                 $issues.Add("zero PNG preview proof")
             }
+            if ($proof.Success -and
+                ($proof.Groups[14].Value -ne "1" -or
+                 $proof.Groups[15].Value -ne "2")) {
+                $issues.Add("save boundary retry proof diverged")
+            }
             $passed = $issues.Count -eq 0
             $records.Add([pscustomobject]@{
                 Configuration = $configurationName
@@ -157,6 +162,8 @@ foreach ($configurationName in $Configuration) {
                 SaveSlotBytes = if ($proof.Success) { [uint64]$proof.Groups[10].Value } else { 0 }
                 PreviewFingerprint = if ($proof.Success) { [uint64]$proof.Groups[11].Value } else { 0 }
                 PreviewBytes = if ($proof.Success) { [uint64]$proof.Groups[12].Value } else { 0 }
+                DeferredLoads = if ($proof.Success) { [uint64]$proof.Groups[14].Value } else { 0 }
+                LoadAttempts = if ($proof.Success) { [uint64]$proof.Groups[15].Value } else { 0 }
                 Issues = $issues -join '; '
             })
         }

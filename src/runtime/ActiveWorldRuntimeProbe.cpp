@@ -245,7 +245,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   RuntimeRestoreTarget(SimulationContext* context, bool rejectValidation)
       : context_(context), snapshot_(nullptr), rejectValidation_(rejectValidation),
         began_(false), committed_(false), rolledBack_(false), ownerPhases_(0),
-        referencePhases_(0), eventPhases_(0), rollbackClean_(false) {}
+        referencePhases_(0), eventPhases_(0), rollbackClean_(false),
+        replacedTransientOwners_(false) {}
 
   bool Begin(const SActiveWorldSnapshot& snapshot,
              std::string* failure) override {
@@ -284,6 +285,14 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdCorpses_.clear();
     createdClocks_.clear();
     createdSemanticOwners_.clear();
+    replacedTransientOwners_ = false;
+    for (const SActiveWorldSection& section : snapshot.sections)
+      if (!ValidateOwnerCodec(section)) {
+        SetFailure(failure,
+                   "active-world target owner codec rejected a section");
+        began_ = false;
+        return false;
+      }
     if (!CommanderState_CaptureStable(context_, &commanderBackup_) ||
         !TankGroupState_CaptureStable(context_, &tankGroupBackup_) ||
         !VehicleActiveWorldState_CaptureStable(context_, &vehicleBackup_) ||
@@ -301,6 +310,26 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !ActiveWorldSemanticEvents_Capture(
             context_, &semanticBackup_, failure)) {
       SetFailure(failure, "active-world live owner backup failed");
+      began_ = false;
+      return false;
+    }
+    std::vector<KR_ObjectID> liveBullets;
+    std::vector<KR_ObjectID> liveExplosions;
+    std::vector<KR_ObjectID> liveSparks;
+    std::vector<KR_ObjectID> liveSmokes;
+    std::vector<KR_ObjectID> liveCorpses;
+    if (!BulletActiveWorldState_CollectStableOwners(
+            context_, bulletBackup_, &liveBullets) ||
+        !ExplosionActiveWorldState_CollectStableOwners(
+            context_, explosionBackup_, &liveExplosions) ||
+        !SparkActiveWorldState_CollectStableOwners(
+            context_, sparkBackup_, &liveSparks) ||
+        !SmokeActiveWorldState_CollectStableOwners(
+            context_, smokeBackup_, &liveSmokes) ||
+        !CorpseActiveWorldState_CollectStableOwners(
+            context_, corpseBackup_, &liveCorpses)) {
+      SetFailure(failure,
+                 "active-world transient owner teardown preflight failed");
       began_ = false;
       return false;
     }
@@ -344,6 +373,18 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       began_ = false;
       return false;
     }
+    // Effect rosters are expected to differ between the save point and the
+    // load point. Their codecs already own complete reconstruction and private
+    // event teardown, so replace them after the live backup and clock preapply
+    // instead of requiring coincidentally identical object names. Rollback
+    // reconstructs these exact backup payloads before applying references.
+    replacedTransientOwners_ = true;
+    CorpseActiveWorldState_RemoveStableOwners(context_, &liveCorpses);
+    SmokeActiveWorldState_RemoveStableOwners(context_, &liveSmokes);
+    SparkActiveWorldState_RemoveStableOwners(context_, &liveSparks);
+    ExplosionActiveWorldState_RemoveStableOwners(
+        context_, &liveExplosions);
+    BulletActiveWorldState_RemoveStableOwners(context_, &liveBullets);
     return true;
   }
 
@@ -633,6 +674,28 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       // reconstruction itself did not drift the boundary.
       clean = ClockActiveWorldState_ApplyStableReferences(
                   clockBackup_) && clean;
+      if (replacedTransientOwners_) {
+        std::vector<KR_ObjectID> restoredBullets;
+        std::vector<KR_ObjectID> restoredExplosions;
+        std::vector<KR_ObjectID> restoredSparks;
+        std::vector<KR_ObjectID> restoredSmokes;
+        std::vector<KR_ObjectID> restoredCorpses;
+        clean = BulletActiveWorldState_CreateStableOwners(
+                    context_, bulletBackup_, &restoredBullets) &&
+                clean;
+        clean = ExplosionActiveWorldState_CreateStableOwners(
+                    context_, explosionBackup_, &restoredExplosions) &&
+                clean;
+        clean = SparkActiveWorldState_CreateStableOwners(
+                    context_, sparkBackup_, &restoredSparks) &&
+                clean;
+        clean = SmokeActiveWorldState_CreateStableOwners(
+                    context_, smokeBackup_, &restoredSmokes) &&
+                clean;
+        clean = CorpseActiveWorldState_CreateStableOwners(
+                    context_, corpseBackup_, &restoredCorpses) &&
+                clean;
+      }
       clean = CommanderState_ApplyStableReferences(
                   context_, commanderBackup_) && clean;
       clean = TankGroupState_ApplyStableReferences(
@@ -745,6 +808,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   int referencePhases_;
   int eventPhases_;
   bool rollbackClean_;
+  bool replacedTransientOwners_;
   std::vector<SActiveWorldSection> staged_;
   std::vector<std::uint8_t> commanderBackup_;
   std::vector<std::uint8_t> tankGroupBackup_;

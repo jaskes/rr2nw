@@ -162,6 +162,9 @@ struct SRecoveredSaveMenuState {
   unsigned int completedSaves = 0;
   unsigned int completedLoads = 0;
   unsigned int failedCommands = 0;
+  unsigned int pendingAttempts = 0;
+  unsigned int deferredCommands = 0;
+  unsigned int lastCommandAttempts = 0;
   std::wstring directory;
   std::string lastError;
   SRecoveredFramePreviewSummary lastPreview;

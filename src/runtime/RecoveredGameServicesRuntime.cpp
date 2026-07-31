@@ -843,6 +843,12 @@ constexpr UINT kNativeSaveSlotBase = 0x7200u;
 constexpr UINT kNativeLoadSlotBase = 0x7210u;
 constexpr UINT kNativeOpenSaveDirectory = 0x7220u;
 constexpr UINT kNativeExitGame = 0x7221u;
+constexpr unsigned int kMaximumStableBoundaryAttempts = 8u;
+
+bool IsRetryableSaveBoundaryFailure(const std::string& detail) {
+  return detail.find("frame boundary") != std::string::npos ||
+         detail.find("published in a frame") != std::string::npos;
+}
 
 std::wstring Utf8ToWide(const std::string& text) {
   if (text.empty()) return std::wstring();
@@ -1044,6 +1050,9 @@ void ResetSaveMenuSession() {
   g_saveMenuState.completedSaves = 0;
   g_saveMenuState.completedLoads = 0;
   g_saveMenuState.failedCommands = 0;
+  g_saveMenuState.pendingAttempts = 0;
+  g_saveMenuState.deferredCommands = 0;
+  g_saveMenuState.lastCommandAttempts = 0;
   g_saveMenuState.lastError.clear();
   g_saveMenuState.lastPreview = {};
   g_saveMenuState.lastSlot = {};
@@ -2494,6 +2503,8 @@ bool RecoveredGameServices_RequestSaveSlot(
   g_saveMenuState.pending = true;
   g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_SAVE;
   g_saveMenuState.pendingSlot = slot;
+  g_saveMenuState.pendingAttempts = 0;
+  g_saveMenuState.lastCommandAttempts = 0;
   g_saveMenuAllowOverwrite = allowOverwrite;
   ++g_saveMenuState.saveRequests;
   return true;
@@ -2529,6 +2540,8 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
   g_saveMenuState.pending = true;
   g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_LOAD;
   g_saveMenuState.pendingSlot = slot;
+  g_saveMenuState.pendingAttempts = 0;
+  g_saveMenuState.lastCommandAttempts = 0;
   g_saveMenuAllowOverwrite = false;
   ++g_saveMenuState.loadRequests;
   return true;
@@ -2547,9 +2560,11 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
       g_saveMenuState.pendingAction;
   const std::uint32_t slot = g_saveMenuState.pendingSlot;
   const bool allowOverwrite = g_saveMenuAllowOverwrite;
+  const unsigned int attempt = g_saveMenuState.pendingAttempts + 1u;
   g_saveMenuState.pending = false;
   g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_NONE;
   g_saveMenuState.pendingSlot = 0;
+  g_saveMenuState.pendingAttempts = 0;
   g_saveMenuAllowOverwrite = false;
   g_saveMenuState.lastError.clear();
   g_saveMenuState.lastPreview = {};
@@ -2595,10 +2610,23 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
   }
 
   if (!completed) {
+    if (IsRetryableSaveBoundaryFailure(g_saveMenuState.lastError) &&
+        attempt < kMaximumStableBoundaryAttempts) {
+      g_saveMenuState.pending = true;
+      g_saveMenuState.pendingAction = action;
+      g_saveMenuState.pendingSlot = slot;
+      g_saveMenuState.pendingAttempts = attempt;
+      g_saveMenuAllowOverwrite = allowOverwrite;
+      ++g_saveMenuState.deferredCommands;
+      RefreshNativeSaveMenu();
+      return false;
+    }
+    g_saveMenuState.lastCommandAttempts = attempt;
     ++g_saveMenuState.failedCommands;
     RefreshNativeSaveMenu();
     return false;
   }
+  g_saveMenuState.lastCommandAttempts = attempt;
   g_saveMenuState.lastSlot = completedSlot;
   g_saveMenuState.lastContinuation = completedContinuation;
   if (action == RECOVERED_SAVE_MENU_SAVE)
@@ -2797,10 +2825,6 @@ int RecoveredGameServices_RunFrame() {
     return FALSE;
   }
   if (!PumpMessages()) return FALSE;
-  if (g_saveMenuState.pending &&
-      !RecoveredGameServices_ProcessPendingSaveCommand()) {
-    ShowNativeSaveFailure();
-  }
   bool vehicleFrame = g_vehicleControlReady;
   if (vehicleFrame && g_vehicleFrameCount == 0) {
     const double timerTime = g_timer.GetTime();
@@ -2888,5 +2912,15 @@ int RecoveredGameServices_RunFrame() {
     return FALSE;
   }
   RecordPrimaryFireRenderFrame();
+  // Save/load owns the last boundary of a fully simulated, rendered and
+  // presented frame. In particular, every drawable Subject has received its
+  // endRender callback before LCN1 attempts to capture the live-world backup.
+  // A transient owner-publication failure is retained as one pending command
+  // and retried on a later closed frame; only a terminal failure reaches UI.
+  if (g_saveMenuState.pending &&
+      !RecoveredGameServices_ProcessPendingSaveCommand() &&
+      !g_saveMenuState.pending) {
+    ShowNativeSaveFailure();
+  }
   return TRUE;
 }

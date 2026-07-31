@@ -1387,9 +1387,14 @@ playable Level begins.
   exposes eight Save and eight Load commands plus open-folder and exit actions
   without activating the incomplete retail `saves.cfg` path.
 - A menu action does not serialize or restore inside `WM_COMMAND`. It queues
-  one request which the recovered loop executes after message pumping and
-  before simulation. Pending-command replacement, invalid indices and
-  unconfirmed overwrite are rejected without changing the slot or world.
+  one request which the recovered loop executes after a fully ended and
+  presented frame. Frame-publication failures are retried as the same bounded
+  request without another click. Pending-command replacement, invalid indices
+  and unconfirmed overwrite are rejected without changing the slot or world.
+- Load replacement no longer requires the current short-lived
+  Bullet/Explosion/Spark/Smoke/Corpse roster to share the save point's symbolic
+  names. The transaction captures the current roster for rollback, builds the
+  saved one, and reconstructs the backup on any failed commit.
 - Every successful save embeds the actual 640x480 indexed framebuffer and
   active palette as a validated PNG. Empty and corrupt files are labelled;
   readable slots expose title and Level; a different Level/content set remains
@@ -1398,8 +1403,9 @@ playable Level begins.
   Automatic selection and reconstruction of a different saved Level, an
   in-menu thumbnail browser and retail `Save*.sav` import remain separate.
 - Admission is 59/59 CTest in Debug and Release, 18/18 preview-bearing atomic
-  slot continuations and 18/18 ordinary executable runs across the nine
-  installed retail Levels in both configurations.
+  slot continuations with a real `load_retry=1/2` Explosion boundary and 18/18
+  ordinary executable runs across the nine installed retail Levels in both
+  configurations.
 
 ## Binary analysis boundary
 

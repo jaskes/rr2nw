@@ -2752,12 +2752,12 @@ Status vocabulary:
   or legacy event receiver would make re-entrancy and rollback dependent on
   dispatch stack state.
 - Handling: the native eight-slot `Game` menu only enqueues one bounded action.
-  `RecoveredGameServices_RunFrame` processes it after message pumping and
-  before simulation. A second pending command and out-of-range slot are
-  rejected. Save rechecks overwrite authority, captures the real 640x480
-  indexed framebuffer and palette, then uses RR2SLOT1 atomic commit. Load is
-  enabled only when decoded Level/content identities match the running
-  session and reuses the LCN1 transaction.
+  `RecoveredGameServices_RunFrame` processes it after simulation,
+  `SUA_EndRender`, presentation and frame telemetry. A second pending command
+  and out-of-range slot are rejected. Save rechecks overwrite authority,
+  captures the real 640x480 indexed framebuffer and palette, then uses
+  RR2SLOT1 atomic commit. Load is enabled only when decoded Level/content
+  identities match the running session and reuses the LCN1 transaction.
 - Verification: the broker smoke proves invalid-index, single-pending and
   overwrite guards, a non-zero validated PNG and destroyed-context disk load.
   The executable runtime log proves the configured root, eight slots, native
@@ -2768,6 +2768,34 @@ Status vocabulary:
   restart request and reconstruct the Level named by the decoded slot before
   invoking LCN1. A future in-game browser may replace the native presentation,
   but not the broker, fixed filenames or compatibility checks.
+
+### CQ-160: a closed frame and a replaceable transient roster are separate load requirements
+
+- Status: `RUNTIME_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: a manual Level.04D save/load produced `live Explosion is not at a
+  stable frame boundary`; its log retained one save request, two load requests,
+  one completed load and one failed command. Loading in the third world
+  succeeded, proving the slot/LCN1 codec and same-Level path rather than the
+  archive were at fault. The Level.04D Debug run submitted about 1,983
+  polygons/frame and repeatedly hosted active effect owners.
+- Handling: broker execution moved to the end of a completely presented frame.
+  Errors containing `frame boundary` or `published in a frame` retain the same
+  request for at most eight attempts and do not show a dialog while deferred.
+  Once stable, the active-world transaction captures its rollback image,
+  removes the current reconstructible Bullet/Explosion/Spark/Smoke/Corpse
+  rosters and builds the saved rosters. Rollback performs the inverse
+  reconstruction before symbolic references, EVT1, clock/RNG and CTJ1 are
+  restored.
+- Verification: the retail service smoke creates a real particle-bearing
+  Explosion, proves EXP1 capture rejection while its drawable is published,
+  observes broker state `pendingAttempts=1/deferredCommands=1`, closes the
+  frame and loads on attempt two while the Explosion remains live. The final
+  proof marker is `load_retry=1/2`; the continuation matrix requires it for
+  every selected Level/configuration.
+- Revisit when: a reconstructible People/Tank roster is observed to change
+  symbolic membership between save and load. Those long-lived gameplay owners
+  currently retain their roster and restore state in place; do not generalize
+  transient teardown without route, group and cannon ownership proofs.
 
 ## Maintenance rule
 

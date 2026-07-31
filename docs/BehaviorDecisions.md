@@ -3567,9 +3567,19 @@ filenames and Level destruction from legacy event dispatch.
 The first product integration therefore uses a native Windows `Game` menu
 owned by the recovered service session. It preserves the eight-slot user
 model, but each `WM_COMMAND` only queues one save or load. The request executes
-after message pumping and before simulation, at the same stable boundary used
-by LCN1. Adding/removing the menu recomputes the outer window dimensions so the
-software client remains exactly 640x480.
+after the next fully simulated, rendered, ended and presented frame, at the
+stable boundary used by LCN1. Adding/removing the menu recomputes the outer
+window dimensions so the software client remains exactly 640x480.
+
+A real Level.04D manual load exposed why “after message pumping” was not a
+sufficient definition: an Explosion could still be published in the scene and
+make target backup capture reject the request. Transient frame-publication
+errors now retain the single command for a bounded retry without another click
+or an intermediate error dialog. The restore transaction separately replaces
+the backed-up `Bullet`/`Explosion`/`Spark`/`Smoke`/`Corpse` roster, so a closed
+but still-live effect at the load point need not share names with the save.
+Rollback reconstructs the old transient roster before reapplying its symbolic
+state.
 
 The menu is presentation, not a persistence precondition. A headless service
 session without `HWND` still configures the same slots, captures its software
@@ -3588,6 +3598,7 @@ second persistence implementation. Cross-Level load must be a main-loop
 restart request, never destruction from `WM_COMMAND` or script event dispatch.
 
 The regression contract is the indexed-PNG parser/round-trip smoke, queue and
-overwrite guards in the real service smoke, 59/59 Debug/Release CTest, the
-18-case preview-bearing destroyed-context matrix and the independent 18-case
-ordinary executable matrix on the installed retail root.
+overwrite guards plus a real open-Explosion `1/2` retry in the service smoke,
+59/59 Debug/Release CTest, the 18-case preview-bearing destroyed-context matrix
+and the independent 18-case ordinary executable matrix on the installed
+retail root.

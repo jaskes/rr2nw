@@ -148,6 +148,23 @@ not claim pixel identity with every historical Watcom or Direct3D path; any
 remaining discrepancy must be recorded with a Level, frame, telemetry and
 screenshot before changing palette or raster rules.
 
+### Level.04D performance observation
+
+The 2026-07-31 manual Level.04D save/load run used the Debug executable. Across
+1,178 frames it submitted 2,335,690 polygons (about 1,983/frame), rasterized
+1,082,540 (about 919/frame) and wrote 697,377,504 pixels (about 592,000/frame).
+It reported 42 dropped-time frames (3.6%) and clamped 881 timer samples, so its
+slow-motion feel is real.
+
+Historical Release captures are not an equal-configuration benchmark:
+Level.03N submitted about 1,691 polygons/frame and Level.05D about 1,492, while
+both wrote roughly 566,000--574,000 pixels/frame. The Level.04D Debug scene
+therefore has about 17% more submitted geometry than that Level.03N Release
+sample, but current aggregate counters cannot attribute the difference to its
+aircraft. Before changing simulation or culling, compare Level.04D in Release
+on the same route and add per-owner/render-stage timing. Use Release for normal
+manual play unless a Debug assertion is the subject of the test.
+
 The automated service proof now crosses an actual RR2SLOT1 file and reconstructs
 the complete admitted world/input boundary after a destroyed Level. Run its
 all-Level disk-slot sweep with:
@@ -161,8 +178,9 @@ all-Level disk-slot sweep with:
 Each successful row must contain non-zero `WorldFingerprint`,
 `JournalFingerprint`, `ContainerFingerprint`, `SaveSlotFingerprint` and
 `SaveSlotBytes`, plus non-zero `PreviewFingerprint` and `PreviewBytes`. The
-harness uses a process-scoped temporary save directory and removes all eight
-fixed files after success.
+harness also requires `DeferredLoads=1` and `LoadAttempts=2` from a real
+open-Explosion boundary. It uses a process-scoped temporary save directory and
+removes all eight fixed files after success.
 
 ## Interactive save/load pass
 
@@ -183,6 +201,13 @@ In the visible window:
 5. exit cleanly, rerun the same one-line executable command and load Slot 1;
 6. use `Game > Open save folder` and retain `Slot0.rr2save` with the matching
    diagnostics for a failed pass.
+
+Save/load commands execute only after the current frame has been fully ended
+and presented. If an owner still reports a transient open-frame publication,
+the same request retries automatically for a bounded number of frames; no
+second click should be required. Loading is also expected to replace live
+short-lived effects, so repeat this pass once while firing or while an
+Explosion/Smoke effect is visible.
 
 The slot contains a real 640x480 indexed PNG, but the native menu does not draw
 the thumbnail yet. A slot for another Level stays visible and load-disabled;

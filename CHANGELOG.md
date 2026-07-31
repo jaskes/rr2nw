@@ -7,6 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Moved native save/load execution to the end of a fully simulated, ended and
+  presented frame. Transient open-publication failures now retain one bounded
+  request and retry without a second click or intermediate error dialog.
+- Made LCN1 replace differing live Bullet/Explosion/Spark/Smoke/Corpse rosters
+  transactionally after target backup; rollback reconstructs the prior
+  transient roster before restoring symbolic state. The all-Level service
+  proof now opens a real particle Explosion, observes one deferred load and
+  completes attempt two (`load_retry=1/2`).
+- Documented the first manual Level.04D performance sample: its Debug run
+  submitted about 1,983 polygons/frame and showed substantial timer clamping.
+  Aircraft are not yet identified as the cause; a same-route Release comparison
+  and per-owner/render-stage timing remain the profiling gate.
 - Connected eight native Windows `Game` menu save/load commands to the
   recovered main loop. Commands are single-pending requests processed only at
   the safe frame boundary; occupied saves and loads require confirmation,

@@ -120,10 +120,25 @@ disabled. Saving an occupied slot and loading any compatible slot require
 confirmation.
 
 Window commands only enqueue one bounded request. The real save or load runs
-after Windows message pumping and before the next simulation step, never from
-inside `WM_COMMAND` or legacy event dispatch. A second request cannot replace a
-pending one. Save rechecks the overwrite guard at commit time; load revalidates
-the complete file and compatibility before the existing LCN1 transaction.
+after simulation, `SUA_EndRender`, framebuffer presentation and frame
+telemetry, never from inside `WM_COMMAND` or legacy event dispatch. This is the
+first boundary at which every drawable Subject has closed its transient scene
+publication. A second request cannot replace a pending one.
+
+Save rechecks the overwrite guard at commit time. Load revalidates the complete
+file and compatibility before the LCN1 transaction. A frame-publication
+failure keeps the single command pending for at most eight closed-frame
+attempts; deferred attempts do not display an error or count as new user
+requests. A terminal format, compatibility or transaction error is reported
+immediately.
+
+The LCN1 transaction also replaces the reconstructible transient
+`Bullet`/`Explosion`/`Spark`/`Smoke`/`Corpse` rosters after capturing the
+target-session backup. A save point and load point therefore need not contain
+the same short-lived effect object names. Successful load keeps the saved
+roster; rollback removes the staged roster and reconstructs the exact backed-up
+one before restoring references, events, clock/RNG and control state.
+
 Headless service tests have no `HWND` and therefore no presentation menu, but
 exercise the same broker, framebuffer PNG and disk transaction.
 
@@ -152,13 +167,17 @@ The retail service smoke rejects an out-of-range request and a second pending
 request, then saves slot 3 after 24 real Vehicle frames with a non-zero real
 PNG preview. It proves overwrite-without-confirmation is rejected, attempts an
 invalid service replacement and rereads the retained fingerprint. It then runs
-the existing combat/Taxi/effects suite, destroys the complete Level context,
-starts the same Level again, rejects another out-of-range request, loads the
-file from disk and proves exact world/journal fingerprints, Vehicle position
-and five further controlled frames.
+the existing combat/Taxi/effects suite, destroys the complete Level context and
+starts the same Level again. Before loading, it creates a real particle-bearing
+Explosion and deliberately leaves its drawable publication open. Attempt one
+is deferred with the production error, `endRender` makes EXP1 capturable, and
+attempt two replaces the still-live transient roster with the saved world. The
+proof then requires exact world/journal fingerprints, Vehicle position and
+five further controlled frames.
 
-`tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires both the
-`LCN1-12/12/12` and `RR2SLOT1-3` proof markers for every selected retail case.
+`tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
+`LCN1-12/12/12`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
+selected retail case.
 
 The accepted local Windows gate is 59/59 CTest in Debug and Release, 18/18
 RR2SLOT1 destroyed-context cases and 18/18 independent ordinary retail runtime
