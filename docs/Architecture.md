@@ -203,6 +203,14 @@ User saves/config/logs не являются VFS content и находятся �
 Filesystem layer нормализует separators и case policy, но сохраняет исходное
 имя для diagnostics.
 
+Schema-1 уже добавляет один безопасный каталог поверх retail `game.cfg`:
+derived Level объявляет новый ID и один из девяти retail Level как физическую
+базу. Legacy code продолжает работать в существующем read-only каталоге, но
+VFS сначала ищет exact target под derived ID, затем под base ID. Активный ID
+передается в save/LCN1 независимо от физического basename. Композиция нескольких
+пакетов, dependencies/conflicts и общий mount order остаются следующим M5
+слоем; `game.cfg` не становится записываемым или заменяемым состоянием.
+
 ## Crash and diagnostics
 
 Release crash bundle должен содержать:

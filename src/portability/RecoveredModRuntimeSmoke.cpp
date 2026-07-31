@@ -31,13 +31,17 @@ bool Write(const std::string& path, const std::string& text) {
 std::string Manifest(const std::string& source,
                      const std::string& target,
                      int engineApi = 1,
-                     bool duplicate = false) {
+                     bool duplicate = false,
+                     const std::string& levels = std::string()) {
   std::string text =
       "{\n"
       "  \"schema\": 1,\n"
       "  \"engine_api\": " + std::to_string(engineApi) + ",\n"
       "  \"id\": \"rr2nw.example.overlay\",\n"
-      "  \"version\": \"1.0.0\",\n"
+      "  \"version\": \"1.0.0\",\n";
+  if (!levels.empty())
+    text += "  \"levels\": " + levels + ",\n";
+  text +=
       "  \"files\": [\n"
       "    {\"source\": \"" + source + "\", \"target\": \"" +
       target + "\"}";
@@ -74,17 +78,18 @@ int Fail(const char* message) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 3)
-    return Fail("expected scratch-root and example-mod arguments");
+  if (argc != 4)
+    return Fail("expected scratch-root and two example-mod arguments");
   const std::string root = Join(
       argv[1], "case-" + std::to_string(GetCurrentProcessId()));
   const std::string base = Join(root, "base");
   const std::string level = Join(base, "Level.03N");
+  const std::string physicalCollision = Join(base, "Level.Physical");
   const std::string mod = Join(root, "mod");
   const std::string textures = Join(mod, "textures");
   if (!MakeDirectory(argv[1]) || !MakeDirectory(root) ||
       !MakeDirectory(base) || !MakeDirectory(level) || !MakeDirectory(mod) ||
-      !MakeDirectory(textures))
+      !MakeDirectory(physicalCollision) || !MakeDirectory(textures))
     return Fail("could not create fixture directories");
 
   const std::string baseTarget = Join(level, "sample.txt");
@@ -178,6 +183,79 @@ int main(int argc, char** argv) {
           combined)
     return Fail("valid manifest identity is not reproducible");
 
+  const std::string derivedLevels =
+      "[{\"id\":\"Level.Example\",\"base\":\"Level.03N\"}]";
+  if (!Write(manifest,
+             Manifest("textures/replacement.txt", "Level.Example/sample.txt",
+                      1, false, derivedLevels)) ||
+      !RecoveredModRuntime_Configure(base.c_str(), mod.c_str()))
+    return Fail("derived Level manifest was not admitted");
+  summary = RecoveredModRuntime_Summary();
+  SRecoveredModLevel derived;
+  char activated[4096] = {};
+  if (summary == nullptr || summary->levelCount != 1 ||
+      RecoveredModRuntime_LevelCount() != 1 ||
+      !RecoveredModRuntime_Level(0, &derived) ||
+      std::strcmp(derived.id, "Level.Example") != 0 ||
+      std::strcmp(derived.base, "Level.03N") != 0)
+    return Fail("derived Level catalog summary is incomplete");
+  if (!RecoveredModRuntime_ActivateLevel("Level.Example", activated,
+                                         sizeof(activated)))
+    return Fail("derived Level activation failed");
+  const DWORD activatedAttributes = GetFileAttributesA(activated);
+  if (activatedAttributes == INVALID_FILE_ATTRIBUTES ||
+      (activatedAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 ||
+      !RecoveredModRuntime_ActiveLevelIsDerived() ||
+      std::strcmp(RecoveredModRuntime_ActiveLevelIdentity(),
+                  "Level.Example") != 0)
+    return Fail("derived Level activation failed");
+  if (!ReadThroughResource(baseTarget, &text) || text != "mod-data")
+    return Fail("derived Level overlay was not selected");
+  if (!ReadThroughResource(baseOther, &text) || text != "base-other")
+    return Fail("derived Level base fallback failed");
+  const std::uint64_t derivedFingerprint = summary->modFingerprint;
+  if (derivedFingerprint == 0 || derivedFingerprint == modFingerprint ||
+      !RecoveredModRuntime_ActivateLevel("Level.03N", activated,
+                                        sizeof(activated)) ||
+      RecoveredModRuntime_ActiveLevelIsDerived() ||
+      !ReadThroughResource(baseTarget, &text) || text != "base-data")
+    return Fail("derived Level identity did not remain isolated");
+
+  const std::string duplicateLevels =
+      "[{\"id\":\"Level.Example\",\"base\":\"Level.03N\"},"
+      "{\"id\":\"level.example\",\"base\":\"Level.03N\"}]";
+  if (!Write(manifest,
+             Manifest("textures/replacement.txt", "Level.Example/sample.txt",
+                      1, false, duplicateLevels)) ||
+      RecoveredModRuntime_Configure(base.c_str(), mod.c_str()) ||
+      (RecoveredModRuntime_Issues() & RECOVERED_MOD_DUPLICATE_LEVEL) == 0)
+    return Fail("duplicate derived Level id did not fail closed");
+
+  const std::string missingBase =
+      "[{\"id\":\"Level.Example\",\"base\":\"Level.Missing\"}]";
+  if (!Write(manifest,
+             Manifest("textures/replacement.txt", "Level.Example/sample.txt",
+                      1, false, missingBase)) ||
+      RecoveredModRuntime_Configure(base.c_str(), mod.c_str()) ||
+      (RecoveredModRuntime_Issues() & RECOVERED_MOD_MISSING_LEVEL_BASE) == 0)
+    return Fail("missing derived Level base did not fail closed");
+
+  const std::string collidingLevel =
+      "[{\"id\":\"Level.Physical\",\"base\":\"Level.03N\"}]";
+  if (!Write(manifest,
+             Manifest("textures/replacement.txt", "Level.Physical/sample.txt",
+                      1, false, collidingLevel)) ||
+      RecoveredModRuntime_Configure(base.c_str(), mod.c_str()) ||
+      (RecoveredModRuntime_Issues() & RECOVERED_MOD_LEVEL_COLLISION) == 0)
+    return Fail("physical derived Level collision did not fail closed");
+
+  if (!Write(manifest,
+             Manifest("textures/replacement.txt", "Level.Example/sample.txt",
+                      1, false, derivedLevels)) ||
+      !RecoveredModRuntime_Configure(base.c_str(), mod.c_str()) ||
+      RecoveredModRuntime_Summary()->modFingerprint != derivedFingerprint)
+    return Fail("derived Level manifest identity is not reproducible");
+
   RecoveredModRuntime_Release();
   if (RecoveredModRuntime_IsConfigured() ||
       !ReadThroughResource(baseTarget, &text) || text != "base-data")
@@ -192,9 +270,21 @@ int main(int argc, char** argv) {
     return Fail("repository example mod has an invalid identity");
   RecoveredModRuntime_Release();
 
+  if (!RecoveredModRuntime_Configure(base.c_str(), argv[3]))
+    return Fail("repository derived-Level example was not admitted");
+  summary = RecoveredModRuntime_Summary();
+  if (summary == nullptr ||
+      std::strcmp(summary->id, "rr2nw.example.derived-level") != 0 ||
+      summary->fileCount != 0 || summary->levelCount != 1 ||
+      summary->modFingerprint == 0)
+    return Fail("repository derived-Level example has an invalid identity");
+  RecoveredModRuntime_Release();
+
   std::printf("recovered mod runtime smoke: files=1 bytes=8 fingerprint=%llu "
-              "combined=%llu bom=1 fail_closed=6 example=1\n",
+              "combined=%llu derived=%llu levels=1 bom=1 fail_closed=9 "
+              "examples=2\n",
               static_cast<unsigned long long>(modFingerprint),
-              static_cast<unsigned long long>(combined));
+              static_cast<unsigned long long>(combined),
+              static_cast<unsigned long long>(derivedFingerprint));
   return 0;
 }

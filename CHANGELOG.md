@@ -7,6 +7,24 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added strict schema-1 derived Level declarations. A package can append a new
+  catalog identity backed by one immutable retail `game.cfg` Level, with its
+  own exact overlay prefix, deterministic fingerprint and save/LCN1 identity;
+  the retail file remains protected and untouched.
+- Replaced the fixed nine-entry startup array with a composed active catalog
+  and transactional Level activation. Matching save/load and base-to-derived
+  cross-Level restore preserve the declared identity while legacy `chdir`
+  continues to use the read-only physical base.
+- Added a copyright-free `Level.Example`, hermetic duplicate/missing/collision
+  rollback proofs and `Invoke-DerivedLevel.ps1`. The product gate consumes a
+  derived-only `level.cfg`, proves base isolation, saves/restores/cross-loads
+  the new identity and rejects undeclared or non-retail catalog entries. The
+  accepted gate is 61/61 CTest per configuration, 18/18 retail launches,
+  9/9 fresh continuation cases per configuration and 2/2 derived-Level
+  product matrices.
+- Recorded replacement of the legacy `CtrlSet::Translate()` keyboard path as
+  bounded M2 technical debt (`CQ-170`) with an adapter boundary, explicit exit
+  criteria and a prohibition on new gameplay dependencies on legacy polling.
 - Extended gameplay-tuning schema 1 to verified Level-local `PeopleAttr` and
   `TankAttr` owners. Mods can now tune People movement/initial health/fire
   interval/burst count and Tank maximum speed/attack power/attack delay by

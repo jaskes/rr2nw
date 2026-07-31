@@ -1241,8 +1241,8 @@ mass, table membership and reference graphs remain unavailable.
 This closes the initial VFS, first data schema, examples and save-binding
 gates, but not the whole M5 feature list. The next mod slices remain ordered:
 
-1. add declared new-Level/catalog support without allowing mods to replace
-   user `game.cfg` directly;
+1. **closed:** add declared derived-Level/catalog support without allowing mods
+   to replace user `game.cfg` directly;
 2. add multiple-mod discovery, dependency/conflict validation and deterministic
    mount ordering;
 3. expose further actor/reference fields only after exact active consumer,
@@ -1252,6 +1252,23 @@ gates, but not the whole M5 feature list. The next mod slices remain ordered:
    documented; evaluate Lua after those data-driven contracts are proven;
 5. package the validator/example and run the final Win10/Win11 manual campaign
    gate before calling the M5/RC frontier complete.
+
+The first item is now closed by schema-1 `levels[]`. Each new identity derives
+from one of the nine immutable retail `game.cfg` entries, owns an isolated
+overlay namespace and remains distinct in save/continuation metadata. The
+legacy runtime enters the physical retail base read-only, while the resolver
+applies derived targets before base targets. Duplicate IDs, physical/catalog
+collisions, absent bases and bases not listed by retail configuration fail
+before Level construction; `game.cfg` remains a protected target.
+
+The product gate starts `Level.Example`, consumes a derived-only `level.cfg`,
+saves and restores it after relaunch, cross-loads `Level.03N -> Level.Example`,
+proves that starting `Level.03N` cannot see the derived target, and rejects both
+an undeclared identity and a non-retail base. It passes 2/2 Debug/Release
+product matrices alongside 61/61 CTest per configuration, 18/18 ordinary
+installed-Level launches and 9/9 fresh-continuation cases per configuration.
+The next ordered M5 frontier is therefore item 2: multiple-mod discovery,
+dependency/conflict validation and deterministic mount ordering.
 
 The tuning admission adds a hermetic schema gate and a product proof that
 observes the exact committed Vehicle/projectile/People/Tank values, executes a

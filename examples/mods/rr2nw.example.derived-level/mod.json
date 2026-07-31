@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.example.derived-level",
+  "version": "1.0.0",
+  "levels": [
+    {
+      "id": "Level.Example",
+      "base": "Level.03N"
+    }
+  ],
+  "files": []
+}

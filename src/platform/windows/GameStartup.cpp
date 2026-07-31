@@ -60,7 +60,7 @@ struct StartupOptions {
 
 struct RetailData {
   std::wstring root;
-  std::array<std::wstring, kRetailLevelCount> levels;
+  std::vector<std::wstring> levels;
   int startLevel = -1;
 };
 
@@ -404,6 +404,7 @@ bool InspectRetailData(const std::wstring& candidate, RetailData* data,
 
   RetailData inspected;
   inspected.root = root;
+  inspected.levels.reserve(kRetailLevelCount);
   inspected.startLevel =
       GetPrivateProfileIntW(L"Init", L"StartLevel", -1, configPath.c_str());
   if (inspected.startLevel < 0 || inspected.startLevel >= kRetailLevelCount) {
@@ -421,7 +422,7 @@ bool InspectRetailData(const std::wstring& candidate, RetailData* data,
       *failure = std::wstring(L"game.cfg is missing Levels/") + key;
       return false;
     }
-    inspected.levels[static_cast<std::size_t>(index)] = value;
+    inspected.levels.push_back(value);
     if (!IsDirectory(JoinPath(root, value))) {
       *failure = std::wstring(L"configured level directory is missing: ") +
                  value;
@@ -457,6 +458,49 @@ bool LocateRetailData(const StartupOptions& options, RetailData* data,
   return false;
 }
 
+bool AppendDeclaredModLevels(RetailData* data, std::wstring* failure) {
+  if (data == nullptr || data->levels.size() != kRetailLevelCount) {
+    *failure = L"retail Level catalog is incomplete before mod admission";
+    return false;
+  }
+  const unsigned int count = RecoveredModRuntime_LevelCount();
+  data->levels.reserve(data->levels.size() + count);
+  for (unsigned int index = 0; index < count; ++index) {
+    SRecoveredModLevel declared;
+    if (!RecoveredModRuntime_Level(index, &declared)) {
+      *failure = L"mod Level catalog could not be enumerated";
+      return false;
+    }
+    const std::wstring id = Utf8ToWide(declared.id);
+    const std::wstring base = Utf8ToWide(declared.base);
+    if (id.empty() || base.empty()) {
+      *failure = L"mod Level catalog contains a non-UTF-8 identity";
+      return false;
+    }
+    bool baseListed = false;
+    for (int retail = 0; retail < kRetailLevelCount; ++retail) {
+      if (_wcsicmp(base.c_str(),
+                   data->levels[static_cast<std::size_t>(retail)].c_str()) ==
+          0) {
+        baseListed = true;
+        break;
+      }
+    }
+    if (!baseListed) {
+      *failure = L"mod Level base is not listed in retail game.cfg: " + base;
+      return false;
+    }
+    for (const std::wstring& existing : data->levels) {
+      if (_wcsicmp(id.c_str(), existing.c_str()) == 0) {
+        *failure = L"mod Level id collides with the active catalog: " + id;
+        return false;
+      }
+    }
+    data->levels.push_back(id);
+  }
+  return true;
+}
+
 bool SelectStartLevel(const StartupOptions& options, RetailData* data,
                       std::wstring* failure) {
   if (options.startLevel.empty()) {
@@ -467,24 +511,25 @@ bool SelectStartLevel(const StartupOptions& options, RetailData* data,
   wchar_t* end = nullptr;
   const long numeric = std::wcstol(options.startLevel.c_str(), &end, 10);
   if (errno == 0 && end != options.startLevel.c_str() && *end == L'\0') {
-    if (numeric < 0 || numeric >= kRetailLevelCount) {
-      *failure = L"--start-level index must be between 0 and 8";
+    if (numeric < 0 ||
+        numeric >= static_cast<long>(data->levels.size())) {
+      *failure = L"--start-level index is outside the active Level catalog";
       return false;
     }
     data->startLevel = static_cast<int>(numeric);
     return true;
   }
 
-  for (int index = 0; index < kRetailLevelCount; ++index) {
+  for (std::size_t index = 0; index < data->levels.size(); ++index) {
     if (_wcsicmp(options.startLevel.c_str(),
                  data->levels[static_cast<std::size_t>(index)].c_str()) == 0) {
-      data->startLevel = index;
+      data->startLevel = static_cast<int>(index);
       return true;
     }
   }
 
-  *failure = L"--start-level must be an index from 0 to 8 or a Level name "
-             L"listed in game.cfg";
+  *failure = L"--start-level must be an active catalog index or a Level name "
+             L"listed by retail game.cfg/the selected mod";
   return false;
 }
 
@@ -504,10 +549,10 @@ std::wstring BuildIdentity() {
 int FindRetailLevel(const RetailData& data, const std::string& identity) {
   const std::wstring wideIdentity = Utf8ToWide(identity.c_str());
   if (wideIdentity.empty()) return -1;
-  for (int index = 0; index < kRetailLevelCount; ++index) {
+  for (std::size_t index = 0; index < data.levels.size(); ++index) {
     if (_wcsicmp(wideIdentity.c_str(),
-                 data.levels[static_cast<std::size_t>(index)].c_str()) == 0)
-      return index;
+                 data.levels[index].c_str()) == 0)
+      return static_cast<int>(index);
   }
   return -1;
 }
@@ -534,21 +579,31 @@ std::string RecoveredLevelStartFailure(const char* stage) {
 bool StartRecoveredLevel(const RetailData& data, int levelIndex,
                          std::string* failure) {
   if (failure != nullptr) failure->clear();
-  if (levelIndex < 0 || levelIndex >= kRetailLevelCount) {
-    if (failure != nullptr) *failure = "retail Level index is invalid";
+  if (levelIndex < 0 ||
+      levelIndex >= static_cast<int>(data.levels.size())) {
+    if (failure != nullptr) *failure = "Level catalog index is invalid";
+    return false;
+  }
+  std::string levelIdentity;
+  if (!WideToSystemPath(
+          data.levels[static_cast<std::size_t>(levelIndex)],
+          &levelIdentity)) {
+    if (failure != nullptr)
+      *failure = "Level identity is not representable by the Windows ANSI "
+                 "code page";
     return false;
   }
   std::string levelDirectory;
-  if (!WideToSystemPath(
-          JoinPath(data.root,
-                   data.levels[static_cast<std::size_t>(levelIndex)]),
-          &levelDirectory)) {
+  char physicalDirectory[4096] = {};
+  if (!RecoveredModRuntime_ActivateLevel(
+          levelIdentity.c_str(), physicalDirectory,
+          sizeof(physicalDirectory))) {
     if (failure != nullptr) {
-      *failure =
-          "Level path is not representable by the Windows ANSI code page";
+      *failure = RecoveredModRuntime_LastError();
     }
     return false;
   }
+  levelDirectory = physicalDirectory;
   if (ZAV_InitLevel(levelDirectory.c_str()) == FALSE ||
       !RecoveredGameLevel_IsReady()) {
     if (failure != nullptr)
@@ -585,7 +640,7 @@ bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
       targetLevelIndex < 0) {
     const std::string detail =
         targetLevelIndex < 0
-            ? "save slot names a Level that is not listed in game.cfg"
+            ? "save slot names a Level that is not in the active catalog"
             : "cross-Level source no longer matches the active Level";
     RecoveredGameServices_RecordCrossLevelLoadFailure(
         request, detail, false, false);
@@ -731,16 +786,6 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 failure + L"\n\nDiagnostic log:\n" + log.path());
     return kDataNotReady;
   }
-  if (!SelectStartLevel(options, &data, &failure)) {
-    log.WideLine("failure", failure);
-    log.WideLine("start_level_requested", options.startLevel);
-    log.Line("marker=level-selection-invalid");
-    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
-                L"RR2NW level selection error",
-                failure + L"\n\nDiagnostic log:\n" + log.path());
-    return kInvalidArguments;
-  }
-
   ModRuntimeScope modRuntimeScope;
   std::string baseDataPath;
   std::string modDataPath;
@@ -771,9 +816,27 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                     L"\n\nDiagnostic log:\n" + log.path());
     return kDataNotReady;
   }
+  if (!AppendDeclaredModLevels(&data, &failure)) {
+    log.WideLine("failure", failure);
+    log.Line("marker=mod-level-catalog-not-ready");
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW mod Level catalog error",
+                failure + L"\n\nDiagnostic log:\n" + log.path());
+    return kDataNotReady;
+  }
+  if (!SelectStartLevel(options, &data, &failure)) {
+    log.WideLine("failure", failure);
+    log.WideLine("start_level_requested", options.startLevel);
+    log.Line("marker=level-selection-invalid");
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW level selection error",
+                failure + L"\n\nDiagnostic log:\n" + log.path());
+    return kInvalidArguments;
+  }
 
   log.WideLine("data_dir", data.root);
   log.Line("retail_level_count=9");
+  log.Line("level_catalog_count=" + std::to_string(data.levels.size()));
   log.Line(std::string("start_level_source=") +
            (options.startLevel.empty() ? "game.cfg" : "command-line"));
   if (!options.startLevel.empty()) {
@@ -796,6 +859,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("mod_schema=" + std::to_string(modSummary->schemaVersion));
     log.Line("mod_engine_api=" + std::to_string(modSummary->engineApi));
     log.Line("mod_files=" + std::to_string(modSummary->fileCount));
+    log.Line("mod_levels=" + std::to_string(modSummary->levelCount));
     log.Line("mod_bytes=" + std::to_string(modSummary->totalBytes));
     log.Line("mod_fingerprint=" +
              std::to_string(modSummary->modFingerprint));
@@ -834,13 +898,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(options.startupLoadSlot + 1));
   }
 
+  std::string levelIdentity;
   std::string levelDirectory;
+  char physicalLevelDirectory[4096] = {};
   if (!WideToSystemPath(
-          JoinPath(data.root,
-                   data.levels[static_cast<std::size_t>(data.startLevel)]),
-          &levelDirectory)) {
-    log.Line("failure=level path is not representable by the Windows ANSI "
-             "code page");
+          data.levels[static_cast<std::size_t>(data.startLevel)],
+          &levelIdentity) ||
+      !RecoveredModRuntime_ActivateLevel(
+          levelIdentity.c_str(), physicalLevelDirectory,
+          sizeof(physicalLevelDirectory))) {
+    log.Line(std::string("failure=") +
+             (RecoveredModRuntime_LastError()[0] == '\0'
+                  ? "level identity/path is not representable"
+                  : RecoveredModRuntime_LastError()));
     log.Line("marker=level-not-ready");
     ShowMessage(options.runtimeSmoke, MB_ICONERROR,
                 L"RR2NW runtime error",
@@ -849,6 +919,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                     log.path());
     return kRuntimeNotReady;
   }
+  levelDirectory = physicalLevelDirectory;
+  log.Line(std::string("level_catalog_derived=") +
+           (RecoveredModRuntime_ActiveLevelIsDerived() ? "1" : "0"));
+  if (RecoveredModRuntime_ActiveLevelBase() != nullptr)
+    log.Line(std::string("level_catalog_base=") +
+             RecoveredModRuntime_ActiveLevelBase());
   std::string ditherTablePath;
   if (!WideToSystemPath(JoinPath(data.root, L"DITH.DTH"),
                         &ditherTablePath)) {

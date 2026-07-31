@@ -4555,6 +4555,10 @@ unsigned long long ActiveWorldContentFingerprint() {
 }
 
 std::string ActiveWorldLevelIdentity() {
+  const char* catalogIdentity =
+      RecoveredModRuntime_ActiveLevelIdentity();
+  if (catalogIdentity != nullptr && catalogIdentity[0] != '\0')
+    return catalogIdentity;
   const char* selected = RecoveredLevelRuntime_Directory();
   if (selected == nullptr || selected[0] == '\0') return "direct-context";
   std::string path(selected);

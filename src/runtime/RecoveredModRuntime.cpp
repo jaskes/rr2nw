@@ -27,6 +27,7 @@ constexpr std::streamoff kMaximumManifestSize = 256 * 1024;
 constexpr std::streamoff kMaximumFileSize = 64 * 1024 * 1024;
 constexpr std::uint64_t kMaximumTotalSize = 512ull * 1024ull * 1024ull;
 constexpr std::size_t kMaximumFiles = 1024;
+constexpr std::size_t kMaximumLevels = 64;
 constexpr std::uint64_t kFnvOffset = 14695981039346656037ull;
 constexpr std::uint64_t kFnvPrime = 1099511628211ull;
 
@@ -38,6 +39,13 @@ struct OverlayEntry {
   std::uint64_t size = 0;
 };
 
+struct LevelEntry {
+  std::string id;
+  std::string idFolded;
+  std::string base;
+  std::string baseFolded;
+};
+
 struct Candidate {
   std::string baseLexical;
   std::string baseFinal;
@@ -47,6 +55,7 @@ struct Candidate {
   int schema = 0;
   int engineApi = 0;
   std::vector<OverlayEntry> entries;
+  std::vector<LevelEntry> levels;
   std::uint64_t totalBytes = 0;
   std::uint64_t fingerprint = kFnvOffset;
 };
@@ -56,18 +65,30 @@ struct ManifestFile {
   std::string target;
 };
 
+struct ManifestLevel {
+  std::string id;
+  std::string base;
+};
+
 struct Manifest {
   int schema = 0;
   int engineApi = 0;
   std::string id;
   std::string version;
   std::vector<ManifestFile> files;
+  std::vector<ManifestLevel> levels;
 };
 
 std::string g_baseLexical;
 std::string g_baseFinal;
 std::string g_modFinal;
 std::vector<OverlayEntry> g_entries;
+std::vector<LevelEntry> g_levels;
+std::string g_activeLevelIdentity;
+std::string g_activeLevelBase;
+std::string g_activeLevelIdentityFolded;
+std::string g_activeLevelBaseFolded;
+bool g_activeLevelDerived = false;
 SRecoveredModRuntimeSummary g_summary;
 unsigned int g_issues = 0;
 char g_lastError[512] = {};
@@ -313,6 +334,42 @@ bool ParseFiles(JsonCursor* cursor, std::vector<ManifestFile>* files) {
   }
 }
 
+bool ParseLevel(JsonCursor* cursor, ManifestLevel* level) {
+  if (!cursor->Consume('{')) return false;
+  bool idSeen = false;
+  bool baseSeen = false;
+  if (cursor->TryConsume('}')) return false;
+  for (;;) {
+    std::string key;
+    if (!cursor->String(&key) || !cursor->Consume(':')) return false;
+    if (key == "id") {
+      if (idSeen || !cursor->String(&level->id)) return false;
+      idSeen = true;
+    } else if (key == "base") {
+      if (baseSeen || !cursor->String(&level->base)) return false;
+      baseSeen = true;
+    } else {
+      return false;
+    }
+    if (cursor->TryConsume('}')) break;
+    if (!cursor->Consume(',')) return false;
+  }
+  return idSeen && baseSeen;
+}
+
+bool ParseLevels(JsonCursor* cursor, std::vector<ManifestLevel>* levels) {
+  if (!cursor->Consume('[')) return false;
+  if (cursor->TryConsume(']')) return false;
+  for (;;) {
+    if (levels->size() >= kMaximumLevels) return false;
+    ManifestLevel level;
+    if (!ParseLevel(cursor, &level)) return false;
+    levels->push_back(std::move(level));
+    if (cursor->TryConsume(']')) return true;
+    if (!cursor->Consume(',')) return false;
+  }
+}
+
 bool ParseManifest(const std::string& text, Manifest* manifest,
                    std::string* failure) {
   JsonCursor cursor(text);
@@ -325,6 +382,7 @@ bool ParseManifest(const std::string& text, Manifest* manifest,
   bool idSeen = false;
   bool versionSeen = false;
   bool filesSeen = false;
+  bool levelsSeen = false;
   if (cursor.TryConsume('}')) {
     *failure = "manifest object is empty";
     return false;
@@ -348,6 +406,9 @@ bool ParseManifest(const std::string& text, Manifest* manifest,
     } else if (key == "files") {
       accepted = !filesSeen && ParseFiles(&cursor, &manifest->files);
       filesSeen = true;
+    } else if (key == "levels") {
+      accepted = !levelsSeen && ParseLevels(&cursor, &manifest->levels);
+      levelsSeen = true;
     } else {
       *failure = "manifest contains unknown key: " + key;
       return false;
@@ -398,6 +459,23 @@ bool ValidVersion(const std::string& version) {
     if (version[position++] != '.') return false;
   }
   return components == 3;
+}
+
+bool ValidLevelComponent(const std::string& value) {
+  if (value.empty() || value.size() > 64 || value.back() == '.') return false;
+  for (std::size_t index = 0; index < value.size(); ++index) {
+    const unsigned char character =
+        static_cast<unsigned char>(value[index]);
+    const bool alphanumeric =
+        (character >= 'A' && character <= 'Z') ||
+        (character >= 'a' && character <= 'z') ||
+        (character >= '0' && character <= '9');
+    if (!alphanumeric &&
+        (index == 0 || (character != '.' && character != '_' &&
+                        character != '-')))
+      return false;
+  }
+  return value != "." && value != "..";
 }
 
 bool NormalizeRelative(const std::string& input, std::string* normalized) {
@@ -537,6 +615,56 @@ bool BuildCandidate(const char* baseRoot, const char* modDirectory,
     return false;
   }
 
+  candidate->levels.reserve(manifest.levels.size());
+  for (const ManifestLevel& declared : manifest.levels) {
+    LevelEntry entry;
+    entry.id = declared.id;
+    entry.base = declared.base;
+    if (!ValidLevelComponent(entry.id) ||
+        !ValidLevelComponent(entry.base) ||
+        FoldPath(entry.id) == FoldPath(entry.base)) {
+      SetFailure(RECOVERED_MOD_INVALID_LEVEL_ENTRY,
+                 "mod Level declaration has an invalid id or base",
+                 entry.id + " -> " + entry.base);
+      return false;
+    }
+    const std::string baseCandidate =
+        JoinPath(candidate->baseLexical, entry.base);
+    std::string baseFinal;
+    if (!FinalPath(baseCandidate, true, &baseFinal) ||
+        !IsWithin(baseFinal, candidate->baseFinal)) {
+      SetFailure(RECOVERED_MOD_MISSING_LEVEL_BASE,
+                 "mod Level base is not a regular in-root directory",
+                 entry.base);
+      return false;
+    }
+    const std::string identityCandidate =
+        JoinPath(candidate->baseLexical, entry.id);
+    if (GetFileAttributesA(identityCandidate.c_str()) !=
+        INVALID_FILE_ATTRIBUTES) {
+      SetFailure(RECOVERED_MOD_LEVEL_COLLISION,
+                 "mod Level id collides with a physical base entry",
+                 entry.id);
+      return false;
+    }
+    entry.idFolded = FoldPath(entry.id);
+    entry.baseFolded = FoldPath(entry.base);
+    candidate->levels.push_back(std::move(entry));
+  }
+  std::sort(candidate->levels.begin(), candidate->levels.end(),
+            [](const LevelEntry& left, const LevelEntry& right) {
+              return left.idFolded < right.idFolded;
+            });
+  for (std::size_t index = 1; index < candidate->levels.size(); ++index) {
+    if (candidate->levels[index - 1].idFolded ==
+        candidate->levels[index].idFolded) {
+      SetFailure(RECOVERED_MOD_DUPLICATE_LEVEL,
+                 "mod contains duplicate case-insensitive Level ids",
+                 candidate->levels[index].id);
+      return false;
+    }
+  }
+
   candidate->schema = manifest.schema;
   candidate->engineApi = manifest.engineApi;
   candidate->id = manifest.id;
@@ -611,6 +739,15 @@ bool BuildCandidate(const char* baseRoot, const char* modDirectory,
           static_cast<std::uint64_t>(candidate->engineApi));
   HashText(&candidate->fingerprint, candidate->id);
   HashText(&candidate->fingerprint, candidate->version);
+  if (!candidate->levels.empty()) {
+    HashText(&candidate->fingerprint, "RR2NW-DERIVED-LEVELS-1");
+    HashU64(&candidate->fingerprint,
+            static_cast<std::uint64_t>(candidate->levels.size()));
+    for (const LevelEntry& level : candidate->levels) {
+      HashText(&candidate->fingerprint, level.idFolded);
+      HashText(&candidate->fingerprint, level.baseFolded);
+    }
+  }
   for (const OverlayEntry& entry : candidate->entries) {
     HashText(&candidate->fingerprint, entry.targetFolded);
     HashU64(&candidate->fingerprint, entry.size);
@@ -660,6 +797,12 @@ bool RecoveredModRuntime_Configure(const char* baseRoot,
     g_baseFinal = std::move(candidate.baseFinal);
     g_modFinal = std::move(candidate.modFinal);
     g_entries = std::move(candidate.entries);
+    g_levels = std::move(candidate.levels);
+    g_activeLevelIdentity.clear();
+    g_activeLevelBase.clear();
+    g_activeLevelIdentityFolded.clear();
+    g_activeLevelBaseFolded.clear();
+    g_activeLevelDerived = false;
     g_summary = SRecoveredModRuntimeSummary{};
     g_summary.schemaVersion = candidate.schema;
     g_summary.engineApi = candidate.engineApi;
@@ -668,6 +811,7 @@ bool RecoveredModRuntime_Configure(const char* baseRoot,
     std::snprintf(g_summary.version, sizeof(g_summary.version), "%s",
                   candidate.version.c_str());
     g_summary.fileCount = static_cast<unsigned int>(g_entries.size());
+    g_summary.levelCount = static_cast<unsigned int>(g_levels.size());
     g_summary.totalBytes = candidate.totalBytes;
     g_summary.modFingerprint = active ? candidate.fingerprint : 0;
     g_active = active;
@@ -690,6 +834,12 @@ void RecoveredModRuntime_Release() {
   g_baseFinal.clear();
   g_modFinal.clear();
   g_entries.clear();
+  g_levels.clear();
+  g_activeLevelIdentity.clear();
+  g_activeLevelBase.clear();
+  g_activeLevelIdentityFolded.clear();
+  g_activeLevelBaseFolded.clear();
+  g_activeLevelDerived = false;
   g_summary = SRecoveredModRuntimeSummary{};
   g_configured = false;
   g_active = false;
@@ -705,6 +855,79 @@ const char* RecoveredModRuntime_LastError() { return g_lastError; }
 
 const SRecoveredModRuntimeSummary* RecoveredModRuntime_Summary() {
   return g_configured ? &g_summary : nullptr;
+}
+
+unsigned int RecoveredModRuntime_LevelCount() {
+  return g_configured ? static_cast<unsigned int>(g_levels.size()) : 0;
+}
+
+bool RecoveredModRuntime_Level(unsigned int index,
+                               SRecoveredModLevel* level) {
+  if (!g_configured || level == nullptr || index >= g_levels.size())
+    return false;
+  *level = SRecoveredModLevel{};
+  std::snprintf(level->id, sizeof(level->id), "%s",
+                g_levels[index].id.c_str());
+  std::snprintf(level->base, sizeof(level->base), "%s",
+                g_levels[index].base.c_str());
+  return true;
+}
+
+bool RecoveredModRuntime_ActivateLevel(const char* identity,
+                                       char* physicalDirectory,
+                                       std::size_t physicalDirectorySize) {
+  if (!g_configured || identity == nullptr || identity[0] == '\0' ||
+      physicalDirectory == nullptr || physicalDirectorySize == 0 ||
+      !ValidLevelComponent(identity)) {
+    SetFailure(RECOVERED_MOD_INVALID_LEVEL_ENTRY,
+               "cannot activate an invalid Level identity",
+               identity == nullptr ? std::string() : std::string(identity));
+    return false;
+  }
+  const std::string folded = FoldPath(identity);
+  const auto found = std::lower_bound(
+      g_levels.begin(), g_levels.end(), folded,
+      [](const LevelEntry& entry, const std::string& value) {
+        return entry.idFolded < value;
+      });
+  const bool derived =
+      found != g_levels.end() && found->idFolded == folded;
+  const std::string selectedIdentity = derived ? found->id : identity;
+  const std::string selectedBase = derived ? found->base : identity;
+  const std::string selectedIdentityFolded = FoldPath(selectedIdentity);
+  const std::string selectedBaseFolded = FoldPath(selectedBase);
+  const std::string directory = JoinPath(g_baseLexical, selectedBase);
+  if (directory.size() + 1u > physicalDirectorySize) {
+    SetFailure(RECOVERED_MOD_PATH_FAILURE,
+               "activated Level path exceeds the destination buffer",
+               selectedBase);
+    return false;
+  }
+  std::memcpy(physicalDirectory, directory.c_str(), directory.size() + 1u);
+  g_activeLevelIdentity = selectedIdentity;
+  g_activeLevelBase = selectedBase;
+  g_activeLevelIdentityFolded = selectedIdentityFolded;
+  g_activeLevelBaseFolded = selectedBaseFolded;
+  g_activeLevelDerived = derived;
+  g_issues = 0;
+  g_lastError[0] = '\0';
+  return true;
+}
+
+const char* RecoveredModRuntime_ActiveLevelIdentity() {
+  return g_configured && !g_activeLevelIdentity.empty()
+             ? g_activeLevelIdentity.c_str()
+             : nullptr;
+}
+
+const char* RecoveredModRuntime_ActiveLevelBase() {
+  return g_configured && !g_activeLevelBase.empty()
+             ? g_activeLevelBase.c_str()
+             : nullptr;
+}
+
+bool RecoveredModRuntime_ActiveLevelIsDerived() {
+  return g_configured && g_activeLevelDerived;
 }
 
 bool RecoveredModRuntime_HasOverlayTarget(const char* target) {
@@ -761,12 +984,30 @@ bool RecoveredModRuntime_ResolveReadPath(const char* requested,
       const std::string relative = RelativeToBase(requestedFull);
       if (!relative.empty()) {
         const std::string folded = FoldPath(relative);
-        const auto found = std::lower_bound(
-            g_entries.begin(), g_entries.end(), folded,
+        std::string lookup = folded;
+        if (g_activeLevelDerived &&
+            folded.size() > g_activeLevelBaseFolded.size() &&
+            folded.compare(0, g_activeLevelBaseFolded.size(),
+                           g_activeLevelBaseFolded) == 0 &&
+            folded[g_activeLevelBaseFolded.size()] == '\\') {
+          lookup = g_activeLevelIdentityFolded +
+                   folded.substr(g_activeLevelBaseFolded.size());
+        }
+        auto found = std::lower_bound(
+            g_entries.begin(), g_entries.end(), lookup,
             [](const OverlayEntry& entry, const std::string& value) {
               return entry.targetFolded < value;
             });
-        if (found != g_entries.end() && found->targetFolded == folded) {
+        if ((found == g_entries.end() ||
+             found->targetFolded != lookup) && lookup != folded) {
+          found = std::lower_bound(
+              g_entries.begin(), g_entries.end(), folded,
+              [](const OverlayEntry& entry, const std::string& value) {
+                return entry.targetFolded < value;
+              });
+          lookup = folded;
+        }
+        if (found != g_entries.end() && found->targetFolded == lookup) {
           selected = found->sourceFinal.c_str();
           ++g_summary.overrideHitCount;
         }

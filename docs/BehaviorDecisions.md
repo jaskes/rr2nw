@@ -3991,3 +3991,34 @@ probe submits extended Left down without any corresponding release while the
 physical key remains up: recovery occurs in one frame, increments
 `vehicle_physical_reconciliation_count`, limits heading change to about 0.0415
 radians and exits with all axes neutral.
+
+## BD-103: compose derived mod Levels outside retail game.cfg
+
+Status: accepted on 2026-07-31.
+
+Retail `game.cfg` is installation input, not writable user state or an overlay
+catalog. Letting a package replace it would couple mod selection to historical
+numeric indices, allow one resource override to hide required retail worlds,
+and make an invalid package affect startup before its own identity was known.
+The file therefore remains protected.
+
+Schema-1 packages instead declare an optional bounded `levels[]` catalog. The
+first public contract is intentionally derived: every new ID names one of the
+nine admitted retail entries as its physical base. The old runtime may enter
+that existing directory, while VFS selection gives the derived ID a separate
+target prefix. Derived targets override base targets only while that ID is
+active; starting the base world remains isolated.
+
+The declaration is package identity, not mutable profile configuration. Sorted
+ID/base pairs join the mod fingerprint, and the declared ID becomes the Level
+identity stored in active-world state, LCN1 and save slots. Thus an inherited
+world cannot be confused with its retail base even when their untouched bytes
+are identical. Cross-Level load selects through the composed catalog before
+world teardown and reactivates the correct prefix on rollback.
+
+Admission rejects duplicate or colliding IDs, missing physical bases and bases
+not listed by retail `game.cfg`. A completely standalone world, campaign order
+metadata and relaxed unknown legacy catalogs remain separate future contracts.
+Regression requires alias-only file consumption, base fallback/isolation,
+matching save/load, base-to-derived cross-load and precise pre-mutation failure
+for undeclared/non-retail catalog entries.

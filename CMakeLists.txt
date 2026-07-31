@@ -4681,6 +4681,7 @@ if(BUILD_TESTING)
     COMMAND rr2nw_mod_runtime_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/mod-runtime-smoke-$<CONFIG>"
             "${CMAKE_CURRENT_SOURCE_DIR}/examples/mods/rr2nw.example.data-pack"
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/mods/rr2nw.example.derived-level"
   )
   add_test(
     NAME legacy-tagged-file-smoke

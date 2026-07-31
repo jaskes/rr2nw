@@ -1,7 +1,7 @@
 #include "RecoveredLevelRuntime.h"
 
 #include <cctype>
-#include <fstream>
+#include <cstdio>
 #include <memory>
 #include <new>
 #include <string>
@@ -21,7 +21,7 @@ namespace {
 
 const char kLevelConfigName[] = "level.cfg";
 const char kDefaultSceneName[] = "1.sce";
-const std::streamoff kMaximumConfigSize = 16 * 1024 * 1024;
+const long kMaximumConfigSize = 16 * 1024 * 1024;
 
 std::unique_ptr<CConfigFile> g_config;
 SRecoveredLevelSettings g_settings = {};
@@ -66,12 +66,6 @@ bool IsDirectory(const std::string& path) {
   const DWORD attributes = GetFileAttributesA(path.c_str());
   return attributes != INVALID_FILE_ATTRIBUTES &&
          (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-}
-
-bool IsRegularFile(const std::string& path) {
-  const DWORD attributes = GetFileAttributesA(path.c_str());
-  return attributes != INVALID_FILE_ATTRIBUTES &&
-         (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
 bool IsWhitespaceOnly(const std::string& text, std::size_t begin,
@@ -124,19 +118,25 @@ bool ValidateLegacyConfig(const std::string& text) {
 }
 
 bool ReadAndValidateConfig(const std::string& path) {
-  std::ifstream input(path, std::ios::binary | std::ios::ate);
-  if (!input) return false;
-
-  const std::streamoff size = input.tellg();
-  if (size <= 0 || size > kMaximumConfigSize) return false;
-  input.seekg(0, std::ios::beg);
-
-  std::string text(static_cast<std::size_t>(size), '\0');
-  if (size != 0 &&
-      !input.read(&text[0], static_cast<std::streamsize>(size))) {
+  long length = -1;
+  FILE* input = CFileResource::FOpenCurrent(path.c_str(), &length);
+  if (input == nullptr || length <= 0 ||
+      length > kMaximumConfigSize) {
+    if (input != nullptr) std::fclose(input);
     return false;
   }
-  return ValidateLegacyConfig(text);
+  std::string text(static_cast<std::size_t>(length), '\0');
+  const bool read =
+      std::fread(&text[0], static_cast<std::size_t>(length), 1, input) == 1;
+  const bool closed = std::fclose(input) == 0;
+  return read && closed && ValidateLegacyConfig(text);
+}
+
+bool ResourceAvailable(const std::string& path) {
+  long length = -1;
+  FILE* input = CFileResource::FOpenCurrent(path.c_str(), &length);
+  if (input == nullptr) return false;
+  return std::fclose(input) == 0 && length >= 0;
 }
 
 SRecoveredLevelSettings ReadSettings(CConfigFile& config) {
@@ -220,7 +220,7 @@ int RecoveredLevelRuntime_Prepare(const char* directory) {
 
   const std::string configPath =
       JoinPath(targetDirectory, kLevelConfigName);
-  if (!IsRegularFile(configPath)) {
+  if (!ResourceAvailable(configPath)) {
     g_issues |= RECOVERED_LEVEL_MISSING_CONFIG;
     return FALSE;
   }
@@ -245,7 +245,7 @@ int RecoveredLevelRuntime_Prepare(const char* directory) {
   g_settings = ReadSettings(*g_config);
   const char* configuredScene = (*g_config)("Scene", "Load");
   g_sceneFile = configuredScene == nullptr ? kDefaultSceneName : configuredScene;
-  if (g_sceneFile.empty() || !IsRegularFile(g_sceneFile)) {
+  if (g_sceneFile.empty() || !ResourceAvailable(g_sceneFile)) {
     return Fail(RECOVERED_LEVEL_MISSING_SCENE);
   }
 

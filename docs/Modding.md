@@ -1,10 +1,10 @@
 # RR2NW data-pack mods
 
 RR2NW currently admits one explicit, read-only data-pack overlay on Windows.
-In addition to exact resource/script replacement, schema 1 now has one narrow
-engine-owned gameplay contract for verified Vehicle and primary-projectile
-parameters. Multiple packages, an in-game selector, Lua, native plugins and a
-public C++ ABI are not part of this contract.
+In addition to exact resource/script replacement and bounded gameplay tuning,
+schema 1 can declare derived Levels that inherit one verified retail Level
+without editing `game.cfg`. Multiple packages, an in-game selector, Lua,
+native plugins and a public C++ ABI are not part of this contract.
 
 ## Starting a mod
 
@@ -63,6 +63,76 @@ Level selection or user data.
 The current bounded limits are 1,024 files, 64 MiB per file, 512 MiB total and
 256 KiB for `mod.json`. Each source must already be a regular file when the mod
 is admitted. The runtime never writes to either the base or mod directory.
+
+## Derived Level catalog
+
+Schema 1 may add up to 64 Level identities with the optional strict `levels`
+array:
+
+```json
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "author.example-map",
+  "version": "1.0.0",
+  "levels": [
+    {
+      "id": "Level.Example",
+      "base": "Level.03N"
+    }
+  ],
+  "files": [
+    {
+      "source": "maps/level.cfg",
+      "target": "Level.Example/level.cfg"
+    }
+  ]
+}
+```
+
+`id` and `base` are case-insensitively compared ASCII path components of at
+most 64 bytes. `base` must name one of the nine immutable entries read from
+the retail `game.cfg`, and its physical directory must remain inside the
+selected retail root. `id` must be unique in the complete active catalog,
+must differ from `base`, and may not collide with any physical base entry.
+Duplicate IDs, absent/non-retail bases and collisions reject the package
+before Level construction. Empty or unknown entry keys are errors.
+
+The derived Level uses the retail base directory read-only so the legacy code
+may keep its current working-directory contract. Reads under that physical
+base are resolved in this order while the derived Level is active:
+
+1. exact targets rooted at the derived `id`;
+2. exact targets rooted at its retail `base`;
+3. untouched retail files.
+
+Starting the base Level itself never sees derived-only targets. This makes the
+first safe map workflow inherit-and-replace: a package declares a new catalog
+identity and lists only changed scene, terrain, script or resource files.
+`level.cfg` and the configured scene are validated through the same resolver,
+so a derived target may supply them without creating or mutating a directory
+in the retail installation.
+
+Use the copyright-free catalog example as follows:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" `
+  --data-dir "E:\Games\The Next Worlds" `
+  --mod-dir "$PWD\examples\mods\rr2nw.example.derived-level" `
+  --start-level "Level.Example"
+```
+
+The new identity is part of save/continuation metadata, while the sorted
+`id -> base` declarations are part of the mod/content fingerprint. Matching
+save/load and cross-Level load therefore reconstruct `Level.Example`; the same
+save cannot be mistaken for its physical `Level.03N` base. `game.cfg` remains
+protected and is never synthesized or replaced.
+
+This first catalog contract deliberately derives from a verified retail Level.
+A completely blank standalone world, relaxed unknown legacy attribute
+catalogs, campaign progression metadata and a public map builder/validator are
+later slices; an inherited Level still has to pass every current transactional
+script, resource, scene and active-world admission gate.
 
 ## Gameplay tuning schema 1
 
@@ -205,10 +275,11 @@ counts, post-transaction attribute/reference fingerprints, the observed
 `Vehicle.Attr.default`, first People and first Tank values, secondary reference
 proofs, real ballistic proofs and exact People/Tank lifecycle proof counts.
 
-The repository includes two copyright-free packages. Use
+The repository includes three copyright-free packages. Use
 `rr2nw.example.data-pack` for neutral packaging/resolver admission and
 `rr2nw.example.gameplay-tuning` on `Level.05D` for a visible handling/fire
-change:
+change. `rr2nw.example.derived-level` adds the read-only `Level.Example`
+catalog entry shown above.
 
 ```powershell
 & ".\build\windows-msvc-x86\Release\rr2nw.exe" `
@@ -222,7 +293,8 @@ change:
 
 - multiple active mods, dependencies, conflicts and mount ordering;
 - automatic discovery and an in-game mod selector;
-- adding Levels to `game.cfg`;
+- standalone Levels that do not derive from a verified retail catalog,
+  campaign/progression registration and authoring tools;
 - People/Tank armour and reference graphs, Vehicle health/armour, ammunition
   rules, primary-projectile replacement and complete damage/explosion graphs;
 - localization routing beyond exact file replacement;

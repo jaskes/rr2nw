@@ -3038,6 +3038,70 @@ difference is applied through the normal live-control boundary, included in
 CTJ1 and counted by `vehicle_physical_reconciliation_count`. A real-window
 probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
+### CQ-170: the legacy keyboard translator is an adapter-only technical debt
+
+- Status: `TECH_DEBT_ACCEPTED`, `RUNTIME_CONTAINED`.
+- Evidence: `CtrlSet::Translate()` still owns Win32 make/break interpretation,
+  paired-action reduction and subscriber publication in one legacy routine.
+  CQ-168/CQ-169 reduced two concrete stale-state paths, but a visible active-
+  window run still finished with canonical turn `-1` after the physical key was
+  already up. Per-frame physical reconciliation now bounds that failure to one
+  frame, but it is containment rather than a durable input architecture.
+- Current boundary: simulation continues to consume the existing named action
+  enum, five normalized Vehicle axes and discrete action edges. CTJ1 records
+  only that canonical boundary. `KR_Hardware` remains temporarily responsible
+  for legacy subscribers plus mouse, joystick and demo routing; no new gameplay
+  feature may depend directly on its keyboard polling behavior.
+- Refactor target: the M2 Windows input backend owns explicit per-key state,
+  repeat filtering, focus-loss clearing, canonical axis snapshots and discrete
+  action edges. It publishes through the current action/Vehicle/CTJ1 boundary
+  while `KR_Hardware` is reduced to a compatibility adapter. SDL3 may replace
+  that Windows backend later without changing simulation consumers.
+- Exit criteria: production keyboard input no longer calls
+  `CtrlSet::Translate()`; overlap and every release order for WASD, arrows and
+  Space/Ctrl are hermetic; missing key-up, repeat, alt-tab, menu, load and focus
+  transitions self-clear without asynchronous repair; journal/replay/save
+  identities remain stable; mouse/joystick/demo subscribers retain explicit
+  regression coverage; the old translator is archival/reference-only.
+- Scheduling: this is an M2 platform/input refactor and is not a blocker for the
+  current data-driven M5 slices while physical reconciliation and the full
+  Windows gates stay green. Promote it ahead of rebinding UI or any feature
+  that would otherwise add a second keyboard-state owner.
+- Revisit when: the next platform/input block begins, bindings become editable,
+  or reconciliation telemetry becomes non-zero in ordinary manual play.
+
+### CQ-171: new mod Levels derive from an immutable retail catalog entry
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `MOD_RUNTIME_CONFIRMED`.
+- Evidence: Windows startup previously stored exactly nine `game.cfg` entries
+  in a fixed array, selected Levels before admitting the mod, required a
+  physical target directory and derived save identity from that directory's
+  basename. An overlay could replace files but could neither register a tenth
+  identity nor keep an inherited physical directory distinct in save/load.
+- Handling: optional strict schema-1 `levels[]` entries declare a unique
+  `id -> base` pair. `base` must be one of the nine retail configuration
+  entries; `id` cannot collide case-insensitively with the active catalog or a
+  physical base entry. Startup appends declarations only after complete mod
+  admission. Legacy `chdir` uses the read-only physical base, while VFS reads
+  prefer the active derived prefix, then the base prefix, then retail. The
+  active catalog identity, not the physical basename, binds LCN1/save slots.
+- Identity: sorted declarations are hashed only when `levels[]` is present, so
+  existing schema-1 packages retain their prior fingerprints. A derived Level
+  changes mod/content identity and also owns its distinct Level name in save
+  metadata. `game.cfg`, `saves` and `mods` remain protected targets.
+- Verification: the hermetic mod smoke proves admission, deterministic
+  fingerprinting, alias-only override, retail fallback, base isolation and
+  duplicate/missing/colliding declaration rollback. The Windows product gate
+  consumes `Level.Example/level.cfg`, saves/restores that identity, commits a
+  cross-Level `Level.03N -> Level.Example` load, and rejects an undeclared ID
+  plus an existing directory not listed by retail `game.cfg` as a base. Debug
+  and Release each pass 61/61 CTest and 9/9 fresh-continuation cases; the
+  ordinary installed-Level matrix passes 18/18 and the new product matrix 2/2.
+- Revisit when: standalone non-derived Levels, campaign ordering or mod stacks
+  are introduced. Do not turn the user configuration into writable VFS state;
+  catalog composition belongs to admitted package metadata and deterministic
+  mount order.
+
 ## Maintenance rule
 
 When a new quirk is found:

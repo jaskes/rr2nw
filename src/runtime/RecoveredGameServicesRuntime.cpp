@@ -953,6 +953,10 @@ std::uint64_t ContinuationContentFingerprint() {
 }
 
 std::string ContinuationLevelIdentity() {
+  const char* catalogIdentity =
+      RecoveredModRuntime_ActiveLevelIdentity();
+  if (catalogIdentity != nullptr && catalogIdentity[0] != '\0')
+    return catalogIdentity;
   const char* directory = RecoveredLevelRuntime_Directory();
   if (directory == nullptr || directory[0] == '\0') return "direct-context";
   std::string path(directory);

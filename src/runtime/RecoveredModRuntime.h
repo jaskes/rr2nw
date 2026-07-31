@@ -10,10 +10,16 @@ struct SRecoveredModRuntimeSummary {
   char id[65] = {};
   char version[33] = {};
   unsigned int fileCount = 0;
+  unsigned int levelCount = 0;
   std::uint64_t totalBytes = 0;
   std::uint64_t modFingerprint = 0;
   unsigned int resolveCount = 0;
   unsigned int overrideHitCount = 0;
+};
+
+struct SRecoveredModLevel {
+  char id[65] = {};
+  char base[65] = {};
 };
 
 enum ERecoveredModRuntimeIssue {
@@ -34,7 +40,11 @@ enum ERecoveredModRuntimeIssue {
   RECOVERED_MOD_FILE_TOO_LARGE = 1u << 14,
   RECOVERED_MOD_TOTAL_SIZE_LIMIT = 1u << 15,
   RECOVERED_MOD_ALLOCATION_FAILURE = 1u << 16,
-  RECOVERED_MOD_PATH_FAILURE = 1u << 17
+  RECOVERED_MOD_PATH_FAILURE = 1u << 17,
+  RECOVERED_MOD_INVALID_LEVEL_ENTRY = 1u << 18,
+  RECOVERED_MOD_DUPLICATE_LEVEL = 1u << 19,
+  RECOVERED_MOD_MISSING_LEVEL_BASE = 1u << 20,
+  RECOVERED_MOD_LEVEL_COLLISION = 1u << 21
 };
 
 // Configures one explicit, read-only data-pack overlay. The base-only form is
@@ -48,6 +58,19 @@ bool RecoveredModRuntime_IsActive();
 unsigned int RecoveredModRuntime_Issues();
 const char* RecoveredModRuntime_LastError();
 const SRecoveredModRuntimeSummary* RecoveredModRuntime_Summary();
+
+// Schema-1 derived Levels add catalog identities without modifying game.cfg.
+// Each declaration inherits one physical retail Level and may replace files
+// through targets rooted at the new identity. Selection is transactional and
+// returns the read-only physical base directory used by legacy chdir code.
+unsigned int RecoveredModRuntime_LevelCount();
+bool RecoveredModRuntime_Level(unsigned int index, SRecoveredModLevel* level);
+bool RecoveredModRuntime_ActivateLevel(const char* identity,
+                                       char* physicalDirectory,
+                                       std::size_t physicalDirectorySize);
+const char* RecoveredModRuntime_ActiveLevelIdentity();
+const char* RecoveredModRuntime_ActiveLevelBase();
+bool RecoveredModRuntime_ActiveLevelIsDerived();
 
 // Reserved engine-owned data contracts may inspect an exact manifest target
 // without exposing the physical mod directory. These calls never fall back to
