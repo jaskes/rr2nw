@@ -36,13 +36,16 @@ int main() {
       "movement_speed": 4.25,
       "initial_health": 0.8,
       "fire_interval": 0.35,
-      "burst_count": 7
+      "burst_count": 7,
+      "projectile": "Bullet.Led.Prim"
     }],
     "tanks": [{
       "id": "tank.attr.grasshopper",
       "max_speed": 22,
       "attack_power": 12,
-      "attack_delay": 3.5
+      "attack_delay": 3.5,
+      "mass": 800,
+      "projectile": "Bullet.Led.Prim"
     }]
   })JSON";
   const char* projectileOnly =
@@ -50,9 +53,9 @@ int main() {
   const char* secondaryOnly =
       R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","secondary_projectile":"Bullet.Sec","secondary_fire_interval":0.8}]})JSON";
   const char* peopleOnly =
-      R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","movement_speed":3,"initial_health":1,"fire_interval":0.5,"burst_count":4}]})JSON";
+      R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","movement_speed":3,"initial_health":1,"fire_interval":0.5,"burst_count":4,"projectile":"Bullet.Led.Prim"}]})JSON";
   const char* tankOnly =
-      R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","max_speed":20,"attack_power":10,"attack_delay":2}]})JSON";
+      R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","max_speed":20,"attack_power":10,"attack_delay":2,"mass":800,"projectile":"Bullet.Led.Prim"}]})JSON";
   if (!Valid(complete) || !Valid(projectileOnly) || !Valid(secondaryOnly) ||
       !Valid(peopleOnly) || !Valid(tankOnly) ||
       !Invalid(R"JSON({"schema":2,"vehicles":[{"id":"Vehicle.Attr.default","max_speed":10}]})JSON") ||
@@ -71,12 +74,17 @@ int main() {
       !Invalid(R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","fire_interval":11}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","burst_count":0}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","burst_count":1.5}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","projectile":""}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","projectile":"Bullet Led"}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","armour":2}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"people":[{"id":"peop.attr.man_c0","movement_speed":3},{"id":"PEOP.ATTR.MAN_C0","movement_speed":4}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper"}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","max_speed":101}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","attack_power":0}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","attack_delay":61}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","mass":0}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","projectile":""}]})JSON") ||
+      !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","armour":100}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","cannon":"Cannon.Attr"}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"tanks":[{"id":"tank.attr.grasshopper","max_speed":20},{"id":"TANK.ATTR.GRASSHOPPER","max_speed":21}]})JSON") ||
       !Invalid(R"JSON({"schema":1,"vehicles":[{"id":"Vehicle.Attr.default","max_speed":10},{"id":"vehicle.attr.DEFAULT","max_speed":11}]})JSON") ||
@@ -95,6 +103,6 @@ int main() {
     return EXIT_FAILURE;
   }
   std::printf("gameplay tuning schema=1 strict vehicle=8 projectile=1 "
-              "people=4 tank=3\n");
+              "people=5 tank=5 armour=closed\n");
   return EXIT_SUCCESS;
 }

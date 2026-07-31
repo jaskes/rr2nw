@@ -2122,6 +2122,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(tuningSummary->peopleLifecycleProofs));
     log.Line("gameplay_tuning_tank_lifecycle_proofs=" +
              std::to_string(tuningSummary->tankLifecycleProofs));
+    log.Line("gameplay_tuning_people_projectile_reference_proofs=" +
+             std::to_string(
+                 tuningSummary->peopleProjectileReferenceProofs));
+    log.Line("gameplay_tuning_people_outgoing_projectile_starts=" +
+             std::to_string(
+                 tuningSummary->peopleOutgoingProjectileStarts));
+    log.Line("gameplay_tuning_tank_mass_consumer_proofs=" +
+             std::to_string(tuningSummary->tankMassConsumerProofs));
+    log.Line("gameplay_tuning_tank_projectile_reference_proofs=" +
+             std::to_string(
+                 tuningSummary->tankProjectileReferenceProofs));
+    log.Line("gameplay_tuning_tank_outgoing_projectile_starts=" +
+             std::to_string(
+                 tuningSummary->tankOutgoingProjectileStarts));
     log.Line("gameplay_tuning_fingerprint=" +
              std::to_string(tuningSummary->tuningFingerprint));
     log.Line("gameplay_tuning_vehicle_attribute_fingerprint=" +
@@ -2174,6 +2188,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  tuningSummary->observedPeopleFireInterval));
     log.Line("gameplay_tuning_people_burst_count=" +
              std::to_string(tuningSummary->observedPeopleBurstCount));
+    log.Line(std::string("gameplay_tuning_people_projectile=") +
+             tuningSummary->observedPeopleProjectile);
     log.Line(std::string("gameplay_tuning_observed_tank=") +
              tuningSummary->observedTank);
     log.Line("gameplay_tuning_tank_max_speed=" +
@@ -2182,6 +2198,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(tuningSummary->observedTankAttackPower));
     log.Line("gameplay_tuning_tank_attack_delay=" +
              std::to_string(tuningSummary->observedTankAttackDelay));
+    log.Line("gameplay_tuning_tank_mass=" +
+             std::to_string(tuningSummary->observedTankMass));
+    log.Line(std::string("gameplay_tuning_tank_projectile=") +
+             tuningSummary->observedTankProjectile);
   }
   log.Line("arena_seance_issues=" +
            std::to_string(RecoveredArenaSeance_Issues()));

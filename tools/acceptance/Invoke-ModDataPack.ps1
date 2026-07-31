@@ -57,7 +57,8 @@ $gameplayTuning = @'
       "movement_speed": 4.25,
       "initial_health": 0.8,
       "fire_interval": 0.35,
-      "burst_count": 7
+      "burst_count": 7,
+      "projectile": "Bullet.Led.Prim"
     }
   ],
   "tanks": [
@@ -65,7 +66,9 @@ $gameplayTuning = @'
       "id": "tank.attr.grasshopper",
       "max_speed": 22.0,
       "attack_power": 12.0,
-      "attack_delay": 3.5
+      "attack_delay": 3.5,
+      "mass": 800.0,
+      "projectile": "Bullet.Led.Prim"
     }
   ]
 }
@@ -245,6 +248,80 @@ $missingTankManifest = @'
     $missingTankManifest,
     [Text.UTF8Encoding]::new($false))
 
+$missingPeopleProjectileMod = Join-Path $OutputRoot "missing-people-projectile-mod"
+$missingPeopleProjectileObjects = Join-Path $missingPeopleProjectileMod "objects"
+New-Item -ItemType Directory -Force -Path $missingPeopleProjectileObjects | Out-Null
+$missingPeopleProjectileTuning = @'
+{
+  "schema": 1,
+  "people": [
+    {
+      "id": "peop.attr.man_c0",
+      "projectile": "Bullet.Does.Not.Exist"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingPeopleProjectileObjects "gameplay-tuning.json"),
+    $missingPeopleProjectileTuning,
+    [Text.UTF8Encoding]::new($false))
+$missingPeopleProjectileManifest = @'
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.acceptance.missing-people-projectile",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "objects/gameplay-tuning.json",
+      "target": "RR2NW/gameplay-tuning.json"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingPeopleProjectileMod "mod.json"),
+    $missingPeopleProjectileManifest,
+    [Text.UTF8Encoding]::new($false))
+
+$missingTankProjectileMod = Join-Path $OutputRoot "missing-tank-projectile-mod"
+$missingTankProjectileObjects = Join-Path $missingTankProjectileMod "objects"
+New-Item -ItemType Directory -Force -Path $missingTankProjectileObjects | Out-Null
+$missingTankProjectileTuning = @'
+{
+  "schema": 1,
+  "tanks": [
+    {
+      "id": "tank.attr.grasshopper",
+      "projectile": "Bullet.Does.Not.Exist"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingTankProjectileObjects "gameplay-tuning.json"),
+    $missingTankProjectileTuning,
+    [Text.UTF8Encoding]::new($false))
+$missingTankProjectileManifest = @'
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.acceptance.missing-tank-projectile",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "objects/gameplay-tuning.json",
+      "target": "RR2NW/gameplay-tuning.json"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingTankProjectileMod "mod.json"),
+    $missingTankProjectileManifest,
+    [Text.UTF8Encoding]::new($false))
+
 function Quote-NativeArgument([string]$Value) {
     if ($Value -notmatch '[\s"]') { return $Value }
     return '"' + ($Value -replace '"', '\"') + '"'
@@ -300,6 +377,10 @@ foreach ($configurationName in $Configuration) {
     $missingSecondaryLogs = Join-Path $caseRoot "missing-secondary-logs"
     $missingPeopleLogs = Join-Path $caseRoot "missing-people-logs"
     $missingTankLogs = Join-Path $caseRoot "missing-tank-logs"
+    $missingPeopleProjectileLogs =
+        Join-Path $caseRoot "missing-people-projectile-logs"
+    $missingTankProjectileLogs =
+        Join-Path $caseRoot "missing-tank-projectile-logs"
     $baseSaves = Join-Path $caseRoot "base-saves"
     $identitySaves = Join-Path $caseRoot "identity-saves"
     $executable = Join-Path $repositoryRoot "build\windows-msvc-x86\$configurationName\rr2nw.exe"
@@ -385,6 +466,22 @@ foreach ($configurationName in $Configuration) {
             "--diagnostics-dir", $missingTankLogs,
             "--save-dir", $baseSaves) 4
 
+        Write-Host "[$configurationName] reject missing People projectile"
+        Invoke-BoundedGame $executable @(
+            "--runtime-smoke", "--data-dir", $dataPath,
+            "--mod-dir", $missingPeopleProjectileMod,
+            "--start-level", $Level,
+            "--diagnostics-dir", $missingPeopleProjectileLogs,
+            "--save-dir", $baseSaves) 4
+
+        Write-Host "[$configurationName] reject missing Tank projectile"
+        Invoke-BoundedGame $executable @(
+            "--runtime-smoke", "--data-dir", $dataPath,
+            "--mod-dir", $missingTankProjectileMod,
+            "--start-level", $Level,
+            "--diagnostics-dir", $missingTankProjectileLogs,
+            "--save-dir", $baseSaves) 4
+
         $base = Read-LogMap (Join-Path $baseLogs "rr2nw-startup.log")
         $modded = Read-LogMap (Join-Path $modLogs "rr2nw-startup.log")
         $saved = Read-LogMap (Join-Path $saveLogs "rr2nw-startup.log")
@@ -394,6 +491,10 @@ foreach ($configurationName in $Configuration) {
         $missingSecondary = Read-LogMap (Join-Path $missingSecondaryLogs "rr2nw-startup.log")
         $missingPeople = Read-LogMap (Join-Path $missingPeopleLogs "rr2nw-startup.log")
         $missingTank = Read-LogMap (Join-Path $missingTankLogs "rr2nw-startup.log")
+        $missingPeopleProjectile = Read-LogMap (
+            Join-Path $missingPeopleProjectileLogs "rr2nw-startup.log")
+        $missingTankProjectile = Read-LogMap (
+            Join-Path $missingTankProjectileLogs "rr2nw-startup.log")
         Require-Value $base "mod_active" "0"
         Require-Value $base "marker" "level-ready"
         Require-Value $base "runtime_shutdown" "clean"
@@ -413,6 +514,11 @@ foreach ($configurationName in $Configuration) {
         Require-Value $modded "gameplay_tuning_secondary_ballistic_moves" "2"
         Require-Value $modded "gameplay_tuning_people_lifecycle_proofs" "1"
         Require-Value $modded "gameplay_tuning_tank_lifecycle_proofs" "1"
+        Require-Value $modded "gameplay_tuning_people_projectile_reference_proofs" "1"
+        Require-Value $modded "gameplay_tuning_people_outgoing_projectile_starts" "1"
+        Require-Value $modded "gameplay_tuning_tank_mass_consumer_proofs" "1"
+        Require-Value $modded "gameplay_tuning_tank_projectile_reference_proofs" "1"
+        Require-Value $modded "gameplay_tuning_tank_outgoing_projectile_starts" "1"
         Require-Value $modded "gameplay_tuning_default_max_speed" "14.000000"
         Require-Value $modded "gameplay_tuning_default_reverse_speed" "8.000000"
         Require-Value $modded "gameplay_tuning_default_acceleration_time" "0.500000"
@@ -427,10 +533,13 @@ foreach ($configurationName in $Configuration) {
         Require-Value $modded "gameplay_tuning_people_initial_health" "0.800000"
         Require-Value $modded "gameplay_tuning_people_fire_interval" "0.350000"
         Require-Value $modded "gameplay_tuning_people_burst_count" "7"
+        Require-Value $modded "gameplay_tuning_people_projectile" "Bullet.Led.Prim"
         Require-Value $modded "gameplay_tuning_observed_tank" "tank.attr.grasshopper"
         Require-Value $modded "gameplay_tuning_tank_max_speed" "22.000000"
         Require-Value $modded "gameplay_tuning_tank_attack_power" "12.000000"
         Require-Value $modded "gameplay_tuning_tank_attack_delay" "3.500000"
+        Require-Value $modded "gameplay_tuning_tank_mass" "800.000000"
+        Require-Value $modded "gameplay_tuning_tank_projectile" "Bullet.Led.Prim"
         Require-Value $modded "marker" "level-ready"
         Require-Value $modded "runtime_shutdown" "clean"
         Require-Value $saved "save_menu_completed_saves" "1"
@@ -443,8 +552,16 @@ foreach ($configurationName in $Configuration) {
         Require-Value $restored "gameplay_tuning_secondary_reference_proofs" "1"
         Require-Value $restored "gameplay_tuning_people_lifecycle_proofs" "1"
         Require-Value $restored "gameplay_tuning_tank_lifecycle_proofs" "1"
+        Require-Value $restored "gameplay_tuning_people_projectile_reference_proofs" "1"
+        Require-Value $restored "gameplay_tuning_people_outgoing_projectile_starts" "1"
+        Require-Value $restored "gameplay_tuning_tank_mass_consumer_proofs" "1"
+        Require-Value $restored "gameplay_tuning_tank_projectile_reference_proofs" "1"
+        Require-Value $restored "gameplay_tuning_tank_outgoing_projectile_starts" "1"
         Require-Value $restored "gameplay_tuning_people_movement_speed" "4.250000"
         Require-Value $restored "gameplay_tuning_tank_max_speed" "22.000000"
+        Require-Value $restored "gameplay_tuning_people_projectile" "Bullet.Led.Prim"
+        Require-Value $restored "gameplay_tuning_tank_mass" "800.000000"
+        Require-Value $restored "gameplay_tuning_tank_projectile" "Bullet.Led.Prim"
         Require-Value $restored "runtime_shutdown" "clean"
         $vehicleReferenceFingerprint =
             [UInt64]$modded["gameplay_tuning_vehicle_reference_fingerprint"]
@@ -496,6 +613,20 @@ foreach ($configurationName in $Configuration) {
             $missingTank["arena_seance_error"] -notmatch
                 'unknown TankAttr tuning target') {
             throw "missing TankAttr did not fail closed precisely"
+        }
+        Require-Value $missingPeopleProjectile "mod_active" "1"
+        Require-Value $missingPeopleProjectile "marker" "loop-not-ready"
+        if (-not $missingPeopleProjectile.ContainsKey("arena_seance_error") -or
+            $missingPeopleProjectile["arena_seance_error"] -notmatch
+                'unknown People projectile BulletAttr target') {
+            throw "missing People projectile did not fail closed precisely"
+        }
+        Require-Value $missingTankProjectile "mod_active" "1"
+        Require-Value $missingTankProjectile "marker" "loop-not-ready"
+        if (-not $missingTankProjectile.ContainsKey("arena_seance_error") -or
+            $missingTankProjectile["arena_seance_error"] -notmatch
+                'unknown Tank projectile BulletAttr target') {
+            throw "missing Tank projectile did not fail closed precisely"
         }
         $baseFingerprint = [UInt64]$base["active_content_fingerprint"]
         $modFingerprint = [UInt64]$modded["active_content_fingerprint"]

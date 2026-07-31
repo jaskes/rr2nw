@@ -18,6 +18,11 @@ struct SRecoveredGameplayTuningSummary {
   unsigned int secondaryProjectileBallisticMoves = 0;
   unsigned int peopleLifecycleProofs = 0;
   unsigned int tankLifecycleProofs = 0;
+  unsigned int peopleProjectileReferenceProofs = 0;
+  unsigned int peopleOutgoingProjectileStarts = 0;
+  unsigned int tankMassConsumerProofs = 0;
+  unsigned int tankProjectileReferenceProofs = 0;
+  unsigned int tankOutgoingProjectileStarts = 0;
   std::uint64_t tuningFingerprint = 0;
   std::uint64_t vehicleAttributeFingerprint = 0;
   std::uint64_t vehicleReferenceFingerprint = 0;
@@ -40,10 +45,13 @@ struct SRecoveredGameplayTuningSummary {
   double observedPeopleInitialHealth = 0.0;
   double observedPeopleFireInterval = 0.0;
   int observedPeopleBurstCount = 0;
+  char observedPeopleProjectile[64] = {};
   char observedTank[64] = {};
   double observedTankMaxSpeed = 0.0;
   double observedTankAttackPower = 0.0;
   double observedTankAttackDelay = 0.0;
+  double observedTankMass = 0.0;
+  char observedTankProjectile[64] = {};
 };
 
 enum ERecoveredGameplayTuningIssue {

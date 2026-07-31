@@ -15,6 +15,7 @@
 #include "message/unitmsg.h"
 #include "obase/bullet/BulletAttributeState.h"
 #include "obase/bullet/BulletSubjectState.h"
+#include "obase/cannon/Cannon.h"
 #include "obase/cannon/CannonSubjectState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
@@ -478,9 +479,15 @@ bool TankSubjectState_CaptureGameplayTuning(
     state->maxSpeed = attribute->maxSpeed;
     state->attackPower = attribute->m_power;
     state->attackDelay = attribute->m_attackDelay;
+    state->mass = attribute->massa;
+    if (std::strlen(attribute->m_bulletAttr) >= sizeof(state->projectile))
+        return false;
+    std::strncpy(state->projectile, attribute->m_bulletAttr,
+                 sizeof(state->projectile) - 1);
     return std::isfinite(state->maxSpeed) &&
            std::isfinite(state->attackPower) &&
-           std::isfinite(state->attackDelay) && state->maxSpeed >= 0.0 &&
+           std::isfinite(state->attackDelay) && std::isfinite(state->mass) &&
+           state->maxSpeed >= 0.0 && state->mass > 0.0 &&
            state->attackPower > 0.0 && state->attackDelay >= 0.0;
 }
 
@@ -496,6 +503,11 @@ bool TankSubjectState_ApplyGameplayTuning(
     if (patch->hasMaxSpeed) attribute->maxSpeed = patch->maxSpeed;
     if (patch->hasAttackPower) attribute->m_power = patch->attackPower;
     if (patch->hasAttackDelay) attribute->m_attackDelay = patch->attackDelay;
+    if (patch->hasMass) attribute->massa = patch->mass;
+    if (patch->hasProjectile)
+        std::snprintf(attribute->m_bulletAttr,
+                      sizeof(attribute->m_bulletAttr), "%s",
+                      patch->projectile);
     return true;
 }
 
@@ -510,11 +522,16 @@ bool TankSubjectState_RestoreGameplayTuning(
     attribute->maxSpeed = state->maxSpeed;
     attribute->m_power = state->attackPower;
     attribute->m_attackDelay = state->attackDelay;
+    attribute->massa = state->mass;
+    std::snprintf(attribute->m_bulletAttr,
+                  sizeof(attribute->m_bulletAttr), "%s",
+                  state->projectile);
     return true;
 }
 
 static bool ProbeTankLifecycle(
     SimulationContext *context, const char *requestedAttribute,
+    bool requireMassConsumer, const char *expectedProjectile,
     double timeStamp,
     STankLifecycleProbeSummary *summary)
 {
@@ -526,6 +543,7 @@ static bool ProbeTankLifecycle(
     const int baselineSounds = SoundObjectState_LiveCount();
     const int baselineExplosions = ExplosionSubjectState_LiveCount();
     const int baselineCorpses = CorpseSubjectState_LiveCount();
+    const int baselineBullets = BulletSubjectState_LiveCount();
     const unsigned long long baselineTankFingerprint =
         TankSubjectState_SubjectFingerprint(context);
     const unsigned long long baselineCannonFingerprint =
@@ -534,6 +552,7 @@ static bool ProbeTankLifecycle(
     const ct_ClassTableID table = context == NULL
         ? ct_NULLID : g_arena.searchSeanceClassTable("Tank");
     if (context == NULL || table == ct_NULLID || baselineTanks != 0 ||
+        (expectedProjectile != NULL && baselineBullets != 0) ||
         baselineCannons != 0 || baselineExplosions != 0 ||
         baselineCorpses != 0 || baselineTankFingerprint == 0 ||
         baselineCannonFingerprint == 0 ||
@@ -575,8 +594,47 @@ static bool ProbeTankLifecycle(
         summary->dynamicReady = 1;
         summary->renderReady = tank->m_skin.Model() != NULL ? 1 : 0;
         summary->cannonReady = CannonsReady(context, *tank) ? 1 : 0;
+        const double expectedInverseMass = 1.0 / selection->attribute->massa;
+        if (std::isfinite(expectedInverseMass) &&
+            std::fabs(tank->massa_D - expectedInverseMass) <=
+                1e-12 * (std::max)(1.0, std::fabs(expectedInverseMass)))
+            summary->massConsumerReady = 1;
+        if (expectedProjectile != NULL)
+        {
+            const ct_ClassTableID bulletAttributes =
+                g_arena.searchSeanceClassTable("BulletAttr");
+            KR_ObjectID expected =
+                context->searchObject(expectedProjectile);
+            const int expectedIndex = expected.isNUL() ||
+                bulletAttributes == ct_NULLID ? -1 :
+                g_arena.getAttributeIndex(bulletAttributes, expected);
+            if (std::strcmp(selection->attribute->m_bulletAttr,
+                            expectedProjectile) == 0 &&
+                selection->attribute->m_cacheBulletAttrTable ==
+                    bulletAttributes &&
+                selection->attribute->m_cacheBulletAttr == expectedIndex &&
+                expectedIndex >= 0)
+                summary->projectileReferenceReady = 1;
+        }
         for (int i = 0; i < tank->m_cannons.getCount(); ++i)
             ownedCannons.push_back(tank->m_cannons[i]);
+
+        if (expectedProjectile != NULL &&
+            summary->projectileReferenceReady == 1 &&
+            !ownedCannons.empty())
+        {
+            ICannon *cannonInterface = static_cast<ICannon *>(
+                context->queryInterface(ownedCannons.front(), ICannonIID));
+            Cannon *cannon = dynamic_cast<Cannon *>(cannonInterface);
+            if (cannon != NULL)
+            {
+                cannon->shoot(selection->attribute->m_cacheBulletAttr,
+                              timeStamp + 0.005);
+                if (BulletSubjectState_LiveCount() == baselineBullets + 1)
+                    summary->outgoingProjectileStarts = 1;
+                RemoveAllSubjects(context, "Bullet");
+            }
+        }
 
         const TankData saved = *static_cast<TankData *>(tank);
         const KR_SetOfID savedCannons = tank->m_cannons;
@@ -662,7 +720,13 @@ static bool ProbeTankLifecycle(
             baselineCannonFingerprint)
         summary->rollbacks = 1;
 
-    return valid && summary->available == 1 &&
+    const bool massProof = !requireMassConsumer ||
+        summary->massConsumerReady == 1;
+    const bool projectileProof = expectedProjectile == NULL ||
+        (summary->projectileReferenceReady == 1 &&
+         summary->outgoingProjectileStarts == 1 &&
+         BulletSubjectState_LiveCount() == baselineBullets);
+    return valid && massProof && projectileProof && summary->available == 1 &&
            summary->validStarts == 1 && summary->dynamicReady == 1 &&
            summary->renderReady == 1 && summary->cannonReady == 1 &&
            summary->scheduledMoves == 1 &&
@@ -676,7 +740,7 @@ bool TankSubjectState_ProbeLifecycle(
     SimulationContext *context, double timeStamp,
     STankLifecycleProbeSummary *summary)
 {
-    return ProbeTankLifecycle(context, NULL, timeStamp, summary);
+    return ProbeTankLifecycle(context, NULL, false, NULL, timeStamp, summary);
 }
 
 bool TankSubjectState_ProbeAttributeLifecycle(
@@ -684,5 +748,17 @@ bool TankSubjectState_ProbeAttributeLifecycle(
     STankLifecycleProbeSummary *summary)
 {
     return attributeName != NULL && attributeName[0] != 0 &&
-           ProbeTankLifecycle(context, attributeName, timeStamp, summary);
+           ProbeTankLifecycle(context, attributeName, false, NULL, timeStamp,
+                              summary);
+}
+
+bool TankSubjectState_ProbeTunedAttributeLifecycle(
+    SimulationContext *context, const char *attributeName,
+    bool requireMassConsumer, const char *expectedProjectile,
+    double timeStamp, STankLifecycleProbeSummary *summary)
+{
+    return attributeName != NULL && attributeName[0] != 0 &&
+           (expectedProjectile == NULL || expectedProjectile[0] != 0) &&
+           ProbeTankLifecycle(context, attributeName, requireMassConsumer,
+                              expectedProjectile, timeStamp, summary);
 }

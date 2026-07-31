@@ -67,10 +67,12 @@ struct PeoplePatch {
   bool hasInitialHealth = false;
   bool hasFireInterval = false;
   bool hasBurstCount = false;
+  bool hasProjectile = false;
   double movementSpeed = 0.0;
   double initialHealth = 0.0;
   double fireInterval = 0.0;
   int burstCount = 0;
+  std::string projectile;
 };
 
 struct TankPatch {
@@ -78,9 +80,13 @@ struct TankPatch {
   bool hasMaxSpeed = false;
   bool hasAttackPower = false;
   bool hasAttackDelay = false;
+  bool hasMass = false;
+  bool hasProjectile = false;
   double maxSpeed = 0.0;
   double attackPower = 0.0;
   double attackDelay = 0.0;
+  double mass = 0.0;
+  std::string projectile;
 };
 
 struct Document {
@@ -113,6 +119,9 @@ std::vector<VehicleRollback> g_vehicleRollback;
 std::vector<ProjectileRollback> g_projectileRollback;
 std::vector<SPeopleGameplayTuningState> g_peopleRollback;
 std::vector<STankGameplayTuningState> g_tankRollback;
+std::vector<std::string> g_peopleExpectedProjectiles;
+std::vector<std::string> g_tankExpectedProjectiles;
+std::vector<bool> g_tankMassProofs;
 SimulationContext* g_context = nullptr;
 unsigned int g_issues = 0;
 char g_lastError[512] = {};
@@ -439,6 +448,9 @@ bool ParsePeople(JsonCursor* cursor, PeoplePatch* patch,
     } else if (key == "burst_count") {
       patch->hasBurstCount = true;
       accepted = cursor->Integer(&patch->burstCount);
+    } else if (key == "projectile") {
+      patch->hasProjectile = true;
+      accepted = cursor->String(&patch->projectile);
     } else {
       *failure = "people tuning contains unknown key: " + key;
       return false;
@@ -452,7 +464,8 @@ bool ParsePeople(JsonCursor* cursor, PeoplePatch* patch,
     return false;
   }
   if (!(patch->hasMovementSpeed || patch->hasInitialHealth ||
-        patch->hasFireInterval || patch->hasBurstCount)) {
+        patch->hasFireInterval || patch->hasBurstCount ||
+        patch->hasProjectile)) {
     *failure = "people tuning has no parameter";
     return false;
   }
@@ -465,6 +478,12 @@ bool ParsePeople(JsonCursor* cursor, PeoplePatch* patch,
       (patch->hasBurstCount &&
        (patch->burstCount < 1 || patch->burstCount > 256))) {
     *failure = "people tuning value is outside the schema-1 range";
+    return false;
+  }
+  if (patch->hasProjectile &&
+      (!ValidIdentifier(patch->projectile) ||
+       patch->projectile.size() >= sizeof(ct_AttrStr))) {
+    *failure = "people projectile is not a storable symbolic id";
     return false;
   }
   return true;
@@ -496,6 +515,12 @@ bool ParseTank(JsonCursor* cursor, TankPatch* patch,
     } else if (key == "attack_delay") {
       patch->hasAttackDelay = true;
       accepted = cursor->Number(&patch->attackDelay);
+    } else if (key == "mass") {
+      patch->hasMass = true;
+      accepted = cursor->Number(&patch->mass);
+    } else if (key == "projectile") {
+      patch->hasProjectile = true;
+      accepted = cursor->String(&patch->projectile);
     } else {
       *failure = "tank tuning contains unknown key: " + key;
       return false;
@@ -509,7 +534,8 @@ bool ParseTank(JsonCursor* cursor, TankPatch* patch,
     return false;
   }
   if (!(patch->hasMaxSpeed || patch->hasAttackPower ||
-        patch->hasAttackDelay)) {
+        patch->hasAttackDelay || patch->hasMass ||
+        patch->hasProjectile)) {
     *failure = "tank tuning has no parameter";
     return false;
   }
@@ -517,8 +543,15 @@ bool ParseTank(JsonCursor* cursor, TankPatch* patch,
       (patch->hasAttackPower &&
        !InRange(patch->attackPower, 0.1, 1000.0)) ||
       (patch->hasAttackDelay &&
-       !InRange(patch->attackDelay, 0.02, 60.0))) {
+       !InRange(patch->attackDelay, 0.02, 60.0)) ||
+      (patch->hasMass && !InRange(patch->mass, 0.1, 10000000.0))) {
     *failure = "tank tuning value is outside the schema-1 range";
+    return false;
+  }
+  if (patch->hasProjectile &&
+      (!ValidIdentifier(patch->projectile) ||
+       patch->projectile.size() >= sizeof(ct_AttrStr))) {
+    *failure = "tank projectile is not a storable symbolic id";
     return false;
   }
   return true;
@@ -698,6 +731,9 @@ void ClearState() {
   g_projectileRollback.clear();
   g_peopleRollback.clear();
   g_tankRollback.clear();
+  g_peopleExpectedProjectiles.clear();
+  g_tankExpectedProjectiles.clear();
+  g_tankMassProofs.clear();
   g_context = nullptr;
   g_issues = 0;
   g_lastError[0] = '\0';
@@ -788,6 +824,13 @@ bool ResolveTransaction(SimulationContext* context, const Document& document,
            "unknown PeopleAttr tuning target: " + patch.id);
       return false;
     }
+    if (patch.hasProjectile &&
+        FindProjectile(context, patch.projectile) == nullptr) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_UNKNOWN_TARGET,
+           "unknown People projectile BulletAttr target: " +
+               patch.projectile);
+      return false;
+    }
     people->push_back(state);
   }
   for (const TankPatch& patch : document.tanks) {
@@ -802,6 +845,13 @@ bool ResolveTransaction(SimulationContext* context, const Document& document,
             context, patch.id.c_str(), &state)) {
       Fail(RECOVERED_GAMEPLAY_TUNING_UNKNOWN_TARGET,
            "unknown TankAttr tuning target: " + patch.id);
+      return false;
+    }
+    if (patch.hasProjectile &&
+        FindProjectile(context, patch.projectile) == nullptr) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_UNKNOWN_TARGET,
+           "unknown Tank projectile BulletAttr target: " +
+               patch.projectile);
       return false;
     }
     tanks->push_back(state);
@@ -843,6 +893,9 @@ void CaptureObservations(SimulationContext* context) {
       g_summary.observedPeopleInitialHealth = state.initialHealth;
       g_summary.observedPeopleFireInterval = state.fireInterval;
       g_summary.observedPeopleBurstCount = state.burstCount;
+      std::snprintf(g_summary.observedPeopleProjectile,
+                    sizeof(g_summary.observedPeopleProjectile), "%s",
+                    state.projectile);
     }
   }
   if (!g_tankRollback.empty()) {
@@ -854,6 +907,10 @@ void CaptureObservations(SimulationContext* context) {
       g_summary.observedTankMaxSpeed = state.maxSpeed;
       g_summary.observedTankAttackPower = state.attackPower;
       g_summary.observedTankAttackDelay = state.attackDelay;
+      g_summary.observedTankMass = state.mass;
+      std::snprintf(g_summary.observedTankProjectile,
+                    sizeof(g_summary.observedTankProjectile), "%s",
+                    state.projectile);
     }
   }
 }
@@ -976,6 +1033,19 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
     }
     g_peopleRollback = people;
     g_tankRollback = tanks;
+    g_peopleExpectedProjectiles.resize(document.people.size());
+    g_tankExpectedProjectiles.resize(document.tanks.size());
+    g_tankMassProofs.resize(document.tanks.size(), false);
+    for (std::size_t index = 0; index < document.people.size(); ++index)
+      if (document.people[index].hasProjectile)
+        g_peopleExpectedProjectiles[index] =
+            document.people[index].projectile;
+    for (std::size_t index = 0; index < document.tanks.size(); ++index) {
+      if (document.tanks[index].hasProjectile)
+        g_tankExpectedProjectiles[index] =
+            document.tanks[index].projectile;
+      g_tankMassProofs[index] = document.tanks[index].hasMass;
+    }
 
     for (std::size_t index = 0; index < vehicles.size(); ++index) {
       const VehiclePatch& patch = document.vehicles[index];
@@ -1016,10 +1086,14 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
       patch.hasInitialHealth = source.hasInitialHealth;
       patch.hasFireInterval = source.hasFireInterval;
       patch.hasBurstCount = source.hasBurstCount;
+      patch.hasProjectile = source.hasProjectile;
       patch.movementSpeed = source.movementSpeed;
       patch.initialHealth = source.initialHealth;
       patch.fireInterval = source.fireInterval;
       patch.burstCount = source.burstCount;
+      if (source.hasProjectile)
+        std::snprintf(patch.projectile, sizeof(patch.projectile), "%s",
+                      source.projectile.c_str());
       if (!PeopleSubjectState_ApplyGameplayTuning(
               context, &people[index], &patch)) {
         Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
@@ -1034,9 +1108,15 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
       patch.hasMaxSpeed = source.hasMaxSpeed;
       patch.hasAttackPower = source.hasAttackPower;
       patch.hasAttackDelay = source.hasAttackDelay;
+      patch.hasMass = source.hasMass;
+      patch.hasProjectile = source.hasProjectile;
       patch.maxSpeed = source.maxSpeed;
       patch.attackPower = source.attackPower;
       patch.attackDelay = source.attackDelay;
+      patch.mass = source.mass;
+      if (source.hasProjectile)
+        std::snprintf(patch.projectile, sizeof(patch.projectile), "%s",
+                      source.projectile.c_str());
       if (!TankSubjectState_ApplyGameplayTuning(
               context, &tanks[index], &patch)) {
         Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
@@ -1218,14 +1298,34 @@ bool RecoveredGameplayTuning_FinalizeTankLifecycle(
   if (g_tankLifecycleFinalized) return true;
 
   unsigned int proofs = 0;
-  for (const STankGameplayTuningState& state : g_tankRollback) {
+  unsigned int massProofs = 0;
+  unsigned int referenceProofs = 0;
+  unsigned int projectileStarts = 0;
+  for (std::size_t index = 0; index < g_tankRollback.size(); ++index) {
+    const STankGameplayTuningState& state = g_tankRollback[index];
+    const bool requireMass = index < g_tankMassProofs.size() &&
+        g_tankMassProofs[index];
+    const char* expectedProjectile =
+        index < g_tankExpectedProjectiles.size() &&
+                !g_tankExpectedProjectiles[index].empty()
+            ? g_tankExpectedProjectiles[index].c_str() : nullptr;
     STankLifecycleProbeSummary probe = {};
-    if (!TankSubjectState_ProbeAttributeLifecycle(
-            context, state.id, timeStamp, &probe)) {
+    const bool valid = requireMass || expectedProjectile != nullptr
+        ? TankSubjectState_ProbeTunedAttributeLifecycle(
+              context, state.id, requireMass, expectedProjectile,
+              timeStamp, &probe)
+        : TankSubjectState_ProbeAttributeLifecycle(
+              context, state.id, timeStamp, &probe);
+    if (!valid) {
       Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
            std::string("tuned TankAttr failed exact lifecycle: ") +
                state.id);
       return false;
+    }
+    if (requireMass) massProofs += probe.massConsumerReady != 0 ? 1u : 0u;
+    if (expectedProjectile != nullptr) {
+      referenceProofs += probe.projectileReferenceReady != 0 ? 1u : 0u;
+      projectileStarts += probe.outgoingProjectileStarts != 0 ? 1u : 0u;
     }
     ++proofs;
   }
@@ -1236,6 +1336,9 @@ bool RecoveredGameplayTuning_FinalizeTankLifecycle(
     return false;
   }
   g_summary.tankLifecycleProofs = proofs;
+  g_summary.tankMassConsumerProofs = massProofs;
+  g_summary.tankProjectileReferenceProofs = referenceProofs;
+  g_summary.tankOutgoingProjectileStarts = projectileStarts;
   g_tankLifecycleFinalized = true;
   return true;
 }
@@ -1262,14 +1365,29 @@ bool RecoveredGameplayTuning_FinalizePeopleLifecycle(
   if (g_peopleLifecycleFinalized) return true;
 
   unsigned int proofs = 0;
-  for (const SPeopleGameplayTuningState& state : g_peopleRollback) {
+  unsigned int referenceProofs = 0;
+  unsigned int projectileStarts = 0;
+  for (std::size_t index = 0; index < g_peopleRollback.size(); ++index) {
+    const SPeopleGameplayTuningState& state = g_peopleRollback[index];
+    const char* expectedProjectile =
+        index < g_peopleExpectedProjectiles.size() &&
+                !g_peopleExpectedProjectiles[index].empty()
+            ? g_peopleExpectedProjectiles[index].c_str() : nullptr;
     SPeopleLifecycleProbeSummary probe = {};
-    if (!PeopleSubjectState_ProbeAttributeLifecycle(
-            context, state.id, timeStamp, &probe)) {
+    const bool valid = expectedProjectile != nullptr
+        ? PeopleSubjectState_ProbeTunedAttributeLifecycle(
+              context, state.id, expectedProjectile, timeStamp, &probe)
+        : PeopleSubjectState_ProbeAttributeLifecycle(
+              context, state.id, timeStamp, &probe);
+    if (!valid) {
       Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
            std::string("tuned PeopleAttr failed exact lifecycle: ") +
                state.id);
       return false;
+    }
+    if (expectedProjectile != nullptr) {
+      referenceProofs += probe.projectileReferenceReady != 0 ? 1u : 0u;
+      projectileStarts += probe.outgoingProjectileStarts != 0 ? 1u : 0u;
     }
     ++proofs;
   }
@@ -1280,6 +1398,8 @@ bool RecoveredGameplayTuning_FinalizePeopleLifecycle(
     return false;
   }
   g_summary.peopleLifecycleProofs = proofs;
+  g_summary.peopleProjectileReferenceProofs = referenceProofs;
+  g_summary.peopleOutgoingProjectileStarts = projectileStarts;
   g_peopleLifecycleFinalized = true;
   return true;
 }

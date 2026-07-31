@@ -15,6 +15,9 @@ struct STankLifecycleProbeSummary
     int deathTransitions;
     int deathEffects;
     int saveStateRoundTrips;
+    int massConsumerReady;
+    int projectileReferenceReady;
+    int outgoingProjectileStarts;
     int rollbacks;
 };
 
@@ -23,9 +26,13 @@ struct STankGameplayTuningPatch
     bool hasMaxSpeed;
     bool hasAttackPower;
     bool hasAttackDelay;
+    bool hasMass;
+    bool hasProjectile;
     double maxSpeed;
     double attackPower;
     double attackDelay;
+    double mass;
+    char projectile[64];
 };
 
 struct STankGameplayTuningState
@@ -35,6 +42,8 @@ struct STankGameplayTuningState
     double maxSpeed;
     double attackPower;
     double attackDelay;
+    double mass;
+    char projectile[64];
 };
 
 void TankSubjectState_Link();
@@ -66,5 +75,9 @@ bool TankSubjectState_ProbeLifecycle(
 bool TankSubjectState_ProbeAttributeLifecycle(
     SimulationContext *context, const char *attributeName, double timeStamp,
     STankLifecycleProbeSummary *summary);
+bool TankSubjectState_ProbeTunedAttributeLifecycle(
+    SimulationContext *context, const char *attributeName,
+    bool requireMassConsumer, const char *expectedProjectile,
+    double timeStamp, STankLifecycleProbeSummary *summary);
 
 #endif

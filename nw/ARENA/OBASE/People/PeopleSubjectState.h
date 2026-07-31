@@ -12,6 +12,8 @@ struct SPeopleLifecycleProbeSummary
     int bulletDamageApplications;
     int deathTransitions;
     int saveStateRoundTrips;
+    int projectileReferenceReady;
+    int outgoingProjectileStarts;
     int rollbacks;
 };
 
@@ -21,10 +23,12 @@ struct SPeopleGameplayTuningPatch
     bool hasInitialHealth;
     bool hasFireInterval;
     bool hasBurstCount;
+    bool hasProjectile;
     double movementSpeed;
     double initialHealth;
     double fireInterval;
     int burstCount;
+    char projectile[64];
 };
 
 struct SPeopleGameplayTuningState
@@ -35,6 +39,7 @@ struct SPeopleGameplayTuningState
     double initialHealth;
     double fireInterval;
     int burstCount;
+    char projectile[64];
 };
 
 void PeopleSubjectState_Link();
@@ -73,6 +78,10 @@ bool PeopleSubjectState_ProbeLifecycle(
     SPeopleLifecycleProbeSummary *summary);
 bool PeopleSubjectState_ProbeAttributeLifecycle(
     SimulationContext *context, const char *attributeName, double timeStamp,
+    SPeopleLifecycleProbeSummary *summary);
+bool PeopleSubjectState_ProbeTunedAttributeLifecycle(
+    SimulationContext *context, const char *attributeName,
+    const char *expectedProjectile, double timeStamp,
     SPeopleLifecycleProbeSummary *summary);
 
 #endif

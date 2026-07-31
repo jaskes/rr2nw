@@ -20,6 +20,13 @@
 #include "storage/h/subject.h"
 #include "storage/h/savefile.h"
 
+// Exact legacy spawn path used by People::onShoot.  The recovery probe calls
+// it with the resolved symbolic attribute index without exposing the private
+// AttributePeople class.
+void shoot(KR_ObjectID fromID, int bulletTable, int attrIndex,
+           const CFVector3 &pos, const CFVector3 &dir,
+           SimulationContext *context, double ts);
+
 namespace {
 
 const unsigned long long kHashOffset = 14695981039346656037ull;
@@ -211,6 +218,24 @@ bool RoundTripSerializedState(const PeopleData &saved)
     }
     DeleteFileA(temporaryFile);
     return valid && SamePersistentState(saved, restored);
+}
+
+int RemoveAllSubjects(SimulationContext *context, const char *tableName)
+{
+    ObjectRoster roster = {};
+    if (!CollectTable(context, tableName, roster))
+        return 0;
+    int removed = 0;
+    for (std::vector<KR_ObjectID>::reverse_iterator id = roster.ids.rbegin();
+         id != roster.ids.rend(); ++id)
+    {
+        if (context->isExist(*id))
+        {
+            context->removeObject(*id);
+            ++removed;
+        }
+    }
+    return removed;
 }
 
 }  // namespace
@@ -408,11 +433,13 @@ unsigned long long PeopleSubjectState_GameplayFingerprint(
         const double initialHealth = attribute->get_double("m_initialDamage");
         const double fireInterval = attribute->get_double("m_cannonSpeed");
         const int burstCount = attribute->get_int("m_burstCount");
+        const char *projectile = attribute->get_str("m_bulletAttrName");
         HashString(hash, name);
         HashBytes(hash, &movementSpeed, sizeof(movementSpeed));
         HashBytes(hash, &initialHealth, sizeof(initialHealth));
         HashBytes(hash, &fireInterval, sizeof(fireInterval));
         HashBytes(hash, &burstCount, sizeof(burstCount));
+        HashString(hash, projectile);
     }
     return hash == 0 ? 1 : hash;
 }
@@ -433,6 +460,12 @@ bool PeopleSubjectState_CaptureGameplayTuning(
     state->initialHealth = attribute->get_double("m_initialDamage");
     state->fireInterval = attribute->get_double("m_cannonSpeed");
     state->burstCount = attribute->get_int("m_burstCount");
+    const char *projectile = attribute->get_str("m_bulletAttrName");
+    if (projectile == NULL ||
+        std::strlen(projectile) >= sizeof(state->projectile))
+        return false;
+    std::strncpy(state->projectile, projectile,
+                 sizeof(state->projectile) - 1);
     return std::isfinite(state->movementSpeed) &&
            std::isfinite(state->initialHealth) &&
            std::isfinite(state->fireInterval) && state->movementSpeed > 0.0 &&
@@ -457,6 +490,8 @@ bool PeopleSubjectState_ApplyGameplayTuning(
         attribute->set_double("m_cannonSpeed", patch->fireInterval);
     if (patch->hasBurstCount)
         attribute->set_int("m_burstCount", patch->burstCount);
+    if (patch->hasProjectile)
+        attribute->set_str("m_bulletAttrName", patch->projectile);
     return true;
 }
 
@@ -472,11 +507,13 @@ bool PeopleSubjectState_RestoreGameplayTuning(
     attribute->set_double("m_initialDamage", state->initialHealth);
     attribute->set_double("m_cannonSpeed", state->fireInterval);
     attribute->set_int("m_burstCount", state->burstCount);
+    attribute->set_str("m_bulletAttrName", state->projectile);
     return true;
 }
 
 static bool ProbePeopleLifecycle(
     SimulationContext *context, const char *requestedAttribute,
+    const char *expectedProjectile,
     double timeStamp,
     SPeopleLifecycleProbeSummary *summary)
 {
@@ -485,11 +522,13 @@ static bool ProbePeopleLifecycle(
     std::memset(summary, 0, sizeof(*summary));
     const int baselineCount = PeopleSubjectState_LiveCount(context);
     const int baselineSounds = SoundObjectState_LiveCount();
+    const int baselineBullets = BulletSubjectState_LiveCount();
     const unsigned long long baselineFingerprint =
         PeopleSubjectState_SubjectFingerprint(context);
     const ct_ClassTableID table = context == NULL
         ? ct_NULLID : g_arena.searchSeanceClassTable("People");
     if (context == NULL || table == ct_NULLID || baselineCount <= 0 ||
+        (expectedProjectile != NULL && baselineBullets != 0) ||
         baselineCount >= g_subjectCapacity || baselineFingerprint == 0)
         return false;
 
@@ -519,6 +558,32 @@ static bool ProbePeopleLifecycle(
                           requestedState.movementSpeed) <= 1e-9 &&
                 std::fabs(probe->m_damage - requestedState.initialHealth) <=
                     1e-9;
+    if (valid && expectedProjectile != NULL)
+    {
+        const ct_ClassTableID bulletAttributes =
+            g_arena.searchSeanceClassTable("BulletAttr");
+        const ct_ClassTableID bullets =
+            g_arena.searchSeanceClassTable("Bullet");
+        KR_ObjectID expected = context->searchObject(expectedProjectile);
+        const int expectedIndex = expected.isNUL() ||
+            bulletAttributes == ct_NULLID ? -1 :
+            g_arena.getAttributeIndex(bulletAttributes, expected);
+        valid = requestedState.projectile[0] != 0 &&
+                std::strcmp(requestedState.projectile,
+                            expectedProjectile) == 0 &&
+                bullets != ct_NULLID && expectedIndex >= 0 &&
+                probe->isShooter();
+        if (valid)
+        {
+            summary->projectileReferenceReady = 1;
+            shoot(probeID, bullets, expectedIndex, probe->getPos(),
+                  CFVector3(1.0, 0.0, 0.0), context,
+                  timeStamp + 0.005);
+            if (BulletSubjectState_LiveCount() == baselineBullets + 1)
+                summary->outgoingProjectileStarts = 1;
+            RemoveAllSubjects(context, "Bullet");
+        }
+    }
     if (valid)
     {
         summary->validStarts =
@@ -610,7 +675,11 @@ static bool ProbePeopleLifecycle(
         PeopleSubjectState_SubjectFingerprint(context) == baselineFingerprint)
         summary->rollbacks = 1;
 
-    return valid && summary->validStarts == 1 &&
+    const bool projectileProof = expectedProjectile == NULL ||
+        (summary->projectileReferenceReady == 1 &&
+         summary->outgoingProjectileStarts == 1 &&
+         BulletSubjectState_LiveCount() == baselineBullets);
+    return valid && projectileProof && summary->validStarts == 1 &&
            summary->dynamicReady == 1 && summary->renderReady == 1 &&
            summary->scheduledMoves == 1 &&
            summary->bulletDamageApplications == 1 &&
@@ -622,7 +691,7 @@ bool PeopleSubjectState_ProbeLifecycle(
     SimulationContext *context, double timeStamp,
     SPeopleLifecycleProbeSummary *summary)
 {
-    return ProbePeopleLifecycle(context, NULL, timeStamp, summary);
+    return ProbePeopleLifecycle(context, NULL, NULL, timeStamp, summary);
 }
 
 bool PeopleSubjectState_ProbeAttributeLifecycle(
@@ -630,5 +699,17 @@ bool PeopleSubjectState_ProbeAttributeLifecycle(
     SPeopleLifecycleProbeSummary *summary)
 {
     return attributeName != NULL && attributeName[0] != 0 &&
-           ProbePeopleLifecycle(context, attributeName, timeStamp, summary);
+           ProbePeopleLifecycle(context, attributeName, NULL, timeStamp,
+                                summary);
+}
+
+bool PeopleSubjectState_ProbeTunedAttributeLifecycle(
+    SimulationContext *context, const char *attributeName,
+    const char *expectedProjectile, double timeStamp,
+    SPeopleLifecycleProbeSummary *summary)
+{
+    return attributeName != NULL && attributeName[0] != 0 &&
+           expectedProjectile != NULL && expectedProjectile[0] != 0 &&
+           ProbePeopleLifecycle(context, attributeName, expectedProjectile,
+                                timeStamp, summary);
 }

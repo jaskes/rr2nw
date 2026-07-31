@@ -4061,3 +4061,42 @@ target collisions, duplicate paths/IDs/requests and absent selections without
 replacing the prior admitted stack. Product acceptance discovers misleadingly
 named directories, saves/restores a derived Level through core/addon and
 rejects both activate-all conflict and an absent requested ID.
+
+## BD-105: admit actor projectiles and Tank mass only with active-consumer proofs
+
+Status: accepted on 2026-07-31.
+
+The next actor fields are not admitted merely because their names occur in a
+legacy attribute table. People `m_bulletAttrName` and Tank `m_bulletAttr` are
+accepted because their original update passes resolve them to Level-local
+`BulletAttr` indices that feed `People::onShoot` and the owned Cannon graph.
+Tank `massa` is accepted because `Tank::onSetAttr` derives `massa_D`, which the
+unchanged movement model multiplies into acceleration. Tank `m_armor` has no
+demonstrated active consumer and remains a strict schema error.
+
+The pre-reference gameplay transaction validates 39-byte symbolic storage,
+resolves every requested Bullet object before mutation, snapshots the original
+strings/mass and commits the complete document atomically. People gameplay
+fingerprints now include the projectile name; the existing complete Tank
+attribute fingerprint already includes both mass and projectile. Failure at
+any later gate restores every touched field in reverse transaction order.
+
+After the legacy People/Tank attribute updates have built their runtime
+caches, the exact tuned owner must still pass its full render, movement,
+damage/death, serializer and rollback lifecycle. A projectile patch adds a
+stronger requirement: the bound subject must be shoot-capable and the resolved
+index must create exactly one real Bullet through the same People/Cannon spawn
+path used by gameplay, after which Bullet and scheduler state return to the
+baseline. A mass patch additionally requires the new Tank instance to contain
+the exact finite reciprocal `massa_D` produced by `Tank::onSetAttr`.
+
+Level.05D product acceptance observes `Bullet.Led.Prim` on both actor owners
+and mass `800` on `tank.attr.grasshopper`, requires one reference/spawn proof
+per actor and one mass-consumer proof, then repeats them after save/relaunch/
+load. Separate absent People-projectile and Tank-projectile packages must fail
+before Level publication. The tuning bytes remain part of ordered mod/content
+identity, so no parallel save format or migration field is introduced.
+
+Accepted Windows evidence is 62/62 CTest in Debug and Release, 18/18 ordinary
+installed-Level starts, 18/18 fresh destroyed-context continuations and the
+two passing 11-step Level.05D product rows with identical content fingerprints.

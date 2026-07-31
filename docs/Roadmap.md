@@ -1231,14 +1231,16 @@ requested object; a late proof then executes that resolved projectile and
 rolls back its Bullet, Smoke, Spark and private scheduler state before the
 reference fingerprint becomes authoritative.
 
-The first actor extension is now closed as well. Schema 1 resolves existing
-Level-local `PeopleAttr` and `TankAttr` owners and exposes only seven bounded
-scalars with demonstrated runtime consumers. Their sorted gameplay
-fingerprints become admission identities. Every patched owner then creates its
-exact real subject and passes movement, Bullet damage, death, serializer and
-full rollback; Tank additionally proves Cannons and death effects. The mod
-example and save/load product proof exercise both actor families. Armour,
-mass, table membership and reference graphs remain unavailable.
+The next actor extension is now closed as well. Schema 1 resolves existing
+Level-local `PeopleAttr` and `TankAttr` owners, exposes seven bounded scalars,
+actor projectile references and Tank mass only where active consumers are
+demonstrated. Their sorted gameplay fingerprints become admission identities.
+Every patched owner creates its exact real subject and passes movement, Bullet
+damage, death, serializer and full rollback; Tank additionally proves Cannons,
+death effects and the derived `massa_D`. Each changed actor projectile creates
+one real Bullet through the original People/Cannon path and rolls it back. The
+mod/save product proof exercises both actor families. Armour, table membership
+and the remaining visual/effect/cannon reference graphs remain unavailable.
 
 This closes the initial VFS, first data schema, examples and save-binding
 gates, but not the whole M5 feature list. The next mod slices remain ordered:
@@ -1247,9 +1249,9 @@ gates, but not the whole M5 feature list. The next mod slices remain ordered:
    to replace user `game.cfg` directly;
 2. **closed:** add multiple-mod discovery, dependency/conflict validation and
    deterministic mount ordering;
-3. expose further actor/reference fields only after exact active consumer,
-   ownership and save migration proofs; armour must not be published merely
-   because a legacy attribute item exists;
+3. **closed:** expose actor projectile references and Tank mass only after
+   exact active-consumer, ownership and save proofs; keep armour closed because
+   a legacy attribute item alone is not evidence;
 4. expose existing script events only after their lifetime/save semantics are
    documented; evaluate Lua after those data-driven contracts are proven;
 5. package the validator/example and run the final Win10/Win11 manual campaign
@@ -1281,15 +1283,16 @@ names the current owner in `overrides` may replace its target.
 The ordered package set is visible in startup diagnostics and participates in
 content/save/LCN1 identity; a single legacy `--mod-dir` deliberately retains
 its previous fingerprint. A hermetic stack smoke shuffles candidate input,
-proves dependency closure and effective overlay selection, then covers nine
-ten fail-closed relation/collision cases with transactional rollback. The Windows
+proves dependency closure and effective overlay selection, then covers ten
+fail-closed relation/collision cases with transactional rollback. The Windows
 product gate discovers three packages from deliberately misleading directory
 names, selects an addon, auto-mounts its core, saves/restores a derived Level
 and separately rejects activate-all conflict plus an absent requested ID.
 
-The next ordered M5 frontier is therefore item 3: expose further proven actor
-and reference fields without opening unverified ownership graphs. The mod
-packager/validator and eventual in-game selection UI remain later work.
+The next ordered M5 frontier is therefore item 4: expose selected existing
+script events only after their lifetime, authority and save semantics are
+proven. The remaining actor graphs, mod packager/validator and eventual in-game
+selection UI remain later work.
 
 The accepted gate is 62/62 CTest in both Debug and Release, 18/18 ordinary
 installed-Level launches, 18/18 fresh destroyed-context continuations and 2/2
@@ -1298,9 +1301,10 @@ content fingerprint.
 
 The tuning admission adds a hermetic schema gate and a product proof that
 observes the exact committed Vehicle/projectile/People/Tank values, executes a
-real two-MOVE ballistic lifecycle plus exact actor lifecycles, rejects an
-unknown field and three absent target families, and retains the
-mod-save/base-load mismatch proof. It remains gated by 61/61 CTest per Debug
+real two-MOVE ballistic lifecycle plus exact actor lifecycles and actor-owned
+Bullet spawns, proves Tank mass derivation, rejects an unknown field and five
+absent target families, and retains the
+mod-save/base-load mismatch proof. It remains gated by 62/62 CTest per Debug
 and Release configuration, 18/18 ordinary installed-Level runs, and complete
 Debug/Release product sequences. Linux/macOS, native x64 and multiplayer
 remain outside the Windows 1.0 blocker set.

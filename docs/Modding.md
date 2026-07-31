@@ -250,7 +250,8 @@ rosters, but before references or live subjects are published.
       "movement_speed": 4.25,
       "initial_health": 0.8,
       "fire_interval": 0.35,
-      "burst_count": 7
+      "burst_count": 7,
+      "projectile": "Bullet.Led.Prim"
     }
   ],
   "tanks": [
@@ -258,7 +259,9 @@ rosters, but before references or live subjects are published.
       "id": "tank.attr.grasshopper",
       "max_speed": 22.0,
       "attack_power": 12.0,
-      "attack_delay": 3.5
+      "attack_delay": 3.5,
+      "mass": 800.0,
+      "projectile": "Bullet.Led.Prim"
     }
   ]
 }
@@ -268,8 +271,8 @@ Top-level and entry keys are exact, case-sensitive and non-extensible. At
 least one non-empty array is required; each array is bounded to 64 entries.
 Symbolic IDs use ASCII letters, digits, `.`, `_` and `-`, are matched against
 the selected Level, and may occur only once case-insensitively. A
-`secondary_projectile` is stored in the original 40-byte `ct_AttrStr`, so its
-symbolic ID is additionally limited to 39 bytes plus the terminator.
+Projectile references are stored in original 40-byte `ct_AttrStr` fields, so
+their symbolic IDs are additionally limited to 39 bytes plus the terminator.
 
 | Entry | Field | Schema-1 range | Unit/meaning |
 | --- | --- | ---: | --- |
@@ -286,24 +289,27 @@ symbolic ID is additionally limited to 39 bytes plus the terminator.
 | People | `initial_health` | 0.01..100 | initial `m_damage` budget |
 | People | `fire_interval` | 0.02..10 | seconds between attack shots |
 | People | `burst_count` | 1..256 | shots in an attack burst |
+| People | `projectile` | existing ID, <=39 bytes | selected Level `BulletAttr` used by `People::onShoot` |
 | Tank | `max_speed` | 0..100 | movement metres/second |
 | Tank | `attack_power` | 0.1..1000 | `IUnit::getPower` attack value |
 | Tank | `attack_delay` | 0.02..60 | seconds between attack decisions |
+| Tank | `mass` | 0.1..10000000 | mass used to derive acceleration coefficient `massa_D` |
+| Tank | `projectile` | existing ID, <=39 bytes | selected Level `BulletAttr` consumed by owned Cannons |
 
 Movement fields are currently admitted only for the dynamics the recovered
 player Vehicle can actually instantiate: `Dragon`, `Emveshka`, and
 `TankGenn0` through `TankGenn3`. `Dead`, unknown dynamics and the currently
 unsupported `TankGenn4/5` fail closed. Two Vehicle entries may not tune the
 same process-global dynamic. Primary-projectile replacement,
-`m_shootSecAttrName`, ammunition limits, mass, health/armour,
+`m_shootSecAttrName`, ammunition limits, Vehicle mass, health/armour,
 impact/explosion graphs and arbitrary legacy field names are deliberately not
 exposed.
 
 People and Tank patches target only attributes already created by the selected
-Level. People armour, model/route/sound references and Tank armour, mass,
-cannon count/topology, Bullet/effect references and visual names are not part
-of schema 1. Those fields either lack a proven active consumer or change an
-owned reference graph and need a separate lifecycle/save contract.
+Level. People armour, model/route/sound references and Tank armour, cannon
+count/topology, effect references and visual names are not part of schema 1.
+In particular, the presence of legacy Tank `m_armor` storage is not evidence
+of a live consumer, so `armour` remains a strict unknown key.
 
 Application is transactional. The engine first proves the unmodified roster,
 resolves every requested symbolic target and captures all touched values. Only
@@ -313,12 +319,15 @@ speed/MOVE/ground-removal lifecycle with full rollback. Any parse, range,
 roster, dynamic or ballistic failure rejects Level startup and restores the
 pre-tuning values.
 
-People/Tank tuning has a late lifecycle gate. The committed scalar fingerprint
+People/Tank tuning has a late lifecycle gate. The committed gameplay fingerprint
 must survive reference finalization, then every requested attribute must bind
 to a newly created real `People` or `Tank`. That subject executes the existing
 movement, Bullet damage, death/effect and serializer round-trip probes and is
-fully removed with its sounds, cannons, effects and events. The Level is not
-admitted if either the exact owner binding or rollback fingerprint changes.
+fully removed with its sounds, cannons, effects and events. A changed actor
+`projectile` must resolve to the exact Level-local `BulletAttr` and create one
+real Bullet through the legacy People/Cannon spawn path; a changed Tank `mass`
+must appear as the exact reciprocal `massa_D` installed by `Tank::onSetAttr`.
+The Level is not admitted if any proof or rollback fingerprint changes.
 
 Secondary binding has a second commit gate. After the original Vehicle
 reference transaction resolves every Bullet name to its encoded `BulletAttr`
@@ -356,7 +365,8 @@ attempts, overlay hits and the combined active content fingerprint. An active
 tuning file additionally reports committed patch
 counts, post-transaction attribute/reference fingerprints, the observed
 `Vehicle.Attr.default`, first People and first Tank values, secondary reference
-proofs, real ballistic proofs and exact People/Tank lifecycle proof counts.
+proofs, real ballistic proofs, actor projectile spawn counts, Tank mass-
+consumer proofs and exact People/Tank lifecycle proof counts.
 
 The repository includes five copyright-free packages. Use
 `rr2nw.example.data-pack` for neutral packaging/resolver admission and
@@ -380,7 +390,8 @@ same-target override.
   and semantic version ranges;
 - standalone Levels that do not derive from a verified retail catalog,
   campaign/progression registration and authoring tools;
-- People/Tank armour and reference graphs, Vehicle health/armour, ammunition
-  rules, primary-projectile replacement and complete damage/explosion graphs;
+- People/Tank armour and remaining model/sound/effect/cannon graphs, Vehicle
+  health/armour, ammunition rules, primary-projectile replacement and complete
+  damage/explosion graphs;
 - localization routing beyond exact file replacement;
 - Lua, native plugins and new engine object classes.

@@ -1489,23 +1489,30 @@ playable Level begins.
 
 - Schema 1 now accepts exact selected-Level `PeopleAttr` and `TankAttr`
   identities. People exposes bounded movement speed, initial health, fire
-  interval and burst count; Tank exposes bounded maximum speed, attack power
-  and attack delay. No new table rows or reference objects are deserialized.
+  interval, burst count and one existing projectile reference; Tank exposes
+  bounded maximum speed, attack power, attack delay, mass and one existing
+  projectile reference. No new table rows or reference objects are deserialized.
 - The transaction first proves the ordinary unresolved Vehicle/Bullet roster,
   resolves every People/Tank target in the already-created Level-local tables,
-  captures all seven values and only then commits the document. Post-commit
-  fingerprints include the sorted owner names and admitted gameplay scalars.
+  captures all touched values and only then commits the document. Projectile
+  IDs must already exist in `BulletAttr` and fit legacy symbolic storage.
+  Post-commit fingerprints include sorted owner names and admitted gameplay.
 - Each patched owner must later instantiate its exact real subject. The
   existing People/Tank probes exercise render/dynamic setup, scheduled movement,
   Bullet damage, death, serializer round-trip and complete rollback; Tank also
-  proves Cannons and death effects. Fingerprints must remain exact afterward.
-- People armour and model/route/sound references plus Tank mass, armour,
-  Cannon/Bullet/effect/visual graphs remain retail-owned and unavailable to
-  schema 1. Their absence is intentional, not a permissive unknown-field path.
+  proves Cannons and death effects. A changed actor projectile must additionally
+  start one real Bullet through the People/Cannon path and remove it; changed
+  Tank mass must produce the exact reciprocal `massa_D`. Fingerprints must
+  remain exact afterward.
+- People armour and model/route/sound references plus Tank armour and remaining
+  Cannon/effect/visual graphs remain retail-owned and unavailable to schema 1.
+  `m_armor` has no proven live consumer; its absence is intentional, not a
+  permissive unknown-field path.
 - Level.05D product acceptance observes `peop.attr.man_c0` at
-  `4.25/0.8/0.35/7` and `tank.attr.grasshopper` at `22/12/3.5`, preserves both
-  fingerprints through mod-bound save/relaunch/load and rejects absent People
-  or Tank IDs before the loop becomes ready.
+  `4.25/0.8/0.35/7/Bullet.Led.Prim` and `tank.attr.grasshopper` at
+  `22/12/3.5/800/Bullet.Led.Prim`, preserves both fingerprints and all consumer
+  proofs through mod-bound save/relaunch/load, and rejects absent People/Tank
+  owners or their requested projectile IDs before the loop becomes ready.
 
 ### RP-MOD-005: multiple packages compose before retail Level construction
 

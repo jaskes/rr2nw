@@ -3132,6 +3132,31 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   active set and order before Level construction rather than bypassing this
   boundary.
 
+### CQ-173: actor projectile and Tank mass fields require executable consumers
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: People `m_bulletAttrName` is resolved by `AttributePeople::update`
+  into the cache consumed by `People::onShoot`; Tank `m_bulletAttr` is resolved
+  by `AttributeTank::wakeUp` and passed by each owned Cannon to `b_EV_START`.
+  `Tank::onSetAttr` computes `massa_D = 1 / massa`, and the unchanged movement
+  model multiplies force by that reciprocal. Conversely, the legacy Tank
+  `m_armor` item has no demonstrated read-side gameplay consumer.
+- Handling: schema-1 People/Tank entries may select one existing Level-local
+  `BulletAttr`, and Tank may set finite positive `mass` in `0.1..10000000`.
+  IDs must fit the original 39-byte symbolic payload. All targets and original
+  values are captured before mutation; gameplay fingerprints include the new
+  state and rollback restores it. `armour` remains a strict unknown key.
+- Verification: late exact-owner lifecycles require a projectile reference to
+  produce one real Bullet through the legacy People/Cannon spawn path and then
+  restore the Bullet baseline. A mass patch requires the instantiated Tank to
+  contain the exact reciprocal `massa_D`. Level.05D Debug/Release product runs
+  repeat all three proofs after save/relaunch/load and reject absent People and
+  Tank projectile IDs. Final admission is 62/62 CTest per configuration,
+  18/18 ordinary Levels, 18/18 fresh continuations and 2/2 product rows.
+- Revisit when: armour, cannon topology, visual/effect references or new actor
+  rows are proposed. Each field needs its own consumer, ownership, serializer
+  and rollback evidence; storage presence alone is not compatibility proof.
+
 ## Maintenance rule
 
 When a new quirk is found:
