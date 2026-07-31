@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added strict `RR2NW/script-events.json` schema 1 for delayed, named
+  Explosion/Spark creation through existing Level-local attributes. The whole
+  document is preflighted, queued through the real legacy subject paths and
+  rolled back atomically on any failure; raw labels and payloads stay closed.
+- Bound pending mod effects to the existing EVT1 semantic save contract and
+  fired effects to EXP1/SPK1 ownership. Matching save/relaunch/load replaces
+  the fresh bootstrap graph rather than duplicating it. Startup diagnostics,
+  a copyright-free example, hermetic schema smoke and seven-path Debug/Release
+  product acceptance cover admission, persistence and fail-closed cases.
 - Added deterministic multi-mod stacks. Repeatable `--mod-dir` activates
   explicit packages; `--mods-dir` discovers immediate child manifests and
   repeatable `--mod` selects IDs with automatic exact-version dependency

@@ -1,11 +1,12 @@
 # RR2NW data-pack mods
 
 RR2NW admits a deterministic stack of read-only data-pack overlays on Windows.
-In addition to exact resource/script replacement and bounded gameplay tuning,
-schema 1 can declare derived Levels that inherit one verified retail Level
-without editing `game.cfg`. Package discovery, exact-version dependencies,
-conflicts and explicit overrides are supported. An in-game selector, Lua,
-native plugins and a public C++ ABI are not part of this contract.
+In addition to exact resource/script replacement, bounded gameplay tuning and
+two named startup-effect events, schema 1 can declare derived Levels that
+inherit one verified retail Level without editing `game.cfg`. Package
+discovery, exact-version dependencies, conflicts and explicit overrides are
+supported. An in-game selector, Lua, native plugins and a public C++ ABI are
+not part of this contract.
 
 ## Starting a mod
 
@@ -270,8 +271,8 @@ rosters, but before references or live subjects are published.
 Top-level and entry keys are exact, case-sensitive and non-extensible. At
 least one non-empty array is required; each array is bounded to 64 entries.
 Symbolic IDs use ASCII letters, digits, `.`, `_` and `-`, are matched against
-the selected Level, and may occur only once case-insensitively. A
-Projectile references are stored in original 40-byte `ct_AttrStr` fields, so
+the selected Level, and may occur only once case-insensitively. Projectile
+references are stored in original 40-byte `ct_AttrStr` fields, so
 their symbolic IDs are additionally limited to 39 bytes plus the terminator.
 
 | Entry | Field | Schema-1 range | Unit/meaning |
@@ -338,6 +339,88 @@ their private events, so the proof must leave Bullet, Smoke and Spark tables at
 their pre-probe counts. Only then is the Vehicle reference fingerprint
 published.
 
+## Script-event schema 1
+
+A manifest may declare one `scripts/` source at the reserved exact target
+`RR2NW/script-events.json`. This is a narrow data-driven event contract, not a
+way to inject retail script bytecode or arbitrary `KR_Event` payloads. The
+first schema exposes only the already recovered `Explosion` and `Spark`
+creation paths:
+
+```json
+{
+  "schema": 1,
+  "events": [
+    {
+      "id": "arrival-flash",
+      "type": "spark",
+      "attribute": "Spark.Flash",
+      "position": [4099.0, 10000.0, -4099.0],
+      "delay": 30.0
+    },
+    {
+      "id": "arrival-blast",
+      "type": "explosion",
+      "attribute": "Expl.Attr.Small",
+      "position": [4096.0, 10000.0, -4096.0],
+      "delay": 35.0
+    }
+  ]
+}
+```
+
+The document requires exactly `schema` and one non-empty `events` array,
+bounded to 32 entries. Every event requires exactly `id`, `type`, `attribute`,
+`position` and `delay`; unknown or duplicate keys fail closed. IDs are unique
+case-insensitively, use ASCII letters, digits, `.`, `_`, `-`, and contain at
+most 47 bytes. Attribute names use the same alphabet and at most 63 bytes.
+Each position coordinate must be finite in `-1000000..1000000`; delay is a
+finite `0..3600` seconds relative to the admitted Level's simulation boundary.
+The selected Level must already contain the named attribute in the matching
+`ExplosionAttr` or `SparkAttr` table. An explosion is a gameplay effect and may
+apply the retail attribute's damage/impulse rules; use `spark` for a visual
+effect with no explosion damage.
+
+Application occurs after every retail owner/lifecycle admission probe. The
+engine resolves every symbolic attribute, checks scheduler and subject-pool
+capacity, and ensures all generated `RR2NW.Event.<id>` identities are free
+before creating anything. It then queues the complete document through the
+real `ExplosionSubjectState`/`SparkSubjectState` paths. A rejected entry or
+failed semantic proof removes all earlier entries in reverse order. Every
+committed destination must appear exactly once in canonical `EVT1` capture.
+
+Lifetime and save semantics are explicit:
+
+- before its deadline, the generated subject is a pending destination and the
+  command is stored as an `EVT1` semantic record with symbolic attribute,
+  finite position, timestamp and same-name ordinal;
+- after it fires, the command disappears and the live effect is owned by the
+  existing `EXP1` or `SPK1` active-world section with its private lifecycle;
+- fresh Level construction schedules the document once. A matching save load
+  first detaches that fresh bootstrap queue and transient graph, then replaces
+  them transactionally with the saved queue/owners, so events are not doubled;
+- the complete source bytes already participate in ordered mod/content
+  identity, so an absent, changed or reordered package rejects save restore
+  before world mutation.
+
+Raw numeric labels, source/destination ObjectIDs, payload bytes, damage-owner
+authority, arbitrary object removal, repeating/private owner schedulers,
+`Corpse` creation and mission events are not accepted keys. `Corpse` requires
+a well-defined relationship to a dead owner; mission events require a public
+mission-authority model. Those contracts must be designed separately before
+they can become mod API.
+
+Use the copyright-free example on a selected Level and adjust its absolute
+positions to the intended map:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" `
+  --data-dir "E:\Games\The Next Worlds" `
+  --mod-dir "$PWD\examples\mods\rr2nw.example.script-events" `
+  --start-level "Level.05D" `
+  --diagnostics-dir "$PWD\manual-logs\example-script-events"
+```
+
 ## Resolution and compatibility
 
 Resolution is exact and deterministic:
@@ -366,13 +449,16 @@ tuning file additionally reports committed patch
 counts, post-transaction attribute/reference fingerprints, the observed
 `Vehicle.Attr.default`, first People and first Tank values, secondary reference
 proofs, real ballistic proofs, actor projectile spawn counts, Tank mass-
-consumer proofs and exact People/Tank lifecycle proof counts.
+consumer proofs and exact People/Tank lifecycle proof counts. An active event
+document reports schema, total/type/queued counts, exact EVT1 proof count,
+document fingerprint and minimum/maximum delay.
 
-The repository includes five copyright-free packages. Use
+The repository includes six copyright-free packages. Use
 `rr2nw.example.data-pack` for neutral packaging/resolver admission and
 `rr2nw.example.gameplay-tuning` on `Level.05D` for a visible handling/fire
 change. `rr2nw.example.derived-level` adds the read-only `Level.Example`
-catalog entry shown above. `rr2nw.example.stack-core` and
+catalog entry shown above, while `rr2nw.example.script-events` demonstrates
+two save-bound delayed effects. `rr2nw.example.stack-core` and
 `rr2nw.example.stack-addon` demonstrate dependency closure and an explicit
 same-target override.
 
@@ -394,4 +480,8 @@ same-target override.
   health/armour, ammunition rules, primary-projectile replacement and complete
   damage/explosion graphs;
 - localization routing beyond exact file replacement;
-- Lua, native plugins and new engine object classes.
+- arbitrary/raw script events, Corpse/mission event authority and repeating
+  owner-private schedulers;
+- Lua, native plugins and new engine object classes. Lua is evaluated only
+  after the bounded data contracts and their save/rollback semantics remain
+  stable in real mods.

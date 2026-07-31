@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "events": [
+    {
+      "id": "arrival-flash",
+      "type": "spark",
+      "attribute": "Spark.Flash",
+      "position": [4099.0, 10000.0, -4099.0],
+      "delay": 30.0
+    },
+    {
+      "id": "arrival-blast",
+      "type": "explosion",
+      "attribute": "Expl.Attr.Small",
+      "position": [4096.0, 10000.0, -4096.0],
+      "delay": 35.0
+    }
+  ]
+}

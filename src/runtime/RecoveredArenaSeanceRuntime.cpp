@@ -66,6 +66,7 @@ class CGRPanel;
 #include "ActiveWorldRuntimeProbe.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredGameplayTuningRuntime.h"
+#include "RecoveredScriptEventRuntime.h"
 #include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "SimulationRandom.h"
@@ -5365,6 +5366,17 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    // All recovered lifecycle admission probes deliberately own a pristine
+    // transient graph. Public events enter only after those probes complete;
+    // Apply still performs canonical EVT1 capture, while product save/load
+    // exercises the full transactional replacement path.
+    if (!RecoveredScriptEvents_Apply(context, startTime)) {
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_SCRIPT_EVENT_FAILURE,
+          RecoveredScriptEvents_LastError());
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
   } catch (const std::bad_alloc&) {
     Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
            "seance bootstrap allocation failed");
@@ -5385,6 +5397,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  RecoveredScriptEvents_Release(g_arena.getContext());
   RecoveredGameplayTuning_Release(g_arena.getContext());
   OrphanAttributeState_ClearReferences(g_arena.getContext());
   VehicleAttributeState_ClearReferences(g_arena.getContext());

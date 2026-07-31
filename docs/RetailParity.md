@@ -1539,6 +1539,32 @@ playable Level begins.
   configuration, 18/18 ordinary Levels, 18/18 fresh continuations and 2/2
   product rows.
 
+### RP-MOD-006: bounded startup effects use the recovered semantic queue
+
+- Reserved `RR2NW/script-events.json` schema 1 exposes delayed `explosion` and
+  `spark` only. Every entry has a unique bounded ID, matching existing
+  Level-local attribute, finite absolute position and `0..3600` second delay.
+  The document is limited to 32 entries/256 KiB and rejects every unknown key.
+- The runtime preflights all names, table membership and queue/subject capacity
+  before calling the real Explosion/Spark subject queues. A partial failure
+  removes the created prefix in reverse. Every committed destination must then
+  occur exactly once in canonical EVT1 capture.
+- Pending commands are persisted by EVT1. Dispatched owners retain existing
+  EXP1/SPK1 lifecycle and private-event serialization. During matching load,
+  the active-world transaction removes fresh bootstrap events/owners before
+  reconstructing the saved graph, preventing double scheduling. Changed or
+  absent JSON already fails the ordinary content/mod identity check.
+- Raw labels/payloads, ObjectIDs, damage-owner authority, removal, recurring
+  private schedulers, Corpse creation and mission checks remain closed. The
+  public contract does not reinterpret the recovered generic script host as a
+  stable API.
+- The Debug/Release product gate queues one real event of each type, requires
+  `script_events_queued=2` and `script_events_evt1_proofs=2`, saves and restores
+  them after relaunch, rejects load without the mod and rejects raw-label plus
+  absent-attribute documents before gameplay. Admission advances to 63/63
+  CTest in each configuration, with 18/18 ordinary and 18/18 fresh-continuation
+  retail matrices plus 2/2 event product rows.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

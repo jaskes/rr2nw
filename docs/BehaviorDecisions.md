@@ -4100,3 +4100,42 @@ identity, so no parallel save format or migration field is introduced.
 Accepted Windows evidence is 62/62 CTest in Debug and Release, 18/18 ordinary
 installed-Level starts, 18/18 fresh destroyed-context continuations and the
 two passing 11-step Level.05D product rows with identical content fingerprints.
+
+## BD-106: expose semantic effect commands, not the legacy event bus
+
+Status: accepted on 2026-07-31.
+
+The recovered script host can construct arbitrary numeric labels and payload
+bytes, but that mechanism has no public authority, type or save contract. The
+first mod event surface is instead reserved `RR2NW/script-events.json` schema
+1. It admits only named delayed Explosion and Spark creation: unique symbolic
+ID, matching existing Level-local attribute, finite position and relative
+delay. Numeric labels, ObjectIDs, source/damage-owner references, arbitrary
+payload fields and deletion are not expressible.
+
+The document is strict and bounded to 32 entries, 256 KiB, finite coordinates
+within +/-1000000 and delays within 0..3600 seconds. All names, attributes,
+subject capacity and scheduler capacity are preflighted before mutation. The
+real Explosion/Spark queue functions then create each pending destination;
+failure removes the already queued prefix in reverse. Admission additionally
+requires exactly one canonical EVT1 record for every generated symbolic
+destination.
+
+Pending commands are EVT1-owned. Once dispatched, their started effects are
+EXP1/SPK1-owned and retain the already proven private scheduler lifetimes. A
+fresh Level schedules the document once. Production load detaches that fresh
+queue and transient owner graph before reconstructing the save's queue/owners,
+so save/relaunch/load neither loses nor duplicates a command. The source file
+is already bound by the ordered mod/content fingerprint.
+
+Corpse creation remains private because a public event has not defined its
+dead-owner relation. Mission checks remain private because mods have no public
+mission-authority contract. Repeating owner events remain owner-private. Lua is
+not evaluated as a syntax choice until these bounded data contracts are broad
+and stable enough to define what a script may actually own.
+
+The hermetic regression rejects unknown/raw keys, malformed positions,
+non-finite/range violations and duplicate IDs. The Debug/Release product gate
+queues one real Spark and Explosion, proves `2/2` EVT1 capture, saves and loads
+them under matching content identity, rejects the same save without the mod,
+and rejects both a raw `label` key and an absent attribute before the loop.

@@ -1252,8 +1252,9 @@ gates, but not the whole M5 feature list. The next mod slices remain ordered:
 3. **closed:** expose actor projectile references and Tank mass only after
    exact active-consumer, ownership and save proofs; keep armour closed because
    a legacy attribute item alone is not evidence;
-4. expose existing script events only after their lifetime/save semantics are
-   documented; evaluate Lua after those data-driven contracts are proven;
+4. **closed:** expose selected existing script events only after their
+   lifetime/save semantics are documented; evaluate Lua after those
+   data-driven contracts are proven;
 5. package the validator/example and run the final Win10/Win11 manual campaign
    gate before calling the M5/RC frontier complete.
 
@@ -1289,15 +1290,30 @@ product gate discovers three packages from deliberately misleading directory
 names, selects an addon, auto-mounts its core, saves/restores a derived Level
 and separately rejects activate-all conflict plus an absent requested ID.
 
-The next ordered M5 frontier is therefore item 4: expose selected existing
-script events only after their lifetime, authority and save semantics are
-proven. The remaining actor graphs, mod packager/validator and eventual in-game
-selection UI remain later work.
+The fourth item is now closed by reserved `RR2NW/script-events.json` schema 1.
+It exposes only delayed `explosion` and `spark` creation with a unique bounded
+ID, existing Level-local attribute, finite absolute position and bounded
+relative delay. The engine preflights the complete document, queues the real
+legacy subjects atomically and requires every command to appear exactly once
+in canonical EVT1 capture. Pending events persist in EVT1; fired effects move
+under existing EXP1/SPK1 ownership. A matching load replaces the fresh
+bootstrap graph with the saved graph, so relaunch cannot double an event.
 
-The accepted gate is 62/62 CTest in both Debug and Release, 18/18 ordinary
-installed-Level launches, 18/18 fresh destroyed-context continuations and 2/2
-mod-stack product matrices. Debug and Release produced the same ordered stack
-content fingerprint.
+Numeric labels, raw payloads/ObjectIDs, damage-owner authority, Corpse/mission
+events and private repeating schedulers remain closed. The first event API is
+therefore a data contract with known lifetime, not a disguised native plugin
+ABI. Lua remains deferred until more such contracts are stable.
+
+The next ordered M5 frontier is item 5: finish validator/packaging ergonomics
+and execute the final Win10/Win11 manual campaign gate. The remaining actor
+graphs and eventual in-game selection UI remain later work.
+
+The accepted event-product gate adds seven Debug/Release launches: base,
+admission, save, relaunch/load, mod-identity rejection, raw-label rejection and
+missing-attribute rejection. The accepted aggregate gate is 63/63 CTest in
+both Debug and Release, 18/18 ordinary installed-Level launches, 18/18 fresh
+destroyed-context continuations and 2/2 mod-stack plus 2/2 script-event product
+matrices. Debug and Release produced the same ordered content identities.
 
 The tuning admission adds a hermetic schema gate and a product proof that
 observes the exact committed Vehicle/projectile/People/Tank values, executes a

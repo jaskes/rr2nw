@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.example.script-events",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "scripts/script-events.json",
+      "target": "RR2NW/script-events.json"
+    }
+  ]
+}

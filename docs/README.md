@@ -24,8 +24,9 @@
   for selecting, automatically sweeping and manually checking all retail
   Levels on Windows.
 - [Modding.md](Modding.md) documents the admitted schema-1 data-pack manifest,
-  exact-target VFS, Vehicle/projectile/People/Tank gameplay tuning, limits,
-  save/content identity and deliberately deferred scripting/dependency work.
+  exact-target VFS, deterministic stacks, derived Levels,
+  Vehicle/projectile/People/Tank tuning, bounded semantic startup events,
+  save/content identity and deliberately deferred Lua/native APIs.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где
   исторические источники или возможные реализации расходятся.
 

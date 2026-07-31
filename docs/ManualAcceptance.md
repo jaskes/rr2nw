@@ -362,6 +362,42 @@ one effective file, one derived Level, matching non-zero
 `active_content_fingerprint` values and clean shutdown. Negative logs must end
 at `marker=mod-not-ready` with a conflict or undiscovered-ID diagnosis.
 
+## Semantic mod-event pass
+
+This bounded product proof creates a strict two-event package and two invalid
+packages without copying retail bytes. It queues one real delayed Spark and
+Explosion, saves them while pending, restores them after process relaunch,
+rejects the same slot without its mod identity, rejects an attempted raw
+numeric `label`, and rejects an absent Level-local Explosion attribute:
+
+```powershell
+& ".\tools\acceptance\Invoke-ModScriptEvents.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+Both rows must pass. The admitted logs must report
+`script_events_active=1`, schema/counts `1/2/1/1`,
+`script_events_queued=2`, `script_events_evt1_proofs=2`, delay range
+`30/35`, a stable non-zero event fingerprint and clean shutdown. Save and
+relaunch/load must preserve both event and active-content fingerprints. The
+identity mismatch must stop at `loop-not-ready`; raw-label and missing-
+attribute documents must fail during Arena seance construction with precise
+diagnostics. This proves pending EVT1 reconstruction, not only JSON parsing.
+
+For an interactive check, copy the example, put the two absolute positions
+near a known camera/start location, and use a short delay. An `explosion` uses
+the selected retail attribute's real damage/impulse rules; `spark` is the safe
+visual-only choice:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" `
+  --data-dir "E:\Games\The Next Worlds" `
+  --mod-dir "$PWD\examples\mods\rr2nw.example.script-events" `
+  --start-level "Level.05D" `
+  --diagnostics-dir "$PWD\manual-logs\example-script-events"
+```
+
 ```powershell
 & ".\build\windows-msvc-x86\Release\rr2nw.exe" `
   --data-dir "E:\Games\The Next Worlds" `

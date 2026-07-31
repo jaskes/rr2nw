@@ -7,6 +7,7 @@
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredGameServicesRuntime.h"
 #include "RecoveredGameplayTuningRuntime.h"
+#include "RecoveredScriptEventRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
@@ -2202,6 +2203,30 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(tuningSummary->observedTankMass));
     log.Line(std::string("gameplay_tuning_tank_projectile=") +
              tuningSummary->observedTankProjectile);
+  }
+  const SRecoveredScriptEventSummary* scriptEventSummary =
+      RecoveredScriptEvents_Summary();
+  log.Line(std::string("script_events_active=") +
+           (RecoveredScriptEvents_IsActive() ? "1" : "0"));
+  if (scriptEventSummary != nullptr) {
+    log.Line("script_events_schema=" +
+             std::to_string(scriptEventSummary->schemaVersion));
+    log.Line("script_events_count=" +
+             std::to_string(scriptEventSummary->eventCount));
+    log.Line("script_events_explosions=" +
+             std::to_string(scriptEventSummary->explosionCount));
+    log.Line("script_events_sparks=" +
+             std::to_string(scriptEventSummary->sparkCount));
+    log.Line("script_events_queued=" +
+             std::to_string(scriptEventSummary->queuedCount));
+    log.Line("script_events_evt1_proofs=" +
+             std::to_string(scriptEventSummary->semanticProofCount));
+    log.Line("script_events_fingerprint=" +
+             std::to_string(scriptEventSummary->eventFingerprint));
+    log.Line("script_events_minimum_delay=" +
+             std::to_string(scriptEventSummary->minimumDelay));
+    log.Line("script_events_maximum_delay=" +
+             std::to_string(scriptEventSummary->maximumDelay));
   }
   log.Line("arena_seance_issues=" +
            std::to_string(RecoveredArenaSeance_Issues()));

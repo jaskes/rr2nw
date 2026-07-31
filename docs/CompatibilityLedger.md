@@ -3157,6 +3157,37 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   rows are proposed. Each field needs its own consumer, ownership, serializer
   and rollback evidence; storage presence alone is not compatibility proof.
 
+### CQ-174: a public event is a semantic command with explicit ownership
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `MOD_RUNTIME_CONFIRMED`.
+- Evidence: the recovered legacy host can emit arbitrary label/payload pairs,
+  but only pending `EXPLOSION_START`, `sp_EV_CREATE` and
+  `CORPSE_START_ROTTING` currently have symbolic EVT1 codecs. Started
+  Explosion/Spark owners already have complete EXP1/SPK1 lifetime codecs.
+  Corpse additionally needs a dead-owner relationship, and mission events
+  require authority that the mod schema has not defined.
+- Handling: reserved `RR2NW/script-events.json` schema 1 exposes only named
+  delayed `explosion` and `spark` creation. IDs, positions, delays, selected-
+  Level attributes, event capacity and subject capacity are validated before
+  mutation. Real queue functions create the complete batch; any failure
+  removes the queued prefix in reverse. Raw labels, payload bytes, ObjectIDs,
+  source/damage-owner references, deletion and private repeating events remain
+  unavailable.
+- Save boundary: every admitted pending destination must appear exactly once
+  in canonical EVT1 capture. After dispatch the effect becomes EXP1/SPK1
+  state. Load first removes the fresh bootstrap queue/transient owners and
+  replaces them with the saved graph, while the JSON bytes remain part of the
+  ordered content fingerprint. There is no duplicate startup event after load.
+- Verification: the strict smoke covers both admitted types and schema/range/
+  duplicate/raw-field failures. `Invoke-ModScriptEvents.ps1` runs base,
+  admission, save, relaunch/load, mod-mismatch, raw-label and missing-attribute
+  cases in Debug and Release. Final admission is 63/63 CTest per configuration,
+  18/18 ordinary Levels, 18/18 fresh continuations and 2/2 event product rows.
+- Revisit when: Corpse ownership, public mission construction or recurring
+  event cancellation has a field-level save/rollback contract. Lua must call
+  the same semantic commands; it must not bypass this boundary with the raw
+  legacy event bus.
+
 ## Maintenance rule
 
 When a new quirk is found:

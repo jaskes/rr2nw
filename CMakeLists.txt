@@ -3502,6 +3502,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredGameServicesRuntime.h
   src/runtime/RecoveredGameplayTuningRuntime.cpp
   src/runtime/RecoveredGameplayTuningRuntime.h
+  src/runtime/RecoveredScriptEventRuntime.cpp
+  src/runtime/RecoveredScriptEventRuntime.h
   src/runtime/RecoveredSavePreview.cpp
   src/runtime/RecoveredSavePreview.h
   src/runtime/RecoveredSaveSlotDialog.cpp
@@ -4263,6 +4265,21 @@ target_compile_definitions(
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+add_executable(rr2nw_recovered_script_event_smoke
+  src/portability/RecoveredScriptEventSmoke.cpp
+)
+target_link_libraries(rr2nw_recovered_script_event_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_recovered_script_event_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_recovered_script_event_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
 target_compile_features(
   rr2nw_recovered_game_services_runtime_smoke PRIVATE cxx_std_14
 )
@@ -4618,6 +4635,9 @@ if(MSVC)
     rr2nw_recovered_gameplay_tuning_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_recovered_script_event_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_vehicle_control_journal_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -4819,6 +4839,10 @@ if(BUILD_TESTING)
   add_test(
     NAME recovered-gameplay-tuning-smoke
     COMMAND rr2nw_recovered_gameplay_tuning_smoke
+  )
+  add_test(
+    NAME recovered-script-event-smoke
+    COMMAND rr2nw_recovered_script_event_smoke
   )
   add_test(
     NAME vehicle-control-journal-smoke
