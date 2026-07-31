@@ -3959,3 +3959,19 @@ publish all five final values as `vehicle_control_axes`.
 The completed gate passes 61/61 CTest in both configurations, all 18 ordinary
 installed-Level runtime cases, all 18 destroyed-context continuation cases and
 two real window-message timing variants with a neutral final Vehicle axis.
+
+A subsequent visible WASD retest isolated a remaining paired-input boundary.
+Although the triggering key now used its explicit message state, every other
+binding in the direct/complement pair still used queue-local `GetKeyState`.
+Fast diagonal movement or an opposite-key overlap could therefore combine a
+current release with a stale complementary press. The translator now samples
+non-triggering bindings with `GetAsyncKeyState`, while the triggering binding
+continues to use `buttonDown`. The regression deliberately poisons the queued
+Left state while physically testing Right, and the queued A state while
+physically testing D; both pairs must still produce press then exact release.
+
+The follow-up gate passes 61/61 CTest in both configurations, 18/18 ordinary
+installed-Level cases and 18/18 fresh-continuation cases. A foreground window
+probe performs `W+A` with staggered release and an overlapping `Right+Left`,
+then leaves the active game idle for four seconds; it exits with zero control
+axes, effectively zero speed and clean shutdown.

@@ -354,7 +354,7 @@ int CtrlSet::Translate(int msgType, int code, int buttonDown, double *downAction
                                 ext = FALSE;
                                 c = m_action[ev].code[k];
                             }
-                            if(m_action[ev].code[k] != code) d += ((::GetKeyState(c) & 0x8000) ? 1 : 0)*keySens;
+                            if(m_action[ev].code[k] != code) d += ((::GetAsyncKeyState(c) & 0x8000) ? 1 : 0)*keySens;
                             else          d += (buttonDown ? 1 : 0)*keySens;
                         }
                     }
@@ -382,7 +382,7 @@ int CtrlSet::Translate(int msgType, int code, int buttonDown, double *downAction
                                 ext = FALSE;
                                 c = m_action[cEv].code[k];
                             }
-                            if(m_action[cEv].code[k] != code) d -= ((::GetKeyState(c) & 0x8000) ? 1 : 0)*keySens;
+                            if(m_action[cEv].code[k] != code) d -= ((::GetAsyncKeyState(c) & 0x8000) ? 1 : 0)*keySens;
                             else          d -= (buttonDown ? 1 : 0)*keySens;
                         }
                     }

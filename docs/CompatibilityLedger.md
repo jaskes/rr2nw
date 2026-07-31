@@ -2997,7 +2997,7 @@ Status vocabulary:
   Preserve the single normalized-axis contract at the input boundary rather
   than exposing per-key state to simulation or camera owners.
 
-### CQ-169: an extended current key must not be polled as its complement
+### CQ-169: current and complementary keys need distinct state ownership
 
 - Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
 - Evidence: arrow bindings retain `CTRL_EXTENDED_KEY` in the action table, but
@@ -3008,19 +3008,27 @@ Status vocabulary:
   observed frequency of Left/Right sticking.
 - Handling: direct and complementary loops compare the original configured
   action code with the incoming code. Only a genuinely different binding is
-  polled; the triggering key always uses its message state. Vehicle control
-  then canonicalizes paired names before forwarding, held-state accounting and
-  CTJ1 append/adoption.
-- Verification: a hermetic translator proof forces both arrow virtual keys
-  low, submits an explicit extended Right press and release, and requires a
-  positive press plus exact zero release. Two real window-message runs produce
-  a bounded heading change, then finish with `vehicle_active_action_count=0`,
-  `vehicle_control_axes=0,0,0,0,0` and clean shutdown. The final gate passes
-  61/61 CTest in Debug and Release, all 18 installed-Level runtime cases and
-  all 18 destroyed-context continuation/save cases.
+  polled; the triggering key always uses its message state. Non-triggering
+  bindings use physical asynchronous state rather than a potentially stale
+  message-queue snapshot. Vehicle control then canonicalizes paired names
+  before forwarding, held-state accounting and CTJ1 append/adoption.
+- Verification: a hermetic translator proof requires physical current and
+  complementary keys to be up, poisons only the queue-local complementary
+  state, then requires a positive current press plus exact zero release. Two
+  real window-message runs, including staggered `W+A` and overlapping
+  `Right+Left`, produce bounded motion and then finish with effectively zero
+  speed, `vehicle_active_action_count=0`, `vehicle_control_axes=0,0,0,0,0`
+  and clean shutdown. The final gate passes 61/61 CTest in Debug and Release,
+  all 18 installed-Level runtime cases and all 18 destroyed-context
+  continuation/save cases.
 - Revisit when: the legacy translator is replaced. Preserve explicit current-
   message ownership and test extended/non-extended, overlap, focus and journal
   boundaries together.
+
+The visible follow-up reproduced the same stale-complement failure while
+combining WASD movement, so the hermetic proof covers both `Right/Left` and
+`D/A`. Each case poisons only the queue-local state of the physically released
+complement and requires a positive current press followed by exact zero.
 
 ## Maintenance rule
 

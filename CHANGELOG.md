@@ -775,6 +775,10 @@ claim authorship of inherited Logos code or retail data.
   The current extended key is now matched by its complete configured code, so
   `WM_KEYUP` consumes the explicit released state instead of consulting a
   potentially stale `GetKeyState` result.
+- Fixed paired movement and camera input after fast overlaps such as `W+A`,
+  `A+D` or `Left+Right`. Complementary bindings now use Windows' physical
+  asynchronous key state instead of the message-queue-local state, so a stale
+  opposite key cannot reassert strafe or turn after release.
 - Normalized Vehicle movement, strafe, vertical, turn and look input into the
   same five canonical axes used by the fallback observer. Opposite action
   names no longer leave contradictory held-state or continuation-journal

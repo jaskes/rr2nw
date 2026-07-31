@@ -896,57 +896,67 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
   return true;
 }
 
-bool ExerciseExtendedCurrentKeyTranslation() {
-  const int rightCode = g_hardware.SearchCode("Right");
-  const int leftCode = g_hardware.SearchCode("Left");
-  if (rightCode < CTRL_EXTENDED_KEY || leftCode < CTRL_EXTENDED_KEY) {
-    return false;
-  }
-  const int rightVirtualKey = rightCode - CTRL_EXTENDED_KEY;
-  const int leftVirtualKey = leftCode - CTRL_EXTENDED_KEY;
-  if (rightVirtualKey < 0 || rightVirtualKey >= 256 ||
-      leftVirtualKey < 0 || leftVirtualKey >= 256) {
-    return false;
-  }
-
-  BYTE savedKeyboardState[256] = {};
-  BYTE neutralKeyboardState[256] = {};
-  if (GetKeyboardState(savedKeyboardState) == FALSE) return false;
-  std::memcpy(neutralKeyboardState, savedKeyboardState,
-              sizeof(neutralKeyboardState));
-  neutralKeyboardState[rightVirtualKey] = 0;
-  neutralKeyboardState[leftVirtualKey] = 0;
-  if (SetKeyboardState(neutralKeyboardState) == FALSE) return false;
-
-  int actions[MAX_ACTIONS_ON_KEY * 3] = {};
-  double values[MAX_ACTIONS_ON_KEY * 3] = {};
-  const int pressed = g_hardware.m_ctrlTranslator.Translate(
-      CTRL_BUTTONS_MSG, rightCode, TRUE, values, actions);
-  double pressedValue = 0.0;
-  bool pressedFound = false;
-  for (int index = 0; index < pressed; ++index) {
-    if (actions[index] == TURN_RIGHT) {
-      pressedValue = values[index];
-      pressedFound = true;
+bool ExerciseCurrentKeyTranslationAgainstStaleComplement() {
+  const auto exercisePair = [](const char* currentName,
+                               const char* complementName,
+                               int expectedAction) {
+    const int currentCode = g_hardware.SearchCode(currentName);
+    const int complementCode = g_hardware.SearchCode(complementName);
+    const int currentVirtualKey = currentCode >= CTRL_EXTENDED_KEY
+        ? currentCode - CTRL_EXTENDED_KEY : currentCode;
+    const int complementVirtualKey = complementCode >= CTRL_EXTENDED_KEY
+        ? complementCode - CTRL_EXTENDED_KEY : complementCode;
+    if (currentCode <= 0 || complementCode <= 0 ||
+        currentVirtualKey < 0 || currentVirtualKey >= 256 ||
+        complementVirtualKey < 0 || complementVirtualKey >= 256 ||
+        (GetAsyncKeyState(currentVirtualKey) & 0x8000) != 0 ||
+        (GetAsyncKeyState(complementVirtualKey) & 0x8000) != 0) {
+      return false;
     }
-  }
 
-  std::memset(actions, 0, sizeof(actions));
-  std::memset(values, 0, sizeof(values));
-  const int released = g_hardware.m_ctrlTranslator.Translate(
-      CTRL_BUTTONS_MSG, rightCode, FALSE, values, actions);
-  double releasedValue = -1.0;
-  bool releasedFound = false;
-  for (int index = 0; index < released; ++index) {
-    if (actions[index] == TURN_RIGHT) {
-      releasedValue = values[index];
-      releasedFound = true;
+    BYTE savedKeyboardState[256] = {};
+    BYTE staleKeyboardState[256] = {};
+    if (GetKeyboardState(savedKeyboardState) == FALSE) return false;
+    std::memcpy(staleKeyboardState, savedKeyboardState,
+                sizeof(staleKeyboardState));
+    staleKeyboardState[currentVirtualKey] = 0;
+    // Deliberately leave the queue-local complement stale. Translation must
+    // consult its physical asynchronous state and report the current key.
+    staleKeyboardState[complementVirtualKey] = 0x80;
+    if (SetKeyboardState(staleKeyboardState) == FALSE) return false;
+
+    int actions[MAX_ACTIONS_ON_KEY * 3] = {};
+    double values[MAX_ACTIONS_ON_KEY * 3] = {};
+    const int pressed = g_hardware.m_ctrlTranslator.Translate(
+        CTRL_BUTTONS_MSG, currentCode, TRUE, values, actions);
+    double pressedValue = 0.0;
+    bool pressedFound = false;
+    for (int index = 0; index < pressed; ++index) {
+      if (actions[index] == expectedAction) {
+        pressedValue = values[index];
+        pressedFound = true;
+      }
     }
-  }
-  const bool restored =
-      SetKeyboardState(savedKeyboardState) != FALSE;
-  return restored && pressedFound && pressedValue > 0.0 &&
-         pressedValue <= 1.0 && releasedFound && releasedValue == 0.0;
+
+    std::memset(actions, 0, sizeof(actions));
+    std::memset(values, 0, sizeof(values));
+    const int released = g_hardware.m_ctrlTranslator.Translate(
+        CTRL_BUTTONS_MSG, currentCode, FALSE, values, actions);
+    double releasedValue = -1.0;
+    bool releasedFound = false;
+    for (int index = 0; index < released; ++index) {
+      if (actions[index] == expectedAction) {
+        releasedValue = values[index];
+        releasedFound = true;
+      }
+    }
+    const bool restored = SetKeyboardState(savedKeyboardState) != FALSE;
+    return restored && pressedFound && pressedValue > 0.0 &&
+           pressedValue <= 1.0 && releasedFound && releasedValue == 0.0;
+  };
+
+  return exercisePair("Right", "Left", TURN_RIGHT) &&
+         exercisePair("D", "A", STRAFE_RIGHT);
 }
 
 bool WaitForSessionTimeAdvance(double minimumDelta) {
@@ -2689,10 +2699,10 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("service initialization failed");
   }
-  if (!ExerciseExtendedCurrentKeyTranslation()) {
+  if (!ExerciseCurrentKeyTranslationAgainstStaleComplement()) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("extended current-key translation ignored explicit state");
+    return Fail("current-key translation trusted stale complement state");
   }
   std::wstring saveSlotDirectory;
   if (!PrepareSaveSlotFixture(&saveSlotDirectory)) {
