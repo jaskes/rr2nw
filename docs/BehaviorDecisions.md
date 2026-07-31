@@ -3688,3 +3688,34 @@ acceptance script independently saves through `rr2nw.exe`, starts another
 Level and requires a product main-loop commit and clean shutdown. Embedded
 preview presentation and retail-save import remain separate UX/compatibility
 work; they do not weaken this transaction boundary.
+
+## BD-096: show slot details without granting presentation persistence authority
+
+Status: accepted on 2026-07-31.
+
+Selecting a native Save or Load slot now opens one modal details window before
+the existing broker request is queued. Load presents the archive title,
+description, Level, UTC timestamp, authoritative tick/time, compatibility and
+whether unsaved progress will be replaced. Save presents the prior archive
+when overwriting and exposes bounded title and description edit controls. The
+dialog never reads or writes a slot file itself and never mutates the world.
+
+RR2SLOT1 and its eight fixed filenames are unchanged. Edited text remains
+UTF-8 display metadata, is validated against the canonical 96-byte title and
+1024-byte description limits, and is carried with the deferred request until
+the fully ended/presented frame transaction commits it. Neither text nor a
+window caption can regain filename, Level-selection or overwrite authority.
+
+The product preview path uses Windows Imaging Component only after the archive
+codec has bounded and validated the PNG field. It converts the first frame to
+top-down BGRA and aspect-fits it into a fixed 320x240 presentation surface. A
+decode failure records diagnostics and displays a placeholder; it does not
+weaken archive validation and does not disable an otherwise compatible Load.
+
+The proof has three layers: exact WIC BGRA/aspect-fit/corruption assertions in
+the indexed-PNG smoke; custom UTF-8 metadata plus real framebuffer preview
+commit/read-back in the same-process services smoke; and a real executable
+dialog pass that inspects the Load preview, cancels without mutation and
+commits an empty Save slot through the broker. Cross-process synthetic edit
+messages are not accepted as keyboard proof, so Cyrillic entry/read-back is an
+explicit manual 1.0 acceptance step.

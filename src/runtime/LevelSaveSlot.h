@@ -66,6 +66,9 @@ struct SLevelSaveSlotSummary {
 
 std::uint32_t LevelSaveSlot_FormatVersion();
 std::uint32_t LevelSaveSlot_Count();
+bool LevelSaveSlot_ValidateDisplayMetadata(
+    const std::string& title, const std::string& description,
+    SLevelSaveSlotStatus* status);
 std::wstring LevelSaveSlot_Path(const std::wstring& directory,
                                 std::uint32_t slot);
 

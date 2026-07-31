@@ -1,4 +1,7 @@
 #include "IndexedPng.h"
+#include "RecoveredSavePreview.h"
+
+#include <objbase.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -170,6 +173,53 @@ int main() {
       return Fail("decoded scanline differs");
   }
 
+  const HRESULT comResult =
+      CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  if (FAILED(comResult) && comResult != RPC_E_CHANGED_MODE)
+    return Fail("COM initialization for preview decode failed");
+  const bool comOwned = SUCCEEDED(comResult);
+  SRecoveredSavePreviewImage decoded;
+  if (!RecoveredSavePreview_DecodePng(
+          png, width, height, &decoded, &failure) || !decoded.ready ||
+      decoded.sourceWidth != width || decoded.sourceHeight != height ||
+      decoded.width != width || decoded.height != height ||
+      decoded.stride != width * 4u ||
+      decoded.bgra.size() != width * height * 4u ||
+      decoded.sourceFingerprint == 0u) {
+    if (comOwned) CoUninitialize();
+    return Fail(failure.empty() ? "Windows preview decode failed"
+                                : failure.c_str());
+  }
+  for (std::size_t index = 0; index < width * height; ++index) {
+    const std::uint8_t paletteIndex = pixels[index];
+    const std::uint8_t* bgra = decoded.bgra.data() + index * 4u;
+    if (bgra[0] != palette[paletteIndex * 3u + 2u] ||
+        bgra[1] != palette[paletteIndex * 3u + 1u] ||
+        bgra[2] != palette[paletteIndex * 3u] || bgra[3] != 255u) {
+      if (comOwned) CoUninitialize();
+      return Fail("Windows preview BGRA pixels differ");
+    }
+  }
+  SRecoveredSavePreviewImage scaled;
+  if (!RecoveredSavePreview_DecodePng(
+          png, 2u, 2u, &scaled, &failure) || !scaled.ready ||
+      scaled.width != 2u || scaled.height != 1u ||
+      scaled.sourceWidth != width || scaled.sourceHeight != height) {
+    if (comOwned) CoUninitialize();
+    return Fail("Windows preview aspect-fit scaling differs");
+  }
+  std::vector<std::uint8_t> corruptPng = png;
+  corruptPng[0] = 0u;
+  SRecoveredSavePreviewImage rejectedPreview;
+  rejectedPreview.ready = true;
+  if (RecoveredSavePreview_DecodePng(
+          corruptPng, width, height, &rejectedPreview, &failure) ||
+      rejectedPreview.ready) {
+    if (comOwned) CoUninitialize();
+    return Fail("corrupt Windows preview was admitted");
+  }
+  if (comOwned) CoUninitialize();
+
   std::vector<std::uint8_t> preserved = {7u, 8u, 9u};
   SIndexedPngSummary rejected;
   if (IndexedPng_Encode(0u, height, pixels, width, palette,
@@ -180,7 +230,7 @@ int main() {
     return Fail("invalid encode mutated its output");
   if (IndexedPng_Encode(
           1u, 2u, pixels,
-          std::numeric_limits<std::size_t>::max(), palette,
+          (std::numeric_limits<std::size_t>::max)(), palette,
           sizeof(palette), &preserved, &rejected, &failure) ||
       preserved != std::vector<std::uint8_t>({7u, 8u, 9u}) ||
       rejected.ready)
@@ -188,7 +238,7 @@ int main() {
 
   std::printf(
       "indexed PNG width=%u height=%u palette=256 bytes=%zu "
-      "fingerprint=%llu zlib=stored\n",
+      "fingerprint=%llu zlib=stored wic=BGRA/aspect-fit\n",
       summary.width, summary.height, summary.encodedBytes,
       static_cast<unsigned long long>(summary.fingerprint));
   return EXIT_SUCCESS;

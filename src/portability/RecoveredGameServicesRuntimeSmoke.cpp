@@ -58,6 +58,7 @@
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
+#include "RecoveredSavePreview.h"
 #include "RecoveredSoftwareGraph.h"
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
@@ -3809,15 +3810,24 @@ int main(int argc, char** argv) {
       RecoveredGameServices_RequestSaveSlot(LevelSaveSlot_Count(), false) ||
       RecoveredGameServices_SaveMenuState() == nullptr ||
       RecoveredGameServices_SaveMenuState()->pending ||
-      !RecoveredGameServices_RequestSaveSlot(3u, false) ||
+      !RecoveredGameServices_RequestSaveSlotWithMetadata(
+          3u, false, "Station approach",
+          "Vehicle checkpoint after focus recovery") ||
       RecoveredGameServices_RequestLoadSlot(3u) ||
       !RecoveredGameServices_SaveMenuState()->pending ||
       RecoveredGameServices_SaveMenuState()->pendingAction !=
           RECOVERED_SAVE_MENU_SAVE ||
       RecoveredGameServices_SaveMenuState()->pendingSlot != 3u ||
+      RecoveredGameServices_SaveMenuState()->pendingTitle !=
+          "Station approach" ||
+      RecoveredGameServices_SaveMenuState()->pendingDescription !=
+          "Vehicle checkpoint after focus recovery" ||
       !RecoveredGameServices_ProcessPendingSaveCommand(
           &savedSlot, &capturedContinuation) ||
       !savedSlot.ready || savedSlot.slot != 3u ||
+      savedSlot.title != "Station approach" ||
+      savedSlot.description !=
+          "Vehicle checkpoint after focus recovery" ||
       savedSlot.level.empty() ||
       savedSlot.archiveFingerprint == 0 ||
       savedSlot.continuationFingerprint == 0 ||
@@ -3837,6 +3847,8 @@ int main(int argc, char** argv) {
       RecoveredGameServices_SaveMenuState() == nullptr ||
       RecoveredGameServices_SaveMenuState()->saveRequests != 1u ||
       RecoveredGameServices_SaveMenuState()->completedSaves != 1u ||
+      RecoveredGameServices_SaveMenuState()
+              ->customMetadataSaveRequests != 1u ||
       RecoveredGameServices_SaveMenuState()->failedCommands != 0u ||
       !RecoveredGameServices_SaveMenuState()->lastPreview.ready ||
       RecoveredGameServices_SaveMenuState()->lastPreview.width != 640u ||
@@ -3879,6 +3891,22 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("failed live slot replacement changed committed data");
+  }
+  SRecoveredSavePreviewImage decodedPreview;
+  std::string decodedPreviewFailure;
+  if (!RecoveredSavePreview_DecodePng(
+          retainedSlot.previewPng, 320u, 240u, &decodedPreview,
+          &decodedPreviewFailure) || !decodedPreview.ready ||
+      decodedPreview.sourceWidth != 640u ||
+      decodedPreview.sourceHeight != 480u ||
+      decodedPreview.width != 320u || decodedPreview.height != 240u ||
+      decodedPreview.bgra.size() != 320u * 240u * 4u ||
+      decodedPreview.sourceFingerprint != previewFingerprint) {
+    std::fprintf(stderr, "save preview decode: %s\n",
+                 decodedPreviewFailure.c_str());
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("committed save preview did not decode for the Windows UI");
   }
 
   const unsigned int droppedFramesBeforeStall =

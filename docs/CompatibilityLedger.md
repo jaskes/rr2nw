@@ -2875,6 +2875,32 @@ Status vocabulary:
   state without a private admission marker. Preserve solver-independent
   coverage rather than selecting one convenient retail Vehicle attribute.
 
+### CQ-164: a valid archive and a decodable Windows preview are separate contracts
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: RR2SLOT1 already validates and bounds an optional PNG as opaque
+  archive data, but the product had no decoder or visible metadata sheet.
+  Treating a WIC presentation failure as archive corruption would make a
+  renderer/codec availability issue destroy access to an otherwise valid LCN1.
+  Cross-process `SetWindowText` inspection also appeared to change edit text
+  to the test process while the painted control and committed archive retained
+  the original value, so it is not evidence for the keyboard path.
+- Handling: the details dialog decodes the first PNG frame through WIC into a
+  bounded top-down BGRA surface and aspect-fits it to 320x240. Failure produces
+  a placeholder and telemetry, not incompatibility. Save title/description
+  edits use the dialog's own `EN_CHANGE`/accept path, canonical UTF-8 byte
+  validation and the existing deferred broker; fixed slot filenames remain
+  authoritative.
+- Verification: the indexed-PNG smoke proves exact palette-to-BGRA pixels,
+  scaling and corrupt-input cleanup. The services smoke commits and rereads a
+  custom title/description with a real preview. The executable acceptance
+  opens a visible Load preview, cancels, verifies Save edit controls and commits
+  through the product menu with zero preview failures. Actual Cyrillic typing
+  and read-back remain a recorded manual acceptance item.
+- Revisit when: the native details window is replaced by a recovered in-game
+  browser or a non-Windows image decoder. Preserve presentation failure as
+  non-destructive and keep display metadata out of paths and Level authority.
+
 ## Maintenance rule
 
 When a new quirk is found:

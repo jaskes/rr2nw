@@ -3470,6 +3470,10 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredFramePreview.h
   src/runtime/RecoveredGameServicesRuntime.cpp
   src/runtime/RecoveredGameServicesRuntime.h
+  src/runtime/RecoveredSavePreview.cpp
+  src/runtime/RecoveredSavePreview.h
+  src/runtime/RecoveredSaveSlotDialog.cpp
+  src/runtime/RecoveredSaveSlotDialog.h
   src/runtime/VehicleControlJournal.cpp
   src/runtime/VehicleControlJournal.h
   src/runtime/VehicleControlReplayProbe.cpp
@@ -3515,8 +3519,10 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_recovered_software_frame
   rr2nw_supervisor_global
   ole32
+  gdi32
   shell32
   user32
+  windowscodecs
 )
 target_include_directories(rr2nw_recovered_game_services_runtime PUBLIC
   src/runtime

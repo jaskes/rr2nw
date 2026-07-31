@@ -253,6 +253,19 @@ std::uint32_t LevelSaveSlot_FormatVersion() { return kFormatVersion; }
 
 std::uint32_t LevelSaveSlot_Count() { return kSlotCount; }
 
+bool LevelSaveSlot_ValidateDisplayMetadata(
+    const std::string& title, const std::string& description,
+    SLevelSaveSlotStatus* status) {
+  ResetStatus(status);
+  if (title.empty() || title.size() > kMaximumTitleBytes ||
+      description.size() > kMaximumDescriptionBytes ||
+      !IsValidUtf8(title) || !IsValidUtf8(description)) {
+    return Fail(status, ELevelSaveSlotError::InvalidMetadata, 0,
+                "save title or description is invalid or exceeds its bound");
+  }
+  return true;
+}
+
 std::wstring LevelSaveSlot_Path(const std::wstring& directory,
                                 std::uint32_t slot) {
   if (directory.empty() || slot >= kSlotCount) return std::wstring();

@@ -2079,6 +2079,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(saveMenuState->deferredCommands));
     log.Line("save_menu_last_command_attempts=" +
              std::to_string(saveMenuState->lastCommandAttempts));
+    log.Line("save_menu_slot_detail_views=" +
+             std::to_string(saveMenuState->slotDetailViews));
+    log.Line("save_menu_preview_views=" +
+             std::to_string(saveMenuState->previewViews));
+    log.Line("save_menu_preview_decode_failures=" +
+             std::to_string(saveMenuState->previewDecodeFailures));
+    log.Line("save_menu_custom_metadata_requests=" +
+             std::to_string(saveMenuState->customMetadataSaveRequests));
+    log.Line("save_menu_last_title=" + saveMenuState->lastSlot.title);
+    log.Line("save_menu_last_requested_title=" +
+             saveMenuState->lastRequestedTitle);
     log.Line("save_menu_cross_level_requests=" +
              std::to_string(saveMenuState->crossLevelRequests));
     log.Line("save_menu_completed_cross_level_loads=" +

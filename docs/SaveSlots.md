@@ -174,7 +174,9 @@ for bounded acceptance; they are not a second persistence path.
 
 `rr2nw_indexed_png_smoke` parses the encoded PNG, validates all chunk CRCs,
 IHDR/PLTE/IEND, stored zlib blocks, Adler-32 and exact decoded scanlines. It
-also proves invalid input cannot mutate prior output.
+also decodes the product PNG through Windows Imaging Component, proves exact
+BGRA palette pixels and aspect-fit scaling, and proves a corrupt PNG cannot
+leave a ready preview or mutate prior output.
 
 The retail service smoke rejects an out-of-range request and a second pending
 request, then saves slot 3 after 24 real Vehicle frames with a non-zero real
@@ -186,7 +188,9 @@ Explosion and deliberately leaves its drawable publication open. Attempt one
 is deferred with the production error, `endRender` makes EXP1 capturable, and
 attempt two replaces the still-live transient roster with the saved world. The
 proof then requires exact world/journal fingerprints, Vehicle position and
-five further controlled frames.
+five further controlled frames. The save request supplies a non-default UTF-8
+title and description through the production broker, rereads both from the
+committed archive and decodes its real 640x480 preview to a 320x240 BGRA view.
 
 With optional source and target Level arguments, the same service smoke also
 creates a real target RR2SLOT1, stages the two-continuation handoff, destroys
@@ -201,6 +205,15 @@ starts in another, loads the shared slot and requires the commit marker, final
 target identity, one completed cross-Level load, zero failures and clean
 shutdown.
 
+`tools/acceptance/Invoke-SaveSlotUx.ps1` exercises the visible product path.
+It creates an isolated slot through the real executable, opens its Load details
+window, requires a decoded preview and metadata, cancels without loading, then
+opens an empty Save slot and commits it through the same broker. The final log
+must report two details views, one decoded preview, zero preview failures, one
+metadata-bearing save request and clean shutdown. Automated Win32 inspection
+proves the edit controls and their default flow; actual keyboard entry,
+including Cyrillic text, remains in the manual acceptance pass.
+
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
 `LCN1-12/12/12`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
@@ -213,12 +226,15 @@ the new slot claim.
 
 ## Next gate
 
-The safe native Windows persistence slice, including cross-Level restart and
-rollback, is now live. The next persistence UX work is deliberately narrower:
+The safe native Windows persistence slice, including cross-Level restart,
+rollback, embedded preview presentation and editable display metadata, is now
+live. The remaining 1.0 persistence gate is deliberately narrower:
 
-- display the embedded preview rather than only retaining it in the archive;
-- decide whether editable titles belong in a future recovered in-game browser;
-- complete and record a longer interactive multi-Level play/load pass.
+- complete and record a longer interactive multi-Level play/load pass;
+- enter Cyrillic title/description text in the visible Save dialog and prove
+  that the next details view reads the exact committed metadata;
+- retain a failed preview archive and diagnostics if WIC falls back to its
+  placeholder while the otherwise compatible save remains loadable.
 
 Retail-save import, cross-Level mission transitions, fixed-tick replay,
 Linux/macOS and multiplayer remain separate later work.

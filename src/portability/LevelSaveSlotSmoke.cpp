@@ -116,6 +116,20 @@ int wmain(int argc, wchar_t** argv) {
       decoded.archiveFingerprint != retainedFingerprint)
     return Fail("truncated archive was accepted or mutated its destination");
 
+  const std::string maximumTitle(96u, 't');
+  const std::string maximumDescription(1024u, 'd');
+  const std::string invalidUtf8("\xc0\x80", 2u);
+  if (!LevelSaveSlot_ValidateDisplayMetadata(
+          maximumTitle, maximumDescription, &status) ||
+      LevelSaveSlot_ValidateDisplayMetadata(
+          std::string(97u, 't'), std::string(), &status) ||
+      status.error != ELevelSaveSlotError::InvalidMetadata ||
+      LevelSaveSlot_ValidateDisplayMetadata(
+          "Title", std::string(1025u, 'd'), &status) ||
+      LevelSaveSlot_ValidateDisplayMetadata(
+          invalidUtf8, std::string(), &status))
+    return Fail("editable display metadata bounds diverged");
+
   SLevelSaveSlot invalidMetadata = first;
   invalidMetadata.title.clear();
   if (LevelSaveSlot_Encode(invalidMetadata, &encoded, &status) ||

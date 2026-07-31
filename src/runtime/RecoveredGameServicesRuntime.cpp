@@ -34,6 +34,7 @@
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
+#include "RecoveredSaveSlotDialog.h"
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
 #include "SupervisorShutdownState.h"
@@ -1082,6 +1083,10 @@ void ResetSaveMenuSession() {
   g_saveMenuState.deferredCommands = 0;
   g_saveMenuState.lastCommandAttempts = 0;
   g_saveMenuState.lastError.clear();
+  g_saveMenuState.pendingTitle.clear();
+  g_saveMenuState.pendingDescription.clear();
+  g_saveMenuState.lastRequestedTitle.clear();
+  g_saveMenuState.lastRequestedDescription.clear();
   g_saveMenuState.lastPreview = {};
   g_saveMenuState.lastSlot = {};
   g_saveMenuState.lastContinuation = {};
@@ -1129,6 +1134,36 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
     const bool occupied =
         !path.empty() &&
         GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+    SRecoveredSaveSlotDialogInput input;
+    input.parent = window;
+    input.mode = RECOVERED_SAVE_SLOT_DIALOG_SAVE;
+    input.slot = slot;
+    input.occupied = occupied;
+    input.automaticTitle = BuildAutomaticSaveTitle();
+    input.automaticDescription =
+        "RR2NW recovered Windows menu checkpoint";
+    SLevelSaveSlotStatus status;
+    input.readable = occupied && LevelSaveSlot_Read(
+        g_saveMenuState.directory, slot, &input.archive, &status);
+    input.loadable = input.readable && SlotCanBeRequested(input.archive);
+    input.switchesLevel =
+        input.readable && !SlotTargetsCurrentLevel(input.archive);
+    SRecoveredSaveSlotDialogResult dialog;
+    std::string dialogFailure;
+    if (!RecoveredSaveSlotDialog_Show(input, &dialog, &dialogFailure)) {
+      g_saveMenuState.lastError = dialogFailure;
+      ShowNativeSaveFailure();
+      *result = 0;
+      return true;
+    }
+    ++g_saveMenuState.slotDetailViews;
+    if (dialog.previewDisplayed) ++g_saveMenuState.previewViews;
+    if (dialog.previewDecodeFailed)
+      ++g_saveMenuState.previewDecodeFailures;
+    if (!dialog.accepted) {
+      *result = 0;
+      return true;
+    }
     if (occupied) {
       const std::wstring prompt =
           L"Replace save slot " + std::to_wstring(slot + 1u) + L"?";
@@ -1138,7 +1173,8 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
         return true;
       }
     }
-    if (!RecoveredGameServices_RequestSaveSlot(slot, occupied))
+    if (!RecoveredGameServices_RequestSaveSlotWithMetadata(
+            slot, occupied, dialog.title, dialog.description))
       ShowNativeSaveFailure();
     *result = 0;
     return true;
@@ -1146,11 +1182,35 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
   if (command >= kNativeLoadSlotBase &&
       command < kNativeLoadSlotBase + LevelSaveSlot_Count()) {
     const std::uint32_t slot = command - kNativeLoadSlotBase;
-    const std::wstring prompt =
-        L"Load save slot " + std::to_wstring(slot + 1u) +
-        L"?\n\nUnsaved progress will be replaced.";
-    if (MessageBoxW(window, prompt.c_str(), L"RR2NW load game",
-                    MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES &&
+    SRecoveredSaveSlotDialogInput input;
+    input.parent = window;
+    input.mode = RECOVERED_SAVE_SLOT_DIALOG_LOAD;
+    input.slot = slot;
+    input.occupied = true;
+    SLevelSaveSlotStatus status;
+    input.readable = LevelSaveSlot_Read(
+        g_saveMenuState.directory, slot, &input.archive, &status);
+    if (!input.readable) {
+      g_saveMenuState.lastError = status.detail;
+      ShowNativeSaveFailure();
+      *result = 0;
+      return true;
+    }
+    input.loadable = SlotCanBeRequested(input.archive);
+    input.switchesLevel = !SlotTargetsCurrentLevel(input.archive);
+    SRecoveredSaveSlotDialogResult dialog;
+    std::string dialogFailure;
+    if (!RecoveredSaveSlotDialog_Show(input, &dialog, &dialogFailure)) {
+      g_saveMenuState.lastError = dialogFailure;
+      ShowNativeSaveFailure();
+      *result = 0;
+      return true;
+    }
+    ++g_saveMenuState.slotDetailViews;
+    if (dialog.previewDisplayed) ++g_saveMenuState.previewViews;
+    if (dialog.previewDecodeFailed)
+      ++g_saveMenuState.previewDecodeFailures;
+    if (dialog.accepted &&
         !RecoveredGameServices_RequestLoadSlot(slot))
       ShowNativeSaveFailure();
     *result = 0;
@@ -2493,42 +2553,11 @@ const char* RecoveredGameServices_LastLevelSaveSlotError() {
   return g_levelSaveSlotFailure.c_str();
 }
 
-bool RecoveredGameServices_ConfigureSaveDirectory(
-    const std::wstring& directory) {
-  if (directory.empty() ||
-      directory.find(L'\0') != std::wstring::npos ||
-      LevelSaveSlot_Path(directory, 0u).empty()) {
-    g_saveMenuState.lastError = "save directory is invalid";
-    return false;
-  }
-  if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
-      g_saveMenuState.crossLevelRestartPending) {
-    g_saveMenuState.lastError =
-        "save directory cannot change while a command is pending";
-    return false;
-  }
-  g_crossLevelLoadRequest = {};
-  g_saveMenuState.crossLevelRestartPending = false;
-  g_saveMenuState.crossLevelRequests = 0;
-  g_saveMenuState.completedCrossLevelLoads = 0;
-  g_saveMenuState.crossLevelRollbacks = 0;
-  g_saveMenuState.crossLevelRollbackFailures = 0;
-  g_saveMenuState.crossLevelSourceLevel.clear();
-  g_saveMenuState.crossLevelTargetLevel.clear();
-  g_saveMenuState.directory = directory;
-  g_saveMenuState.configured = true;
-  g_saveMenuState.lastError.clear();
-  if (g_sessionReady && _gr_hWnd != nullptr &&
-      !InstallNativeSaveMenu()) {
-    Report(RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE);
-    return false;
-  }
-  RefreshNativeSaveMenu();
-  return true;
-}
+namespace {
 
-bool RecoveredGameServices_RequestSaveSlot(
-    std::uint32_t slot, bool allowOverwrite) {
+bool RequestSaveSlotInternal(std::uint32_t slot, bool allowOverwrite,
+                             const std::string& title,
+                             const std::string& description) {
   g_saveMenuState.lastError.clear();
   if (!g_saveMenuState.configured) {
     g_saveMenuState.lastError = "save directory is not configured";
@@ -2536,6 +2565,12 @@ bool RecoveredGameServices_RequestSaveSlot(
   }
   if (slot >= LevelSaveSlot_Count()) {
     g_saveMenuState.lastError = "save slot index is outside 0..7";
+    return false;
+  }
+  SLevelSaveSlotStatus metadataStatus;
+  if (!LevelSaveSlot_ValidateDisplayMetadata(
+          title, description, &metadataStatus)) {
+    g_saveMenuState.lastError = metadataStatus.detail;
     return false;
   }
   if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
@@ -2557,8 +2592,68 @@ bool RecoveredGameServices_RequestSaveSlot(
   g_saveMenuState.pendingSlot = slot;
   g_saveMenuState.pendingAttempts = 0;
   g_saveMenuState.lastCommandAttempts = 0;
+  g_saveMenuState.pendingTitle = title;
+  g_saveMenuState.pendingDescription = description;
+  g_saveMenuState.lastRequestedTitle = title;
+  g_saveMenuState.lastRequestedDescription = description;
   g_saveMenuAllowOverwrite = allowOverwrite;
   ++g_saveMenuState.saveRequests;
+  return true;
+}
+
+}  // namespace
+
+bool RecoveredGameServices_ConfigureSaveDirectory(
+    const std::wstring& directory) {
+  if (directory.empty() ||
+      directory.find(L'\0') != std::wstring::npos ||
+      LevelSaveSlot_Path(directory, 0u).empty()) {
+    g_saveMenuState.lastError = "save directory is invalid";
+    return false;
+  }
+  if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending) {
+    g_saveMenuState.lastError =
+        "save directory cannot change while a command is pending";
+    return false;
+  }
+  g_crossLevelLoadRequest = {};
+  g_saveMenuState.crossLevelRestartPending = false;
+  g_saveMenuState.crossLevelRequests = 0;
+  g_saveMenuState.completedCrossLevelLoads = 0;
+  g_saveMenuState.crossLevelRollbacks = 0;
+  g_saveMenuState.crossLevelRollbackFailures = 0;
+  g_saveMenuState.slotDetailViews = 0;
+  g_saveMenuState.previewViews = 0;
+  g_saveMenuState.previewDecodeFailures = 0;
+  g_saveMenuState.customMetadataSaveRequests = 0;
+  g_saveMenuState.crossLevelSourceLevel.clear();
+  g_saveMenuState.crossLevelTargetLevel.clear();
+  g_saveMenuState.directory = directory;
+  g_saveMenuState.configured = true;
+  g_saveMenuState.lastError.clear();
+  if (g_sessionReady && _gr_hWnd != nullptr &&
+      !InstallNativeSaveMenu()) {
+    Report(RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE);
+    return false;
+  }
+  RefreshNativeSaveMenu();
+  return true;
+}
+
+bool RecoveredGameServices_RequestSaveSlot(
+    std::uint32_t slot, bool allowOverwrite) {
+  return RequestSaveSlotInternal(
+      slot, allowOverwrite, BuildAutomaticSaveTitle(),
+      "RR2NW recovered Windows menu checkpoint");
+}
+
+bool RecoveredGameServices_RequestSaveSlotWithMetadata(
+    std::uint32_t slot, bool allowOverwrite, const std::string& title,
+    const std::string& description) {
+  if (!RequestSaveSlotInternal(slot, allowOverwrite, title, description))
+    return false;
+  ++g_saveMenuState.customMetadataSaveRequests;
   return true;
 }
 
@@ -2596,6 +2691,8 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
   g_saveMenuState.pendingSlot = slot;
   g_saveMenuState.pendingAttempts = 0;
   g_saveMenuState.lastCommandAttempts = 0;
+  g_saveMenuState.pendingTitle.clear();
+  g_saveMenuState.pendingDescription.clear();
   g_saveMenuAllowOverwrite = false;
   ++g_saveMenuState.loadRequests;
   return true;
@@ -2614,11 +2711,16 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
       g_saveMenuState.pendingAction;
   const std::uint32_t slot = g_saveMenuState.pendingSlot;
   const bool allowOverwrite = g_saveMenuAllowOverwrite;
+  const std::string pendingTitle = g_saveMenuState.pendingTitle;
+  const std::string pendingDescription =
+      g_saveMenuState.pendingDescription;
   const unsigned int attempt = g_saveMenuState.pendingAttempts + 1u;
   g_saveMenuState.pending = false;
   g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_NONE;
   g_saveMenuState.pendingSlot = 0;
   g_saveMenuState.pendingAttempts = 0;
+  g_saveMenuState.pendingTitle.clear();
+  g_saveMenuState.pendingDescription.clear();
   g_saveMenuAllowOverwrite = false;
   g_saveMenuState.lastError.clear();
   g_saveMenuState.lastPreview = {};
@@ -2645,8 +2747,8 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
         g_saveMenuState.lastError = previewFailure;
       } else {
         completed = RecoveredGameServices_SaveLevelSlot(
-            g_saveMenuState.directory, slot, BuildAutomaticSaveTitle(),
-            "RR2NW recovered Windows menu checkpoint", preview,
+            g_saveMenuState.directory, slot, pendingTitle,
+            pendingDescription, preview,
             &completedSlot, &completedContinuation);
         if (!completed)
           g_saveMenuState.lastError =
@@ -2713,6 +2815,8 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
       g_saveMenuState.pendingAction = action;
       g_saveMenuState.pendingSlot = slot;
       g_saveMenuState.pendingAttempts = attempt;
+      g_saveMenuState.pendingTitle = pendingTitle;
+      g_saveMenuState.pendingDescription = pendingDescription;
       g_saveMenuAllowOverwrite = allowOverwrite;
       ++g_saveMenuState.deferredCommands;
       RefreshNativeSaveMenu();

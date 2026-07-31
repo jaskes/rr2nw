@@ -167,6 +167,10 @@ struct SRecoveredSaveMenuState {
   unsigned int pendingAttempts = 0;
   unsigned int deferredCommands = 0;
   unsigned int lastCommandAttempts = 0;
+  unsigned int slotDetailViews = 0;
+  unsigned int previewViews = 0;
+  unsigned int previewDecodeFailures = 0;
+  unsigned int customMetadataSaveRequests = 0;
   bool crossLevelRestartPending = false;
   unsigned int crossLevelRequests = 0;
   unsigned int completedCrossLevelLoads = 0;
@@ -174,6 +178,10 @@ struct SRecoveredSaveMenuState {
   unsigned int crossLevelRollbackFailures = 0;
   std::wstring directory;
   std::string lastError;
+  std::string pendingTitle;
+  std::string pendingDescription;
+  std::string lastRequestedTitle;
+  std::string lastRequestedDescription;
   std::string crossLevelSourceLevel;
   std::string crossLevelTargetLevel;
   SRecoveredFramePreviewSummary lastPreview;
@@ -325,6 +333,9 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
     const std::wstring& directory);
 bool RecoveredGameServices_RequestSaveSlot(
     std::uint32_t slot, bool allowOverwrite);
+bool RecoveredGameServices_RequestSaveSlotWithMetadata(
+    std::uint32_t slot, bool allowOverwrite, const std::string& title,
+    const std::string& description);
 bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot);
 bool RecoveredGameServices_ProcessPendingSaveCommand(
     SLevelSaveSlotSummary* slotSummary = nullptr,

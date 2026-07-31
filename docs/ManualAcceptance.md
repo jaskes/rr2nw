@@ -165,6 +165,16 @@ aircraft. Before changing simulation or culling, compare Level.04D in Release
 on the same route and add per-owner/render-stage timing. Use Release for normal
 manual play unless a Debug assertion is the subject of the test.
 
+The 2026-07-31 post-slot-UX continuation sweep passed 17/18 cases. Release
+Level.04D and every other Level/configuration passed; Debug Level.04D twice
+stopped in the pre-save Vehicle visual suite with control/camera still active,
+zero fallback and one contained `EXCESSIVE_SPEED` recovery. It therefore never
+reached the LCN1/RR2SLOT1 proof. Treat this as the existing Level.04D
+timing/Wheels frontier, not as failed archive or preview evidence: retain the
+stderr marker, require the dedicated Save-slot UX and cross-Level product
+proofs to pass, and do not weaken the stability-recovery assertion merely to
+make the broad matrix green.
+
 The automated service proof now crosses an actual RR2SLOT1 file and reconstructs
 the complete admitted world/input boundary after a destroyed Level. Run its
 all-Level disk-slot sweep with:
@@ -195,11 +205,15 @@ $saveRoot = "$PWD\manual-logs\save-load-Level.04D"
 In the visible window:
 
 1. drive to a recognizable position;
-2. choose `Game > Save game > Slot 1` and confirm replacement if requested;
-3. drive elsewhere, then choose `Game > Load game > Slot 1`;
-4. verify the saved pose/world returns and control continues;
-5. exit cleanly, rerun the same one-line executable command and load Slot 1;
-6. use `Game > Open save folder` and retain `Slot0.rr2save` with the matching
+2. choose `Game > Save game > Slot 1`; in the details window enter a short
+   Cyrillic title and description, then confirm replacement if requested;
+3. reopen Save Slot 1 and verify its real last-frame preview, exact title,
+   description, Level, timestamp and authoritative tick; cancel the dialog;
+4. drive elsewhere, then choose `Game > Load game > Slot 1`, inspect the same
+   preview/metadata and load it;
+5. verify the saved pose/world returns and control continues;
+6. exit cleanly, rerun the same one-line executable command and load Slot 1;
+7. use `Game > Open save folder` and retain `Slot0.rr2save` with the matching
    diagnostics for a failed pass.
 
 Save/load commands execute only after the current frame has been fully ended
@@ -209,10 +223,26 @@ second click should be required. Loading is also expected to replace live
 short-lived effects, so repeat this pass once while firing or while an
 Explosion/Smoke effect is visible.
 
-The slot contains a real 640x480 indexed PNG, but the native menu does not draw
-the thumbnail yet. A slot for another Level is labelled `switch Level` and is
-loadable: the main loop reconstructs its retail Level before applying LCN1.
-A same-Level slot with a different content fingerprint remains disabled.
+The details window decodes the slot's real 640x480 indexed PNG through WIC and
+aspect-fits it into a 320x240 view. A corrupt or unsupported preview is a
+presentation failure: it shows a placeholder but does not make an otherwise
+compatible archive unloadable. A slot for another Level is labelled
+`switch Level` and is loadable: the main loop reconstructs its retail Level
+before applying LCN1. A same-Level slot with a different content fingerprint
+remains disabled.
+
+The bounded visible-UX proof needs no keyboard automation:
+
+```powershell
+& ".\tools\acceptance\Invoke-SaveSlotUx.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+It checks the real dialog controls, decoded Load preview, cancel path, Save
+commit and diagnostic counters. It intentionally does not synthesize text into
+another process: the Cyrillic edit/read-back step above is the human acceptance
+gate for the actual keyboard path.
 
 ## Cross-Level save/load pass
 
