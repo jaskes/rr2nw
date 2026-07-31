@@ -3761,3 +3761,41 @@ fresh-Level continuation cases and 18/18 ordinary executable cases across all
 nine installed retail Levels. The native Save-slot UX and cross-Level load
 proofs additionally pass 2/2 each, and ten consecutive direct Debug Level.04D
 service runs complete without a recurrence.
+
+## BD-098: admit one exact-target data-pack before designing a public mod API
+
+Status: accepted on 2026-07-31.
+
+The first mod boundary is deliberately one explicitly selected read-only
+directory, not discovery, dependency resolution or executable plugins. The
+Windows command line accepts `--mod-dir` only when that directory contains a
+strict schema-1 `mod.json`. Unknown/duplicate keys, unsupported engine API,
+invalid lowercase ID or canonical version, missing/oversized sources,
+traversal, symlink escape, duplicate case-insensitive targets and protected
+`game.cfg`/`mods`/`saves` destinations reject startup before Level construction.
+Admission is bounded to 1,024 files, 64 MiB each and 512 MiB total.
+
+Each entry maps one categorized in-mod source to one exact path relative to the
+selected retail root. A common `CFileResource` read hook covers historical
+model/texture/palette/config consumers; recovered script-manifest, Skin, WAV,
+fixed-font and terrain readers resolve through the same admitted table. An
+unmatched path remains the original base path. The hook is read-only and is
+removed during startup teardown. Failed reconfiguration preserves the last
+fully admitted table, which makes the resolver transactional in service tests.
+
+The canonical mod fingerprint includes schema/API, ID/version, sorted folded
+targets, sizes and every source byte. It is folded into the retail content
+fingerprint without changing base-only identity. Active-world diagnostics also
+publish `id@version`; RR2SLOT1/LCN1 therefore reject a missing or byte-different
+mod as a different content set before restore mutates the world. Startup logs
+publish the active identity, counts, fingerprint, resolution attempts and
+actual override hits.
+
+The proof includes a hermetic validator/resolver smoke, a script-include
+overlay whose virtual file list remains stable, a copyright-free repository
+example and a product acceptance that copies one local retail script only into
+ignored diagnostics. Debug and Release each pass 60/60 CTest; the installed
+tree passes 18/18 ordinary Levels, 18/18 destroyed-context continuations, 2/2
+Save-slot UX, 2/2 cross-Level load and 2/2 mod/save-mismatch acceptance. Multiple
+mods, dependencies, new `game.cfg` Levels, data schemas and Lua remain later
+M5 work rather than accidental promises of schema 1.

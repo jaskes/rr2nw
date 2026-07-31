@@ -65,6 +65,7 @@ class CGRPanel;
 #include "ActiveWorldSave.h"
 #include "ActiveWorldRuntimeProbe.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "SimulationRandom.h"
 #include "RecoveredSkinResourceCatalog.h"
@@ -648,7 +649,7 @@ bool ReadBoundedRetailAttributeSource(const char* relativePath,
                                       std::string* source) {
   if (relativePath == nullptr || source == nullptr) return false;
 
-  FILE* file = std::fopen(relativePath, "rb");
+  FILE* file = RecoveredModRuntime_OpenRead(relativePath, nullptr);
   if (file == nullptr) return false;
   if (std::fseek(file, 0, SEEK_END) != 0) {
     std::fclose(file);

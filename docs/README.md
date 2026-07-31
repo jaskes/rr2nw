@@ -23,6 +23,9 @@
 - [ManualAcceptance.md](ManualAcceptance.md) — commands and evidence contract
   for selecting, automatically sweeping and manually checking all retail
   Levels on Windows.
+- [Modding.md](Modding.md) documents the admitted schema-1 data-pack manifest,
+  exact-target VFS, limits, save/content identity and deliberately deferred
+  scripting/dependency work.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где
   исторические источники или возможные реализации расходятся.
 

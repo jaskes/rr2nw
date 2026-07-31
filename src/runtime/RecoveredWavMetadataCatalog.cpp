@@ -1,5 +1,7 @@
 #include "RecoveredWavMetadataCatalog.h"
 
+#include "RecoveredModRuntime.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
@@ -64,7 +66,7 @@ std::string JoinPath(const char* directory, const char* name) {
 
 bool ReadSource(const std::string& path, std::string* source,
                 SRecoveredWavMetadataCatalogResult* result) {
-  FILE* file = std::fopen(path.c_str(), "rb");
+  FILE* file = RecoveredModRuntime_OpenRead(path.c_str(), nullptr);
   if (file == nullptr) {
     return Fail(result, RECOVERED_WAV_CATALOG_SOURCE_UNAVAILABLE,
                 "could not open WAV metadata source");

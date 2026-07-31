@@ -12,6 +12,20 @@
 
 CFileResource	*CFileResource::m_pCurrent = NULL;
 CFileResource::LOOKUP	CFileResource::m_eDefaultLookUp = LU_INNERONLY;
+CFileResource::READ_OPEN_HOOK CFileResource::m_pReadOpenHook = NULL;
+
+static FILE *OpenOuterFile(TCchar *pszName,long *pLen)
+{
+	CFileResource::READ_OPEN_HOOK hook = CFileResource::GetReadOpenHook();
+	if(hook) return hook(pszName,pLen);
+	FILE *f = fopen(pszName,"rb");
+	if(f && pLen) {
+		RTCHECK(fseek(f,0,SEEK_END)==0 &&
+			(*pLen = ftell(f)) >= 0 &&
+			fseek(f,0,SEEK_SET)==0,"OuterOpen Len");
+	}
+	return f;
+}
 
 
 void CFileResource::Init(TCchar *pszName)
@@ -45,15 +59,8 @@ FILE *CFileResource::FOpen(CFileResource *_this, TCchar *pszName,long *pLen)
 {
 	if(_this) {
 		if(_this->m_eLookUp==LU_OUTERFIRST) {
-			FILE *f = fopen(pszName,"rb");
-			if(f) {
-				if(pLen) {
-					RTCHECK(fseek(f,0,SEEK_END)==0 &&
-						(*pLen = ftell(f)) >= 0 &&
-						fseek(f,0,SEEK_SET)==0,"OuterOpen Len");
-				}
-				return f;
-			}
+			FILE *f = OpenOuterFile(pszName,pLen);
+			if(f) return f;
 		}
 		int n = -1;
 		for( int u = _this->m_nEntries-1, l = 0 ; l <= u ; ) {
@@ -70,15 +77,8 @@ FILE *CFileResource::FOpen(CFileResource *_this, TCchar *pszName,long *pLen)
 		}
 	}
 	if(_this==NULL||_this->m_eLookUp==LU_INNERFIRST) {
-		FILE *f = fopen(pszName,"rb");
-		if(f) {
-			if(pLen) {
-				RTCHECK(fseek(f,0,SEEK_END)==0 &&
-					(*pLen = ftell(f)) >= 0 &&
-					fseek(f,0,SEEK_SET)==0,"OuterOpen Len");
-			}
-			return f;
-		}
+		FILE *f = OpenOuterFile(pszName,pLen);
+		if(f) return f;
 	}
 	return NULL;
 }

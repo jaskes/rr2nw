@@ -37,6 +37,24 @@ if(MSVC)
   target_compile_options(rr2nw_legacy_design PRIVATE /W3)
 endif()
 
+add_library(rr2nw_mod_runtime STATIC
+  src/runtime/RecoveredModRuntime.cpp
+  src/runtime/RecoveredModRuntime.h
+)
+target_link_libraries(rr2nw_mod_runtime PUBLIC rr2nw_legacy_design)
+target_include_directories(rr2nw_mod_runtime PUBLIC
+  src/runtime
+  nw/DESIGN.LIB/H
+)
+target_compile_features(rr2nw_mod_runtime PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_mod_runtime PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_mod_runtime PRIVATE /W4 /permissive-)
+endif()
+
 add_library(rr2nw_simulation_random STATIC
   src/runtime/SimulationRandom.cpp
   src/runtime/SimulationRandom.h
@@ -1911,6 +1929,9 @@ add_library(rr2nw_recovered_skin_resource_catalog STATIC
   src/runtime/RecoveredSkinResourceCatalog.cpp
   src/runtime/RecoveredSkinResourceCatalog.h
 )
+target_link_libraries(rr2nw_recovered_skin_resource_catalog PUBLIC
+  rr2nw_mod_runtime
+)
 target_include_directories(rr2nw_recovered_skin_resource_catalog PUBLIC
   src/runtime
 )
@@ -1930,6 +1951,9 @@ endif()
 add_library(rr2nw_recovered_wav_metadata_catalog STATIC
   src/runtime/RecoveredWavMetadataCatalog.cpp
   src/runtime/RecoveredWavMetadataCatalog.h
+)
+target_link_libraries(rr2nw_recovered_wav_metadata_catalog PUBLIC
+  rr2nw_mod_runtime
 )
 target_include_directories(rr2nw_recovered_wav_metadata_catalog PUBLIC
   src/runtime
@@ -3220,6 +3244,7 @@ target_link_libraries(rr2nw_game_entry_runtime PUBLIC
   rr2nw_graph_fixed_font_runtime_state
   rr2nw_graph_runtime_state
   rr2nw_legacy_design
+  rr2nw_mod_runtime
   rr2nw_main_zav_shutdown_state
   rr2nw_patterns_palette_runtime
   rr2nw_view_figure_library_state
@@ -3366,6 +3391,9 @@ add_library(rr2nw_recovered_retail_script_manifest STATIC
   src/runtime/RecoveredRetailScriptManifest.cpp
   src/runtime/RecoveredRetailScriptManifest.h
 )
+target_link_libraries(rr2nw_recovered_retail_script_manifest PUBLIC
+  rr2nw_mod_runtime
+)
 target_include_directories(rr2nw_recovered_retail_script_manifest PUBLIC
   src/runtime
 )
@@ -3481,6 +3509,7 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
 )
 target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_active_world_save
+  rr2nw_mod_runtime
   rr2nw_arena_obase_debug_map_mission
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state
@@ -4042,6 +4071,19 @@ target_compile_definitions(
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_mod_runtime_smoke
+  src/portability/RecoveredModRuntimeSmoke.cpp
+)
+target_link_libraries(rr2nw_mod_runtime_smoke PRIVATE rr2nw_mod_runtime)
+target_compile_features(rr2nw_mod_runtime_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_mod_runtime_smoke PRIVATE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_mod_runtime_smoke PRIVATE /W4 /permissive-)
+endif()
 target_link_libraries(rr2nw_game_entry_runtime_smoke PRIVATE
   rr2nw_arena_obase_debug_map_mission
   rr2nw_game_entry_runtime
@@ -4610,6 +4652,12 @@ if(BUILD_TESTING)
     NAME recovered-retail-script-manifest-smoke
     COMMAND rr2nw_recovered_retail_script_manifest_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/retail-script-manifest-smoke-$<CONFIG>"
+  )
+  add_test(
+    NAME mod-runtime-smoke
+    COMMAND rr2nw_mod_runtime_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/mod-runtime-smoke-$<CONFIG>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/mods/rr2nw.example.data-pack"
   )
   add_test(
     NAME legacy-tagged-file-smoke

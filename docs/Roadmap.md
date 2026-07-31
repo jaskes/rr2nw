@@ -1201,3 +1201,30 @@ materialize in owner state.
 Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical
 release renderer.
+
+## Current Windows frontier after the first data-pack VFS
+
+The first safe M5/M4 bridge is admitted. `rr2nw.exe --mod-dir <directory>` now
+selects exactly one strict schema-1 read-only overlay. Declared script,
+model/texture, Skin, WAV, font and terrain reads share one exact-target resolver;
+base-only startup keeps its old paths and fingerprint. The mod's ID/version,
+virtual targets and complete source bytes become part of content/save identity,
+so absent or changed packages fail closed before continuation restore.
+
+This closes the initial VFS, validator, example-package and save-binding gates,
+but not the whole M5 feature list. The next mod slices remain ordered:
+
+1. define stable data schemas for selected Vehicle/weapon/object parameters;
+2. add declared new-Level/catalog support without allowing mods to replace
+   user `game.cfg` directly;
+3. add multiple-mod discovery, dependency/conflict validation and deterministic
+   mount ordering;
+4. expose existing script events only after their lifetime/save semantics are
+   documented; evaluate Lua after those data-driven contracts are proven;
+5. package the validator/example and run the final Win10/Win11 manual campaign
+   gate before calling the M5/RC frontier complete.
+
+The accepted slice passes 60/60 Debug and Release CTest, both 18-case installed
+retail matrices, Save-slot and cross-Level product tests, and a two-configuration
+mod/save mismatch acceptance with real resolver hits. Linux/macOS, native x64
+and multiplayer remain outside the Windows 1.0 blocker set.

@@ -1,5 +1,7 @@
 #include "RecoveredSkinResourceCatalog.h"
 
+#include "RecoveredModRuntime.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -64,7 +66,7 @@ std::string JoinPath(const char* root, const char* relative) {
 
 bool ReadSource(const std::string& path, std::string* source,
                 SRecoveredSkinResourceCatalogResult* result) {
-  FILE* file = std::fopen(path.c_str(), "rb");
+  FILE* file = RecoveredModRuntime_OpenRead(path.c_str(), nullptr);
   if (file == nullptr) {
     return Fail(result, RECOVERED_SKIN_CATALOG_SOURCE_UNAVAILABLE,
                 "could not open SCINC\\SKIN.SCI");
@@ -395,7 +397,7 @@ bool Parse(const std::string& source, SRecoveredSkinResourceCatalog* catalog,
 
 bool HashAsset(const std::string& path, SRecoveredSkinResourceEntry* entry,
                SRecoveredSkinResourceCatalogResult* result) {
-  FILE* file = std::fopen(path.c_str(), "rb");
+  FILE* file = RecoveredModRuntime_OpenRead(path.c_str(), nullptr);
   if (file == nullptr) {
     char error[256] = {};
     std::snprintf(error, sizeof(error), "missing Skin resource %.180s",

@@ -4,6 +4,7 @@
 #include "ActiveWorldSemanticEvents.h"
 #include "ClockActiveWorldState.h"
 #include "MissionActiveWorldState.h"
+#include "RecoveredModRuntime.h"
 #include "SimulationRandom.h"
 #include "TimeRuntimeState.h"
 
@@ -867,6 +868,10 @@ bool CaptureRuntime(
   snapshot.engineCompatibility = ActiveWorldSave_EngineCompatibilityVersion();
   snapshot.contentFingerprint = contentFingerprint;
   snapshot.level = level;
+  const SRecoveredModRuntimeSummary* mod = RecoveredModRuntime_Summary();
+  if (RecoveredModRuntime_IsActive() && mod != nullptr) {
+    snapshot.mods.push_back(std::string(mod->id) + "@" + mod->version);
+  }
   SSimulationClockState clockState;
   if (!SUA_CaptureSimulationClock(&clockState)) {
     char detail[320] = {};

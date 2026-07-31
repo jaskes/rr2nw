@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <fstream>
 #include <new>
 #include <string>
 #include <vector>
@@ -130,19 +129,18 @@ bool ValidateSceneHeader(const char* path, SRecoveredSceneHeader& result) {
 }
 
 bool ReadFont(const char* path, std::vector<unsigned char>& bytes) {
-  std::ifstream input(path, std::ios::binary | std::ios::ate);
-  if (!input) return false;
-  const std::streamoff size = input.tellg();
-  if (size < static_cast<std::streamoff>(sizeof(SFontHeader)) ||
-      size > static_cast<std::streamoff>(kMaximumFontSize)) {
+  long size = 0;
+  FILE* input = CFileResource::FOpenCurrent(path, &size);
+  if (input == nullptr) return false;
+  if (size < static_cast<long>(sizeof(SFontHeader)) ||
+      static_cast<std::size_t>(size) > kMaximumFontSize) {
+    std::fclose(input);
     return false;
   }
-  input.seekg(0, std::ios::beg);
   bytes.resize(static_cast<std::size_t>(size));
-  return input
-      .read(reinterpret_cast<char*>(bytes.data()),
-            static_cast<std::streamsize>(size))
-      .good();
+  const bool read =
+      std::fread(bytes.data(), static_cast<std::size_t>(size), 1, input) == 1;
+  return std::fclose(input) == 0 && read;
 }
 
 bool ValidateFont(const std::vector<unsigned char>& bytes) {

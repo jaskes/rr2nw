@@ -48,13 +48,18 @@ the retail `DITH.DTH` texel-offset mode and palette-driven dynamic lights.
 also includes Taxi/F1 transitions, cockpit panels, primary fire and Bullet
 effects, People, Tank/Cannon and the first Commander/TankGroup mission chain.
 Initialization and teardown are transactional, diagnostics publish renderer and
-gameplay evidence, and the normal Debug/Release suite currently contains 52
-tests. Active-world persistence, broader manual campaign acceptance and final
-visual parity remain open; Linux/macOS and multiplayer remain post-1.0 work.
+gameplay evidence, and the normal Debug/Release suite currently contains 60
+tests. Twelve admitted owner/reference phases, deterministic Vehicle controls,
+LCN1 continuation and eight atomic RR2SLOT1 files now survive a destroyed and
+recreated Level. One explicit schema-1 data-pack can overlay declared retail
+resources through `--mod-dir`; its complete byte identity is bound to saves.
+Retail-save import, broader manual campaign acceptance and final visual parity
+remain open; Linux/macOS and multiplayer remain post-1.0 work.
 
 Use [the Windows retail acceptance guide](docs/ManualAcceptance.md) to select a
 Level without editing `game.cfg`, sweep all retail Levels or record a manual
-driving/Alt-Tab result.
+driving/Alt-Tab result. The first data-pack contract and example are described
+in [the modding guide](docs/Modding.md).
 
 ### Earlier M1 integration notes
 

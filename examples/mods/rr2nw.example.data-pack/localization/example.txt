@@ -1,0 +1,5 @@
+RR2NW example data-pack overlay is active.
+
+This file is deliberately engine-neutral and contains no retail game data.
+Its exact virtual target demonstrates the public manifest layout and content
+identity contract without redistributing an original asset.

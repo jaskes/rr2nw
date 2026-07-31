@@ -8,6 +8,7 @@
 #include "RecoveredGameServicesRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
@@ -46,6 +47,7 @@ struct StartupOptions {
   std::wstring dataDirectory;
   std::wstring diagnosticsDirectory;
   std::wstring saveDirectory;
+  std::wstring modDirectory;
   std::wstring startLevel;
   int startupSaveSlot = -1;
   int startupLoadSlot = -1;
@@ -243,6 +245,13 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       }
     } else if (argument.compare(0, 11, L"--data-dir=") == 0) {
       options->dataDirectory = argument.substr(11);
+    } else if (argument == L"--mod-dir") {
+      if (!ParseOptionValue(argc, argv, &index, L"--mod-dir",
+                            &options->modDirectory, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 10, L"--mod-dir=") == 0) {
+      options->modDirectory = argument.substr(10);
     } else if (argument == L"--diagnostics-dir") {
       if (!ParseOptionValue(argc, argv, &index, L"--diagnostics-dir",
                             &options->diagnosticsDirectory, failure)) {
@@ -367,6 +376,11 @@ class StartupLog {
  private:
   HANDLE file_ = INVALID_HANDLE_VALUE;
   std::wstring path_;
+};
+
+class ModRuntimeScope {
+ public:
+  ~ModRuntimeScope() { RecoveredModRuntime_Release(); }
 };
 
 bool InspectRetailData(const std::wstring& candidate, RetailData* data,
@@ -658,6 +672,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   if (options.showHelp) {
     ShowMessage(false, MB_ICONINFORMATION, L"RR2NW command line",
                 L"rr2nw.exe [--data-dir <path>] [--start-level <index|name>]\n"
+                L"          [--mod-dir <path>]\n"
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
@@ -673,6 +688,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     options.diagnosticsDirectory = DefaultDiagnosticsDirectory();
   } else {
     options.diagnosticsDirectory = AbsolutePath(options.diagnosticsDirectory);
+  }
+  if (!options.modDirectory.empty()) {
+    options.modDirectory = AbsolutePath(options.modDirectory);
   }
   const bool defaultSaveDirectory = options.saveDirectory.empty();
   if (defaultSaveDirectory) {
@@ -722,6 +740,37 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kInvalidArguments;
   }
 
+  ModRuntimeScope modRuntimeScope;
+  std::string baseDataPath;
+  std::string modDataPath;
+  std::string modFailure;
+  bool modReady = false;
+  if (!WideToSystemPath(data.root, &baseDataPath)) {
+    modFailure = "base data path is not representable by the Windows ANSI "
+                 "code page";
+  } else if (!options.modDirectory.empty() &&
+             !WideToSystemPath(options.modDirectory, &modDataPath)) {
+    modFailure = "mod path is not representable by the Windows ANSI code "
+                 "page";
+  } else {
+    modReady = RecoveredModRuntime_Configure(
+        baseDataPath.c_str(),
+        options.modDirectory.empty() ? nullptr : modDataPath.c_str());
+    if (!modReady) modFailure = RecoveredModRuntime_LastError();
+  }
+  if (!modReady) {
+    if (modFailure.empty()) modFailure = "mod runtime rejected the data set";
+    log.Line("mod_issues=" +
+             std::to_string(RecoveredModRuntime_Issues()));
+    log.Line("mod_error=" + modFailure);
+    log.Line("marker=mod-not-ready");
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW mod error",
+                Utf8ToWide(modFailure.c_str()) +
+                    L"\n\nDiagnostic log:\n" + log.path());
+    return kDataNotReady;
+  }
+
   log.WideLine("data_dir", data.root);
   log.Line("retail_level_count=9");
   log.Line(std::string("start_level_source=") +
@@ -733,6 +782,24 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.WideLine("start_level_dir",
                data.levels[static_cast<std::size_t>(data.startLevel)]);
   log.Line("data_access=read-only");
+  const SRecoveredModRuntimeSummary* modSummary =
+      RecoveredModRuntime_Summary();
+  log.Line(std::string("mod_active=") +
+           (RecoveredModRuntime_IsActive() ? "1" : "0"));
+  if (!options.modDirectory.empty()) {
+    log.WideLine("mod_dir", options.modDirectory);
+  }
+  if (modSummary != nullptr && RecoveredModRuntime_IsActive()) {
+    log.Line("mod_id=" + std::string(modSummary->id));
+    log.Line("mod_version=" + std::string(modSummary->version));
+    log.Line("mod_schema=" + std::to_string(modSummary->schemaVersion));
+    log.Line("mod_engine_api=" + std::to_string(modSummary->engineApi));
+    log.Line("mod_files=" + std::to_string(modSummary->fileCount));
+    log.Line("mod_bytes=" + std::to_string(modSummary->totalBytes));
+    log.Line("mod_fingerprint=" +
+             std::to_string(modSummary->modFingerprint));
+  }
+  log.Line("mod_access=read-only");
   log.WideLine("save_dir", options.saveDirectory);
   log.Line(std::string("save_dir_source=") +
            (defaultSaveDirectory ? "local-app-data" : "command-line"));
@@ -1868,6 +1935,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(scriptManifest->totalBytes));
   log.Line("retail_script_manifest_fingerprint=" +
            std::to_string(scriptManifest->contentFingerprint));
+  log.Line("active_content_fingerprint=" + std::to_string(
+               RecoveredModRuntime_CombineContentFingerprint(
+                   scriptManifest->contentFingerprint)));
+  modSummary = RecoveredModRuntime_Summary();
+  if (modSummary != nullptr) {
+    log.Line("mod_resolve_count=" +
+             std::to_string(modSummary->resolveCount));
+    log.Line("mod_override_hits=" +
+             std::to_string(modSummary->overrideHitCount));
+  }
   log.Line("game_entry_missing_hooks=" +
            std::to_string(GameEntry_RuntimeMissingHooks()));
   log.Line("scene_bases=" + std::to_string(summary->bases));

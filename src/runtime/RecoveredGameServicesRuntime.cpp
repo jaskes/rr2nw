@@ -33,6 +33,7 @@
 #include "RecoveredFramePreview.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "RecoveredSaveSlotDialog.h"
 #include "RecoveredSoftwareFrame.h"
@@ -824,9 +825,11 @@ std::uint64_t ContinuationContentFingerprint() {
       RecoveredRetailScriptManifest_IsReady()
           ? RecoveredRetailScriptManifest_Summary()
           : nullptr;
-  if (manifest != nullptr && manifest->contentFingerprint != 0)
-    return manifest->contentFingerprint;
-  return RecoveredArenaSeance_ActiveWorldFingerprint();
+  const std::uint64_t baseFingerprint =
+      manifest != nullptr && manifest->contentFingerprint != 0
+          ? manifest->contentFingerprint
+          : RecoveredArenaSeance_ActiveWorldFingerprint();
+  return RecoveredModRuntime_CombineContentFingerprint(baseFingerprint);
 }
 
 std::string ContinuationLevelIdentity() {
@@ -2733,8 +2736,8 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
   }
   if (!SlotCanBeRequested(archive)) {
     g_saveMenuState.lastError =
-        "save slot belongs to the current Level but a different retail "
-        "data set";
+        "save slot belongs to the current Level but a different content/mod "
+        "set";
     return false;
   }
   g_saveMenuState.pending = true;
@@ -2817,7 +2820,7 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
       if (!SlotIsCompatible(archive)) {
         g_saveMenuState.lastError =
             "save slot belongs to the current Level but a different "
-            "retail data set";
+            "content/mod set";
       } else {
         completed = RecoveredGameServices_RestoreLevelContinuation(
             archive.continuation, &completedContinuation);
@@ -2920,7 +2923,7 @@ bool RecoveredGameServices_ApplyCrossLevelLoad(
   if (request.targetSlot.contentFingerprint !=
       ContinuationContentFingerprint()) {
     g_saveMenuState.lastError =
-        "cross-Level save belongs to a different retail data set";
+        "cross-Level save belongs to a different content/mod set";
     return false;
   }
   SLevelContinuationSummary restored;

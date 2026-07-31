@@ -1417,6 +1417,30 @@ playable Level begins.
   save/load coordinator pass in both configurations, including a deliberate
   target rejection with exact source rollback.
 
+### RP-MOD-001: one exact-target data-pack shares the retail read path
+
+- `--mod-dir` admits one strict schema-1 manifest before Level construction.
+  Sources are bounded regular files inside a categorized mod tree; targets are
+  exact case-insensitive paths under the selected retail root. Invalid schemas,
+  traversal, duplicates, protected user/config paths and source-link escape
+  fail before the game graph is mutated.
+- Historical `CFileResource` consumers and recovered script, Skin, WAV, font
+  and terrain readers use the same admitted resolver. Unmatched reads remain
+  byte-for-byte base reads, and the retail tree stays read-only.
+- Schema/API, ID/version, sorted virtual targets and every source byte form the
+  canonical mod fingerprint. Folding it into content identity means LCN1 and
+  RR2SLOT1 reject absent or changed mods before restore. Base-only identity is
+  unchanged.
+- Hermetic admission covers UTF-8 BOM, exact overlay/fallback, reproducible
+  identity, failed-reconfiguration rollback and six fail-closed cases. Product
+  acceptance proves three actual overlay hits and a mod-save/base-load
+  rejection in Debug and Release.
+- Admission raises the accepted suite to 60/60 CTest per configuration. The
+  installed May data passes 18/18 ordinary Level runs, 18/18 destroyed-context
+  continuation runs, 2/2 Save-slot UX and 2/2 cross-Level load. This row does
+  not claim multiple mods, dependency ordering, new Level registration, Lua or
+  a public native ABI.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

@@ -7,6 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the first Windows data-pack mod/VFS slice. One explicit `--mod-dir`
+  admits a strict schema-1 manifest, validates bounded in-root sources and
+  exact case-insensitive retail targets, and routes legacy/recovered resource
+  reads through one read-only overlay without changing the base tree.
+- Bound the admitted mod ID, version, sorted targets and source bytes into the
+  active content fingerprint and save compatibility. Missing or changed mods
+  now reject their saves before world mutation; diagnostics expose resolver
+  attempts and real override hits.
+- Added a copyright-free example package, a hermetic fail-closed validator
+  smoke and `Invoke-ModDataPack.ps1`. The accepted Windows gate is 60/60 CTest,
+  18/18 ordinary retail cases, 18/18 destroyed-context continuation cases,
+  2/2 Save-slot UX, 2/2 cross-Level load and 2/2 product mod acceptance.
 - Added rejected-frame Vehicle telemetry for any contained stability recovery:
   frame/target times, vessel/contact identity, start/rejected pose and speed,
   terrain basis, suspension, acceleration factor and throttle now survive the

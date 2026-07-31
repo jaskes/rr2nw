@@ -49,8 +49,10 @@ public:
 class	CFileResource {
 public:
 	enum LOOKUP { LU_INNERONLY, LU_INNERFIRST, LU_OUTERFIRST };
+	typedef FILE *(*READ_OPEN_HOOK)(TCchar *pszName,long *pLen);
 protected:
 	static CFileResource	*m_pCurrent;
+	static READ_OPEN_HOOK m_pReadOpenHook;
 	char	m_szName[80];
 
 	#if	defined(__BORLANDC__)
@@ -91,6 +93,8 @@ public:
 	void SetCurrent() { m_pCurrent = this; }
 	static void SetCurrent(CFileResource *p) { m_pCurrent = p; }
 	static CFileResource *GetCurrent() { return m_pCurrent; }
+	static void SetReadOpenHook(READ_OPEN_HOOK hook) { m_pReadOpenHook = hook; }
+	static READ_OPEN_HOOK GetReadOpenHook() { return m_pReadOpenHook; }
 	static FILE *FOpen(CFileResource *_this, TCchar *pszName,long *pLen);
 	static FILE *FOpenCurrent(TCchar *pszName,long *pLen = NULL) {
 								return FOpen(m_pCurrent,pszName,pLen); }

@@ -9,6 +9,7 @@
 #include <windows.h>
 
 #include "RecoveredRetailScriptManifest.h"
+#include "RecoveredModRuntime.h"
 
 namespace {
 
@@ -165,11 +166,52 @@ int main(int argc, char** argv) {
     return Fail("manifest recovery was not deterministic");
   }
 
+  const std::string mod = JoinPath(root, "mod");
+  const std::string scripts = JoinPath(mod, "scripts");
+  const std::string modManifest = JoinPath(mod, "mod.json");
+  const std::string modCommon = JoinPath(scripts, "common.sci");
+  const char modManifestText[] =
+      "{\n"
+      "  \"schema\": 1,\n"
+      "  \"engine_api\": 1,\n"
+      "  \"id\": \"rr2nw.fixture.script\",\n"
+      "  \"version\": \"1.0.0\",\n"
+      "  \"files\": [{\"source\": \"scripts/common.sci\", "
+      "\"target\": \"common.sci\"}]\n"
+      "}\n";
+  const char modCommonText[] =
+      "// exact VFS override\r\n"
+      "include \"scinc/nested.sci\"\r\n";
+  RecoveredRetailScriptManifest_Release();
+  if (!EnsureDirectory(mod) || !EnsureDirectory(scripts) ||
+      !WriteFile(modManifest, modManifestText) ||
+      !WriteFile(modCommon, modCommonText) ||
+      !RecoveredModRuntime_Configure(root.c_str(), mod.c_str()) ||
+      !RecoveredRetailScriptManifest_Preflight(level.c_str())) {
+    return Fail("script overlay manifest was not admitted");
+  }
+  summary = RecoveredRetailScriptManifest_Summary();
+  if (summary == nullptr || summary->fileVisits != 4 ||
+      summary->contentFingerprint == 0 ||
+      summary->contentFingerprint == firstFingerprint ||
+      !IsFile(1, "common.sci")) {
+    return Fail("script overlay did not alter the virtual manifest");
+  }
+  const unsigned long long moddedFingerprint = summary->contentFingerprint;
+  RecoveredRetailScriptManifest_Release();
+  RecoveredModRuntime_Release();
+  if (!RecoveredRetailScriptManifest_Preflight(level.c_str())) {
+    return Fail("base manifest did not recover after overlay release");
+  }
+  summary = RecoveredRetailScriptManifest_Summary();
+  if (summary == nullptr || summary->contentFingerprint != firstFingerprint)
+    return Fail("overlay release did not restore base fingerprint");
+
   std::printf("retail-script-manifest-smoke includes=%d files=%d root=%d "
-              "level=%d bytes=%llu fingerprint=%llu\n",
+              "level=%d bytes=%llu fingerprint=%llu modded=%llu\n",
               summary->includeDirectives, summary->fileVisits,
               summary->rootFiles, summary->levelFiles, summary->totalBytes,
-              summary->contentFingerprint);
+              summary->contentFingerprint, moddedFingerprint);
   RecoveredRetailScriptManifest_Release();
   return EXIT_SUCCESS;
 }

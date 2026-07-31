@@ -16,6 +16,7 @@
 
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredModRuntime.h"
 
 extern CFixedColorFont terrFnt;
 
@@ -69,7 +70,11 @@ bool IsDirectory(const char* path) {
 }
 
 bool IsRegularFile(const std::string& path) {
-  const DWORD attributes = GetFileAttributesA(path.c_str());
+  char resolved[4096] = {};
+  if (!RecoveredModRuntime_ResolveReadPath(path.c_str(), resolved,
+                                           sizeof(resolved)))
+    return false;
+  const DWORD attributes = GetFileAttributesA(resolved);
   return attributes != INVALID_FILE_ATTRIBUTES &&
          (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
@@ -85,7 +90,11 @@ bool FileSize(std::ifstream& input, std::uint64_t& result) {
 
 bool ValidateSprite(const std::string& path,
                     const SSpriteResource& expected) {
-  std::ifstream input(path, std::ios::binary);
+  char resolved[4096] = {};
+  if (!RecoveredModRuntime_ResolveReadPath(path.c_str(), resolved,
+                                           sizeof(resolved)))
+    return false;
+  std::ifstream input(resolved, std::ios::binary);
   std::uint64_t size = 0;
   if (!input || !FileSize(input, size)) return false;
 
@@ -106,7 +115,11 @@ bool ValidateSprite(const std::string& path,
 
 bool ValidateBitmap(const std::string& path,
                     const SBitmapResource& expected) {
-  std::ifstream input(path, std::ios::binary);
+  char resolved[4096] = {};
+  if (!RecoveredModRuntime_ResolveReadPath(path.c_str(), resolved,
+                                           sizeof(resolved)))
+    return false;
+  std::ifstream input(resolved, std::ios::binary);
   std::uint64_t size = 0;
   if (!input || !FileSize(input, size)) return false;
 

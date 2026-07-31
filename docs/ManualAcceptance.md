@@ -281,6 +281,36 @@ boundary. Retain the log whenever `save_menu_cross_level_rollbacks` is non-zero;
 the game may continue after such a successful rollback, while any non-zero
 `save_menu_cross_level_rollback_failures` is a release blocker.
 
+## Data-pack mod pass
+
+The bounded product proof creates an ignored local mod from the selected
+installation's `SMOKE.SCI`; no retail bytes are added to the repository. It
+boots base and modded Level.05D, saves with the mod, then requires an explicit
+content/mod-set rejection when the same slot is loaded without it:
+
+```powershell
+& ".\tools\acceptance\Invoke-ModDataPack.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+Both rows must pass with distinct non-zero active content fingerprints and at
+least one real overlay hit. For a visible packaging check, the repository
+example can be admitted without replacing copyrighted content:
+
+```powershell
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" `
+  --data-dir "E:\Games\The Next Worlds" `
+  --mod-dir "$PWD\examples\mods\rr2nw.example.data-pack" `
+  --start-level "Level.03N" `
+  --diagnostics-dir "$PWD\manual-logs\example-mod"
+```
+
+The log must report `mod_active=1`, ID `rr2nw.example.data-pack`, one admitted
+file, a non-zero mod fingerprint and clean shutdown. Because the example target
+is intentionally unused, zero override hits are valid for this visible check;
+the bounded product proof above is the override-routing gate.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so
