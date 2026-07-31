@@ -629,6 +629,144 @@ bool StartServices(const char* directory) {
   return RecoveredGameServices_IsReady();
 }
 
+bool ExerciseCrossLevelLoad(const char* sourceDirectory,
+                            const char* targetDirectory,
+                            const std::wstring& saveDirectory) {
+  constexpr std::uint32_t kTargetSlot = 4u;
+
+  // Build one real target-Level RR2SLOT1 fixture. The source slot in index 3
+  // was committed by the preceding same-Level continuation proof.
+  ZAV_DeInitLevel();
+  if (!StartServices(targetDirectory) ||
+      !RecoveredGameServices_RunFrame()) {
+    std::fprintf(stderr, "cross-Level target fixture did not start\n");
+    return false;
+  }
+  SLevelSaveSlotSummary targetSlot;
+  SLevelContinuationSummary targetContinuation;
+  if (!RecoveredGameServices_SaveLevelSlot(
+          saveDirectory, kTargetSlot, "cross-Level target",
+          "two-Level recovered services regression", {}, &targetSlot,
+          &targetContinuation) ||
+      !targetSlot.ready || !targetContinuation.ready ||
+      targetSlot.level.empty()) {
+    std::fprintf(stderr, "cross-Level target fixture save failed: %s\n",
+                 RecoveredGameServices_LastLevelSaveSlotError());
+    return false;
+  }
+
+  ZAV_DeInitLevel();
+  if (!StartServices(sourceDirectory) ||
+      !RecoveredGameServices_RunFrame() ||
+      !RecoveredGameServices_RequestLoadSlot(kTargetSlot) ||
+      !RecoveredGameServices_ProcessPendingSaveCommand()) {
+    std::fprintf(stderr, "cross-Level request staging failed: %s\n",
+                 RecoveredGameServices_SaveMenuState()->lastError.c_str());
+    return false;
+  }
+  const SRecoveredSaveMenuState* staged =
+      RecoveredGameServices_SaveMenuState();
+  if (staged == nullptr || !staged->crossLevelRestartPending ||
+      staged->crossLevelRequests != 1u ||
+      staged->completedCrossLevelLoads != 0u ||
+      staged->crossLevelRollbacks != 0u ||
+      !RecoveredGameServices_CrossLevelLoadPending()) {
+    std::fprintf(stderr, "cross-Level staged telemetry is incorrect\n");
+    return false;
+  }
+  SRecoveredCrossLevelLoadRequest request;
+  if (!RecoveredGameServices_TakeCrossLevelLoadRequest(&request) ||
+      !request.ready || request.slot != kTargetSlot ||
+      request.sourceLevel.empty() ||
+      request.targetLevel != targetSlot.level ||
+      request.sourceContinuation.empty() ||
+      request.targetContinuation.empty() ||
+      !request.sourceContinuationSummary.ready ||
+      request.targetSlot.archiveFingerprint !=
+          targetSlot.archiveFingerprint) {
+    std::fprintf(stderr, "cross-Level handoff contract is incomplete\n");
+    return false;
+  }
+
+  ZAV_DeInitLevel();
+  SLevelContinuationSummary restoredTarget;
+  if (!StartServices(targetDirectory) ||
+      !RecoveredGameServices_ApplyCrossLevelLoad(
+          request, &restoredTarget) ||
+      restoredTarget.restoredWorldFingerprint !=
+          targetContinuation.worldFingerprint ||
+      !RecoveredGameServices_RunFrame()) {
+    std::fprintf(stderr, "cross-Level target commit failed: %s\n",
+                 RecoveredGameServices_SaveMenuState()->lastError.c_str());
+    return false;
+  }
+  const SRecoveredSaveMenuState* committed =
+      RecoveredGameServices_SaveMenuState();
+  if (committed == nullptr || committed->crossLevelRestartPending ||
+      committed->crossLevelRequests != 1u ||
+      committed->completedCrossLevelLoads != 1u ||
+      committed->completedLoads != 1u || committed->loadRequests != 1u ||
+      committed->crossLevelRollbacks != 0u ||
+      committed->crossLevelRollbackFailures != 0u) {
+    std::fprintf(stderr, "cross-Level commit telemetry is incorrect\n");
+    return false;
+  }
+
+  // Stage a valid return to the source Level, then corrupt only the in-memory
+  // handoff. The target Level must remain recoverable through the checkpoint
+  // captured at the staging boundary.
+  if (!RecoveredGameServices_RequestLoadSlot(3u) ||
+      !RecoveredGameServices_ProcessPendingSaveCommand()) {
+    std::fprintf(stderr, "cross-Level rollback request failed: %s\n",
+                 RecoveredGameServices_SaveMenuState()->lastError.c_str());
+    return false;
+  }
+  SRecoveredCrossLevelLoadRequest rejected;
+  if (!RecoveredGameServices_TakeCrossLevelLoadRequest(&rejected) ||
+      rejected.targetContinuation.empty()) {
+    std::fprintf(stderr, "cross-Level rollback handoff is unavailable\n");
+    return false;
+  }
+  rejected.targetContinuation.back() ^= 0x5au;
+
+  ZAV_DeInitLevel();
+  SLevelContinuationSummary rejectedSummary;
+  if (!StartServices(sourceDirectory) ||
+      RecoveredGameServices_ApplyCrossLevelLoad(
+          rejected, &rejectedSummary)) {
+    std::fprintf(stderr, "corrupt cross-Level target was admitted\n");
+    return false;
+  }
+  const std::string rejectedFailure =
+      RecoveredGameServices_SaveMenuState()->lastError;
+  ZAV_DeInitLevel();
+  SLevelContinuationSummary rolledBackTarget;
+  if (!StartServices(targetDirectory) ||
+      !RecoveredGameServices_RestoreLevelContinuation(
+          rejected.sourceContinuation, &rolledBackTarget)) {
+    std::fprintf(stderr, "cross-Level source rollback restore failed: %s\n",
+                 RecoveredGameServices_LastLevelContinuationError());
+    return false;
+  }
+  RecoveredGameServices_RecordCrossLevelLoadFailure(
+      rejected, rejectedFailure, true, true);
+  const SRecoveredSaveMenuState* rolledBack =
+      RecoveredGameServices_SaveMenuState();
+  if (rolledBack == nullptr || rolledBack->crossLevelRestartPending ||
+      rolledBack->crossLevelRequests != 2u ||
+      rolledBack->completedCrossLevelLoads != 1u ||
+      rolledBack->crossLevelRollbacks != 1u ||
+      rolledBack->crossLevelRollbackFailures != 0u ||
+      rolledBack->failedCommands != 1u ||
+      rolledBackTarget.restoredWorldFingerprint !=
+          rejected.sourceContinuationSummary.worldFingerprint ||
+      !RecoveredGameServices_RunFrame()) {
+    std::fprintf(stderr, "cross-Level rollback telemetry/proof failed\n");
+    return false;
+  }
+  return true;
+}
+
 bool IsVehicleControlActive(KR_ObjectID vehicleID,
                             SRecoveredVehicleRuntimeState* state) {
   SRecoveredVehicleRuntimeState current = {};
@@ -2393,8 +2531,8 @@ bool ValidateReferenceTransaction(
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 1 && argc != 2) {
-    return Fail("expected an optional retail level directory");
+  if (argc < 1 || argc > 3) {
+    return Fail("expected optional source and target retail Level directories");
   }
 
   RecoveredGameServices_UseRuntime();
@@ -4558,6 +4696,13 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("restored Vehicle did not continue through real frames");
+  }
+  if (argc == 3 &&
+      !ExerciseCrossLevelLoad(argv[1], argv[2], saveSlotDirectory)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    CleanupSaveSlotFixture(saveSlotDirectory);
+    return Fail("transactional cross-Level load/rollback failed");
   }
   ZAV_DeInitLevel();
   ZAV_Deinit();

@@ -1,6 +1,7 @@
 #include "RecoveredGameServicesRuntime.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <ctime>
 #include <new>
@@ -806,6 +807,7 @@ bool g_primaryFireEffectPresent = false;
 std::string g_levelContinuationFailure;
 std::string g_levelSaveSlotFailure;
 SRecoveredSaveMenuState g_saveMenuState;
+SRecoveredCrossLevelLoadRequest g_crossLevelLoadRequest;
 bool g_saveMenuAllowOverwrite = false;
 HMENU g_nativeMenuBar = nullptr;
 HMENU g_nativeGameMenu = nullptr;
@@ -891,9 +893,30 @@ void ResizeSoftwareWindowForMenu(bool hasMenu) {
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+bool LevelIdentityMatches(const std::string& left,
+                          const std::string& right) {
+  return left.size() == right.size() &&
+         std::equal(left.begin(), left.end(), right.begin(),
+                    [](char first, char second) {
+                      return std::tolower(
+                                 static_cast<unsigned char>(first)) ==
+                             std::tolower(
+                                 static_cast<unsigned char>(second));
+                    });
+}
+
+bool SlotTargetsCurrentLevel(const SLevelSaveSlot& archive) {
+  return LevelIdentityMatches(archive.level,
+                              ContinuationLevelIdentity());
+}
+
 bool SlotIsCompatible(const SLevelSaveSlot& archive) {
-  return archive.level == ContinuationLevelIdentity() &&
+  return SlotTargetsCurrentLevel(archive) &&
          archive.contentFingerprint == ContinuationContentFingerprint();
+}
+
+bool SlotCanBeRequested(const SLevelSaveSlot& archive) {
+  return !SlotTargetsCurrentLevel(archive) || SlotIsCompatible(archive);
 }
 
 void RefreshNativeSaveMenu() {
@@ -905,7 +928,8 @@ void RefreshNativeSaveMenu() {
     SLevelSaveSlotStatus status;
     const bool readable = LevelSaveSlot_Read(
         g_saveMenuState.directory, slot, &archive, &status);
-    const bool compatible = readable && SlotIsCompatible(archive);
+    const bool sameLevel = readable && SlotTargetsCurrentLevel(archive);
+    const bool loadable = readable && SlotCanBeRequested(archive);
     std::wstring label =
         L"Slot " + std::to_wstring(slot + 1u) + L" - ";
     if (!readable) {
@@ -924,7 +948,11 @@ void RefreshNativeSaveMenu() {
       label += L" [";
       label += EscapeNativeMenuText(Utf8ToWide(archive.level));
       label += L"]";
-      if (!compatible) label += L" - incompatible";
+      if (!sameLevel) {
+        label += L" - switch Level";
+      } else if (!loadable) {
+        label += L" - incompatible retail data";
+      }
     }
     const UINT saveCommand = kNativeSaveSlotBase + slot;
     const UINT loadCommand = kNativeLoadSlotBase + slot;
@@ -934,8 +962,8 @@ void RefreshNativeSaveMenu() {
                 MF_BYCOMMAND | MF_STRING, loadCommand, label.c_str());
     EnableMenuItem(g_nativeLoadMenu, loadCommand,
                    MF_BYCOMMAND |
-                       (compatible ? MF_ENABLED
-                                   : MF_GRAYED | MF_DISABLED));
+                       (loadable ? MF_ENABLED
+                                 : MF_GRAYED | MF_DISABLED));
   }
   if (_gr_hWnd != nullptr) DrawMenuBar(_gr_hWnd);
 }
@@ -2473,11 +2501,20 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
     g_saveMenuState.lastError = "save directory is invalid";
     return false;
   }
-  if (g_saveMenuState.pending) {
+  if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending) {
     g_saveMenuState.lastError =
         "save directory cannot change while a command is pending";
     return false;
   }
+  g_crossLevelLoadRequest = {};
+  g_saveMenuState.crossLevelRestartPending = false;
+  g_saveMenuState.crossLevelRequests = 0;
+  g_saveMenuState.completedCrossLevelLoads = 0;
+  g_saveMenuState.crossLevelRollbacks = 0;
+  g_saveMenuState.crossLevelRollbackFailures = 0;
+  g_saveMenuState.crossLevelSourceLevel.clear();
+  g_saveMenuState.crossLevelTargetLevel.clear();
   g_saveMenuState.directory = directory;
   g_saveMenuState.configured = true;
   g_saveMenuState.lastError.clear();
@@ -2501,7 +2538,8 @@ bool RecoveredGameServices_RequestSaveSlot(
     g_saveMenuState.lastError = "save slot index is outside 0..7";
     return false;
   }
-  if (g_saveMenuState.pending) {
+  if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -2534,7 +2572,8 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
     g_saveMenuState.lastError = "load slot index is outside 0..7";
     return false;
   }
-  if (g_saveMenuState.pending) {
+  if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -2546,9 +2585,10 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
     g_saveMenuState.lastError = status.detail;
     return false;
   }
-  if (!SlotIsCompatible(archive)) {
+  if (!SlotCanBeRequested(archive)) {
     g_saveMenuState.lastError =
-        "save slot belongs to a different Level or retail data set";
+        "save slot belongs to the current Level but a different retail "
+        "data set";
     return false;
   }
   g_saveMenuState.pending = true;
@@ -2588,6 +2628,7 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
   SLevelSaveSlotSummary completedSlot;
   SLevelContinuationSummary completedContinuation;
   bool completed = false;
+  bool crossLevelStaged = false;
   if (action == RECOVERED_SAVE_MENU_SAVE) {
     const std::wstring path =
         LevelSaveSlot_Path(g_saveMenuState.directory, slot);
@@ -2613,12 +2654,54 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
       }
     }
   } else if (action == RECOVERED_SAVE_MENU_LOAD) {
-    completed = RecoveredGameServices_LoadLevelSlot(
-        g_saveMenuState.directory, slot, &completedSlot,
-        &completedContinuation);
-    if (!completed)
-      g_saveMenuState.lastError =
-          RecoveredGameServices_LastLevelSaveSlotError();
+    SLevelSaveSlot archive;
+    SLevelSaveSlotStatus status;
+    if (!LevelSaveSlot_Read(g_saveMenuState.directory, slot,
+                            &archive, &status) ||
+        !LevelSaveSlot_Summarize(archive, &completedSlot, &status)) {
+      g_saveMenuState.lastError = status.detail;
+    } else if (SlotTargetsCurrentLevel(archive)) {
+      if (!SlotIsCompatible(archive)) {
+        g_saveMenuState.lastError =
+            "save slot belongs to the current Level but a different "
+            "retail data set";
+      } else {
+        completed = RecoveredGameServices_RestoreLevelContinuation(
+            archive.continuation, &completedContinuation);
+        if (!completed)
+          g_saveMenuState.lastError =
+              RecoveredGameServices_LastLevelContinuationError();
+      }
+    } else {
+      std::vector<std::uint8_t> sourceContinuation;
+      SLevelContinuationSummary sourceSummary;
+      if (!RecoveredGameServices_CaptureLevelContinuation(
+              &sourceContinuation, &sourceSummary)) {
+        g_saveMenuState.lastError =
+            RecoveredGameServices_LastLevelContinuationError();
+      } else {
+        g_crossLevelLoadRequest = {};
+        g_crossLevelLoadRequest.ready = true;
+        g_crossLevelLoadRequest.slot = slot;
+        g_crossLevelLoadRequest.sourceLevel =
+            ContinuationLevelIdentity();
+        g_crossLevelLoadRequest.targetLevel = archive.level;
+        g_crossLevelLoadRequest.sourceContinuation =
+            std::move(sourceContinuation);
+        g_crossLevelLoadRequest.targetContinuation = archive.continuation;
+        g_crossLevelLoadRequest.targetSlot = completedSlot;
+        g_crossLevelLoadRequest.sourceContinuationSummary = sourceSummary;
+        g_saveMenuState.crossLevelRestartPending = true;
+        g_saveMenuState.crossLevelSourceLevel =
+            g_crossLevelLoadRequest.sourceLevel;
+        g_saveMenuState.crossLevelTargetLevel =
+            g_crossLevelLoadRequest.targetLevel;
+        ++g_saveMenuState.crossLevelRequests;
+        completedContinuation = sourceSummary;
+        completed = true;
+        crossLevelStaged = true;
+      }
+    }
   } else {
     g_saveMenuState.lastError = "pending save/load action is invalid";
   }
@@ -2645,13 +2728,87 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
   g_saveMenuState.lastContinuation = completedContinuation;
   if (action == RECOVERED_SAVE_MENU_SAVE)
     ++g_saveMenuState.completedSaves;
-  else
+  else if (!crossLevelStaged)
     ++g_saveMenuState.completedLoads;
   if (slotSummary != nullptr) *slotSummary = completedSlot;
   if (continuationSummary != nullptr)
     *continuationSummary = completedContinuation;
   RefreshNativeSaveMenu();
   return true;
+}
+
+bool RecoveredGameServices_CrossLevelLoadPending() {
+  return g_crossLevelLoadRequest.ready;
+}
+
+bool RecoveredGameServices_TakeCrossLevelLoadRequest(
+    SRecoveredCrossLevelLoadRequest* request) {
+  if (request == nullptr || !g_crossLevelLoadRequest.ready) return false;
+  *request = std::move(g_crossLevelLoadRequest);
+  g_crossLevelLoadRequest = {};
+  return request->ready;
+}
+
+bool RecoveredGameServices_ApplyCrossLevelLoad(
+    const SRecoveredCrossLevelLoadRequest& request,
+    SLevelContinuationSummary* continuationSummary) {
+  if (continuationSummary != nullptr) *continuationSummary = {};
+  g_saveMenuState.lastError.clear();
+  if (!request.ready || continuationSummary == nullptr ||
+      request.targetContinuation.empty() ||
+      !LevelIdentityMatches(request.targetLevel,
+                            ContinuationLevelIdentity())) {
+    g_saveMenuState.lastError =
+        "cross-Level load target does not match the initialized Level";
+    return false;
+  }
+  if (request.targetSlot.contentFingerprint !=
+      ContinuationContentFingerprint()) {
+    g_saveMenuState.lastError =
+        "cross-Level save belongs to a different retail data set";
+    return false;
+  }
+  SLevelContinuationSummary restored;
+  if (!RecoveredGameServices_RestoreLevelContinuation(
+          request.targetContinuation, &restored)) {
+    g_saveMenuState.lastError =
+        RecoveredGameServices_LastLevelContinuationError();
+    return false;
+  }
+  g_saveMenuState.crossLevelRestartPending = false;
+  g_saveMenuState.crossLevelSourceLevel = request.sourceLevel;
+  g_saveMenuState.crossLevelTargetLevel = request.targetLevel;
+  g_saveMenuState.lastSlot = request.targetSlot;
+  g_saveMenuState.lastContinuation = restored;
+  g_saveMenuState.lastCommandAttempts = 1u;
+  ++g_saveMenuState.loadRequests;
+  ++g_saveMenuState.completedLoads;
+  ++g_saveMenuState.completedCrossLevelLoads;
+  *continuationSummary = restored;
+  RefreshNativeSaveMenu();
+  return true;
+}
+
+void RecoveredGameServices_RecordCrossLevelLoadFailure(
+    const SRecoveredCrossLevelLoadRequest& request,
+    const std::string& detail, bool restartAttempted,
+    bool rollbackRestored) {
+  g_saveMenuState.crossLevelRestartPending = false;
+  g_saveMenuState.crossLevelSourceLevel = request.sourceLevel;
+  g_saveMenuState.crossLevelTargetLevel = request.targetLevel;
+  g_saveMenuState.lastSlot = request.targetSlot;
+  g_saveMenuState.lastError =
+      detail.empty() ? "cross-Level load transaction failed" : detail;
+  g_saveMenuState.lastCommandAttempts = 1u;
+  if (restartAttempted) ++g_saveMenuState.loadRequests;
+  ++g_saveMenuState.failedCommands;
+  if (restartAttempted) {
+    if (rollbackRestored)
+      ++g_saveMenuState.crossLevelRollbacks;
+    else
+      ++g_saveMenuState.crossLevelRollbackFailures;
+  }
+  RefreshNativeSaveMenu();
 }
 
 const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState() {

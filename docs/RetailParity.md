@@ -1380,7 +1380,7 @@ playable Level begins.
   experience was not. RP-SAVE-013 adds the per-user root, preview capture and
   first executable menu path; old `Save*.sav` import remains separate.
 
-### RP-SAVE-013: the Windows executable owns eight safe same-Level slots
+### RP-SAVE-013: the Windows executable owns eight safe Level slots
 
 - Windows startup configures `%LOCALAPPDATA%\RR2NW\saves` by default and
   accepts `--save-dir` for isolated acceptance. The visible software window
@@ -1397,15 +1397,19 @@ playable Level begins.
   saved one, and reconstructs the backup on any failed commit.
 - Every successful save embeds the actual 640x480 indexed framebuffer and
   active palette as a validated PNG. Empty and corrupt files are labelled;
-  readable slots expose title and Level; a different Level/content set remains
-  visible but load-disabled.
-- Same-Level save/load and exit/relaunch/load are now executable product paths.
-  Automatic selection and reconstruction of a different saved Level, an
-  in-menu thumbnail browser and retail `Save*.sav` import remain separate.
+  readable slots expose title and Level. Same-Level content mismatch remains
+  disabled; another Level is labelled `switch Level` and handed to the process
+  coordinator.
+- Same-Level save/load, exit/relaunch/load and automatic selection and
+  reconstruction of a different saved Level are executable product paths.
+  Target failure reconstructs the source LCN1; an in-menu thumbnail browser
+  and retail `Save*.sav` import remain separate.
 - Admission is 59/59 CTest in Debug and Release, 18/18 preview-bearing atomic
   slot continuations with a real `load_retry=1/2` Explosion boundary and 18/18
   ordinary executable runs across the nine installed retail Levels in both
-  configurations.
+  configurations. The two-Level services transaction and product executable
+  save/load coordinator pass in both configurations, including a deliberate
+  target rejection with exact source rollback.
 
 ## Binary analysis boundary
 

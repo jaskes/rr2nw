@@ -3637,10 +3637,54 @@ at the owner's last stable Vehicle position instead of accepting any merely
 finite coordinate.
 
 The movement admission probe injects a finite `1e8` impulse after a real
-`BeginPreStep`. It requires exactly one recovery, the exact pre-step position,
-zero speed, a valid Vehicle camera and complete outer rollback. The real
-Level.05D service smoke then completes Taxi handoff, safe exit/re-entry,
-primary fire and save/load with zero live fallback. This is a containment and
-diagnostic boundary, not a claim that the original Wheels dynamic-collision
-amplification has been fully explained; that solver remains a separately
-reproducible refinement target.
+`BeginPreStep`. Some retail vessel variants absorb that public impulse inside
+their own `UpdatePos`; the admission frame therefore carries an internal
+excessive-speed classification so every variant exercises the same recovery
+transaction without requiring a particular solver response. It requires one
+additional recovery relative to any earlier contained probe movement, the
+exact pre-step position, zero speed, a valid Vehicle camera and complete outer
+rollback. The real Level.05D service smoke then completes Taxi handoff, safe
+exit/re-entry, primary fire and save/load with zero live fallback. This is a
+containment and diagnostic boundary, not a claim that the original Wheels
+dynamic-collision amplification has been fully explained; that solver remains
+a separately reproducible refinement target.
+
+## BD-095: make cross-Level load a two-continuation main-loop transaction
+
+Status: accepted on 2026-07-31.
+
+A decoded RR2SLOT1 already identifies its retail Level, content fingerprint
+and complete LCN1. Loading a different-Level slot therefore does not require a
+new file format or legacy mission-transition event. It does require authority
+above the service session: neither `WM_COMMAND`, a script receiver nor LCN1
+itself may destroy the context on whose call stack it is executing.
+
+At the normal post-presentation boundary, the broker now treats a different
+Level as a two-phase request. It validates/summarizes the target archive and
+captures a second LCN1 from the live source. Only then does it publish a
+handoff with source/target identities, target slot bytes and the source
+rollback bytes. The native menu labels that readable slot `switch Level`.
+Same-Level content mismatch remains disabled; a different-Level fingerprint
+cannot be compared until its own manifest is initialized.
+
+The process main loop resolves both identities through the nine directories
+listed in `game.cfg`, tears down the source, constructs the target through the
+ordinary `ZAV_InitLevel`/PIN/SUA/begin-loop sequence and verifies the slot
+fingerprint before LCN1 restore. A successful restore commits the new Level
+index and resumes normal frames. Any target initialization or restore failure
+destroys the partial target, reconstructs the source and restores the captured
+source LCN1. A successful rollback reports the load error but keeps the game
+running; only source reconstruction/restore failure ends the loop.
+
+Cross-Level request, commit, rollback and rollback-failure counts survive the
+intermediate service teardowns and are written to the startup log with source,
+target and final Level identities. One-based `--save-slot`/`--load-slot`
+startup commands exercise the exact same broker for bounded product tests.
+
+The regression has two layers. The services smoke switches from Level.05D to
+Level.01D, continues a real target frame, then corrupts an in-memory return
+handoff and proves exact rollback with zero rollback failures. The executable
+acceptance script independently saves through `rr2nw.exe`, starts another
+Level and requires a product main-loop commit and clean shutdown. Embedded
+preview presentation and retail-save import remain separate UX/compatibility
+work; they do not weaken this transaction boundary.

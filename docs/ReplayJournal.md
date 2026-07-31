@@ -139,6 +139,7 @@ CTJ1 now crosses fresh-Level reconstruction inside public RR2SLOT1 files, but
 is not yet exposed as a replay file. The normal Windows loop remains
 variable-rate; there are no periodic hashes, seeking or fast-forward.
 
-The next persistence step is automatic cross-Level slot reconstruction and a
-multi-Level manual load checklist. A fixed-tick scheduler and longer
-hash-checked replay follow that gate; multiplayer remains later.
+Cross-Level slot reconstruction now carries both target and source LCN1/CTJ1
+containers through the main-loop restart. The next persistence step is a
+longer multi-Level manual load checklist and visible preview UX. A fixed-tick
+scheduler and longer hash-checked replay follow; multiplayer remains later.

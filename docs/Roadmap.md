@@ -1167,11 +1167,13 @@ palette. A manual Level.04D Explosion-boundary failure is now reproduced:
 attempt one defers, attempt two loads after `endRender`, and the transaction
 replaces a differing live effect roster with rollback coverage.
 
-The remaining item-5 work is an automatic main-loop restart into the Level
-named by a selected slot, visible preview/title UX and recorded multi-Level
-manual evidence. Same-Level save/load and exit/relaunch/load are available
-now. This still does not claim retail-save compatibility or silently serialize
-owner families outside the admitted graph.
+Item 5 now also has a transactional main-loop restart into the Level named by
+a selected slot. The broker carries target and source LCN1 containers across
+service destruction; target failure reconstructs the exact source world, and
+product acceptance proves a real Level.05D-to-Level.01D executable commit.
+Remaining persistence work is visible preview/title UX and a longer recorded
+multi-Level manual play pass. This still does not claim retail-save
+compatibility or silently serialize owner families outside the admitted graph.
 
 The first crowded-Vehicle containment gate is also admitted. A Level.05D
 manual failure proved that the Wheels dynamic-collision path can remain finite

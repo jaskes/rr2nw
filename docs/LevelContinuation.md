@@ -124,10 +124,10 @@ Level resources and derived renderer/audio caches are reloaded, not serialized.
 Live owner families outside that admitted set require their own section before
 they may cross a public save boundary.
 
-Atomic named slots, bounded metadata/optional preview, same-Level reload
-orchestration and non-destructive replacement are now implemented in
+Atomic named slots, bounded metadata/optional preview, same- and cross-Level
+reload orchestration, source rollback and non-destructive replacement are now implemented in
 [`SaveSlots.md`](SaveSlots.md). The Windows executable now adds the native
 eight-slot menu, per-user root, real framebuffer preview and safe frame-boundary
-broker. The next gate is automatic cross-Level reconstruction plus visible
-preview/title UX and recorded multi-Level acceptance. Fixed-tick replay,
-retail-save import, Linux/macOS and multiplayer remain later work.
+broker. The next gate is visible preview/title UX and a longer recorded
+multi-Level manual pass. Fixed-tick replay, retail-save import, Linux/macOS and
+multiplayer remain later work.

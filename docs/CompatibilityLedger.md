@@ -2756,18 +2756,18 @@ Status vocabulary:
   `SUA_EndRender`, presentation and frame telemetry. A second pending command
   and out-of-range slot are rejected. Save rechecks overwrite authority,
   captures the real 640x480 indexed framebuffer and palette, then uses
-  RR2SLOT1 atomic commit. Load is enabled only when decoded Level/content
-  identities match the running session and reuses the LCN1 transaction.
+  RR2SLOT1 atomic commit. A same-Level load reuses the LCN1 transaction; a
+  different-Level load publishes a two-continuation restart request for the
+  process main loop.
 - Verification: the broker smoke proves invalid-index, single-pending and
   overwrite guards, a non-zero validated PNG and destroyed-context disk load.
   The executable runtime log proves the configured root, eight slots, native
   menu installation and clean shutdown. Debug and Release pass 59/59 CTest;
   the installed-data gates pass 18/18 preview-bearing continuations and 18/18
   independent ordinary runtime cases.
-- Revisit when: cross-Level load is implemented. It must publish a main-loop
-  restart request and reconstruct the Level named by the decoded slot before
-  invoking LCN1. A future in-game browser may replace the native presentation,
-  but not the broker, fixed filenames or compatibility checks.
+- Revisited by: CQ-162 implements that restart/rollback contract. A future
+  in-game browser may replace the native presentation, but not the broker,
+  fixed filenames or compatibility checks.
 
 ### CQ-160: a closed frame and a replaceable transient roster are separate load requirements
 
@@ -2816,8 +2816,10 @@ Status vocabulary:
   recovery count and reason. A fallback that is still required uses the last
   stable position rather than a merely finite current position.
 - Verification: the real movement probe injects a finite `1e8` impulse between
-  BeginPreStep and UpdatePos, then requires one recovery, exact pose, zero
-  speed, valid camera and complete outer rollback. The Level.05D services smoke
+  BeginPreStep and UpdatePos, then requires one additional recovery, exact
+  pose, zero speed, valid camera and complete outer rollback. Its internal
+  classified-issue seam keeps the recovery proof independent of retail vessel
+  variants that absorb the public impulse. The Level.05D services smoke
   completes its interactive Taxi, embodiment, fire and slot contracts without
   fallback.
 - Revisit when: per-collider telemetry can identify the exact People/Taxi or
@@ -2825,6 +2827,53 @@ Status vocabulary:
   legacy reflection/penetration calculation only after preserving this guard
   and proving retail handling of crowded contacts, terrain and stationary
   overlaps.
+
+### CQ-162: cross-Level load must retain enough source state to undo restart
+
+- Status: `RUNTIME_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: RR2SLOT1 validates the target Level/content identity before world
+  mutation, but the target manifest does not exist while another Level is
+  running. Destroying the source first without another checkpoint would turn
+  a missing directory, target parse failure or content mismatch into lost live
+  progress despite the save archive itself remaining valid.
+- Handling: at the same fully closed boundary as ordinary load, the broker
+  captures the source LCN1 and publishes it beside the target slot LCN1. The
+  main loop resolves both names through `game.cfg`, reconstructs the target
+  and applies its continuation. Any failure reconstructs the source and
+  restores the source continuation. Request/commit/rollback telemetry survives
+  intermediate service resets; only rollback failure is fatal.
+- Verification: the two-Level services smoke commits Level.05D to Level.01D,
+  continues a target frame, corrupts a second in-memory handoff and proves one
+  exact source rollback with zero rollback failures. The product acceptance
+  invokes `rr2nw.exe` twice, commits a real target slot, starts in another
+  Level and records `cross_level_load_commit`, the target final Level, one
+  completed cross-Level load and clean shutdown.
+- Revisit when: asynchronous asset loading or an in-game progress screen is
+  introduced. It may change presentation and scheduling, but must preserve the
+  two continuations and the same commit/rollback authority.
+
+### CQ-163: a containment probe cannot require every vessel to retain an impulse
+
+- Status: `TEST_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: after the first runaway guard landed, the full executable matrix
+  passed 12/18 but rejected Level.03N, Level.06N and Level.01N identically in
+  Debug/Release with service issue 528. Their movement probes completed all
+  172 drive/turn steps and outer rollback, but their vessel-specific UpdatePos
+  absorbed the finite `1e8` public impulse, so no instability was available to
+  recover. Ordinary gameplay had not failed.
+- Handling: the probe still applies the real finite impulse, then marks only
+  that admission frame with the production excessive-speed classification.
+  Completion must execute the unmodified recovery path. The marker is private
+  to `VehicleRuntimeState`, is cleared on consumption and every owner reset,
+  and cannot be set by gameplay input or save data. The expected recovery is
+  relative to the count before injection so an earlier contained probe frame
+  is not itself a startup failure.
+- Verification: Level.03N now completes the full services/continuation test
+  with `probe=2/1/1/2/172/2/1/1/1`, exact rollback and no fallback. The final
+  all-Level executable matrix must remain 18/18 in Debug and Release.
+- Revisit when: a production diagnostic can inject a synthetic completed-frame
+  state without a private admission marker. Preserve solver-independent
+  coverage rather than selecting one convenient retail Vehicle attribute.
 
 ## Maintenance rule
 

@@ -210,9 +210,42 @@ short-lived effects, so repeat this pass once while firing or while an
 Explosion/Smoke effect is visible.
 
 The slot contains a real 640x480 indexed PNG, but the native menu does not draw
-the thumbnail yet. A slot for another Level stays visible and load-disabled;
-relaunch with that Level's exact `--start-level` before loading it. Automatic
-cross-Level reconstruction is the next UI boundary.
+the thumbnail yet. A slot for another Level is labelled `switch Level` and is
+loadable: the main loop reconstructs its retail Level before applying LCN1.
+A same-Level slot with a different content fingerprint remains disabled.
+
+## Cross-Level save/load pass
+
+The bounded executable proof needs no menu interaction:
+
+```powershell
+& ".\tools\acceptance\Invoke-CrossLevelSaveLoad.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release `
+  -SourceLevel "Level.05D" `
+  -TargetLevel "Level.01D"
+```
+
+For the visible pass, save a recognizable position in one Level, exit, launch
+a different Level with the same `--save-dir`, open `Game > Load game`, and
+select the slot marked `switch Level`. The window may briefly stop presenting
+while the old service graph is destroyed and the target assets are rebuilt.
+It must then show the saved target world, retain Vehicle control and continue
+normal frames. The final startup log must contain:
+
+```text
+cross_level_load_begin=<source>-><target>
+cross_level_load_commit=<target>
+save_menu_completed_cross_level_loads=1
+save_menu_cross_level_rollback_failures=0
+final_level_dir=<target>
+runtime_shutdown=clean
+```
+
+On a rejected target, the source world must return at the exact pre-load
+boundary. Retain the log whenever `save_menu_cross_level_rollbacks` is non-zero;
+the game may continue after such a successful rollback, while any non-zero
+`save_menu_cross_level_rollback_failures` is a release blocker.
 
 ## Interactive crowded Taxi stability pass
 

@@ -47,6 +47,8 @@ struct StartupOptions {
   std::wstring diagnosticsDirectory;
   std::wstring saveDirectory;
   std::wstring startLevel;
+  int startupSaveSlot = -1;
+  int startupLoadSlot = -1;
   bool launchSmoke = false;
   bool runtimeSmoke = false;
   bool showHelp = false;
@@ -208,6 +210,20 @@ bool ParseOptionValue(int argc, wchar_t** argv, int* index,
   return true;
 }
 
+bool ParseStartupSlot(const std::wstring& value, const wchar_t* option,
+                      int* slot, std::wstring* failure) {
+  errno = 0;
+  wchar_t* end = nullptr;
+  const long numeric = std::wcstol(value.c_str(), &end, 10);
+  if (errno != 0 || end == value.c_str() || *end != L'\0' ||
+      numeric < 1 || numeric > 8) {
+    *failure = std::wstring(option) + L" must be between 1 and 8";
+    return false;
+  }
+  *slot = static_cast<int>(numeric - 1);
+  return true;
+}
+
 bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
                   std::wstring* failure) {
   for (int index = 1; index < argc; ++index) {
@@ -248,10 +264,34 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       }
     } else if (argument.compare(0, 14, L"--start-level=") == 0) {
       options->startLevel = argument.substr(14);
+    } else if (argument == L"--save-slot" ||
+               argument == L"--load-slot") {
+      std::wstring value;
+      if (!ParseOptionValue(argc, argv, &index, argument.c_str(), &value,
+                            failure) ||
+          !ParseStartupSlot(
+              value, argument.c_str(),
+              argument == L"--save-slot" ? &options->startupSaveSlot
+                                          : &options->startupLoadSlot,
+              failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 12, L"--save-slot=") == 0) {
+      if (!ParseStartupSlot(argument.substr(12), L"--save-slot",
+                            &options->startupSaveSlot, failure))
+        return false;
+    } else if (argument.compare(0, 12, L"--load-slot=") == 0) {
+      if (!ParseStartupSlot(argument.substr(12), L"--load-slot",
+                            &options->startupLoadSlot, failure))
+        return false;
     } else {
       *failure = std::wstring(L"unknown argument: ") + argument;
       return false;
     }
+  }
+  if (options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0) {
+    *failure = L"--save-slot and --load-slot cannot be used together";
+    return false;
   }
   return true;
 }
@@ -446,6 +486,163 @@ std::wstring BuildIdentity() {
          Utf8ToWide(RR2NW_BUILD_CONFIGURATION) + L")";
 }
 
+int FindRetailLevel(const RetailData& data, const std::string& identity) {
+  const std::wstring wideIdentity = Utf8ToWide(identity.c_str());
+  if (wideIdentity.empty()) return -1;
+  for (int index = 0; index < kRetailLevelCount; ++index) {
+    if (_wcsicmp(wideIdentity.c_str(),
+                 data.levels[static_cast<std::size_t>(index)].c_str()) == 0)
+      return index;
+  }
+  return -1;
+}
+
+std::string RecoveredLevelStartFailure(const char* stage) {
+  std::string detail = stage;
+  detail += " (game_entry=";
+  detail += std::to_string(GameEntry_RuntimeIssues());
+  detail += ", game_level=";
+  detail += std::to_string(RecoveredGameLevel_Issues());
+  detail += ", level_runtime=";
+  detail += std::to_string(RecoveredLevelRuntime_Issues());
+  detail += ", services=";
+  detail += std::to_string(RecoveredGameServices_Issues());
+  detail += ")";
+  const char* manifestFailure = RecoveredRetailScriptManifest_LastError();
+  if (manifestFailure != nullptr && manifestFailure[0] != '\0') {
+    detail += ": ";
+    detail += manifestFailure;
+  }
+  return detail;
+}
+
+bool StartRecoveredLevel(const RetailData& data, int levelIndex,
+                         std::string* failure) {
+  if (failure != nullptr) failure->clear();
+  if (levelIndex < 0 || levelIndex >= kRetailLevelCount) {
+    if (failure != nullptr) *failure = "retail Level index is invalid";
+    return false;
+  }
+  std::string levelDirectory;
+  if (!WideToSystemPath(
+          JoinPath(data.root,
+                   data.levels[static_cast<std::size_t>(levelIndex)]),
+          &levelDirectory)) {
+    if (failure != nullptr) {
+      *failure =
+          "Level path is not representable by the Windows ANSI code page";
+    }
+    return false;
+  }
+  if (ZAV_InitLevel(levelDirectory.c_str()) == FALSE ||
+      !RecoveredGameLevel_IsReady()) {
+    if (failure != nullptr)
+      *failure = RecoveredLevelStartFailure("Level initialization failed");
+    return false;
+  }
+  PIN_InitEverything();
+  SUA_InitEverything();
+  if (!RecoveredGameServices_SessionReady()) {
+    if (failure != nullptr)
+      *failure = RecoveredLevelStartFailure("session initialization failed");
+    return false;
+  }
+  ZAV_BeginLoop();
+  if (!RecoveredGameServices_IsReady()) {
+    if (failure != nullptr)
+      *failure = RecoveredLevelStartFailure("loop initialization failed");
+    return false;
+  }
+  return true;
+}
+
+bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
+                           bool silent, StartupLog* log) {
+  SRecoveredCrossLevelLoadRequest request;
+  if (!RecoveredGameServices_TakeCrossLevelLoadRequest(&request))
+    return true;
+
+  const int sourceLevelIndex =
+      FindRetailLevel(data, request.sourceLevel);
+  const int targetLevelIndex =
+      FindRetailLevel(data, request.targetLevel);
+  if (sourceLevelIndex < 0 || sourceLevelIndex != *currentLevelIndex ||
+      targetLevelIndex < 0) {
+    const std::string detail =
+        targetLevelIndex < 0
+            ? "save slot names a Level that is not listed in game.cfg"
+            : "cross-Level source no longer matches the active Level";
+    RecoveredGameServices_RecordCrossLevelLoadFailure(
+        request, detail, false, false);
+    if (log != nullptr) {
+      log->Line("cross_level_load_preflight_failure=" + detail);
+    }
+    ShowMessage(silent, MB_ICONERROR, L"RR2NW save/load error",
+                Utf8ToWide(detail.c_str()));
+    return true;
+  }
+
+  if (log != nullptr) {
+    log->Line("cross_level_load_begin=" + request.sourceLevel + "->" +
+              request.targetLevel);
+  }
+  ZAV_DeInitLevel();
+
+  std::string targetFailure;
+  bool targetStarted =
+      StartRecoveredLevel(data, targetLevelIndex, &targetFailure);
+  SLevelContinuationSummary restored;
+  bool targetRestored =
+      targetStarted && RecoveredGameServices_ApplyCrossLevelLoad(
+                           request, &restored);
+  if (targetRestored) {
+    *currentLevelIndex = targetLevelIndex;
+    if (log != nullptr) {
+      log->Line("cross_level_load_commit=" + request.targetLevel);
+      log->Line("cross_level_load_world_fingerprint=" +
+                std::to_string(restored.restoredWorldFingerprint));
+    }
+    return true;
+  }
+
+  if (targetStarted) {
+    const SRecoveredSaveMenuState* state =
+        RecoveredGameServices_SaveMenuState();
+    targetFailure =
+        state != nullptr && !state->lastError.empty()
+            ? state->lastError
+            : "target Level continuation restore failed";
+  }
+  ZAV_DeInitLevel();
+
+  std::string sourceFailure;
+  const bool sourceStarted =
+      StartRecoveredLevel(data, sourceLevelIndex, &sourceFailure);
+  SLevelContinuationSummary rolledBack;
+  const bool sourceRestored =
+      sourceStarted && RecoveredGameServices_RestoreLevelContinuation(
+                           request.sourceContinuation, &rolledBack);
+  std::string detail = "cross-Level load failed: " + targetFailure;
+  if (!sourceRestored) {
+    detail += "; source rollback failed: ";
+    if (!sourceStarted) {
+      detail += sourceFailure;
+    } else {
+      detail += RecoveredGameServices_LastLevelContinuationError();
+    }
+  }
+  RecoveredGameServices_RecordCrossLevelLoadFailure(
+      request, detail, true, sourceRestored);
+  if (log != nullptr) {
+    log->Line(std::string("cross_level_load_rollback=") +
+              (sourceRestored ? "restored" : "failed"));
+    log->Line("cross_level_load_failure=" + detail);
+  }
+  ShowMessage(silent, MB_ICONERROR, L"RR2NW save/load error",
+              Utf8ToWide(detail.c_str()));
+  return sourceRestored;
+}
+
 }  // namespace
 
 int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
@@ -462,6 +659,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     ShowMessage(false, MB_ICONINFORMATION, L"RR2NW command line",
                 L"rr2nw.exe [--data-dir <path>] [--start-level <index|name>]\n"
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
+                L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--version] [--help]");
     return kSuccess;
@@ -559,6 +757,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kRuntimeNotReady;
   }
   log.Line("save_directory_ready=1");
+  if (options.startupSaveSlot >= 0) {
+    log.Line("startup_save_slot=" +
+             std::to_string(options.startupSaveSlot + 1));
+  }
+  if (options.startupLoadSlot >= 0) {
+    log.Line("startup_load_slot=" +
+             std::to_string(options.startupLoadSlot + 1));
+  }
 
   std::string levelDirectory;
   if (!WideToSystemPath(
@@ -1585,14 +1791,30 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   ZAV_BeginLoop();
   log.Line("loop_initialized=" +
            std::to_string(RecoveredGameServices_LoopReady() ? 1 : 0));
+  int currentLevelIndex = data.startLevel;
   bool loopFailed = !RecoveredGameServices_IsReady();
+  if (!loopFailed && options.startupSaveSlot >= 0 &&
+      !RecoveredGameServices_RequestSaveSlot(
+          static_cast<std::uint32_t>(options.startupSaveSlot), false)) {
+    loopFailed = true;
+  }
+  if (!loopFailed && options.startupLoadSlot >= 0 &&
+      !RecoveredGameServices_RequestLoadSlot(
+          static_cast<std::uint32_t>(options.startupLoadSlot))) {
+    loopFailed = true;
+  }
+  const auto runCompleteFrame = [&]() {
+    if (!RecoveredGameServices_RunFrame()) return false;
+    return !RecoveredGameServices_CrossLevelLoadPending() ||
+           ProcessCrossLevelLoad(data, &currentLevelIndex,
+                                 options.runtimeSmoke, &log);
+  };
   if (!loopFailed && options.runtimeSmoke) {
-    loopFailed = !RecoveredGameServices_RunFrame() ||
-                 !RecoveredGameServices_RunFrame();
+    loopFailed = !runCompleteFrame() || !runCompleteFrame();
   }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {
-    if (!RecoveredGameServices_RunFrame()) {
+    if (!runCompleteFrame()) {
       loopFailed = !RecoveredGameServices_QuitRequested();
       break;
     }
@@ -1602,6 +1824,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("game_services_issues=" +
              std::to_string(RecoveredGameServices_Issues()));
     log.Line("marker=loop-not-ready");
+    const SRecoveredSaveMenuState* failedSaveState =
+        RecoveredGameServices_SaveMenuState();
+    if (failedSaveState != nullptr &&
+        !failedSaveState->lastError.empty()) {
+      log.Line("save_menu_error=" + failedSaveState->lastError);
+    }
     ZAV_DeInitLevel();
     ZAV_Deinit();
     ShowMessage(options.runtimeSmoke, MB_ICONERROR,
@@ -1611,7 +1839,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kRuntimeNotReady;
   }
 
+  summary = RecoveredDrawableScene_Summary();
+  scriptManifest = RecoveredRetailScriptManifest_Summary();
+  if (summary == nullptr || scriptManifest == nullptr) {
+    log.Line("failure=final Level lost its scene/script summary");
+    log.Line("marker=loop-not-ready");
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return kRuntimeNotReady;
+  }
   log.Line("recovered_runtime=connected");
+  log.Line("final_level=" + std::to_string(currentLevelIndex));
+  log.WideLine(
+      "final_level_dir",
+      data.levels[static_cast<std::size_t>(currentLevelIndex)]);
   log.Line("retail_script_manifest_ready=1");
   log.Line("retail_script_manifest_includes=" +
            std::to_string(scriptManifest->includeDirectives));
@@ -1838,6 +2079,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(saveMenuState->deferredCommands));
     log.Line("save_menu_last_command_attempts=" +
              std::to_string(saveMenuState->lastCommandAttempts));
+    log.Line("save_menu_cross_level_requests=" +
+             std::to_string(saveMenuState->crossLevelRequests));
+    log.Line("save_menu_completed_cross_level_loads=" +
+             std::to_string(saveMenuState->completedCrossLevelLoads));
+    log.Line("save_menu_cross_level_rollbacks=" +
+             std::to_string(saveMenuState->crossLevelRollbacks));
+    log.Line("save_menu_cross_level_rollback_failures=" +
+             std::to_string(saveMenuState->crossLevelRollbackFailures));
+    log.Line("save_menu_cross_level_source=" +
+             saveMenuState->crossLevelSourceLevel);
+    log.Line("save_menu_cross_level_target=" +
+             saveMenuState->crossLevelTargetLevel);
   }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();

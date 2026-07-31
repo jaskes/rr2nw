@@ -167,11 +167,32 @@ struct SRecoveredSaveMenuState {
   unsigned int pendingAttempts = 0;
   unsigned int deferredCommands = 0;
   unsigned int lastCommandAttempts = 0;
+  bool crossLevelRestartPending = false;
+  unsigned int crossLevelRequests = 0;
+  unsigned int completedCrossLevelLoads = 0;
+  unsigned int crossLevelRollbacks = 0;
+  unsigned int crossLevelRollbackFailures = 0;
   std::wstring directory;
   std::string lastError;
+  std::string crossLevelSourceLevel;
+  std::string crossLevelTargetLevel;
   SRecoveredFramePreviewSummary lastPreview;
   SLevelSaveSlotSummary lastSlot;
   SLevelContinuationSummary lastContinuation;
+};
+
+// A different-Level load is staged only at a fully closed frame boundary.
+// The process coordinator owns the destructive Level restart, while this
+// value keeps both the requested save and an in-memory rollback checkpoint.
+struct SRecoveredCrossLevelLoadRequest {
+  bool ready = false;
+  std::uint32_t slot = 0;
+  std::string sourceLevel;
+  std::string targetLevel;
+  std::vector<std::uint8_t> sourceContinuation;
+  std::vector<std::uint8_t> targetContinuation;
+  SLevelSaveSlotSummary targetSlot;
+  SLevelContinuationSummary sourceContinuationSummary;
 };
 
 void RecoveredGameServices_UseRuntime();
@@ -308,6 +329,16 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot);
 bool RecoveredGameServices_ProcessPendingSaveCommand(
     SLevelSaveSlotSummary* slotSummary = nullptr,
     SLevelContinuationSummary* continuationSummary = nullptr);
+bool RecoveredGameServices_CrossLevelLoadPending();
+bool RecoveredGameServices_TakeCrossLevelLoadRequest(
+    SRecoveredCrossLevelLoadRequest* request);
+bool RecoveredGameServices_ApplyCrossLevelLoad(
+    const SRecoveredCrossLevelLoadRequest& request,
+    SLevelContinuationSummary* continuationSummary);
+void RecoveredGameServices_RecordCrossLevelLoadFailure(
+    const SRecoveredCrossLevelLoadRequest& request,
+    const std::string& detail, bool restartAttempted,
+    bool rollbackRestored);
 const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();

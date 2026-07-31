@@ -101,9 +101,21 @@ selects a hermetic or portable root for tests and manual acceptance.
 5. publishes summaries only after world recapture and control-journal adoption
    succeed.
 
-The caller still starts the matching retail Level normally before load. Models,
-textures, sounds, script attributes, fixed pools and derived caches are
-recreated from retail data; the slot overlays the admitted dynamic world.
+For a same-Level load, the caller invokes this direct service transaction.
+For a different-Level load, the broker instead captures an in-memory LCN1 of
+the current world and publishes a `SRecoveredCrossLevelLoadRequest` containing
+both continuations. The process main loop owns the destructive restart:
+
+1. validate that source and target identities are listed in `game.cfg`;
+2. destroy the source service/Level context;
+3. recreate models, textures, sounds, script attributes, pools and caches from
+   the target retail directory;
+4. verify the target content fingerprint and apply the slot LCN1;
+5. continue ordinary frames in that Level.
+
+If target initialization or restore fails, the coordinator destroys the
+partial target, reconstructs the source Level and restores the in-memory
+source LCN1. Only failure of that rollback ends the game loop.
 
 ## Windows executable integration
 
@@ -114,10 +126,11 @@ The visible software window has a native `Game` menu with:
 - `Exit`.
 
 Opening a menu rereads all fixed files. Empty and corrupt/unsupported slots are
-named explicitly. Readable slots show their saved title and Level;
-content/Level-incompatible slots remain visible but their load command is
-disabled. Saving an occupied slot and loading any compatible slot require
-confirmation.
+named explicitly. Readable slots show their saved title and Level. A slot for
+the current Level but a different retail content fingerprint is disabled. A
+slot for another configured Level is enabled and labelled `switch Level`;
+its own fingerprint is verified only after that target has been reconstructed.
+Saving an occupied slot and loading any admitted slot require confirmation.
 
 Window commands only enqueue one bounded request. The real save or load runs
 after simulation, `SUA_EndRender`, framebuffer presentation and frame
@@ -142,9 +155,9 @@ one before restoring references, events, clock/RNG and control state.
 Headless service tests have no `HWND` and therefore no presentation menu, but
 exercise the same broker, framebuffer PNG and disk transaction.
 
-The current executable loads only a slot for the already running Level. To load
-a save from another Level, relaunch with the matching `--start-level`; an
-automatic cross-Level restart dispatcher remains future work.
+The executable also accepts one-based `--save-slot <1..8>` and
+`--load-slot <1..8>` startup commands. They use the same broker and are useful
+for bounded acceptance; they are not a second persistence path.
 
 ## Regression proof
 
@@ -175,6 +188,19 @@ attempt two replaces the still-live transient roster with the saved world. The
 proof then requires exact world/journal fingerprints, Vehicle position and
 five further controlled frames.
 
+With optional source and target Level arguments, the same service smoke also
+creates a real target RR2SLOT1, stages the two-continuation handoff, destroys
+and reconstructs both Levels and proves continued target frames. A second
+handoff deliberately corrupts only the in-memory target continuation, rejects
+it and restores the exact source checkpoint; telemetry requires one committed
+cross-Level load, one rollback and zero rollback failures.
+
+`tools/acceptance/Invoke-CrossLevelSaveLoad.ps1` exercises the product
+coordinator itself. It uses `rr2nw.exe --runtime-smoke` to save in one Level,
+starts in another, loads the shared slot and requires the commit marker, final
+target identity, one completed cross-Level load, zero failures and clean
+shutdown.
+
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
 `LCN1-12/12/12`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
@@ -187,14 +213,12 @@ the new slot claim.
 
 ## Next gate
 
-The first user-facing Windows slice is now live. The next persistence UX work
-is deliberately narrower:
+The safe native Windows persistence slice, including cross-Level restart and
+rollback, is now live. The next persistence UX work is deliberately narrower:
 
-- add a main-loop cross-Level restart request so any compatible slot can select
-  and reconstruct its own retail Level;
 - display the embedded preview rather than only retaining it in the archive;
 - decide whether editable titles belong in a future recovered in-game browser;
-- complete and record multi-Level interactive save-exit-relaunch-load evidence.
+- complete and record a longer interactive multi-Level play/load pass.
 
 Retail-save import, cross-Level mission transitions, fixed-tick replay,
 Linux/macOS and multiplayer remain separate later work.
