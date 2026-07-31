@@ -2090,6 +2090,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleSuppressedInputCount()));
   log.Line("vehicle_active_action_count=" + std::to_string(
                RecoveredGameServices_VehicleActiveActionCount()));
+  log.Line("vehicle_physical_reconciliation_count=" + std::to_string(
+               RecoveredGameServices_VehiclePhysicalReconciliationCount()));
   SRecoveredObserverAxes vehicleControlAxes = {};
   if (RecoveredGameServices_VehicleControlAxes(&vehicleControlAxes)) {
     log.Line("vehicle_control_axes=" +

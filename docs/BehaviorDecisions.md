@@ -3975,3 +3975,19 @@ installed-Level cases and 18/18 fresh-continuation cases. A foreground window
 probe performs `W+A` with staggered release and an overlapping `Right+Left`,
 then leaves the active game idle for four seconds; it exits with zero control
 axes, effectively zero speed and clean shutdown.
+
+The next visible run closed with `Esc` while the failure was still active and
+provided the decisive counterexample: no focus transition or synthetic release
+occurred, yet `vehicle_active_action_count=1` and the canonical axes ended as
+`0,-0,0,-1,-0`. Physical speed was already effectively zero, so the runaway
+was remembered turn input rather than Vessel inertia. A legacy translated axis
+is therefore no longer authoritative beyond its event frame.
+
+While the game window is active, the recovered runtime samples the physical
+WASD, Space/left-Control and arrow pairs once per frame. It computes the same
+five signed axes and forwards/journals only differences from remembered state.
+Focus loss retains its immediate synthetic-release path. An adversarial window
+probe submits extended Left down without any corresponding release while the
+physical key remains up: recovery occurs in one frame, increments
+`vehicle_physical_reconciliation_count`, limits heading change to about 0.0415
+radians and exits with all axes neutral.

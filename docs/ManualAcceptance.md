@@ -51,12 +51,16 @@ must additionally contain:
 
 ```text
 vehicle_active_action_count=0
+vehicle_physical_reconciliation_count=<non-negative integer>
 vehicle_control_axes=0.000000,0.000000,0.000000,0.000000,0.000000
 runtime_shutdown=clean
 ```
 
 Any non-zero axis identifies the exact family still held in forward, strafe,
-vertical, turn, look order.
+vertical, turn, look order. A non-zero reconciliation count is acceptable and
+records that the physical-frame invariant repaired legacy event state; after
+such a repair the final active-action count and all five axes must still be
+zero.
 
 ## Automated nine-Level matrix
 

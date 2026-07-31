@@ -779,6 +779,11 @@ claim authorship of inherited Logos code or retail data.
   `A+D` or `Left+Right`. Complementary bindings now use Windows' physical
   asynchronous key state instead of the message-queue-local state, so a stale
   opposite key cannot reassert strafe or turn after release.
+- Added active-window physical reconciliation for the five canonical Vehicle
+  axes. Every interactive frame now compares the remembered forward, strafe,
+  vertical, turn and look values with actual WASD/arrow state and journals any
+  correction, preventing one malformed or missing legacy event from becoming
+  permanent movement.
 - Normalized Vehicle movement, strafe, vertical, turn and look input into the
   same five canonical axes used by the fallback observer. Opposite action
   names no longer leave contradictory held-state or continuation-journal

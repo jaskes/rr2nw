@@ -3030,6 +3030,14 @@ combining WASD movement, so the hermetic proof covers both `Right/Left` and
 `D/A`. Each case poisons only the queue-local state of the physically released
 complement and requires a positive current press followed by exact zero.
 
+The final visible counterexample still ended with canonical turn `-1` despite
+zero focus losses, proving that reducing stale queue reads cannot make a purely
+event-driven axis self-healing. Interactive Vehicle control now reconciles all
+five canonical axes against physical key state once per active frame. Each
+difference is applied through the normal live-control boundary, included in
+CTJ1 and counted by `vehicle_physical_reconciliation_count`. A real-window
+probe intentionally omits Left key-up and proves one-frame bounded recovery.
+
 ## Maintenance rule
 
 When a new quirk is found:

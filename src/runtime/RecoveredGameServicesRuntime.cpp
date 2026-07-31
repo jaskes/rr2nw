@@ -21,6 +21,7 @@
 #include "h/vehicle.h"
 #include "kernel/h/session.h"
 #include "message/hardmsg.h"
+#include "olevel.h"
 #include "suavik.h"
 #include "zav.h"
 
@@ -236,6 +237,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_focusGains = 0;
     m_syntheticReleases = 0;
     m_suppressedInputs = 0;
+    m_physicalReconciliations = 0;
     for (double& value : m_heldActions) value = 0.0;
     m_directionalAxes = {};
     m_applicationActive = true;
@@ -326,11 +328,14 @@ class RecoveredVehicleControlInput final : public KR_Object {
     if (action == FIRE_PRIMARY && down > 0.0)
       ++m_primaryFirePresses;
 
+    const SRecoveredObserverAxes previousDirectionalAxes =
+        m_directionalAxes;
     int canonicalAction = action;
     double canonicalDown = down;
-    if (CanonicalizeDirectionalAction(
+    const bool directionalAction = CanonicalizeDirectionalAction(
             &m_directionalAxes, action, down,
-            &canonicalAction, &canonicalDown)) {
+            &canonicalAction, &canonicalDown);
+    if (directionalAction) {
       action = canonicalAction;
       down = canonicalDown;
     }
@@ -378,6 +383,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
       ++m_ignoredEvents;
       m_forwardingFailed = true;
       m_lastInputFailure = VehicleRuntimeState_LastControlFailure();
+      if (directionalAction) m_directionalAxes = previousDirectionalAxes;
       if (exitAttempt) m_exitPending = false;
       return 1;
     }
@@ -408,6 +414,75 @@ class RecoveredVehicleControlInput final : public KR_Object {
   bool Subscribe() { return SetSubscribed(true); }
   bool Unsubscribe() { return SetSubscribed(false); }
   bool IsSubscribed() const { return m_subscribed; }
+  bool ReconcilePhysicalDirectionalAxes(double eventTime) {
+    if (!m_applicationActive || _gr_hWnd == nullptr ||
+        GetForegroundWindow() != _gr_hWnd) {
+      return true;
+    }
+    if (getContext() == nullptr || m_vehicle.isNUL() ||
+        !getContext()->isExist(m_vehicle) || !std::isfinite(eventTime)) {
+      m_forwardingFailed = true;
+      m_lastInputFailure = 9;
+      return false;
+    }
+
+    const auto keyDown = [](int key) {
+      return (GetAsyncKeyState(key) & 0x8000) != 0 ? 1.0 : 0.0;
+    };
+    const double keySensitivity = (std::max)(
+        0.01, (std::min)(1.0, g_levelAttr.get_double("keySens")));
+    SRecoveredObserverAxes physical = {};
+    physical.forward =
+        (keyDown('W') - keyDown('S')) * keySensitivity;
+    physical.strafe =
+        (keyDown('D') - keyDown('A')) * keySensitivity;
+    physical.vertical =
+        (keyDown(VK_SPACE) - keyDown(VK_LCONTROL)) * keySensitivity;
+    physical.turn =
+        (keyDown(VK_RIGHT) - keyDown(VK_LEFT)) * keySensitivity;
+    physical.look =
+        (keyDown(VK_UP) - keyDown(VK_DOWN)) * keySensitivity;
+
+    const auto reconcileAxis = [this, eventTime](
+        int action, double desired, double* current) {
+      if (*current == desired) return true;
+      if (!VehicleRuntimeState_ApplyLiveControlAt(
+              getContext(), action, desired, eventTime)) {
+        m_forwardingFailed = true;
+        m_lastInputFailure = VehicleRuntimeState_LastControlFailure();
+        return false;
+      }
+      *current = desired;
+      const int heldIndex = HeldActionIndex(action);
+      if (heldIndex >= 0) m_heldActions[heldIndex] = desired;
+      ++m_physicalReconciliations;
+      if (m_controlJournalRecording &&
+          !VehicleControlJournal_AppendAction(
+              &m_controlJournal, Session::m_simulationTick,
+              VehicleRuntimeState_LastAppliedControlTime(), action,
+              desired)) {
+        ++m_controlJournalAppendFailures;
+        m_controlJournalRecording = false;
+      }
+      return true;
+    };
+
+    return reconcileAxis(
+               MOVE_FORWARD, physical.forward,
+               &m_directionalAxes.forward) &&
+           reconcileAxis(
+               STRAFE_RIGHT, physical.strafe,
+               &m_directionalAxes.strafe) &&
+           reconcileAxis(
+               STRAFE_UP, physical.vertical,
+               &m_directionalAxes.vertical) &&
+           reconcileAxis(
+               TURN_RIGHT, physical.turn,
+               &m_directionalAxes.turn) &&
+           reconcileAxis(
+               LOOK_UP, physical.look,
+               &m_directionalAxes.look);
+  }
   bool BeginControlJournal() {
     if (getContext() == nullptr || m_vehicle.isNUL() ||
         !getContext()->isExist(m_vehicle) || m_controlJournalRecording)
@@ -540,6 +615,9 @@ class RecoveredVehicleControlInput final : public KR_Object {
   unsigned int FocusGains() const { return m_focusGains; }
   unsigned int SyntheticReleases() const { return m_syntheticReleases; }
   unsigned int SuppressedInputs() const { return m_suppressedInputs; }
+  unsigned int PhysicalReconciliationCount() const {
+    return m_physicalReconciliations;
+  }
   unsigned int ActiveActionCount() const {
     unsigned int count = 0;
     for (double value : m_heldActions) {
@@ -771,6 +849,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
   unsigned int m_focusGains = 0;
   unsigned int m_syntheticReleases = 0;
   unsigned int m_suppressedInputs = 0;
+  unsigned int m_physicalReconciliations = 0;
   double m_heldActions[kHeldActionCount] = {};
   SRecoveredObserverAxes m_directionalAxes = {};
   bool m_applicationActive = true;
@@ -3118,6 +3197,10 @@ unsigned int RecoveredGameServices_VehicleActiveActionCount() {
   return g_vehicleControlInput.ActiveActionCount();
 }
 
+unsigned int RecoveredGameServices_VehiclePhysicalReconciliationCount() {
+  return g_vehicleControlInput.PhysicalReconciliationCount();
+}
+
 bool RecoveredGameServices_VehicleControlAxes(
     SRecoveredObserverAxes* axes) {
   if (axes == nullptr || !g_vehicleControlReady) return false;
@@ -3270,6 +3353,16 @@ int RecoveredGameServices_RunFrame() {
     vehicleFrame = false;
   }
   SUA_ProcessEvents();
+  if (vehicleFrame) {
+    const double timerTime = g_timer.GetTime();
+    if (!g_vehicleControlInput.ReconcilePhysicalDirectionalAxes(
+            !std::isfinite(timerTime) || timerTime < 0.1
+                ? 0.1
+                : timerTime)) {
+      if (!ActivateVehicleFallback(3)) return FALSE;
+      vehicleFrame = false;
+    }
+  }
   if (vehicleFrame) {
     bool droppedTime = false;
     if (g_vehicleControlInput.ForwardingFailed()) {
