@@ -286,10 +286,11 @@ the game may continue after such a successful rollback, while any non-zero
 The bounded product proof creates an ignored local mod from the selected
 installation's `SMOKE.SCI` plus a generated schema-1 gameplay tuning file; no
 retail bytes are added to the repository. It boots base and tuned Level.05D,
-requires exact Vehicle/projectile observations and a real two-MOVE ballistic
-proof, saves with the mod, requires a content/mod-set rejection without it,
-rejects a tuning file with an unknown field, and separately rejects a missing
-secondary `BulletAttr` target:
+requires exact Vehicle/projectile/People/Tank observations, a real two-MOVE
+ballistic proof and exact live People/Tank lifecycle proofs, saves with the
+mod, requires a content/mod-set rejection without it, rejects a tuning file
+with an unknown field, and separately rejects missing secondary `BulletAttr`,
+`PeopleAttr` and `TankAttr` targets:
 
 ```powershell
 & ".\tools\acceptance\Invoke-ModDataPack.ps1" `
@@ -314,13 +315,15 @@ installed-Level runtime-smoke cases.
 ```
 
 The log must report `gameplay_tuning_active=1`, one Vehicle patch, one
-projectile patch, `gameplay_tuning_projectile_ballistic_proofs=1`, two MOVE
-steps, one secondary reference proof, one additional two-MOVE secondary
-ballistic proof, the documented
-`14/8/0.5/160/0.12/0.45/Bullet.Mina/7/180` observations, a non-zero Vehicle
-reference fingerprint and clean shutdown. Save and restore must publish the
-same reference fingerprint. This is a diagnostic contract preset, not a
-balanced gameplay preset.
+projectile patch, one People patch and one Tank patch,
+`gameplay_tuning_projectile_ballistic_proofs=1`, two MOVE steps, one secondary
+reference proof, one additional two-MOVE secondary ballistic proof and one
+exact lifecycle proof for each People/Tank target. The documented observations
+are `14/8/0.5/160/0.12/0.45/Bullet.Mina/7/180`,
+`peop.attr.man_c0/4.25/0.8/0.35/7`, and
+`tank.attr.grasshopper/22/12/3.5`. Vehicle-reference, People and Tank
+fingerprints must be non-zero and identical after matching save/relaunch/load.
+This is a diagnostic contract preset, not a balanced gameplay preset.
 
 ## Interactive crowded Taxi stability pass
 

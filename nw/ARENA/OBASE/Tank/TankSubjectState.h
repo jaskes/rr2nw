@@ -18,6 +18,25 @@ struct STankLifecycleProbeSummary
     int rollbacks;
 };
 
+struct STankGameplayTuningPatch
+{
+    bool hasMaxSpeed;
+    bool hasAttackPower;
+    bool hasAttackDelay;
+    double maxSpeed;
+    double attackPower;
+    double attackDelay;
+};
+
+struct STankGameplayTuningState
+{
+    void *owner;
+    char id[64];
+    double maxSpeed;
+    double attackPower;
+    double attackDelay;
+};
+
 void TankSubjectState_Link();
 void TankSubjectState_SetExpectedCapacities(int attributeCapacity,
                                             int subjectCapacity);
@@ -33,8 +52,19 @@ bool TankSubjectState_AttributeReferencesResolved(SimulationContext *context);
 const char *TankSubjectState_FirstUnresolvedReference();
 bool TankSubjectState_UpdateAttributes(SimulationContext *context,
                                        double timeStamp);
+bool TankSubjectState_CaptureGameplayTuning(
+    SimulationContext *context, const char *id,
+    STankGameplayTuningState *state);
+bool TankSubjectState_ApplyGameplayTuning(
+    SimulationContext *context, const STankGameplayTuningState *state,
+    const STankGameplayTuningPatch *patch);
+bool TankSubjectState_RestoreGameplayTuning(
+    SimulationContext *context, const STankGameplayTuningState *state);
 bool TankSubjectState_ProbeLifecycle(
     SimulationContext *context, double timeStamp,
+    STankLifecycleProbeSummary *summary);
+bool TankSubjectState_ProbeAttributeLifecycle(
+    SimulationContext *context, const char *attributeName, double timeStamp,
     STankLifecycleProbeSummary *summary);
 
 #endif

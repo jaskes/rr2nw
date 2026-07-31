@@ -7,6 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Extended gameplay-tuning schema 1 to verified Level-local `PeopleAttr` and
+  `TankAttr` owners. Mods can now tune People movement/initial health/fire
+  interval/burst count and Tank maximum speed/attack power/attack delay by
+  exact symbolic ID, with bounded values and whole-document rollback.
+- Added post-commit People/Tank fingerprints and exact live-owner proofs. Each
+  tuned attribute must instantiate its real subject and complete the recovered
+  movement, damage, death, save-state and zero-residue lifecycle before Level
+  admission; startup reports every committed value and proof count.
+- Expanded product tuning acceptance to nine paths: base, tuned, save,
+  matching restore, mod mismatch, malformed field, and missing secondary,
+  People and Tank targets. The repository Level.05D example now demonstrates
+  all four admitted owner families.
 - Extended gameplay tuning with bounded `secondary_fire_interval` and
   `secondary_projectile` fields. Secondary references now resolve through the
   original `VehicleAttr -> BulletAttr` index transaction and must pass an

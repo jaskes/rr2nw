@@ -109,6 +109,19 @@ People *ResolvePeople(SimulationContext *context, const KR_ObjectID &id)
     return unit == NULL ? NULL : dynamic_cast<People *>(unit);
 }
 
+ct_Attribute *ResolvePeopleAttribute(SimulationContext *context,
+                                     const char *name)
+{
+    if (context == NULL || name == NULL || name[0] == 0)
+        return NULL;
+    ct_ClassTable *raw = ct_Storage::searchClassTable("PeopleAttr");
+    ct_AttributeTable *attributes =
+        dynamic_cast<ct_AttributeTable *>(raw);
+    KR_ObjectID id = context->searchObject(name);
+    return attributes == NULL || id.isNUL()
+        ? NULL : attributes->searchAttribute(id);
+}
+
 bool RuntimeReady(People *people)
 {
     return people != NULL && people->m_attr != NULL &&
@@ -377,8 +390,94 @@ unsigned long long PeopleSubjectState_AbsentSubjectFingerprint()
     return kAbsentSubjectFingerprint;
 }
 
-bool PeopleSubjectState_ProbeLifecycle(
-    SimulationContext *context, double timeStamp,
+unsigned long long PeopleSubjectState_GameplayFingerprint(
+    SimulationContext *context)
+{
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "PeopleAttr", roster))
+        return 0;
+    unsigned long long hash = kHashOffset;
+    HashBytes(hash, &g_attributeCapacity, sizeof(g_attributeCapacity));
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        const char *name = context->searchObject(roster.ids[index]);
+        ct_Attribute *attribute = ResolvePeopleAttribute(context, name);
+        if (name == NULL || attribute == NULL)
+            return 0;
+        const double movementSpeed = attribute->get_double("m_speed");
+        const double initialHealth = attribute->get_double("m_initialDamage");
+        const double fireInterval = attribute->get_double("m_cannonSpeed");
+        const int burstCount = attribute->get_int("m_burstCount");
+        HashString(hash, name);
+        HashBytes(hash, &movementSpeed, sizeof(movementSpeed));
+        HashBytes(hash, &initialHealth, sizeof(initialHealth));
+        HashBytes(hash, &fireInterval, sizeof(fireInterval));
+        HashBytes(hash, &burstCount, sizeof(burstCount));
+    }
+    return hash == 0 ? 1 : hash;
+}
+
+bool PeopleSubjectState_CaptureGameplayTuning(
+    SimulationContext *context, const char *id,
+    SPeopleGameplayTuningState *state)
+{
+    if (state == NULL)
+        return false;
+    std::memset(state, 0, sizeof(*state));
+    ct_Attribute *attribute = ResolvePeopleAttribute(context, id);
+    if (attribute == NULL || std::strlen(id) >= sizeof(state->id))
+        return false;
+    state->owner = attribute;
+    std::strncpy(state->id, id, sizeof(state->id) - 1);
+    state->movementSpeed = attribute->get_double("m_speed");
+    state->initialHealth = attribute->get_double("m_initialDamage");
+    state->fireInterval = attribute->get_double("m_cannonSpeed");
+    state->burstCount = attribute->get_int("m_burstCount");
+    return std::isfinite(state->movementSpeed) &&
+           std::isfinite(state->initialHealth) &&
+           std::isfinite(state->fireInterval) && state->movementSpeed > 0.0 &&
+           state->initialHealth > 0.0 && state->fireInterval >= 0.0 &&
+           state->burstCount >= 0;
+}
+
+bool PeopleSubjectState_ApplyGameplayTuning(
+    SimulationContext *context, const SPeopleGameplayTuningState *state,
+    const SPeopleGameplayTuningPatch *patch)
+{
+    if (state == NULL || patch == NULL || state->owner == NULL)
+        return false;
+    ct_Attribute *attribute = ResolvePeopleAttribute(context, state->id);
+    if (attribute == NULL || attribute != state->owner)
+        return false;
+    if (patch->hasMovementSpeed)
+        attribute->set_double("m_speed", patch->movementSpeed);
+    if (patch->hasInitialHealth)
+        attribute->set_double("m_initialDamage", patch->initialHealth);
+    if (patch->hasFireInterval)
+        attribute->set_double("m_cannonSpeed", patch->fireInterval);
+    if (patch->hasBurstCount)
+        attribute->set_int("m_burstCount", patch->burstCount);
+    return true;
+}
+
+bool PeopleSubjectState_RestoreGameplayTuning(
+    SimulationContext *context, const SPeopleGameplayTuningState *state)
+{
+    if (state == NULL || state->owner == NULL)
+        return false;
+    ct_Attribute *attribute = ResolvePeopleAttribute(context, state->id);
+    if (attribute == NULL || attribute != state->owner)
+        return false;
+    attribute->set_double("m_speed", state->movementSpeed);
+    attribute->set_double("m_initialDamage", state->initialHealth);
+    attribute->set_double("m_cannonSpeed", state->fireInterval);
+    attribute->set_int("m_burstCount", state->burstCount);
+    return true;
+}
+
+static bool ProbePeopleLifecycle(
+    SimulationContext *context, const char *requestedAttribute,
+    double timeStamp,
     SPeopleLifecycleProbeSummary *summary)
 {
     if (summary == NULL)
@@ -400,12 +499,26 @@ bool PeopleSubjectState_ProbeLifecycle(
     People *exemplar = ResolvePeople(context, exemplarID);
     if (!RuntimeReady(exemplar))
         return false;
-    const KR_ObjectID attribute = exemplar->m_peopleAttrID;
+    KR_ObjectID attribute = exemplar->m_peopleAttrID;
+    SPeopleGameplayTuningState requestedState = {};
+    if (requestedAttribute != NULL)
+    {
+        if (!PeopleSubjectState_CaptureGameplayTuning(
+                context, requestedAttribute, &requestedState))
+            return false;
+        attribute = context->searchObject(requestedAttribute);
+    }
     const char *routeName = context->searchObject(exemplar->m_routeID);
 
     KR_ObjectID probeID = g_arena.newObject(table, "People.Lifecycle.Probe");
     People *probe = ResolvePeople(context, probeID);
     bool valid = SendStart(probe, attribute, routeName, timeStamp);
+    if (valid && requestedAttribute != NULL)
+        valid = probe->m_peopleAttrID == attribute &&
+                std::fabs(probe->movementSpeed() -
+                          requestedState.movementSpeed) <= 1e-9 &&
+                std::fabs(probe->m_damage - requestedState.initialHealth) <=
+                    1e-9;
     if (valid)
     {
         summary->validStarts =
@@ -503,4 +616,19 @@ bool PeopleSubjectState_ProbeLifecycle(
            summary->bulletDamageApplications == 1 &&
            summary->deathTransitions == 1 &&
            summary->saveStateRoundTrips == 1 && summary->rollbacks == 1;
+}
+
+bool PeopleSubjectState_ProbeLifecycle(
+    SimulationContext *context, double timeStamp,
+    SPeopleLifecycleProbeSummary *summary)
+{
+    return ProbePeopleLifecycle(context, NULL, timeStamp, summary);
+}
+
+bool PeopleSubjectState_ProbeAttributeLifecycle(
+    SimulationContext *context, const char *attributeName, double timeStamp,
+    SPeopleLifecycleProbeSummary *summary)
+{
+    return attributeName != NULL && attributeName[0] != 0 &&
+           ProbePeopleLifecycle(context, attributeName, timeStamp, summary);
 }

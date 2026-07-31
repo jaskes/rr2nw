@@ -1202,7 +1202,7 @@ Linux/macOS and multiplayer remain deferred. The renderer is now sufficient
 for Windows gameplay observation, not yet a final optimized or pixel-identical
 release renderer.
 
-## Current Windows frontier after secondary-weapon tuning
+## Current Windows frontier after People/Tank gameplay tuning
 
 The first safe M5/M4 bridge is admitted. `rr2nw.exe --mod-dir <directory>` now
 selects exactly one strict schema-1 read-only overlay. Declared script,
@@ -1229,25 +1229,35 @@ requested object; a late proof then executes that resolved projectile and
 rolls back its Bullet, Smoke, Spark and private scheduler state before the
 reference fingerprint becomes authoritative.
 
+The first actor extension is now closed as well. Schema 1 resolves existing
+Level-local `PeopleAttr` and `TankAttr` owners and exposes only seven bounded
+scalars with demonstrated runtime consumers. Their sorted gameplay
+fingerprints become admission identities. Every patched owner then creates its
+exact real subject and passes movement, Bullet damage, death, serializer and
+full rollback; Tank additionally proves Cannons and death effects. The mod
+example and save/load product proof exercise both actor families. Armour,
+mass, table membership and reference graphs remain unavailable.
+
 This closes the initial VFS, first data schema, examples and save-binding
 gates, but not the whole M5 feature list. The next mod slices remain ordered:
 
-1. trace and expose selected People/Tank values only where their
-   movement/damage/death and active-world save ownership can be proven without
-   weakening the known retail rosters;
-2. add declared new-Level/catalog support without allowing mods to replace
+1. add declared new-Level/catalog support without allowing mods to replace
    user `game.cfg` directly;
-3. add multiple-mod discovery, dependency/conflict validation and deterministic
+2. add multiple-mod discovery, dependency/conflict validation and deterministic
    mount ordering;
+3. expose further actor/reference fields only after exact active consumer,
+   ownership and save migration proofs; armour must not be published merely
+   because a legacy attribute item exists;
 4. expose existing script events only after their lifetime/save semantics are
    documented; evaluate Lua after those data-driven contracts are proven;
 5. package the validator/example and run the final Win10/Win11 manual campaign
    gate before calling the M5/RC frontier complete.
 
 The tuning admission adds a hermetic schema gate and a product proof that
-observes the exact committed Vehicle/projectile values, executes a real
-two-MOVE ballistic lifecycle, rejects an unknown field, and retains the
-mod-save/base-load mismatch proof. It is accepted at 61/61 CTest per Debug and
-Release configuration, 18/18 ordinary installed-Level runs, and complete
-Debug/Release product sequences. Linux/macOS, native x64 and multiplayer remain
-outside the Windows 1.0 blocker set.
+observes the exact committed Vehicle/projectile/People/Tank values, executes a
+real two-MOVE ballistic lifecycle plus exact actor lifecycles, rejects an
+unknown field and three absent target families, and retains the
+mod-save/base-load mismatch proof. It remains gated by 61/61 CTest per Debug
+and Release configuration, 18/18 ordinary installed-Level runs, and complete
+Debug/Release product sequences. Linux/macOS, native x64 and multiplayer
+remain outside the Windows 1.0 blocker set.

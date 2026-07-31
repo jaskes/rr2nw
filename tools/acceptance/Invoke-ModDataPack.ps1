@@ -50,6 +50,23 @@ $gameplayTuning = @'
       "id": "Bullet.Led.Prim",
       "speed": 180.0
     }
+  ],
+  "people": [
+    {
+      "id": "peop.attr.man_c0",
+      "movement_speed": 4.25,
+      "initial_health": 0.8,
+      "fire_interval": 0.35,
+      "burst_count": 7
+    }
+  ],
+  "tanks": [
+    {
+      "id": "tank.attr.grasshopper",
+      "max_speed": 22.0,
+      "attack_power": 12.0,
+      "attack_delay": 3.5
+    }
   ]
 }
 '@
@@ -154,6 +171,80 @@ $missingSecondaryManifest = @'
     $missingSecondaryManifest,
     [Text.UTF8Encoding]::new($false))
 
+$missingPeopleMod = Join-Path $OutputRoot "missing-people-mod"
+$missingPeopleObjects = Join-Path $missingPeopleMod "objects"
+New-Item -ItemType Directory -Force -Path $missingPeopleObjects | Out-Null
+$missingPeopleTuning = @'
+{
+  "schema": 1,
+  "people": [
+    {
+      "id": "peop.attr.does_not_exist",
+      "movement_speed": 4.0
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingPeopleObjects "gameplay-tuning.json"),
+    $missingPeopleTuning,
+    [Text.UTF8Encoding]::new($false))
+$missingPeopleManifest = @'
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.acceptance.missing-people",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "objects/gameplay-tuning.json",
+      "target": "RR2NW/gameplay-tuning.json"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingPeopleMod "mod.json"),
+    $missingPeopleManifest,
+    [Text.UTF8Encoding]::new($false))
+
+$missingTankMod = Join-Path $OutputRoot "missing-tank-mod"
+$missingTankObjects = Join-Path $missingTankMod "objects"
+New-Item -ItemType Directory -Force -Path $missingTankObjects | Out-Null
+$missingTankTuning = @'
+{
+  "schema": 1,
+  "tanks": [
+    {
+      "id": "tank.attr.does_not_exist",
+      "max_speed": 20.0
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingTankObjects "gameplay-tuning.json"),
+    $missingTankTuning,
+    [Text.UTF8Encoding]::new($false))
+$missingTankManifest = @'
+{
+  "schema": 1,
+  "engine_api": 1,
+  "id": "rr2nw.acceptance.missing-tank",
+  "version": "1.0.0",
+  "files": [
+    {
+      "source": "objects/gameplay-tuning.json",
+      "target": "RR2NW/gameplay-tuning.json"
+    }
+  ]
+}
+'@
+[IO.File]::WriteAllText(
+    (Join-Path $missingTankMod "mod.json"),
+    $missingTankManifest,
+    [Text.UTF8Encoding]::new($false))
+
 function Quote-NativeArgument([string]$Value) {
     if ($Value -notmatch '[\s"]') { return $Value }
     return '"' + ($Value -replace '"', '\"') + '"'
@@ -207,6 +298,8 @@ foreach ($configurationName in $Configuration) {
     $rejectLogs = Join-Path $caseRoot "base-reject-logs"
     $invalidLogs = Join-Path $caseRoot "invalid-tuning-logs"
     $missingSecondaryLogs = Join-Path $caseRoot "missing-secondary-logs"
+    $missingPeopleLogs = Join-Path $caseRoot "missing-people-logs"
+    $missingTankLogs = Join-Path $caseRoot "missing-tank-logs"
     $baseSaves = Join-Path $caseRoot "base-saves"
     $identitySaves = Join-Path $caseRoot "identity-saves"
     $executable = Join-Path $repositoryRoot "build\windows-msvc-x86\$configurationName\rr2nw.exe"
@@ -276,6 +369,22 @@ foreach ($configurationName in $Configuration) {
             "--diagnostics-dir", $missingSecondaryLogs,
             "--save-dir", $baseSaves) 4
 
+        Write-Host "[$configurationName] reject missing PeopleAttr"
+        Invoke-BoundedGame $executable @(
+            "--runtime-smoke", "--data-dir", $dataPath,
+            "--mod-dir", $missingPeopleMod,
+            "--start-level", $Level,
+            "--diagnostics-dir", $missingPeopleLogs,
+            "--save-dir", $baseSaves) 4
+
+        Write-Host "[$configurationName] reject missing TankAttr"
+        Invoke-BoundedGame $executable @(
+            "--runtime-smoke", "--data-dir", $dataPath,
+            "--mod-dir", $missingTankMod,
+            "--start-level", $Level,
+            "--diagnostics-dir", $missingTankLogs,
+            "--save-dir", $baseSaves) 4
+
         $base = Read-LogMap (Join-Path $baseLogs "rr2nw-startup.log")
         $modded = Read-LogMap (Join-Path $modLogs "rr2nw-startup.log")
         $saved = Read-LogMap (Join-Path $saveLogs "rr2nw-startup.log")
@@ -283,6 +392,8 @@ foreach ($configurationName in $Configuration) {
         $rejected = Read-LogMap (Join-Path $rejectLogs "rr2nw-startup.log")
         $invalid = Read-LogMap (Join-Path $invalidLogs "rr2nw-startup.log")
         $missingSecondary = Read-LogMap (Join-Path $missingSecondaryLogs "rr2nw-startup.log")
+        $missingPeople = Read-LogMap (Join-Path $missingPeopleLogs "rr2nw-startup.log")
+        $missingTank = Read-LogMap (Join-Path $missingTankLogs "rr2nw-startup.log")
         Require-Value $base "mod_active" "0"
         Require-Value $base "marker" "level-ready"
         Require-Value $base "runtime_shutdown" "clean"
@@ -293,11 +404,15 @@ foreach ($configurationName in $Configuration) {
         Require-Value $modded "gameplay_tuning_schema" "1"
         Require-Value $modded "gameplay_tuning_vehicle_patches" "1"
         Require-Value $modded "gameplay_tuning_projectile_patches" "1"
+        Require-Value $modded "gameplay_tuning_people_patches" "1"
+        Require-Value $modded "gameplay_tuning_tank_patches" "1"
         Require-Value $modded "gameplay_tuning_projectile_ballistic_proofs" "1"
         Require-Value $modded "gameplay_tuning_projectile_ballistic_moves" "2"
         Require-Value $modded "gameplay_tuning_secondary_reference_proofs" "1"
         Require-Value $modded "gameplay_tuning_secondary_ballistic_proofs" "1"
         Require-Value $modded "gameplay_tuning_secondary_ballistic_moves" "2"
+        Require-Value $modded "gameplay_tuning_people_lifecycle_proofs" "1"
+        Require-Value $modded "gameplay_tuning_tank_lifecycle_proofs" "1"
         Require-Value $modded "gameplay_tuning_default_max_speed" "14.000000"
         Require-Value $modded "gameplay_tuning_default_reverse_speed" "8.000000"
         Require-Value $modded "gameplay_tuning_default_acceleration_time" "0.500000"
@@ -307,6 +422,15 @@ foreach ($configurationName in $Configuration) {
         Require-Value $modded "gameplay_tuning_default_secondary_projectile" "Bullet.Mina"
         Require-Value $modded "gameplay_tuning_default_damage_power" "7.000000"
         Require-Value $modded "gameplay_tuning_primary_projectile_speed" "180.000000"
+        Require-Value $modded "gameplay_tuning_observed_people" "peop.attr.man_c0"
+        Require-Value $modded "gameplay_tuning_people_movement_speed" "4.250000"
+        Require-Value $modded "gameplay_tuning_people_initial_health" "0.800000"
+        Require-Value $modded "gameplay_tuning_people_fire_interval" "0.350000"
+        Require-Value $modded "gameplay_tuning_people_burst_count" "7"
+        Require-Value $modded "gameplay_tuning_observed_tank" "tank.attr.grasshopper"
+        Require-Value $modded "gameplay_tuning_tank_max_speed" "22.000000"
+        Require-Value $modded "gameplay_tuning_tank_attack_power" "12.000000"
+        Require-Value $modded "gameplay_tuning_tank_attack_delay" "3.500000"
         Require-Value $modded "marker" "level-ready"
         Require-Value $modded "runtime_shutdown" "clean"
         Require-Value $saved "save_menu_completed_saves" "1"
@@ -317,6 +441,10 @@ foreach ($configurationName in $Configuration) {
         Require-Value $restored "gameplay_tuning_default_secondary_fire_interval" "0.450000"
         Require-Value $restored "gameplay_tuning_default_secondary_projectile" "Bullet.Mina"
         Require-Value $restored "gameplay_tuning_secondary_reference_proofs" "1"
+        Require-Value $restored "gameplay_tuning_people_lifecycle_proofs" "1"
+        Require-Value $restored "gameplay_tuning_tank_lifecycle_proofs" "1"
+        Require-Value $restored "gameplay_tuning_people_movement_speed" "4.250000"
+        Require-Value $restored "gameplay_tuning_tank_max_speed" "22.000000"
         Require-Value $restored "runtime_shutdown" "clean"
         $vehicleReferenceFingerprint =
             [UInt64]$modded["gameplay_tuning_vehicle_reference_fingerprint"]
@@ -324,6 +452,17 @@ foreach ($configurationName in $Configuration) {
             [UInt64]$restored["gameplay_tuning_vehicle_reference_fingerprint"] -ne
                 $vehicleReferenceFingerprint) {
             throw "secondary reference fingerprint did not survive restore"
+        }
+        $peopleFingerprint =
+            [UInt64]$modded["gameplay_tuning_people_fingerprint"]
+        $tankFingerprint =
+            [UInt64]$modded["gameplay_tuning_tank_fingerprint"]
+        if ($peopleFingerprint -eq 0 -or $tankFingerprint -eq 0 -or
+            [UInt64]$restored["gameplay_tuning_people_fingerprint"] -ne
+                $peopleFingerprint -or
+            [UInt64]$restored["gameplay_tuning_tank_fingerprint"] -ne
+                $tankFingerprint) {
+            throw "People/Tank tuning fingerprints did not survive restore"
         }
         Require-Value $rejected "mod_active" "0"
         Require-Value $rejected "marker" "loop-not-ready"
@@ -343,6 +482,20 @@ foreach ($configurationName in $Configuration) {
             $missingSecondary["arena_seance_error"] -notmatch
                 'unknown secondary BulletAttr tuning target') {
             throw "missing secondary projectile did not fail closed precisely"
+        }
+        Require-Value $missingPeople "mod_active" "1"
+        Require-Value $missingPeople "marker" "loop-not-ready"
+        if (-not $missingPeople.ContainsKey("arena_seance_error") -or
+            $missingPeople["arena_seance_error"] -notmatch
+                'unknown PeopleAttr tuning target') {
+            throw "missing PeopleAttr did not fail closed precisely"
+        }
+        Require-Value $missingTank "mod_active" "1"
+        Require-Value $missingTank "marker" "loop-not-ready"
+        if (-not $missingTank.ContainsKey("arena_seance_error") -or
+            $missingTank["arena_seance_error"] -notmatch
+                'unknown TankAttr tuning target') {
+            throw "missing TankAttr did not fail closed precisely"
         }
         $baseFingerprint = [UInt64]$base["active_content_fingerprint"]
         $modFingerprint = [UInt64]$modded["active_content_fingerprint"]

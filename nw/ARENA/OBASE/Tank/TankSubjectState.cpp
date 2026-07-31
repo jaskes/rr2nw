@@ -160,6 +160,16 @@ bool CollectTable(SimulationContext *context, const char *name,
     return roster.valid;
 }
 
+AttributeTank *ResolveTankAttribute(SimulationContext *context,
+                                    const char *name)
+{
+    if (context == NULL || name == NULL || name[0] == 0)
+        return NULL;
+    KR_ObjectID id = context->searchObject(name);
+    return id.isNUL() ? NULL : static_cast<AttributeTank *>(
+        g_tankAttrTable.searchAttribute(id));
+}
+
 bool ReferenceResolves(SimulationContext *context, const char *owner,
                        const char *field, const char *value)
 {
@@ -453,8 +463,59 @@ bool TankSubjectState_UpdateAttributes(SimulationContext *context,
     return true;
 }
 
-bool TankSubjectState_ProbeLifecycle(
-    SimulationContext *context, double timeStamp,
+bool TankSubjectState_CaptureGameplayTuning(
+    SimulationContext *context, const char *id,
+    STankGameplayTuningState *state)
+{
+    if (state == NULL)
+        return false;
+    std::memset(state, 0, sizeof(*state));
+    AttributeTank *attribute = ResolveTankAttribute(context, id);
+    if (attribute == NULL || std::strlen(id) >= sizeof(state->id))
+        return false;
+    state->owner = attribute;
+    std::strncpy(state->id, id, sizeof(state->id) - 1);
+    state->maxSpeed = attribute->maxSpeed;
+    state->attackPower = attribute->m_power;
+    state->attackDelay = attribute->m_attackDelay;
+    return std::isfinite(state->maxSpeed) &&
+           std::isfinite(state->attackPower) &&
+           std::isfinite(state->attackDelay) && state->maxSpeed >= 0.0 &&
+           state->attackPower > 0.0 && state->attackDelay >= 0.0;
+}
+
+bool TankSubjectState_ApplyGameplayTuning(
+    SimulationContext *context, const STankGameplayTuningState *state,
+    const STankGameplayTuningPatch *patch)
+{
+    if (state == NULL || patch == NULL || state->owner == NULL)
+        return false;
+    AttributeTank *attribute = ResolveTankAttribute(context, state->id);
+    if (attribute == NULL || attribute != state->owner)
+        return false;
+    if (patch->hasMaxSpeed) attribute->maxSpeed = patch->maxSpeed;
+    if (patch->hasAttackPower) attribute->m_power = patch->attackPower;
+    if (patch->hasAttackDelay) attribute->m_attackDelay = patch->attackDelay;
+    return true;
+}
+
+bool TankSubjectState_RestoreGameplayTuning(
+    SimulationContext *context, const STankGameplayTuningState *state)
+{
+    if (state == NULL || state->owner == NULL)
+        return false;
+    AttributeTank *attribute = ResolveTankAttribute(context, state->id);
+    if (attribute == NULL || attribute != state->owner)
+        return false;
+    attribute->maxSpeed = state->maxSpeed;
+    attribute->m_power = state->attackPower;
+    attribute->m_attackDelay = state->attackDelay;
+    return true;
+}
+
+static bool ProbeTankLifecycle(
+    SimulationContext *context, const char *requestedAttribute,
+    double timeStamp,
     STankLifecycleProbeSummary *summary)
 {
     if (summary == NULL)
@@ -481,7 +542,9 @@ bool TankSubjectState_ProbeLifecycle(
 
     const RosterEntry *selection = NULL;
     for (std::size_t i = 0; i < attributes.entries.size(); ++i)
-        if (AttributeRuntimeReady(attributes.entries[i].attribute) &&
+        if ((requestedAttribute == NULL ||
+             attributes.entries[i].name == requestedAttribute) &&
+            AttributeRuntimeReady(attributes.entries[i].attribute) &&
             attributes.entries[i].attribute->m_cannonCnt > 0)
         {
             selection = &attributes.entries[i];
@@ -492,7 +555,7 @@ bool TankSubjectState_ProbeLifecycle(
         // Level.06 has a deliberately empty TankAttr roster and Level.07 has
         // no Tank tables.  That is a valid retail state, not a failed probe.
         summary->rollbacks = 1;
-        return attributes.entries.empty();
+        return requestedAttribute == NULL && attributes.entries.empty();
     }
     summary->available = 1;
 
@@ -500,6 +563,11 @@ bool TankSubjectState_ProbeLifecycle(
         g_arena.newObject(table, "Tank.Lifecycle.Probe");
     Tank *tank = ResolveTank(context, probeID);
     bool valid = SendAttribute(tank, selection->id, timeStamp);
+    if (valid && requestedAttribute != NULL)
+        valid = tank->m_tankAttrID == selection->id &&
+                tank->m_attr == selection->attribute &&
+                std::fabs(tank->getPower() -
+                          selection->attribute->m_power) <= 1e-9;
     std::vector<KR_ObjectID> ownedCannons;
     if (valid && TankRuntimeReady(context, tank))
     {
@@ -602,4 +670,19 @@ bool TankSubjectState_ProbeLifecycle(
            summary->deathTransitions == 1 &&
            summary->deathEffects == 1 &&
            summary->saveStateRoundTrips == 1 && summary->rollbacks == 1;
+}
+
+bool TankSubjectState_ProbeLifecycle(
+    SimulationContext *context, double timeStamp,
+    STankLifecycleProbeSummary *summary)
+{
+    return ProbeTankLifecycle(context, NULL, timeStamp, summary);
+}
+
+bool TankSubjectState_ProbeAttributeLifecycle(
+    SimulationContext *context, const char *attributeName, double timeStamp,
+    STankLifecycleProbeSummary *summary)
+{
+    return attributeName != NULL && attributeName[0] != 0 &&
+           ProbeTankLifecycle(context, attributeName, timeStamp, summary);
 }

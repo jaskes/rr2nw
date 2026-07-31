@@ -1485,6 +1485,28 @@ playable Level begins.
   same Vehicle reference fingerprint. Loading without the mod still rejects at
   the earlier content/mod identity boundary.
 
+### RP-MOD-004: People and Tank tuning retains the retail owner graph
+
+- Schema 1 now accepts exact selected-Level `PeopleAttr` and `TankAttr`
+  identities. People exposes bounded movement speed, initial health, fire
+  interval and burst count; Tank exposes bounded maximum speed, attack power
+  and attack delay. No new table rows or reference objects are deserialized.
+- The transaction first proves the ordinary unresolved Vehicle/Bullet roster,
+  resolves every People/Tank target in the already-created Level-local tables,
+  captures all seven values and only then commits the document. Post-commit
+  fingerprints include the sorted owner names and admitted gameplay scalars.
+- Each patched owner must later instantiate its exact real subject. The
+  existing People/Tank probes exercise render/dynamic setup, scheduled movement,
+  Bullet damage, death, serializer round-trip and complete rollback; Tank also
+  proves Cannons and death effects. Fingerprints must remain exact afterward.
+- People armour and model/route/sound references plus Tank mass, armour,
+  Cannon/Bullet/effect/visual graphs remain retail-owned and unavailable to
+  schema 1. Their absence is intentional, not a permissive unknown-field path.
+- Level.05D product acceptance observes `peop.attr.man_c0` at
+  `4.25/0.8/0.35/7` and `tank.attr.grasshopper` at `22/12/3.5`, preserves both
+  fingerprints through mod-bound save/relaunch/load and rejects absent People
+  or Tank IDs before the loop becomes ready.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

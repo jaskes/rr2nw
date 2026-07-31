@@ -1867,6 +1867,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(tuningSummary->vehiclePatchCount));
     log.Line("gameplay_tuning_projectile_patches=" +
              std::to_string(tuningSummary->projectilePatchCount));
+    log.Line("gameplay_tuning_people_patches=" +
+             std::to_string(tuningSummary->peoplePatchCount));
+    log.Line("gameplay_tuning_tank_patches=" +
+             std::to_string(tuningSummary->tankPatchCount));
     log.Line("gameplay_tuning_projectile_ballistic_proofs=" +
              std::to_string(tuningSummary->projectileBallisticProofs));
     log.Line("gameplay_tuning_projectile_ballistic_moves=" +
@@ -1880,6 +1884,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("gameplay_tuning_secondary_ballistic_moves=" +
              std::to_string(
                  tuningSummary->secondaryProjectileBallisticMoves));
+    log.Line("gameplay_tuning_people_lifecycle_proofs=" +
+             std::to_string(tuningSummary->peopleLifecycleProofs));
+    log.Line("gameplay_tuning_tank_lifecycle_proofs=" +
+             std::to_string(tuningSummary->tankLifecycleProofs));
     log.Line("gameplay_tuning_fingerprint=" +
              std::to_string(tuningSummary->tuningFingerprint));
     log.Line("gameplay_tuning_vehicle_attribute_fingerprint=" +
@@ -1891,6 +1899,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("gameplay_tuning_bullet_attribute_fingerprint=" +
              std::to_string(
                  tuningSummary->bulletAttributeFingerprint));
+    log.Line("gameplay_tuning_people_fingerprint=" +
+             std::to_string(tuningSummary->peopleGameplayFingerprint));
+    log.Line("gameplay_tuning_tank_fingerprint=" +
+             std::to_string(tuningSummary->tankGameplayFingerprint));
     log.Line("gameplay_tuning_default_present=" +
              std::to_string(tuningSummary->defaultVehiclePresent));
     log.Line("gameplay_tuning_default_max_speed=" +
@@ -1915,6 +1927,27 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(tuningSummary->primaryProjectilePresent));
     log.Line("gameplay_tuning_primary_projectile_speed=" +
              std::to_string(tuningSummary->primaryProjectileSpeed));
+    log.Line(std::string("gameplay_tuning_observed_people=") +
+             tuningSummary->observedPeople);
+    log.Line("gameplay_tuning_people_movement_speed=" +
+             std::to_string(
+                 tuningSummary->observedPeopleMovementSpeed));
+    log.Line("gameplay_tuning_people_initial_health=" +
+             std::to_string(
+                 tuningSummary->observedPeopleInitialHealth));
+    log.Line("gameplay_tuning_people_fire_interval=" +
+             std::to_string(
+                 tuningSummary->observedPeopleFireInterval));
+    log.Line("gameplay_tuning_people_burst_count=" +
+             std::to_string(tuningSummary->observedPeopleBurstCount));
+    log.Line(std::string("gameplay_tuning_observed_tank=") +
+             tuningSummary->observedTank);
+    log.Line("gameplay_tuning_tank_max_speed=" +
+             std::to_string(tuningSummary->observedTankMaxSpeed));
+    log.Line("gameplay_tuning_tank_attack_power=" +
+             std::to_string(tuningSummary->observedTankAttackPower));
+    log.Line("gameplay_tuning_tank_attack_delay=" +
+             std::to_string(tuningSummary->observedTankAttackDelay));
   }
   log.Line("arena_seance_issues=" +
            std::to_string(RecoveredArenaSeance_Issues()));

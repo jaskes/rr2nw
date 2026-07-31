@@ -3874,3 +3874,39 @@ impact effects and health remain separate contracts.
 Acceptance passed 61/61 CTest in both Debug and Release, the seven-step
 base/tune/save/restore/mismatch/malformed/missing-target product sequence in
 both configurations, and all 18 ordinary installed-Level runtime-smoke cases.
+
+## BD-101: expose People and Tank scalars only through exact live-owner proofs
+
+Status: accepted on 2026-07-31.
+
+People and Tank attributes are Level-local script objects, not JSON-owned
+templates. Gameplay tuning therefore resolves them only after the untouched
+retail script bootstrap, captures the exact `ct_Attribute`/`AttributeTank`
+owner and commits four People scalars (`m_speed`, `m_initialDamage`,
+`m_cannonSpeed`, `m_burstCount`) and three Tank scalars (`maxSpeed`, `m_power`,
+`m_attackDelay`). All values have finite schema-1 bounds. Missing IDs,
+duplicates, unknown fields or any later fingerprint divergence fail Level
+admission and restore every owner touched by the complete tuning document.
+
+Scalar presence is not sufficient evidence. After references resolve, every
+tuned Tank attribute must create the real `Tank`, bind its Cannons and complete
+movement, Bullet damage, death effects, serializer round-trip and full child/
+event rollback. After the retail People population and its active-world
+reconstruction are stable, every tuned People attribute must create a real
+`People`, inherit the requested movement and initial health, complete movement,
+Bullet damage, death and serializer round-trip, and return the population,
+Sound and scheduler state to its exact baseline. The before/after gameplay
+fingerprints make these probes admission gates rather than diagnostics.
+
+Schema 1 deliberately excludes People armour because no active consumer has
+yet been proven. People model/route/sound fields and Tank mass, armour, cannon
+topology, Bullet/effect and visual references remain closed because they alter
+owned graphs or save identity. The tuning JSON bytes already belong to the mod
+and content fingerprint, so a matching relaunch reconstructs the same
+attributes before LCN1 restore and an absent/changed package rejects earlier.
+
+Product acceptance uses Level.05D targets `peop.attr.man_c0` and
+`tank.attr.grasshopper`, observes all seven committed scalars, requires one
+exact lifecycle proof per owner, preserves both fingerprints across save/load,
+and separately rejects missing People and Tank targets. The schema smoke also
+rejects every out-of-range value and deferred field.

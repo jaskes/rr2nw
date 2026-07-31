@@ -4302,7 +4302,8 @@ bool PublishPeopleAttributes(SimulationContext* context,
       g_arena.searchSeanceClassTable("PeopleAttr") != ct_NULLID;
   if (tablePresent != (script.attributeCapacity > 0) ||
       PeopleSubjectState_AttributeCapacity() != script.attributeCapacity ||
-      PeopleSubjectState_AttributeCount(context) != script.attributeCount) {
+      PeopleSubjectState_AttributeCount(context) != script.attributeCount ||
+      !RecoveredGameplayTuning_AcceptsPeopleRoster(context)) {
     ReportExtended(
         RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_ROSTER_INVALID,
         "PeopleAttr owner does not match Level-local PEOPLE.SCI");
@@ -4342,7 +4343,8 @@ bool PublishTankCannonAttributes(
       TankSubjectState_AttributeCapacity() != script.tankAttributeCapacity ||
       cannonCount < 0 || cannonCount > script.cannonAttributeCapacity ||
       tankCount < 0 || tankCount > script.tankAttributeCapacity ||
-      cannonFingerprint == 0 || tankFingerprint == 0) {
+      cannonFingerprint == 0 || tankFingerprint == 0 ||
+      !RecoveredGameplayTuning_AcceptsTankRoster(context)) {
     ReportExtended(
         RECOVERED_ARENA_SEANCE_EXT_TANK_CANNON_ATTRIBUTE_ROSTER_INVALID,
         "CannonAttr/TankAttr owner does not match Level-local TANK.SCI");
@@ -4468,6 +4470,11 @@ bool PublishTankLifecycle(SimulationContext* context, double startTime) {
     // Retail Level.06 creates an empty TankAttr owner; Level.07 omits the
     // entire Tank/Cannon layer. Both are exact not-applicable outcomes.
     probe.rollbacks = 1;
+  }
+  if (!RecoveredGameplayTuning_FinalizeTankLifecycle(context, startTime)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_GAMEPLAY_TUNING_FAILURE,
+                   RecoveredGameplayTuning_LastError());
+    return false;
   }
   g_state.tankProbeAvailable = probe.available;
   g_state.tankProbeValidStarts = probe.validStarts;
@@ -5093,6 +5100,11 @@ bool PublishPeopleSubject(SimulationContext* context, double startTime,
           context, script.subjectCount, g_state.peopleSubjectSoundCount,
           fingerprint))
     return false;
+  if (!RecoveredGameplayTuning_FinalizePeopleLifecycle(context, startTime)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_GAMEPLAY_TUNING_FAILURE,
+                   RecoveredGameplayTuning_LastError());
+    return false;
+  }
   g_state.peopleSubjectFingerprint = fingerprint;
   g_state.peopleSubjectReady = true;
   return true;

@@ -2948,6 +2948,32 @@ Status vocabulary:
   transaction-owned child registry. Replace the bounded names with explicit
   ownership, while keeping the zero-residue gate.
 
+### CQ-167: PeopleAttr and TankAttr tuning must preserve Level ownership
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: `PeopleAttr` is a private class defined in `PEOPLE.CPP` and exposes
+  its scalars only through the legacy `ct_Attribute` item map; `TankAttr` is a
+  concrete `AttributeTank`. Both tables are allocated and populated by each
+  Level's `PEOPLE.SCI`/`TANK.SCI` before their live subjects exist. People
+  movement/fire and Tank movement/attack code retain pointers to those owners,
+  so replacing a row or applying JSON after subject creation would create
+  split authority.
+- Handling: tuning resolves the exact existing symbolic object and captures
+  its owner pointer plus all admitted values before any write. People uses the
+  original named item setters; Tank writes its public scalar owner. Sorted
+  scalar fingerprints are admitted at attribute publication and rechecked
+  after references and exact-subject lifecycle. Whole-document rollback runs
+  in reverse People/Tank/Projectile/Vehicle order while the seance still owns
+  every pointer.
+- Verification: the Level.05D product package binds
+  `peop.attr.man_c0` and `tank.attr.grasshopper`, observes
+  `4.25/0.8/0.35/7` and `22/12/3.5`, completes one exact live lifecycle for
+  each and restores the same non-zero fingerprints after relaunch/load.
+  Unknown IDs reject with owner-specific errors before publication.
+- Revisit when: new attribute rows or hot reload are supported. They require
+  explicit stable ownership and active-subject rebinding; do not extend this
+  in-place scalar contract to references or table membership.
+
 ## Maintenance rule
 
 When a new quirk is found:

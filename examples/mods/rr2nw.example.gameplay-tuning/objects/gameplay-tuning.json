@@ -18,5 +18,22 @@
       "id": "Bullet.Led.Prim",
       "speed": 180.0
     }
+  ],
+  "people": [
+    {
+      "id": "peop.attr.man_c0",
+      "movement_speed": 4.25,
+      "initial_health": 0.8,
+      "fire_interval": 0.35,
+      "burst_count": 7
+    }
+  ],
+  "tanks": [
+    {
+      "id": "tank.attr.grasshopper",
+      "max_speed": 22.0,
+      "attack_power": 12.0,
+      "attack_delay": 3.5
+    }
   ]
 }

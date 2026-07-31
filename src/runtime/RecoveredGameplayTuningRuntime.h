@@ -9,15 +9,21 @@ struct SRecoveredGameplayTuningSummary {
   int schemaVersion = 0;
   unsigned int vehiclePatchCount = 0;
   unsigned int projectilePatchCount = 0;
+  unsigned int peoplePatchCount = 0;
+  unsigned int tankPatchCount = 0;
   unsigned int projectileBallisticProofs = 0;
   unsigned int projectileBallisticMoves = 0;
   unsigned int secondaryProjectileReferenceProofs = 0;
   unsigned int secondaryProjectileBallisticProofs = 0;
   unsigned int secondaryProjectileBallisticMoves = 0;
+  unsigned int peopleLifecycleProofs = 0;
+  unsigned int tankLifecycleProofs = 0;
   std::uint64_t tuningFingerprint = 0;
   std::uint64_t vehicleAttributeFingerprint = 0;
   std::uint64_t vehicleReferenceFingerprint = 0;
   std::uint64_t bulletAttributeFingerprint = 0;
+  std::uint64_t peopleGameplayFingerprint = 0;
+  std::uint64_t tankGameplayFingerprint = 0;
   int defaultVehiclePresent = 0;
   double defaultMaxSpeed = 0.0;
   double defaultReverseSpeed = 0.0;
@@ -29,6 +35,15 @@ struct SRecoveredGameplayTuningSummary {
   char defaultSecondaryProjectile[64] = {};
   int primaryProjectilePresent = 0;
   double primaryProjectileSpeed = 0.0;
+  char observedPeople[64] = {};
+  double observedPeopleMovementSpeed = 0.0;
+  double observedPeopleInitialHealth = 0.0;
+  double observedPeopleFireInterval = 0.0;
+  int observedPeopleBurstCount = 0;
+  char observedTank[64] = {};
+  double observedTankMaxSpeed = 0.0;
+  double observedTankAttackPower = 0.0;
+  double observedTankAttackDelay = 0.0;
 };
 
 enum ERecoveredGameplayTuningIssue {
@@ -46,11 +61,16 @@ enum ERecoveredGameplayTuningIssue {
 };
 
 // Applies the reserved RR2NW/gameplay-tuning.json overlay after the retail
-// Vehicle/Bullet attribute rosters exist and before any references resolve.
+// Vehicle/Bullet/People/Tank attribute rosters exist and before references
+// resolve or live subjects are created.
 // An active mod without that exact manifest target is a valid no-tuning case.
 bool RecoveredGameplayTuning_Apply(SimulationContext* context);
 bool RecoveredGameplayTuning_FinalizeVehicleReferences(
     SimulationContext* context);
+bool RecoveredGameplayTuning_FinalizeTankLifecycle(
+    SimulationContext* context, double timeStamp);
+bool RecoveredGameplayTuning_FinalizePeopleLifecycle(
+    SimulationContext* context, double timeStamp);
 void RecoveredGameplayTuning_Release(SimulationContext* context);
 bool RecoveredGameplayTuning_IsActive();
 unsigned int RecoveredGameplayTuning_Issues();
@@ -73,4 +93,8 @@ bool RecoveredGameplayTuning_AcceptsBulletRoster(
 bool RecoveredGameplayTuning_AcceptsVehicleReferences(
     SimulationContext* context);
 bool RecoveredGameplayTuning_AcceptsBulletReferences(
+    SimulationContext* context);
+bool RecoveredGameplayTuning_AcceptsPeopleRoster(
+    SimulationContext* context);
+bool RecoveredGameplayTuning_AcceptsTankRoster(
     SimulationContext* context);

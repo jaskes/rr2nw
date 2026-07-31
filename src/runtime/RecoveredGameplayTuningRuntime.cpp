@@ -19,6 +19,8 @@ class CGRPanel;
 #include "kernel/h/session.h"
 #include "obase/bullet/BulletAttributeState.h"
 #include "obase/bullet/BulletSubjectState.h"
+#include "obase/people/PeopleSubjectState.h"
+#include "obase/tank/TankSubjectState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/vehicle/VehicleGameplayTuning.h"
 
@@ -59,10 +61,34 @@ struct ProjectilePatch {
   double speed = 0.0;
 };
 
+struct PeoplePatch {
+  std::string id;
+  bool hasMovementSpeed = false;
+  bool hasInitialHealth = false;
+  bool hasFireInterval = false;
+  bool hasBurstCount = false;
+  double movementSpeed = 0.0;
+  double initialHealth = 0.0;
+  double fireInterval = 0.0;
+  int burstCount = 0;
+};
+
+struct TankPatch {
+  std::string id;
+  bool hasMaxSpeed = false;
+  bool hasAttackPower = false;
+  bool hasAttackDelay = false;
+  double maxSpeed = 0.0;
+  double attackPower = 0.0;
+  double attackDelay = 0.0;
+};
+
 struct Document {
   int schema = 0;
   std::vector<VehiclePatch> vehicles;
   std::vector<ProjectilePatch> projectiles;
+  std::vector<PeoplePatch> people;
+  std::vector<TankPatch> tanks;
 };
 
 struct VehicleRollback {
@@ -85,11 +111,15 @@ struct ProjectileRollback {
 SRecoveredGameplayTuningSummary g_summary;
 std::vector<VehicleRollback> g_vehicleRollback;
 std::vector<ProjectileRollback> g_projectileRollback;
+std::vector<SPeopleGameplayTuningState> g_peopleRollback;
+std::vector<STankGameplayTuningState> g_tankRollback;
 SimulationContext* g_context = nullptr;
 unsigned int g_issues = 0;
 char g_lastError[512] = {};
 bool g_active = false;
 bool g_vehicleReferencesFinalized = false;
+bool g_peopleLifecycleFinalized = false;
+bool g_tankLifecycleFinalized = false;
 
 void Fail(unsigned int issue, const std::string& message) {
   g_issues |= issue;
@@ -380,6 +410,120 @@ bool ParseProjectile(JsonCursor* cursor, ProjectilePatch* patch,
   return true;
 }
 
+bool ParsePeople(JsonCursor* cursor, PeoplePatch* patch,
+                 std::string* failure) {
+  if (!cursor->Consume('{')) return false;
+  std::set<std::string> keys;
+  if (cursor->TryConsume('}')) {
+    *failure = "people tuning object is empty";
+    return false;
+  }
+  for (;;) {
+    std::string key;
+    if (!cursor->String(&key) || !cursor->Consume(':')) return false;
+    if (!keys.insert(key).second) {
+      *failure = "duplicate people tuning key: " + key;
+      return false;
+    }
+    bool accepted = true;
+    if (key == "id") accepted = cursor->String(&patch->id);
+    else if (key == "movement_speed") {
+      patch->hasMovementSpeed = true;
+      accepted = cursor->Number(&patch->movementSpeed);
+    } else if (key == "initial_health") {
+      patch->hasInitialHealth = true;
+      accepted = cursor->Number(&patch->initialHealth);
+    } else if (key == "fire_interval") {
+      patch->hasFireInterval = true;
+      accepted = cursor->Number(&patch->fireInterval);
+    } else if (key == "burst_count") {
+      patch->hasBurstCount = true;
+      accepted = cursor->Integer(&patch->burstCount);
+    } else {
+      *failure = "people tuning contains unknown key: " + key;
+      return false;
+    }
+    if (!accepted) return false;
+    if (cursor->TryConsume('}')) break;
+    if (!cursor->Consume(',')) return false;
+  }
+  if (keys.find("id") == keys.end() || !ValidIdentifier(patch->id)) {
+    *failure = "people tuning has an invalid or missing id";
+    return false;
+  }
+  if (!(patch->hasMovementSpeed || patch->hasInitialHealth ||
+        patch->hasFireInterval || patch->hasBurstCount)) {
+    *failure = "people tuning has no parameter";
+    return false;
+  }
+  if ((patch->hasMovementSpeed &&
+       !InRange(patch->movementSpeed, 0.1, 100.0)) ||
+      (patch->hasInitialHealth &&
+       !InRange(patch->initialHealth, 0.01, 100.0)) ||
+      (patch->hasFireInterval &&
+       !InRange(patch->fireInterval, 0.02, 10.0)) ||
+      (patch->hasBurstCount &&
+       (patch->burstCount < 1 || patch->burstCount > 256))) {
+    *failure = "people tuning value is outside the schema-1 range";
+    return false;
+  }
+  return true;
+}
+
+bool ParseTank(JsonCursor* cursor, TankPatch* patch,
+               std::string* failure) {
+  if (!cursor->Consume('{')) return false;
+  std::set<std::string> keys;
+  if (cursor->TryConsume('}')) {
+    *failure = "tank tuning object is empty";
+    return false;
+  }
+  for (;;) {
+    std::string key;
+    if (!cursor->String(&key) || !cursor->Consume(':')) return false;
+    if (!keys.insert(key).second) {
+      *failure = "duplicate tank tuning key: " + key;
+      return false;
+    }
+    bool accepted = true;
+    if (key == "id") accepted = cursor->String(&patch->id);
+    else if (key == "max_speed") {
+      patch->hasMaxSpeed = true;
+      accepted = cursor->Number(&patch->maxSpeed);
+    } else if (key == "attack_power") {
+      patch->hasAttackPower = true;
+      accepted = cursor->Number(&patch->attackPower);
+    } else if (key == "attack_delay") {
+      patch->hasAttackDelay = true;
+      accepted = cursor->Number(&patch->attackDelay);
+    } else {
+      *failure = "tank tuning contains unknown key: " + key;
+      return false;
+    }
+    if (!accepted) return false;
+    if (cursor->TryConsume('}')) break;
+    if (!cursor->Consume(',')) return false;
+  }
+  if (keys.find("id") == keys.end() || !ValidIdentifier(patch->id)) {
+    *failure = "tank tuning has an invalid or missing id";
+    return false;
+  }
+  if (!(patch->hasMaxSpeed || patch->hasAttackPower ||
+        patch->hasAttackDelay)) {
+    *failure = "tank tuning has no parameter";
+    return false;
+  }
+  if ((patch->hasMaxSpeed && !InRange(patch->maxSpeed, 0.0, 100.0)) ||
+      (patch->hasAttackPower &&
+       !InRange(patch->attackPower, 0.1, 1000.0)) ||
+      (patch->hasAttackDelay &&
+       !InRange(patch->attackDelay, 0.02, 60.0))) {
+    *failure = "tank tuning value is outside the schema-1 range";
+    return false;
+  }
+  return true;
+}
+
 template <typename Patch, typename Parser>
 bool ParseArray(JsonCursor* cursor, std::vector<Patch>* patches,
                 Parser parser, std::string* failure) {
@@ -408,6 +552,8 @@ bool ParseDocument(const std::string& text, Document* document,
   bool schemaSeen = false;
   bool vehiclesSeen = false;
   bool projectilesSeen = false;
+  bool peopleSeen = false;
+  bool tanksSeen = false;
   if (cursor.TryConsume('}')) {
     *failure = "gameplay tuning object is empty";
     return false;
@@ -428,6 +574,14 @@ bool ParseDocument(const std::string& text, Document* document,
           ParseArray(&cursor, &document->projectiles, ParseProjectile,
                      failure);
       projectilesSeen = true;
+    } else if (key == "people") {
+      accepted = !peopleSeen &&
+          ParseArray(&cursor, &document->people, ParsePeople, failure);
+      peopleSeen = true;
+    } else if (key == "tanks") {
+      accepted = !tanksSeen &&
+          ParseArray(&cursor, &document->tanks, ParseTank, failure);
+      tanksSeen = true;
     } else {
       *failure = "gameplay tuning contains unknown key: " + key;
       return false;
@@ -439,11 +593,12 @@ bool ParseDocument(const std::string& text, Document* document,
         *failure = "gameplay tuning is missing schema";
         return false;
       }
-      if (!vehiclesSeen && !projectilesSeen) {
+      if (!vehiclesSeen && !projectilesSeen && !peopleSeen && !tanksSeen) {
         *failure = "gameplay tuning has no tuning arrays";
         return false;
       }
-      if (document->vehicles.empty() && document->projectiles.empty()) {
+      if (document->vehicles.empty() && document->projectiles.empty() &&
+          document->people.empty() && document->tanks.empty()) {
         *failure = "gameplay tuning has no patches";
         return false;
       }
@@ -469,6 +624,18 @@ bool ValidateUniqueTargets(const Document& document,
   for (const ProjectilePatch& patch : document.projectiles) {
     if (!targets.insert("projectile:" + FoldAscii(patch.id)).second) {
       *failure = "duplicate projectile tuning target: " + patch.id;
+      return false;
+    }
+  }
+  for (const PeoplePatch& patch : document.people) {
+    if (!targets.insert("people:" + FoldAscii(patch.id)).second) {
+      *failure = "duplicate people tuning target: " + patch.id;
+      return false;
+    }
+  }
+  for (const TankPatch& patch : document.tanks) {
+    if (!targets.insert("tank:" + FoldAscii(patch.id)).second) {
+      *failure = "duplicate tank tuning target: " + patch.id;
       return false;
     }
   }
@@ -498,7 +665,13 @@ AttributeBullet* FindProjectile(SimulationContext* context,
       __bulletAttrTable.searchAttribute(id));
 }
 
-void RestoreTransaction() {
+void RestoreTransaction(SimulationContext* context) {
+  for (auto iterator = g_tankRollback.rbegin();
+       iterator != g_tankRollback.rend(); ++iterator)
+    TankSubjectState_RestoreGameplayTuning(context, &*iterator);
+  for (auto iterator = g_peopleRollback.rbegin();
+       iterator != g_peopleRollback.rend(); ++iterator)
+    PeopleSubjectState_RestoreGameplayTuning(context, &*iterator);
   for (auto iterator = g_projectileRollback.rbegin();
        iterator != g_projectileRollback.rend(); ++iterator) {
     if (iterator->attribute != nullptr) iterator->attribute->m_startSpeed =
@@ -523,17 +696,23 @@ void ClearState() {
   g_summary = SRecoveredGameplayTuningSummary{};
   g_vehicleRollback.clear();
   g_projectileRollback.clear();
+  g_peopleRollback.clear();
+  g_tankRollback.clear();
   g_context = nullptr;
   g_issues = 0;
   g_lastError[0] = '\0';
   g_active = false;
   g_vehicleReferencesFinalized = false;
+  g_peopleLifecycleFinalized = false;
+  g_tankLifecycleFinalized = false;
 }
 
 bool ResolveTransaction(SimulationContext* context, const Document& document,
                         std::vector<AttributeVehicle*>* vehicles,
                         std::vector<AttributeBullet*>* secondaryProjectiles,
-                        std::vector<AttributeBullet*>* projectiles) {
+                        std::vector<AttributeBullet*>* projectiles,
+                        std::vector<SPeopleGameplayTuningState>* people,
+                        std::vector<STankGameplayTuningState>* tanks) {
   std::set<std::string> targets;
   std::set<std::string> dynamics;
   for (const VehiclePatch& patch : document.vehicles) {
@@ -595,6 +774,38 @@ bool ResolveTransaction(SimulationContext* context, const Document& document,
     }
     projectiles->push_back(attribute);
   }
+  for (const PeoplePatch& patch : document.people) {
+    const std::string folded = FoldAscii(patch.id);
+    if (!targets.insert("people:" + folded).second) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_DUPLICATE_TARGET,
+           "duplicate PeopleAttr tuning target: " + patch.id);
+      return false;
+    }
+    SPeopleGameplayTuningState state = {};
+    if (!PeopleSubjectState_CaptureGameplayTuning(
+            context, patch.id.c_str(), &state)) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_UNKNOWN_TARGET,
+           "unknown PeopleAttr tuning target: " + patch.id);
+      return false;
+    }
+    people->push_back(state);
+  }
+  for (const TankPatch& patch : document.tanks) {
+    const std::string folded = FoldAscii(patch.id);
+    if (!targets.insert("tank:" + folded).second) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_DUPLICATE_TARGET,
+           "duplicate TankAttr tuning target: " + patch.id);
+      return false;
+    }
+    STankGameplayTuningState state = {};
+    if (!TankSubjectState_CaptureGameplayTuning(
+            context, patch.id.c_str(), &state)) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_UNKNOWN_TARGET,
+           "unknown TankAttr tuning target: " + patch.id);
+      return false;
+    }
+    tanks->push_back(state);
+  }
   return true;
 }
 
@@ -621,6 +832,29 @@ void CaptureObservations(SimulationContext* context) {
   if (projectile != nullptr) {
     g_summary.primaryProjectilePresent = 1;
     g_summary.primaryProjectileSpeed = projectile->m_startSpeed;
+  }
+  if (!g_peopleRollback.empty()) {
+    SPeopleGameplayTuningState state = {};
+    if (PeopleSubjectState_CaptureGameplayTuning(
+            context, g_peopleRollback.front().id, &state)) {
+      std::snprintf(g_summary.observedPeople,
+                    sizeof(g_summary.observedPeople), "%s", state.id);
+      g_summary.observedPeopleMovementSpeed = state.movementSpeed;
+      g_summary.observedPeopleInitialHealth = state.initialHealth;
+      g_summary.observedPeopleFireInterval = state.fireInterval;
+      g_summary.observedPeopleBurstCount = state.burstCount;
+    }
+  }
+  if (!g_tankRollback.empty()) {
+    STankGameplayTuningState state = {};
+    if (TankSubjectState_CaptureGameplayTuning(
+            context, g_tankRollback.front().id, &state)) {
+      std::snprintf(g_summary.observedTank,
+                    sizeof(g_summary.observedTank), "%s", state.id);
+      g_summary.observedTankMaxSpeed = state.maxSpeed;
+      g_summary.observedTankAttackPower = state.attackPower;
+      g_summary.observedTankAttackDelay = state.attackDelay;
+    }
   }
 }
 
@@ -692,15 +926,22 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
     std::vector<AttributeVehicle*> vehicles;
     std::vector<AttributeBullet*> secondaryProjectiles;
     std::vector<AttributeBullet*> projectiles;
+    std::vector<SPeopleGameplayTuningState> people;
+    std::vector<STankGameplayTuningState> tanks;
     vehicles.reserve(document.vehicles.size());
     secondaryProjectiles.reserve(document.vehicles.size());
     projectiles.reserve(document.projectiles.size());
+    people.reserve(document.people.size());
+    tanks.reserve(document.tanks.size());
     if (!ResolveTransaction(context, document, &vehicles,
-                            &secondaryProjectiles, &projectiles))
+                            &secondaryProjectiles, &projectiles, &people,
+                            &tanks))
       return false;
 
     g_vehicleRollback.reserve(vehicles.size());
     g_projectileRollback.reserve(projectiles.size());
+    g_peopleRollback.reserve(people.size());
+    g_tankRollback.reserve(tanks.size());
     for (std::size_t index = 0; index < vehicles.size(); ++index) {
       const VehiclePatch& patch = document.vehicles[index];
       AttributeVehicle* attribute = vehicles[index];
@@ -721,7 +962,7 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
                                          &rollback.vessel)) {
         Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
              "could not capture Vehicle dynamic before tuning: " + patch.id);
-        RestoreTransaction();
+        RestoreTransaction(context);
         return false;
       }
       rollback.vesselCaptured = vesselPatch;
@@ -733,6 +974,8 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
       rollback.speed = attribute->m_startSpeed;
       g_projectileRollback.push_back(rollback);
     }
+    g_peopleRollback = people;
+    g_tankRollback = tanks;
 
     for (std::size_t index = 0; index < vehicles.size(); ++index) {
       const VehiclePatch& patch = document.vehicles[index];
@@ -751,7 +994,7 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
           !VehicleGameplayTuning_Apply(attribute->m_dynamic, &vessel)) {
         Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
              "could not commit Vehicle dynamic tuning: " + patch.id);
-        RestoreTransaction();
+        RestoreTransaction(context);
         return false;
       }
       if (patch.hasPrimaryFireInterval)
@@ -766,6 +1009,42 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
     }
     for (std::size_t index = 0; index < projectiles.size(); ++index)
       projectiles[index]->m_startSpeed = document.projectiles[index].speed;
+    for (std::size_t index = 0; index < people.size(); ++index) {
+      const PeoplePatch& source = document.people[index];
+      SPeopleGameplayTuningPatch patch = {};
+      patch.hasMovementSpeed = source.hasMovementSpeed;
+      patch.hasInitialHealth = source.hasInitialHealth;
+      patch.hasFireInterval = source.hasFireInterval;
+      patch.hasBurstCount = source.hasBurstCount;
+      patch.movementSpeed = source.movementSpeed;
+      patch.initialHealth = source.initialHealth;
+      patch.fireInterval = source.fireInterval;
+      patch.burstCount = source.burstCount;
+      if (!PeopleSubjectState_ApplyGameplayTuning(
+              context, &people[index], &patch)) {
+        Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+             "could not commit PeopleAttr tuning: " + source.id);
+        RestoreTransaction(context);
+        return false;
+      }
+    }
+    for (std::size_t index = 0; index < tanks.size(); ++index) {
+      const TankPatch& source = document.tanks[index];
+      STankGameplayTuningPatch patch = {};
+      patch.hasMaxSpeed = source.hasMaxSpeed;
+      patch.hasAttackPower = source.hasAttackPower;
+      patch.hasAttackDelay = source.hasAttackDelay;
+      patch.maxSpeed = source.maxSpeed;
+      patch.attackPower = source.attackPower;
+      patch.attackDelay = source.attackDelay;
+      if (!TankSubjectState_ApplyGameplayTuning(
+              context, &tanks[index], &patch)) {
+        Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+             "could not commit TankAttr tuning: " + source.id);
+        RestoreTransaction(context);
+        return false;
+      }
+    }
 
     unsigned int ballisticProofs = 0;
     unsigned int ballisticMoves = 0;
@@ -777,7 +1056,7 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
         Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
              "tuned projectile failed real ballistic lifecycle: " +
                  patch.id);
-        RestoreTransaction();
+        RestoreTransaction(context);
         return false;
       }
       ++ballisticProofs;
@@ -788,10 +1067,16 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
         VehicleAttributeState_Fingerprint(context);
     const std::uint64_t bulletFingerprint =
         BulletAttributeState_Fingerprint(context);
-    if (vehicleFingerprint == 0 || bulletFingerprint == 0) {
+    const std::uint64_t peopleFingerprint = document.people.empty()
+        ? 0 : PeopleSubjectState_GameplayFingerprint(context);
+    const std::uint64_t tankFingerprint = document.tanks.empty()
+        ? 0 : TankSubjectState_AttributeFingerprint(context);
+    if (vehicleFingerprint == 0 || bulletFingerprint == 0 ||
+        (!document.people.empty() && peopleFingerprint == 0) ||
+        (!document.tanks.empty() && tankFingerprint == 0)) {
       Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
            "tuned attribute roster did not produce stable fingerprints");
-      RestoreTransaction();
+      RestoreTransaction(context);
       return false;
     }
 
@@ -802,19 +1087,25 @@ bool RecoveredGameplayTuning_Apply(SimulationContext* context) {
         static_cast<unsigned int>(document.vehicles.size());
     g_summary.projectilePatchCount =
         static_cast<unsigned int>(document.projectiles.size());
+    g_summary.peoplePatchCount =
+        static_cast<unsigned int>(document.people.size());
+    g_summary.tankPatchCount =
+        static_cast<unsigned int>(document.tanks.size());
     g_summary.projectileBallisticProofs = ballisticProofs;
     g_summary.projectileBallisticMoves = ballisticMoves;
     g_summary.tuningFingerprint = Fingerprint(text);
     g_summary.vehicleAttributeFingerprint = vehicleFingerprint;
     g_summary.bulletAttributeFingerprint = bulletFingerprint;
+    g_summary.peopleGameplayFingerprint = peopleFingerprint;
+    g_summary.tankGameplayFingerprint = tankFingerprint;
     CaptureObservations(context);
     return true;
   } catch (const std::bad_alloc&) {
-    RestoreTransaction();
+    RestoreTransaction(context);
     Fail(RECOVERED_GAMEPLAY_TUNING_ALLOCATION_FAILURE,
          "gameplay tuning allocation failed");
   } catch (...) {
-    RestoreTransaction();
+    RestoreTransaction(context);
     Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
          "gameplay tuning raised an unexpected exception");
   }
@@ -905,12 +1196,100 @@ bool RecoveredGameplayTuning_FinalizeVehicleReferences(
   return true;
 }
 
+bool RecoveredGameplayTuning_FinalizeTankLifecycle(
+    SimulationContext* context, double timeStamp) {
+  if (!g_active) return true;
+  if (context == nullptr || context != g_context) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "gameplay tuning Tank lifecycle received the wrong "
+         "SimulationContext");
+    return false;
+  }
+  if (g_tankRollback.empty()) {
+    g_tankLifecycleFinalized = true;
+    return true;
+  }
+  if (TankSubjectState_AttributeFingerprint(context) !=
+      g_summary.tankGameplayFingerprint) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "tuned TankAttr roster changed before lifecycle proof");
+    return false;
+  }
+  if (g_tankLifecycleFinalized) return true;
+
+  unsigned int proofs = 0;
+  for (const STankGameplayTuningState& state : g_tankRollback) {
+    STankLifecycleProbeSummary probe = {};
+    if (!TankSubjectState_ProbeAttributeLifecycle(
+            context, state.id, timeStamp, &probe)) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+           std::string("tuned TankAttr failed exact lifecycle: ") +
+               state.id);
+      return false;
+    }
+    ++proofs;
+  }
+  if (TankSubjectState_AttributeFingerprint(context) !=
+      g_summary.tankGameplayFingerprint) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "tuned TankAttr lifecycle did not roll back cleanly");
+    return false;
+  }
+  g_summary.tankLifecycleProofs = proofs;
+  g_tankLifecycleFinalized = true;
+  return true;
+}
+
+bool RecoveredGameplayTuning_FinalizePeopleLifecycle(
+    SimulationContext* context, double timeStamp) {
+  if (!g_active) return true;
+  if (context == nullptr || context != g_context) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "gameplay tuning People lifecycle received the wrong "
+         "SimulationContext");
+    return false;
+  }
+  if (g_peopleRollback.empty()) {
+    g_peopleLifecycleFinalized = true;
+    return true;
+  }
+  if (PeopleSubjectState_GameplayFingerprint(context) !=
+      g_summary.peopleGameplayFingerprint) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "tuned PeopleAttr roster changed before lifecycle proof");
+    return false;
+  }
+  if (g_peopleLifecycleFinalized) return true;
+
+  unsigned int proofs = 0;
+  for (const SPeopleGameplayTuningState& state : g_peopleRollback) {
+    SPeopleLifecycleProbeSummary probe = {};
+    if (!PeopleSubjectState_ProbeAttributeLifecycle(
+            context, state.id, timeStamp, &probe)) {
+      Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+           std::string("tuned PeopleAttr failed exact lifecycle: ") +
+               state.id);
+      return false;
+    }
+    ++proofs;
+  }
+  if (PeopleSubjectState_GameplayFingerprint(context) !=
+      g_summary.peopleGameplayFingerprint) {
+    Fail(RECOVERED_GAMEPLAY_TUNING_TRANSACTION_FAILURE,
+         "tuned PeopleAttr lifecycle did not roll back cleanly");
+    return false;
+  }
+  g_summary.peopleLifecycleProofs = proofs;
+  g_peopleLifecycleFinalized = true;
+  return true;
+}
+
 void RecoveredGameplayTuning_Release(SimulationContext* context) {
   // Attribute pointers belong to the open Arena seance. A null/different
   // context means that owner is already unavailable, so never dereference the
   // captured transaction during late process teardown.
   if (g_active && g_context != nullptr && context == g_context)
-    RestoreTransaction();
+    RestoreTransaction(context);
   ClearState();
 }
 
@@ -966,6 +1345,22 @@ bool RecoveredGameplayTuning_AcceptsBulletRoster(
                    : context == g_context &&
                          BulletAttributeState_Fingerprint(context) ==
                              g_summary.bulletAttributeFingerprint;
+}
+
+bool RecoveredGameplayTuning_AcceptsPeopleRoster(
+    SimulationContext* context) {
+  return !g_active || g_peopleRollback.empty() ||
+         (context == g_context &&
+          PeopleSubjectState_GameplayFingerprint(context) ==
+              g_summary.peopleGameplayFingerprint);
+}
+
+bool RecoveredGameplayTuning_AcceptsTankRoster(
+    SimulationContext* context) {
+  return !g_active || g_tankRollback.empty() ||
+         (context == g_context &&
+          TankSubjectState_AttributeFingerprint(context) ==
+              g_summary.tankGameplayFingerprint);
 }
 
 bool RecoveredGameplayTuning_AcceptsVehicleReferences(

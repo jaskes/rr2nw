@@ -15,6 +15,28 @@ struct SPeopleLifecycleProbeSummary
     int rollbacks;
 };
 
+struct SPeopleGameplayTuningPatch
+{
+    bool hasMovementSpeed;
+    bool hasInitialHealth;
+    bool hasFireInterval;
+    bool hasBurstCount;
+    double movementSpeed;
+    double initialHealth;
+    double fireInterval;
+    int burstCount;
+};
+
+struct SPeopleGameplayTuningState
+{
+    void *owner;
+    char id[64];
+    double movementSpeed;
+    double initialHealth;
+    double fireInterval;
+    int burstCount;
+};
+
 void PeopleSubjectState_Link();
 void PeopleSubjectState_SetExpectedCapacities(int attributeCapacity,
                                               int subjectCapacity);
@@ -36,8 +58,21 @@ unsigned long long PeopleSubjectState_SubjectFingerprint(
     SimulationContext *context);
 unsigned long long PeopleSubjectState_AbsentAttributeFingerprint();
 unsigned long long PeopleSubjectState_AbsentSubjectFingerprint();
+unsigned long long PeopleSubjectState_GameplayFingerprint(
+    SimulationContext *context);
+bool PeopleSubjectState_CaptureGameplayTuning(
+    SimulationContext *context, const char *id,
+    SPeopleGameplayTuningState *state);
+bool PeopleSubjectState_ApplyGameplayTuning(
+    SimulationContext *context, const SPeopleGameplayTuningState *state,
+    const SPeopleGameplayTuningPatch *patch);
+bool PeopleSubjectState_RestoreGameplayTuning(
+    SimulationContext *context, const SPeopleGameplayTuningState *state);
 bool PeopleSubjectState_ProbeLifecycle(
     SimulationContext *context, double timeStamp,
+    SPeopleLifecycleProbeSummary *summary);
+bool PeopleSubjectState_ProbeAttributeLifecycle(
+    SimulationContext *context, const char *attributeName, double timeStamp,
     SPeopleLifecycleProbeSummary *summary);
 
 #endif

@@ -69,8 +69,8 @@ is admitted. The runtime never writes to either the base or mod directory.
 A manifest may declare one `objects/` source at the reserved exact target
 `RR2NW/gameplay-tuning.json`. It is not a legacy file override: the engine
 reads, validates and commits it after the selected Level has created its
-untouched retail `VehicleAttr` and `BulletAttr` rosters, but before references
-or `Vehicle.Default` become live.
+untouched retail `VehicleAttr`, `BulletAttr`, `PeopleAttr` and `TankAttr`
+rosters, but before references or live subjects are published.
 
 ```json
 {
@@ -92,6 +92,23 @@ or `Vehicle.Default` become live.
     {
       "id": "Bullet.Led.Prim",
       "speed": 180.0
+    }
+  ],
+  "people": [
+    {
+      "id": "peop.attr.man_c0",
+      "movement_speed": 4.25,
+      "initial_health": 0.8,
+      "fire_interval": 0.35,
+      "burst_count": 7
+    }
+  ],
+  "tanks": [
+    {
+      "id": "tank.attr.grasshopper",
+      "max_speed": 22.0,
+      "attack_power": 12.0,
+      "attack_delay": 3.5
     }
   ]
 }
@@ -115,6 +132,13 @@ symbolic ID is additionally limited to 39 bytes plus the terminator.
 | Vehicle | `secondary_projectile` | existing ID, <=39 bytes | selected Level `BulletAttr` |
 | Vehicle | `damage_power` | 0.1..1000 | `IUnit::getPower`, not health |
 | Projectile | `speed` | 1..2000 | launch metres/second |
+| People | `movement_speed` | 0.1..100 | movement metres/second |
+| People | `initial_health` | 0.01..100 | initial `m_damage` budget |
+| People | `fire_interval` | 0.02..10 | seconds between attack shots |
+| People | `burst_count` | 1..256 | shots in an attack burst |
+| Tank | `max_speed` | 0..100 | movement metres/second |
+| Tank | `attack_power` | 0.1..1000 | `IUnit::getPower` attack value |
+| Tank | `attack_delay` | 0.02..60 | seconds between attack decisions |
 
 Movement fields are currently admitted only for the dynamics the recovered
 player Vehicle can actually instantiate: `Dragon`, `Emveshka`, and
@@ -125,6 +149,12 @@ same process-global dynamic. Primary-projectile replacement,
 impact/explosion graphs and arbitrary legacy field names are deliberately not
 exposed.
 
+People and Tank patches target only attributes already created by the selected
+Level. People armour, model/route/sound references and Tank armour, mass,
+cannon count/topology, Bullet/effect references and visual names are not part
+of schema 1. Those fields either lack a proven active consumer or change an
+owned reference graph and need a separate lifecycle/save contract.
+
 Application is transactional. The engine first proves the unmodified roster,
 resolves every requested symbolic target and captures all touched values. Only
 then does it update the complete set and recalculate the legacy derived vessel
@@ -132,6 +162,13 @@ coefficients. Every tuned projectile must also complete a real start/query-
 speed/MOVE/ground-removal lifecycle with full rollback. Any parse, range,
 roster, dynamic or ballistic failure rejects Level startup and restores the
 pre-tuning values.
+
+People/Tank tuning has a late lifecycle gate. The committed scalar fingerprint
+must survive reference finalization, then every requested attribute must bind
+to a newly created real `People` or `Tank`. That subject executes the existing
+movement, Bullet damage, death/effect and serializer round-trip probes and is
+fully removed with its sounds, cannons, effects and events. The Level is not
+admitted if either the exact owner binding or rollback fingerprint changes.
 
 Secondary binding has a second commit gate. After the original Vehicle
 reference transaction resolves every Bullet name to its encoded `BulletAttr`
@@ -165,8 +202,8 @@ Startup diagnostics record the admitted identity, file/byte counts,
 fingerprint, resolution attempts, overlay hits and the combined active content
 fingerprint. An active tuning file additionally reports committed patch
 counts, post-transaction attribute/reference fingerprints, the observed
-`Vehicle.Attr.default` values, secondary reference proofs and real ballistic
-proof counts.
+`Vehicle.Attr.default`, first People and first Tank values, secondary reference
+proofs, real ballistic proofs and exact People/Tank lifecycle proof counts.
 
 The repository includes two copyright-free packages. Use
 `rr2nw.example.data-pack` for neutral packaging/resolver admission and
@@ -186,7 +223,7 @@ change:
 - multiple active mods, dependencies, conflicts and mount ordering;
 - automatic discovery and an in-game mod selector;
 - adding Levels to `game.cfg`;
-- health/armour, ammunition rules, primary-projectile replacement and complete
-  damage/explosion graphs;
+- People/Tank armour and reference graphs, Vehicle health/armour, ammunition
+  rules, primary-projectile replacement and complete damage/explosion graphs;
 - localization routing beyond exact file replacement;
 - Lua, native plugins and new engine object classes.
