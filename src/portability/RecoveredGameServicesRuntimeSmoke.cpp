@@ -2351,6 +2351,16 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("save slot fixture directory is unavailable");
   }
+  if (!RecoveredGameServices_ConfigureSaveDirectory(
+          saveSlotDirectory) ||
+      RecoveredGameServices_SaveMenuState() == nullptr ||
+      !RecoveredGameServices_SaveMenuState()->configured ||
+      RecoveredGameServices_SaveMenuState()->directory !=
+          saveSlotDirectory) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("save menu directory configuration failed");
+  }
 
   SRecoveredVehicleControlReplayTelemetry replayTelemetry = {};
   SRecoveredVehicleControlJournalTelemetry initialJournalTelemetry = {};
@@ -3575,9 +3585,16 @@ int main(int argc, char** argv) {
   vehicleID = g_super.m_context->searchObject("Vehicle.Default");
   if (!VehicleRuntimeState_Inspect(
           g_super.m_context, vehicleID, &continuationVehicle) ||
-      !RecoveredGameServices_SaveLevelSlot(
-          saveSlotDirectory, 3u, "Runtime checkpoint",
-          "Fresh-Level Vehicle continuation proof", {},
+      RecoveredGameServices_RequestSaveSlot(LevelSaveSlot_Count(), false) ||
+      RecoveredGameServices_SaveMenuState() == nullptr ||
+      RecoveredGameServices_SaveMenuState()->pending ||
+      !RecoveredGameServices_RequestSaveSlot(3u, false) ||
+      RecoveredGameServices_RequestLoadSlot(3u) ||
+      !RecoveredGameServices_SaveMenuState()->pending ||
+      RecoveredGameServices_SaveMenuState()->pendingAction !=
+          RECOVERED_SAVE_MENU_SAVE ||
+      RecoveredGameServices_SaveMenuState()->pendingSlot != 3u ||
+      !RecoveredGameServices_ProcessPendingSaveCommand(
           &savedSlot, &capturedContinuation) ||
       !savedSlot.ready || savedSlot.slot != 3u ||
       savedSlot.level.empty() ||
@@ -3594,15 +3611,39 @@ int main(int argc, char** argv) {
       capturedContinuation.worldFingerprint == 0 ||
       capturedContinuation.journalFingerprint == 0 ||
       capturedContinuation.containerFingerprint == 0 ||
-      savedSlot.archiveBytes == 0) {
-    std::fprintf(stderr, "level save slot capture: %s\n",
-                 RecoveredGameServices_LastLevelSaveSlotError());
+      savedSlot.previewBytes == 0 ||
+      savedSlot.archiveBytes == 0 ||
+      RecoveredGameServices_SaveMenuState() == nullptr ||
+      RecoveredGameServices_SaveMenuState()->saveRequests != 1u ||
+      RecoveredGameServices_SaveMenuState()->completedSaves != 1u ||
+      RecoveredGameServices_SaveMenuState()->failedCommands != 0u ||
+      !RecoveredGameServices_SaveMenuState()->lastPreview.ready ||
+      RecoveredGameServices_SaveMenuState()->lastPreview.width != 640u ||
+      RecoveredGameServices_SaveMenuState()->lastPreview.height != 480u ||
+      RecoveredGameServices_SaveMenuState()->lastPreview.pngBytes !=
+          savedSlot.previewBytes ||
+      RecoveredGameServices_SaveMenuState()
+              ->lastPreview.pngFingerprint == 0u) {
+    std::fprintf(stderr, "save menu capture: %s\n",
+                 RecoveredGameServices_SaveMenuState() == nullptr
+                     ? "state unavailable"
+                     : RecoveredGameServices_SaveMenuState()
+                           ->lastError.c_str());
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("live Level save slot capture failed");
+    return Fail("live save menu command failed");
   }
+  const std::uint64_t previewFingerprint =
+      RecoveredGameServices_SaveMenuState()->lastPreview.pngFingerprint;
   const std::uint64_t committedSlotFingerprint =
       savedSlot.archiveFingerprint;
+  if (RecoveredGameServices_RequestSaveSlot(3u, false) ||
+      RecoveredGameServices_SaveMenuState()->pending ||
+      RecoveredGameServices_SaveMenuState()->saveRequests != 1u) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("save menu overwrite guard failed");
+  }
   SLevelSaveSlotSummary rejectedReplacement;
   SLevelContinuationSummary rejectedContinuation;
   SLevelSaveSlotStatus slotStatus;
@@ -4247,9 +4288,12 @@ int main(int argc, char** argv) {
   }
   SLevelSaveSlotSummary loadedSlot;
   SLevelContinuationSummary restoredContinuation;
-  if (!RecoveredGameServices_LoadLevelSlot(
-          saveSlotDirectory, 3u, &loadedSlot,
-          &restoredContinuation) ||
+  if (RecoveredGameServices_RequestLoadSlot(LevelSaveSlot_Count()) ||
+      RecoveredGameServices_SaveMenuState() == nullptr ||
+      RecoveredGameServices_SaveMenuState()->pending ||
+      !RecoveredGameServices_RequestLoadSlot(3u) ||
+      !RecoveredGameServices_ProcessPendingSaveCommand(
+          &loadedSlot, &restoredContinuation) ||
       !loadedSlot.ready ||
       loadedSlot.archiveFingerprint != committedSlotFingerprint ||
       loadedSlot.continuationFingerprint !=
@@ -4269,11 +4313,18 @@ int main(int argc, char** argv) {
       restoredContinuation.journalFingerprint !=
           capturedContinuation.journalFingerprint ||
       restoredContinuation.containerFingerprint !=
-          capturedContinuation.containerFingerprint) {
+          capturedContinuation.containerFingerprint ||
+      RecoveredGameServices_SaveMenuState() == nullptr ||
+      RecoveredGameServices_SaveMenuState()->loadRequests != 1u ||
+      RecoveredGameServices_SaveMenuState()->completedLoads != 1u ||
+      RecoveredGameServices_SaveMenuState()->failedCommands != 0u) {
     std::fprintf(stderr,
-                 "fresh-context RR2SLOT1/LCN1 restore: %s "
+                 "fresh-context menu RR2SLOT1/LCN1 restore: %s "
                  "phases=%d/%d/%d fingerprints=%llu/%llu/%llu\n",
-                 RecoveredGameServices_LastLevelSaveSlotError(),
+                 RecoveredGameServices_SaveMenuState() == nullptr
+                     ? "state unavailable"
+                     : RecoveredGameServices_SaveMenuState()
+                           ->lastError.c_str(),
                  restoredContinuation.ownerPhases,
                  restoredContinuation.referencePhases,
                  restoredContinuation.eventPhases,
@@ -4425,6 +4476,7 @@ int main(int argc, char** argv) {
                 "level_continuation=LCN1-%d/%d/%d events=%d/%d "
                 "tick=%llu time=%.6f world=%llu journal=%llu container=%llu "
                 "save_slot=RR2SLOT1-3-%llu bytes=%zu "
+                "preview=PNG-%llu/%zu "
                 "resumed_actions=%u "
                 "route=table vehicle=real observer=fallback-suspended\n",
                smokeSubjectCapacity, smokeSubjectFingerprint,
@@ -4546,6 +4598,8 @@ int main(int argc, char** argv) {
                static_cast<unsigned long long>(
                    loadedSlot.archiveFingerprint),
                loadedSlot.archiveBytes,
+               static_cast<unsigned long long>(previewFingerprint),
+               loadedSlot.previewBytes,
                resumedJournal.actionRecords);
   return EXIT_SUCCESS;
 }

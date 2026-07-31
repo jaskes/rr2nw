@@ -9,6 +9,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <shellapi.h>
 
 #define LAST_H__SCENE
 #include "game.h"
@@ -28,6 +29,7 @@
 #include "LevelSaveSlot.h"
 #include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
+#include "RecoveredFramePreview.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
@@ -803,6 +805,12 @@ int g_primaryFireSoundBaseline = 0;
 bool g_primaryFireEffectPresent = false;
 std::string g_levelContinuationFailure;
 std::string g_levelSaveSlotFailure;
+SRecoveredSaveMenuState g_saveMenuState;
+bool g_saveMenuAllowOverwrite = false;
+HMENU g_nativeMenuBar = nullptr;
+HMENU g_nativeGameMenu = nullptr;
+HMENU g_nativeSaveMenu = nullptr;
+HMENU g_nativeLoadMenu = nullptr;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 
@@ -829,6 +837,305 @@ std::string ContinuationLevelIdentity() {
                                ? path
                                : path.substr(separator + 1);
   return name.empty() ? "direct-context" : name;
+}
+
+constexpr UINT kNativeSaveSlotBase = 0x7200u;
+constexpr UINT kNativeLoadSlotBase = 0x7210u;
+constexpr UINT kNativeOpenSaveDirectory = 0x7220u;
+constexpr UINT kNativeExitGame = 0x7221u;
+
+std::wstring Utf8ToWide(const std::string& text) {
+  if (text.empty()) return std::wstring();
+  const int count = MultiByteToWideChar(
+      CP_UTF8, MB_ERR_INVALID_CHARS, text.data(),
+      static_cast<int>(text.size()), nullptr, 0);
+  if (count <= 0) return std::wstring();
+  std::wstring wide(static_cast<std::size_t>(count), L'\0');
+  if (MultiByteToWideChar(
+          CP_UTF8, MB_ERR_INVALID_CHARS, text.data(),
+          static_cast<int>(text.size()), &wide[0], count) != count)
+    return std::wstring();
+  return wide;
+}
+
+std::wstring EscapeNativeMenuText(const std::wstring& text) {
+  std::wstring escaped;
+  escaped.reserve(text.size());
+  for (wchar_t character : text) {
+    if (character == L'&') escaped.push_back(L'&');
+    escaped.push_back(character);
+  }
+  return escaped;
+}
+
+void ResizeSoftwareWindowForMenu(bool hasMenu) {
+  if (_gr_hWnd == nullptr || _gr_nScreenWidth <= 0 ||
+      _gr_nScreenHeight <= 0)
+    return;
+  RECT outer = {0, 0, _gr_nScreenWidth, _gr_nScreenHeight};
+  const DWORD style =
+      static_cast<DWORD>(GetWindowLongPtrW(_gr_hWnd, GWL_STYLE));
+  const DWORD extendedStyle =
+      static_cast<DWORD>(GetWindowLongPtrW(_gr_hWnd, GWL_EXSTYLE));
+  if (AdjustWindowRectEx(&outer, style, hasMenu ? TRUE : FALSE,
+                         extendedStyle) == FALSE)
+    return;
+  SetWindowPos(_gr_hWnd, nullptr, 0, 0, outer.right - outer.left,
+               outer.bottom - outer.top,
+               SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+bool SlotIsCompatible(const SLevelSaveSlot& archive) {
+  return archive.level == ContinuationLevelIdentity() &&
+         archive.contentFingerprint == ContinuationContentFingerprint();
+}
+
+void RefreshNativeSaveMenu() {
+  if (g_nativeSaveMenu == nullptr || g_nativeLoadMenu == nullptr ||
+      !g_saveMenuState.configured)
+    return;
+  for (std::uint32_t slot = 0; slot < LevelSaveSlot_Count(); ++slot) {
+    SLevelSaveSlot archive;
+    SLevelSaveSlotStatus status;
+    const bool readable = LevelSaveSlot_Read(
+        g_saveMenuState.directory, slot, &archive, &status);
+    const bool compatible = readable && SlotIsCompatible(archive);
+    std::wstring label =
+        L"Slot " + std::to_wstring(slot + 1u) + L" - ";
+    if (!readable) {
+      const std::wstring path =
+          LevelSaveSlot_Path(g_saveMenuState.directory, slot);
+      const DWORD attributes =
+          path.empty() ? INVALID_FILE_ATTRIBUTES
+                       : GetFileAttributesW(path.c_str());
+      label += attributes == INVALID_FILE_ATTRIBUTES
+                   ? L"Empty"
+                   : L"Corrupt or unsupported";
+    } else {
+      std::wstring title = Utf8ToWide(archive.title);
+      if (title.empty()) title = L"Saved game";
+      label += EscapeNativeMenuText(title);
+      label += L" [";
+      label += EscapeNativeMenuText(Utf8ToWide(archive.level));
+      label += L"]";
+      if (!compatible) label += L" - incompatible";
+    }
+    const UINT saveCommand = kNativeSaveSlotBase + slot;
+    const UINT loadCommand = kNativeLoadSlotBase + slot;
+    ModifyMenuW(g_nativeSaveMenu, saveCommand,
+                MF_BYCOMMAND | MF_STRING, saveCommand, label.c_str());
+    ModifyMenuW(g_nativeLoadMenu, loadCommand,
+                MF_BYCOMMAND | MF_STRING, loadCommand, label.c_str());
+    EnableMenuItem(g_nativeLoadMenu, loadCommand,
+                   MF_BYCOMMAND |
+                       (compatible ? MF_ENABLED
+                                   : MF_GRAYED | MF_DISABLED));
+  }
+  if (_gr_hWnd != nullptr) DrawMenuBar(_gr_hWnd);
+}
+
+void DestroyNativeSaveMenu() {
+  if (g_nativeMenuBar == nullptr) {
+    g_saveMenuState.nativeMenuInstalled = false;
+    return;
+  }
+  if (_gr_hWnd != nullptr && GetMenu(_gr_hWnd) == g_nativeMenuBar) {
+    SetMenu(_gr_hWnd, nullptr);
+    ResizeSoftwareWindowForMenu(false);
+    DrawMenuBar(_gr_hWnd);
+  }
+  DestroyMenu(g_nativeMenuBar);
+  g_nativeMenuBar = nullptr;
+  g_nativeGameMenu = nullptr;
+  g_nativeSaveMenu = nullptr;
+  g_nativeLoadMenu = nullptr;
+  g_saveMenuState.nativeMenuInstalled = false;
+}
+
+bool InstallNativeSaveMenu() {
+  if (!g_saveMenuState.configured || _gr_hWnd == nullptr ||
+      !g_sessionReady)
+    return false;
+  if (g_nativeMenuBar != nullptr) {
+    RefreshNativeSaveMenu();
+    return true;
+  }
+
+  HMENU menuBar = CreateMenu();
+  HMENU gameMenu = CreatePopupMenu();
+  HMENU saveMenu = CreatePopupMenu();
+  HMENU loadMenu = CreatePopupMenu();
+  if (menuBar == nullptr || gameMenu == nullptr ||
+      saveMenu == nullptr || loadMenu == nullptr) {
+    if (menuBar != nullptr) DestroyMenu(menuBar);
+    if (gameMenu != nullptr) DestroyMenu(gameMenu);
+    if (saveMenu != nullptr) DestroyMenu(saveMenu);
+    if (loadMenu != nullptr) DestroyMenu(loadMenu);
+    g_saveMenuState.lastError = "CreateMenu failed";
+    return false;
+  }
+  bool saveMenuAttached = false;
+  bool loadMenuAttached = false;
+  bool gameMenuAttached = false;
+  const auto failConstruction = [&](const char* detail) {
+    if (gameMenuAttached) {
+      DestroyMenu(menuBar);
+    } else {
+      DestroyMenu(menuBar);
+      DestroyMenu(gameMenu);
+    }
+    if (!saveMenuAttached) DestroyMenu(saveMenu);
+    if (!loadMenuAttached) DestroyMenu(loadMenu);
+    g_saveMenuState.lastError = detail;
+    return false;
+  };
+  for (std::uint32_t slot = 0; slot < LevelSaveSlot_Count(); ++slot) {
+    const std::wstring label =
+        L"Slot " + std::to_wstring(slot + 1u) + L" - Empty";
+    if (AppendMenuW(saveMenu, MF_STRING,
+                    kNativeSaveSlotBase + slot, label.c_str()) == FALSE ||
+        AppendMenuW(loadMenu, MF_STRING,
+                    kNativeLoadSlotBase + slot, label.c_str()) == FALSE) {
+      return failConstruction("AppendMenuW failed");
+    }
+  }
+  if (AppendMenuW(gameMenu, MF_POPUP,
+                  reinterpret_cast<UINT_PTR>(saveMenu),
+                  L"&Save game") == FALSE)
+    return failConstruction("native save submenu construction failed");
+  saveMenuAttached = true;
+  if (AppendMenuW(gameMenu, MF_POPUP,
+                  reinterpret_cast<UINT_PTR>(loadMenu),
+                  L"&Load game") == FALSE)
+    return failConstruction("native load submenu construction failed");
+  loadMenuAttached = true;
+  if (AppendMenuW(gameMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
+      AppendMenuW(gameMenu, MF_STRING, kNativeOpenSaveDirectory,
+                  L"Open save &folder") == FALSE ||
+      AppendMenuW(gameMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
+      AppendMenuW(gameMenu, MF_STRING, kNativeExitGame,
+                  L"E&xit") == FALSE)
+    return failConstruction("native game menu construction failed");
+  if (AppendMenuW(menuBar, MF_POPUP,
+                  reinterpret_cast<UINT_PTR>(gameMenu),
+                  L"&Game") == FALSE)
+    return failConstruction("native menu bar construction failed");
+  gameMenuAttached = true;
+  if (SetMenu(_gr_hWnd, menuBar) == FALSE) {
+    return failConstruction("SetMenu failed");
+  }
+  g_nativeMenuBar = menuBar;
+  g_nativeGameMenu = gameMenu;
+  g_nativeSaveMenu = saveMenu;
+  g_nativeLoadMenu = loadMenu;
+  g_saveMenuState.nativeMenuInstalled = true;
+  ResizeSoftwareWindowForMenu(true);
+  RefreshNativeSaveMenu();
+  return true;
+}
+
+void ResetSaveMenuSession() {
+  DestroyNativeSaveMenu();
+  g_saveMenuState.pending = false;
+  g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_NONE;
+  g_saveMenuState.pendingSlot = 0;
+  g_saveMenuState.saveRequests = 0;
+  g_saveMenuState.loadRequests = 0;
+  g_saveMenuState.completedSaves = 0;
+  g_saveMenuState.completedLoads = 0;
+  g_saveMenuState.failedCommands = 0;
+  g_saveMenuState.lastError.clear();
+  g_saveMenuState.lastPreview = {};
+  g_saveMenuState.lastSlot = {};
+  g_saveMenuState.lastContinuation = {};
+  g_saveMenuAllowOverwrite = false;
+}
+
+std::string BuildAutomaticSaveTitle() {
+  std::time_t now = std::time(nullptr);
+  std::tm utc = {};
+  char timestamp[32] = {};
+  if (now > 0 && gmtime_s(&utc, &now) == 0)
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S UTC",
+                  &utc);
+  std::string title = ContinuationLevelIdentity();
+  if (timestamp[0] != '\0') {
+    title += " - ";
+    title += timestamp;
+  }
+  return title;
+}
+
+void ShowNativeSaveFailure() {
+  if (_gr_hWnd == nullptr || g_saveMenuState.lastError.empty()) return;
+  const std::wstring detail = Utf8ToWide(g_saveMenuState.lastError);
+  MessageBoxW(_gr_hWnd,
+              detail.empty() ? L"Save/load command failed."
+                             : detail.c_str(),
+              L"RR2NW save/load error", MB_OK | MB_ICONERROR);
+}
+
+bool HandleNativeSaveMenuMessage(HWND window, UINT message,
+                                 WPARAM wParam, LRESULT* result) {
+  if (message == WM_INITMENUPOPUP && g_nativeMenuBar != nullptr) {
+    RefreshNativeSaveMenu();
+    *result = 0;
+    return true;
+  }
+  if (message != WM_COMMAND || HIWORD(wParam) != 0) return false;
+  const UINT command = LOWORD(wParam);
+  if (command >= kNativeSaveSlotBase &&
+      command < kNativeSaveSlotBase + LevelSaveSlot_Count()) {
+    const std::uint32_t slot = command - kNativeSaveSlotBase;
+    const std::wstring path =
+        LevelSaveSlot_Path(g_saveMenuState.directory, slot);
+    const bool occupied =
+        !path.empty() &&
+        GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+    if (occupied) {
+      const std::wstring prompt =
+          L"Replace save slot " + std::to_wstring(slot + 1u) + L"?";
+      if (MessageBoxW(window, prompt.c_str(), L"RR2NW save game",
+                      MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES) {
+        *result = 0;
+        return true;
+      }
+    }
+    if (!RecoveredGameServices_RequestSaveSlot(slot, occupied))
+      ShowNativeSaveFailure();
+    *result = 0;
+    return true;
+  }
+  if (command >= kNativeLoadSlotBase &&
+      command < kNativeLoadSlotBase + LevelSaveSlot_Count()) {
+    const std::uint32_t slot = command - kNativeLoadSlotBase;
+    const std::wstring prompt =
+        L"Load save slot " + std::to_wstring(slot + 1u) +
+        L"?\n\nUnsaved progress will be replaced.";
+    if (MessageBoxW(window, prompt.c_str(), L"RR2NW load game",
+                    MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES &&
+        !RecoveredGameServices_RequestLoadSlot(slot))
+      ShowNativeSaveFailure();
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeOpenSaveDirectory) {
+    const HINSTANCE launched =
+        ShellExecuteW(window, L"open", g_saveMenuState.directory.c_str(),
+                      nullptr, nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(launched) <= 32) {
+      g_saveMenuState.lastError = "Windows could not open the save folder";
+      ShowNativeSaveFailure();
+    }
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeExitGame) {
+    PostMessageW(window, WM_CLOSE, 0, 0);
+    *result = 0;
+    return true;
+  }
+  return false;
 }
 
 bool BindHardwareControl(int action, const char* keyName) {
@@ -862,6 +1169,10 @@ bool ConfigureHardwareControls() {
 
 LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
                                        WPARAM wParam, LPARAM lParam) {
+  LRESULT saveMenuResult = 0;
+  if (HandleNativeSaveMenuMessage(window, message, wParam,
+                                  &saveMenuResult))
+    return saveMenuResult;
   if (!g_hardwareReady || g_hardware.getContext() == nullptr) {
     return DefWindowProcA(window, message, wParam, lParam);
   }
@@ -1175,6 +1486,7 @@ bool ActivateVehicleFallback(unsigned int reason) {
 }
 
 void EndBoundedSession() {
+  ResetSaveMenuSession();
   RecoveredSoftwareGraph_ConfigureWindowMessageHook(nullptr);
   SUA_BindSession(nullptr);
 
@@ -1381,6 +1693,12 @@ void InitializeSession() {
     SUA_ConfigureShutdown(shutdownHooks);
     SUA_ArmShutdown();
     g_sessionReady = true;
+    if (g_saveMenuState.configured && _gr_hWnd != nullptr &&
+        !InstallNativeSaveMenu()) {
+      Report(RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE);
+      EndBoundedSession();
+      return;
+    }
   } catch (const std::bad_alloc&) {
     EndBoundedSession();
     Report(RECOVERED_GAME_SERVICES_SESSION_FAILURE);
@@ -2124,6 +2442,180 @@ const char* RecoveredGameServices_LastLevelSaveSlotError() {
   return g_levelSaveSlotFailure.c_str();
 }
 
+bool RecoveredGameServices_ConfigureSaveDirectory(
+    const std::wstring& directory) {
+  if (directory.empty() ||
+      directory.find(L'\0') != std::wstring::npos ||
+      LevelSaveSlot_Path(directory, 0u).empty()) {
+    g_saveMenuState.lastError = "save directory is invalid";
+    return false;
+  }
+  if (g_saveMenuState.pending) {
+    g_saveMenuState.lastError =
+        "save directory cannot change while a command is pending";
+    return false;
+  }
+  g_saveMenuState.directory = directory;
+  g_saveMenuState.configured = true;
+  g_saveMenuState.lastError.clear();
+  if (g_sessionReady && _gr_hWnd != nullptr &&
+      !InstallNativeSaveMenu()) {
+    Report(RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE);
+    return false;
+  }
+  RefreshNativeSaveMenu();
+  return true;
+}
+
+bool RecoveredGameServices_RequestSaveSlot(
+    std::uint32_t slot, bool allowOverwrite) {
+  g_saveMenuState.lastError.clear();
+  if (!g_saveMenuState.configured) {
+    g_saveMenuState.lastError = "save directory is not configured";
+    return false;
+  }
+  if (slot >= LevelSaveSlot_Count()) {
+    g_saveMenuState.lastError = "save slot index is outside 0..7";
+    return false;
+  }
+  if (g_saveMenuState.pending) {
+    g_saveMenuState.lastError =
+        "another save/load command is already pending";
+    return false;
+  }
+  const std::wstring path =
+      LevelSaveSlot_Path(g_saveMenuState.directory, slot);
+  if (!allowOverwrite &&
+      GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+    g_saveMenuState.lastError =
+        "save slot already exists and overwrite was not confirmed";
+    return false;
+  }
+  g_saveMenuState.pending = true;
+  g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_SAVE;
+  g_saveMenuState.pendingSlot = slot;
+  g_saveMenuAllowOverwrite = allowOverwrite;
+  ++g_saveMenuState.saveRequests;
+  return true;
+}
+
+bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
+  g_saveMenuState.lastError.clear();
+  if (!g_saveMenuState.configured) {
+    g_saveMenuState.lastError = "save directory is not configured";
+    return false;
+  }
+  if (slot >= LevelSaveSlot_Count()) {
+    g_saveMenuState.lastError = "load slot index is outside 0..7";
+    return false;
+  }
+  if (g_saveMenuState.pending) {
+    g_saveMenuState.lastError =
+        "another save/load command is already pending";
+    return false;
+  }
+  SLevelSaveSlot archive;
+  SLevelSaveSlotStatus status;
+  if (!LevelSaveSlot_Read(g_saveMenuState.directory, slot,
+                          &archive, &status)) {
+    g_saveMenuState.lastError = status.detail;
+    return false;
+  }
+  if (!SlotIsCompatible(archive)) {
+    g_saveMenuState.lastError =
+        "save slot belongs to a different Level or retail data set";
+    return false;
+  }
+  g_saveMenuState.pending = true;
+  g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_LOAD;
+  g_saveMenuState.pendingSlot = slot;
+  g_saveMenuAllowOverwrite = false;
+  ++g_saveMenuState.loadRequests;
+  return true;
+}
+
+bool RecoveredGameServices_ProcessPendingSaveCommand(
+    SLevelSaveSlotSummary* slotSummary,
+    SLevelContinuationSummary* continuationSummary) {
+  if (slotSummary != nullptr) *slotSummary = {};
+  if (continuationSummary != nullptr) *continuationSummary = {};
+  if (!g_saveMenuState.pending) {
+    g_saveMenuState.lastError = "no save/load command is pending";
+    return false;
+  }
+  const ERecoveredSaveMenuAction action =
+      g_saveMenuState.pendingAction;
+  const std::uint32_t slot = g_saveMenuState.pendingSlot;
+  const bool allowOverwrite = g_saveMenuAllowOverwrite;
+  g_saveMenuState.pending = false;
+  g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_NONE;
+  g_saveMenuState.pendingSlot = 0;
+  g_saveMenuAllowOverwrite = false;
+  g_saveMenuState.lastError.clear();
+  g_saveMenuState.lastPreview = {};
+  g_saveMenuState.lastSlot = {};
+  g_saveMenuState.lastContinuation = {};
+
+  SLevelSaveSlotSummary completedSlot;
+  SLevelContinuationSummary completedContinuation;
+  bool completed = false;
+  if (action == RECOVERED_SAVE_MENU_SAVE) {
+    const std::wstring path =
+        LevelSaveSlot_Path(g_saveMenuState.directory, slot);
+    if (!allowOverwrite &&
+        GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+      g_saveMenuState.lastError =
+          "save slot appeared before commit and overwrite was not confirmed";
+    } else {
+      std::vector<std::uint8_t> preview;
+      std::string previewFailure;
+      if (!RecoveredFramePreview_CapturePng(
+              &preview, &g_saveMenuState.lastPreview,
+              &previewFailure)) {
+        g_saveMenuState.lastError = previewFailure;
+      } else {
+        completed = RecoveredGameServices_SaveLevelSlot(
+            g_saveMenuState.directory, slot, BuildAutomaticSaveTitle(),
+            "RR2NW recovered Windows menu checkpoint", preview,
+            &completedSlot, &completedContinuation);
+        if (!completed)
+          g_saveMenuState.lastError =
+              RecoveredGameServices_LastLevelSaveSlotError();
+      }
+    }
+  } else if (action == RECOVERED_SAVE_MENU_LOAD) {
+    completed = RecoveredGameServices_LoadLevelSlot(
+        g_saveMenuState.directory, slot, &completedSlot,
+        &completedContinuation);
+    if (!completed)
+      g_saveMenuState.lastError =
+          RecoveredGameServices_LastLevelSaveSlotError();
+  } else {
+    g_saveMenuState.lastError = "pending save/load action is invalid";
+  }
+
+  if (!completed) {
+    ++g_saveMenuState.failedCommands;
+    RefreshNativeSaveMenu();
+    return false;
+  }
+  g_saveMenuState.lastSlot = completedSlot;
+  g_saveMenuState.lastContinuation = completedContinuation;
+  if (action == RECOVERED_SAVE_MENU_SAVE)
+    ++g_saveMenuState.completedSaves;
+  else
+    ++g_saveMenuState.completedLoads;
+  if (slotSummary != nullptr) *slotSummary = completedSlot;
+  if (continuationSummary != nullptr)
+    *continuationSummary = completedContinuation;
+  RefreshNativeSaveMenu();
+  return true;
+}
+
+const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState() {
+  return &g_saveMenuState;
+}
+
 bool RecoveredGameServices_VehicleFallbackActive() {
   return g_vehicleFallbackActive;
 }
@@ -2305,6 +2797,10 @@ int RecoveredGameServices_RunFrame() {
     return FALSE;
   }
   if (!PumpMessages()) return FALSE;
+  if (g_saveMenuState.pending &&
+      !RecoveredGameServices_ProcessPendingSaveCommand()) {
+    ShowNativeSaveFailure();
+  }
   bool vehicleFrame = g_vehicleControlReady;
   if (vehicleFrame && g_vehicleFrameCount == 0) {
     const double timerTime = g_timer.GetTime();

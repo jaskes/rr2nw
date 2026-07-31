@@ -13,7 +13,7 @@ It never rewrites `game.cfg`.
 From the repository root, start the mounted-disc `Level.03N` in Release:
 
 ```powershell
-& ".\build\windows-msvc-x86\Release\rr2nw.exe" --data-dir "G:\nw" --start-level "Level.03N" --diagnostics-dir "$PWD\manual-logs\manual-Level.03N"
+& ".\build\windows-msvc-x86\Release\rr2nw.exe" --data-dir "G:\nw" --start-level "Level.03N" --diagnostics-dir "$PWD\manual-logs\manual-Level.03N" --save-dir "$PWD\manual-logs\saves-Level.03N"
 ```
 
 The nine May retail names are:
@@ -47,6 +47,8 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 
 - the requested symbolic Level is the Level actually selected;
 - the process reaches `marker=level-ready` and exits cleanly;
+- the configured save root, native menu, all eight slots and indexed-PNG
+  preview contract are installed;
 - the renderer produces accepted and rasterized scene polygons;
 - invalid, unsupported and missing-texture rejection counters remain zero;
 - BUMP and active-light approximation counters remain zero;
@@ -123,6 +125,7 @@ Exit the game normally with Escape. The output directory includes
 - F1 exit/re-entry where the Level provides a Taxi target;
 - primary fire where the selected Vehicle is armed;
 - visible People/Tank behaviour where retail scripts create them;
+- Game-menu save, same-session load and continued movement;
 - Alt-Tab/focus loss and restoration;
 - clean shutdown.
 
@@ -157,10 +160,31 @@ all-Level disk-slot sweep with:
 
 Each successful row must contain non-zero `WorldFingerprint`,
 `JournalFingerprint`, `ContainerFingerprint`, `SaveSlotFingerprint` and
-`SaveSlotBytes`. The harness uses a process-scoped temporary save directory and
-removes all eight fixed files after success.
+`SaveSlotBytes`, plus non-zero `PreviewFingerprint` and `PreviewBytes`. The
+harness uses a process-scoped temporary save directory and removes all eight
+fixed files after success.
 
-Do not add save/load cells to the visible-game checklist yet. RR2SLOT1 proves
-the storage/service transaction, but the executable menu is not wired to it:
-the final per-user save root, preview capture, overwrite prompt and
-save-exit-relaunch-load interaction are the next product slice.
+## Interactive save/load pass
+
+The executable now owns a native `Game` menu. Without `--save-dir`, its eight
+fixed files live in `%LOCALAPPDATA%\RR2NW\saves`. For an isolated manual pass:
+
+```powershell
+$saveRoot = "$PWD\manual-logs\save-load-Level.04D"
+& ".\build\windows-msvc-x86\Debug\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.04D" --diagnostics-dir "$saveRoot\logs" --save-dir "$saveRoot\saves"
+```
+
+In the visible window:
+
+1. drive to a recognizable position;
+2. choose `Game > Save game > Slot 1` and confirm replacement if requested;
+3. drive elsewhere, then choose `Game > Load game > Slot 1`;
+4. verify the saved pose/world returns and control continues;
+5. exit cleanly, rerun the same one-line executable command and load Slot 1;
+6. use `Game > Open save folder` and retain `Slot0.rr2save` with the matching
+   diagnostics for a failed pass.
+
+The slot contains a real 640x480 indexed PNG, but the native menu does not draw
+the thumbnail yet. A slot for another Level stays visible and load-disabled;
+relaunch with that Level's exact `--start-level` before loading it. Automatic
+cross-Level reconstruction is the next UI boundary.

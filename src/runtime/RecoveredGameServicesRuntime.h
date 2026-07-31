@@ -2,6 +2,7 @@
 
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
+#include "RecoveredFramePreview.h"
 
 enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_COM_FAILURE = 1u << 0,
@@ -16,7 +17,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_VEHICLE_MOVEMENT_FAILURE = 1u << 9,
   RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE = 1u << 10,
   RECOVERED_GAME_SERVICES_TAXI_VEHICLE_TRANSITION_FAILURE = 1u << 11,
-  RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE = 1u << 12
+  RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE = 1u << 12,
+  RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE = 1u << 13
 };
 
 struct SRecoveredObserverState {
@@ -141,6 +143,30 @@ struct SRecoveredVehicleControlReplayTelemetry {
   int clockMatches;
   int randomMatches;
   int rollbacks;
+};
+
+enum ERecoveredSaveMenuAction {
+  RECOVERED_SAVE_MENU_NONE = 0,
+  RECOVERED_SAVE_MENU_SAVE = 1,
+  RECOVERED_SAVE_MENU_LOAD = 2
+};
+
+struct SRecoveredSaveMenuState {
+  bool configured = false;
+  bool nativeMenuInstalled = false;
+  bool pending = false;
+  ERecoveredSaveMenuAction pendingAction = RECOVERED_SAVE_MENU_NONE;
+  std::uint32_t pendingSlot = 0;
+  unsigned int saveRequests = 0;
+  unsigned int loadRequests = 0;
+  unsigned int completedSaves = 0;
+  unsigned int completedLoads = 0;
+  unsigned int failedCommands = 0;
+  std::wstring directory;
+  std::string lastError;
+  SRecoveredFramePreviewSummary lastPreview;
+  SLevelSaveSlotSummary lastSlot;
+  SLevelContinuationSummary lastContinuation;
 };
 
 void RecoveredGameServices_UseRuntime();
@@ -268,6 +294,15 @@ bool RecoveredGameServices_LoadLevelSlot(
     SLevelSaveSlotSummary* slotSummary,
     SLevelContinuationSummary* continuationSummary);
 const char* RecoveredGameServices_LastLevelSaveSlotError();
+bool RecoveredGameServices_ConfigureSaveDirectory(
+    const std::wstring& directory);
+bool RecoveredGameServices_RequestSaveSlot(
+    std::uint32_t slot, bool allowOverwrite);
+bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot);
+bool RecoveredGameServices_ProcessPendingSaveCommand(
+    SLevelSaveSlotSummary* slotSummary = nullptr,
+    SLevelContinuationSummary* continuationSummary = nullptr);
+const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();
 unsigned int RecoveredGameServices_VehicleForwardedEvents();

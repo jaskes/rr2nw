@@ -7,6 +7,17 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Connected eight native Windows `Game` menu save/load commands to the
+  recovered main loop. Commands are single-pending requests processed only at
+  the safe frame boundary; occupied saves and loads require confirmation,
+  while empty, corrupt and current-Level-incompatible slots are explicit.
+- Added the default `%LOCALAPPDATA%\RR2NW\saves` root, a hermetic `--save-dir`
+  override and `Open save folder`. Matching-Level slots survive process exit
+  and can be loaded after relaunch without making display text a path.
+- Added dependency-free indexed-PNG capture of the real 640x480 software
+  framebuffer and active 256-colour palette. The parser smoke validates PNG
+  chunks, CRC, stored deflate, Adler-32 and exact scanlines; the retail matrix
+  requires non-zero preview bytes and fingerprint.
 - Added the `RR2SLOT1` v1 named save envelope around canonical LCN1. Exactly
   eight fixed `Slot0.rr2save` through `Slot7.rr2save` paths carry bounded UTF-8
   title/description/Level metadata, UTC time, duplicated compatibility and
@@ -22,7 +33,7 @@ claim authorship of inherited Logos code or retail data.
   exact world and resume control for five more frames.
 - Added a hermetic RR2SLOT1 codec/atomic-file smoke and extended the retail
   continuation matrix to require non-zero slot size/fingerprint evidence.
-  The accepted local gate is 58/58 CTest per configuration, 18/18 disk-slot
+  The accepted local gate is 59/59 CTest per configuration, 18/18 disk-slot
   continuation cases and 18/18 ordinary runtime cases across all nine
   installed Levels in Debug and Release.
 - Removed the remaining host-time races from both Explosion particle and trace

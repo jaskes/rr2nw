@@ -1376,9 +1376,30 @@ playable Level begins.
   five-frame resumed-control proof. The installed-data acceptance is 18/18
   slot cases and 18/18 ordinary runtime cases across nine Levels and both
   configurations, plus 58/58 CTest per configuration.
-- This closes the storage/service boundary, not the final RC user experience.
-  The old `Save*.sav` format is not imported; menu events, per-user root,
-  preview capture and interactive save-exit-relaunch-load UX remain pending.
+- At this gate the storage/service boundary was complete but the final RC user
+  experience was not. RP-SAVE-013 adds the per-user root, preview capture and
+  first executable menu path; old `Save*.sav` import remains separate.
+
+### RP-SAVE-013: the Windows executable owns eight safe same-Level slots
+
+- Windows startup configures `%LOCALAPPDATA%\RR2NW\saves` by default and
+  accepts `--save-dir` for isolated acceptance. The visible software window
+  exposes eight Save and eight Load commands plus open-folder and exit actions
+  without activating the incomplete retail `saves.cfg` path.
+- A menu action does not serialize or restore inside `WM_COMMAND`. It queues
+  one request which the recovered loop executes after message pumping and
+  before simulation. Pending-command replacement, invalid indices and
+  unconfirmed overwrite are rejected without changing the slot or world.
+- Every successful save embeds the actual 640x480 indexed framebuffer and
+  active palette as a validated PNG. Empty and corrupt files are labelled;
+  readable slots expose title and Level; a different Level/content set remains
+  visible but load-disabled.
+- Same-Level save/load and exit/relaunch/load are now executable product paths.
+  Automatic selection and reconstruction of a different saved Level, an
+  in-menu thumbnail browser and retail `Save*.sav` import remain separate.
+- Admission is 59/59 CTest in Debug and Release, 18/18 preview-bearing atomic
+  slot continuations and 18/18 ordinary executable runs across the nine
+  installed retail Levels in both configurations.
 
 ## Binary analysis boundary
 

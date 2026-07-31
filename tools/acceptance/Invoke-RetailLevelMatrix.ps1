@@ -121,12 +121,14 @@ foreach ($configurationName in $Configuration) {
             $levelName = $matchedLevel[0]
             $caseRoot = Join-Path $OutputRoot "$configurationName-$rootLabel-$levelName"
             $diagnostics = Join-Path $caseRoot "diagnostics"
+            $saveDirectory = Join-Path $caseRoot "saves"
             New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
 
             $arguments = @(
                 "--data-dir", $root,
                 "--start-level", $levelName,
-                "--diagnostics-dir", $diagnostics
+                "--diagnostics-dir", $diagnostics,
+                "--save-dir", $saveDirectory
             )
             if ($Mode -eq "RuntimeSmoke") {
                 $arguments = @("--runtime-smoke") + $arguments
@@ -186,6 +188,14 @@ foreach ($configurationName in $Configuration) {
                 if (-not $log.ContainsKey("software_dither_table_loaded") -or
                     $log["software_dither_table_loaded"] -ne "1") {
                     $issues.Add("software dither table not loaded")
+                }
+                if ((Get-LogInteger $log "save_directory_ready") -ne 1 -or
+                    (Get-LogInteger $log "save_menu_configured") -ne 1 -or
+                    (Get-LogInteger $log "save_menu_native_installed") -ne 1 -or
+                    (Get-LogInteger $log "save_menu_slots") -ne 8 -or
+                    -not $log.ContainsKey("save_menu_preview_format") -or
+                    $log["save_menu_preview_format"] -ne "PNG-indexed-640x480") {
+                    $issues.Add("native save menu contract is not ready")
                 }
                 if ((Get-LogInteger $log "renderer_frames") -lt 1) {
                     $issues.Add("renderer produced no frames")
@@ -348,6 +358,9 @@ foreach ($configurationName in $Configuration) {
                 ended_utc = $endUtc.ToString("o")
                 elapsed_seconds = $elapsedSeconds
                 diagnostics = $diagnostics
+                save_menu_configured = Get-LogInteger $log "save_menu_configured"
+                save_menu_native_installed = Get-LogInteger $log "save_menu_native_installed"
+                save_menu_slots = Get-LogInteger $log "save_menu_slots"
                 renderer_frames = Get-LogInteger $log "renderer_frames"
                 renderer_submitted = Get-LogInteger $log "renderer_polygons_submitted"
                 renderer_accepted = Get-LogInteger $log "renderer_polygons_accepted"
@@ -401,7 +414,9 @@ $summary = [ordered]@{
 $summary | ConvertTo-Json -Depth 8 |
     Set-Content -LiteralPath (Join-Path $OutputRoot "summary.json") -Encoding UTF8
 $records | Select-Object configuration, data_root, level, accepted, exit_code,
-    timed_out, elapsed_seconds, renderer_frames, renderer_submitted, renderer_accepted,
+    timed_out, elapsed_seconds, save_menu_configured,
+    save_menu_native_installed, save_menu_slots, renderer_frames,
+    renderer_submitted, renderer_accepted,
     renderer_rasterized, renderer_outside, renderer_bump_approximations,
     renderer_nonperspective_bump_ignored, renderer_dithered_bump, renderer_light_through,
     renderer_light_approximations, renderer_lit_polygons,
@@ -425,11 +440,11 @@ if ($Mode -eq "Interactive") {
     $checklist.Add("")
     $checklist.Add("Replace TODO with PASS, FAIL or N/A and add a short note for every FAIL.")
     $checklist.Add("")
-    $checklist.Add("| Build | Data | Level | Visibility | Steering | F1 | Fire | People/Tank | Alt-Tab | Clean exit | Notes |")
-    $checklist.Add("|---|---|---|---|---|---|---|---|---|---|---|")
+    $checklist.Add("| Build | Data | Level | Visibility | Steering | F1 | Fire | People/Tank | Save/load | Alt-Tab | Clean exit | Notes |")
+    $checklist.Add("|---|---|---|---|---|---|---|---|---|---|---|---|")
     foreach ($record in $records) {
         $exitState = if ($record.accepted) { "PASS" } else { "FAIL" }
-        $checklist.Add("| $($record.configuration) | $($record.data_root) | $($record.level) | TODO | TODO | TODO | TODO | TODO | TODO | $exitState | |")
+        $checklist.Add("| $($record.configuration) | $($record.data_root) | $($record.level) | TODO | TODO | TODO | TODO | TODO | TODO | TODO | $exitState | |")
     }
     $checklist.Add("")
     $checklist.Add("For visual failures keep a screenshot and the matching diagnostics directory from summary.json.")

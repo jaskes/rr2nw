@@ -2737,10 +2737,37 @@ Status vocabulary:
   The final installed-data sweep passes 18/18 slot cases and 18/18 ordinary
   runtime cases across nine Levels and both configurations; CTest is 58/58 in
   each configuration.
-- Revisit when: menu integration chooses the per-user save root and introduces
-  title editing. Keep titles out of paths, keep slot/file identity checks and
-  add explicit UX for corrupt, incompatible and empty slots rather than
-  silently treating them as valid or deleting them.
+- Revisited by: CQ-159 chose the per-user root and explicit
+  empty/corrupt/incompatible UX without restoring filename authority.
+- Revisit again when: editable titles are introduced. Keep titles out of paths
+  and retain slot/file identity checks.
+
+### CQ-159: save/load must cross the frame boundary, not execute in WM_COMMAND
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: the recovered runtime has a real Win32 message pump and software
+  window, but does not yet construct the complete retail MainMenu/font/script
+  graph. LCN1 capture and restore require a stable frame with no active owner
+  transaction. Performing either operation directly from a Windows callback
+  or legacy event receiver would make re-entrancy and rollback dependent on
+  dispatch stack state.
+- Handling: the native eight-slot `Game` menu only enqueues one bounded action.
+  `RecoveredGameServices_RunFrame` processes it after message pumping and
+  before simulation. A second pending command and out-of-range slot are
+  rejected. Save rechecks overwrite authority, captures the real 640x480
+  indexed framebuffer and palette, then uses RR2SLOT1 atomic commit. Load is
+  enabled only when decoded Level/content identities match the running
+  session and reuses the LCN1 transaction.
+- Verification: the broker smoke proves invalid-index, single-pending and
+  overwrite guards, a non-zero validated PNG and destroyed-context disk load.
+  The executable runtime log proves the configured root, eight slots, native
+  menu installation and clean shutdown. Debug and Release pass 59/59 CTest;
+  the installed-data gates pass 18/18 preview-bearing continuations and 18/18
+  independent ordinary runtime cases.
+- Revisit when: cross-Level load is implemented. It must publish a main-loop
+  restart request and reconstruct the Level named by the decoded slot before
+  invoking LCN1. A future in-game browser may replace the native presentation,
+  but not the broker, fixed filenames or compatibility checks.
 
 ## Maintenance rule
 

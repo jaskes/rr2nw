@@ -3526,7 +3526,8 @@ metadata required to list and reject a slot before restoration: fixed slot
 index, UTC save time, bounded UTF-8 title/description/Level, content/world/
 LCN1 fingerprints and authoritative tick/time. The duplicates must agree with
 the decoded inner AWV1/LCN1 exactly. An optional bounded PNG field is present
-from version 1, while current production capture leaves it empty.
+from version 1. The initial storage-only slice allowed it to be empty; the
+Windows menu integration in BD-093 now fills it from the real framebuffer.
 
 There are exactly eight filenames, `Slot0.rr2save` through `Slot7.rr2save`.
 Display strings never become paths. This preserves the retail eight-slot
@@ -3549,7 +3550,44 @@ installed-data gate is 58/58 CTest in each configuration plus 18/18 slot
 continuations and 18/18 ordinary retail runtime cases over all nine Levels in
 Debug and Release.
 
-This accepts the storage/service boundary, not the menu UX. The main loop must
-own Level restart, save-root policy, preview capture and user diagnostics;
-event dispatch must not destroy its own Level context. Retail `Save*.sav`
-import remains a separate compatibility project.
+This decision accepts the storage/service boundary. BD-093 adds the first menu
+UX while preserving its constraint: the main loop owns save/load, save-root
+policy, preview capture and user diagnostics; event dispatch must not destroy
+its own Level context. Retail `Save*.sav` import remains separate.
+
+## BD-093: expose safe native slots before reviving the retail menu graph
+
+Status: accepted on 2026-07-31.
+
+The recovered Windows runtime does not yet construct the complete retail
+`MainMenu`/LevelAttr/font/script graph. Activating fragments of that graph only
+to reach `lev_SAVE_SLOT0..7` would also revive `saves.cfg`, display-text
+filenames and Level destruction from legacy event dispatch.
+
+The first product integration therefore uses a native Windows `Game` menu
+owned by the recovered service session. It preserves the eight-slot user
+model, but each `WM_COMMAND` only queues one save or load. The request executes
+after message pumping and before simulation, at the same stable boundary used
+by LCN1. Adding/removing the menu recomputes the outer window dimensions so the
+software client remains exactly 640x480.
+
+The menu is presentation, not a persistence precondition. A headless service
+session without `HWND` still configures the same slots, captures its software
+framebuffer and executes broker requests; an interactive session with a real
+window treats native-menu construction failure as a service readiness issue.
+
+Windows startup owns `%LOCALAPPDATA%\RR2NW\saves`; tests and portable launches
+may override it with `--save-dir`. Opening the menu rereads all fixed archives.
+Empty, corrupt and incompatible slots are explicit, incompatible loads are
+disabled, and overwrite/load choices require confirmation. Save captures the
+real indexed framebuffer and palette into the already versioned PNG field.
+
+This is not a permanent ban on a recovered in-game browser. A future browser
+must call the same bounded broker and fixed-slot codec rather than becoming a
+second persistence implementation. Cross-Level load must be a main-loop
+restart request, never destruction from `WM_COMMAND` or script event dispatch.
+
+The regression contract is the indexed-PNG parser/round-trip smoke, queue and
+overwrite guards in the real service smoke, 59/59 Debug/Release CTest, the
+18-case preview-bearing destroyed-context matrix and the independent 18-case
+ordinary executable matrix on the installed retail root.

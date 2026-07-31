@@ -45,6 +45,7 @@ constexpr int kRetailLevelCount = 9;
 struct StartupOptions {
   std::wstring dataDirectory;
   std::wstring diagnosticsDirectory;
+  std::wstring saveDirectory;
   std::wstring startLevel;
   bool launchSmoke = false;
   bool runtimeSmoke = false;
@@ -233,6 +234,13 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       }
     } else if (argument.compare(0, 18, L"--diagnostics-dir=") == 0) {
       options->diagnosticsDirectory = argument.substr(18);
+    } else if (argument == L"--save-dir") {
+      if (!ParseOptionValue(argc, argv, &index, L"--save-dir",
+                            &options->saveDirectory, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 11, L"--save-dir=") == 0) {
+      options->saveDirectory = argument.substr(11);
     } else if (argument == L"--start-level") {
       if (!ParseOptionValue(argc, argv, &index, L"--start-level",
                             &options->startLevel, failure)) {
@@ -257,6 +265,17 @@ std::wstring DefaultDiagnosticsDirectory() {
     base = CurrentDirectory();
   }
   return JoinPath(JoinPath(base, L"RR2NW"), L"logs");
+}
+
+std::wstring DefaultSaveDirectory() {
+  std::wstring base = EnvironmentValue(L"LOCALAPPDATA");
+  if (base.empty()) {
+    base = EnvironmentValue(L"TEMP");
+  }
+  if (base.empty()) {
+    base = CurrentDirectory();
+  }
+  return JoinPath(JoinPath(base, L"RR2NW"), L"saves");
 }
 
 bool EnsureDirectory(const std::wstring& path) {
@@ -442,7 +461,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   if (options.showHelp) {
     ShowMessage(false, MB_ICONINFORMATION, L"RR2NW command line",
                 L"rr2nw.exe [--data-dir <path>] [--start-level <index|name>]\n"
-                L"          [--diagnostics-dir <path>]\n"
+                L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--version] [--help]");
     return kSuccess;
@@ -456,6 +475,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     options.diagnosticsDirectory = DefaultDiagnosticsDirectory();
   } else {
     options.diagnosticsDirectory = AbsolutePath(options.diagnosticsDirectory);
+  }
+  const bool defaultSaveDirectory = options.saveDirectory.empty();
+  if (defaultSaveDirectory) {
+    options.saveDirectory = DefaultSaveDirectory();
+  } else {
+    options.saveDirectory = AbsolutePath(options.saveDirectory);
   }
 
   StartupLog log;
@@ -510,6 +535,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.WideLine("start_level_dir",
                data.levels[static_cast<std::size_t>(data.startLevel)]);
   log.Line("data_access=read-only");
+  log.WideLine("save_dir", options.saveDirectory);
+  log.Line(std::string("save_dir_source=") +
+           (defaultSaveDirectory ? "local-app-data" : "command-line"));
   log.Line("marker=retail-data-ready");
 
   if (options.launchSmoke) {
@@ -517,6 +545,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("marker=pre-content-ready");
     return kSuccess;
   }
+
+  if (!EnsureDirectory(options.saveDirectory) ||
+      !RecoveredGameServices_ConfigureSaveDirectory(
+          options.saveDirectory)) {
+    log.WideLine("failure_save_dir", options.saveDirectory);
+    log.Line("marker=save-directory-not-ready");
+    ShowMessage(options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW save directory error",
+                L"Cannot create or configure the save directory:\n" +
+                    options.saveDirectory +
+                    L"\n\nDiagnostic log:\n" + log.path());
+    return kRuntimeNotReady;
+  }
+  log.Line("save_directory_ready=1");
 
   std::string levelDirectory;
   if (!WideToSystemPath(
@@ -603,6 +645,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   SUA_InitEverything();
   log.Line("session_initialized=" +
            std::to_string(RecoveredGameServices_SessionReady() ? 1 : 0));
+  const SRecoveredSaveMenuState* saveMenuState =
+      RecoveredGameServices_SaveMenuState();
+  log.Line("save_menu_configured=" +
+           std::to_string(saveMenuState != nullptr &&
+                                  saveMenuState->configured
+                              ? 1
+                              : 0));
+  log.Line("save_menu_native_installed=" +
+           std::to_string(saveMenuState != nullptr &&
+                                  saveMenuState->nativeMenuInstalled
+                              ? 1
+                              : 0));
+  log.Line("save_menu_slots=" +
+           std::to_string(LevelSaveSlot_Count()));
+  log.Line("save_menu_preview_format=PNG-indexed-640x480");
   log.Line("arena_seance_initialized=" +
            std::to_string(RecoveredGameServices_SeanceReady() ? 1 : 0));
   log.Line("bird_attributes_initialized=" +
@@ -1759,6 +1816,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   log.Line("game_services_issues=" +
            std::to_string(RecoveredGameServices_Issues()));
+  saveMenuState = RecoveredGameServices_SaveMenuState();
+  if (saveMenuState != nullptr) {
+    log.Line("save_menu_save_requests=" +
+             std::to_string(saveMenuState->saveRequests));
+    log.Line("save_menu_load_requests=" +
+             std::to_string(saveMenuState->loadRequests));
+    log.Line("save_menu_completed_saves=" +
+             std::to_string(saveMenuState->completedSaves));
+    log.Line("save_menu_completed_loads=" +
+             std::to_string(saveMenuState->completedLoads));
+    log.Line("save_menu_failed_commands=" +
+             std::to_string(saveMenuState->failedCommands));
+  }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();
   if (observer != nullptr) {

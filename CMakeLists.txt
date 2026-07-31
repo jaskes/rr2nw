@@ -3454,6 +3454,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/ActiveWorldSemanticEvents.h
   src/runtime/ClockActiveWorldState.cpp
   src/runtime/ClockActiveWorldState.h
+  src/runtime/IndexedPng.cpp
+  src/runtime/IndexedPng.h
   src/runtime/LevelContinuation.cpp
   src/runtime/LevelContinuation.h
   src/runtime/LevelSaveSlot.cpp
@@ -3464,6 +3466,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/ActiveWorldRuntimeProbe.h
   src/runtime/RecoveredArenaSeanceRuntime.cpp
   src/runtime/RecoveredArenaSeanceRuntime.h
+  src/runtime/RecoveredFramePreview.cpp
+  src/runtime/RecoveredFramePreview.h
   src/runtime/RecoveredGameServicesRuntime.cpp
   src/runtime/RecoveredGameServicesRuntime.h
   src/runtime/VehicleControlJournal.cpp
@@ -3511,6 +3515,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_recovered_software_frame
   rr2nw_supervisor_global
   ole32
+  shell32
   user32
 )
 target_include_directories(rr2nw_recovered_game_services_runtime PUBLIC
@@ -4234,6 +4239,22 @@ target_compile_definitions(
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_indexed_png_smoke
+  src/portability/IndexedPngSmoke.cpp
+)
+target_link_libraries(rr2nw_indexed_png_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_indexed_png_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_indexed_png_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_active_world_fresh_restore_smoke
   src/portability/ActiveWorldFreshRestoreSmoke.cpp
 )
@@ -4521,6 +4542,9 @@ if(MSVC)
     rr2nw_level_save_slot_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_indexed_png_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_active_world_save_smoke PRIVATE /W4 /permissive-
   )
   target_compile_options(
@@ -4707,6 +4731,10 @@ if(BUILD_TESTING)
     NAME level-save-slot-smoke
     COMMAND rr2nw_level_save_slot_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/level-save-slot-smoke-$<CONFIG>"
+  )
+  add_test(
+    NAME indexed-png-smoke
+    COMMAND rr2nw_indexed_png_smoke
   )
   add_test(
     NAME recovered-arena-seance-runtime-smoke

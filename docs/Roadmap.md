@@ -1157,11 +1157,18 @@ committed-file read-back and same-Level destroyed-context load. It retains
 content/Level checks, stable-frame rejection and the existing target-session
 rollback.
 
-The remaining item-5 product slice is main-loop/menu integration, a stable
-per-user save root, framebuffer-to-PNG preview capture, overwrite and
-incompatible-slot UX, plus the interactive save-exit-relaunch-load checklist.
-It must not claim retail-save compatibility or silently serialize owner
-families outside the admitted graph.
+The first item-5 product slice is now connected to the Windows executable. A
+native `Game` menu lists eight fixed slots, queues save/load only at the safe
+frame boundary, confirms destructive choices and distinguishes empty, corrupt
+and incompatible slots. Startup owns `%LOCALAPPDATA%\RR2NW\saves` with a
+`--save-dir` override. Every menu save embeds a validated 640x480 indexed PNG
+captured from the real framebuffer and palette.
+
+The remaining item-5 work is an automatic main-loop restart into the Level
+named by a selected slot, visible preview/title UX and recorded multi-Level
+manual evidence. Same-Level save/load and exit/relaunch/load are available
+now. This still does not claim retail-save compatibility or silently serialize
+owner families outside the admitted graph.
 Explicit hit/damage/death records should still be added only where source
 inspection finds a queued transition; current synchronous paths already
 materialize in owner state.

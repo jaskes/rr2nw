@@ -126,7 +126,8 @@ they may cross a public save boundary.
 
 Atomic named slots, bounded metadata/optional preview, same-Level reload
 orchestration and non-destructive replacement are now implemented in
-[`SaveSlots.md`](SaveSlots.md). The next gate is main-loop/menu integration,
-the final per-user save root, real preview capture and an interactive
-save-exit-relaunch-load checklist. Fixed-tick replay, retail-save import,
-Linux/macOS and multiplayer remain later work.
+[`SaveSlots.md`](SaveSlots.md). The Windows executable now adds the native
+eight-slot menu, per-user root, real framebuffer preview and safe frame-boundary
+broker. The next gate is automatic cross-Level reconstruction plus visible
+preview/title UX and recorded multi-Level acceptance. Fixed-tick replay,
+retail-save import, Linux/macOS and multiplayer remain later work.

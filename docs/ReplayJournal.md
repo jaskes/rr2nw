@@ -135,10 +135,10 @@ moves from its restored position.
 
 ## Current limits and next step
 
-CTJ1 now crosses fresh-Level reconstruction but is not yet exposed as a replay
-file or public save slot. The normal Windows loop remains variable-rate; there
-are no periodic hashes, seeking or fast-forward.
+CTJ1 now crosses fresh-Level reconstruction inside public RR2SLOT1 files, but
+is not yet exposed as a replay file. The normal Windows loop remains
+variable-rate; there are no periodic hashes, seeking or fast-forward.
 
-The next persistence step is atomic named LCN1 slots and a multi-Level manual
-load checklist. A fixed-tick scheduler and longer hash-checked replay follow
-that gate; multiplayer remains later.
+The next persistence step is automatic cross-Level slot reconstruction and a
+multi-Level manual load checklist. A fixed-tick scheduler and longer
+hash-checked replay follow that gate; multiplayer remains later.
