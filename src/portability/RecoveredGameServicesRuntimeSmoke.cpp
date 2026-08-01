@@ -6654,9 +6654,26 @@ int main(int argc, char** argv) {
 
   vehicleID = g_super.m_context->searchObject("Vehicle.Default");
   SRecoveredVehicleRuntimeState restoredVehicle = {};
+  SRecoveredVehicleAuthorityState restoredAuthority = {};
   SRecoveredVehicleControlJournalTelemetry resumedJournal = {};
   if (!VehicleRuntimeState_Inspect(
           g_super.m_context, vehicleID, &restoredVehicle) ||
+      !RecoveredGameServices_VehicleAuthorityState(&restoredAuthority) ||
+      restoredAuthority.identityFingerprint !=
+          VehicleRuntimeState_IdentityFingerprint(
+              g_super.m_context, vehicleID) ||
+      std::fabs(restoredAuthority.damage -
+                continuationVehicle.damage) > 1.0e-9 ||
+      restoredAuthority.vesselKind != continuationVehicle.vesselKind ||
+      restoredAuthority.vesselProfile != VehicleRuntimeState_VesselProfile(
+          VehicleRuntimeState_DynamicName(g_super.m_context, vehicleID)) ||
+      restoredAuthority.active != 1 || restoredAuthority.frameBegun != 0 ||
+      restoredAuthority.dead != continuationVehicle.dead ||
+      restoredAuthority.takingTaxi != continuationVehicle.takingTaxi ||
+      restoredAuthority.panelReady != continuationVehicle.panelReady ||
+      restoredAuthority.panelOpen != continuationVehicle.panelOpen ||
+      restoredAuthority.taxiChangeEnabled !=
+          continuationVehicle.taxiChangeEnabled ||
       std::fabs(restoredVehicle.position.x -
                 continuationVehicle.position.x) > 1.0e-7 ||
       std::fabs(restoredVehicle.position.y -

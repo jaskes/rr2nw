@@ -4965,6 +4965,34 @@ bool RecoveredGameServices_VehicleDriveTelemetry(
   return true;
 }
 
+bool RecoveredGameServices_VehicleAuthorityState(
+    SRecoveredVehicleAuthorityState* authority) {
+  if (authority == nullptr || g_super.m_context == nullptr) return false;
+  KR_ObjectID vehicle =
+      g_super.m_context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState state = {};
+  if (vehicle.isNUL() || !VehicleRuntimeState_Inspect(
+          g_super.m_context, vehicle, &state))
+    return false;
+  *authority = {};
+  authority->identityFingerprint =
+      VehicleRuntimeState_IdentityFingerprint(g_super.m_context, vehicle);
+  authority->damage = state.damage;
+  authority->vesselKind = state.vesselKind;
+  authority->vesselProfile = VehicleRuntimeState_VesselProfile(
+      VehicleRuntimeState_DynamicName(g_super.m_context, vehicle));
+  authority->active = state.active;
+  authority->frameBegun = state.frameBegun;
+  authority->dead = state.dead;
+  authority->takingTaxi = state.takingTaxi;
+  authority->panelReady = state.panelReady;
+  authority->panelOpen = state.panelOpen;
+  authority->taxiChangeEnabled = state.taxiChangeEnabled;
+  return authority->identityFingerprint != 0 &&
+         authority->vesselKind != RECOVERED_VEHICLE_VESSEL_UNKNOWN &&
+         authority->vesselProfile != RECOVERED_VEHICLE_PROFILE_UNKNOWN;
+}
+
 unsigned int RecoveredGameServices_VehicleFrameCount() {
   return g_vehicleFrameCount;
 }

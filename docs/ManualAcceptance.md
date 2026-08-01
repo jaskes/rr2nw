@@ -576,6 +576,22 @@ indices and tests all eight type-1 vessel profiles in separate processes:
 The result must be 16/16 with the same per-case fingerprint, camera, neutral
 input and clean-shutdown requirements.
 
+The process-lifetime gate intentionally exits the saving executable before
+loading the slot in a newly started one:
+
+```powershell
+& ".\tools\acceptance\Invoke-OccupiedVehicleSaveLoad.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release `
+  -AcrossProcess
+```
+
+Both rows must pass. In addition to equal world/LCN1 fingerprints, the CSV
+records an unchanged slot SHA-256 and `SourceActions=2` / `ResumedActions=4`.
+The two shutdown logs must agree on non-zero authority identity, vessel
+profile, non-lethal damage and cockpit ready/open state. Process B must retain
+live camera mode, neutral controls, zero CTJ1 append failures and cleanly exit.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

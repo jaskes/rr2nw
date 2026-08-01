@@ -2783,6 +2783,31 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(vehicleTelemetry.recoveryThrottle));
     }
   }
+  SRecoveredVehicleAuthorityState vehicleAuthority = {};
+  if (RecoveredGameServices_VehicleAuthorityState(&vehicleAuthority)) {
+    log.Line("vehicle_authority_identity_fingerprint=" + std::to_string(
+                 vehicleAuthority.identityFingerprint));
+    log.Line("vehicle_authority_damage=" +
+             std::to_string(vehicleAuthority.damage));
+    log.Line("vehicle_authority_vessel_kind=" +
+             std::to_string(vehicleAuthority.vesselKind));
+    log.Line("vehicle_authority_vessel_profile=" +
+             std::to_string(vehicleAuthority.vesselProfile));
+    log.Line("vehicle_authority_active=" +
+             std::to_string(vehicleAuthority.active));
+    log.Line("vehicle_authority_frame_begun=" +
+             std::to_string(vehicleAuthority.frameBegun));
+    log.Line("vehicle_authority_dead=" +
+             std::to_string(vehicleAuthority.dead));
+    log.Line("vehicle_authority_taking_taxi=" +
+             std::to_string(vehicleAuthority.takingTaxi));
+    log.Line("vehicle_authority_panel_ready=" +
+             std::to_string(vehicleAuthority.panelReady));
+    log.Line("vehicle_authority_panel_open=" +
+             std::to_string(vehicleAuthority.panelOpen));
+    log.Line("vehicle_authority_taxi_change_enabled=" +
+             std::to_string(vehicleAuthority.taxiChangeEnabled));
+  }
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"
       "reference-wav-smoker-dyn-smoker-emission-light-corona-smoke-terrain-"

@@ -3551,6 +3551,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: Frontier E gives every active People owner stable symbolic
   identity and includes the actor graph in the continuation boundary.
 
+### CQ-191: process-local telemetry is not persistence evidence
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_PARTIAL`.
+- Evidence: same-process Save/Load can accidentally retain static runtime
+  owners, debug-menu selections or presentation state even when RR2SLOT1 is
+  incomplete. Exact LCN1 fingerprints prove serialized content, but the
+  prior product gate did not destroy the executable lifetime between capture
+  and restore.
+- Handling: expose a read-only snapshot of the actual `Vehicle.Default`
+  authority at shutdown: identity, damage, vessel kind/profile, active/frame
+  state, death/Taxi flags, panel state and Taxi-change ownership. Keep this
+  diagnostic outside LCN1/RR2SLOT1. A cross-process gate must hash the slot,
+  close process A, start process B, load the unchanged archive and require
+  equal world/container fingerprints plus exact authority fields.
+- Verification: `Invoke-OccupiedVehicleSaveLoad.ps1 -AcrossProcess` passes in
+  Debug and Release. Process A records two throttle actions; process B adopts
+  that CTJ1 and records exactly one new turn press/release, ending at four
+  actions with neutral axes and zero append failures. Profile, damage,
+  identity and cockpit state match across the two shutdown logs, and the slot
+  SHA-256 is unchanged.
+- Revisit when: the same proof crosses a Level coordinator restart. At that
+  boundary, source and target process-local catalogs may differ, so authority
+  must be checked against the target slot identity rather than source globals.
+
 ## Maintenance rule
 
 When a new quirk is found:

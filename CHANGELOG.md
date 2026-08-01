@@ -80,6 +80,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added a true cross-process occupied-Vehicle Save/Load gate. Process A now
+  drives and damages a real type-1 Vehicle, commits RR2SLOT1 and exits cleanly;
+  a newly started process B loads the unchanged archive, proves equal world
+  and LCN1 fingerprints, exact vessel profile/damage/cockpit authority and
+  appends a new command pair to the restored CTJ1 journal.
+- Added a read-only live Vehicle authority snapshot to shutdown diagnostics:
+  identity fingerprint, damage, vessel kind/profile, active/frame state,
+  living/Taxi state, cockpit ready/open state and Taxi-change ownership. This
+  observes the actual `Vehicle.Default` owner and does not extend RR2SLOT1.
 - Extended occupied moving/damaged Vehicle Save/Load from one Level.03N
   representative to every type-1 vessel profile exposed by each retail Level.
   The service gate now preserves exact pose, direction, velocity, integrity,

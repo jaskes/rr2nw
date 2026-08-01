@@ -1524,6 +1524,13 @@ broker. Restore success additionally requires a self-consistent live gameplay
 owner after LCN1/CTJ1 adoption; a failure rolls the target session back before
 the slot is published.
 
+The first process-lifetime slice is also complete. A real window in process A
+creates a moving/damaged occupied slot and exits; an unrelated process B starts
+from a fresh Level context, loads the unchanged RR2SLOT1 and proves equal world
+and container fingerprints, exact profile/damage/HUD/camera authority, neutral
+controls and one newly accepted command pair. The slot SHA-256 must remain
+unchanged across both processes.
+
 The product gate discovers the native Debug catalog across all nine retail
 Levels and selects exactly the eight-profile campaign union `0x3F3`; every
 selected profile gets its own fresh executable process and visible Save/Load
@@ -1532,7 +1539,8 @@ per-Level Save/Load profile mask as its gameplay and destruction proofs.
 
 Accepted breadth evidence: 66/66 CTest per configuration, 18/18 ordinary
 retail starts, 18/18 fresh continuations with complete Save/Load mask `0x3F3`,
-and 16/16 native-window profile transactions across Debug and Release.
+16/16 native-window profile transactions and 2/2 independent-process
+transactions across Debug and Release.
 
 Make one atomic owner graph cover player embodiment, Vehicle/camera/panel,
 active controls, Taxi/Orphan state, spawned debug objects and Level identity.
@@ -1545,10 +1553,10 @@ Vehicle class, including moving/damaged state, exact HUD/camera ownership and
 the debug-spawned world. Failure leaves the source session byte-equivalent at
 the owned-state boundary.
 
-Remaining within Frontier D: carry an occupied slot across process exit and a
-cross-Level coordinator handoff, then add deliberate post-restore authority
-failure injection proving source-session byte equivalence. The existing
-serializer remains LCN1/RR2SLOT1.
+Remaining within Frontier D: carry an occupied slot through the cross-Level
+coordinator handoff, then add deliberate post-restore authority failure
+injection proving source-session byte equivalence. The existing serializer
+remains LCN1/RR2SLOT1.
 
 ### Frontier E: actors, static mechanisms and animation
 

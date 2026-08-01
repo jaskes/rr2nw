@@ -309,7 +309,11 @@ secondary-ammunition consumption where present, canonical empty weapon slots,
 the real HUD-or-no-HUD state and an exact LCN1 rollback before authentic
 destruction. The campaign profile mask remains `1011`.
 
-Frontier C is therefore closed. The next Vehicle-facing work belongs to
-Frontier D: broaden ordinary save/load authority and mission-facing state,
-then perform interactive handling/performance acceptance rather than adding a
-second recovery policy.
+Frontier C is therefore closed. Frontier D now covers every campaign type-1
+profile through ordinary same-process Save/Load and one representative
+moving/damaged occupied Vehicle across a complete executable exit/restart.
+The latter requires exact world/LCN1 fingerprints, unchanged slot bytes,
+profile/damage/HUD/camera ownership and newly accepted control input in the
+second process. Remaining Vehicle persistence work is the occupied cross-Level
+coordinator path and injected post-restore authority failure/rollback; no
+second recovery policy or serializer is needed.

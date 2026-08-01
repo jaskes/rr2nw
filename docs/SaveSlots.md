@@ -243,6 +243,15 @@ With `-AllProfiles`, the tool first reads the deterministic native Vehicle
 catalog for all nine configured Levels, requires exactly the campaign mask
 `0x3F3`, then launches one isolated visible Save/Load process per profile.
 
+With `-AcrossProcess`, the same tool deliberately separates the transaction
+between two executable lifetimes. Process A drives and damages the selected
+Vehicle, saves through the ordinary modal dialog and exits. Process B starts
+from a newly constructed context, loads the unchanged slot, then submits one
+new turn command. The gate requires equal non-zero slot/restored world and
+LCN1 fingerprints, unchanged slot SHA-256, exact live identity/profile/damage
+and HUD state, live camera, neutral controls, zero journal append failures and
+exactly two additional CTJ1 action records in process B.
+
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
 `LCN1-14/14/14`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
@@ -250,10 +259,11 @@ selected retail case.
 The current accepted local Windows gate is 66/66 CTest in Debug and Release,
 18/18 RR2SLOT1 destroyed-context cases, 18/18 independent ordinary retail
 runtime cases, 16/16 native-window occupied Vehicle profile cases and 2/2
-cross-Level coordinator cases. The fresh matrix and native product gate both
+cross-Level coordinator cases. The independent-process occupied-vehicle gate
+adds 2/2 Debug/Release cases. The fresh matrix and native product gate both
 cover the complete campaign profile mask `0x3F3`. These cover all nine
-installed Levels in both configurations. The mounted disc root was not part of
-this tranche and is therefore not included in the slot claim.
+installed Levels in both configurations. The mounted disc root was not part
+of this tranche and is therefore not included in the slot claim.
 
 ## Next gate
 

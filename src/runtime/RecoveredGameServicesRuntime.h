@@ -106,6 +106,24 @@ struct SRecoveredVehicleDriveTelemetry {
   double recoveryThrottle;
 };
 
+// A read-only snapshot of the live Vehicle.Default gameplay owner.  Unlike
+// the cumulative drive telemetry, these fields describe the object that owns
+// control at the exact observation boundary and are therefore suitable for
+// proving save/load authority handoff across executable processes.
+struct SRecoveredVehicleAuthorityState {
+  unsigned long long identityFingerprint;
+  double damage;
+  int vesselKind;
+  int vesselProfile;
+  int active;
+  int frameBegun;
+  int dead;
+  int takingTaxi;
+  int panelReady;
+  int panelOpen;
+  int taxiChangeEnabled;
+};
+
 struct SRecoveredTaxiVehicleHandoffTelemetry {
   double nearestTaxiDistance;
   double activationDistance;
@@ -613,6 +631,8 @@ int RecoveredGameServices_VehicleLastFrameFailure();
 int RecoveredGameServices_VehicleLastFrameReadinessIssue();
 bool RecoveredGameServices_VehicleDriveTelemetry(
     SRecoveredVehicleDriveTelemetry* telemetry);
+bool RecoveredGameServices_VehicleAuthorityState(
+    SRecoveredVehicleAuthorityState* state);
 unsigned int RecoveredGameServices_VehicleFrameCount();
 unsigned int RecoveredGameServices_VehicleCameraFrameCount();
 int RecoveredGameServices_VehicleCameraMode();
