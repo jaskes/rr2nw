@@ -437,6 +437,7 @@ int RecoveredArenaSeance_MissionTankRollbacks();
 unsigned long long RecoveredArenaSeance_MissionTankFingerprint();
 bool RecoveredArenaSeance_ActiveWorldPersistenceReady();
 int RecoveredArenaSeance_ActiveWorldFormatVersion();
+int RecoveredArenaSeance_ActiveWorldEngineCompatibility();
 int RecoveredArenaSeance_ActiveWorldSections();
 int RecoveredArenaSeance_ActiveWorldEvents();
 int RecoveredArenaSeance_ActiveWorldOwnerPhases();

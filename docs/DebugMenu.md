@@ -28,6 +28,11 @@ The window menu bar then contains **Debug**. The first admitted command set is:
   death camera and captures the resulting dead world;
 - **Restore before debug death**: restores the exact in-memory LCN1 checkpoint
   captured before the preceding debug death and rebinds the living player;
+- **Destroy occupied vehicle (transactional)**: while driving a living type-1
+  Vehicle, executes the authentic damage/death path and admits the result only
+  after the falling Orphan and complete post-destruction world are capturable;
+- **Restore before vehicle destruction**: restores the single-use LCN1
+  checkpoint from immediately before the preceding diagnostic destruction;
 - **Switch Level (fresh)**: restarts any entry in the active retail/mod Level
   catalog without restoring the source world into the target.
 
@@ -56,6 +61,16 @@ gameplay input is suppressed while dead. **Restore before debug death** proves
 both world and container fingerprints against the stored pre-death summary,
 removes the death Corpse and returns to live camera/control ownership. The
 checkpoint is process-local, single-use and cleared on Level teardown.
+
+Occupied destruction is admitted only for a living type-1 Vehicle with neutral
+controls, god mode disabled and no older death/destruction checkpoint. The
+runtime ages only the historical post-entry damage-immunity timestamp and then
+uses the original `setDamage`/`LeaveVehicle` graph. Commit requires the default
+body to become live again, exactly one new falling Orphan, a stable ORP1 roster
+with its one private moving event and a second complete LCN1 capture. Recovery
+must restore the exact pre-destruction world/container fingerprints, selected
+VehicleAttr, cockpit panel, live camera, neutral controls and baseline Orphan
+roster. This remains a diagnostic transaction, not campaign repair policy.
 
 `taxi_SET_TO_POS` performs placement for both retail and debug-created Taxi
 subjects. It sweeps a one-unit sphere downward, derives a supporting normal
@@ -89,10 +104,10 @@ counters are written to `rr2nw-startup.log` on shutdown with the
 
 ## Deliberately unavailable commands
 
-Destruction while occupying a type-1 Taxi, public gameplay respawn/repair,
-actor spawning, mission mutation and raw event injection remain outside this
-menu contract. The transactional kill/restore pair is a diagnostic operation,
-not a claim that campaign death/restart or damaged Vehicle parity is complete.
+Public gameplay respawn/repair, actor spawning, mission mutation and raw event
+injection remain outside this menu contract. The transactional death and
+Vehicle-destruction recovery pairs are diagnostic operations, not a claim that
+campaign restart, repair or every damaged Vehicle class is complete.
 
 ## Acceptance
 
@@ -121,6 +136,11 @@ not a claim that campaign death/restart or damaged Vehicle parity is complete.
   shutdown.
 - The all-Level continuation matrix executes the same death/save/reconstruct/
   restore graph for all nine installed Levels in both configurations (18/18).
+- `Invoke-DebugVehicleDestruction.ps1` sends spawn-and-enter, destruction and
+  recovery through the native window in Debug and Release. It requires one
+  ORP1 creation, one post-destruction LCN1 proof, exact checkpoint recovery,
+  live final camera and clean shutdown.
 - Manual acceptance should spawn one vehicle, spawn-and-enter a second one,
-  exercise kill/restore from the default body, save/load the resulting world
-  and switch away from and back to the Level.
+  exercise kill/restore from the default body, destroy/restore while occupying
+  a type-1 Vehicle, save/load the resulting world and switch away from and back
+  to the Level.

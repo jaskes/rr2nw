@@ -277,15 +277,21 @@ bool LevelContinuation_RestoreWorld(
   }
   SActiveWorldRuntimeProbeSummary restoreSummary;
   if (!ActiveWorldRuntime_Restore(context, continuation.activeWorld,
-                                  &restoreSummary, failure))
+                                  &restoreSummary, failure)) {
+    if (failure != nullptr)
+      *failure = "LCN1 world transaction failed: " + *failure;
     return false;
+  }
 
   std::vector<std::uint8_t> recapturedBytes;
   SActiveWorldRuntimeProbeSummary recapturedSummary;
   if (!ActiveWorldRuntime_Capture(
           context, sourceWorld.contentFingerprint, sourceWorld.level,
-          &recapturedBytes, &recapturedSummary, failure))
+          &recapturedBytes, &recapturedSummary, failure)) {
+    if (failure != nullptr)
+      *failure = "LCN1 post-restore recapture failed: " + *failure;
     return false;
+  }
   SActiveWorldSnapshot restoredWorld;
   SActiveWorldSaveStatus status;
   if (!ActiveWorldSave_Decode(recapturedBytes, &restoredWorld, &status)) {
@@ -301,8 +307,8 @@ bool LevelContinuation_RestoreWorld(
   summary->worldMatches = restoredWorld.worldFingerprint ==
                           sourceWorld.worldFingerprint;
   summary->ready = restoreSummary.ready && summary->boundaryMatches &&
-                   summary->worldMatches && summary->ownerPhases == 13 &&
-                   summary->referencePhases == 13 &&
+                   summary->worldMatches && summary->ownerPhases == 14 &&
+                   summary->referencePhases == 14 &&
                    summary->eventPhases == summary->events;
   if (!summary->ready) {
     SetFailure(failure, "fresh Level recapture diverged from LCN1");

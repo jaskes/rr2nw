@@ -228,8 +228,9 @@ passes 2/2 and the full death/save/reconstruction/recovery graph passes all
 nine retail Levels in both configurations (18/18).
 
 This remains a diagnostic checkpoint, not full death/respawn parity. Type-1
-Vehicle destruction, authentic campaign restart/repair, exact HUD behavior for
-every Vehicle class and grounded spawn/settling remain Frontier C work.
+Vehicle destruction is now admitted as the separate ORP1 transaction below;
+authentic campaign restart/repair and exact HUD behavior for every Vehicle
+class remain Frontier C work.
 
 ## Occupied continuation and Taxi ownership
 
@@ -269,3 +270,25 @@ spawns all five `Level.02D` types and proves each remains exact for three live
 frames in both configurations. This closes debug-spawn ground quality for the
 flying/fantasy entries as a placement contract; their authentic flight AI and
 animation are separate actor/Vehicle work.
+
+## Occupied destruction and ORP1 recovery
+
+The first occupied-destruction slice is now executable without defining public
+respawn. From a living type-1 Vehicle with neutral controls, the Debug owner
+captures LCN1, invokes the authentic damage/death path and requires the default
+body plus exactly one new falling Orphan. ORP1 records that body's exact
+attribute, pose/dynamics/interpolation lifecycle and private movement event;
+the changed world must pass a second complete LCN1 capture before commit.
+
+The paired single-use recovery restores the original occupied VehicleAttr,
+cockpit panel, camera, neutral control state, Orphan baseline and exact
+world/container fingerprints. The unsafe-exit service proof independently
+captures an ORP1 body before impact, advances the original, reconstructs the
+saved body, and observes resumed movement, natural collision and a real stable
+Explosion. Debug and Release native-window gates both pass spawn-and-enter,
+destroy and restore.
+
+The next Vehicle gate is breadth rather than another ownership shortcut:
+repeat damage/destruction for representative wheeled, tracked and flying
+classes, confirm their panel/effect differences, then design the campaign
+restart/repair policy separately from this diagnostic checkpoint.

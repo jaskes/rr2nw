@@ -1138,7 +1138,7 @@ clock and RNG state. The live Hardware path records the same contract. This is
 the replay seam, not yet a public replay player or a fixed-tick conversion.
 
 Fresh-Level reconstruction is now admitted through
-[`LCN1`](LevelContinuation.md). It now combines thirteen owner/reference
+[`LCN1`](LevelContinuation.md). It now combines fourteen owner/reference
 phases, EVT1, clock/RNG and a sealed CTJ1 boundary, destroys and recreates the
 complete
 Level service context, requires an exact recaptured admitted-world fingerprint
@@ -1152,8 +1152,16 @@ the complete Level-local Taxi roster, including repeated retail names,
 damage/ammunition, both direction matrices and a private grounding event.
 Occupied-Vehicle continuation also reconciles the real cockpit panel,
 viewport, camera and control owner, so exiting after a save cannot leave an
-extra Taxi that survives load. AWV1 engine compatibility is 2; older
-experimental twelve-owner saves fail closed.
+extra Taxi that survives load. TXI1 originally advanced AWV1 engine
+compatibility to 2 so experimental twelve-owner saves failed closed.
+
+Orphan is now the fourteenth active-world owner (`ORP1`). A falling body keeps
+its exact attribute, pose/dynamics/interpolation state and private moving event
+across fresh reconstruction, then resumes natural movement and impact. AWV1
+engine compatibility is 3; experimental pre-ORP1 saves fail closed. Retail and
+recovered Explosion START packets are normalized into the same EVT1 relation,
+while queued events whose destination was already removed are intentionally
+discarded from the authoritative snapshot.
 
 The original completed Windows gate passed 57/57 CTest in Debug and Release, 36/36
 fresh-Level continuation runs and the independent 36/36 ordinary retail
@@ -1421,7 +1429,8 @@ and shutdown is clean. The complete gate is 66/66 CTest in each configuration,
 ### Frontier C: coherent Vehicle embodiment and death
 
 Status: in progress. The bounded camera, transactional default-body death,
-occupied continuation and grounded Taxi placement slices are complete.
+occupied continuation, grounded Taxi placement and recoverable occupied
+type-1 destruction slices are complete.
 
 Unify Taxi spawn height, ground settling, panel/HUD selection, camera ownership,
 entry/exit, destroyed Vehicle behaviour and player death. Remove the legacy
@@ -1462,9 +1471,16 @@ clearance and zero immediate drift. The real native-menu gate spawns all five
 configuration. Full CTest remains 66/66 and fresh continuation remains 9/9 per
 configuration.
 
-Next slice: admit destruction/damage while occupying type-1 Vehicles and
-define a public restart/repair policy. The debug checkpoint must not be
-promoted into campaign behavior by accident.
+Occupied type-1 destruction now runs the authentic damage graph behind a
+closed-frame debug transaction. ORP1 captures the falling abandoned body and
+its scheduler event; a second LCN1 proves the destroyed world. The paired
+single-use recovery restores the exact occupied VehicleAttr, cockpit, camera,
+controls and world/container fingerprints. Real native-window Debug and
+Release runs pass spawn-and-enter, destroy and restore.
+
+Next slice: broaden damage/destruction coverage across representative wheeled,
+tracked and flying Vehicle classes, then define a public restart/repair policy.
+The debug checkpoint must not be promoted into campaign behavior by accident.
 
 Gate: representative wheeled, tracked and flying vehicles spawn grounded,
 enter/exit without camera escape, retain the correct panel, fire, take damage,

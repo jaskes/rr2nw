@@ -709,7 +709,8 @@ bool SparkSubjectState_IsPending(
     SimulationContext *context, const KR_ObjectID &object)
 {
     Spark *spark = context == NULL ? NULL : __classTable.find(object);
-    return spark != NULL && spark->context == context && spark->clean();
+    return spark != NULL && context->isExist(object) &&
+           spark->context == context && spark->clean();
 }
 
 bool SparkSubjectState_CollectPending(

@@ -165,6 +165,12 @@ bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context);
 bool VehicleRuntimeState_DebugStabilize(SimulationContext *context);
 bool VehicleRuntimeState_DebugKill(
     SimulationContext *context, double eventTime);
+// Drives the authentic type-1 lethal-damage path at a closed frame boundary.
+// The debug owner expires only the post-exit immunity window; normal damage,
+// LeaveVehicle, Orphan creation, panel transition, and default-body handoff
+// remain owned by the recovered gameplay code.
+bool VehicleRuntimeState_DebugDestroyOccupiedVehicle(
+    SimulationContext *context, double eventTime);
 bool VehicleRuntimeState_BeginFrame(SimulationContext *context);
 bool VehicleRuntimeState_CompleteFrame(
     SimulationContext *context, double targetTime);

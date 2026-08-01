@@ -305,7 +305,7 @@ int main() {
   Player* restoredPlayer = restoredVehicle == nullptr ? nullptr :
       &static_cast<Player&>(restoredVehicle->player());
   const bool fresh = restored.ready && restored.createdOwners == 4 &&
-      restored.ownerPhases == 13 && restored.referencePhases == 13 &&
+      restored.ownerPhases == 14 && restored.referencePhases == 14 &&
       restored.clockRecords == 1 && restored.rngAlgorithm == 1 &&
       restored.rngStateBytes == 12 &&
       SUA_SimulationClockMatches(capturedClock) &&
@@ -360,7 +360,7 @@ int main() {
   if (!collisionRejected)
     return Fail("wrong-class symbolic collision mutated the live graph");
   std::printf(
-      "active world fresh restore sections=11 created=4 refs=11 vehicle=state "
+      "active world fresh restore sections=14 created=4 refs=14 vehicle=state "
       "ids=reallocated missing-dependency=rollback collision=rejected "
       "fingerprint=%llu\n",
       static_cast<unsigned long long>(restored.worldFingerprint));

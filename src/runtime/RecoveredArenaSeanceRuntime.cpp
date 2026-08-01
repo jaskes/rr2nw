@@ -6028,6 +6028,13 @@ int RecoveredArenaSeance_ActiveWorldFormatVersion() {
              : 0;
 }
 
+int RecoveredArenaSeance_ActiveWorldEngineCompatibility() {
+  return g_state.activeWorldPersistenceReady
+             ? static_cast<int>(
+                   ActiveWorldSave_EngineCompatibilityVersion())
+             : 0;
+}
+
 int RecoveredArenaSeance_ActiveWorldSections() {
   return g_state.activeWorldPersistenceReady ? g_state.activeWorldSections : -1;
 }

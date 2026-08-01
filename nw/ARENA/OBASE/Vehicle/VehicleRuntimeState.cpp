@@ -14,6 +14,9 @@ class CGRPanel;
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "message/hardmsg.h"
+#include "olevel.h"
+
+extern int g_godMode;
 
 namespace {
 
@@ -939,6 +942,41 @@ bool VehicleRuntimeState_DebugKill(
         Vehicle::m_currentTaxiOurPos.y;
     g_owner.deathCompletionObserved = false;
     return true;
+}
+
+bool VehicleRuntimeState_DebugDestroyOccupiedVehicle(
+    SimulationContext *context, double eventTime)
+{
+    AttributeVehicle *attribute = ResolveAttribute(g_owner.vehicle);
+    if (!g_owner.active || context == NULL || g_owner.context != context ||
+        g_owner.vehicle == NULL || g_owner.frameBegun ||
+        !context->isExist(g_owner.object) ||
+        !std::isfinite(eventTime) || eventTime < g_owner.lastTime ||
+        !VehicleReady(g_owner.vehicle) || attribute == NULL ||
+        attribute->m_type != 1 || Vehicle::m_dead ||
+        g_owner.vehicle->taxiChangeEnabled() || g_godMode != 0 ||
+        !std::isfinite(g_owner.vehicle->m_damage) ||
+        g_owner.vehicle->m_damage <= 0.0)
+        return false;
+
+    // Debug destruction is meant to exercise the lethal path immediately,
+    // even if the player entered this vehicle less than m_666Time ago.  Only
+    // that immunity timestamp is aged; setDamage still owns damage, exit,
+    // Orphan creation, default-attribute handoff, and panel transitions.
+    g_owner.vehicle->Stop();
+    g_owner.vehicle->m_lastLeaveTime =
+        eventTime - (std::max)(0.0, g_levelAttr.m_666Time);
+    const double lethalDamage = g_owner.vehicle->m_damage + 1.0;
+    g_owner.vehicle->setDamage(
+        lethalDamage, g_owner.vehicle->getPosition(), eventTime,
+        g_owner.object);
+
+    SRecoveredVehicleRuntimeState destroyed = {};
+    if (!ReadState(g_owner.vehicle, &destroyed) || !destroyed.active ||
+        destroyed.dead || destroyed.takingTaxi ||
+        !g_owner.vehicle->taxiChangeEnabled())
+        return false;
+    return VehicleRuntimeState_RebaseRestoredOwner(context);
 }
 
 bool VehicleRuntimeState_Advance(

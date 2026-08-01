@@ -52,6 +52,7 @@
 #include "obase/bullet/BulletSubjectState.h"
 #include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
+#include "obase/orphan/OrphanActiveWorldState.h"
 #include "obase/orphan/OrphanSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
@@ -59,6 +60,8 @@
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
+
+extern int g_godMode;
 
 namespace {
 
@@ -959,6 +962,9 @@ SRecoveredDebugLevelSwitchRequest g_debugLevelSwitchRequest;
 std::vector<std::uint8_t> g_debugPreDeathCheckpoint;
 SLevelContinuationSummary g_debugPreDeathCheckpointSummary;
 int g_debugPreDeathCorpseCount = -1;
+std::vector<std::uint8_t> g_debugPreVehicleDestructionCheckpoint;
+SLevelContinuationSummary g_debugPreVehicleDestructionCheckpointSummary;
+int g_debugPreVehicleDestructionOrphanCount = -1;
 std::vector<std::string> g_debugLevelCatalog;
 std::vector<SRecoveredDebugVehicleType> g_debugVehicleCatalog;
 struct SPendingDebugTaxiSettlement {
@@ -1032,6 +1038,8 @@ constexpr UINT kNativeDebugShowState = 0x7380u;
 constexpr UINT kNativeDebugStabilize = 0x7381u;
 constexpr UINT kNativeDebugKillPlayer = 0x7382u;
 constexpr UINT kNativeDebugRestorePreDeath = 0x7383u;
+constexpr UINT kNativeDebugDestroyOccupiedVehicle = 0x7384u;
+constexpr UINT kNativeDebugRestorePreVehicleDestruction = 0x7385u;
 constexpr UINT kNativeDebugLevelBase = 0x7400u;
 constexpr std::size_t kMaximumNativeDebugVehicleTypes = 64u;
 constexpr std::size_t kMaximumNativeDebugLevels = 256u;
@@ -1119,6 +1127,7 @@ bool SlotCanBeRequested(const SLevelSaveSlot& archive) {
 bool BuildDebugVehicleCatalog() {
   g_debugVehicleCatalog.clear();
   g_debugMenuState.vehicleTypeCount = 0;
+  g_debugMenuState.firstOccupiedVehicleIndex = -1;
   g_debugMenuState.currentLevel = ContinuationLevelIdentity();
   if (!g_debugMenuState.configured) return true;
 
@@ -1143,6 +1152,17 @@ bool BuildDebugVehicleCatalog() {
     SRecoveredDebugVehicleType type;
     type.taxiAttribute = taxi.taxiAttribute;
     type.vehicleAttribute = taxi.vehicleAttribute;
+    if (g_debugMenuState.firstOccupiedVehicleIndex < 0 &&
+        g_super.m_context != nullptr &&
+        g_super.m_context->isExist(type.vehicleAttribute.c_str())) {
+      AttributeVehicle* attribute = static_cast<AttributeVehicle*>(
+          __attrVehicleTable.searchAttribute(
+              g_super.m_context->searchObject(
+                  type.vehicleAttribute.c_str())));
+      if (attribute != nullptr && attribute->m_type != 0)
+        g_debugMenuState.firstOccupiedVehicleIndex =
+            static_cast<int>(g_debugVehicleCatalog.size());
+    }
     g_debugVehicleCatalog.push_back(type);
   }
   g_debugMenuState.vehicleTypeCount =
@@ -1277,7 +1297,8 @@ void RefreshNativeDebugMenu() {
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugShowState, state);
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugStabilize, state);
   const UINT killState = MF_BYCOMMAND |
-      (commandAvailable && !g_debugMenuState.preDeathCheckpointAvailable
+      (commandAvailable && !g_debugMenuState.preDeathCheckpointAvailable &&
+       !g_debugMenuState.preVehicleDestructionCheckpointAvailable
            ? MF_ENABLED
            : MF_GRAYED | MF_DISABLED);
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugKillPlayer, killState);
@@ -1287,6 +1308,21 @@ void RefreshNativeDebugMenu() {
            : MF_GRAYED | MF_DISABLED);
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugRestorePreDeath,
                  restoreState);
+  const UINT destroyVehicleState = MF_BYCOMMAND |
+      (commandAvailable && !g_debugMenuState.preDeathCheckpointAvailable &&
+       !g_debugMenuState.preVehicleDestructionCheckpointAvailable
+           ? MF_ENABLED
+           : MF_GRAYED | MF_DISABLED);
+  EnableMenuItem(g_nativeDebugMenu, kNativeDebugDestroyOccupiedVehicle,
+                 destroyVehicleState);
+  const UINT restoreVehicleState = MF_BYCOMMAND |
+      (commandAvailable &&
+       g_debugMenuState.preVehicleDestructionCheckpointAvailable
+           ? MF_ENABLED
+           : MF_GRAYED | MF_DISABLED);
+  EnableMenuItem(g_nativeDebugMenu,
+                 kNativeDebugRestorePreVehicleDestruction,
+                 restoreVehicleState);
   if (g_nativeDebugSpawnMenu != nullptr) {
     for (std::size_t index = 0; index < g_debugVehicleCatalog.size(); ++index) {
       EnableMenuItem(g_nativeDebugSpawnMenu,
@@ -1318,6 +1354,8 @@ bool DeferDebugCommand(ERecoveredDebugMenuAction action,
   if (!IsRetryableDebugBoundaryFailure(g_debugMenuState.lastError) ||
       attempt >= kMaximumDebugStableBoundaryAttempts)
     return false;
+  if (attempt == 1u)
+    g_debugMenuState.firstDeferredError = g_debugMenuState.lastError;
   g_debugMenuState.pending = true;
   g_debugMenuState.pendingAction = action;
   g_debugMenuState.pendingIndex = index;
@@ -1490,6 +1528,13 @@ bool InstallNativeSaveMenu() {
                     L"&Kill player (transactional)") == FALSE ||
         AppendMenuW(debugMenu, MF_STRING, kNativeDebugRestorePreDeath,
                     L"&Restore before debug death") == FALSE ||
+        AppendMenuW(debugMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
+        AppendMenuW(debugMenu, MF_STRING,
+                    kNativeDebugDestroyOccupiedVehicle,
+                    L"Destroy occupied &vehicle (transactional)") == FALSE ||
+        AppendMenuW(debugMenu, MF_STRING,
+                    kNativeDebugRestorePreVehicleDestruction,
+                    L"Restore before vehicle destruction") == FALSE ||
         AppendMenuW(debugMenu, MF_SEPARATOR, 0, nullptr) == FALSE)
       return failDebugConstruction("native Debug actions failed");
     for (std::size_t index = 0; index < g_debugLevelCatalog.size(); ++index) {
@@ -1540,6 +1585,9 @@ void ResetSaveMenuSession() {
   g_debugPreDeathCheckpoint.clear();
   g_debugPreDeathCheckpointSummary = {};
   g_debugPreDeathCorpseCount = -1;
+  g_debugPreVehicleDestructionCheckpoint.clear();
+  g_debugPreVehicleDestructionCheckpointSummary = {};
+  g_debugPreVehicleDestructionOrphanCount = -1;
   g_debugMenuState.nativeMenuInstalled = false;
   g_debugMenuState.pending = false;
   g_debugMenuState.pendingAction = RECOVERED_DEBUG_MENU_NONE;
@@ -1547,6 +1595,7 @@ void ResetSaveMenuSession() {
   g_debugMenuState.pendingAttempts = 0;
   g_debugMenuState.vehicleTypeCount = 0;
   g_debugMenuState.preDeathCheckpointAvailable = false;
+  g_debugMenuState.preVehicleDestructionCheckpointAvailable = false;
   g_debugMenuState.currentLevel.clear();
   g_saveMenuState.pending = false;
   g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_NONE;
@@ -1650,6 +1699,18 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
   }
   if (command == kNativeDebugRestorePreDeath) {
     if (!RecoveredGameServices_RequestDebugRestorePreDeath())
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeDebugDestroyOccupiedVehicle) {
+    if (!RecoveredGameServices_RequestDebugDestroyOccupiedVehicle())
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeDebugRestorePreVehicleDestruction) {
+    if (!RecoveredGameServices_RequestDebugRestorePreVehicleDestruction())
       ShowNativeDebugFailure();
     *result = 0;
     return true;
@@ -3195,8 +3256,11 @@ bool RecoveredGameServices_RestoreLevelContinuation(
   std::vector<std::uint8_t> backupBytes;
   SLevelContinuationSummary backupSummary;
   if (!RecoveredGameServices_CaptureLevelContinuation(
-          &backupBytes, &backupSummary))
+          &backupBytes, &backupSummary)) {
+    g_levelContinuationFailure =
+        "restore preflight capture failed: " + g_levelContinuationFailure;
     return false;
+  }
 
   SVehicleControlJournal restoredJournal;
   SLevelContinuationSummary restoredSummary;
@@ -3470,6 +3534,9 @@ bool RecoveredGameServices_ConfigureDebugMenu(
   g_debugPreDeathCheckpoint.clear();
   g_debugPreDeathCheckpointSummary = {};
   g_debugPreDeathCorpseCount = -1;
+  g_debugPreVehicleDestructionCheckpoint.clear();
+  g_debugPreVehicleDestructionCheckpointSummary = {};
+  g_debugPreVehicleDestructionOrphanCount = -1;
   if (enabled && g_sessionReady && !BuildDebugVehicleCatalog()) {
     Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
     return false;
@@ -3531,6 +3598,22 @@ bool RecoveredGameServices_RequestDebugRestorePreDeath() {
   }
   return StageDebugCommand(
       RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH, 0u);
+}
+
+bool RecoveredGameServices_RequestDebugDestroyOccupiedVehicle() {
+  return StageDebugCommand(
+      RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE, 0u);
+}
+
+bool RecoveredGameServices_RequestDebugRestorePreVehicleDestruction() {
+  if (!g_debugMenuState.preVehicleDestructionCheckpointAvailable ||
+      g_debugPreVehicleDestructionCheckpoint.empty()) {
+    g_debugMenuState.lastError =
+        "no committed pre-destruction vehicle checkpoint is available";
+    return false;
+  }
+  return StageDebugCommand(
+      RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION, 0u);
 }
 
 bool RecoveredGameServices_RequestDebugLevelSwitch(std::size_t index) {
@@ -3595,6 +3678,9 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
          << "\nTaxi/death transform: " << vehicleState.takingTaxi
          << "\nPre-death checkpoint: "
          << (g_debugMenuState.preDeathCheckpointAvailable ? 1 : 0)
+         << "\nPre-vehicle-destruction checkpoint: "
+         << (g_debugMenuState.preVehicleDestructionCheckpointAvailable
+                 ? 1 : 0)
          << "\nTaxi types: " << g_debugVehicleCatalog.size();
     g_debugMenuState.lastAction = "show-state";
     g_debugMenuState.lastCommandAttempts = attempt;
@@ -3645,7 +3731,9 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
     Vehicle* controlled = static_cast<Vehicle*>(
         g_super.m_context->queryInterface(vehicle, IVehicleIID));
     if (g_debugMenuState.preDeathCheckpointAvailable ||
-        !g_debugPreDeathCheckpoint.empty()) {
+        g_debugMenuState.preVehicleDestructionCheckpointAvailable ||
+        !g_debugPreDeathCheckpoint.empty() ||
+        !g_debugPreVehicleDestructionCheckpoint.empty()) {
       g_debugMenuState.lastError =
           "restore the existing pre-death checkpoint before killing again";
     } else if (vehicleState.dead || vehicleState.takingTaxi ||
@@ -3656,6 +3744,36 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
     } else if (g_vehicleControlInput.ActiveActionCount() != 0u) {
       g_debugMenuState.lastError =
           "debug death requires neutral Vehicle controls";
+      if (DeferDebugCommand(action, index, attempt)) return false;
+    }
+    if (!g_debugMenuState.lastError.empty()) {
+      g_debugMenuState.lastCommandAttempts = attempt;
+      ++g_debugMenuState.failedCommands;
+      RefreshNativeDebugMenu();
+      return false;
+    }
+  }
+
+  if (action == RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE) {
+    Vehicle* controlled = static_cast<Vehicle*>(
+        g_super.m_context->queryInterface(vehicle, IVehicleIID));
+    if (g_debugMenuState.preDeathCheckpointAvailable ||
+        g_debugMenuState.preVehicleDestructionCheckpointAvailable ||
+        !g_debugPreDeathCheckpoint.empty() ||
+        !g_debugPreVehicleDestructionCheckpoint.empty()) {
+      g_debugMenuState.lastError =
+          "restore the existing debug checkpoint before destroying again";
+    } else if (vehicleState.dead || vehicleState.takingTaxi ||
+               controlled == nullptr ||
+               controlled->taxiChangeEnabled()) {
+      g_debugMenuState.lastError =
+          "debug destruction requires a living occupied type-1 vehicle";
+    } else if (g_godMode != 0) {
+      g_debugMenuState.lastError =
+          "disable god mode before exercising authentic vehicle damage";
+    } else if (g_vehicleControlInput.ActiveActionCount() != 0u) {
+      g_debugMenuState.lastError =
+          "debug destruction requires neutral Vehicle controls";
       if (DeferDebugCommand(action, index, attempt)) return false;
     }
     if (!g_debugMenuState.lastError.empty()) {
@@ -3736,6 +3854,69 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
         g_debugMenuState.lastError =
             "real player death lifecycle did not reach a saveable state";
     }
+  } else if (action ==
+             RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE) {
+    const int orphanBaseline = OrphanSubjectState_LiveCount();
+    const double eventTime =
+        (std::max)(0.1, (std::max)(Session::m_viewTime,
+                                  vehicleState.lastTime));
+    Vehicle* controlled = static_cast<Vehicle*>(
+        g_super.m_context->queryInterface(vehicle, IVehicleIID));
+    SRecoveredVehicleRuntimeState destroyedVehicle = {};
+    std::vector<unsigned char> orphanState;
+    std::vector<std::uint8_t> destroyedContinuation;
+    SLevelContinuationSummary destroyedSummary;
+    mutationStarted = true;
+    const bool destructionMutated = orphanBaseline >= 0 &&
+        controlled != nullptr &&
+        VehicleRuntimeState_DebugDestroyOccupiedVehicle(
+            g_super.m_context, eventTime);
+    const bool destructionOwned = destructionMutated &&
+        VehicleRuntimeState_Inspect(
+            g_super.m_context, vehicle, &destroyedVehicle) &&
+        !destroyedVehicle.dead && !destroyedVehicle.takingTaxi &&
+        controlled->taxiChangeEnabled() &&
+        OrphanSubjectState_LiveCount() == orphanBaseline + 1 &&
+        g_vehicleControlInput.IsSubscribed() &&
+        g_vehicleControlInput.ActiveActionCount() == 0u;
+    const bool orphanCaptured = destructionOwned &&
+        OrphanActiveWorldState_CaptureStable(
+            g_super.m_context, &orphanState) &&
+        OrphanActiveWorldState_SchedulerEventCount(orphanState) ==
+            orphanBaseline + 1 &&
+        OrphanActiveWorldState_Fingerprint(g_super.m_context) != 0;
+    const bool destructionCaptured = orphanCaptured &&
+        RecoveredGameServices_CaptureLevelContinuation(
+            &destroyedContinuation, &destroyedSummary);
+    completed = destructionCaptured && destroyedSummary.ready &&
+        destroyedSummary.sections == 14 &&
+        destroyedSummary.worldFingerprint != 0 &&
+        destroyedSummary.containerFingerprint != 0;
+    if (completed) {
+      g_debugPreVehicleDestructionCheckpoint = backup;
+      g_debugPreVehicleDestructionCheckpointSummary = backupSummary;
+      g_debugPreVehicleDestructionOrphanCount = orphanBaseline;
+      g_debugMenuState.preVehicleDestructionCheckpointAvailable = true;
+      g_debugMenuState.destructionWorldFingerprint =
+          destroyedSummary.worldFingerprint;
+      g_debugMenuState.destructionContinuationFingerprint =
+          destroyedSummary.containerFingerprint;
+      g_debugMenuState.destructionOrphanFingerprint =
+          OrphanActiveWorldState_Fingerprint(g_super.m_context);
+      ++g_debugMenuState.forcedVehicleDestructions;
+      ++g_debugMenuState.destructionOrphanCreations;
+      ++g_debugMenuState.destructionSaveProofs;
+      g_debugMenuState.lastAction = "destroy-occupied-vehicle";
+    } else {
+      g_debugMenuState.lastError =
+          RecoveredGameServices_LastLevelContinuationError();
+      if (g_debugMenuState.lastError.empty())
+        g_debugMenuState.lastError =
+            OrphanActiveWorldState_LastFailure();
+      if (g_debugMenuState.lastError.empty())
+        g_debugMenuState.lastError =
+            "occupied Vehicle destruction did not reach a saveable ORP1 state";
+    }
   } else if (action == RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH) {
     mutationStarted = true;
     SLevelContinuationSummary restored;
@@ -3768,6 +3949,66 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
       if (g_debugMenuState.lastError.empty())
         g_debugMenuState.lastError =
             "pre-death checkpoint restore did not rebind the live player";
+    }
+  } else if (action ==
+             RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION) {
+    mutationStarted = true;
+    SLevelContinuationSummary restored;
+    completed =
+        g_debugMenuState.preVehicleDestructionCheckpointAvailable &&
+        !g_debugPreVehicleDestructionCheckpoint.empty() &&
+        g_debugPreVehicleDestructionOrphanCount >= 0 &&
+        RecoveredGameServices_RestoreLevelContinuation(
+            g_debugPreVehicleDestructionCheckpoint, &restored);
+    KR_ObjectID restoredVehicleID =
+        g_super.m_context->searchObject("Vehicle.Default");
+    Vehicle* restoredObject = restoredVehicleID.isNUL()
+        ? nullptr
+        : static_cast<Vehicle*>(g_super.m_context->queryInterface(
+              restoredVehicleID, IVehicleIID));
+    SRecoveredVehicleRuntimeState restoredVehicle = {};
+    SRecoveredVehicleCameraTelemetry restoredCamera = {};
+    std::vector<std::uint8_t> recapturedBytes;
+    SLevelContinuationSummary recaptured;
+    completed = completed && restored.ready &&
+        restored.worldFingerprint ==
+            g_debugPreVehicleDestructionCheckpointSummary.worldFingerprint &&
+        restored.containerFingerprint ==
+            g_debugPreVehicleDestructionCheckpointSummary
+                .containerFingerprint &&
+        restoredObject != nullptr &&
+        VehicleRuntimeState_Inspect(
+            g_super.m_context, restoredVehicleID, &restoredVehicle) &&
+        !restoredVehicle.dead && !restoredVehicle.takingTaxi &&
+        !restoredObject->taxiChangeEnabled() && restoredObject->panelReady() &&
+        OrphanSubjectState_LiveCount() ==
+            g_debugPreVehicleDestructionOrphanCount &&
+        VehicleRuntimeState_InspectCamera(
+            g_super.m_context, &restoredCamera) &&
+        restoredCamera.mode == RECOVERED_VEHICLE_CAMERA_LIVE &&
+        g_vehicleControlInput.IsSubscribed() &&
+        g_vehicleControlInput.ActiveActionCount() == 0u &&
+        RecoveredGameServices_CaptureLevelContinuation(
+            &recapturedBytes, &recaptured) && recaptured.ready &&
+        recaptured.worldFingerprint ==
+            g_debugPreVehicleDestructionCheckpointSummary.worldFingerprint &&
+        recaptured.containerFingerprint ==
+            g_debugPreVehicleDestructionCheckpointSummary
+                .containerFingerprint;
+    if (completed) {
+      g_debugPreVehicleDestructionCheckpoint.clear();
+      g_debugPreVehicleDestructionCheckpointSummary = {};
+      g_debugPreVehicleDestructionOrphanCount = -1;
+      g_debugMenuState.preVehicleDestructionCheckpointAvailable = false;
+      ++g_debugMenuState.restoredPreVehicleDestructionCheckpoints;
+      g_debugMenuState.lastAction =
+          "restore-pre-vehicle-destruction";
+    } else {
+      g_debugMenuState.lastError =
+          RecoveredGameServices_LastLevelContinuationError();
+      if (g_debugMenuState.lastError.empty())
+        g_debugMenuState.lastError =
+            "pre-destruction checkpoint restore did not rebind the occupied Vehicle";
     }
   } else if (action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE ||
              action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE) {

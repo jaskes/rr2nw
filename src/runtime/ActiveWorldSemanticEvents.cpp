@@ -30,6 +30,7 @@ const std::uint32_t kPayloadVersion = 1u;
 const std::size_t kMaximumString = MAX_SYMBOLIC_LENGHT - 1;
 
 const char kProbeExplosion[] = "Expl.ActiveWorld.Event.Probe";
+const char kProbeStaleExplosion[] = "Expl.ActiveWorld.Event.Stale.Probe";
 const char kProbeSpark[] = "Spark.ActiveWorld.Event.Probe";
 const char kProbeCorpse[] = "Corpse.ActiveWorld.Event.Probe";
 
@@ -426,15 +427,25 @@ bool DecodePayload(const SActiveWorldEvent &event, SemanticRecord *record)
 }
 
 bool DecodeQueuedEvent(SimulationContext *context, KR_Event event,
-                       EffectKind kind, SemanticRecord *record)
+                       EffectKind kind, SemanticRecord *record,
+                       std::string *detail)
 {
+    const auto reject = [detail](const char *reason)
+    {
+        if (detail != NULL)
+            *detail = reason;
+        return false;
+    };
     if (context == NULL || record == NULL ||
         !std::isfinite(event.timeStamp) || event.timeStamp < 0.1)
-        return false;
+        return reject("invalid context, record, or timestamp");
     const std::string destination = ObjectName(context, event.destination);
-    if (destination.empty() || !context->isExist(destination.c_str()) ||
-        context->searchObject(destination.c_str()) != event.destination)
-        return false;
+    // Effect tables intentionally admit several pending owners with the same
+    // symbolic name. PendingOrdinal() below disambiguates the exact ObjectID;
+    // requiring name lookup to resolve back to this occurrence would reject
+    // every duplicate except the context's currently indexed one.
+    if (destination.empty() || !context->isExist(event.destination))
+        return reject("destination identity is unavailable");
     if (kind == kMissionCheck)
     {
         int missionIndex = -1;
@@ -465,24 +476,37 @@ bool DecodeQueuedEvent(SimulationContext *context, KR_Event event,
     if (!IsPending(context, kind, event.destination) ||
         !PendingOrdinal(context, kind, destination, event.destination,
                         &record->ordinal))
-        return false;
+        return reject("pending owner or occurrence is unavailable");
     int attributeIndex = -1;
     KR_ObjectID relation = KR_ObjectID::NUL();
     s_EventData &data = event.data.open(EDO_READ);
     if (kind == kEffectExplosion)
     {
-        const int expected = static_cast<int>(
+        const int recoveredSize = static_cast<int>(
             sizeof(int) + sizeof(double) * 3 + sizeof(KR_ObjectID));
-        if (data.remaining() != expected)
+        const int retailSize = static_cast<int>(
+            sizeof(int) + sizeof(double) * 3);
+        const int payloadSize = data.remaining();
+        if (payloadSize != recoveredSize && payloadSize != retailSize)
         {
             data.close();
-            return false;
+            return reject("Explosion payload size is unsupported");
+        }
+        if (payloadSize == recoveredSize &&
+            event.source != event.destination)
+        {
+            data.close();
+            return reject("canonical Explosion source is not self");
         }
         data.getInt(attributeIndex)
             .getDouble(record->position.x)
             .getDouble(record->position.y)
-            .getDouble(record->position.z)
-            .getObjectID(relation).close();
+            .getDouble(record->position.z);
+        if (payloadSize == recoveredSize)
+            data.getObjectID(relation);
+        else
+            relation = event.source;
+        data.close();
     }
     else if (kind == kEffectSpark)
     {
@@ -490,7 +514,7 @@ bool DecodeQueuedEvent(SimulationContext *context, KR_Event event,
         if (data.remaining() != expected)
         {
             data.close();
-            return false;
+            return reject("Spark payload size is unsupported");
         }
         data.getDouble(record->position.x)
             .getDouble(record->position.y)
@@ -504,7 +528,7 @@ bool DecodeQueuedEvent(SimulationContext *context, KR_Event event,
         if (data.remaining() != expected)
         {
             data.close();
-            return false;
+            return reject("Corpse payload size is unsupported");
         }
         data.getObjectID(relation)
             .getInt(attributeIndex)
@@ -513,22 +537,29 @@ bool DecodeQueuedEvent(SimulationContext *context, KR_Event event,
             .getDouble(record->position.z).close();
     }
     record->kind = kind;
-    record->sourceKind = event.source == event.destination
+    // Normalize both recovered and retail Explosion START packets. Retail
+    // stores the damage owner in event.source and has no owner payload;
+    // EVT1 always writes a self source and stores that relationship in its
+    // canonical relation field.
+    record->sourceKind = kind == kEffectExplosion ||
+                         event.source == event.destination
         ? kReferenceSelf : kReferenceTombstone;
     std::string source;
-    if (event.source != event.destination &&
+    if (kind != kEffectExplosion && event.source != event.destination &&
         !SymbolicReference(context, event.source,
                            &record->sourceKind, &source))
-        return false;
+        return reject("source identity is not symbolic");
     if (!AttributeName(context, kind, attributeIndex,
                        &record->attribute) ||
         !FiniteVector(record->position))
-        return false;
+        return reject("attribute index or position is invalid");
     record->relationKind = kReferenceTombstone;
     record->relation.clear();
-    return kind == kEffectSpark ||
-           SymbolicReference(context, relation,
-                             &record->relationKind, &record->relation);
+    if (kind != kEffectSpark &&
+        !SymbolicReference(context, relation,
+                           &record->relationKind, &record->relation))
+        return reject("relation identity is not symbolic");
+    return true;
 }
 
 bool SameEvent(const SActiveWorldEvent &left,
@@ -704,14 +735,19 @@ bool ActiveWorldSemanticEvents_Capture(
         EffectKind kind;
         if (!KindFromLabel(queued[index].label, &kind) ||
             (kind != kMissionCheck &&
-             !IsPending(context, kind, queued[index].destination)))
+             (!context->isExist(queued[index].destination) ||
+              ObjectName(context, queued[index].destination).empty() ||
+              !IsPending(context, kind, queued[index].destination))))
             continue;
         SemanticRecord record;
-        if (!DecodeQueuedEvent(context, queued[index], kind, &record))
+        std::string decodeDetail;
+        if (!DecodeQueuedEvent(
+                context, queued[index], kind, &record, &decodeDetail))
         {
             SetFailure(failure, std::string("EVT1 queued effect payload is ") +
                 "invalid: label=" + std::to_string(queued[index].label) +
-                " bytes=" + std::to_string(queued[index].data.size()));
+                " bytes=" + std::to_string(queued[index].data.size()) +
+                " reason=" + decodeDetail);
             return false;
         }
         SActiveWorldEvent saved = {};
@@ -1007,7 +1043,7 @@ bool ActiveWorldSemanticEvents_StageProbe(
         !SparkAttributeState_VisualResourcesResolved(context) ||
         !CorpseAttributeState_RuntimeReady(context))
         return true;
-    if (context->eventFreeCount() < 3 ||
+    if (context->eventFreeCount() < 5 ||
         !ActiveWorldSemanticEvents_ClearProbe(context, failure))
         return false;
 
@@ -1043,6 +1079,7 @@ bool ActiveWorldSemanticEvents_StageProbe(
         ? timeStamp : 0.1;
     const KR_ObjectID vehicle = context->searchObject("Vehicle.Default");
     std::string stageFailure = "Explosion queue rejected the probe";
+    KR_ObjectID staleExplosion = KR_ObjectID::NUL();
     ExplosionImpactRequest explosion = {
         CFVector3(4096.0, 10000.0, -4096.0), ts, vehicle,
         explosionTable, explosionIndex, kProbeExplosion};
@@ -1050,6 +1087,34 @@ bool ActiveWorldSemanticEvents_StageProbe(
     if (!ExplosionSubjectState_QueueBatch(
             context, &explosion, 1, &explosionObject))
         goto failed;
+    {
+        // Equal-name effects are a retail reality (Level.04D exposes it during
+        // the fresh Release continuation sweep). EVT1 identifies each pending
+        // owner by the table-stable occurrence ordinal, not by a unique name.
+        ExplosionImpactRequest duplicate = explosion;
+        duplicate.position.x += 1.0;
+        KR_ObjectID duplicateExplosion = KR_ObjectID::NUL();
+        if (!ExplosionSubjectState_QueueBatch(
+                context, &duplicate, 1, &duplicateExplosion) ||
+            duplicateExplosion == explosionObject) {
+            stageFailure = "duplicate-name Explosion queue rejected the probe";
+            goto failed;
+        }
+    }
+    {
+        ExplosionImpactRequest stale = explosion;
+        stale.objectName = kProbeStaleExplosion;
+        if (!ExplosionSubjectState_QueueBatch(
+                context, &stale, 1, &staleExplosion)) {
+            stageFailure = "stale Explosion queue rejected the probe";
+            goto failed;
+        }
+        context->removeObject(staleExplosion);
+        if (context->isExist(staleExplosion)) {
+            stageFailure = "stale Explosion owner survived removal";
+            goto failed;
+        }
+    }
 
     {
         SparkCreateRequest spark = {
@@ -1090,16 +1155,38 @@ bool ActiveWorldSemanticEvents_StageProbe(
                 : *failure;
             goto failed;
         }
-        if (events.size() < 3) {
-            stageFailure = std::string("EVT1 captured only ") +
-                std::to_string(events.size()) + " of three probe effects";
+        std::size_t explosionEvents = 0;
+        std::size_t sparkEvents = 0;
+        std::size_t corpseEvents = 0;
+        for (std::size_t index = 0; index < events.size(); ++index) {
+            if (events[index].destination == kProbeExplosion)
+                ++explosionEvents;
+            else if (events[index].destination == kProbeSpark)
+                ++sparkEvents;
+            else if (events[index].destination == kProbeCorpse)
+                ++corpseEvents;
+            else if (events[index].destination == kProbeStaleExplosion) {
+                stageFailure =
+                    "EVT1 retained an event for an absent destination";
+                goto failed;
+            }
+        }
+        if (explosionEvents != 2 || sparkEvents != 1 || corpseEvents != 1) {
+            stageFailure = std::string("EVT1 captured probe effects as ") +
+                std::to_string(explosionEvents) + "/" +
+                std::to_string(sparkEvents) + "/" +
+                std::to_string(corpseEvents) + " instead of 2/1/1";
             goto failed;
         }
     }
+    if (!IsNul(staleExplosion))
+        while (context->removeEvent(EXPLOSION_START, staleExplosion) != 0) {}
     *staged = true;
     return true;
 
 failed:
+    if (!IsNul(staleExplosion))
+        while (context->removeEvent(EXPLOSION_START, staleExplosion) != 0) {}
     ActiveWorldSemanticEvents_ClearProbe(context, NULL);
     SetFailure(failure, std::string("EVT1 retail staging failed: ") +
                             stageFailure);

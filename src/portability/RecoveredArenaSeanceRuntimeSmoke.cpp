@@ -1089,10 +1089,11 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 13 ||
+      RecoveredArenaSeance_ActiveWorldEngineCompatibility() != 3 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 14 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 13 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 13 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 14 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 14 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldMissionRecords() != 0 ||

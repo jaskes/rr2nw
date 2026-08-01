@@ -1693,6 +1693,25 @@ playable Level begins.
   passes all five `Level.02D` types in both configurations. This does not claim
   authentic flight AI or animation for dragon/helicopter/animal entries.
 
+### RP-VEHICLE-005: occupied destruction preserves the falling body
+
+- Classification: `PORTABILITY_FIX_ACCEPTED`, `SAVE_CONTRACT_EXTENDED`,
+  `DEBUG_RECOVERY_ONLY`.
+- Authentic occupied type-1 destruction returns control to the default body
+  and creates a falling Orphan; the debug command wraps that graph in pre- and
+  post-mutation LCN1 captures rather than synthesizing a destroyed flag.
+- ORP1 is owner section 14. It replaces the complete Orphan roster by symbolic
+  name occurrence and preserves the dropped body's TaxiAttr, current/stored
+  directions, position, speed, damage, last-event/interpolation fields,
+  visibility and the one private moving event. AWV1 engine compatibility is 3.
+- A restored falling body resumes real frames, collides and produces one
+  accepted stable retail Explosion. EVT1 accepts the retail 28-byte START
+  packet and the recovered 36-byte packet, normalizing both damage-owner
+  relations. Stale events to removed owners are not save authority.
+- `Invoke-DebugVehicleDestruction.ps1` passes the real native menu in Debug and
+  Release and returns to the exact occupied panel/camera/control state. This
+  does not yet define public campaign respawn or repair.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

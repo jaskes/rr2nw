@@ -222,15 +222,16 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("renderer framebuffer is empty")
                 }
                 if ((Get-LogInteger $log "active_world_persistence_initialized") -ne 1 -or
-                    (Get-LogInteger $log "active_world_format_version") -ne 1) {
+                    (Get-LogInteger $log "active_world_format_version") -ne 1 -or
+                    (Get-LogInteger $log "active_world_engine_compatibility") -ne 3) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "13/4") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse/Clock/Taxi section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "14/4") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse/Clock/Taxi/Orphan section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "13/13/4") {
+                    $log["active_world_restore_phases"] -ne "14/14/4") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("mission_active_world_probe") -or
@@ -375,6 +376,8 @@ foreach ($configurationName in $Configuration) {
                 renderer_lit_pixels = Get-LogInteger $log "renderer_lit_pixels"
                 renderer_framebuffer_hash = Get-LogUnsigned $log "renderer_framebuffer_hash"
                 renderer_nonclear_pixels = Get-LogInteger $log "renderer_framebuffer_nonclear_pixels"
+                active_world_format_version = Get-LogInteger $log "active_world_format_version"
+                active_world_engine_compatibility = Get-LogInteger $log "active_world_engine_compatibility"
                 active_world_sections = [string]$log["active_world_owner_event_sections"]
                 active_world_restore_phases = [string]$log["active_world_restore_phases"]
                 active_world_integrity_probe = [string]$log["active_world_integrity_probe"]
@@ -421,7 +424,8 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     renderer_nonperspective_bump_ignored, renderer_dithered_bump, renderer_light_through,
     renderer_light_approximations, renderer_lit_polygons,
     renderer_lit_pixels, renderer_framebuffer_hash,
-    renderer_nonclear_pixels, active_world_sections,
+    renderer_nonclear_pixels, active_world_format_version,
+    active_world_engine_compatibility, active_world_sections,
     active_world_restore_phases, active_world_integrity_probe,
     active_world_created_owners, mission_active_world_probe,
     continuation_state_probe,

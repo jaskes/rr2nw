@@ -36,6 +36,7 @@
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanSubjectState.h"
+#include "obase/orphan/OrphanActiveWorldState.h"
 #include "obase/people/PeopleActiveWorldState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkSubjectState.h"
@@ -1333,6 +1334,7 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
 
   const int taxiCount = TaxiSubjectState_LiveCount();
   const int orphanCount = OrphanSubjectState_LiveCount();
+  const int explosionCount = ExplosionSubjectState_LiveCount();
   vehicle->Stop();
   CFMatrix3x4 direction;
   direction.LoadIdentity();
@@ -1360,22 +1362,175 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
       dropped.hardwareSubscriptionPreserved != 1)
     return false;
 
-  bool impacted = false;
+  // The unsafe exit owns a real, falling Orphan between the F1 transition and
+  // its terminal impact.  This is exactly the save boundary that used to be
+  // absent from LCN1: capture both the owner payload and the complete
+  // continuation while the private moving event is pending.
+  KR_ObjectID sourceOrphan = OrphanSubjectState_FirstObject(context);
+  std::vector<unsigned char> orphanState;
+  std::vector<std::uint8_t> continuation;
+  SLevelContinuationSummary captured;
+  unsigned long long sourceOrphanFingerprint = 0;
+  bool continuationCaptured = false;
+  // Other real Level-local owners may be between their own canonical states
+  // on the exact F1 frame (Level.01D/01N commonly have a live Bullet). Keep
+  // advancing complete frames while the Orphan is still falling and capture
+  // the first boundary at which the entire world is serializable.
+  for (int boundaryFrame = 0; boundaryFrame < 48; ++boundaryFrame) {
+    orphanState.clear();
+    continuation.clear();
+    captured = SLevelContinuationSummary();
+    sourceOrphanFingerprint =
+        OrphanActiveWorldState_Fingerprint(context);
+    continuationCaptured = sourceOrphanFingerprint != 0 &&
+        OrphanActiveWorldState_CaptureStable(context, &orphanState) &&
+        OrphanActiveWorldState_SchedulerEventCount(orphanState) == 1 &&
+        OrphanActiveWorldState_MatchesStable(context, orphanState) &&
+        RecoveredGameServices_CaptureLevelContinuation(
+            &continuation, &captured) && captured.ready &&
+        captured.sections == 14;
+    if (continuationCaptured) break;
+    if (OrphanSubjectState_LiveCount() != orphanCount + 1 ||
+        !RunVehicleFrameAfter(0.025) ||
+        !RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped))
+      break;
+  }
+  if (sourceOrphan.isNUL() || !continuationCaptured) {
+    std::fprintf(stderr,
+                 "ORP1 live capture failed owner=%d fingerprint=%llu "
+                 "bytes=%zu events=%d matches=%d continuation=%d/%d "
+                 "sections=%d orphan_error=%s level_error=%s\n",
+                 sourceOrphan.isNUL() ? 0 : 1,
+                 sourceOrphanFingerprint, orphanState.size(),
+                 OrphanActiveWorldState_SchedulerEventCount(orphanState),
+                 OrphanActiveWorldState_MatchesStable(context, orphanState)
+                     ? 1 : 0,
+                 continuation.empty() ? 0 : 1, captured.ready ? 1 : 0,
+                 captured.sections,
+                 OrphanActiveWorldState_LastFailure(),
+                 RecoveredGameServices_LastLevelContinuationError());
+    return false;
+  }
+
+  // Advance enough complete frames to make the falling body observably
+  // divergent, while deliberately remaining before its impact.  This leaves
+  // both the source and replacement worlds at admissible ORP1 boundaries.
+  for (int frame = 0; frame < 8; ++frame)
+    if (!RunVehicleFrameAfter(0.025) ||
+        !RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped))
+      return false;
+  if (OrphanSubjectState_LiveCount() != orphanCount + 1 ||
+      dropped.orphanMoveEvents <= before.orphanMoveEvents ||
+      OrphanActiveWorldState_Fingerprint(context) ==
+          sourceOrphanFingerprint)
+    return false;
+
+  // Restore the whole post-exit boundary, not a synthetic Orphan-only
+  // fixture.  The reconstructed object must carry byte-identical ORP1 state,
+  // the exact LCN1 fingerprint, and resume its authentic impact lifecycle.
+  SLevelContinuationSummary restored;
+  const bool continuationRestored =
+      RecoveredGameServices_RestoreLevelContinuation(
+          continuation, &restored);
+  const bool orphanRestored =
+      OrphanActiveWorldState_MatchesStable(context, orphanState);
+  if (!continuationRestored || !restored.ready ||
+      restored.worldFingerprint != captured.worldFingerprint ||
+      restored.containerFingerprint != captured.containerFingerprint ||
+      OrphanSubjectState_LiveCount() != orphanCount + 1 ||
+      OrphanActiveWorldState_Fingerprint(context) !=
+          sourceOrphanFingerprint ||
+      !orphanRestored) {
+    std::fprintf(stderr,
+                 "ORP1 continuation restore failed accepted=%d ready=%d "
+                 "world=%llu/%llu container=%llu/%llu live=%d/%d "
+                 "fingerprint=%llu/%llu matches=%d orphan_error=%s "
+                 "level_error=%s\n",
+                 continuationRestored ? 1 : 0, restored.ready ? 1 : 0,
+                 static_cast<unsigned long long>(restored.worldFingerprint),
+                 static_cast<unsigned long long>(captured.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     restored.containerFingerprint),
+                 static_cast<unsigned long long>(
+                     captured.containerFingerprint),
+                 OrphanSubjectState_LiveCount(), orphanCount + 1,
+                 OrphanActiveWorldState_Fingerprint(context),
+                 sourceOrphanFingerprint, orphanRestored ? 1 : 0,
+                 OrphanActiveWorldState_LastFailure(),
+                 RecoveredGameServices_LastLevelContinuationError());
+    return false;
+  }
+  KR_ObjectID reconstructedOrphan =
+      OrphanSubjectState_FirstObject(context);
+  if (reconstructedOrphan.isNUL() || reconstructedOrphan == sourceOrphan) {
+    std::fprintf(stderr,
+                 "ORP1 reconstructed owner identity was not replaced\n");
+    return false;
+  }
+
+  std::vector<std::uint8_t> recapturedBytes;
+  SLevelContinuationSummary recaptured;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &recapturedBytes, &recaptured) || !recaptured.ready ||
+      recaptured.worldFingerprint != captured.worldFingerprint ||
+      recaptured.containerFingerprint != captured.containerFingerprint) {
+    std::fprintf(stderr,
+                 "ORP1 recapture failed ready=%d world=%llu/%llu "
+                 "container=%llu/%llu error=%s\n",
+                 recaptured.ready ? 1 : 0,
+                 static_cast<unsigned long long>(recaptured.worldFingerprint),
+                 static_cast<unsigned long long>(captured.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     recaptured.containerFingerprint),
+                 static_cast<unsigned long long>(
+                     captured.containerFingerprint),
+                 RecoveredGameServices_LastLevelContinuationError());
+    return false;
+  }
+
+  bool resumedImpact = false;
+  bool retailExplosionAccepted = false;
+  const unsigned int restoredMoveBaseline = dropped.orphanMoveEvents;
+  const unsigned int restoredImpactBaseline = dropped.orphanImpacts;
+  const unsigned int restoredExplosionBaseline = dropped.orphanExplosions;
   for (int frame = 0; frame < 320; ++frame) {
     if (!RunVehicleFrameAfter(0.025) ||
         !RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped))
       return false;
     if (OrphanSubjectState_LiveCount() == orphanCount &&
-        dropped.orphanMoveEvents > before.orphanMoveEvents &&
-        dropped.orphanImpacts > before.orphanImpacts &&
-        dropped.orphanExplosions > before.orphanExplosions &&
-        dropped.orphanRenderFrames > before.orphanRenderFrames) {
-      impacted = true;
+        dropped.orphanMoveEvents > restoredMoveBaseline &&
+        dropped.orphanImpacts > restoredImpactBaseline) {
+      resumedImpact = true;
+      std::vector<unsigned char> impactExplosionState;
+      retailExplosionAccepted =
+          dropped.orphanExplosions == restoredExplosionBaseline + 1 &&
+          ExplosionActiveWorldState_CaptureStable(
+              context, &impactExplosionState) &&
+          ExplosionActiveWorldState_SchedulerEventCount(
+              impactExplosionState) >=
+              ExplosionSubjectState_LiveCount() &&
+          ExplosionActiveWorldState_Fingerprint(context) != 0;
       break;
     }
   }
-  return impacted && dropped.liveOrphans == 0 &&
+  const bool result = resumedImpact && retailExplosionAccepted &&
+         dropped.liveOrphans == 0 &&
+         OrphanSubjectState_LiveCount() == orphanCount &&
          dropped.hardwareSubscriptionPreserved == 1;
+  if (!result)
+    std::fprintf(stderr,
+                 "ORP1 resumed impact failed resumed=%d explosion=%d "
+                 "explosion_live=%d/%d explosion_events=%u/%u live=%u/%d "
+                 "moves=%u/%u impacts=%u/%u subscription=%d\n",
+                 resumedImpact ? 1 : 0,
+                 retailExplosionAccepted ? 1 : 0,
+                 ExplosionSubjectState_LiveCount(), explosionCount,
+                 dropped.orphanExplosions, restoredExplosionBaseline,
+                 dropped.liveOrphans, orphanCount,
+                 dropped.orphanMoveEvents, restoredMoveBaseline,
+                 dropped.orphanImpacts, restoredImpactBaseline,
+                 dropped.hardwareSubscriptionPreserved);
+  return result;
 }
 
 bool PrepareVehiclePrimaryFire(Vehicle* vehicle,
@@ -1616,11 +1771,29 @@ bool VisibleProbeAboveTerrain(double clearance, double forwardDistance,
   return std::isfinite(position->y);
 }
 
+bool VisibleProbeAboveViewTerrain(double clearance, CFVector3* position) {
+  if (position == nullptr || !std::isfinite(clearance) || clearance <= 0.0)
+    return false;
+  *position = CViewObject::m_viewPointInvMx.Offset();
+  if (!std::isfinite(position->x) || !std::isfinite(position->y) ||
+      !std::isfinite(position->z))
+    return false;
+  CViewScene* scene = CViewScene::Current();
+  if (scene == nullptr || scene->GetTerrain() == nullptr) return false;
+  CFVector3 normal;
+  double landY = 0.0;
+  scene->GetTerrain()->GetPlane(*position, normal, landY);
+  if (!std::isfinite(landY) || !std::isfinite(normal.x) ||
+      !std::isfinite(normal.y) || !std::isfinite(normal.z))
+    return false;
+  position->y = landY + clearance;
+  return std::isfinite(position->y);
+}
+
 bool OpenExplosionSaveBoundary(CViewDynamicList* dynamics,
                                KR_ObjectID* explosion) {
   if (dynamics == nullptr || explosion == nullptr ||
-      g_super.m_context == nullptr ||
-      ExplosionSubjectState_LiveCount() != 0) {
+      g_super.m_context == nullptr) {
     return false;
   }
   *explosion = KR_ObjectID::NUL();
@@ -1645,10 +1818,22 @@ bool OpenExplosionSaveBoundary(CViewDynamicList* dynamics,
   CFVector3 position;
   static const char kProbeName[] =
       "Explosion.SaveBoundary.Retry.Probe";
+  const double clearance = attribute == nullptr
+      ? 0.0
+      : (attribute->m_radiusDamage > 0.0
+             ? attribute->m_radiusDamage + 64.0
+             : 64.0);
   if (attribute == nullptr || attributeIndex == -1 ||
       subjectTable == ct_NULLID ||
-      !VisibleProbeAboveTerrain(32.0, 128.0, &position) ||
+      !VisibleProbeAboveViewTerrain(clearance, &position) ||
       context->isExist(kProbeName)) {
+    std::fprintf(stderr,
+                 "explosion boundary setup attr=%s object=%d index=%d "
+                 "table=%d clearance=%.3f haze=%.3f duplicate=%d\n",
+                 attributeName == nullptr ? "<none>" : attributeName,
+                 attribute != nullptr ? 1 : 0, attributeIndex,
+                 subjectTable == ct_NULLID ? 0 : 1, clearance,
+                 CViewFigure::HazeMax(), context->isExist(kProbeName) ? 1 : 0);
     return false;
   }
 
@@ -1661,15 +1846,28 @@ bool OpenExplosionSaveBoundary(CViewDynamicList* dynamics,
       position, timeStamp, KR_ObjectID::NUL(), subjectTable,
       attributeIndex, kProbeName};
   int damageApplications = -1;
-  if (!ExplosionSubjectState_ExecuteNow(
-          context, request, &damageApplications) ||
-      damageApplications != 0) {
+  const bool executed = ExplosionSubjectState_ExecuteNow(
+      context, request, &damageApplications);
+  if (!executed || damageApplications != 0) {
+    const CFVector3 view = CViewObject::m_viewPointInvMx.Offset();
+    std::fprintf(stderr,
+                 "explosion boundary execute=%d damage=%d radius=%.3f "
+                 "damage_radius=%.3f haze=%.3f distance=%.3f "
+                 "position=%.3f/%.3f/%.3f view=%.3f/%.3f/%.3f\n",
+                 executed ? 1 : 0, damageApplications, attribute->m_radius,
+                 attribute->m_radiusDamage, CViewFigure::HazeMax(),
+                 Abs(position - view), position.x, position.y, position.z,
+                 view.x, view.y, view.z);
     return false;
   }
   *explosion = context->searchObject(kProbeName);
   std::vector<unsigned char> stable;
   if (explosion->isNUL() ||
       !ExplosionActiveWorldState_CaptureStable(context, &stable)) {
+    std::fprintf(stderr,
+                 "explosion boundary stable=0 owner=%d error=%s\n",
+                 explosion->isNUL() ? 0 : 1,
+                 ExplosionActiveWorldState_LastFailure());
     if (!explosion->isNUL() && context->isExist(*explosion))
       context->removeObject(*explosion);
     *explosion = KR_ObjectID::NUL();
@@ -1679,11 +1877,19 @@ bool OpenExplosionSaveBoundary(CViewDynamicList* dynamics,
   g_arena.render(CViewObject::m_viewPointInvMx.Offset(),
                  CViewFigure::HazeMax(), *dynamics);
   std::vector<unsigned char> rejected;
+  const bool rejectedCapture =
+      !ExplosionActiveWorldState_CaptureStable(context, &rejected);
+  const std::string rejectedReason =
+      ExplosionActiveWorldState_LastFailure();
   const bool rejectedAtOpenBoundary =
-      !ExplosionActiveWorldState_CaptureStable(context, &rejected) &&
-      std::string(ExplosionActiveWorldState_LastFailure()).find(
-          "frame boundary") != std::string::npos;
+      rejectedCapture && rejectedReason.find("frame") != std::string::npos;
   if (!rejectedAtOpenBoundary) {
+    std::fprintf(stderr,
+                 "explosion boundary render did not open frame: distance=%.3f "
+                 "haze=%.3f error=%s\n",
+                 Abs(position - CViewObject::m_viewPointInvMx.Offset()),
+                 CViewFigure::HazeMax(),
+                 rejectedReason.c_str());
     g_arena.endRender(ZAV_Scene());
     dynamics->Clear(FALSE);
     ExplosionSubjectState_ReleaseLightFrame();
@@ -2907,9 +3113,12 @@ bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
   const int baselineTaxiSounds = TaxiSubjectState_SoundCount();
   const unsigned long long baselineTaxiFingerprint =
       TaxiSubjectState_Fingerprint(context);
+  std::vector<unsigned char> baselineExplosionState;
   CViewDynamicList openFrameDynamics;
   KR_ObjectID openFrameExplosion = KR_ObjectID::NUL();
   const bool boundaryOpened = baselineTaxiFingerprint != 0 &&
+      ExplosionActiveWorldState_CaptureStable(
+          context, &baselineExplosionState) &&
       OpenExplosionSaveBoundary(&openFrameDynamics, &openFrameExplosion);
   const bool requested = boundaryOpened &&
       RecoveredGameServices_RequestDebugVehicleSpawn(0u, false);
@@ -2947,7 +3156,7 @@ bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
       deferred->lastCommandAttempts == 0u &&
       deferred->requests == 1u && deferred->completedCommands == 0u &&
       deferred->failedCommands == 0u &&
-      deferred->lastError.find("frame boundary") != std::string::npos;
+      deferred->lastError.find("frame") != std::string::npos;
 
   g_arena.endRender(ZAV_Scene());
   openFrameDynamics.Clear(FALSE);
@@ -2987,7 +3196,8 @@ bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
       TaxiSubjectState_LiveCount() == baselineTaxiCount &&
       TaxiSubjectState_SoundCount() == baselineTaxiSounds &&
       TaxiSubjectState_Fingerprint(context) == closedTaxiFingerprint &&
-      ExplosionSubjectState_LiveCount() == 0;
+      ExplosionActiveWorldState_MatchesStable(
+          context, baselineExplosionState);
   const bool disabled = RecoveredGameServices_ConfigureDebugMenu(
       false, std::vector<std::string>());
   if (!completionState || !restored || !disabled) {
@@ -3151,6 +3361,221 @@ bool ExerciseDebugDeathLifecycle(SimulationContext* context) {
   const bool disabled = RecoveredGameServices_ConfigureDebugMenu(
       false, std::vector<std::string>());
   return restoredStateValid && disabled;
+}
+
+bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
+  if (context == nullptr ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u ||
+      !RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{"Level.Debug.VehicleDeath"}) ||
+      RecoveredGameServices_DebugVehicleTypeCount() == 0u) {
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+
+  std::size_t occupiedIndex =
+      RecoveredGameServices_DebugVehicleTypeCount();
+  for (std::size_t index = 0;
+       index < RecoveredGameServices_DebugVehicleTypeCount(); ++index) {
+    SRecoveredDebugVehicleType type;
+    if (!RecoveredGameServices_DebugVehicleType(index, &type) ||
+        !context->isExist(type.vehicleAttribute.c_str()))
+      continue;
+    AttributeVehicle* attribute = static_cast<AttributeVehicle*>(
+        __attrVehicleTable.searchAttribute(
+            context->searchObject(type.vehicleAttribute.c_str())));
+    if (attribute != nullptr && attribute->m_type != 0) {
+      occupiedIndex = index;
+      break;
+    }
+  }
+  if (occupiedIndex >= RecoveredGameServices_DebugVehicleTypeCount() ||
+      !RecoveredGameServices_RequestDebugVehicleSpawn(
+          occupiedIndex, true) ||
+      !RecoveredGameServices_ProcessPendingDebugCommand()) {
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+
+  KR_ObjectID occupiedVehicle = context->searchObject("Vehicle.Default");
+  Vehicle* occupiedObject = occupiedVehicle.isNUL()
+                                ? nullptr
+                                : static_cast<Vehicle*>(
+                                      context->queryInterface(
+                                          occupiedVehicle, IVehicleIID));
+  SRecoveredVehicleRuntimeState occupiedState = {};
+  const int orphanBaseline = OrphanSubjectState_LiveCount();
+  std::vector<std::uint8_t> occupiedContinuation;
+  SLevelContinuationSummary occupiedSummary;
+  const bool occupied = occupiedObject != nullptr &&
+      VehicleRuntimeState_Inspect(
+          context, occupiedVehicle, &occupiedState) &&
+      !occupiedState.dead && !occupiedState.takingTaxi &&
+      !occupiedObject->taxiChangeEnabled() && occupiedObject->panelReady() &&
+      orphanBaseline >= 0 &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &occupiedContinuation, &occupiedSummary) && occupiedSummary.ready;
+  const bool destructionRequested = occupied &&
+      RecoveredGameServices_RequestDebugDestroyOccupiedVehicle();
+  const bool destructionProcessed = destructionRequested &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  if (!occupied || !destructionRequested || !destructionProcessed) {
+    const SRecoveredDebugMenuState* state =
+        RecoveredGameServices_DebugMenuState();
+    std::fprintf(stderr,
+                 "debug Vehicle destruction setup occupied=%d object=%d "
+                 "state=%d/%d/%d taxi_change=%d panel=%d orphan=%d "
+                 "capture=%d request=%d process=%d action=%s error=%s\n",
+                 occupied ? 1 : 0, occupiedObject != nullptr ? 1 : 0,
+                 occupiedState.dead ? 1 : 0,
+                 occupiedState.takingTaxi ? 1 : 0,
+                 occupiedState.active ? 1 : 0,
+                 occupiedObject != nullptr &&
+                         occupiedObject->taxiChangeEnabled()
+                     ? 1 : 0,
+                 occupiedObject != nullptr && occupiedObject->panelReady()
+                     ? 1 : 0,
+                 orphanBaseline, occupiedSummary.ready ? 1 : 0,
+                 destructionRequested ? 1 : 0,
+                 destructionProcessed ? 1 : 0,
+                 state == nullptr ? "<none>" : state->lastAction.c_str(),
+                 state == nullptr ? "<none>" : state->lastError.c_str());
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+
+  KR_ObjectID defaultVehicle = context->searchObject("Vehicle.Default");
+  Vehicle* defaultObject = defaultVehicle.isNUL()
+                               ? nullptr
+                               : static_cast<Vehicle*>(
+                                     context->queryInterface(
+                                         defaultVehicle, IVehicleIID));
+  SRecoveredVehicleRuntimeState destroyedState = {};
+  std::vector<unsigned char> orphanState;
+  std::vector<std::uint8_t> destroyedContinuation;
+  SLevelContinuationSummary destroyedSummary;
+  const SRecoveredDebugMenuState* destroyed =
+      RecoveredGameServices_DebugMenuState();
+  const bool destroyedValid = defaultObject != nullptr &&
+      VehicleRuntimeState_Inspect(
+          context, defaultVehicle, &destroyedState) &&
+      !destroyedState.dead && !destroyedState.takingTaxi &&
+      defaultObject->taxiChangeEnabled() &&
+      OrphanSubjectState_LiveCount() == orphanBaseline + 1 &&
+      OrphanActiveWorldState_CaptureStable(context, &orphanState) &&
+      OrphanActiveWorldState_SchedulerEventCount(orphanState) ==
+          orphanBaseline + 1 &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &destroyedContinuation, &destroyedSummary) &&
+      destroyedSummary.ready && destroyed != nullptr &&
+      destroyed->preVehicleDestructionCheckpointAvailable &&
+      destroyed->requests == 2u && destroyed->completedCommands == 2u &&
+      destroyed->failedCommands == 0u &&
+      destroyed->forcedVehicleDestructions == 1u &&
+      destroyed->destructionOrphanCreations == 1u &&
+      destroyed->destructionSaveProofs == 1u &&
+      destroyed->restoredPreVehicleDestructionCheckpoints == 0u &&
+      destroyed->destructionWorldFingerprint ==
+          destroyedSummary.worldFingerprint &&
+      destroyed->destructionContinuationFingerprint ==
+          destroyedSummary.containerFingerprint &&
+      destroyed->destructionOrphanFingerprint ==
+          OrphanActiveWorldState_Fingerprint(context) &&
+      destroyed->lastAction == "destroy-occupied-vehicle";
+  if (!destroyedValid ||
+      !RecoveredGameServices_RequestDebugRestorePreVehicleDestruction() ||
+      !RecoveredGameServices_ProcessPendingDebugCommand()) {
+    const SRecoveredDebugMenuState* state =
+        RecoveredGameServices_DebugMenuState();
+    std::fprintf(stderr,
+                 "debug Vehicle destruction proof valid=%d live=%d/%d "
+                 "orphan_bytes=%zu events=%d continuation=%d "
+                 "requests=%u completed=%u failed=%u forced=%u "
+                 "orphans=%u saves=%u checkpoint=%d action=%s error=%s\n",
+                 destroyedValid ? 1 : 0,
+                 OrphanSubjectState_LiveCount(), orphanBaseline + 1,
+                 orphanState.size(),
+                 OrphanActiveWorldState_SchedulerEventCount(orphanState),
+                 destroyedSummary.ready ? 1 : 0,
+                 state == nullptr ? 0u : state->requests,
+                 state == nullptr ? 0u : state->completedCommands,
+                 state == nullptr ? 0u : state->failedCommands,
+                 state == nullptr ? 0u : state->forcedVehicleDestructions,
+                 state == nullptr ? 0u : state->destructionOrphanCreations,
+                 state == nullptr ? 0u : state->destructionSaveProofs,
+                 state != nullptr &&
+                         state->preVehicleDestructionCheckpointAvailable
+                     ? 1 : 0,
+                 state == nullptr ? "<none>" : state->lastAction.c_str(),
+                 state == nullptr ? "<none>" : state->lastError.c_str());
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+
+  KR_ObjectID restoredVehicle = context->searchObject("Vehicle.Default");
+  Vehicle* restoredObject = restoredVehicle.isNUL()
+                                ? nullptr
+                                : static_cast<Vehicle*>(
+                                      context->queryInterface(
+                                          restoredVehicle, IVehicleIID));
+  SRecoveredVehicleRuntimeState restoredState = {};
+  std::vector<std::uint8_t> restoredContinuation;
+  SLevelContinuationSummary restoredSummary;
+  const SRecoveredDebugMenuState* restored =
+      RecoveredGameServices_DebugMenuState();
+  const bool restoredValid = restoredObject != nullptr &&
+      VehicleRuntimeState_Inspect(
+          context, restoredVehicle, &restoredState) &&
+      !restoredState.dead && !restoredState.takingTaxi &&
+      !restoredObject->taxiChangeEnabled() && restoredObject->panelReady() &&
+      OrphanSubjectState_LiveCount() == orphanBaseline &&
+      RecoveredGameServices_VehicleCameraMode() ==
+          RECOVERED_VEHICLE_CAMERA_LIVE &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &restoredContinuation, &restoredSummary) &&
+      restoredSummary.ready &&
+      restoredSummary.worldFingerprint == occupiedSummary.worldFingerprint &&
+      restoredSummary.containerFingerprint ==
+          occupiedSummary.containerFingerprint &&
+      restored != nullptr &&
+      !restored->preVehicleDestructionCheckpointAvailable &&
+      restored->requests == 3u && restored->completedCommands == 3u &&
+      restored->failedCommands == 0u &&
+      restored->forcedVehicleDestructions == 1u &&
+      restored->restoredPreVehicleDestructionCheckpoints == 1u &&
+      restored->rollbackAttempts == 0u &&
+      restored->lastAction == "restore-pre-vehicle-destruction";
+  const bool disabled = RecoveredGameServices_ConfigureDebugMenu(
+      false, std::vector<std::string>());
+  if (!restoredValid || !disabled) {
+    std::fprintf(stderr,
+                 "debug Vehicle restoration valid=%d disabled=%d "
+                 "occupied=%d live=%d/%d world=%llu/%llu "
+                 "container=%llu/%llu action=%s error=%s\n",
+                 restoredValid ? 1 : 0, disabled ? 1 : 0,
+                 restoredObject != nullptr &&
+                         !restoredObject->taxiChangeEnabled()
+                     ? 1 : 0,
+                 OrphanSubjectState_LiveCount(), orphanBaseline,
+                 static_cast<unsigned long long>(
+                     restoredSummary.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     occupiedSummary.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     restoredSummary.containerFingerprint),
+                 static_cast<unsigned long long>(
+                     occupiedSummary.containerFingerprint),
+                 restored == nullptr ? "<none>" :
+                     restored->lastAction.c_str(),
+                 restored == nullptr ? "<none>" :
+                     restored->lastError.c_str());
+  }
+  return restoredValid && disabled;
 }
 
 }  // namespace
@@ -4494,7 +4919,7 @@ int main(int argc, char** argv) {
       !capturedContinuation.ready || !capturedContinuation.sealedJournal ||
       !capturedContinuation.boundaryMatches ||
       !capturedContinuation.worldMatches ||
-      capturedContinuation.sections != 13 ||
+      capturedContinuation.sections != 14 ||
       capturedContinuation.worldFingerprint == 0 ||
       capturedContinuation.journalFingerprint == 0 ||
       capturedContinuation.containerFingerprint == 0 ||
@@ -5258,6 +5683,11 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("Debug death/save/recovery lifecycle failed");
   }
+  if (!ExerciseDebugOccupiedVehicleDestruction(g_super.m_context)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Debug occupied Vehicle destruction/ORP1 recovery failed");
+  }
 
   CViewDynamicList openFrameDynamics;
   KR_ObjectID openFrameExplosion = KR_ObjectID::NUL();
@@ -5298,8 +5728,7 @@ int main(int argc, char** argv) {
       deferredLoad->loadRequests == 1u &&
       deferredLoad->completedLoads == 0u &&
       deferredLoad->failedCommands == 0u &&
-      deferredLoad->lastError.find("frame boundary") !=
-          std::string::npos;
+      deferredLoad->lastError.find("frame") != std::string::npos;
 
   g_arena.endRender(ZAV_Scene());
   openFrameDynamics.Clear(FALSE);
@@ -5319,9 +5748,9 @@ int main(int argc, char** argv) {
       !restoredContinuation.sealedJournal ||
       !restoredContinuation.boundaryMatches ||
       !restoredContinuation.worldMatches ||
-      restoredContinuation.sections != 13 ||
-      restoredContinuation.ownerPhases != 13 ||
-      restoredContinuation.referencePhases != 13 ||
+      restoredContinuation.sections != 14 ||
+      restoredContinuation.ownerPhases != 14 ||
+      restoredContinuation.referencePhases != 14 ||
       restoredContinuation.eventPhases != restoredContinuation.events ||
       restoredContinuation.worldFingerprint !=
           capturedContinuation.worldFingerprint ||
@@ -5483,7 +5912,7 @@ int main(int argc, char** argv) {
                "taxi_vehicle=%d/%d/%d/%d/%d/%d/%d/%d "
                "taxi_debug_grounding=%d/%d/%d clearance=%.9f drift=%.9f "
                "taxi_handoff=F1-nearest-panel-drive-rollback "
-               "vehicle_embodiment=F1-safe-Taxi-reentry-unsafe-Orphan-impact-rollback "
+               "vehicle_embodiment=F1-safe-Taxi-reentry-unsafe-Orphan-ORP1-continuation-resume-impact "
                "vehicle_fire=MouseL-Bullet-impact-visual-sound-focus-rollback "
                "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "

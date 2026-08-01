@@ -125,6 +125,19 @@ It requires Debug and Release to report two completed commands, one forced
 death, one Corpse/camera/save proof, one restored checkpoint, non-zero dead
 world/container fingerprints, final live camera mode (`1`) and clean shutdown.
 
+The paired occupied-Vehicle destruction check is:
+
+```powershell
+& ".\tools\acceptance\Invoke-DebugVehicleDestruction.ps1" -DataRoot "E:\Games\The Next Worlds"
+```
+
+It spawns and enters the first real type-1 catalog entry, executes **Destroy
+occupied vehicle (transactional)** and then **Restore before vehicle
+destruction**. Debug and Release must each report three completed commands,
+one forced destruction, one ORP1 creation, one post-destruction save proof, one
+exact restored checkpoint, a cleared checkpoint flag, live final camera and
+clean shutdown.
+
 ## Automated nine-Level matrix
 
 Build the requested configuration first, then run all configured Levels from
@@ -152,11 +165,11 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1, engine compatibility 2, is initialized with `13/4`
-  for thirteen
+- active-world format v1, engine compatibility 3, is initialized with `14/4`
+  for fourteen
   Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/
-  Corpse/Clock/Taxi owner sections and four versioned semantic events, then
-  reports `13/13/4`
+  Corpse/Clock/Taxi/Orphan owner sections and four versioned semantic events,
+  then reports `14/14/4`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `continuation_state_probe` is `1/1/12/<draws>/1`: one canonical `CLK1`

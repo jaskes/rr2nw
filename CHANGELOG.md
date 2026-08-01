@@ -7,6 +7,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- EVT1 no longer assumes that a pending effect name identifies exactly one
+  object. Equal-name Explosion/Spark/Corpse owners are captured and restored
+  by their stable class-table occurrence ordinal, while events whose ObjectID
+  is genuinely absent remain kernel-discard state.
+- BUL1 no longer treats a context-backed but completely reset Bullet table
+  entry as a live projectile. Capture excludes only clean slots with no START,
+  moving or collision event; reconstruction reuses a matching idle slot before
+  allocating another owner, while pending or dirty subjects still fail closed.
+- Legacy Explosion start events now accept both the retail 28-byte payload,
+  whose source is the damage owner, and the recovered 36-byte payload with an
+  explicit owner. EVT1 normalizes both to one symbolic form, and stale queued
+  events targeting already removed effect owners are ignored just as the
+  original kernel ignores them instead of blocking save/load.
+- Saving while a dropped Vehicle body is still falling no longer omits that
+  live Orphan. ORP1 now replaces the exact Level-local Orphan roster and its
+  scheduled movement during restore and rollback.
 - Taxi placement no longer leaves the object origin at the centre of the
   historical one-unit collision probe. The real `taxi_SET_TO_POS` path now
   resolves a supporting surface, aligns the parked heading to its normal and
@@ -43,6 +59,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added transactional **Destroy occupied vehicle** and **Restore before
+  vehicle destruction** Debug commands. They require a living occupied type-1
+  Vehicle, capture LCN1, execute the authentic damage/LeaveVehicle path, prove
+  one falling ORP1 Orphan plus a second complete continuation, and restore the
+  exact cockpit, camera, controls and world fingerprints on request.
+- Added the versioned `ORP1` active-world owner as LCN1 section 14. It records
+  symbolic occurrence identity, the dropped body's TaxiAttr, pose, velocity,
+  damage, frame lifecycle, interpolation state and the one private moving
+  event. AWV1 engine compatibility advances to 3 so older thirteen-owner
+  experimental saves fail closed.
+- Added `Invoke-DebugVehicleDestruction.ps1`, which drives the real native
+  menu through spawn-and-enter, destruction and exact rollback in Debug and
+  Release.
 - Added an all-catalog Taxi grounding probe and a real-window Debug/Release
   acceptance gate. Every one of the 57 Level-local Taxi types across the nine
   installed retail Levels passes collision-backed placement with zero model-

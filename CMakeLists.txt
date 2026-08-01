@@ -406,6 +406,8 @@ target_compile_definitions(rr2nw_arena_orphan_attribute_state PRIVATE
 
 add_library(rr2nw_arena_obase_orphan_full STATIC
   nw/ARENA/OBASE/Orphan/Orphan.cpp
+  nw/ARENA/OBASE/Orphan/OrphanActiveWorldState.cpp
+  nw/ARENA/OBASE/Orphan/OrphanActiveWorldState.h
   nw/ARENA/OBASE/Orphan/OrphanSubjectState.h
 )
 target_link_libraries(rr2nw_arena_obase_orphan_full PUBLIC

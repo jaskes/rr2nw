@@ -772,11 +772,18 @@ class BoundedExplosion : public ct_Subject
     bool captureStable(SimulationContext *world,
                        StableExplosionRecord *record)
     {
-        if (world == NULL || record == NULL || context != world ||
-            !m_started || m_attribute == NULL ||
-            m_particleDynamicPublished)
+        if (world == NULL || record == NULL || context != world)
             return FailActiveWorld(
-                "live Explosion is not at a stable frame boundary");
+                "live Explosion capture context is invalid");
+        if (!m_started)
+            return FailActiveWorld(
+                "live Explosion has no committed START state");
+        if (m_attribute == NULL)
+            return FailActiveWorld(
+                "live Explosion has no committed ExplosionAttr");
+        if (m_particleDynamicPublished)
+            return FailActiveWorld(
+                "live Explosion particles are still published in a frame");
         record->name = ObjectName(world, getObjectID());
         record->attribute = ObjectName(world, m_attribute->getObjectID());
         if (record->name.empty() || record->attribute.empty())
@@ -1491,15 +1498,23 @@ class BoundedExplosion : public ct_Subject
 
     int start(KR_Event &event)
     {
-        const int expectedSize = static_cast<int>(
+        const int recoveredSize = static_cast<int>(
             sizeof(int) + sizeof(double) * 3 + sizeof(KR_ObjectID));
+        const int retailSize = static_cast<int>(
+            sizeof(int) + sizeof(double) * 3);
         if (m_started || context == NULL ||
-            event.source != getObjectID() ||
             event.destination != getObjectID() ||
             !std::isfinite(event.timeStamp) || event.timeStamp < 0.1)
             return 0;
         s_EventData &data = event.data.open(EDO_READ);
-        if (data.remaining() != expectedSize)
+        const int payloadSize = data.remaining();
+        if (payloadSize != recoveredSize && payloadSize != retailSize)
+        {
+            data.close();
+            return 0;
+        }
+        if (payloadSize == recoveredSize &&
+            event.source != getObjectID())
         {
             data.close();
             return 0;
@@ -1511,10 +1526,16 @@ class BoundedExplosion : public ct_Subject
         data.getInt(attributeIndex)
             .getDouble(position.x)
             .getDouble(position.y)
-            .getDouble(position.z)
-            .getObjectID(damageOwner)
-            .close();
+            .getDouble(position.z);
+        if (payloadSize == recoveredSize)
+            data.getObjectID(damageOwner);
+        else
+            damageOwner = event.source;
+        data.close();
 
+        // Recovered queue/restore events use a self source and carry the
+        // symbolic damage owner explicitly. Retail createExplosion() uses
+        // the shorter packet and places that owner in event.source instead.
         AttributeExplosion *attribute = NULL;
         if (!FiniteVector(position) ||
             !ExplosionAttributeState_ResolveEncodedIndex(
@@ -1977,10 +1998,14 @@ bool CollectStableRoster(SimulationContext *context,
         std::remove_if(objects->begin(), objects->end(),
                        [context](BoundedExplosion *object)
                        {
-                           return !object->started() &&
-                               context->copyEventsTo(
-                                   EXPLOSION_START,
-                                   object->getObjectID(), NULL, 0) != 0;
+                           return object == NULL ||
+                               !context->isExist(object->getObjectID()) ||
+                               ObjectName(context, object->getObjectID())
+                                   .empty() ||
+                               (!object->started() &&
+                                context->copyEventsTo(
+                                    EXPLOSION_START,
+                                    object->getObjectID(), NULL, 0) != 0);
                        }),
         objects->end());
     std::sort(objects->begin(), objects->end(),
@@ -2408,7 +2433,8 @@ bool ExplosionSubjectState_IsPending(
 {
     BoundedExplosion *explosion = context == NULL
         ? NULL : g_explosionTable.find(object);
-    return explosion != NULL && explosion->context == context &&
+    return explosion != NULL && context->isExist(object) &&
+           explosion->context == context &&
            explosion->clean();
 }
 

@@ -4371,3 +4371,77 @@ The accepted matrix covers all 57 types on all nine installed Levels in both
 Debug and Release; the native-window gate additionally proves all five
 `Level.02D` types for three frames in both configurations. This decision owns
 initial surface placement only, not flight AI, animation or post-spawn physics.
+
+## BD-115: a live falling Orphan is replaceable continuation state
+
+Status: accepted on 2026-08-01 as the occupied-destruction Frontier C slice.
+
+An unsafe F1 exit and authentic type-1 Vehicle destruction transfer the old
+body into the fixed `Orphan(5)` pool. Treating that owner as a transient effect
+made a save boundary depend on whether impact happened before capture. ORP1
+therefore joins TXI1 as a complete replaceable Level-local roster rather than
+serializing only the persistent `Vehicle.Default` owner.
+
+Equal Orphan names use stable class-table occurrence order. Each record owns
+the dropped body's TaxiAttr (the legacy `m_orphanAttrID` field), current and
+stored directions, position, speed, damage, event time, visibility/audibility
+fields, render-interpolation history and exactly one private `t_EVC_MOVING`
+event. The shared `Orphan.Attr.Default` remains a validated Level dependency.
+Restore allocates through the authentic drop-Taxi event, then applies the saved
+fields and event. Any allocation, reference, event or fingerprint failure
+restores the prior roster.
+
+The diagnostic destruction command requires a living occupied type-1 Vehicle,
+neutral controls and god mode off. It captures LCN1, invokes the authentic
+damage/death graph, requires one new ORP1 owner and a second complete LCN1, and
+stores the first checkpoint for exact recovery of cockpit, camera and controls.
+This checkpoint does not define campaign respawn or repair. AWV1 engine
+compatibility advances to 3 because a thirteen-owner snapshot cannot describe
+a falling body safely.
+
+## BD-116: normalize retail and recovered Explosion start events at EVT1
+
+Status: accepted on 2026-08-01.
+
+The preserved `createExplosion()` producer writes the retail packet as an
+attribute index plus three doubles and stores the damage owner in
+`event.source`. The recovered bounded producer writes the same fields plus an
+explicit `KR_ObjectID`. Rejecting the shorter packet left a live Explosion
+owner without committed START state and made later save/load fail for reasons
+that appeared unrelated to the original impact.
+
+The Explosion subject accepts both payloads. EVT1 converts either form to one
+canonical self-source record with a symbolic/tombstone damage-owner relation;
+restore continues to emit the bounded explicit-owner form. A queued effect
+whose destination owner has already been removed is kernel discard state, not
+authoritative world state, and is omitted during capture. Live destinations
+still require an existing ObjectID, a matching pending table occurrence,
+payload, attribute and symbolic-reference validation. A symbolic name is not
+unique: simultaneous equal-name effects are disambiguated by their stable
+class-table ordinal. The semantic staging probe now includes two equal-name
+Explosion owners plus a deliberately removed Explosion owner, so both cases
+remain executable rather than inferred.
+
+## BD-117: a reset Bullet subject is reusable capacity, not world state
+
+Status: accepted on 2026-08-01 after the ORP1 all-Level gate.
+
+`Level.01D` and `Level.01N` exposed a context-backed `Bullet` class-table entry
+that had returned to its constructor-clean state: no attribute, master,
+position, velocity, START event or private scheduler events. Treating every
+linked table subject as a projectile made unrelated ORP1 capture fail forever;
+dropping every unstarted subject would instead hide a queued START boundary.
+
+BUL1 therefore separates the runtime roster from the authoritative flight
+roster. It excludes only a strictly clean subject with no queued START, moving
+or collision event. Any dirty or pending unstarted subject remains a diagnosed
+unstable boundary. During restore, matching clean slots are reused in canonical
+name/order before new allocation and then receive the exact saved flight.
+Rollback removes every slot admitted to that reconstruction transaction.
+
+The BUL1 round-trip probe now stages an idle `B` beside a live same-name `B`,
+proves that capture contains only the flight, reuses the idle slot for the
+first reconstruction, removes it on rollback and allocates a fresh generation
+for the second. This policy is specific to the bounded transient Bullet pool;
+it is not a general license to discard clean-looking subjects from other
+owner families.

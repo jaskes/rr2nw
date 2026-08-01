@@ -62,7 +62,7 @@ The service-level restore sequence is:
 3. detach the admitted semantic event queue;
 4. pre-apply the saved `CLK1` boundary before owner references can compare
    saved timestamps with a new session's near-zero clock;
-5. run all thirteen owner-allocation phases and all thirteen symbolic-reference
+5. run all fourteen owner-allocation phases and all fourteen symbolic-reference
    phases, then rebuild every admitted `EVT1` record;
 6. apply and verify the saved RNG, commit, and non-mutatingly recapture the
    admitted world;
@@ -96,7 +96,7 @@ applies the old `LCN1`.
 
 Acceptance requires:
 
-- thirteen owner and thirteen reference phases;
+- fourteen owner and fourteen reference phases;
 - event restore phases equal the captured `EVT1` count;
 - exact source/recaptured admitted-world fingerprint;
 - exact sealed journal and container fingerprints;
@@ -119,9 +119,12 @@ retail proof with a real atomic disk slot.
 
 The fingerprint covers the admitted dynamic world: Commander, TankGroup,
 People, Tank/Cannon, Vehicle, Player mission state, Bullet, Explosion, Spark,
-Smoke, Corpse/DynSmoker, Clock, Taxi, simulation RNG and supported semantic
-events. `TXI1` preserves repeated retail Taxi names by stable occurrence order
-inside each equal-name group; uniqueness is not assumed.
+Smoke, Corpse/DynSmoker, Clock, Taxi, Orphan, simulation RNG and supported
+semantic events. `TXI1` and `ORP1` preserve repeated retail names by stable
+occurrence order inside each equal-name group; uniqueness is not assumed.
+ORP1 also preserves the exact private moving event that resumes a falling body
+after reconstruction. AWV1 remains format version 1 with engine compatibility
+3; pre-ORP1 experimental snapshots fail before mutation.
 Level resources and derived renderer/audio caches are reloaded, not serialized.
 Live owner families outside that admitted set require their own section before
 they may cross a public save boundary.

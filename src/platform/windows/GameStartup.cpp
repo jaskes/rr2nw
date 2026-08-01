@@ -1284,6 +1284,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(debugMenuState == nullptr
                               ? 0u
                               : debugMenuState->vehicleTypeCount));
+  log.Line("debug_menu_first_occupied_vehicle_index=" +
+           std::to_string(debugMenuState == nullptr
+                              ? -1
+                              : debugMenuState
+                                    ->firstOccupiedVehicleIndex));
   log.Line("arena_seance_initialized=" +
            std::to_string(RecoveredGameServices_SeanceReady() ? 1 : 0));
   log.Line("bird_attributes_initialized=" +
@@ -2144,6 +2149,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_ActiveWorldPersistenceReady() ? 1 : 0));
   log.Line("active_world_format_version=" + std::to_string(
                RecoveredArenaSeance_ActiveWorldFormatVersion()));
+  log.Line("active_world_engine_compatibility=" + std::to_string(
+               RecoveredArenaSeance_ActiveWorldEngineCompatibility()));
   log.Line("active_world_owner_event_sections=" +
            std::to_string(RecoveredArenaSeance_ActiveWorldSections()) + "/" +
            std::to_string(RecoveredArenaSeance_ActiveWorldEvents()));
@@ -2872,6 +2879,33 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("debug_menu_death_continuation_fingerprint=" +
              std::to_string(
                  debugMenuState->deathContinuationFingerprint));
+    log.Line("debug_menu_forced_vehicle_destructions=" +
+             std::to_string(
+                 debugMenuState->forcedVehicleDestructions));
+    log.Line("debug_menu_destruction_orphan_creations=" +
+             std::to_string(
+                 debugMenuState->destructionOrphanCreations));
+    log.Line("debug_menu_destruction_save_proofs=" +
+             std::to_string(debugMenuState->destructionSaveProofs));
+    log.Line("debug_menu_restored_pre_vehicle_destruction_checkpoints=" +
+             std::to_string(
+                 debugMenuState
+                     ->restoredPreVehicleDestructionCheckpoints));
+    log.Line("debug_menu_pre_vehicle_destruction_checkpoint_available=" +
+             std::to_string(
+                 debugMenuState
+                         ->preVehicleDestructionCheckpointAvailable
+                     ? 1
+                     : 0));
+    log.Line("debug_menu_destruction_world_fingerprint=" +
+             std::to_string(
+                 debugMenuState->destructionWorldFingerprint));
+    log.Line("debug_menu_destruction_continuation_fingerprint=" +
+             std::to_string(
+                 debugMenuState->destructionContinuationFingerprint));
+    log.Line("debug_menu_destruction_orphan_fingerprint=" +
+             std::to_string(
+                 debugMenuState->destructionOrphanFingerprint));
     log.Line("debug_menu_level_switch_requests=" +
              std::to_string(debugMenuState->levelSwitchRequests));
     log.Line("debug_menu_completed_level_switches=" +
@@ -2888,6 +2922,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              debugMenuState->lastVehicleAttribute);
     if (!debugMenuState->lastError.empty())
       log.Line("debug_menu_last_error=" + debugMenuState->lastError);
+    log.Line("debug_menu_first_deferred_error=" +
+             debugMenuState->firstDeferredError);
   }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();

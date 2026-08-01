@@ -3397,6 +3397,68 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   bodies require inherited velocity. Those need explicit modes rather than a
   regression to sphere-centre placement.
 
+### CQ-184: a falling Orphan must survive save/load before impact
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_CONFIRMED`.
+- Evidence: unsafe F1 and occupied type-1 destruction both create a real
+  Orphan whose private moving event may still be pending at a legal LCN1
+  boundary. Reconstructing only Vehicle/Taxi either loses that body or permits
+  the fresh Level bootstrap roster to replace it implicitly.
+- Handling: ORP1 is the fourteenth required AWV1 owner. It replaces the exact
+  symbolic occurrence roster, restores pose/dynamics/interpolation fields and
+  rebuilds exactly one `t_EVC_MOVING` event per owner. Restore and rollback
+  both use fresh owners and verify canonical bytes/fingerprint.
+- Compatibility: AWV1 format stays version 1 and engine compatibility becomes
+  3. Pre-ORP1 experimental saves fail at decode before world mutation.
+- Verification: the service proof captures a falling Orphan, advances eight
+  authentic frames, reconstructs it under a fresh owner, requires exact ORP1
+  and LCN1 recapture, then observes resumed motion, natural impact and one real
+  stable Explosion. The native Debug/Release gate additionally proves occupied
+  destruction and exact cockpit/camera/control rollback.
+- Revisit when: campaign restart/repair policy is defined. The stored debug
+  checkpoint is deliberately process-local and single-use.
+
+### CQ-185: legacy effect events may be valid, canonical, or stale
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `EVENT_CONTRACT_CONFIRMED`.
+- Evidence: retail `createExplosion()` sends 28 payload bytes and places the
+  damage owner in `event.source`; the recovered producer sends 36 bytes with
+  an explicit owner. An event may also remain queued after its destination was
+  removed, which the kernel later diagnoses and discards.
+- Handling: the Explosion subject accepts both live packet forms. EVT1
+  normalizes their owner relation and never serializes an effect event whose
+  destination ObjectID no longer exists. Equal symbolic names are legal and
+  use the pending table's stable occurrence ordinal; a live destination
+  remains fail-closed on a missing occurrence, payload size, attribute,
+  position or reference.
+- Verification: the unsafe-Orphan proof now requires the legacy impact to
+  produce one stable Explosion and scheduler event. The EVT1 staging probe
+  requires two live equal-name Explosions, one Spark and one Corpse, then
+  queues and removes an extra Explosion owner and proves it is omitted. The
+  complete Debug/Release fresh-context retail matrix passes 18/18, including
+  the `Level.04D` Release case that exposed the duplicate-name boundary.
+- Revisit when: additional retail producers expose another documented payload
+  form. Do not relax arbitrary sizes or admit the raw event bus.
+
+### CQ-186: a clean Bullet pool slot is not an active projectile
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `SAVE_CONTRACT_CONFIRMED`.
+- Evidence: after the unsafe-Orphan path on `Level.01D/01N`, the fixed Bullet
+  table retained a context-backed subject with reset state and zero START,
+  moving or collision events. BUL1 tried to capture it as a flight and failed
+  with `started=0 attr=0 clean=1 start=0 moving=0 collision=0`.
+- Handling: maintain separate runtime and authoritative rosters. Exclude only
+  that exact event-free clean state from capture. Reuse matching idle slots
+  during restore before allocating new owners; do not exclude a pending START
+  or any dirty unstarted subject.
+- Verification: the BUL1 flight probe stages an idle and active same-name `B`,
+  captures one flight, reconstructs it first into the idle slot and then into
+  a fresh generation after rollback. Both affected Levels pass Debug/Release,
+  and the complete fresh-context matrix passes 18/18.
+- Revisit when: Bullet START events themselves become an admitted save
+  boundary. They require an explicit queued-owner representation, not a wider
+  idle filter.
+
 ## Maintenance rule
 
 When a new quirk is found:

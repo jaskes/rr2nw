@@ -128,7 +128,8 @@ bool CorpseSubjectState_IsPending(
     SimulationContext *context, const KR_ObjectID &object)
 {
     Corpse *corpse = CorpseSubjectState_Find(context, object);
-    return corpse != NULL && corpse->context == context &&
+    return corpse != NULL && context->isExist(object) &&
+           corpse->context == context &&
            corpse->m_attr == NULL && corpse->m_attributeIndex == -1 &&
            corpse->m_smoke.isNUL() && corpse->m_fire.isNUL() &&
            !corpse->m_dynamicPublished;

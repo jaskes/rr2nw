@@ -3283,3 +3283,37 @@ Accepted evidence: 66/66 CTest in Debug and Release; 9/9 full retail
 continuation rows per configuration covering 57 Taxi types each; and 2/2
 real-window rows covering all five `Level.02D` types with five settlement
 proofs, zero failures and zero drift.
+
+## ORP1 falling-body continuation and occupied destruction
+
+The next Frontier C save gap was a live Orphan between Vehicle exit/destruction
+and terrain impact. ORP1 is now the fourteenth AWV1 owner phase. Its canonical
+record binds symbolic name occurrence, the legacy dropped-body TaxiAttr,
+position, speed, damage, current/stored directions, inherited frame fields,
+interpolation history and exactly one private `t_EVC_MOVING` timestamp. Owner
+construction uses the real drop-Taxi event; reference application overwrites
+the admitted state and rebuilds the scheduler event. Both commit and rollback
+replace the full roster.
+
+The unsafe-F1 service path captures ORP1 before impact, runs eight original
+frames, restores the earlier LCN1 into fresh owners, requires byte/fingerprint
+identity and then observes resumed movement and natural impact. The impact also
+exposed two historical Explosion START layouts: retail carries 28 payload
+bytes and uses `event.source` as damage owner, while the recovered producer
+adds an explicit owner for 36 bytes. The bounded subject accepts both and EVT1
+normalizes them. Events whose destination owner was already removed are
+excluded from save authority, matching the kernel's discard behavior.
+
+The native Debug owner adds one process-local pre-destruction checkpoint. It
+requires a living occupied type-1 Vehicle, neutral input and disabled god mode,
+executes authentic damage, proves one new ORP1 owner and a complete changed
+LCN1, then can restore exact VehicleAttr, panel, camera, controls and both
+fingerprints. `Invoke-DebugVehicleDestruction.ps1` drives the three real window
+commands in Debug and Release. AWV1 format remains version 1 with engine
+compatibility 3; experimental pre-ORP1 snapshots fail closed.
+
+Accepted evidence: complete Debug and Release builds; 66/66 CTest in each
+configuration; 18/18 fresh-context continuation rows; 18/18 independent
+ordinary retail runtime rows; and 2/2 native-window destruction/rollback rows.
+The BUL1 probe in those runs also distinguishes and reuses a clean idle pool
+slot without admitting it as a saved projectile.

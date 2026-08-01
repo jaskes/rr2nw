@@ -215,7 +215,7 @@ proves the edit controls and their default flow; actual keyboard entry,
 including Cyrillic text, remains in the manual acceptance pass.
 
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
-`LCN1-13/13/13`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
+`LCN1-14/14/14`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
 
 The current accepted local Windows gate is 66/66 CTest in Debug and Release,
