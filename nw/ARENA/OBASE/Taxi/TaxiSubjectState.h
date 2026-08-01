@@ -48,6 +48,37 @@ struct STaxiDebugVehicleType
     std::string vehicleAttribute;
 };
 
+// Exact placement evidence produced by taxi_SET_TO_POS.  The requested point
+// is a probe origin; the resolved Taxi origin compensates the selected model's
+// lower bound so the rendered asset, rather than the legacy unit sphere, sits
+// on the recovered scene surface.
+struct STaxiDebugSpawnPlacement
+{
+    int ready;
+    int sweepHit;
+    int terrainFallback;
+    int bumpKind;
+    double sweepTime;
+    double dropDistance;
+    double originClearance;
+    double modelBottomClearance;
+    CFVector3 requestedPosition;
+    CFVector3 surfacePosition;
+    CFVector3 resolvedPosition;
+    CFVector3 surfaceNormal;
+
+    STaxiDebugSpawnPlacement()
+        : ready(0), sweepHit(0), terrainFallback(0), bumpKind(0),
+          sweepTime(0.0), dropDistance(0.0), originClearance(0.0),
+          modelBottomClearance(0.0),
+          requestedPosition(0.0, 0.0, 0.0),
+          surfacePosition(0.0, 0.0, 0.0),
+          resolvedPosition(0.0, 0.0, 0.0),
+          surfaceNormal(0.0, 1.0, 0.0)
+    {
+    }
+};
+
 void TaxiSubjectState_Link();
 bool TaxiSubjectState_TableReady(SimulationContext *context,
                                  int expectedCapacity);
@@ -78,10 +109,13 @@ bool TaxiSubjectState_DebugSpawn(
     SimulationContext *context, const char *taxiAttribute,
     const char *objectName, const CFVector3 &position,
     double angle, double timeStamp, KR_ObjectID *spawned,
-    std::string *failure);
+    STaxiDebugSpawnPlacement *placement, std::string *failure);
 bool TaxiSubjectState_DebugTakeVehicle(
     SimulationContext *context, const KR_ObjectID &vehicle,
     const KR_ObjectID &taxi, double timeStamp,
     std::string *failure);
+bool TaxiSubjectState_DebugPlacementDrift(
+    SimulationContext *context, const char *objectName,
+    const CFVector3 &expectedPosition, double *drift);
 
 #endif

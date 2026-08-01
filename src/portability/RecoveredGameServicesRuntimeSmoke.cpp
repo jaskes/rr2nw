@@ -73,6 +73,16 @@ namespace {
 const unsigned long long kBulletCacheHashOffset = 14695981039346656037ull;
 const unsigned long long kBulletCacheHashPrime = 1099511628211ull;
 
+struct STaxiDebugGroundingProbeSummary {
+  int types = 0;
+  int sweepHits = 0;
+  int terrainFallbacks = 0;
+  double maxBottomClearance = 0.0;
+  double maxImmediateDrift = 0.0;
+};
+
+STaxiDebugGroundingProbeSummary g_taxiDebugGroundingProbe;
+
 void (*g_originalAlphaSprite)(SGRAlphaSprite*) = nullptr;
 void (*g_originalSprite)(int, int, int, int, int, int, int, int,
                          int, void*) = nullptr;
@@ -2781,6 +2791,7 @@ bool ValidateReferenceTransaction(
 
 bool ExerciseTaxiDebugCatalogAndSpawn(SimulationContext* context,
                                       const KR_ObjectID& vehicleID) {
+  g_taxiDebugGroundingProbe = {};
   SRecoveredVehicleRuntimeState vehicle = {};
   std::vector<STaxiDebugVehicleType> catalog;
   std::string failure;
@@ -2799,38 +2810,85 @@ bool ExerciseTaxiDebugCatalogAndSpawn(SimulationContext* context,
   const unsigned long long baselineFingerprint =
       TaxiSubjectState_Fingerprint(context);
   KR_ObjectID spawned = KR_ObjectID::NUL();
+  STaxiDebugSpawnPlacement placement;
   if (TaxiSubjectState_DebugSpawn(
           context, "Taxi.Attr.Debug.Missing", "Debug.Taxi.Invalid",
           vehicle.position + CFVector3(0.0, 24.0, 16.0), 0.0,
-          (std::max)(0.1, vehicle.lastTime), &spawned, &failure) ||
+          (std::max)(0.1, vehicle.lastTime), &spawned, &placement,
+          &failure) ||
       !spawned.isNUL() || TaxiSubjectState_LiveCount() != baselineCount ||
       TaxiSubjectState_Fingerprint(context) != baselineFingerprint) {
     return false;
   }
 
-  if (!TaxiSubjectState_DebugSpawn(
-          context, catalog.front().taxiAttribute.c_str(),
-          "Debug.Taxi.Smoke.0001",
-          vehicle.position + CFVector3(0.0, 24.0, 16.0), 0.0,
-          (std::max)(0.1, vehicle.lastTime), &spawned, &failure) ||
-      spawned.isNUL() || !context->isExist(spawned) ||
-      TaxiSubjectState_LiveCount() != baselineCount + 1) {
-    return false;
-  }
-  KR_ObjectID duplicate = KR_ObjectID::NUL();
-  if (TaxiSubjectState_DebugSpawn(
-          context, catalog.front().taxiAttribute.c_str(),
-          "Debug.Taxi.Smoke.0001",
-          vehicle.position + CFVector3(0.0, 24.0, 18.0), 0.0,
-          (std::max)(0.1, vehicle.lastTime), &duplicate, &failure) ||
-      !duplicate.isNUL() || TaxiSubjectState_LiveCount() != baselineCount + 1) {
+  for (std::size_t index = 0; index < catalog.size(); ++index) {
+    char objectName[64] = {};
+    std::snprintf(objectName, sizeof(objectName),
+                  "Debug.Taxi.Surface.%04u",
+                  static_cast<unsigned int>(index + 1u));
+    const CFVector3 requested =
+        vehicle.position + CFVector3(0.0, 24.0, 16.0);
+    spawned = KR_ObjectID::NUL();
+    placement = STaxiDebugSpawnPlacement();
+    if (!TaxiSubjectState_DebugSpawn(
+            context, catalog[index].taxiAttribute.c_str(), objectName,
+            requested, static_cast<double>(index) * 0.125,
+            (std::max)(0.1, vehicle.lastTime), &spawned, &placement,
+            &failure) ||
+        spawned.isNUL() || !context->isExist(spawned) ||
+        TaxiSubjectState_LiveCount() != baselineCount + 1 ||
+        placement.ready == 0 ||
+        placement.sweepHit + placement.terrainFallback != 1 ||
+        placement.bumpKind == BF_NONE ||
+        std::fabs(Abs(placement.surfaceNormal) - 1.0) > 1.0e-6 ||
+        placement.surfaceNormal.y < 0.05 ||
+        std::fabs(placement.modelBottomClearance) > 1.0e-6) {
+      if (!spawned.isNUL() && context->isExist(spawned))
+        context->removeObject(spawned);
+      return false;
+    }
+    double drift = 0.0;
+    if (!TaxiSubjectState_DebugPlacementDrift(
+            context, objectName, placement.resolvedPosition, &drift) ||
+        drift > 1.0e-6) {
+      context->removeObject(spawned);
+      return false;
+    }
+    ++g_taxiDebugGroundingProbe.types;
+    g_taxiDebugGroundingProbe.sweepHits += placement.sweepHit;
+    g_taxiDebugGroundingProbe.terrainFallbacks +=
+        placement.terrainFallback;
+    g_taxiDebugGroundingProbe.maxBottomClearance =
+        (std::max)(g_taxiDebugGroundingProbe.maxBottomClearance,
+                   std::fabs(placement.modelBottomClearance));
+    g_taxiDebugGroundingProbe.maxImmediateDrift =
+        (std::max)(g_taxiDebugGroundingProbe.maxImmediateDrift, drift);
+
+    if (index == 0) {
+      KR_ObjectID duplicate = KR_ObjectID::NUL();
+      STaxiDebugSpawnPlacement duplicatePlacement;
+      if (TaxiSubjectState_DebugSpawn(
+              context, catalog[index].taxiAttribute.c_str(), objectName,
+              requested + CFVector3(0.0, 0.0, 2.0), 0.0,
+              (std::max)(0.1, vehicle.lastTime), &duplicate,
+              &duplicatePlacement, &failure) ||
+          !duplicate.isNUL() ||
+          TaxiSubjectState_LiveCount() != baselineCount + 1) {
+        context->removeObject(spawned);
+        return false;
+      }
+    }
     context->removeObject(spawned);
-    return false;
+    if (TaxiSubjectState_LiveCount() != baselineCount ||
+        TaxiSubjectState_SoundCount() != baselineSounds ||
+        TaxiSubjectState_Fingerprint(context) != baselineFingerprint)
+      return false;
   }
-  context->removeObject(spawned);
-  return TaxiSubjectState_LiveCount() == baselineCount &&
-         TaxiSubjectState_SoundCount() == baselineSounds &&
-         TaxiSubjectState_Fingerprint(context) == baselineFingerprint;
+  return g_taxiDebugGroundingProbe.types ==
+             static_cast<int>(catalog.size()) &&
+         g_taxiDebugGroundingProbe.sweepHits +
+                 g_taxiDebugGroundingProbe.terrainFallbacks ==
+             g_taxiDebugGroundingProbe.types;
 }
 
 bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
@@ -5423,6 +5481,7 @@ int main(int argc, char** argv) {
                "taxi_subject=%d/%d sound=%d fingerprint=%llu "
                "taxi_lifecycle=1/1/1/1/2 "
                "taxi_vehicle=%d/%d/%d/%d/%d/%d/%d/%d "
+               "taxi_debug_grounding=%d/%d/%d clearance=%.9f drift=%.9f "
                "taxi_handoff=F1-nearest-panel-drive-rollback "
                "vehicle_embodiment=F1-safe-Taxi-reentry-unsafe-Orphan-impact-rollback "
                "vehicle_fire=MouseL-Bullet-impact-visual-sound-focus-rollback "
@@ -5523,6 +5582,11 @@ int main(int argc, char** argv) {
                  taxiVehicleTransitions, taxiVehicleAttributeTransfers,
                  taxiVehiclePoseTransfers, taxiVehiclePayloadTransfers,
                  taxiVehicleRemovedTaxis, taxiVehicleRollbacks,
+                 g_taxiDebugGroundingProbe.types,
+                 g_taxiDebugGroundingProbe.sweepHits,
+                 g_taxiDebugGroundingProbe.terrainFallbacks,
+                 g_taxiDebugGroundingProbe.maxBottomClearance,
+                 g_taxiDebugGroundingProbe.maxImmediateDrift,
                  bulletRosterSize, bulletCapacity, bulletFingerprint,
                 bulletReferenceFingerprint, bulletSubjectCapacity,
                 bulletSubjectFingerprint,

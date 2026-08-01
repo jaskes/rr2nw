@@ -3373,6 +3373,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   playback phase, physics velocity or cross-owner reference. Extend TXI1; do
   not infer identity from a supposedly unique retail object name.
 
+### CQ-183: taxi_SET_TO_POS stopped the probe sphere, not the model
+
+- Status: `SOURCE_BEHAVIOR_CORRECTED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the May source casts an `SBumpDef` with radius `1.0` downward, then
+  adds `vel * fTime` directly to the requested Taxi position. The resulting
+  origin is the sphere centre, exactly one radius above the supporting contact.
+  Debug-created vehicles therefore visibly floated even though collision had
+  succeeded. `EV_VEHICLE_DROP_TAXI` independently subtracts that radius, which
+  confirms that the centre/contact distinction was understood elsewhere.
+- Handling: preserve the real collision query, derive its plane normal and
+  contact point, align the requested heading and compensate the selected
+  model's centre/height lower bound plus TaxiAttr `m_yOffset`. Reject side-wall
+  support and use the terrain plane only as a bounded fallback. Do not maintain
+  a hand-authored height table for retail vehicle names.
+- Verification: the direct service proof creates every Level-local Taxi type,
+  requires exactly one placement route, a unit upward support normal, at most
+  `1e-6` lower-bound clearance/drift and exact roster/sound/fingerprint cleanup.
+  Debug and Release each pass 57 types across nine Levels. The real-window
+  `Level.02D` gate adds five three-frame settlement proofs per configuration.
+- Revisit when: animated models alter their lower bound after creation, a
+  genuine airborne Taxi start must bypass grounding, or dynamic supporting
+  bodies require inherited velocity. Those need explicit modes rather than a
+  regression to sphere-centre placement.
+
 ## Maintenance rule
 
 When a new quirk is found:

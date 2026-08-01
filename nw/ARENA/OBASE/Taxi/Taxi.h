@@ -19,6 +19,7 @@
 #include "i/skin.i"
 #include "obase/sound/wavobj.h"
 
+struct STaxiDebugSpawnPlacement;
 
  //===========================================================================
 class AttributeTaxi : public ct_Attribute
@@ -107,6 +108,19 @@ class Taxi :
 
 {
  bool setTaxiAttr();
+ bool placeOnSurface(const CFVector3 &requested, double hAngle);
+ bool m_surfacePlacementReady;
+ bool m_surfaceSweepHit;
+ bool m_surfaceTerrainFallback;
+ int m_surfaceBumpKind;
+ double m_surfaceSweepTime;
+ double m_surfaceDropDistance;
+ double m_surfaceOriginClearance;
+ double m_surfaceModelBottomClearance;
+ CFVector3 m_surfaceRequestedPosition;
+ CFVector3 m_surfacePosition;
+ CFVector3 m_surfaceResolvedPosition;
+ CFVector3 m_surfaceNormal;
 
  public:
     AttributeTaxi         *m_attr;
@@ -159,6 +173,7 @@ class Taxi :
 
     bool runtimeReady() const;
     KR_ObjectID taxiAttributeID() const { return m_taxiAttrID; }
+    bool inspectDebugSpawnPlacement(STaxiDebugSpawnPlacement *placement) const;
 
 //  IDynamicObject
     virtual double 	getMass	   () {return 1;}	// Масса

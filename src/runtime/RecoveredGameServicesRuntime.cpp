@@ -961,6 +961,16 @@ SLevelContinuationSummary g_debugPreDeathCheckpointSummary;
 int g_debugPreDeathCorpseCount = -1;
 std::vector<std::string> g_debugLevelCatalog;
 std::vector<SRecoveredDebugVehicleType> g_debugVehicleCatalog;
+struct SPendingDebugTaxiSettlement {
+  std::string objectName;
+  CFVector3 expectedPosition;
+  unsigned int remainingFrames = 0;
+  unsigned int observedFrames = 0;
+  double maxDrift = 0.0;
+};
+constexpr unsigned int kDebugTaxiSettlementFrames = 3u;
+constexpr double kDebugTaxiSettlementTolerance = 1.0e-6;
+std::vector<SPendingDebugTaxiSettlement> g_debugTaxiSettlements;
 HMENU g_nativeMenuBar = nullptr;
 HMENU g_nativeGameMenu = nullptr;
 HMENU g_nativeSaveMenu = nullptr;
@@ -1139,6 +1149,40 @@ bool BuildDebugVehicleCatalog() {
       static_cast<unsigned int>(g_debugVehicleCatalog.size());
   g_debugMenuState.lastError.clear();
   return true;
+}
+
+void ObserveDebugTaxiSettlements() {
+  if (g_debugTaxiSettlements.empty() || g_super.m_context == nullptr)
+    return;
+  for (std::vector<SPendingDebugTaxiSettlement>::iterator settlement =
+           g_debugTaxiSettlements.begin();
+       settlement != g_debugTaxiSettlements.end();) {
+    double drift = 0.0;
+    const bool stable = TaxiSubjectState_DebugPlacementDrift(
+        g_super.m_context, settlement->objectName.c_str(),
+        settlement->expectedPosition, &drift) &&
+        drift <= kDebugTaxiSettlementTolerance;
+    if (!stable) {
+      ++g_debugMenuState.spawnSettlementFailures;
+      settlement = g_debugTaxiSettlements.erase(settlement);
+      continue;
+    }
+    settlement->maxDrift = (std::max)(settlement->maxDrift, drift);
+    ++settlement->observedFrames;
+    if (settlement->remainingFrames != 0)
+      --settlement->remainingFrames;
+    if (settlement->remainingFrames == 0) {
+      ++g_debugMenuState.spawnSettlementProofs;
+      g_debugMenuState.lastSpawnSettlementFrames =
+          settlement->observedFrames;
+      g_debugMenuState.maxSpawnSettlementDrift =
+          (std::max)(g_debugMenuState.maxSpawnSettlementDrift,
+                     settlement->maxDrift);
+      settlement = g_debugTaxiSettlements.erase(settlement);
+    } else {
+      ++settlement;
+    }
+  }
 }
 
 bool DebugCommandCanStage() {
@@ -1492,6 +1536,7 @@ bool InstallNativeSaveMenu() {
 void ResetSaveMenuSession() {
   DestroyNativeSaveMenu();
   g_debugVehicleCatalog.clear();
+  g_debugTaxiSettlements.clear();
   g_debugPreDeathCheckpoint.clear();
   g_debugPreDeathCheckpointSummary = {};
   g_debugPreDeathCorpseCount = -1;
@@ -3420,6 +3465,7 @@ bool RecoveredGameServices_ConfigureDebugMenu(
   g_debugLevelCatalog = enabled ? levelCatalog
                                 : std::vector<std::string>();
   g_debugVehicleCatalog.clear();
+  g_debugTaxiSettlements.clear();
   g_debugLevelSwitchRequest = {};
   g_debugPreDeathCheckpoint.clear();
   g_debugPreDeathCheckpointSummary = {};
@@ -3742,11 +3788,15 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
       std::snprintf(objectName, sizeof(objectName), "Debug.Taxi.%04u",
                     g_debugMenuState.nextObjectOrdinal);
       KR_ObjectID spawned = KR_ObjectID::NUL();
+      STaxiDebugSpawnPlacement placement;
       std::string failure;
       mutationStarted = true;
-      completed = TaxiSubjectState_DebugSpawn(
+      const bool spawnPlaced = TaxiSubjectState_DebugSpawn(
           g_super.m_context, type.taxiAttribute.c_str(), objectName,
-          position, angle, timeStamp, &spawned, &failure);
+          position, angle, timeStamp, &spawned, &placement, &failure);
+      completed = spawnPlaced;
+      if (!spawnPlaced)
+        ++g_debugMenuState.spawnPlacementFailures;
       if (completed &&
           action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE) {
         completed = TaxiSubjectState_DebugTakeVehicle(
@@ -3760,6 +3810,30 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
         g_debugMenuState.lastVehicleAttribute = type.vehicleAttribute;
         ++g_debugMenuState.nextObjectOrdinal;
         ++g_debugMenuState.spawnedVehicles;
+        ++g_debugMenuState.groundedVehicleSpawns;
+        g_debugMenuState.sweepGroundedVehicleSpawns +=
+            placement.sweepHit != 0 ? 1u : 0u;
+        g_debugMenuState.terrainFallbackVehicleSpawns +=
+            placement.terrainFallback != 0 ? 1u : 0u;
+        g_debugMenuState.lastSpawnBumpKind = placement.bumpKind;
+        g_debugMenuState.lastSpawnSweepTime = placement.sweepTime;
+        g_debugMenuState.lastSpawnDropDistance = placement.dropDistance;
+        g_debugMenuState.lastSpawnOriginClearance =
+            placement.originClearance;
+        g_debugMenuState.lastSpawnModelBottomClearance =
+            placement.modelBottomClearance;
+        g_debugMenuState.lastSpawnRequestedY =
+            placement.requestedPosition.y;
+        g_debugMenuState.lastSpawnSurfaceY = placement.surfacePosition.y;
+        g_debugMenuState.lastSpawnResolvedY =
+            placement.resolvedPosition.y;
+        if (action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE) {
+          SPendingDebugTaxiSettlement settlement;
+          settlement.objectName = objectName;
+          settlement.expectedPosition = placement.resolvedPosition;
+          settlement.remainingFrames = kDebugTaxiSettlementFrames;
+          g_debugTaxiSettlements.push_back(settlement);
+        }
         if (action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE)
           ++g_debugMenuState.enteredVehicles;
         g_debugMenuState.lastAction =
@@ -4402,6 +4476,7 @@ int RecoveredGameServices_RunFrame() {
     vehicleFrame = false;
   }
   SUA_ProcessEvents();
+  ObserveDebugTaxiSettlements();
   if (vehicleFrame) {
     bool droppedTime = false;
     if (g_vehicleControlInput.ForwardingFailed()) {

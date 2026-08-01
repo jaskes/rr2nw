@@ -1674,6 +1674,25 @@ playable Level begins.
   decode. Verification is 66/66 CTest in Debug and Release plus 9/9 fresh
   destroyed-context Levels per configuration on the installed retail root.
 
+### RP-VEHICLE-004: Taxi surface placement is model-aware and observable
+
+- Classification: `SOURCE_BEHAVIOR_CORRECTED`, `VISUAL_PLACEMENT_ADMITTED`.
+  The historical `taxi_SET_TO_POS` collision query remains authoritative, but
+  its one-unit probe centre is converted to the actual supporting contact.
+- The selected model's lower bound and TaxiAttr `m_yOffset` determine the final
+  origin after the requested heading is aligned to the support normal. Invalid,
+  missing or side-wall collision results use the Level terrain plane; invalid
+  final geometry fails closed before the Taxi is published.
+- Initial placement telemetry distinguishes collision sweep and terrain
+  fallback and records bump kind, sweep time, drop, origin/model clearance and
+  requested/surface/resolved heights. Debug spawns add a three-frame exact-
+  position proof.
+- The service gate creates every real Level-local Taxi type: 57/57 pass in
+  Debug and 57/57 in Release across all nine installed Levels, all using the
+  collision route with zero reported clearance/drift. The native-window gate
+  passes all five `Level.02D` types in both configurations. This does not claim
+  authentic flight AI or animation for dragon/helicopter/animal entries.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

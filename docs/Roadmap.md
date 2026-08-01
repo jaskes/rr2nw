@@ -1420,8 +1420,8 @@ and shutdown is clean. The complete gate is 66/66 CTest in each configuration,
 
 ### Frontier C: coherent Vehicle embodiment and death
 
-Status: in progress. The bounded camera and transactional default-body death
-slices are complete.
+Status: in progress. The bounded camera, transactional default-body death,
+occupied continuation and grounded Taxi placement slices are complete.
 
 Unify Taxi spawn height, ground settling, panel/HUD selection, camera ownership,
 entry/exit, destroyed Vehicle behaviour and player death. Remove the legacy
@@ -1448,11 +1448,23 @@ Slice gate: 66/66 CTest in Debug and Release, 18/18 installed retail starts,
 real-window death/recovery 2/2. The death graph itself is exercised on every
 retail Level in the fresh matrix.
 
-Next slices: complete grounded debug Taxi spawn/settling telemetry (saved
-moving embodiment and exact panel/HUD reselection are now admitted); then
-admit destruction/damage while occupying type-1 Vehicles and define a public
-restart/repair policy. The debug checkpoint must not
-be promoted into campaign behavior by accident.
+Grounded placement is now owned by the real `taxi_SET_TO_POS` path rather than
+the debug menu. A downward collision sweep resolves the supporting surface and
+normal; the parked model's lower bound and retail `m_yOffset` determine the
+final Taxi origin. A terrain-plane fallback handles missing or side-wall
+contacts. Debug spawns additionally retain sweep/fallback/clearance telemetry
+and must remain at the exact resolved position for three live frames.
+
+Grounding gate: all 57 Level-local Taxi types on the nine installed Levels
+pass in both Debug and Release with collision support, zero lower-bound
+clearance and zero immediate drift. The real native-menu gate spawns all five
+`Level.02D` types and obtains five three-frame settlement proofs in each
+configuration. Full CTest remains 66/66 and fresh continuation remains 9/9 per
+configuration.
+
+Next slice: admit destruction/damage while occupying type-1 Vehicles and
+define a public restart/repair policy. The debug checkpoint must not be
+promoted into campaign behavior by accident.
 
 Gate: representative wheeled, tracked and flying vehicles spawn grounded,
 enter/exit without camera escape, retain the correct panel, fire, take damage,

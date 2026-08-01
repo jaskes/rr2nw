@@ -27,6 +27,32 @@ Names are matched case-insensitively, but they must appear in the selected
 root's `[Levels]` section. With no `--start-level`, the executable continues to
 honour `[Init]/StartLevel` from `game.cfg`.
 
+## Grounded debug-vehicle pass
+
+The automated native-window gate spawns every active Taxi type on
+`Level.02D`, waits for three real frames after each command and validates the
+shutdown telemetry in both configurations:
+
+```powershell
+& ".\tools\acceptance\Invoke-DebugVehiclePlacement.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+Both rows must report five vehicle types, five completed settlement proofs,
+zero placement/settlement failures, zero maximum drift and clean shutdown.
+The broader fresh-continuation matrix separately creates every Level-local
+Taxi type and requires `taxi_debug_grounding` clearance/drift at or below
+`1e-6`.
+
+For a visual check, start `Level.02D` with `--debug-menu` and use **Debug >
+Spawn vehicle nearby** once for each listed entry. The chosen model must appear
+with its lower body on the supporting surface, not one probe radius in the air;
+it must not jump or disappear during the following seconds. Flying/fantasy
+entries are judged only on initial placement here—their animation and AI are a
+separate parity gate. Retain `rr2nw-startup.log` if a result differs; the
+`debug_menu_last_spawn_*` and settlement counters identify the exact route.
+
 ## Authoritative Windows input pass
 
 Production keyboard and primary-mouse input no longer passes through the

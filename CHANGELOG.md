@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Taxi placement no longer leaves the object origin at the centre of the
+  historical one-unit collision probe. The real `taxi_SET_TO_POS` path now
+  resolves a supporting surface, aligns the parked heading to its normal and
+  offsets the origin by the selected model's lower bound plus retail
+  `m_yOffset`; unsupported/side-wall results fall back to the terrain plane.
+- Debug-spawned vehicles now prove that exact resolved position for three
+  subsequent game frames. Placement and settlement failures are retained in
+  shutdown diagnostics instead of appearing only as a floating or
+  teleporting model.
 - Occupied-Vehicle save/load no longer leaves the dropped Taxi behind or
   restores only the reticle without the selected cockpit panel. LCN1 now
   replaces the exact Taxi roster and the Vehicle owner reconciles the real
@@ -34,6 +43,11 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added an all-catalog Taxi grounding probe and a real-window Debug/Release
+  acceptance gate. Every one of the 57 Level-local Taxi types across the nine
+  installed retail Levels passes collision-backed placement with zero model-
+  bottom clearance and immediate drift; the native-menu gate additionally
+  proves all five `Level.02D` types stable for three live frames.
 - Added the versioned `TXI1` active-world owner as LCN1 section 13. It records
   each Level-local Taxi's symbolic occurrence, attribute, pose, stored surface
   direction, damage, ammunition, visibility/audibility lifecycle and private

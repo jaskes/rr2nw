@@ -247,7 +247,25 @@ service proof requires exact occupied attribute, cockpit, control, camera,
 Taxi count and both world/container fingerprints after exit-and-load.
 
 This closes saved occupied embodiment and panel reselection. It does not yet
-claim type-1 destruction/respawn, debug-spawn ground quality for every flying
-or fantasy entry, or moving Vehicle velocity (the current player Vehicle is
-still required at the admitted stable frame boundary). Those are the next
-Frontier C checks.
+claim type-1 destruction/respawn or moving Vehicle velocity (the current player
+Vehicle is still required at the admitted stable frame boundary). Those are
+the next Frontier C checks.
+
+## Grounded Taxi placement and settlement
+
+The former floating debug vehicles came from a concrete source rule: the
+`taxi_SET_TO_POS` event stopped a one-unit downward collision sphere at the
+surface and used that sphere centre as the Taxi origin. The new owner retains
+the original collision query but converts the hit to a contact point, aligns
+the parked heading to the support normal and offsets the origin by the loaded
+model's lower bound plus TaxiAttr `m_yOffset`. Terrain supplies a fail-closed
+fallback when the collision result is absent or is a side wall.
+
+The service gate now creates every catalogued TaxiAttr, not only the first
+convenient entry. Across the nine installed Levels it proves 57/57 types in
+Debug and 57/57 in Release, all through a collision sweep, with zero reported
+model-bottom clearance and immediate drift. A separate native-window gate
+spawns all five `Level.02D` types and proves each remains exact for three live
+frames in both configurations. This closes debug-spawn ground quality for the
+flying/fantasy entries as a placement contract; their authentic flight AI and
+animation are separate actor/Vehicle work.

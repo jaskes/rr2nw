@@ -3260,3 +3260,26 @@ compatibility advances to 2 so older experimental twelve-owner saves are
 rejected before mutation. Final evidence is 66/66 CTest in each configuration,
 18/18 installed retail starts and 9/9 destroyed-context retail Levels in both
 Debug and Release, plus 2/2 real-window input and death/recovery gates.
+
+## Model-aware Taxi surface placement
+
+The floating debug-spawn symptom was traced to the production
+`taxi_SET_TO_POS` event. It stopped a radius-1 `SBumpDef` at the world but kept
+the sphere centre as the object origin. The fix remains inside that real event:
+collision response supplies a support contact/normal, terrain is a bounded
+fallback, and the loaded model's centre/height plus TaxiAttr `m_yOffset`
+supplies the lower-bound offset. No retail-name height table or debug-only
+teleport path was introduced.
+
+Placement diagnostics are retained in `SRecoveredDebugMenuState` and the
+shutdown log. Non-entered debug Taxi objects remain under observation for
+three real frames after `SUA_ProcessEvents`; disappearance or more than
+`1e-6` drift is a failure. The service smoke now iterates every catalog type
+and the fresh-continuation harness parses its `taxi_debug_grounding` marker.
+`Invoke-DebugVehiclePlacement.ps1` exercises the same commands through the
+native Window menu.
+
+Accepted evidence: 66/66 CTest in Debug and Release; 9/9 full retail
+continuation rows per configuration covering 57 Taxi types each; and 2/2
+real-window rows covering all five `Level.02D` types with five settlement
+proofs, zero failures and zero drift.

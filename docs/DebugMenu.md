@@ -15,7 +15,8 @@ From the repository root:
 The window menu bar then contains **Debug**. The first admitted command set is:
 
 - **Spawn vehicle nearby**: creates a real `Taxi` subject about 16 world units
-  in front of `Vehicle.Default` and lets its original start event ground it;
+  in front of `Vehicle.Default`; its original start event resolves a supporting
+  surface and places the selected model's lower bound on that surface;
 - **Spawn and enter**: creates the same real subject and passes it to the
   original `Vehicle::tryTakeTaxi` transition, including the real panel change;
 - **Show current state**: displays Level identity, `VehicleAttr`, dynamic type,
@@ -56,6 +57,20 @@ both world and container fingerprints against the stored pre-death summary,
 removes the death Corpse and returns to live camera/control ownership. The
 checkpoint is process-local, single-use and cleared on Level teardown.
 
+`taxi_SET_TO_POS` performs placement for both retail and debug-created Taxi
+subjects. It sweeps a one-unit sphere downward, derives a supporting normal
+from the authentic collision response and rejects side-wall normals. If no
+supporting collision exists, the selected terrain triangle supplies the plane.
+The final origin compensates the loaded model centre/height and TaxiAttr
+`m_yOffset`, so the rendered lower bound—not the probe centre—touches the
+surface. Non-entered debug spawns are then observed for three ordinary game
+frames. A missing object or drift above `1e-6` is a settlement failure.
+
+Shutdown diagnostics expose `debug_menu_grounded_vehicle_spawns`, sweep and
+terrain-fallback counts, placement/settlement failures, last bump kind, sweep
+time, drop distance, origin/model-bottom clearances, requested/surface/resolved
+heights, proof frames and maximum settlement drift.
+
 A closed presented frame is necessary but not always sufficient for LCN1. A
 live Explosion can still own a temporarily published particle branch, and a
 People owner can be between canonical scheduler states. These are not failures
@@ -86,8 +101,14 @@ not a claim that campaign death/restart or damaged Vehicle parity is complete.
 - A debug runtime smoke must report `debug_menu_native_installed=1`, a non-zero
   `debug_menu_vehicle_types` count and `game_services_issues=0`.
 - The service smoke enumerates the real catalog, rejects an absent attribute,
-  creates one real Taxi, rejects a duplicate deterministic name and returns
-  Taxi count, sound count and fingerprint exactly to baseline.
+  creates every Level-local Taxi type, rejects a duplicate deterministic name
+  and returns Taxi count, sound count and fingerprint exactly to baseline
+  after each type. `taxi_debug_grounding` proves the catalog count, exclusive
+  sweep/fallback route, model-bottom clearance and immediate position drift.
+- `Invoke-DebugVehiclePlacement.ps1` discovers the live catalog count from the
+  startup log, sends every spawn command through the native window and requires
+  one three-frame settlement proof per type in Debug and Release. The admitted
+  `Level.02D` gate is 5/5 in each configuration.
 - The service smoke deliberately leaves a real Explosion drawable published,
   proves that debug spawn is retained rather than failed, closes the frame and
   requires the same request to commit automatically on attempt two.

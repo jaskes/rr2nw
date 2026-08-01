@@ -57,6 +57,27 @@ bool FiniteTaxiDirection(const CFMatrix3x4& direction)
            std::isfinite(offset.z);
 }
 
+bool FiniteTaxiVector(const CFVector3& value)
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+           std::isfinite(value.z);
+}
+
+bool NormalizeTaxiSurfaceNormal(CFVector3 *normal)
+{
+    if (normal == NULL || !FiniteTaxiVector(*normal))
+        return false;
+    const double length = Abs(*normal);
+    if (!std::isfinite(length) || length <= 1.0e-8)
+        return false;
+    *normal = *normal * (1.0 / length);
+    if (normal->y < 0.0)
+        *normal = *normal * -1.0;
+    // A downward placement sweep must land on a surface that can support an
+    // object. Side-wall hits fall back to the terrain plane below the probe.
+    return normal->y >= 0.05;
+}
+
 }
 
 
@@ -111,6 +132,18 @@ AttributeTableTaxi __attrTaxiTable;
 Taxi::Taxi()
     : m_viewDynObj(m_skin)
  {
+    m_surfacePlacementReady = false;
+    m_surfaceSweepHit = false;
+    m_surfaceTerrainFallback = false;
+    m_surfaceBumpKind = BF_NONE;
+    m_surfaceSweepTime = 0.0;
+    m_surfaceDropDistance = 0.0;
+    m_surfaceOriginClearance = 0.0;
+    m_surfaceModelBottomClearance = 0.0;
+    m_surfaceRequestedPosition = CFVector3(0.0, 0.0, 0.0);
+    m_surfacePosition = CFVector3(0.0, 0.0, 0.0);
+    m_surfaceResolvedPosition = CFVector3(0.0, 0.0, 0.0);
+    m_surfaceNormal = CFVector3(0.0, 1.0, 0.0);
     m_taxiAttrID = KR_ObjectID::NUL();
     m_snd = KR_ObjectID::NUL();
     m_ctsndID = ct_NULLID;
@@ -127,6 +160,130 @@ Taxi::Taxi()
     m_askin = 0;
     m_wav = 0;
  }
+
+bool Taxi::placeOnSurface(const CFVector3 &requested, double hAngle)
+{
+    m_surfacePlacementReady = false;
+    m_surfaceSweepHit = false;
+    m_surfaceTerrainFallback = false;
+    m_surfaceBumpKind = BF_NONE;
+    m_surfaceSweepTime = 0.0;
+    m_surfaceRequestedPosition = requested;
+    if (!FiniteTaxiVector(requested) || !std::isfinite(hAngle) ||
+        m_attr == NULL || m_skin.Model() == NULL)
+        return false;
+
+    CViewScene *scene = ZAV_Scene();
+    if (scene == NULL || scene->Order() == NULL ||
+        scene->GetTerrain() == NULL)
+        return false;
+
+    const double probeLift = 4.0;
+    const double probeRadius = 1.0;
+    CFVector3 surface;
+    CFVector3 normal;
+    SBumpDef def;
+    def.start = requested + CFVector3(0.0, probeLift, 0.0);
+    def.vel = CFVector3(0.0, -100.0, 0.0);
+    def.vel1 = def.vel;
+    def.fRadius = probeRadius;
+    def.nBumpFlags = BF_NONE;
+    def.fMass = 1.0;
+    def.fTime = 500.0;
+    def.pBonus = NULL;
+    def.pBumpRef = NULL;
+    const bool sweepHit = scene->Order()->Bump(def) &&
+        std::isfinite(def.fTime) && def.fTime >= 0.0 &&
+        def.fTime <= 500.0;
+    if (sweepHit)
+    {
+        normal = def.vel1 - def.vel;
+        if (NormalizeTaxiSurfaceNormal(&normal))
+        {
+            const CFVector3 sphereCenter = def.start + def.vel * def.fTime;
+            surface = sphereCenter - normal * probeRadius;
+            m_surfaceSweepHit = FiniteTaxiVector(surface);
+            if (m_surfaceSweepHit)
+            {
+                m_surfaceBumpKind = def.nBumpFlags;
+                m_surfaceSweepTime = def.fTime;
+            }
+        }
+    }
+
+    if (!m_surfaceSweepHit)
+    {
+        double terrainY = 0.0;
+        scene->GetTerrain()->GetPlane(requested, normal, terrainY);
+        if (!std::isfinite(terrainY) ||
+            !NormalizeTaxiSurfaceNormal(&normal))
+            return false;
+        surface = CFVector3(requested.x, terrainY, requested.z);
+        if (!FiniteTaxiVector(surface))
+            return false;
+        m_surfaceTerrainFallback = true;
+        m_surfaceBumpKind = BF_BUMPLAND;
+    }
+
+    // Preserve the requested heading while aligning the parked model with the
+    // supporting plane. GetMatrixByAngles uses the inverse legacy convention.
+    GetMatrixByAngles(m_taxiDir, normal, -hAngle - M_PI_2);
+    if (!FiniteTaxiDirection(m_taxiDir))
+        return false;
+
+    CViewObjectModel *model = m_skin.Model();
+    CFVector3 localBottom = model->Center();
+    localBottom.y -= model->Height() * 0.5;
+    const CFVector3 rotatedBottom =
+        m_taxiDir * localBottom + CFVector3(0.0, m_attr->m_yOffset, 0.0);
+    const double bottomDistance = rotatedBottom * normal;
+    if (!FiniteTaxiVector(localBottom) || !FiniteTaxiVector(rotatedBottom) ||
+        !std::isfinite(bottomDistance))
+        return false;
+
+    const CFVector3 resolved = surface - normal * bottomDistance;
+    const CFVector3 modelBottom = resolved + rotatedBottom;
+    const double originClearance = (resolved - surface) * normal;
+    const double modelBottomClearance = (modelBottom - surface) * normal;
+    const double dropDistance = requested.y - resolved.y;
+    if (!FiniteTaxiVector(resolved) || !std::isfinite(originClearance) ||
+        !std::isfinite(modelBottomClearance) ||
+        !std::isfinite(dropDistance) ||
+        std::fabs(modelBottomClearance) > 1.0e-6)
+        return false;
+
+    SetDir(m_taxiDir);
+    setPosition(resolved);
+    m_surfacePosition = surface;
+    m_surfaceResolvedPosition = resolved;
+    m_surfaceNormal = normal;
+    m_surfaceDropDistance = dropDistance;
+    m_surfaceOriginClearance = originClearance;
+    m_surfaceModelBottomClearance = modelBottomClearance;
+    m_surfacePlacementReady = true;
+    return true;
+}
+
+bool Taxi::inspectDebugSpawnPlacement(
+    STaxiDebugSpawnPlacement *placement) const
+{
+    if (placement == NULL || !m_surfacePlacementReady)
+        return false;
+    *placement = STaxiDebugSpawnPlacement();
+    placement->ready = 1;
+    placement->sweepHit = m_surfaceSweepHit ? 1 : 0;
+    placement->terrainFallback = m_surfaceTerrainFallback ? 1 : 0;
+    placement->bumpKind = m_surfaceBumpKind;
+    placement->sweepTime = m_surfaceSweepTime;
+    placement->dropDistance = m_surfaceDropDistance;
+    placement->originClearance = m_surfaceOriginClearance;
+    placement->modelBottomClearance = m_surfaceModelBottomClearance;
+    placement->requestedPosition = m_surfaceRequestedPosition;
+    placement->surfacePosition = m_surfacePosition;
+    placement->resolvedPosition = m_surfaceResolvedPosition;
+    placement->surfaceNormal = m_surfaceNormal;
+    return true;
+}
 
  //============================================================
 Taxi::~Taxi()
@@ -486,21 +643,9 @@ int Taxi::receiveEvent( KR_Event &event )
 				!setTaxiAttr())
 				return 0;
 
-			m_damage = m_attr->m_initialDamage;
-			m_taxiDir.LoadIdentity().RotateOyL(hAngle);
-			SetDir(m_taxiDir);
-
-			SBumpDef def;
-			def.start = pos;
-			def.vel = CFVector3(0,-100,0);
-			def.fRadius = 1.0;
-			def.nBumpFlags = 0;
-			def.fMass = 1.0;
-			def.fTime = 500.0;
-			if (ZAV_Scene() != NULL && ZAV_Scene()->Order() != NULL &&
-				ZAV_Scene()->Order()->Bump(def))
-				pos += def.vel * def.fTime;
-			setPosition(pos);
+            m_damage = m_attr->m_initialDamage;
+            if (!placeOnSurface(pos, hAngle))
+                return 0;
 		}
 		break;
 
@@ -1579,11 +1724,12 @@ bool TaxiSubjectState_DebugSpawn(
     SimulationContext *context, const char *taxiAttribute,
     const char *objectName, const CFVector3 &position,
     double angle, double timeStamp, KR_ObjectID *spawned,
-    std::string *failure)
+    STaxiDebugSpawnPlacement *placement, std::string *failure)
 {
-    if (spawned == NULL || failure == NULL)
+    if (spawned == NULL || placement == NULL || failure == NULL)
         return false;
     *spawned = KR_ObjectID::NUL();
+    *placement = STaxiDebugSpawnPlacement();
     failure->clear();
     const ct_ClassTableID table = g_arena.searchSeanceClassTable("Taxi");
     if (context == NULL || g_arena.getContext() != context ||
@@ -1619,12 +1765,18 @@ bool TaxiSubjectState_DebugSpawn(
     Taxi *taxi = ResolveTaxi(context, object);
     const bool started = taxi != NULL &&
         SendTaxiStart(taxi, attribute, position, angle, timeStamp) &&
-        taxi->runtimeReady();
+        taxi->runtimeReady() &&
+        taxi->inspectDebugSpawnPlacement(placement) &&
+        placement->ready != 0 &&
+        TaxiSubjectNearlyEqual(taxi->taxiPos(),
+                               placement->resolvedPosition) &&
+        std::fabs(placement->modelBottomClearance) <= 1.0e-6;
     if (!started)
     {
         if (!object.isNUL() && context->isExist(object))
             context->removeObject(object);
-        *failure = "real Taxi subject rejected its start event";
+        *placement = STaxiDebugSpawnPlacement();
+        *failure = "real Taxi subject rejected grounded surface placement";
         return false;
     }
     *spawned = object;
@@ -1655,6 +1807,21 @@ bool TaxiSubjectState_DebugTakeVehicle(
         return false;
     }
     return true;
+}
+
+bool TaxiSubjectState_DebugPlacementDrift(
+    SimulationContext *context, const char *objectName,
+    const CFVector3 &expectedPosition, double *drift)
+{
+    if (context == NULL || objectName == NULL || objectName[0] == '\0' ||
+        drift == NULL || !FiniteTaxiVector(expectedPosition))
+        return false;
+    KR_ObjectID object = context->searchObject(objectName);
+    Taxi *taxi = ResolveTaxi(context, object);
+    if (taxi == NULL || !taxi->runtimeReady())
+        return false;
+    *drift = Abs(taxi->taxiPos() - expectedPosition);
+    return std::isfinite(*drift);
 }
 
 /* End of file C:\NW\ARENA\OBASE\Taxi\Taxi.cpp */

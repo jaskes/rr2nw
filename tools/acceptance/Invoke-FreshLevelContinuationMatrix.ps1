@@ -110,6 +110,9 @@ foreach ($configurationName in $Configuration) {
             $proof = [regex]::Match(
                 $stdout,
                 'level_continuation=LCN1-13/13/13 events=(\d+)/(\d+) tick=(\d+) time=([0-9.]+) world=(\d+) journal=(\d+) container=(\d+) save_slot=RR2SLOT1-(\d+)-(\d+) bytes=(\d+) preview=PNG-(\d+)/(\d+) resumed_actions=(\d+) load_retry=(\d+)/(\d+)')
+            $groundingProof = [regex]::Match(
+                $stdout,
+                'taxi_debug_grounding=(\d+)/(\d+)/(\d+) clearance=([0-9.]+) drift=([0-9.]+)')
             $issues = [Collections.Generic.List[string]]::new()
             if ($timedOut) { $issues.Add("timeout") }
             # Windows PowerShell 5.1 can expose a null ExitCode when
@@ -120,6 +123,32 @@ foreach ($configurationName in $Configuration) {
                 $issues.Add("exit=$exitCode")
             }
             if (-not $proof.Success) { $issues.Add("LCN1 proof missing") }
+            if (-not $groundingProof.Success) {
+                $issues.Add("Taxi grounding proof missing")
+            }
+            if ($groundingProof.Success) {
+                $groundingTypes = [uint64]$groundingProof.Groups[1].Value
+                $sweepGrounded = [uint64]$groundingProof.Groups[2].Value
+                $terrainFallback = [uint64]$groundingProof.Groups[3].Value
+                $maxClearance = [double]::Parse(
+                    $groundingProof.Groups[4].Value,
+                    [Globalization.CultureInfo]::InvariantCulture)
+                $maxDrift = [double]::Parse(
+                    $groundingProof.Groups[5].Value,
+                    [Globalization.CultureInfo]::InvariantCulture)
+                if ($groundingTypes -eq 0) {
+                    $issues.Add("Taxi grounding catalog empty")
+                }
+                if (($sweepGrounded + $terrainFallback) -ne $groundingTypes) {
+                    $issues.Add("Taxi grounding routes diverged")
+                }
+                if ($maxClearance -gt 0.000001) {
+                    $issues.Add("Taxi grounding clearance exceeded tolerance")
+                }
+                if ($maxDrift -gt 0.000001) {
+                    $issues.Add("Taxi grounding position drift exceeded tolerance")
+                }
+            }
             if ($proof.Success -and $proof.Groups[1].Value -ne $proof.Groups[2].Value) {
                 $issues.Add("event phases diverged")
             }
@@ -164,6 +193,11 @@ foreach ($configurationName in $Configuration) {
                 PreviewBytes = if ($proof.Success) { [uint64]$proof.Groups[12].Value } else { 0 }
                 DeferredLoads = if ($proof.Success) { [uint64]$proof.Groups[14].Value } else { 0 }
                 LoadAttempts = if ($proof.Success) { [uint64]$proof.Groups[15].Value } else { 0 }
+                GroundedTaxiTypes = if ($groundingProof.Success) { [uint64]$groundingProof.Groups[1].Value } else { 0 }
+                SweepGroundedTaxiTypes = if ($groundingProof.Success) { [uint64]$groundingProof.Groups[2].Value } else { 0 }
+                TerrainFallbackTaxiTypes = if ($groundingProof.Success) { [uint64]$groundingProof.Groups[3].Value } else { 0 }
+                MaxTaxiGroundClearance = if ($groundingProof.Success) { [double]::Parse($groundingProof.Groups[4].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
+                MaxTaxiGroundDrift = if ($groundingProof.Success) { [double]::Parse($groundingProof.Groups[5].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
                 Issues = $issues -join '; '
             })
         }

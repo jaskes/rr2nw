@@ -4344,3 +4344,30 @@ control transition. AWV1 engine compatibility advances to 2 because a
 twelve-owner save cannot describe the Taxi mutations required for exact
 restore. This is a clean fail-closed boundary for experimental saves, not a
 claim of retail-save import support.
+
+## BD-114: place the rendered Taxi lower bound, not the collision probe centre
+
+Status: accepted on 2026-08-01 as the grounded-placement Frontier C slice.
+
+The recovered `taxi_SET_TO_POS` event cast a one-unit sphere downward and
+assigned its stopped centre directly to the Taxi origin. That explains the
+visible one-radius gap, but replacing the event or hard-coding a per-vehicle
+height would split retail and debug placement and fail for the fantasy/flying
+catalog entries.
+
+The real event now converts the collision result to a contact point and
+supporting normal. It preserves the requested heading while aligning the
+parked model to the plane, then offsets the Taxi origin by the selected loaded
+model's centre/height lower bound and retail `m_yOffset`. Missing collisions,
+invalid responses and side-wall normals use the terrain triangle as a bounded
+fallback. Any non-finite transform or lower-bound error above `1e-6` rejects
+the start event before publishing a live Taxi.
+
+The debug owner records the complete placement evidence and observes every
+non-entered spawn for three subsequent game frames. A vanished object or
+position drift is a diagnosed failure. The service probe creates every active
+catalog type and restores Taxi count, sound count and fingerprint after each.
+The accepted matrix covers all 57 types on all nine installed Levels in both
+Debug and Release; the native-window gate additionally proves all five
+`Level.02D` types for three frames in both configurations. This decision owns
+initial surface placement only, not flight AI, animation or post-spawn physics.

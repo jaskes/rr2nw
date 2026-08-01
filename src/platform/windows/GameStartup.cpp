@@ -2816,6 +2816,39 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(debugMenuState->rollbackCompletions));
     log.Line("debug_menu_spawned_vehicles=" +
              std::to_string(debugMenuState->spawnedVehicles));
+    log.Line("debug_menu_grounded_vehicle_spawns=" +
+             std::to_string(debugMenuState->groundedVehicleSpawns));
+    log.Line("debug_menu_sweep_grounded_vehicle_spawns=" +
+             std::to_string(
+                 debugMenuState->sweepGroundedVehicleSpawns));
+    log.Line("debug_menu_terrain_fallback_vehicle_spawns=" +
+             std::to_string(
+                 debugMenuState->terrainFallbackVehicleSpawns));
+    log.Line("debug_menu_spawn_placement_failures=" +
+             std::to_string(debugMenuState->spawnPlacementFailures));
+    log.Line("debug_menu_spawn_settlement_proofs=" +
+             std::to_string(debugMenuState->spawnSettlementProofs));
+    log.Line("debug_menu_spawn_settlement_failures=" +
+             std::to_string(debugMenuState->spawnSettlementFailures));
+    log.Line("debug_menu_last_spawn_settlement_frames=" +
+             std::to_string(debugMenuState->lastSpawnSettlementFrames));
+    log.Line("debug_menu_max_spawn_settlement_drift=" +
+             std::to_string(debugMenuState->maxSpawnSettlementDrift));
+    log.Line("debug_menu_last_spawn_bump_kind=" +
+             std::to_string(debugMenuState->lastSpawnBumpKind));
+    log.Line("debug_menu_last_spawn_sweep_time=" +
+             std::to_string(debugMenuState->lastSpawnSweepTime));
+    log.Line("debug_menu_last_spawn_drop_distance=" +
+             std::to_string(debugMenuState->lastSpawnDropDistance));
+    log.Line("debug_menu_last_spawn_origin_clearance=" +
+             std::to_string(debugMenuState->lastSpawnOriginClearance));
+    log.Line("debug_menu_last_spawn_model_bottom_clearance=" +
+             std::to_string(
+                 debugMenuState->lastSpawnModelBottomClearance));
+    log.Line("debug_menu_last_spawn_height=" +
+             std::to_string(debugMenuState->lastSpawnRequestedY) + "/" +
+             std::to_string(debugMenuState->lastSpawnSurfaceY) + "/" +
+             std::to_string(debugMenuState->lastSpawnResolvedY));
     log.Line("debug_menu_entered_vehicles=" +
              std::to_string(debugMenuState->enteredVehicles));
     log.Line("debug_menu_stabilized_vehicles=" +
