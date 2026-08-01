@@ -70,7 +70,9 @@ struct SRecoveredVehicleRuntimeState
     CFVector3 speed;
     CFMatrix3x4 direction;
     double mass;
+    double damage;
     double lastTime;
+    int secondaryBulletCount;
     int vesselKind;
     int active;
     int frameBegun;
@@ -86,6 +88,9 @@ struct SRecoveredVehicleRuntimeState
     int lastStabilityReason;
     int dead;
     int takingTaxi;
+    int panelReady;
+    int panelOpen;
+    int taxiChangeEnabled;
 };
 
 struct SRecoveredVehicleMovementProbeSummary
@@ -186,6 +191,11 @@ bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context);
 // object/attribute under live-control ownership.
 bool VehicleRuntimeState_DebugStabilize(SimulationContext *context);
 bool VehicleRuntimeState_DebugKill(
+    SimulationContext *context, double eventTime);
+// Applies one bounded 25% integrity loss to a living occupied type-1 Vehicle.
+// The diagnostic temporarily bypasses briefing god mode and recent-entry
+// immunity, but restores both process-global and per-Vehicle guard state.
+bool VehicleRuntimeState_DebugDamageOccupiedVehicle(
     SimulationContext *context, double eventTime);
 // Drives the authentic type-1 lethal-damage path at a closed frame boundary.
 // The debug owner expires only the post-exit immunity window; normal damage,

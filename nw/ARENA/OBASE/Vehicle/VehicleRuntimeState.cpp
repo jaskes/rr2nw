@@ -510,7 +510,9 @@ bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
     state->speed = vehicle->Speed();
     state->direction = vehicle->GetDir();
     state->mass = vehicle->VesselMass();
+    state->damage = vehicle->m_damage;
     state->lastTime = vehicle->m_lastTime;
+    state->secondaryBulletCount = vehicle->m_secBulletCnt;
     state->vesselKind = VesselKind(attribute);
     state->active = g_owner.active && g_owner.vehicle == vehicle;
     state->frameBegun = state->active && g_owner.frameBegun;
@@ -535,14 +537,23 @@ bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
                       : RECOVERED_VEHICLE_STABILITY_NONE;
     state->dead = Vehicle::m_dead ? 1 : 0;
     state->takingTaxi = Vehicle::m_isTakingTaxiNow;
+    state->panelReady = vehicle->panelReady() ? 1 : 0;
+    state->panelOpen = vehicle->panelOpen() ? 1 : 0;
+    state->taxiChangeEnabled = vehicle->taxiChangeEnabled() ? 1 : 0;
     return !IsNul(state->object) && !IsNul(state->attribute) &&
            FiniteVector(state->position) &&
            FiniteVector(state->subjectPosition) &&
            FiniteVector(state->speed) && FiniteMatrix(state->direction) &&
            std::isfinite(state->mass) && state->mass > 0.0 &&
+           std::isfinite(state->damage) &&
            std::isfinite(state->lastTime) &&
+           state->secondaryBulletCount >= 0 &&
            (state->dead == 0 || state->dead == 1) &&
            (state->takingTaxi == 0 || state->takingTaxi == 1) &&
+           (state->panelReady == 0 || state->panelReady == 1) &&
+           (state->panelOpen == 0 || state->panelOpen == 1) &&
+           (state->taxiChangeEnabled == 0 ||
+            state->taxiChangeEnabled == 1) &&
            state->vesselKind != RECOVERED_VEHICLE_VESSEL_UNKNOWN;
 }
 
@@ -579,9 +590,14 @@ bool PublicStatesMatch(const SRecoveredVehicleRuntimeState &before,
            NearlyEqual(before.speed, after.speed) &&
            NearlyEqual(before.direction, after.direction) &&
            NearlyEqual(before.mass, after.mass) &&
+           NearlyEqual(before.damage, after.damage) &&
            NearlyEqual(before.lastTime, after.lastTime) &&
+           before.secondaryBulletCount == after.secondaryBulletCount &&
            before.dead == after.dead &&
            before.takingTaxi == after.takingTaxi &&
+           before.panelReady == after.panelReady &&
+           before.panelOpen == after.panelOpen &&
+           before.taxiChangeEnabled == after.taxiChangeEnabled &&
            before.vesselKind == after.vesselKind;
 }
 
@@ -1034,6 +1050,48 @@ bool VehicleRuntimeState_DebugDestroyOccupiedVehicle(
         !g_owner.vehicle->taxiChangeEnabled())
         return false;
     return VehicleRuntimeState_RebaseRestoredOwner(context);
+}
+
+bool VehicleRuntimeState_DebugDamageOccupiedVehicle(
+    SimulationContext *context, double eventTime)
+{
+    AttributeVehicle *attribute = ResolveAttribute(g_owner.vehicle);
+    if (!g_owner.active || context == NULL || g_owner.context != context ||
+        g_owner.vehicle == NULL || g_owner.frameBegun ||
+        !context->isExist(g_owner.object) ||
+        !std::isfinite(eventTime) || eventTime < g_owner.lastTime ||
+        !VehicleReady(g_owner.vehicle) || attribute == NULL ||
+        attribute->m_type != 1 || Vehicle::m_dead ||
+        g_owner.vehicle->taxiChangeEnabled() ||
+        !std::isfinite(g_owner.vehicle->m_damage) ||
+        g_owner.vehicle->m_damage <= 0.0)
+        return false;
+
+    SRecoveredVehicleRuntimeState before = {};
+    if (!ReadState(g_owner.vehicle, &before) || !before.active ||
+        before.panelOpen != before.panelReady)
+        return false;
+
+    const int savedGodMode = g_godMode;
+    const double savedLastLeaveTime = g_owner.vehicle->m_lastLeaveTime;
+    const double damageAmount = before.damage * 0.25;
+    g_godMode = 0;
+    g_owner.vehicle->m_lastLeaveTime =
+        eventTime - (std::max)(0.0, g_levelAttr.m_666Time) - 1.0;
+    g_owner.vehicle->setDamage(
+        damageAmount, before.subjectPosition, eventTime, g_owner.object);
+    g_owner.vehicle->m_lastLeaveTime = savedLastLeaveTime;
+    g_godMode = savedGodMode;
+
+    SRecoveredVehicleRuntimeState after = {};
+    return ReadState(g_owner.vehicle, &after) && after.active &&
+           !after.dead && !after.takingTaxi &&
+           !after.taxiChangeEnabled &&
+           after.panelReady == before.panelReady &&
+           after.panelOpen == before.panelOpen &&
+           after.attribute == before.attribute &&
+           after.damage > 0.0 && after.damage < before.damage &&
+           NearlyEqual(after.damage, before.damage - damageAmount, 1.0e-7);
 }
 
 bool VehicleRuntimeState_Advance(

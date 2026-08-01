@@ -3502,6 +3502,33 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: a semantic staging fixture is added or removed. The runtime,
   unit smoke, product matrix and manual ledger must change in the same slice.
 
+### CQ-189: byte-complete world restore is not sufficient gameplay authority
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_PARTIAL`.
+- Evidence: the reported occupied-Vehicle load failures were presentation and
+  ownership failures: the world could exist while the player appeared outside
+  the saved car, with only a reticle, detached camera or unstable controls.
+  VEH1 already stores vessel pose/speed, damage, ammunition and panel-driving
+  attributes; TXI1/ORP1 store the surrounding bodies, and CTJ1 stores controls.
+  The missing release condition was an explicit proof that those restored
+  owners were rebound into one playable session before load success surfaced.
+- Handling: after AWS1 reconstruction and CTJ1 adoption, require an active
+  closed-frame `Vehicle.Default`, exact living/dead cockpit presentation, the
+  derived live/Taxi/death camera, retained Hardware subscription and a resumed
+  journal without append failures. Any mismatch enters the existing LCN1
+  target-session rollback. Keep this a validation layer over LCN1/RR2SLOT1;
+  do not add sidecar save metadata or a second serializer.
+- Verification: the service smoke enters a real type-1 Vehicle, leaves it
+  moving, applies authentic bounded damage, retains a named debug-spawned
+  Taxi, commits slot 5, diverges pose/health and reloads. It requires exact
+  Vehicle fields, panel/camera, Taxi/Orphan fingerprints, named object and
+  resumed input, then restores its byte-identical suite baseline. The fresh
+  matrix makes this mandatory on every selected Level, while
+  `Invoke-OccupiedVehicleSaveLoad.ps1` covers the native Game-menu path.
+- Revisit when: the per-class and cross-process/cross-Level breadth work closes
+  Frontier D. A deliberate post-restore authority-failure injection must then
+  prove byte-equivalent source rollback, not just a rejected load result.
+
 ## Maintenance rule
 
 When a new quirk is found:

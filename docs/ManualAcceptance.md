@@ -544,6 +544,25 @@ are `14/8/0.5/160/0.12/0.45/Bullet.Mina/7/180`,
 fingerprints must be non-zero and identical after matching save/relaunch/load.
 This is a diagnostic contract preset, not a balanced gameplay preset.
 
+## Occupied Vehicle save/load authority pass
+
+The automated real-window check enters an armed Level.03N Vehicle, drives it,
+applies bounded non-lethal damage, saves through the ordinary Game menu,
+changes pose and health, and loads through that same menu:
+
+```powershell
+& ".\tools\acceptance\Invoke-OccupiedVehicleSaveLoad.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+Both rows must pass. The log must contain one completed save and load, two
+`debug_menu_damaged_occupied_vehicles`, equal non-zero slot/restored world and
+LCN1 fingerprints, `vehicle_camera_mode=1`, zero active actions/issues and a
+clean shutdown. A visible manual repeat should additionally confirm that the
+same cockpit is present immediately after load and accepts throttle without a
+camera jump.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

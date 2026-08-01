@@ -2868,6 +2868,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("save_menu_last_title=" + saveMenuState->lastSlot.title);
     log.Line("save_menu_last_requested_title=" +
              saveMenuState->lastRequestedTitle);
+    log.Line("save_menu_last_slot_world_fingerprint=" +
+             std::to_string(saveMenuState->lastSlot.worldFingerprint));
+    log.Line("save_menu_last_slot_continuation_fingerprint=" +
+             std::to_string(
+                 saveMenuState->lastSlot.continuationFingerprint));
+    log.Line("save_menu_last_restore_world_fingerprint=" +
+             std::to_string(
+                 saveMenuState->lastContinuation.worldFingerprint));
+    log.Line("save_menu_last_restored_world_fingerprint=" +
+             std::to_string(
+                 saveMenuState->lastContinuation
+                     .restoredWorldFingerprint));
+    log.Line("save_menu_last_restore_container_fingerprint=" +
+             std::to_string(
+                 saveMenuState->lastContinuation.containerFingerprint));
     log.Line("save_menu_cross_level_requests=" +
              std::to_string(saveMenuState->crossLevelRequests));
     log.Line("save_menu_completed_cross_level_loads=" +
@@ -3003,6 +3018,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(
                  debugMenuState
                      ->restoredPreVehicleDestructionCheckpoints));
+    log.Line("debug_menu_damaged_occupied_vehicles=" +
+             std::to_string(
+                 debugMenuState->damagedOccupiedVehicles));
+    log.Line("debug_menu_last_vehicle_damage=" +
+             std::to_string(debugMenuState->lastVehicleDamageBefore) +
+             "/" +
+             std::to_string(debugMenuState->lastVehicleDamageAfter));
     log.Line("debug_menu_pre_vehicle_destruction_checkpoint_available=" +
              std::to_string(
                  debugMenuState

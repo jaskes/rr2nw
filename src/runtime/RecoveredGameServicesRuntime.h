@@ -301,7 +301,8 @@ enum ERecoveredDebugMenuAction {
   RECOVERED_DEBUG_MENU_KILL_PLAYER = 6,
   RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH = 7,
   RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE = 8,
-  RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION = 9
+  RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION = 9,
+  RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE = 10
 };
 
 struct SRecoveredDebugVehicleType {
@@ -353,6 +354,9 @@ struct SRecoveredDebugMenuState {
   unsigned int destructionOrphanCreations = 0;
   unsigned int destructionSaveProofs = 0;
   unsigned int restoredPreVehicleDestructionCheckpoints = 0;
+  unsigned int damagedOccupiedVehicles = 0;
+  double lastVehicleDamageBefore = 0.0;
+  double lastVehicleDamageAfter = 0.0;
   bool preVehicleDestructionCheckpointAvailable = false;
   std::uint64_t destructionWorldFingerprint = 0;
   std::uint64_t destructionContinuationFingerprint = 0;
@@ -540,6 +544,7 @@ bool RecoveredGameServices_RequestDebugKillPlayer();
 bool RecoveredGameServices_RequestDebugRestorePreDeath();
 bool RecoveredGameServices_RequestDebugDestroyOccupiedVehicle();
 bool RecoveredGameServices_RequestDebugRestorePreVehicleDestruction();
+bool RecoveredGameServices_RequestDebugDamageOccupiedVehicle();
 bool RecoveredGameServices_RequestDebugLevelSwitch(std::size_t index);
 bool RecoveredGameServices_ProcessPendingDebugCommand();
 bool RecoveredGameServices_DebugLevelSwitchPending();

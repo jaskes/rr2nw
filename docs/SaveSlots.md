@@ -101,6 +101,14 @@ selects a hermetic or portable root for tests and manual acceptance.
 5. publishes summaries only after world recapture and control-journal adoption
    succeed.
 
+Control-journal adoption is not the final success condition. The restored
+session must also expose an active, closed-frame `Vehicle.Default`, a cockpit
+whose open state matches the restored living/dead body, the corresponding
+live/Taxi/death camera, an installed Hardware subscription and a resumed CTJ1
+journal without append failures. Failure of this gameplay-authority check
+uses the same captured target-session backup as every other post-mutation
+failure.
+
 For a same-Level load, the caller invokes this direct service transaction.
 For a different-Level load, the broker instead captures an in-memory LCN1 of
 the current world and publishes a `SRecoveredCrossLevelLoadRequest` containing
@@ -192,6 +200,14 @@ five further controlled frames. The save request supplies a non-default UTF-8
 title and description through the production broker, rereads both from the
 committed archive and decodes its real 640x480 preview to a 320x240 BGRA view.
 
+The same smoke now adds a second ordinary slot after entering a real type-1
+Vehicle. It retains non-zero speed and non-lethal damage plus a separately
+spawned named Taxi, saves, changes both pose and health, then loads and
+requires exact Vehicle pose/dynamics/damage/ammunition/profile, panel and
+camera; exact Taxi/Orphan counts and fingerprints; the named debug object; and
+two newly accepted control-journal actions after restore. The fresh-Level
+matrix requires this proof on every selected retail Level.
+
 With optional source and target Level arguments, the same service smoke also
 creates a real target RR2SLOT1, stages the two-continuation handoff, destroys
 and reconstructs both Levels and proves continued target frames. A second
@@ -214,15 +230,23 @@ metadata-bearing save request and clean shutdown. Automated Win32 inspection
 proves the edit controls and their default flow; actual keyboard entry,
 including Cyrillic text, remains in the manual acceptance pass.
 
+`tools/acceptance/Invoke-OccupiedVehicleSaveLoad.ps1` exercises the visible
+same-Level authority path on Level.03N. It uses the Debug menu only to create a
+repeatable occupied/damaged fixture; save and load themselves go through the
+ordinary Game menu and modal slot dialogs. The final log must show one save,
+one load, two bounded damage applications, matching slot/restored world and
+container fingerprints, live camera, neutral controls and clean shutdown.
+
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
 `LCN1-14/14/14`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
 
 The current accepted local Windows gate is 66/66 CTest in Debug and Release,
-18/18 RR2SLOT1 destroyed-context cases and 18/18 independent ordinary retail
-runtime cases across all nine installed Levels and both configurations. The
-mounted disc root was not available for this tranche and is therefore not
-included in the slot claim.
+18/18 RR2SLOT1 destroyed-context cases, 18/18 independent ordinary retail
+runtime cases, 2/2 native-window occupied Vehicle save/load cases and 2/2
+cross-Level coordinator cases. These cover all nine installed Levels in both
+configurations. The mounted disc root was not part of this tranche and is
+therefore not included in the slot claim.
 
 ## Next gate
 

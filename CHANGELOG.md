@@ -7,6 +7,11 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Same-Level slot restore now fails closed unless the reconstructed world also
+  rebinds the live `Vehicle.Default` owner, its exact cockpit presentation,
+  expected live/Taxi/death camera and resumed CTJ1 control journal. Any
+  post-world authority failure returns through the existing LCN1 rollback
+  instead of publishing a visually loaded but uncontrollable session.
 - Restored the three vessel profiles present in the shipped Level data but
   absent from the preserved May source dispatch: `Emveshka1`, `TankGenn4` and
   `TankGenn5` now load their `Emv1`, `Tank4` and `Tank5` configuration blocks,
@@ -72,6 +77,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added an occupied moving/damaged Vehicle save/load gate. It enters a real
+  type-1 Taxi target, creates momentum and non-lethal damage, retains a named
+  debug-spawned Taxi in the world, commits an ordinary RR2SLOT1, deliberately
+  diverges pose and health, then requires exact Vehicle/Taxi/Orphan,
+  HUD/camera and resumed-control restoration.
+- Added **Damage occupied vehicle by 25%** to the opt-in Debug menu and
+  `Invoke-OccupiedVehicleSaveLoad.ps1` for the real Windows Game-menu path.
+  The damage command uses authentic `Vehicle::setDamage` while restoring the
+  process god-mode and recent-entry immunity guards after the diagnostic.
 - Added independent MouseR secondary fire to the authoritative Windows input
   adapter, Vehicle control owner and CTJ1 journal. Focus loss releases both
   fire actions, native telemetry proves secondary ammunition consumption, and

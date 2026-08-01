@@ -46,6 +46,7 @@
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/taxi/TaxiAttributeState.h"
 #include "obase/taxi/Taxi.h"
+#include "obase/taxi/TaxiActiveWorldState.h"
 #include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
@@ -4003,6 +4004,290 @@ bool ExerciseDebugOccupiedVehicleDestruction(
       coverage->gameplayRoundTrips == coverage->representativeProfiles;
 }
 
+struct SOccupiedVehicleSaveLoadCoverage {
+  bool ready = false;
+  int vesselProfile = RECOVERED_VEHICLE_PROFILE_UNKNOWN;
+  int panelReady = 0;
+  int panelOpen = 0;
+  int cameraMode = RECOVERED_VEHICLE_CAMERA_UNKNOWN;
+  int taxiCount = 0;
+  int orphanCount = 0;
+  double savedDamage = 0.0;
+  double savedSpeed = 0.0;
+  std::uint64_t worldFingerprint = 0;
+  std::uint64_t taxiFingerprint = 0;
+  std::uint64_t orphanFingerprint = 0;
+  unsigned int resumedActions = 0;
+};
+
+bool SameVector(const CFVector3& left, const CFVector3& right,
+                double epsilon = 1.0e-7) {
+  return std::fabs(left.x - right.x) <= epsilon &&
+      std::fabs(left.y - right.y) <= epsilon &&
+      std::fabs(left.z - right.z) <= epsilon;
+}
+
+bool SameMatrix(const CFMatrix3x4& left, const CFMatrix3x4& right,
+                double epsilon = 1.0e-7) {
+  for (int row = 0; row < 3; ++row)
+    for (int column = 0; column < 4; ++column)
+      if (std::fabs(left.m[row][column] -
+                    right.m[row][column]) > epsilon)
+        return false;
+  return true;
+}
+
+bool ExerciseOccupiedVehicleSaveLoad(
+    SimulationContext* context, const std::wstring& saveDirectory,
+    SOccupiedVehicleSaveLoadCoverage* coverage) {
+  constexpr std::uint32_t kOccupiedSlot = 5u;
+  if (context == nullptr || saveDirectory.empty() || coverage == nullptr ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u)
+    return false;
+  *coverage = {};
+
+  const SRecoveredSaveMenuState* menuBefore =
+      RecoveredGameServices_SaveMenuState();
+  const unsigned int saveRequestsBefore =
+      menuBefore == nullptr ? 0u : menuBefore->saveRequests;
+  const unsigned int completedSavesBefore =
+      menuBefore == nullptr ? 0u : menuBefore->completedSaves;
+  const unsigned int loadRequestsBefore =
+      menuBefore == nullptr ? 0u : menuBefore->loadRequests;
+  const unsigned int completedLoadsBefore =
+      menuBefore == nullptr ? 0u : menuBefore->completedLoads;
+
+  std::vector<std::uint8_t> suiteBaseline;
+  SLevelContinuationSummary suiteSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &suiteBaseline, &suiteSummary) || !suiteSummary.ready ||
+      !RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{"Level.SaveLoad.Authority"}))
+    return false;
+
+  const std::size_t count = RecoveredGameServices_DebugVehicleTypeCount();
+  std::size_t occupiedIndex = count;
+  SRecoveredDebugVehicleType occupiedType;
+  for (std::size_t index = 0; index < count; ++index) {
+    SRecoveredDebugVehicleType candidate;
+    if (RecoveredGameServices_DebugVehicleType(index, &candidate) &&
+        candidate.vehicleType == 1 &&
+        candidate.vesselProfile != RECOVERED_VEHICLE_PROFILE_UNKNOWN) {
+      occupiedIndex = index;
+      occupiedType = candidate;
+      break;
+    }
+  }
+
+  const bool entered = occupiedIndex < count &&
+      RecoveredGameServices_RequestDebugVehicleSpawn(
+          occupiedIndex, true) &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  const bool spawnedWorldObject = entered &&
+      RecoveredGameServices_RequestDebugVehicleSpawn(
+          occupiedIndex, false) &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  bool settlementFrames = spawnedWorldObject;
+  for (int frame = 0; settlementFrames && frame < 4; ++frame)
+    settlementFrames = RunVehicleFrameAfter(0.025);
+
+  KR_ObjectID vehicle = context->searchObject("Vehicle.Default");
+  const bool drove = settlementFrames &&
+      SendHardwareButton("W", TRUE);
+  bool driveFrames = drove;
+  for (int frame = 0; driveFrames && frame < 8; ++frame)
+    driveFrames = RunVehicleFrameAfter(0.025);
+  const bool released = driveFrames && SendHardwareButton("W", FALSE) &&
+      RunVehicleFrameAfter(0.01);
+  const bool damaged = released &&
+      RecoveredGameServices_RequestDebugDamageOccupiedVehicle() &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  const SRecoveredDebugMenuState* savedDebugState =
+      RecoveredGameServices_DebugMenuState();
+  const std::string savedDebugObject = savedDebugState == nullptr
+      ? std::string() : savedDebugState->lastObject;
+
+  SRecoveredVehicleRuntimeState savedVehicle = {};
+  SRecoveredVehicleCameraTelemetry savedCamera = {};
+  const int savedTaxiCount = TaxiSubjectState_LiveCount();
+  const int savedOrphanCount = OrphanSubjectState_LiveCount();
+  const std::uint64_t savedTaxiFingerprint =
+      TaxiActiveWorldState_Fingerprint(context);
+  const std::uint64_t savedOrphanFingerprint =
+      OrphanActiveWorldState_Fingerprint(context);
+  const bool authorityReady = damaged &&
+      VehicleRuntimeState_Inspect(context, vehicle, &savedVehicle) &&
+      VehicleRuntimeState_InspectCamera(context, &savedCamera) &&
+      savedVehicle.active && !savedVehicle.frameBegun &&
+      !savedVehicle.dead && !savedVehicle.takingTaxi &&
+      !savedVehicle.taxiChangeEnabled && savedVehicle.damage > 0.0 &&
+      std::sqrt(savedVehicle.speed.x * savedVehicle.speed.x +
+                savedVehicle.speed.y * savedVehicle.speed.y +
+                savedVehicle.speed.z * savedVehicle.speed.z) > 1.0e-6 &&
+      savedVehicle.panelOpen == savedVehicle.panelReady &&
+      savedCamera.mode == RECOVERED_VEHICLE_CAMERA_LIVE &&
+      savedTaxiCount > 0 && savedOrphanCount >= 0 &&
+      savedTaxiFingerprint != 0 && savedOrphanFingerprint != 0 &&
+      !savedDebugObject.empty() &&
+      context->isExist(savedDebugObject.c_str()) &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+
+  SLevelSaveSlotSummary savedSlot;
+  SLevelContinuationSummary savedContinuation;
+  const bool saved = authorityReady &&
+      RecoveredGameServices_RequestSaveSlotWithMetadata(
+          kOccupiedSlot, true, "Occupied moving Vehicle",
+          "damaged Vehicle, HUD/camera and debug-spawned world") &&
+      RecoveredGameServices_ProcessPendingSaveCommand(
+          &savedSlot, &savedContinuation) &&
+      savedSlot.ready && savedContinuation.ready &&
+      savedSlot.worldFingerprint == savedContinuation.worldFingerprint;
+
+  bool mutationFrames = saved && SendHardwareButton("D", TRUE) &&
+      SendHardwareButton("W", TRUE);
+  for (int frame = 0; mutationFrames && frame < 8; ++frame)
+    mutationFrames = RunVehicleFrameAfter(0.025);
+  const bool mutationReleased = mutationFrames &&
+      SendHardwareButton("W", FALSE) &&
+      SendHardwareButton("D", FALSE) &&
+      RunVehicleFrameAfter(0.01);
+  const bool damagedAgain = mutationReleased &&
+      RecoveredGameServices_RequestDebugDamageOccupiedVehicle() &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  SRecoveredVehicleRuntimeState mutatedVehicle = {};
+  const bool mutated = damagedAgain &&
+      VehicleRuntimeState_Inspect(context, vehicle, &mutatedVehicle) &&
+      (!SameVector(mutatedVehicle.position, savedVehicle.position) ||
+       std::fabs(mutatedVehicle.damage - savedVehicle.damage) > 1.0e-7);
+
+  SLevelSaveSlotSummary loadedSlot;
+  SLevelContinuationSummary loadedContinuation;
+  const bool loaded = mutated &&
+      RecoveredGameServices_RequestLoadSlot(kOccupiedSlot) &&
+      RecoveredGameServices_ProcessPendingSaveCommand(
+          &loadedSlot, &loadedContinuation);
+  vehicle = context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState restoredVehicle = {};
+  SRecoveredVehicleCameraTelemetry restoredCamera = {};
+  const bool restored = loaded &&
+      VehicleRuntimeState_Inspect(context, vehicle, &restoredVehicle) &&
+      VehicleRuntimeState_InspectCamera(context, &restoredCamera) &&
+      loadedSlot.archiveFingerprint == savedSlot.archiveFingerprint &&
+      loadedContinuation.ready && loadedContinuation.worldMatches &&
+      loadedContinuation.boundaryMatches &&
+      loadedContinuation.worldFingerprint ==
+          savedContinuation.worldFingerprint &&
+      loadedContinuation.restoredWorldFingerprint ==
+          savedContinuation.worldFingerprint &&
+      loadedContinuation.containerFingerprint ==
+          savedContinuation.containerFingerprint &&
+      restoredVehicle.attribute == savedVehicle.attribute &&
+      SameVector(restoredVehicle.position, savedVehicle.position) &&
+      SameVector(restoredVehicle.subjectPosition,
+                 savedVehicle.subjectPosition) &&
+      SameVector(restoredVehicle.speed, savedVehicle.speed) &&
+      SameMatrix(restoredVehicle.direction, savedVehicle.direction) &&
+      std::fabs(restoredVehicle.damage - savedVehicle.damage) <= 1.0e-7 &&
+      restoredVehicle.secondaryBulletCount ==
+          savedVehicle.secondaryBulletCount &&
+      restoredVehicle.vesselKind == savedVehicle.vesselKind &&
+      restoredVehicle.panelReady == savedVehicle.panelReady &&
+      restoredVehicle.panelOpen == savedVehicle.panelOpen &&
+      !restoredVehicle.taxiChangeEnabled &&
+      restoredCamera.mode == savedCamera.mode &&
+      TaxiSubjectState_LiveCount() == savedTaxiCount &&
+      OrphanSubjectState_LiveCount() == savedOrphanCount &&
+      TaxiActiveWorldState_Fingerprint(context) ==
+          savedTaxiFingerprint &&
+      OrphanActiveWorldState_Fingerprint(context) ==
+          savedOrphanFingerprint &&
+      context->isExist(savedDebugObject.c_str()) &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+
+  SRecoveredVehicleControlJournalTelemetry journalBefore = {};
+  SRecoveredVehicleControlJournalTelemetry journalAfter = {};
+  const bool resumed = restored &&
+      RecoveredGameServices_VehicleControlJournalTelemetry(
+          &journalBefore) &&
+      SendHardwareButton("W", TRUE) && RunVehicleFrameAfter(0.025) &&
+      RunVehicleFrameAfter(0.025) && SendHardwareButton("W", FALSE) &&
+      RunVehicleFrameAfter(0.01) &&
+      RecoveredGameServices_VehicleControlJournalTelemetry(
+          &journalAfter) && journalAfter.recording == 1 &&
+      journalAfter.appendFailures == 0 &&
+      journalAfter.actionRecords == journalBefore.actionRecords + 2u &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+
+  const SRecoveredSaveMenuState* menu =
+      RecoveredGameServices_SaveMenuState();
+  const SRecoveredDebugMenuState* debug =
+      RecoveredGameServices_DebugMenuState();
+  const bool telemetry = resumed && menu != nullptr && debug != nullptr &&
+      menu->saveRequests == saveRequestsBefore + 1u &&
+      menu->completedSaves == completedSavesBefore + 1u &&
+      menu->loadRequests == loadRequestsBefore + 1u &&
+      menu->completedLoads == completedLoadsBefore + 1u &&
+      menu->failedCommands == 0u && !menu->pending &&
+      debug->requests == 4u && debug->completedCommands == 4u &&
+      debug->failedCommands == 0u &&
+      debug->damagedOccupiedVehicles == 2u &&
+      debug->lastVehicleDamageAfter < debug->lastVehicleDamageBefore;
+
+  if (telemetry) {
+    coverage->ready = true;
+    coverage->vesselProfile = occupiedType.vesselProfile;
+    coverage->panelReady = savedVehicle.panelReady;
+    coverage->panelOpen = savedVehicle.panelOpen;
+    coverage->cameraMode = savedCamera.mode;
+    coverage->taxiCount = savedTaxiCount;
+    coverage->orphanCount = savedOrphanCount;
+    coverage->savedDamage = savedVehicle.damage;
+    coverage->savedSpeed = std::sqrt(
+        savedVehicle.speed.x * savedVehicle.speed.x +
+        savedVehicle.speed.y * savedVehicle.speed.y +
+        savedVehicle.speed.z * savedVehicle.speed.z);
+    coverage->worldFingerprint = savedContinuation.worldFingerprint;
+    coverage->taxiFingerprint = savedTaxiFingerprint;
+    coverage->orphanFingerprint = savedOrphanFingerprint;
+    coverage->resumedActions =
+        journalAfter.actionRecords - journalBefore.actionRecords;
+  } else {
+    std::fprintf(
+        stderr,
+        "occupied save/load authority entered=%d spawned=%d settlement=%d "
+        "drove=%d damage=%d authority=%d save=%d mutate=%d load=%d "
+        "restore=%d resume=%d menu=%u/%u/%u/%u debug=%u/%u/%u "
+        "world=%llu/%llu taxi=%d/%d orphan=%d/%d error=%s\n",
+        entered ? 1 : 0, spawnedWorldObject ? 1 : 0,
+        settlementFrames ? 1 : 0, drove ? 1 : 0, damaged ? 1 : 0,
+        authorityReady ? 1 : 0, saved ? 1 : 0, mutated ? 1 : 0,
+        loaded ? 1 : 0, restored ? 1 : 0, resumed ? 1 : 0,
+        menu == nullptr ? 0u : menu->saveRequests,
+        menu == nullptr ? 0u : menu->completedSaves,
+        menu == nullptr ? 0u : menu->loadRequests,
+        menu == nullptr ? 0u : menu->completedLoads,
+        debug == nullptr ? 0u : debug->requests,
+        debug == nullptr ? 0u : debug->completedCommands,
+        debug == nullptr ? 0u : debug->damagedOccupiedVehicles,
+        static_cast<unsigned long long>(savedContinuation.worldFingerprint),
+        static_cast<unsigned long long>(loadedContinuation.worldFingerprint),
+        savedTaxiCount, TaxiSubjectState_LiveCount(), savedOrphanCount,
+        OrphanSubjectState_LiveCount(),
+        menu == nullptr ? "<none>" : menu->lastError.c_str());
+  }
+
+  SLevelContinuationSummary restoredBaseline;
+  const bool baselineRestored =
+      RecoveredGameServices_RestoreLevelContinuation(
+          suiteBaseline, &restoredBaseline) && restoredBaseline.ready &&
+      restoredBaseline.worldFingerprint == suiteSummary.worldFingerprint &&
+      restoredBaseline.containerFingerprint ==
+          suiteSummary.containerFingerprint;
+  const bool debugDisabled = RecoveredGameServices_ConfigureDebugMenu(
+      false, std::vector<std::string>());
+  return coverage->ready && baselineRestored && debugDisabled;
+}
+
 bool ExerciseCampaignRestartStaging() {
   std::vector<std::uint8_t> baseline;
   SLevelContinuationSummary baselineSummary;
@@ -6325,6 +6610,16 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("restored Vehicle did not continue through real frames");
   }
+  SOccupiedVehicleSaveLoadCoverage occupiedSaveLoadCoverage;
+  if (!ExerciseOccupiedVehicleSaveLoad(
+          g_super.m_context, saveSlotDirectory,
+          &occupiedSaveLoadCoverage)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    CleanupSaveSlotFixture(saveSlotDirectory);
+    return Fail(
+        "occupied moving/damaged Vehicle save/load authority failed");
+  }
   if (argc == 3 &&
       !ExerciseCrossLevelLoad(argv[1], argv[2], saveSlotDirectory)) {
     ZAV_DeInitLevel();
@@ -6342,6 +6637,26 @@ int main(int argc, char** argv) {
   }
   CleanupSaveSlotFixture(saveSlotDirectory);
 
+  std::printf(
+      "save_gameplay_authority=occupied-moving-damaged-debug-world "
+      "profile=%d panel=%d/%d camera=%d taxi=%d orphan=%d "
+      "damage=%.6f speed=%.6f world=%llu taxi_world=%llu "
+      "orphan_world=%llu resumed_actions=%u\n",
+      occupiedSaveLoadCoverage.vesselProfile,
+      occupiedSaveLoadCoverage.panelReady,
+      occupiedSaveLoadCoverage.panelOpen,
+      occupiedSaveLoadCoverage.cameraMode,
+      occupiedSaveLoadCoverage.taxiCount,
+      occupiedSaveLoadCoverage.orphanCount,
+      occupiedSaveLoadCoverage.savedDamage,
+      occupiedSaveLoadCoverage.savedSpeed,
+      static_cast<unsigned long long>(
+          occupiedSaveLoadCoverage.worldFingerprint),
+      static_cast<unsigned long long>(
+          occupiedSaveLoadCoverage.taxiFingerprint),
+      static_cast<unsigned long long>(
+          occupiedSaveLoadCoverage.orphanFingerprint),
+      occupiedSaveLoadCoverage.resumedActions);
   std::printf(
       "vehicle_profile_gameplay=%u/%u primary=%u secondary=%u damage=%u "
       "hud=%u/%u/%u roundtrips=%u mask=%u armed=%u/%u "

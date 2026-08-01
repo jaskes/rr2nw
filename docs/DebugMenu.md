@@ -33,6 +33,8 @@ The window menu bar then contains **Debug**. The first admitted command set is:
   after the falling Orphan and complete post-destruction world are capturable;
 - **Restore before vehicle destruction**: restores the single-use LCN1
   checkpoint from immediately before the preceding diagnostic destruction;
+- **Damage occupied vehicle by 25%**: applies bounded non-lethal damage to a
+  living occupied type-1 Vehicle through the authentic damage entry point;
 - **Switch Level (fresh)**: restarts any entry in the active retail/mod Level
   catalog without restoring the source world into the target.
 
@@ -76,6 +78,15 @@ with its one private moving event and a second complete LCN1 capture. Recovery
 must restore the exact pre-destruction world/container fingerprints, selected
 VehicleAttr, cockpit panel, live camera, neutral controls and baseline Orphan
 roster. This remains a diagnostic transaction, not campaign repair policy.
+
+Bounded damage has the same living type-1 and neutral-control preconditions,
+but it is repeatable and creates no recovery checkpoint. The command captures
+LCN1 before mutation, temporarily bypasses briefing god mode and post-entry
+immunity only around `Vehicle::setDamage`, restores both guards, and commits
+only if health remains positive, the occupied attribute/panel remain intact
+and the camera remains live. Shutdown diagnostics expose
+`debug_menu_damaged_occupied_vehicles` and
+`debug_menu_last_vehicle_damage=<before>/<after>`.
 
 `taxi_SET_TO_POS` performs placement for both retail and debug-created Taxi
 subjects. It sweeps a one-unit sphere downward, derives a supporting normal
@@ -154,6 +165,11 @@ campaign restart, repair or every damaged Vehicle class is complete.
   recovery through the native window in Debug and Release. It requires one
   ORP1 creation, one post-destruction LCN1 proof, exact checkpoint recovery,
   live final camera and clean shutdown.
+- `Invoke-OccupiedVehicleSaveLoad.ps1` drives spawn-and-enter, movement,
+  bounded damage, ordinary **Game > Save**, deliberate pose/health divergence
+  and ordinary **Game > Load** through the real window. It requires exact
+  non-zero slot/restored world and LCN1 fingerprints, live camera, neutral
+  controls and clean shutdown in Debug and Release.
 - Manual acceptance should spawn one vehicle, spawn-and-enter a second one,
   exercise kill/restore from the default body, destroy/restore while occupying
   a type-1 Vehicle, save/load the resulting world and switch away from and back
