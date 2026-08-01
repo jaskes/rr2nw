@@ -563,6 +563,19 @@ clean shutdown. A visible manual repeat should additionally confirm that the
 same cockpit is present immediately after load and accepts throttle without a
 camera jump.
 
+The slower complete campaign breadth gate discovers the Level-specific menu
+indices and tests all eight type-1 vessel profiles in separate processes:
+
+```powershell
+& ".\tools\acceptance\Invoke-OccupiedVehicleSaveLoad.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release `
+  -AllProfiles
+```
+
+The result must be 16/16 with the same per-case fingerprint, camera, neutral
+input and clean-shutdown requirements.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

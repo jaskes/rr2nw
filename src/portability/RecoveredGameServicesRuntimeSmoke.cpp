@@ -4006,7 +4006,13 @@ bool ExerciseDebugOccupiedVehicleDestruction(
 
 struct SOccupiedVehicleSaveLoadCoverage {
   bool ready = false;
-  int vesselProfile = RECOVERED_VEHICLE_PROFILE_UNKNOWN;
+  unsigned int eligibleTypes = 0;
+  unsigned int representativeProfiles = 0;
+  unsigned int restoredProfiles = 0;
+  unsigned int profileMask = 0;
+  unsigned int hudProfiles = 0;
+  unsigned int hudlessProfiles = 0;
+  int lastVesselProfile = RECOVERED_VEHICLE_PROFILE_UNKNOWN;
   int panelReady = 0;
   int panelOpen = 0;
   int cameraMode = RECOVERED_VEHICLE_CAMERA_UNKNOWN;
@@ -4037,14 +4043,14 @@ bool SameMatrix(const CFMatrix3x4& left, const CFMatrix3x4& right,
   return true;
 }
 
-bool ExerciseOccupiedVehicleSaveLoad(
+bool ExerciseOccupiedVehicleSaveLoadOne(
     SimulationContext* context, const std::wstring& saveDirectory,
+    std::size_t occupiedIndex, int expectedProfile,
     SOccupiedVehicleSaveLoadCoverage* coverage) {
   constexpr std::uint32_t kOccupiedSlot = 5u;
   if (context == nullptr || saveDirectory.empty() || coverage == nullptr ||
       RecoveredGameServices_VehicleActiveActionCount() != 0u)
     return false;
-  *coverage = {};
 
   const SRecoveredSaveMenuState* menuBefore =
       RecoveredGameServices_SaveMenuState();
@@ -4065,21 +4071,16 @@ bool ExerciseOccupiedVehicleSaveLoad(
           true, std::vector<std::string>{"Level.SaveLoad.Authority"}))
     return false;
 
-  const std::size_t count = RecoveredGameServices_DebugVehicleTypeCount();
-  std::size_t occupiedIndex = count;
   SRecoveredDebugVehicleType occupiedType;
-  for (std::size_t index = 0; index < count; ++index) {
-    SRecoveredDebugVehicleType candidate;
-    if (RecoveredGameServices_DebugVehicleType(index, &candidate) &&
-        candidate.vehicleType == 1 &&
-        candidate.vesselProfile != RECOVERED_VEHICLE_PROFILE_UNKNOWN) {
-      occupiedIndex = index;
-      occupiedType = candidate;
-      break;
-    }
-  }
-
-  const bool entered = occupiedIndex < count &&
+  const std::size_t count = RecoveredGameServices_DebugVehicleTypeCount();
+  const bool selectionValid = occupiedIndex < count &&
+      RecoveredGameServices_DebugVehicleType(
+          occupiedIndex, &occupiedType) &&
+      occupiedType.vehicleType == 1 &&
+      occupiedType.vesselProfile == expectedProfile &&
+      occupiedType.dynamic ==
+          VehicleRuntimeState_VesselProfileName(expectedProfile);
+  const bool entered = selectionValid &&
       RecoveredGameServices_RequestDebugVehicleSpawn(
           occupiedIndex, true) &&
       RecoveredGameServices_ProcessPendingDebugCommand();
@@ -4187,13 +4188,18 @@ bool ExerciseOccupiedVehicleSaveLoad(
                  savedVehicle.subjectPosition) &&
       SameVector(restoredVehicle.speed, savedVehicle.speed) &&
       SameMatrix(restoredVehicle.direction, savedVehicle.direction) &&
+      std::fabs(restoredVehicle.mass - savedVehicle.mass) <= 1.0e-7 &&
       std::fabs(restoredVehicle.damage - savedVehicle.damage) <= 1.0e-7 &&
+      std::fabs(restoredVehicle.lastTime - savedVehicle.lastTime) <= 1.0e-7 &&
       restoredVehicle.secondaryBulletCount ==
           savedVehicle.secondaryBulletCount &&
       restoredVehicle.vesselKind == savedVehicle.vesselKind &&
+      restoredVehicle.dead == savedVehicle.dead &&
+      restoredVehicle.takingTaxi == savedVehicle.takingTaxi &&
       restoredVehicle.panelReady == savedVehicle.panelReady &&
       restoredVehicle.panelOpen == savedVehicle.panelOpen &&
-      !restoredVehicle.taxiChangeEnabled &&
+      restoredVehicle.taxiChangeEnabled ==
+          savedVehicle.taxiChangeEnabled &&
       restoredCamera.mode == savedCamera.mode &&
       TaxiSubjectState_LiveCount() == savedTaxiCount &&
       OrphanSubjectState_LiveCount() == savedOrphanCount &&
@@ -4234,23 +4240,31 @@ bool ExerciseOccupiedVehicleSaveLoad(
       debug->lastVehicleDamageAfter < debug->lastVehicleDamageBefore;
 
   if (telemetry) {
-    coverage->ready = true;
-    coverage->vesselProfile = occupiedType.vesselProfile;
+    ++coverage->restoredProfiles;
+    coverage->lastVesselProfile = occupiedType.vesselProfile;
     coverage->panelReady = savedVehicle.panelReady;
     coverage->panelOpen = savedVehicle.panelOpen;
     coverage->cameraMode = savedCamera.mode;
     coverage->taxiCount = savedTaxiCount;
     coverage->orphanCount = savedOrphanCount;
-    coverage->savedDamage = savedVehicle.damage;
-    coverage->savedSpeed = std::sqrt(
+    const double speed = std::sqrt(
         savedVehicle.speed.x * savedVehicle.speed.x +
         savedVehicle.speed.y * savedVehicle.speed.y +
         savedVehicle.speed.z * savedVehicle.speed.z);
+    if (coverage->restoredProfiles == 1u ||
+        savedVehicle.damage < coverage->savedDamage)
+      coverage->savedDamage = savedVehicle.damage;
+    if (coverage->restoredProfiles == 1u || speed < coverage->savedSpeed)
+      coverage->savedSpeed = speed;
     coverage->worldFingerprint = savedContinuation.worldFingerprint;
     coverage->taxiFingerprint = savedTaxiFingerprint;
     coverage->orphanFingerprint = savedOrphanFingerprint;
-    coverage->resumedActions =
+    coverage->resumedActions +=
         journalAfter.actionRecords - journalBefore.actionRecords;
+    if (savedVehicle.panelReady)
+      ++coverage->hudProfiles;
+    else
+      ++coverage->hudlessProfiles;
   } else {
     std::fprintf(
         stderr,
@@ -4285,7 +4299,90 @@ bool ExerciseOccupiedVehicleSaveLoad(
           suiteSummary.containerFingerprint;
   const bool debugDisabled = RecoveredGameServices_ConfigureDebugMenu(
       false, std::vector<std::string>());
-  return coverage->ready && baselineRestored && debugDisabled;
+  return telemetry && baselineRestored && debugDisabled;
+}
+
+bool ExerciseOccupiedVehicleSaveLoad(
+    SimulationContext* context, const std::wstring& saveDirectory,
+    SOccupiedVehicleSaveLoadCoverage* coverage) {
+  if (context == nullptr || saveDirectory.empty() || coverage == nullptr ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u)
+    return false;
+  *coverage = {};
+
+  std::vector<std::uint8_t> suiteBaseline;
+  SLevelContinuationSummary suiteSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &suiteBaseline, &suiteSummary) || !suiteSummary.ready ||
+      !RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{"Level.SaveLoad.Profiles"}))
+    return false;
+
+  const std::size_t catalogCount =
+      RecoveredGameServices_DebugVehicleTypeCount();
+  std::vector<std::size_t> representatives(
+      RECOVERED_VEHICLE_PROFILE_TANK_GENN5 + 1, catalogCount);
+  bool catalogValid = catalogCount > 0;
+  for (std::size_t index = 0; catalogValid && index < catalogCount; ++index) {
+    SRecoveredDebugVehicleType type;
+    catalogValid = RecoveredGameServices_DebugVehicleType(index, &type) &&
+        !type.taxiAttribute.empty() && !type.vehicleAttribute.empty() &&
+        type.vehicleType >= 0 &&
+        type.vesselProfile >= RECOVERED_VEHICLE_PROFILE_UNKNOWN &&
+        type.vesselProfile <= RECOVERED_VEHICLE_PROFILE_TANK_GENN5;
+    if (!catalogValid || type.vehicleType != 1)
+      continue;
+    if (type.vesselProfile == RECOVERED_VEHICLE_PROFILE_UNKNOWN ||
+        type.vesselKind == RECOVERED_VEHICLE_VESSEL_UNKNOWN ||
+        type.dynamic !=
+            VehicleRuntimeState_VesselProfileName(type.vesselProfile)) {
+      catalogValid = false;
+      break;
+    }
+    ++coverage->eligibleTypes;
+    coverage->profileMask |=
+        1u << static_cast<unsigned int>(type.vesselProfile - 1);
+    if (representatives[type.vesselProfile] == catalogCount) {
+      representatives[type.vesselProfile] = index;
+      ++coverage->representativeProfiles;
+    }
+  }
+  const bool catalogDisabled = RecoveredGameServices_ConfigureDebugMenu(
+      false, std::vector<std::string>());
+  if (!catalogValid || !catalogDisabled || coverage->eligibleTypes == 0u ||
+      coverage->representativeProfiles == 0u || coverage->profileMask == 0u)
+    return false;
+
+  for (int profile = RECOVERED_VEHICLE_PROFILE_DRAGON;
+       profile <= RECOVERED_VEHICLE_PROFILE_TANK_GENN5; ++profile) {
+    if (representatives[profile] == catalogCount)
+      continue;
+    if (!ExerciseOccupiedVehicleSaveLoadOne(
+            context, saveDirectory, representatives[profile], profile,
+            coverage)) {
+      SLevelContinuationSummary ignored;
+      RecoveredGameServices_RestoreLevelContinuation(
+          suiteBaseline, &ignored);
+      RecoveredGameServices_ConfigureDebugMenu(
+          false, std::vector<std::string>());
+      return false;
+    }
+  }
+
+  std::vector<std::uint8_t> recaptured;
+  SLevelContinuationSummary recapturedSummary;
+  const bool baselineMatches =
+      RecoveredGameServices_CaptureLevelContinuation(
+          &recaptured, &recapturedSummary) && recapturedSummary.ready &&
+      recapturedSummary.worldFingerprint == suiteSummary.worldFingerprint &&
+      recapturedSummary.containerFingerprint ==
+          suiteSummary.containerFingerprint && recaptured == suiteBaseline;
+  coverage->ready = baselineMatches &&
+      coverage->restoredProfiles == coverage->representativeProfiles &&
+      coverage->hudProfiles + coverage->hudlessProfiles ==
+          coverage->representativeProfiles &&
+      coverage->resumedActions == coverage->representativeProfiles * 2u;
+  return coverage->ready;
 }
 
 bool ExerciseCampaignRestartStaging() {
@@ -6639,10 +6736,18 @@ int main(int argc, char** argv) {
 
   std::printf(
       "save_gameplay_authority=occupied-moving-damaged-debug-world "
-      "profile=%d panel=%d/%d camera=%d taxi=%d orphan=%d "
-      "damage=%.6f speed=%.6f world=%llu taxi_world=%llu "
+      "profiles=%u/%u restored=%u mask=%u hud=%u/%u/%u "
+      "last_profile=%d panel=%d/%d camera=%d taxi=%d orphan=%d "
+      "min_damage=%.6f min_speed=%.6f world=%llu taxi_world=%llu "
       "orphan_world=%llu resumed_actions=%u\n",
-      occupiedSaveLoadCoverage.vesselProfile,
+      occupiedSaveLoadCoverage.eligibleTypes,
+      occupiedSaveLoadCoverage.representativeProfiles,
+      occupiedSaveLoadCoverage.restoredProfiles,
+      occupiedSaveLoadCoverage.profileMask,
+      occupiedSaveLoadCoverage.restoredProfiles,
+      occupiedSaveLoadCoverage.hudProfiles,
+      occupiedSaveLoadCoverage.hudlessProfiles,
+      occupiedSaveLoadCoverage.lastVesselProfile,
       occupiedSaveLoadCoverage.panelReady,
       occupiedSaveLoadCoverage.panelOpen,
       occupiedSaveLoadCoverage.cameraMode,

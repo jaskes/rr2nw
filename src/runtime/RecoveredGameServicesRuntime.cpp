@@ -1082,12 +1082,13 @@ constexpr UINT kNativeDebugDamageOccupiedVehicle = 0x7386u;
 constexpr UINT kNativeDebugLevelBase = 0x7400u;
 constexpr std::size_t kMaximumNativeDebugVehicleTypes = 64u;
 constexpr std::size_t kMaximumNativeDebugLevels = 256u;
-constexpr unsigned int kMaximumStableBoundaryAttempts = 8u;
+constexpr unsigned int kMaximumStableBoundaryAttempts = 120u;
 constexpr unsigned int kMaximumDebugStableBoundaryAttempts = 120u;
 
 bool IsRetryableSaveBoundaryFailure(const std::string& detail) {
   return detail.find("frame boundary") != std::string::npos ||
-         detail.find("published in a frame") != std::string::npos;
+         detail.find("published in a frame") != std::string::npos ||
+         detail.find("stable capture failed") != std::string::npos;
 }
 
 bool IsRetryableDebugBoundaryFailure(const std::string& detail) {

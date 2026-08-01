@@ -88,6 +88,11 @@ and the camera remains live. Shutdown diagnostics expose
 `debug_menu_damaged_occupied_vehicles` and
 `debug_menu_last_vehicle_damage=<before>/<after>`.
 
+Startup diagnostics enumerate the deterministic native catalog as
+`debug_menu_vehicle_<index>=<type>/<kind>/<profile>` and keep its symbolic
+identity on the adjacent `_identity` key. Acceptance tools use these entries
+instead of hard-coding Level-specific menu positions.
+
 `taxi_SET_TO_POS` performs placement for both retail and debug-created Taxi
 subjects. It sweeps a one-unit sphere downward, derives a supporting normal
 from the authentic collision response and rejects side-wall normals. If no
@@ -169,7 +174,9 @@ campaign restart, repair or every damaged Vehicle class is complete.
   bounded damage, ordinary **Game > Save**, deliberate pose/health divergence
   and ordinary **Game > Load** through the real window. It requires exact
   non-zero slot/restored world and LCN1 fingerprints, live camera, neutral
-  controls and clean shutdown in Debug and Release.
+  controls and clean shutdown in Debug and Release. `-AllProfiles` discovers
+  all nine retail catalogs and repeats that product transaction for exactly
+  the eight campaign type-1 vessel profiles.
 - Manual acceptance should spawn one vehicle, spawn-and-enter a second one,
   exercise kill/restore from the default body, destroy/restore while occupying
   a type-1 Vehicle, save/load the resulting world and switch away from and back

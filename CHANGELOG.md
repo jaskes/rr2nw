@@ -7,6 +7,9 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Save/Load now treats owner `stable capture failed` diagnostics as a
+  transient closed-boundary condition and waits for up to 120 complete frames
+  instead of surfacing a terminal error after eight fast Release frames.
 - Same-Level slot restore now fails closed unless the reconstructed world also
   rebinds the live `Vehicle.Default` owner, its exact cockpit presentation,
   expected live/Taxi/death camera and resumed CTJ1 control journal. Any
@@ -77,6 +80,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Extended occupied moving/damaged Vehicle Save/Load from one Level.03N
+  representative to every type-1 vessel profile exposed by each retail Level.
+  The service gate now preserves exact pose, direction, velocity, integrity,
+  ammunition, frame time, cockpit/camera, Taxi/Orphan world and resumed CTJ1
+  input for every representative before returning to a byte-identical suite
+  baseline.
+- Added deterministic native Debug-catalog diagnostics and an `-AllProfiles`
+  product mode to `Invoke-OccupiedVehicleSaveLoad.ps1`. It discovers all nine
+  retail Levels, selects exactly the eight-profile campaign mask `0x3F3`, and
+  drives a fresh real-window Save/Load cycle for each profile. The accepted
+  Windows gate is 66/66 CTest per configuration, 18/18 ordinary retail starts,
+  18/18 fresh continuations and 16/16 native profile transactions.
 - Added an occupied moving/damaged Vehicle save/load gate. It enters a real
   type-1 Taxi target, creates momentum and non-lethal damage, retains a named
   debug-spawned Taxi in the world, commits an ordinary RR2SLOT1, deliberately

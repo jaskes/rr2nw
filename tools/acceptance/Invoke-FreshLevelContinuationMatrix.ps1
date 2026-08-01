@@ -121,7 +121,7 @@ foreach ($configurationName in $Configuration) {
                 'vehicle_profile_gameplay=(\d+)/(\d+) primary=(\d+) secondary=(\d+) damage=(\d+) hud=(\d+)/(\d+)/(\d+) roundtrips=(\d+) mask=(\d+) armed=(\d+)/(\d+) restore_deferrals=(\d+)')
             $saveAuthorityProof = [regex]::Match(
                 $stdout,
-                'save_gameplay_authority=occupied-moving-damaged-debug-world profile=(\d+) panel=(\d+)/(\d+) camera=(\d+) taxi=(\d+) orphan=(\d+) damage=([0-9.]+) speed=([0-9.]+) world=(\d+) taxi_world=(\d+) orphan_world=(\d+) resumed_actions=(\d+)')
+                'save_gameplay_authority=occupied-moving-damaged-debug-world profiles=(\d+)/(\d+) restored=(\d+) mask=(\d+) hud=(\d+)/(\d+)/(\d+) last_profile=(\d+) panel=(\d+)/(\d+) camera=(\d+) taxi=(\d+) orphan=(\d+) min_damage=([0-9.]+) min_speed=([0-9.]+) world=(\d+) taxi_world=(\d+) orphan_world=(\d+) resumed_actions=(\d+)')
             $issues = [Collections.Generic.List[string]]::new()
             if ($timedOut) { $issues.Add("timeout") }
             # Windows PowerShell 5.1 can expose a null ExitCode when
@@ -214,26 +214,53 @@ foreach ($configurationName in $Configuration) {
                 }
             }
             if ($saveAuthorityProof.Success) {
-                $savedProfile = [uint64]$saveAuthorityProof.Groups[1].Value
-                $panelReady = [uint64]$saveAuthorityProof.Groups[2].Value
-                $panelOpen = [uint64]$saveAuthorityProof.Groups[3].Value
-                $savedCamera = [uint64]$saveAuthorityProof.Groups[4].Value
-                $savedTaxiCount = [uint64]$saveAuthorityProof.Groups[5].Value
+                $eligibleSaveTypes =
+                    [uint64]$saveAuthorityProof.Groups[1].Value
+                $saveRepresentatives =
+                    [uint64]$saveAuthorityProof.Groups[2].Value
+                $restoredSaveProfiles =
+                    [uint64]$saveAuthorityProof.Groups[3].Value
+                $saveProfileMask =
+                    [uint64]$saveAuthorityProof.Groups[4].Value
+                $saveHudProofs = [uint64]$saveAuthorityProof.Groups[5].Value
+                $saveHudProfiles = [uint64]$saveAuthorityProof.Groups[6].Value
+                $saveHudlessProfiles =
+                    [uint64]$saveAuthorityProof.Groups[7].Value
+                $lastSavedProfile =
+                    [uint64]$saveAuthorityProof.Groups[8].Value
+                $panelReady = [uint64]$saveAuthorityProof.Groups[9].Value
+                $panelOpen = [uint64]$saveAuthorityProof.Groups[10].Value
+                $savedCamera = [uint64]$saveAuthorityProof.Groups[11].Value
+                $savedTaxiCount =
+                    [uint64]$saveAuthorityProof.Groups[12].Value
                 $savedDamage = [double]::Parse(
-                    $saveAuthorityProof.Groups[7].Value,
+                    $saveAuthorityProof.Groups[14].Value,
                     [Globalization.CultureInfo]::InvariantCulture)
                 $savedSpeed = [double]::Parse(
-                    $saveAuthorityProof.Groups[8].Value,
+                    $saveAuthorityProof.Groups[15].Value,
                     [Globalization.CultureInfo]::InvariantCulture)
-                if ($savedProfile -eq 0 -or
+                if ($eligibleSaveTypes -lt $saveRepresentatives -or
+                    $saveRepresentatives -eq 0 -or
+                    $restoredSaveProfiles -ne $saveRepresentatives -or
+                    $saveHudProofs -ne $saveRepresentatives -or
+                    ($saveHudProfiles + $saveHudlessProfiles) -ne
+                        $saveRepresentatives -or
+                    $lastSavedProfile -eq 0 -or
                     $panelReady -ne $panelOpen -or
                     $savedCamera -ne 1 -or
                     $savedTaxiCount -eq 0 -or
                     $savedDamage -le 0.0 -or $savedSpeed -le 0.0 -or
-                    [uint64]$saveAuthorityProof.Groups[9].Value -eq 0 -or
-                    [uint64]$saveAuthorityProof.Groups[10].Value -eq 0 -or
-                    [uint64]$saveAuthorityProof.Groups[11].Value -eq 0 -or
-                    $saveAuthorityProof.Groups[12].Value -ne "2") {
+                    [uint64]$saveAuthorityProof.Groups[16].Value -eq 0 -or
+                    [uint64]$saveAuthorityProof.Groups[17].Value -eq 0 -or
+                    [uint64]$saveAuthorityProof.Groups[18].Value -eq 0 -or
+                    [uint64]$saveAuthorityProof.Groups[19].Value -ne
+                        $saveRepresentatives * 2 -or
+                    ($destructionProof.Success -and
+                     $saveProfileMask -ne
+                         [uint64]$destructionProof.Groups[4].Value) -or
+                    ($gameplayProof.Success -and
+                     $saveProfileMask -ne
+                         [uint64]$gameplayProof.Groups[10].Value)) {
                     $issues.Add("occupied Vehicle save/load authority proof diverged")
                 }
             }
@@ -301,10 +328,13 @@ foreach ($configurationName in $Configuration) {
                 ArmedPrimaryProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[11].Value } else { 0 }
                 ArmedSecondaryProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[12].Value } else { 0 }
                 GameplayRestoreDeferrals = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[13].Value } else { 0 }
-                SavedVehicleProfile = if ($saveAuthorityProof.Success) { [uint64]$saveAuthorityProof.Groups[1].Value } else { 0 }
-                SavedVehicleDamage = if ($saveAuthorityProof.Success) { [double]::Parse($saveAuthorityProof.Groups[7].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
-                SavedVehicleSpeed = if ($saveAuthorityProof.Success) { [double]::Parse($saveAuthorityProof.Groups[8].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
-                SaveAuthorityWorldFingerprint = if ($saveAuthorityProof.Success) { [uint64]$saveAuthorityProof.Groups[9].Value } else { 0 }
+                SaveAuthorityProfiles = if ($saveAuthorityProof.Success) { [uint64]$saveAuthorityProof.Groups[3].Value } else { 0 }
+                SaveAuthorityHudProfiles = if ($saveAuthorityProof.Success) { [uint64]$saveAuthorityProof.Groups[6].Value } else { 0 }
+                SaveAuthorityHudlessProfiles = if ($saveAuthorityProof.Success) { [uint64]$saveAuthorityProof.Groups[7].Value } else { 0 }
+                SaveAuthorityProfileMask = if ($saveAuthorityProof.Success) { [uint64]$saveAuthorityProof.Groups[4].Value } else { 0 }
+                SavedVehicleDamage = if ($saveAuthorityProof.Success) { [double]::Parse($saveAuthorityProof.Groups[14].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
+                SavedVehicleSpeed = if ($saveAuthorityProof.Success) { [double]::Parse($saveAuthorityProof.Groups[15].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
+                SaveAuthorityWorldFingerprint = if ($saveAuthorityProof.Success) { [uint64]$saveAuthorityProof.Groups[16].Value } else { 0 }
                 Issues = $issues -join '; '
             })
         }
@@ -320,22 +350,30 @@ $requireCompleteProfileCoverage = $Level.Count -eq 0
 foreach ($configurationName in $Configuration) {
     foreach ($root in $normalizedRoots) {
         [uint64]$profileMask = 0
+        [uint64]$saveAuthorityProfileMask = 0
         foreach ($record in @($records | Where-Object {
                     $_.Configuration -eq $configurationName -and
                     $_.DataRoot -eq $root })) {
             $profileMask = $profileMask -bor
                 [uint64]$record.DestructionProfileMask
+            $saveAuthorityProfileMask = $saveAuthorityProfileMask -bor
+                [uint64]$record.SaveAuthorityProfileMask
         }
         # Bits 0,1,4..9 are the eight profiles used by type-1 Taxi targets:
         # Dragon, Emveshka, TankGenn1..3, Emveshka1 and TankGenn4..5.
         [uint64]$expectedProfileMask = 0x3F3
-        $completeProfiles =
-            ($profileMask -band $expectedProfileMask) -eq $expectedProfileMask
+        $completeProfiles = $profileMask -eq $expectedProfileMask
         Write-Host ("{0} {1} Vehicle destruction profile mask: {2} (expected={3} complete={4})" -f
                     $configurationName, $root, $profileMask,
                     $expectedProfileMask, $completeProfiles)
+        $completeSaveAuthorityProfiles =
+            $saveAuthorityProfileMask -eq $expectedProfileMask
+        Write-Host ("{0} {1} occupied save/load profile mask: {2} (expected={3} complete={4})" -f
+                    $configurationName, $root, $saveAuthorityProfileMask,
+                    $expectedProfileMask, $completeSaveAuthorityProfiles)
         if ($requireCompleteProfileCoverage -and
-            -not $completeProfiles) {
+            (-not $completeProfiles -or
+             -not $completeSaveAuthorityProfiles)) {
             $profileCoverageReady = $false
         }
     }

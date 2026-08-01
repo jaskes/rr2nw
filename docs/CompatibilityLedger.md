@@ -3520,14 +3520,36 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   do not add sidecar save metadata or a second serializer.
 - Verification: the service smoke enters a real type-1 Vehicle, leaves it
   moving, applies authentic bounded damage, retains a named debug-spawned
-  Taxi, commits slot 5, diverges pose/health and reloads. It requires exact
-  Vehicle fields, panel/camera, Taxi/Orphan fingerprints, named object and
-  resumed input, then restores its byte-identical suite baseline. The fresh
-  matrix makes this mandatory on every selected Level, while
-  `Invoke-OccupiedVehicleSaveLoad.ps1` covers the native Game-menu path.
-- Revisit when: the per-class and cross-process/cross-Level breadth work closes
-  Frontier D. A deliberate post-restore authority-failure injection must then
-  prove byte-equivalent source rollback, not just a rejected load result.
+  Taxi, commits slot 5, diverges pose/health and reloads. It repeats this for
+  every local representative profile and requires exact Vehicle fields,
+  panel/camera, Taxi/Orphan fingerprints, named object and resumed input, then
+  restores its byte-identical suite baseline. The fresh matrix requires equal
+  gameplay/destruction/save masks and the campaign union `0x3F3`.
+  `Invoke-OccupiedVehicleSaveLoad.ps1 -AllProfiles` independently discovers
+  native menu indices and covers all eight profiles through real Game menus.
+- Revisit when: cross-process/cross-Level breadth closes Frontier D. A
+  deliberate post-restore authority-failure injection must then prove
+  byte-equivalent source rollback, not just a rejected load result.
+
+### CQ-190: Release movement can activate an unnamed People owner before load
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `ACTOR_SAVE_DEBT`.
+- Evidence: the first native all-profile Release pass saved an occupied Dragon
+  on Level.02D, then travelled and turned for 700 ms before load. The faster
+  build activated a People enemy whose current runtime has no symbolic name;
+  atomic load correctly failed its source-session backup with `People stable
+  capture failed: People active enemy has no symbolic name`. The equivalent
+  Debug timing did not reach that actor boundary.
+- Handling: stable owner-capture failures now remain one pending Save/Load
+  request for up to 120 fully closed frames. The Vehicle authority gate
+  deliberately changes facing and damage without travelling into the deferred
+  People frontier. Persistent unnamed People still fail closed; do not bypass
+  the preflight backup or publish a non-atomic load.
+- Verification: the Release native breadth gate must complete every Vehicle
+  profile with no terminal Save/Load failure, while shutdown diagnostics retain
+  `save_menu_last_error` for any rejected case.
+- Revisit when: Frontier E gives every active People owner stable symbolic
+  identity and includes the actor graph in the continuation boundary.
 
 ## Maintenance rule
 

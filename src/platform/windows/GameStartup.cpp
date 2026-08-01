@@ -1352,6 +1352,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                               ? -1
                               : debugMenuState
                                     ->firstOccupiedVehicleIndex));
+  const std::size_t debugVehicleTypeCount =
+      RecoveredGameServices_DebugVehicleTypeCount();
+  for (std::size_t index = 0; index < debugVehicleTypeCount; ++index) {
+    SRecoveredDebugVehicleType type;
+    if (!RecoveredGameServices_DebugVehicleType(index, &type))
+      continue;
+    const std::string key =
+        "debug_menu_vehicle_" + std::to_string(index);
+    log.Line(key + "=" + std::to_string(type.vehicleType) + "/" +
+             std::to_string(type.vesselKind) + "/" +
+             std::to_string(type.vesselProfile));
+    log.Line(key + "_identity=" + type.taxiAttribute + "/" +
+             type.vehicleAttribute + "/" + type.dynamic);
+  }
   log.Line("arena_seance_initialized=" +
            std::to_string(RecoveredGameServices_SeanceReady() ? 1 : 0));
   log.Line("bird_attributes_initialized=" +
@@ -2895,6 +2909,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              saveMenuState->crossLevelSourceLevel);
     log.Line("save_menu_cross_level_target=" +
              saveMenuState->crossLevelTargetLevel);
+    log.Line("save_menu_last_error=" + saveMenuState->lastError);
   }
   const SRecoveredCampaignRestartState* campaignRestartState =
       RecoveredGameServices_CampaignRestartState();

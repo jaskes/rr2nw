@@ -1516,18 +1516,23 @@ native-window destruction/recovery, 2/2 primary/secondary Windows input and
 
 ### Frontier D: save/load gameplay authority
 
-Status: in progress. The first same-Level occupied-vehicle slice is complete:
-moving and non-lethally damaged type-1 state, an additional named debug Taxi,
-exact Vehicle/Taxi/Orphan fingerprints, HUD/camera ownership and resumed
-controls now cross the ordinary RR2SLOT1 broker. Restore success additionally
-requires a self-consistent live gameplay owner after LCN1/CTJ1 adoption; a
-failure rolls the target session back before the slot is published.
+Status: in progress. The same-Level occupied-vehicle breadth slice is complete:
+moving and non-lethally damaged state for every admitted type-1 vessel profile,
+an additional named debug Taxi, exact Vehicle/Taxi/Orphan fingerprints,
+HUD/camera ownership and resumed controls now cross the ordinary RR2SLOT1
+broker. Restore success additionally requires a self-consistent live gameplay
+owner after LCN1/CTJ1 adoption; a failure rolls the target session back before
+the slot is published.
 
-Accepted slice evidence: 66/66 CTest in Debug and Release, 18/18 ordinary
-retail starts, 18/18 fresh continuations, 2/2 native-window occupied
-save/load cases and 2/2 cross-Level coordinator cases. A deliberate corrupt
-cross-Level target also leaves the source session recoverable through the
-existing transaction rollback.
+The product gate discovers the native Debug catalog across all nine retail
+Levels and selects exactly the eight-profile campaign union `0x3F3`; every
+selected profile gets its own fresh executable process and visible Save/Load
+transaction. The fresh continuation matrix independently requires the same
+per-Level Save/Load profile mask as its gameplay and destruction proofs.
+
+Accepted breadth evidence: 66/66 CTest per configuration, 18/18 ordinary
+retail starts, 18/18 fresh continuations with complete Save/Load mask `0x3F3`,
+and 16/16 native-window profile transactions across Debug and Release.
 
 Make one atomic owner graph cover player embodiment, Vehicle/camera/panel,
 active controls, Taxi/Orphan state, spawned debug objects and Level identity.
@@ -1540,11 +1545,10 @@ Vehicle class, including moving/damaged state, exact HUD/camera ownership and
 the debug-spawned world. Failure leaves the source session byte-equivalent at
 the owned-state boundary.
 
-Remaining within Frontier D: extend the product-level occupied proof from the
-representative Level.03N native-window case to every admitted campaign Vehicle
-class, repeat it across a fresh process and cross-Level coordinator handoff,
-then add deliberate authority-failure injection proving source-session byte
-equivalence. The existing serializer remains LCN1/RR2SLOT1.
+Remaining within Frontier D: carry an occupied slot across process exit and a
+cross-Level coordinator handoff, then add deliberate post-restore authority
+failure injection proving source-session byte equivalence. The existing
+serializer remains LCN1/RR2SLOT1.
 
 ### Frontier E: actors, static mechanisms and animation
 
