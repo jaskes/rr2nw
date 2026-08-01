@@ -3040,35 +3040,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-170: the legacy keyboard translator is an adapter-only technical debt
 
-- Status: `TECH_DEBT_ACCEPTED`, `RUNTIME_CONTAINED`.
-- Evidence: `CtrlSet::Translate()` still owns Win32 make/break interpretation,
-  paired-action reduction and subscriber publication in one legacy routine.
-  CQ-168/CQ-169 reduced two concrete stale-state paths, but a visible active-
-  window run still finished with canonical turn `-1` after the physical key was
-  already up. Per-frame physical reconciliation now bounds that failure to one
-  frame, but it is containment rather than a durable input architecture.
-- Current boundary: simulation continues to consume the existing named action
-  enum, five normalized Vehicle axes and discrete action edges. CTJ1 records
-  only that canonical boundary. `KR_Hardware` remains temporarily responsible
-  for legacy subscribers plus mouse, joystick and demo routing; no new gameplay
-  feature may depend directly on its keyboard polling behavior.
-- Refactor target: the M2 Windows input backend owns explicit per-key state,
-  repeat filtering, focus-loss clearing, canonical axis snapshots and discrete
-  action edges. It publishes through the current action/Vehicle/CTJ1 boundary
-  while `KR_Hardware` is reduced to a compatibility adapter. SDL3 may replace
-  that Windows backend later without changing simulation consumers.
-- Exit criteria: production keyboard input no longer calls
-  `CtrlSet::Translate()`; overlap and every release order for WASD, arrows and
-  Space/Ctrl are hermetic; missing key-up, repeat, alt-tab, menu, load and focus
-  transitions self-clear without asynchronous repair; journal/replay/save
-  identities remain stable; mouse/joystick/demo subscribers retain explicit
-  regression coverage; the old translator is archival/reference-only.
-- Scheduling: this is an M2 platform/input refactor and is not a blocker for the
-  current data-driven M5 slices while physical reconciliation and the full
-  Windows gates stay green. Promote it ahead of rebinding UI or any feature
-  that would otherwise add a second keyboard-state owner.
-- Revisit when: the next platform/input block begins, bindings become editable,
-  or reconciliation telemetry becomes non-zero in ordinary manual play.
+- Status: `RESOLVED`, `PORTABILITY_CONTRACT_ACCEPTED` on 2026-08-01.
+- Evidence: CQ-168/CQ-169 reduced concrete bugs but a visible active-window run
+  still ended with turn `-1` after the key was physically up. Per-frame polling
+  contained that symptom but could not establish one ordered state owner.
+- Handling: `RecoveredWindowsInputAdapter` now owns Win32 make/break state,
+  repeat filtering, signed opposing axes, MouseL/left-Control fire ownership,
+  Space jump, M map toggle and focus-loss clearing. It emits semantic actions
+  plus focus transitions into one bounded FIFO. The FIFO is consumed after the
+  Vehicle frame boundary opens and before scheduled events, preserving raw
+  Windows order without equal-time scheduler reordering or pre-first-frame
+  delivery.
+- Boundary: production keyboard, character and primary-mouse-button messages
+  do not enter `CtrlSet::Translate()`. `KR_Hardware` remains a compatibility
+  owner for mouse motion, joystick, demo, capture/paint and legacy hermetic
+  tests. Simulation and CTJ1 continue to see only stable action names/values;
+  JUMP is now a recordable edge without changing the held-action wire array.
+- Verification: the isolated smoke covers every axis release order, repeats,
+  combined MouseL/left-Control ownership, focus clearing and inactive input.
+  The repeated real-window Debug/Release gate enters an armed retail Vehicle,
+  observes accepted Bullets/collision checks and exits with zero actions, axes,
+  pending events and reconciliation. Final CTest is 66/66 per configuration;
+  retail starts are 18/18 and fresh continuations are 18/18.
+- Revisit when: bindings become configurable, text entry needs WM_CHAR, right
+  Control must share primary fire, raw mouse motion moves to a modern backend,
+  or SDL replaces the Win32 producer. Those changes must preserve the semantic
+  FIFO and must not reintroduce a second keyboard-state owner.
 
 ### CQ-171: new mod Levels derive from an immutable retail catalog entry
 
@@ -3260,6 +3257,26 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: a persistent People codec reason survives all retries. Fix that
   owner invariant in Frontier E; do not bypass LCN1 or blacklist the selected
   vehicle type.
+
+### CQ-178: a retail Level may have an empty People owner roster
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `SAVE_CONTRACT_CONFIRMED`.
+- Evidence: the full fresh-continuation gate failed only on `Level.07N` in
+  Debug and Release with `People detailed stable-capture diagnostic failed`.
+  That Level reports a valid zero-capacity live People roster; the diagnostic
+  added by CQ-177 incorrectly required a first live actor on which to inject an
+  invalid state-stack depth.
+- Handling: first require that the empty roster itself captures canonically.
+  If no People exists, the destructive field-level diagnostic is not
+  applicable and succeeds without mutation. Non-empty Levels still corrupt a
+  real first owner temporarily, require the exact failure reason and restore
+  byte-identical stable state.
+- Verification: both isolated `Level.07N` destroyed-context cases pass after
+  the change, the non-empty hermetic/service probe still exercises the detailed
+  failure, and the final all-Level fresh matrix passes 18/18.
+- Revisit when: an empty roster gains scheduled People events or an ownerless
+  People reference. The serializer must then encode that state explicitly
+  rather than treating it as an actor record.
 
 ## Maintenance rule
 

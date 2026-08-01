@@ -7,6 +7,9 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Empty Level-local People rosters now pass the detailed stable-capture probe.
+  `Level.07N` legitimately contains no People owner, so it verifies an empty
+  canonical capture without attempting to corrupt a nonexistent state stack.
 - Debug world commands no longer fail immediately when a live Explosion or
   another serializable owner is between stable LCN1 boundaries. The typed
   request remains pending for up to 120 closed frames, commits on the first
@@ -15,6 +18,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Replaced production Win32 keyboard and primary-mouse translation with an
+  authoritative semantic input adapter. It owns explicit physical state,
+  repeat filtering, opposite-key reduction, inactive suppression and ordered
+  focus-loss releases; raw production messages no longer enter
+  `CtrlSet::Translate()` or require per-frame asynchronous reconciliation.
+- Restored semantic `Space` jump and `M` map-toggle edges, retained `T/G` as
+  vertical Vehicle controls, journaled jump commands and added post-loop input
+  and Bullet telemetry. A real-window Debug/Release gate overlaps every
+  movement pair, enters an armed retail Vehicle, fires real Bullets, loses
+  focus with held movement/fire and requires a neutral clean shutdown.
 - Added an opt-in `--debug-menu` Windows surface backed by real Level-local
   `TaxiAttr -> VehicleAttr` data. It can spawn a real nearby Taxi, spawn and
   enter through `Vehicle::tryTakeTaxi`, show current Vehicle state, recover the
@@ -79,9 +92,9 @@ claim authorship of inherited Logos code or retail data.
   accepted gate is 61/61 CTest per configuration, 18/18 retail launches,
   9/9 fresh continuation cases per configuration and 2/2 derived-Level
   product matrices.
-- Recorded replacement of the legacy `CtrlSet::Translate()` keyboard path as
-  bounded M2 technical debt (`CQ-170`) with an adapter boundary, explicit exit
-  criteria and a prohibition on new gameplay dependencies on legacy polling.
+- Closed the bounded M2 keyboard debt (`CQ-170`): legacy Hardware remains for
+  compatibility mouse motion, joystick, demo and hermetic reference tests,
+  but no longer owns production keyboard or primary-mouse button messages.
 - Extended gameplay-tuning schema 1 to verified Level-local `PeopleAttr` and
   `TankAttr` owners. Mods can now tune People movement/initial health/fire
   interval/burst count and Tank maximum speed/attack power/attack delay by

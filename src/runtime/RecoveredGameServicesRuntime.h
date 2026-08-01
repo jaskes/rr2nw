@@ -8,6 +8,7 @@
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
 #include "RecoveredFramePreview.h"
+#include "RecoveredWindowsInputAdapter.h"
 
 enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_COM_FAILURE = 1u << 0,
@@ -491,6 +492,12 @@ unsigned int RecoveredGameServices_VehicleSyntheticReleaseCount();
 unsigned int RecoveredGameServices_VehicleSuppressedInputCount();
 unsigned int RecoveredGameServices_VehicleActiveActionCount();
 unsigned int RecoveredGameServices_VehiclePhysicalReconciliationCount();
+bool RecoveredGameServices_WindowsInputTelemetry(
+    SRecoveredWindowsInputTelemetry* telemetry);
+unsigned int RecoveredGameServices_MapTogglePresses();
+unsigned int RecoveredGameServices_VehiclePrimaryFirePresses();
+unsigned int RecoveredGameServices_VehicleJumpPresses();
+std::size_t RecoveredGameServices_WindowsInputPendingEvents();
 bool RecoveredGameServices_VehicleControlAxes(
     SRecoveredObserverAxes* axes);
 int RecoveredGameServices_VehicleLastInputFailure();

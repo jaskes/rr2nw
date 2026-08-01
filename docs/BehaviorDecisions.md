@@ -3992,6 +3992,10 @@ physical key remains up: recovery occurs in one frame, increments
 `vehicle_physical_reconciliation_count`, limits heading change to about 0.0415
 radians and exits with all axes neutral.
 
+This polling reconciliation was an accepted containment step, not the final
+ownership contract. BD-110 supersedes the production path with one explicit
+Win32 state owner and requires the reconciliation counter to remain zero.
+
 ## BD-103: compose derived mod Levels outside retail game.cfg
 
 Status: accepted on 2026-07-31.
@@ -4214,3 +4218,50 @@ real Explosion drawable, proves one deferred attempt, closes it and requires
 the same spawn to commit on attempt two with zero failure or rollback.
 The People probe independently requires the exact state-stack diagnostic and
 byte-identical capture after the temporary invalid field is restored.
+
+## BD-110: one Windows state owner publishes semantic input at the frame boundary
+
+Status: accepted on 2026-08-01.
+
+The legacy `CtrlSet::Translate()` combines message-local state with synchronous
+keyboard polling and publishes from inside `WndProc`. Repaired key comparisons
+and per-frame reconciliation bounded observed sticking, but could not make two
+state owners or host-timed delivery deterministic. An early modern-adapter
+prototype also exposed two ordering failures: direct WndProc dispatch could
+arrive before the first Vehicle frame, while equal-time scheduler insertion
+could reorder a make/break sequence.
+
+Production Windows keyboard and primary-button messages therefore have one
+owner, `RecoveredWindowsInputAdapter`. It records explicit key/button state,
+filters repeated makes and redundant breaks, and emits complete signed axis
+snapshots. W/S is `MOVE_FORWARD`, D/A is `STRAFE_RIGHT`, Right/Left is
+`TURN_RIGHT`, Up/Down is `LOOK_UP`, and T/G retains vertical strafe. Space is
+the retail `JUMP` edge rather than vertical movement. MouseL and left Control
+share one `FIRE_PRIMARY` state; releasing either source cannot stop fire while
+the other remains held. X, F1, Escape and M publish stop, Vehicle change, exit
+and map-toggle edges.
+
+WndProc only appends actions and focus transitions to a bounded FIFO. The
+runtime opens/synchronizes the Vehicle frame, drains that FIFO in insertion
+order at the current simulation boundary, then processes scheduled events.
+Focus-loss release actions are enqueued before the inactive transition.
+Inactive messages are suppressed, focus gain never resurrects old state, a
+partly failed batch is discarded before fallback, and a final close-only focus
+event is discarded because teardown has no later simulation boundary.
+
+`KR_Hardware` remains attached for legacy mouse motion, joystick, demo and
+window/capture compatibility, and its configured translator remains available
+to existing hermetic tests. It is not a second production keyboard/button
+consumer. CTJ1 records the same semantic actions; JUMP is admitted as an edge
+without enlarging the version-1 held-action checkpoint. M currently proves the
+semantic command only; presentation and ownership of the real map belong to
+Frontier F.
+
+Acceptance combines an isolated adapter regression with repeated real-window
+Debug/Release sequences. The latter enters an armed Level.03N Taxi through the
+transactional debug command, overlaps every directional pair, filters a repeat,
+exercises Space/M/MouseL, loses focus with W and fire held and observes real
+accepted Bullet starts plus collision checks. It requires zero final actions,
+axes, pending events, reconciliation and runtime issues. The complete product
+gate is 66/66 CTest per configuration, 18/18 installed-Level starts and 18/18
+fresh destroyed-context continuations.

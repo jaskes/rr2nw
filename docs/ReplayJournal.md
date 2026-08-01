@@ -14,9 +14,9 @@ The Windows path is:
 
 ```text
 WM input
-  -> KR_Hardware translation
-  -> CTRL_BUTTONS_MSG
-  -> SYS_KEY/focus/EXIT filtering
+  -> RecoveredWindowsInputAdapter physical state
+  -> ordered semantic action/focus FIFO
+  -> stable simulation-frame dispatch
   -> VehicleRuntimeState_ApplyLiveControlAt
   -> accepted CTJ1 record
 ```
@@ -35,7 +35,9 @@ Consequences:
 The admitted action vocabulary is `MOVE_FORWARD`, `MOVE_BACKWARD`,
 `STRAFE_LEFT`, `STRAFE_RIGHT`, `STRAFE_UP`, `STRAFE_DOWN`, `LOOK_UP`,
 `LOOK_DOWN`, `TURN_LEFT`, `TURN_RIGHT`, `FIRE_PRIMARY`, `STOP_VEHICLE` and
-`CHANGE_VEHICLE`.
+`CHANGE_VEHICLE`, plus the retail `JUMP` edge. `JUMP` is journalled like an
+ordinary accepted action but is deliberately not part of the persistent held
+array, so the CTJ1 version-1 checkpoint layout remains unchanged.
 
 ## Focus and held actions
 
@@ -111,9 +113,11 @@ The state comparison includes pose, subject position, speed, orientation,
 vessel identity/mass, last time, advance/control counts and ground/static/land/
 dynamic collision counters.
 
-The ordinary live Hardware owner begins a journal when Vehicle control is
-attached. Runtime telemetry exposes checkpoint/last tick, action/focus/total
-record counts, encoded size, fingerprint, append failures, recording state and
+The live Vehicle-control owner begins a journal when control is attached. The
+Windows adapter feeds that owner directly; legacy Hardware remains only for
+compatibility mouse motion, joystick/demo traffic and hermetic legacy probes.
+Runtime telemetry exposes checkpoint/last tick, action/focus/total record
+counts, encoded size, fingerprint, append failures, recording state and
 application-active state. Startup diagnostics separately publish the local
 replay proof and live journal.
 

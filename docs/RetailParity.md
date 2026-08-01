@@ -1003,7 +1003,8 @@ Retail scripts нельзя молча копировать поверх source 
 - Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`. The runtime reads
   each Level's real `SET_TAXI.SCI`, publishes its exact Taxi roster and applies
   the original nearest-target-inside-20-units rule.
-- A real F1 press/release travels through Hardware and Vehicle. The transition
+- A real F1 press/release travels through the Windows semantic adapter and
+  Vehicle. The transition
   transfers the target VehicleAttr and pose, removes the Taxi only after a
   successful Vehicle change, keeps exclusive input subscribed, opens/draws a
   real panel when named and drives the replacement for 40 frames. Level.06N is
@@ -1016,8 +1017,9 @@ Retail scripts нельзя молча копировать поверх source 
 ### RP-SCRIPT-031: primary fire reaches real Bullet impact and visible effects
 
 - Classification: `PARTIAL_RETAIL`, `RETAIL_REQUIRED_OWNER`,
-  `PORTABILITY_FIX_ACCEPTED`. `MouseL` now enters the original Hardware action,
-  Vehicle fire latch/repeat event and already admitted Bullet subject graph.
+  `PORTABILITY_FIX_ACCEPTED`. `MouseL` now enters the authoritative Windows
+  semantic adapter, Vehicle fire latch/repeat event and already admitted Bullet
+  subject graph. Legacy Hardware no longer translates the production button.
 - Retail gates are preserved. Type-0 Vehicle attributes accept the control but
   do not call `Shoot`; the selected type-1 `CarSmall` on 01D/01N intentionally
   has no primary BulletAttr and produces no projectile. Armed type-1 Vehicles
@@ -1029,10 +1031,11 @@ Retail scripts нельзя молча копировать поверх source 
   branches, impact SoundObj and a software frame containing a projectile or
   effect. It does not insert a target. Test-only firing height/direction give
   the real ballistic path room to advance and are discarded with the seance.
-- `MouseL` is focus-safe: losing focus during the second held press produces
-  one synthetic release, suppresses inactive down/up input, stops the repeat
-  chain after already-issued Bullet starts drain and leaves zero held actions.
-  The Hardware subscription survives.
+- `MouseL` is focus-safe: losing focus during the second held press emits the
+  release before the inactive transition, suppresses inactive down/up input,
+  stops the repeat chain after already-issued Bullet starts drain and leaves
+  zero held actions. The compatibility Hardware subscription survives without
+  receiving the production button message.
 - The impact Explosion's SoundObj command path is proven against the current
   device-free backend; audible output is not. Bullet muzzle `m_shootSndName`
   and secondary fire remain explicitly deferred. The table peak Bullet count
@@ -1043,6 +1046,11 @@ Retail scripts нельзя молча копировать поверх source 
 - Verification passes 51/51 CTest in Debug and Release, the full 36/36 retail
   service matrix without reruns, a 10/10 `Level.05D` Debug repetition and 4/4
   waited executable smokes with observability, level-ready and clean shutdown.
+
+The later authoritative-input gate adds a real-window proof: after entering
+armed `vehicle.attr.vhl_roll`, physical MouseL produces accepted Bullet starts
+and collision checks in both Debug and Release. Focus clearing, final neutral
+state and input ordering are covered by RP-INPUT-001 below.
 
 ### RP-SCRIPT-032: People population and mission-ready Tank lifecycle
 
@@ -1583,6 +1591,27 @@ playable Level begins.
   packages and no retail media. The exact extracted ZIP passes validator, base
   Level.03N and example-data-pack smokes on Windows 10 LTSC 19044 with clean
   shutdown. This is automated package parity, not a completed manual campaign.
+
+### RP-INPUT-001: Win32 input has one semantic state owner
+
+- Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_ACTIONS_PRESERVED`.
+  Production keyboard, character and primary-mouse-button messages are consumed
+  by `RecoveredWindowsInputAdapter`; they no longer enter
+  `CtrlSet::Translate()` or depend on `GetKeyState`/`GetAsyncKeyState` repair.
+- W/S, A/D, arrows and T/G publish complete signed canonical axes. Space maps
+  to retail JUMP, M publishes the historical map-toggle action, MouseL and left
+  Control share primary fire, and X/F1/Escape preserve their recovered actions.
+  The visible map itself remains unclaimed.
+- A bounded FIFO preserves WndProc insertion order and is drained at the owned
+  Vehicle frame boundary before simulation events. Focus releases precede the
+  inactive transition; inactive input is suppressed and focus gain does not
+  restore stale state. Legacy Hardware retains non-button compatibility roles.
+- The isolated regression covers repeats, redundant releases, both overlap
+  orders, combined fire sources and focus clearing. The repeated real-window
+  gate enters an armed Level.03N Vehicle, observes accepted Bullet starts and
+  collision checks and exits with zero held actions, axes, pending input and
+  physical reconciliation. Verification is 66/66 CTest per configuration,
+  18/18 ordinary retail runs and 18/18 fresh continuations.
 
 ## Binary analysis boundary
 

@@ -27,10 +27,23 @@ Names are matched case-insensitively, but they must appear in the selected
 root's `[Levels]` section. With no `--start-level`, the executable continues to
 honour `[Init]/StartLevel` from `game.cfg`.
 
-## Free-observer overlap and focus pass
+## Authoritative Windows input pass
 
-Run a Level in which the player is still using the free observer, then repeat
-these sequences several times at normal typing speed:
+Production keyboard and primary-mouse input no longer passes through the
+legacy polling translator. For the complete synthetic real-window gate, build
+Debug and Release and run:
+
+```powershell
+& ".\tools\acceptance\Invoke-WindowsInputAdapter.ps1" -DataRoot "E:\Games\The Next Worlds" -Level "Level.03N"
+```
+
+The harness enters an armed Level-local Vehicle through the debug Taxi path,
+then drives W/S and A/D overlaps in both release orders, extended arrows,
+Space, M, MouseL, a repeated make and focus loss while W/MouseL are held. It
+requires real Bullet creation/collision, zero final actions/axes/pending input
+and a clean exit in both compiler configurations.
+
+For a human feel pass, repeat these sequences at normal typing speed:
 
 1. hold Right, press Left, release Right, then release Left;
 2. repeat in the opposite order and with Up/Down;
@@ -38,29 +51,28 @@ these sequences several times at normal typing speed:
 4. hold one movement key and one arrow, Alt-Tab away, release the keys, then
    return to the game.
 
-The camera must stop rotating and the observer must stop translating as soon
-as the final key is released. Alt-Tab must neutralize all motion; after return,
-movement begins only on a fresh key press. Needing to tap the opposite key to
-stop, continued drift, or one additional frame of unbounded rotation is a
-failure. This pass targets the observer only; Vehicle controls retain their
-separate focus-safe journal contract.
+The camera and Vehicle must stop responding as soon as the final key is
+released. Alt-Tab must neutralize all motion/fire; after return, input begins
+only on a fresh press. Needing to tap the opposite key, continued drift or
+unbounded rotation is a failure.
 
 Current interactive startup normally transfers ownership immediately to
 `Vehicle.Default`. After closing a Vehicle-controlled run, the diagnostic log
 must additionally contain:
 
 ```text
+input_mode=authoritative-windows-semantic-adapter
 vehicle_active_action_count=0
-vehicle_physical_reconciliation_count=<non-negative integer>
+vehicle_physical_reconciliation_count=0
+windows_input_pending_events=0
 vehicle_control_axes=0.000000,0.000000,0.000000,0.000000,0.000000
 runtime_shutdown=clean
 ```
 
 Any non-zero axis identifies the exact family still held in forward, strafe,
-vertical, turn, look order. A non-zero reconciliation count is acceptable and
-records that the physical-frame invariant repaired legacy event state; after
-such a repair the final active-action count and all five axes must still be
-zero.
+vertical, turn, look order. A non-zero reconciliation count is now a regression:
+production input owns explicit key state and must not need asynchronous polling
+to repair an event.
 
 ## Automated nine-Level matrix
 

@@ -1006,9 +1006,14 @@ bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
 {
     PeopleRoster roster = {};
     std::vector<unsigned char> baseline;
-    if (!CollectRoster(context, &roster) || roster.people.empty() ||
+    if (!CollectRoster(context, &roster) ||
         !PeopleActiveWorldState_CaptureStable(context, &baseline))
         return false;
+    // Some retail levels (notably Level.07N) legitimately contain no People.
+    // Their empty roster still has to be capturable, but there is no live
+    // state stack on which to inject the detailed failure probe.
+    if (roster.people.empty())
+        return true;
     People *people = roster.people.front();
     const int stateDepth = people->m_stateSP;
     people->m_stateSP = 0;

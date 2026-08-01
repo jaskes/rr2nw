@@ -1384,15 +1384,30 @@ codec reason for Frontier E rather than being mislabeled as a vehicle failure.
 
 ### Frontier B: authoritative Windows input
 
-Replace the remaining legacy `CtrlSet::Translate` polling/translation seam
-with a small modern Windows input adapter. Mouse primary fire, Space jump,
-map binding, focus loss, opposite-direction overlap and key-up delivery must
-be observed at the semantic action boundary. Do not add more gameplay features
-to the legacy translator.
+Status: completed on 2026-08-01.
 
-Gate: primary fire reaches the real Bullet graph; held actions never survive
-focus loss or key release; WASD/arrows/mouse/Space/map commands pass repeated
-manual and synthetic sequences without spontaneous motion.
+Production Win32 keyboard and primary-button messages now terminate in a small
+state-owning adapter. It emits signed canonical W/S, A/D, arrow and T/G axes;
+discrete Space jump, X stop, F1 change, Escape and M map-toggle commands; and a
+combined MouseL/left-Control primary-fire edge. Repeat makes and redundant
+breaks are filtered. Focus loss emits all releases before the inactive
+transition, and inactive input cannot re-arm an action.
+
+Actions and focus transitions enter one bounded FIFO and are flushed only
+after the Vehicle frame owns its simulation boundary. This preserves exact
+Win32 order without equal-timestamp scheduler reordering or the old pre-first-
+frame race. Production messages never call `CtrlSet::Translate()` and ordinary
+frames report zero physical reconciliation. `KR_Hardware` remains linked for
+mouse motion, joystick, demo and legacy hermetic compatibility only. M now
+reaches the semantic boundary; the visible map remains Frontier F.
+
+Gate: the isolated adapter smoke and repeated real-window Debug/Release test
+cover both release orders, extended arrows, repeat, Space, M, MouseL and held
+movement/fire across focus loss. The window test transactionally enters an
+armed Level.03N Vehicle and observes accepted Bullet starts plus collision
+checks. Final axes/actions/pending input are zero, reconciliation remains zero,
+and shutdown is clean. The complete gate is 66/66 CTest in each configuration,
+18/18 retail starts and 18/18 fresh continuation cases.
 
 ### Frontier C: coherent Vehicle embodiment and death
 

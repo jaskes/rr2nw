@@ -2452,7 +2452,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("runtime_mode=" +
            std::string(options.runtimeSmoke ? "bounded-smoke"
                                             : "interactive-vehicle"));
-  log.Line("input_mode=legacy-hardware-keyboard");
+  log.Line("input_mode=authoritative-windows-semantic-adapter");
   log.Line("camera_mode=Vehicle.Default");
   log.Line("vehicle_control_owner=RecoveredVehicleControl-exclusive");
   log.Line("vehicle_runtime=retail-spawn-live-BeginPreStep-UpdatePos-camera");
@@ -2482,6 +2482,43 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleActiveActionCount()));
   log.Line("vehicle_physical_reconciliation_count=" + std::to_string(
                RecoveredGameServices_VehiclePhysicalReconciliationCount()));
+  SRecoveredWindowsInputTelemetry windowsInput = {};
+  if (RecoveredGameServices_WindowsInputTelemetry(&windowsInput)) {
+    log.Line("windows_input_keyboard_messages=" +
+             std::to_string(windowsInput.keyboardMessages));
+    log.Line("windows_input_mouse_button_messages=" +
+             std::to_string(windowsInput.mouseButtonMessages));
+    log.Line("windows_input_focus_messages=" +
+             std::to_string(windowsInput.focusMessages));
+    log.Line("windows_input_emitted_actions=" +
+             std::to_string(windowsInput.emittedActions));
+    log.Line("windows_input_filtered_repeats=" +
+             std::to_string(windowsInput.filteredRepeats));
+    log.Line("windows_input_redundant_releases=" +
+             std::to_string(windowsInput.redundantReleases));
+    log.Line("windows_input_suppressed_messages=" +
+             std::to_string(windowsInput.suppressedMessages));
+    log.Line("windows_input_focus_clear_actions=" +
+             std::to_string(windowsInput.focusClearActions));
+  }
+  log.Line("windows_input_map_toggle_presses=" + std::to_string(
+               RecoveredGameServices_MapTogglePresses()));
+  log.Line("windows_input_primary_fire_presses=" + std::to_string(
+               RecoveredGameServices_VehiclePrimaryFirePresses()));
+  log.Line("windows_input_jump_presses=" + std::to_string(
+               RecoveredGameServices_VehicleJumpPresses()));
+  SRecoveredVehiclePrimaryFireTelemetry finalPrimaryFire = {};
+  if (RecoveredGameServices_VehiclePrimaryFireTelemetry(
+          &finalPrimaryFire)) {
+    log.Line("windows_input_primary_fire_accepted_shots=" +
+             std::to_string(finalPrimaryFire.acceptedShots));
+    log.Line("windows_input_primary_fire_move_events=" +
+             std::to_string(finalPrimaryFire.moveEvents));
+    log.Line("windows_input_primary_fire_collision_checks=" +
+             std::to_string(finalPrimaryFire.collisionChecks));
+  }
+  log.Line("windows_input_pending_events=" + std::to_string(
+               RecoveredGameServices_WindowsInputPendingEvents()));
   SRecoveredObserverAxes vehicleControlAxes = {};
   if (RecoveredGameServices_VehicleControlAxes(&vehicleControlAxes)) {
     log.Line("vehicle_control_axes=" +

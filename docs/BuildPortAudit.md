@@ -864,6 +864,10 @@ separate so they cannot destabilize the proven software path.
 
 ### Legacy Hardware and persistent observer
 
+Historical implementation checkpoint; production keyboard/button ownership
+was superseded by the authoritative semantic adapter recorded later in this
+audit and in BD-110.
+
 The next tranche connects the complete recovered `HARDWARE.cpp` implementation
 to the production service context and Win32 software window. Hardware remains
 the sole key-code/action translator; the modern layer only chooses a bounded
@@ -3150,3 +3154,28 @@ forward throttle is still held, and Explosion trace teardown detaches both
 scheduled parent events before parent removal. Final verification is 57/57
 CTest per configuration, 36/36 fresh-continuation runs and 36/36 ordinary
 retail runtime runs across `E:\Games\The Next Worlds` and `G:\nw`.
+
+## Authoritative Windows semantic input
+
+Production keyboard and primary-mouse-button messages no longer call the
+legacy `CtrlSet::Translate()` path. `RecoveredWindowsInputAdapter` owns explicit
+physical state, repeat filtering, canonical opposing axes, Space jump, M map
+toggle, combined MouseL/left-Control fire and ordered focus clearing. The
+message hook appends semantic actions/focus transitions to a bounded FIFO;
+`RunFrame` drains it after the Vehicle frame boundary opens and before scheduled
+events. This prevents both input before the first owned frame and equal-time
+make/break reordering.
+
+The legacy Hardware object remains attached for mouse motion, joystick, demo,
+paint/capture and compatibility tests. Per-frame asynchronous reconciliation is
+not used by production and must remain zero in the real-window gate. Jump is a
+recordable CTJ1 edge but does not alter the version-1 held-action checkpoint.
+
+The new gate raises CTest to 66/66 in Debug and Release. Repeated window tests
+enter an armed Level.03N Taxi, overlap both release orders, submit extended
+arrows/repeat/Space/M/MouseL and lose focus with movement/fire held. They
+observe accepted Bullet starts and collision checks, then require zero actions,
+axes, pending input, reconciliation and runtime issues. Ordinary installed
+retail runs pass 18/18 and fresh continuation passes 18/18. The latter also
+proved that `Level.07N` has a valid empty People roster, so its diagnostic now
+skips field corruption only after canonical empty capture succeeds.

@@ -42,6 +42,7 @@
 #include "RecoveredSaveSlotDialog.h"
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
+#include "RecoveredWindowsInputAdapter.h"
 #include "SupervisorShutdownState.h"
 #include "TimeRuntimeState.h"
 #include "VehicleControlJournal.h"
@@ -260,6 +261,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_handoffTaxiCount = 0;
     m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
     m_primaryFirePresses = 0;
+    m_jumpPresses = 0;
     m_exitAttempts = 0;
     m_exitPending = false;
     m_exitSafeCompletions = 0;
@@ -330,6 +332,8 @@ class RecoveredVehicleControlInput final : public KR_Object {
 
     if (action == FIRE_PRIMARY && down > 0.0)
       ++m_primaryFirePresses;
+    if (action == JUMP && down > 0.0)
+      ++m_jumpPresses;
 
     const SRecoveredObserverAxes previousDirectionalAxes =
         m_directionalAxes;
@@ -633,6 +637,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
   }
   int LastInputFailure() const { return m_lastInputFailure; }
   unsigned int PrimaryFirePresses() const { return m_primaryFirePresses; }
+  unsigned int JumpPresses() const { return m_jumpPresses; }
 
   void ObserveVehicleHandoff() {
     if (getContext() == nullptr || m_vehicle.isNUL()) return;
@@ -873,6 +878,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
   int m_handoffTaxiCount = 0;
   CFVector3 m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
   unsigned int m_primaryFirePresses = 0;
+  unsigned int m_jumpPresses = 0;
   unsigned int m_exitAttempts = 0;
   bool m_exitPending = false;
   unsigned int m_exitSafeCompletions = 0;
@@ -948,6 +954,15 @@ HMENU g_nativeDebugSpawnEnterMenu = nullptr;
 HMENU g_nativeDebugLevelMenu = nullptr;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
+RecoveredWindowsInputAdapter g_windowsInputAdapter;
+unsigned int g_mapTogglePresses = 0;
+struct SRecoveredPendingWindowsInput {
+  bool focus = false;
+  bool applicationActive = true;
+  SRecoveredWindowsInputAction action = {};
+};
+constexpr std::size_t kMaximumPendingWindowsInput = 4096u;
+std::vector<SRecoveredPendingWindowsInput> g_pendingWindowsInput;
 
 void Report(unsigned int issue) { g_issues |= issue; }
 
@@ -1689,6 +1704,88 @@ bool ConfigureHardwareControls() {
   return true;
 }
 
+double CurrentInputEventTime() {
+  // Window messages are queued into the simulation, so stamp them at the
+  // currently owned event boundary. A wall-clock stamp can sit ahead of the
+  // simulation and let a later focus transition overtake still-future input.
+  const double eventMoment = Session::m_moment;
+  return !std::isfinite(eventMoment) || eventMoment < 0.1
+             ? 0.1
+             : eventMoment;
+}
+
+bool DispatchWindowsInputAction(
+    const SRecoveredWindowsInputAction& input, double eventTime) {
+  if (input.action == DMAP_TOGGLE) {
+    if (input.value > 0.0) ++g_mapTogglePresses;
+    return true;
+  }
+  KR_Event event;
+  event.source = g_hardware.getObjectID();
+  event.timeStamp = eventTime;
+  event.label = CTRL_BUTTONS_MSG;
+  event.data.open(EDO_WRITE)
+      .putInt(input.action)
+      .putDouble(input.value)
+      .putInt(static_cast<int>(input.code))
+      .putInt(input.repeat)
+      .close();
+  if (g_vehicleControlReady && g_vehicleControlInput.getContext() != nullptr) {
+    event.destination = g_vehicleControlInput.getObjectID();
+    return g_vehicleControlInput.receiveEvent(event) == 1;
+  }
+  if (g_observerInput.getContext() != nullptr) {
+    event.destination = g_observerInput.getObjectID();
+    return g_observerInput.receiveEvent(event) == 1;
+  }
+  return false;
+}
+
+bool DispatchWindowsInputBatch(const SRecoveredWindowsInputBatch& batch) {
+  const std::size_t required = batch.count +
+      (batch.applicationActiveChanged ? 1u : 0u);
+  if (required > kMaximumPendingWindowsInput -
+                     (std::min)(kMaximumPendingWindowsInput,
+                                g_pendingWindowsInput.size()))
+    return false;
+  for (std::size_t index = 0; index < batch.count; ++index) {
+    SRecoveredPendingWindowsInput pending;
+    pending.action = batch.actions[index];
+    g_pendingWindowsInput.push_back(pending);
+  }
+  if (batch.applicationActiveChanged) {
+    SRecoveredPendingWindowsInput pending;
+    pending.focus = true;
+    pending.applicationActive = batch.applicationActive;
+    g_pendingWindowsInput.push_back(pending);
+  }
+  return true;
+}
+
+bool FlushPendingWindowsInput(double eventTime) {
+  bool succeeded = true;
+  for (const SRecoveredPendingWindowsInput& pending : g_pendingWindowsInput) {
+    if (pending.focus) {
+      g_observerInput.SetApplicationActive(pending.applicationActive);
+      if (g_vehicleControlReady &&
+          !g_vehicleControlInput.SetApplicationActive(
+              pending.applicationActive, eventTime)) {
+        succeeded = false;
+        break;
+      }
+      continue;
+    }
+    if (!DispatchWindowsInputAction(pending.action, eventTime)) {
+      succeeded = false;
+      break;
+    }
+  }
+  // Never replay a partially dispatched batch after an input failure. The
+  // caller owns fallback activation, while this FIFO owns batch lifetime.
+  g_pendingWindowsInput.clear();
+  return succeeded;
+}
+
 LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
                                        WPARAM wParam, LPARAM lParam) {
   LRESULT saveMenuResult = 0;
@@ -1698,16 +1795,20 @@ LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
   if (!g_hardwareReady || g_hardware.getContext() == nullptr) {
     return DefWindowProcA(window, message, wParam, lParam);
   }
-  if (message == WM_ACTIVATEAPP) {
-    const bool applicationActive = wParam != FALSE;
-    g_observerInput.SetApplicationActive(applicationActive);
-    if (g_vehicleControlReady) {
-      const double timerTime = g_timer.GetTime();
-      const double eventTime =
-          !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
-      g_vehicleControlInput.SetApplicationActive(applicationActive, eventTime);
-    }
+  SRecoveredWindowsInputBatch inputBatch = {};
+  if (!g_windowsInputAdapter.ProcessWindowMessage(
+          message, static_cast<std::uintptr_t>(wParam),
+          static_cast<std::intptr_t>(lParam),
+          g_levelAttr.get_double("keySens"), &inputBatch) ||
+      !DispatchWindowsInputBatch(inputBatch)) {
+    Report(RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE);
   }
+  // The adapter is the sole production owner of keyboard and mouse-button
+  // state. Do not let these messages enter CtrlSet::Translate as a second,
+  // polling-based state machine. Mouse motion, joystick, paint and capture
+  // transitions remain delegated to the compatibility Hardware object.
+  if (inputBatch.consumed)
+    return 0;
   return g_hardware.WndProc(window, message, wParam, lParam);
 }
 
@@ -1848,6 +1949,9 @@ bool BeginPrimaryFireTelemetry(SimulationContext* context) {
   g_primaryFireSoundBaseline = SoundObjectState_LiveCount();
   g_primaryFireTelemetryReady = true;
   g_primaryFireEffectPresent = false;
+  g_windowsInputAdapter.Reset(true);
+  g_mapTogglePresses = 0;
+  g_pendingWindowsInput.clear();
   return true;
 }
 
@@ -2183,6 +2287,8 @@ void InitializeSession() {
     g_hardware.m_ctrlUse.keyboard = TRUE;
     g_hardware.m_ctrlUse.mouse = TRUE;
     g_hardware.m_ctrlUse.joystick = FALSE;
+    g_windowsInputAdapter.Reset(true);
+    g_pendingWindowsInput.clear();
     Session::m_hardware = &g_hardware;
 
     // Preserve the capacities used by the retail Supervisor::startSeance().
@@ -2348,6 +2454,11 @@ bool PumpMessages() {
     if (PeekMessageA(&message, nullptr, 0, 0, PM_REMOVE) == FALSE) break;
     if (message.message == WM_QUIT) {
       g_windowQuitRequested = true;
+      // A closing window can deliver WM_KILLFOCUS immediately before
+      // WM_QUIT. There is no subsequent simulation boundary at which that
+      // focus transition could be consumed, and the session is about to be
+      // torn down, so do not report it as live pending input.
+      g_pendingWindowsInput.clear();
       return false;
     }
     TranslateMessage(&message);
@@ -3842,6 +3953,29 @@ unsigned int RecoveredGameServices_VehiclePhysicalReconciliationCount() {
   return g_vehicleControlInput.PhysicalReconciliationCount();
 }
 
+bool RecoveredGameServices_WindowsInputTelemetry(
+    SRecoveredWindowsInputTelemetry* telemetry) {
+  if (telemetry == nullptr) return false;
+  *telemetry = g_windowsInputAdapter.Telemetry();
+  return true;
+}
+
+unsigned int RecoveredGameServices_MapTogglePresses() {
+  return g_mapTogglePresses;
+}
+
+unsigned int RecoveredGameServices_VehiclePrimaryFirePresses() {
+  return g_vehicleControlInput.PrimaryFirePresses();
+}
+
+unsigned int RecoveredGameServices_VehicleJumpPresses() {
+  return g_vehicleControlInput.JumpPresses();
+}
+
+std::size_t RecoveredGameServices_WindowsInputPendingEvents() {
+  return g_pendingWindowsInput.size();
+}
+
 bool RecoveredGameServices_VehicleControlAxes(
     SRecoveredObserverAxes* axes) {
   if (axes == nullptr || !g_vehicleControlReady) return false;
@@ -3993,17 +4127,11 @@ int RecoveredGameServices_RunFrame() {
     if (!ActivateVehicleFallback(2)) return FALSE;
     vehicleFrame = false;
   }
-  SUA_ProcessEvents();
-  if (vehicleFrame) {
-    const double timerTime = g_timer.GetTime();
-    if (!g_vehicleControlInput.ReconcilePhysicalDirectionalAxes(
-            !std::isfinite(timerTime) || timerTime < 0.1
-                ? 0.1
-                : timerTime)) {
-      if (!ActivateVehicleFallback(3)) return FALSE;
-      vehicleFrame = false;
-    }
+  if (!FlushPendingWindowsInput(CurrentInputEventTime())) {
+    if (!ActivateVehicleFallback(3)) return FALSE;
+    vehicleFrame = false;
   }
+  SUA_ProcessEvents();
   if (vehicleFrame) {
     bool droppedTime = false;
     if (g_vehicleControlInput.ForwardingFailed()) {

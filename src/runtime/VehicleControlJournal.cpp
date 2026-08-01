@@ -162,6 +162,7 @@ bool VehicleControlJournal_IsRecordableAction(int action) {
     case TURN_LEFT:
     case TURN_RIGHT:
     case FIRE_PRIMARY:
+    case JUMP:
     case STOP_VEHICLE:
     case CHANGE_VEHICLE:
       return true;

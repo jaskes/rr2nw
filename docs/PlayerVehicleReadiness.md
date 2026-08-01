@@ -1,6 +1,6 @@
 # Player to Vehicle vertical-slice readiness
 
-Snapshot: 2026-07-29, after the live Vehicle primary-fire proof.
+Snapshot: 2026-08-01, after authoritative Windows input.
 
 ## What “drive through the real world” means
 
@@ -26,9 +26,10 @@ separate readiness gates.
 - `Vehicle.Default` already selects a real `CVesselWheels` or `CVesselEmv`
   implementation from `m_dynamic`; the current admission proves a positive
   mass (`900` on Level.01D), restart state and explosion impulse response.
-- Legacy W/S/A/D action names and Win32 Hardware dispatch now feed an exclusive
-  `RecoveredVehicleControl` adapter. It consumes raw `SYS_KEY`, preserves
-  Escape/quit and forwards the mapped action through the real Vehicle decoder.
+- A modern Win32 adapter owns keyboard and primary-mouse physical state and
+  feeds semantic actions to the exclusive `RecoveredVehicleControl` owner.
+  Production messages bypass `CtrlSet::Translate`; ordered focus releases,
+  opposite-key reduction and repeat filtering happen before the simulation.
   `RecoveredObserver` stays attached but suspended as a fallback-only camera.
 - Core Vessel input methods (`Throttle`, horizontal/vertical strafe, incline,
   raise, jump, stop), collision callback, step functions and camera matrix are
@@ -60,12 +61,13 @@ separate readiness gates.
   four-second horizontal distances range from `1.048754` to `66.229913`, so
   admission proves real Level-dependent terrain/dynamics rather than a
   synthetic position increment.
-- Final automated verification passes 51/51 CTest in both configurations,
-  36/36 installed/mounted retail service launches, and 4/4 waited executable
-  smokes with two live Vehicle/camera frames, zero fallback/input failure and
-  clean shutdown. Semantic retail identities match across roots; exact
-  world-contact frame counts remain scheduler-sensitive observations.
-- Live primary combat now crosses `MouseL` -> Hardware -> Vehicle -> Bullet ->
+- Final automated verification passes 66/66 CTest in both configurations,
+  18/18 installed retail service launches and 18/18 fresh continuations, plus
+  the repeated real-window Debug/Release input gate. Every run reaches a live
+  Vehicle/camera frame with zero fallback/input failure and clean shutdown.
+  Exact world-contact frame counts remain scheduler-sensitive observations.
+- Live primary combat now crosses `MouseL` -> Windows semantic adapter ->
+  Vehicle -> Bullet ->
   scheduled flight/collision -> Explosion/particle/impact SoundObj -> rendered
   software frame. Focus loss releases a held fire action and inactive clicks
   cannot leave autofire latched. Type-0 Vehicles and the intentionally unarmed
@@ -118,7 +120,7 @@ The shortest safe implementation sequence is:
   radius, transfer Vehicle state, remove the Taxi, drive the replacement and
   prove complete seance reconstruction. Leave-vehicle/on-foot behavior remains
   with the People/Tank/Orphan frontier.
-- **Complete for primary fire:** deliver `MouseL` through Hardware and the
+- **Complete for primary fire:** deliver `MouseL` through the Windows adapter and the
   recurring Vehicle fire event, prove two real Bullet starts, movement,
   natural collision, rendered impact effects, the device-free impact SoundObj
   command, focus-safe release and complete seance rollback. Secondary fire and
@@ -142,8 +144,9 @@ These percentages are engineering orientation, not schedule claims. Readiness
 is gated by the proofs above, not by line count.
 
 The current automated evidence is green in both compiler configurations:
-51/51 CTest per configuration, 36/36 installed/mounted retail service launches
-without reruns and 4/4 waited executable runtime smokes. The primary-fire
+66/66 CTest per configuration, 18/18 installed retail service launches and
+18/18 fresh continuations. Repeated real-window Debug/Release input passes
+finish neutral and exercise accepted Bullet starts. The primary-fire
 matrix covers armed, type-0 and unarmed type-1 gates. The positive
 static-collision proof on `Level.04D` remains present; the formerly flaky
 `Level.05D` Debug visual path also passes a 10/10 repetition after all visual
@@ -171,8 +174,9 @@ feel pass, wider mission entities and AI, save/load, secondary weapon details,
 and later packaging/content validation. The percentage remains an orientation,
 not permission to call the game fully playable before those gates pass.
 
-Current automated evidence is 52/52 CTest in Debug and Release, 36/36 parallel
-Debug retail-service stress launches, 18/18 final Release service launches,
+At that intermediate checkpoint, automated evidence was 52/52 CTest in Debug
+and Release, 36/36 parallel Debug retail-service stress launches, 18/18 final
+Release service launches,
 and 4/4 bounded real executables reaching level-ready and clean shutdown. This
 closes the automated renderer/ownership question; the manual driving and visual
 parity gate remains.
