@@ -986,6 +986,7 @@ int g_primaryFireSparkBaseline = 0;
 int g_primaryFireSoundBaseline = 0;
 bool g_primaryFireEffectPresent = false;
 std::string g_levelContinuationFailure;
+bool g_failNextRestoredGameplayAuthorityForTesting = false;
 std::string g_levelSaveSlotFailure;
 SRecoveredSaveMenuState g_saveMenuState;
 SRecoveredCrossLevelLoadRequest g_crossLevelLoadRequest;
@@ -3441,13 +3442,24 @@ bool RecoveredGameServices_RestoreLevelContinuation(
   const std::uint64_t contentFingerprint =
       ContinuationContentFingerprint();
   const std::string level = ContinuationLevelIdentity();
+  // Consume the failpoint on this restore attempt even if reconstruction
+  // fails earlier. A failed target must never poison the coordinator's later
+  // source rollback.
+  const bool failRestoredAuthorityForTesting =
+      g_failNextRestoredGameplayAuthorityForTesting;
+  g_failNextRestoredGameplayAuthorityForTesting = false;
   const bool worldRestored = LevelContinuation_RestoreWorld(
       g_super.m_context, bytes, contentFingerprint, level,
       &restoredJournal, &restoredSummary, &failure);
   const bool controlsAdopted = worldRestored &&
       g_vehicleControlInput.AdoptControlJournal(restoredJournal);
-  const bool authorityReady = controlsAdopted &&
+  bool authorityReady = controlsAdopted &&
       RestoredGameplayAuthorityReady(restoredSummary, &failure);
+  if (authorityReady && failRestoredAuthorityForTesting) {
+    authorityReady = false;
+    failure =
+        "injected post-restore gameplay authority failure";
+  }
   if (authorityReady) {
     *summary = restoredSummary;
     g_levelContinuationFailure.clear();
@@ -3478,6 +3490,10 @@ bool RecoveredGameServices_RestoreLevelContinuation(
         : "; backup world restore failed: " + rollbackFailure;
   }
   return false;
+}
+
+void RecoveredGameServices_FailNextRestoredGameplayAuthorityForTesting() {
+  g_failNextRestoredGameplayAuthorityForTesting = true;
 }
 
 const char* RecoveredGameServices_LastLevelContinuationError() {

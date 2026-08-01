@@ -1516,13 +1516,13 @@ native-window destruction/recovery, 2/2 primary/secondary Windows input and
 
 ### Frontier D: save/load gameplay authority
 
-Status: in progress. The same-Level occupied-vehicle breadth slice is complete:
-moving and non-lethally damaged state for every admitted type-1 vessel profile,
-an additional named debug Taxi, exact Vehicle/Taxi/Orphan fingerprints,
-HUD/camera ownership and resumed controls now cross the ordinary RR2SLOT1
-broker. Restore success additionally requires a self-consistent live gameplay
-owner after LCN1/CTJ1 adoption; a failure rolls the target session back before
-the slot is published.
+Status: automated contract complete. The same-Level occupied-vehicle breadth
+slice is complete: moving and non-lethally damaged state for every admitted
+type-1 vessel profile, an additional named debug Taxi, exact
+Vehicle/Taxi/Orphan fingerprints, HUD/camera ownership and resumed controls
+now cross the ordinary RR2SLOT1 broker. Restore success additionally requires
+a self-consistent live gameplay owner after LCN1/CTJ1 adoption; a failure
+rolls the target session back before the slot is published.
 
 The first process-lifetime slice is also complete. A real window in process A
 creates a moving/damaged occupied slot and exits; an unrelated process B starts
@@ -1540,6 +1540,14 @@ damage, HUD and camera state. The service proof independently repeats the
 occupied commit and restores the occupied source session after its existing
 corrupt-target rollback case.
 
+The final failure boundary is now closed as well. A one-shot test-only
+failpoint is consumed after a target has reconstructed its world, adopted CTJ1
+and passed Vehicle/camera/panel authority validation, but before cross-Level
+commit. The restore layer returns the destination to its preflight LCN1
+byte-for-byte; the coordinator then returns to the moving/damaged occupied
+source LCN1 byte-for-byte and proves exact authority, neutral controls and
+zero journal or rollback failures.
+
 The product gate discovers the native Debug catalog across all nine retail
 Levels and selects exactly the eight-profile campaign union `0x3F3`; every
 selected profile gets its own fresh executable process and visible Save/Load
@@ -1550,8 +1558,9 @@ Accepted breadth evidence: 66/66 CTest per configuration, 18/18 ordinary
 retail starts, 18/18 fresh continuations with complete Save/Load mask `0x3F3`,
 16/16 native-window profile transactions and 2/2 independent-process
 transactions plus 2/2 occupied cross-Level transactions across Debug and
-Release. Profile breadth and coordinator topology are independent gates over
-the same LCN1/RR2SLOT1 restore path.
+Release. The post-authority fault matrix adds 2/2 Debug/Release two-layer
+byte-exact rollbacks. Profile breadth and coordinator topology are independent
+gates over the same LCN1/RR2SLOT1 restore path.
 
 Make one atomic owner graph cover player embodiment, Vehicle/camera/panel,
 active controls, Taxi/Orphan state, spawned debug objects and Level identity.
@@ -1564,10 +1573,10 @@ Vehicle class, including moving/damaged state, exact HUD/camera ownership and
 the debug-spawned world. Failure leaves the source session byte-equivalent at
 the owned-state boundary.
 
-Remaining within Frontier D: add deliberate post-restore authority failure
-injection proving source-session byte equivalence after a target world has
-already reconstructed successfully. The existing serializer remains
-LCN1/RR2SLOT1.
+Frontier D's automated Windows contract is complete. Longer interactive
+multi-Level play/load, Cyrillic metadata entry and retained WIC fallback
+artifacts remain 1.0 acceptance work rather than new persistence architecture.
+The serializer remains LCN1/RR2SLOT1.
 
 ### Frontier E: actors, static mechanisms and animation
 

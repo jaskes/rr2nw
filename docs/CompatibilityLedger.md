@@ -3504,7 +3504,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-189: byte-complete world restore is not sufficient gameplay authority
 
-- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_PARTIAL`.
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_CONFIRMED`.
 - Evidence: the reported occupied-Vehicle load failures were presentation and
   ownership failures: the world could exist while the player appeared outside
   the saved car, with only a reticle, detached camera or unstable controls.
@@ -3527,9 +3527,11 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   gameplay/destruction/save masks and the campaign union `0x3F3`.
   `Invoke-OccupiedVehicleSaveLoad.ps1 -AllProfiles` independently discovers
   native menu indices and covers all eight profiles through real Game menus.
-- Revisit when: cross-process/cross-Level breadth closes Frontier D. A
-  deliberate post-restore authority-failure injection must then prove
-  byte-equivalent source rollback, not just a rejected load result.
+  The two-directory smoke additionally injects failure after this authority
+  gate accepts a reconstructed target and proves byte-identical local-target
+  and occupied-source LCN1 rollback.
+- Revisit when: Frontier E adds persistent actor/mechanism authority to LCN1;
+  the post-restore gate must then validate those owners before commit too.
 
 ### CQ-190: Release movement can activate an unnamed People owner before load
 
@@ -3553,7 +3555,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-191: process-local telemetry is not persistence evidence
 
-- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_PARTIAL`.
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_CONFIRMED`.
 - Evidence: same-process Save/Load can accidentally retain static runtime
   owners, debug-menu selections or presentation state even when RR2SLOT1 is
   incomplete. Exact LCN1 fingerprints prove serialized content, but the
@@ -3577,7 +3579,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-192: a foreign Level catalog cannot identify restored Vehicle authority
 
-- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_PARTIAL`.
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_CONFIRMED`.
 - Evidence: a cross-Level load begins while the process owns the source
   Level's Taxi/Vehicle attribute tables, but the slot names objects and a
   vessel profile from the target Level. Reusing a menu index or source-table
@@ -3592,11 +3594,17 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Verification: `Invoke-OccupiedVehicleSaveLoad.ps1 -AcrossLevel` passes
   `Level.02D -> Level.03N` in Debug and Release with exact world/container,
   identity/profile/damage/panel/camera and CTJ1 `2 -> 4` proofs. The optional
-  two-directory service smoke additionally restores occupied authority after
-  its corrupt-target source rollback.
-- Revisit when: the coordinator gains deliberate post-restore authority fault
-  injection. That proof must reject a fully reconstructed but misbound target
-  and restore the source LCN1 byte-equivalently.
+  two-directory service smoke additionally covers both failure boundaries. A
+  corrupt target is rejected before reconstruction; a one-shot failpoint then
+  rejects an otherwise valid target after gameplay-authority validation. The
+  latter restores both the destination-local preflight LCN1 and occupied
+  coordinator-source LCN1 byte-for-byte, with exact Vehicle/camera/panel/CTJ1
+  authority and zero rollback failures.
+  `Invoke-CrossLevelAuthorityRollback.ps1` records this as a 2/2
+  Debug/Release retail gate.
+- Revisit when: save compatibility intentionally spans executable versions or
+  Frontier E adds a persistent owner class outside the current LCN1 authority
+  graph. Either change must preserve the same two-layer rollback proof.
 
 ## Maintenance rule
 

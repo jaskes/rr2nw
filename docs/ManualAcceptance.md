@@ -610,6 +610,22 @@ same authority/SHA-256/action requirements as the process-lifetime gate. The
 visible process B window may briefly pause while the foreign Level is torn
 down; it must resume with the saved cockpit and accept the injected turn.
 
+No window interaction is required for the later rollback boundary:
+
+```powershell
+& ".\tools\acceptance\Invoke-CrossLevelAuthorityRollback.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release `
+  -ForeignLevel "Level.02D" `
+  -OccupiedLevel "Level.03N"
+```
+
+The two rows must pass. This optional two-directory recovered-services gate
+uses a test-only one-shot failpoint after successful target gameplay-authority
+validation and requires both the destination preflight checkpoint and
+occupied coordinator source to recapture as byte-identical LCN1 containers.
+The failpoint is unavailable in `rr2nw.exe`, the native menus and RR2SLOT1.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

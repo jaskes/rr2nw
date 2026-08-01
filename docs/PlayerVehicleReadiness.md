@@ -317,6 +317,7 @@ profile/damage/HUD/camera ownership and newly accepted control input in the
 second process. The occupied cross-Level coordinator path now proves the same
 contract after starting in and destroying a foreign Level, while the service
 gate also returns to an occupied source session after a corrupt target.
-Remaining Vehicle persistence work is deliberate post-restore authority
-failure and byte-equivalent rollback; no second recovery policy or serializer
-is needed.
+The final injected post-restore authority failure now proves byte-exact local
+target rollback followed by byte-exact occupied source rollback. Frontier D's
+automated Vehicle persistence contract is therefore complete; no second
+recovery policy or serializer is needed.

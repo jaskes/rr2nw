@@ -1006,10 +1006,181 @@ bool ExerciseCrossLevelLoad(const char* sourceDirectory,
     std::fprintf(stderr, "cross-Level rollback telemetry/proof failed\n");
     return false;
   }
+
+  // The corrupt-container case above fails before reconstruction. Stage the
+  // same return once more and reject it only after the destination world and
+  // all gameplay authority have been reconstructed successfully. This must
+  // unwind both transaction layers byte-for-byte: the destination-local
+  // preflight checkpoint first, then the occupied coordinator source.
+  std::vector<std::uint8_t> authoritySourceBefore;
+  SLevelContinuationSummary authoritySourceBeforeSummary;
+  SRecoveredVehicleAuthorityState authoritySourceBeforeState = {};
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &authoritySourceBefore, &authoritySourceBeforeSummary) ||
+      authoritySourceBefore.empty() ||
+      !RecoveredGameServices_VehicleAuthorityState(
+          &authoritySourceBeforeState) ||
+      !RecoveredGameServices_RequestLoadSlot(3u) ||
+      !RecoveredGameServices_ProcessPendingSaveCommand()) {
+    std::fprintf(stderr,
+                 "post-restore authority rollback request failed\n");
+    return false;
+  }
+  SRecoveredCrossLevelLoadRequest authorityRejected;
+  if (!RecoveredGameServices_TakeCrossLevelLoadRequest(
+          &authorityRejected) ||
+      authorityRejected.targetContinuation.empty() ||
+      authorityRejected.sourceContinuation != authoritySourceBefore) {
+    std::fprintf(stderr,
+                 "post-restore authority handoff changed source bytes\n");
+    return false;
+  }
+
+  ZAV_DeInitLevel();
+  std::vector<std::uint8_t> destinationBefore;
+  SLevelContinuationSummary destinationBeforeSummary;
+  if (!StartServices(sourceDirectory) ||
+      !RecoveredGameServices_CaptureLevelContinuation(
+          &destinationBefore, &destinationBeforeSummary) ||
+      destinationBefore.empty()) {
+    std::fprintf(stderr,
+                 "post-restore authority destination preflight failed\n");
+    return false;
+  }
+  RecoveredGameServices_FailNextRestoredGameplayAuthorityForTesting();
+  SLevelContinuationSummary authorityRejectedSummary;
+  if (RecoveredGameServices_ApplyCrossLevelLoad(
+          authorityRejected, &authorityRejectedSummary)) {
+    std::fprintf(stderr,
+                 "post-restore authority failure was admitted\n");
+    return false;
+  }
+  const std::string authorityFailure =
+      RecoveredGameServices_SaveMenuState()->lastError;
+  std::vector<std::uint8_t> destinationAfter;
+  SLevelContinuationSummary destinationAfterSummary;
+  if (authorityFailure !=
+          "injected post-restore gameplay authority failure" ||
+      !RecoveredGameServices_CaptureLevelContinuation(
+          &destinationAfter, &destinationAfterSummary) ||
+      destinationAfter != destinationBefore ||
+      destinationAfterSummary.worldFingerprint !=
+          destinationBeforeSummary.worldFingerprint) {
+    std::fprintf(stderr,
+                 "post-restore authority destination rollback changed "
+                 "LCN1: %s\n",
+                 authorityFailure.c_str());
+    return false;
+  }
+
+  ZAV_DeInitLevel();
+  SLevelContinuationSummary authorityRolledBackSummary;
+  std::vector<std::uint8_t> authoritySourceAfter;
+  SLevelContinuationSummary authoritySourceAfterSummary;
+  SRecoveredVehicleAuthorityState authoritySourceAfterState = {};
+  SRecoveredVehicleControlJournalTelemetry authorityRollbackJournal = {};
+  if (!StartServices(targetDirectory) ||
+      !RecoveredGameServices_RestoreLevelContinuation(
+          authorityRejected.sourceContinuation,
+          &authorityRolledBackSummary) ||
+      !RecoveredGameServices_CaptureLevelContinuation(
+          &authoritySourceAfter, &authoritySourceAfterSummary) ||
+      !RecoveredGameServices_VehicleAuthorityState(
+          &authoritySourceAfterState) ||
+      !RecoveredGameServices_VehicleControlJournalTelemetry(
+          &authorityRollbackJournal)) {
+    std::fprintf(stderr,
+                 "post-restore authority source rollback failed: %s\n",
+                 RecoveredGameServices_LastLevelContinuationError());
+    return false;
+  }
+  RecoveredGameServices_RecordCrossLevelLoadFailure(
+      authorityRejected, authorityFailure, true, true);
+  const SRecoveredSaveMenuState* authorityRolledBack =
+      RecoveredGameServices_SaveMenuState();
+  if (authorityRolledBack == nullptr ||
+      authorityRolledBack->crossLevelRestartPending ||
+      authorityRolledBack->crossLevelRequests != 3u ||
+      authorityRolledBack->completedCrossLevelLoads != 1u ||
+      authorityRolledBack->crossLevelRollbacks != 2u ||
+      authorityRolledBack->crossLevelRollbackFailures != 0u ||
+      authorityRolledBack->failedCommands != 1u ||
+      authorityRolledBack->lastError != authorityFailure ||
+      authoritySourceAfter != authoritySourceBefore ||
+      authoritySourceAfterSummary.worldFingerprint !=
+          authoritySourceBeforeSummary.worldFingerprint ||
+      authorityRolledBackSummary.restoredWorldFingerprint !=
+          authorityRejected.sourceContinuationSummary.worldFingerprint ||
+      authoritySourceAfterState.identityFingerprint !=
+          authoritySourceBeforeState.identityFingerprint ||
+      std::fabs(authoritySourceAfterState.damage -
+                authoritySourceBeforeState.damage) > 1.0e-9 ||
+      authoritySourceAfterState.vesselProfile !=
+          authoritySourceBeforeState.vesselProfile ||
+      authoritySourceAfterState.panelReady !=
+          authoritySourceBeforeState.panelReady ||
+      authoritySourceAfterState.panelOpen !=
+          authoritySourceBeforeState.panelOpen ||
+      RecoveredGameServices_VehicleCameraMode() !=
+          RECOVERED_VEHICLE_CAMERA_LIVE ||
+      authorityRollbackJournal.actionRecords !=
+          authorityRejected.sourceContinuationSummary.actionRecords ||
+      authorityRollbackJournal.appendFailures != 0u ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u ||
+      !RecoveredGameServices_RunFrame()) {
+    std::fprintf(stderr,
+                 "post-restore authority source rollback changed state "
+                 "(state=%d pending=%d requests=%u completed=%u "
+                 "rollbacks=%u/%u failed=%u error=%d bytes=%d "
+                 "world=%llu/%llu/%llu identity=%llu/%llu "
+                 "damage=%.9f/%.9f profile=%d/%d panel=%d/%d:%d/%d "
+                 "camera=%d journal=%u/%u append=%u active=%u)\n",
+                 authorityRolledBack != nullptr ? 1 : 0,
+                 authorityRolledBack != nullptr
+                     ? (authorityRolledBack->crossLevelRestartPending ? 1 : 0)
+                     : -1,
+                 authorityRolledBack != nullptr
+                     ? authorityRolledBack->crossLevelRequests : 0u,
+                 authorityRolledBack != nullptr
+                     ? authorityRolledBack->completedCrossLevelLoads : 0u,
+                 authorityRolledBack != nullptr
+                     ? authorityRolledBack->crossLevelRollbacks : 0u,
+                 authorityRolledBack != nullptr
+                     ? authorityRolledBack->crossLevelRollbackFailures : 0u,
+                 authorityRolledBack != nullptr
+                     ? authorityRolledBack->failedCommands : 0u,
+                 authorityRolledBack != nullptr &&
+                         authorityRolledBack->lastError == authorityFailure
+                     ? 1 : 0,
+                 authoritySourceAfter == authoritySourceBefore ? 1 : 0,
+                 static_cast<unsigned long long>(
+                     authoritySourceAfterSummary.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     authoritySourceBeforeSummary.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     authorityRolledBackSummary.restoredWorldFingerprint),
+                 authoritySourceAfterState.identityFingerprint,
+                 authoritySourceBeforeState.identityFingerprint,
+                 authoritySourceAfterState.damage,
+                 authoritySourceBeforeState.damage,
+                 authoritySourceAfterState.vesselProfile,
+                 authoritySourceBeforeState.vesselProfile,
+                 authoritySourceAfterState.panelReady,
+                 authoritySourceBeforeState.panelReady,
+                 authoritySourceAfterState.panelOpen,
+                 authoritySourceBeforeState.panelOpen,
+                 RecoveredGameServices_VehicleCameraMode(),
+                 authorityRollbackJournal.actionRecords,
+                 authorityRejected.sourceContinuationSummary.actionRecords,
+                 authorityRollbackJournal.appendFailures,
+                 RecoveredGameServices_VehicleActiveActionCount());
+    return false;
+  }
   std::printf(
       "occupied_cross_level_authority=commit-resume-rollback "
       "profile=%d damage=%.6f panel=%d/%d world=%llu "
-      "actions=%u/%u rollback_world=%llu\n",
+      "actions=%u/%u rollback_world=%llu "
+      "post_authority_failure=target/source-byte-exact\n",
       occupiedType.vesselProfile, targetAuthority.damage,
       targetAuthority.panelReady, targetAuthority.panelOpen,
       static_cast<unsigned long long>(targetContinuation.worldFingerprint),

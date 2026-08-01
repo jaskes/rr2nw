@@ -80,6 +80,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added a one-shot post-restore gameplay-authority failpoint for the recovered
+  services smoke. It can reject an otherwise valid reconstructed Level only
+  after LCN1, CTJ1, Vehicle, camera and panel validation, and is consumed by
+  that attempt so it cannot poison the coordinator's source rollback.
+- Closed the automated occupied-Vehicle rollback contract with two exact
+  container comparisons: the rejected destination returns to its local
+  preflight LCN1 byte-for-byte, then the destructive cross-Level coordinator
+  returns to the moving/damaged occupied source LCN1 byte-for-byte with exact
+  authority and journal state.
+- Added `Invoke-CrossLevelAuthorityRollback.ps1` as the reproducible retail
+  Debug/Release gate for that two-layer proof, with retained stdout/stderr and
+  a machine-readable CSV summary.
 - Added occupied-Vehicle coverage for the destructive cross-Level
   coordinator. A slot created from a moving and non-lethally damaged
   `Level.03N` Vehicle is now loaded by a fresh process initially running

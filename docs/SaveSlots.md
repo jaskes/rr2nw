@@ -218,6 +218,19 @@ handoff deliberately corrupts only the in-memory target continuation, rejects
 it and restores the exact source checkpoint; telemetry requires one committed
 cross-Level load, one rollback and zero rollback failures.
 
+A third handoff reaches the later failure boundary. Its one-shot test-only
+failpoint is consumed only after the destination world, CTJ1 and live
+Vehicle/camera/panel graph would otherwise be accepted. The restore layer must
+return to its destination-local preflight LCN1 byte-for-byte, after which the
+coordinator source is reconstructed from its occupied moving/damaged checkpoint
+and recaptured byte-for-byte. This failpoint is not stored in RR2SLOT1 and is
+not exposed through the product menu or command line.
+
+`tools/acceptance/Invoke-CrossLevelAuthorityRollback.ps1` runs that optional
+two-directory path once per selected configuration, retains stdout/stderr and
+requires the final `post_authority_failure=target/source-byte-exact` proof
+before writing `cross-level-authority-rollback-summary.csv`.
+
 `tools/acceptance/Invoke-CrossLevelSaveLoad.ps1` exercises the product
 coordinator itself. It uses `rr2nw.exe --runtime-smoke` to save in one Level,
 starts in another, loads the shared slot and requires the commit marker, final
@@ -264,7 +277,9 @@ The optional two-directory service smoke now builds its target slot from an
 occupied moving/damaged Vehicle too. After coordinator restore it checks exact
 pose/speed, profile, damage and panel state, appends a new command pair, then
 uses the existing corrupt return target to prove rollback reconstructs that
-occupied source authority and CTJ1 checkpoint.
+occupied source authority and CTJ1 checkpoint. A third transaction injects
+failure after successful gameplay-authority validation and requires exact
+destination-local and occupied-source LCN1 bytes after the two rollback layers.
 
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
 `LCN1-14/14/14`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
@@ -277,17 +292,18 @@ cross-Level coordinator cases. The independent-process occupied-vehicle gate
 adds 2/2 same-Level and 2/2 cross-Level Debug/Release cases. The fresh matrix
 and native product breadth gate both cover the complete campaign profile mask
 `0x3F3`; the occupied coordinator topology is a separate representative proof
-over the same restore transaction. These cover all nine installed Levels in
-both configurations. The mounted disc root was not part of this tranche and
-is therefore not included in the slot claim.
+over the same restore transaction. The dedicated post-authority fault gate
+adds 2/2 Debug/Release byte-exact rollback cases. These cover all nine
+installed Levels in both configurations. The mounted disc root was not part
+of this tranche and is therefore not included in the slot claim.
 
 ## Next gate
 
 The safe native Windows persistence slice, including cross-Level restart,
 rollback, embedded preview presentation and editable display metadata, is now
-live. Its remaining automated Frontier D gate is deliberate post-restore
-Vehicle-authority failure injection: reject a reconstructed but misbound
-target and prove byte-equivalent rollback to the occupied source session.
+live. Its automated Frontier D authority and rollback contract is complete:
+the final post-restore failure gate proves byte-equivalent destination and
+occupied-source recovery without extending RR2SLOT1.
 
 The later interactive 1.0 persistence pass is deliberately narrower:
 

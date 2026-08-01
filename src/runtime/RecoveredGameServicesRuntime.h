@@ -534,6 +534,10 @@ bool RecoveredGameServices_CaptureLevelContinuation(
 bool RecoveredGameServices_RestoreLevelContinuation(
     const std::vector<std::uint8_t>& bytes,
     SLevelContinuationSummary* summary);
+// Test-only one-shot failpoint. The next otherwise successful continuation
+// restore is rejected after world, CTJ1, Vehicle, camera and panel authority
+// have all passed validation, forcing the normal transactional rollback path.
+void RecoveredGameServices_FailNextRestoredGameplayAuthorityForTesting();
 const char* RecoveredGameServices_LastLevelContinuationError();
 bool RecoveredGameServices_SaveLevelSlot(
     const std::wstring& directory, std::uint32_t slot,
