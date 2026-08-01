@@ -108,13 +108,22 @@ int main() {
     return 6;
   }
 
+  if (!input.ProcessWindowMessage(WM_RBUTTONDOWN, 0, 0, 1.0, &batch) ||
+      !One(batch, FIRE_SECONDARY, 1.0) ||
+      !input.ProcessWindowMessage(WM_RBUTTONUP, 0, 0, 1.0, &batch) ||
+      !One(batch, FIRE_SECONDARY, 0.0)) {
+    std::fprintf(stderr, "MouseR secondary fire failed\n");
+    return 6;
+  }
+
   if (!SendKey(&input, WM_KEYDOWN, 'W', 0, 0.75, &batch) ||
       !SendKey(&input, WM_KEYDOWN, 'T', 0, 0.75, &batch) ||
       !SendKey(&input, WM_KEYDOWN, VK_SPACE, 0, 0.75, &batch) ||
       !input.ProcessWindowMessage(WM_LBUTTONDOWN, 0, 0, 0.75, &batch) ||
+      !input.ProcessWindowMessage(WM_RBUTTONDOWN, 0, 0, 0.75, &batch) ||
       !Focus(&input, false, &batch) || batch.consumed ||
       !batch.applicationActiveChanged || batch.applicationActive ||
-      batch.count != 4u || !input.IsNeutral()) {
+      batch.count != 5u || !input.IsNeutral()) {
     std::fprintf(stderr, "focus-loss clear failed\n");
     return 7;
   }
@@ -140,9 +149,9 @@ int main() {
 
   const SRecoveredWindowsInputTelemetry& telemetry = input.Telemetry();
   if (telemetry.keyboardMessages != 28u ||
-      telemetry.mouseButtonMessages != 3u || telemetry.focusMessages != 2u ||
-      telemetry.emittedActions != 27u || telemetry.filteredRepeats != 2u ||
-      telemetry.suppressedMessages != 1u || telemetry.focusClearActions != 4u) {
+      telemetry.mouseButtonMessages != 6u || telemetry.focusMessages != 2u ||
+      telemetry.emittedActions != 31u || telemetry.filteredRepeats != 2u ||
+      telemetry.suppressedMessages != 1u || telemetry.focusClearActions != 5u) {
     std::fprintf(stderr,
                  "telemetry mismatch keys=%llu mouse=%llu focus=%llu "
                  "actions=%llu repeat=%llu suppressed=%llu clears=%llu\n",

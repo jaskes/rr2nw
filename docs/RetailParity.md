@@ -1038,7 +1038,8 @@ Retail scripts нельзя молча копировать поверх source 
   receiving the production button message.
 - The impact Explosion's SoundObj command path is proven against the current
   device-free backend; audible output is not. Bullet muzzle `m_shootSndName`
-  and secondary fire remain explicitly deferred. The table peak Bullet count
+  remains explicitly deferred; secondary fire is covered by the later
+  all-profile gate. The table peak Bullet count
   is a lifetime high-water mark; per-proof shot/move/impact counters are deltas
   from an explicit observation window scoped to symbolic owner
   `Vehicle.Default`. Tank/Cannon projectiles retain whole-world telemetry but
@@ -1596,12 +1597,13 @@ playable Level begins.
 ### RP-INPUT-001: Win32 input has one semantic state owner
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_ACTIONS_PRESERVED`.
-  Production keyboard, character and primary-mouse-button messages are consumed
+  Production keyboard, character and gameplay mouse-button messages are consumed
   by `RecoveredWindowsInputAdapter`; they no longer enter
   `CtrlSet::Translate()` or depend on `GetKeyState`/`GetAsyncKeyState` repair.
 - W/S, A/D, arrows and T/G publish complete signed canonical axes. Space maps
   to retail JUMP, M publishes the historical map-toggle action, MouseL and left
-  Control share primary fire, and X/F1/Escape preserve their recovered actions.
+  Control share primary fire, MouseR owns secondary fire, and X/F1/Escape
+  preserve their recovered actions.
   The visible map itself remains unclaimed.
 - A bounded FIFO preserves WndProc insertion order and is drained at the owned
   Vehicle frame boundary before simulation events. Focus releases precede the
@@ -1609,7 +1611,8 @@ playable Level begins.
   restore stale state. Legacy Hardware retains non-button compatibility roles.
 - The isolated regression covers repeats, redundant releases, both overlap
   orders, combined fire sources and focus clearing. The repeated real-window
-  gate enters an armed Level.03N Vehicle, observes accepted Bullet starts and
+  gate enters an armed Level.03N Vehicle, observes accepted primary/secondary
+  Bullet starts and
   collision checks and exits with zero held actions, axes, pending input and
   physical reconciliation. Verification is 66/66 CTest per configuration,
   18/18 ordinary retail runs and 18/18 fresh continuations.
@@ -1730,11 +1733,31 @@ playable Level begins.
   state and then re-establishes the suite baseline byte-for-byte. The combined
   required profile mask is `1011` per Debug/Release configuration.
 - A type-1 Vehicle may legitimately have no panel. Recovery preserves the
-  actual ready/open pair instead of treating absence as corruption. Public
-  restart/repair and per-profile regular weapon/HUD acceptance remain open.
+  actual ready/open pair instead of treating absence as corruption.
+- Every campaign profile now also proves non-lethal damage, every configured
+  primary/secondary projectile, secondary-ammunition consumption where
+  applicable, canonical empty weapon slots and the exact HUD-or-no-HUD state
+  before byte-identical rollback.
 - Accepted Windows evidence is 66/66 CTest per configuration, 18/18 ordinary
   starts, 18/18 fresh continuations with mask `1011`, and 2/2 native-window
-  destruction/recovery.
+  destruction/recovery, 2/2 primary/secondary native input and 2/2
+  dead-state current-Level restart.
+
+### RP-VEHICLE-007: death recovery is an explicit fresh Level restart
+
+- Classification: `MAY_BEHAVIOR_PRESERVED`, `WINDOWS_POLICY_EXPLICIT`.
+- The preserved death camera is terminal; it does not own an automatic
+  respawn. The preserved outer loop treats Restart as a full Level teardown
+  and initialization request.
+- **Game > Restart current Level** stages only at the closed frame boundary,
+  captures the complete source LCN1, freshly starts the same active
+  retail/mod Level and discards the checkpoint after commit.
+- If fresh construction fails, the coordinator constructs the source again
+  and applies that checkpoint. Rollback failure remains terminal and is
+  diagnosed; the game never partially overlays the old world onto a new one.
+- Native Debug/Release acceptance kills the real player body first and then
+  requires one dead-source restart commit, zero failures/rollbacks, live final
+  camera/control ownership and clean shutdown.
 
 ## Binary analysis boundary
 

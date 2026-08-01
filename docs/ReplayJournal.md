@@ -2,7 +2,7 @@
 
 ## Scope
 
-`CTJ1` version 1 is the portable boundary between platform input and gameplay
+`CTJ1` version 2 is the portable boundary between platform input and gameplay
 control. It records the normalized commands accepted by `Vehicle.Default`; it
 does not record Windows messages or keyboard bindings. The first consumer is a
 local deterministic replay probe. Public replay files, UI controls and network
@@ -34,16 +34,16 @@ Consequences:
 
 The admitted action vocabulary is `MOVE_FORWARD`, `MOVE_BACKWARD`,
 `STRAFE_LEFT`, `STRAFE_RIGHT`, `STRAFE_UP`, `STRAFE_DOWN`, `LOOK_UP`,
-`LOOK_DOWN`, `TURN_LEFT`, `TURN_RIGHT`, `FIRE_PRIMARY`, `STOP_VEHICLE` and
-`CHANGE_VEHICLE`, plus the retail `JUMP` edge. `JUMP` is journalled like an
-ordinary accepted action but is deliberately not part of the persistent held
-array, so the CTJ1 version-1 checkpoint layout remains unchanged.
+`LOOK_DOWN`, `TURN_LEFT`, `TURN_RIGHT`, `FIRE_PRIMARY`, `FIRE_SECONDARY`,
+`STOP_VEHICLE` and `CHANGE_VEHICLE`, plus the retail `JUMP` edge. `JUMP` is
+journalled like an ordinary accepted action but is deliberately not part of
+the persistent held array.
 
 ## Focus and held actions
 
-The checkpoint stores application-active state and eleven held values: the ten
-movement/look actions plus primary fire. Focus gain/loss is a separate record
-kind. On focus loss, replay derives zero-valued releases from those held
+The version-2 checkpoint stores application-active state and twelve held
+values: the ten movement/look actions plus primary and secondary fire. Focus
+gain/loss is a separate record kind. On focus loss, replay derives zero-valued releases from those held
 values, exactly like the live input owner. The releases are not duplicated as
 ordinary action records.
 
@@ -62,11 +62,11 @@ bytes and are not NUL-terminated.
 
 | Field | Type |
 | --- | --- |
-| magic `CTJ1`, version `1` | `u32`, `u32` |
+| magic `CTJ1`, version `2` | `u32`, `u32` |
 | target length and target bytes | `u32`, bytes |
 | checkpoint tick and canonical time | `u64`, `double` |
 | initial application-active | `u32` |
-| eleven held-action values | `11 * double` |
+| twelve held-action values | `12 * double` |
 | `CLK1` checkpoint length and bytes | `u32`, bytes |
 | RNG algorithm, state length and bytes | `u32`, `u32`, bytes |
 | sealed flag, final tick and time | `u32`, `u64`, `double` |
@@ -83,7 +83,10 @@ bytes and the record count at one million. It rejects truncation, trailing
 bytes, unknown version/kind/origin, non-finite fields, out-of-range values,
 backward tick/time order, non-contiguous sequence numbers and inconsistent
 final boundaries. Decode builds a temporary model and assigns the destination
-only after complete validation. A sealed journal rejects further appends.
+only after complete validation. A sealed journal rejects further appends. The
+decoder also accepts version 1, reads its historical eleven held values and
+initializes secondary fire to neutral; new encodes are always canonical
+version 2.
 
 The diagnostic fingerprint is 64-bit FNV-1a over canonical encoded bytes. It
 is an identity/regression marker, not a cryptographic integrity primitive.

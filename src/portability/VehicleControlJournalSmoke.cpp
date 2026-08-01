@@ -60,6 +60,22 @@ int main() {
           VehicleControlJournal_Fingerprint(decoded))
     return Fail("the CTJ1 codec or statistics diverged");
 
+  // Version 2 adds FIRE_SECONDARY to the held-action checkpoint. Keep old
+  // CTJ1/version-1 files readable by proving the omitted slot is initialized
+  // to neutral instead of shifting the remainder of the stream.
+  std::vector<std::uint8_t> legacy = encoded;
+  const std::size_t heldStart = 32u + journal.target.size();
+  const std::size_t legacyOmittedSlot = heldStart + 11u * sizeof(double);
+  legacy.erase(legacy.begin() + legacyOmittedSlot,
+               legacy.begin() + legacyOmittedSlot + sizeof(double));
+  legacy[4] = 1u;
+  legacy[5] = legacy[6] = legacy[7] = 0u;
+  SVehicleControlJournal legacyDecoded;
+  if (!VehicleControlJournal_Decode(legacy, &legacyDecoded) ||
+      legacyDecoded.initialHeldActions[11] != 0.0 ||
+      legacyDecoded.records.size() != journal.records.size())
+    return Fail("CTJ1/version-1 backward decoding diverged");
+
   SVehicleControlJournal destination = decoded;
   const std::uint64_t destinationFingerprint =
       VehicleControlJournal_Fingerprint(destination);

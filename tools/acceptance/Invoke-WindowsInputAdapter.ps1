@@ -138,6 +138,9 @@ foreach ($configurationName in $Configuration) {
         # create at least one real Bullet, not merely increment adapter input.
         Start-Sleep -Milliseconds 750
         Send-WindowMessage $window 0x0202 0
+        Send-WindowMessage $window 0x0204 0
+        Start-Sleep -Milliseconds 750
+        Send-WindowMessage $window 0x0205 0
         Wait-InputFrame
 
         # Lose focus with throttle and fire held. The adapter must emit their
@@ -145,6 +148,7 @@ foreach ($configurationName in $Configuration) {
         # then require a fresh make after focus returns.
         Send-Key $window 0x57 $true
         Send-WindowMessage $window 0x0201 0
+        Send-WindowMessage $window 0x0204 0
         Send-WindowMessage $window 0x001C 0
         Wait-InputFrame
         Send-Key $window 0x57 $true
@@ -173,12 +177,13 @@ foreach ($configurationName in $Configuration) {
     $issues = [Collections.Generic.List[string]]::new()
     $expected = @{
         input_mode = "authoritative-windows-semantic-adapter"
-        windows_input_mouse_button_messages = "3"
-        windows_input_emitted_actions = "21"
+        windows_input_mouse_button_messages = "6"
+        windows_input_emitted_actions = "25"
         windows_input_filtered_repeats = "1"
-        windows_input_focus_clear_actions = "2"
+        windows_input_focus_clear_actions = "3"
         windows_input_map_toggle_presses = "1"
         windows_input_primary_fire_presses = "2"
+        windows_input_secondary_fire_presses = "2"
         windows_input_jump_presses = "1"
         windows_input_pending_events = "0"
         debug_menu_completed_commands = "1"
@@ -205,6 +210,7 @@ foreach ($configurationName in $Configuration) {
         @{ Key = "windows_input_focus_messages"; Value = 2 },
         @{ Key = "windows_input_suppressed_messages"; Value = 2 },
         @{ Key = "windows_input_primary_fire_accepted_shots"; Value = 1 },
+        @{ Key = "windows_input_secondary_fire_accepted_shots"; Value = 1 },
         @{ Key = "windows_input_primary_fire_collision_checks"; Value = 1 }
     )) {
         $parsed = 0L

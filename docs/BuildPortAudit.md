@@ -2513,8 +2513,8 @@ and the existing second seance proves reconstruction without residue.
 
 Audible output is not claimed. The impact creates the retail Explosion
 SoundObj and executes its device-free command state, while `m_shootSndName` is
-still not started by the bounded Bullet. Secondary fire remains a separate
-small combat slice.
+still not started by the bounded Bullet. Secondary fire is now admitted by the
+later profile-gameplay slice.
 Frame-sensitive visual probes now use the active Vehicle camera; Explosion
 Piece/trace probes additionally sample real terrain and begin above it instead
 of immediately expiring below the land surface.
@@ -3090,7 +3090,9 @@ CTest; both retail roots across all nine Levels pass 36/36.
 
 ## CTJ1 normalized control journal and local Vehicle replay
 
-The platform/input boundary now has a canonical `CTJ1` version-1 codec. It is
+The platform/input boundary now has a canonical `CTJ1` codec. Version 2 adds
+secondary fire to the held-action checkpoint; the decoder retains version-1
+compatibility and initializes its absent secondary slot to neutral. It is
 fed only after `KR_Hardware` has translated a physical input and
 `RecoveredVehicleControl` has rejected `SYS_KEY`, `EXIT`, inactive input and
 failed Vehicle commands. Records use stable target `Vehicle.Default`, the
@@ -3099,7 +3101,7 @@ time returned by `VehicleRuntimeState`; Windows key code, repeat and raw
 message time are not serialized.
 
 The header owns the starting CLK1/RNG checkpoint, application-active state and
-eleven held-action values. Focus is a distinct transition and replay derives
+twelve held-action values. Focus is a distinct transition and replay derives
 held releases from it, avoiding duplicate action records. The codec is
 little-endian and bounded, decodes through a temporary object, rejects malformed
 ordering/values/truncation/version/trailing bytes and prevents post-seal
@@ -3112,8 +3114,7 @@ focus recovery. It then rolls the Vehicle back, reapplies the encoded
 checkpoint, replays the five records and requires equal physical, control and
 collision state fingerprints plus exact clock/RNG state. A second rollback
 must restore the original Level. The normal Hardware owner simultaneously
-maintains a live journal; the Level.03N visual/input suite observes 11 action
-and two focus records with no append failure.
+maintains a live journal with both fire actions and focus state.
 
 One hermetic codec/checkpoint smoke raises the normal matrix to 56/56 in Debug
 and Release. The existing installed/mounted nine-Level matrix remains 36/36.
@@ -3158,10 +3159,11 @@ retail runtime runs across `E:\Games\The Next Worlds` and `G:\nw`.
 
 ## Authoritative Windows semantic input
 
-Production keyboard and primary-mouse-button messages no longer call the
+Production keyboard and gameplay mouse-button messages no longer call the
 legacy `CtrlSet::Translate()` path. `RecoveredWindowsInputAdapter` owns explicit
 physical state, repeat filtering, canonical opposing axes, Space jump, M map
-toggle, combined MouseL/left-Control fire and ordered focus clearing. The
+toggle, combined MouseL/left-Control primary fire, independent MouseR
+secondary fire and ordered focus clearing. The
 message hook appends semantic actions/focus transitions to a bounded FIFO;
 `RunFrame` drains it after the Vehicle frame boundary opens and before scheduled
 events. This prevents both input before the first owned frame and equal-time
@@ -3170,12 +3172,13 @@ make/break reordering.
 The legacy Hardware object remains attached for mouse motion, joystick, demo,
 paint/capture and compatibility tests. Per-frame asynchronous reconciliation is
 not used by production and must remain zero in the real-window gate. Jump is a
-recordable CTJ1 edge but does not alter the version-1 held-action checkpoint.
+recordable CTJ1 edge but remains outside the held-action checkpoint.
 
 The new gate raises CTest to 66/66 in Debug and Release. Repeated window tests
 enter an armed Level.03N Taxi, overlap both release orders, submit extended
-arrows/repeat/Space/M/MouseL and lose focus with movement/fire held. They
-observe accepted Bullet starts and collision checks, then require zero actions,
+arrows/repeat/Space/M/MouseL/MouseR and lose focus with movement/fire held.
+They observe accepted primary/secondary Bullet starts and primary collision
+checks, then require zero actions,
 axes, pending input, reconciliation and runtime issues. Ordinary installed
 retail runs pass 18/18 and fresh continuation passes 18/18. The latter also
 proved that `Level.07N` has a valid empty People roster, so its diagnostic now
@@ -3342,3 +3345,35 @@ Accepted evidence: complete Debug and Release builds; 66/66 CTest in each;
 18/18 ordinary retail rows with the corrected exact `14/5` semantic-event
 contract; 18/18 fresh-continuation rows with profile mask `1011` in both
 configurations; and 2/2 native-window destruction/rollback rows.
+
+## Profile gameplay and transactional campaign restart
+
+The eight-profile campaign union now has a regular gameplay proof before its
+destruction proof. Each representative accepts bounded non-lethal damage,
+starts every primary/secondary projectile named by its own VehicleAttr,
+consumes secondary ammunition when that slot is configured, exposes the real
+panel-ready/open pair and then restores the pre-action LCN1 byte-for-byte.
+Empty weapon names must retain resolved index `-1`; they are an explicit
+unarmed capability, not a missing-reference success. This distinguishes a
+valid panel-less or unarmed Vehicle from a missing resource without inferring
+behavior from config strings.
+
+Briefing god mode is a process global outside LCN1 and makes retail damage a
+no-op. The acceptance owner therefore saves that global, disables it only at
+the damage/destruction precondition and restores the campaign value on every
+exit. Transient active-effect save boundaries are advanced by bounded closed
+frames and counted as `restore_deferrals`; no wall-clock delay is treated as
+ownership proof.
+
+The preserved game has no automatic respawn owner: death reaches a terminal
+camera and the old menu requests a Level restart. The Windows product policy
+therefore adds **Game > Restart current Level**. WM_COMMAND only stages the
+request; the closed-frame owner captures LCN1, and the process coordinator
+tears down and freshly builds the same retail/mod Level. The source checkpoint
+is rollback-only. Failure to build triggers a second clean construction plus
+LCN1 restore; success starts the authored Level from scratch.
+
+The native acceptance enters authentic default-body death first and then
+drives the ordinary Game command. Diagnostics retain dead-source, request,
+commit, defer and rollback counters across teardown. Debug and Release must
+each report one dead-source commit, zero failures and clean shutdown.

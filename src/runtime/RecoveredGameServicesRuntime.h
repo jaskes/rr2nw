@@ -256,6 +256,41 @@ struct SRecoveredCrossLevelLoadRequest {
   SLevelContinuationSummary sourceContinuationSummary;
 };
 
+// Retail death remains a terminal camera state. Recovery is an explicit,
+// fresh restart of the current Level, staged at a closed frame boundary and
+// executed by the process coordinator with the captured source as rollback.
+struct SRecoveredCampaignRestartState {
+  bool pending = false;
+  bool coordinatorPending = false;
+  unsigned int requests = 0;
+  unsigned int completedRestarts = 0;
+  unsigned int failedRestarts = 0;
+  unsigned int deadSourceRestarts = 0;
+  unsigned int pendingAttempts = 0;
+  unsigned int deferredCommands = 0;
+  unsigned int lastCommandAttempts = 0;
+  unsigned int rollbacks = 0;
+  unsigned int rollbackFailures = 0;
+  std::string currentLevel;
+  std::string lastError;
+};
+
+struct SRecoveredCampaignRestartRequest {
+  bool ready = false;
+  unsigned int requestOrdinal = 0;
+  unsigned int attempts = 0;
+  unsigned int deferredCommands = 0;
+  unsigned int completedBefore = 0;
+  unsigned int failuresBefore = 0;
+  unsigned int deadSourceRestartsBefore = 0;
+  unsigned int rollbacksBefore = 0;
+  unsigned int rollbackFailuresBefore = 0;
+  std::string level;
+  bool sourceDead = false;
+  std::vector<std::uint8_t> sourceContinuation;
+  SLevelContinuationSummary sourceContinuationSummary;
+};
+
 enum ERecoveredDebugMenuAction {
   RECOVERED_DEBUG_MENU_NONE = 0,
   RECOVERED_DEBUG_MENU_SPAWN_VEHICLE = 1,
@@ -533,6 +568,17 @@ void RecoveredGameServices_RecordCrossLevelLoadFailure(
     const SRecoveredCrossLevelLoadRequest& request,
     const std::string& detail, bool restartAttempted,
     bool rollbackRestored);
+bool RecoveredGameServices_RequestCampaignRestart();
+bool RecoveredGameServices_ProcessPendingCampaignRestart();
+bool RecoveredGameServices_CampaignRestartPending();
+bool RecoveredGameServices_TakeCampaignRestartRequest(
+    SRecoveredCampaignRestartRequest* request);
+void RecoveredGameServices_RecordCampaignRestartResult(
+    const SRecoveredCampaignRestartRequest& request,
+    bool committed, bool rollbackAttempted, bool rollbackRestored,
+    const std::string& detail);
+const SRecoveredCampaignRestartState*
+RecoveredGameServices_CampaignRestartState();
 const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();
@@ -551,6 +597,8 @@ bool RecoveredGameServices_WindowsInputTelemetry(
     SRecoveredWindowsInputTelemetry* telemetry);
 unsigned int RecoveredGameServices_MapTogglePresses();
 unsigned int RecoveredGameServices_VehiclePrimaryFirePresses();
+unsigned int RecoveredGameServices_VehicleSecondaryFirePresses();
+unsigned int RecoveredGameServices_VehicleSecondaryFireAcceptedShots();
 unsigned int RecoveredGameServices_VehicleJumpPresses();
 std::size_t RecoveredGameServices_WindowsInputPendingEvents();
 bool RecoveredGameServices_VehicleControlAxes(

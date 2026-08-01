@@ -72,6 +72,17 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added independent MouseR secondary fire to the authoritative Windows input
+  adapter, Vehicle control owner and CTJ1 journal. Focus loss releases both
+  fire actions, native telemetry proves secondary ammunition consumption, and
+  CTJ1 version 2 remains backward-readable from version 1.
+- Added **Game > Restart current Level** as the campaign recovery policy. The
+  command captures LCN1 at a closed frame, freshly reconstructs the same Level
+  and restores the captured dead/source world only if construction fails.
+- Expanded the eight-profile Vehicle breadth gate with non-lethal damage,
+  configured primary/secondary Bullet starts, canonical empty weapon slots,
+  shipped HUD-or-no-HUD state and exact rollback before the existing
+  destruction/ORP1 transaction.
 - Added named classification for all ten retail Vehicle vessel profiles and an
   all-Level destruction breadth gate. Every type-1 profile present in each
   Level is spawned, entered, destroyed through the authentic damage graph,
@@ -117,7 +128,7 @@ claim authorship of inherited Logos code or retail data.
   ascent frame, two terminal frames, exactly one completion transition and
   three finite cameras, including an offset beyond the former `exit(0)`
   threshold, then restores Vehicle statics, clock and active runtime state.
-- Replaced production Win32 keyboard and primary-mouse translation with an
+- Replaced production Win32 keyboard and gameplay mouse-button translation with an
   authoritative semantic input adapter. It owns explicit physical state,
   repeat filtering, opposite-key reduction, inactive suppression and ordered
   focus-loss releases; raw production messages no longer enter
@@ -193,7 +204,7 @@ claim authorship of inherited Logos code or retail data.
   product matrices.
 - Closed the bounded M2 keyboard debt (`CQ-170`): legacy Hardware remains for
   compatibility mouse motion, joystick, demo and hermetic reference tests,
-  but no longer owns production keyboard or primary-mouse button messages.
+  but no longer owns production keyboard or gameplay mouse-button messages.
 - Extended gameplay-tuning schema 1 to verified Level-local `PeopleAttr` and
   `TankAttr` owners. Mods can now tune People movement/initial health/fire
   interval/burst count and Tank maximum speed/attack power/attack delay by

@@ -3052,13 +3052,15 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Vehicle frame boundary opens and before scheduled events, preserving raw
   Windows order without equal-time scheduler reordering or pre-first-frame
   delivery.
-- Boundary: production keyboard, character and primary-mouse-button messages
+- Boundary: production keyboard, character and gameplay mouse-button messages
   do not enter `CtrlSet::Translate()`. `KR_Hardware` remains a compatibility
   owner for mouse motion, joystick, demo, capture/paint and legacy hermetic
   tests. Simulation and CTJ1 continue to see only stable action names/values;
-  JUMP is now a recordable edge without changing the held-action wire array.
+  JUMP is a recordable edge outside the held-action wire array; CTJ1 version 2
+  adds MouseR secondary fire and decodes version 1 with that slot neutral.
 - Verification: the isolated smoke covers every axis release order, repeats,
-  combined MouseL/left-Control ownership, focus clearing and inactive input.
+  combined MouseL/left-Control ownership, MouseR secondary fire, focus clearing
+  and inactive input.
   The repeated real-window Debug/Release gate enters an armed retail Vehicle,
   observes accepted Bullets/collision checks and exits with zero actions, axes,
   pending events and reconciliation. Final CTest is 66/66 per configuration;
@@ -3473,11 +3475,12 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   gameplay tuning use the same admitted set. `Dead` remains live but is not a
   gameplay-tuning target.
 - Verification: the fresh-continuation smoke groups every Level-local type-1
-  Taxi target by profile, runs one authentic occupied destruction/ORP1/exact
-  recovery transaction per group, and restores a byte-identical suite
-  baseline between representatives. The complete retail union must equal mask
-  `1011`: `Dragon`, `Emveshka`, `Emveshka1` and `TankGenn1..5`. Debug and
-  Release pass all 18 rows with that exact union.
+  Taxi target by profile, proves non-lethal damage, configured weapons or
+  canonical empty slots, HUD/no-HUD state, then runs one authentic occupied
+  destruction/ORP1/exact recovery transaction per group and restores a
+  byte-identical suite baseline between representatives. The complete retail
+  union must equal mask `1011`: `Dragon`, `Emveshka`, `Emveshka1` and
+  `TankGenn1..5`. Debug and Release pass all 18 rows with that exact union.
 - Revisit when: a newly recovered retail data set contains another dynamic
   name. Admission requires a configuration record, an executable owner mapping
   and the same lifecycle proof; a plausible string alone is not evidence.

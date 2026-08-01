@@ -3442,10 +3442,11 @@ outside the simulation record.
 
 Status: accepted on 2026-07-30.
 
-`CTJ1` version 1 is the first external control/replay contract. It starts from
+`CTJ1` is the external control/replay contract. Version 2 starts from
 the authoritative `CLK1` clock and simulation RNG checkpoints, stable target
-name `Vehicle.Default`, application-focus state and the eleven held gameplay
-actions. Every admitted record carries the simulation tick, a monotonic
+name `Vehicle.Default`, application-focus state and twelve held gameplay
+actions, including secondary fire. The decoder retains version-1 compatibility
+with that added slot neutral. Every admitted record carries the simulation tick, a monotonic
 sequence number and the bounded simulation time actually accepted by Vehicle.
 The raw Win32 key code, repeat flag and unbounded message timestamp never cross
 the journal boundary.
@@ -4233,14 +4234,15 @@ prototype also exposed two ordering failures: direct WndProc dispatch could
 arrive before the first Vehicle frame, while equal-time scheduler insertion
 could reorder a make/break sequence.
 
-Production Windows keyboard and primary-button messages therefore have one
+Production Windows keyboard and gameplay mouse-button messages therefore have one
 owner, `RecoveredWindowsInputAdapter`. It records explicit key/button state,
 filters repeated makes and redundant breaks, and emits complete signed axis
 snapshots. W/S is `MOVE_FORWARD`, D/A is `STRAFE_RIGHT`, Right/Left is
 `TURN_RIGHT`, Up/Down is `LOOK_UP`, and T/G retains vertical strafe. Space is
 the retail `JUMP` edge rather than vertical movement. MouseL and left Control
 share one `FIRE_PRIMARY` state; releasing either source cannot stop fire while
-the other remains held. X, F1, Escape and M publish stop, Vehicle change, exit
+the other remains held. MouseR owns `FIRE_SECONDARY`. X, F1, Escape and M
+publish stop, Vehicle change, exit
 and map-toggle edges.
 
 WndProc only appends actions and focus transitions to a bounded FIFO. The
@@ -4476,3 +4478,27 @@ public campaign restart/repair or full per-class weapon/HUD acceptance.
 Accepted evidence is 66/66 CTest in each configuration, 18/18 ordinary retail
 starts, 18/18 fresh continuations with profile mask `1011` in both
 configurations, and 2/2 native-window destruction/recovery.
+
+## BD-119: campaign death recovery is a fresh restart, not checkpoint resurrection
+
+Status: accepted on 2026-08-01 after the Frontier C product gate.
+
+The preserved Vehicle death path ends in a finite terminal camera. Its outer
+menu requests `MST_RESTART`, after which the original main loop tears down and
+initializes the Level again; there is no automatic respawn object to recover.
+The modern policy therefore exposes **Game > Restart current Level** and keeps
+the diagnostic pre-death restore out of ordinary campaign behavior.
+
+The menu command stages at a fully closed frame and captures one complete LCN1
+before destructive work. The process coordinator then destroys the session
+and freshly constructs the same retail/mod Level. A successful restart starts
+authored state and discards the checkpoint. A failed construction performs a
+second clean source construction and restores the checkpoint atomically; it
+never mixes old owners into the partial new graph.
+
+Frontier C also admits ordinary type-1 behavior for every campaign profile:
+non-lethal damage, every configured primary/secondary projectile, canonical
+empty weapon slots, secondary ammo where present and the shipped cockpit or
+intentional no-cockpit state all execute before exact LCN1 rollback and the
+existing destruction proof. CTJ1 version 2 adds secondary fire to held state
+while decoding version 1 with that slot neutral.

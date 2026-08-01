@@ -14,7 +14,9 @@
 namespace {
 
 const std::uint32_t kMagic = 0x314a5443u;  // CTJ1
-const std::uint32_t kVersion = 1u;
+const std::uint32_t kLegacyVersion = 1u;
+const std::uint32_t kVersion = 2u;
+const std::size_t kLegacyHeldActionCount = 11u;
 const std::size_t kMaximumTargetBytes = 255u;
 const std::size_t kMaximumCheckpointBytes = 4096u;
 const std::size_t kMaximumRecords = 1000000u;
@@ -24,7 +26,7 @@ const std::uint64_t kHashPrime = 1099511628211ull;
 const int kHeldActions[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT] = {
     MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
     STRAFE_UP, STRAFE_DOWN, TURN_LEFT, TURN_RIGHT,
-    LOOK_UP, LOOK_DOWN, FIRE_PRIMARY};
+    LOOK_UP, LOOK_DOWN, FIRE_PRIMARY, FIRE_SECONDARY};
 
 struct Writer {
   std::vector<std::uint8_t>* bytes;
@@ -162,6 +164,7 @@ bool VehicleControlJournal_IsRecordableAction(int action) {
     case TURN_LEFT:
     case TURN_RIGHT:
     case FIRE_PRIMARY:
+    case FIRE_SECONDARY:
     case JUMP:
     case STOP_VEHICLE:
     case CHANGE_VEHICLE:
@@ -397,7 +400,9 @@ bool VehicleControlJournal_Decode(
   std::uint32_t active = 0;
   const std::uint8_t* source = nullptr;
   if (!reader.U32(&magic) || !reader.U32(&version) ||
-      magic != kMagic || version != kVersion || !reader.U32(&size) ||
+      magic != kMagic ||
+      (version != kLegacyVersion && version != kVersion) ||
+      !reader.U32(&size) ||
       size == 0u || size > kMaximumTargetBytes ||
       !reader.Bytes(size, &source))
     return false;
@@ -407,9 +412,11 @@ bool VehicleControlJournal_Decode(
       !reader.U32(&active) || active > 1u)
     return false;
   candidate.initialApplicationActive = active != 0u;
-  for (double& held : candidate.initialHeldActions) {
-    if (!reader.Double(&held)) return false;
-  }
+  const std::size_t heldActionCount =
+      version == kLegacyVersion ? kLegacyHeldActionCount
+                                : VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT;
+  for (std::size_t index = 0; index < heldActionCount; ++index)
+    if (!reader.Double(&candidate.initialHeldActions[index])) return false;
   if (!reader.U32(&size) || size == 0u ||
       size > kMaximumCheckpointBytes || !reader.Bytes(size, &source))
     return false;

@@ -65,10 +65,11 @@ class RecoveredWindowsInputAdapter {
                       SRecoveredWindowsInputBatch* batch);
   double Axis(std::uint32_t positive, std::uint32_t negative,
               double sensitivity) const;
-  bool FireDown() const;
+  bool PrimaryFireDown() const;
 
   bool keys_[256] = {};
   bool mouseLeft_ = false;
+  bool mouseRight_ = false;
   bool applicationActive_ = true;
   SRecoveredWindowsInputTelemetry telemetry_ = {};
 };

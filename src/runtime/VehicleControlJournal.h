@@ -16,7 +16,7 @@ enum EVehicleControlJournalOrigin : std::uint32_t {
 };
 
 enum : std::size_t {
-  VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT = 11u
+  VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT = 12u
 };
 
 struct SVehicleControlJournalRecord {

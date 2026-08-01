@@ -41,6 +41,11 @@ real `TaxiAttr -> VehicleAttr` table after references and resources have been
 resolved. A Level that cannot provide a valid catalog fails debug-menu startup
 instead of presenting an unsafe command.
 
+The ordinary **Game** menu also exposes **Restart current Level**. It is not a
+debug restore: it captures rollback state, destroys the current session and
+freshly constructs the same Level. It remains available after terminal player
+death and is the campaign-facing recovery policy.
+
 ## Safety and rollback
 
 `WM_COMMAND` never mutates the simulation. It only stages one command. The
@@ -137,9 +142,11 @@ campaign restart, repair or every damaged Vehicle class is complete.
 - The all-Level continuation matrix executes the same death/save/reconstruct/
   restore graph for all nine installed Levels in both configurations (18/18).
 - The same matrix enumerates every type-1 dynamic profile on each Level and
-  performs one spawn/enter/destruction/ORP1/exact-recovery transaction per
-  profile. It restores a byte-identical suite baseline between cases and
-  requires the complete campaign mask `1011`, including shipped
+  first proves non-lethal damage, configured MouseL/MouseR weapon starts or
+  canonical empty weapon slots, and exact HUD-or-no-HUD state. It then performs
+  one destruction/ORP1/exact-recovery transaction per profile, restores a
+  byte-identical suite baseline between cases and requires campaign mask
+  `1011`, including shipped
   `Emveshka1`, `TankGenn4` and `TankGenn5` records. A panel is optional state,
   but its ready/open pair must restore exactly. The accepted Debug/Release
   result is 18/18 with mask `1011` in each configuration.

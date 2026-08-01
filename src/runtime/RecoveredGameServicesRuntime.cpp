@@ -265,6 +265,11 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_handoffTaxiCount = 0;
     m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
     m_primaryFirePresses = 0;
+    m_secondaryFirePresses = 0;
+    m_secondaryFireAcceptedShots = 0;
+    m_secondaryAmmoTracking = false;
+    m_secondaryTrackedAttribute = KR_ObjectID::NUL();
+    m_secondaryLastAmmo = 0;
     m_jumpPresses = 0;
     m_exitAttempts = 0;
     m_exitPending = false;
@@ -349,6 +354,8 @@ class RecoveredVehicleControlInput final : public KR_Object {
 
     if (action == FIRE_PRIMARY && down > 0.0)
       ++m_primaryFirePresses;
+    if (action == FIRE_SECONDARY && down > 0.0)
+      ++m_secondaryFirePresses;
     if (action == JUMP && down > 0.0)
       ++m_jumpPresses;
 
@@ -652,6 +659,12 @@ class RecoveredVehicleControlInput final : public KR_Object {
   }
   int LastInputFailure() const { return m_lastInputFailure; }
   unsigned int PrimaryFirePresses() const { return m_primaryFirePresses; }
+  unsigned int SecondaryFirePresses() const {
+    return m_secondaryFirePresses;
+  }
+  unsigned int SecondaryFireAcceptedShots() const {
+    return m_secondaryFireAcceptedShots;
+  }
   unsigned int JumpPresses() const { return m_jumpPresses; }
 
   void ObserveVehicleHandoff() {
@@ -660,6 +673,19 @@ class RecoveredVehicleControlInput final : public KR_Object {
     if (!VehicleRuntimeState_Inspect(getContext(), m_vehicle, &state)) return;
     Vehicle* vehicle = static_cast<Vehicle*>(
         getContext()->queryInterface(m_vehicle, IVehicleIID));
+    if (vehicle == nullptr) {
+      m_secondaryAmmoTracking = false;
+    } else if (!m_secondaryAmmoTracking ||
+               state.attribute != m_secondaryTrackedAttribute ||
+               vehicle->m_secBulletCnt > m_secondaryLastAmmo) {
+      m_secondaryAmmoTracking = true;
+      m_secondaryTrackedAttribute = state.attribute;
+      m_secondaryLastAmmo = vehicle->m_secBulletCnt;
+    } else if (vehicle->m_secBulletCnt < m_secondaryLastAmmo) {
+      m_secondaryFireAcceptedShots += static_cast<unsigned int>(
+          m_secondaryLastAmmo - vehicle->m_secBulletCnt);
+      m_secondaryLastAmmo = vehicle->m_secBulletCnt;
+    }
     const int taxiCount = TaxiSubjectState_LiveCount();
     const int orphanCount = OrphanSubjectState_LiveCount();
     if (m_exitPending && state.attribute != m_exitAttribute) {
@@ -806,7 +832,8 @@ class RecoveredVehicleControlInput final : public KR_Object {
   }
 
  private:
-  static constexpr int kHeldActionCount = 11;
+  static constexpr int kHeldActionCount =
+      static_cast<int>(VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT);
 
   double JournalEventTime(double requested) const {
     SRecoveredVehicleRuntimeState state = {};
@@ -832,6 +859,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
       case LOOK_UP: return 8;
       case LOOK_DOWN: return 9;
       case FIRE_PRIMARY: return 10;
+      case FIRE_SECONDARY: return 11;
       default: return -1;
     }
   }
@@ -840,7 +868,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
     static const int actions[kHeldActionCount] = {
         MOVE_FORWARD, MOVE_BACKWARD, STRAFE_LEFT, STRAFE_RIGHT,
         STRAFE_UP, STRAFE_DOWN, TURN_LEFT, TURN_RIGHT,
-        LOOK_UP, LOOK_DOWN, FIRE_PRIMARY};
+        LOOK_UP, LOOK_DOWN, FIRE_PRIMARY, FIRE_SECONDARY};
     return actions[index];
   }
 
@@ -893,6 +921,11 @@ class RecoveredVehicleControlInput final : public KR_Object {
   int m_handoffTaxiCount = 0;
   CFVector3 m_handoffPosition = CFVector3(0.0, 0.0, 0.0);
   unsigned int m_primaryFirePresses = 0;
+  unsigned int m_secondaryFirePresses = 0;
+  unsigned int m_secondaryFireAcceptedShots = 0;
+  bool m_secondaryAmmoTracking = false;
+  KR_ObjectID m_secondaryTrackedAttribute = KR_ObjectID::NUL();
+  int m_secondaryLastAmmo = 0;
   unsigned int m_jumpPresses = 0;
   unsigned int m_exitAttempts = 0;
   bool m_exitPending = false;
@@ -956,6 +989,8 @@ std::string g_levelContinuationFailure;
 std::string g_levelSaveSlotFailure;
 SRecoveredSaveMenuState g_saveMenuState;
 SRecoveredCrossLevelLoadRequest g_crossLevelLoadRequest;
+SRecoveredCampaignRestartState g_campaignRestartState;
+SRecoveredCampaignRestartRequest g_campaignRestartRequest;
 bool g_saveMenuAllowOverwrite = false;
 SRecoveredDebugMenuState g_debugMenuState;
 SRecoveredDebugLevelSwitchRequest g_debugLevelSwitchRequest;
@@ -1034,6 +1069,7 @@ constexpr UINT kNativeSaveSlotBase = 0x7200u;
 constexpr UINT kNativeLoadSlotBase = 0x7210u;
 constexpr UINT kNativeOpenSaveDirectory = 0x7220u;
 constexpr UINT kNativeExitGame = 0x7221u;
+constexpr UINT kNativeRestartCurrentLevel = 0x7222u;
 constexpr UINT kNativeDebugSpawnBase = 0x7300u;
 constexpr UINT kNativeDebugSpawnEnterBase = 0x7340u;
 constexpr UINT kNativeDebugShowState = 0x7380u;
@@ -1225,7 +1261,10 @@ bool DebugCommandCanStage() {
   }
   if (g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
       g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
-      g_saveMenuState.crossLevelRestartPending) {
+      g_saveMenuState.crossLevelRestartPending ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready) {
     g_debugMenuState.lastError =
         "another world command is already pending";
     return false;
@@ -1292,6 +1331,19 @@ void RefreshNativeSaveMenu() {
                        (loadable ? MF_ENABLED
                                  : MF_GRAYED | MF_DISABLED));
   }
+  if (g_nativeGameMenu != nullptr) {
+    const bool restartAvailable = g_sessionReady &&
+        !g_saveMenuState.pending && !g_crossLevelLoadRequest.ready &&
+        !g_saveMenuState.crossLevelRestartPending &&
+        !g_debugMenuState.pending && !g_debugLevelSwitchRequest.ready &&
+        !g_campaignRestartState.pending &&
+        !g_campaignRestartState.coordinatorPending &&
+        !g_campaignRestartRequest.ready;
+    EnableMenuItem(
+        g_nativeGameMenu, kNativeRestartCurrentLevel,
+        MF_BYCOMMAND |
+            (restartAvailable ? MF_ENABLED : MF_GRAYED | MF_DISABLED));
+  }
   if (_gr_hWnd != nullptr) DrawMenuBar(_gr_hWnd);
 }
 
@@ -1302,7 +1354,10 @@ void RefreshNativeDebugMenu() {
       g_sessionReady && !g_debugMenuState.pending &&
       !g_debugLevelSwitchRequest.ready && !g_saveMenuState.pending &&
       !g_crossLevelLoadRequest.ready &&
-      !g_saveMenuState.crossLevelRestartPending;
+      !g_saveMenuState.crossLevelRestartPending &&
+      !g_campaignRestartState.pending &&
+      !g_campaignRestartState.coordinatorPending &&
+      !g_campaignRestartRequest.ready;
   const UINT state = MF_BYCOMMAND |
       (commandAvailable ? MF_ENABLED : MF_GRAYED | MF_DISABLED);
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugShowState, state);
@@ -1458,6 +1513,9 @@ bool InstallNativeSaveMenu() {
     return failConstruction("native load submenu construction failed");
   loadMenuAttached = true;
   if (AppendMenuW(gameMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
+      AppendMenuW(gameMenu, MF_STRING, kNativeRestartCurrentLevel,
+                  L"&Restart current Level") == FALSE ||
+      AppendMenuW(gameMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
       AppendMenuW(gameMenu, MF_STRING, kNativeOpenSaveDirectory,
                   L"Open save &folder") == FALSE ||
       AppendMenuW(gameMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
@@ -1633,6 +1691,8 @@ void ResetSaveMenuSession() {
   g_saveMenuState.lastPreview = {};
   g_saveMenuState.lastSlot = {};
   g_saveMenuState.lastContinuation = {};
+  g_campaignRestartState = {};
+  g_campaignRestartRequest = {};
   g_saveMenuAllowOverwrite = false;
 }
 
@@ -1668,6 +1728,17 @@ void ShowNativeDebugFailure() {
               L"RR2NW debug command error", MB_OK | MB_ICONERROR);
 }
 
+void ShowNativeCampaignRestartFailure() {
+  if (_gr_hWnd == nullptr || g_campaignRestartState.lastError.empty())
+    return;
+  const std::wstring detail =
+      Utf8ToWide(g_campaignRestartState.lastError);
+  MessageBoxW(_gr_hWnd,
+              detail.empty() ? L"Current Level restart failed."
+                             : detail.c_str(),
+              L"RR2NW Level restart error", MB_OK | MB_ICONERROR);
+}
+
 bool HandleNativeSaveMenuMessage(HWND window, UINT message,
                                  WPARAM wParam, LRESULT* result) {
   if (message == WM_INITMENUPOPUP && g_nativeMenuBar != nullptr) {
@@ -1678,6 +1749,12 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
   }
   if (message != WM_COMMAND || HIWORD(wParam) != 0) return false;
   const UINT command = LOWORD(wParam);
+  if (command == kNativeRestartCurrentLevel) {
+    if (!RecoveredGameServices_RequestCampaignRestart())
+      ShowNativeCampaignRestartFailure();
+    *result = 0;
+    return true;
+  }
   if (command >= kNativeDebugSpawnBase &&
       command < kNativeDebugSpawnBase +
                     static_cast<UINT>(g_debugVehicleCatalog.size())) {
@@ -1870,6 +1947,7 @@ bool ConfigureHardwareControls() {
       !BindHardwareControl(LOOK_UP, "Up") ||
       !BindHardwareControl(LOOK_DOWN, "Down") ||
       !BindHardwareControl(FIRE_PRIMARY, "MouseL") ||
+      !BindHardwareControl(FIRE_SECONDARY, "MouseR") ||
       !BindHardwareControl(STOP_VEHICLE, "X") ||
       !BindHardwareControl(CHANGE_VEHICLE, "F1") ||
       !BindHardwareControl(EXIT, "Esc")) {
@@ -2570,6 +2648,7 @@ void InitializeSession() {
     SUA_ConfigureShutdown(shutdownHooks);
     SUA_ArmShutdown();
     g_sessionReady = true;
+    g_campaignRestartState.currentLevel = ContinuationLevelIdentity();
     if (g_debugMenuState.configured && !BuildDebugVehicleCatalog()) {
       Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
       EndBoundedSession();
@@ -3441,7 +3520,10 @@ bool RequestSaveSlotInternal(std::uint32_t slot, bool allowOverwrite,
   }
   if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
       g_saveMenuState.crossLevelRestartPending ||
-      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -3480,7 +3562,10 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
   }
   if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
       g_saveMenuState.crossLevelRestartPending ||
-      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready) {
     g_saveMenuState.lastError =
         "save directory cannot change while a command is pending";
     return false;
@@ -3511,7 +3596,10 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
 
 bool RecoveredGameServices_ConfigureDebugMenu(
     bool enabled, const std::vector<std::string>& levelCatalog) {
-  if (g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
+  if (g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready) {
     g_debugMenuState.lastError =
         "debug menu cannot be reconfigured while a command is pending";
     return false;
@@ -4215,7 +4303,10 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
   }
   if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
       g_saveMenuState.crossLevelRestartPending ||
-      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -4462,6 +4553,155 @@ void RecoveredGameServices_RecordCrossLevelLoadFailure(
   RefreshNativeSaveMenu();
 }
 
+bool RecoveredGameServices_RequestCampaignRestart() {
+  g_campaignRestartState.lastError.clear();
+  if (!g_sessionReady || g_super.m_context == nullptr) {
+    g_campaignRestartState.lastError =
+        "current Level restart requires an active recovered session";
+    return false;
+  }
+  if (g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready || g_saveMenuState.pending ||
+      g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending ||
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
+    g_campaignRestartState.lastError =
+        "another world command is already pending";
+    return false;
+  }
+  g_campaignRestartState.pending = true;
+  g_campaignRestartState.pendingAttempts = 0;
+  g_campaignRestartState.lastCommandAttempts = 0;
+  ++g_campaignRestartState.requests;
+  RefreshNativeSaveMenu();
+  RefreshNativeDebugMenu();
+  return true;
+}
+
+bool RecoveredGameServices_ProcessPendingCampaignRestart() {
+  if (!g_campaignRestartState.pending) {
+    g_campaignRestartState.lastError =
+        "no current Level restart is pending";
+    return false;
+  }
+  const unsigned int attempt =
+      g_campaignRestartState.pendingAttempts + 1u;
+  g_campaignRestartState.pending = false;
+  g_campaignRestartState.pendingAttempts = 0;
+  g_campaignRestartState.lastError.clear();
+
+  std::vector<std::uint8_t> source;
+  SLevelContinuationSummary sourceSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &source, &sourceSummary)) {
+    g_campaignRestartState.lastError =
+        RecoveredGameServices_LastLevelContinuationError();
+    if (IsRetryableSaveBoundaryFailure(
+            g_campaignRestartState.lastError) &&
+        attempt < kMaximumStableBoundaryAttempts) {
+      g_campaignRestartState.pending = true;
+      g_campaignRestartState.pendingAttempts = attempt;
+      ++g_campaignRestartState.deferredCommands;
+      RefreshNativeSaveMenu();
+      RefreshNativeDebugMenu();
+      return false;
+    }
+    g_campaignRestartState.lastCommandAttempts = attempt;
+    ++g_campaignRestartState.failedRestarts;
+    RefreshNativeSaveMenu();
+    RefreshNativeDebugMenu();
+    return false;
+  }
+
+  g_campaignRestartRequest = {};
+  g_campaignRestartRequest.ready = true;
+  g_campaignRestartRequest.requestOrdinal =
+      g_campaignRestartState.requests;
+  g_campaignRestartRequest.attempts = attempt;
+  g_campaignRestartRequest.deferredCommands =
+      g_campaignRestartState.deferredCommands;
+  g_campaignRestartRequest.completedBefore =
+      g_campaignRestartState.completedRestarts;
+  g_campaignRestartRequest.failuresBefore =
+      g_campaignRestartState.failedRestarts;
+  g_campaignRestartRequest.deadSourceRestartsBefore =
+      g_campaignRestartState.deadSourceRestarts;
+  g_campaignRestartRequest.rollbacksBefore =
+      g_campaignRestartState.rollbacks;
+  g_campaignRestartRequest.rollbackFailuresBefore =
+      g_campaignRestartState.rollbackFailures;
+  g_campaignRestartRequest.level = ContinuationLevelIdentity();
+  KR_ObjectID sourceVehicle = g_super.m_context->searchObject(
+      "Vehicle.Default");
+  SRecoveredVehicleRuntimeState sourceVehicleState = {};
+  g_campaignRestartRequest.sourceDead = !sourceVehicle.isNUL() &&
+      VehicleRuntimeState_Inspect(
+          g_super.m_context, sourceVehicle, &sourceVehicleState) &&
+      sourceVehicleState.dead != 0;
+  g_campaignRestartRequest.sourceContinuation = std::move(source);
+  g_campaignRestartRequest.sourceContinuationSummary = sourceSummary;
+  g_campaignRestartState.coordinatorPending = true;
+  g_campaignRestartState.currentLevel =
+      g_campaignRestartRequest.level;
+  g_campaignRestartState.lastCommandAttempts = attempt;
+  RefreshNativeSaveMenu();
+  RefreshNativeDebugMenu();
+  return true;
+}
+
+bool RecoveredGameServices_CampaignRestartPending() {
+  return g_campaignRestartRequest.ready;
+}
+
+bool RecoveredGameServices_TakeCampaignRestartRequest(
+    SRecoveredCampaignRestartRequest* request) {
+  if (request == nullptr || !g_campaignRestartRequest.ready) return false;
+  *request = std::move(g_campaignRestartRequest);
+  g_campaignRestartRequest = {};
+  return request->ready;
+}
+
+void RecoveredGameServices_RecordCampaignRestartResult(
+    const SRecoveredCampaignRestartRequest& request,
+    bool committed, bool rollbackAttempted, bool rollbackRestored,
+    const std::string& detail) {
+  g_campaignRestartState = {};
+  g_campaignRestartState.requests = request.requestOrdinal;
+  g_campaignRestartState.completedRestarts = request.completedBefore;
+  g_campaignRestartState.failedRestarts = request.failuresBefore;
+  g_campaignRestartState.deadSourceRestarts =
+      request.deadSourceRestartsBefore;
+  g_campaignRestartState.deferredCommands = request.deferredCommands;
+  g_campaignRestartState.lastCommandAttempts = request.attempts;
+  g_campaignRestartState.rollbacks = request.rollbacksBefore;
+  g_campaignRestartState.rollbackFailures =
+      request.rollbackFailuresBefore;
+  g_campaignRestartState.currentLevel = ContinuationLevelIdentity();
+  if (committed) {
+    ++g_campaignRestartState.completedRestarts;
+    if (request.sourceDead)
+      ++g_campaignRestartState.deadSourceRestarts;
+  } else {
+    ++g_campaignRestartState.failedRestarts;
+    g_campaignRestartState.lastError =
+        detail.empty() ? "current Level restart failed" : detail;
+    if (rollbackAttempted) {
+      if (rollbackRestored)
+        ++g_campaignRestartState.rollbacks;
+      else
+        ++g_campaignRestartState.rollbackFailures;
+    }
+  }
+  RefreshNativeSaveMenu();
+  RefreshNativeDebugMenu();
+}
+
+const SRecoveredCampaignRestartState*
+RecoveredGameServices_CampaignRestartState() {
+  return &g_campaignRestartState;
+}
+
 const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState() {
   return &g_saveMenuState;
 }
@@ -4537,6 +4777,14 @@ unsigned int RecoveredGameServices_MapTogglePresses() {
 
 unsigned int RecoveredGameServices_VehiclePrimaryFirePresses() {
   return g_vehicleControlInput.PrimaryFirePresses();
+}
+
+unsigned int RecoveredGameServices_VehicleSecondaryFirePresses() {
+  return g_vehicleControlInput.SecondaryFirePresses();
+}
+
+unsigned int RecoveredGameServices_VehicleSecondaryFireAcceptedShots() {
+  return g_vehicleControlInput.SecondaryFireAcceptedShots();
 }
 
 unsigned int RecoveredGameServices_VehicleJumpPresses() {
@@ -4825,6 +5073,11 @@ int RecoveredGameServices_RunFrame() {
       !RecoveredGameServices_ProcessPendingDebugCommand() &&
       !g_debugMenuState.pending) {
     ShowNativeDebugFailure();
+  }
+  if (g_campaignRestartState.pending &&
+      !RecoveredGameServices_ProcessPendingCampaignRestart() &&
+      !g_campaignRestartState.pending) {
+    ShowNativeCampaignRestartFailure();
   }
   // Save/load owns the last boundary of a fully simulated, rendered and
   // presented frame. In particular, every drawable Subject has received its

@@ -865,6 +865,69 @@ bool ProcessDebugLevelSwitch(const RetailData& data,
   return sourceRestored;
 }
 
+bool ProcessCampaignRestart(const RetailData& data,
+                            int* currentLevelIndex, bool silent,
+                            StartupLog* log) {
+  SRecoveredCampaignRestartRequest request;
+  if (!RecoveredGameServices_TakeCampaignRestartRequest(&request))
+    return true;
+
+  const int sourceLevelIndex = FindRetailLevel(data, request.level);
+  if (sourceLevelIndex < 0 || sourceLevelIndex != *currentLevelIndex ||
+      request.sourceContinuation.empty() ||
+      !request.sourceContinuationSummary.ready) {
+    const std::string detail =
+        "current Level restart no longer matches the active catalog/session";
+    RecoveredGameServices_RecordCampaignRestartResult(
+        request, false, false, false, detail);
+    if (log != nullptr)
+      log->Line("campaign_restart_preflight_failure=" + detail);
+    ShowMessage(silent, MB_ICONERROR, L"RR2NW Level restart error",
+                Utf8ToWide(detail.c_str()));
+    return true;
+  }
+
+  if (log != nullptr)
+    log->Line("campaign_restart_begin=" + request.level);
+  ZAV_DeInitLevel();
+
+  std::string restartFailure;
+  if (StartRecoveredLevel(data, sourceLevelIndex, &restartFailure)) {
+    *currentLevelIndex = sourceLevelIndex;
+    RecoveredGameServices_RecordCampaignRestartResult(
+        request, true, false, false, std::string());
+    if (log != nullptr)
+      log->Line("campaign_restart_commit=" + request.level);
+    return true;
+  }
+
+  ZAV_DeInitLevel();
+  std::string rollbackStartFailure;
+  const bool rollbackStarted =
+      StartRecoveredLevel(data, sourceLevelIndex, &rollbackStartFailure);
+  SLevelContinuationSummary restored;
+  const bool rollbackRestored = rollbackStarted &&
+      RecoveredGameServices_RestoreLevelContinuation(
+          request.sourceContinuation, &restored);
+  std::string detail = "current Level restart failed: " + restartFailure;
+  if (!rollbackRestored) {
+    detail += "; source rollback failed: ";
+    detail += rollbackStarted
+                  ? RecoveredGameServices_LastLevelContinuationError()
+                  : rollbackStartFailure;
+  }
+  RecoveredGameServices_RecordCampaignRestartResult(
+      request, false, true, rollbackRestored, detail);
+  if (log != nullptr) {
+    log->Line(std::string("campaign_restart_rollback=") +
+              (rollbackRestored ? "restored" : "failed"));
+    log->Line("campaign_restart_failure=" + detail);
+  }
+  ShowMessage(silent, MB_ICONERROR, L"RR2NW Level restart error",
+              Utf8ToWide(detail.c_str()));
+  return rollbackRestored;
+}
+
 }  // namespace
 
 int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
@@ -2383,6 +2446,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const auto runCompleteFrame = [&]() {
     if (!RecoveredGameServices_RunFrame()) return false;
+    if (RecoveredGameServices_CampaignRestartPending() &&
+        !ProcessCampaignRestart(data, &currentLevelIndex,
+                                options.runtimeSmoke, &log))
+      return false;
     if (RecoveredGameServices_CrossLevelLoadPending() &&
         !ProcessCrossLevelLoad(data, &currentLevelIndex,
                                options.runtimeSmoke, &log))
@@ -2411,6 +2478,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     if (failedSaveState != nullptr &&
         !failedSaveState->lastError.empty()) {
       log.Line("save_menu_error=" + failedSaveState->lastError);
+    }
+    const SRecoveredCampaignRestartState* failedRestartState =
+        RecoveredGameServices_CampaignRestartState();
+    if (failedRestartState != nullptr &&
+        !failedRestartState->lastError.empty()) {
+      log.Line("campaign_restart_error=" +
+               failedRestartState->lastError);
     }
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -2528,6 +2602,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_MapTogglePresses()));
   log.Line("windows_input_primary_fire_presses=" + std::to_string(
                RecoveredGameServices_VehiclePrimaryFirePresses()));
+  log.Line("windows_input_secondary_fire_presses=" + std::to_string(
+               RecoveredGameServices_VehicleSecondaryFirePresses()));
+  log.Line("windows_input_secondary_fire_accepted_shots=" +
+           std::to_string(
+               RecoveredGameServices_VehicleSecondaryFireAcceptedShots()));
   log.Line("windows_input_jump_presses=" + std::to_string(
                RecoveredGameServices_VehicleJumpPresses()));
   SRecoveredVehiclePrimaryFireTelemetry finalPrimaryFire = {};
@@ -2698,7 +2777,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
        "vehicle-bootstrap-taxi-subject-vehicle-transition");
   log.Line("vehicle_object=Vehicle.Default");
   log.Line(
-      "vehicle_controls=W,S,A,D,Space,LCtrl,arrows,X-stop,F1-change,Escape");
+      "vehicle_controls=W,S,A,D,T,G,Space-jump,arrows,MouseL-primary,"
+      "MouseR-secondary,X-stop,F1-change,M-map,Escape");
   log.Line("observer_mode=fallback-suspended");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));
@@ -2800,6 +2880,38 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              saveMenuState->crossLevelSourceLevel);
     log.Line("save_menu_cross_level_target=" +
              saveMenuState->crossLevelTargetLevel);
+  }
+  const SRecoveredCampaignRestartState* campaignRestartState =
+      RecoveredGameServices_CampaignRestartState();
+  if (campaignRestartState != nullptr) {
+    log.Line("campaign_restart_requests=" +
+             std::to_string(campaignRestartState->requests));
+    log.Line("campaign_restart_completed=" +
+             std::to_string(
+                 campaignRestartState->completedRestarts));
+    log.Line("campaign_restart_failures=" +
+             std::to_string(campaignRestartState->failedRestarts));
+    log.Line("campaign_restart_dead_sources=" +
+             std::to_string(
+                 campaignRestartState->deadSourceRestarts));
+    log.Line("campaign_restart_deferred=" +
+             std::to_string(
+                 campaignRestartState->deferredCommands));
+    log.Line("campaign_restart_last_attempts=" +
+             std::to_string(
+                 campaignRestartState->lastCommandAttempts));
+    log.Line("campaign_restart_rollbacks=" +
+             std::to_string(campaignRestartState->rollbacks));
+    log.Line("campaign_restart_rollback_failures=" +
+             std::to_string(
+                 campaignRestartState->rollbackFailures));
+    log.Line("campaign_restart_pending=" +
+             std::to_string(campaignRestartState->pending ? 1 : 0));
+    log.Line("campaign_restart_coordinator_pending=" +
+             std::to_string(
+                 campaignRestartState->coordinatorPending ? 1 : 0));
+    log.Line("campaign_restart_level=" +
+             campaignRestartState->currentLevel);
   }
   debugMenuState = RecoveredGameServices_DebugMenuState();
   if (debugMenuState != nullptr) {

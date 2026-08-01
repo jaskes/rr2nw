@@ -870,8 +870,8 @@ graph rather than an invented Player handoff:
    through normal seance teardown;
 5. perform the multi-Level human drive/F1/fire/alt-tab/exit acceptance pass.
 
-Secondary fire and Bullet muzzle sound remain smaller combat follow-ups.
-Save-state and a multi-Level manual driving/combat pass remain 1.0 gates.
+Bullet muzzle sound remains a smaller combat follow-up. Save-state and a
+multi-Level manual driving/combat pass remain 1.0 gates.
 Linux/macOS and multiplayer remain deferred until the Windows gameplay owner is
 stable.
 
@@ -1403,10 +1403,11 @@ codec reason for Frontier E rather than being mislabeled as a vehicle failure.
 
 Status: completed on 2026-08-01.
 
-Production Win32 keyboard and primary-button messages now terminate in a small
+Production Win32 keyboard and mouse-button messages now terminate in a small
 state-owning adapter. It emits signed canonical W/S, A/D, arrow and T/G axes;
 discrete Space jump, X stop, F1 change, Escape and M map-toggle commands; and a
-combined MouseL/left-Control primary-fire edge. Repeat makes and redundant
+combined MouseL/left-Control primary-fire edge plus an independent MouseR
+secondary-fire edge. Repeat makes and redundant
 breaks are filtered. Focus loss emits all releases before the inactive
 transition, and inactive input cannot re-arm an action.
 
@@ -1419,18 +1420,20 @@ mouse motion, joystick, demo and legacy hermetic compatibility only. M now
 reaches the semantic boundary; the visible map remains Frontier F.
 
 Gate: the isolated adapter smoke and repeated real-window Debug/Release test
-cover both release orders, extended arrows, repeat, Space, M, MouseL and held
-movement/fire across focus loss. The window test transactionally enters an
-armed Level.03N Vehicle and observes accepted Bullet starts plus collision
+cover both release orders, extended arrows, repeat, Space, M, MouseL, MouseR
+and held movement/fire across focus loss. The window test transactionally
+enters an armed Level.03N Vehicle and observes accepted primary and secondary
+Bullet starts plus collision
 checks. Final axes/actions/pending input are zero, reconciliation remains zero,
 and shutdown is clean. The complete gate is 66/66 CTest in each configuration,
 18/18 retail starts and 18/18 fresh continuation cases.
 
 ### Frontier C: coherent Vehicle embodiment and death
 
-Status: in progress. The bounded camera, transactional default-body death,
-occupied continuation, grounded Taxi placement and all-retail-profile
-recoverable occupied type-1 destruction slices are complete.
+Status: completed on 2026-08-01. The bounded camera, transactional
+default-body death, occupied continuation, grounded Taxi placement,
+all-retail-profile occupied type-1 gameplay/destruction and campaign-facing
+fresh restart slices are complete.
 
 Unify Taxi spawn height, ground settling, panel/HUD selection, camera ownership,
 entry/exit, destroyed Vehicle behaviour and player death. Remove the legacy
@@ -1487,18 +1490,29 @@ Panel-less Vehicles retain that legitimate state instead of receiving a
 fabricated cockpit. The all-Level gate requires campaign mask `1011` in both
 configurations and a byte-identical suite baseline between representatives.
 
-Next slice: choose the campaign-facing restart/repair policy and finish regular
-weapon/damage/HUD acceptance across the admitted profiles. The diagnostic
-checkpoint must not be promoted into campaign behavior by accident.
+The campaign policy follows the preserved game: death remains a terminal
+camera state until the player explicitly chooses **Game > Restart current
+Level**. The command captures a complete source LCN1 at a closed frame,
+tears down and freshly constructs the same Level, and retains that source only
+as rollback if construction fails. It never promotes the diagnostic pre-death
+checkpoint into campaign behavior. A native-window Debug/Release gate kills
+the real default body first, then proves fresh restart and clean shutdown.
+
+Regular profile acceptance is likewise executable rather than inferred. Each
+of the eight campaign type-1 profiles takes non-lethal damage, exercises every
+configured primary/secondary Bullet reference, preserves canonical empty
+weapon slots, presents its shipped cockpit or intentional no-HUD state, and
+returns to a byte-identical LCN1 before the existing authentic
+destruction/ORP1/recovery transaction.
 
 Gate: every admitted type-1 profile can fire its intended weapons, take normal
 damage, present its real HUD-or-no-HUD state, die without terminating the
 process and reach a defined player restart/repair outcome.
 
 Completed breadth evidence: 66/66 CTest per configuration, 18/18 ordinary
-retail starts, 18/18 fresh continuations with Debug/Release mask `1011`, and
-2/2 native-window destruction/recovery. The remaining gate text above is the
-campaign-facing follow-up, not a claim hidden inside this diagnostic proof.
+retail starts, 18/18 fresh continuations with Debug/Release mask `1011`, 2/2
+native-window destruction/recovery, 2/2 primary/secondary Windows input and
+2/2 dead-state current-Level restart.
 
 ### Frontier D: save/load gameplay authority
 

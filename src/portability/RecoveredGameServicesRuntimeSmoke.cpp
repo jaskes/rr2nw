@@ -69,6 +69,8 @@
 #include "ZavSceneState.h"
 #include "ZavShutdownState.h"
 
+extern int g_godMode;
+
 namespace {
 
 const unsigned long long kBulletCacheHashOffset = 14695981039346656037ull;
@@ -3363,9 +3365,27 @@ bool ExerciseDebugDeathLifecycle(SimulationContext* context) {
   return restoredStateValid && disabled;
 }
 
+struct SDebugVehicleDestructionCoverage {
+  unsigned int eligibleTypes = 0;
+  unsigned int representativeProfiles = 0;
+  unsigned int roundTrips = 0;
+  unsigned int profileMask = 0;
+  unsigned int gameplayProfiles = 0;
+  unsigned int primaryProofs = 0;
+  unsigned int secondaryProofs = 0;
+  unsigned int armedPrimaryProfiles = 0;
+  unsigned int armedSecondaryProfiles = 0;
+  unsigned int damageProofs = 0;
+  unsigned int hudProofs = 0;
+  unsigned int hudProfiles = 0;
+  unsigned int hudlessProfiles = 0;
+  unsigned int gameplayRoundTrips = 0;
+  unsigned int gameplayRestoreDeferrals = 0;
+};
+
 bool ExerciseDebugOccupiedVehicleDestructionOne(
     SimulationContext* context, std::size_t occupiedIndex,
-    int expectedProfile) {
+    int expectedProfile, SDebugVehicleDestructionCoverage* coverage) {
   if (context == nullptr ||
       RecoveredGameServices_VehicleActiveActionCount() != 0u ||
       !RecoveredGameServices_ConfigureDebugMenu(
@@ -3433,7 +3453,204 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
       orphanBaseline >= 0 &&
       RecoveredGameServices_CaptureLevelContinuation(
           &occupiedContinuation, &occupiedSummary) && occupiedSummary.ready;
-  const bool destructionRequested = occupied &&
+  AttributeVehicle* occupiedAttribute = !occupied
+      ? nullptr
+      : static_cast<AttributeVehicle*>(
+            __attrVehicleTable.searchAttribute(occupiedState.attribute));
+  const bool expectsHud = occupiedAttribute != nullptr &&
+      occupiedAttribute->m_panelName[0] != '\0';
+  const bool hasPrimaryWeapon = occupiedAttribute != nullptr &&
+      occupiedAttribute->m_bulletAttrName[0] != '\0';
+  const bool hasSecondaryWeapon = occupiedAttribute != nullptr &&
+      occupiedAttribute->m_bulletSecAttrName[0] != '\0';
+  const bool weaponReferencesValid = occupiedAttribute != nullptr &&
+      ((hasPrimaryWeapon && occupiedAttribute->m_bulletAttrIndex >= 0) ||
+       (!hasPrimaryWeapon && occupiedAttribute->m_bulletAttrIndex < 0)) &&
+      ((hasSecondaryWeapon &&
+        occupiedAttribute->m_bulletSecAttrIndex >= 0) ||
+       (!hasSecondaryWeapon &&
+        occupiedAttribute->m_bulletSecAttrIndex < 0));
+  BulletRuntimeTelemetry bulletsBefore = {};
+  const double damageBefore =
+      occupiedObject == nullptr ? 0.0 : occupiedObject->m_damage;
+  const int secondaryAmmoBefore =
+      occupiedObject == nullptr ? 0 : occupiedObject->m_secBulletCnt;
+  bool gameplayValid = occupied && coverage != nullptr &&
+      occupiedAttribute != nullptr && occupiedAttribute->m_type == 1 &&
+      occupiedAttribute->m_dynamic[0] != '\0' &&
+      weaponReferencesValid &&
+      occupiedPanelReady == expectsHud && occupiedPanelOpen == expectsHud &&
+      std::isfinite(damageBefore) && damageBefore > 0.0 &&
+      (!hasSecondaryWeapon || secondaryAmmoBefore > 0) &&
+      BulletSubjectState_OwnerRuntimeTelemetry(
+          context, "Vehicle.Default", &bulletsBefore);
+  const double damageAmount = damageBefore * 0.25;
+  if (gameplayValid) {
+    // God mode is a process global outside LCN1.  The damage/weapon proof owns
+    // an explicit disabled precondition and the outer scope restores it.
+    g_godMode = 0;
+    occupiedObject->m_lastLeaveTime = -1.0e9;
+    occupiedObject->setDamage(
+        damageAmount, occupiedState.position,
+        (std::max)(Session::m_moment, occupiedState.lastTime),
+        KR_ObjectID::NUL());
+    SRecoveredVehicleRuntimeState damagedState = {};
+    gameplayValid = VehicleRuntimeState_Inspect(
+                        context, occupiedVehicle, &damagedState) &&
+        !damagedState.dead && !damagedState.takingTaxi &&
+        occupiedObject->m_damage > 0.0 &&
+        occupiedObject->m_damage < damageBefore;
+  }
+
+  BulletRuntimeTelemetry primaryAfter = {};
+  if (gameplayValid && hasPrimaryWeapon) {
+    gameplayValid = SendHardwareButton("MouseL", TRUE) &&
+        RunVehicleFrameAfter(0.01) &&
+        SendHardwareButton("MouseL", FALSE);
+    for (int frame = 0; gameplayValid && frame < 24; ++frame) {
+      gameplayValid = RunVehicleFrameAfter(0.025) &&
+          BulletSubjectState_OwnerRuntimeTelemetry(
+              context, "Vehicle.Default", &primaryAfter);
+      if (gameplayValid &&
+          primaryAfter.acceptedStarts > bulletsBefore.acceptedStarts)
+        break;
+    }
+    gameplayValid = gameplayValid &&
+        primaryAfter.acceptedStarts > bulletsBefore.acceptedStarts;
+  } else if (gameplayValid) {
+    primaryAfter = bulletsBefore;
+  }
+
+  BulletRuntimeTelemetry secondaryAfter = {};
+  if (gameplayValid && hasSecondaryWeapon) {
+    gameplayValid = SendHardwareButton("MouseR", TRUE) &&
+        RunVehicleFrameAfter(0.01) &&
+        SendHardwareButton("MouseR", FALSE);
+    for (int frame = 0; gameplayValid && frame < 40; ++frame) {
+      gameplayValid = RunVehicleFrameAfter(0.025) &&
+          BulletSubjectState_OwnerRuntimeTelemetry(
+              context, "Vehicle.Default", &secondaryAfter);
+      if (gameplayValid &&
+          secondaryAfter.acceptedStarts > primaryAfter.acceptedStarts &&
+          occupiedObject->m_secBulletCnt < secondaryAmmoBefore)
+        break;
+    }
+    gameplayValid = gameplayValid &&
+        secondaryAfter.acceptedStarts > primaryAfter.acceptedStarts &&
+        occupiedObject->m_secBulletCnt < secondaryAmmoBefore &&
+        RecoveredGameServices_VehicleActiveActionCount() == 0u;
+  } else if (gameplayValid) {
+    secondaryAfter = primaryAfter;
+    gameplayValid = occupiedObject->m_secBulletCnt == secondaryAmmoBefore &&
+        RecoveredGameServices_VehicleActiveActionCount() == 0u;
+  }
+  const int secondaryAmmoAfter =
+      occupiedObject == nullptr ? -1 : occupiedObject->m_secBulletCnt;
+  const double damageAfter =
+      occupiedObject == nullptr ? -1.0 : occupiedObject->m_damage;
+
+  SLevelContinuationSummary gameplayRestoredSummary;
+  std::vector<std::uint8_t> gameplayRecaptured;
+  SLevelContinuationSummary gameplayRecapturedSummary;
+  std::string gameplayRestoreError;
+  if (gameplayValid) {
+    bool gameplayRestored = false;
+    for (unsigned int attempt = 0; attempt < 8u; ++attempt) {
+      gameplayRestored = RecoveredGameServices_RestoreLevelContinuation(
+          occupiedContinuation, &gameplayRestoredSummary);
+      if (gameplayRestored) break;
+      gameplayRestoreError =
+          RecoveredGameServices_LastLevelContinuationError();
+      const bool retryable =
+          gameplayRestoreError.find("stable") != std::string::npos ||
+          gameplayRestoreError.find("preflight capture failed") !=
+              std::string::npos;
+      if (!retryable || attempt + 1u >= 8u ||
+          !RunVehicleFrameAfter(0.025))
+        break;
+      ++coverage->gameplayRestoreDeferrals;
+    }
+    gameplayValid = gameplayRestored &&
+        RecoveredGameServices_CaptureLevelContinuation(
+            &gameplayRecaptured, &gameplayRecapturedSummary) &&
+        gameplayRestoredSummary.ready && gameplayRecapturedSummary.ready &&
+        gameplayRestoredSummary.worldFingerprint ==
+            occupiedSummary.worldFingerprint &&
+        gameplayRestoredSummary.containerFingerprint ==
+            occupiedSummary.containerFingerprint &&
+        gameplayRecapturedSummary.worldFingerprint ==
+            occupiedSummary.worldFingerprint &&
+        gameplayRecapturedSummary.containerFingerprint ==
+            occupiedSummary.containerFingerprint &&
+        gameplayRecaptured == occupiedContinuation &&
+        RecoveredGameServices_VehicleActiveActionCount() == 0u;
+  }
+  if (!gameplayValid) {
+    std::fprintf(stderr,
+                 "debug Vehicle gameplay profile=%d/%s attr=%d hud=%d/%d/%d "
+                 "weapons=%s/%d,%s/%d "
+                 "bullets=%u/%u/%u ammo=%d/%d damage=%.6f/%.6f "
+                 "world=%llu/%llu container=%llu/%llu actions=%u "
+                 "god=%d dead=%d leave=%.6f moment=%.6f vehicle_time=%.6f "
+                 "immune=%.6f restore_error=%s\n",
+                 expectedProfile,
+                 VehicleRuntimeState_VesselProfileName(expectedProfile),
+                 occupiedAttribute != nullptr ? 1 : 0,
+                 expectsHud ? 1 : 0, occupiedPanelReady ? 1 : 0,
+                 occupiedPanelOpen ? 1 : 0,
+                 occupiedAttribute == nullptr ? "<none>" :
+                     occupiedAttribute->m_bulletAttrName,
+                 occupiedAttribute == nullptr ? -1 :
+                     occupiedAttribute->m_bulletAttrIndex,
+                 occupiedAttribute == nullptr ? "<none>" :
+                     occupiedAttribute->m_bulletSecAttrName,
+                 occupiedAttribute == nullptr ? -1 :
+                     occupiedAttribute->m_bulletSecAttrIndex,
+                 bulletsBefore.acceptedStarts,
+                 primaryAfter.acceptedStarts, secondaryAfter.acceptedStarts,
+                 secondaryAmmoBefore, secondaryAmmoAfter,
+                 damageBefore, damageAfter,
+                 static_cast<unsigned long long>(
+                     gameplayRecapturedSummary.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     occupiedSummary.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     gameplayRecapturedSummary.containerFingerprint),
+                 static_cast<unsigned long long>(
+                     occupiedSummary.containerFingerprint),
+                 RecoveredGameServices_VehicleActiveActionCount(),
+                 g_godMode, Vehicle::m_dead ? 1 : 0,
+                 occupiedObject == nullptr ? 0.0 :
+                     occupiedObject->m_lastLeaveTime,
+                 Session::m_moment, occupiedState.lastTime,
+                 g_levelAttr.m_666Time,
+                 gameplayRestoreError.c_str());
+    RecoveredGameServices_RestoreLevelContinuation(
+        occupiedContinuation, &gameplayRestoredSummary);
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+  ++coverage->gameplayProfiles;
+  ++coverage->primaryProofs;
+  ++coverage->secondaryProofs;
+  if (hasPrimaryWeapon) ++coverage->armedPrimaryProfiles;
+  if (hasSecondaryWeapon) ++coverage->armedSecondaryProfiles;
+  ++coverage->damageProofs;
+  ++coverage->hudProofs;
+  if (expectsHud)
+    ++coverage->hudProfiles;
+  else
+    ++coverage->hudlessProfiles;
+  ++coverage->gameplayRoundTrips;
+
+  occupiedVehicle = context->searchObject("Vehicle.Default");
+  occupiedObject = occupiedVehicle.isNUL()
+                       ? nullptr
+                       : static_cast<Vehicle*>(context->queryInterface(
+                             occupiedVehicle, IVehicleIID));
+  g_godMode = 0;
+  const bool destructionRequested = occupiedObject != nullptr &&
       RecoveredGameServices_RequestDebugDestroyOccupiedVehicle();
   const bool destructionProcessed = destructionRequested &&
       RecoveredGameServices_ProcessPendingDebugCommand();
@@ -3604,13 +3821,6 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
   return restoredValid && disabled;
 }
 
-struct SDebugVehicleDestructionCoverage {
-  unsigned int eligibleTypes = 0;
-  unsigned int representativeProfiles = 0;
-  unsigned int roundTrips = 0;
-  unsigned int profileMask = 0;
-};
-
 bool ExerciseDebugOccupiedVehicleDestruction(
     SimulationContext* context,
     SDebugVehicleDestructionCoverage* coverage) {
@@ -3618,6 +3828,16 @@ bool ExerciseDebugOccupiedVehicleDestruction(
       RecoveredGameServices_VehicleActiveActionCount() != 0u)
     return false;
   *coverage = {};
+
+  // Damage is a no-op while the legacy process-global briefing cheat is set.
+  // Normalize only this proof and preserve the campaign-owned value for the
+  // rest of the smoke.
+  struct SScopedGodModeRestore {
+    explicit SScopedGodModeRestore(int value) : saved(value) {}
+    ~SScopedGodModeRestore() { g_godMode = saved; }
+    int saved;
+  } restoreGodMode(g_godMode);
+  g_godMode = 0;
 
   std::vector<std::uint8_t> suiteBaseline;
   SLevelContinuationSummary suiteSummary;
@@ -3709,7 +3929,7 @@ bool ExerciseDebugOccupiedVehicleDestruction(
     if (representative == catalogCount)
       continue;
     if (!ExerciseDebugOccupiedVehicleDestructionOne(
-            context, representative, profile)) {
+            context, representative, profile, coverage)) {
       std::fprintf(stderr,
                    "debug Vehicle profile round-trip failed profile=%d/%s "
                    "index=%zu eligible=%u representatives=%u mask=%u\n",
@@ -3772,7 +3992,47 @@ bool ExerciseDebugOccupiedVehicleDestruction(
     }
     ++coverage->roundTrips;
   }
-  return coverage->roundTrips == coverage->representativeProfiles;
+  return coverage->roundTrips == coverage->representativeProfiles &&
+      coverage->gameplayProfiles == coverage->representativeProfiles &&
+      coverage->primaryProofs == coverage->representativeProfiles &&
+      coverage->secondaryProofs == coverage->representativeProfiles &&
+      coverage->damageProofs == coverage->representativeProfiles &&
+      coverage->hudProofs == coverage->representativeProfiles &&
+      coverage->hudProfiles + coverage->hudlessProfiles ==
+          coverage->representativeProfiles &&
+      coverage->gameplayRoundTrips == coverage->representativeProfiles;
+}
+
+bool ExerciseCampaignRestartStaging() {
+  std::vector<std::uint8_t> baseline;
+  SLevelContinuationSummary baselineSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &baseline, &baselineSummary) || !baselineSummary.ready ||
+      !RecoveredGameServices_RequestCampaignRestart() ||
+      !RecoveredGameServices_ProcessPendingCampaignRestart() ||
+      !RecoveredGameServices_CampaignRestartPending())
+    return false;
+  SRecoveredCampaignRestartRequest request;
+  if (!RecoveredGameServices_TakeCampaignRestartRequest(&request) ||
+      !request.ready || request.requestOrdinal != 1u ||
+      request.attempts != 1u || request.deferredCommands != 0u ||
+      request.sourceDead ||
+      request.level.empty() || request.sourceContinuation != baseline ||
+      request.sourceContinuationSummary.worldFingerprint !=
+          baselineSummary.worldFingerprint ||
+      request.sourceContinuationSummary.containerFingerprint !=
+          baselineSummary.containerFingerprint)
+    return false;
+  RecoveredGameServices_RecordCampaignRestartResult(
+      request, true, false, false, std::string());
+  const SRecoveredCampaignRestartState* state =
+      RecoveredGameServices_CampaignRestartState();
+  return state != nullptr && !state->pending &&
+      !state->coordinatorPending && state->requests == 1u &&
+      state->completedRestarts == 1u && state->failedRestarts == 0u &&
+      state->deadSourceRestarts == 0u &&
+      state->lastCommandAttempts == 1u && state->rollbacks == 0u &&
+      state->rollbackFailures == 0u && state->lastError.empty();
 }
 
 }  // namespace
@@ -5887,6 +6147,11 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("Debug occupied Vehicle destruction/ORP1 recovery failed");
   }
+  if (!ExerciseCampaignRestartStaging()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("campaign current-Level restart staging failed");
+  }
 
   CViewDynamicList openFrameDynamics;
   KR_ObjectID openFrameExplosion = KR_ObjectID::NUL();
@@ -6077,6 +6342,23 @@ int main(int argc, char** argv) {
   }
   CleanupSaveSlotFixture(saveSlotDirectory);
 
+  std::printf(
+      "vehicle_profile_gameplay=%u/%u primary=%u secondary=%u damage=%u "
+      "hud=%u/%u/%u roundtrips=%u mask=%u armed=%u/%u "
+      "restore_deferrals=%u\n",
+      destructionCoverage.gameplayProfiles,
+      destructionCoverage.representativeProfiles,
+      destructionCoverage.primaryProofs,
+      destructionCoverage.secondaryProofs,
+      destructionCoverage.damageProofs,
+      destructionCoverage.hudProofs,
+      destructionCoverage.hudProfiles,
+      destructionCoverage.hudlessProfiles,
+      destructionCoverage.gameplayRoundTrips,
+      destructionCoverage.profileMask,
+      destructionCoverage.armedPrimaryProfiles,
+      destructionCoverage.armedSecondaryProfiles,
+      destructionCoverage.gameplayRestoreDeferrals);
   std::printf("bounded services frames=42 hooks=12 hardware=legacy "
                "arena=1 script=bounded common_attrs=3 smoke_attrs=18 "
                "smoke_subject=%d fingerprint=%llu "

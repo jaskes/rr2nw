@@ -55,7 +55,7 @@ separate parity gate. Retain `rr2nw-startup.log` if a result differs; the
 
 ## Authoritative Windows input pass
 
-Production keyboard and primary-mouse input no longer passes through the
+Production keyboard and gameplay mouse-button input no longer passes through the
 legacy polling translator. For the complete synthetic real-window gate, build
 Debug and Release and run:
 
@@ -65,8 +65,9 @@ Debug and Release and run:
 
 The harness enters an armed Level-local Vehicle through the debug Taxi path,
 then drives W/S and A/D overlaps in both release orders, extended arrows,
-Space, M, MouseL, a repeated make and focus loss while W/MouseL are held. It
-requires real Bullet creation/collision, zero final actions/axes/pending input
+Space, M, MouseL, MouseR, a repeated make and focus loss while
+W/MouseL/MouseR are held. It requires real primary/secondary Bullet creation,
+primary collision, zero final actions/axes/pending input
 and a clean exit in both compiler configurations.
 
 For a human feel pass, repeat these sequences at normal typing speed:
@@ -99,6 +100,25 @@ Any non-zero axis identifies the exact family still held in forward, strafe,
 vertical, turn, look order. A non-zero reconciliation count is now a regression:
 production input owns explicit key state and must not need asynchronous polling
 to repair an event.
+
+## Campaign current-Level restart
+
+The product recovery policy is a fresh restart, including from the authentic
+terminal death state. Build both configurations and run:
+
+```powershell
+& ".\tools\acceptance\Invoke-CampaignRestart.ps1" -DataRoot "E:\Games\The Next Worlds" -Level "Level.03N"
+```
+
+The harness enables the debug menu only to enter the real death graph, then
+uses the ordinary **Game > Restart current Level** command. Both runs must log
+one dead source, one committed restart, no failure/rollback, neutral final
+controls, `game_services_issues=0` and `runtime_shutdown=clean`.
+
+For a manual pass, die or use **Debug > Kill player (transactional)**, wait for
+the terminal camera, then choose **Game > Restart current Level**. The same
+Level must start from its original retail state. This is deliberately not a
+restore of the pre-death diagnostic checkpoint.
 
 The same shutdown log now records `vehicle_camera_mode`,
 `vehicle_camera_transform_frames`, `vehicle_death_camera_frames`,

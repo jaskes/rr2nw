@@ -9,9 +9,9 @@ loads a May Level, creates the retail `Vehicle.Default`, places its selected
 vessel at `[Vessel] Init`, routes hardware actions into that Vehicle, advances
 its dynamics once per simulation frame, builds the camera from the vessel and
 renders the already decoded world assets while movement and teardown remain
-bounded. Cockpit, Taxi/change-vehicle and primary fire are now completed
-follow-on slices; secondary fire, on-foot embodiment and missions remain
-separate readiness gates.
+bounded. Cockpit, Taxi/change-vehicle, primary/secondary fire, profile
+damage/HUD and explicit dead-state Level restart are now completed follow-on
+slices; on-foot embodiment and missions remain separate readiness gates.
 
 ## Proven foundations
 
@@ -26,7 +26,7 @@ separate readiness gates.
 - `Vehicle.Default` already selects a real `CVesselWheels` or `CVesselEmv`
   implementation from `m_dynamic`; the current admission proves a positive
   mass (`900` on Level.01D), restart state and explosion impulse response.
-- A modern Win32 adapter owns keyboard and primary-mouse physical state and
+- A modern Win32 adapter owns keyboard and both gameplay mouse-button states and
   feeds semantic actions to the exclusive `RecoveredVehicleControl` owner.
   Production messages bypass `CtrlSet::Translate`; ordered focus releases,
   opposite-key reduction and repeat filtering happen before the simulation.
@@ -120,11 +120,12 @@ The shortest safe implementation sequence is:
   radius, transfer Vehicle state, remove the Taxi, drive the replacement and
   prove complete seance reconstruction. Leave-vehicle/on-foot behavior remains
   with the People/Tank/Orphan frontier.
-- **Complete for primary fire:** deliver `MouseL` through the Windows adapter and the
-  recurring Vehicle fire event, prove two real Bullet starts, movement,
-  natural collision, rendered impact effects, the device-free impact SoundObj
-  command, focus-safe release and complete seance rollback. Secondary fire and
-  the still-unused Bullet muzzle-sound reference follow as separate work.
+- **Complete for primary and secondary fire:** deliver `MouseL`/`MouseR`
+  through the Windows adapter and recurring Vehicle fire events, prove real
+  Bullet starts, movement, natural collision, secondary-ammo consumption,
+  rendered impact effects, focus-safe release and complete seance rollback.
+  Empty retail weapon slots remain explicit unarmed capabilities. The
+  still-unused Bullet muzzle-sound reference follows as separate work.
 - Exercise embedded Player faction/mission/save state after the movement owner
   is stable. Its fixed-size legacy serialization still needs the broader save
   format audit before 1.0.
@@ -132,13 +133,13 @@ The shortest safe implementation sequence is:
 ## Current estimate
 
 The reusable platform/world/asset foundation for this slice is roughly
-90% complete. The automated Vehicle/Taxi/cockpit/primary-combat vertical slice
-is roughly 97% complete: persistent input, timing, movement, steering,
+90% complete. The automated Vehicle/Taxi/cockpit/combat vertical slice is
+roughly 98% complete: persistent input, timing, movement, steering,
 stop-command routing, focus recovery, camera, world contacts, real F1 handoff,
-panel draw, replacement driving and primary projectile/effect delivery are in
-place. Human input feel/visibility still needs a manual drive. Secondary fire,
-muzzle sound and on-foot embodiment remain subsequent slices and are not
-included in that percentage.
+panel draw, replacement driving, both fire paths, profile damage/HUD and fresh
+dead-state restart are in place. Human input feel/visibility still needs a
+manual drive. Muzzle sound and mission-facing state remain subsequent slices
+and are not included in that percentage.
 
 These percentages are engineering orientation, not schedule claims. Readiness
 is gated by the proofs above, not by line count.
@@ -146,7 +147,7 @@ is gated by the proofs above, not by line count.
 The current automated evidence is green in both compiler configurations:
 66/66 CTest per configuration, 18/18 installed retail service launches and
 18/18 fresh continuations. Repeated real-window Debug/Release input passes
-finish neutral and exercise accepted Bullet starts. The primary-fire
+finish neutral and exercise accepted Bullet starts. The primary/secondary-fire
 matrix covers armed, type-0 and unarmed type-1 gates. The positive
 static-collision proof on `Level.04D` remains present; the formerly flaky
 `Level.05D` Debug visual path also passes a 10/10 repetition after all visual
@@ -227,10 +228,10 @@ uninitialized message font in headless probes. Debug/Release real-window proof
 passes 2/2 and the full death/save/reconstruction/recovery graph passes all
 nine retail Levels in both configurations (18/18).
 
-This remains a diagnostic checkpoint, not full death/respawn parity. Type-1
-Vehicle destruction is now admitted as the separate ORP1 transaction below;
-authentic campaign restart/repair and exact HUD behavior for every Vehicle
-class remain Frontier C work.
+The checkpoint remains diagnostic, but campaign recovery is now explicit and
+separate: **Game > Restart current Level** freshly reconstructs the same Level
+from retail/mod data. The dead LCN1 is retained only for rollback if restart
+construction fails; a successful restart does not resurrect the old object.
 
 ## Occupied continuation and Taxi ownership
 
@@ -302,6 +303,13 @@ The accepted gate is 18/18 fresh Level continuations with mask `1011` in both
 Debug and Release, alongside 18/18 ordinary starts, 66/66 CTest per
 configuration and 2/2 native-window destruction/recovery.
 
-The next Vehicle gate is campaign behavior: regular weapon/damage/HUD
-acceptance across these profiles, followed by an explicit restart/repair
-policy kept separate from the diagnostic checkpoint.
+For every campaign type-1 profile, the service gate now proves finite
+non-lethal damage, every configured MouseL primary and MouseR secondary shot,
+secondary-ammunition consumption where present, canonical empty weapon slots,
+the real HUD-or-no-HUD state and an exact LCN1 rollback before authentic
+destruction. The campaign profile mask remains `1011`.
+
+Frontier C is therefore closed. The next Vehicle-facing work belongs to
+Frontier D: broaden ordinary save/load authority and mission-facing state,
+then perform interactive handling/performance acceptance rather than adding a
+second recovery policy.

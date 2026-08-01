@@ -23,7 +23,8 @@ bool IsKeyboardMessage(unsigned int message) {
 }
 
 bool IsMouseButtonMessage(unsigned int message) {
-  return message == WM_LBUTTONDOWN || message == WM_LBUTTONUP;
+  return message == WM_LBUTTONDOWN || message == WM_LBUTTONUP ||
+         message == WM_RBUTTONDOWN || message == WM_RBUTTONUP;
 }
 
 bool IsDownMessage(unsigned int message) {
@@ -45,6 +46,7 @@ RecoveredWindowsInputAdapter::RecoveredWindowsInputAdapter() { Reset(); }
 void RecoveredWindowsInputAdapter::Reset(bool applicationActive) {
   std::memset(keys_, 0, sizeof(keys_));
   mouseLeft_ = false;
+  mouseRight_ = false;
   applicationActive_ = applicationActive;
   telemetry_ = {};
 }
@@ -83,7 +85,7 @@ bool RecoveredWindowsInputAdapter::ProcessWindowMessage(
 }
 
 bool RecoveredWindowsInputAdapter::IsNeutral() const {
-  if (mouseLeft_) return false;
+  if (mouseLeft_ || mouseRight_) return false;
   for (bool key : keys_)
     if (key) return false;
   return true;
@@ -111,7 +113,7 @@ double RecoveredWindowsInputAdapter::Axis(
           (keys_[negative] ? 1.0 : 0.0)) * sensitivity;
 }
 
-bool RecoveredWindowsInputAdapter::FireDown() const {
+bool RecoveredWindowsInputAdapter::PrimaryFireDown() const {
   return mouseLeft_ || keys_[VK_LCONTROL];
 }
 
@@ -137,9 +139,9 @@ bool RecoveredWindowsInputAdapter::HandleKeyboard(
     return true;
   }
 
-  const bool fireBefore = FireDown();
+  const bool fireBefore = PrimaryFireDown();
   keys_[virtualKey] = down;
-  const bool fireAfter = FireDown();
+  const bool fireAfter = PrimaryFireDown();
   switch (virtualKey) {
     case 'W':
     case 'S':
@@ -188,17 +190,26 @@ bool RecoveredWindowsInputAdapter::HandleMouseButton(
     ++telemetry_.suppressedMessages;
     return true;
   }
-  const bool down = message == WM_LBUTTONDOWN;
-  if (down == mouseLeft_) {
+  const bool secondary =
+      message == WM_RBUTTONDOWN || message == WM_RBUTTONUP;
+  const bool down = message == WM_LBUTTONDOWN ||
+                    message == WM_RBUTTONDOWN;
+  bool& held = secondary ? mouseRight_ : mouseLeft_;
+  if (down == held) {
     if (down)
       ++telemetry_.filteredRepeats;
     else
       ++telemetry_.redundantReleases;
     return true;
   }
-  const bool fireBefore = FireDown();
-  mouseLeft_ = down;
-  const bool fireAfter = FireDown();
+  if (secondary) {
+    held = down;
+    return Emit(batch, FIRE_SECONDARY, down ? 1.0 : 0.0,
+                VK_RBUTTON, FALSE);
+  }
+  const bool fireBefore = PrimaryFireDown();
+  held = down;
+  const bool fireAfter = PrimaryFireDown();
   if (fireBefore == fireAfter) return true;
   return Emit(batch, FIRE_PRIMARY, fireAfter ? 1.0 : 0.0,
               VK_LBUTTON, FALSE);
@@ -212,11 +223,13 @@ bool RecoveredWindowsInputAdapter::EmitFocusClear(
   const double turn = Axis(VK_RIGHT, VK_LEFT, sensitivity);
   const double look = Axis(VK_UP, VK_DOWN, sensitivity);
   const bool jump = keys_[VK_SPACE];
-  const bool fire = FireDown();
+  const bool fire = PrimaryFireDown();
+  const bool secondaryFire = mouseRight_;
   const bool stop = keys_['X'];
   const bool changeVehicle = keys_[VK_F1];
   std::memset(keys_, 0, sizeof(keys_));
   mouseLeft_ = false;
+  mouseRight_ = false;
 
   const auto clear = [this, batch](bool held, int action,
                                    std::uint32_t code) {
@@ -232,6 +245,7 @@ bool RecoveredWindowsInputAdapter::EmitFocusClear(
          clear(look != 0.0, LOOK_UP, 0u) &&
          clear(jump, JUMP, VK_SPACE) &&
          clear(fire, FIRE_PRIMARY, VK_LBUTTON) &&
+         clear(secondaryFire, FIRE_SECONDARY, VK_RBUTTON) &&
          clear(stop, STOP_VEHICLE, 'X') &&
          clear(changeVehicle, CHANGE_VEHICLE, VK_F1);
 }

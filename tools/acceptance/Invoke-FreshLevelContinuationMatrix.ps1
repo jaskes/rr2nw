@@ -116,6 +116,9 @@ foreach ($configurationName in $Configuration) {
             $destructionProof = [regex]::Match(
                 $stdout,
                 'vehicle_destruction_profiles=(\d+)/(\d+)/(\d+) mask=(\d+)')
+            $gameplayProof = [regex]::Match(
+                $stdout,
+                'vehicle_profile_gameplay=(\d+)/(\d+) primary=(\d+) secondary=(\d+) damage=(\d+) hud=(\d+)/(\d+)/(\d+) roundtrips=(\d+) mask=(\d+) armed=(\d+)/(\d+) restore_deferrals=(\d+)')
             $issues = [Collections.Generic.List[string]]::new()
             if ($timedOut) { $issues.Add("timeout") }
             # Windows PowerShell 5.1 can expose a null ExitCode when
@@ -131,6 +134,9 @@ foreach ($configurationName in $Configuration) {
             }
             if (-not $destructionProof.Success) {
                 $issues.Add("Vehicle destruction profile proof missing")
+            }
+            if (-not $gameplayProof.Success) {
+                $issues.Add("Vehicle gameplay profile proof missing")
             }
             if ($groundingProof.Success) {
                 $groundingTypes = [uint64]$groundingProof.Groups[1].Value
@@ -171,6 +177,34 @@ foreach ($configurationName in $Configuration) {
                         $representativeDestructionProfiles -or
                     $destructionProfileMask -eq 0) {
                     $issues.Add("Vehicle destruction profile proof diverged")
+                }
+            }
+            if ($gameplayProof.Success) {
+                $gameplayProfiles = [uint64]$gameplayProof.Groups[1].Value
+                $gameplayRepresentatives = [uint64]$gameplayProof.Groups[2].Value
+                $primaryProfiles = [uint64]$gameplayProof.Groups[3].Value
+                $secondaryProfiles = [uint64]$gameplayProof.Groups[4].Value
+                $damageProfiles = [uint64]$gameplayProof.Groups[5].Value
+                $hudProofs = [uint64]$gameplayProof.Groups[6].Value
+                $hudProfiles = [uint64]$gameplayProof.Groups[7].Value
+                $hudlessProfiles = [uint64]$gameplayProof.Groups[8].Value
+                $gameplayRoundTrips = [uint64]$gameplayProof.Groups[9].Value
+                $gameplayMask = [uint64]$gameplayProof.Groups[10].Value
+                $armedPrimaryProfiles = [uint64]$gameplayProof.Groups[11].Value
+                $armedSecondaryProfiles = [uint64]$gameplayProof.Groups[12].Value
+                if ($gameplayRepresentatives -eq 0 -or
+                    $gameplayProfiles -ne $gameplayRepresentatives -or
+                    $primaryProfiles -ne $gameplayRepresentatives -or
+                    $secondaryProfiles -ne $gameplayRepresentatives -or
+                    $damageProfiles -ne $gameplayRepresentatives -or
+                    $hudProofs -ne $gameplayRepresentatives -or
+                    ($hudProfiles + $hudlessProfiles) -ne $gameplayRepresentatives -or
+                    $gameplayRoundTrips -ne $gameplayRepresentatives -or
+                    $armedPrimaryProfiles -gt $gameplayRepresentatives -or
+                    $armedSecondaryProfiles -gt $gameplayRepresentatives -or
+                    ($destructionProof.Success -and
+                     $gameplayMask -ne [uint64]$destructionProof.Groups[4].Value)) {
+                    $issues.Add("Vehicle gameplay profile proof diverged")
                 }
             }
             if ($proof.Success -and $proof.Groups[1].Value -ne $proof.Groups[2].Value) {
@@ -226,6 +260,17 @@ foreach ($configurationName in $Configuration) {
                 RepresentativeDestructionProfiles = if ($destructionProof.Success) { [uint64]$destructionProof.Groups[2].Value } else { 0 }
                 DestructionRoundTrips = if ($destructionProof.Success) { [uint64]$destructionProof.Groups[3].Value } else { 0 }
                 DestructionProfileMask = if ($destructionProof.Success) { [uint64]$destructionProof.Groups[4].Value } else { 0 }
+                GameplayProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[1].Value } else { 0 }
+                PrimaryProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[3].Value } else { 0 }
+                SecondaryProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[4].Value } else { 0 }
+                DamageProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[5].Value } else { 0 }
+                HudProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[7].Value } else { 0 }
+                HudlessProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[8].Value } else { 0 }
+                GameplayRoundTrips = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[9].Value } else { 0 }
+                GameplayProfileMask = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[10].Value } else { 0 }
+                ArmedPrimaryProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[11].Value } else { 0 }
+                ArmedSecondaryProfiles = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[12].Value } else { 0 }
+                GameplayRestoreDeferrals = if ($gameplayProof.Success) { [uint64]$gameplayProof.Groups[13].Value } else { 0 }
                 Issues = $issues -join '; '
             })
         }
