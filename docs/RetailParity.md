@@ -1712,6 +1712,30 @@ playable Level begins.
   Release and returns to the exact occupied panel/camera/control state. This
   does not yet define public campaign respawn or repair.
 
+### RP-VEHICLE-006: release vessel profiles have executable breadth
+
+- Classification: `RETAIL_DATA_GAP_RECOVERED`, `MAY_SOURCE_DISPATCH_EXTENDED`,
+  `DEBUG_RECOVERY_ONLY`.
+- Installed release data uses three dynamics omitted by the preserved May
+  dispatch: `Emveshka1`, `TankGenn4` and `TankGenn5`. Their `Emv1`, `Tank4`
+  and `Tank5` configuration records now attach to the original shared EMV/Tank
+  owners and participate in collision telemetry, save identity and gameplay
+  tuning.
+- Ten retail names are classified. Destruction admission covers the eight that
+  occur on type-1 Taxi targets across the nine-Level campaign: `Dragon`, both
+  `Emveshka` profiles and `TankGenn1..5`. `TankGenn0` and `Dead` remain valid
+  owners but are absent from that occupied-destruction union.
+- Each Level proof destroys one representative per present profile through the
+  authentic damage/LeaveVehicle graph, captures ORP1, restores exact occupied
+  state and then re-establishes the suite baseline byte-for-byte. The combined
+  required profile mask is `1011` per Debug/Release configuration.
+- A type-1 Vehicle may legitimately have no panel. Recovery preserves the
+  actual ready/open pair instead of treating absence as corruption. Public
+  restart/repair and per-profile regular weapon/HUD acceptance remain open.
+- Accepted Windows evidence is 66/66 CTest per configuration, 18/18 ordinary
+  starts, 18/18 fresh continuations with mask `1011`, and 2/2 native-window
+  destruction/recovery.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

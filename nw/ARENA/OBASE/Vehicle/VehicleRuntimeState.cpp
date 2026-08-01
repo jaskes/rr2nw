@@ -219,21 +219,49 @@ AttributeVehicle *ResolveAttribute(Vehicle *vehicle)
                          vehicle->m_vehicleAttrID));
 }
 
-int VesselKind(const AttributeVehicle *attribute)
+int VesselProfile(const char *dynamic)
 {
-    if (attribute == NULL)
-        return RECOVERED_VEHICLE_VESSEL_UNKNOWN;
-    const char *dynamic = attribute->m_dynamic;
-    if (std::strcmp(dynamic, "Dragon") == 0 ||
-        std::strcmp(dynamic, "Emveshka") == 0)
+    if (dynamic == NULL)
+        return RECOVERED_VEHICLE_PROFILE_UNKNOWN;
+    if (std::strcmp(dynamic, "Dragon") == 0)
+        return RECOVERED_VEHICLE_PROFILE_DRAGON;
+    if (std::strcmp(dynamic, "Emveshka") == 0)
+        return RECOVERED_VEHICLE_PROFILE_EMVESHKA;
+    if (std::strcmp(dynamic, "TankGenn0") == 0)
+        return RECOVERED_VEHICLE_PROFILE_TANK_GENN0;
+    if (std::strcmp(dynamic, "Dead") == 0)
+        return RECOVERED_VEHICLE_PROFILE_DEAD;
+    if (std::strcmp(dynamic, "TankGenn1") == 0)
+        return RECOVERED_VEHICLE_PROFILE_TANK_GENN1;
+    if (std::strcmp(dynamic, "TankGenn2") == 0)
+        return RECOVERED_VEHICLE_PROFILE_TANK_GENN2;
+    if (std::strcmp(dynamic, "TankGenn3") == 0)
+        return RECOVERED_VEHICLE_PROFILE_TANK_GENN3;
+    if (std::strcmp(dynamic, "Emveshka1") == 0)
+        return RECOVERED_VEHICLE_PROFILE_EMVESHKA1;
+    if (std::strcmp(dynamic, "TankGenn4") == 0)
+        return RECOVERED_VEHICLE_PROFILE_TANK_GENN4;
+    if (std::strcmp(dynamic, "TankGenn5") == 0)
+        return RECOVERED_VEHICLE_PROFILE_TANK_GENN5;
+    return RECOVERED_VEHICLE_PROFILE_UNKNOWN;
+}
+
+int VesselKindForProfile(int profile)
+{
+    if (profile == RECOVERED_VEHICLE_PROFILE_DRAGON ||
+        profile == RECOVERED_VEHICLE_PROFILE_EMVESHKA ||
+        profile == RECOVERED_VEHICLE_PROFILE_EMVESHKA1)
         return RECOVERED_VEHICLE_VESSEL_EMV;
-    if (std::strcmp(dynamic, "TankGenn0") == 0 ||
-        std::strcmp(dynamic, "TankGenn1") == 0 ||
-        std::strcmp(dynamic, "TankGenn2") == 0 ||
-        std::strcmp(dynamic, "TankGenn3") == 0 ||
-        std::strcmp(dynamic, "Dead") == 0)
+    if (profile != RECOVERED_VEHICLE_PROFILE_UNKNOWN)
         return RECOVERED_VEHICLE_VESSEL_WHEELS;
     return RECOVERED_VEHICLE_VESSEL_UNKNOWN;
+}
+
+int VesselKind(const AttributeVehicle *attribute)
+{
+    return attribute == NULL
+               ? RECOVERED_VEHICLE_VESSEL_UNKNOWN
+               : VesselKindForProfile(VesselProfile(attribute->m_dynamic));
 }
 
 int VesselBumpFlags(const AttributeVehicle *attribute)
@@ -621,6 +649,34 @@ const char *VehicleRuntimeState_DynamicName(
     AttributeVehicle *attribute =
         ResolveAttribute(ResolveVehicle(context, vehicle));
     return attribute == NULL ? NULL : attribute->m_dynamic;
+}
+
+int VehicleRuntimeState_VesselProfile(const char *dynamic)
+{
+    return VesselProfile(dynamic);
+}
+
+int VehicleRuntimeState_VesselKind(const char *dynamic)
+{
+    return VesselKindForProfile(VesselProfile(dynamic));
+}
+
+const char *VehicleRuntimeState_VesselProfileName(int profile)
+{
+    switch (profile)
+    {
+    case RECOVERED_VEHICLE_PROFILE_DRAGON: return "Dragon";
+    case RECOVERED_VEHICLE_PROFILE_EMVESHKA: return "Emveshka";
+    case RECOVERED_VEHICLE_PROFILE_TANK_GENN0: return "TankGenn0";
+    case RECOVERED_VEHICLE_PROFILE_DEAD: return "Dead";
+    case RECOVERED_VEHICLE_PROFILE_TANK_GENN1: return "TankGenn1";
+    case RECOVERED_VEHICLE_PROFILE_TANK_GENN2: return "TankGenn2";
+    case RECOVERED_VEHICLE_PROFILE_TANK_GENN3: return "TankGenn3";
+    case RECOVERED_VEHICLE_PROFILE_EMVESHKA1: return "Emveshka1";
+    case RECOVERED_VEHICLE_PROFILE_TANK_GENN4: return "TankGenn4";
+    case RECOVERED_VEHICLE_PROFILE_TANK_GENN5: return "TankGenn5";
+    default: return "Unknown";
+    }
 }
 
 unsigned long long VehicleRuntimeState_IdentityFingerprint(

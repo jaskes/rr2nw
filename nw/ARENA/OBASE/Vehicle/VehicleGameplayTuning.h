@@ -22,8 +22,9 @@ struct SVehicleVesselGameplayState
     double turnSpeed;
 };
 
-// Keeps the 1999 dynamic-name/global-layout knowledge inside Vehicle. Dead and
-// unknown script dynamics are deliberately not admitted as tuning targets.
+// Keeps the 1999 dynamic-name/global-layout knowledge inside Vehicle. The
+// nine drivable profiles are admitted; Dead and unknown script dynamics are
+// deliberately not tuning targets.
 bool VehicleGameplayTuning_SupportsDynamic(const char *dynamic);
 bool VehicleGameplayTuning_Capture(
     const char *dynamic, SVehicleVesselGameplayState *state);

@@ -13,6 +13,25 @@ enum ERecoveredVehicleVesselKind
     RECOVERED_VEHICLE_VESSEL_WHEELS = 2
 };
 
+// AttributeVehicle selects one of ten named retail tuning records, which in
+// turn attach to three shared vessel owners: g_emv, g_walk, or g_tank.  Keep
+// the named profile distinct from ERecoveredVehicleVesselKind because the
+// latter intentionally describes only the two save-layout families.
+enum ERecoveredVehicleVesselProfile
+{
+    RECOVERED_VEHICLE_PROFILE_UNKNOWN = 0,
+    RECOVERED_VEHICLE_PROFILE_DRAGON = 1,
+    RECOVERED_VEHICLE_PROFILE_EMVESHKA = 2,
+    RECOVERED_VEHICLE_PROFILE_TANK_GENN0 = 3,
+    RECOVERED_VEHICLE_PROFILE_DEAD = 4,
+    RECOVERED_VEHICLE_PROFILE_TANK_GENN1 = 5,
+    RECOVERED_VEHICLE_PROFILE_TANK_GENN2 = 6,
+    RECOVERED_VEHICLE_PROFILE_TANK_GENN3 = 7,
+    RECOVERED_VEHICLE_PROFILE_EMVESHKA1 = 8,
+    RECOVERED_VEHICLE_PROFILE_TANK_GENN4 = 9,
+    RECOVERED_VEHICLE_PROFILE_TANK_GENN5 = 10
+};
+
 enum ERecoveredVehicleStabilityReason
 {
     RECOVERED_VEHICLE_STABILITY_NONE = 0,
@@ -134,6 +153,9 @@ const char *VehicleRuntimeState_AttributeName(
     SimulationContext *context, const KR_ObjectID &vehicle);
 const char *VehicleRuntimeState_DynamicName(
     SimulationContext *context, const KR_ObjectID &vehicle);
+int VehicleRuntimeState_VesselProfile(const char *dynamic);
+int VehicleRuntimeState_VesselKind(const char *dynamic);
+const char *VehicleRuntimeState_VesselProfileName(int profile);
 unsigned long long VehicleRuntimeState_IdentityFingerprint(
     SimulationContext *context, const KR_ObjectID &vehicle);
 bool VehicleRuntimeState_IsKnownRetailIdentity(

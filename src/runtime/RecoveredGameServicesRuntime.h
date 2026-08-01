@@ -9,6 +9,7 @@
 #include "LevelSaveSlot.h"
 #include "RecoveredFramePreview.h"
 #include "RecoveredWindowsInputAdapter.h"
+#include "obase/vehicle/VehicleRuntimeState.h"
 
 enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_COM_FAILURE = 1u << 0,
@@ -271,6 +272,10 @@ enum ERecoveredDebugMenuAction {
 struct SRecoveredDebugVehicleType {
   std::string taxiAttribute;
   std::string vehicleAttribute;
+  std::string dynamic;
+  int vehicleType = -1;
+  int vesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
+  int vesselProfile = RECOVERED_VEHICLE_PROFILE_UNKNOWN;
 };
 
 struct SRecoveredDebugMenuState {

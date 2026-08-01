@@ -288,7 +288,20 @@ saved body, and observes resumed movement, natural collision and a real stable
 Explosion. Debug and Release native-window gates both pass spawn-and-enter,
 destroy and restore.
 
-The next Vehicle gate is breadth rather than another ownership shortcut:
-repeat damage/destruction for representative wheeled, tracked and flying
-classes, confirm their panel/effect differences, then design the campaign
-restart/repair policy separately from this diagnostic checkpoint.
+Destruction breadth now follows the retail dynamic profile, not an inferred
+wheeled/tracked/flying label. All ten shipped names have explicit owners; the
+installed campaign's type-1 union is `Dragon`, `Emveshka`, `Emveshka1` and
+`TankGenn1..5`. For every profile present on every Level, the service gate
+spawns and enters a representative, executes authentic lethal damage, proves
+the ORP1 world, restores the occupied checkpoint and finally restores the
+suite baseline byte-for-byte. `Level.05D` also proves that a legitimate
+panel-less Vehicle restores ready/open state as false rather than receiving a
+synthetic cockpit.
+
+The accepted gate is 18/18 fresh Level continuations with mask `1011` in both
+Debug and Release, alongside 18/18 ordinary starts, 66/66 CTest per
+configuration and 2/2 native-window destruction/recovery.
+
+The next Vehicle gate is campaign behavior: regular weapon/damage/HUD
+acceptance across these profiles, followed by an explicit restart/repair
+policy kept separate from the diagnostic checkpoint.

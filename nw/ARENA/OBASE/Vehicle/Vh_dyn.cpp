@@ -40,11 +40,14 @@
 Vehicle *g_vehicle = 0;
 
 SEmvAttrs      g_emvAttr0;
+SEmvAttrs      g_emvAttr1;
 SEmvAttrs      g_emvAttrDragon;
 SWheelsAttrs   g_walkAttr0;
 SWheelsAttrs   g_tankAttr1;
 SWheelsAttrs   g_tankAttr2;
 SWheelsAttrs   g_tankAttr3;
+SWheelsAttrs   g_tankAttr4;
+SWheelsAttrs   g_tankAttr5;
 SWheelsAttrs   g_dead;
 
 CVesselEmv     g_emv;
@@ -131,8 +134,11 @@ void VehicleTable::ReadConfig()
     g_tankAttr1.Read(cf,"Tank1");
     g_tankAttr2.Read(cf,"Tank2");
     g_tankAttr3.Read(cf,"Tank3");
+    g_tankAttr4.Read(cf,"Tank4");
+    g_tankAttr5.Read(cf,"Tank5");
     g_dead.Read(cf,"Dead");
     g_emvAttr0.Read(cf,"Emv0");
+    g_emvAttr1.Read(cf,"Emv1");
     g_emvAttrDragon.Read(cf,"Dragon");
 }
 
@@ -646,6 +652,12 @@ bool Vehicle::setVehicleAttr()
         {
              g_emv.Attach(&g_emvAttr0);
              nextVessel = &g_emv;
+         }
+        else
+        if(  strcmp(nextAttr->m_dynamic,"Emveshka1")==0  )
+        {
+             g_emv.Attach(&g_emvAttr1);
+             nextVessel = &g_emv;
         }
         else
         if(  strcmp(nextAttr->m_dynamic,"TankGenn0")==0  )
@@ -675,6 +687,18 @@ bool Vehicle::setVehicleAttr()
         if(  strcmp(nextAttr->m_dynamic,"TankGenn3")==0  )
         {
              g_tank.Attach(&g_tankAttr3);
+             nextVessel = &g_tank;
+         }
+        else
+        if(  strcmp(nextAttr->m_dynamic,"TankGenn4")==0  )
+        {
+             g_tank.Attach(&g_tankAttr4);
+             nextVessel = &g_tank;
+        }
+        else
+        if(  strcmp(nextAttr->m_dynamic,"TankGenn5")==0  )
+        {
+             g_tank.Attach(&g_tankAttr5);
              nextVessel = &g_tank;
         }
         else

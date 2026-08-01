@@ -2905,7 +2905,7 @@ Status vocabulary:
 ### CQ-165: VehicleAttr identity and vessel dynamics are separate legacy owners
 
 - Status: `PORTABILITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
-- Evidence: `VehicleTable::ReadConfig()` loads `vessels.cfg` into seven
+- Evidence: `VehicleTable::ReadConfig()` loads `vessels.cfg` into ten
   process-global `SEmvAttrs`/`SWheelsAttrs` blocks while `VehicleAttr` stores
   only a dynamic name such as `TankGenn0`. `Vehicle::setVehicleAttr()` later
   attaches the live vessel to that global. The public maximum speeds and turn
@@ -2915,7 +2915,8 @@ Status vocabulary:
   movement writes go through the Vehicle-owned dynamic adapter and immediately
   call the original `update()`. The transaction snapshots both the attribute
   scalars and the referenced global block. Two entries may not tune the same
-  global, and `Dead`, `TankGenn4/5` or an unknown dynamic reject instead of
+  global. All nine live records (`Dragon`, both `Emveshka` profiles and
+  `TankGenn0..5`) are admitted; `Dead` and unknown dynamics reject instead of
   silently targeting the wrong vessel. Mass remains excluded because it also
   participates in live Vehicle/save identity.
 - Verification: the Level.05D product proof observes committed
@@ -2923,9 +2924,8 @@ Status vocabulary:
   post-tuning roster fingerprints, drives the ordinary Vehicle probes, saves
   with the mod identity and shuts down cleanly. The malformed package and
   hermetic schema tests fail before active publication.
-- Revisit when: dynamics become per-object rather than process-global or
-  `TankGenn4/5` gain a recovered live vessel mapping. Preserve recalculation,
-  unique ownership and save-identity review.
+- Revisit when: dynamics become per-object rather than process-global.
+  Preserve recalculation, unique ownership and save-identity review.
 
 ### CQ-166: a resolved Bullet proof owns its presentation children
 
@@ -3458,6 +3458,46 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: Bullet START events themselves become an admitted save
   boundary. They require an explicit queued-owner representation, not a wider
   idle filter.
+
+### CQ-187: shipped vessel profiles exceed the preserved May dispatch
+
+- Status: `RETAIL_PARITY_FIX_ACCEPTED`, `RUNTIME_CONFIRMED`.
+- Evidence: installed Level attributes use `Emveshka1`, `TankGenn4` and
+  `TankGenn5`, and their Level-local `vessels.cfg` files provide `Emv1`,
+  `Tank4` and `Tank5`. The preserved May `Vehicle::setVehicleAttr()` and
+  telemetry dispatch knew only `Emveshka` and `TankGenn0..3`, so those shipped
+  types could be catalogued and spawned but could not own the correct vessel.
+- Handling: load all ten named retail records and attach the missing profiles
+  to the original shared `g_emv` or `g_tank` owner. One central profile
+  classifier supplies catalog/save-layout identity; collision telemetry and
+  gameplay tuning use the same admitted set. `Dead` remains live but is not a
+  gameplay-tuning target.
+- Verification: the fresh-continuation smoke groups every Level-local type-1
+  Taxi target by profile, runs one authentic occupied destruction/ORP1/exact
+  recovery transaction per group, and restores a byte-identical suite
+  baseline between representatives. The complete retail union must equal mask
+  `1011`: `Dragon`, `Emveshka`, `Emveshka1` and `TankGenn1..5`. Debug and
+  Release pass all 18 rows with that exact union.
+- Revisit when: a newly recovered retail data set contains another dynamic
+  name. Admission requires a configuration record, an executable owner mapping
+  and the same lifecycle proof; a plausible string alone is not evidence.
+
+### CQ-188: acceptance event counts must advance with semantic fixtures
+
+- Status: `ACCEPTANCE_DRIFT_FIXED`, `RUNTIME_UNCHANGED`.
+- Evidence: CQ-185 expanded EVT1 staging from one Explosion, one Spark and one
+  Corpse to two equal-name Explosions, one Spark and one Corpse while retaining
+  the mission-check event. Runtime diagnostics correctly became `14/5` and
+  `14/14/5`, but the ordinary retail script still required `14/4` and rejected
+  all 18 clean exit-code-zero runs.
+- Handling: keep the strict exact count and update the matrix/manual contract
+  to five events. Do not weaken it to a lower bound; every fixture has a named
+  ownership purpose and restore phase.
+- Verification: Debug and Release ordinary retail matrices must both pass all
+  nine installed Levels with the exact five-event proof. The corrected run is
+  18/18 with clean exits and non-empty rendered frames.
+- Revisit when: a semantic staging fixture is added or removed. The runtime,
+  unit smoke, product matrix and manual ledger must change in the same slice.
 
 ## Maintenance rule
 

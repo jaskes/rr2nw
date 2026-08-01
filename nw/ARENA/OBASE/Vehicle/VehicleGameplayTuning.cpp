@@ -14,11 +14,14 @@
 #include "vs_zav.h"
 
 extern SEmvAttrs g_emvAttr0;
+extern SEmvAttrs g_emvAttr1;
 extern SEmvAttrs g_emvAttrDragon;
 extern SWheelsAttrs g_walkAttr0;
 extern SWheelsAttrs g_tankAttr1;
 extern SWheelsAttrs g_tankAttr2;
 extern SWheelsAttrs g_tankAttr3;
+extern SWheelsAttrs g_tankAttr4;
+extern SWheelsAttrs g_tankAttr5;
 
 namespace
 {
@@ -38,6 +41,8 @@ DynamicView FindDynamic(const char *dynamic)
         result.emv = &g_emvAttrDragon;
     else if (std::strcmp(dynamic, "Emveshka") == 0)
         result.emv = &g_emvAttr0;
+    else if (std::strcmp(dynamic, "Emveshka1") == 0)
+        result.emv = &g_emvAttr1;
     else if (std::strcmp(dynamic, "TankGenn0") == 0)
         result.wheels = &g_walkAttr0;
     else if (std::strcmp(dynamic, "TankGenn1") == 0)
@@ -46,6 +51,10 @@ DynamicView FindDynamic(const char *dynamic)
         result.wheels = &g_tankAttr2;
     else if (std::strcmp(dynamic, "TankGenn3") == 0)
         result.wheels = &g_tankAttr3;
+    else if (std::strcmp(dynamic, "TankGenn4") == 0)
+        result.wheels = &g_tankAttr4;
+    else if (std::strcmp(dynamic, "TankGenn5") == 0)
+        result.wheels = &g_tankAttr5;
     return result;
 }
 

@@ -113,6 +113,9 @@ foreach ($configurationName in $Configuration) {
             $groundingProof = [regex]::Match(
                 $stdout,
                 'taxi_debug_grounding=(\d+)/(\d+)/(\d+) clearance=([0-9.]+) drift=([0-9.]+)')
+            $destructionProof = [regex]::Match(
+                $stdout,
+                'vehicle_destruction_profiles=(\d+)/(\d+)/(\d+) mask=(\d+)')
             $issues = [Collections.Generic.List[string]]::new()
             if ($timedOut) { $issues.Add("timeout") }
             # Windows PowerShell 5.1 can expose a null ExitCode when
@@ -125,6 +128,9 @@ foreach ($configurationName in $Configuration) {
             if (-not $proof.Success) { $issues.Add("LCN1 proof missing") }
             if (-not $groundingProof.Success) {
                 $issues.Add("Taxi grounding proof missing")
+            }
+            if (-not $destructionProof.Success) {
+                $issues.Add("Vehicle destruction profile proof missing")
             }
             if ($groundingProof.Success) {
                 $groundingTypes = [uint64]$groundingProof.Groups[1].Value
@@ -147,6 +153,24 @@ foreach ($configurationName in $Configuration) {
                 }
                 if ($maxDrift -gt 0.000001) {
                     $issues.Add("Taxi grounding position drift exceeded tolerance")
+                }
+            }
+            if ($destructionProof.Success) {
+                $eligibleDestructionTypes =
+                    [uint64]$destructionProof.Groups[1].Value
+                $representativeDestructionProfiles =
+                    [uint64]$destructionProof.Groups[2].Value
+                $destructionRoundTrips =
+                    [uint64]$destructionProof.Groups[3].Value
+                $destructionProfileMask =
+                    [uint64]$destructionProof.Groups[4].Value
+                if ($eligibleDestructionTypes -lt
+                        $representativeDestructionProfiles -or
+                    $representativeDestructionProfiles -eq 0 -or
+                    $destructionRoundTrips -ne
+                        $representativeDestructionProfiles -or
+                    $destructionProfileMask -eq 0) {
+                    $issues.Add("Vehicle destruction profile proof diverged")
                 }
             }
             if ($proof.Success -and $proof.Groups[1].Value -ne $proof.Groups[2].Value) {
@@ -198,6 +222,10 @@ foreach ($configurationName in $Configuration) {
                 TerrainFallbackTaxiTypes = if ($groundingProof.Success) { [uint64]$groundingProof.Groups[3].Value } else { 0 }
                 MaxTaxiGroundClearance = if ($groundingProof.Success) { [double]::Parse($groundingProof.Groups[4].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
                 MaxTaxiGroundDrift = if ($groundingProof.Success) { [double]::Parse($groundingProof.Groups[5].Value, [Globalization.CultureInfo]::InvariantCulture) } else { 0 }
+                EligibleDestructionTypes = if ($destructionProof.Success) { [uint64]$destructionProof.Groups[1].Value } else { 0 }
+                RepresentativeDestructionProfiles = if ($destructionProof.Success) { [uint64]$destructionProof.Groups[2].Value } else { 0 }
+                DestructionRoundTrips = if ($destructionProof.Success) { [uint64]$destructionProof.Groups[3].Value } else { 0 }
+                DestructionProfileMask = if ($destructionProof.Success) { [uint64]$destructionProof.Groups[4].Value } else { 0 }
                 Issues = $issues -join '; '
             })
         }
@@ -208,9 +236,34 @@ $csvPath = Join-Path $OutputRoot "fresh-continuation-matrix.csv"
 $records | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
 $passedCount = @($records | Where-Object Passed).Count
 $totalCount = $records.Count
+$profileCoverageReady = $true
+$requireCompleteProfileCoverage = $Level.Count -eq 0
+foreach ($configurationName in $Configuration) {
+    foreach ($root in $normalizedRoots) {
+        [uint64]$profileMask = 0
+        foreach ($record in @($records | Where-Object {
+                    $_.Configuration -eq $configurationName -and
+                    $_.DataRoot -eq $root })) {
+            $profileMask = $profileMask -bor
+                [uint64]$record.DestructionProfileMask
+        }
+        # Bits 0,1,4..9 are the eight profiles used by type-1 Taxi targets:
+        # Dragon, Emveshka, TankGenn1..3, Emveshka1 and TankGenn4..5.
+        [uint64]$expectedProfileMask = 0x3F3
+        $completeProfiles =
+            ($profileMask -band $expectedProfileMask) -eq $expectedProfileMask
+        Write-Host ("{0} {1} Vehicle destruction profile mask: {2} (expected={3} complete={4})" -f
+                    $configurationName, $root, $profileMask,
+                    $expectedProfileMask, $completeProfiles)
+        if ($requireCompleteProfileCoverage -and
+            -not $completeProfiles) {
+            $profileCoverageReady = $false
+        }
+    }
+}
 Write-Host "Fresh Level continuation matrix: $passedCount/$totalCount passed"
 Write-Host "Evidence: $csvPath"
-if ($passedCount -ne $totalCount) {
+if ($passedCount -ne $totalCount -or -not $profileCoverageReady) {
     $records | Where-Object { -not $_.Passed } | Format-Table -AutoSize
     exit 1
 }

@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "RecoveredGameplayTuningRuntime.h"
+#include "obase/vehicle/VehicleGameplayTuning.h"
 
 namespace {
 
@@ -17,6 +18,23 @@ bool Invalid(const char* text) { return !Valid(text); }
 }  // namespace
 
 int main() {
+  const char* supportedDynamics[] = {
+      "Dragon", "Emveshka", "Emveshka1", "TankGenn0", "TankGenn1",
+      "TankGenn2", "TankGenn3", "TankGenn4", "TankGenn5"};
+  for (const char* dynamic : supportedDynamics) {
+    if (!VehicleGameplayTuning_SupportsDynamic(dynamic)) {
+      std::fprintf(stderr, "retail Vehicle dynamic is unsupported: %s\n",
+                   dynamic);
+      return EXIT_FAILURE;
+    }
+  }
+  if (VehicleGameplayTuning_SupportsDynamic(nullptr) ||
+      VehicleGameplayTuning_SupportsDynamic("Dead") ||
+      VehicleGameplayTuning_SupportsDynamic("Unknown")) {
+    std::fprintf(stderr, "closed Vehicle dynamic entered tuning contract\n");
+    return EXIT_FAILURE;
+  }
+
   const char* complete = R"JSON({
     "schema": 1,
     "vehicles": [{
@@ -102,7 +120,8 @@ int main() {
     std::fprintf(stderr, "invalid input did not produce bounded diagnostics\n");
     return EXIT_FAILURE;
   }
-  std::printf("gameplay tuning schema=1 strict vehicle=8 projectile=1 "
+  std::printf("gameplay tuning schema=1 strict vehicle=8 dynamics=9/9 "
+              "closed=Dead,Unknown projectile=1 "
               "people=5 tank=5 armour=closed\n");
   return EXIT_SUCCESS;
 }

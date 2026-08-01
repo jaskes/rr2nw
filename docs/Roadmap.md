@@ -1429,8 +1429,8 @@ and shutdown is clean. The complete gate is 66/66 CTest in each configuration,
 ### Frontier C: coherent Vehicle embodiment and death
 
 Status: in progress. The bounded camera, transactional default-body death,
-occupied continuation, grounded Taxi placement and recoverable occupied
-type-1 destruction slices are complete.
+occupied continuation, grounded Taxi placement and all-retail-profile
+recoverable occupied type-1 destruction slices are complete.
 
 Unify Taxi spawn height, ground settling, panel/HUD selection, camera ownership,
 entry/exit, destroyed Vehicle behaviour and player death. Remove the legacy
@@ -1478,14 +1478,27 @@ single-use recovery restores the exact occupied VehicleAttr, cockpit, camera,
 controls and world/container fingerprints. Real native-window Debug and
 Release runs pass spawn-and-enter, destroy and restore.
 
-Next slice: broaden damage/destruction coverage across representative wheeled,
-tracked and flying Vehicle classes, then define a public restart/repair policy.
-The debug checkpoint must not be promoted into campaign behavior by accident.
+Destruction breadth is now measured by the real retail dynamic profiles rather
+than model-name guesses. The preserved May dispatch was missing shipped
+`Emveshka1`, `TankGenn4` and `TankGenn5` profiles; all ten named records now
+have explicit ownership, and the eight profiles used by type-1 Taxi targets
+across the campaign pass spawn/enter/authentic destruction/ORP1/exact recovery.
+Panel-less Vehicles retain that legitimate state instead of receiving a
+fabricated cockpit. The all-Level gate requires campaign mask `1011` in both
+configurations and a byte-identical suite baseline between representatives.
 
-Gate: representative wheeled, tracked and flying vehicles spawn grounded,
-enter/exit without camera escape, retain the correct panel, fire, take damage,
-die and leave a recoverable diagnostic state rather than terminating the
-process.
+Next slice: choose the campaign-facing restart/repair policy and finish regular
+weapon/damage/HUD acceptance across the admitted profiles. The diagnostic
+checkpoint must not be promoted into campaign behavior by accident.
+
+Gate: every admitted type-1 profile can fire its intended weapons, take normal
+damage, present its real HUD-or-no-HUD state, die without terminating the
+process and reach a defined player restart/repair outcome.
+
+Completed breadth evidence: 66/66 CTest per configuration, 18/18 ordinary
+retail starts, 18/18 fresh continuations with Debug/Release mask `1011`, and
+2/2 native-window destruction/recovery. The remaining gate text above is the
+campaign-facing follow-up, not a claim hidden inside this diagnostic proof.
 
 ### Frontier D: save/load gameplay authority
 

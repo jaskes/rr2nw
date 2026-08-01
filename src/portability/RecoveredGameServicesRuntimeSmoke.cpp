@@ -3363,7 +3363,9 @@ bool ExerciseDebugDeathLifecycle(SimulationContext* context) {
   return restoredStateValid && disabled;
 }
 
-bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
+bool ExerciseDebugOccupiedVehicleDestructionOne(
+    SimulationContext* context, std::size_t occupiedIndex,
+    int expectedProfile) {
   if (context == nullptr ||
       RecoveredGameServices_VehicleActiveActionCount() != 0u ||
       !RecoveredGameServices_ConfigureDebugMenu(
@@ -3374,26 +3376,35 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
     return false;
   }
 
-  std::size_t occupiedIndex =
-      RecoveredGameServices_DebugVehicleTypeCount();
-  for (std::size_t index = 0;
-       index < RecoveredGameServices_DebugVehicleTypeCount(); ++index) {
-    SRecoveredDebugVehicleType type;
-    if (!RecoveredGameServices_DebugVehicleType(index, &type) ||
-        !context->isExist(type.vehicleAttribute.c_str()))
-      continue;
-    AttributeVehicle* attribute = static_cast<AttributeVehicle*>(
-        __attrVehicleTable.searchAttribute(
-            context->searchObject(type.vehicleAttribute.c_str())));
-    if (attribute != nullptr && attribute->m_type != 0) {
-      occupiedIndex = index;
-      break;
-    }
-  }
-  if (occupiedIndex >= RecoveredGameServices_DebugVehicleTypeCount() ||
-      !RecoveredGameServices_RequestDebugVehicleSpawn(
-          occupiedIndex, true) ||
-      !RecoveredGameServices_ProcessPendingDebugCommand()) {
+  SRecoveredDebugVehicleType occupiedType;
+  const bool selectionValid =
+      occupiedIndex < RecoveredGameServices_DebugVehicleTypeCount() &&
+      RecoveredGameServices_DebugVehicleType(occupiedIndex, &occupiedType) &&
+      occupiedType.vehicleType == 1 &&
+      occupiedType.vesselProfile == expectedProfile &&
+      occupiedType.dynamic ==
+          VehicleRuntimeState_VesselProfileName(expectedProfile);
+  const bool spawnRequested = selectionValid &&
+      RecoveredGameServices_RequestDebugVehicleSpawn(occupiedIndex, true);
+  const bool spawnProcessed = spawnRequested &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  if (!selectionValid || !spawnRequested || !spawnProcessed) {
+    const SRecoveredDebugMenuState* state =
+        RecoveredGameServices_DebugMenuState();
+    std::fprintf(stderr,
+                 "debug Vehicle profile setup index=%zu count=%zu "
+                 "selection=%d request=%d process=%d taxi=%s vehicle=%s "
+                 "dynamic=%s profile=%d/%d action=%s error=%s\n",
+                 occupiedIndex,
+                 RecoveredGameServices_DebugVehicleTypeCount(),
+                 selectionValid ? 1 : 0, spawnRequested ? 1 : 0,
+                 spawnProcessed ? 1 : 0,
+                 occupiedType.taxiAttribute.c_str(),
+                 occupiedType.vehicleAttribute.c_str(),
+                 occupiedType.dynamic.c_str(), occupiedType.vesselProfile,
+                 expectedProfile,
+                 state == nullptr ? "<none>" : state->lastAction.c_str(),
+                 state == nullptr ? "<none>" : state->lastError.c_str());
     RecoveredGameServices_ConfigureDebugMenu(
         false, std::vector<std::string>());
     return false;
@@ -3406,6 +3417,10 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
                                       context->queryInterface(
                                           occupiedVehicle, IVehicleIID));
   SRecoveredVehicleRuntimeState occupiedState = {};
+  const bool occupiedPanelReady =
+      occupiedObject != nullptr && occupiedObject->panelReady();
+  const bool occupiedPanelOpen =
+      occupiedObject != nullptr && occupiedObject->panelOpen();
   const int orphanBaseline = OrphanSubjectState_LiveCount();
   std::vector<std::uint8_t> occupiedContinuation;
   SLevelContinuationSummary occupiedSummary;
@@ -3413,7 +3428,8 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
       VehicleRuntimeState_Inspect(
           context, occupiedVehicle, &occupiedState) &&
       !occupiedState.dead && !occupiedState.takingTaxi &&
-      !occupiedObject->taxiChangeEnabled() && occupiedObject->panelReady() &&
+      !occupiedObject->taxiChangeEnabled() &&
+      occupiedPanelOpen == occupiedPanelReady &&
       orphanBaseline >= 0 &&
       RecoveredGameServices_CaptureLevelContinuation(
           &occupiedContinuation, &occupiedSummary) && occupiedSummary.ready;
@@ -3426,7 +3442,7 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
         RecoveredGameServices_DebugMenuState();
     std::fprintf(stderr,
                  "debug Vehicle destruction setup occupied=%d object=%d "
-                 "state=%d/%d/%d taxi_change=%d panel=%d orphan=%d "
+                 "state=%d/%d/%d taxi_change=%d panel=%d/%d orphan=%d "
                  "capture=%d request=%d process=%d action=%s error=%s\n",
                  occupied ? 1 : 0, occupiedObject != nullptr ? 1 : 0,
                  occupiedState.dead ? 1 : 0,
@@ -3435,9 +3451,11 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
                  occupiedObject != nullptr &&
                          occupiedObject->taxiChangeEnabled()
                      ? 1 : 0,
-                 occupiedObject != nullptr && occupiedObject->panelReady()
-                     ? 1 : 0,
-                 orphanBaseline, occupiedSummary.ready ? 1 : 0,
+                  occupiedObject != nullptr && occupiedObject->panelReady()
+                      ? 1 : 0,
+                  occupiedObject != nullptr && occupiedObject->panelOpen()
+                      ? 1 : 0,
+                  orphanBaseline, occupiedSummary.ready ? 1 : 0,
                  destructionRequested ? 1 : 0,
                  destructionProcessed ? 1 : 0,
                  state == nullptr ? "<none>" : state->lastAction.c_str(),
@@ -3531,7 +3549,9 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
       VehicleRuntimeState_Inspect(
           context, restoredVehicle, &restoredState) &&
       !restoredState.dead && !restoredState.takingTaxi &&
-      !restoredObject->taxiChangeEnabled() && restoredObject->panelReady() &&
+      !restoredObject->taxiChangeEnabled() &&
+      restoredObject->panelReady() == occupiedPanelReady &&
+      restoredObject->panelOpen() == occupiedPanelOpen &&
       OrphanSubjectState_LiveCount() == orphanBaseline &&
       RecoveredGameServices_VehicleCameraMode() ==
           RECOVERED_VEHICLE_CAMERA_LIVE &&
@@ -3555,13 +3575,19 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
   if (!restoredValid || !disabled) {
     std::fprintf(stderr,
                  "debug Vehicle restoration valid=%d disabled=%d "
-                 "occupied=%d live=%d/%d world=%llu/%llu "
+                 "occupied=%d panel=%d/%d -> %d/%d live=%d/%d world=%llu/%llu "
                  "container=%llu/%llu action=%s error=%s\n",
                  restoredValid ? 1 : 0, disabled ? 1 : 0,
-                 restoredObject != nullptr &&
-                         !restoredObject->taxiChangeEnabled()
-                     ? 1 : 0,
-                 OrphanSubjectState_LiveCount(), orphanBaseline,
+                  restoredObject != nullptr &&
+                          !restoredObject->taxiChangeEnabled()
+                      ? 1 : 0,
+                  occupiedPanelReady ? 1 : 0,
+                  occupiedPanelOpen ? 1 : 0,
+                  restoredObject != nullptr && restoredObject->panelReady()
+                      ? 1 : 0,
+                  restoredObject != nullptr && restoredObject->panelOpen()
+                      ? 1 : 0,
+                  OrphanSubjectState_LiveCount(), orphanBaseline,
                  static_cast<unsigned long long>(
                      restoredSummary.worldFingerprint),
                  static_cast<unsigned long long>(
@@ -3576,6 +3602,177 @@ bool ExerciseDebugOccupiedVehicleDestruction(SimulationContext* context) {
                      restored->lastError.c_str());
   }
   return restoredValid && disabled;
+}
+
+struct SDebugVehicleDestructionCoverage {
+  unsigned int eligibleTypes = 0;
+  unsigned int representativeProfiles = 0;
+  unsigned int roundTrips = 0;
+  unsigned int profileMask = 0;
+};
+
+bool ExerciseDebugOccupiedVehicleDestruction(
+    SimulationContext* context,
+    SDebugVehicleDestructionCoverage* coverage) {
+  if (context == nullptr || coverage == nullptr ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u)
+    return false;
+  *coverage = {};
+
+  std::vector<std::uint8_t> suiteBaseline;
+  SLevelContinuationSummary suiteSummary;
+  const int orphanBaseline = OrphanSubjectState_LiveCount();
+  const bool suiteCaptured = orphanBaseline >= 0 &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &suiteBaseline, &suiteSummary);
+  const bool menuConfigured = suiteCaptured && suiteSummary.ready &&
+      suiteSummary.sections == 14 &&
+      RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{"Level.Debug.VehicleProfiles"});
+  if (!suiteCaptured || !suiteSummary.ready || suiteSummary.sections != 14 ||
+      !menuConfigured) {
+    std::fprintf(stderr,
+                 "debug Vehicle profile baseline capture=%d ready=%d "
+                 "sections=%d orphan=%d bytes=%zu menu=%d error=%s\n",
+                 suiteCaptured ? 1 : 0, suiteSummary.ready ? 1 : 0,
+                 suiteSummary.sections, orphanBaseline, suiteBaseline.size(),
+                 menuConfigured ? 1 : 0,
+                 RecoveredGameServices_LastLevelContinuationError());
+    return false;
+  }
+
+  const std::size_t catalogCount =
+      RecoveredGameServices_DebugVehicleTypeCount();
+  std::vector<std::size_t> representatives(
+      RECOVERED_VEHICLE_PROFILE_TANK_GENN5 + 1, catalogCount);
+  bool catalogValid = catalogCount > 0;
+  bool unsupportedType = false;
+  for (std::size_t index = 0; catalogValid && index < catalogCount; ++index) {
+    SRecoveredDebugVehicleType type;
+    catalogValid = RecoveredGameServices_DebugVehicleType(index, &type) &&
+        !type.taxiAttribute.empty() && !type.vehicleAttribute.empty() &&
+        context->isExist(type.vehicleAttribute.c_str()) &&
+        type.vehicleType >= 0 &&
+        type.vesselProfile >= RECOVERED_VEHICLE_PROFILE_UNKNOWN &&
+        type.vesselProfile <= RECOVERED_VEHICLE_PROFILE_TANK_GENN5 &&
+        (type.vesselProfile == RECOVERED_VEHICLE_PROFILE_UNKNOWN ||
+         type.dynamic == VehicleRuntimeState_VesselProfileName(
+                             type.vesselProfile));
+    if (!catalogValid) {
+      std::fprintf(stderr,
+                   "debug Vehicle catalog entry invalid index=%zu taxi=%s "
+                   "vehicle=%s type=%d dynamic=%s kind=%d profile=%d\n",
+                   index, type.taxiAttribute.c_str(),
+                   type.vehicleAttribute.c_str(), type.vehicleType,
+                   type.dynamic.c_str(), type.vesselKind,
+                   type.vesselProfile);
+    }
+    if (!catalogValid || type.vehicleType != 1)
+      continue;
+    if (type.vesselProfile == RECOVERED_VEHICLE_PROFILE_UNKNOWN ||
+        type.vesselKind == RECOVERED_VEHICLE_VESSEL_UNKNOWN) {
+      std::fprintf(stderr,
+                   "debug Vehicle type-1 profile unknown index=%zu taxi=%s "
+                   "vehicle=%s dynamic=%s kind=%d profile=%d\n",
+                   index, type.taxiAttribute.c_str(),
+                   type.vehicleAttribute.c_str(), type.dynamic.c_str(),
+                   type.vesselKind, type.vesselProfile);
+      unsupportedType = true;
+      continue;
+    }
+    ++coverage->eligibleTypes;
+    const unsigned int profileBit =
+        1u << static_cast<unsigned int>(type.vesselProfile - 1);
+    coverage->profileMask |= profileBit;
+    if (representatives[type.vesselProfile] == catalogCount) {
+      representatives[type.vesselProfile] = index;
+      ++coverage->representativeProfiles;
+    }
+  }
+  const bool catalogDisabled = RecoveredGameServices_ConfigureDebugMenu(
+      false, std::vector<std::string>());
+  catalogValid = catalogValid && !unsupportedType;
+  if (!catalogValid || !catalogDisabled || coverage->eligibleTypes == 0u ||
+      coverage->representativeProfiles == 0u || coverage->profileMask == 0u) {
+    std::fprintf(stderr,
+                 "debug Vehicle profile catalog valid=%d disabled=%d "
+                 "types=%zu eligible=%u representatives=%u mask=%u\n",
+                 catalogValid ? 1 : 0, catalogDisabled ? 1 : 0,
+                 catalogCount, coverage->eligibleTypes,
+                 coverage->representativeProfiles, coverage->profileMask);
+    return false;
+  }
+
+  for (int profile = RECOVERED_VEHICLE_PROFILE_DRAGON;
+       profile <= RECOVERED_VEHICLE_PROFILE_TANK_GENN5; ++profile) {
+    const std::size_t representative = representatives[profile];
+    if (representative == catalogCount)
+      continue;
+    if (!ExerciseDebugOccupiedVehicleDestructionOne(
+            context, representative, profile)) {
+      std::fprintf(stderr,
+                   "debug Vehicle profile round-trip failed profile=%d/%s "
+                   "index=%zu eligible=%u representatives=%u mask=%u\n",
+                   profile, VehicleRuntimeState_VesselProfileName(profile),
+                   representative, coverage->eligibleTypes,
+                   coverage->representativeProfiles, coverage->profileMask);
+      SLevelContinuationSummary ignored;
+      RecoveredGameServices_RestoreLevelContinuation(suiteBaseline, &ignored);
+      return false;
+    }
+
+    SLevelContinuationSummary restoredSummary;
+    std::vector<std::uint8_t> recapturedBytes;
+    SLevelContinuationSummary recapturedSummary;
+    const bool baselineRestored =
+        RecoveredGameServices_RestoreLevelContinuation(
+            suiteBaseline, &restoredSummary);
+    const bool baselineRecaptured = baselineRestored &&
+        RecoveredGameServices_CaptureLevelContinuation(
+            &recapturedBytes, &recapturedSummary);
+    const bool baselineMatches = baselineRestored && baselineRecaptured &&
+        restoredSummary.ready && recapturedSummary.ready &&
+        restoredSummary.worldFingerprint == suiteSummary.worldFingerprint &&
+        restoredSummary.containerFingerprint ==
+            suiteSummary.containerFingerprint &&
+        recapturedSummary.worldFingerprint == suiteSummary.worldFingerprint &&
+        recapturedSummary.containerFingerprint ==
+            suiteSummary.containerFingerprint &&
+        recapturedBytes == suiteBaseline &&
+        OrphanSubjectState_LiveCount() == orphanBaseline &&
+        RecoveredGameServices_VehicleActiveActionCount() == 0u;
+    if (!baselineMatches) {
+      std::fprintf(stderr,
+                   "debug Vehicle suite baseline failed profile=%d/%s "
+                   "restore=%d recapture=%d ready=%d/%d orphan=%d/%d "
+                   "actions=%u world=%llu/%llu/%llu "
+                   "container=%llu/%llu/%llu bytes=%zu/%zu equal=%d "
+                   "error=%s\n",
+                   profile, VehicleRuntimeState_VesselProfileName(profile),
+                   baselineRestored ? 1 : 0, baselineRecaptured ? 1 : 0,
+                   restoredSummary.ready ? 1 : 0,
+                   recapturedSummary.ready ? 1 : 0,
+                   OrphanSubjectState_LiveCount(), orphanBaseline,
+                   RecoveredGameServices_VehicleActiveActionCount(),
+                   static_cast<unsigned long long>(
+                       restoredSummary.worldFingerprint),
+                   static_cast<unsigned long long>(
+                       recapturedSummary.worldFingerprint),
+                   static_cast<unsigned long long>(suiteSummary.worldFingerprint),
+                   static_cast<unsigned long long>(
+                       restoredSummary.containerFingerprint),
+                   static_cast<unsigned long long>(
+                       recapturedSummary.containerFingerprint),
+                   static_cast<unsigned long long>(
+                       suiteSummary.containerFingerprint),
+                   recapturedBytes.size(), suiteBaseline.size(),
+                   recapturedBytes == suiteBaseline ? 1 : 0,
+                   RecoveredGameServices_LastLevelContinuationError());
+      return false;
+    }
+    ++coverage->roundTrips;
+  }
+  return coverage->roundTrips == coverage->representativeProfiles;
 }
 
 }  // namespace
@@ -5683,7 +5880,9 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("Debug death/save/recovery lifecycle failed");
   }
-  if (!ExerciseDebugOccupiedVehicleDestruction(g_super.m_context)) {
+  SDebugVehicleDestructionCoverage destructionCoverage;
+  if (!ExerciseDebugOccupiedVehicleDestruction(
+          g_super.m_context, &destructionCoverage)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("Debug occupied Vehicle destruction/ORP1 recovery failed");
@@ -5913,6 +6112,7 @@ int main(int argc, char** argv) {
                "taxi_debug_grounding=%d/%d/%d clearance=%.9f drift=%.9f "
                "taxi_handoff=F1-nearest-panel-drive-rollback "
                "vehicle_embodiment=F1-safe-Taxi-reentry-unsafe-Orphan-ORP1-continuation-resume-impact "
+               "vehicle_destruction_profiles=%u/%u/%u mask=%u "
                "vehicle_fire=MouseL-Bullet-impact-visual-sound-focus-rollback "
                "bullet_attrs=%d/%d bullet_fingerprint=%llu "
               "bullet_refs=%llu "
@@ -6014,9 +6214,13 @@ int main(int argc, char** argv) {
                  g_taxiDebugGroundingProbe.types,
                  g_taxiDebugGroundingProbe.sweepHits,
                  g_taxiDebugGroundingProbe.terrainFallbacks,
-                 g_taxiDebugGroundingProbe.maxBottomClearance,
-                 g_taxiDebugGroundingProbe.maxImmediateDrift,
-                 bulletRosterSize, bulletCapacity, bulletFingerprint,
+                  g_taxiDebugGroundingProbe.maxBottomClearance,
+                  g_taxiDebugGroundingProbe.maxImmediateDrift,
+                  destructionCoverage.eligibleTypes,
+                  destructionCoverage.representativeProfiles,
+                  destructionCoverage.roundTrips,
+                  destructionCoverage.profileMask,
+                  bulletRosterSize, bulletCapacity, bulletFingerprint,
                 bulletReferenceFingerprint, bulletSubjectCapacity,
                 bulletSubjectFingerprint,
               smokerRosterSize, smokerCapacity, smokerFingerprint,

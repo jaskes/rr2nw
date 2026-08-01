@@ -9,26 +9,37 @@
 #include "vh_vessel.h"
 #include "vs_zav.h"
 
+#include "VehicleRuntimeState.h"
 #include "VehicleVesselTelemetry.h"
 
 extern CVesselEmv g_emv;
 extern CVesselWheels g_tank;
 extern CVesselWheels g_walk;
 
+namespace
+{
+bool UsesTankVessel(int profile)
+{
+    return profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN1 ||
+           profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN2 ||
+           profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN3 ||
+           profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN4 ||
+           profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN5;
+}
+}
+
 int RecoveredVehicleVesselBumpFlags(const char *dynamic)
 {
-    if (dynamic == NULL)
-        return BF_NONE;
+    const int profile = VehicleRuntimeState_VesselProfile(dynamic);
     int flags = BF_NONE;
-    if (std::strcmp(dynamic, "Dragon") == 0 ||
-        std::strcmp(dynamic, "Emveshka") == 0)
+    if (profile == RECOVERED_VEHICLE_PROFILE_DRAGON ||
+        profile == RECOVERED_VEHICLE_PROFILE_EMVESHKA ||
+        profile == RECOVERED_VEHICLE_PROFILE_EMVESHKA1)
         flags = g_emv.GetBumpDef().nBumpFlags;
-    else if (std::strcmp(dynamic, "TankGenn0") == 0 ||
-             std::strcmp(dynamic, "Dead") == 0)
+    else if (profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN0 ||
+             profile == RECOVERED_VEHICLE_PROFILE_DEAD)
         flags = g_walk.GetBumpDef().nBumpFlags;
-    else if (std::strcmp(dynamic, "TankGenn1") == 0 ||
-             std::strcmp(dynamic, "TankGenn2") == 0 ||
-             std::strcmp(dynamic, "TankGenn3") == 0)
+    else if (UsesTankVessel(profile))
         flags = g_tank.GetBumpDef().nBumpFlags;
     return flags >= BF_NONE && flags <= BF_BUMPSHELTER
                ? flags : BF_NONE;
@@ -36,17 +47,15 @@ int RecoveredVehicleVesselBumpFlags(const char *dynamic)
 
 bool RecoveredVehicleVesselTouchesGround(const char *dynamic)
 {
-    if (dynamic == NULL)
-        return false;
-    if (std::strcmp(dynamic, "Dragon") == 0 ||
-        std::strcmp(dynamic, "Emveshka") == 0)
+    const int profile = VehicleRuntimeState_VesselProfile(dynamic);
+    if (profile == RECOVERED_VEHICLE_PROFILE_DRAGON ||
+        profile == RECOVERED_VEHICLE_PROFILE_EMVESHKA ||
+        profile == RECOVERED_VEHICLE_PROFILE_EMVESHKA1)
         return g_emv.TouchingGround();
-    if (std::strcmp(dynamic, "TankGenn0") == 0 ||
-        std::strcmp(dynamic, "Dead") == 0)
+    if (profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN0 ||
+        profile == RECOVERED_VEHICLE_PROFILE_DEAD)
         return g_walk.TouchingGround();
-    if (std::strcmp(dynamic, "TankGenn1") == 0 ||
-        std::strcmp(dynamic, "TankGenn2") == 0 ||
-        std::strcmp(dynamic, "TankGenn3") == 0)
+    if (UsesTankVessel(profile))
         return g_tank.TouchingGround();
     return false;
 }
@@ -57,15 +66,12 @@ bool RecoveredVehicleVesselWheelsSurface(
     if (telemetry == NULL)
         return false;
     std::memset(telemetry, 0, sizeof(*telemetry));
-    if (dynamic == NULL)
-        return false;
+    const int profile = VehicleRuntimeState_VesselProfile(dynamic);
     const CVesselWheels *wheels = NULL;
-    if (std::strcmp(dynamic, "TankGenn0") == 0 ||
-        std::strcmp(dynamic, "Dead") == 0)
+    if (profile == RECOVERED_VEHICLE_PROFILE_TANK_GENN0 ||
+        profile == RECOVERED_VEHICLE_PROFILE_DEAD)
         wheels = &g_walk;
-    else if (std::strcmp(dynamic, "TankGenn1") == 0 ||
-             std::strcmp(dynamic, "TankGenn2") == 0 ||
-             std::strcmp(dynamic, "TankGenn3") == 0)
+    else if (UsesTankVessel(profile))
         wheels = &g_tank;
     if (wheels == NULL)
         return false;

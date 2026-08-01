@@ -3317,3 +3317,28 @@ configuration; 18/18 fresh-context continuation rows; 18/18 independent
 ordinary retail runtime rows; and 2/2 native-window destruction/rollback rows.
 The BUL1 probe in those runs also distinguishes and reuses a clean idle pool
 slot without admitting it as a saved projectile.
+
+## Release-profile Vehicle dispatch and destruction breadth
+
+The all-catalog destruction expansion found a source/data parity gap rather
+than three new physics implementations. Installed Level attributes name
+`Emveshka1`, `TankGenn4` and `TankGenn5`; their `vessels.cfg` files contain
+`Emv1`, `Tank4` and `Tank5`, but the preserved May dispatch never loaded or
+attached those blocks. The recovered mapping keeps the original architecture:
+`Emveshka1` shares `g_emv`, while `TankGenn4/5` share `g_tank`. A central named
+profile classifier separates ten configuration identities from the two
+EMV/Wheels save-layout families.
+
+The fresh-continuation probe now groups every Level-local type-1 Vehicle target
+by named profile. One representative of each present profile completes spawn,
+entry, authentic lethal damage, ORP1 capture and exact pre-destruction restore;
+the complete suite baseline is then restored and recaptured byte-for-byte
+before the next profile. The matrix requires campaign union mask `1011` in
+each configuration. `Level.05D` exposed a valid panel-less target, so recovery
+records and compares actual panel-ready/panel-open state rather than requiring
+a cockpit that retail data does not provide.
+
+Accepted evidence: complete Debug and Release builds; 66/66 CTest in each;
+18/18 ordinary retail rows with the corrected exact `14/5` semantic-event
+contract; 18/18 fresh-continuation rows with profile mask `1011` in both
+configurations; and 2/2 native-window destruction/rollback rows.

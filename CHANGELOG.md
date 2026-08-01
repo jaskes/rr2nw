@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Restored the three vessel profiles present in the shipped Level data but
+  absent from the preserved May source dispatch: `Emveshka1`, `TankGenn4` and
+  `TankGenn5` now load their `Emv1`, `Tank4` and `Tank5` configuration blocks,
+  attach to the correct shared physics owner and participate in collision,
+  save identity and gameplay tuning.
+- Occupied-Vehicle destruction recovery no longer assumes that every legal
+  type-1 vehicle owns a cockpit panel. The checkpoint records the actual
+  ready/open panel state and restores it exactly, including the panel-less
+  boats exposed by `Level.05D`.
+- The ordinary retail acceptance matrix now expects all five semantic probe
+  events restored by the current EVT1 contract. Its stale `14/4` expectation
+  rejected every clean run even though duplicate-name Explosion coverage had
+  deliberately advanced the runtime proof to `14/5`.
 - EVT1 no longer assumes that a pending effect name identifies exactly one
   object. Equal-name Explosion/Spark/Corpse owners are captured and restored
   by their stable class-table occurrence ordinal, while events whose ObjectID
@@ -59,6 +72,11 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added named classification for all ten retail Vehicle vessel profiles and an
+  all-Level destruction breadth gate. Every type-1 profile present in each
+  Level is spawned, entered, destroyed through the authentic damage graph,
+  captured with ORP1 and restored to a byte-identical suite baseline; the
+  matrix also requires the eight-profile retail campaign union.
 - Added transactional **Destroy occupied vehicle** and **Restore before
   vehicle destruction** Debug commands. They require a living occupied type-1
   Vehicle, capture LCN1, execute the authentic damage/LeaveVehicle path, prove

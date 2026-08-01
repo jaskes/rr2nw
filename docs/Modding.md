@@ -312,11 +312,11 @@ their symbolic IDs are additionally limited to 39 bytes plus the terminator.
 | Tank | `mass` | 0.1..10000000 | mass used to derive acceleration coefficient `massa_D` |
 | Tank | `projectile` | existing ID, <=39 bytes | selected Level `BulletAttr` consumed by owned Cannons |
 
-Movement fields are currently admitted only for the dynamics the recovered
-player Vehicle can actually instantiate: `Dragon`, `Emveshka`, and
-`TankGenn0` through `TankGenn3`. `Dead`, unknown dynamics and the currently
-unsupported `TankGenn4/5` fail closed. Two Vehicle entries may not tune the
-same process-global dynamic. Primary-projectile replacement,
+Movement fields are admitted for the nine live tuning records the recovered
+player Vehicle can instantiate: `Dragon`, `Emveshka`, `Emveshka1`, and
+`TankGenn0` through `TankGenn5`. `Dead` and unknown dynamics fail closed. Two
+Vehicle entries may not tune the same process-global dynamic.
+Primary-projectile replacement,
 `m_shootSecAttrName`, ammunition limits, Vehicle mass, health/armour,
 impact/explosion graphs and arbitrary legacy field names are deliberately not
 exposed.

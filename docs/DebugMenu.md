@@ -136,6 +136,13 @@ campaign restart, repair or every damaged Vehicle class is complete.
   shutdown.
 - The all-Level continuation matrix executes the same death/save/reconstruct/
   restore graph for all nine installed Levels in both configurations (18/18).
+- The same matrix enumerates every type-1 dynamic profile on each Level and
+  performs one spawn/enter/destruction/ORP1/exact-recovery transaction per
+  profile. It restores a byte-identical suite baseline between cases and
+  requires the complete campaign mask `1011`, including shipped
+  `Emveshka1`, `TankGenn4` and `TankGenn5` records. A panel is optional state,
+  but its ready/open pair must restore exactly. The accepted Debug/Release
+  result is 18/18 with mask `1011` in each configuration.
 - `Invoke-DebugVehicleDestruction.ps1` sends spawn-and-enter, destruction and
   recovery through the native window in Debug and Release. It requires one
   ORP1 creation, one post-destruction LCN1 proof, exact checkpoint recovery,

@@ -965,6 +965,8 @@ int g_debugPreDeathCorpseCount = -1;
 std::vector<std::uint8_t> g_debugPreVehicleDestructionCheckpoint;
 SLevelContinuationSummary g_debugPreVehicleDestructionCheckpointSummary;
 int g_debugPreVehicleDestructionOrphanCount = -1;
+bool g_debugPreVehicleDestructionPanelReady = false;
+bool g_debugPreVehicleDestructionPanelOpen = false;
 std::vector<std::string> g_debugLevelCatalog;
 std::vector<SRecoveredDebugVehicleType> g_debugVehicleCatalog;
 struct SPendingDebugTaxiSettlement {
@@ -1152,14 +1154,23 @@ bool BuildDebugVehicleCatalog() {
     SRecoveredDebugVehicleType type;
     type.taxiAttribute = taxi.taxiAttribute;
     type.vehicleAttribute = taxi.vehicleAttribute;
-    if (g_debugMenuState.firstOccupiedVehicleIndex < 0 &&
-        g_super.m_context != nullptr &&
+    AttributeVehicle* attribute = nullptr;
+    if (g_super.m_context != nullptr &&
         g_super.m_context->isExist(type.vehicleAttribute.c_str())) {
-      AttributeVehicle* attribute = static_cast<AttributeVehicle*>(
-          __attrVehicleTable.searchAttribute(
-              g_super.m_context->searchObject(
-                  type.vehicleAttribute.c_str())));
-      if (attribute != nullptr && attribute->m_type != 0)
+      attribute = static_cast<AttributeVehicle*>(
+          __attrVehicleTable.searchAttribute(g_super.m_context->searchObject(
+              type.vehicleAttribute.c_str())));
+    }
+    if (attribute != nullptr) {
+      type.dynamic = attribute->m_dynamic;
+      type.vehicleType = attribute->m_type;
+      type.vesselProfile =
+          VehicleRuntimeState_VesselProfile(attribute->m_dynamic);
+      type.vesselKind =
+          VehicleRuntimeState_VesselKind(attribute->m_dynamic);
+      if (g_debugMenuState.firstOccupiedVehicleIndex < 0 &&
+          type.vehicleType == 1 &&
+          type.vesselProfile != RECOVERED_VEHICLE_PROFILE_UNKNOWN)
         g_debugMenuState.firstOccupiedVehicleIndex =
             static_cast<int>(g_debugVehicleCatalog.size());
     }
@@ -1497,6 +1508,10 @@ bool InstallNativeSaveMenu() {
               g_debugVehicleCatalog[index].taxiAttribute));
       if (label.empty()) label = L"Vehicle";
       if (!taxi.empty()) label += L"  [" + taxi + L"]";
+      if (!g_debugVehicleCatalog[index].dynamic.empty()) {
+        label += L"  {" + EscapeNativeMenuText(Utf8ToWide(
+            g_debugVehicleCatalog[index].dynamic)) + L"}";
+      }
       if (AppendMenuW(
               debugSpawnMenu, MF_STRING,
               kNativeDebugSpawnBase + static_cast<UINT>(index),
@@ -1588,6 +1603,8 @@ void ResetSaveMenuSession() {
   g_debugPreVehicleDestructionCheckpoint.clear();
   g_debugPreVehicleDestructionCheckpointSummary = {};
   g_debugPreVehicleDestructionOrphanCount = -1;
+  g_debugPreVehicleDestructionPanelReady = false;
+  g_debugPreVehicleDestructionPanelOpen = false;
   g_debugMenuState.nativeMenuInstalled = false;
   g_debugMenuState.pending = false;
   g_debugMenuState.pendingAction = RECOVERED_DEBUG_MENU_NONE;
@@ -3537,6 +3554,8 @@ bool RecoveredGameServices_ConfigureDebugMenu(
   g_debugPreVehicleDestructionCheckpoint.clear();
   g_debugPreVehicleDestructionCheckpointSummary = {};
   g_debugPreVehicleDestructionOrphanCount = -1;
+  g_debugPreVehicleDestructionPanelReady = false;
+  g_debugPreVehicleDestructionPanelOpen = false;
   if (enabled && g_sessionReady && !BuildDebugVehicleCatalog()) {
     Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
     return false;
@@ -3862,6 +3881,10 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
                                   vehicleState.lastTime));
     Vehicle* controlled = static_cast<Vehicle*>(
         g_super.m_context->queryInterface(vehicle, IVehicleIID));
+    const bool preDestructionPanelReady =
+        controlled != nullptr && controlled->panelReady();
+    const bool preDestructionPanelOpen =
+        controlled != nullptr && controlled->panelOpen();
     SRecoveredVehicleRuntimeState destroyedVehicle = {};
     std::vector<unsigned char> orphanState;
     std::vector<std::uint8_t> destroyedContinuation;
@@ -3896,6 +3919,8 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
       g_debugPreVehicleDestructionCheckpoint = backup;
       g_debugPreVehicleDestructionCheckpointSummary = backupSummary;
       g_debugPreVehicleDestructionOrphanCount = orphanBaseline;
+      g_debugPreVehicleDestructionPanelReady = preDestructionPanelReady;
+      g_debugPreVehicleDestructionPanelOpen = preDestructionPanelOpen;
       g_debugMenuState.preVehicleDestructionCheckpointAvailable = true;
       g_debugMenuState.destructionWorldFingerprint =
           destroyedSummary.worldFingerprint;
@@ -3980,7 +4005,11 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
         VehicleRuntimeState_Inspect(
             g_super.m_context, restoredVehicleID, &restoredVehicle) &&
         !restoredVehicle.dead && !restoredVehicle.takingTaxi &&
-        !restoredObject->taxiChangeEnabled() && restoredObject->panelReady() &&
+        !restoredObject->taxiChangeEnabled() &&
+        restoredObject->panelReady() ==
+            g_debugPreVehicleDestructionPanelReady &&
+        restoredObject->panelOpen() ==
+            g_debugPreVehicleDestructionPanelOpen &&
         OrphanSubjectState_LiveCount() ==
             g_debugPreVehicleDestructionOrphanCount &&
         VehicleRuntimeState_InspectCamera(
@@ -3999,6 +4028,8 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
       g_debugPreVehicleDestructionCheckpoint.clear();
       g_debugPreVehicleDestructionCheckpointSummary = {};
       g_debugPreVehicleDestructionOrphanCount = -1;
+      g_debugPreVehicleDestructionPanelReady = false;
+      g_debugPreVehicleDestructionPanelOpen = false;
       g_debugMenuState.preVehicleDestructionCheckpointAvailable = false;
       ++g_debugMenuState.restoredPreVehicleDestructionCheckpoints;
       g_debugMenuState.lastAction =

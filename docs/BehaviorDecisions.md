@@ -3816,7 +3816,8 @@ Schema 1 deliberately exposes only movement speed/reverse/acceleration/turn,
 primary-fire interval, `IUnit::getPower` and projectile launch speed. The old
 `m_power` is called `damage_power`, not durability: live Vehicle damage/health
 is a different owner and remains deferred. Dynamics are changed through a
-Vehicle-owned adapter for `Dragon`, `Emveshka` and `TankGenn0..3`; it calls the
+Vehicle-owned adapter for `Dragon`, `Emveshka`, `Emveshka1` and
+`TankGenn0..5`; it calls the
 original `SEmvAttrs::update` or `SWheelsAttrs::update` so internal acceleration,
 turn and friction coefficients cannot remain stale. Mass and arbitrary legacy
 field names are excluded.
@@ -4445,3 +4446,33 @@ first reconstruction, removes it on rollback and allocates a fresh generation
 for the second. This policy is specific to the bounded transient Bullet pool;
 it is not a general license to discard clean-looking subjects from other
 owner families.
+
+## BD-118: prove Vehicle breadth by named retail vessel profile
+
+Status: accepted on 2026-08-01 after the all-Level profile gate.
+
+Visual labels such as wheeled, tracked, boat and flying are model/data traits,
+not the preserved physics ownership boundary. Retail VehicleAttr selects one
+of ten named configuration records, which attach to the three shared `g_emv`,
+`g_walk` or `g_tank` vessel owners; save layout intentionally needs only the
+EMV-versus-Wheels family. Breadth evidence therefore keys on the exact dynamic
+profile rather than guessing a chassis class from a Taxi name.
+
+The installed release data exposed three records absent from the preserved May
+dispatch: `Emveshka1`/`Emv1`, `TankGenn4`/`Tank4` and
+`TankGenn5`/`Tank5`. They are admitted only after configuration loading,
+physics attachment, collision telemetry and mod-tuning ownership agree. All
+ten names are classified; the eight names that actually occur on type-1 Taxi
+targets across the campaign form required mask `1011`.
+
+For each profile present on a Level, the service gate spawns and enters one
+representative, runs authentic lethal damage, captures the resulting falling
+ORP1 state, restores the pre-destruction checkpoint and then restores the
+suite baseline byte-for-byte before the next representative. A cockpit is not
+invented for a valid panel-less Vehicle: ready/open panel state is captured and
+must be restored exactly. This closes diagnostic destruction breadth, not
+public campaign restart/repair or full per-class weapon/HUD acceptance.
+
+Accepted evidence is 66/66 CTest in each configuration, 18/18 ordinary retail
+starts, 18/18 fresh continuations with profile mask `1011` in both
+configurations, and 2/2 native-window destruction/recovery.

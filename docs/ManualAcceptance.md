@@ -165,11 +165,11 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1, engine compatibility 3, is initialized with `14/4`
+- active-world format v1, engine compatibility 3, is initialized with `14/5`
   for fourteen
   Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/
   Corpse/Clock/Taxi/Orphan owner sections and four versioned semantic events,
-  then reports `14/14/4`
+  then reports `14/14/5`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `continuation_state_probe` is `1/1/12/<draws>/1`: one canonical `CLK1`
