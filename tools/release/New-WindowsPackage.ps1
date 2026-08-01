@@ -164,12 +164,25 @@ function Get-RelativePackagePath([string]$FullName) {
     return $FullName.Substring($prefix.Length).Replace('\', '/')
 }
 
+function Get-Sha256Hex([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha256.ComputeHash($stream)
+        return [BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
 $fileRecords = @(Get-ChildItem -LiteralPath $stageRoot -Recurse -File |
     Sort-Object { Get-RelativePackagePath $_.FullName } | ForEach-Object {
         [pscustomobject][ordered]@{
             path = Get-RelativePackagePath $_.FullName
             bytes = [UInt64]$_.Length
-            sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            sha256 = Get-Sha256Hex $_.FullName
         }
     })
 $manifest = [pscustomobject][ordered]@{
@@ -209,7 +222,7 @@ finally {
     $archive.Dispose()
     $archiveStream.Dispose()
 }
-$archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+$archiveHash = Get-Sha256Hex $archivePath
 [IO.File]::WriteAllText(($archivePath + '.sha256'), "$archiveHash  $([IO.Path]::GetFileName($archivePath))`n", $utf8)
 
 $unpackParent = Join-Path $outputPath 'unpacked'
@@ -221,7 +234,7 @@ foreach ($record in $unpackedManifest.files) {
     $path = Join-Path $unpackedRoot ([string]$record.path).Replace('/', '\')
     if (-not [IO.File]::Exists($path) -or
         [UInt64](Get-Item -LiteralPath $path).Length -ne [UInt64]$record.bytes -or
-        (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$record.sha256) {
+        (Get-Sha256Hex $path) -ne [string]$record.sha256) {
         throw "Unpacked package manifest mismatch: $($record.path)"
     }
 }

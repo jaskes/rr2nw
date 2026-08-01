@@ -23,6 +23,19 @@ if (-not [IO.File]::Exists((Join-Path $packagePath 'rr2nw.exe'))) {
     throw "Package game executable not found: $packagePath"
 }
 
+function Get-Sha256Hex([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha256.ComputeHash($stream)
+        return [BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.schema -ne 1 -or $manifest.product -ne 'RR2NW' -or
     $null -eq $manifest.files) {
@@ -40,14 +53,14 @@ foreach ($record in $manifest.files) {
     if (-not $filePath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or
         -not [IO.File]::Exists($filePath) -or
         [UInt64](Get-Item -LiteralPath $filePath).Length -ne [UInt64]$record.bytes -or
-        (Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$record.sha256) {
+        (Get-Sha256Hex $filePath) -ne [string]$record.sha256) {
         throw "Package integrity check failed: $relative"
     }
 }
 
 [IO.Directory]::CreateDirectory($evidencePath) | Out-Null
 $campaignPath = Join-Path $evidencePath 'manual-campaign.csv'
-$manifestHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$manifestHash = Get-Sha256Hex $manifestPath
 $os = Get-CimInstance Win32_OperatingSystem
 $build = [int]([Version]$os.Version).Build
 $hostPlatform = if ($os.ProductType -ne 1) {

@@ -7,6 +7,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Windows package generation and its bundled manual-campaign verifier no
+  longer depend on the module-provided `Get-FileHash` cmdlet. Both now compute
+  streaming SHA-256 through the base .NET cryptography API, so the hermetic
+  package test also works in GitHub Actions' nested Windows PowerShell host.
 - Save/Load now treats owner `stable capture failed` diagnostics as a
   transient closed-boundary condition and waits for up to 120 complete frames
   instead of surfacing a terminal error after eight fast Release frames.
