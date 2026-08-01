@@ -3235,6 +3235,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   longer terminate the process with `exit(0)` and the full death/camera/save
   graph has an atomic rollback proof.
 
+### CQ-177: a closed render can still have a transiently uncapturable owner
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `DEBUG_TOOLING_CONFIRMED`.
+- Evidence: manual debug spawning on Level.02D/03N produced apparent per-type
+  failures for flying/fantasy Taxi entries, but telemetry recorded four LCN1
+  preflight failures, zero mutations and zero rollbacks. The reported owners
+  were Explosion and People; the requested Taxi start path had not run. A live
+  Explosion may retain a published particle dynamic even after the main frame
+  presentation point, while actor scheduler state can briefly reject canonical
+  capture.
+- Handling: retain the typed debug request for at most 120 subsequent closed
+  frames when LCN1 reports a frame/publication or stable-owner boundary. Keep
+  save/debug exclusion active, perform no mutation before capture and show UI
+  failure only after the bounded retry budget is exhausted. Preserve the exact
+  People codec detail in the final error.
+- Verification: the service smoke opens a real Explosion render graph, requests
+  a real Level-local Taxi spawn, requires pending/deferred state with no failure,
+  closes the graph and requires attempt two to create the deterministic object.
+  A People probe requires an exact invalid-state-stack reason and restores its
+  original stable bytes before returning.
+  A live Level.02D run accepted four consecutive catalog entries; the fifth
+  remained pending behind an Explosion rather than being rejected.
+- Revisit when: a persistent People codec reason survives all retries. Fix that
+  owner invariant in Frontier E; do not bypass LCN1 or blacklist the selected
+  vehicle type.
+
 ## Maintenance rule
 
 When a new quirk is found:

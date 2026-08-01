@@ -41,6 +41,16 @@ checkpoint. A partial failure restores the whole active world and rebases the
 live Vehicle control owner. Spawned objects use deterministic names such as
 `Debug.Taxi.0001`, which keeps save/load identity inspectable.
 
+A closed presented frame is necessary but not always sufficient for LCN1. A
+live Explosion can still own a temporarily published particle branch, and a
+People owner can be between canonical scheduler states. These are not failures
+of the selected vehicle type. The debug request remains pending and is retried
+for up to 120 subsequent closed frames. No mutation occurs before capture, and
+the UI only reports an error after the boundary remains unavailable for the
+whole retry budget. Diagnostics expose `debug_menu_deferred_commands` and
+`debug_menu_last_command_attempts`; People capture failures include the exact
+codec detail instead of only the owner name.
+
 A Level switch similarly captures the source continuation before teardown.
 The process coordinator starts the target; if construction fails, it restarts
 the source and restores the checkpoint. Command, rollback and Level-switch
@@ -65,5 +75,11 @@ boundaries are safe.
 - The service smoke enumerates the real catalog, rejects an absent attribute,
   creates one real Taxi, rejects a duplicate deterministic name and returns
   Taxi count, sound count and fingerprint exactly to baseline.
+- The service smoke deliberately leaves a real Explosion drawable published,
+  proves that debug spawn is retained rather than failed, closes the frame and
+  requires the same request to commit automatically on attempt two.
+- The People owner probe temporarily invalidates one state-stack depth,
+  requires the exact codec reason and proves byte-identical stable capture
+  after restoring the field.
 - Manual acceptance should spawn one vehicle, spawn-and-enter a second one,
   save/load the resulting world and switch away from and back to the Level.

@@ -20,6 +20,8 @@ bool PeopleActiveWorldState_ValidateStable(
     const std::vector<unsigned char> &bytes);
 bool PeopleActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes);
+bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
+    SimulationContext *context);
 bool PeopleActiveWorldState_CollectStableOwners(
     SimulationContext *context, const std::vector<unsigned char> &bytes,
     std::vector<KR_ObjectID> *owners);

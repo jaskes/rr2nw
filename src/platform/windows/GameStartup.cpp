@@ -2743,6 +2743,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(debugMenuState->completedCommands));
     log.Line("debug_menu_failed_commands=" +
              std::to_string(debugMenuState->failedCommands));
+    log.Line("debug_menu_deferred_commands=" +
+             std::to_string(debugMenuState->deferredCommands));
+    log.Line("debug_menu_last_command_attempts=" +
+             std::to_string(debugMenuState->lastCommandAttempts));
     log.Line("debug_menu_rollback_attempts=" +
              std::to_string(debugMenuState->rollbackAttempts));
     log.Line("debug_menu_rollback_completions=" +

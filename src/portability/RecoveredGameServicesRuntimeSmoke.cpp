@@ -36,6 +36,7 @@
 #include "obase/farter/FarterSubjectState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanSubjectState.h"
+#include "obase/people/PeopleActiveWorldState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/smoke/SmokerAttributeState.h"
@@ -2716,6 +2717,122 @@ bool ExerciseTaxiDebugCatalogAndSpawn(SimulationContext* context,
          TaxiSubjectState_Fingerprint(context) == baselineFingerprint;
 }
 
+bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
+  const bool configured = context != nullptr &&
+      RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{"Level.Debug"});
+  if (!configured) {
+    std::fprintf(stderr, "debug menu retry: configuration failed: %s\n",
+                 RecoveredGameServices_DebugMenuState() == nullptr
+                     ? "state unavailable"
+                     : RecoveredGameServices_DebugMenuState()
+                           ->lastError.c_str());
+    return false;
+  }
+  const int baselineTaxiCount = TaxiSubjectState_LiveCount();
+  const int baselineTaxiSounds = TaxiSubjectState_SoundCount();
+  const unsigned long long baselineTaxiFingerprint =
+      TaxiSubjectState_Fingerprint(context);
+  CViewDynamicList openFrameDynamics;
+  KR_ObjectID openFrameExplosion = KR_ObjectID::NUL();
+  const bool boundaryOpened = baselineTaxiFingerprint != 0 &&
+      OpenExplosionSaveBoundary(&openFrameDynamics, &openFrameExplosion);
+  const bool requested = boundaryOpened &&
+      RecoveredGameServices_RequestDebugVehicleSpawn(0u, false);
+  if (!boundaryOpened || !requested) {
+    std::fprintf(stderr,
+                 "debug menu retry: setup failed fingerprint=%llu "
+                 "opened=%d requested=%d explosion_live=%d error=%s\n",
+                 baselineTaxiFingerprint, boundaryOpened ? 1 : 0,
+                 requested ? 1 : 0, ExplosionSubjectState_LiveCount(),
+                 RecoveredGameServices_DebugMenuState() == nullptr
+                     ? "state unavailable"
+                     : RecoveredGameServices_DebugMenuState()
+                           ->lastError.c_str());
+    if (!openFrameExplosion.isNUL()) {
+      g_arena.endRender(ZAV_Scene());
+      openFrameDynamics.Clear(FALSE);
+      ExplosionSubjectState_ReleaseLightFrame();
+      if (context->isExist(openFrameExplosion))
+        context->removeObject(openFrameExplosion);
+    }
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+
+  const bool rejectedAtOpenBoundary =
+      !RecoveredGameServices_ProcessPendingDebugCommand();
+  const SRecoveredDebugMenuState* deferred =
+      RecoveredGameServices_DebugMenuState();
+  const bool retainedForRetry =
+      rejectedAtOpenBoundary && deferred != nullptr && deferred->pending &&
+      deferred->pendingAction == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE &&
+      deferred->pendingIndex == 0u && deferred->pendingAttempts == 1u &&
+      deferred->deferredCommands == 1u &&
+      deferred->lastCommandAttempts == 0u &&
+      deferred->requests == 1u && deferred->completedCommands == 0u &&
+      deferred->failedCommands == 0u &&
+      deferred->lastError.find("frame boundary") != std::string::npos;
+
+  g_arena.endRender(ZAV_Scene());
+  openFrameDynamics.Clear(FALSE);
+  ExplosionSubjectState_ReleaseLightFrame();
+  std::vector<unsigned char> closedExplosionState;
+  const bool boundaryClosed = ExplosionActiveWorldState_CaptureStable(
+      context, &closedExplosionState);
+  const unsigned long long closedTaxiFingerprint =
+      TaxiSubjectState_Fingerprint(context);
+  const bool completedAfterRetry =
+      retainedForRetry && boundaryClosed && closedTaxiFingerprint != 0 &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  const SRecoveredDebugMenuState* completed =
+      RecoveredGameServices_DebugMenuState();
+  const std::string spawnedName =
+      completed == nullptr ? std::string() : completed->lastObject;
+  KR_ObjectID spawned = spawnedName.empty()
+                            ? KR_ObjectID::NUL()
+                            : context->searchObject(spawnedName.c_str());
+  const bool completionState =
+      completedAfterRetry && completed != nullptr && !completed->pending &&
+      completed->pendingAttempts == 0u &&
+      completed->deferredCommands == 1u &&
+      completed->lastCommandAttempts == 2u &&
+      completed->completedCommands == 1u &&
+      completed->failedCommands == 0u &&
+      completed->spawnedVehicles == 1u &&
+      completed->rollbackAttempts == 0u && !spawned.isNUL() &&
+      context->isExist(spawned);
+
+  if (!spawned.isNUL() && context->isExist(spawned))
+    context->removeObject(spawned);
+  if (!openFrameExplosion.isNUL() && context->isExist(openFrameExplosion))
+    context->removeObject(openFrameExplosion);
+
+  const bool restored =
+      TaxiSubjectState_LiveCount() == baselineTaxiCount &&
+      TaxiSubjectState_SoundCount() == baselineTaxiSounds &&
+      TaxiSubjectState_Fingerprint(context) == closedTaxiFingerprint &&
+      ExplosionSubjectState_LiveCount() == 0;
+  const bool disabled = RecoveredGameServices_ConfigureDebugMenu(
+      false, std::vector<std::string>());
+  if (!completionState || !restored || !disabled) {
+    std::fprintf(
+        stderr,
+        "debug menu retry: retained=%d closed=%d completed=%d state=%d "
+        "restored=%d disabled=%d name=%s taxi=%d/%d sound=%d/%d "
+        "fingerprint=%llu/%llu explosion=%d\n",
+        retainedForRetry ? 1 : 0, boundaryClosed ? 1 : 0,
+        completedAfterRetry ? 1 : 0, completionState ? 1 : 0,
+        restored ? 1 : 0, disabled ? 1 : 0, spawnedName.c_str(),
+        TaxiSubjectState_LiveCount(), baselineTaxiCount,
+        TaxiSubjectState_SoundCount(), baselineTaxiSounds,
+        TaxiSubjectState_Fingerprint(context), closedTaxiFingerprint,
+        ExplosionSubjectState_LiveCount());
+  }
+  return completionState && restored && disabled;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -2838,6 +2955,12 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("Taxi debug catalog/spawn/rollback contract failed");
+  }
+  if (!PeopleActiveWorldState_ProbeDetailedCaptureFailure(
+          g_super.m_context)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("People detailed stable-capture diagnostic failed");
   }
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
@@ -4790,6 +4913,11 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("fresh-context load request guard failed");
+  }
+  if (!ExerciseDebugMenuStableBoundaryRetry(g_super.m_context)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Debug menu stable-boundary retry contract failed");
   }
 
   CViewDynamicList openFrameDynamics;

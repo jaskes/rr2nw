@@ -5,6 +5,14 @@ claim authorship of inherited Logos code or retail data.
 
 ## Unreleased
 
+### Fixed
+
+- Debug world commands no longer fail immediately when a live Explosion or
+  another serializable owner is between stable LCN1 boundaries. The typed
+  request remains pending for up to 120 closed frames, commits on the first
+  capturable boundary and reports defer/attempt telemetry; a terminal People
+  failure now includes the exact owner-codec reason.
+
 ### Added
 
 - Added an opt-in `--debug-menu` Windows surface backed by real Level-local

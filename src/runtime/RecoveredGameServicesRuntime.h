@@ -279,6 +279,9 @@ struct SRecoveredDebugMenuState {
   unsigned int requests = 0;
   unsigned int completedCommands = 0;
   unsigned int failedCommands = 0;
+  unsigned int pendingAttempts = 0;
+  unsigned int deferredCommands = 0;
+  unsigned int lastCommandAttempts = 0;
   unsigned int rollbackAttempts = 0;
   unsigned int rollbackCompletions = 0;
   unsigned int spawnedVehicles = 0;

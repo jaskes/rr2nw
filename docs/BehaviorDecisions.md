@@ -4186,3 +4186,31 @@ identify them. Raw event labels, arbitrary ObjectIDs and forced death remain
 unavailable. The latter is specifically blocked while the legacy dead-camera
 path can call `exit(0)`; debug tooling must expose defects, not convert them
 into apparently intentional process termination.
+
+## BD-109: debug mutation waits for a serializable world, not merely a closed render
+
+Status: accepted on 2026-08-01.
+
+Manual Level.02D/03N testing appeared to reject particular fantasy and flying
+Taxi types while other entries spawned. Shutdown telemetry showed a different
+boundary: all four failures occurred before mutation and before rollback while
+LCN1 reported either a live Explosion frame or a People stable-capture failure.
+The selected `TaxiAttr` had not yet been executed. A vehicle-type blacklist or
+direct spawn without backup would therefore encode a false diagnosis and
+weaken the existing transaction.
+
+A debug request now retains its typed action/index across a retryable LCN1
+preflight failure. It retries only after later fully presented frames, for a
+bounded maximum of 120 attempts. During that period it counts as deferred, not
+failed, blocks conflicting save/debug work and performs no world mutation. On
+the first capturable boundary the original request executes against a complete
+backup. Exhaustion becomes one terminal failure and reaches the native UI.
+
+The active-world capture boundary now preserves the underlying People codec
+failure text. This distinguishes a transient stable-owner boundary from a
+persistently invalid actor state and gives the later People scheduler frontier
+an actionable symbolic record/reason. A retail service regression publishes a
+real Explosion drawable, proves one deferred attempt, closes it and requires
+the same spawn to commit on attempt two with zero failure or rollback.
+The People probe independently requires the exact state-stack diagnostic and
+byte-identical capture after the temporary invalid field is restored.

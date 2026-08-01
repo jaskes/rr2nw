@@ -62,7 +62,11 @@ bool CaptureOwnerSections(SimulationContext* context,
   people.schemaVersion = 1;
   people.owner = "People";
   if (!PeopleActiveWorldState_CaptureStable(context, &people.payload)) {
-    SetFailure(failure, "People stable capture failed");
+    const char* detail = PeopleActiveWorldState_LastFailure();
+    SetFailure(failure,
+               detail != nullptr && detail[0] != '\0'
+                   ? std::string("People stable capture failed: ") + detail
+                   : "People stable capture failed");
     return false;
   }
   sections->push_back(std::move(people));

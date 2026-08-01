@@ -1373,6 +1373,15 @@ Gate: deterministic object identity, complete rollback on a rejected command,
 save/load of a spawned object, fresh switching across all nine Levels and
 diagnostic counters tied to the tested executable.
 
+Manual multi-type testing on Level.02D found that apparent helicopter/animal-
+specific spawn errors were actually timing-dependent LCN1 preflight failures:
+the selection happened while an earlier spawned object still had an open
+Explosion or People owner boundary. Debug commands now retain the typed request
+for up to 120 closed frames and commit at the first stable capture point. This
+keeps complete-world rollback as the safety rule without making vehicle choice
+depend on a coincidental frame. Persistent People failures expose their exact
+codec reason for Frontier E rather than being mislabeled as a vehicle failure.
+
 ### Frontier B: authoritative Windows input
 
 Replace the remaining legacy `CtrlSet::Translate` polling/translation seam

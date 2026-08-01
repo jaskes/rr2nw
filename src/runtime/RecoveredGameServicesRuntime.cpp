@@ -992,10 +992,16 @@ constexpr UINT kNativeDebugLevelBase = 0x7400u;
 constexpr std::size_t kMaximumNativeDebugVehicleTypes = 64u;
 constexpr std::size_t kMaximumNativeDebugLevels = 256u;
 constexpr unsigned int kMaximumStableBoundaryAttempts = 8u;
+constexpr unsigned int kMaximumDebugStableBoundaryAttempts = 120u;
 
 bool IsRetryableSaveBoundaryFailure(const std::string& detail) {
   return detail.find("frame boundary") != std::string::npos ||
          detail.find("published in a frame") != std::string::npos;
+}
+
+bool IsRetryableDebugBoundaryFailure(const std::string& detail) {
+  return IsRetryableSaveBoundaryFailure(detail) ||
+         detail.find("stable capture failed") != std::string::npos;
 }
 
 std::wstring Utf8ToWide(const std::string& text) {
@@ -1124,6 +1130,8 @@ bool StageDebugCommand(ERecoveredDebugMenuAction action,
   g_debugMenuState.pending = true;
   g_debugMenuState.pendingAction = action;
   g_debugMenuState.pendingIndex = index;
+  g_debugMenuState.pendingAttempts = 0;
+  g_debugMenuState.lastCommandAttempts = 0;
   ++g_debugMenuState.requests;
   return true;
 }
@@ -1213,6 +1221,20 @@ void RefreshNativeDebugMenu() {
     }
   }
   if (_gr_hWnd != nullptr) DrawMenuBar(_gr_hWnd);
+}
+
+bool DeferDebugCommand(ERecoveredDebugMenuAction action,
+                       std::size_t index, unsigned int attempt) {
+  if (!IsRetryableDebugBoundaryFailure(g_debugMenuState.lastError) ||
+      attempt >= kMaximumDebugStableBoundaryAttempts)
+    return false;
+  g_debugMenuState.pending = true;
+  g_debugMenuState.pendingAction = action;
+  g_debugMenuState.pendingIndex = index;
+  g_debugMenuState.pendingAttempts = attempt;
+  ++g_debugMenuState.deferredCommands;
+  RefreshNativeDebugMenu();
+  return true;
 }
 
 void DestroyNativeSaveMenu() {
@@ -1423,6 +1445,7 @@ void ResetSaveMenuSession() {
   g_debugMenuState.pending = false;
   g_debugMenuState.pendingAction = RECOVERED_DEBUG_MENU_NONE;
   g_debugMenuState.pendingIndex = 0;
+  g_debugMenuState.pendingAttempts = 0;
   g_debugMenuState.vehicleTypeCount = 0;
   g_debugMenuState.currentLevel.clear();
   g_saveMenuState.pending = false;
@@ -3254,9 +3277,11 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
   const ERecoveredDebugMenuAction action =
       g_debugMenuState.pendingAction;
   const std::size_t index = g_debugMenuState.pendingIndex;
+  const unsigned int attempt = g_debugMenuState.pendingAttempts + 1u;
   g_debugMenuState.pending = false;
   g_debugMenuState.pendingAction = RECOVERED_DEBUG_MENU_NONE;
   g_debugMenuState.pendingIndex = 0;
+  g_debugMenuState.pendingAttempts = 0;
   g_debugMenuState.lastError.clear();
   g_debugMenuState.lastAction.clear();
 
@@ -3271,6 +3296,8 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
       vehicleState.frameBegun) {
     g_debugMenuState.lastError =
         "debug command did not reach a closed Vehicle frame boundary";
+    if (DeferDebugCommand(action, index, attempt)) return false;
+    g_debugMenuState.lastCommandAttempts = attempt;
     ++g_debugMenuState.failedCommands;
     RefreshNativeDebugMenu();
     return false;
@@ -3293,6 +3320,7 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
          << "\nGround contact: " << vehicleState.touchingGround
          << "\nTaxi types: " << g_debugVehicleCatalog.size();
     g_debugMenuState.lastAction = "show-state";
+    g_debugMenuState.lastCommandAttempts = attempt;
     ++g_debugMenuState.completedCommands;
     if (_gr_hWnd != nullptr) {
       const std::wstring wide = Utf8ToWide(text.str());
@@ -3313,6 +3341,7 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
               &source, &sourceSummary)) {
         g_debugMenuState.lastError =
             RecoveredGameServices_LastLevelContinuationError();
+        if (DeferDebugCommand(action, index, attempt)) return false;
       } else {
         g_debugLevelSwitchRequest = {};
         g_debugLevelSwitchRequest.ready = true;
@@ -3323,11 +3352,13 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
         g_debugLevelSwitchRequest.sourceContinuation = std::move(source);
         g_debugLevelSwitchRequest.sourceContinuationSummary = sourceSummary;
         g_debugMenuState.lastAction = "switch-level-staged";
+        g_debugMenuState.lastCommandAttempts = attempt;
         ++g_debugMenuState.levelSwitchRequests;
         RefreshNativeDebugMenu();
         return true;
       }
     }
+    g_debugMenuState.lastCommandAttempts = attempt;
     ++g_debugMenuState.failedCommands;
     RefreshNativeDebugMenu();
     return false;
@@ -3339,6 +3370,8 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
           &backup, &backupSummary)) {
     g_debugMenuState.lastError =
         RecoveredGameServices_LastLevelContinuationError();
+    if (DeferDebugCommand(action, index, attempt)) return false;
+    g_debugMenuState.lastCommandAttempts = attempt;
     ++g_debugMenuState.failedCommands;
     RefreshNativeDebugMenu();
     return false;
@@ -3426,6 +3459,7 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
     ++g_debugMenuState.completedCommands;
   else
     ++g_debugMenuState.failedCommands;
+  g_debugMenuState.lastCommandAttempts = attempt;
   RefreshNativeDebugMenu();
   return completed;
 }

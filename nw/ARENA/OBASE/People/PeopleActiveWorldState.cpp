@@ -1001,6 +1001,28 @@ bool PeopleActiveWorldState_MatchesStable(
            current == bytes;
 }
 
+bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
+    SimulationContext *context)
+{
+    PeopleRoster roster = {};
+    std::vector<unsigned char> baseline;
+    if (!CollectRoster(context, &roster) || roster.people.empty() ||
+        !PeopleActiveWorldState_CaptureStable(context, &baseline))
+        return false;
+    People *people = roster.people.front();
+    const int stateDepth = people->m_stateSP;
+    people->m_stateSP = 0;
+    std::vector<unsigned char> rejected;
+    const bool rejectedWithDetail =
+        !PeopleActiveWorldState_CaptureStable(context, &rejected) &&
+        g_lastFailure == "People state stack depth is invalid";
+    people->m_stateSP = stateDepth;
+    std::vector<unsigned char> restored;
+    return rejectedWithDetail &&
+           PeopleActiveWorldState_CaptureStable(context, &restored) &&
+           restored == baseline;
+}
+
 bool PeopleActiveWorldState_CollectStableOwners(
     SimulationContext *context, const std::vector<unsigned char> &bytes,
     std::vector<KR_ObjectID> *owners)
