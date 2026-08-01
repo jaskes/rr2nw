@@ -1,7 +1,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 
+#include "ActorCadence.h"
 #include "mathlib.h"
 
 namespace {
@@ -47,6 +49,28 @@ int main() {
   if (!NearlyEqual(output.x, input.x) || !NearlyEqual(output.y, input.y) ||
       !NearlyEqual(output.z, input.z)) {
     return Fail("identity matrix transform diverged");
+  }
+
+  if (!NearlyEqual(rr2nw::ActorCadenceScale(0.0, 300.0), 0.2) ||
+      !NearlyEqual(rr2nw::ActorCadenceScale(300.0, 300.0), 1.2) ||
+      !NearlyEqual(rr2nw::ActorCadenceScale(540.0, 300.0), 2.0) ||
+      !NearlyEqual(rr2nw::ActorCadenceScale(3000.0, 300.0), 2.0) ||
+      !NearlyEqual(rr2nw::ActorCadenceScale(
+                       std::numeric_limits<double>::quiet_NaN(), 300.0),
+                   1.0) ||
+      !NearlyEqual(rr2nw::ActorCadenceScale(100.0, 0.0), 1.0)) {
+    return Fail("actor near/far cadence bounds diverged");
+  }
+
+  if (!NearlyEqual(rr2nw::ActorPresentationRatio(10.05, 10.0, 0.1), 0.5) ||
+      !NearlyEqual(rr2nw::ActorPresentationRatio(10.5, 10.0, 0.1), 1.0) ||
+      !NearlyEqual(rr2nw::ActorPresentationRatio(9.9, 10.0, 0.1), 0.0) ||
+      !NearlyEqual(rr2nw::ActorPresentationRatio(
+                       std::numeric_limits<double>::quiet_NaN(), 10.0, 0.1),
+                   0.0) ||
+      !NearlyEqual(rr2nw::ActorPresentationRatio(10.1, 10.0, 0.2, 0.2),
+                   0.0)) {
+    return Fail("actor presentation prediction bounds diverged");
   }
 
   std::cout << "legacy-math-smoke: OK\n";

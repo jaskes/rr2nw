@@ -7,6 +7,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- People and Tank movement presentation no longer extrapolates an old update
+  across an unbounded render-time gap. Their near/far cadence now follows one
+  bounded distance policy, and entering the visible set resets presentation
+  history without moving the authoritative actor or rewriting its events.
 - Windows package generation and its bundled manual-campaign verifier no
   longer depend on the module-provided `Get-FileHash` cmdlet. Both now compute
   streaming SHA-256 through the base .NET cryptography API, so the hermetic

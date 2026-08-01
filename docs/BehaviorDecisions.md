@@ -4502,3 +4502,33 @@ empty weapon slots, secondary ammo where present and the shipped cockpit or
 intentional no-cockpit state all execute before exact LCN1 rollback and the
 existing destruction proof. CTJ1 version 2 adds secondary fire to held state
 while decoding version 1 with that slot neutral.
+
+## BD-120: actor visibility is a presentation boundary, not a simulation clock
+
+Status: accepted on 2026-08-02 as the first Frontier E slice.
+
+People scheduled `pe_EVC_MOVE` at either a distance-scaled interval or exactly
+twice its base interval according to `m_isVisible`, which records whether the
+actor happened to render in the previous frame. Both People and Tank then
+projected the last simulation displacement using render time without an upper
+age bound. Entering the visible set could therefore expose an old far-cadence
+sample as a large visual jump even though the authoritative object position
+and event queue were valid.
+
+People and Tank now use the same finite distance scale: the preserved near
+bias is `0.2`, the far ceiling is `2.0`, invalid haze data falls back to one
+ordinary interval, and an unavailable player Vehicle conservatively selects
+the far interval. Presentation may project at most one previously confirmed
+simulation displacement. Tank additionally preserves its historical rule that
+intervals of `0.2` seconds or more are not projected. On entry to the visible
+set, each actor resets only its last presentation displacement; its position,
+movement clock, AI state and queued events remain authoritative.
+
+The policy is pure and covered at near, haze-boundary, far, invalid and stale
+timestamp cases by `legacy-math-smoke`. Debug and Release pass 66/66 CTest.
+The installed-data matrix accepts 18/18 fresh game processes across all nine
+Levels and both configurations: sixteen cases carry non-empty PEO1 rosters,
+the two legitimate `Level.07N` cases carry canonical empty rosters, and both
+`Level.04D` cases retain TAN1 marker `1/1/4/1/1/3/1/1`. This slice does not
+claim the deferred May skin opcodes, the Level.05D lift callback or a completed
+manual near/far visual pass.

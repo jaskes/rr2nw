@@ -21,6 +21,7 @@
 #include "message/sndmsg.h"
 
 #include "phisics.h"
+#include "h/ActorCadence.h"
 
 #include "enum/spaceEnum.h"
 
@@ -70,6 +71,12 @@ Tank::~Tank()
 
 void Tank::onView(double time)
 {
+   // Visibility is a presentation boundary, not permission to replay the
+   // previous far-cadence displacement.  The next UNIT_I_DRIVE sample will
+   // establish a fresh bounded prediction interval.
+   m_lastMovePos = getPosition();
+   m_lastDeltaT = 0;
+
    if(  (!m_runSmoke)  && m_attr->m_type == 1  )
    {
         KR_Event ev;

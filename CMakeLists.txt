@@ -3649,6 +3649,7 @@ add_executable(rr2nw_math_smoke
   src/portability/LegacyMathSmoke.cpp
 )
 target_link_libraries(rr2nw_math_smoke PRIVATE rr2nw_legacy_design)
+target_include_directories(rr2nw_math_smoke PRIVATE nw/ARENA/H)
 target_compile_features(rr2nw_math_smoke PRIVATE cxx_std_14)
 
 add_executable(rr2nw_tagged_file_smoke

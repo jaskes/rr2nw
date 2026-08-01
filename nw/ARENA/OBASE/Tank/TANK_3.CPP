@@ -7,6 +7,7 @@
 #include "scene.h"
 #include "phisics.h"
 #include "vehicle.h"
+#include "h/ActorCadence.h"
 
 #include "message/unitmsg.h"
 #include "message/funitmsg.h"
@@ -238,8 +239,12 @@ void Tank::model_drive(
                  getObjectID(),
                  getObjectID() ));
 
-    double haze = CViewFigure::HazeMax();
-    event.timeStamp += MODEL_TIME_DELTA_FORWARD*(Abs(g_vehicle->getPos()-getPosition())+haze*0.2)/haze;
+    const double haze = CViewFigure::HazeMax();
+    const double cadenceScale = g_vehicle == 0
+         ? 2.0
+         : rr2nw::ActorCadenceScale(
+               Abs(g_vehicle->getPos()-getPosition()), haze);
+    event.timeStamp += MODEL_TIME_DELTA_FORWARD*cadenceScale;
 
     //{{PUT_EVENT(UNIT_I_DRIVE)
     //}}END_OF_PUT_EVENT(UNIT_I_DRIVE)
@@ -424,10 +429,10 @@ void Tank::render(  CViewDynamicList &list, double ts  )
  {
     CFMatrix3x4 &m = m_skin.GetDirModify();
     getMatrix(m);
-    if(  m_lastDeltaT> 0.001 && m_lastDeltaT < 0.2 &&  ts>m_lastMoveTimeStamp )
-    m.TranslateL(
-              (ts-m_lastMoveTimeStamp)*((getPosition()-m_lastMovePos)/m_lastDeltaT)
-               );
+    const double prediction = rr2nw::ActorPresentationRatio(
+         ts, m_lastMoveTimeStamp, m_lastDeltaT, 0.2);
+    if(  prediction > 0  )
+         m.TranslateL((getPosition()-m_lastMovePos)*prediction);
     m_viewDynObj.prepareToRender();
     list.Load( &m_viewDynObj );
  }

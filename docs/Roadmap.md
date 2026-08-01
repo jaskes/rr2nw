@@ -1586,6 +1586,14 @@ construction (`ROCKOX`, `ROCKOZ`, `ROTATEOYOut`) and reconnect static callbacks
 such as the Level.05D starting lift. Use the debug menu for repeatable actor and
 mechanism positioning only after their ownership is proven.
 
+The first scheduler/presentation slice is complete: People no longer changes
+MOVE cadence from the previous frame's visibility bit, People and Tank share a
+finite distance scale, and render prediction is capped at one confirmed
+simulation displacement. Entering the visible set clears only that prediction
+sample, leaving authoritative position, queued events and the existing
+PEO1/TAN1 save records intact. Manual boundary passes, May animation opcodes and
+the Level.05D mechanism callbacks remain open in this frontier.
+
 Gate: representative robots/people/tanks animate and react at near/far
 boundaries without pose explosions; the Level.05D lift and a cross-section of
 doors/platforms run through their original scripts; all persist through save.

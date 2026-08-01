@@ -125,6 +125,7 @@ class People : public ct_Subject,
     virtual void render   ( CViewDynamicList &list, double ts );
     virtual void endRender( CViewScene *scene );
     virtual CFVector3     realPosition();
+    virtual void          onView(double time);
 
     virtual void        onEnterAudibleZone(double ts);
     virtual void        onExitAudibleZone (double ts);

@@ -19,6 +19,7 @@
 #include "i/route.i"
 #include "h/phisics.h"
 #include "h/vehicle.h"
+#include "h/ActorCadence.h"
 #include "zav.h"
 #include "Sound.h"
 #include "obase/sound/wavobj.h"
@@ -954,12 +955,12 @@ int People::receiveEvent( KR_Event &event )
                  onShoot(event.timeStamp);
         }
         
-        if(  m_isVisible  )
-        {
-             double haze = CViewFigure::HazeMax();
-             event.timeStamp += m_calcPosInc*(Abs(g_vehicle->getPos()-getPosition())+haze*0.2)/haze;
-        }
-        else event.timeStamp += m_calcPosInc*2;
+        const double haze = CViewFigure::HazeMax();
+        const double cadenceScale = g_vehicle == 0
+             ? 2.0
+             : rr2nw::ActorCadenceScale(
+                   Abs(g_vehicle->getPos()-getPosition()), haze);
+        event.timeStamp += m_calcPosInc*cadenceScale;
         issueEvent( event );
 
         // Sound
@@ -1358,6 +1359,16 @@ void People::onEnterAudibleZone(double ts)
 } 
   
  //============================================================
+void People::onView(double)
+{
+    // The hidden scheduler remains authoritative.  Discard only its stale
+    // presentation sample so the first near frame starts at the exact current
+    // position rather than projecting an old far-cadence displacement.
+    m_lastMovePos = getPosition();
+    m_lastMoveDeltaT = 0;
+}
+
+ //============================================================
 void People::render   ( CViewDynamicList &list, double ts)
 {
     if(  m_isNotCreate  )
@@ -1372,8 +1383,10 @@ void People::render   ( CViewDynamicList &list, double ts)
     m.RotateOxL(m_rotateOx);
     m.RotateOyL(m_rotateOy);
     CFVector3 np = getPosition()+CFVector3(0,m_attr->m_centerHeight,0);
-    if(  m_lastMoveDeltaT > 1e-3  )
-         np += (getPosition() - m_lastMovePos)*((ts-m_lastMoveTimeStamp)/m_lastMoveDeltaT);
+    const double prediction = rr2nw::ActorPresentationRatio(
+         ts, m_lastMoveTimeStamp, m_lastMoveDeltaT);
+    if(  prediction > 0  )
+         np += (getPosition() - m_lastMovePos)*prediction;
     m.TranslateL( np );
 
     m_viewDynObj.prepareToRender();

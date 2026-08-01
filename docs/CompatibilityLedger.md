@@ -184,8 +184,15 @@ Status vocabulary:
   meaningful-looking trailing whitespace.
 - Handling: `.gitattributes` disables automatic text normalization for `nw/**`;
   new project code and documentation use UTF-8/LF. Edited legacy files are
-  restored to CRLF before commit.
+  restored to CRLF before commit. `People/PEOPLE.CPP`, `People/PEOPLE.H` and
+  the Tank translation units remain byte-preserved examples: edits use exact
+  ASCII substitutions because UTF-8-only patching rejects their historical
+  bytes. Current `/utf-8` warnings in other inherited message headers belong
+  to the same migration debt and are not hidden by gameplay changes.
 - Revisit when: a separately reviewed source-encoding migration is proposed.
+  Inventory the actual code page per file, convert in one isolated commit and
+  prove identical compiled strings, behavior gates and retail startup before
+  deleting the byte-preserving workflow.
 
 ### CQ-016: fatal MSVC diagnostics must never wait for an invisible console
 
