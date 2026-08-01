@@ -703,17 +703,7 @@ extern SGRViewport *ZAV_Viewport();
 
 void Vehicle::openPanel(double ts)
 {
-    if(  m_panel != 0  )
-    {
-         SGRViewport *vp = m_panel->Open();
-         if(  vp!=0  )
-              GRSetViewport( vp );
-         else
-         {
-              GRSetViewport( ZAV_Viewport() );
-         }
-    }
-    else GRSetViewport( ZAV_Viewport() );
+	reconcilePanelPresentation(true);
 	if (g_preserveExternalControlSubscription)
 		return;
 	KR_Event event;
@@ -752,6 +742,25 @@ unsigned int Vehicle::panelDrawCount() const
     return m_panel == 0 ? 0 : m_panel->DrawCount();
 }
 
+bool Vehicle::reconcilePanelPresentation(bool shouldOpen)
+{
+    if (!shouldOpen)
+    {
+        if (m_panel != 0)
+            m_panel->Close();
+        GRSetViewport(ZAV_Viewport());
+        return !panelOpen();
+    }
+    if (m_panel == 0)
+    {
+        GRSetViewport(ZAV_Viewport());
+        return true;
+    }
+    SGRViewport *vp = m_panel->Open();
+    GRSetViewport(vp != 0 ? vp : ZAV_Viewport());
+    return panelOpen();
+}
+
 bool Vehicle::taxiChangeEnabled() const
 {
     return m_attr != 0 && m_attr->m_type == 0;
@@ -759,8 +768,7 @@ bool Vehicle::taxiChangeEnabled() const
 
 void Vehicle::closePanel(double ts)
 {
-    if(  m_panel != 0  )
-         m_panel->Close();
+	reconcilePanelPresentation(false);
 	if (g_preserveExternalControlSubscription)
 		return;
 	KR_Event event;

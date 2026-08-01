@@ -1119,12 +1119,12 @@ DebugMap lifecycle survive transactional restore; EVT1 also owns a typed
 diagnostics are `11/4`, `11/11/4` and
 `mission_active_world_probe=1/6/0/1/1`.
 
-Authoritative continuation state is now admitted as the twelfth `CLK1`
+Authoritative continuation state was admitted as the twelfth `CLK1`
 section plus the envelope RNG record. The clock stores the session tick,
 event/view clocks, frame delta, timer aspect and timer-clamp counters. The RNG
 uses an explicit MSVC-compatible LCG with a 32-bit state and 64-bit draw count;
 `SimulationContext`, script `RNDI/RNDF` and Tank spawn share it, while visual
-CRT randomness remains isolated. Retail diagnostics are `12/4`, `12/12/4`
+CRT randomness remains isolated. That gate's diagnostics were `12/4`, `12/12/4`
 and `continuation_state_probe=1/1/12/<draws>/1`. CTJ1 additionally proves the
 normalized command seam and local deterministic Vehicle replay. Debug and
 Release pass 56/56 CTest and the installed/mounted retail matrix passes 36/36.
@@ -1138,15 +1138,24 @@ clock and RNG state. The live Hardware path records the same contract. This is
 the replay seam, not yet a public replay player or a fixed-tick conversion.
 
 Fresh-Level reconstruction is now admitted through
-[`LCN1`](LevelContinuation.md). It combines the twelve owner/reference phases,
-EVT1, clock/RNG and a sealed CTJ1 boundary, destroys and recreates the complete
+[`LCN1`](LevelContinuation.md). It now combines thirteen owner/reference
+phases, EVT1, clock/RNG and a sealed CTJ1 boundary, destroys and recreates the
+complete
 Level service context, requires an exact recaptured admitted-world fingerprint
 and resumes the original input journal. Five real post-restore Vehicle frames
 prove movement continues without fallback. Fresh-session clock ordering and
 the live-control owner's stale `lastTime` were both corrected rather than
 hidden by a same-context test.
 
-The completed Windows gate passes 57/57 CTest in Debug and Release, 36/36
+Taxi is now the thirteenth active-world owner (`TXI1`). Fresh restore replaces
+the complete Level-local Taxi roster, including repeated retail names,
+damage/ammunition, both direction matrices and a private grounding event.
+Occupied-Vehicle continuation also reconciles the real cockpit panel,
+viewport, camera and control owner, so exiting after a save cannot leave an
+extra Taxi that survives load. AWV1 engine compatibility is 2; older
+experimental twelve-owner saves fail closed.
+
+The original completed Windows gate passed 57/57 CTest in Debug and Release, 36/36
 fresh-Level continuation runs and the independent 36/36 ordinary retail
 runtime matrix across both `E:` and `G:` roots.
 
@@ -1439,9 +1448,10 @@ Slice gate: 66/66 CTest in Debug and Release, 18/18 installed retail starts,
 real-window death/recovery 2/2. The death graph itself is exercised on every
 retail Level in the fresh matrix.
 
-Next slices: unify grounded Taxi spawn/settling and saved moving embodiment;
-then admit destruction/damage while occupying type-1 Vehicles, exact panel/HUD
-reselection and a public restart/repair policy. The debug checkpoint must not
+Next slices: complete grounded debug Taxi spawn/settling telemetry (saved
+moving embodiment and exact panel/HUD reselection are now admitted); then
+admit destruction/damage while occupying type-1 Vehicles and define a public
+restart/repair policy. The debug checkpoint must not
 be promoted into campaign behavior by accident.
 
 Gate: representative wheeled, tracked and flying vehicles spawn grounded,

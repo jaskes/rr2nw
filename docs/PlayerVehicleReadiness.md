@@ -230,3 +230,24 @@ nine retail Levels in both configurations (18/18).
 This remains a diagnostic checkpoint, not full death/respawn parity. Type-1
 Vehicle destruction, authentic campaign restart/repair, exact HUD behavior for
 every Vehicle class and grounded spawn/settling remain Frontier C work.
+
+## Occupied continuation and Taxi ownership
+
+The reported load symptom—saving in a Jeep, then appearing without it while
+the old vehicle continued ahead—now has an owned fix. The post-save F1 exit
+created an additional abandoned-body Taxi, but LCN1 did not previously include
+Taxi and therefore could not remove it during restore.
+
+TXI1 makes Taxi the thirteenth active-world section and replaces the exact
+Level-local roster. It preserves repeated retail names by occurrence order,
+TaxiAttr, pose/surface direction, damage, ammunition, frame lifecycle and the
+private grounding event. VEH1 restores the selected real panel and viewport
+after its attribute, then existing control/camera ownership resumes. The
+service proof requires exact occupied attribute, cockpit, control, camera,
+Taxi count and both world/container fingerprints after exit-and-load.
+
+This closes saved occupied embodiment and panel reselection. It does not yet
+claim type-1 destruction/respawn, debug-spawn ground quality for every flying
+or fantasy entry, or moving Vehicle velocity (the current player Vehicle is
+still required at the admitted stable frame boundary). Those are the next
+Frontier C checks.

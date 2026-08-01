@@ -305,6 +305,9 @@ bool CaptureRecord(SimulationContext *context, Vehicle *vehicle,
               });
 
     record->dead = Vehicle::m_dead ? 1 : 0;
+    if (vehicle->panelReady() &&
+        vehicle->panelOpen() != (record->dead == 0))
+        return false;
     record->currentTime = Vehicle::s_curTime;
     record->takingTaxi = Vehicle::m_isTakingTaxiNow;
     record->taxiCurrentAngle = Vehicle::m_takingTaxiCurrentAngle;
@@ -826,7 +829,8 @@ bool ApplyRecord(const StableVehicleRecord &record,
                  const ResolvedVehicleRecord &resolved)
 {
     Vehicle *vehicle = resolved.vehicle;
-    if (!ApplyAttribute(vehicle, resolved.attribute))
+    if (!vehicle->reconcilePanelPresentation(false) ||
+        !ApplyAttribute(vehicle, resolved.attribute))
         return false;
     const void *vessel = record.vessel.kind == RECOVERED_VEHICLE_VESSEL_EMV
                              ? static_cast<const void *>(&record.vessel.emv)
@@ -877,6 +881,8 @@ bool ApplyRecord(const StableVehicleRecord &record,
     Vehicle::m_spZ = record.spawnZ;
     Vehicle::m_currentTaxiPos = record.currentTaxiPosition;
     Vehicle::m_currentTaxiOurPos = record.currentTaxiVehiclePosition;
+    if (!vehicle->reconcilePanelPresentation(record.dead == 0))
+        return false;
     if (record.name == "Vehicle.Default")
         g_vehicle = vehicle;
     return true;

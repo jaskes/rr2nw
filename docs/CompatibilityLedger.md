@@ -2676,7 +2676,8 @@ Status vocabulary:
   the service proof occurs after a normal completed frame, before deliberate
   stall/effect probes.
 - Verification: the service smoke captures after 24 frames, destroys and
-  recreates the context, restores all `12/12` phases, recaptures the exact
+  recreates the context, restores all thirteen owner/reference phases,
+  recaptures the exact
   world fingerprint and advances five real Vehicle frames with two newly
   appended controls, no fallback and clean shutdown. LCN1 content/Level/target
   mismatch is rejected before world mutation and post-mutation failure invokes
@@ -3343,6 +3344,34 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: type-1 Vehicle destruction, public campaign respawn or a
   persistent multi-death checkpoint policy is implemented. The current
   checkpoint is process-local and single-use.
+
+### CQ-182: Taxi names are not unique and Taxi is mutable save state
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `SAVE_CONTRACT_CONFIRMED`.
+- Evidence: an occupied Level.03N continuation captured 92 Taxi owners. F1
+  exit created the abandoned body as Taxi 93; restoring the twelve-owner world
+  reconstructed Vehicle/panel/camera fields but retained all 93 Taxi objects.
+  Retail inspection also found many distinct subjects sharing the literal
+  name `Taxi.Obj`. The first TXI1 preflight exposed a finite inherited
+  `m_lastMoveTimeStamp` of `-6.27744e+66`, proving Taxi construction depended
+  on pooled memory.
+- Handling: TXI1 is the thirteenth required owner section and replaces the
+  complete Taxi roster transactionally. Equal symbolic names retain stable
+  class-table occurrence order. Each record owns TaxiAttr, position, current
+  and stored direction, damage, ammunition, visibility/audibility frame state
+  and an optional private grounding event. Taxi explicitly initializes the
+  inherited frame fields. VEH1 separately reconciles the real panel/viewport
+  after its attribute is restored.
+- Compatibility: AWV1 format remains version 1, but engine compatibility is 2.
+  Pre-TXI1 experimental saves reject during decode rather than mutating a
+  thirteen-owner target and rolling it back later.
+- Verification: the occupied service path exits after capture and requires
+  exact Taxi count, Vehicle attribute, panel, control, camera, world and
+  container fingerprints after restore. Debug and Release pass 66/66 CTest
+  and every installed retail Level passes fresh reconstruction (9/9 each).
+- Revisit when: a Taxi gains another private scheduler label, mutable sound
+  playback phase, physics velocity or cross-owner reference. Extend TXI1; do
+  not infer identity from a supposedly unique retail object name.
 
 ## Maintenance rule
 

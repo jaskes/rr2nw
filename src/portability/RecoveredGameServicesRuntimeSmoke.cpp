@@ -1123,6 +1123,108 @@ bool ExerciseInteractiveTaxiHandoff() {
          RecoveredGameServices_VehicleIgnoredEvents() == 0;
 }
 
+bool ExerciseOccupiedVehicleContinuation() {
+  SimulationContext* context = g_super.m_context;
+  if (context == nullptr ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u)
+    return false;
+  KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
+  Vehicle* vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
+      context->queryInterface(vehicleID, IVehicleIID));
+  SRecoveredVehicleRuntimeState occupied = {};
+  if (vehicle == nullptr ||
+      !VehicleRuntimeState_Inspect(context, vehicleID, &occupied))
+    return false;
+  // Levels without a usable Taxi leave the default body active. Their empty
+  // embodiment is covered by the ordinary continuation path below.
+  if (vehicle->taxiChangeEnabled()) return true;
+
+  const KR_ObjectID occupiedAttribute = occupied.attribute;
+  const bool panelReady = vehicle->panelReady();
+  const bool panelOpen = vehicle->panelOpen();
+  const int taxiCount = TaxiSubjectState_LiveCount();
+  std::vector<std::uint8_t> continuation;
+  SLevelContinuationSummary captured;
+  if ((panelReady && !panelOpen) || taxiCount < 0 ||
+      !RecoveredGameServices_CaptureLevelContinuation(
+          &continuation, &captured) || !captured.ready)
+    return false;
+
+  const bool exitRequested = SendHardwareButton("F1", TRUE) &&
+      SendHardwareButton("F1", FALSE);
+  bool exited = false;
+  for (int frame = 0; exitRequested && frame < 120; ++frame) {
+    if (!RunVehicleFrameAfter(0.025) ||
+        !VehicleRuntimeState_Inspect(context, vehicleID, &occupied))
+      break;
+    if (vehicle->taxiChangeEnabled()) {
+      exited = true;
+      break;
+    }
+  }
+
+  SLevelContinuationSummary restored;
+  const bool restoreAccepted = exited &&
+      RecoveredGameServices_RestoreLevelContinuation(
+          continuation, &restored);
+  vehicleID = context->searchObject("Vehicle.Default");
+  vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
+      context->queryInterface(vehicleID, IVehicleIID));
+  SRecoveredVehicleRuntimeState recovered = {};
+  std::vector<std::uint8_t> recapturedBytes;
+  SLevelContinuationSummary recaptured;
+  const bool recoveredInspected = vehicle != nullptr &&
+      VehicleRuntimeState_Inspect(context, vehicleID, &recovered);
+  const bool recapturedState = restoreAccepted &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &recapturedBytes, &recaptured);
+  const bool result = restoreAccepted && restored.ready &&
+         recoveredInspected &&
+         !vehicle->taxiChangeEnabled() &&
+         recovered.attribute == occupiedAttribute &&
+         vehicle->panelReady() == panelReady &&
+         vehicle->panelOpen() == panelOpen &&
+         TaxiSubjectState_LiveCount() == taxiCount &&
+         RecoveredGameServices_VehicleControlReady() &&
+         RecoveredGameServices_VehicleActiveActionCount() == 0u &&
+         RecoveredGameServices_VehicleCameraMode() ==
+             RECOVERED_VEHICLE_CAMERA_LIVE &&
+         restored.worldFingerprint == captured.worldFingerprint &&
+         restored.containerFingerprint == captured.containerFingerprint &&
+         recapturedState && recaptured.ready &&
+         recaptured.worldFingerprint == captured.worldFingerprint &&
+         recaptured.containerFingerprint == captured.containerFingerprint;
+  if (!result) {
+    std::fprintf(
+        stderr,
+        "occupied continuation exit=%d restore=%d error=%s "
+        "restored=%d inspected=%d attr=%d/%d panel=%d/%d -> %d/%d "
+        "taxi=%d/%d control=%d actions=%u camera=%d "
+        "fingerprints=%llu/%llu %llu/%llu recapture=%d/%d "
+        "%llu/%llu\n",
+        exited ? 1 : 0, restoreAccepted ? 1 : 0,
+        RecoveredGameServices_LastLevelContinuationError(),
+        restored.ready ? 1 : 0, recoveredInspected ? 1 : 0,
+        recovered.attribute == occupiedAttribute ? 1 : 0,
+        vehicle != nullptr && !vehicle->taxiChangeEnabled() ? 1 : 0,
+        panelReady ? 1 : 0, panelOpen ? 1 : 0,
+        vehicle != nullptr && vehicle->panelReady() ? 1 : 0,
+        vehicle != nullptr && vehicle->panelOpen() ? 1 : 0,
+        TaxiSubjectState_LiveCount(), taxiCount,
+        RecoveredGameServices_VehicleControlReady() ? 1 : 0,
+        RecoveredGameServices_VehicleActiveActionCount(),
+        RecoveredGameServices_VehicleCameraMode(),
+        static_cast<unsigned long long>(restored.worldFingerprint),
+        static_cast<unsigned long long>(captured.worldFingerprint),
+        static_cast<unsigned long long>(restored.containerFingerprint),
+        static_cast<unsigned long long>(captured.containerFingerprint),
+        recapturedState ? 1 : 0, recaptured.ready ? 1 : 0,
+        static_cast<unsigned long long>(recaptured.worldFingerprint),
+        static_cast<unsigned long long>(recaptured.containerFingerprint));
+  }
+  return result;
+}
+
 bool ExerciseSafeVehicleExitAndReentry() {
   SimulationContext* context = g_super.m_context;
   if (context == nullptr) return false;
@@ -4334,7 +4436,7 @@ int main(int argc, char** argv) {
       !capturedContinuation.ready || !capturedContinuation.sealedJournal ||
       !capturedContinuation.boundaryMatches ||
       !capturedContinuation.worldMatches ||
-      capturedContinuation.sections != 12 ||
+      capturedContinuation.sections != 13 ||
       capturedContinuation.worldFingerprint == 0 ||
       capturedContinuation.journalFingerprint == 0 ||
       capturedContinuation.containerFingerprint == 0 ||
@@ -4617,6 +4719,12 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("F1 Taxi handoff/panel/post-transition drive failed");
+  }
+
+  if (!ExerciseOccupiedVehicleContinuation()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("occupied Vehicle continuation/panel restore failed");
   }
 
   if (!ExerciseSafeVehicleExitAndReentry()) {
@@ -5153,9 +5261,9 @@ int main(int argc, char** argv) {
       !restoredContinuation.sealedJournal ||
       !restoredContinuation.boundaryMatches ||
       !restoredContinuation.worldMatches ||
-      restoredContinuation.sections != 12 ||
-      restoredContinuation.ownerPhases != 12 ||
-      restoredContinuation.referencePhases != 12 ||
+      restoredContinuation.sections != 13 ||
+      restoredContinuation.ownerPhases != 13 ||
+      restoredContinuation.referencePhases != 13 ||
       restoredContinuation.eventPhases != restoredContinuation.events ||
       restoredContinuation.worldFingerprint !=
           capturedContinuation.worldFingerprint ||

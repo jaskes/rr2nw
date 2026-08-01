@@ -18,6 +18,7 @@
 #include "obase/spark/SparkActiveWorldState.h"
 #include "obase/smoke/SmokeActiveWorldState.h"
 #include "obase/tank/TankActiveWorldState.h"
+#include "obase/taxi/TaxiActiveWorldState.h"
 #include "obase/vehicle/VehicleActiveWorldState.h"
 #include "message/recrcenmsg.h"
 
@@ -162,6 +163,16 @@ bool CaptureOwnerSections(SimulationContext* context,
   }
   sections->push_back(std::move(clock));
 
+  SActiveWorldSection taxis = {};
+  taxis.kind = EActiveWorldSectionKind::Taxi;
+  taxis.schemaVersion = 1;
+  taxis.owner = "Taxi";
+  if (!TaxiActiveWorldState_CaptureStable(context, &taxis.payload)) {
+    SetFailure(failure, TaxiActiveWorldState_LastFailure());
+    return false;
+  }
+  sections->push_back(std::move(taxis));
+
   return true;
 }
 
@@ -204,6 +215,9 @@ bool ValidateOwnerCodec(const SActiveWorldSection& section) {
     case EActiveWorldSectionKind::Clock:
       return section.owner == "Clock" &&
              ClockActiveWorldState_ValidateStable(section.payload);
+    case EActiveWorldSectionKind::Taxi:
+      return section.owner == "Taxi" &&
+             TaxiActiveWorldState_ValidateStable(section.payload);
     default:
       return false;
   }
@@ -240,6 +254,8 @@ bool OwnerMatchesWorld(SimulationContext* context,
                                                    section.payload);
     case EActiveWorldSectionKind::Clock:
       return ClockActiveWorldState_MatchesStable(section.payload);
+    case EActiveWorldSectionKind::Taxi:
+      return TaxiActiveWorldState_MatchesStable(context, section.payload);
     default:
       return false;
   }
@@ -251,7 +267,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       : context_(context), snapshot_(nullptr), rejectValidation_(rejectValidation),
         began_(false), committed_(false), rolledBack_(false), ownerPhases_(0),
         referencePhases_(0), eventPhases_(0), rollbackClean_(false),
-        replacedTransientOwners_(false) {}
+        replacedReplaceableOwners_(false) {}
 
   bool Begin(const SActiveWorldSnapshot& snapshot,
              std::string* failure) override {
@@ -268,6 +284,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     missionBackup_.clear();
     peopleBackup_.clear();
     tankBackup_.clear();
+    taxiBackup_.clear();
     bulletBackup_.clear();
     explosionBackup_.clear();
     sparkBackup_.clear();
@@ -283,6 +300,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdMissionRoutes_.clear();
     createdPeople_.clear();
     createdTanks_.clear();
+    createdTaxis_.clear();
     createdBullets_.clear();
     createdExplosions_.clear();
     createdSparks_.clear();
@@ -290,7 +308,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdCorpses_.clear();
     createdClocks_.clear();
     createdSemanticOwners_.clear();
-    replacedTransientOwners_ = false;
+    replacedReplaceableOwners_ = false;
     for (const SActiveWorldSection& section : snapshot.sections)
       if (!ValidateOwnerCodec(section)) {
         SetFailure(failure,
@@ -304,6 +322,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !MissionActiveWorldState_CaptureStable(context_, &missionBackup_) ||
         !PeopleActiveWorldState_CaptureStable(context_, &peopleBackup_) ||
         !TankActiveWorldState_CaptureStable(context_, &tankBackup_) ||
+        !TaxiActiveWorldState_CaptureStable(context_, &taxiBackup_) ||
         !BulletActiveWorldState_CaptureStable(context_, &bulletBackup_) ||
         !ExplosionActiveWorldState_CaptureStable(context_,
                                                   &explosionBackup_) ||
@@ -323,7 +342,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     std::vector<KR_ObjectID> liveSparks;
     std::vector<KR_ObjectID> liveSmokes;
     std::vector<KR_ObjectID> liveCorpses;
-    if (!BulletActiveWorldState_CollectStableOwners(
+    std::vector<KR_ObjectID> liveTaxis;
+    if (!TaxiActiveWorldState_CollectStableOwners(
+            context_, taxiBackup_, &liveTaxis) ||
+        !BulletActiveWorldState_CollectStableOwners(
             context_, bulletBackup_, &liveBullets) ||
         !ExplosionActiveWorldState_CollectStableOwners(
             context_, explosionBackup_, &liveExplosions) ||
@@ -334,7 +356,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !CorpseActiveWorldState_CollectStableOwners(
             context_, corpseBackup_, &liveCorpses)) {
       SetFailure(failure,
-                 "active-world transient owner teardown preflight failed");
+                 "active-world replaceable owner teardown preflight failed");
       began_ = false;
       return false;
     }
@@ -378,12 +400,13 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       began_ = false;
       return false;
     }
-    // Effect rosters are expected to differ between the save point and the
-    // load point. Their codecs already own complete reconstruction and private
+    // Taxi and effect rosters are expected to differ between the save point
+    // and the load point. Their codecs own complete reconstruction and private
     // event teardown, so replace them after the live backup and clock preapply
     // instead of requiring coincidentally identical object names. Rollback
     // reconstructs these exact backup payloads before applying references.
-    replacedTransientOwners_ = true;
+    replacedReplaceableOwners_ = true;
+    TaxiActiveWorldState_RemoveStableOwners(context_, &liveTaxis);
     CorpseActiveWorldState_RemoveStableOwners(context_, &liveCorpses);
     SmokeActiveWorldState_RemoveStableOwners(context_, &liveSmokes);
     SparkActiveWorldState_RemoveStableOwners(context_, &liveSparks);
@@ -449,6 +472,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         created = ClockActiveWorldState_CreateStableOwners(
             context_, section.payload, &createdClocks_);
         break;
+      case EActiveWorldSectionKind::Taxi:
+        created = TaxiActiveWorldState_CreateStableOwners(
+            context_, section.payload, &createdTaxis_);
+        break;
       default:
         break;
     }
@@ -487,6 +514,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("active-world Mission allocation failed: ") +
                        MissionActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Taxi &&
+               TaxiActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("active-world Taxi allocation failed: ") +
+                       TaxiActiveWorldState_LastFailure());
       else
         SetFailure(failure, "active-world owner allocation failed");
       return false;
@@ -549,6 +581,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           resolved = ClockActiveWorldState_ApplyStableReferences(
               section.payload);
           break;
+        case EActiveWorldSectionKind::Taxi:
+          resolved = TaxiActiveWorldState_ApplyStableReferences(
+              context_, section.payload);
+          break;
         default:
           break;
       }
@@ -588,6 +624,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("Mission symbolic reconstruction failed: ") +
                        MissionActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Taxi &&
+               TaxiActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("Taxi symbolic reconstruction failed: ") +
+                       TaxiActiveWorldState_LastFailure());
       else
         SetFailure(failure, std::string("symbolic owner references do not ") +
                                 "match the live graph: " + section.owner);
@@ -617,7 +658,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           clockMetadataMatches = ClockActiveWorldState_MetadataMatches(
               section.payload, snapshot_->simulationTick,
               snapshot_->simulationTime);
-    if (!began_ || snapshot_ == nullptr || staged_.size() != 12 ||
+    if (!began_ || snapshot_ == nullptr || staged_.size() != 13 ||
         ActiveWorldSave_ComputeWorldFingerprint(*snapshot_) !=
             expectedWorldFingerprint ||
         !clockMetadataMatches ||
@@ -660,6 +701,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       // to decode and would prevent the queue from rolling back atomically.
       clean = ActiveWorldSemanticEvents_Clear(context_, nullptr) && clean;
       createdSemanticOwners_.clear();
+      TaxiActiveWorldState_RemoveStableOwners(context_, &createdTaxis_);
       CorpseActiveWorldState_RemoveStableOwners(context_, &createdCorpses_);
       ClockActiveWorldState_RemoveStableOwners(context_, &createdClocks_);
       MissionActiveWorldState_RemoveStableOwners(
@@ -679,12 +721,16 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       // reconstruction itself did not drift the boundary.
       clean = ClockActiveWorldState_ApplyStableReferences(
                   clockBackup_) && clean;
-      if (replacedTransientOwners_) {
+      if (replacedReplaceableOwners_) {
         std::vector<KR_ObjectID> restoredBullets;
         std::vector<KR_ObjectID> restoredExplosions;
         std::vector<KR_ObjectID> restoredSparks;
         std::vector<KR_ObjectID> restoredSmokes;
         std::vector<KR_ObjectID> restoredCorpses;
+        std::vector<KR_ObjectID> restoredTaxis;
+        clean = TaxiActiveWorldState_CreateStableOwners(
+                    context_, taxiBackup_, &restoredTaxis) &&
+                clean;
         clean = BulletActiveWorldState_CreateStableOwners(
                     context_, bulletBackup_, &restoredBullets) &&
                 clean;
@@ -707,6 +753,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, tankGroupBackup_) && clean;
       clean = VehicleActiveWorldState_ApplyStableReferences(
                   context_, vehicleBackup_) && clean;
+      clean = TaxiActiveWorldState_ApplyStableReferences(
+                  context_, taxiBackup_) && clean;
       clean = PeopleActiveWorldState_ApplyStableReferences(
                   context_, peopleBackup_) && clean;
       clean = TankActiveWorldState_ApplyStableReferences(
@@ -739,6 +787,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
               TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
               VehicleActiveWorldState_MatchesStable(context_, vehicleBackup_) &&
+              TaxiActiveWorldState_MatchesStable(context_, taxiBackup_) &&
               MissionActiveWorldState_MatchesStable(
                   context_, missionBackup_) &&
               PeopleActiveWorldState_MatchesStable(context_, peopleBackup_) &&
@@ -766,7 +815,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 12 &&
+    return began_ && committed_ && !rolledBack_ && staged_.size() == 13 &&
            snapshot_ != nullptr && stagedEvents_.size() ==
                snapshot_->events.size() &&
            ActiveWorldSemanticEvents_Matches(context_, stagedEvents_) &&
@@ -779,6 +828,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
            createdTankGroups_.empty() && createdVehicles_.empty() &&
            createdMissionRoutes_.empty() &&
            createdPeople_.empty() && createdTanks_.empty() &&
+           createdTaxis_.empty() &&
            createdBullets_.empty() && createdExplosions_.empty() &&
            createdSparks_.empty() && createdSmokes_.empty() &&
            createdCorpses_.empty() && createdClocks_.empty() &&
@@ -794,6 +844,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                             createdVehicles_.size() +
                             createdMissionRoutes_.size() +
                             createdPeople_.size() + createdTanks_.size() +
+                            createdTaxis_.size() +
                             createdBullets_.size() +
                             createdExplosions_.size() +
                             createdSparks_.size() +
@@ -813,7 +864,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   int referencePhases_;
   int eventPhases_;
   bool rollbackClean_;
-  bool replacedTransientOwners_;
+  bool replacedReplaceableOwners_;
   std::vector<SActiveWorldSection> staged_;
   std::vector<std::uint8_t> commanderBackup_;
   std::vector<std::uint8_t> tankGroupBackup_;
@@ -821,6 +872,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> missionBackup_;
   std::vector<std::uint8_t> peopleBackup_;
   std::vector<std::uint8_t> tankBackup_;
+  std::vector<std::uint8_t> taxiBackup_;
   std::vector<std::uint8_t> bulletBackup_;
   std::vector<std::uint8_t> explosionBackup_;
   std::vector<std::uint8_t> sparkBackup_;
@@ -836,6 +888,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<KR_ObjectID> createdMissionRoutes_;
   std::vector<KR_ObjectID> createdPeople_;
   std::vector<KR_ObjectID> createdTanks_;
+  std::vector<KR_ObjectID> createdTaxis_;
   std::vector<KR_ObjectID> createdBullets_;
   std::vector<KR_ObjectID> createdExplosions_;
   std::vector<KR_ObjectID> createdSparks_;

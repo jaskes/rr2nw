@@ -7,6 +7,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Occupied-Vehicle save/load no longer leaves the dropped Taxi behind or
+  restores only the reticle without the selected cockpit panel. LCN1 now
+  replaces the exact Taxi roster and the Vehicle owner reconciles the real
+  panel/viewport presentation after attribute reconstruction.
+- Taxi subjects now initialize their inherited frame timestamp and visibility
+  fields deterministically. Retail levels previously inherited arbitrary
+  pooled-memory `m_lastMoveTimeStamp` values, including huge negative values.
 - Player death no longer dereferences the urgent-message font before the game
   console has completed its presentation initialization. Full game sessions
   retain the recovered death message; headless/service owners skip only that
@@ -27,6 +34,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the versioned `TXI1` active-world owner as LCN1 section 13. It records
+  each Level-local Taxi's symbolic occurrence, attribute, pose, stored surface
+  direction, damage, ammunition, visibility/audibility lifecycle and private
+  grounding event, and replaces that roster transactionally on restore and
+  rollback. Debug and Release fresh-continuation matrices pass all nine
+  installed Levels (`9/9` each).
+- Advanced AWV1 engine compatibility to 2 so pre-TXI1 experimental saves fail
+  closed during decode instead of entering a partial twelve-owner restore.
 - Added transactional **Kill player** and **Restore before debug death**
   commands to the opt-in Windows Debug menu. The first command requires the
   living default body and neutral controls, captures a pre-death LCN1

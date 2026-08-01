@@ -109,7 +109,7 @@ foreach ($configurationName in $Configuration) {
             } else { "" }
             $proof = [regex]::Match(
                 $stdout,
-                'level_continuation=LCN1-12/12/12 events=(\d+)/(\d+) tick=(\d+) time=([0-9.]+) world=(\d+) journal=(\d+) container=(\d+) save_slot=RR2SLOT1-(\d+)-(\d+) bytes=(\d+) preview=PNG-(\d+)/(\d+) resumed_actions=(\d+) load_retry=(\d+)/(\d+)')
+                'level_continuation=LCN1-13/13/13 events=(\d+)/(\d+) tick=(\d+) time=([0-9.]+) world=(\d+) journal=(\d+) container=(\d+) save_slot=RR2SLOT1-(\d+)-(\d+) bytes=(\d+) preview=PNG-(\d+)/(\d+) resumed_actions=(\d+) load_retry=(\d+)/(\d+)')
             $issues = [Collections.Generic.List[string]]::new()
             if ($timedOut) { $issues.Add("timeout") }
             # Windows PowerShell 5.1 can expose a null ExitCode when

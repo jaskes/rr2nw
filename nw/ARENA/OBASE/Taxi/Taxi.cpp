@@ -117,6 +117,12 @@ Taxi::Taxi()
     m_damage = 0.0;
     m_bulletCnt = 0;
     m_taxiDir.LoadIdentity();
+    // ct_Subject's legacy POD leaves these frame-lifecycle fields untouched.
+    // A random last-move timestamp makes visibility/land-dynamic behavior
+    // depend on pooled memory and cannot be serialized deterministically.
+    m_audibleThisFrame = 0;
+    m_isVisible = 0;
+    m_lastMoveTimeStamp = 0.0;
     m_attr = 0;//&__defaultAttr;
     m_askin = 0;
     m_wav = 0;

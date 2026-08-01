@@ -305,7 +305,7 @@ int main() {
   Player* restoredPlayer = restoredVehicle == nullptr ? nullptr :
       &static_cast<Player&>(restoredVehicle->player());
   const bool fresh = restored.ready && restored.createdOwners == 4 &&
-      restored.ownerPhases == 12 && restored.referencePhases == 12 &&
+      restored.ownerPhases == 13 && restored.referencePhases == 13 &&
       restored.clockRecords == 1 && restored.rngAlgorithm == 1 &&
       restored.rngStateBytes == 12 &&
       SUA_SimulationClockMatches(capturedClock) &&

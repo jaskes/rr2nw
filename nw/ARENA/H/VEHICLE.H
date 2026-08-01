@@ -271,6 +271,7 @@ public:
     bool         panelReady     () const;
     bool         panelOpen      () const;
     unsigned int panelDrawCount () const;
+    bool         reconcilePanelPresentation(bool shouldOpen);
     bool         taxiChangeEnabled() const;
     bool         forcePlayerDeath(double ts);
     static void  preserveExternalControlSubscription(bool preserve);

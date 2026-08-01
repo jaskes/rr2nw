@@ -126,10 +126,11 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1 is initialized with `12/4` for twelve
+- active-world format v1, engine compatibility 2, is initialized with `13/4`
+  for thirteen
   Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/
-  Corpse/Clock owner sections and four versioned semantic events, then reports
-  `12/12/4`
+  Corpse/Clock/Taxi owner sections and four versioned semantic events, then
+  reports `13/13/4`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `continuation_state_probe` is `1/1/12/<draws>/1`: one canonical `CLK1`

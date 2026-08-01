@@ -145,7 +145,7 @@ int wmain(int argc, wchar_t** argv) {
   if (!Expect(argc == 2, "expected one output path")) return EXIT_FAILURE;
 
   SActiveWorldSnapshot source;
-  source.engineCompatibility = 1;
+  source.engineCompatibility = ActiveWorldSave_EngineCompatibilityVersion();
   source.contentFingerprint = UINT64_C(0x1122334455667788);
   source.simulationTick = 1532;
   source.simulationTime = 51.25;
@@ -204,7 +204,8 @@ int wmain(int argc, wchar_t** argv) {
     return EXIT_FAILURE;
   }
   std::vector<std::uint8_t> futureEngine = encoded;
-  futureEngine[12] = 2;
+  futureEngine[12] = static_cast<std::uint8_t>(
+      ActiveWorldSave_EngineCompatibilityVersion() + 1);
   PutU64At(&futureEngine, bodySize, HashPrefix(futureEngine, bodySize));
   if (!Expect(!ActiveWorldSave_Decode(futureEngine, &decoded, &status) &&
                   status.error ==

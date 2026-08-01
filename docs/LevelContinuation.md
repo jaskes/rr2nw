@@ -62,7 +62,7 @@ The service-level restore sequence is:
 3. detach the admitted semantic event queue;
 4. pre-apply the saved `CLK1` boundary before owner references can compare
    saved timestamps with a new session's near-zero clock;
-5. run all twelve owner-allocation phases and all twelve symbolic-reference
+5. run all thirteen owner-allocation phases and all thirteen symbolic-reference
    phases, then rebuild every admitted `EVT1` record;
 6. apply and verify the saved RNG, commit, and non-mutatingly recapture the
    admitted world;
@@ -96,7 +96,7 @@ applies the old `LCN1`.
 
 Acceptance requires:
 
-- twelve owner and twelve reference phases;
+- thirteen owner and thirteen reference phases;
 - event restore phases equal the captured `EVT1` count;
 - exact source/recaptured admitted-world fingerprint;
 - exact sealed journal and container fingerprints;
@@ -119,7 +119,9 @@ retail proof with a real atomic disk slot.
 
 The fingerprint covers the admitted dynamic world: Commander, TankGroup,
 People, Tank/Cannon, Vehicle, Player mission state, Bullet, Explosion, Spark,
-Smoke, Corpse/DynSmoker, Clock, simulation RNG and supported semantic events.
+Smoke, Corpse/DynSmoker, Clock, Taxi, simulation RNG and supported semantic
+events. `TXI1` preserves repeated retail Taxi names by stable occurrence order
+inside each equal-name group; uniqueness is not assumed.
 Level resources and derived renderer/audio caches are reloaded, not serialized.
 Live owner families outside that admitted set require their own section before
 they may cross a public save boundary.

@@ -11,7 +11,7 @@
 namespace {
 
 constexpr std::uint32_t kFormatVersion = 1;
-constexpr std::uint32_t kEngineCompatibilityVersion = 1;
+constexpr std::uint32_t kEngineCompatibilityVersion = 2;
 constexpr std::size_t kMaximumFileBytes = 64u * 1024u * 1024u;
 constexpr std::size_t kMaximumStringBytes = 4096;
 constexpr std::size_t kMaximumMods = 256;
@@ -86,7 +86,7 @@ bool IsKnownKind(EActiveWorldSectionKind kind) {
   return value >= static_cast<std::uint32_t>(
                       EActiveWorldSectionKind::Commander) &&
          value <= static_cast<std::uint32_t>(
-                      EActiveWorldSectionKind::Clock);
+                      EActiveWorldSectionKind::Taxi);
 }
 
 bool ValidString(const std::string& value, bool allowEmpty) {

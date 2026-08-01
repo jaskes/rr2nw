@@ -3034,6 +3034,7 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
 
 add_library(rr2nw_arena_obase_taxi_full STATIC
   nw/ARENA/OBASE/Taxi/Taxi.cpp
+  nw/ARENA/OBASE/Taxi/TaxiActiveWorldState.cpp
   nw/ARENA/OBASE/Taxi/Taxi.h
   nw/ARENA/OBASE/Taxi/TaxiSubjectState.h
 )

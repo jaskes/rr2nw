@@ -3495,7 +3495,7 @@ is backed up as another LCN1 before mutation. The saved clock is pre-applied
 before owner references because restored Vehicle timestamps may be far ahead of
 a new session; rollback pre-applies the backup clock for the inverse reason.
 
-After the twelve owner and twelve reference phases plus EVT1 commit, restore
+After the thirteen owner and thirteen reference phases plus EVT1 commit, restore
 non-mutatingly recaptures the admitted world and requires the exact source
 fingerprint. The live Vehicle-control owner is then rebased to the restored
 Vehicle timestamp and adopts the derived focus/held lifecycle from CTJ1 before
@@ -4319,3 +4319,28 @@ presentation lifetime out of simulation ownership. Acceptance reconstructs a
 captured dead world before recovery, passes the real native window in Debug
 and Release (2/2), and passes all nine retail Levels in both configurations
 (18/18). Type-1 Vehicle destruction and public restart remain future slices.
+
+## BD-113: Taxi is a replaceable owner and equal names use occurrence order
+
+Status: accepted on 2026-08-01 as the occupied-continuation slice.
+
+A Taxi is not immutable Level decoration. F1 removes one while entering and
+creates one while exiting; damage can remove another and debug tooling can add
+one. Leaving the roster outside LCN1 allowed any post-save exit to survive a
+load as an extra abandoned vehicle, even though Vehicle state itself matched.
+Taxi therefore joins Bullet/Explosion/Spark/Smoke/Corpse as a roster replaced
+after a live backup and restored from that backup on rollback.
+
+Retail scripts legitimately reuse the same Taxi object name. TXI1 keeps the
+stable class-table order within an equal-name group and uses that occurrence
+ordinal as part of identity. It does not rename retail objects or require a
+symbolic uniqueness rule the data never promised. The record includes the
+two matrices needed by surface alignment plus the optional private grounding
+event, so restore does not merely respawn a visual shell.
+
+Vehicle panel presentation is reconciled from saved living/dead state after
+the attribute applies; Hardware subscription remains owned by the existing
+control transition. AWV1 engine compatibility advances to 2 because a
+twelve-owner save cannot describe the Taxi mutations required for exact
+restore. This is a clean fail-closed boundary for experimental saves, not a
+claim of retail-save import support.

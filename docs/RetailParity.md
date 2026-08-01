@@ -1262,11 +1262,12 @@ remain required. Explicit damage/death records
 remain conditional on finding a genuinely queued transition rather than the
 already captured synchronous owner mutations.
 
-The current admission gate publishes twelve owner sections and twelve
+The current admission gate publishes thirteen owner sections and thirteen
 owner/reference phases and successful mission/effect rollback proofs through
 MSH1 plus EVT1. `CLK1` and the envelope RNG state additionally preserve the
-authoritative continuation boundary. CTJ1 adds the accepted normalized control
-stream and a local Vehicle replay proof without changing the twelve owner
+authoritative continuation boundary. `TXI1` owns the complete Taxi roster.
+CTJ1 adds the accepted normalized control
+stream and a local Vehicle replay proof without changing the thirteen owner
 phases. Debug and Release pass 56/56 CTest and
 the installed/mounted matrix passes 36/36. The bounded probes leave Player missions and all Corpse,
 DynSmoker, Smoke, Spark, Explosion and Bullet pools at baseline before the
@@ -1353,7 +1354,7 @@ playable Level begins.
   fixtures. The retail proof captures after 24 real Vehicle frames, finishes
   the existing combat/Taxi/embodiment suite, destroys the complete Level
   context and starts the same Level normally from retail resources.
-- Restore runs twelve owner and twelve reference phases plus every captured
+- Restore runs thirteen owner and thirteen reference phases plus every captured
   EVT1 record, recaptures the admitted world without mutation and requires the
   exact source fingerprint. It then rebases the live controller, resumes CTJ1,
   accepts a new forward press/release and moves through five real frames with
@@ -1649,6 +1650,29 @@ playable Level begins.
   the nine-Level Debug/Release continuation matrix is 18/18.
 - Destroyed occupied Taxi behavior, public respawn/repair and every Vehicle
   panel class remain unclaimed and must not inherit this debug-only policy.
+
+### RP-VEHICLE-003: occupied continuation owns Taxi roster and cockpit
+
+- Classification: `PORTABILITY_FIX_ACCEPTED`, `SAVE_CONTRACT_EXTENDED`,
+  `RETAIL_ROSTER_PRESERVED`.
+- Retail Taxi names are not unique: multiple live subjects may all be named
+  `Taxi.Obj`. `TXI1` therefore identifies equal-name owners by stable
+  class-table occurrence order and records the TaxiAttr, exact position, live
+  and stored direction matrices, damage, secondary ammunition, visibility,
+  audibility timing and any private `t_EVC_MOVING` grounding event.
+- Restore replaces the complete current Taxi roster before reconstructing the
+  saved one. This removes the dropped Taxi created by an F1 exit after the
+  save point and prevents a duplicate vehicle from surviving load. Rollback
+  rebuilds the exact pre-transaction roster and private events.
+- VEH1 now reconciles the actual CGRPanel and viewport after restoring a
+  Vehicle attribute. An occupied save returns to its cockpit panel, control
+  subscriber and camera rather than showing only the aiming reticle.
+- Taxi construction initializes the inherited visibility/audibility frame
+  state and `m_lastMoveTimeStamp`; the old pooled-memory value was observed as
+  a huge negative finite number and could not be a deterministic owner state.
+- AWV1 engine compatibility is 2. Pre-TXI1 experimental saves fail closed at
+  decode. Verification is 66/66 CTest in Debug and Release plus 9/9 fresh
+  destroyed-context Levels per configuration on the installed retail root.
 
 ## Binary analysis boundary
 

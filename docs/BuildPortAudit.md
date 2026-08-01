@@ -3084,7 +3084,7 @@ Transactional restore backs up both globals before owner allocation, applies
 the saved RNG at validation and restores clock/RNG last during rollback.
 Standalone smoke coverage fixes the known first sequence `41, 18467, 6334`,
 proves exact continuation, and proves malformed RNG and invalid clock records
-do not mutate live state. Runtime diagnostics are `12/4`, `12/12/4` and
+do not mutate live state. That gate's diagnostics were `12/4`, `12/12/4` and
 `continuation_state_probe=1/1/12/<draws>/1`. Debug and Release pass 55/55
 CTest; both retail roots across all nine Levels pass 36/36.
 
@@ -3142,8 +3142,9 @@ and journal if any later proof or adoption fails.
 
 The real service smoke now performs two complete Level lifecycles. It captures
 after 24 normal Vehicle frames, tears down and reconstructs services, restores
-all 12/12 phases, compares a non-mutating whole admitted-world recapture and
-then drives five more frames while appending two controls. The dedicated
+all thirteen owner/reference phases, compares a non-mutating whole admitted-
+world recapture and then drives five more frames while appending two controls.
+The dedicated
 `Invoke-FreshLevelContinuationMatrix.ps1` harness repeats this proof for the
 configured retail Levels and retains per-case output plus a CSV summary.
 
@@ -3228,3 +3229,34 @@ commands through a real window in Debug and Release. The expanded fresh-Level
 matrix passes 18/18 across the nine installed Levels. This admits a diagnostic
 death/recovery transaction only; occupied Vehicle destruction and campaign
 respawn remain separate owners.
+
+## TXI1 Taxi roster and occupied-Vehicle continuation
+
+The occupied save/load regression exposed a missing active-world owner rather
+than a Vehicle-only field bug. F1 creates a Taxi for the abandoned body; the
+old twelve-section LCN1 restored Vehicle state without replacing Taxi, leaving
+that post-save object alive. The world fingerprint could not detect the extra
+owner because Taxi was outside the snapshot.
+
+`TXI1` is now the thirteenth AWV1 section. It records each live Taxi's symbolic
+name occurrence, TaxiAttr, position, current and stored surface matrices,
+damage, ammunition, visibility/audibility lifecycle and optional private
+`t_EVC_MOVING` event. Retail levels reuse `Taxi.Obj`, so canonical order is a
+stable class-table occurrence inside equal names rather than a fabricated
+uniqueness rule. Restore and rollback both replace the whole roster and
+rebuild exact private events.
+
+VEH1 also reconciles the real panel presentation after applying its saved
+attribute, independently of Hardware subscription ownership. The occupied
+continuation proof exits after capture, observes a changed Taxi roster, then
+restores exact Vehicle attribute, CGRPanel/viewport, control, camera, Taxi
+count and world/container fingerprints.
+
+The codec immediately exposed an inherited `ct_Subject` field that Taxi never
+initialized: `m_lastMoveTimeStamp` was observed as `-6.27744e+66`. Taxi now
+initializes its audible/visible/timestamp frame state, removing pooled-memory
+input from visibility, land dynamics and save identity. AWV1 engine
+compatibility advances to 2 so older experimental twelve-owner saves are
+rejected before mutation. Final evidence is 66/66 CTest in each configuration,
+18/18 installed retail starts and 9/9 destroyed-context retail Levels in both
+Debug and Release, plus 2/2 real-window input and death/recovery gates.

@@ -145,7 +145,7 @@ attempts; deferred attempts do not display an error or count as new user
 requests. A terminal format, compatibility or transaction error is reported
 immediately.
 
-The LCN1 transaction also replaces the reconstructible transient
+The LCN1 transaction also replaces the reconstructible Taxi and transient
 `Bullet`/`Explosion`/`Spark`/`Smoke`/`Corpse` rosters after capturing the
 target-session backup. A save point and load point therefore need not contain
 the same short-lived effect object names. Successful load keeps the saved
@@ -215,14 +215,14 @@ proves the edit controls and their default flow; actual keyboard entry,
 including Cyrillic text, remains in the manual acceptance pass.
 
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
-`LCN1-12/12/12`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
+`LCN1-13/13/13`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
 
-The accepted local Windows gate is 59/59 CTest in Debug and Release, 18/18
-RR2SLOT1 destroyed-context cases and 18/18 independent ordinary retail runtime
-cases across all nine installed Levels and both configurations. The mounted
-disc root was not available for this tranche and is therefore not included in
-the new slot claim.
+The current accepted local Windows gate is 66/66 CTest in Debug and Release,
+18/18 RR2SLOT1 destroyed-context cases and 18/18 independent ordinary retail
+runtime cases across all nine installed Levels and both configurations. The
+mounted disc root was not available for this tranche and is therefore not
+included in the slot claim.
 
 ## Next gate
 
