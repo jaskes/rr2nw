@@ -2847,6 +2847,152 @@ bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
   return completionState && restored && disabled;
 }
 
+bool ExerciseDebugDeathLifecycle(SimulationContext* context) {
+  if (context == nullptr ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u)
+    return false;
+  KR_ObjectID initialVehicle =
+      context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState initialState = {};
+  const int baselineCorpses = CorpseSubjectState_LiveCount();
+  const unsigned int baselineSuppressed =
+      RecoveredGameServices_VehicleSuppressedInputCount();
+  std::vector<std::uint8_t> baselineContinuation;
+  SLevelContinuationSummary baselineSummary;
+  const bool baselineState = !initialVehicle.isNUL() &&
+      baselineCorpses >= 0 && VehicleRuntimeState_Inspect(
+          context, initialVehicle, &initialState) &&
+      !initialState.dead && !initialState.takingTaxi;
+  const bool baselineCaptured = baselineState &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &baselineContinuation, &baselineSummary) &&
+      baselineSummary.ready && baselineSummary.worldFingerprint != 0 &&
+      baselineSummary.containerFingerprint != 0;
+  const bool configured = baselineCaptured &&
+      RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{"Level.Debug.Death"});
+  const bool requested = configured &&
+      RecoveredGameServices_RequestDebugKillPlayer();
+  const bool processed = requested &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  if (!processed) {
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+  KR_ObjectID deadVehicle =
+      context->searchObject("Vehicle.Default");
+  Vehicle* deadObject = deadVehicle.isNUL()
+                            ? nullptr
+                            : static_cast<Vehicle*>(
+                                  context->queryInterface(
+                                      deadVehicle, IVehicleIID));
+  SRecoveredVehicleRuntimeState deadState = {};
+  SRecoveredVehicleCameraTelemetry deadCamera = {};
+  const SRecoveredDebugMenuState* killed =
+      RecoveredGameServices_DebugMenuState();
+  std::vector<std::uint8_t> deadContinuation;
+  SLevelContinuationSummary deadSummary;
+  const bool deadInspected = deadObject != nullptr &&
+      VehicleRuntimeState_Inspect(context, deadVehicle, &deadState);
+  KR_ObjectID control = context->searchObject("RecoveredVehicleControl");
+  KR_Event deadInput;
+  deadInput.source = context->searchObject("Hardware");
+  deadInput.destination = control;
+  deadInput.label = CTRL_BUTTONS_MSG;
+  deadInput.timeStamp = deadState.lastTime;
+  deadInput.data.open(EDO_WRITE)
+      .putInt(MOVE_FORWARD)
+      .putDouble(1.0)
+      .putInt(0)
+      .putInt(FALSE)
+      .close();
+  if (deadInspected && !control.isNUL() && !deadInput.source.isNUL())
+    context->sendEventNow(deadInput);
+  const bool deadInputSuppressed = deadInspected && !control.isNUL() &&
+      !deadInput.source.isNUL() &&
+      RecoveredGameServices_VehicleSuppressedInputCount() ==
+          baselineSuppressed + 1u &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+  const bool killedState = deadInspected &&
+      deadInputSuppressed &&
+      deadState.dead && deadState.takingTaxi &&
+      !deadObject->panelOpen() &&
+      CorpseSubjectState_LiveCount() == baselineCorpses + 1 &&
+      VehicleRuntimeState_InspectCamera(context, &deadCamera) &&
+      deadCamera.mode == RECOVERED_VEHICLE_CAMERA_DEATH_ASCENT &&
+      deadCamera.deathFrames == 1u &&
+      killed != nullptr && killed->preDeathCheckpointAvailable &&
+      killed->requests == 1u && killed->completedCommands == 1u &&
+      killed->failedCommands == 0u && killed->forcedDeaths == 1u &&
+      killed->deathCorpseCreations == 1u &&
+      killed->deathCameraProofs == 1u &&
+      killed->deathSaveProofs == 1u &&
+      killed->restoredPreDeathCheckpoints == 0u &&
+      killed->deathWorldFingerprint != 0 &&
+      killed->deathContinuationFingerprint != 0 &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &deadContinuation, &deadSummary) &&
+      deadSummary.ready &&
+      deadSummary.worldFingerprint == killed->deathWorldFingerprint &&
+      deadSummary.containerFingerprint ==
+          killed->deathContinuationFingerprint;
+  if (!killedState) {
+    RecoveredGameServices_RequestDebugRestorePreDeath();
+    RecoveredGameServices_ProcessPendingDebugCommand();
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+  SLevelContinuationSummary reconstructedDead;
+  const bool deadRoundTrip =
+      RecoveredGameServices_RestoreLevelContinuation(
+          deadContinuation, &reconstructedDead);
+  KR_ObjectID reconstructedVehicle =
+      context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState reconstructedState = {};
+  if (!deadRoundTrip || !reconstructedDead.ready ||
+      reconstructedVehicle.isNUL() ||
+      !VehicleRuntimeState_Inspect(
+          context, reconstructedVehicle, &reconstructedState) ||
+      !reconstructedState.dead || !reconstructedState.takingTaxi ||
+      CorpseSubjectState_LiveCount() != baselineCorpses + 1 ||
+      !RecoveredGameServices_RequestDebugRestorePreDeath() ||
+      !RecoveredGameServices_ProcessPendingDebugCommand()) {
+    RecoveredGameServices_ConfigureDebugMenu(
+        false, std::vector<std::string>());
+    return false;
+  }
+  KR_ObjectID restoredVehicle =
+      context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState restoredState = {};
+  std::vector<std::uint8_t> restoredContinuation;
+  SLevelContinuationSummary restoredSummary;
+  const SRecoveredDebugMenuState* restored =
+      RecoveredGameServices_DebugMenuState();
+  const bool restoredStateValid = restoredVehicle == initialVehicle &&
+      VehicleRuntimeState_Inspect(
+          context, restoredVehicle, &restoredState) &&
+      !restoredState.dead && !restoredState.takingTaxi &&
+      CorpseSubjectState_LiveCount() == baselineCorpses &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &restoredContinuation, &restoredSummary) &&
+      restoredSummary.ready &&
+      restoredSummary.worldFingerprint == baselineSummary.worldFingerprint &&
+      restoredSummary.containerFingerprint ==
+          baselineSummary.containerFingerprint &&
+      restored != nullptr && !restored->preDeathCheckpointAvailable &&
+      restored->requests == 2u && restored->completedCommands == 2u &&
+      restored->failedCommands == 0u && restored->forcedDeaths == 1u &&
+      restored->restoredPreDeathCheckpoints == 1u &&
+      restored->rollbackAttempts == 0u &&
+      restored->lastAction == "restore-pre-death";
+  const bool disabled = RecoveredGameServices_ConfigureDebugMenu(
+      false, std::vector<std::string>());
+  return restoredStateValid && disabled;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -4940,6 +5086,11 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("Debug menu stable-boundary retry contract failed");
+  }
+  if (!ExerciseDebugDeathLifecycle(g_super.m_context)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("Debug death/save/recovery lifecycle failed");
   }
 
   CViewDynamicList openFrameDynamics;

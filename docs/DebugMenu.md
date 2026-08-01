@@ -22,6 +22,11 @@ The window menu bar then contains **Debug**. The first admitted command set is:
   position, speed, ground contact and the number of spawnable types;
 - **Stop and move to last stable position**: zeros the vessel and returns it to
   the modern runtime owner's last proven finite pose;
+- **Kill player (transactional)**: from the living default body, creates the
+  real Corpse, closes the panel, suppresses gameplay input, enters the finite
+  death camera and captures the resulting dead world;
+- **Restore before debug death**: restores the exact in-memory LCN1 checkpoint
+  captured before the preceding debug death and rebinds the living player;
 - **Switch Level (fresh)**: restarts any entry in the active retail/mod Level
   catalog without restoring the source world into the target.
 
@@ -36,10 +41,20 @@ instead of presenting an unsafe command.
 runtime executes it after simulation, rendering, `endRender` and presentation
 have closed the frame. Save/load and debug commands exclude each other.
 
-Before spawn, enter or stabilization, the runtime captures a complete LCN1
-checkpoint. A partial failure restores the whole active world and rebases the
-live Vehicle control owner. Spawned objects use deterministic names such as
-`Debug.Taxi.0001`, which keeps save/load identity inspectable.
+Before spawn, enter, stabilization or death, the runtime captures a complete
+LCN1 checkpoint. A partial failure restores the whole active world and rebases
+the live Vehicle control owner. Spawned objects use deterministic names such
+as `Debug.Taxi.0001`, which keeps save/load identity inspectable.
+
+Debug death is accepted only from the living type-0 default body, with no Taxi
+transition, no older checkpoint and neutral Vehicle controls. It uses the
+original `Vehicle::LeaveVehicle` path and commits only if Corpse count rises by
+one, the panel is closed, Hardware control remains subscribed, the death
+camera is finite and the complete dead world can be captured again. Non-exit
+gameplay input is suppressed while dead. **Restore before debug death** proves
+both world and container fingerprints against the stored pre-death summary,
+removes the death Corpse and returns to live camera/control ownership. The
+checkpoint is process-local, single-use and cleared on Level teardown.
 
 A closed presented frame is necessary but not always sufficient for LCN1. A
 live Explosion can still own a temporarily published particle branch, and a
@@ -59,13 +74,10 @@ counters are written to `rr2nw-startup.log` on shutdown with the
 
 ## Deliberately unavailable commands
 
-Forced Vehicle death, repair-after-death, actor spawning, mission mutation and
-raw event injection are not in this first menu contract. The process-level
-death-camera `exit(0)` has been removed and its finite terminal state is now
-proved, but that closes only the camera prerequisite. A debug "kill" action
-still needs one atomic real damage/death, corpse, panel, control and save/load
-transaction plus a defined repair/restart path. Those controls are added only
-after that lifecycle and its rollback boundary are safe.
+Destruction while occupying a type-1 Taxi, public gameplay respawn/repair,
+actor spawning, mission mutation and raw event injection remain outside this
+menu contract. The transactional kill/restore pair is a diagnostic operation,
+not a claim that campaign death/restart or damaged Vehicle parity is complete.
 
 ## Acceptance
 
@@ -82,5 +94,12 @@ after that lifecycle and its rollback boundary are safe.
 - The People owner probe temporarily invalidates one state-stack depth,
   requires the exact codec reason and proves byte-identical stable capture
   after restoring the field.
+- `Invoke-DebugDeathLifecycle.ps1` sends both commands through the real native
+  window in Debug and Release and requires one death, one Corpse, one camera
+  proof, one dead save proof, one exact restore, live final camera and clean
+  shutdown.
+- The all-Level continuation matrix executes the same death/save/reconstruct/
+  restore graph for all nine installed Levels in both configurations (18/18).
 - Manual acceptance should spawn one vehicle, spawn-and-enter a second one,
-  save/load the resulting world and switch away from and back to the Level.
+  exercise kill/restore from the default body, save/load the resulting world
+  and switch away from and back to the Level.

@@ -2820,6 +2820,25 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(debugMenuState->enteredVehicles));
     log.Line("debug_menu_stabilized_vehicles=" +
              std::to_string(debugMenuState->stabilizedVehicles));
+    log.Line("debug_menu_forced_deaths=" +
+             std::to_string(debugMenuState->forcedDeaths));
+    log.Line("debug_menu_death_corpse_creations=" +
+             std::to_string(debugMenuState->deathCorpseCreations));
+    log.Line("debug_menu_death_camera_proofs=" +
+             std::to_string(debugMenuState->deathCameraProofs));
+    log.Line("debug_menu_death_save_proofs=" +
+             std::to_string(debugMenuState->deathSaveProofs));
+    log.Line("debug_menu_restored_pre_death_checkpoints=" +
+             std::to_string(
+                 debugMenuState->restoredPreDeathCheckpoints));
+    log.Line("debug_menu_pre_death_checkpoint_available=" +
+             std::to_string(
+                 debugMenuState->preDeathCheckpointAvailable ? 1 : 0));
+    log.Line("debug_menu_death_world_fingerprint=" +
+             std::to_string(debugMenuState->deathWorldFingerprint));
+    log.Line("debug_menu_death_continuation_fingerprint=" +
+             std::to_string(
+                 debugMenuState->deathContinuationFingerprint));
     log.Line("debug_menu_level_switch_requests=" +
              std::to_string(debugMenuState->levelSwitchRequests));
     log.Line("debug_menu_completed_level_switches=" +

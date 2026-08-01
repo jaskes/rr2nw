@@ -80,9 +80,24 @@ The same shutdown log now records `vehicle_camera_mode`,
 driving should finish in live mode (`1`) with zero death frames/completions.
 Startup admission independently requires death-camera probe counts
 `1/1/2/1/3/1` for activations, ascent frames, terminal frames, completion
-transitions, finite cameras and rollbacks. Do not manufacture a manual player
-death yet: the camera process-exit prerequisite is closed, but the complete
-death/corpse/control/save transaction and repair semantics are not admitted.
+transitions, finite cameras and rollbacks.
+
+The opt-in Debug menu now admits one bounded manual death check. Start on foot
+in the default body with all keys released, choose **Debug > Kill player
+(transactional)**, observe the Corpse/death camera, then choose **Restore before
+debug death**. The second command must return to the exact living pose with the
+ordinary panel/control and without an extra Corpse. This is not the public
+campaign restart path and must not be invoked while occupying a Taxi.
+
+The repeatable real-window gate is:
+
+```powershell
+& ".\tools\acceptance\Invoke-DebugDeathLifecycle.ps1" -DataRoot "E:\Games\The Next Worlds"
+```
+
+It requires Debug and Release to report two completed commands, one forced
+death, one Corpse/camera/save proof, one restored checkpoint, non-zero dead
+world/container fingerprints, final live camera mode (`1`) and clean shutdown.
 
 ## Automated nine-Level matrix
 

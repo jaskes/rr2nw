@@ -209,7 +209,24 @@ and completion remains a finite drawable state instead of calling `exit(0)`.
 The admission proof crosses the former fatal threshold and restores all
 temporary runtime and static state.
 
-This is not yet a full death/respawn claim. Forced debug death stays disabled
-until damage, corpse publication, panel/control release, camera completion,
-save/load and repair/restart semantics participate in one rollback-safe owner
-transaction. That transaction is the next Frontier C work item.
+## Transactional debug death
+
+The second Frontier C slice now binds forced diagnostic death to one atomic
+owner transaction. It is admitted only for the living default body with
+neutral controls. The original death path publishes one Corpse, closes the
+panel and enters Taxi/death camera state; modern input suppresses all gameplay
+actions except exit while dead. A complete dead-world LCN1 capture is required
+before the mutation commits, and any partial failure restores the pre-death
+checkpoint.
+
+The paired debug recovery validates exact pre-death world and container
+fingerprints, reconstructs the living Vehicle owner, removes the Corpse and
+returns camera/control ownership. A service-context console readiness guard
+keeps the original urgent message in the full game without dereferencing an
+uninitialized message font in headless probes. Debug/Release real-window proof
+passes 2/2 and the full death/save/reconstruction/recovery graph passes all
+nine retail Levels in both configurations (18/18).
+
+This remains a diagnostic checkpoint, not full death/respawn parity. Type-1
+Vehicle destruction, authentic campaign restart/repair, exact HUD behavior for
+every Vehicle class and grounded spawn/settling remain Frontier C work.

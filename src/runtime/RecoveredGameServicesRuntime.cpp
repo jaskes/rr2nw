@@ -50,6 +50,7 @@
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
 #include "obase/bullet/BulletSubjectState.h"
+#include "obase/corpse/CorpseSubjectState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/orphan/OrphanSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
@@ -330,6 +331,19 @@ class RecoveredVehicleControlInput final : public KR_Object {
       return 1;
     }
 
+    Vehicle* controlledVehicle =
+        getContext() == nullptr || m_vehicle.isNUL()
+            ? nullptr
+            : static_cast<Vehicle*>(
+                  getContext()->queryInterface(m_vehicle, IVehicleIID));
+    if (controlledVehicle != nullptr && Vehicle::m_dead) {
+      // The original Vehicle rejects gameplay controls after death. Keep the
+      // modern semantic owner equally quiescent so a dead save cannot acquire
+      // freshly held axes which would reappear after a later recovery.
+      ++m_suppressedInputs;
+      return 1;
+    }
+
     if (action == FIRE_PRIMARY && down > 0.0)
       ++m_primaryFirePresses;
     if (action == JUMP && down > 0.0)
@@ -349,9 +363,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
 
     STaxiVehicleProximityState proximity = {};
     SRecoveredVehicleRuntimeState before = {};
-    Vehicle* currentVehicle = getContext() == nullptr || m_vehicle.isNUL() ?
-        nullptr : static_cast<Vehicle*>(
-            getContext()->queryInterface(m_vehicle, IVehicleIID));
+    Vehicle* currentVehicle = controlledVehicle;
     const bool handoffAttempt = action == CHANGE_VEHICLE && down > 0.0 &&
         currentVehicle != nullptr && currentVehicle->taxiChangeEnabled();
     const bool exitAttempt = action == CHANGE_VEHICLE && down > 0.0 &&
@@ -944,6 +956,9 @@ SRecoveredCrossLevelLoadRequest g_crossLevelLoadRequest;
 bool g_saveMenuAllowOverwrite = false;
 SRecoveredDebugMenuState g_debugMenuState;
 SRecoveredDebugLevelSwitchRequest g_debugLevelSwitchRequest;
+std::vector<std::uint8_t> g_debugPreDeathCheckpoint;
+SLevelContinuationSummary g_debugPreDeathCheckpointSummary;
+int g_debugPreDeathCorpseCount = -1;
 std::vector<std::string> g_debugLevelCatalog;
 std::vector<SRecoveredDebugVehicleType> g_debugVehicleCatalog;
 HMENU g_nativeMenuBar = nullptr;
@@ -1005,6 +1020,8 @@ constexpr UINT kNativeDebugSpawnBase = 0x7300u;
 constexpr UINT kNativeDebugSpawnEnterBase = 0x7340u;
 constexpr UINT kNativeDebugShowState = 0x7380u;
 constexpr UINT kNativeDebugStabilize = 0x7381u;
+constexpr UINT kNativeDebugKillPlayer = 0x7382u;
+constexpr UINT kNativeDebugRestorePreDeath = 0x7383u;
 constexpr UINT kNativeDebugLevelBase = 0x7400u;
 constexpr std::size_t kMaximumNativeDebugVehicleTypes = 64u;
 constexpr std::size_t kMaximumNativeDebugLevels = 256u;
@@ -1018,7 +1035,8 @@ bool IsRetryableSaveBoundaryFailure(const std::string& detail) {
 
 bool IsRetryableDebugBoundaryFailure(const std::string& detail) {
   return IsRetryableSaveBoundaryFailure(detail) ||
-         detail.find("stable capture failed") != std::string::npos;
+         detail.find("stable capture failed") != std::string::npos ||
+         detail.find("neutral Vehicle controls") != std::string::npos;
 }
 
 std::wstring Utf8ToWide(const std::string& text) {
@@ -1214,6 +1232,17 @@ void RefreshNativeDebugMenu() {
       (commandAvailable ? MF_ENABLED : MF_GRAYED | MF_DISABLED);
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugShowState, state);
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugStabilize, state);
+  const UINT killState = MF_BYCOMMAND |
+      (commandAvailable && !g_debugMenuState.preDeathCheckpointAvailable
+           ? MF_ENABLED
+           : MF_GRAYED | MF_DISABLED);
+  EnableMenuItem(g_nativeDebugMenu, kNativeDebugKillPlayer, killState);
+  const UINT restoreState = MF_BYCOMMAND |
+      (commandAvailable && g_debugMenuState.preDeathCheckpointAvailable
+           ? MF_ENABLED
+           : MF_GRAYED | MF_DISABLED);
+  EnableMenuItem(g_nativeDebugMenu, kNativeDebugRestorePreDeath,
+                 restoreState);
   if (g_nativeDebugSpawnMenu != nullptr) {
     for (std::size_t index = 0; index < g_debugVehicleCatalog.size(); ++index) {
       EnableMenuItem(g_nativeDebugSpawnMenu,
@@ -1412,6 +1441,11 @@ bool InstallNativeSaveMenu() {
                     L"Show current &state") == FALSE ||
         AppendMenuW(debugMenu, MF_STRING, kNativeDebugStabilize,
                     L"Stop and move to last stable &position") == FALSE ||
+        AppendMenuW(debugMenu, MF_SEPARATOR, 0, nullptr) == FALSE ||
+        AppendMenuW(debugMenu, MF_STRING, kNativeDebugKillPlayer,
+                    L"&Kill player (transactional)") == FALSE ||
+        AppendMenuW(debugMenu, MF_STRING, kNativeDebugRestorePreDeath,
+                    L"&Restore before debug death") == FALSE ||
         AppendMenuW(debugMenu, MF_SEPARATOR, 0, nullptr) == FALSE)
       return failDebugConstruction("native Debug actions failed");
     for (std::size_t index = 0; index < g_debugLevelCatalog.size(); ++index) {
@@ -1458,12 +1492,16 @@ bool InstallNativeSaveMenu() {
 void ResetSaveMenuSession() {
   DestroyNativeSaveMenu();
   g_debugVehicleCatalog.clear();
+  g_debugPreDeathCheckpoint.clear();
+  g_debugPreDeathCheckpointSummary = {};
+  g_debugPreDeathCorpseCount = -1;
   g_debugMenuState.nativeMenuInstalled = false;
   g_debugMenuState.pending = false;
   g_debugMenuState.pendingAction = RECOVERED_DEBUG_MENU_NONE;
   g_debugMenuState.pendingIndex = 0;
   g_debugMenuState.pendingAttempts = 0;
   g_debugMenuState.vehicleTypeCount = 0;
+  g_debugMenuState.preDeathCheckpointAvailable = false;
   g_debugMenuState.currentLevel.clear();
   g_saveMenuState.pending = false;
   g_saveMenuState.pendingAction = RECOVERED_SAVE_MENU_NONE;
@@ -1555,6 +1593,18 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
   }
   if (command == kNativeDebugStabilize) {
     if (!RecoveredGameServices_RequestDebugStabilizeVehicle())
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeDebugKillPlayer) {
+    if (!RecoveredGameServices_RequestDebugKillPlayer())
+      ShowNativeDebugFailure();
+    *result = 0;
+    return true;
+  }
+  if (command == kNativeDebugRestorePreDeath) {
+    if (!RecoveredGameServices_RequestDebugRestorePreDeath())
       ShowNativeDebugFailure();
     *result = 0;
     return true;
@@ -3371,6 +3421,9 @@ bool RecoveredGameServices_ConfigureDebugMenu(
                                 : std::vector<std::string>();
   g_debugVehicleCatalog.clear();
   g_debugLevelSwitchRequest = {};
+  g_debugPreDeathCheckpoint.clear();
+  g_debugPreDeathCheckpointSummary = {};
+  g_debugPreDeathCorpseCount = -1;
   if (enabled && g_sessionReady && !BuildDebugVehicleCatalog()) {
     Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
     return false;
@@ -3417,6 +3470,21 @@ bool RecoveredGameServices_RequestDebugShowState() {
 
 bool RecoveredGameServices_RequestDebugStabilizeVehicle() {
   return StageDebugCommand(RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE, 0u);
+}
+
+bool RecoveredGameServices_RequestDebugKillPlayer() {
+  return StageDebugCommand(RECOVERED_DEBUG_MENU_KILL_PLAYER, 0u);
+}
+
+bool RecoveredGameServices_RequestDebugRestorePreDeath() {
+  if (!g_debugMenuState.preDeathCheckpointAvailable ||
+      g_debugPreDeathCheckpoint.empty()) {
+    g_debugMenuState.lastError =
+        "no committed debug-death checkpoint is available";
+    return false;
+  }
+  return StageDebugCommand(
+      RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH, 0u);
 }
 
 bool RecoveredGameServices_RequestDebugLevelSwitch(std::size_t index) {
@@ -3477,6 +3545,10 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
          << "\nSpeed: " << vehicleState.speed.x << ", "
          << vehicleState.speed.y << ", " << vehicleState.speed.z
          << "\nGround contact: " << vehicleState.touchingGround
+         << "\nDead: " << vehicleState.dead
+         << "\nTaxi/death transform: " << vehicleState.takingTaxi
+         << "\nPre-death checkpoint: "
+         << (g_debugMenuState.preDeathCheckpointAvailable ? 1 : 0)
          << "\nTaxi types: " << g_debugVehicleCatalog.size();
     g_debugMenuState.lastAction = "show-state";
     g_debugMenuState.lastCommandAttempts = attempt;
@@ -3523,6 +3595,31 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
     return false;
   }
 
+  if (action == RECOVERED_DEBUG_MENU_KILL_PLAYER) {
+    Vehicle* controlled = static_cast<Vehicle*>(
+        g_super.m_context->queryInterface(vehicle, IVehicleIID));
+    if (g_debugMenuState.preDeathCheckpointAvailable ||
+        !g_debugPreDeathCheckpoint.empty()) {
+      g_debugMenuState.lastError =
+          "restore the existing pre-death checkpoint before killing again";
+    } else if (vehicleState.dead || vehicleState.takingTaxi ||
+               controlled == nullptr ||
+               !controlled->taxiChangeEnabled()) {
+      g_debugMenuState.lastError =
+          "debug death requires the living default player body";
+    } else if (g_vehicleControlInput.ActiveActionCount() != 0u) {
+      g_debugMenuState.lastError =
+          "debug death requires neutral Vehicle controls";
+      if (DeferDebugCommand(action, index, attempt)) return false;
+    }
+    if (!g_debugMenuState.lastError.empty()) {
+      g_debugMenuState.lastCommandAttempts = attempt;
+      ++g_debugMenuState.failedCommands;
+      RefreshNativeDebugMenu();
+      return false;
+    }
+  }
+
   std::vector<std::uint8_t> backup;
   SLevelContinuationSummary backupSummary;
   if (!RecoveredGameServices_CaptureLevelContinuation(
@@ -3546,6 +3643,86 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
     if (!completed)
       g_debugMenuState.lastError =
           "Vehicle runtime rejected last-stable-position recovery";
+  } else if (action == RECOVERED_DEBUG_MENU_KILL_PLAYER) {
+    const int corpseBaseline = CorpseSubjectState_LiveCount();
+    const double eventTime =
+        (std::max)(0.1, (std::max)(Session::m_viewTime,
+                                  vehicleState.lastTime));
+    Vehicle* controlled = static_cast<Vehicle*>(
+        g_super.m_context->queryInterface(vehicle, IVehicleIID));
+    CFMatrix3x4 deathCamera;
+    std::vector<std::uint8_t> deadContinuation;
+    SLevelContinuationSummary deadSummary;
+    g_levelContinuationFailure.clear();
+    mutationStarted = true;
+    const bool deathMutated = corpseBaseline >= 0 &&
+        controlled != nullptr &&
+        VehicleRuntimeState_DebugKill(g_super.m_context, eventTime);
+    const bool deathOwned = deathMutated &&
+        CorpseSubjectState_LiveCount() == corpseBaseline + 1 &&
+        !controlled->panelOpen() && g_vehicleControlInput.IsSubscribed();
+    const bool cameraReady = deathOwned &&
+        VehicleRuntimeState_BuildCamera(g_super.m_context, &deathCamera);
+    const bool deathCaptured = cameraReady &&
+        RecoveredGameServices_CaptureLevelContinuation(
+            &deadContinuation, &deadSummary);
+    completed = deathCaptured && deadSummary.ready &&
+        deadSummary.worldFingerprint != 0 &&
+        deadSummary.containerFingerprint != 0;
+    if (completed) {
+      g_debugPreDeathCheckpoint = backup;
+      g_debugPreDeathCheckpointSummary = backupSummary;
+      g_debugPreDeathCorpseCount = corpseBaseline;
+      g_debugMenuState.preDeathCheckpointAvailable = true;
+      g_debugMenuState.deathWorldFingerprint =
+          deadSummary.worldFingerprint;
+      g_debugMenuState.deathContinuationFingerprint =
+          deadSummary.containerFingerprint;
+      ++g_debugMenuState.forcedDeaths;
+      ++g_debugMenuState.deathCorpseCreations;
+      ++g_debugMenuState.deathCameraProofs;
+      ++g_debugMenuState.deathSaveProofs;
+      g_debugMenuState.lastAction = "kill-player";
+    } else {
+      g_debugMenuState.lastError =
+          RecoveredGameServices_LastLevelContinuationError();
+      if (g_debugMenuState.lastError.empty())
+        g_debugMenuState.lastError =
+            "real player death lifecycle did not reach a saveable state";
+    }
+  } else if (action == RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH) {
+    mutationStarted = true;
+    SLevelContinuationSummary restored;
+    completed = g_debugMenuState.preDeathCheckpointAvailable &&
+        !g_debugPreDeathCheckpoint.empty() &&
+        g_debugPreDeathCorpseCount >= 0 &&
+        RecoveredGameServices_RestoreLevelContinuation(
+            g_debugPreDeathCheckpoint, &restored);
+    SRecoveredVehicleRuntimeState restoredVehicle = {};
+    completed = completed && restored.ready &&
+        restored.worldFingerprint ==
+            g_debugPreDeathCheckpointSummary.worldFingerprint &&
+        restored.containerFingerprint ==
+            g_debugPreDeathCheckpointSummary.containerFingerprint &&
+        VehicleRuntimeState_Inspect(
+            g_super.m_context, vehicle, &restoredVehicle) &&
+        !restoredVehicle.dead && !restoredVehicle.takingTaxi &&
+        CorpseSubjectState_LiveCount() == g_debugPreDeathCorpseCount &&
+        g_vehicleControlInput.IsSubscribed();
+    if (completed) {
+      g_debugPreDeathCheckpoint.clear();
+      g_debugPreDeathCheckpointSummary = {};
+      g_debugPreDeathCorpseCount = -1;
+      g_debugMenuState.preDeathCheckpointAvailable = false;
+      ++g_debugMenuState.restoredPreDeathCheckpoints;
+      g_debugMenuState.lastAction = "restore-pre-death";
+    } else {
+      g_debugMenuState.lastError =
+          RecoveredGameServices_LastLevelContinuationError();
+      if (g_debugMenuState.lastError.empty())
+        g_debugMenuState.lastError =
+            "pre-death checkpoint restore did not rebind the live player";
+    }
   } else if (action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE ||
              action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE) {
     if (index >= g_debugVehicleCatalog.size()) {

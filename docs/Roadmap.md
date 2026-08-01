@@ -1411,7 +1411,8 @@ and shutdown is clean. The complete gate is 66/66 CTest in each configuration,
 
 ### Frontier C: coherent Vehicle embodiment and death
 
-Status: in progress. The first bounded camera slice is complete.
+Status: in progress. The bounded camera and transactional default-body death
+slices are complete.
 
 Unify Taxi spawn height, ground settling, panel/HUD selection, camera ownership,
 entry/exit, destroyed Vehicle behaviour and player death. Remove the legacy
@@ -1424,12 +1425,24 @@ Death ascent is a finite, maximum-50-ms step, clamps to the exact combined haze
 distance and becomes a reusable terminal camera state; it cannot terminate the
 process. A retail probe crosses the former exit threshold, observes exactly one
 completion transition and rolls back Vehicle statics, time and the active
-runtime owner. A forced debug kill remains closed until the real death,
-corpse/panel/control and save/rollback graph is one transaction.
+runtime owner.
+
+The Debug menu can now execute the real default-body death graph as one
+transaction: pre-death LCN1, one Corpse, closed panel, retained subscription,
+finite death camera and an independently captured dead world. Gameplay input
+is suppressed while dead. Its paired single-use recovery restores exact
+pre-death fingerprints and live camera/control ownership. The service proof
+also reconstructs the saved dead state before recovery.
 
 Slice gate: 66/66 CTest in Debug and Release, 18/18 installed retail starts,
-18/18 destroyed-context fresh continuations and the real-window input/camera
-regression 2/2.
+18/18 destroyed-context fresh continuations, real-window input/camera 2/2 and
+real-window death/recovery 2/2. The death graph itself is exercised on every
+retail Level in the fresh matrix.
+
+Next slices: unify grounded Taxi spawn/settling and saved moving embodiment;
+then admit destruction/damage while occupying type-1 Vehicles, exact panel/HUD
+reselection and a public restart/repair policy. The debug checkpoint must not
+be promoted into campaign behavior by accident.
 
 Gate: representative wheeled, tracked and flying vehicles spawn grounded,
 enter/exit without camera escape, retain the correct panel, fire, take damage,

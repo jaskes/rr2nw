@@ -997,7 +997,8 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 		m_currentTaxiOurPos = - g_vehicle->Pos();
 		
 		m_lastEventTime   = Session::m_moment;
-                g_GameConsole.PrintUrgent("You're dead, loser!", 40, GameConsole::CENTER);
+                if (g_GameConsole.MessagesReady())
+                     g_GameConsole.PrintUrgent("You're dead, loser!", 40, GameConsole::CENTER);
 
 		// труп
 
@@ -1034,7 +1035,15 @@ void Vehicle::LeaveVehicle(double ts, BOOL makeOrphan)
 	setAttr( event );
 	openPanel(ts);
 	
-    SetDir(tdir);		
+    SetDir(tdir);
+}
+
+bool Vehicle::forcePlayerDeath(double ts)
+{
+	if (m_dead || m_attr == 0 || m_attr->m_type != 0)
+		return false;
+	LeaveVehicle(ts, TRUE);
+	return m_dead && m_isTakingTaxiNow != 0;
 }
 
 void  Vehicle::onSetTaxi( KR_Event & event)

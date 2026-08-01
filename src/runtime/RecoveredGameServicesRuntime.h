@@ -261,7 +261,9 @@ enum ERecoveredDebugMenuAction {
   RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE = 2,
   RECOVERED_DEBUG_MENU_SHOW_STATE = 3,
   RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE = 4,
-  RECOVERED_DEBUG_MENU_SWITCH_LEVEL = 5
+  RECOVERED_DEBUG_MENU_SWITCH_LEVEL = 5,
+  RECOVERED_DEBUG_MENU_KILL_PLAYER = 6,
+  RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH = 7
 };
 
 struct SRecoveredDebugVehicleType {
@@ -289,6 +291,14 @@ struct SRecoveredDebugMenuState {
   unsigned int spawnedVehicles = 0;
   unsigned int enteredVehicles = 0;
   unsigned int stabilizedVehicles = 0;
+  unsigned int forcedDeaths = 0;
+  unsigned int deathCorpseCreations = 0;
+  unsigned int deathCameraProofs = 0;
+  unsigned int deathSaveProofs = 0;
+  unsigned int restoredPreDeathCheckpoints = 0;
+  bool preDeathCheckpointAvailable = false;
+  std::uint64_t deathWorldFingerprint = 0;
+  std::uint64_t deathContinuationFingerprint = 0;
   unsigned int levelSwitchRequests = 0;
   unsigned int completedLevelSwitches = 0;
   unsigned int levelSwitchRollbacks = 0;
@@ -458,6 +468,8 @@ bool RecoveredGameServices_RequestDebugVehicleSpawn(
     std::size_t index, bool enterVehicle);
 bool RecoveredGameServices_RequestDebugShowState();
 bool RecoveredGameServices_RequestDebugStabilizeVehicle();
+bool RecoveredGameServices_RequestDebugKillPlayer();
+bool RecoveredGameServices_RequestDebugRestorePreDeath();
 bool RecoveredGameServices_RequestDebugLevelSwitch(std::size_t index);
 bool RecoveredGameServices_ProcessPendingDebugCommand();
 bool RecoveredGameServices_DebugLevelSwitchPending();

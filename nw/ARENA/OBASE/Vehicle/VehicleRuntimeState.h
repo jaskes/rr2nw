@@ -65,6 +65,8 @@ struct SRecoveredVehicleRuntimeState
     int dynamicCollisionFrameCount;
     int stabilityRecoveryCount;
     int lastStabilityReason;
+    int dead;
+    int takingTaxi;
 };
 
 struct SRecoveredVehicleMovementProbeSummary
@@ -161,6 +163,8 @@ bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context);
 // the runtime owner's proven last-stable pose and leaves the same Vehicle
 // object/attribute under live-control ownership.
 bool VehicleRuntimeState_DebugStabilize(SimulationContext *context);
+bool VehicleRuntimeState_DebugKill(
+    SimulationContext *context, double eventTime);
 bool VehicleRuntimeState_BeginFrame(SimulationContext *context);
 bool VehicleRuntimeState_CompleteFrame(
     SimulationContext *context, double targetTime);

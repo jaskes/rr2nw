@@ -74,6 +74,7 @@ public:
    void Print(const char *str, double timeToDisplay = 4, const char *fontName = NULL);
    void PrintUrgent(const char *str, double timeToDisplay = 4, int aligin = NORMAL, int bkColor = -1, const char *fontName = NULL);
    void PrintFrame(const char *str, int aligin = NORMAL);
+   bool MessagesReady() const { return m_msgFontI != NULL; }
    void DeleteUrgentMessge() { m_urgentMsg.text[0] = 0; }
 
    void SetPrompt(const char *str) {

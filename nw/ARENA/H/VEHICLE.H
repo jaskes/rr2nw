@@ -272,6 +272,7 @@ public:
     bool         panelOpen      () const;
     unsigned int panelDrawCount () const;
     bool         taxiChangeEnabled() const;
+    bool         forcePlayerDeath(double ts);
     static void  preserveExternalControlSubscription(bool preserve);
     void         onChangeVehicle(double ts);
     void         onFire         ( double timeStamp );

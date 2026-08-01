@@ -1632,6 +1632,24 @@ playable Level begins.
   corpse or respawn parity. Verification is 66/66 CTest per configuration,
   18/18 retail starts, 18/18 fresh continuations and 2/2 real-window runs.
 
+### RP-VEHICLE-002: default-body debug death is saveable and reversible
+
+- Classification: `SOURCE_PATH_PRESERVED`, `DEBUG_TRANSACTION_ADDED`,
+  `CAMPAIGN_RESPAWN_UNCLAIMED`.
+- Only the recovered type-0 default-body branch is admitted. It retains
+  `LeaveVehicle` Corpse creation, panel close and Taxi/death camera state; the
+  modern owner adds preflight, complete-world checkpoints and rollback around
+  those effects rather than substituting a synthetic death.
+- A committed death contains exactly one additional Corpse and a valid LCN1
+  dead-world fingerprint. Gameplay input is suppressed while dead. The paired
+  debug command restores the exact pre-death world/container identity and
+  returns to live camera/control with the original Corpse count.
+- The service probe independently restores the captured dead continuation
+  before recovering the living checkpoint. The real-window gate is 2/2 and
+  the nine-Level Debug/Release continuation matrix is 18/18.
+- Destroyed occupied Taxi behavior, public respawn/repair and every Vehicle
+  panel class remain unclaimed and must not inherit this debug-only policy.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

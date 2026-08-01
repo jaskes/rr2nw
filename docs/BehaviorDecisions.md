@@ -4287,8 +4287,35 @@ infer respawn, repair or process termination.
 Admission temporarily activates the real retail Vehicle, crosses the former
 exit threshold, requires three finite camera matrices and one completion edge,
 then restores the process-wide Vehicle fields, session clock and active owner.
-This admits the camera prerequisite only. Debug kill stays unavailable until
-the complete death/corpse/panel/control/save transaction has rollback proof.
+This slice admitted the camera prerequisite only and left debug kill
+unavailable until the complete death/corpse/panel/control/save transaction had
+rollback proof. BD-112 records the later transaction that satisfies that gate.
 The accepted slice passes 66/66 CTest in each configuration, 18/18 ordinary
 retail starts, 18/18 destroyed-context fresh continuations and 2/2 real-window
 input/camera runs.
+
+## BD-112: diagnostic player death commits only with a recoverable world
+
+Status: accepted on 2026-08-01 as the second Frontier C slice.
+
+The Debug menu does not synthesize `m_dead` or call the legacy mutation from
+WndProc. It stages a typed command for the closed frame boundary, requires the
+living type-0 body and neutral controls, and first captures the entire LCN1
+world. It then invokes the original `LeaveVehicle` death path. One additional
+Corpse, closed panel, retained control subscription, finite death camera and a
+second complete dead-world capture are all commit conditions. Any partial
+mutation restores the first checkpoint.
+
+While dead, the modern Vehicle input owner suppresses gameplay commands rather
+than journaling held or newly injected actions; exit remains available. The
+paired recovery restores the first LCN1 checkpoint and accepts it only when
+both recorded fingerprints, living state, Corpse baseline and control binding
+match. The checkpoint is in-memory and single-use so this diagnostic contract
+cannot silently define campaign respawn or a persistent repair mechanic.
+
+The graphical owner retains the recovered urgent death message. Headless
+service contexts skip it until the console message font is ready, keeping
+presentation lifetime out of simulation ownership. Acceptance reconstructs a
+captured dead world before recovery, passes the real native window in Debug
+and Release (2/2), and passes all nine retail Levels in both configurations
+(18/18). Type-1 Vehicle destruction and public restart remain future slices.

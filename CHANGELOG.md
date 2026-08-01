@@ -7,6 +7,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Player death no longer dereferences the urgent-message font before the game
+  console has completed its presentation initialization. Full game sessions
+  retain the recovered death message; headless/service owners skip only that
+  unavailable presentation side effect.
 - Vehicle death-camera ascent no longer terminates the process after crossing
   the haze distance. It advances through a finite, capped state transition,
   clamps at the exact terminal height and remains drawable on later frames.
@@ -23,6 +27,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added transactional **Kill player** and **Restore before debug death**
+  commands to the opt-in Windows Debug menu. The first command requires the
+  living default body and neutral controls, captures a pre-death LCN1
+  checkpoint, executes the real Corpse/panel/control/camera graph and admits
+  the result only after a second dead-world capture succeeds. The second
+  command restores the exact pre-death world and rebinds live control.
+- Added dead-input suppression, dead-world reconstruction and exact recovery
+  coverage to the retail service smoke, plus a real-window Debug/Release
+  acceptance tool. The death/save/recovery cycle now passes all nine installed
+  Levels in both configurations (18/18).
 - Added a rollback-safe retail death-camera admission probe. It exercises one
   ascent frame, two terminal frames, exactly one completion transition and
   three finite cameras, including an offset beyond the former `exit(0)`

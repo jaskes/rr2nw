@@ -502,12 +502,16 @@ bool ReadState(Vehicle *vehicle, SRecoveredVehicleRuntimeState *state)
     state->lastStabilityReason =
         state->active ? g_owner.lastStabilityReason
                       : RECOVERED_VEHICLE_STABILITY_NONE;
+    state->dead = Vehicle::m_dead ? 1 : 0;
+    state->takingTaxi = Vehicle::m_isTakingTaxiNow;
     return !IsNul(state->object) && !IsNul(state->attribute) &&
            FiniteVector(state->position) &&
            FiniteVector(state->subjectPosition) &&
            FiniteVector(state->speed) && FiniteMatrix(state->direction) &&
            std::isfinite(state->mass) && state->mass > 0.0 &&
            std::isfinite(state->lastTime) &&
+           (state->dead == 0 || state->dead == 1) &&
+           (state->takingTaxi == 0 || state->takingTaxi == 1) &&
            state->vesselKind != RECOVERED_VEHICLE_VESSEL_UNKNOWN;
 }
 
@@ -545,6 +549,8 @@ bool PublicStatesMatch(const SRecoveredVehicleRuntimeState &before,
            NearlyEqual(before.direction, after.direction) &&
            NearlyEqual(before.mass, after.mass) &&
            NearlyEqual(before.lastTime, after.lastTime) &&
+           before.dead == after.dead &&
+           before.takingTaxi == after.takingTaxi &&
            before.vesselKind == after.vesselKind;
 }
 
@@ -858,6 +864,15 @@ bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context)
     g_owner.frameStartValid = false;
     g_owner.lastStablePosition = restored.position;
     g_owner.lastStableValid = true;
+    std::memset(&g_owner.cameraTelemetry, 0,
+                sizeof(g_owner.cameraTelemetry));
+    g_owner.cameraTelemetry.mode = restored.dead
+        ? RECOVERED_VEHICLE_CAMERA_DEATH_ASCENT
+        : (restored.takingTaxi ? RECOVERED_VEHICLE_CAMERA_TAXI
+                              : RECOVERED_VEHICLE_CAMERA_LIVE);
+    g_owner.cameraTelemetry.deathOffsetY =
+        Vehicle::m_currentTaxiOurPos.y;
+    g_owner.deathCompletionObserved = false;
     return true;
 }
 
@@ -887,6 +902,43 @@ bool VehicleRuntimeState_DebugStabilize(SimulationContext *context)
     return ReadState(g_owner.vehicle, &after) && after.active &&
            NearlyEqual(after.position, target, 1.0e-5) &&
            NearlyEqual(after.speed, CFVector3(0.0, 0.0, 0.0), 1.0e-5);
+}
+
+bool VehicleRuntimeState_DebugKill(
+    SimulationContext *context, double eventTime)
+{
+    if (!g_owner.active || context == NULL || g_owner.context != context ||
+        g_owner.vehicle == NULL || g_owner.frameBegun ||
+        !context->isExist(g_owner.object) ||
+        !std::isfinite(eventTime) || eventTime < g_owner.lastTime ||
+        !VehicleReady(g_owner.vehicle) || Vehicle::m_dead ||
+        !g_owner.vehicle->taxiChangeEnabled())
+        return false;
+
+    g_owner.vehicle->Stop();
+    if (!g_owner.vehicle->forcePlayerDeath(eventTime))
+        return false;
+    SRecoveredVehicleRuntimeState killed = {};
+    const bool read = ReadState(g_owner.vehicle, &killed);
+    if (!read || !killed.active || !killed.dead || !killed.takingTaxi ||
+        !g_owner.vehicle->taxiChangeEnabled() ||
+        MaximumAbsoluteComponent(killed.position) > 2.0 ||
+        !NearlyEqual(killed.speed, CFVector3(0.0, 0.0, 0.0), 1.0e-5) ||
+        !FiniteVector(Vehicle::m_currentTaxiOurPos))
+        return false;
+
+    g_owner.frameAttribute = KR_ObjectID::NUL();
+    g_owner.frameStartValid = false;
+    g_owner.lastStablePosition = killed.position;
+    g_owner.lastStableValid = true;
+    std::memset(&g_owner.cameraTelemetry, 0,
+                sizeof(g_owner.cameraTelemetry));
+    g_owner.cameraTelemetry.mode =
+        RECOVERED_VEHICLE_CAMERA_DEATH_ASCENT;
+    g_owner.cameraTelemetry.deathOffsetY =
+        Vehicle::m_currentTaxiOurPos.y;
+    g_owner.deathCompletionObserved = false;
+    return true;
 }
 
 bool VehicleRuntimeState_Advance(

@@ -3306,6 +3306,44 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Do not make terminal camera completion synonymous with player respawn or
   process shutdown.
 
+### CQ-180: urgent console messages require an initialized message font
+
+- Status: `LEGACY_PRECONDITION_PRESERVED`, `HEADLESS_GUARD_ACCEPTED`.
+- Evidence: the authentic default-body death branch calls
+  `GameConsole::PrintUrgent`, which dereferences `m_msgFontI`. The graphical
+  startup initializes that font before gameplay, but service-owned retail
+  contexts deliberately construct simulation without the presentation
+  console and exposed a null dereference.
+- Handling: expose a read-only `MessagesReady()` precondition and emit the
+  recovered death text only when the presentation owner exists. Do not create
+  a fake font, remove the message from the full game or make the simulation
+  own console initialization.
+- Verification: the full graphical death gate retains clean message-capable
+  startup; Debug/Release service death executes without an access violation on
+  all nine Levels.
+- Revisit when: console messages move to a presentation event queue with an
+  explicit null sink.
+
+### CQ-181: forced debug death is a two-checkpoint owner transaction
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `DEBUG_ONLY`, `DEATH_PARTIAL`.
+- Evidence: the authentic type-0 path simultaneously changes Vehicle statics,
+  creates a Corpse, closes the panel and changes camera semantics. Treating it
+  as a menu callback or saving only Vehicle fields can leave a partially dead
+  world, live input or an unrecoverable pre-death state.
+- Handling: stage at the closed frame boundary, require the living default
+  body and neutral controls, capture pre-death LCN1, run the real mutation and
+  admit it only after an independent dead-world capture. Suppress gameplay
+  controls while dead. Recovery must match the stored pre-death world and
+  container fingerprints and restore Corpse/control/camera ownership.
+- Verification: service proof injects and rejects one post-death movement
+  command, reconstructs the dead continuation and returns to the exact
+  baseline. The real-window gate passes 2/2 and the expanded all-Level matrix
+  passes 18/18.
+- Revisit when: type-1 Vehicle destruction, public campaign respawn or a
+  persistent multi-death checkpoint policy is implemented. The current
+  checkpoint is process-local and single-use.
+
 ## Maintenance rule
 
 When a new quirk is found:

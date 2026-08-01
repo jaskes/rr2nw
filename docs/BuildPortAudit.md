@@ -3204,5 +3204,27 @@ remaining Taxi/death state.
 The pure smoke proves invalid input, capped stalls, backward time, exact clamp
 and repeated completion. The retail admission probe additionally creates real
 camera matrices on both sides of the former exit threshold and rolls every
-temporary static/runtime value back. Forced player death is deliberately not
-claimed by this camera-only slice.
+temporary static/runtime value back.
+
+## Transactional player-death boundary
+
+The opt-in debug death owner now captures LCN1 before mutation, invokes the
+original type-0 `LeaveVehicle` branch, requires one real Corpse, closed panel,
+retained Hardware subscription and a finite death camera, then captures the
+dead world again before committing. Gameplay input is rejected while
+`Vehicle::m_dead`, including synthetic events injected directly at the control
+subscriber; Escape retains its process-owner role.
+
+The corresponding recovery command restores the stored pre-death LCN1 and
+requires exact world/container fingerprints, living Vehicle state, the
+baseline Corpse count and rebound control. A new console readiness query keeps
+`PrintUrgent` behind ownership of `m_msgFontI`; the graphical game still shows
+the recovered message, while service probes no longer dereference an
+uninitialized font.
+
+The service smoke captures and reconstructs the dead continuation before
+recovering the exact baseline. `Invoke-DebugDeathLifecycle.ps1` drives both
+commands through a real window in Debug and Release. The expanded fresh-Level
+matrix passes 18/18 across the nine installed Levels. This admits a diagnostic
+death/recovery transaction only; occupied Vehicle destruction and campaign
+respawn remain separate owners.
