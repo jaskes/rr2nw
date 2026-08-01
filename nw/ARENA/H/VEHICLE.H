@@ -220,7 +220,10 @@ public:
     static CFVector3 m_currentTaxiOurPos;
 
     
-	static void transformMatrix(CFMatrix3x4 & tdir);     
+	// Returns the ERecoveredVehicleDeathCameraStep value for death transforms;
+	// ordinary Taxi motion reports the active value. The transform never owns
+	// process shutdown.
+	static int transformMatrix(CFMatrix3x4 & tdir);
 
     virtual CFVector3  realPosition();
     IPlayer &player() { return m_player; }

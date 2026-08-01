@@ -4187,9 +4187,10 @@ continuation back if the target cannot start.
 
 Spawn names are deterministic (`Debug.Taxi.NNNN`) so saves and diagnostics can
 identify them. Raw event labels, arbitrary ObjectIDs and forced death remain
-unavailable. The latter is specifically blocked while the legacy dead-camera
-path can call `exit(0)`; debug tooling must expose defects, not convert them
-into apparently intentional process termination.
+unavailable. The dead-camera process exit has since been removed, but forced
+death remains blocked until the real damage/death, corpse, panel, control and
+save/rollback graph is one proved transaction. Debug tooling must expose an
+incomplete lifecycle, not disguise it as an intentional recovery path.
 
 ## BD-109: debug mutation waits for a serializable world, not merely a closed render
 
@@ -4265,3 +4266,29 @@ accepted Bullet starts plus collision checks. It requires zero final actions,
 axes, pending events, reconciliation and runtime issues. The complete product
 gate is 66/66 CTest per configuration, 18/18 installed-Level starts and 18/18
 fresh destroyed-context continuations.
+
+## BD-111: death-camera completion is observable state, never shutdown
+
+Status: accepted on 2026-08-01 as the first Frontier C slice.
+
+The recovered dead-camera branch combined presentation, elapsed-time mutation
+and process lifetime: crossing `HazeMin + HazeMax` called `exit(0)`. The modern
+loop had avoided the crash only because its camera builder never called the
+real Taxi/death transform. Neither behavior is an acceptable ownership rule.
+
+`Vehicle::transformMatrix` now returns invalid, ascending or complete. Its
+pure ascent helper rejects non-finite and backward time without mutation,
+limits a frame to 50 ms, preserves the historical eight-units-per-second lift
+and clamps exactly at the combined haze distance. Complete is stable across
+later calls. The runtime camera owner executes this same transform, publishes
+mode/frame/completion telemetry and falls back on invalid state; it does not
+infer respawn, repair or process termination.
+
+Admission temporarily activates the real retail Vehicle, crosses the former
+exit threshold, requires three finite camera matrices and one completion edge,
+then restores the process-wide Vehicle fields, session clock and active owner.
+This admits the camera prerequisite only. Debug kill stays unavailable until
+the complete death/corpse/panel/control/save transaction has rollback proof.
+The accepted slice passes 66/66 CTest in each configuration, 18/18 ordinary
+retail starts, 18/18 destroyed-context fresh continuations and 2/2 real-window
+input/camera runs.

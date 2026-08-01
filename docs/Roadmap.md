@@ -1411,11 +1411,25 @@ and shutdown is clean. The complete gate is 66/66 CTest in each configuration,
 
 ### Frontier C: coherent Vehicle embodiment and death
 
+Status: in progress. The first bounded camera slice is complete.
+
 Unify Taxi spawn height, ground settling, panel/HUD selection, camera ownership,
 entry/exit, destroyed Vehicle behaviour and player death. Remove the legacy
 process-level `exit(0)` from the dead-camera path before adding a debug kill
 command. Repair the handoff that can leave a player at the old position while
 the saved car continues moving.
+
+The recovered Taxi/death transform now runs through the modern camera owner.
+Death ascent is a finite, maximum-50-ms step, clamps to the exact combined haze
+distance and becomes a reusable terminal camera state; it cannot terminate the
+process. A retail probe crosses the former exit threshold, observes exactly one
+completion transition and rolls back Vehicle statics, time and the active
+runtime owner. A forced debug kill remains closed until the real death,
+corpse/panel/control and save/rollback graph is one transaction.
+
+Slice gate: 66/66 CTest in Debug and Release, 18/18 installed retail starts,
+18/18 destroyed-context fresh continuations and the real-window input/camera
+regression 2/2.
 
 Gate: representative wheeled, tracked and flying vehicles spawn grounded,
 enter/exit without camera escape, retain the correct panel, fire, take damage,

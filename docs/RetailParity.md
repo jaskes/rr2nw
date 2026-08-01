@@ -1613,6 +1613,25 @@ playable Level begins.
   physical reconciliation. Verification is 66/66 CTest per configuration,
   18/18 ordinary retail runs and 18/18 fresh continuations.
 
+### RP-VEHICLE-001: retail death-camera ascent terminates as state
+
+- Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.
+  The recovered dead branch keeps its orientation rule, eight-unit-per-second
+  ascent and `HazeMin + HazeMax` limit, but reaching that limit no longer calls
+  `exit(0)`.
+- Elapsed time is finite and capped to 50 ms, matching the modern Vehicle
+  physics boundary. Invalid or backward time is rejected without mutation;
+  the exact limit becomes a stable complete state on all later frames.
+- The production camera owner now calls the real Taxi/death transform instead
+  of rendering only `Vehicle::GetDir/Pos`. It publishes camera mode, transform
+  frames, death frames, one-shot completion and final offset diagnostics.
+- The retail admission probe observes one ascent and two terminal frames,
+  three finite matrices and exactly one completion edge, including a restored
+  offset beyond the old exit threshold. It then rolls Vehicle statics, clock
+  and active owner back exactly. This does not yet claim full player death,
+  corpse or respawn parity. Verification is 66/66 CTest per configuration,
+  18/18 retail starts, 18/18 fresh continuations and 2/2 real-window runs.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

@@ -1497,6 +1497,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("vehicle_movement_initialized=" +
            std::to_string(
                RecoveredGameServices_VehicleMovementReady() ? 1 : 0));
+  log.Line("vehicle_death_camera_initialized=" +
+           std::to_string(
+               RecoveredGameServices_VehicleDeathCameraReady() ? 1 : 0));
   log.Line("vehicle_runtime_fingerprint=" + std::to_string(
                RecoveredGameServices_VehicleRuntimeFingerprint()));
   log.Line("vehicle_vessel_kind=" + std::to_string(
@@ -1521,6 +1524,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleProbeRollbacks()));
   log.Line("vehicle_probe_horizontal_distance=" + std::to_string(
                RecoveredGameServices_VehicleProbeHorizontalDistance()));
+  log.Line("vehicle_death_camera_probe_activations=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraProbeActivations()));
+  log.Line("vehicle_death_camera_probe_ascent_frames=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraProbeAscentFrames()));
+  log.Line("vehicle_death_camera_probe_terminal_frames=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraProbeTerminalFrames()));
+  log.Line("vehicle_death_camera_probe_completion_transitions=" +
+           std::to_string(
+               RecoveredGameServices_VehicleDeathCameraProbeCompletionTransitions()));
+  log.Line("vehicle_death_camera_probe_finite_cameras=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraProbeFiniteCameras()));
+  log.Line("vehicle_death_camera_probe_rollbacks=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraProbeRollbacks()));
   log.Line("vehicle_control_replay_ready=" + std::to_string(
                RecoveredGameServices_VehicleControlReplayReady() ? 1 : 0));
   SRecoveredVehicleControlReplayTelemetry replayTelemetry = {};
@@ -2560,6 +2576,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredGameServices_VehicleFrameCount()));
   log.Line("vehicle_camera_frame_count=" + std::to_string(
                RecoveredGameServices_VehicleCameraFrameCount()));
+  log.Line("vehicle_camera_mode=" + std::to_string(
+               RecoveredGameServices_VehicleCameraMode()));
+  log.Line("vehicle_camera_transform_frames=" + std::to_string(
+               RecoveredGameServices_VehicleCameraTransformFrameCount()));
+  log.Line("vehicle_death_camera_frames=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraFrameCount()));
+  log.Line("vehicle_death_camera_completions=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraCompletions()));
+  log.Line("vehicle_death_camera_offset_y=" + std::to_string(
+               RecoveredGameServices_VehicleDeathCameraOffsetY()));
   log.Line("vehicle_dropped_time_frame_count=" + std::to_string(
                RecoveredGameServices_VehicleDroppedTimeFrameCount()));
   log.Line("timer_clamped_sample_count=" + std::to_string(

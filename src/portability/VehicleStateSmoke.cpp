@@ -1,9 +1,11 @@
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <string>
 
 #define WIN32_LEAN_AND_MEAN
@@ -14,6 +16,7 @@
 #include "game.h"
 #include "h/vehicle.h"
 #include "storage/h/savefile.h"
+#include "VehicleDeathCameraState.h"
 
 namespace {
 
@@ -172,6 +175,62 @@ bool ExerciseStateRoundTrip(const char* input_path, const char* output_path) {
          ReadFixture(output_path, restored) && SameFixture(source, restored);
 }
 
+bool ExerciseDeathCameraState() {
+  const double haze_minimum = 200.0;
+  const double haze_maximum = 228.0;
+  double last_moment = 10.0;
+  CFVector3 offset(-12.0, -1.5, 34.0);
+
+  const double preserved_moment = last_moment;
+  const CFVector3 preserved_offset = offset;
+  if (VehicleDeathCameraState_Advance(
+          std::numeric_limits<double>::quiet_NaN(), haze_minimum,
+          haze_maximum, 8.0, 0.05, &last_moment, &offset) !=
+          RECOVERED_VEHICLE_DEATH_CAMERA_INVALID ||
+      last_moment != preserved_moment ||
+      !SameVector(offset, preserved_offset)) {
+    return false;
+  }
+
+  if (VehicleDeathCameraState_Advance(
+          20.0, haze_minimum, haze_maximum, 8.0, 0.05,
+          &last_moment, &offset) !=
+          RECOVERED_VEHICLE_DEATH_CAMERA_ASCENDING ||
+      last_moment != 20.0 || offset.x != -12.0 || offset.z != 34.0 ||
+      std::fabs(offset.y + 1.9) > 1.0e-12) {
+    return false;
+  }
+
+  const CFVector3 forward_only = offset;
+  if (VehicleDeathCameraState_Advance(
+          19.0, haze_minimum, haze_maximum, 8.0, 0.05,
+          &last_moment, &offset) !=
+          RECOVERED_VEHICLE_DEATH_CAMERA_INVALID ||
+      last_moment != 20.0 || !SameVector(offset, forward_only)) {
+    return false;
+  }
+
+  offset.y = -427.9;
+  if (VehicleDeathCameraState_Advance(
+          20.05, haze_minimum, haze_maximum, 8.0, 0.05,
+          &last_moment, &offset) !=
+          RECOVERED_VEHICLE_DEATH_CAMERA_COMPLETE ||
+      last_moment != 20.05 || offset.y != -428.0 ||
+      !VehicleDeathCameraState_IsComplete(
+          offset.y, haze_minimum, haze_maximum)) {
+    return false;
+  }
+
+  if (VehicleDeathCameraState_Advance(
+          200.0, haze_minimum, haze_maximum, 8.0, 0.05,
+          &last_moment, &offset) !=
+          RECOVERED_VEHICLE_DEATH_CAMERA_COMPLETE ||
+      last_moment != 200.0 || offset.y != -428.0) {
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -191,6 +250,9 @@ int main(int argc, char** argv) {
   std::remove(output_path.c_str());
   if (!ExerciseStateRoundTrip(argv[1], output_path.c_str())) {
     return Fail("static save round-trip diverged");
+  }
+  if (!ExerciseDeathCameraState()) {
+    return Fail("bounded death-camera state diverged");
   }
 
   std::remove(argv[1]);

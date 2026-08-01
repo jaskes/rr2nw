@@ -60,11 +60,12 @@ counters are written to `rr2nw-startup.log` on shutdown with the
 ## Deliberately unavailable commands
 
 Forced Vehicle death, repair-after-death, actor spawning, mission mutation and
-raw event injection are not in this first menu contract. In particular, the
-legacy dead-camera path still contains a process-level `exit(0)`. A debug
-"kill" action would therefore hide the very defect it should help diagnose.
-Those controls are added only after their real lifecycle, save and rollback
-boundaries are safe.
+raw event injection are not in this first menu contract. The process-level
+death-camera `exit(0)` has been removed and its finite terminal state is now
+proved, but that closes only the camera prerequisite. A debug "kill" action
+still needs one atomic real damage/death, corpse, panel, control and save/load
+transaction plus a defined repair/restart path. Those controls are added only
+after that lifecycle and its rollback boundary are safe.
 
 ## Acceptance
 

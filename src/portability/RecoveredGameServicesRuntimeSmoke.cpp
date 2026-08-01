@@ -493,6 +493,7 @@ bool IsServiceReleased() {
          !RecoveredGameServices_VehicleReferencesReady() &&
          RecoveredGameServices_VehicleVesselMass() == 0.0 &&
          !RecoveredGameServices_VehicleMovementReady() &&
+         !RecoveredGameServices_VehicleDeathCameraReady() &&
          RecoveredGameServices_VehicleRuntimeFingerprint() == 0 &&
          RecoveredGameServices_VehicleVesselKind() ==
              RECOVERED_VEHICLE_VESSEL_UNKNOWN &&
@@ -506,6 +507,13 @@ bool IsServiceReleased() {
           RecoveredGameServices_VehicleProbeStabilityRecoveries() == -1 &&
           RecoveredGameServices_VehicleProbeRollbacks() == -1 &&
          RecoveredGameServices_VehicleProbeHorizontalDistance() == 0.0 &&
+         RecoveredGameServices_VehicleDeathCameraProbeActivations() == -1 &&
+         RecoveredGameServices_VehicleDeathCameraProbeAscentFrames() == -1 &&
+         RecoveredGameServices_VehicleDeathCameraProbeTerminalFrames() == -1 &&
+         RecoveredGameServices_VehicleDeathCameraProbeCompletionTransitions() ==
+             -1 &&
+         RecoveredGameServices_VehicleDeathCameraProbeFiniteCameras() == -1 &&
+         RecoveredGameServices_VehicleDeathCameraProbeRollbacks() == -1 &&
          !RecoveredGameServices_VehicleControlReady() &&
          !RecoveredGameServices_VehicleControlReplayReady() &&
          !RecoveredGameServices_VehicleControlReplayTelemetry(nullptr) &&
@@ -518,6 +526,12 @@ bool IsServiceReleased() {
          RecoveredGameServices_VehicleLastInputFailure() == 0 &&
          RecoveredGameServices_VehicleFrameCount() == 0 &&
          RecoveredGameServices_VehicleCameraFrameCount() == 0 &&
+         RecoveredGameServices_VehicleCameraMode() ==
+             RECOVERED_VEHICLE_CAMERA_UNKNOWN &&
+         RecoveredGameServices_VehicleCameraTransformFrameCount() == 0 &&
+         RecoveredGameServices_VehicleDeathCameraFrameCount() == 0 &&
+         RecoveredGameServices_VehicleDeathCameraCompletions() == 0 &&
+         RecoveredGameServices_VehicleDeathCameraOffsetY() == 0.0 &&
          RecoveredGameServices_VehicleDroppedTimeFrameCount() == 0 &&
          RecoveredGameServices_VehicleFallbackCount() == 0 &&
          RecoveredGameServices_VehicleFallbackReason() == 0 &&
@@ -3038,6 +3052,7 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_TankCannonSubjectTablesReady() ||
       !RecoveredGameServices_VehicleReady() ||
       !RecoveredGameServices_VehicleMovementReady() ||
+      !RecoveredGameServices_VehicleDeathCameraReady() ||
       RecoveredGameServices_VehicleRuntimeFingerprint() == 0 ||
       (RecoveredGameServices_VehicleVesselKind() !=
            RECOVERED_VEHICLE_VESSEL_EMV &&
@@ -3053,6 +3068,13 @@ int main(int argc, char** argv) {
        RecoveredGameServices_VehicleProbeStabilityRecoveries() != 1 ||
        RecoveredGameServices_VehicleProbeRollbacks() != 1 ||
       RecoveredGameServices_VehicleProbeHorizontalDistance() <= 0.01 ||
+      RecoveredGameServices_VehicleDeathCameraProbeActivations() != 1 ||
+      RecoveredGameServices_VehicleDeathCameraProbeAscentFrames() != 1 ||
+      RecoveredGameServices_VehicleDeathCameraProbeTerminalFrames() != 2 ||
+      RecoveredGameServices_VehicleDeathCameraProbeCompletionTransitions() !=
+          1 ||
+      RecoveredGameServices_VehicleDeathCameraProbeFiniteCameras() != 3 ||
+      RecoveredGameServices_VehicleDeathCameraProbeRollbacks() != 1 ||
       !IsVehicleControlActive(vehicleID, nullptr) ||
       RecoveredGameServices_VehicleVesselMass() <= 0.0 ||
       RecoveredArenaSeance_Issues() != 0 || birdID.isNUL() ||

@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <cmath>
 #include "filesys.h"
 #include "message/hardmsg.h"
 #include "hardware.h"
@@ -17,22 +18,29 @@
 #include "h/phisics.h"
 #include "suavik.h"
 #include "console.h"
+#include "VehicleDeathCameraState.h"
 
 #ifndef RR2NW_VEHICLE_STATE_EXTERNAL
 #include "VehicleStateData.inl"
 #endif
 
 
-void Vehicle::transformMatrix(CFMatrix3x4	& tdir)
+int Vehicle::transformMatrix(CFMatrix3x4 &tdir)
 {
-	double dt = Session::m_moment - m_lastEventTime;
-	m_lastEventTime = Session::m_moment;
- 
+	const double currentMoment = Session::m_moment;
+	double dt = std::isfinite(currentMoment) &&
+	            std::isfinite(m_lastEventTime)
+	                ? currentMoment - m_lastEventTime
+	                : 0.0;
+	if (!std::isfinite(dt) || dt < 0.0)
+		dt = 0.0;
 
 	if (!m_dead)
 	{
-		m_takingTaxiCurrentAngle = interpolateAngle( 
-			m_takingTaxiCurrentAngle, 
+		if (std::isfinite(currentMoment))
+			m_lastEventTime = currentMoment;
+		m_takingTaxiCurrentAngle = interpolateAngle(
+			m_takingTaxiCurrentAngle,
 			m_takingTaxiFinalAngle,
 			m_taxiRotateSpeed,
 			dt );
@@ -49,15 +57,17 @@ void Vehicle::transformMatrix(CFMatrix3x4	& tdir)
 		double angle = atan2(v.y, hypot(v.x, v.z));
 		tdir.RotateOxL(M_PI / 2 + angle);
 
-		if ( -m_currentTaxiOurPos.y < CViewFigure::HazeMax() + CViewFigure::HazeMin() )
-		  m_currentTaxiOurPos.y -= 8.0 * dt;
-		else
-		  exit(0);
+		const int step = VehicleDeathCameraState_Advance(
+			currentMoment, CViewFigure::HazeMin(), CViewFigure::HazeMax(),
+			8.0, 0.05, &m_lastEventTime, &m_currentTaxiOurPos);
+		if (step == RECOVERED_VEHICLE_DEATH_CAMERA_INVALID)
+			return step;
+		tdir.TranslateR(m_currentTaxiOurPos);
+		return step;
 	}
 
 	tdir.TranslateR(m_currentTaxiOurPos);
-	
-
+	return RECOVERED_VEHICLE_DEATH_CAMERA_ASCENDING;
 }
 
 

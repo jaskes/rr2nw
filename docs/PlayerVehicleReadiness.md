@@ -199,3 +199,17 @@ The remaining human gate is now about play feel and parity rather than whether
 there is a scene: drive several Levels, compare clipping/fog/palette behavior,
 exercise F1/fire/alt-tab and record clean shutdown. Bump/light-through lighting
 is still approximated and scalar performance still needs profiling before 1.0.
+
+## Death-camera prerequisite
+
+The process-level failure at the end of the recovered death-camera ascent is
+closed. The production camera owner now executes the authentic Taxi/death
+transform; death time is capped, the combined haze height is clamped exactly,
+and completion remains a finite drawable state instead of calling `exit(0)`.
+The admission proof crosses the former fatal threshold and restores all
+temporary runtime and static state.
+
+This is not yet a full death/respawn claim. Forced debug death stays disabled
+until damage, corpse publication, panel/control release, camera completion,
+save/load and repair/restart semantics participate in one rollback-safe owner
+transaction. That transaction is the next Frontier C work item.

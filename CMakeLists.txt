@@ -2862,6 +2862,8 @@ if(MSVC)
 endif()
 
 add_library(rr2nw_arena_obase_vehicle_state STATIC
+  nw/ARENA/OBASE/Vehicle/VehicleDeathCameraState.cpp
+  nw/ARENA/OBASE/Vehicle/VehicleDeathCameraState.h
   nw/ARENA/OBASE/Vehicle/VehicleState.cpp
   nw/ARENA/OBASE/Vehicle/VehicleStateData.inl
   nw/ARENA/OBASE/Vehicle/VehicleStateIO.inl
@@ -2874,6 +2876,7 @@ target_include_directories(rr2nw_arena_obase_vehicle_state PUBLIC
   nw/DESIGN.LIB/H
   nw/ARENA
   nw/ARENA/H
+  nw/ARENA/OBASE/Vehicle
 )
 target_compile_features(rr2nw_arena_obase_vehicle_state PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_arena_obase_vehicle_state PRIVATE
@@ -4841,7 +4844,7 @@ if(BUILD_TESTING)
   add_test(
     NAME legacy-vehicle-state-smoke
     COMMAND rr2nw_vehicle_state_smoke
-            "${CMAKE_CURRENT_BINARY_DIR}/vehicle-state-smoke.sav"
+            "${CMAKE_CURRENT_BINARY_DIR}/vehicle-state-smoke-$<CONFIG>.sav"
   )
   add_test(
     NAME legacy-vehicle-services-smoke

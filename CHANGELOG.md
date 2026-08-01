@@ -7,6 +7,11 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Vehicle death-camera ascent no longer terminates the process after crossing
+  the haze distance. It advances through a finite, capped state transition,
+  clamps at the exact terminal height and remains drawable on later frames.
+  The modern camera owner now executes the recovered Taxi/death transform and
+  exposes transition telemetry instead of bypassing it.
 - Empty Level-local People rosters now pass the detailed stable-capture probe.
   `Level.07N` legitimately contains no People owner, so it verifies an empty
   canonical capture without attempting to corrupt a nonexistent state stack.
@@ -18,6 +23,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added a rollback-safe retail death-camera admission probe. It exercises one
+  ascent frame, two terminal frames, exactly one completion transition and
+  three finite cameras, including an offset beyond the former `exit(0)`
+  threshold, then restores Vehicle statics, clock and active runtime state.
 - Replaced production Win32 keyboard and primary-mouse translation with an
   authoritative semantic input adapter. It owns explicit physical state,
   repeat filtering, opposite-key reduction, inactive suppression and ordered

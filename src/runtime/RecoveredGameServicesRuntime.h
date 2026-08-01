@@ -25,7 +25,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_TAXI_VEHICLE_TRANSITION_FAILURE = 1u << 11,
   RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE = 1u << 12,
   RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE = 1u << 13,
-  RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE = 1u << 14
+  RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE = 1u << 14,
+  RECOVERED_GAME_SERVICES_VEHICLE_DEATH_CAMERA_FAILURE = 1u << 15
 };
 
 struct SRecoveredObserverState {
@@ -386,6 +387,7 @@ bool RecoveredGameServices_TankCannonSubjectTablesReady();
 bool RecoveredGameServices_VehicleReady();
 double RecoveredGameServices_VehicleVesselMass();
 bool RecoveredGameServices_VehicleMovementReady();
+bool RecoveredGameServices_VehicleDeathCameraReady();
 unsigned long long RecoveredGameServices_VehicleRuntimeFingerprint();
 int RecoveredGameServices_VehicleVesselKind();
 int RecoveredGameServices_VehicleProbeInvalidActivations();
@@ -398,6 +400,12 @@ int RecoveredGameServices_VehicleProbeCameraTransitions();
 int RecoveredGameServices_VehicleProbeStabilityRecoveries();
 int RecoveredGameServices_VehicleProbeRollbacks();
 double RecoveredGameServices_VehicleProbeHorizontalDistance();
+int RecoveredGameServices_VehicleDeathCameraProbeActivations();
+int RecoveredGameServices_VehicleDeathCameraProbeAscentFrames();
+int RecoveredGameServices_VehicleDeathCameraProbeTerminalFrames();
+int RecoveredGameServices_VehicleDeathCameraProbeCompletionTransitions();
+int RecoveredGameServices_VehicleDeathCameraProbeFiniteCameras();
+int RecoveredGameServices_VehicleDeathCameraProbeRollbacks();
 bool RecoveredGameServices_TaxiVehicleTransitionReady();
 int RecoveredGameServices_TaxiVehicleProbeAvailableTaxis();
 int RecoveredGameServices_TaxiVehicleProbeInvalidTargets();
@@ -507,6 +515,11 @@ bool RecoveredGameServices_VehicleDriveTelemetry(
     SRecoveredVehicleDriveTelemetry* telemetry);
 unsigned int RecoveredGameServices_VehicleFrameCount();
 unsigned int RecoveredGameServices_VehicleCameraFrameCount();
+int RecoveredGameServices_VehicleCameraMode();
+unsigned int RecoveredGameServices_VehicleCameraTransformFrameCount();
+unsigned int RecoveredGameServices_VehicleDeathCameraFrameCount();
+unsigned int RecoveredGameServices_VehicleDeathCameraCompletions();
+double RecoveredGameServices_VehicleDeathCameraOffsetY();
 unsigned int RecoveredGameServices_VehicleDroppedTimeFrameCount();
 unsigned int RecoveredGameServices_VehicleFallbackCount();
 unsigned int RecoveredGameServices_VehicleFallbackReason();

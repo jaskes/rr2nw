@@ -74,6 +74,16 @@ vertical, turn, look order. A non-zero reconciliation count is now a regression:
 production input owns explicit key state and must not need asynchronous polling
 to repair an event.
 
+The same shutdown log now records `vehicle_camera_mode`,
+`vehicle_camera_transform_frames`, `vehicle_death_camera_frames`,
+`vehicle_death_camera_completions` and `vehicle_death_camera_offset_y`. Normal
+driving should finish in live mode (`1`) with zero death frames/completions.
+Startup admission independently requires death-camera probe counts
+`1/1/2/1/3/1` for activations, ascent frames, terminal frames, completion
+transitions, finite cameras and rollbacks. Do not manufacture a manual player
+death yet: the camera process-exit prerequisite is closed, but the complete
+death/corpse/control/save transaction and repair semantics are not admitted.
+
 ## Automated nine-Level matrix
 
 Build the requested configuration first, then run all configured Levels from

@@ -23,6 +23,25 @@ enum ERecoveredVehicleStabilityReason
     RECOVERED_VEHICLE_STABILITY_RESTORE_FAILED = 5
 };
 
+enum ERecoveredVehicleCameraMode
+{
+    RECOVERED_VEHICLE_CAMERA_UNKNOWN = 0,
+    RECOVERED_VEHICLE_CAMERA_LIVE = 1,
+    RECOVERED_VEHICLE_CAMERA_TAXI = 2,
+    RECOVERED_VEHICLE_CAMERA_DEATH_ASCENT = 3,
+    RECOVERED_VEHICLE_CAMERA_DEATH_COMPLETE = 4
+};
+
+struct SRecoveredVehicleCameraTelemetry
+{
+    int mode;
+    unsigned int transformFrames;
+    unsigned int taxiFrames;
+    unsigned int deathFrames;
+    unsigned int deathCompletions;
+    double deathOffsetY;
+};
+
 struct SRecoveredVehicleRuntimeState
 {
     KR_ObjectID object;
@@ -62,6 +81,16 @@ struct SRecoveredVehicleMovementProbeSummary
     double horizontalDistance;
 };
 
+struct SRecoveredVehicleDeathCameraProbeSummary
+{
+    int activations;
+    int ascentFrames;
+    int terminalFrames;
+    int completionTransitions;
+    int finiteCameras;
+    int rollbacks;
+};
+
 struct SRecoveredVehicleStabilityTelemetry
 {
     int recoveryCount;
@@ -96,6 +125,9 @@ bool VehicleRuntimeState_Inspect(
 bool VehicleRuntimeState_InspectStability(
     SimulationContext *context,
     SRecoveredVehicleStabilityTelemetry *telemetry);
+bool VehicleRuntimeState_InspectCamera(
+    SimulationContext *context,
+    SRecoveredVehicleCameraTelemetry *telemetry);
 const char *VehicleRuntimeState_AttributeName(
     SimulationContext *context, const KR_ObjectID &vehicle);
 const char *VehicleRuntimeState_DynamicName(
@@ -147,5 +179,9 @@ bool VehicleRuntimeState_ProbeMovement(
     SimulationContext *context, const KR_ObjectID &vehicle,
     const CFVector3 &position, double startTime,
     SRecoveredVehicleMovementProbeSummary *summary);
+bool VehicleRuntimeState_ProbeDeathCamera(
+    SimulationContext *context, const KR_ObjectID &vehicle,
+    const CFVector3 &position, double startTime,
+    SRecoveredVehicleDeathCameraProbeSummary *summary);
 
 #endif

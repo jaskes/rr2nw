@@ -1,4 +1,5 @@
 #include "VehicleRuntimeState.h"
+#include "VehicleDeathCameraState.h"
 #include "VehicleVesselTelemetry.h"
 
 #include <algorithm>
@@ -56,10 +57,12 @@ struct VehicleRuntimeOwner
     int stabilityRecoveryCount;
     int lastStabilityReason;
     SRecoveredVehicleStabilityTelemetry stabilityTelemetry;
+    SRecoveredVehicleCameraTelemetry cameraTelemetry;
     bool active;
     bool frameBegun;
     bool frameStartValid;
     bool lastStableValid;
+    bool deathCompletionObserved;
 
     VehicleRuntimeOwner()
         : context(NULL), vehicle(NULL), object(KR_ObjectID::NUL()),
@@ -78,11 +81,12 @@ struct VehicleRuntimeOwner
           stabilityRecoveryCount(0),
           lastStabilityReason(RECOVERED_VEHICLE_STABILITY_NONE),
           active(false), frameBegun(false), frameStartValid(false),
-          lastStableValid(false)
+          lastStableValid(false), deathCompletionObserved(false)
     {
         savedDirection.LoadIdentity();
         frameStartDirection.LoadIdentity();
         std::memset(&stabilityTelemetry, 0, sizeof(stabilityTelemetry));
+        std::memset(&cameraTelemetry, 0, sizeof(cameraTelemetry));
     }
 };
 
@@ -183,10 +187,13 @@ void ClearOwner()
     g_owner.lastStabilityReason = RECOVERED_VEHICLE_STABILITY_NONE;
     std::memset(&g_owner.stabilityTelemetry, 0,
                 sizeof(g_owner.stabilityTelemetry));
+    std::memset(&g_owner.cameraTelemetry, 0,
+                sizeof(g_owner.cameraTelemetry));
     g_owner.active = false;
     g_owner.frameBegun = false;
     g_owner.frameStartValid = false;
     g_owner.lastStableValid = false;
+    g_owner.deathCompletionObserved = false;
     g_lastControlFailure = 0;
     g_admissionProbeStabilityIssue = RECOVERED_VEHICLE_STABILITY_NONE;
 }
@@ -579,6 +586,17 @@ bool VehicleRuntimeState_InspectStability(
     return true;
 }
 
+bool VehicleRuntimeState_InspectCamera(
+    SimulationContext *context,
+    SRecoveredVehicleCameraTelemetry *telemetry)
+{
+    if (telemetry == NULL || !g_owner.active || context == NULL ||
+        g_owner.context != context)
+        return false;
+    *telemetry = g_owner.cameraTelemetry;
+    return true;
+}
+
 const char *VehicleRuntimeState_AttributeName(
     SimulationContext *context, const KR_ObjectID &vehicle)
 {
@@ -658,6 +676,9 @@ bool VehicleRuntimeState_Activate(
     g_owner.dynamicCollisionFrameCount = 0;
     g_owner.stabilityRecoveryCount = 0;
     g_owner.lastStabilityReason = RECOVERED_VEHICLE_STABILITY_NONE;
+    g_owner.cameraTelemetry.mode = RECOVERED_VEHICLE_CAMERA_LIVE;
+    g_owner.cameraTelemetry.deathOffsetY = Vehicle::m_currentTaxiOurPos.y;
+    g_owner.deathCompletionObserved = false;
     g_owner.active = true;
     g_owner.frameBegun = false;
     g_owner.frameStartValid = false;
@@ -1109,7 +1130,47 @@ bool VehicleRuntimeState_BuildCamera(
         g_owner.context != context || !VehicleReady(g_owner.vehicle))
         return false;
     *direction = g_owner.vehicle->GetDir();
-    direction->TranslateR(-g_owner.vehicle->Pos());
+    SRecoveredVehicleCameraTelemetry &telemetry = g_owner.cameraTelemetry;
+    if (Vehicle::m_isTakingTaxiNow)
+    {
+        const int step = Vehicle::transformMatrix(*direction);
+        if (step == RECOVERED_VEHICLE_DEATH_CAMERA_INVALID)
+        {
+            telemetry.mode = RECOVERED_VEHICLE_CAMERA_UNKNOWN;
+            return false;
+        }
+        ++telemetry.transformFrames;
+        if (Vehicle::m_dead)
+        {
+            ++telemetry.deathFrames;
+            telemetry.deathOffsetY = Vehicle::m_currentTaxiOurPos.y;
+            if (step == RECOVERED_VEHICLE_DEATH_CAMERA_COMPLETE)
+            {
+                telemetry.mode = RECOVERED_VEHICLE_CAMERA_DEATH_COMPLETE;
+                if (!g_owner.deathCompletionObserved)
+                    ++telemetry.deathCompletions;
+                g_owner.deathCompletionObserved = true;
+            }
+            else
+            {
+                telemetry.mode = RECOVERED_VEHICLE_CAMERA_DEATH_ASCENT;
+                g_owner.deathCompletionObserved = false;
+            }
+        }
+        else
+        {
+            ++telemetry.taxiFrames;
+            telemetry.mode = RECOVERED_VEHICLE_CAMERA_TAXI;
+            g_owner.deathCompletionObserved = false;
+        }
+    }
+    else
+    {
+        direction->TranslateR(-g_owner.vehicle->Pos());
+        telemetry.mode = RECOVERED_VEHICLE_CAMERA_LIVE;
+        telemetry.deathOffsetY = Vehicle::m_currentTaxiOurPos.y;
+        g_owner.deathCompletionObserved = false;
+    }
     return FiniteMatrix(*direction);
 }
 
@@ -1342,5 +1403,122 @@ bool VehicleRuntimeState_ProbeMovement(
            summary->cameraTransitions == 1 &&
            summary->stabilityRecoveries == 1 && summary->rollbacks == 1 &&
            summary->horizontalDistance > 0.01 &&
+           VehicleRuntimeState_IsClean(context);
+}
+
+bool VehicleRuntimeState_ProbeDeathCamera(
+    SimulationContext *context, const KR_ObjectID &vehicle,
+    const CFVector3 &position, double startTime,
+    SRecoveredVehicleDeathCameraProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || IsNul(vehicle) || !FiniteVector(position) ||
+        !std::isfinite(startTime) || startTime < 0.1 ||
+        !VehicleRuntimeState_IsClean(context))
+        return false;
+
+    SRecoveredVehicleRuntimeState before = {};
+    if (!VehicleRuntimeState_Inspect(context, vehicle, &before) ||
+        !VehicleRuntimeState_Activate(
+            context, vehicle, position, startTime))
+        return false;
+    summary->activations = 1;
+
+    const bool savedDead = Vehicle::m_dead;
+    const int savedTakingTaxi = Vehicle::m_isTakingTaxiNow;
+    const double savedLastEventTime = Vehicle::m_lastEventTime;
+    const CFVector3 savedCameraOffset = Vehicle::m_currentTaxiOurPos;
+    const double savedMoment = Session::m_moment;
+
+    Vehicle::m_dead = true;
+    Vehicle::m_isTakingTaxiNow = 1;
+    Vehicle::m_lastEventTime = startTime;
+    Vehicle::m_currentTaxiOurPos =
+        CFVector3(-position.x, -1.5, -position.z);
+
+    bool succeeded = true;
+    CFMatrix3x4 camera;
+    Session::m_moment = startTime + 0.05;
+    if (!VehicleRuntimeState_BuildCamera(context, &camera) ||
+        !FiniteMatrix(camera))
+        succeeded = false;
+    SRecoveredVehicleCameraTelemetry telemetry = {};
+    if (succeeded &&
+        VehicleRuntimeState_InspectCamera(context, &telemetry) &&
+        telemetry.mode == RECOVERED_VEHICLE_CAMERA_DEATH_ASCENT &&
+        telemetry.deathFrames == 1u && telemetry.deathCompletions == 0u)
+    {
+        summary->ascentFrames = 1;
+        ++summary->finiteCameras;
+    }
+    else
+        succeeded = false;
+
+    // Starting beyond the old Haze threshold used to call exit(0). The pure
+    // state owner clamps this restored/late offset to the exact terminal
+    // height and keeps the process and camera graph alive.
+    if (succeeded)
+    {
+        Vehicle::m_currentTaxiOurPos.y = -1.0e12;
+        Vehicle::m_lastEventTime = Session::m_moment;
+        Session::m_moment += 0.05;
+        succeeded = VehicleRuntimeState_BuildCamera(context, &camera) &&
+                    FiniteMatrix(camera) &&
+                    VehicleRuntimeState_InspectCamera(context, &telemetry) &&
+                    telemetry.mode ==
+                        RECOVERED_VEHICLE_CAMERA_DEATH_COMPLETE &&
+                    telemetry.deathFrames == 2u &&
+                    telemetry.deathCompletions == 1u;
+        if (succeeded)
+        {
+            ++summary->terminalFrames;
+            ++summary->completionTransitions;
+            ++summary->finiteCameras;
+        }
+    }
+
+    if (succeeded)
+    {
+        Session::m_moment += 5.0;
+        succeeded = VehicleRuntimeState_BuildCamera(context, &camera) &&
+                    FiniteMatrix(camera) &&
+                    VehicleRuntimeState_InspectCamera(context, &telemetry) &&
+                    telemetry.mode ==
+                        RECOVERED_VEHICLE_CAMERA_DEATH_COMPLETE &&
+                    telemetry.deathFrames == 3u &&
+                    telemetry.deathCompletions == 1u &&
+                    std::isfinite(telemetry.deathOffsetY);
+        if (succeeded)
+        {
+            ++summary->terminalFrames;
+            ++summary->finiteCameras;
+        }
+    }
+
+    Vehicle::m_dead = savedDead;
+    Vehicle::m_isTakingTaxiNow = savedTakingTaxi;
+    Vehicle::m_lastEventTime = savedLastEventTime;
+    Vehicle::m_currentTaxiOurPos = savedCameraOffset;
+    Session::m_moment = savedMoment;
+
+    const bool rolledBack = VehicleRuntimeState_Rollback(context);
+    if (rolledBack)
+        summary->rollbacks = 1;
+    SRecoveredVehicleRuntimeState after = {};
+    const bool restored =
+        VehicleRuntimeState_Inspect(context, vehicle, &after);
+    return succeeded && rolledBack && restored && StatesMatch(before, after) &&
+           Vehicle::m_dead == savedDead &&
+           Vehicle::m_isTakingTaxiNow == savedTakingTaxi &&
+           Vehicle::m_lastEventTime == savedLastEventTime &&
+           NearlyEqual(Vehicle::m_currentTaxiOurPos,
+                       savedCameraOffset) &&
+           Session::m_moment == savedMoment &&
+           summary->activations == 1 && summary->ascentFrames == 1 &&
+           summary->terminalFrames == 2 &&
+           summary->completionTransitions == 1 &&
+           summary->finiteCameras == 3 && summary->rollbacks == 1 &&
            VehicleRuntimeState_IsClean(context);
 }

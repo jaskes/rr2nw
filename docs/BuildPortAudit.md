@@ -3179,3 +3179,30 @@ axes, pending input, reconciliation and runtime issues. Ordinary installed
 retail runs pass 18/18 and fresh continuation passes 18/18. The latter also
 proved that `Level.07N` has a valid empty People roster, so its diagnostic now
 skips field corruption only after canonical empty capture succeeds.
+
+## Bounded Vehicle death camera
+
+The recovered `Vehicle::transformMatrix` dead branch used a process-level
+`exit(0)` as the condition after its camera offset crossed
+`CViewFigure::HazeMin() + HazeMax()`. The modern camera builder had not called
+that transform, leaving both the Taxi cinematic and death path outside its
+actual runtime ownership.
+
+`VehicleDeathCameraState` now owns the renderer-independent transition. It
+validates finite state, rejects backward time without mutation, caps a step at
+50 ms, retains the recovered lift rate and clamps the exact terminal offset.
+`transformMatrix` reports the resulting state and never owns shutdown. The
+modern runtime applies the transform and records live/Taxi/death-ascent/death-
+complete modes, frame counts, one-shot completion and offset telemetry.
+
+The controlled legacy fixture remains configuration-specific so simultaneous
+Debug/Release runs cannot race through one `.sav` file. It still locks the same
+11-field historical format and intentionally excludes `m_spY`. Modern full-
+world VEH1/LCN1 capture is the separate owner that records `m_spY` and the
+remaining Taxi/death state.
+
+The pure smoke proves invalid input, capped stalls, backward time, exact clamp
+and repeated completion. The retail admission probe additionally creates real
+camera matrices on both sides of the former exit threshold and rolls every
+temporary static/runtime value back. Forced player death is deliberately not
+claimed by this camera-only slice.

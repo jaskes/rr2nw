@@ -3228,9 +3228,9 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   count and fingerprint. Debug retail smoke requires an installed native menu,
   a non-empty Level.03N catalog and zero service issues.
 - Revisit when: repair, kill, actor spawn, teleport or mission commands are
-  proposed. Forced death is blocked until `Vehicle::transformMatrix` can no
-  longer terminate the process with `exit(0)` and the full death/camera/save
-  graph has an atomic rollback proof.
+  proposed. `Vehicle::transformMatrix` no longer terminates the process, but
+  forced death remains blocked until the full death/corpse/panel/control/save
+  graph has an atomic rollback proof and defined recovery semantics.
 
 ### CQ-177: a closed render can still have a transiently uncapturable owner
 
@@ -3277,6 +3277,34 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: an empty roster gains scheduled People events or an ownerless
   People reference. The serializer must then encode that state explicitly
   rather than treating it as an actor record.
+
+### CQ-179: the death camera is a terminal state, not a process owner
+
+- Status: `PORTABILITY_FIX_ACCEPTED`, `VEHICLE_DEATH_PARTIAL`.
+- Evidence: the recovered dead branch rotated the camera, lifted its static
+  Taxi offset until `HazeMin + HazeMax`, then called `exit(0)`. The modern
+  camera path previously bypassed `Vehicle::transformMatrix`, so neither the
+  Taxi cinematic nor the fatal branch was exercised by production ownership.
+- Handling: move the renderer-independent ascent into a pure finite helper,
+  reject invalid/backward time without mutation, cap elapsed time at 50 ms and
+  clamp the exact terminal offset. The real transform now returns
+  ascent/complete/invalid state to the runtime camera owner and never owns
+  shutdown. Completion is counted once while later frames retain a finite
+  terminal camera.
+- Verification: the state smoke covers invalid input, long stalls, backward
+  time, exact clamp and repeated terminal calls. The retail service probe runs
+  one ascent plus two terminal camera frames, starts beyond the former exit
+  threshold, requires one completion transition and restores all Vehicle
+  statics, session time and active runtime state. The accepted product gate is
+  66/66 CTest per configuration, 18/18 installed retail starts, 18/18 fresh
+  continuations and 2/2 real-window input/camera runs.
+- Serialization boundary: the historical 11-field `VehicleStateIO` fixture
+  deliberately omits `m_spY`; changing it would change the recovered legacy
+  format. The complete VEH1/LCN1 active-world owner separately records `m_spY`
+  with the remaining Taxi/death state and is the authority for modern saves.
+- Revisit when: adding debug kill, repair/restart or a public save migration.
+  Do not make terminal camera completion synonymous with player respawn or
+  process shutdown.
 
 ## Maintenance rule
 

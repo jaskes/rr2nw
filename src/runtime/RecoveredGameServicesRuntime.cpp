@@ -907,6 +907,7 @@ bool g_loopReady = false;
 bool g_hardwareReady = false;
 bool g_windowQuitRequested = false;
 bool g_vehicleMovementReady = false;
+bool g_vehicleDeathCameraReady = false;
 bool g_taxiVehicleTransitionReady = false;
 bool g_vehicleControlReplayReady = false;
 bool g_vehicleControlReady = false;
@@ -919,6 +920,7 @@ unsigned int g_vehicleFallbackReason = 0;
 unsigned long long g_vehicleRuntimeFingerprint = 0;
 int g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
 SRecoveredVehicleMovementProbeSummary g_vehicleMovementProbe = {};
+SRecoveredVehicleDeathCameraProbeSummary g_vehicleDeathCameraProbe = {};
 STaxiVehicleTransitionProbeSummary g_taxiVehicleTransitionProbe = {};
 SRecoveredVehicleControlReplayProbeSummary g_vehicleControlReplayProbe = {};
 SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
@@ -2209,6 +2211,7 @@ void EndBoundedSession() {
   g_hardwareReady = false;
   g_windowQuitRequested = false;
   g_vehicleMovementReady = false;
+  g_vehicleDeathCameraReady = false;
   g_taxiVehicleTransitionReady = false;
   g_vehicleControlReplayReady = false;
   g_vehicleControlReady = false;
@@ -2221,6 +2224,7 @@ void EndBoundedSession() {
   g_vehicleRuntimeFingerprint = 0;
   g_vehicleVesselKind = RECOVERED_VEHICLE_VESSEL_UNKNOWN;
   g_vehicleMovementProbe = {};
+  g_vehicleDeathCameraProbe = {};
   g_taxiVehicleTransitionProbe = {};
   g_vehicleControlReplayProbe = {};
   g_vehicleDriveTelemetry = {};
@@ -2352,6 +2356,15 @@ void InitializeSession() {
     }
     g_vehicleVesselKind = vehicleState.vesselKind;
     g_vehicleMovementReady = true;
+    if (!VehicleRuntimeState_ProbeDeathCamera(
+            g_super.m_context, vehicle, observerPosition,
+            vehicleStartTime, &g_vehicleDeathCameraProbe) ||
+        !VehicleRuntimeState_IsClean(g_super.m_context)) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_VEHICLE_DEATH_CAMERA_FAILURE);
+      return;
+    }
+    g_vehicleDeathCameraReady = true;
     const bool replayProbeReady = VehicleControlReplayProbe_Run(
             g_super.m_context, vehicle, observerPosition,
             vehicleStartTime, &g_vehicleControlReplayProbe);
@@ -2838,6 +2851,10 @@ bool RecoveredGameServices_VehicleMovementReady() {
   return g_vehicleMovementReady;
 }
 
+bool RecoveredGameServices_VehicleDeathCameraReady() {
+  return g_vehicleDeathCameraReady;
+}
+
 unsigned long long RecoveredGameServices_VehicleRuntimeFingerprint() {
   return g_vehicleMovementReady ? g_vehicleRuntimeFingerprint : 0;
 }
@@ -2891,6 +2908,37 @@ int RecoveredGameServices_VehicleProbeRollbacks() {
 double RecoveredGameServices_VehicleProbeHorizontalDistance() {
   return g_vehicleMovementReady ? g_vehicleMovementProbe.horizontalDistance
                                 : 0.0;
+}
+
+int RecoveredGameServices_VehicleDeathCameraProbeActivations() {
+  return g_vehicleDeathCameraReady ? g_vehicleDeathCameraProbe.activations
+                                   : -1;
+}
+
+int RecoveredGameServices_VehicleDeathCameraProbeAscentFrames() {
+  return g_vehicleDeathCameraReady ? g_vehicleDeathCameraProbe.ascentFrames
+                                   : -1;
+}
+
+int RecoveredGameServices_VehicleDeathCameraProbeTerminalFrames() {
+  return g_vehicleDeathCameraReady ? g_vehicleDeathCameraProbe.terminalFrames
+                                   : -1;
+}
+
+int RecoveredGameServices_VehicleDeathCameraProbeCompletionTransitions() {
+  return g_vehicleDeathCameraReady
+             ? g_vehicleDeathCameraProbe.completionTransitions
+             : -1;
+}
+
+int RecoveredGameServices_VehicleDeathCameraProbeFiniteCameras() {
+  return g_vehicleDeathCameraReady ? g_vehicleDeathCameraProbe.finiteCameras
+                                   : -1;
+}
+
+int RecoveredGameServices_VehicleDeathCameraProbeRollbacks() {
+  return g_vehicleDeathCameraReady ? g_vehicleDeathCameraProbe.rollbacks
+                                   : -1;
 }
 
 bool RecoveredGameServices_TaxiVehicleTransitionReady() {
@@ -4008,6 +4056,51 @@ unsigned int RecoveredGameServices_VehicleFrameCount() {
 
 unsigned int RecoveredGameServices_VehicleCameraFrameCount() {
   return g_vehicleCameraFrameCount;
+}
+
+int RecoveredGameServices_VehicleCameraMode() {
+  SRecoveredVehicleCameraTelemetry telemetry = {};
+  return g_super.m_context != nullptr &&
+                 VehicleRuntimeState_InspectCamera(
+                     g_super.m_context, &telemetry)
+             ? telemetry.mode
+             : RECOVERED_VEHICLE_CAMERA_UNKNOWN;
+}
+
+unsigned int RecoveredGameServices_VehicleCameraTransformFrameCount() {
+  SRecoveredVehicleCameraTelemetry telemetry = {};
+  return g_super.m_context != nullptr &&
+                 VehicleRuntimeState_InspectCamera(
+                     g_super.m_context, &telemetry)
+             ? telemetry.transformFrames
+             : 0u;
+}
+
+unsigned int RecoveredGameServices_VehicleDeathCameraFrameCount() {
+  SRecoveredVehicleCameraTelemetry telemetry = {};
+  return g_super.m_context != nullptr &&
+                 VehicleRuntimeState_InspectCamera(
+                     g_super.m_context, &telemetry)
+             ? telemetry.deathFrames
+             : 0u;
+}
+
+unsigned int RecoveredGameServices_VehicleDeathCameraCompletions() {
+  SRecoveredVehicleCameraTelemetry telemetry = {};
+  return g_super.m_context != nullptr &&
+                 VehicleRuntimeState_InspectCamera(
+                     g_super.m_context, &telemetry)
+             ? telemetry.deathCompletions
+             : 0u;
+}
+
+double RecoveredGameServices_VehicleDeathCameraOffsetY() {
+  SRecoveredVehicleCameraTelemetry telemetry = {};
+  return g_super.m_context != nullptr &&
+                 VehicleRuntimeState_InspectCamera(
+                     g_super.m_context, &telemetry)
+             ? telemetry.deathOffsetY
+             : 0.0;
 }
 
 unsigned int RecoveredGameServices_VehicleDroppedTimeFrameCount() {
