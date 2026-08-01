@@ -80,6 +80,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added occupied-Vehicle coverage for the destructive cross-Level
+  coordinator. A slot created from a moving and non-lethally damaged
+  `Level.03N` Vehicle is now loaded by a fresh process initially running
+  `Level.02D`; the gate requires target-Level commit, exact world/LCN1 and
+  Vehicle authority, resumed CTJ1 input and an unchanged slot archive.
+- Strengthened the service coordinator proof so its target fixture is also an
+  occupied moving/damaged Vehicle. The existing corrupt-target transaction now
+  rolls back to that occupied source session and verifies cockpit, camera and
+  journal authority rather than only the source world fingerprint.
 - Added a true cross-process occupied-Vehicle Save/Load gate. Process A now
   drives and damages a real type-1 Vehicle, commits RR2SLOT1 and exits cleanly;
   a newly started process B loads the unchanged archive, proves equal world

@@ -3571,9 +3571,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   actions with neutral axes and zero append failures. Profile, damage,
   identity and cockpit state match across the two shutdown logs, and the slot
   SHA-256 is unchanged.
-- Revisit when: the same proof crosses a Level coordinator restart. At that
-  boundary, source and target process-local catalogs may differ, so authority
-  must be checked against the target slot identity rather than source globals.
+- Revisit when: save compatibility intentionally spans executable versions.
+  The current identity proves a clean second lifetime of the same binary and
+  content stack; it is not yet a migration promise.
+
+### CQ-192: a foreign Level catalog cannot identify restored Vehicle authority
+
+- Status: `PORTABILITY_CONTRACT_ACCEPTED`, `SAVE_CONTRACT_PARTIAL`.
+- Evidence: a cross-Level load begins while the process owns the source
+  Level's Taxi/Vehicle attribute tables, but the slot names objects and a
+  vessel profile from the target Level. Reusing a menu index or source-table
+  pointer across `ZAV_DeInitLevel` would select an unrelated Vehicle or retain
+  a dangling cockpit owner even when the slot bytes are correct.
+- Handling: the coordinator transports only symbolic LCN1/RR2SLOT1 content.
+  It destroys the foreign context, reconstructs the target tables and lets
+  target restore resolve `Vehicle.Default` and its attribute before gameplay
+  authority is published. The acceptance fixture uses its numeric debug index
+  only when creating the target slot; process B validates the restored target
+  profile and identity, never that foreign index.
+- Verification: `Invoke-OccupiedVehicleSaveLoad.ps1 -AcrossLevel` passes
+  `Level.02D -> Level.03N` in Debug and Release with exact world/container,
+  identity/profile/damage/panel/camera and CTJ1 `2 -> 4` proofs. The optional
+  two-directory service smoke additionally restores occupied authority after
+  its corrupt-target source rollback.
+- Revisit when: the coordinator gains deliberate post-restore authority fault
+  injection. That proof must reject a fully reconstructed but misbound target
+  and restore the source LCN1 byte-equivalently.
 
 ## Maintenance rule
 

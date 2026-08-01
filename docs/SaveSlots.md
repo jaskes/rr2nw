@@ -252,6 +252,20 @@ LCN1 fingerprints, unchanged slot SHA-256, exact live identity/profile/damage
 and HUD state, live camera, neutral controls, zero journal append failures and
 exactly two additional CTJ1 action records in process B.
 
+With `-AcrossLevel`, process A still creates the occupied slot and exits, but
+process B starts in `-ForeignLevel` before opening the ordinary Load dialog.
+The gate additionally requires the coordinator begin/commit markers, final
+Level identity, one completed cross-Level request, zero rollbacks/failures and
+a coordinator world fingerprint equal to the slot. The default proof is
+`Level.02D -> Level.03N`; the debug Vehicle index is resolved only in the
+saved target Level and is never interpreted through the foreign catalog.
+
+The optional two-directory service smoke now builds its target slot from an
+occupied moving/damaged Vehicle too. After coordinator restore it checks exact
+pose/speed, profile, damage and panel state, appends a new command pair, then
+uses the existing corrupt return target to prove rollback reconstructs that
+occupied source authority and CTJ1 checkpoint.
+
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
 `LCN1-14/14/14`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
@@ -260,16 +274,22 @@ The current accepted local Windows gate is 66/66 CTest in Debug and Release,
 18/18 RR2SLOT1 destroyed-context cases, 18/18 independent ordinary retail
 runtime cases, 16/16 native-window occupied Vehicle profile cases and 2/2
 cross-Level coordinator cases. The independent-process occupied-vehicle gate
-adds 2/2 Debug/Release cases. The fresh matrix and native product gate both
-cover the complete campaign profile mask `0x3F3`. These cover all nine
-installed Levels in both configurations. The mounted disc root was not part
-of this tranche and is therefore not included in the slot claim.
+adds 2/2 same-Level and 2/2 cross-Level Debug/Release cases. The fresh matrix
+and native product breadth gate both cover the complete campaign profile mask
+`0x3F3`; the occupied coordinator topology is a separate representative proof
+over the same restore transaction. These cover all nine installed Levels in
+both configurations. The mounted disc root was not part of this tranche and
+is therefore not included in the slot claim.
 
 ## Next gate
 
 The safe native Windows persistence slice, including cross-Level restart,
 rollback, embedded preview presentation and editable display metadata, is now
-live. The remaining 1.0 persistence gate is deliberately narrower:
+live. Its remaining automated Frontier D gate is deliberate post-restore
+Vehicle-authority failure injection: reject a reconstructed but misbound
+target and prove byte-equivalent rollback to the occupied source session.
+
+The later interactive 1.0 persistence pass is deliberately narrower:
 
 - complete and record a longer interactive multi-Level play/load pass;
 - enter Cyrillic title/description text in the visible Save dialog and prove

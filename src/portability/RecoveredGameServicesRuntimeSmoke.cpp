@@ -729,6 +729,9 @@ bool StartServices(const char* directory) {
   return RecoveredGameServices_IsReady();
 }
 
+bool SendHardwareButton(const char* keyName, int buttonDown);
+bool RunVehicleFrameAfter(double minimumDelta);
+
 bool ExerciseCrossLevelLoad(const char* sourceDirectory,
                             const char* targetDirectory,
                             const std::wstring& saveDirectory) {
@@ -742,14 +745,78 @@ bool ExerciseCrossLevelLoad(const char* sourceDirectory,
     std::fprintf(stderr, "cross-Level target fixture did not start\n");
     return false;
   }
+  if (!RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{"Level.CrossLoad.Target"})) {
+    std::fprintf(stderr, "cross-Level target debug catalog failed\n");
+    return false;
+  }
+  std::size_t occupiedIndex = RecoveredGameServices_DebugVehicleTypeCount();
+  SRecoveredDebugVehicleType occupiedType;
+  for (std::size_t index = 0;
+       index < RecoveredGameServices_DebugVehicleTypeCount(); ++index) {
+    SRecoveredDebugVehicleType type;
+    if (RecoveredGameServices_DebugVehicleType(index, &type) &&
+        type.vehicleType == 1 &&
+        type.vesselKind != RECOVERED_VEHICLE_VESSEL_UNKNOWN &&
+        type.vesselProfile != RECOVERED_VEHICLE_PROFILE_UNKNOWN) {
+      occupiedIndex = index;
+      occupiedType = type;
+      break;
+    }
+  }
+  bool occupied = occupiedIndex <
+      RecoveredGameServices_DebugVehicleTypeCount() &&
+      RecoveredGameServices_RequestDebugVehicleSpawn(
+          occupiedIndex, true) &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  for (int frame = 0; occupied && frame < 4; ++frame)
+    occupied = RunVehicleFrameAfter(0.025);
+  bool drove = occupied && SendHardwareButton("W", TRUE);
+  for (int frame = 0; drove && frame < 8; ++frame)
+    drove = RunVehicleFrameAfter(0.025);
+  drove = drove && SendHardwareButton("W", FALSE) &&
+      RunVehicleFrameAfter(0.01);
+  const bool damaged = drove &&
+      RecoveredGameServices_RequestDebugDamageOccupiedVehicle() &&
+      RecoveredGameServices_ProcessPendingDebugCommand();
+  SRecoveredVehicleAuthorityState targetAuthority = {};
+  SRecoveredVehicleRuntimeState targetVehicleState = {};
+  SRecoveredVehicleControlJournalTelemetry targetJournal = {};
+  KR_ObjectID targetVehicle = g_super.m_context == nullptr
+      ? KR_ObjectID::NUL()
+      : g_super.m_context->searchObject("Vehicle.Default");
+  const bool targetAuthorityReady = damaged &&
+      RecoveredGameServices_VehicleAuthorityState(&targetAuthority) &&
+      VehicleRuntimeState_Inspect(
+          g_super.m_context, targetVehicle, &targetVehicleState) &&
+      RecoveredGameServices_VehicleControlJournalTelemetry(&targetJournal) &&
+      targetAuthority.active == 1 && targetAuthority.frameBegun == 0 &&
+      targetAuthority.dead == 0 && targetAuthority.takingTaxi == 0 &&
+      targetAuthority.taxiChangeEnabled == 0 &&
+      targetAuthority.vesselKind == occupiedType.vesselKind &&
+      targetAuthority.vesselProfile == occupiedType.vesselProfile &&
+      targetAuthority.damage > 0.0 &&
+      targetAuthority.panelOpen == targetAuthority.panelReady &&
+      RecoveredGameServices_VehicleCameraMode() ==
+          RECOVERED_VEHICLE_CAMERA_LIVE &&
+      std::sqrt(targetVehicleState.speed.x * targetVehicleState.speed.x +
+                targetVehicleState.speed.y * targetVehicleState.speed.y +
+                targetVehicleState.speed.z * targetVehicleState.speed.z) >
+          1.0e-6 &&
+      targetJournal.recording == 1 && targetJournal.actionRecords == 2u &&
+      targetJournal.appendFailures == 0u &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+
   SLevelSaveSlotSummary targetSlot;
   SLevelContinuationSummary targetContinuation;
-  if (!RecoveredGameServices_SaveLevelSlot(
+  if (!targetAuthorityReady || !RecoveredGameServices_SaveLevelSlot(
           saveDirectory, kTargetSlot, "cross-Level target",
-          "two-Level recovered services regression", {}, &targetSlot,
+          "occupied moving/damaged coordinator regression", {}, &targetSlot,
           &targetContinuation) ||
       !targetSlot.ready || !targetContinuation.ready ||
-      targetSlot.level.empty()) {
+      targetSlot.level.empty() || targetContinuation.actionRecords != 2u ||
+      !RecoveredGameServices_ConfigureDebugMenu(
+          false, std::vector<std::string>())) {
     std::fprintf(stderr, "cross-Level target fixture save failed: %s\n",
                  RecoveredGameServices_LastLevelSaveSlotError());
     return false;
@@ -790,12 +857,64 @@ bool ExerciseCrossLevelLoad(const char* sourceDirectory,
 
   ZAV_DeInitLevel();
   SLevelContinuationSummary restoredTarget;
-  if (!StartServices(targetDirectory) ||
-      !RecoveredGameServices_ApplyCrossLevelLoad(
-          request, &restoredTarget) ||
-      restoredTarget.restoredWorldFingerprint !=
-          targetContinuation.worldFingerprint ||
-      !RecoveredGameServices_RunFrame()) {
+  const bool targetApplied = StartServices(targetDirectory) &&
+      RecoveredGameServices_ApplyCrossLevelLoad(request, &restoredTarget);
+  SRecoveredVehicleAuthorityState restoredAuthority = {};
+  SRecoveredVehicleRuntimeState restoredVehicleState = {};
+  SRecoveredVehicleControlJournalTelemetry restoredJournal = {};
+  KR_ObjectID restoredVehicle = g_super.m_context == nullptr
+      ? KR_ObjectID::NUL()
+      : g_super.m_context->searchObject("Vehicle.Default");
+  const bool targetAuthorityRestored = targetApplied &&
+      restoredTarget.restoredWorldFingerprint ==
+          targetContinuation.worldFingerprint &&
+      RecoveredGameServices_VehicleAuthorityState(&restoredAuthority) &&
+      VehicleRuntimeState_Inspect(
+          g_super.m_context, restoredVehicle, &restoredVehicleState) &&
+      RecoveredGameServices_VehicleControlJournalTelemetry(
+          &restoredJournal) &&
+      restoredAuthority.identityFingerprint ==
+          targetAuthority.identityFingerprint &&
+      std::fabs(restoredAuthority.damage - targetAuthority.damage) <=
+          1.0e-9 &&
+      restoredAuthority.vesselKind == targetAuthority.vesselKind &&
+      restoredAuthority.vesselProfile == targetAuthority.vesselProfile &&
+      restoredAuthority.active == targetAuthority.active &&
+      restoredAuthority.frameBegun == targetAuthority.frameBegun &&
+      restoredAuthority.dead == targetAuthority.dead &&
+      restoredAuthority.takingTaxi == targetAuthority.takingTaxi &&
+      restoredAuthority.panelReady == targetAuthority.panelReady &&
+      restoredAuthority.panelOpen == targetAuthority.panelOpen &&
+      restoredAuthority.taxiChangeEnabled ==
+          targetAuthority.taxiChangeEnabled &&
+      std::fabs(restoredVehicleState.position.x -
+                targetVehicleState.position.x) <= 1.0e-7 &&
+      std::fabs(restoredVehicleState.position.y -
+                targetVehicleState.position.y) <= 1.0e-7 &&
+      std::fabs(restoredVehicleState.position.z -
+                targetVehicleState.position.z) <= 1.0e-7 &&
+      std::fabs(restoredVehicleState.speed.x -
+                targetVehicleState.speed.x) <= 1.0e-7 &&
+      std::fabs(restoredVehicleState.speed.y -
+                targetVehicleState.speed.y) <= 1.0e-7 &&
+      std::fabs(restoredVehicleState.speed.z -
+                targetVehicleState.speed.z) <= 1.0e-7 &&
+      RecoveredGameServices_VehicleCameraMode() ==
+          RECOVERED_VEHICLE_CAMERA_LIVE &&
+      restoredJournal.recording == 1 &&
+      restoredJournal.actionRecords == targetJournal.actionRecords &&
+      restoredJournal.appendFailures == 0u &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+  const bool targetResumed = targetAuthorityRestored &&
+      SendHardwareButton("D", TRUE) && RunVehicleFrameAfter(0.025) &&
+      RunVehicleFrameAfter(0.025) && SendHardwareButton("D", FALSE) &&
+      RunVehicleFrameAfter(0.01) &&
+      RecoveredGameServices_VehicleControlJournalTelemetry(
+          &restoredJournal) &&
+      restoredJournal.actionRecords == targetJournal.actionRecords + 2u &&
+      restoredJournal.appendFailures == 0u &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+  if (!targetResumed) {
     std::fprintf(stderr, "cross-Level target commit failed: %s\n",
                  RecoveredGameServices_SaveMenuState()->lastError.c_str());
     return false;
@@ -815,7 +934,9 @@ bool ExerciseCrossLevelLoad(const char* sourceDirectory,
   // Stage a valid return to the source Level, then corrupt only the in-memory
   // handoff. The target Level must remain recoverable through the checkpoint
   // captured at the staging boundary.
-  if (!RecoveredGameServices_RequestLoadSlot(3u) ||
+  SRecoveredVehicleAuthorityState rollbackAuthority = {};
+  if (!RecoveredGameServices_VehicleAuthorityState(&rollbackAuthority) ||
+      !RecoveredGameServices_RequestLoadSlot(3u) ||
       !RecoveredGameServices_ProcessPendingSaveCommand()) {
     std::fprintf(stderr, "cross-Level rollback request failed: %s\n",
                  RecoveredGameServices_SaveMenuState()->lastError.c_str());
@@ -841,9 +962,15 @@ bool ExerciseCrossLevelLoad(const char* sourceDirectory,
       RecoveredGameServices_SaveMenuState()->lastError;
   ZAV_DeInitLevel();
   SLevelContinuationSummary rolledBackTarget;
+  SRecoveredVehicleAuthorityState restoredRollbackAuthority = {};
+  SRecoveredVehicleControlJournalTelemetry rollbackJournal = {};
   if (!StartServices(targetDirectory) ||
       !RecoveredGameServices_RestoreLevelContinuation(
-          rejected.sourceContinuation, &rolledBackTarget)) {
+          rejected.sourceContinuation, &rolledBackTarget) ||
+      !RecoveredGameServices_VehicleAuthorityState(
+          &restoredRollbackAuthority) ||
+      !RecoveredGameServices_VehicleControlJournalTelemetry(
+          &rollbackJournal)) {
     std::fprintf(stderr, "cross-Level source rollback restore failed: %s\n",
                  RecoveredGameServices_LastLevelContinuationError());
     return false;
@@ -860,10 +987,35 @@ bool ExerciseCrossLevelLoad(const char* sourceDirectory,
       rolledBack->failedCommands != 1u ||
       rolledBackTarget.restoredWorldFingerprint !=
           rejected.sourceContinuationSummary.worldFingerprint ||
+      restoredRollbackAuthority.identityFingerprint !=
+          rollbackAuthority.identityFingerprint ||
+      std::fabs(restoredRollbackAuthority.damage -
+                rollbackAuthority.damage) > 1.0e-9 ||
+      restoredRollbackAuthority.vesselProfile !=
+          rollbackAuthority.vesselProfile ||
+      restoredRollbackAuthority.panelReady !=
+          rollbackAuthority.panelReady ||
+      restoredRollbackAuthority.panelOpen != rollbackAuthority.panelOpen ||
+      RecoveredGameServices_VehicleCameraMode() !=
+          RECOVERED_VEHICLE_CAMERA_LIVE ||
+      rollbackJournal.actionRecords !=
+          rejected.sourceContinuationSummary.actionRecords ||
+      rollbackJournal.appendFailures != 0u ||
+      RecoveredGameServices_VehicleActiveActionCount() != 0u ||
       !RecoveredGameServices_RunFrame()) {
     std::fprintf(stderr, "cross-Level rollback telemetry/proof failed\n");
     return false;
   }
+  std::printf(
+      "occupied_cross_level_authority=commit-resume-rollback "
+      "profile=%d damage=%.6f panel=%d/%d world=%llu "
+      "actions=%u/%u rollback_world=%llu\n",
+      occupiedType.vesselProfile, targetAuthority.damage,
+      targetAuthority.panelReady, targetAuthority.panelOpen,
+      static_cast<unsigned long long>(targetContinuation.worldFingerprint),
+      targetJournal.actionRecords, restoredJournal.actionRecords,
+      static_cast<unsigned long long>(
+          rolledBackTarget.restoredWorldFingerprint));
   return true;
 }
 

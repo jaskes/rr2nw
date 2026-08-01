@@ -592,6 +592,24 @@ The two shutdown logs must agree on non-zero authority identity, vessel
 profile, non-lethal damage and cockpit ready/open state. Process B must retain
 live camera mode, neutral controls, zero CTJ1 append failures and cleanly exit.
 
+The destructive coordinator variant starts the loading process in a different
+retail Level:
+
+```powershell
+& ".\tools\acceptance\Invoke-OccupiedVehicleSaveLoad.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release `
+  -Level "Level.03N" `
+  -ForeignLevel "Level.02D" `
+  -AcrossLevel
+```
+
+Both rows must pass with `LoadStartLevel=Level.02D`, final
+`Level.03N`, one coordinator commit, no coordinator rollback/failure and the
+same authority/SHA-256/action requirements as the process-lifetime gate. The
+visible process B window may briefly pause while the foreign Level is torn
+down; it must resume with the saved cockpit and accept the injected turn.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

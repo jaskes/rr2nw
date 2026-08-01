@@ -6,6 +6,8 @@ param(
     [ValidateRange(0, 63)][int]$VehicleIndex = 1,
     [switch]$AllProfiles,
     [switch]$AcrossProcess,
+    [switch]$AcrossLevel,
+    [string]$ForeignLevel = "Level.02D",
     [ValidateRange(20, 180)][int]$TimeoutSeconds = 90,
     [string]$OutputRoot
 )
@@ -21,8 +23,11 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
 }
 $OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
-if ($AllProfiles -and $AcrossProcess) {
-    throw "-AllProfiles and -AcrossProcess are separate gates"
+if ($AllProfiles -and ($AcrossProcess -or $AcrossLevel)) {
+    throw "-AllProfiles and process/Level lifetime gates are separate"
+}
+if ($AcrossLevel -and $ForeignLevel -ieq $Level) {
+    throw "-ForeignLevel must differ from -Level for -AcrossLevel"
 }
 
 if (-not ("RR2OccupiedSaveLoadNative" -as [type])) {
@@ -280,8 +285,17 @@ if ($AllProfiles) {
     return
 }
 
-if ($AcrossProcess) {
+if ($AcrossProcess -or $AcrossLevel) {
     $crossProcessRecords = [Collections.Generic.List[object]]::new()
+    if ($AcrossLevel) {
+        $configuredLevels = @(Get-LevelCatalog $dataPath)
+        if (@($configuredLevels | Where-Object {
+                $_ -ieq $Level }).Count -ne 1 -or
+            @($configuredLevels | Where-Object {
+                $_ -ieq $ForeignLevel }).Count -ne 1) {
+            throw "-Level and -ForeignLevel must be listed in retail game.cfg"
+        }
+    }
     foreach ($configurationName in $Configuration) {
         $executable = Join-Path $repositoryRoot (
             "build\windows-msvc-x86\{0}\rr2nw.exe" -f $configurationName)
@@ -300,11 +314,11 @@ if ($AcrossProcess) {
             throw "Isolated cross-process slot already exists: $slotPath"
         }
 
-        $commonArguments = @(
+        $saveCommonArguments = @(
             "--data-dir", $dataPath, "--start-level", $Level,
             "--save-dir", $saveDirectory, "--debug-menu"
         )
-        $saveArguments = @($commonArguments + @(
+        $saveArguments = @($saveCommonArguments + @(
             "--diagnostics-dir", $saveDiagnostics
         )) | ForEach-Object { Quote-NativeArgument $_ }
 
@@ -371,10 +385,16 @@ if ($AcrossProcess) {
         $slotHashBefore = (Get-FileHash -LiteralPath $slotPath `
             -Algorithm SHA256).Hash
 
-        $loadArguments = @($commonArguments + @(
+        $loadStartLevel = if ($AcrossLevel) { $ForeignLevel } else { $Level }
+        $loadCommonArguments = @(
+            "--data-dir", $dataPath, "--start-level", $loadStartLevel,
+            "--save-dir", $saveDirectory, "--debug-menu"
+        )
+        $loadArguments = @($loadCommonArguments + @(
             "--diagnostics-dir", $loadDiagnostics
         )) | ForEach-Object { Quote-NativeArgument $_ }
-        Write-Host "[$configurationName][$Level] process B: load and resume"
+        Write-Host ("[$configurationName][${loadStartLevel}->$Level] " +
+            "process B: load and resume")
         $loadGame = Start-Process -FilePath $executable `
             -ArgumentList $loadArguments -WorkingDirectory $repositoryRoot `
             -PassThru
@@ -470,6 +490,22 @@ if ($AcrossProcess) {
             game_services_issues = "0"
             runtime_shutdown = "clean"
         }
+        if ($AcrossLevel) {
+            $loadExpected["save_menu_cross_level_requests"] = "1"
+            $loadExpected["save_menu_completed_cross_level_loads"] = "1"
+            $loadExpected["save_menu_cross_level_rollbacks"] = "0"
+            $loadExpected["save_menu_cross_level_rollback_failures"] = "0"
+            $loadExpected["save_menu_cross_level_source"] = $ForeignLevel
+            $loadExpected["save_menu_cross_level_target"] = $Level
+            $loadExpected["final_level_dir"] = $Level
+            $loadExpected["cross_level_load_commit"] = $Level
+        }
+        else {
+            $loadExpected["save_menu_cross_level_requests"] = "0"
+            $loadExpected["save_menu_completed_cross_level_loads"] = "0"
+            $loadExpected["save_menu_cross_level_rollbacks"] = "0"
+            $loadExpected["save_menu_cross_level_rollback_failures"] = "0"
+        }
         foreach ($expectation in @(
             @{ Label = "process A"; Log = $sourceLog; Values = $sourceExpected },
             @{ Label = "process B"; Log = $loadLog; Values = $loadExpected }
@@ -517,6 +553,18 @@ if ($AcrossProcess) {
         if ($sourceContainer -ne $loadedSlotContainer -or
             $sourceContainer -ne $restoredContainer) {
             $issues.Add("process B LCN1 fingerprint differs from process A slot")
+        }
+        if ($AcrossLevel) {
+            [uint64]$coordinatorWorld = 0
+            if (-not $loadLog.ContainsKey(
+                    "cross_level_load_world_fingerprint") -or
+                -not [uint64]::TryParse(
+                    $loadLog["cross_level_load_world_fingerprint"],
+                    [ref]$coordinatorWorld) -or
+                $coordinatorWorld -ne $sourceWorld) {
+                $issues.Add(
+                    "cross-Level coordinator committed a different world")
+            }
         }
         if ($slotHashBefore -ne $slotHashAfter) {
             $issues.Add("process B rewrote the source RR2SLOT1 archive")
@@ -594,6 +642,7 @@ if ($AcrossProcess) {
             Configuration = $configurationName
             DataRoot = $dataPath
             Level = $Level
+            LoadStartLevel = $loadStartLevel
             VehicleIndex = $VehicleIndex
             VesselProfile = $spawnedVehicleProfile
             WorldFingerprint = $sourceWorld
@@ -605,18 +654,27 @@ if ($AcrossProcess) {
         })
     }
 
-    $summaryPath = Join-Path $OutputRoot `
+    $summaryName = if ($AcrossLevel) {
+        "occupied-save-load-cross-level-summary.csv"
+    } else {
         "occupied-save-load-cross-process-summary.csv"
+    }
+    $summaryPath = Join-Path $OutputRoot $summaryName
     $crossProcessRecords | Export-Csv -LiteralPath $summaryPath `
         -NoTypeInformation -Encoding UTF8
     $crossProcessRecords | Format-Table -AutoSize
     $passed = @($crossProcessRecords |
         Where-Object { $_.Result -eq "PASS" }).Count
-    Write-Host ("Occupied Vehicle cross-process gate: " +
+    $gateName = if ($AcrossLevel) {
+        "Occupied Vehicle cross-Level gate"
+    } else {
+        "Occupied Vehicle cross-process gate"
+    }
+    Write-Host ($gateName + ": " +
         "$passed/$($crossProcessRecords.Count) passed")
     Write-Host "Summary: $summaryPath"
     if ($passed -ne $crossProcessRecords.Count) {
-        throw "One or more occupied Vehicle cross-process cases failed"
+        throw "One or more occupied Vehicle lifetime cases failed"
     }
     return
 }

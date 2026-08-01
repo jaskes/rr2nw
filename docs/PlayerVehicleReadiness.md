@@ -314,6 +314,9 @@ profile through ordinary same-process Save/Load and one representative
 moving/damaged occupied Vehicle across a complete executable exit/restart.
 The latter requires exact world/LCN1 fingerprints, unchanged slot bytes,
 profile/damage/HUD/camera ownership and newly accepted control input in the
-second process. Remaining Vehicle persistence work is the occupied cross-Level
-coordinator path and injected post-restore authority failure/rollback; no
-second recovery policy or serializer is needed.
+second process. The occupied cross-Level coordinator path now proves the same
+contract after starting in and destroying a foreign Level, while the service
+gate also returns to an occupied source session after a corrupt target.
+Remaining Vehicle persistence work is deliberate post-restore authority
+failure and byte-equivalent rollback; no second recovery policy or serializer
+is needed.

@@ -1531,6 +1531,15 @@ and container fingerprints, exact profile/damage/HUD/camera authority, neutral
 controls and one newly accepted command pair. The slot SHA-256 must remain
 unchanged across both processes.
 
+The cross-Level topology is now covered by the same occupied fixture. Process
+A saves the moving/damaged `Level.03N` Vehicle and exits. Process B starts in
+`Level.02D`, stages the ordinary Load dialog, destroys that foreign context,
+reconstructs `Level.03N`, applies the slot and accepts a new command. Commit
+requires the exact slot world/LCN1 fingerprints and Vehicle identity/profile,
+damage, HUD and camera state. The service proof independently repeats the
+occupied commit and restores the occupied source session after its existing
+corrupt-target rollback case.
+
 The product gate discovers the native Debug catalog across all nine retail
 Levels and selects exactly the eight-profile campaign union `0x3F3`; every
 selected profile gets its own fresh executable process and visible Save/Load
@@ -1540,7 +1549,9 @@ per-Level Save/Load profile mask as its gameplay and destruction proofs.
 Accepted breadth evidence: 66/66 CTest per configuration, 18/18 ordinary
 retail starts, 18/18 fresh continuations with complete Save/Load mask `0x3F3`,
 16/16 native-window profile transactions and 2/2 independent-process
-transactions across Debug and Release.
+transactions plus 2/2 occupied cross-Level transactions across Debug and
+Release. Profile breadth and coordinator topology are independent gates over
+the same LCN1/RR2SLOT1 restore path.
 
 Make one atomic owner graph cover player embodiment, Vehicle/camera/panel,
 active controls, Taxi/Orphan state, spawned debug objects and Level identity.
@@ -1553,10 +1564,10 @@ Vehicle class, including moving/damaged state, exact HUD/camera ownership and
 the debug-spawned world. Failure leaves the source session byte-equivalent at
 the owned-state boundary.
 
-Remaining within Frontier D: carry an occupied slot through the cross-Level
-coordinator handoff, then add deliberate post-restore authority failure
-injection proving source-session byte equivalence. The existing serializer
-remains LCN1/RR2SLOT1.
+Remaining within Frontier D: add deliberate post-restore authority failure
+injection proving source-session byte equivalence after a target world has
+already reconstructed successfully. The existing serializer remains
+LCN1/RR2SLOT1.
 
 ### Frontier E: actors, static mechanisms and animation
 
