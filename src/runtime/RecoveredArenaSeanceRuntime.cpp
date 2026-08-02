@@ -1,5 +1,6 @@
 #include "RecoveredArenaSeanceRuntime.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cmath>
@@ -61,6 +62,7 @@ class CGRPanel;
 #include "message/groupmsg.h"
 #include "message/skinmsg.h"
 #include "message/unitmsg.h"
+#include "mproj/h/mproj.h"
 #include "sound.h"
 
 #include "RecoveredLegacyScriptHost.h"
@@ -131,6 +133,64 @@ constexpr const char kTankCannonAttributeProgramName[] =
     "recovered_retail_tank_cannon_attribute_bootstrap";
 constexpr const char kSkinAnimationProgramName[] =
     "recovered_retail_skin_animation_bootstrap";
+constexpr const char kMissionProjectProgramName[] =
+    "recovered_retail_mission_project_bootstrap";
+
+const char kMissionProjectBootstrapPrefix[] = R"RR2NW_SCRIPT(
+func void s_CreateProjectTable(int projects, int nodes, int heap) extern;
+func int s_NewPNode(int command, int left, int right) extern;
+func void s_OpenProjectData(int node) extern;
+func void s_CloseProjectData(int node) extern;
+func void s_ProjectWriteInt(int node, int value) extern;
+func void s_ProjectWriteFloat(int node, float value) extern;
+func void s_ProjectWriteStr(int node, str value) extern;
+func void s_ProjectNodeSetLink(int node, int left, int right) extern;
+func int s_PNodeNULL() extern;
+func void s_NewProjectEx(str name, int node, int permanent) extern;
+func int s_SearchSeanceClassTable(str tableName) extern;
+func int s_SetCommander(str objectName, str commanderName) extern;
+func void s_DeferMissionHowitzer(int classTable, str attributeName,
+                                 str holderName, float startTime,
+                                 str objectName) extern;
+func void s_DeferMissionDestroyable(str attributeName, str scriptName,
+                                    str objectName) extern;
+
+func void s_NewProject(str name, int node)
+{
+  s_NewProjectEx(name,node,0);
+}
+
+func int ConvertColor(int r, int g, int b)
+{
+  if r > 255 then r := 255; else if r < 0 then r := 0;
+  if g > 255 then g := 255; else if g < 0 then g := 0;
+  if b > 255 then b := 255; else if b < 0 then b := 0;
+  return r*65536+g*256+b;
+}
+
+func void CreateHowitzerName(int classTable, str attributeName,
+                             str holderName, float startTime,
+                             str objectName)
+{
+  s_DeferMissionHowitzer(classTable,attributeName,holderName,startTime,
+                         objectName);
+}
+
+func void CreateDestroyable(int classTable, vector position, float angle,
+                            str attributeName, int mission,
+                            str scriptName, str objectName)
+{
+  s_DeferMissionDestroyable(attributeName,scriptName,objectName);
+}
+)RR2NW_SCRIPT";
+
+const char kMissionProjectBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  s_CreateProjectTable(200,1024,1024*10);
+  CreateTestProject();
+}
+)RR2NW_SCRIPT";
 
 // This deliberately uses the original script-facing storage and event
 // protocol for the small common Bird/Portal/Orphan/Artefact/Spark/Route slice.
@@ -1090,6 +1150,159 @@ struct CommanderScriptSummary {
   std::string functionSource;
 };
 
+struct MissionProjectSummary {
+  int capacity;
+  int nodeCapacity;
+  int heapCapacity;
+  int projectCount;
+  int nodeCount;
+  int dataBytes;
+  int summaryCount;
+  int permanentCount;
+  int deferredHowitzerCount;
+  int deferredDestroyableCount;
+  unsigned long long fingerprint;
+};
+
+struct MissionProjectEntry {
+  KR_ObjectID object;
+  std::string name;
+  int root;
+  int permanent;
+};
+
+struct MissionProjectCollector {
+  SimulationContext* context;
+  std::vector<MissionProjectEntry>* entries;
+  bool valid;
+};
+
+bool CollectMissionProject(KR_ObjectID object, void* parameter) {
+  MissionProjectCollector* collector =
+      static_cast<MissionProjectCollector*>(parameter);
+  if (collector == nullptr || collector->context == nullptr ||
+      collector->entries == nullptr) return false;
+  mp_Project* project = projectTable.searchProject(object);
+  const char* name = collector->context->searchObject(object);
+  if (project == nullptr || name == nullptr || name[0] == 0) {
+    collector->valid = false;
+    return false;
+  }
+  try {
+    collector->entries->push_back(
+        MissionProjectEntry{object, name, project->get(),
+                            project->m_permanent});
+  } catch (...) {
+    collector->valid = false;
+    return false;
+  }
+  return true;
+}
+
+void HashMissionProjectBytes(unsigned long long* hash, const void* data,
+                             std::size_t size) {
+  if (hash == nullptr || data == nullptr) return;
+  const unsigned char* bytes = static_cast<const unsigned char*>(data);
+  for (std::size_t index = 0; index < size; ++index) {
+    *hash ^= bytes[index];
+    *hash *= 1099511628211ull;
+  }
+}
+
+void HashMissionProjectInt(unsigned long long* hash, int value) {
+  HashMissionProjectBytes(hash, &value, sizeof(value));
+}
+
+bool InspectMissionProjects(SimulationContext* context,
+                            const RecoveredLegacyScriptHost& host,
+                            MissionProjectSummary* summary) {
+  if (context == nullptr || summary == nullptr ||
+      !host.ProjectTableCreated() || host.ProjectCount() < 0 ||
+      host.ProjectCount() > 200 || host.ProjectNodeCount() < 0 ||
+      host.ProjectNodeCount() > 1024 || host.ProjectDataBytes() < 0 ||
+      host.ProjectDataBytes() > 10240)
+    return false;
+
+  std::vector<MissionProjectEntry> entries;
+  MissionProjectCollector collector = {context, &entries, true};
+  projectTable.userFind(CollectMissionProject, &collector);
+  if (!collector.valid ||
+      entries.size() != static_cast<std::size_t>(host.ProjectCount()))
+    return false;
+  std::sort(entries.begin(), entries.end(),
+            [](const MissionProjectEntry& left,
+               const MissionProjectEntry& right) {
+              return left.name < right.name;
+            });
+
+  unsigned long long fingerprint = 1469598103934665603ull;
+  std::set<int> allNodes;
+  int summaryCount = 0;
+  int permanentCount = 0;
+  for (std::size_t projectIndex = 0; projectIndex < entries.size();
+       ++projectIndex) {
+    const MissionProjectEntry& entry = entries[projectIndex];
+    HashMissionProjectBytes(&fingerprint, entry.name.c_str(),
+                            entry.name.size() + 1u);
+    HashMissionProjectInt(&fingerprint, entry.permanent);
+    if (entry.permanent != 0) ++permanentCount;
+
+    std::vector<int> pending(1, entry.root);
+    std::set<int> projectNodes;
+    while (!pending.empty()) {
+      const int node = pending.back();
+      pending.pop_back();
+      const int decoded = mp_Code2Int(node);
+      if (decoded == -1) continue;
+      if (decoded < 0 || decoded >= host.ProjectNodeCount() ||
+          !projectNodes.insert(decoded).second)
+        return false;
+      allNodes.insert(decoded);
+      const int command = projectTable.getCommand(node);
+      const int left = projectTable.getLeft(node);
+      const int right = projectTable.getRight(node);
+      const int decodedLeft = mp_Code2Int(left);
+      const int decodedRight = mp_Code2Int(right);
+      if (command < 0 || command > 35 || decodedLeft < -1 ||
+          decodedLeft >= host.ProjectNodeCount() || decodedRight < -1 ||
+          decodedRight >= host.ProjectNodeCount())
+        return false;
+      if (command == 30) ++summaryCount;
+      HashMissionProjectInt(&fingerprint, decoded);
+      HashMissionProjectInt(&fingerprint, command);
+      HashMissionProjectInt(&fingerprint, decodedLeft);
+      HashMissionProjectInt(&fingerprint, decodedRight);
+      if (decodedRight >= 0) pending.push_back(right);
+      if (decodedLeft >= 0) pending.push_back(left);
+    }
+  }
+  if (allNodes.size() !=
+      static_cast<std::size_t>(host.ProjectNodeCount()))
+    return false;
+
+  summary->capacity = 200;
+  summary->nodeCapacity = 1024;
+  summary->heapCapacity = 10240;
+  summary->projectCount = host.ProjectCount();
+  summary->nodeCount = host.ProjectNodeCount();
+  summary->dataBytes = host.ProjectDataBytes();
+  summary->summaryCount = summaryCount;
+  summary->permanentCount = permanentCount;
+  summary->deferredHowitzerCount = host.DeferredMissionHowitzerCount();
+  summary->deferredDestroyableCount =
+      host.DeferredMissionDestroyableCount();
+  summary->fingerprint = fingerprint;
+  return true;
+}
+
+bool HasCanonicalMissionProjectTableCall(const std::string& localMainSource) {
+  std::string compact;
+  return CompactScriptSource(localMainSource, &compact) &&
+         CountTextOccurrences(
+             compact,
+             "s_CreateProjectTable(200,1024,1024*10);") == 1;
+}
+
 bool InspectTankCannonScripts(const std::string& attributeSource,
                               const std::string& localMainSource,
                               const std::string& setTankSource,
@@ -1529,6 +1742,7 @@ struct RecoveredArenaSeanceState {
   bool tankReferencesReady;
   bool tankCannonSubjectTablesReady;
   bool commanderReady;
+  bool missionProjectsReady;
   bool missionTankLifecycleReady;
   bool activeWorldPersistenceReady;
   bool vehicleReady;
@@ -1769,6 +1983,17 @@ struct RecoveredArenaSeanceState {
   int commanderCount;
   int commanderHostileLinks;
   unsigned long long commanderFingerprint;
+  int missionProjectCapacity;
+  int missionProjectNodeCapacity;
+  int missionProjectHeapCapacity;
+  int missionProjectCount;
+  int missionProjectNodeCount;
+  int missionProjectDataBytes;
+  int missionProjectSummaryCount;
+  int missionProjectPermanentCount;
+  int missionProjectDeferredHowitzerCount;
+  int missionProjectDeferredDestroyableCount;
+  unsigned long long missionProjectFingerprint;
   int tankGroupSubjectCapacity;
   int missionTankAvailable;
   int missionTankSpawns;
@@ -1859,6 +2084,89 @@ bool RunCommonAttributeBootstrap(SimulationContext* context,
     Report(IssueForScriptStatus(result.status), result.error);
     return false;
   }
+  return true;
+}
+
+bool RunMissionProjectBootstrap(SimulationContext* context, double startTime,
+                                MissionProjectSummary* summary) {
+  std::string localMainSource;
+  std::string definitionsSource;
+  std::string helpersSource;
+  std::string projectsSource;
+  if (summary == nullptr ||
+      !ReadBoundedRetailAttributeSource("SCINC\\localmain.sci",
+                                        &localMainSource) ||
+      !ReadBoundedRetailAttributeSource("..\\DEFS.H", &definitionsSource) ||
+      !ReadBoundedRetailAttributeSource("..\\PFUNC.SCI", &helpersSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\BRIEF.SCI",
+                                        &projectsSource)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "could not read bounded retail mission project sources");
+    return false;
+  }
+  if (!HasCanonicalMissionProjectTableCall(localMainSource)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "localmain.sci mission ProjectTable contract is not canonical");
+    return false;
+  }
+
+  std::string program;
+  try {
+    program.reserve(sizeof(kMissionProjectBootstrapPrefix) +
+                    definitionsSource.size() + helpersSource.size() +
+                    projectsSource.size() +
+                    sizeof(kMissionProjectBootstrapSuffix) + 5u);
+    program.append(kMissionProjectBootstrapPrefix);
+    program.append(definitionsSource);
+    program.push_back('\n');
+    program.append(helpersSource);
+    program.push_back('\n');
+    program.append(projectsSource);
+    program.push_back('\n');
+    program.append(kMissionProjectBootstrapSuffix);
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
+           "could not allocate bounded retail mission project bootstrap");
+    return false;
+  }
+
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  profile.compilerWordBufferSize = 64 * 1024;
+  profile.compilerStringBufferSize = 128 * 1024;
+  profile.compilerNameCount = 4096;
+  profile.compilerTreeBufferSize = 256 * 1024;
+  profile.compilerCodeStreamSize = 256 * 1024;
+  profile.compilerLinkInfoSize = 64 * 1024;
+  profile.processStorageStackSize = 4096;
+  profile.processStackSize = 4096;
+  profile.processQuants = 32768;
+  profile.maximumVmSlices = 8192;
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kMissionProjectProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  if (!InspectMissionProjects(context, host, summary)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "retail mission project inventory is malformed");
+    return false;
+  }
+  // Topology alone cannot distinguish equal-length authored objective text.
+  // Fold the exact retail definitions/helpers/BRIEF byte streams into the
+  // identity while retaining the independently validated live graph counts.
+  const unsigned char separator = 0xffu;
+  HashMissionProjectBytes(&summary->fingerprint, definitionsSource.data(),
+                          definitionsSource.size());
+  HashMissionProjectBytes(&summary->fingerprint, &separator, 1u);
+  HashMissionProjectBytes(&summary->fingerprint, helpersSource.data(),
+                          helpersSource.size());
+  HashMissionProjectBytes(&summary->fingerprint, &separator, 1u);
+  HashMissionProjectBytes(&summary->fingerprint, projectsSource.data(),
+                          projectsSource.size());
   return true;
 }
 
@@ -5565,6 +5873,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     PeopleScriptSummary peopleScript = {};
     TankCannonScriptSummary tankCannonScript = {};
     CommanderScriptSummary commanderScript = {};
+    MissionProjectSummary missionProject = {};
     TeleportScriptSummary teleportScript = {};
     SRecoveredWavMetadataCatalog wavCatalog = {};
     // local_createTables() owns WAVObj before LEVEL0.SC creates attributes.
@@ -5581,10 +5890,25 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     if (!ReadCommanderScriptSummary(&commanderScript) ||
         !RunCommanderBootstrap(context, startTime, commanderScript) ||
         !PublishCommander(context, commanderScript) ||
+        !RunMissionProjectBootstrap(context, startTime, &missionProject) ||
         !ReadPeopleScriptSummary(&peopleScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    g_state.missionProjectCapacity = missionProject.capacity;
+    g_state.missionProjectNodeCapacity = missionProject.nodeCapacity;
+    g_state.missionProjectHeapCapacity = missionProject.heapCapacity;
+    g_state.missionProjectCount = missionProject.projectCount;
+    g_state.missionProjectNodeCount = missionProject.nodeCount;
+    g_state.missionProjectDataBytes = missionProject.dataBytes;
+    g_state.missionProjectSummaryCount = missionProject.summaryCount;
+    g_state.missionProjectPermanentCount = missionProject.permanentCount;
+    g_state.missionProjectDeferredHowitzerCount =
+        missionProject.deferredHowitzerCount;
+    g_state.missionProjectDeferredDestroyableCount =
+        missionProject.deferredDestroyableCount;
+    g_state.missionProjectFingerprint = missionProject.fingerprint;
+    g_state.missionProjectsReady = true;
     PeopleSubjectState_SetExpectedCapacities(
         peopleScript.attributeCapacity, peopleScript.subjectCapacity);
     if (!ReadTankCannonScriptSummary(&tankCannonScript) ||
@@ -5829,12 +6153,24 @@ void RecoveredArenaSeance_Release() {
   g_state.tankReferencesReady = false;
   g_state.tankCannonSubjectTablesReady = false;
   g_state.commanderReady = false;
+  g_state.missionProjectsReady = false;
   g_state.missionTankLifecycleReady = false;
   g_state.activeWorldPersistenceReady = false;
   g_state.commanderCapacity = 0;
   g_state.commanderCount = 0;
   g_state.commanderHostileLinks = 0;
   g_state.commanderFingerprint = 0;
+  g_state.missionProjectCapacity = 0;
+  g_state.missionProjectNodeCapacity = 0;
+  g_state.missionProjectHeapCapacity = 0;
+  g_state.missionProjectCount = 0;
+  g_state.missionProjectNodeCount = 0;
+  g_state.missionProjectDataBytes = 0;
+  g_state.missionProjectSummaryCount = 0;
+  g_state.missionProjectPermanentCount = 0;
+  g_state.missionProjectDeferredHowitzerCount = 0;
+  g_state.missionProjectDeferredDestroyableCount = 0;
+  g_state.missionProjectFingerprint = 0;
   g_state.tankGroupSubjectCapacity = 0;
   g_state.missionTankAvailable = 0;
   g_state.missionTankSpawns = 0;
@@ -6425,6 +6761,62 @@ int RecoveredArenaSeance_CommanderHostileLinks() {
 
 unsigned long long RecoveredArenaSeance_CommanderFingerprint() {
   return g_state.commanderReady ? g_state.commanderFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_MissionProjectsReady() {
+  return g_state.missionProjectsReady;
+}
+
+int RecoveredArenaSeance_MissionProjectCapacity() {
+  return g_state.missionProjectsReady ? g_state.missionProjectCapacity : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectNodeCapacity() {
+  return g_state.missionProjectsReady ? g_state.missionProjectNodeCapacity
+                                      : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectHeapCapacity() {
+  return g_state.missionProjectsReady ? g_state.missionProjectHeapCapacity
+                                      : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectCount() {
+  return g_state.missionProjectsReady ? g_state.missionProjectCount : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectNodeCount() {
+  return g_state.missionProjectsReady ? g_state.missionProjectNodeCount : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectDataBytes() {
+  return g_state.missionProjectsReady ? g_state.missionProjectDataBytes : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectSummaryCount() {
+  return g_state.missionProjectsReady ? g_state.missionProjectSummaryCount
+                                      : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectPermanentCount() {
+  return g_state.missionProjectsReady ? g_state.missionProjectPermanentCount
+                                      : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectDeferredHowitzerCount() {
+  return g_state.missionProjectsReady
+             ? g_state.missionProjectDeferredHowitzerCount
+             : -1;
+}
+
+int RecoveredArenaSeance_MissionProjectDeferredDestroyableCount() {
+  return g_state.missionProjectsReady
+             ? g_state.missionProjectDeferredDestroyableCount
+             : -1;
+}
+
+unsigned long long RecoveredArenaSeance_MissionProjectFingerprint() {
+  return g_state.missionProjectsReady ? g_state.missionProjectFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_MissionTankLifecycleReady() {

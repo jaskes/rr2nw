@@ -108,8 +108,14 @@ final framebuffer hash and non-clear-pixel count must be non-zero.
 
 For a human pass, the temporary automated objective should be visible in the
 map panel during `--runtime-smoke`; ordinary interactive play does not keep
-that probe alive. Authored quest text is not claimed until ProjectTable and
-RecruitCenter scripts enter the recovered bootstrap.
+that probe alive. The authored ProjectTable catalog is now constructed during
+ordinary startup, but it is intentionally not activated until RecruitCenter
+owns project selection and PlayerMission creation. A valid log contains
+`mission_project_table=1/200/1024/10240`, a five-field
+`mission_project_catalog` and a non-zero `mission_project_fingerprint`.
+`Level.04D` additionally reports `mission_project_deferred_howitzers=9`, and
+`Level.06N` reports `mission_project_deferred_destroyables=4`; all other rows
+must report zero for both deferred producers.
 
 Current interactive startup normally transfers ownership immediately to
 `Vehicle.Default`. After closing a Vehicle-controlled run, the diagnostic log

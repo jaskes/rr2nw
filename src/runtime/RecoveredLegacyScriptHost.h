@@ -14,7 +14,11 @@ enum ERecoveredLegacyScriptHostIssue {
   RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE = 1u << 4,
   RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_INTERFACE_FAILURE = 1u << 5,
   RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_LOAD_FAILURE = 1u << 6,
-  RECOVERED_LEGACY_SCRIPT_HOST_INVALID_STACK_REFERENCE = 1u << 7
+  RECOVERED_LEGACY_SCRIPT_HOST_INVALID_STACK_REFERENCE = 1u << 7,
+  RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_TABLE_FAILURE = 1u << 8,
+  RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_NODE_FAILURE = 1u << 9,
+  RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE = 1u << 10,
+  RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE = 1u << 11
 };
 
 class RecoveredLegacyScriptHost {
@@ -51,6 +55,29 @@ class RecoveredLegacyScriptHost {
   bool SetCommanderRelation(const KR_ObjectID& commander,
                             const KR_ObjectID& relativeCommander,
                             bool hostile);
+  bool CreateProjectTable(int projectCapacity, int nodeCapacity,
+                          int heapCapacity);
+  int NewProjectNode(int command, int left, int right);
+  bool OpenProjectData(int node);
+  bool CloseProjectData(int node);
+  bool ProjectWriteInt(int node, int value);
+  bool ProjectWriteFloat(int node, double value);
+  bool ProjectWriteString(int node, const char* value);
+  bool ProjectNodeSetLink(int node, int left, int right);
+  int ProjectNodeNull() const;
+  KR_ObjectID NewProject(const char* name, int node, bool permanent);
+  void DeferMissionHowitzer(int classTable, const char* attributeName,
+                            const char* holderName, double startTime,
+                            const char* objectName);
+  void DeferMissionDestroyable(const char* attributeName,
+                               const char* scriptName,
+                               const char* objectName);
+  bool ProjectTableCreated() const;
+  int ProjectNodeCount() const;
+  int ProjectCount() const;
+  int ProjectDataBytes() const;
+  int DeferredMissionHowitzerCount() const;
+  int DeferredMissionDestroyableCount() const;
   bool WriteScriptInteger(TProcessContext* process, int reference,
                           int value);
 
@@ -70,12 +97,25 @@ class RecoveredLegacyScriptHost {
 
   ScriptEvent* Event(int eventIndex, const char* operation);
   bool ArenaReady(const char* operation);
+  bool ProjectNodeValid(int node, bool allowNull = false) const;
+  bool ReserveProjectData(int node, int bytes);
   void Report(unsigned int issue, const char* message);
 
   ct_Arena* m_arena;
   unsigned int m_issues;
   char m_lastError[256];
   ScriptEvent m_events[kEventCount];
+  bool m_projectTableCreated;
+  bool m_projectDataOpen;
+  int m_projectCapacity;
+  int m_projectNodeCapacity;
+  int m_projectHeapCapacity;
+  int m_projectNodeCount;
+  int m_projectCount;
+  int m_projectDataBytes;
+  int m_openProjectNode;
+  int m_deferredMissionHowitzerCount;
+  int m_deferredMissionDestroyableCount;
 };
 
 #endif

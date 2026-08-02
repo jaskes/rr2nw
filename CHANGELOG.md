@@ -120,6 +120,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- The recovered seance now builds the original fixed-capacity `ProjectTable`
+  by executing root `DEFS.H`/`PFUNC.SCI` and each Level's `SCINC/BRIEF.SCI`
+  through the bounded legacy VM. Exact project/node/heap/summary/permanent
+  counts and a source-plus-live-graph fingerprint are exposed in diagnostics
+  and pinned for all nine installed Levels.
+- Project script bindings fail closed on invalid nodes, nested data access,
+  duplicate projects and the historical 10 KiB heap boundary. Level.04D's
+  10,178-byte authored catalog is admitted without allowing the old writers
+  to overrun it.
+- Mission-local Howitzer and Destroyable creation calls are retained as
+  counted deferred hooks until those subject classes are recovered. This lets
+  the real project catalog load without inventing incomplete combat objects.
 - Added maintained software implementations for the cropped `CGRImage` map
   blit and line, rectangle, bar and circle primitives, and reconnected the
   original tapered route-arrow rasterizer. The graph smoke validates their

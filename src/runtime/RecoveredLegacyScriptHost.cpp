@@ -17,6 +17,7 @@
 #include "message/sparkmsg.h"
 #include "message/routmsg.h"
 #include "message/peopmsg.h"
+#include "mproj/h/mproj.h"
 #include "obase/route/route.h"
 #include "i/unit.i"
 #include "i/commander.i"
@@ -169,6 +170,80 @@ void ScriptSetFriendlyCommander(TProcessContext* pc, void* userData) {
   }
 }
 
+void ScriptCreateProjectTable(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->CreateProjectTable(SC_PARI(2), SC_PARI(1), SC_PARI(0));
+  }
+}
+
+void ScriptNewProjectNode(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  SC_PARI(3) = host == nullptr
+                   ? mp_NodeNULL()
+                   : host->NewProjectNode(SC_PARI(2), SC_PARI(1),
+                                          SC_PARI(0));
+}
+
+void ScriptOpenProjectData(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->OpenProjectData(SC_PARI(0));
+}
+
+void ScriptCloseProjectData(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->CloseProjectData(SC_PARI(0));
+}
+
+void ScriptProjectWriteInt(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->ProjectWriteInt(SC_PARI(1), SC_PARI(0));
+}
+
+void ScriptProjectWriteFloat(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->ProjectWriteFloat(SC_PARI(1), SC_PARF(0));
+}
+
+void ScriptProjectWriteString(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->ProjectWriteString(SC_PARI(1), SC_PARS(0));
+}
+
+void ScriptProjectNodeSetLink(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->ProjectNodeSetLink(SC_PARI(2), SC_PARI(1), SC_PARI(0));
+  }
+}
+
+void ScriptProjectNodeNull(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  SC_PARI(0) = host == nullptr ? mp_NodeNULL() : host->ProjectNodeNull();
+}
+
+void ScriptNewProject(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->NewProject(SC_PARS(2), SC_PARI(1), SC_PARI(0) != 0);
+  }
+}
+
+void ScriptDeferMissionHowitzer(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->DeferMissionHowitzer(SC_PARI(4), SC_PARS(3), SC_PARS(2),
+                               SC_PARF(1), SC_PARS(0));
+  }
+}
+
+void ScriptDeferMissionDestroyable(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->DeferMissionDestroyable(SC_PARS(2), SC_PARS(1), SC_PARS(0));
+  }
+}
+
 void ConstSparkSetPhaseCount(TStackCell* cell) {
   cell->i = sp_EV_SET_PHASE_COUNT;
 }
@@ -253,6 +328,18 @@ TLinkExtern g_bindings[] = {
     {"s_SetCommander", ScriptSetCommander, nullptr},
     {"s_SetHostileCommander", ScriptSetHostileCommander, nullptr},
     {"s_SetFriendlyCommander", ScriptSetFriendlyCommander, nullptr},
+    {"s_CreateProjectTable", ScriptCreateProjectTable, nullptr},
+    {"s_NewPNode", ScriptNewProjectNode, nullptr},
+    {"s_OpenProjectData", ScriptOpenProjectData, nullptr},
+    {"s_CloseProjectData", ScriptCloseProjectData, nullptr},
+    {"s_ProjectWriteInt", ScriptProjectWriteInt, nullptr},
+    {"s_ProjectWriteFloat", ScriptProjectWriteFloat, nullptr},
+    {"s_ProjectWriteStr", ScriptProjectWriteString, nullptr},
+    {"s_ProjectNodeSetLink", ScriptProjectNodeSetLink, nullptr},
+    {"s_PNodeNULL", ScriptProjectNodeNull, nullptr},
+    {"s_NewProjectEx", ScriptNewProject, nullptr},
+    {"s_DeferMissionHowitzer", ScriptDeferMissionHowitzer, nullptr},
+    {"s_DeferMissionDestroyable", ScriptDeferMissionDestroyable, nullptr},
     {nullptr, nullptr, nullptr}};
 
 TLinkConstExtern g_constants[] = {
@@ -280,7 +367,13 @@ TLinkConstExtern g_constants[] = {
 }  // namespace
 
 RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
-    : m_arena(arena), m_issues(0), m_lastError{} {
+    : m_arena(arena), m_issues(0), m_lastError{},
+      m_projectTableCreated(false), m_projectDataOpen(false),
+      m_projectCapacity(0), m_projectNodeCapacity(0),
+      m_projectHeapCapacity(0), m_projectNodeCount(0), m_projectCount(0),
+      m_projectDataBytes(0), m_openProjectNode(mp_NodeNULL()),
+      m_deferredMissionHowitzerCount(0),
+      m_deferredMissionDestroyableCount(0) {
   Reset();
 }
 
@@ -288,6 +381,17 @@ void RecoveredLegacyScriptHost::Reset() {
   m_issues = 0;
   m_lastError[0] = 0;
   for (ScriptEvent& event : m_events) event.inUse = false;
+  m_projectTableCreated = false;
+  m_projectDataOpen = false;
+  m_projectCapacity = 0;
+  m_projectNodeCapacity = 0;
+  m_projectHeapCapacity = 0;
+  m_projectNodeCount = 0;
+  m_projectCount = 0;
+  m_projectDataBytes = 0;
+  m_openProjectNode = mp_NodeNULL();
+  m_deferredMissionHowitzerCount = 0;
+  m_deferredMissionDestroyableCount = 0;
 }
 
 bool RecoveredLegacyScriptHost::IsHealthy() const { return m_issues == 0; }
@@ -551,6 +655,209 @@ bool RecoveredLegacyScriptHost::SetCommanderRelation(
     right->setFriendly(mutableLeft);
   }
   return true;
+}
+
+bool RecoveredLegacyScriptHost::CreateProjectTable(int projectCapacity,
+                                                    int nodeCapacity,
+                                                    int heapCapacity) {
+  if (!ArenaReady("create project table")) return false;
+  if (m_projectTableCreated || projectCapacity <= 0 || projectCapacity > 200 ||
+      nodeCapacity <= 0 || nodeCapacity > 1024 || heapCapacity <= 0 ||
+      heapCapacity > 10240) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_TABLE_FAILURE,
+           "script requested an invalid or duplicate project table");
+    return false;
+  }
+  projectTable.create(projectCapacity, m_arena->getContext(), *m_arena,
+                      nodeCapacity, heapCapacity);
+  if (projectTable.getClassTableID() == ct_NULLID) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_TABLE_FAILURE,
+           "project table registration failed");
+    return false;
+  }
+  m_projectTableCreated = true;
+  m_projectCapacity = projectCapacity;
+  m_projectNodeCapacity = nodeCapacity;
+  m_projectHeapCapacity = heapCapacity;
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::ProjectNodeValid(int node,
+                                                  bool allowNull) const {
+  const int decoded = mp_Code2Int(node);
+  return (allowNull && decoded == -1) ||
+         (decoded >= 0 && decoded < m_projectNodeCount);
+}
+
+int RecoveredLegacyScriptHost::NewProjectNode(int command, int left,
+                                               int right) {
+  if (!m_projectTableCreated || m_projectNodeCount >= m_projectNodeCapacity ||
+      command < 0 || command > 35 || !ProjectNodeValid(left, true) ||
+      !ProjectNodeValid(right, true)) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_NODE_FAILURE,
+           "script requested an invalid or overflowing project node");
+    return mp_NodeNULL();
+  }
+  const int node = mp_New(projectTable, command, left, right);
+  if (node == mp_NodeNULL()) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_NODE_FAILURE,
+           "project node allocation failed");
+    return node;
+  }
+  ++m_projectNodeCount;
+  return node;
+}
+
+bool RecoveredLegacyScriptHost::OpenProjectData(int node) {
+  if (!m_projectTableCreated || m_projectDataOpen ||
+      !ProjectNodeValid(node)) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE,
+           "script opened invalid or nested project data");
+    return false;
+  }
+  mp_OpenData(projectTable, node, EDO_WRITE);
+  m_projectDataOpen = true;
+  m_openProjectNode = node;
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::CloseProjectData(int node) {
+  if (!m_projectDataOpen || node != m_openProjectNode ||
+      !ProjectNodeValid(node)) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE,
+           "script closed mismatched project data");
+    return false;
+  }
+  mp_CloseData(projectTable, node);
+  m_projectDataOpen = false;
+  m_openProjectNode = mp_NodeNULL();
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::ReserveProjectData(int node, int bytes) {
+  if (!m_projectDataOpen || node != m_openProjectNode || bytes <= 0 ||
+      m_projectDataBytes > m_projectHeapCapacity - bytes) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE,
+           "script project data write is invalid or exceeds the heap");
+    return false;
+  }
+  m_projectDataBytes += bytes;
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::ProjectWriteInt(int node, int value) {
+  if (!ReserveProjectData(node, 1 + static_cast<int>(sizeof(value))))
+    return false;
+  mp_WriteInt(projectTable, node, value);
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::ProjectWriteFloat(int node, double value) {
+  if (!ReserveProjectData(node, 1 + static_cast<int>(sizeof(value))))
+    return false;
+  mp_WriteFloat(projectTable, node, value);
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::ProjectWriteString(int node,
+                                                    const char* value) {
+  if (value == nullptr || std::strlen(value) > 4095u) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE,
+           "script project string is invalid or unreasonably large");
+    return false;
+  }
+  if (!ReserveProjectData(node,
+                          2 + static_cast<int>(std::strlen(value))))
+    return false;
+  mp_WriteStr(projectTable, node, value);
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::ProjectNodeSetLink(int node, int left,
+                                                    int right) {
+  if (!m_projectDataOpen || node != m_openProjectNode ||
+      !ProjectNodeValid(node) || !ProjectNodeValid(left, true) ||
+      !ProjectNodeValid(right, true)) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_NODE_FAILURE,
+           "script requested invalid project node links");
+    return false;
+  }
+  mp_SetLink(projectTable, node, left, right);
+  return true;
+}
+
+int RecoveredLegacyScriptHost::ProjectNodeNull() const {
+  return mp_NodeNULL();
+}
+
+KR_ObjectID RecoveredLegacyScriptHost::NewProject(const char* name, int node,
+                                                   bool permanent) {
+  if (!m_projectTableCreated || m_projectDataOpen || name == nullptr ||
+      name[0] == 0 || std::strlen(name) > MAX_SYMBOLIC_LENGHT ||
+      !ProjectNodeValid(node) || m_projectCount >= m_projectCapacity ||
+      m_arena->getContext()->isExist(name)) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE,
+           "script requested an invalid or duplicate project");
+    return KR_ObjectID::NUL();
+  }
+  KR_ObjectID object = projectTable.newProject(name, node, permanent ? 1 : 0);
+  if (object.isNUL()) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE,
+           "project creation failed");
+    return object;
+  }
+  ++m_projectCount;
+  return object;
+}
+
+void RecoveredLegacyScriptHost::DeferMissionHowitzer(
+    int classTable, const char* attributeName, const char* holderName,
+    double startTime, const char* objectName) {
+  (void)classTable;
+  (void)startTime;
+  if (attributeName == nullptr || attributeName[0] == 0 ||
+      holderName == nullptr || holderName[0] == 0 || objectName == nullptr ||
+      objectName[0] == 0) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE,
+           "mission Howitzer deferral received invalid authored data");
+    return;
+  }
+  ++m_deferredMissionHowitzerCount;
+}
+
+void RecoveredLegacyScriptHost::DeferMissionDestroyable(
+    const char* attributeName, const char* scriptName,
+    const char* objectName) {
+  if (attributeName == nullptr || attributeName[0] == 0 ||
+      scriptName == nullptr || scriptName[0] == 0 || objectName == nullptr ||
+      objectName[0] == 0) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE,
+           "mission Destroyable deferral received invalid authored data");
+    return;
+  }
+  ++m_deferredMissionDestroyableCount;
+}
+
+bool RecoveredLegacyScriptHost::ProjectTableCreated() const {
+  return m_projectTableCreated;
+}
+
+int RecoveredLegacyScriptHost::ProjectNodeCount() const {
+  return m_projectNodeCount;
+}
+
+int RecoveredLegacyScriptHost::ProjectCount() const { return m_projectCount; }
+
+int RecoveredLegacyScriptHost::ProjectDataBytes() const {
+  return m_projectDataBytes;
+}
+
+int RecoveredLegacyScriptHost::DeferredMissionHowitzerCount() const {
+  return m_deferredMissionHowitzerCount;
+}
+
+int RecoveredLegacyScriptHost::DeferredMissionDestroyableCount() const {
+  return m_deferredMissionDestroyableCount;
 }
 
 TLinkExtern* RecoveredLegacyScriptHost::Bindings() { return g_bindings; }

@@ -2283,6 +2283,29 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_CommanderHostileLinks()));
   log.Line("commander_fingerprint=" + std::to_string(
                RecoveredArenaSeance_CommanderFingerprint()));
+  log.Line("mission_project_table=" +
+           std::to_string(
+               RecoveredArenaSeance_MissionProjectsReady() ? 1 : 0) + "/" +
+           std::to_string(RecoveredArenaSeance_MissionProjectCapacity()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_MissionProjectNodeCapacity()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionProjectHeapCapacity()));
+  log.Line("mission_project_catalog=" +
+           std::to_string(RecoveredArenaSeance_MissionProjectCount()) + "/" +
+           std::to_string(RecoveredArenaSeance_MissionProjectNodeCount()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_MissionProjectDataBytes()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionProjectSummaryCount()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_MissionProjectPermanentCount()));
+  log.Line("mission_project_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_MissionProjectFingerprint()));
+  log.Line("mission_project_deferred_howitzers=" + std::to_string(
+               RecoveredArenaSeance_MissionProjectDeferredHowitzerCount()));
+  log.Line("mission_project_deferred_destroyables=" + std::to_string(
+               RecoveredArenaSeance_MissionProjectDeferredDestroyableCount()));
   log.Line("tank_group_subject_capacity=" +
            std::to_string(
                RecoveredArenaSeance_TankGroupSubjectCapacity()));

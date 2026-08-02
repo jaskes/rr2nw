@@ -11,6 +11,7 @@
 
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
+#include "mproj/h/mproj.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/bird/BirdAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
@@ -84,7 +85,8 @@ bool RunCase(const char* source, const char* name,
              bool expectUnloadedRoutes = false,
              bool expectTruncatedRoute = false,
              bool expectSpark = false,
-             bool expectCommonAttributes = false) {
+             bool expectCommonAttributes = false,
+             bool expectProject = false) {
   SimulationContext context(16, 32);
   g_arena.openSeance(&context, 64.0, 64.0);
   RecoveredLegacyScriptHost host(&g_arena);
@@ -151,9 +153,31 @@ bool RunCase(const char* source, const char* name,
         OrphanAttributeState_IsRetailDefault(orphan) &&
         ArtefactAttributeState_IsRetailDefault(artefact);
   }
+  bool projectPublished = !expectProject;
+  if (expectProject) {
+    KR_ObjectID projectID = context.searchObject("Project.fixture");
+    mp_Project* project = projectID.isNUL()
+                              ? nullptr
+                              : projectTable.searchProject(projectID);
+    if (project != nullptr) {
+      const int root = projectTable.getProjectRoot(projectID);
+      char commander[64] = {};
+      mp_OpenData(projectTable, root, EDO_READ);
+      mp_ReadStr(projectTable, root, commander);
+      mp_CloseData(projectTable, root);
+      projectPublished =
+          host.ProjectTableCreated() && host.ProjectCount() == 1 &&
+          host.ProjectNodeCount() == 2 && host.ProjectDataBytes() == 19 &&
+          project->m_permanent == 1 &&
+          projectTable.getCommand(root) == 0 &&
+          projectTable.getRight(root) != mp_NodeNULL() &&
+          std::strcmp(commander, "Colony") == 0;
+    }
+  }
   g_arena.closeSeance();
   return matched && routePublished && sparkPublished &&
-         commonAttributesPublished && !context.isExist("Storage") &&
+         commonAttributesPublished && projectPublished &&
+         !context.isExist("Storage") &&
          !context.isExist("Bird.Attr.0") &&
          !context.isExist("Orphan.Attr.Default") &&
          !context.isExist("Artefact.Attr.0") &&
@@ -165,7 +189,8 @@ bool RunCase(const char* source, const char* name,
          !context.isExist("Route.missing") &&
          !context.isExist("Route.malformed") &&
          !context.isExist("Route.overlong") &&
-         !context.isExist("Route.oversized") && Route::m_totalNodePos == 0;
+         !context.isExist("Route.oversized") &&
+         !context.isExist("Project.fixture") && Route::m_totalNodePos == 0;
 }
 
 }  // namespace
@@ -362,6 +387,59 @@ var int objectID, cachePos, event;
                RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result,
                false, false, false, true, true)) {
     return Fail("retail common attribute script did not execute", &result);
+  }
+
+  const char projectSource[] = R"RR2NW_SCRIPT(
+func void s_CreateProjectTable(int projects, int nodes, int heap) extern;
+func int s_NewPNode(int command, int left, int right) extern;
+func void s_OpenProjectData(int node) extern;
+func void s_CloseProjectData(int node) extern;
+func void s_ProjectWriteStr(int node, str value) extern;
+func int s_PNodeNULL() extern;
+func void s_NewProjectEx(str name, int node, int permanent) extern;
+func void main()
+var int leaf, root;
+{
+  s_CreateProjectTable(4,8,128);
+  leaf := s_NewPNode(18,s_PNodeNULL(),s_PNodeNULL());
+  s_OpenProjectData(leaf);
+  s_ProjectWriteStr(leaf,"brief.txt");
+  s_CloseProjectData(leaf);
+  root := s_NewPNode(0,s_PNodeNULL(),leaf);
+  s_OpenProjectData(root);
+  s_ProjectWriteStr(root,"Colony");
+  s_CloseProjectData(root);
+  s_NewProjectEx("Project.fixture",root,1);
+}
+)RR2NW_SCRIPT";
+  if (!RunCase(projectSource, "project_table",
+               RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result,
+               false, false, false, false, false, true)) {
+    return Fail("ProjectTable VM bindings did not publish and roll back",
+                &result);
+  }
+
+  const char overflowingProjectSource[] = R"RR2NW_SCRIPT(
+func void s_CreateProjectTable(int projects, int nodes, int heap) extern;
+func int s_NewPNode(int command, int left, int right) extern;
+func void s_OpenProjectData(int node) extern;
+func void s_CloseProjectData(int node) extern;
+func void s_ProjectWriteStr(int node, str value) extern;
+func int s_PNodeNULL() extern;
+func void main()
+var int node;
+{
+  s_CreateProjectTable(1,1,2);
+  node := s_NewPNode(18,s_PNodeNULL(),s_PNodeNULL());
+  s_OpenProjectData(node);
+  s_ProjectWriteStr(node,"x");
+  s_CloseProjectData(node);
+}
+)RR2NW_SCRIPT";
+  if (!RunCase(overflowingProjectSource, "project_heap_overflow",
+               RECOVERED_LEGACY_SCRIPT_RUN_HOST_FAILURE,
+               RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE, &result)) {
+    return Fail("ProjectTable heap overflow did not fail closed", &result);
   }
 
   const char routeSource[] =

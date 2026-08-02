@@ -1759,8 +1759,31 @@ playable Level begins.
 - Debug and Release each pass 67/67 CTest and 9/9 installed starts. The matrix
   requires `mission_map_probe=1/1/1/1/1/1/1/<hash>/<nonclear>` on eight Levels
   and `1/1/1/1/0/1/1/<hash>/<nonclear>` on `Level.07N`, with both framebuffer
-  values non-zero. Retail ProjectTable/RecruitCenter execution and authored
-  objective progression remain the next campaign slice.
+  values non-zero. Authored objective progression remains gated on the real
+  RecruitCenter owner described by `RP-CAMPAIGN-001`.
+
+### RP-CAMPAIGN-001: retail ProjectTable catalogs execute in the bounded VM
+
+- Classification: `SOURCE_PATH_PRESERVED`, `RETAIL_DATA_EXECUTED`,
+  `CAMPAIGN_CONTENT_INACTIVE`.
+- Admission executes root `DEFS.H`/`PFUNC.SCI` and the selected Level's
+  `SCINC/BRIEF.SCI`, including its real `CreateTestProject()` call, against the
+  original `ProjectTable(200, 1024, 10240)` storage. The host preflights node,
+  link, data and string writes before calling the preserved table writer.
+- Installed project/node/data/summary/permanent counts are respectively:
+  `Level.01D 30/308/9473/30/3`, `Level.01N 1/5/180/1/0`,
+  `Level.02D 7/70/1811/7/0`, `Level.02N 19/215/5833/19/0`,
+  `Level.03N 11/122/3714/11/0`, `Level.04D 38/385/10178/38/0`,
+  `Level.05D 17/211/6181/17/0`, `Level.06N 1/6/319/1/0`, and
+  `Level.07N 0/0/0/0/0`. The retail matrix also pins a fingerprint derived
+  from the three exact source byte streams and the completed live graph.
+- Object-producing mission helpers are not faked. The nine
+  `CreateHowitzerName` executions in `Level.04D` and four `CreateDestroyable`
+  executions in `Level.06N` publish explicit deferred counts; other Levels
+  require zero. RecruitCenter scheduling, authored PlayerMission creation and
+  quest completion are not claimed by this entry.
+- Verification requires bounded positive and negative VM smokes, full CTest,
+  and all nine installed runtime rows in both Debug and Release.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

@@ -756,6 +756,18 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_CommanderCount() == -1 &&
          RecoveredArenaSeance_CommanderHostileLinks() == -1 &&
          RecoveredArenaSeance_CommanderFingerprint() == 0 &&
+         !RecoveredArenaSeance_MissionProjectsReady() &&
+         RecoveredArenaSeance_MissionProjectCapacity() == -1 &&
+         RecoveredArenaSeance_MissionProjectNodeCapacity() == -1 &&
+         RecoveredArenaSeance_MissionProjectHeapCapacity() == -1 &&
+         RecoveredArenaSeance_MissionProjectCount() == -1 &&
+         RecoveredArenaSeance_MissionProjectNodeCount() == -1 &&
+         RecoveredArenaSeance_MissionProjectDataBytes() == -1 &&
+         RecoveredArenaSeance_MissionProjectSummaryCount() == -1 &&
+         RecoveredArenaSeance_MissionProjectPermanentCount() == -1 &&
+         RecoveredArenaSeance_MissionProjectDeferredHowitzerCount() == -1 &&
+         RecoveredArenaSeance_MissionProjectDeferredDestroyableCount() == -1 &&
+         RecoveredArenaSeance_MissionProjectFingerprint() == 0 &&
          !RecoveredArenaSeance_MissionTankLifecycleReady() &&
          RecoveredArenaSeance_TankGroupSubjectCapacity() == -1 &&
          RecoveredArenaSeance_MissionTankAvailable() == -1 &&
@@ -1156,6 +1168,18 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_CommanderCount() != 2 ||
       RecoveredArenaSeance_CommanderHostileLinks() != 0 ||
       RecoveredArenaSeance_CommanderFingerprint() == 0 ||
+      !RecoveredArenaSeance_MissionProjectsReady() ||
+      RecoveredArenaSeance_MissionProjectCapacity() != 200 ||
+      RecoveredArenaSeance_MissionProjectNodeCapacity() != 1024 ||
+      RecoveredArenaSeance_MissionProjectHeapCapacity() != 10240 ||
+      RecoveredArenaSeance_MissionProjectCount() != 0 ||
+      RecoveredArenaSeance_MissionProjectNodeCount() != 0 ||
+      RecoveredArenaSeance_MissionProjectDataBytes() != 0 ||
+      RecoveredArenaSeance_MissionProjectSummaryCount() != 0 ||
+      RecoveredArenaSeance_MissionProjectPermanentCount() != 0 ||
+      RecoveredArenaSeance_MissionProjectDeferredHowitzerCount() != 0 ||
+      RecoveredArenaSeance_MissionProjectDeferredDestroyableCount() != 0 ||
+      RecoveredArenaSeance_MissionProjectFingerprint() == 0 ||
       !RecoveredArenaSeance_MissionTankLifecycleReady() ||
       RecoveredArenaSeance_TankGroupSubjectCapacity() != 30 ||
       RecoveredArenaSeance_MissionTankAvailable() != 0 ||
@@ -1206,6 +1230,7 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("BulletAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Bullet") == ct_NULLID ||
       g_arena.searchSeanceClassTable("TaxiAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Project") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Taxi") != ct_NULLID ||
       g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("DynSmoker") == ct_NULLID ||
@@ -1502,8 +1527,8 @@ bool RunCycle(bool expectVisualResources) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 18) {
-    return Fail("expected a fixture directory and thirteen retail-script sources");
+  if (argc != 21) {
+    return Fail("expected a fixture directory and retail-script sources");
   }
 
   RecoveredArenaSeance_Release();
@@ -1622,6 +1647,10 @@ int main(int argc, char** argv) {
   const std::string setTankCopy = JoinPath(scincDirectory, "set_tank.sci");
   const std::string unitsCopy = JoinPath(scincDirectory, "units.sci");
   const std::string sysfCopy = JoinPath(fixtureDirectory, "SYSF.SCI");
+  const std::string definitionsCopy = JoinPath(fixtureDirectory, "DEFS.H");
+  const std::string projectHelpersCopy =
+      JoinPath(fixtureDirectory, "PFUNC.SCI");
+  const std::string briefCopy = JoinPath(scincDirectory, "BRIEF.SCI");
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(smokeSprite.c_str());
   DeleteFileA(flameSprite.c_str());
@@ -1650,6 +1679,9 @@ int main(int argc, char** argv) {
   DeleteFileA(setTankCopy.c_str());
   DeleteFileA(unitsCopy.c_str());
   DeleteFileA(sysfCopy.c_str());
+  DeleteFileA(definitionsCopy.c_str());
+  DeleteFileA(projectHelpersCopy.c_str());
+  DeleteFileA(briefCopy.c_str());
   if (!WriteFile(config, fixture) ||
       !WriteFile(unitsCopy, emptyPeopleSupportFixture) ||
       !WriteFile(sysfCopy, emptyPeopleSupportFixture) ||
@@ -1666,7 +1698,10 @@ int main(int argc, char** argv) {
        RECOVERED_ARENA_SEANCE_WAV_SOURCE_UNAVAILABLE) != 0 &&
       IsReleased(missingWavSourceContext);
   if (CopyFileA(argv[7], localMainCopy.c_str(), FALSE) == FALSE ||
-      CopyFileA(argv[8], loadWavCopy.c_str(), FALSE) == FALSE) {
+      CopyFileA(argv[8], loadWavCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[18], definitionsCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[19], projectHelpersCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[20], briefCopy.c_str(), FALSE) == FALSE) {
     SetCurrentDirectoryA(originalDirectory.c_str());
     return Fail("could not copy WAV metadata sources into Arena fixture");
   }

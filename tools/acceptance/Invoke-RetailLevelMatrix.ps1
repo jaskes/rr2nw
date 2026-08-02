@@ -111,6 +111,17 @@ $expectedSkinAnimations = @{
     "Level.06N" = @(7, 7, 87)
     "Level.07N" = @(0, 0, 0)
 }
+$expectedMissionProjects = @{
+    "Level.01D" = @("30/308/9473/30/3", "0", "0", "2874794671595189569")
+    "Level.01N" = @("1/5/180/1/0", "0", "0", "486994683031507596")
+    "Level.02D" = @("7/70/1811/7/0", "0", "0", "8340039035307385643")
+    "Level.02N" = @("19/215/5833/19/0", "0", "0", "10606643823809105107")
+    "Level.03N" = @("11/122/3714/11/0", "0", "0", "7736980164539326326")
+    "Level.04D" = @("38/385/10178/38/0", "9", "0", "3375220688762822833")
+    "Level.05D" = @("17/211/6181/17/0", "0", "0", "10525805370623782159")
+    "Level.06N" = @("1/6/319/1/0", "0", "4", "14312970077244654206")
+    "Level.07N" = @("0/0/0/0/0", "0", "0", "13392915711737602415")
+}
 
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $repositoryRoot "build\windows-msvc-x86\$configurationName\rr2nw.exe"
@@ -231,6 +242,19 @@ foreach ($configurationName in $Configuration) {
                 }
                 if ((Get-LogInteger $log "renderer_framebuffer_nonclear_pixels") -lt 1) {
                     $issues.Add("renderer framebuffer is empty")
+                }
+                $expectedMissionProject = $expectedMissionProjects[$levelName]
+                if (-not $log.ContainsKey("mission_project_table") -or
+                    $log["mission_project_table"] -ne "1/200/1024/10240" -or
+                    -not $log.ContainsKey("mission_project_catalog") -or
+                    $log["mission_project_catalog"] -ne $expectedMissionProject[0] -or
+                    -not $log.ContainsKey("mission_project_deferred_howitzers") -or
+                    $log["mission_project_deferred_howitzers"] -ne $expectedMissionProject[1] -or
+                    -not $log.ContainsKey("mission_project_deferred_destroyables") -or
+                    $log["mission_project_deferred_destroyables"] -ne $expectedMissionProject[2] -or
+                    -not $log.ContainsKey("mission_project_fingerprint") -or
+                    $log["mission_project_fingerprint"] -ne $expectedMissionProject[3]) {
+                    $issues.Add("retail mission ProjectTable inventory changed")
                 }
                 $skinAnimationEntries = Get-LogInteger $log "skin_animation_entry_calls"
                 $skinAnimatedModels = Get-LogInteger $log "skin_animated_models"
@@ -561,6 +585,11 @@ foreach ($configurationName in $Configuration) {
                 renderer_lit_pixels = Get-LogInteger $log "renderer_lit_pixels"
                 renderer_framebuffer_hash = Get-LogUnsigned $log "renderer_framebuffer_hash"
                 renderer_nonclear_pixels = Get-LogInteger $log "renderer_framebuffer_nonclear_pixels"
+                mission_project_table = [string]$log["mission_project_table"]
+                mission_project_catalog = [string]$log["mission_project_catalog"]
+                mission_project_deferred_howitzers = Get-LogInteger $log "mission_project_deferred_howitzers"
+                mission_project_deferred_destroyables = Get-LogInteger $log "mission_project_deferred_destroyables"
+                mission_project_fingerprint = Get-LogUnsigned $log "mission_project_fingerprint"
                 teleport_target_level = Get-LogInteger $log "teleport_target_level"
                 teleport_route_count = Get-LogInteger $log "teleport_route_count"
                 teleport_fingerprint = Get-LogUnsigned $log "teleport_fingerprint"
@@ -627,6 +656,9 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
     people_active_world_probe, people_active_world_fingerprint,
     people_near_far_pose_probe, tank_near_far_pose_probe,
+    mission_project_table, mission_project_catalog,
+    mission_project_deferred_howitzers,
+    mission_project_deferred_destroyables, mission_project_fingerprint,
     debug_map_size, debug_map_toggle_probe, mission_map_probe,
     explosion_active_world_probe, explosion_active_world_fingerprint,
     spark_active_world_probe, spark_active_world_fingerprint,

@@ -3506,6 +3506,7 @@ add_library(rr2nw_recovered_legacy_script_runtime STATIC
   src/runtime/RecoveredLegacyScriptRunner.h
 )
 target_link_libraries(rr2nw_recovered_legacy_script_runtime PUBLIC
+  rr2nw_arena_mproj
   rr2nw_arena_obase_route
   rr2nw_arena_storage
   rr2nw_arena_time_runtime_state
@@ -5047,6 +5048,9 @@ if(BUILD_TESTING)
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/PEOPLE.SCI"
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_people.sci"
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/TANK.SCI"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/DEFS.H"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/PFUNC.SCI"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/BRIEF.SCI"
   )
   add_test(
     NAME peripheral-attribute-state-smoke

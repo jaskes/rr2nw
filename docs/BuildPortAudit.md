@@ -3563,3 +3563,28 @@ nine fields and the per-Level route expectation. Final evidence is 67/67 CTest
 and 9/9 installed Levels in both Debug and Release. This proves that saved
 PlayerMission state can reach visible derived presentation; real mission
 creation remains gated on ProjectTable/RecruitCenter script admission.
+
+## Retail ProjectTable bootstrap boundary
+
+The campaign producer begins with the original fixed storage rather than a
+replacement quest schema. The recovered seance executes root `DEFS.H`,
+`PFUNC.SCI` and the selected Level's `SCINC/BRIEF.SCI` in the same bounded VM
+used by the other admitted scripts. New bindings construct and link project
+nodes and write their tagged integer, float and string payloads only after the
+host verifies capacity, encoding and writer state. The preserved `mproj`
+implementation still owns the resulting graph and 10 KiB data heap.
+
+Admission traverses every project from its live root, rejects repeated or
+unreachable nodes, validates command IDs and records project/node/data/
+summary/permanent counts. The fingerprint includes both exact source bytes and
+the sorted live topology. This matters because a parser could count dormant
+helper functions that the real `CreateTestProject()` never calls; VM execution
+instead yields the authoritative nine installed catalogs. The tightest is
+`Level.04D` at 38 projects, 385 nodes and 10,178/10,240 data bytes.
+
+Mission helpers that require absent gameplay classes are explicit host
+boundaries, not successful fake spawns. `Level.04D` executes nine deferred
+Howitzer creations and `Level.06N` four deferred Destroyable creations. These
+counts are part of installed acceptance. RecruitCenter remains disconnected,
+so the table is immutable authored content at this frontier and cannot yet
+publish persistent PlayerMission state.

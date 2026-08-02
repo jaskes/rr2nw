@@ -3675,6 +3675,24 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   That migration must define asset/font fallback and save/mod text encoding;
   it must not reinterpret existing retail bytes silently.
 
+### CQ-195: the retail mission heap is a compatibility boundary
+
+- Status: `SOURCE_CONFIRMED`, `BOUNDS_ENFORCED`, `MOD_LIMIT_VISIBLE`.
+- Evidence: each Level executes `s_CreateProjectTable(200, 1024, 10240)`.
+  Installed `Level.04D` consumes 10,178 bytes, leaving only 62 bytes; the
+  remaining Levels and exact graph counts are pinned by `RP-CAMPAIGN-001`.
+- Handling: every VM write reserves and validates its full encoded size before
+  the preserved writer runs. A malformed retail file or mod that exceeds the
+  project, node or heap capacity is rejected transactionally. The runtime must
+  not silently enlarge this table because its layout and indices will enter
+  mission save/release compatibility.
+- Deferred boundary: nine `Level.04D` Howitzers and four `Level.06N`
+  Destroyables are counted but not instantiated. Their producers must retain
+  these counts when the corresponding combat owners are connected.
+- Revisit when: mod manifests gain an explicit expanded-campaign format, or
+  RecruitCenter/Howitzer/Destroyable persistence is versioned. Any larger heap
+  then requires an intentional save-version and release-compatibility review.
+
 ## Maintenance rule
 
 When a new quirk is found:

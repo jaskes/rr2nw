@@ -1675,13 +1675,24 @@ Route. Every matrix row now requires
 `mission_map_probe=1/1/1/1/<routes>/1/1/<hash>/<nonclear>`; `<routes>` is one on
 the eight routed Levels and zero on `Level.07N`.
 
-The next slice is the real campaign information producer: admit ProjectTable
-and RecruitCenter construction from root and Level-local mission scripts,
-create authored PlayerMission records, and execute their bounded check/update
-events. The current staged mission is a lifecycle/serialization proof, not a
-claim that retail quest progression is already running. Only after the live
-mission producer is proven should Portal callbacks stage a transactional Level
-switch through the existing coordinator.
+The third campaign slice is complete: every admitted Level now executes root
+`DEFS.H`/`PFUNC.SCI` and its own `SCINC/BRIEF.SCI` through the bounded legacy
+VM, constructing the original `ProjectTable(200, 1024, 10240)`. The runtime
+enumerates the live graph and publishes exact project, node, heap-byte,
+summary and permanent counts plus a source-and-topology fingerprint. The nine
+installed catalogs range from the intentionally empty `Level.07N` table to
+`Level.04D` at 38 projects, 385 nodes and 10,178 heap bytes. Invalid links,
+nested writers, duplicate names and heap overflow fail before the historical
+writer can touch memory.
+
+The table is authored campaign data, not yet active progression. Nine
+`CreateHowitzerName` calls in `Level.04D` and four `CreateDestroyable` calls in
+`Level.06N` are retained as explicit counted deferrals until those combat
+owners join the runtime. The next slice connects one real RecruitCenter,
+executes bounded project selection/run/check events and produces authored
+`PlayerMission` MSH1/LCN1 state. Only after that live producer is proven should
+Portal callbacks stage a transactional Level switch through the existing
+coordinator.
 
 Recover the map (`M`), quests/objectives, portal transition and required menu
 flows. A portal must request the same transactional Level coordinator used by

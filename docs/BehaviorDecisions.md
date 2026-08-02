@@ -4787,3 +4787,21 @@ This decision proves the persistence-to-presentation seam, not authored quest
 progression. The next campaign owner is the retail ProjectTable/RecruitCenter
 bootstrap that creates and advances real mission definitions from the Level
 scripts.
+
+### BD-128: execute ProjectTable source before activating campaign objects
+
+Project definitions remain the original compact graph and tagged data heap.
+The recovery does not translate `BRIEF.SCI` into a new manifest: it executes
+the root definitions, helper functions and selected Level source through the
+bounded VM, then validates the resulting live `ProjectTable`. Admission
+requires every allocated node to be reachable, every command to be in the
+historical 0..35 range, and all table, node and 10 KiB heap limits to hold.
+
+The acceptance fingerprint mixes the exact `DEFS.H`, `PFUNC.SCI` and
+`BRIEF.SCI` bytes with the sorted project graph, so source-only or topology-only
+drift cannot masquerade as retail parity. Mission helpers whose object owners
+are absent remain named, counted deferrals: nine Howitzers on `Level.04D` and
+four Destroyables on `Level.06N`. This preserves script control flow without
+creating incomplete combat state. RecruitCenter selection and authored
+PlayerMission creation are the next ownership boundary; merely constructing
+the table must not start or complete a quest.
