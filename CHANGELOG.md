@@ -9,7 +9,7 @@ claim authorship of inherited Logos code or retail data.
 
 - RecruitCenter admission now executes authored `COM_RUN_SCRIPT` mission
   payloads through the bounded recovered VM before rebinding named objective
-  references. The live `Level.03N` Inhabitants mission creates all 22 authored
+  references. The live `Level.03N` `ms25` mission creates all 22 authored
   People/Taxi/Route owners, binds all three conditions to real ObjectIDs and
   presents its retail briefing instead of ejecting the Player into a visually
   empty mission.
