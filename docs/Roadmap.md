@@ -1694,23 +1694,52 @@ Taxi and dictionary are admitted; the archived January five-field payload is
 accepted only as a compatibility shape. Exact center rosters and fingerprints
 are pinned for all nine installed Levels.
 
-The active-world and map probes now select the first eligible real project for
-a center's Commander, decode its authored conditions, summary and Route into a
+The active-world and map probes select the first eligible real project for a
+center's Commander, decode its authored conditions, summary and Route into a
 real `PlayerMission`, queue the real `rc_CHECK_MISSION`, capture MSH1/EVT1/LCN1
-and restore the exact Player/event state. `Level.06N` honestly proves a mission
-with zero conditions and no Route; empty `Level.07N` retains the synthetic
-serializer fallback. Project side effects such as unit creation, briefing,
-scripts and skip-way are parsed and counted but remain deferred. Interactive
-collision admission and `rc_NEW_MISSION` are now connected through the same
-transaction. Non-Player collisions are rejected, an active mission suppresses
-duplicate production, and the safe eject updates both recovered Vehicle
-position owners without invoking legacy repair/restart side effects. Runtime
-acceptance records
+and restore the exact Player/event state. Empty `Level.07N` retains the
+synthetic serializer fallback. Interactive collision admission and
+`rc_NEW_MISSION` are connected through the same transaction. Non-Player
+collisions are rejected, an active mission suppresses duplicate production,
+and the safe eject updates both recovered Vehicle position owners without
+invoking legacy repair/restart side effects. Runtime acceptance records
 `rejected/player-collisions/admissions/staged/existing/no-project/ejections/failures`;
 the controlled probe baseline is `1/1/2/1/1/0/2/0` per pass. Level.06N also
 proves that repeated contacts at its spawn are debounced after a radius-safe
-eject. RecruitCenter presentation state, project side effects and completion
-rewards are the next campaign boundary.
+eject.
+
+The fifth campaign slice now executes retained `COM_RUN_SCRIPT` payloads
+through the bounded recovered VM before it decodes the mission a second time.
+This preserves the retail reverse-linked ProjectTable order: script-created
+People, Tank, Taxi, Commander, group and Route owners exist before symbolic
+kill/live/reach conditions resolve. `COM_PLAY_BRIEFING` and
+`COM_PLAY_BRIEFING_MSG` use the recovered briefing presenter only after the
+mission transaction commits. `--mission-smoke` runs the first eligible project
+without UI and reports scripts, created objects, rebound conditions, briefings
+and rollbacks. Installed `Level.03N` now executes `Brief/ms25.sc`, creates 22
+owners and rebinds all three objectives with zero rollback.
+
+The current installed-data execution matrix is intentionally narrower than
+mission decoding: `Level.01D`, `Level.01N`, `Level.02D` and `Level.03N` execute
+cleanly. `Level.02N` and `Level.05D` require the real Howitzer-holder lifecycle;
+`Level.04D` exhausts the authored Route table while creating
+`m4.route.e.mn0`; `Level.06N` reaches the still unowned checkpoint/destroyable
+commands 33-35; and `Level.07N` has no eligible fresh project. These paths fail
+closed instead of publishing a partial mission. The object transaction removes
+all newly created script owners and their events, but restoration of
+pre-existing guide owners removed by an authored script remains an explicit
+atomicity debt. RecruitCenter completion rewards and those four owner/lifecycle
+gaps are the next campaign boundary.
+
+RecruitCenter default-vehicle handover is tracked separately from mission
+script population. Retail `rc_SET_DEFTAXI` data is decoded and fingerprinted,
+but the January source does not show how the later retail center applied it and
+the recovered center currently performs only the safe eject. In `Level.03N`
+the authored Inhabitants default is `taxi.attr.war_t00` (TankGenn2) and the
+Marauders default is `taxi.attr.war_t07` (TankGenn3); the airplanes created by
+`Brief/ms23.sc` are Robot mission units, not an evidenced Player reward. Do not
+invent an automatic aircraft grant until CQ-199 is resolved through retail
+observation and a rollback-safe Vehicle/Taxi transfer.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

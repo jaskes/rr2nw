@@ -4,6 +4,8 @@
 #include "kernel/h/object.h"
 #include "sc.h"
 
+#include <vector>
+
 class ct_Arena;
 
 enum ERecoveredLegacyScriptHostIssue {
@@ -18,12 +20,14 @@ enum ERecoveredLegacyScriptHostIssue {
   RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_TABLE_FAILURE = 1u << 8,
   RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_NODE_FAILURE = 1u << 9,
   RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE = 1u << 10,
-  RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE = 1u << 11
+  RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE = 1u << 11,
+  RECOVERED_LEGACY_SCRIPT_HOST_UNSUPPORTED_OPERATION = 1u << 12,
+  RECOVERED_LEGACY_SCRIPT_HOST_INVALID_EVENT_DESTINATION = 1u << 13
 };
 
 class RecoveredLegacyScriptHost {
  public:
-  enum { kConstantCount = 24 };
+  enum { kConstantCount = 36 };
 
   explicit RecoveredLegacyScriptHost(ct_Arena* arena);
 
@@ -38,8 +42,11 @@ class RecoveredLegacyScriptHost {
   void AscendEventData(int eventIndex);
   void WriteInt(int eventIndex, int value);
   void WriteFloat(int eventIndex, double value);
+  void WriteVector(int eventIndex, double x, double y, double z);
   void WriteString(int eventIndex, const char* value);
   void WriteObjectID(int eventIndex, const KR_ObjectID& object);
+  void IssueEvent(int eventIndex, int label, double timeStamp,
+                  const KR_ObjectID& destination);
   void SendEventNow(int eventIndex, int label,
                     const KR_ObjectID& destination);
   KR_ObjectID SearchObject(const char* name);
@@ -55,6 +62,14 @@ class RecoveredLegacyScriptHost {
   bool SetCommanderRelation(const KR_ObjectID& commander,
                             const KR_ObjectID& relativeCommander,
                             bool hostile);
+  double CurrentTime() const;
+  bool UpdateAttributes();
+  int SetDamage(const char* objectName, double damage);
+  void Unsupported(const char* operation);
+  void BeginObjectTransaction();
+  bool RollbackObjectTransaction();
+  void CommitObjectTransaction();
+  int TransactionCreatedObjectCount() const;
   bool CreateProjectTable(int projectCapacity, int nodeCapacity,
                           int heapCapacity);
   int NewProjectNode(int command, int left, int right);
@@ -116,6 +131,8 @@ class RecoveredLegacyScriptHost {
   int m_openProjectNode;
   int m_deferredMissionHowitzerCount;
   int m_deferredMissionDestroyableCount;
+  bool m_objectTransactionActive;
+  std::vector<KR_ObjectID> m_transactionCreatedObjects;
 };
 
 #endif

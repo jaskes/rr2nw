@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- RecruitCenter admission now executes authored `COM_RUN_SCRIPT` mission
+  payloads through the bounded recovered VM before rebinding named objective
+  references. The live `Level.03N` Inhabitants mission creates all 22 authored
+  People/Taxi/Route owners, binds all three conditions to real ObjectIDs and
+  presents its retail briefing instead of ejecting the Player into a visually
+  empty mission.
+- Legacy nested-script includes no longer free the compiler-owned scanner and
+  trip the MSVC debug heap. A byte-preserving `PLEX.CPP` ownership shim keeps
+  the archival non-UTF8 `Lex.c` untouched while regression coverage compiles
+  and runs a real included source fragment.
+- Added `--mission-smoke`, a bounded installed-data gate that executes the
+  first eligible RecruitCenter mission without presenting UI and records
+  script, created-object, rebound-condition, briefing and rollback counters.
 - Active `PlayerMission` summaries now republish through the preserved
   `Player::loadNotify()` path into the real DebugMap, including objective text
   and an existing Level Route. The terminal `Level.07N` safely presents a

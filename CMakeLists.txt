@@ -3093,6 +3093,9 @@ add_library(rr2nw_arena_obase_recrcen STATIC
 target_link_libraries(rr2nw_arena_obase_recrcen PUBLIC
   rr2nw_arena_storage
   rr2nw_arena_obase_vehicle
+  rr2nw_mod_runtime
+  rr2nw_recovered_legacy_script_runtime
+  rr2nw_legacy_shell_full
 )
 target_include_directories(rr2nw_arena_obase_recrcen PUBLIC
   nw/INCLUDE

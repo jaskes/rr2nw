@@ -1,13 +1,17 @@
 #include "RecoveredLegacyScriptHost.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "enum/spaceenum.h"
 #include "graph.h"
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "message/attrmsg.h"
+#include "message/artfmsg.h"
+#include "message/bimsg.h"
 #include "message/fartmsg.h"
 #include "message/fountmsg.h"
 #include "message/groupmsg.h"
@@ -66,6 +70,13 @@ void ScriptWriteFloat(TProcessContext* pc, void* userData) {
   if (host != nullptr) host->WriteFloat(SC_PARI(1), SC_PARF(0));
 }
 
+void ScriptWriteVector(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->WriteVector(SC_PARI(3), SC_PARF(2), SC_PARF(1), SC_PARF(0));
+  }
+}
+
 void ScriptWriteString(TProcessContext* pc, void* userData) {
   RecoveredLegacyScriptHost* host = Host(userData);
   if (host != nullptr) host->WriteString(SC_PARI(1), SC_PARS(0));
@@ -84,6 +95,14 @@ void ScriptSendEventNow(TProcessContext* pc, void* userData) {
   if (host != nullptr) {
     host->SendEventNow(SC_PARI(3), SC_PARI(2),
                        KR_ObjectID(SC_PARI(1), SC_PARI(0)));
+  }
+}
+
+void ScriptIssueEvent(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) {
+    host->IssueEvent(SC_PARI(4), SC_PARI(3), SC_PARF(2),
+                     KR_ObjectID(SC_PARI(1), SC_PARI(0)));
   }
 }
 
@@ -170,6 +189,63 @@ void ScriptSetFriendlyCommander(TProcessContext* pc, void* userData) {
     host->SetCommanderRelation(KR_ObjectID(SC_PARI(3), SC_PARI(2)),
                                KR_ObjectID(SC_PARI(1), SC_PARI(0)), false);
   }
+}
+
+void ScriptGetTime(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  SC_PARF(0) = host == nullptr ? 0.0 : host->CurrentTime();
+}
+
+void ScriptUpdateAttributes(TProcessContext* pc, void* userData) {
+  (void)pc;
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->UpdateAttributes();
+}
+
+void ScriptAttachObject(TProcessContext* pc, void* userData) {
+  (void)pc;
+  RecoveredLegacyScriptHost* host = Host(userData);
+  // The declaration is part of every retail DEFINES.SCI include, so the
+  // legacy linker requires a symbol even when a mission never calls it.
+  // Fail closed if a mission does call it until scene-reference attachment
+  // participates in the same object transaction as NewObject/LoadRoute.
+  if (host != nullptr) host->Unsupported("s_AttachObject");
+}
+
+void ScriptSetDamage(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  SC_PARI(2) = host == nullptr ? 0
+                               : host->SetDamage(SC_PARS(1), SC_PARF(0));
+}
+
+void ScriptSetLevel(TProcessContext* pc, void* userData) {
+  (void)pc;
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->Unsupported("s_SetLevel");
+}
+
+void ScriptSetViewPoint(TProcessContext* pc, void* userData) {
+  (void)pc;
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->Unsupported("s_SetViewPoint");
+}
+
+void ScriptGetBriefingTime(TProcessContext* pc, void* userData) {
+  RecoveredLegacyScriptHost* host = Host(userData);
+  SC_PARF(1) = 0.0;
+  if (host != nullptr) host->Unsupported("s_GetBriefingTime");
+}
+
+void ScriptDeleteHowitzer(TProcessContext* pc, void* userData) {
+  (void)pc;
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->Unsupported("s_DeleteHowitzer");
+}
+
+void ScriptRestartLevel(TProcessContext* pc, void* userData) {
+  (void)pc;
+  RecoveredLegacyScriptHost* host = Host(userData);
+  if (host != nullptr) host->Unsupported("s_RestartLevel");
 }
 
 void ScriptCreateProjectTable(TProcessContext* pc, void* userData) {
@@ -307,6 +383,24 @@ void ConstCommanderAddMemberByName(TStackCell* cell) {
   cell->i = COMMANDER_ADD_MEMBER_N;
 }
 
+void ConstGroupAddMember(TStackCell* cell) {
+  cell->i = GROUP_ADD_MEMBER;
+}
+
+void ConstBuildingBeginMove(TStackCell* cell) {
+  cell->i = bi_EV_BEGIN_MOVE;
+}
+
+void ConstCommanderSetRoute(TStackCell* cell) {
+  cell->i = com_EV_SET_ROUTE;
+}
+
+void ConstArtefactMoveTo(TStackCell* cell) {
+  cell->i = ARTEFACT_MOVETO;
+}
+
+void ConstUnsupported(TStackCell* cell) { cell->i = -1; }
+
 void ConstUnitSetAttributePosition(TStackCell* cell) {
   cell->i = t_EV_SET_ATTR_POS;
 }
@@ -334,8 +428,10 @@ TLinkExtern g_bindings[] = {
     {"s_Ascend", ScriptAscendEventData, nullptr},
     {"s_WriteInt", ScriptWriteInt, nullptr},
     {"s_WriteFloat", ScriptWriteFloat, nullptr},
+    {"s_WriteVector", ScriptWriteVector, nullptr},
     {"s_WriteStr", ScriptWriteString, nullptr},
     {"s_WriteObjectID", ScriptWriteObjectID, nullptr},
+    {"s_IssueEvent", ScriptIssueEvent, nullptr},
     {"s_SendEventNow", ScriptSendEventNow, nullptr},
     {"s_SearchObjectID", ScriptSearchObjectID, nullptr},
     {"s_SearchObjectIDNoWarning", ScriptSearchObjectID, nullptr},
@@ -350,6 +446,15 @@ TLinkExtern g_bindings[] = {
     {"s_SetCommander", ScriptSetCommander, nullptr},
     {"s_SetHostileCommander", ScriptSetHostileCommander, nullptr},
     {"s_SetFriendlyCommander", ScriptSetFriendlyCommander, nullptr},
+    {"s_GetTime", ScriptGetTime, nullptr},
+    {"s_UpdateAttributes", ScriptUpdateAttributes, nullptr},
+    {"s_AttachObject", ScriptAttachObject, nullptr},
+    {"s_SetDamage", ScriptSetDamage, nullptr},
+    {"s_SetLevel", ScriptSetLevel, nullptr},
+    {"s_SetViewPoint", ScriptSetViewPoint, nullptr},
+    {"s_GetBriefingTime", ScriptGetBriefingTime, nullptr},
+    {"s_DeleteHowitzer", ScriptDeleteHowitzer, nullptr},
+    {"s_RestartLevel", ScriptRestartLevel, nullptr},
     {"s_CreateProjectTable", ScriptCreateProjectTable, nullptr},
     {"s_NewPNode", ScriptNewProjectNode, nullptr},
     {"s_OpenProjectData", ScriptOpenProjectData, nullptr},
@@ -383,7 +488,19 @@ TLinkConstExtern g_constants[] = {
     {"pe_EVCMD_START", ConstPeopleStart, 0},
     {"pe_EVCMD_START_EX", ConstPeopleStartExtended, 0},
     {"s_GROUP_ADD_MEMBER_N", ConstGroupAddMemberByName, 0},
+    {"s_GROUP_ADD_MEMBER", ConstGroupAddMember, 0},
     {"s_COMMANDER_ADD_MEMBER_N", ConstCommanderAddMemberByName, 0},
+    {"bi_EV_BEGIN_MOVE", ConstBuildingBeginMove, 0},
+    {"com_EV_SET_ROUTE", ConstCommanderSetRoute, 0},
+    {"ARTEFACT_MOVETO", ConstArtefactMoveTo, 0},
+    {"DESTROYABLE_IMMORTAL_STATE", ConstUnsupported, 0},
+    {"EV_VEHICLE_PRINTMESSAGE", ConstUnsupported, 0},
+    {"EV_VEHICLE_SOUNDEVENT", ConstUnsupported, 0},
+    {"EV_VEHICLE_PANELEVENT", ConstUnsupported, 0},
+    {"train_EV_SETPAUSE", ConstUnsupported, 0},
+    {"train_EV_ATTACH", ConstUnsupported, 0},
+    {"train_EV_ATTACH_SMOKER", ConstUnsupported, 0},
+    {"train_EV_ADDCANNON", ConstUnsupported, 0},
     {"t_EV_SET_ATTR_POS", ConstUnitSetAttributePosition, 0},
     {"rc_SET_EJECT", ConstRecruitCenterSetEject, 0},
     {"rc_SET_VIDEO", ConstRecruitCenterSetVideo, 0},
@@ -400,7 +517,9 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_projectHeapCapacity(0), m_projectNodeCount(0), m_projectCount(0),
       m_projectDataBytes(0), m_openProjectNode(mp_NodeNULL()),
       m_deferredMissionHowitzerCount(0),
-      m_deferredMissionDestroyableCount(0) {
+      m_deferredMissionDestroyableCount(0),
+      m_objectTransactionActive(false),
+      m_transactionCreatedObjects() {
   Reset();
 }
 
@@ -419,6 +538,7 @@ void RecoveredLegacyScriptHost::Reset() {
   m_openProjectNode = mp_NodeNULL();
   m_deferredMissionHowitzerCount = 0;
   m_deferredMissionDestroyableCount = 0;
+  if (!m_objectTransactionActive) m_transactionCreatedObjects.clear();
 }
 
 bool RecoveredLegacyScriptHost::IsHealthy() const { return m_issues == 0; }
@@ -468,6 +588,15 @@ void RecoveredLegacyScriptHost::WriteFloat(int eventIndex, double value) {
   if (event != nullptr) event->data.putDouble(value);
 }
 
+void RecoveredLegacyScriptHost::WriteVector(int eventIndex, double x,
+                                             double y, double z) {
+  ScriptEvent* event = Event(eventIndex, "write event vector");
+  if (event != nullptr && std::isfinite(x) && std::isfinite(y) &&
+      std::isfinite(z)) {
+    event->data.putDouble(x).putDouble(y).putDouble(z);
+  }
+}
+
 void RecoveredLegacyScriptHost::WriteString(int eventIndex,
                                             const char* value) {
   ScriptEvent* event = Event(eventIndex, "write event string");
@@ -480,6 +609,30 @@ void RecoveredLegacyScriptHost::WriteObjectID(
   if (event != nullptr) event->data.putObjectID(object);
 }
 
+void RecoveredLegacyScriptHost::IssueEvent(
+    int eventIndex, int label, double timeStamp,
+    const KR_ObjectID& destination) {
+  ScriptEvent* event = Event(eventIndex, "issue scheduled event");
+  if (event == nullptr || !ArenaReady("issue scheduled event")) return;
+  SimulationContext* context = m_arena->getContext();
+  // Match the retail host contract: scheduled events may legitimately target
+  // an object that is not published yet, but the kernel requires a usable
+  // cache slot and a timestamp past its initialization sentinel.
+  if (!std::isfinite(timeStamp) || timeStamp < 0.1 ||
+      destination.getCachePos() < 0 || context->eventFreeCount() <= 0) {
+    event->inUse = false;
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_INVALID_EVENT_DESTINATION,
+           "script scheduled event has an invalid label, time, or target");
+    return;
+  }
+  event->label = label;
+  event->timeStamp = timeStamp;
+  event->destination = destination;
+  event->source = m_arena->getObjectID();
+  event->inUse = false;
+  context->addEvent(*event);
+}
+
 void RecoveredLegacyScriptHost::SendEventNow(
     int eventIndex, int label, const KR_ObjectID& destination) {
   ScriptEvent* event = Event(eventIndex, "send immediate event");
@@ -490,6 +643,9 @@ void RecoveredLegacyScriptHost::SendEventNow(
   event->destination = destination;
   event->source = m_arena->getObjectID();
   event->inUse = false;
+  // The original s_SendEventNow deliberately delegated destination
+  // validation to SimulationContext. Missing or stale targets are a safe
+  // no-op there and are used by several retail attribute fragments.
   m_arena->getContext()->sendEventNow(*event);
 }
 
@@ -566,9 +722,14 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(int classTable,
   }
   KR_ObjectID object = m_arena->newObject(classTable, name);
   if (object.isNUL()) {
-    Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE,
-           "script object creation failed");
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "script object creation failed for %.120s in table %d",
+                  name, classTable);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE, message);
   }
+  if (!object.isNUL() && m_objectTransactionActive)
+    m_transactionCreatedObjects.push_back(object);
   return object;
 }
 
@@ -580,9 +741,14 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(const char* className,
   }
   KR_ObjectID object = m_arena->newObject(className, name);
   if (object.isNUL()) {
-    Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE,
-           "script named-class object creation failed");
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "script named-class object creation failed for %.100s in "
+                  "%.100s", name, className);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE, message);
   }
+  if (!object.isNUL() && m_objectTransactionActive)
+    m_transactionCreatedObjects.push_back(object);
   return object;
 }
 
@@ -682,6 +848,80 @@ bool RecoveredLegacyScriptHost::SetCommanderRelation(
     right->setFriendly(mutableLeft);
   }
   return true;
+}
+
+double RecoveredLegacyScriptHost::CurrentTime() const {
+  return Session::m_moment;
+}
+
+bool RecoveredLegacyScriptHost::UpdateAttributes() {
+  if (!ArenaReady("update attributes")) return false;
+  m_arena->updateAttributes(Session::m_moment);
+  return true;
+}
+
+int RecoveredLegacyScriptHost::SetDamage(const char* objectName,
+                                          double damage) {
+  if (!ArenaReady("set unit damage") || objectName == nullptr ||
+      !std::isfinite(damage))
+    return 0;
+  const KR_ObjectID object = SearchObject(objectName);
+  IUnit* unit = static_cast<IUnit*>(
+      m_arena->getContext()->queryInterface(object, IUnitIID));
+  if (unit == nullptr) return 0;
+  unit->setDamage(damage, CFVector3(0.0, 0.0, 0.0), Session::m_moment,
+                  m_arena->getObjectID());
+  return 1;
+}
+
+void RecoveredLegacyScriptHost::Unsupported(const char* operation) {
+  char message[256] = {};
+  std::snprintf(message, sizeof(message),
+                "retail mission script called unsupported operation %s",
+                operation == nullptr ? "<unknown>" : operation);
+  Report(RECOVERED_LEGACY_SCRIPT_HOST_UNSUPPORTED_OPERATION, message);
+}
+
+void RecoveredLegacyScriptHost::BeginObjectTransaction() {
+  m_objectTransactionActive = true;
+  m_transactionCreatedObjects.clear();
+}
+
+bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
+  if (!m_objectTransactionActive) return true;
+  if (!ArenaReady("rollback object transaction")) return false;
+  SimulationContext* context = m_arena->getContext();
+  const int eventCount = context->eventCount();
+  std::vector<KR_Event> events(
+      eventCount > 0 ? static_cast<std::size_t>(eventCount) : 0u);
+  if (eventCount > 0 &&
+      context->copyAllEvents(events.data(), eventCount) != eventCount)
+    return false;
+  for (const KR_ObjectID& object : m_transactionCreatedObjects) {
+    for (const KR_Event& event : events) {
+      if (event.source == object)
+        while (context->removeEvent(event.label, object) == 1) {}
+      if (event.destination == object)
+        context->removeEventsTo(event.label, object);
+    }
+  }
+  for (std::vector<KR_ObjectID>::reverse_iterator object =
+           m_transactionCreatedObjects.rbegin();
+       object != m_transactionCreatedObjects.rend(); ++object) {
+    if (context->isExist(*object)) context->removeObject(*object);
+  }
+  m_transactionCreatedObjects.clear();
+  m_objectTransactionActive = false;
+  return true;
+}
+
+void RecoveredLegacyScriptHost::CommitObjectTransaction() {
+  m_transactionCreatedObjects.clear();
+  m_objectTransactionActive = false;
+}
+
+int RecoveredLegacyScriptHost::TransactionCreatedObjectCount() const {
+  return static_cast<int>(m_transactionCreatedObjects.size());
 }
 
 bool RecoveredLegacyScriptHost::CreateProjectTable(int projectCapacity,

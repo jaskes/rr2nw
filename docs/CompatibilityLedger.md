@@ -3710,6 +3710,70 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   rollback contract. At that point compare the retail post-Restart radius and
   decide whether the compatibility expansion can be removed.
 
+### CQ-197: legacy include scanner ownership is reversed
+
+- Status: `CONFIRMED_SOURCE`, `BUGFIX_ACCEPTED`.
+- Evidence: archived `lex_Include()` allocated a new scanner, copied the
+  compiler-owned scanner into it, then kept scanning through the allocation.
+  The include EOF path restored the parent state and freed the previous-scanner
+  pointer, which in this layout was the compiler-owned embedded scanner. Modern
+  MSVC consequently stopped in `debug_heap.cpp` with
+  `_CrtIsValidHeapPointer(block)` while compiling a retail mission include.
+- Handling: `PLEX.CPP` renames the archived function and publishes a corrected
+  shim that keeps the compiler-owned scanner address stable, heap-allocates the
+  parent snapshot, bounds the include path and terminates the file name. The
+  non-UTF8 archival `Lex.c` remains byte-for-byte unchanged.
+- Verification: `recovered-legacy-script-runtime-smoke` writes, includes,
+  links and executes a real fixture containing an external binding; normal VM
+  teardown must remain clean.
+- Revisit when: the legacy compiler is replaced by a maintained parser. Preserve
+  nested-include ownership and diagnostic file identity in its regression set.
+
+### CQ-198: RecruitCenter project commands execute in reverse-linked order
+
+- Status: `CONFIRMED_SOURCE`, `CONFIRMED_RETAIL`, `OPEN`.
+- Evidence: `runProject()` walks the ProjectTable root through right links.
+  Retail builders prepend nodes, so `COM_RUN_SCRIPT` creates the named mission
+  objects before later kill/live/reach nodes search them. Decoding conditions
+  before executing the script yields null ObjectIDs and silently publishes an
+  unwinnable mission. On `Level.03N`, `Brief/ms25.sc` creates 22 owners and its
+  three conditions bind only after that execution.
+- Handling: retain and preflight bounded script/briefing paths, execute scripts
+  inside an object transaction, decode and validate references again, publish
+  the Player mission, commit, then present the briefing. Script, owner,
+  condition, briefing and rollback counters are exposed by `--mission-smoke`.
+  Unsupported commands fail closed rather than being treated as completed.
+- Verification: the installed matrix executes cleanly on `Level.01D`,
+  `Level.01N`, `Level.02D` and `Level.03N`; the latter reports
+  `scripts=1`, `created_objects=22`, `conditions=3`,
+  `rebound_conditions=3`, `briefings=0`, `rollbacks=0` in the UI-suppressed
+  smoke path.
+- Revisit when: Howitzer-holder deletion/creation, Route capacity/lifecycle and
+  checkpoint/destroyable commands 33-35 have transactional owners. Also close
+  the current rollback gap for pre-existing guide objects removed by a script,
+  and route nested VM includes through the mod-aware VFS instead of legacy
+  current-directory file I/O.
+
+### CQ-199: retail RecruitCenter default-Taxi application is not in source
+
+- Status: `CONFIRMED_RETAIL`, `CONFIRMED_SOURCE`, `OPEN`.
+- Evidence: May Level data sends `rc_SET_DEFTAXI=39006` to every RecruitCenter,
+  while the January `Recrcen.cpp` neither handles that event nor stores a
+  default-Taxi field. The recovered table admits and fingerprints the later
+  payload but does not apply it during mission admission. On `Level.03N`, the
+  Inhabitants value `taxi.attr.war_t00` resolves to a TankGenn2 Vehicle and the
+  Marauders value `taxi.attr.war_t07` to TankGenn3. The two airplanes in
+  `Brief/ms23.sc` are explicitly Robot mission units and are not evidence of a
+  Player vehicle reward.
+- Handling: retain the authored value and keep the current radius-safe eject;
+  do not infer an automatic Vehicle mutation or Taxi spawn from the field name.
+  The user's missing-aircraft observation remains valuable manual evidence but
+  is not yet assigned to this field without a matching Level/mission trace.
+- Revisit when: capture the retail post-collision Vehicle attribute, Taxi
+  roster, position and mission identity for the reported center. Implement any
+  confirmed handover through Vehicle/Taxi lifecycle, panel/camera reconciliation,
+  save/load and complete rollback before enabling it interactively.
+
 ## Maintenance rule
 
 When a new quirk is found:

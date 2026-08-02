@@ -10,7 +10,10 @@
 #include <vector>
 
 class CGRPanel;
+#define LAST_H__SCENE
+#include "game.h"
 #include "h/vehicle.h"
+#include "briefing.h"
 #include "i/dynobj.i"
 #include "i/player.i"
 #include "i/route.i"
@@ -20,6 +23,9 @@ class CGRPanel;
 #include "message/unitmsg.h"
 #include "mproj/h/mproj.h"
 #include "storage/h/subject.h"
+#include "RecoveredLegacyScriptHost.h"
+#include "RecoveredLegacyScriptRunner.h"
+#include "RecoveredModRuntime.h"
 #include "../output/defs.h"
 
 namespace {
@@ -29,16 +35,101 @@ const int kMaximumProjectNodes = 1024;
 const int kMaximumProjectPayload = 10240;
 const double kRadius = 4.0;
 const double kCollisionDebounceSeconds = 0.25;
+const long kMaximumMissionScriptBytes = 1024L * 1024L;
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 
 char g_lastError[256] = {};
+
+struct DeferredMissionCommand
+{
+    int command;
+    std::string first;
+    std::string second;
+    std::string third;
+    std::string fourth;
+    double values[6];
+    int integer;
+
+    DeferredMissionCommand() : command(0), integer(0)
+    {
+        for (int index = 0; index < 6; ++index) values[index] = 0.0;
+    }
+};
+
+struct PreparedMissionFile
+{
+    std::string authoredPath;
+    std::string resolvedPath;
+    std::string source;
+};
 
 void SetError(const char *message)
 {
     std::snprintf(g_lastError, sizeof(g_lastError), "%s",
                   message == NULL ? "unknown RecruitCenter failure"
                                   : message);
+}
+
+bool IsSafeMissionPath(const std::string &path)
+{
+    if (path.empty() || path.size() >= 260 || path[0] == '/' ||
+        path[0] == '\\' || path.find(':') != std::string::npos)
+        return false;
+    std::string normalized = path;
+    std::replace(normalized.begin(), normalized.end(), '\\', '/');
+    if (normalized == ".." || normalized.find("../") == 0 ||
+        normalized.find("/../") != std::string::npos)
+        return false;
+    return normalized.size() < 3 ||
+           normalized.substr(normalized.size() - 3) != "/..";
+}
+
+bool PrepareMissionFile(const std::string &path, bool readSource,
+                        PreparedMissionFile *prepared)
+{
+    if (prepared == NULL || !IsSafeMissionPath(path)) return false;
+    char resolved[32768] = {};
+    if (!RecoveredModRuntime_ResolveReadPath(path.c_str(), resolved,
+                                             sizeof(resolved)))
+        return false;
+    long length = 0;
+    FILE *file = RecoveredModRuntime_OpenRead(path.c_str(), &length);
+    if (file == NULL || length < 0 || length > kMaximumMissionScriptBytes)
+    {
+        if (file != NULL) std::fclose(file);
+        return false;
+    }
+    std::string source;
+    if (readSource)
+    {
+        try
+        {
+            source.resize(static_cast<std::size_t>(length));
+        }
+        catch (...)
+        {
+            std::fclose(file);
+            return false;
+        }
+        if (length > 0 &&
+            std::fread(&source[0], 1, static_cast<std::size_t>(length), file) !=
+                static_cast<std::size_t>(length))
+        {
+            std::fclose(file);
+            return false;
+        }
+        if (source.empty() || source.find('\0') != std::string::npos)
+        {
+            std::fclose(file);
+            return false;
+        }
+    }
+    std::fclose(file);
+    prepared->authoredPath = path;
+    prepared->resolvedPath = resolved;
+    prepared->source.swap(source);
+    return true;
 }
 
 bool FiniteVector(const CFVector3 &value)
@@ -275,38 +366,43 @@ bool AddNamedCondition(KR_SetOfID *objects, SimulationContext *context,
         ? context->searchObject(objectName.c_str()) : KR_ObjectID::NUL());
 }
 
-bool ConsumeDeferredCommand(int command, ProjectDataReader *data)
+bool ReadDeferredCommand(int command, ProjectDataReader *data,
+                         DeferredMissionCommand *deferred)
 {
-    std::string first;
-    std::string second;
-    std::string third;
-    std::string fourth;
-    double value = 0.0;
-    int integer = 0;
+    if (data == NULL || deferred == NULL) return false;
+    deferred->command = command;
     switch (command)
     {
     case COM_CREATE_UNITS:
-        return data->readString(&first, 40) &&
-               data->readString(&second, 80) && data->readDouble(&value) &&
-               value >= 0.0 && data->readString(&third, 40) &&
-               data->readString(&fourth, 40);
+        return data->readString(&deferred->first, 40) &&
+               data->readString(&deferred->second, 80) &&
+               data->readDouble(&deferred->values[0]) &&
+               deferred->values[0] >= 0.0 &&
+               data->readString(&deferred->third, 40) &&
+               data->readString(&deferred->fourth, 40);
     case COM_PLAY_BRIEFING:
     case COM_RUN_SCRIPT:
-        return data->readString(&first, 260);
+        return data->readString(&deferred->first, 260);
     case COM_SKIP_WAY:
-        return data->readDouble(&value) && data->readDouble(&value) &&
-               data->readDouble(&value) && data->readDouble(&value);
+        return data->readDouble(&deferred->values[0]) &&
+               data->readDouble(&deferred->values[1]) &&
+               data->readDouble(&deferred->values[2]) &&
+               data->readDouble(&deferred->values[3]);
     case COM_PLAY_BRIEFING_MSG:
-        return data->readString(&first, 260) && data->readInt(&integer);
+        return data->readString(&deferred->first, 260) &&
+               data->readInt(&deferred->integer);
     case 33:
-        if (!data->readString(&first, 80)) return false;
+        if (!data->readString(&deferred->first, 80)) return false;
         for (int index = 0; index < 5; ++index)
-            if (!data->readDouble(&value)) return false;
-        return data->readString(&second, 260);
+            if (!data->readDouble(&deferred->values[index])) return false;
+        return data->readString(&deferred->second, 260);
     case 34:
-        return data->readDouble(&value) && data->readDouble(&value) &&
-               data->readDouble(&value) && data->readInt(&integer) &&
-               data->readDouble(&value) && data->readString(&first, 260);
+        return data->readDouble(&deferred->values[0]) &&
+               data->readDouble(&deferred->values[1]) &&
+               data->readDouble(&deferred->values[2]) &&
+               data->readInt(&deferred->integer) &&
+               data->readDouble(&deferred->values[3]) &&
+               data->readString(&deferred->first, 260);
     case 35:
         return true;
     default:
@@ -316,11 +412,13 @@ bool ConsumeDeferredCommand(int command, ProjectDataReader *data)
 
 bool DecodeMission(SimulationContext *context, KR_ObjectID project,
                    KR_ObjectID commander, PlayerMission *mission,
-                   std::string *routeName, int *deferredCommands)
+                   std::string *routeName,
+                   std::vector<DeferredMissionCommand> *deferredCommands)
 {
+    if (deferredCommands == NULL) return false;
     InitializeMission(mission, project, commander);
     routeName->clear();
-    *deferredCommands = 0;
+    deferredCommands->clear();
     std::set<int> visited;
     for (mp_NodeNum node = projectTable.getProjectRoot(project);
          node != mp_NodeNULL(); node = projectTable.getRight(node))
@@ -417,14 +515,20 @@ bool DecodeMission(SimulationContext *context, KR_ObjectID project,
         case 35:
         {
             ProjectDataReader data(node);
-            if (!ConsumeDeferredCommand(command, &data) || !data.finish())
+            DeferredMissionCommand deferred;
+            if (!ReadDeferredCommand(command, &data, &deferred) ||
+                !data.finish())
                 return false;
-            ++*deferredCommands;
+            deferredCommands->push_back(deferred);
             break;
         }
         case COM_BRIEFING_OVER:
-            ++*deferredCommands;
+        {
+            DeferredMissionCommand deferred;
+            deferred.command = command;
+            deferredCommands->push_back(deferred);
             break;
+        }
         default:
             return false;
         }
@@ -484,10 +588,164 @@ bool MissionReferencesBound(const PlayerMission &mission)
     return true;
 }
 
+int DeferredCommandCount(const std::vector<DeferredMissionCommand> &commands,
+                         int command)
+{
+    int count = 0;
+    for (std::size_t index = 0; index < commands.size(); ++index)
+        if (commands[index].command == command) ++count;
+    return count;
+}
+
+bool PrepareDeferredMissionFiles(
+    const std::vector<DeferredMissionCommand> &commands,
+    std::vector<PreparedMissionFile> *files)
+{
+    if (files == NULL)
+    {
+        SetError("RecruitCenter mission preflight has no output storage");
+        return false;
+    }
+    files->clear();
+    try
+    {
+        files->resize(commands.size());
+    }
+    catch (...)
+    {
+        SetError("RecruitCenter mission preflight allocation failed");
+        return false;
+    }
+    for (std::size_t index = 0; index < commands.size(); ++index)
+    {
+        const int command = commands[index].command;
+        if (command == COM_RUN_SCRIPT)
+        {
+            if (!PrepareMissionFile(commands[index].first, true,
+                                    &(*files)[index]))
+            {
+                char message[256] = {};
+                std::snprintf(message, sizeof(message),
+                              "RecruitCenter cannot preflight script %.160s",
+                              commands[index].first.c_str());
+                SetError(message);
+                return false;
+            }
+        }
+        else if (command == COM_PLAY_BRIEFING ||
+                 command == COM_PLAY_BRIEFING_MSG)
+        {
+            if (!PrepareMissionFile(commands[index].first, false,
+                                    &(*files)[index]))
+            {
+                char message[256] = {};
+                std::snprintf(message, sizeof(message),
+                              "RecruitCenter cannot preflight briefing %.158s",
+                              commands[index].first.c_str());
+                SetError(message);
+                return false;
+            }
+        }
+        else if (command != COM_BRIEFING_OVER)
+        {
+            // CREATE_UNITS, SKIP_WAY and the May checkpoint/artefact commands
+            // retain their decoded payloads, but they do not yet have a
+            // transactional modern owner. Never silently accept them.
+            char message[256] = {};
+            std::snprintf(message, sizeof(message),
+                          "RecruitCenter deferred command %d is unsupported",
+                          command);
+            SetError(message);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool RunDeferredMissionScripts(
+    SimulationContext *context, double timeStamp,
+    const std::vector<DeferredMissionCommand> &commands,
+    const std::vector<PreparedMissionFile> &files,
+    RecoveredLegacyScriptHost *host,
+    RecruitCenterMissionProbeSummary *summary)
+{
+    if (context == NULL || host == NULL || summary == NULL ||
+        commands.size() != files.size())
+        return false;
+    SRecoveredLegacyScriptProfile profile =
+        RecoveredLegacyScript_RetailFragmentProfile();
+    profile.compilerWordBufferSize = 64 * 1024;
+    profile.compilerStringBufferSize = 128 * 1024;
+    profile.compilerNameCount = 4096;
+    profile.compilerTreeBufferSize = 256 * 1024;
+    profile.compilerCodeStreamSize = 256 * 1024;
+    profile.compilerLinkInfoSize = 64 * 1024;
+    profile.processStorageStackSize = 4096;
+    profile.processStackSize = 4096;
+    profile.processQuants = 32768;
+    profile.maximumVmSlices = 8192;
+
+    host->BeginObjectTransaction();
+    for (std::size_t index = 0; index < commands.size(); ++index)
+    {
+        if (commands[index].command != COM_RUN_SCRIPT) continue;
+        SRecoveredLegacyScriptRunResult result = {};
+        if (!RecoveredLegacyScript_RunMemory(
+                files[index].source.c_str(),
+                commands[index].first.c_str(), profile, context, timeStamp,
+                host, &result))
+        {
+            const bool rolledBack = host->RollbackObjectTransaction();
+            summary->scriptRollbacks += rolledBack ? 1 : 0;
+            char message[256] = {};
+            std::snprintf(message, sizeof(message),
+                          "RecruitCenter mission script %.96s failed: %.120s",
+                          commands[index].first.c_str(), result.error);
+            SetError(message);
+            return false;
+        }
+        ++summary->executedScripts;
+    }
+    summary->createdMissionObjects = host->TransactionCreatedObjectCount();
+    return true;
+}
+
+void PresentDeferredBriefings(
+    SimulationContext *context,
+    const std::vector<DeferredMissionCommand> &commands,
+    const std::vector<PreparedMissionFile> &files,
+    RecruitCenterMissionProbeSummary *summary)
+{
+    if (context == NULL || summary == NULL || commands.size() != files.size() ||
+        g_vehicle == NULL || !context->isExist("Briefing"))
+        return;
+    for (std::size_t index = 0; index < commands.size(); ++index)
+    {
+        if (commands[index].command != COM_PLAY_BRIEFING &&
+            commands[index].command != COM_PLAY_BRIEFING_MSG)
+            continue;
+        const bool played = g_vehicle->m_playedBrief;
+        g_vehicle->m_playedBrief = true;
+        g_briefing.PlayBriefing(files[index].resolvedPath.c_str());
+        g_vehicle->m_playedBrief = played;
+        ++summary->presentedBriefings;
+        if (commands[index].command == COM_PLAY_BRIEFING_MSG &&
+            context->isExist("Publisher") && commands[index].integer > 0)
+        {
+            KR_Event event(commands[index].integer, Session::m_moment,
+                           g_vehicle->getObjectID(),
+                           context->searchObject("Publisher"));
+            context->sendEventNow(event);
+        }
+    }
+}
+
 class RecruitCenter;
 
 bool StageMissionForCenter(SimulationContext *context, double timeStamp,
-                           RecruitCenter *center, bool *staged,
+                           RecruitCenter *center, bool executeDeferred,
+                           bool presentBriefing,
+                           bool *staged,
                            RecruitCenterMissionProbeSummary *summary);
 
 class RecruitCenter : public ct_Subject, public IDynamicObject
@@ -698,6 +956,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     int noProjectVisits() const { return m_noProjectVisits; }
     int ejections() const { return m_ejections; }
     int admissionFailures() const { return m_admissionFailures; }
+    void setProbeAdmission(bool value) { m_probeAdmission = value; }
     const RecruitCenterMissionProbeSummary &lastMissionSummary() const
     {
         return m_lastMissionSummary;
@@ -759,6 +1018,8 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         else
         {
             admitted = StageMissionForCenter(context, timeStamp, this,
+                                             !m_probeAdmission,
+                                             !m_probeAdmission,
                                              &staged, &summary);
             if (admitted && staged)
             {
@@ -818,6 +1079,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         m_defaultTaxiConfigured = false;
         m_dictionaryConfigured = false;
         m_working = false;
+        m_probeAdmission = false;
         m_previousVisitTime = -1.0;
         m_rejectedCollisions = 0;
         m_playerCollisions = 0;
@@ -845,6 +1107,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     bool m_defaultTaxiConfigured;
     bool m_dictionaryConfigured;
     bool m_working;
+    bool m_probeAdmission;
     double m_previousVisitTime;
     int m_rejectedCollisions;
     int m_playerCollisions;
@@ -871,7 +1134,9 @@ bool FindCenterCandidate(RecruitCenter *center, Player *player,
 }
 
 bool StageMissionForCenter(SimulationContext *context, double timeStamp,
-                           RecruitCenter *center, bool *staged,
+                           RecruitCenter *center, bool executeDeferred,
+                           bool presentBriefing,
+                           bool *staged,
                            RecruitCenterMissionProbeSummary *summary)
 {
     if (staged == NULL || summary == NULL) return false;
@@ -908,13 +1173,70 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
 
     PlayerMission mission;
     std::string routeName;
-    int deferredCommands = 0;
+    std::vector<DeferredMissionCommand> deferredCommands;
     if (!DecodeMission(context, candidate, center->commanderID(),
                        &mission, &routeName, &deferredCommands))
     {
         SetError("RecruitCenter authored mission decode failed");
         return false;
     }
+
+    std::vector<PreparedMissionFile> preparedFiles;
+    RecoveredLegacyScriptHost scriptHost(&g_arena);
+    bool scriptTransaction = false;
+    if (executeDeferred)
+    {
+        if (!PrepareDeferredMissionFiles(deferredCommands, &preparedFiles))
+            return false;
+        if (!RunDeferredMissionScripts(context, timeStamp, deferredCommands,
+                                       preparedFiles, &scriptHost, summary))
+            return false;
+        scriptTransaction = true;
+
+        // Project nodes run from the final root towards the original first
+        // node. Retail mission scripts therefore create their symbolic units
+        // before the later condition nodes search those names. Decode again
+        // only after the script side effects have committed to the Context.
+        PlayerMission reboundMission;
+        std::string reboundRoute;
+        std::vector<DeferredMissionCommand> reboundDeferred;
+        if (!DecodeMission(context, candidate, center->commanderID(),
+                           &reboundMission, &reboundRoute,
+                           &reboundDeferred) ||
+            reboundDeferred.size() != deferredCommands.size() ||
+            reboundRoute != routeName)
+        {
+            if (scriptHost.RollbackObjectTransaction())
+                ++summary->scriptRollbacks;
+            SetError("RecruitCenter mission changed during script execution");
+            return false;
+        }
+        const int scriptCount = DeferredCommandCount(
+            deferredCommands, COM_RUN_SCRIPT);
+        if (scriptCount > 0 && ConditionCount(reboundMission) > 0 &&
+            !MissionReferencesBound(reboundMission))
+        {
+            if (scriptHost.RollbackObjectTransaction())
+                ++summary->scriptRollbacks;
+            SetError("RecruitCenter mission script left an unresolved target");
+            return false;
+        }
+        mission = reboundMission;
+        routeName = reboundRoute;
+        summary->reboundConditionReferences =
+            scriptCount > 0 ? ConditionCount(mission) : 0;
+    }
+
+    const struct RollbackScript
+    {
+        static void Run(RecoveredLegacyScriptHost *host, bool active,
+                        RecruitCenterMissionProbeSummary *summary)
+        {
+            if (active && host->RollbackObjectTransaction())
+                ++summary->scriptRollbacks;
+        }
+    } rollbackScript = {};
+
     KR_ObjectID route = KR_ObjectID::NUL();
     bool createdRoute = false;
     if (!routeName.empty())
@@ -928,6 +1250,7 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         {
             if (createdRoute && !route.isNUL() && context->isExist(route))
                 context->removeObject(route);
+            rollbackScript.Run(&scriptHost, scriptTransaction, summary);
             SetError("RecruitCenter mission Route allocation failed");
             return false;
         }
@@ -937,6 +1260,7 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         {
             if (createdRoute && context->isExist(route))
                 context->removeObject(route);
+            rollbackScript.Run(&scriptHost, scriptTransaction, summary);
             SetError("RecruitCenter mission Route did not load");
             return false;
         }
@@ -949,6 +1273,7 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     {
         if (createdRoute && context->isExist(route))
             context->removeObject(route);
+        rollbackScript.Run(&scriptHost, scriptTransaction, summary);
         SetError("RecruitCenter Player mission pool is full");
         return false;
     }
@@ -970,6 +1295,7 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         player.loadNotify();
         if (createdRoute && context->isExist(route))
             context->removeObject(route);
+        rollbackScript.Run(&scriptHost, scriptTransaction, summary);
         SetError("RecruitCenter mission check event was not queued");
         return false;
     }
@@ -977,7 +1303,11 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     summary->stagedMissions = 1;
     summary->conditionReferences = ConditionCount(mission);
     summary->routeReferences = mission.m_missionRouteID.isNUL() ? 0 : 1;
-    summary->deferredCommands = deferredCommands;
+    summary->deferredCommands = static_cast<int>(deferredCommands.size());
+    if (scriptTransaction) scriptHost.CommitObjectTransaction();
+    if (presentBriefing)
+        PresentDeferredBriefings(context, deferredCommands, preparedFiles,
+                                 summary);
     *staged = true;
     return true;
 }
@@ -1263,11 +1593,13 @@ bool RecruitCenterSubjectState_StageMissionProbe(
         KR_Event collision(t_EV_ONCOLLISION, timeStamp + 0.25,
                            vehicleID, center->getObjectID());
         collision.data.open(EDO_WRITE).putObjectID(vehicleID).close();
+        center->setProbeAdmission(true);
         context->sendEventNow(collision);
 
         KR_Event repeat(rc_NEW_MISSION, timeStamp + 0.5,
                         vehicleID, center->getObjectID());
         context->sendEventNow(repeat);
+        center->setProbeAdmission(false);
 
         const CFVector3 target = center->ejectPosition();
         const CFVector3 actual = g_vehicle->Pos();
@@ -1307,6 +1639,46 @@ bool RecruitCenterSubjectState_StageMissionProbe(
         summary->ejections = 2;
         *staged = true;
         return true;
+    }
+    return true;
+}
+
+bool RecruitCenterSubjectState_StageMissionExecutionProbe(
+    SimulationContext *context, double timeStamp, bool *staged,
+    RecruitCenterMissionProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (staged == NULL || summary == NULL) return false;
+    *staged = false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (!RecruitCenterSubjectState_TableReady(context)) return true;
+    if (g_vehicle == NULL || g_vehicle->getContext() != context ||
+        !std::isfinite(timeStamp) || timeStamp < 0.0)
+    {
+        SetError("RecruitCenter execution probe has no live Player vehicle");
+        return false;
+    }
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    if (player.m_missCnt < 0 || player.m_missCnt >= 6 ||
+        context->eventFreeCount() < 1)
+    {
+        SetError("RecruitCenter execution probe needs a stable mission slot");
+        return false;
+    }
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+    {
+        RecruitCenter *center = static_cast<RecruitCenter *>(subject);
+        KR_ObjectID candidate = KR_ObjectID::NUL();
+        if (!FindCenterCandidate(center, &player, &candidate))
+        {
+            SetError("RecruitCenter execution eligibility graph is malformed");
+            return false;
+        }
+        if (candidate.isNUL()) continue;
+        return StageMissionForCenter(context, timeStamp, center, true, false,
+                                     staged, summary);
     }
     return true;
 }

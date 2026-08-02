@@ -238,10 +238,20 @@ int main(int argc, char** argv) {
       std::string(256, '1') + ",0,0]\r\n";
   const std::string overlongRoutePath =
       JoinPath(fixtureDirectory, "route-overlong.rt");
+  const char includeFixture[] =
+      "func void s_AttachObject(int table, str name, int attributeID, "
+      "int attributeCache, str reference, vector position, int event) "
+      "extern;\r\n"
+      "func void IncludedFixture()\r\n"
+      "{\r\n"
+      "}\r\n";
+  const std::string includePath =
+      JoinPath(fixtureDirectory, "include-fixture.sci");
   if (!WriteFile(routePath, routeFixture) ||
       !WriteFile(malformedRoutePath, malformedRouteFixture) ||
       !WriteFile(truncatedRoutePath, truncatedRouteFixture) ||
       !WriteFile(overlongRoutePath, overlongRouteFixture.c_str()) ||
+      !WriteFile(includePath, includeFixture) ||
       SetCurrentDirectoryA(fixtureDirectory.c_str()) == FALSE) {
     return Fail("could not prepare the route fixture");
   }
@@ -287,6 +297,18 @@ int main(int argc, char** argv) {
   if (!RunCase(validLfSource, "valid_lf",
                RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result)) {
     return Fail("LF source was not normalized and executed", &result);
+  }
+
+  const char includeSource[] =
+      "include \"include-fixture.sci\"\r\n"
+      "func void main()\r\n"
+      "{\r\n"
+      "  IncludedFixture();\r\n"
+      "}\r\n";
+  if (!RunCase(includeSource, "include_ownership",
+               RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result)) {
+    return Fail("included source did not preserve scanner ownership",
+                &result);
   }
 
   const char sparkAttributeSource[] = R"RR2NW_SCRIPT(
@@ -599,10 +621,12 @@ var int node;
   DeleteFileA(malformedRoutePath.c_str());
   DeleteFileA(truncatedRoutePath.c_str());
   DeleteFileA(overlongRoutePath.c_str());
+  DeleteFileA(includePath.c_str());
   RemoveDirectoryA(fixtureDirectory.c_str());
   if (!restored) return Fail("working directory was not restored");
 
-  std::printf("legacy script host bindings=15 constants=12 lf=normalized "
+  std::printf("legacy script host bindings=45 constants=36 lf=normalized "
+              "include=owned "
               "spark=retail-phases common_attrs=bird,orphan,artefact "
               "route=loaded route_eof=clamped "
               "errors=fail-closed rollback=clean\n");

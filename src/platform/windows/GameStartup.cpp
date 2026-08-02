@@ -15,7 +15,9 @@
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
 #include "graph.h"
+#include "h/super.h"
 #include "obase/explosion/ExplosionSubjectState.h"
+#include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "suavik.h"
 
 #include <shlobj.h>
@@ -58,6 +60,7 @@ struct StartupOptions {
   int startupLoadSlot = -1;
   bool launchSmoke = false;
   bool runtimeSmoke = false;
+  bool missionSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
   bool showVersion = false;
@@ -279,6 +282,9 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->launchSmoke = true;
     } else if (argument == L"--runtime-smoke") {
       options->runtimeSmoke = true;
+    } else if (argument == L"--mission-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
     } else if (argument == L"--debug-menu") {
       options->debugMenu = true;
     } else if (argument == L"--help" || argument == L"-h") {
@@ -948,6 +954,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
+                L"          [--mission-smoke]\n"
                 L"          [--version] [--help]");
     return kSuccess;
   }
@@ -2608,6 +2615,38 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  !RecoveredGameServices_VerifyMissionMapProbe() ||
                  !RecoveredGameServices_RequestDebugMapToggle() ||
                  !RecoveredGameServices_ClearMissionMapProbe();
+  }
+  if (!loopFailed && options.missionSmoke) {
+    bool missionStaged = false;
+    RecruitCenterMissionProbeSummary mission = {};
+    const double missionTime =
+        (std::max)(0.1, Session::m_viewTime + 0.25);
+    const bool missionExecuted =
+        RecruitCenterSubjectState_StageMissionExecutionProbe(
+            g_super.m_context, missionTime, &missionStaged, &mission);
+    log.Line(std::string("mission_smoke_staged=") +
+             (missionStaged ? "1" : "0"));
+    log.Line("mission_smoke_scripts=" +
+             std::to_string(mission.executedScripts));
+    log.Line("mission_smoke_created_objects=" +
+             std::to_string(mission.createdMissionObjects));
+    log.Line("mission_smoke_conditions=" +
+             std::to_string(mission.conditionReferences));
+    log.Line("mission_smoke_rebound_conditions=" +
+             std::to_string(mission.reboundConditionReferences));
+    log.Line("mission_smoke_briefings=" +
+             std::to_string(mission.presentedBriefings));
+    log.Line("mission_smoke_rollbacks=" +
+             std::to_string(mission.scriptRollbacks));
+    if (!missionExecuted) {
+      log.Line(std::string("mission_smoke_error=") +
+               RecruitCenterSubjectState_LastError());
+    }
+    loopFailed = !missionExecuted || !missionStaged ||
+                 mission.executedScripts < 1 ||
+                 mission.createdMissionObjects < 1 ||
+                 mission.presentedBriefings != 0 ||
+                 mission.scriptRollbacks != 0 || !runCompleteFrame();
   }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {
