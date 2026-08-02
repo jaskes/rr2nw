@@ -1701,8 +1701,16 @@ and restore the exact Player/event state. `Level.06N` honestly proves a mission
 with zero conditions and no Route; empty `Level.07N` retains the synthetic
 serializer fallback. Project side effects such as unit creation, briefing,
 scripts and skip-way are parsed and counted but remain deferred. Interactive
-collision admission, `rc_NEW_MISSION`, RecruitCenter presentation state and
-those side effects are the next campaign boundary.
+collision admission and `rc_NEW_MISSION` are now connected through the same
+transaction. Non-Player collisions are rejected, an active mission suppresses
+duplicate production, and the safe eject updates both recovered Vehicle
+position owners without invoking legacy repair/restart side effects. Runtime
+acceptance records
+`rejected/player-collisions/admissions/staged/existing/no-project/ejections/failures`;
+the controlled probe baseline is `1/1/2/1/1/0/2/0` per pass. Level.06N also
+proves that repeated contacts at its spawn are debounced after a radius-safe
+eject. RecruitCenter presentation state, project side effects and completion
+rewards are the next campaign boundary.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

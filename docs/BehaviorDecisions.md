@@ -4831,3 +4831,29 @@ mutable saved state. Side-effecting mission commands are consumed and counted
 but cannot execute until their gameplay and presentation owners have rollback
 contracts. Walking into a center, `rc_NEW_MISSION`, briefing/video presentation
 and mission completion therefore remain a later explicit admission step.
+
+### BD-130: public RecruitCenter visits commit only mission-owned state
+
+Both retail entry routes now meet at one bounded admission transaction:
+`t_EV_ONCOLLISION` first validates the collided ObjectID as the live Player
+vehicle, while `rc_NEW_MISSION` requires an empty payload. A visit may create at
+most one eligible mission for that center's Commander and one destination-owned
+check event. An already active mission turns later visits into idempotent
+ejects instead of filling the six-slot Player pool.
+
+The archived collision path also changed hostility, played video, repaired and
+restarted the vehicle and executed arbitrary project commands. Those unrelated
+effects remain deferred. The modern boundary moves both Vehicle position
+owners, stops the vessel and extends an undersized authored eject along its
+original horizontal direction beyond the current vehicle collision radius.
+This compensates for deliberately omitting legacy `Restart`, whose hidden
+repair/state reset is not yet transactional. A 250 ms collision debounce absorbs
+already queued contacts after the move; it never suppresses explicit
+`rc_NEW_MISSION`.
+
+The smoke enters through a rejected non-Player collision, an accepted Player
+collision and a duplicate direct event. It proves one mission/check event,
+two admissions/ejects and no duplicate mission, then restores pose and visit
+time. Unresolved condition ObjectIDs reschedule rather than treating NUL as an
+already killed target, so deferred unit/script production cannot falsely
+complete a newly accepted mission.

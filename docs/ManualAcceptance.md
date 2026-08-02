@@ -242,6 +242,15 @@ writes `summary.json` and `summary.csv`. A case passes only when:
   must be `1/3/1/1/1`, `1/1/1/1/1`, `1/2/1/1/1`, `1/5/1/1/1`,
   `1/3/1/1/1`, `1/2/1/1/1`, `1/3/1/1/1`, `1/0/0/1/1` and the
   empty-catalog fallback `1/6/0/1/1`;
+- `recruit_center_admission_initial` and
+  `recruit_center_admission_final` use
+  `rejected/player-collisions/admissions/staged/existing/no-project/ejections/failures`.
+  Every Level with a live center starts at `1/1/2/1/1/0/2/0`; the final proof
+  keeps rejected `2`, staged `2`, no-project/failures `0`, requires at least
+  four admissions, requires `existing = admissions - staged`, and requires one
+  eject per admission. Extra raw Player contacts are allowed because the
+  Level.06N spawn deliberately exercises collision debounce. Level.07N is
+  `0/0/0/0/0/0/0/0` throughout;
 - `active_world_created_owners` is `2` for Level.04D, where the restore
   transaction recreates both the removed TankGroup and its Tank/Cannon owner
   graph, and `0` for Levels whose saved combat roster is empty;

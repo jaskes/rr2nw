@@ -3693,6 +3693,23 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   RecruitCenter/Howitzer/Destroyable persistence is versioned. Any larger heap
   then requires an intentional save-version and release-compatibility review.
 
+### CQ-196: RecruitCenter eject assumes legacy Restart changed collision state
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`, `REVISIT_REQUIRED`.
+- Evidence: archived `t_EV_ONCOLLISION` falls through to `rc_NEW_MISSION`, then
+  calls `Restart`, places the vehicle at `center + eject` and stops it. With the
+  recovered Vehicle owner and the Level.06N `[0,-1,-8]` eject, omitting Restart
+  leaves the current collision radius large enough to enqueue repeated center
+  contacts.
+- Handling: preserve eject direction and vertical component, but extend its
+  horizontal length to `RecruitCenter radius + current vehicle radius + 1`.
+  Update vessel and subject caches, stop motion and debounce contacts for
+  250 ms. Diagnostics retain raw Player collision count separately from
+  committed admissions.
+- Revisit when: Restart/repair and current-vehicle transitions have a complete
+  rollback contract. At that point compare the retail post-Restart radius and
+  decide whether the compatibility expansion can be removed.
+
 ## Maintenance rule
 
 When a new quirk is found:

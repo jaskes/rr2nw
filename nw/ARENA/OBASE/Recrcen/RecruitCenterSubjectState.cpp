@@ -28,6 +28,7 @@ const int kMaximumCapacity = 16;
 const int kMaximumProjectNodes = 1024;
 const int kMaximumProjectPayload = 10240;
 const double kRadius = 4.0;
+const double kCollisionDebounceSeconds = 0.25;
 const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 
@@ -432,7 +433,7 @@ bool DecodeMission(SimulationContext *context, KR_ObjectID project,
 }
 
 bool EvaluateConditions(PlayerMission *mission, SimulationContext *context,
-                        bool successSet)
+                         bool successSet)
 {
     KR_SetOfID &kill = successSet ? mission->success_needKill
                                   : mission->filed_needKill;
@@ -467,6 +468,27 @@ bool EvaluateConditions(PlayerMission *mission, SimulationContext *context,
     }
     return defined;
 }
+
+bool MissionReferencesBound(const PlayerMission &mission)
+{
+    const KR_SetOfID *sets[] = {
+        &mission.success_needKill, &mission.success_needLive,
+        &mission.success_needReached, &mission.filed_needKill,
+        &mission.filed_needLive, &mission.filed_needReached};
+    for (int setIndex = 0; setIndex < 6; ++setIndex)
+        for (int index = 0; index < sets[setIndex]->getCount(); ++index)
+        {
+            KR_ObjectID object = (*sets[setIndex])[index];
+            if (object.isNUL()) return false;
+        }
+    return true;
+}
+
+class RecruitCenter;
+
+bool StageMissionForCenter(SimulationContext *context, double timeStamp,
+                           RecruitCenter *center, bool *staged,
+                           RecruitCenterMissionProbeSummary *summary);
 
 class RecruitCenter : public ct_Subject, public IDynamicObject
 {
@@ -538,8 +560,35 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
                                     &m_defaultTaxiConfigured);
         if (event.label == rc_SET_DICTIONARY)
             return readSingleString(event, m_dictionary,
-                                    sizeof(m_dictionary),
-                                    &m_dictionaryConfigured);
+                                     sizeof(m_dictionary),
+                                     &m_dictionaryConfigured);
+        if (event.label == t_EV_ONCOLLISION)
+        {
+            if (!m_configured ||
+                event.data.remaining() !=
+                    static_cast<int>(sizeof(KR_ObjectID)))
+                return 0;
+            KR_ObjectID collided;
+            event.data.open(EDO_READ).getObjectID(collided).close();
+            if (g_vehicle == NULL || g_vehicle->getContext() != context ||
+                collided != g_vehicle->getObjectID())
+            {
+                ++m_rejectedCollisions;
+                return 1;
+            }
+            ++m_playerCollisions;
+            if (m_previousVisitTime >= 0.0 &&
+                event.timeStamp >= m_previousVisitTime &&
+                event.timeStamp - m_previousVisitTime <
+                    kCollisionDebounceSeconds)
+                return 1;
+            return admit(event.timeStamp);
+        }
+        if (event.label == rc_NEW_MISSION)
+        {
+            if (!m_configured || event.data.remaining() != 0) return 0;
+            return admit(event.timeStamp);
+        }
         if (event.label == rc_CHECK_MISSION)
         {
             int missionIndex = -1;
@@ -554,6 +603,18 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
                 return 1;
             PlayerMission &mission = player.m_mission[missionIndex];
             if (mission.m_status != MISSION_INPROCESS) return 1;
+            // Deferred COM_CREATE_UNITS and script owners can leave an
+            // authored condition symbol unresolved during this recovery
+            // milestone. NUL historically meant "already dead" to the old
+            // predicate; treating it that way before creation would complete
+            // a newly accepted mission falsely. Keep the real check event
+            // alive until the missing side-effect owner can bind the ID.
+            if (!MissionReferencesBound(mission))
+            {
+                event.timeStamp += 10.0;
+                issueEvent(event);
+                return 1;
+            }
             const bool success = EvaluateConditions(&mission, context, true);
             const bool failure = EvaluateConditions(&mission, context, false);
             if (mission.success_filed ? success : failure)
@@ -607,6 +668,40 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     bool dictionaryConfigured() const { return m_dictionaryConfigured; }
     const char *commander() const { return m_commander; }
     KR_ObjectID commanderID() const { return m_commanderID; }
+    CFVector3 ejectPosition() const
+    {
+        CFVector3 target = m_position + m_eject;
+        if (g_vehicle == NULL) return target;
+        const double radius = g_vehicle->getRadius();
+        if (!std::isfinite(radius) || radius < 0.0) return target;
+        const double minimum = kRadius + radius + 1.0;
+        const double horizontal = std::sqrt(
+            m_eject.x * m_eject.x + m_eject.z * m_eject.z);
+        if (horizontal >= minimum) return target;
+        if (horizontal > 1.0e-6)
+        {
+            const double scale = minimum / horizontal;
+            target.x = m_position.x + m_eject.x * scale;
+            target.z = m_position.z + m_eject.z * scale;
+        }
+        else
+            target.z = m_position.z + minimum;
+        return target;
+    }
+    double previousVisitTime() const { return m_previousVisitTime; }
+    void restorePreviousVisitTime(double value) { m_previousVisitTime = value; }
+    int rejectedCollisions() const { return m_rejectedCollisions; }
+    int playerCollisions() const { return m_playerCollisions; }
+    int admissions() const { return m_admissions; }
+    int stagedMissions() const { return m_stagedMissions; }
+    int existingMissionVisits() const { return m_existingMissionVisits; }
+    int noProjectVisits() const { return m_noProjectVisits; }
+    int ejections() const { return m_ejections; }
+    int admissionFailures() const { return m_admissionFailures; }
+    const RecruitCenterMissionProbeSummary &lastMissionSummary() const
+    {
+        return m_lastMissionSummary;
+    }
 
     void hash(unsigned long long &value) const
     {
@@ -624,6 +719,75 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     }
 
  private:
+    bool hasActiveMission(const Player &player) const
+    {
+        for (int index = 0; index < player.m_missCnt; ++index)
+            if (player.m_mission[index].comID == m_commanderID &&
+                player.m_mission[index].m_status == MISSION_INPROCESS)
+                return true;
+        return false;
+    }
+
+    int admit(double timeStamp)
+    {
+        ++m_admissions;
+        if (m_working)
+        {
+            ++m_existingMissionVisits;
+            return 1;
+        }
+        if (!std::isfinite(timeStamp) || timeStamp < 0.0 ||
+            g_vehicle == NULL || g_vehicle->getContext() != context)
+        {
+            ++m_admissionFailures;
+            return 0;
+        }
+        m_working = true;
+        const CFVector3 target = ejectPosition();
+        if (!FiniteVector(target))
+        {
+            ++m_admissionFailures;
+            m_working = false;
+            return 0;
+        }
+        Player &player = static_cast<Player &>(g_vehicle->player());
+        bool staged = false;
+        RecruitCenterMissionProbeSummary summary = {};
+        bool admitted = true;
+        if (hasActiveMission(player))
+            ++m_existingMissionVisits;
+        else
+        {
+            admitted = StageMissionForCenter(context, timeStamp, this,
+                                             &staged, &summary);
+            if (admitted && staged)
+            {
+                ++m_stagedMissions;
+                m_lastMissionSummary = summary;
+            }
+            else if (admitted)
+                ++m_noProjectVisits;
+        }
+        if (!admitted)
+        {
+            ++m_admissionFailures;
+            m_working = false;
+            return 0;
+        }
+
+        // Retail called Restart/SetPos/Stop here. Restart also repairs and
+        // rebuilds unrelated vehicle state, which is not transactional yet.
+        // Preserve the proven Teleport ownership boundary instead: move both
+        // the vessel and ct_Subject caches, then stop at the authored eject.
+        g_vehicle->SetPos(target);
+        g_vehicle->setPosition(target);
+        g_vehicle->Stop();
+        ++m_ejections;
+        m_previousVisitTime = timeStamp;
+        m_working = false;
+        return 1;
+    }
+
     int readSingleString(KR_Event &event, char *destination, int capacity,
                          bool *configured)
     {
@@ -653,6 +817,18 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         m_videoConfigured = false;
         m_defaultTaxiConfigured = false;
         m_dictionaryConfigured = false;
+        m_working = false;
+        m_previousVisitTime = -1.0;
+        m_rejectedCollisions = 0;
+        m_playerCollisions = 0;
+        m_admissions = 0;
+        m_stagedMissions = 0;
+        m_existingMissionVisits = 0;
+        m_noProjectVisits = 0;
+        m_ejections = 0;
+        m_admissionFailures = 0;
+        std::memset(&m_lastMissionSummary, 0,
+                    sizeof(m_lastMissionSummary));
         m_direction.LoadIdentity();
     }
 
@@ -668,8 +844,143 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     bool m_videoConfigured;
     bool m_defaultTaxiConfigured;
     bool m_dictionaryConfigured;
+    bool m_working;
+    double m_previousVisitTime;
+    int m_rejectedCollisions;
+    int m_playerCollisions;
+    int m_admissions;
+    int m_stagedMissions;
+    int m_existingMissionVisits;
+    int m_noProjectVisits;
+    int m_ejections;
+    int m_admissionFailures;
+    RecruitCenterMissionProbeSummary m_lastMissionSummary;
     CFMatrix3x4 m_direction;
 };
+
+bool FindCenterCandidate(RecruitCenter *center, Player *player,
+                         KR_ObjectID *candidate)
+{
+    if (center == NULL || player == NULL || candidate == NULL) return false;
+    CandidateSearch search = {player, center->commander(),
+                              KR_ObjectID::NUL(), true};
+    projectTable.userFind(FindCandidate, &search);
+    if (!search.valid) return false;
+    *candidate = search.result;
+    return true;
+}
+
+bool StageMissionForCenter(SimulationContext *context, double timeStamp,
+                           RecruitCenter *center, bool *staged,
+                           RecruitCenterMissionProbeSummary *summary)
+{
+    if (staged == NULL || summary == NULL) return false;
+    *staged = false;
+    std::memset(summary, 0, sizeof(*summary));
+    if (context == NULL || center == NULL || g_vehicle == NULL ||
+        g_vehicle->getContext() != context || !std::isfinite(timeStamp) ||
+        timeStamp < 0.0)
+    {
+        SetError("RecruitCenter admission has no live Player vehicle");
+        return false;
+    }
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    if (player.m_missCnt < 0 || player.m_missCnt >= 6 ||
+        context->eventFreeCount() < 1)
+    {
+        SetError("RecruitCenter admission has no transactional capacity");
+        return false;
+    }
+    if (context->copyEventsTo(rc_CHECK_MISSION,
+                              center->getObjectID(), NULL, 0) != 0)
+    {
+        SetError("RecruitCenter admission found a stale check event");
+        return false;
+    }
+
+    KR_ObjectID candidate = KR_ObjectID::NUL();
+    if (!FindCenterCandidate(center, &player, &candidate))
+    {
+        SetError("RecruitCenter project eligibility graph is malformed");
+        return false;
+    }
+    if (candidate.isNUL()) return true;
+
+    PlayerMission mission;
+    std::string routeName;
+    int deferredCommands = 0;
+    if (!DecodeMission(context, candidate, center->commanderID(),
+                       &mission, &routeName, &deferredCommands))
+    {
+        SetError("RecruitCenter authored mission decode failed");
+        return false;
+    }
+    KR_ObjectID route = KR_ObjectID::NUL();
+    bool createdRoute = false;
+    if (!routeName.empty())
+    {
+        createdRoute = !context->isExist(routeName.c_str());
+        route = createdRoute ? g_arena.newObject("Route", routeName.c_str())
+                             : context->searchObject(routeName.c_str());
+        IRouteObject *routeObject = static_cast<IRouteObject *>(
+            context->queryInterface(route, IRouteObjectIID));
+        if (route.isNUL() || routeObject == NULL)
+        {
+            if (createdRoute && !route.isNUL() && context->isExist(route))
+                context->removeObject(route);
+            SetError("RecruitCenter mission Route allocation failed");
+            return false;
+        }
+        if (routeObject->GetNodeCnt() <= 0)
+            routeObject->Load(routeName.c_str());
+        if (routeObject->GetNodeCnt() <= 0)
+        {
+            if (createdRoute && context->isExist(route))
+                context->removeObject(route);
+            SetError("RecruitCenter mission Route did not load");
+            return false;
+        }
+        mission.m_missionRouteID = route;
+    }
+
+    const int missionIndex = player.addMission(candidate,
+                                               center->commanderID());
+    if (missionIndex < 0)
+    {
+        if (createdRoute && context->isExist(route))
+            context->removeObject(route);
+        SetError("RecruitCenter Player mission pool is full");
+        return false;
+    }
+    player.m_mission[missionIndex] = mission;
+    player.loadNotify();
+
+    KR_Event check(rc_CHECK_MISSION, timeStamp + 20.0,
+                   g_vehicle->getObjectID(), center->getObjectID());
+    check.data.open(EDO_WRITE).putInt(missionIndex).close();
+    context->addEvent(check);
+    if (context->copyEventsTo(rc_CHECK_MISSION,
+                              center->getObjectID(), NULL, 0) != 1)
+    {
+        context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
+        for (int move = missionIndex; move + 1 < player.m_missCnt; ++move)
+            player.m_mission[move] = player.m_mission[move + 1];
+        --player.m_missCnt;
+        if (player.m_total_misCount > 0) --player.m_total_misCount;
+        player.loadNotify();
+        if (createdRoute && context->isExist(route))
+            context->removeObject(route);
+        SetError("RecruitCenter mission check event was not queued");
+        return false;
+    }
+
+    summary->stagedMissions = 1;
+    summary->conditionReferences = ConditionCount(mission);
+    summary->routeReferences = mission.m_missionRouteID.isNUL() ? 0 : 1;
+    summary->deferredCommands = deferredCommands;
+    *staged = true;
+    return true;
+}
 
 class RecruitCenterTable : public ct_SubjectTable
 {
@@ -784,6 +1095,86 @@ int RecruitCenterSubjectState_DictionaryCount()
     return count;
 }
 
+int RecruitCenterSubjectState_RejectedCollisionCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->rejectedCollisions();
+    return count;
+}
+
+int RecruitCenterSubjectState_PlayerCollisionCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->playerCollisions();
+    return count;
+}
+
+int RecruitCenterSubjectState_AdmissionCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->admissions();
+    return count;
+}
+
+int RecruitCenterSubjectState_StagedMissionCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->stagedMissions();
+    return count;
+}
+
+int RecruitCenterSubjectState_ExistingMissionVisitCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->existingMissionVisits();
+    return count;
+}
+
+int RecruitCenterSubjectState_NoProjectVisitCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->noProjectVisits();
+    return count;
+}
+
+int RecruitCenterSubjectState_EjectionCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->ejections();
+    return count;
+}
+
+int RecruitCenterSubjectState_AdmissionFailureCount()
+{
+    int count = 0;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+        count += static_cast<RecruitCenter *>(subject)->admissionFailures();
+    return count;
+}
+
 unsigned long long RecruitCenterSubjectState_Fingerprint(
     SimulationContext *context)
 {
@@ -819,107 +1210,101 @@ bool RecruitCenterSubjectState_StageMissionProbe(
         return false;
     }
     Player &player = static_cast<Player &>(g_vehicle->player());
+    const CFVector3 originalPosition = g_vehicle->Pos();
+    const CFVector3 originalSubjectPosition = g_vehicle->getPosition();
+    const CFVector3 originalSpeed = g_vehicle->Speed();
+    const CFMatrix3x4 originalDirection = g_vehicle->GetDir();
+    const double speedSquared = originalSpeed.x * originalSpeed.x +
+        originalSpeed.y * originalSpeed.y +
+        originalSpeed.z * originalSpeed.z;
     if (player.m_missCnt < 0 || player.m_missCnt >= 6 ||
-        context->eventFreeCount() < 1)
+        context->eventFreeCount() < 1 || !FiniteVector(originalPosition) ||
+        !FiniteVector(originalSubjectPosition) ||
+        !FiniteVector(originalSpeed) || speedSquared > 1.0e-8)
     {
-        SetError("RecruitCenter mission probe has no transactional capacity");
+        SetError("RecruitCenter mission probe needs a stationary boundary");
         return false;
     }
     const KR_ObjectID vehicleID = g_vehicle->getObjectID();
-    if (context->copyEvents(rc_CHECK_MISSION, vehicleID, NULL, 0) != 0)
-    {
-        SetError("RecruitCenter mission probe requires a clean check queue");
-        return false;
-    }
 
     for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
          subject != NULL;
          subject = g_recruitCenterTable.findNextSubject(subject))
     {
         RecruitCenter *center = static_cast<RecruitCenter *>(subject);
-        CandidateSearch search = {&player, center->commander(),
-                                  KR_ObjectID::NUL(), true};
-        projectTable.userFind(FindCandidate, &search);
-        if (!search.valid)
+        KR_ObjectID candidate = KR_ObjectID::NUL();
+        if (!FindCenterCandidate(center, &player, &candidate))
         {
             SetError("RecruitCenter project eligibility graph is malformed");
             return false;
         }
-        if (search.result.isNUL()) continue;
+        if (candidate.isNUL()) continue;
 
-        PlayerMission mission;
-        std::string routeName;
-        int deferredCommands = 0;
-        if (!DecodeMission(context, search.result, center->commanderID(),
-                           &mission, &routeName, &deferredCommands))
-        {
-            SetError("RecruitCenter authored mission decode failed");
-            return false;
-        }
-        KR_ObjectID route = KR_ObjectID::NUL();
-        bool createdRoute = false;
-        if (!routeName.empty())
-        {
-            createdRoute = !context->isExist(routeName.c_str());
-            route = createdRoute ? g_arena.newObject("Route", routeName.c_str())
-                                 : context->searchObject(routeName.c_str());
-            IRouteObject *routeObject = static_cast<IRouteObject *>(
-                context->queryInterface(route, IRouteObjectIID));
-            if (route.isNUL() || routeObject == NULL)
-            {
-                if (createdRoute && !route.isNUL() && context->isExist(route))
-                    context->removeObject(route);
-                SetError("RecruitCenter mission Route allocation failed");
-                return false;
-            }
-            if (routeObject->GetNodeCnt() <= 0)
-                routeObject->Load(routeName.c_str());
-            if (routeObject->GetNodeCnt() <= 0)
-            {
-                if (createdRoute && context->isExist(route))
-                    context->removeObject(route);
-                SetError("RecruitCenter mission Route did not load");
-                return false;
-            }
-            mission.m_missionRouteID = route;
-        }
+        const int missionCount = player.m_missCnt;
+        const int rejected = center->rejectedCollisions();
+        const int collisions = center->playerCollisions();
+        const int admissions = center->admissions();
+        const int existing = center->existingMissionVisits();
+        const int ejections = center->ejections();
+        const double previousVisitTime = center->previousVisitTime();
 
-        const int missionIndex = player.addMission(search.result,
-                                                   center->commanderID());
-        if (missionIndex < 0)
+        KR_Event nonPlayer(t_EV_ONCOLLISION, timeStamp,
+                           g_arena.getObjectID(), center->getObjectID());
+        nonPlayer.data.open(EDO_WRITE)
+            .putObjectID(center->getObjectID()).close();
+        context->sendEventNow(nonPlayer);
+        if (center->rejectedCollisions() != rejected + 1 ||
+            player.m_missCnt != missionCount)
         {
-            if (createdRoute && context->isExist(route))
-                context->removeObject(route);
-            SetError("RecruitCenter Player mission pool is full");
-            return false;
-        }
-        player.m_mission[missionIndex] = mission;
-        player.loadNotify();
-
-        KR_Event event(rc_CHECK_MISSION, timeStamp,
-                       vehicleID, center->getObjectID());
-        event.data.open(EDO_WRITE).putInt(missionIndex).close();
-        context->addEvent(event);
-        const int queued = context->copyEvents(
-            rc_CHECK_MISSION, vehicleID, NULL, 0);
-        if (queued != 1)
-        {
-            while (context->removeEvent(rc_CHECK_MISSION, vehicleID) == 1) {}
-            for (int move = missionIndex; move + 1 < player.m_missCnt; ++move)
-                player.m_mission[move] = player.m_mission[move + 1];
-            --player.m_missCnt;
-            if (player.m_total_misCount > 0) --player.m_total_misCount;
-            player.loadNotify();
-            if (createdRoute && context->isExist(route))
-                context->removeObject(route);
-            SetError("RecruitCenter mission check event was not queued");
+            SetError("RecruitCenter accepted a non-Player collision");
             return false;
         }
 
-        summary->stagedMissions = 1;
-        summary->conditionReferences = ConditionCount(mission);
-        summary->routeReferences = mission.m_missionRouteID.isNUL() ? 0 : 1;
-        summary->deferredCommands = deferredCommands;
+        KR_Event collision(t_EV_ONCOLLISION, timeStamp + 0.25,
+                           vehicleID, center->getObjectID());
+        collision.data.open(EDO_WRITE).putObjectID(vehicleID).close();
+        context->sendEventNow(collision);
+
+        KR_Event repeat(rc_NEW_MISSION, timeStamp + 0.5,
+                        vehicleID, center->getObjectID());
+        context->sendEventNow(repeat);
+
+        const CFVector3 target = center->ejectPosition();
+        const CFVector3 actual = g_vehicle->Pos();
+        const CFVector3 subjectPosition = g_vehicle->getPosition();
+        const double dx = actual.x - target.x;
+        const double dy = actual.y - target.y;
+        const double dz = actual.z - target.z;
+        const double sdx = subjectPosition.x - target.x;
+        const double sdy = subjectPosition.y - target.y;
+        const double sdz = subjectPosition.z - target.z;
+        const bool proven =
+            center->playerCollisions() == collisions + 1 &&
+            center->admissions() == admissions + 2 &&
+            center->existingMissionVisits() == existing + 1 &&
+            center->ejections() == ejections + 2 &&
+            player.m_missCnt == missionCount + 1 &&
+            context->copyEventsTo(rc_CHECK_MISSION,
+                                  center->getObjectID(), NULL, 0) == 1 &&
+            dx * dx + dy * dy + dz * dz <= 1.0e-8 &&
+            sdx * sdx + sdy * sdy + sdz * sdz <= 1.0e-8;
+
+        g_vehicle->SetDir(originalDirection);
+        g_vehicle->SetPos(originalPosition);
+        g_vehicle->setPosition(originalSubjectPosition);
+        g_vehicle->Stop();
+        center->restorePreviousVisitTime(previousVisitTime);
+        if (!proven)
+        {
+            SetError("RecruitCenter public admission proof did not commit");
+            return false;
+        }
+
+        *summary = center->lastMissionSummary();
+        summary->rejectedNonPlayerCollisions = 1;
+        summary->acceptedPlayerCollisions = 1;
+        summary->admissionEvents = 2;
+        summary->ejections = 2;
         *staged = true;
         return true;
     }

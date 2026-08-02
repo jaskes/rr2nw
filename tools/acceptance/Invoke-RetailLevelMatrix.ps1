@@ -572,6 +572,39 @@ foreach ($configurationName in $Configuration) {
                     [uint64]$missionMap[8] -lt 1) {
                     $issues.Add("PlayerMission map publication/render/rollback proof changed")
                 }
+                $recruitAdmission = if ($log.ContainsKey("recruit_center_admission_final")) {
+                    [string]$log["recruit_center_admission_final"] -split "/"
+                } else { @() }
+                $recruitRoster = [string]$expectedRecruitCenter[0] -split "/"
+                $expectedRecruitAdmissionInitial = if ($recruitRoster.Count -eq 6 -and
+                    [int]$recruitRoster[2] -gt 0) {
+                    "1/1/2/1/1/0/2/0"
+                } else {
+                    "0/0/0/0/0/0/0/0"
+                }
+                $recruitAdmissionValid = $recruitAdmission.Count -eq 8
+                if ($recruitAdmissionValid -and [int]$recruitRoster[2] -gt 0) {
+                    $recruitAdmissionValid =
+                        [int]$recruitAdmission[0] -eq 2 -and
+                        [int]$recruitAdmission[1] -ge 2 -and
+                        [int]$recruitAdmission[2] -ge 4 -and
+                        [int]$recruitAdmission[3] -eq 2 -and
+                        [int]$recruitAdmission[4] -eq
+                            ([int]$recruitAdmission[2] - [int]$recruitAdmission[3]) -and
+                        [int]$recruitAdmission[5] -eq 0 -and
+                        [int]$recruitAdmission[6] -eq [int]$recruitAdmission[2] -and
+                        [int]$recruitAdmission[7] -eq 0
+                } elseif ($recruitAdmissionValid) {
+                    $recruitAdmissionValid =
+                        ([string]$log["recruit_center_admission_final"]) -eq
+                            "0/0/0/0/0/0/0/0"
+                }
+                if (-not $recruitAdmissionValid -or
+                    -not $log.ContainsKey("recruit_center_admission_initial") -or
+                    ([string]$log["recruit_center_admission_initial"]) -ne
+                        $expectedRecruitAdmissionInitial) {
+                    $issues.Add("RecruitCenter collision/admission/anti-repeat proof changed")
+                }
             }
 
             $record = [ordered]@{
@@ -612,6 +645,7 @@ foreach ($configurationName in $Configuration) {
                 mission_project_fingerprint = Get-LogUnsigned $log "mission_project_fingerprint"
                 recruit_center_roster = [string]$log["recruit_center_roster"]
                 recruit_center_fingerprint = Get-LogUnsigned $log "recruit_center_fingerprint"
+                recruit_center_admission = [string]$log["recruit_center_admission_final"]
                 teleport_target_level = Get-LogInteger $log "teleport_target_level"
                 teleport_route_count = Get-LogInteger $log "teleport_route_count"
                 teleport_fingerprint = Get-LogUnsigned $log "teleport_fingerprint"
@@ -682,6 +716,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     mission_project_deferred_howitzers,
     mission_project_deferred_destroyables, mission_project_fingerprint,
     recruit_center_roster, recruit_center_fingerprint,
+    recruit_center_admission,
     debug_map_size, debug_map_toggle_probe, mission_map_probe,
     explosion_active_world_probe, explosion_active_world_fingerprint,
     spark_active_world_probe, spark_active_world_fingerprint,

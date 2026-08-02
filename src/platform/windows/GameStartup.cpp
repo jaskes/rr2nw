@@ -2311,6 +2311,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            "/" + std::to_string(RecoveredArenaSeance_RecruitCenterDictionaryCount()));
   log.Line("recruit_center_fingerprint=" + std::to_string(
                RecoveredArenaSeance_RecruitCenterFingerprint()));
+  log.Line("recruit_center_admission_initial=" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterRejectedCollisions()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_RecruitCenterPlayerCollisions()) + "/" +
+           std::to_string(RecoveredArenaSeance_RecruitCenterAdmissions()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterStagedMissions()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_RecruitCenterExistingMissionVisits()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterNoProjectVisits()) + "/" +
+           std::to_string(RecoveredArenaSeance_RecruitCenterEjections()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterAdmissionFailures()));
   log.Line("mission_project_deferred_howitzers=" + std::to_string(
                RecoveredArenaSeance_MissionProjectDeferredHowitzerCount()));
   log.Line("mission_project_deferred_destroyables=" + std::to_string(
@@ -2757,8 +2771,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(missionMapProbe.renderedFrames) + "/" +
              std::to_string(missionMapProbe.rollbacks) + "/" +
              std::to_string(missionMapProbe.framebufferHash) + "/" +
-             std::to_string(missionMapProbe.framebufferNonClearPixels));
+              std::to_string(missionMapProbe.framebufferNonClearPixels));
   }
+  log.Line("recruit_center_admission_final=" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterRejectedCollisions()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_RecruitCenterPlayerCollisions()) + "/" +
+           std::to_string(RecoveredArenaSeance_RecruitCenterAdmissions()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterStagedMissions()) + "/" +
+           std::to_string(
+               RecoveredArenaSeance_RecruitCenterExistingMissionVisits()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterNoProjectVisits()) + "/" +
+           std::to_string(RecoveredArenaSeance_RecruitCenterEjections()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterAdmissionFailures()));
   log.Line("windows_input_primary_fire_presses=" + std::to_string(
                RecoveredGameServices_VehiclePrimaryFirePresses()));
   log.Line("windows_input_secondary_fire_presses=" + std::to_string(

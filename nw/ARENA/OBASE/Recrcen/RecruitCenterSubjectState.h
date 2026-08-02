@@ -9,6 +9,10 @@ struct RecruitCenterMissionProbeSummary
     int conditionReferences;
     int routeReferences;
     int deferredCommands;
+    int rejectedNonPlayerCollisions;
+    int acceptedPlayerCollisions;
+    int admissionEvents;
+    int ejections;
 };
 
 void RecruitCenterSubjectState_Link();
@@ -19,6 +23,14 @@ int RecruitCenterSubjectState_ConfiguredCount();
 int RecruitCenterSubjectState_VideoCount();
 int RecruitCenterSubjectState_DefaultTaxiCount();
 int RecruitCenterSubjectState_DictionaryCount();
+int RecruitCenterSubjectState_RejectedCollisionCount();
+int RecruitCenterSubjectState_PlayerCollisionCount();
+int RecruitCenterSubjectState_AdmissionCount();
+int RecruitCenterSubjectState_StagedMissionCount();
+int RecruitCenterSubjectState_ExistingMissionVisitCount();
+int RecruitCenterSubjectState_NoProjectVisitCount();
+int RecruitCenterSubjectState_EjectionCount();
+int RecruitCenterSubjectState_AdmissionFailureCount();
 unsigned long long RecruitCenterSubjectState_Fingerprint(
     SimulationContext *context);
 bool RecruitCenterSubjectState_StageMissionProbe(

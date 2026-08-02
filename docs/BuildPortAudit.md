@@ -3630,9 +3630,13 @@ authored Routes are immutable Level resources and remain available for
 reference reconstruction. Commands that need unrecovered presentation or
 gameplay owners are decoded and counted, not executed. RecruitCenter's
 Level-derived configuration is likewise not an AWS1 mutable section yet.
-Interactive collision admission, `rc_NEW_MISSION`, briefing/video UI, unit
-creation, scripts and mission-completion side effects remain explicitly
-outside this boundary. Final verification is 67/67 CTest in Debug and Release
+Public collision admission and `rc_NEW_MISSION` now enter this bounded producer.
+The collision payload must name the live Player vehicle; repeated visits while
+that Commander's mission is active cannot allocate another mission or check
+event. A radius-safe eject updates both recovered Vehicle positions and stops
+the vessel without calling legacy Restart/repair. Briefing/video UI, hostility,
+unit creation, scripts, skip-way and mission-completion side effects remain
+explicitly outside this boundary. Final verification is 67/67 CTest in Debug and Release
 plus 18/18 installed retail Level starts across the two configurations. The
 hermetic CI smoke additionally executes the archived five-field scripts and
 requires their exact two-live-of-four-capacity compatibility roster.

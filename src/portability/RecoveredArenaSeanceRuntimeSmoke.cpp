@@ -774,6 +774,14 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_RecruitCenterVideoCount() == -1 &&
          RecoveredArenaSeance_RecruitCenterDefaultTaxiCount() == -1 &&
          RecoveredArenaSeance_RecruitCenterDictionaryCount() == -1 &&
+         RecoveredArenaSeance_RecruitCenterRejectedCollisions() == -1 &&
+         RecoveredArenaSeance_RecruitCenterPlayerCollisions() == -1 &&
+         RecoveredArenaSeance_RecruitCenterAdmissions() == -1 &&
+         RecoveredArenaSeance_RecruitCenterStagedMissions() == -1 &&
+         RecoveredArenaSeance_RecruitCenterExistingMissionVisits() == -1 &&
+         RecoveredArenaSeance_RecruitCenterNoProjectVisits() == -1 &&
+         RecoveredArenaSeance_RecruitCenterEjections() == -1 &&
+         RecoveredArenaSeance_RecruitCenterAdmissionFailures() == -1 &&
          RecoveredArenaSeance_RecruitCenterFingerprint() == 0 &&
          !RecoveredArenaSeance_MissionTankLifecycleReady() &&
          RecoveredArenaSeance_TankGroupSubjectCapacity() == -1 &&
@@ -1191,9 +1199,17 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_RecruitCenterCapacity() != 4 ||
       RecoveredArenaSeance_RecruitCenterCount() != 2 ||
       RecoveredArenaSeance_RecruitCenterVideoCount() != 2 ||
-      RecoveredArenaSeance_RecruitCenterDefaultTaxiCount() != 0 ||
-      RecoveredArenaSeance_RecruitCenterDictionaryCount() != 0 ||
-      RecoveredArenaSeance_RecruitCenterFingerprint() == 0 ||
+       RecoveredArenaSeance_RecruitCenterDefaultTaxiCount() != 0 ||
+       RecoveredArenaSeance_RecruitCenterDictionaryCount() != 0 ||
+       RecoveredArenaSeance_RecruitCenterRejectedCollisions() != 0 ||
+       RecoveredArenaSeance_RecruitCenterPlayerCollisions() != 0 ||
+       RecoveredArenaSeance_RecruitCenterAdmissions() != 0 ||
+       RecoveredArenaSeance_RecruitCenterStagedMissions() != 0 ||
+       RecoveredArenaSeance_RecruitCenterExistingMissionVisits() != 0 ||
+       RecoveredArenaSeance_RecruitCenterNoProjectVisits() != 0 ||
+       RecoveredArenaSeance_RecruitCenterEjections() != 0 ||
+       RecoveredArenaSeance_RecruitCenterAdmissionFailures() != 0 ||
+       RecoveredArenaSeance_RecruitCenterFingerprint() == 0 ||
       !RecoveredArenaSeance_MissionTankLifecycleReady() ||
       RecoveredArenaSeance_TankGroupSubjectCapacity() != 30 ||
       RecoveredArenaSeance_MissionTankAvailable() != 0 ||

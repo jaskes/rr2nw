@@ -1815,6 +1815,28 @@ playable Level begins.
 - Verification is 67/67 CTest in each configuration and 18/18 installed retail
   Level starts across Debug and Release.
 
+### RP-CAMPAIGN-003: public RecruitCenter admission is bounded and idempotent
+
+- Classification: `SOURCE_PATH_PRESERVED`, `RETAIL_DATA_EXECUTED`,
+  `CAMPAIGN_INTERACTION_PARTIAL`, `PORTABILITY_FIX_ACCEPTED`.
+- `t_EV_ONCOLLISION` accepts only the live Player ObjectID and falls into the
+  same transaction as the retail `rc_NEW_MISSION=39003` empty-payload event.
+  One visit creates at most one authored PlayerMission and one center-owned
+  check destination; a duplicate visit with an active mission cannot allocate
+  another slot.
+- Eject preserves the authored direction but expands it when necessary to
+  clear the current vehicle plus RecruitCenter radii. It updates vessel and
+  subject position caches and stops motion. Legacy Restart/repair, hostility,
+  briefing/video, unit/script/skip-way commands and completion rewards remain
+  deferred until their own rollback contracts exist.
+- The runtime probe requires a rejected non-Player collision, accepted Player
+  collision, direct duplicate event, one staged mission, one anti-repeat hit,
+  two safe ejects and zero admission failures. Its visit timestamp is rolled
+  back so proof execution cannot debounce real play. Level.07N remains the
+  intentional zero-center/zero-admission case.
+- Unbound mission condition IDs reschedule `rc_CHECK_MISSION`; NUL is not
+  interpreted as a dead target before deferred producers instantiate it.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

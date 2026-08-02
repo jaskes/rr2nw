@@ -6933,6 +6933,46 @@ int RecoveredArenaSeance_RecruitCenterDictionaryCount() {
              ? g_state.recruitCenterDictionaryCount : -1;
 }
 
+int RecoveredArenaSeance_RecruitCenterRejectedCollisions() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_RejectedCollisionCount() : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterPlayerCollisions() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_PlayerCollisionCount() : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterAdmissions() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_AdmissionCount() : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterStagedMissions() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_StagedMissionCount() : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterExistingMissionVisits() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_ExistingMissionVisitCount() : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterNoProjectVisits() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_NoProjectVisitCount() : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterEjections() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_EjectionCount() : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterAdmissionFailures() {
+  return g_state.recruitCentersReady
+             ? RecruitCenterSubjectState_AdmissionFailureCount() : -1;
+}
+
 unsigned long long RecoveredArenaSeance_RecruitCenterFingerprint() {
   return g_state.recruitCentersReady ? g_state.recruitCenterFingerprint : 0;
 }
