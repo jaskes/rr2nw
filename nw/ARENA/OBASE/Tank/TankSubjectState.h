@@ -11,6 +11,9 @@ struct STankLifecycleProbeSummary
     int renderReady;
     int cannonReady;
     int scheduledMoves;
+    int cadenceBounded;
+    int renderedPoseFrames;
+    int viewBoundaryResets;
     int bulletDamageApplications;
     int deathTransitions;
     int deathEffects;

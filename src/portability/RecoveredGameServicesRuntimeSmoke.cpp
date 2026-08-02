@@ -5239,6 +5239,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_PeopleSubjectFingerprint();
   const int peopleProbeScheduledMoves =
       RecoveredArenaSeance_PeopleProbeScheduledMoves();
+  const int peopleProbeCadenceBounded =
+      RecoveredArenaSeance_PeopleProbeCadenceBounded();
+  const int peopleProbeRenderedPoseFrames =
+      RecoveredArenaSeance_PeopleProbeRenderedPoseFrames();
+  const int peopleProbeViewBoundaryResets =
+      RecoveredArenaSeance_PeopleProbeViewBoundaryResets();
   const int peopleProbeBulletDamage =
       RecoveredArenaSeance_PeopleProbeBulletDamageApplications();
   const int peopleProbeDeathTransitions =
@@ -5278,6 +5284,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TankProbeCannonReady();
   const int tankProbeScheduledMoves =
       RecoveredArenaSeance_TankProbeScheduledMoves();
+  const int tankProbeCadenceBounded =
+      RecoveredArenaSeance_TankProbeCadenceBounded();
+  const int tankProbeRenderedPoseFrames =
+      RecoveredArenaSeance_TankProbeRenderedPoseFrames();
+  const int tankProbeViewBoundaryResets =
+      RecoveredArenaSeance_TankProbeViewBoundaryResets();
   const int tankProbeBulletDamage =
       RecoveredArenaSeance_TankProbeBulletDamageApplications();
   const int tankProbeDeathTransitions =
@@ -6798,6 +6810,12 @@ int main(int argc, char** argv) {
           peopleSubjectFingerprint ||
       RecoveredArenaSeance_PeopleProbeScheduledMoves() !=
           peopleProbeScheduledMoves ||
+      RecoveredArenaSeance_PeopleProbeCadenceBounded() !=
+          peopleProbeCadenceBounded ||
+      RecoveredArenaSeance_PeopleProbeRenderedPoseFrames() !=
+          peopleProbeRenderedPoseFrames ||
+      RecoveredArenaSeance_PeopleProbeViewBoundaryResets() !=
+          peopleProbeViewBoundaryResets ||
       RecoveredArenaSeance_PeopleProbeBulletDamageApplications() !=
           peopleProbeBulletDamage ||
       RecoveredArenaSeance_PeopleProbeDeathTransitions() !=
@@ -6830,6 +6848,12 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_TankProbeCannonReady() != tankProbeCannonReady ||
       RecoveredArenaSeance_TankProbeScheduledMoves() !=
           tankProbeScheduledMoves ||
+      RecoveredArenaSeance_TankProbeCadenceBounded() !=
+          tankProbeCadenceBounded ||
+      RecoveredArenaSeance_TankProbeRenderedPoseFrames() !=
+          tankProbeRenderedPoseFrames ||
+      RecoveredArenaSeance_TankProbeViewBoundaryResets() !=
+          tankProbeViewBoundaryResets ||
       RecoveredArenaSeance_TankProbeBulletDamageApplications() !=
           tankProbeBulletDamage ||
       RecoveredArenaSeance_TankProbeDeathTransitions() !=

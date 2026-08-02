@@ -2207,6 +2207,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips()) +
            "/" +
            std::to_string(RecoveredArenaSeance_PeopleProbeRollbacks()));
+  log.Line("people_near_far_pose_probe=" +
+           std::to_string(
+               RecoveredArenaSeance_PeopleProbeCadenceBounded()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleProbeRenderedPoseFrames()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleProbeViewBoundaryResets()));
   log.Line("people_active_world_probe=" +
            std::to_string(
                RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs()) +
@@ -2263,6 +2270,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_TankProbeSaveStateRoundTrips()) +
            "/" +
            std::to_string(RecoveredArenaSeance_TankProbeRollbacks()));
+  log.Line("tank_near_far_pose_probe=" +
+           std::to_string(RecoveredArenaSeance_TankProbeCadenceBounded()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_TankProbeRenderedPoseFrames()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_TankProbeViewBoundaryResets()));
   log.Line("commander_roster=" +
            std::to_string(RecoveredArenaSeance_CommanderCount()) + "/" +
            std::to_string(RecoveredArenaSeance_CommanderCapacity()));

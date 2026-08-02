@@ -529,6 +529,95 @@ bool TankSubjectState_RestoreGameplayTuning(
     return true;
 }
 
+static bool FiniteVector(const CFVector3 &value)
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+           std::isfinite(value.z);
+}
+
+static bool SameVector(const CFVector3 &left, const CFVector3 &right,
+                double tolerance = 1e-8)
+{
+    return FiniteVector(left) && FiniteVector(right) &&
+           Abs2(left - right) <= tolerance * tolerance;
+}
+
+static bool RenderTankPose(Tank *tank, double timeStamp, CFVector3 *offset)
+{
+    if (tank == NULL || offset == NULL || !std::isfinite(timeStamp))
+        return false;
+    CViewDynamicList frame;
+    tank->render(frame, timeStamp);
+    const bool linked = frame.Contains(&tank->m_viewDynObj);
+    *offset = tank->m_skin.GetDir().Offset();
+    frame.Clear(FALSE);
+    return linked && FiniteVector(*offset);
+}
+
+static bool ProbeTankPresentation(Tank *tank, double timeStamp,
+                                  int *renderedFrames,
+                                  int *boundaryResets)
+{
+    if (tank == NULL || renderedFrames == NULL || boundaryResets == NULL ||
+        !std::isfinite(timeStamp))
+        return false;
+    *renderedFrames = 0;
+    *boundaryResets = 0;
+
+    const TankData saved = *static_cast<TankData *>(tank);
+    const CFVector3 savedPosition = tank->getPosition();
+    const double savedMoveTime = tank->m_lastMoveTimeStamp;
+    const int savedVisible = tank->m_isVisible;
+    const CFMatrix3x4 savedMatrix = tank->m_skin.GetDir();
+    const CFVector3 displacement(4.0, 1.0, -2.0);
+    const double sampleInterval = 0.1;
+    CFVector3 baseline;
+    CFVector3 interpolated;
+    CFVector3 stale;
+    CFVector3 reentered;
+
+    tank->m_lastMovePos = savedPosition;
+    tank->m_lastMoveTimeStamp = timeStamp;
+    tank->m_lastDeltaT = 0.0;
+    bool valid = RenderTankPose(tank, timeStamp, &baseline);
+    if (valid) ++*renderedFrames;
+
+    tank->m_lastMovePos = savedPosition - displacement;
+    tank->m_lastMoveTimeStamp = timeStamp;
+    tank->m_lastDeltaT = sampleInterval;
+    valid = valid && RenderTankPose(
+        tank, timeStamp + sampleInterval * 0.5, &interpolated);
+    if (valid) ++*renderedFrames;
+    valid = valid && SameVector(interpolated - baseline,
+                                displacement * 0.5);
+
+    valid = valid && RenderTankPose(
+        tank, timeStamp + sampleInterval * 10.0, &stale);
+    if (valid) ++*renderedFrames;
+    valid = valid && SameVector(stale - baseline, displacement);
+
+    tank->m_isVisible = 0;
+    tank->onHide(timeStamp + sampleInterval * 11.0);
+    tank->m_runSmoke = 1;
+    tank->m_isVisible = 1;
+    tank->onView(timeStamp + sampleInterval * 12.0);
+    valid = valid && tank->m_lastDeltaT == 0.0 &&
+            SameVector(tank->m_lastMovePos, savedPosition);
+    if (valid) *boundaryResets = 1;
+    valid = valid && RenderTankPose(
+        tank, timeStamp + sampleInterval * 20.0, &reentered);
+    if (valid) ++*renderedFrames;
+    valid = valid && SameVector(reentered, baseline) &&
+            SameVector(tank->getPosition(), savedPosition);
+
+    *static_cast<TankData *>(tank) = saved;
+    tank->ct_Subject::setPosition(savedPosition);
+    tank->m_lastMoveTimeStamp = savedMoveTime;
+    tank->m_isVisible = savedVisible;
+    tank->m_skin.GetDirModify() = savedMatrix;
+    return valid && *renderedFrames == 4 && *boundaryResets == 1;
+}
+
 static bool ProbeTankLifecycle(
     SimulationContext *context, const char *requestedAttribute,
     bool requireMassConsumer, const char *expectedProjectile,
@@ -656,13 +745,27 @@ static bool ProbeTankLifecycle(
         move.destination = probeID;
         move.timeStamp = timeStamp + 0.2;
         move.data.open(EDO_WRITE).putDouble(timeStamp + 0.1).close();
+        const double moveExecutionTime = move.timeStamp;
         const bool moveExecuted = firstMoveScheduled &&
             tank->receiveEvent(move) == 1;
         const bool nextMoveScheduled =
             context->removeEvent(t_EVC_MOVING, probeID) == 1;
+        KR_Event drive[2];
+        const int driveCount =
+            context->copyEvents(UNIT_I_DRIVE, probeID, drive, 2);
+        const double driveInterval = driveCount == 1
+            ? drive[0].timeStamp - moveExecutionTime : 0.0;
         context->removeEvent(UNIT_I_DRIVE, probeID);
+        summary->cadenceBounded = driveCount == 1 &&
+            std::isfinite(driveInterval) &&
+            driveInterval >= MODEL_TIME_DELTA_FORWARD * 0.2 - 1e-9 &&
+            driveInterval <= MODEL_TIME_DELTA_FORWARD * 2.0 + 1e-9 ? 1 : 0;
         summary->scheduledMoves =
             moveAccepted && moveExecuted && nextMoveScheduled ? 1 : 0;
+
+        ProbeTankPresentation(tank, timeStamp + 2.0,
+                              &summary->renderedPoseFrames,
+                              &summary->viewBoundaryResets);
 
         const char *bulletAttribute =
             BulletAttributeState_FirstAttributeName(context);
@@ -730,6 +833,9 @@ static bool ProbeTankLifecycle(
            summary->validStarts == 1 && summary->dynamicReady == 1 &&
            summary->renderReady == 1 && summary->cannonReady == 1 &&
            summary->scheduledMoves == 1 &&
+           summary->cadenceBounded == 1 &&
+           summary->renderedPoseFrames == 4 &&
+           summary->viewBoundaryResets == 1 &&
            summary->bulletDamageApplications == 1 &&
            summary->deathTransitions == 1 &&
            summary->deathEffects == 1 &&

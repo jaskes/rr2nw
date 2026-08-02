@@ -511,6 +511,95 @@ bool PeopleSubjectState_RestoreGameplayTuning(
     return true;
 }
 
+static bool FiniteVector(const CFVector3 &value)
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+           std::isfinite(value.z);
+}
+
+static bool SameVector(const CFVector3 &left, const CFVector3 &right,
+                double tolerance = 1e-8)
+{
+    return FiniteVector(left) && FiniteVector(right) &&
+           Abs2(left - right) <= tolerance * tolerance;
+}
+
+static bool RenderPeoplePose(People *people, double timeStamp,
+                             CFVector3 *offset)
+{
+    if (people == NULL || offset == NULL || !std::isfinite(timeStamp))
+        return false;
+    CViewDynamicList frame;
+    people->render(frame, timeStamp);
+    const bool linked = frame.Contains(&people->m_viewDynObj);
+    *offset = people->m_skin.GetDir().Offset();
+    frame.Clear(FALSE);
+    return linked && FiniteVector(*offset);
+}
+
+static bool ProbePeoplePresentation(People *people, double timeStamp,
+                                    int *renderedFrames,
+                                    int *boundaryResets)
+{
+    if (people == NULL || renderedFrames == NULL || boundaryResets == NULL ||
+        !std::isfinite(timeStamp))
+        return false;
+    *renderedFrames = 0;
+    *boundaryResets = 0;
+
+    const PeopleData saved = *static_cast<PeopleData *>(people);
+    const CFVector3 savedPosition = people->getPosition();
+    const double savedMoveTime = people->m_lastMoveTimeStamp;
+    const int savedVisible = people->m_isVisible;
+    const CFMatrix3x4 savedMatrix = people->m_skin.GetDir();
+    const CFVector3 displacement(4.0, 1.0, -2.0);
+    const double sampleInterval = 0.1;
+    CFVector3 baseline;
+    CFVector3 interpolated;
+    CFVector3 stale;
+    CFVector3 reentered;
+
+    people->m_lastMovePos = savedPosition;
+    people->m_lastMoveTimeStamp = timeStamp;
+    people->m_lastMoveDeltaT = 0.0;
+    bool valid = RenderPeoplePose(people, timeStamp, &baseline);
+    if (valid) ++*renderedFrames;
+
+    people->m_lastMovePos = savedPosition - displacement;
+    people->m_lastMoveTimeStamp = timeStamp;
+    people->m_lastMoveDeltaT = sampleInterval;
+    valid = valid && RenderPeoplePose(
+        people, timeStamp + sampleInterval * 0.5, &interpolated);
+    if (valid) ++*renderedFrames;
+    valid = valid && SameVector(interpolated - baseline,
+                                displacement * 0.5);
+
+    valid = valid && RenderPeoplePose(
+        people, timeStamp + sampleInterval * 10.0, &stale);
+    if (valid) ++*renderedFrames;
+    valid = valid && SameVector(stale - baseline, displacement);
+
+    people->m_isVisible = 0;
+    people->onHide(timeStamp + sampleInterval * 11.0);
+    people->m_isVisible = 1;
+    people->onView(timeStamp + sampleInterval * 12.0);
+    valid = valid && people->m_lastMoveDeltaT == 0.0 &&
+            SameVector(people->m_lastMovePos, savedPosition);
+    if (valid) *boundaryResets = 1;
+    valid = valid && RenderPeoplePose(
+        people, timeStamp + sampleInterval * 20.0, &reentered);
+    if (valid) ++*renderedFrames;
+    valid = valid && SameVector(reentered, baseline) &&
+            SameVector(people->getPosition(), savedPosition);
+
+    *static_cast<PeopleData *>(people) = saved;
+    people->ct_Subject::setPosition(savedPosition);
+    people->m_lastMoveTimeStamp = savedMoveTime;
+    people->m_isVisible = savedVisible;
+    people->m_skin.GetDirModify() = savedMatrix;
+    return valid && *renderedFrames == 4 && *boundaryResets == 1;
+}
+
 static bool ProbePeopleLifecycle(
     SimulationContext *context, const char *requestedAttribute,
     const char *expectedProjectile,
@@ -613,12 +702,65 @@ static bool ProbePeopleLifecycle(
         const bool movementStarted =
             startMoveScheduled && probe->receiveEvent(startMove) == 1 &&
             Abs2(probe->m_dir) > 0.0;
-        const bool moveScheduled =
+        KR_Event initialMove[2];
+        const int initialMoveCount =
+            context->copyEvents(pe_EVC_MOVE, probeID, initialMove, 2);
+        const double initialMoveTime = initialMoveCount == 1
+            ? initialMove[0].timeStamp : 0.0;
+        const bool moveScheduled = initialMoveCount == 1 &&
             context->removeEvent(pe_EVC_MOVE, probeID) == 1;
         const bool nextNodeScheduled =
             context->removeEvent(pe_EVC_NEXTNODE, probeID) == 1;
-        summary->scheduledMoves =
-            movementStarted && moveScheduled && nextNodeScheduled ? 1 : 0;
+        bool hiddenMove = false;
+        bool visibleMove = false;
+        double hiddenNextTime = 0.0;
+        double visibleNextTime = 0.0;
+        if (movementStarted && moveScheduled)
+        {
+            const PeopleData cadenceState =
+                *static_cast<PeopleData *>(probe);
+            const CFVector3 cadencePosition = probe->getPosition();
+            const double cadenceMoveTime = probe->m_lastMoveTimeStamp;
+            const int cadenceVisible = probe->m_isVisible;
+            KR_Event execute;
+            execute.getCopy(initialMove[0]);
+            probe->m_isVisible = 0;
+            hiddenMove = probe->receiveEvent(execute) == 1;
+            KR_Event hiddenNext[2];
+            hiddenMove = hiddenMove &&
+                context->copyEvents(pe_EVC_MOVE, probeID, hiddenNext, 2) == 1;
+            if (hiddenMove) hiddenNextTime = hiddenNext[0].timeStamp;
+            context->removeEvent(pe_EVC_MOVE, probeID);
+
+            *static_cast<PeopleData *>(probe) = cadenceState;
+            probe->ct_Subject::setPosition(cadencePosition);
+            probe->m_lastMoveTimeStamp = cadenceMoveTime;
+            probe->m_isVisible = 1;
+            execute.getCopy(initialMove[0]);
+            visibleMove = probe->receiveEvent(execute) == 1;
+            KR_Event visibleNext[2];
+            visibleMove = visibleMove &&
+                context->copyEvents(pe_EVC_MOVE, probeID, visibleNext, 2) == 1;
+            if (visibleMove) visibleNextTime = visibleNext[0].timeStamp;
+            context->removeEvent(pe_EVC_MOVE, probeID);
+
+            *static_cast<PeopleData *>(probe) = cadenceState;
+            probe->ct_Subject::setPosition(cadencePosition);
+            probe->m_lastMoveTimeStamp = cadenceMoveTime;
+            probe->m_isVisible = cadenceVisible;
+        }
+        const double cadenceInterval = hiddenNextTime - initialMoveTime;
+        summary->cadenceBounded = hiddenMove && visibleMove &&
+            std::isfinite(cadenceInterval) && probe->m_calcPosInc > 0.0 &&
+            cadenceInterval >= probe->m_calcPosInc * 0.2 - 1e-9 &&
+            cadenceInterval <= probe->m_calcPosInc * 2.0 + 1e-9 &&
+            std::fabs(hiddenNextTime - visibleNextTime) <= 1e-9 ? 1 : 0;
+        summary->scheduledMoves = movementStarted && moveScheduled &&
+            nextNodeScheduled && hiddenMove && visibleMove ? 1 : 0;
+
+        ProbePeoplePresentation(probe, timeStamp + 2.0,
+                                &summary->renderedPoseFrames,
+                                &summary->viewBoundaryResets);
 
         const PeopleData saved = *static_cast<PeopleData *>(probe);
         const CFVector3 savedPosition = probe->getPosition();
@@ -682,6 +824,9 @@ static bool ProbePeopleLifecycle(
     return valid && projectileProof && summary->validStarts == 1 &&
            summary->dynamicReady == 1 && summary->renderReady == 1 &&
            summary->scheduledMoves == 1 &&
+           summary->cadenceBounded == 1 &&
+           summary->renderedPoseFrames == 4 &&
+           summary->viewBoundaryResets == 1 &&
            summary->bulletDamageApplications == 1 &&
            summary->deathTransitions == 1 &&
            summary->saveStateRoundTrips == 1 && summary->rollbacks == 1;

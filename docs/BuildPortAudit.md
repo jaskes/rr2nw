@@ -3466,3 +3466,24 @@ The native acceptance enters authentic default-body death first and then
 drives the ordinary Game command. Diagnostics retain dead-source, request,
 commit, defer and rollback counters across teardown. Debug and Release must
 each report one dead-source commit, zero failures and clean shutdown.
+
+## Real People/Tank near-far pose admission
+
+The BD-120 interpolation helpers are now exercised through loaded legacy actor
+objects rather than only through scalar math. Each applicable Level constructs
+a temporary People/Tank lifecycle owner, runs its real scheduler boundary and
+links four real dynamic-list render poses. Matrix offsets prove ordinary
+interpolation, the one-displacement stale cap and exact authoritative re-entry.
+The complete actor state, matrix, events and owned children are restored before
+the temporary owner is removed; PEO1/TAN1 fingerprints remain unchanged.
+
+Successful Windows diagnostics publish
+`people_near_far_pose_probe=1/4/1` and
+`tank_near_far_pose_probe=1/4/1`; non-applicable empty retail tables publish
+`0/0/0`. Debug and Release each pass 67/67 CTest and 9/9 installed starts.
+Direct zero-initialization of the presentation fields before delayed
+START/attribute events remains a narrow archive cleanup item because
+`PEOPLE.CPP` and `TANK.CPP` are non-UTF-8. They must be patched with an
+encoding-preserving workflow, not silently transcoded for two source lines;
+current first visibility is safe because `onView` clears the sample before
+render.

@@ -488,6 +488,22 @@ foreach ($configurationName in $Configuration) {
                     (Get-LogUnsigned $log "people_active_world_fingerprint") -lt 1) {
                     $issues.Add("People fresh-owner/scheduler restore proof changed")
                 }
+                $expectedPeoplePose = if ((Get-LogInteger $log "people_subject_count") -gt 0) {
+                    "1/4/1"
+                } else { "0/0/0" }
+                if (-not $log.ContainsKey("people_near_far_pose_probe") -or
+                    $log["people_near_far_pose_probe"] -ne $expectedPeoplePose) {
+                    $issues.Add("People near/far cadence or rendered-pose proof changed")
+                }
+                $tankLifecycle = if ($log.ContainsKey("tank_lifecycle_probe")) {
+                    [string]$log["tank_lifecycle_probe"] -split "/"
+                } else { @() }
+                $expectedTankPose = if ($tankLifecycle.Count -eq 11 -and
+                    [int]$tankLifecycle[0] -eq 1) { "1/4/1" } else { "0/0/0" }
+                if (-not $log.ContainsKey("tank_near_far_pose_probe") -or
+                    $log["tank_near_far_pose_probe"] -ne $expectedTankPose) {
+                    $issues.Add("Tank near/far cadence or rendered-pose proof changed")
+                }
             }
 
             $record = [ordered]@{
@@ -538,6 +554,8 @@ foreach ($configurationName in $Configuration) {
                 vehicle_active_world_fingerprint = Get-LogUnsigned $log "vehicle_active_world_fingerprint"
                 people_active_world_probe = [string]$log["people_active_world_probe"]
                 people_active_world_fingerprint = Get-LogUnsigned $log "people_active_world_fingerprint"
+                people_near_far_pose_probe = [string]$log["people_near_far_pose_probe"]
+                tank_near_far_pose_probe = [string]$log["tank_near_far_pose_probe"]
                 explosion_active_world_probe = [string]$log["explosion_active_world_probe"]
                 explosion_active_world_fingerprint = Get-LogUnsigned $log "explosion_active_world_fingerprint"
                 spark_active_world_probe = [string]$log["spark_active_world_probe"]
@@ -581,6 +599,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     active_world_container_bytes, active_world_fingerprint,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
     people_active_world_probe, people_active_world_fingerprint,
+    people_near_far_pose_probe, tank_near_far_pose_probe,
     explosion_active_world_probe, explosion_active_world_fingerprint,
     spark_active_world_probe, spark_active_world_fingerprint,
     smoke_active_world_probe, smoke_active_world_fingerprint,

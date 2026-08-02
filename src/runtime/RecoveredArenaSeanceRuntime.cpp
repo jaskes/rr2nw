@@ -1732,6 +1732,9 @@ struct RecoveredArenaSeanceState {
   unsigned long long peopleAttributeFingerprint;
   unsigned long long peopleSubjectFingerprint;
   int peopleProbeScheduledMoves;
+  int peopleProbeCadenceBounded;
+  int peopleProbeRenderedPoseFrames;
+  int peopleProbeViewBoundaryResets;
   int peopleProbeBulletDamageApplications;
   int peopleProbeDeathTransitions;
   int peopleProbeSaveStateRoundTrips;
@@ -1754,6 +1757,9 @@ struct RecoveredArenaSeanceState {
   int tankProbeRenderReady;
   int tankProbeCannonReady;
   int tankProbeScheduledMoves;
+  int tankProbeCadenceBounded;
+  int tankProbeRenderedPoseFrames;
+  int tankProbeViewBoundaryResets;
   int tankProbeBulletDamageApplications;
   int tankProbeDeathTransitions;
   int tankProbeDeathEffects;
@@ -4813,12 +4819,15 @@ bool PublishTankLifecycle(SimulationContext* context, double startTime) {
       char message[256] = {};
       std::snprintf(
           message, sizeof(message),
-          "Tank probe available/start/dyn/render/cannon/move/bullet/death/"
-          "effects/save/rollback=%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
+          "Tank probe available/start/dyn/render/cannon/move/cadence/frames/"
+          "view/bullet/death/effects/save/rollback="
+          "%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
           probe.available, probe.validStarts, probe.dynamicReady,
           probe.renderReady, probe.cannonReady, probe.scheduledMoves,
-          probe.bulletDamageApplications, probe.deathTransitions,
-          probe.deathEffects, probe.saveStateRoundTrips, probe.rollbacks);
+          probe.cadenceBounded, probe.renderedPoseFrames,
+          probe.viewBoundaryResets, probe.bulletDamageApplications,
+          probe.deathTransitions, probe.deathEffects,
+          probe.saveStateRoundTrips, probe.rollbacks);
       ReportExtended(RECOVERED_ARENA_SEANCE_EXT_TANK_LIFECYCLE_FAILURE,
                      message);
       return false;
@@ -4839,6 +4848,9 @@ bool PublishTankLifecycle(SimulationContext* context, double startTime) {
   g_state.tankProbeRenderReady = probe.renderReady;
   g_state.tankProbeCannonReady = probe.cannonReady;
   g_state.tankProbeScheduledMoves = probe.scheduledMoves;
+  g_state.tankProbeCadenceBounded = probe.cadenceBounded;
+  g_state.tankProbeRenderedPoseFrames = probe.renderedPoseFrames;
+  g_state.tankProbeViewBoundaryResets = probe.viewBoundaryResets;
   g_state.tankProbeBulletDamageApplications =
       probe.bulletDamageApplications;
   g_state.tankProbeDeathTransitions = probe.deathTransitions;
@@ -5432,16 +5444,21 @@ bool PublishPeopleSubject(SimulationContext* context, double startTime,
       char message[256] = {};
       std::snprintf(
           message, sizeof(message),
-          "People probe start/dyn/render/move/bullet/death/save/rollback="
-          "%d/%d/%d/%d/%d/%d/%d/%d",
+          "People probe start/dyn/render/move/cadence/frames/view/bullet/"
+          "death/save/rollback=%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
           probe.validStarts, probe.dynamicReady, probe.renderReady,
-          probe.scheduledMoves, probe.bulletDamageApplications,
-          probe.deathTransitions, probe.saveStateRoundTrips, probe.rollbacks);
+          probe.scheduledMoves, probe.cadenceBounded,
+          probe.renderedPoseFrames, probe.viewBoundaryResets,
+          probe.bulletDamageApplications, probe.deathTransitions,
+          probe.saveStateRoundTrips, probe.rollbacks);
       ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
                      message);
       return false;
     }
     g_state.peopleProbeScheduledMoves = probe.scheduledMoves;
+    g_state.peopleProbeCadenceBounded = probe.cadenceBounded;
+    g_state.peopleProbeRenderedPoseFrames = probe.renderedPoseFrames;
+    g_state.peopleProbeViewBoundaryResets = probe.viewBoundaryResets;
     g_state.peopleProbeBulletDamageApplications =
         probe.bulletDamageApplications;
     g_state.peopleProbeDeathTransitions = probe.deathTransitions;
@@ -5800,6 +5817,9 @@ void RecoveredArenaSeance_Release() {
   g_state.peopleAttributeFingerprint = 0;
   g_state.peopleSubjectFingerprint = 0;
   g_state.peopleProbeScheduledMoves = 0;
+  g_state.peopleProbeCadenceBounded = 0;
+  g_state.peopleProbeRenderedPoseFrames = 0;
+  g_state.peopleProbeViewBoundaryResets = 0;
   g_state.peopleProbeBulletDamageApplications = 0;
   g_state.peopleProbeDeathTransitions = 0;
   g_state.peopleProbeSaveStateRoundTrips = 0;
@@ -5861,6 +5881,9 @@ void RecoveredArenaSeance_Release() {
   g_state.tankProbeRenderReady = 0;
   g_state.tankProbeCannonReady = 0;
   g_state.tankProbeScheduledMoves = 0;
+  g_state.tankProbeCadenceBounded = 0;
+  g_state.tankProbeRenderedPoseFrames = 0;
+  g_state.tankProbeViewBoundaryResets = 0;
   g_state.tankProbeBulletDamageApplications = 0;
   g_state.tankProbeDeathTransitions = 0;
   g_state.tankProbeDeathEffects = 0;
@@ -6184,6 +6207,20 @@ int RecoveredArenaSeance_PeopleProbeScheduledMoves() {
   return g_state.peopleSubjectReady ? g_state.peopleProbeScheduledMoves : -1;
 }
 
+int RecoveredArenaSeance_PeopleProbeCadenceBounded() {
+  return g_state.peopleSubjectReady ? g_state.peopleProbeCadenceBounded : -1;
+}
+
+int RecoveredArenaSeance_PeopleProbeRenderedPoseFrames() {
+  return g_state.peopleSubjectReady ? g_state.peopleProbeRenderedPoseFrames
+                                    : -1;
+}
+
+int RecoveredArenaSeance_PeopleProbeViewBoundaryResets() {
+  return g_state.peopleSubjectReady ? g_state.peopleProbeViewBoundaryResets
+                                    : -1;
+}
+
 int RecoveredArenaSeance_PeopleProbeBulletDamageApplications() {
   return g_state.peopleSubjectReady
              ? g_state.peopleProbeBulletDamageApplications
@@ -6323,6 +6360,23 @@ int RecoveredArenaSeance_TankProbeCannonReady() {
 int RecoveredArenaSeance_TankProbeScheduledMoves() {
   return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeScheduledMoves
                                               : -1;
+}
+
+int RecoveredArenaSeance_TankProbeCadenceBounded() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeCadenceBounded
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeRenderedPoseFrames() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.tankProbeRenderedPoseFrames
+             : -1;
+}
+
+int RecoveredArenaSeance_TankProbeViewBoundaryResets() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.tankProbeViewBoundaryResets
+             : -1;
 }
 
 int RecoveredArenaSeance_TankProbeBulletDamageApplications() {

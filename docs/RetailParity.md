@@ -1181,6 +1181,26 @@ state and input ordering are covered by RP-INPUT-001 below.
   repeats the physical collision/rollback proof under CI; Debug and Release are
   67/67, while the installed matrix remains the nine-route authority.
 
+### RP-SCRIPT-037: People and Tank own finite near/far presentation
+
+- Classification: `PORTABILITY_FIX_ACCEPTED`, `REAL_POSE_ADMITTED`,
+  `AUTHORITATIVE_STATE_PRESERVED`.
+- A representative temporary People and Tank each run four model-backed
+  `render` calls through their real `CViewDynamicList`: baseline, half-sample,
+  capped stale sample and the first frame after a hidden-to-visible boundary.
+  Re-entry must exactly match the authoritative baseline; rendering may not
+  mutate the subject position.
+- The People proof executes one queued movement event from identical hidden and
+  visible states and requires an identical next timestamp. Tank observes the
+  actual `UNIT_I_DRIVE` event created by movement. Both intervals must remain
+  inside the common `0.2..2.0` scale.
+- Admission restores the complete actor data, inherited frame timestamp and
+  visibility, position, Skin matrix, event queue and child/object roster.
+  Existing PEO1/TAN1 fingerprints remain the outer rollback authority.
+  Applicable installed owners report `1/4/1`; legitimate empty owners report
+  `0/0/0`. Debug and Release each pass 67/67 CTest and 9/9 independent
+  installed-Level starts.
+
 ### RP-RENDER-001: the recovered executable renders a real textured Level
 
 - Classification: `PARTIAL_RETAIL`, `PORTABILITY_FIX_ACCEPTED`. The software

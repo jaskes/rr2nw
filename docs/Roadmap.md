@@ -1628,8 +1628,20 @@ visual geometry. Admission now generates a real swept-sphere collision event,
 proves the first destination against the controlled Vehicle, and restores its
 pose/event queue. Same-Level load preserves route identity and cross-Level load
 reconstructs it from the target script. An asset-free active-route smoke keeps
-that proof in CI, now 67/67 in both configurations. Manual near/far actor pose
-inspection remains open.
+that proof in CI, now 67/67 in both configurations.
+
+The sixth slice completes the automated actor boundary: temporary Level-local
+People and Tank objects execute their original movement queues once hidden and
+once visible, proving cadence no longer depends on the previous rendered frame.
+Each then contributes four real model-backed render frames: the authoritative
+baseline, a half-sample interpolation, a deliberately stale sample capped to
+one displacement and the first visible frame after `onView`. The last frame
+must return exactly to the authoritative pose, and all subject data, matrix,
+events, child ownership and PEO1/TAN1 fingerprints roll back. Installed
+telemetry is `people_near_far_pose_probe=1/4/1` and
+`tank_near_far_pose_probe=1/4/1` where the owner is applicable, otherwise the
+canonical `0/0/0`. Manual long-session observation remains 1.0 acceptance,
+not an unproved implementation dependency.
 
 Gate: representative robots/people/tanks animate and react at near/far
 boundaries without pose explosions; the catalog-index-five lift and remaining

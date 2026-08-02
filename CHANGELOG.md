@@ -7,6 +7,11 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Level admission now executes four real rendered poses for representative
+  People and Tank objects: ordinary interpolation, capped stale prediction,
+  hidden-state transition and the first visible frame after re-entry. Their
+  real movement queues also prove bounded cadence independent of the previous
+  frame's visibility bit, with complete object/matrix/event rollback.
 - People reconstructed by active-world save/rollback now rebind their
   per-reference automatic Skin callback before rendering, preventing an
   animated shared model from reaching the renderer without an animation owner.

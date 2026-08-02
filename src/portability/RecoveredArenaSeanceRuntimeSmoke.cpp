@@ -711,6 +711,9 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_PeopleAttributeFingerprint() == 0 &&
          RecoveredArenaSeance_PeopleSubjectFingerprint() == 0 &&
          RecoveredArenaSeance_PeopleProbeScheduledMoves() == -1 &&
+         RecoveredArenaSeance_PeopleProbeCadenceBounded() == -1 &&
+         RecoveredArenaSeance_PeopleProbeRenderedPoseFrames() == -1 &&
+         RecoveredArenaSeance_PeopleProbeViewBoundaryResets() == -1 &&
          RecoveredArenaSeance_PeopleProbeBulletDamageApplications() == -1 &&
          RecoveredArenaSeance_PeopleProbeDeathTransitions() == -1 &&
          RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() == -1 &&
@@ -740,6 +743,9 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_TankProbeRenderReady() == -1 &&
          RecoveredArenaSeance_TankProbeCannonReady() == -1 &&
          RecoveredArenaSeance_TankProbeScheduledMoves() == -1 &&
+         RecoveredArenaSeance_TankProbeCadenceBounded() == -1 &&
+         RecoveredArenaSeance_TankProbeRenderedPoseFrames() == -1 &&
+         RecoveredArenaSeance_TankProbeViewBoundaryResets() == -1 &&
          RecoveredArenaSeance_TankProbeBulletDamageApplications() == -1 &&
          RecoveredArenaSeance_TankProbeDeathTransitions() == -1 &&
          RecoveredArenaSeance_TankProbeDeathEffects() == -1 &&
@@ -1105,6 +1111,9 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_PeopleAttributeFingerprint() == 0 ||
       RecoveredArenaSeance_PeopleSubjectFingerprint() == 0 ||
       RecoveredArenaSeance_PeopleProbeScheduledMoves() != 0 ||
+      RecoveredArenaSeance_PeopleProbeCadenceBounded() != 0 ||
+      RecoveredArenaSeance_PeopleProbeRenderedPoseFrames() != 0 ||
+      RecoveredArenaSeance_PeopleProbeViewBoundaryResets() != 0 ||
       RecoveredArenaSeance_PeopleProbeBulletDamageApplications() != 0 ||
       RecoveredArenaSeance_PeopleProbeDeathTransitions() != 0 ||
       RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() != 0 ||
@@ -1134,6 +1143,9 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_TankProbeRenderReady() != 0 ||
       RecoveredArenaSeance_TankProbeCannonReady() != 0 ||
       RecoveredArenaSeance_TankProbeScheduledMoves() != 0 ||
+      RecoveredArenaSeance_TankProbeCadenceBounded() != 0 ||
+      RecoveredArenaSeance_TankProbeRenderedPoseFrames() != 0 ||
+      RecoveredArenaSeance_TankProbeViewBoundaryResets() != 0 ||
       RecoveredArenaSeance_TankProbeBulletDamageApplications() != 0 ||
       RecoveredArenaSeance_TankProbeDeathTransitions() != 0 ||
       RecoveredArenaSeance_TankProbeDeathEffects() != 0 ||

@@ -9,6 +9,9 @@ struct SPeopleLifecycleProbeSummary
     int dynamicReady;
     int renderReady;
     int scheduledMoves;
+    int cadenceBounded;
+    int renderedPoseFrames;
+    int viewBoundaryResets;
     int bulletDamageApplications;
     int deathTransitions;
     int saveStateRoundTrips;
