@@ -122,6 +122,17 @@ $expectedMissionProjects = @{
     "Level.06N" = @("1/6/319/1/0", "0", "4", "14312970077244654206")
     "Level.07N" = @("0/0/0/0/0", "0", "0", "13392915711737602415")
 }
+$expectedRecruitCenters = @{
+    "Level.01D" = @("1/4/3/3/3/3", "7893505827175251167", "1/3/1/1/1")
+    "Level.01N" = @("1/4/1/1/0/1", "8980861715311566499", "1/1/1/1/1")
+    "Level.02D" = @("1/4/2/2/2/2", "15372923744045387340", "1/2/1/1/1")
+    "Level.02N" = @("1/4/2/2/2/2", "15372923744045387340", "1/5/1/1/1")
+    "Level.03N" = @("1/2/2/2/2/2", "16347290964721349612", "1/3/1/1/1")
+    "Level.04D" = @("1/2/2/2/2/2", "13063875275008121293", "1/2/1/1/1")
+    "Level.05D" = @("1/2/2/2/2/2", "10101400082303901584", "1/3/1/1/1")
+    "Level.06N" = @("1/2/1/0/1/1", "8246965755517389267", "1/0/0/1/1")
+    "Level.07N" = @("1/1/0/0/0/0", "12478008331234465636", "1/6/0/1/1")
+}
 
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $repositoryRoot "build\windows-msvc-x86\$configurationName\rr2nw.exe"
@@ -255,6 +266,13 @@ foreach ($configurationName in $Configuration) {
                     -not $log.ContainsKey("mission_project_fingerprint") -or
                     $log["mission_project_fingerprint"] -ne $expectedMissionProject[3]) {
                     $issues.Add("retail mission ProjectTable inventory changed")
+                }
+                $expectedRecruitCenter = $expectedRecruitCenters[$levelName]
+                if (-not $log.ContainsKey("recruit_center_roster") -or
+                    $log["recruit_center_roster"] -ne $expectedRecruitCenter[0] -or
+                    -not $log.ContainsKey("recruit_center_fingerprint") -or
+                    $log["recruit_center_fingerprint"] -ne $expectedRecruitCenter[1]) {
+                    $issues.Add("retail RecruitCenter inventory changed")
                 }
                 $skinAnimationEntries = Get-LogInteger $log "skin_animation_entry_calls"
                 $skinAnimatedModels = Get-LogInteger $log "skin_animated_models"
@@ -404,7 +422,8 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("mission_active_world_probe") -or
-                    $log["mission_active_world_probe"] -ne "1/6/0/1/1") {
+                    $log["mission_active_world_probe"] -ne
+                        $expectedRecruitCenter[2]) {
                     $issues.Add("mission active-world probe mismatch")
                 }
                 if (-not $log.ContainsKey("active_world_integrity_probe") -or
@@ -539,7 +558,8 @@ foreach ($configurationName in $Configuration) {
                 $missionMap = if ($log.ContainsKey("mission_map_probe")) {
                     [string]$log["mission_map_probe"] -split "/"
                 } else { @() }
-                $expectedMissionRoutes = if ($levelName -ieq "Level.07N") { 0 } else { 1 }
+                $expectedMissionRoutes = if ($levelName -ieq "Level.06N" -or
+                    $levelName -ieq "Level.07N") { 0 } else { 1 }
                 if ($missionMap.Count -ne 9 -or
                     [int]$missionMap[0] -ne 1 -or
                     [int]$missionMap[1] -ne 1 -or
@@ -590,6 +610,8 @@ foreach ($configurationName in $Configuration) {
                 mission_project_deferred_howitzers = Get-LogInteger $log "mission_project_deferred_howitzers"
                 mission_project_deferred_destroyables = Get-LogInteger $log "mission_project_deferred_destroyables"
                 mission_project_fingerprint = Get-LogUnsigned $log "mission_project_fingerprint"
+                recruit_center_roster = [string]$log["recruit_center_roster"]
+                recruit_center_fingerprint = Get-LogUnsigned $log "recruit_center_fingerprint"
                 teleport_target_level = Get-LogInteger $log "teleport_target_level"
                 teleport_route_count = Get-LogInteger $log "teleport_route_count"
                 teleport_fingerprint = Get-LogUnsigned $log "teleport_fingerprint"
@@ -659,6 +681,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     mission_project_table, mission_project_catalog,
     mission_project_deferred_howitzers,
     mission_project_deferred_destroyables, mission_project_fingerprint,
+    recruit_center_roster, recruit_center_fingerprint,
     debug_map_size, debug_map_toggle_probe, mission_map_probe,
     explosion_active_world_probe, explosion_active_world_fingerprint,
     spark_active_world_probe, spark_active_world_fingerprint,

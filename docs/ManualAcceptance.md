@@ -103,19 +103,26 @@ records `debug_map_initialized=1`, `debug_map_size=1000/1000`,
 Level the latter must begin `1/1/1/1`: the probe was staged and one mission
 with one retail-font text block was published. Fields five through seven are
 route count, rendered map frames and rollback. The route count is `0` for
-`Level.07N` and `1` elsewhere; rendered frames and rollback are both `1`. The
-final framebuffer hash and non-clear-pixel count must be non-zero.
+`Level.06N` and `Level.07N` and `1` elsewhere; rendered frames and rollback are
+both `1`. The final framebuffer hash and non-clear-pixel count must be non-zero.
 
-For a human pass, the temporary automated objective should be visible in the
+For a human pass, the controlled authored objective should be visible in the
 map panel during `--runtime-smoke`; ordinary interactive play does not keep
-that probe alive. The authored ProjectTable catalog is now constructed during
-ordinary startup, but it is intentionally not activated until RecruitCenter
-owns project selection and PlayerMission creation. A valid log contains
+that probe alive. The ProjectTable catalog and Level-local RecruitCenters are
+now constructed during ordinary startup, while public walk-in mission
+admission remains gated. A valid log contains
 `mission_project_table=1/200/1024/10240`, a five-field
-`mission_project_catalog` and a non-zero `mission_project_fingerprint`.
+`mission_project_catalog`, a non-zero `mission_project_fingerprint`, a six-field
+`recruit_center_roster` and a non-zero `recruit_center_fingerprint`.
 `Level.04D` additionally reports `mission_project_deferred_howitzers=9`, and
 `Level.06N` reports `mission_project_deferred_destroyables=4`; all other rows
 must report zero for both deferred producers.
+
+The roster field is `ready/capacity/live/video/defaultTaxi/dictionary`. In
+Level order its expected values are `1/4/3/3/3/3`, `1/4/1/1/0/1`,
+`1/4/2/2/2/2`, `1/4/2/2/2/2`, three `1/2/2/2/2/2` entries,
+`1/2/1/0/1/1`, and terminal `1/1/0/0/0/0`. The acceptance matrix pins the
+individual fingerprints rather than asking a human to compare them.
 
 Current interactive startup normally transfers ownership immediately to
 `Vehicle.Default`. After closing a Vehicle-controlled run, the diagnostic log
@@ -230,9 +237,11 @@ writes `summary.json` and `summary.csv`. A case passes only when:
   record, the explicit MSVC-compatible simulation RNG algorithm, its 12-byte
   state plus draw counter, at least one retail gameplay draw, and one complete
   transactional rollback;
-- `mission_active_world_probe` is `1/6/0/1/1`: one bounded Player mission
-  contains all six success/failure condition families, no fabricated startup
-  Route, one typed future `rc_CHECK_MISSION`, and survives the full rollback;
+- `mission_active_world_probe` is the per-Level authored
+  `missions/conditions/routes/check-events/rollback` tuple. In Level order it
+  must be `1/3/1/1/1`, `1/1/1/1/1`, `1/2/1/1/1`, `1/5/1/1/1`,
+  `1/3/1/1/1`, `1/2/1/1/1`, `1/3/1/1/1`, `1/0/0/1/1` and the
+  empty-catalog fallback `1/6/0/1/1`;
 - `active_world_created_owners` is `2` for Level.04D, where the restore
   transaction recreates both the removed TankGroup and its Tank/Cannon owner
   graph, and `0` for Levels whose saved combat roster is empty;

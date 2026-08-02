@@ -1112,11 +1112,12 @@ and the deliberate validation failure rolls the entire owner/event transaction
 back. Retail diagnostics are `10/3`, `10/10/3`; BUL1 additionally proves a
 missing master is restored as a safe tombstone in `1/2/1/1/2/1/1`.
 
-Mission state is now admitted as the eleventh `MSH1` section. The Player's
+At that serializer-only tranche, mission state was admitted as the eleventh
+`MSH1` section. The Player's
 six condition families, counters, optional summary/Route reference and derived
 DebugMap lifecycle survive transactional restore; EVT1 also owns a typed
 `rc_CHECK_MISSION` index without taking ownership of its destination. Retail
-diagnostics are `11/4`, `11/11/4` and
+diagnostics were `11/4`, `11/11/4` and
 `mission_active_world_probe=1/6/0/1/1`.
 
 Authoritative continuation state was admitted as the twelfth `CLK1`
@@ -1685,14 +1686,27 @@ installed catalogs range from the intentionally empty `Level.07N` table to
 nested writers, duplicate names and heap overflow fail before the historical
 writer can touch memory.
 
-The table is authored campaign data, not yet active progression. Nine
-`CreateHowitzerName` calls in `Level.04D` and four `CreateDestroyable` calls in
-`Level.06N` are retained as explicit counted deferrals until those combat
-owners join the runtime. The next slice connects one real RecruitCenter,
-executes bounded project selection/run/check events and produces authored
-`PlayerMission` MSH1/LCN1 state. Only after that live producer is proven should
-Portal callbacks stage a transactional Level switch through the existing
-coordinator.
+The fourth campaign slice is complete. Root `incubator.sci` and each selected
+Level's `SCINC/RECRCEN.SCI` now construct the real Level-local RecruitCenter
+table through the bounded VM. Retail event identities `39000..39008`, the May
+four-field position/Commander contract, eject point, briefing/flick, default
+Taxi and dictionary are admitted; the archived January five-field payload is
+accepted only as a compatibility shape. Exact center rosters and fingerprints
+are pinned for all nine installed Levels.
+
+The active-world and map probes now select the first eligible real project for
+a center's Commander, decode its authored conditions, summary and Route into a
+real `PlayerMission`, queue the real `rc_CHECK_MISSION`, capture MSH1/EVT1/LCN1
+and restore the exact Player/event state. `Level.06N` honestly proves a mission
+with zero conditions and no Route; empty `Level.07N` retains the synthetic
+serializer fallback. Project side effects such as unit creation, briefing,
+scripts and skip-way are parsed and counted but remain deferred. Interactive
+collision admission, `rc_NEW_MISSION`, RecruitCenter presentation state and
+those side effects are the next campaign boundary.
+
+Only after controlled public mission admission and completion are proven
+should Portal callbacks stage a transactional Level switch through the
+existing coordinator.
 
 Recover the map (`M`), quests/objectives, portal transition and required menu
 flows. A portal must request the same transactional Level coordinator used by

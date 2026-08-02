@@ -3148,8 +3148,9 @@ as a pending effect owner. The transaction captures and detaches admitted
 events before owner replacement, then rebuilds either the target queue or the
 pre-transaction queue after all MSH1 references are stable.
 
-Retail startup proves one mission, six condition references, no fabricated
-Route and one future check with `mission_active_world_probe=1/6/0/1/1`.
+The original serializer-only retail proof used one mission, six condition
+references, no fabricated Route and one future check with
+`mission_active_world_probe=1/6/0/1/1`.
 Envelope diagnostics are `11/4` and `11/11/4`. Source-only fixtures remain a
 canonical empty MSH1/EVT1 while still exercising all eleven phases.
 
@@ -3561,8 +3562,9 @@ text and route deltas, rendered frames, exact rollback, framebuffer hash and
 non-clear pixels as `mission_map_probe`. The acceptance script requires all
 nine fields and the per-Level route expectation. Final evidence is 67/67 CTest
 and 9/9 installed Levels in both Debug and Release. This proves that saved
-PlayerMission state can reach visible derived presentation; real mission
-creation remains gated on ProjectTable/RecruitCenter script admission.
+PlayerMission state can reach visible derived presentation. At that tranche,
+real mission creation was still gated on ProjectTable/RecruitCenter script
+admission; the boundary below now closes that controlled producer path.
 
 ## Retail ProjectTable bootstrap boundary
 
@@ -3585,6 +3587,52 @@ instead yields the authoritative nine installed catalogs. The tightest is
 Mission helpers that require absent gameplay classes are explicit host
 boundaries, not successful fake spawns. `Level.04D` executes nine deferred
 Howitzer creations and `Level.06N` four deferred Destroyable creations. These
-counts are part of installed acceptance. RecruitCenter remains disconnected,
-so the table is immutable authored content at this frontier and cannot yet
-publish persistent PlayerMission state.
+counts are part of installed acceptance.
+
+## Retail RecruitCenter and authored PlayerMission boundary
+
+Retail `nw.exe` and the May scripts establish the RecruitCenter event range as
+`rc_CREATE=39000`, `rc_SET_EJECT=39001`, `rc_CHECK_MISSION=39002`,
+`rc_NEW_MISSION=39003`, reserved `39004`, `rc_SET_VIDEO=39005`,
+`rc_SET_DEFTAXI=39006`, `rc_SET_DICTIONARY=39007` and reserved `39008`.
+The retail `t_EV_SET_ATTR_POS` payload contains position plus Commander; the
+archived source additionally embeds the default briefing. The modern owner
+accepts both bounded shapes but fingerprints the configuration actually
+executed by the selected retail scripts.
+
+All nine installed Level-local rosters are pinned as
+`ready/capacity/live/video/defaultTaxi/dictionary` plus a non-zero content
+fingerprint:
+
+| Level | roster | fingerprint |
+|---|---:|---:|
+| `Level.01D` | `1/4/3/3/3/3` | `7893505827175251167` |
+| `Level.01N` | `1/4/1/1/0/1` | `8980861715311566499` |
+| `Level.02D` | `1/4/2/2/2/2` | `15372923744045387340` |
+| `Level.02N` | `1/4/2/2/2/2` | `15372923744045387340` |
+| `Level.03N` | `1/2/2/2/2/2` | `16347290964721349612` |
+| `Level.04D` | `1/2/2/2/2/2` | `13063875275008121293` |
+| `Level.05D` | `1/2/2/2/2/2` | `10101400082303901584` |
+| `Level.06N` | `1/2/1/0/1/1` | `8246965755517389267` |
+| `Level.07N` | `1/1/0/0/0/0` | `12478008331234465636` |
+
+The controlled producer walks the preserved ProjectTable in its
+original `userFind` order, applies Commander and mission-count eligibility,
+decodes conditions and summary data, loads the authored Route and queues a
+typed `rc_CHECK_MISSION` to the real center. The legacy ProjectTable's already
+admitted 10,240-byte compiler-written heap is the current string-reader trust
+boundary; source admission guarantees terminated payloads before this decoder
+runs.
+
+MSH1 and EVT1 then capture the authored PlayerMission and check event inside
+the full LCN1 transaction. Cleanup restores the Player/event baseline exactly;
+authored Routes are immutable Level resources and remain available for
+reference reconstruction. Commands that need unrecovered presentation or
+gameplay owners are decoded and counted, not executed. RecruitCenter's
+Level-derived configuration is likewise not an AWS1 mutable section yet.
+Interactive collision admission, `rc_NEW_MISSION`, briefing/video UI, unit
+creation, scripts and mission-completion side effects remain explicitly
+outside this boundary. Final verification is 67/67 CTest in Debug and Release
+plus 18/18 installed retail Level starts across the two configurations. The
+hermetic CI smoke additionally executes the archived five-field scripts and
+requires their exact two-live-of-four-capacity compatibility roster.

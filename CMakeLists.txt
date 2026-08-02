@@ -3086,6 +3086,33 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_obase_recrcen STATIC
+  nw/ARENA/OBASE/Recrcen/RecruitCenterSubjectState.cpp
+  nw/ARENA/OBASE/Recrcen/RecruitCenterSubjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_recrcen PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_obase_vehicle
+)
+target_include_directories(rr2nw_arena_obase_recrcen PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Recrcen
+)
+target_compile_features(rr2nw_arena_obase_recrcen PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_recrcen PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_recrcen PRIVATE
+    /W4 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_arena_obase_taxi_full STATIC
   nw/ARENA/OBASE/Taxi/Taxi.cpp
   nw/ARENA/OBASE/Taxi/TaxiActiveWorldState.cpp
@@ -3610,6 +3637,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_obase_orphan_full
   rr2nw_arena_obase_portal
   rr2nw_arena_obase_teleport
+  rr2nw_arena_obase_recrcen
   rr2nw_arena_bullet_attribute_state
   rr2nw_arena_explosion_attribute_state
   rr2nw_arena_farter_attribute_state
@@ -5051,6 +5079,8 @@ if(BUILD_TESTING)
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/DEFS.H"
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/PFUNC.SCI"
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/BRIEF.SCI"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/incubator.sci"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/RECRCEN.SCI"
   )
   add_test(
     NAME peripheral-attribute-state-smoke

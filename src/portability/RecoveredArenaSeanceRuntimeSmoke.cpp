@@ -768,6 +768,13 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_MissionProjectDeferredHowitzerCount() == -1 &&
          RecoveredArenaSeance_MissionProjectDeferredDestroyableCount() == -1 &&
          RecoveredArenaSeance_MissionProjectFingerprint() == 0 &&
+         !RecoveredArenaSeance_RecruitCentersReady() &&
+         RecoveredArenaSeance_RecruitCenterCapacity() == -1 &&
+         RecoveredArenaSeance_RecruitCenterCount() == -1 &&
+         RecoveredArenaSeance_RecruitCenterVideoCount() == -1 &&
+         RecoveredArenaSeance_RecruitCenterDefaultTaxiCount() == -1 &&
+         RecoveredArenaSeance_RecruitCenterDictionaryCount() == -1 &&
+         RecoveredArenaSeance_RecruitCenterFingerprint() == 0 &&
          !RecoveredArenaSeance_MissionTankLifecycleReady() &&
          RecoveredArenaSeance_TankGroupSubjectCapacity() == -1 &&
          RecoveredArenaSeance_MissionTankAvailable() == -1 &&
@@ -1180,6 +1187,13 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionProjectDeferredHowitzerCount() != 0 ||
       RecoveredArenaSeance_MissionProjectDeferredDestroyableCount() != 0 ||
       RecoveredArenaSeance_MissionProjectFingerprint() == 0 ||
+      !RecoveredArenaSeance_RecruitCentersReady() ||
+      RecoveredArenaSeance_RecruitCenterCapacity() != 4 ||
+      RecoveredArenaSeance_RecruitCenterCount() != 2 ||
+      RecoveredArenaSeance_RecruitCenterVideoCount() != 2 ||
+      RecoveredArenaSeance_RecruitCenterDefaultTaxiCount() != 0 ||
+      RecoveredArenaSeance_RecruitCenterDictionaryCount() != 0 ||
+      RecoveredArenaSeance_RecruitCenterFingerprint() == 0 ||
       !RecoveredArenaSeance_MissionTankLifecycleReady() ||
       RecoveredArenaSeance_TankGroupSubjectCapacity() != 30 ||
       RecoveredArenaSeance_MissionTankAvailable() != 0 ||
@@ -1231,6 +1245,7 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("Bullet") == ct_NULLID ||
       g_arena.searchSeanceClassTable("TaxiAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Project") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("RecruitCenter") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Taxi") != ct_NULLID ||
       g_arena.searchSeanceClassTable("SmokerAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("DynSmoker") == ct_NULLID ||
@@ -1527,7 +1542,7 @@ bool RunCycle(bool expectVisualResources) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 21) {
+  if (argc != 23) {
     return Fail("expected a fixture directory and retail-script sources");
   }
 
@@ -1651,6 +1666,10 @@ int main(int argc, char** argv) {
   const std::string projectHelpersCopy =
       JoinPath(fixtureDirectory, "PFUNC.SCI");
   const std::string briefCopy = JoinPath(scincDirectory, "BRIEF.SCI");
+  const std::string incubatorCopy =
+      JoinPath(fixtureDirectory, "incubator.sci");
+  const std::string recruitCenterCopy =
+      JoinPath(scincDirectory, "RECRCEN.SCI");
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(smokeSprite.c_str());
   DeleteFileA(flameSprite.c_str());
@@ -1682,6 +1701,8 @@ int main(int argc, char** argv) {
   DeleteFileA(definitionsCopy.c_str());
   DeleteFileA(projectHelpersCopy.c_str());
   DeleteFileA(briefCopy.c_str());
+  DeleteFileA(incubatorCopy.c_str());
+  DeleteFileA(recruitCenterCopy.c_str());
   if (!WriteFile(config, fixture) ||
       !WriteFile(unitsCopy, emptyPeopleSupportFixture) ||
       !WriteFile(sysfCopy, emptyPeopleSupportFixture) ||
@@ -1701,9 +1722,11 @@ int main(int argc, char** argv) {
       CopyFileA(argv[8], loadWavCopy.c_str(), FALSE) == FALSE ||
       CopyFileA(argv[18], definitionsCopy.c_str(), FALSE) == FALSE ||
       CopyFileA(argv[19], projectHelpersCopy.c_str(), FALSE) == FALSE ||
-      CopyFileA(argv[20], briefCopy.c_str(), FALSE) == FALSE) {
+      CopyFileA(argv[20], briefCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[21], incubatorCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[22], recruitCenterCopy.c_str(), FALSE) == FALSE) {
     SetCurrentDirectoryA(originalDirectory.c_str());
-    return Fail("could not copy WAV metadata sources into Arena fixture");
+    return Fail("could not copy campaign/runtime sources into Arena fixture");
   }
   if (CopyFileA(argv[14], routeCopy.c_str(), FALSE) == FALSE ||
       CopyFileA(argv[15], peopleCopy.c_str(), FALSE) == FALSE ||
@@ -2364,6 +2387,7 @@ int main(int argc, char** argv) {
               "invalid-skin-catalog=rollback "
               "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
+              "recruit_center=archive-2/4 "
               "skin_resources=preflight-empty-fixture "
               "skin_animations=empty-program-ready "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "

@@ -11,6 +11,11 @@ enum
     rc_SET_EJECT,
     rc_CHECK_MISSION,
     rc_NEW_MISSION,
+    rc_RESERVED_39004,
+    rc_SET_VIDEO,
+    rc_SET_DEFTAXI,
+    rc_SET_DICTIONARY,
+    rc_RESERVED_39008,
  };
 
 #endif

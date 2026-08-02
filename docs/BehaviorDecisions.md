@@ -4805,3 +4805,29 @@ four Destroyables on `Level.06N`. This preserves script control flow without
 creating incomplete combat state. RecruitCenter selection and authored
 PlayerMission creation are the next ownership boundary; merely constructing
 the table must not start or complete a quest.
+
+### BD-129: recover RecruitCenter as a Level owner before public mission UI
+
+The May retail scripts and executable are authoritative where they differ from
+the archived January RecruitCenter class. In particular, retail separates the
+briefing/flick payload from `t_EV_SET_ATTR_POS` and extends the event range
+through `39008`. The recovered owner implements the binary-confirmed event
+numbers and accepts the older five-field position payload only so archived
+source fixtures remain representable; it does not revive the stale unbounded
+`runProject` implementation.
+
+The first real mission is created only inside a controlled transaction. The
+producer keeps ProjectTable enumeration and eligibility semantics, validates
+every decoded value against the already admitted 10 KiB heap, uses real Level
+Commander and Route identities and queues the real check event. Save/map probes
+therefore exercise authored state rather than a universal synthetic mission.
+`Level.06N` is allowed to yield zero conditions and an empty Route because that
+is its source-authored project; `Level.07N` keeps the synthetic fallback because
+its ProjectTable is deliberately empty.
+
+RecruitCenter configuration and authored Routes are immutable Level-derived
+resources for this slice, while PlayerMission and `rc_CHECK_MISSION` are the
+mutable saved state. Side-effecting mission commands are consumed and counted
+but cannot execute until their gameplay and presentation owners have rollback
+contracts. Walking into a center, `rc_NEW_MISSION`, briefing/video presentation
+and mission completion therefore remain a later explicit admission step.

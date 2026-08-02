@@ -17,6 +17,8 @@
 #include "message/sparkmsg.h"
 #include "message/routmsg.h"
 #include "message/peopmsg.h"
+#include "message/recrcenmsg.h"
+#include "message/unitmsg.h"
 #include "mproj/h/mproj.h"
 #include "obase/route/route.h"
 #include "i/unit.i"
@@ -305,6 +307,26 @@ void ConstCommanderAddMemberByName(TStackCell* cell) {
   cell->i = COMMANDER_ADD_MEMBER_N;
 }
 
+void ConstUnitSetAttributePosition(TStackCell* cell) {
+  cell->i = t_EV_SET_ATTR_POS;
+}
+
+void ConstRecruitCenterSetEject(TStackCell* cell) {
+  cell->i = rc_SET_EJECT;
+}
+
+void ConstRecruitCenterSetVideo(TStackCell* cell) {
+  cell->i = rc_SET_VIDEO;
+}
+
+void ConstRecruitCenterSetDefaultTaxi(TStackCell* cell) {
+  cell->i = rc_SET_DEFTAXI;
+}
+
+void ConstRecruitCenterSetDictionary(TStackCell* cell) {
+  cell->i = rc_SET_DICTIONARY;
+}
+
 TLinkExtern g_bindings[] = {
     {"s_OpenEventData", ScriptOpenEventData, nullptr},
     {"s_CloseEventData", ScriptCloseEventData, nullptr},
@@ -362,6 +384,11 @@ TLinkConstExtern g_constants[] = {
     {"pe_EVCMD_START_EX", ConstPeopleStartExtended, 0},
     {"s_GROUP_ADD_MEMBER_N", ConstGroupAddMemberByName, 0},
     {"s_COMMANDER_ADD_MEMBER_N", ConstCommanderAddMemberByName, 0},
+    {"t_EV_SET_ATTR_POS", ConstUnitSetAttributePosition, 0},
+    {"rc_SET_EJECT", ConstRecruitCenterSetEject, 0},
+    {"rc_SET_VIDEO", ConstRecruitCenterSetVideo, 0},
+    {"rc_SET_DEFTAXI", ConstRecruitCenterSetDefaultTaxi, 0},
+    {"rc_SET_DICTIONARY", ConstRecruitCenterSetDictionary, 0},
     {nullptr, nullptr, 0}};
 
 }  // namespace

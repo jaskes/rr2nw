@@ -6,6 +6,7 @@
 #include "i/route.i"
 #include "kernel/h/context.h"
 #include "message/recrcenmsg.h"
+#include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "mproj/h/mproj.h"
 #include "storage/h/subject.h"
 
@@ -812,6 +813,16 @@ bool MissionActiveWorldState_StageProbe(
       player.m_missCnt < 0 || player.m_missCnt >= 6 ||
       context->eventFreeCount() < 1)
     return false;
+  RecruitCenterMissionProbeSummary authored = {};
+  bool authoredStaged = false;
+  if (!RecruitCenterSubjectState_StageMissionProbe(
+          context, timeStamp, &authoredStaged, &authored)) {
+    return Fail(RecruitCenterSubjectState_LastError());
+  }
+  if (authoredStaged) {
+    *staged = true;
+    return true;
+  }
   const KR_ObjectID project = FirstProject(context);
   const KR_ObjectID recruit =
       FirstSeanceObject(context, "RecruitCenter", false);
@@ -820,10 +831,10 @@ bool MissionActiveWorldState_StageProbe(
   for (int index = 0; index < player.m_sideQnty && IsNul(commander); ++index)
     if (context->isExist(player.m_playerStatus[index].m_masterID))
       commander = player.m_playerStatus[index].m_masterID;
-  // The recovered startup does not link RecruitCenter yet. Prefer a real one
-  // as soon as that table is present; until then the live Commander is a
-  // durable symbolic destination for exercising the exact rc_CHECK_MISSION
-  // label/payload without executing the future event during the probe.
+  // Hermetic source-only tests omit the retail RecruitCenter scripts. Keep a
+  // durable symbolic destination there so MSH1 still exercises the exact
+  // rc_CHECK_MISSION label/payload; installed Levels take the authored path
+  // above and never reach this fallback.
   const KR_ObjectID destination = IsNul(recruit)
       ? (IsNul(commander) ? vehicle->getObjectID() : commander)
       : recruit;

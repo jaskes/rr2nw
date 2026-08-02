@@ -41,6 +41,7 @@ class CGRPanel;
 #include "obase/tank/TankActiveWorldState.h"
 #include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
+#include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "obase/teleport/TeleportSubjectState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkActiveWorldState.h"
@@ -135,6 +136,8 @@ constexpr const char kSkinAnimationProgramName[] =
     "recovered_retail_skin_animation_bootstrap";
 constexpr const char kMissionProjectProgramName[] =
     "recovered_retail_mission_project_bootstrap";
+constexpr const char kRecruitCenterProgramName[] =
+    "recovered_retail_recruit_center_bootstrap";
 
 const char kMissionProjectBootstrapPrefix[] = R"RR2NW_SCRIPT(
 func void s_CreateProjectTable(int projects, int nodes, int heap) extern;
@@ -361,6 +364,11 @@ const int taxi_SET_TO_POS extern;
   const int pe_EVCMD_START extern;
   const int pe_EVCMD_START_EX extern;
   const int sk_EV_PROG extern;
+const int t_EV_SET_ATTR_POS extern;
+const int rc_SET_EJECT extern;
+const int rc_SET_VIDEO extern;
+const int rc_SET_DEFTAXI extern;
+const int rc_SET_DICTIONARY extern;
 
 func int s_OpenEventData(int style) extern;
 func void s_CloseEventData(int event) extern;
@@ -625,6 +633,13 @@ const char kRouteBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
   main_LoadRoute();
+}
+)RR2NW_SCRIPT";
+
+const char kRecruitCenterBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  SetRecruitCenter();
 }
 )RR2NW_SCRIPT";
 
@@ -1743,6 +1758,7 @@ struct RecoveredArenaSeanceState {
   bool tankCannonSubjectTablesReady;
   bool commanderReady;
   bool missionProjectsReady;
+  bool recruitCentersReady;
   bool missionTankLifecycleReady;
   bool activeWorldPersistenceReady;
   bool vehicleReady;
@@ -1994,6 +2010,12 @@ struct RecoveredArenaSeanceState {
   int missionProjectDeferredHowitzerCount;
   int missionProjectDeferredDestroyableCount;
   unsigned long long missionProjectFingerprint;
+  int recruitCenterCapacity;
+  int recruitCenterCount;
+  int recruitCenterVideoCount;
+  int recruitCenterDefaultTaxiCount;
+  int recruitCenterDictionaryCount;
+  unsigned long long recruitCenterFingerprint;
   int tankGroupSubjectCapacity;
   int missionTankAvailable;
   int missionTankSpawns;
@@ -2389,6 +2411,39 @@ bool RunRouteBootstrap(SimulationContext* context, double startTime) {
       kRouteBootstrapSuffix, kRouteProgramName,
       RECOVERED_ARENA_SEANCE_EXT_ROUTE_SOURCE_UNAVAILABLE,
       "SCINC\\load_route.sci", true);
+}
+
+bool RunRecruitCenterBootstrap(SimulationContext* context,
+                               double startTime, bool* published) {
+  if (published == nullptr) return false;
+  *published = false;
+  std::string rootSource;
+  std::string levelSource;
+  if (!ReadBoundedRetailAttributeSource("..\\incubator.sci", &rootSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\RECRCEN.SCI",
+                                        &levelSource)) {
+    // Hermetic source-only fixtures intentionally copy only the already
+    // recovered slices. A verified retail manifest makes these May files
+    // mandatory; otherwise preserve the historical synthetic MSH1 fallback.
+    if (!RecoveredRetailScriptManifest_IsReady()) return true;
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "could not read bounded retail RecruitCenter sources");
+    return false;
+  }
+  if (!RunRetailAttributeBootstrap(
+          context, startTime, "..\\incubator.sci",
+          "SCINC\\RECRCEN.SCI", kRecruitCenterBootstrapSuffix,
+          kRecruitCenterProgramName,
+          RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+          "incubator.sci + SCINC\\RECRCEN.SCI"))
+    return false;
+  if (!RecruitCenterSubjectState_TableReady(context)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "retail RecruitCenter roster is incomplete");
+    return false;
+  }
+  *published = true;
+  return true;
 }
 
 bool ReadPeopleScriptSummary(PeopleScriptSummary* summary) {
@@ -5828,6 +5883,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   CommanderState_Link();
   TankGroupState_Link();
   PortalClassTable_Link();
+  RecruitCenterSubjectState_Link();
   TeleportSubjectState_Link();
   SparkAttributeState_Link();
   SparkSubjectState_Link();
@@ -6029,6 +6085,31 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    bool recruitCentersPublished = false;
+    if (!RunRecruitCenterBootstrap(context, startTime,
+                                   &recruitCentersPublished)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (recruitCentersPublished) {
+      g_state.recruitCenterCapacity = RecruitCenterSubjectState_Capacity();
+      g_state.recruitCenterCount = RecruitCenterSubjectState_LiveCount();
+      g_state.recruitCenterVideoCount =
+          RecruitCenterSubjectState_VideoCount();
+      g_state.recruitCenterDefaultTaxiCount =
+          RecruitCenterSubjectState_DefaultTaxiCount();
+      g_state.recruitCenterDictionaryCount =
+          RecruitCenterSubjectState_DictionaryCount();
+      g_state.recruitCenterFingerprint =
+          RecruitCenterSubjectState_Fingerprint(context);
+      if (g_state.recruitCenterFingerprint == 0) {
+        Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+               "retail RecruitCenter identity is invalid");
+        RecoveredArenaSeance_Release();
+        return FALSE;
+      }
+      g_state.recruitCentersReady = true;
+    }
     if (!PublishTeleportRoutes(context, startTime, teleportScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
@@ -6154,6 +6235,7 @@ void RecoveredArenaSeance_Release() {
   g_state.tankCannonSubjectTablesReady = false;
   g_state.commanderReady = false;
   g_state.missionProjectsReady = false;
+  g_state.recruitCentersReady = false;
   g_state.missionTankLifecycleReady = false;
   g_state.activeWorldPersistenceReady = false;
   g_state.commanderCapacity = 0;
@@ -6171,6 +6253,12 @@ void RecoveredArenaSeance_Release() {
   g_state.missionProjectDeferredHowitzerCount = 0;
   g_state.missionProjectDeferredDestroyableCount = 0;
   g_state.missionProjectFingerprint = 0;
+  g_state.recruitCenterCapacity = 0;
+  g_state.recruitCenterCount = 0;
+  g_state.recruitCenterVideoCount = 0;
+  g_state.recruitCenterDefaultTaxiCount = 0;
+  g_state.recruitCenterDictionaryCount = 0;
+  g_state.recruitCenterFingerprint = 0;
   g_state.tankGroupSubjectCapacity = 0;
   g_state.missionTankAvailable = 0;
   g_state.missionTankSpawns = 0;
@@ -6817,6 +6905,36 @@ int RecoveredArenaSeance_MissionProjectDeferredDestroyableCount() {
 
 unsigned long long RecoveredArenaSeance_MissionProjectFingerprint() {
   return g_state.missionProjectsReady ? g_state.missionProjectFingerprint : 0;
+}
+
+bool RecoveredArenaSeance_RecruitCentersReady() {
+  return g_state.recruitCentersReady;
+}
+
+int RecoveredArenaSeance_RecruitCenterCapacity() {
+  return g_state.recruitCentersReady ? g_state.recruitCenterCapacity : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterCount() {
+  return g_state.recruitCentersReady ? g_state.recruitCenterCount : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterVideoCount() {
+  return g_state.recruitCentersReady ? g_state.recruitCenterVideoCount : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterDefaultTaxiCount() {
+  return g_state.recruitCentersReady
+             ? g_state.recruitCenterDefaultTaxiCount : -1;
+}
+
+int RecoveredArenaSeance_RecruitCenterDictionaryCount() {
+  return g_state.recruitCentersReady
+             ? g_state.recruitCenterDictionaryCount : -1;
+}
+
+unsigned long long RecoveredArenaSeance_RecruitCenterFingerprint() {
+  return g_state.recruitCentersReady ? g_state.recruitCenterFingerprint : 0;
 }
 
 bool RecoveredArenaSeance_MissionTankLifecycleReady() {

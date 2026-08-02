@@ -2302,6 +2302,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_MissionProjectPermanentCount()));
   log.Line("mission_project_fingerprint=" + std::to_string(
                RecoveredArenaSeance_MissionProjectFingerprint()));
+  log.Line("recruit_center_roster=" +
+           std::to_string(RecoveredArenaSeance_RecruitCentersReady() ? 1 : 0) +
+           "/" + std::to_string(RecoveredArenaSeance_RecruitCenterCapacity()) +
+           "/" + std::to_string(RecoveredArenaSeance_RecruitCenterCount()) +
+           "/" + std::to_string(RecoveredArenaSeance_RecruitCenterVideoCount()) +
+           "/" + std::to_string(RecoveredArenaSeance_RecruitCenterDefaultTaxiCount()) +
+           "/" + std::to_string(RecoveredArenaSeance_RecruitCenterDictionaryCount()));
+  log.Line("recruit_center_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_RecruitCenterFingerprint()));
   log.Line("mission_project_deferred_howitzers=" + std::to_string(
                RecoveredArenaSeance_MissionProjectDeferredHowitzerCount()));
   log.Line("mission_project_deferred_destroyables=" + std::to_string(

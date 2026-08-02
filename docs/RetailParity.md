@@ -1785,6 +1785,36 @@ playable Level begins.
 - Verification requires bounded positive and negative VM smokes, full CTest,
   and all nine installed runtime rows in both Debug and Release.
 
+### RP-CAMPAIGN-002: retail RecruitCenters produce authored saved missions
+
+- Classification: `SOURCE_PATH_PRESERVED`, `RETAIL_DATA_EXECUTED`,
+  `SAVE_PATH_RECONNECTED`, `CAMPAIGN_INTERACTION_PARTIAL`.
+- Root `incubator.sci` and the selected Level's `SCINC/RECRCEN.SCI` execute in
+  the bounded VM. The recovered non-rendering owner implements the retail May
+  position/Commander, eject, video, default-Taxi and dictionary events while
+  accepting the archived January position/Commander/briefing payload as a
+  source-compatibility variant.
+- The installed matrix pins each exact
+  `ready/capacity/live/video/defaultTaxi/dictionary` roster and configuration
+  fingerprint. Live counts range from zero in `Level.07N` to three in
+  `Level.01D`; every configured center resolves a real Level Commander.
+- The controlled admission path preserves ProjectTable `userFind` ordering and
+  mission-count eligibility. It decodes the first eligible authored project
+  into PlayerMission condition sets, summary and optional Route, then queues a
+  real `rc_CHECK_MISSION` from Vehicle to RecruitCenter. MSH1, EVT1 and LCN1
+  prove capture, fresh-reference reconstruction and exact rollback.
+- Expected `mission_active_world_probe` values are `1/3/1/1/1`,
+  `1/1/1/1/1`, `1/2/1/1/1`, `1/5/1/1/1`, `1/3/1/1/1`,
+  `1/2/1/1/1`, `1/3/1/1/1`, `1/0/0/1/1` and the empty-catalog fallback
+  `1/6/0/1/1` in Level order. Fields are mission records, condition
+  references, Route references, check events and rollback.
+- Unit creation, briefing/video, script, skip-way and later commands remain
+  parsed/countable deferrals. Public collision admission, `rc_NEW_MISSION`,
+  completion side effects and mutable RecruitCenter persistence are not
+  claimed by this entry.
+- Verification is 67/67 CTest in each configuration and 18/18 installed retail
+  Level starts across Debug and Release.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.
