@@ -1581,8 +1581,8 @@ The serializer remains LCN1/RR2SLOT1.
 ### Frontier E: actors, static mechanisms and animation
 
 Complete the Level-local People/Tank runtime scheduler and remove proximity-
-triggered teleport/freeze behaviour. Reconnect static callbacks such as the
-Level.05D starting lift. Use the debug menu for repeatable actor and mechanism
+triggered teleport/freeze behaviour. Reconnect proven static callbacks and
+reconstruct the catalog-index-five starting lift. Use the debug menu for repeatable actor and mechanism
 positioning only after their ownership is proven.
 
 The first scheduler/presentation slice is complete: People no longer changes
@@ -1607,21 +1607,33 @@ all vertices and derived normals before play. The May-linked physical
 run as drawable callbacks, use deterministic per-reference presentation speed
 without consuming gameplay RNG and release their user/callback ownership on
 every rollback or Level teardown. Debug and Release each pass all nine
-installed Levels; only `Level.05D` may publish this exact `13/11/2` roster and
-all other Levels must publish a canonical empty owner.
+installed Levels; `Level.05D` publishes this exact `13/11/2` roster.
 
-The reported "fifth-Level starting lift" is not this `Level.05D` mechanism
-set. Catalog index 5 selects `Level.01D`: its player start is near the named
-`portal`, roughly 84 world units below the nearby elevated road. The nearby
-`plat_04f` model has no animation modifiers, and the current Portal callback is
-not a lift owner. The exact trigger/platform relation remains open and must be
-recovered before claiming that gate. `RR2NW_DUMP_SCENE_REFS=1` on the drawable
-scene smoke provides named ordinals and centres for this archaeology without
-changing retail data. Manual near/far actor pose inspection also remains open.
+The fourth slice is complete: physical `Level.01D` and `Level.01N` now own all 97
+binary/source-confirmed `g_staticInit1` references. Three flags, 27 rotating
+props, seventeen doors and fifty `pol_16` figures execute their preserved
+scene-time equations. A five-pose installed-data admission proof validates all
+209 modifier objects, samples each reference at its actual pre-draw callback
+boundary, and restores geometry, callbacks, user pointers and scene time on
+failure or teardown. Both retail `localmain.sci` programs select owner 1.
+Presentation speed and phase are deterministic and do not advance the
+authoritative RNG.
+
+The fifth slice is complete: the reported "fifth-Level starting lift" is not
+the physical `Level.05D` mechanism set. Catalog index 5 selects `Level.01D`,
+whose day/night scripts each create `Teleport(20)` and nine literal routes.
+May-executable disassembly confirms invisible source/radius/destination spheres
+that move only global `g_vehicle`; the `plat_04f` model is correctly static
+visual geometry. Admission now generates a real swept-sphere collision event,
+proves the first destination against the controlled Vehicle, and restores its
+pose/event queue. Same-Level load preserves route identity and cross-Level load
+reconstructs it from the target script. An asset-free active-route smoke keeps
+that proof in CI, now 67/67 in both configurations. Manual near/far actor pose
+inspection remains open.
 
 Gate: representative robots/people/tanks animate and react at near/far
-boundaries without pose explosions; the Level.05D lift and a cross-section of
-doors/platforms run through their original scripts; all persist through save.
+boundaries without pose explosions; the catalog-index-five lift and remaining
+platforms run through proven original ownership; all persist through save.
 
 ### Frontier F: campaign surface
 

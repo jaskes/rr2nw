@@ -1,8 +1,10 @@
 #include "RecoveredArenaSeanceRuntime.h"
 
 #include <cctype>
+#include <cerrno>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <map>
 #include <new>
 #include <set>
@@ -38,6 +40,7 @@ class CGRPanel;
 #include "obase/tank/TankActiveWorldState.h"
 #include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
+#include "obase/teleport/TeleportSubjectState.h"
 #include "obase/spark/SparkAttributeState.h"
 #include "obase/spark/SparkActiveWorldState.h"
 #include "obase/spark/SparkSubjectState.h"
@@ -1075,6 +1078,11 @@ struct TankCannonScriptSummary {
   int tankSubjectCapacity;
 };
 
+struct TeleportScriptSummary {
+  int capacity;
+  std::vector<TeleportDefinition> definitions;
+};
+
 struct CommanderScriptSummary {
   int capacity;
   int count;
@@ -1114,6 +1122,87 @@ bool InspectTankCannonScripts(const std::string& attributeSource,
   summary->cannonSubjectCapacity = cannonSubjectCapacity;
   summary->tankSubjectCapacity = tankSubjectCapacity;
   return true;
+}
+
+bool ConsumeScriptCharacter(const std::string& source, std::size_t* position,
+                            char expected) {
+  if (position == nullptr || *position >= source.size() ||
+      source[*position] != expected)
+    return false;
+  ++*position;
+  return true;
+}
+
+bool ConsumeScriptDouble(const std::string& source, std::size_t* position,
+                         double* value) {
+  if (position == nullptr || value == nullptr || *position >= source.size())
+    return false;
+  errno = 0;
+  const char* begin = source.c_str() + *position;
+  char* end = nullptr;
+  const double parsed = std::strtod(begin, &end);
+  if (end == begin || errno == ERANGE || !std::isfinite(parsed)) return false;
+  *position += static_cast<std::size_t>(end - begin);
+  *value = parsed;
+  return true;
+}
+
+bool ConsumeScriptVector(const std::string& source, std::size_t* position,
+                         CFVector3* value) {
+  if (value == nullptr || !ConsumeScriptCharacter(source, position, '[') ||
+      !ConsumeScriptDouble(source, position, &value->x) ||
+      !ConsumeScriptCharacter(source, position, ',') ||
+      !ConsumeScriptDouble(source, position, &value->y) ||
+      !ConsumeScriptCharacter(source, position, ',') ||
+      !ConsumeScriptDouble(source, position, &value->z) ||
+      !ConsumeScriptCharacter(source, position, ']'))
+    return false;
+  return true;
+}
+
+bool InspectTeleportScript(const std::string& localMainSource,
+                           TeleportScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  summary->capacity = 0;
+  summary->definitions.clear();
+  std::string compact;
+  if (!CompactScriptSource(localMainSource, &compact)) return false;
+  const int capacity =
+      InspectSingleTableCapacity(compact, "Teleport", true);
+  if (capacity < 0 || capacity > 64) return false;
+
+  const std::string marker = "CreateTeleport(";
+  std::size_t search = 0;
+  while ((search = compact.find(marker, search)) != std::string::npos) {
+    if (search > 0 &&
+        IsScriptIdentifierCharacter(compact[search - 1]))
+      return false;
+    std::size_t position = search + marker.size();
+    TeleportDefinition definition;
+    if (!ConsumeScriptVector(compact, &position, &definition.source) ||
+        !ConsumeScriptCharacter(compact, &position, ',') ||
+        !ConsumeScriptVector(compact, &position, &definition.destination) ||
+        !ConsumeScriptCharacter(compact, &position, ',') ||
+        !ConsumeScriptDouble(compact, &position, &definition.radius) ||
+        !ConsumeScriptCharacter(compact, &position, ')') ||
+        (position < compact.size() && compact[position] != ';') ||
+        definition.radius <= 0.0 || definition.radius > 1024.0)
+      return false;
+    summary->definitions.push_back(definition);
+    search = position;
+  }
+  if ((capacity == 0) != summary->definitions.empty() ||
+      summary->definitions.size() > static_cast<std::size_t>(capacity))
+    return false;
+  summary->capacity = capacity;
+  return true;
+}
+
+bool ReadTeleportScriptSummary(TeleportScriptSummary* summary) {
+  std::string source;
+  return summary != nullptr &&
+         ReadBoundedRetailAttributeSource("SCINC\\localmain.sci", &source) &&
+         InspectTeleportScript(source, summary);
 }
 
 bool InspectCommanderScript(const std::string& localMainSource,
@@ -1368,6 +1457,8 @@ struct RecoveredArenaSeanceState {
   bool scriptCompleted;
   bool birdAttributesReady;
   bool portalReady;
+  bool teleportRoutesReady;
+  bool teleportTargetLevel;
   bool orphanAttributesReady;
   bool orphanReferencesReady;
   bool orphanSubjectReady;
@@ -1419,6 +1510,8 @@ struct RecoveredArenaSeanceState {
   bool skinAnimationsReady;
   bool staticMechanismsReady;
   bool staticMechanismTargetLevel;
+  bool staticMechanismLevelOne;
+  bool staticMechanismLevelFive;
   bool sparkAttributesReady;
   bool sparkSubjectReady;
   bool sparkVisualResourcesReady;
@@ -1439,6 +1532,13 @@ struct RecoveredArenaSeanceState {
   bool missionTankLifecycleReady;
   bool activeWorldPersistenceReady;
   bool vehicleReady;
+  int teleportCapacity;
+  int teleportRouteCount;
+  int teleportProbeRejectedNonPlayer;
+  int teleportProbePhysicsCollisions;
+  int teleportProbeAppliedPlayer;
+  int teleportProbeVehicleRollbacks;
+  unsigned long long teleportFingerprint;
   int vehicleActiveWorldReconstructedIDs;
   int vehicleActiveWorldRollbacks;
   unsigned long long vehicleActiveWorldFingerprint;
@@ -1591,6 +1691,9 @@ struct RecoveredArenaSeanceState {
   int staticMechanismBindingCount;
   int staticMechanismWaterwheelCount;
   int staticMechanismFlagCount;
+  int staticMechanismRotatingCount;
+  int staticMechanismDoorCount;
+  int staticMechanismPol16Count;
   int staticMechanismChangedBindingCount;
   int staticMechanismPoseSampleCount;
   int staticMechanismRestoredModifierCount;
@@ -2968,6 +3071,46 @@ bool PublishPortalTable() {
   return true;
 }
 
+bool PublishTeleportRoutes(SimulationContext* context, double startTime,
+                           const TeleportScriptSummary& script) {
+  g_state.teleportRoutesReady = true;
+  g_state.teleportTargetLevel = script.capacity > 0;
+  if (script.capacity == 0) return script.definitions.empty();
+
+  if (!TeleportSubjectState_Initialize(
+          context, script.capacity, script.definitions, startTime) ||
+      !TeleportSubjectState_TableReady(context, script.capacity) ||
+      TeleportSubjectState_LiveCount() !=
+          static_cast<int>(script.definitions.size())) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_STATIC_MECHANISM_FAILURE,
+                   TeleportSubjectState_LastError());
+    return false;
+  }
+  TeleportLifecycleProbeSummary probe = {};
+  if (!TeleportSubjectState_ProbeLifecycle(context, startTime, &probe)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_STATIC_MECHANISM_FAILURE,
+                   TeleportSubjectState_LastError());
+    return false;
+  }
+  const unsigned long long fingerprint =
+      TeleportSubjectState_Fingerprint(context);
+  if (fingerprint == 0) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_STATIC_MECHANISM_FAILURE,
+                   "Teleport route roster has no stable identity");
+    return false;
+  }
+
+  g_state.teleportCapacity = TeleportSubjectState_Capacity();
+  g_state.teleportRouteCount = TeleportSubjectState_LiveCount();
+  g_state.teleportProbeRejectedNonPlayer =
+      probe.rejectedNonPlayerCollisions;
+  g_state.teleportProbePhysicsCollisions = probe.physicsCollisionEvents;
+  g_state.teleportProbeAppliedPlayer = probe.appliedPlayerCollisions;
+  g_state.teleportProbeVehicleRollbacks = probe.vehiclePoseRollbacks;
+  g_state.teleportFingerprint = fingerprint;
+  return true;
+}
+
 bool PublishOrphanAttributes(SimulationContext* context) {
   if (g_arena.searchSeanceClassTable("OrphanAttr") == ct_NULLID) {
     Report(RECOVERED_ARENA_SEANCE_ORPHAN_TABLE_MISSING,
@@ -3974,17 +4117,31 @@ bool PublishStaticMechanisms(double startTime) {
   }
   if (!summary.initialized || summary.bindingCount < 0 ||
       summary.waterwheelBindings < 0 || summary.flagBindings < 0 ||
+      summary.rotatingBindings < 0 || summary.doorBindings < 0 ||
+      summary.pol16Bindings < 0 ||
       summary.changedBindings < 0 || summary.sampledPoses < 0 ||
       summary.restoredModifiers < 0 ||
-      (summary.targetLevel &&
-       (summary.bindingCount != 13 || summary.waterwheelBindings != 11 ||
-        summary.flagBindings != 2 ||
+      (summary.levelOne &&
+       (!summary.targetLevel || summary.levelFive ||
+        summary.bindingCount != 97 || summary.waterwheelBindings != 0 ||
+        summary.flagBindings != 3 || summary.rotatingBindings != 27 ||
+        summary.doorBindings != 17 || summary.pol16Bindings != 50 ||
         summary.changedBindings != summary.bindingCount ||
-        summary.sampledPoses != summary.bindingCount * 2 ||
+        summary.sampledPoses != summary.bindingCount * 5 ||
+        summary.restoredModifiers != 209 || summary.fingerprint == 0)) ||
+      (summary.levelFive &&
+       (!summary.targetLevel || summary.levelOne ||
+        summary.bindingCount != 13 || summary.waterwheelBindings != 11 ||
+        summary.flagBindings != 2 || summary.rotatingBindings != 0 ||
+        summary.doorBindings != 0 || summary.pol16Bindings != 0 ||
+        summary.changedBindings != summary.bindingCount ||
+        summary.sampledPoses != summary.bindingCount * 5 ||
         summary.restoredModifiers != 84 || summary.fingerprint == 0)) ||
       (!summary.targetLevel &&
-       (summary.bindingCount != 0 || summary.waterwheelBindings != 0 ||
-        summary.flagBindings != 0 || summary.changedBindings != 0 ||
+       (summary.levelOne || summary.levelFive || summary.bindingCount != 0 ||
+        summary.waterwheelBindings != 0 || summary.flagBindings != 0 ||
+        summary.rotatingBindings != 0 || summary.doorBindings != 0 ||
+        summary.pol16Bindings != 0 || summary.changedBindings != 0 ||
         summary.sampledPoses != 0 || summary.restoredModifiers != 0 ||
         summary.fingerprint != 0))) {
     RecoveredStaticMechanism_Release();
@@ -3994,9 +4151,14 @@ bool PublishStaticMechanisms(double startTime) {
     return false;
   }
   g_state.staticMechanismTargetLevel = summary.targetLevel;
+  g_state.staticMechanismLevelOne = summary.levelOne;
+  g_state.staticMechanismLevelFive = summary.levelFive;
   g_state.staticMechanismBindingCount = summary.bindingCount;
   g_state.staticMechanismWaterwheelCount = summary.waterwheelBindings;
   g_state.staticMechanismFlagCount = summary.flagBindings;
+  g_state.staticMechanismRotatingCount = summary.rotatingBindings;
+  g_state.staticMechanismDoorCount = summary.doorBindings;
+  g_state.staticMechanismPol16Count = summary.pol16Bindings;
   g_state.staticMechanismChangedBindingCount = summary.changedBindings;
   g_state.staticMechanismPoseSampleCount = summary.sampledPoses;
   g_state.staticMechanismRestoredModifierCount = summary.restoredModifiers;
@@ -5341,6 +5503,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   CommanderState_Link();
   TankGroupState_Link();
   PortalClassTable_Link();
+  TeleportSubjectState_Link();
   SparkAttributeState_Link();
   SparkSubjectState_Link();
   SparkActiveWorldState_Link();
@@ -5385,9 +5548,16 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     PeopleScriptSummary peopleScript = {};
     TankCannonScriptSummary tankCannonScript = {};
     CommanderScriptSummary commanderScript = {};
+    TeleportScriptSummary teleportScript = {};
     SRecoveredWavMetadataCatalog wavCatalog = {};
     // local_createTables() owns WAVObj before LEVEL0.SC creates attributes.
     if (!RunWavMetadataBootstrap(context, startTime, &wavCatalog)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!ReadTeleportScriptSummary(&teleportScript)) {
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_STATIC_MECHANISM_FAILURE,
+                     "localmain.sci Teleport roster is malformed");
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -5515,6 +5685,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
 
     if (!PublishVehicle(context)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!PublishTeleportRoutes(context, startTime, teleportScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -5911,9 +6085,14 @@ void RecoveredArenaSeance_Release() {
   g_state.skinAnimationPoseFingerprint = 0;
   g_state.staticMechanismsReady = false;
   g_state.staticMechanismTargetLevel = false;
+  g_state.staticMechanismLevelOne = false;
+  g_state.staticMechanismLevelFive = false;
   g_state.staticMechanismBindingCount = 0;
   g_state.staticMechanismWaterwheelCount = 0;
   g_state.staticMechanismFlagCount = 0;
+  g_state.staticMechanismRotatingCount = 0;
+  g_state.staticMechanismDoorCount = 0;
+  g_state.staticMechanismPol16Count = 0;
   g_state.staticMechanismChangedBindingCount = 0;
   g_state.staticMechanismPoseSampleCount = 0;
   g_state.staticMechanismRestoredModifierCount = 0;
@@ -5926,6 +6105,15 @@ void RecoveredArenaSeance_Release() {
   g_state.orphanSubjectCapacity = 0;
   g_state.orphanSubjectFingerprint = 0;
   g_state.portalReady = false;
+  g_state.teleportRoutesReady = false;
+  g_state.teleportTargetLevel = false;
+  g_state.teleportCapacity = 0;
+  g_state.teleportRouteCount = 0;
+  g_state.teleportProbeRejectedNonPlayer = 0;
+  g_state.teleportProbePhysicsCollisions = 0;
+  g_state.teleportProbeAppliedPlayer = 0;
+  g_state.teleportProbeVehicleRollbacks = 0;
+  g_state.teleportFingerprint = 0;
   g_state.birdAttributesReady = false;
   g_state.scriptCompleted = false;
   g_vehicle = nullptr;
@@ -6360,6 +6548,42 @@ bool RecoveredArenaSeance_BirdAttributesReady() {
 }
 
 bool RecoveredArenaSeance_PortalReady() { return g_state.portalReady; }
+
+bool RecoveredArenaSeance_TeleportRoutesReady() {
+  return g_state.teleportRoutesReady;
+}
+
+bool RecoveredArenaSeance_TeleportTargetLevel() {
+  return g_state.teleportTargetLevel;
+}
+
+int RecoveredArenaSeance_TeleportCapacity() {
+  return g_state.teleportCapacity;
+}
+
+int RecoveredArenaSeance_TeleportRouteCount() {
+  return g_state.teleportRouteCount;
+}
+
+int RecoveredArenaSeance_TeleportProbeRejectedNonPlayer() {
+  return g_state.teleportProbeRejectedNonPlayer;
+}
+
+int RecoveredArenaSeance_TeleportProbePhysicsCollisions() {
+  return g_state.teleportProbePhysicsCollisions;
+}
+
+int RecoveredArenaSeance_TeleportProbeAppliedPlayer() {
+  return g_state.teleportProbeAppliedPlayer;
+}
+
+int RecoveredArenaSeance_TeleportProbeVehicleRollbacks() {
+  return g_state.teleportProbeVehicleRollbacks;
+}
+
+unsigned long long RecoveredArenaSeance_TeleportFingerprint() {
+  return g_state.teleportFingerprint;
+}
 
 bool RecoveredArenaSeance_OrphanAttributesReady() {
   return g_state.orphanAttributesReady;
@@ -7340,6 +7564,14 @@ bool RecoveredArenaSeance_StaticMechanismTargetLevel() {
   return g_state.staticMechanismTargetLevel;
 }
 
+bool RecoveredArenaSeance_StaticMechanismLevelOne() {
+  return g_state.staticMechanismLevelOne;
+}
+
+bool RecoveredArenaSeance_StaticMechanismLevelFive() {
+  return g_state.staticMechanismLevelFive;
+}
+
 int RecoveredArenaSeance_StaticMechanismBindingCount() {
   return g_state.staticMechanismBindingCount;
 }
@@ -7350,6 +7582,18 @@ int RecoveredArenaSeance_StaticMechanismWaterwheelCount() {
 
 int RecoveredArenaSeance_StaticMechanismFlagCount() {
   return g_state.staticMechanismFlagCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismRotatingCount() {
+  return g_state.staticMechanismRotatingCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismDoorCount() {
+  return g_state.staticMechanismDoorCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismPol16Count() {
+  return g_state.staticMechanismPol16Count;
 }
 
 int RecoveredArenaSeance_StaticMechanismChangedBindingCount() {

@@ -281,10 +281,15 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("retail Skin animation roster changed")
                 }
                 $staticTarget = Get-LogInteger $log "static_mechanism_target_level"
+                $staticLevelOne = Get-LogInteger $log "static_mechanism_level_one"
+                $staticLevelFive = Get-LogInteger $log "static_mechanism_level_five"
                 $staticBindings = Get-LogInteger $log "static_mechanism_bindings"
                 $staticWaterwheels =
                     Get-LogInteger $log "static_mechanism_waterwheels"
                 $staticFlags = Get-LogInteger $log "static_mechanism_flags"
+                $staticRotating = Get-LogInteger $log "static_mechanism_rotating"
+                $staticDoors = Get-LogInteger $log "static_mechanism_doors"
+                $staticPol16 = Get-LogInteger $log "static_mechanism_pol16"
                 $staticChanged =
                     Get-LogInteger $log "static_mechanism_changed_bindings"
                 $staticSamples =
@@ -296,19 +301,70 @@ foreach ($configurationName in $Configuration) {
                 if ((Get-LogInteger $log "static_mechanisms_initialized") -ne 1) {
                     $issues.Add("static mechanism owner is not initialized")
                 }
+                elseif ($levelName -ieq "Level.01D" -or
+                        $levelName -ieq "Level.01N") {
+                    if ($staticTarget -ne 1 -or $staticLevelOne -ne 1 -or
+                        $staticLevelFive -ne 0 -or $staticBindings -ne 97 -or
+                        $staticWaterwheels -ne 0 -or $staticFlags -ne 3 -or
+                        $staticRotating -ne 27 -or $staticDoors -ne 17 -or
+                        $staticPol16 -ne 50 -or $staticChanged -ne 97 -or
+                        $staticSamples -ne 485 -or $staticRestored -ne 209 -or
+                        $staticFingerprint -lt 1) {
+                        $issues.Add("Level.01D static mechanism proof changed")
+                    }
+                }
                 elseif ($levelName -ieq "Level.05D") {
-                    if ($staticTarget -ne 1 -or $staticBindings -ne 13 -or
+                    if ($staticTarget -ne 1 -or $staticLevelOne -ne 0 -or
+                        $staticLevelFive -ne 1 -or $staticBindings -ne 13 -or
                         $staticWaterwheels -ne 11 -or $staticFlags -ne 2 -or
-                        $staticChanged -ne 13 -or $staticSamples -ne 26 -or
+                        $staticRotating -ne 0 -or $staticDoors -ne 0 -or
+                        $staticPol16 -ne 0 -or $staticChanged -ne 13 -or
+                        $staticSamples -ne 65 -or
                         $staticRestored -ne 84 -or $staticFingerprint -lt 1) {
                         $issues.Add("Level.05D static mechanism proof changed")
                     }
                 }
-                elseif ($staticTarget -ne 0 -or $staticBindings -ne 0 -or
+                elseif ($staticTarget -ne 0 -or $staticLevelOne -ne 0 -or
+                        $staticLevelFive -ne 0 -or $staticBindings -ne 0 -or
                         $staticWaterwheels -ne 0 -or $staticFlags -ne 0 -or
+                        $staticRotating -ne 0 -or $staticDoors -ne 0 -or
+                        $staticPol16 -ne 0 -or
                         $staticChanged -ne 0 -or $staticSamples -ne 0 -or
                         $staticRestored -ne 0 -or $staticFingerprint -ne 0) {
                     $issues.Add("static mechanism owner leaked across Levels")
+                }
+                $teleportTarget = Get-LogInteger $log "teleport_target_level"
+                $teleportCapacity = Get-LogInteger $log "teleport_capacity"
+                $teleportRoutes = Get-LogInteger $log "teleport_route_count"
+                $teleportRejected =
+                    Get-LogInteger $log "teleport_probe_rejected_non_player"
+                $teleportPhysics =
+                    Get-LogInteger $log "teleport_probe_physics_collisions"
+                $teleportApplied =
+                    Get-LogInteger $log "teleport_probe_applied_player"
+                $teleportRollbacks =
+                    Get-LogInteger $log "teleport_probe_vehicle_rollbacks"
+                $teleportFingerprint =
+                    Get-LogUnsigned $log "teleport_fingerprint"
+                if ((Get-LogInteger $log "teleport_routes_initialized") -ne 1) {
+                    $issues.Add("Teleport route owner is not initialized")
+                }
+                elseif ($levelName -ieq "Level.01D" -or
+                        $levelName -ieq "Level.01N") {
+                    if ($teleportTarget -ne 1 -or $teleportCapacity -ne 20 -or
+                        $teleportRoutes -ne 9 -or $teleportRejected -ne 1 -or
+                        $teleportPhysics -ne 1 -or
+                        $teleportApplied -ne 1 -or $teleportRollbacks -ne 1 -or
+                        $teleportFingerprint -lt 1) {
+                        $issues.Add("Level.01 Teleport collision proof changed")
+                    }
+                }
+                elseif ($teleportTarget -ne 0 -or $teleportCapacity -ne 0 -or
+                        $teleportRoutes -ne 0 -or $teleportRejected -ne 0 -or
+                        $teleportPhysics -ne 0 -or
+                        $teleportApplied -ne 0 -or $teleportRollbacks -ne 0 -or
+                        $teleportFingerprint -ne 0) {
+                    $issues.Add("Teleport route owner leaked across Levels")
                 }
                 if ((Get-LogInteger $log "active_world_persistence_initialized") -ne 1 -or
                     (Get-LogInteger $log "active_world_format_version") -ne 1 -or
@@ -465,6 +521,9 @@ foreach ($configurationName in $Configuration) {
                 renderer_lit_pixels = Get-LogInteger $log "renderer_lit_pixels"
                 renderer_framebuffer_hash = Get-LogUnsigned $log "renderer_framebuffer_hash"
                 renderer_nonclear_pixels = Get-LogInteger $log "renderer_framebuffer_nonclear_pixels"
+                teleport_target_level = Get-LogInteger $log "teleport_target_level"
+                teleport_route_count = Get-LogInteger $log "teleport_route_count"
+                teleport_fingerprint = Get-LogUnsigned $log "teleport_fingerprint"
                 active_world_format_version = Get-LogInteger $log "active_world_format_version"
                 active_world_engine_compatibility = Get-LogInteger $log "active_world_engine_compatibility"
                 active_world_sections = [string]$log["active_world_owner_event_sections"]
@@ -514,6 +573,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     renderer_light_approximations, renderer_lit_polygons,
     renderer_lit_pixels, renderer_framebuffer_hash,
     renderer_nonclear_pixels, active_world_format_version,
+    teleport_target_level, teleport_route_count, teleport_fingerprint,
     active_world_engine_compatibility, active_world_sections,
     active_world_restore_phases, active_world_integrity_probe,
     active_world_created_owners, mission_active_world_probe,

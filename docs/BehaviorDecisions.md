@@ -4587,11 +4587,85 @@ damage or save outcomes.
 Every callback and user pointer is attached only after the complete named-axis
 and modifier contract resolves. The zero-vertex flag `Planes` modifier is
 admitted because it is an update dependency, not displaced geometry. A
-two-time pose probe must change all 13 bindings and restore 84 modifiers plus
+five-time pose probe must change all 13 bindings and restore 84 modifiers plus
 the clock. Failure rolls back every earlier binding. Normal release restores
 baseline geometry and clears only still-owned reference fields.
 
-This decision does not claim the user-reported starting lift. "Level five" in
-the retail catalog maps to `Level.01D`, whereas `g_staticInit5` names physical
-`Level.05D`. The start-adjacent `portal`, elevated road and non-animated
-`plat_04f` require a separate trigger-ownership reconstruction.
+This decision did not itself claim the user-reported starting lift. "Level
+five" in the retail catalog maps to `Level.01D`, whereas `g_staticInit5` names
+physical `Level.05D`. The separate trigger owner was subsequently recovered in
+BD-124; it correctly leaves non-animated `plat_04f` under static presentation.
+
+## BD-123: shared static models are proved at the per-reference draw boundary
+
+Status: accepted on 2026-08-02 as the fourth Frontier E slice.
+
+Physical `Level.01D` and `Level.01N` admit the complete non-empty May
+`g_staticInit1` roster because both `localmain.sci` programs call
+`s_SetLevel(1)`:
+three flags, 27 rotators, seventeen doors and fifty `pol_16` figures. The old
+source also contains `pol_02` and `htk_gun` blocks, but the installed scene has
+zero references for both and the May executable's recovered name roster does
+not require them. Empty historical blocks are not treated as live ownership.
+
+The 97 admitted references validate 209 named modifier objects before any
+callback or user pointer is attached. The preserved flag, rotation,
+60-second-door and seven-second-pol16 equations use `Session::m_viewTime`.
+Pure presentation speed and phase retain their original ranges through two
+independently salted stable values; they do not advance simulation RNG and need
+no parallel save section because the authoritative clock already persists.
+
+Many references share one model base. Therefore a probe that animates the whole
+roster and hashes afterward can observe only the last writer. Admission instead
+executes and fingerprints each callback immediately at the boundary where that
+reference would draw. Five time offsets must change every binding. Geometry and
+scene time are restored after the proof, and release clears only ownership still
+held by this service.
+
+The lift report stays outside this static-callback decision. Scene evidence puts `portal` 4.52
+units and `plat_04f` 30.67 units from the `Level.01D` start, with road references
+about 84 units higher. Physical `Level.05D` has no nearby platform. Since
+`plat_04f` has no modifier, no May static callback-name entry and no Portal
+movement owner, assigning it an invented time law would reduce retail parity.
+BD-124 instead restores the script-created invisible `Teleport` subjects that
+the original game placed on those static platforms.
+
+## BD-124: the catalog-index-five lift is an invisible Teleport trigger
+
+Status: accepted on 2026-08-02 as the fifth Frontier E slice.
+
+The installed `Level.01D/SCINC/localmain.sci` and night equivalent each create
+`Teleport(20)` and exactly nine `CreateTeleport(source,destination,5)` routes.
+The first three sources coincide with the five nearby `plat_04f` references and
+form the start-to-road ascent/descent chain. The platform is visual geometry;
+it never owned a moving callback.
+
+The May 27, 1999 `nw.exe` confirms the missing class contract. `Teleport` is
+registered by code near `0x4b8340`; `receiveEvent` at `0x4b844c` reads seven
+doubles on `KR_SET_ATTR` (source xyz, radius, destination xyz), places the
+subject at the source, and handles `t_EV_ONCOLLISION` only when the collided
+object ID equals global `g_vehicle`. It then calls the complete Vehicle position
+setter at `0x5587dc`. There is no interpolation, Portal transition, arbitrary
+actor carry or guessed animation law.
+
+The recovered non-rendering `ct_Subject` implements that exact dynamic sphere.
+Because the modern Vehicle separates vessel and subject-cache positions, the
+one intentional teleport discontinuity updates both while retaining direction
+and speed. The roster is parsed from the selected mod-overlay
+`SCINC/localmain.sci`, so a mod may replace routes without recompiling while a
+malformed/capacity-exceeding list fails before publication.
+
+Admission drives a real swept-sphere `checkDynamicCollision`, observes the
+queued collision event addressed to the first Teleport, dispatches it to the
+real controlled Vehicle, proves the destination pose, then restores the exact
+position, subject position, direction, speed, event queue and counters. A
+foreign object ID is also proved inert. Same-Level LCN1 restore requires the
+route count and fingerprint to remain unchanged; cross-Level reconstruction
+re-reads the target script. Legacy PIN dump/load stores the seven-double route
+payload. Release closes the class table with the Arena.
+
+A dedicated hermetic `teleport-subject-state-smoke` opens the original
+`5120x5120` Arena grid, publishes a real Vehicle plus one route, and repeats the
+foreign-ID, swept-collision, destination and rollback proof without retail
+assets. With this permanent CI coverage, Debug and Release each pass 67/67
+CTest; the installed-data matrix independently proves all nine real routes.

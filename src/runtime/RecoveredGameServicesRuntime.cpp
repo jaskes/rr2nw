@@ -3418,6 +3418,14 @@ bool RecoveredGameServices_RestoreLevelContinuation(
     return false;
   }
   g_levelContinuationFailure.clear();
+  const bool teleportRoutesReadyBefore =
+      RecoveredArenaSeance_TeleportRoutesReady();
+  const bool teleportTargetBefore =
+      RecoveredArenaSeance_TeleportTargetLevel();
+  const int teleportRouteCountBefore =
+      RecoveredArenaSeance_TeleportRouteCount();
+  const unsigned long long teleportFingerprintBefore =
+      RecoveredArenaSeance_TeleportFingerprint();
   SLevelContinuation incoming;
   if (!LevelContinuation_Decode(bytes, &incoming) ||
       !g_vehicleControlInput.CanAdoptControlJournal(
@@ -3455,6 +3463,19 @@ bool RecoveredGameServices_RestoreLevelContinuation(
       g_vehicleControlInput.AdoptControlJournal(restoredJournal);
   bool authorityReady = controlsAdopted &&
       RestoredGameplayAuthorityReady(restoredSummary, &failure);
+  const bool teleportRoutesPreserved =
+      RecoveredArenaSeance_TeleportRoutesReady() ==
+          teleportRoutesReadyBefore &&
+      RecoveredArenaSeance_TeleportTargetLevel() ==
+          teleportTargetBefore &&
+      RecoveredArenaSeance_TeleportRouteCount() ==
+          teleportRouteCountBefore &&
+      RecoveredArenaSeance_TeleportFingerprint() ==
+          teleportFingerprintBefore;
+  if (authorityReady && !teleportRoutesPreserved) {
+    authorityReady = false;
+    failure = "Level-local Teleport routes changed during LCN1 restore";
+  }
   if (authorityReady && failRestoredAuthorityForTesting) {
     authorityReady = false;
     failure =
@@ -3483,7 +3504,15 @@ bool RecoveredGameServices_RestoreLevelContinuation(
   const bool controlRolledBack = rolledBack &&
       g_vehicleControlInput.AdoptControlJournal(backupJournal) &&
       RestoredGameplayAuthorityReady(
-          rolledBackSummary, &rollbackFailure);
+          rolledBackSummary, &rollbackFailure) &&
+      RecoveredArenaSeance_TeleportRoutesReady() ==
+          teleportRoutesReadyBefore &&
+      RecoveredArenaSeance_TeleportTargetLevel() ==
+          teleportTargetBefore &&
+      RecoveredArenaSeance_TeleportRouteCount() ==
+          teleportRouteCountBefore &&
+      RecoveredArenaSeance_TeleportFingerprint() ==
+          teleportFingerprintBefore;
   if (!controlRolledBack) {
     g_levelContinuationFailure += rolledBack
         ? "; backup CTJ1 adoption failed"

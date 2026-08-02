@@ -443,6 +443,15 @@ bool IsReleased(SimulationContext& context) {
          !RecoveredArenaSeance_ScriptCompleted() &&
          !RecoveredArenaSeance_BirdAttributesReady() &&
          !RecoveredArenaSeance_PortalReady() &&
+         !RecoveredArenaSeance_TeleportRoutesReady() &&
+         !RecoveredArenaSeance_TeleportTargetLevel() &&
+         RecoveredArenaSeance_TeleportCapacity() == 0 &&
+         RecoveredArenaSeance_TeleportRouteCount() == 0 &&
+         RecoveredArenaSeance_TeleportProbeRejectedNonPlayer() == 0 &&
+         RecoveredArenaSeance_TeleportProbePhysicsCollisions() == 0 &&
+         RecoveredArenaSeance_TeleportProbeAppliedPlayer() == 0 &&
+         RecoveredArenaSeance_TeleportProbeVehicleRollbacks() == 0 &&
+         RecoveredArenaSeance_TeleportFingerprint() == 0 &&
          !RecoveredArenaSeance_OrphanAttributesReady() &&
          !RecoveredArenaSeance_OrphanReferencesReady() &&
          RecoveredArenaSeance_OrphanReferenceFingerprint() == 0 &&
@@ -639,9 +648,14 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_SkinAnimationPoseFingerprint() == 0 &&
          !RecoveredArenaSeance_StaticMechanismsReady() &&
          !RecoveredArenaSeance_StaticMechanismTargetLevel() &&
+         !RecoveredArenaSeance_StaticMechanismLevelOne() &&
+         !RecoveredArenaSeance_StaticMechanismLevelFive() &&
          RecoveredArenaSeance_StaticMechanismBindingCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismWaterwheelCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismFlagCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismRotatingCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismDoorCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismPol16Count() == 0 &&
          RecoveredArenaSeance_StaticMechanismChangedBindingCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismPoseSampleCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismRestoredModifierCount() == 0 &&
@@ -797,6 +811,15 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_ScriptCompleted() ||
       !RecoveredArenaSeance_BirdAttributesReady() ||
       !RecoveredArenaSeance_PortalReady() ||
+      !RecoveredArenaSeance_TeleportRoutesReady() ||
+      RecoveredArenaSeance_TeleportTargetLevel() ||
+      RecoveredArenaSeance_TeleportCapacity() != 0 ||
+      RecoveredArenaSeance_TeleportRouteCount() != 0 ||
+      RecoveredArenaSeance_TeleportProbeRejectedNonPlayer() != 0 ||
+      RecoveredArenaSeance_TeleportProbePhysicsCollisions() != 0 ||
+      RecoveredArenaSeance_TeleportProbeAppliedPlayer() != 0 ||
+      RecoveredArenaSeance_TeleportProbeVehicleRollbacks() != 0 ||
+      RecoveredArenaSeance_TeleportFingerprint() != 0 ||
       !RecoveredArenaSeance_OrphanAttributesReady() ||
       RecoveredArenaSeance_OrphanReferencesReady() ||
       RecoveredArenaSeance_OrphanReferenceFingerprint() != 0 ||
@@ -1008,9 +1031,14 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_SkinAnimationPoseFingerprint() != 0 ||
       !RecoveredArenaSeance_StaticMechanismsReady() ||
       RecoveredArenaSeance_StaticMechanismTargetLevel() ||
+      RecoveredArenaSeance_StaticMechanismLevelOne() ||
+      RecoveredArenaSeance_StaticMechanismLevelFive() ||
       RecoveredArenaSeance_StaticMechanismBindingCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismWaterwheelCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismFlagCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismRotatingCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismDoorCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismPol16Count() != 0 ||
       RecoveredArenaSeance_StaticMechanismChangedBindingCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismPoseSampleCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismRestoredModifierCount() != 0 ||

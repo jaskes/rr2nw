@@ -1255,7 +1255,7 @@ the exact counts/fingerprints,
 `bounded-retail-skin-resource-smoke-explosion-attribute-vehicle-bootstrap`,
 zero service issues, `level-ready` and `runtime_shutdown=clean`.
 
-### Live Skin poses and Level.05D static mechanisms
+### Live Skin poses and Level.01/Level.05D static mechanisms
 
 Animation readiness now proves geometry rather than accepting program tables
 alone. For each animated Skin the owner snapshots every unique live modifier,
@@ -1279,16 +1279,44 @@ by the installed-data proof.
 The owner does not consume the authoritative simulation RNG for purely visual
 speed selection. A stable name/ordinal value preserves the original `4..6`
 waterwheel and `6..8` flag ranges across reconstruction. Initialization samples
-all 13 bindings at two times, proves `13/13` changed poses, restores all 84
+all 13 bindings at five times, proves `13/13` changed poses, restores all 84
 modifier objects and the scene clock, then leaves the callbacks live. Teardown
 restores baseline geometry and clears only callbacks/user pointers still owned
-by this service. The acceptance matrix requires exact `13/11/2/13/26/84`
-telemetry for `Level.05D` and zero bindings for every other Level.
+by this service. The acceptance matrix requires exact `13/11/2/13/65/84`
+telemetry for `Level.05D`.
 
-The catalog-index-five lift report remains a distinct open issue. Installed
-`game.cfg` maps index 5 to `Level.01D`, whose start is beside `portal` and about
-84 units below the elevated road. The nearby `plat_04f` has no animation
-modifier and the current Portal callback does not raise the player. An opt-in
+The same transactional owner now restores the May `g_staticInit1` roster on
+physical `Level.01D` and `Level.01N`: `flag_fly`, `flag_rbt`, `flag_tnk`, `pol_13`, nineteen
+`twn_pike`, seven `slo_06a`, three `pol_03`, fourteen `tel_00` and fifty
+`pol_16`. That is 97 real drawable references split into `3/27/17/50`
+flag/rotator/door/pol16 families and 209 modifier objects. The preserved flag,
+rotation, 60-second door and seven-second pol16 equations execute per reference.
+Independent deterministic speed and phase salts retain the old ranges without
+advancing gameplay RNG. A five-time probe fingerprints each callback immediately
+before the shared model would be drawn, requires all 97 bindings to change, then
+restores geometry and `Session::m_viewTime`. Both retail `localmain.sci` files
+call `s_SetLevel(1)`, which is the direct legacy owner-selection evidence.
+Non-target Levels must publish the canonical empty owner.
+
+The catalog-index-five lift is a distinct owner from these callbacks. Installed
+`game.cfg` maps index 5 to `Level.01D`. Its start is 4.52 units from `portal`;
+the nearest `plat_04f` is 30.67 units away, while road references begin about
+84 units above the player. No `plat_04f` name exists in the May executable's
+static callback roster, its model has no animation modifier, and the current
+Portal callback does not raise the player. Physical `Level.05D` has no platform
+near its start at all.
+
+Both `Level.01D` and `Level.01N` instead declare `Teleport(20)` and nine exact
+`CreateTeleport` routes in `SCINC/localmain.sci`. May-executable disassembly
+confirms a non-rendering dynamic sphere configured by seven doubles; collision
+with global `g_vehicle` invokes the complete Vehicle position setter. The
+recovered owner parses those routes through the mod overlay, publishes nine
+subjects, rejects non-player collisions and proves a genuine
+`checkDynamicCollision` queued event before restoring the Vehicle pose. LCN1
+restore is guarded by the unchanged route fingerprint. A separate hermetic
+Vehicle/Teleport smoke repeats this active collision path on the retail
+`5120x5120` Arena dimensions, raising the complete Debug and Release gates to
+67/67 CTest. An opt-in
 `RR2NW_DUMP_SCENE_REFS=1` drawable-scene diagnostic now prints every named
 reference ordinal and centre so that trigger/platform ownership can be traced
 without editing the Level.

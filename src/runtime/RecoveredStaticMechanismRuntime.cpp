@@ -20,7 +20,14 @@ enum EMechanismKind {
   MECHANISM_WTR_B05,
   MECHANISM_WTR_F04,
   MECHANISM_FLG_CIV,
-  MECHANISM_FLG_VILL
+  MECHANISM_FLG_VILL,
+  MECHANISM_LEVEL1_FLAG,
+  MECHANISM_ROTATE_POL_13,
+  MECHANISM_ROTATE_TWN_PIKE,
+  MECHANISM_ROTATE_SLO_06A,
+  MECHANISM_DOOR_POL_03,
+  MECHANISM_DOOR_TEL_00,
+  MECHANISM_POL_16
 };
 
 struct ModifierSnapshot {
@@ -35,6 +42,7 @@ struct MechanismBinding {
   CViewObjectRef* reference = nullptr;
   CViewObjectBase* base = nullptr;
   double speed = 0.0;
+  double phase = 0.0;
   CFVector3 axes[6];
   CViewBaseModifier0* modifiers[8] = {};
   int modifierCount = 0;
@@ -85,15 +93,26 @@ const char* DirectoryLeaf(const char* directory) {
   return leaf;
 }
 
-double StableRange(const char* name, int ordinal, double minimum,
-                   double maximum) {
+double StableRangeSalted(const char* name, int ordinal,
+                         unsigned long long salt, double minimum,
+                         double maximum) {
   // Static presentation must not advance the authoritative simulation RNG.
   unsigned long long hash = kHashOffset;
   HashString(hash, name);
   HashBytes(hash, &ordinal, sizeof(ordinal));
+  HashBytes(hash, &salt, sizeof(salt));
   const double unit =
       static_cast<double>(hash & 0x00ffffffull) / 16777215.0;
   return minimum + (maximum - minimum) * unit;
+}
+
+double StableRange(const char* name, int ordinal, double minimum,
+                   double maximum) {
+  return StableRangeSalted(name, ordinal, 0, minimum, maximum);
+}
+
+double StablePhase(const char* name, int ordinal) {
+  return StableRangeSalted(name, ordinal, 1, 0.0, 5.0);
 }
 
 bool NamedVertex(CViewObjectBase& base, const char* name, int index,
@@ -271,6 +290,100 @@ void FlgVillCallback(CViewObjectBaseSet*, CViewObjectBase*,
   if (data != nullptr) AnimateFlag(*data, true);
 }
 
+void Level1FlagCallback(CViewObjectBaseSet*, CViewObjectBase*,
+                        CViewObjectRef* reference) {
+  MechanismBinding* data =
+      static_cast<MechanismBinding*>(reference->GetUserAttrib());
+  if (data == nullptr) return;
+  const double phase = Session::m_viewTime * data->speed + data->phase;
+  data->modifiers[1]->LoadIdentity()
+      .Translate(0.8 * (-5.0 + 2.0 * std::sin(phase + 3.14 * 0.2)) *
+                 data->axes[1])
+      .Translate(0.9 * std::sin(phase + 3.14 * 0.5) * data->axes[0]);
+  data->modifiers[2]->LoadIdentity()
+      .Translate((-5.5 + 2.5 * std::sin(phase + 3.14 * 0.8)) *
+                 data->axes[1])
+      .Translate(std::sin(phase + 3.14 * 0.65) * data->axes[0]);
+  data->modifiers[3]->LoadIdentity()
+      .Translate(1.1 * (-7.5 + 4.5 * std::sin(phase + 3.14 * 0.2)) *
+                 data->axes[1])
+      .Translate(1.1 * std::sin(phase) * data->axes[0]);
+  data->modifiers[4]->LoadIdentity()
+      .Translate((-10.0 + 5.5 * std::sin(phase + 3.14 * 0.4)) *
+                 data->axes[1])
+      .Translate(std::sin(phase + 3.14 * 0.35) * data->axes[0]);
+  data->modifiers[0]->LoadIdentity().Update();
+}
+
+void RotateCallback(CViewObjectBaseSet*, CViewObjectBase*,
+                    CViewObjectRef* reference) {
+  MechanismBinding* data =
+      static_cast<MechanismBinding*>(reference->GetUserAttrib());
+  if (data == nullptr) return;
+  data->modifiers[0]->LoadIdentity()
+      .RotateOy(Session::m_viewTime * data->speed + data->phase,
+                data->axes[0])
+      .Update();
+}
+
+void DoorCallback(CViewObjectBaseSet*, CViewObjectBase*,
+                  CViewObjectRef* reference) {
+  MechanismBinding* data =
+      static_cast<MechanismBinding*>(reference->GetUserAttrib());
+  if (data == nullptr) return;
+  const double cycle = Session::m_viewTime / 60.0;
+  const double phase =
+      Session::m_viewTime - std::floor(cycle) * 60.0;
+  double scale = 0.0;
+  if (phase >= 10.0 && phase <= 40.0) {
+    if (phase < 10.5)
+      scale = (phase - 10.0) / 0.5;
+    else if (phase > 39.5)
+      scale = (40.0 - phase) / 0.5;
+    else
+      scale = 1.0;
+  }
+  data->modifiers[0]->LoadIdentity()
+      .Translate(scale * data->axes[0])
+      .Update();
+}
+
+void Pol16Callback(CViewObjectBaseSet*, CViewObjectBase*,
+                   CViewObjectRef* reference) {
+  MechanismBinding* data =
+      static_cast<MechanismBinding*>(reference->GetUserAttrib());
+  if (data == nullptr) return;
+  const double cycle = (Session::m_viewTime + data->phase) / 7.0;
+  const double phase = Session::m_viewTime + data->phase -
+                       std::floor(cycle) * 7.0;
+  double angle = 0.0;
+  if (phase < 1.0)
+    angle = 50.0 * 3.14 / 180.0 +
+            (phase - 1.0) * 50.0 * 3.14 / 180.0;
+  else if (phase < 3.0)
+    angle = 150.0 * 3.14 / 180.0 +
+            (phase - 3.0) * 100.0 * 3.14 / 180.0 / 2.0;
+  else if (phase < 6.0)
+    angle = 150.0 * 3.14 / 180.0 -
+            (phase - 3.0) * 270.0 * 3.14 / 180.0 / 3.0;
+  else
+    angle = -120.0 * 3.14 / 180.0 +
+            (phase - 6.0) * 120.0 * 3.14 / 180.0;
+  const double armPhase =
+      Session::m_viewTime * data->speed + data->phase;
+  data->modifiers[0]->LoadIdentity()
+      .RotateOy(angle, data->axes[0])
+      .Update();
+  data->modifiers[1]->LoadIdentity()
+      .RotateOx(armPhase, data->axes[1])
+      .RotateOy(angle, data->axes[0])
+      .Update();
+  data->modifiers[2]->LoadIdentity()
+      .RotateOx(-armPhase, data->axes[1])
+      .RotateOy(angle, data->axes[0])
+      .Update();
+}
+
 bool ConfigureBinding(MechanismBinding& binding) {
   switch (binding.kind) {
     case MECHANISM_WTR_B05:
@@ -318,6 +431,53 @@ bool ConfigureBinding(MechanismBinding& binding) {
       return binding.kind != MECHANISM_FLG_VILL ||
              AddModifier(binding, "Point5");
     }
+    case MECHANISM_LEVEL1_FLAG:
+      binding.speed = StableRange(binding.name.c_str(), binding.ordinal, 6.0,
+                                  8.0);
+      binding.phase = StablePhase(binding.name.c_str(), binding.ordinal);
+      return Difference(*binding.base, "Axis0", 0, 1, 1.0,
+                        &binding.axes[0]) &&
+             Difference(*binding.base, "Axis1", 0, 1, 0.2,
+                        &binding.axes[1]) &&
+             AddModifier(binding, "Planes") &&
+             AddModifier(binding, "Point1") &&
+             AddModifier(binding, "Point2") &&
+             AddModifier(binding, "Point3") &&
+             AddModifier(binding, "Point4");
+    case MECHANISM_ROTATE_POL_13:
+    case MECHANISM_ROTATE_TWN_PIKE:
+    case MECHANISM_ROTATE_SLO_06A: {
+      double minimum = 0.5;
+      double maximum = 1.0;
+      if (binding.kind == MECHANISM_ROTATE_POL_13) {
+        minimum = 1.0;
+        maximum = 2.0;
+      } else if (binding.kind == MECHANISM_ROTATE_SLO_06A) {
+        maximum = 2.0;
+      }
+      binding.speed = StableRange(binding.name.c_str(), binding.ordinal,
+                                  minimum, maximum);
+      binding.phase = StablePhase(binding.name.c_str(), binding.ordinal);
+      return Midpoint(*binding.base, "Axis0", &binding.axes[0]) &&
+             AddModifier(binding, "Body");
+    }
+    case MECHANISM_DOOR_POL_03:
+      return Difference(*binding.base, "Axis0", 0, 1, 1.0,
+                        &binding.axes[0]) &&
+             AddModifier(binding, "Door");
+    case MECHANISM_DOOR_TEL_00:
+      return Difference(*binding.base, "Axis0", 1, 0, 1.0,
+                        &binding.axes[0]) &&
+             AddModifier(binding, "Door");
+    case MECHANISM_POL_16:
+      binding.phase = StablePhase(binding.name.c_str(), binding.ordinal);
+      binding.speed = StableRange(binding.name.c_str(), binding.ordinal, 2.0,
+                                  4.0);
+      return Midpoint(*binding.base, "Body", &binding.axes[0]) &&
+             Midpoint(*binding.base, "Arms", &binding.axes[1]) &&
+             AddModifier(binding, "Body") &&
+             AddModifier(binding, "LArm") &&
+             AddModifier(binding, "RArm");
   }
   return false;
 }
@@ -332,6 +492,17 @@ CViewObjectRef::TAnimationCallback CallbackFor(EMechanismKind kind) {
       return FlgCivCallback;
     case MECHANISM_FLG_VILL:
       return FlgVillCallback;
+    case MECHANISM_LEVEL1_FLAG:
+      return Level1FlagCallback;
+    case MECHANISM_ROTATE_POL_13:
+    case MECHANISM_ROTATE_TWN_PIKE:
+    case MECHANISM_ROTATE_SLO_06A:
+      return RotateCallback;
+    case MECHANISM_DOOR_POL_03:
+    case MECHANISM_DOOR_TEL_00:
+      return DoorCallback;
+    case MECHANISM_POL_16:
+      return Pol16Callback;
   }
   return nullptr;
 }
@@ -367,8 +538,18 @@ bool BindNamedReferences(CViewScene& scene, const char* name,
     g_summary.restoredModifiers += binding->modifierCount;
     if (kind == MECHANISM_WTR_B05 || kind == MECHANISM_WTR_F04)
       ++g_summary.waterwheelBindings;
-    else
+    else if (kind == MECHANISM_FLG_CIV || kind == MECHANISM_FLG_VILL ||
+             kind == MECHANISM_LEVEL1_FLAG)
       ++g_summary.flagBindings;
+    else if (kind == MECHANISM_ROTATE_POL_13 ||
+             kind == MECHANISM_ROTATE_TWN_PIKE ||
+             kind == MECHANISM_ROTATE_SLO_06A)
+      ++g_summary.rotatingBindings;
+    else if (kind == MECHANISM_DOOR_POL_03 ||
+             kind == MECHANISM_DOOR_TEL_00)
+      ++g_summary.doorBindings;
+    else if (kind == MECHANISM_POL_16)
+      ++g_summary.pol16Bindings;
     g_bindings.push_back(std::move(binding));
   }
   return true;
@@ -387,40 +568,36 @@ void RestoreAll() {
     RestoreBinding(*g_bindings[index]);
 }
 
-void AnimateAll() {
-  for (std::size_t index = 0; index < g_bindings.size(); ++index) {
-    MechanismBinding& binding = *g_bindings[index];
-    CallbackFor(binding.kind)(nullptr, binding.base, binding.reference);
-  }
-}
-
 bool Probe(double startTime) {
   const double savedViewTime = Session::m_viewTime;
   std::vector<unsigned long long> firstPoses;
   firstPoses.reserve(g_bindings.size());
   unsigned long long fingerprint = kHashOffset;
-
-  RestoreAll();
-  Session::m_viewTime = startTime;
-  AnimateAll();
-  for (std::size_t index = 0; index < g_bindings.size(); ++index) {
-    const unsigned long long pose = PoseFingerprint(*g_bindings[index]);
-    firstPoses.push_back(pose);
-    HashString(fingerprint, g_bindings[index]->name.c_str());
-    HashBytes(fingerprint, &g_bindings[index]->ordinal,
-              sizeof(g_bindings[index]->ordinal));
-    HashBytes(fingerprint, &pose, sizeof(pose));
-    ++g_summary.sampledPoses;
-  }
-
-  RestoreAll();
-  Session::m_viewTime = startTime + 0.5;
-  AnimateAll();
-  for (std::size_t index = 0; index < g_bindings.size(); ++index) {
-    const unsigned long long pose = PoseFingerprint(*g_bindings[index]);
-    if (pose != firstPoses[index]) ++g_summary.changedBindings;
-    HashBytes(fingerprint, &pose, sizeof(pose));
-    ++g_summary.sampledPoses;
+  std::vector<bool> changed(g_bindings.size(), false);
+  const double offsets[] = {0.0, 0.5, 10.25, 20.0, 39.75};
+  for (std::size_t sample = 0;
+       sample < sizeof(offsets) / sizeof(offsets[0]); ++sample) {
+    RestoreAll();
+    Session::m_viewTime = startTime + offsets[sample];
+    for (std::size_t index = 0; index < g_bindings.size(); ++index) {
+      MechanismBinding& binding = *g_bindings[index];
+      // A shared model is transformed immediately before each reference draw.
+      // Fingerprint that per-reference callback boundary instead of the final
+      // pose left behind by the last reference that shares the base.
+      CallbackFor(binding.kind)(nullptr, binding.base, binding.reference);
+      const unsigned long long pose = PoseFingerprint(binding);
+      if (sample == 0) {
+        firstPoses.push_back(pose);
+        HashString(fingerprint, g_bindings[index]->name.c_str());
+        HashBytes(fingerprint, &g_bindings[index]->ordinal,
+                  sizeof(g_bindings[index]->ordinal));
+      } else if (!changed[index] && pose != firstPoses[index]) {
+        changed[index] = true;
+        ++g_summary.changedBindings;
+      }
+      HashBytes(fingerprint, &pose, sizeof(pose));
+      ++g_summary.sampledPoses;
+    }
   }
 
   RestoreAll();
@@ -448,18 +625,35 @@ bool RecoveredStaticMechanism_Initialize(
   *summary = SRecoveredStaticMechanismSummary{};
   if (!std::isfinite(startTime))
     return Fail("mechanism start time is not finite");
-  g_summary.targetLevel =
+  g_summary.levelOne =
+      EqualsAsciiInsensitive(DirectoryLeaf(levelDirectory), "Level.01D") ||
+      EqualsAsciiInsensitive(DirectoryLeaf(levelDirectory), "Level.01N");
+  g_summary.levelFive =
       EqualsAsciiInsensitive(DirectoryLeaf(levelDirectory), "Level.05D");
+  g_summary.targetLevel = g_summary.levelOne || g_summary.levelFive;
   if (!g_summary.targetLevel) {
     g_summary.initialized = true;
     *summary = g_summary;
     return true;
   }
-  if (scene == nullptr ||
-      !BindNamedReferences(*scene, "wtr_b05", MECHANISM_WTR_B05, 3) ||
-      !BindNamedReferences(*scene, "wtr_f04", MECHANISM_WTR_F04, 8) ||
-      !BindNamedReferences(*scene, "flg_civ", MECHANISM_FLG_CIV, 1) ||
-      !BindNamedReferences(*scene, "flg_vill", MECHANISM_FLG_VILL, 1)) {
+  bool bound = scene != nullptr;
+  if (bound && g_summary.levelOne) {
+    bound = BindNamedReferences(*scene, "flag_fly", MECHANISM_LEVEL1_FLAG, 1) &&
+            BindNamedReferences(*scene, "flag_rbt", MECHANISM_LEVEL1_FLAG, 1) &&
+            BindNamedReferences(*scene, "flag_tnk", MECHANISM_LEVEL1_FLAG, 1) &&
+            BindNamedReferences(*scene, "pol_13", MECHANISM_ROTATE_POL_13, 1) &&
+            BindNamedReferences(*scene, "twn_pike", MECHANISM_ROTATE_TWN_PIKE, 19) &&
+            BindNamedReferences(*scene, "slo_06a", MECHANISM_ROTATE_SLO_06A, 7) &&
+            BindNamedReferences(*scene, "pol_03", MECHANISM_DOOR_POL_03, 3) &&
+            BindNamedReferences(*scene, "tel_00", MECHANISM_DOOR_TEL_00, 14) &&
+            BindNamedReferences(*scene, "pol_16", MECHANISM_POL_16, 50);
+  } else if (bound) {
+    bound = BindNamedReferences(*scene, "wtr_b05", MECHANISM_WTR_B05, 3) &&
+            BindNamedReferences(*scene, "wtr_f04", MECHANISM_WTR_F04, 8) &&
+            BindNamedReferences(*scene, "flg_civ", MECHANISM_FLG_CIV, 1) &&
+            BindNamedReferences(*scene, "flg_vill", MECHANISM_FLG_VILL, 1);
+  }
+  if (!bound) {
     if (scene == nullptr) g_lastError = "drawable scene is unavailable";
     const std::string error = g_lastError;
     RecoveredStaticMechanism_Release();
@@ -467,7 +661,8 @@ bool RecoveredStaticMechanism_Initialize(
     return false;
   }
   g_summary.bindingCount = static_cast<int>(g_bindings.size());
-  if (g_summary.bindingCount != 13) {
+  const int expectedBindings = g_summary.levelOne ? 97 : 13;
+  if (g_summary.bindingCount != expectedBindings) {
     g_lastError = "bounded mechanism roster proof failed";
     const std::string error = g_lastError;
     RecoveredStaticMechanism_Release();

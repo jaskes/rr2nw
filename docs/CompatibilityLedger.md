@@ -3624,6 +3624,31 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Frontier E adds a persistent owner class outside the current LCN1 authority
   graph. Either change must preserve the same two-layer rollback proof.
 
+### CQ-193: catalog index 5 and physical Level.05D are different lift claims
+
+- Status: `RETAIL_IDENTITY_CONFIRMED`, `TELEPORT_OWNER_RECOVERED`.
+- Evidence: installed `game.cfg` maps catalog index 5 to `Level.01D`. Its start
+  is 4.52 units from `portal`, 30.67 from `plat_04f#0`, and roughly 84 units
+  below the first road references. Physical `Level.05D` starts beside `portal`
+  and trees; its nearest bridge geometry is more than 224 units away.
+- Handling: the complete non-empty May `g_staticInit1` callback roster is now
+  admitted for both `Level.01D` and `Level.01N`, whose scripts each call
+  `s_SetLevel(1)`, independently of the lift. `plat_04f` is not assigned a
+  guessed callback because it is only the visible floor. Both Level variants
+  create `Teleport(20)` plus nine routes; the first three sources/destinations
+  align with the platform chain. May `nw.exe` `receiveEvent` at `0x4b844c`
+  confirms source/radius/destination setup and a collision gate restricted to
+  global `g_vehicle` before the position-setter call at `0x5587dc`.
+- Verification: Debug and Release retail matrices require exact Level.01D/01N
+  `97/3/27/17/50/485/209` and Level.05D `13/11/2/65/84` presentation telemetry;
+  every other Level must remain empty. Level.01D/01N additionally require the
+  exact `20/9/1/1/1` Teleport capacity/route/non-player/physics/rollback proof;
+  other Levels remain empty. Same-Level LCN1 restore preserves its fingerprint.
+  The hermetic active-route smoke brings both ordinary CTest gates to 67/67.
+- Revisit when: a verified March executable differs from the May nine-route
+  roster, or retail play proves a destination/orientation rule absent from the
+  recovered collision contract.
+
 ## Maintenance rule
 
 When a new quirk is found:

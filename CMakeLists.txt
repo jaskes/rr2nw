@@ -3034,6 +3034,33 @@ target_link_libraries(rr2nw_arena_obase_vehicle PUBLIC
   rr2nw_arena_taxi_attribute_state
 )
 
+add_library(rr2nw_arena_obase_teleport STATIC
+  nw/ARENA/OBASE/Teleport/TeleportSubjectState.cpp
+  nw/ARENA/OBASE/Teleport/TeleportSubjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_teleport PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_obase_vehicle
+)
+target_include_directories(rr2nw_arena_obase_teleport PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Teleport
+)
+target_compile_features(rr2nw_arena_obase_teleport PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_teleport PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_teleport PRIVATE
+    /W4 /permissive- /wd4081
+  )
+endif()
+
 add_library(rr2nw_arena_obase_taxi_full STATIC
   nw/ARENA/OBASE/Taxi/Taxi.cpp
   nw/ARENA/OBASE/Taxi/TaxiActiveWorldState.cpp
@@ -3556,6 +3583,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_artefact_attribute_state
   rr2nw_arena_obase_orphan_full
   rr2nw_arena_obase_portal
+  rr2nw_arena_obase_teleport
   rr2nw_arena_bullet_attribute_state
   rr2nw_arena_explosion_attribute_state
   rr2nw_arena_farter_attribute_state
@@ -4433,6 +4461,22 @@ target_compile_definitions(
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_teleport_subject_state_smoke
+  src/portability/TeleportSubjectStateSmoke.cpp
+)
+target_link_libraries(rr2nw_teleport_subject_state_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_teleport_subject_state_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_teleport_subject_state_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_recovered_arena_seance_runtime_smoke
   src/portability/RecoveredArenaSeanceRuntimeSmoke.cpp
 )
@@ -4728,6 +4772,9 @@ if(MSVC)
     rr2nw_active_world_fresh_restore_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_teleport_subject_state_smoke PRIVATE /W4 /permissive- /wd4081
+  )
+  target_compile_options(
     rr2nw_recovered_arena_seance_runtime_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -4824,6 +4871,10 @@ if(BUILD_TESTING)
   add_test(
     NAME active-world-fresh-restore-smoke
     COMMAND rr2nw_active_world_fresh_restore_smoke
+  )
+  add_test(
+    NAME teleport-subject-state-smoke
+    COMMAND rr2nw_teleport_subject_state_smoke
   )
   add_test(
     NAME legacy-context-route-smoke

@@ -654,6 +654,15 @@ bool IsServiceReleased() {
          SoundObjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SkinResourcesReady() &&
          !RecoveredArenaSeance_SkinAnimationsReady() &&
+         !RecoveredArenaSeance_TeleportRoutesReady() &&
+         !RecoveredArenaSeance_TeleportTargetLevel() &&
+         RecoveredArenaSeance_TeleportCapacity() == 0 &&
+         RecoveredArenaSeance_TeleportRouteCount() == 0 &&
+         RecoveredArenaSeance_TeleportProbeRejectedNonPlayer() == 0 &&
+         RecoveredArenaSeance_TeleportProbePhysicsCollisions() == 0 &&
+         RecoveredArenaSeance_TeleportProbeAppliedPlayer() == 0 &&
+         RecoveredArenaSeance_TeleportProbeVehicleRollbacks() == 0 &&
+         RecoveredArenaSeance_TeleportFingerprint() == 0 &&
          RecoveredArenaSeance_SkinAnimationEntryCallCount() == 0 &&
          RecoveredArenaSeance_SkinAnimatedModelCount() == 0 &&
          RecoveredArenaSeance_SkinAnimationCommandCount() == 0 &&
@@ -666,9 +675,14 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_SkinAnimationPoseFingerprint() == 0 &&
          !RecoveredArenaSeance_StaticMechanismsReady() &&
          !RecoveredArenaSeance_StaticMechanismTargetLevel() &&
+         !RecoveredArenaSeance_StaticMechanismLevelOne() &&
+         !RecoveredArenaSeance_StaticMechanismLevelFive() &&
          RecoveredArenaSeance_StaticMechanismBindingCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismWaterwheelCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismFlagCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismRotatingCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismDoorCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismPol16Count() == 0 &&
          RecoveredArenaSeance_StaticMechanismChangedBindingCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismPoseSampleCount() == 0 &&
          RecoveredArenaSeance_StaticMechanismRestoredModifierCount() == 0 &&
@@ -4893,6 +4907,15 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_SeanceReady() ||
       !RecoveredGameServices_BirdAttributesReady() ||
       !RecoveredGameServices_PortalReady() ||
+      !RecoveredArenaSeance_TeleportRoutesReady() ||
+      RecoveredArenaSeance_TeleportTargetLevel() ||
+      RecoveredArenaSeance_TeleportCapacity() != 0 ||
+      RecoveredArenaSeance_TeleportRouteCount() != 0 ||
+      RecoveredArenaSeance_TeleportProbeRejectedNonPlayer() != 0 ||
+      RecoveredArenaSeance_TeleportProbePhysicsCollisions() != 0 ||
+      RecoveredArenaSeance_TeleportProbeAppliedPlayer() != 0 ||
+      RecoveredArenaSeance_TeleportProbeVehicleRollbacks() != 0 ||
+      RecoveredArenaSeance_TeleportFingerprint() != 0 ||
       !RecoveredGameServices_OrphanAttributesReady() ||
       !RecoveredGameServices_OrphanReferencesReady() ||
       !RecoveredGameServices_OrphanSubjectReady() ||
@@ -4957,9 +4980,14 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SkinAnimationPoseFingerprint() != 0 ||
       !RecoveredArenaSeance_StaticMechanismsReady() ||
       RecoveredArenaSeance_StaticMechanismTargetLevel() ||
+      RecoveredArenaSeance_StaticMechanismLevelOne() ||
+      RecoveredArenaSeance_StaticMechanismLevelFive() ||
       RecoveredArenaSeance_StaticMechanismBindingCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismWaterwheelCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismFlagCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismRotatingCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismDoorCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismPol16Count() != 0 ||
       RecoveredArenaSeance_StaticMechanismChangedBindingCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismPoseSampleCount() != 0 ||
       RecoveredArenaSeance_StaticMechanismRestoredModifierCount() != 0 ||

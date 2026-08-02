@@ -2051,12 +2051,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_StaticMechanismsReady() ? 1 : 0));
   log.Line("static_mechanism_target_level=" + std::to_string(
                RecoveredArenaSeance_StaticMechanismTargetLevel() ? 1 : 0));
+  log.Line("static_mechanism_level_one=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismLevelOne() ? 1 : 0));
+  log.Line("static_mechanism_level_five=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismLevelFive() ? 1 : 0));
   log.Line("static_mechanism_bindings=" + std::to_string(
                RecoveredArenaSeance_StaticMechanismBindingCount()));
   log.Line("static_mechanism_waterwheels=" + std::to_string(
                RecoveredArenaSeance_StaticMechanismWaterwheelCount()));
   log.Line("static_mechanism_flags=" + std::to_string(
                RecoveredArenaSeance_StaticMechanismFlagCount()));
+  log.Line("static_mechanism_rotating=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismRotatingCount()));
+  log.Line("static_mechanism_doors=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismDoorCount()));
+  log.Line("static_mechanism_pol16=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismPol16Count()));
   log.Line("static_mechanism_changed_bindings=" + std::to_string(
                RecoveredArenaSeance_StaticMechanismChangedBindingCount()));
   log.Line("static_mechanism_pose_samples=" + std::to_string(
@@ -2065,6 +2075,24 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_StaticMechanismRestoredModifierCount()));
   log.Line("static_mechanism_fingerprint=" + std::to_string(
                RecoveredArenaSeance_StaticMechanismFingerprint()));
+  log.Line("teleport_routes_initialized=" + std::to_string(
+               RecoveredArenaSeance_TeleportRoutesReady() ? 1 : 0));
+  log.Line("teleport_target_level=" + std::to_string(
+               RecoveredArenaSeance_TeleportTargetLevel() ? 1 : 0));
+  log.Line("teleport_capacity=" + std::to_string(
+               RecoveredArenaSeance_TeleportCapacity()));
+  log.Line("teleport_route_count=" + std::to_string(
+               RecoveredArenaSeance_TeleportRouteCount()));
+  log.Line("teleport_probe_rejected_non_player=" + std::to_string(
+               RecoveredArenaSeance_TeleportProbeRejectedNonPlayer()));
+  log.Line("teleport_probe_physics_collisions=" + std::to_string(
+               RecoveredArenaSeance_TeleportProbePhysicsCollisions()));
+  log.Line("teleport_probe_applied_player=" + std::to_string(
+               RecoveredArenaSeance_TeleportProbeAppliedPlayer()));
+  log.Line("teleport_probe_vehicle_rollbacks=" + std::to_string(
+               RecoveredArenaSeance_TeleportProbeVehicleRollbacks()));
+  log.Line("teleport_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_TeleportFingerprint()));
   log.Line("spark_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SparkAttributesReady() ? 1 : 0));

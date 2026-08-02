@@ -5,9 +5,14 @@ class CViewScene;
 struct SRecoveredStaticMechanismSummary {
   bool initialized;
   bool targetLevel;
+  bool levelOne;
+  bool levelFive;
   int bindingCount;
   int waterwheelBindings;
   int flagBindings;
+  int rotatingBindings;
+  int doorBindings;
+  int pol16Bindings;
   int changedBindings;
   int sampledPoses;
   int restoredModifiers;

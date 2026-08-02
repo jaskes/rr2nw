@@ -1116,7 +1116,7 @@ state and input ordering are covered by RP-INPUT-001 below.
 ### RP-SCRIPT-034: Level.05D owns its May static presentation callbacks
 
 - Classification: `MAY_ROSTER_RECOVERED`, `PRESENTATION_OWNER_ADMITTED`,
-  `STARTING_LIFT_UNCLAIMED`.
+  `STARTING_LIFT_SEPARATE_OWNER`.
 - The May-linked physical `Level.05D` roster is exactly three `wtr_b05`, eight
   `wtr_f04`, one `flg_civ` and one `flg_vill` reference. Each binding validates
   its named axes and modifiers before publishing callback/user ownership.
@@ -1132,8 +1132,54 @@ state and input ordering are covered by RP-INPUT-001 below.
   only ownership still held by this service. Debug and Release accept all nine
   installed Levels; non-target Levels must expose no leaked binding.
 - Catalog index 5 is `Level.01D`, not physical `Level.05D`. Its reported
-  start-to-road lift remains open: the nearby `plat_04f` has no animation
-  modifier and the current Portal callback is not the lift owner.
+  start-to-road lift is the separate script-created Teleport owner recovered in
+  RP-SCRIPT-036; the nearby `plat_04f` correctly has no animation modifier.
+
+### RP-SCRIPT-035: Level.01D/01N own the complete May static callback roster
+
+- Classification: `MAY_ROSTER_RECOVERED`, `PRESENTATION_OWNER_ADMITTED`,
+  `LIFT_OWNER_SEPARATE_AND_RECOVERED`.
+- Both retail `localmain.sci` programs call `s_SetLevel(1)`, so the admitted
+  roster applies to day and night. It is 97 references: three flags, 27 rotators, 17 doors and
+  fifty `pol_16` figures. The exact named counts are `flag_fly=1`,
+  `flag_rbt=1`, `flag_tnk=1`, `pol_13=1`, `twn_pike=19`, `slo_06a=7`,
+  `pol_03=3`, `tel_00=14` and `pol_16=50`.
+- Preserved callback equations run against 209 validated modifier objects. All
+  references are preflighted before callback/user ownership is published;
+  failure and ordinary teardown restore baseline vertices and the scene clock.
+- Five scene-time poses prove every binding changes. Each pose is captured at
+  the per-reference callback boundary so references sharing a model cannot be
+  mistaken for one final shared pose. Visual speed and phase use independent
+  stable salts and never consume the authoritative RNG.
+- Installed `game.cfg`, both start coordinates and the scene-reference dump
+  disambiguate the lift report: only `Level.01D` has a nearby `plat_04f`.
+  Neither the May callback-name roster nor the model modifiers identify it as
+  an admitted mechanism. RP-SCRIPT-036 restores the independent invisible
+  Teleport trigger rather than inventing movement/player carry here.
+
+### RP-SCRIPT-036: Level.01D/01N own nine exact Teleport routes
+
+- Classification: `MAY_BINARY_CONTRACT_RECOVERED`,
+  `LEVEL_SCRIPT_ROSTER_ADMITTED`, `COLLISION_PATH_PROVED`.
+- Both selected `localmain.sci` files declare `Teleport(20)` and nine literal
+  `CreateTeleport` calls with radius 5. Only these two physical Levels own the
+  table; all other retail Levels publish the canonical empty route owner.
+- May `nw.exe` reads source xyz, radius and destination xyz on `KR_SET_ATTR`.
+  Its collision handler compares the event object ID with `g_vehicle` and only
+  then sets the Vehicle position. It does not animate `plat_04f`, carry arbitrary
+  actors or request a Portal/campaign transition.
+- The recovered owner is an invisible `IDynamicObject` sphere. Admission proves
+  a foreign collision is inert, drives the real `checkDynamicCollision` queue,
+  dispatches the generated player event, observes the destination, and rolls
+  back position, cache position, direction and speed. Exact expected telemetry
+  is capacity/routes/rejected/physics/rollback `20/9/1/1/1` with non-zero stable
+  fingerprint.
+- Routes are read through the deterministic mod overlay. Same-Level LCN1 load
+  requires unchanged route identity; cross-Level load reconstructs from the
+  target Level script. The object also retains the seven-double legacy PIN
+  dump/load form. A dedicated asset-free smoke publishes one live route and
+  repeats the physical collision/rollback proof under CI; Debug and Release are
+  67/67, while the installed matrix remains the nine-route authority.
 
 ### RP-RENDER-001: the recovered executable renders a real textured Level
 
