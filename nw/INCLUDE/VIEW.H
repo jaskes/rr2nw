@@ -580,6 +580,9 @@ public:
 class	CViewObjectRef : public CViewOrdered
 								// Reference to CViewObjectBase
 {
+public:
+	typedef void (*TAnimationCallback)(CViewObjectBaseSet *pBaseSet,
+		CViewObjectBase *pBase,CViewObjectRef *pRef);
 protected:
 	CViewObjectModel	*m_pBase;
 	CFMatrix3x4	m_dir;		// Direct transformation orthogonal matrix
@@ -599,7 +602,7 @@ protected:
 	friend	class CViewFigure;
 	friend	class CViewRenderState;
 
-	void	(*m_AnimationCallback)(CViewObjectBaseSet *pBaseSet,CViewObjectBase *pBase,CViewObjectRef *pRef);
+	TAnimationCallback m_AnimationCallback;
 	void	*m_pUserAttrib;
 	static	CViewObjectRef	*m_pCurrRef;
 	static	CFMatrix3x4		*m_pCurrRefDir;
@@ -635,8 +638,10 @@ public:
 	double ComputeBSPError(TCCFVector3 &pt,TCCFVector3 &n,double d);
 	virtual void ApplyModelUsage();
 	virtual void ComputeMaxHeight();
-	void	SetAnimationCallback(void (*pCallback)(CViewObjectBaseSet *pBaseSet,CViewObjectBase *pBase,CViewObjectRef *pRef)) {
-				m_AnimationCallback = pCallback; IF_DEBUG(m_pBase->m_bAnimate = TRUE); }
+	void	SetAnimationCallback(TAnimationCallback pCallback) {
+				m_AnimationCallback = pCallback;
+				IF_DEBUG(m_pBase->m_bAnimate = pCallback != NULL); }
+	TAnimationCallback GetAnimationCallback() const { return m_AnimationCallback; }
 	void	SetUserAttrib(void *pAttrib) { m_pUserAttrib = pAttrib; }
 	void	*GetUserAttrib() { return m_pUserAttrib; }
 

@@ -67,11 +67,13 @@ class CGRPanel;
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredGameplayTuningRuntime.h"
 #include "RecoveredScriptEventRuntime.h"
+#include "RecoveredStaticMechanismRuntime.h"
 #include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "SimulationRandom.h"
 #include "RecoveredSkinResourceCatalog.h"
 #include "RecoveredWavMetadataCatalog.h"
+#include "ZavSceneState.h"
 
 namespace {
 
@@ -1415,6 +1417,8 @@ struct RecoveredArenaSeanceState {
   bool soundDistanceReady;
   bool skinResourcesReady;
   bool skinAnimationsReady;
+  bool staticMechanismsReady;
+  bool staticMechanismTargetLevel;
   bool sparkAttributesReady;
   bool sparkSubjectReady;
   bool sparkVisualResourcesReady;
@@ -1579,6 +1583,18 @@ struct RecoveredArenaSeanceState {
   int skinAnimationCommandCount;
   unsigned long long skinAnimationSourceFingerprint;
   unsigned long long skinAnimationStateFingerprint;
+  int skinAnimationPoseTemporalModelCount;
+  int skinAnimationPoseChangedModelCount;
+  int skinAnimationPoseSampleCount;
+  int skinAnimationPoseRestoredModifierCount;
+  unsigned long long skinAnimationPoseFingerprint;
+  int staticMechanismBindingCount;
+  int staticMechanismWaterwheelCount;
+  int staticMechanismFlagCount;
+  int staticMechanismChangedBindingCount;
+  int staticMechanismPoseSampleCount;
+  int staticMechanismRestoredModifierCount;
+  unsigned long long staticMechanismFingerprint;
   int wavMetadataCount;
   int wavMetadataCapacity;
   unsigned long long wavCatalogFingerprint;
@@ -3895,6 +3911,27 @@ bool PublishSkinAnimations(SimulationContext* context, double startTime) {
   const int commands = SkinResourceState_AnimationCommandCount(context);
   const unsigned long long stateFingerprint =
       SkinResourceState_AnimationFingerprint(context);
+  SSkinAnimationPoseProbeSummary poseProbe = {};
+  if (animatedModels > 0 &&
+      (!SkinResourceState_ProbeAnimationPoses(context, startTime, &poseProbe) ||
+       poseProbe.animatedModels != animatedModels ||
+       poseProbe.temporalModels <= 0 ||
+       poseProbe.changedModels != poseProbe.temporalModels ||
+       poseProbe.sampledPoses != animatedModels * 10 ||
+       poseProbe.restoredModifiers <= 0 || poseProbe.fingerprint == 0)) {
+    char message[224] = {};
+    std::snprintf(message, sizeof(message),
+                  "Skin live-pose proof failed "
+                  "(models=%d/%d temporal=%d changed=%d samples=%d "
+                  "restored=%d fingerprint=%llu)",
+                  poseProbe.animatedModels, animatedModels,
+                  poseProbe.temporalModels, poseProbe.changedModels,
+                  poseProbe.sampledPoses, poseProbe.restoredModifiers,
+                  poseProbe.fingerprint);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_STATE_FAILURE, message);
+    return false;
+  }
   if (!SkinResourceState_AnimationProgramsReady(context) ||
       animatedModels < 0 || animatedModels > g_state.skinModelCount ||
       commands < 0 || commands > 4096 || stateFingerprint == 0 ||
@@ -3915,7 +3952,56 @@ bool PublishSkinAnimations(SimulationContext* context, double startTime) {
   g_state.skinAnimationCommandCount = commands;
   g_state.skinAnimationSourceFingerprint = sourceFingerprint;
   g_state.skinAnimationStateFingerprint = stateFingerprint;
+  g_state.skinAnimationPoseTemporalModelCount = poseProbe.temporalModels;
+  g_state.skinAnimationPoseChangedModelCount = poseProbe.changedModels;
+  g_state.skinAnimationPoseSampleCount = poseProbe.sampledPoses;
+  g_state.skinAnimationPoseRestoredModifierCount =
+      poseProbe.restoredModifiers;
+  g_state.skinAnimationPoseFingerprint = poseProbe.fingerprint;
   g_state.skinAnimationsReady = true;
+  return true;
+}
+
+bool PublishStaticMechanisms(double startTime) {
+  SRecoveredStaticMechanismSummary summary = {};
+  if (!RecoveredStaticMechanism_Initialize(
+          ZAV_Scene(), RecoveredLevelRuntime_Directory(), startTime,
+          &summary)) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_STATIC_MECHANISM_FAILURE,
+        RecoveredStaticMechanism_LastError());
+    return false;
+  }
+  if (!summary.initialized || summary.bindingCount < 0 ||
+      summary.waterwheelBindings < 0 || summary.flagBindings < 0 ||
+      summary.changedBindings < 0 || summary.sampledPoses < 0 ||
+      summary.restoredModifiers < 0 ||
+      (summary.targetLevel &&
+       (summary.bindingCount != 13 || summary.waterwheelBindings != 11 ||
+        summary.flagBindings != 2 ||
+        summary.changedBindings != summary.bindingCount ||
+        summary.sampledPoses != summary.bindingCount * 2 ||
+        summary.restoredModifiers != 84 || summary.fingerprint == 0)) ||
+      (!summary.targetLevel &&
+       (summary.bindingCount != 0 || summary.waterwheelBindings != 0 ||
+        summary.flagBindings != 0 || summary.changedBindings != 0 ||
+        summary.sampledPoses != 0 || summary.restoredModifiers != 0 ||
+        summary.fingerprint != 0))) {
+    RecoveredStaticMechanism_Release();
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_STATIC_MECHANISM_FAILURE,
+        "Level static mechanism telemetry violated its bounded contract");
+    return false;
+  }
+  g_state.staticMechanismTargetLevel = summary.targetLevel;
+  g_state.staticMechanismBindingCount = summary.bindingCount;
+  g_state.staticMechanismWaterwheelCount = summary.waterwheelBindings;
+  g_state.staticMechanismFlagCount = summary.flagBindings;
+  g_state.staticMechanismChangedBindingCount = summary.changedBindings;
+  g_state.staticMechanismPoseSampleCount = summary.sampledPoses;
+  g_state.staticMechanismRestoredModifierCount = summary.restoredModifiers;
+  g_state.staticMechanismFingerprint = summary.fingerprint;
+  g_state.staticMechanismsReady = true;
   return true;
 }
 
@@ -5368,7 +5454,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       return FALSE;
     }
     if (!PublishSkinResources(context) ||
-        !PublishSkinAnimations(context, startTime)) {
+        !PublishSkinAnimations(context, startTime) ||
+        !PublishStaticMechanisms(startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -5506,6 +5593,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  RecoveredStaticMechanism_Release();
   RecoveredScriptEvents_Release(g_arena.getContext());
   RecoveredGameplayTuning_Release(g_arena.getContext());
   OrphanAttributeState_ClearReferences(g_arena.getContext());
@@ -5816,6 +5904,20 @@ void RecoveredArenaSeance_Release() {
   g_state.skinAnimationCommandCount = 0;
   g_state.skinAnimationSourceFingerprint = 0;
   g_state.skinAnimationStateFingerprint = 0;
+  g_state.skinAnimationPoseTemporalModelCount = 0;
+  g_state.skinAnimationPoseChangedModelCount = 0;
+  g_state.skinAnimationPoseSampleCount = 0;
+  g_state.skinAnimationPoseRestoredModifierCount = 0;
+  g_state.skinAnimationPoseFingerprint = 0;
+  g_state.staticMechanismsReady = false;
+  g_state.staticMechanismTargetLevel = false;
+  g_state.staticMechanismBindingCount = 0;
+  g_state.staticMechanismWaterwheelCount = 0;
+  g_state.staticMechanismFlagCount = 0;
+  g_state.staticMechanismChangedBindingCount = 0;
+  g_state.staticMechanismPoseSampleCount = 0;
+  g_state.staticMechanismRestoredModifierCount = 0;
+  g_state.staticMechanismFingerprint = 0;
   g_state.artefactAttributesReady = false;
   g_state.orphanAttributesReady = false;
   g_state.orphanReferencesReady = false;
@@ -7208,6 +7310,62 @@ unsigned long long RecoveredArenaSeance_SkinAnimationSourceFingerprint() {
 
 unsigned long long RecoveredArenaSeance_SkinAnimationStateFingerprint() {
   return g_state.skinAnimationStateFingerprint;
+}
+
+int RecoveredArenaSeance_SkinAnimationPoseTemporalModelCount() {
+  return g_state.skinAnimationPoseTemporalModelCount;
+}
+
+int RecoveredArenaSeance_SkinAnimationPoseChangedModelCount() {
+  return g_state.skinAnimationPoseChangedModelCount;
+}
+
+int RecoveredArenaSeance_SkinAnimationPoseSampleCount() {
+  return g_state.skinAnimationPoseSampleCount;
+}
+
+int RecoveredArenaSeance_SkinAnimationPoseRestoredModifierCount() {
+  return g_state.skinAnimationPoseRestoredModifierCount;
+}
+
+unsigned long long RecoveredArenaSeance_SkinAnimationPoseFingerprint() {
+  return g_state.skinAnimationPoseFingerprint;
+}
+
+bool RecoveredArenaSeance_StaticMechanismsReady() {
+  return g_state.staticMechanismsReady;
+}
+
+bool RecoveredArenaSeance_StaticMechanismTargetLevel() {
+  return g_state.staticMechanismTargetLevel;
+}
+
+int RecoveredArenaSeance_StaticMechanismBindingCount() {
+  return g_state.staticMechanismBindingCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismWaterwheelCount() {
+  return g_state.staticMechanismWaterwheelCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismFlagCount() {
+  return g_state.staticMechanismFlagCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismChangedBindingCount() {
+  return g_state.staticMechanismChangedBindingCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismPoseSampleCount() {
+  return g_state.staticMechanismPoseSampleCount;
+}
+
+int RecoveredArenaSeance_StaticMechanismRestoredModifierCount() {
+  return g_state.staticMechanismRestoredModifierCount;
+}
+
+unsigned long long RecoveredArenaSeance_StaticMechanismFingerprint() {
+  return g_state.staticMechanismFingerprint;
 }
 
 bool RecoveredArenaSeance_SparkAttributesReady() {

@@ -7,6 +7,16 @@ class SimulationContext;
 class CViewObjectModel;
 class CViewTexture;
 
+struct SSkinAnimationPoseProbeSummary
+{
+    int animatedModels;
+    int temporalModels;
+    int changedModels;
+    int sampledPoses;
+    int restoredModifiers;
+    unsigned long long fingerprint;
+};
+
 bool SkinResourceState_ResolveLoadedModel(SimulationContext *context,
                                           const char *objectName,
                                           KR_ObjectID *objectID,
@@ -26,5 +36,8 @@ int SkinResourceState_AnimatedModelCount(SimulationContext *context);
 int SkinResourceState_AnimationCommandCount(SimulationContext *context);
 unsigned long long SkinResourceState_AnimationFingerprint(
     SimulationContext *context);
+bool SkinResourceState_ProbeAnimationPoses(
+    SimulationContext *context, double startTime,
+    SSkinAnimationPoseProbeSummary *summary);
 
 #endif

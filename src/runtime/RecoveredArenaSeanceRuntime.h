@@ -136,7 +136,8 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_GAMEPLAY_TUNING_FAILURE = 1ull << 59,
   RECOVERED_ARENA_SEANCE_EXT_SCRIPT_EVENT_FAILURE = 1ull << 60,
   RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_SCRIPT_FAILURE = 1ull << 61,
-  RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_STATE_FAILURE = 1ull << 62
+  RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_STATE_FAILURE = 1ull << 62,
+  RECOVERED_ARENA_SEANCE_EXT_STATIC_MECHANISM_FAILURE = 1ull << 63
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -343,6 +344,20 @@ int RecoveredArenaSeance_SkinAnimatedModelCount();
 int RecoveredArenaSeance_SkinAnimationCommandCount();
 unsigned long long RecoveredArenaSeance_SkinAnimationSourceFingerprint();
 unsigned long long RecoveredArenaSeance_SkinAnimationStateFingerprint();
+int RecoveredArenaSeance_SkinAnimationPoseTemporalModelCount();
+int RecoveredArenaSeance_SkinAnimationPoseChangedModelCount();
+int RecoveredArenaSeance_SkinAnimationPoseSampleCount();
+int RecoveredArenaSeance_SkinAnimationPoseRestoredModifierCount();
+unsigned long long RecoveredArenaSeance_SkinAnimationPoseFingerprint();
+bool RecoveredArenaSeance_StaticMechanismsReady();
+bool RecoveredArenaSeance_StaticMechanismTargetLevel();
+int RecoveredArenaSeance_StaticMechanismBindingCount();
+int RecoveredArenaSeance_StaticMechanismWaterwheelCount();
+int RecoveredArenaSeance_StaticMechanismFlagCount();
+int RecoveredArenaSeance_StaticMechanismChangedBindingCount();
+int RecoveredArenaSeance_StaticMechanismPoseSampleCount();
+int RecoveredArenaSeance_StaticMechanismRestoredModifierCount();
+unsigned long long RecoveredArenaSeance_StaticMechanismFingerprint();
 bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_SparkSubjectReady();
 bool RecoveredArenaSeance_SparkVisualResourcesReady();

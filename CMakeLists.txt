@@ -3532,6 +3532,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredSavePreview.h
   src/runtime/RecoveredSaveSlotDialog.cpp
   src/runtime/RecoveredSaveSlotDialog.h
+  src/runtime/RecoveredStaticMechanismRuntime.cpp
+  src/runtime/RecoveredStaticMechanismRuntime.h
   src/runtime/VehicleControlJournal.cpp
   src/runtime/VehicleControlJournal.h
   src/runtime/VehicleControlReplayProbe.cpp

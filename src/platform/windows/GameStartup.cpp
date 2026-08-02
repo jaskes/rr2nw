@@ -2037,6 +2037,34 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_SkinAnimationSourceFingerprint()));
   log.Line("skin_animation_state_fingerprint=" + std::to_string(
                RecoveredArenaSeance_SkinAnimationStateFingerprint()));
+  log.Line("skin_animation_pose_temporal_models=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationPoseTemporalModelCount()));
+  log.Line("skin_animation_pose_changed_models=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationPoseChangedModelCount()));
+  log.Line("skin_animation_pose_samples=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationPoseSampleCount()));
+  log.Line("skin_animation_pose_restored_modifiers=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationPoseRestoredModifierCount()));
+  log.Line("skin_animation_pose_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationPoseFingerprint()));
+  log.Line("static_mechanisms_initialized=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismsReady() ? 1 : 0));
+  log.Line("static_mechanism_target_level=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismTargetLevel() ? 1 : 0));
+  log.Line("static_mechanism_bindings=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismBindingCount()));
+  log.Line("static_mechanism_waterwheels=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismWaterwheelCount()));
+  log.Line("static_mechanism_flags=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismFlagCount()));
+  log.Line("static_mechanism_changed_bindings=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismChangedBindingCount()));
+  log.Line("static_mechanism_pose_samples=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismPoseSampleCount()));
+  log.Line("static_mechanism_restored_modifiers=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismRestoredModifierCount()));
+  log.Line("static_mechanism_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_StaticMechanismFingerprint()));
   log.Line("spark_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SparkAttributesReady() ? 1 : 0));

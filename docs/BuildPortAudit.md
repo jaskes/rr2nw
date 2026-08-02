@@ -1255,6 +1255,49 @@ the exact counts/fingerprints,
 `bounded-retail-skin-resource-smoke-explosion-attribute-vehicle-bootstrap`,
 zero service issues, `level-ready` and `runtime_shutdown=clean`.
 
+### Live Skin poses and Level.05D static mechanisms
+
+Animation readiness now proves geometry rather than accepting program tables
+alone. For each animated Skin the owner snapshots every unique live modifier,
+executes the actual automatic program at ten scene-time offsets, hashes the
+resulting vertices and requires every model with a non-zero temporal command to
+change. A two-pass restore returns all vertices before recalculating dependent
+figure and cluster normals; `Session::m_viewTime` is restored separately. The
+installed Debug matrix observes temporal/changed model counts `7/7`, `7/7`,
+`14/14`, `14/14`, `9/9`, `8/8`, `15/15`, `7/7` and canonical empty `0/0`.
+
+The May executable narrows physical `Level.05D` static animation to 13 named
+references even though the preserved source contains additional blocks. The
+recovered owner binds the three `wtr_b05`, eight `wtr_f04`, one `flg_civ` and
+one `flg_vill` references only after validating their real named axes and base
+modifiers. It executes the preserved wheel, piston, tube and flag equations.
+The flag `Planes` modifier legitimately owns zero vertices: Point modifiers
+move the cloth control geometry and `Planes.Update()` recalculates its derived
+normals. Treating a zero-vertex update modifier as a missing model was rejected
+by the installed-data proof.
+
+The owner does not consume the authoritative simulation RNG for purely visual
+speed selection. A stable name/ordinal value preserves the original `4..6`
+waterwheel and `6..8` flag ranges across reconstruction. Initialization samples
+all 13 bindings at two times, proves `13/13` changed poses, restores all 84
+modifier objects and the scene clock, then leaves the callbacks live. Teardown
+restores baseline geometry and clears only callbacks/user pointers still owned
+by this service. The acceptance matrix requires exact `13/11/2/13/26/84`
+telemetry for `Level.05D` and zero bindings for every other Level.
+
+The catalog-index-five lift report remains a distinct open issue. Installed
+`game.cfg` maps index 5 to `Level.01D`, whose start is beside `portal` and about
+84 units below the elevated road. The nearby `plat_04f` has no animation
+modifier and the current Portal callback does not raise the player. An opt-in
+`RR2NW_DUMP_SCENE_REFS=1` drawable-scene diagnostic now prints every named
+reference ordinal and centre so that trigger/platform ownership can be traced
+without editing the Level.
+
+Accepted evidence is 66/66 CTest in Debug and Release plus 9/9 installed-data
+runtime rows in each configuration. The physical-disc root was not mounted for
+this slice, so the already established E/G byte identity was not re-claimed as
+a fresh two-root execution result.
+
 ### Level-local Farter, Lamp and Corpse attribute tranche
 
 Three extracted owners now compile both independently and with their complete

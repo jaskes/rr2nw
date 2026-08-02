@@ -659,6 +659,20 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_SkinAnimationCommandCount() == 0 &&
          RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 &&
          RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 &&
+         RecoveredArenaSeance_SkinAnimationPoseTemporalModelCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationPoseChangedModelCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationPoseSampleCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationPoseRestoredModifierCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationPoseFingerprint() == 0 &&
+         !RecoveredArenaSeance_StaticMechanismsReady() &&
+         !RecoveredArenaSeance_StaticMechanismTargetLevel() &&
+         RecoveredArenaSeance_StaticMechanismBindingCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismWaterwheelCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismFlagCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismChangedBindingCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismPoseSampleCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismRestoredModifierCount() == 0 &&
+         RecoveredArenaSeance_StaticMechanismFingerprint() == 0 &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_SparkSubjectReady() &&
          !RecoveredGameServices_SparkRenderingReady() &&
@@ -4936,6 +4950,20 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SkinAnimationCommandCount() != 0 ||
       RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 ||
       RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 ||
+      RecoveredArenaSeance_SkinAnimationPoseTemporalModelCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationPoseChangedModelCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationPoseSampleCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationPoseRestoredModifierCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationPoseFingerprint() != 0 ||
+      !RecoveredArenaSeance_StaticMechanismsReady() ||
+      RecoveredArenaSeance_StaticMechanismTargetLevel() ||
+      RecoveredArenaSeance_StaticMechanismBindingCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismWaterwheelCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismFlagCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismChangedBindingCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismPoseSampleCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismRestoredModifierCount() != 0 ||
+      RecoveredArenaSeance_StaticMechanismFingerprint() != 0 ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_SparkSubjectReady() ||
       !RecoveredGameServices_SparkRenderingReady() ||

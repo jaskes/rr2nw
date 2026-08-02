@@ -235,6 +235,16 @@ foreach ($configurationName in $Configuration) {
                 $skinAnimationEntries = Get-LogInteger $log "skin_animation_entry_calls"
                 $skinAnimatedModels = Get-LogInteger $log "skin_animated_models"
                 $skinAnimationCommands = Get-LogInteger $log "skin_animation_commands"
+                $skinPoseTemporalModels =
+                    Get-LogInteger $log "skin_animation_pose_temporal_models"
+                $skinPoseChangedModels =
+                    Get-LogInteger $log "skin_animation_pose_changed_models"
+                $skinPoseSamples =
+                    Get-LogInteger $log "skin_animation_pose_samples"
+                $skinPoseRestoredModifiers =
+                    Get-LogInteger $log "skin_animation_pose_restored_modifiers"
+                $skinPoseFingerprint =
+                    Get-LogUnsigned $log "skin_animation_pose_fingerprint"
                 if ((Get-LogInteger $log "skin_animations_initialized") -ne 1 -or
                     $skinAnimationEntries -lt 0 -or
                     $skinAnimatedModels -lt 0 -or
@@ -247,11 +257,58 @@ foreach ($configurationName in $Configuration) {
                      ($skinAnimatedModels -lt 1 -or $skinAnimationCommands -lt 1))) {
                     $issues.Add("retail Skin animation programs are not initialized")
                 }
+                if ($skinAnimatedModels -eq 0) {
+                    if ($skinPoseTemporalModels -ne 0 -or
+                        $skinPoseChangedModels -ne 0 -or
+                        $skinPoseSamples -ne 0 -or
+                        $skinPoseRestoredModifiers -ne 0 -or
+                        $skinPoseFingerprint -ne 0) {
+                        $issues.Add("empty Skin animation roster published a live-pose proof")
+                    }
+                }
+                elseif ($skinPoseTemporalModels -lt 1 -or
+                        $skinPoseTemporalModels -gt $skinAnimatedModels -or
+                        $skinPoseChangedModels -ne $skinPoseTemporalModels -or
+                        $skinPoseSamples -ne ($skinAnimatedModels * 10) -or
+                        $skinPoseRestoredModifiers -lt 1 -or
+                        $skinPoseFingerprint -lt 1) {
+                    $issues.Add("retail Skin live-pose proof is incomplete")
+                }
                 $expectedSkinAnimation = $expectedSkinAnimations[$levelName]
                 if ($skinAnimationEntries -ne $expectedSkinAnimation[0] -or
                     $skinAnimatedModels -ne $expectedSkinAnimation[1] -or
                     $skinAnimationCommands -ne $expectedSkinAnimation[2]) {
                     $issues.Add("retail Skin animation roster changed")
+                }
+                $staticTarget = Get-LogInteger $log "static_mechanism_target_level"
+                $staticBindings = Get-LogInteger $log "static_mechanism_bindings"
+                $staticWaterwheels =
+                    Get-LogInteger $log "static_mechanism_waterwheels"
+                $staticFlags = Get-LogInteger $log "static_mechanism_flags"
+                $staticChanged =
+                    Get-LogInteger $log "static_mechanism_changed_bindings"
+                $staticSamples =
+                    Get-LogInteger $log "static_mechanism_pose_samples"
+                $staticRestored =
+                    Get-LogInteger $log "static_mechanism_restored_modifiers"
+                $staticFingerprint =
+                    Get-LogUnsigned $log "static_mechanism_fingerprint"
+                if ((Get-LogInteger $log "static_mechanisms_initialized") -ne 1) {
+                    $issues.Add("static mechanism owner is not initialized")
+                }
+                elseif ($levelName -ieq "Level.05D") {
+                    if ($staticTarget -ne 1 -or $staticBindings -ne 13 -or
+                        $staticWaterwheels -ne 11 -or $staticFlags -ne 2 -or
+                        $staticChanged -ne 13 -or $staticSamples -ne 26 -or
+                        $staticRestored -ne 84 -or $staticFingerprint -lt 1) {
+                        $issues.Add("Level.05D static mechanism proof changed")
+                    }
+                }
+                elseif ($staticTarget -ne 0 -or $staticBindings -ne 0 -or
+                        $staticWaterwheels -ne 0 -or $staticFlags -ne 0 -or
+                        $staticChanged -ne 0 -or $staticSamples -ne 0 -or
+                        $staticRestored -ne 0 -or $staticFingerprint -ne 0) {
+                    $issues.Add("static mechanism owner leaked across Levels")
                 }
                 if ((Get-LogInteger $log "active_world_persistence_initialized") -ne 1 -or
                     (Get-LogInteger $log "active_world_format_version") -ne 1 -or

@@ -4564,3 +4564,34 @@ entry/model/command rosters: `8/8/261`, `8/8/261`, `14/14/413`, `14/14/413`,
 `9/9/177`, `8/8/137`, `16/16/174`, `7/7/87` and canonical empty `0/0/0`.
 Focused tests cover May payload decoding, clamp/phase math, rejection rollback,
 empty-fixture lifecycle and deterministic source/state fingerprints.
+
+## BD-122: static presentation owns callbacks but not gameplay RNG
+
+Status: accepted on 2026-08-02 as the third Frontier E slice.
+
+Program construction alone is insufficient animation evidence. The runtime now
+samples each real decoded Skin at ten scene times, requires every non-degenerate
+temporal program to alter its target vertices, and restores all touched
+vertices before recalculating dependent normals. The scene clock is saved and
+restored independently. This admission probe runs before play and does not
+advance the authoritative world.
+
+The May executable's physical `Level.05D` static roster is a separate
+presentation owner: three `wtr_b05`, eight `wtr_f04`, `flg_civ` and
+`flg_vill`. Their preserved callback equations remain driven by
+`Session::m_viewTime`. Visual speeds stay within the original random ranges but
+are derived from stable scene name/ordinal identity instead of consuming the
+simulation RNG; reconstructing presentation therefore cannot change later AI,
+damage or save outcomes.
+
+Every callback and user pointer is attached only after the complete named-axis
+and modifier contract resolves. The zero-vertex flag `Planes` modifier is
+admitted because it is an update dependency, not displaced geometry. A
+two-time pose probe must change all 13 bindings and restore 84 modifiers plus
+the clock. Failure rolls back every earlier binding. Normal release restores
+baseline geometry and clears only still-owned reference fields.
+
+This decision does not claim the user-reported starting lift. "Level five" in
+the retail catalog maps to `Level.01D`, whereas `g_staticInit5` names physical
+`Level.05D`. The start-adjacent `portal`, elevated road and non-animated
+`plat_04f` require a separate trigger-ownership reconstruction.

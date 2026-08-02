@@ -197,6 +197,12 @@ struct AnimationCollector
     bool valid;
 };
 
+struct ModifierSnapshot
+{
+    CViewBaseModifier0 *modifier;
+    std::vector<CFVector3> vertices;
+};
+
 bool CollectSkin(const KR_ObjectID object, void *user)
 {
     ResourceCollector *collector = static_cast<ResourceCollector *>(user);
@@ -633,6 +639,132 @@ bool SupportedAnimationType(int type)
            type == anim_ROTATEOYOut;
 }
 
+bool IsTemporalAnimation(const AnimateCell &cell)
+{
+    const double epsilon = 1.0e-12;
+    switch (cell.m_type)
+    {
+    case anim_MOVE:
+        return std::fabs(cell.A * cell.w) > epsilon &&
+               (std::fabs(cell.m_dir.x) > epsilon ||
+                std::fabs(cell.m_dir.y) > epsilon ||
+                std::fabs(cell.m_dir.z) > epsilon);
+    case anim_ROTATEOX:
+    case anim_ROTATEOY:
+    case anim_ROTATEOZ:
+        return std::fabs(cell.w) > epsilon;
+    case anim_ROTATEOXC:
+    case anim_ROTATEOYC:
+    case anim_ROTATEOZC:
+    case anim_ROCKOX:
+    case anim_ROCKOY:
+    case anim_ROCKOZ:
+        return std::fabs(cell.A * cell.w) > epsilon;
+    default:
+        return false;
+    }
+}
+
+bool AnimationTargetHasVertices(const Skin &skin, int set)
+{
+    if (set < 0 || set >= skin.m_aniCnt0 || skin.m_array0 == NULL)
+        return false;
+    for (int reduction = 0; reduction < skin.m_reducNum; ++reduction)
+    {
+        const AniCell0 &mapping =
+            skin.m_array0[skin.m_reducNum * set + reduction];
+        if (mapping.m_use && mapping.m_fs != NULL &&
+            mapping.m_fs->VertexCount() > 0)
+            return true;
+    }
+    return false;
+}
+
+bool HasTemporalAnimation(const Skin &skin)
+{
+    for (int program = 0; program < skin.m_animProgSP; ++program)
+    {
+        const AnimateInfo &info = skin.m_animProg[program];
+        for (int cell = 0; cell < info.m_acellCnt; ++cell)
+            if (IsTemporalAnimation(info.m_acell[cell]) &&
+                AnimationTargetHasVertices(
+                    skin, info.m_acell[cell].m_animNum))
+                return true;
+    }
+    return false;
+}
+
+bool CaptureModifierSnapshots(Skin &skin,
+                              std::vector<ModifierSnapshot> &snapshots)
+{
+    snapshots.clear();
+    for (int set = 0; set < skin.m_aniCnt0; ++set)
+    {
+        for (int reduction = 0; reduction < skin.m_reducNum; ++reduction)
+        {
+            AniCell0 &mapping =
+                skin.m_array0[skin.m_reducNum * set + reduction];
+            if (!mapping.m_use || mapping.m_fs == NULL)
+                continue;
+            bool alreadyCaptured = false;
+            for (std::size_t i = 0; i < snapshots.size(); ++i)
+                if (snapshots[i].modifier == mapping.m_fs)
+                    alreadyCaptured = true;
+            if (alreadyCaptured)
+                continue;
+            ModifierSnapshot snapshot;
+            snapshot.modifier = mapping.m_fs;
+            const int vertexCount = mapping.m_fs->VertexCount();
+            if (vertexCount <= 0)
+                continue;
+            snapshot.vertices.reserve(static_cast<std::size_t>(vertexCount));
+            for (int vertex = 0; vertex < vertexCount; ++vertex)
+                snapshot.vertices.push_back(mapping.m_fs->Vertex(vertex));
+            snapshots.push_back(snapshot);
+        }
+    }
+    return !snapshots.empty();
+}
+
+void RestoreModifierSnapshots(std::vector<ModifierSnapshot> &snapshots)
+{
+    for (std::size_t i = 0; i < snapshots.size(); ++i)
+    {
+        ModifierSnapshot &snapshot = snapshots[i];
+        for (std::size_t vertex = 0; vertex < snapshot.vertices.size(); ++vertex)
+            snapshot.modifier->Vertex(static_cast<int>(vertex)) =
+                snapshot.vertices[vertex];
+    }
+    for (std::size_t i = 0; i < snapshots.size(); ++i)
+        snapshots[i].modifier->Update();
+}
+
+unsigned long long HashModifierPose(
+    const std::vector<ModifierSnapshot> &snapshots)
+{
+    unsigned long long hash = kHashOffset;
+    for (std::size_t i = 0; i < snapshots.size(); ++i)
+    {
+        const int vertexCount =
+            static_cast<int>(snapshots[i].vertices.size());
+        HashBytes(hash, &vertexCount, sizeof(vertexCount));
+        for (int vertex = 0; vertex < vertexCount; ++vertex)
+        {
+            const CFVector3 &value = snapshots[i].modifier->Vertex(vertex);
+            HashBytes(hash, &value, sizeof(value));
+        }
+    }
+    return hash;
+}
+
+void RunAnimationPose(Skin &skin, double time)
+{
+    Session::m_viewTime = time;
+    CViewObjectBaseSet &baseSet = skin.m_model.BaseSet(0);
+    for (int reduction = 0; reduction < skin.m_reducNum; ++reduction)
+        skin.runAutoProg(&baseSet, &baseSet.Base(reduction), reduction);
+}
+
 double AnimateCell::angle(double time) const
 {
     if (m_type == anim_ROTATEOYOut)
@@ -1053,4 +1185,80 @@ unsigned long long SkinResourceState_AnimationFingerprint(
         }
     }
     return hash;
+}
+
+bool SkinResourceState_ProbeAnimationPoses(
+    SimulationContext *context, double startTime,
+    SSkinAnimationPoseProbeSummary *summary)
+{
+    if (summary == NULL || !std::isfinite(startTime))
+        return false;
+    *summary = SSkinAnimationPoseProbeSummary();
+
+    AnimationCollector collector = {};
+    if (!CollectAnimations(context, collector))
+        return false;
+
+    const double savedViewTime = Session::m_viewTime;
+    const double offsets[] = {0.0, 0.125, 0.5, 1.0, 2.0,
+                              4.0, 8.0, 16.0, 32.0, 64.0};
+    unsigned long long fingerprint = kHashOffset;
+    bool valid = true;
+    for (std::size_t entryIndex = 0;
+         entryIndex < collector.entries.size() && valid; ++entryIndex)
+    {
+        AnimationEntry &entry = collector.entries[entryIndex];
+        Skin &skin = *entry.skin;
+        if (skin.m_animProgCnt == 0)
+            continue;
+
+        ++summary->animatedModels;
+        const bool temporal = HasTemporalAnimation(skin);
+        if (temporal)
+            ++summary->temporalModels;
+
+        std::vector<ModifierSnapshot> snapshots;
+        if (!CaptureModifierSnapshots(skin, snapshots))
+        {
+            valid = false;
+            break;
+        }
+        summary->restoredModifiers += static_cast<int>(snapshots.size());
+        HashString(fingerprint, entry.name.c_str());
+        HashBytes(fingerprint, &temporal, sizeof(temporal));
+        const unsigned long long baseline = HashModifierPose(snapshots);
+        HashBytes(fingerprint, &baseline, sizeof(baseline));
+
+        unsigned long long firstPose = 0;
+        bool changed = false;
+        for (std::size_t probe = 0;
+             probe < sizeof(offsets) / sizeof(offsets[0]); ++probe)
+        {
+            RestoreModifierSnapshots(snapshots);
+            RunAnimationPose(skin, startTime + offsets[probe]);
+            const unsigned long long pose = HashModifierPose(snapshots);
+            HashBytes(fingerprint, &pose, sizeof(pose));
+            ++summary->sampledPoses;
+            if (probe == 0)
+                firstPose = pose;
+            else if (pose != firstPose)
+                changed = true;
+        }
+        if (changed)
+            ++summary->changedModels;
+
+        RestoreModifierSnapshots(snapshots);
+        const unsigned long long restored = HashModifierPose(snapshots);
+        HashBytes(fingerprint, &restored, sizeof(restored));
+        if (restored != baseline || (temporal && !changed))
+            valid = false;
+    }
+    Session::m_viewTime = savedViewTime;
+    if (!valid || summary->temporalModels != summary->changedModels)
+    {
+        *summary = SSkinAnimationPoseProbeSummary();
+        return false;
+    }
+    summary->fingerprint = fingerprint;
+    return true;
 }

@@ -135,7 +135,8 @@ Retail scripts нельзя молча копировать поверх source 
 
 ### RP-SCRIPT-003: every retail Skin catalog replaces its January snapshot
 
-- Classification: `RETAIL_REQUIRED`; animation behavior is still deferred.
+- Classification: `RETAIL_REQUIRED`, `LIVE_POSE_ADMITTED`; broad actor
+  presentation and manual near/far validation remain deferred.
 - Installed and mounted May copies match byte-for-byte for every row:
 
 | Level | January bytes / SHA-256 | May bytes / SHA-256 |
@@ -158,6 +159,11 @@ Retail scripts нельзя молча копировать поверх source 
   functions after resource publication. The nine expected
   entry/model/command rosters are gated by runtime acceptance; ROTATEOX_CLIP
   remains unsupported and fail-closed because retail contains no call to it.
+- Live-pose admission snapshots the actual decoded modifier vertices, samples
+  ten scene times, requires every temporal Skin to move and restores vertices,
+  derived normals and scene time before the first ordinary frame. Installed
+  temporal/changed counts are `7/7`, `7/7`, `14/14`, `14/14`, `9/9`, `8/8`,
+  `15/15`, `7/7` and canonical empty `0/0`.
 - Distribution handling: do not copy private May scripts/assets into
   `nw/OUTPUT`; runtime consumes the user's selected retail tree. A future mod
   catalog uses a separate declared content identity rather than a relaxed
@@ -1106,6 +1112,28 @@ state and input ordering are covered by RP-INPUT-001 below.
 - Verification passes 51/51 CTest in Debug and Release, 36/36 retail service
   launches, 18/18 matching E/G ownership pairs and 4/4 waited executable
   smokes with Commander/mission diagnostics, level-ready and clean shutdown.
+
+### RP-SCRIPT-034: Level.05D owns its May static presentation callbacks
+
+- Classification: `MAY_ROSTER_RECOVERED`, `PRESENTATION_OWNER_ADMITTED`,
+  `STARTING_LIFT_UNCLAIMED`.
+- The May-linked physical `Level.05D` roster is exactly three `wtr_b05`, eight
+  `wtr_f04`, one `flg_civ` and one `flg_vill` reference. Each binding validates
+  its named axes and modifiers before publishing callback/user ownership.
+- The preserved wheel, piston, tube and cloth equations execute against the
+  real decoded scene objects. The zero-vertex `Planes` modifier is valid: its
+  update recalculates normals after `Point1..Point5` move the flag geometry.
+- Purely visual random speeds use a stable name/ordinal value inside the retail
+  `4..6` and `6..8` ranges and do not perturb the authoritative gameplay RNG.
+  Scene time remains the animation clock, so save/load needs no parallel static
+  mechanism serializer.
+- Initialization proves two live poses for all 13 references and then restores
+  84 modifiers plus scene time. Teardown restores baseline geometry and clears
+  only ownership still held by this service. Debug and Release accept all nine
+  installed Levels; non-target Levels must expose no leaked binding.
+- Catalog index 5 is `Level.01D`, not physical `Level.05D`. Its reported
+  start-to-road lift remains open: the nearby `plat_04f` has no animation
+  modifier and the current Portal callback is not the lift owner.
 
 ### RP-RENDER-001: the recovered executable renders a real textured Level
 

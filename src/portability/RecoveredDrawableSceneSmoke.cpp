@@ -55,6 +55,25 @@ bool RenderOneFrame(CViewScene& scene) {
   return true;
 }
 
+void DumpSceneReferences(CViewScene& scene) {
+  if (std::getenv("RR2NW_DUMP_SCENE_REFS") == nullptr) return;
+  CNameDecls& declarations = scene.ObjRefNames();
+  for (int declarationIndex = 0;
+       declarationIndex < declarations.Count(); ++declarationIndex) {
+    CNameDecl& declaration = declarations[declarationIndex];
+    for (int referenceIndex = 0;
+         referenceIndex < declaration.Count(); ++referenceIndex) {
+      CViewObjectRef* reference =
+          static_cast<CViewObjectRef*>(declaration[referenceIndex]);
+      if (reference == nullptr) continue;
+      const CFVector3& center = reference->Center();
+      std::printf("scene-ref name=%s ordinal=%d center=%.6f,%.6f,%.6f\n",
+                  declaration.Name(), referenceIndex,
+                  center.x, center.y, center.z);
+    }
+  }
+}
+
 class SmokeLandDynamic : public CViewStickLandDynamic {
  public:
   void Draw() override {}
@@ -142,6 +161,7 @@ int main(int argc, char** argv) {
   }
 
   CViewScene* scene = RecoveredDrawableScene_Get();
+  DumpSceneReferences(*scene);
   const SRecoveredDrawableSceneSummary* summary =
       RecoveredDrawableScene_Summary();
   const SRecoveredSceneHeader* header =

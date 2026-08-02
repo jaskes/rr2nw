@@ -98,6 +98,11 @@ public:
 	CViewKeyFrameSeq &Seq(TCchar *szName) {	return m_pSeqs[FindName(szName,0,m_nSeqs)]; }
 	CViewBaseModifier0 &Mod0(TCchar *szName) { return m_pMods0[FindName(szName,m_nSeqs,m_nMods0)]; }
 	CViewBaseModifier &Mod(TCchar *szName) { return m_pMods[FindName(szName,m_nSeqs+m_nMods0,m_nMods)]; }
+	CViewBaseModifier0 *LookupMod0(TCchar *szName) {
+		for( int i = 0 ; i < m_nMods0 ; i++ )
+			if( strcmp(m_pNames[i+m_nSeqs],szName)==0 ) return m_pMods0+i;
+		return NULL;
+	}
 
 	void operator%=(TCCFMatrix3x4 &dir);
 };

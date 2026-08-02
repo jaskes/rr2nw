@@ -1597,8 +1597,27 @@ payloads execute through exact Level-local animation-only programs after Skin
 resource publication. All nine retail Levels pass exact animation roster gates
 and real rendered runtime-smoke frames. Reconstructed People rebind their
 per-reference auto-animation callback, closing the save/rollback crash exposed
-when shared model bases became animated. Manual near/far pose inspection and
-the Level.05D mechanism callbacks remain open in this frontier.
+when shared model bases became animated.
+
+The third slice is complete: admission now samples real decoded Skin modifier
+vertices at ten scene times, requires every temporal model to move and restores
+all vertices and derived normals before play. The May-linked physical
+`Level.05D` roster also owns 13 real scene references: three `wtr_b05`, eight
+`wtr_f04`, `flg_civ` and `flg_vill`. Their original wheel and cloth equations
+run as drawable callbacks, use deterministic per-reference presentation speed
+without consuming gameplay RNG and release their user/callback ownership on
+every rollback or Level teardown. Debug and Release each pass all nine
+installed Levels; only `Level.05D` may publish this exact `13/11/2` roster and
+all other Levels must publish a canonical empty owner.
+
+The reported "fifth-Level starting lift" is not this `Level.05D` mechanism
+set. Catalog index 5 selects `Level.01D`: its player start is near the named
+`portal`, roughly 84 world units below the nearby elevated road. The nearby
+`plat_04f` model has no animation modifiers, and the current Portal callback is
+not a lift owner. The exact trigger/platform relation remains open and must be
+recovered before claiming that gate. `RR2NW_DUMP_SCENE_REFS=1` on the drawable
+scene smoke provides named ordinals and centres for this archaeology without
+changing retail data. Manual near/far actor pose inspection also remains open.
 
 Gate: representative robots/people/tanks animate and react at near/far
 boundaries without pose explosions; the Level.05D lift and a cross-section of

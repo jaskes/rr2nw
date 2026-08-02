@@ -91,6 +91,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added a live-pose admission gate for every Level-local Skin animation
+  program. It samples the real decoded modifiers at ten scene times, requires
+  every temporal model to change and restores all touched vertices and derived
+  normals before the first playable frame.
+- Recovered the May `Level.05D` static presentation owner for all three
+  `wtr_b05`, eight `wtr_f04`, `flg_civ` and `flg_vill` scene references. The
+  original wheel/flag equations now execute through real per-reference
+  callbacks with bounded lookup, deterministic presentation speed, exact
+  teardown and retail-matrix pose/rollback telemetry.
+- Added opt-in named scene-reference dumping to the drawable-scene smoke via
+  `RR2NW_DUMP_SCENE_REFS=1`, including reference ordinal and world-space
+  centre, for mechanism archaeology without modifying retail assets.
 - Recovered the May retail Skin animation ABI and construction stage. Exact
   Level-local animation functions now build real automatic programs for all
   nine worlds, including ROCKOX/ROCKOY/ROCKOZ clamping and ROTATEOYOut, with
