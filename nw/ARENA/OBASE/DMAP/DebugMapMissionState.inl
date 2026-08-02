@@ -63,4 +63,46 @@ void DebugMap::ClearMissions() {
   }
 }
 
+int DebugMap::MissionCount() const {
+  int count = 0;
+  for (int i = 0; i < MAX_MISSIONS; ++i) {
+    if (m_mission[i].use != 0) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+int DebugMap::MissionRouteCount() const {
+  int count = 0;
+  for (int i = 0; i < MAX_MISSIONS; ++i) {
+    if (m_mission[i].use != 0) {
+      count += m_mission[i].routesNum;
+    }
+  }
+  return count;
+}
+
+int DebugMap::MissionTextCount() const {
+  int count = 0;
+  for (int i = 0; i < MAX_MISSIONS; ++i) {
+    if (m_mission[i].use != 0 && m_mission[i].text.font != NULL) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+bool DebugMap::MissionInUse(TMissionId mId) const {
+  return mId >= 0 && mId < MAX_MISSIONS && m_mission[mId].use != 0;
+}
+
+int DebugMap::MissionRouteCount(TMissionId mId) const {
+  return MissionInUse(mId) ? m_mission[mId].routesNum : 0;
+}
+
+bool DebugMap::MissionHasText(TMissionId mId) const {
+  return MissionInUse(mId) && m_mission[mId].text.font != NULL;
+}
+
 #endif

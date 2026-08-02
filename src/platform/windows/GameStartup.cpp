@@ -2555,10 +2555,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                                    options.runtimeSmoke, &log);
   };
   if (!loopFailed && options.runtimeSmoke) {
-    loopFailed = !runCompleteFrame() ||
+    loopFailed = !RecoveredGameServices_StageMissionMapProbe() ||
+                 !runCompleteFrame() ||
                  !RecoveredGameServices_RequestDebugMapToggle() ||
                  !runCompleteFrame() ||
-                 !RecoveredGameServices_RequestDebugMapToggle();
+                 !RecoveredGameServices_VerifyMissionMapProbe() ||
+                 !RecoveredGameServices_RequestDebugMapToggle() ||
+                 !RecoveredGameServices_ClearMissionMapProbe();
   }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {
@@ -2711,6 +2714,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(
                RecoveredGameServices_DebugMapCloseTransitions()) + "/" +
            std::to_string(RecoveredGameServices_DebugMapDrawFrames()));
+  SRecoveredMissionMapProbeTelemetry missionMapProbe = {};
+  if (RecoveredGameServices_MissionMapProbeTelemetry(&missionMapProbe)) {
+    log.Line("mission_map_probe=" +
+             std::to_string(missionMapProbe.staged) + "/" +
+             std::to_string(missionMapProbe.summaryPublished) + "/" +
+             std::to_string(missionMapProbe.missionCount) + "/" +
+             std::to_string(missionMapProbe.textCount) + "/" +
+             std::to_string(missionMapProbe.routeCount) + "/" +
+             std::to_string(missionMapProbe.renderedFrames) + "/" +
+             std::to_string(missionMapProbe.rollbacks) + "/" +
+             std::to_string(missionMapProbe.framebufferHash) + "/" +
+             std::to_string(missionMapProbe.framebufferNonClearPixels));
+  }
   log.Line("windows_input_primary_fire_presses=" + std::to_string(
                RecoveredGameServices_VehiclePrimaryFirePresses()));
   log.Line("windows_input_secondary_fire_presses=" + std::to_string(

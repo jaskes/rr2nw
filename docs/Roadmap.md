@@ -1650,10 +1650,10 @@ platforms run through proven original ownership; all persist through save.
 
 ### Frontier F: campaign surface
 
-Status: in progress. The first map slice is complete. `M` now drives the real
-legacy `DebugMap` event and opens the Level-local `level04s.bmp` in follow
-mode. The preserved overlay draws the controlled body, discovered units,
-artefacts, routes and mission/panel content when those owners publish it, plus
+Status: in progress. The first two map/mission slices are complete. `M` now
+drives the real legacy `DebugMap` event and opens the Level-local
+`level04s.bmp` in follow mode. The preserved overlay draws the controlled body,
+discovered units, artefacts, routes and mission/panel content when those owners publish it, plus
 a live 3D inset through a private viewport. Opening neutralizes held Vehicle
 controls; all gameplay actions except the closing `M` are consumed while the
 map owns the screen. Level teardown and transactional replacement release the
@@ -1666,11 +1666,22 @@ must load a `1000x1000` map and publish
 `debug_map_toggle_probe=1/1/1` in Debug and Release. Map presentation remains
 derived state and is intentionally not added to LCN1/RR2SLOT1.
 
-The next slice is the campaign information owner: reconnect PlayerMission
-creation/update, objective text and route publication into this now-visible
-surface, then expose a bounded way to inspect the active objective. Only after
-that proof should Portal callbacks stage a transactional Level switch through
-the existing coordinator.
+The persistence-to-presentation seam is also complete. A real staged
+`PlayerMission` republishes through `Player::loadNotify()` with the retail fixed
+font, objective text and an already loaded Level Route, renders in an M frame
+and rolls both Player and DebugMap back to their exact baselines. The terminal
+`Level.07N` proves the valid text-only case because its retail directory has no
+Route. Every matrix row now requires
+`mission_map_probe=1/1/1/1/<routes>/1/1/<hash>/<nonclear>`; `<routes>` is one on
+the eight routed Levels and zero on `Level.07N`.
+
+The next slice is the real campaign information producer: admit ProjectTable
+and RecruitCenter construction from root and Level-local mission scripts,
+create authored PlayerMission records, and execute their bounded check/update
+events. The current staged mission is a lifecycle/serialization proof, not a
+claim that retail quest progression is already running. Only after the live
+mission producer is proven should Portal callbacks stage a transactional Level
+switch through the existing coordinator.
 
 Recover the map (`M`), quests/objectives, portal transition and required menu
 flows. A portal must request the same transactional Level coordinator used by

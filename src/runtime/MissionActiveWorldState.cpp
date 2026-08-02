@@ -492,7 +492,8 @@ bool ValidateState(const StableState &state) {
           mission.summaryText.size() > MAX_TEXT_LEN - 1 ||
           !Finite(mission.widthStart) || !Finite(mission.widthEnd) ||
           !ValidateReference(mission.route) ||
-          mission.route.kind != kReferenceSymbolic)
+          (mission.route.kind != kReferenceSymbolic &&
+           mission.route.kind != kReferenceTombstone))
         return false;
     } else if (!mission.summaryName.empty() || !mission.summaryText.empty() ||
                mission.widthStart != 0.0 || mission.widthEnd != 0.0 ||
@@ -587,7 +588,7 @@ bool ResolveMission(SimulationContext *context, const StableMission &saved,
       !ResolveReachedSet(context, saved.failureReached,
                          &resolved->failureReached))
     return false;
-  return !saved.hasSummary ||
+  return !saved.hasSummary || IsNul(resolved->route) ||
          context->queryInterface(resolved->route, IRouteObjectIID) != NULL;
 }
 
@@ -772,7 +773,8 @@ bool MissionActiveWorldState_CreateStableOwners(
   for (std::size_t index = 0; index < state.missions.size(); ++index) {
     const StableReference &route = state.missions[index].route;
     if (state.missions[index].hasSummary &&
-      !context->isExist(route.name.c_str()))
+        state.missions[index].route.kind == kReferenceSymbolic &&
+        !context->isExist(route.name.c_str()))
       return Fail("MSH1 mission Route dependency is unresolved");
   }
   if (!state.vehicle.empty() && ResolveVehicle(context, state.vehicle) == NULL) {
@@ -813,6 +815,7 @@ bool MissionActiveWorldState_StageProbe(
   const KR_ObjectID project = FirstProject(context);
   const KR_ObjectID recruit =
       FirstSeanceObject(context, "RecruitCenter", false);
+  const KR_ObjectID route = FirstSeanceObject(context, "Route", true);
   KR_ObjectID commander = KR_ObjectID::NUL();
   for (int index = 0; index < player.m_sideQnty && IsNul(commander); ++index)
     if (context->isExist(player.m_playerStatus[index].m_masterID))
@@ -830,18 +833,18 @@ bool MissionActiveWorldState_StageProbe(
   mission.startInitialize(project, commander);
   mission.success_filed = 1;
   mission.m_status = MISSION_INPROCESS;
-  // The early recovered bootstrap only publishes the Route table on most
-  // levels; no route object exists until a mission script starts. Exercise
-  // the mission graph without inventing a resource identity that MSH1 cannot
-  // safely reconstruct.
-  mission.m_missionInfoExist = 0;
+  // Use an already published retail Route when one exists.  This keeps the
+  // probe inside the original PlayerMission -> Player::loadNotify -> DebugMap
+  // path and gives MSH1 a real symbolic dependency without inventing a route
+  // owner or consuming the legacy fixed route-node arena.
+  mission.m_missionInfoExist = 1;
   CopyFixed(mission.m_missionName, std::string(kProbeName));
   CopyFixed(mission.m_missionText,
-            std::string("Fresh-ID mission state$kill/live/reached proof"));
+            std::string("PlayerMission \xD2\xE5\xF1\xF2$save/load route proof"));
   mission.m_missionsw = 0.25;
   mission.m_missionew = 0.75;
   mission.m_missionrgb = 0x20a0f0;
-  mission.m_missionRouteID = KR_ObjectID::NUL();
+  mission.m_missionRouteID = route;
   const KR_ObjectID vehicleID = vehicle->getObjectID();
   const CFVector3 position = vehicle->Pos();
   mission.success_needKill.add(KR_ObjectID::NUL());
@@ -954,7 +957,8 @@ bool MissionActiveWorldState_ProbeCounts(
   *conditionReferences = ConditionReferenceCount(state);
   *routeReferences = 0;
   for (std::size_t index = 0; index < state.missions.size(); ++index)
-    if (state.missions[index].hasSummary)
+    if (state.missions[index].hasSummary &&
+        state.missions[index].route.kind == kReferenceSymbolic)
       ++*routeReferences;
   return true;
 }

@@ -471,12 +471,12 @@ class CFixedColorFont {
         }
 
         long StringWidth(TCchar * string) const
-        {  
+        {
 		   long l = 0;
-		   for(long i=0;string[i] != 0;l += fontHeader.pSmFntTable[(int)string[i++]<<1]) ;
+		   for(long i=0;string[i] != 0;l += fontHeader.pSmFntTable[(unsigned char)string[i++]<<1]) ;
 		   return l;
 		}
-        int CharWidth(char ch) const { return fontHeader.pSmFntTable[((int)ch)<<1];}
+        int CharWidth(char ch) const { return fontHeader.pSmFntTable[((unsigned char)ch)<<1];}
         int Height() const {return fontHeader.nFntHeight;}
 };
 

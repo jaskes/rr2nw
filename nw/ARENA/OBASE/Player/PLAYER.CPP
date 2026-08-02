@@ -34,16 +34,22 @@ void Player::loadNotify()
 	// set map mission infos
 
 	g_debugMap.ClearMissions();	
+	SimulationContext *context = g_arena.context;
 	
    for( int i = 0; i < m_missCnt; ++i )
    {
         if(  m_mission[i].m_missionInfoExist)
 		{			
 			m_mission[i].m_TMissionId = g_debugMap.CreateMission(m_mission[i].m_missionName);	
+			if (m_mission[i].m_TMissionId < 0)
+				continue;
 			g_debugMap.AddMissionText(m_mission[i].m_TMissionId, m_mission[i].m_missionText, "Font.fnt16x16.fnt");
+			if (context == NULL || m_mission[i].m_missionRouteID.isNUL())
+				continue;
 			IRouteObject * iroute = (IRouteObject * )
-				g_arena.context->queryInterface(m_mission[i].m_missionRouteID,IRouteObjectIID);
-			VERIFY(iroute);
+				context->queryInterface(m_mission[i].m_missionRouteID,IRouteObjectIID);
+			if (iroute == NULL)
+				continue;
 			g_debugMap.AddMissionRoute(m_mission[i].m_TMissionId, iroute, m_mission[i].m_missionrgb, 
 				float(m_mission[i].m_missionsw), float(m_mission[i].m_missionew));
 		}            

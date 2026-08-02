@@ -7,6 +7,21 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Active `PlayerMission` summaries now republish through the preserved
+  `Player::loadNotify()` path into the real DebugMap, including objective text
+  and an existing Level Route. The terminal `Level.07N` safely presents a
+  text-only mission instead of asserting on its deliberately absent Route.
+- The recovered session now publishes the retail `fnt16x16.fnt` under its
+  original `Font.fnt16x16.fnt` object identity, and the software fixed-font
+  backend implements its missing coloured and clipped drawing paths. Mission
+  text therefore reaches the framebuffer without restoring DirectDraw.
+- Fixed-font width lookup now treats legacy text bytes as unsigned glyph
+  indices. Russian CP1251 mission strings can no longer index before the
+  256-character width table when modern MSVC defaults `char` to signed.
+- Runtime acceptance stages one mission, opens and renders the map, then
+  removes both authoritative and derived state back to the exact baseline.
+  Debug and Release require objective text on all nine Levels, real routes on
+  the eight Levels that contain them, and non-empty framebuffer evidence.
 - Pressing `M` now opens and closes the original Level-local `DebugMap`
   instead of stopping at input telemetry. The overlay loads each retail
   `level04s.bmp`, follows the controlled body, draws the original unit,

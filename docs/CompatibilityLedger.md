@@ -2613,18 +2613,24 @@ Status vocabulary:
   RecruitCenter queues `rc_CHECK_MISSION` with only an integer mission index.
   Route object names are not guaranteed to be their source file names.
 - Handling: MSH1 stores mission fields and references explicitly, converts
-  stale targets to tombstones and rebuilds DebugMap after apply. A missing
-  summary Route rejects restore instead of calling `Load(objectName)`.
+  stale targets to tombstones and rebuilds DebugMap after apply. A symbolic
+  summary Route captured as a real resource rejects restore if that resource is
+  missing instead of calling `Load(objectName)`. A deliberately NUL/tombstoned
+  Route remains a valid text-only summary, as required by installed
+  `Level.07N`.
   EVT1 resolves the mission-check destination as an existing owner and never
   allocates or deletes it. Queue detachment occurs before owner mutation so
   rollback is valid even when old and new Player mission counts differ.
 - Verification: the production probe round-trips one mission with all six
   condition kinds and one typed check; diagnostics are `11/4`, `11/11/4` and
-  `1/6/0/1/1`. Source-only fixtures admit an empty MSH1/EVT1 with 11 phases.
+  `1/6/0/1/1`. The map-facing probe publishes the staged mission through
+  `Player::loadNotify()` with the retail fixed font, uses one already loaded
+  Route on eight installed Levels, proves the text-only `Level.07N` case, draws
+  one M frame and rolls the derived pool back exactly. Source-only fixtures
+  admit an empty MSH1/EVT1 with 11 phases.
 - Revisit when: RecruitCenter is linked into the recovered bootstrap and real
-  mission scripts execute. Replace the probe surrogate with a live center and
-  add a resource-backed summary Route case without weakening missing-resource
-  rejection.
+  mission scripts execute. Replace the staged producer with a live center
+  without weakening symbolic missing-resource rejection.
 
 ### CQ-154: gameplay and presentation historically shared CRT rand
 
@@ -3648,6 +3654,26 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: a verified March executable differs from the May nine-route
   roster, or retail play proves a destination/orientation rule absent from the
   recovered collision contract.
+
+### CQ-194: fixed-font text is an unsigned 8-bit glyph stream
+
+- Status: `SOURCE_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `CFixedColorFont` owns exactly 256 glyph width/offset pairs, while
+  preserved `StringWidth` and `CharWidth` converted each `char` directly to an
+  integer index. Russian retail text uses bytes above 127; modern MSVC's signed
+  `char` therefore produced a negative table index that Watcom-era assumptions
+  did not make explicit.
+- Handling: both helpers cast to `unsigned char` before multiplying the glyph
+  index. Text remains the original byte stream and uses the retail fixed font;
+  no Unicode conversion, replacement font or invented encoding layer enters
+  the game runtime.
+- Verification: the PlayerMission map probe includes CP1251 Cyrillic bytes,
+  resolves `Font.fnt16x16.fnt`, computes the text box, renders the M frame and
+  rolls back in all 18 Debug/Release installed-Level rows. Both CTest suites
+  remain 67/67.
+- Revisit when: the maintained presentation layer intentionally adopts Unicode.
+  That migration must define asset/font fallback and save/mod text encoding;
+  it must not reinterpret existing retail bytes silently.
 
 ## Maintenance rule
 

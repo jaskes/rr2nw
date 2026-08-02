@@ -28,6 +28,13 @@ bool ExerciseMissionPool() {
       return false;
     }
   }
+  if (map.MissionCount() != MAX_MISSIONS ||
+      map.MissionTextCount() != 0 || map.MissionRouteCount() != 0 ||
+      !map.MissionInUse(0) || map.MissionInUse(MAX_MISSIONS) ||
+      map.MissionHasText(0) || map.MissionRouteCount(0) != 0 ||
+      map.CurrentMission() != 0) {
+    return false;
+  }
   if (map.CreateMission("overflow") != -1) {
     return false;
   }
@@ -40,7 +47,8 @@ bool ExerciseMissionPool() {
   map.ClearMission(-1);
   map.DeleteMission(MAX_MISSIONS);
   map.ClearMissions();
-  return map.CreateMission("after-clear") == 0;
+  return map.MissionCount() == 0 && map.CreateMission("after-clear") == 0 &&
+         map.MissionCount() == 1;
 }
 
 class HardwareProbe final : public KR_Object {

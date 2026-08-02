@@ -41,6 +41,18 @@ struct SRecoveredObserverState {
   unsigned int inputEvents;
 };
 
+struct SRecoveredMissionMapProbeTelemetry {
+  int staged = 0;
+  int summaryPublished = 0;
+  int missionCount = 0;
+  int textCount = 0;
+  int routeCount = 0;
+  int renderedFrames = 0;
+  int rollbacks = 0;
+  std::uint64_t framebufferHash = 0;
+  std::uint64_t framebufferNonClearPixels = 0;
+};
+
 struct SRecoveredObserverAxes {
   double forward;
   double strafe;
@@ -633,6 +645,11 @@ unsigned int RecoveredGameServices_DebugMapDrawFrames();
 unsigned int RecoveredGameServices_DebugMapOpenTransitions();
 unsigned int RecoveredGameServices_DebugMapCloseTransitions();
 bool RecoveredGameServices_RequestDebugMapToggle();
+bool RecoveredGameServices_StageMissionMapProbe();
+bool RecoveredGameServices_VerifyMissionMapProbe();
+bool RecoveredGameServices_ClearMissionMapProbe();
+bool RecoveredGameServices_MissionMapProbeTelemetry(
+    SRecoveredMissionMapProbeTelemetry* telemetry);
 unsigned int RecoveredGameServices_VehiclePrimaryFirePresses();
 unsigned int RecoveredGameServices_VehicleSecondaryFirePresses();
 unsigned int RecoveredGameServices_VehicleSecondaryFireAcceptedShots();

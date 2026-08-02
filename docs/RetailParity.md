@@ -1737,6 +1737,31 @@ playable Level begins.
   (`1/1/1`). Objective progression, populated mission text and Portal-driven
   campaign switching remain unclaimed by this entry.
 
+### RP-MAP-002: PlayerMission republishes objective text and optional Routes
+
+- Classification: `SOURCE_PATH_PRESERVED`, `SAVE_PRESENTATION_RECONNECTED`,
+  `CAMPAIGN_CONTENT_PARTIAL`.
+- `PlayerMission` remains the authoritative campaign/save owner. Its preserved
+  `Player::loadNotify()` path clears and rebuilds DebugMap mission entries;
+  map-private text/route arrays are not serialized.
+- Installed sessions publish the retail root `fnt16x16.fnt` under the original
+  `Font.fnt16x16.fnt` name. The recovered software fixed-font methods provide
+  clipped and coloured glyph drawing without DirectDraw/D3D dependencies.
+  Width lookup treats CP1251 bytes as unsigned 0..255 glyph indices, matching
+  the retail font table rather than modern MSVC's signed-`char` default.
+- A symbolic captured Route remains a mandatory Level resource. A deliberate
+  NUL/tombstone Route is accepted and produces a text-only objective; this is
+  the real installed shape needed by `Level.07N`, which contains no Route
+  resource. Runtime lookup failures skip the route rather than asserting.
+- The admission sequence stages one bounded mission, publishes one text and an
+  existing Route where available, renders a real M frame, closes it and returns
+  Player plus DebugMap mission/text/route counts to their exact baseline.
+- Debug and Release each pass 67/67 CTest and 9/9 installed starts. The matrix
+  requires `mission_map_probe=1/1/1/1/1/1/1/<hash>/<nonclear>` on eight Levels
+  and `1/1/1/1/0/1/1/<hash>/<nonclear>` on `Level.07N`, with both framebuffer
+  values non-zero. Retail ProjectTable/RecruitCenter execution and authored
+  objective progression remain the next campaign slice.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

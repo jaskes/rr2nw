@@ -3527,3 +3527,39 @@ open M, one map frame and close M, reporting `debug_map_size=1000/1000` and
 `debug_map_toggle_probe=1/1/1`. The distinct non-clear framebuffer hashes prove
 real Level output; this boundary does not yet claim populated objectives or
 Portal campaign transitions.
+
+## PlayerMission-to-map publication and retail fixed font
+
+The next link recovered the original campaign presentation seam rather than a
+second map API. `Player::loadNotify()` clears DebugMap and derives one map
+mission for each PlayerMission summary, attaches text through
+`Font.fnt16x16.fnt`, resolves an optional `IRouteObject`, and adds the tapered
+route. Its fixed-pool overflow, absent context and unresolved/NUL route cases
+now fail closed instead of indexing `-1` or asserting.
+
+The historical font was loaded by `green_menu.sci` from
+`..\fnt16x16.fnt`. The recovered session publishes the same file and symbolic
+object name. Linking the real `FixedFontOBJ` vtable exposed two previously
+missing software methods; bounded `PrintColorAt` and `PrintClipAt`
+implementations now validate glyph widths/offsets and target the active 8-bit
+framebuffer. No font conversion or replacement asset is introduced.
+
+The same link exposed a compiler-width assumption in the inline font helpers.
+`StringWidth` and `CharWidth` indexed their 256-entry tables with plain signed
+`char`; CP1251 Cyrillic bytes could therefore address memory before the table
+under MSVC. Both helpers now convert to `unsigned char`, and the installed
+mission probe deliberately includes CP1251 bytes before it draws the text.
+
+MSH1 still rejects a missing resource for a captured symbolic Route. It now
+also distinguishes a deliberately absent Route, encoded as the existing
+tombstone reference: summary text remains publishable without an arrow. The
+distinction is required by installed `Level.07N`, whose directory has no Route
+objects, while each of the other eight Levels supplies at least one real Route.
+
+The executable probe records mission staging, summary publication, mission,
+text and route deltas, rendered frames, exact rollback, framebuffer hash and
+non-clear pixels as `mission_map_probe`. The acceptance script requires all
+nine fields and the per-Level route expectation. Final evidence is 67/67 CTest
+and 9/9 installed Levels in both Debug and Release. This proves that saved
+PlayerMission state can reach visible derived presentation; real mission
+creation remains gated on ProjectTable/RecruitCenter script admission.

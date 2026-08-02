@@ -98,9 +98,18 @@ construct the new map closed; the first M press must show that Level's own
 background rather than the previous world's bitmap.
 
 Retain `rr2nw-startup.log` if a result differs. A valid automated startup
-records `debug_map_initialized=1`, `debug_map_size=1000/1000` and
-`debug_map_toggle_probe=1/1/1`. Missing mission text is not a map-renderer
-failure yet: reconnecting objective publication is the next Frontier F slice.
+records `debug_map_initialized=1`, `debug_map_size=1000/1000`,
+`debug_map_toggle_probe=1/1/1` and a nine-field `mission_map_probe`. On every
+Level the latter must begin `1/1/1/1`: the probe was staged and one mission
+with one retail-font text block was published. Fields five through seven are
+route count, rendered map frames and rollback. The route count is `0` for
+`Level.07N` and `1` elsewhere; rendered frames and rollback are both `1`. The
+final framebuffer hash and non-clear-pixel count must be non-zero.
+
+For a human pass, the temporary automated objective should be visible in the
+map panel during `--runtime-smoke`; ordinary interactive play does not keep
+that probe alive. Authored quest text is not claimed until ProjectTable and
+RecruitCenter scripts enter the recovered bootstrap.
 
 Current interactive startup normally transfers ownership immediately to
 `Vehicle.Default`. After closing a Vehicle-controlled run, the diagnostic log

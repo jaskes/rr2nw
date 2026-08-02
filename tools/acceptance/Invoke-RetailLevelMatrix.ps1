@@ -512,6 +512,22 @@ foreach ($configurationName in $Configuration) {
                     $log["debug_map_toggle_probe"] -ne "1/1/1") {
                     $issues.Add("retail M-map load/toggle/render/close proof changed")
                 }
+                $missionMap = if ($log.ContainsKey("mission_map_probe")) {
+                    [string]$log["mission_map_probe"] -split "/"
+                } else { @() }
+                $expectedMissionRoutes = if ($levelName -ieq "Level.07N") { 0 } else { 1 }
+                if ($missionMap.Count -ne 9 -or
+                    [int]$missionMap[0] -ne 1 -or
+                    [int]$missionMap[1] -ne 1 -or
+                    [int]$missionMap[2] -ne 1 -or
+                    [int]$missionMap[3] -ne 1 -or
+                    [int]$missionMap[4] -ne $expectedMissionRoutes -or
+                    [int]$missionMap[5] -ne 1 -or
+                    [int]$missionMap[6] -ne 1 -or
+                    [uint64]$missionMap[7] -lt 1 -or
+                    [uint64]$missionMap[8] -lt 1) {
+                    $issues.Add("PlayerMission map publication/render/rollback proof changed")
+                }
             }
 
             $record = [ordered]@{
@@ -566,6 +582,7 @@ foreach ($configurationName in $Configuration) {
                 tank_near_far_pose_probe = [string]$log["tank_near_far_pose_probe"]
                 debug_map_size = [string]$log["debug_map_size"]
                 debug_map_toggle_probe = [string]$log["debug_map_toggle_probe"]
+                mission_map_probe = [string]$log["mission_map_probe"]
                 explosion_active_world_probe = [string]$log["explosion_active_world_probe"]
                 explosion_active_world_fingerprint = Get-LogUnsigned $log "explosion_active_world_fingerprint"
                 spark_active_world_probe = [string]$log["spark_active_world_probe"]
@@ -610,7 +627,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
     people_active_world_probe, people_active_world_fingerprint,
     people_near_far_pose_probe, tank_near_far_pose_probe,
-    debug_map_size, debug_map_toggle_probe,
+    debug_map_size, debug_map_toggle_probe, mission_map_probe,
     explosion_active_world_probe, explosion_active_world_fingerprint,
     spark_active_world_probe, spark_active_world_fingerprint,
     smoke_active_world_probe, smoke_active_world_fingerprint,

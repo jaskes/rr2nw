@@ -94,6 +94,13 @@ public:
    unsigned int DrawFrames() const { return m_drawFrames; }
    unsigned int OpenTransitions() const { return m_openTransitions; }
    unsigned int CloseTransitions() const { return m_closeTransitions; }
+   int MissionCount() const;
+   int MissionRouteCount() const;
+   int MissionTextCount() const;
+   int CurrentMission() const { return m_curMission; }
+   bool MissionInUse(TMissionId mId) const;
+   int MissionRouteCount(TMissionId mId) const;
+   bool MissionHasText(TMissionId mId) const;
 
    virtual bool	shouldDump () { return false; }
 

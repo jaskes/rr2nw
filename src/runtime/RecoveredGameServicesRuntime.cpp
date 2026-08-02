@@ -18,6 +18,7 @@
 #define LAST_H__SCENE
 #include "game.h"
 #include "dmap.h"
+#include "font.h"
 #include "graph.h"
 #include "hardware.h"
 #include "h/super.h"
@@ -32,6 +33,7 @@
 #include "GameEntryRuntimeState.h"
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
+#include "MissionActiveWorldState.h"
 #include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredFramePreview.h"
@@ -1053,6 +1055,13 @@ RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 RecoveredWindowsInputAdapter g_windowsInputAdapter;
 unsigned int g_mapTogglePresses = 0;
+FixedFontOBJ* g_debugMapMissionFont = nullptr;
+SRecoveredMissionMapProbeTelemetry g_missionMapProbe = {};
+int g_missionMapBaselineMissions = 0;
+int g_missionMapBaselineTexts = 0;
+int g_missionMapBaselineRoutes = 0;
+unsigned int g_missionMapBaselineDrawFrames = 0;
+bool g_missionMapProbeLive = false;
 struct SRecoveredPendingWindowsInput {
   bool focus = false;
   bool applicationActive = true;
@@ -2266,6 +2275,12 @@ bool BeginPrimaryFireTelemetry(SimulationContext* context) {
   g_primaryFireEffectPresent = false;
   g_windowsInputAdapter.Reset(true);
   g_mapTogglePresses = 0;
+  g_missionMapProbe = {};
+  g_missionMapBaselineMissions = 0;
+  g_missionMapBaselineTexts = 0;
+  g_missionMapBaselineRoutes = 0;
+  g_missionMapBaselineDrawFrames = 0;
+  g_missionMapProbeLive = false;
   g_pendingWindowsInput.clear();
   return true;
 }
@@ -2500,6 +2515,9 @@ void EndBoundedSession() {
     // Arena owns all script-created class-table objects. Release that graph
     // while its context and the legacy services it may notify still exist.
     RecoveredArenaSeance_Release();
+    RemoveAttachedObject(g_super.m_context, g_debugMapMissionFont);
+    delete g_debugMapMissionFont;
+    g_debugMapMissionFont = nullptr;
     // Subscribers must leave while Hardware can still accept unsubscribe
     // events. The legacy clearObjects() walks allocation order instead.
     RemoveAttachedObject(g_super.m_context, &g_super.m_level);
@@ -2641,6 +2659,25 @@ void InitializeSession() {
       EndBoundedSession();
       Report(RECOVERED_GAME_SERVICES_DEBUG_MAP_INITIALIZATION_FAILURE);
       return;
+    }
+    // green_menu.sci published this exact object from the data-root font.
+    // Keep the original symbolic identity and relative path so mission text
+    // uses the retail FixedFont contract instead of a replacement renderer.
+    if (GetFileAttributesA("..\\fnt16x16.fnt") != INVALID_FILE_ATTRIBUTES) {
+      g_debugMapMissionFont =
+          new (std::nothrow) FixedFontOBJ("..\\fnt16x16.fnt");
+      // FixedFontOBJ's legacy constructor discards Read()'s status and Height()
+      // is not safe after a short/corrupt header.  An empty software print
+      // validates the loaded buffers and active framebuffer without writing.
+      if (g_debugMapMissionFont == nullptr ||
+          g_super.m_context
+              ->addObject("Font.fnt16x16.fnt", g_debugMapMissionFont)
+              .isNUL() ||
+          g_debugMapMissionFont->PrintAt(0, 0, "") != 1) {
+        EndBoundedSession();
+        Report(RECOVERED_GAME_SERVICES_DEBUG_MAP_INITIALIZATION_FAILURE);
+        return;
+      }
     }
     g_super.m_context->addObject("LEVEL", &g_super.m_level);
     g_super.m_session.Add(g_super.m_context);
@@ -5052,6 +5089,81 @@ bool RecoveredGameServices_RequestDebugMapToggle() {
   input.value = 1.0;
   input.code = 'M';
   return DispatchWindowsInputAction(input, CurrentInputEventTime());
+}
+
+bool RecoveredGameServices_StageMissionMapProbe() {
+  if (!RecoveredGameServices_DebugMapReady() || g_super.m_context == nullptr ||
+      g_missionMapProbeLive) {
+    return false;
+  }
+  g_missionMapProbe = {};
+  g_missionMapBaselineMissions = g_debugMap.MissionCount();
+  g_missionMapBaselineTexts = g_debugMap.MissionTextCount();
+  g_missionMapBaselineRoutes = g_debugMap.MissionRouteCount();
+  g_missionMapBaselineDrawFrames = g_debugMap.DrawFrames();
+
+  bool staged = false;
+  const double probeTime =
+      (std::max)(Session::m_moment, Session::m_viewTime) + 30.0;
+  if (!MissionActiveWorldState_StageProbe(
+          g_super.m_context, probeTime, &staged) || !staged) {
+    return false;
+  }
+  g_missionMapProbeLive = true;
+  g_missionMapProbe.staged = 1;
+  g_missionMapProbe.missionCount =
+      g_debugMap.MissionCount() - g_missionMapBaselineMissions;
+  g_missionMapProbe.textCount =
+      g_debugMap.MissionTextCount() - g_missionMapBaselineTexts;
+  g_missionMapProbe.routeCount =
+      g_debugMap.MissionRouteCount() - g_missionMapBaselineRoutes;
+  g_missionMapProbe.summaryPublished =
+      g_missionMapProbe.missionCount == 1 &&
+      g_missionMapProbe.textCount == 1;
+  return g_missionMapProbe.missionCount == 1;
+}
+
+bool RecoveredGameServices_VerifyMissionMapProbe() {
+  if (!g_missionMapProbeLive || !g_debugMap.IsActive() ||
+      g_debugMap.DrawFrames() <= g_missionMapBaselineDrawFrames) {
+    return false;
+  }
+  SGRSoftwareRasterStats stats = {};
+  GRSoftwareGetFrameStats(&stats);
+  g_missionMapProbe.renderedFrames = static_cast<int>(
+      g_debugMap.DrawFrames() - g_missionMapBaselineDrawFrames);
+  g_missionMapProbe.framebufferHash = stats.framebufferHash;
+  g_missionMapProbe.framebufferNonClearPixels =
+      stats.framebufferNonClearPixels;
+  return g_debugMap.MissionCount() - g_missionMapBaselineMissions ==
+             g_missionMapProbe.missionCount &&
+         g_debugMap.MissionTextCount() - g_missionMapBaselineTexts ==
+             g_missionMapProbe.textCount &&
+         g_debugMap.MissionRouteCount() - g_missionMapBaselineRoutes ==
+             g_missionMapProbe.routeCount &&
+         stats.framebufferHash != 0 && stats.framebufferNonClearPixels != 0;
+}
+
+bool RecoveredGameServices_ClearMissionMapProbe() {
+  if (!g_missionMapProbeLive || g_super.m_context == nullptr ||
+      g_debugMap.IsActive() ||
+      !MissionActiveWorldState_ClearProbe(g_super.m_context)) {
+    return false;
+  }
+  const bool clean =
+      g_debugMap.MissionCount() == g_missionMapBaselineMissions &&
+      g_debugMap.MissionTextCount() == g_missionMapBaselineTexts &&
+      g_debugMap.MissionRouteCount() == g_missionMapBaselineRoutes;
+  g_missionMapProbe.rollbacks = clean ? 1 : 0;
+  g_missionMapProbeLive = false;
+  return clean;
+}
+
+bool RecoveredGameServices_MissionMapProbeTelemetry(
+    SRecoveredMissionMapProbeTelemetry* telemetry) {
+  if (telemetry == nullptr || g_missionMapProbe.staged == 0) return false;
+  *telemetry = g_missionMapProbe;
+  return true;
 }
 
 unsigned int RecoveredGameServices_VehiclePrimaryFirePresses() {

@@ -4741,3 +4741,49 @@ The retail matrix requires `debug_map_size=1000/1000` and
 configurations. Quest text and portal transitions are later Frontier F owners;
 this decision exposes their original surface without claiming their campaign
 logic.
+
+## BD-127: PlayerMission is authoritative and DebugMap republishes it
+
+Status: accepted on 2026-08-02 as the second Frontier F slice.
+
+The original campaign path is retained: `PlayerMission` owns objective status,
+conditions, summary text and the optional Route reference;
+`Player::loadNotify()` clears and derives the DebugMap mission pool from that
+state. DebugMap text/routes are presentation caches and remain outside
+LCN1/RR2SLOT1. Applying MSH1 therefore reconstructs Player first and invokes
+the same publication path instead of serializing UI-private structures.
+
+The retail font is also kept as content rather than replaced. A recovered
+session loads `..\fnt16x16.fnt` and publishes it under the exact historical
+`Font.fnt16x16.fnt` identity used by `green_menu.sci` and Player. The missing
+software `PrintColorAt` and `PrintClipAt` methods now perform validated,
+framebuffer-bounded glyph drawing. A missing optional source-fixture font keeps
+the previous headless path; an installed but unreadable font fails Level
+admission.
+
+Legacy mission text is an 8-bit font byte stream. Width and character lookup
+therefore cast each byte to `unsigned char` before indexing the 256-glyph table.
+This preserves CP1251 glyph numbers under modern MSVC, where plain signed
+`char` previously made Russian bytes negative. The installed probe includes a
+CP1251 word so the width/publication path is exercised in every retail row.
+
+A summary may deliberately contain a tombstoned/NUL Route. This is required by
+terminal `Level.07N`, whose installed Level has no Route resource: its objective
+text remains valid and `Player::loadNotify()` skips only the arrow. A symbolic
+Route that was present at capture is still a hard reconstruction dependency and
+fails transactionally if missing. Mission-pool exhaustion, a missing context
+and an unresolved runtime Route now fail closed instead of indexing an invalid
+mission or asserting.
+
+The executable probe stages one bounded PlayerMission after retail Route
+publication, renders it through a real M frame and restores the exact prior
+Player/DebugMap counts. Eight installed Levels require one text plus one real
+Route; `Level.07N` requires one text and zero Routes. Diagnostics are
+`mission_map_probe=1/1/1/1/<routes>/1/1/<hash>/<nonclear>` and the matrix
+requires non-zero framebuffer evidence. Together with the existing MSH1
+fresh-owner proof, Debug and Release pass 67/67 CTest and 9/9 installed Levels.
+
+This decision proves the persistence-to-presentation seam, not authored quest
+progression. The next campaign owner is the retail ProjectTable/RecruitCenter
+bootstrap that creates and advances real mission definitions from the Level
+scripts.
