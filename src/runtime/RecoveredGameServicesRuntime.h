@@ -27,7 +27,9 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE = 1u << 12,
   RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE = 1u << 13,
   RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE = 1u << 14,
-  RECOVERED_GAME_SERVICES_VEHICLE_DEATH_CAMERA_FAILURE = 1u << 15
+  RECOVERED_GAME_SERVICES_VEHICLE_DEATH_CAMERA_FAILURE = 1u << 15,
+  RECOVERED_GAME_SERVICES_DEBUG_MAP_INITIALIZATION_FAILURE = 1u << 16,
+  RECOVERED_GAME_SERVICES_DEBUG_MAP_RENDER_FAILURE = 1u << 17
 };
 
 struct SRecoveredObserverState {
@@ -623,6 +625,14 @@ unsigned int RecoveredGameServices_VehiclePhysicalReconciliationCount();
 bool RecoveredGameServices_WindowsInputTelemetry(
     SRecoveredWindowsInputTelemetry* telemetry);
 unsigned int RecoveredGameServices_MapTogglePresses();
+bool RecoveredGameServices_DebugMapReady();
+bool RecoveredGameServices_DebugMapActive();
+int RecoveredGameServices_DebugMapWidth();
+int RecoveredGameServices_DebugMapHeight();
+unsigned int RecoveredGameServices_DebugMapDrawFrames();
+unsigned int RecoveredGameServices_DebugMapOpenTransitions();
+unsigned int RecoveredGameServices_DebugMapCloseTransitions();
+bool RecoveredGameServices_RequestDebugMapToggle();
 unsigned int RecoveredGameServices_VehiclePrimaryFirePresses();
 unsigned int RecoveredGameServices_VehicleSecondaryFirePresses();
 unsigned int RecoveredGameServices_VehicleSecondaryFireAcceptedShots();

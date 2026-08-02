@@ -214,6 +214,63 @@ int CGRImage::Draw(int xs,int ys) const
     return 1;
 }
 
+int CGRImage::Draw(int xs,int ys,int x0,int y0,int x1,int y1) const
+{
+    if( image == NULL || _dL.currDevice == NULL ||
+        _dL.currDevice->swHw != GR_SOFTWARE || _gr_pScreen == NULL ||
+        imageW <= 0 || imageH <= 0 || _gr_nScreenWidth <= 0 ||
+        _gr_nScreenHeight <= 0 || x0 > x1 || y0 > y1 ) return 0;
+
+    long long sourceLeft = x0;
+    long long sourceTop = y0;
+    long long sourceRight = x1;
+    long long sourceBottom = y1;
+    long long destinationLeft = xs;
+    long long destinationTop = ys;
+    if( sourceLeft < 0 ) {
+        destinationLeft -= sourceLeft;
+        sourceLeft = 0;
+    }
+    if( sourceTop < 0 ) {
+        destinationTop -= sourceTop;
+        sourceTop = 0;
+    }
+    sourceRight = (std::min)(sourceRight,
+        static_cast<long long>(imageW)-1);
+    sourceBottom = (std::min)(sourceBottom,
+        static_cast<long long>(imageH)-1);
+    if( destinationLeft < 0 ) {
+        sourceLeft -= destinationLeft;
+        destinationLeft = 0;
+    }
+    if( destinationTop < 0 ) {
+        sourceTop -= destinationTop;
+        destinationTop = 0;
+    }
+    if( destinationLeft >= _gr_nScreenWidth ||
+        destinationTop >= _gr_nScreenHeight ||
+        sourceLeft > sourceRight || sourceTop > sourceBottom ) return 0;
+
+    long long width = sourceRight-sourceLeft+1;
+    long long height = sourceBottom-sourceTop+1;
+    width = (std::min)(width,
+        static_cast<long long>(_gr_nScreenWidth)-destinationLeft);
+    height = (std::min)(height,
+        static_cast<long long>(_gr_nScreenHeight)-destinationTop);
+    if( width <= 0 || height <= 0 ) return 0;
+
+    const unsigned char *source = static_cast<const unsigned char*>(image)+
+        sourceTop*imageW+sourceLeft;
+    unsigned char *destination = _gr_pScreen+
+        destinationTop*_gr_nScreenWidth+destinationLeft;
+    for( long long row = 0; row < height; ++row ) {
+        memcpy(destination,source,static_cast<size_t>(width));
+        source += imageW;
+        destination += _gr_nScreenWidth;
+    }
+    return 1;
+}
+
 int CGRImage::DrawX2(int xs,int ys) const
 {
     if( image == NULL || _dL.currDevice == NULL ||

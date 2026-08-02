@@ -10,7 +10,6 @@
 #include "d3d.h"
 
 extern SDeviceList _dL;
-extern IDirect3DDevice2       *_d3dDevice;
 extern float __HazeLen;
 
 #ifndef RR2NW_DMAP_MISSION_EXTERNAL
@@ -20,12 +19,22 @@ extern float __HazeLen;
 #endif
 
 //---------------------------------------------
-void DebugMap::Init(const char * mapName)
+bool DebugMap::Init(const char * mapName)
 {
-   m_levelMap->LoadFromBMPFile(mapName, 0, 0);
+   DeInit();
+   m_drawFrames = 0;
+   m_openTransitions = 0;
+   m_closeTransitions = 0;
+   if (mapName == NULL || mapName[0] == 0 ||
+       !m_levelMap->LoadFromBMPFile(mapName, 0, 0))
+      return false;
 
    m_mapW = m_levelMap->Width();
    m_mapH = m_levelMap->Height();
+   if (m_mapW <= 0 || m_mapH <= 0) {
+      m_levelMap->Delete();
+      return false;
+   }
    m_mapScaleX  = (float)m_mapW / (512.0f*10.0f);
    m_mapScaleY  = (float)m_mapH / (512.0f*10.0f);
    m_mapiScaleX = (512.0f*10.0f) / (float)m_mapW;
@@ -105,24 +114,41 @@ void DebugMap::Init(const char * mapName)
                               m_winY + m_winH/8 + m_textBoxY,
                               viewRect
                              );
+   if (m_vPort == NULL) {
+      m_levelMap->Delete();
+      m_enableDraw = FALSE;
+      return false;
+   }
+   m_initialized = TRUE;
+   return true;
 }
 
 //---------------------------------------------
 void DebugMap::DeInit()
 {
+   m_active = FALSE;
+   m_initialized = FALSE;
+   if (m_vPort != NULL) {
+      GRReleaseViewport(m_vPort);
+      m_vPort = NULL;
+   }
    m_levelMap->Delete();
 
    m_enableDraw = FALSE;
+   m_mapW = 0;
+   m_mapH = 0;
 }
 
 //---------------------------------------------
 //---------------------------------------------
-void DebugMap::Draw() {
+bool DebugMap::DrawRecovered() {
     int i,j;
     SMapMission *mM = &m_mission[m_curMission];
     IPlayer        *player;
 
-    if (!m_enableDraw) return;
+    if (!m_initialized || !m_enableDraw || !m_active || m_vPort == NULL ||
+        getContext() == NULL || g_vehicle == NULL)
+       return false;
 
     //patch clipRect
     _gr_clipRect.left   = m_winX -_gr_nScreenOriginX;
@@ -133,6 +159,8 @@ void DebugMap::Draw() {
 
     m_self = (IDynamicObject *)(g_vehicle->queryInterface(IDynamicObjectIID));
     player = (IPlayer *)(g_vehicle->queryInterface(IPlayerIID));
+    if (m_self == NULL || player == NULL)
+       return false;
 
     //draw Map
     GREndScene();
@@ -161,13 +189,13 @@ void DebugMap::Draw() {
        }
     }
 
-    m_levelMap->Draw(m_winX, m_winY, m_winBaseX, m_winBaseY, m_winBaseX+m_winW, m_winBaseY+m_winH);
+    if (!m_levelMap->Draw(m_winX, m_winY, m_winBaseX, m_winBaseY,
+                          m_winBaseX+m_winW, m_winBaseY+m_winH))
+       return false;
 
     GRStartScene();
 
     GRZBufferEnable(0);
-    if (_dL.currDevice->swHw == GR_HARDWARE)
-       _d3dDevice->SetRenderState(D3DRENDERSTATE_EDGEANTIALIAS, TRUE);
 
     //draw Routes
     if (m_drawRoutes) {
@@ -180,7 +208,8 @@ void DebugMap::Draw() {
              points[j+1] = rt->point[j+1] - m_winBaseY;
           }
 
-          GRLUDrawArrow(points, rt->pointsNum, rt->widthS, rt->widthE, rt->color);
+          if (rt->pointsNum >= 2)
+             GRLUDrawArrow(points, rt->pointsNum, rt->widthS, rt->widthE, rt->color);
        }
     }
 
@@ -258,15 +287,14 @@ void DebugMap::Draw() {
     if (mM->text.font != NULL)
        DrawPanel(player);
 
-    if (_dL.currDevice->swHw == GR_HARDWARE)
-       _d3dDevice->SetRenderState(D3DRENDERSTATE_EDGEANTIALIAS, FALSE);
     GRZBufferEnable(1);
     //restore clipRect
     _gr_clipRect = GRGetViewport()->clipRect;
     GRSetClipRect();
 
     GRStartScene();
-
+    ++m_drawFrames;
+    return true;
 }
 //---------------------------------------------
 void DebugMap::DrawSelf(IDynamicObject * obj, unsigned long col)

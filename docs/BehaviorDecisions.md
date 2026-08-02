@@ -4257,9 +4257,8 @@ event is discarded because teardown has no later simulation boundary.
 window/capture compatibility, and its configured translator remains available
 to existing hermetic tests. It is not a second production keyboard/button
 consumer. CTJ1 records the same semantic actions; JUMP is admitted as an edge
-without enlarging the version-1 held-action checkpoint. M currently proves the
-semantic command only; presentation and ownership of the real map belong to
-Frontier F.
+without enlarging the version-1 held-action checkpoint. M reaches the semantic
+command here; BD-126 owns the resulting map presentation.
 
 Acceptance combines an isolated adapter regression with repeated real-window
 Debug/Release sequences. The latter enters an armed Level.03N Taxi through the
@@ -4700,3 +4699,45 @@ initialization of the pre-START presentation fields in the archived non-UTF-8
 `PEOPLE.CPP` and `TANK.CPP` remains encoding-gated cleanup: the runtime boundary
 is safe through `onView`, and those files are not transcoded merely to create a
 large unrelated diff.
+
+## BD-126: DebugMap is derived Level presentation with exclusive screen ownership
+
+Status: accepted on 2026-08-02 as the first Frontier F slice.
+
+The preserved Supervisor constructed one global `DebugMap`, registered it in
+the Level context and initialized it from the relative `level04s.bmp`. Every
+installed Level contains its own 8-bit `1000x1000` bitmap, and the recovered
+Level runtime already owns the Level directory as its working directory. The
+modern runtime therefore retains that original per-Level relative lookup. It
+does not invent a world-name map table or reinterpret optional `DMAP.TXT`
+before the campaign owner using that file has been recovered.
+
+`M` remains one semantic `DMAP_TOGGLE` action and is delivered to the real
+`DebugMap::receiveEvent`. Opening is admitted only after the bitmap and private
+viewport exist. Before screen ownership changes, all held Vehicle controls are
+released through their normal semantic/journal boundary. While active, the map
+consumes gameplay actions except the closing `M`; simulation continues, but a
+held movement or fire key cannot act invisibly behind the overlay.
+
+The preserved follow-mode composition remains authoritative: a cropped Level
+bitmap, routes, units, artefacts, the controlled-body marker, available mission
+text/panel, and a live 3D inset. DirectDraw/D3D calls are not restored. The
+software graph owns clipped cropped-image drawing plus bounded line,
+rectangle, bar and circle primitives; the preserved `map.cpp` tapered-arrow
+algorithm now targets the recovered software polygon rasterizer.
+The main renderer temporarily adopts the map viewport for the inset, then
+restores the Level focus, clip and viewport in the same frame.
+
+Map active/scroll state is presentation, not gameplay authority. LCN1 and
+RR2SLOT1 continue to persist PlayerMission/Route owners; DebugMap derives its
+content after construction and every new/reconstructed Level starts closed.
+Teardown releases the viewport and image before its context disappears and is
+idempotent. Failure to load or draw the map fails the Level/frame instead of
+publishing a half-initialized overlay.
+
+Admission is one normal frame followed by real open, one map frame and close.
+The retail matrix requires `debug_map_size=1000/1000` and
+`debug_map_toggle_probe=1/1/1` on all nine Levels in both compiler
+configurations. Quest text and portal transitions are later Frontier F owners;
+this decision exposes their original surface without claiming their campaign
+logic.

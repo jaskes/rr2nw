@@ -1417,7 +1417,8 @@ Win32 order without equal-timestamp scheduler reordering or the old pre-first-
 frame race. Production messages never call `CtrlSet::Translate()` and ordinary
 frames report zero physical reconciliation. `KR_Hardware` remains linked for
 mouse motion, joystick, demo and legacy hermetic compatibility only. M now
-reaches the semantic boundary; the visible map remains Frontier F.
+reaches the semantic boundary; the visible map is restored by Frontier F's
+first slice.
 
 Gate: the isolated adapter smoke and repeated real-window Debug/Release test
 cover both release orders, extended arrows, repeat, Space, M, MouseL, MouseR
@@ -1648,6 +1649,28 @@ boundaries without pose explosions; the catalog-index-five lift and remaining
 platforms run through proven original ownership; all persist through save.
 
 ### Frontier F: campaign surface
+
+Status: in progress. The first map slice is complete. `M` now drives the real
+legacy `DebugMap` event and opens the Level-local `level04s.bmp` in follow
+mode. The preserved overlay draws the controlled body, discovered units,
+artefacts, routes and mission/panel content when those owners publish it, plus
+a live 3D inset through a private viewport. Opening neutralizes held Vehicle
+controls; all gameplay actions except the closing `M` are consumed while the
+map owns the screen. Level teardown and transactional replacement release the
+map bitmap/viewport and start the next Level closed.
+
+The map gate covers clipped bitmap drawing and maintained software 2D
+primitives, DebugMap constructor/Hardware lifecycle, and a real executable
+sequence of normal frame, open, map frame and close. All nine installed Levels
+must load a `1000x1000` map and publish
+`debug_map_toggle_probe=1/1/1` in Debug and Release. Map presentation remains
+derived state and is intentionally not added to LCN1/RR2SLOT1.
+
+The next slice is the campaign information owner: reconnect PlayerMission
+creation/update, objective text and route publication into this now-visible
+surface, then expose a bounded way to inspect the active objective. Only after
+that proof should Portal callbacks stage a transactional Level switch through
+the existing coordinator.
 
 Recover the map (`M`), quests/objectives, portal transition and required menu
 flows. A portal must request the same transactional Level coordinator used by

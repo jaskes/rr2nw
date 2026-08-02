@@ -504,6 +504,14 @@ foreach ($configurationName in $Configuration) {
                     $log["tank_near_far_pose_probe"] -ne $expectedTankPose) {
                     $issues.Add("Tank near/far cadence or rendered-pose proof changed")
                 }
+                if ((Get-LogInteger $log "debug_map_initialized") -ne 1 -or
+                    (Get-LogInteger $log "debug_map_active") -ne 0 -or
+                    -not $log.ContainsKey("debug_map_size") -or
+                    $log["debug_map_size"] -ne "1000/1000" -or
+                    -not $log.ContainsKey("debug_map_toggle_probe") -or
+                    $log["debug_map_toggle_probe"] -ne "1/1/1") {
+                    $issues.Add("retail M-map load/toggle/render/close proof changed")
+                }
             }
 
             $record = [ordered]@{
@@ -556,6 +564,8 @@ foreach ($configurationName in $Configuration) {
                 people_active_world_fingerprint = Get-LogUnsigned $log "people_active_world_fingerprint"
                 people_near_far_pose_probe = [string]$log["people_near_far_pose_probe"]
                 tank_near_far_pose_probe = [string]$log["tank_near_far_pose_probe"]
+                debug_map_size = [string]$log["debug_map_size"]
+                debug_map_toggle_probe = [string]$log["debug_map_toggle_probe"]
                 explosion_active_world_probe = [string]$log["explosion_active_world_probe"]
                 explosion_active_world_fingerprint = Get-LogUnsigned $log "explosion_active_world_fingerprint"
                 spark_active_world_probe = [string]$log["spark_active_world_probe"]
@@ -600,6 +610,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
     people_active_world_probe, people_active_world_fingerprint,
     people_near_far_pose_probe, tank_near_far_pose_probe,
+    debug_map_size, debug_map_toggle_probe,
     explosion_active_world_probe, explosion_active_world_fingerprint,
     spark_active_world_probe, spark_active_world_fingerprint,
     smoke_active_world_probe, smoke_active_world_fingerprint,

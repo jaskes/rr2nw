@@ -1577,6 +1577,30 @@ target_compile_definitions(rr2nw_graph_image_runtime_state PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_graph_map_software_state STATIC
+  nw/GRAPH/MapSoftwarePrimitives.cpp
+  nw/GRAPH/map.cpp
+)
+target_link_libraries(rr2nw_graph_map_software_state PUBLIC
+  rr2nw_graph_image_runtime_state
+)
+target_include_directories(rr2nw_graph_map_software_state PUBLIC
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/GRAPH
+)
+target_compile_features(rr2nw_graph_map_software_state PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_graph_map_software_state PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_graph_map_software_state PRIVATE /W4 /permissive- /wd4244
+  )
+endif()
+
 add_library(rr2nw_graph_fixed_font_runtime_state STATIC
   nw/GRAPH/FixedFontRuntimeState.cpp
 )
@@ -2790,6 +2814,7 @@ add_library(rr2nw_arena_obase_debug_map STATIC
 )
 target_link_libraries(rr2nw_arena_obase_debug_map PUBLIC
   rr2nw_arena_obase_debug_map_mission
+  rr2nw_graph_map_software_state
 )
 target_include_directories(rr2nw_arena_obase_debug_map PUBLIC
   nw/INCLUDE
@@ -3570,7 +3595,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_active_world_save
   rr2nw_windows_input_adapter
   rr2nw_mod_runtime
-  rr2nw_arena_obase_debug_map_mission
+  rr2nw_arena_obase_debug_map
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state
   rr2nw_arena_obase_vehicle
@@ -3887,7 +3912,7 @@ add_executable(rr2nw_graph_runtime_smoke
   src/portability/GraphRuntimeSmoke.cpp
 )
 target_link_libraries(rr2nw_graph_runtime_smoke PRIVATE
-  rr2nw_graph_image_runtime_state
+  rr2nw_graph_map_software_state
   rr2nw_graph_runtime_state
 )
 target_compile_features(rr2nw_graph_runtime_smoke PRIVATE cxx_std_14)

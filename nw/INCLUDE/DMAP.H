@@ -70,7 +70,7 @@ public:
 
    int  IsActive() const {return(m_active); }
 
-   void Init(const char * mapName);
+   bool Init(const char * mapName);
    void DeInit();
 
    TMissionId CreateMission(const char *name);
@@ -85,7 +85,15 @@ public:
 
    void AddMissionText(TMissionId mId, const char * str, const char * fntObjName);
    void Draw();
+   bool DrawRecovered();
    void ClearMissions();
+
+   int IsInitialized() const { return m_initialized; }
+   int MapWidth() const { return m_mapW; }
+   int MapHeight() const { return m_mapH; }
+   unsigned int DrawFrames() const { return m_drawFrames; }
+   unsigned int OpenTransitions() const { return m_openTransitions; }
+   unsigned int CloseTransitions() const { return m_closeTransitions; }
 
    virtual bool	shouldDump () { return false; }
 
@@ -157,6 +165,7 @@ protected:
    unsigned long m_panelColor;
 
    int m_active;
+   int m_initialized;
    int m_drawRoutes;
    int m_drawFriendObjects;
    int m_drawEnemyObjects;
@@ -177,6 +186,9 @@ protected:
    int m_winY;
 
    CGRImage   *m_levelMap;  // bmp image
+   unsigned int m_drawFrames;
+   unsigned int m_openTransitions;
+   unsigned int m_closeTransitions;
    int         m_curMission;
    SMapMission m_mission[MAX_MISSIONS];
 };

@@ -93,12 +93,17 @@ int DebugMap::receiveEvent(KR_Event& event) {
       if (ctrlEvent == DMAP_TOGGLE) {
         if (m_active) {
           m_active = FALSE;
+          ++m_closeTransitions;
           EnableRender3D();
           if (!m_followMode) {
             DebugMapSetHardwareMode(this, CTRL_SET_NORMAL, event.timeStamp);
           }
         } else {
+          if (!m_initialized || !m_enableDraw) {
+            break;
+          }
           m_active = TRUE;
+          ++m_openTransitions;
           DisableRender3D();
           if (!m_followMode) {
             DebugMapSetHardwareMode(this, CTRL_SET_EXCLUSIVE,

@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Pressing `M` now opens and closes the original Level-local `DebugMap`
+  instead of stopping at input telemetry. The overlay loads each retail
+  `level04s.bmp`, follows the controlled body, draws the original unit,
+  artefact and route layers, and retains a live 3D inset without allowing
+  movement/fire input to continue behind it.
+- DebugMap teardown now releases its cropped bitmap and private viewport on
+  failed initialization, Level replacement and repeated shutdown. Opening the
+  map neutralizes held Vehicle axes before the overlay owns input, so a map
+  visit cannot reintroduce the former stuck-motion behaviour.
 - Level admission now executes four real rendered poses for representative
   People and Tank objects: ordinary interpolation, capped stale prediction,
   hidden-state transition and the first visible frame after re-entry. Their
@@ -96,6 +105,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added maintained software implementations for the cropped `CGRImage` map
+  blit and line, rectangle, bar and circle primitives, and reconnected the
+  original tapered route-arrow rasterizer. The graph smoke validates their
+  clipped framebuffer writes without restoring a DirectDraw/D3D device.
+- Added DebugMap lifecycle and frame telemetry to startup diagnostics and the
+  retail acceptance matrix. Every accepted runtime smoke must prove a
+  `1000/1000` Level map and one real open/draw/close sequence.
 - Added a live-pose admission gate for every Level-local Skin animation
   program. It samples the real decoded modifiers at ten scene times, requires
   every temporal model to change and restores all touched vertices and derived

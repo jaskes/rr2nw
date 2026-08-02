@@ -1,6 +1,7 @@
 #include "graph.h"
 #include "sd1_epal.h"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <vector>
@@ -141,6 +142,42 @@ int main() {
                   screen[22 * 320 + 32] == 4 &&
                   screen[23 * 320 + 33] == 4,
               "2x software image blit changed")) {
+    GRReleaseViewport(viewport);
+    return 1;
+  }
+
+  CGRImage crop(4, 4);
+  crop.SetPalette(palette);
+  unsigned char cropPixels[] = {
+      1, 2, 3, 4,
+      5, 6, 7, 8,
+      9, 10, 11, 12,
+      13, 14, 15, 16};
+  crop.LoadPalImage(cropPixels, 0, 0, 0, 0, 3, 3, 4);
+  if (!Expect(crop.Draw(40, 40, 1, 1, 2, 2) == 1 &&
+                  screen[40 * 320 + 40] == 6 &&
+                  screen[40 * 320 + 41] == 7 &&
+                  screen[41 * 320 + 40] == 10 &&
+                  screen[41 * 320 + 41] == 11,
+              "cropped software map blit changed") ||
+      !Expect(GREnable2D() == 1,
+              "software map primitives could not acquire framebuffer")) {
+    GRReleaseViewport(viewport);
+    return 1;
+  }
+  GRLine(50, 50, 55, 50, 21);
+  GRCircle(60, 50, 3, 22, TRUE);
+  int route[] = {70, 50, 80, 50, 90, 55};
+  const bool routeScene = GRStartScene() == TRUE;
+  GRLUDrawArrow(route, 3, 1.0f, 3.0f, 23);
+  const std::size_t routePixels = static_cast<std::size_t>(
+      std::count(screen.begin(), screen.end(), 23));
+  if (!Expect(GREndScene() == TRUE && routeScene &&
+                  GRDisable2D() == 1 &&
+                  screen[50 * 320 + 50] == 21 &&
+                  screen[50 * 320 + 60] == 22 &&
+                  routePixels > 0,
+              "software map line/circle/route primitives changed")) {
     GRReleaseViewport(viewport);
     return 1;
   }

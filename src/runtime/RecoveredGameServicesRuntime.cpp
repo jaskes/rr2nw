@@ -443,6 +443,32 @@ class RecoveredVehicleControlInput final : public KR_Object {
   bool Subscribe() { return SetSubscribed(true); }
   bool Unsubscribe() { return SetSubscribed(false); }
   bool IsSubscribed() const { return m_subscribed; }
+  bool NeutralizeForOverlay(double eventTime) {
+    if (getContext() == nullptr || m_vehicle.isNUL() ||
+        !getContext()->isExist(m_vehicle) || !std::isfinite(eventTime))
+      return false;
+    bool succeeded = true;
+    for (int index = 0; index < kHeldActionCount; ++index) {
+      if (m_heldActions[index] == 0.0) continue;
+      const int action = HeldAction(index);
+      if (!VehicleRuntimeState_ApplyLiveControlAt(
+              getContext(), action, 0.0, eventTime)) {
+        m_forwardingFailed = true;
+        m_lastInputFailure = VehicleRuntimeState_LastControlFailure();
+        succeeded = false;
+      } else if (m_controlJournalRecording &&
+                 !VehicleControlJournal_AppendAction(
+                     &m_controlJournal, Session::m_simulationTick,
+                     VehicleRuntimeState_LastAppliedControlTime(),
+                     action, 0.0)) {
+        ++m_controlJournalAppendFailures;
+        m_controlJournalRecording = false;
+      }
+      m_heldActions[index] = 0.0;
+    }
+    m_directionalAxes = {};
+    return succeeded;
+  }
   bool ReconcilePhysicalDirectionalAxes(double eventTime) {
     if (!m_applicationActive || _gr_hWnd == nullptr ||
         GetForegroundWindow() != _gr_hWnd) {
@@ -1984,9 +2010,31 @@ double CurrentInputEventTime() {
 bool DispatchWindowsInputAction(
     const SRecoveredWindowsInputAction& input, double eventTime) {
   if (input.action == DMAP_TOGGLE) {
-    if (input.value > 0.0) ++g_mapTogglePresses;
-    return true;
+    if (input.value <= 0.0) return true;
+    ++g_mapTogglePresses;
+    if (!g_debugMap.IsInitialized() ||
+        g_debugMap.getContext() == nullptr)
+      return false;
+    const bool opening = !g_debugMap.IsActive();
+    if (opening && g_vehicleControlReady &&
+        !g_vehicleControlInput.NeutralizeForOverlay(eventTime))
+      return false;
+    KR_Event event;
+    event.source = g_hardware.getObjectID();
+    event.destination = g_debugMap.getObjectID();
+    event.timeStamp = eventTime;
+    event.label = CTRL_BUTTONS_MSG;
+    event.data.open(EDO_WRITE)
+        .putInt(input.action)
+        .putDouble(input.value)
+        .putInt(static_cast<int>(input.code))
+        .putInt(input.repeat)
+        .close();
+    const bool wasActive = g_debugMap.IsActive() != 0;
+    return g_debugMap.receiveEvent(event) == 1 &&
+           (g_debugMap.IsActive() != 0) != wasActive;
   }
+  if (g_debugMap.IsActive()) return true;
   KR_Event event;
   event.source = g_hardware.getObjectID();
   event.timeStamp = eventTime;
@@ -2448,6 +2496,7 @@ void EndBoundedSession() {
 
   if (g_super.m_context != nullptr) {
     StopVehicleControl(false, nullptr);
+    g_debugMap.DeInit();
     // Arena owns all script-created class-table objects. Release that graph
     // while its context and the legacy services it may notify still exist.
     RecoveredArenaSeance_Release();
@@ -2587,7 +2636,12 @@ void InitializeSession() {
       Report(RECOVERED_GAME_SERVICES_SESSION_FAILURE);
       return;
     }
-    g_super.m_context->addObject("DebugMap", &g_debugMap);
+    if (g_super.m_context->addObject("DebugMap", &g_debugMap).isNUL() ||
+        !g_debugMap.Init("level04s.bmp")) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_DEBUG_MAP_INITIALIZATION_FAILURE);
+      return;
+    }
     g_super.m_context->addObject("LEVEL", &g_super.m_level);
     g_super.m_session.Add(g_super.m_context);
     g_sessionAttached = true;
@@ -2701,9 +2755,8 @@ void BeginLoop() {
 }
 
 void DrawDebugMap() {
-  if (g_debugMap.IsActive()) {
-    Report(RECOVERED_GAME_SERVICES_ACTIVE_DEBUG_MAP_UNAVAILABLE);
-  }
+  if (g_debugMap.IsActive() && !g_debugMap.DrawRecovered())
+    Report(RECOVERED_GAME_SERVICES_DEBUG_MAP_RENDER_FAILURE);
 }
 
 int ReceiveLevelEvent(KR_Event& event) {
@@ -4964,6 +5017,43 @@ unsigned int RecoveredGameServices_MapTogglePresses() {
   return g_mapTogglePresses;
 }
 
+bool RecoveredGameServices_DebugMapReady() {
+  return g_debugMap.IsInitialized() != 0 && g_debugMap.m_vPort != nullptr;
+}
+
+bool RecoveredGameServices_DebugMapActive() {
+  return g_debugMap.IsActive() != 0;
+}
+
+int RecoveredGameServices_DebugMapWidth() {
+  return g_debugMap.MapWidth();
+}
+
+int RecoveredGameServices_DebugMapHeight() {
+  return g_debugMap.MapHeight();
+}
+
+unsigned int RecoveredGameServices_DebugMapDrawFrames() {
+  return g_debugMap.DrawFrames();
+}
+
+unsigned int RecoveredGameServices_DebugMapOpenTransitions() {
+  return g_debugMap.OpenTransitions();
+}
+
+unsigned int RecoveredGameServices_DebugMapCloseTransitions() {
+  return g_debugMap.CloseTransitions();
+}
+
+bool RecoveredGameServices_RequestDebugMapToggle() {
+  if (!g_sessionReady || !g_loopReady) return false;
+  SRecoveredWindowsInputAction input = {};
+  input.action = DMAP_TOGGLE;
+  input.value = 1.0;
+  input.code = 'M';
+  return DispatchWindowsInputAction(input, CurrentInputEventTime());
+}
+
 unsigned int RecoveredGameServices_VehiclePrimaryFirePresses() {
   return g_vehicleControlInput.PrimaryFirePresses();
 }
@@ -5111,6 +5201,7 @@ bool RecoveredGameServices_QuitRequested() {
 
 bool RecoveredGameServices_IsReady() {
   return g_platformReady && g_sessionReady && g_loopReady && g_hardwareReady &&
+         RecoveredGameServices_DebugMapReady() &&
          RecoveredGameServices_SeanceReady() &&
          RecoveredGameServices_BirdAttributesReady() &&
          RecoveredGameServices_PortalReady() &&
@@ -5270,9 +5361,34 @@ int RecoveredGameServices_RunFrame() {
   }
   SUA_BeginRender(ZAV_Scene(), dynamics);
   g_debugMap.Draw();
-  ZAV_RenderFrame(&direction, dynamics);
-  if (g_vehicleControlReady && g_vehicle != nullptr)
-    g_vehicle->drawPanel();
+  if ((g_issues & RECOVERED_GAME_SERVICES_DEBUG_MAP_RENDER_FAILURE) != 0) {
+    Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+    return FALSE;
+  }
+  if (!g_debugMap.IsActive()) {
+    ZAV_RenderFrame(&direction, dynamics);
+    if (g_vehicleControlReady && g_vehicle != nullptr)
+      g_vehicle->drawPanel();
+  } else {
+    SGRViewport* oldViewport = GRGetViewport();
+    const SRecoveredLevelSettings* settings =
+        RecoveredLevelRuntime_Settings();
+    if (oldViewport == nullptr || g_debugMap.m_vPort == nullptr ||
+        settings == nullptr) {
+      Report(RECOVERED_GAME_SERVICES_DEBUG_MAP_RENDER_FAILURE);
+      return FALSE;
+    }
+    const double aspect = RecoveredSoftwareGraph_Height() * 4.0 / 3.0 /
+                          RecoveredSoftwareGraph_Width();
+    const double mapFocus = g_debugMap.m_winDx * 5.0 / 8.0;
+    ZAV_Scene()->SetScale(mapFocus, mapFocus * aspect);
+    CViewObject::SetClipRect(g_debugMap.m_vPort->clipRect);
+    GRSetViewport(g_debugMap.m_vPort);
+    ZAV_RenderFrame(&direction, dynamics);
+    ZAV_Scene()->SetScale(settings->focus, settings->focus * aspect);
+    CViewObject::SetClipRect(oldViewport->clipRect);
+    GRSetViewport(oldViewport);
+  }
   ZAV_PrintFrameInfo();
   SUA_EndRender(ZAV_Scene());
   ZAV_EndRenderFrame();

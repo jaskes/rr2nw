@@ -18,6 +18,11 @@ int Fail(const char* message) {
 
 bool ExerciseMissionPool() {
   DebugMap map;
+  if (map.IsInitialized() || map.IsActive() || map.MapWidth() != 0 ||
+      map.MapHeight() != 0 || map.DrawFrames() != 0 ||
+      map.OpenTransitions() != 0 || map.CloseTransitions() != 0) {
+    return false;
+  }
   for (int i = 0; i < MAX_MISSIONS; ++i) {
     if (map.CreateMission("mission") != i) {
       return false;

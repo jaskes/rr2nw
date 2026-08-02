@@ -3,9 +3,15 @@
 
 DebugMap::DebugMap() {
   m_vPort = NULL;
+  m_mapW = 0;
+  m_mapH = 0;
   m_active = FALSE;
+  m_initialized = FALSE;
   m_enableDraw = FALSE;
   m_followMode = TRUE;
+  m_drawFrames = 0;
+  m_openTransitions = 0;
+  m_closeTransitions = 0;
   m_levelMap = new CGRImage;
   ClearMissions();
 }

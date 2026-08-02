@@ -3487,3 +3487,43 @@ START/attribute events remains a narrow archive cleanup item because
 encoding-preserving workflow, not silently transcoded for two source lines;
 current first visibility is safe because `onView` clears the sample before
 render.
+
+## Active retail DebugMap and software overlay boundary
+
+The earlier executable linked only the renderer-independent DebugMap mission
+pool/events; its frame callback deliberately diagnosed an active map as
+unavailable. Frontier F now links the complete preserved `dmap.cpp` owner into
+the recovered services runtime. Session construction registers that object,
+loads relative `level04s.bmp` after the Level runtime selects its working
+directory and admits the Level only after a private viewport is created.
+
+That link exposed the expected dead SDK frontier: cropped `CGRImage::Draw`,
+basic 2D shapes and `GRLUDrawArrow` were previously supplied by DirectDraw/D3D
+objects. `ImageRuntimeState.cpp` now owns a clipped source-rectangle blit, and
+`MapSoftwarePrimitives.cpp` owns framebuffer-bounded point, line, rectangle,
+bar and circle drawing. The original `map.cpp` tapered-route polygons now run
+through the recovered software rasterizer. These paths use the current
+software framebuffer and palette colors only. Hardware antialias state was removed;
+no DirectDraw surface or D3D device enters the maintained product graph.
+
+The executable frame order is now explicit. It clears the full framebuffer,
+begins the Level render, lets an active DebugMap draw the background and 2D
+layers, temporarily switches scene focus/clip/viewport for the map's live 3D
+inset, then restores the main Level settings before ending the frame. Inactive
+maps retain the ordinary scene/panel route. Open and close are the real legacy
+events; the Windows adapter neutralizes held actions at open and suppresses
+other gameplay commands while the overlay is active.
+
+`DebugMap::DeInit` is safe before or after partial initialization and releases
+both bitmap and viewport. Save/load and Level switching reconstruct the map as
+derived closed presentation; PlayerMission and Route remain the serialized
+owners. The mission-only smoke verifies neutral constructor and Hardware
+subscription teardown, the graph smoke verifies cropped pixels and every new
+primitive, and the services smoke requires readiness to disappear on rollback.
+
+Final Windows evidence is 67/67 CTest in Debug and Release plus 9/9 installed
+runtime starts per configuration. Every retail process executes normal frame,
+open M, one map frame and close M, reporting `debug_map_size=1000/1000` and
+`debug_map_toggle_probe=1/1/1`. The distinct non-clear framebuffer hashes prove
+real Level output; this boundary does not yet claim populated objectives or
+Portal campaign transitions.

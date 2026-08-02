@@ -83,6 +83,25 @@ released. Alt-Tab must neutralize all motion/fire; after return, input begins
 only on a fresh press. Needing to tap the opposite key, continued drift or
 unbounded rotation is a failure.
 
+## Retail map pass
+
+Start any installed Level normally, move to a recognizable landmark and press
+`M`. The full-screen Level-specific map must appear immediately with the
+controlled-body marker and a live 3D inset in its upper-right region. Pressing
+`M` again must return to a clean gameplay frame.
+
+Repeat once while holding a movement or turn key. Opening the map must stop the
+held action; the Vehicle/player must not continue moving, rotating or firing
+behind the overlay. After closing, release and press the gameplay key again to
+resume. Save/load, **Switch Level** and **Restart current Level** must each
+construct the new map closed; the first M press must show that Level's own
+background rather than the previous world's bitmap.
+
+Retain `rr2nw-startup.log` if a result differs. A valid automated startup
+records `debug_map_initialized=1`, `debug_map_size=1000/1000` and
+`debug_map_toggle_probe=1/1/1`. Missing mission text is not a map-renderer
+failure yet: reconnecting objective publication is the next Frontier F slice.
+
 Current interactive startup normally transfers ownership immediately to
 `Vehicle.Default`. After closing a Vehicle-controlled run, the diagnostic log
 must additionally contain:

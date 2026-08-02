@@ -2555,7 +2555,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                                    options.runtimeSmoke, &log);
   };
   if (!loopFailed && options.runtimeSmoke) {
-    loopFailed = !runCompleteFrame() || !runCompleteFrame();
+    loopFailed = !runCompleteFrame() ||
+                 !RecoveredGameServices_RequestDebugMapToggle() ||
+                 !runCompleteFrame() ||
+                 !RecoveredGameServices_RequestDebugMapToggle();
   }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {
@@ -2696,6 +2699,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   log.Line("windows_input_map_toggle_presses=" + std::to_string(
                RecoveredGameServices_MapTogglePresses()));
+  log.Line("debug_map_initialized=" + std::to_string(
+               RecoveredGameServices_DebugMapReady() ? 1 : 0));
+  log.Line("debug_map_active=" + std::to_string(
+               RecoveredGameServices_DebugMapActive() ? 1 : 0));
+  log.Line("debug_map_size=" + std::to_string(
+               RecoveredGameServices_DebugMapWidth()) + "/" +
+           std::to_string(RecoveredGameServices_DebugMapHeight()));
+  log.Line("debug_map_toggle_probe=" + std::to_string(
+               RecoveredGameServices_DebugMapOpenTransitions()) + "/" +
+           std::to_string(
+               RecoveredGameServices_DebugMapCloseTransitions()) + "/" +
+           std::to_string(RecoveredGameServices_DebugMapDrawFrames()));
   log.Line("windows_input_primary_fire_presses=" + std::to_string(
                RecoveredGameServices_VehiclePrimaryFirePresses()));
   log.Line("windows_input_secondary_fire_presses=" + std::to_string(

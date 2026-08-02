@@ -1699,8 +1699,7 @@ playable Level begins.
 - W/S, A/D, arrows and T/G publish complete signed canonical axes. Space maps
   to retail JUMP, M publishes the historical map-toggle action, MouseL and left
   Control share primary fire, MouseR owns secondary fire, and X/F1/Escape
-  preserve their recovered actions.
-  The visible map itself remains unclaimed.
+  preserve their recovered actions. RP-MAP-001 owns the visible result of M.
 - A bounded FIFO preserves WndProc insertion order and is drained at the owned
   Vehicle frame boundary before simulation events. Focus releases precede the
   inactive transition; inactive input is suppressed and focus gain does not
@@ -1712,6 +1711,31 @@ playable Level begins.
   collision checks and exits with zero held actions, axes, pending input and
   physical reconciliation. Verification is 66/66 CTest per configuration,
   18/18 ordinary retail runs and 18/18 fresh continuations.
+
+### RP-MAP-001: M opens the original Level-local map composition
+
+- Classification: `SOURCE_PATH_PRESERVED`, `SOFTWARE_BACKEND_RECOVERED`,
+  `CAMPAIGN_CONTENT_PARTIAL`.
+- The runtime links the complete preserved DebugMap renderer and initializes it
+  from the active Level's original `level04s.bmp`. All nine installed maps are
+  8-bit `1000x1000` assets; no replacement or generated map is shipped.
+- The original follow-mode composition draws a cropped map, the player marker,
+  visible unit/artefact layers, routes and available mission text/panel. Its
+  small viewport renders the same live Level and camera through the recovered
+  software scene. Maintained clipped image/2D primitives and the preserved
+  tapered-arrow polygon algorithm replace unavailable DirectDraw/D3D plumbing
+  without changing authored coordinates.
+- Opening uses the real `DMAP_TOGGLE` event, neutralizes held Vehicle controls
+  and suppresses other gameplay input until M closes the overlay. A Level
+  switch, load reconstruction or repeated shutdown releases the private image
+  and viewport and leaves the next Level closed.
+- DebugMap is derived presentation and is not serialized. The existing
+  PlayerMission/Route save contract remains authoritative for content that the
+  map will display after reconstruction.
+- Debug and Release each pass 67/67 CTest and all nine installed starts. Every
+  retail row requires a `1000/1000` map plus one real open/draw/close sequence
+  (`1/1/1`). Objective progression, populated mission text and Portal-driven
+  campaign switching remain unclaimed by this entry.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

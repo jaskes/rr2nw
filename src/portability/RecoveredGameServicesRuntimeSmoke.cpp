@@ -431,6 +431,10 @@ bool IsServiceReleased() {
          !RecoveredGameServices_LoopReady() &&
          !RecoveredGameServices_HardwareReady() &&
          !RecoveredGameServices_SeanceReady() &&
+         !RecoveredGameServices_DebugMapReady() &&
+         !RecoveredGameServices_DebugMapActive() &&
+         RecoveredGameServices_DebugMapWidth() == 0 &&
+         RecoveredGameServices_DebugMapHeight() == 0 &&
          !RecoveredGameServices_BirdAttributesReady() &&
          !RecoveredGameServices_PortalReady() &&
          !RecoveredGameServices_OrphanAttributesReady() &&
@@ -4812,6 +4816,17 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("service initialization failed");
+  }
+  if (!RecoveredGameServices_DebugMapReady() ||
+      RecoveredGameServices_DebugMapActive() ||
+      RecoveredGameServices_DebugMapWidth() != 1000 ||
+      RecoveredGameServices_DebugMapHeight() != 1000 ||
+      RecoveredGameServices_DebugMapDrawFrames() != 0 ||
+      RecoveredGameServices_DebugMapOpenTransitions() != 0 ||
+      RecoveredGameServices_DebugMapCloseTransitions() != 0) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("retail DebugMap initialization contract failed");
   }
   if (!ExerciseCurrentKeyTranslationAgainstStaleComplement()) {
     ZAV_DeInitLevel();
