@@ -385,9 +385,9 @@ every referenced asset, and admits only the nine known May catalogs (plus the
 empty CI fixture). Production constructs the real `Skin`/`SkinSpr` tables and
 decodes each Level's 26--52 VBC models and one TXR sprite. Counts, loaded state
 and decoded fingerprints survive double teardown/reconstruction and match for
-E/G and Debug/Release. Retail animation construction remains explicitly
-deferred because ROCKOX, ROCKOZ and ROTATEOYOut exceed the January state/event
-ABI.
+E/G and Debug/Release. Retail animation construction is now a separate bounded
+second stage with the May ROCKOX/ROCKOY/ROCKOZ and ROTATEOYOut ABI, exact
+Level-local entry calls and deterministic program/state fingerprints.
 
 The Level-local Farter/Lamp/Corpse attribute layer is now connected against the
 live Skin roster. Exact root/local programs execute in retail order, all
@@ -1581,17 +1581,23 @@ The serializer remains LCN1/RR2SLOT1.
 ### Frontier E: actors, static mechanisms and animation
 
 Complete the Level-local People/Tank runtime scheduler and remove proximity-
-triggered teleport/freeze behaviour. Finish the deferred May animation opcode
-construction (`ROCKOX`, `ROCKOZ`, `ROTATEOYOut`) and reconnect static callbacks
-such as the Level.05D starting lift. Use the debug menu for repeatable actor and
-mechanism positioning only after their ownership is proven.
+triggered teleport/freeze behaviour. Reconnect static callbacks such as the
+Level.05D starting lift. Use the debug menu for repeatable actor and mechanism
+positioning only after their ownership is proven.
 
 The first scheduler/presentation slice is complete: People no longer changes
 MOVE cadence from the previous frame's visibility bit, People and Tank share a
 finite distance scale, and render prediction is capped at one confirmed
 simulation displacement. Entering the visible set clears only that prediction
 sample, leaving authoritative position, queued events and the existing
-PEO1/TAN1 save records intact. Manual boundary passes, May animation opcodes and
+PEO1/TAN1 save records intact.
+
+The second slice is complete: the binary-confirmed May ROCK and ROTATEOYOut
+payloads execute through exact Level-local animation-only programs after Skin
+resource publication. All nine retail Levels pass exact animation roster gates
+and real rendered runtime-smoke frames. Reconstructed People rebind their
+per-reference auto-animation callback, closing the save/rollback crash exposed
+when shared model bases became animated. Manual near/far pose inspection and
 the Level.05D mechanism callbacks remain open in this frontier.
 
 Gate: representative robots/people/tanks animate and react at near/far

@@ -21,5 +21,10 @@ int SkinResourceState_ModelCount(SimulationContext *context);
 int SkinResourceState_SpriteCount(SimulationContext *context);
 unsigned long long SkinResourceState_Fingerprint(SimulationContext *context);
 bool SkinResourceState_AllLoaded(SimulationContext *context);
+bool SkinResourceState_AnimationProgramsReady(SimulationContext *context);
+int SkinResourceState_AnimatedModelCount(SimulationContext *context);
+int SkinResourceState_AnimationCommandCount(SimulationContext *context);
+unsigned long long SkinResourceState_AnimationFingerprint(
+    SimulationContext *context);
 
 #endif

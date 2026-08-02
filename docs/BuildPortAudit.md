@@ -1223,10 +1223,28 @@ all program state. `legacy-skin-resource-smoke` covers deterministic default,
 unloaded animation rejection and repeated cleanup, raising the normal matrix
 to 45 tests.
 
-Animation construction remains outside this slice. Retail files use ROCKOX,
-ROCKOZ and ROTATEOYOut payloads that the January `AnimateCell` cannot represent.
-Unknown commands fail closed and cannot advance the recovered program stack;
-resource readiness therefore makes no animation/gameplay parity claim.
+Animation construction now follows resource publication as a bounded second
+stage. `AnimateCell` represents the complete May ROCKOX/ROCKOY/ROCKOZ payload
+and ROTATEOYOut, and exact Level-local constants/functions plus shared SYSF
+animation helpers execute through the recovered VM. Unknown commands fail
+closed and cannot advance the recovered program stack. Retail program length
+is validated as capacity rather than exact occupancy.
+
+| Level | Entry calls | Animated models | Written commands |
+| --- | ---: | ---: | ---: |
+| Level.01D | 8 | 8 | 261 |
+| Level.01N | 8 | 8 | 261 |
+| Level.02D | 14 | 14 | 413 |
+| Level.02N | 14 | 14 | 413 |
+| Level.03N | 9 | 9 | 177 |
+| Level.04D | 8 | 8 | 137 |
+| Level.05D | 16 | 16 | 174 |
+| Level.06N | 7 | 7 | 87 |
+| Level.07N | 0 | 0 | 0 |
+
+The ordinary retail acceptance gate checks these exact rosters, non-zero
+source/state fingerprints, rendered polygons and clean shutdown. It also
+covers the People active-world callback rebind needed after reconstruction.
 
 Final verification passes 45/45 tests in Debug and 45/45 in Release. The full
 retail gate passes 36/36 service launches and 36/36 direct Skin-catalog loads

@@ -653,6 +653,12 @@ bool IsServiceReleased() {
          RecoveredArenaSeance_SoundObjectFingerprint() == 0 &&
          SoundObjectState_LiveCount() == 0 &&
          !RecoveredGameServices_SkinResourcesReady() &&
+         !RecoveredArenaSeance_SkinAnimationsReady() &&
+         RecoveredArenaSeance_SkinAnimationEntryCallCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimatedModelCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationCommandCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 &&
+         RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 &&
          !RecoveredGameServices_SparkAttributesReady() &&
          !RecoveredGameServices_SparkSubjectReady() &&
          !RecoveredGameServices_SparkRenderingReady() &&
@@ -4924,6 +4930,12 @@ int main(int argc, char** argv) {
       !RecoveredGameServices_WavMetadataReady() ||
       !RecoveredGameServices_SoundObjectReady() ||
       !RecoveredGameServices_SkinResourcesReady() ||
+      !RecoveredArenaSeance_SkinAnimationsReady() ||
+      RecoveredArenaSeance_SkinAnimationEntryCallCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimatedModelCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationCommandCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 ||
+      RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_SparkSubjectReady() ||
       !RecoveredGameServices_SparkRenderingReady() ||
@@ -7180,7 +7192,7 @@ int main(int argc, char** argv) {
               "corpse_refs=%llu corpse_runtime=%d "
               "corpse_subject=%d fingerprint=%llu live=0 "
                "skin_models=%d skin_sprites=%d skin_catalog=%llu "
-               "skin_resources=%llu "
+               "skin_resources=%llu skin_animations=empty-program-ready "
                 "spark=0/%d-sprite-light-May-phase spark_subject=%llu "
                 "spark_visual=%llu spark_probe=2/1/1/5/1 "
                 "people=%d/%d sound=%d attrs=%d/%d probe=%d/%d/%d/%d/%d "

@@ -153,9 +153,11 @@ Retail scripts нельзя молча копировать поверх source 
 - Runtime boundary: strict `main_LoadSkin()` extraction admits 26--52 real
   VBC models and exactly one TXR sprite per Level. Every asset is hashed before
   Arena mutation, then decoded through the real object/texture readers.
-- Deferred delta: May animation setup actively calls ROCKOX, ROCKOZ and
-  ROTATEOYOut operations not represented by the January owner. Resource parity
-  must not be reported as animation parity until that ABI is recovered.
+- Recovered delta: May ROCKOX/ROCKOY/ROCKOZ and ROTATEOYOut payloads now have
+  binary-confirmed storage/math and execute from exact Level-local animation
+  functions after resource publication. The nine expected
+  entry/model/command rosters are gated by runtime acceptance; ROTATEOX_CLIP
+  remains unsupported and fail-closed because retail contains no call to it.
 - Distribution handling: do not copy private May scripts/assets into
   `nw/OUTPUT`; runtime consumes the user's selected retail tree. A future mod
   catalog uses a separate declared content identity rather than a relaxed

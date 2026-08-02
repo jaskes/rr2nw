@@ -184,6 +184,19 @@ struct ResourceCollector
     bool valid;
 };
 
+struct AnimationEntry
+{
+    std::string name;
+    Skin *skin;
+};
+
+struct AnimationCollector
+{
+    SimulationContext *context;
+    std::vector<AnimationEntry> entries;
+    bool valid;
+};
+
 bool CollectSkin(const KR_ObjectID object, void *user)
 {
     ResourceCollector *collector = static_cast<ResourceCollector *>(user);
@@ -293,6 +306,7 @@ int Skin::receiveEvent(KR_Event &event)
                 return 0;
             }
             event.data.close();
+            m_isAutoAnim = 1;
             ++m_animProgSP;
         }
         else
@@ -569,6 +583,73 @@ void Skin::skinSetAnimAuto(CViewObjectRef *reference)
     reference->SetAnimationCallback(AnimateAutoCallBack);
 }
 
+bool CollectAnimationSkin(const KR_ObjectID object, void *user)
+{
+    AnimationCollector *collector =
+        static_cast<AnimationCollector *>(user);
+    const char *name = collector->context->searchObject(object);
+    Skin *skin = g_skinTable.find(object);
+    if (name == NULL || skin == NULL)
+    {
+        collector->valid = false;
+        return false;
+    }
+    AnimationEntry entry;
+    entry.name = name;
+    entry.skin = skin;
+    collector->entries.push_back(entry);
+    return true;
+}
+
+bool AnimationEntryLess(const AnimationEntry &left,
+                        const AnimationEntry &right)
+{
+    return left.name < right.name;
+}
+
+bool CollectAnimations(SimulationContext *context,
+                       AnimationCollector &collector)
+{
+    if (context == NULL)
+        return false;
+    collector.context = context;
+    collector.valid = true;
+    g_skinTable.userFind(CollectAnimationSkin, &collector);
+    if (!collector.valid)
+        return false;
+    std::sort(collector.entries.begin(), collector.entries.end(),
+              AnimationEntryLess);
+    return true;
+}
+
+bool SupportedAnimationType(int type)
+{
+    return type == anim_UPDATE || type == anim_MOVE ||
+           type == anim_ROTATEOX || type == anim_ROTATEOY ||
+           type == anim_ROTATEOZ || type == anim_ROTATEOXC ||
+           type == anim_ROTATEOYC || type == anim_ROTATEOZC ||
+           type == anim_LOADIDENTITY || type == anim_ROCKOX ||
+           type == anim_ROCKOY || type == anim_ROCKOZ ||
+           type == anim_ROTATEOYOut;
+}
+
+double AnimateCell::angle(double time) const
+{
+    if (m_type == anim_ROTATEOYOut)
+        return w + F;
+    double value = A * std::sin(w * time + F);
+    if (m_type == anim_ROCKOX || m_type == anim_ROCKOY ||
+        m_type == anim_ROCKOZ)
+    {
+        value += offset;
+        if (value < split)
+            value = split;
+        if (value > asplit)
+            value = asplit;
+    }
+    return value;
+}
+
 int AnimateInfo::setAnim(KR_Event &event, int animNum)
 {
     if (event.label != pe_EV_SETANIM ||
@@ -602,6 +683,7 @@ int AnimateInfo::setAnim(KR_Event &event, int animNum)
     case anim_ROTATEOX:
     case anim_ROTATEOY:
     case anim_ROTATEOZ:
+    case anim_ROTATEOYOut:
         cell.A = 0;
         event.data.descend(VECTOR3D_F, 0)
             .getDouble(cell.m_axis.x)
@@ -610,6 +692,22 @@ int AnimateInfo::setAnim(KR_Event &event, int animNum)
             .ascend()
             .getDouble(cell.w)
             .getDouble(cell.F);
+        return 1;
+
+    case anim_ROCKOX:
+    case anim_ROCKOY:
+    case anim_ROCKOZ:
+        event.data.descend(VECTOR3D_F, 0)
+            .getDouble(cell.m_axis.x)
+            .getDouble(cell.m_axis.y)
+            .getDouble(cell.m_axis.z)
+            .ascend()
+            .getDouble(cell.A)
+            .getDouble(cell.w)
+            .getDouble(cell.F)
+            .getDouble(cell.split)
+            .getDouble(cell.asplit)
+            .getDouble(cell.offset);
         return 1;
 
     case anim_ROTATEOXC:
@@ -673,6 +771,18 @@ void AnimateInfo::animateProg(CViewObjectBaseSet *, CViewObjectBase *base)
         case anim_ROTATEOZC:
             modifier->RotateOz(cell.A * std::sin(cell.w * time + cell.F),
                                cell.m_axis);
+            break;
+        case anim_ROCKOX:
+            modifier->RotateOx(cell.angle(time), cell.m_axis);
+            break;
+        case anim_ROCKOY:
+            modifier->RotateOy(cell.angle(time), cell.m_axis);
+            break;
+        case anim_ROCKOZ:
+            modifier->RotateOz(cell.angle(time), cell.m_axis);
+            break;
+        case anim_ROTATEOYOut:
+            modifier->RotateOy(cell.angle(time), cell.m_axis);
             break;
         case anim_LOADIDENTITY:
             modifier->LoadIdentity();
@@ -836,4 +946,111 @@ bool SkinResourceState_AllLoaded(SimulationContext *context)
         if (!collector.entries[i].loaded)
             return false;
     return true;
+}
+
+bool SkinResourceState_AnimationProgramsReady(SimulationContext *context)
+{
+    AnimationCollector collector = {};
+    if (!CollectAnimations(context, collector))
+        return false;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        const Skin &skin = *collector.entries[i].skin;
+        if (skin.m_animProgCnt == 0)
+        {
+            if (skin.m_animProg != NULL || skin.m_animProgSP != 0 ||
+                skin.m_isAutoAnim != 0)
+                return false;
+            continue;
+        }
+        if (!skin.m_loaded || skin.m_animProg == NULL ||
+            skin.m_animProgSP <= 0 ||
+            skin.m_animProgSP > skin.m_animProgCnt ||
+            skin.m_isAutoAnim == 0 || skin.m_aniCnt0 <= 0 ||
+            skin.m_array0 == NULL)
+            return false;
+        for (int program = 0; program < skin.m_animProgSP; ++program)
+        {
+            const AnimateInfo &info = skin.m_animProg[program];
+            if (info.m_askin != &skin || info.m_acellCnt != 1)
+                return false;
+            const AnimateCell &cell = info.m_acell[0];
+            if (!SupportedAnimationType(cell.m_type) ||
+                cell.m_animNum < 0 || cell.m_animNum >= skin.m_aniCnt0)
+                return false;
+            for (int reduction = 0; reduction < skin.m_reducNum; ++reduction)
+            {
+                const AniCell0 &mapping =
+                    skin.m_array0[skin.m_reducNum * cell.m_animNum +
+                                  reduction];
+                if (!mapping.m_use || mapping.m_fs == NULL)
+                    return false;
+            }
+        }
+    }
+    return true;
+}
+
+int SkinResourceState_AnimatedModelCount(SimulationContext *context)
+{
+    AnimationCollector collector = {};
+    if (!CollectAnimations(context, collector))
+        return 0;
+    int count = 0;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        if (collector.entries[i].skin->m_animProgCnt > 0)
+            ++count;
+    return count;
+}
+
+int SkinResourceState_AnimationCommandCount(SimulationContext *context)
+{
+    AnimationCollector collector = {};
+    if (!CollectAnimations(context, collector))
+        return 0;
+    int count = 0;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+        count += collector.entries[i].skin->m_animProgSP;
+    return count;
+}
+
+unsigned long long SkinResourceState_AnimationFingerprint(
+    SimulationContext *context)
+{
+    AnimationCollector collector = {};
+    if (!CollectAnimations(context, collector))
+        return 0;
+    unsigned long long hash = kHashOffset;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        const AnimationEntry &entry = collector.entries[i];
+        const Skin &skin = *entry.skin;
+        if (skin.m_animProgCnt == 0)
+            continue;
+        HashString(hash, entry.name.c_str());
+        HashBytes(hash, &skin.m_aniCnt, sizeof(skin.m_aniCnt));
+        HashBytes(hash, &skin.m_aniCnt0, sizeof(skin.m_aniCnt0));
+        HashBytes(hash, &skin.m_animProgCnt, sizeof(skin.m_animProgCnt));
+        HashBytes(hash, &skin.m_animProgSP, sizeof(skin.m_animProgSP));
+        for (int program = 0; program < skin.m_animProgSP; ++program)
+        {
+            const AnimateInfo &info = skin.m_animProg[program];
+            HashBytes(hash, &info.m_acellCnt, sizeof(info.m_acellCnt));
+            for (int cellIndex = 0; cellIndex < info.m_acellCnt; ++cellIndex)
+            {
+                const AnimateCell &cell = info.m_acell[cellIndex];
+                HashBytes(hash, &cell.m_type, sizeof(cell.m_type));
+                HashBytes(hash, &cell.m_axis, sizeof(cell.m_axis));
+                HashBytes(hash, &cell.m_dir, sizeof(cell.m_dir));
+                HashBytes(hash, &cell.A, sizeof(cell.A));
+                HashBytes(hash, &cell.w, sizeof(cell.w));
+                HashBytes(hash, &cell.F, sizeof(cell.F));
+                HashBytes(hash, &cell.split, sizeof(cell.split));
+                HashBytes(hash, &cell.asplit, sizeof(cell.asplit));
+                HashBytes(hash, &cell.offset, sizeof(cell.offset));
+                HashBytes(hash, &cell.m_animNum, sizeof(cell.m_animNum));
+            }
+        }
+    }
+    return hash;
 }

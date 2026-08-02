@@ -23,6 +23,8 @@ struct Token {
   ETokenKind kind;
   std::string text;
   int line;
+  std::size_t begin;
+  std::size_t end;
 };
 
 void Reset(SRecoveredSkinResourceCatalog* catalog,
@@ -148,6 +150,7 @@ bool Tokenize(const std::string& source, std::vector<Token>* tokens,
     }
     Token token = {};
     token.line = line;
+    token.begin = index;
     if (IsIdentifierStart(value)) {
       token.kind = TOKEN_IDENTIFIER;
       const std::size_t start = index++;
@@ -190,6 +193,7 @@ bool Tokenize(const std::string& source, std::vector<Token>* tokens,
       token.text.assign(1, static_cast<char>(value));
       ++index;
     }
+    token.end = index;
     try {
       tokens->push_back(token);
     } catch (...) {
@@ -505,4 +509,430 @@ bool RecoveredSkinResourceCatalog_IsKnown(
     if (catalog->fingerprint == fingerprint) return true;
   }
   return false;
+}
+
+bool RecoveredSkinResourceCatalog_BuildAnimationProgram(
+    const char* levelDirectory, std::string* program, int* entryCallCount,
+    unsigned long long* fingerprint,
+    SRecoveredSkinResourceCatalogResult* result) {
+  static const char prefix[] = R"RR2NW_SCRIPT(
+const int EDO_WRITE = 1;
+const int VECTOR3D_F = 6;
+const int sk_EV_PROG extern;
+const int pe_EV_SETANIM extern;
+const int anim_UPDATE = 0;
+const int anim_MOVE = 1;
+const int anim_ROTATEOX = 2;
+const int anim_ROTATEOY = 3;
+const int anim_ROTATEOZ = 4;
+const int anim_ROTATEOXC = 5;
+const int anim_ROTATEOYC = 6;
+const int anim_ROTATEOZC = 7;
+const int anim_ROTATE = 8;
+const int anim_ROTATEC = 9;
+const int anim_LOADIDENTITY = 10;
+const int anim_ROTATEOX_CLIP = 11;
+const int anim_ROCKOX = 12;
+const int anim_ROCKOY = 13;
+const int anim_ROCKOZ = 14;
+const int anim_ROTATEOYOut = 15;
+
+func int s_OpenEventData(int style) extern;
+func void s_CloseEventData(int event) extern;
+func void s_Descend(int event, int tag, int index) extern;
+func void s_Ascend(int event) extern;
+func void s_WriteInt(int event, int value) extern;
+func void s_WriteFloat(int event, float value) extern;
+func void s_WriteStr(int event, str value) extern;
+func void s_SendEventNow(int event, int label, int objectID, int cachePos) extern;
+func void s_SearchObjectID(var int objectID, var int cachePos, str name) extern;
+
+func void SetAnimateBlock(int objectID, int cachePos, int animatedSet,
+                          int position, str name)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  if animatedSet=0 then s_WriteStr(event, "set0");
+  else s_WriteStr(event, "set");
+  s_WriteInt(event, position);
+  s_WriteStr(event, name);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_PROG, objectID, cachePos);
+}
+
+func void CreateAnimSets(var int objectID, var int cachePos,
+                         str skinName, int initCount, int count)
+var int event;
+{
+  s_SearchObjectID(objectID, cachePos, skinName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, "createAniSets");
+  s_WriteInt(event, initCount);
+  s_WriteInt(event, count);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_PROG, objectID, cachePos);
+}
+
+func void CreateAnimSetsAuto(var int objectID, var int cachePos,
+                             str skinName, int initCount, int count,
+                             int programLength)
+var int event;
+{
+  s_SearchObjectID(objectID, cachePos, skinName);
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteStr(event, "createAniSetsAuto");
+  s_WriteInt(event, initCount);
+  s_WriteInt(event, count);
+  s_WriteInt(event, programLength);
+  s_CloseEventData(event);
+  s_SendEventNow(event, sk_EV_PROG, objectID, cachePos);
+}
+
+func void WriteVector(int event, vector value)
+{
+  s_Descend(event, VECTOR3D_F, 0);
+  s_WriteFloat(event, value.x);
+  s_WriteFloat(event, value.y);
+  s_WriteFloat(event, value.z);
+  s_Ascend(event);
+}
+
+func void skin_SetAnimProg_UPDATE(int objectID, int cachePos, int block)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, block);
+  s_WriteInt(event, anim_UPDATE);
+  s_CloseEventData(event);
+  s_SendEventNow(event, pe_EV_SETANIM, objectID, cachePos);
+}
+
+func void skin_SetAnimProg_LOADIDENTITY(int objectID, int cachePos, int block)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, block);
+  s_WriteInt(event, anim_LOADIDENTITY);
+  s_CloseEventData(event);
+  s_SendEventNow(event, pe_EV_SETANIM, objectID, cachePos);
+}
+
+func void skin_SetAnimProg_MOVE(int objectID, int cachePos, int block,
+                               vector axis, vector direction,
+                               float amplitude, float speed, float phase)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, block);
+  s_WriteInt(event, anim_MOVE);
+  WriteVector(event, axis);
+  WriteVector(event, direction);
+  s_WriteFloat(event, amplitude);
+  s_WriteFloat(event, speed);
+  s_WriteFloat(event, phase);
+  s_CloseEventData(event);
+  s_SendEventNow(event, pe_EV_SETANIM, objectID, cachePos);
+}
+
+func void skin_SetAnimProgReadDataRot(int objectID, int cachePos, int block,
+                                     int command, vector axis,
+                                     float speed, float phase)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, block);
+  s_WriteInt(event, command);
+  WriteVector(event, axis);
+  s_WriteFloat(event, speed);
+  s_WriteFloat(event, phase);
+  s_CloseEventData(event);
+  s_SendEventNow(event, pe_EV_SETANIM, objectID, cachePos);
+}
+
+func void skin_SetAnimProgReadDataRotC(int objectID, int cachePos, int block,
+                                      int command, vector axis,
+                                      float amplitude, float speed,
+                                      float phase)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, block);
+  s_WriteInt(event, command);
+  WriteVector(event, axis);
+  s_WriteFloat(event, amplitude);
+  s_WriteFloat(event, speed);
+  s_WriteFloat(event, phase);
+  s_CloseEventData(event);
+  s_SendEventNow(event, pe_EV_SETANIM, objectID, cachePos);
+}
+
+func void skin_SetAnimProgReadDataRock(int objectID, int cachePos, int block,
+                                      int command, vector axis,
+                                      float amplitude, float speed,
+                                      float phase, float split,
+                                      float asplit, float offset)
+var int event;
+{
+  event := s_OpenEventData(EDO_WRITE);
+  s_WriteInt(event, block);
+  s_WriteInt(event, command);
+  WriteVector(event, axis);
+  s_WriteFloat(event, amplitude);
+  s_WriteFloat(event, speed);
+  s_WriteFloat(event, phase);
+  s_WriteFloat(event, split);
+  s_WriteFloat(event, asplit);
+  s_WriteFloat(event, offset);
+  s_CloseEventData(event);
+  s_SendEventNow(event, pe_EV_SETANIM, objectID, cachePos);
+}
+
+func void skin_SetAnimProg_ROTATEOYOut(int o, int c, int b,
+                                      vector a, float p)
+{ skin_SetAnimProgReadDataRot(o,c,b,anim_ROTATEOYOut,a,0,p); }
+func void skin_SetAnimProg_ROTATEOX(int o, int c, int b,
+                                   vector a, float w, float p)
+{ skin_SetAnimProgReadDataRot(o,c,b,anim_ROTATEOX,a,w,p); }
+func void skin_SetAnimProg_ROTATEOY(int o, int c, int b,
+                                   vector a, float w, float p)
+{ skin_SetAnimProgReadDataRot(o,c,b,anim_ROTATEOY,a,w,p); }
+func void skin_SetAnimProg_ROTATEOZ(int o, int c, int b,
+                                   vector a, float w, float p)
+{ skin_SetAnimProgReadDataRot(o,c,b,anim_ROTATEOZ,a,w,p); }
+func void skin_SetAnimProg_ROTATEOXC(int o, int c, int b,
+                                    vector a, float A, float w, float p)
+{ skin_SetAnimProgReadDataRotC(o,c,b,anim_ROTATEOXC,a,A,w,p); }
+func void skin_SetAnimProg_ROTATEOYC(int o, int c, int b,
+                                    vector a, float A, float w, float p)
+{ skin_SetAnimProgReadDataRotC(o,c,b,anim_ROTATEOYC,a,A,w,p); }
+func void skin_SetAnimProg_ROTATEOZC(int o, int c, int b,
+                                    vector a, float A, float w, float p)
+{ skin_SetAnimProgReadDataRotC(o,c,b,anim_ROTATEOZC,a,A,w,p); }
+func void skin_SetAnimProg_ROTATEOX_CLIP(int o, int c, int b,
+                                       vector a, float w, float p)
+{ skin_SetAnimProgReadDataRot(o,c,b,anim_ROTATEOX_CLIP,a,w,p); }
+func void skin_SetAnimProg_ROCKOX(int o, int c, int b, vector a,
+                                 float A, float w, float p, float lo,
+                                 float hi, float ofs)
+{ skin_SetAnimProgReadDataRock(o,c,b,anim_ROCKOX,a,A,w,p,lo,hi,ofs); }
+func void skin_SetAnimProg_ROCKOY(int o, int c, int b, vector a,
+                                 float A, float w, float p, float lo,
+                                 float hi, float ofs)
+{ skin_SetAnimProgReadDataRock(o,c,b,anim_ROCKOY,a,A,w,p,lo,hi,ofs); }
+func void skin_SetAnimProg_ROCKOZ(int o, int c, int b, vector a,
+                                 float A, float w, float p, float lo,
+                                 float hi, float ofs)
+{ skin_SetAnimProgReadDataRock(o,c,b,anim_ROCKOZ,a,A,w,p,lo,hi,ofs); }
+)RR2NW_SCRIPT";
+
+  if (program != nullptr) program->clear();
+  if (entryCallCount != nullptr) *entryCallCount = 0;
+  if (fingerprint != nullptr) *fingerprint = 0;
+  if (levelDirectory == nullptr || levelDirectory[0] == 0 ||
+      program == nullptr || entryCallCount == nullptr ||
+      fingerprint == nullptr || result == nullptr) {
+    return Fail(result, RECOVERED_SKIN_CATALOG_INVALID_ARGUMENT,
+                "Skin animation builder received invalid input");
+  }
+  std::memset(result, 0, sizeof(*result));
+
+  std::string source;
+  std::vector<Token> tokens;
+  if (!ReadSource(JoinPath(levelDirectory, "SCINC\\SKIN.SCI"), &source,
+                  result) ||
+      !Tokenize(source, &tokens, result)) {
+    return false;
+  }
+
+  std::string commonSource;
+  std::vector<Token> commonTokens;
+  if (!ReadSource(JoinPath(levelDirectory, "..\\SYSF.SCI"),
+                  &commonSource, result) ||
+      !Tokenize(commonSource, &commonTokens, result)) {
+    return false;
+  }
+  const auto appendSourceRange = [](std::string* destination,
+                                    const std::string& rangeSource,
+                                    const std::vector<Token>& rangeTokens,
+                                    std::size_t first, std::size_t last) {
+    destination->append(rangeSource, rangeTokens[first].begin,
+                        rangeTokens[last].end - rangeTokens[first].begin);
+    destination->push_back('\n');
+  };
+  std::string commonAnimations;
+  int commonFunctionCount = 0;
+  for (std::size_t index = 0; index + 3 < commonTokens.size(); ++index) {
+    if (!Is(commonTokens, index, TOKEN_IDENTIFIER, "func") ||
+        !Is(commonTokens, index + 1, TOKEN_IDENTIFIER, "void") ||
+        commonTokens[index + 2].kind != TOKEN_IDENTIFIER ||
+        commonTokens[index + 2].text.compare(
+            0, 16, "CreateAnimation_") != 0) {
+      continue;
+    }
+    std::size_t open = index + 3;
+    while (open < commonTokens.size() &&
+           !Is(commonTokens, open, TOKEN_MARK, "{")) {
+      ++open;
+    }
+    if (open == commonTokens.size()) {
+      return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                  "common Skin animation function has no body");
+    }
+    int functionDepth = 0;
+    std::size_t end = open;
+    for (; end < commonTokens.size(); ++end) {
+      if (Is(commonTokens, end, TOKEN_MARK, "{")) ++functionDepth;
+      if (Is(commonTokens, end, TOKEN_MARK, "}")) {
+        --functionDepth;
+        if (functionDepth == 0) break;
+      }
+    }
+    if (end == commonTokens.size()) {
+      return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                  "common Skin animation function is unbalanced");
+    }
+    appendSourceRange(&commonAnimations, commonSource, commonTokens, index,
+                      end);
+    ++commonFunctionCount;
+    index = end;
+  }
+  if (commonFunctionCount != 0 && commonFunctionCount != 3) {
+    return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                "common Skin animation function roster changed");
+  }
+
+  std::string localDeclarations;
+  int sourceDepth = 0;
+  for (std::size_t index = 0; index < tokens.size(); ++index) {
+    if (Is(tokens, index, TOKEN_MARK, "{")) {
+      ++sourceDepth;
+      continue;
+    }
+    if (Is(tokens, index, TOKEN_MARK, "}")) {
+      --sourceDepth;
+      continue;
+    }
+    if (sourceDepth != 0 ||
+        !Is(tokens, index, TOKEN_IDENTIFIER, "const"))
+      continue;
+    std::size_t end = index + 1;
+    while (end < tokens.size() && !Is(tokens, end, TOKEN_MARK, ";")) ++end;
+    if (end == tokens.size()) {
+      return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                  "local Skin animation constant is unterminated");
+    }
+    appendSourceRange(&localDeclarations, source, tokens, index, end);
+    index = end;
+  }
+
+  std::string localAnimations;
+  for (std::size_t index = 0; index + 3 < tokens.size(); ++index) {
+    if (!Is(tokens, index, TOKEN_IDENTIFIER, "func") ||
+        tokens[index + 1].kind != TOKEN_IDENTIFIER ||
+        tokens[index + 2].kind != TOKEN_IDENTIFIER ||
+        tokens[index + 2].text == "main_LoadSkin") {
+      continue;
+    }
+    std::size_t open = index + 3;
+    while (open < tokens.size() && !Is(tokens, open, TOKEN_MARK, "{")) {
+      ++open;
+    }
+    if (open == tokens.size()) {
+      return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                  "local Skin animation function has no body");
+    }
+    int functionDepth = 0;
+    std::size_t end = open;
+    for (; end < tokens.size(); ++end) {
+      if (Is(tokens, end, TOKEN_MARK, "{")) ++functionDepth;
+      if (Is(tokens, end, TOKEN_MARK, "}")) {
+        --functionDepth;
+        if (functionDepth == 0) break;
+      }
+    }
+    if (end == tokens.size()) {
+      return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                  "local Skin animation function is unbalanced");
+    }
+    appendSourceRange(&localAnimations, source, tokens, index, end);
+    index = end;
+  }
+
+  std::size_t body = tokens.size();
+  for (std::size_t index = 0; index + 3 < tokens.size(); ++index) {
+    if (Is(tokens, index, TOKEN_IDENTIFIER, "func") &&
+        Is(tokens, index + 1, TOKEN_IDENTIFIER, "void") &&
+        Is(tokens, index + 2, TOKEN_IDENTIFIER, "main_LoadSkin")) {
+      for (std::size_t cursor = index + 3; cursor < tokens.size(); ++cursor) {
+        if (Is(tokens, cursor, TOKEN_MARK, "{")) {
+          body = cursor + 1;
+          break;
+        }
+      }
+      break;
+    }
+  }
+  if (body == tokens.size()) {
+    return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                "main_LoadSkin animation entry was not found");
+  }
+
+  std::string calls;
+  int depth = 1;
+  for (std::size_t index = body; index < tokens.size() && depth > 0; ++index) {
+    if (Is(tokens, index, TOKEN_MARK, "{")) {
+      ++depth;
+      continue;
+    }
+    if (Is(tokens, index, TOKEN_MARK, "}")) {
+      --depth;
+      continue;
+    }
+    if (depth != 1 || tokens[index].kind != TOKEN_IDENTIFIER ||
+        tokens[index].text.compare(0, 16, "CreateAnimation_") != 0) {
+      continue;
+    }
+    bool complete = false;
+    const std::size_t callStart = index;
+    for (; index < tokens.size(); ++index) {
+      const Token& token = tokens[index];
+      if (token.kind == TOKEN_MARK && token.text == ";") {
+        appendSourceRange(&calls, source, tokens, callStart, index);
+        complete = true;
+        break;
+      }
+    }
+    if (!complete) {
+      return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                  "unterminated animation entry call in main_LoadSkin");
+    }
+    ++*entryCallCount;
+  }
+  if (depth != 0) {
+    return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                "main_LoadSkin animation entry has unbalanced braces");
+  }
+  if (*entryCallCount != 0 && commonFunctionCount != 3) {
+    return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                "common Skin animation functions are incomplete");
+  }
+
+  try {
+    program->reserve(sizeof(prefix) + localDeclarations.size() +
+                     commonAnimations.size() +
+                     localAnimations.size() + calls.size() + 128u);
+    program->append(prefix);
+    program->append(localDeclarations);
+    program->append(commonAnimations);
+    program->append(localAnimations);
+    program->append("\nfunc void main()\n{\n");
+    program->append(calls);
+    program->append("}\n");
+  } catch (...) {
+    return Fail(result, RECOVERED_SKIN_CATALOG_PARSE_FAILURE,
+                "could not allocate Skin animation program");
+  }
+  *fingerprint = kHashOffset;
+  HashBytes(fingerprint, program->data(), program->size());
+  return true;
 }

@@ -2024,6 +2024,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_SkinCatalogFingerprint()));
   log.Line("skin_resource_fingerprint=" + std::to_string(
                RecoveredArenaSeance_SkinResourceFingerprint()));
+  log.Line("skin_animations_initialized=" +
+           std::to_string(
+               RecoveredArenaSeance_SkinAnimationsReady() ? 1 : 0));
+  log.Line("skin_animation_entry_calls=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationEntryCallCount()));
+  log.Line("skin_animated_models=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimatedModelCount()));
+  log.Line("skin_animation_commands=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationCommandCount()));
+  log.Line("skin_animation_source_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationSourceFingerprint()));
+  log.Line("skin_animation_state_fingerprint=" + std::to_string(
+               RecoveredArenaSeance_SkinAnimationStateFingerprint()));
   log.Line("spark_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_SparkAttributesReady() ? 1 : 0));

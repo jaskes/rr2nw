@@ -7,6 +7,9 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- People reconstructed by active-world save/rollback now rebind their
+  per-reference automatic Skin callback before rendering, preventing an
+  animated shared model from reaching the renderer without an animation owner.
 - People and Tank movement presentation no longer extrapolates an old update
   across an unbounded render-time gap. Their near/far cadence now follows one
   bounded distance policy, and entering the visible set resets presentation
@@ -88,6 +91,10 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Recovered the May retail Skin animation ABI and construction stage. Exact
+  Level-local animation functions now build real automatic programs for all
+  nine worlds, including ROCKOX/ROCKOY/ROCKOZ clamping and ROTATEOYOut, with
+  deterministic telemetry and exact retail-matrix roster gates.
 - Added a one-shot post-restore gameplay-authority failpoint for the recovered
   services smoke. It can reject an otherwise valid reconstructed Level only
   after LCN1, CTJ1, Vehicle, camera and panel validation, and is consumed by

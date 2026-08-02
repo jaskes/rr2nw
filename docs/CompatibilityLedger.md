@@ -659,7 +659,7 @@ Status vocabulary:
 
 ### CQ-048: May Skin animation calls exceed the January event ABI
 
-- Status: `CONFIRMED_RETAIL`, `DEFERRED_FAIL_CLOSED`.
+- Status: `CONFIRMED_RETAIL`, `RECOVERED_ACCEPTED`.
 - Evidence: the nine May `SCINC/SKIN.SCI` files contain 82
   `skin_SetAnimProg_ROCKOX`, 30 `ROCKOZ` and 6 `ROTATEOYOut` calls, in addition
   to the older MOVE/ROTATE/UPDATE set. January `AnimateInfo::setAnim()` handles
@@ -667,12 +667,23 @@ Status vocabulary:
   `AnimateCell` has only axis, direction, amplitude, speed and phase storage.
   The ROCK calls carry extra min/max/offset parameters that cannot be preserved
   by that layout.
-- Handling: this frontier parses only `main_LoadSkin()` and loads all resources;
-  it does not execute animation construction. The recovered decoder rejects
-  unknown command IDs without advancing either cell count or program stack.
-- Revisit when: recover the May external-function payload and runtime math for
-  ROCKOX, ROCKOZ and ROTATEOYOut, expand the state explicitly, then add
-  deterministic pose tests before calling the animation part of `SKIN.SCI`.
+- Binary evidence: May `nw.exe` dispatches ROCKOX/ROCKOY/ROCKOZ through the
+  shared setup target at `0x4C5F3B` and executes them at `0x4C677B`,
+  `0x4C67E4` and `0x4C684D`. The result is
+  `clamp(A*sin(w*time+F)+offset, split, asplit)` followed by the selected axis
+  rotation. ROTATEOYOut shares the ordinary rotation payload at `0x4C5E07`,
+  executes at `0x4C674C`, and uses `w+F`; the retail wrapper writes `w=0`.
+- Handling: `AnimateCell` now owns the complete May payload and executes all
+  three ROCK axes plus ROTATEOYOut. The selected Level's exact constants,
+  animation helpers, common SYSF animation functions and direct
+  `main_LoadSkin()` animation calls form a bounded animation-only program.
+  It runs only after every Skin resource loads and must publish a complete,
+  deterministic owner roster. Declared program length remains a capacity:
+  retail scripts may deliberately leave unused slots. Unknown commands still
+  fail closed without consuming a slot. `ROTATEOX_CLIP` remains unsupported
+  because the nine retail scripts contain no call to it.
+- Revisit when: a mod or newly admitted retail identity uses ROTATEOX_CLIP, or
+  manual play exposes a pose mismatch despite the exact command/state matrix.
 
 ### CQ-049: Skin resources are a large Level-specific retail delta
 

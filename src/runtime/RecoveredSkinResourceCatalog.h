@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 
 enum ERecoveredSkinResourceKind {
   RECOVERED_SKIN_RESOURCE_MODEL = 0,
@@ -50,3 +51,7 @@ bool RecoveredSkinResourceCatalog_Load(
     SRecoveredSkinResourceCatalogResult* result);
 bool RecoveredSkinResourceCatalog_IsKnown(
     const SRecoveredSkinResourceCatalog* catalog);
+bool RecoveredSkinResourceCatalog_BuildAnimationProgram(
+    const char* levelDirectory, std::string* program, int* entryCallCount,
+    unsigned long long* fingerprint,
+    SRecoveredSkinResourceCatalogResult* result);

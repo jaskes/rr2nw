@@ -134,7 +134,9 @@ enum ERecoveredArenaSeanceExtendedIssue : unsigned long long {
   RECOVERED_ARENA_SEANCE_EXT_SMOKE_ACTIVE_WORLD_FAILURE = 1ull << 57,
   RECOVERED_ARENA_SEANCE_EXT_CORPSE_ACTIVE_WORLD_FAILURE = 1ull << 58,
   RECOVERED_ARENA_SEANCE_EXT_GAMEPLAY_TUNING_FAILURE = 1ull << 59,
-  RECOVERED_ARENA_SEANCE_EXT_SCRIPT_EVENT_FAILURE = 1ull << 60
+  RECOVERED_ARENA_SEANCE_EXT_SCRIPT_EVENT_FAILURE = 1ull << 60,
+  RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_SCRIPT_FAILURE = 1ull << 61,
+  RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_STATE_FAILURE = 1ull << 62
 };
 
 int RecoveredArenaSeance_Initialize(SimulationContext* context,
@@ -335,6 +337,12 @@ int RecoveredArenaSeance_SkinModelCount();
 int RecoveredArenaSeance_SkinSpriteCount();
 unsigned long long RecoveredArenaSeance_SkinCatalogFingerprint();
 unsigned long long RecoveredArenaSeance_SkinResourceFingerprint();
+bool RecoveredArenaSeance_SkinAnimationsReady();
+int RecoveredArenaSeance_SkinAnimationEntryCallCount();
+int RecoveredArenaSeance_SkinAnimatedModelCount();
+int RecoveredArenaSeance_SkinAnimationCommandCount();
+unsigned long long RecoveredArenaSeance_SkinAnimationSourceFingerprint();
+unsigned long long RecoveredArenaSeance_SkinAnimationStateFingerprint();
 bool RecoveredArenaSeance_SparkAttributesReady();
 bool RecoveredArenaSeance_SparkSubjectReady();
 bool RecoveredArenaSeance_SparkVisualResourcesReady();

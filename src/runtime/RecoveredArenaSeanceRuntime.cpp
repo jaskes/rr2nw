@@ -124,6 +124,8 @@ constexpr const char kPeopleSubjectProgramName[] =
     "recovered_retail_people_subject_bootstrap";
 constexpr const char kTankCannonAttributeProgramName[] =
     "recovered_retail_tank_cannon_attribute_bootstrap";
+constexpr const char kSkinAnimationProgramName[] =
+    "recovered_retail_skin_animation_bootstrap";
 
 // This deliberately uses the original script-facing storage and event
 // protocol for the small common Bird/Portal/Orphan/Artefact/Spark/Route slice.
@@ -1412,6 +1414,7 @@ struct RecoveredArenaSeanceState {
   bool soundObjectReady;
   bool soundDistanceReady;
   bool skinResourcesReady;
+  bool skinAnimationsReady;
   bool sparkAttributesReady;
   bool sparkSubjectReady;
   bool sparkVisualResourcesReady;
@@ -1571,6 +1574,11 @@ struct RecoveredArenaSeanceState {
   int skinSpriteCount;
   unsigned long long skinCatalogFingerprint;
   unsigned long long skinResourceFingerprint;
+  int skinAnimationEntryCallCount;
+  int skinAnimatedModelCount;
+  int skinAnimationCommandCount;
+  unsigned long long skinAnimationSourceFingerprint;
+  unsigned long long skinAnimationStateFingerprint;
   int wavMetadataCount;
   int wavMetadataCapacity;
   unsigned long long wavCatalogFingerprint;
@@ -3811,6 +3819,106 @@ bool PublishSkinResources(SimulationContext* context) {
   return true;
 }
 
+bool PublishSkinAnimations(SimulationContext* context, double startTime) {
+  std::string program;
+  int entryCallCount = 0;
+  unsigned long long sourceFingerprint = 0;
+  SRecoveredSkinResourceCatalogResult catalogResult = {};
+  if (!RecoveredSkinResourceCatalog_BuildAnimationProgram(
+          ".", &program, &entryCallCount, &sourceFingerprint,
+          &catalogResult)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Skin animation source rejected (issues=%u): %.180s",
+                  catalogResult.issues, catalogResult.error);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_SCRIPT_FAILURE, message);
+    return false;
+  }
+  if (entryCallCount < 0 || entryCallCount > 32 ||
+      sourceFingerprint == 0 || program.empty()) {
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_SCRIPT_FAILURE,
+        "Skin animation entry exceeds its bounded source contract");
+    return false;
+  }
+
+  if (entryCallCount == 0) {
+    const unsigned long long stateFingerprint =
+        SkinResourceState_AnimationFingerprint(context);
+    if (!SkinResourceState_AnimationProgramsReady(context) ||
+        SkinResourceState_AnimatedModelCount(context) != 0 ||
+        SkinResourceState_AnimationCommandCount(context) != 0 ||
+        stateFingerprint == 0) {
+      ReportExtended(
+          RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_STATE_FAILURE,
+          "empty Skin animation entry does not have empty owner state");
+      return false;
+    }
+    g_state.skinAnimationEntryCallCount = 0;
+    g_state.skinAnimatedModelCount = 0;
+    g_state.skinAnimationCommandCount = 0;
+    g_state.skinAnimationSourceFingerprint = sourceFingerprint;
+    g_state.skinAnimationStateFingerprint = stateFingerprint;
+    g_state.skinAnimationsReady = true;
+    return true;
+  }
+
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult runResult = {};
+  SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  profile.compilerWordBufferSize = 64 * 1024;
+  profile.compilerNameCount = 4096;
+  profile.compilerTreeBufferSize = 256 * 1024;
+  profile.compilerCodeStreamSize = 256 * 1024;
+  profile.compilerLinkInfoSize = 64 * 1024;
+  profile.processStorageStackSize = 4096;
+  profile.processStackSize = 4096;
+  profile.processQuants = 32768;
+  profile.maximumVmSlices = 8192;
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kSkinAnimationProgramName, profile, context,
+          startTime, &host, &runResult)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Skin animation script failed (status=%d issues=%u): %.160s",
+                  static_cast<int>(runResult.status), runResult.hostIssues,
+                  runResult.error);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_SCRIPT_FAILURE, message);
+    return false;
+  }
+
+  const int animatedModels =
+      SkinResourceState_AnimatedModelCount(context);
+  const int commands = SkinResourceState_AnimationCommandCount(context);
+  const unsigned long long stateFingerprint =
+      SkinResourceState_AnimationFingerprint(context);
+  if (!SkinResourceState_AnimationProgramsReady(context) ||
+      animatedModels < 0 || animatedModels > g_state.skinModelCount ||
+      commands < 0 || commands > 4096 || stateFingerprint == 0 ||
+      (entryCallCount == 0 && (animatedModels != 0 || commands != 0)) ||
+      (entryCallCount != 0 && (animatedModels == 0 || commands == 0))) {
+    char message[224] = {};
+    std::snprintf(message, sizeof(message),
+                  "Skin animation state is incomplete "
+                  "(entries=%d models=%d commands=%d fingerprint=%llu)",
+                  entryCallCount, animatedModels, commands,
+                  stateFingerprint);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_SKIN_ANIMATION_STATE_FAILURE, message);
+    return false;
+  }
+  g_state.skinAnimationEntryCallCount = entryCallCount;
+  g_state.skinAnimatedModelCount = animatedModels;
+  g_state.skinAnimationCommandCount = commands;
+  g_state.skinAnimationSourceFingerprint = sourceFingerprint;
+  g_state.skinAnimationStateFingerprint = stateFingerprint;
+  g_state.skinAnimationsReady = true;
+  return true;
+}
+
 bool PublishDependentAttributeReferences(SimulationContext* context) {
   // The public January fixture intentionally has no model assets. Execute the
   // complete preflight anyway: VehicleAttr, Corpse table and CorpseAttr resolve
@@ -5259,7 +5367,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
-    if (!PublishSkinResources(context)) {
+    if (!PublishSkinResources(context) ||
+        !PublishSkinAnimations(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -5697,10 +5806,16 @@ void RecoveredArenaSeance_Release() {
   g_state.farterFarFrameAudibleCount = 0;
   g_state.farterAudibleFrameTransition = false;
   g_state.skinResourcesReady = false;
+  g_state.skinAnimationsReady = false;
   g_state.skinModelCount = 0;
   g_state.skinSpriteCount = 0;
   g_state.skinCatalogFingerprint = 0;
   g_state.skinResourceFingerprint = 0;
+  g_state.skinAnimationEntryCallCount = 0;
+  g_state.skinAnimatedModelCount = 0;
+  g_state.skinAnimationCommandCount = 0;
+  g_state.skinAnimationSourceFingerprint = 0;
+  g_state.skinAnimationStateFingerprint = 0;
   g_state.artefactAttributesReady = false;
   g_state.orphanAttributesReady = false;
   g_state.orphanReferencesReady = false;
@@ -7069,6 +7184,30 @@ unsigned long long RecoveredArenaSeance_SkinCatalogFingerprint() {
 
 unsigned long long RecoveredArenaSeance_SkinResourceFingerprint() {
   return g_state.skinResourceFingerprint;
+}
+
+bool RecoveredArenaSeance_SkinAnimationsReady() {
+  return g_state.skinAnimationsReady;
+}
+
+int RecoveredArenaSeance_SkinAnimationEntryCallCount() {
+  return g_state.skinAnimationEntryCallCount;
+}
+
+int RecoveredArenaSeance_SkinAnimatedModelCount() {
+  return g_state.skinAnimatedModelCount;
+}
+
+int RecoveredArenaSeance_SkinAnimationCommandCount() {
+  return g_state.skinAnimationCommandCount;
+}
+
+unsigned long long RecoveredArenaSeance_SkinAnimationSourceFingerprint() {
+  return g_state.skinAnimationSourceFingerprint;
+}
+
+unsigned long long RecoveredArenaSeance_SkinAnimationStateFingerprint() {
+  return g_state.skinAnimationStateFingerprint;
 }
 
 bool RecoveredArenaSeance_SparkAttributesReady() {

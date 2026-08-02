@@ -626,6 +626,12 @@ bool IsReleased(SimulationContext& context) {
          RecoveredArenaSeance_SoundObjectFingerprint() == 0 &&
          SoundObjectState_LiveCount() == 0 &&
          !RecoveredArenaSeance_SkinResourcesReady() &&
+         !RecoveredArenaSeance_SkinAnimationsReady() &&
+         RecoveredArenaSeance_SkinAnimationEntryCallCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimatedModelCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationCommandCount() == 0 &&
+         RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 &&
+         RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 &&
          !RecoveredArenaSeance_SparkAttributesReady() &&
          !RecoveredArenaSeance_SparkSubjectReady() &&
          !RecoveredArenaSeance_SparkVisualResourcesReady() &&
@@ -975,6 +981,12 @@ bool RunCycle(bool expectVisualResources) {
       !SoundObjectState_DeviceFree() ||
       SoundObjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_SkinResourcesReady() ||
+      !RecoveredArenaSeance_SkinAnimationsReady() ||
+      RecoveredArenaSeance_SkinAnimationEntryCallCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimatedModelCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationCommandCount() != 0 ||
+      RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 ||
+      RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 ||
       !RecoveredArenaSeance_SparkAttributesReady() ||
       !RecoveredArenaSeance_SparkSubjectReady() ||
       RecoveredArenaSeance_SparkVisualResourcesReady() ||
@@ -2250,6 +2262,7 @@ int main(int argc, char** argv) {
               "script=legacy-vm "
               "common_attrs=bird,orphan,artefact portal=table "
               "skin_resources=preflight-empty-fixture "
+              "skin_animations=empty-program-ready "
               "smoke_attrs=retail-18 explosion_attrs=level-aware-90-field "
               "explosion_impulse=local-vehicle-factor-5-offset-proof "
                "explosion_sound=1/1/1-device-free refs=%llu "

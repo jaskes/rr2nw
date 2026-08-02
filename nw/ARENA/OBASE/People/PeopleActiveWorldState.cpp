@@ -855,6 +855,13 @@ bool ApplyRecord(SimulationContext *context,
     if (context == NULL || people == NULL ||
         !people->restoreStableReferences(resolved.attribute, resolved.route))
         return false;
+    // Reconstructed People use the same Skin model as the original subject,
+    // but setPeopleAttr() predates automatic Skin programs and only restores
+    // the model pointer. Rebind the per-reference callback before the shared
+    // model is rendered; otherwise an animated base can be drawn through a
+    // reference with no animation owner.
+    if (people->m_askin != NULL && people->m_askin->isAutoAnim())
+        people->m_askin->skinSetAnimAuto(&people->m_skin);
     people->m_audibleThisFrame = record.audibleThisFrame;
     people->m_isVisible = record.visible;
     people->m_lastMoveTimeStamp = record.lastMoveTimeStamp;

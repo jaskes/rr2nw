@@ -100,6 +100,17 @@ function Get-LogUnsigned([hashtable]$Values, [string]$Name) {
 
 $records = [Collections.Generic.List[object]]::new()
 $normalizedRoots = @($DataRoot | ForEach-Object { [IO.Path]::GetFullPath($_) })
+$expectedSkinAnimations = @{
+    "Level.01D" = @(8, 8, 261)
+    "Level.01N" = @(8, 8, 261)
+    "Level.02D" = @(14, 14, 413)
+    "Level.02N" = @(14, 14, 413)
+    "Level.03N" = @(9, 9, 177)
+    "Level.04D" = @(8, 8, 137)
+    "Level.05D" = @(16, 16, 174)
+    "Level.06N" = @(7, 7, 87)
+    "Level.07N" = @(0, 0, 0)
+}
 
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $repositoryRoot "build\windows-msvc-x86\$configurationName\rr2nw.exe"
@@ -220,6 +231,27 @@ foreach ($configurationName in $Configuration) {
                 }
                 if ((Get-LogInteger $log "renderer_framebuffer_nonclear_pixels") -lt 1) {
                     $issues.Add("renderer framebuffer is empty")
+                }
+                $skinAnimationEntries = Get-LogInteger $log "skin_animation_entry_calls"
+                $skinAnimatedModels = Get-LogInteger $log "skin_animated_models"
+                $skinAnimationCommands = Get-LogInteger $log "skin_animation_commands"
+                if ((Get-LogInteger $log "skin_animations_initialized") -ne 1 -or
+                    $skinAnimationEntries -lt 0 -or
+                    $skinAnimatedModels -lt 0 -or
+                    $skinAnimationCommands -lt 0 -or
+                    (Get-LogUnsigned $log "skin_animation_source_fingerprint") -lt 1 -or
+                    (Get-LogUnsigned $log "skin_animation_state_fingerprint") -lt 1 -or
+                    ($skinAnimationEntries -eq 0 -and
+                     ($skinAnimatedModels -ne 0 -or $skinAnimationCommands -ne 0)) -or
+                    ($skinAnimationEntries -gt 0 -and
+                     ($skinAnimatedModels -lt 1 -or $skinAnimationCommands -lt 1))) {
+                    $issues.Add("retail Skin animation programs are not initialized")
+                }
+                $expectedSkinAnimation = $expectedSkinAnimations[$levelName]
+                if ($skinAnimationEntries -ne $expectedSkinAnimation[0] -or
+                    $skinAnimatedModels -ne $expectedSkinAnimation[1] -or
+                    $skinAnimationCommands -ne $expectedSkinAnimation[2]) {
+                    $issues.Add("retail Skin animation roster changed")
                 }
                 if ((Get-LogInteger $log "active_world_persistence_initialized") -ne 1 -or
                     (Get-LogInteger $log "active_world_format_version") -ne 1 -or

@@ -16,7 +16,12 @@ public:
      double    A;        // Amplitude
      double    w;        // cycle speed
      double    F;        // phase
+     double    split;    // lower ROCK clamp
+     double    asplit;   // upper ROCK clamp
+     double    offset;   // ROCK centre offset
      int       m_animNum;
+
+     double angle(double time) const;
 
      void startInitialize()
      {
@@ -24,8 +29,12 @@ public:
          m_axis = CFVector3(0,0,0);
          m_dir  = CFVector3(0,0,0);
          A      = 1;        // Amplitude
-         w      = 1;        // 
+         w      = 1;
          F      = 0;        // phase
+         split  = 0;
+         asplit = 0;
+         offset = 0;
+         m_animNum = -1;
      }
 };
 

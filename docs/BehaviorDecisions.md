@@ -971,12 +971,12 @@ model/sprite counts, every non-empty resource loaded, and a deterministic
 fingerprint of decoded model/texture state. Both tables remain Arena-owned and
 are fully removed on failure, double shutdown and fresh-context reconstruction.
 
-Animation setup functions in the remainder of `SKIN.SCI` are deliberately not
-executed yet. May data actively uses `ROCKOX`, `ROCKOZ` and `ROTATEOYOut`, while
-the January `AnimateInfo` owner neither decodes nor represents their complete
-payload. Treating those calls as the older rotations would manufacture
-behavior and corrupt the event stream. The recovered owner fail-closes unknown
-commands until the retail animation ABI is recovered and covered separately.
+Animation setup is admitted through a separate bounded program rather than by
+compiling the resource-loading body a second time. Its exact Level-local
+constants/functions, shared SYSF animation functions and direct
+`main_LoadSkin()` animation calls execute only after the decoded Skin roster is
+complete. The owner represents and executes the May ROCK and ROTATEOYOut
+payloads; unknown commands still fail closed without consuming a program slot.
 
 The owner also fixes lifecycle defects without changing loaded data: strict
 table bounds, deterministic allocation failure, idempotent animation cleanup,
@@ -4530,5 +4530,37 @@ The installed-data matrix accepts 18/18 fresh game processes across all nine
 Levels and both configurations: sixteen cases carry non-empty PEO1 rosters,
 the two legitimate `Level.07N` cases carry canonical empty rosters, and both
 `Level.04D` cases retain TAN1 marker `1/1/4/1/1/3/1/1`. This slice does not
-claim the deferred May skin opcodes, the Level.05D lift callback or a completed
-manual near/far visual pass.
+claim the Level.05D lift callback or a completed manual near/far visual pass.
+
+## BD-121: retail Skin animation is a bounded second-stage program
+
+Status: accepted on 2026-08-02 as the second Frontier E slice.
+
+The May executable and scripts establish a larger animation ABI than the
+January source preserved. ROCKOX, ROCKOY and ROCKOZ carry axis, amplitude,
+speed, phase, lower clamp, upper clamp and offset. ROTATEOYOut carries the
+ordinary rotation payload but evaluates `w+F` without multiplying by time.
+The recovered owner stores those fields explicitly and applies the exact
+binary-confirmed equations; `ROTATEOX_CLIP` remains fail-closed because it has
+zero calls in the nine admitted retail Levels.
+
+Resource loading and animation construction remain separate transactions.
+After all VBC/TXR owners are ready, a bounded extractor copies exact top-level
+constants, local animation functions, the three shared SYSF
+`CreateAnimation_*` functions and only direct animation entry calls from
+`main_LoadSkin()`. The old compiler therefore never reruns `LoadSkin`, and
+comments, decimal literals and compound operators retain their original byte
+spelling. The generated entry is `main()`, as required by the recovered VM.
+
+Readiness treats each script program length as allocation capacity, not an
+exact command count: May Level.01 reserves 267 slots but writes 261. Every
+written cell must have a supported type, valid block and resolved modifier in
+every model reduction. Save/rollback reconstruction also rebinds automatic
+Skin callbacks to People references; otherwise the shared animated model can
+reach the renderer through a reference without an animation owner.
+
+The installed-data Debug/Release gate accepts 18/18 launches with exact
+entry/model/command rosters: `8/8/261`, `8/8/261`, `14/14/413`, `14/14/413`,
+`9/9/177`, `8/8/137`, `16/16/174`, `7/7/87` and canonical empty `0/0/0`.
+Focused tests cover May payload decoding, clamp/phase math, rejection rollback,
+empty-fixture lifecycle and deterministic source/state fingerprints.
