@@ -1553,8 +1553,21 @@ bool TaxiSubjectState_ProbeVehicleTransition(
 
     CFMatrix3x4 expectedDirection;
     expectedDirection.LoadTransposed(taxiDirection);
+    CFVector3 expectedVehicleUp = expectedDirection.Row(1);
+    const double expectedVehicleUpLength = Abs(expectedVehicleUp);
+    if (!std::isfinite(expectedVehicleUpLength) ||
+        expectedVehicleUpLength <= 1.0e-10)
+        return false;
+    expectedVehicleUp = Normal(expectedVehicleUp);
+    const bool airborneVessel =
+        strcmp(targetAttribute->m_dynamic, "Dragon") == 0 ||
+        strcmp(targetAttribute->m_dynamic, "Emveshka") == 0 ||
+        strcmp(targetAttribute->m_dynamic, "Emveshka1") == 0;
+    const double surfaceReleaseClearance =
+        airborneVessel ? 1.0 : 0.05;
     const CFVector3 expectedPosition =
-        taxiPosition + CFVector3(0.0, targetAttribute->m_bornY, 0.0);
+        taxiPosition + expectedVehicleUp *
+            (targetAttribute->m_bornY + surfaceReleaseClearance);
     const bool transitioned =
         vehicle->tryTakeTaxi(taxiObject, timeStamp, false);
     if (transitioned)
@@ -1771,7 +1784,19 @@ bool TaxiSubjectState_DebugSpawn(
         TaxiSubjectNearlyEqual(taxi->taxiPos(),
                                placement->resolvedPosition) &&
         std::fabs(placement->modelBottomClearance) <= 1.0e-6;
-    if (!started)
+    bool vehicleUpAligned = false;
+    if (started)
+    {
+        CFMatrix3x4 vehicleDirection;
+        vehicleDirection.LoadTransposed(taxi->GetDir());
+        const CFVector3 vehicleUp = vehicleDirection.Row(1);
+        const double vehicleUpLength = Abs(vehicleUp);
+        vehicleUpAligned = std::isfinite(vehicleUpLength) &&
+            vehicleUpLength > 1.0e-10 &&
+            TaxiSubjectNearlyEqual(Normal(vehicleUp),
+                                   placement->surfaceNormal);
+    }
+    if (!started || !vehicleUpAligned)
     {
         if (!object.isNUL() && context->isExist(object))
             context->removeObject(object);

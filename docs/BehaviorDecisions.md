@@ -4939,8 +4939,11 @@ Howitzer is not reconstructed as a free position plus an attribute. The
 released object is anchored to one exact entry in the effective mod-aware
 `Howitzers.hwz` catalog, and that holder is exclusive while the subject lives.
 Restore therefore reserves the saved holder before publishing references,
-starts the original subject lifecycle, then reapplies its presentation,
-damage, orientation, action state and Commander/enemy links. A missing,
+restores attribute/visual identity without dispatching the ordinary START
+handler, then reapplies its presentation, damage, orientation, action state
+and Commander/enemy links. START is deliberately forbidden during restore:
+it runs targeting AI immediately and can create a Bullet after the Bullet
+owner has already been reconstructed. A missing,
 ambiguous or already occupied holder fails the entire world transaction.
 
 Scheduler ownership is also explicit. The retail start handler reuses its
@@ -4948,8 +4951,10 @@ incoming event while changing only the label, so a Howitzer's recurring events
 are identified by label plus destination; their source is independent state.
 The versioned record preserves every FIND/ACTION event in queue order,
 including the two FIND events produced when a mission immediately assigns a
-Commander. Deduplicating those events or selecting them by source changes real
-mission behaviour and is prohibited.
+Commander. Queue replay is reversed because the legacy scheduler inserts a
+new event before an existing equal timestamp; forward replay would invert the
+pair. Deduplicating those events or selecting them by source changes real
+mission behavior and is prohibited.
 
 Active-world compatibility advances to engine version 4 with fifteen required
 owner/reference sections. The installed `Level.05D` `ProjectA32` proof creates
@@ -4959,3 +4964,64 @@ after gameplay-authority restore and requires the backup world to recapture to
 the same bytes. This is the acceptance boundary for Howitzer allocation,
 continuation and rollback; projectile firing and campaign completion remain
 separate gameplay gates.
+
+### BD-135: People routes persist the active segment and authored terminal policy
+
+Status: accepted on 2026-08-03 for mission guide motion and continuation.
+
+Retail START does not target `startNode` from an unrelated prior position. It
+sets previous to the authored start index, current to `(start + 1) % count`,
+places the actor at start and advances along that previous-to-current segment.
+At the end, positive `backSpaceNode` rewinds by `backSpaceNode + 1`, zero stops
+on the final node and a negative value loops to node zero. PEO1 version 3
+stores both segment endpoints; versions 1 and 2 migrate deterministically.
+
+The former helper compared a squared projection with a linear segment length,
+could take the square root of a negative value and projected onto the future
+segment. That unit mismatch explains near-player jumps and frozen guides. The
+maintained calculation normalizes the active segment, bounds every projection
+and rejects non-finite geometry. Mission smoke dispatches the real STARTMOVE
+and two MOVE events for both Level.03N factions and requires finite motion
+toward the selected target.
+
+Grounded modes still dispatch release event 26012 as authored. The shared
+transition core is safe and serializable, but the complete May-only collision
+and route-progress body of 26012 is not yet source-recovered; exact behavior
+there remains a named binary-analysis debt rather than an invented policy.
+
+### BD-136: Vehicle handover releases along the authored support normal
+
+Status: accepted on 2026-08-03 for Taxi-to-Vehicle transitions.
+
+The Taxi's final direction is the Vehicle's placement basis. Raising the
+Vehicle on world Y after copying that basis is geometrically inconsistent on
+a slope: its collision sphere can remain inside the supporting face even when
+the visual model appears merely a little high or low. The recovered Win32
+sweep also treats exact tangency as a static bump, and `CVesselEmv::ApplyStep`
+responds by setting speed to zero. This explains the Playtest-only Emveshka
+that entered correctly but would not drive.
+
+Handover now extracts and normalizes the support-up row after the Taxi basis is
+transposed, then applies clearance on that normal. Invalid bases fail back to
+world up. Ground profiles receive only sub-pixel separation; the release
+airborne profiles receive the larger authored-start clearance needed before
+their own dynamics take authority. The gate requires the resulting up vector
+to match the Taxi surface normal and requires occupied driving to attain
+non-zero speed without an immediate static bump.
+
+### BD-137: optimized builds must not rely on accidental archive retention
+
+Status: accepted on 2026-08-03 for all Windows configurations.
+
+Debug success is not proof that static-library ownership is complete. MSVC's
+optimized link exposed both a duplicate `CViewObject::SetLight` owner and
+unresolved Howitzer dependencies that Debug happened not to retain in the
+same combination. The maintained decoder selects the external light-state
+implementation explicitly, and the Howitzer target names every modern owner
+it calls: mod file access, Supervisor state and ZAV scene state.
+
+Hermetic fixtures must model that declared closure, including an empty
+`SYS.SCI` when the real bootstrap requires the file but the focused test needs
+none of its helpers. Debug, Release and Playtest must all link and pass the
+same 67-test gate; configuration-specific archive accidents are release
+blockers rather than optional build cleanup.

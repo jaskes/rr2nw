@@ -49,6 +49,8 @@ class Howitzer :	public ct_Subject,
     const AttributeHowitzer   *m_attr;
    	
              Howitzer();
+    void restoreHowitzerIdentity(const KR_ObjectID &attribute,
+                                  int holderIndex);
     virtual ~Howitzer();
     virtual int  receiveEvent( KR_Event &event );
     virtual void addNotify   ();

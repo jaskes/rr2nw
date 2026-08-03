@@ -12,6 +12,7 @@
 #include <windows.h>
 
 #include "PEOPLE.H"
+#include "i/route.i"
 #include "kernel/h/context.h"
 #include "message/peopmsg.h"
 #include "obase/bullet/BulletAttributeState.h"
@@ -26,6 +27,13 @@
 void shoot(KR_ObjectID fromID, int bulletTable, int attrIndex,
            const CFVector3 &pos, const CFVector3 &dir,
            SimulationContext *context, double ts);
+
+// Encoding-preserved PEOPLE.CPP owns these route geometry helpers. Keep the
+// probe declarations here so the legacy header does not need another edit.
+double g_distToSeg(const CFVector3 &value, const CFVector3 &start,
+                   const CFVector3 &end);
+void g_toSeg(CFVector3 &value, const CFVector3 &start,
+             const CFVector3 &end, double maximumDistance);
 
 namespace {
 
@@ -675,10 +683,31 @@ static bool ProbePeopleLifecycle(
     }
     if (valid)
     {
+        IRouteObject *probeRoute = static_cast<IRouteObject *>(
+            context->queryInterface(probe->m_routeID, IRouteObjectIID));
+        const int routeNodeCount = probeRoute == NULL
+            ? 0 : probeRoute->GetNodeCnt();
         summary->validStarts =
             probe->m_startBackSpaceNode == 7 &&
             probe->m_startMoveDelay == 1.25 &&
             Abs2(probe->m_dir) == 0.0 ? 1 : 0;
+        summary->routePhaseExact = probeRoute != NULL &&
+            routeNodeCount >= 2 && probe->m_previousRouteNode == 0 &&
+            probe->m_curNode == 1 &&
+            SameVector(probe->getPosition(), probeRoute->GetNode(0)) &&
+            SameVector(probe->m_nextNode, probeRoute->GetNode(1)) ? 1 : 0;
+
+        CFVector3 projected(500.0, 0.0, 1000.0);
+        g_toSeg(projected, CFVector3(0.0, 0.0, 0.0),
+                CFVector3(1000.0, 0.0, 0.0), 10.0);
+        const double projectedDistance = g_distToSeg(
+            projected, CFVector3(0.0, 0.0, 0.0),
+            CFVector3(1000.0, 0.0, 0.0));
+        summary->corridorProjection = FiniteVector(projected) &&
+            std::isfinite(projectedDistance) &&
+            std::fabs(projected.x - 500.0) <= 1e-9 &&
+            std::fabs(projected.z - 10.0) <= 1e-9 &&
+            std::fabs(projectedDistance - 10.0) <= 1e-9 ? 1 : 0;
         const bool showScheduled =
             context->removeEvent(pe_EV_STARTSHOW, probeID) == 1;
         KR_Event show;
@@ -709,8 +738,20 @@ static bool ProbePeopleLifecycle(
             ? initialMove[0].timeStamp : 0.0;
         const bool moveScheduled = initialMoveCount == 1 &&
             context->removeEvent(pe_EVC_MOVE, probeID) == 1;
+        KR_Event routeEvents[2];
+        const int groundedRouteCount = context->copyEvents(
+            pe_EVC_GROUNDED_NEXTNODE, probeID, routeEvents, 2);
+        KR_Event airRouteEvents[2];
+        const int airRouteCount = context->copyEvents(
+            pe_EVC_NEXTNODE, probeID, airRouteEvents, 2);
         const bool nextNodeScheduled =
-            context->removeEvent(pe_EVC_NEXTNODE, probeID) == 1;
+            groundedRouteCount + airRouteCount == 1;
+        const int routeEventLabel = groundedRouteCount == 1
+            ? pe_EVC_GROUNDED_NEXTNODE : pe_EVC_NEXTNODE;
+        if (groundedRouteCount != 0)
+            context->removeEvent(pe_EVC_GROUNDED_NEXTNODE, probeID);
+        if (airRouteCount != 0)
+            context->removeEvent(pe_EVC_NEXTNODE, probeID);
         bool hiddenMove = false;
         bool visibleMove = false;
         double hiddenNextTime = 0.0;
@@ -757,6 +798,45 @@ static bool ProbePeopleLifecycle(
             std::fabs(hiddenNextTime - visibleNextTime) <= 1e-9 ? 1 : 0;
         summary->scheduledMoves = movementStarted && moveScheduled &&
             nextNodeScheduled && hiddenMove && visibleMove ? 1 : 0;
+
+        if (movementStarted && nextNodeScheduled && routeNodeCount >= 2)
+        {
+            const PeopleData routeState =
+                *static_cast<PeopleData *>(probe);
+            const CFVector3 routePosition = probe->getPosition();
+            const int finalNode = routeNodeCount - 1;
+            const auto probeEndPolicy = [&](int backSpace,
+                                            int expectedNode,
+                                            bool expectEvent,
+                                            bool expectStopped) {
+                *static_cast<PeopleData *>(probe) = routeState;
+                probe->ct_Subject::setPosition(probeRoute->GetNode(finalNode));
+                probe->m_previousRouteNode = finalNode - 1;
+                probe->m_curNode = finalNode;
+                probe->m_nextNode = probeRoute->GetNode(finalNode);
+                probe->m_startBackSpaceNode = backSpace;
+                probe->m_dir = CFVector3(1.0, 0.0, 0.0);
+                KR_Event advance(routeEventLabel, timeStamp + 4.0,
+                                 probeID, probeID);
+                probe->nexNodeDefault(advance);
+                KR_Event queued[2];
+                const int queuedCount = context->copyEvents(
+                    routeEventLabel, probeID, queued, 2);
+                const bool result = probe->m_curNode == expectedNode &&
+                    (queuedCount == 1) == expectEvent &&
+                    (Abs2(probe->m_dir) == 0.0) == expectStopped;
+                context->removeEvent(routeEventLabel, probeID);
+                return result;
+            };
+            const bool loops = probeEndPolicy(-1, 0, true, false);
+            const bool stops = probeEndPolicy(0, finalNode, false, true);
+            const bool rewinds = probeEndPolicy(
+                1, routeNodeCount > 2 ? routeNodeCount - 2 : 0,
+                true, false);
+            summary->routeEndPolicies = loops && stops && rewinds ? 1 : 0;
+            *static_cast<PeopleData *>(probe) = routeState;
+            probe->ct_Subject::setPosition(routePosition);
+        }
 
         ProbePeoplePresentation(probe, timeStamp + 2.0,
                                 &summary->renderedPoseFrames,
@@ -822,6 +902,9 @@ static bool ProbePeopleLifecycle(
          summary->outgoingProjectileStarts == 1 &&
          BulletSubjectState_LiveCount() == baselineBullets);
     return valid && projectileProof && summary->validStarts == 1 &&
+           summary->routePhaseExact == 1 &&
+           summary->routeEndPolicies == 1 &&
+           summary->corridorProjection == 1 &&
            summary->dynamicReady == 1 && summary->renderReady == 1 &&
            summary->scheduledMoves == 1 &&
            summary->cadenceBounded == 1 &&
@@ -857,4 +940,173 @@ bool PeopleSubjectState_ProbeTunedAttributeLifecycle(
            expectedProjectile != NULL && expectedProjectile[0] != 0 &&
            ProbePeopleLifecycle(context, attributeName, expectedProjectile,
                                 timeStamp, summary);
+}
+
+bool PeopleSubjectState_ProbeNewestDelayedRoute(
+    SimulationContext *context,
+    SPeopleRouteMotionProbeSummary *summary)
+{
+    if (context == NULL || summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+    People *selected = NULL;
+    KR_ObjectID selectedID = KR_ObjectID::NUL();
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *candidate = ResolvePeople(context, roster.ids[index]);
+        KR_Event pending[2];
+        if (RuntimeReady(candidate) && candidate->m_startMoveDelay > 0.0 &&
+            context->copyEvents(pe_EV_STARTMOVE, roster.ids[index],
+                                pending, 2) == 1 &&
+            (selected == NULL || roster.ids[index].id > selectedID.id))
+        {
+            selected = candidate;
+            selectedID = roster.ids[index];
+        }
+    }
+    if (selected == NULL)
+        return true;
+
+    const char *ownerName = context->searchObject(selectedID);
+    std::strncpy(summary->owner, ownerName == NULL ? "" : ownerName,
+                 sizeof(summary->owner) - 1);
+    summary->owner[sizeof(summary->owner) - 1] = 0;
+    summary->available = 1;
+    summary->startNode = selected->m_previousRouteNode;
+    summary->targetNode = selected->m_curNode;
+    summary->backSpaceNode = selected->m_startBackSpaceNode;
+    summary->startMoveDelay = selected->m_startMoveDelay;
+
+    IRouteObject *route = static_cast<IRouteObject *>(
+        context->queryInterface(selected->m_routeID, IRouteObjectIID));
+    if (route == NULL || route->GetNodeCnt() < 2 ||
+        summary->startNode < 0 || summary->startNode >= route->GetNodeCnt() ||
+        summary->targetNode < 0 || summary->targetNode >= route->GetNodeCnt())
+        return false;
+
+    const PeopleData saved = *static_cast<PeopleData *>(selected);
+    const CFVector3 savedPosition = selected->getPosition();
+    const int schedulerLabels[] = {
+        pe_EVC_MOVE, pe_EVC_NEXTNODE, pe_EVC_GROUNDED_NEXTNODE,
+        pe_EVC_FIND_ENEMY, pe_EV_STARTSHOW, pe_EV_SETAUTOANIM,
+        pe_EV_STARTMOVE};
+    struct SavedSchedulerEvent
+    {
+        int label;
+        double timeStamp;
+    };
+    std::vector<SavedSchedulerEvent> originalEvents;
+    KR_Event startMove;
+    bool foundStartMove = false;
+    bool schedulerShapeValid = true;
+    for (std::size_t index = 0;
+         index < sizeof(schedulerLabels) / sizeof(schedulerLabels[0]);
+         ++index)
+    {
+        KR_Event copied[2];
+        const int count = context->copyEvents(
+            schedulerLabels[index], selectedID, copied, 2);
+        if (count < 0 || count > 1)
+        {
+            schedulerShapeValid = false;
+            break;
+        }
+        if (count == 1)
+        {
+            SavedSchedulerEvent savedEvent = {
+                schedulerLabels[index], copied[0].timeStamp};
+            originalEvents.push_back(savedEvent);
+            if (schedulerLabels[index] == pe_EV_STARTMOVE)
+            {
+                startMove.getCopy(copied[0]);
+                foundStartMove = true;
+            }
+        }
+    }
+
+    if (!schedulerShapeValid)
+        return false;
+    for (std::size_t index = 0;
+         index < sizeof(schedulerLabels) / sizeof(schedulerLabels[0]);
+         ++index)
+        context->removeEvent(schedulerLabels[index], selectedID);
+
+    bool valid = foundStartMove;
+    const CFVector3 segmentStart = route->GetNode(summary->startNode);
+    const CFVector3 target = route->GetNode(summary->targetNode);
+    summary->phaseExact = SameVector(savedPosition, segmentStart) &&
+        SameVector(saved.m_nextNode, target) ? 1 : 0;
+    const double distanceBefore = hypot(target.x - savedPosition.x,
+                                        target.z - savedPosition.z);
+
+    if (valid)
+        valid = selected->receiveEvent(startMove) == 1;
+    KR_Event grounded[2];
+    KR_Event airborne[2];
+    const int groundedCount = valid ? context->copyEvents(
+        pe_EVC_GROUNDED_NEXTNODE, selectedID, grounded, 2) : 0;
+    const int airborneCount = valid ? context->copyEvents(
+        pe_EVC_NEXTNODE, selectedID, airborne, 2) : 0;
+    summary->groundedRouteEvent =
+        groundedCount == 1 && airborneCount == 0 ? 1 : 0;
+    context->removeEvent(pe_EVC_GROUNDED_NEXTNODE, selectedID);
+    context->removeEvent(pe_EVC_NEXTNODE, selectedID);
+
+    KR_Event firstMove[2];
+    int moveCount = valid ? context->copyEvents(
+        pe_EVC_MOVE, selectedID, firstMove, 2) : 0;
+    const double firstMoveTime = moveCount == 1
+        ? firstMove[0].timeStamp : 0.0;
+    valid = valid && moveCount == 1 &&
+        context->removeEvent(pe_EVC_MOVE, selectedID) == 1 &&
+        selected->receiveEvent(firstMove[0]) == 1;
+    KR_Event secondMove[2];
+    moveCount = valid ? context->copyEvents(
+        pe_EVC_MOVE, selectedID, secondMove, 2) : 0;
+    if (valid && moveCount == 1)
+    {
+        context->removeEvent(pe_EVC_MOVE, selectedID);
+        summary->elapsed = secondMove[0].timeStamp - firstMoveTime;
+        valid = summary->elapsed > 0.0 &&
+            selected->receiveEvent(secondMove[0]) == 1;
+    }
+    else valid = false;
+
+    const CFVector3 movedPosition = selected->getPosition();
+    const double distanceAfter = hypot(target.x - movedPosition.x,
+                                       target.z - movedPosition.z);
+    const double horizontalStep = hypot(movedPosition.x - savedPosition.x,
+                                        movedPosition.z - savedPosition.z);
+    summary->displacement = horizontalStep;
+    summary->finiteMotion = FiniteVector(movedPosition) &&
+        std::isfinite(distanceAfter) && std::isfinite(horizontalStep) ? 1 : 0;
+    summary->movedTowardTarget = summary->finiteMotion &&
+        horizontalStep > 1e-6 && distanceAfter < distanceBefore ? 1 : 0;
+    summary->boundedStep = summary->finiteMotion &&
+        std::isfinite(summary->elapsed) && summary->elapsed > 0.0 &&
+        horizontalStep <= selected->movementSpeed() * summary->elapsed + 1e-5
+            ? 1 : 0;
+
+    for (std::size_t index = 0;
+         index < sizeof(schedulerLabels) / sizeof(schedulerLabels[0]);
+         ++index)
+        context->removeEvent(schedulerLabels[index], selectedID);
+    *static_cast<PeopleData *>(selected) = saved;
+    selected->ct_Subject::setPosition(savedPosition);
+    for (std::size_t index = 0; index < originalEvents.size(); ++index)
+    {
+        KR_Event event(originalEvents[index].label,
+                       originalEvents[index].timeStamp,
+                       selectedID, selectedID);
+        context->addEvent(event);
+    }
+
+    return valid && summary->phaseExact == 1 &&
+           summary->groundedRouteEvent == 1 &&
+           summary->finiteMotion == 1 &&
+           summary->movedTowardTarget == 1 && summary->boundedStep == 1;
 }

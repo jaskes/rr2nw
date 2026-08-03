@@ -23,6 +23,9 @@ enum
     // May retail's private transition from a visible, stationary subject to
     // active route movement.  CreateManEx schedules it after startMoveTime.
     pe_EV_STARTMOVE,
+    // May retail's grounded route-progress event. Land, water and
+    // object-following People use this instead of the January NEXTNODE path.
+    pe_EVC_GROUNDED_NEXTNODE,
  };
 
 #endif

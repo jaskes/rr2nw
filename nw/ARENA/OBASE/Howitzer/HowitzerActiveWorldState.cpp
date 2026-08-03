@@ -502,6 +502,57 @@ bool RosterMatches(const HowitzerRoster& roster,
   return true;
 }
 
+std::string FirstEventDifference(
+    const std::vector<StableHowitzerRecord::Event>& left,
+    const std::vector<StableHowitzerRecord::Event>& right) {
+  if (left.size() != right.size())
+    return "event count " + std::to_string(left.size()) + "/" +
+           std::to_string(right.size());
+  for (std::size_t index = 0; index < left.size(); ++index) {
+    if (left[index].source != right[index].source)
+      return "event source " + left[index].source + "/" +
+             right[index].source;
+    if (left[index].timeStamp != right[index].timeStamp)
+      return "event timestamp " + std::to_string(left[index].timeStamp) +
+             "/" + std::to_string(right[index].timeStamp);
+  }
+  return std::string();
+}
+
+std::string FirstRecordDifference(const StableHowitzerRecord& left,
+                                  const StableHowitzerRecord& right) {
+  if (left.holder != right.holder) return "holder";
+  if (left.name != right.name) return "name";
+  if (left.attribute != right.attribute) return "attribute";
+  if (left.commander != right.commander) return "commander";
+  if (left.enemy != right.enemy) return "enemy";
+  if (left.audibleThisFrame != right.audibleThisFrame)
+    return "audible flag";
+  if (left.visible != right.visible) return "visible flag";
+  if (left.lastMoveTimeStamp != right.lastMoveTimeStamp)
+    return "last move timestamp";
+  if (left.position.x != right.position.x ||
+      left.position.y != right.position.y ||
+      left.position.z != right.position.z)
+    return "position";
+  if (left.damage != right.damage) return "damage";
+  if (left.rotateOy != right.rotateOy) return "rotation";
+  if (left.horizontalAngle != right.horizontalAngle)
+    return "horizontal angle";
+  if (left.lastActionTime != right.lastActionTime)
+    return "last action timestamp";
+  if (left.lastEnemyScanTime != right.lastEnemyScanTime)
+    return "last enemy scan timestamp";
+  if (left.shootThisBastard != right.shootThisBastard)
+    return "shoot decision";
+  if (left.lastShootTime != right.lastShootTime)
+    return "last shot timestamp";
+  const std::string event = FirstEventDifference(left.findEnemyEvents,
+                                                 right.findEnemyEvents);
+  if (!event.empty()) return event;
+  return FirstEventDifference(left.actionEvents, right.actionEvents);
+}
+
 bool ResolveOptionalReference(SimulationContext* context,
                               const std::string& name, int interfaceId,
                               KR_ObjectID* object) {
@@ -526,7 +577,14 @@ void RemovePrivateEvents(SimulationContext* context,
 bool RestoreEvents(
     SimulationContext* context, const KR_ObjectID& object, int label,
     const std::vector<StableHowitzerRecord::Event>& stable) {
-  for (const StableHowitzerRecord::Event& entry : stable) {
+  // SimulationContext inserts an event before the first event with an equal
+  // timestamp.  Replaying the captured queue forwards would therefore reverse
+  // equal-time events (retail Level.01N has such a Howitzer pair).  Rebuild it
+  // backwards to preserve both chronological and equal-time ordering.
+  for (std::vector<StableHowitzerRecord::Event>::const_reverse_iterator it =
+           stable.rbegin();
+       it != stable.rend(); ++it) {
+    const StableHowitzerRecord::Event& entry = *it;
     KR_ObjectID source;
     if (!ResolveOptionalReference(context, entry.source, IUnknownIID,
                                   &source))
@@ -541,21 +599,6 @@ bool RestoreEvents(
   return true;
 }
 
-bool SendHowitzerStart(Howitzer* howitzer, const KR_ObjectID& attribute,
-                       const std::string& holder) {
-  if (howitzer == nullptr) return false;
-  KR_Event event;
-  event.label = pe_EVCMD_START;
-  event.destination = howitzer->getObjectID();
-  event.source = howitzer->getObjectID();
-  event.timeStamp = Session::m_moment;
-  event.data.open(EDO_WRITE)
-      .putObjectID(attribute)
-      .putStr(holder.c_str())
-      .close();
-  return howitzer->receiveEvent(event) == 1;
-}
-
 bool ApplyRecord(SimulationContext* context, Howitzer* howitzer,
                  const StableHowitzerRecord& record) {
   if (context == nullptr || howitzer == nullptr ||
@@ -563,14 +606,23 @@ bool ApplyRecord(SimulationContext* context, Howitzer* howitzer,
     return false;
   const KR_ObjectID attribute =
       context->searchObject(record.attribute.c_str());
+  const int holder =
+      HowitzerSubjectState_FindHolder(record.holder.c_str());
   KR_ObjectID commander;
   KR_ObjectID enemy;
   if (!HowitzerSubjectState_AttributeExists(context, attribute) ||
+      holder < 0 || howitzer->m_HolderIndex != holder ||
+      HowitzerSubjectState_HolderOccupant(record.holder.c_str()) !=
+          howitzer->getObjectID() ||
       !ResolveOptionalReference(context, record.commander, IUnknownIID,
                                 &commander) ||
-      !ResolveOptionalReference(context, record.enemy, IUnitIID, &enemy) ||
-      !SendHowitzerStart(howitzer, attribute, record.holder))
+      !ResolveOptionalReference(context, record.enemy, IUnitIID, &enemy))
     return false;
+  // Restore identity and visual/grounding state without replaying
+  // pe_EVCMD_START.  The ordinary start handler immediately executes AI and
+  // can fire a new Bullet, which would violate transactional save/load.
+  howitzer->restoreHowitzerIdentity(attribute, holder);
+  if (howitzer->m_attr == nullptr) return false;
   RemovePrivateEvents(context, howitzer->getObjectID());
   howitzer->m_audibleThisFrame = record.audibleThisFrame;
   howitzer->m_isVisible = record.visible;
@@ -658,9 +710,25 @@ bool HowitzerActiveWorldState_ValidateStable(
 bool HowitzerActiveWorldState_MatchesStable(
     SimulationContext* context, const std::vector<unsigned char>& bytes) {
   std::vector<unsigned char> current;
-  return HowitzerActiveWorldState_ValidateStable(bytes) &&
-         HowitzerActiveWorldState_CaptureStable(context, &current) &&
-         current == bytes;
+  if (!HowitzerActiveWorldState_ValidateStable(bytes) ||
+      !HowitzerActiveWorldState_CaptureStable(context, &current))
+    return false;
+  if (current == bytes) return true;
+  std::vector<StableHowitzerRecord> expectedRecords;
+  std::vector<StableHowitzerRecord> currentRecords;
+  if (!DecodeRecords(bytes, &expectedRecords) ||
+      !DecodeRecords(current, &currentRecords))
+    return Fail("Howitzer stable payload changed encoding");
+  if (expectedRecords.size() != currentRecords.size())
+    return Fail("Howitzer stable roster count changed");
+  for (std::size_t index = 0; index < expectedRecords.size(); ++index) {
+    const std::string difference =
+        FirstRecordDifference(expectedRecords[index], currentRecords[index]);
+    if (!difference.empty())
+      return Fail(std::string("Howitzer stable mismatch for ") +
+                  expectedRecords[index].holder + ": " + difference);
+  }
+  return Fail("Howitzer stable payload differs without a semantic field delta");
 }
 
 bool HowitzerActiveWorldState_CollectStableOwners(

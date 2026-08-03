@@ -282,7 +282,7 @@ failure after successful gameplay-authority validation and requires exact
 destination-local and occupied-source LCN1 bytes after the two rollback layers.
 
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
-`LCN1-14/14/14`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
+`LCN1-15/15/15`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
 
 The current accepted local Windows gate is 66/66 CTest in Debug and Release,

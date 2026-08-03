@@ -83,11 +83,12 @@ typedef struct {
     int                    m_stoped;
     int                    m_isClz;
 
-    // May retail CreateManEx state.  The released executable persists the
-    // back-space node even though its movement code never reads it; keeping
-    // both values makes the recovered state explicit and save-ready.
+    // May retail CreateManEx state. backSpaceNode controls the end-of-route
+    // policy: -1 loops to node zero, 0 stops at the final node and positive N
+    // rewinds N nodes. previousRouteNode anchors the active route segment.
     int                    m_startBackSpaceNode;
     double                 m_startMoveDelay;
+    int                    m_previousRouteNode;
 } PeopleData;
 
 class People : public ct_Subject,

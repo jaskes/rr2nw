@@ -1133,7 +1133,22 @@ bool Vehicle::tryTakeTaxi(const KR_ObjectID &nearest, double timeStamp,
 	CFMatrix3x4 direction;
 	direction.LoadTransposed(ido->GetDir());
 	SetDir(direction);
-	SetPos(ti->taxiPos() + CFVector3(0, m_attr->m_bornY, 0));
+	CFVector3 vehicleUp = direction.Row(1);
+	const double vehicleUpLength = Abs(vehicleUp);
+	if (!std::isfinite(vehicleUpLength) || vehicleUpLength <= 1e-10)
+		vehicleUp = CFVector3(0, 1, 0);
+	else
+		vehicleUp = Normal(vehicleUp);
+	// The Win32 collision sweep treats exact tangency as an immediate static
+	// bump.  Preserve the retail bornY contract but release the new vessel by
+	// a sub-pixel world clearance along the supporting normal.
+	const bool airborneVessel =
+		strcmp(m_attr->m_dynamic, "Dragon") == 0 ||
+		strcmp(m_attr->m_dynamic, "Emveshka") == 0 ||
+		strcmp(m_attr->m_dynamic, "Emveshka1") == 0;
+	const double surfaceReleaseClearance = airborneVessel ? 1.0 : 0.05;
+	SetPos(ti->taxiPos() +
+		vehicleUp * (m_attr->m_bornY + surfaceReleaseClearance));
 
 	context->removeObject(nearest);
 	m_isTakingTaxiNow = 0;

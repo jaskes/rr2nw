@@ -1979,6 +1979,51 @@ playable Level begins.
   requires one dead-source restart commit, zero failures/rollbacks, live final
   camera/control ownership and clean shutdown.
 
+### RP-PEOPLE-003: mission guides own exact route phase and continuation
+
+- Classification: `RETAIL_SOURCE_RECOVERED`, `PORTABILITY_FIX_ACCEPTED`,
+  `SAVE_CONTRACT_EXTENDED`.
+- START places People at the authored start node and selects the following
+  node; route progress measures the active previous-to-current segment.
+  Positive, zero and negative `backSpaceNode` values respectively rewind,
+  stop at the end or loop to zero.
+- PEO1 version 3 stores previous/current indices and accepts deterministic
+  migration from versions 1 and 2. Both Level.03N named mission smokes execute
+  STARTMOVE and two MOVE events and prove finite bounded target progress.
+- Grounded release event 26012 uses the recovered transition core, but its
+  complete May-only collision body remains an explicit parity refinement.
+
+### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
+
+- Classification: `MAY_DATA_GAP_RECOVERED`, `JANUARY_ABI_PRESERVED`,
+  `SAVE_CONTRACT_EXTENDED`.
+- A maintained dynamic catalog owns all 235 Level.01D holders while the first
+  128 remain mirrored into the archival `ol_Level` layout. Parser behavior
+  matches retail's accepted missing trailing bracket without relaxing bounded
+  names, finite geometry, duplicate or capacity validation.
+- Table bootstrap uses the transitive retail helper closure and isolates the
+  Howitzer-owned table from Level.06N's appended, unrecovered
+  `DestroyableAttr`. Level.07N's shield roster is not misclassified as an
+  empty Howitzer population.
+- HWZ1 restores identity and state without running AI. FIND/ACTION queues
+  preserve duplicate sources and equal-timestamp order. Engine compatibility
+  4 requires fifteen owner sections; fresh Level.01D, Level.01N, Level.06N and
+  Level.07N continuation prove the release-specific edges.
+
+### RP-VEHICLE-008: Taxi handover respects the supporting basis
+
+- Classification: `RETAIL_SOURCE_RECONCILED`, `PORTABILITY_FIX_ACCEPTED`.
+- A Vehicle copied from a Taxi is separated along the copied support normal,
+  not the global vertical axis. Its up vector must remain aligned with the
+  supporting Taxi face after the handover.
+- Ground profiles receive only a `0.05` contact release; Dragon and the two
+  Emveshka profiles receive `1.0` before flight dynamics. This avoids both a
+  visible arbitrary hover and exact-contact `BF_BUMPSTATIC` speed cancellation.
+- The Playtest Level.03N continuation gate enters the real profile-2 Emveshka,
+  drives it to non-zero speed, damages it and preserves the occupied state.
+  Debug, Release and Playtest pass 67/67 CTest and the combined installed-Level
+  start matrix passes 27/27; Release and Playtest fresh matrices each pass 9/9.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

@@ -19,6 +19,8 @@ int HowitzerSubjectState_LiveCount();
 int HowitzerSubjectState_ReadyLiveCount(SimulationContext* context);
 int HowitzerSubjectState_OccupiedHolderCount();
 int HowitzerSubjectState_SupportedHolderCount();
+bool HowitzerSubjectState_ActivateImmediateStarts(
+    SimulationContext* context, double boundary);
 bool HowitzerSubjectState_ResolveReferences(SimulationContext* context,
                                             double timeStamp);
 bool HowitzerSubjectState_PrepareNewObject(SimulationContext* context,
@@ -33,6 +35,8 @@ void HowitzerSubjectState_ReleaseHolders();
 int HowitzerSubjectState_HolderCount();
 int HowitzerSubjectState_FindHolder(const char* name);
 const char* HowitzerSubjectState_HolderName(int index);
+bool HowitzerSubjectState_HolderPosition(int index, double* x, double* y,
+                                         double* z);
 KR_ObjectID HowitzerSubjectState_HolderOccupant(const char* name);
 bool HowitzerSubjectState_DeleteHolderOccupant(
     SimulationContext* context, const char* name,

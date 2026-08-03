@@ -1414,6 +1414,7 @@ target_link_libraries(rr2nw_view_object_decoder PUBLIC
   rr2nw_graph_software_texture
   rr2nw_legacy_design
   rr2nw_patterns_palette_runtime
+  rr2nw_view_light_state
   rr2nw_view_figure_library_state
   rr2nw_view_figure_state
   rr2nw_view_dynamic_collision
@@ -1436,6 +1437,7 @@ target_compile_definitions(rr2nw_view_object_decoder PRIVATE
   RR2NW_VIEW_FRAME_STATE_EXTERNAL
   RR2NW_VIEW_FIGURE_LIBRARY_STATE_EXTERNAL
   RR2NW_VIEW_FIGURE_STATE_EXTERNAL
+  RR2NW_VIEW_LIGHT_STATE_EXTERNAL
   RR2NW_VIEW_OBJECT_STATE_EXTERNAL
   RR2NW_VIEW_DYNAMIC_WASTE_STATE_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
@@ -3771,6 +3773,17 @@ target_compile_definitions(rr2nw_supervisor_global PRIVATE
   __NT__
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
+)
+
+# HowitzerSubjectState owns the maintained holder catalog and therefore uses
+# the mod-aware file opener and the recovered Supervisor owner.  Howitzer.cpp
+# also resolves the recovered ZAV scene.  Keep those ownership dependencies on
+# the library itself so small optimized consumers cannot link only by accident
+# when Debug happens not to retain the corresponding COMDATs.
+target_link_libraries(rr2nw_arena_obase_howitzer_full PUBLIC
+  rr2nw_mod_runtime
+  rr2nw_supervisor_global
+  rr2nw_main_zav_scene_state
 )
 
 add_executable(rr2nw_math_smoke

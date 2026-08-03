@@ -7,18 +7,57 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Taxi-to-Vehicle handover now derives the spawned vessel's lift direction
+  from the Taxi support basis instead of adding height on world Y. A small
+  profile-aware release clearance prevents the recovered sweep from treating
+  exact contact as an immediate static bump, which previously zeroed
+  `Emveshka` speed and could leave ground vehicles embedded, floating or
+  unable to drive after mission/debug spawn.
+- Release and Playtest now expose the same legacy-owner graph as Debug.
+  `CViewObject::SetLight` has one selected implementation, and the Howitzer
+  archive declares its mod-runtime, Supervisor and ZAV scene dependencies
+  explicitly. This removes optimized-link duplicate/unresolved symbols that
+  Debug archive retention had accidentally hidden; the hermetic script smoke
+  also supplies the newly required `SYS.SCI` closure member.
+- Restored the retail People route phase instead of approximating guide
+  motion. START now places the actor on `startNode`, targets the following
+  node, applies the authored `backSpaceNode` terminal policy and persists the
+  previous/current node pair in PEO1 version 3. The old segment-distance code
+  mixed squared and linear units and projected onto the future segment; its
+  normalized active-segment replacement removes the observed near-player
+  teleport/jitter path.
+- Mission guide acceptance now executes the real STARTMOVE and two MOVE
+  events. Installed Level.03N proves both `i.unit.ms22.rl00` and
+  `m.unit.ms25.jp00` move a finite bounded step toward their authored target,
+  while retaining the grounded event-26012 path for later exact binary parity.
 - Mission scripts can now allocate the real retail Howitzer population instead
   of stopping at a synthetic holder check. The effective mod-aware
   `Howitzers.hwz` catalog owns exact holder reservation, attribute/skin setup,
   Commander and enemy references, all FIND/ACTION timers and symmetric
   teardown. The installed `Level.05D` `ProjectA32` path creates six live,
   drawable, holder-backed Howitzers and leaves no transaction issue.
+- Howitzer bootstrap now accepts the retail parser's missing closing bracket
+  in `Level.01D/Howitzers.hwz`, builds the transitive `UNITS/SYS/SYSF` helper
+  closure and isolates only the table owned by Howitzer when a May script also
+  appends `DestroyableAttr`. A dynamic 235-entry holder catalog preserves the
+  complete release roster without changing the January 128-entry `ol_Level`
+  mirror ABI.
 - Active-world schema 4 adds a versioned `Howitzer` section. It reconstructs
   exact holders before references, preserves duplicate timer multiplicity and
   each timer's independent source, and removes every reconstructed owner on
   failure. `--mission-continuation-smoke` proves byte-identical capture after
   restore and again after an injected gameplay-authority failure rolls the
   complete source world back.
+- Howitzer reconstruction no longer invokes the ordinary START handler: that
+  handler immediately runs targeting AI and could create new Bullets after the
+  Bullet section had already been restored. Private timers are rebuilt in
+  reverse insertion order so equal-timestamp events retain their exact retail
+  queue order. Field-level mismatch diagnostics name the holder and divergent
+  state instead of reporting only a generic owner failure.
+- The falling-Orphan explosion proof now waits for the next explicit stable
+  frame boundary. Retail `createExplosion()` queues START at the current event
+  timestamp, so a busy Level may legitimately initialize it on the following
+  complete frame rather than synchronously inside the impact handler.
 - Zero-time mission events are now admitted at the first positive scheduler
   boundary. This preserves retail mission intent without passing an exact
   timestamp zero into the legacy queue, whose zero value is reserved as an

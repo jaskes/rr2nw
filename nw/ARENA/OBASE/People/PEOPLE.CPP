@@ -304,10 +304,29 @@ void People::nexNodeDefault(KR_Event &event)
          return;
     }
 
-    m_curNode = (m_curNode+1)%ri->GetNodeCnt();
-    int nnn   = (m_curNode+1)%ri->GetNodeCnt();
+    const int nodeCount = ri->GetNodeCnt();
+    m_previousRouteNode = m_curNode;
+    int nextRouteNode = m_curNode + 1;
+    if(  nextRouteNode >= nodeCount  )
+    {
+         if(  m_startBackSpaceNode > 0  )
+              nextRouteNode -= m_startBackSpaceNode + 1;
+         else
+         if(  m_startBackSpaceNode == 0  )
+         {
+              m_dir = CFVector3(0,0,0);
+              return;
+         }
+         else nextRouteNode = 0;
+    }
+    if(  nextRouteNode < 0  )
+         nextRouteNode = 0;
+    else
+    if(  nextRouteNode >= nodeCount  )
+         nextRouteNode = nodeCount-1;
 
-    CFVector3 nextNode( ri->GetNode(nnn) );
+    m_curNode = nextRouteNode;
+    CFVector3 nextNode( ri->GetNode(m_curNode) );
     m_nextNode = nextNode;
 
 
@@ -982,6 +1001,7 @@ int People::receiveEvent( KR_Event &event )
          break;
 
 
+    case pe_EVC_GROUNDED_NEXTNODE:
     case pe_EVC_NEXTNODE:
      {
          double ts = event.timeStamp;
@@ -1188,9 +1208,10 @@ case pe_EVCMD_START_EX:
          if(  startNode >= nodeCount  )
               startNode = nodeCount-1;
 
-         m_curNode = startNode;
-         setPosition( ri->GetNode(m_curNode) );
-         CFVector3 nextNode(ri->GetNode((m_curNode+1)%nodeCount));
+         m_previousRouteNode = startNode;
+         m_curNode = (startNode+1)%nodeCount;
+         setPosition( ri->GetNode(startNode) );
+         CFVector3 nextNode(ri->GetNode(m_curNode));
 
          CFVector3 pos(getPosition());
          setHAngleFixDir( atan2( nextNode.z-pos.z, nextNode.x-pos.x ) );
@@ -1230,7 +1251,8 @@ case pe_EVCMD_START_EX:
          if(  m_attr->m_speed > 1e-3  )
          {
               double dist = Abs(nextNode-pos);
-              event.label = pe_EVC_NEXTNODE;
+              event.label = m_attr->m_onLand == NO_LAND || m_attr->m_onLand == 4
+                   ? pe_EVC_NEXTNODE : pe_EVC_GROUNDED_NEXTNODE;
               event.timeStamp += dist/m_attr->m_speed;
               issueEvent(event);
          }
@@ -1292,6 +1314,7 @@ void People::addNotify()
     m_isClz          = 0;
     m_startBackSpaceNode = -1;
     m_startMoveDelay = 0;
+    m_previousRouteNode = 0;
     m_rotateOx = m_rotateOy = m_rotateOz = 0;
 }
 
@@ -1832,41 +1855,40 @@ void	People::loadNotify()
 double g_distToSeg(   const CFVector3 &v,   const CFVector3 &p0,   const CFVector3 &p1    )
 {
     CFVector3 vec = p1-p0;
-    double    len = Abs(vec);
-    double    ofs = vec*(v-p0);
-    if(  ofs<0  )
+    double    len2 = Abs2(vec);
+    if(  len2 <= 1e-12  )
          return Abs(v-p0);
-    if(  ofs>len  )
-         return Abs(v-p1);
-    return sqrt(Abs2(v-p0)-ofs*ofs);
+    double t = (vec*(v-p0))/len2;
+    if(  t<0  ) t = 0;
+    else
+    if(  t>1  ) t = 1;
+    return Abs(v-(p0+vec*t));
 }
 
 void g_toSeg( CFVector3 &v, const CFVector3 &p0, const CFVector3 &p1, double max )
 {
+    if(  !std::isfinite(v.x) || !std::isfinite(v.y) ||
+         !std::isfinite(v.z) || !std::isfinite(max) || max<=0  )
+         return;
     CFVector3 vec = p1-p0;
-    double    len = Abs(vec);
-    double    ofs = vec*(v-p0);
-    if(  ofs<0  )
+    double    len2 = Abs2(vec);
+    if(  len2 <= 1e-12  )
     {
-         double d = Abs(v-p0);
-         if(  d>max  )
-              v = p0+Normal(v-p0)*max;
+         CFVector3 delta = v-p0;
+         double distance = Abs(delta);
+         if(  distance>max && distance>1e-12  )
+              v = p0+delta*(max/distance);
          return;
     }
-
-    if(  ofs>len  )
-    {
-         double d = Abs(v-p1);
-         if(  d>max  )
-              v = p1+Normal(v-p1)*max;
-         return;
-    }
-    double d = sqrt(Abs2(v-p0)-ofs*ofs);
-    if(  d>max  )
-    {
-         CFVector3 nea = p0+Normal(p1-p0)*ofs;
-         v = near+Normal(v-nea)*max;
-    }
+    double t = (vec*(v-p0))/len2;
+    if(  t<0  ) t = 0;
+    else
+    if(  t>1  ) t = 1;
+    CFVector3 nearest = p0+vec*t;
+    CFVector3 delta = v-nearest;
+    double distance = Abs(delta);
+    if(  distance>max && distance>1e-12  )
+         v = nearest+delta*(max/distance);
 }
 
 void People::setPosition(  const CFVector3 &vec  )
@@ -1884,8 +1906,15 @@ void People::setPosition(  const CFVector3 &vec  )
          return;
     }
 
-    int n0 = m_curNode;
-    int n1 = (n0+1)%ri->GetNodeCnt();
+    int n0 = m_previousRouteNode;
+    int n1 = m_curNode;
+    if(  n0<0 || n0>=ri->GetNodeCnt()  )
+         n0 = (n1-1+ri->GetNodeCnt())%ri->GetNodeCnt();
+    if(  n1<0 || n1>=ri->GetNodeCnt()  )
+    {
+         ct_Subject::setPosition( vec );
+         return;
+    }
 
     CFVector3 v = vec;
     g_toSeg( v, ri->GetNode(n0), ri->GetNode(n1), m_attr->m_maxOutDist );

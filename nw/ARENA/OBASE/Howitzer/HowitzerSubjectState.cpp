@@ -20,6 +20,7 @@
 #include "Howitzer.h"
 #include "RecoveredModRuntime.h"
 #include "kernel/h/context.h"
+#include "message/peopmsg.h"
 #include "obase/skin/SkinResourceState.h"
 #include "storage/h/subject.h"
 #include "super.h"
@@ -42,6 +43,47 @@ std::vector<HowitzerPlace> g_holderCatalog;
 // constructing a dummy runtime object; that retains the translation unit and
 // its static Howitzer/HowitzerAttr registrations in every final executable.
 volatile int g_forceHowitzerTranslationUnit = 0;
+
+struct ImmediateStartContext {
+  SimulationContext* context;
+  double boundary;
+  bool valid;
+};
+
+bool ActivateImmediateStart(KR_ObjectID object, void* user) {
+  ImmediateStartContext* activation =
+      static_cast<ImmediateStartContext*>(user);
+  if (activation == nullptr || activation->context == nullptr)
+    return false;
+  Howitzer* howitzer = static_cast<Howitzer*>(
+      activation->context->queryInterface(object, IUnknownIID));
+  if (howitzer == nullptr) {
+    activation->valid = false;
+    return false;
+  }
+  if (howitzer->m_attr != nullptr && !howitzer->m_HowitzerAttrID.isNUL())
+    return true;
+
+  KR_Event events[2];
+  const int count = activation->context->copyEventsTo(
+      pe_EVCMD_START, object, events, 2);
+  if (count != 1 || !std::isfinite(events[0].timeStamp) ||
+      events[0].timeStamp > activation->boundary ||
+      activation->context->removeEventsTo(pe_EVCMD_START, object) != 1) {
+    activation->valid = false;
+    return false;
+  }
+  activation->context->sendEventNow(events[0]);
+  const char* holder = HowitzerSubjectState_HolderName(
+      howitzer->m_HolderIndex);
+  if (howitzer->m_attr == nullptr || howitzer->m_HowitzerAttrID.isNUL() ||
+      holder == nullptr ||
+      HowitzerSubjectState_HolderOccupant(holder) != object) {
+    activation->valid = false;
+    return false;
+  }
+  return true;
+}
 
 void SetError(const char* message) {
   std::snprintf(g_lastError, sizeof(g_lastError), "%s",
@@ -83,9 +125,8 @@ bool CountReadyHowitzer(KR_ObjectID object, void* user) {
       probe->context->queryInterface(object, IUnknownIID));
   if (howitzer != nullptr && howitzer->m_attr != nullptr &&
       howitzer->m_HolderIndex >= 0 &&
-      howitzer->m_HolderIndex < g_super.m_level.m_howitzersLoaded &&
-      g_super.m_level.m_howitzerPool[howitzer->m_HolderIndex].occupant ==
-          object)
+      howitzer->m_HolderIndex < static_cast<int>(g_holderCatalog.size()) &&
+      g_holderCatalog[howitzer->m_HolderIndex].occupant == object)
     ++probe->count;
   return true;
 }
@@ -111,10 +152,16 @@ void HowitzerSubjectState_SetExpectedCapacities(int attributeCapacity,
 }
 
 bool HowitzerSubjectState_TableReady(SimulationContext* context) {
-  return context != nullptr && g_arena.getContext() == context &&
-         g_attributeCapacity > 0 && g_subjectCapacity > 0 &&
-         g_arena.searchSeanceClassTable("HowitzerAttr") != ct_NULLID &&
-         g_arena.searchSeanceClassTable("Howitzer") != ct_NULLID;
+  if (context == nullptr || g_arena.getContext() != context)
+    return false;
+  const bool attributeTable =
+      g_arena.searchSeanceClassTable("HowitzerAttr") != ct_NULLID;
+  const bool subjectTable =
+      g_arena.searchSeanceClassTable("Howitzer") != ct_NULLID;
+  if (g_attributeCapacity == 0 && g_subjectCapacity == 0)
+    return !attributeTable && !subjectTable;
+  return g_attributeCapacity > 0 && g_subjectCapacity > 0 &&
+         attributeTable && subjectTable;
 }
 
 int HowitzerSubjectState_AttributeCapacity() { return g_attributeCapacity; }
@@ -149,19 +196,30 @@ int HowitzerSubjectState_ReadyLiveCount(SimulationContext* context) {
 
 int HowitzerSubjectState_OccupiedHolderCount() {
   int count = 0;
-  for (int index = 0; index < g_super.m_level.m_howitzersLoaded; ++index) {
-    if (!g_super.m_level.m_howitzerPool[index].occupant.isNUL()) ++count;
-  }
+  for (HowitzerPlace& holder : g_holderCatalog)
+    if (!holder.occupant.isNUL()) ++count;
   return count;
 }
 
 int HowitzerSubjectState_SupportedHolderCount() {
-  return g_super.m_level.m_howitzersLoaded;
+  return static_cast<int>(g_holderCatalog.size());
+}
+
+bool HowitzerSubjectState_ActivateImmediateStarts(
+    SimulationContext* context, double boundary) {
+  const ct_ClassTableID table = g_arena.searchSeanceClassTable("Howitzer");
+  if (context == nullptr || g_arena.getContext() != context ||
+      table == ct_NULLID || !std::isfinite(boundary))
+    return g_subjectCapacity == 0 && table == ct_NULLID;
+  ImmediateStartContext activation = {context, boundary, true};
+  g_arena.userFind(table, ActivateImmediateStart, &activation);
+  return activation.valid;
 }
 
 bool HowitzerSubjectState_ResolveReferences(SimulationContext* context,
                                             double timeStamp) {
   if (!HowitzerSubjectState_TableReady(context)) return false;
+  if (g_attributeCapacity == 0) return true;
   // Source-only hermetic fixtures intentionally publish an empty Skin table.
   // There is no model graph to resolve in that mode; real retail Levels all
   // have models and therefore take the exact archival update path below.
@@ -218,7 +276,8 @@ unsigned long long HowitzerSubjectState_Fingerprint(
   std::vector<KR_ObjectID> attributes;
   const ct_ClassTableID table =
       g_arena.searchSeanceClassTable("HowitzerAttr");
-  g_arena.userFind(table, CollectName, &attributes);
+  if (table != ct_NULLID)
+    g_arena.userFind(table, CollectName, &attributes);
   std::sort(attributes.begin(), attributes.end(),
             [](const KR_ObjectID& left, const KR_ObjectID& right) {
               return left.id < right.id;
@@ -254,14 +313,18 @@ bool HowitzerSubjectState_LoadHolders() {
     char* current = line;
     while (*current == ' ' || *current == '\t') ++current;
     if (*current == '\0' || *current == '\r' || *current == '\n' ||
-        *current == '#')
+        *current == '#' || (*current == '/' && current[1] == '*'))
       continue;
     char name[HOWITZER_MAX_NAME] = {};
     CFVector3 position;
-    char tail = '\0';
+    // The retail loader counted the three coordinates as a complete record
+    // before matching the closing bracket.  Level.01D/N intentionally ship
+    // one such line without a trailing ']'; retaining that tolerance is part
+    // of the data format, while the bounded name and finite checks below keep
+    // the modern loader safe.
     const int parsed = std::sscanf(current,
-        "%39s [ %lf , %lf , %lf ] %c", name, &position.x, &position.y,
-        &position.z, &tail);
+        "%39s [ %lf , %lf , %lf", name, &position.x, &position.y,
+        &position.z);
     if (parsed != 4 || !std::isfinite(position.x) ||
         !std::isfinite(position.y) || !std::isfinite(position.z) ||
         holders.size() >= 1024u) {
@@ -320,16 +383,24 @@ int HowitzerSubjectState_FindHolder(const char* name) {
 }
 
 const char* HowitzerSubjectState_HolderName(int index) {
-  return index < 0 || index >= g_super.m_level.m_howitzersLoaded
-             ? nullptr
-             : g_super.m_level.m_howitzerPool[index].symbolic;
+  return index < 0 || index >= static_cast<int>(g_holderCatalog.size())
+             ? nullptr : g_holderCatalog[index].symbolic;
+}
+
+bool HowitzerSubjectState_HolderPosition(int index, double* x, double* y,
+                                         double* z) {
+  if (index < 0 || index >= static_cast<int>(g_holderCatalog.size()) ||
+      x == nullptr || y == nullptr || z == nullptr)
+    return false;
+  *x = g_holderCatalog[index].pos.x;
+  *y = g_holderCatalog[index].pos.y;
+  *z = g_holderCatalog[index].pos.z;
+  return true;
 }
 
 KR_ObjectID HowitzerSubjectState_HolderOccupant(const char* name) {
   const int index = HowitzerSubjectState_FindHolder(name);
-  return index < 0 || index >= g_super.m_level.m_howitzersLoaded
-             ? KR_ObjectID::NUL()
-                   : g_super.m_level.m_howitzerPool[index].occupant;
+  return index < 0 ? KR_ObjectID::NUL() : g_holderCatalog[index].occupant;
 }
 
 bool HowitzerSubjectState_DeleteHolderOccupant(
@@ -346,15 +417,12 @@ bool HowitzerSubjectState_DeleteHolderOccupant(
     SetError("Howitzer holder name is not present in Howitzers.hwz");
     return false;
   }
-  if (index >= g_super.m_level.m_howitzersLoaded) {
-    SetError("Howitzer holder exceeds the January fixed pool capacity");
-    return false;
-  }
-  KR_ObjectID occupant =
-      g_super.m_level.m_howitzerPool[index].occupant;
+  KR_ObjectID occupant = g_holderCatalog[index].occupant;
   if (occupant.isNUL()) return true;
   if (!context->isExist(occupant)) {
-    g_super.m_level.m_howitzerPool[index].occupant = KR_ObjectID::NUL();
+    g_holderCatalog[index].occupant = KR_ObjectID::NUL();
+    if (index < g_super.m_level.m_howitzersLoaded)
+      g_super.m_level.m_howitzerPool[index].occupant = KR_ObjectID::NUL();
     return true;
   }
   if (transactionActive &&
@@ -363,7 +431,7 @@ bool HowitzerSubjectState_DeleteHolderOccupant(
     return false;
   }
   context->removeObject(occupant);
-  if (!g_super.m_level.m_howitzerPool[index].occupant.isNUL()) {
+  if (!g_holderCatalog[index].occupant.isNUL()) {
     SetError("Howitzer removal did not release its holder");
     return false;
   }
@@ -373,28 +441,35 @@ bool HowitzerSubjectState_DeleteHolderOccupant(
 const char* HowitzerSubjectState_LastError() { return g_lastError; }
 
 void ol_Level::ReleaseHolder(int index, KR_ObjectID occupant) {
-  if (index < 0 || index >= m_howitzersLoaded) return;
-  if (m_howitzerPool[index].occupant == occupant)
+  if (index < 0 || index >= static_cast<int>(g_holderCatalog.size())) return;
+  if (g_holderCatalog[index].occupant != occupant) return;
+  g_holderCatalog[index].occupant = KR_ObjectID::NUL();
+  if (index < m_howitzersLoaded)
     m_howitzerPool[index].occupant = KR_ObjectID::NUL();
 }
 
 int ol_Level::AttachToHowitzerHolder(int index, KR_ObjectID occupant) {
-  if (index < 0 || index >= m_howitzersLoaded) return -1;
-  if (!m_howitzerPool[index].occupant.isNUL() &&
-      m_howitzerPool[index].occupant != occupant)
+  if (index < 0 || index >= static_cast<int>(g_holderCatalog.size()))
     return -1;
-  m_howitzerPool[index].occupant = occupant;
+  if (!g_holderCatalog[index].occupant.isNUL() &&
+      g_holderCatalog[index].occupant != occupant)
+    return -1;
+  g_holderCatalog[index].occupant = occupant;
+  if (index < m_howitzersLoaded)
+    m_howitzerPool[index].occupant = occupant;
   return index;
 }
 
 int ol_Level::AttachToHowitzerHolder(const char* holderName,
                                      KR_ObjectID occupant) {
   const int index = HowitzerSubjectState_FindHolder(holderName);
-  if (index < 0 || index >= m_howitzersLoaded) return -1;
-  KR_ObjectID previous = m_howitzerPool[index].occupant;
+  if (index < 0) return -1;
+  KR_ObjectID previous = g_holderCatalog[index].occupant;
   if (!previous.isNUL() && previous != occupant && context != nullptr &&
       context->isExist(previous))
     context->removeObject(previous);
-  m_howitzerPool[index].occupant = occupant;
+  g_holderCatalog[index].occupant = occupant;
+  if (index < m_howitzersLoaded)
+    m_howitzerPool[index].occupant = occupant;
   return index;
 }

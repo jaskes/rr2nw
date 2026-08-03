@@ -507,6 +507,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     clockBackup_.clear();
     rngBackup_.clear();
     semanticBackup_.clear();
+    rollbackFailure_.clear();
     stagedEvents_.clear();
     heldPeopleRoutes_.clear();
     createdCommanders_.clear();
@@ -1035,9 +1036,13 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         clean = PeopleActiveWorldState_CreateStableOwners(
                     context_, peopleBackup_, &restoredPeople) &&
                 clean;
-        clean = HowitzerActiveWorldState_CreateStableOwners(
-                    context_, howitzerBackup_, &restoredHowitzers) &&
-                clean;
+        const bool howitzersCreated =
+            HowitzerActiveWorldState_CreateStableOwners(
+                context_, howitzerBackup_, &restoredHowitzers);
+        if (!howitzersCreated && rollbackFailure_.empty())
+          rollbackFailure_ = std::string("Howitzer create: ") +
+              HowitzerActiveWorldState_LastFailure();
+        clean = howitzersCreated && clean;
         clean = TaxiActiveWorldState_CreateStableOwners(
                     context_, taxiBackup_, &restoredTaxis) &&
                 clean;
@@ -1074,8 +1079,13 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, peopleBackup_) && clean;
       clean = TankActiveWorldState_ApplyStableReferences(
                   context_, tankBackup_) && clean;
-      clean = HowitzerActiveWorldState_ApplyStableReferences(
-                  context_, howitzerBackup_) && clean;
+      const bool howitzersApplied =
+          HowitzerActiveWorldState_ApplyStableReferences(
+              context_, howitzerBackup_);
+      if (!howitzersApplied && rollbackFailure_.empty())
+        rollbackFailure_ = std::string("Howitzer apply: ") +
+            HowitzerActiveWorldState_LastFailure();
+      clean = howitzersApplied && clean;
       clean = BulletActiveWorldState_ApplyStableReferences(
                   context_, bulletBackup_) && clean;
       clean = ExplosionActiveWorldState_ApplyStableReferences(
@@ -1103,6 +1113,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           context_, &heldPeopleRoutes_);
       clean = SimulationRandom_Apply(
                   SimulationRandom_Algorithm(), rngBackup_) && clean;
+      const bool howitzersMatch =
+          HowitzerActiveWorldState_MatchesStable(
+              context_, howitzerBackup_);
+      if (!howitzersMatch && rollbackFailure_.empty())
+        rollbackFailure_ = std::string("Howitzer match: ") +
+            HowitzerActiveWorldState_LastFailure();
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
               TankGroupState_MatchesStable(context_, tankGroupBackup_) &&
               VehicleActiveWorldState_MatchesStable(context_, vehicleBackup_) &&
@@ -1112,8 +1128,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, missionBackup_) &&
               PeopleActiveWorldState_MatchesStable(context_, peopleBackup_) &&
               TankActiveWorldState_MatchesStable(context_, tankBackup_) &&
-              HowitzerActiveWorldState_MatchesStable(
-                  context_, howitzerBackup_) &&
+              howitzersMatch &&
               BulletActiveWorldState_MatchesStable(context_, bulletBackup_) &&
               ExplosionActiveWorldState_MatchesStable(
                   context_, explosionBackup_) &&
@@ -1129,6 +1144,54 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
               ActiveWorldSemanticEvents_Matches(
                   context_, semanticBackup_) &&
               clean;
+      if (!clean && rollbackFailure_.empty()) {
+        if (!CommanderState_MatchesStable(context_, commanderBackup_))
+          rollbackFailure_ = "Commander match";
+        else if (!TankGroupState_MatchesStable(context_, tankGroupBackup_))
+          rollbackFailure_ = "TankGroup match";
+        else if (!VehicleActiveWorldState_MatchesStable(
+                     context_, vehicleBackup_))
+          rollbackFailure_ = "Vehicle match";
+        else if (!TaxiActiveWorldState_MatchesStable(context_, taxiBackup_))
+          rollbackFailure_ = "Taxi match";
+        else if (!OrphanActiveWorldState_MatchesStable(
+                     context_, orphanBackup_))
+          rollbackFailure_ = "Orphan match";
+        else if (!MissionActiveWorldState_MatchesStable(
+                     context_, missionBackup_))
+          rollbackFailure_ = "Mission match";
+        else if (!PeopleActiveWorldState_MatchesStable(
+                     context_, peopleBackup_))
+          rollbackFailure_ = "People match";
+        else if (!TankActiveWorldState_MatchesStable(context_, tankBackup_))
+          rollbackFailure_ = "Tank match";
+        else if (!BulletActiveWorldState_MatchesStable(
+                     context_, bulletBackup_))
+          rollbackFailure_ = std::string("Bullet match: ") +
+              BulletActiveWorldState_LastFailure();
+        else if (!ExplosionActiveWorldState_MatchesStable(
+                     context_, explosionBackup_))
+          rollbackFailure_ = "Explosion match";
+        else if (!SparkActiveWorldState_MatchesStable(
+                     context_, sparkBackup_))
+          rollbackFailure_ = "Spark match";
+        else if (!SmokeActiveWorldState_MatchesStable(
+                     context_, smokeBackup_))
+          rollbackFailure_ = "Smoke match";
+        else if (!CorpseActiveWorldState_MatchesStable(
+                     context_, corpseBackup_))
+          rollbackFailure_ = "Corpse match";
+        else if (!ClockActiveWorldState_MatchesStable(clockBackup_))
+          rollbackFailure_ = "Clock match";
+        else if (!SimulationRandom_Matches(
+                     SimulationRandom_Algorithm(), rngBackup_))
+          rollbackFailure_ = "RNG match";
+        else if (!ActiveWorldSemanticEvents_Matches(
+                     context_, semanticBackup_))
+          rollbackFailure_ = "semantic event match";
+        else
+          rollbackFailure_ = "pre-verification rollback operation";
+      }
     }
     staged_.clear();
     stagedEvents_.clear();
@@ -1158,6 +1221,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
            createdSemanticOwners_.empty() &&
            stagedEvents_.empty();
   }
+  const std::string& RollbackFailure() const { return rollbackFailure_; }
   int ownerPhases() const { return ownerPhases_; }
   int referencePhases() const { return referencePhases_; }
   int eventPhases() const { return eventPhases_; }
@@ -1209,6 +1273,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> clockBackup_;
   std::vector<std::uint8_t> rngBackup_;
   std::vector<SActiveWorldEvent> semanticBackup_;
+  std::string rollbackFailure_;
   std::vector<SActiveWorldEvent> stagedEvents_;
   std::vector<KR_ObjectID> heldPeopleRoutes_;
   std::vector<KR_ObjectID> createdCommanders_;
@@ -1452,7 +1517,11 @@ bool RestoreRuntime(
         MissionActiveWorldState_ClearProbe(context);
       }
       SetFailure(failure,
-                 "active-world rollback probe did not unwind staging");
+                 rollback.RollbackFailure().empty()
+                     ? "active-world rollback probe did not unwind staging"
+                     : std::string(
+                           "active-world rollback probe did not unwind: ") +
+                           rollback.RollbackFailure());
       return false;
     }
   }

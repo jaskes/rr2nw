@@ -3640,3 +3640,49 @@ explicitly outside this boundary. Final verification is 67/67 CTest in Debug and
 plus 18/18 installed retail Level starts across the two configurations. The
 hermetic CI smoke additionally executes the archived five-field scripts and
 requires their exact two-live-of-four-capacity compatibility roster.
+
+## People route and release Howitzer reconciliation
+
+The guide-motion failure was not animation-only. `g_distToSeg/g_toSeg` mixed
+projection length squared with segment length, could take a square root below
+zero and used the future current-to-next segment instead of the active
+previous-to-current segment. The maintained calculation is normalized,
+finite and bounded. Retail START and `backSpaceNode` behavior are explicit,
+and PEO1 advances to version 3 while retaining deterministic v1/v2 migration.
+
+May Howitzer data exposes three source-release gaps. `Level.01D` contains 235
+holder rows and one missing closing bracket that retail's conversion-count
+parser accepted; the January `ol_Level` mirror owns only 128 slots; and
+Level.06N appends release-only `DestroyableAttr` construction to the Howitzer
+bootstrap. The modern catalog owns all 235 rows while preserving the archival
+mirror layout, accepts the same trailing-literal parse boundary with modern
+safety validation and executes only the Howitzer-owned table from the full
+UNITS/SYS/SYSF helper closure.
+
+Active-world restore is deliberately side-effect-free. Dispatching the retail
+Howitzer START handler during reconstruction ran AI and could create a Bullet
+after the Bullet section had been applied. Identity/visual binding is now
+separate from behavior start. Private queues replay backwards because the
+legacy kernel inserts before equal timestamps; Level.01N proves the exact
+source order. The fresh continuation contract is `LCN1-15/15/15`, active-world
+engine compatibility is 4, and Howitzer is the fifteenth required owner.
+
+## Optimized-link ownership and support-surface handover
+
+The three Windows configurations are now independent build-graph gates rather
+than variants assumed equivalent after Debug. Release exposed two latent
+archive errors: `CViewObject::SetLight` was defined by both the archival view
+object and the maintained light-state owner, while the Howitzer archive called
+the mod runtime, Supervisor global and ZAV scene without target dependencies.
+The decoder selects one light implementation and the Howitzer target declares
+those dependencies. The focused Arena fixture supplies the required empty
+`SYS.SCI`, so it continues to prove the full retail support-closure contract.
+
+Playtest exposed a separate geometry defect hidden by Debug timing. Taxi
+handover copied a tilted direction but lifted the Vehicle along world Y. Exact
+or penetrating contact then produced `BF_BUMPSTATIC`; EMV dynamics correctly
+zeroed speed and made the spawned Vehicle appear dead or stuck. Placement now
+normalizes the copied support-up vector and releases along it with bounded
+ground/air profile clearance. Final evidence is 67/67 CTest in Debug, Release
+and Playtest, 27/27 combined installed starts, and 9/9 fresh continuation in
+both Release and Playtest.

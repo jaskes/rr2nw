@@ -138,10 +138,11 @@ bool NormalizeCompatibleSectionMigrations(
     if (expected.kind != EActiveWorldSectionKind::People || migrated ||
         !PeopleActiveWorldState_MatchesStable(context, expected.payload))
       return false;
-    // PEO1 v1 omitted the route-geometry identity introduced by v2. The live
-    // graph has already passed its strict v1 semantic verifier; substituting
-    // only that legacy payload lets the outer LCN1 fingerprint continue to
-    // prove that every other section, event and boundary remained identical.
+    // Older PEO1 payloads omit state admitted by newer versions (v1 has no
+    // route-geometry identity; v1/v2 have no explicit previous route node).
+    // The live graph has already passed the matching version's semantic
+    // verifier; substituting only that legacy payload lets the outer LCN1
+    // fingerprint continue to prove every other boundary remained identical.
     actual.payload = expected.payload;
     migrated = true;
   }

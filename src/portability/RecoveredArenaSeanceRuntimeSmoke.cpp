@@ -1700,6 +1700,7 @@ int main(int argc, char** argv) {
   const std::string tankCopy = JoinPath(scincDirectory, "TANK.SCI");
   const std::string setTankCopy = JoinPath(scincDirectory, "set_tank.sci");
   const std::string unitsCopy = JoinPath(scincDirectory, "units.sci");
+  const std::string sysCopy = JoinPath(fixtureDirectory, "SYS.SCI");
   const std::string sysfCopy = JoinPath(fixtureDirectory, "SYSF.SCI");
   const std::string definitionsCopy = JoinPath(fixtureDirectory, "DEFS.H");
   const std::string projectHelpersCopy =
@@ -1745,6 +1746,7 @@ int main(int argc, char** argv) {
   DeleteFileA(setHowitzersCopy.c_str());
   DeleteFileA(howitzerHoldersCopy.c_str());
   DeleteFileA(unitsCopy.c_str());
+  DeleteFileA(sysCopy.c_str());
   DeleteFileA(sysfCopy.c_str());
   DeleteFileA(definitionsCopy.c_str());
   DeleteFileA(projectHelpersCopy.c_str());
@@ -1756,6 +1758,7 @@ int main(int argc, char** argv) {
   DeleteFileA(howitzerHoldersCopy.c_str());
   if (!WriteFile(config, fixture) ||
       !WriteFile(unitsCopy, emptyPeopleSupportFixture) ||
+      !WriteFile(sysCopy, emptyPeopleSupportFixture) ||
       !WriteFile(sysfCopy, emptyPeopleSupportFixture) ||
       CopyFileA(argv[23], howitzerCopy.c_str(), FALSE) == FALSE ||
       CopyFileA(argv[24], setHowitzersCopy.c_str(), FALSE) == FALSE ||
@@ -2324,6 +2327,7 @@ int main(int argc, char** argv) {
   DeleteFileA(setPeopleCopy.c_str());
   DeleteFileA(setTankCopy.c_str());
   DeleteFileA(unitsCopy.c_str());
+  DeleteFileA(sysCopy.c_str());
   DeleteFileA(smokeSprite.c_str());
   DeleteFileA(flameSprite.c_str());
   DeleteFileA(coronaSprite.c_str());

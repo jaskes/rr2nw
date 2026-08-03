@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string[]]$DataRoot,
-    [ValidateSet("Debug", "Release")][string[]]$Configuration = @("Release"),
+    [ValidateSet("Debug", "Release", "RelWithDebInfo")][string[]]$Configuration = @("Release"),
     [string[]]$Level = @(),
     [ValidateSet("RuntimeSmoke", "Interactive")][string]$Mode = "RuntimeSmoke",
     [ValidateRange(5, 600)][int]$TimeoutSeconds = 120,
@@ -132,6 +132,17 @@ $expectedRecruitCenters = @{
     "Level.05D" = @("1/2/2/2/2/2", "10101400082303901584", "1/3/1/1/1")
     "Level.06N" = @("1/2/1/0/1/1", "8246965755517389267", "1/0/0/1/1")
     "Level.07N" = @("1/1/0/0/0/0", "12478008331234465636", "1/6/0/1/1")
+}
+$expectedHowitzers = @{
+    "Level.01D" = 118
+    "Level.01N" = 120
+    "Level.02D" = 0
+    "Level.02N" = 0
+    "Level.03N" = 0
+    "Level.04D" = 0
+    "Level.05D" = 0
+    "Level.06N" = 78
+    "Level.07N" = 0
 }
 
 foreach ($configurationName in $Configuration) {
@@ -410,15 +421,15 @@ foreach ($configurationName in $Configuration) {
                 }
                 if ((Get-LogInteger $log "active_world_persistence_initialized") -ne 1 -or
                     (Get-LogInteger $log "active_world_format_version") -ne 1 -or
-                    (Get-LogInteger $log "active_world_engine_compatibility") -ne 3) {
+                    (Get-LogInteger $log "active_world_engine_compatibility") -ne 4) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "14/5") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse/Clock/Taxi/Orphan section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "15/5") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse/Clock/Taxi/Orphan/Howitzer section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "14/14/5") {
+                    $log["active_world_restore_phases"] -ne "15/15/5") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("mission_active_world_probe") -or
@@ -441,7 +452,26 @@ foreach ($configurationName in $Configuration) {
                     [int]$continuationState[4] -ne 1) {
                     $issues.Add("authoritative clock/RNG continuation proof changed")
                 }
-                $expectedCreatedOwners = if ($levelName -ieq "Level.04D") { 2 } else { 0 }
+                $howitzerRoster = if ($log.ContainsKey("howitzer_subject_roster")) {
+                    [string]$log["howitzer_subject_roster"] -split "/"
+                } else { @() }
+                $howitzerState = if ($log.ContainsKey("howitzer_active_world_state")) {
+                    [string]$log["howitzer_active_world_state"] -split "/"
+                } else { @() }
+                $expectedHowitzerCount = [int]$expectedHowitzers[$levelName]
+                if ($howitzerRoster.Count -ne 3 -or
+                    [int]$howitzerRoster[0] -ne $expectedHowitzerCount -or
+                    [int]$howitzerRoster[1] -ne $expectedHowitzerCount -or
+                    [int]$howitzerRoster[2] -ne $expectedHowitzerCount -or
+                    $howitzerState.Count -ne 4 -or
+                    [int]$howitzerState[0] -ne 1 -or
+                    [int]$howitzerState[1] -lt ($expectedHowitzerCount * 2) -or
+                    [uint64]$howitzerState[2] -lt 12 -or
+                    [uint64]$howitzerState[3] -lt 1) {
+                    $issues.Add("retail Howitzer live/holder/active-world proof changed")
+                }
+                $expectedCreatedOwners = $expectedHowitzerCount +
+                    $(if ($levelName -ieq "Level.04D") { 2 } else { 0 })
                 if ((Get-LogInteger $log "active_world_created_owners") -ne
                     $expectedCreatedOwners) {
                     $issues.Add("active-world fresh owner allocation proof changed")
@@ -655,6 +685,8 @@ foreach ($configurationName in $Configuration) {
                 active_world_restore_phases = [string]$log["active_world_restore_phases"]
                 active_world_integrity_probe = [string]$log["active_world_integrity_probe"]
                 active_world_created_owners = Get-LogInteger $log "active_world_created_owners"
+                howitzer_subject_roster = [string]$log["howitzer_subject_roster"]
+                howitzer_active_world_state = [string]$log["howitzer_active_world_state"]
                 mission_active_world_probe = [string]$log["mission_active_world_probe"]
                 continuation_state_probe = [string]$log["continuation_state_probe"]
                 active_world_container_bytes = Get-LogUnsigned $log "active_world_container_bytes"
@@ -706,7 +738,8 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     teleport_target_level, teleport_route_count, teleport_fingerprint,
     active_world_engine_compatibility, active_world_sections,
     active_world_restore_phases, active_world_integrity_probe,
-    active_world_created_owners, mission_active_world_probe,
+    active_world_created_owners, howitzer_subject_roster,
+    howitzer_active_world_state, mission_active_world_probe,
     continuation_state_probe,
     active_world_container_bytes, active_world_fingerprint,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,

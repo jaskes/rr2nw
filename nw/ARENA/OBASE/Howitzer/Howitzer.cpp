@@ -35,6 +35,7 @@
 
 
 #include "howitzer.h"
+#include "HowitzerSubjectState.h"
 #include "storage/h/savefile.h"
 
 #include "message/dcrossmsg.h"
@@ -201,6 +202,14 @@ Howitzer::~Howitzer()
  }
 
 
+void Howitzer::restoreHowitzerIdentity(const KR_ObjectID &attribute,
+                                             int holderIndex)
+{
+    m_HowitzerAttrID = attribute;
+    m_HolderIndex = holderIndex;
+    setHowitzerAttr();
+}
+
 void Howitzer::setHowitzerAttr()
 {
 	ct_Attribute *attr = __attrTable.searchAttribute(m_HowitzerAttrID);
@@ -215,7 +224,13 @@ void Howitzer::setHowitzerAttr()
 	m_damage = m_attr->m_initialDamage;
 	
 	
-	CFVector3 pos = g_super.m_level.m_howitzerPool[m_HolderIndex].pos;
+	CFVector3 pos;
+	if (!HowitzerSubjectState_HolderPosition(
+			m_HolderIndex, &pos.x, &pos.y, &pos.z)) {
+		echo("Howitzer::setHowitzerAttr: invalid holder index %d",
+			 m_HolderIndex);
+		return;
+	}
 	// set on the surface
 	
 	SBumpDef def;

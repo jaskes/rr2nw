@@ -1205,6 +1205,7 @@ bool	CViewObject::IsVisible(TCSFVector3 &centerW,double fRadius)
 	return	TRUE;
 }
 // -------------------------------------------------------------------------
+#ifndef RR2NW_VIEW_LIGHT_STATE_EXTERNAL
 void CViewObject::SetLight(int i,int color,TCSFVector3 &pos,double radius,int brightness)
 {
 	m_aGlobalLights[i] = pos;
@@ -1216,6 +1217,7 @@ void CViewObject::SetLight(int i,int color,TCSFVector3 &pos,double radius,int br
 	_gr_pLights[i].power0 = brightness;
 	_gr_pLights[i].color = color;
 }
+#endif
 // -------------------------------------------------------------------------
 #ifndef RR2NW_VIEW_FRAME_STATE_EXTERNAL
 void CViewObject::BeginDraw()

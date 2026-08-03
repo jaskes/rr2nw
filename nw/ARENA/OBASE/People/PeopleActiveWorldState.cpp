@@ -21,12 +21,13 @@ namespace
 {
 
 const std::uint32_t kPeopleMagic = 0x314f4550u; // PEO1
-const std::uint32_t kPeopleVersion = 2u;
+const std::uint32_t kPeopleVersion = 3u;
 const std::uint32_t kOldestPeopleVersion = 1u;
 const std::size_t kMaximumPeople = 4096;
 const int kSchedulerLabels[] = {
     pe_EVC_MOVE,
     pe_EVC_NEXTNODE,
+    pe_EVC_GROUNDED_NEXTNODE,
     pe_EVC_FIND_ENEMY,
     pe_EV_STARTSHOW,
     pe_EV_SETAUTOANIM,
@@ -64,6 +65,7 @@ struct StablePeopleRecord
     double lastMoveTimeStamp;
     CFVector3 position;
     int currentNode;
+    int previousRouteNode;
     double damage;
     CFVector3 direction;
     CFVector3 nextNode;
@@ -98,7 +100,8 @@ struct StablePeopleRecord
     StablePeopleRecord()
         : routeGeometryFingerprint(0), audibleThisFrame(0), visible(0),
           lastMoveTimeStamp(0.0),
-          position(0.0, 0.0, 0.0), currentNode(0), damage(0.0),
+          position(0.0, 0.0, 0.0), currentNode(0),
+          previousRouteNode(-1), damage(0.0),
           direction(0.0, 0.0, 0.0), nextNode(0.0, 0.0, 0.0),
           previousTime(0.0), rotateOx(0.0), rotateOy(0.0), rotateOz(0.0),
           positionIncrement(0.0), horizontalAngle(0.0),
@@ -364,6 +367,7 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
     record->lastMoveTimeStamp = people->m_lastMoveTimeStamp;
     record->position = people->getPosition();
     record->currentNode = people->m_curNode;
+    record->previousRouteNode = people->m_previousRouteNode;
     record->damage = people->m_damage;
     record->direction = people->m_dir;
     record->nextNode = people->m_nextNode;
@@ -610,6 +614,8 @@ bool PutRecord(std::vector<unsigned char> *bytes,
     PutDouble(bytes, record.lastMoveTimeStamp);
     PutVector(bytes, record.position);
     PutI32(bytes, record.currentNode);
+    if (version >= 3u)
+        PutI32(bytes, record.previousRouteNode);
     PutDouble(bytes, record.damage);
     PutVector(bytes, record.direction);
     PutVector(bytes, record.nextNode);
@@ -672,8 +678,12 @@ bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
         !GetBool(bytes, offset, &record->visible) ||
         !GetDouble(bytes, offset, &record->lastMoveTimeStamp) ||
         !GetVector(bytes, offset, &record->position) ||
-        !GetI32(bytes, offset, &record->currentNode) ||
-        !GetDouble(bytes, offset, &record->damage) ||
+        !GetI32(bytes, offset, &record->currentNode))
+        return false;
+    if (version >= 3u &&
+        !GetI32(bytes, offset, &record->previousRouteNode))
+        return false;
+    if (!GetDouble(bytes, offset, &record->damage) ||
         !GetVector(bytes, offset, &record->direction) ||
         !GetVector(bytes, offset, &record->nextNode) ||
         !GetDouble(bytes, offset, &record->previousTime) ||
@@ -741,6 +751,7 @@ bool ValidateRecord(const StablePeopleRecord &record)
         record.route.empty() || !IsBool(record.audibleThisFrame) ||
         !IsBool(record.visible) || !std::isfinite(record.lastMoveTimeStamp) ||
         !FiniteVector(record.position) || record.currentNode < 0 ||
+        record.previousRouteNode < -1 ||
         !std::isfinite(record.damage) || !FiniteVector(record.direction) ||
         !FiniteVector(record.nextNode) || !std::isfinite(record.previousTime) ||
         !std::isfinite(record.rotateOx) || !std::isfinite(record.rotateOy) ||
@@ -897,6 +908,7 @@ bool ResolveRecord(SimulationContext *context, const PeopleRoster &roster,
         !PeopleAttributeExists(resolved->attribute) ||
         !ResolveRoute(context, record.route, &resolved->route, &route) ||
         record.currentNode >= route->GetNodeCnt() ||
+        record.previousRouteNode >= route->GetNodeCnt() ||
         !ResolveOptionalInterface(context, record.commander, ICommanderIID,
                                   &resolved->commander))
         return false;
@@ -928,7 +940,11 @@ bool ApplyRecord(SimulationContext *context,
                  const ResolvedPeopleRecord &resolved)
 {
     People *people = resolved.people;
+    IRouteObject *route = context == NULL ? NULL
+        : static_cast<IRouteObject *>(context->queryInterface(
+              resolved.route, IRouteObjectIID));
     if (context == NULL || people == NULL ||
+        route == NULL || route->GetNodeCnt() < 2 ||
         !people->restoreStableReferences(resolved.attribute, resolved.route))
         return false;
     // Reconstructed People use the same Skin model as the original subject,
@@ -943,6 +959,10 @@ bool ApplyRecord(SimulationContext *context,
     people->m_lastMoveTimeStamp = record.lastMoveTimeStamp;
     people->ct_Subject::setPosition(record.position);
     people->m_curNode = record.currentNode;
+    people->m_previousRouteNode = record.previousRouteNode >= 0
+        ? record.previousRouteNode
+        : (record.currentNode - 1 + route->GetNodeCnt()) %
+              route->GetNodeCnt();
     people->m_damage = record.damage;
     people->m_commanderID = resolved.commander;
     people->m_dir = record.direction;
@@ -1169,6 +1189,24 @@ bool PeopleActiveWorldState_MatchesStable(
            CollectRecords(context, &currentRecords) &&
            EncodeRecords(currentRecords, &current, version) &&
            current == bytes;
+}
+
+bool PeopleActiveWorldState_ProbeLegacyVersionCompatibility(
+    SimulationContext *context)
+{
+    std::vector<StablePeopleRecord> records;
+    if (!CollectRecords(context, &records))
+        return false;
+    for (std::uint32_t version = kOldestPeopleVersion;
+         version < kPeopleVersion; ++version)
+    {
+        std::vector<unsigned char> legacy;
+        if (!EncodeRecords(records, &legacy, version) ||
+            !PeopleActiveWorldState_ValidateStable(legacy) ||
+            !PeopleActiveWorldState_MatchesStable(context, legacy))
+            return Fail("People legacy state migration proof failed");
+    }
+    return true;
 }
 
 bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(

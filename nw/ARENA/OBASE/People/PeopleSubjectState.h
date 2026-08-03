@@ -6,6 +6,9 @@ class SimulationContext;
 struct SPeopleLifecycleProbeSummary
 {
     int validStarts;
+    int routePhaseExact;
+    int routeEndPolicies;
+    int corridorProjection;
     int dynamicReady;
     int renderReady;
     int scheduledMoves;
@@ -43,6 +46,23 @@ struct SPeopleGameplayTuningState
     double fireInterval;
     int burstCount;
     char projectile[64];
+};
+
+struct SPeopleRouteMotionProbeSummary
+{
+    int available;
+    int phaseExact;
+    int groundedRouteEvent;
+    int finiteMotion;
+    int movedTowardTarget;
+    int boundedStep;
+    int startNode;
+    int targetNode;
+    int backSpaceNode;
+    double startMoveDelay;
+    double elapsed;
+    double displacement;
+    char owner[96];
 };
 
 void PeopleSubjectState_Link();
@@ -86,5 +106,8 @@ bool PeopleSubjectState_ProbeTunedAttributeLifecycle(
     SimulationContext *context, const char *attributeName,
     const char *expectedProjectile, double timeStamp,
     SPeopleLifecycleProbeSummary *summary);
+bool PeopleSubjectState_ProbeNewestDelayedRoute(
+    SimulationContext *context,
+    SPeopleRouteMotionProbeSummary *summary);
 
 #endif

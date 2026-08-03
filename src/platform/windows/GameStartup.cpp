@@ -18,6 +18,7 @@
 #include "h/super.h"
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/howitzer/HowitzerActiveWorldState.h"
+#include "obase/people/PeopleSubjectState.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "suavik.h"
 
@@ -2412,6 +2413,27 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_ActiveWorldRollbacks()));
   log.Line("active_world_created_owners=" + std::to_string(
                RecoveredArenaSeance_ActiveWorldCreatedOwners()));
+  const int howitzerLive = RecoveredArenaSeance_HowitzerLiveCount();
+  const int howitzerReady = RecoveredArenaSeance_HowitzerReadyLiveCount();
+  const int howitzerOccupied =
+      RecoveredArenaSeance_HowitzerOccupiedHolderCount();
+  log.Line("howitzer_subject_roster=" + std::to_string(howitzerLive) + "/" +
+           std::to_string(howitzerReady) + "/" +
+           std::to_string(howitzerOccupied));
+  std::vector<unsigned char> startupHowitzerState;
+  const bool startupHowitzerStateReady =
+      HowitzerActiveWorldState_CaptureStable(
+          g_super.m_context, &startupHowitzerState);
+  log.Line("howitzer_active_world_state=" +
+           std::to_string(startupHowitzerStateReady ? 1 : 0) + "/" +
+           std::to_string(HowitzerActiveWorldState_SchedulerEventCount(
+               startupHowitzerState)) + "/" +
+           std::to_string(startupHowitzerState.size()) + "/" +
+           std::to_string(HowitzerActiveWorldState_Fingerprint(
+               g_super.m_context)));
+  if (!startupHowitzerStateReady)
+    log.Line(std::string("howitzer_active_world_state_error=") +
+             HowitzerActiveWorldState_LastFailure());
   log.Line("mission_active_world_probe=" +
            std::to_string(
                RecoveredArenaSeance_ActiveWorldMissionRecords()) + "/" +
@@ -2736,6 +2758,24 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     if (!howitzerStateReady)
       log.Line(std::string("mission_smoke_howitzer_state_error=") +
                HowitzerActiveWorldState_LastFailure());
+    SPeopleRouteMotionProbeSummary guide = {};
+    const bool guideReady = PeopleSubjectState_ProbeNewestDelayedRoute(
+        g_super.m_context, &guide);
+    log.Line(std::string("mission_smoke_guide=") +
+             (guide.owner[0] == 0 ? "<none>" : guide.owner) + "/" +
+             std::to_string(guide.available) + "/" +
+             std::to_string(guide.phaseExact) + "/" +
+             std::to_string(guide.groundedRouteEvent) + "/" +
+             std::to_string(guide.finiteMotion) + "/" +
+             std::to_string(guide.movedTowardTarget) + "/" +
+             std::to_string(guide.boundedStep) + "/" +
+             std::to_string(guide.startNode) + "/" +
+             std::to_string(guide.targetNode) + "/" +
+             std::to_string(guide.backSpaceNode) + "/" +
+             std::to_string(guide.startMoveDelay) + "/" +
+             std::to_string(guide.elapsed) + "/" +
+             std::to_string(guide.displacement));
+    loopFailed = loopFailed || !guideReady;
     if (!loopFailed && options.missionContinuationSmoke) {
       std::vector<std::uint8_t> continuation;
       std::vector<std::uint8_t> recaptured;

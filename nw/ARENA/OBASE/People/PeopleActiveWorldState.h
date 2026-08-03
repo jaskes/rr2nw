@@ -38,6 +38,8 @@ unsigned long long PeopleActiveWorldState_RouteGeometryFingerprint(
     const double *coordinates, std::size_t coordinateCount);
 bool PeopleActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes);
+bool PeopleActiveWorldState_ProbeLegacyVersionCompatibility(
+    SimulationContext *context);
 bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
     SimulationContext *context);
 bool PeopleActiveWorldState_CollectStableOwners(

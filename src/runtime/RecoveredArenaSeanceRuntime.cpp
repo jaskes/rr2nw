@@ -385,6 +385,9 @@ func void s_SearchObjectIDNoWarning(var int objectID, var int cachePos,
                                     str name) extern;
 func void s_RemoveObject(str objectName, float from) extern;
 func void s_ForceRemoveObject(str objectName) extern;
+func void s_DeleteHowitzer(str holderName) extern;
+func void s_IssueEvent(int event, int label, float time,
+                       int objectID, int cachePos) extern;
 func int s_AddClassTable(str className, int maxTableSize) extern;
 func void s_New(int classTableID, str name,
                 var int objectID, var int cachePos) extern;
@@ -948,18 +951,22 @@ bool AppendScriptFunctionClosure(
   return true;
 }
 
-bool BuildPeopleSupportClosure(const std::string& peopleSource,
+bool BuildRetailSupportClosure(const std::string& rootSource,
                                const std::string& subjectSource,
                                const std::string& unitsSource,
+                               const std::string& sysSource,
                                const std::string& sysfSource,
                                std::string* supportSource) {
   if (supportSource == nullptr) return false;
   std::map<std::string, ScriptFunctionDefinition> available;
   ParseScriptFunctions(unitsSource, &available, true);
+  ParseScriptFunctions(sysSource, &available, false);
   ParseScriptFunctions(sysfSource, &available, false);
 
   std::map<std::string, ScriptFunctionDefinition> rootDefinitions;
-  ParseScriptFunctions(peopleSource, &rootDefinitions, true);
+  ParseScriptFunctions(kRetailAttributeBootstrapPrefix, &rootDefinitions,
+                       true);
+  ParseScriptFunctions(rootSource, &rootDefinitions, true);
   ParseScriptFunctions(subjectSource, &rootDefinitions, true);
   std::set<std::string> alreadyDefined;
   for (std::map<std::string, ScriptFunctionDefinition>::const_iterator it =
@@ -969,7 +976,7 @@ bool BuildPeopleSupportClosure(const std::string& peopleSource,
 
   std::set<std::string> selected;
   std::vector<std::string> roots;
-  CollectScriptCalls(SanitizeScriptForStructure(peopleSource), available,
+  CollectScriptCalls(SanitizeScriptForStructure(rootSource), available,
                      alreadyDefined, &selected, &roots);
   CollectScriptCalls(SanitizeScriptForStructure(subjectSource), available,
                      alreadyDefined, &selected, &roots);
@@ -980,6 +987,59 @@ bool BuildPeopleSupportClosure(const std::string& peopleSource,
     if (!AppendScriptFunctionClosure(roots[i], available, alreadyDefined,
                                      &emitted, &visiting, supportSource))
       return false;
+  return true;
+}
+
+bool BuildOwnedTableScript(const std::string& source,
+                           const char* entryPoint,
+                           const char* ownedTable,
+                           std::string* ownedSource) {
+  if (entryPoint == nullptr || ownedTable == nullptr ||
+      ownedSource == nullptr)
+    return false;
+  std::map<std::string, ScriptFunctionDefinition> definitions;
+  ParseScriptFunctions(source, &definitions, true);
+  const std::map<std::string, ScriptFunctionDefinition>::const_iterator entry =
+      definitions.find(entryPoint);
+  if (entry == definitions.end()) return false;
+
+  const std::string& scan = entry->second.scan;
+  const std::size_t owned = scan.find("s_AddClassTable");
+  const std::size_t ownedName = entry->second.source.find(
+      std::string("\"") + ownedTable + "\"", owned);
+  if (owned == std::string::npos || ownedName == std::string::npos)
+    return false;
+  const std::size_t sibling = scan.find("s_AddClassTable", owned + 1u);
+  if (sibling != std::string::npos && ownedName >= sibling) return false;
+  if (sibling == std::string::npos) {
+    *ownedSource = source;
+    return true;
+  }
+
+  // Some May retail scripts append a second subsystem to a January-named
+  // bootstrap (Level.06N puts DestroyableAttr after HowitzerAttr).  A recovered
+  // owner must not publish that sibling table accidentally: trim complete
+  // statements from the second table onward while retaining the exact helper
+  // functions and the owned part of the entry point.
+  std::size_t statement = sibling;
+  while (statement > 0u && scan[statement - 1u] != ';' &&
+         scan[statement - 1u] != '{')
+    --statement;
+  while (statement < sibling &&
+         std::isspace(static_cast<unsigned char>(scan[statement])))
+    ++statement;
+  const std::size_t definitionOffset =
+      source.find(entry->second.source);
+  if (definitionOffset == std::string::npos) return false;
+  const std::size_t definitionEnd =
+      definitionOffset + entry->second.source.size();
+  try {
+    ownedSource->assign(source, 0u, definitionOffset + statement);
+    ownedSource->append("\n}\n");
+    ownedSource->append(source, definitionEnd, std::string::npos);
+  } catch (...) {
+    return false;
+  }
   return true;
 }
 
@@ -1518,10 +1578,12 @@ bool InspectHowitzerScripts(const std::string& attributeSource,
       !CompactScriptSource(subjectSource, &subjects))
     return false;
   const int attributeCapacity =
-      InspectSingleTableCapacity(attributes, "HowitzerAttr", false);
+      InspectSingleTableCapacity(attributes, "HowitzerAttr", true);
   const int subjectCapacity =
-      InspectSingleTableCapacity(subjects, "Howitzer", false);
-  if (attributeCapacity <= 0 || subjectCapacity <= 0) return false;
+      InspectSingleTableCapacity(subjects, "Howitzer", true);
+  if (attributeCapacity < 0 || subjectCapacity < 0 ||
+      ((attributeCapacity == 0) != (subjectCapacity == 0)))
+    return false;
   summary->attributeCapacity = attributeCapacity;
   summary->subjectCapacity = subjectCapacity;
   return true;
@@ -2525,8 +2587,9 @@ bool RunPeopleAttributeBootstrap(SimulationContext* context,
     return false;
   }
   std::string supportSource;
-  if (!BuildPeopleSupportClosure(peopleSource, std::string(), unitsSource,
-                                 sysfSource, &supportSource)) {
+  if (!BuildRetailSupportClosure(peopleSource, std::string(), unitsSource,
+                                 std::string(), sysfSource,
+                                 &supportSource)) {
     ReportExtended(
         RECOVERED_ARENA_SEANCE_EXT_PEOPLE_ATTRIBUTE_SOURCE_UNAVAILABLE,
         "could not build bounded People attribute support closure");
@@ -2580,12 +2643,77 @@ bool ReadHowitzerScriptSummary(HowitzerScriptSummary* summary) {
   return true;
 }
 
-bool RunHowitzerBootstrap(SimulationContext* context, double startTime) {
-  return RunRetailAttributeBootstrap(
-      context, startTime, "SCINC\\HOWITZER.SCI",
-      "SCINC\\set_howitzers.sci", kHowitzerBootstrapSuffix,
-      kHowitzerProgramName, RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
-      "SCINC\\HOWITZER.SCI + SCINC\\set_howitzers.sci");
+bool RunHowitzerBootstrap(SimulationContext* context, double startTime,
+                          const HowitzerScriptSummary& script) {
+  // Level.07N reuses these filenames for its Destroyable shield roster and
+  // declares neither Howitzer table.  It is not a zero-sized Howitzer owner.
+  if (script.attributeCapacity == 0 && script.subjectCapacity == 0)
+    return true;
+
+  std::string attributeSource;
+  std::string subjectSource;
+  std::string unitsSource;
+  std::string sysSource;
+  std::string sysfSource;
+  if (!ReadBoundedRetailAttributeSource("SCINC\\HOWITZER.SCI",
+                                        &attributeSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\set_howitzers.sci",
+                                        &subjectSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\units.sci", &unitsSource) ||
+      !ReadBoundedRetailAttributeSource("..\\SYS.SCI", &sysSource) ||
+      !ReadBoundedRetailAttributeSource("..\\SYSF.SCI", &sysfSource)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "could not read the retail Howitzer support closure");
+    return false;
+  }
+
+  std::string ownedAttributeSource;
+  if (!BuildOwnedTableScript(attributeSource, "main_CreateHowitzerAttrs",
+                             "HowitzerAttr", &ownedAttributeSource)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "could not isolate the retail Howitzer-owned table bootstrap");
+    return false;
+  }
+
+  std::string supportSource;
+  if (!BuildRetailSupportClosure(ownedAttributeSource, subjectSource,
+                                 unitsSource, sysSource, sysfSource,
+                                 &supportSource)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "could not build the retail Howitzer support closure");
+    return false;
+  }
+
+  std::string program;
+  try {
+    program.reserve(sizeof(kRetailAttributeBootstrapPrefix) +
+                    supportSource.size() + ownedAttributeSource.size() +
+                    subjectSource.size() +
+                    sizeof(kHowitzerBootstrapSuffix) + 4u);
+    program.append(kRetailAttributeBootstrapPrefix);
+    program.append(supportSource);
+    program.append(ownedAttributeSource);
+    program.push_back('\n');
+    program.append(subjectSource);
+    program.push_back('\n');
+    program.append(kHowitzerBootstrapSuffix);
+  } catch (...) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_ALLOCATION_FAILURE,
+           "could not allocate the retail Howitzer support closure");
+    return false;
+  }
+
+  RecoveredLegacyScriptHost host(&g_arena);
+  SRecoveredLegacyScriptRunResult result = {};
+  const SRecoveredLegacyScriptProfile profile =
+      RecoveredLegacyScript_RetailFragmentProfile();
+  if (!RecoveredLegacyScript_RunMemory(
+          program.c_str(), kHowitzerProgramName, profile, context,
+          startTime, &host, &result)) {
+    Report(IssueForScriptStatus(result.status), result.error);
+    return false;
+  }
+  return true;
 }
 
 bool RunPeopleSubjectBootstrap(SimulationContext* context,
@@ -2606,8 +2734,9 @@ bool RunPeopleSubjectBootstrap(SimulationContext* context,
   }
 
   std::string supportSource;
-  if (!BuildPeopleSupportClosure(peopleSource, subjectSource, unitsSource,
-                                 sysfSource, &supportSource)) {
+  if (!BuildRetailSupportClosure(peopleSource, subjectSource, unitsSource,
+                                 std::string(), sysfSource,
+                                 &supportSource)) {
     ReportExtended(
         RECOVERED_ARENA_SEANCE_EXT_PEOPLE_SUBJECT_SOURCE_UNAVAILABLE,
         "could not build bounded People support-function closure");
@@ -5115,15 +5244,48 @@ bool PublishPeopleAttributes(SimulationContext* context,
 
 bool PublishHowitzerTables(SimulationContext* context,
                            const HowitzerScriptSummary& script) {
+  // The fragment host maps retail time zero to the first valid scheduler
+  // boundary.  Reach that boundary before any active-world capture so a save
+  // can never observe half-created Howitzers with holder names only in event
+  // payloads.
+  if (!HowitzerSubjectState_ActivateImmediateStarts(context, 0.1)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "Howitzer immediate start boundary is incomplete");
+    return false;
+  }
   const int attributeCount = HowitzerSubjectState_AttributeCount();
   const int holderCount = HowitzerSubjectState_HolderCount();
+  const int liveCount = HowitzerSubjectState_LiveCount();
+  const int readyLiveCount =
+      HowitzerSubjectState_ReadyLiveCount(context);
+  const int occupiedHolders =
+      HowitzerSubjectState_OccupiedHolderCount();
+  const bool attributeRosterReady = script.attributeCapacity == 0
+      ? attributeCount == 0
+      : attributeCount > 0 &&
+            attributeCount <= script.attributeCapacity;
+  const bool subjectRosterReady = script.subjectCapacity == 0
+      ? liveCount == 0 && readyLiveCount == 0 && occupiedHolders == 0
+      : liveCount >= 0 && liveCount <= script.subjectCapacity &&
+            readyLiveCount >= 0 && readyLiveCount <= liveCount &&
+            occupiedHolders == readyLiveCount;
   if (!HowitzerSubjectState_TableReady(context) ||
       HowitzerSubjectState_AttributeCapacity() != script.attributeCapacity ||
       HowitzerSubjectState_SubjectCapacity() != script.subjectCapacity ||
-      attributeCount <= 0 || attributeCount > script.attributeCapacity ||
-      holderCount <= 0 || HowitzerSubjectState_LiveCount() != 0) {
+      !attributeRosterReady ||
+      !subjectRosterReady || holderCount <= 0) {
+    char detail[256] = {};
+    std::snprintf(
+        detail, sizeof(detail),
+        "Howitzer tables/holders mismatch cap=%d/%d state=%d/%d "
+        "attr=%d holders=%d live=%d ready=%d occupied=%d table=%d",
+        script.attributeCapacity, script.subjectCapacity,
+        HowitzerSubjectState_AttributeCapacity(),
+        HowitzerSubjectState_SubjectCapacity(), attributeCount, holderCount,
+        liveCount, readyLiveCount, occupiedHolders,
+        HowitzerSubjectState_TableReady(context) ? 1 : 0);
     Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
-           "Howitzer tables or holder catalog do not match retail data");
+           detail);
     return false;
   }
   const unsigned long long fingerprint =
@@ -5893,9 +6055,12 @@ bool PublishPeopleSubject(SimulationContext* context, double startTime,
       char message[256] = {};
       std::snprintf(
           message, sizeof(message),
-          "People probe start/dyn/render/move/cadence/frames/view/bullet/"
-          "death/save/rollback=%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
-          probe.validStarts, probe.dynamicReady, probe.renderReady,
+          "People probe start/phase/end/corridor/dyn/render/move/cadence/"
+          "frames/view/bullet/death/save/rollback="
+          "%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
+          probe.validStarts, probe.routePhaseExact,
+          probe.routeEndPolicies, probe.corridorProjection,
+          probe.dynamicReady, probe.renderReady,
           probe.scheduledMoves, probe.cadenceBounded,
           probe.renderedPoseFrames, probe.viewBoundaryResets,
           probe.bulletDamageApplications, probe.deathTransitions,
@@ -6107,7 +6272,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         !RunLampAttributeBootstrap(context, startTime) ||
         !RunCorpseAttributeBootstrap(context, startTime) ||
         !RunBulletAttributeBootstrap(context, startTime) ||
-        !RunHowitzerBootstrap(context, startTime)) {
+        !RunHowitzerBootstrap(context, startTime, howitzerScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }

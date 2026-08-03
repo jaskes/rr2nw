@@ -3860,16 +3860,20 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-204: mission presentation and guide motion remain separate owners
 
-- Status: `MANUAL_EVIDENCE`, `DIAGNOSTIC_ADDED`, `OPEN`.
+- Status: `SOURCE_RECOVERED`, `RETAIL_RUNTIME_PROVED`,
+  `PORTABILITY_FIX_ACCEPTED`, `EVENT_26012_OPEN`.
 - Evidence: the reported town-hall visits can create the correct PlayerMission,
   Player vehicle and guide while showing no briefing splash. The guide can
   immediately drive into the Player vehicle or follow its route backwards.
-  Script payloads contain `startNode`, `backSpaceNode` and `startMoveTime`, but
-  the recovered People path stores `backSpaceNode` without consuming it.
+  Script payloads contain `startNode`, `backSpaceNode` and `startMoveTime`.
+  The former recovered path stored `backSpaceNode` without consuming it and
+  mixed squared/linear units while projecting onto the wrong route segment.
 - Handling: retain the last committed RecruitCenter summary, including the
   briefing-presented counter, in shutdown diagnostics. The modern session now
   registers the retail 8x8 console font, `GameConsole` and `Briefing`, and
-  refreshes the briefing viewport after every `ZAV_BeginLoop`. Do not classify
+  refreshes the briefing viewport after every `ZAV_BeginLoop`. START now owns
+  the exact previous/current phase and applies the authored back-space policy;
+  PEO1 v3 persists both indices. Do not classify
   every eject as a new mission: retail collision handling also ejects when a
   mission is already active or no project is eligible. Guide spacing and
   Player vehicle steering remain explicit independent follow-up gates.
@@ -3877,10 +3881,13 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Marauders.Recruit.0` on installed `Level.03N` visibly presents the authored
   ProjectS25 briefing, reports `briefings=1/1`, creates 22 script owners and
   shuts down with zero rollback or game-service issue.
-- Revisit when: the guide start/back-space contract is recovered from retail
-  code or a controlled comparison. The Player vehicle basis/control fault must
-  be fixed independently of guide navigation. Repeated Level viewport refresh
-  should eventually own explicit legacy viewport release.
+  UI-suppressed named-center smokes additionally prove real guides
+  `i.unit.ms22.rl00` and `m.unit.ms25.jp00` each dispatch STARTMOVE plus two
+  MOVE events and make a finite bounded step toward the target.
+- Revisit when: the full May event-26012 body is recovered from the retail
+  executable or a controlled comparison. The Player vehicle basis/control
+  fault remains independent of guide navigation. Repeated Level viewport
+  refresh should eventually own explicit legacy viewport release.
 
 ### CQ-205: the reduced modern session omitted briefing presentation owners
 
@@ -3925,6 +3932,88 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: the scheduler receives a maintained owner token. Migrate all
   subject timers together; do not retrofit source as ownership because retail
   events demonstrably violate that assumption.
+
+### CQ-207: May Howitzer data exceeds and crosses the January source boundary
+
+- Status: `RETAIL_DATA_CONFIRMED`, `SOURCE_ABI_PRESERVED`,
+  `PORTABILITY_FIX_ACCEPTED`, `DESTROYABLE_OWNER_OPEN`.
+- Evidence: installed `Level.01D/Howitzers.hwz` has 235 holders and one live
+  row whose closing `]` is missing. Retail `fscanf` still accepted its four
+  conversions because the bracket was a trailing literal. The preserved
+  `ol_Level` mirror holds only 128 entries. `Level.06N/HOWITZER.SCI` also
+  appends a `DestroyableAttr` table to `main_CreateHowitzerAttrs`, although the
+  released Destroyable class is absent from the surviving source tree.
+- Handling: parse the holder line with the same conversion boundary while
+  retaining bounded names, finite coordinates, duplicate rejection and
+  capacity checks. Keep all 235 holders in a maintained catalog and mirror
+  only the first 128 into the archival layout. Build the transitive helper
+  closure from `UNITS.SCI`, `SYS.SCI` and `SYSF.SCI`; execute only the table
+  owned by the Howitzer bootstrap. The four Level.06N Destroyable producers
+  remain named/countable deferrals rather than fake subjects.
+- Verification: real Level.01D publishes 118 ready, exclusively occupied
+  Howitzers from the full holder catalog and passes LCN1 capture/restore/
+  rollback. Level.06N and the non-Howitzer Level.07N both pass fresh
+  continuation without publishing an unsupported `DestroyableAttr` owner.
+- Revisit when: the May Destroyable subject, attributes, commands 33-34 and
+  persistence are recovered. Give that subsystem its own bootstrap and owner
+  section; do not fold it into Howitzer or enlarge the January `ol_Level`
+  object layout silently.
+
+### CQ-208: equal-time scheduler replay is insertion-order sensitive
+
+- Status: `KERNEL_SOURCE_CONFIRMED`, `RETAIL_RUNTIME_PROVED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `SimulationContext::addEvent` inserts before the first queued event
+  whose timestamp is greater than or equal to the new event. Level.01N holder
+  `Htk_Hole_Cannon58` has equal-time events from `Hwz_Robot_Cannon58` and
+  `Storage`; forward replay reversed those sources and broke byte-exact LCN1.
+- Handling: restore each captured Howitzer private queue in reverse iterator
+  order. This preserves chronological order and the original order of every
+  equal-time subgroup. Field-level diagnostics now report the holder and exact
+  divergent field/source if a future codec regresses.
+- Verification: focused Level.01N fresh continuation passes `LCN1-15/15/15`,
+  and restore-time START suppression prevents the previously observed Bullet
+  mutation during backup rollback.
+- Revisit when: the kernel event queue gains a maintained stable sequence ID.
+  At that point encode the sequence explicitly for all owners instead of
+  relying on inverse insertion semantics owner by owner.
+
+### CQ-209: Taxi handover used a world-axis offset after copying a tilted basis
+
+- Status: `SOURCE_CONFIRMED`, `PLAYTEST_RUNTIME_PROVED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `Vehicle::tryTakeTaxi` copied the Taxi direction and then added
+  `(0, bornY, 0)` in world space. On the Level.03N profile-2 Emveshka the first
+  recovered dynamics frame reported `BF_BUMPSTATIC`, remained grounded and
+  never exceeded speed zero. `CVesselEmv::ApplyStep` deliberately clears
+  speed on that flag.
+- Handling: normalize the copied support-up row and apply profile-aware release
+  clearance along that normal. Use world up only for invalid legacy geometry.
+  Ground Vehicles receive `0.05`; Dragon and both Emveshka profiles receive
+  `1.0` before their airborne dynamics assumes control.
+- Verification: the Taxi transition probe requires the support-normal
+  position and basis. Full Playtest fresh continuation passes all nine Levels,
+  including the previously failing Level.03N occupied drive/damage/save row;
+  Release independently passes the same 9/9 matrix.
+- Revisit when: the maintained collision layer owns a named contact epsilon
+  shared by placement and sweep. Replace the local release constants only with
+  a measured, replay-tested policy; do not restore world-Y lifting.
+
+### CQ-210: optimized static linking exposed hidden owner dependencies
+
+- Status: `BUILD_GRAPH_CONFIRMED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: Release produced a duplicate `CViewObject::SetLight` from
+  `OBJECT.CPP` and `ViewLightState.cpp`, then unresolved mod-runtime,
+  Supervisor and ZAV scene symbols from the Howitzer archive. Debug's archive
+  retention had hidden both ownership defects.
+- Handling: select the external light-state owner at compile time and declare
+  all three Howitzer target dependencies explicitly. Supply `SYS.SCI` in the
+  hermetic Arena fixture because it is now an intentional member of the retail
+  helper closure.
+- Verification: Debug, Release and Playtest each build and pass 67/67 CTest;
+  their installed retail matrix is 27/27 combined.
+- Revisit when: legacy archives are decomposed into smaller maintained targets.
+  Keep one implementation owner and direct target dependencies at every step.
 
 ## Maintenance rule
 

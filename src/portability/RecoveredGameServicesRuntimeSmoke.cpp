@@ -50,6 +50,7 @@
 #include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
+#include "obase/vehicle/VehicleVesselTelemetry.h"
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "sound.h"
@@ -1854,6 +1855,9 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
 
   bool resumedImpact = false;
   bool retailExplosionAccepted = false;
+  bool explosionStableCapture = false;
+  int explosionSchedulerEvents = -1;
+  unsigned long long explosionFingerprint = 0;
   const unsigned int restoredMoveBaseline = dropped.orphanMoveEvents;
   const unsigned int restoredImpactBaseline = dropped.orphanImpacts;
   const unsigned int restoredExplosionBaseline = dropped.orphanExplosions;
@@ -1861,20 +1865,31 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
     if (!RunVehicleFrameAfter(0.025) ||
         !RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped))
       return false;
-    if (OrphanSubjectState_LiveCount() == orphanCount &&
+    if (!resumedImpact && OrphanSubjectState_LiveCount() == orphanCount &&
         dropped.orphanMoveEvents > restoredMoveBaseline &&
         dropped.orphanImpacts > restoredImpactBaseline) {
       resumedImpact = true;
+    }
+    // createExplosion() queues EXPLOSION_START at the current legacy event
+    // timestamp. Depending on the existing retail queue, that new event can
+    // be processed on the following complete frame. Observe the first stable
+    // boundary instead of assuming immediate same-frame initialization.
+    if (resumedImpact &&
+        dropped.orphanExplosions == restoredExplosionBaseline + 1) {
       std::vector<unsigned char> impactExplosionState;
-      retailExplosionAccepted =
-          dropped.orphanExplosions == restoredExplosionBaseline + 1 &&
-          ExplosionActiveWorldState_CaptureStable(
-              context, &impactExplosionState) &&
-          ExplosionActiveWorldState_SchedulerEventCount(
-              impactExplosionState) >=
-              ExplosionSubjectState_LiveCount() &&
-          ExplosionActiveWorldState_Fingerprint(context) != 0;
-      break;
+      explosionStableCapture = ExplosionActiveWorldState_CaptureStable(
+          context, &impactExplosionState);
+      explosionSchedulerEvents = explosionStableCapture
+          ? ExplosionActiveWorldState_SchedulerEventCount(
+                impactExplosionState)
+          : -1;
+      explosionFingerprint = explosionStableCapture
+          ? ExplosionActiveWorldState_Fingerprint(context)
+          : 0;
+      retailExplosionAccepted = explosionStableCapture &&
+          explosionSchedulerEvents >= ExplosionSubjectState_LiveCount() &&
+          explosionFingerprint != 0;
+      if (retailExplosionAccepted) break;
     }
   }
   const bool result = resumedImpact && retailExplosionAccepted &&
@@ -1885,7 +1900,8 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
     std::fprintf(stderr,
                  "ORP1 resumed impact failed resumed=%d explosion=%d "
                  "explosion_live=%d/%d explosion_events=%u/%u live=%u/%d "
-                 "moves=%u/%u impacts=%u/%u subscription=%d\n",
+                 "moves=%u/%u impacts=%u/%u stable=%d scheduler=%d "
+                 "fingerprint=%llu error=%s subscription=%d\n",
                  resumedImpact ? 1 : 0,
                  retailExplosionAccepted ? 1 : 0,
                  ExplosionSubjectState_LiveCount(), explosionCount,
@@ -1893,6 +1909,9 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
                  dropped.liveOrphans, orphanCount,
                  dropped.orphanMoveEvents, restoredMoveBaseline,
                  dropped.orphanImpacts, restoredImpactBaseline,
+                 explosionStableCapture ? 1 : 0,
+                 explosionSchedulerEvents, explosionFingerprint,
+                 ExplosionActiveWorldState_LastFailure(),
                  dropped.hardwareSubscriptionPreserved);
   return result;
 }
@@ -4457,8 +4476,19 @@ bool ExerciseOccupiedVehicleSaveLoadOne(
   const bool drove = settlementFrames &&
       SendHardwareButton("W", TRUE);
   bool driveFrames = drove;
-  for (int frame = 0; driveFrames && frame < 8; ++frame)
+  double maximumDriveSpeed = 0.0;
+  for (int frame = 0; driveFrames && frame < 8; ++frame) {
     driveFrames = RunVehicleFrameAfter(0.025);
+    SRecoveredVehicleRuntimeState driveState = {};
+    if (driveFrames && VehicleRuntimeState_Inspect(
+                           context, vehicle, &driveState)) {
+      maximumDriveSpeed = (std::max)(
+          maximumDriveSpeed,
+          std::sqrt(driveState.speed.x * driveState.speed.x +
+                    driveState.speed.y * driveState.speed.y +
+                    driveState.speed.z * driveState.speed.z));
+    }
+  }
   const bool released = driveFrames && SendHardwareButton("W", FALSE) &&
       RunVehicleFrameAfter(0.01);
   const bool damaged = released &&
@@ -4477,22 +4507,32 @@ bool ExerciseOccupiedVehicleSaveLoadOne(
       TaxiActiveWorldState_Fingerprint(context);
   const std::uint64_t savedOrphanFingerprint =
       OrphanActiveWorldState_Fingerprint(context);
-  const bool authorityReady = damaged &&
-      VehicleRuntimeState_Inspect(context, vehicle, &savedVehicle) &&
-      VehicleRuntimeState_InspectCamera(context, &savedCamera) &&
-      savedVehicle.active && !savedVehicle.frameBegun &&
+  const bool vehicleInspected = damaged &&
+      VehicleRuntimeState_Inspect(context, vehicle, &savedVehicle);
+  const bool cameraInspected = vehicleInspected &&
+      VehicleRuntimeState_InspectCamera(context, &savedCamera);
+  const double savedSpeed = vehicleInspected
+      ? std::sqrt(savedVehicle.speed.x * savedVehicle.speed.x +
+                  savedVehicle.speed.y * savedVehicle.speed.y +
+                  savedVehicle.speed.z * savedVehicle.speed.z)
+      : 0.0;
+  const bool vehicleBoundaryReady = cameraInspected && savedVehicle.active &&
+      !savedVehicle.frameBegun &&
       !savedVehicle.dead && !savedVehicle.takingTaxi &&
       !savedVehicle.taxiChangeEnabled && savedVehicle.damage > 0.0 &&
-      std::sqrt(savedVehicle.speed.x * savedVehicle.speed.x +
-                savedVehicle.speed.y * savedVehicle.speed.y +
-                savedVehicle.speed.z * savedVehicle.speed.z) > 1.0e-6 &&
+      savedSpeed > 1.0e-6 &&
       savedVehicle.panelOpen == savedVehicle.panelReady &&
-      savedCamera.mode == RECOVERED_VEHICLE_CAMERA_LIVE &&
-      savedTaxiCount > 0 && savedOrphanCount >= 0 &&
-      savedTaxiFingerprint != 0 && savedOrphanFingerprint != 0 &&
-      !savedDebugObject.empty() &&
-      context->isExist(savedDebugObject.c_str()) &&
-      RecoveredGameServices_VehicleActiveActionCount() == 0u;
+      savedCamera.mode == RECOVERED_VEHICLE_CAMERA_LIVE;
+  const bool populationBoundaryReady = savedTaxiCount > 0 &&
+      savedOrphanCount >= 0 && savedTaxiFingerprint != 0 &&
+      savedOrphanFingerprint != 0;
+  const bool debugBoundaryReady = !savedDebugObject.empty() &&
+      context->isExist(savedDebugObject.c_str());
+  const std::size_t savedActiveActions =
+      RecoveredGameServices_VehicleActiveActionCount();
+  const bool authorityReady = vehicleBoundaryReady &&
+      populationBoundaryReady && debugBoundaryReady &&
+      savedActiveActions == 0u;
 
   SLevelSaveSlotSummary savedSlot;
   SLevelContinuationSummary savedContinuation;
@@ -4649,6 +4689,30 @@ bool ExerciseOccupiedVehicleSaveLoadOne(
         savedTaxiCount, TaxiSubjectState_LiveCount(), savedOrphanCount,
         OrphanSubjectState_LiveCount(),
         menu == nullptr ? "<none>" : menu->lastError.c_str());
+    std::fprintf(
+        stderr,
+        "occupied authority detail profile=%d inspect=%d/%d "
+        "vehicle=%d/%d/%d/%d/%d damage=%.9g speed=%.9g panel=%d/%d "
+        "camera=%d population=%d taxi_fp=%llu orphan_fp=%llu "
+        "debug=%d object=%.96s actions=%zu max_drive=%.9g bump=%d "
+        "ground=%d position=%.9g/%.9g/%.9g\n",
+        expectedProfile, vehicleInspected ? 1 : 0,
+        cameraInspected ? 1 : 0, savedVehicle.active ? 1 : 0,
+        savedVehicle.frameBegun ? 1 : 0, savedVehicle.dead ? 1 : 0,
+        savedVehicle.takingTaxi ? 1 : 0,
+        savedVehicle.taxiChangeEnabled ? 1 : 0, savedVehicle.damage,
+        savedSpeed, savedVehicle.panelReady ? 1 : 0,
+        savedVehicle.panelOpen ? 1 : 0, savedCamera.mode,
+        populationBoundaryReady ? 1 : 0,
+        static_cast<unsigned long long>(savedTaxiFingerprint),
+        static_cast<unsigned long long>(savedOrphanFingerprint),
+        debugBoundaryReady ? 1 : 0, savedDebugObject.c_str(),
+        savedActiveActions, maximumDriveSpeed,
+        RecoveredVehicleVesselBumpFlags(occupiedType.dynamic.c_str()),
+        RecoveredVehicleVesselTouchesGround(
+            occupiedType.dynamic.c_str()) ? 1 : 0,
+        savedVehicle.position.x, savedVehicle.position.y,
+        savedVehicle.position.z);
   }
 
   SLevelContinuationSummary restoredBaseline;
@@ -4931,6 +4995,8 @@ int main(int argc, char** argv) {
   std::vector<SPeopleRouteRequirement> legacyRequirements;
   if (!PeopleActiveWorldState_CaptureStable(
           g_super.m_context, &peopleState) ||
+      !PeopleActiveWorldState_ProbeLegacyVersionCompatibility(
+          g_super.m_context) ||
       !PeopleActiveWorldState_ValidateStable(legacyEmptyPeople) ||
       !PeopleActiveWorldState_RouteRequirements(
           legacyEmptyPeople, &legacyRequirements) ||
@@ -4943,7 +5009,7 @@ int main(int argc, char** argv) {
           peopleRoutes.end()) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("People stable route manifest is invalid");
+      return Fail("People stable route manifest is invalid");
   }
   for (std::size_t index = 0; index < peopleRoutes.size(); ++index) {
     if (!g_super.m_context->isExist(peopleRoutes[index].c_str()) ||
@@ -4952,21 +5018,100 @@ int main(int argc, char** argv) {
       ZAV_DeInitLevel();
       ZAV_Deinit();
       return Fail("People stable route manifest lost a live route");
-    }
+      }
   }
+  const int skinAnimationEntries =
+      RecoveredArenaSeance_SkinAnimationEntryCallCount();
+  const int skinAnimatedModels =
+      RecoveredArenaSeance_SkinAnimatedModelCount();
+  const int skinAnimationCommands =
+      RecoveredArenaSeance_SkinAnimationCommandCount();
+  const int skinPoseTemporalModels =
+      RecoveredArenaSeance_SkinAnimationPoseTemporalModelCount();
+  const int skinPoseChangedModels =
+      RecoveredArenaSeance_SkinAnimationPoseChangedModelCount();
+  const int skinPoseSamples =
+      RecoveredArenaSeance_SkinAnimationPoseSampleCount();
+  const int skinPoseRestoredModifiers =
+      RecoveredArenaSeance_SkinAnimationPoseRestoredModifierCount();
+  const unsigned long long skinPoseFingerprint =
+      RecoveredArenaSeance_SkinAnimationPoseFingerprint();
+  const bool skinAnimationRosterReady =
+      skinAnimationEntries >= 0 && skinAnimatedModels >= 0 &&
+      skinAnimationCommands >= 0 &&
+      (skinAnimationEntries != 0 ||
+       (skinAnimatedModels == 0 && skinAnimationCommands == 0)) &&
+      (skinAnimationEntries == 0 ||
+       (skinAnimatedModels > 0 && skinAnimationCommands > 0));
+  const bool skinAnimationPoseReady = skinAnimatedModels == 0
+      ? skinPoseTemporalModels == 0 && skinPoseChangedModels == 0 &&
+            skinPoseSamples == 0 && skinPoseRestoredModifiers == 0 &&
+            skinPoseFingerprint == 0
+      : skinPoseTemporalModels > 0 &&
+            skinPoseTemporalModels <= skinAnimatedModels &&
+            skinPoseChangedModels == skinPoseTemporalModels &&
+            skinPoseSamples == skinAnimatedModels * 10 &&
+            skinPoseRestoredModifiers > 0 && skinPoseFingerprint != 0;
+  const bool teleportTarget =
+      RecoveredArenaSeance_TeleportTargetLevel();
+  const int teleportCapacity = RecoveredArenaSeance_TeleportCapacity();
+  const int teleportRoutes = RecoveredArenaSeance_TeleportRouteCount();
+  const int teleportRejected =
+      RecoveredArenaSeance_TeleportProbeRejectedNonPlayer();
+  const int teleportPhysics =
+      RecoveredArenaSeance_TeleportProbePhysicsCollisions();
+  const int teleportApplied =
+      RecoveredArenaSeance_TeleportProbeAppliedPlayer();
+  const int teleportRollbacks =
+      RecoveredArenaSeance_TeleportProbeVehicleRollbacks();
+  const unsigned long long teleportFingerprint =
+      RecoveredArenaSeance_TeleportFingerprint();
+  const bool teleportLifecycleReady = teleportTarget
+      ? teleportCapacity > 0 && teleportRoutes > 0 &&
+            teleportRejected == 1 && teleportPhysics == 1 &&
+            teleportApplied == 1 && teleportRollbacks == 1 &&
+            teleportFingerprint != 0
+      : teleportCapacity == 0 && teleportRoutes == 0 &&
+            teleportRejected == 0 && teleportPhysics == 0 &&
+            teleportApplied == 0 && teleportRollbacks == 0 &&
+            teleportFingerprint == 0;
+  const bool staticTarget =
+      RecoveredArenaSeance_StaticMechanismTargetLevel();
+  const int staticLevelOne =
+      RecoveredArenaSeance_StaticMechanismLevelOne();
+  const int staticLevelFive =
+      RecoveredArenaSeance_StaticMechanismLevelFive();
+  const int staticBindings =
+      RecoveredArenaSeance_StaticMechanismBindingCount();
+  const int staticKinds =
+      RecoveredArenaSeance_StaticMechanismWaterwheelCount() +
+      RecoveredArenaSeance_StaticMechanismFlagCount() +
+      RecoveredArenaSeance_StaticMechanismRotatingCount() +
+      RecoveredArenaSeance_StaticMechanismDoorCount() +
+      RecoveredArenaSeance_StaticMechanismPol16Count();
+  const int staticChanged =
+      RecoveredArenaSeance_StaticMechanismChangedBindingCount();
+  const int staticSamples =
+      RecoveredArenaSeance_StaticMechanismPoseSampleCount();
+  const int staticRestored =
+      RecoveredArenaSeance_StaticMechanismRestoredModifierCount();
+  const unsigned long long staticFingerprint =
+      RecoveredArenaSeance_StaticMechanismFingerprint();
+  const bool staticLifecycleReady = staticTarget
+      ? staticLevelOne + staticLevelFive == 1 && staticBindings > 0 &&
+            staticKinds == staticBindings && staticChanged == staticBindings &&
+            staticSamples == staticBindings * 5 && staticRestored > 0 &&
+            staticFingerprint != 0
+      : staticLevelOne == 0 && staticLevelFive == 0 &&
+            staticBindings == 0 && staticKinds == 0 && staticChanged == 0 &&
+            staticSamples == 0 && staticRestored == 0 &&
+            staticFingerprint == 0;
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
       !RecoveredGameServices_BirdAttributesReady() ||
       !RecoveredGameServices_PortalReady() ||
       !RecoveredArenaSeance_TeleportRoutesReady() ||
-      RecoveredArenaSeance_TeleportTargetLevel() ||
-      RecoveredArenaSeance_TeleportCapacity() != 0 ||
-      RecoveredArenaSeance_TeleportRouteCount() != 0 ||
-      RecoveredArenaSeance_TeleportProbeRejectedNonPlayer() != 0 ||
-      RecoveredArenaSeance_TeleportProbePhysicsCollisions() != 0 ||
-      RecoveredArenaSeance_TeleportProbeAppliedPlayer() != 0 ||
-      RecoveredArenaSeance_TeleportProbeVehicleRollbacks() != 0 ||
-      RecoveredArenaSeance_TeleportFingerprint() != 0 ||
+      !teleportLifecycleReady ||
       !RecoveredGameServices_OrphanAttributesReady() ||
       !RecoveredGameServices_OrphanReferencesReady() ||
       !RecoveredGameServices_OrphanSubjectReady() ||
@@ -5017,32 +5162,14 @@ int main(int argc, char** argv) {
        !RecoveredGameServices_CorpseSubjectReady() ||
       !RecoveredGameServices_WavMetadataReady() ||
       !RecoveredGameServices_SoundObjectReady() ||
-      !RecoveredGameServices_SkinResourcesReady() ||
-      !RecoveredArenaSeance_SkinAnimationsReady() ||
-      RecoveredArenaSeance_SkinAnimationEntryCallCount() != 0 ||
-      RecoveredArenaSeance_SkinAnimatedModelCount() != 0 ||
-      RecoveredArenaSeance_SkinAnimationCommandCount() != 0 ||
-      RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 ||
-      RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 ||
-      RecoveredArenaSeance_SkinAnimationPoseTemporalModelCount() != 0 ||
-      RecoveredArenaSeance_SkinAnimationPoseChangedModelCount() != 0 ||
-      RecoveredArenaSeance_SkinAnimationPoseSampleCount() != 0 ||
-      RecoveredArenaSeance_SkinAnimationPoseRestoredModifierCount() != 0 ||
-      RecoveredArenaSeance_SkinAnimationPoseFingerprint() != 0 ||
+       !RecoveredGameServices_SkinResourcesReady() ||
+       !RecoveredArenaSeance_SkinAnimationsReady() ||
+       !skinAnimationRosterReady ||
+       RecoveredArenaSeance_SkinAnimationSourceFingerprint() == 0 ||
+       RecoveredArenaSeance_SkinAnimationStateFingerprint() == 0 ||
+      !skinAnimationPoseReady ||
       !RecoveredArenaSeance_StaticMechanismsReady() ||
-      RecoveredArenaSeance_StaticMechanismTargetLevel() ||
-      RecoveredArenaSeance_StaticMechanismLevelOne() ||
-      RecoveredArenaSeance_StaticMechanismLevelFive() ||
-      RecoveredArenaSeance_StaticMechanismBindingCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismWaterwheelCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismFlagCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismRotatingCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismDoorCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismPol16Count() != 0 ||
-      RecoveredArenaSeance_StaticMechanismChangedBindingCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismPoseSampleCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismRestoredModifierCount() != 0 ||
-      RecoveredArenaSeance_StaticMechanismFingerprint() != 0 ||
+      !staticLifecycleReady ||
       !RecoveredGameServices_SparkAttributesReady() ||
       !RecoveredGameServices_SparkSubjectReady() ||
       !RecoveredGameServices_SparkRenderingReady() ||
@@ -5099,6 +5226,48 @@ int main(int argc, char** argv) {
       !ExplosionSubjectState_ImpulseTargetReady(
           g_super.m_context, vehicleID) ||
       observer == nullptr) {
+    std::fprintf(
+        stderr,
+        "core readiness detail base=%d/%d/%d route=%d "
+        "people=%d/%d/%d tank=%d/%d/%d vehicle=%d/%d/%d "
+        "skin=%d/%d/%d/%d static=%d/%d spark=%d/%d/%d/%d/%d/%d "
+        "issues=%llu/%llu ids=%d/%d/%d/%d/%d observer=%d free=%d/%d\n",
+        RecoveredGameServices_HardwareReady() ? 1 : 0,
+        RecoveredGameServices_SeanceReady() ? 1 : 0,
+        RecoveredGameServices_BirdAttributesReady() ? 1 : 0,
+        RecoveredGameServices_RouteReady() ? 1 : 0,
+        RecoveredGameServices_PeopleAttributesReady() ? 1 : 0,
+        RecoveredGameServices_PeopleReferencesReady() ? 1 : 0,
+        RecoveredGameServices_PeopleSubjectReady() ? 1 : 0,
+        RecoveredGameServices_TankCannonAttributesReady() ? 1 : 0,
+        RecoveredGameServices_TankReferencesReady() ? 1 : 0,
+        RecoveredGameServices_TankCannonSubjectTablesReady() ? 1 : 0,
+        RecoveredGameServices_VehicleReady() ? 1 : 0,
+        RecoveredGameServices_VehicleMovementReady() ? 1 : 0,
+        RecoveredGameServices_VehicleDeathCameraReady() ? 1 : 0,
+        RecoveredGameServices_SkinResourcesReady() ? 1 : 0,
+        RecoveredArenaSeance_SkinAnimationEntryCallCount(),
+        RecoveredArenaSeance_SkinAnimatedModelCount(),
+        RecoveredArenaSeance_SkinAnimationPoseSampleCount(),
+        RecoveredArenaSeance_StaticMechanismsReady() ? 1 : 0,
+        RecoveredArenaSeance_StaticMechanismBindingCount(),
+        RecoveredGameServices_SparkAttributesReady() ? 1 : 0,
+        RecoveredGameServices_SparkSubjectReady() ? 1 : 0,
+        RecoveredGameServices_SparkRenderingReady() ? 1 : 0,
+        RecoveredArenaSeance_SparkProbeInvalidStarts(),
+        RecoveredArenaSeance_SparkProbeQueuedCreates(),
+        RecoveredArenaSeance_SparkProbePhaseTransitions(),
+        static_cast<unsigned long long>(RecoveredArenaSeance_Issues()),
+        static_cast<unsigned long long>(
+            RecoveredArenaSeance_ExtendedIssues()),
+        birdID.isNUL() ? 0 : 1,
+        orphanID.isNUL() ? 0 : 1, artefactID.isNUL() ? 0 : 1,
+        sparkID.isNUL() ? 0 : 1, vehicleID.isNUL() ? 0 : 1,
+        observer == nullptr ? 0 : 1,
+        g_super.m_context == nullptr ? -1
+                                     : g_super.m_context->objectFreeCount(),
+        g_super.m_context == nullptr ? -1
+                                     : g_super.m_context->eventFreeCount());
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail(

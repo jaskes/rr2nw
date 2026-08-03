@@ -1796,11 +1796,20 @@ creates six real holder-backed subjects and eighteen preserved timers; schema
 4 reconstructs all fifteen active-world sections byte-identically and rolls
 the prior world back after an injected late failure.
 
-The next campaign slice is now sharply bounded: recover the May People route
-phase and ground-navigation contract used by mission guides, including the
-authored `backSpaceNode` end-of-route policy, without spawning escorts into the
-Player. Then reconcile the mission vehicle's model/control basis so forward
-input does not drive sideways. These are independent acceptance rows and must
+The People half of this campaign slice is now closed. Mission guides use the
+retail previous/current start phase, consume the authored `backSpaceNode`
+terminal policy and persist that active segment in PEO1 v3. Both Level.03N
+factions prove real STARTMOVE plus two MOVE ticks with finite bounded progress
+toward the target. Exact May event-26012 grounded collision/progress behavior
+remains a named refinement, but it no longer blocks ordinary guide lifecycle,
+save/load or rollback.
+
+The Taxi-to-Vehicle placement half of the next row is closed: the Vehicle now
+inherits the support basis and releases along its normal, so exact contact no
+longer produces an immediate static bump and zero speed. The remaining row is
+the mission vehicle's steering/model basis where forward input can still drive
+sideways, followed by the complete May event-26012 grounded People handler and
+guide/vehicle path obstruction behavior visible in town routes. These must
 precede reward/completion and Portal admission.
 
 Only after controlled public mission admission and completion are proven
