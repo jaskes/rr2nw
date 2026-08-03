@@ -1832,8 +1832,14 @@ same-frame steering, and PEO1 v5 introduced the deviation timer. The separate
 May `ON_OBJ` forward sweep is now active through the real scene Bump path with
 its shrinking radius, 80-percent contact travel, state pop and 1x/2x recovery
 timer; PEO1 v6 preserves both timers. The remaining People work is the shared
-May support/contact manifold behind the retained January height probes and
-guide/vehicle path-obstruction behavior.
+May support/contact sampling geometry and guide/vehicle path-obstruction
+behavior. The contact response half is closed: the lower support samples now
+produce persistent direction codes, May's `1/9`, `2`, `3/11` and `4`
+dispatcher owns heading correction, and the obstacle recovery path preserves
+the full code instead of collapsing it to a boolean. PEO1 v7 stores that
+integer contact class and migrates v1-v6 boolean payloads deterministically.
+May's larger sample set and contact-derived code-4 angle remain to be
+translated.
 
 The Taxi-to-Vehicle placement and steering/model-basis row is closed. The
 Vehicle inherits the support basis, releases along its normal and advances on
@@ -1855,9 +1861,9 @@ now uses physical forward for position while preserving the Taxi yaw
 convention, and the stable-boundary smoke requires the spawned object to be in
 front of the player.
 
-The next gameplay row is May's shared People support/contact manifold and
-guide/vehicle path-obstruction behavior visible in town routes, followed by
-mission reward/completion and Portal admission.
+The next gameplay row is the remaining May People contact-sampling geometry
+plus guide/vehicle path-obstruction behavior visible in town routes, followed
+by mission reward/completion and Portal admission.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

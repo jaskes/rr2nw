@@ -4,6 +4,7 @@
  * Ver   1.0
  */
 #include "People.h"
+#include "PeopleContactResponse.h"
 #include "PeopleObstacleRecovery.h"
 #include "PeopleRouteMotion.h"
 #include "kernel/h/context.h"
@@ -906,7 +907,9 @@ int People::receiveEvent( KR_Event &event )
                    recoveryRequest.collisionTime = step;
                    recoveryRequest.visible = m_isVisible;
                    recoveryRequest.collisionDetected = 0;
-                   recoveryRequest.closeCollision = m_isClz;
+                   recoveryRequest.contactCode = m_isClz;
+                   recoveryRequest.detectedContactCode =
+                       m_isClz != 0 ? m_isClz : 1;
                    recoveryRequest.stateDepth = m_stateSP;
 
                    SPeopleObstacleRecoveryResult preview = {};
@@ -928,10 +931,10 @@ int People::receiveEvent( KR_Event &event )
                         recovery.recoveryTime = 0;
                         recovery.travelTime = step;
                         recovery.popState = 0;
-                        recovery.closeCollision = 0;
+                        recovery.contactCode = 0;
                    }
                    m_obstacleRecoveryTime = recovery.recoveryTime;
-                   m_isClz = recovery.closeCollision;
+                   m_isClz = recovery.contactCode;
                    if(  recovery.popState  )
                         popState();
 
@@ -952,18 +955,17 @@ int People::receiveEvent( KR_Event &event )
                                                   m_attr->m_rollSpeed,
                                                   deltaT ));
 
-                   // Retain the January support probes until the general May
-                   // contact manifold is recovered. They only place/tilt the
-                   // actor now; forward obstruction state belongs to the
-                   // deterministic recovery policy above.
+                   // The two January support samples now feed the evidenced
+                   // May contact-code dispatcher. A prior code remains
+                   // authoritative, preventing left/right oscillation while
+                   // the actor is still recovering from the same contact.
                    {
-                    double      tm, tm2;
+                    double tm = 0, tm2 = 0;
                     KR_ObjectID oID,oID2;
                     double radius = getRadius();
                     double cos_oy = cos(m_rotateOy)*radius;
                     double sin_oy = sin(m_rotateOy)*radius;
-
-                    if( checkCollision(
+                    const int frontHit = checkCollision(
                       pos+CFVector3(sin_oy,3,cos_oy),
                       CFVector3(0,-1,0),
                       1,
@@ -971,26 +973,55 @@ int People::receiveEvent( KR_Event &event )
                       getObjectID(),
                       tm,
                       oID
-                    ) )
+                    );
+                    const int rearHit = checkCollision(
+                      pos+CFVector3(-sin_oy,3,-cos_oy),
+                      CFVector3(0,-1,0),
+                      1,
+                      50,
+                      getObjectID(),
+                      tm2,
+                      oID2
+                    );
+
+                    int contactCode = m_isClz;
+                    if(  contactCode==0  )
                     {
-                        double height = 3-tm-1 + pos.y;
-                        if( checkCollision(
-                          pos+CFVector3(-sin_oy,3,-cos_oy),
-                          CFVector3(0,-1,0),
-                          1,
-                          50,
-                          getObjectID(),
-                          tm2,
-                          oID2
-                        ) )
-                        {
-                             double height2 = 3-tm2-1+pos.y;
-                             m_rotateOx = atan2(height2-height,2*radius);
-                             pos.y = (height+height2)*0.5;
-                             if(  oID2.isNUL() )
-                                  setPosition(pos);
-                        }
+                         if(  !frontHit || !rearHit  )
+                              contactCode = 3;
+                         else
+                         if(  !oID.isNUL() && !oID2.isNUL()  )
+                              contactCode = tm<=tm2 ? 1 : 3;
+                         else
+                         if(  !oID.isNUL()  )
+                              contactCode = 1;
+                         else
+                         if(  !oID2.isNUL()  )
+                              contactCode = 3;
                     }
+
+                    if(  frontHit && rearHit  )
+                    {
+                         double height = 3-tm-1+pos.y;
+                         double height2 = 3-tm2-1+pos.y;
+                         m_rotateOx = atan2(height2-height,2*radius);
+                         pos.y = (height+height2)*0.5;
+                         if(  oID2.isNUL()  )
+                              setPosition(pos);
+                    }
+
+                    m_isClz = contactCode;
+                    SPeopleContactResponseRequest contactRequest = {};
+                    contactRequest.contactCode = contactCode;
+                    contactRequest.heading = m_hAngle;
+                    contactRequest.contactHeading = hAngle;
+                    contactRequest.rollSpeed = m_attr->m_rollSpeed;
+                    contactRequest.deltaTime = deltaT;
+                    SPeopleContactResponseResult contactResponse = {};
+                    if(  PeopleContactResponse_Advance(
+                             contactRequest,&contactResponse)
+                      && contactResponse.active  )
+                         setHAngleFixDir(contactResponse.heading);
                    }
               }
                break;

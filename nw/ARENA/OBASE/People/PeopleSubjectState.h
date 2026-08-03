@@ -10,6 +10,7 @@ struct SPeopleLifecycleProbeSummary
     int routeEndPolicies;
     int corridorProjection;
     int obstacleRecovery;
+    int contactResponse;
     int dynamicReady;
     int renderReady;
     int scheduledMoves;

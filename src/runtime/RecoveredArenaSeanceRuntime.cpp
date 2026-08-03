@@ -6055,12 +6055,12 @@ bool PublishPeopleSubject(SimulationContext* context, double startTime,
       char message[256] = {};
       std::snprintf(
           message, sizeof(message),
-          "People probe start/phase/end/corridor/obstacle/dyn/render/move/cadence/"
+          "People probe start/phase/end/corridor/obstacle/contact/dyn/render/move/cadence/"
           "frames/view/bullet/death/save/rollback="
-          "%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
+          "%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
           probe.validStarts, probe.routePhaseExact,
           probe.routeEndPolicies, probe.corridorProjection,
-          probe.obstacleRecovery,
+          probe.obstacleRecovery, probe.contactResponse,
           probe.dynamicReady, probe.renderReady,
           probe.scheduledMoves, probe.cadenceBounded,
           probe.renderedPoseFrames, probe.viewBoundaryResets,

@@ -10,7 +10,8 @@ struct SPeopleObstacleRecoveryRequest
     double collisionTime;
     int visible;
     int collisionDetected;
-    int closeCollision;
+    int contactCode;
+    int detectedContactCode;
     int stateDepth;
 };
 
@@ -21,7 +22,7 @@ struct SPeopleObstacleRecoveryResult
     double travelTime;
     int sweepEnabled;
     int popState;
-    int closeCollision;
+    int contactCode;
 };
 
 // Deterministic policy recovered from the May 1999 ON_OBJ branch. Scene

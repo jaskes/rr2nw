@@ -5107,3 +5107,27 @@ historical spellings. Current behavior consumes the evidenced combat power,
 view distance, shoot skill, kill style and visibility cadence. Route progress
 continues through `pe_EVC_NEXTNODE` as an explicit bridge until the separate
 May helper at retail `0x00501D54` is translated and regression-tested.
+
+### BD-141: People contact state is a persistent direction code
+
+Status: accepted on 2026-08-03 for the May `ON_OBJECTS` response dispatcher.
+
+`m_isClz` is historically named like a boolean, but the May executable uses it
+as a contact class. Values `1/9` turn clockwise, `2` and `3/11` turn
+counter-clockwise with different speed scales, and `4` consumes a
+contact-derived heading. A non-zero previous value is copied back when the
+same contact remains, preventing the sampler from choosing opposite sides on
+successive frames.
+
+The maintained recovery kernel must therefore preserve the exact integer code
+until its timer reaches zero. It must never normalize all non-zero values to
+one. Unsupported values fail closed in the isolated dispatcher rather than
+silently selecting an arbitrary turn. PEO1 v6 stored this live integer through
+its misleading `closeCollision` field as a boolean. PEO1 v7 is therefore the
+first schema that preserves the actual class; v1-v6 remain readable as `0/1`
+and their legacy export intentionally maps every non-zero class to `1`.
+
+The current two-point support sampler may produce base codes `1` and `3` from
+the source-proven front/rear cases. It may not invent qualified `9/11` or a
+code-4 contact angle before the corresponding May sample geometry is
+translated and directly probed.

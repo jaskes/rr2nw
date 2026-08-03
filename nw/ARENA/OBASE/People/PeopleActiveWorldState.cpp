@@ -1,6 +1,7 @@
 #include "PeopleActiveWorldState.h"
 
 #include "PEOPLE.H"
+#include "PeopleContactResponse.h"
 #include "PeopleSubjectState.h"
 
 #include <algorithm>
@@ -21,7 +22,7 @@ namespace
 {
 
 const std::uint32_t kPeopleMagic = 0x314f4550u; // PEO1
-const std::uint32_t kPeopleVersion = 6u;
+const std::uint32_t kPeopleVersion = 7u;
 const std::uint32_t kOldestPeopleVersion = 1u;
 const std::size_t kMaximumPeople = 4096;
 const int kSchedulerLabels[] = {
@@ -93,7 +94,7 @@ struct StablePeopleRecord
     double lastMoveDeltaTime;
     int previousStartShoot;
     int stopped;
-    int closeCollision;
+    int contactCode;
     int startBackSpaceNode;
     double startMoveDelay;
     double routeDeviationTime;
@@ -114,7 +115,7 @@ struct StablePeopleRecord
           notCreated(0), minimumPosition(0.0, 0.0, 0.0),
           maximumPosition(0.0, 0.0, 0.0),
           lastMovePosition(0.0, 0.0, 0.0), lastMoveDeltaTime(0.0),
-          previousStartShoot(0), stopped(0), closeCollision(0),
+          previousStartShoot(0), stopped(0), contactCode(0),
           startBackSpaceNode(-1), startMoveDelay(0.0),
           routeDeviationTime(0.0), obstacleRecoveryTime(0.0)
     {
@@ -454,7 +455,7 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
     record->lastMoveDeltaTime = people->m_lastMoveDeltaT;
     record->previousStartShoot = people->m_prevStartShoot;
     record->stopped = people->m_stoped;
-    record->closeCollision = people->m_isClz;
+    record->contactCode = people->m_isClz;
     record->startBackSpaceNode = people->m_startBackSpaceNode;
     record->startMoveDelay = people->m_startMoveDelay;
     record->routeDeviationTime = people->m_routeDeviationTime;
@@ -678,7 +679,10 @@ bool PutRecord(std::vector<unsigned char> *bytes,
     PutDouble(bytes, record.lastMoveDeltaTime);
     PutI32(bytes, record.previousStartShoot);
     PutBool(bytes, record.stopped);
-    PutBool(bytes, record.closeCollision);
+    if (version >= 7u)
+        PutI32(bytes, record.contactCode);
+    else
+        PutBool(bytes, record.contactCode);
     PutI32(bytes, record.startBackSpaceNode);
     PutDouble(bytes, record.startMoveDelay);
     if (version >= 5u)
@@ -768,9 +772,16 @@ bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
     if (!GetVector(bytes, offset, &record->lastMovePosition) ||
         !GetDouble(bytes, offset, &record->lastMoveDeltaTime) ||
         !GetI32(bytes, offset, &record->previousStartShoot) ||
-        !GetBool(bytes, offset, &record->stopped) ||
-        !GetBool(bytes, offset, &record->closeCollision) ||
-        !GetI32(bytes, offset, &record->startBackSpaceNode) ||
+        !GetBool(bytes, offset, &record->stopped))
+        return false;
+    if (version >= 7u)
+    {
+        if (!GetI32(bytes, offset, &record->contactCode))
+            return false;
+    }
+    else if (!GetBool(bytes, offset, &record->contactCode))
+        return false;
+    if (!GetI32(bytes, offset, &record->startBackSpaceNode) ||
         !GetDouble(bytes, offset, &record->startMoveDelay))
         return false;
     if (version >= 5u &&
@@ -825,7 +836,8 @@ bool ValidateRecord(const StablePeopleRecord &record, std::uint32_t version)
         !FiniteVector(record.lastMovePosition) ||
         !std::isfinite(record.lastMoveDeltaTime) ||
         record.previousStartShoot < 0 || !IsBool(record.stopped) ||
-        !IsBool(record.closeCollision) || record.startBackSpaceNode < -1 ||
+        !PeopleContactResponse_IsSupportedCode(record.contactCode) ||
+        record.startBackSpaceNode < -1 ||
         !std::isfinite(record.startMoveDelay) || record.startMoveDelay < 0.0 ||
         !std::isfinite(record.routeDeviationTime) ||
         record.routeDeviationTime < 0.0 ||
@@ -884,7 +896,7 @@ bool EncodeRecords(const std::vector<StablePeopleRecord> &records,
                 ? 0u : static_cast<unsigned int>(record.states[0].enemy.size());
             std::snprintf(
                 message, sizeof(message),
-                "record %.96s validation failed bool=%d/%d/%d/%d/%d/%d "
+                "record %.96s validation failed bool=%d/%d/%d/%d/%d contact=%d "
                 "node=%d inc=%g scale=%g killed=%d states=%u prevShoot=%d "
                 "back=%d delay=%g deviation=%g obstacle=%g "
                 "finite=%d/%d/%d/%d/%d "
@@ -893,7 +905,7 @@ bool EncodeRecords(const std::vector<StablePeopleRecord> &records,
                 "events=%u",
                 record.name.c_str(), record.audibleThisFrame, record.visible,
                 record.deleted, record.notCreated, record.stopped,
-                record.closeCollision, record.currentNode,
+                record.contactCode, record.currentNode,
                 record.positionIncrement, record.correctScale, record.killed,
                 static_cast<unsigned>(record.states.size()),
                 record.previousStartShoot, record.startBackSpaceNode,
@@ -1088,7 +1100,7 @@ bool ApplyRecord(SimulationContext *context,
     people->m_lastMoveDeltaT = record.lastMoveDeltaTime;
     people->m_prevStartShoot = record.previousStartShoot;
     people->m_stoped = record.stopped;
-    people->m_isClz = record.closeCollision;
+    people->m_isClz = record.contactCode;
     people->m_startBackSpaceNode = record.startBackSpaceNode;
     people->m_startMoveDelay = record.startMoveDelay;
     people->m_routeDeviationTime = record.routeDeviationTime;
@@ -1300,15 +1312,18 @@ bool PeopleActiveWorldState_ProbeLegacyVersionCompatibility(
         People *people = roster.people.front();
         people->m_routeDeviationTime = 1.75;
         people->m_obstacleRecoveryTime = 0.625;
+        people->m_isClz = 11;
         const bool captured = PeopleActiveWorldState_CaptureStable(
             context, &activeDeviation);
         people->m_routeDeviationTime = 0.0;
         people->m_obstacleRecoveryTime = 0.0;
+        people->m_isClz = 0;
         const bool applied = captured &&
             PeopleActiveWorldState_ApplyStableReferences(
                 context, activeDeviation) &&
             std::fabs(people->m_routeDeviationTime - 1.75) <= 1e-9 &&
-            std::fabs(people->m_obstacleRecoveryTime - 0.625) <= 1e-9;
+            std::fabs(people->m_obstacleRecoveryTime - 0.625) <= 1e-9 &&
+            people->m_isClz == 11;
         const bool restored = PeopleActiveWorldState_ApplyStableReferences(
             context, baseline);
         recoveryRoundTrip = applied && restored;

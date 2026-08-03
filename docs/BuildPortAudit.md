@@ -3781,3 +3781,52 @@ The final Windows gate is 67/67 CTest in each of Debug, Release and Playtest,
 profile masks complete at 1011, and 3/3 mission save/same-Level/cross-Level
 restores. The expanded failure diagnostics identify the exact People record and
 state/vector/scalar validity if a future capture regresses.
+
+## May People contact-code response recovery
+
+The immutable May reference for this pass is
+`manual-logs/retail-reference/nw-may-1999.exe`, SHA-256
+`42F2FC3B632C58073307B1B95924C1EFC038B5B3879C7476E438336B5D497132`.
+This matters because the installed `E:` executable is now the maintained
+playtest build, not archaeological evidence. The May `ON_OBJECTS` branch saves
+the prior integer contact class before rebuilding its samples. When a stable
+contact remains, it restores that full class; it does not reduce the state to
+a boolean.
+
+The jump table at `0x004F7650` admits only codes `0..11`. Codes `1` and `9`
+share the response at `0x004FBBD6`, code `2` uses `0x004FBD0C`, codes `3` and
+`11` share `0x004FBE3E`, and code `4` uses `0x004FBF74`; `5..8` and `10` go to
+the default exit. The first pair targets heading minus ten degrees at
+`0.8 * rollSpeed`, code `2` targets plus ten degrees at full roll speed, the
+third pair targets plus ten degrees at `0.8 * rollSpeed`, and code `4` targets
+the angle derived by the contact geometry at the same reduced speed.
+`PeopleContactResponse` is a finite-input, deterministic translation of that
+table and probes every accepted alias, the code-4 input, angle wrapping and
+rejection of every unsupported class.
+
+`PeopleObstacleRecovery` now carries `contactCode` and
+`detectedContactCode`, preserving the selected direction throughout contact
+growth and clear-path decay. The first fresh-continuation run exposed that
+PEO1 v6 had named the field `closeCollision` and encoded it with `PutBool`,
+despite the live member being an integer. PEO1 v7 now uses a bounded `int32`
+contact class. Versions 1-6 still decode their historical `0/1`, and legacy
+re-encoding deliberately folds any non-zero live class to `1`, preserving
+semantic fingerprint comparison. The live `ON_OBJ` path
+uses the two source-proven front/rear support samples to select the base
+classes: missing support or a rear dynamic owner chooses `3`, a front dynamic
+owner chooses `1`, and an equal two-owner tie is deterministic. Both valid
+samples still own height and pitch placement.
+
+This closes the response and persistence half of the manifold, not all May
+sample geometry. Retail's additional static/dynamic samples that introduce
+the qualified `9/11` classes and the exact contact-derived input for code `4`
+remain the next binary-translation boundary. Guide/vehicle path obstruction is
+also still open; neither gap is hidden behind a claim that the entire May
+manifold is complete.
+
+The final gate passes 67/67 CTest in Debug, Release and Playtest, 27/27
+installed retail starts and 27/27 fresh continuations. Destruction and occupied
+save/load Vehicle masks are `1011` in every configuration. A targeted repeat
+of the six initially failing `Level.02D/02N` cases passed 6/6 after the v7
+repair; the complete rerun then covered every other People roster and both
+empty-People edges.

@@ -3157,6 +3157,8 @@ add_library(rr2nw_arena_obase_people_full STATIC
   nw/ARENA/OBASE/People/PEOPLE.CPP
   nw/ARENA/OBASE/People/PEOPLE.H
   nw/ARENA/OBASE/People/PDY_OBJ.CPP
+  nw/ARENA/OBASE/People/PeopleContactResponse.cpp
+  nw/ARENA/OBASE/People/PeopleContactResponse.h
   nw/ARENA/OBASE/People/PeopleObstacleRecovery.cpp
   nw/ARENA/OBASE/People/PeopleObstacleRecovery.h
   nw/ARENA/OBASE/People/PeopleRouteMotion.cpp

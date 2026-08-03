@@ -1987,9 +1987,11 @@ playable Level begins.
   node; route progress measures the active previous-to-current segment.
   Positive, zero and negative `backSpaceNode` values respectively rewind,
   stop at the end or loop to zero.
-- PEO1 version 6 stores previous/current indices, every state frame's return
-  target, the route-deviation timer and the independent obstacle-recovery
-  timer, and accepts deterministic migration from versions 1-5. A
+- PEO1 version 7 stores previous/current indices, every state frame's return
+  target, the route-deviation timer, the independent obstacle-recovery timer
+  and the complete integer contact class. It accepts deterministic migration
+  from versions 1-6; those older versions decode the field as their historical
+  boolean `0/1`. A
   zero-depth stack is a valid May state, and a subsequent ATTACK may therefore
   be the root frame. Legacy export prepends a synthetic default frame. Both
   Level.03N named mission smokes execute STARTMOVE and two MOVE events and
@@ -2014,9 +2016,16 @@ playable Level begins.
   timer, stop sweeping below `0.01`, pop one movement state on contact, move to
   80 percent of contact time and decay a clear timer twice as fast as it grows.
   The deterministic policy probe and PEO1 v6 rollback cover those transitions.
-  The ordinary NEXTNODE cadence stays as a named bridge until the shared May
-  support manifold and guide/vehicle path-obstruction behavior replace the
-  retained January downward support probes.
+  The May response table is also recovered: `1/9` turn clockwise by ten
+  degrees at 80-percent roll speed, `2` turns counter-clockwise at full speed,
+  `3/11` turn counter-clockwise at 80 percent and `4` consumes a
+  contact-derived heading at 80 percent. The full integer code survives the
+  recovery interval. PEO1 v7 stores it as an integer while v1-v6 legacy export
+  deliberately folds non-zero classes back to `1`. The
+  retained two-point support samples now classify the evidenced January
+  front/rear cases and feed that dispatcher. The ordinary NEXTNODE cadence
+  stays as a named bridge until May's additional sampling geometry and
+  guide/vehicle path-obstruction behavior are translated.
 
 ### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
 

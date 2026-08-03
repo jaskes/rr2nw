@@ -3875,9 +3875,10 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   registers the retail 8x8 console font, `GameConsole` and `Briefing`, and
   refreshes the briefing viewport after every `ZAV_BeginLoop`. START now owns
   the exact previous/current phase and applies the authored back-space policy;
-  PEO1 v6 persists both indices, May state return targets, the route-deviation
-  timer and the independent obstacle-recovery timer (v4 introduced the
-  targets, v5 the deviation timer). Do not classify
+  PEO1 v7 persists both indices, May state return targets, the route-deviation
+  timer, the independent obstacle-recovery timer and the integer contact class
+  (v4 introduced the targets, v5 the deviation timer and v6 the obstacle
+  timer). Do not classify
   every eject as a new mission: retail collision handling also ejects when a
   mission is already active or no project is eligible. Guide spacing and
   Player vehicle steering remain explicit independent follow-up gates.
@@ -4135,6 +4136,33 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   PEO1 rollback together. `People.od` remains an archival 24-field January
   generator description; do not regenerate or recode it as a side effect of
   this source recovery.
+
+### CQ-215: May People collision state is not boolean
+
+- Status: `MAY_BINARY_CONFIRMED`, `CONTACT_RESPONSE_RECOVERED`,
+  `SAMPLING_GEOMETRY_PARTIAL`.
+- Evidence: the May `ON_OBJECTS` dispatcher accepts contact classes
+  `1/2/3/4/9/11`; `1/9` share clockwise response, `3/11` share
+  counter-clockwise response, `2` uses the full roll speed and `4` uses a
+  computed contact angle. Before new samples are evaluated, the prior class is
+  saved and later restored while the same contact remains.
+- Handling: `PeopleObstacleRecovery` carries the exact class through its
+  growth/decay interval. `PeopleContactResponse` validates and translates the
+  May table with deterministic angle wrapping. The existing front/rear support
+  samples select only source-supported base classes `1/3`; they continue to
+  place and pitch the actor when both samples are valid. PEO1 v7 stores the
+  full class as `int32`; v1-v6 decode their historical boolean and legacy
+  export canonicalizes every non-zero class to `1`.
+- Verification: isolated probes cover every accepted response, invalid codes,
+  persistence of `3/9/11`, recovery clearing and wrap at `+pi/-pi`; the People
+  lifecycle requires both kernels before publication. Debug, Release and
+  Playtest pass 67/67 CTest and 27/27 installed retail starts. Fresh-process
+  continuation passes 27/27 with both Vehicle masks complete at `1011` in all
+  configurations; the formerly failing `Level.02D/02N` serializer cases pass
+  a separate 6/6 targeted rerun.
+- Revisit when: translate the remaining May sample branches that generate
+  `9/11` and code `4`, then prove a moving guide beside static and dynamic
+  obstacles. Only then mark the complete support/contact manifold recovered.
 
 ## Maintenance rule
 

@@ -12,6 +12,7 @@
 #include <windows.h>
 
 #include "PEOPLE.H"
+#include "PeopleContactResponse.h"
 #include "PeopleObstacleRecovery.h"
 #include "PeopleRouteMotion.h"
 #include "i/route.i"
@@ -766,6 +767,7 @@ static bool ProbePeopleLifecycle(
             std::fabs(projected.z - 10.0) <= 1e-9 &&
             std::fabs(projectedDistance - 10.0) <= 1e-9 ? 1 : 0;
         summary->obstacleRecovery = PeopleObstacleRecovery_Probe() ? 1 : 0;
+        summary->contactResponse = PeopleContactResponse_Probe() ? 1 : 0;
         const bool showScheduled =
             context->removeEvent(pe_EV_STARTSHOW, probeID) == 1;
         KR_Event show;
@@ -997,6 +999,7 @@ static bool ProbePeopleLifecycle(
            summary->routeEndPolicies == 1 &&
            summary->corridorProjection == 1 &&
            summary->obstacleRecovery == 1 &&
+           summary->contactResponse == 1 &&
            summary->dynamicReady == 1 && summary->renderReady == 1 &&
            summary->scheduledMoves == 1 &&
            summary->cadenceBounded == 1 &&
