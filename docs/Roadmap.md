@@ -1814,13 +1814,16 @@ creates six real holder-backed subjects and eighteen preserved timers; schema
 4 reconstructs all fifteen active-world sections byte-identically and rolls
 the prior world back after an injected late failure.
 
-The People half of this campaign slice is now closed. Mission guides use the
-retail previous/current start phase, consume the authored `backSpaceNode`
-terminal policy and persist that active segment in PEO1 v3. Both Level.03N
-factions prove real STARTMOVE plus two MOVE ticks with finite bounded progress
-toward the target. Exact May event-26012 grounded collision/progress behavior
-remains a named refinement, but it no longer blocks ordinary guide lifecycle,
-save/load or rollback.
+The People state/cadence half of this campaign slice is now closed. Mission
+guides use the retail previous/current start phase, consume the authored
+`backSpaceNode` terminal policy and persist the active segment plus per-state
+return targets in PEO1 v4. Event 26012 owns the exact May target/visibility
+cadence and permits the retail zero-depth state stack followed by a root ATTACK
+frame. Both Level.03N factions prove real STARTMOVE plus two MOVE ticks with
+finite bounded progress and fresh-process save/load; the full Windows matrix is
+27/27 retail starts and 27/27 fresh continuations. The remaining People work is
+the separate May movement helper: segment consumption, corridor correction and
+obstruction.
 
 The Taxi-to-Vehicle placement and steering/model-basis row is closed. The
 Vehicle inherits the support basis, releases along its normal and advances on
@@ -1842,9 +1845,9 @@ now uses physical forward for position while preserving the Taxi yaw
 convention, and the stable-boundary smoke requires the spawned object to be in
 front of the player.
 
-The next gameplay row is the complete May event-26012 grounded People handler
-and guide/vehicle path-obstruction behavior visible in town routes, followed
-by mission reward/completion and Portal admission.
+The next gameplay row is the May grounded movement helper and guide/vehicle
+path-obstruction behavior visible in town routes, followed by mission
+reward/completion and Portal admission.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

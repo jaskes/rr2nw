@@ -66,7 +66,7 @@ class AttributePeople : public ct_Attribute
 
 
 //{{ATTRIBUTE
-    ct_AttrItem  m_array[24];
+    ct_AttrItem  m_array[38];
     ct_AttrStr      m_routeName              ;  // 
     double          m_timeInc                ;  // 
     int             m_onLand                 ;  // 
@@ -86,11 +86,25 @@ class AttributePeople : public ct_Attribute
     double          m_cannonY                ;  // 
     double          m_cannonZ                ;  // 
     double          m_maxOutDist             ;  // –ассто€ние, на которое можем отойти
-    int             m_useRndNode             ;  // 
     int             m_stopIfAttack           ;  // 
+    double          m_shootSkill             ;  //
     int             m_burstCount             ;  //  оличество пуль в выпускаемой очереди
     double          m_deltaZeroSpeed         ;  // 
     double          m_maxDeep                ;  // 
+    int             m_allwaysVertical        ;  // Retail spelling
+    double          m_enableRadius           ;  //
+    double          m_viewDist               ;  //
+    double          m_power                  ;  //
+    int             m_smeshable              ;  // Retail spelling
+    int             m_killStyle              ;  //
+    double          m_artYOffset             ;  //
+    int             m_allwaysVisible         ;  // Retail spelling
+    int             m_isRaceCar              ;  //
+    double          m_axel0                  ;  // Retail spelling
+    double          m_axel1                  ;  //
+    double          m_axel2                  ;  //
+    double          m_axel3                  ;  //
+    double          m_maxRadius              ;  //
 
     AttributePeople()
     {
@@ -113,11 +127,25 @@ class AttributePeople : public ct_Attribute
         m_cannonY            = 1.4;
         m_cannonZ            = 0;
         m_maxOutDist         = 1e3;
-        m_useRndNode         = 0;
         m_stopIfAttack       = 0;
+        m_shootSkill         = 0.9;
         m_burstCount         = 5;
         m_deltaZeroSpeed     = 0.9;
         m_maxDeep            = 2.0;
+        m_allwaysVertical    = 0;
+        m_enableRadius       = 4.0;
+        m_viewDist           = 200.0;
+        m_power              = 0.1;
+        m_smeshable          = 1;
+        m_killStyle          = 0;
+        m_artYOffset         = 10.0;
+        m_allwaysVisible     = 0;
+        m_isRaceCar          = 0;
+        m_axel0              = 2.72;
+        m_axel1              = 2.35;
+        m_axel2              = 1.9;
+        m_axel3              = 1.5;
+        m_maxRadius          = 100.0;
 
         m_array[0].set("m_routeName",m_routeName);
         m_array[1].set("m_timeInc",m_timeInc);
@@ -138,13 +166,27 @@ class AttributePeople : public ct_Attribute
         m_array[16].set("m_cannonY",m_cannonY);
         m_array[17].set("m_cannonZ",m_cannonZ);
         m_array[18].set("m_maxOutDist",m_maxOutDist);
-        m_array[19].set("m_useRndNode",m_useRndNode);
-        m_array[20].set("m_stopIfAttack",m_stopIfAttack);
+        m_array[19].set("m_stopIfAttack",m_stopIfAttack);
+        m_array[20].set("m_shootSkill",m_shootSkill);
         m_array[21].set("m_burstCount",m_burstCount);
         m_array[22].set("m_deltaZeroSpeed",m_deltaZeroSpeed);
         m_array[23].set("m_maxDeep",m_maxDeep);
+        m_array[24].set("m_allwaysVertical",m_allwaysVertical);
+        m_array[25].set("m_enableRadius",m_enableRadius);
+        m_array[26].set("m_viewDist",m_viewDist);
+        m_array[27].set("m_power",m_power);
+        m_array[28].set("m_smeshable",m_smeshable);
+        m_array[29].set("m_killStyle",m_killStyle);
+        m_array[30].set("m_artYOffset",m_artYOffset);
+        m_array[31].set("m_allwaysVisible",m_allwaysVisible);
+        m_array[32].set("m_isRaceCar",m_isRaceCar);
+        m_array[33].set("m_axel0",m_axel0);
+        m_array[34].set("m_axel1",m_axel1);
+        m_array[35].set("m_axel2",m_axel2);
+        m_array[36].set("m_axel3",m_axel3);
+        m_array[37].set("m_maxRadius",m_maxRadius);
 
-        linkTable(m_array,24);
+        linkTable(m_array,38);
     }
 //}}END_OF_ATTRIBUTE
 };
@@ -251,6 +293,11 @@ double People::movementSpeed() const
     return m_attr == 0 ? 0.0 : m_attr->m_speed;
 }
 
+double People::combatPower() const
+{
+    return m_attr == 0 ? 0.0 : m_attr->m_power;
+}
+
  //============================================================
 People::~People()
  {
@@ -269,7 +316,7 @@ void People::attackAllways(KR_Event &event, const CFVector3 &pos)
 void People::nexNodeDefault(KR_Event &event)
 {
     CFVector3 currentNode = m_nextNode;
-    double    dist;
+    double    dist = 0.0;
     CFVector3 pos(getPosition());
 
     if(  m_attr == 0  )
@@ -328,6 +375,7 @@ void People::nexNodeDefault(KR_Event &event)
     m_curNode = nextRouteNode;
     CFVector3 nextNode( ri->GetNode(m_curNode) );
     m_nextNode = nextNode;
+    m_stateNextNode[0] = nextNode;
 
 
     switch( m_attr->m_onLand )
@@ -1002,9 +1050,38 @@ int People::receiveEvent( KR_Event &event )
 
 
     case pe_EVC_GROUNDED_NEXTNODE:
+     {
+         // May retail event 26012 is a fast grounded target/visibility
+         // cadence. Route-segment progress remains owned by NEXTNODE until
+         // the May movement helper below this frontier is recovered.
+         event.timeStamp += 0.3;
+         if(  m_stateSP > 0 && m_isVisible  )
+         {
+              KR_ObjectID enemyID = getEnemyID();
+              IDynamicObject *dobj = enemyID.isNUL() ? 0 :
+                   (IDynamicObject*)(context->queryInterface(
+                        enemyID,IDynamicObjectIID));
+              if(  dobj != 0  )
+              {
+                   m_nextNode = dobj->getPos();
+                   event.timeStamp -= 0.1;
+              }
+              else popState();
+         }
+         else
+         {
+              if(  m_stateSP > 0  )
+                   popState();
+              if(  !m_isVisible &&
+                   (m_attr == 0 || !m_attr->m_allwaysVisible)  )
+                   event.timeStamp += 5.0;
+         }
+         issueEvent(event);
+     }
+     break;
+
     case pe_EVC_NEXTNODE:
      {
-         double ts = event.timeStamp;
          for(;;)
          {
          switch( getState() )
@@ -1037,7 +1114,6 @@ int People::receiveEvent( KR_Event &event )
      }
      m_stoped = m_attr->m_stopIfAttack && (getState()==pe_STATE_ATTACK);
      break;
-
     case pe_EVC_FIND_ENEMY:
          {
              event.timeStamp += 2.0+(!m_isVisible)*5;
@@ -1052,8 +1128,8 @@ int People::receiveEvent( KR_Event &event )
                   CFVector3 pos(realPosition());
                   xMin = xMax = pos.x;
                   zMin = zMax = pos.z;
-                  xMin -= 300; xMax += 300;
-                  zMin -= 300; zMax += 300;
+                  xMin -= m_attr->m_viewDist; xMax += m_attr->m_viewDist;
+                  zMin -= m_attr->m_viewDist; zMax += m_attr->m_viewDist;
 
                   ct_Arena::findFirstSubject( fsd, xMin, zMin, xMax, zMax );
 
@@ -1216,6 +1292,7 @@ case pe_EVCMD_START_EX:
          CFVector3 pos(getPosition());
          setHAngleFixDir( atan2( nextNode.z-pos.z, nextNode.x-pos.x ) );
          m_nextNode = nextNode;
+         m_stateNextNode[0] = nextNode;
          // The May executable exposes the subject at viewTime but keeps it
          // stationary until pe_EV_STARTMOVE.  This is how mission scripts
          // stagger columns and aircraft without changing their spawn time.
@@ -1251,10 +1328,16 @@ case pe_EVCMD_START_EX:
          if(  m_attr->m_speed > 1e-3  )
          {
               double dist = Abs(nextNode-pos);
-              event.label = m_attr->m_onLand == NO_LAND || m_attr->m_onLand == 4
-                   ? pe_EVC_NEXTNODE : pe_EVC_GROUNDED_NEXTNODE;
+              event.label = pe_EVC_NEXTNODE;
               event.timeStamp += dist/m_attr->m_speed;
               issueEvent(event);
+
+              if(  m_attr->m_onLand != NO_LAND && m_attr->m_onLand != 4  )
+              {
+                   event.label = pe_EVC_GROUNDED_NEXTNODE;
+                   event.timeStamp = m_prevTime;
+                   issueEvent(event);
+              }
          }
 
          event.label = pe_EVC_MOVE;
@@ -1568,12 +1651,13 @@ void AttributePeople::update(double ts)
 void People::onKilled( const CFVector3 &/*explPos*/, double ts )
 {
 
+     m_killed = m_attr->m_killStyle == 2
+          ? KILL_SINK : KILL_FALLOW_2;
      if(  strcmp(m_attr->m_skinName, "sk.Peop.cln_S00" )==0  )
           m_killed = KILL_SINK;
      else
      if(  strcmp(m_attr->m_skinName, "sk.Taxi.cln_f01" )==0  )
           m_killed = KILL_FALLOW_2;
-     else m_killed = KILL_FALLOW_1;
      m_kill_startPhase  = asin(m_rotateOx);
      m_kill_deltaVAngle = 0;
      m_kill_time        = ts;
@@ -1751,7 +1835,7 @@ void People::onShoot(double ts)
              {
                 CFVector3 dir(getMoveDir());
 
-                if(  dir*Normal(pos-mpos) > 0.90  )
+                if(  dir*Normal(pos-mpos) > m_attr->m_shootSkill  )
                 {
                      m_correctScale *= 0.8;
                      m_correctScale += 0.001;
@@ -1781,7 +1865,7 @@ void People::onShoot(double ts)
                 CFVector3 to(Normal(pos-mpos));
 
                 if(  Normal(CFVector3(dir.x,0,dir.z))
-                    *Normal(CFVector3(to.x ,0,to.z)) > 0.9  )
+                    *Normal(CFVector3(to.x ,0,to.z)) > m_attr->m_shootSkill  )
                 {
                      m_correctScale *= 0.8;
                      m_correctScale += 0.001;
@@ -1810,9 +1894,10 @@ void People::onShoot(double ts)
 
 void  People::pushState( int state, KR_ObjectID enemyID )
 {
-   if(  m_stateSP < MAX_STATE-1  )
+   if(  m_stateSP < MAX_STATE  )
    {
-        m_state  [m_stateSP] = state;
+        m_state[m_stateSP] = state;
+        m_stateNextNode[m_stateSP] = m_nextNode;
 
         if(  state==pe_STATE_ATTACK  )
         {
@@ -1820,9 +1905,18 @@ void  People::pushState( int state, KR_ObjectID enemyID )
              s_ASSERT(!enemyID.isNUL(),"People::pushState");
         }
 
-         m_enemyID[m_stateSP] = enemyID;
-         m_stateSP++;
-    }
+        m_enemyID[m_stateSP] = enemyID;
+        m_stateSP++;
+   }
+}
+
+void People::popState()
+{
+   if(  m_stateSP > 0  )
+   {
+        --m_stateSP;
+        m_nextNode = m_stateNextNode[m_stateSP];
+   }
 }
 
 

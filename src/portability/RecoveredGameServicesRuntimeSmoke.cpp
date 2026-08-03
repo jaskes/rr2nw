@@ -1539,16 +1539,27 @@ bool ExerciseInteractiveTaxiHandoff() {
 
 bool ExerciseOccupiedVehicleContinuation() {
   SimulationContext* context = g_super.m_context;
-  if (context == nullptr ||
-      RecoveredGameServices_VehicleActiveActionCount() != 0u)
+  const unsigned int activeActions =
+      RecoveredGameServices_VehicleActiveActionCount();
+  if (context == nullptr || activeActions != 0u) {
+    std::fprintf(stderr,
+                 "occupied continuation precondition context=%d actions=%u\n",
+                 context != nullptr ? 1 : 0, activeActions);
     return false;
+  }
   KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
   Vehicle* vehicle = vehicleID.isNUL() ? nullptr : static_cast<Vehicle*>(
       context->queryInterface(vehicleID, IVehicleIID));
   SRecoveredVehicleRuntimeState occupied = {};
-  if (vehicle == nullptr ||
-      !VehicleRuntimeState_Inspect(context, vehicleID, &occupied))
+  const bool vehicleInspected = vehicle != nullptr &&
+      VehicleRuntimeState_Inspect(context, vehicleID, &occupied);
+  if (!vehicleInspected) {
+    std::fprintf(stderr,
+                 "occupied continuation vehicle=%d id=%d inspected=%d\n",
+                 vehicle != nullptr ? 1 : 0, vehicleID.isNUL() ? 0 : 1,
+                 vehicleInspected ? 1 : 0);
     return false;
+  }
   // Levels without a usable Taxi leave the default body active. Their empty
   // embodiment is covered by the ordinary continuation path below.
   if (vehicle->taxiChangeEnabled()) return true;
@@ -1559,10 +1570,19 @@ bool ExerciseOccupiedVehicleContinuation() {
   const int taxiCount = TaxiSubjectState_LiveCount();
   std::vector<std::uint8_t> continuation;
   SLevelContinuationSummary captured;
+  const bool capturedState =
+      RecoveredGameServices_CaptureLevelContinuation(
+          &continuation, &captured);
   if ((panelReady && !panelOpen) || taxiCount < 0 ||
-      !RecoveredGameServices_CaptureLevelContinuation(
-          &continuation, &captured) || !captured.ready)
+      !capturedState || !captured.ready) {
+    std::fprintf(stderr,
+                 "occupied continuation capture panel=%d/%d taxi=%d "
+                 "capture=%d/%d error=%s\n",
+                 panelReady ? 1 : 0, panelOpen ? 1 : 0, taxiCount,
+                 capturedState ? 1 : 0, captured.ready ? 1 : 0,
+                 RecoveredGameServices_LastLevelContinuationError());
     return false;
+  }
 
   const bool exitRequested = SendHardwareButton("F1", TRUE) &&
       SendHardwareButton("F1", FALSE);

@@ -3704,3 +3704,32 @@ which enables a three-process acceptance gate: mission save, fresh same-Level
 load and fresh cross-Level load. This closes the lifecycle gap that an
 in-context continuation smoke could not expose because its Route owner never
 left memory.
+
+## May People state and event-26012 recovery
+
+Binary comparison showed that the May `People` object has four saved target
+vectors beside its four state/enemy slots. Retail pop can reach depth zero and
+restores the target belonging to the removed frame. The January inline access
+and pop rules therefore read before the array and stranded units on stale enemy
+coordinates. PEO1 v4 now serializes these targets, admits depth zero and keeps
+deterministic v1-v3 migration. A retail unit can subsequently push ATTACK as
+the root frame; v4 preserves it directly and a legacy v1-v3 export prepends a
+synthetic default frame rather than rejecting the save.
+
+The same comparison separated event 26012 from route arrival. Grounded START
+queues 26012 immediately; its exact 0.2/0.3/5.3-second target/visibility
+cadence is recovered and directly probed. The 38-field May `PeopleAttr` table
+is registered with retail defaults, and combat power, enemy view distance,
+shoot alignment, kill style and `allwaysVisible` now drive their evidenced
+consumers. The January `People.od` remains an archival 24-field description.
+
+Route arrival still uses a named NEXTNODE compatibility event. Retail helper
+`0x00501D54` is independently responsible for multi-segment consumption,
+corridor projection and obstacle response; translating that high-complexity
+body is the next People frontier and is not claimed by this slice.
+
+The final Windows gate is 67/67 CTest in each of Debug, Release and Playtest,
+27/27 installed retail starts, 27/27 full fresh continuations with both Vehicle
+profile masks complete at 1011, and 3/3 mission save/same-Level/cross-Level
+restores. The expanded failure diagnostics identify the exact People record and
+state/vector/scalar validity if a future capture regresses.

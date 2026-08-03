@@ -4984,10 +4984,9 @@ and rejects non-finite geometry. Mission smoke dispatches the real STARTMOVE
 and two MOVE events for both Level.03N factions and requires finite motion
 toward the selected target.
 
-Grounded modes still dispatch release event 26012 as authored. The shared
-transition core is safe and serializable, but the complete May-only collision
-and route-progress body of 26012 is not yet source-recovered; exact behavior
-there remains a named binary-analysis debt rather than an invented policy.
+Grounded modes dispatch release event 26012 as authored. Its May target and
+visibility cadence is now recovered exactly; route-segment progress remains a
+separate compatibility bridge until the large May movement helper is ported.
 
 ### BD-136: Vehicle handover releases along the authored support normal
 
@@ -5078,3 +5077,32 @@ Debug spawning has two related conventions: position uses physical forward
 stored back row. The regression requires a debug-spawned Taxi to appear ahead
 of the occupied Vehicle; changing both signs would put it in front but reverse
 its authored heading.
+
+### BD-140: grounded People cadence and state targets are separate from route progress
+
+Status: accepted on 2026-08-03 for May event 26012 and PEO1 continuation.
+
+The May executable does not use event 26012 as a delayed arrival notification.
+STARTMOVE queues it immediately for grounded People. A visible live target is
+sampled every 0.2 seconds; a missing or empty target pops one state and repeats
+after 0.3 seconds. Hidden People also pop one frame and add five seconds unless
+the retail `m_allwaysVisible` attribute is set. A zero-depth stack is legal and
+the accessors return the default state and null enemy at that boundary.
+
+Each retail state frame owns a saved `m_nextNode`. Popping an attack restores
+that exact target, rather than leaving the unit aimed at a vanished enemy.
+After the default frame is popped, a later enemy acquisition may make ATTACK
+the root frame. PEO1 v4 preserves that exact state; v1-v3 export prepends a
+synthetic default frame so old schema validation remains deterministic.
+PEO1 version 4 persists the per-frame targets and accepts zero frames. Versions
+1-3 remain readable by deriving the missing target from the active `nextNode`;
+encoding an empty live stack for an old schema emits one synthetic default
+frame, preserving deterministic legacy comparison.
+
+The release attribute table contains 38 fields, not the 24 preserved by the
+January source. The restored names and defaults include shoot skill, view
+distance, power, kill style, visibility and vehicle-shape controls with their
+historical spellings. Current behavior consumes the evidenced combat power,
+view distance, shoot skill, kill style and visibility cadence. Route progress
+continues through `pe_EVC_NEXTNODE` as an explicit bridge until the separate
+May helper at retail `0x00501D54` is translated and regression-tested.

@@ -142,7 +142,7 @@ bool RuntimeReady(People *people)
     return people != NULL && people->m_attr != NULL &&
            people->m_skin.Model() != NULL && people->m_askin != NULL &&
            !people->m_peopleAttrID.isNUL() && !people->m_routeID.isNUL() &&
-           people->m_stateSP > 0 &&
+           people->m_stateSP >= 0 &&
            people->m_stateSP <= PeopleData::MAX_STATE;
 }
 
@@ -744,10 +744,39 @@ static bool ProbePeopleLifecycle(
         KR_Event airRouteEvents[2];
         const int airRouteCount = context->copyEvents(
             pe_EVC_NEXTNODE, probeID, airRouteEvents, 2);
+        const bool groundedCadenceScheduled =
+            groundedRouteCount == 0 ||
+            (groundedRouteCount == 1 &&
+             std::fabs(routeEvents[0].timeStamp - startMove.timeStamp) <= 1e-9);
+        bool groundedCadenceExact = groundedRouteCount == 0;
+        if (groundedRouteCount == 1)
+        {
+            const PeopleData cadenceState =
+                *static_cast<PeopleData *>(probe);
+            const CFVector3 cadencePosition = probe->getPosition();
+            const int stateDepth = probe->m_stateSP;
+            const double cadenceTime = routeEvents[0].timeStamp;
+            context->removeEvent(pe_EVC_GROUNDED_NEXTNODE, probeID);
+            probe->m_isVisible = 1;
+            const bool executed = probe->receiveEvent(routeEvents[0]) == 1;
+            KR_Event repeated[2];
+            const int repeatedCount = context->copyEvents(
+                pe_EVC_GROUNDED_NEXTNODE, probeID, repeated, 2);
+            groundedCadenceExact = executed && stateDepth > 0 &&
+                probe->m_stateSP == stateDepth - 1 && repeatedCount == 1 &&
+                std::fabs(repeated[0].timeStamp -
+                          cadenceTime - 0.3) <= 1e-9;
+            context->removeEvent(pe_EVC_GROUNDED_NEXTNODE, probeID);
+            *static_cast<PeopleData *>(probe) = cadenceState;
+            probe->ct_Subject::setPosition(cadencePosition);
+        }
+        // Until the May grounded movement helper is recovered, NEXTNODE owns
+        // route-segment progress while 26012 independently owns the exact
+        // target/visibility cadence.
         const bool nextNodeScheduled =
-            groundedRouteCount + airRouteCount == 1;
-        const int routeEventLabel = groundedRouteCount == 1
-            ? pe_EVC_GROUNDED_NEXTNODE : pe_EVC_NEXTNODE;
+            airRouteCount == 1 && groundedCadenceScheduled &&
+            groundedCadenceExact;
+        const int routeEventLabel = pe_EVC_NEXTNODE;
         if (groundedRouteCount != 0)
             context->removeEvent(pe_EVC_GROUNDED_NEXTNODE, probeID);
         if (airRouteCount != 0)
@@ -1051,8 +1080,10 @@ bool PeopleSubjectState_ProbeNewestDelayedRoute(
         pe_EVC_GROUNDED_NEXTNODE, selectedID, grounded, 2) : 0;
     const int airborneCount = valid ? context->copyEvents(
         pe_EVC_NEXTNODE, selectedID, airborne, 2) : 0;
-    summary->groundedRouteEvent =
-        groundedCount == 1 && airborneCount == 0 ? 1 : 0;
+    summary->groundedRouteEvent = groundedCount == 1 &&
+        airborneCount == 1 &&
+        std::fabs(grounded[0].timeStamp - startMove.timeStamp) <= 1e-9
+            ? 1 : 0;
     context->removeEvent(pe_EVC_GROUNDED_NEXTNODE, selectedID);
     context->removeEvent(pe_EVC_NEXTNODE, selectedID);
 

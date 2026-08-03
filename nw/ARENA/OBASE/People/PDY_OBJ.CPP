@@ -74,7 +74,7 @@ void       People::getMatrix   ( CFMatrix3x4 &m )
 
 double People::getPower   () // Сила юнита 0..10
 {
-   return 0.1;
+   return combatPower();
 }
 
 int    People::isFriend   ( const KR_ObjectID &commanderID )

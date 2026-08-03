@@ -1987,11 +1987,16 @@ playable Level begins.
   node; route progress measures the active previous-to-current segment.
   Positive, zero and negative `backSpaceNode` values respectively rewind,
   stop at the end or loop to zero.
-- PEO1 version 3 stores previous/current indices and accepts deterministic
-  migration from versions 1 and 2. Both Level.03N named mission smokes execute
-  STARTMOVE and two MOVE events and prove finite bounded target progress.
-- Grounded release event 26012 uses the recovered transition core, but its
-  complete May-only collision body remains an explicit parity refinement.
+- PEO1 version 4 stores previous/current indices plus every state frame's
+  return target and accepts deterministic migration from versions 1-3. A
+  zero-depth stack is a valid May state, and a subsequent ATTACK may therefore
+  be the root frame. Legacy export prepends a synthetic default frame. Both
+  Level.03N named mission smokes execute STARTMOVE and two MOVE events and
+  prove finite bounded progress.
+- Grounded release event 26012 now uses the exact May target/visibility cadence:
+  immediate start, 0.2-second live-target refresh, 0.3-second pop/idle refresh
+  and the hidden five-second extension. The separate May movement helper and
+  its obstacle/corridor behavior remain the explicit parity refinement.
 
 ### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
 

@@ -21,7 +21,7 @@ namespace
 {
 
 const std::uint32_t kPeopleMagic = 0x314f4550u; // PEO1
-const std::uint32_t kPeopleVersion = 3u;
+const std::uint32_t kPeopleVersion = 4u;
 const std::uint32_t kOldestPeopleVersion = 1u;
 const std::size_t kMaximumPeople = 4096;
 const int kSchedulerLabels[] = {
@@ -45,6 +45,7 @@ struct StablePeopleState
     int state;
     std::string enemy;
     int enemyPeopleOrdinal;
+    CFVector3 returnTarget;
 };
 
 struct StablePeopleEvent
@@ -394,7 +395,7 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
     // allocator residue while preserving every state field with behaviour.
     record->minimumPosition = CFVector3(0.0, 0.0, 0.0);
     record->maximumPosition = CFVector3(0.0, 0.0, 0.0);
-    if (people->m_stateSP <= 0 || people->m_stateSP > PeopleData::MAX_STATE)
+    if (people->m_stateSP < 0 || people->m_stateSP > PeopleData::MAX_STATE)
         return Fail("People state stack depth is invalid");
     record->states.clear();
     for (int index = 0; index < people->m_stateSP; ++index)
@@ -413,6 +414,7 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
         state.state = people->m_state[index];
         state.enemy = ObjectName(context, enemyID);
         state.enemyPeopleOrdinal = -1;
+        state.returnTarget = people->m_stateNextNode[index];
         if (!IsNul(enemyID) && state.enemy.empty())
         {
             char message[256] = {};
@@ -436,8 +438,6 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
         }
         record->states.push_back(state);
     }
-    if (record->states.empty())
-        return Fail("People canonical state stack is empty");
     record->returnPoint = record->states.size() <= 1
                               ? CFVector3(0.0, 0.0, 0.0)
                               : people->m_returnPoint;
@@ -637,13 +637,31 @@ bool PutRecord(std::vector<unsigned char> *bytes,
     PutBool(bytes, record.notCreated);
     PutVector(bytes, record.minimumPosition);
     PutVector(bytes, record.maximumPosition);
-    PutU32(bytes, static_cast<std::uint32_t>(record.states.size()));
-    for (std::size_t index = 0; index < record.states.size(); ++index)
+    const bool synthesizeLegacyDefault = version < 4u &&
+        (record.states.empty() ||
+         record.states.front().state != pe_STATE_DEFAULT);
+    const std::size_t stateCount = record.states.size() +
+        (synthesizeLegacyDefault ? 1u : 0u);
+    if (stateCount > PeopleData::MAX_STATE)
+        return false;
+    PutU32(bytes, static_cast<std::uint32_t>(stateCount));
+    for (std::size_t index = 0; index < stateCount; ++index)
     {
-        PutI32(bytes, record.states[index].state);
-        if (!PutString(bytes, record.states[index].enemy))
+        const bool synthesized = synthesizeLegacyDefault && index == 0;
+        const std::size_t sourceIndex = synthesized ? 0u :
+            (synthesizeLegacyDefault ? index - 1u : index);
+        const int state = synthesized
+            ? pe_STATE_DEFAULT : record.states[sourceIndex].state;
+        const std::string enemy = synthesized
+            ? std::string() : record.states[sourceIndex].enemy;
+        const int enemyOrdinal = synthesized
+            ? -1 : record.states[sourceIndex].enemyPeopleOrdinal;
+        PutI32(bytes, state);
+        if (!PutString(bytes, enemy))
             return false;
-        PutI32(bytes, record.states[index].enemyPeopleOrdinal);
+        PutI32(bytes, enemyOrdinal);
+        if (version >= 4u)
+            PutVector(bytes, record.states[index].returnTarget);
     }
     PutVector(bytes, record.lastMovePosition);
     PutDouble(bytes, record.lastMoveDeltaTime);
@@ -707,7 +725,8 @@ bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
         return false;
     std::uint32_t stateCount = 0;
     if (!GetU32(bytes, offset, &stateCount) ||
-        stateCount == 0 || stateCount > PeopleData::MAX_STATE)
+        (version < 4u && stateCount == 0) ||
+        stateCount > PeopleData::MAX_STATE)
         return false;
     record->states.clear();
     for (std::uint32_t index = 0; index < stateCount; ++index)
@@ -718,6 +737,17 @@ bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
             !GetString(bytes, offset, &state.enemy) ||
             !GetI32(bytes, offset, &state.enemyPeopleOrdinal))
             return false;
+        if (version >= 4u)
+        {
+            if (!GetVector(bytes, offset, &state.returnTarget))
+                return false;
+        }
+        else
+        {
+            // PEO1 v1-v3 did not preserve the per-frame route target. The
+            // active target is the only deterministic migration source.
+            state.returnTarget = record->nextNode;
+        }
         record->states.push_back(state);
     }
     if (!GetVector(bytes, offset, &record->lastMovePosition) ||
@@ -745,9 +775,10 @@ bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
     return true;
 }
 
-bool ValidateRecord(const StablePeopleRecord &record)
+bool ValidateRecord(const StablePeopleRecord &record, std::uint32_t version)
 {
-    if (record.name.empty() || record.attribute.empty() ||
+    if (version < kOldestPeopleVersion || version > kPeopleVersion ||
+        record.name.empty() || record.attribute.empty() ||
         record.route.empty() || !IsBool(record.audibleThisFrame) ||
         !IsBool(record.visible) || !std::isfinite(record.lastMoveTimeStamp) ||
         !FiniteVector(record.position) || record.currentNode < 0 ||
@@ -768,7 +799,7 @@ bool ValidateRecord(const StablePeopleRecord &record)
         !std::isfinite(record.lastDamageTime) ||
         !FiniteVector(record.returnPoint) || !IsBool(record.notCreated) ||
         !FiniteVector(record.minimumPosition) ||
-        !FiniteVector(record.maximumPosition) || record.states.empty() ||
+        !FiniteVector(record.maximumPosition) ||
         record.states.size() > PeopleData::MAX_STATE ||
         !FiniteVector(record.lastMovePosition) ||
         !std::isfinite(record.lastMoveDeltaTime) ||
@@ -780,13 +811,14 @@ bool ValidateRecord(const StablePeopleRecord &record)
     {
         const StablePeopleState &state = record.states[index];
         if (state.state < pe_STATE_DEFAULT || state.state > pe_STATE_BACK ||
-            state.enemyPeopleOrdinal < -1 ||
+            state.enemyPeopleOrdinal < -1 || !FiniteVector(state.returnTarget) ||
             (state.state == pe_STATE_DEFAULT &&
              (!state.enemy.empty() || state.enemyPeopleOrdinal != -1)) ||
             (state.state != pe_STATE_DEFAULT && state.enemy.empty()))
             return false;
     }
-    if (record.states[0].state != pe_STATE_DEFAULT)
+    if (version < 4u && !record.states.empty() &&
+        record.states[0].state != pe_STATE_DEFAULT)
         return false;
     for (std::size_t index = 0; index < record.events.size(); ++index)
     {
@@ -812,22 +844,47 @@ bool EncodeRecords(const std::vector<StablePeopleRecord> &records,
     PutU32(bytes, static_cast<std::uint32_t>(records.size()));
     for (std::size_t index = 0; index < records.size(); ++index)
     {
-        if (!ValidateRecord(records[index]))
+        if (!ValidateRecord(records[index], kPeopleVersion))
         {
-            char message[512] = {};
+            char message[768] = {};
             const StablePeopleRecord &record = records[index];
+            const CFVector3 stateTarget = record.states.empty()
+                ? CFVector3(0.0, 0.0, 0.0)
+                : record.states[0].returnTarget;
+            const int stateValue = record.states.empty()
+                ? -1 : record.states[0].state;
+            const int stateEnemyOrdinal = record.states.empty()
+                ? -2 : record.states[0].enemyPeopleOrdinal;
+            const unsigned int stateEnemyLength = record.states.empty()
+                ? 0u : static_cast<unsigned int>(record.states[0].enemy.size());
             std::snprintf(
                 message, sizeof(message),
                 "record %.96s validation failed bool=%d/%d/%d/%d/%d/%d "
                 "node=%d inc=%g scale=%g killed=%d states=%u prevShoot=%d "
-                "back=%d delay=%g",
+                "back=%d delay=%g finite=%d/%d/%d/%d/%d target=%g/%g/%g "
+                "prevNode=%d scalar=%d/%d/%d/%d/%d/%d/%d state=%d/%u/%d "
+                "events=%u",
                 record.name.c_str(), record.audibleThisFrame, record.visible,
                 record.deleted, record.notCreated, record.stopped,
                 record.closeCollision, record.currentNode,
                 record.positionIncrement, record.correctScale, record.killed,
                 static_cast<unsigned>(record.states.size()),
                 record.previousStartShoot, record.startBackSpaceNode,
-                record.startMoveDelay);
+                record.startMoveDelay, FiniteVector(record.position) ? 1 : 0,
+                FiniteVector(record.direction) ? 1 : 0,
+                FiniteVector(record.nextNode) ? 1 : 0,
+                FiniteVector(record.lastMovePosition) ? 1 : 0,
+                FiniteVector(stateTarget) ? 1 : 0, stateTarget.x,
+                stateTarget.y, stateTarget.z, record.previousRouteNode,
+                std::isfinite(record.lastMoveTimeStamp) ? 1 : 0,
+                std::isfinite(record.damage) ? 1 : 0,
+                std::isfinite(record.previousTime) ? 1 : 0,
+                std::isfinite(record.horizontalAngle) ? 1 : 0,
+                std::isfinite(record.previousShootTime) ? 1 : 0,
+                std::isfinite(record.lastDamageTime) ? 1 : 0,
+                std::isfinite(record.lastMoveDeltaTime) ? 1 : 0,
+                stateValue, stateEnemyLength, stateEnemyOrdinal,
+                static_cast<unsigned int>(record.events.size()));
             return Fail(message);
         }
         if (index != 0 && records[index - 1].name > records[index].name)
@@ -856,7 +913,7 @@ bool DecodeRecords(const std::vector<unsigned char> &bytes,
     {
         StablePeopleRecord record;
         if (!GetRecord(bytes, &offset, &record, version) ||
-            !ValidateRecord(record) ||
+            !ValidateRecord(record, version) ||
             (index != 0 && records->back().name > record.name))
             return false;
         records->push_back(record);
@@ -990,11 +1047,13 @@ bool ApplyRecord(SimulationContext *context,
     {
         people->m_state[index] = pe_STATE_DEFAULT;
         people->m_enemyID[index] = KR_ObjectID::NUL();
+        people->m_stateNextNode[index] = CFVector3(0.0, 0.0, 0.0);
     }
     for (std::size_t index = 0; index < record.states.size(); ++index)
     {
         people->m_state[index] = record.states[index].state;
         people->m_enemyID[index] = resolved.enemies[index];
+        people->m_stateNextNode[index] = record.states[index].returnTarget;
     }
     people->m_lastMovePos = record.lastMovePosition;
     people->m_lastMoveDeltaT = record.lastMoveDeltaTime;
@@ -1227,19 +1286,23 @@ bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
     const int originalStateDepth = people->m_stateSP;
     int originalStates[PeopleData::MAX_STATE] = {};
     KR_ObjectID originalEnemies[PeopleData::MAX_STATE];
+    CFVector3 originalTargets[PeopleData::MAX_STATE];
     for (int index = 0; index < PeopleData::MAX_STATE; ++index)
     {
         originalStates[index] = people->m_state[index];
         originalEnemies[index] = people->m_enemyID[index];
+        originalTargets[index] = people->m_stateNextNode[index];
     }
     const CFVector3 originalReturnPoint = people->m_returnPoint;
     people->m_stateSP = 2;
     people->m_state[0] = pe_STATE_DEFAULT;
     people->m_enemyID[0] = KR_ObjectID::NUL();
+    people->m_stateNextNode[0] = CFVector3(11.0, 12.0, 13.0);
     people->m_state[1] = pe_STATE_ATTACK;
     const KR_ObjectID owner = people->getObjectID();
     people->m_enemyID[1] = KR_ObjectID(owner.id + 1,
                                        owner.getCachePos());
+    people->m_stateNextNode[1] = CFVector3(21.0, 22.0, 23.0);
     people->m_returnPoint = CFVector3(123.0, 456.0, 789.0);
     std::vector<StablePeopleRecord> canonical;
     const bool staleAttackCanonicalized =
@@ -1248,6 +1311,9 @@ bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
         canonical.front().states.size() == 1 &&
         canonical.front().states.front().state == pe_STATE_DEFAULT &&
         canonical.front().states.front().enemy.empty() &&
+        canonical.front().states.front().returnTarget.x == 11.0 &&
+        canonical.front().states.front().returnTarget.y == 12.0 &&
+        canonical.front().states.front().returnTarget.z == 13.0 &&
         canonical.front().returnPoint.x == 0.0 &&
         canonical.front().returnPoint.y == 0.0 &&
         canonical.front().returnPoint.z == 0.0;
@@ -1256,20 +1322,49 @@ bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
     {
         people->m_state[index] = originalStates[index];
         people->m_enemyID[index] = originalEnemies[index];
+        people->m_stateNextNode[index] = originalTargets[index];
     }
     people->m_returnPoint = originalReturnPoint;
     if (!staleAttackCanonicalized)
         return false;
 
     const int stateDepth = people->m_stateSP;
+    people->m_stateSP = 1;
+    people->m_state[0] = pe_STATE_ATTACK;
+    people->m_enemyID[0] = people->getObjectID();
+    people->m_stateNextNode[0] = CFVector3(31.0, 32.0, 33.0);
+    std::vector<unsigned char> attackRoot;
+    const bool attackRootAccepted =
+        PeopleActiveWorldState_CaptureStable(context, &attackRoot) &&
+        PeopleActiveWorldState_ValidateStable(attackRoot) &&
+        PeopleActiveWorldState_MatchesStable(context, attackRoot);
+    std::vector<StablePeopleRecord> attackRecords;
+    std::vector<unsigned char> attackLegacy;
+    const bool attackRootLegacyAccepted =
+        CollectRecords(context, &attackRecords) &&
+        EncodeRecords(attackRecords, &attackLegacy, 3u) &&
+        PeopleActiveWorldState_ValidateStable(attackLegacy) &&
+        PeopleActiveWorldState_MatchesStable(context, attackLegacy);
+    people->m_stateSP = stateDepth;
+    people->m_state[0] = originalStates[0];
+    people->m_enemyID[0] = originalEnemies[0];
+    people->m_stateNextNode[0] = originalTargets[0];
+
     people->m_stateSP = 0;
+    std::vector<unsigned char> zeroStack;
+    const bool zeroStackAccepted =
+        PeopleActiveWorldState_CaptureStable(context, &zeroStack) &&
+        PeopleActiveWorldState_ValidateStable(zeroStack) &&
+        PeopleActiveWorldState_MatchesStable(context, zeroStack);
+    people->m_stateSP = PeopleData::MAX_STATE + 1;
     std::vector<unsigned char> rejected;
     const bool rejectedWithDetail =
         !PeopleActiveWorldState_CaptureStable(context, &rejected) &&
         g_lastFailure == "People state stack depth is invalid";
     people->m_stateSP = stateDepth;
     std::vector<unsigned char> restored;
-    return rejectedWithDetail &&
+    return attackRootAccepted && attackRootLegacyAccepted &&
+           zeroStackAccepted && rejectedWithDetail &&
            PeopleActiveWorldState_CaptureStable(context, &restored) &&
            restored == baseline;
 }

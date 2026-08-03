@@ -75,6 +75,10 @@ typedef struct {
     int                    m_stateSP;
     int                    m_state[MAX_STATE];
     KR_ObjectID            m_enemyID[MAX_STATE];
+    // May retail keeps the movement target that belongs to every state frame.
+    // Popping an attack resumes the authored route instead of retaining the
+    // vanished enemy position.
+    CFVector3              m_stateNextNode[MAX_STATE];
 
     CFVector3              m_lastMovePos;
     double                 m_lastMoveDeltaT;
@@ -104,17 +108,20 @@ class People : public ct_Subject,
     ISkin                 *m_askin;
         
     
-    int                    getState()   const { return m_state[m_stateSP-1]; }
-    KR_ObjectID            getEnemyID() const { return m_enemyID[m_stateSP-1]; }
+    int                    getState() const
+        { return m_stateSP > 0 ? m_state[m_stateSP-1] : pe_STATE_DEFAULT; }
+    KR_ObjectID            getEnemyID() const
+        { return m_stateSP > 0 ? m_enemyID[m_stateSP-1] : KR_ObjectID::NUL(); }
     void                   pushState( int state, KR_ObjectID enemyID );
     void                   initState() { m_stateSP = 0; pushState(pe_STATE_DEFAULT,KR_ObjectID::NUL()); }
-    void                   popState () { m_stateSP -= m_stateSP>1; }
+    void                   popState ();
 
 
     void     onKilled( const CFVector3 &explPos, double ts );
     void     onShoot(double ts);
     bool     isShooter();
     double   movementSpeed() const;
+    double   combatPower() const;
 	
              People();
     virtual ~People();

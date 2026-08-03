@@ -3861,7 +3861,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 ### CQ-204: mission presentation and guide motion remain separate owners
 
 - Status: `SOURCE_RECOVERED`, `RETAIL_RUNTIME_PROVED`,
-  `PORTABILITY_FIX_ACCEPTED`, `EVENT_26012_OPEN`.
+  `PORTABILITY_FIX_ACCEPTED`, `EVENT_26012_RECOVERED`,
+  `MOVEMENT_HELPER_OPEN`.
 - Evidence: the reported town-hall visits can create the correct PlayerMission,
   Player vehicle and guide while showing no briefing splash. The guide can
   immediately drive into the Player vehicle or follow its route backwards.
@@ -3873,7 +3874,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   registers the retail 8x8 console font, `GameConsole` and `Briefing`, and
   refreshes the briefing viewport after every `ZAV_BeginLoop`. START now owns
   the exact previous/current phase and applies the authored back-space policy;
-  PEO1 v3 persists both indices. Do not classify
+  PEO1 v4 persists both indices and May state return targets. Do not classify
   every eject as a new mission: retail collision handling also ejects when a
   mission is already active or no project is eligible. Guide spacing and
   Player vehicle steering remain explicit independent follow-up gates.
@@ -3884,10 +3885,10 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   UI-suppressed named-center smokes additionally prove real guides
   `i.unit.ms22.rl00` and `m.unit.ms25.jp00` each dispatch STARTMOVE plus two
   MOVE events and make a finite bounded step toward the target.
-- Revisit when: the full May event-26012 body is recovered from the retail
-  executable or a controlled comparison. The Player vehicle basis/control
-  fault remains independent of guide navigation. Repeated Level viewport
-  refresh should eventually own explicit legacy viewport release.
+- Revisit when: the May movement helper at `0x00501D54` replaces the temporary
+  NEXTNODE route-progress bridge with full segment/corridor/obstacle behavior.
+  Repeated Level viewport refresh should eventually own explicit legacy
+  viewport release.
 
 ### CQ-205: the reduced modern session omitted briefing presentation owners
 
@@ -4086,6 +4087,34 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   lateral-dominant displacement.
 - Revisit when: maintained object identity replaces kernel names throughout
   mission creation. Preserve duplicate-name compatibility when doing so.
+
+### CQ-214: May People state frames own their return target
+
+- Status: `MAY_BINARY_CONFIRMED`, `SAVE_CONTRACT_EXTENDED`,
+  `PORTABILITY_GATE_ACCEPTED`.
+- Evidence: retail `pushState` copies `m_nextNode` into a four-element vector
+  array and every pop site restores it. Event 26012 accepts depth zero, tracks
+  a live target at 0.2-second cadence, uses 0.3 seconds after a pop and adds
+  five seconds for hidden non-`allwaysVisible` People. The preserved source
+  indexed `state[-1]`, refused to pop the default frame and had no target
+  array.
+- Handling: safe state/enemy accessors expose the retail empty-stack result;
+  push/pop save and restore per-frame targets; PEO1 v4 stores those targets and
+  migrates v1-v3 deterministically. A live stack may begin with ATTACK after
+  event 26012 pops the final default frame; v4 stores that state exactly, while
+  legacy encoding prepends a synthetic default frame. Grounded START queues
+  both exact event 26012 and the temporary NEXTNODE route-progress bridge.
+- Verification: the lifecycle probe executes the real immediate 26012 event,
+  requires one-frame pop and a 0.3-second repeat. Debug, Release and Playtest
+  each pass 67/67 CTest. Installed retail startup passes 27/27; full fresh
+  continuation passes 27/27 with destruction and occupied-save masks 1011;
+  the three-process Level.03N mission save/same-Level/cross-Level gate passes
+  3/3.
+- Revisit when: the May helper at `0x00501D54` owns segment consumption,
+  corridor correction and obstacle response. Remove the NEXTNODE bridge only
+  after those behaviors and PEO1 rollback pass together. `People.od` remains
+  an archival 24-field January generator description; do not regenerate or
+  recode it as a side effect of this source recovery.
 
 ## Maintenance rule
 
