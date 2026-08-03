@@ -3277,6 +3277,46 @@ if(MSVC)
   )
 endif()
 
+add_library(rr2nw_arena_obase_howitzer_full STATIC
+  nw/ARENA/OBASE/Howitzer/Howitzer.cpp
+  nw/ARENA/OBASE/Howitzer/Howitzer.h
+  nw/ARENA/OBASE/Howitzer/HowitzerActiveWorldState.cpp
+  nw/ARENA/OBASE/Howitzer/HowitzerActiveWorldState.h
+  nw/ARENA/OBASE/Howitzer/HowitzerSubjectState.cpp
+  nw/ARENA/OBASE/Howitzer/HowitzerSubjectState.h
+)
+target_link_libraries(rr2nw_arena_obase_howitzer_full PUBLIC
+  rr2nw_arena_storage
+  rr2nw_arena_physics
+  rr2nw_arena_bullet_attribute_state
+  rr2nw_arena_obase_corpse_full
+  rr2nw_arena_skin_resource_state
+  rr2nw_scene_draw_state
+)
+target_include_directories(rr2nw_arena_obase_howitzer_full PUBLIC
+  src/runtime
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+  nw/ARENA
+  nw/ARENA/H
+  nw/ARENA/OBASE/Howitzer
+  nw/GRAPH
+  nw/SCENE
+  nw/VIEW
+)
+target_compile_features(rr2nw_arena_obase_howitzer_full PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_arena_obase_howitzer_full PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_arena_obase_howitzer_full PRIVATE
+    /W3 /permissive /wd4081 /wd4244 /wd4867
+    /FIHowitzerBulletCompatibilityShim.h
+  )
+endif()
+
 add_library(rr2nw_arena_obase_commander_group_full STATIC
   nw/ARENA/OBASE/Comander/Comander.cpp
   nw/ARENA/OBASE/Comander/CommanderState.h
@@ -3537,6 +3577,7 @@ add_library(rr2nw_recovered_legacy_script_runtime STATIC
 )
 target_link_libraries(rr2nw_recovered_legacy_script_runtime PUBLIC
   rr2nw_arena_mproj
+  rr2nw_arena_obase_howitzer_full
   rr2nw_arena_obase_route
   rr2nw_arena_storage
   rr2nw_arena_time_runtime_state
@@ -5088,6 +5129,9 @@ if(BUILD_TESTING)
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/BRIEF.SCI"
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/incubator.sci"
              "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/RECRCEN.SCI"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/Howitzer.sci"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/SCINC/set_howitzers.sci"
+             "${CMAKE_CURRENT_SOURCE_DIR}/nw/OUTPUT/Level.03N/howitzers.hwz"
   )
   add_test(
     NAME peripheral-attribute-state-smoke

@@ -1791,13 +1791,17 @@ Marauders default is `taxi.attr.war_t07` (TankGenn3); the airplanes created by
 invent an automatic aircraft grant until CQ-199 is resolved through retail
 observation and a rollback-safe Vehicle/Taxi transfer.
 
-The next campaign slice is now sharply bounded: recover the real
-Howitzer-holder lifecycle and transactional replacement required by
-Level.02N/Level.05D, then consume the authored guide `backSpaceNode`/start
-spacing instead of spawning escorts into the Player and reconcile the mission
-vehicle's model/control basis so forward input does not drive sideways. These
-are independent acceptance rows and must precede reward/completion and Portal
-admission.
+The Howitzer continuation boundary is now closed. `Level.05D` `ProjectA32`
+creates six real holder-backed subjects and eighteen preserved timers; schema
+4 reconstructs all fifteen active-world sections byte-identically and rolls
+the prior world back after an injected late failure.
+
+The next campaign slice is now sharply bounded: recover the May People route
+phase and ground-navigation contract used by mission guides, including the
+authored `backSpaceNode` end-of-route policy, without spawning escorts into the
+Player. Then reconcile the mission vehicle's model/control basis so forward
+input does not drive sideways. These are independent acceptance rows and must
+precede reward/completion and Portal admission.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

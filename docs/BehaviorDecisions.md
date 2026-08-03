@@ -4930,3 +4930,32 @@ admission. `--mission-briefing-smoke` follows the same mission path but requires
 the number of actual presentations to equal the number of authored briefing
 commands. This distinction prevents both a visible splash from hiding a failed
 mission commit and a successful commit from hiding a disconnected presenter.
+
+### BD-134: Howitzer holders and timers are authoritative active-world state
+
+Status: accepted on 2026-08-03 for mission continuation.
+
+Howitzer is not reconstructed as a free position plus an attribute. The
+released object is anchored to one exact entry in the effective mod-aware
+`Howitzers.hwz` catalog, and that holder is exclusive while the subject lives.
+Restore therefore reserves the saved holder before publishing references,
+starts the original subject lifecycle, then reapplies its presentation,
+damage, orientation, action state and Commander/enemy links. A missing,
+ambiguous or already occupied holder fails the entire world transaction.
+
+Scheduler ownership is also explicit. The retail start handler reuses its
+incoming event while changing only the label, so a Howitzer's recurring events
+are identified by label plus destination; their source is independent state.
+The versioned record preserves every FIND/ACTION event in queue order,
+including the two FIND events produced when a mission immediately assigns a
+Commander. Deduplicating those events or selecting them by source changes real
+mission behaviour and is prohibited.
+
+Active-world compatibility advances to engine version 4 with fifteen required
+owner/reference sections. The installed `Level.05D` `ProjectA32` proof creates
+six holder-backed Howitzers and eighteen timers, captures LCN1, reconstructs a
+fresh world and requires a byte-identical recapture. It then injects a failure
+after gameplay-authority restore and requires the backup world to recapture to
+the same bytes. This is the acceptance boundary for Howitzer allocation,
+continuation and rollback; projectile firing and campaign completion remain
+separate gameplay gates.

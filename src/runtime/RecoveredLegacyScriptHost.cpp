@@ -1,5 +1,7 @@
 #include "RecoveredLegacyScriptHost.h"
 
+#include "HowitzerSubjectState.h"
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -237,9 +239,8 @@ void ScriptGetBriefingTime(TProcessContext* pc, void* userData) {
 }
 
 void ScriptDeleteHowitzer(TProcessContext* pc, void* userData) {
-  (void)pc;
   RecoveredLegacyScriptHost* host = Host(userData);
-  if (host != nullptr) host->Unsupported("s_DeleteHowitzer");
+  if (host != nullptr) host->DeleteHowitzer(SC_PARS(0));
 }
 
 void ScriptRestartLevel(TProcessContext* pc, void* userData) {
@@ -617,12 +618,23 @@ void RecoveredLegacyScriptHost::IssueEvent(
   SimulationContext* context = m_arena->getContext();
   // Match the retail host contract: scheduled events may legitimately target
   // an object that is not published yet, but the kernel requires a usable
-  // cache slot and a timestamp past its initialization sentinel.
+  // cache slot and a timestamp past its initialization sentinel. Retail
+  // mission helpers intentionally pass zero for an immediate start; map that
+  // one value to the first valid legacy boundary while preserving every
+  // positive absolute timestamp unchanged.
+  if (timeStamp == 0.0) timeStamp = 0.1;
   if (!std::isfinite(timeStamp) || timeStamp < 0.1 ||
       destination.getCachePos() < 0 || context->eventFreeCount() <= 0) {
     event->inUse = false;
+    char message[224] = {};
+    std::snprintf(message, sizeof(message),
+                  "script scheduled event is invalid label=%d time=%.17g "
+                  "target=%ld/%ld free=%d",
+                  label, timeStamp, static_cast<long>(destination.id),
+                  static_cast<long>(destination.getCachePos()),
+                  context->eventFreeCount());
     Report(RECOVERED_LEGACY_SCRIPT_HOST_INVALID_EVENT_DESTINATION,
-           "script scheduled event has an invalid label, time, or target");
+           message);
     return;
   }
   event->label = label;
@@ -709,8 +721,11 @@ int RecoveredLegacyScriptHost::AddClassTable(const char* name, int capacity) {
   if (!ArenaReady("add class table") || name == nullptr) return ct_NULLID;
   const int table = m_arena->addClassTable(name, capacity);
   if (table == ct_NULLID) {
-    Report(RECOVERED_LEGACY_SCRIPT_HOST_CLASS_TABLE_FAILURE,
-           "script class table creation failed");
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "script class table creation failed for %.100s/%d",
+                  name, capacity);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_CLASS_TABLE_FAILURE, message);
   }
   return table;
 }
@@ -727,6 +742,14 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(int classTable,
                   "script object creation failed for %.120s in table %d",
                   name, classTable);
     Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE, message);
+  }
+  if (!object.isNUL() &&
+      classTable == m_arena->searchSeanceClassTable("Howitzer") &&
+      !HowitzerSubjectState_PrepareNewObject(m_arena->getContext(), object)) {
+    m_arena->getContext()->removeObject(object);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE,
+           "new Howitzer could not enter a safe pending state");
+    return KR_ObjectID::NUL();
   }
   if (!object.isNUL() && m_objectTransactionActive)
     m_transactionCreatedObjects.push_back(object);
@@ -746,6 +769,13 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(const char* className,
                   "script named-class object creation failed for %.100s in "
                   "%.100s", name, className);
     Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE, message);
+  }
+  if (!object.isNUL() && std::strcmp(className, "Howitzer") == 0 &&
+      !HowitzerSubjectState_PrepareNewObject(m_arena->getContext(), object)) {
+    m_arena->getContext()->removeObject(object);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE,
+           "new named Howitzer could not enter a safe pending state");
+    return KR_ObjectID::NUL();
   }
   if (!object.isNUL() && m_objectTransactionActive)
     m_transactionCreatedObjects.push_back(object);
@@ -872,6 +902,24 @@ int RecoveredLegacyScriptHost::SetDamage(const char* objectName,
   unit->setDamage(damage, CFVector3(0.0, 0.0, 0.0), Session::m_moment,
                   m_arena->getObjectID());
   return 1;
+}
+
+bool RecoveredLegacyScriptHost::DeleteHowitzer(const char* holderName) {
+  if (!ArenaReady("delete Howitzer holder occupant") ||
+      holderName == nullptr) {
+    return false;
+  }
+  if (!HowitzerSubjectState_DeleteHolderOccupant(
+          m_arena->getContext(), holderName, m_transactionCreatedObjects,
+          m_objectTransactionActive)) {
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Howitzer holder %.80s deletion failed: %.140s",
+                  holderName, HowitzerSubjectState_LastError());
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE, message);
+    return false;
+  }
+  return true;
 }
 
 void RecoveredLegacyScriptHost::Unsupported(const char* operation) {

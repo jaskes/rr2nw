@@ -17,6 +17,7 @@
 #include "graph.h"
 #include "h/super.h"
 #include "obase/explosion/ExplosionSubjectState.h"
+#include "obase/howitzer/HowitzerActiveWorldState.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "suavik.h"
 
@@ -63,6 +64,7 @@ struct StartupOptions {
   bool runtimeSmoke = false;
   bool missionSmoke = false;
   bool missionBriefingSmoke = false;
+  bool missionContinuationSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
   bool showVersion = false;
@@ -291,6 +293,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionBriefingSmoke = true;
+    } else if (argument == L"--mission-continuation-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionContinuationSmoke = true;
     } else if (argument == L"--debug-menu") {
       options->debugMenu = true;
     } else if (argument == L"--help" || argument == L"-h") {
@@ -979,7 +985,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
-                L"          [--mission-smoke | --mission-briefing-smoke]\n"
+                L"          [--mission-smoke | --mission-briefing-smoke |\n"
+                L"           --mission-continuation-smoke]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
     return kSuccess;
@@ -2708,6 +2715,89 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  mission.createdMissionObjects < 1 ||
                  mission.presentedBriefings != expectedBriefings ||
                  mission.scriptRollbacks != 0 || !runCompleteFrame();
+    log.Line("mission_smoke_howitzers=" + std::to_string(
+                 RecoveredArenaSeance_HowitzerLiveCount()) + "/" +
+             std::to_string(RecoveredArenaSeance_HowitzerReadyLiveCount()) +
+             "/" + std::to_string(
+                 RecoveredArenaSeance_HowitzerOccupiedHolderCount()));
+    std::vector<unsigned char> howitzerState;
+    const bool howitzerStateReady =
+        HowitzerActiveWorldState_CaptureStable(
+            g_super.m_context, &howitzerState);
+    log.Line("mission_smoke_howitzer_state=" +
+             std::to_string(howitzerStateReady ? 1 : 0) + "/" +
+             std::to_string(
+                 HowitzerActiveWorldState_SchedulerEventCount(
+                     howitzerState)) + "/" +
+             std::to_string(howitzerState.size()) + "/" +
+             std::to_string(
+                 HowitzerActiveWorldState_Fingerprint(
+                     g_super.m_context)));
+    if (!howitzerStateReady)
+      log.Line(std::string("mission_smoke_howitzer_state_error=") +
+               HowitzerActiveWorldState_LastFailure());
+    if (!loopFailed && options.missionContinuationSmoke) {
+      std::vector<std::uint8_t> continuation;
+      std::vector<std::uint8_t> recaptured;
+      SLevelContinuationSummary captured;
+      SLevelContinuationSummary restored;
+      SLevelContinuationSummary verified;
+      const bool captureReady =
+          RecoveredGameServices_CaptureLevelContinuation(
+              &continuation, &captured);
+      const bool restoreReady = captureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              continuation, &restored);
+      const bool recaptureReady = restoreReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &recaptured, &verified);
+      const bool successfulExact =
+          recaptureReady && continuation == recaptured &&
+          captured.ready && restored.ready && verified.ready &&
+          captured.sections == 15 && restored.sections == 15 &&
+          restored.ownerPhases == 15 &&
+          restored.referencePhases == 15 &&
+          captured.worldFingerprint == restored.restoredWorldFingerprint &&
+          captured.worldFingerprint == verified.worldFingerprint;
+      SLevelContinuationSummary rejected;
+      std::vector<std::uint8_t> rolledBack;
+      SLevelContinuationSummary rollbackVerified;
+      if (successfulExact)
+        RecoveredGameServices_FailNextRestoredGameplayAuthorityForTesting();
+      const bool restoreRejected = successfulExact &&
+          !RecoveredGameServices_RestoreLevelContinuation(
+              continuation, &rejected);
+      const std::string rejection =
+          RecoveredGameServices_LastLevelContinuationError();
+      const bool rollbackRecaptured = restoreRejected &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &rolledBack, &rollbackVerified);
+      const bool rollbackExact = rollbackRecaptured &&
+          rolledBack == continuation && rollbackVerified.ready &&
+          rollbackVerified.sections == 15 &&
+          rollbackVerified.worldFingerprint == captured.worldFingerprint;
+      const bool exact = successfulExact && rollbackExact;
+      log.Line("mission_continuation_capture=" +
+               std::to_string(captureReady ? 1 : 0) + "/" +
+               std::to_string(captured.sections) + "/" +
+               std::to_string(continuation.size()));
+      log.Line("mission_continuation_restore=" +
+               std::to_string(restoreReady ? 1 : 0) + "/" +
+               std::to_string(restored.ownerPhases) + "/" +
+               std::to_string(restored.referencePhases));
+      log.Line("mission_continuation_exact=" +
+               std::to_string(successfulExact ? 1 : 0));
+      log.Line("mission_continuation_rollback=" +
+               std::to_string(restoreRejected ? 1 : 0) + "/" +
+               std::to_string(rollbackRecaptured ? 1 : 0) + "/" +
+               std::to_string(rollbackExact ? 1 : 0));
+      if (!rollbackExact)
+        log.Line("mission_continuation_rollback_error=" + rejection);
+      if (!exact)
+        log.Line(std::string("mission_continuation_error=") +
+                 RecoveredGameServices_LastLevelContinuationError());
+      loopFailed = !exact;
+    }
   }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {

@@ -22,7 +22,8 @@ enum ERecoveredLegacyScriptHostIssue {
   RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_DATA_FAILURE = 1u << 10,
   RECOVERED_LEGACY_SCRIPT_HOST_PROJECT_CREATION_FAILURE = 1u << 11,
   RECOVERED_LEGACY_SCRIPT_HOST_UNSUPPORTED_OPERATION = 1u << 12,
-  RECOVERED_LEGACY_SCRIPT_HOST_INVALID_EVENT_DESTINATION = 1u << 13
+  RECOVERED_LEGACY_SCRIPT_HOST_INVALID_EVENT_DESTINATION = 1u << 13,
+  RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE = 1u << 14
 };
 
 class RecoveredLegacyScriptHost {
@@ -65,6 +66,7 @@ class RecoveredLegacyScriptHost {
   double CurrentTime() const;
   bool UpdateAttributes();
   int SetDamage(const char* objectName, double damage);
+  bool DeleteHowitzer(const char* holderName);
   void Unsupported(const char* operation);
   void BeginObjectTransaction();
   bool RollbackObjectTransaction();

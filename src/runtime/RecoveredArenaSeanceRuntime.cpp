@@ -38,6 +38,7 @@ class CGRPanel;
 #include "obase/cannon/CannonSubjectState.h"
 #include "obase/comander/CommanderState.h"
 #include "obase/group/TankGroupState.h"
+#include "obase/howitzer/HowitzerSubjectState.h"
 #include "obase/tank/TankActiveWorldState.h"
 #include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
@@ -132,6 +133,8 @@ constexpr const char kPeopleSubjectProgramName[] =
     "recovered_retail_people_subject_bootstrap";
 constexpr const char kTankCannonAttributeProgramName[] =
     "recovered_retail_tank_cannon_attribute_bootstrap";
+constexpr const char kHowitzerProgramName[] =
+    "recovered_retail_howitzer_bootstrap";
 constexpr const char kSkinAnimationProgramName[] =
     "recovered_retail_skin_animation_bootstrap";
 constexpr const char kMissionProjectProgramName[] =
@@ -665,6 +668,14 @@ func void main()
 }
 )RR2NW_SCRIPT";
 
+const char kHowitzerBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateHowitzerAttrs();
+  main_CreateHowitzers();
+}
+)RR2NW_SCRIPT";
+
 const char kSmokerAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
@@ -1153,6 +1164,11 @@ struct TankCannonScriptSummary {
   int tankSubjectCapacity;
 };
 
+struct HowitzerScriptSummary {
+  int attributeCapacity;
+  int subjectCapacity;
+};
+
 struct TeleportScriptSummary {
   int capacity;
   std::vector<TeleportDefinition> definitions;
@@ -1489,6 +1505,25 @@ bool InspectPeopleScripts(const std::string& attributeSource,
   summary->attributeCount = attributeCount;
   summary->subjectCapacity = subjectCapacity;
   summary->subjectCount = subjectCount;
+  return true;
+}
+
+bool InspectHowitzerScripts(const std::string& attributeSource,
+                            const std::string& subjectSource,
+                            HowitzerScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  std::string attributes;
+  std::string subjects;
+  if (!CompactScriptSource(attributeSource, &attributes) ||
+      !CompactScriptSource(subjectSource, &subjects))
+    return false;
+  const int attributeCapacity =
+      InspectSingleTableCapacity(attributes, "HowitzerAttr", false);
+  const int subjectCapacity =
+      InspectSingleTableCapacity(subjects, "Howitzer", false);
+  if (attributeCapacity <= 0 || subjectCapacity <= 0) return false;
+  summary->attributeCapacity = attributeCapacity;
+  summary->subjectCapacity = subjectCapacity;
   return true;
 }
 
@@ -2523,6 +2558,34 @@ bool RunPeopleAttributeBootstrap(SimulationContext* context,
     return false;
   }
   return true;
+}
+
+bool ReadHowitzerScriptSummary(HowitzerScriptSummary* summary) {
+  std::string attributeSource;
+  std::string subjectSource;
+  if (summary == nullptr ||
+      !ReadBoundedRetailAttributeSource("SCINC\\HOWITZER.SCI",
+                                        &attributeSource) ||
+      !ReadBoundedRetailAttributeSource("SCINC\\set_howitzers.sci",
+                                        &subjectSource)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "could not read bounded Howitzer scripts");
+    return false;
+  }
+  if (!InspectHowitzerScripts(attributeSource, subjectSource, summary)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "Howitzer table declarations are malformed");
+    return false;
+  }
+  return true;
+}
+
+bool RunHowitzerBootstrap(SimulationContext* context, double startTime) {
+  return RunRetailAttributeBootstrap(
+      context, startTime, "SCINC\\HOWITZER.SCI",
+      "SCINC\\set_howitzers.sci", kHowitzerBootstrapSuffix,
+      kHowitzerProgramName, RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+      "SCINC\\HOWITZER.SCI + SCINC\\set_howitzers.sci");
 }
 
 bool RunPeopleSubjectBootstrap(SimulationContext* context,
@@ -5050,6 +5113,29 @@ bool PublishPeopleAttributes(SimulationContext* context,
   return true;
 }
 
+bool PublishHowitzerTables(SimulationContext* context,
+                           const HowitzerScriptSummary& script) {
+  const int attributeCount = HowitzerSubjectState_AttributeCount();
+  const int holderCount = HowitzerSubjectState_HolderCount();
+  if (!HowitzerSubjectState_TableReady(context) ||
+      HowitzerSubjectState_AttributeCapacity() != script.attributeCapacity ||
+      HowitzerSubjectState_SubjectCapacity() != script.subjectCapacity ||
+      attributeCount <= 0 || attributeCount > script.attributeCapacity ||
+      holderCount <= 0 || HowitzerSubjectState_LiveCount() != 0) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "Howitzer tables or holder catalog do not match retail data");
+    return false;
+  }
+  const unsigned long long fingerprint =
+      HowitzerSubjectState_Fingerprint(context);
+  if (fingerprint == 0) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "Howitzer table/holder identity is unstable");
+    return false;
+  }
+  return true;
+}
+
 bool PublishTankCannonAttributes(
     SimulationContext* context, const TankCannonScriptSummary& script) {
   const int cannonCount = CannonSubjectState_AttributeCount(context);
@@ -5880,6 +5966,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   PeopleActiveWorldState_Link();
   CannonSubjectState_Link();
   TankSubjectState_Link();
+  HowitzerSubjectState_Link();
   CommanderState_Link();
   TankGroupState_Link();
   PortalClassTable_Link();
@@ -5911,6 +5998,12 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   SkinResourceState_Link();
   if (!InitializeDeviceFreeSoundDistance()) return FALSE;
   if (!OpenArena(context)) return FALSE;
+  if (!HowitzerSubjectState_LoadHolders()) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           HowitzerSubjectState_LastError());
+    RecoveredArenaSeance_Release();
+    return FALSE;
+  }
   if (!InitializeSparkSubjectTable(context)) {
     RecoveredArenaSeance_Release();
     return FALSE;
@@ -5928,6 +6021,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     TaxiSubjectScriptSummary taxiSubjectScript = {};
     PeopleScriptSummary peopleScript = {};
     TankCannonScriptSummary tankCannonScript = {};
+    HowitzerScriptSummary howitzerScript = {};
     CommanderScriptSummary commanderScript = {};
     MissionProjectSummary missionProject = {};
     TeleportScriptSummary teleportScript = {};
@@ -5968,10 +6062,13 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     PeopleSubjectState_SetExpectedCapacities(
         peopleScript.attributeCapacity, peopleScript.subjectCapacity);
     if (!ReadTankCannonScriptSummary(&tankCannonScript) ||
+        !ReadHowitzerScriptSummary(&howitzerScript) ||
         !InitializeTankCannonSubjectTables(context, tankCannonScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+    HowitzerSubjectState_SetExpectedCapacities(
+        howitzerScript.attributeCapacity, howitzerScript.subjectCapacity);
     if (!RunRouteBootstrap(context, startTime) ||
         !RunCommonAttributeBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
@@ -6009,7 +6106,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     if (!RunFarterAttributeBootstrap(context, startTime) ||
         !RunLampAttributeBootstrap(context, startTime) ||
         !RunCorpseAttributeBootstrap(context, startTime) ||
-        !RunBulletAttributeBootstrap(context, startTime)) {
+        !RunBulletAttributeBootstrap(context, startTime) ||
+        !RunHowitzerBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -6023,6 +6121,17 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     if (!PublishSkinResources(context) ||
         !PublishSkinAnimations(context, startTime) ||
         !PublishStaticMechanisms(startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    // The January Howitzer attribute implementation resolves its Skin,
+    // Corpse and Bullet references in ct_Attribute::update.  Updating every
+    // table here would prematurely resolve Vehicle/People/Tank and violate
+    // their staged validation boundary, so update only HowitzerAttr.
+    if (!HowitzerSubjectState_ResolveReferences(context,
+                                                 Session::m_moment)) {
+      Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+             "HowitzerAttr reference resolution failed");
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -6048,7 +6157,8 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
          !PublishCorpseAttributes(context) ||
          !PublishBulletAttributes(context) ||
          !PublishPeopleAttributes(context, peopleScript) ||
-         !PublishTankCannonAttributes(context, tankCannonScript)) {
+         !PublishTankCannonAttributes(context, tankCannonScript) ||
+         !PublishHowitzerTables(context, howitzerScript)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }
@@ -6190,6 +6300,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
   RecoveredStaticMechanism_Release();
+  HowitzerSubjectState_ReleaseHolders();
   RecoveredScriptEvents_Release(g_arena.getContext());
   RecoveredGameplayTuning_Release(g_arena.getContext());
   OrphanAttributeState_ClearReferences(g_arena.getContext());
@@ -7661,6 +7772,65 @@ int RecoveredArenaSeance_TaxiProbeRollbacks() {
 
 bool RecoveredArenaSeance_BulletAttributesReady() {
   return g_state.bulletAttributesReady;
+}
+
+bool RecoveredArenaSeance_HowitzerTablesReady() {
+  return g_state.arenaOpen &&
+         HowitzerSubjectState_TableReady(g_arena.getContext());
+}
+
+int RecoveredArenaSeance_HowitzerAttributeCount() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_AttributeCount()
+             : 0;
+}
+
+int RecoveredArenaSeance_HowitzerAttributeCapacity() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_AttributeCapacity()
+             : 0;
+}
+
+int RecoveredArenaSeance_HowitzerSubjectCapacity() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_SubjectCapacity()
+             : 0;
+}
+
+int RecoveredArenaSeance_HowitzerLiveCount() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_LiveCount()
+             : 0;
+}
+
+int RecoveredArenaSeance_HowitzerReadyLiveCount() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_ReadyLiveCount(g_arena.getContext())
+             : 0;
+}
+
+int RecoveredArenaSeance_HowitzerHolderCount() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_HolderCount()
+             : 0;
+}
+
+int RecoveredArenaSeance_HowitzerSupportedHolderCount() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_SupportedHolderCount()
+             : 0;
+}
+
+int RecoveredArenaSeance_HowitzerOccupiedHolderCount() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_OccupiedHolderCount()
+             : 0;
+}
+
+unsigned long long RecoveredArenaSeance_HowitzerFingerprint() {
+  return RecoveredArenaSeance_HowitzerTablesReady()
+             ? HowitzerSubjectState_Fingerprint(g_arena.getContext())
+             : 0;
 }
 
 bool RecoveredArenaSeance_BulletReferencesReady() {

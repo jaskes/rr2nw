@@ -556,6 +556,16 @@ bool IsReleased(SimulationContext& context) {
          TaxiSubjectState_Capacity() == 0 &&
          TaxiSubjectState_LiveCount() == 0 &&
          TaxiSubjectState_SoundCount() == 0 &&
+         !RecoveredArenaSeance_HowitzerTablesReady() &&
+         RecoveredArenaSeance_HowitzerAttributeCount() == 0 &&
+         RecoveredArenaSeance_HowitzerAttributeCapacity() == 0 &&
+         RecoveredArenaSeance_HowitzerSubjectCapacity() == 0 &&
+         RecoveredArenaSeance_HowitzerLiveCount() == 0 &&
+         RecoveredArenaSeance_HowitzerReadyLiveCount() == 0 &&
+         RecoveredArenaSeance_HowitzerHolderCount() == 0 &&
+         RecoveredArenaSeance_HowitzerSupportedHolderCount() == 0 &&
+         RecoveredArenaSeance_HowitzerOccupiedHolderCount() == 0 &&
+         RecoveredArenaSeance_HowitzerFingerprint() == 0 &&
          !RecoveredArenaSeance_BulletAttributesReady() &&
          !RecoveredArenaSeance_BulletReferencesReady() &&
          !RecoveredArenaSeance_BulletSubjectRegistrationReady() &&
@@ -826,6 +836,7 @@ bool IsReleased(SimulationContext& context) {
          !context.isExist("Expl.Test.0") &&
          !context.isExist("Bullet.Led") &&
          !context.isExist("Taxi.Attr.CorpseFinal") &&
+         !context.isExist("Howitzer.Attr.Default") &&
          !context.isExist("Lamp.Attr.Default") &&
          !context.isExist("Corpse.Attr.Default") &&
          !context.isExist("snd.snd") &&
@@ -970,6 +981,16 @@ bool RunCycle(bool expectVisualResources) {
       TaxiSubjectState_Capacity() != 0 ||
       TaxiSubjectState_LiveCount() != 0 ||
       TaxiSubjectState_SoundCount() != 0 ||
+      !RecoveredArenaSeance_HowitzerTablesReady() ||
+      RecoveredArenaSeance_HowitzerAttributeCount() != 1 ||
+      RecoveredArenaSeance_HowitzerAttributeCapacity() != 2 ||
+      RecoveredArenaSeance_HowitzerSubjectCapacity() != 30 ||
+      RecoveredArenaSeance_HowitzerLiveCount() != 0 ||
+      RecoveredArenaSeance_HowitzerReadyLiveCount() != 0 ||
+      RecoveredArenaSeance_HowitzerHolderCount() != 1 ||
+      RecoveredArenaSeance_HowitzerSupportedHolderCount() != 1 ||
+      RecoveredArenaSeance_HowitzerOccupiedHolderCount() != 0 ||
+      RecoveredArenaSeance_HowitzerFingerprint() == 0 ||
       !RecoveredArenaSeance_BulletAttributesReady() ||
       RecoveredArenaSeance_BulletReferencesReady() ||
       !RecoveredArenaSeance_BulletSubjectRegistrationReady() ||
@@ -1223,11 +1244,11 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldEngineCompatibility() != 3 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 14 ||
+      RecoveredArenaSeance_ActiveWorldEngineCompatibility() != 4 ||
+      RecoveredArenaSeance_ActiveWorldSections() != 15 ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 14 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 14 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 15 ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() != 15 ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldMissionRecords() != 0 ||
@@ -1260,6 +1281,8 @@ bool RunCycle(bool expectVisualResources) {
       g_arena.searchSeanceClassTable("BulletAttr") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Bullet") == ct_NULLID ||
       g_arena.searchSeanceClassTable("TaxiAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("HowitzerAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Howitzer") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Project") == ct_NULLID ||
       g_arena.searchSeanceClassTable("RecruitCenter") == ct_NULLID ||
       g_arena.searchSeanceClassTable("Taxi") != ct_NULLID ||
@@ -1558,7 +1581,7 @@ bool RunCycle(bool expectVisualResources) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 23) {
+  if (argc != 26) {
     return Fail("expected a fixture directory and retail-script sources");
   }
 
@@ -1686,6 +1709,12 @@ int main(int argc, char** argv) {
       JoinPath(fixtureDirectory, "incubator.sci");
   const std::string recruitCenterCopy =
       JoinPath(scincDirectory, "RECRCEN.SCI");
+  const std::string howitzerCopy =
+      JoinPath(scincDirectory, "HOWITZER.SCI");
+  const std::string setHowitzersCopy =
+      JoinPath(scincDirectory, "set_howitzers.sci");
+  const std::string howitzerHoldersCopy =
+      JoinPath(levelDirectory, "Howitzers.hwz");
   DeleteFileA(smokeCopy.c_str());
   DeleteFileA(smokeSprite.c_str());
   DeleteFileA(flameSprite.c_str());
@@ -1712,6 +1741,9 @@ int main(int argc, char** argv) {
   DeleteFileA(setPeopleCopy.c_str());
   DeleteFileA(tankCopy.c_str());
   DeleteFileA(setTankCopy.c_str());
+  DeleteFileA(howitzerCopy.c_str());
+  DeleteFileA(setHowitzersCopy.c_str());
+  DeleteFileA(howitzerHoldersCopy.c_str());
   DeleteFileA(unitsCopy.c_str());
   DeleteFileA(sysfCopy.c_str());
   DeleteFileA(definitionsCopy.c_str());
@@ -1719,9 +1751,15 @@ int main(int argc, char** argv) {
   DeleteFileA(briefCopy.c_str());
   DeleteFileA(incubatorCopy.c_str());
   DeleteFileA(recruitCenterCopy.c_str());
+  DeleteFileA(howitzerCopy.c_str());
+  DeleteFileA(setHowitzersCopy.c_str());
+  DeleteFileA(howitzerHoldersCopy.c_str());
   if (!WriteFile(config, fixture) ||
       !WriteFile(unitsCopy, emptyPeopleSupportFixture) ||
       !WriteFile(sysfCopy, emptyPeopleSupportFixture) ||
+      CopyFileA(argv[23], howitzerCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[24], setHowitzersCopy.c_str(), FALSE) == FALSE ||
+      CopyFileA(argv[25], howitzerHoldersCopy.c_str(), FALSE) == FALSE ||
       SetCurrentDirectoryA(levelDirectory.c_str()) == FALSE) {
     return Fail("could not prepare retail-script Arena fixture");
   }
@@ -2414,6 +2452,7 @@ int main(int argc, char** argv) {
                "explosion_piece=source-only-deferred "
                "vehicle_attrs=3/8 vehicle_refs=Panel-Taxi-Bullet-atomic "
                "taxi_attrs=2/7-atomic-source-only "
+               "howitzer_tables=1/2-0/30 holders=1/1 "
                "bullet_attrs=4/4 "
                "bullet_subject=0/500-ballistic-collision-ground-waterline "
                "bullet_probe_moves=2 bullet_collision=2/1/4/3/4/0 "

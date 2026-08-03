@@ -14,6 +14,7 @@
 #include "obase/corpse/CorpseActiveWorldState.h"
 #include "obase/explosion/ExplosionActiveWorldState.h"
 #include "obase/group/TankGroupState.h"
+#include "obase/howitzer/HowitzerActiveWorldState.h"
 #include "obase/orphan/OrphanActiveWorldState.h"
 #include "obase/people/PeopleActiveWorldState.h"
 #include "obase/spark/SparkActiveWorldState.h"
@@ -362,6 +363,17 @@ bool CaptureOwnerSections(SimulationContext* context,
   }
   sections->push_back(std::move(orphans));
 
+  SActiveWorldSection howitzers = {};
+  howitzers.kind = EActiveWorldSectionKind::Howitzer;
+  howitzers.schemaVersion = 1;
+  howitzers.owner = "Howitzer";
+  if (!HowitzerActiveWorldState_CaptureStable(context,
+                                               &howitzers.payload)) {
+    SetFailure(failure, HowitzerActiveWorldState_LastFailure());
+    return false;
+  }
+  sections->push_back(std::move(howitzers));
+
   return true;
 }
 
@@ -410,6 +422,9 @@ bool ValidateOwnerCodec(const SActiveWorldSection& section) {
     case EActiveWorldSectionKind::Orphan:
       return section.owner == "Orphan" &&
              OrphanActiveWorldState_ValidateStable(section.payload);
+    case EActiveWorldSectionKind::Howitzer:
+      return section.owner == "Howitzer" &&
+             HowitzerActiveWorldState_ValidateStable(section.payload);
     default:
       return false;
   }
@@ -450,6 +465,9 @@ bool OwnerMatchesWorld(SimulationContext* context,
       return TaxiActiveWorldState_MatchesStable(context, section.payload);
     case EActiveWorldSectionKind::Orphan:
       return OrphanActiveWorldState_MatchesStable(context, section.payload);
+    case EActiveWorldSectionKind::Howitzer:
+      return HowitzerActiveWorldState_MatchesStable(context,
+                                                     section.payload);
     default:
       return false;
   }
@@ -478,6 +496,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     missionBackup_.clear();
     peopleBackup_.clear();
     tankBackup_.clear();
+    howitzerBackup_.clear();
     taxiBackup_.clear();
     orphanBackup_.clear();
     bulletBackup_.clear();
@@ -497,6 +516,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     createdPeopleRoutes_.clear();
     createdPeople_.clear();
     createdTanks_.clear();
+    createdHowitzers_.clear();
     createdTaxis_.clear();
     createdOrphans_.clear();
     createdBullets_.clear();
@@ -520,6 +540,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         !MissionActiveWorldState_CaptureStable(context_, &missionBackup_) ||
         !PeopleActiveWorldState_CaptureStable(context_, &peopleBackup_) ||
         !TankActiveWorldState_CaptureStable(context_, &tankBackup_) ||
+        !HowitzerActiveWorldState_CaptureStable(context_,
+                                                 &howitzerBackup_) ||
         !TaxiActiveWorldState_CaptureStable(context_, &taxiBackup_) ||
         !OrphanActiveWorldState_CaptureStable(context_, &orphanBackup_) ||
         !BulletActiveWorldState_CaptureStable(context_, &bulletBackup_) ||
@@ -544,10 +566,13 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     std::vector<KR_ObjectID> liveTaxis;
     std::vector<KR_ObjectID> liveOrphans;
     std::vector<KR_ObjectID> livePeople;
+    std::vector<KR_ObjectID> liveHowitzers;
     if (!PeopleActiveWorldState_CollectStableOwners(
             context_, peopleBackup_, &livePeople) ||
         !PeopleActiveWorldState_HoldRouteReferences(
             context_, peopleBackup_, &heldPeopleRoutes_) ||
+        !HowitzerActiveWorldState_CollectStableOwners(
+            context_, howitzerBackup_, &liveHowitzers) ||
         !TaxiActiveWorldState_CollectStableOwners(
             context_, taxiBackup_, &liveTaxis) ||
         !OrphanActiveWorldState_CollectStableOwners(
@@ -619,6 +644,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     // Rollback reconstructs these exact backup payloads before applying refs.
     replacedReplaceableOwners_ = true;
     PeopleActiveWorldState_RemoveStableOwners(context_, &livePeople);
+    HowitzerActiveWorldState_RemoveStableOwners(context_, &liveHowitzers);
     TaxiActiveWorldState_RemoveStableOwners(context_, &liveTaxis);
     CorpseActiveWorldState_RemoveStableOwners(context_, &liveCorpses);
     SmokeActiveWorldState_RemoveStableOwners(context_, &liveSmokes);
@@ -664,6 +690,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       case EActiveWorldSectionKind::Tank:
         created = TankActiveWorldState_CreateStableOwners(
             context_, section.payload, &createdTanks_);
+        break;
+      case EActiveWorldSectionKind::Howitzer:
+        created = HowitzerActiveWorldState_CreateStableOwners(
+            context_, section.payload, &createdHowitzers_);
         break;
       case EActiveWorldSectionKind::Bullet:
         created = BulletActiveWorldState_CreateStableOwners(
@@ -714,6 +744,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           TankActiveWorldState_LastFailure()[0] != '\0')
         SetFailure(failure, std::string("active-world Tank allocation failed: ") +
                                 TankActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Howitzer &&
+               HowitzerActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("active-world Howitzer allocation failed: ") +
+                       HowitzerActiveWorldState_LastFailure());
       else if (section.kind == EActiveWorldSectionKind::Bullet &&
                BulletActiveWorldState_LastFailure()[0] != '\0')
         SetFailure(failure,
@@ -798,6 +833,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           resolved = TankActiveWorldState_ApplyStableReferences(
               context_, section.payload);
           break;
+        case EActiveWorldSectionKind::Howitzer:
+          resolved = HowitzerActiveWorldState_ApplyStableReferences(
+              context_, section.payload);
+          break;
         case EActiveWorldSectionKind::Bullet:
           resolved = BulletActiveWorldState_ApplyStableReferences(
               context_, section.payload);
@@ -839,6 +878,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("Tank symbolic reconstruction failed: ") +
                        TankActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Howitzer &&
+               HowitzerActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("Howitzer symbolic reconstruction failed: ") +
+                       HowitzerActiveWorldState_LastFailure());
       else if (section.kind == EActiveWorldSectionKind::Bullet &&
                BulletActiveWorldState_LastFailure()[0] != '\0')
         SetFailure(failure,
@@ -908,7 +952,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           clockMetadataMatches = ClockActiveWorldState_MetadataMatches(
               section.payload, snapshot_->simulationTick,
               snapshot_->simulationTime);
-    if (!began_ || snapshot_ == nullptr || staged_.size() != 14 ||
+    if (!began_ || snapshot_ == nullptr || staged_.size() != 15 ||
         ActiveWorldSave_ComputeWorldFingerprint(*snapshot_) !=
             expectedWorldFingerprint ||
         !clockMetadataMatches ||
@@ -964,6 +1008,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       ExplosionActiveWorldState_RemoveStableOwners(
           context_, &createdExplosions_);
       BulletActiveWorldState_RemoveStableOwners(context_, &createdBullets_);
+      HowitzerActiveWorldState_RemoveStableOwners(context_,
+                                                   &createdHowitzers_);
       PeopleActiveWorldState_RemoveStableOwners(context_, &createdPeople_);
       MissionActiveWorldState_RemoveStableOwners(
           context_, &createdPeopleRoutes_);
@@ -985,8 +1031,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         std::vector<KR_ObjectID> restoredTaxis;
         std::vector<KR_ObjectID> restoredOrphans;
         std::vector<KR_ObjectID> restoredPeople;
+        std::vector<KR_ObjectID> restoredHowitzers;
         clean = PeopleActiveWorldState_CreateStableOwners(
                     context_, peopleBackup_, &restoredPeople) &&
+                clean;
+        clean = HowitzerActiveWorldState_CreateStableOwners(
+                    context_, howitzerBackup_, &restoredHowitzers) &&
                 clean;
         clean = TaxiActiveWorldState_CreateStableOwners(
                     context_, taxiBackup_, &restoredTaxis) &&
@@ -1024,6 +1074,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, peopleBackup_) && clean;
       clean = TankActiveWorldState_ApplyStableReferences(
                   context_, tankBackup_) && clean;
+      clean = HowitzerActiveWorldState_ApplyStableReferences(
+                  context_, howitzerBackup_) && clean;
       clean = BulletActiveWorldState_ApplyStableReferences(
                   context_, bulletBackup_) && clean;
       clean = ExplosionActiveWorldState_ApplyStableReferences(
@@ -1060,6 +1112,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, missionBackup_) &&
               PeopleActiveWorldState_MatchesStable(context_, peopleBackup_) &&
               TankActiveWorldState_MatchesStable(context_, tankBackup_) &&
+              HowitzerActiveWorldState_MatchesStable(
+                  context_, howitzerBackup_) &&
               BulletActiveWorldState_MatchesStable(context_, bulletBackup_) &&
               ExplosionActiveWorldState_MatchesStable(
                   context_, explosionBackup_) &&
@@ -1083,7 +1137,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 14 &&
+    return began_ && committed_ && !rolledBack_ && staged_.size() == 15 &&
            snapshot_ != nullptr && stagedEvents_.size() ==
                snapshot_->events.size() &&
            ActiveWorldSemanticEvents_Matches(context_, stagedEvents_) &&
@@ -1096,6 +1150,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
            createdTankGroups_.empty() && createdVehicles_.empty() &&
             createdMissionRoutes_.empty() && createdPeopleRoutes_.empty() &&
            createdPeople_.empty() && createdTanks_.empty() &&
+           createdHowitzers_.empty() &&
            createdTaxis_.empty() && createdOrphans_.empty() &&
            createdBullets_.empty() && createdExplosions_.empty() &&
            createdSparks_.empty() && createdSmokes_.empty() &&
@@ -1113,6 +1168,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                             createdMissionRoutes_.size() +
                             createdPeopleRoutes_.size() +
                             createdPeople_.size() + createdTanks_.size() +
+                            createdHowitzers_.size() +
                             createdTaxis_.size() +
                             createdOrphans_.size() +
                             createdBullets_.size() +
@@ -1142,6 +1198,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> missionBackup_;
   std::vector<std::uint8_t> peopleBackup_;
   std::vector<std::uint8_t> tankBackup_;
+  std::vector<std::uint8_t> howitzerBackup_;
   std::vector<std::uint8_t> taxiBackup_;
   std::vector<std::uint8_t> orphanBackup_;
   std::vector<std::uint8_t> bulletBackup_;
@@ -1161,6 +1218,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<KR_ObjectID> createdPeopleRoutes_;
   std::vector<KR_ObjectID> createdPeople_;
   std::vector<KR_ObjectID> createdTanks_;
+  std::vector<KR_ObjectID> createdHowitzers_;
   std::vector<KR_ObjectID> createdTaxis_;
   std::vector<KR_ObjectID> createdOrphans_;
   std::vector<KR_ObjectID> createdBullets_;

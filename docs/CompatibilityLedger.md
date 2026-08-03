@@ -3903,6 +3903,29 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   layer. Replace the legacy global registration and make repeated viewport
   release explicit without recoding unrelated CP1251 source files.
 
+### CQ-206: Howitzer event source is not its scheduler ownership key
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_RUNTIME_PROVED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the preserved Howitzer start handler mutates the received event's
+  label and schedules it without replacing its source. Mission `ProjectA32`
+  then assigns the Commander and leaves two FIND plus one ACTION event for
+  each of six live `Level.05D` Howitzers. Source-filtered capture loses valid
+  timers even though all destinations remain exact.
+- Handling: enumerate and remove Howitzer timers by label plus destination,
+  serialize the source independently and preserve duplicate events. Rebuild
+  exact mod-aware holders before resolving Commander/enemy identities. An
+  exact timestamp zero from scripts is moved to the first positive queue
+  boundary because zero is the legacy unused-event sentinel; positive and
+  invalid timestamps retain their existing policies.
+- Verification: `--mission-continuation-smoke` reports `6/6/6` live/ready/
+  occupied Howitzers, `18` queued timers, an exact LCN1 recapture after restore
+  and an exact backup recapture after an injected post-authority failure.
+  Both paths end with zero game-service issues and clean shutdown.
+- Revisit when: the scheduler receives a maintained owner token. Migrate all
+  subject timers together; do not retrofit source as ownership because retail
+  events demonstrably violate that assumption.
+
 ## Maintenance rule
 
 When a new quirk is found:

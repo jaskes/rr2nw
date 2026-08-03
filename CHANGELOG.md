@@ -7,6 +7,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Mission scripts can now allocate the real retail Howitzer population instead
+  of stopping at a synthetic holder check. The effective mod-aware
+  `Howitzers.hwz` catalog owns exact holder reservation, attribute/skin setup,
+  Commander and enemy references, all FIND/ACTION timers and symmetric
+  teardown. The installed `Level.05D` `ProjectA32` path creates six live,
+  drawable, holder-backed Howitzers and leaves no transaction issue.
+- Active-world schema 4 adds a versioned `Howitzer` section. It reconstructs
+  exact holders before references, preserves duplicate timer multiplicity and
+  each timer's independent source, and removes every reconstructed owner on
+  failure. `--mission-continuation-smoke` proves byte-identical capture after
+  restore and again after an injected gameplay-authority failure rolls the
+  complete source world back.
+- Zero-time mission events are now admitted at the first positive scheduler
+  boundary. This preserves retail mission intent without passing an exact
+  timestamp zero into the legacy queue, whose zero value is reserved as an
+  unused slot marker.
 - Cross-Level load now reconstructs mission-local People routes before
   restoring active actors. The loader derives only validated `msNN.symbol`
   routes from the matching retail `Route/SNN/symbol.rt`, holds both source and
