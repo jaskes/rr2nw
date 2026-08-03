@@ -2639,7 +2639,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredGameServices_LoopReady() ? 1 : 0));
   int currentLevelIndex = data.startLevel;
   bool loopFailed = !RecoveredGameServices_IsReady();
-  if (!loopFailed && options.startupSaveSlot >= 0 &&
+  // A mission acceptance save must be captured after the synthetic retail
+  // mission has run.  Ordinary startup saves retain the original first-frame
+  // boundary below; the mission path is committed later in the mission block.
+  const bool saveAfterMission =
+      options.startupSaveSlot >= 0 && options.missionSmoke;
+  if (!loopFailed && options.startupSaveSlot >= 0 && !saveAfterMission &&
       !RecoveredGameServices_RequestSaveSlot(
           static_cast<std::uint32_t>(options.startupSaveSlot), false)) {
     loopFailed = true;
@@ -2663,12 +2668,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            ProcessDebugLevelSwitch(data, &currentLevelIndex,
                                    options.runtimeSmoke, &log);
   };
-  // Startup save/load is itself a closed-frame operation.  Complete it before
-  // staging the synthetic map mission: otherwise a save captures the probe,
-  // while a cross-Level load carries source-Level probe baselines into the
-  // restored DebugMap and can reject an otherwise successful load.
+  // Ordinary startup save/load is itself a closed-frame operation. Complete
+  // it before staging the synthetic map mission. Mission acceptance saves are
+  // deliberately postponed so a fresh process has to reconstruct the real
+  // mission-created Route and owner graph.
   if (!loopFailed && options.runtimeSmoke &&
-      (options.startupSaveSlot >= 0 || options.startupLoadSlot >= 0))
+      ((!saveAfterMission && options.startupSaveSlot >= 0) ||
+       options.startupLoadSlot >= 0))
     loopFailed = !runCompleteFrame();
   if (!loopFailed && options.runtimeSmoke &&
       options.startupSaveSlot < 0 && options.startupLoadSlot < 0) {
@@ -2714,6 +2720,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.createdMissionObjects));
     log.Line("mission_smoke_conditions=" +
              std::to_string(mission.conditionReferences));
+    log.Line("mission_smoke_routes=" +
+             std::to_string(mission.routeReferences));
     log.Line("mission_smoke_rebound_conditions=" +
              std::to_string(mission.reboundConditionReferences));
     log.Line("mission_smoke_briefings=" +
@@ -2776,6 +2784,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(guide.elapsed) + "/" +
              std::to_string(guide.displacement));
     loopFailed = loopFailed || !guideReady;
+    if (!loopFailed && saveAfterMission) {
+      const bool missionSaveRequested =
+          RecoveredGameServices_RequestSaveSlot(
+              static_cast<std::uint32_t>(options.startupSaveSlot), false);
+      log.Line(std::string("mission_smoke_save_requested=") +
+               (missionSaveRequested ? "1" : "0"));
+      loopFailed = !missionSaveRequested || !runCompleteFrame();
+    }
     if (!loopFailed && options.missionContinuationSmoke) {
       std::vector<std::uint8_t> continuation;
       std::vector<std::uint8_t> recaptured;

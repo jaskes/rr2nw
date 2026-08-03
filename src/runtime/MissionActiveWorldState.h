@@ -3,14 +3,25 @@
 
 #include "kernel/h/krtypes.h"
 
+#include <string>
 #include <vector>
 
 class SimulationContext;
+
+struct SMissionRouteRequirement {
+  std::string name;
+  unsigned long long geometryFingerprint = 0;
+};
 
 bool MissionActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes);
 bool MissionActiveWorldState_ValidateStable(
     const std::vector<unsigned char> &bytes);
+bool MissionActiveWorldState_ProbeLegacyVersionCompatibility(
+    SimulationContext *context);
+bool MissionActiveWorldState_RouteRequirements(
+    const std::vector<unsigned char> &bytes,
+    std::vector<SMissionRouteRequirement> *requirements);
 bool MissionActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes);
 bool MissionActiveWorldState_CreateStableOwners(

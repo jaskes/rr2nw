@@ -7,6 +7,21 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Cross-Level load now reconstructs PlayerMission Routes whose symbolic object
+  identity is the retail relative filename (for example
+  `Route/S22/ms.rt`). The former recovery catalog compared only the Route
+  file's internal header (`ms22.ms`), so a valid mission save failed both the
+  target transaction and source rollback with an unresolved MSH1 dependency.
+- MSH1 version 2 pins the mission Route geometry fingerprint and keeps a
+  semantic migration path for version-1 slots. Mission-route lookup accepts
+  only the matching mod-aware virtual path or authored header, folds Windows
+  separator/case differences, and still rejects missing, changed or ambiguous
+  data before world publication.
+- `--mission-smoke --save-slot` now commits after mission execution instead of
+  before it. The new mission Route acceptance gate creates `ProjectS22`, exits
+  the saving process, then proves fresh same-Level and `Level.02D ->
+  Level.03N` load with equal world fingerprints, no rollback and clean
+  shutdown. The unchanged user-reported MSH1-v1 Slot 1 passes both paths too.
 - Taxi-to-Vehicle handover now derives the spawned vessel's lift direction
   from the Taxi support basis instead of adding height on world Y. A small
   profile-aware release clearance prevents the recovered sweep from treating

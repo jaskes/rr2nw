@@ -1748,6 +1748,16 @@ source People graph remain separately rollbackable. The user's unchanged menu
 Slot 2 now commits `Level.05D -> Level.02D`; its `ma20.eap00` route is correctly
 found beneath `Route/A20` with zero rollback and game-service issue.
 
+The complementary PlayerMission Route case is closed too. MSH1 does not
+always store the header used by People: `ProjectS22` retains the virtual
+resource name `Route/S22/ms.rt`, while that file declares `ms22.ms` internally.
+MSH1 v2 pins geometry and the recovery catalog admits either distinct identity
+without conflating them. `Invoke-MissionRouteSaveLoad.ps1` now creates that
+mission, saves only after admission, destroys the producer process and proves
+both fresh same-Level and `Level.02D -> Level.03N` restore. The reported
+MSH1-v1 Slot 1 follows the same path through semantic migration and no longer
+loses both target and rollback worlds.
+
 The committed briefing path is connected to real presentation as well. The
 bounded session now restores the retail small-font, GameConsole and Briefing
 owners omitted by the initial modern bootstrap and refreshes the briefing
@@ -1755,6 +1765,14 @@ viewport after every graph begin. A visible Level.03N ProjectS25 smoke presents
 one authored briefing, creates 22 mission owners and exits cleanly. The normal
 `--mission-smoke` remains intentionally headless so transaction and UI failures
 continue to be distinguishable.
+
+Manual Level.03N confirmation narrows the remaining presentation gap: the
+mission briefing now appears, but the short character clip that retail showed
+before it does not. `rc_SET_VIDEO` already retains separate default briefing
+and flick strings, yet the May-era consumer/order is absent from the January
+source. Recover and gate that distinct first/repeat-visit presentation in
+Frontier G; do not fold it into mission admission or count the working
+ProjectTable briefing as equivalent evidence.
 
 The current Windows playtest boundary is also explicit. Successful frames now
 publish input, simulation, software-render, present and frame-boundary timing.

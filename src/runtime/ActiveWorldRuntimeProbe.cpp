@@ -40,19 +40,43 @@ void SetFailure(std::string* failure, const std::string& message) {
   if (failure != nullptr) *failure = message;
 }
 
-bool RestoreMissingPeopleRoutes(
-    SimulationContext* context, const std::vector<std::uint8_t>& payload,
+struct RouteRestoreRequirement {
+  std::string name;
+  unsigned long long geometryFingerprint = 0;
+  std::string owner;
+};
+
+std::string FoldRouteIdentity(const std::string& value) {
+  std::string folded = value;
+  for (char& character : folded) {
+    if (character == '/') character = '\\';
+    character = static_cast<char>(
+        std::tolower(static_cast<unsigned char>(character)));
+  }
+  return folded;
+}
+
+bool RestoreMissingRoutes(
+    SimulationContext* context,
+    const std::vector<RouteRestoreRequirement>& requirements,
     std::vector<KR_ObjectID>* created, std::string* failure) {
   if (context == nullptr || created == nullptr) return false;
-  std::vector<SPeopleRouteRequirement> requirements;
-  if (!PeopleActiveWorldState_RouteRequirements(payload, &requirements)) {
-    SetFailure(failure, "People route manifest decoding failed");
-    return false;
-  }
-  std::vector<SPeopleRouteRequirement> missing;
-  for (const SPeopleRouteRequirement& requirement : requirements)
-    if (!context->isExist(requirement.name.c_str()))
+  std::vector<RouteRestoreRequirement> missing;
+  for (const RouteRestoreRequirement& requirement : requirements) {
+    if (!context->isExist(requirement.name.c_str())) {
       missing.push_back(requirement);
+      continue;
+    }
+    const KR_ObjectID object = context->searchObject(requirement.name.c_str());
+    IRouteObject* route = static_cast<IRouteObject*>(
+        context->queryInterface(object, IRouteObjectIID));
+    if (route == nullptr || route->GetNodeCnt() < 2) {
+      SetFailure(failure, "saved " + requirement.owner +
+                              " Route owner is incompatible: " +
+                              requirement.name);
+      return false;
+    }
+  }
   if (missing.empty()) return true;
 
   struct RouteCatalogEntry {
@@ -139,16 +163,27 @@ bool RestoreMissingPeopleRoutes(
     if (parseRoute(path, &entry)) catalog.push_back(entry);
   }
 
-  for (const SPeopleRouteRequirement& requirement : missing) {
+  for (const RouteRestoreRequirement& requirement : missing) {
     std::vector<const RouteCatalogEntry*> candidates;
+    const std::string foldedRequirement =
+        FoldRouteIdentity(requirement.name);
     for (const RouteCatalogEntry& entry : catalog) {
-      if (entry.name == requirement.name &&
+      // People keep the Route object's authored symbolic header (for example
+      // `Patrol.01`), while PlayerMission keeps the relative filename passed
+      // to Route::Load (for example `Route/S22/ms.rt`).  Both are legitimate
+      // retail object identities.  The virtual catalog path is folded only
+      // for case and separator style; ambiguity is still rejected below.
+      const bool identityMatches =
+          FoldRouteIdentity(entry.name) == foldedRequirement ||
+          FoldRouteIdentity(entry.path) == foldedRequirement;
+      if (identityMatches &&
           (requirement.geometryFingerprint == 0 ||
            entry.geometryFingerprint == requirement.geometryFingerprint))
         candidates.push_back(&entry);
     }
     if (candidates.empty()) {
-      SetFailure(failure, "saved People route file is unavailable: " +
+      SetFailure(failure, "saved " + requirement.owner +
+                              " Route file is unavailable: " +
                               requirement.name);
       return false;
     }
@@ -160,7 +195,8 @@ bool RestoreMissingPeopleRoutes(
             candidates[index]->geometryFingerprint ==
                 selected->geometryFingerprint;
       if (!equivalent) {
-        SetFailure(failure, "saved People route is ambiguous: " +
+        SetFailure(failure, "saved " + requirement.owner +
+                                " Route is ambiguous: " +
                                 requirement.name);
         return false;
       }
@@ -168,7 +204,8 @@ bool RestoreMissingPeopleRoutes(
     char resolvedPath[4096] = {};
     if (!RecoveredModRuntime_ResolveReadPath(
             selected->path.c_str(), resolvedPath, sizeof(resolvedPath))) {
-      SetFailure(failure, "saved People route path resolution failed: " +
+      SetFailure(failure, "saved " + requirement.owner +
+                              " Route path resolution failed: " +
                               requirement.name);
       return false;
     }
@@ -179,14 +216,16 @@ bool RestoreMissingPeopleRoutes(
         : static_cast<IRouteObject*>(
               context->queryInterface(route, IRouteObjectIID));
     if (routeObject == nullptr) {
-      SetFailure(failure, "saved People route allocation failed: " +
+      SetFailure(failure, "saved " + requirement.owner +
+                              " Route allocation failed: " +
                               requirement.name);
       return false;
     }
     created->push_back(route);
     routeObject->Load(resolvedPath);
     if (routeObject->GetNodeCnt() < 2) {
-      SetFailure(failure, "saved People route load failed: " +
+      SetFailure(failure, "saved " + requirement.owner +
+                              " Route load failed: " +
                               requirement.name);
       return false;
     }
@@ -203,13 +242,46 @@ bool RestoreMissingPeopleRoutes(
       if (PeopleActiveWorldState_RouteGeometryFingerprint(
               &loadedCoordinates[0], loadedCoordinates.size()) !=
           requirement.geometryFingerprint) {
-        SetFailure(failure, "saved People route changed during restore: " +
+        SetFailure(failure, "saved " + requirement.owner +
+                                " Route changed during restore: " +
                                 requirement.name);
         return false;
       }
     }
   }
   return true;
+}
+
+bool RestoreMissingPeopleRoutes(
+    SimulationContext* context, const std::vector<std::uint8_t>& payload,
+    std::vector<KR_ObjectID>* created, std::string* failure) {
+  std::vector<SPeopleRouteRequirement> decoded;
+  if (!PeopleActiveWorldState_RouteRequirements(payload, &decoded)) {
+    SetFailure(failure, "People Route manifest decoding failed");
+    return false;
+  }
+  std::vector<RouteRestoreRequirement> requirements;
+  requirements.reserve(decoded.size());
+  for (const SPeopleRouteRequirement& route : decoded)
+    requirements.push_back(
+        {route.name, route.geometryFingerprint, "People"});
+  return RestoreMissingRoutes(context, requirements, created, failure);
+}
+
+bool RestoreMissingMissionRoutes(
+    SimulationContext* context, const std::vector<std::uint8_t>& payload,
+    std::vector<KR_ObjectID>* created, std::string* failure) {
+  std::vector<SMissionRouteRequirement> decoded;
+  if (!MissionActiveWorldState_RouteRequirements(payload, &decoded)) {
+    SetFailure(failure, "Mission Route manifest decoding failed");
+    return false;
+  }
+  std::vector<RouteRestoreRequirement> requirements;
+  requirements.reserve(decoded.size());
+  for (const SMissionRouteRequirement& route : decoded)
+    requirements.push_back(
+        {route.name, route.geometryFingerprint, "Mission"});
+  return RestoreMissingRoutes(context, requirements, created, failure);
 }
 
 bool CaptureOwnerSections(SimulationContext* context,
@@ -678,8 +750,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
             context_, section.payload, &createdVehicles_);
         break;
       case EActiveWorldSectionKind::Mission:
-        created = MissionActiveWorldState_CreateStableOwners(
-            context_, section.payload, &createdMissionRoutes_);
+        created = RestoreMissingMissionRoutes(
+                      context_, section.payload, &createdMissionRoutes_,
+                      failure) &&
+                  MissionActiveWorldState_CreateStableOwners(
+                      context_, section.payload, &createdMissionRoutes_);
         break;
       case EActiveWorldSectionKind::People:
         created = RestoreMissingPeopleRoutes(
@@ -732,11 +807,18 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         break;
     }
     if (!created) {
-      if (section.kind == EActiveWorldSectionKind::People && failure != nullptr &&
+      if ((section.kind == EActiveWorldSectionKind::Mission ||
+           section.kind == EActiveWorldSectionKind::People) &&
+          failure != nullptr &&
           !failure->empty()) {
-        // RestoreMissingPeopleRoutes already names the missing or malformed
-        // authored dependency. Preserve that actionable diagnosis.
-      } else if (section.kind == EActiveWorldSectionKind::People &&
+        // RestoreMissingRoutes already names the missing or malformed authored
+        // dependency. Preserve that actionable diagnosis.
+      } else if (section.kind == EActiveWorldSectionKind::Mission &&
+          MissionActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("active-world Mission allocation failed: ") +
+                       MissionActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::People &&
           PeopleActiveWorldState_LastFailure()[0] != '\0')
         SetFailure(failure,
                    std::string("active-world People allocation failed: ") +
@@ -1002,8 +1084,6 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       TaxiActiveWorldState_RemoveStableOwners(context_, &createdTaxis_);
       CorpseActiveWorldState_RemoveStableOwners(context_, &createdCorpses_);
       ClockActiveWorldState_RemoveStableOwners(context_, &createdClocks_);
-      MissionActiveWorldState_RemoveStableOwners(
-          context_, &createdMissionRoutes_);
       SmokeActiveWorldState_RemoveStableOwners(context_, &createdSmokes_);
       SparkActiveWorldState_RemoveStableOwners(context_, &createdSparks_);
       ExplosionActiveWorldState_RemoveStableOwners(
@@ -1012,6 +1092,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       HowitzerActiveWorldState_RemoveStableOwners(context_,
                                                    &createdHowitzers_);
       PeopleActiveWorldState_RemoveStableOwners(context_, &createdPeople_);
+      MissionActiveWorldState_RemoveStableOwners(
+          context_, &createdMissionRoutes_);
       MissionActiveWorldState_RemoveStableOwners(
           context_, &createdPeopleRoutes_);
       VehicleActiveWorldState_RemoveStableOwners(context_, &createdVehicles_);
@@ -1387,6 +1469,12 @@ bool CaptureRuntime(
   snapshot.rngAlgorithm = SimulationRandom_Algorithm();
   if (!CaptureOwnerSections(context, &snapshot.sections, failure)) {
     cleanupProbeEvents();
+    return false;
+  }
+  if (stageFixtures &&
+      !MissionActiveWorldState_ProbeLegacyVersionCompatibility(context)) {
+    cleanupProbeEvents();
+    SetFailure(failure, "MSH1 version-1 semantic migration probe failed");
     return false;
   }
   if (!ActiveWorldSemanticEvents_Capture(

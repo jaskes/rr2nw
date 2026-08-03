@@ -3686,3 +3686,21 @@ normalizes the copied support-up vector and releases along it with bounded
 ground/air profile clearance. Final evidence is 67/67 CTest in Debug, Release
 and Playtest, 27/27 combined installed starts, and 9/9 fresh continuation in
 both Release and Playtest.
+
+## PlayerMission Route reconstruction boundary
+
+The archived RecruitCenter implementation uses the ProjectTable mission Route
+string twice: first as the live `Route` object's symbolic name and then as the
+filename passed to `Load`. It does not replace that identity with the first
+line read from the `.rt` file. The reproduced Level.03N slot accordingly
+stores `Route/S22/ms.rt`, although the file header is `ms22.ms`.
+
+The maintained restore catalog now indexes both fields after case/separator
+folding, retains overlay resolution and rejects missing or ambiguous matches.
+MSH1 version 2 adds the exact loaded geometry fingerprint; version 1 remains a
+semantic migration rather than a blind schema rewrite. A new executable mode
+combination commits `--mission-smoke --save-slot` only after the mission frame,
+which enables a three-process acceptance gate: mission save, fresh same-Level
+load and fresh cross-Level load. This closes the lifecycle gap that an
+in-context continuation smoke could not expose because its Route owner never
+left memory.

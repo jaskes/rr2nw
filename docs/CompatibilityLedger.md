@@ -4015,6 +4015,55 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: legacy archives are decomposed into smaller maintained targets.
   Keep one implementation owner and direct target dependencies at every step.
 
+### CQ-211: PlayerMission Route names are paths, not Route-file headers
+
+- Status: `SOURCE_CONFIRMED`, `RETAIL_SAVE_REPRODUCED`,
+  `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: RecruitCenter allocates and loads `m_missionRouteID` with the same
+  ProjectTable string. The reported Level.03N MSH1-v1 slot stores
+  `Route/S22/ms.rt`; that file's header is `ms22.ms`. Header-only recovery
+  reported `MSH1 mission Route dependency is unresolved`, then failed source
+  rollback for the same reason.
+- Handling: enumerate the effective mod-aware Level Route catalog, compare the
+  saved identity with both folded virtual relative path and folded authored
+  header, and reject absent or ambiguous matches. Allocate the Route under the
+  saved symbolic name, load through overlay resolution and, for MSH1 v2,
+  require the exact saved node fingerprint. MSH1 v1 is admitted only through
+  byte-exact semantic re-encoding after reconstruction.
+- Verification: the unchanged reported Slot 1 loads both directly in
+  Level.03N and through `Level.02D -> Level.03N`, with world fingerprint
+  `6390623342526114144`, zero failures and clean shutdown. The reproducible
+  `Invoke-MissionRouteSaveLoad.ps1` gate independently creates a new
+  ProjectS22 slot, destroys the saving process and passes fresh same-Level and
+  cross-Level restore.
+- Revisit when: Route ownership moves behind a maintained resource registry.
+  Preserve both virtual path and authored metadata as distinct fields; do not
+  rename live objects to the header or serialize absolute host paths.
+
+### CQ-212: the RecruitCenter character clip is distinct from mission briefing
+
+- Status: `PLAYTEST_OBSERVED`, `RETAIL_DATA_CONFIRMED`,
+  `MAY_CONTROL_FLOW_OPEN`.
+- Evidence: current Level.03N playtest presents the authored mission briefing,
+  but not the short character clip that preceded it in retail. `rc_SET_VIDEO`
+  supplies two separate strings and the recovered center fingerprints both
+  `m_defaultBriefing` and `m_defaultFlick`; mission presentation currently
+  plays only deferred ProjectTable `COM_PLAY_BRIEFING*` resources. The January
+  source predates the two-string event and therefore does not prove the May
+  sequencing rule.
+- Handling: keep both configured resources and the working mission briefing.
+  Do not treat a non-zero briefing count as proof that the center-introduction
+  clip ran, and do not guess whether the flick belongs before admission, only
+  on first visit, or on Commander/renegade branches.
+- Verification: manual Level.03N town-hall entry currently proves mission
+  admission, ejection and the subsequent briefing, while explicitly recording
+  the absent pre-brief clip. A future gate must count and visibly distinguish
+  center clips from ProjectTable briefings.
+- Revisit when: controlled retail observation or May-binary analysis identifies
+  the exact `rc_SET_VIDEO` consumer, first/repeat-visit policy and interaction
+  with `g_vehicle->m_playedBrief`. Then add presentation state without changing
+  MSH1 or mission transaction ownership.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -7,6 +7,7 @@
 #include "kernel/h/context.h"
 #include "message/recrcenmsg.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
+#include "obase/people/PeopleActiveWorldState.h"
 #include "mproj/h/mproj.h"
 #include "storage/h/subject.h"
 
@@ -20,7 +21,8 @@
 namespace {
 
 const std::uint32_t kMissionMagic = 0x3148534du;  // MSH1
-const std::uint32_t kMissionVersion = 1u;
+const std::uint32_t kMissionLegacyVersion = 1u;
+const std::uint32_t kMissionVersion = 2u;
 const std::size_t kMaximumMissions = 6;
 const std::size_t kMaximumReferences = KR_SetOfID::MAX_ID_CNT;
 const std::size_t kMaximumSymbolic = MAX_SYMBOLIC_LENGHT - 1;
@@ -58,6 +60,7 @@ struct StableMission {
   double widthEnd;
   std::uint32_t color;
   StableReference route;
+  unsigned long long routeGeometryFingerprint;
   std::vector<StableReference> successKill;
   std::vector<StableReference> successLive;
   std::vector<StableReached> successReached;
@@ -67,7 +70,8 @@ struct StableMission {
 
   StableMission()
       : successFirst(1), status(MISSION_NONE), hasSummary(0),
-        widthStart(0.0), widthEnd(0.0), color(0) {}
+        widthStart(0.0), widthEnd(0.0), color(0),
+        routeGeometryFingerprint(0) {}
 };
 
 struct StableState {
@@ -210,6 +214,26 @@ bool CaptureReference(SimulationContext *context, const KR_ObjectID &object,
   return true;
 }
 
+unsigned long long RouteGeometryFingerprint(
+    SimulationContext *context, const KR_ObjectID &object) {
+  if (context == NULL || IsNul(object) || !context->isExist(object))
+    return 0;
+  IRouteObject *route = static_cast<IRouteObject *>(
+      context->queryInterface(object, IRouteObjectIID));
+  if (route == NULL || route->GetNodeCnt() < 2)
+    return 0;
+  std::vector<double> coordinates;
+  coordinates.reserve(static_cast<std::size_t>(route->GetNodeCnt()) * 3);
+  for (int index = 0; index < route->GetNodeCnt(); ++index) {
+    const CFVector3 node = route->GetNode(index);
+    coordinates.push_back(node.x);
+    coordinates.push_back(node.y);
+    coordinates.push_back(node.z);
+  }
+  return PeopleActiveWorldState_RouteGeometryFingerprint(
+      coordinates.data(), coordinates.size());
+}
+
 bool ResolveReference(SimulationContext *context,
                       const StableReference &reference,
                       KR_ObjectID *object) {
@@ -315,6 +339,12 @@ bool CaptureState(SimulationContext *context, StableState *state) {
           !CaptureReference(context, source.m_missionRouteID,
                             &mission.route))
         return Fail("MSH1 mission summary is not bounded");
+      if (mission.route.kind == kReferenceSymbolic) {
+        mission.routeGeometryFingerprint = RouteGeometryFingerprint(
+            context, source.m_missionRouteID);
+        if (mission.routeGeometryFingerprint == 0)
+          return Fail("MSH1 mission Route geometry is unresolved");
+      }
       mission.widthStart = source.m_missionsw;
       mission.widthEnd = source.m_missionew;
       mission.color = static_cast<std::uint32_t>(source.m_missionrgb);
@@ -358,13 +388,15 @@ bool EncodeReachedSet(Writer *writer,
   return true;
 }
 
-bool EncodeState(const StableState &state, std::vector<unsigned char> *bytes) {
-  if (bytes == NULL)
+bool EncodeStateVersion(const StableState &state, std::uint32_t version,
+                        std::vector<unsigned char> *bytes) {
+  if (bytes == NULL ||
+      (version != kMissionLegacyVersion && version != kMissionVersion))
     return false;
   bytes->clear();
   Writer writer = {bytes};
   writer.U32(kMissionMagic);
-  writer.U32(kMissionVersion);
+  writer.U32(version);
   if (!writer.String(state.vehicle, kMaximumSymbolic))
     return false;
   writer.I32(state.totalMissionCount);
@@ -386,6 +418,12 @@ bool EncodeState(const StableState &state, std::vector<unsigned char> *bytes) {
       writer.U32(mission.color);
       if (!EncodeReference(&writer, mission.route))
         return false;
+      if (version >= 2u) {
+        writer.U32(static_cast<std::uint32_t>(
+            mission.routeGeometryFingerprint));
+        writer.U32(static_cast<std::uint32_t>(
+            mission.routeGeometryFingerprint >> 32));
+      }
     }
     if (!EncodeReferenceSet(&writer, mission.successKill) ||
         !EncodeReferenceSet(&writer, mission.successLive) ||
@@ -396,6 +434,10 @@ bool EncodeState(const StableState &state, std::vector<unsigned char> *bytes) {
       return false;
   }
   return true;
+}
+
+bool EncodeState(const StableState &state, std::vector<unsigned char> *bytes) {
+  return EncodeStateVersion(state, kMissionVersion, bytes);
 }
 
 bool DecodeReference(Reader *reader, StableReference *reference) {
@@ -494,11 +536,14 @@ bool ValidateState(const StableState &state) {
           !Finite(mission.widthStart) || !Finite(mission.widthEnd) ||
           !ValidateReference(mission.route) ||
           (mission.route.kind != kReferenceSymbolic &&
-           mission.route.kind != kReferenceTombstone))
+           mission.route.kind != kReferenceTombstone) ||
+          (mission.route.kind == kReferenceTombstone &&
+           mission.routeGeometryFingerprint != 0))
         return false;
     } else if (!mission.summaryName.empty() || !mission.summaryText.empty() ||
                mission.widthStart != 0.0 || mission.widthEnd != 0.0 ||
                mission.color != 0 ||
+               mission.routeGeometryFingerprint != 0 ||
                mission.route.kind != kReferenceTombstone ||
                !mission.route.name.empty())
       return false;
@@ -507,13 +552,14 @@ bool ValidateState(const StableState &state) {
 }
 
 bool DecodeState(const std::vector<unsigned char> &bytes,
-                 StableState *state) {
+                 StableState *state, std::uint32_t *decodedVersion = NULL) {
   if (state == NULL)
     return false;
   Reader reader(bytes);
   std::uint32_t magic = 0, version = 0, count = 0;
   if (!reader.U32(&magic) || !reader.U32(&version) ||
-      magic != kMissionMagic || version != kMissionVersion ||
+      magic != kMissionMagic ||
+      (version != kMissionLegacyVersion && version != kMissionVersion) ||
       !reader.String(&state->vehicle, kMaximumSymbolic) ||
       !reader.I32(&state->totalMissionCount) || !reader.U32(&count) ||
       count > kMaximumMissions)
@@ -533,6 +579,14 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
           !reader.Double(&mission.widthEnd) || !reader.U32(&mission.color) ||
           !DecodeReference(&reader, &mission.route))
         return false;
+      if (version >= 2u) {
+        std::uint32_t low = 0, high = 0;
+        if (!reader.U32(&low) || !reader.U32(&high))
+          return false;
+        mission.routeGeometryFingerprint =
+            static_cast<unsigned long long>(low) |
+            (static_cast<unsigned long long>(high) << 32);
+      }
     }
     if (!DecodeReferenceSet(&reader, &mission.successKill) ||
         !DecodeReferenceSet(&reader, &mission.successLive) ||
@@ -542,7 +596,19 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
         !DecodeReachedSet(&reader, &mission.failureReached))
       return false;
   }
-  return reader.offset == bytes.size() && ValidateState(*state);
+  if (reader.offset != bytes.size() || !ValidateState(*state))
+    return false;
+  if (version >= 2u) {
+    for (std::size_t index = 0; index < state->missions.size(); ++index) {
+      const StableMission &mission = state->missions[index];
+      if ((mission.route.kind == kReferenceSymbolic) !=
+          (mission.routeGeometryFingerprint != 0))
+        return false;
+    }
+  }
+  if (decodedVersion != NULL)
+    *decodedVersion = version;
+  return true;
 }
 
 bool ResolveReferenceSet(SimulationContext *context,
@@ -757,19 +823,70 @@ bool MissionActiveWorldState_ValidateStable(
   return DecodeState(bytes, &state);
 }
 
+bool MissionActiveWorldState_ProbeLegacyVersionCompatibility(
+    SimulationContext *context) {
+  StableState state;
+  std::vector<unsigned char> legacy;
+  return CaptureState(context, &state) && ValidateState(state) &&
+         EncodeStateVersion(state, kMissionLegacyVersion, &legacy) &&
+         MissionActiveWorldState_ValidateStable(legacy) &&
+         MissionActiveWorldState_MatchesStable(context, legacy);
+}
+
+bool MissionActiveWorldState_RouteRequirements(
+    const std::vector<unsigned char> &bytes,
+    std::vector<SMissionRouteRequirement> *requirements) {
+  StableState state;
+  if (requirements == NULL || !DecodeState(bytes, &state))
+    return false;
+  requirements->clear();
+  for (std::size_t index = 0; index < state.missions.size(); ++index) {
+    const StableMission &mission = state.missions[index];
+    if (!mission.hasSummary ||
+        mission.route.kind != kReferenceSymbolic)
+      continue;
+    SMissionRouteRequirement requirement;
+    requirement.name = mission.route.name;
+    requirement.geometryFingerprint =
+        mission.routeGeometryFingerprint;
+    requirements->push_back(requirement);
+  }
+  std::sort(requirements->begin(), requirements->end(),
+            [](const SMissionRouteRequirement &left,
+               const SMissionRouteRequirement &right) {
+              if (left.name != right.name)
+                return left.name < right.name;
+              return left.geometryFingerprint < right.geometryFingerprint;
+            });
+  requirements->erase(
+      std::unique(requirements->begin(), requirements->end(),
+                  [](const SMissionRouteRequirement &left,
+                     const SMissionRouteRequirement &right) {
+                    return left.name == right.name &&
+                        left.geometryFingerprint ==
+                            right.geometryFingerprint;
+                  }),
+      requirements->end());
+  return true;
+}
+
 bool MissionActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes) {
-  std::vector<unsigned char> current;
-  return MissionActiveWorldState_CaptureStable(context, &current) &&
-         current == bytes;
+  StableState expected;
+  StableState current;
+  std::uint32_t version = 0;
+  std::vector<unsigned char> currentBytes;
+  return DecodeState(bytes, &expected, &version) &&
+         CaptureState(context, &current) && ValidateState(current) &&
+         EncodeStateVersion(current, version, &currentBytes) &&
+         currentBytes == bytes;
 }
 
 bool MissionActiveWorldState_CreateStableOwners(
     SimulationContext *context, const std::vector<unsigned char> &bytes,
     std::vector<KR_ObjectID> *created) {
   StableState state;
-  if (context == NULL || created == NULL || !created->empty() ||
-      !DecodeState(bytes, &state))
+  if (context == NULL || created == NULL || !DecodeState(bytes, &state))
     return false;
   for (std::size_t index = 0; index < state.missions.size(); ++index) {
     const StableReference &route = state.missions[index].route;
@@ -777,6 +894,15 @@ bool MissionActiveWorldState_CreateStableOwners(
         state.missions[index].route.kind == kReferenceSymbolic &&
         !context->isExist(route.name.c_str()))
       return Fail("MSH1 mission Route dependency is unresolved");
+    if (state.missions[index].hasSummary &&
+        state.missions[index].route.kind == kReferenceSymbolic) {
+      const KR_ObjectID object = context->searchObject(route.name.c_str());
+      if (context->queryInterface(object, IRouteObjectIID) == NULL ||
+          (state.missions[index].routeGeometryFingerprint != 0 &&
+           RouteGeometryFingerprint(context, object) !=
+               state.missions[index].routeGeometryFingerprint))
+        return Fail("MSH1 mission Route geometry is incompatible");
+    }
   }
   if (!state.vehicle.empty() && ResolveVehicle(context, state.vehicle) == NULL) {
     RemoveCreated(context, created);

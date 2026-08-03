@@ -285,7 +285,15 @@ destination-local and occupied-source LCN1 bytes after the two rollback layers.
 `LCN1-15/15/15`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
 
-The current accepted local Windows gate is 66/66 CTest in Debug and Release,
+`tools/acceptance/Invoke-MissionRouteSaveLoad.ps1` covers the separate
+mission-created resource case. It runs ProjectS22, saves after the mission has
+created `Route/S22/ms.rt`, destroys that process and requires both a fresh
+same-Level restore and `Level.02D -> Level.03N` coordinator restore. MSH1 v2
+binds the virtual Route identity to its geometry; MSH1 v1 slots migrate only
+after semantic byte-equivalence is proven.
+
+The current accepted local Windows gate is 67/67 CTest in Debug, Release and
+Playtest,
 18/18 RR2SLOT1 destroyed-context cases, 18/18 independent ordinary retail
 runtime cases, 16/16 native-window occupied Vehicle profile cases and 2/2
 cross-Level coordinator cases. The independent-process occupied-vehicle gate

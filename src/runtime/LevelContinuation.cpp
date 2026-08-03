@@ -2,6 +2,7 @@
 
 #include "ActiveWorldRuntimeProbe.h"
 #include "ActiveWorldSave.h"
+#include "MissionActiveWorldState.h"
 
 #include "kernel/h/context.h"
 #include "obase/people/PeopleActiveWorldState.h"
@@ -126,7 +127,8 @@ bool NormalizeCompatibleSectionMigrations(
       source.sections.size() != restored.sections.size())
     return false;
   SActiveWorldSnapshot normalized = restored;
-  bool migrated = false;
+  bool peopleMigrated = false;
+  bool missionMigrated = false;
   for (std::size_t index = 0; index < source.sections.size(); ++index) {
     const SActiveWorldSection& expected = source.sections[index];
     SActiveWorldSection& actual = normalized.sections[index];
@@ -135,18 +137,30 @@ bool NormalizeCompatibleSectionMigrations(
         expected.owner != actual.owner)
       return false;
     if (expected.payload == actual.payload) continue;
-    if (expected.kind != EActiveWorldSectionKind::People || migrated ||
-        !PeopleActiveWorldState_MatchesStable(context, expected.payload))
+    if (expected.kind == EActiveWorldSectionKind::People &&
+        !peopleMigrated &&
+        PeopleActiveWorldState_MatchesStable(context, expected.payload)) {
+      // Older PEO1 payloads omit state admitted by newer versions (v1 has no
+      // route-geometry identity; v1/v2 have no explicit previous route node).
+      peopleMigrated = true;
+    } else if (expected.kind == EActiveWorldSectionKind::Mission &&
+               !missionMigrated &&
+               MissionActiveWorldState_MatchesStable(
+                   context, expected.payload)) {
+      // MSH1 v1 identifies a mission Route only by its symbolic name. MSH1 v2
+      // additionally pins the route geometry reconstructed from retail/mod
+      // data. A semantically verified v1 save retains its original outer
+      // fingerprint after that one compatible migration.
+      missionMigrated = true;
+    } else {
       return false;
-    // Older PEO1 payloads omit state admitted by newer versions (v1 has no
-    // route-geometry identity; v1/v2 have no explicit previous route node).
-    // The live graph has already passed the matching version's semantic
-    // verifier; substituting only that legacy payload lets the outer LCN1
-    // fingerprint continue to prove every other boundary remained identical.
+    }
+    // The live graph has passed the matching legacy semantic verifier;
+    // substituting only that payload lets the outer LCN1 fingerprint continue
+    // to prove every other boundary remained identical.
     actual.payload = expected.payload;
-    migrated = true;
   }
-  if (!migrated) return false;
+  if (!peopleMigrated && !missionMigrated) return false;
   *normalizedFingerprint =
       ActiveWorldSave_ComputeWorldFingerprint(normalized);
   return true;

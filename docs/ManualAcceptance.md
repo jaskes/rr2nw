@@ -744,6 +744,34 @@ validation and requires both the destination preflight checkpoint and
 occupied coordinator source to recapture as byte-identical LCN1 containers.
 The failpoint is unavailable in `rr2nw.exe`, the native menus and RR2SLOT1.
 
+## Fresh mission Route save/load pass
+
+This gate specifically covers mission-created Route owners that do not exist
+after a Level is initialized in a new process. It creates the real Level.03N
+Inhabitants `ProjectS22`, commits only after mission execution, exits, then
+loads the unchanged slot through both restore topologies:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionRouteSaveLoad.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration RelWithDebInfo
+```
+
+The row must pass. The save log must report
+`mission_smoke_selected_project=ProjectS22`,
+`mission_smoke_routes=1`, `mission_smoke_created_objects=11`, one completed
+save and clean shutdown. The fresh same-Level log must report one completed
+load and equal non-zero `save_menu_last_restore_world_fingerprint` /
+`save_menu_last_restored_world_fingerprint`. The cross-Level log must report
+`cross_level_load_commit=Level.03N`, final `Level.03N`, one completed
+cross-Level load, zero coordinator rollbacks/failures and clean shutdown.
+
+This is intentionally a three-process gate. `--mission-continuation-smoke`
+remains useful for transaction and rollback checks inside one Context, but it
+cannot prove reconstruction of a Route that is still alive from mission
+execution. Use `Debug,Release,RelWithDebInfo` before a release checkpoint; the
+single Playtest row is sufficient during focused iteration.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

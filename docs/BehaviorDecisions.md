@@ -5025,3 +5025,31 @@ Hermetic fixtures must model that declared closure, including an empty
 none of its helpers. Debug, Release and Playtest must all link and pass the
 same 67-test gate; configuration-specific archive accidents are release
 blockers rather than optional build cleanup.
+
+### BD-138: mission Route identity includes its virtual filename
+
+Status: accepted on 2026-08-03 for fresh-process mission save/load.
+
+RecruitCenter creates a mission Route with the exact string stored in the
+ProjectTable summary and passes the same string to `IRouteObject::Load`. In
+retail `ProjectS22` that object identity is `Route/S22/ms.rt`, while the first
+line inside the file is `ms22.ms`. They are not aliases supplied by the
+kernel: one is the mission-owned symbolic object name and virtual resource
+path, the other is authored Route metadata. Recovery that indexes only the
+header cannot reconstruct the object referenced by MSH1.
+
+The mod-aware Level catalog therefore admits either identity, after folding
+only ASCII case and slash direction. It still requires one unambiguous file;
+MSH1 version 2 additionally stores the loaded geometry fingerprint and rejects
+a resource whose nodes differ. Version 1 remains readable: its symbolic path
+selects the effective retail/mod resource, and the live graph must re-encode
+to the exact version-1 semantic payload before LCN1 may normalize that one
+compatible section migration.
+
+The acceptance boundary is process-destructive. One executable runs the real
+`Inhabitants.Recruit.0` mission producer, proves `ProjectS22`, one Route and 11
+created script owners, commits Slot 8 and exits. A fresh executable loads the
+unchanged slot first in `Level.03N` and then from `Level.02D`; both must publish
+the saved world fingerprint with no coordinator rollback. A same-context
+capture/restore is insufficient because the mission-created Route would still
+exist and would hide this exact defect.
