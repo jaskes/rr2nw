@@ -4857,3 +4857,54 @@ two admissions/ejects and no duplicate mission, then restores pose and visit
 time. Unresolved condition ObjectIDs reschedule rather than treating NUL as an
 already killed target, so deferred unit/script production cannot falsely
 complete a newly accepted mission.
+
+### BD-131: mission-local People routes are active-world dependencies
+
+Status: accepted on 2026-08-03 for fresh cross-Level continuation.
+
+Mission scripts create routes as a side effect and People state persists only
+their symbolic names. A save from `Level.03N` can therefore contain a live
+`ms25.ejp00` actor even though a freshly constructed `Level.03N` has not run
+`Brief/ms25.sc` and does not yet own that Route. Rejecting the actor loses a
+valid continuation; blindly executing the whole mission script during restore
+would duplicate unrelated world owners.
+
+The continuation transaction instead enumerates the captured People route
+names, retains already live references, and reconstructs only a missing name
+of the canonical `msNN.symbol` form from `Route/SNN/symbol.rt`. The first line
+of that retail file must name the same symbol and the decoded Route must contain
+at least two nodes. Arbitrary paths and non-mission names are never derived.
+Created routes and reconstructed People are distinct rollback owners: failure
+removes the target graph, restores the source People graph from its captured
+payload, then releases every held Route reference.
+
+This boundary is proven by the ordinary cross-Level acceptance and by the
+user's unchanged Slot 1 from `Level.03N`, loaded while `Level.05D` is active.
+It does not make Level scripts save data and it does not infer missing world
+objects other than this exact route dependency.
+
+### BD-132: Playtest is the manual gameplay configuration
+
+Status: accepted on 2026-08-03 for Windows performance observation.
+
+The renderer is still a CPU software rasterizer. In unoptimized Debug builds a
+single ordinary frame commonly exceeds the preserved 50 ms timer guard;
+`a_TTimer::GetTime` then clamps that sample and discards wall time, producing
+real slow motion on every Level. Frame-stage telemetry demonstrates that
+rendering dominates while input, simulation and boundary work remain small.
+Planes and mission actors can add work, but they are not the cause of this
+global behaviour.
+
+Normal visual and campaign testing therefore uses the RelWithDebInfo
+`windows-msvc-x86-playtest` preset. It keeps PDB diagnostics while optimizing
+the runtime. Debug remains authoritative for assertions, heap checks and
+correctness gates and may visibly run slowly. A small Debug-only compiler
+scope optimizes only hot rasterizer leaf operations; it does not change game
+rules or relax stability guards.
+
+The timer is deliberately not changed in this slice. Allowing an arbitrary
+large delta would move the same problem into physics and actor scheduling.
+Replacing the clamp requires an explicit fixed simulation step, bounded
+catch-up policy and replayable timing tests; until then Playtest performance
+and `frame_profile_*`/`timer_clamped_*` evidence are the manual acceptance
+contract.

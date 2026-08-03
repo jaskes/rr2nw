@@ -1738,6 +1738,23 @@ exact restoration of the original live stack. A real hidden Win32 Debug-menu
 command additionally commits `Level.03N -> Level.04D`, records one request and
 one completed switch with zero rollback/failure, then shuts down cleanly.
 
+Fresh cross-Level continuation now covers mission-local People routes as well.
+Before rebuilding People, the target transaction enumerates the saved symbolic
+route dependencies and recreates only validated `msNN.symbol` definitions from
+the matching retail `Route/SNN/symbol.rt`. Route references, reconstructed
+People and the prior source People graph remain separately rollbackable. The
+reported real `Level.03N` Slot 1 now commits while `Level.05D` is active rather
+than failing during CTJ1 backup adoption.
+
+The current Windows playtest boundary is also explicit. Successful frames now
+publish input, simulation, software-render, present and frame-boundary timing.
+Evidence from both light and heavy Levels assigns the global Debug slow motion
+to unoptimized software rendering crossing the preserved 50 ms timer clamp,
+not to RecruitCenter work or aircraft alone. Manual gameplay uses the new
+RelWithDebInfo `windows-msvc-x86-playtest` preset; Debug remains the assertion
+and heap-check configuration. Fixed-step simulation and bounded catch-up stay
+on Frontier G rather than being approximated by loosening the clamp.
+
 The current installed-data execution matrix is intentionally narrower than
 mission decoding: `Level.01D`, `Level.01N`, `Level.02D` and `Level.03N` execute
 cleanly. `Level.02N` and `Level.05D` require the real Howitzer-holder lifecycle;
@@ -1763,6 +1780,13 @@ Marauders default is `taxi.attr.war_t07` (TankGenn3); the airplanes created by
 `Brief/ms23.sc` are Robot mission units, not an evidenced Player reward. Do not
 invent an automatic aircraft grant until CQ-199 is resolved through retail
 observation and a rollback-safe Vehicle/Taxi transfer.
+
+The next campaign slice is now sharply bounded: prove whether a committed
+briefing reaches its actual presenter, consume the authored guide
+`backSpaceNode`/start spacing instead of spawning escorts into the Player,
+then reconcile the mission vehicle's model/control basis so forward input does
+not drive sideways. These are independent acceptance rows and must precede
+reward/completion and Portal admission.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

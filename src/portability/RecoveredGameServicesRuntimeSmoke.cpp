@@ -4918,6 +4918,24 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("People detailed stable-capture diagnostic failed");
   }
+  std::vector<unsigned char> peopleState;
+  std::vector<std::string> peopleRoutes;
+  if (!PeopleActiveWorldState_CaptureStable(
+          g_super.m_context, &peopleState) ||
+      !PeopleActiveWorldState_RouteNames(peopleState, &peopleRoutes) ||
+      std::adjacent_find(peopleRoutes.begin(), peopleRoutes.end()) !=
+          peopleRoutes.end()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("People stable route manifest is invalid");
+  }
+  for (std::size_t index = 0; index < peopleRoutes.size(); ++index) {
+    if (!g_super.m_context->isExist(peopleRoutes[index].c_str())) {
+      ZAV_DeInitLevel();
+      ZAV_Deinit();
+      return Fail("People stable route manifest lost a live route");
+    }
+  }
   if (!RecoveredGameServices_HardwareReady() ||
       !RecoveredGameServices_SeanceReady() ||
       !RecoveredGameServices_BirdAttributesReady() ||
@@ -5911,6 +5929,17 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("bounded software frames failed");
+  }
+  SRecoveredFrameTimingTelemetry frameTiming = {};
+  if (!RecoveredGameServices_FrameTimingTelemetry(&frameTiming) ||
+      frameTiming.frames != 3 || frameTiming.totalMicroseconds == 0 ||
+      frameTiming.maximumFrameMicroseconds == 0 ||
+      frameTiming.renderMicroseconds == 0 ||
+      frameTiming.maximumRenderMicroseconds == 0 ||
+      frameTiming.totalMicroseconds < frameTiming.renderMicroseconds) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("successful frame timing telemetry is invalid");
   }
   observer = RecoveredGameServices_ObserverState();
   SRecoveredVehicleRuntimeState vehicleAfter = {};

@@ -31,6 +31,13 @@
       "name": "windows-msvc-x86-release",
       "configurePreset": "windows-msvc-x86",
       "configuration": "Release"
+    },
+    {
+      "name": "windows-msvc-x86-playtest",
+      "displayName": "Windows MSVC x86 Playtest",
+      "description": "Optimized Windows playtest build with debug symbols",
+      "configurePreset": "windows-msvc-x86",
+      "configuration": "RelWithDebInfo"
     }
   ],
   "testPresets": [
@@ -46,6 +53,14 @@
       "name": "windows-msvc-x86-release",
       "configurePreset": "windows-msvc-x86",
       "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-msvc-x86-playtest",
+      "configurePreset": "windows-msvc-x86",
+      "configuration": "RelWithDebInfo",
       "output": {
         "outputOnFailure": true
       }

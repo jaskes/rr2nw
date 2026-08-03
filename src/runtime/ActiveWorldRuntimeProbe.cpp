@@ -21,16 +21,88 @@
 #include "obase/tank/TankActiveWorldState.h"
 #include "obase/taxi/TaxiActiveWorldState.h"
 #include "obase/vehicle/VehicleActiveWorldState.h"
+#include "i/route.i"
 #include "message/recrcenmsg.h"
+#include "storage/h/subject.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <fstream>
 #include <utility>
 
 namespace {
 
 void SetFailure(std::string* failure, const std::string& message) {
   if (failure != nullptr) *failure = message;
+}
+
+bool RestoreMissingPeopleRoutes(
+    SimulationContext* context, const std::vector<std::uint8_t>& payload,
+    std::vector<KR_ObjectID>* created, std::string* failure) {
+  if (context == nullptr || created == nullptr) return false;
+  std::vector<std::string> routeNames;
+  if (!PeopleActiveWorldState_RouteNames(payload, &routeNames)) {
+    SetFailure(failure, "People route manifest decoding failed");
+    return false;
+  }
+  std::vector<std::string> missing;
+  for (const std::string& name : routeNames)
+    if (!context->isExist(name.c_str())) missing.push_back(name);
+  if (missing.empty()) return true;
+
+  std::vector<std::pair<std::string, std::string>> authored;
+  for (const std::string& name : missing) {
+    // Retail mission routes use msNN.symbolic-name and live under
+    // Route/SNN/symbolic-name.rt. Validate the file's own symbolic header
+    // before publishing anything so an incompatible mod fails atomically.
+    if (name.size() < 6 || name[0] != 'm' || name[1] != 's') continue;
+    const std::size_t separator = name.find('.', 2);
+    if (separator == std::string::npos || separator == 2 ||
+        separator + 1 == name.size())
+      continue;
+    bool numericProject = true;
+    for (std::size_t index = 2; index < separator; ++index)
+      numericProject = numericProject &&
+          std::isdigit(static_cast<unsigned char>(name[index])) != 0;
+    if (!numericProject) continue;
+    const std::string routePath =
+        "Route/S" + name.substr(2, separator - 2) + "/" +
+        name.substr(separator + 1) + ".rt";
+    std::ifstream stream(routePath.c_str(), std::ios::binary);
+    std::string symbolicName;
+    if (!std::getline(stream, symbolicName)) continue;
+    if (!symbolicName.empty() && symbolicName.back() == '\r')
+      symbolicName.pop_back();
+    if (symbolicName == name) authored.push_back({name, routePath});
+  }
+
+  for (const std::string& name : missing) {
+    const auto authoredRoute = std::find_if(
+        authored.begin(), authored.end(), [&name](const auto& candidate) {
+          return candidate.first == name;
+        });
+    if (authoredRoute == authored.end()) {
+      SetFailure(failure, "saved People route file is unavailable: " + name);
+      return false;
+    }
+    KR_ObjectID route = g_arena.newObject("Route", name.c_str());
+    IRouteObject* routeObject = route.isNUL()
+        ? nullptr
+        : static_cast<IRouteObject*>(
+              context->queryInterface(route, IRouteObjectIID));
+    if (routeObject == nullptr) {
+      SetFailure(failure, "saved People route allocation failed: " + name);
+      return false;
+    }
+    created->push_back(route);
+    routeObject->Load(authoredRoute->second.c_str());
+    if (routeObject->GetNodeCnt() < 2) {
+      SetFailure(failure, "saved People route load failed: " + name);
+      return false;
+    }
+  }
+  return true;
 }
 
 bool CaptureOwnerSections(SimulationContext* context,
@@ -311,10 +383,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     rngBackup_.clear();
     semanticBackup_.clear();
     stagedEvents_.clear();
+    heldPeopleRoutes_.clear();
     createdCommanders_.clear();
     createdTankGroups_.clear();
     createdVehicles_.clear();
     createdMissionRoutes_.clear();
+    createdPeopleRoutes_.clear();
     createdPeople_.clear();
     createdTanks_.clear();
     createdTaxis_.clear();
@@ -363,7 +437,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     std::vector<KR_ObjectID> liveCorpses;
     std::vector<KR_ObjectID> liveTaxis;
     std::vector<KR_ObjectID> liveOrphans;
-    if (!TaxiActiveWorldState_CollectStableOwners(
+    std::vector<KR_ObjectID> livePeople;
+    if (!PeopleActiveWorldState_CollectStableOwners(
+            context_, peopleBackup_, &livePeople) ||
+        !PeopleActiveWorldState_HoldRouteReferences(
+            context_, peopleBackup_, &heldPeopleRoutes_) ||
+        !TaxiActiveWorldState_CollectStableOwners(
             context_, taxiBackup_, &liveTaxis) ||
         !OrphanActiveWorldState_CollectStableOwners(
             context_, orphanBackup_, &liveOrphans) ||
@@ -379,6 +458,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
             context_, corpseBackup_, &liveCorpses)) {
       SetFailure(failure,
                  "active-world replaceable owner teardown preflight failed");
+      PeopleActiveWorldState_ReleaseRouteReferences(
+          context_, &heldPeopleRoutes_);
       began_ = false;
       return false;
     }
@@ -417,17 +498,21 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       restoredSemanticOwners.clear();
       SetFailure(failure,
                  clockRestored && eventsRestored
-                     ? "active-world target clock preapply failed"
-                     : "active-world target clock preapply rollback failed");
+                      ? "active-world target clock preapply failed"
+                      : "active-world target clock preapply rollback failed");
+      PeopleActiveWorldState_ReleaseRouteReferences(
+          context_, &heldPeopleRoutes_);
       began_ = false;
       return false;
     }
-    // Taxi and effect rosters are expected to differ between the save point
-    // and the load point. Their codecs own complete reconstruction and private
-    // event teardown, so replace them after the live backup and clock preapply
-    // instead of requiring coincidentally identical object names. Rollback
-    // reconstructs these exact backup payloads before applying references.
+    // Mission admission can add People just as ordinary play can add Taxi and
+    // effect owners. Their codecs own complete reconstruction and private event
+    // teardown, so replace them after the live backup and clock preapply instead
+    // of requiring coincidentally identical object names. Route guards preserve
+    // People-only paths until either the target or backup roster owns them.
+    // Rollback reconstructs these exact backup payloads before applying refs.
     replacedReplaceableOwners_ = true;
+    PeopleActiveWorldState_RemoveStableOwners(context_, &livePeople);
     TaxiActiveWorldState_RemoveStableOwners(context_, &liveTaxis);
     CorpseActiveWorldState_RemoveStableOwners(context_, &liveCorpses);
     SmokeActiveWorldState_RemoveStableOwners(context_, &liveSmokes);
@@ -464,8 +549,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
             context_, section.payload, &createdMissionRoutes_);
         break;
       case EActiveWorldSectionKind::People:
-        created = PeopleActiveWorldState_CreateStableOwners(
-            context_, section.payload, &createdPeople_);
+        created = RestoreMissingPeopleRoutes(
+                      context_, section.payload, &createdPeopleRoutes_,
+                      failure) &&
+                  PeopleActiveWorldState_CreateStableOwners(
+                      context_, section.payload, &createdPeople_);
         break;
       case EActiveWorldSectionKind::Tank:
         created = TankActiveWorldState_CreateStableOwners(
@@ -507,7 +595,16 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         break;
     }
     if (!created) {
-      if (section.kind == EActiveWorldSectionKind::Tank &&
+      if (section.kind == EActiveWorldSectionKind::People && failure != nullptr &&
+          !failure->empty()) {
+        // RestoreMissingPeopleRoutes already names the missing or malformed
+        // authored dependency. Preserve that actionable diagnosis.
+      } else if (section.kind == EActiveWorldSectionKind::People &&
+          PeopleActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("active-world People allocation failed: ") +
+                       PeopleActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Tank &&
           TankActiveWorldState_LastFailure()[0] != '\0')
         SetFailure(failure, std::string("active-world Tank allocation failed: ") +
                                 TankActiveWorldState_LastFailure());
@@ -552,7 +649,13 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                    std::string("active-world Orphan allocation failed: ") +
                        OrphanActiveWorldState_LastFailure());
       else
-        SetFailure(failure, "active-world owner allocation failed");
+        SetFailure(failure,
+                   "active-world " + section.owner +
+                       " allocation failed (kind=" +
+                       std::to_string(static_cast<std::uint32_t>(
+                           section.kind)) +
+                       ", payload_bytes=" +
+                       std::to_string(section.payload.size()) + ")");
       return false;
     }
     staged_.push_back(section);
@@ -730,6 +833,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       SetFailure(failure, "active-world transaction cannot commit");
       return false;
     }
+    PeopleActiveWorldState_ReleaseRouteReferences(
+        context_, &heldPeopleRoutes_);
     committed_ = true;
     return true;
   }
@@ -754,6 +859,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           context_, &createdExplosions_);
       BulletActiveWorldState_RemoveStableOwners(context_, &createdBullets_);
       PeopleActiveWorldState_RemoveStableOwners(context_, &createdPeople_);
+      MissionActiveWorldState_RemoveStableOwners(
+          context_, &createdPeopleRoutes_);
       VehicleActiveWorldState_RemoveStableOwners(context_, &createdVehicles_);
       TankActiveWorldState_RemoveStableOwners(context_, &createdTanks_);
       TankGroupState_RemoveStableOwners(context_, &createdTankGroups_);
@@ -771,6 +878,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         std::vector<KR_ObjectID> restoredCorpses;
         std::vector<KR_ObjectID> restoredTaxis;
         std::vector<KR_ObjectID> restoredOrphans;
+        std::vector<KR_ObjectID> restoredPeople;
+        clean = PeopleActiveWorldState_CreateStableOwners(
+                    context_, peopleBackup_, &restoredPeople) &&
+                clean;
         clean = TaxiActiveWorldState_CreateStableOwners(
                     context_, taxiBackup_, &restoredTaxis) &&
                 clean;
@@ -830,6 +941,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
       // time. Restore the continuation boundary only after that work is done.
       clean = ClockActiveWorldState_ApplyStableReferences(
                   clockBackup_) && clean;
+      PeopleActiveWorldState_ReleaseRouteReferences(
+          context_, &heldPeopleRoutes_);
       clean = SimulationRandom_Apply(
                   SimulationRandom_Algorithm(), rngBackup_) && clean;
       clean = CommanderState_MatchesStable(context_, commanderBackup_) &&
@@ -875,7 +988,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     return began_ && !committed_ && rolledBack_ && staged_.empty() &&
            rollbackClean_ && createdCommanders_.empty() &&
            createdTankGroups_.empty() && createdVehicles_.empty() &&
-           createdMissionRoutes_.empty() &&
+            createdMissionRoutes_.empty() && createdPeopleRoutes_.empty() &&
            createdPeople_.empty() && createdTanks_.empty() &&
            createdTaxis_.empty() && createdOrphans_.empty() &&
            createdBullets_.empty() && createdExplosions_.empty() &&
@@ -892,6 +1005,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                             createdTankGroups_.size() +
                             createdVehicles_.size() +
                             createdMissionRoutes_.size() +
+                            createdPeopleRoutes_.size() +
                             createdPeople_.size() + createdTanks_.size() +
                             createdTaxis_.size() +
                             createdOrphans_.size() +
@@ -933,10 +1047,12 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> rngBackup_;
   std::vector<SActiveWorldEvent> semanticBackup_;
   std::vector<SActiveWorldEvent> stagedEvents_;
+  std::vector<KR_ObjectID> heldPeopleRoutes_;
   std::vector<KR_ObjectID> createdCommanders_;
   std::vector<KR_ObjectID> createdTankGroups_;
   std::vector<KR_ObjectID> createdVehicles_;
   std::vector<KR_ObjectID> createdMissionRoutes_;
+  std::vector<KR_ObjectID> createdPeopleRoutes_;
   std::vector<KR_ObjectID> createdPeople_;
   std::vector<KR_ObjectID> createdTanks_;
   std::vector<KR_ObjectID> createdTaxis_;

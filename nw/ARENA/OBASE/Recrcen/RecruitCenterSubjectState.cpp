@@ -41,6 +41,8 @@ const unsigned long long kHashOffset = 14695981039346656037ull;
 const unsigned long long kHashPrime = 1099511628211ull;
 
 char g_lastError[256] = {};
+RecruitCenterMissionProbeSummary g_lastMissionSummary = {};
+bool g_hasLastMissionSummary = false;
 
 struct DeferredMissionCommand
 {
@@ -1329,6 +1331,8 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     if (presentBriefing)
         PresentDeferredBriefings(context, deferredCommands, preparedFiles,
                                  summary);
+    g_lastMissionSummary = *summary;
+    g_hasLastMissionSummary = true;
     *staged = true;
     return true;
 }
@@ -1736,6 +1740,15 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
     }
     return StageMissionExecutionProbeForCenter(context, timeStamp, centerName,
                                                staged, summary);
+}
+
+bool RecruitCenterSubjectState_LastMissionSummary(
+    RecruitCenterMissionProbeSummary *summary)
+{
+    if (summary == NULL || !g_hasLastMissionSummary)
+        return false;
+    *summary = g_lastMissionSummary;
+    return true;
 }
 
 const char *RecruitCenterSubjectState_LastError()

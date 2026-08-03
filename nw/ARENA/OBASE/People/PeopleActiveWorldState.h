@@ -3,6 +3,7 @@
 
 #include "kernel/h/krtypes.h"
 
+#include <string>
 #include <vector>
 
 class SimulationContext;
@@ -18,6 +19,9 @@ bool PeopleActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes);
 bool PeopleActiveWorldState_ValidateStable(
     const std::vector<unsigned char> &bytes);
+bool PeopleActiveWorldState_RouteNames(
+    const std::vector<unsigned char> &bytes,
+    std::vector<std::string> *routeNames);
 bool PeopleActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes);
 bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(

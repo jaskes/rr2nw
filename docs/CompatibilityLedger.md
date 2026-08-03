@@ -3815,6 +3815,62 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: scheduler state is redesigned or object handles gain explicit
   generations. Preserve the retail eventual-pop semantics in either model.
 
+### CQ-202: mission People routes may not exist in a fresh target Level
+
+- Status: `CONFIRMED_RETAIL`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the reported Slot 1 captures `Level.03N` People bound to
+  `ms25.ejp00`; a fresh `Level.03N` bootstrap does not own that route because
+  `Brief/ms25.sc` has not executed. Its authored definition is
+  `Route/S25/ejp00.rt`, whose first line names `ejp00`.
+- Handling: inspect the canonical People payload before owner allocation,
+  reconstruct only missing `msNN.symbol` identities from their exact
+  `Route/SNN/symbol.rt`, validate the symbolic header and node count, and keep
+  source/target Route references alive across the entire transaction. Created
+  routes have their own reverse-order rollback list.
+- Verification: the unchanged user Slot 1 commits `Level.05D -> Level.03N`
+  with zero game-service issues, while the bounded Debug cross-Level proof and
+  all 18 installed Debug/Release rows pass.
+- Revisit when: modded mission routes gain a declared virtual source or the
+  active-world format begins storing Route nodes directly. Do not derive an
+  arbitrary symbolic name into a filesystem path.
+
+### CQ-203: Debug renderer cost changes apparent simulation speed
+
+- Status: `MEASURED`, `PLAYTEST_POLICY_ACCEPTED`, `ARCHITECTURE_OPEN`.
+- Evidence: a reported interactive log recorded 863 clamped samples and
+  discarded 49.706 seconds over 892 frames. New frame-stage profiling assigns
+  nearly all host time to the software render phase. Equivalent pre-change and
+  current Level scenes submit comparable work, so this is not a RecruitCenter
+  population regression and is not specific to aircraft-heavy Levels.
+- Handling: use the RelWithDebInfo `windows-msvc-x86-playtest` preset for human
+  gameplay. It retains symbols and runtime telemetry while optimizing the
+  rasterizer. Debug continues to prioritize assertions and heap/runtime checks.
+  Do not simply enlarge or remove the 50 ms timer clamp.
+- Verification: Playtest, Release and Debug each pass 67/67 CTest. A ten-second
+  Level.01N Playtest sample remained near Release throughput with only a small
+  clamped-time tail; the full installed matrix remains 18/18 in Debug/Release.
+- Revisit when: fixed-step simulation with bounded catch-up and timing/replay
+  tests exists, or the software renderer is replaced. At that boundary remove
+  frame-rate dependence rather than tuning one machine's clamp threshold.
+
+### CQ-204: mission presentation and guide motion remain separate owners
+
+- Status: `MANUAL_EVIDENCE`, `DIAGNOSTIC_ADDED`, `OPEN`.
+- Evidence: the reported town-hall visits can create the correct PlayerMission,
+  Player vehicle and guide while showing no briefing splash. The guide can
+  immediately drive into the Player vehicle or follow its route backwards.
+  Script payloads contain `startNode`, `backSpaceNode` and `startMoveTime`, but
+  the recovered People path stores `backSpaceNode` without consuming it.
+- Handling: retain the last committed RecruitCenter summary, including the
+  briefing-presented counter, in shutdown diagnostics. Do not classify every
+  eject as a new mission: retail collision handling also ejects when a mission
+  is already active or no project is eligible. Keep briefing UI, guide spacing
+  and Player vehicle steering as explicit follow-up gates.
+- Revisit when: a manual log proves whether presentation was requested, and
+  the guide start/back-space contract is recovered from retail code or a
+  controlled comparison. The Player vehicle basis/control fault must be fixed
+  independently of guide navigation.
+
 ## Maintenance rule
 
 When a new quirk is found:

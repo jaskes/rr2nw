@@ -8,6 +8,21 @@
 #include <cstdint>
 #include <cstring>
 
+// A retail scene sends roughly one million pixels per frame through this
+// recovered software scanline rasterizer. MSVC Debug's translation-unit-wide
+// /Od and /RTC1 turn that isolated inner loop into a frame-pacing bottleneck
+// and repeatedly trip the engine's 50 ms anti-stall clock clamp. Keep ordinary
+// Debug semantics throughout the game, but let this leaf renderer retain its
+// symbols while using speed-oriented code. Release already receives its
+// optimization policy from CMake.
+#if defined(_MSC_VER) && defined(_DEBUG)
+#pragma runtime_checks("", off)
+#pragma optimize("gty", on)
+#define RR2NW_HOT_INLINE __forceinline
+#else
+#define RR2NW_HOT_INLINE inline
+#endif
+
 extern "C" {
 unsigned char *_gr_pScreen = NULL;
 unsigned char *_gr_pOrigin = NULL;
@@ -249,7 +264,7 @@ RasterVertex BuildRasterVertex(const UGRVertex& vertex, int type) {
   return result;
 }
 
-double Lerp(double first, double second, double ratio) {
+RR2NW_HOT_INLINE double Lerp(double first, double second, double ratio) {
   return first + (second - first) * ratio;
 }
 
@@ -271,12 +286,12 @@ EdgeSample InterpolateEdge(const RasterVertex& first,
   return result;
 }
 
-int ClampInt(int value, int minimum, int maximum) {
+RR2NW_HOT_INLINE int ClampInt(int value, int minimum, int maximum) {
   return (std::max)(minimum, (std::min)(value, maximum));
 }
 
-unsigned char SampleTexture(const SoftwareTexture& texture,
-                            double u, double v, bool dither) {
+RR2NW_HOT_INLINE unsigned char SampleTexture(
+    const SoftwareTexture& texture, double u, double v, bool dither) {
   const auto coordinate = [](double value, long dimension) {
     if (!std::isfinite(value) || value <= 0.0) return 0;
     const double maximum = static_cast<double>(dimension - 1);
@@ -311,14 +326,16 @@ unsigned char SampleTexture(const SoftwareTexture& texture,
   return texture.dataPtr[index];
 }
 
-unsigned char ApplyGouraud(unsigned char color, double shade) {
+RR2NW_HOT_INLINE unsigned char ApplyGouraud(
+    unsigned char color, double shade) {
   if (_gr_pGouraud == NULL) return color;
   const int layer = ClampInt(static_cast<int>(std::floor(shade + 0.5)),
                              0, 15);
   return _gr_pGouraud[static_cast<unsigned int>(color) * 16U + layer];
 }
 
-unsigned char ApplyHaze(unsigned char color, double inverseZ) {
+RR2NW_HOT_INLINE unsigned char ApplyHaze(
+    unsigned char color, double inverseZ) {
   if (_gr_pHaze == NULL || g_hazeStart <= 0 || g_hazeLength <= 0 ||
       inverseZ <= 0.0) {
     return color;
@@ -422,9 +439,9 @@ int PrepareDynamicLights(bool lightThrough, PreparedLight* prepared) {
   return count;
 }
 
-unsigned char ApplyDynamicLights(unsigned char color, int x, int y,
-                                 const PreparedLight* lights, int lightCount,
-                                 unsigned long long* applications) {
+RR2NW_HOT_INLINE unsigned char ApplyDynamicLights(
+    unsigned char color, int x, int y, const PreparedLight* lights,
+    int lightCount, unsigned long long* applications) {
   const double screenX = static_cast<double>(x);
   const double screenY = static_cast<double>(y);
   for (int index = 0; index < lightCount; ++index) {
@@ -1117,3 +1134,10 @@ int GRDumpScreen()
         _gr_nScreenHeight,_gr_pScreen,
         reinterpret_cast<BITMAPINFO *>(&_gr_DIBInfo),DIB_RGB_COLORS) != 0;
 }
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+#pragma optimize("", off)
+#pragma runtime_checks("", restore)
+#endif
+
+#undef RR2NW_HOT_INLINE

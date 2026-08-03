@@ -5039,7 +5039,11 @@ if(BUILD_TESTING)
             -File "${CMAKE_CURRENT_SOURCE_DIR}/tools/acceptance/Invoke-WindowsPackageHermetic.ps1"
             -PackageScript "${CMAKE_CURRENT_SOURCE_DIR}/tools/release/New-WindowsPackage.ps1"
             -CampaignScript "${CMAKE_CURRENT_SOURCE_DIR}/tools/release/Invoke-WindowsManualCampaign.ps1"
-            -ScratchRoot "${CMAKE_CURRENT_BINARY_DIR}/windows-package-smoke/$<CONFIG>"
+            # The packaged validator still consumes Win32 narrow paths. Keep
+            # its GUID-bearing stage/extract tree away from the already deep
+            # Visual Studio build directory until long-path ownership is
+            # recovered end to end.
+            -ScratchRoot "$ENV{TEMP}/rr2nw-pkg/$<CONFIG>"
             -Configuration "$<CONFIG>"
   )
   add_test(

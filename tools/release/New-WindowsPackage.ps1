@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$DataRoot,
-    [ValidateSet('Debug', 'Release')][string]$Configuration = 'Release',
+    [ValidateSet('Debug', 'Release', 'RelWithDebInfo')]
+    [string]$Configuration = 'Release',
     [ValidateRange(15, 300)][int]$TimeoutSeconds = 120,
     [string]$OutputRoot,
     [switch]$SkipBuild,
@@ -23,10 +24,10 @@ $outputPath = [IO.Path]::GetFullPath($OutputRoot)
 [IO.Directory]::CreateDirectory($outputPath) | Out-Null
 
 if (-not $SkipBuild) {
-    $buildPreset = if ($Configuration -eq 'Release') {
-        'windows-msvc-x86-release'
-    } else {
-        'windows-msvc-x86-debug'
+    $buildPreset = switch ($Configuration) {
+        'Release' { 'windows-msvc-x86-release' }
+        'RelWithDebInfo' { 'windows-msvc-x86-playtest' }
+        default { 'windows-msvc-x86-debug' }
     }
     & cmake --build --preset $buildPreset --target rr2nw_game rr2nw_mod_validator --parallel
     if ($LASTEXITCODE -ne 0) {
@@ -57,7 +58,11 @@ if (-not $revisionMatch.Success) {
 }
 $revision = $revisionMatch.Groups[1].Value
 $safeRevision = $revision -replace '[^0-9A-Za-z._-]', '_'
-$configurationSuffix = if ($Configuration -eq 'Release') { '' } else { '-debug' }
+$configurationSuffix = switch ($Configuration) {
+    'Release' { '' }
+    'RelWithDebInfo' { '-playtest' }
+    default { '-debug' }
+}
 $packageName = "rr2nw-$version-windows-x86$configurationSuffix-$safeRevision"
 $stageRoot = Join-Path $outputPath $packageName
 if ([IO.Directory]::Exists($stageRoot) -or [IO.File]::Exists($stageRoot)) {
@@ -225,7 +230,10 @@ finally {
 $archiveHash = Get-Sha256Hex $archivePath
 [IO.File]::WriteAllText(($archivePath + '.sha256'), "$archiveHash  $([IO.Path]::GetFileName($archivePath))`n", $utf8)
 
-$unpackParent = Join-Path $outputPath 'unpacked'
+# Keep the verifier below Win32 MAX_PATH even when CTest already contributes a
+# long configuration and GUID-bearing scratch root. The returned summary owns
+# the absolute path, so callers never depended on this internal folder name.
+$unpackParent = Join-Path $outputPath 'u'
 [IO.Directory]::CreateDirectory($unpackParent) | Out-Null
 [IO.Compression.ZipFile]::ExtractToDirectory($archivePath, $unpackParent)
 $unpackedRoot = Join-Path $unpackParent $packageName

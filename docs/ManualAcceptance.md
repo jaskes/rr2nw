@@ -27,6 +27,28 @@ Names are matched case-insensitively, but they must appear in the selected
 root's `[Levels]` section. With no `--start-level`, the executable continues to
 honour `[Init]/StartLevel` from `game.cfg`.
 
+## Playtest build for normal manual gameplay
+
+Use the optimized-symbol build for walking, driving, mission and save/load
+checks. Both commands below are deliberately single PowerShell lines:
+
+```powershell
+cmake --build --preset windows-msvc-x86-playtest
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.01N" --debug-menu --diagnostics-dir "$PWD\manual-logs\playtest-Level.01N"
+```
+
+`RelWithDebInfo` keeps the PDB and all runtime diagnostics but optimizes the
+software renderer. Use Debug when reproducing an assertion, heap problem or
+Debug-only acceptance failure; do not use its visible speed as the gameplay
+baseline.
+
+On clean exit, `rr2nw-startup.log` reports successful-frame sample count plus
+cumulative and maximum microseconds for total, input, simulation, render,
+present and boundary stages under `frame_profile_*`. Compare those with
+`timer_clamped_sample_count` and `timer_clamped_seconds`. Sustained render time
+above the timer guard with growing clamped seconds is confirmed slow motion,
+not merely uneven presentation. Retain the log and the exact Level/route.
+
 ## Grounded debug-vehicle pass
 
 The automated native-window gate spawns every active Taxi type on
@@ -346,7 +368,7 @@ not claim pixel identity with every historical Watcom or Direct3D path; any
 remaining discrepancy must be recorded with a Level, frame, telemetry and
 screenshot before changing palette or raster rules.
 
-### Level.04D performance observation
+### Software-render performance observation
 
 The 2026-07-31 manual Level.04D save/load run used the Debug executable. Across
 1,178 frames it submitted 2,335,690 polygons (about 1,983/frame), rasterized
@@ -358,10 +380,14 @@ Historical Release captures are not an equal-configuration benchmark:
 Level.03N submitted about 1,691 polygons/frame and Level.05D about 1,492, while
 both wrote roughly 566,000--574,000 pixels/frame. The Level.04D Debug scene
 therefore has about 17% more submitted geometry than that Level.03N Release
-sample, but current aggregate counters cannot attribute the difference to its
-aircraft. Before changing simulation or culling, compare Level.04D in Release
-on the same route and add per-owner/render-stage timing. Use Release for normal
-manual play unless a Debug assertion is the subject of the test.
+sample, but aggregate geometry alone cannot attribute the difference to its
+aircraft. Frame-stage timing is now present. A later reported session
+reproduced the same slow motion on Level.01N and accumulated 49.706 discarded
+seconds in 892 frames, confirming a global Debug renderer/timer interaction
+rather than a Level.04D aircraft hypothesis. Use Playtest for normal manual
+play unless a Debug assertion is the subject of the test. Do not remove the
+timer clamp until fixed-step simulation and bounded catch-up own the resulting
+large deltas.
 
 The first 2026-07-31 post-slot-UX continuation sweep passed 17/18 cases. Debug
 Level.04D twice stopped before save/load with one contained `EXCESSIVE_SPEED`
@@ -401,7 +427,7 @@ fixed files live in `%LOCALAPPDATA%\RR2NW\saves`. For an isolated manual pass:
 
 ```powershell
 $saveRoot = "$PWD\manual-logs\save-load-Level.04D"
-& ".\build\windows-msvc-x86\Debug\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.04D" --diagnostics-dir "$saveRoot\logs" --save-dir "$saveRoot\saves"
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.04D" --diagnostics-dir "$saveRoot\logs" --save-dir "$saveRoot\saves"
 ```
 
 In the visible window:
@@ -478,6 +504,18 @@ On a rejected target, the source world must return at the exact pre-load
 boundary. Retain the log whenever `save_menu_cross_level_rollbacks` is non-zero;
 the game may continue after such a successful rollback, while any non-zero
 `save_menu_cross_level_rollback_failures` is a release blocker.
+
+If the target save contains actors created by a mission script, a fresh target
+Level may initially lack their local Routes. The loader now reconstructs only
+validated `msNN.symbol` dependencies from matching retail
+`Route/SNN/symbol.rt` files before People allocation. A valid run needs no
+manual mission replay and must still end with `game_services_issues=0`.
+
+For a town-hall report, also retain `recruit_center_last_mission`. It names the
+center/project and counts scripts, created owners, deferred commands,
+presented briefings and rollbacks. An admitted mission with zero presented
+briefings is a briefing-owner failure; an eject with no newly staged mission
+can be the retail active-mission/no-eligible-project path.
 
 ## Data-pack mod pass
 

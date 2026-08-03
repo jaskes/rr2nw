@@ -1020,6 +1020,22 @@ bool PeopleActiveWorldState_ValidateStable(
     return DecodeRecords(bytes, &records);
 }
 
+bool PeopleActiveWorldState_RouteNames(
+    const std::vector<unsigned char> &bytes,
+    std::vector<std::string> *routeNames)
+{
+    std::vector<StablePeopleRecord> records;
+    if (routeNames == NULL || !routeNames->empty() ||
+        !DecodeRecords(bytes, &records))
+        return false;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        routeNames->push_back(records[index].route);
+    std::sort(routeNames->begin(), routeNames->end());
+    routeNames->erase(std::unique(routeNames->begin(), routeNames->end()),
+                      routeNames->end());
+    return true;
+}
+
 bool PeopleActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes)
 {
@@ -1161,27 +1177,41 @@ bool PeopleActiveWorldState_CreateStableOwners(
     SimulationContext *context, const std::vector<unsigned char> &bytes,
     std::vector<KR_ObjectID> *created)
 {
+    g_lastFailure.clear();
     std::vector<StablePeopleRecord> records;
     PeopleRoster roster = {};
-    if (context == NULL || created == NULL || !created->empty() ||
-        !DecodeRecords(bytes, &records) || !CollectRoster(context, &roster))
-        return false;
+    if (context == NULL || created == NULL || !created->empty())
+        return Fail("People owner allocation arguments are invalid");
+    if (!DecodeRecords(bytes, &records))
+        return Fail("People owner payload decoding failed");
+    if (!CollectRoster(context, &roster))
+        return Fail("People live roster collection failed before allocation");
     if (!roster.people.empty())
-        return RosterMatchesRecords(roster, records);
+        return RosterMatchesRecords(roster, records) ||
+               Fail("People live roster differs from the saved roster");
     const int missing = static_cast<int>(records.size());
     if (missing != 0 &&
-        (g_arena.searchSeanceClassTable("People") == ct_NULLID ||
-         missing > PeopleFreeObjectCount()))
-        return false;
+        g_arena.searchSeanceClassTable("People") == ct_NULLID)
+        return Fail("People class table is unavailable");
+    if (missing > PeopleFreeObjectCount())
+    {
+        char message[160] = {};
+        std::snprintf(message, sizeof(message),
+                      "People class capacity is insufficient (need=%d free=%d)",
+                      missing, PeopleFreeObjectCount());
+        return Fail(message);
+    }
     for (std::size_t index = 0; index < records.size(); ++index)
     {
         if (!context->isExist(records[index].attribute.c_str()) ||
             !PeopleAttributeExists(
                 context->searchObject(records[index].attribute.c_str())))
-            return false;
+            return Fail("People attribute is unavailable: " +
+                        records[index].attribute);
         KR_ObjectID route;
         if (!ResolveRoute(context, records[index].route, &route, NULL))
-            return false;
+            return Fail("People route is unavailable: " +
+                        records[index].route);
     }
     for (std::size_t index = 0; index < records.size(); ++index)
     {
@@ -1190,7 +1220,8 @@ bool PeopleActiveWorldState_CreateStableOwners(
         if (IsNul(object))
         {
             PeopleActiveWorldState_RemoveStableOwners(context, created);
-            return false;
+            return Fail("People object allocation failed: " +
+                        records[index].name);
         }
         created->push_back(object);
     }
@@ -1199,7 +1230,7 @@ bool PeopleActiveWorldState_CreateStableOwners(
         !RosterMatchesRecords(restored, records))
     {
         PeopleActiveWorldState_RemoveStableOwners(context, created);
-        return false;
+        return Fail("People reconstructed roster diverged");
     }
     return true;
 }

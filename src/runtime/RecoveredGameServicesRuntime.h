@@ -41,6 +41,26 @@ struct SRecoveredObserverState {
   unsigned int inputEvents;
 };
 
+// Wall-clock telemetry for successful live frames.  Totals make long manual
+// runs comparable, while maxima expose intermittent stalls that an average
+// would hide.  Microseconds keep the public structure independent from the
+// host timer implementation.
+struct SRecoveredFrameTimingTelemetry {
+  std::uint64_t frames;
+  std::uint64_t totalMicroseconds;
+  std::uint64_t maximumFrameMicroseconds;
+  std::uint64_t inputMicroseconds;
+  std::uint64_t maximumInputMicroseconds;
+  std::uint64_t simulationMicroseconds;
+  std::uint64_t maximumSimulationMicroseconds;
+  std::uint64_t renderMicroseconds;
+  std::uint64_t maximumRenderMicroseconds;
+  std::uint64_t presentMicroseconds;
+  std::uint64_t maximumPresentMicroseconds;
+  std::uint64_t boundaryMicroseconds;
+  std::uint64_t maximumBoundaryMicroseconds;
+};
+
 struct SRecoveredMissionMapProbeTelemetry {
   int staged = 0;
   int summaryPublished = 0;
@@ -662,6 +682,8 @@ int RecoveredGameServices_VehicleLastFrameFailure();
 int RecoveredGameServices_VehicleLastFrameReadinessIssue();
 bool RecoveredGameServices_VehicleDriveTelemetry(
     SRecoveredVehicleDriveTelemetry* telemetry);
+bool RecoveredGameServices_FrameTimingTelemetry(
+    SRecoveredFrameTimingTelemetry* telemetry);
 bool RecoveredGameServices_VehicleAuthorityState(
     SRecoveredVehicleAuthorityState* state);
 unsigned int RecoveredGameServices_VehicleFrameCount();

@@ -7,6 +7,30 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Cross-Level load now reconstructs mission-local People routes before
+  restoring active actors. The loader derives only validated `msNN.symbol`
+  routes from the matching retail `Route/SNN/symbol.rt`, holds both source and
+  target route references through the transaction, and restores the complete
+  previous People/route graph if target publication fails. The reported real
+  `Level.03N` Slot 1 now loads from `Level.05D` without the former CTJ1 owner
+  adoption failure.
+- Runtime diagnostics now split every successful frame into input, simulation,
+  software render, present and frame-boundary time. This confirmed that the
+  apparent global slow motion was Debug rasterizer cost interacting with the
+  preserved 50 ms timer clamp, not a Level-specific aircraft or mission
+  regression.
+- Added the `windows-msvc-x86-playtest` RelWithDebInfo build/test preset for
+  normal manual gameplay: it retains symbols and diagnostics while running the
+  software renderer at optimized speed. A narrowly scoped Debug-only
+  rasterizer optimization keeps assertions elsewhere without pretending that
+  Debug is the performance acceptance configuration.
+- RelWithDebInfo packages now use an explicit `-playtest` identity and pass the
+  same hermetic archive gate as Debug and Release. Hermetic staging and unpack
+  paths were shortened to avoid the still-legacy Win32 narrow-path boundary.
+- RecruitCenter diagnostics now retain the last committed center, project,
+  script, created-owner, deferred-command, briefing and rollback summary. This
+  distinguishes an admitted mission whose briefing presentation is missing
+  from a visit that had no eligible project.
 - `Level.03N` Inhabitants missions no longer fail silently at the town-hall
   boundary. March command 35 (`COM_SET_GIVEARTEFACT`) is now retained as a
   completion/revisit reward marker instead of being rejected as an unsupported

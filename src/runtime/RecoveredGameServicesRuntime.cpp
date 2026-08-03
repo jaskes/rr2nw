@@ -1,6 +1,7 @@
 #include "RecoveredGameServicesRuntime.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -1000,6 +1001,7 @@ SRecoveredVehicleDeathCameraProbeSummary g_vehicleDeathCameraProbe = {};
 STaxiVehicleTransitionProbeSummary g_taxiVehicleTransitionProbe = {};
 SRecoveredVehicleControlReplayProbeSummary g_vehicleControlReplayProbe = {};
 SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
+SRecoveredFrameTimingTelemetry g_frameTimingTelemetry = {};
 CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
 CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
 bool g_vehicleDriveTelemetryReady = false;
@@ -2786,6 +2788,7 @@ void BeginLoop() {
 
   dwFrames = 0;
   dwTime0 = GetTickCount();
+  g_frameTimingTelemetry = {};
   pScene->CheckDynamicMap();
   GRSetViewport(ppViewports[0]);
   g_loopReady = true;
@@ -5212,6 +5215,14 @@ bool RecoveredGameServices_VehicleDriveTelemetry(
   return true;
 }
 
+bool RecoveredGameServices_FrameTimingTelemetry(
+    SRecoveredFrameTimingTelemetry* telemetry) {
+  if (telemetry == nullptr || g_frameTimingTelemetry.frames == 0)
+    return false;
+  *telemetry = g_frameTimingTelemetry;
+  return true;
+}
+
 bool RecoveredGameServices_VehicleAuthorityState(
     SRecoveredVehicleAuthorityState* authority) {
   if (authority == nullptr || g_super.m_context == nullptr) return false;
@@ -5393,7 +5404,10 @@ int RecoveredGameServices_RunFrame() {
     Report(RECOVERED_GAME_SERVICES_BEGIN_LOOP_FAILURE);
     return FALSE;
   }
+  typedef std::chrono::steady_clock FrameClock;
+  const FrameClock::time_point frameStart = FrameClock::now();
   if (!PumpMessages()) return FALSE;
+  const FrameClock::time_point inputEnd = FrameClock::now();
   bool vehicleFrame = g_vehicleControlReady;
   if (vehicleFrame && g_vehicleFrameCount == 0) {
     const double timerTime = g_timer.GetTime();
@@ -5445,6 +5459,7 @@ int RecoveredGameServices_RunFrame() {
     }
   }
   if (!vehicleFrame) g_observerInput.Advance(Session::m_frameSec);
+  const FrameClock::time_point simulationEnd = FrameClock::now();
 
   Frame_ClearRuntimeIssues();
   // Own the complete physical framebuffer at the recovered loop boundary.
@@ -5505,11 +5520,13 @@ int RecoveredGameServices_RunFrame() {
   SUA_EndRender(ZAV_Scene());
   ZAV_EndRenderFrame();
   ZAV_NextFrame();
+  const FrameClock::time_point renderEnd = FrameClock::now();
 
   if (Frame_RuntimeIssues() != 0 || !GRDumpScreen()) {
     Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
     return FALSE;
   }
+  const FrameClock::time_point presentEnd = FrameClock::now();
   RecordPrimaryFireRenderFrame();
   // Debug mutations share the same fully closed boundary as save/load and
   // are processed first so a later save request can only observe a committed
@@ -5534,5 +5551,46 @@ int RecoveredGameServices_RunFrame() {
       !g_saveMenuState.pending) {
     ShowNativeSaveFailure();
   }
+  const FrameClock::time_point boundaryEnd = FrameClock::now();
+  const std::uint64_t inputMicroseconds = static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          inputEnd - frameStart).count());
+  const std::uint64_t simulationMicroseconds = static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          simulationEnd - inputEnd).count());
+  const std::uint64_t renderMicroseconds = static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          renderEnd - simulationEnd).count());
+  const std::uint64_t presentMicroseconds = static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          presentEnd - renderEnd).count());
+  const std::uint64_t boundaryMicroseconds = static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          boundaryEnd - presentEnd).count());
+  const std::uint64_t totalMicroseconds = static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          boundaryEnd - frameStart).count());
+  ++g_frameTimingTelemetry.frames;
+  g_frameTimingTelemetry.totalMicroseconds += totalMicroseconds;
+  g_frameTimingTelemetry.maximumFrameMicroseconds = (std::max)(
+      g_frameTimingTelemetry.maximumFrameMicroseconds, totalMicroseconds);
+  g_frameTimingTelemetry.inputMicroseconds += inputMicroseconds;
+  g_frameTimingTelemetry.maximumInputMicroseconds = (std::max)(
+      g_frameTimingTelemetry.maximumInputMicroseconds, inputMicroseconds);
+  g_frameTimingTelemetry.simulationMicroseconds += simulationMicroseconds;
+  g_frameTimingTelemetry.maximumSimulationMicroseconds = (std::max)(
+      g_frameTimingTelemetry.maximumSimulationMicroseconds,
+      simulationMicroseconds);
+  g_frameTimingTelemetry.renderMicroseconds += renderMicroseconds;
+  g_frameTimingTelemetry.maximumRenderMicroseconds = (std::max)(
+      g_frameTimingTelemetry.maximumRenderMicroseconds, renderMicroseconds);
+  g_frameTimingTelemetry.presentMicroseconds += presentMicroseconds;
+  g_frameTimingTelemetry.maximumPresentMicroseconds = (std::max)(
+      g_frameTimingTelemetry.maximumPresentMicroseconds,
+      presentMicroseconds);
+  g_frameTimingTelemetry.boundaryMicroseconds += boundaryMicroseconds;
+  g_frameTimingTelemetry.maximumBoundaryMicroseconds = (std::max)(
+      g_frameTimingTelemetry.maximumBoundaryMicroseconds,
+      boundaryMicroseconds);
   return TRUE;
 }

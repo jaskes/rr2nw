@@ -50,6 +50,8 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbe(
 bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     bool *staged, RecruitCenterMissionProbeSummary *summary);
+bool RecruitCenterSubjectState_LastMissionSummary(
+    RecruitCenterMissionProbeSummary *summary);
 const char *RecruitCenterSubjectState_LastError();
 
 #endif

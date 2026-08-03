@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory = $true)][string]$PackageScript,
     [Parameter(Mandatory = $true)][string]$CampaignScript,
     [Parameter(Mandatory = $true)][string]$ScratchRoot,
-    [ValidateSet('Debug', 'Release')][string]$Configuration
+    [ValidateSet('Debug', 'Release', 'RelWithDebInfo')]
+    [string]$Configuration
 )
 
 Set-StrictMode -Version Latest

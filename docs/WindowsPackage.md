@@ -42,6 +42,17 @@ Create, hash, unpack and smoke the Release package with:
   -DataRoot "E:\Games\The Next Worlds"
 ```
 
+For a development package with optimized gameplay and diagnostic symbols in
+the local build tree, select RelWithDebInfo explicitly:
+
+```powershell
+& ".\tools\release\New-WindowsPackage.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration RelWithDebInfo
+```
+
+It receives a `-playtest` package suffix so it cannot be confused with a clean
+Release candidate. The local `RelWithDebInfo` build retains the matching PDB;
+the redistributable ZIP remains the engine/tooling payload described above.
+
 The script builds `rr2nw.exe` and `rr2nw-mod-validator.exe`, creates a new
 whitelist-only stage, validates all bundled examples, verifies PE32 subsystem
 and ASLR/NX policy, writes `package-manifest.json`, and produces a deterministic
@@ -50,7 +61,7 @@ exact ZIP into a new directory, verifies every manifested file and runs two
 bounded retail smokes from the unpacked tree: base `Level.03N` and the bundled
 `rr2nw.example.data-pack`.
 
-CTest also runs a media-free Debug/Release package proof with a synthetic
+CTest also runs a media-free Debug/Release/Playtest package proof with a synthetic
 nine-Level catalog. It creates two independent archives, requires identical
 ZIP SHA-256, verifies extraction and initializes the packaged 18-row ledger.
 `-SkipRuntimeSmoke` exists only for this hermetic tooling test; it is not an RC

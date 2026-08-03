@@ -2623,7 +2623,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            ProcessDebugLevelSwitch(data, &currentLevelIndex,
                                    options.runtimeSmoke, &log);
   };
-  if (!loopFailed && options.runtimeSmoke) {
+  // Startup save/load is itself a closed-frame operation.  Complete it before
+  // staging the synthetic map mission: otherwise a save captures the probe,
+  // while a cross-Level load carries source-Level probe baselines into the
+  // restored DebugMap and can reject an otherwise successful load.
+  if (!loopFailed && options.runtimeSmoke &&
+      (options.startupSaveSlot >= 0 || options.startupLoadSlot >= 0))
+    loopFailed = !runCompleteFrame();
+  if (!loopFailed && options.runtimeSmoke &&
+      options.startupSaveSlot < 0 && options.startupLoadSlot < 0) {
     loopFailed = !RecoveredGameServices_StageMissionMapProbe() ||
                  !runCompleteFrame() ||
                  !RecoveredGameServices_RequestDebugMapToggle() ||
@@ -2855,6 +2863,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_RecruitCenterEjections()) +
            "/" + std::to_string(
                RecoveredArenaSeance_RecruitCenterAdmissionFailures()));
+  RecruitCenterMissionProbeSummary lastMission = {};
+  if (RecruitCenterSubjectState_LastMissionSummary(&lastMission)) {
+    log.Line(std::string("recruit_center_last_mission=") +
+             lastMission.centerName + "/" + lastMission.projectName + "/" +
+             std::to_string(lastMission.executedScripts) + "/" +
+             std::to_string(lastMission.createdMissionObjects) + "/" +
+             std::to_string(lastMission.deferredCommands) + "/" +
+             std::to_string(lastMission.presentedBriefings) + "/" +
+             std::to_string(lastMission.scriptRollbacks));
+  }
   log.Line("windows_input_primary_fire_presses=" + std::to_string(
                RecoveredGameServices_VehiclePrimaryFirePresses()));
   log.Line("windows_input_secondary_fire_presses=" + std::to_string(
@@ -3062,6 +3080,35 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("observer_mode=fallback-suspended");
   log.Line("service_hooks=12");
   log.Line("service_frames=" + std::to_string(dwFrames));
+  SRecoveredFrameTimingTelemetry frameTiming = {};
+  if (RecoveredGameServices_FrameTimingTelemetry(&frameTiming)) {
+    log.Line("frame_profile_samples=" +
+             std::to_string(frameTiming.frames));
+    log.Line("frame_profile_total_us=" +
+             std::to_string(frameTiming.totalMicroseconds));
+    log.Line("frame_profile_total_max_us=" +
+             std::to_string(frameTiming.maximumFrameMicroseconds));
+    log.Line("frame_profile_input_us=" +
+             std::to_string(frameTiming.inputMicroseconds));
+    log.Line("frame_profile_input_max_us=" +
+             std::to_string(frameTiming.maximumInputMicroseconds));
+    log.Line("frame_profile_simulation_us=" +
+             std::to_string(frameTiming.simulationMicroseconds));
+    log.Line("frame_profile_simulation_max_us=" +
+             std::to_string(frameTiming.maximumSimulationMicroseconds));
+    log.Line("frame_profile_render_us=" +
+             std::to_string(frameTiming.renderMicroseconds));
+    log.Line("frame_profile_render_max_us=" +
+             std::to_string(frameTiming.maximumRenderMicroseconds));
+    log.Line("frame_profile_present_us=" +
+             std::to_string(frameTiming.presentMicroseconds));
+    log.Line("frame_profile_present_max_us=" +
+             std::to_string(frameTiming.maximumPresentMicroseconds));
+    log.Line("frame_profile_boundary_us=" +
+             std::to_string(frameTiming.boundaryMicroseconds));
+    log.Line("frame_profile_boundary_max_us=" +
+             std::to_string(frameTiming.maximumBoundaryMicroseconds));
+  }
   SGRSoftwareRasterStats rasterStats = {};
   GRSoftwareGetTotalStats(&rasterStats);
   log.Line("renderer_frames=" + std::to_string(rasterStats.frames));
