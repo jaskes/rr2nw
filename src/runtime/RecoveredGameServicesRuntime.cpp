@@ -5,8 +5,10 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <iomanip>
+#include <limits>
 #include <new>
 #include <sstream>
 #include <string>
@@ -3657,6 +3659,175 @@ bool RecoveredGameServices_RestoreLevelContinuation(
   return false;
 }
 
+bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
+    const char* taxiObjectName,
+    const std::vector<KR_ObjectID>& preMissionTaxis,
+    SRecoveredMissionVehicleDriveProbe* summary) {
+  if (summary == nullptr) return false;
+  *summary = {};
+  SimulationContext* context = g_super.m_context;
+  if (!g_vehicleControlReady || context == nullptr ||
+      taxiObjectName == nullptr || taxiObjectName[0] == '\0' ||
+      g_vehicleControlInput.ActiveActionCount() != 0u) {
+    return false;
+  }
+
+  KR_ObjectID vehicleID = context->searchObject("Vehicle.Default");
+  Vehicle* vehicle = vehicleID.isNUL()
+      ? nullptr
+      : static_cast<Vehicle*>(
+            context->queryInterface(vehicleID, IVehicleIID));
+  const auto collectMissionTaxis = [&]() {
+    std::vector<KR_ObjectID> allTaxis;
+    std::vector<KR_ObjectID> missionTaxis;
+    if (!TaxiSubjectState_ObjectIDs(context, &allTaxis))
+      return missionTaxis;
+    for (KR_ObjectID candidate : allTaxis) {
+      const char* candidateName = context->searchObject(candidate);
+      const bool existedBefore = std::find(
+          preMissionTaxis.begin(), preMissionTaxis.end(), candidate) !=
+          preMissionTaxis.end();
+      if (!existedBefore && candidateName != nullptr &&
+          std::strcmp(candidateName, taxiObjectName) == 0) {
+        missionTaxis.push_back(candidate);
+      }
+    }
+    return missionTaxis;
+  };
+  const std::vector<KR_ObjectID> initialMissionTaxis =
+      collectMissionTaxis();
+  if (vehicle == nullptr || initialMissionTaxis.empty()) return false;
+  const int taxiCount = static_cast<int>(initialMissionTaxis.size());
+  summary->availableTaxis = static_cast<unsigned int>(taxiCount);
+
+  std::vector<std::uint8_t> checkpoint;
+  SLevelContinuationSummary captured;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &checkpoint, &captured) || !captured.ready) {
+    return false;
+  }
+
+  summary->minimumHorizontalDistance =
+      std::numeric_limits<double>::infinity();
+  summary->minimumForwardTravel =
+      std::numeric_limits<double>::infinity();
+  constexpr unsigned int kMovementFrames = 80u;
+  for (int ordinal = 0; ordinal < taxiCount; ++ordinal) {
+    const std::vector<KR_ObjectID> missionTaxis = collectMissionTaxis();
+    KR_ObjectID taxiID = ordinal < static_cast<int>(missionTaxis.size())
+        ? missionTaxis[static_cast<std::size_t>(ordinal)]
+        : KR_ObjectID::NUL();
+    SRecoveredVehicleRuntimeState before = {};
+    SRecoveredVehicleRuntimeState entered = {};
+    SRecoveredVehicleRuntimeState driven = {};
+    std::string transitionFailure;
+    bool movementReady = !taxiID.isNUL() && context->isExist(taxiID) &&
+        VehicleRuntimeState_Inspect(context, vehicleID, &before);
+    const double transitionTime = movementReady
+        ? (std::max)(0.1, before.lastTime)
+        : 0.1;
+    movementReady = movementReady &&
+        TaxiSubjectState_DebugTakeVehicle(
+            context, vehicleID, taxiID, transitionTime,
+            &transitionFailure) &&
+        VehicleRuntimeState_RebaseRestoredOwner(context) &&
+        VehicleRuntimeState_Inspect(context, vehicleID, &entered) &&
+        entered.attribute != before.attribute && !entered.dead &&
+        !entered.takingTaxi && !vehicle->taxiChangeEnabled() &&
+        !context->isExist(taxiID);
+    if (movementReady) {
+      ++summary->transitionedTaxis;
+      if (entered.panelReady) ++summary->panelReadyTaxis;
+      if (entered.panelOpen) ++summary->panelOpenTaxis;
+      movementReady = entered.panelReady == entered.panelOpen;
+    }
+
+    const CFVector3 back = entered.direction.Row(2);
+    const double basisLength = std::sqrt(
+        back.x * back.x + back.z * back.z);
+    double forwardX = 0.0;
+    double forwardZ = 0.0;
+    if (movementReady && std::isfinite(basisLength) &&
+        basisLength > 1.0e-12) {
+      forwardX = -back.x / basisLength;
+      forwardZ = -back.z / basisLength;
+    } else {
+      movementReady = false;
+    }
+
+    double currentTime = entered.lastTime;
+    bool throttleApplied = false;
+    if (movementReady) {
+      throttleApplied = VehicleRuntimeState_ApplyControlAt(
+          context, MOVE_FORWARD, 1.0, currentTime);
+      movementReady = throttleApplied;
+    }
+    for (unsigned int frame = 0u;
+         movementReady && frame < kMovementFrames; ++frame) {
+      currentTime += 0.025;
+      movementReady = VehicleRuntimeState_Advance(context, currentTime);
+      if (movementReady) ++summary->movementFrames;
+    }
+    if (throttleApplied) {
+      const bool released = VehicleRuntimeState_ApplyControlAt(
+          context, MOVE_FORWARD, 0.0, currentTime);
+      movementReady = movementReady && released;
+    }
+    movementReady = movementReady &&
+        VehicleRuntimeState_Inspect(context, vehicleID, &driven);
+    if (movementReady) {
+      const double dx = driven.position.x - entered.position.x;
+      const double dz = driven.position.z - entered.position.z;
+      const double distance = std::sqrt(dx * dx + dz * dz);
+      const double forwardTravel = dx * forwardX + dz * forwardZ;
+      const double lateralTravel =
+          std::fabs(dx * forwardZ - dz * forwardX);
+      const double lateralRatio = lateralTravel /
+          (std::max)(std::fabs(forwardTravel), 1.0e-12);
+      summary->minimumHorizontalDistance = (std::min)(
+          summary->minimumHorizontalDistance, distance);
+      summary->minimumForwardTravel = (std::min)(
+          summary->minimumForwardTravel, forwardTravel);
+      summary->maximumLateralTravel = (std::max)(
+          summary->maximumLateralTravel, lateralTravel);
+      summary->maximumLateralRatio = (std::max)(
+          summary->maximumLateralRatio, lateralRatio);
+      if (std::isfinite(distance) && std::isfinite(forwardTravel) &&
+          std::isfinite(lateralTravel) && forwardTravel > 0.01 &&
+          lateralTravel <= (std::max)(0.05, forwardTravel * 0.5)) {
+        ++summary->alignedTaxis;
+      }
+    }
+
+    SLevelContinuationSummary restored;
+    if (RecoveredGameServices_RestoreLevelContinuation(
+            checkpoint, &restored)) {
+      ++summary->rollbackRestores;
+    } else {
+      return false;
+    }
+    std::vector<std::uint8_t> verifiedBytes;
+    SLevelContinuationSummary verified;
+    if (RecoveredGameServices_CaptureLevelContinuation(
+            &verifiedBytes, &verified) && verified.ready &&
+        verifiedBytes == checkpoint &&
+        verified.worldFingerprint == captured.worldFingerprint &&
+        verified.containerFingerprint == captured.containerFingerprint) {
+      ++summary->exactRollbacks;
+    } else {
+      return false;
+    }
+  }
+
+  return summary->transitionedTaxis == summary->availableTaxis &&
+         summary->panelReadyTaxis == summary->panelOpenTaxis &&
+         summary->alignedTaxis == summary->availableTaxis &&
+         summary->rollbackRestores == summary->availableTaxis &&
+         summary->exactRollbacks == summary->availableTaxis &&
+         summary->movementFrames ==
+             summary->availableTaxis * kMovementFrames;
+}
+
 void RecoveredGameServices_FailNextRestoredGameplayAuthorityForTesting() {
   g_failNextRestoredGameplayAuthorityForTesting = true;
 }
@@ -4461,11 +4632,15 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
     } else {
       const SRecoveredDebugVehicleType type =
           g_debugVehicleCatalog[index];
-      const CFVector3 forward = HorizontalForward(vehicleState.direction);
+      // HorizontalForward historically returns Row(2), the view/model back
+      // vector used by the vessel.  Keep its yaw convention for Taxi, but
+      // place debug vehicles along the physical forward direction so the
+      // requested object actually appears in front of the player.
+      const CFVector3 back = HorizontalForward(vehicleState.direction);
       const CFVector3 position =
-          vehicleState.position + forward * 16.0 +
+          vehicleState.position - back * 16.0 +
           CFVector3(0.0, 24.0, 0.0);
-      const double angle = std::atan2(forward.x, forward.z);
+      const double angle = std::atan2(back.x, back.z);
       const double timeStamp =
           (std::max)(0.1, (std::max)(Session::m_viewTime,
                                     vehicleState.lastTime));

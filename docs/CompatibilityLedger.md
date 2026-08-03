@@ -4064,6 +4064,29 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   with `g_vehicle->m_playedBrief`. Then add presentation state without changing
   MSH1 or mission transaction ownership.
 
+### CQ-213: mission Taxi object names are not unique identities
+
+- Status: `RETAIL_SCRIPT_CONFIRMED`, `INSTALLED_RUNTIME_PROVED`,
+  `PORTABILITY_GATE_ACCEPTED`.
+- Evidence: the recovered retail helper always supplies `"Taxi.Obj"` to
+  `CreateTaxi3DEx`. `ProjectS25` invokes it twice for `taxi.attr.war_t07`, at
+  distinct positions and headings 90 and 0. At runtime Level.03N contains 93
+  pre-existing Taxi owners with the same name; the mission raises that count
+  by two. A single `searchObject("Taxi.Obj")` is therefore not an identity or
+  a complete mission-vehicle test.
+- Handling: snapshot the sorted Taxi object-ID roster before executing the
+  RecruitCenter script and derive the mission-local delta afterward. Test each
+  delta owner separately through the real Taxi-to-Vehicle transition, positive
+  throttle, HUD state and exact LCN1 restoration. Do not serialize the
+  transient roster or require unique retail names.
+- Verification: installed Debug `ProjectS25` reports `2/2` transitions,
+  aligned travel and exact rollbacks; minimum forward travel is 9.311441,
+  maximum lateral travel is 0.0. The `ProjectS22` Roller likewise advances
+  forward and restores exactly. The ordinary handover smoke now also rejects
+  lateral-dominant displacement.
+- Revisit when: maintained object identity replaces kernel names throughout
+  mission creation. Preserve duplicate-name compatibility when doing so.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -20,6 +20,7 @@
 #include "obase/howitzer/HowitzerActiveWorldState.h"
 #include "obase/people/PeopleSubjectState.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
+#include "obase/taxi/TaxiSubjectState.h"
 #include "suavik.h"
 
 #include <shlobj.h>
@@ -2687,6 +2688,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  !RecoveredGameServices_ClearMissionMapProbe();
   }
   if (!loopFailed && options.missionSmoke) {
+    std::vector<KR_ObjectID> preMissionTaxis;
+    const bool preMissionTaxisReady = TaxiSubjectState_ObjectIDs(
+        g_super.m_context, &preMissionTaxis);
     bool missionStaged = false;
     RecruitCenterMissionProbeSummary mission = {};
     const double missionTime =
@@ -2784,6 +2788,34 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(guide.elapsed) + "/" +
              std::to_string(guide.displacement));
     loopFailed = loopFailed || !guideReady;
+    const std::string missionProject = mission.projectName;
+    if (!loopFailed &&
+        (missionProject == "ProjectS22" ||
+         missionProject == "ProjectS23" ||
+         missionProject == "ProjectS24" ||
+         missionProject == "ProjectS25")) {
+      SRecoveredMissionVehicleDriveProbe missionVehicle = {};
+      const bool missionVehicleReady = preMissionTaxisReady &&
+          RecoveredGameServices_ProbeMissionTaxiForwardTravel(
+              "Taxi.Obj", preMissionTaxis, &missionVehicle);
+      log.Line("mission_smoke_pre_taxis=" +
+               std::to_string(preMissionTaxis.size()));
+      log.Line("mission_smoke_vehicle_drive=" +
+               std::to_string(missionVehicle.availableTaxis) + "/" +
+               std::to_string(missionVehicle.transitionedTaxis) + "/" +
+               std::to_string(missionVehicle.panelReadyTaxis) + "/" +
+               std::to_string(missionVehicle.panelOpenTaxis) + "/" +
+               std::to_string(missionVehicle.alignedTaxis) + "/" +
+               std::to_string(missionVehicle.movementFrames) + "/" +
+               std::to_string(
+                   missionVehicle.minimumHorizontalDistance) + "/" +
+               std::to_string(missionVehicle.minimumForwardTravel) + "/" +
+               std::to_string(missionVehicle.maximumLateralTravel) + "/" +
+               std::to_string(missionVehicle.maximumLateralRatio) + "/" +
+               std::to_string(missionVehicle.rollbackRestores) + "/" +
+               std::to_string(missionVehicle.exactRollbacks));
+      loopFailed = !missionVehicleReady;
+    }
     if (!loopFailed && saveAfterMission) {
       const bool missionSaveRequested =
           RecoveredGameServices_RequestSaveSlot(

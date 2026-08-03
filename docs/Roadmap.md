@@ -1822,13 +1822,29 @@ toward the target. Exact May event-26012 grounded collision/progress behavior
 remains a named refinement, but it no longer blocks ordinary guide lifecycle,
 save/load or rollback.
 
-The Taxi-to-Vehicle placement half of the next row is closed: the Vehicle now
-inherits the support basis and releases along its normal, so exact contact no
-longer produces an immediate static bump and zero speed. The remaining row is
-the mission vehicle's steering/model basis where forward input can still drive
-sideways, followed by the complete May event-26012 grounded People handler and
-guide/vehicle path obstruction behavior visible in town routes. These must
-precede reward/completion and Portal admission.
+The Taxi-to-Vehicle placement and steering/model-basis row is closed. The
+Vehicle inherits the support basis, releases along its normal and advances on
+positive throttle along `-direction.Row(2)`. The ordinary interactive smoke
+now rejects merely non-zero sideways/backwards travel. Installed-data mission
+acceptance snapshots the pre-mission Taxi roster, tests only newly created
+`Taxi.Obj` owners and restores the complete LCN1 world byte-for-byte after
+each drive. `ProjectS22` proves its Roller, while `ProjectS25` proves both
+same-name `war_t07` jeeps (angles 90 and 0): both moved 9.31 units forward
+with zero measured lateral travel and both retained their HUD. This also
+documents why name-only lookup was invalid: the Level already owns 93
+different `Taxi.Obj` instances before `ProjectS25` adds two more.
+
+The transposed Taxi basis is therefore intentional; do not add a corrective
+90-degree rotation. A future repeat of the visually sideways jeep must retain
+the frame/collision/input telemetry because it is a transient contact or
+control-state defect, not a static model basis. Debug-menu vehicle placement
+now uses physical forward for position while preserving the Taxi yaw
+convention, and the stable-boundary smoke requires the spawned object to be in
+front of the player.
+
+The next gameplay row is the complete May event-26012 grounded People handler
+and guide/vehicle path-obstruction behavior visible in town routes, followed
+by mission reward/completion and Portal admission.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

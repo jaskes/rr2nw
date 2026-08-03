@@ -181,6 +181,25 @@ struct SRecoveredTaxiVehicleHandoffTelemetry {
   int hardwareSubscriptionPreserved;
 };
 
+// Transactional proof for a Taxi created by a retail mission script. The
+// probe enters the named Taxi through Vehicle::tryTakeTaxi, advances positive
+// throttle against the recovered vessel basis, then restores and byte-checks
+// the complete pre-probe LCN1 world.
+struct SRecoveredMissionVehicleDriveProbe {
+  unsigned int availableTaxis;
+  unsigned int transitionedTaxis;
+  unsigned int panelReadyTaxis;
+  unsigned int panelOpenTaxis;
+  unsigned int alignedTaxis;
+  unsigned int rollbackRestores;
+  unsigned int exactRollbacks;
+  unsigned int movementFrames;
+  double minimumHorizontalDistance;
+  double minimumForwardTravel;
+  double maximumLateralTravel;
+  double maximumLateralRatio;
+};
+
 struct SRecoveredVehiclePrimaryFireTelemetry {
   unsigned int triggerPresses;
   unsigned int acceptedShots;
@@ -572,6 +591,10 @@ bool RecoveredGameServices_CaptureLevelContinuation(
 bool RecoveredGameServices_RestoreLevelContinuation(
     const std::vector<std::uint8_t>& bytes,
     SLevelContinuationSummary* summary);
+bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
+    const char* taxiObjectName,
+    const std::vector<KR_ObjectID>& preMissionTaxis,
+    SRecoveredMissionVehicleDriveProbe* summary);
 // Test-only one-shot failpoint. The next otherwise successful continuation
 // restore is rejected after world, CTJ1, Vehicle, camera and panel authority
 // have all passed validation, forcing the normal transactional rollback path.

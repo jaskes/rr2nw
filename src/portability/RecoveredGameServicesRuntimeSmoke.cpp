@@ -1395,6 +1395,29 @@ double HorizontalHeadingDelta(const CFMatrix3x4& before,
   return std::acos(dot);
 }
 
+bool HorizontalForwardTravel(const SRecoveredVehicleRuntimeState& before,
+                             const SRecoveredVehicleRuntimeState& after,
+                             double* forwardTravel,
+                             double* lateralTravel) {
+  if (forwardTravel == nullptr || lateralTravel == nullptr) return false;
+  const CFVector3 back = before.direction.Row(2);
+  const double forwardLength = std::sqrt(
+      back.x * back.x + back.z * back.z);
+  if (!std::isfinite(forwardLength) || forwardLength <= 1.0e-12)
+    return false;
+
+  // Vehicle dynamics stores the camera/model back vector in Row(2): positive
+  // throttle advances along its negation.  Measuring only displacement used
+  // to let a sideways or backwards Taxi-to-Vehicle handoff pass this smoke.
+  const double forwardX = -back.x / forwardLength;
+  const double forwardZ = -back.z / forwardLength;
+  const double dx = after.position.x - before.position.x;
+  const double dz = after.position.z - before.position.z;
+  *forwardTravel = dx * forwardX + dz * forwardZ;
+  *lateralTravel = std::fabs(dx * forwardZ - dz * forwardX);
+  return std::isfinite(*forwardTravel) && std::isfinite(*lateralTravel);
+}
+
 bool RunVehicleFrameAfter(double minimumDelta) {
   return WaitForSessionTimeAdvance(minimumDelta) &&
          RecoveredGameServices_RunFrame() &&
@@ -1488,6 +1511,21 @@ bool ExerciseInteractiveTaxiHandoff() {
     return false;
   const double dx = driven.position.x - transitioned.position.x;
   const double dz = driven.position.z - transitioned.position.z;
+  double forwardTravel = 0.0;
+  double lateralTravel = 0.0;
+  const bool directionValid = HorizontalForwardTravel(
+      transitioned, driven, &forwardTravel, &lateralTravel);
+  if (!directionValid || forwardTravel <= 1.0e-6 ||
+      lateralTravel > forwardTravel) {
+    std::fprintf(stderr,
+                 "Taxi Vehicle forward travel invalid: distance=%.9f "
+                 "forward=%.9f lateral=%.9f back=[%.9f,%.9f,%.9f]\n",
+                 std::sqrt(dx * dx + dz * dz), forwardTravel,
+                 lateralTravel, transitioned.direction.Row(2).x,
+                 transitioned.direction.Row(2).y,
+                 transitioned.direction.Row(2).z);
+    return false;
+  }
   return std::sqrt(dx * dx + dz * dz) > 1.0e-6 &&
          handoff.postTransitionFrames >= 41 &&
          handoff.postTransitionDistance > 1.0e-6 &&
@@ -3481,7 +3519,12 @@ bool ExerciseTaxiDebugCatalogAndSpawn(SimulationContext* context,
 }
 
 bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
-  const bool configured = context != nullptr &&
+  KR_ObjectID vehicleID = context == nullptr
+      ? KR_ObjectID::NUL()
+      : context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState vehicleState = {};
+  const bool configured = context != nullptr && !vehicleID.isNUL() &&
+      VehicleRuntimeState_Inspect(context, vehicleID, &vehicleState) &&
       RecoveredGameServices_ConfigureDebugMenu(
           true, std::vector<std::string>{"Level.Debug"});
   if (!configured) {
@@ -3559,6 +3602,22 @@ bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
   KR_ObjectID spawned = spawnedName.empty()
                             ? KR_ObjectID::NUL()
                             : context->searchObject(spawnedName.c_str());
+  ITaxi* spawnedTaxi = spawned.isNUL()
+      ? nullptr
+      : static_cast<ITaxi*>(context->queryInterface(spawned, ITaxiIID));
+  const CFVector3 back = vehicleState.direction.Row(2);
+  const double basisLength =
+      std::sqrt(back.x * back.x + back.z * back.z);
+  double forwardProjection = -1.0;
+  if (spawnedTaxi != nullptr && basisLength > 1.0e-12) {
+    const CFVector3 taxiPosition = spawnedTaxi->taxiPos();
+    const double dx = taxiPosition.x - vehicleState.position.x;
+    const double dz = taxiPosition.z - vehicleState.position.z;
+    forwardProjection =
+        dx * (-back.x / basisLength) + dz * (-back.z / basisLength);
+  }
+  const bool spawnedAhead = std::isfinite(forwardProjection) &&
+      forwardProjection > 1.0;
   const bool completionState =
       completedAfterRetry && completed != nullptr && !completed->pending &&
       completed->pendingAttempts == 0u &&
@@ -3568,7 +3627,7 @@ bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
       completed->failedCommands == 0u &&
       completed->spawnedVehicles == 1u &&
       completed->rollbackAttempts == 0u && !spawned.isNUL() &&
-      context->isExist(spawned);
+      context->isExist(spawned) && spawnedAhead;
 
   if (!spawned.isNUL() && context->isExist(spawned))
     context->removeObject(spawned);
@@ -3587,11 +3646,13 @@ bool ExerciseDebugMenuStableBoundaryRetry(SimulationContext* context) {
     std::fprintf(
         stderr,
         "debug menu retry: retained=%d closed=%d completed=%d state=%d "
-        "restored=%d disabled=%d name=%s taxi=%d/%d sound=%d/%d "
+        "restored=%d disabled=%d ahead=%d/%.6f name=%s "
+        "taxi=%d/%d sound=%d/%d "
         "fingerprint=%llu/%llu explosion=%d\n",
         retainedForRetry ? 1 : 0, boundaryClosed ? 1 : 0,
         completedAfterRetry ? 1 : 0, completionState ? 1 : 0,
-        restored ? 1 : 0, disabled ? 1 : 0, spawnedName.c_str(),
+        restored ? 1 : 0, disabled ? 1 : 0,
+        spawnedAhead ? 1 : 0, forwardProjection, spawnedName.c_str(),
         TaxiSubjectState_LiveCount(), baselineTaxiCount,
         TaxiSubjectState_SoundCount(), baselineTaxiSounds,
         TaxiSubjectState_Fingerprint(context), closedTaxiFingerprint,

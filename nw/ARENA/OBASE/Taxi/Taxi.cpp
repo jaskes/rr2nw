@@ -1685,6 +1685,21 @@ KR_ObjectID TaxiSubjectState_FirstPanelVehicleObject(
     return KR_ObjectID::NUL();
 }
 
+bool TaxiSubjectState_ObjectIDs(
+    SimulationContext *context, std::vector<KR_ObjectID> *objects)
+{
+    if (objects == NULL)
+        return false;
+    objects->clear();
+    TaxiSubjectCollector collector = {};
+    if (!CollectTaxiSubjects(context, collector))
+        return false;
+    objects->reserve(collector.records.size());
+    for (std::size_t index = 0; index < collector.records.size(); ++index)
+        objects->push_back(collector.records[index].object);
+    return true;
+}
+
 bool TaxiSubjectState_DebugVehicleCatalog(
     SimulationContext *context,
     std::vector<STaxiDebugVehicleType> *catalog,

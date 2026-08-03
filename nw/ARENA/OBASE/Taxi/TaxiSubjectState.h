@@ -101,6 +101,8 @@ bool TaxiSubjectState_InspectVehicleProximity(
 KR_ObjectID TaxiSubjectState_FirstObject(SimulationContext *context);
 KR_ObjectID TaxiSubjectState_FirstPanelVehicleObject(
     SimulationContext *context);
+bool TaxiSubjectState_ObjectIDs(
+    SimulationContext *context, std::vector<KR_ObjectID> *objects);
 bool TaxiSubjectState_DebugVehicleCatalog(
     SimulationContext *context,
     std::vector<STaxiDebugVehicleType> *catalog,

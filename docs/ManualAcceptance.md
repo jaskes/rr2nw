@@ -151,8 +151,11 @@ itself:
 The log must name `ProjectS22` and report `staged=1`, `scripts=1`,
 `created_objects=11`, `conditions=4`, `rebound_conditions=4`,
 `deferred_artefact_rewards=1` and `rollbacks=0`. This proves admission and
-population only; delivery of the retained artefact reward is a separate
-completion/revisit acceptance row.
+population only. `mission_smoke_vehicle_drive` must begin `1/1` and end
+`1/1`: the one newly created Roller transitioned, moved along its physical
+forward basis, and the pre-drive mission world was restored exactly. Delivery
+of the retained artefact reward is a separate completion/revisit acceptance
+row.
 
 To verify the actual briefing presenter rather than the headless transaction,
 run this one-line Playtest command. The authored splash must appear, remain
@@ -164,8 +167,10 @@ visible for its retail duration and the process must then exit by itself:
 
 The log must name `ProjectS25`, report one briefing command and one presented
 briefing, `created_objects=22`, `rollbacks=0`, `game_services_issues=0` and
-`runtime_shutdown=clean`. A transaction-only success with zero presentations
-is a presentation regression.
+`runtime_shutdown=clean`. Its `mission_smoke_vehicle_drive` must begin
+`2/2/2/2/2` and end `2/2`, proving both same-name mission jeeps, both HUDs,
+forward-aligned travel and exact rollback. A transaction-only success with
+zero presentations is a presentation regression.
 
 The roster field is `ready/capacity/live/video/defaultTaxi/dictionary`. In
 Level order its expected values are `1/4/3/3/3/3`, `1/4/1/1/0/1`,

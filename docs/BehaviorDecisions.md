@@ -5053,3 +5053,28 @@ unchanged slot first in `Level.03N` and then from `Level.02D`; both must publish
 the saved world fingerprint with no coordinator rollback. A same-context
 capture/restore is insufficient because the mission-created Route would still
 exist and would hide this exact defect.
+
+### BD-139: Vehicle forward is negative basis row two
+
+Status: accepted on 2026-08-03 for Taxi handover and debug placement.
+
+`Taxi::GetDir()` is model-to-world, while the occupied Vehicle stores the
+transposed view/dynamics basis. The vessel equations accelerate positive
+throttle along the negation of row two. Transposing the Taxi matrix in
+`Vehicle::tryTakeTaxi` is therefore required; rotating it by another 90
+degrees would corrupt both the camera and physics merely to mask a transient
+playtest symptom.
+
+The proof must measure signed travel, not only distance. The interactive
+handover smoke rejects backward or lateral-dominant movement. Installed retail
+mission acceptance records the Taxi roster before RecruitCenter execution,
+then drives every newly created same-name `Taxi.Obj` independently and restores
+the post-mission checkpoint byte-for-byte. This distinction is required
+because retail helpers deliberately reuse `Taxi.Obj`: `ProjectS25` adds two
+vehicles to a Level that already has 93 objects with that name.
+
+Debug spawning has two related conventions: position uses physical forward
+(`-Row(2)`), while the angle passed to `CreateTaxi3D` remains derived from the
+stored back row. The regression requires a debug-spawned Taxi to appear ahead
+of the occupied Vehicle; changing both signs would put it in front but reverse
+its authored heading.
