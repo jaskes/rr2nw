@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "i/commander.i"
+#include "i/dynobj.i"
 #include "i/route.i"
 #include "kernel/h/context.h"
 #include "message/peopmsg.h"
@@ -362,9 +363,6 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
                            ? 0.0 : people->m_kill_time;
     record->deleted = people->m_deleted;
     record->lastDamageTime = people->m_lastDamageTime;
-    record->returnPoint = people->m_stateSP <= 1
-                              ? CFVector3(0.0, 0.0, 0.0)
-                              : people->m_returnPoint;
     record->notCreated = people->m_isNotCreate;
     // These two January fields are never read by the released People code and
     // are not initialized by addNotify. Canonical zeroes keep PEO1 free from
@@ -376,15 +374,33 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
     record->states.clear();
     for (int index = 0; index < people->m_stateSP; ++index)
     {
+        const KR_ObjectID enemyID = people->m_enemyID[index];
+        // Retail pe_EVC_NEXTNODE pops an attack frame as soon as its target no
+        // longer exposes IDynamicObjectIID. Units or damage sources can
+        // disappear between scheduler events, leaving this transient reference.
+        // Capture the state the retail scheduler is guaranteed to converge to
+        // instead of preventing save/load or a debug Level switch indefinitely.
+        if (people->m_state[index] == pe_STATE_ATTACK &&
+            (IsNul(enemyID) ||
+             context->queryInterface(enemyID, IDynamicObjectIID) == NULL))
+            continue;
         StablePeopleState state = {};
         state.state = people->m_state[index];
-        state.enemy = ObjectName(context, people->m_enemyID[index]);
+        state.enemy = ObjectName(context, enemyID);
         state.enemyPeopleOrdinal = -1;
-        if (!IsNul(people->m_enemyID[index]) && state.enemy.empty())
-            return Fail("People active enemy has no symbolic name");
-        if (!IsNul(people->m_enemyID[index]))
+        if (!IsNul(enemyID) && state.enemy.empty())
         {
-            People *enemy = ResolvePeople(context, people->m_enemyID[index]);
+            char message[256] = {};
+            std::snprintf(message, sizeof(message),
+                          "People %.96s active enemy is live but has no "
+                          "symbolic name (state=%d id=%ld cache=%d)",
+                          record->name.c_str(), state.state, enemyID.id,
+                          enemyID.getCachePos());
+            return Fail(message);
+        }
+        if (!IsNul(enemyID))
+        {
+            People *enemy = ResolvePeople(context, enemyID);
             if (enemy != NULL)
             {
                 state.enemyPeopleOrdinal =
@@ -395,6 +411,11 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
         }
         record->states.push_back(state);
     }
+    if (record->states.empty())
+        return Fail("People canonical state stack is empty");
+    record->returnPoint = record->states.size() <= 1
+                              ? CFVector3(0.0, 0.0, 0.0)
+                              : people->m_returnPoint;
     record->lastMovePosition = people->m_lastMovePos;
     record->lastMoveDeltaTime = people->m_lastMoveDeltaT;
     record->previousStartShoot = people->m_prevStartShoot;
@@ -1022,6 +1043,44 @@ bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(
     if (roster.people.empty())
         return true;
     People *people = roster.people.front();
+
+    const int originalStateDepth = people->m_stateSP;
+    int originalStates[PeopleData::MAX_STATE] = {};
+    KR_ObjectID originalEnemies[PeopleData::MAX_STATE];
+    for (int index = 0; index < PeopleData::MAX_STATE; ++index)
+    {
+        originalStates[index] = people->m_state[index];
+        originalEnemies[index] = people->m_enemyID[index];
+    }
+    const CFVector3 originalReturnPoint = people->m_returnPoint;
+    people->m_stateSP = 2;
+    people->m_state[0] = pe_STATE_DEFAULT;
+    people->m_enemyID[0] = KR_ObjectID::NUL();
+    people->m_state[1] = pe_STATE_ATTACK;
+    const KR_ObjectID owner = people->getObjectID();
+    people->m_enemyID[1] = KR_ObjectID(owner.id + 1,
+                                       owner.getCachePos());
+    people->m_returnPoint = CFVector3(123.0, 456.0, 789.0);
+    std::vector<StablePeopleRecord> canonical;
+    const bool staleAttackCanonicalized =
+        !context->isExist(people->m_enemyID[1]) &&
+        CollectRecords(context, &canonical) && !canonical.empty() &&
+        canonical.front().states.size() == 1 &&
+        canonical.front().states.front().state == pe_STATE_DEFAULT &&
+        canonical.front().states.front().enemy.empty() &&
+        canonical.front().returnPoint.x == 0.0 &&
+        canonical.front().returnPoint.y == 0.0 &&
+        canonical.front().returnPoint.z == 0.0;
+    people->m_stateSP = originalStateDepth;
+    for (int index = 0; index < PeopleData::MAX_STATE; ++index)
+    {
+        people->m_state[index] = originalStates[index];
+        people->m_enemyID[index] = originalEnemies[index];
+    }
+    people->m_returnPoint = originalReturnPoint;
+    if (!staleAttackCanonicalized)
+        return false;
+
     const int stateDepth = people->m_stateSP;
     people->m_stateSP = 0;
     std::vector<unsigned char> rejected;

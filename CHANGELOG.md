@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- `Level.03N` Inhabitants missions no longer fail silently at the town-hall
+  boundary. March command 35 (`COM_SET_GIVEARTEFACT`) is now retained as a
+  completion/revisit reward marker instead of being rejected as an unsupported
+  admission-time mutation; a named-center smoke proves `ProjectS22`, its one
+  script, 11 created owners, four rebound objectives and deferred reward.
+- Active-world capture now canonicalizes a People attack frame whose target
+  disappeared before the next `pe_EVC_NEXTNODE`, matching the retail scheduler
+  pop instead of blocking save/load and Debug **Switch Level** for 120 frames.
+  Live unnamed targets still fail closed with owner, state and ObjectID detail.
+- `--mission-center <symbolic-name>` makes `--mission-smoke` select one exact
+  RecruitCenter and records the selected center/project plus deferred artefact
+  reward count, preventing an unrelated eligible mission from masking a
+  center-specific regression.
 - RecruitCenter admission now executes authored `COM_RUN_SCRIPT` mission
   payloads through the bounded recovered VM before rebinding named objective
   references. The live `Level.03N` `ms25` mission creates all 22 authored

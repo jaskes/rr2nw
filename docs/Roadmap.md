@@ -1719,17 +1719,40 @@ without UI and reports scripts, created objects, rebound conditions, briefings
 and rollbacks. Installed `Level.03N` now executes `Brief/ms25.sc`, creates 22
 owners and rebinds all three objectives with zero rollback.
 
+The first manual regression from that slice is closed. March command 35,
+`COM_SET_GIVEARTEFACT`, carries no admission-time payload; it is retained as a
+deferred completion/revisit reward marker instead of rejecting the whole
+transaction. `--mission-smoke --mission-center Inhabitants.Recruit.0` pins the
+exact selection and proves `ProjectS22`: one script, 11 created owners, four
+rebound kill conditions, one deferred artefact reward and zero rollback. The
+interactive town-hall path uses the same transaction and may again present its
+briefing, stage the mission and eject the Player. Actual reward delivery remains
+part of the next mission-result slice and is not fabricated during admission.
+
+The Level-switch boundary also now treats a People attack target that vanished
+between scheduler events as retail-transient state. Stable capture omits that
+attack frame, exactly as the next `pe_EVC_NEXTNODE` would pop it, while a live
+unnamed target still fails closed with detailed identity. The hermetic service
+probe injects this stale-reference shape and proves the canonical snapshot plus
+exact restoration of the original live stack. A real hidden Win32 Debug-menu
+command additionally commits `Level.03N -> Level.04D`, records one request and
+one completed switch with zero rollback/failure, then shuts down cleanly.
+
 The current installed-data execution matrix is intentionally narrower than
 mission decoding: `Level.01D`, `Level.01N`, `Level.02D` and `Level.03N` execute
 cleanly. `Level.02N` and `Level.05D` require the real Howitzer-holder lifecycle;
 `Level.04D` exhausts the authored Route table while creating
 `m4.route.e.mn0`; `Level.06N` reaches the still unowned checkpoint/destroyable
-commands 33-35; and `Level.07N` has no eligible fresh project. These paths fail
+commands 33-34; and `Level.07N` has no eligible fresh project. These paths fail
 closed instead of publishing a partial mission. The object transaction removes
 all newly created script owners and their events, but restoration of
 pre-existing guide owners removed by an authored script remains an explicit
 atomicity debt. RecruitCenter completion rewards and those four owner/lifecycle
 gaps are the next campaign boundary.
+
+Current regression gate after these fixes is 67/67 CTest in both Debug and
+Release plus 18/18 installed-Level runtime rows. The named `ProjectS22` smoke
+passes in both configurations.
 
 RecruitCenter default-vehicle handover is tracked separately from mission
 script population. Retail `rc_SET_DEFTAXI` data is decoded and fingerprinted,

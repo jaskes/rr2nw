@@ -56,6 +56,7 @@ struct StartupOptions {
   std::wstring modsDirectory;
   std::vector<std::wstring> selectedMods;
   std::wstring startLevel;
+  std::wstring missionCenter;
   int startupSaveSlot = -1;
   int startupLoadSlot = -1;
   bool launchSmoke = false;
@@ -366,6 +367,17 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       }
     } else if (argument.compare(0, 14, L"--start-level=") == 0) {
       options->startLevel = argument.substr(14);
+    } else if (argument == L"--mission-center") {
+      if (!ParseOptionValue(argc, argv, &index, L"--mission-center",
+                            &options->missionCenter, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 17, L"--mission-center=") == 0) {
+      options->missionCenter = argument.substr(17);
+      if (options->missionCenter.empty()) {
+        *failure = L"empty value for --mission-center";
+        return false;
+      }
     } else if (argument == L"--save-slot" ||
                argument == L"--load-slot") {
       std::wstring value;
@@ -393,6 +405,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   }
   if (options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0) {
     *failure = L"--save-slot and --load-slot cannot be used together";
+    return false;
+  }
+  if (!options->missionCenter.empty() && !options->missionSmoke) {
+    *failure = L"--mission-center requires --mission-smoke";
     return false;
   }
   return true;
@@ -954,7 +970,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
-                L"          [--mission-smoke]\n"
+                L"          [--mission-smoke [--mission-center <name>]]\n"
                 L"          [--version] [--help]");
     return kSuccess;
   }
@@ -2621,11 +2637,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     RecruitCenterMissionProbeSummary mission = {};
     const double missionTime =
         (std::max)(0.1, Session::m_viewTime + 0.25);
-    const bool missionExecuted =
-        RecruitCenterSubjectState_StageMissionExecutionProbe(
-            g_super.m_context, missionTime, &missionStaged, &mission);
+    const std::string missionCenter = WideToUtf8(options.missionCenter);
+    log.Line("mission_smoke_center=" +
+             (missionCenter.empty() ? std::string("<first-eligible>")
+                                    : missionCenter));
+    const bool missionExecuted = missionCenter.empty()
+        ? RecruitCenterSubjectState_StageMissionExecutionProbe(
+              g_super.m_context, missionTime, &missionStaged, &mission)
+        : RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+              g_super.m_context, missionTime, missionCenter.c_str(),
+              &missionStaged, &mission);
     log.Line(std::string("mission_smoke_staged=") +
              (missionStaged ? "1" : "0"));
+    log.Line(std::string("mission_smoke_selected_center=") +
+             mission.centerName);
+    log.Line(std::string("mission_smoke_selected_project=") +
+             mission.projectName);
     log.Line("mission_smoke_scripts=" +
              std::to_string(mission.executedScripts));
     log.Line("mission_smoke_created_objects=" +
@@ -2638,6 +2665,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.presentedBriefings));
     log.Line("mission_smoke_rollbacks=" +
              std::to_string(mission.scriptRollbacks));
+    log.Line("mission_smoke_deferred_artefact_rewards=" +
+             std::to_string(mission.deferredArtefactRewards));
     if (!missionExecuted) {
       log.Line(std::string("mission_smoke_error=") +
                RecruitCenterSubjectState_LastError());

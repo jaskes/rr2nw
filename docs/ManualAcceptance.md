@@ -109,14 +109,28 @@ both `1`. The final framebuffer hash and non-clear-pixel count must be non-zero.
 For a human pass, the controlled authored objective should be visible in the
 map panel during `--runtime-smoke`; ordinary interactive play does not keep
 that probe alive. The ProjectTable catalog and Level-local RecruitCenters are
-now constructed during ordinary startup, while public walk-in mission
-admission remains gated. A valid log contains
+now constructed during ordinary startup, and public walk-in mission admission
+uses the same transactional script/condition path. A valid log contains
 `mission_project_table=1/200/1024/10240`, a five-field
 `mission_project_catalog`, a non-zero `mission_project_fingerprint`, a six-field
 `recruit_center_roster` and a non-zero `recruit_center_fingerprint`.
 `Level.04D` additionally reports `mission_project_deferred_howitzers=9`, and
 `Level.06N` reports `mission_project_deferred_destroyables=4`; all other rows
 must report zero for both deferred producers.
+
+To isolate the Inhabitants town-hall mission without walking to the trigger,
+run this as one PowerShell line; the smoke suppresses briefing UI and exits by
+itself:
+
+```powershell
+& ".\build\windows-msvc-x86\Debug\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --mission-smoke --mission-center "Inhabitants.Recruit.0" --diagnostics-dir "$PWD\manual-logs\mission-inhabitants"
+```
+
+The log must name `ProjectS22` and report `staged=1`, `scripts=1`,
+`created_objects=11`, `conditions=4`, `rebound_conditions=4`,
+`deferred_artefact_rewards=1` and `rollbacks=0`. This proves admission and
+population only; delivery of the retained artefact reward is a separate
+completion/revisit acceptance row.
 
 The roster field is `ready/capacity/live/video/defaultTaxi/dictionary`. In
 Level order its expected values are `1/4/3/3/3/3`, `1/4/1/1/0/1`,

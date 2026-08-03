@@ -3749,7 +3749,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   `rebound_conditions=3`, `briefings=0`, `rollbacks=0` in the UI-suppressed
   smoke path.
 - Revisit when: Howitzer-holder deletion/creation, Route capacity/lifecycle and
-  checkpoint/destroyable commands 33-35 have transactional owners. Also close
+  checkpoint/destroyable commands 33-34 have transactional owners. Also close
   the current rollback gap for pre-existing guide objects removed by a script,
   and route nested VM includes through the mod-aware VFS instead of legacy
   current-directory file I/O.
@@ -3773,6 +3773,47 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   roster, position and mission identity for the reported center. Implement any
   confirmed handover through Vehicle/Taxi lifecycle, panel/camera reconciliation,
   save/load and complete rollback before enabling it interactively.
+
+### CQ-200: March command 35 is a deferred reward, not admission work
+
+- Status: `CONFIRMED_RETAIL`, `ADMISSION_CONTRACT_ACCEPTED`,
+  `COMPLETION_OWNER_OPEN`.
+- Evidence: `Level.03N` `ProjectS22` and `ProjectS23` both prepend
+  `p_GiveArtefact`, whose emitted command 35 has no payload. Rejecting every
+  command without an admission-time executor caused every real Inhabitants
+  town-hall collision to fail before briefing, mission publication or eject.
+- Handling: retain command 35 in the decoded deferred stream and count it, but
+  perform no mutation while admitting the mission. Commands 33 and 34 remain
+  fail-closed because they do carry unowned world operations.
+- Verification: the named-center installed-data smoke selects
+  `Inhabitants.Recruit.0` and records `ProjectS22`, one script, 11 created
+  owners, four rebound conditions, one reward marker and zero rollback.
+- Revisit when: the mission result/revisit lifecycle is recovered. Reward
+  delivery must then be transactional, idempotent, saveable and compared with
+  retail behaviour; admission must never grant it early.
+
+### CQ-201: People may retain a target until its next scheduler event
+
+- Status: `CONFIRMED_SOURCE`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: `People::receiveEvent(pe_EVC_NEXTNODE)` queries the current attack
+  target for `IDynamicObjectIID` and pops the state when the target is gone.
+  A projectile/effect can disappear between events, so stable capture can see
+  a non-NUL ObjectID that no longer exists or has a symbolic name. Treating it
+  as a permanent graph error made Debug **Switch Level** wait 120 frames and
+  then report `People active enemy has no symbolic name`.
+- Handling: stable capture omits only `pe_STATE_ATTACK` frames whose targets
+  no longer resolve to `IDynamicObjectIID`, then zeroes the return point if
+  this leaves the default state alone. Existing unnamed dynamic targets remain
+  rejected with the People owner, state, ID and cache slot in the diagnostic.
+- Verification: the service-runtime regression injects a stale target into a
+  live People stack, proves its canonical one-frame/default representation,
+  restores the original raw stack and then repeats the byte-exact baseline
+  capture. A real Debug-menu WM_COMMAND subsequently commits
+  `Level.03N -> Level.04D` with `requests/completed/rollbacks/failures =
+  1/1/0/0` and clean shutdown. Debug and Release remain 67/67 CTest; the
+  installed runtime matrix is 18/18.
+- Revisit when: scheduler state is redesigned or object handles gain explicit
+  generations. Preserve the retail eventual-pop semantics in either model.
 
 ## Maintenance rule
 

@@ -18,6 +18,9 @@ struct RecruitCenterMissionProbeSummary
     int acceptedPlayerCollisions;
     int admissionEvents;
     int ejections;
+    int deferredArtefactRewards;
+    char centerName[81];
+    char projectName[81];
 };
 
 void RecruitCenterSubjectState_Link();
@@ -44,6 +47,9 @@ bool RecruitCenterSubjectState_StageMissionProbe(
 bool RecruitCenterSubjectState_StageMissionExecutionProbe(
     SimulationContext *context, double timeStamp, bool *staged,
     RecruitCenterMissionProbeSummary *summary);
+bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    bool *staged, RecruitCenterMissionProbeSummary *summary);
 const char *RecruitCenterSubjectState_LastError();
 
 #endif

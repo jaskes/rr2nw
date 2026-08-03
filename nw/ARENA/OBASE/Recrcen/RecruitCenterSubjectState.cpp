@@ -33,6 +33,7 @@ namespace {
 const int kMaximumCapacity = 16;
 const int kMaximumProjectNodes = 1024;
 const int kMaximumProjectPayload = 10240;
+const int kSetGiveArtefactCommand = 35;
 const double kRadius = 4.0;
 const double kCollisionDebounceSeconds = 0.25;
 const long kMaximumMissionScriptBytes = 1024L * 1024L;
@@ -646,10 +647,11 @@ bool PrepareDeferredMissionFiles(
                 return false;
             }
         }
-        else if (command != COM_BRIEFING_OVER)
+        else if (command != COM_BRIEFING_OVER &&
+                 command != kSetGiveArtefactCommand)
         {
-            // CREATE_UNITS, SKIP_WAY and the May checkpoint/artefact commands
-            // retain their decoded payloads, but they do not yet have a
+            // CREATE_UNITS, SKIP_WAY and the May checkpoint command retain
+            // their decoded payloads, but they do not yet have a
             // transactional modern owner. Never silently accept them.
             char message[256] = {};
             std::snprintf(message, sizeof(message),
@@ -658,6 +660,12 @@ bool PrepareDeferredMissionFiles(
             SetError(message);
             return false;
         }
+        // COM_SET_GIVEARTEFACT (March command 35) has no admission-time
+        // payload or side effect.
+        // March retail projects use it as a completion/revisit reward marker,
+        // so retain it in the deferred command stream without blocking the
+        // briefing, script transaction, or mission creation. Reward delivery
+        // remains owned by the later mission-result lifecycle.
     }
     return true;
 }
@@ -1170,6 +1178,17 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         return false;
     }
     if (candidate.isNUL()) return true;
+    const char *centerName = context->searchObject(center->getObjectID());
+    const char *projectName = context->searchObject(candidate);
+    if (centerName == NULL || projectName == NULL)
+    {
+        SetError("RecruitCenter mission selection lost a symbolic name");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->projectName, sizeof(summary->projectName), "%s",
+                  projectName);
 
     PlayerMission mission;
     std::string routeName;
@@ -1304,6 +1323,8 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     summary->conditionReferences = ConditionCount(mission);
     summary->routeReferences = mission.m_missionRouteID.isNUL() ? 0 : 1;
     summary->deferredCommands = static_cast<int>(deferredCommands.size());
+    summary->deferredArtefactRewards = DeferredCommandCount(
+        deferredCommands, kSetGiveArtefactCommand);
     if (scriptTransaction) scriptHost.CommitObjectTransaction();
     if (presentBriefing)
         PresentDeferredBriefings(context, deferredCommands, preparedFiles,
@@ -1643,9 +1664,9 @@ bool RecruitCenterSubjectState_StageMissionProbe(
     return true;
 }
 
-bool RecruitCenterSubjectState_StageMissionExecutionProbe(
-    SimulationContext *context, double timeStamp, bool *staged,
-    RecruitCenterMissionProbeSummary *summary)
+static bool StageMissionExecutionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    bool *staged, RecruitCenterMissionProbeSummary *summary)
 {
     g_lastError[0] = 0;
     if (staged == NULL || summary == NULL) return false;
@@ -1670,6 +1691,10 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbe(
          subject = g_recruitCenterTable.findNextSubject(subject))
     {
         RecruitCenter *center = static_cast<RecruitCenter *>(subject);
+        const char *name = context->searchObject(center->getObjectID());
+        if (centerName != NULL && centerName[0] != 0 &&
+            (name == NULL || std::strcmp(name, centerName) != 0))
+            continue;
         KR_ObjectID candidate = KR_ObjectID::NUL();
         if (!FindCenterCandidate(center, &player, &candidate))
         {
@@ -1680,7 +1705,37 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbe(
         return StageMissionForCenter(context, timeStamp, center, true, false,
                                      staged, summary);
     }
+    if (centerName != NULL && centerName[0] != 0)
+    {
+        char message[256] = {};
+        std::snprintf(message, sizeof(message),
+                      "RecruitCenter execution probe cannot find %.160s",
+                      centerName);
+        SetError(message);
+        return false;
+    }
     return true;
+}
+
+bool RecruitCenterSubjectState_StageMissionExecutionProbe(
+    SimulationContext *context, double timeStamp, bool *staged,
+    RecruitCenterMissionProbeSummary *summary)
+{
+    return StageMissionExecutionProbeForCenter(context, timeStamp, NULL,
+                                               staged, summary);
+}
+
+bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    bool *staged, RecruitCenterMissionProbeSummary *summary)
+{
+    if (centerName == NULL || centerName[0] == 0)
+    {
+        SetError("RecruitCenter execution probe needs a center name");
+        return false;
+    }
+    return StageMissionExecutionProbeForCenter(context, timeStamp, centerName,
+                                               staged, summary);
 }
 
 const char *RecruitCenterSubjectState_LastError()
