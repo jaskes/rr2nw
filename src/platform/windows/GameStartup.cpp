@@ -62,6 +62,7 @@ struct StartupOptions {
   bool launchSmoke = false;
   bool runtimeSmoke = false;
   bool missionSmoke = false;
+  bool missionBriefingSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
   bool showVersion = false;
@@ -286,6 +287,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     } else if (argument == L"--mission-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
+    } else if (argument == L"--mission-briefing-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionBriefingSmoke = true;
     } else if (argument == L"--debug-menu") {
       options->debugMenu = true;
     } else if (argument == L"--help" || argument == L"-h") {
@@ -726,6 +731,10 @@ bool StartRecoveredLevel(const RetailData& data, int levelIndex,
     return false;
   }
   ZAV_BeginLoop();
+  // The retail main loop rebuilt the briefing viewport after every Level
+  // start. Briefing flights own a synchronous render loop and cannot borrow
+  // the regular gameplay viewport, so preserve that lifecycle boundary here.
+  RecoveredGameServices_RefreshBriefingViewport();
   if (!RecoveredGameServices_IsReady()) {
     if (failure != nullptr)
       *failure = RecoveredLevelStartFailure("loop initialization failed");
@@ -970,7 +979,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
-                L"          [--mission-smoke [--mission-center <name>]]\n"
+                L"          [--mission-smoke | --mission-briefing-smoke]\n"
+                L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
     return kSuccess;
   }
@@ -2595,6 +2605,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              RecoveredArenaSeance_LastError());
   }
   ZAV_BeginLoop();
+  RecoveredGameServices_RefreshBriefingViewport();
   log.Line("loop_initialized=" +
            std::to_string(RecoveredGameServices_LoopReady() ? 1 : 0));
   int currentLevelIndex = data.startLevel;
@@ -2649,12 +2660,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("mission_smoke_center=" +
              (missionCenter.empty() ? std::string("<first-eligible>")
                                     : missionCenter));
-    const bool missionExecuted = missionCenter.empty()
-        ? RecruitCenterSubjectState_StageMissionExecutionProbe(
-              g_super.m_context, missionTime, &missionStaged, &mission)
-        : RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
-              g_super.m_context, missionTime, missionCenter.c_str(),
-              &missionStaged, &mission);
+    const bool missionExecuted = options.missionBriefingSmoke
+        ? (missionCenter.empty()
+               ? RecruitCenterSubjectState_StageMissionPresentationProbe(
+                     g_super.m_context, missionTime, &missionStaged, &mission)
+               : RecruitCenterSubjectState_StageMissionPresentationProbeForCenter(
+                     g_super.m_context, missionTime, missionCenter.c_str(),
+                     &missionStaged, &mission))
+        : (missionCenter.empty()
+               ? RecruitCenterSubjectState_StageMissionExecutionProbe(
+                     g_super.m_context, missionTime, &missionStaged, &mission)
+               : RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+                     g_super.m_context, missionTime, missionCenter.c_str(),
+                     &missionStaged, &mission));
     log.Line(std::string("mission_smoke_staged=") +
              (missionStaged ? "1" : "0"));
     log.Line(std::string("mission_smoke_selected_center=") +
@@ -2671,6 +2689,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.reboundConditionReferences));
     log.Line("mission_smoke_briefings=" +
              std::to_string(mission.presentedBriefings));
+    log.Line("mission_smoke_briefing_commands=" +
+             std::to_string(mission.briefingCommands));
+    log.Line("mission_smoke_script_commands=" +
+             std::to_string(mission.scriptCommands));
     log.Line("mission_smoke_rollbacks=" +
              std::to_string(mission.scriptRollbacks));
     log.Line("mission_smoke_deferred_artefact_rewards=" +
@@ -2679,10 +2701,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       log.Line(std::string("mission_smoke_error=") +
                RecruitCenterSubjectState_LastError());
     }
+    const int expectedBriefings =
+        options.missionBriefingSmoke ? mission.briefingCommands : 0;
     loopFailed = !missionExecuted || !missionStaged ||
                  mission.executedScripts < 1 ||
                  mission.createdMissionObjects < 1 ||
-                 mission.presentedBriefings != 0 ||
+                 mission.presentedBriefings != expectedBriefings ||
                  mission.scriptRollbacks != 0 || !runCompleteFrame();
   }
   while (!loopFailed && !options.runtimeSmoke &&
@@ -2870,6 +2894,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(lastMission.executedScripts) + "/" +
              std::to_string(lastMission.createdMissionObjects) + "/" +
              std::to_string(lastMission.deferredCommands) + "/" +
+             std::to_string(lastMission.briefingCommands) + "/" +
+             std::to_string(lastMission.scriptCommands) + "/" +
              std::to_string(lastMission.presentedBriefings) + "/" +
              std::to_string(lastMission.scriptRollbacks));
   }

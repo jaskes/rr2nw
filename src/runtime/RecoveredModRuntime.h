@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <string>
+#include <vector>
 
 struct SRecoveredModRuntimeSummary {
   int schemaVersion = 0;
@@ -118,6 +120,14 @@ FILE* RecoveredModRuntime_OpenOverlayTarget(const char* target, long* length);
 bool RecoveredModRuntime_ResolveReadPath(const char* requested,
                                          char* resolved,
                                          std::size_t resolvedSize);
+
+// Enumerates the effective files below one directory of the active Level.
+// Base files and overlay-only targets are merged by case-insensitive virtual
+// path, using the same derived-Level precedence as ResolveReadPath. Returned
+// names are Level-relative and sorted deterministically.
+bool RecoveredModRuntime_ListLevelFiles(
+    const char* relativeDirectory, const char* extension,
+    std::vector<std::string>* paths);
 
 // CFileResource-compatible read hook. It never opens files for writing.
 FILE* RecoveredModRuntime_OpenRead(const char* requested, long* length);

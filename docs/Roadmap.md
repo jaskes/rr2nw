@@ -1739,12 +1739,22 @@ command additionally commits `Level.03N -> Level.04D`, records one request and
 one completed switch with zero rollback/failure, then shuts down cleanly.
 
 Fresh cross-Level continuation now covers mission-local People routes as well.
-Before rebuilding People, the target transaction enumerates the saved symbolic
-route dependencies and recreates only validated `msNN.symbol` definitions from
-the matching retail `Route/SNN/symbol.rt`. Route references, reconstructed
-People and the prior source People graph remain separately rollbackable. The
-reported real `Level.03N` Slot 1 now commits while `Level.05D` is active rather
-than failing during CTJ1 backup adoption.
+Before rebuilding People, the target transaction enumerates the effective
+mod-aware `Route/**/*.rt` catalog and matches each saved symbolic dependency
+against the file header plus exact node-geometry fingerprint. This replaces the
+invalid `msNN -> Route/SNN` guess and handles duplicate retail headers without
+directory-order roulette. Route references, reconstructed People and the prior
+source People graph remain separately rollbackable. The user's unchanged menu
+Slot 2 now commits `Level.05D -> Level.02D`; its `ma20.eap00` route is correctly
+found beneath `Route/A20` with zero rollback and game-service issue.
+
+The committed briefing path is connected to real presentation as well. The
+bounded session now restores the retail small-font, GameConsole and Briefing
+owners omitted by the initial modern bootstrap and refreshes the briefing
+viewport after every graph begin. A visible Level.03N ProjectS25 smoke presents
+one authored briefing, creates 22 mission owners and exits cleanly. The normal
+`--mission-smoke` remains intentionally headless so transaction and UI failures
+continue to be distinguishable.
 
 The current Windows playtest boundary is also explicit. Successful frames now
 publish input, simulation, software-render, present and frame-boundary timing.
@@ -1781,12 +1791,13 @@ Marauders default is `taxi.attr.war_t07` (TankGenn3); the airplanes created by
 invent an automatic aircraft grant until CQ-199 is resolved through retail
 observation and a rollback-safe Vehicle/Taxi transfer.
 
-The next campaign slice is now sharply bounded: prove whether a committed
-briefing reaches its actual presenter, consume the authored guide
-`backSpaceNode`/start spacing instead of spawning escorts into the Player,
-then reconcile the mission vehicle's model/control basis so forward input does
-not drive sideways. These are independent acceptance rows and must precede
-reward/completion and Portal admission.
+The next campaign slice is now sharply bounded: recover the real
+Howitzer-holder lifecycle and transactional replacement required by
+Level.02N/Level.05D, then consume the authored guide `backSpaceNode`/start
+spacing instead of spawning escorts into the Player and reconcile the mission
+vehicle's model/control basis so forward input does not drive sideways. These
+are independent acceptance rows and must precede reward/completion and Portal
+admission.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

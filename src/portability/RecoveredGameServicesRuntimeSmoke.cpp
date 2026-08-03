@@ -4920,9 +4920,25 @@ int main(int argc, char** argv) {
   }
   std::vector<unsigned char> peopleState;
   std::vector<std::string> peopleRoutes;
+  std::vector<SPeopleRouteRequirement> peopleRouteRequirements;
+  const unsigned char legacyEmptyPeopleBytes[] = {
+      0x50, 0x45, 0x4f, 0x31,  // PEO1
+      0x01, 0x00, 0x00, 0x00,  // schema v1
+      0x00, 0x00, 0x00, 0x00}; // empty roster
+  const std::vector<unsigned char> legacyEmptyPeople(
+      legacyEmptyPeopleBytes,
+      legacyEmptyPeopleBytes + sizeof(legacyEmptyPeopleBytes));
+  std::vector<SPeopleRouteRequirement> legacyRequirements;
   if (!PeopleActiveWorldState_CaptureStable(
           g_super.m_context, &peopleState) ||
+      !PeopleActiveWorldState_ValidateStable(legacyEmptyPeople) ||
+      !PeopleActiveWorldState_RouteRequirements(
+          legacyEmptyPeople, &legacyRequirements) ||
+      !legacyRequirements.empty() ||
       !PeopleActiveWorldState_RouteNames(peopleState, &peopleRoutes) ||
+      !PeopleActiveWorldState_RouteRequirements(
+          peopleState, &peopleRouteRequirements) ||
+      peopleRouteRequirements.size() != peopleRoutes.size() ||
       std::adjacent_find(peopleRoutes.begin(), peopleRoutes.end()) !=
           peopleRoutes.end()) {
     ZAV_DeInitLevel();
@@ -4930,7 +4946,9 @@ int main(int argc, char** argv) {
     return Fail("People stable route manifest is invalid");
   }
   for (std::size_t index = 0; index < peopleRoutes.size(); ++index) {
-    if (!g_super.m_context->isExist(peopleRoutes[index].c_str())) {
+    if (!g_super.m_context->isExist(peopleRoutes[index].c_str()) ||
+        peopleRouteRequirements[index].name != peopleRoutes[index] ||
+        peopleRouteRequirements[index].geometryFingerprint == 0) {
       ZAV_DeInitLevel();
       ZAV_Deinit();
       return Fail("People stable route manifest lost a live route");

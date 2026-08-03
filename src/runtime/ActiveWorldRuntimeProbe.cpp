@@ -27,8 +27,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
-#include <fstream>
+#include <cstdlib>
+#include <cstring>
 #include <utility>
 
 namespace {
@@ -41,65 +43,169 @@ bool RestoreMissingPeopleRoutes(
     SimulationContext* context, const std::vector<std::uint8_t>& payload,
     std::vector<KR_ObjectID>* created, std::string* failure) {
   if (context == nullptr || created == nullptr) return false;
-  std::vector<std::string> routeNames;
-  if (!PeopleActiveWorldState_RouteNames(payload, &routeNames)) {
+  std::vector<SPeopleRouteRequirement> requirements;
+  if (!PeopleActiveWorldState_RouteRequirements(payload, &requirements)) {
     SetFailure(failure, "People route manifest decoding failed");
     return false;
   }
-  std::vector<std::string> missing;
-  for (const std::string& name : routeNames)
-    if (!context->isExist(name.c_str())) missing.push_back(name);
+  std::vector<SPeopleRouteRequirement> missing;
+  for (const SPeopleRouteRequirement& requirement : requirements)
+    if (!context->isExist(requirement.name.c_str()))
+      missing.push_back(requirement);
   if (missing.empty()) return true;
 
-  std::vector<std::pair<std::string, std::string>> authored;
-  for (const std::string& name : missing) {
-    // Retail mission routes use msNN.symbolic-name and live under
-    // Route/SNN/symbolic-name.rt. Validate the file's own symbolic header
-    // before publishing anything so an incompatible mod fails atomically.
-    if (name.size() < 6 || name[0] != 'm' || name[1] != 's') continue;
-    const std::size_t separator = name.find('.', 2);
-    if (separator == std::string::npos || separator == 2 ||
-        separator + 1 == name.size())
-      continue;
-    bool numericProject = true;
-    for (std::size_t index = 2; index < separator; ++index)
-      numericProject = numericProject &&
-          std::isdigit(static_cast<unsigned char>(name[index])) != 0;
-    if (!numericProject) continue;
-    const std::string routePath =
-        "Route/S" + name.substr(2, separator - 2) + "/" +
-        name.substr(separator + 1) + ".rt";
-    std::ifstream stream(routePath.c_str(), std::ios::binary);
-    std::string symbolicName;
-    if (!std::getline(stream, symbolicName)) continue;
-    if (!symbolicName.empty() && symbolicName.back() == '\r')
-      symbolicName.pop_back();
-    if (symbolicName == name) authored.push_back({name, routePath});
-  }
-
-  for (const std::string& name : missing) {
-    const auto authoredRoute = std::find_if(
-        authored.begin(), authored.end(), [&name](const auto& candidate) {
-          return candidate.first == name;
-        });
-    if (authoredRoute == authored.end()) {
-      SetFailure(failure, "saved People route file is unavailable: " + name);
+  struct RouteCatalogEntry {
+    std::string name;
+    std::string path;
+    unsigned long long geometryFingerprint = 0;
+  };
+  const auto readLine = [](FILE* file, std::string* line) {
+    if (file == nullptr || line == nullptr) return false;
+    line->clear();
+    int character = 0;
+    while ((character = std::fgetc(file)) != EOF) {
+      if (character == '\r' || character == '\n') {
+        if (character == '\r') {
+          const int next = std::fgetc(file);
+          if (next != '\n' && next != EOF) std::ungetc(next, file);
+        }
+        break;
+      }
+      if (line->size() >= 255) return false;
+      line->push_back(static_cast<char>(character));
+    }
+    while (!line->empty() &&
+           static_cast<unsigned char>(line->back()) <= ' ')
+      line->pop_back();
+    return character != EOF || !line->empty();
+  };
+  const auto parseRoute = [&](const std::string& path,
+                              RouteCatalogEntry* entry) {
+    if (entry == nullptr) return false;
+    long length = 0;
+    FILE* file = RecoveredModRuntime_OpenRead(path.c_str(), &length);
+    if (file == nullptr || length <= 0 || length > 4 * 1024 * 1024) {
+      if (file != nullptr) std::fclose(file);
       return false;
     }
-    KR_ObjectID route = g_arena.newObject("Route", name.c_str());
+    std::string line;
+    if (!readLine(file, &entry->name) || entry->name.empty() ||
+        entry->name.size() > MAX_SYMBOLIC_LENGHT || !readLine(file, &line)) {
+      std::fclose(file);
+      return false;
+    }
+    char* end = nullptr;
+    const long declared = std::strtol(line.c_str(), &end, 10);
+    if (end == line.c_str() || *end != '\0' || declared < 2 ||
+        declared > 8192) {
+      std::fclose(file);
+      return false;
+    }
+    std::vector<double> coordinates;
+    coordinates.reserve(static_cast<std::size_t>(declared) * 3);
+    for (long index = 0; index < declared; ++index) {
+      if (!readLine(file, &line)) break;
+      double x = 0.0, y = 0.0, z = 0.0;
+      if (std::sscanf(line.c_str(), "[ %lf , %lf , %lf ]", &x, &y, &z) !=
+              3 ||
+          !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+        std::fclose(file);
+        return false;
+      }
+      coordinates.push_back(x);
+      coordinates.push_back(y);
+      coordinates.push_back(z);
+    }
+    std::fclose(file);
+    if (coordinates.size() != static_cast<std::size_t>(declared) * 3)
+      return false;
+    entry->path = path;
+    entry->geometryFingerprint =
+        PeopleActiveWorldState_RouteGeometryFingerprint(
+            coordinates.empty() ? nullptr : &coordinates[0],
+            coordinates.size());
+    return entry->geometryFingerprint != 0;
+  };
+
+  std::vector<std::string> routePaths;
+  if (!RecoveredModRuntime_ListLevelFiles("Route", ".rt", &routePaths)) {
+    SetFailure(failure, "active Level Route catalog enumeration failed");
+    return false;
+  }
+  std::vector<RouteCatalogEntry> catalog;
+  for (const std::string& path : routePaths) {
+    RouteCatalogEntry entry;
+    if (parseRoute(path, &entry)) catalog.push_back(entry);
+  }
+
+  for (const SPeopleRouteRequirement& requirement : missing) {
+    std::vector<const RouteCatalogEntry*> candidates;
+    for (const RouteCatalogEntry& entry : catalog) {
+      if (entry.name == requirement.name &&
+          (requirement.geometryFingerprint == 0 ||
+           entry.geometryFingerprint == requirement.geometryFingerprint))
+        candidates.push_back(&entry);
+    }
+    if (candidates.empty()) {
+      SetFailure(failure, "saved People route file is unavailable: " +
+                              requirement.name);
+      return false;
+    }
+    const RouteCatalogEntry* selected = candidates.front();
+    if (candidates.size() > 1) {
+      bool equivalent = true;
+      for (std::size_t index = 1; index < candidates.size(); ++index)
+        equivalent = equivalent &&
+            candidates[index]->geometryFingerprint ==
+                selected->geometryFingerprint;
+      if (!equivalent) {
+        SetFailure(failure, "saved People route is ambiguous: " +
+                                requirement.name);
+        return false;
+      }
+    }
+    char resolvedPath[4096] = {};
+    if (!RecoveredModRuntime_ResolveReadPath(
+            selected->path.c_str(), resolvedPath, sizeof(resolvedPath))) {
+      SetFailure(failure, "saved People route path resolution failed: " +
+                              requirement.name);
+      return false;
+    }
+    KR_ObjectID route =
+        g_arena.newObject("Route", requirement.name.c_str());
     IRouteObject* routeObject = route.isNUL()
         ? nullptr
         : static_cast<IRouteObject*>(
               context->queryInterface(route, IRouteObjectIID));
     if (routeObject == nullptr) {
-      SetFailure(failure, "saved People route allocation failed: " + name);
+      SetFailure(failure, "saved People route allocation failed: " +
+                              requirement.name);
       return false;
     }
     created->push_back(route);
-    routeObject->Load(authoredRoute->second.c_str());
+    routeObject->Load(resolvedPath);
     if (routeObject->GetNodeCnt() < 2) {
-      SetFailure(failure, "saved People route load failed: " + name);
+      SetFailure(failure, "saved People route load failed: " +
+                              requirement.name);
       return false;
+    }
+    if (requirement.geometryFingerprint != 0) {
+      std::vector<double> loadedCoordinates;
+      loadedCoordinates.reserve(
+          static_cast<std::size_t>(routeObject->GetNodeCnt()) * 3);
+      for (int index = 0; index < routeObject->GetNodeCnt(); ++index) {
+        const CFVector3 node = routeObject->GetNode(index);
+        loadedCoordinates.push_back(node.x);
+        loadedCoordinates.push_back(node.y);
+        loadedCoordinates.push_back(node.z);
+      }
+      if (PeopleActiveWorldState_RouteGeometryFingerprint(
+              &loadedCoordinates[0], loadedCoordinates.size()) !=
+          requirement.geometryFingerprint) {
+        SetFailure(failure, "saved People route changed during restore: " +
+                                requirement.name);
+        return false;
+      }
     }
   }
   return true;

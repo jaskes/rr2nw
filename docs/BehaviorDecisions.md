@@ -4869,19 +4869,23 @@ their symbolic names. A save from `Level.03N` can therefore contain a live
 valid continuation; blindly executing the whole mission script during restore
 would duplicate unrelated world owners.
 
-The continuation transaction instead enumerates the captured People route
-names, retains already live references, and reconstructs only a missing name
-of the canonical `msNN.symbol` form from `Route/SNN/symbol.rt`. The first line
-of that retail file must name the same symbol and the decoded Route must contain
-at least two nodes. Arbitrary paths and non-mission names are never derived.
-Created routes and reconstructed People are distinct rollback owners: failure
-removes the target graph, restores the source People graph from its captured
-payload, then releases every held Route reference.
+The continuation transaction instead enumerates the effective mod-aware Route
+catalog and treats the first line of every `.rt` file as the authoritative
+symbolic identity. People payload version 2 stores a fingerprint of the exact
+Route node geometry. Restore retains already live references and recreates a
+missing Route only when both name and geometry match; legacy version 1 is
+accepted only for a unique header or geometry-equivalent duplicates. No
+symbolic name is ever converted into a guessed directory. Created routes and
+reconstructed People are distinct rollback owners: failure removes the target
+graph, restores the source People graph from its captured payload, then
+releases every held Route reference.
 
 This boundary is proven by the ordinary cross-Level acceptance and by the
-user's unchanged Slot 1 from `Level.03N`, loaded while `Level.05D` is active.
-It does not make Level scripts save data and it does not infer missing world
-objects other than this exact route dependency.
+user's unchanged menu Slot 2 from `Level.02D`, loaded while `Level.05D` is
+active. Its `ma20.eap00` header lives under `Route/A20/eap00.rt`, directly
+disproving the earlier `msNN -> SNN` derivation. It does not make Level scripts
+save data and it does not infer missing world objects other than exact Route
+dependencies already named by the People graph.
 
 ### BD-132: Playtest is the manual gameplay configuration
 
@@ -4908,3 +4912,21 @@ Replacing the clamp requires an explicit fixed simulation step, bounded
 catch-up policy and replayable timing tests; until then Playtest performance
 and `frame_profile_*`/`timer_clamped_*` evidence are the manual acceptance
 contract.
+
+### BD-133: briefing presentation is an explicit bounded-session service
+
+Status: accepted on 2026-08-03 for public RecruitCenter admission.
+
+A committed `COM_PLAY_BRIEFING` is not considered presented merely because the
+mission transaction decoded it. Presentation requires the same three owners as
+the archival session: the small fixed console font, `GameConsole` and
+`Briefing`, plus a viewport refreshed after each graph begin. The modern
+session now registers and tears down those owners explicitly. Missing retail
+fonts leave hermetic/test startup headless instead of publishing a partially
+initialized UI service.
+
+`--mission-smoke` deliberately suppresses UI and proves only transactional
+admission. `--mission-briefing-smoke` follows the same mission path but requires
+the number of actual presentations to equal the number of authored briefing
+commands. This distinction prevents both a visible splash from hiding a failed
+mission commit and a successful commit from hiding a disconnected presenter.

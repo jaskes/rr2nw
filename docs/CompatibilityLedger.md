@@ -3817,22 +3817,27 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-202: mission People routes may not exist in a fresh target Level
 
-- Status: `CONFIRMED_RETAIL`, `PORTABILITY_FIX_ACCEPTED`.
+- Status: `CONFIRMED_RETAIL`, `PORTABILITY_FIX_REVISED_ACCEPTED`.
 - Evidence: the reported Slot 1 captures `Level.03N` People bound to
   `ms25.ejp00`; a fresh `Level.03N` bootstrap does not own that route because
   `Brief/ms25.sc` has not executed. Its authored definition is
   `Route/S25/ejp00.rt`, whose first line names `ejp00`.
-- Handling: inspect the canonical People payload before owner allocation,
-  reconstruct only missing `msNN.symbol` identities from their exact
-  `Route/SNN/symbol.rt`, validate the symbolic header and node count, and keep
-  source/target Route references alive across the entire transaction. Created
-  routes have their own reverse-order rollback list.
-- Verification: the unchanged user Slot 1 commits `Level.05D -> Level.03N`
-  with zero game-service issues, while the bounded Debug cross-Level proof and
-  all 18 installed Debug/Release rows pass.
-- Revisit when: modded mission routes gain a declared virtual source or the
-  active-world format begins storing Route nodes directly. Do not derive an
-  arbitrary symbolic name into a filesystem path.
+- Handling: do not derive a path from `msNN.symbol`: installed retail data
+  disproves that naming rule. Enumerate the effective mod-aware `Route/**/*.rt`
+  catalog, use each file's first line as the authoritative symbolic name and
+  require the saved geometry fingerprint when selecting among duplicate
+  headers. People state version 2 stores that fingerprint beside every Route
+  dependency. Version 1 remains readable only when the header is unique or all
+  matching candidates have identical geometry. Created routes retain their
+  own reverse-order rollback list.
+- Verification: the unchanged real menu Slot 2 commits
+  `Level.05D -> Level.02D`; its `ma20.eap00` dependency resolves to the
+  non-derived `Route/A20/eap00.rt`. The final log records one completed
+  cross-Level load, zero rollback/failure, zero game-service issues and clean
+  shutdown. Mod-runtime tests also prove deterministic base/overlay discovery.
+- Revisit when: the active-world format stores Route nodes directly or Route
+  resources receive stable authored UUIDs. Keep duplicate-header ambiguity a
+  hard failure rather than choosing by directory order.
 
 ### CQ-203: Debug renderer cost changes apparent simulation speed
 
@@ -3862,14 +3867,41 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Script payloads contain `startNode`, `backSpaceNode` and `startMoveTime`, but
   the recovered People path stores `backSpaceNode` without consuming it.
 - Handling: retain the last committed RecruitCenter summary, including the
-  briefing-presented counter, in shutdown diagnostics. Do not classify every
-  eject as a new mission: retail collision handling also ejects when a mission
-  is already active or no project is eligible. Keep briefing UI, guide spacing
-  and Player vehicle steering as explicit follow-up gates.
-- Revisit when: a manual log proves whether presentation was requested, and
-  the guide start/back-space contract is recovered from retail code or a
-  controlled comparison. The Player vehicle basis/control fault must be fixed
-  independently of guide navigation.
+  briefing-presented counter, in shutdown diagnostics. The modern session now
+  registers the retail 8x8 console font, `GameConsole` and `Briefing`, and
+  refreshes the briefing viewport after every `ZAV_BeginLoop`. Do not classify
+  every eject as a new mission: retail collision handling also ejects when a
+  mission is already active or no project is eligible. Guide spacing and
+  Player vehicle steering remain explicit independent follow-up gates.
+- Verification: `--mission-briefing-smoke --mission-center
+  Marauders.Recruit.0` on installed `Level.03N` visibly presents the authored
+  ProjectS25 briefing, reports `briefings=1/1`, creates 22 script owners and
+  shuts down with zero rollback or game-service issue.
+- Revisit when: the guide start/back-space contract is recovered from retail
+  code or a controlled comparison. The Player vehicle basis/control fault must
+  be fixed independently of guide navigation. Repeated Level viewport refresh
+  should eventually own explicit legacy viewport release.
+
+### CQ-205: the reduced modern session omitted briefing presentation owners
+
+- Status: `CONFIRMED_SOURCE`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: the archival `Supervisor::startSeance` registers `GameConsole` and
+  `Briefing`, initializes the 8x8 console font and calls briefing resolution
+  setup after the graph begins. The recovered bounded session registered only
+  the simulation/mission font subset. Mission admission therefore committed
+  correctly and counted the authored command while the presenter had no live
+  context owner; the town hall immediately ejected the Player with no splash.
+- Handling: create the retail small-font resource as a bounded session owner,
+  attach `GameConsole` and `Briefing` only when both fonts are available,
+  initialize the console, and refresh briefing viewport state after initial
+  and cross-Level graph begin. Teardown detaches those services before their
+  fonts. Hermetic no-retail-data sessions retain the old headless path.
+- Verification: the visible Level.03N presentation smoke reports one authored
+  command and one presentation, while the ordinary UI-suppressed mission smoke
+  still reports zero presentations. Playtest remains 67/67 CTest.
+- Revisit when: presentation services move behind a maintained platform/UI
+  layer. Replace the legacy global registration and make repeated viewport
+  release explicit without recoding unrelated CP1251 source files.
 
 ## Maintenance rule
 

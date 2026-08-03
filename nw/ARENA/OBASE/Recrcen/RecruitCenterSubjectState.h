@@ -9,6 +9,8 @@ struct RecruitCenterMissionProbeSummary
     int conditionReferences;
     int routeReferences;
     int deferredCommands;
+    int briefingCommands;
+    int scriptCommands;
     int executedScripts;
     int presentedBriefings;
     int createdMissionObjects;
@@ -48,6 +50,12 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbe(
     SimulationContext *context, double timeStamp, bool *staged,
     RecruitCenterMissionProbeSummary *summary);
 bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    bool *staged, RecruitCenterMissionProbeSummary *summary);
+bool RecruitCenterSubjectState_StageMissionPresentationProbe(
+    SimulationContext *context, double timeStamp, bool *staged,
+    RecruitCenterMissionProbeSummary *summary);
+bool RecruitCenterSubjectState_StageMissionPresentationProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     bool *staged, RecruitCenterMissionProbeSummary *summary);
 bool RecruitCenterSubjectState_LastMissionSummary(

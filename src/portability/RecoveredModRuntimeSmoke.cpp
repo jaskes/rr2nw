@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -85,18 +86,23 @@ int main(int argc, char** argv) {
   const std::string base = Join(root, "base");
   const std::string level = Join(base, "Level.03N");
   const std::string physicalCollision = Join(base, "Level.Physical");
+  const std::string routeDirectory = Join(level, "Route");
+  const std::string routeGroup = Join(routeDirectory, "S00");
   const std::string mod = Join(root, "mod");
   const std::string textures = Join(mod, "textures");
   if (!MakeDirectory(argv[1]) || !MakeDirectory(root) ||
       !MakeDirectory(base) || !MakeDirectory(level) || !MakeDirectory(mod) ||
-      !MakeDirectory(physicalCollision) || !MakeDirectory(textures))
+      !MakeDirectory(physicalCollision) || !MakeDirectory(textures) ||
+      !MakeDirectory(routeDirectory) || !MakeDirectory(routeGroup))
     return Fail("could not create fixture directories");
 
   const std::string baseTarget = Join(level, "sample.txt");
   const std::string baseOther = Join(level, "other.txt");
   const std::string modSource = Join(textures, "replacement.txt");
   const std::string manifest = Join(mod, "mod.json");
+  const std::string baseRoute = Join(routeGroup, "base.rt");
   if (!Write(baseTarget, "base-data") || !Write(baseOther, "base-other") ||
+      !Write(baseRoute, "ms00.base\n2\n[0,0,0]\n[1,0,0]\n") ||
       !Write(modSource, "mod-data") ||
       !Write(manifest, "\xef\xbb\xbf" +
                            Manifest("textures/replacement.txt",
@@ -214,6 +220,20 @@ int main(int argc, char** argv) {
   if (!ReadThroughResource(baseOther, &text) || text != "base-other")
     return Fail("derived Level base fallback failed");
   const std::uint64_t derivedFingerprint = summary->modFingerprint;
+  if (!Write(manifest,
+             Manifest("textures/replacement.txt",
+                      "Level.Example/Route/A20/overlay.rt", 1, false,
+                      derivedLevels)) ||
+      !RecoveredModRuntime_Configure(base.c_str(), mod.c_str()) ||
+      !RecoveredModRuntime_ActivateLevel("Level.Example", activated,
+                                         sizeof(activated)))
+    return Fail("derived Level Route overlay fixture was not admitted");
+  std::vector<std::string> routeFiles;
+  if (!RecoveredModRuntime_ListLevelFiles("Route", ".rt", &routeFiles) ||
+      routeFiles.size() != 2 ||
+      _stricmp(routeFiles[0].c_str(), "Route\\A20\\overlay.rt") != 0 ||
+      _stricmp(routeFiles[1].c_str(), "Route\\S00\\base.rt") != 0)
+    return Fail("effective Level file enumeration is incomplete");
   if (derivedFingerprint == 0 || derivedFingerprint == modFingerprint ||
       !RecoveredModRuntime_ActivateLevel("Level.03N", activated,
                                         sizeof(activated)) ||

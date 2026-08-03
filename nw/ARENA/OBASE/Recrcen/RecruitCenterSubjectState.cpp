@@ -1325,6 +1325,11 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     summary->conditionReferences = ConditionCount(mission);
     summary->routeReferences = mission.m_missionRouteID.isNUL() ? 0 : 1;
     summary->deferredCommands = static_cast<int>(deferredCommands.size());
+    summary->briefingCommands =
+        DeferredCommandCount(deferredCommands, COM_PLAY_BRIEFING) +
+        DeferredCommandCount(deferredCommands, COM_PLAY_BRIEFING_MSG);
+    summary->scriptCommands =
+        DeferredCommandCount(deferredCommands, COM_RUN_SCRIPT);
     summary->deferredArtefactRewards = DeferredCommandCount(
         deferredCommands, kSetGiveArtefactCommand);
     if (scriptTransaction) scriptHost.CommitObjectTransaction();
@@ -1670,7 +1675,8 @@ bool RecruitCenterSubjectState_StageMissionProbe(
 
 static bool StageMissionExecutionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
-    bool *staged, RecruitCenterMissionProbeSummary *summary)
+    bool presentBriefing, bool *staged,
+    RecruitCenterMissionProbeSummary *summary)
 {
     g_lastError[0] = 0;
     if (staged == NULL || summary == NULL) return false;
@@ -1706,8 +1712,8 @@ static bool StageMissionExecutionProbeForCenter(
             return false;
         }
         if (candidate.isNUL()) continue;
-        return StageMissionForCenter(context, timeStamp, center, true, false,
-                                     staged, summary);
+        return StageMissionForCenter(context, timeStamp, center, true,
+                                     presentBriefing, staged, summary);
     }
     if (centerName != NULL && centerName[0] != 0)
     {
@@ -1725,7 +1731,7 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbe(
     SimulationContext *context, double timeStamp, bool *staged,
     RecruitCenterMissionProbeSummary *summary)
 {
-    return StageMissionExecutionProbeForCenter(context, timeStamp, NULL,
+    return StageMissionExecutionProbeForCenter(context, timeStamp, NULL, false,
                                                staged, summary);
 }
 
@@ -1739,7 +1745,28 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
         return false;
     }
     return StageMissionExecutionProbeForCenter(context, timeStamp, centerName,
+                                               false, staged, summary);
+}
+
+bool RecruitCenterSubjectState_StageMissionPresentationProbe(
+    SimulationContext *context, double timeStamp, bool *staged,
+    RecruitCenterMissionProbeSummary *summary)
+{
+    return StageMissionExecutionProbeForCenter(context, timeStamp, NULL, true,
                                                staged, summary);
+}
+
+bool RecruitCenterSubjectState_StageMissionPresentationProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    bool *staged, RecruitCenterMissionProbeSummary *summary)
+{
+    if (centerName == NULL || centerName[0] == 0)
+    {
+        SetError("RecruitCenter presentation probe needs a center name");
+        return false;
+    }
+    return StageMissionExecutionProbeForCenter(context, timeStamp, centerName,
+                                               true, staged, summary);
 }
 
 bool RecruitCenterSubjectState_LastMissionSummary(

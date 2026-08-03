@@ -154,6 +154,19 @@ The log must name `ProjectS22` and report `staged=1`, `scripts=1`,
 population only; delivery of the retained artefact reward is a separate
 completion/revisit acceptance row.
 
+To verify the actual briefing presenter rather than the headless transaction,
+run this one-line Playtest command. The authored splash must appear, remain
+visible for its retail duration and the process must then exit by itself:
+
+```powershell
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --mission-briefing-smoke --mission-center "Marauders.Recruit.0" --diagnostics-dir "$PWD\manual-logs\mission-briefing"
+```
+
+The log must name `ProjectS25`, report one briefing command and one presented
+briefing, `created_objects=22`, `rollbacks=0`, `game_services_issues=0` and
+`runtime_shutdown=clean`. A transaction-only success with zero presentations
+is a presentation regression.
+
 The roster field is `ready/capacity/live/video/defaultTaxi/dictionary`. In
 Level order its expected values are `1/4/3/3/3/3`, `1/4/1/1/0/1`,
 `1/4/2/2/2/2`, `1/4/2/2/2/2`, three `1/2/2/2/2/2` entries,
@@ -506,10 +519,11 @@ the game may continue after such a successful rollback, while any non-zero
 `save_menu_cross_level_rollback_failures` is a release blocker.
 
 If the target save contains actors created by a mission script, a fresh target
-Level may initially lack their local Routes. The loader now reconstructs only
-validated `msNN.symbol` dependencies from matching retail
-`Route/SNN/symbol.rt` files before People allocation. A valid run needs no
-manual mission replay and must still end with `game_services_issues=0`.
+Level may initially lack their local Routes. The loader catalogs the effective
+mod-aware `Route/**/*.rt` files and matches each saved People dependency by its
+authoritative header and exact node-geometry fingerprint before allocation. It
+must not derive directories from names such as `msNN.symbol`. A valid run needs
+no manual mission replay and must still end with `game_services_issues=0`.
 
 For a town-hall report, also retain `recruit_center_last_mission`. It names the
 center/project and counts scripts, created owners, deferred commands,

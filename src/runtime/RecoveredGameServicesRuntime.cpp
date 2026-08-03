@@ -18,6 +18,7 @@
 
 #define LAST_H__SCENE
 #include "game.h"
+#include "briefing.h"
 #include "dmap.h"
 #include "font.h"
 #include "graph.h"
@@ -65,6 +66,13 @@
 #include "obase/vehicle/VehicleRuntimeState.h"
 
 extern int g_godMode;
+
+void RecoveredGameServices_RefreshBriefingViewport() {
+  if (g_super.m_context != nullptr &&
+      g_briefing.getContext() == g_super.m_context) {
+    g_briefing.ChangeResEvent();
+  }
+}
 
 namespace {
 
@@ -1058,6 +1066,7 @@ RecoveredVehicleControlInput g_vehicleControlInput;
 RecoveredWindowsInputAdapter g_windowsInputAdapter;
 unsigned int g_mapTogglePresses = 0;
 FixedFontOBJ* g_debugMapMissionFont = nullptr;
+FixedFontOBJ* g_gameConsoleFont = nullptr;
 SRecoveredMissionMapProbeTelemetry g_missionMapProbe = {};
 int g_missionMapBaselineMissions = 0;
 int g_missionMapBaselineTexts = 0;
@@ -2517,6 +2526,13 @@ void EndBoundedSession() {
     // Arena owns all script-created class-table objects. Release that graph
     // while its context and the legacy services it may notify still exist.
     RecoveredArenaSeance_Release();
+    // Briefing and console subscribe to Hardware. Detach them while Hardware
+    // is still alive, matching the inverse of the retail session order.
+    RemoveAttachedObject(g_super.m_context, &g_briefing);
+    RemoveAttachedObject(g_super.m_context, &g_GameConsole);
+    RemoveAttachedObject(g_super.m_context, g_gameConsoleFont);
+    delete g_gameConsoleFont;
+    g_gameConsoleFont = nullptr;
     RemoveAttachedObject(g_super.m_context, g_debugMapMissionFont);
     delete g_debugMapMissionFont;
     g_debugMapMissionFont = nullptr;
@@ -2680,6 +2696,33 @@ void InitializeSession() {
         Report(RECOVERED_GAME_SERVICES_DEBUG_MAP_INITIALIZATION_FAILURE);
         return;
       }
+    }
+    // green_menu.sci published the small console font separately. The
+    // recovered session originally restored only the mission-map font, which
+    // left GameConsole and Briefing absent from Context and caused every
+    // deferred mission briefing to be skipped at its safety gate.
+    if (GetFileAttributesA("..\\fig8x8.fnt") != INVALID_FILE_ATTRIBUTES) {
+      g_gameConsoleFont =
+          new (std::nothrow) FixedFontOBJ("..\\fig8x8.fnt");
+      if (g_gameConsoleFont == nullptr ||
+          g_super.m_context
+              ->addObject("Font.fig8x8.fnt", g_gameConsoleFont)
+              .isNUL() ||
+          g_gameConsoleFont->PrintAt(0, 0, "") != 1) {
+        EndBoundedSession();
+        Report(RECOVERED_GAME_SERVICES_DEBUG_MAP_INITIALIZATION_FAILURE);
+        return;
+      }
+    }
+    if (g_debugMapMissionFont != nullptr && g_gameConsoleFont != nullptr) {
+      if (g_super.m_context->addObject("GameConsole", &g_GameConsole).isNUL() ||
+          g_super.m_context->addObject("Briefing", &g_briefing).isNUL()) {
+        EndBoundedSession();
+        Report(RECOVERED_GAME_SERVICES_SESSION_FAILURE);
+        return;
+      }
+      g_GameConsole.Init("Font.fig8x8.fnt", "Font.fnt16x16.fnt",
+                         GRTransparentColor(150, 150, 150), 128, 4, nullptr);
     }
     g_super.m_context->addObject("LEVEL", &g_super.m_level);
     g_super.m_session.Add(g_super.m_context);

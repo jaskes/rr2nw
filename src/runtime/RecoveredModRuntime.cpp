@@ -32,6 +32,7 @@ constexpr std::size_t kMaximumRelations = 64;
 constexpr std::size_t kMaximumCandidateMods = 128;
 constexpr std::size_t kMaximumActiveMods = 64;
 constexpr std::size_t kMaximumStackFiles = 4096;
+constexpr std::size_t kMaximumEnumeratedLevelFiles = 16384;
 constexpr std::uint64_t kMaximumStackBytes = 1024ull * 1024ull * 1024ull;
 constexpr std::uint64_t kFnvOffset = 14695981039346656037ull;
 constexpr std::uint64_t kFnvPrime = 1099511628211ull;
@@ -1000,6 +1001,46 @@ std::string RelativeToBase(const std::string& requestedFull) {
   return std::string();
 }
 
+bool HasExtension(const std::string& path, const std::string& extension) {
+  if (extension.empty() || path.size() < extension.size()) return false;
+  return FoldPath(path.substr(path.size() - extension.size())) ==
+         FoldPath(extension);
+}
+
+bool EnumeratePhysicalFiles(const std::string& physicalDirectory,
+                            const std::string& relativeDirectory,
+                            const std::string& extension,
+                            std::vector<std::string>* paths) {
+  if (paths == nullptr || paths->size() > kMaximumEnumeratedLevelFiles)
+    return false;
+  WIN32_FIND_DATAA data = {};
+  const std::string pattern = JoinPath(physicalDirectory, "*");
+  HANDLE find = FindFirstFileA(pattern.c_str(), &data);
+  if (find == INVALID_HANDLE_VALUE) {
+    return GetLastError() == ERROR_FILE_NOT_FOUND ||
+           GetLastError() == ERROR_PATH_NOT_FOUND;
+  }
+  bool valid = true;
+  do {
+    const std::string name = data.cFileName;
+    if (name == "." || name == "..") continue;
+    const std::string childPhysical = JoinPath(physicalDirectory, name);
+    const std::string childRelative = JoinPath(relativeDirectory, name);
+    if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+      // Do not follow junctions or symlinks out of the admitted data root.
+      if ((data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
+        valid = EnumeratePhysicalFiles(childPhysical, childRelative,
+                                       extension, paths);
+    } else if (HasExtension(name, extension)) {
+      paths->push_back(childRelative);
+      valid = paths->size() <= kMaximumEnumeratedLevelFiles;
+    }
+  } while (valid && FindNextFileA(find, &data));
+  const DWORD error = GetLastError();
+  FindClose(find);
+  return valid && error == ERROR_NO_MORE_FILES;
+}
+
 struct StackCandidate {
   std::string baseLexical;
   std::string baseFinal;
@@ -1630,6 +1671,71 @@ bool RecoveredModRuntime_ResolveReadPath(const char* requested,
   const std::size_t length = std::strlen(selected);
   if (length + 1u > resolvedSize) return false;
   std::memcpy(resolved, selected, length + 1u);
+  return true;
+}
+
+bool RecoveredModRuntime_ListLevelFiles(
+    const char* relativeDirectory, const char* extension,
+    std::vector<std::string>* paths) {
+  if (!g_configured || g_activeLevelBase.empty() ||
+      relativeDirectory == nullptr || extension == nullptr ||
+      paths == nullptr || !paths->empty())
+    return false;
+  std::string directory;
+  if (!NormalizeRelative(relativeDirectory, &directory) ||
+      extension[0] != '.' || std::strchr(extension, '\\') != nullptr ||
+      std::strchr(extension, '/') != nullptr ||
+      std::strpbrk(extension, "*?\"<>|") != nullptr)
+    return false;
+
+  const std::string physical =
+      JoinPath(JoinPath(g_baseLexical, g_activeLevelBase), directory);
+  if (!EnumeratePhysicalFiles(physical, directory, extension, paths)) {
+    paths->clear();
+    return false;
+  }
+
+  const std::string directoryFolded = FoldPath(directory);
+  const auto appendOverlayTargets = [&](const std::string& levelFolded) {
+    const std::string prefix = levelFolded + "\\";
+    for (const OverlayEntry& entry : g_entries) {
+      if (entry.targetFolded.size() <= prefix.size() ||
+          entry.targetFolded.compare(0, prefix.size(), prefix) != 0)
+        continue;
+      const std::string levelRelative =
+          entry.targetRelative.substr(prefix.size());
+      const std::string foldedRelative = FoldPath(levelRelative);
+      if (foldedRelative.size() <= directoryFolded.size() ||
+          foldedRelative.compare(0, directoryFolded.size(),
+                                 directoryFolded) != 0 ||
+          foldedRelative[directoryFolded.size()] != '\\' ||
+          !HasExtension(levelRelative, extension))
+        continue;
+      paths->push_back(levelRelative);
+    }
+  };
+  // Derived targets win in ResolveReadPath; adding both here is safe because
+  // the final case-insensitive de-duplication keeps a single virtual name.
+  appendOverlayTargets(g_activeLevelIdentityFolded);
+  if (g_activeLevelBaseFolded != g_activeLevelIdentityFolded)
+    appendOverlayTargets(g_activeLevelBaseFolded);
+  if (paths->size() > kMaximumEnumeratedLevelFiles) {
+    paths->clear();
+    return false;
+  }
+  std::sort(paths->begin(), paths->end(),
+            [](const std::string& left, const std::string& right) {
+              const std::string leftFolded = FoldPath(left);
+              const std::string rightFolded = FoldPath(right);
+              return leftFolded == rightFolded ? left < right
+                                               : leftFolded < rightFolded;
+            });
+  paths->erase(std::unique(paths->begin(), paths->end(),
+                           [](const std::string& left,
+                              const std::string& right) {
+                             return FoldPath(left) == FoldPath(right);
+                           }),
+               paths->end());
   return true;
 }
 

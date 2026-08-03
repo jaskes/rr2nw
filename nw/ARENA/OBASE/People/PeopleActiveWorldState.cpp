@@ -21,7 +21,8 @@ namespace
 {
 
 const std::uint32_t kPeopleMagic = 0x314f4550u; // PEO1
-const std::uint32_t kPeopleVersion = 1u;
+const std::uint32_t kPeopleVersion = 2u;
+const std::uint32_t kOldestPeopleVersion = 1u;
 const std::size_t kMaximumPeople = 4096;
 const int kSchedulerLabels[] = {
     pe_EVC_MOVE,
@@ -56,6 +57,7 @@ struct StablePeopleRecord
     std::string name;
     std::string attribute;
     std::string route;
+    unsigned long long routeGeometryFingerprint;
     std::string commander;
     int audibleThisFrame;
     int visible;
@@ -94,7 +96,8 @@ struct StablePeopleRecord
     std::vector<StablePeopleEvent> events;
 
     StablePeopleRecord()
-        : audibleThisFrame(0), visible(0), lastMoveTimeStamp(0.0),
+        : routeGeometryFingerprint(0), audibleThisFrame(0), visible(0),
+          lastMoveTimeStamp(0.0),
           position(0.0, 0.0, 0.0), currentNode(0), damage(0.0),
           direction(0.0, 0.0, 0.0), nextNode(0.0, 0.0, 0.0),
           previousTime(0.0), rotateOx(0.0), rotateOy(0.0), rotateOz(0.0),
@@ -338,6 +341,24 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
     if (record->name.empty() || record->attribute.empty() ||
         record->route.empty())
         return Fail("People symbolic owner/attribute/route name is missing");
+    IRouteObject *route = static_cast<IRouteObject *>(
+        context->queryInterface(people->m_routeID, IRouteObjectIID));
+    if (route == NULL || route->GetNodeCnt() < 2)
+        return Fail("People route geometry is unavailable");
+    std::vector<double> routeCoordinates;
+    routeCoordinates.reserve(static_cast<std::size_t>(route->GetNodeCnt()) * 3);
+    for (int index = 0; index < route->GetNodeCnt(); ++index)
+    {
+        const CFVector3 node = route->GetNode(index);
+        routeCoordinates.push_back(node.x);
+        routeCoordinates.push_back(node.y);
+        routeCoordinates.push_back(node.z);
+    }
+    record->routeGeometryFingerprint =
+        PeopleActiveWorldState_RouteGeometryFingerprint(
+            &routeCoordinates[0], routeCoordinates.size());
+    if (record->routeGeometryFingerprint == 0)
+        return Fail("People route geometry is invalid");
     record->audibleThisFrame = people->m_audibleThisFrame;
     record->visible = people->m_isVisible;
     record->lastMoveTimeStamp = people->m_lastMoveTimeStamp;
@@ -451,6 +472,12 @@ void PutU32(std::vector<unsigned char> *bytes, std::uint32_t value)
     bytes->push_back(static_cast<unsigned char>(value >> 24));
 }
 
+void PutU64(std::vector<unsigned char> *bytes, std::uint64_t value)
+{
+    for (int shift = 0; shift < 64; shift += 8)
+        bytes->push_back(static_cast<unsigned char>(value >> shift));
+}
+
 void PutI32(std::vector<unsigned char> *bytes, int value)
 {
     PutU32(bytes, static_cast<std::uint32_t>(value));
@@ -475,6 +502,18 @@ bool GetU32(const std::vector<unsigned char> &bytes, std::size_t *offset,
              (static_cast<std::uint32_t>(bytes[*offset + 2]) << 16) |
              (static_cast<std::uint32_t>(bytes[*offset + 3]) << 24);
     *offset += 4;
+    return true;
+}
+
+bool GetU64(const std::vector<unsigned char> &bytes, std::size_t *offset,
+            std::uint64_t *value)
+{
+    if (offset == NULL || value == NULL || *offset > bytes.size() ||
+        bytes.size() - *offset < 8)
+        return false;
+    *value = 0;
+    for (int shift = 0; shift < 64; shift += 8)
+        *value |= static_cast<std::uint64_t>(bytes[(*offset)++]) << shift;
     return true;
 }
 
@@ -555,12 +594,16 @@ bool GetBool(const std::vector<unsigned char> &bytes, std::size_t *offset,
 }
 
 bool PutRecord(std::vector<unsigned char> *bytes,
-               const StablePeopleRecord &record)
+               const StablePeopleRecord &record, std::uint32_t version)
 {
     if (!PutString(bytes, record.name) ||
         !PutString(bytes, record.attribute) ||
-        !PutString(bytes, record.route) ||
-        !PutString(bytes, record.commander))
+        !PutString(bytes, record.route))
+        return false;
+    if (version >= 2u)
+        PutU64(bytes, static_cast<std::uint64_t>(
+                          record.routeGeometryFingerprint));
+    if (!PutString(bytes, record.commander))
         return false;
     PutBool(bytes, record.audibleThisFrame);
     PutBool(bytes, record.visible);
@@ -613,12 +656,18 @@ bool PutRecord(std::vector<unsigned char> *bytes,
 }
 
 bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
-               StablePeopleRecord *record)
+               StablePeopleRecord *record, std::uint32_t version)
 {
     if (record == NULL || !GetString(bytes, offset, &record->name) ||
         !GetString(bytes, offset, &record->attribute) ||
-        !GetString(bytes, offset, &record->route) ||
-        !GetString(bytes, offset, &record->commander) ||
+        !GetString(bytes, offset, &record->route))
+        return false;
+    std::uint64_t routeFingerprint = 0;
+    if (version >= 2u && !GetU64(bytes, offset, &routeFingerprint))
+        return false;
+    record->routeGeometryFingerprint =
+        static_cast<unsigned long long>(routeFingerprint);
+    if (!GetString(bytes, offset, &record->commander) ||
         !GetBool(bytes, offset, &record->audibleThisFrame) ||
         !GetBool(bytes, offset, &record->visible) ||
         !GetDouble(bytes, offset, &record->lastMoveTimeStamp) ||
@@ -740,13 +789,15 @@ bool ValidateRecord(const StablePeopleRecord &record)
 }
 
 bool EncodeRecords(const std::vector<StablePeopleRecord> &records,
-                   std::vector<unsigned char> *bytes)
+                   std::vector<unsigned char> *bytes,
+                   std::uint32_t version = kPeopleVersion)
 {
-    if (bytes == NULL || records.size() > kMaximumPeople)
+    if (bytes == NULL || records.size() > kMaximumPeople ||
+        version < kOldestPeopleVersion || version > kPeopleVersion)
         return false;
     bytes->clear();
     PutU32(bytes, kPeopleMagic);
-    PutU32(bytes, kPeopleVersion);
+    PutU32(bytes, version);
     PutU32(bytes, static_cast<std::uint32_t>(records.size()));
     for (std::size_t index = 0; index < records.size(); ++index)
     {
@@ -770,7 +821,9 @@ bool EncodeRecords(const std::vector<StablePeopleRecord> &records,
         }
         if (index != 0 && records[index - 1].name > records[index].name)
             return Fail("People records are not in symbolic order");
-        if (!PutRecord(bytes, records[index]))
+        if (version >= 2u && records[index].routeGeometryFingerprint == 0)
+            return Fail("People route geometry fingerprint is missing");
+        if (!PutRecord(bytes, records[index], version))
             return Fail("People record encoding failed");
     }
     return true;
@@ -784,13 +837,15 @@ bool DecodeRecords(const std::vector<unsigned char> &bytes,
     if (records == NULL || !GetU32(bytes, &offset, &magic) ||
         !GetU32(bytes, &offset, &version) ||
         !GetU32(bytes, &offset, &count) || magic != kPeopleMagic ||
-        version != kPeopleVersion || count > kMaximumPeople)
+        (version < kOldestPeopleVersion || version > kPeopleVersion) ||
+        count > kMaximumPeople)
         return false;
     records->clear();
     for (std::uint32_t index = 0; index < count; ++index)
     {
         StablePeopleRecord record;
-        if (!GetRecord(bytes, &offset, &record) || !ValidateRecord(record) ||
+        if (!GetRecord(bytes, &offset, &record, version) ||
+            !ValidateRecord(record) ||
             (index != 0 && records->back().name > record.name))
             return false;
         records->push_back(record);
@@ -1024,24 +1079,95 @@ bool PeopleActiveWorldState_RouteNames(
     const std::vector<unsigned char> &bytes,
     std::vector<std::string> *routeNames)
 {
-    std::vector<StablePeopleRecord> records;
+    std::vector<SPeopleRouteRequirement> requirements;
     if (routeNames == NULL || !routeNames->empty() ||
+        !PeopleActiveWorldState_RouteRequirements(bytes, &requirements))
+        return false;
+    for (std::size_t index = 0; index < requirements.size(); ++index)
+        routeNames->push_back(requirements[index].name);
+    return true;
+}
+
+bool PeopleActiveWorldState_RouteRequirements(
+    const std::vector<unsigned char> &bytes,
+    std::vector<SPeopleRouteRequirement> *requirements)
+{
+    std::vector<StablePeopleRecord> records;
+    if (requirements == NULL || !requirements->empty() ||
         !DecodeRecords(bytes, &records))
         return false;
     for (std::size_t index = 0; index < records.size(); ++index)
-        routeNames->push_back(records[index].route);
-    std::sort(routeNames->begin(), routeNames->end());
-    routeNames->erase(std::unique(routeNames->begin(), routeNames->end()),
-                      routeNames->end());
+    {
+        SPeopleRouteRequirement requirement;
+        requirement.name = records[index].route;
+        requirement.geometryFingerprint =
+            records[index].routeGeometryFingerprint;
+        requirements->push_back(requirement);
+    }
+    std::sort(requirements->begin(), requirements->end(),
+              [](const SPeopleRouteRequirement &left,
+                 const SPeopleRouteRequirement &right) {
+                  if (left.name != right.name)
+                      return left.name < right.name;
+                  return left.geometryFingerprint < right.geometryFingerprint;
+              });
+    requirements->erase(
+        std::unique(requirements->begin(), requirements->end(),
+                    [](const SPeopleRouteRequirement &left,
+                       const SPeopleRouteRequirement &right) {
+                        return left.name == right.name &&
+                               left.geometryFingerprint ==
+                                   right.geometryFingerprint;
+                    }),
+        requirements->end());
     return true;
+}
+
+unsigned long long PeopleActiveWorldState_RouteGeometryFingerprint(
+    const double *coordinates, std::size_t coordinateCount)
+{
+    if (coordinates == NULL || coordinateCount < 6 ||
+        coordinateCount % 3 != 0)
+        return 0;
+    unsigned long long hash = 14695981039346656037ull;
+    const char domain[] = "RR2NW-ROUTE-GEOMETRY-1";
+    HashBytes(&hash, reinterpret_cast<const unsigned char *>(domain),
+              sizeof(domain) - 1);
+    const std::uint64_t nodeCount =
+        static_cast<std::uint64_t>(coordinateCount / 3);
+    unsigned char encodedCount[8] = {};
+    for (int shift = 0; shift < 64; shift += 8)
+        encodedCount[shift / 8] =
+            static_cast<unsigned char>(nodeCount >> shift);
+    HashBytes(&hash, encodedCount, sizeof(encodedCount));
+    for (std::size_t index = 0; index < coordinateCount; ++index)
+    {
+        if (!std::isfinite(coordinates[index]))
+            return 0;
+        std::uint64_t encoded = 0;
+        std::memcpy(&encoded, &coordinates[index], sizeof(encoded));
+        unsigned char bytes[8] = {};
+        for (int shift = 0; shift < 64; shift += 8)
+            bytes[shift / 8] = static_cast<unsigned char>(encoded >> shift);
+        HashBytes(&hash, bytes, sizeof(bytes));
+    }
+    return hash == 0 ? 1 : hash;
 }
 
 bool PeopleActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes)
 {
+    std::size_t offset = 0;
+    std::uint32_t magic = 0, version = 0;
+    std::vector<StablePeopleRecord> expected;
+    std::vector<StablePeopleRecord> currentRecords;
     std::vector<unsigned char> current;
-    return PeopleActiveWorldState_ValidateStable(bytes) &&
-           PeopleActiveWorldState_CaptureStable(context, &current) &&
+    return GetU32(bytes, &offset, &magic) &&
+           GetU32(bytes, &offset, &version) && magic == kPeopleMagic &&
+           version >= kOldestPeopleVersion && version <= kPeopleVersion &&
+           DecodeRecords(bytes, &expected) &&
+           CollectRecords(context, &currentRecords) &&
+           EncodeRecords(currentRecords, &current, version) &&
            current == bytes;
 }
 

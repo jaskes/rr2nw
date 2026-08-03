@@ -3,10 +3,19 @@
 
 #include "kernel/h/krtypes.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 class SimulationContext;
+
+struct SPeopleRouteRequirement
+{
+    std::string name;
+    unsigned long long geometryFingerprint;
+
+    SPeopleRouteRequirement() : geometryFingerprint(0) {}
+};
 
 void PeopleActiveWorldState_Link();
 const char *PeopleActiveWorldState_LastFailure();
@@ -22,6 +31,11 @@ bool PeopleActiveWorldState_ValidateStable(
 bool PeopleActiveWorldState_RouteNames(
     const std::vector<unsigned char> &bytes,
     std::vector<std::string> *routeNames);
+bool PeopleActiveWorldState_RouteRequirements(
+    const std::vector<unsigned char> &bytes,
+    std::vector<SPeopleRouteRequirement> *requirements);
+unsigned long long PeopleActiveWorldState_RouteGeometryFingerprint(
+    const double *coordinates, std::size_t coordinateCount);
 bool PeopleActiveWorldState_MatchesStable(
     SimulationContext *context, const std::vector<unsigned char> &bytes);
 bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(

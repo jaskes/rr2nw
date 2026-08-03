@@ -4,6 +4,7 @@
 #include "ActiveWorldSave.h"
 
 #include "kernel/h/context.h"
+#include "obase/people/PeopleActiveWorldState.h"
 
 namespace {
 
@@ -115,6 +116,39 @@ void PublishSummary(const SLevelContinuation& continuation,
   summary->journalFingerprint =
       VehicleControlJournal_Fingerprint(continuation.controlJournal);
   summary->containerFingerprint = continuation.fingerprint;
+}
+
+bool NormalizeCompatibleSectionMigrations(
+    SimulationContext* context, const SActiveWorldSnapshot& source,
+    const SActiveWorldSnapshot& restored,
+    std::uint64_t* normalizedFingerprint) {
+  if (context == nullptr || normalizedFingerprint == nullptr ||
+      source.sections.size() != restored.sections.size())
+    return false;
+  SActiveWorldSnapshot normalized = restored;
+  bool migrated = false;
+  for (std::size_t index = 0; index < source.sections.size(); ++index) {
+    const SActiveWorldSection& expected = source.sections[index];
+    SActiveWorldSection& actual = normalized.sections[index];
+    if (expected.kind != actual.kind ||
+        expected.schemaVersion != actual.schemaVersion ||
+        expected.owner != actual.owner)
+      return false;
+    if (expected.payload == actual.payload) continue;
+    if (expected.kind != EActiveWorldSectionKind::People || migrated ||
+        !PeopleActiveWorldState_MatchesStable(context, expected.payload))
+      return false;
+    // PEO1 v1 omitted the route-geometry identity introduced by v2. The live
+    // graph has already passed its strict v1 semantic verifier; substituting
+    // only that legacy payload lets the outer LCN1 fingerprint continue to
+    // prove that every other section, event and boundary remained identical.
+    actual.payload = expected.payload;
+    migrated = true;
+  }
+  if (!migrated) return false;
+  *normalizedFingerprint =
+      ActiveWorldSave_ComputeWorldFingerprint(normalized);
+  return true;
 }
 
 }  // namespace
@@ -303,8 +337,15 @@ bool LevelContinuation_RestoreWorld(
   summary->ownerPhases = restoreSummary.ownerPhases;
   summary->referencePhases = restoreSummary.referencePhases;
   summary->eventPhases = restoreSummary.eventPhases;
-  summary->restoredWorldFingerprint = restoredWorld.worldFingerprint;
-  summary->worldMatches = restoredWorld.worldFingerprint ==
+  std::uint64_t verifiedWorldFingerprint = restoredWorld.worldFingerprint;
+  if (verifiedWorldFingerprint != sourceWorld.worldFingerprint) {
+    std::uint64_t normalizedFingerprint = 0;
+    if (NormalizeCompatibleSectionMigrations(
+            context, sourceWorld, restoredWorld, &normalizedFingerprint))
+      verifiedWorldFingerprint = normalizedFingerprint;
+  }
+  summary->restoredWorldFingerprint = verifiedWorldFingerprint;
+  summary->worldMatches = verifiedWorldFingerprint ==
                           sourceWorld.worldFingerprint;
   summary->ready = restoreSummary.ready && summary->boundaryMatches &&
                    summary->worldMatches && summary->ownerPhases == 14 &&

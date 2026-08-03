@@ -89,6 +89,10 @@ bool RecoveredObserverAxes_ApplyLegacyAction(
 bool RecoveredObserverAxes_IsNeutral(
     const SRecoveredObserverAxes& axes);
 
+// Rebuild the viewport owned by the legacy synchronous briefing renderer.
+// The retail main loop invoked this after each ZAV_BeginLoop boundary.
+void RecoveredGameServices_RefreshBriefingViewport();
+
 struct SRecoveredVehicleDriveTelemetry {
   double positionX;
   double positionY;
