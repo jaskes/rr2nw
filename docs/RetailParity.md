@@ -1995,8 +1995,16 @@ playable Level begins.
   prove finite bounded progress.
 - Grounded release event 26012 now uses the exact May target/visibility cadence:
   immediate start, 0.2-second live-target refresh, 0.3-second pop/idle refresh
-  and the hidden five-second extension. The separate May movement helper and
-  its obstacle/corridor behavior remain the explicit parity refinement.
+  and the hidden five-second extension. The route half of May helper
+  `0x00501D54` now performs bounded multi-segment carry, corridor clamping and
+  loop/stop/rewind terminal policy against real Route objects. Cursor and state
+  targets advance together, and rescheduling preserves exactly one NEXTNODE
+  event per People owner. Synthetic policy coverage plus a live overshoot and
+  rollback probe run inside the standard service smoke.
+- Obstacle/contact response and its steering correction remain the explicit
+  movement parity refinement. The ordinary NEXTNODE cadence stays as a named
+  bridge until that second half is proven; it is not replaced by guessed
+  frame-rate behavior.
 
 ### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
 

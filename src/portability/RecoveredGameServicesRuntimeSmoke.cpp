@@ -72,6 +72,7 @@
 #include "ZavShutdownState.h"
 
 extern int g_godMode;
+bool PeopleRouteMotion_Probe();
 
 namespace {
 
@@ -4926,6 +4927,9 @@ bool ExerciseCampaignRestartStaging() {
 }  // namespace
 
 int main(int argc, char** argv) {
+  if (!PeopleRouteMotion_Probe()) {
+    return Fail("People multi-segment route-motion kernel failed");
+  }
   if (argc < 1 || argc > 3) {
     return Fail("expected optional source and target retail Level directories");
   }

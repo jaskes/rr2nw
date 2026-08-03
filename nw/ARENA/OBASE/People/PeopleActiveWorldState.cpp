@@ -282,10 +282,16 @@ bool CaptureEvents(SimulationContext *context, const KR_ObjectID &owner,
             kSchedulerLabels[index], owner, copied, 2);
         if (count < 0 || count > 1)
         {
-            char message[128] = {};
+            const std::string ownerName = ObjectName(context, owner);
+            char message[320] = {};
             std::snprintf(message, sizeof(message),
-                          "scheduler label %d count %d",
-                          kSchedulerLabels[index], count);
+                          "People %.96s scheduler label %d count %d "
+                          "times=%.17g/%.17g sources=%ld/%ld",
+                          ownerName.c_str(), kSchedulerLabels[index], count,
+                          count > 0 ? copied[0].timeStamp : -1.0,
+                          count > 1 ? copied[1].timeStamp : -1.0,
+                          count > 0 ? copied[0].source.id : 0L,
+                          count > 1 ? copied[1].source.id : 0L);
             return Fail(message);
         }
         if (count == 1)

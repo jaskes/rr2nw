@@ -12,6 +12,7 @@
 #include <windows.h>
 
 #include "PEOPLE.H"
+#include "PeopleRouteMotion.h"
 #include "i/route.i"
 #include "kernel/h/context.h"
 #include "message/peopmsg.h"
@@ -703,7 +704,35 @@ static bool ProbePeopleLifecycle(
         const double projectedDistance = g_distToSeg(
             projected, CFVector3(0.0, 0.0, 0.0),
             CFVector3(1000.0, 0.0, 0.0));
-        summary->corridorProjection = FiniteVector(projected) &&
+        const PeopleData routeMotionState =
+            *static_cast<PeopleData *>(probe);
+        const CFVector3 routeMotionPosition = probe->getPosition();
+        const int routeMotionPrevious = probe->m_previousRouteNode;
+        bool routeMotionIntegrated = false;
+        if (routeNodeCount >= 2 && routeMotionPrevious >= 0 &&
+            routeMotionPrevious < routeNodeCount && probe->m_curNode >= 0 &&
+            probe->m_curNode < routeNodeCount)
+        {
+            const CFVector3 start = probeRoute->GetNode(routeMotionPrevious);
+            const CFVector3 target = probeRoute->GetNode(probe->m_curNode);
+            CFVector3 overshoot = target + (target - start);
+            if (Abs2(target - start) <= 1e-12)
+                overshoot = target + CFVector3(1.0, 0.0, 0.0);
+            probe->setPosition(overshoot);
+            routeMotionIntegrated =
+                probe->m_previousRouteNode != routeMotionPrevious &&
+                probe->m_curNode >= 0 && probe->m_curNode < routeNodeCount &&
+                SameVector(probe->m_nextNode,
+                           probeRoute->GetNode(probe->m_curNode)) &&
+                SameVector(probe->m_stateNextNode[0], probe->m_nextNode) &&
+                FiniteVector(probe->getPosition());
+            context->removeEvent(pe_EVC_NEXTNODE, probeID);
+            *static_cast<PeopleData *>(probe) = routeMotionState;
+            probe->ct_Subject::setPosition(routeMotionPosition);
+        }
+        summary->corridorProjection = PeopleRouteMotion_Probe() &&
+            routeMotionIntegrated &&
+            FiniteVector(projected) &&
             std::isfinite(projectedDistance) &&
             std::fabs(projected.x - 500.0) <= 1e-9 &&
             std::fabs(projected.z - 10.0) <= 1e-9 &&
@@ -770,9 +799,10 @@ static bool ProbePeopleLifecycle(
             *static_cast<PeopleData *>(probe) = cadenceState;
             probe->ct_Subject::setPosition(cadencePosition);
         }
-        // Until the May grounded movement helper is recovered, NEXTNODE owns
-        // route-segment progress while 26012 independently owns the exact
-        // target/visibility cadence.
+        // NEXTNODE remains the normal-cadence bridge while the recovered May
+        // route kernel handles true movement overshoot.  The two speculative
+        // MOVE branches below must each start from the same empty route-event
+        // queue or their generated replacement deadlines would accumulate.
         const bool nextNodeScheduled =
             airRouteCount == 1 && groundedCadenceScheduled &&
             groundedCadenceExact;
@@ -801,6 +831,7 @@ static bool ProbePeopleLifecycle(
                 context->copyEvents(pe_EVC_MOVE, probeID, hiddenNext, 2) == 1;
             if (hiddenMove) hiddenNextTime = hiddenNext[0].timeStamp;
             context->removeEvent(pe_EVC_MOVE, probeID);
+            while (context->removeEvent(pe_EVC_NEXTNODE, probeID) == 1) {}
 
             *static_cast<PeopleData *>(probe) = cadenceState;
             probe->ct_Subject::setPosition(cadencePosition);
@@ -813,6 +844,7 @@ static bool ProbePeopleLifecycle(
                 context->copyEvents(pe_EVC_MOVE, probeID, visibleNext, 2) == 1;
             if (visibleMove) visibleNextTime = visibleNext[0].timeStamp;
             context->removeEvent(pe_EVC_MOVE, probeID);
+            while (context->removeEvent(pe_EVC_NEXTNODE, probeID) == 1) {}
 
             *static_cast<PeopleData *>(probe) = cadenceState;
             probe->ct_Subject::setPosition(cadencePosition);
@@ -838,6 +870,7 @@ static bool ProbePeopleLifecycle(
                                             int expectedNode,
                                             bool expectEvent,
                                             bool expectStopped) {
+                while (context->removeEvent(routeEventLabel, probeID) == 1) {}
                 *static_cast<PeopleData *>(probe) = routeState;
                 probe->ct_Subject::setPosition(probeRoute->GetNode(finalNode));
                 probe->m_previousRouteNode = finalNode - 1;
@@ -854,7 +887,7 @@ static bool ProbePeopleLifecycle(
                 const bool result = probe->m_curNode == expectedNode &&
                     (queuedCount == 1) == expectEvent &&
                     (Abs2(probe->m_dir) == 0.0) == expectStopped;
-                context->removeEvent(routeEventLabel, probeID);
+                while (context->removeEvent(routeEventLabel, probeID) == 1) {}
                 return result;
             };
             const bool loops = probeEndPolicy(-1, 0, true, false);

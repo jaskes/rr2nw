@@ -3723,10 +3723,26 @@ is registered with retail defaults, and combat power, enemy view distance,
 shoot alignment, kill style and `allwaysVisible` now drive their evidenced
 consumers. The January `People.od` remains an archival 24-field description.
 
-Route arrival still uses a named NEXTNODE compatibility event. Retail helper
-`0x00501D54` is independently responsible for multi-segment consumption,
-corridor projection and obstacle response; translating that high-complexity
-body is the next People frontier and is not claimed by this slice.
+The route/corridor half of retail helper `0x00501D54` is now isolated as
+`PeopleRouteMotion`.  The recovered seven-argument boundary consumes at most
+ten crossed segments per call, carries the remaining distance through turns,
+implements negative/zero/positive `backSpaceNode` as loop/stop/rewind, admits
+degenerate nodes and clamps the resulting position to the active corridor.
+Grounded projection deliberately preserves Y so the existing terrain/water/
+support owner remains authoritative.  A synthetic kernel proof covers every
+policy and a live People lifecycle proof overshoots a real retail route, checks
+the updated previous/current cursor plus both next-target copies and performs a
+full rollback.
+
+Normal on-time arrivals still use the named NEXTNODE compatibility event; the
+new kernel owns genuine movement overshoot and atomically replaces its
+deadline.  Full-matrix testing exposed that older STARTMOVE, default, attack
+and damage writers could independently leave two label-26004 events on
+`Level.02D/02N` unit `KP.46`.  All writers now enforce one owner/one label, and
+stable-capture diagnostics retain the owner name, both times and sources.
+The remaining unclaimed half of `0x00501D54` is obstacle/contact response and
+the associated direction correction; removing the compatibility event before
+that work would overstate parity.
 
 The final Windows gate is 67/67 CTest in each of Debug, Release and Playtest,
 27/27 installed retail starts, 27/27 full fresh continuations with both Vehicle

@@ -4,6 +4,7 @@
  * Ver   1.0
  */
 #include "People.h"
+#include "PeopleRouteMotion.h"
 #include "kernel/h/context.h"
 #include "kernel/h/echo.h"
 #include "kernel/h/s_debug.h"
@@ -335,6 +336,7 @@ void People::nexNodeDefault(KR_Event &event)
        > 7.0  )
     {
          event.timeStamp += dist/m_attr->m_speed;
+         while(  context->removeEvent(pe_EVC_NEXTNODE,getObjectID())==1  ) {}
          issueEvent( event );
          return;
     }
@@ -388,6 +390,7 @@ void People::nexNodeDefault(KR_Event &event)
     }
 
     event.timeStamp += dist/m_attr->m_speed;
+    while(  context->removeEvent(pe_EVC_NEXTNODE,getObjectID())==1  ) {}
     issueEvent( event );
 }
 
@@ -1099,6 +1102,7 @@ int People::receiveEvent( KR_Event &event )
                       nexNodeAttackFar (event, pos, mpos, dobj );
                  else nexNodeAttackNear(event, pos, mpos, dobj );
 
+                 while(  context->removeEvent(pe_EVC_NEXTNODE,getObjectID())==1  ) {}
                  issueEvent( event );
             }
             else
@@ -1330,6 +1334,7 @@ case pe_EVCMD_START_EX:
               double dist = Abs(nextNode-pos);
               event.label = pe_EVC_NEXTNODE;
               event.timeStamp += dist/m_attr->m_speed;
+              while(  context->removeEvent(pe_EVC_NEXTNODE,getObjectID())==1  ) {}
               issueEvent(event);
 
               if(  m_attr->m_onLand != NO_LAND && m_attr->m_onLand != 4  )
@@ -1985,6 +1990,18 @@ void g_toSeg( CFVector3 &v, const CFVector3 &p0, const CFVector3 &p1, double max
          v = nearest+delta*(max/distance);
 }
 
+class PeopleRouteObjectSource : public IPeopleRouteNodeSource
+{
+ public:
+    PeopleRouteObjectSource(IRouteObject *route) : m_route(route) {}
+
+    virtual int NodeCount() { return m_route->GetNodeCnt(); }
+    virtual CFVector3 Node(int index) { return m_route->GetNode(index); }
+
+ private:
+    IRouteObject *m_route;
+};
+
 void People::setPosition(  const CFVector3 &vec  )
 {
     if(  m_attr == 0 || m_routeID.isNUL()  )
@@ -2002,18 +2019,66 @@ void People::setPosition(  const CFVector3 &vec  )
 
     int n0 = m_previousRouteNode;
     int n1 = m_curNode;
-    if(  n0<0 || n0>=ri->GetNodeCnt()  )
-         n0 = (n1-1+ri->GetNodeCnt())%ri->GetNodeCnt();
     if(  n1<0 || n1>=ri->GetNodeCnt()  )
     {
          ct_Subject::setPosition( vec );
          return;
     }
+    if(  n0<0 || n0>=ri->GetNodeCnt()  )
+         n0 = (n1-1+ri->GetNodeCnt())%ri->GetNodeCnt();
 
-    CFVector3 v = vec;
-    g_toSeg( v, ri->GetNode(n0), ri->GetNode(n1), m_attr->m_maxOutDist );
+    PeopleRouteObjectSource source(ri);
+    SPeopleRouteMotionRequest request;
+    request.candidate = vec;
+    request.previousNode = n0;
+    request.currentNode = n1;
+    request.backSpaceNode = m_startBackSpaceNode;
+    request.horizontal = m_attr->m_onLand == NO_LAND ? 0 : 1;
+    request.maximumSegments = getState() == pe_STATE_DEFAULT ? 10 : 0;
+    request.maximumCorridorDistance = m_attr->m_maxOutDist;
 
-    ct_Subject::setPosition( v );
+    SPeopleRouteMotionResult result;
+    if(  !PeopleRouteMotion_Advance(&source,request,&result)  )
+    {
+         CFVector3 fallback = vec;
+         g_toSeg( fallback, ri->GetNode(n0), ri->GetNode(n1),
+                  m_attr->m_maxOutDist );
+         ct_Subject::setPosition( fallback );
+         return;
+    }
+
+    if(  result.segmentsConsumed>0 && getState()==pe_STATE_DEFAULT  )
+    {
+         m_previousRouteNode = result.previousNode;
+         m_curNode = result.currentNode;
+         m_nextNode = ri->GetNode(m_curNode);
+         m_stateNextNode[0] = m_nextNode;
+
+         while(  context->removeEvent(pe_EVC_NEXTNODE,getObjectID())==1  ) {}
+         if(  result.stopped  )
+              m_dir = CFVector3(0,0,0);
+         else
+         if(  m_attr->m_speed>1e-3  )
+         {
+              double dist;
+              if(  m_attr->m_onLand==NO_LAND  )
+                   dist = Abs(m_nextNode-result.position);
+              else dist = hypot(m_nextNode.z-result.position.z,
+                                m_nextNode.x-result.position.x);
+              if(  std::isfinite(dist)  )
+              {
+                   KR_Event routeEvent;
+                   routeEvent.label = pe_EVC_NEXTNODE;
+                   routeEvent.source = getObjectID();
+                   routeEvent.destination = getObjectID();
+                   routeEvent.timeStamp = m_lastMoveTimeStamp+
+                                          dist/m_attr->m_speed;
+                   issueEvent(routeEvent);
+              }
+         }
+    }
+
+    ct_Subject::setPosition( result.position );
 }
 
 /* End of file C:\WinGame\OBASE\People\People.cpp */

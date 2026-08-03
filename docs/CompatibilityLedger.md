@@ -4103,18 +4103,23 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   migrates v1-v3 deterministically. A live stack may begin with ATTACK after
   event 26012 pops the final default frame; v4 stores that state exactly, while
   legacy encoding prepends a synthetic default frame. Grounded START queues
-  both exact event 26012 and the temporary NEXTNODE route-progress bridge.
+  both exact event 26012 and the temporary NEXTNODE route-progress bridge. The
+  route/corridor half of helper `0x00501D54` now consumes up to ten crossed
+  segments, carries overshoot through turns, applies all three terminal
+  policies and updates both current targets. Every NEXTNODE writer first
+  removes all older copies for the same People owner, making label 26004 a
+  unique scheduler authority.
 - Verification: the lifecycle probe executes the real immediate 26012 event,
   requires one-frame pop and a 0.3-second repeat. Debug, Release and Playtest
   each pass 67/67 CTest. Installed retail startup passes 27/27; full fresh
   continuation passes 27/27 with destruction and occupied-save masks 1011;
   the three-process Level.03N mission save/same-Level/cross-Level gate passes
   3/3.
-- Revisit when: the May helper at `0x00501D54` owns segment consumption,
-  corridor correction and obstacle response. Remove the NEXTNODE bridge only
-  after those behaviors and PEO1 rollback pass together. `People.od` remains
-  an archival 24-field January generator description; do not regenerate or
-  recode it as a side effect of this source recovery.
+- Revisit when: the remaining obstacle/contact and direction-response branches
+  of `0x00501D54` are recovered. Remove the NEXTNODE bridge only after that
+  behavior and PEO1 rollback pass together. `People.od` remains an archival
+  24-field January generator description; do not regenerate or recode it as a
+  side effect of this source recovery.
 
 ## Maintenance rule
 

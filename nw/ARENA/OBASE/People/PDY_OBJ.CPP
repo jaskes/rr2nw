@@ -97,7 +97,7 @@ void   People::setDamage  ( double d, const CFVector3 &pos, double ts, KR_Object
 
         if(  ts-m_lastDamageTime>2.0 )
         {
-             context->removeEvent(pe_EVC_NEXTNODE,getObjectID());
+             while(  context->removeEvent(pe_EVC_NEXTNODE,getObjectID())==1  ) {}
              KR_Event event;
              event.label  = pe_EVC_NEXTNODE;
              event.source = getObjectID();
