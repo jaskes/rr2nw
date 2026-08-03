@@ -1,4 +1,5 @@
 #include "PeopleContactResponse.h"
+#include "PeopleSupportSampling.h"
 
 #include <cmath>
 
@@ -155,5 +156,6 @@ bool PeopleContactResponse_Probe()
     return !PeopleContactResponse_Advance(request, &result) &&
            !PeopleContactResponse_IsSupportedCode(-1) &&
            !PeopleContactResponse_IsSupportedCode(10) &&
-           !PeopleContactResponse_IsSupportedCode(12);
+           !PeopleContactResponse_IsSupportedCode(12) &&
+           PeopleSupportSampling_Probe();
 }

@@ -3811,18 +3811,26 @@ PEO1 v6 had named the field `closeCollision` and encoded it with `PutBool`,
 despite the live member being an integer. PEO1 v7 now uses a bounded `int32`
 contact class. Versions 1-6 still decode their historical `0/1`, and legacy
 re-encoding deliberately folds any non-zero live class to `1`, preserving
-semantic fingerprint comparison. The live `ON_OBJ` path
-uses the two source-proven front/rear support samples to select the base
-classes: missing support or a rear dynamic owner chooses `3`, a front dynamic
-owner chooses `1`, and an equal two-owner tie is deterministic. Both valid
-samples still own height and pitch placement.
+semantic fingerprint comparison. The live `ON_OBJ` path now replaces the
+January approximation with the May front/rear support geometry recovered at
+`0x004FA1E1--0x004FAA12`. Offset is `max(0.3*radius,0.3)`, the static sweep
+radius is `clamp(0.4*radius,1,12)`, its origin height is
+`1.4*min(offset,12)+1.1*sweepRadius`, and the sphere travels downward at 100
+units per second for `height/45`. Static collision time reconstructs both
+support heights, actor pitch and the mean vertical placement.
 
-This closes the response and persistence half of the manifold, not all May
-sample geometry. Retail's additional static/dynamic samples that introduce
-the qualified `9/11` classes and the exact contact-derived input for code `4`
-remain the next binary-translation boundary. Guide/vehicle path obstruction is
-also still open; neither gap is hidden behind a claim that the entire May
-manifold is complete.
+The rear probe's full collision identifies a dynamic support. May projects its
+owner position onto the actor's right axis; positive selects code `9`, while
+zero/negative selects `11`. `PeopleSupportSampling` isolates and proves the
+geometry, clamping, finite-input contract and this signed-side classification.
+Missing front support selects code `2`; missing rear support selects `3`.
+
+This closes the support-geometry and dynamic-support halves of the manifold,
+not every collision producer. The horizontal movement-owner `1/3` branch is
+still to be translated. A complete disassembly search finds no literal code-4
+write to `People+0x248`: May dispatches and restores `4`, but its producer is
+not established. Guide/vehicle path obstruction is also still open; neither
+gap is hidden behind a claim that the entire May manifold is complete.
 
 The final gate passes 67/67 CTest in Debug, Release and Playtest, 27/27
 installed retail starts and 27/27 fresh continuations. Destruction and occupied
@@ -3830,3 +3838,10 @@ save/load Vehicle masks are `1011` in every configuration. A targeted repeat
 of the six initially failing `Level.02D/02N` cases passed 6/6 after the v7
 repair; the complete rerun then covered every other People roster and both
 empty-People edges.
+
+After the support-sampling replacement, the same full gate passes again. The
+installed Playtest at `E:\Games\The Next Worlds\nw.exe` is byte-identical to
+the gated `RelWithDebInfo` output, SHA-256
+`B97266DE9D2D153C99B705FF0BEE136A2F42CE4E8BBB5BC8148F907F1D3F8E6F`; a direct
+installed Level.03N runtime smoke reaches `level-ready`, publishes
+`people_lifecycle_probe=1/1/1/1/1` and shuts down cleanly.

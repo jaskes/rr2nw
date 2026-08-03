@@ -1831,15 +1831,21 @@ limit and 2.5-second deviation recovery. A crossing reloads the target before
 same-frame steering, and PEO1 v5 introduced the deviation timer. The separate
 May `ON_OBJ` forward sweep is now active through the real scene Bump path with
 its shrinking radius, 80-percent contact travel, state pop and 1x/2x recovery
-timer; PEO1 v6 preserves both timers. The remaining People work is the shared
-May support/contact sampling geometry and guide/vehicle path-obstruction
-behavior. The contact response half is closed: the lower support samples now
-produce persistent direction codes, May's `1/9`, `2`, `3/11` and `4`
-dispatcher owns heading correction, and the obstacle recovery path preserves
-the full code instead of collapsing it to a boolean. PEO1 v7 stores that
-integer contact class and migrates v1-v6 boolean payloads deterministically.
-May's larger sample set and contact-derived code-4 angle remain to be
-translated.
+timer; PEO1 v6 preserves both timers. The support geometry is now recovered:
+exact heading-based front/rear offsets, bounded sweep radius, origin height,
+downward travel, static-time placement and dynamic-support `9/11` side
+classification replace the January approximation. The contact response half
+is closed: May's `1/9`, `2`, `3/11` and `4` dispatcher owns heading correction,
+and the obstacle recovery path preserves the full code instead of collapsing it
+to a boolean. PEO1 v7 stores that integer contact class and migrates v1-v6
+boolean payloads deterministically. Remaining People work is the horizontal
+movement-owner `1/3` branch, evidence for any code-4 producer, moving-guide
+proof beside dynamic Vehicles and guide/vehicle path obstruction. Manual
+Level.01/Level.02 testing also exposes a separate combat slice: hostile walk
+animation advances without route displacement or delivered attacks. Prove
+movement, acquire/attack damage and robot death/Explosion/Corpse as three
+independent rows; the first reported death-time close coincided with an external
+test-process termination and is not yet a confirmed crash.
 
 The Taxi-to-Vehicle placement and steering/model-basis row is closed. The
 Vehicle inherits the support basis, releases along its normal and advances on
@@ -1861,7 +1867,7 @@ now uses physical forward for position while preserving the Taxi yaw
 convention, and the stable-boundary smoke requires the spawned object to be in
 front of the player.
 
-The next gameplay row is the remaining May People contact-sampling geometry
+The next gameplay row is the remaining May People horizontal contact ownership
 plus guide/vehicle path-obstruction behavior visible in town routes, followed
 by mission reward/completion and Portal admission.
 

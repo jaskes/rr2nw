@@ -6,6 +6,7 @@
 #include "People.h"
 #include "PeopleContactResponse.h"
 #include "PeopleObstacleRecovery.h"
+#include "PeopleSupportSampling.h"
 #include "PeopleRouteMotion.h"
 #include "kernel/h/context.h"
 #include "kernel/h/echo.h"
@@ -955,59 +956,93 @@ int People::receiveEvent( KR_Event &event )
                                                   m_attr->m_rollSpeed,
                                                   deltaT ));
 
-                   // The two January support samples now feed the evidenced
-                   // May contact-code dispatcher. A prior code remains
-                   // authoritative, preventing left/right oscillation while
-                   // the actor is still recovering from the same contact.
+                   // May's front/rear support manifold. The geometry, sweep
+                   // radius and vertical travel are recovered from the retail
+                   // ON_OBJECTS branch; only the scene queries remain here.
                    {
-                    double tm = 0, tm2 = 0;
-                    KR_ObjectID oID,oID2;
-                    double radius = getRadius();
-                    double cos_oy = cos(m_rotateOy)*radius;
-                    double sin_oy = sin(m_rotateOy)*radius;
-                    const int frontHit = checkCollision(
-                      pos+CFVector3(sin_oy,3,cos_oy),
-                      CFVector3(0,-1,0),
-                      1,
-                      50,
-                      getObjectID(),
-                      tm,
-                      oID
-                    );
-                    const int rearHit = checkCollision(
-                      pos+CFVector3(-sin_oy,3,-cos_oy),
-                      CFVector3(0,-1,0),
-                      1,
-                      50,
-                      getObjectID(),
-                      tm2,
-                      oID2
-                    );
-
+                    SPeopleSupportSamplingRequest samplingRequest = {};
+                    samplingRequest.objectRadius = getRadius();
+                    samplingRequest.heading = m_hAngle;
+                    samplingRequest.positionX = pos.x;
+                    samplingRequest.positionY = pos.y;
+                    samplingRequest.positionZ = pos.z;
+                    SPeopleSupportSamplingResult sampling = {};
                     int contactCode = m_isClz;
-                    if(  contactCode==0  )
-                    {
-                         if(  !frontHit || !rearHit  )
-                              contactCode = 3;
-                         else
-                         if(  !oID.isNUL() && !oID2.isNUL()  )
-                              contactCode = tm<=tm2 ? 1 : 3;
-                         else
-                         if(  !oID.isNUL()  )
-                              contactCode = 1;
-                         else
-                         if(  !oID2.isNUL()  )
-                              contactCode = 3;
-                    }
 
-                    if(  frontHit && rearHit  )
+                    if(  m_isVisible
+                      && PeopleSupportSampling_Build(
+                             samplingRequest,&sampling)  )
                     {
-                         double height = 3-tm-1+pos.y;
-                         double height2 = 3-tm2-1+pos.y;
-                         m_rotateOx = atan2(height2-height,2*radius);
-                         pos.y = (height+height2)*0.5;
-                         if(  oID2.isNUL()  )
-                              setPosition(pos);
+                         const CFVector3 sweepVelocity(
+                             sampling.sweepVelocityX,
+                             sampling.sweepVelocityY,
+                             sampling.sweepVelocityZ);
+                         const CFVector3 front(
+                             sampling.frontX,
+                             sampling.frontY,
+                             sampling.frontZ);
+                         const CFVector3 rear(
+                             sampling.rearX,
+                             sampling.rearY,
+                             sampling.rearZ);
+                         double frontTime = sampling.sweepTime;
+                         double rearTime = sampling.sweepTime;
+                         const int frontHit = checkStaticCollision(
+                             front,sweepVelocity,sampling.sweepRadius,
+                             sampling.sweepTime,frontTime);
+                         const int rearHit = checkStaticCollision(
+                             rear,sweepVelocity,sampling.sweepRadius,
+                             sampling.sweepTime,rearTime);
+
+                         KR_ObjectID rearID = KR_ObjectID::NUL();
+                         if(  rearHit  )
+                         {
+                              double dynamicTime = sampling.sweepTime;
+                              checkCollision(
+                                  rear,sweepVelocity,sampling.sweepRadius,
+                                  sampling.sweepTime,getObjectID(),
+                                  dynamicTime,rearID);
+                         }
+
+                         if(  contactCode==0  )
+                         {
+                              // May's unsupported-front recovery enters the
+                              // full-speed counter-clockwise class.
+                              if(  !frontHit  ) contactCode = 2;
+                              else
+                              if(  !rearHit  ) contactCode = 3;
+                              else
+                              if(  !rearID.isNUL()  )
+                              {
+                                   IDynamicObject *support =
+                                       (IDynamicObject*)context->queryInterface(
+                                           rearID,IDynamicObjectIID);
+                                   if(  support!=0  )
+                                   {
+                                        const CFVector3 supportPos(
+                                            support->getPos());
+                                        PeopleSupportSampling_ClassifyDynamicSide(
+                                            pos.x,pos.z,
+                                            supportPos.x,supportPos.z,
+                                            m_hAngle,9,11,&contactCode);
+                                   }
+                              }
+                         }
+
+                         if(  frontHit && rearHit  )
+                         {
+                              const double frontHeight =
+                                  front.y+sweepVelocity.y*frontTime-
+                                  sampling.sweepRadius;
+                              const double rearHeight =
+                                  rear.y+sweepVelocity.y*rearTime-
+                                  sampling.sweepRadius;
+                              m_rotateOx = atan2(
+                                  rearHeight-frontHeight,
+                                  2*sampling.sampleOffset);
+                              pos.y = (frontHeight+rearHeight)*0.5;
+                              if(  rearID.isNUL()  ) setPosition(pos);
+                         }
                     }
 
                     m_isClz = contactCode;

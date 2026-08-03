@@ -4140,19 +4140,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 ### CQ-215: May People collision state is not boolean
 
 - Status: `MAY_BINARY_CONFIRMED`, `CONTACT_RESPONSE_RECOVERED`,
-  `SAMPLING_GEOMETRY_PARTIAL`.
+  `SUPPORT_GEOMETRY_RECOVERED`, `CONTACT_MANIFOLD_PARTIAL`.
 - Evidence: the May `ON_OBJECTS` dispatcher accepts contact classes
   `1/2/3/4/9/11`; `1/9` share clockwise response, `3/11` share
   counter-clockwise response, `2` uses the full roll speed and `4` uses a
   computed contact angle. Before new samples are evaluated, the prior class is
   saved and later restored while the same contact remains.
+- Evidence: the support geometry at `0x004FA1E1--0x004FAA12` uses the actor's
+  heading, not the January `rotateOy` shortcut. Front/rear offset is
+  `max(0.3*radius,0.3)`, the sweep sphere is `clamp(0.4*radius,1,12)`, origin
+  height is `1.4*min(offset,12)+1.1*sweepRadius`, and both probes travel at
+  `(0,-100,0)` for `height/45`. A dynamic rear support is classified by
+  `dot(owner-actor,(-sin(heading),0,cos(heading)))`: positive selects `9`,
+  otherwise `11` (`0x004FAB71--0x004FACFB`). No instruction in the complete
+  People write set assigns literal code `4`; the dispatcher and previous-code
+  restore accept it, so its external origin remains unproven.
 - Handling: `PeopleObstacleRecovery` carries the exact class through its
   growth/decay interval. `PeopleContactResponse` validates and translates the
-  May table with deterministic angle wrapping. The existing front/rear support
-  samples select only source-supported base classes `1/3`; they continue to
-  place and pitch the actor when both samples are valid. PEO1 v7 stores the
-  full class as `int32`; v1-v6 decode their historical boolean and legacy
-  export canonicalizes every non-zero class to `1`.
+  May table with deterministic angle wrapping. `PeopleSupportSampling` builds
+  the exact finite front/rear sweeps and signed-side predicate. The live path
+  uses static times for height/pitch, emits `2` when front support is absent,
+  `3` when rear support is absent, and `9/11` for a resolved dynamic rear
+  support. PEO1 v7 stores the full class as `int32`; v1-v6 decode their
+  historical boolean and legacy export canonicalizes every non-zero class to
+  `1`.
 - Verification: isolated probes cover every accepted response, invalid codes,
   persistence of `3/9/11`, recovery clearing and wrap at `+pi/-pi`; the People
   lifecycle requires both kernels before publication. Debug, Release and
@@ -4160,9 +4171,31 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   continuation passes 27/27 with both Vehicle masks complete at `1011` in all
   configurations; the formerly failing `Level.02D/02N` serializer cases pass
   a separate 6/6 targeted rerun.
-- Revisit when: translate the remaining May sample branches that generate
-  `9/11` and code `4`, then prove a moving guide beside static and dynamic
-  obstacles. Only then mark the complete support/contact manifold recovered.
+- Revisit when: translate the horizontal movement-owner `1/3` branch and
+  identify an evidence-backed producer (if any) for code `4`, then prove a
+  moving guide beside static and dynamic obstacles. Only then mark the complete
+  support/contact manifold recovered.
+
+### CQ-216: mission enemies animate without effective pursuit or attacks
+
+- Status: `MANUAL_WINDOWS_OBSERVED`, `ROOT_CAUSE_OPEN`.
+- Evidence: a manual Level.01 mission run and a Level.02 encounter show hostile
+  actors advancing their walk pose while remaining in place and applying no
+  damage. This distinguishes animation cadence from route displacement and
+  attack delivery; passing short runtime starts does not cover the defect.
+- Crash note: the same Level.01 run appeared to close when the first robot was
+  destroyed, but its Playtest process was externally terminated during a
+  concurrent rebuild. `people-vehicle-retest/rr2nw-startup.log` contains no
+  fatal record and Windows Application Error contains no matching event, so a
+  death-graph crash is not yet confirmed.
+- Handling: retain three separate acceptance rows: hostile route displacement,
+  target/acquire plus damage delivery, and robot death to Explosion/Corpse
+  completion. Capture frame/tick/route/contact/state and last damage owner in a
+  dedicated manual diagnostic run; do not infer one root cause from the shared
+  visual symptom.
+- Revisit when: the Level.01 first robot can be destroyed in a diagnostic build
+  without external process control, and Level.01/Level.02 enemies both move off
+  their authored spawn and land at least one bounded attack.
 
 ## Maintenance rule
 

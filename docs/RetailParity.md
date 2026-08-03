@@ -2022,10 +2022,15 @@ playable Level begins.
   contact-derived heading at 80 percent. The full integer code survives the
   recovery interval. PEO1 v7 stores it as an integer while v1-v6 legacy export
   deliberately folds non-zero classes back to `1`. The
-  retained two-point support samples now classify the evidenced January
-  front/rear cases and feed that dispatcher. The ordinary NEXTNODE cadence
-  stays as a named bridge until May's additional sampling geometry and
-  guide/vehicle path-obstruction behavior are translated.
+  May front/rear support samples now use the exact heading-based offsets,
+  bounded sphere radius, origin height, downward velocity and travel time from
+  the executable. Static times own pitch/height placement; a missing front or
+  rear selects `2/3`, and a resolved dynamic rear support selects `9/11` from
+  its signed right-axis coordinate. The ordinary NEXTNODE cadence stays as a
+  named bridge until the remaining horizontal movement-owner `1/3` branch and
+  guide/vehicle path-obstruction behavior are translated. Code `4` remains an
+  accepted/restored class, but no literal producer exists in the complete May
+  People field-write set.
 
 ### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
 
