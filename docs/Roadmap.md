@@ -1817,7 +1817,7 @@ the prior world back after an injected late failure.
 The People state/cadence half of this campaign slice is now closed. Mission
 guides use the retail previous/current start phase, consume the authored
 `backSpaceNode` terminal policy and persist the active segment plus per-state
-return targets in PEO1 v5 (v4 introduced the target fields). Event 26012 owns
+return targets in PEO1 v6 (v4 introduced the target fields). Event 26012 owns
 the exact May target/visibility
 cadence and permits the retail zero-depth state stack followed by a root ATTACK
 frame. Both Level.03N factions prove real STARTMOVE plus two MOVE ticks with
@@ -1828,9 +1828,12 @@ ten segments, carry its remainder around turns, apply loop/stop/rewind and
 atomically update the cursor, target and unique NEXTNODE deadline. The
 same helper now performs May's half-step route recentering, hard corridor
 limit and 2.5-second deviation recovery. A crossing reloads the target before
-same-frame steering, and PEO1 v5 preserves the recovery timer. The remaining
-People work is exact `ON_OBJ` obstacle/contact recovery and guide/vehicle
-path-obstruction behavior.
+same-frame steering, and PEO1 v5 introduced the deviation timer. The separate
+May `ON_OBJ` forward sweep is now active through the real scene Bump path with
+its shrinking radius, 80-percent contact travel, state pop and 1x/2x recovery
+timer; PEO1 v6 preserves both timers. The remaining People work is the shared
+May support/contact manifold behind the retained January height probes and
+guide/vehicle path-obstruction behavior.
 
 The Taxi-to-Vehicle placement and steering/model-basis row is closed. The
 Vehicle inherits the support basis, releases along its normal and advances on
@@ -1852,9 +1855,9 @@ now uses physical forward for position while preserving the Taxi yaw
 convention, and the stable-boundary smoke requires the spawned object to be in
 front of the player.
 
-The next gameplay row is the remaining May People `ON_OBJ` collision-recovery
-timer and guide/vehicle path-obstruction behavior visible in town routes,
-followed by mission reward/completion and Portal admission.
+The next gameplay row is May's shared People support/contact manifold and
+guide/vehicle path-obstruction behavior visible in town routes, followed by
+mission reward/completion and Portal admission.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

@@ -21,7 +21,7 @@ namespace
 {
 
 const std::uint32_t kPeopleMagic = 0x314f4550u; // PEO1
-const std::uint32_t kPeopleVersion = 5u;
+const std::uint32_t kPeopleVersion = 6u;
 const std::uint32_t kOldestPeopleVersion = 1u;
 const std::size_t kMaximumPeople = 4096;
 const int kSchedulerLabels[] = {
@@ -97,6 +97,7 @@ struct StablePeopleRecord
     int startBackSpaceNode;
     double startMoveDelay;
     double routeDeviationTime;
+    double obstacleRecoveryTime;
     std::vector<StablePeopleEvent> events;
 
     StablePeopleRecord()
@@ -115,7 +116,7 @@ struct StablePeopleRecord
           lastMovePosition(0.0, 0.0, 0.0), lastMoveDeltaTime(0.0),
           previousStartShoot(0), stopped(0), closeCollision(0),
           startBackSpaceNode(-1), startMoveDelay(0.0),
-          routeDeviationTime(0.0)
+          routeDeviationTime(0.0), obstacleRecoveryTime(0.0)
     {
     }
 };
@@ -457,6 +458,7 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
     record->startBackSpaceNode = people->m_startBackSpaceNode;
     record->startMoveDelay = people->m_startMoveDelay;
     record->routeDeviationTime = people->m_routeDeviationTime;
+    record->obstacleRecoveryTime = people->m_obstacleRecoveryTime;
     return CaptureEvents(context, people->getObjectID(), &record->events);
 }
 
@@ -681,6 +683,8 @@ bool PutRecord(std::vector<unsigned char> *bytes,
     PutDouble(bytes, record.startMoveDelay);
     if (version >= 5u)
         PutDouble(bytes, record.routeDeviationTime);
+    if (version >= 6u)
+        PutDouble(bytes, record.obstacleRecoveryTime);
     PutU32(bytes, static_cast<std::uint32_t>(record.events.size()));
     for (std::size_t index = 0; index < record.events.size(); ++index)
     {
@@ -772,6 +776,9 @@ bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
     if (version >= 5u &&
         !GetDouble(bytes, offset, &record->routeDeviationTime))
         return false;
+    if (version >= 6u &&
+        !GetDouble(bytes, offset, &record->obstacleRecoveryTime))
+        return false;
     std::uint32_t eventCount = 0;
     const std::size_t maximumEvents =
         sizeof(kSchedulerLabels) / sizeof(kSchedulerLabels[0]);
@@ -821,7 +828,9 @@ bool ValidateRecord(const StablePeopleRecord &record, std::uint32_t version)
         !IsBool(record.closeCollision) || record.startBackSpaceNode < -1 ||
         !std::isfinite(record.startMoveDelay) || record.startMoveDelay < 0.0 ||
         !std::isfinite(record.routeDeviationTime) ||
-        record.routeDeviationTime < 0.0)
+        record.routeDeviationTime < 0.0 ||
+        !std::isfinite(record.obstacleRecoveryTime) ||
+        record.obstacleRecoveryTime < 0.0)
         return false;
     for (std::size_t index = 0; index < record.states.size(); ++index)
     {
@@ -877,7 +886,8 @@ bool EncodeRecords(const std::vector<StablePeopleRecord> &records,
                 message, sizeof(message),
                 "record %.96s validation failed bool=%d/%d/%d/%d/%d/%d "
                 "node=%d inc=%g scale=%g killed=%d states=%u prevShoot=%d "
-                "back=%d delay=%g deviation=%g finite=%d/%d/%d/%d/%d "
+                "back=%d delay=%g deviation=%g obstacle=%g "
+                "finite=%d/%d/%d/%d/%d "
                 "target=%g/%g/%g "
                 "prevNode=%d scalar=%d/%d/%d/%d/%d/%d/%d state=%d/%u/%d "
                 "events=%u",
@@ -888,6 +898,7 @@ bool EncodeRecords(const std::vector<StablePeopleRecord> &records,
                 static_cast<unsigned>(record.states.size()),
                 record.previousStartShoot, record.startBackSpaceNode,
                 record.startMoveDelay, record.routeDeviationTime,
+                record.obstacleRecoveryTime,
                 FiniteVector(record.position) ? 1 : 0,
                 FiniteVector(record.direction) ? 1 : 0,
                 FiniteVector(record.nextNode) ? 1 : 0,
@@ -1081,6 +1092,7 @@ bool ApplyRecord(SimulationContext *context,
     people->m_startBackSpaceNode = record.startBackSpaceNode;
     people->m_startMoveDelay = record.startMoveDelay;
     people->m_routeDeviationTime = record.routeDeviationTime;
+    people->m_obstacleRecoveryTime = record.obstacleRecoveryTime;
 
     RemoveSchedulerEvents(context, people->getObjectID());
     for (std::size_t index = 0; index < record.events.size(); ++index)
@@ -1276,7 +1288,7 @@ bool PeopleActiveWorldState_ProbeLegacyVersionCompatibility(
     if (!CollectRecords(context, &records))
         return false;
 
-    bool deviationRoundTrip = true;
+    bool recoveryRoundTrip = true;
     if (!records.empty())
     {
         PeopleRoster roster = {};
@@ -1287,16 +1299,19 @@ bool PeopleActiveWorldState_ProbeLegacyVersionCompatibility(
             return Fail("People route deviation baseline capture failed");
         People *people = roster.people.front();
         people->m_routeDeviationTime = 1.75;
+        people->m_obstacleRecoveryTime = 0.625;
         const bool captured = PeopleActiveWorldState_CaptureStable(
             context, &activeDeviation);
         people->m_routeDeviationTime = 0.0;
+        people->m_obstacleRecoveryTime = 0.0;
         const bool applied = captured &&
             PeopleActiveWorldState_ApplyStableReferences(
                 context, activeDeviation) &&
-            std::fabs(people->m_routeDeviationTime - 1.75) <= 1e-9;
+            std::fabs(people->m_routeDeviationTime - 1.75) <= 1e-9 &&
+            std::fabs(people->m_obstacleRecoveryTime - 0.625) <= 1e-9;
         const bool restored = PeopleActiveWorldState_ApplyStableReferences(
             context, baseline);
-        deviationRoundTrip = applied && restored;
+        recoveryRoundTrip = applied && restored;
     }
     for (std::uint32_t version = kOldestPeopleVersion;
          version < kPeopleVersion; ++version)
@@ -1307,8 +1322,8 @@ bool PeopleActiveWorldState_ProbeLegacyVersionCompatibility(
             !PeopleActiveWorldState_MatchesStable(context, legacy))
             return Fail("People legacy state migration proof failed");
     }
-    return deviationRoundTrip ||
-           Fail("People route deviation stable round-trip failed");
+    return recoveryRoundTrip ||
+           Fail("People recovery timers stable round-trip failed");
 }
 
 bool PeopleActiveWorldState_ProbeDetailedCaptureFailure(

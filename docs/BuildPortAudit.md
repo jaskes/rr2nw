@@ -3754,14 +3754,27 @@ crossing refreshes the local target before the same-frame angle calculation,
 so a unit cannot steer toward a node it has already consumed. Synthetic tests
 cover hard clamping, half-step centering, centering saturation and collision
 bypass; the live lifecycle probe forces the 2.5-second recovery against a real
-retail Route. PEO1 v5 persists the deviation timer, migrates v1-v4 to zero and
-proves a non-zero `1.75` value through capture/apply/restore before restoring
-the original world.
+retail Route. PEO1 v5 introduced the deviation timer, migrates v1-v4 to zero
+and proves a non-zero `1.75` value through capture/apply/restore before
+restoring the original world.
 
-Exact May equivalence of the separate `ON_OBJ` obstacle/contact recovery and
-its private collision timer remains open. The NEXTNODE compatibility event is
-therefore retained until that explicit branch and guide path-obstruction
-behavior are recovered together.
+The separate May `ON_OBJ` forward-obstacle branch is now recovered from retail
+addresses `0x004FC8A8-0x004FCF35`. Visible People use the real static scene
+sweep, with `min(getRadius()-2*recoveryTime, m_maxRadius)` and a `0.01` lower
+bound. Contact accumulates the private timer at one second per second, pops one
+movement state and advances only `0.8` of the bounded time-to-contact; a clear
+path decays the timer at twice real time and clears close-collision state at
+zero. The current source stores velocity in `m_dir`, so the sweep receives that
+velocity directly rather than retail's split unit-direction/current-speed
+representation. `PeopleObstacleRecovery` isolates and proves these constants
+and transitions while the live `ON_OBJ` path owns `checkStaticCollision`.
+
+PEO1 v6 persists the independent obstacle-recovery timer, migrates v1-v5 to
+zero and proves both recovery timers through capture/apply/restore. The January
+two-point downward probes remain temporarily as support height/tilt placement;
+they no longer own forward-obstacle turning. Exact recovery of May's shared
+support/contact manifold and guide/vehicle path obstruction remains open, so
+the NEXTNODE compatibility event is still retained.
 
 The final Windows gate is 67/67 CTest in each of Debug, Release and Playtest,
 27/27 installed retail starts, 27/27 full fresh continuations with both Vehicle

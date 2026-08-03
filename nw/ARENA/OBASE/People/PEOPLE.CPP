@@ -4,6 +4,7 @@
  * Ver   1.0
  */
 #include "People.h"
+#include "PeopleObstacleRecovery.h"
 #include "PeopleRouteMotion.h"
 #include "kernel/h/context.h"
 #include "kernel/h/echo.h"
@@ -887,102 +888,112 @@ int People::receiveEvent( KR_Event &event )
 
              case ON_OBJ:
               {
-                  double step = deltaT;
-                  CFVector3 pos(getPosition());
+                   double step = deltaT;
+                   const CFVector3 start(getPosition());
 
-                  if(  m_stoped  &&  (getState() == pe_STATE_ATTACK)  )
-                       step = 0;
-                  else
-                  if(  m_attr->m_stopIfAttack 
-                    && Normal(m_dir)*Normal(nextNode-pos) < m_attr->m_deltaZeroSpeed  )
-                       step = 0;
-
-                  pos = getPosition()+m_dir*step;
-
-                  double hAngle = atan2( nextNode.z-pos.z, nextNode.x-pos.x );
-                  if( deltaT < 0.5 )
-                      if(  !m_isClz  )
-                      setHAngleFixDir( 
-                                  interpolateAngle( m_hAngle, hAngle,
-                                                 m_attr->m_rollSpeed,
-                                                 deltaT ));
-                  
-
-
-                  {
-                   m_isClz = 0;
-
-                   double      tm, tm2;
-                   KR_ObjectID oID,oID2;
-                   double radius = getRadius();
-                   double cos_oy = cos(m_rotateOy)*radius;
-                   double sin_oy = sin(m_rotateOy)*radius;
-                   
-                   if( checkCollision( 
-                     pos+CFVector3(sin_oy,3,cos_oy),    // начало движения
-                     CFVector3(0,-1,0),    // напрвление со скоростью
-                     1, // радиус
-                     50,  // время для проверки
-                     getObjectID(),  // кого игнорировать
-                     tm, // время, через которое стукнемся
-                     oID      // объект, о который стукнемся
-                   ) ) 
-                   {
-                       double height = 3-tm-1 + pos.y;
-                       if(  !oID.isNUL()  )
-                       {
-                            setHAngleFixDir( interpolateAngle( m_hAngle, m_hAngle - 10*M_PI/180,
-                                                 m_attr->m_rollSpeed,
-                                                 deltaT ) );
-                            m_isClz = 1;
-                       }
-
-                       if( checkCollision( 
-                         pos+CFVector3(-sin_oy,3,-cos_oy),    // начало движения
-                         CFVector3(0,-1,0),    // напрвление со скоростью
-                         1, // радиус
-                         50,  // время для проверки
-                         getObjectID(),  // кого игнорировать
-                         tm2,            // время, через которое стукнемся
-                         oID2            // объект, о который стукнемся
-                       ) ) 
-                       {
-                            if(  !oID2.isNUL()  )
-                            {
-                                 setHAngleFixDir( interpolateAngle( m_hAngle, m_hAngle + 10*M_PI/180,
-                                                 m_attr->m_rollSpeed,
-                                                 deltaT ) );
-                                 m_isClz = 1;
-                            }
-                            double height2 = 3-tm2-1+pos.y;
-                            double a = atan2(height2-height,2*radius);
-
-                            m_rotateOx = a;     
-                            pos.y = (height+height2)*0.5;
-
-                            if(  oID2.isNUL() )
-                                 setPosition(pos);
-                       }
-                       else
-                       {
-                            setHAngleFixDir( interpolateAngle( m_hAngle, m_hAngle + 10*M_PI/180,
-                                             m_attr->m_rollSpeed,
-                                             deltaT ) );
-                            m_isClz = 1;
-                       }
-                   }
+                   if(  m_stoped  &&  (getState() == pe_STATE_ATTACK)  )
+                        step = 0;
                    else
-                   {
-                       setHAngleFixDir( interpolateAngle( m_hAngle, m_hAngle + 10*M_PI/180,
-                                        m_attr->m_rollSpeed,
-                                        deltaT ) );
-                       m_isClz = 1;
-                   }
-                  }
-            
-              }
-              break;
+                   if(  m_attr->m_stopIfAttack
+                     && Normal(m_dir)*Normal(nextNode-start) < m_attr->m_deltaZeroSpeed  )
+                        step = 0;
 
+                   SPeopleObstacleRecoveryRequest recoveryRequest = {};
+                   recoveryRequest.objectRadius = getRadius();
+                   recoveryRequest.maximumRadius = m_attr->m_maxRadius;
+                   recoveryRequest.recoveryTime = m_obstacleRecoveryTime;
+                   recoveryRequest.deltaTime = deltaT;
+                   recoveryRequest.collisionTime = step;
+                   recoveryRequest.visible = m_isVisible;
+                   recoveryRequest.collisionDetected = 0;
+                   recoveryRequest.closeCollision = m_isClz;
+                   recoveryRequest.stateDepth = m_stateSP;
+
+                   SPeopleObstacleRecoveryResult preview = {};
+                   int collisionDetected = 0;
+                   double collisionTime = step;
+                   if(  PeopleObstacleRecovery_Advance(recoveryRequest,&preview)
+                     && preview.sweepEnabled && step>0  )
+                   {
+                        collisionDetected = checkStaticCollision(
+                            start, m_dir, preview.sweepRadius, step,
+                            collisionTime );
+                   }
+
+                   recoveryRequest.collisionDetected = collisionDetected;
+                   recoveryRequest.collisionTime = collisionTime;
+                   SPeopleObstacleRecoveryResult recovery = {};
+                   if(  !PeopleObstacleRecovery_Advance(recoveryRequest,&recovery)  )
+                   {
+                        recovery.recoveryTime = 0;
+                        recovery.travelTime = step;
+                        recovery.popState = 0;
+                        recovery.closeCollision = 0;
+                   }
+                   m_obstacleRecoveryTime = recovery.recoveryTime;
+                   m_isClz = recovery.closeCollision;
+                   if(  recovery.popState  )
+                        popState();
+
+                   if(  collisionDetected  )
+                   {
+                        const CFVector3 contact = start+m_dir*recovery.travelTime;
+                        setRoutePosition(contact,
+                            m_attr->m_speed*recovery.travelTime,deltaT,1);
+                   }
+                   else setMovingPosition(start+m_dir*step,deltaT);
+
+                   nextNode = m_nextNode;
+                   CFVector3 pos(getPosition());
+                   double hAngle = atan2( nextNode.z-pos.z, nextNode.x-pos.x );
+                   if( deltaT < 0.5 && !m_isClz )
+                       setHAngleFixDir(
+                                   interpolateAngle( m_hAngle, hAngle,
+                                                  m_attr->m_rollSpeed,
+                                                  deltaT ));
+
+                   // Retain the January support probes until the general May
+                   // contact manifold is recovered. They only place/tilt the
+                   // actor now; forward obstruction state belongs to the
+                   // deterministic recovery policy above.
+                   {
+                    double      tm, tm2;
+                    KR_ObjectID oID,oID2;
+                    double radius = getRadius();
+                    double cos_oy = cos(m_rotateOy)*radius;
+                    double sin_oy = sin(m_rotateOy)*radius;
+
+                    if( checkCollision(
+                      pos+CFVector3(sin_oy,3,cos_oy),
+                      CFVector3(0,-1,0),
+                      1,
+                      50,
+                      getObjectID(),
+                      tm,
+                      oID
+                    ) )
+                    {
+                        double height = 3-tm-1 + pos.y;
+                        if( checkCollision(
+                          pos+CFVector3(-sin_oy,3,-cos_oy),
+                          CFVector3(0,-1,0),
+                          1,
+                          50,
+                          getObjectID(),
+                          tm2,
+                          oID2
+                        ) )
+                        {
+                             double height2 = 3-tm2-1+pos.y;
+                             m_rotateOx = atan2(height2-height,2*radius);
+                             pos.y = (height+height2)*0.5;
+                             if(  oID2.isNUL() )
+                                  setPosition(pos);
+                        }
+                    }
+                   }
+              }
+               break;
              case NO_LAND:
               {
                   double step = deltaT;
@@ -1407,6 +1418,7 @@ void People::addNotify()
     m_startMoveDelay = 0;
     m_previousRouteNode = 0;
     m_routeDeviationTime = 0;
+    m_obstacleRecoveryTime = 0;
     m_rotateOx = m_rotateOy = m_rotateOz = 0;
 }
 

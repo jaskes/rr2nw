@@ -43,6 +43,14 @@ int checkDynamicCollision(
                      double           ds
                          );
 
+int checkStaticCollision(
+                     const CFVector3 &from,
+                     const CFVector3 &mdir,
+                     double           mradius,
+                     double           deltaT,
+                     double          &clzTime
+                   );
+
 int  checkCollision( 
                      const CFVector3 &from,    // начало движения
                      const CFVector3 &mdir,    // напрвление со скоростью

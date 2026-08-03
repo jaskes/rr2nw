@@ -94,6 +94,9 @@ typedef struct {
     double                 m_startMoveDelay;
     int                    m_previousRouteNode;
     double                 m_routeDeviationTime;
+    // May retail ON_OBJ recovery shrinks the static sweep radius while a
+    // contact is being escaped; it is independent from route deviation time.
+    double                 m_obstacleRecoveryTime;
 } PeopleData;
 
 class People : public ct_Subject,
