@@ -34,10 +34,18 @@ CFVector3 Along(const CFVector3 &start, const CFVector3 &direction,
     return value;
 }
 
-void ClampToCorridor(CFVector3 *candidate, const CFVector3 &start,
-                     const CFVector3 &end, bool horizontal,
-                     double maximumDistance)
+void CorrectToCorridor(CFVector3 *candidate, const CFVector3 &start,
+                       const CFVector3 &end, bool horizontal,
+                       double maximumDistance, double movementDistance,
+                       bool centerToRoute, double *corridorDistance,
+                       int *outsideCorridor, int *centeredToRoute)
 {
+    if (corridorDistance != NULL)
+        *corridorDistance = 0.0;
+    if (outsideCorridor != NULL)
+        *outsideCorridor = 0;
+    if (centeredToRoute != NULL)
+        *centeredToRoute = 0;
     if (candidate == NULL || !FiniteVector(*candidate) ||
         !std::isfinite(maximumDistance) || maximumDistance <= 0.0)
         return;
@@ -67,13 +75,31 @@ void ClampToCorridor(CFVector3 *candidate, const CFVector3 &start,
         offset.y = 0.0;
     }
     const double distance = std::sqrt(LengthSquared(offset, horizontal));
+    if (corridorDistance != NULL)
+        *corridorDistance = distance;
     if (distance > maximumDistance && distance > kSegmentEpsilon)
     {
+        if (outsideCorridor != NULL)
+            *outsideCorridor = 1;
         const double scale = maximumDistance / distance;
         candidate->x = nearest.x + offset.x * scale;
         candidate->z = nearest.z + offset.z * scale;
         if (!horizontal)
             candidate->y = nearest.y + offset.y * scale;
+    }
+    else if (centerToRoute && distance > kSegmentEpsilon &&
+             std::isfinite(movementDistance) && movementDistance > 0.0)
+    {
+        double step = movementDistance * 0.5;
+        if (step > distance)
+            step = distance;
+        const double scale = (distance - step) / distance;
+        candidate->x = nearest.x + offset.x * scale;
+        candidate->z = nearest.z + offset.z * scale;
+        if (!horizontal)
+            candidate->y = nearest.y + offset.y * scale;
+        if (centeredToRoute != NULL)
+            *centeredToRoute = 1;
     }
 }
 
@@ -155,6 +181,9 @@ bool PeopleRouteMotion_Advance(IPeopleRouteNodeSource *source,
     result->stopped = 0;
     result->traversalLimitReached = 0;
     result->degenerateSegmentSeen = 0;
+    result->corridorDistance = 0.0;
+    result->outsideCorridor = 0;
+    result->centeredToRoute = 0;
 
     while (true)
     {
@@ -247,8 +276,13 @@ bool PeopleRouteMotion_Advance(IPeopleRouteNodeSource *source,
 
     const CFVector3 corridorStart = source->Node(result->previousNode);
     const CFVector3 corridorEnd = source->Node(result->currentNode);
-    ClampToCorridor(&result->position, corridorStart, corridorEnd, horizontal,
-                    request.maximumCorridorDistance);
+    CorrectToCorridor(&result->position, corridorStart, corridorEnd, horizontal,
+                      request.maximumCorridorDistance,
+                      request.movementDistance,
+                      request.centerToRoute != 0,
+                      &result->corridorDistance,
+                      &result->outsideCorridor,
+                      &result->centeredToRoute);
     return FiniteVector(result->position);
 }
 
@@ -260,7 +294,7 @@ bool PeopleRouteMotion_Probe()
     VectorRouteSource straightSource(straight);
 
     SPeopleRouteMotionRequest request = {
-        CFVector3(25.0, 7.0, 0.0), 0, 1, -1, 1, 10, 10.0};
+        CFVector3(25.0, 7.0, 0.0), 0, 1, -1, 1, 10, 10.0, 0.0, 0};
     SPeopleRouteMotionResult result = {};
     const bool multiSegment = PeopleRouteMotion_Advance(
         &straightSource, request, &result) &&
@@ -305,7 +339,28 @@ bool PeopleRouteMotion_Probe()
     const bool corridor = PeopleRouteMotion_Advance(
         &terminalSource, request, &result) &&
         Near(result.position.x, 5.0) && Near(result.position.y, 3.0) &&
-        Near(result.position.z, 10.0);
+        Near(result.position.z, 10.0) && result.outsideCorridor &&
+        Near(result.corridorDistance, 100.0);
+
+    request.candidate = CFVector3(5.0, 7.0, 8.0);
+    request.movementDistance = 4.0;
+    request.centerToRoute = 1;
+    const bool centered = PeopleRouteMotion_Advance(
+        &terminalSource, request, &result) &&
+        Near(result.position.x, 5.0) && Near(result.position.y, 7.0) &&
+        Near(result.position.z, 6.0) && !result.outsideCorridor &&
+        result.centeredToRoute && Near(result.corridorDistance, 8.0);
+
+    request.movementDistance = 100.0;
+    const bool centeredAtLine = PeopleRouteMotion_Advance(
+        &terminalSource, request, &result) && Near(result.position.z, 0.0) &&
+        result.centeredToRoute;
+
+    request.movementDistance = 4.0;
+    request.centerToRoute = 0;
+    const bool collisionBypass = PeopleRouteMotion_Advance(
+        &terminalSource, request, &result) && Near(result.position.z, 8.0) &&
+        !result.outsideCorridor && !result.centeredToRoute;
 
     std::vector<CFVector3> degenerateNodes;
     degenerateNodes.push_back(CFVector3(0.0, 0.0, 0.0));
@@ -331,6 +386,6 @@ bool PeopleRouteMotion_Probe()
         result.previousNode == 10 && result.currentNode == 11 &&
         FiniteVector(result.position);
 
-    return multiSegment && stop && loop && rewind && corridor &&
-           degenerate && capped;
+    return multiSegment && stop && loop && rewind && corridor && centered &&
+           centeredAtLine && collisionBypass && degenerate && capped;
 }

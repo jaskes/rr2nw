@@ -20,6 +20,8 @@ struct SPeopleRouteMotionRequest
     int horizontal;
     int maximumSegments;
     double maximumCorridorDistance;
+    double movementDistance;
+    int centerToRoute;
 };
 
 struct SPeopleRouteMotionResult
@@ -31,6 +33,9 @@ struct SPeopleRouteMotionResult
     int stopped;
     int traversalLimitReached;
     int degenerateSegmentSeen;
+    double corridorDistance;
+    int outsideCorridor;
+    int centeredToRoute;
 };
 
 bool PeopleRouteMotion_Advance(IPeopleRouteNodeSource *source,
@@ -38,7 +43,8 @@ bool PeopleRouteMotion_Advance(IPeopleRouteNodeSource *source,
                                SPeopleRouteMotionResult *result);
 
 // Deterministic synthetic proof for multi-segment travel, all three terminal
-// policies, degenerate nodes, corridor projection and the May ten-node cap.
+// policies, degenerate nodes, hard corridor bounds, smooth recentering and the
+// May ten-node cap.
 bool PeopleRouteMotion_Probe();
 
 #endif

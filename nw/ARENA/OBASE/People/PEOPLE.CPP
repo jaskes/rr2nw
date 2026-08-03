@@ -825,7 +825,8 @@ int People::receiveEvent( KR_Event &event )
                                                       nextNode.z-pos.z)) < m_attr->m_deltaZeroSpeed  )
                        step = 0;
 
-                  setPosition(getPosition()+m_dir*step);
+                  setMovingPosition(getPosition()+m_dir*step, deltaT);
+                  nextNode = m_nextNode;
                   pos = getPosition();
                   double hAngle = atan2( nextNode.z-pos.z, nextNode.x-pos.x );
                   if( deltaT < 0.5 )
@@ -858,7 +859,8 @@ int People::receiveEvent( KR_Event &event )
                     && Normal(m_dir)*Normal(nextNode-pos) < m_attr->m_deltaZeroSpeed  )
                        step = 0;
 
-                  setPosition(getPosition()+m_dir*step);
+                  setMovingPosition(getPosition()+m_dir*step, deltaT);
+                  nextNode = m_nextNode;
                   pos = getPosition();
                   
                   //m_pos += m_dir*deltaT;
@@ -992,7 +994,8 @@ int People::receiveEvent( KR_Event &event )
                   if(  m_attr->m_stopIfAttack 
                     && Normal(m_dir)*Normal(nextNode-pos) < m_attr->m_deltaZeroSpeed  )
                        step = 0;
-                  setPosition(getPosition()+m_dir*step);
+                  setMovingPosition(getPosition()+m_dir*step, deltaT);
+                  nextNode = m_nextNode;
                   pos = getPosition();
 
                   double dist2D = hypot( nextNode.x-pos.x, nextNode.z-pos.z );
@@ -1403,6 +1406,7 @@ void People::addNotify()
     m_startBackSpaceNode = -1;
     m_startMoveDelay = 0;
     m_previousRouteNode = 0;
+    m_routeDeviationTime = 0;
     m_rotateOx = m_rotateOy = m_rotateOz = 0;
 }
 
@@ -2004,6 +2008,26 @@ class PeopleRouteObjectSource : public IPeopleRouteNodeSource
 
 void People::setPosition(  const CFVector3 &vec  )
 {
+    setRoutePosition(vec,0.0,0.0,0);
+}
+
+void People::setMovingPosition( const CFVector3 &vec, double deltaT )
+{
+    CFVector3 delta = vec-getPosition();
+    double movementDistance;
+    if(  m_attr!=0 && m_attr->m_onLand!=NO_LAND  )
+         movementDistance = hypot(delta.x,delta.z);
+    else movementDistance = Abs(delta);
+    if(  !std::isfinite(movementDistance)  )
+         movementDistance = 0;
+    setRoutePosition(vec,movementDistance,deltaT,1);
+}
+
+void People::setRoutePosition( const CFVector3 &vec,
+                               double movementDistance,
+                               double deltaT,
+                               int moving )
+{
     if(  m_attr == 0 || m_routeID.isNUL()  )
     {
          ct_Subject::setPosition( vec );
@@ -2036,6 +2060,8 @@ void People::setPosition(  const CFVector3 &vec  )
     request.horizontal = m_attr->m_onLand == NO_LAND ? 0 : 1;
     request.maximumSegments = getState() == pe_STATE_DEFAULT ? 10 : 0;
     request.maximumCorridorDistance = m_attr->m_maxOutDist;
+    request.movementDistance = movementDistance;
+    request.centerToRoute = moving && !m_isClz;
 
     SPeopleRouteMotionResult result;
     if(  !PeopleRouteMotion_Advance(&source,request,&result)  )
@@ -2045,6 +2071,24 @@ void People::setPosition(  const CFVector3 &vec  )
                   m_attr->m_maxOutDist );
          ct_Subject::setPosition( fallback );
          return;
+    }
+
+    if(  moving  )
+    {
+         if(  result.segmentsConsumed>0 || result.degenerateSegmentSeen  )
+              m_routeDeviationTime = 0;
+         else
+         if(  result.outsideCorridor  )
+         {
+              if(  std::isfinite(deltaT) && deltaT>0  )
+                   m_routeDeviationTime += deltaT;
+              if(  m_routeDeviationTime>2.5  )
+              {
+                   m_routeDeviationTime = 0;
+                   popState();
+              }
+         }
+         else m_routeDeviationTime = 0;
     }
 
     if(  result.segmentsConsumed>0 && getState()==pe_STATE_DEFAULT  )

@@ -1987,8 +1987,9 @@ playable Level begins.
   node; route progress measures the active previous-to-current segment.
   Positive, zero and negative `backSpaceNode` values respectively rewind,
   stop at the end or loop to zero.
-- PEO1 version 4 stores previous/current indices plus every state frame's
-  return target and accepts deterministic migration from versions 1-3. A
+- PEO1 version 5 stores previous/current indices, every state frame's return
+  target and the route-deviation timer, and accepts deterministic migration
+  from versions 1-4. A
   zero-depth stack is a valid May state, and a subsequent ATTACK may therefore
   be the root frame. Legacy export prepends a synthetic default frame. Both
   Level.03N named mission smokes execute STARTMOVE and two MOVE events and
@@ -2001,10 +2002,17 @@ playable Level begins.
   targets advance together, and rescheduling preserves exactly one NEXTNODE
   event per People owner. Synthetic policy coverage plus a live overshoot and
   rollback probe run inside the standard service smoke.
-- Obstacle/contact response and its steering correction remain the explicit
-  movement parity refinement. The ordinary NEXTNODE cadence stays as a named
-  bridge until that second half is proven; it is not replaced by guessed
-  frame-rate behavior.
+- The completed helper wrapper takes `maxOutDist`, frame movement distance and
+  `deltaT`. It recenters by half the frame step inside the corridor, retains
+  hard clamping outside it and pops a movement state after 2.5 seconds of
+  deviation. Collision state bypasses smooth centering, and same-frame
+  steering reloads a target changed by multi-node carry. The lifecycle probe
+  forces this recovery; PEO1 proves a non-zero timer through live
+  capture/apply/restore.
+- Exact May parity of the separate `ON_OBJ` obstacle/contact branch and its
+  private recovery timer remains open. The ordinary NEXTNODE cadence stays as
+  a named bridge until that path-obstruction behavior is proven; it is not
+  replaced by guessed frame-rate behavior.
 
 ### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
 

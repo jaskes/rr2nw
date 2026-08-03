@@ -93,6 +93,7 @@ typedef struct {
     int                    m_startBackSpaceNode;
     double                 m_startMoveDelay;
     int                    m_previousRouteNode;
+    double                 m_routeDeviationTime;
 } PeopleData;
 
 class People : public ct_Subject,
@@ -198,6 +199,9 @@ class People : public ct_Subject,
     void moveKilled_FALLOW_SINK( KR_Event &event, double deltaT );
 
     void setPosition(  const CFVector3 &vec  );
+    void setMovingPosition( const CFVector3 &vec, double deltaT );
+    void setRoutePosition( const CFVector3 &vec, double movementDistance,
+                           double deltaT, int moving );
     void setHAngle( double hAngle );
     void setHAngleFixDir( double hAngle );
 };

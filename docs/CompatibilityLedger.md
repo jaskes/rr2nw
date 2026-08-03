@@ -3862,7 +3862,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 - Status: `SOURCE_RECOVERED`, `RETAIL_RUNTIME_PROVED`,
   `PORTABILITY_FIX_ACCEPTED`, `EVENT_26012_RECOVERED`,
-  `MOVEMENT_HELPER_OPEN`.
+  `ROUTE_CORRECTION_RECOVERED`, `ON_OBJ_RECOVERY_OPEN`.
 - Evidence: the reported town-hall visits can create the correct PlayerMission,
   Player vehicle and guide while showing no briefing splash. The guide can
   immediately drive into the Player vehicle or follow its route backwards.
@@ -3874,7 +3874,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   registers the retail 8x8 console font, `GameConsole` and `Briefing`, and
   refreshes the briefing viewport after every `ZAV_BeginLoop`. START now owns
   the exact previous/current phase and applies the authored back-space policy;
-  PEO1 v4 persists both indices and May state return targets. Do not classify
+  PEO1 v5 persists both indices, May state return targets and the route
+  deviation timer (v4 introduced the targets). Do not classify
   every eject as a new mission: retail collision handling also ejects when a
   mission is already active or no project is eligible. Guide spacing and
   Player vehicle steering remain explicit independent follow-up gates.
@@ -4108,18 +4109,26 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   segments, carries overshoot through turns, applies all three terminal
   policies and updates both current targets. Every NEXTNODE writer first
   removes all older copies for the same People owner, making label 26004 a
-  unique scheduler authority.
+  unique scheduler authority. The full helper wrapper identifies
+  `maxOutDist`, frame movement distance and `deltaT` as its correction inputs:
+  it recenters by half a frame step while inside the corridor, hard-clamps and
+  times deviations outside it, and pops the active state after 2.5 seconds.
+  `m_isClz` suppresses smooth centering while explicit collision response owns
+  the unit. Same-frame steering now reloads the target after route carry.
+  PEO1 v5 saves the deviation timer and migrates v1-v4 to zero.
 - Verification: the lifecycle probe executes the real immediate 26012 event,
   requires one-frame pop and a 0.3-second repeat. Debug, Release and Playtest
   each pass 67/67 CTest. Installed retail startup passes 27/27; full fresh
   continuation passes 27/27 with destruction and occupied-save masks 1011;
-  the three-process Level.03N mission save/same-Level/cross-Level gate passes
-  3/3.
-- Revisit when: the remaining obstacle/contact and direction-response branches
-  of `0x00501D54` are recovered. Remove the NEXTNODE bridge only after that
-  behavior and PEO1 rollback pass together. `People.od` remains an archival
-  24-field January generator description; do not regenerate or recode it as a
-  side effect of this source recovery.
+  the lifecycle probe forces real deviation recovery and PEO1 proves a
+  non-zero timer through live capture/apply/restore. The three-process
+  Level.03N mission save/same-Level/cross-Level gate passes 3/3.
+- Revisit when: exact May behavior of the separate `ON_OBJ` obstacle/contact
+  branch and its collision-recovery timer is recovered. Remove the NEXTNODE
+  bridge only after that branch and guide path-obstruction behavior pass PEO1
+  rollback together. `People.od` remains an archival 24-field January
+  generator description; do not regenerate or recode it as a side effect of
+  this source recovery.
 
 ## Maintenance rule
 

@@ -5092,10 +5092,11 @@ the accessors return the default state and null enemy at that boundary.
 Each retail state frame owns a saved `m_nextNode`. Popping an attack restores
 that exact target, rather than leaving the unit aimed at a vanished enemy.
 After the default frame is popped, a later enemy acquisition may make ATTACK
-the root frame. PEO1 v4 preserves that exact state; v1-v3 export prepends a
-synthetic default frame so old schema validation remains deterministic.
-PEO1 version 4 persists the per-frame targets and accepts zero frames. Versions
-1-3 remain readable by deriving the missing target from the active `nextNode`;
+the root frame. PEO1 v4 introduced preservation of that exact state; v1-v3
+export prepends a synthetic default frame so old schema validation remains
+deterministic. PEO1 version 5 retains those rules and adds the route-deviation
+timer. Versions 1-3 remain readable by deriving the missing target from the
+active `nextNode`, while versions 1-4 derive the missing timer as zero;
 encoding an empty live stack for an old schema emits one synthetic default
 frame, preserving deterministic legacy comparison.
 

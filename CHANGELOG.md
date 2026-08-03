@@ -7,6 +7,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- People movement now performs the May helper's smooth half-step route
+  recentering while retaining the authored `maxOutDist` hard boundary.
+  Collision response can bypass centering, off-route motion accumulates the
+  recovered 2.5-second state-recovery timer, and land/water/free-flight
+  steering reloads its target after a multi-node crossing instead of turning
+  toward an already consumed node.
+- PEO1 version 5 preserves the People route-deviation timer and migrates
+  versions 1-4 deterministically. Runtime probes exercise hard clamp, smooth
+  correction, collision bypass and live timeout recovery, then prove a
+  non-zero timer through capture/apply/restore and restore the original world.
 - Cross-Level load now reconstructs PlayerMission Routes whose symbolic object
   identity is the retail relative filename (for example
   `Route/S22/ms.rt`). The former recovery catalog compared only the Route

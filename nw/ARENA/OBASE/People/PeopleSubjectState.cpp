@@ -709,6 +709,7 @@ static bool ProbePeopleLifecycle(
         const CFVector3 routeMotionPosition = probe->getPosition();
         const int routeMotionPrevious = probe->m_previousRouteNode;
         bool routeMotionIntegrated = false;
+        bool routeDeviationRecovery = false;
         if (routeNodeCount >= 2 && routeMotionPrevious >= 0 &&
             routeMotionPrevious < routeNodeCount && probe->m_curNode >= 0 &&
             probe->m_curNode < routeNodeCount)
@@ -729,9 +730,35 @@ static bool ProbePeopleLifecycle(
             context->removeEvent(pe_EVC_NEXTNODE, probeID);
             *static_cast<PeopleData *>(probe) = routeMotionState;
             probe->ct_Subject::setPosition(routeMotionPosition);
+
+            const CFVector3 segment = target - start;
+            CFVector3 perpendicular;
+            const double horizontalLength = hypot(segment.x, segment.z);
+            if (horizontalLength > 1e-9)
+                perpendicular = CFVector3(-segment.z / horizontalLength,
+                                          0.0,
+                                          segment.x / horizontalLength);
+            else
+                perpendicular = CFVector3(1.0, 0.0, 0.0);
+            if (probe->m_stateSP < PeopleData::MAX_STATE)
+            {
+                const int stateDepth = probe->m_stateSP;
+                probe->pushState(pe_STATE_ATTACK, probeID);
+                probe->m_routeDeviationTime = 2.4;
+                probe->setMovingPosition(
+                    routeMotionPosition + perpendicular * 1000000.0, 0.2);
+                routeDeviationRecovery =
+                    probe->m_stateSP == stateDepth &&
+                    std::fabs(probe->m_routeDeviationTime) <= 1e-9 &&
+                    FiniteVector(probe->getPosition());
+                while (context->removeEvent(pe_EVC_NEXTNODE, probeID) == 1) {}
+                *static_cast<PeopleData *>(probe) = routeMotionState;
+                probe->ct_Subject::setPosition(routeMotionPosition);
+            }
         }
         summary->corridorProjection = PeopleRouteMotion_Probe() &&
             routeMotionIntegrated &&
+            routeDeviationRecovery &&
             FiniteVector(projected) &&
             std::isfinite(projectedDistance) &&
             std::fabs(projected.x - 500.0) <= 1e-9 &&

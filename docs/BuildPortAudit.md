@@ -3740,9 +3740,28 @@ deadline.  Full-matrix testing exposed that older STARTMOVE, default, attack
 and damage writers could independently leave two label-26004 events on
 `Level.02D/02N` unit `KP.46`.  All writers now enforce one owner/one label, and
 stable-capture diagnostics retain the owner name, both times and sources.
-The remaining unclaimed half of `0x00501D54` is obstacle/contact response and
-the associated direction correction; removing the compatibility event before
-that work would overstate parity.
+The next binary pass followed the wrapper beyond the earlier artificial
+boundary. Its three floating arguments are `maxOutDist`, the distance moved in
+this frame and `deltaT`; the helper does not call the collision API. Inside the
+corridor it moves the candidate toward the nearest route point by half the
+frame distance, capped at the route point. Outside the corridor it retains the
+hard `maxOutDist` bound and accumulates a deviation timer; after 2.5 seconds it
+pops the current movement state. `m_isClz` bypasses only the smooth centering,
+leaving the January `ON_OBJ` collision response authoritative.
+
+That correction is now active for land, water and free-flight People. A route
+crossing refreshes the local target before the same-frame angle calculation,
+so a unit cannot steer toward a node it has already consumed. Synthetic tests
+cover hard clamping, half-step centering, centering saturation and collision
+bypass; the live lifecycle probe forces the 2.5-second recovery against a real
+retail Route. PEO1 v5 persists the deviation timer, migrates v1-v4 to zero and
+proves a non-zero `1.75` value through capture/apply/restore before restoring
+the original world.
+
+Exact May equivalence of the separate `ON_OBJ` obstacle/contact recovery and
+its private collision timer remains open. The NEXTNODE compatibility event is
+therefore retained until that explicit branch and guide path-obstruction
+behavior are recovered together.
 
 The final Windows gate is 67/67 CTest in each of Debug, Release and Playtest,
 27/27 installed retail starts, 27/27 full fresh continuations with both Vehicle
