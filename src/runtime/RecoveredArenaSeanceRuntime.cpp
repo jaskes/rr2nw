@@ -42,6 +42,7 @@ class CGRPanel;
 #include "obase/tank/TankActiveWorldState.h"
 #include "obase/tank/TankSubjectState.h"
 #include "obase/portal/PortalClassTableState.h"
+#include "obase/portal/PortalActiveWorldState.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "obase/teleport/TeleportSubjectState.h"
 #include "obase/spark/SparkAttributeState.h"
@@ -3633,10 +3634,16 @@ bool PublishBirdAttributes(SimulationContext* context) {
   return true;
 }
 
-bool PublishPortalTable() {
+bool PublishPortalTable(SimulationContext* context) {
   if (g_arena.searchSeanceClassTable("Portal") == ct_NULLID) {
     Report(RECOVERED_ARENA_SEANCE_PORTAL_TABLE_MISSING,
            "script did not create the Portal table");
+    return false;
+  }
+  if (RecoveredLevelRuntime_IsPrepared() && ZAV_Scene() != nullptr &&
+      !PortalActiveWorldState_InitializeLevelSubjects(context)) {
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_ACTIVE_WORLD_ENVELOPE_FAILURE,
+                   PortalActiveWorldState_LastFailure());
     return false;
   }
   g_state.portalReady = true;
@@ -6392,7 +6399,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     }
 
     if (!PublishVehicleAttributes(context) ||
-        !PublishBirdAttributes(context) || !PublishPortalTable() ||
+        !PublishBirdAttributes(context) || !PublishPortalTable(context) ||
         !PublishOrphanAttributes(context) ||
         !PublishArtefactAttributes(context) ||
         !PublishSmokeAttributes(context) ||
@@ -6551,6 +6558,7 @@ void RecoveredArenaSeance_Release() {
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  PortalActiveWorldState_ReleaseLevelSubjects(g_arena.getContext());
   RecoveredStaticMechanism_Release();
   HowitzerSubjectState_ReleaseHolders();
   RecoveredScriptEvents_Release(g_arena.getContext());

@@ -3671,9 +3671,34 @@ Howitzer START handler during reconstruction ran AI and could create a Bullet
 after the Bullet section had been applied. Identity/visual binding is now
 separate from behavior start. Private queues replay backwards because the
 legacy kernel inserts before equal timestamps; Level.01N proves the exact
-source order. The fresh continuation contract is `LCN1-16/16/16`, active-world
-engine compatibility is 4, Howitzer is the fifteenth required owner and
-Artefact/ART1 is the sixteenth.
+source order. That accepted continuation contract was `LCN1-16/16/16`, with
+engine compatibility 4, Howitzer as the fifteenth required owner and
+Artefact/ART1 as the sixteenth. Portal/PRT1 subsequently advances the current
+contract to `LCN1-17/17/17` and engine compatibility 5.
+
+## May Portal progression recovery
+
+The installed retail reference used for this narrow binary comparison is
+`E:\Games\The Next Worlds\nw\nw.exe`, size 2,179,072 bytes, timestamp
+1999-05-27 and SHA-256
+`42F2FC3B632C58073307B1B95924C1EFC038B5B3879C7476E438336B5D497132`.
+It is distinct from the modern top-level executable and was read only.
+
+The May `Portal::receiveEvent` region near `0x004C4A18` validates a full Portal
+and the player, then at `0x004C4AF0` reads catalog index `0x007FD538`. Indices
+0-7 increment; index 8 calls the completion UI with the string at
+`0x005FEFEE` and resets the index to zero. Both branches write game state 3 at
+`0x007FD540`. The nearby `Go to next level` string is at `0x005FEFDD`.
+This is a release delta from the archival March source, whose callback only
+prints the English marker.
+
+The maintained callback therefore publishes a request only. The modern
+complete-frame coordinator captures the source LCN1 state, activates the next
+catalog Level and restores the source checkpoint if target startup fails. The
+terminal branch wraps to zero and retains an interactive completion message.
+The additional May strings `Portal.Arabesk`, `ПОРТАЛ ВОСCТАНОВЛЕН` and the
+remaining-Artefact variants document future presentation work; they are not
+treated as proof that the HUD path is already restored.
 
 ## Optimized-link ownership and support-surface handover
 

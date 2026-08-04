@@ -23,8 +23,11 @@ enum class EActiveWorldSectionKind : std::uint32_t {
   Taxi = 14,
   Orphan = 15,
   Howitzer = 16,
-  Artefact = 17
+  Artefact = 17,
+  Portal = 18
 };
+
+constexpr int kActiveWorldOwnerSectionCount = 17;
 
 enum class EActiveWorldSaveError : std::uint32_t {
   None = 0,

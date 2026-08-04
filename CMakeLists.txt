@@ -462,6 +462,8 @@ target_compile_definitions(rr2nw_arena_artefact_attribute_state PRIVATE
 
 add_library(rr2nw_arena_obase_portal STATIC
   nw/ARENA/OBASE/Portal/portal.cpp
+  nw/ARENA/OBASE/Portal/PortalActiveWorldState.cpp
+  nw/ARENA/OBASE/Portal/PortalActiveWorldState.h
   nw/ARENA/OBASE/Portal/PortalClassTableState.h
 )
 target_link_libraries(rr2nw_arena_obase_portal PUBLIC rr2nw_arena_storage)

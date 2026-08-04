@@ -11,6 +11,7 @@
 #include <windows.h>
 
 #include "ActiveWorldRuntimeProbe.h"
+#include "ActiveWorldSave.h"
 #include "SimulationRandom.h"
 #include "TimeRuntimeState.h"
 #include "kernel/h/context.h"
@@ -305,7 +306,8 @@ int main() {
   Player* restoredPlayer = restoredVehicle == nullptr ? nullptr :
       &static_cast<Player&>(restoredVehicle->player());
   const bool fresh = restored.ready && restored.createdOwners == 4 &&
-      restored.ownerPhases == 16 && restored.referencePhases == 16 &&
+      restored.ownerPhases == kActiveWorldOwnerSectionCount &&
+      restored.referencePhases == kActiveWorldOwnerSectionCount &&
       restored.clockRecords == 1 && restored.rngAlgorithm == 1 &&
       restored.rngStateBytes == 12 &&
       SUA_SimulationClockMatches(capturedClock) &&

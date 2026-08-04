@@ -18,6 +18,7 @@
 #include "obase/howitzer/HowitzerActiveWorldState.h"
 #include "obase/orphan/OrphanActiveWorldState.h"
 #include "obase/people/PeopleActiveWorldState.h"
+#include "obase/portal/PortalActiveWorldState.h"
 #include "obase/spark/SparkActiveWorldState.h"
 #include "obase/smoke/SmokeActiveWorldState.h"
 #include "obase/tank/TankActiveWorldState.h"
@@ -461,6 +462,16 @@ bool CaptureOwnerSections(SimulationContext* context,
   }
   sections->push_back(std::move(artefacts));
 
+  SActiveWorldSection portals = {};
+  portals.kind = EActiveWorldSectionKind::Portal;
+  portals.schemaVersion = 1;
+  portals.owner = "Portal";
+  if (!PortalActiveWorldState_CaptureStable(context, &portals.payload)) {
+    SetFailure(failure, PortalActiveWorldState_LastFailure());
+    return false;
+  }
+  sections->push_back(std::move(portals));
+
   return true;
 }
 
@@ -515,6 +526,9 @@ bool ValidateOwnerCodec(const SActiveWorldSection& section) {
     case EActiveWorldSectionKind::Artefact:
       return section.owner == "Artefact" &&
              ArtefactActiveWorldState_ValidateStable(section.payload);
+    case EActiveWorldSectionKind::Portal:
+      return section.owner == "Portal" &&
+             PortalActiveWorldState_ValidateStable(section.payload);
     default:
       return false;
   }
@@ -561,6 +575,9 @@ bool OwnerMatchesWorld(SimulationContext* context,
     case EActiveWorldSectionKind::Artefact:
       return ArtefactActiveWorldState_MatchesStable(context,
                                                      section.payload);
+    case EActiveWorldSectionKind::Portal:
+      return PortalActiveWorldState_MatchesStable(context,
+                                                   section.payload);
     default:
       return false;
   }
@@ -591,6 +608,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     tankBackup_.clear();
     howitzerBackup_.clear();
     artefactBackup_.clear();
+    portalBackup_.clear();
     taxiBackup_.clear();
     orphanBackup_.clear();
     bulletBackup_.clear();
@@ -640,6 +658,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                                                  &howitzerBackup_) ||
         !ArtefactActiveWorldState_CaptureStable(context_,
                                                  &artefactBackup_) ||
+        !PortalActiveWorldState_CaptureStable(context_, &portalBackup_) ||
         !TaxiActiveWorldState_CaptureStable(context_, &taxiBackup_) ||
         !OrphanActiveWorldState_CaptureStable(context_, &orphanBackup_) ||
         !BulletActiveWorldState_CaptureStable(context_, &bulletBackup_) ||
@@ -837,6 +856,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         created = ArtefactActiveWorldState_CreateStableOwners(
             context_, section.payload, &createdArtefacts_);
         break;
+      case EActiveWorldSectionKind::Portal:
+        created = PortalActiveWorldState_PrepareStableOwners(
+            context_, section.payload);
+        break;
       default:
         break;
     }
@@ -911,6 +934,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("active-world Artefact allocation failed: ") +
                        ArtefactActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Portal &&
+               PortalActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("active-world Portal roster failed: ") +
+                       PortalActiveWorldState_LastFailure());
       else
         SetFailure(failure,
                    "active-world " + section.owner +
@@ -995,6 +1023,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           resolved = ArtefactActiveWorldState_ApplyStableReferences(
               context_, section.payload);
           break;
+        case EActiveWorldSectionKind::Portal:
+          resolved = PortalActiveWorldState_ApplyStableReferences(
+              context_, section.payload);
+          break;
         default:
           break;
       }
@@ -1054,6 +1086,11 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         SetFailure(failure,
                    std::string("Artefact symbolic reconstruction failed: ") +
                        ArtefactActiveWorldState_LastFailure());
+      else if (section.kind == EActiveWorldSectionKind::Portal &&
+               PortalActiveWorldState_LastFailure()[0] != '\0')
+        SetFailure(failure,
+                   std::string("Portal reconstruction failed: ") +
+                       PortalActiveWorldState_LastFailure());
       else
         SetFailure(failure, std::string("symbolic owner references do not ") +
                                 "match the live graph: " + section.owner);
@@ -1083,7 +1120,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
           clockMetadataMatches = ClockActiveWorldState_MetadataMatches(
               section.payload, snapshot_->simulationTick,
               snapshot_->simulationTime);
-    if (!began_ || snapshot_ == nullptr || staged_.size() != 16 ||
+    if (!began_ || snapshot_ == nullptr ||
+        staged_.size() != kActiveWorldOwnerSectionCount ||
         ActiveWorldSave_ComputeWorldFingerprint(*snapshot_) !=
             expectedWorldFingerprint ||
         !clockMetadataMatches ||
@@ -1234,6 +1272,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, corpseBackup_) && clean;
       clean = ArtefactActiveWorldState_ApplyStableReferences(
                   context_, artefactBackup_) && clean;
+      clean = PortalActiveWorldState_ApplyStableReferences(
+                  context_, portalBackup_) && clean;
       // Mission conditions can target any restored owner kind, so rebuild the
       // Player mission graph only after every ordinary owner is stable.
       clean = MissionActiveWorldState_ApplyStableReferences(
@@ -1278,6 +1318,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                   context_, corpseBackup_) &&
               ArtefactActiveWorldState_MatchesStable(
                   context_, artefactBackup_) &&
+              PortalActiveWorldState_MatchesStable(
+                  context_, portalBackup_) &&
               ClockActiveWorldState_MatchesStable(clockBackup_) &&
               SimulationRandom_Matches(
                   SimulationRandom_Algorithm(), rngBackup_) &&
@@ -1325,6 +1367,10 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
                      context_, artefactBackup_))
           rollbackFailure_ = std::string("Artefact match: ") +
               ArtefactActiveWorldState_LastFailure();
+        else if (!PortalActiveWorldState_MatchesStable(
+                     context_, portalBackup_))
+          rollbackFailure_ = std::string("Portal match: ") +
+              PortalActiveWorldState_LastFailure();
         else if (!ClockActiveWorldState_MatchesStable(clockBackup_))
           rollbackFailure_ = "Clock match";
         else if (!SimulationRandom_Matches(
@@ -1344,7 +1390,8 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   }
 
   bool Successful() const {
-    return began_ && committed_ && !rolledBack_ && staged_.size() == 16 &&
+    return began_ && committed_ && !rolledBack_ &&
+           staged_.size() == kActiveWorldOwnerSectionCount &&
            snapshot_ != nullptr && stagedEvents_.size() ==
                snapshot_->events.size() &&
            ActiveWorldSemanticEvents_Matches(context_, stagedEvents_) &&
@@ -1410,6 +1457,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
   std::vector<std::uint8_t> tankBackup_;
   std::vector<std::uint8_t> howitzerBackup_;
   std::vector<std::uint8_t> artefactBackup_;
+  std::vector<std::uint8_t> portalBackup_;
   std::vector<std::uint8_t> taxiBackup_;
   std::vector<std::uint8_t> orphanBackup_;
   std::vector<std::uint8_t> bulletBackup_;

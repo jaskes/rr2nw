@@ -7,6 +7,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Retail `portal` scene references now own real Level-local `Portal` subjects.
+  Artefact admission checks capacity and attachment before owner removal,
+  clears its private movement events atomically, and persists occupancy in the
+  new PRT1 active-world section. AWV1 engine compatibility advances to 5 and
+  requires seventeen owner sections.
+- A full Portal collision now stages the May campaign transition at a complete
+  frame boundary through the existing transactional Level coordinator. Normal
+  Levels advance to the next `game.cfg` catalog entry; the final Level wraps
+  to index zero and retains the May completion branch. Failed target startup
+  restores the exact source LCN1 checkpoint.
 - RecruitCenter revisits now commit terminal mission results instead of
   permanently blocking on the completed slot. Success removes the mission,
   repairs/refills the active Vehicle, creates the authored `Artifact` reward
@@ -15,7 +25,7 @@ claim authorship of inherited Logos code or retail data.
 - MSH1 version 3 preserves `m_giveArtefact`, and the new ART1 active-world
   section reconstructs live Artefact identity, attribute, carrier relation,
   pose, direction and private events. Post-result save/load and rollback are
-  byte-exact across all sixteen owner sections.
+  byte-exact across the then-current sixteen owner sections.
 - The software renderer now owns the missing `GRDrawRay` fallback used by the
   Artefact corona. The mission-result acceptance gate proves real condition
   completion, one reward, repair/refill, idempotence, project progression and

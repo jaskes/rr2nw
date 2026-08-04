@@ -62,6 +62,7 @@
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredGameServicesRuntime.h"
+#include "ActiveWorldSave.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
@@ -1855,7 +1856,7 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
         OrphanActiveWorldState_MatchesStable(context, orphanState) &&
         RecoveredGameServices_CaptureLevelContinuation(
             &continuation, &captured) && captured.ready &&
-        captured.sections == 16;
+        captured.sections == kActiveWorldOwnerSectionCount;
     if (continuationCaptured) break;
     if (OrphanSubjectState_LiveCount() != orphanCount + 1 ||
         !RunVehicleFrameAfter(0.025) ||
@@ -4352,10 +4353,11 @@ bool ExerciseDebugOccupiedVehicleDestruction(
       RecoveredGameServices_CaptureLevelContinuation(
           &suiteBaseline, &suiteSummary);
   const bool menuConfigured = suiteCaptured && suiteSummary.ready &&
-      suiteSummary.sections == 16 &&
+      suiteSummary.sections == kActiveWorldOwnerSectionCount &&
       RecoveredGameServices_ConfigureDebugMenu(
           true, std::vector<std::string>{"Level.Debug.VehicleProfiles"});
-  if (!suiteCaptured || !suiteSummary.ready || suiteSummary.sections != 16 ||
+  if (!suiteCaptured || !suiteSummary.ready ||
+      suiteSummary.sections != kActiveWorldOwnerSectionCount ||
       !menuConfigured) {
     std::fprintf(stderr,
                  "debug Vehicle profile baseline capture=%d ready=%d "
@@ -6534,7 +6536,7 @@ int main(int argc, char** argv) {
       !capturedContinuation.ready || !capturedContinuation.sealedJournal ||
       !capturedContinuation.boundaryMatches ||
       !capturedContinuation.worldMatches ||
-      capturedContinuation.sections != 16 ||
+      capturedContinuation.sections != kActiveWorldOwnerSectionCount ||
       capturedContinuation.worldFingerprint == 0 ||
       capturedContinuation.journalFingerprint == 0 ||
       capturedContinuation.containerFingerprint == 0 ||
@@ -7382,9 +7384,10 @@ int main(int argc, char** argv) {
       !restoredContinuation.sealedJournal ||
       !restoredContinuation.boundaryMatches ||
       !restoredContinuation.worldMatches ||
-      restoredContinuation.sections != 16 ||
-      restoredContinuation.ownerPhases != 16 ||
-      restoredContinuation.referencePhases != 16 ||
+      restoredContinuation.sections != kActiveWorldOwnerSectionCount ||
+      restoredContinuation.ownerPhases != kActiveWorldOwnerSectionCount ||
+      restoredContinuation.referencePhases !=
+          kActiveWorldOwnerSectionCount ||
       restoredContinuation.eventPhases != restoredContinuation.events ||
       restoredContinuation.worldFingerprint !=
           capturedContinuation.worldFingerprint ||

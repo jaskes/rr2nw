@@ -119,12 +119,14 @@ retail proof with a real atomic disk slot.
 
 The fingerprint covers the admitted dynamic world: Commander, TankGroup,
 People, Tank/Cannon, Vehicle, Player mission state, Bullet, Explosion, Spark,
-Smoke, Corpse/DynSmoker, Clock, Taxi, Orphan, Howitzer, Artefact, simulation
+Smoke, Corpse/DynSmoker, Clock, Taxi, Orphan, Howitzer, Artefact, Portal,
+simulation
 RNG and supported semantic events. `TXI1` and `ORP1` preserve repeated retail names by stable
 occurrence order inside each equal-name group; uniqueness is not assumed.
 ORP1 also preserves the exact private moving event that resumes a falling body
 after reconstruction. AWV1 remains format version 1 with engine compatibility
-4; pre-Howitzer experimental snapshots fail before mutation.
+5; engine-4 snapshots fail before mutation because they have no PRT1 Portal
+owner section.
 Level resources and derived renderer/audio caches are reloaded, not serialized.
 Live owner families outside that admitted set require their own section before
 they may cross a public save boundary.
@@ -137,6 +139,10 @@ through semantic migration, while versions 1/2 default the reward flag off.
 ART1 restores live Artefact identity, dependencies, optional carrier relation,
 pose and private events. The three-process mission Route gate is documented
 in [`ManualAcceptance.md`](ManualAcceptance.md).
+PRT1 restores only authored Level-local Portal occupancy after validating its
+symbolic roster and immutable placement/capacity. A Portal callback never
+tears down the Level directly; it stages a request consumed by the same
+complete-frame transaction/rollback boundary used by other Level switches.
 
 Atomic named slots, bounded metadata/optional preview, same- and cross-Level
 reload orchestration, source rollback and non-destructive replacement are now implemented in

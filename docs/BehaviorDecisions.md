@@ -5271,3 +5271,29 @@ legacy Vehicle event timestamp puts `Vehicle::m_lastTime` ahead of Clock/CTJ1
 and correctly makes restored control adoption fail. The maintained probe sends
 `F2` at `Session::m_viewTime`, captures both carried and dropped states and
 requires exact restore/recapture plus a final pre-result rollback.
+
+### BD-148: Portal callbacks request progression; the frame coordinator owns it
+
+Status: accepted on 2026-08-04 for May Portal progression and PRT1.
+
+A retail scene reference named `portal` owns one Level-local Portal subject.
+Its authored transform and capacity are immutable continuation dependencies;
+PRT1 persists only stable identity plus occupancy and validates the complete
+roster before applying references. Engine compatibility advances to 5 because
+an engine-4 world contains no Portal progression state.
+
+Admission is atomic. The Portal checks attachment and available capacity before
+removing an Artefact, and successful consumption clears both Artefact private
+event families before the occupied count becomes externally visible. Full or
+attached rejection leaves both owners unchanged.
+
+The legacy collision callback must not close the Arena or construct another
+Level while dispatching an event. It may only stage one transition request.
+The next complete-frame boundary captures the source LCN1 checkpoint, selects
+the next active `game.cfg` catalog entry, performs ordinary teardown/start and
+commits only after the target is ready. Any failure reconstructs the source
+world. May binary evidence fixes the catalog policy: indices 0-7 increment and
+index 8 takes the completion branch before wrapping to zero.
+
+The May remaining-Artefact and restored-Portal strings are presentation debt,
+not permission to invent a status API before their actual call path is known.

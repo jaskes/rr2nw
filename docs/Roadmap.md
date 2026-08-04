@@ -1895,7 +1895,8 @@ Mission reward/completion is now closed at the maintained transaction boundary:
 real kill conditions produce success, command 35 produces one `Artifact`, the
 center repairs/refills the Vehicle, removes the terminal mission and selects the
 highest newly eligible project. MSH1 v3 and ART1 make both post-result save/load
-and pre-result rollback byte-exact across all sixteen owner sections.
+and pre-result rollback byte-exact across the then-current sixteen owner
+sections.
 
 The same maintained Level.03N result gate now completes the real carrier
 lifecycle. Vehicle collision atomically publishes both sides of the
@@ -1905,21 +1906,19 @@ then sends the retail `DropArtefact` control message bound to `F2`, proves both
 sides detached, one free-flight event and the authored forward speed, restores
 the dropped state exactly and finally rolls the whole result back byte-for-byte.
 
-The next gameplay row is the visible guide/occupied-Vehicle town-route repeat
-and Portal admission/persistence. Portal capacity must be checked before
-removing an Artefact; partially occupied slots must survive save/restart before
-any campaign transition is published.
+Portal admission, persistence and campaign switching are now closed. Every
+retail Level's authored `portal` reference owns a Level-local subject. Capacity
+and attachment are validated before Artefact removal, PRT1 restores partial
+occupancy as the seventeenth active-world owner, and a full player collision
+requests a complete-frame transaction rather than tearing down the world from
+the callback. The ordinary and terminal catalog branches are automated.
 Timed and natural public-mission acquisition, attributed projectile damage,
 robot death effects and exact rollback are no longer part of that open row.
 
-Only after controlled public mission admission and completion are proven
-should Portal callbacks stage a transactional Level switch through the
-existing coordinator.
-
-Recover the map (`M`), quests/objectives, portal transition and required menu
-flows. A portal must request the same transactional Level coordinator used by
-save/load and debug switching, not directly tear down the world from a legacy
-event callback.
+The next gameplay row is the visible guide/occupied-Vehicle town-route repeat,
+then map (`M`), quests/objectives and required campaign/menu flows. Portal
+status presentation still needs the May remaining-Artefact messages and the
+short character/mission cinematics remain separate UI work.
 
 Gate: a player can discover objectives, navigate with the map, complete and
 transition a representative mission chain, save before/after a portal and

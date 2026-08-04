@@ -302,11 +302,11 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1, engine compatibility 4, is initialized with `16/5`
-  for sixteen
+- active-world format v1, engine compatibility 5, is initialized with `17/5`
+  for seventeen
   Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/
-  Corpse/Clock/Taxi/Orphan/Howitzer/Artefact owner sections and five versioned
-  semantic-event families, then reports `16/16/5`
+  Corpse/Clock/Taxi/Orphan/Howitzer/Artefact/Portal owner sections and five
+  versioned semantic-event families, then reports `17/17/5`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `continuation_state_probe` is `1/1/12/<draws>/1`: one canonical `CLK1`
@@ -869,7 +869,8 @@ remove at least one real condition owner, report
 `mission_result_commit=1/1/1/1/1/1`, preserve the cumulative mission count,
 and prove `mission_result_save=1/1/1/1` plus
 `mission_result_carrier=1/1/1/1/1`, `mission_result_drop=1/1/1/1`,
-`mission_result_drop_save=1/1/1/1` and
+`mission_result_drop_save=1/1/1/1`, `mission_result_portal=1/1/1/1/1/1`,
+`mission_result_portal_save=1/1/1/1` and
 `mission_result_rollback=1/1/1`. The created `Artifact` must expose the real
 IArtefact interface; collision must cancel its free-flight events and bind both
 carrier pointers. The gate restores that carried state, sends the real
@@ -878,9 +879,28 @@ forward motion, restores the detached state and then restores the pre-result
 checkpoint. The repeated result call must remain idempotent. The process must
 finish with zero service issues, `marker=level-ready` and clean shutdown.
 
-This gate proves result ownership, pickup/carry/drop and persistence. Portal
-admission/persistence and matching the exact retail reward offset remain the
-next visible/manual campaign boundary.
+This gate proves result ownership, pickup/carry/drop, Portal admission and
+Portal occupancy persistence. Matching the exact retail reward offset remains
+a visible/manual campaign boundary.
+
+## Portal campaign-transition pass
+
+This non-interactive gate fills a real Level-local Portal, sends the real
+player collision and lets the complete-frame coordinator perform the switch:
+
+```powershell
+& ".\tools\acceptance\Invoke-PortalTransitionSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+The ordinary `Level.03N` row must advance to the next active `game.cfg` entry.
+The terminal `Level.07N` row must wrap from catalog index 8 to index 0 and set
+`portal_campaign_completion=1`. Every row requires
+`portal_transition_probe=1/1/1/1`, matching begin/commit/final-Level markers,
+zero recovered-service issues and clean shutdown. The legacy callback may
+only request the transition; teardown/start and source rollback belong to the
+frame-boundary coordinator.
 
 ## Mission-guide dynamic obstruction pass
 

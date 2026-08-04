@@ -1,6 +1,7 @@
 #include "GameStartup.h"
 
 #include "RR2NWBuildRevision.h"
+#include "ActiveWorldSave.h"
 #include "GameEntryRuntimeState.h"
 #include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
@@ -20,6 +21,7 @@
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/howitzer/HowitzerActiveWorldState.h"
 #include "obase/people/PeopleSubjectState.h"
+#include "obase/portal/PortalActiveWorldState.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "obase/taxi/TaxiSubjectState.h"
 #include "suavik.h"
@@ -72,6 +74,7 @@ struct StartupOptions {
   bool missionNaturalCombatSmoke = false;
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
+  bool portalTransitionSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
   bool showVersion = false;
@@ -316,6 +319,9 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionResultSmoke = true;
+    } else if (argument == L"--portal-transition-smoke") {
+      options->runtimeSmoke = true;
+      options->portalTransitionSmoke = true;
     } else if (argument == L"--debug-menu") {
       options->debugMenu = true;
     } else if (argument == L"--help" || argument == L"-h") {
@@ -921,6 +927,81 @@ bool ProcessDebugLevelSwitch(const RetailData& data,
   return sourceRestored;
 }
 
+bool ProcessPortalLevelTransition(const RetailData& data,
+                                  int* currentLevelIndex, bool silent,
+                                  StartupLog* log) {
+  if (!PortalActiveWorldState_TakeTransitionRequest()) return true;
+  if (currentLevelIndex == nullptr || *currentLevelIndex < 0 ||
+      *currentLevelIndex >= static_cast<int>(data.levels.size()) ||
+      data.levels.empty()) {
+    if (log != nullptr)
+      log->Line("portal_transition_preflight_failure=invalid Level catalog");
+    return false;
+  }
+
+  const int sourceLevelIndex = *currentLevelIndex;
+  const bool completedCampaign =
+      sourceLevelIndex == static_cast<int>(data.levels.size()) - 1;
+  const int targetLevelIndex = completedCampaign ? 0 : sourceLevelIndex + 1;
+  std::vector<std::uint8_t> sourceContinuation;
+  SLevelContinuationSummary sourceSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &sourceContinuation, &sourceSummary) || !sourceSummary.ready) {
+    const std::string detail =
+        RecoveredGameServices_LastLevelContinuationError();
+    if (log != nullptr)
+      log->Line("portal_transition_preflight_failure=" + detail);
+    ShowMessage(silent, MB_ICONERROR, L"RR2NW Portal error",
+                Utf8ToWide(detail.c_str()));
+    return false;
+  }
+
+  if (log != nullptr) {
+    log->Line("portal_transition_begin=" +
+              WideToUtf8(data.levels[sourceLevelIndex]) + "->" +
+              WideToUtf8(data.levels[targetLevelIndex]));
+    log->Line(std::string("portal_campaign_completion=") +
+              (completedCampaign ? "1" : "0"));
+  }
+  ZAV_DeInitLevel();
+
+  std::string targetFailure;
+  if (StartRecoveredLevel(data, targetLevelIndex, &targetFailure)) {
+    *currentLevelIndex = targetLevelIndex;
+    if (log != nullptr)
+      log->Line("portal_transition_commit=" +
+                WideToUtf8(data.levels[targetLevelIndex]));
+    if (completedCampaign)
+      ShowMessage(silent, MB_ICONINFORMATION, L"RR2NW",
+                  L"ПОЗДРАВЛЯЕМ!!!");
+    return true;
+  }
+
+  ZAV_DeInitLevel();
+  std::string sourceFailure;
+  const bool sourceStarted =
+      StartRecoveredLevel(data, sourceLevelIndex, &sourceFailure);
+  SLevelContinuationSummary restored;
+  const bool sourceRestored = sourceStarted &&
+      RecoveredGameServices_RestoreLevelContinuation(
+          sourceContinuation, &restored);
+  std::string detail = "Portal Level transition failed: " + targetFailure;
+  if (!sourceRestored) {
+    detail += "; source rollback failed: ";
+    detail += sourceStarted
+                  ? RecoveredGameServices_LastLevelContinuationError()
+                  : sourceFailure;
+  }
+  if (log != nullptr) {
+    log->Line(std::string("portal_transition_rollback=") +
+              (sourceRestored ? "restored" : "failed"));
+    log->Line("portal_transition_failure=" + detail);
+  }
+  ShowMessage(silent, MB_ICONERROR, L"RR2NW Portal error",
+              Utf8ToWide(detail.c_str()));
+  return sourceRestored;
+}
+
 bool ProcessCampaignRestart(const RetailData& data,
                             int* currentLevelIndex, bool silent,
                             StartupLog* log) {
@@ -1009,6 +1090,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"           --mission-natural-combat-smoke |\n"
                 L"           --mission-continuation-smoke |\n"
                 L"           --mission-result-smoke]\n"
+                L"          [--portal-transition-smoke]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
     return kSuccess;
@@ -2470,6 +2552,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredArenaSeance_ActiveWorldRollbacks()));
   log.Line("active_world_created_owners=" + std::to_string(
                RecoveredArenaSeance_ActiveWorldCreatedOwners()));
+  log.Line("portal_subject_roster=" + std::to_string(
+               PortalActiveWorldState_LiveCount(g_super.m_context)));
   const int howitzerLive = RecoveredArenaSeance_HowitzerLiveCount();
   const int howitzerReady = RecoveredArenaSeance_HowitzerReadyLiveCount();
   const int howitzerOccupied =
@@ -2713,6 +2797,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const auto runCompleteFrame = [&]() {
     if (!RecoveredGameServices_RunFrame()) return false;
+    if (PortalActiveWorldState_TransitionPending() &&
+        !ProcessPortalLevelTransition(data, &currentLevelIndex,
+                                      options.runtimeSmoke, &log))
+      return false;
     if (RecoveredGameServices_CampaignRestartPending() &&
         !ProcessCampaignRestart(data, &currentLevelIndex,
                                 options.runtimeSmoke, &log))
@@ -2742,6 +2830,35 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  !RecoveredGameServices_VerifyMissionMapProbe() ||
                  !RecoveredGameServices_RequestDebugMapToggle() ||
                  !RecoveredGameServices_ClearMissionMapProbe();
+  }
+  if (!loopFailed && options.portalTransitionSmoke) {
+    const int sourceLevelIndex = currentLevelIndex;
+    const int expectedLevelIndex =
+        sourceLevelIndex == static_cast<int>(data.levels.size()) - 1
+            ? 0 : sourceLevelIndex + 1;
+    SPortalTransitionProbeSummary portalTransition;
+    const bool portalTransitionStaged =
+        PortalActiveWorldState_StageTransitionProbe(
+            g_super.m_context,
+            (std::max)(0.1, Session::m_viewTime + 0.1),
+            &portalTransition);
+    const bool portalTransitionCompleted =
+        portalTransitionStaged && runCompleteFrame() &&
+        currentLevelIndex == expectedLevelIndex &&
+        !PortalActiveWorldState_TransitionPending();
+    log.Line("portal_transition_probe=" +
+             std::to_string(portalTransition.portalCount) + "/" +
+             std::to_string(portalTransition.fullPortal) + "/" +
+             std::to_string(portalTransition.collisionAccepted) + "/" +
+             std::to_string(portalTransition.transitionRequested));
+    log.Line("portal_transition_catalog=" +
+             std::to_string(sourceLevelIndex) + "/" +
+             std::to_string(expectedLevelIndex) + "/" +
+             std::to_string(currentLevelIndex));
+    if (!portalTransitionStaged)
+      log.Line(std::string("portal_transition_error=") +
+               PortalActiveWorldState_LastFailure());
+    loopFailed = !portalTransitionCompleted;
   }
   if (!loopFailed && options.missionSmoke) {
     std::vector<KR_ObjectID> preMissionTaxis;
@@ -3341,6 +3458,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       std::vector<std::uint8_t> resultRecaptured;
       std::vector<std::uint8_t> resultDropState;
       std::vector<std::uint8_t> resultDropRecaptured;
+      std::vector<std::uint8_t> resultPortalState;
+      std::vector<std::uint8_t> resultPortalRecaptured;
       std::vector<std::uint8_t> resultRolledBack;
       SLevelContinuationSummary resultCheckpointSummary;
       SLevelContinuationSummary resultCaptured;
@@ -3349,6 +3468,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       SLevelContinuationSummary resultDropCaptured;
       SLevelContinuationSummary resultDropRestored;
       SLevelContinuationSummary resultDropVerified;
+      SLevelContinuationSummary resultPortalCaptured;
+      SLevelContinuationSummary resultPortalRestored;
+      SLevelContinuationSummary resultPortalVerified;
       SLevelContinuationSummary resultRollbackRestored;
       SLevelContinuationSummary resultRollbackVerified;
       const bool checkpointReady =
@@ -3369,15 +3491,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       const bool resultCarrierRestoreReady = resultRestoreReady &&
           RecruitCenterSubjectState_RewardCarrierState(
               g_super.m_context, true);
+      SPortalAdmissionProbeSummary portalAdmission;
+      const bool portalAttachedRejected = resultCarrierRestoreReady &&
+          PortalActiveWorldState_RejectAttachedProbe(
+              g_super.m_context,
+              g_super.m_context->searchObject("Artifact"),
+              &portalAdmission);
       const bool resultRecaptureReady = resultCarrierRestoreReady &&
           RecoveredGameServices_CaptureLevelContinuation(
               &resultRecaptured, &resultVerified);
       const bool resultSaveExact = resultRecaptureReady &&
           resultState == resultRecaptured && resultCaptured.ready &&
           resultRestored.ready && resultVerified.ready &&
-          resultCaptured.sections == 16 &&
-          resultRestored.ownerPhases == 16 &&
-          resultRestored.referencePhases == 16 &&
+          resultCaptured.sections == kActiveWorldOwnerSectionCount &&
+          resultRestored.ownerPhases == kActiveWorldOwnerSectionCount &&
+          resultRestored.referencePhases == kActiveWorldOwnerSectionCount &&
           resultCaptured.worldFingerprint ==
               resultRestored.restoredWorldFingerprint &&
           resultCaptured.worldFingerprint == resultVerified.worldFingerprint;
@@ -3400,14 +3528,44 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       const bool resultDropSaveExact = resultDropRecaptureReady &&
           resultDropState == resultDropRecaptured &&
           resultDropCaptured.ready && resultDropRestored.ready &&
-          resultDropVerified.ready && resultDropCaptured.sections == 16 &&
-          resultDropRestored.ownerPhases == 16 &&
-          resultDropRestored.referencePhases == 16 &&
+          resultDropVerified.ready &&
+          resultDropCaptured.sections == kActiveWorldOwnerSectionCount &&
+          resultDropRestored.ownerPhases == kActiveWorldOwnerSectionCount &&
+          resultDropRestored.referencePhases ==
+              kActiveWorldOwnerSectionCount &&
           resultDropCaptured.worldFingerprint ==
               resultDropRestored.restoredWorldFingerprint &&
           resultDropCaptured.worldFingerprint ==
               resultDropVerified.worldFingerprint;
-      const bool resultRollbackReady = resultDropSaveExact &&
+      const bool portalAdmissionReady = resultDropSaveExact &&
+          portalAttachedRejected && PortalActiveWorldState_AdmissionProbe(
+              g_super.m_context,
+              g_super.m_context->searchObject("Artifact"),
+              (std::max)(0.1, Session::m_viewTime + 0.1),
+              &portalAdmission);
+      const bool resultPortalCaptureReady = portalAdmissionReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultPortalState, &resultPortalCaptured);
+      const bool resultPortalRestoreReady = resultPortalCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              resultPortalState, &resultPortalRestored);
+      const bool resultPortalRecaptureReady = resultPortalRestoreReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultPortalRecaptured, &resultPortalVerified);
+      const bool resultPortalSaveExact = resultPortalRecaptureReady &&
+          resultPortalState == resultPortalRecaptured &&
+          resultPortalCaptured.ready && resultPortalRestored.ready &&
+          resultPortalVerified.ready &&
+          resultPortalCaptured.sections == kActiveWorldOwnerSectionCount &&
+          resultPortalRestored.ownerPhases ==
+              kActiveWorldOwnerSectionCount &&
+          resultPortalRestored.referencePhases ==
+              kActiveWorldOwnerSectionCount &&
+          resultPortalCaptured.worldFingerprint ==
+              resultPortalRestored.restoredWorldFingerprint &&
+          resultPortalCaptured.worldFingerprint ==
+              resultPortalVerified.worldFingerprint;
+      const bool resultRollbackReady = resultPortalSaveExact &&
           RecoveredGameServices_RestoreLevelContinuation(
               resultCheckpoint, &resultRollbackRestored);
       const bool resultRollbackRecaptured = resultRollbackReady &&
@@ -3459,6 +3617,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(resultDropRestoreReady ? 1 : 0) + "/" +
                std::to_string(resultDropRecaptureReady ? 1 : 0) + "/" +
                std::to_string(resultDropSaveExact ? 1 : 0));
+      log.Line("mission_result_portal=" +
+               std::to_string(portalAdmission.portalCount) + "/" +
+               std::to_string(portalAdmission.attachedRejected) + "/" +
+               std::to_string(portalAdmission.fullRejected) + "/" +
+               std::to_string(portalAdmission.consumed) + "/" +
+               std::to_string(portalAdmission.occupiedAdvanced) + "/" +
+               std::to_string(portalAdmission.eventResidueCleared));
+      log.Line("mission_result_portal_save=" +
+               std::to_string(resultPortalCaptureReady ? 1 : 0) + "/" +
+               std::to_string(resultPortalRestoreReady ? 1 : 0) + "/" +
+               std::to_string(resultPortalRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(resultPortalSaveExact ? 1 : 0));
       log.Line("mission_result_rollback=" +
                std::to_string(resultRollbackReady ? 1 : 0) + "/" +
                std::to_string(resultRollbackRecaptured ? 1 : 0) + "/" +
@@ -3466,12 +3636,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       if (!resultReady)
         log.Line(std::string("mission_result_error=") +
                  RecruitCenterSubjectState_LastError());
+      else if (!portalAttachedRejected || !portalAdmissionReady)
+        log.Line(std::string("mission_result_error=") +
+                 PortalActiveWorldState_LastFailure());
       else if (!resultSaveExact || !resultDropSaveExact ||
-               !resultRollbackExact)
+               !resultPortalSaveExact || !resultRollbackExact)
         log.Line(std::string("mission_result_error=") +
                  RecoveredGameServices_LastLevelContinuationError());
       loopFailed = !resultReady || !resultSaveExact ||
-          !resultDropSaveExact || !resultRollbackExact;
+          !resultDropSaveExact || !portalAdmissionReady ||
+          !resultPortalSaveExact || !resultRollbackExact;
     }
     if (!loopFailed && saveAfterMission) {
       const bool missionSaveRequested =
@@ -3499,9 +3673,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       const bool successfulExact =
           recaptureReady && continuation == recaptured &&
           captured.ready && restored.ready && verified.ready &&
-          captured.sections == 16 && restored.sections == 16 &&
-          restored.ownerPhases == 16 &&
-          restored.referencePhases == 16 &&
+          captured.sections == kActiveWorldOwnerSectionCount &&
+          restored.sections == kActiveWorldOwnerSectionCount &&
+          restored.ownerPhases == kActiveWorldOwnerSectionCount &&
+          restored.referencePhases == kActiveWorldOwnerSectionCount &&
           captured.worldFingerprint == restored.restoredWorldFingerprint &&
           captured.worldFingerprint == verified.worldFingerprint;
       SLevelContinuationSummary rejected;
@@ -3519,7 +3694,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               &rolledBack, &rollbackVerified);
       const bool rollbackExact = rollbackRecaptured &&
           rolledBack == continuation && rollbackVerified.ready &&
-          rollbackVerified.sections == 16 &&
+          rollbackVerified.sections == kActiveWorldOwnerSectionCount &&
           rollbackVerified.worldFingerprint == captured.worldFingerprint;
       const bool exact = successfulExact && rollbackExact;
       log.Line("mission_continuation_capture=" +

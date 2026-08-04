@@ -1849,15 +1849,39 @@ playable Level begins.
   without fabricating a reward.
 - MSH1 v3 stores the reward flag. ART1 stores each live Artefact's symbolic
   identity, attribute, commander/carrier relationship, pose, velocity and
-  private move/change-direction deadlines. Engine compatibility 4 now requires
-  sixteen owner sections and five semantic-event families.
+  private move/change-direction deadlines. This was the engine-compatibility-4
+  boundary with sixteen owner sections and five semantic-event families.
 - The installed Level.03N result gate completes the real `ProjectS22` kill
   contract, creates exactly one reward with a real interface, repairs/refills,
   advances to `ProjectA39`, proves repeat idempotence, restores the post-result
   world byte-identically and then restores the pre-result world exactly.
-- Revisit when Portal pickup/carry is admitted or a controlled May trace
-  measures the reward offset. The current `+50/+30` center-relative placement
-  follows the recovered executable field writes and is not generalized.
+- Revisit when a controlled May trace measures the reward offset. Portal
+  pickup/carry/admission is covered separately below. The current `+50/+30`
+  center-relative placement follows the recovered executable field writes and
+  is not generalized.
+
+### RP-CAMPAIGN-005: Portal admission and catalog progression are transactional
+
+- Classification: `MAY_BINARY_CONTROL_FLOW_RECOVERED`,
+  `INSTALLED_RUNTIME_PROVED`, `SAVE_CONTRACT_EXTENDED`.
+- Each retail `portal` scene reference binds one real Level-local Portal with
+  the authored transform and capacity four. A carried Artefact and a full
+  Portal are rejected without mutation; successful admission consumes the
+  free Artefact, clears both private event families and advances occupancy in
+  one boundary.
+- PRT1 persists symbolic Portal identity, authored points, capacity and
+  occupancy. AWV1 remains format version 1, advances to engine compatibility
+  5 and requires seventeen owner/reference phases plus the existing five
+  semantic-event families.
+- The May executable advances catalog indices 0-7 and requests game state 3.
+  Index 8 additionally publishes the completion branch and wraps to index 0.
+  The maintained callback requests that behavior, while the complete-frame
+  coordinator owns teardown, target startup, commit and exact source rollback.
+- Verification covers post-admission capture/restore, all nine installed
+  Portal rosters, an ordinary `Level.03N` transition and terminal
+  `Level.07N` wrap in Debug, Release and RelWithDebInfo.
+- Revisit when the in-game remaining-Artefact strings and portal visual/status
+  presentation are restored; those do not weaken the progression boundary.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

@@ -282,7 +282,7 @@ failure after successful gameplay-authority validation and requires exact
 destination-local and occupied-source LCN1 bytes after the two rollback layers.
 
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
-`LCN1-16/16/16`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
+`LCN1-17/17/17`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
 
 `tools/acceptance/Invoke-MissionRouteSaveLoad.ps1` covers the separate
@@ -298,6 +298,13 @@ Artefact plus its optional carrier relation and private deadlines. The mission
 result gate captures and fresh-ID restores the completed world containing
 `Artifact`, then restores the exact pre-result checkpoint.
 
+PRT1 is the seventeenth required owner section. It records each authored
+Level-local Portal's symbolic identity, placement, capacity and occupancy.
+AWV1 format remains version 1 and engine compatibility advances to 5; engine-4
+experimental slots fail before mutation because they cannot reconstruct Portal
+progress. The Portal transition gate uses the same LCN1 transaction for source
+rollback but does not introduce a separate public slot format.
+
 The current accepted local Windows gate is 67/67 CTest in Debug, Release and
 Playtest,
 18/18 RR2SLOT1 destroyed-context cases, 18/18 independent ordinary retail
@@ -310,6 +317,13 @@ over the same restore transaction. The dedicated post-authority fault gate
 adds 2/2 Debug/Release byte-exact rollback cases. These cover all nine
 installed Levels in both configurations. The mounted disc root was not part
 of this tranche and is therefore not included in the slot claim.
+
+With PRT1 admitted, the current continuation breadth additionally passes
+27/27 fresh Level reconstructions and 27/27 installed runtime starts across
+Debug, Release and Playtest. The dedicated Portal coordinator gate passes 6/6
+ordinary/final catalog transitions, and the mission-result gate passes 3/3
+post-admission Portal occupancy restores. These runs use the installed `E:`
+retail root; they do not claim mounted-disc coverage.
 
 ## Next gate
 

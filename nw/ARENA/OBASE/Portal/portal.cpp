@@ -5,6 +5,7 @@
  */
 
 #include "portal.h"
+#include "PortalActiveWorldState.h"
 #include "PortalClassTableState.h"
 #include "vehicle.h"
 
@@ -13,6 +14,7 @@
 #include "kernel/h/s_debug.h"
 
 #include "message/bimsg.h"
+#include "message/artfmsg.h"
 #include "message/skinmsg.h"
 #include "message/unitmsg.h"
 #include "message/dcrossmsg.h"
@@ -131,10 +133,13 @@ int Portal::receiveEvent( KR_Event &event )
                             .getObjectID(oID)
                           .close();
 
-                if(    g_vehicle->getObjectID() == oID  
+                if(    g_vehicle != 0
+                    && g_vehicle->getObjectID() == oID
                     && m_slotCnt==m_occupiedSlotCnt  )
                 {
                     printf("Go to next level");
+                    PortalActiveWorldState_RequestTransition(
+                        context, getObjectID());
                 }
             }
             break;
@@ -259,9 +264,16 @@ void Portal::portalAddArtefact( KR_ObjectID artID )
          echo( "Portal::portalAddArtefact() This is not artefact!" );
          return;
     }
+    if( iart->isAttached() || m_slotCnt <= 0 ||
+        m_occupiedSlotCnt >= m_slotCnt )
+         return;
+
+    while( context->removeEvent(ARTEFACT_MOVE, artID) == 1 ) {}
+    while( context->removeEvent(ARTEFACT_CHANGEDIR, artID) == 1 ) {}
     context->removeObject( artID );
-    if(  m_occupiedSlotCnt < m_slotCnt  )
-         m_occupiedSlotCnt++;
+    while( context->removeEvent(ARTEFACT_MOVE, artID) == 1 ) {}
+    while( context->removeEvent(ARTEFACT_CHANGEDIR, artID) == 1 ) {}
+    m_occupiedSlotCnt++;
 
 }
 

@@ -421,15 +421,15 @@ foreach ($configurationName in $Configuration) {
                 }
                 if ((Get-LogInteger $log "active_world_persistence_initialized") -ne 1 -or
                     (Get-LogInteger $log "active_world_format_version") -ne 1 -or
-                    (Get-LogInteger $log "active_world_engine_compatibility") -ne 4) {
+                    (Get-LogInteger $log "active_world_engine_compatibility") -ne 5) {
                     $issues.Add("active-world persistence envelope is not initialized")
                 }
                 if (-not $log.ContainsKey("active_world_owner_event_sections") -or
-                    $log["active_world_owner_event_sections"] -ne "16/5") {
-                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse/Clock/Taxi/Orphan/Howitzer/Artefact section roster changed")
+                    $log["active_world_owner_event_sections"] -ne "17/5") {
+                    $issues.Add("active-world Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/Corpse/Clock/Taxi/Orphan/Howitzer/Artefact/Portal section roster changed")
                 }
                 if (-not $log.ContainsKey("active_world_restore_phases") -or
-                    $log["active_world_restore_phases"] -ne "16/16/5") {
+                    $log["active_world_restore_phases"] -ne "17/17/5") {
                     $issues.Add("active-world restore phase proof changed")
                 }
                 if (-not $log.ContainsKey("mission_active_world_probe") -or

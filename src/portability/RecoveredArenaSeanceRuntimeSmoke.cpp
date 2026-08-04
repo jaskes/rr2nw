@@ -49,6 +49,7 @@ class CGRPanel;
 #include "storage/h/subject.h"
 
 #include "RecoveredArenaSeanceRuntime.h"
+#include "ActiveWorldSave.h"
 
 extern SDeviceList _dL;
 
@@ -1244,11 +1245,15 @@ bool RunCycle(bool expectVisualResources) {
       RecoveredArenaSeance_MissionTankFingerprint() != 0 ||
       !RecoveredArenaSeance_ActiveWorldPersistenceReady() ||
       RecoveredArenaSeance_ActiveWorldFormatVersion() != 1 ||
-      RecoveredArenaSeance_ActiveWorldEngineCompatibility() != 4 ||
-      RecoveredArenaSeance_ActiveWorldSections() != 16 ||
+      RecoveredArenaSeance_ActiveWorldEngineCompatibility() !=
+          static_cast<int>(ActiveWorldSave_EngineCompatibilityVersion()) ||
+      RecoveredArenaSeance_ActiveWorldSections() !=
+          kActiveWorldOwnerSectionCount ||
       RecoveredArenaSeance_ActiveWorldEvents() != 0 ||
-      RecoveredArenaSeance_ActiveWorldOwnerPhases() != 16 ||
-      RecoveredArenaSeance_ActiveWorldReferencePhases() != 16 ||
+      RecoveredArenaSeance_ActiveWorldOwnerPhases() !=
+          kActiveWorldOwnerSectionCount ||
+      RecoveredArenaSeance_ActiveWorldReferencePhases() !=
+          kActiveWorldOwnerSectionCount ||
       RecoveredArenaSeance_ActiveWorldEventPhases() != 0 ||
       RecoveredArenaSeance_ActiveWorldCreatedOwners() != 0 ||
       RecoveredArenaSeance_ActiveWorldMissionRecords() != 0 ||

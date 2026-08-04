@@ -83,6 +83,10 @@ foreach ($configurationName in $Configuration) {
     $drop = [regex]::Match($startup, 'mission_result_drop=1/1/1/1')
     $dropSave = [regex]::Match(
         $startup, 'mission_result_drop_save=1/1/1/1')
+    $portal = [regex]::Match(
+        $startup, 'mission_result_portal=1/1/1/1/1/1')
+    $portalSave = [regex]::Match(
+        $startup, 'mission_result_portal_save=1/1/1/1')
     $rollback = [regex]::Match($startup, 'mission_result_rollback=1/1/1')
     $issues = [Collections.Generic.List[string]]::new()
     if ($timedOut) { $issues.Add("timeout") }
@@ -110,6 +114,12 @@ foreach ($configurationName in $Configuration) {
     if (-not $drop.Success) { $issues.Add("Artifact drop proof missing") }
     if (-not $dropSave.Success) {
         $issues.Add("post-drop save proof missing")
+    }
+    if (-not $portal.Success) {
+        $issues.Add("Portal admission proof missing")
+    }
+    if (-not $portalSave.Success) {
+        $issues.Add("post-Portal save proof missing")
     }
     if (-not $rollback.Success) { $issues.Add("pre-result rollback proof missing") }
     if ($startup -notmatch 'game_services_issues=0') {

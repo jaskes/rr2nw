@@ -4327,8 +4327,34 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   through the retail `F2` control message, restores the detached graph and
   finally restores the pre-result continuation. Debug, Release and
   RelWithDebInfo pass 3/3.
-- Revisit when: Portal admission is active. A full Portal must reject an extra
-  Artefact before owner removal, and partial occupancy must survive restart.
+- Closure: Portal admission now rejects attached/full inputs before mutation,
+  consumes a free Artefact atomically and preserves partial occupancy through
+  PRT1 restore. The carrier row remains independently open only for further
+  visible collision-placement parity.
+
+### CQ-219: archival Portal callback did not advance the May campaign
+
+- Status: `MARCH_SOURCE_GAP_CONFIRMED`, `MAY_BINARY_CONTROL_FLOW_RECOVERED`,
+  `WINDOWS_RUNTIME_ACCEPTED`.
+- Evidence: the archival callback validates a full player collision but only
+  prints `Go to next level`. The installed 1999-05-27 executable instead reads
+  the campaign catalog index, increments indices 0-7, wraps index 8 to zero
+  through a completion branch and writes game state 3.
+- Handling: retail `portal` scene references now bind real subjects. A full
+  player collision stages one request, which the complete-frame coordinator
+  resolves through the ordinary Level teardown/start transaction. Failed
+  target publication restores the captured source LCN1 world.
+- Continuation: PRT1 is the seventeenth required owner section and stores
+  authored identity, points, capacity and occupancy. AWV1 stays format 1 but
+  advances to engine compatibility 5; older engine-4 snapshots fail closed.
+- Verification: every installed Level exposes a `portal` reference. The
+  mission-result gate proves attached/full rejection, free-Artefact admission,
+  private-event cleanup and exact occupancy restore. The dedicated gate proves
+  `Level.03N` normal progression and `Level.07N` terminal wrap in all three
+  Windows configurations.
+- Revisit when: recover the May HUD/presentation call path for
+  `Portal.Arabesk`, restored-Portal and remaining-Artefact messages. Keep map,
+  quests and character cinematics as separate campaign UI rows.
 
 ## Maintenance rule
 

@@ -1,5 +1,7 @@
 #include "RecoveredGameServicesRuntime.h"
 
+#include "ActiveWorldSave.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cctype>
@@ -4497,7 +4499,7 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
         RecoveredGameServices_CaptureLevelContinuation(
             &destroyedContinuation, &destroyedSummary);
     completed = destructionCaptured && destroyedSummary.ready &&
-        destroyedSummary.sections == 16 &&
+        destroyedSummary.sections == kActiveWorldOwnerSectionCount &&
         destroyedSummary.worldFingerprint != 0 &&
         destroyedSummary.containerFingerprint != 0;
     if (completed) {
