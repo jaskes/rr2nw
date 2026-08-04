@@ -1831,9 +1831,10 @@ playable Level begins.
   another slot.
 - Eject preserves the authored direction but expands it when necessary to
   clear the current vehicle plus RecruitCenter radii. It updates vessel and
-  subject position caches and stops motion. Legacy Restart/repair, hostility,
-  briefing/video, unit/script/skip-way commands and completion rewards remain
-  deferred until their own rollback contracts exist.
+  subject position caches and stops motion. Legacy Restart remains replaced by
+  that bounded handoff. The collision now preserves January hostility changes,
+  presents the March normal character FLC (or renegade default briefing), then
+  admits the mission; ProjectTable briefing presentation remains post-commit.
 - The runtime probe requires a rejected non-Player collision, accepted Player
   collision, direct duplicate event, one staged mission, one anti-repeat hit,
   two safe ejects and zero admission failures. Its visit timestamp is rolled
@@ -1841,6 +1842,11 @@ playable Level begins.
   intentional zero-center/zero-admission case.
 - Unbound mission condition IDs reschedule `rc_CHECK_MISSION`; NUL is not
   interpreted as a dead target before deferred producers instantiate it.
+- `--mission-briefing-smoke` uses the real collision rather than a direct
+  producer shortcut. Level.03N Marauders require center presentation
+  `1/1/0/0`, one distinct mission briefing, 22 created owners, zero rollback
+  and clean shutdown. DOS-rooted clip names resolve through the admitted
+  retail/mod VFS and FLC disk structs are pinned to 128/16/6 bytes.
 
 ### RP-CAMPAIGN-004: terminal mission results publish an owned reward
 

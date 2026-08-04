@@ -121,6 +121,13 @@ bool RecoveredModRuntime_ResolveReadPath(const char* requested,
                                          char* resolved,
                                          std::size_t resolvedSize);
 
+// Resolves a legacy path whose relative root is the admitted retail data
+// directory rather than the host process working directory.  The result stays
+// inside that root and still observes deterministic mod-overlay precedence.
+bool RecoveredModRuntime_ResolveBaseReadPath(const char* requested,
+                                             char* resolved,
+                                             std::size_t resolvedSize);
+
 // Enumerates the effective files below one directory of the active Level.
 // Base files and overlay-only targets are merged by case-insensitive virtual
 // path, using the same derived-Level precedence as ResolveReadPath. Returned
@@ -131,6 +138,7 @@ bool RecoveredModRuntime_ListLevelFiles(
 
 // CFileResource-compatible read hook. It never opens files for writing.
 FILE* RecoveredModRuntime_OpenRead(const char* requested, long* length);
+FILE* RecoveredModRuntime_OpenBaseRead(const char* requested, long* length);
 
 // Active mod identity is folded into save/replay content identity. Base-only
 // sessions retain their historical fingerprint exactly.

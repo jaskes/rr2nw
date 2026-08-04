@@ -1,5 +1,9 @@
 #include <string.h>
 
+#ifdef RR2NW_PACKED_FLC_LAYOUT
+#pragma pack(push, 1)
+#endif
+
 typedef struct {
   dword Size;
   word  Magic;
@@ -33,6 +37,14 @@ typedef struct {
   dword Size;
   word  Type;
 } ChunkHeader;
+
+#ifdef RR2NW_PACKED_FLC_LAYOUT
+#pragma pack(pop)
+
+static_assert(sizeof(FLC_Header) == 128, "FLC header must match its disk layout");
+static_assert(sizeof(FrameHeader) == 16, "FLC frame header must match its disk layout");
+static_assert(sizeof(ChunkHeader) == 6, "FLC chunk header must match its disk layout");
+#endif
 
 enum {
 	FLI_COLOR256 = 4,

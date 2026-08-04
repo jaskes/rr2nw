@@ -2914,6 +2914,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.reboundConditionReferences));
     log.Line("mission_smoke_briefings=" +
              std::to_string(mission.presentedBriefings));
+    log.Line("mission_smoke_center_presentations=" +
+             std::to_string(mission.centerPresentationAttempts) + "/" +
+             std::to_string(mission.presentedCenterFlicks) + "/" +
+             std::to_string(mission.presentedHostilityBriefings) + "/" +
+             std::to_string(mission.centerPresentationFailures));
     log.Line("mission_smoke_briefing_commands=" +
              std::to_string(mission.briefingCommands));
     log.Line("mission_smoke_script_commands=" +
@@ -2928,10 +2933,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     }
     const int expectedBriefings =
         options.missionBriefingSmoke ? mission.briefingCommands : 0;
+    const int expectedCenterPresentations =
+        options.missionBriefingSmoke ? 1 : 0;
     loopFailed = !missionExecuted || !missionStaged ||
                  mission.executedScripts < 1 ||
                  mission.createdMissionObjects < 1 ||
                  mission.presentedBriefings != expectedBriefings ||
+                 mission.centerPresentationAttempts !=
+                     expectedCenterPresentations ||
+                 mission.presentedCenterFlicks +
+                         mission.presentedHostilityBriefings !=
+                     expectedCenterPresentations ||
+                 mission.centerPresentationFailures != 0 ||
                  mission.scriptRollbacks != 0 || !runCompleteFrame();
     if (!loopFailed && options.missionNaturalCombatSmoke) {
       const bool missionEjectionReady =
@@ -3915,7 +3928,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(lastMission.briefingCommands) + "/" +
              std::to_string(lastMission.scriptCommands) + "/" +
              std::to_string(lastMission.presentedBriefings) + "/" +
-             std::to_string(lastMission.scriptRollbacks));
+             std::to_string(lastMission.scriptRollbacks) + "/" +
+             std::to_string(lastMission.centerPresentationAttempts) + "/" +
+             std::to_string(lastMission.presentedCenterFlicks) + "/" +
+             std::to_string(lastMission.presentedHostilityBriefings) + "/" +
+             std::to_string(lastMission.centerPresentationFailures));
   }
   log.Line("windows_input_primary_fire_presses=" + std::to_string(
                RecoveredGameServices_VehiclePrimaryFirePresses()));

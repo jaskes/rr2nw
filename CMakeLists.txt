@@ -2678,6 +2678,8 @@ if(MSVC)
 endif()
 
 add_library(rr2nw_legacy_shell_full STATIC
+  src/runtime/RecoveredBriefingFileOpen.cpp
+  src/runtime/RecoveredBriefingFileOpen.h
   nw/ARENA/HARDWARE.cpp
   nw/ARENA/ShellGlobals.cpp
   nw/ARENA/ShellGlobals.inl
@@ -2686,6 +2688,7 @@ add_library(rr2nw_legacy_shell_full STATIC
   nw/BRIEFING/BRIEFING.CPP
 )
 target_link_libraries(rr2nw_legacy_shell_full PUBLIC
+  rr2nw_mod_runtime
   rr2nw_arena_menu_full
   rr2nw_arena_const_string
   rr2nw_briefing_channel_map
@@ -2703,6 +2706,18 @@ target_link_libraries(rr2nw_legacy_shell_full PUBLIC
   rr2nw_scene_vessel_runtime_state
   winmm
 )
+if(MSVC)
+  set_property(SOURCE nw/BRIEFING/BRIEFING.CPP APPEND PROPERTY
+    COMPILE_OPTIONS
+      "/FI${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/RecoveredBriefingFileOpen.h"
+  )
+else()
+  set_property(SOURCE nw/BRIEFING/BRIEFING.CPP APPEND PROPERTY
+    COMPILE_OPTIONS
+      "-include"
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/RecoveredBriefingFileOpen.h"
+  )
+endif()
 target_include_directories(rr2nw_legacy_shell_full PUBLIC
   nw/INCLUDE
   nw/DESIGN.LIB/H
@@ -2716,6 +2731,7 @@ target_include_directories(rr2nw_legacy_shell_full PUBLIC
 target_compile_features(rr2nw_legacy_shell_full PUBLIC cxx_std_14)
 target_compile_definitions(rr2nw_legacy_shell_full PRIVATE
   __NT__
+  RR2NW_PACKED_FLC_LAYOUT
   RR2NW_GOD_MODE_STATE_EXTERNAL
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS

@@ -3645,17 +3645,18 @@ runs.
 MSH1 and EVT1 then capture the authored PlayerMission and check event inside
 the full LCN1 transaction. Cleanup restores the Player/event baseline exactly;
 authored Routes are immutable Level resources and remain available for
-reference reconstruction. Commands that need unrecovered presentation or
-gameplay owners are decoded and counted, not executed. RecruitCenter's
-Level-derived configuration is likewise not an AWS1 mutable section yet.
+reference reconstruction. RecruitCenter's Level-derived configuration is not
+an AWS1 mutable section.
 Public collision admission and `rc_NEW_MISSION` now enter this bounded producer.
 The collision payload must name the live Player vehicle; repeated visits while
 that Commander's mission is active cannot allocate another mission or check
 event. A radius-safe eject updates both recovered Vehicle positions and stops
-the vessel without calling legacy Restart/repair. Briefing/video UI, hostility,
-unit creation, scripts, skip-way and mission-completion side effects remain
-explicitly outside this boundary. Final verification is 67/67 CTest in Debug and Release
-plus 18/18 installed retail Level starts across the two configurations. The
+the vessel without calling legacy Restart/repair. Real collision presentation
+uses the March default flick for ordinary visits and the January default
+briefing plus hostility branch for renegades; authored ProjectTable briefing
+commands remain a distinct post-commit stage. Final verification is 67/67
+CTest in Debug and Release plus 18/18 installed retail Level starts across the
+two configurations. The
 hermetic CI smoke additionally executes the archived five-field scripts and
 requires their exact two-live-of-four-capacity compatibility roster.
 

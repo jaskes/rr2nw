@@ -7,6 +7,12 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Real RecruitCenter collisions now play the retail-configured character FLC
+  before staging and presenting the authored mission briefing. The January
+  renegade branch retains its distinct default briefing and relation changes;
+  both paths expose separate presentation telemetry without entering save
+  state. DOS-rooted FLC paths now resolve through the deterministic retail/mod
+  VFS, and packed 128/16/6-byte FLC disk headers are enforced at compile time.
 - People and Tank rendering now interpolates from the previous confirmed
   simulation pose to the current one instead of extrapolating one additional
   AI step. Direction changes, target switches and collision corrections no

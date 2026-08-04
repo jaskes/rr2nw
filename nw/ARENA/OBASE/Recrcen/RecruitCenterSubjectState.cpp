@@ -75,6 +75,17 @@ struct PreparedMissionFile
     std::string source;
 };
 
+struct CenterEncounterPresentation
+{
+    int attempts;
+    int centerFlicks;
+    int hostilityBriefings;
+    int failures;
+
+    CenterEncounterPresentation()
+        : attempts(0), centerFlicks(0), hostilityBriefings(0), failures(0) {}
+};
+
 void SetError(const char *message)
 {
     std::snprintf(g_lastError, sizeof(g_lastError), "%s",
@@ -885,12 +896,16 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
                 event.timeStamp - m_previousVisitTime <
                     kCollisionDebounceSeconds)
                 return 1;
-            return admit(event.timeStamp);
+            Player &player = static_cast<Player &>(g_vehicle->player());
+            CenterEncounterPresentation presentation;
+            if (!m_probeAdmission)
+                presentation = presentEncounter(player);
+            return admit(event.timeStamp, &presentation);
         }
         if (event.label == rc_NEW_MISSION)
         {
             if (!m_configured || event.data.remaining() != 0) return 0;
-            return admit(event.timeStamp);
+            return admit(event.timeStamp, NULL);
         }
         if (event.label == rc_CHECK_MISSION)
         {
@@ -1004,6 +1019,19 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     int completedMissions() const { return m_completedMissions; }
     int failedMissions() const { return m_failedMissions; }
     int rewardsCreated() const { return m_rewardsCreated; }
+    int centerPresentationAttempts() const
+    {
+        return m_centerPresentationAttempts;
+    }
+    int presentedCenterFlicks() const { return m_presentedCenterFlicks; }
+    int presentedHostilityBriefings() const
+    {
+        return m_presentedHostilityBriefings;
+    }
+    int centerPresentationFailures() const
+    {
+        return m_centerPresentationFailures;
+    }
     void setProbeAdmission(bool value) { m_probeAdmission = value; }
     const RecruitCenterMissionProbeSummary &lastMissionSummary() const
     {
@@ -1026,7 +1054,53 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     }
 
  private:
-    int admit(double timeStamp)
+    CenterEncounterPresentation presentEncounter(Player &player)
+    {
+        CenterEncounterPresentation result;
+        ++result.attempts;
+        ++m_centerPresentationAttempts;
+
+        const bool renegade = player.isRenegat(m_commanderID) != 0;
+        const char *authoredPath = renegade ? m_defaultBriefing
+                                            : m_defaultFlick;
+        PreparedMissionFile prepared;
+        if (!m_videoConfigured || authoredPath[0] == 0 ||
+            !context->isExist("Briefing") ||
+            !PrepareMissionFile(authoredPath, false, &prepared))
+        {
+            ++result.failures;
+            ++m_centerPresentationFailures;
+        }
+        else
+        {
+            const bool previous = g_vehicle->m_playedBrief;
+            g_vehicle->m_playedBrief = true;
+            g_briefing.PlayBriefing(prepared.resolvedPath.c_str());
+            g_vehicle->m_playedBrief = previous;
+            if (renegade)
+            {
+                ++result.hostilityBriefings;
+                ++m_presentedHostilityBriefings;
+            }
+            else
+            {
+                ++result.centerFlicks;
+                ++m_presentedCenterFlicks;
+            }
+        }
+
+        // January already performed these relationship transitions before
+        // falling through to rc_NEW_MISSION. March split the configured
+        // presentation into the hostile default briefing and the ordinary
+        // character flick; presentation failure must not skip relationship
+        // ownership or mission admission.
+        if (renegade) player.BetrayFor(m_commanderID);
+        player.SetHostility(m_commanderID);
+        return result;
+    }
+
+    int admit(double timeStamp,
+              const CenterEncounterPresentation *presentation)
     {
         ++m_admissions;
         if (m_working)
@@ -1068,8 +1142,21 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
                                              &staged, &summary);
             if (admitted && staged)
             {
+                if (presentation != NULL)
+                {
+                    summary.centerPresentationAttempts =
+                        presentation->attempts;
+                    summary.presentedCenterFlicks =
+                        presentation->centerFlicks;
+                    summary.presentedHostilityBriefings =
+                        presentation->hostilityBriefings;
+                    summary.centerPresentationFailures =
+                        presentation->failures;
+                }
                 ++m_stagedMissions;
                 m_lastMissionSummary = summary;
+                g_lastMissionSummary = summary;
+                g_hasLastMissionSummary = true;
             }
             else if (admitted)
                 ++m_noProjectVisits;
@@ -1137,6 +1224,10 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         m_completedMissions = 0;
         m_failedMissions = 0;
         m_rewardsCreated = 0;
+        m_centerPresentationAttempts = 0;
+        m_presentedCenterFlicks = 0;
+        m_presentedHostilityBriefings = 0;
+        m_centerPresentationFailures = 0;
         std::memset(&m_lastMissionSummary, 0,
                     sizeof(m_lastMissionSummary));
         m_direction.LoadIdentity();
@@ -1168,6 +1259,10 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     int m_completedMissions;
     int m_failedMissions;
     int m_rewardsCreated;
+    int m_centerPresentationAttempts;
+    int m_presentedCenterFlicks;
+    int m_presentedHostilityBriefings;
+    int m_centerPresentationFailures;
     RecruitCenterMissionProbeSummary m_lastMissionSummary;
     CFMatrix3x4 m_direction;
 };
@@ -2240,6 +2335,52 @@ static bool StageMissionExecutionProbeForCenter(
             return false;
         }
         if (candidate.isNUL()) continue;
+        if (presentBriefing)
+        {
+            const int missionsBefore = player.m_missCnt;
+            const int collisionsBefore = center->playerCollisions();
+            const int admissionsBefore = center->admissions();
+            const int stagedBefore = center->stagedMissions();
+            const int ejectionsBefore = center->ejections();
+            const int attemptsBefore = center->centerPresentationAttempts();
+            const int flicksBefore = center->presentedCenterFlicks();
+            const int hostileBefore =
+                center->presentedHostilityBriefings();
+            const int failuresBefore = center->centerPresentationFailures();
+            const bool renegade =
+                player.isRenegat(center->commanderID()) != 0;
+            const KR_ObjectID vehicle = g_vehicle->getObjectID();
+            KR_Event collision(t_EV_ONCOLLISION, timeStamp,
+                               vehicle, center->getObjectID());
+            collision.data.open(EDO_WRITE).putObjectID(vehicle).close();
+            context->sendEventNow(collision);
+            const RecruitCenterMissionProbeSummary &committed =
+                center->lastMissionSummary();
+            const bool exact = player.m_missCnt == missionsBefore + 1 &&
+                center->playerCollisions() == collisionsBefore + 1 &&
+                center->admissions() == admissionsBefore + 1 &&
+                center->stagedMissions() == stagedBefore + 1 &&
+                center->ejections() == ejectionsBefore + 1 &&
+                center->centerPresentationAttempts() == attemptsBefore + 1 &&
+                center->presentedCenterFlicks() ==
+                    flicksBefore + (renegade ? 0 : 1) &&
+                center->presentedHostilityBriefings() ==
+                    hostileBefore + (renegade ? 1 : 0) &&
+                center->centerPresentationFailures() == failuresBefore &&
+                committed.stagedMissions == 1 &&
+                committed.centerPresentationAttempts == 1 &&
+                committed.presentedCenterFlicks == (renegade ? 0 : 1) &&
+                committed.presentedHostilityBriefings == (renegade ? 1 : 0) &&
+                committed.centerPresentationFailures == 0;
+            if (!exact)
+            {
+                SetError("RecruitCenter collision presentation did not commit");
+                return false;
+            }
+            *summary = committed;
+            *staged = true;
+            return true;
+        }
         return StageMissionForCenter(context, timeStamp, center, true,
                                      presentBriefing, staged, summary);
     }

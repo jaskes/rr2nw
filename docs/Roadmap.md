@@ -1767,13 +1767,14 @@ one authored briefing, creates 22 mission owners and exits cleanly. The normal
 `--mission-smoke` remains intentionally headless so transaction and UI failures
 continue to be distinguishable.
 
-Manual Level.03N confirmation narrows the remaining presentation gap: the
-mission briefing now appears, but the short character clip that retail showed
-before it does not. `rc_SET_VIDEO` already retains separate default briefing
-and flick strings, yet the May-era consumer/order is absent from the January
-source. Recover and gate that distinct first/repeat-visit presentation in
-Frontier G; do not fold it into mission admission or count the working
-ProjectTable briefing as equivalent evidence.
+The distinct RecruitCenter presentation gap is closed. A real Player collision
+now consumes both March `rc_SET_VIDEO` fields under the January control-flow
+boundary: ordinary visits play the center's default character flick before
+mission admission, while the renegade branch retains the archived default
+briefing, `m_playedBrief` guard and relation changes. ProjectTable briefing
+presentation remains a separate post-commit counter. The Level.03N Marauder
+gate visibly plays `Flic/maroder.flc`, then ProjectS25, and reports center
+presentation `1/1/0/0` with clean shutdown.
 
 The current Windows playtest boundary is also explicit. Successful frames now
 publish input, simulation, software-render, present and frame-boundary timing.
@@ -1917,9 +1918,10 @@ Timed and natural public-mission acquisition, attributed projectile damage,
 robot death effects and exact rollback are no longer part of that open row.
 
 The next gameplay row is the visible guide/occupied-Vehicle town-route repeat,
-then map (`M`), quests/objectives and required campaign/menu flows. Portal
-status presentation still needs the May remaining-Artefact messages and the
-short character/mission cinematics remain separate UI work.
+then quests/objectives and required campaign/menu flows (`M` already opens the
+recovered map). Portal status presentation still needs the May
+remaining-Artefact messages; broader mission cinematics remain separate UI
+work.
 
 Gate: a player can discover objectives, navigate with the map, complete and
 transition a representative mission chain, save before/after a portal and
@@ -1982,7 +1984,7 @@ a time behind the existing May behavior and continuation gates.
 ### 2026-08-04 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **65%** of the Windows-first 1.0 scope; strict
+implementation is approximately **66%** of the Windows-first 1.0 scope; strict
 release readiness is approximately **50-55%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
@@ -1991,7 +1993,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 65% | People/Tank combat, two weapons, missions, briefing, map, reward/Artefact and Portal progression | quests/objectives surface, center character clips, remaining AI/guide parity and complete campaign proof |
+| M3 retail parity | 66% | People/Tank combat, two weapons, missions, center FLC plus briefing, map, reward/Artefact and Portal progression | quests/objectives surface, remaining cinematics, AI/guide parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |

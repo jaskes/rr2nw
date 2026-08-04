@@ -5394,3 +5394,29 @@ the simulation may immediately reject. Loaded real-Skin probes require the
 half-sample pose behind authority, a stale authoritative pose and exact
 hidden-to-visible re-entry; scalar coverage proves continuity across two
 successive sample boundaries.
+
+### BD-153: RecruitCenter collision owns its character presentation
+
+Status: accepted on 2026-08-04 for March RecruitCenter video parity.
+
+The archived January handler is the control-flow authority: a Player collision
+performs presentation and Commander relation changes before falling through to
+`rc_NEW_MISSION`. Its renegade branch temporarily sets
+`g_vehicle->m_playedBrief`, presents the configured default briefing, restores
+the flag, calls `BetrayFor`, then always calls `SetHostility`. March retail data
+extends the setter to `rc_SET_VIDEO(defaultBriefing, defaultFlick)` and its
+ordinary center configs identify the missing character FLC.
+
+The reconciled normal branch therefore presents `m_defaultFlick`; the renegade
+branch remains January-exact. Both run only from a real Player collision, not
+from serializer or headless producer probes. A missing presentation is
+reported but cannot leave a half-created mission: admission still owns its own
+preflight, commit, ejection and rollback, while ProjectTable briefing commands
+remain post-commit and separately counted.
+
+FLC `Name` values are DOS-rooted, case-insensitive retail paths. Binary reads
+go through a narrow force-included bridge so the non-UTF8 archival
+`BRIEFING.CPP` stays untouched and deterministic mod overlays remain visible.
+The disk structs are explicitly packed to the format's 128-byte file header,
+16-byte frame header and 6-byte chunk header; host ABI padding is not accepted
+as file layout. None of this presentation state enters MSH1, AWS1 or LCN1.

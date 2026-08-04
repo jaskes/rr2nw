@@ -68,6 +68,20 @@ bool ReadThroughResource(const std::string& path, std::string* text) {
   return std::fclose(file) == 0 && read;
 }
 
+bool ReadThroughBaseResource(const std::string& path, std::string* text) {
+  long length = -1;
+  FILE* file = RecoveredModRuntime_OpenBaseRead(path.c_str(), &length);
+  if (file == nullptr || length < 0 || length > 1024) {
+    if (file != nullptr) std::fclose(file);
+    return false;
+  }
+  text->assign(static_cast<std::size_t>(length), '\0');
+  const bool read = length == 0 ||
+                    std::fread(&(*text)[0], static_cast<std::size_t>(length),
+                               1, file) == 1;
+  return std::fclose(file) == 0 && read;
+}
+
 int Fail(const char* message) {
   std::fprintf(stderr, "recovered mod runtime smoke: %s; issues=%u error=%s\n",
                message, RecoveredModRuntime_Issues(),
@@ -88,12 +102,14 @@ int main(int argc, char** argv) {
   const std::string physicalCollision = Join(base, "Level.Physical");
   const std::string routeDirectory = Join(level, "Route");
   const std::string routeGroup = Join(routeDirectory, "S00");
+  const std::string flicDirectory = Join(base, "flic");
   const std::string mod = Join(root, "mod");
   const std::string textures = Join(mod, "textures");
   if (!MakeDirectory(argv[1]) || !MakeDirectory(root) ||
       !MakeDirectory(base) || !MakeDirectory(level) || !MakeDirectory(mod) ||
       !MakeDirectory(physicalCollision) || !MakeDirectory(textures) ||
-      !MakeDirectory(routeDirectory) || !MakeDirectory(routeGroup))
+      !MakeDirectory(routeDirectory) || !MakeDirectory(routeGroup) ||
+      !MakeDirectory(flicDirectory))
     return Fail("could not create fixture directories");
 
   const std::string baseTarget = Join(level, "sample.txt");
@@ -101,8 +117,10 @@ int main(int argc, char** argv) {
   const std::string modSource = Join(textures, "replacement.txt");
   const std::string manifest = Join(mod, "mod.json");
   const std::string baseRoute = Join(routeGroup, "base.rt");
+  const std::string baseFlic = Join(flicDirectory, "sample.flc");
   if (!Write(baseTarget, "base-data") || !Write(baseOther, "base-other") ||
       !Write(baseRoute, "ms00.base\n2\n[0,0,0]\n[1,0,0]\n") ||
+      !Write(baseFlic, "root-relative-flic") ||
       !Write(modSource, "mod-data") ||
       !Write(manifest, "\xef\xbb\xbf" +
                            Manifest("textures/replacement.txt",
@@ -115,7 +133,10 @@ int main(int argc, char** argv) {
       RecoveredModRuntime_IsActive() ||
       RecoveredModRuntime_CombineContentFingerprint(baseFingerprint) !=
           baseFingerprint ||
-      !ReadThroughResource(baseTarget, &text) || text != "base-data")
+      !ReadThroughResource(baseTarget, &text) || text != "base-data" ||
+      !ReadThroughBaseResource("Flic\\sample.flc", &text) ||
+      text != "root-relative-flic" ||
+      ReadThroughBaseResource("..\\outside.flc", &text))
     return Fail("base-only resolver contract failed");
 
   if (!RecoveredModRuntime_Configure(base.c_str(), mod.c_str()) ||

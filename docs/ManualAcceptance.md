@@ -221,20 +221,25 @@ forward basis, and the pre-drive mission world was restored exactly. Delivery
 of the retained artefact reward is a separate completion/revisit acceptance
 row.
 
-To verify the actual briefing presenter rather than the headless transaction,
-run this one-line Playtest command. The authored splash must appear, remain
-visible for its retail duration and the process must then exit by itself:
+To verify the actual town-hall presentation rather than the headless
+transaction, run this one-line Playtest command. The short Marauder character
+FLC must appear first, the authored ProjectS25 briefing must follow, and the
+process must then exit by itself:
 
 ```powershell
 & ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --mission-briefing-smoke --mission-center "Marauders.Recruit.0" --diagnostics-dir "$PWD\manual-logs\mission-briefing"
 ```
 
-The log must name `ProjectS25`, report one briefing command and one presented
-briefing, `created_objects=22`, `rollbacks=0`, `game_services_issues=0` and
-`runtime_shutdown=clean`. Its `mission_smoke_vehicle_drive` must begin
+The log must name `ProjectS25`, report
+`mission_smoke_center_presentations=1/1/0/0`, one briefing command and one
+presented mission briefing, `created_objects=22`, `rollbacks=0`,
+`game_services_issues=0` and `runtime_shutdown=clean`. The four center fields
+are attempts/normal-flicks/hostile-briefings/failures. Its
+`mission_smoke_vehicle_drive` must begin
 `2/2/2/2/2` and end `2/2`, proving both same-name mission jeeps, both HUDs,
 forward-aligned travel and exact rollback. A transaction-only success with
-zero presentations is a presentation regression.
+zero presentations, a missing center flick or a non-zero center failure is a
+presentation regression.
 
 The roster field is `ready/capacity/live/video/defaultTaxi/dictionary`. In
 Level order its expected values are `1/4/3/3/3/3`, `1/4/1/1/0/1`,

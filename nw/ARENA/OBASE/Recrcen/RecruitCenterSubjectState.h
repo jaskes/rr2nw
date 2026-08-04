@@ -13,6 +13,10 @@ struct RecruitCenterMissionProbeSummary
     int scriptCommands;
     int executedScripts;
     int presentedBriefings;
+    int centerPresentationAttempts;
+    int presentedCenterFlicks;
+    int presentedHostilityBriefings;
+    int centerPresentationFailures;
     int createdMissionObjects;
     int reboundConditionReferences;
     int scriptRollbacks;

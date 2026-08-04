@@ -1692,6 +1692,29 @@ bool RecoveredModRuntime_ResolveReadPath(const char* requested,
   return true;
 }
 
+bool RecoveredModRuntime_ResolveBaseReadPath(const char* requested,
+                                             char* resolved,
+                                             std::size_t resolvedSize) {
+  if (requested == nullptr || requested[0] == '\0' || resolved == nullptr ||
+      resolvedSize == 0)
+    return false;
+  if (!g_configured)
+    return RecoveredModRuntime_ResolveReadPath(requested, resolved,
+                                               resolvedSize);
+
+  const bool absolute =
+      requested[0] == '\\' || requested[0] == '/' ||
+      (std::strlen(requested) > 1u && requested[1] == ':');
+  std::string full;
+  if (!FullPath(absolute ? std::string(requested)
+                         : JoinPath(g_baseLexical, requested),
+                &full) ||
+      (!IsWithin(full, g_baseLexical) && !IsWithin(full, g_baseFinal)))
+    return false;
+  return RecoveredModRuntime_ResolveReadPath(full.c_str(), resolved,
+                                             resolvedSize);
+}
+
 bool RecoveredModRuntime_ListLevelFiles(
     const char* relativeDirectory, const char* extension,
     std::vector<std::string>* paths, std::string* failure) {
@@ -1775,6 +1798,28 @@ FILE* RecoveredModRuntime_OpenRead(const char* requested, long* length) {
   char resolved[4096] = {};
   if (!RecoveredModRuntime_ResolveReadPath(requested, resolved,
                                            sizeof(resolved)))
+    return nullptr;
+  FILE* file = std::fopen(resolved, "rb");
+  if (file == nullptr) return nullptr;
+  if (length != nullptr) {
+    if (std::fseek(file, 0, SEEK_END) != 0) {
+      std::fclose(file);
+      return nullptr;
+    }
+    const long measured = std::ftell(file);
+    if (measured < 0 || std::fseek(file, 0, SEEK_SET) != 0) {
+      std::fclose(file);
+      return nullptr;
+    }
+    *length = measured;
+  }
+  return file;
+}
+
+FILE* RecoveredModRuntime_OpenBaseRead(const char* requested, long* length) {
+  char resolved[4096] = {};
+  if (!RecoveredModRuntime_ResolveBaseReadPath(requested, resolved,
+                                               sizeof(resolved)))
     return nullptr;
   FILE* file = std::fopen(resolved, "rb");
   if (file == nullptr) return nullptr;

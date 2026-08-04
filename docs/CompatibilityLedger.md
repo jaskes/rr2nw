@@ -4061,27 +4061,25 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-212: the RecruitCenter character clip is distinct from mission briefing
 
-- Status: `PLAYTEST_OBSERVED`, `RETAIL_DATA_CONFIRMED`,
-  `MAY_CONTROL_FLOW_OPEN`.
-- Evidence: current Level.03N playtest presents the authored mission briefing,
-  but not the short character clip that preceded it in retail. `rc_SET_VIDEO`
-  supplies two separate strings and the recovered center fingerprints both
-  `m_defaultBriefing` and `m_defaultFlick`; mission presentation currently
-  plays only deferred ProjectTable `COM_PLAY_BRIEFING*` resources. The January
-  source predates the two-string event and therefore does not prove the May
-  sequencing rule.
-- Handling: keep both configured resources and the working mission briefing.
-  Do not treat a non-zero briefing count as proof that the center-introduction
-  clip ran, and do not guess whether the flick belongs before admission, only
-  on first visit, or on Commander/renegade branches.
-- Verification: manual Level.03N town-hall entry currently proves mission
-  admission, ejection and the subsequent briefing, while explicitly recording
-  the absent pre-brief clip. A future gate must count and visibly distinguish
-  center clips from ProjectTable briefings.
-- Revisit when: controlled retail observation or May-binary analysis identifies
-  the exact `rc_SET_VIDEO` consumer, first/repeat-visit policy and interaction
-  with `g_vehicle->m_playedBrief`. Then add presentation state without changing
-  MSH1 or mission transaction ownership.
+- Status: `JANUARY_CONTROL_FLOW_PRESERVED`, `MARCH_DATA_RECONCILED`,
+  `INSTALLED_RUNTIME_PROVED`, `PORTABILITY_FIX_ACCEPTED`.
+- Evidence: January `t_EV_ONCOLLISION` performs the renegade default-briefing
+  branch, hostility changes and then falls through to `rc_NEW_MISSION`. March
+  `rc_SET_VIDEO(defaultBriefing, defaultFlick)` adds the distinct normal-visit
+  character resource. Level.03N maps those flick configs to
+  `Flic/civil1.flc` and `Flic/maroder.flc`.
+- Handling: a real normal Player collision presents `m_defaultFlick` before
+  admission. A renegade collision retains January `m_defaultBriefing`, the
+  temporary `g_vehicle->m_playedBrief` guard, `BetrayFor` and `SetHostility`.
+  ProjectTable `COM_PLAY_BRIEFING*` still presents only after the mission
+  transaction commits. Presentation counters never enter MSH1/LCN1.
+- Verification: the visible Level.03N Marauder collision gate reports center
+  presentations `1/1/0/0`, then one ProjectS25 briefing, 22 created owners,
+  zero rollback, zero game-service issues and clean shutdown. Headless mission
+  probes require all four center-presentation fields to remain zero.
+- Revisit when: controlled retail evidence distinguishes first visit from
+  repeated normal collisions. Keep that policy change presentation-only and do
+  not merge center FLC telemetry with mission briefing telemetry.
 
 ### CQ-213: mission Taxi object names are not unique identities
 
