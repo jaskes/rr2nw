@@ -542,6 +542,30 @@ int BulletAttributeState_RosterSize(SimulationContext *context)
                : -1;
 }
 
+const char *BulletAttributeState_AttributeNameAt(
+    SimulationContext *context, int index)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) || index < 0 ||
+        index >= static_cast<int>(collector.entries.size()))
+        return NULL;
+    AttributeBullet *attribute = collector.entries[index].attribute;
+    return attribute == NULL
+        ? NULL
+        : context->searchObject(attribute->getObjectID());
+}
+
+int BulletAttributeState_AttributeUsesSkinAt(
+    SimulationContext *context, int index)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector) || index < 0 ||
+        index >= static_cast<int>(collector.entries.size()) ||
+        collector.entries[index].attribute == NULL)
+        return -1;
+    return collector.entries[index].attribute->m_useSkin != 0 ? 1 : 0;
+}
+
 int BulletAttributeState_Capacity()
 {
     return g_attributeCapacity;
@@ -815,6 +839,37 @@ const char *BulletAttributeState_FirstBarrelSmokeAttributeName(
         if (attribute != NULL && attribute->m_useBarellSmoke != 0 &&
             attribute->m_smokeTableID != ct_NULLID &&
             !attribute->m_smokeAttrID.isNUL())
+            return context->searchObject(attribute->getObjectID());
+    }
+    return NULL;
+}
+
+const char *BulletAttributeState_FirstParticleAttributeName(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return NULL;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeBullet *attribute = collector.entries[i].attribute;
+        if (attribute != NULL && attribute->m_useSkin == 0)
+            return context->searchObject(attribute->getObjectID());
+    }
+    return NULL;
+}
+
+const char *BulletAttributeState_FirstSkinAttributeName(
+    SimulationContext *context)
+{
+    RosterCollector collector = {};
+    if (!CollectRoster(context, collector))
+        return NULL;
+    for (std::size_t i = 0; i < collector.entries.size(); ++i)
+    {
+        AttributeBullet *attribute = collector.entries[i].attribute;
+        if (attribute != NULL && attribute->m_useSkin != 0 &&
+            attribute->m_cacheSkin != NULL)
             return context->searchObject(attribute->getObjectID());
     }
     return NULL;

@@ -15,6 +15,7 @@
 
 #include "BulletAttributeState.h"
 #include "enum/SpaceEnum.h"
+#include "h/light.h"
 #include "i/dynobj.i"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"
@@ -366,16 +367,202 @@ void HashString(unsigned long long &hash, const char *value)
     HashBytes(hash, value, static_cast<int>(std::strlen(value)) + 1);
 }
 
+class BulletParticleDrawable : public CViewSphericDynamic
+{
+ public:
+    BulletParticleDrawable()
+        : m_radius0(0.0), m_radius1(0.0), m_step0(0.0), m_step(0.0),
+          m_colors(NULL)
+    {
+        m_start = CFVector3(0.0, 0.0, 0.0);
+        m_end = CFVector3(0.0, 0.0, 0.0);
+    }
+
+    void prepare(const CFVector3 &start, const CFVector3 &end,
+                 double radius0, double radius1, double step0,
+                 double step, unsigned long *colors)
+    {
+        m_start = start;
+        m_end = end;
+        m_radius0 = radius0;
+        m_radius1 = radius1;
+        m_step0 = step0;
+        m_step = step;
+        m_colors = colors;
+        m_dynBase = m_dynBase1 = m_bump.start = (start + end) * 0.5;
+        m_bump.vel = CFVector3(0.0, 0.0, 0.0);
+        m_bump.fTime = 0.0;
+        m_bump.fRadius = Abs(end - start) * 0.5 +
+            (std::max)(radius0, radius1);
+    }
+
+    virtual void Draw()
+    {
+        if (_pGRDrawParticle == NULL || m_colors == NULL)
+            return;
+        const CFVector3 segment = m_end - m_start;
+        const double length = Abs(segment);
+        if (!std::isfinite(length) || length <= 1.0e-8)
+            return;
+        const CFVector3 direction = segment / length;
+        double offset = 0.0;
+        double step = m_step0;
+        if (!std::isfinite(step) || step <= 1.0e-5)
+            step = length;
+        const double acceleration =
+            std::isfinite(m_step) && m_step > 0.0 ? m_step : 0.0;
+        for (int sample = 0; sample < 256 && offset <= length; ++sample)
+        {
+            const double fraction = offset / length;
+            const CFVector3 position = m_start + direction * offset;
+            const CFVector3 view =
+                CViewObject::m_viewPointDirSMx * position;
+            if (std::isfinite(view.z) &&
+                view.z >= CViewObject::m_fFrontClip)
+            {
+                const double inverse = 1.0 / view.z;
+                const double radius = m_radius0 +
+                    (m_radius1 - m_radius0) * fraction;
+                int size = Round(radius *
+                                 CViewObject::m_viewPointScale.x * inverse);
+                if (size < 1)
+                    size = 1;
+                const int inverseZ =
+                    static_cast<int>(65536.0 * inverse);
+                int color = static_cast<int>(fraction *
+                    (RR2NW_BULLET_COLOR_GRAD - 1));
+                if (color < 0)
+                    color = 0;
+                else if (color >= RR2NW_BULLET_COLOR_GRAD)
+                    color = RR2NW_BULLET_COLOR_GRAD - 1;
+                if (inverseZ > 0)
+                    GRDrawParticle(Round(view.x * inverse),
+                                   Round(view.y * inverse), size,
+                                   inverseZ, m_colors[color]);
+            }
+            offset += step;
+            step += acceleration;
+        }
+    }
+
+ private:
+    CFVector3 m_start;
+    CFVector3 m_end;
+    double m_radius0;
+    double m_radius1;
+    double m_step0;
+    double m_step;
+    unsigned long *m_colors;
+};
+
+class BulletSkinDrawable : public CViewSphericDynamic
+{
+ public:
+    explicit BulletSkinDrawable(CViewObjectRef &skin) : m_skin(skin) {}
+
+    void prepare()
+    {
+        if (m_skin.Model() == NULL)
+            return;
+        m_dynBase = m_dynBase1 = m_bump.start = m_skin.Center();
+        m_bump.vel = CFVector3(0.0, 0.0, 0.0);
+        m_bump.fTime = 0.0;
+        m_bump.fRadius = m_skin.Model()->Radius();
+    }
+
+    virtual void Draw()
+    {
+        if (m_skin.Model() == NULL)
+            return;
+        m_skin.LoadLights(m_dwLights);
+        m_skin.Draw();
+    }
+
+ private:
+    CViewObjectRef &m_skin;
+};
+
 class BoundedBullet : public ct_Subject
 {
  public:
-    BoundedBullet()
+    BoundedBullet() : m_skinDrawable(m_skin)
     {
         resetState();
     }
 
     virtual CFVector3 realPosition() { return m_position; }
     virtual bool shouldDump() { return false; }
+
+    virtual void render(CViewDynamicList &list, double timeStamp)
+    {
+        if (!m_started || m_attribute == NULL)
+            return;
+        const CFVector3 interpolated = presentationPosition(timeStamp);
+        if (m_attribute->m_useSkin != 0)
+        {
+            if (!m_skinAttached || m_skin.Model() == NULL)
+            {
+                ++g_runtimeTelemetry.skippedSkinRenderSubmissions;
+                BulletRuntimeTelemetry *owner =
+                    OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+                if (owner != NULL)
+                    ++owner->skippedSkinRenderSubmissions;
+                return;
+            }
+            prepareSkin(interpolated, timeStamp);
+            m_skinDrawable.prepare();
+            list.Load(&m_skinDrawable);
+            m_publishedDrawable = &m_skinDrawable;
+            ++g_runtimeTelemetry.skinRenderSubmissions;
+            BulletRuntimeTelemetry *owner =
+                OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+            if (owner != NULL)
+                ++owner->skinRenderSubmissions;
+        }
+        else
+        {
+            CFVector3 start = m_previousPosition;
+            const CFVector3 segment = interpolated - start;
+            const double length = Abs(segment);
+            if (std::isfinite(length) && length > m_attribute->m_length &&
+                m_attribute->m_length > 0.0)
+                start = interpolated -
+                    segment * (m_attribute->m_length / length);
+            m_particleDrawable.prepare(
+                start, interpolated, m_attribute->m_radius0,
+                m_attribute->m_radius1, m_attribute->m_step0,
+                m_attribute->m_step, m_attribute->m_colorGrad);
+            list.Load(&m_particleDrawable);
+            m_publishedDrawable = &m_particleDrawable;
+            ++g_runtimeTelemetry.particleRenderSubmissions;
+            BulletRuntimeTelemetry *owner =
+                OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+            if (owner != NULL)
+                ++owner->particleRenderSubmissions;
+        }
+        ++g_runtimeTelemetry.renderSubmissions;
+        BulletRuntimeTelemetry *owner =
+            OwnerRuntimeTelemetry(m_ownerTelemetryIndex);
+        if (owner != NULL)
+            ++owner->renderSubmissions;
+        if (m_attribute->m_useLight != 0 &&
+            m_attribute->m_lightColor >= 0 &&
+            m_attribute->m_lightColor < LIGHT_COLOR_COUNT &&
+            std::isfinite(m_attribute->m_lightRadius) &&
+            m_attribute->m_lightRadius > 0.0)
+            g_lightChain.add(interpolated, m_attribute->m_lightColor,
+                             m_attribute->m_lightBrightness,
+                             m_attribute->m_lightRadius);
+    }
+
+    virtual void endRender(CViewScene *scene)
+    {
+        if (m_publishedDrawable == NULL)
+            return;
+        if (scene != NULL)
+            scene->RemoveLandDynamic(m_publishedDrawable);
+        m_publishedDrawable = NULL;
+    }
 
     virtual void addNotify()
     {
@@ -385,6 +572,8 @@ class BoundedBullet : public ct_Subject
 
     virtual void removeNotify()
     {
+        if (m_publishedDrawable != NULL)
+            endRender(CViewScene::Current());
         releaseActiveCount();
         if (context != NULL)
         {
@@ -440,6 +629,12 @@ class BoundedBullet : public ct_Subject
     const CFVector3 &velocity() const { return m_velocity; }
     int collisionCheckCount() const { return m_collisionCheckCount; }
     int sceneQueryCount() const { return m_sceneQueryCount; }
+
+    bool skinAttached() const { return m_skinAttached; }
+    bool presentationPublished() const
+    {
+        return m_publishedDrawable != NULL;
+    }
 
     bool captureStable(SimulationContext *world,
                        StableBulletRecord *record)
@@ -543,6 +738,7 @@ class BoundedBullet : public ct_Subject
         m_countedActive = true;
         m_ownerTelemetryIndex = FindOwnerRuntimeEntry(
             record.master.empty() ? NULL : record.master.c_str(), true);
+        attachPresentation();
         ++g_activeBullets;
         g_runtimeTelemetry.peakLiveBullets = (std::max)(
             g_runtimeTelemetry.peakLiveBullets, g_activeBullets);
@@ -614,6 +810,51 @@ class BoundedBullet : public ct_Subject
         m_sceneQueryCount = 0;
         m_countedActive = false;
         m_ownerTelemetryIndex = -1;
+        m_skinAttached = false;
+        m_publishedDrawable = NULL;
+    }
+
+    void attachPresentation()
+    {
+        m_skinAttached = false;
+        if (m_attribute != NULL && m_attribute->m_useSkin != 0 &&
+            m_attribute->m_cacheSkin != NULL)
+        {
+            m_skin.Attach(m_attribute->m_cacheSkin);
+            m_skinAttached = m_skin.Model() != NULL;
+        }
+    }
+
+    CFVector3 presentationPosition(double timeStamp) const
+    {
+        double delta = timeStamp - m_lastMoveTimeStamp;
+        if (!std::isfinite(delta) || delta < 0.0)
+            delta = 0.0;
+        const double maximum = m_attribute != NULL &&
+                std::isfinite(m_attribute->m_moveTimeIncrement) &&
+                m_attribute->m_moveTimeIncrement > 0.0
+            ? m_attribute->m_moveTimeIncrement
+            : 0.02;
+        if (delta > maximum)
+            delta = maximum;
+        return m_position +
+            (m_velocity + CFVector3(0.0, kGravity, 0.0) *
+                (0.5 * delta)) * delta;
+    }
+
+    void prepareSkin(const CFVector3 &position, double timeStamp)
+    {
+        CFMatrix3x4 &matrix = m_skin.GetDirModify();
+        matrix.LoadIdentity();
+        const double heading = std::atan2(-m_velocity.x, -m_velocity.z);
+        const double elevation = std::atan2(
+            m_velocity.y, std::hypot(m_velocity.x, m_velocity.z));
+        matrix.RotateOzL(m_attribute->m_rotSpeedOz * timeStamp);
+        matrix.RotateOxL(elevation +
+                         m_attribute->m_rotSpeedOx * timeStamp);
+        matrix.RotateOyL(heading +
+                         m_attribute->m_rotSpeedOy * timeStamp);
+        matrix.TranslateL(position);
     }
 
     bool scheduleMove(double previousTimeStamp, double timeStamp)
@@ -704,6 +945,7 @@ class BoundedBullet : public ct_Subject
         m_initialDirection = direction * inverseLength;
         m_velocity = m_initialDirection * attribute->m_startSpeed;
         m_started = true;
+        attachPresentation();
         m_countedActive = true;
         ++g_activeBullets;
         ++g_runtimeTelemetry.acceptedStarts;
@@ -999,6 +1241,11 @@ class BoundedBullet : public ct_Subject
     int m_sceneQueryCount;
     bool m_countedActive;
     int m_ownerTelemetryIndex;
+    CViewObjectRef m_skin;
+    BulletSkinDrawable m_skinDrawable;
+    BulletParticleDrawable m_particleDrawable;
+    bool m_skinAttached;
+    CViewDynamic *m_publishedDrawable;
 };
 
 class BoundedBulletTable : public ct_SubjectTable
@@ -1032,7 +1279,7 @@ class BoundedBulletTable : public ct_SubjectTable
         return &m_table[index];
     }
 
-    virtual bool isRendering() { return false; }
+    virtual bool isRendering() { return true; }
     virtual bool isAudible() { return false; }
 
     int capacity() const { return m_maxObjectQnty; }
@@ -2351,6 +2598,144 @@ bool BulletSubjectState_ProbeBarrelSmokeLifecycle(
            !context->isExist("Bullet.BarrelSmoke.FrameGate.Probe") &&
            !context->isExist("Bullet.BarrelSmoke.AttributeGate.Probe") &&
            !context->isExist("Smok.");
+}
+
+bool BulletSubjectState_ProbePresentationLifecycle(
+    SimulationContext *context, const char *particleAttributeName,
+    const char *skinAttributeName, double timeStamp,
+    BulletPresentationProbeSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    const bool hasParticle = particleAttributeName != NULL &&
+        particleAttributeName[0] != 0;
+    const bool hasSkin = skinAttributeName != NULL && skinAttributeName[0] != 0;
+    if (context == NULL || (!hasParticle && !hasSkin) ||
+        g_bulletTable.liveCount() != 0 || g_lightChain.m_count != 0 ||
+        g_lightChain.m_list != NULL || CViewObject::EnabledLights() != 0)
+        return false;
+
+    const ct_ClassTableID attributeTable =
+        g_arena.searchSeanceClassTable("BulletAttr");
+    const ct_ClassTableID subjectTable =
+        g_arena.searchSeanceClassTable("Bullet");
+    if (attributeTable == ct_NULLID || subjectTable == ct_NULLID)
+        return false;
+    summary->tableRenders = g_bulletTable.isRendering() ? 1 : 0;
+
+    const double ts = timeStamp < 0.1 ? 0.1 : timeStamp;
+    const KR_ObjectID source = g_arena.getObjectID();
+    const CFVector3 position(1000000.0, 1000000.0, 1000000.0);
+    const CFVector3 direction(0.0, 0.0, -1.0);
+    const char *names[2] = {particleAttributeName, skinAttributeName};
+    const char *owners[2] = {
+        "Bullet.Presentation.Particle.Probe",
+        "Bullet.Presentation.Skin.Probe"};
+    bool valid = summary->tableRenders == 1;
+    const BulletRuntimeTelemetry before = g_runtimeTelemetry;
+    const std::vector<BulletOwnerRuntimeEntry> ownerTelemetryBefore =
+        g_ownerRuntimeTelemetry;
+    const unsigned int activeBefore = g_activeBullets;
+    const int smokeLiveBefore = SmokeSubjectState_LiveCount();
+    const int sparkLiveBefore = SparkSubjectState_LiveCount();
+    int expectedSubmissions = 0;
+    for (int index = 0; index < 2 && valid; ++index)
+    {
+        if (names[index] == NULL || names[index][0] == 0)
+            continue;
+        ++expectedSubmissions;
+        KR_ObjectID attributeID = context->searchObject(names[index]);
+        AttributeBullet *attribute = static_cast<AttributeBullet *>(
+            __bulletAttrTable.searchAttribute(attributeID));
+        const int attributeIndex = attributeID.isNUL()
+            ? -1
+            : g_arena.getAttributeIndex(attributeTable, attributeID);
+        const bool expectsSkin = index == 1;
+        if (attribute == NULL || attributeIndex < 0 ||
+            (!expectsSkin && attribute->m_useSkin != 0) ||
+            (expectsSkin && (attribute->m_useSkin == 0 ||
+                             attribute->m_cacheSkin == NULL)))
+        {
+            valid = false;
+            break;
+        }
+
+        KR_ObjectID bullet =
+            g_arena.newObject(subjectTable, owners[index]);
+        BoundedBullet *object = g_bulletTable.find(bullet);
+        KR_Event event;
+        BuildStartEvent(event, bullet, source, ts + index, position,
+                        direction, attributeIndex, source);
+        const int previousBarrelSmoke = attribute->m_useBarellSmoke;
+        attribute->m_useBarellSmoke = 0;
+        context->sendEventNow(event);
+        attribute->m_useBarellSmoke = previousBarrelSmoke;
+        const bool started = !bullet.isNUL() && object != NULL &&
+            object->started() &&
+            (!expectsSkin || object->skinAttached());
+        CViewDynamicList list;
+        if (started)
+            object->render(list, ts + index +
+                attribute->m_moveTimeIncrement * 0.5);
+        const bool expectsLight = attribute->m_useLight != 0 &&
+            attribute->m_lightColor >= 0 &&
+            attribute->m_lightColor < LIGHT_COLOR_COUNT &&
+            std::isfinite(attribute->m_lightRadius) &&
+            attribute->m_lightRadius > 0.0;
+        const bool lightSubmissionValid = expectsLight
+            ? g_lightChain.m_count == 1 &&
+                g_lightChain.m_list == g_lightChain.m_dim
+            : g_lightChain.m_count == 0 && g_lightChain.m_list == NULL;
+        const bool submitted = started && list.First() != NULL &&
+            object->presentationPublished() && lightSubmissionValid;
+        list.Clear(false);
+        if (object != NULL)
+            object->endRender(NULL);
+        CViewObject::EnableLights(0);
+        g_lightChain.m_list = NULL;
+        g_lightChain.m_count = 0;
+        const bool detached = object != NULL &&
+            !object->presentationPublished();
+        if (!expectsSkin)
+            summary->particleSubmissions = submitted ? 1 : 0;
+        else
+            summary->skinSubmissions = submitted ? 1 : 0;
+        summary->detachedSubmissions += detached ? 1 : 0;
+        RemoveIfPresent(context, bullet);
+        valid = started && submitted && detached &&
+            SmokeSubjectState_LiveCount() == smokeLiveBefore &&
+            SparkSubjectState_LiveCount() == sparkLiveBefore;
+    }
+
+    summary->skippedSkinSubmissions = static_cast<int>(
+        g_runtimeTelemetry.skippedSkinRenderSubmissions -
+        before.skippedSkinRenderSubmissions);
+    const int expectedParticleSubmissions = hasParticle ? 1 : 0;
+    const int expectedSkinSubmissions = hasSkin ? 1 : 0;
+    const bool result = valid && summary->tableRenders == 1 &&
+           summary->particleSubmissions == expectedParticleSubmissions &&
+           summary->skinSubmissions == expectedSkinSubmissions &&
+           summary->skippedSkinSubmissions == 0 &&
+           summary->detachedSubmissions == expectedSubmissions &&
+           g_runtimeTelemetry.particleRenderSubmissions ==
+               before.particleRenderSubmissions +
+                   expectedParticleSubmissions &&
+           g_runtimeTelemetry.skinRenderSubmissions ==
+               before.skinRenderSubmissions + expectedSkinSubmissions &&
+           g_runtimeTelemetry.renderSubmissions ==
+               before.renderSubmissions + expectedSubmissions &&
+           g_lightChain.m_count == 0 && g_lightChain.m_list == NULL &&
+           CViewObject::EnabledLights() == 0 &&
+           g_bulletTable.liveCount() == 0 &&
+           SmokeSubjectState_LiveCount() == smokeLiveBefore &&
+           SparkSubjectState_LiveCount() == sparkLiveBefore &&
+           !context->isExist(owners[0]) &&
+           !context->isExist(owners[1]);
+    g_runtimeTelemetry = before;
+    g_ownerRuntimeTelemetry = ownerTelemetryBefore;
+    g_activeBullets = activeBefore;
+    return result;
 }
 
 void BulletActiveWorldState_Link()

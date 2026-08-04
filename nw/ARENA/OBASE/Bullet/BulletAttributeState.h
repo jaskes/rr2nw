@@ -98,6 +98,10 @@ extern AttributeTableBullet __bulletAttrTable;
 
 void BulletAttributeState_Link();
 int BulletAttributeState_RosterSize(SimulationContext *context);
+const char *BulletAttributeState_AttributeNameAt(
+    SimulationContext *context, int index);
+int BulletAttributeState_AttributeUsesSkinAt(
+    SimulationContext *context, int index);
 int BulletAttributeState_Capacity();
 int BulletAttributeState_SubjectCapacity();
 bool BulletAttributeState_SubjectTableReady(SimulationContext *context);
@@ -118,6 +122,10 @@ bool BulletAttributeState_ResolveEncodedIndex(
 const char *BulletAttributeState_FirstAttributeName(
     SimulationContext *context);
 const char *BulletAttributeState_FirstBarrelSmokeAttributeName(
+    SimulationContext *context);
+const char *BulletAttributeState_FirstParticleAttributeName(
+    SimulationContext *context);
+const char *BulletAttributeState_FirstSkinAttributeName(
     SimulationContext *context);
 
 #endif

@@ -49,8 +49,21 @@ struct BulletRuntimeTelemetry
     unsigned int impactEffectChildren;
     unsigned int groundRemovals;
     unsigned int barrelSmokeStarts;
+    unsigned int renderSubmissions;
+    unsigned int particleRenderSubmissions;
+    unsigned int skinRenderSubmissions;
+    unsigned int skippedSkinRenderSubmissions;
     unsigned int liveBullets;
     unsigned int peakLiveBullets;
+};
+
+struct BulletPresentationProbeSummary
+{
+    int tableRenders;
+    int particleSubmissions;
+    int skinSubmissions;
+    int skippedSkinSubmissions;
+    int detachedSubmissions;
 };
 
 void BulletSubjectState_Link();
@@ -82,5 +95,9 @@ bool BulletSubjectState_ProbeGroundSparkLifecycle(
 bool BulletSubjectState_ProbeBarrelSmokeLifecycle(
     SimulationContext *context, const char *attributeName,
     double timeStamp, BulletBarrelSmokeProbeSummary *summary);
+bool BulletSubjectState_ProbePresentationLifecycle(
+    SimulationContext *context, const char *particleAttributeName,
+    const char *skinAttributeName, double timeStamp,
+    BulletPresentationProbeSummary *summary);
 
 #endif

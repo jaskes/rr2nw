@@ -212,6 +212,10 @@ struct SRecoveredVehiclePrimaryFireTelemetry {
   unsigned int impactEffectChildren;
   unsigned int groundRemovals;
   unsigned int barrelSmokeStarts;
+  unsigned int bulletRenderSubmissions;
+  unsigned int particleRenderSubmissions;
+  unsigned int skinRenderSubmissions;
+  unsigned int skippedSkinRenderSubmissions;
   unsigned int liveBullets;
   unsigned int tablePeakLiveBullets;
   unsigned int maximumExplosionSubjects;

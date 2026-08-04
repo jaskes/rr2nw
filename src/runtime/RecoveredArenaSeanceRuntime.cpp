@@ -4226,6 +4226,41 @@ bool PublishBulletReferences(SimulationContext* context) {
                    message);
     return false;
   }
+  const int bulletPresentationRoster =
+      BulletAttributeState_RosterSize(context);
+  int bulletPresentationAdmissions = 0;
+  for (int index = 0; index < bulletPresentationRoster; ++index) {
+    const char* attributeName =
+        BulletAttributeState_AttributeNameAt(context, index);
+    const int usesSkin =
+        BulletAttributeState_AttributeUsesSkinAt(context, index);
+    BulletPresentationProbeSummary presentationSummary = {};
+    const bool admitted = attributeName != nullptr && usesSkin >= 0 &&
+        BulletSubjectState_ProbePresentationLifecycle(
+            context, usesSkin == 0 ? attributeName : nullptr,
+            usesSkin != 0 ? attributeName : nullptr,
+            Session::m_moment + index, &presentationSummary) &&
+        presentationSummary.tableRenders == 1 &&
+        presentationSummary.particleSubmissions == (usesSkin == 0 ? 1 : 0) &&
+        presentationSummary.skinSubmissions == (usesSkin != 0 ? 1 : 0) &&
+        presentationSummary.skippedSkinSubmissions == 0 &&
+        presentationSummary.detachedSubmissions == 1 &&
+        BulletSubjectState_LiveCount() == 0;
+    if (!admitted)
+      break;
+    ++bulletPresentationAdmissions;
+  }
+  if (bulletPresentationRoster <= 0 ||
+      bulletPresentationAdmissions != bulletPresentationRoster) {
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+                  "Bullet presentation roster admission failed (%d/%d)",
+                  bulletPresentationAdmissions, bulletPresentationRoster);
+    ReportExtended(
+        RECOVERED_ARENA_SEANCE_EXT_BULLET_SUBJECT_LIFECYCLE_FAILURE,
+        message);
+    return false;
+  }
   const char* probeAttribute =
       BulletAttributeState_FirstAttributeName(context);
   BulletEffectProbeSummary effectSummary = {};

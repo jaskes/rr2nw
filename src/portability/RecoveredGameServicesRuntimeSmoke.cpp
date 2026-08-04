@@ -2148,6 +2148,13 @@ bool ExerciseVehiclePrimaryFire() {
         fire.maximumExplosionSubjects > before.maximumExplosionSubjects &&
         fire.maximumParticleBranches > before.maximumParticleBranches &&
         fire.maximumSoundObjects > before.maximumSoundObjects &&
+        fire.bulletRenderSubmissions >
+            before.bulletRenderSubmissions &&
+        fire.particleRenderSubmissions + fire.skinRenderSubmissions >
+            before.particleRenderSubmissions +
+                before.skinRenderSubmissions &&
+        fire.skippedSkinRenderSubmissions ==
+            before.skippedSkinRenderSubmissions &&
         fire.effectRenderFrames > before.effectRenderFrames) {
       complete = true;
     }
@@ -3970,13 +3977,26 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
       occupiedAttribute->m_bulletAttrName[0] != '\0';
   const bool hasSecondaryWeapon = occupiedAttribute != nullptr &&
       occupiedAttribute->m_bulletSecAttrName[0] != '\0';
+  AttributeBullet* primaryProjectile = nullptr;
+  AttributeBullet* secondaryProjectile = nullptr;
+  const bool primaryProjectileResolved = !hasPrimaryWeapon ||
+      BulletAttributeState_ResolveEncodedIndex(
+          context, occupiedAttribute->m_bulletAttrIndex,
+          &primaryProjectile);
+  const bool secondaryProjectileResolved = !hasSecondaryWeapon ||
+      BulletAttributeState_ResolveEncodedIndex(
+          context, occupiedAttribute->m_bulletSecAttrIndex,
+          &secondaryProjectile);
   const bool weaponReferencesValid = occupiedAttribute != nullptr &&
       ((hasPrimaryWeapon && occupiedAttribute->m_bulletAttrIndex >= 0) ||
        (!hasPrimaryWeapon && occupiedAttribute->m_bulletAttrIndex < 0)) &&
       ((hasSecondaryWeapon &&
         occupiedAttribute->m_bulletSecAttrIndex >= 0) ||
        (!hasSecondaryWeapon &&
-        occupiedAttribute->m_bulletSecAttrIndex < 0));
+        occupiedAttribute->m_bulletSecAttrIndex < 0)) &&
+      primaryProjectileResolved && secondaryProjectileResolved &&
+      (!hasPrimaryWeapon || primaryProjectile != nullptr) &&
+      (!hasSecondaryWeapon || secondaryProjectile != nullptr);
   BulletRuntimeTelemetry bulletsBefore = {};
   const double damageBefore =
       occupiedObject == nullptr ? 0.0 : occupiedObject->m_damage;
@@ -4010,6 +4030,23 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
   }
 
   BulletRuntimeTelemetry primaryAfter = {};
+  const auto projectileTerminatedAfter =
+      [](const BulletRuntimeTelemetry& after,
+         const BulletRuntimeTelemetry& before) {
+        return after.groundRemovals > before.groundRemovals ||
+            after.sceneImpacts > before.sceneImpacts ||
+            after.dynamicImpacts > before.dynamicImpacts;
+      };
+  const auto projectileRenderedAfter =
+      [](const AttributeBullet* projectile,
+         const BulletRuntimeTelemetry& after,
+         const BulletRuntimeTelemetry& before) {
+        return projectile != nullptr &&
+            (projectile->m_useSkin != 0
+                 ? after.skinRenderSubmissions > before.skinRenderSubmissions
+                 : after.particleRenderSubmissions >
+                       before.particleRenderSubmissions);
+      };
   if (gameplayValid && hasPrimaryWeapon) {
     gameplayValid = SendHardwareButton("MouseL", TRUE) &&
         RunVehicleFrameAfter(0.01) &&
@@ -4019,11 +4056,20 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
           BulletSubjectState_OwnerRuntimeTelemetry(
               context, "Vehicle.Default", &primaryAfter);
       if (gameplayValid &&
-          primaryAfter.acceptedStarts > bulletsBefore.acceptedStarts)
+          primaryAfter.acceptedStarts > bulletsBefore.acceptedStarts &&
+          (projectileRenderedAfter(primaryProjectile, primaryAfter,
+                                   bulletsBefore) ||
+           projectileTerminatedAfter(primaryAfter, bulletsBefore)))
         break;
     }
+    const bool primaryRendered = projectileRenderedAfter(
+        primaryProjectile, primaryAfter, bulletsBefore);
     gameplayValid = gameplayValid &&
-        primaryAfter.acceptedStarts > bulletsBefore.acceptedStarts;
+        primaryAfter.acceptedStarts > bulletsBefore.acceptedStarts &&
+        primaryAfter.skippedSkinRenderSubmissions ==
+            bulletsBefore.skippedSkinRenderSubmissions &&
+        (primaryRendered ||
+         projectileTerminatedAfter(primaryAfter, bulletsBefore));
   } else if (gameplayValid) {
     primaryAfter = bulletsBefore;
   }
@@ -4039,12 +4085,21 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
               context, "Vehicle.Default", &secondaryAfter);
       if (gameplayValid &&
           secondaryAfter.acceptedStarts > primaryAfter.acceptedStarts &&
-          occupiedObject->m_secBulletCnt < secondaryAmmoBefore)
+          occupiedObject->m_secBulletCnt < secondaryAmmoBefore &&
+          (projectileRenderedAfter(secondaryProjectile, secondaryAfter,
+                                   primaryAfter) ||
+           projectileTerminatedAfter(secondaryAfter, primaryAfter)))
         break;
     }
+    const bool secondaryRendered = projectileRenderedAfter(
+        secondaryProjectile, secondaryAfter, primaryAfter);
     gameplayValid = gameplayValid &&
         secondaryAfter.acceptedStarts > primaryAfter.acceptedStarts &&
         occupiedObject->m_secBulletCnt < secondaryAmmoBefore &&
+        secondaryAfter.skippedSkinRenderSubmissions ==
+            primaryAfter.skippedSkinRenderSubmissions &&
+        (secondaryRendered ||
+         projectileTerminatedAfter(secondaryAfter, primaryAfter)) &&
         RecoveredGameServices_VehicleActiveActionCount() == 0u;
   } else if (gameplayValid) {
     secondaryAfter = primaryAfter;
@@ -4060,12 +4115,14 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
   std::vector<std::uint8_t> gameplayRecaptured;
   SLevelContinuationSummary gameplayRecapturedSummary;
   std::string gameplayRestoreError;
+  bool gameplayRestoredSuccessfully = false;
+  bool gameplayRecapturedSuccessfully = false;
   if (gameplayValid) {
-    bool gameplayRestored = false;
     for (unsigned int attempt = 0; attempt < 8u; ++attempt) {
-      gameplayRestored = RecoveredGameServices_RestoreLevelContinuation(
-          occupiedContinuation, &gameplayRestoredSummary);
-      if (gameplayRestored) break;
+      gameplayRestoredSuccessfully =
+          RecoveredGameServices_RestoreLevelContinuation(
+              occupiedContinuation, &gameplayRestoredSummary);
+      if (gameplayRestoredSuccessfully) break;
       gameplayRestoreError =
           RecoveredGameServices_LastLevelContinuationError();
       const bool retryable =
@@ -4077,9 +4134,13 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
         break;
       ++coverage->gameplayRestoreDeferrals;
     }
-    gameplayValid = gameplayRestored &&
+    gameplayRecapturedSuccessfully = gameplayRestoredSuccessfully &&
         RecoveredGameServices_CaptureLevelContinuation(
-            &gameplayRecaptured, &gameplayRecapturedSummary) &&
+            &gameplayRecaptured, &gameplayRecapturedSummary);
+    if (gameplayRestoredSuccessfully && !gameplayRecapturedSuccessfully)
+      gameplayRestoreError =
+          RecoveredGameServices_LastLevelContinuationError();
+    gameplayValid = gameplayRecapturedSuccessfully &&
         gameplayRestoredSummary.ready && gameplayRecapturedSummary.ready &&
         gameplayRestoredSummary.worldFingerprint ==
             occupiedSummary.worldFingerprint &&
@@ -4096,8 +4157,12 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
     std::fprintf(stderr,
                  "debug Vehicle gameplay profile=%d/%s attr=%d hud=%d/%d/%d "
                  "weapons=%s/%d,%s/%d "
-                 "bullets=%u/%u/%u ammo=%d/%d damage=%.6f/%.6f "
+                 "live=%d "
+                 "bullets=%u/%u/%u renders=%u/%u/%u "
+                 "particle=%u/%u/%u skin=%u/%u/%u skipped=%u/%u/%u "
+                 "ammo=%d/%d damage=%.6f/%.6f "
                  "world=%llu/%llu container=%llu/%llu actions=%u "
+                 "restore=%d recapture=%d ready=%d/%d bytes=%zu/%zu "
                  "god=%d dead=%d leave=%.6f moment=%.6f vehicle_time=%.6f "
                  "immune=%.6f restore_error=%s\n",
                  expectedProfile,
@@ -4113,8 +4178,21 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
                      occupiedAttribute->m_bulletSecAttrName,
                  occupiedAttribute == nullptr ? -1 :
                      occupiedAttribute->m_bulletSecAttrIndex,
+                 BulletSubjectState_LiveCount(),
                  bulletsBefore.acceptedStarts,
                  primaryAfter.acceptedStarts, secondaryAfter.acceptedStarts,
+                 bulletsBefore.renderSubmissions,
+                 primaryAfter.renderSubmissions,
+                 secondaryAfter.renderSubmissions,
+                 bulletsBefore.particleRenderSubmissions,
+                 primaryAfter.particleRenderSubmissions,
+                 secondaryAfter.particleRenderSubmissions,
+                 bulletsBefore.skinRenderSubmissions,
+                 primaryAfter.skinRenderSubmissions,
+                 secondaryAfter.skinRenderSubmissions,
+                 bulletsBefore.skippedSkinRenderSubmissions,
+                 primaryAfter.skippedSkinRenderSubmissions,
+                 secondaryAfter.skippedSkinRenderSubmissions,
                  secondaryAmmoBefore, secondaryAmmoAfter,
                  damageBefore, damageAfter,
                  static_cast<unsigned long long>(
@@ -4126,6 +4204,11 @@ bool ExerciseDebugOccupiedVehicleDestructionOne(
                  static_cast<unsigned long long>(
                      occupiedSummary.containerFingerprint),
                  RecoveredGameServices_VehicleActiveActionCount(),
+                 gameplayRestoredSuccessfully ? 1 : 0,
+                 gameplayRecapturedSuccessfully ? 1 : 0,
+                 gameplayRestoredSummary.ready ? 1 : 0,
+                 gameplayRecapturedSummary.ready ? 1 : 0,
+                 gameplayRecaptured.size(), occupiedContinuation.size(),
                  g_godMode, Vehicle::m_dead ? 1 : 0,
                  occupiedObject == nullptr ? 0.0 :
                      occupiedObject->m_lastLeaveTime,
@@ -6866,6 +6949,7 @@ int main(int argc, char** argv) {
                  "vehicle-fire diagnostics inspected=%d trigger=%u "
                  "shots=%u rollback=%u moves=%u checks=%u scene=%u "
                  "dynamic=%u water=%u children=%u ground=%u barrel=%u "
+                 "projectile_render=%u particle=%u skin=%u skipped=%u "
                  "live=%u peak=%u explosions=%u particles=%u smokes=%u "
                  "sparks=%u sounds=%u render=%u effect_render=%u "
                  "subscription=%d input=%u forwarded=%u housekeeping=%u "
@@ -6876,7 +6960,11 @@ int main(int argc, char** argv) {
                  fire.collisionChecks, fire.sceneImpacts,
                  fire.dynamicImpacts, fire.waterlineSplashes,
                  fire.impactEffectChildren, fire.groundRemovals,
-                 fire.barrelSmokeStarts, fire.liveBullets,
+                 fire.barrelSmokeStarts,
+                 fire.bulletRenderSubmissions,
+                 fire.particleRenderSubmissions,
+                 fire.skinRenderSubmissions,
+                 fire.skippedSkinRenderSubmissions, fire.liveBullets,
                  fire.tablePeakLiveBullets,
                  fire.maximumExplosionSubjects,
                  fire.maximumParticleBranches, fire.maximumSmokeSubjects,

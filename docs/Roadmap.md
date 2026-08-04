@@ -1953,3 +1953,26 @@ can be reproduced from the published package manifest.
 Linux, macOS, native x64 and multiplayer remain post-1.0 work. Replay/control
 journal determinism remains useful research for a later authoritative server,
 but no networking work may displace the Windows campaign gates above.
+
+### Current weapon and AI recovery checkpoint
+
+Vehicle projectile presentation is no longer deferred. The release two-button
+contract is restored from Windows input through distinct Vehicle attributes,
+secondary ammunition, Bullet physics and renderer submission. Ordinary rounds
+use bounded particle streaks; arrows, barrels, disks and boomerangs use their
+retail skin and rotation values. Early admission renders every BulletAttr in
+the Level roster. Automated live profile coverage requires an accepted shot to
+reach that renderer path or prove an immediate terminal collision before its
+first presentation frame.
+
+The 2026-08-04 gate is green in Debug, Release and RelWithDebInfo: 67/67 CTest
+per configuration, 27/27 ordinary retail starts, and 27/27 fresh Level
+continuations. Both destruction and occupied save/load coverage report the
+complete campaign profile mask `1011` in every configuration.
+
+The next combat work should use this visible projectile path while completing
+the manual dragon/helicopter pass and the visible guide/occupied-Vehicle town
+route repeat. AI cleanup follows the staged boundary in BD-150: perception,
+intent, route/steering, attack emission and presentation are extracted one at
+a time behind the existing May behavior and continuation gates. Do not start a
+new navigation or planner rewrite before those parity checks are green.

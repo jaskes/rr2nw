@@ -441,9 +441,9 @@ foreach ($configurationName in $Configuration) {
                     $log["active_world_integrity_probe"] -ne "1/1") {
                     $issues.Add("active-world corruption/rollback proof changed")
                 }
-                $continuationState = if ($log.ContainsKey("continuation_state_probe")) {
+                $continuationState = @(if ($log.ContainsKey("continuation_state_probe")) {
                     [string]$log["continuation_state_probe"] -split "/"
-                } else { @() }
+                })
                 if ($continuationState.Count -ne 5 -or
                     [int]$continuationState[0] -ne 1 -or
                     [int]$continuationState[1] -ne 1 -or
@@ -452,12 +452,12 @@ foreach ($configurationName in $Configuration) {
                     [int]$continuationState[4] -ne 1) {
                     $issues.Add("authoritative clock/RNG continuation proof changed")
                 }
-                $howitzerRoster = if ($log.ContainsKey("howitzer_subject_roster")) {
+                $howitzerRoster = @(if ($log.ContainsKey("howitzer_subject_roster")) {
                     [string]$log["howitzer_subject_roster"] -split "/"
-                } else { @() }
-                $howitzerState = if ($log.ContainsKey("howitzer_active_world_state")) {
+                })
+                $howitzerState = @(if ($log.ContainsKey("howitzer_active_world_state")) {
                     [string]$log["howitzer_active_world_state"] -split "/"
-                } else { @() }
+                })
                 $expectedHowitzerCount = [int]$expectedHowitzers[$levelName]
                 if ($howitzerRoster.Count -ne 3 -or
                     [int]$howitzerRoster[0] -ne $expectedHowitzerCount -or
@@ -477,9 +477,9 @@ foreach ($configurationName in $Configuration) {
                     $issues.Add("active-world fresh owner allocation proof changed")
                 }
                 if ($levelName -ieq "Level.04D") {
-                    $missionTank = if ($log.ContainsKey("mission_tank_lifecycle_probe")) {
+                    $missionTank = @(if ($log.ContainsKey("mission_tank_lifecycle_probe")) {
                         [string]$log["mission_tank_lifecycle_probe"] -split "/"
-                    } else { @() }
+                    })
                     if ($missionTank.Count -ne 8 -or
                         [int]$missionTank[0] -ne 1 -or
                         [int]$missionTank[1] -ne 1 -or
@@ -500,9 +500,9 @@ foreach ($configurationName in $Configuration) {
                     (Get-LogUnsigned $log "bullet_active_world_fingerprint") -lt 1) {
                     $issues.Add("Bullet BUL1 flight reconstruction proof changed")
                 }
-                $explosionActiveWorld = if ($log.ContainsKey("explosion_active_world_probe")) {
+                $explosionActiveWorld = @(if ($log.ContainsKey("explosion_active_world_probe")) {
                     [string]$log["explosion_active_world_probe"] -split "/"
-                } else { @() }
+                })
                 if ((Get-LogInteger $log "explosion_active_world_initialized") -ne 1 -or
                     $explosionActiveWorld.Count -ne 8 -or
                     [int]$explosionActiveWorld[0] -ne 1 -or
@@ -529,9 +529,9 @@ foreach ($configurationName in $Configuration) {
                     (Get-LogUnsigned $log "smoke_active_world_fingerprint") -lt 1) {
                     $issues.Add("Smoke SMK1 blob reconstruction proof changed")
                 }
-                $corpseActiveWorld = if ($log.ContainsKey("corpse_active_world_probe")) {
+                $corpseActiveWorld = @(if ($log.ContainsKey("corpse_active_world_probe")) {
                     [string]$log["corpse_active_world_probe"] -split "/"
-                } else { @() }
+                })
                 if ((Get-LogInteger $log "corpse_active_world_initialized") -ne 1 -or
                     $corpseActiveWorld.Count -ne 8 -or
                     [int]$corpseActiveWorld[0] -ne 2 -or
@@ -551,9 +551,9 @@ foreach ($configurationName in $Configuration) {
                     (Get-LogUnsigned $log "vehicle_active_world_fingerprint") -lt 1) {
                     $issues.Add("Vehicle.Default fresh-owner restore proof changed")
                 }
-                $peopleActiveWorld = if ($log.ContainsKey("people_active_world_probe")) {
+                $peopleActiveWorld = @(if ($log.ContainsKey("people_active_world_probe")) {
                     [string]$log["people_active_world_probe"] -split "/"
-                } else { @() }
+                })
                 if ($peopleActiveWorld.Count -ne 3 -or
                     [int]$peopleActiveWorld[0] -ne (Get-LogInteger $log "people_subject_count") -or
                     [int]$peopleActiveWorld[1] -lt 0 -or
@@ -656,9 +656,9 @@ foreach ($configurationName in $Configuration) {
                 if (-not $peopleSlopeReleaseValid) {
                     $issues.Add("People horizontal-slope release telemetry changed")
                 }
-                $tankLifecycle = if ($log.ContainsKey("tank_lifecycle_probe")) {
+                $tankLifecycle = @(if ($log.ContainsKey("tank_lifecycle_probe")) {
                     [string]$log["tank_lifecycle_probe"] -split "/"
-                } else { @() }
+                })
                 $expectedTankPose = if ($tankLifecycle.Count -eq 11 -and
                     [int]$tankLifecycle[0] -eq 1) { "1/4/1" } else { "0/0/0" }
                 if (-not $log.ContainsKey("tank_near_far_pose_probe") -or
@@ -673,9 +673,9 @@ foreach ($configurationName in $Configuration) {
                     $log["debug_map_toggle_probe"] -ne "1/1/1") {
                     $issues.Add("retail M-map load/toggle/render/close proof changed")
                 }
-                $missionMap = if ($log.ContainsKey("mission_map_probe")) {
+                $missionMap = @(if ($log.ContainsKey("mission_map_probe")) {
                     [string]$log["mission_map_probe"] -split "/"
-                } else { @() }
+                })
                 $expectedMissionRoutes = if ($levelName -ieq "Level.06N" -or
                     $levelName -ieq "Level.07N") { 0 } else { 1 }
                 if ($missionMap.Count -ne 9 -or
@@ -690,10 +690,10 @@ foreach ($configurationName in $Configuration) {
                     [uint64]$missionMap[8] -lt 1) {
                     $issues.Add("PlayerMission map publication/render/rollback proof changed")
                 }
-                $recruitAdmission = if ($log.ContainsKey("recruit_center_admission_final")) {
+                $recruitAdmission = @(if ($log.ContainsKey("recruit_center_admission_final")) {
                     [string]$log["recruit_center_admission_final"] -split "/"
-                } else { @() }
-                $recruitRoster = [string]$expectedRecruitCenter[0] -split "/"
+                })
+                $recruitRoster = @([string]$expectedRecruitCenter[0] -split "/")
                 $expectedRecruitAdmissionInitial = if ($recruitRoster.Count -eq 6 -and
                     [int]$recruitRoster[2] -gt 0) {
                     "1/1/2/1/1/0/2/0"

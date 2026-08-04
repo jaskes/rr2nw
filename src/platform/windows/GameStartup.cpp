@@ -1948,6 +1948,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(primaryFire.groundRemovals));
   log.Line("vehicle_primary_fire_barrel_smokes=" +
            std::to_string(primaryFire.barrelSmokeStarts));
+  log.Line("vehicle_projectile_render_submissions=" +
+           std::to_string(primaryFire.bulletRenderSubmissions));
+  log.Line("vehicle_projectile_particle_submissions=" +
+           std::to_string(primaryFire.particleRenderSubmissions));
+  log.Line("vehicle_projectile_skin_submissions=" +
+           std::to_string(primaryFire.skinRenderSubmissions));
+  log.Line("vehicle_projectile_skipped_skin_submissions=" +
+           std::to_string(primaryFire.skippedSkinRenderSubmissions));
   log.Line("vehicle_primary_fire_live_bullets=" +
            std::to_string(primaryFire.liveBullets));
   log.Line("vehicle_primary_fire_peak_bullets=" +
@@ -3927,6 +3935,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(finalPrimaryFire.moveEvents));
     log.Line("windows_input_primary_fire_collision_checks=" +
              std::to_string(finalPrimaryFire.collisionChecks));
+    log.Line("windows_input_projectile_render_submissions=" +
+             std::to_string(finalPrimaryFire.bulletRenderSubmissions));
+    log.Line("windows_input_projectile_particle_submissions=" +
+             std::to_string(finalPrimaryFire.particleRenderSubmissions));
+    log.Line("windows_input_projectile_skin_submissions=" +
+             std::to_string(finalPrimaryFire.skinRenderSubmissions));
+    log.Line("windows_input_projectile_skipped_skin_submissions=" +
+             std::to_string(
+                 finalPrimaryFire.skippedSkinRenderSubmissions));
   }
   log.Line("windows_input_pending_events=" + std::to_string(
                RecoveredGameServices_WindowsInputPendingEvents()));

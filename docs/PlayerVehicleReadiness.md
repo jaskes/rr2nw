@@ -321,3 +321,21 @@ The final injected post-restore authority failure now proves byte-exact local
 target rollback followed by byte-exact occupied source rollback. Frontier D's
 automated Vehicle persistence contract is therefore complete; no second
 recovery policy or serializer is needed.
+
+## Visible primary and secondary projectiles
+
+The former impact-only symptom had a specific cause: the maintained Bullet
+table was simulation-only and reported `isRendering=false`. It now remains the
+same bounded physics/damage/save owner while publishing a derived drawable.
+Fast non-skin rounds render as particle streaks; skin rounds attach their real
+model and authored rotation. Rendering state is never serialized and is
+detached on normal end-of-frame, removal and rollback.
+
+The retail two-weapon mapping is preserved. MouseL fires the primary slot;
+MouseR fires the secondary slot and consumes its separate ammunition. Dragon
+uses ArrowL/Barrel, helicopter uses Led/Disk, dinosaur uses Led/Qdro and chicken
+uses ArrowL/LedUnit on Level.02. The profile acceptance now requires distinct
+encoded Bullet references, accepted starts, secondary-ammo consumption and the
+correct particle/skin renderer admission for every Level-local BulletAttr. A
+live shot must then render or report the immediate terminal collision which
+legitimately removed it before the first presentation frame.

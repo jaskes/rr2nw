@@ -2337,6 +2337,18 @@ void UpdatePrimaryFireTelemetry(SimulationContext* context) {
   g_primaryFireTelemetry.barrelSmokeStarts = CounterDifference(
       current.barrelSmokeStarts,
       g_primaryFireOwnerBaseline.barrelSmokeStarts);
+  g_primaryFireTelemetry.bulletRenderSubmissions = CounterDifference(
+      current.renderSubmissions,
+      g_primaryFireOwnerBaseline.renderSubmissions);
+  g_primaryFireTelemetry.particleRenderSubmissions = CounterDifference(
+      current.particleRenderSubmissions,
+      g_primaryFireOwnerBaseline.particleRenderSubmissions);
+  g_primaryFireTelemetry.skinRenderSubmissions = CounterDifference(
+      current.skinRenderSubmissions,
+      g_primaryFireOwnerBaseline.skinRenderSubmissions);
+  g_primaryFireTelemetry.skippedSkinRenderSubmissions = CounterDifference(
+      current.skippedSkinRenderSubmissions,
+      g_primaryFireOwnerBaseline.skippedSkinRenderSubmissions);
   g_primaryFireTelemetry.liveBullets = current.liveBullets;
   g_primaryFireTelemetry.tablePeakLiveBullets =
       current.peakLiveBullets;

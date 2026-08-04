@@ -5297,3 +5297,73 @@ index 8 takes the completion branch before wrapping to zero.
 
 The May remaining-Artefact and restored-Portal strings are presentation debt,
 not permission to invent a status API before their actual call path is known.
+
+### BD-149: primary and secondary Vehicle fire keep distinct retail projectiles
+
+Status: accepted on 2026-08-04 for visible Bullet presentation.
+
+The second weapon is release behavior, not a May-only experiment. Retail
+`VEHICLE.SCI` assigns independent primary and secondary `BulletAttr` names and
+the runtime routes `MouseL` and `MouseR` through separate `FIRE_PRIMARY` and
+`FIRE_SECONDARY` actions. The Level.02 roster is explicit: dinosaur
+`Bullet.Led/Bullet.Qdro`, chicken `Bullet.ArrowL/Bullet.LedUnit`, dragon
+`Bullet.ArrowL/Bullet.Barrel`, and helicopter
+`Bullet.Led/Bullet.Disk`. Secondary fire consumes `m_secBulletCnt`; an empty
+secondary slot or exhausted ammunition remains a valid no-shot state.
+
+The maintained `BoundedBullet` remains the authority for movement, gravity,
+collision, damage, effects and BUL1 persistence. Presentation is derived and
+must not enter the save payload. Non-skin projectiles submit a bounded,
+interpolated particle streak using the retail radii, steps and colour gradient.
+Skin projectiles attach the resolved model, preserve the authored rotation
+speeds and submit a spheric dynamic drawable. `endRender`, removal and rollback
+must detach the exact submitted drawable; a missing resolved skin fails the
+visual submission instead of manufacturing a substitute projectile.
+
+Early Arena admission renders every BulletAttr in the Level roster and proves
+complete drawable, light-chain, event and live-object rollback without touching
+ambient Smoke/Spark. The live profile matrix then requires every accepted
+MouseL/MouseR shot either to reach its matching particle-or-skin renderer path
+or to record an immediate ground/scene/dynamic terminal collision before the
+first presentation frame. Secondary ammunition must be consumed where
+applicable and the skipped-skin counter must remain unchanged.
+
+Level rosters are intentionally heterogeneous. In particular, `Level.07N`
+ships a skin-only rocket roster, so admission validates every class that is
+present without requiring a synthetic particle representative.
+
+### BD-150: refactor People and guide AI behind preserved May behavior kernels
+
+Status: accepted as staged technical debt on 2026-08-04.
+
+People and guide AI needs structural cleanup, but a wholesale replacement is
+not safe while remaining retail behavior is still being recovered. The
+existing May-derived FIND cadence, state stack, route cursor, support/contact
+queries, attack scheduling and continuation schemas are the executable oracle.
+They stay independently regression-tested while ownership boundaries improve.
+
+The refactor order is:
+
+1. isolate perception and target selection from event delivery;
+2. expose intent/state-stack transitions without changing labels or deadlines;
+3. separate route progress from local steering and contact avoidance;
+4. isolate attack cadence and projectile emission from animation;
+5. make drawable/animation state a derived presentation consumer;
+6. retain PEO1/TAN1 migration and byte-exact LCN1 rollback at every step.
+
+This is not permission to invent a new planner, navigation mesh or combat
+balance. Each extraction must first reproduce the current May contract and
+the authored guide/unit tests. Visible route defects are fixed at the smallest
+proven boundary before a component is replaced.
+
+### BD-151: presentation probes validate accepted terrain positions
+
+Status: accepted on 2026-08-04 for terrain-aware runtime acceptance.
+
+- An `m_onLand` subject may ground its requested start position while handling
+  `fou_EVCMD_START`; the resulting subject position is authoritative.
+- Presentation acceptance therefore compares lights, coronas, and drawables
+  with the subject's accepted `realPosition()`, not with the caller's original
+  ungrounded request.
+- This removes world-dependent false failures without weakening render,
+  detach, light-chain, event-rollback, or live-object assertions.

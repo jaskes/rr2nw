@@ -766,8 +766,12 @@ bool SmokerSubjectState_ProbeLightCoronaLifecycle(
     CViewDynamicList list;
     if (moved)
         smoker->render(list, event.timeStamp);
+    // START may project an on-land Smoker onto the current retail terrain.
+    // Validate presentation against that accepted authoritative position,
+    // rather than the ungrounded probe request.
+    const CFVector3 renderedPosition = smoker->realPosition();
     const CFVector3 lightPosition =
-        position + CFVector3(0, attribute->m_lightOffset, 0);
+        renderedPosition + CFVector3(0, attribute->m_lightOffset, 0);
     const bool rendered = moved && g_lightChain.m_count == 1 &&
                           g_lightChain.m_list == g_lightChain.m_dim &&
                           g_lightChain.m_list->m_pos == lightPosition &&
@@ -778,7 +782,7 @@ bool SmokerSubjectState_ProbeLightCoronaLifecycle(
                           g_lightChain.m_list->m_radius ==
                               attribute->m_lightRadius &&
                           list.First() == &smoker->m_corona &&
-                          smoker->m_corona.m_pos == position &&
+                          smoker->m_corona.m_pos == renderedPosition &&
                           smoker->m_corona.m_radius > 0.0 &&
                           smoker->m_corona.m_radius <=
                               attribute->m_maxCoronaR &&

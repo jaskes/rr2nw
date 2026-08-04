@@ -127,6 +127,30 @@ released. Alt-Tab must neutralize all motion/fire; after return, input begins
 only on a fresh press. Needing to tap the opposite key, continued drift or
 unbounded rotation is a failure.
 
+## Two-weapon and visible-projectile pass
+
+Start `Level.02N` or `Level.02D` with the playtest build and `--debug-menu`.
+Spawn and enter the dragon, then the helicopter. Use single taps rather than
+holding the button while comparing the first shot:
+
+1. Dragon MouseL must launch the arrow skin; MouseR must throw a rotating
+   barrel and reduce secondary ammunition.
+2. Helicopter MouseL must launch the ordinary fast round; MouseR must launch
+   the rotating disk/shuriken and reduce secondary ammunition.
+3. At medium distance, each projectile must be visible before its impact.
+   An impact with no preceding projectile is a failure.
+4. Save while a slow barrel or disk is in flight, load the slot and confirm the
+   resumed projectile remains the same type and continues to collision.
+5. Leave and re-enter the Vehicle, repeat MouseR and confirm the secondary slot
+   and ammunition still belong to the selected Vehicle profile.
+
+On clean exit, inspect `rr2nw-startup.log`. Accepted visible shots increase
+`windows_input_projectile_render_submissions` and exactly one of the particle
+or skin submission rows. `windows_input_projectile_skipped_skin_submissions`
+must remain zero. MouseR activity is recorded separately under
+`windows_input_secondary_fire_presses` and
+`windows_input_secondary_fire_accepted_shots`.
+
 ## Retail map pass
 
 Start any installed Level normally, move to a recognizable landmark and press
