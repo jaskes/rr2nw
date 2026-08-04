@@ -2884,7 +2884,8 @@ if(MSVC)
 endif()
 
 add_library(rr2nw_arena_obase_fountain STATIC
-  nw/ARENA/OBASE/Fountain/Fountain.cpp
+  nw/ARENA/OBASE/Fountain/FountainRecoveredTranslationUnit.cpp
+  nw/ARENA/OBASE/Fountain/FountainClassTableState.h
 )
 target_link_libraries(
   rr2nw_arena_obase_fountain PUBLIC rr2nw_arena_obase_fountain_state
@@ -3720,6 +3721,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_obase_artefact
   rr2nw_arena_obase_orphan_full
   rr2nw_arena_obase_portal
+  rr2nw_arena_obase_fountain
   rr2nw_arena_obase_teleport
   rr2nw_arena_obase_recrcen
   rr2nw_arena_bullet_attribute_state

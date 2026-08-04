@@ -1922,11 +1922,14 @@ the callback. The ordinary and terminal catalog branches are automated.
 Timed and natural public-mission acquisition, attributed projectile damage,
 robot death effects and exact rollback are no longer part of that open row.
 
+Portal status presentation is now closed too. The exact May remaining-count
+messages run after successful admission; full occupancy removes the real
+Level.04D `Portal.Arabesk` Fountain and publishes the restored message. The
+3-Level/configuration transition matrix passes 9/9 without changing PRT1.
+
 The next gameplay row is the visible guide/occupied-Vehicle town-route repeat,
 then quests/objectives and required campaign/menu flows (`M` already opens the
-recovered map). Portal status presentation still needs the May
-remaining-Artefact messages; broader mission cinematics remain separate UI
-work.
+recovered map). Broader mission cinematics remain separate UI work.
 
 Gate: a player can discover objectives, navigate with the map, complete and
 transition a representative mission chain, save before/after a portal and

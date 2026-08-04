@@ -2,6 +2,9 @@
 
 #include "portal.h"
 #include "vehicle.h"
+#include "console.h"
+#include "obase/fountain/FountainClassTableState.h"
+#include "kernel/h/session.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,6 +29,18 @@ const std::uint32_t kPortalMagic = 0x31545250u;  // PRT1
 const std::uint32_t kPortalVersion = 1u;
 const std::size_t kMaximumPortals = 16u;
 const std::size_t kMaximumNameBytes = MAX_SYMBOLIC_LENGHT - 1;
+const char kPortalArabesk[] = "Portal.Arabesk";
+// May 1999 stores these strings as CP866 bytes. Keep the byte contract exact:
+// the retail font consumes the OEM text directly, and the original restored
+// message deliberately contains a Latin 'C'.
+const char kPortalRestored[] =
+    "\x8f\x8e\x90\x92\x80\x8b \x82\x8e\x91\x43\x92\x80\x8d\x8e\x82\x8b\x85\x8d";
+const char kOneArtefactRemaining[] =
+    "\x8e\x91\x92\x80\x8b\x91\x9f 1 \x80\x90\x92\x85\x94\x80\x8a\x92";
+const char kFewArtefactsRemaining[] =
+    "\x8e\x91\x92\x80\x8b\x8e\x91\x9c %i \x80\x90\x92\x85\x94\x80\x8a\x92\x41";
+const char kManyArtefactsRemaining[] =
+    "\x8e\x91\x92\x80\x8b\x8e\x91\x9c %i \x80\x90\x92\x85\x94\x80\x8a\x92\x8e\x82";
 std::string g_lastFailure;
 
 struct LevelBinding {
@@ -34,6 +49,27 @@ struct LevelBinding {
   KR_ObjectID object;
 
   LevelBinding() : reference(NULL), portal(NULL) {}
+};
+
+enum PortalStatusKind {
+  kPortalStatusNone = 0,
+  kPortalStatusSingular = 1,
+  kPortalStatusFew = 2,
+  kPortalStatusMany = 3,
+  kPortalStatusRestored = 4
+};
+
+struct PortalPresentationEvidence {
+  int statusKind;
+  int remaining;
+  int messagePublished;
+  int arabeskPresent;
+  int arabeskRemoved;
+  char message[CON_MAX_MESSAGE_LEN];
+
+  PortalPresentationEvidence()
+      : statusKind(kPortalStatusNone), remaining(0), messagePublished(0),
+        arabeskPresent(0), arabeskRemoved(0), message{} {}
 };
 
 SimulationContext *g_levelContext = NULL;
@@ -59,6 +95,65 @@ bool SameVector(const CFVector3 &left, const CFVector3 &right) {
   return left.x == right.x && left.y == right.y && left.z == right.z;
 }
 
+bool FormatPortalStatus(int remaining, char *message, std::size_t capacity,
+                        int *statusKind) {
+  if (message == NULL || capacity == 0 || statusKind == NULL || remaining < 0)
+    return false;
+  message[0] = 0;
+  if (remaining == 0) {
+    *statusKind = kPortalStatusRestored;
+    return std::snprintf(message, capacity, "%s", kPortalRestored) > 0;
+  }
+  if (remaining == 1) {
+    *statusKind = kPortalStatusSingular;
+    return std::snprintf(message, capacity, "%s", kOneArtefactRemaining) > 0;
+  }
+  if (remaining <= 4) {
+    *statusKind = kPortalStatusFew;
+    return std::snprintf(message, capacity, kFewArtefactsRemaining,
+                         remaining) > 0;
+  }
+  *statusKind = kPortalStatusMany;
+  return std::snprintf(message, capacity, kManyArtefactsRemaining,
+                       remaining) > 0;
+}
+
+bool PresentPortalStatus(SimulationContext *context, Portal *portal,
+                         PortalPresentationEvidence *evidence) {
+  PortalPresentationEvidence local;
+  PortalPresentationEvidence *result = evidence == NULL ? &local : evidence;
+  if (context == NULL || portal == NULL || portal->getContext() != context ||
+      portal->portalGetSlotCnt() <= 0 ||
+      portal->portalGetOccupiedSlot() < 0 ||
+      portal->portalGetOccupiedSlot() > portal->portalGetSlotCnt())
+    return Fail("Portal presentation has no valid live owner");
+
+  result->remaining =
+      portal->portalGetSlotCnt() - portal->portalGetOccupiedSlot();
+  if (!FormatPortalStatus(result->remaining, result->message,
+                          sizeof(result->message), &result->statusKind))
+    return Fail("Portal status text could not be formatted");
+
+  if (result->remaining == 0) {
+    result->arabeskPresent = context->isExist(kPortalArabesk) ? 1 : 0;
+    if (result->arabeskPresent) {
+      const KR_ObjectID arabesk = context->searchObject(kPortalArabesk);
+      context->removeObject(arabesk);
+      result->arabeskRemoved = context->isExist(kPortalArabesk) ? 0 : 1;
+      if (!result->arabeskRemoved)
+        return Fail("restored Portal did not remove Portal.Arabesk");
+    }
+  }
+
+  if (g_GameConsole.MessagesReady()) {
+    g_GameConsole.PrintUrgent(result->message,
+                              result->remaining == 0 ? 10.0 : 5.0,
+                              GameConsole::CENTER);
+    result->messagePublished = 1;
+  }
+  return true;
+}
+
 struct StablePortalRecord {
   std::string name;
   CFVector3 artefactPoint;
@@ -81,6 +176,27 @@ struct Roster {
   std::vector<RosterEntry> entries;
   bool valid;
 };
+
+bool ReconcilePortalArabesk(SimulationContext *context,
+                            const Roster &roster) {
+  bool full = false;
+  for (std::size_t index = 0; index < roster.entries.size(); ++index) {
+    Portal *portal = roster.entries[index].portal;
+    if (portal->portalGetOccupiedSlot() == portal->portalGetSlotCnt()) {
+      full = true;
+      break;
+    }
+  }
+  if (full) {
+    if (context->isExist(kPortalArabesk))
+      context->removeObject(context->searchObject(kPortalArabesk));
+    return !context->isExist(kPortalArabesk) ||
+           Fail("full restored Portal retained Portal.Arabesk");
+  }
+  if (!context->isExist("Fount.Attr.Arab")) return true;
+  return FountainClassTable_EnsurePortalArabesk(context, Session::m_moment) ||
+         Fail("partial restored Portal did not recreate Portal.Arabesk");
+}
 
 Portal *ResolvePortal(SimulationContext *context,
                       const KR_ObjectID &object) {
@@ -331,6 +447,11 @@ SPortalTransitionProbeSummary::SPortalTransitionProbeSummary()
     : portalCount(0), fullPortal(0), collisionAccepted(0),
       transitionRequested(0) {}
 
+SPortalPresentationProbeSummary::SPortalPresentationProbeSummary()
+    : portalCount(0), singularStatus(0), fewStatus(0), manyStatus(0),
+      restoredStatus(0), messagesPublished(0), arabeskPresent(0),
+      arabeskRemoved(0), arabeskRecreated(0), arabeskRestoreRemoved(0) {}
+
 void PortalActiveWorldState_Link() {}
 
 const char *PortalActiveWorldState_LastFailure() {
@@ -418,6 +539,14 @@ bool PortalActiveWorldState_RequestTransition(
   return true;
 }
 
+bool PortalActiveWorldState_PublishAdmissionStatus(
+    SimulationContext *context, const KR_ObjectID &portal) {
+  g_lastFailure.clear();
+  if (context == NULL || context != g_levelContext)
+    return Fail("Portal presentation belongs to another Level context");
+  return PresentPortalStatus(context, ResolvePortal(context, portal), NULL);
+}
+
 bool PortalActiveWorldState_TransitionPending() {
   return g_transitionRequested;
 }
@@ -476,7 +605,8 @@ bool PortalActiveWorldState_ApplyStableReferences(
     return Fail("Portal authored roster does not match the saved Level");
   for (std::size_t index = 0; index < records.size(); ++index)
     roster.entries[index].portal->m_occupiedSlotCnt = records[index].occupied;
-  return PortalActiveWorldState_MatchesStable(context, bytes) ||
+  return (ReconcilePortalArabesk(context, roster) &&
+          PortalActiveWorldState_MatchesStable(context, bytes)) ||
          Fail("Portal occupancy reconstruction failed");
 }
 
@@ -575,4 +705,87 @@ bool PortalActiveWorldState_StageTransitionProbe(
   return (summary->fullPortal == 1 && summary->collisionAccepted == 1 &&
           summary->transitionRequested == 1) ||
          Fail("full Portal collision did not request a Level transition");
+}
+
+bool PortalActiveWorldState_StagePresentationProbe(
+    SimulationContext *context,
+    SPortalPresentationProbeSummary *summary) {
+  g_lastFailure.clear();
+  Roster roster = {};
+  if (summary == NULL || !CollectRoster(context, &roster) ||
+      roster.entries.empty())
+    return Fail("Portal presentation probe dependencies are unavailable");
+  summary->portalCount = static_cast<int>(roster.entries.size());
+  Portal *portal = roster.entries.front().portal;
+  const int slots = portal->portalGetSlotCnt();
+  if (slots < 4)
+    return Fail("Portal presentation probe needs the retail four-slot owner");
+
+  char formatted[CON_MAX_MESSAGE_LEN] = {};
+  int kind = kPortalStatusNone;
+  summary->singularStatus =
+      FormatPortalStatus(1, formatted, sizeof(formatted), &kind) &&
+      kind == kPortalStatusSingular &&
+      std::strcmp(formatted, kOneArtefactRemaining) == 0 ? 1 : 0;
+  summary->fewStatus =
+      FormatPortalStatus(4, formatted, sizeof(formatted), &kind) &&
+      kind == kPortalStatusFew &&
+      std::strcmp(formatted,
+                  "\x8e\x91\x92\x80\x8b\x8e\x91\x9c 4 \x80\x90\x92\x85\x94\x80\x8a\x92\x41") == 0 ? 1 : 0;
+  summary->manyStatus =
+      FormatPortalStatus(5, formatted, sizeof(formatted), &kind) &&
+      kind == kPortalStatusMany &&
+      std::strcmp(formatted,
+                  "\x8e\x91\x92\x80\x8b\x8e\x91\x9c 5 \x80\x90\x92\x85\x94\x80\x8a\x92\x8e\x82") == 0 ? 1 : 0;
+
+  PortalPresentationEvidence singular;
+  portal->m_occupiedSlotCnt = slots - 1;
+  const bool singularPresented =
+      PresentPortalStatus(context, portal, &singular) &&
+      singular.statusKind == kPortalStatusSingular &&
+      singular.remaining == 1;
+  PortalPresentationEvidence few;
+  portal->m_occupiedSlotCnt = slots - 2;
+  const bool fewPresented = PresentPortalStatus(context, portal, &few) &&
+      few.statusKind == kPortalStatusFew && few.remaining == 2;
+  PortalPresentationEvidence restored;
+  portal->m_occupiedSlotCnt = slots;
+  const bool restoredPresented =
+      PresentPortalStatus(context, portal, &restored) &&
+      restored.statusKind == kPortalStatusRestored &&
+      restored.remaining == 0 &&
+      std::strcmp(restored.message, kPortalRestored) == 0;
+  summary->restoredStatus = restoredPresented ? 1 : 0;
+  summary->messagesPublished = singular.messagePublished +
+      few.messagePublished + restored.messagePublished;
+  summary->arabeskPresent = restored.arabeskPresent;
+  summary->arabeskRemoved = restored.arabeskRemoved;
+
+  const bool ownsArabesk = context->isExist("Fount.Attr.Arab");
+  std::vector<unsigned char> partialState;
+  portal->m_occupiedSlotCnt = slots - 1;
+  const bool partialCaptured =
+      PortalActiveWorldState_CaptureStable(context, &partialState);
+  const bool partialApplied = partialCaptured &&
+      PortalActiveWorldState_ApplyStableReferences(context, partialState);
+  summary->arabeskRecreated =
+      ownsArabesk && partialApplied && context->isExist(kPortalArabesk) ? 1 : 0;
+
+  std::vector<unsigned char> fullState;
+  portal->m_occupiedSlotCnt = slots;
+  const bool fullCaptured =
+      PortalActiveWorldState_CaptureStable(context, &fullState);
+  const bool fullApplied = fullCaptured &&
+      PortalActiveWorldState_ApplyStableReferences(context, fullState);
+  summary->arabeskRestoreRemoved =
+      ownsArabesk && fullApplied && !context->isExist(kPortalArabesk) ? 1 : 0;
+
+  return (summary->singularStatus == 1 && summary->fewStatus == 1 &&
+          summary->manyStatus == 1 && singularPresented && fewPresented &&
+          summary->restoredStatus == 1 && summary->messagesPublished == 3 &&
+          (!ownsArabesk ||
+           (summary->arabeskPresent == 1 && summary->arabeskRemoved == 1 &&
+            summary->arabeskRecreated == 1 &&
+            summary->arabeskRestoreRemoved == 1))) ||
+         Fail("Portal May presentation contract diverged");
 }

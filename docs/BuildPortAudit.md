@@ -3708,9 +3708,33 @@ The maintained callback therefore publishes a request only. The modern
 complete-frame coordinator captures the source LCN1 state, activates the next
 catalog Level and restores the source checkpoint if target startup fails. The
 terminal branch wraps to zero and retains an interactive completion message.
-The additional May strings `Portal.Arabesk`, `ПОРТАЛ ВОСCТАНОВЛЕН` and the
-remaining-Artefact variants document future presentation work; they are not
-treated as proof that the HUD path is already restored.
+The adjacent May `Portal::portalAddArtefact` body at `0x004C4EA8` fixes the
+presentation contract. After a successful consumption it increments occupancy.
+A partial Portal prints one of `ОСТАЛСЯ 1 АРТЕФАКТ`,
+`ОСТАЛОСЬ %i АРТЕФАКТA` (Latin final `A`) or
+`ОСТАЛОСЬ %i АРТЕФАКТОВ` for five seconds. A full Portal removes
+`Portal.Arabesk` and prints `ПОРТАЛ ВОСCТАНОВЛЕН` for ten seconds; the archived
+byte string deliberately contains a Latin `C` after Cyrillic `С`. All strings
+remain exact CP866 console bytes and use the centered urgent-message path.
+
+`Level.04D\SCINC\localmain.sci` owns the missing world object. Its
+`local_createTables()` allocates `Fountain(50)`, and `local_main()` creates
+`Portal.Arabesk` with `Fount.Attr.Arab` at
+`[2514.84, 63.1582, -2306.53]`. The recovered seance now admits this bounded
+May owner through the real archived Fountain/FountainAttr tables. The CP866
+`Fountain.cpp` remains byte-identical: a small UTF-8 translation wrapper keeps
+its registrars and explicit link anchor indivisible. Other authored fountains
+remain outside this narrow Portal slice.
+
+The maintained admission path publishes the exact remaining count after the
+Artefact mutation and removes the real Arabesk only at full occupancy. This is
+derived presentation and adds no PRT1/AWV1 fields. The dedicated acceptance
+now includes Level.04D and proves
+`portal_presentation_probe=1/1/1/1/1/3/1/1/1/1`: all plural forms, restored
+text, three console messages, live Arabesk discovery/removal, partial-state
+recreation and full-state re-removal. Debug, Release and RelWithDebInfo pass
+the complete 3-Level matrix 9/9; all configurations remain 67/67 CTest, and the
+unchanged natural mission-combat row passes in RelWithDebInfo.
 
 ## Optimized-link ownership and support-surface handover
 

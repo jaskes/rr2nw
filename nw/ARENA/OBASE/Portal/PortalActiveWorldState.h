@@ -27,6 +27,21 @@ struct SPortalTransitionProbeSummary {
   SPortalTransitionProbeSummary();
 };
 
+struct SPortalPresentationProbeSummary {
+  int portalCount;
+  int singularStatus;
+  int fewStatus;
+  int manyStatus;
+  int restoredStatus;
+  int messagesPublished;
+  int arabeskPresent;
+  int arabeskRemoved;
+  int arabeskRecreated;
+  int arabeskRestoreRemoved;
+
+  SPortalPresentationProbeSummary();
+};
+
 void PortalActiveWorldState_Link();
 const char *PortalActiveWorldState_LastFailure();
 bool PortalActiveWorldState_InitializeLevelSubjects(
@@ -34,6 +49,8 @@ bool PortalActiveWorldState_InitializeLevelSubjects(
 void PortalActiveWorldState_ReleaseLevelSubjects(
     SimulationContext *context);
 bool PortalActiveWorldState_RequestTransition(
+    SimulationContext *context, const KR_ObjectID &portal);
+bool PortalActiveWorldState_PublishAdmissionStatus(
     SimulationContext *context, const KR_ObjectID &portal);
 bool PortalActiveWorldState_TransitionPending();
 bool PortalActiveWorldState_TakeTransitionRequest();
@@ -57,5 +74,8 @@ bool PortalActiveWorldState_AdmissionProbe(
 bool PortalActiveWorldState_StageTransitionProbe(
     SimulationContext *context, double timeStamp,
     SPortalTransitionProbeSummary *summary);
+bool PortalActiveWorldState_StagePresentationProbe(
+    SimulationContext *context,
+    SPortalPresentationProbeSummary *summary);
 
 #endif

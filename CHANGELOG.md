@@ -7,6 +7,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Restored the May Portal status path with exact centered CP866 singular,
+  plural and restored messages. `Level.04D` now creates its authored
+  `Portal.Arabesk` through the real archived Fountain/FountainAttr tables and
+  removes that live barrier only when all Portal slots are occupied; the
+  derived UI adds no save fields. Partial/full PRT1 restore recreates/removes
+  the same Fountain idempotently. The transition gate now covers normal,
+  Arabesk and terminal branches in all three Windows configurations (9/9).
 - Level.03N guide collision acceptance now exercises the real occupied
   `Vehicle.Default`, rather than inferring Player-vehicle behavior from a
   second People owner. The probe requires exact dynamic collision ownership,

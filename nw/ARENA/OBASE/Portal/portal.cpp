@@ -274,6 +274,9 @@ void Portal::portalAddArtefact( KR_ObjectID artID )
     while( context->removeEvent(ARTEFACT_MOVE, artID) == 1 ) {}
     while( context->removeEvent(ARTEFACT_CHANGEDIR, artID) == 1 ) {}
     m_occupiedSlotCnt++;
+    if( !PortalActiveWorldState_PublishAdmissionStatus(context, getObjectID()) )
+         echo( "Portal::portalAddArtefact() Presentation failed: %s",
+               PortalActiveWorldState_LastFailure() );
 
 }
 

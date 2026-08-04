@@ -942,12 +942,17 @@ player collision and lets the complete-frame coordinator perform the switch:
 ```
 
 The ordinary `Level.03N` row must advance to the next active `game.cfg` entry.
-The terminal `Level.07N` row must wrap from catalog index 8 to index 0 and set
-`portal_campaign_completion=1`. Every row requires
-`portal_transition_probe=1/1/1/1`, matching begin/commit/final-Level markers,
-zero recovered-service issues and clean shutdown. The legacy callback may
-only request the transition; teardown/start and source rollback belong to the
-frame-boundary coordinator.
+`Level.04D` must report
+`portal_presentation_probe=1/1/1/1/1/3/1/1/1/1`, proving the exact May plural
+and restored strings, three centered urgent messages, live `Portal.Arabesk`
+discovery/removal, partial-state recreation and full-state re-removal. Other
+Levels report the same prefix with `0/0/0/0` because they do not author that
+Fountain. The terminal `Level.07N` row must wrap from catalog index 8 to index
+0 and set `portal_campaign_completion=1`. Every row also requires
+`portal_transition_probe=1/1/1/1`, matching
+begin/commit/final-Level markers, zero recovered-service issues and clean
+shutdown. The legacy callback may only request the transition; teardown/start
+and source rollback belong to the frame-boundary coordinator.
 
 ## Mission-guide dynamic obstruction pass
 

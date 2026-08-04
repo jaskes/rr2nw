@@ -2844,8 +2844,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     const int expectedLevelIndex =
         sourceLevelIndex == static_cast<int>(data.levels.size()) - 1
             ? 0 : sourceLevelIndex + 1;
+    SPortalPresentationProbeSummary portalPresentation;
+    const bool portalPresentationReady =
+        PortalActiveWorldState_StagePresentationProbe(
+            g_super.m_context, &portalPresentation);
+    log.Line("portal_presentation_probe=" +
+             std::to_string(portalPresentation.portalCount) + "/" +
+             std::to_string(portalPresentation.singularStatus) + "/" +
+             std::to_string(portalPresentation.fewStatus) + "/" +
+             std::to_string(portalPresentation.manyStatus) + "/" +
+             std::to_string(portalPresentation.restoredStatus) + "/" +
+             std::to_string(portalPresentation.messagesPublished) + "/" +
+             std::to_string(portalPresentation.arabeskPresent) + "/" +
+             std::to_string(portalPresentation.arabeskRemoved) + "/" +
+             std::to_string(portalPresentation.arabeskRecreated) + "/" +
+             std::to_string(portalPresentation.arabeskRestoreRemoved));
     SPortalTransitionProbeSummary portalTransition;
-    const bool portalTransitionStaged =
+    const bool portalTransitionStaged = portalPresentationReady &&
         PortalActiveWorldState_StageTransitionProbe(
             g_super.m_context,
             (std::max)(0.1, Session::m_viewTime + 0.1),
@@ -2863,7 +2878,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(sourceLevelIndex) + "/" +
              std::to_string(expectedLevelIndex) + "/" +
              std::to_string(currentLevelIndex));
-    if (!portalTransitionStaged)
+    if (!portalPresentationReady || !portalTransitionStaged)
       log.Line(std::string("portal_transition_error=") +
                PortalActiveWorldState_LastFailure());
     loopFailed = !portalTransitionCompleted;

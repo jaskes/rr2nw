@@ -30,6 +30,7 @@ class CGRPanel;
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/farter/FarterAttributeState.h"
 #include "obase/farter/FarterSubjectState.h"
+#include "obase/fountain/FountainClassTableState.h"
 #include "obase/lamp/LampAttributeState.h"
 #include "obase/orphan/OrphanAttributeState.h"
 #include "obase/orphan/OrphanSubjectState.h"
@@ -142,6 +143,10 @@ constexpr const char kMissionProjectProgramName[] =
     "recovered_retail_mission_project_bootstrap";
 constexpr const char kRecruitCenterProgramName[] =
     "recovered_retail_recruit_center_bootstrap";
+constexpr const char kPortalFountainAttributeProgramName[] =
+    "recovered_retail_portal_fountain_attribute_bootstrap";
+constexpr const char kPortalFountainSubjectProgramName[] =
+    "recovered_retail_portal_fountain_subject_bootstrap";
 
 const char kMissionProjectBootstrapPrefix[] = R"RR2NW_SCRIPT(
 func void s_CreateProjectTable(int projects, int nodes, int heap) extern;
@@ -569,6 +574,22 @@ const char kSmokeAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
 func void main()
 {
   main_CreateSmokeAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kPortalFountainAttributeBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  main_CreateFountainAttr();
+}
+)RR2NW_SCRIPT";
+
+const char kPortalFountainSubjectBootstrapSuffix[] = R"RR2NW_SCRIPT(
+func void main()
+{
+  s_AddClassTable("Fountain",50);
+  CreateFountain("Portal.Arabesk","Fount.Attr.Arab",
+                 [2514.84,63.1582,-2306.53]);
 }
 )RR2NW_SCRIPT";
 
@@ -1208,6 +1229,36 @@ int InspectSingleTableCapacity(const std::string& compact,
     ++digits;
   }
   return digits > 0 && capacity > 0 && capacity <= 512 ? capacity : -1;
+}
+
+struct PortalFountainScriptSummary {
+  int subjectCapacity;
+  bool authored;
+};
+
+bool InspectPortalFountainScript(
+    const std::string& localMainSource,
+    PortalFountainScriptSummary* summary) {
+  if (summary == nullptr) return false;
+  summary->subjectCapacity = 0;
+  summary->authored = false;
+  std::string compact;
+  if (!CompactScriptSource(localMainSource, &compact)) return false;
+
+  const char name[] = "Portal.Arabesk";
+  const int nameCount = CountTextOccurrences(compact, name);
+  if (nameCount == 0) return true;
+  const char canonicalCall[] =
+      "CreateFountain(\"Portal.Arabesk\",\"Fount.Attr.Arab\","
+      "[2514.84,63.1582,-2306.53]);";
+  const int capacity =
+      InspectSingleTableCapacity(compact, "Fountain", false);
+  if (nameCount != 1 ||
+      CountTextOccurrences(compact, canonicalCall) != 1 || capacity != 50)
+    return false;
+  summary->subjectCapacity = capacity;
+  summary->authored = true;
+  return true;
 }
 
 struct PeopleScriptSummary {
@@ -2309,7 +2360,8 @@ bool RunRetailAttributeBootstrap(SimulationContext* context,
                                  const char* programName,
                                  unsigned long long sourceIssue,
                                  const char* description,
-                                 bool extendedSourceIssue = false) {
+                                 bool extendedSourceIssue = false,
+                                 bool stripDuplicateFountainColors = false) {
   std::string rootSource;
   std::string levelSource;
   if (!ReadBoundedRetailAttributeSource(rootPath, &rootSource) ||
@@ -2325,6 +2377,25 @@ bool RunRetailAttributeBootstrap(SimulationContext* context,
       Report(sourceIssue, message);
     }
     return false;
+  }
+
+  if (stripDuplicateFountainColors) {
+    std::map<std::string, ScriptFunctionDefinition> definitions;
+    ParseScriptFunctions(rootSource, &definitions, false);
+    const auto helper = definitions.find("fount_SetColors");
+    const std::size_t first = helper == definitions.end()
+                                  ? std::string::npos
+                                  : rootSource.find(helper->second.source);
+    if (first == std::string::npos ||
+        rootSource.find(helper->second.source,
+                        first + helper->second.source.size()) !=
+            std::string::npos) {
+      Report(sourceIssue,
+             "FOUNTAIN.SCI does not contain one bounded fount_SetColors "
+             "definition");
+      return false;
+    }
+    rootSource.erase(first, helper->second.source.size());
   }
 
   std::string program;
@@ -2520,6 +2591,57 @@ bool RunRouteBootstrap(SimulationContext* context, double startTime) {
       kRouteBootstrapSuffix, kRouteProgramName,
       RECOVERED_ARENA_SEANCE_EXT_ROUTE_SOURCE_UNAVAILABLE,
       "SCINC\\load_route.sci", true);
+}
+
+bool RunPortalFountainBootstrap(SimulationContext* context,
+                                double startTime) {
+  std::string localMainSource;
+  if (!ReadBoundedRetailAttributeSource("SCINC\\localmain.sci",
+                                        &localMainSource)) {
+    // Direct source-only service tests deliberately have no selected retail
+    // manifest. A real selected Level must carry its canonical local owner.
+    if (!RecoveredRetailScriptManifest_IsReady()) return true;
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "could not read bounded retail SCINC\\localmain.sci for Portal "
+           "Fountain ownership");
+    return false;
+  }
+
+  PortalFountainScriptSummary summary = {};
+  if (!InspectPortalFountainScript(localMainSource, &summary)) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "Level-local Portal.Arabesk ownership diverges from May retail");
+    return false;
+  }
+  if (!summary.authored) return true;
+
+  if (!RunRetailAttributeBootstrap(
+          context, startTime, "..\\FOUNTAIN.SCI",
+          "SCINC\\cr_fountainAttr.sci",
+          kPortalFountainAttributeBootstrapSuffix,
+          kPortalFountainAttributeProgramName,
+          RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+          "FOUNTAIN.SCI + SCINC\\cr_fountainAttr.sci Portal attributes",
+          false, true) ||
+      !RunRetailAttributeBootstrap(
+          context, startTime, "..\\FOUNTAIN.SCI", nullptr,
+          kPortalFountainSubjectBootstrapSuffix,
+          kPortalFountainSubjectProgramName,
+          RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+          "FOUNTAIN.SCI Portal.Arabesk subject", false, true)) {
+    return false;
+  }
+
+  if (summary.subjectCapacity != 50 ||
+      g_arena.searchSeanceClassTable("FountainAttr") == ct_NULLID ||
+      g_arena.searchSeanceClassTable("Fountain") == ct_NULLID ||
+      !context->isExist("Fount.Attr.Arab") ||
+      !context->isExist("Portal.Arabesk")) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "May Portal Fountain owner did not publish a complete live graph");
+    return false;
+  }
+  return true;
 }
 
 bool RunRecruitCenterBootstrap(SimulationContext* context,
@@ -6255,6 +6377,7 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
   CommanderState_Link();
   TankGroupState_Link();
   PortalClassTable_Link();
+  FountainClassTable_Link();
   RecruitCenterSubjectState_Link();
   TeleportSubjectState_Link();
   SparkAttributeState_Link();
@@ -6360,6 +6483,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
         howitzerScript.attributeCapacity, howitzerScript.subjectCapacity);
     if (!RunRouteBootstrap(context, startTime) ||
         !RunCommonAttributeBootstrap(context, startTime)) {
+      RecoveredArenaSeance_Release();
+      return FALSE;
+    }
+    if (!RunPortalFountainBootstrap(context, startTime)) {
       RecoveredArenaSeance_Release();
       return FALSE;
     }

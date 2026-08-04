@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$DataRoot,
     [ValidateSet("Debug", "Release", "RelWithDebInfo")]
     [string[]]$Configuration = @("Debug"),
-    [string[]]$Level = @("Level.03N", "Level.07N"),
+    [string[]]$Level = @("Level.03N", "Level.04D", "Level.07N"),
     [ValidateRange(10, 300)][int]$TimeoutSeconds = 120,
     [string]$OutputRoot
 )
@@ -98,6 +98,11 @@ foreach ($configurationName in $Configuration) {
         }
         if ($startup -notmatch 'portal_transition_probe=1/1/1/1') {
             $issues.Add("full Portal collision proof missing")
+        }
+        $expectedArabesk = if ($levelName -ieq "Level.04D") { "1/1/1/1" } else { "0/0/0/0" }
+        if ($startup -notmatch (
+                "portal_presentation_probe=1/1/1/1/1/3/{0}" -f $expectedArabesk)) {
+            $issues.Add("May Portal status presentation proof missing")
         }
         if ($startup -notmatch ("portal_transition_catalog={0}/{1}/{1}" -f
                 $sourceIndex, $targetIndex)) {

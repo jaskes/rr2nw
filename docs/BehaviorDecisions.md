@@ -5443,3 +5443,28 @@ pre-probe world.
 This is an acceptance transaction, not new traffic AI and not a save-schema
 change. Static town geometry still needs a visible long-route pass, and no
 producer for accepted contact class `4` has been evidenced.
+
+### BD-155: Portal status is derived from occupancy; Arabesk is Level-local
+
+Status: accepted on 2026-08-04 for May Portal presentation parity.
+
+The May admission callback is the authority for status timing and grammar.
+After one real Artefact is consumed, remaining occupancy selects the exact
+CP866 singular, two-to-four or many string and publishes it centered for five
+seconds. Zero remaining removes the symbolic `Portal.Arabesk` owner and
+publishes the exact restored string centered for ten seconds. Its deliberate
+Latin look-alike bytes are retained rather than normalized.
+
+This presentation is derived from the authoritative Portal slot count. It does
+not enter PRT1, AWV1 or LCN1, and a missing console cannot roll back an already
+committed Artefact transaction. The Arabesk itself is not synthetic state:
+only the Level whose admitted `localmain.sci` contains the exact May creation
+call may create it, using the real Fountain archive, `Fount.Attr.Arab`, table
+capacity 50 and authored position. Completion removes that same live object.
+Applying partial PRT1 state recreates it idempotently; applying full PRT1 state
+removes it again, so same-Level rollback does not need an independent Fountain
+presence bit.
+
+Only this Portal-specific Fountain owner enters the current frontier. Ordinary
+`main_CreateFountain()` population, broader Fountain save semantics and visual
+parity remain separate work and must not be inferred from this acceptance row.

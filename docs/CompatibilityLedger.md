@@ -4341,7 +4341,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 ### CQ-219: archival Portal callback did not advance the May campaign
 
 - Status: `MARCH_SOURCE_GAP_CONFIRMED`, `MAY_BINARY_CONTROL_FLOW_RECOVERED`,
-  `WINDOWS_RUNTIME_ACCEPTED`.
+  `MAY_PRESENTATION_RECOVERED`, `WINDOWS_RUNTIME_ACCEPTED`.
 - Evidence: the archival callback validates a full player collision but only
   prints `Go to next level`. The installed 1999-05-27 executable instead reads
   the campaign catalog index, increments indices 0-7, wraps index 8 to zero
@@ -4356,11 +4356,18 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Verification: every installed Level exposes a `portal` reference. The
   mission-result gate proves attached/full rejection, free-Artefact admission,
   private-event cleanup and exact occupancy restore. The dedicated gate proves
-  `Level.03N` normal progression and `Level.07N` terminal wrap in all three
-  Windows configurations.
-- Revisit when: recover the May HUD/presentation call path for
-  `Portal.Arabesk`, restored-Portal and remaining-Artefact messages. Keep map,
-  quests and character cinematics as separate campaign UI rows.
+  `Level.03N` normal progression, `Level.04D` live Arabesk removal and
+  `Level.07N` terminal wrap in all three Windows configurations. The expanded
+  matrix passes 9/9 and proves all exact plural/restored strings plus three
+  urgent console publications.
+- Presentation: May `portalAddArtefact` derives the five/ten-second centered
+  message from occupancy. `Level.04D` alone creates the exact Level-local
+  `Portal.Arabesk` through `Fountain(50)`/`Fount.Attr.Arab`; completion removes
+  that real owner. Partial/full PRT1 apply recreates/removes it idempotently.
+  No presentation field was added to continuation.
+- Revisit when: ordinary Fountain population or broader Fountain persistence is
+  admitted. Keep map, quests and character cinematics as separate campaign UI
+  rows.
 
 ### CQ-220: bounded actor extrapolation still produced visible AI steps
 
