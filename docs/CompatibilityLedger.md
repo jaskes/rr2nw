@@ -4183,7 +4183,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 - Status: `MANUAL_WINDOWS_OBSERVED`, `HORIZONTAL_ROUTE_CAUSE_CONFIRMED`,
   `HORIZONTAL_ROUTE_FIX_ACCEPTED`, `TIMED_MISSION_COMBAT_ACCEPTED`,
-  `UNASSISTED_PURSUIT_OPEN`.
+  `UNASSISTED_PURSUIT_ACCEPTED`.
 - Evidence: a manual Level.01 mission run and a Level.02 encounter show hostile
   actors advancing their walk pose while remaining in place and applying no
   damage. This distinguishes animation cadence from route displacement and
@@ -4237,9 +4237,29 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Release and RelWithDebInfo each pass the maintained combat row and fresh
   Level.01D continuation; the three-configuration installed startup matrix
   remains 27/27.
-- Revisit when: repeat the original manual Level.01 route without external
-  process control, then prove enemies close authored distances without staging.
-  Keep guide/Vehicle path obstruction as a separate route/contact row.
+- Natural verification: `--mission-natural-combat-smoke` runs the unchanged
+  `Robot_01` population without moving actors, changing health/attributes or
+  inserting scheduler work. The four mission shooters become active at their
+  authored time. `R01.Friend.Robot.04` naturally acquires
+  `R01.Enemy.Flyer.02`, moves 41.64 world units, fires one real projectile,
+  advances it through 15 Bullet moves and four collision checks, and records
+  one dynamic impact. The complete 76-People mission world then restores and
+  recaptures byte-for-byte (`mission_natural_rollback=1/1/1`).
+- Root cause: both free-flight attack branches could clamp a relative vector
+  and assign it directly to absolute `m_nextNode`. On Levels whose coordinates
+  are thousands of units from zero, that redirected aircraft toward the world
+  origin. The isolated route kernel restores the missing enemy/actor origin
+  while retaining the authored prediction, random near-target motion and
+  legacy soft bound.
+- Continuation note: the long natural run also proved that mission Tank AI may
+  hold multiple private events with the same label. TAN1 now captures every
+  bounded event in timestamp order instead of rejecting legal multiplicity;
+  remove/apply/recapture retains the exact queue.
+- Verification breadth: Debug, Release and RelWithDebInfo pass 67/67 CTest,
+  installed startup passes 27/27 and the 27 fresh continuation cases retain
+  complete `1011` destruction and occupied-save/load masks in every profile.
+- Revisit when: repeat the original visible Level.01 mission route for visual
+  parity. Keep guide/Vehicle path obstruction as a separate route/contact row.
 
 ## Maintenance rule
 

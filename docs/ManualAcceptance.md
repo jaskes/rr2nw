@@ -829,6 +829,29 @@ This is a controlled proximity/health gate. It proves that real mission actors
 can deliver a scheduled attack and that the first Robot death graph is safe;
 it does not replace the manual long-route pursuit and guide-obstruction pass.
 
+## Natural public-mission pursuit pass
+
+This longer gate keeps the authored mission distance and delayed activation.
+It performs no actor-position, health, attribute or scheduler staging:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionNaturalCombatSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration RelWithDebInfo
+```
+
+The row must identify a positive shooter cohort and one concrete actor whose
+`mission_natural_live` target/attack/move/shot/projectile/collision/impact
+fields are all `1`. `mission_natural_bullets` must contain positive accepted,
+move, collision and dynamic-impact counters. The process must finish with
+`mission_natural_rollback=1/1/1`, zero service issues, `level-ready` and clean
+shutdown. A roughly two-minute Debug run is expected because `Robot_01` owns
+an authored mission-time-100 start; do not shorten it by changing live state.
+
+This closes the automated unassisted pursuit boundary. A visible run remains
+useful for animation and flight-path parity, while guide/Vehicle obstruction
+is a separate manual and implementation row.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

@@ -26,6 +26,7 @@ const std::uint32_t kTankMagic = 0x314e4154u; // TAN1
 const std::uint32_t kTankVersion = 1u;
 const std::size_t kMaximumTanks = 1024;
 const std::size_t kMaximumString = 512;
+const int kMaximumSchedulerEventsPerOwner = 32;
 
 const int kTankSchedulerLabels[] = {
     t_EVC_MOVING, t_EV_CREATE_SMOKE, t_EVC_STAY_AND_SHOOTING,
@@ -411,26 +412,37 @@ bool CaptureEvents(SimulationContext *context, const KR_ObjectID &owner,
     events->clear();
     for (std::size_t index = 0; index < N; ++index)
     {
-        KR_Event copied[2];
-        const int count = context->copyEvents(labels[index], owner, copied, 2);
-        if (count < 0 || count > 1)
-            return Fail("duplicate private Tank/Cannon scheduler label");
-        if (count == 1)
+        const int count =
+            context->copyEvents(labels[index], owner, NULL, 0);
+        if (count < 0 || count > kMaximumSchedulerEventsPerOwner)
+            return Fail("Tank/Cannon scheduler label count is invalid");
+        if (events->size() + static_cast<std::size_t>(count) >
+            static_cast<std::size_t>(kMaximumSchedulerEventsPerOwner))
+            return Fail("Tank/Cannon scheduler event count is invalid");
+        if (count != 0)
         {
-            if (copied[0].destination != owner ||
-                !std::isfinite(copied[0].timeStamp) ||
-                copied[0].timeStamp < 0.0)
-                return Fail("private Tank/Cannon scheduler endpoint is invalid");
-            StableEvent event;
-            if (!reader(copied[0], &event))
-                return false;
-            events->push_back(event);
+            std::vector<KR_Event> copied(static_cast<std::size_t>(count));
+            if (context->copyEvents(labels[index], owner, &copied[0], count) !=
+                count)
+                return Fail("Tank/Cannon scheduler label capture changed");
+            for (int eventIndex = 0; eventIndex < count; ++eventIndex)
+            {
+                if (copied[eventIndex].destination != owner ||
+                    !std::isfinite(copied[eventIndex].timeStamp) ||
+                    copied[eventIndex].timeStamp < 0.0)
+                    return Fail(
+                        "private Tank/Cannon scheduler endpoint is invalid");
+                StableEvent event;
+                if (!reader(copied[eventIndex], &event))
+                    return false;
+                events->push_back(event);
+            }
         }
     }
-    std::sort(events->begin(), events->end(),
-              [](const StableEvent &left, const StableEvent &right) {
-                  return left.label < right.label;
-              });
+    std::stable_sort(events->begin(), events->end(),
+                     [](const StableEvent &left, const StableEvent &right) {
+                         return left.label < right.label;
+                     });
     return true;
 }
 
@@ -956,7 +968,10 @@ bool ValidateEvents(const std::vector<StableEvent> &events, bool cannon)
 {
     for (std::size_t index = 0; index < events.size(); ++index)
         if (!ValidateEvent(events[index], cannon) ||
-            (index != 0 && events[index - 1].label >= events[index].label))
+            (index != 0 &&
+             (events[index - 1].label > events[index].label ||
+              (events[index - 1].label == events[index].label &&
+               events[index - 1].timeStamp > events[index].timeStamp))))
             return false;
     return true;
 }

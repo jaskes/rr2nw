@@ -198,6 +198,39 @@ struct SPeopleMissionCombatLiveState
     char attackerTarget[96];
 };
 
+// Read-only acceptance view of a shooter created by the selected public
+// mission. Unlike SPeopleMissionCombatStageSummary this never changes an
+// owner, attribute, scheduler event, route, position, or health value.
+struct SPeopleNaturalCombatSummary
+{
+    int baselinePeople;
+    int livePeople;
+    int missionPeople;
+    int missionShooters;
+    int available;
+    int visible;
+    int attackState;
+    int hasTarget;
+    int targetIsDynamic;
+    int shot;
+    double initialX;
+    double initialY;
+    double initialZ;
+    double currentX;
+    double currentY;
+    double currentZ;
+    double horizontalDisplacement;
+    double targetDistance;
+    double initialShootTime;
+    double currentShootTime;
+    KR_ObjectID actorID;
+    char actor[96];
+    char commander[96];
+    char attribute[96];
+    char route[96];
+    char target[96];
+};
+
 void PeopleSubjectState_Link();
 void PeopleSubjectState_SetExpectedCapacities(int attributeCapacity,
                                               int subjectCapacity);
@@ -269,5 +302,17 @@ bool PeopleSubjectState_ScheduleMissionCombatDeath(
     SimulationContext *context,
     const SPeopleMissionCombatStageSummary *stage,
     double timeStamp);
+bool PeopleSubjectState_SelectNaturalMissionCombat(
+    SimulationContext *context,
+    const std::vector<KR_ObjectID> &baselineObjects,
+    SPeopleNaturalCombatSummary *summary);
+bool PeopleSubjectState_SelectNaturalMissionCombatCohort(
+    SimulationContext *context,
+    const std::vector<KR_ObjectID> &baselineObjects,
+    std::vector<SPeopleNaturalCombatSummary> *summaries);
+bool PeopleSubjectState_InspectNaturalMissionCombat(
+    SimulationContext *context,
+    const SPeopleNaturalCombatSummary *selection,
+    SPeopleNaturalCombatSummary *summary);
 
 #endif

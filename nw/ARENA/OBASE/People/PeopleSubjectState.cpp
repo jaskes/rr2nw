@@ -650,6 +650,157 @@ bool PeopleSubjectState_ObjectIDs(
     return true;
 }
 
+bool PeopleSubjectState_SelectNaturalMissionCombat(
+    SimulationContext *context,
+    const std::vector<KR_ObjectID> &baselineObjects,
+    SPeopleNaturalCombatSummary *summary)
+{
+    if (context == NULL || summary == NULL)
+        return false;
+    std::vector<SPeopleNaturalCombatSummary> cohort;
+    if (!PeopleSubjectState_SelectNaturalMissionCombatCohort(
+            context, baselineObjects, &cohort) || cohort.empty())
+        return false;
+    *summary = cohort[0];
+    return true;
+}
+
+bool PeopleSubjectState_SelectNaturalMissionCombatCohort(
+    SimulationContext *context,
+    const std::vector<KR_ObjectID> &baselineObjects,
+    std::vector<SPeopleNaturalCombatSummary> *summaries)
+{
+    if (context == NULL || summaries == NULL)
+        return false;
+    summaries->clear();
+
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+
+    struct Candidate
+    {
+        int score;
+        SPeopleNaturalCombatSummary summary;
+    };
+    std::vector<Candidate> candidates;
+    int missionPeople = 0;
+    int missionShooters = 0;
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        if (std::find(baselineObjects.begin(), baselineObjects.end(),
+                      roster.ids[index]) != baselineObjects.end())
+            continue;
+        ++missionPeople;
+        People *people = ResolvePeople(context, roster.ids[index]);
+        if (!RuntimeReady(people) || !people->isShooter())
+            continue;
+        ++missionShooters;
+        const char *name = context->searchObject(roster.ids[index]);
+        int score = 0;
+        if (name != NULL &&
+            std::strstr(name, "Enemy.Flyer.Falcon.01") != NULL)
+            score += 1000;
+        if (name != NULL && std::strstr(name, "Enemy") != NULL)
+            score += 100;
+        if (people->m_isNotCreate == 0)
+            score += 20;
+        if (people->m_isVisible != 0)
+            score += 10;
+        const CFVector3 position = people->getPosition();
+        if (!FiniteVector(position))
+            return false;
+        Candidate candidate = {};
+        candidate.score = score;
+        candidate.summary.baselinePeople =
+            static_cast<int>(baselineObjects.size());
+        candidate.summary.livePeople = static_cast<int>(roster.ids.size());
+        candidate.summary.available = 1;
+        candidate.summary.visible = people->m_isVisible != 0 ? 1 : 0;
+        candidate.summary.targetDistance = -1.0;
+        candidate.summary.initialX = candidate.summary.currentX = position.x;
+        candidate.summary.initialY = candidate.summary.currentY = position.y;
+        candidate.summary.initialZ = candidate.summary.currentZ = position.z;
+        candidate.summary.initialShootTime =
+            candidate.summary.currentShootTime = people->m_prevShootTime;
+        candidate.summary.actorID = roster.ids[index];
+        CopyTelemetryName(candidate.summary.actor,
+                          sizeof(candidate.summary.actor), name);
+        CopyTelemetryName(candidate.summary.commander,
+                          sizeof(candidate.summary.commander),
+                          context->searchObject(people->m_commanderID));
+        CopyTelemetryName(candidate.summary.attribute,
+                          sizeof(candidate.summary.attribute),
+                          context->searchObject(people->m_peopleAttrID));
+        CopyTelemetryName(candidate.summary.route,
+                          sizeof(candidate.summary.route),
+                          context->searchObject(people->m_routeID));
+        candidates.push_back(candidate);
+    }
+    std::stable_sort(candidates.begin(), candidates.end(),
+                     [](const Candidate &left, const Candidate &right) {
+                         return left.score > right.score;
+                     });
+    for (std::size_t index = 0; index < candidates.size(); ++index)
+    {
+        candidates[index].summary.missionPeople = missionPeople;
+        candidates[index].summary.missionShooters = missionShooters;
+        summaries->push_back(candidates[index].summary);
+    }
+    return !summaries->empty();
+}
+
+bool PeopleSubjectState_InspectNaturalMissionCombat(
+    SimulationContext *context,
+    const SPeopleNaturalCombatSummary *selection,
+    SPeopleNaturalCombatSummary *summary)
+{
+    if (context == NULL || selection == NULL || summary == NULL ||
+        selection->available == 0)
+        return false;
+    *summary = *selection;
+    People *actor = ResolvePeople(context, selection->actorID);
+    if (!RuntimeReady(actor))
+    {
+        summary->available = 0;
+        return true;
+    }
+
+    const CFVector3 position = actor->getPosition();
+    if (!FiniteVector(position))
+        return false;
+    summary->visible = actor->m_isVisible != 0 ? 1 : 0;
+    summary->attackState =
+        actor->getState() == pe_STATE_ATTACK ? 1 : 0;
+    summary->currentX = position.x;
+    summary->currentY = position.y;
+    summary->currentZ = position.z;
+    summary->horizontalDisplacement = hypot(
+        position.x - selection->initialX,
+        position.z - selection->initialZ);
+    summary->currentShootTime = actor->m_prevShootTime;
+    summary->shot = actor->m_prevShootTime >
+        selection->initialShootTime + 1e-9 ? 1 : 0;
+
+    KR_ObjectID targetID = actor->getEnemyID();
+    summary->hasTarget = targetID.isNUL() ? 0 : 1;
+    CopyTelemetryName(summary->target, sizeof(summary->target),
+                      context->searchObject(targetID));
+    IDynamicObject *target = targetID.isNUL() ? NULL :
+        static_cast<IDynamicObject *>(
+            context->queryInterface(targetID, IDynamicObjectIID));
+    if (target != NULL)
+    {
+        const CFVector3 targetPosition = target->getPos();
+        if (!FiniteVector(targetPosition))
+            return false;
+        summary->targetIsDynamic = 1;
+        summary->targetDistance = Abs(targetPosition - position);
+    }
+    else summary->targetDistance = -1.0;
+    return true;
+}
+
 bool PeopleSubjectState_StageMissionCombat(
     SimulationContext *context,
     const std::vector<KR_ObjectID> &baselineObjects,

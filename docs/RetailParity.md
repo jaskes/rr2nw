@@ -2034,6 +2034,16 @@ playable Level begins.
   NEXTNODE cadence stays as a named bridge only for guide/vehicle
   path-obstruction behavior. Code `4` remains an accepted/restored class, but
   no literal producer exists in the complete May People field-write set.
+- The free-flight far/near ATTACK branches retain their authored target
+  prediction and random offset, but clamped relative vectors are restored to
+  enemy/actor world space before assignment to `m_nextNode`. Assigning the
+  scaled relative vector as an absolute position was incompatible with the
+  retail Levels' large non-zero coordinates and caused origin-directed jumps.
+- Natural `Robot_01` acceptance observes all four mission-created shooters
+  without modifying gameplay state. One actor completes acquisition, movement,
+  shot, Bullet collision and dynamic impact after the authored time-100 start,
+  followed by byte-identical PEO1/TAN1/full-LCN1 rollback. This supplements,
+  rather than replaces, the bounded damage/death acceptance row.
 
 ### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
 

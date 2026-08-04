@@ -479,12 +479,9 @@ void People::nexNodeAttackFar(KR_Event &event,
          attackAllways( event, pos );
     else
     {
-         CFVector3 newDir(m_nextNode-pos);
-         m_nextNode = pos + dobj->getMoveDir()*dobj->getMoveSpeed()*0.4+CFVector3(0,0.2,0);
-         double len2 = Abs2(newDir);
-
-         if(  len2 > m_attr->m_maxOutDist*m_attr->m_maxOutDist  )
-              m_nextNode = (m_attr->m_maxOutDist/sqrt(len2))*newDir;
+         PeopleRouteMotion_FarAttackTarget(
+              pos, dobj->getMoveDir()*dobj->getMoveSpeed(), m_nextNode,
+              m_attr->m_maxOutDist, &m_nextNode );
 
          manoeuvre(  event, pos, mpos );
     }
@@ -504,15 +501,12 @@ void People::nexNodeAttackNear(KR_Event &event,
     else
     {
          double range = 95;
-         m_nextNode = pos-dobj->getMoveDir()*20
-                              +CFVector3(context->rnd_f(-range,range),
-                               context->rnd_f(-10,5+25*(mpos.y<180)),
-                               context->rnd_f(-range,range));
-
-         double len2 = Abs2(m_nextNode-mpos);
-
-         if(  len2 > m_attr->m_maxOutDist*m_attr->m_maxOutDist  )
-              m_nextNode = (m_attr->m_maxOutDist/(1+sqrt(len2)))*(m_nextNode-mpos);
+         CFVector3 candidate = pos-dobj->getMoveDir()*20
+                                   +CFVector3(context->rnd_f(-range,range),
+                                    context->rnd_f(-10,5+25*(mpos.y<180)),
+                                    context->rnd_f(-range,range));
+         PeopleRouteMotion_NearAttackTarget(
+              mpos, candidate, m_attr->m_maxOutDist, &m_nextNode );
 
 
          manoeuvre(  event, pos, mpos );

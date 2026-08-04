@@ -5159,3 +5159,33 @@ retail `Robot_01` topology the Flyer correctly prefers the stronger nearby
 shot by the selected Flyer, damage source identity on the selected Robot, its
 killed transition, both death effects and exact rollback. This proves bounded
 delivery and death safety; it must not be described as unassisted route pursuit.
+
+### BD-143: natural combat acceptance observes an authored shooter cohort
+
+Status: accepted on 2026-08-04 for unassisted `Robot_01` pursuit.
+
+The natural gate may execute the public mission and its normal RecruitCenter
+ejection, but it must not change actor position, health, gameplay attributes,
+route, commander or event deadlines. It captures one immutable selection
+record for every newly created shooter and observes acquisition, ATTACK,
+displacement, `m_prevShootTime` and owner-attributed Bullet telemetry across
+ordinary complete frames. All required facts must belong to the same shooter;
+global shots by ambient Level actors are not proof.
+
+The cohort contract avoids another false negative: the first name-ranked
+Flyer is not necessarily the actor that wins the authored target race. In the
+accepted run `R01.Friend.Robot.04`, not the seed
+`R01.Enemy.Flyer.01`, completes the full graph. The internal wall budget may
+cover the mission's authored 100-second start delay, but remains bounded and
+must end in exact post-mission LCN1 restore/recapture.
+
+World-space attack correction is limited to the two proven clamp branches.
+The previous code formed `oldTarget-enemyPosition` or
+`candidate-actorPosition`, scaled that relative vector, then accidentally
+stored it as an absolute target. Recovery adds back the corresponding origin;
+it does not retune speed, roll rate, shooting skill, random spread or range.
+
+TAN1 treats equal labels as a multiset of independently timed private events.
+Uniqueness is not a valid scheduler invariant for mission Tanks/Cannons.
+Capture is bounded, same-label timestamps are ordered, and full rollback—not
+deduplication—is the acceptance boundary.

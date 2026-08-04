@@ -3895,3 +3895,43 @@ The completed integration gate builds and passes 67/67 CTest in Debug, Release
 and RelWithDebInfo. The mission-combat wrapper passes 3/3, the installed retail
 startup matrix passes 27/27, and fresh Level.01D continuation passes 3/3 in the
 same configurations. The installed `nw.exe` was not replaced for this gate.
+
+## Natural authored-distance People combat
+
+The controlled mission-combat row could prove delivery and death safety only
+after deliberately shortening the firing lane. The new
+`--mission-natural-combat-smoke` captures the post-mission LCN1 world and then
+observes all newly created shooter IDs without writing their position, health,
+attribute, commander, route or scheduler state. This distinction matters for
+`Robot_01`: its four shooters retain the authored hidden start and become live
+only at mission time 100.
+
+The first long observation isolated a legacy coordinate-space defect. Both
+free-flight attack branches form a relative vector when applying
+`maxOutDist`, but the preserved source stored the scaled result as the absolute
+world target. At retail coordinates near `(3000, *, -2700)`, that can steer a
+unit toward `(0,0,0)`. `PeopleRouteMotion_FarAttackTarget` and
+`PeopleRouteMotion_NearAttackTarget` preserve the legacy prediction/random
+motion and clamp lengths while restoring the missing enemy/actor origin. The
+synthetic probe uses non-zero world coordinates so a future regression cannot
+pass by accident.
+
+The same run exposed a continuation assumption rather than a combat failure:
+active mission Tanks can own several independently timed private events with
+the same label. TAN1 already encodes a vector, but capture and validation had
+required labels to be unique. Capture now reads every bounded occurrence,
+stable-sorts by label while retaining timestamp order, and validation accepts
+same-label events in nondecreasing time. Remove/apply naturally reconstructs
+all occurrences.
+
+Installed Debug evidence selects `R01.Friend.Robot.04` from the four-shooter
+cohort. With no gameplay staging it acquires `R01.Enemy.Flyer.02`, moves 41.64
+units, starts one Bullet, produces 15 Bullet moves, four collision checks and
+one dynamic impact. The 76-People world then restores and immediately
+recaptures byte-for-byte with zero recovered-service issues and clean
+shutdown. Use `tools/acceptance/Invoke-MissionNaturalCombatSmoke.ps1`; its
+long timeout is intentional because the retail mission start delay is part of
+the contract. Debug, Release and RelWithDebInfo each pass 67/67 CTest; the
+installed runtime matrix passes 27/27. Fresh continuation completes all 27
+Level/configuration cases with zero proof issues and combined Vehicle
+destruction plus occupied-save/load masks `1011` in every configuration.

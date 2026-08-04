@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Free-flight People attack targets now remain in world space when authored
+  `maxOutDist` clamping activates. The legacy branches scaled a relative
+  vector and stored it as an absolute position, which could pull mission
+  aircraft toward the world origin and produce the observed jumps, circling
+  and ineffective pursuit near the player.
+- Natural mission-combat acceptance now observes every newly created authored
+  shooter instead of staging position, health, attributes or scheduler
+  events. `Robot_01` proves ordinary acquisition, pursuit, `onShoot`, Bullet
+  collision/dynamic damage and byte-exact full-world rollback.
+- Tank/Cannon continuation now preserves multiple pending private events with
+  the same label. Mission AI may legally queue more than one independently
+  timed command; stable capture previously rejected that live state as a
+  duplicate before rollback or save/load could begin.
 - People movement now performs the May helper's smooth half-step route
   recentering while retaining the authored `maxOutDist` hard boundary.
   Collision response can bypass centering, off-route motion accumulates the

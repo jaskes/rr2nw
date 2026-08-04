@@ -16,6 +16,7 @@
 #include "ZavShutdownState.h"
 #include "graph.h"
 #include "h/super.h"
+#include "obase/bullet/BulletSubjectState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/howitzer/HowitzerActiveWorldState.h"
 #include "obase/people/PeopleSubjectState.h"
@@ -68,6 +69,7 @@ struct StartupOptions {
   bool missionSmoke = false;
   bool missionBriefingSmoke = false;
   bool missionCombatSmoke = false;
+  bool missionNaturalCombatSmoke = false;
   bool missionContinuationSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
@@ -301,6 +303,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionCombatSmoke = true;
+    } else if (argument == L"--mission-natural-combat-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionNaturalCombatSmoke = true;
     } else if (argument == L"--mission-continuation-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -995,6 +1001,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-combat-smoke |\n"
+                L"           --mission-natural-combat-smoke |\n"
                 L"           --mission-continuation-smoke]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
@@ -2795,6 +2802,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  mission.createdMissionObjects < 1 ||
                  mission.presentedBriefings != expectedBriefings ||
                  mission.scriptRollbacks != 0 || !runCompleteFrame();
+    if (!loopFailed && options.missionNaturalCombatSmoke) {
+      const bool missionEjectionReady =
+          RecruitCenterSubjectState_EjectPlayerForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.1),
+              mission.centerName);
+      log.Line(std::string("mission_natural_ejection=") +
+               (missionEjectionReady ? "1" : "0"));
+      if (!missionEjectionReady)
+        log.Line(std::string("mission_natural_ejection_error=") +
+                 RecruitCenterSubjectState_LastError());
+      loopFailed = !missionEjectionReady || !runCompleteFrame();
+    }
     log.Line("mission_smoke_howitzers=" + std::to_string(
                  RecoveredArenaSeance_HowitzerLiveCount()) + "/" +
              std::to_string(RecoveredArenaSeance_HowitzerReadyLiveCount()) +
@@ -2852,6 +2872,252 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               std::to_string(missionPeopleSchedule.malformedQueues));
     loopFailed = loopFailed || !missionPeopleScheduleReady;
     const std::string missionProject = mission.projectName;
+    if (!loopFailed && options.missionNaturalCombatSmoke) {
+      std::vector<std::uint8_t> naturalCheckpoint;
+      std::vector<std::uint8_t> naturalRecaptured;
+      SLevelContinuationSummary naturalCaptured;
+      SLevelContinuationSummary naturalRestored;
+      SLevelContinuationSummary naturalVerified;
+      const bool naturalCaptureReady = preMissionPeopleReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &naturalCheckpoint, &naturalCaptured);
+      std::vector<SPeopleNaturalCombatSummary> naturalCohort;
+      const bool naturalSelectionReady = naturalCaptureReady &&
+          PeopleSubjectState_SelectNaturalMissionCombatCohort(
+              g_super.m_context, preMissionPeople, &naturalCohort);
+      struct NaturalCombatActorProbe {
+        SPeopleNaturalCombatSummary selection;
+        SPeopleNaturalCombatSummary live;
+        BulletRuntimeTelemetry bulletBaseline;
+        BulletRuntimeTelemetry bullets;
+        bool target;
+        bool attack;
+        bool moved;
+        bool shot;
+        bool projectile;
+        bool collision;
+        bool dynamicImpact;
+        double maximumDisplacement;
+      };
+      std::vector<NaturalCombatActorProbe> naturalActors;
+      bool naturalBulletBaselineReady = naturalSelectionReady;
+      bool naturalAllInitiallyVisible = true;
+      for (std::size_t index = 0; naturalBulletBaselineReady &&
+           index < naturalCohort.size(); ++index) {
+        NaturalCombatActorProbe probe = {};
+        probe.selection = naturalCohort[index];
+        probe.live = naturalCohort[index];
+        naturalAllInitiallyVisible = naturalAllInitiallyVisible &&
+            probe.selection.visible != 0;
+        naturalBulletBaselineReady =
+            BulletSubjectState_OwnerRuntimeTelemetry(
+                g_super.m_context, probe.selection.actor,
+                &probe.bulletBaseline);
+        probe.bullets = probe.bulletBaseline;
+        naturalActors.push_back(probe);
+      }
+      SPeopleNaturalCombatSummary naturalSelection = {};
+      if (!naturalCohort.empty()) naturalSelection = naturalCohort[0];
+      PeopleSubjectState_ResetLiveCombatTelemetry();
+      const bool naturalSampleReady = naturalBulletBaselineReady &&
+          PeopleSubjectState_SampleLiveCombat(g_super.m_context);
+      log.Line("mission_natural_stage=" +
+               std::to_string(naturalCaptureReady ? 1 : 0) + "/" +
+               std::to_string(naturalSelectionReady ? 1 : 0) + "/" +
+               std::to_string(naturalSelection.baselinePeople) + "/" +
+               std::to_string(naturalSelection.livePeople) + "/" +
+               std::to_string(naturalSelection.missionPeople) + "/" +
+               std::to_string(naturalSelection.missionShooters));
+      log.Line("mission_natural_cohort=" +
+               std::to_string(naturalActors.size()) + "/" +
+               std::to_string(naturalAllInitiallyVisible ? 1 : 0));
+      log.Line(std::string("mission_natural_seed=") +
+               (naturalSelection.actor[0] == 0
+                    ? "<none>" : naturalSelection.actor) + "/" +
+               (naturalSelection.commander[0] == 0
+                    ? "<none>" : naturalSelection.commander) + "/" +
+               (naturalSelection.attribute[0] == 0
+                    ? "<none>" : naturalSelection.attribute) + "/" +
+               (naturalSelection.route[0] == 0
+                    ? "<none>" : naturalSelection.route));
+      log.Line("mission_natural_origin=" +
+               std::to_string(naturalSelection.initialX) + "/" +
+               std::to_string(naturalSelection.initialY) + "/" +
+               std::to_string(naturalSelection.initialZ) + "/" +
+               std::to_string(naturalSelection.initialShootTime));
+
+      SPeopleLiveCombatTelemetry naturalPeople = {};
+      int naturalFrames = 0;
+      bool naturalProof = false;
+      std::size_t naturalProofActor = 0;
+      const double naturalMomentStart = Session::m_moment;
+      const ULONGLONG naturalWallBudget =
+          naturalAllInitiallyVisible ? 20000 : 165000;
+      const ULONGLONG naturalWallStart = GetTickCount64();
+      while (naturalSampleReady && !loopFailed && naturalFrames < 20000 &&
+             !naturalProof &&
+             GetTickCount64() - naturalWallStart < naturalWallBudget) {
+        Sleep(5);
+        ++naturalFrames;
+        if (!runCompleteFrame() ||
+            !PeopleSubjectState_SampleLiveCombat(g_super.m_context) ||
+            !PeopleSubjectState_LiveCombatTelemetry(&naturalPeople)) {
+          loopFailed = true;
+          break;
+        }
+        for (std::size_t index = 0; index < naturalActors.size(); ++index) {
+          NaturalCombatActorProbe& probe = naturalActors[index];
+          if (!PeopleSubjectState_InspectNaturalMissionCombat(
+                  g_super.m_context, &probe.selection, &probe.live) ||
+              !BulletSubjectState_OwnerRuntimeTelemetry(
+                  g_super.m_context, probe.selection.actor,
+                  &probe.bullets)) {
+            loopFailed = true;
+            break;
+          }
+          probe.target = probe.target ||
+              (probe.live.hasTarget != 0 &&
+               probe.live.targetIsDynamic != 0);
+          probe.attack = probe.attack || probe.live.attackState != 0;
+          probe.maximumDisplacement = (std::max)(
+              probe.maximumDisplacement,
+              probe.live.horizontalDisplacement);
+          probe.moved = probe.moved ||
+              probe.live.horizontalDisplacement > 0.05;
+          probe.shot = probe.shot || probe.live.shot != 0;
+          probe.projectile = probe.projectile ||
+              probe.bullets.acceptedStarts >
+                  probe.bulletBaseline.acceptedStarts;
+          probe.collision = probe.collision ||
+              probe.bullets.collisionChecks >
+                  probe.bulletBaseline.collisionChecks;
+          probe.dynamicImpact = probe.dynamicImpact ||
+              probe.bullets.dynamicImpacts >
+                  probe.bulletBaseline.dynamicImpacts;
+          if (probe.target && probe.attack && probe.moved && probe.shot &&
+              probe.projectile && probe.collision && probe.dynamicImpact) {
+            naturalProof = true;
+            naturalProofActor = index;
+            break;
+          }
+        }
+      }
+      if (!naturalProof && !naturalActors.empty()) {
+        int bestScore = -1;
+        for (std::size_t index = 0; index < naturalActors.size(); ++index) {
+          const NaturalCombatActorProbe& probe = naturalActors[index];
+          const int score = static_cast<int>(probe.target) +
+              static_cast<int>(probe.attack) +
+              static_cast<int>(probe.moved) +
+              static_cast<int>(probe.shot) +
+              static_cast<int>(probe.projectile) +
+              static_cast<int>(probe.collision) +
+              static_cast<int>(probe.dynamicImpact);
+          if (score > bestScore) {
+            bestScore = score;
+            naturalProofActor = index;
+          }
+        }
+      }
+      NaturalCombatActorProbe naturalResult = {};
+      if (!naturalActors.empty())
+        naturalResult = naturalActors[naturalProofActor];
+      const SPeopleNaturalCombatSummary& naturalLive = naturalResult.live;
+      const BulletRuntimeTelemetry& naturalBulletBaseline =
+          naturalResult.bulletBaseline;
+      const BulletRuntimeTelemetry& naturalBullets = naturalResult.bullets;
+      const bool naturalTarget = naturalResult.target;
+      const bool naturalAttack = naturalResult.attack;
+      const bool naturalMoved = naturalResult.moved;
+      const bool naturalShot = naturalResult.shot;
+      const bool naturalProjectile = naturalResult.projectile;
+      const bool naturalCollision = naturalResult.collision;
+      const bool naturalDynamicImpact = naturalResult.dynamicImpact;
+      const double naturalMaximumDisplacement =
+          naturalResult.maximumDisplacement;
+      log.Line(std::string("mission_natural_actor=") +
+               (naturalLive.actor[0] == 0 ? "<none>" : naturalLive.actor) +
+               "/" +
+               (naturalLive.commander[0] == 0
+                    ? "<none>" : naturalLive.commander) + "/" +
+               (naturalLive.attribute[0] == 0
+                    ? "<none>" : naturalLive.attribute) + "/" +
+               (naturalLive.route[0] == 0
+                    ? "<none>" : naturalLive.route));
+      log.Line("mission_natural_live=" +
+               std::to_string(naturalFrames) + "/" +
+               std::to_string(GetTickCount64() - naturalWallStart) + "/" +
+               std::to_string(naturalPeople.sampleFrames) + "/" +
+               std::to_string(naturalTarget ? 1 : 0) + "/" +
+               std::to_string(naturalAttack ? 1 : 0) + "/" +
+               std::to_string(naturalMoved ? 1 : 0) + "/" +
+               std::to_string(naturalShot ? 1 : 0) + "/" +
+               std::to_string(naturalProjectile ? 1 : 0) + "/" +
+               std::to_string(naturalCollision ? 1 : 0) + "/" +
+               std::to_string(naturalDynamicImpact ? 1 : 0));
+      log.Line("mission_natural_time=" +
+               std::to_string(naturalMomentStart) + "/" +
+               std::to_string(Session::m_moment) + "/" +
+               std::to_string(naturalWallBudget));
+      log.Line(std::string("mission_natural_target=") +
+               (naturalLive.target[0] == 0
+                    ? "<none>" : naturalLive.target) + "/" +
+               std::to_string(naturalLive.targetDistance) + "/" +
+               std::to_string(naturalLive.currentX) + "/" +
+               std::to_string(naturalLive.currentY) + "/" +
+               std::to_string(naturalLive.currentZ) + "/" +
+               std::to_string(naturalMaximumDisplacement));
+      log.Line("mission_natural_people=" +
+               std::to_string(naturalPeople.moveEvents) + "/" +
+               std::to_string(naturalPeople.attackMoveEvents) + "/" +
+               std::to_string(naturalPeople.findEvents) + "/" +
+               std::to_string(naturalPeople.targetAcquisitions) + "/" +
+               std::to_string(naturalPeople.shotsStarted) + "/" +
+               std::to_string(
+                   naturalPeople.maximumHorizontalDisplacement));
+      log.Line(std::string("mission_natural_people_actors=") +
+               (naturalPeople.lastAcquiringOwner[0] == 0
+                    ? "<none>" : naturalPeople.lastAcquiringOwner) + "/" +
+               (naturalPeople.lastShootingOwner[0] == 0
+                    ? "<none>" : naturalPeople.lastShootingOwner) + "/" +
+               (naturalPeople.lastDamagedOwner[0] == 0
+                    ? "<none>" : naturalPeople.lastDamagedOwner));
+      log.Line("mission_natural_bullets=" +
+               std::to_string(naturalBullets.acceptedStarts -
+                              naturalBulletBaseline.acceptedStarts) + "/" +
+               std::to_string(naturalBullets.moveEvents -
+                              naturalBulletBaseline.moveEvents) + "/" +
+               std::to_string(naturalBullets.collisionChecks -
+                              naturalBulletBaseline.collisionChecks) + "/" +
+               std::to_string(naturalBullets.sceneImpacts -
+                              naturalBulletBaseline.sceneImpacts) + "/" +
+               std::to_string(naturalBullets.dynamicImpacts -
+                              naturalBulletBaseline.dynamicImpacts));
+
+      const bool naturalRestoreReady = naturalCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              naturalCheckpoint, &naturalRestored);
+      const bool naturalRecaptureReady = naturalRestoreReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &naturalRecaptured, &naturalVerified);
+      const bool naturalRollbackExact = naturalRecaptureReady &&
+          naturalCheckpoint == naturalRecaptured && naturalCaptured.ready &&
+          naturalRestored.ready && naturalVerified.ready &&
+          naturalCaptured.worldFingerprint ==
+              naturalRestored.restoredWorldFingerprint &&
+          naturalCaptured.worldFingerprint ==
+              naturalVerified.worldFingerprint;
+      log.Line("mission_natural_rollback=" +
+               std::to_string(naturalRestoreReady ? 1 : 0) + "/" +
+               std::to_string(naturalRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(naturalRollbackExact ? 1 : 0));
+      if (!naturalRollbackExact)
+        log.Line(std::string("mission_natural_rollback_error=") +
+                 RecoveredGameServices_LastLevelContinuationError());
+      loopFailed = loopFailed || !naturalSelectionReady ||
+                   !naturalSampleReady || !naturalProof ||
+                   !naturalRollbackExact;
+    }
     if (!loopFailed && options.missionCombatSmoke) {
       std::vector<std::uint8_t> combatCheckpoint;
       std::vector<std::uint8_t> combatRecaptured;

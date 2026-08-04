@@ -52,6 +52,8 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbe(
 bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     bool *staged, RecruitCenterMissionProbeSummary *summary);
+bool RecruitCenterSubjectState_EjectPlayerForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName);
 bool RecruitCenterSubjectState_StageMissionPresentationProbe(
     SimulationContext *context, double timeStamp, bool *staged,
     RecruitCenterMissionProbeSummary *summary);

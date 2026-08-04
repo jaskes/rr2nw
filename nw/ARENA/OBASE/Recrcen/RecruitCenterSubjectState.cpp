@@ -1748,6 +1748,51 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
                                                false, staged, summary);
 }
 
+bool RecruitCenterSubjectState_EjectPlayerForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || centerName == NULL || centerName[0] == 0 ||
+        !std::isfinite(timeStamp) || timeStamp < 0.0 ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter ejection probe needs a live Player vehicle");
+        return false;
+    }
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+    {
+        RecruitCenter *center = static_cast<RecruitCenter *>(subject);
+        const char *name = context->searchObject(center->getObjectID());
+        if (name == NULL || std::strcmp(name, centerName) != 0)
+            continue;
+        const int admissions = center->admissions();
+        const int existing = center->existingMissionVisits();
+        const int ejections = center->ejections();
+        KR_Event event(rc_NEW_MISSION, timeStamp,
+                       g_vehicle->getObjectID(), center->getObjectID());
+        context->sendEventNow(event);
+        const CFVector3 target = center->ejectPosition();
+        const CFVector3 vessel = g_vehicle->Pos();
+        const CFVector3 subjectPosition = g_vehicle->getPosition();
+        const bool exact = FiniteVector(target) && FiniteVector(vessel) &&
+            FiniteVector(subjectPosition) &&
+            Abs2(vessel - target) <= 1.0e-8 &&
+            Abs2(subjectPosition - target) <= 1.0e-8;
+        if (center->admissions() != admissions + 1 ||
+            center->existingMissionVisits() != existing + 1 ||
+            center->ejections() != ejections + 1 || !exact)
+        {
+            SetError("RecruitCenter ejection did not reach its authored point");
+            return false;
+        }
+        return true;
+    }
+    SetError("RecruitCenter ejection cannot find the selected center");
+    return false;
+}
+
 bool RecruitCenterSubjectState_StageMissionPresentationProbe(
     SimulationContext *context, double timeStamp, bool *staged,
     RecruitCenterMissionProbeSummary *summary)

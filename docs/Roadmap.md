@@ -1881,11 +1881,17 @@ now uses physical forward for position while preserving the Taxi yaw
 convention, and the stable-boundary smoke requires the spawned object to be in
 front of the player.
 
+The unassisted authored-distance engagement is now closed. The maintained
+natural gate leaves all mission positions, health, attributes and scheduler
+events untouched; after the authored delayed start, a `Robot_01` unit pursues,
+fires and produces a dynamic Bullet impact before exact LCN1 rollback. The
+world-space attack-target correction also removes the legacy origin-collapse
+path that could make aircraft jump or circle away from their target.
+
 The next gameplay row is guide/vehicle path-obstruction behavior visible in
-town routes plus an unassisted authored-distance engagement, followed by
-mission reward/completion and Portal admission. Timed public-mission
-acquisition, attributed projectile damage, robot death effects and exact
-rollback are no longer part of that open row.
+town routes, followed by mission reward/completion and Portal admission.
+Timed and natural public-mission acquisition, attributed projectile damage,
+robot death effects and exact rollback are no longer part of that open row.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

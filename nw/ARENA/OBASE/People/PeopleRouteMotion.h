@@ -50,6 +50,13 @@ bool PeopleRouteMotion_AllowsHorizontalStep(
 bool PeopleRouteMotion_AllowsSpatialStep(
     const CFVector3 &direction, const CFVector3 &position,
     const CFVector3 &target, double minimumAlignment);
+bool PeopleRouteMotion_FarAttackTarget(
+    const CFVector3 &enemyPosition, const CFVector3 &enemyVelocity,
+    const CFVector3 &previousTarget, double maximumExcursion,
+    CFVector3 *target);
+bool PeopleRouteMotion_NearAttackTarget(
+    const CFVector3 &actorPosition, const CFVector3 &candidate,
+    double maximumExcursion, CFVector3 *target);
 
 // Deterministic synthetic proof for multi-segment travel, all three terminal
 // policies, degenerate nodes, hard corridor bounds, smooth recentering and the

@@ -326,6 +326,53 @@ bool PeopleRouteMotion_AllowsSpatialStep(
     return alignment >= minimumAlignment;
 }
 
+bool PeopleRouteMotion_FarAttackTarget(
+    const CFVector3 &enemyPosition, const CFVector3 &enemyVelocity,
+    const CFVector3 &previousTarget, double maximumExcursion,
+    CFVector3 *target)
+{
+    if (target == NULL || !FiniteVector(enemyPosition) ||
+        !FiniteVector(enemyVelocity) || !FiniteVector(previousTarget) ||
+        !std::isfinite(maximumExcursion) || maximumExcursion <= 0.0)
+        return false;
+    const CFVector3 routeDirection = previousTarget - enemyPosition;
+    const double routeDistanceSquared = LengthSquared(routeDirection, false);
+    *target = enemyPosition + enemyVelocity * 0.4 +
+        CFVector3(0.0, 0.2, 0.0);
+    if (routeDistanceSquared > maximumExcursion * maximumExcursion)
+    {
+        const double scale = maximumExcursion /
+            std::sqrt(routeDistanceSquared);
+        // The recovered source scaled a relative vector and assigned it as a
+        // world position. Preserve its route-side choice while restoring the
+        // missing enemy-space origin.
+        *target = enemyPosition + routeDirection * scale;
+    }
+    return FiniteVector(*target);
+}
+
+bool PeopleRouteMotion_NearAttackTarget(
+    const CFVector3 &actorPosition, const CFVector3 &candidate,
+    double maximumExcursion, CFVector3 *target)
+{
+    if (target == NULL || !FiniteVector(actorPosition) ||
+        !FiniteVector(candidate) || !std::isfinite(maximumExcursion) ||
+        maximumExcursion <= 0.0)
+        return false;
+    const CFVector3 relative = candidate - actorPosition;
+    const double distanceSquared = LengthSquared(relative, false);
+    *target = candidate;
+    if (distanceSquared > maximumExcursion * maximumExcursion)
+    {
+        // Keep the legacy +1 soft bound but restore the omitted actor-space
+        // origin so a world-space route never collapses towards (0,0,0).
+        const double scale = maximumExcursion /
+            (1.0 + std::sqrt(distanceSquared));
+        *target = actorPosition + relative * scale;
+    }
+    return FiniteVector(*target);
+}
+
 bool PeopleRouteMotion_Probe()
 {
     std::vector<CFVector3> straight;
@@ -438,7 +485,28 @@ bool PeopleRouteMotion_Probe()
         CFVector3(1.0, 0.0, 0.0), CFVector3(0.0, 5.0, 0.0),
         CFVector3(-10.0, -20.0, 0.0), 0.93);
 
+    CFVector3 attackTarget;
+    const bool farPredicted = PeopleRouteMotion_FarAttackTarget(
+        CFVector3(3000.0, 100.0, -2700.0),
+        CFVector3(10.0, 0.0, 0.0),
+        CFVector3(3100.0, 100.0, -2700.0), 300.0,
+        &attackTarget) && Near(attackTarget.x, 3004.0) &&
+        Near(attackTarget.y, 100.2) && Near(attackTarget.z, -2700.0);
+    const bool farClampedInWorldSpace = PeopleRouteMotion_FarAttackTarget(
+        CFVector3(3000.0, 100.0, -2700.0),
+        CFVector3(10.0, 0.0, 0.0),
+        CFVector3(2500.0, 100.0, -2700.0), 300.0,
+        &attackTarget) && Near(attackTarget.x, 2700.0) &&
+        Near(attackTarget.y, 100.0) && Near(attackTarget.z, -2700.0);
+    const bool nearClampedInWorldSpace = PeopleRouteMotion_NearAttackTarget(
+        CFVector3(3000.0, 50.0, -2700.0),
+        CFVector3(3100.0, 50.0, -2700.0), 10.0,
+        &attackTarget) && Near(attackTarget.x, 3000.0 + 1000.0 / 101.0) &&
+        Near(attackTarget.y, 50.0) && Near(attackTarget.z, -2700.0);
+
     return multiSegment && stop && loop && rewind && corridor && centered &&
            centeredAtLine && collisionBypass && degenerate && capped &&
-           horizontalSlope && legacySpatialSlope && horizontalOpposite;
+           horizontalSlope && legacySpatialSlope && horizontalOpposite &&
+           farPredicted && farClampedInWorldSpace &&
+           nearClampedInWorldSpace;
 }
