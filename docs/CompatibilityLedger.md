@@ -187,7 +187,10 @@ Status vocabulary:
   restored to CRLF before commit. `People/PEOPLE.CPP`, `People/PEOPLE.H` and
   the Tank translation units remain byte-preserved examples: edits use exact
   ASCII substitutions because UTF-8-only patching rejects their historical
-  bytes. Current `/utf-8` warnings in other inherited message headers belong
+  bytes. `tools/maintenance/Invoke-EncodingPreservingAsciiPatch.ps1` performs
+  that substitution only after proving the expected byte-pattern count and
+  reports the before/after SHA-256 values; it never decodes the source file.
+  Current `/utf-8` warnings in other inherited message headers belong
   to the same migration debt and are not hidden by gameplay changes.
 - Revisit when: a separately reviewed source-encoding migration is proposed.
   Inventory the actual code page per file, convert in one isolated commit and
@@ -4178,7 +4181,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-216: mission enemies animate without effective pursuit or attacks
 
-- Status: `MANUAL_WINDOWS_OBSERVED`, `ROOT_CAUSE_OPEN`.
+- Status: `MANUAL_WINDOWS_OBSERVED`, `HORIZONTAL_ROUTE_CAUSE_CONFIRMED`,
+  `HORIZONTAL_ROUTE_FIX_ACCEPTED`, `LIVE_ATTACK_DELIVERY_OPEN`.
 - Evidence: a manual Level.01 mission run and a Level.02 encounter show hostile
   actors advancing their walk pose while remaining in place and applying no
   damage. This distinguishes animation cadence from route displacement and
@@ -4188,14 +4192,38 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   concurrent rebuild. `people-vehicle-retest/rr2nw-startup.log` contains no
   fatal record and Windows Application Error contains no matching event, so a
   death-graph crash is not yet confirmed.
-- Handling: retain three separate acceptance rows: hostile route displacement,
-  target/acquire plus damage delivery, and robot death to Explosion/Corpse
-  completion. Capture frame/tick/route/contact/state and last damage owner in a
-  dedicated manual diagnostic run; do not infer one root cause from the shared
-  visual symptom.
+- Root cause: live frame telemetry isolated `Rbt_Patrol.15` on the sloped
+  `rp_hg_00` segment. Its horizontal direction was aligned with the next node,
+  but the legacy `ON_OBJ` stop predicate compared that horizontal velocity
+  against a three-dimensional target vector. The height delta reduced the dot
+  product to approximately `0.927`, below authored `m_deltaZeroSpeed=0.93`, so
+  every MOVE event selected `step=0` while the walk pose continued.
+- Handling: `PeopleRouteMotion_AllowsHorizontalStep` now projects both vectors
+  onto XZ only for the `ON_OBJ` stop-if-attack predicate; water and other
+  movement policies retain their historical dimensionality. Its regression
+  probe includes the exact retail route sample and proves that the former 3D
+  test rejects it. A ten-second live `Level.01N` run then observed 53 frames
+  where the old predicate would have blocked the slope and the new predicate
+  displaced the actor in all `53/53` cases, ending at `Rbt_Patrol.07`.
+- Handling: the unified real-People combat probe now performs route movement,
+  acquisition, cadence, real `People::onShoot`, Bullet damage, kill,
+  Explosion/Corpse creation and full rollback as one graph. The separate
+  commander audit requires exactly one MOVE/STARTMOVE and FIND_ENEMY schedule
+  for every commanded shooter without treating uncommanded ambient actors as
+  malformed. Live telemetry records movement, targeting, shots, damage, kills
+  and effect deltas after startup probes have reset their counters.
+- Verification: all nine installed-data worlds pass the expanded retail matrix
+  in Debug, Release and RelWithDebInfo (`27/27`). The corresponding fresh-Level
+  continuation matrix also passes `27/27`, with complete `1011` Vehicle
+  destruction and occupied save/load profile masks in every configuration.
+  `Recruit.Robots` reports the unified combat proof `11/11`, schedules all 48
+  commanded shooters in its 76-People post-mission roster and shuts down
+  cleanly. These controlled proofs validate the graph and the horizontal
+  movement fix; they do not replace a timed manual engagement.
 - Revisit when: the Level.01 first robot can be destroyed in a diagnostic build
-  without external process control, and Level.01/Level.02 enemies both move off
-  their authored spawn and land at least one bounded attack.
+  without external process control and Level.01/Level.02 enemies land at least
+  one bounded live attack. Keep guide/Vehicle path obstruction as a separate
+  route/contact row.
 
 ## Maintenance rule
 

@@ -49,6 +49,28 @@ present and boundary stages under `frame_profile_*`. Compare those with
 above the timer guard with growing clamped seconds is confirmed slow motion,
 not merely uneven presentation. Retain the log and the exact Level/route.
 
+## Live People movement and combat telemetry
+
+Normal interactive runs now sample the real People roster immediately after
+the simulation event boundary. Exit through the window close button so the
+final diagnostics are flushed, then inspect these rows:
+
+- `people_live_samples=frames/roster_samples`;
+- `people_live_motion=move/eligible/displaced/stationary/attack/contact`;
+- `people_live_legacy_slope_release=opportunities/moved/last_owner`;
+- `people_live_targeting=find/eligible/acquired/missed/attack_samples`;
+- `people_live_combat=shots/damage/kills/explosions/corpses`.
+
+The slope row is the direct regression signal for the fixed walk-in-place
+case. `opportunities` counts real MOVE frames where the old three-dimensional
+alignment would reject the authored slope but the recovered horizontal policy
+allows it; `moved` proves that those frames changed XZ position. The remaining
+`people_live_last_stationary_*` rows record owner, route, state, contact,
+direction, target and a route-helper prediction for a genuine stationary
+sample. Explosion/Corpse counts are correlated world deltas and are not alone
+proof of ownership; use the unified startup combat probe for the isolated
+owner graph and a manual mission run for timed engagement behavior.
+
 ## Grounded debug-vehicle pass
 
 The automated native-window gate spawns every active Taxi type on
@@ -529,6 +551,13 @@ mod-aware `Route/**/*.rt` files and matches each saved People dependency by its
 authoritative header and exact node-geometry fingerprint before allocation. It
 must not derive directories from names such as `msNN.symbol`. A valid run needs
 no manual mission replay and must still end with `game_services_issues=0`.
+
+The direct service-smoke executable binds the retail root and activates each
+selected Level through the same read-only resource catalog as `rr2nw.exe`.
+Without that production-equivalent binding, a reconstruction that genuinely
+needs a removed Route would depend on whichever old Route objects happened to
+survive the fixture. Catalog failures now retain the precise admission or
+Win32 enumeration reason instead of returning only a generic `false`.
 
 For a town-hall report, also retain `recruit_center_last_mission`. It names the
 center/project and counts scripts, created owners, deferred commands,

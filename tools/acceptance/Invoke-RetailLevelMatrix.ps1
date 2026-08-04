@@ -568,6 +568,94 @@ foreach ($configurationName in $Configuration) {
                     $log["people_near_far_pose_probe"] -ne $expectedPeoplePose) {
                     $issues.Add("People near/far cadence or rendered-pose proof changed")
                 }
+                $peopleCombat = @(
+                    if ($log.ContainsKey("people_combat_probe")) {
+                        [string]$log["people_combat_probe"] -split "/"
+                    }
+                )
+                $peopleCombatValid = $peopleCombat.Count -eq 11 -and
+                    ((Get-LogInteger $log "people_subject_count") -eq 0 -or
+                     [int]$peopleCombat[10] -eq 1)
+                if ($peopleCombatValid -and [int]$peopleCombat[0] -eq 1) {
+                    foreach ($phase in 1..9) {
+                        if ([int]$peopleCombat[$phase] -ne 1) {
+                            $peopleCombatValid = $false
+                            break
+                        }
+                    }
+                } elseif ($peopleCombatValid) {
+                    foreach ($phase in 1..9) {
+                        if ([int]$peopleCombat[$phase] -ne 0) {
+                            $peopleCombatValid = $false
+                            break
+                        }
+                    }
+                }
+                if (-not $peopleCombatValid) {
+                    $issues.Add("People unified movement/target/fire/damage/death proof changed")
+                }
+                $peopleCombatSchedule = @(
+                    if ($log.ContainsKey("people_combat_schedule")) {
+                        [string]$log["people_combat_schedule"] -split "/"
+                    }
+                )
+                $peopleScheduleValid = $peopleCombatSchedule.Count -eq 9 -and
+                    [int]$peopleCombatSchedule[0] -eq 1 -and
+                    [int]$peopleCombatSchedule[1] -eq
+                        (Get-LogInteger $log "people_subject_count") -and
+                    [int]$peopleCombatSchedule[3] -le [int]$peopleCombatSchedule[2] -and
+                    [int]$peopleCombatSchedule[3] -eq [int]$peopleCombatSchedule[4] -and
+                    [int]$peopleCombatSchedule[3] -eq [int]$peopleCombatSchedule[5] -and
+                    [int]$peopleCombatSchedule[3] -eq [int]$peopleCombatSchedule[6] -and
+                    [int]$peopleCombatSchedule[8] -eq 0
+                if (-not $peopleScheduleValid) {
+                    $issues.Add("People live combat commander/event schedule proof changed")
+                }
+                $peopleLiveSamples = @(
+                    if ($log.ContainsKey("people_live_samples")) {
+                        [string]$log["people_live_samples"] -split "/"
+                    }
+                )
+                $peopleLiveSamplesValid = $peopleLiveSamples.Count -eq 2 -and
+                    [UInt64]$peopleLiveSamples[0] -ge 1 -and
+                    [UInt64]$peopleLiveSamples[1] -ge
+                        [UInt64](Get-LogInteger $log "people_subject_count")
+                if (-not $peopleLiveSamplesValid) {
+                    $issues.Add("People live frame/roster sampling changed")
+                }
+                $peopleLiveMotion = @(
+                    if ($log.ContainsKey("people_live_motion")) {
+                        [string]$log["people_live_motion"] -split "/"
+                    }
+                )
+                $peopleLiveMotionValid = $peopleLiveMotion.Count -eq 6 -and
+                    [UInt64]$peopleLiveMotion[0] -ge
+                        [UInt64]$peopleLiveMotion[1] -and
+                    [UInt64]$peopleLiveMotion[1] -eq
+                        ([UInt64]$peopleLiveMotion[2] +
+                         [UInt64]$peopleLiveMotion[3]) -and
+                    [UInt64]$peopleLiveMotion[0] -ge
+                        [UInt64]$peopleLiveMotion[4] -and
+                    [UInt64]$peopleLiveMotion[0] -ge
+                        [UInt64]$peopleLiveMotion[5]
+                if (-not $peopleLiveMotionValid) {
+                    $issues.Add("People live motion accounting changed")
+                }
+                $peopleSlopeRelease = @(
+                    if ($log.ContainsKey("people_live_legacy_slope_release")) {
+                        [string]$log["people_live_legacy_slope_release"] -split "/"
+                    }
+                )
+                $peopleSlopeReleaseValid = $peopleSlopeRelease.Count -eq 3 -and
+                    [UInt64]$peopleSlopeRelease[0] -ge
+                        [UInt64]$peopleSlopeRelease[1] -and
+                    (([UInt64]$peopleSlopeRelease[1] -eq 0 -and
+                      $peopleSlopeRelease[2] -eq "<none>") -or
+                     ([UInt64]$peopleSlopeRelease[1] -gt 0 -and
+                      $peopleSlopeRelease[2] -ne "<none>"))
+                if (-not $peopleSlopeReleaseValid) {
+                    $issues.Add("People horizontal-slope release telemetry changed")
+                }
                 $tankLifecycle = if ($log.ContainsKey("tank_lifecycle_probe")) {
                     [string]$log["tank_lifecycle_probe"] -split "/"
                 } else { @() }
@@ -696,6 +784,12 @@ foreach ($configurationName in $Configuration) {
                 people_active_world_probe = [string]$log["people_active_world_probe"]
                 people_active_world_fingerprint = Get-LogUnsigned $log "people_active_world_fingerprint"
                 people_near_far_pose_probe = [string]$log["people_near_far_pose_probe"]
+                people_combat_probe = [string]$log["people_combat_probe"]
+                people_combat_schedule = [string]$log["people_combat_schedule"]
+                people_live_samples = [string]$log["people_live_samples"]
+                people_live_motion = [string]$log["people_live_motion"]
+                people_live_legacy_slope_release =
+                    [string]$log["people_live_legacy_slope_release"]
                 tank_near_far_pose_probe = [string]$log["tank_near_far_pose_probe"]
                 debug_map_size = [string]$log["debug_map_size"]
                 debug_map_toggle_probe = [string]$log["debug_map_toggle_probe"]
@@ -744,7 +838,9 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     active_world_container_bytes, active_world_fingerprint,
     vehicle_active_world_probe, vehicle_active_world_fingerprint,
     people_active_world_probe, people_active_world_fingerprint,
-    people_near_far_pose_probe, tank_near_far_pose_probe,
+    people_near_far_pose_probe, people_combat_probe,
+    people_combat_schedule, people_live_samples, people_live_motion,
+    people_live_legacy_slope_release, tank_near_far_pose_probe,
     mission_project_table, mission_project_catalog,
     mission_project_deferred_howitzers,
     mission_project_deferred_destroyables, mission_project_fingerprint,

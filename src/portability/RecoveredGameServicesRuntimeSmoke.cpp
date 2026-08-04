@@ -64,6 +64,7 @@
 #include "RecoveredGameServicesRuntime.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "RecoveredSavePreview.h"
 #include "RecoveredSoftwareGraph.h"
@@ -86,6 +87,45 @@ struct STaxiDebugGroundingProbeSummary {
   double maxBottomClearance = 0.0;
   double maxImmediateDrift = 0.0;
 };
+
+struct SModRuntimeCleanup {
+  ~SModRuntimeCleanup() { RecoveredModRuntime_Release(); }
+};
+
+bool SplitRetailLevelDirectory(const char* directory, std::string* root,
+                               std::string* identity) {
+  if (directory == nullptr || root == nullptr || identity == nullptr)
+    return false;
+  std::string path(directory);
+  while (path.size() > 3 &&
+         (path.back() == '\\' || path.back() == '/'))
+    path.pop_back();
+  const std::size_t separator = path.find_last_of("\\/");
+  if (separator == std::string::npos || separator == 0 ||
+      separator + 1u >= path.size())
+    return false;
+  *root = path.substr(0, separator);
+  *identity = path.substr(separator + 1u);
+  return !root->empty() && !identity->empty();
+}
+
+bool ActivateRetailLevelDirectory(const char* directory,
+                                  std::string* activated) {
+  if (activated == nullptr) return false;
+  if (!RecoveredModRuntime_IsConfigured()) {
+    *activated = directory == nullptr ? std::string() : directory;
+    return !activated->empty();
+  }
+  std::string root;
+  std::string identity;
+  char physical[4096] = {};
+  if (!SplitRetailLevelDirectory(directory, &root, &identity) ||
+      !RecoveredModRuntime_ActivateLevel(identity.c_str(), physical,
+                                         sizeof(physical)))
+    return false;
+  *activated = physical;
+  return !activated->empty();
+}
 
 STaxiDebugGroundingProbeSummary g_taxiDebugGroundingProbe;
 
@@ -762,7 +802,10 @@ bool IsLevelRolledBack() {
 }
 
 bool StartServices(const char* directory) {
-  if (!ZAV_InitLevel(directory)) return false;
+  std::string activated;
+  if (!ActivateRetailLevelDirectory(directory, &activated) ||
+      !ZAV_InitLevel(activated.c_str()))
+    return false;
   PIN_InitEverything();
   SUA_InitEverything();
   ZAV_BeginLoop();
@@ -4927,6 +4970,7 @@ bool ExerciseCampaignRestartStaging() {
 }  // namespace
 
 int main(int argc, char** argv) {
+  SModRuntimeCleanup modRuntimeCleanup;
   if (!PeopleRouteMotion_Probe()) {
     return Fail("People multi-segment route-motion kernel failed");
   }
@@ -4959,6 +5003,19 @@ int main(int argc, char** argv) {
     return RecoveredSoftwareGraph_IsReady()
                ? Fail("graph survived complete shutdown")
                : EXIT_SUCCESS;
+  }
+
+  std::string retailRoot;
+  std::string retailIdentity;
+  char initialPhysicalDirectory[4096] = {};
+  if (!SplitRetailLevelDirectory(
+          argv[1], &retailRoot, &retailIdentity) ||
+      !RecoveredModRuntime_Configure(retailRoot.c_str(), nullptr) ||
+      !RecoveredModRuntime_ActivateLevel(
+          retailIdentity.c_str(), initialPhysicalDirectory,
+          sizeof(initialPhysicalDirectory))) {
+    ZAV_Deinit();
+    return Fail("retail Level resource catalog configuration failed");
   }
 
   if (!StartServices(argv[1])) {

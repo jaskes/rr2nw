@@ -3489,6 +3489,13 @@ encoding-preserving workflow, not silently transcoded for two source lines;
 current first visibility is safe because `onView` clears the sample before
 render.
 
+The same workflow now has a checked maintenance owner:
+`tools/maintenance/Invoke-EncodingPreservingAsciiPatch.ps1` searches raw bytes
+for an exact ASCII fragment, refuses any unexpected match count and reports
+both SHA-256 values. The `ON_OBJ` horizontal-step correction used one such
+replacement in `PEOPLE.CPP`; all bytes outside that expression and its legacy
+CRLF/code page remain untouched.
+
 ## Active retail DebugMap and software overlay boundary
 
 The earlier executable linked only the renderer-independent DebugMap mission
@@ -3825,12 +3832,15 @@ zero/negative selects `11`. `PeopleSupportSampling` isolates and proves the
 geometry, clamping, finite-input contract and this signed-side classification.
 Missing front support selects code `2`; missing rear support selects `3`.
 
-This closes the support-geometry and dynamic-support halves of the manifold,
-not every collision producer. The horizontal movement-owner `1/3` branch is
-still to be translated. A complete disassembly search finds no literal code-4
+This closes the support-geometry, dynamic-support and observed horizontal
+movement-owner halves of the manifold, not every collision producer. The
+horizontal step predicate is isolated in `PeopleRouteMotion`, projects both
+vectors onto XZ and includes the exact retail slope that the former 3D test
+misclassified. A complete disassembly search finds no literal code-4
 write to `People+0x248`: May dispatches and restores `4`, but its producer is
 not established. Guide/vehicle path obstruction is also still open; neither
-gap is hidden behind a claim that the entire May manifold is complete.
+that gap nor live attack delivery is hidden behind a claim that the entire May
+manifold is complete.
 
 The final gate passes 67/67 CTest in Debug, Release and Playtest, 27/27
 installed retail starts and 27/27 fresh continuations. Destruction and occupied
@@ -3839,9 +3849,16 @@ of the six initially failing `Level.02D/02N` cases passed 6/6 after the v7
 repair; the complete rerun then covered every other People roster and both
 empty-People edges.
 
+The direct continuation harness now configures the base retail catalog and
+activates each tested Level through `RecoveredModRuntime`, matching the
+executable's resource ownership. This became observable when Level.03N's full
+People rollback first had to recreate a Route instead of inheriting one that
+happened to remain in the old Context. File-catalog failures now preserve their
+exact contract or Win32 enumeration reason.
+
 After the support-sampling replacement, the same full gate passes again. The
 installed Playtest at `E:\Games\The Next Worlds\nw.exe` is byte-identical to
 the gated `RelWithDebInfo` output, SHA-256
-`B97266DE9D2D153C99B705FF0BEE136A2F42CE4E8BBB5BC8148F907F1D3F8E6F`; a direct
+`90BB1A7512465503E9D4D92CE67A46C1F5AF62BA28815583486E91A0D25BE15F`; a direct
 installed Level.03N runtime smoke reaches `level-ready`, publishes
 `people_lifecycle_probe=1/1/1/1/1` and shuts down cleanly.

@@ -16,10 +16,14 @@
 #include "PeopleObstacleRecovery.h"
 #include "PeopleRouteMotion.h"
 #include "i/route.i"
+#include "i/commander.i"
 #include "kernel/h/context.h"
 #include "message/peopmsg.h"
 #include "obase/bullet/BulletAttributeState.h"
 #include "obase/bullet/BulletSubjectState.h"
+#include "obase/corpse/CorpseSubjectState.h"
+#include "obase/explosion/ExplosionSubjectState.h"
+#include "obase/smoke/SmokeSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
 #include "storage/h/subject.h"
 #include "storage/h/savefile.h"
@@ -46,10 +50,57 @@ const unsigned long long kAbsentAttributeFingerprint =
     0x50454f5041545452ull;
 const unsigned long long kAbsentSubjectFingerprint =
     0x50454f505355424aull;
+const int kPeopleOnObjects = 3;
 
 int g_attributeCapacity = 0;
 int g_subjectCapacity = 0;
 std::string g_firstNotReady;
+SPeopleLiveCombatTelemetry g_liveCombatTelemetry = {};
+struct LivePeopleSample
+{
+    KR_ObjectID id;
+    KR_ObjectID enemy;
+    std::string name;
+    CFVector3 position;
+    double damage;
+    double lastMoveTime;
+    double lastShootTime;
+    double findDeadline;
+    int state;
+    int killed;
+
+    LivePeopleSample()
+        : id(KR_ObjectID::NUL()), enemy(KR_ObjectID::NUL()), damage(0.0),
+          lastMoveTime(0.0), lastShootTime(0.0), findDeadline(-1.0),
+          state(pe_STATE_DEFAULT), killed(KILL_NONE)
+    {
+    }
+};
+std::vector<LivePeopleSample> g_livePeopleSamples;
+int g_liveExplosionCount = -1;
+int g_liveCorpseCount = -1;
+
+class LivePeopleRouteSource : public IPeopleRouteNodeSource
+{
+public:
+    explicit LivePeopleRouteSource(IRouteObject *route) : route_(route) {}
+    int NodeCount() { return route_ == NULL ? 0 : route_->GetNodeCnt(); }
+    CFVector3 Node(int index) { return route_->GetNode(index); }
+
+private:
+    IRouteObject *route_;
+};
+
+void CopyTelemetryName(char *destination, std::size_t capacity,
+                       const char *source)
+{
+    if (destination == NULL || capacity == 0)
+        return;
+    destination[0] = 0;
+    if (source != NULL)
+        std::strncpy(destination, source, capacity - 1);
+    destination[capacity - 1] = 0;
+}
 
 void HashBytes(unsigned long long &hash, const void *data, int size)
 {
@@ -249,6 +300,35 @@ int RemoveAllSubjects(SimulationContext *context, const char *tableName)
     return removed;
 }
 
+void RemovePeopleSchedulerEvents(SimulationContext *context,
+                                 const KR_ObjectID &owner)
+{
+    KR_ObjectID mutableOwner = owner;
+    if (context == NULL || mutableOwner.isNUL())
+        return;
+    const int labels[] = {
+        pe_EVC_MOVE, pe_EVC_NEXTNODE, pe_EVC_GROUNDED_NEXTNODE,
+        pe_EVC_FIND_ENEMY, pe_EV_STARTSHOW, pe_EV_SETAUTOANIM,
+        pe_EV_STARTMOVE};
+    for (std::size_t index = 0;
+         index < sizeof(labels) / sizeof(labels[0]); ++index)
+        while (context->removeEvent(labels[index], owner) == 1) {}
+}
+
+bool TakePeopleEvent(SimulationContext *context, int label,
+                     const KR_ObjectID &owner, KR_Event *event)
+{
+    KR_ObjectID mutableOwner = owner;
+    if (context == NULL || mutableOwner.isNUL() || event == NULL)
+        return false;
+    KR_Event copied[2];
+    if (context->copyEvents(label, owner, copied, 2) != 1 ||
+        context->removeEvent(label, owner) != 1)
+        return false;
+    event->getCopy(copied[0]);
+    return true;
+}
+
 }  // namespace
 
 void PeopleSubjectState_Link()
@@ -257,6 +337,297 @@ void PeopleSubjectState_Link()
     // archive without publishing this temporary object to a context.
     People linkAnchor;
     (void)linkAnchor;
+}
+
+void PeopleSubjectState_ResetLiveCombatTelemetry()
+{
+    std::memset(&g_liveCombatTelemetry, 0, sizeof(g_liveCombatTelemetry));
+    g_livePeopleSamples.clear();
+    g_liveExplosionCount = -1;
+    g_liveCorpseCount = -1;
+}
+
+bool PeopleSubjectState_LiveCombatTelemetry(
+    SPeopleLiveCombatTelemetry *telemetry)
+{
+    if (telemetry == NULL)
+        return false;
+    *telemetry = g_liveCombatTelemetry;
+    return true;
+}
+
+bool PeopleSubjectState_SampleLiveCombat(SimulationContext *context)
+{
+    if (context == NULL)
+        return false;
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+
+    ++g_liveCombatTelemetry.sampleFrames;
+    g_liveCombatTelemetry.rosterSamples += roster.ids.size();
+    std::vector<LivePeopleSample> current;
+    current.reserve(roster.ids.size());
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *people = ResolvePeople(context, roster.ids[index]);
+        if (!RuntimeReady(people))
+            return false;
+        LivePeopleSample sample;
+        sample.id = roster.ids[index];
+        sample.enemy = people->getEnemyID();
+        const char *name = context->searchObject(sample.id);
+        sample.name = name == NULL ? "" : name;
+        sample.position = people->getPosition();
+        sample.damage = people->m_damage;
+        sample.lastMoveTime = people->m_lastMoveTimeStamp;
+        sample.lastShootTime = people->m_prevShootTime;
+        sample.state = people->getState();
+        sample.killed = people->m_killed;
+        KR_Event findEvent[1];
+        if (context->copyEvents(pe_EVC_FIND_ENEMY, sample.id,
+                                findEvent, 1) == 1)
+            sample.findDeadline = findEvent[0].timeStamp;
+
+        const std::vector<LivePeopleSample>::const_iterator previous =
+            std::find_if(g_livePeopleSamples.begin(),
+                         g_livePeopleSamples.end(),
+                         [&sample](const LivePeopleSample &value) {
+                             return value.id == sample.id &&
+                                    value.name == sample.name;
+                         });
+        if (previous != g_livePeopleSamples.end())
+        {
+            const bool attack = sample.state == pe_STATE_ATTACK;
+            if (attack)
+                ++g_liveCombatTelemetry.attackStateSamples;
+            if (sample.lastMoveTime > previous->lastMoveTime + 1e-9)
+            {
+                ++g_liveCombatTelemetry.moveEvents;
+                if (attack)
+                    ++g_liveCombatTelemetry.attackMoveEvents;
+                if (people->m_isClz != 0)
+                    ++g_liveCombatTelemetry.contactMoveEvents;
+                const double deltaTime = people->m_lastMoveDeltaT;
+                const double displacement = hypot(
+                    sample.position.x - people->m_lastMovePos.x,
+                    sample.position.z - people->m_lastMovePos.z);
+                const bool suppressed = people->m_stoped && attack;
+                if (std::isfinite(deltaTime) && deltaTime > 0.0 &&
+                    std::isfinite(displacement) &&
+                    people->getMoveSpeed() > 1e-6 && !suppressed)
+                {
+                    ++g_liveCombatTelemetry.eligibleMoveEvents;
+                    g_liveCombatTelemetry.maximumHorizontalDisplacement =
+                        (std::max)(
+                            g_liveCombatTelemetry.maximumHorizontalDisplacement,
+                            displacement);
+                    const char *attributeName =
+                        context->searchObject(people->m_peopleAttrID);
+                    ct_Attribute *movementAttribute =
+                        ResolvePeopleAttribute(context, attributeName);
+                    if (movementAttribute != NULL &&
+                        movementAttribute->get_int("m_onLand") ==
+                            kPeopleOnObjects &&
+                        movementAttribute->get_int("m_stopIfAttack") != 0)
+                    {
+                        const double minimumAlignment =
+                            movementAttribute->get_double(
+                                "m_deltaZeroSpeed");
+                        const CFVector3 moveDirection = people->getMoveDir();
+                        if (PeopleRouteMotion_AllowsHorizontalStep(
+                                moveDirection, people->m_lastMovePos,
+                                people->m_nextNode, minimumAlignment) &&
+                            !PeopleRouteMotion_AllowsSpatialStep(
+                                moveDirection, people->m_lastMovePos,
+                                people->m_nextNode, minimumAlignment))
+                        {
+                            ++g_liveCombatTelemetry.
+                                legacySlopeReleaseOpportunities;
+                            if (displacement > 1e-6)
+                            {
+                                ++g_liveCombatTelemetry.
+                                    legacySlopeReleasedMoves;
+                                CopyTelemetryName(
+                                    g_liveCombatTelemetry.
+                                        lastLegacySlopeReleasedOwner,
+                                    sizeof(g_liveCombatTelemetry.
+                                               lastLegacySlopeReleasedOwner),
+                                    sample.name.c_str());
+                            }
+                        }
+                    }
+                    if (displacement > 1e-6)
+                        ++g_liveCombatTelemetry.displacedMoveEvents;
+                    else
+                    {
+                        ++g_liveCombatTelemetry.stationaryMoveEvents;
+                        g_liveCombatTelemetry.lastStationaryDeltaTime =
+                            deltaTime;
+                        g_liveCombatTelemetry.lastStationaryMoveSpeed =
+                            people->getMoveSpeed();
+                        g_liveCombatTelemetry.lastStationaryX =
+                            sample.position.x;
+                        g_liveCombatTelemetry.lastStationaryY =
+                            sample.position.y;
+                        g_liveCombatTelemetry.lastStationaryZ =
+                            sample.position.z;
+                        g_liveCombatTelemetry.lastStationaryMoveStartX =
+                            people->m_lastMovePos.x;
+                        g_liveCombatTelemetry.lastStationaryMoveStartZ =
+                            people->m_lastMovePos.z;
+                        const CFVector3 moveDirection = people->getMoveDir();
+                        g_liveCombatTelemetry.lastStationaryDirectionX =
+                            moveDirection.x;
+                        g_liveCombatTelemetry.lastStationaryDirectionZ =
+                            moveDirection.z;
+                        g_liveCombatTelemetry.lastStationaryTargetX =
+                            people->m_nextNode.x;
+                        g_liveCombatTelemetry.lastStationaryTargetZ =
+                            people->m_nextNode.z;
+                        g_liveCombatTelemetry.
+                            lastStationaryObstacleRecoveryTime =
+                                people->m_obstacleRecoveryTime;
+                        g_liveCombatTelemetry.lastStationaryContactCode =
+                            people->m_isClz;
+                        g_liveCombatTelemetry.lastStationaryState =
+                            sample.state;
+                        g_liveCombatTelemetry.lastStationaryStopped =
+                            people->m_stoped;
+                        g_liveCombatTelemetry.lastStationaryPreviousNode =
+                            people->m_previousRouteNode;
+                        g_liveCombatTelemetry.lastStationaryCurrentNode =
+                            people->m_curNode;
+                        CopyTelemetryName(
+                            g_liveCombatTelemetry.lastStationaryOwner,
+                            sizeof(
+                                g_liveCombatTelemetry.lastStationaryOwner),
+                            sample.name.c_str());
+                        CopyTelemetryName(
+                            g_liveCombatTelemetry.lastStationaryAttribute,
+                            sizeof(g_liveCombatTelemetry.
+                                       lastStationaryAttribute),
+                            context->searchObject(people->m_peopleAttrID));
+                        ct_Attribute *peopleAttribute =
+                            ResolvePeopleAttribute(
+                                context,
+                                g_liveCombatTelemetry.
+                                    lastStationaryAttribute);
+                        if (peopleAttribute != NULL)
+                        {
+                            g_liveCombatTelemetry.lastStationaryOnLand =
+                                peopleAttribute->get_int("m_onLand");
+                            g_liveCombatTelemetry.
+                                lastStationaryStopIfAttack =
+                                    peopleAttribute->get_int(
+                                        "m_stopIfAttack");
+                            g_liveCombatTelemetry.
+                                lastStationaryDeltaZeroSpeed =
+                                    peopleAttribute->get_double(
+                                        "m_deltaZeroSpeed");
+                            IRouteObject *route =
+                                static_cast<IRouteObject *>(
+                                    context->queryInterface(
+                                        people->m_routeID,
+                                        IRouteObjectIID));
+                            if (route != NULL)
+                            {
+                                LivePeopleRouteSource source(route);
+                                SPeopleRouteMotionRequest request = {};
+                                request.candidate = sample.position +
+                                    moveDirection * people->getMoveSpeed() *
+                                        deltaTime;
+                                request.previousNode =
+                                    people->m_previousRouteNode;
+                                request.currentNode = people->m_curNode;
+                                request.backSpaceNode =
+                                    people->m_startBackSpaceNode;
+                                request.horizontal =
+                                    peopleAttribute->get_int("m_onLand") == 0
+                                        ? 0 : 1;
+                                request.maximumSegments =
+                                    sample.state == pe_STATE_DEFAULT ? 10 : 0;
+                                request.maximumCorridorDistance =
+                                    peopleAttribute->get_double(
+                                        "m_maxOutDist");
+                                request.movementDistance =
+                                    people->getMoveSpeed() * deltaTime;
+                                request.centerToRoute =
+                                    people->m_isClz == 0 ? 1 : 0;
+                                SPeopleRouteMotionResult result = {};
+                                if (PeopleRouteMotion_Advance(
+                                        &source, request, &result))
+                                {
+                                    const double predictedDisplacement = hypot(
+                                        result.position.x - sample.position.x,
+                                        result.position.z - sample.position.z);
+                                    g_liveCombatTelemetry.
+                                        lastStationaryPredictedDisplacement =
+                                            predictedDisplacement;
+                                }
+                            }
+                        }
+                        CopyTelemetryName(
+                            g_liveCombatTelemetry.lastStationaryRoute,
+                            sizeof(g_liveCombatTelemetry.lastStationaryRoute),
+                            context->searchObject(people->m_routeID));
+                    }
+                }
+            }
+            if (sample.findDeadline >= 0.0 &&
+                previous->findDeadline >= 0.0 &&
+                sample.findDeadline > previous->findDeadline + 1e-9)
+            {
+                ++g_liveCombatTelemetry.findEvents;
+                if (previous->state == pe_STATE_DEFAULT)
+                {
+                    ++g_liveCombatTelemetry.eligibleFindEvents;
+                    if (attack && !sample.enemy.isNUL())
+                    {
+                        ++g_liveCombatTelemetry.targetAcquisitions;
+                        CopyTelemetryName(
+                            g_liveCombatTelemetry.lastAcquiringOwner,
+                            sizeof(
+                                g_liveCombatTelemetry.lastAcquiringOwner),
+                            sample.name.c_str());
+                    }
+                    else ++g_liveCombatTelemetry.targetMisses;
+                }
+            }
+            if (sample.lastShootTime > previous->lastShootTime + 1e-9)
+            {
+                ++g_liveCombatTelemetry.shotsStarted;
+                CopyTelemetryName(
+                    g_liveCombatTelemetry.lastShootingOwner,
+                    sizeof(g_liveCombatTelemetry.lastShootingOwner),
+                    sample.name.c_str());
+            }
+            if (sample.damage < previous->damage - 1e-9)
+            {
+                ++g_liveCombatTelemetry.damageApplications;
+                CopyTelemetryName(
+                    g_liveCombatTelemetry.lastDamagedOwner,
+                    sizeof(g_liveCombatTelemetry.lastDamagedOwner),
+                    sample.name.c_str());
+            }
+            if (previous->killed == KILL_NONE &&
+                sample.killed != KILL_NONE)
+                ++g_liveCombatTelemetry.killTransitions;
+        }
+        current.push_back(sample);
+    }
+
+    const int explosions = ExplosionSubjectState_LiveCount();
+    const int corpses = CorpseSubjectState_LiveCount();
+    if (g_liveExplosionCount >= 0 && explosions > g_liveExplosionCount)
+        g_liveCombatTelemetry.explosionEffects +=
+            explosions - g_liveExplosionCount;
+    if (g_liveCorpseCount >= 0 && corpses > g_liveCorpseCount)
+        g_liveCombatTelemetry.corpseEffects += corpses - g_liveCorpseCount;
+    g_liveExplosionCount = explosions;
+    g_liveCorpseCount = corpses;
+    g_livePeopleSamples.swap(current);
+    return true;
 }
 
 void PeopleSubjectState_SetExpectedCapacities(int attributeCapacity,
@@ -1206,4 +1577,332 @@ bool PeopleSubjectState_ProbeNewestDelayedRoute(
            summary->groundedRouteEvent == 1 &&
            summary->finiteMotion == 1 &&
            summary->movedTowardTarget == 1 && summary->boundedStep == 1;
+}
+
+bool PeopleSubjectState_ProbeCombatLifecycle(
+    SimulationContext *context, double timeStamp,
+    SPeopleCombatProbeSummary *summary)
+{
+    if (context == NULL || summary == NULL || !std::isfinite(timeStamp))
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+
+    const int baselinePeople = PeopleSubjectState_LiveCount(context);
+    const int baselineSounds = SoundObjectState_LiveCount();
+    const int baselineBullets = BulletSubjectState_LiveCount();
+    const int baselineExplosions = ExplosionSubjectState_LiveCount();
+    const int baselineCorpses = CorpseSubjectState_LiveCount();
+    const int baselineSmokes = SmokeSubjectState_LiveCount();
+    const unsigned long long baselineFingerprint =
+        PeopleSubjectState_SubjectFingerprint(context);
+    const ct_ClassTableID peopleTable =
+        g_arena.searchSeanceClassTable("People");
+    if (peopleTable == ct_NULLID || baselinePeople <= 0 ||
+        baselineFingerprint == 0 || baselineBullets != 0 ||
+        baselineExplosions != 0 || baselineCorpses != 0 ||
+        baselineSmokes != 0)
+        return false;
+
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+
+    People *exemplar = NULL;
+    KR_ObjectID exemplarID = KR_ObjectID::NUL();
+    SPeopleGameplayTuningState tuning = {};
+    double selectedRouteSegment = 0.0;
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *candidate = ResolvePeople(context, roster.ids[index]);
+        const char *attributeName = candidate == NULL ? NULL :
+            context->searchObject(candidate->m_peopleAttrID);
+        SPeopleGameplayTuningState candidateTuning = {};
+        IRouteObject *candidateRoute = candidate == NULL ? NULL :
+            static_cast<IRouteObject *>(context->queryInterface(
+                candidate->m_routeID, IRouteObjectIID));
+        const bool routePhaseReady = candidateRoute != NULL &&
+            candidate->m_previousRouteNode >= 0 &&
+            candidate->m_previousRouteNode < candidateRoute->GetNodeCnt() &&
+            candidate->m_curNode >= 0 &&
+            candidate->m_curNode < candidateRoute->GetNodeCnt();
+        const double routeSegment = routePhaseReady ? Abs(
+            candidateRoute->GetNode(candidate->m_curNode) -
+            candidateRoute->GetNode(candidate->m_previousRouteNode)) : 0.0;
+        if (RuntimeReady(candidate) && candidate->isShooter() &&
+            candidate->movementSpeed() > 1e-3 && attributeName != NULL &&
+            PeopleSubjectState_CaptureGameplayTuning(
+                context, attributeName, &candidateTuning) &&
+            candidateTuning.projectile[0] != 0 &&
+            std::isfinite(routeSegment) &&
+            routeSegment > selectedRouteSegment)
+        {
+            exemplar = candidate;
+            exemplarID = roster.ids[index];
+            tuning = candidateTuning;
+            selectedRouteSegment = routeSegment;
+        }
+    }
+
+    // Some retail levels intentionally contain no armed People.  They are a
+    // valid skip; shooter-bearing levels must execute the complete chain.
+    if (exemplar == NULL)
+    {
+        summary->rollbacks = 1;
+        return true;
+    }
+    summary->available = 1;
+    const char *exemplarName = context->searchObject(exemplarID);
+    std::strncpy(summary->attacker,
+                 exemplarName == NULL ? "" : exemplarName,
+                 sizeof(summary->attacker) - 1);
+    std::strncpy(summary->projectile, tuning.projectile,
+                 sizeof(summary->projectile) - 1);
+
+    if (baselinePeople + 2 > g_subjectCapacity)
+        return false;
+    const char *routeName = context->searchObject(exemplar->m_routeID);
+    if (routeName == NULL || routeName[0] == 0)
+        return false;
+
+    KR_ObjectID attackerID = g_arena.newObject(
+        peopleTable, "People.Combat.Attacker.Probe");
+    KR_ObjectID targetID = g_arena.newObject(
+        peopleTable, "People.Combat.Target.Probe");
+    People *attacker = ResolvePeople(context, attackerID);
+    People *target = ResolvePeople(context, targetID);
+    bool valid = SendStart(attacker, exemplar->m_peopleAttrID,
+                           routeName, timeStamp) &&
+                 SendStart(target, exemplar->m_peopleAttrID,
+                           routeName, timeStamp);
+    summary->attackerReady = valid && RuntimeReady(attacker) &&
+        attacker->isShooter() ? 1 : 0;
+    summary->targetReady = valid && RuntimeReady(target) ? 1 : 0;
+
+    KR_Event showAttacker;
+    KR_Event showTarget;
+    if (valid)
+        valid = TakePeopleEvent(context, pe_EV_STARTSHOW, attackerID,
+                                &showAttacker) &&
+                attacker->receiveEvent(showAttacker) == 1 &&
+                TakePeopleEvent(context, pe_EV_STARTSHOW, targetID,
+                                &showTarget) &&
+                target->receiveEvent(showTarget) == 1;
+
+    const CFVector3 movementStart = valid
+        ? attacker->getPosition() : CFVector3();
+    KR_Event startMove;
+    KR_Event firstMove;
+    KR_Event secondMove;
+    if (valid)
+        valid = TakePeopleEvent(context, pe_EV_STARTMOVE, attackerID,
+                                &startMove) &&
+                attacker->receiveEvent(startMove) == 1 &&
+                TakePeopleEvent(context, pe_EVC_MOVE, attackerID,
+                                &firstMove) &&
+                attacker->receiveEvent(firstMove) == 1 &&
+                TakePeopleEvent(context, pe_EVC_MOVE, attackerID,
+                                &secondMove) &&
+                attacker->receiveEvent(secondMove) == 1;
+    if (valid)
+    {
+        const CFVector3 displacement = attacker->getPosition() - movementStart;
+        const double distance = Abs(displacement);
+        const double elapsed = secondMove.timeStamp - firstMove.timeStamp;
+        summary->routeDisplacement = FiniteVector(displacement) &&
+            std::isfinite(distance) && std::isfinite(elapsed) &&
+            distance > 1e-6 && elapsed > 0.0 &&
+            distance <= attacker->movementSpeed() * elapsed + 1e-5 ? 1 : 0;
+    }
+
+    RemovePeopleSchedulerEvents(context, attackerID);
+    RemovePeopleSchedulerEvents(context, targetID);
+
+    if (valid)
+    {
+        IDynamicObject *attackerDynamic = static_cast<IDynamicObject *>(
+            context->queryInterface(attackerID, IDynamicObjectIID));
+        IDynamicObject *targetDynamic = static_cast<IDynamicObject *>(
+            context->queryInterface(targetID, IDynamicObjectIID));
+        valid = attackerDynamic != NULL && targetDynamic != NULL;
+        if (valid)
+        {
+            const CFVector3 attackerOffset =
+                attackerDynamic->getPos() - attacker->getPosition();
+            const CFVector3 targetOffset =
+                targetDynamic->getPos() - target->getPosition();
+            const CFVector3 attackerCenter(512.0, 10000.0, -512.0);
+            // Keep the target well inside the retail 200-unit weapon range,
+            // but far enough from the muzzle that aircraft cannon offsets do
+            // not dominate the aim vector and reject an otherwise exact shot.
+            const CFVector3 targetCenter(576.0, 10000.0, -512.0);
+            attacker->ct_Subject::setPosition(
+                attackerCenter - attackerOffset);
+            target->ct_Subject::setPosition(targetCenter - targetOffset);
+            attacker->m_commanderID = attackerID;
+            target->m_commanderID = targetID;
+            attacker->m_isVisible = 1;
+            target->m_isVisible = 1;
+            attacker->m_nextNode = targetDynamic->getPos();
+            attacker->setHAngleFixDir(atan2(
+                targetDynamic->getPos().z - attackerDynamic->getPos().z,
+                targetDynamic->getPos().x - attackerDynamic->getPos().x));
+
+            KR_Event find(pe_EVC_FIND_ENEMY, timeStamp + 10.0,
+                          attackerID, attackerID);
+            valid = attacker->receiveEvent(find) == 1;
+            while (context->removeEvent(pe_EVC_FIND_ENEMY,
+                                        attackerID) == 1) {}
+            summary->targetAcquired = valid &&
+                attacker->getState() == pe_STATE_ATTACK &&
+                attacker->getEnemyID() == targetID ? 1 : 0;
+
+            KR_Event cadence(pe_EVC_GROUNDED_NEXTNODE,
+                             timeStamp + 10.1, attackerID, attackerID);
+            if (valid && summary->targetAcquired == 1)
+                valid = attacker->receiveEvent(cadence) == 1;
+            KR_Event nextCadence[2];
+            const int cadenceCount = valid ? context->copyEvents(
+                pe_EVC_GROUNDED_NEXTNODE, attackerID,
+                nextCadence, 2) : 0;
+            summary->targetCadence = cadenceCount == 1 &&
+                attacker->getEnemyID() == targetID &&
+                SameVector(attacker->m_nextNode, targetDynamic->getPos()) &&
+                std::fabs(nextCadence[0].timeStamp -
+                          (timeStamp + 10.3)) <= 1e-9 ? 1 : 0;
+            while (context->removeEvent(pe_EVC_GROUNDED_NEXTNODE,
+                                        attackerID) == 1) {}
+
+            attacker->setHAngleFixDir(atan2(
+                targetDynamic->getPos().z - attackerDynamic->getPos().z,
+                targetDynamic->getPos().x - attackerDynamic->getPos().x));
+            attacker->m_prevShootTime = timeStamp - 1000.0;
+            if (valid && summary->targetCadence == 1)
+                attacker->onShoot(timeStamp + 10.2);
+            if (BulletSubjectState_LiveCount() == baselineBullets + 1)
+                summary->projectileStarted = 1;
+            RemoveAllSubjects(context, "Bullet");
+            RemoveAllSubjects(context, "Smoke");
+
+            // Keep the acquired-target proof coupled to the real shooter,
+            // then isolate the bounded impact execution.  Otherwise the
+            // retail splash radius legitimately damages both temporary
+            // People and the one-target Bullet probe rejects two consumers.
+            const CFVector3 isolatedAttackerCenter(
+                800.0, 10000.0, -512.0);
+            attacker->ct_Subject::setPosition(
+                isolatedAttackerCenter -
+                (attackerDynamic->getPos() - attacker->getPosition()));
+
+            target->m_damage = 1000.0;
+            const double damageBefore = target->m_damage;
+            if (summary->projectileStarted == 1 &&
+                BulletSubjectState_ProbeDynamicCollisionLifecycle(
+                    context, tuning.projectile, targetID,
+                    timeStamp + 10.3) &&
+                target->m_damage < damageBefore)
+                summary->damageDelivered = 1;
+
+            target->setDamage(target->m_damage + 1.0,
+                              targetDynamic->getPos(), timeStamp + 10.4,
+                              attackerID);
+            if (target->m_damage <= 0.0 &&
+                target->m_killed != KILL_NONE)
+                summary->deathTransition = 1;
+            target->crashExpl(targetDynamic->getPos(),
+                              timeStamp + 10.5);
+            target->crashCreateCorpse(targetDynamic->getPos(),
+                                      timeStamp + 10.5);
+            if (ExplosionSubjectState_LiveCount() ==
+                    baselineExplosions + 1 &&
+                CorpseSubjectState_LiveCount() == baselineCorpses + 1)
+                summary->deathEffects = 1;
+        }
+    }
+
+    RemoveAllSubjects(context, "Bullet");
+    RemoveAllSubjects(context, "Explosion");
+    RemoveAllSubjects(context, "Corpse");
+    RemoveAllSubjects(context, "Smoke");
+    RemovePeopleSchedulerEvents(context, attackerID);
+    RemovePeopleSchedulerEvents(context, targetID);
+    if (!targetID.isNUL() && context->isExist(targetID))
+        context->removeObject(targetID);
+    if (!attackerID.isNUL() && context->isExist(attackerID))
+        context->removeObject(attackerID);
+
+    if (PeopleSubjectState_LiveCount(context) == baselinePeople &&
+        SoundObjectState_LiveCount() == baselineSounds &&
+        BulletSubjectState_LiveCount() == baselineBullets &&
+        ExplosionSubjectState_LiveCount() == baselineExplosions &&
+        CorpseSubjectState_LiveCount() == baselineCorpses &&
+        SmokeSubjectState_LiveCount() == baselineSmokes &&
+        PeopleSubjectState_SubjectFingerprint(context) == baselineFingerprint)
+        summary->rollbacks = 1;
+
+    return valid && summary->attackerReady == 1 &&
+           summary->targetReady == 1 &&
+           summary->routeDisplacement == 1 &&
+           summary->targetAcquired == 1 &&
+           summary->targetCadence == 1 &&
+           summary->projectileStarted == 1 &&
+           summary->damageDelivered == 1 &&
+           summary->deathTransition == 1 &&
+           summary->deathEffects == 1 && summary->rollbacks == 1;
+}
+
+bool PeopleSubjectState_AuditCombatScheduling(
+    SimulationContext *context,
+    SPeopleCombatScheduleSummary *summary)
+{
+    if (context == NULL || summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return g_subjectCapacity == 0;
+    summary->livePeople = static_cast<int>(roster.ids.size());
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *people = ResolvePeople(context, roster.ids[index]);
+        if (!RuntimeReady(people))
+            return false;
+        if (!people->isShooter())
+            continue;
+        ++summary->shooters;
+        if (people->getState() == pe_STATE_ATTACK)
+            ++summary->attackStates;
+        if (people->m_commanderID.isNUL())
+            continue;
+        ++summary->commandedShooters;
+        if (context->queryInterface(people->m_commanderID,
+                                    ICommanderIID) != NULL)
+            ++summary->commanderInterfaces;
+
+        KR_Event findEvents[2];
+        const int findCount = context->copyEvents(
+            pe_EVC_FIND_ENEMY, roster.ids[index], findEvents, 2);
+        if (findCount == 1)
+            ++summary->scheduledFindEnemy;
+        else
+            ++summary->malformedQueues;
+
+        KR_Event moveEvents[2];
+        KR_Event startEvents[2];
+        const int moveCount = context->copyEvents(
+            pe_EVC_MOVE, roster.ids[index], moveEvents, 2);
+        const int startCount = context->copyEvents(
+            pe_EV_STARTMOVE, roster.ids[index], startEvents, 2);
+        if ((moveCount == 1 && startCount == 0) ||
+            (moveCount == 0 && startCount == 1))
+            ++summary->scheduledMotion;
+        else
+            ++summary->malformedQueues;
+    }
+    // Armed ambience and scripted set pieces can deliberately have no
+    // commander.  Once retail assigns a commander, however, all four pieces
+    // of the live combat schedule are mandatory.
+    return summary->commanderInterfaces == summary->commandedShooters &&
+           summary->scheduledFindEnemy == summary->commandedShooters &&
+           summary->scheduledMotion == summary->commandedShooters &&
+           summary->malformedQueues == 0;
 }

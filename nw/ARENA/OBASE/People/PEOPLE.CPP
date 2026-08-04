@@ -897,7 +897,7 @@ int People::receiveEvent( KR_Event &event )
                         step = 0;
                    else
                    if(  m_attr->m_stopIfAttack
-                     && Normal(m_dir)*Normal(nextNode-start) < m_attr->m_deltaZeroSpeed  )
+                     && !(PeopleRouteMotion_AllowsHorizontalStep(m_dir,start,nextNode,m_attr->m_deltaZeroSpeed))  )
                         step = 0;
 
                    SPeopleObstacleRecoveryRequest recoveryRequest = {};

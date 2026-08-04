@@ -60,6 +60,7 @@
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/orphan/OrphanActiveWorldState.h"
 #include "obase/orphan/OrphanSubjectState.h"
+#include "obase/people/PeopleSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
@@ -5648,6 +5649,10 @@ int RecoveredGameServices_RunFrame() {
     vehicleFrame = false;
   }
   SUA_ProcessEvents();
+  // Observe the real post-event roster once per rendered frame.  This keeps
+  // diagnostics out of the encoding-preserved People implementation and
+  // distinguishes an advancing MOVE deadline from actual displacement.
+  PeopleSubjectState_SampleLiveCombat(g_super.m_context);
   ObserveDebugTaxiSettlements();
   if (vehicleFrame) {
     bool droppedTime = false;

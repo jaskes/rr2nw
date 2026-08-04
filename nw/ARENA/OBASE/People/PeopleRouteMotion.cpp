@@ -286,6 +286,46 @@ bool PeopleRouteMotion_Advance(IPeopleRouteNodeSource *source,
     return FiniteVector(result->position);
 }
 
+bool PeopleRouteMotion_AllowsHorizontalStep(
+    const CFVector3 &direction, const CFVector3 &position,
+    const CFVector3 &target, double minimumAlignment)
+{
+    if (!FiniteVector(direction) || !FiniteVector(position) ||
+        !FiniteVector(target) || !std::isfinite(minimumAlignment))
+        return false;
+    const CFVector3 horizontalDirection(direction.x, 0.0, direction.z);
+    const CFVector3 horizontalTarget(
+        target.x - position.x, 0.0, target.z - position.z);
+    const double directionLength = std::sqrt(
+        LengthSquared(horizontalDirection, true));
+    const double targetLength = std::sqrt(
+        LengthSquared(horizontalTarget, true));
+    if (directionLength <= kSegmentEpsilon ||
+        targetLength <= kSegmentEpsilon)
+        return false;
+    const double alignment = Dot(horizontalDirection, horizontalTarget, true) /
+        (directionLength * targetLength);
+    return alignment >= minimumAlignment;
+}
+
+bool PeopleRouteMotion_AllowsSpatialStep(
+    const CFVector3 &direction, const CFVector3 &position,
+    const CFVector3 &target, double minimumAlignment)
+{
+    if (!FiniteVector(direction) || !FiniteVector(position) ||
+        !FiniteVector(target) || !std::isfinite(minimumAlignment))
+        return false;
+    const CFVector3 targetDirection = target - position;
+    const double directionLength = std::sqrt(LengthSquared(direction, false));
+    const double targetLength = std::sqrt(
+        LengthSquared(targetDirection, false));
+    if (directionLength <= kSegmentEpsilon || targetLength <= kSegmentEpsilon)
+        return false;
+    const double alignment = Dot(direction, targetDirection, false) /
+        (directionLength * targetLength);
+    return alignment >= minimumAlignment;
+}
+
 bool PeopleRouteMotion_Probe()
 {
     std::vector<CFVector3> straight;
@@ -386,6 +426,19 @@ bool PeopleRouteMotion_Probe()
         result.previousNode == 10 && result.currentNode == 11 &&
         FiniteVector(result.position);
 
+    const bool horizontalSlope = PeopleRouteMotion_AllowsHorizontalStep(
+        CFVector3(-0.175867, 0.0, 0.984414),
+        CFVector3(3451.880159, 38.55, -3955.326163),
+        CFVector3(3450.8, 36.07, -3949.28), 0.93);
+    const bool legacySpatialSlope = !PeopleRouteMotion_AllowsSpatialStep(
+        CFVector3(-0.175867, 0.0, 0.984414),
+        CFVector3(3451.880159, 38.55, -3955.326163),
+        CFVector3(3450.8, 36.07, -3949.28), 0.93);
+    const bool horizontalOpposite = !PeopleRouteMotion_AllowsHorizontalStep(
+        CFVector3(1.0, 0.0, 0.0), CFVector3(0.0, 5.0, 0.0),
+        CFVector3(-10.0, -20.0, 0.0), 0.93);
+
     return multiSegment && stop && loop && rewind && corridor && centered &&
-           centeredAtLine && collisionBypass && degenerate && capped;
+           centeredAtLine && collisionBypass && degenerate && capped &&
+           horizontalSlope && legacySpatialSlope && horizontalOpposite;
 }

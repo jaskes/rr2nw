@@ -1010,15 +1010,24 @@ bool HasExtension(const std::string& path, const std::string& extension) {
 bool EnumeratePhysicalFiles(const std::string& physicalDirectory,
                             const std::string& relativeDirectory,
                             const std::string& extension,
-                            std::vector<std::string>* paths) {
-  if (paths == nullptr || paths->size() > kMaximumEnumeratedLevelFiles)
+                            std::vector<std::string>* paths,
+                            std::string* failure) {
+  if (paths == nullptr || paths->size() > kMaximumEnumeratedLevelFiles) {
+    if (failure != nullptr)
+      *failure = "effective Level file catalog exceeded its safety limit";
     return false;
+  }
   WIN32_FIND_DATAA data = {};
   const std::string pattern = JoinPath(physicalDirectory, "*");
   HANDLE find = FindFirstFileA(pattern.c_str(), &data);
   if (find == INVALID_HANDLE_VALUE) {
-    return GetLastError() == ERROR_FILE_NOT_FOUND ||
-           GetLastError() == ERROR_PATH_NOT_FOUND;
+    const DWORD error = GetLastError();
+    if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND)
+      return true;
+    if (failure != nullptr)
+      *failure = "FindFirstFile failed for " + physicalDirectory +
+                 " (Win32 " + std::to_string(error) + ")";
+    return false;
   }
   bool valid = true;
   do {
@@ -1030,15 +1039,24 @@ bool EnumeratePhysicalFiles(const std::string& physicalDirectory,
       // Do not follow junctions or symlinks out of the admitted data root.
       if ((data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
         valid = EnumeratePhysicalFiles(childPhysical, childRelative,
-                                       extension, paths);
+                                       extension, paths, failure);
     } else if (HasExtension(name, extension)) {
       paths->push_back(childRelative);
       valid = paths->size() <= kMaximumEnumeratedLevelFiles;
+      if (!valid && failure != nullptr)
+        *failure = "effective Level file catalog exceeded its safety limit";
     }
   } while (valid && FindNextFileA(find, &data));
   const DWORD error = GetLastError();
   FindClose(find);
-  return valid && error == ERROR_NO_MORE_FILES;
+  if (!valid) return false;
+  if (error != ERROR_NO_MORE_FILES) {
+    if (failure != nullptr)
+      *failure = "FindNextFile failed for " + physicalDirectory +
+                 " (Win32 " + std::to_string(error) + ")";
+    return false;
+  }
+  return true;
 }
 
 struct StackCandidate {
@@ -1676,21 +1694,33 @@ bool RecoveredModRuntime_ResolveReadPath(const char* requested,
 
 bool RecoveredModRuntime_ListLevelFiles(
     const char* relativeDirectory, const char* extension,
-    std::vector<std::string>* paths) {
-  if (!g_configured || g_activeLevelBase.empty() ||
-      relativeDirectory == nullptr || extension == nullptr ||
-      paths == nullptr || !paths->empty())
+    std::vector<std::string>* paths, std::string* failure) {
+  if (failure != nullptr) failure->clear();
+  if (!g_configured || g_activeLevelBase.empty()) {
+    if (failure != nullptr)
+      *failure = "no active Level is bound to the resource catalog";
     return false;
+  }
+  if (relativeDirectory == nullptr || extension == nullptr ||
+      paths == nullptr || !paths->empty()) {
+    if (failure != nullptr)
+      *failure = "Level file catalog arguments are invalid";
+    return false;
+  }
   std::string directory;
   if (!NormalizeRelative(relativeDirectory, &directory) ||
       extension[0] != '.' || std::strchr(extension, '\\') != nullptr ||
       std::strchr(extension, '/') != nullptr ||
-      std::strpbrk(extension, "*?\"<>|") != nullptr)
+      std::strpbrk(extension, "*?\"<>|") != nullptr) {
+    if (failure != nullptr)
+      *failure = "Level file catalog directory or extension is invalid";
     return false;
+  }
 
   const std::string physical =
       JoinPath(JoinPath(g_baseLexical, g_activeLevelBase), directory);
-  if (!EnumeratePhysicalFiles(physical, directory, extension, paths)) {
+  if (!EnumeratePhysicalFiles(physical, directory, extension, paths,
+                              failure)) {
     paths->clear();
     return false;
   }
@@ -1721,6 +1751,8 @@ bool RecoveredModRuntime_ListLevelFiles(
     appendOverlayTargets(g_activeLevelBaseFolded);
   if (paths->size() > kMaximumEnumeratedLevelFiles) {
     paths->clear();
+    if (failure != nullptr)
+      *failure = "effective Level file catalog exceeded its safety limit";
     return false;
   }
   std::sort(paths->begin(), paths->end(),

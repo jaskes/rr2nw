@@ -2026,11 +2026,14 @@ playable Level begins.
   bounded sphere radius, origin height, downward velocity and travel time from
   the executable. Static times own pitch/height placement; a missing front or
   rear selects `2/3`, and a resolved dynamic rear support selects `9/11` from
-  its signed right-axis coordinate. The ordinary NEXTNODE cadence stays as a
-  named bridge until the remaining horizontal movement-owner `1/3` branch and
-  guide/vehicle path-obstruction behavior are translated. Code `4` remains an
-  accepted/restored class, but no literal producer exists in the complete May
-  People field-write set.
+  its signed right-axis coordinate. The `ON_OBJ` movement gate now compares
+  horizontal direction with the horizontal route target: the former 3D test
+  falsely stopped a real `rp_hg_00` slope at `0.927 < 0.93`. The exact sample
+  is in the route-motion probe, while live Level.01 telemetry proves 53/53
+  frames moved where that old test would have rejected the step. The ordinary
+  NEXTNODE cadence stays as a named bridge only for guide/vehicle
+  path-obstruction behavior. Code `4` remains an accepted/restored class, but
+  no literal producer exists in the complete May People field-write set.
 
 ### RP-HOWITZER-001: release holder combat state is a full LCN1 owner
 

@@ -1838,14 +1838,18 @@ classification replace the January approximation. The contact response half
 is closed: May's `1/9`, `2`, `3/11` and `4` dispatcher owns heading correction,
 and the obstacle recovery path preserves the full code instead of collapsing it
 to a boolean. PEO1 v7 stores that integer contact class and migrates v1-v6
-boolean payloads deterministically. Remaining People work is the horizontal
-movement-owner `1/3` branch, evidence for any code-4 producer, moving-guide
-proof beside dynamic Vehicles and guide/vehicle path obstruction. Manual
-Level.01/Level.02 testing also exposes a separate combat slice: hostile walk
-animation advances without route displacement or delivered attacks. Prove
-movement, acquire/attack damage and robot death/Explosion/Corpse as three
-independent rows; the first reported death-time close coincided with an external
-test-process termination and is not yet a confirmed crash.
+boolean payloads deterministically. The horizontal movement-owner row is now
+closed for the observed walk-in-place defect: the `ON_OBJ` step gate compares
+XZ direction with XZ route direction, and live Level.01 telemetry proves 53/53
+real displacements that the former slope-sensitive 3D predicate would have
+blocked. The unified real-People combat probe also closes the isolated graph
+from route movement and target acquisition through `onShoot`, Bullet damage,
+death, Explosion/Corpse and rollback; every commanded shooter is audited for
+one FIND and one MOVE/STARTMOVE schedule. Remaining People work is evidence for
+any code-4 producer, moving-guide proof beside dynamic Vehicles, guide/vehicle
+path obstruction and timed live damage delivery. The first reported
+death-time close coincided with external test-process termination and remains
+an unconfirmed crash until a controlled manual robot kill reproduces it.
 
 The Taxi-to-Vehicle placement and steering/model-basis row is closed. The
 Vehicle inherits the support basis, releases along its normal and advances on
@@ -1867,9 +1871,10 @@ now uses physical forward for position while preserving the Taxi yaw
 convention, and the stable-boundary smoke requires the spawned object to be in
 front of the player.
 
-The next gameplay row is the remaining May People horizontal contact ownership
-plus guide/vehicle path-obstruction behavior visible in town routes, followed
-by mission reward/completion and Portal admission.
+The next gameplay row is timed hostile acquisition/damage/death in a public
+mission plus guide/vehicle path-obstruction behavior visible in town routes,
+followed by mission reward/completion and Portal admission. The recovered
+horizontal step policy is no longer part of that open row.
 
 Only after controlled public mission admission and completion are proven
 should Portal callbacks stage a transactional Level switch through the

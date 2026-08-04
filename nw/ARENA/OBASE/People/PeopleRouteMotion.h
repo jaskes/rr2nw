@@ -41,6 +41,15 @@ struct SPeopleRouteMotionResult
 bool PeopleRouteMotion_Advance(IPeopleRouteNodeSource *source,
                                const SPeopleRouteMotionRequest &request,
                                SPeopleRouteMotionResult *result);
+bool PeopleRouteMotion_AllowsHorizontalStep(
+    const CFVector3 &direction, const CFVector3 &position,
+    const CFVector3 &target, double minimumAlignment);
+// Diagnostic mirror of the replaced legacy predicate. Keeping it next to the
+// XZ policy lets live telemetry count frames rescued from slope-sensitive 3D
+// alignment without duplicating normalization math in the sampler.
+bool PeopleRouteMotion_AllowsSpatialStep(
+    const CFVector3 &direction, const CFVector3 &position,
+    const CFVector3 &target, double minimumAlignment);
 
 // Deterministic synthetic proof for multi-segment travel, all three terminal
 // policies, degenerate nodes, hard corridor bounds, smooth recentering and the

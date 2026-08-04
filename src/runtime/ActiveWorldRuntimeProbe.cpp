@@ -153,8 +153,11 @@ bool RestoreMissingRoutes(
   };
 
   std::vector<std::string> routePaths;
-  if (!RecoveredModRuntime_ListLevelFiles("Route", ".rt", &routePaths)) {
-    SetFailure(failure, "active Level Route catalog enumeration failed");
+  std::string catalogFailure;
+  if (!RecoveredModRuntime_ListLevelFiles(
+          "Route", ".rt", &routePaths, &catalogFailure)) {
+    SetFailure(failure, "active Level Route catalog enumeration failed: " +
+                            catalogFailure);
     return false;
   }
   std::vector<RouteCatalogEntry> catalog;

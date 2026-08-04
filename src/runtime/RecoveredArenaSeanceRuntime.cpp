@@ -2066,6 +2066,17 @@ struct RecoveredArenaSeanceState {
   int peopleProbeDeathTransitions;
   int peopleProbeSaveStateRoundTrips;
   int peopleProbeRollbacks;
+  int peopleCombatProbeAvailable;
+  int peopleCombatProbeAttackerReady;
+  int peopleCombatProbeTargetReady;
+  int peopleCombatProbeRouteDisplacement;
+  int peopleCombatProbeTargetAcquired;
+  int peopleCombatProbeTargetCadence;
+  int peopleCombatProbeProjectileStarted;
+  int peopleCombatProbeDamageDelivered;
+  int peopleCombatProbeDeathTransition;
+  int peopleCombatProbeDeathEffects;
+  int peopleCombatProbeRollbacks;
   int cannonAttributeCapacity;
   int cannonAttributeCount;
   int cannonSubjectCapacity;
@@ -6079,6 +6090,39 @@ bool PublishPeopleSubject(SimulationContext* context, double startTime,
     g_state.peopleProbeDeathTransitions = probe.deathTransitions;
     g_state.peopleProbeSaveStateRoundTrips = probe.saveStateRoundTrips;
     g_state.peopleProbeRollbacks = probe.rollbacks;
+
+    SPeopleCombatProbeSummary combat = {};
+    if (!PeopleSubjectState_ProbeCombatLifecycle(
+            context, startTime + 20.0, &combat)) {
+      char message[512] = {};
+      std::snprintf(
+          message, sizeof(message),
+          "People combat probe %s projectile=%s "
+          "available/attacker/target/move/acquire/cadence/projectile/damage/"
+          "death/effects/rollback="
+          "%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%d",
+          combat.attacker[0] == 0 ? "<none>" : combat.attacker,
+          combat.projectile[0] == 0 ? "<none>" : combat.projectile,
+          combat.available, combat.attackerReady, combat.targetReady,
+          combat.routeDisplacement, combat.targetAcquired,
+          combat.targetCadence, combat.projectileStarted,
+          combat.damageDelivered, combat.deathTransition,
+          combat.deathEffects, combat.rollbacks);
+      ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                     message);
+      return false;
+    }
+    g_state.peopleCombatProbeAvailable = combat.available;
+    g_state.peopleCombatProbeAttackerReady = combat.attackerReady;
+    g_state.peopleCombatProbeTargetReady = combat.targetReady;
+    g_state.peopleCombatProbeRouteDisplacement = combat.routeDisplacement;
+    g_state.peopleCombatProbeTargetAcquired = combat.targetAcquired;
+    g_state.peopleCombatProbeTargetCadence = combat.targetCadence;
+    g_state.peopleCombatProbeProjectileStarted = combat.projectileStarted;
+    g_state.peopleCombatProbeDamageDelivered = combat.damageDelivered;
+    g_state.peopleCombatProbeDeathTransition = combat.deathTransition;
+    g_state.peopleCombatProbeDeathEffects = combat.deathEffects;
+    g_state.peopleCombatProbeRollbacks = combat.rollbacks;
   }
   g_state.peopleSubjectCapacity = script.subjectCapacity;
   g_state.peopleSubjectCount = script.subjectCount;
@@ -6093,11 +6137,30 @@ bool PublishPeopleSubject(SimulationContext* context, double startTime,
           context, script.subjectCount, g_state.peopleSubjectSoundCount,
           fingerprint))
     return false;
+  SPeopleCombatScheduleSummary schedule = {};
+  if (!PeopleSubjectState_AuditCombatScheduling(context, &schedule)) {
+    char message[320] = {};
+    std::snprintf(
+        message, sizeof(message),
+        "People combat scheduling "
+        "live/shooters/commanded/interfaces/find/motion/attack/malformed="
+        "%d/%d/%d/%d/%d/%d/%d/%d",
+        schedule.livePeople, schedule.shooters,
+        schedule.commandedShooters, schedule.commanderInterfaces,
+        schedule.scheduledFindEnemy, schedule.scheduledMotion,
+        schedule.attackStates, schedule.malformedQueues);
+    ReportExtended(RECOVERED_ARENA_SEANCE_EXT_PEOPLE_LIFECYCLE_FAILURE,
+                   message);
+    return false;
+  }
   if (!RecoveredGameplayTuning_FinalizePeopleLifecycle(context, startTime)) {
     ReportExtended(RECOVERED_ARENA_SEANCE_EXT_GAMEPLAY_TUNING_FAILURE,
                    RecoveredGameplayTuning_LastError());
     return false;
   }
+  // Startup probes intentionally mutate temporary People.  Live telemetry
+  // begins only after every proof and rollback has completed.
+  PeopleSubjectState_ResetLiveCombatTelemetry();
   g_state.peopleSubjectFingerprint = fingerprint;
   g_state.peopleSubjectReady = true;
   return true;
@@ -6506,6 +6569,17 @@ void RecoveredArenaSeance_Release() {
   g_state.peopleProbeDeathTransitions = 0;
   g_state.peopleProbeSaveStateRoundTrips = 0;
   g_state.peopleProbeRollbacks = 0;
+  g_state.peopleCombatProbeAvailable = 0;
+  g_state.peopleCombatProbeAttackerReady = 0;
+  g_state.peopleCombatProbeTargetReady = 0;
+  g_state.peopleCombatProbeRouteDisplacement = 0;
+  g_state.peopleCombatProbeTargetAcquired = 0;
+  g_state.peopleCombatProbeTargetCadence = 0;
+  g_state.peopleCombatProbeProjectileStarted = 0;
+  g_state.peopleCombatProbeDamageDelivered = 0;
+  g_state.peopleCombatProbeDeathTransition = 0;
+  g_state.peopleCombatProbeDeathEffects = 0;
+  g_state.peopleCombatProbeRollbacks = 0;
   PeopleSubjectState_SetExpectedCapacities(0, 0);
   g_state.tankCannonAttributesReady = false;
   g_state.tankReferencesReady = false;
@@ -6940,6 +7014,65 @@ int RecoveredArenaSeance_PeopleProbeSaveStateRoundTrips() {
 
 int RecoveredArenaSeance_PeopleProbeRollbacks() {
   return g_state.peopleSubjectReady ? g_state.peopleProbeRollbacks : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeAvailable() {
+  return g_state.peopleSubjectReady ? g_state.peopleCombatProbeAvailable : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeAttackerReady() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleCombatProbeAttackerReady
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeTargetReady() {
+  return g_state.peopleSubjectReady ? g_state.peopleCombatProbeTargetReady
+                                    : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeRouteDisplacement() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleCombatProbeRouteDisplacement
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeTargetAcquired() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleCombatProbeTargetAcquired
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeTargetCadence() {
+  return g_state.peopleSubjectReady ? g_state.peopleCombatProbeTargetCadence
+                                    : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeProjectileStarted() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleCombatProbeProjectileStarted
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeDamageDelivered() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleCombatProbeDamageDelivered
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeDeathTransition() {
+  return g_state.peopleSubjectReady
+             ? g_state.peopleCombatProbeDeathTransition
+             : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeDeathEffects() {
+  return g_state.peopleSubjectReady ? g_state.peopleCombatProbeDeathEffects
+                                    : -1;
+}
+
+int RecoveredArenaSeance_PeopleCombatProbeRollbacks() {
+  return g_state.peopleSubjectReady ? g_state.peopleCombatProbeRollbacks : -1;
 }
 
 int RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs() {

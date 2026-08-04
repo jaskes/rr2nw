@@ -2256,6 +2256,29 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_PeopleProbeRenderedPoseFrames()) +
            "/" + std::to_string(
                RecoveredArenaSeance_PeopleProbeViewBoundaryResets()));
+  log.Line("people_combat_probe=" +
+           std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeAvailable()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeAttackerReady()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeTargetReady()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeRouteDisplacement()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeTargetAcquired()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeTargetCadence()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeProjectileStarted()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeDamageDelivered()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeDeathTransition()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeDeathEffects()) +
+           "/" + std::to_string(
+               RecoveredArenaSeance_PeopleCombatProbeRollbacks()));
   log.Line("people_active_world_probe=" +
            std::to_string(
                RecoveredArenaSeance_PeopleActiveWorldReconstructedIDs()) +
@@ -2265,6 +2288,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_PeopleActiveWorldRollbacks()));
   log.Line("people_active_world_fingerprint=" + std::to_string(
                RecoveredArenaSeance_PeopleActiveWorldFingerprint()));
+  SPeopleCombatScheduleSummary peopleSchedule = {};
+  const bool peopleScheduleReady = PeopleSubjectState_AuditCombatScheduling(
+      g_super.m_context, &peopleSchedule);
+  log.Line("people_combat_schedule=" +
+           std::to_string(peopleScheduleReady ? 1 : 0) + "/" +
+           std::to_string(peopleSchedule.livePeople) + "/" +
+           std::to_string(peopleSchedule.shooters) + "/" +
+           std::to_string(peopleSchedule.commandedShooters) + "/" +
+           std::to_string(peopleSchedule.commanderInterfaces) + "/" +
+           std::to_string(peopleSchedule.scheduledFindEnemy) + "/" +
+           std::to_string(peopleSchedule.scheduledMotion) + "/" +
+           std::to_string(peopleSchedule.attackStates) + "/" +
+           std::to_string(peopleSchedule.malformedQueues));
   log.Line("tank_cannon_attributes_initialized=" +
            std::to_string(
                RecoveredGameServices_TankCannonAttributesReady() ? 1 : 0));
@@ -2788,6 +2824,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(guide.elapsed) + "/" +
              std::to_string(guide.displacement));
     loopFailed = loopFailed || !guideReady;
+    SPeopleCombatScheduleSummary missionPeopleSchedule = {};
+    const bool missionPeopleScheduleReady =
+        PeopleSubjectState_AuditCombatScheduling(
+            g_super.m_context, &missionPeopleSchedule);
+    log.Line("mission_smoke_people_schedule=" +
+             std::to_string(missionPeopleScheduleReady ? 1 : 0) + "/" +
+             std::to_string(missionPeopleSchedule.livePeople) + "/" +
+             std::to_string(missionPeopleSchedule.shooters) + "/" +
+             std::to_string(missionPeopleSchedule.commandedShooters) + "/" +
+             std::to_string(missionPeopleSchedule.commanderInterfaces) +
+             "/" +
+             std::to_string(missionPeopleSchedule.scheduledFindEnemy) +
+             "/" +
+             std::to_string(missionPeopleSchedule.scheduledMotion) + "/" +
+             std::to_string(missionPeopleSchedule.attackStates) + "/" +
+             std::to_string(missionPeopleSchedule.malformedQueues));
+    loopFailed = loopFailed || !missionPeopleScheduleReady;
     const std::string missionProject = mission.projectName;
     if (!loopFailed &&
         (missionProject == "ProjectS22" ||
@@ -3270,6 +3323,80 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(vehicleAuthority.panelOpen));
     log.Line("vehicle_authority_taxi_change_enabled=" +
              std::to_string(vehicleAuthority.taxiChangeEnabled));
+  }
+  SPeopleLiveCombatTelemetry peopleLive = {};
+  if (PeopleSubjectState_LiveCombatTelemetry(&peopleLive)) {
+    log.Line("people_live_samples=" +
+             std::to_string(peopleLive.sampleFrames) + "/" +
+             std::to_string(peopleLive.rosterSamples));
+    log.Line("people_live_motion=" +
+             std::to_string(peopleLive.moveEvents) + "/" +
+             std::to_string(peopleLive.eligibleMoveEvents) + "/" +
+             std::to_string(peopleLive.displacedMoveEvents) + "/" +
+             std::to_string(peopleLive.stationaryMoveEvents) + "/" +
+             std::to_string(peopleLive.attackMoveEvents) + "/" +
+             std::to_string(peopleLive.contactMoveEvents));
+    log.Line(std::string("people_live_legacy_slope_release=") +
+             std::to_string(peopleLive.legacySlopeReleaseOpportunities) + "/" +
+             std::to_string(peopleLive.legacySlopeReleasedMoves) + "/" +
+             (peopleLive.lastLegacySlopeReleasedOwner[0] == 0
+                  ? "<none>" : peopleLive.lastLegacySlopeReleasedOwner));
+    log.Line("people_live_targeting=" +
+             std::to_string(peopleLive.findEvents) + "/" +
+             std::to_string(peopleLive.eligibleFindEvents) + "/" +
+             std::to_string(peopleLive.targetAcquisitions) + "/" +
+             std::to_string(peopleLive.targetMisses) + "/" +
+             std::to_string(peopleLive.attackStateSamples));
+    log.Line("people_live_combat=" +
+             std::to_string(peopleLive.shotsStarted) + "/" +
+             std::to_string(peopleLive.damageApplications) + "/" +
+             std::to_string(peopleLive.killTransitions) + "/" +
+             std::to_string(peopleLive.explosionEffects) + "/" +
+             std::to_string(peopleLive.corpseEffects));
+    log.Line("people_live_max_displacement=" + std::to_string(
+                 peopleLive.maximumHorizontalDisplacement));
+    log.Line(std::string("people_live_last_stationary=") +
+             (peopleLive.lastStationaryOwner[0] == 0
+                  ? "<none>" : peopleLive.lastStationaryOwner) + "/" +
+             std::to_string(peopleLive.lastStationaryDeltaTime) + "/" +
+             std::to_string(peopleLive.lastStationaryMoveSpeed) + "/" +
+             std::to_string(peopleLive.lastStationaryContactCode) + "/" +
+             std::to_string(peopleLive.lastStationaryState) + "/" +
+             std::to_string(peopleLive.lastStationaryStopped) + "/" +
+             std::to_string(peopleLive.lastStationaryPreviousNode) + "/" +
+             std::to_string(peopleLive.lastStationaryCurrentNode));
+    log.Line("people_live_last_stationary_position=" +
+             std::to_string(peopleLive.lastStationaryX) + "/" +
+             std::to_string(peopleLive.lastStationaryY) + "/" +
+             std::to_string(peopleLive.lastStationaryZ));
+    log.Line("people_live_last_stationary_motion=" +
+             std::to_string(peopleLive.lastStationaryMoveStartX) + "/" +
+             std::to_string(peopleLive.lastStationaryMoveStartZ) + "/" +
+             std::to_string(peopleLive.lastStationaryDirectionX) + "/" +
+             std::to_string(peopleLive.lastStationaryDirectionZ) + "/" +
+             std::to_string(peopleLive.lastStationaryTargetX) + "/" +
+             std::to_string(peopleLive.lastStationaryTargetZ));
+    log.Line(std::string("people_live_last_stationary_refs=") +
+             (peopleLive.lastStationaryAttribute[0] == 0
+                  ? "<none>" : peopleLive.lastStationaryAttribute) + "/" +
+             (peopleLive.lastStationaryRoute[0] == 0
+                  ? "<none>" : peopleLive.lastStationaryRoute));
+    log.Line("people_live_last_stationary_policy=" +
+             std::to_string(peopleLive.lastStationaryOnLand) + "/" +
+             std::to_string(peopleLive.lastStationaryStopIfAttack) + "/" +
+             std::to_string(peopleLive.lastStationaryDeltaZeroSpeed));
+    log.Line("people_live_last_stationary_prediction=" +
+             std::to_string(
+                 peopleLive.lastStationaryPredictedDisplacement) + "/" +
+             std::to_string(
+                 peopleLive.lastStationaryObstacleRecoveryTime));
+    log.Line(std::string("people_live_last_actors=") +
+             (peopleLive.lastAcquiringOwner[0] == 0
+                  ? "<none>" : peopleLive.lastAcquiringOwner) + "/" +
+             (peopleLive.lastShootingOwner[0] == 0
+                  ? "<none>" : peopleLive.lastShootingOwner) + "/" +
+             (peopleLive.lastDamagedOwner[0] == 0
+                  ? "<none>" : peopleLive.lastDamagedOwner));
   }
   log.Line(
       "script_mode=bounded-retail-farter-subject-sound-object-farter-corpse-"

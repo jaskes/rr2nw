@@ -127,7 +127,7 @@ bool RecoveredModRuntime_ResolveReadPath(const char* requested,
 // names are Level-relative and sorted deterministically.
 bool RecoveredModRuntime_ListLevelFiles(
     const char* relativeDirectory, const char* extension,
-    std::vector<std::string>* paths);
+    std::vector<std::string>* paths, std::string* failure = nullptr);
 
 // CFileResource-compatible read hook. It never opens files for writing.
 FILE* RecoveredModRuntime_OpenRead(const char* requested, long* length);

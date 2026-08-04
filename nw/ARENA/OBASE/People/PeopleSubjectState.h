@@ -67,6 +67,88 @@ struct SPeopleRouteMotionProbeSummary
     char owner[96];
 };
 
+struct SPeopleCombatProbeSummary
+{
+    int available;
+    int attackerReady;
+    int targetReady;
+    int routeDisplacement;
+    int targetAcquired;
+    int targetCadence;
+    int projectileStarted;
+    int damageDelivered;
+    int deathTransition;
+    int deathEffects;
+    int rollbacks;
+    char attacker[96];
+    char projectile[64];
+};
+
+struct SPeopleCombatScheduleSummary
+{
+    int livePeople;
+    int shooters;
+    int commandedShooters;
+    int commanderInterfaces;
+    int scheduledFindEnemy;
+    int scheduledMotion;
+    int attackStates;
+    int malformedQueues;
+};
+
+struct SPeopleLiveCombatTelemetry
+{
+    unsigned long long sampleFrames;
+    unsigned long long rosterSamples;
+    unsigned long long moveEvents;
+    unsigned long long eligibleMoveEvents;
+    unsigned long long displacedMoveEvents;
+    unsigned long long stationaryMoveEvents;
+    unsigned long long legacySlopeReleaseOpportunities;
+    unsigned long long legacySlopeReleasedMoves;
+    unsigned long long attackMoveEvents;
+    unsigned long long contactMoveEvents;
+    unsigned long long findEvents;
+    unsigned long long eligibleFindEvents;
+    unsigned long long targetAcquisitions;
+    unsigned long long targetMisses;
+    unsigned long long attackStateSamples;
+    unsigned long long shotsStarted;
+    unsigned long long damageApplications;
+    unsigned long long killTransitions;
+    unsigned long long explosionEffects;
+    unsigned long long corpseEffects;
+    double maximumHorizontalDisplacement;
+    double lastStationaryDeltaTime;
+    double lastStationaryMoveSpeed;
+    double lastStationaryX;
+    double lastStationaryY;
+    double lastStationaryZ;
+    double lastStationaryMoveStartX;
+    double lastStationaryMoveStartZ;
+    double lastStationaryDirectionX;
+    double lastStationaryDirectionZ;
+    double lastStationaryTargetX;
+    double lastStationaryTargetZ;
+    double lastStationaryPredictedDisplacement;
+    double lastStationaryObstacleRecoveryTime;
+    int lastStationaryContactCode;
+    int lastStationaryState;
+    int lastStationaryStopped;
+    int lastStationaryPreviousNode;
+    int lastStationaryCurrentNode;
+    int lastStationaryOnLand;
+    int lastStationaryStopIfAttack;
+    double lastStationaryDeltaZeroSpeed;
+    char lastStationaryOwner[96];
+    char lastStationaryAttribute[96];
+    char lastStationaryRoute[96];
+    char lastLegacySlopeReleasedOwner[96];
+    char lastAcquiringOwner[96];
+    char lastShootingOwner[96];
+    char lastDamagedOwner[96];
+};
+
 void PeopleSubjectState_Link();
 void PeopleSubjectState_SetExpectedCapacities(int attributeCapacity,
                                               int subjectCapacity);
@@ -111,5 +193,15 @@ bool PeopleSubjectState_ProbeTunedAttributeLifecycle(
 bool PeopleSubjectState_ProbeNewestDelayedRoute(
     SimulationContext *context,
     SPeopleRouteMotionProbeSummary *summary);
+bool PeopleSubjectState_ProbeCombatLifecycle(
+    SimulationContext *context, double timeStamp,
+    SPeopleCombatProbeSummary *summary);
+bool PeopleSubjectState_AuditCombatScheduling(
+    SimulationContext *context,
+    SPeopleCombatScheduleSummary *summary);
+void PeopleSubjectState_ResetLiveCombatTelemetry();
+bool PeopleSubjectState_LiveCombatTelemetry(
+    SPeopleLiveCombatTelemetry *telemetry);
+bool PeopleSubjectState_SampleLiveCombat(SimulationContext *context);
 
 #endif
