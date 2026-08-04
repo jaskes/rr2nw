@@ -7,6 +7,12 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Level.03N guide collision acceptance now exercises the real occupied
+  `Vehicle.Default`, rather than inferring Player-vehicle behavior from a
+  second People owner. The probe requires exact dynamic collision ownership,
+  live `ON_OBJ` contact class `1/3`, opposing-motion avoidance and safe
+  suppression after the Vehicle has passed. It restores the complete VEH1
+  payload, embedded Player binding, guide state and scheduler queue exactly.
 - Real RecruitCenter collisions now play the retail-configured character FLC
   before staging and presenting the authored mission briefing. The January
   renegade branch retains its distinct default briefing and relation changes;

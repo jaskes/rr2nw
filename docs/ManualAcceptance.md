@@ -965,12 +965,22 @@ time. When `available=1`, fields 4, 5, 7, 8 and 9 must be `1`; contact must be
 `1` or `3`. The process must also report zero service issues, `level-ready`
 and clean shutdown. The probe is optional for missions with no delayed guide.
 
+`mission_smoke_guide_vehicle_obstacle` contains thirteen slash-separated
+fields: actor, Vehicle, available, Player bound, collision hit, exact owner,
+live contact code, approaching Vehicle avoided, passed Vehicle ignored, VEH1
+restored, Player binding restored, complete rollback and collision time. For
+this Level.03N row `available` must be `1`; every boolean field must be `1` and
+contact must be `1` or `3`. Debug, Release and RelWithDebInfo must report the
+same owner/contact decision and finish with zero service issues, `level-ready`
+and clean shutdown.
+
 For visible confirmation, accept the Marauders mission, stand or park in the
 guide's route, and then move behind it after it passes. It should turn around
 an approaching People/Vehicle without continuing to flee from an owner already
-behind it. Retain the exact route, screenshot and log; the automated owner
-proof currently uses a real People obstacle, so an occupied Player Vehicle is
-still the manual closure case.
+behind it. Retain the exact route, screenshot and log. Automated coverage now
+uses both a real People obstacle and the occupied Player Vehicle; this manual
+row remains necessary for the complete visible route among authored walls and
+other static town geometry.
 
 ## Interactive crowded Taxi stability pass
 

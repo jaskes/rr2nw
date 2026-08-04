@@ -1857,11 +1857,16 @@ LCN1 checkpoint restores byte-for-byte. Three consecutive Debug runs finished
 in 28-30 frames (1.80-1.89 seconds) with exact rollback. This proves the live
 delivery/death graph under bounded proximity and health staging, not
 unassisted pursuit across the authored route. Remaining People work is
-evidence for any code-4 producer and a visible occupied-Player-Vehicle repeat.
+evidence for any code-4 producer and a visible long-route/static-town repeat.
 The May horizontal full-world sweep now retains exact dynamic ownership and a
 real Level.03N guide MOVE selects contact `1/3` for approaching traffic while
 ignoring a same-direction owner safely behind; Debug, Release and
-RelWithDebInfo agree and the probe rolls back exactly. The first
+RelWithDebInfo agree and the probe rolls back exactly. The same matrix now
+repeats the sweep against the actual occupied `Vehicle.Default`: exact
+`IVehicle`/`IPlayer` ownership, opposing-motion avoidance, live class `3`,
+behind-owner suppression, complete VEH1 restoration and Player binding all
+agree byte-for-byte. This closes the dynamic Player-Vehicle ownership row, but
+not visual clearance from authored walls over the whole town route. The first
 reported death-time close coincided with external test-process termination;
 the bounded real robot death now exits cleanly, while the exact manual route
 still merits a repeat before the original report is retired completely.

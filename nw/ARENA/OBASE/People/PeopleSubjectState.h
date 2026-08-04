@@ -85,6 +85,23 @@ struct SPeopleDynamicObstacleProbeSummary
     char obstacle[96];
 };
 
+struct SPeopleOccupiedVehicleObstacleProbeSummary
+{
+    int available;
+    int playerBound;
+    int collisionHit;
+    int ownerExact;
+    int contactCode;
+    int approachingAvoided;
+    int aheadIgnored;
+    int vehicleStateRestored;
+    int playerBindingRestored;
+    int rollbackExact;
+    double collisionTime;
+    char actor[96];
+    char vehicle[96];
+};
+
 struct SPeopleCombatProbeSummary
 {
     int available;
@@ -292,6 +309,9 @@ bool PeopleSubjectState_ProbeNewestDelayedRoute(
 bool PeopleSubjectState_ProbeDynamicObstacleCollision(
     SimulationContext *context,
     SPeopleDynamicObstacleProbeSummary *summary);
+bool PeopleSubjectState_ProbeOccupiedVehicleObstacleCollision(
+    SimulationContext *context,
+    SPeopleOccupiedVehicleObstacleProbeSummary *summary);
 bool PeopleSubjectState_ProbeCombatLifecycle(
     SimulationContext *context, double timeStamp,
     SPeopleCombatProbeSummary *summary);

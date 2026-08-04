@@ -3869,7 +3869,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Status: `SOURCE_RECOVERED`, `RETAIL_RUNTIME_PROVED`,
   `PORTABILITY_FIX_ACCEPTED`, `EVENT_26012_RECOVERED`,
   `ROUTE_CORRECTION_RECOVERED`, `ON_OBJ_SWEEP_RECOVERED`,
-  `DYNAMIC_PATH_OBSTRUCTION_RECOVERED`, `SUPPORT_MANIFOLD_PARTIAL`.
+  `DYNAMIC_PATH_OBSTRUCTION_RECOVERED`,
+  `OCCUPIED_VEHICLE_RUNTIME_PROVED`, `SUPPORT_MANIFOLD_PARTIAL`.
 - Evidence: the reported town-hall visits can create the correct PlayerMission,
   Player vehicle and guide while showing no briefing splash. The guide can
   immediately drive into the Player vehicle or follow its route backwards.
@@ -3902,10 +3903,13 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Marauders gate additionally places a real People owner in the guide's next
   sweep and requires exact collision ownership, live contact `1/3`,
   approaching-owner avoidance, ahead-owner suppression and exact rollback in
-  Debug, Release and RelWithDebInfo.
-- Revisit when: a visible manual run repeats the guide proof against an
-  occupied Player Vehicle and static town geometry. Code `4` still has no
-  evidenced producer. Repeated Level viewport refresh should eventually own
+  Debug, Release and RelWithDebInfo. A second transaction uses the actual
+  occupied `Vehicle.Default`, proves its exact `IVehicle`/`IPlayer` binding,
+  receives live class `3`, restores VEH1 byte-for-byte and retains the same
+  Player interface after rollback in all three configurations.
+- Revisit when: a visible manual run repeats the whole guide route against
+  static town geometry. Code `4` still has no evidenced producer. Repeated
+  Level viewport refresh should eventually own
   explicit legacy viewport release.
 
 ### CQ-205: the reduced modern session omitted briefing presentation owners
@@ -4152,7 +4156,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 - Status: `MAY_BINARY_CONFIRMED`, `CONTACT_RESPONSE_RECOVERED`,
   `SUPPORT_GEOMETRY_RECOVERED`, `DYNAMIC_OWNER_BRANCH_RECOVERED`,
-  `CONTACT_MANIFOLD_PARTIAL`.
+  `OCCUPIED_VEHICLE_RUNTIME_PROVED`, `CONTACT_MANIFOLD_PARTIAL`.
 - Evidence: the May `ON_OBJECTS` dispatcher accepts contact classes
   `1/2/3/4/9/11`; `1/9` share clockwise response, `3/11` share
   counter-clockwise response, `2` uses the full roll speed and `4` uses a
@@ -4191,10 +4195,14 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   configurations; the formerly failing `Level.02D/02N` serializer cases pass
   a separate 6/6 targeted rerun. Level.03N Marauders proves the real guide,
   world collision owner, live `ON_OBJ` response and rollback identically in
-  Debug, Release and RelWithDebInfo.
+  Debug, Release and RelWithDebInfo. The adjacent occupied-Vehicle transaction
+  resolves `Vehicle.Default` as that owner, proves opposing-motion avoidance,
+  behind-owner suppression, live class `3`, byte-identical VEH1 restoration
+  and the unchanged embedded Player binding in the same matrix.
 - Revisit when: identify an evidence-backed producer (if any) for code `4` and
-  repeat the moving guide beside an occupied Player Vehicle in a visible
-  manual run. Only then mark the complete support/contact manifold recovered.
+  repeat the full moving-guide route beside authored static town geometry in a
+  visible manual run. Only then mark the complete support/contact manifold
+  recovered.
 
 ### CQ-216: mission enemies animate without effective pursuit or attacks
 

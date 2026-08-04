@@ -5420,3 +5420,26 @@ go through a narrow force-included bridge so the non-UTF8 archival
 The disk structs are explicitly packed to the format's 128-byte file header,
 16-byte frame header and 6-byte chunk header; host ABI padding is not accepted
 as file layout. None of this presentation state enters MSH1, AWS1 or LCN1.
+
+### BD-154: guide traffic acceptance uses the occupied Player Vehicle
+
+Status: accepted on 2026-08-04 for the dynamic-owner closure row.
+
+The May People horizontal sweep is owner-sensitive: the returned
+`IDynamicObject` supplies position and motion, opposing traffic is avoided,
+same-direction traffic already behind is ignored and signed side selects
+contact class `1/3`. A second People subject proves that algorithm but cannot
+prove that the active Player Vehicle is registered and resolved through the
+same world path.
+
+The Level.03N mission probe therefore captures VEH1, identifies `g_vehicle`
+through both `IVehicle` and its embedded `IPlayer`, and moves that exact live
+owner into the guide's next sweep. One ordinary `pe_EVC_MOVE` must select
+class `1/3`. The transaction then restores the complete vessel/Vehicle/Player
+payload, the guide's PEO1-visible state and its MOVE deadline; stable Vehicle
+bytes, Player interface identity and the People fingerprint must all match the
+pre-probe world.
+
+This is an acceptance transaction, not new traffic AI and not a save-schema
+change. Static town geometry still needs a visible long-route pass, and no
+producer for accepted contact class `4` has been evidenced.

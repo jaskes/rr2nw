@@ -55,7 +55,7 @@ function Read-KeyValueLog([string]$Path) {
 }
 
 function Split-Field([hashtable]$Log, [string]$Key) {
-    if (-not $Log.ContainsKey($Key)) { return @() }
+    if (-not $Log.ContainsKey($Key)) { return ,@() }
     return @($Log[$Key] -split '/')
 }
 
@@ -117,6 +117,19 @@ foreach ($configurationName in $Configuration) {
             }
             if ($guideObstacle[5] -notin @("1", "3")) {
                 $issues.Add("guide obstacle contact=$($guideObstacle[5]) expected 1 or 3")
+            }
+        }
+        $guideVehicleObstacle = @(Split-Field $log "mission_smoke_guide_vehicle_obstacle")
+        if ($guideVehicleObstacle.Count -lt 13) {
+            $issues.Add("mission_smoke_guide_vehicle_obstacle=$($guideVehicleObstacle -join '/') expected 13 fields")
+        } elseif ($guideVehicleObstacle[2] -eq "1") {
+            foreach ($index in @(2, 3, 4, 5, 7, 8, 9, 10, 11)) {
+                if ($guideVehicleObstacle[$index] -ne "1") {
+                    $issues.Add("mission_smoke_guide_vehicle_obstacle[$index]=$($guideVehicleObstacle[$index]) expected=1")
+                }
+            }
+            if ($guideVehicleObstacle[6] -notin @("1", "3")) {
+                $issues.Add("guide occupied Vehicle contact=$($guideVehicleObstacle[6]) expected 1 or 3")
             }
         }
         Require-Exact $issues $log "mission_combat_rollback" "1/1/1/1"

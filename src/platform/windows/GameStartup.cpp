@@ -3016,6 +3016,31 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(guideObstacle.rollbackExact) + "/" +
              std::to_string(guideObstacle.collisionTime));
     loopFailed = loopFailed || !guideObstacleReady;
+    SPeopleOccupiedVehicleObstacleProbeSummary guideVehicleObstacle = {};
+    const bool guideVehicleObstacleReady =
+        PeopleSubjectState_ProbeOccupiedVehicleObstacleCollision(
+            g_super.m_context, &guideVehicleObstacle);
+    log.Line(std::string("mission_smoke_guide_vehicle_obstacle=") +
+             (guideVehicleObstacle.actor[0] == 0 ? "<none>" :
+                                                   guideVehicleObstacle.actor) +
+             "/" +
+             (guideVehicleObstacle.vehicle[0] == 0 ? "<none>" :
+                                                     guideVehicleObstacle.vehicle) +
+             "/" + std::to_string(guideVehicleObstacle.available) +
+             "/" + std::to_string(guideVehicleObstacle.playerBound) +
+             "/" + std::to_string(guideVehicleObstacle.collisionHit) +
+             "/" + std::to_string(guideVehicleObstacle.ownerExact) +
+             "/" + std::to_string(guideVehicleObstacle.contactCode) +
+             "/" + std::to_string(
+                 guideVehicleObstacle.approachingAvoided) +
+             "/" + std::to_string(guideVehicleObstacle.aheadIgnored) +
+             "/" + std::to_string(
+                 guideVehicleObstacle.vehicleStateRestored) +
+             "/" + std::to_string(
+                 guideVehicleObstacle.playerBindingRestored) +
+             "/" + std::to_string(guideVehicleObstacle.rollbackExact) +
+             "/" + std::to_string(guideVehicleObstacle.collisionTime));
+    loopFailed = loopFailed || !guideVehicleObstacleReady;
     SPeopleCombatScheduleSummary missionPeopleSchedule = {};
     const bool missionPeopleScheduleReady =
         PeopleSubjectState_AuditCombatScheduling(

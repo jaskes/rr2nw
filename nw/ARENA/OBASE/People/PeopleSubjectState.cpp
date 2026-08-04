@@ -27,6 +27,8 @@
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
+#include "obase/vehicle/VehicleActiveWorldState.h"
+#include "h/vehicle.h"
 #include "storage/h/subject.h"
 #include "storage/h/savefile.h"
 
@@ -2281,6 +2283,254 @@ bool PeopleSubjectState_ProbeDynamicObstacleCollision(
            (summary->contactCode == 1 || summary->contactCode == 3) &&
            summary->approachingAvoided == 1 &&
            summary->aheadIgnored == 1 && summary->rollbackExact == 1;
+}
+
+bool PeopleSubjectState_ProbeOccupiedVehicleObstacleCollision(
+    SimulationContext *context,
+    SPeopleOccupiedVehicleObstacleProbeSummary *summary)
+{
+    if (context == NULL || summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+
+    People *actor = NULL;
+    KR_ObjectID actorID = KR_ObjectID::NUL();
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *candidate = ResolvePeople(context, roster.ids[index]);
+        KR_Event pending[2];
+        if (RuntimeReady(candidate) && candidate->m_startMoveDelay > 0.0 &&
+            context->copyEvents(pe_EV_STARTMOVE, roster.ids[index],
+                                pending, 2) == 1)
+        {
+            actor = candidate;
+            actorID = roster.ids[index];
+            break;
+        }
+    }
+
+    Vehicle *vehicle = g_vehicle;
+    if (actor == NULL || vehicle == NULL ||
+        vehicle->getContext() != context)
+        return true;
+
+    const KR_ObjectID vehicleID = vehicle->getObjectID();
+    IPlayer *player = static_cast<IPlayer *>(
+        context->queryInterface(vehicleID, IPlayerIID));
+    summary->playerBound =
+        context->queryInterface(vehicleID, IVehicleIID) == vehicle &&
+        player == &vehicle->player() && g_vehicle == vehicle ? 1 : 0;
+    if (summary->playerBound != 1)
+        return false;
+
+    summary->available = 1;
+    CopyTelemetryName(summary->actor, sizeof(summary->actor),
+                      context->searchObject(actorID));
+    CopyTelemetryName(summary->vehicle, sizeof(summary->vehicle),
+                      context->searchObject(vehicleID));
+
+    IRouteObject *route = static_cast<IRouteObject *>(
+        context->queryInterface(actor->m_routeID, IRouteObjectIID));
+    if (route == NULL || route->GetNodeCnt() < 2 ||
+        actor->m_previousRouteNode < 0 ||
+        actor->m_previousRouteNode >= route->GetNodeCnt() ||
+        actor->m_curNode < 0 || actor->m_curNode >= route->GetNodeCnt())
+        return false;
+
+    const PeopleData savedActor = *static_cast<PeopleData *>(actor);
+    const CFVector3 savedActorPosition = actor->getPosition();
+    const unsigned long long peopleFingerprintBefore =
+        PeopleSubjectState_SubjectFingerprint(context);
+    std::vector<unsigned char> vehicleCheckpoint;
+    if (!VehicleActiveWorldState_CaptureStable(
+            context, &vehicleCheckpoint) || vehicleCheckpoint.empty())
+        return false;
+
+    const CFVector3 segment =
+        route->GetNode(actor->m_curNode) -
+        route->GetNode(actor->m_previousRouteNode);
+    const double horizontalLength = hypot(segment.x, segment.z);
+    const double actorRadius = actor->getRadius();
+    const double vehicleRadius = vehicle->getRadius();
+    const double vehicleMass = vehicle->VesselMass();
+    bool valid = std::isfinite(horizontalLength) &&
+        horizontalLength > 1e-6 && std::isfinite(actorRadius) &&
+        actorRadius > 0.0 && std::isfinite(vehicleRadius) &&
+        vehicleRadius > 0.0 && std::isfinite(vehicleMass) &&
+        vehicleMass > 0.0;
+
+    int classifiedCode = 0;
+    if (valid)
+    {
+        const CFVector3 forward(segment.x / horizontalLength, 0.0,
+                                segment.z / horizontalLength);
+        const double speed = (std::max)(10.0, actor->movementSpeed());
+        const CFVector3 probeActor(
+            savedActorPosition.x, savedActorPosition.y + 5000.0,
+            savedActorPosition.z);
+        actor->ct_Subject::setPosition(probeActor);
+        actor->m_isNotCreate = 0;
+        actor->m_dir = forward * speed;
+
+        const CFVector3 vehiclePosition =
+            probeActor + forward *
+                (actorRadius + vehicleRadius + 0.25);
+        vehicle->Stop();
+        vehicle->SetPos(vehiclePosition);
+        vehicle->setPosition(vehiclePosition);
+        valid = vehicle->ApplyExplosionImpulse(
+            forward * -speed, vehicleMass);
+
+        SPeopleSupportSamplingRequest samplingRequest = {};
+        samplingRequest.objectRadius = actorRadius;
+        samplingRequest.heading = atan2(forward.z, forward.x);
+        samplingRequest.positionX = probeActor.x;
+        samplingRequest.positionY = probeActor.y;
+        samplingRequest.positionZ = probeActor.z;
+        SPeopleSupportSamplingResult sampling = {};
+        valid = valid &&
+            PeopleSupportSampling_Build(samplingRequest, &sampling);
+
+        KR_ObjectID collisionOwner = KR_ObjectID::NUL();
+        summary->collisionTime = 1.0;
+        if (valid)
+            summary->collisionHit = checkCollision(
+                probeActor, actor->m_dir, sampling.sampleOffset, 1.0,
+                actorID, summary->collisionTime, collisionOwner);
+        summary->ownerExact = summary->collisionHit &&
+            collisionOwner == vehicleID ? 1 : 0;
+
+        const CFVector3 obstaclePosition = vehicle->getPos();
+        const CFVector3 actorDirection = actor->getMoveDir();
+        const CFVector3 obstacleDirection = vehicle->getMoveDir();
+        int shouldAvoid = 0;
+        valid = valid && PeopleSupportSampling_ClassifyDynamicSide(
+            probeActor.x, probeActor.z,
+            obstaclePosition.x, obstaclePosition.z,
+            samplingRequest.heading, 1, 3, &classifiedCode) &&
+            PeopleSupportSampling_ShouldAvoidDynamic(
+                probeActor.x, probeActor.y, probeActor.z,
+                actorDirection.x, actorDirection.y, actorDirection.z,
+                obstaclePosition.x, obstaclePosition.y,
+                obstaclePosition.z, obstacleDirection.x,
+                obstacleDirection.y, obstacleDirection.z,
+                &shouldAvoid);
+        summary->approachingAvoided = shouldAvoid;
+
+        const CFVector3 passedVehicle = probeActor;
+        vehicle->Stop();
+        vehicle->SetPos(passedVehicle);
+        vehicle->setPosition(passedVehicle);
+        valid = valid && vehicle->ApplyExplosionImpulse(
+            forward * speed, vehicleMass);
+        const CFVector3 ahead = probeActor + forward * 2.0;
+        shouldAvoid = 1;
+        const CFVector3 passedPosition = vehicle->getPos();
+        const CFVector3 passedDirection = vehicle->getMoveDir();
+        valid = valid && PeopleSupportSampling_ShouldAvoidDynamic(
+            ahead.x, ahead.y, ahead.z,
+            forward.x, forward.y, forward.z,
+            passedPosition.x, passedPosition.y, passedPosition.z,
+            passedDirection.x, passedDirection.y, passedDirection.z,
+            &shouldAvoid);
+        summary->aheadIgnored = shouldAvoid == 0 ? 1 : 0;
+    }
+
+    // Restore the authored phase before exercising one real ON_OBJ frame.
+    // Only the occupied Player Vehicle is moved into the guide's horizontal
+    // sweep; VEH1 restores its vessel, Player and transition state afterward.
+    *static_cast<PeopleData *>(actor) = savedActor;
+    actor->ct_Subject::setPosition(savedActorPosition);
+
+    KR_Event savedMove[2];
+    const int savedMoveCount = context->copyEvents(
+        pe_EVC_MOVE, actorID, savedMove, 2);
+    valid = valid && savedMoveCount >= 0 && savedMoveCount <= 1;
+    while (context->removeEvent(pe_EVC_MOVE, actorID) == 1) {}
+    const int savedVisible = actor->m_isVisible;
+    const int savedAudible = actor->m_audibleThisFrame;
+    if (valid)
+    {
+        const CFVector3 forward(segment.x / horizontalLength, 0.0,
+                                segment.z / horizontalLength);
+        const double speed = (std::max)(10.0, actor->movementSpeed());
+        const double heading = atan2(forward.z, forward.x);
+        SPeopleSupportSamplingRequest samplingRequest = {};
+        samplingRequest.objectRadius = actorRadius;
+        samplingRequest.heading = heading;
+        samplingRequest.positionX = savedActorPosition.x;
+        samplingRequest.positionY = savedActorPosition.y;
+        samplingRequest.positionZ = savedActorPosition.z;
+        SPeopleSupportSamplingResult sampling = {};
+        valid = PeopleSupportSampling_Build(samplingRequest, &sampling);
+
+        actor->m_dir = forward * speed;
+        actor->m_isNotCreate = 0;
+        actor->m_hAngle = heading;
+        actor->m_isClz = 0;
+        actor->m_obstacleRecoveryTime = 0.0;
+        actor->m_isVisible = 1;
+        actor->m_audibleThisFrame = 0;
+
+        const CFVector3 vehiclePosition =
+            savedActorPosition + forward *
+                (sampling.sampleOffset + vehicleRadius + 0.25);
+        vehicle->Stop();
+        vehicle->SetPos(vehiclePosition);
+        vehicle->setPosition(vehiclePosition);
+        valid = valid && vehicle->ApplyExplosionImpulse(
+            forward * -speed, vehicleMass);
+
+        const double eventTime = std::isfinite(actor->m_prevTime)
+            ? actor->m_prevTime + 0.05 : 0.05;
+        KR_Event moveEvent(pe_EVC_MOVE, eventTime, actorID, actorID);
+        valid = valid && actor->receiveEvent(moveEvent) == 1;
+        summary->contactCode = actor->m_isClz;
+        valid = valid && actor->m_obstacleRecoveryTime <= 1e-9;
+    }
+    while (context->removeEvent(pe_EVC_MOVE, actorID) == 1) {}
+
+    *static_cast<PeopleData *>(actor) = savedActor;
+    actor->m_isVisible = savedVisible;
+    actor->m_audibleThisFrame = savedAudible;
+    actor->ct_Subject::setPosition(savedActorPosition);
+    if (savedMoveCount == 1)
+    {
+        KR_Event restored;
+        restored.getCopy(savedMove[0]);
+        context->addEvent(restored);
+    }
+
+    const bool vehicleRestored =
+        VehicleActiveWorldState_ApplyStableReferences(
+            context, vehicleCheckpoint) &&
+        VehicleActiveWorldState_MatchesStable(
+            context, vehicleCheckpoint);
+    summary->vehicleStateRestored = vehicleRestored ? 1 : 0;
+    summary->playerBindingRestored = vehicleRestored &&
+        g_vehicle == vehicle &&
+        context->queryInterface(vehicleID, IVehicleIID) == vehicle &&
+        context->queryInterface(vehicleID, IPlayerIID) == player
+            ? 1 : 0;
+    summary->rollbackExact = vehicleRestored &&
+        summary->playerBindingRestored == 1 &&
+        peopleFingerprintBefore ==
+            PeopleSubjectState_SubjectFingerprint(context)
+            ? 1 : 0;
+
+    return valid && summary->playerBound == 1 &&
+           summary->collisionHit == 1 && summary->ownerExact == 1 &&
+           (classifiedCode == 1 || classifiedCode == 3) &&
+           (summary->contactCode == 1 || summary->contactCode == 3) &&
+           summary->approachingAvoided == 1 &&
+           summary->aheadIgnored == 1 &&
+           summary->vehicleStateRestored == 1 &&
+           summary->playerBindingRestored == 1 &&
+           summary->rollbackExact == 1;
 }
 
 bool PeopleSubjectState_ProbeCombatLifecycle(
