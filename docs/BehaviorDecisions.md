@@ -5131,3 +5131,31 @@ The current two-point support sampler may produce base codes `1` and `3` from
 the source-proven front/rear cases. It may not invent qualified `9/11` or a
 code-4 contact angle before the corresponding May sample geometry is
 translated and directly probed.
+
+### BD-142: timed mission combat stages authored owners, not probe actors
+
+Status: accepted on 2026-08-04 for bounded `Robot_01` combat acceptance.
+
+`--mission-combat-smoke` first executes the same public RecruitCenter mission
+transaction as `--mission-smoke`, then identifies People owners absent from
+the pre-mission roster. It must not create `People.*.Probe` actors or call
+`onKilled`, `crashExpl` or `crashCreateCorpse` directly. A complete LCN1
+checkpoint is captured before the bounded setup and must recapture byte-for-
+byte after attribute tuning and the active world are restored.
+
+The setup may reveal a long-authored start delay, bring one real hostile Flyer
+into a short firing lane, temporarily bound that attribute's view distance and
+lower one real mission Robot's positive health. FIND, MOVE, `People::onShoot`,
+Bullet impact and `People::setDamage` remain ordinary scheduled runtime work.
+The victim is held still only until damage attribution is observable: its
+ATTACK source must equal the firing Flyer's object ID. Only then is its normal
+death MOVE admitted, allowing the existing falling collision path to own
+Explosion, Corpse and delayed removal.
+
+An exact acquisition of the staged splash victim is not required. In the
+retail `Robot_01` topology the Flyer correctly prefers the stronger nearby
+`R01.Friend.Robot.01`; that shot's authored splash kills
+`R01.Friend.Robot.03`. Acceptance therefore requires a hostile acquisition, a
+shot by the selected Flyer, damage source identity on the selected Robot, its
+killed transition, both death effects and exact rollback. This proves bounded
+delivery and death safety; it must not be described as unassisted route pursuit.

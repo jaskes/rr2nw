@@ -29,6 +29,7 @@
 #include <array>
 #include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <cwchar>
 #include <string>
 #include <vector>
@@ -66,6 +67,7 @@ struct StartupOptions {
   bool runtimeSmoke = false;
   bool missionSmoke = false;
   bool missionBriefingSmoke = false;
+  bool missionCombatSmoke = false;
   bool missionContinuationSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
@@ -295,6 +297,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionBriefingSmoke = true;
+    } else if (argument == L"--mission-combat-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionCombatSmoke = true;
     } else if (argument == L"--mission-continuation-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -988,6 +994,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
+                L"           --mission-combat-smoke |\n"
                 L"           --mission-continuation-smoke]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
@@ -2727,6 +2734,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     std::vector<KR_ObjectID> preMissionTaxis;
     const bool preMissionTaxisReady = TaxiSubjectState_ObjectIDs(
         g_super.m_context, &preMissionTaxis);
+    std::vector<KR_ObjectID> preMissionPeople;
+    const bool preMissionPeopleReady = PeopleSubjectState_ObjectIDs(
+        g_super.m_context, &preMissionPeople);
     bool missionStaged = false;
     RecruitCenterMissionProbeSummary mission = {};
     const double missionTime =
@@ -2838,10 +2848,176 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(missionPeopleSchedule.scheduledFindEnemy) +
              "/" +
              std::to_string(missionPeopleSchedule.scheduledMotion) + "/" +
-             std::to_string(missionPeopleSchedule.attackStates) + "/" +
-             std::to_string(missionPeopleSchedule.malformedQueues));
+              std::to_string(missionPeopleSchedule.attackStates) + "/" +
+              std::to_string(missionPeopleSchedule.malformedQueues));
     loopFailed = loopFailed || !missionPeopleScheduleReady;
     const std::string missionProject = mission.projectName;
+    if (!loopFailed && options.missionCombatSmoke) {
+      std::vector<std::uint8_t> combatCheckpoint;
+      std::vector<std::uint8_t> combatRecaptured;
+      SLevelContinuationSummary combatCaptured;
+      SLevelContinuationSummary combatRestored;
+      SLevelContinuationSummary combatVerified;
+      const bool combatCaptureReady = preMissionPeopleReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &combatCheckpoint, &combatCaptured);
+      SPeopleMissionCombatStageSummary combatStage = {};
+      PeopleSubjectState_ResetLiveCombatTelemetry();
+      const double combatTime =
+          (std::max)(0.1, Session::m_moment + 0.1);
+      const bool combatStageReady = combatCaptureReady &&
+          PeopleSubjectState_StageMissionCombat(
+              g_super.m_context, preMissionPeople, combatTime, &combatStage) &&
+          PeopleSubjectState_SampleLiveCombat(g_super.m_context);
+      log.Line("mission_combat_stage=" +
+               std::to_string(combatCaptureReady ? 1 : 0) + "/" +
+               std::to_string(combatStageReady ? 1 : 0) + "/" +
+               std::to_string(combatStage.baselinePeople) + "/" +
+               std::to_string(combatStage.livePeople) + "/" +
+               std::to_string(combatStage.missionPeople) + "/" +
+               std::to_string(combatStage.hostilePairs));
+      log.Line(std::string("mission_combat_pair=") +
+               (combatStage.attacker[0] == 0 ? "<none>"
+                                             : combatStage.attacker) + "/" +
+               (combatStage.target[0] == 0 ? "<none>"
+                                           : combatStage.target) + "/" +
+               (combatStage.attackerCommander[0] == 0
+                    ? "<none>" : combatStage.attackerCommander) + "/" +
+               (combatStage.targetCommander[0] == 0
+                    ? "<none>" : combatStage.targetCommander));
+      log.Line("mission_combat_geometry=" +
+               std::to_string(combatStage.attackerOnLand) + "/" +
+               std::to_string(combatStage.targetOnLand) + "/" +
+               std::to_string(combatStage.separation) + "/" +
+               std::to_string(combatStage.targetDamageBefore) + "/" +
+               std::to_string(combatStage.targetDamageStaged) + "/" +
+               std::to_string(combatStage.attackerViewDistanceBefore) + "/" +
+               std::to_string(combatStage.attackerViewDistanceStaged));
+
+      SPeopleLiveCombatTelemetry combatLive = {};
+      SPeopleMissionCombatLiveState combatPairLive = {};
+      int combatFrames = 0;
+      bool combatProof = false;
+      bool combatExactTarget = false;
+      bool combatAttackerShot = false;
+      bool combatTargetDamaged = false;
+      bool combatTargetKilled = false;
+      bool combatDamageSource = false;
+      bool combatDeathScheduled = false;
+      const ULONGLONG combatWallStart = GetTickCount64();
+      while (combatStageReady && !loopFailed && combatFrames < 1200 &&
+             !combatProof &&
+             GetTickCount64() - combatWallStart < 15000) {
+        Sleep(5);
+        ++combatFrames;
+        if (!runCompleteFrame() ||
+            !PeopleSubjectState_LiveCombatTelemetry(&combatLive) ||
+            !PeopleSubjectState_InspectMissionCombat(
+                g_super.m_context, &combatStage, &combatPairLive)) {
+          loopFailed = true;
+          break;
+        }
+        combatExactTarget = combatExactTarget ||
+            combatPairLive.attackerHasExactTarget != 0;
+        combatAttackerShot = combatAttackerShot ||
+            combatPairLive.attackerShot != 0;
+        combatTargetDamaged = combatTargetDamaged ||
+            (combatPairLive.targetExists != 0 &&
+             combatPairLive.targetDamage <
+                 combatStage.targetDamageStaged - 1e-9);
+        combatTargetKilled = combatTargetKilled ||
+            combatPairLive.targetKilled != 0;
+        combatDamageSource = combatDamageSource ||
+            combatPairLive.targetDamageSourceAttacker != 0;
+        if (combatTargetKilled && combatDamageSource &&
+            !combatDeathScheduled) {
+          combatDeathScheduled =
+              PeopleSubjectState_ScheduleMissionCombatDeath(
+                  g_super.m_context, &combatStage,
+                  (std::max)(0.1, Session::m_moment + 0.01));
+          if (!combatDeathScheduled) {
+            loopFailed = true;
+            break;
+          }
+        }
+        combatProof = combatLive.moveEvents > 0 &&
+            combatLive.findEvents > 0 &&
+            combatLive.targetAcquisitions > 0 &&
+            combatAttackerShot && combatTargetDamaged &&
+            combatTargetKilled && combatDamageSource &&
+            combatDeathScheduled &&
+            combatLive.damageApplications > 0 &&
+            combatLive.killTransitions > 0 &&
+            combatLive.explosionEffects > 0 &&
+            combatLive.corpseEffects > 0 &&
+            std::strcmp(combatLive.lastKilledOwner,
+                        combatStage.target) == 0;
+      }
+      log.Line("mission_combat_live=" +
+               std::to_string(combatFrames) + "/" +
+               std::to_string(GetTickCount64() - combatWallStart) + "/" +
+               std::to_string(combatLive.sampleFrames) + "/" +
+               std::to_string(combatLive.moveEvents) + "/" +
+               std::to_string(combatLive.findEvents) + "/" +
+               std::to_string(combatLive.targetAcquisitions) + "/" +
+               std::to_string(combatLive.shotsStarted) + "/" +
+               std::to_string(combatLive.damageApplications) + "/" +
+               std::to_string(combatLive.killTransitions) + "/" +
+               std::to_string(combatLive.explosionEffects) + "/" +
+               std::to_string(combatLive.corpseEffects));
+      log.Line(std::string("mission_combat_owners=") +
+               (combatLive.lastAcquiringOwner[0] == 0
+                    ? "<none>" : combatLive.lastAcquiringOwner) + "/" +
+               (combatLive.lastShootingOwner[0] == 0
+                    ? "<none>" : combatLive.lastShootingOwner) + "/" +
+               (combatLive.lastDamagedOwner[0] == 0
+                    ? "<none>" : combatLive.lastDamagedOwner) + "/" +
+               (combatLive.lastKilledOwner[0] == 0
+                    ? "<none>" : combatLive.lastKilledOwner));
+      log.Line(std::string("mission_combat_pair_live=") +
+               std::to_string(combatExactTarget ? 1 : 0) + "/" +
+               std::to_string(combatAttackerShot ? 1 : 0) + "/" +
+               std::to_string(combatTargetDamaged ? 1 : 0) + "/" +
+               std::to_string(combatTargetKilled ? 1 : 0) + "/" +
+               std::to_string(combatDamageSource ? 1 : 0) + "/" +
+               std::to_string(combatDeathScheduled ? 1 : 0) + "/" +
+               std::to_string(combatPairLive.attackerExists) + "/" +
+               std::to_string(combatPairLive.targetExists) + "/" +
+               std::to_string(combatPairLive.targetDamage) + "/" +
+               std::to_string(combatPairLive.bullets) + "/" +
+               std::to_string(combatPairLive.explosions) + "/" +
+               std::to_string(combatPairLive.corpses) + "/" +
+               (combatPairLive.attackerTarget[0] == 0
+                    ? "<none>" : combatPairLive.attackerTarget));
+
+      const bool combatTuningRestored = !combatStageReady ||
+          PeopleSubjectState_RestoreMissionCombatTuning(
+              g_super.m_context, &combatStage);
+      const bool combatRestoreReady = combatCaptureReady &&
+          combatTuningRestored &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              combatCheckpoint, &combatRestored);
+      const bool combatRecaptureReady = combatRestoreReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &combatRecaptured, &combatVerified);
+      const bool combatRollbackExact = combatRecaptureReady &&
+          combatCheckpoint == combatRecaptured && combatCaptured.ready &&
+          combatRestored.ready && combatVerified.ready &&
+          combatCaptured.worldFingerprint ==
+              combatRestored.restoredWorldFingerprint &&
+          combatCaptured.worldFingerprint ==
+              combatVerified.worldFingerprint;
+      log.Line("mission_combat_rollback=" +
+               std::to_string(combatTuningRestored ? 1 : 0) + "/" +
+               std::to_string(combatRestoreReady ? 1 : 0) + "/" +
+               std::to_string(combatRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(combatRollbackExact ? 1 : 0));
+      if (!combatRollbackExact)
+        log.Line(std::string("mission_combat_rollback_error=") +
+                 RecoveredGameServices_LastLevelContinuationError());
+      loopFailed = loopFailed || !combatStageReady || !combatProof ||
+                   !combatRollbackExact;
+    }
     if (!loopFailed &&
         (missionProject == "ProjectS22" ||
          missionProject == "ProjectS23" ||

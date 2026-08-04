@@ -3862,3 +3862,36 @@ the gated `RelWithDebInfo` output, SHA-256
 `90BB1A7512465503E9D4D92CE67A46C1F5AF62BA28815583486E91A0D25BE15F`; a direct
 installed Level.03N runtime smoke reaches `level-ready`, publishes
 `people_lifecycle_probe=1/1/1/1/1` and shuts down cleanly.
+
+## Timed public-mission People combat gate
+
+The former combat lifecycle probe proved the graph with temporary People and
+directly bounded its final impact/effects. It could not answer the manual
+report that live enemies walked without attacking or that the first robot
+death closed the process. The executable now exposes an opt-in
+`--mission-combat-smoke`. After `Recruit.Robots` commits `Robot_01`, it diffs
+the People roster, captures the complete post-mission continuation and stages
+only authored mission owners.
+
+The gate watches the selected Flyer and Robot by object ID across real frames.
+It requires scheduled FIND/MOVE progress, a hostile acquisition, a real
+`onShoot` timestamp, target health loss with the Flyer retained as the damage
+source, a killed transition, Explosion and Corpse deltas, zero service issues
+and clean exit. The temporary view-distance value is restored before LCN1;
+the checkpoint, restored world fingerprint and immediate recapture must all be
+exact. A fifteen-second wall deadline prevents a stalled renderer or missed
+projectile from turning acceptance into an unbounded process.
+
+Use `tools/acceptance/Invoke-MissionCombatSmoke.ps1` for the maintained row.
+Three consecutive Debug runs against the installed retail data passed in 28-30
+frames and 1.80-1.89 seconds. Their public pair was
+`R01.Enemy.Flyer.01` and
+`R01.Friend.Robot.03`; the Flyer acquired `R01.Friend.Robot.01`, and the
+resulting splash killed the staged Robot with one Corpse and exact
+`mission_combat_rollback=1/1/1/1`. This is a Windows/runtime gate, not evidence
+that long-distance authored pursuit or guide/Vehicle obstruction is complete.
+
+The completed integration gate builds and passes 67/67 CTest in Debug, Release
+and RelWithDebInfo. The mission-combat wrapper passes 3/3, the installed retail
+startup matrix passes 27/27, and fresh Level.01D continuation passes 3/3 in the
+same configurations. The installed `nw.exe` was not replaced for this gate.

@@ -1,6 +1,10 @@
 #ifndef RR2NW_PEOPLE_SUBJECT_STATE_H
 #define RR2NW_PEOPLE_SUBJECT_STATE_H
 
+#include <vector>
+
+#include "kernel/h/krtypes.h"
+
 class SimulationContext;
 
 struct SPeopleLifecycleProbeSummary
@@ -147,6 +151,51 @@ struct SPeopleLiveCombatTelemetry
     char lastAcquiringOwner[96];
     char lastShootingOwner[96];
     char lastDamagedOwner[96];
+    char lastKilledOwner[96];
+};
+
+// A bounded acceptance setup made only from People owners created by the
+// selected public mission.  The caller captures/restores the complete Level
+// continuation around this setup; no probe-only People owners are introduced.
+struct SPeopleMissionCombatStageSummary
+{
+    int baselinePeople;
+    int livePeople;
+    int missionPeople;
+    int hostilePairs;
+    int staged;
+    int attackerOnLand;
+    int targetOnLand;
+    double separation;
+    double targetDamageBefore;
+    double targetDamageStaged;
+    double timeStamp;
+    double attackerViewDistanceBefore;
+    double attackerViewDistanceStaged;
+    KR_ObjectID attackerID;
+    KR_ObjectID targetID;
+    char attacker[96];
+    char target[96];
+    char attackerCommander[96];
+    char targetCommander[96];
+    char attackerAttribute[96];
+};
+
+struct SPeopleMissionCombatLiveState
+{
+    int attackerExists;
+    int targetExists;
+    int attackerAttackState;
+    int targetAttackState;
+    int attackerHasExactTarget;
+    int attackerShot;
+    int targetDamageSourceAttacker;
+    int targetKilled;
+    int bullets;
+    int explosions;
+    int corpses;
+    double targetDamage;
+    char attackerTarget[96];
 };
 
 void PeopleSubjectState_Link();
@@ -203,5 +252,22 @@ void PeopleSubjectState_ResetLiveCombatTelemetry();
 bool PeopleSubjectState_LiveCombatTelemetry(
     SPeopleLiveCombatTelemetry *telemetry);
 bool PeopleSubjectState_SampleLiveCombat(SimulationContext *context);
+bool PeopleSubjectState_ObjectIDs(
+    SimulationContext *context, std::vector<KR_ObjectID> *objects);
+bool PeopleSubjectState_StageMissionCombat(
+    SimulationContext *context,
+    const std::vector<KR_ObjectID> &baselineObjects,
+    double timeStamp, SPeopleMissionCombatStageSummary *summary);
+bool PeopleSubjectState_InspectMissionCombat(
+    SimulationContext *context,
+    const SPeopleMissionCombatStageSummary *stage,
+    SPeopleMissionCombatLiveState *state);
+bool PeopleSubjectState_RestoreMissionCombatTuning(
+    SimulationContext *context,
+    const SPeopleMissionCombatStageSummary *stage);
+bool PeopleSubjectState_ScheduleMissionCombatDeath(
+    SimulationContext *context,
+    const SPeopleMissionCombatStageSummary *stage,
+    double timeStamp);
 
 #endif

@@ -4182,7 +4182,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 ### CQ-216: mission enemies animate without effective pursuit or attacks
 
 - Status: `MANUAL_WINDOWS_OBSERVED`, `HORIZONTAL_ROUTE_CAUSE_CONFIRMED`,
-  `HORIZONTAL_ROUTE_FIX_ACCEPTED`, `LIVE_ATTACK_DELIVERY_OPEN`.
+  `HORIZONTAL_ROUTE_FIX_ACCEPTED`, `TIMED_MISSION_COMBAT_ACCEPTED`,
+  `UNASSISTED_PURSUIT_OPEN`.
 - Evidence: a manual Level.01 mission run and a Level.02 encounter show hostile
   actors advancing their walk pose while remaining in place and applying no
   damage. This distinguishes animation cadence from route displacement and
@@ -4220,10 +4221,25 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   commanded shooters in its 76-People post-mission roster and shuts down
   cleanly. These controlled proofs validate the graph and the horizontal
   movement fix; they do not replace a timed manual engagement.
-- Revisit when: the Level.01 first robot can be destroyed in a diagnostic build
-  without external process control and Level.01/Level.02 enemies land at least
-  one bounded live attack. Keep guide/Vehicle path obstruction as a separate
-  route/contact row.
+- Timed verification: `--mission-combat-smoke --mission-center Recruit.Robots`
+  executes public project `Robot_01` and compares the post-mission world to a
+  complete LCN1 checkpoint. It selects only People owners absent from the
+  pre-mission roster. `R01.Enemy.Flyer.01` executes FIND and ordinary MOVE,
+  acquires the nearby authored `R01.Friend.Robot.01`, fires through
+  `People::onShoot` and the scheduled Bullet, and its attributed splash drives
+  staged `R01.Friend.Robot.03` from `0.01` to `-0.09/-0.10`. The victim's
+  ATTACK source is the Flyer ID, its killed transition is sampled before a
+  bounded death MOVE is admitted, and the normal collision path creates both
+  Explosion and Corpse. Three consecutive Debug rows passed in 28-30 frames,
+  1.80-1.89 seconds, with zero recovered-service issues and byte-exact tuning,
+  world and recapture rollback (`1/1/1/1`). This closes bounded live attack
+  delivery and disproves an unconditional first-robot death crash. Debug,
+  Release and RelWithDebInfo each pass the maintained combat row and fresh
+  Level.01D continuation; the three-configuration installed startup matrix
+  remains 27/27.
+- Revisit when: repeat the original manual Level.01 route without external
+  process control, then prove enemies close authored distances without staging.
+  Keep guide/Vehicle path obstruction as a separate route/contact row.
 
 ## Maintenance rule
 

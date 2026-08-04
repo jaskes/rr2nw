@@ -806,6 +806,29 @@ cannot prove reconstruction of a Route that is still alive from mission
 execution. Use `Debug,Release,RelWithDebInfo` before a release checkpoint; the
 single Playtest row is sufficient during focused iteration.
 
+## Timed public-mission combat pass
+
+This gate executes the real first Robot contract, allows a mission Flyer to
+acquire and fire through ordinary frames, requires attributed damage plus a
+safe Robot Explosion/Corpse, then restores the post-mission world exactly:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionCombatSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release
+```
+
+Each row must exit zero, name `Recruit.Robots` / `Robot_01`, report positive
+FIND, acquisition, shot, damage, kill, Explosion and Corpse counters, and end
+with `mission_combat_rollback=1/1/1/1`, `game_services_issues=0`,
+`marker=level-ready` and `runtime_shutdown=clean`. No input is required. The
+smoke has a fifteen-second internal wall deadline and the wrapper also kills a
+process that exceeds its external timeout.
+
+This is a controlled proximity/health gate. It proves that real mission actors
+can deliver a scheduled attack and that the first Robot death graph is safe;
+it does not replace the manual long-route pursuit and guide-obstruction pass.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

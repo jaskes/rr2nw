@@ -35,6 +35,8 @@ void shoot(KR_ObjectID fromID, int bulletTable, int attrIndex,
            const CFVector3 &pos, const CFVector3 &dir,
            SimulationContext *context, double ts);
 
+static bool FiniteVector(const CFVector3 &value);
+
 // Encoding-preserved PEOPLE.CPP owns these route geometry helpers. Keep the
 // probe declarations here so the legacy header does not need another edit.
 double g_distToSeg(const CFVector3 &value, const CFVector3 &start,
@@ -612,7 +614,13 @@ bool PeopleSubjectState_SampleLiveCombat(SimulationContext *context)
             }
             if (previous->killed == KILL_NONE &&
                 sample.killed != KILL_NONE)
+            {
                 ++g_liveCombatTelemetry.killTransitions;
+                CopyTelemetryName(
+                    g_liveCombatTelemetry.lastKilledOwner,
+                    sizeof(g_liveCombatTelemetry.lastKilledOwner),
+                    sample.name.c_str());
+            }
         }
         current.push_back(sample);
     }
@@ -627,6 +635,330 @@ bool PeopleSubjectState_SampleLiveCombat(SimulationContext *context)
     g_liveExplosionCount = explosions;
     g_liveCorpseCount = corpses;
     g_livePeopleSamples.swap(current);
+    return true;
+}
+
+bool PeopleSubjectState_ObjectIDs(
+    SimulationContext *context, std::vector<KR_ObjectID> *objects)
+{
+    if (objects == NULL)
+        return false;
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+    *objects = roster.ids;
+    return true;
+}
+
+bool PeopleSubjectState_StageMissionCombat(
+    SimulationContext *context,
+    const std::vector<KR_ObjectID> &baselineObjects,
+    double timeStamp, SPeopleMissionCombatStageSummary *summary)
+{
+    if (context == NULL || summary == NULL || !std::isfinite(timeStamp))
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    summary->baselinePeople = static_cast<int>(baselineObjects.size());
+
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+    summary->livePeople = static_cast<int>(roster.ids.size());
+
+    std::vector<KR_ObjectID> missionObjects;
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+        if (std::find(baselineObjects.begin(), baselineObjects.end(),
+                      roster.ids[index]) == baselineObjects.end())
+            missionObjects.push_back(roster.ids[index]);
+    summary->missionPeople = static_cast<int>(missionObjects.size());
+
+    People *selectedAttacker = NULL;
+    People *selectedTarget = NULL;
+    KR_ObjectID selectedAttackerID = KR_ObjectID::NUL();
+    KR_ObjectID selectedTargetID = KR_ObjectID::NUL();
+    int selectedScore = -1;
+    for (std::size_t attackerIndex = 0;
+         attackerIndex < missionObjects.size(); ++attackerIndex)
+    {
+        People *attacker = ResolvePeople(context, missionObjects[attackerIndex]);
+        if (!RuntimeReady(attacker) || !attacker->isShooter() ||
+            attacker->m_commanderID.isNUL())
+            continue;
+        const char *attackerAttributeName =
+            context->searchObject(attacker->m_peopleAttrID);
+        ct_Attribute *attackerAttribute =
+            ResolvePeopleAttribute(context, attackerAttributeName);
+        SPeopleGameplayTuningState attackerTuning = {};
+        if (attackerAttribute == NULL || attackerAttributeName == NULL ||
+            !PeopleSubjectState_CaptureGameplayTuning(
+                context, attackerAttributeName, &attackerTuning) ||
+            attackerTuning.projectile[0] == 0)
+            continue;
+
+        for (std::size_t targetIndex = 0;
+             targetIndex < missionObjects.size(); ++targetIndex)
+        {
+            if (targetIndex == attackerIndex)
+                continue;
+            People *target = ResolvePeople(context, missionObjects[targetIndex]);
+            if (!RuntimeReady(target) || target->m_commanderID.isNUL() ||
+                target->m_commanderID == attacker->m_commanderID ||
+                target->m_damage <= 0.0)
+                continue;
+            ++summary->hostilePairs;
+
+            const char *targetName =
+                context->searchObject(missionObjects[targetIndex]);
+            const char *attackerName =
+                context->searchObject(missionObjects[attackerIndex]);
+            const char *targetAttributeName =
+                context->searchObject(target->m_peopleAttrID);
+            ct_Attribute *targetAttribute =
+                ResolvePeopleAttribute(context, targetAttributeName);
+            if (targetAttribute == NULL)
+                continue;
+
+            // Recruit.Robots creates hostile Flyers and allied Robots.  Prefer
+            // that authored first-mission pairing while remaining usable for
+            // another public mission with the same commander topology.
+            int score = 0;
+            if (targetName != NULL && std::strstr(targetName, "Robot") != NULL)
+                score += 1000;
+            if (targetName != NULL &&
+                std::strstr(targetName, "R01.Friend") != NULL)
+                score += 500;
+            if (attackerName != NULL &&
+                std::strstr(attackerName, "Enemy") != NULL)
+                score += 100;
+            const int attackerOnLand =
+                attackerAttribute->get_int("m_onLand");
+            const int targetOnLand = targetAttribute->get_int("m_onLand");
+            if (attackerOnLand == 0)
+                score += 20;
+            if (targetOnLand != 0)
+                score += 10;
+            if (score > selectedScore)
+            {
+                selectedScore = score;
+                selectedAttacker = attacker;
+                selectedTarget = target;
+                selectedAttackerID = missionObjects[attackerIndex];
+                selectedTargetID = missionObjects[targetIndex];
+            }
+        }
+    }
+    if (selectedAttacker == NULL || selectedTarget == NULL)
+        return false;
+
+    const char *attackerName = context->searchObject(selectedAttackerID);
+    const char *targetName = context->searchObject(selectedTargetID);
+    CopyTelemetryName(summary->attacker, sizeof(summary->attacker),
+                      attackerName);
+    CopyTelemetryName(summary->target, sizeof(summary->target), targetName);
+    CopyTelemetryName(summary->attackerCommander,
+                      sizeof(summary->attackerCommander),
+                      context->searchObject(selectedAttacker->m_commanderID));
+    CopyTelemetryName(summary->targetCommander,
+                      sizeof(summary->targetCommander),
+                      context->searchObject(selectedTarget->m_commanderID));
+
+    // The first Robot contract authors its hostile Flyers with a long start
+    // delay.  Acceptance deliberately advances one of those real owners into
+    // the bounded encounter before asking for IDynamicObject.
+    selectedAttacker->m_isNotCreate = 0;
+    selectedTarget->m_isNotCreate = 0;
+
+    IDynamicObject *attackerDynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(selectedAttackerID, IDynamicObjectIID));
+    IDynamicObject *targetDynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(selectedTargetID, IDynamicObjectIID));
+    const char *attackerAttributeName =
+        context->searchObject(selectedAttacker->m_peopleAttrID);
+    const char *targetAttributeName =
+        context->searchObject(selectedTarget->m_peopleAttrID);
+    ct_Attribute *attackerAttribute =
+        ResolvePeopleAttribute(context, attackerAttributeName);
+    ct_Attribute *targetAttribute =
+        ResolvePeopleAttribute(context, targetAttributeName);
+    if (attackerDynamic == NULL || targetDynamic == NULL ||
+        attackerAttribute == NULL || targetAttribute == NULL)
+        return false;
+
+    const CFVector3 targetCenter = targetDynamic->getPos();
+    const CFVector3 attackerOffset =
+        attackerDynamic->getPos() - selectedAttacker->getPosition();
+    if (!FiniteVector(targetCenter) || !FiniteVector(attackerOffset))
+        return false;
+
+    // Keep the real mission Robot at its authored ground location and bring
+    // the hostile mission Flyer into a short, unobstructed firing lane.  A
+    // continuation checkpoint owned by the caller rolls this setup back.
+    const CFVector3 desiredAttackerCenter =
+        targetCenter + CFVector3(-48.0, 12.0, 0.0);
+    selectedAttacker->ct_Subject::setPosition(
+        desiredAttackerCenter - attackerOffset);
+    const CFVector3 stagedAttackerCenter = attackerDynamic->getPos();
+    const CFVector3 toTarget = targetCenter - stagedAttackerCenter;
+    const double separation = Abs(toTarget);
+    if (!FiniteVector(stagedAttackerCenter) || !std::isfinite(separation) ||
+        separation <= 1e-6 || separation >= 190.0)
+        return false;
+
+    RemovePeopleSchedulerEvents(context, selectedAttackerID);
+    RemovePeopleSchedulerEvents(context, selectedTargetID);
+    selectedAttacker->initState();
+    selectedTarget->initState();
+    selectedAttacker->m_isNotCreate = 0;
+    selectedTarget->m_isNotCreate = 0;
+    selectedAttacker->m_isVisible = 1;
+    selectedTarget->m_isVisible = 1;
+    selectedAttacker->m_killed = KILL_NONE;
+    selectedTarget->m_killed = KILL_NONE;
+    selectedAttacker->m_deleted = 0;
+    selectedTarget->m_deleted = 0;
+    selectedAttacker->m_stoped = 0;
+    selectedTarget->m_stoped = 1;
+    selectedAttacker->m_isClz = 0;
+    selectedTarget->m_isClz = 0;
+    selectedAttacker->m_prevTime = timeStamp;
+    selectedTarget->m_prevTime = timeStamp;
+    selectedAttacker->m_prevShootTime = timeStamp - 1000.0;
+    selectedTarget->m_prevShootTime = timeStamp + 1000.0;
+    selectedAttacker->m_lastMoveTimeStamp = timeStamp;
+    selectedTarget->m_lastMoveTimeStamp = timeStamp;
+    selectedTarget->m_nextNode = stagedAttackerCenter;
+
+    CFMatrix3x4 muzzleMatrix;
+    selectedAttacker->getMatrix(muzzleMatrix);
+    muzzleMatrix.TranslateR(CFVector3(
+        attackerAttribute->get_double("m_cannonX"),
+        attackerAttribute->get_double("m_cannonY"),
+        attackerAttribute->get_double("m_cannonZ")))
+        .TranslateL(selectedAttacker->getPosition());
+    const CFVector3 muzzle = muzzleMatrix.Offset();
+    const CFVector3 aim = Normal(targetCenter - muzzle);
+    const double attackerSpeed = selectedAttacker->movementSpeed();
+    selectedAttacker->m_dir = aim * attackerSpeed;
+    // NO_LAND recalculates its direction from nextNode immediately before
+    // onShoot.  Aim that node along the muzzle-to-target ray so the authored
+    // cannon offset cannot turn a threshold-valid shot into a clean miss.
+    selectedAttacker->m_nextNode =
+        selectedAttacker->getPosition() + aim * 1000.0;
+    selectedAttacker->m_hAngle = atan2(aim.z, aim.x);
+    selectedAttacker->m_rotateOy =
+        attackerAttribute->get_double("m_addRoll") -
+        1.57079632679489661923 -
+        selectedAttacker->m_hAngle;
+    selectedAttacker->m_rotateOx =
+        atan2(aim.y, hypot(aim.x, aim.z));
+    selectedTarget->m_dir = CFVector3(0.0, 0.0, 0.0);
+
+    summary->targetDamageBefore = selectedTarget->m_damage;
+    selectedTarget->m_damage = (std::min)(selectedTarget->m_damage, 0.01);
+    if (selectedTarget->m_damage <= 0.0)
+        selectedTarget->m_damage = 0.01;
+    summary->targetDamageStaged = selectedTarget->m_damage;
+    summary->attackerViewDistanceBefore =
+        attackerAttribute->get_double("m_viewDist");
+    summary->attackerViewDistanceStaged = separation + 3.0;
+    attackerAttribute->set_double(
+        "m_viewDist", summary->attackerViewDistanceStaged);
+    CopyTelemetryName(summary->attackerAttribute,
+                      sizeof(summary->attackerAttribute),
+                      attackerAttributeName);
+
+    const double findTime = timeStamp + 0.05;
+    const double moveTime = timeStamp + 0.06;
+    context->addEvent(KR_Event(pe_EVC_FIND_ENEMY, findTime,
+                               selectedAttackerID, selectedAttackerID));
+    context->addEvent(KR_Event(pe_EVC_MOVE, moveTime,
+                               selectedAttackerID, selectedAttackerID));
+
+    summary->attackerOnLand = attackerAttribute->get_int("m_onLand");
+    summary->targetOnLand = targetAttribute->get_int("m_onLand");
+    summary->attackerID = selectedAttackerID;
+    summary->targetID = selectedTargetID;
+    summary->separation = separation;
+    summary->timeStamp = timeStamp;
+    summary->staged = 1;
+    return true;
+}
+
+bool PeopleSubjectState_InspectMissionCombat(
+    SimulationContext *context,
+    const SPeopleMissionCombatStageSummary *stage,
+    SPeopleMissionCombatLiveState *state)
+{
+    if (context == NULL || stage == NULL || state == NULL ||
+        stage->staged == 0)
+        return false;
+    std::memset(state, 0, sizeof(*state));
+    People *attacker = ResolvePeople(context, stage->attackerID);
+    People *target = ResolvePeople(context, stage->targetID);
+    state->attackerExists = attacker != NULL ? 1 : 0;
+    state->targetExists = target != NULL ? 1 : 0;
+    if (attacker != NULL)
+    {
+        state->attackerAttackState =
+            attacker->getState() == pe_STATE_ATTACK ? 1 : 0;
+        state->attackerHasExactTarget =
+            attacker->getEnemyID() == stage->targetID ? 1 : 0;
+        state->attackerShot =
+            attacker->m_prevShootTime > stage->timeStamp + 0.01 ? 1 : 0;
+        CopyTelemetryName(state->attackerTarget,
+                          sizeof(state->attackerTarget),
+                          context->searchObject(attacker->getEnemyID()));
+    }
+    if (target != NULL)
+    {
+        state->targetAttackState =
+            target->getState() == pe_STATE_ATTACK ? 1 : 0;
+        state->targetDamageSourceAttacker =
+            target->getEnemyID() == stage->attackerID ? 1 : 0;
+        state->targetKilled = target->m_killed != KILL_NONE ? 1 : 0;
+        state->targetDamage = target->m_damage;
+    }
+    state->bullets = BulletSubjectState_LiveCount();
+    state->explosions = ExplosionSubjectState_LiveCount();
+    state->corpses = CorpseSubjectState_LiveCount();
+    return state->bullets >= 0 && state->explosions >= 0 &&
+           state->corpses >= 0;
+}
+
+bool PeopleSubjectState_RestoreMissionCombatTuning(
+    SimulationContext *context,
+    const SPeopleMissionCombatStageSummary *stage)
+{
+    if (context == NULL || stage == NULL || stage->staged == 0 ||
+        stage->attackerAttribute[0] == 0 ||
+        !std::isfinite(stage->attackerViewDistanceBefore))
+        return false;
+    ct_Attribute *attribute = ResolvePeopleAttribute(
+        context, stage->attackerAttribute);
+    if (attribute == NULL)
+        return false;
+    attribute->set_double("m_viewDist",
+                          stage->attackerViewDistanceBefore);
+    return std::fabs(attribute->get_double("m_viewDist") -
+                     stage->attackerViewDistanceBefore) <= 1e-9;
+}
+
+bool PeopleSubjectState_ScheduleMissionCombatDeath(
+    SimulationContext *context,
+    const SPeopleMissionCombatStageSummary *stage,
+    double timeStamp)
+{
+    if (context == NULL || stage == NULL || stage->staged == 0 ||
+        !std::isfinite(timeStamp))
+        return false;
+    People *target = ResolvePeople(context, stage->targetID);
+    if (target == NULL || target->m_killed == KILL_NONE ||
+        target->getEnemyID() != stage->attackerID)
+        return false;
+    while (context->removeEvent(pe_EVC_MOVE, stage->targetID) == 1) {}
+    target->m_prevTime = timeStamp;
+    context->addEvent(KR_Event(pe_EVC_MOVE, timeStamp + 0.01,
+                               stage->targetID, stage->targetID));
     return true;
 }
 
