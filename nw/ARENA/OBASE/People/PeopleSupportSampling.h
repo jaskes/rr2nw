@@ -43,6 +43,19 @@ bool PeopleSupportSampling_ClassifyDynamicSide(
     double heading, int positiveCode, int nonPositiveCode,
     int *contactCode);
 
+// May keeps the 1/3 horizontal contact only when the other movement owner is
+// approaching us, or when we are not already ahead of an owner travelling in
+// the same direction. This prevents a guide from turning away from a vehicle
+// that is safely behind it while retaining head-on and blocking contacts.
+bool PeopleSupportSampling_ShouldAvoidDynamic(
+    double actorX, double actorY, double actorZ,
+    double actorDirectionX, double actorDirectionY,
+    double actorDirectionZ,
+    double objectX, double objectY, double objectZ,
+    double objectDirectionX, double objectDirectionY,
+    double objectDirectionZ,
+    int *shouldAvoid);
+
 bool PeopleSupportSampling_Probe();
 
 #endif

@@ -2031,9 +2031,15 @@ playable Level begins.
   falsely stopped a real `rp_hg_00` slope at `0.927 < 0.93`. The exact sample
   is in the route-motion probe, while live Level.01 telemetry proves 53/53
   frames moved where that old test would have rejected the step. The ordinary
-  NEXTNODE cadence stays as a named bridge only for guide/vehicle
-  path-obstruction behavior. Code `4` remains an accepted/restored class, but
-  no literal producer exists in the complete May People field-write set.
+  NEXTNODE cadence remains the route scheduler. May's following horizontal
+  full-world sweep now retains its dynamic owner: opposing traffic is avoided,
+  while a same-direction owner already behind the guide is ignored; the signed
+  side selects contact class `1/3`. A transactional Level.03N Marauders probe
+  drives one real guide MOVE against a real People owner and requires exact
+  owner identity, live response and rollback in all three configurations.
+  Code `4` remains an accepted/restored class, but no literal producer exists
+  in the complete May People field-write set. A visible occupied-Player-
+  Vehicle encounter remains the manual closure row.
 - The free-flight far/near ATTACK branches retain their authored target
   prediction and random offset, but clamped relative vectors are restored to
   enemy/actor world space before assignment to `m_nextNode`. Assigning the

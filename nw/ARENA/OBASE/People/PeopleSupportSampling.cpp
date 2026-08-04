@@ -93,6 +93,46 @@ bool PeopleSupportSampling_ClassifyDynamicSide(
     return true;
 }
 
+bool PeopleSupportSampling_ShouldAvoidDynamic(
+    double actorX, double actorY, double actorZ,
+    double actorDirectionX, double actorDirectionY,
+    double actorDirectionZ,
+    double objectX, double objectY, double objectZ,
+    double objectDirectionX, double objectDirectionY,
+    double objectDirectionZ,
+    int *shouldAvoid)
+{
+    if (shouldAvoid == NULL || !Finite(actorX) || !Finite(actorY) ||
+        !Finite(actorZ) || !Finite(actorDirectionX) ||
+        !Finite(actorDirectionY) || !Finite(actorDirectionZ) ||
+        !Finite(objectX) || !Finite(objectY) || !Finite(objectZ) ||
+        !Finite(objectDirectionX) || !Finite(objectDirectionY) ||
+        !Finite(objectDirectionZ))
+        return false;
+
+    const double alignment =
+        actorDirectionX * objectDirectionX +
+        actorDirectionY * objectDirectionY +
+        actorDirectionZ * objectDirectionZ;
+    if (!Finite(alignment))
+        return false;
+
+    if (alignment < 0.0)
+    {
+        *shouldAvoid = 1;
+        return true;
+    }
+
+    const double relativeForward =
+        (actorX - objectX) * objectDirectionX +
+        (actorY - objectY) * objectDirectionY +
+        (actorZ - objectZ) * objectDirectionZ;
+    if (!Finite(relativeForward))
+        return false;
+    *shouldAvoid = relativeForward <= 0.0 ? 1 : 0;
+    return true;
+}
+
 bool PeopleSupportSampling_Probe()
 {
     SPeopleSupportSamplingRequest request = {};
@@ -140,10 +180,30 @@ bool PeopleSupportSampling_Probe()
         return false;
 
     const double halfPi = 1.57079632679489661923;
+    int shouldAvoid = 0;
     return PeopleSupportSampling_ClassifyDynamicSide(
                0.0, 0.0, -2.0, 0.0, halfPi, 1, 3, &code) &&
            code == 1 &&
+           PeopleSupportSampling_ShouldAvoidDynamic(
+               0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+               2.0, 0.0, 0.0, -1.0, 0.0, 0.0,
+               &shouldAvoid) && shouldAvoid == 1 &&
+           PeopleSupportSampling_ShouldAvoidDynamic(
+               0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+               2.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+               &shouldAvoid) && shouldAvoid == 1 &&
+           PeopleSupportSampling_ShouldAvoidDynamic(
+               2.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+               0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+               &shouldAvoid) && shouldAvoid == 0 &&
+           PeopleSupportSampling_ShouldAvoidDynamic(
+               0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+               &shouldAvoid) && shouldAvoid == 1 &&
            !PeopleSupportSampling_Build(request, NULL) &&
            !PeopleSupportSampling_ClassifyDynamicSide(
-               0.0, 0.0, 0.0, 0.0, 0.0, 0, 3, &code);
+               0.0, 0.0, 0.0, 0.0, 0.0, 0, 3, &code) &&
+           !PeopleSupportSampling_ShouldAvoidDynamic(
+               0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL);
 }

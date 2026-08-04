@@ -106,6 +106,19 @@ foreach ($configurationName in $Configuration) {
         if ($exitCode -ne 0) { $issues.Add("exit=$exitCode expected=0") }
         Require-Exact $issues $log "mission_smoke_staged" "1"
         Require-Exact $issues $log "mission_smoke_selected_center" $MissionCenter
+        $guideObstacle = @(Split-Field $log "mission_smoke_guide_obstacle")
+        if ($guideObstacle.Count -lt 10) {
+            $issues.Add("mission_smoke_guide_obstacle=$($guideObstacle -join '/') expected 10 fields")
+        } elseif ($guideObstacle[2] -eq "1") {
+            foreach ($index in @(2, 3, 4, 6, 7, 8)) {
+                if ($guideObstacle[$index] -ne "1") {
+                    $issues.Add("mission_smoke_guide_obstacle[$index]=$($guideObstacle[$index]) expected=1")
+                }
+            }
+            if ($guideObstacle[5] -notin @("1", "3")) {
+                $issues.Add("guide obstacle contact=$($guideObstacle[5]) expected 1 or 3")
+            }
+        }
         Require-Exact $issues $log "mission_natural_ejection" "1"
         Require-Exact $issues $log "mission_natural_rollback" "1/1/1"
         Require-Exact $issues $log "game_services_issues" "0"

@@ -852,6 +852,29 @@ This closes the automated unassisted pursuit boundary. A visible run remains
 useful for animation and flight-path parity, while guide/Vehicle obstruction
 is a separate manual and implementation row.
 
+## Mission-guide dynamic obstruction pass
+
+The UI-suppressed Level.03N Marauders smoke now includes an exact dynamic
+collision probe:
+
+```powershell
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --mission-smoke --mission-center "Marauders.Recruit.0" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --diagnostics-dir "$PWD\manual-logs\guide-obstacle"
+```
+
+`mission_smoke_guide_obstacle` contains ten slash-separated fields:
+actor, obstacle, available, collision hit, exact owner, live contact code,
+approaching-owner avoided, ahead-owner ignored, rollback exact and collision
+time. When `available=1`, fields 4, 5, 7, 8 and 9 must be `1`; contact must be
+`1` or `3`. The process must also report zero service issues, `level-ready`
+and clean shutdown. The probe is optional for missions with no delayed guide.
+
+For visible confirmation, accept the Marauders mission, stand or park in the
+guide's route, and then move behind it after it passes. It should turn around
+an approaching People/Vehicle without continuing to flee from an owner already
+behind it. Retain the exact route, screenshot and log; the automated owner
+proof currently uses a real People obstacle, so an occupied Player Vehicle is
+still the manual closure case.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

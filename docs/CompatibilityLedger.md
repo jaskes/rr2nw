@@ -2454,7 +2454,10 @@ Status vocabulary:
   Sound dependency and checks all bounded pools; restore clears old graphs
   before redistributing branches, then recreates parent-owned Sound, trace
   quota, branches and events. Rollback drains events and children before the
-  parent slot is returned.
+  parent slot is returned. A parent that has exhausted every branch and its
+  light but is still visible to the class table until deferred deletion is a
+  retiring owner, not active-world state; stable roster collection omits that
+  exact terminal boundary just as it omits an uncommitted pending START.
 - Verification: the runtime creates a real sound-bearing Explosion through
   `ExplosionSubjectState_ExecuteNow`, captures its branches and two events,
   destroys it, performs one complete staged rollback and reconstructs another
@@ -3866,7 +3869,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Status: `SOURCE_RECOVERED`, `RETAIL_RUNTIME_PROVED`,
   `PORTABILITY_FIX_ACCEPTED`, `EVENT_26012_RECOVERED`,
   `ROUTE_CORRECTION_RECOVERED`, `ON_OBJ_SWEEP_RECOVERED`,
-  `SUPPORT_MANIFOLD_OPEN`.
+  `DYNAMIC_PATH_OBSTRUCTION_RECOVERED`, `SUPPORT_MANIFOLD_PARTIAL`.
 - Evidence: the reported town-hall visits can create the correct PlayerMission,
   Player vehicle and guide while showing no briefing splash. The guide can
   immediately drive into the Player vehicle or follow its route backwards.
@@ -3881,7 +3884,11 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   PEO1 v7 persists both indices, May state return targets, the route-deviation
   timer, the independent obstacle-recovery timer and the integer contact class
   (v4 introduced the targets, v5 the deviation timer and v6 the obstacle
-  timer). Do not classify
+  timer). The visible `ON_OBJ` path now performs May's separate horizontal
+  full-world sweep after front support is established, retains the exact
+  dynamic owner and chooses contact class `1/3` from its side. Opposing motion
+  is avoided; a same-direction owner is ignored only when it is already safely
+  behind the guide. Do not classify
   every eject as a new mission: retail collision handling also ejects when a
   mission is already active or no project is eligible. Guide spacing and
   Player vehicle steering remain explicit independent follow-up gates.
@@ -3891,11 +3898,15 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   shuts down with zero rollback or game-service issue.
   UI-suppressed named-center smokes additionally prove real guides
   `i.unit.ms22.rl00` and `m.unit.ms25.jp00` each dispatch STARTMOVE plus two
-  MOVE events and make a finite bounded step toward the target.
-- Revisit when: the May movement helper at `0x00501D54` replaces the temporary
-  NEXTNODE route-progress bridge with full segment/corridor/obstacle behavior.
-  Repeated Level viewport refresh should eventually own explicit legacy
-  viewport release.
+  MOVE events and make a finite bounded step toward the target. The Level.03N
+  Marauders gate additionally places a real People owner in the guide's next
+  sweep and requires exact collision ownership, live contact `1/3`,
+  approaching-owner avoidance, ahead-owner suppression and exact rollback in
+  Debug, Release and RelWithDebInfo.
+- Revisit when: a visible manual run repeats the guide proof against an
+  occupied Player Vehicle and static town geometry. Code `4` still has no
+  evidenced producer. Repeated Level viewport refresh should eventually own
+  explicit legacy viewport release.
 
 ### CQ-205: the reduced modern session omitted briefing presentation owners
 
@@ -4133,17 +4144,17 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   obstacle policy and PEO1 proves both non-zero timers through live
   capture/apply/restore. The three-process
   Level.03N mission save/same-Level/cross-Level gate passes 3/3.
-- Revisit when: May's shared support/contact manifold replaces the retained
-  January downward height/tilt probes and guide/vehicle path obstruction is
-  proven in motion. Remove the NEXTNODE bridge only after those paths pass
-  PEO1 rollback together. `People.od` remains an archival 24-field January
-  generator description; do not regenerate or recode it as a side effect of
-  this source recovery.
+- Revisit when: the unknown code-4 producer or a visible occupied-Player-
+  Vehicle guide encounter supplies new evidence. The support geometry and
+  dynamic-owner branch already pass PEO1 rollback together. `People.od`
+  remains an archival 24-field January generator description; do not
+  regenerate or recode it as a side effect of this source recovery.
 
 ### CQ-215: May People collision state is not boolean
 
 - Status: `MAY_BINARY_CONFIRMED`, `CONTACT_RESPONSE_RECOVERED`,
-  `SUPPORT_GEOMETRY_RECOVERED`, `CONTACT_MANIFOLD_PARTIAL`.
+  `SUPPORT_GEOMETRY_RECOVERED`, `DYNAMIC_OWNER_BRANCH_RECOVERED`,
+  `CONTACT_MANIFOLD_PARTIAL`.
 - Evidence: the May `ON_OBJECTS` dispatcher accepts contact classes
   `1/2/3/4/9/11`; `1/9` share clockwise response, `3/11` share
   counter-clockwise response, `2` uses the full roll speed and `4` uses a
@@ -4158,13 +4169,20 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   otherwise `11` (`0x004FAB71--0x004FACFB`). No instruction in the complete
   People write set assigns literal code `4`; the dispatcher and previous-code
   restore accept it, so its external origin remains unproven.
+- Evidence: `0x004FA717--0x004FB109` performs a separate horizontal
+  full-world sphere sweep after front support exists. It retains the returned
+  dynamic owner, always avoids opposing motion, and for same-direction motion
+  avoids only while the owner is not already behind the actor. The signed side
+  chooses contact class `1/3`.
 - Handling: `PeopleObstacleRecovery` carries the exact class through its
   growth/decay interval. `PeopleContactResponse` validates and translates the
   May table with deterministic angle wrapping. `PeopleSupportSampling` builds
   the exact finite front/rear sweeps and signed-side predicate. The live path
   uses static times for height/pitch, emits `2` when front support is absent,
   `3` when rear support is absent, and `9/11` for a resolved dynamic rear
-  support. PEO1 v7 stores the full class as `int32`; v1-v6 decode their
+  support. The horizontal sweep uses the support offset as radius and the
+  current frame delta, then resolves the owner through `IDynamicObject` before
+  selecting `1/3`. PEO1 v7 stores the full class as `int32`; v1-v6 decode their
   historical boolean and legacy export canonicalizes every non-zero class to
   `1`.
 - Verification: isolated probes cover every accepted response, invalid codes,
@@ -4173,11 +4191,12 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Playtest pass 67/67 CTest and 27/27 installed retail starts. Fresh-process
   continuation passes 27/27 with both Vehicle masks complete at `1011` in all
   configurations; the formerly failing `Level.02D/02N` serializer cases pass
-  a separate 6/6 targeted rerun.
-- Revisit when: translate the horizontal movement-owner `1/3` branch and
-  identify an evidence-backed producer (if any) for code `4`, then prove a
-  moving guide beside static and dynamic obstacles. Only then mark the complete
-  support/contact manifold recovered.
+  a separate 6/6 targeted rerun. Level.03N Marauders proves the real guide,
+  world collision owner, live `ON_OBJ` response and rollback identically in
+  Debug, Release and RelWithDebInfo.
+- Revisit when: identify an evidence-backed producer (if any) for code `4` and
+  repeat the moving guide beside an occupied Player Vehicle in a visible
+  manual run. Only then mark the complete support/contact manifold recovered.
 
 ### CQ-216: mission enemies animate without effective pursuit or attacks
 

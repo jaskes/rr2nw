@@ -15,6 +15,8 @@
 #include "PeopleContactResponse.h"
 #include "PeopleObstacleRecovery.h"
 #include "PeopleRouteMotion.h"
+#include "PeopleSupportSampling.h"
+#include "h/phisics.h"
 #include "i/route.i"
 #include "i/commander.i"
 #include "kernel/h/context.h"
@@ -2060,6 +2062,225 @@ bool PeopleSubjectState_ProbeNewestDelayedRoute(
            summary->groundedRouteEvent == 1 &&
            summary->finiteMotion == 1 &&
            summary->movedTowardTarget == 1 && summary->boundedStep == 1;
+}
+
+bool PeopleSubjectState_ProbeDynamicObstacleCollision(
+    SimulationContext *context,
+    SPeopleDynamicObstacleProbeSummary *summary)
+{
+    if (context == NULL || summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+
+    People *actor = NULL;
+    People *obstacle = NULL;
+    KR_ObjectID actorID = KR_ObjectID::NUL();
+    KR_ObjectID obstacleID = KR_ObjectID::NUL();
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *candidate = ResolvePeople(context, roster.ids[index]);
+        KR_Event pending[2];
+        if (actor == NULL && RuntimeReady(candidate) &&
+            candidate->m_startMoveDelay > 0.0 &&
+            context->copyEvents(pe_EV_STARTMOVE, roster.ids[index],
+                                pending, 2) == 1)
+        {
+            actor = candidate;
+            actorID = roster.ids[index];
+        }
+    }
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *candidate = ResolvePeople(context, roster.ids[index]);
+        if (RuntimeReady(candidate) && roster.ids[index] != actorID)
+        {
+            obstacle = candidate;
+            obstacleID = roster.ids[index];
+            break;
+        }
+    }
+    if (actor == NULL || obstacle == NULL)
+        return true;
+
+    summary->available = 1;
+    CopyTelemetryName(summary->actor, sizeof(summary->actor),
+                      context->searchObject(actorID));
+    CopyTelemetryName(summary->obstacle, sizeof(summary->obstacle),
+                      context->searchObject(obstacleID));
+
+    IRouteObject *route = static_cast<IRouteObject *>(
+        context->queryInterface(actor->m_routeID, IRouteObjectIID));
+    if (route == NULL || route->GetNodeCnt() < 2 ||
+        actor->m_previousRouteNode < 0 ||
+        actor->m_previousRouteNode >= route->GetNodeCnt() ||
+        actor->m_curNode < 0 || actor->m_curNode >= route->GetNodeCnt())
+        return false;
+
+    const PeopleData savedActor = *static_cast<PeopleData *>(actor);
+    const PeopleData savedObstacle = *static_cast<PeopleData *>(obstacle);
+    const CFVector3 savedActorPosition = actor->getPosition();
+    const CFVector3 savedObstaclePosition = obstacle->getPosition();
+    const unsigned long long fingerprintBefore =
+        PeopleSubjectState_SubjectFingerprint(context);
+
+    const CFVector3 segment =
+        route->GetNode(actor->m_curNode) -
+        route->GetNode(actor->m_previousRouteNode);
+    const double horizontalLength = hypot(segment.x, segment.z);
+    const double actorRadius = actor->getRadius();
+    const double obstacleRadius = obstacle->getRadius();
+    bool valid = std::isfinite(horizontalLength) &&
+        horizontalLength > 1e-6 && std::isfinite(actorRadius) &&
+        actorRadius > 0.0 && std::isfinite(obstacleRadius) &&
+        obstacleRadius > 0.0;
+
+    int classifiedCode = 0;
+    if (valid)
+    {
+        const CFVector3 forward(segment.x / horizontalLength, 0.0,
+                                segment.z / horizontalLength);
+        const double speed = (std::max)(10.0, actor->movementSpeed());
+        const CFVector3 probeActor(
+            savedActorPosition.x, savedActorPosition.y + 5000.0,
+            savedActorPosition.z);
+        actor->ct_Subject::setPosition(probeActor);
+        actor->m_isNotCreate = 0;
+        actor->m_dir = forward * speed;
+
+        // The legacy arena broad phase indexes Subject positions rather than
+        // dynamic sphere centres. Keep that base position exactly on the
+        // swept segment; the model centre offset remains covered by the
+        // combined radii in the narrow phase.
+        obstacle->ct_Subject::setPosition(
+            probeActor + forward *
+                (actorRadius + obstacleRadius + 0.25));
+        obstacle->m_isNotCreate = 0;
+        obstacle->m_dir = forward * -speed;
+
+        SPeopleSupportSamplingRequest samplingRequest = {};
+        samplingRequest.objectRadius = actorRadius;
+        samplingRequest.heading = atan2(forward.z, forward.x);
+        samplingRequest.positionX = probeActor.x;
+        samplingRequest.positionY = probeActor.y;
+        samplingRequest.positionZ = probeActor.z;
+        SPeopleSupportSamplingResult sampling = {};
+        valid = PeopleSupportSampling_Build(samplingRequest, &sampling);
+
+        KR_ObjectID collisionOwner = KR_ObjectID::NUL();
+        summary->collisionTime = 1.0;
+        if (valid)
+            summary->collisionHit = checkCollision(
+                probeActor, actor->m_dir, sampling.sampleOffset, 1.0,
+                actorID, summary->collisionTime, collisionOwner);
+        summary->ownerExact = summary->collisionHit &&
+            collisionOwner == obstacleID ? 1 : 0;
+
+        const CFVector3 obstaclePosition = obstacle->getPos();
+        const CFVector3 actorDirection = actor->getMoveDir();
+        const CFVector3 obstacleDirection = obstacle->getMoveDir();
+        int shouldAvoid = 0;
+        valid = valid && PeopleSupportSampling_ClassifyDynamicSide(
+            probeActor.x, probeActor.z,
+            obstaclePosition.x, obstaclePosition.z,
+            samplingRequest.heading, 1, 3, &classifiedCode) &&
+            PeopleSupportSampling_ShouldAvoidDynamic(
+                probeActor.x, probeActor.y, probeActor.z,
+                actorDirection.x, actorDirection.y, actorDirection.z,
+                obstaclePosition.x, obstaclePosition.y,
+                obstaclePosition.z, obstacleDirection.x,
+                obstacleDirection.y, obstacleDirection.z,
+                &shouldAvoid);
+        summary->approachingAvoided = shouldAvoid;
+
+        shouldAvoid = 1;
+        const CFVector3 ahead = probeActor + forward * 2.0;
+        valid = valid && PeopleSupportSampling_ShouldAvoidDynamic(
+            ahead.x, ahead.y, ahead.z,
+            forward.x, forward.y, forward.z,
+            probeActor.x, probeActor.y, probeActor.z,
+            forward.x, forward.y, forward.z,
+            &shouldAvoid);
+        summary->aheadIgnored = shouldAvoid == 0 ? 1 : 0;
+    }
+
+    // Restore the authored phase before driving one real ON_OBJ frame. The
+    // probe leaves the guide on its retail route and moves only the temporary
+    // dynamic owner into the next 0.05-second sweep.
+    *static_cast<PeopleData *>(actor) = savedActor;
+    actor->ct_Subject::setPosition(savedActorPosition);
+    *static_cast<PeopleData *>(obstacle) = savedObstacle;
+    obstacle->ct_Subject::setPosition(savedObstaclePosition);
+
+    KR_Event savedMove[2];
+    const int savedMoveCount = context->copyEvents(
+        pe_EVC_MOVE, actorID, savedMove, 2);
+    valid = valid && savedMoveCount >= 0 && savedMoveCount <= 1;
+    while (context->removeEvent(pe_EVC_MOVE, actorID) == 1) {}
+    const int savedVisible = actor->m_isVisible;
+    const int savedAudible = actor->m_audibleThisFrame;
+    if (valid)
+    {
+        const CFVector3 forward(segment.x / horizontalLength, 0.0,
+                                segment.z / horizontalLength);
+        const double speed = (std::max)(10.0, actor->movementSpeed());
+        const double heading = atan2(forward.z, forward.x);
+        SPeopleSupportSamplingRequest samplingRequest = {};
+        samplingRequest.objectRadius = actorRadius;
+        samplingRequest.heading = heading;
+        samplingRequest.positionX = savedActorPosition.x;
+        samplingRequest.positionY = savedActorPosition.y;
+        samplingRequest.positionZ = savedActorPosition.z;
+        SPeopleSupportSamplingResult sampling = {};
+        valid = PeopleSupportSampling_Build(samplingRequest, &sampling);
+
+        actor->m_dir = forward * speed;
+        actor->m_isNotCreate = 0;
+        actor->m_hAngle = heading;
+        actor->m_isClz = 0;
+        actor->m_obstacleRecoveryTime = 0.0;
+        actor->m_isVisible = 1;
+        actor->m_audibleThisFrame = 0;
+        obstacle->m_dir = forward * -speed;
+        obstacle->m_isNotCreate = 0;
+        obstacle->ct_Subject::setPosition(
+            savedActorPosition + forward *
+                (sampling.sampleOffset + obstacleRadius + 0.25));
+
+        const double eventTime = std::isfinite(actor->m_prevTime)
+            ? actor->m_prevTime + 0.05 : 0.05;
+        KR_Event moveEvent(pe_EVC_MOVE, eventTime, actorID, actorID);
+        valid = valid && actor->receiveEvent(moveEvent) == 1;
+        summary->contactCode = actor->m_isClz;
+        valid = valid && actor->m_obstacleRecoveryTime <= 1e-9;
+    }
+    while (context->removeEvent(pe_EVC_MOVE, actorID) == 1) {}
+
+    *static_cast<PeopleData *>(actor) = savedActor;
+    actor->m_isVisible = savedVisible;
+    actor->m_audibleThisFrame = savedAudible;
+    actor->ct_Subject::setPosition(savedActorPosition);
+    *static_cast<PeopleData *>(obstacle) = savedObstacle;
+    obstacle->ct_Subject::setPosition(savedObstaclePosition);
+    if (savedMoveCount == 1)
+    {
+        KR_Event restored;
+        restored.getCopy(savedMove[0]);
+        context->addEvent(restored);
+    }
+    summary->rollbackExact =
+        fingerprintBefore == PeopleSubjectState_SubjectFingerprint(context)
+            ? 1 : 0;
+
+    return valid && summary->collisionHit == 1 &&
+           summary->ownerExact == 1 &&
+           (classifiedCode == 1 || classifiedCode == 3) &&
+           (summary->contactCode == 1 || summary->contactCode == 3) &&
+           summary->approachingAvoided == 1 &&
+           summary->aheadIgnored == 1 && summary->rollbackExact == 1;
 }
 
 bool PeopleSubjectState_ProbeCombatLifecycle(

@@ -71,6 +71,20 @@ struct SPeopleRouteMotionProbeSummary
     char owner[96];
 };
 
+struct SPeopleDynamicObstacleProbeSummary
+{
+    int available;
+    int collisionHit;
+    int ownerExact;
+    int contactCode;
+    int approachingAvoided;
+    int aheadIgnored;
+    int rollbackExact;
+    double collisionTime;
+    char actor[96];
+    char obstacle[96];
+};
+
 struct SPeopleCombatProbeSummary
 {
     int available;
@@ -275,6 +289,9 @@ bool PeopleSubjectState_ProbeTunedAttributeLifecycle(
 bool PeopleSubjectState_ProbeNewestDelayedRoute(
     SimulationContext *context,
     SPeopleRouteMotionProbeSummary *summary);
+bool PeopleSubjectState_ProbeDynamicObstacleCollision(
+    SimulationContext *context,
+    SPeopleDynamicObstacleProbeSummary *summary);
 bool PeopleSubjectState_ProbeCombatLifecycle(
     SimulationContext *context, double timeStamp,
     SPeopleCombatProbeSummary *summary);

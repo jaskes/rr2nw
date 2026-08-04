@@ -3832,15 +3832,25 @@ zero/negative selects `11`. `PeopleSupportSampling` isolates and proves the
 geometry, clamping, finite-input contract and this signed-side classification.
 Missing front support selects code `2`; missing rear support selects `3`.
 
-This closes the support-geometry, dynamic-support and observed horizontal
+The separate May block at `0x004FA717--0x004FB109` is now translated as a
+horizontal full-world sweep after front support is established. It uses the
+support offset as sweep radius, retains the returned ObjectID and resolves its
+`IDynamicObject` motion. Opposing motion is always avoided. For aligned motion
+the owner is ignored only when the actor is already ahead, preventing a guide
+from steering away from traffic it has safely passed. Signed side selects
+contact `1/3`; the later static recovery remains independent.
+
+This closes the support-geometry, dynamic-support, horizontal step and dynamic
 movement-owner halves of the manifold, not every collision producer. The
 horizontal step predicate is isolated in `PeopleRouteMotion`, projects both
 vectors onto XZ and includes the exact retail slope that the former 3D test
 misclassified. A complete disassembly search finds no literal code-4
 write to `People+0x248`: May dispatches and restores `4`, but its producer is
-not established. Guide/vehicle path obstruction is also still open; neither
-that gap nor live attack delivery is hidden behind a claim that the entire May
-manifold is complete.
+not established. The automated Level.03N proof uses a real mission guide and a
+real People owner through the scene collision query, live MOVE response and
+exact rollback in all configurations. A visible occupied-Player-Vehicle repeat
+is still open; neither that row nor code `4` is hidden behind a claim that the
+entire May manifold is complete.
 
 The final gate passes 67/67 CTest in Debug, Release and Playtest, 27/27
 installed retail starts and 27/27 fresh continuations. Destruction and occupied

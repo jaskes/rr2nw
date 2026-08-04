@@ -988,6 +988,19 @@ int People::receiveEvent( KR_Event &event )
                              rear,sweepVelocity,sampling.sweepRadius,
                              sampling.sweepTime,rearTime);
 
+                         // May 0x004fa717--0x004fb109 performs a separate
+                         // horizontal full-world sweep after the front support
+                         // has been established. Unlike the obstacle recovery
+                         // sweep above, this query must retain the dynamic
+                         // owner so moving Vehicles/People can select contact
+                         // class 1/3 instead of being treated as scenery.
+                         KR_ObjectID horizontalID = KR_ObjectID::NUL();
+                         double horizontalTime = deltaT;
+                         if(  frontHit && deltaT>0  )
+                              checkCollision(
+                                  pos,m_dir,sampling.sampleOffset,deltaT,
+                                  getObjectID(),horizontalTime,horizontalID);
+
                          KR_ObjectID rearID = KR_ObjectID::NUL();
                          if(  rearHit  )
                          {
@@ -1000,13 +1013,48 @@ int People::receiveEvent( KR_Event &event )
 
                          if(  contactCode==0  )
                          {
+                              if(  !horizontalID.isNUL()  )
+                              {
+                                   IDynamicObject *obstacle =
+                                       (IDynamicObject*)context->queryInterface(
+                                           horizontalID,IDynamicObjectIID);
+                                   if(  obstacle!=0  )
+                                   {
+                                        const CFVector3 obstaclePos(
+                                            obstacle->getPos());
+                                        const CFVector3 actorDirection(
+                                            getMoveDir());
+                                        const CFVector3 obstacleDirection(
+                                            obstacle->getMoveDir());
+                                        int shouldAvoid = 0;
+                                        if(  PeopleSupportSampling_ShouldAvoidDynamic(
+                                                pos.x,pos.y,pos.z,
+                                                actorDirection.x,
+                                                actorDirection.y,
+                                                actorDirection.z,
+                                                obstaclePos.x,obstaclePos.y,
+                                                obstaclePos.z,
+                                                obstacleDirection.x,
+                                                obstacleDirection.y,
+                                                obstacleDirection.z,
+                                                &shouldAvoid)
+                                          && shouldAvoid  )
+                                             PeopleSupportSampling_ClassifyDynamicSide(
+                                                 pos.x,pos.z,
+                                                 obstaclePos.x,obstaclePos.z,
+                                                 m_hAngle,1,3,&contactCode);
+                                   }
+                              }
+
                               // May's unsupported-front recovery enters the
                               // full-speed counter-clockwise class.
-                              if(  !frontHit  ) contactCode = 2;
+                              if(  contactCode==0 && !frontHit  )
+                                   contactCode = 2;
                               else
-                              if(  !rearHit  ) contactCode = 3;
+                              if(  contactCode==0 && !rearHit  )
+                                   contactCode = 3;
                               else
-                              if(  !rearID.isNUL()  )
+                              if(  contactCode==0 && !rearID.isNUL()  )
                               {
                                    IDynamicObject *support =
                                        (IDynamicObject*)context->queryInterface(

@@ -1855,8 +1855,11 @@ LCN1 checkpoint restores byte-for-byte. Three consecutive Debug runs finished
 in 28-30 frames (1.80-1.89 seconds) with exact rollback. This proves the live
 delivery/death graph under bounded proximity and health staging, not
 unassisted pursuit across the authored route. Remaining People work is
-evidence for any code-4 producer, moving-guide proof beside dynamic Vehicles,
-guide/vehicle path obstruction and an ordinary-distance engagement. The first
+evidence for any code-4 producer and a visible occupied-Player-Vehicle repeat.
+The May horizontal full-world sweep now retains exact dynamic ownership and a
+real Level.03N guide MOVE selects contact `1/3` for approaching traffic while
+ignoring a same-direction owner safely behind; Debug, Release and
+RelWithDebInfo agree and the probe rolls back exactly. The first
 reported death-time close coincided with external test-process termination;
 the bounded real robot death now exits cleanly, while the exact manual route
 still merits a repeat before the original report is retired completely.
@@ -1888,8 +1891,8 @@ fires and produces a dynamic Bullet impact before exact LCN1 rollback. The
 world-space attack-target correction also removes the legacy origin-collapse
 path that could make aircraft jump or circle away from their target.
 
-The next gameplay row is guide/vehicle path-obstruction behavior visible in
-town routes, followed by mission reward/completion and Portal admission.
+The next gameplay row is the visible guide/occupied-Vehicle town-route repeat,
+followed by mission reward/completion and Portal admission.
 Timed and natural public-mission acquisition, attributed projectile damage,
 robot death effects and exact rollback are no longer part of that open row.
 

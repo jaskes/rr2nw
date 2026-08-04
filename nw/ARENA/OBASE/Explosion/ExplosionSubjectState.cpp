@@ -748,6 +748,11 @@ class BoundedExplosion : public ct_Subject
 
     bool lightActive() const { return m_lightActive; }
     bool started() const { return m_started; }
+    bool retiring() const
+    {
+        return m_started && !m_lightActive && m_particleCount == 0 &&
+               !m_traceQuotaHeld;
+    }
     const KR_ObjectID &sound() const { return m_sound; }
     AttributeExplosion *attribute() const { return m_attribute; }
     double startTime() const { return m_startTime; }
@@ -2002,6 +2007,7 @@ bool CollectStableRoster(SimulationContext *context,
                                !context->isExist(object->getObjectID()) ||
                                ObjectName(context, object->getObjectID())
                                    .empty() ||
+                               object->retiring() ||
                                (!object->started() &&
                                 context->copyEventsTo(
                                     EXPLOSION_START,

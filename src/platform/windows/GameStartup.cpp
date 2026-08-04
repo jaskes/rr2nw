@@ -2854,6 +2854,24 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(guide.elapsed) + "/" +
              std::to_string(guide.displacement));
     loopFailed = loopFailed || !guideReady;
+    SPeopleDynamicObstacleProbeSummary guideObstacle = {};
+    const bool guideObstacleReady =
+        PeopleSubjectState_ProbeDynamicObstacleCollision(
+            g_super.m_context, &guideObstacle);
+    log.Line(std::string("mission_smoke_guide_obstacle=") +
+             (guideObstacle.actor[0] == 0 ? "<none>" :
+                                            guideObstacle.actor) + "/" +
+             (guideObstacle.obstacle[0] == 0 ? "<none>" :
+                                               guideObstacle.obstacle) + "/" +
+             std::to_string(guideObstacle.available) + "/" +
+             std::to_string(guideObstacle.collisionHit) + "/" +
+             std::to_string(guideObstacle.ownerExact) + "/" +
+             std::to_string(guideObstacle.contactCode) + "/" +
+             std::to_string(guideObstacle.approachingAvoided) + "/" +
+             std::to_string(guideObstacle.aheadIgnored) + "/" +
+             std::to_string(guideObstacle.rollbackExact) + "/" +
+             std::to_string(guideObstacle.collisionTime));
+    loopFailed = loopFailed || !guideObstacleReady;
     SPeopleCombatScheduleSummary missionPeopleSchedule = {};
     const bool missionPeopleScheduleReady =
         PeopleSubjectState_AuditCombatScheduling(

@@ -5189,3 +5189,38 @@ TAN1 treats equal labels as a multiset of independently timed private events.
 Uniqueness is not a valid scheduler invariant for mission Tanks/Cannons.
 Capture is bounded, same-label timestamps are ordered, and full rollback—not
 deduplication—is the acceptance boundary.
+
+### BD-144: guide avoidance belongs to the horizontal dynamic-owner sweep
+
+Status: accepted on 2026-08-04 for May `0x004FA717--0x004FB109`.
+
+Front/rear support, static obstacle recovery and horizontal dynamic avoidance
+are separate queries. After front support is established, the guide sweeps its
+current velocity through the full world with the support offset as radius and
+retains the returned ObjectID. The owner must resolve as `IDynamicObject`;
+static geometry cannot be reclassified as moving traffic.
+
+Opposing motion is always avoided. For same-direction motion, avoidance is
+suppressed only when the guide is already ahead of the owner. The signed side
+selects persistent contact class `1` or `3`, which the existing May response
+dispatcher turns into steering. Acceptance uses a real Level.03N guide, a real
+People collision owner, one real MOVE frame and exact transactional rollback
+in Debug, Release and RelWithDebInfo. It does not claim visible Player-Vehicle
+parity or establish the unknown producer of contact class `4`.
+
+### BD-145: a fully expired Explosion is not active-world state
+
+Status: accepted on 2026-08-04 for EXP1 frame-boundary capture.
+
+An Explosion can consume its last branch and light, request owner removal and
+remain visible in the legacy class table until deferred deletion commits. At
+that boundary it has no resumable visual, trace or light state. Serializing it
+as a live EXP1 record creates an impossible empty-branch record and makes a
+valid save depend on the exact dispatcher microphase.
+
+Stable roster collection therefore omits only the exact retiring state:
+START is committed, particle count is zero, light is inactive and no trace
+quota remains. This mirrors the existing exclusion of an uncommitted pending
+START owner. The natural `Robot_01` gate proved the issue with 25 real
+projectiles and 24 scene impacts, then passed combat, restore and byte-exact
+recapture after the boundary was corrected.
