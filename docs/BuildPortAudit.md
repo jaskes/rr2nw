@@ -3954,3 +3954,31 @@ the contract. Debug, Release and RelWithDebInfo each pass 67/67 CTest; the
 installed runtime matrix passes 27/27. Fresh continuation completes all 27
 Level/configuration cases with zero proof issues and combined Vehicle
 destruction plus occupied-save/load masks `1011` in every configuration.
+
+## Vehicle/Artefact carrier lifecycle
+
+The original collision helper wrote only `ICarrier::m_artefact`; it never
+called the existing `Artefact::attachTo` boundary. The free reward therefore
+kept its move event and did not identify the Vehicle as its carrier. The drop
+path had the mirror defect because `Artefact::drop` schedules movement without
+clearing its public carrier fields.
+
+The recovered carrier collision now validates both owners, attaches the real
+Artefact first, publishes the reverse Vehicle link and immediately applies the
+carrier matrix. Drop retains the legacy virtual call and placement/speed but
+clears both relationship halves at the carrier boundary. This avoids rewriting
+the non-UTF8 legacy Artefact translation unit and keeps the modernized change
+small; conversion of that archival file remains separate encoding debt.
+
+`Invoke-MissionResultSmoke.ps1` now proves the whole production path on
+Level.03N in Debug, Release and RelWithDebInfo: reward creation, collision
+pickup, event cancellation, carrier motion, exact carried save/load, the real
+`DropArtefact` control message, exact detached save/load and pre-result
+rollback. The first probe attempt deliberately exposed an event-boundary
+mistake: a synthetic future input time moved `Vehicle::m_lastTime` ahead of
+Clock/CTJ1 and adoption failed. The accepted gate uses the current closed
+`Session::m_viewTime`; all three rows pass.
+
+The completed slice also passes 67/67 CTest in Debug, Release and
+RelWithDebInfo, the installed retail matrix 27/27 and the fresh-process Level
+continuation matrix 27/27 across all nine catalog levels.

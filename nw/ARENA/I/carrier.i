@@ -23,7 +23,8 @@ public:
     void         carrierDropArtefact(double ts);
     void         carrierTakeArtefact(KR_ObjectID oID, IArtefact *artefact );
     void         carrierOnRemoveArtefact();
-    void         carrierOnCollizion (KR_ObjectID oID);
+    bool         carrierOnCollision (KR_ObjectID carrierID,
+                                     KR_ObjectID objectID);
     int          carrierReceiveEvent( KR_Event &event );
     void         carrierAddNotify   (SimulationContext*context,double ts);
     void         carrierRemoveNotify(SimulationContext*context,double ts);

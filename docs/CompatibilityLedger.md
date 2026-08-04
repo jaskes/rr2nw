@@ -4306,6 +4306,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   controlled May run measures the exact reward placement. Keep the recovered
   `+50/+30` field offset isolated until then.
 
+### CQ-218: Vehicle collision published a one-sided Artefact attachment
+
+- Status: `SOURCE_DEFECT_CONFIRMED`, `WINDOWS_RUNTIME_ACCEPTED`.
+- Evidence: `Vehicle::MasterBumpCallBack` called the legacy misspelled carrier
+  helper, which stored only `Vehicle::m_artefact`. The reward retained a null
+  carrier and its queued `ARTEFACT_MOVE`, so it could continue moving while the
+  Vehicle held a raw pointer. Conversely, `F2` cleared only the Vehicle side
+  after `Artefact::drop` and left the Artefact reporting itself attached.
+- Handling: the collision boundary now receives both ObjectIDs, validates that
+  the ObjectID resolves back to the same `ICarrier`, calls `attachTo` before
+  publishing the carrier side, cancels free-flight through the real Artefact
+  implementation and moves it to the carrier transform immediately. Carrier
+  drop clears both sides after the virtual drop call.
+- Continuation: ART1 remains the sole owner of the symbolic carrier relation.
+  Restore calls `attachTo` and then publishes the reverse carrier pointer; no
+  duplicate Vehicle field was added to VEH1.
+- Verification: Level.03N creates the real mission reward, picks it up through
+  the production collision helper, restores the carried LCN1 graph, drops it
+  through the retail `F2` control message, restores the detached graph and
+  finally restores the pre-result continuation. Debug, Release and
+  RelWithDebInfo pass 3/3.
+- Revisit when: Portal admission is active. A full Portal must reject an extra
+  Artefact before owner removal, and partial occupancy must survive restart.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -868,13 +868,19 @@ Each row must advance from `ProjectS22` to a different eligible project,
 remove at least one real condition owner, report
 `mission_result_commit=1/1/1/1/1/1`, preserve the cumulative mission count,
 and prove `mission_result_save=1/1/1/1` plus
+`mission_result_carrier=1/1/1/1/1`, `mission_result_drop=1/1/1/1`,
+`mission_result_drop_save=1/1/1/1` and
 `mission_result_rollback=1/1/1`. The created `Artifact` must expose the real
-IArtefact interface; the repeated result call must be idempotent. The process
-must finish with zero service issues, `marker=level-ready` and clean shutdown.
+IArtefact interface; collision must cancel its free-flight events and bind both
+carrier pointers. The gate restores that carried state, sends the real
+`CTRL_BUTTONS_MSG` for `DropArtefact` (`F2`), proves one new move event plus
+forward motion, restores the detached state and then restores the pre-result
+checkpoint. The repeated result call must remain idempotent. The process must
+finish with zero service issues, `marker=level-ready` and clean shutdown.
 
-This gate proves result ownership and persistence. Picking the reward up,
-carrying it through a Portal and matching the exact retail reward offset remain
-the next visible/manual campaign boundary.
+This gate proves result ownership, pickup/carry/drop and persistence. Portal
+admission/persistence and matching the exact retail reward offset remain the
+next visible/manual campaign boundary.
 
 ## Mission-guide dynamic obstruction pass
 

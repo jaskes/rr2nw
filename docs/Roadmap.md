@@ -1897,8 +1897,18 @@ center repairs/refills the Vehicle, removes the terminal mission and selects the
 highest newly eligible project. MSH1 v3 and ART1 make both post-result save/load
 and pre-result rollback byte-exact across all sixteen owner sections.
 
-The next gameplay row is the visible guide/occupied-Vehicle town-route repeat,
-followed by Artefact pickup/carry/drop and Portal admission.
+The same maintained Level.03N result gate now completes the real carrier
+lifecycle. Vehicle collision atomically publishes both sides of the
+Vehicle/Artefact relationship, cancels free-flight events and moves the reward
+to the carrier transform. ART1 restores that carried graph exactly. The gate
+then sends the retail `DropArtefact` control message bound to `F2`, proves both
+sides detached, one free-flight event and the authored forward speed, restores
+the dropped state exactly and finally rolls the whole result back byte-for-byte.
+
+The next gameplay row is the visible guide/occupied-Vehicle town-route repeat
+and Portal admission/persistence. Portal capacity must be checked before
+removing an Artefact; partially occupied slots must survive save/restart before
+any campaign transition is published.
 Timed and natural public-mission acquisition, attributed projectile damage,
 robot death effects and exact rollback are no longer part of that open row.
 

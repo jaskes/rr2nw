@@ -32,7 +32,10 @@ void ICarrier::carrierDropArtefact(double ts)
 	{
 		CFMatrix3x4 m;
 		carrierLoadMatrix(m);
-		m_artefact->drop(m, ts);
+		IArtefact *artefact = m_artefact;
+		artefact->drop(m, ts);
+		artefact->m_carrier = 0;
+		artefact->m_carrierID = KR_ObjectID::NUL();
 
 		m_artefact = 0;
 		m_artefactID = KR_ObjectID::NUL();
@@ -50,23 +53,33 @@ void ICarrier::carrierOnRemoveArtefact()
 
 void ICarrier::carrierTakeArtefact(KR_ObjectID oID, IArtefact *artefact)
 {
-	if (m_artefact == 0)
+	if (m_artefact == 0 && artefact != 0 && !oID.isNUL())
 	{
 		m_artefactID = oID;
 		m_artefact = artefact;
 	}
 }
 
-void ICarrier::carrierOnCollizion(KR_ObjectID oID)
+bool ICarrier::carrierOnCollision(KR_ObjectID carrierID,
+	KR_ObjectID objectID)
 {
-	if (m_artefact == 0 && !oID.isNUL())
-	{
-		IArtefact *artefact = (IArtefact *)g_arena.getContext()->queryInterface(
-			oID, IArtefactIID);
+	SimulationContext *context = g_arena.getContext();
+	if (context == 0 || m_artefact != 0 || carrierID.isNUL() ||
+		objectID.isNUL() ||
+		context->queryInterface(carrierID, ICarrierIID) != this)
+		return false;
 
-		if (artefact != 0)
-			carrierTakeArtefact(oID, artefact);
-	}
+	IArtefact *artefact = (IArtefact *)context->queryInterface(
+		objectID, IArtefactIID);
+	if (artefact == 0 || artefact->isAttached() ||
+		!artefact->attachTo(carrierID, this))
+		return false;
+
+	carrierTakeArtefact(objectID, artefact);
+	if (m_artefact != artefact || m_artefactID != objectID)
+		return false;
+	carrierOnMove();
+	return true;
 }
 
 int ICarrier::carrierReceiveEvent(KR_Event &event)

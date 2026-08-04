@@ -5248,3 +5248,26 @@ disabled. ART1 owns live Artefact identity, dependencies, carrier relation,
 pose, direction and private scheduler deadlines. Capture excludes no partially
 initialized reward, and restore must reproduce all sixteen active-world owner
 sections exactly before references/events publish.
+
+### BD-147: Artefact carry is one bidirectional relationship owned by ART1
+
+Status: accepted on 2026-08-04 for Vehicle pickup/drop.
+
+A Vehicle may publish a pickup only after the collided ObjectID resolves as an
+unattached `IArtefact`, the supplied carrier ObjectID resolves back to that
+same `ICarrier`, and `Artefact::attachTo` succeeds. The carrier pointer/ID and
+Artefact pointer/ID are one invariant; a one-sided link is never a valid frame
+boundary. Pickup also consumes every pending Artefact free-flight/direction
+event and immediately applies the carrier transform.
+
+The `DropArtefact` input remains the retail control action and default `F2`
+binding. Its virtual drop publishes one future free-flight event; the carrier
+boundary then clears both sides before the frame is saveable. ART1 owns the
+symbolic relationship during continuation restore, while VEH1 intentionally
+does not serialize a second competing copy.
+
+Acceptance must use the current closed simulation time. Advancing only the
+legacy Vehicle event timestamp puts `Vehicle::m_lastTime` ahead of Clock/CTJ1
+and correctly makes restored control adoption fail. The maintained probe sends
+`F2` at `Session::m_viewTime`, captures both carried and dropped states and
+requires exact restore/recapture plus a final pre-result rollback.

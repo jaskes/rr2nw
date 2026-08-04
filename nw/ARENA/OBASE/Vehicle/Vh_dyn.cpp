@@ -602,7 +602,7 @@ bool Vehicle::MasterBumpCallBack( ct_Subject  * master, SBumpDef &def )
                      oSpeed,
                      s_curTime );
 
-     veh->carrierOnCollizion(oID);
+     veh->carrierOnCollision(veh->getObjectID(), oID);
 //	nBump = 0;
     /*if(nBump) {
         def.fTime = clzTime;

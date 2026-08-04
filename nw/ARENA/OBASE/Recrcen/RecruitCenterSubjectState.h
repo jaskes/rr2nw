@@ -39,6 +39,14 @@ struct RecruitCenterMissionResultProbeSummary
     int missionsAfter;
     int totalMissionsBefore;
     int totalMissionsAfter;
+    int pickupAccepted;
+    int bidirectionalAttachment;
+    int carryEventsCancelled;
+    int carryMoveMatched;
+    int dropInputAccepted;
+    int bidirectionalDetach;
+    int dropMoveEventScheduled;
+    int dropMotionMatched;
     char centerName[81];
     char completedProjectName[81];
     char nextProjectName[81];
@@ -83,6 +91,11 @@ bool RecruitCenterSubjectState_LastMissionSummary(
     RecruitCenterMissionProbeSummary *summary);
 bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionResultProbeSummary *summary);
+bool RecruitCenterSubjectState_RewardCarrierState(
+    SimulationContext *context, bool expectAttached);
+bool RecruitCenterSubjectState_DropRewardProbe(
+    SimulationContext *context, double timeStamp,
     RecruitCenterMissionResultProbeSummary *summary);
 const char *RecruitCenterSubjectState_LastError();
 

@@ -14,6 +14,7 @@ class CGRPanel;
 #include "game.h"
 #include "h/vehicle.h"
 #include "h/olevel.h"
+#include "hardware.h"
 #include "briefing.h"
 #include "i/dynobj.i"
 #include "i/player.i"
@@ -22,6 +23,7 @@ class CGRPanel;
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "message/artfmsg.h"
+#include "message/hardmsg.h"
 #include "message/recrcenmsg.h"
 #include "message/unitmsg.h"
 #include "mproj/h/mproj.h"
@@ -1659,6 +1661,33 @@ bool ProcessMissionVisit(SimulationContext *context, double timeStamp,
     return true;
 }
 
+bool SameVector(const CFVector3 &left, const CFVector3 &right)
+{
+    const double epsilon = 1.0e-7;
+    return std::fabs(left.x - right.x) <= epsilon &&
+           std::fabs(left.y - right.y) <= epsilon &&
+           std::fabs(left.z - right.z) <= epsilon;
+}
+
+bool RewardCarrierState(SimulationContext *context, bool expectAttached)
+{
+    if (context == NULL || g_vehicle == NULL ||
+        g_vehicle->getContext() != context || !context->isExist("Artifact"))
+        return false;
+    const KR_ObjectID artefactID = context->searchObject("Artifact");
+    IArtefact *artefact = static_cast<IArtefact *>(
+        context->queryInterface(artefactID, IArtefactIID));
+    if (artefact == NULL) return false;
+    if (!expectAttached)
+        return g_vehicle->m_artefact == NULL &&
+               g_vehicle->m_artefactID.isNUL() &&
+               artefact->m_carrier == NULL && artefact->m_carrierID.isNUL();
+    return g_vehicle->m_artefact == artefact &&
+           g_vehicle->m_artefactID == artefactID &&
+           artefact->m_carrier == static_cast<ICarrier *>(g_vehicle) &&
+           artefact->m_carrierID == g_vehicle->getObjectID();
+}
+
 }  // namespace
 
 void RecruitCenterSubjectState_Link()
@@ -2048,6 +2077,25 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
     summary->rewardInterfaceReady = context->isExist("Artifact") &&
         context->queryInterface(context->searchObject("Artifact"),
                                 IArtefactIID) != NULL ? 1 : 0;
+    const KR_ObjectID reward = context->searchObject("Artifact");
+    summary->pickupAccepted = g_vehicle->carrierOnCollision(
+        g_vehicle->getObjectID(), reward) ? 1 : 0;
+    summary->bidirectionalAttachment =
+        RewardCarrierState(context, true) ? 1 : 0;
+    KR_Event privateEvents[2];
+    summary->carryEventsCancelled =
+        context->copyEvents(ARTEFACT_MOVE, reward, privateEvents, 2) == 0 &&
+        context->copyEvents(ARTEFACT_CHANGEDIR, reward,
+                            privateEvents, 2) == 0 ? 1 : 0;
+    g_vehicle->carrierOnMove();
+    IDynamicObject *rewardDynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(reward, IDynamicObjectIID));
+    CFMatrix3x4 expectedCarry;
+    CFMatrix3x4 actualCarry;
+    g_vehicle->carrierLoadMatrix(expectedCarry);
+    if (rewardDynamic != NULL) rewardDynamic->getMatrix(actualCarry);
+    summary->carryMoveMatched = rewardDynamic != NULL &&
+        SameVector(expectedCarry.Offset(), actualCarry.Offset()) ? 1 : 0;
 
     KR_ObjectID next = KR_ObjectID::NUL();
     if (!FindCenterCandidate(center, &player, &next))
@@ -2074,12 +2122,82 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
         summary->completedMissions == 1 && summary->rewardsCreated == 1 &&
         summary->rewardInterfaceReady == 1 && summary->repaired == 1 &&
         summary->refilled == 1 && summary->repeatIdempotent == 1 &&
+        summary->pickupAccepted == 1 &&
+        summary->bidirectionalAttachment == 1 &&
+        summary->carryEventsCancelled == 1 &&
+        summary->carryMoveMatched == 1 &&
         summary->missionsAfter == summary->missionsBefore - 1 &&
         summary->totalMissionsAfter == summary->totalMissionsBefore &&
         std::strcmp(summary->completedProjectName,
                     summary->nextProjectName) != 0;
     if (!exact)
         SetError("RecruitCenter result invariants did not hold");
+    return exact;
+}
+
+bool RecruitCenterSubjectState_RewardCarrierState(
+    SimulationContext *context, bool expectAttached)
+{
+    g_lastError[0] = 0;
+    const bool matches = RewardCarrierState(context, expectAttached);
+    if (!matches)
+        SetError(expectAttached
+                     ? "RecruitCenter reward carrier link is not restored"
+                     : "RecruitCenter reward carrier link did not detach");
+    return matches;
+}
+
+bool RecruitCenterSubjectState_DropRewardProbe(
+    SimulationContext *context, double timeStamp,
+    RecruitCenterMissionResultProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || summary == NULL || !std::isfinite(timeStamp) ||
+        g_vehicle == NULL || g_vehicle->getContext() != context ||
+        !RewardCarrierState(context, true))
+    {
+        SetError("RecruitCenter reward drop probe has no carried Artifact");
+        return false;
+    }
+    const KR_ObjectID reward = context->searchObject("Artifact");
+    IDynamicObject *dynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(reward, IDynamicObjectIID));
+    if (dynamic == NULL)
+    {
+        SetError("RecruitCenter reward drop probe has no dynamic Artifact");
+        return false;
+    }
+    CFMatrix3x4 vehicleMatrix;
+    g_vehicle->getMatrix(vehicleMatrix);
+    const CFVector3 forward = -vehicleMatrix.Column(2);
+    const CFVector3 expectedDirection = forward * 7.0;
+    const CFVector3 expectedPosition = g_vehicle->getPosition() +
+        forward * (g_vehicle->getRadius0() + 1.5);
+    KR_Event drop(CTRL_BUTTONS_MSG, timeStamp,
+                  g_vehicle->getObjectID(), g_vehicle->getObjectID());
+    drop.data.open(EDO_WRITE)
+        .putInt(DROP_ARTEFACT)
+        .putDouble(1.0)
+        .putInt(0)
+        .putInt(0)
+        .close();
+    summary->dropInputAccepted = g_vehicle->receiveEvent(drop) == 1 ? 1 : 0;
+    summary->bidirectionalDetach = RewardCarrierState(context, false) ? 1 : 0;
+    KR_Event moveEvents[2];
+    const int moveCount = context->copyEvents(
+        ARTEFACT_MOVE, reward, moveEvents, 2);
+    summary->dropMoveEventScheduled = moveCount == 1 &&
+        moveEvents[0].source == reward && moveEvents[0].destination == reward &&
+        moveEvents[0].timeStamp > timeStamp ? 1 : 0;
+    summary->dropMotionMatched =
+        SameVector(dynamic->getPos(), expectedPosition) &&
+        SameVector(dynamic->getMoveDir(), Normal(expectedDirection)) &&
+        std::fabs(dynamic->getMoveSpeed() - 7.0) <= 1.0e-7 ? 1 : 0;
+    const bool exact = summary->dropInputAccepted == 1 &&
+        summary->bidirectionalDetach == 1 &&
+        summary->dropMoveEventScheduled == 1 &&
+        summary->dropMotionMatched == 1;
+    if (!exact) SetError("RecruitCenter reward drop invariants did not hold");
     return exact;
 }
 

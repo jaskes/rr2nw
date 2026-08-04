@@ -43,7 +43,15 @@ class ProbeArtefact final : public IArtefact {
     last_matrix = matrix;
   }
 
-  int attachTo(KR_ObjectID, ICarrier*) override { return 0; }
+  int attachTo(KR_ObjectID carrier_id, ICarrier* carrier) override {
+    if (carrier == nullptr || carrier_id.isNUL() || m_carrier != nullptr ||
+        !m_carrierID.isNUL()) {
+      return 0;
+    }
+    m_carrierID = carrier_id;
+    m_carrier = carrier;
+    return 1;
+  }
 
   void drop(CFMatrix3x4& matrix, double time) override {
     ++drop_count;
@@ -69,8 +77,15 @@ bool ExerciseCarryLifecycle() {
   ProbeArtefact artefact;
   const KR_ObjectID artefact_id(42, 7);
 
+  const KR_ObjectID carrier_id(41, 6);
+  if (!artefact.attachTo(carrier_id, &carrier)) {
+    return false;
+  }
   carrier.carrierTakeArtefact(artefact_id, &artefact);
   if (carrier.m_artefact != &artefact || carrier.m_artefactID != artefact_id) {
+    return false;
+  }
+  if (artefact.m_carrier != &carrier || artefact.m_carrierID != carrier_id) {
     return false;
   }
 
@@ -83,10 +98,14 @@ bool ExerciseCarryLifecycle() {
   carrier.carrierDropArtefact(8.25);
   if (artefact.drop_count != 1 || artefact.drop_time != 8.25 ||
       !SameOffset(artefact.last_matrix, carrier.matrix) ||
-      carrier.m_artefact != nullptr || !carrier.m_artefactID.isNUL()) {
+      carrier.m_artefact != nullptr || !carrier.m_artefactID.isNUL() ||
+      artefact.m_carrier != nullptr || !artefact.m_carrierID.isNUL()) {
     return false;
   }
 
+  if (!artefact.attachTo(carrier_id, &carrier)) {
+    return false;
+  }
   carrier.carrierTakeArtefact(artefact_id, &artefact);
   carrier.carrierOnRemoveArtefact();
   return artefact.drop_count == 1 && carrier.m_artefact == nullptr &&

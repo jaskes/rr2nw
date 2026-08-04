@@ -3339,11 +3339,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       std::vector<std::uint8_t> resultCheckpoint;
       std::vector<std::uint8_t> resultState;
       std::vector<std::uint8_t> resultRecaptured;
+      std::vector<std::uint8_t> resultDropState;
+      std::vector<std::uint8_t> resultDropRecaptured;
       std::vector<std::uint8_t> resultRolledBack;
       SLevelContinuationSummary resultCheckpointSummary;
       SLevelContinuationSummary resultCaptured;
       SLevelContinuationSummary resultRestored;
       SLevelContinuationSummary resultVerified;
+      SLevelContinuationSummary resultDropCaptured;
+      SLevelContinuationSummary resultDropRestored;
+      SLevelContinuationSummary resultDropVerified;
       SLevelContinuationSummary resultRollbackRestored;
       SLevelContinuationSummary resultRollbackVerified;
       const bool checkpointReady =
@@ -3361,7 +3366,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       const bool resultRestoreReady = resultCaptureReady &&
           RecoveredGameServices_RestoreLevelContinuation(
               resultState, &resultRestored);
-      const bool resultRecaptureReady = resultRestoreReady &&
+      const bool resultCarrierRestoreReady = resultRestoreReady &&
+          RecruitCenterSubjectState_RewardCarrierState(
+              g_super.m_context, true);
+      const bool resultRecaptureReady = resultCarrierRestoreReady &&
           RecoveredGameServices_CaptureLevelContinuation(
               &resultRecaptured, &resultVerified);
       const bool resultSaveExact = resultRecaptureReady &&
@@ -3373,7 +3381,33 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           resultCaptured.worldFingerprint ==
               resultRestored.restoredWorldFingerprint &&
           resultCaptured.worldFingerprint == resultVerified.worldFingerprint;
-      const bool resultRollbackReady = resultSaveExact &&
+      const bool resultDropReady = resultSaveExact &&
+          RecruitCenterSubjectState_DropRewardProbe(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_viewTime), &result);
+      const bool resultDropCaptureReady = resultDropReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultDropState, &resultDropCaptured);
+      const bool resultDropRestoreReady = resultDropCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              resultDropState, &resultDropRestored);
+      const bool resultDropDetachReady = resultDropRestoreReady &&
+          RecruitCenterSubjectState_RewardCarrierState(
+              g_super.m_context, false);
+      const bool resultDropRecaptureReady = resultDropDetachReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultDropRecaptured, &resultDropVerified);
+      const bool resultDropSaveExact = resultDropRecaptureReady &&
+          resultDropState == resultDropRecaptured &&
+          resultDropCaptured.ready && resultDropRestored.ready &&
+          resultDropVerified.ready && resultDropCaptured.sections == 16 &&
+          resultDropRestored.ownerPhases == 16 &&
+          resultDropRestored.referencePhases == 16 &&
+          resultDropCaptured.worldFingerprint ==
+              resultDropRestored.restoredWorldFingerprint &&
+          resultDropCaptured.worldFingerprint ==
+              resultDropVerified.worldFingerprint;
+      const bool resultRollbackReady = resultDropSaveExact &&
           RecoveredGameServices_RestoreLevelContinuation(
               resultCheckpoint, &resultRollbackRestored);
       const bool resultRollbackRecaptured = resultRollbackReady &&
@@ -3399,6 +3433,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(result.repaired) + "/" +
                std::to_string(result.refilled) + "/" +
                std::to_string(result.repeatIdempotent));
+      log.Line("mission_result_carrier=" +
+               std::to_string(result.pickupAccepted) + "/" +
+               std::to_string(result.bidirectionalAttachment) + "/" +
+               std::to_string(result.carryEventsCancelled) + "/" +
+               std::to_string(result.carryMoveMatched) + "/" +
+               std::to_string(resultCarrierRestoreReady ? 1 : 0));
+      log.Line("mission_result_drop=" +
+               std::to_string(result.dropInputAccepted) + "/" +
+               std::to_string(result.bidirectionalDetach) + "/" +
+               std::to_string(result.dropMoveEventScheduled) + "/" +
+               std::to_string(result.dropMotionMatched));
       log.Line("mission_result_progress=" +
                std::to_string(result.missionsBefore) + "/" +
                std::to_string(result.missionsAfter) + "/" +
@@ -3409,6 +3454,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(resultRestoreReady ? 1 : 0) + "/" +
                std::to_string(resultRecaptureReady ? 1 : 0) + "/" +
                std::to_string(resultSaveExact ? 1 : 0));
+      log.Line("mission_result_drop_save=" +
+               std::to_string(resultDropCaptureReady ? 1 : 0) + "/" +
+               std::to_string(resultDropRestoreReady ? 1 : 0) + "/" +
+               std::to_string(resultDropRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(resultDropSaveExact ? 1 : 0));
       log.Line("mission_result_rollback=" +
                std::to_string(resultRollbackReady ? 1 : 0) + "/" +
                std::to_string(resultRollbackRecaptured ? 1 : 0) + "/" +
@@ -3416,10 +3466,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       if (!resultReady)
         log.Line(std::string("mission_result_error=") +
                  RecruitCenterSubjectState_LastError());
-      else if (!resultSaveExact || !resultRollbackExact)
+      else if (!resultSaveExact || !resultDropSaveExact ||
+               !resultRollbackExact)
         log.Line(std::string("mission_result_error=") +
                  RecoveredGameServices_LastLevelContinuationError());
-      loopFailed = !resultReady || !resultSaveExact || !resultRollbackExact;
+      loopFailed = !resultReady || !resultSaveExact ||
+          !resultDropSaveExact || !resultRollbackExact;
     }
     if (!loopFailed && saveAfterMission) {
       const bool missionSaveRequested =

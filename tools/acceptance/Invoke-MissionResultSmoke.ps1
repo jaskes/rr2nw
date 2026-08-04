@@ -78,6 +78,11 @@ foreach ($configurationName in $Configuration) {
     $progress = [regex]::Match(
         $startup, 'mission_result_progress=(\d+)/(\d+)/(\d+)/(\d+)')
     $save = [regex]::Match($startup, 'mission_result_save=1/1/1/1')
+    $carrier = [regex]::Match(
+        $startup, 'mission_result_carrier=1/1/1/1/1')
+    $drop = [regex]::Match($startup, 'mission_result_drop=1/1/1/1')
+    $dropSave = [regex]::Match(
+        $startup, 'mission_result_drop_save=1/1/1/1')
     $rollback = [regex]::Match($startup, 'mission_result_rollback=1/1/1')
     $issues = [Collections.Generic.List[string]]::new()
     if ($timedOut) { $issues.Add("timeout") }
@@ -101,6 +106,11 @@ foreach ($configurationName in $Configuration) {
         $issues.Add("mission progression counters diverged")
     }
     if (-not $save.Success) { $issues.Add("post-result save proof missing") }
+    if (-not $carrier.Success) { $issues.Add("Artifact carry proof missing") }
+    if (-not $drop.Success) { $issues.Add("Artifact drop proof missing") }
+    if (-not $dropSave.Success) {
+        $issues.Add("post-drop save proof missing")
+    }
     if (-not $rollback.Success) { $issues.Add("pre-result rollback proof missing") }
     if ($startup -notmatch 'game_services_issues=0') {
         $issues.Add("game service issue reported")
