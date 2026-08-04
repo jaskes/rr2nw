@@ -1,5 +1,7 @@
 #include "ArtefactAttributeState.h"
 
+#include <cmath>
+
 #include "h/cachesmoke.h"
 #include "kernel/h/context.h"
 #include "kernel/h/s_debug.h"

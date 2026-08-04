@@ -282,7 +282,7 @@ failure after successful gameplay-authority validation and requires exact
 destination-local and occupied-source LCN1 bytes after the two rollback layers.
 
 `tools/acceptance/Invoke-FreshLevelContinuationMatrix.ps1` requires the
-`LCN1-15/15/15`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
+`LCN1-16/16/16`, `RR2SLOT1-3` and `load_retry=1/2` proof markers for every
 selected retail case.
 
 `tools/acceptance/Invoke-MissionRouteSaveLoad.ps1` covers the separate
@@ -291,6 +291,12 @@ created `Route/S22/ms.rt`, destroys that process and requires both a fresh
 same-Level restore and `Level.02D -> Level.03N` coordinator restore. MSH1 v2
 binds the virtual Route identity to its geometry; MSH1 v1 slots migrate only
 after semantic byte-equivalence is proven.
+
+MSH1 v3 additionally persists the command-35 reward flag; v1/v2 migrate it as
+disabled. ART1 is the sixteenth required owner section and persists every live
+Artefact plus its optional carrier relation and private deadlines. The mission
+result gate captures and fresh-ID restores the completed world containing
+`Artifact`, then restores the exact pre-result checkpoint.
 
 The current accepted local Windows gate is 67/67 CTest in Debug, Release and
 Playtest,

@@ -1300,6 +1300,7 @@ target_compile_definitions(rr2nw_graph_d3d_full PRIVATE
 
 add_library(rr2nw_graph_runtime_state STATIC
   nw/GRAPH/GraphRuntimeState.cpp
+  nw/GRAPH/GraphRayRuntime.cpp
 )
 target_link_libraries(rr2nw_graph_runtime_state PUBLIC
   rr2nw_graph_palette_full
@@ -3015,6 +3016,8 @@ endif()
 
 add_library(rr2nw_arena_obase_artefact STATIC
   nw/ARENA/OBASE/Artefact/Artefact.cpp
+  nw/ARENA/OBASE/Artefact/ArtefactActiveWorldState.cpp
+  nw/ARENA/OBASE/Artefact/ArtefactActiveWorldState.h
 )
 target_link_libraries(
   rr2nw_arena_obase_artefact PUBLIC
@@ -3039,6 +3042,13 @@ target_compile_definitions(rr2nw_arena_obase_artefact PRIVATE
 if(MSVC)
   target_compile_options(
     rr2nw_arena_obase_artefact PRIVATE /W3 /permissive- /wd4081
+  )
+  # Artefact.cpp owns the legacy class-table registration through a file-local
+  # static.  There is no public symbol for a consumer to reference, so a
+  # conventional static-library link can discard the registration unit even
+  # while ART1 helpers are retained.  Keep this one tiny subject library whole.
+  target_link_options(rr2nw_arena_obase_artefact INTERFACE
+    "/WHOLEARCHIVE:$<TARGET_FILE:rr2nw_arena_obase_artefact>"
   )
 endif()
 
@@ -3095,6 +3105,7 @@ add_library(rr2nw_arena_obase_recrcen STATIC
 target_link_libraries(rr2nw_arena_obase_recrcen PUBLIC
   rr2nw_arena_storage
   rr2nw_arena_obase_vehicle
+  rr2nw_arena_obase_artefact
   rr2nw_mod_runtime
   rr2nw_recovered_legacy_script_runtime
   rr2nw_legacy_shell_full
@@ -3688,6 +3699,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_arena_obase_commander_group_full
   rr2nw_arena_bird_attribute_state
   rr2nw_arena_artefact_attribute_state
+  rr2nw_arena_obase_artefact
   rr2nw_arena_obase_orphan_full
   rr2nw_arena_obase_portal
   rr2nw_arena_obase_teleport

@@ -71,6 +71,7 @@ struct StartupOptions {
   bool missionCombatSmoke = false;
   bool missionNaturalCombatSmoke = false;
   bool missionContinuationSmoke = false;
+  bool missionResultSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
   bool showVersion = false;
@@ -311,6 +312,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionContinuationSmoke = true;
+    } else if (argument == L"--mission-result-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionResultSmoke = true;
     } else if (argument == L"--debug-menu") {
       options->debugMenu = true;
     } else if (argument == L"--help" || argument == L"-h") {
@@ -1002,7 +1007,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-combat-smoke |\n"
                 L"           --mission-natural-combat-smoke |\n"
-                L"           --mission-continuation-smoke]\n"
+                L"           --mission-continuation-smoke |\n"
+                L"           --mission-result-smoke]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
     return kSuccess;
@@ -3329,6 +3335,92 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(missionVehicle.exactRollbacks));
       loopFailed = !missionVehicleReady;
     }
+    if (!loopFailed && options.missionResultSmoke) {
+      std::vector<std::uint8_t> resultCheckpoint;
+      std::vector<std::uint8_t> resultState;
+      std::vector<std::uint8_t> resultRecaptured;
+      std::vector<std::uint8_t> resultRolledBack;
+      SLevelContinuationSummary resultCheckpointSummary;
+      SLevelContinuationSummary resultCaptured;
+      SLevelContinuationSummary resultRestored;
+      SLevelContinuationSummary resultVerified;
+      SLevelContinuationSummary resultRollbackRestored;
+      SLevelContinuationSummary resultRollbackVerified;
+      const bool checkpointReady =
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultCheckpoint, &resultCheckpointSummary);
+      RecruitCenterMissionResultProbeSummary result = {};
+      const bool resultReady = checkpointReady &&
+          RecruitCenterSubjectState_CompleteMissionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.1),
+              mission.centerName, &result);
+      const bool resultCaptureReady = resultReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultState, &resultCaptured);
+      const bool resultRestoreReady = resultCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              resultState, &resultRestored);
+      const bool resultRecaptureReady = resultRestoreReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultRecaptured, &resultVerified);
+      const bool resultSaveExact = resultRecaptureReady &&
+          resultState == resultRecaptured && resultCaptured.ready &&
+          resultRestored.ready && resultVerified.ready &&
+          resultCaptured.sections == 16 &&
+          resultRestored.ownerPhases == 16 &&
+          resultRestored.referencePhases == 16 &&
+          resultCaptured.worldFingerprint ==
+              resultRestored.restoredWorldFingerprint &&
+          resultCaptured.worldFingerprint == resultVerified.worldFingerprint;
+      const bool resultRollbackReady = resultSaveExact &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              resultCheckpoint, &resultRollbackRestored);
+      const bool resultRollbackRecaptured = resultRollbackReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &resultRolledBack, &resultRollbackVerified);
+      const bool resultRollbackExact = resultRollbackRecaptured &&
+          resultCheckpoint == resultRolledBack &&
+          resultCheckpointSummary.ready && resultRollbackRestored.ready &&
+          resultRollbackVerified.ready &&
+          resultCheckpointSummary.worldFingerprint ==
+              resultRollbackRestored.restoredWorldFingerprint &&
+          resultCheckpointSummary.worldFingerprint ==
+              resultRollbackVerified.worldFingerprint;
+      log.Line(std::string("mission_result_project=") +
+               result.completedProjectName + "/" + result.nextProjectName);
+      log.Line("mission_result_conditions=" +
+               std::to_string(result.conditionsRemoved) + "/" +
+               std::to_string(result.statusTransitions));
+      log.Line("mission_result_commit=" +
+               std::to_string(result.completedMissions) + "/" +
+               std::to_string(result.rewardsCreated) + "/" +
+               std::to_string(result.rewardInterfaceReady) + "/" +
+               std::to_string(result.repaired) + "/" +
+               std::to_string(result.refilled) + "/" +
+               std::to_string(result.repeatIdempotent));
+      log.Line("mission_result_progress=" +
+               std::to_string(result.missionsBefore) + "/" +
+               std::to_string(result.missionsAfter) + "/" +
+               std::to_string(result.totalMissionsBefore) + "/" +
+               std::to_string(result.totalMissionsAfter));
+      log.Line("mission_result_save=" +
+               std::to_string(resultCaptureReady ? 1 : 0) + "/" +
+               std::to_string(resultRestoreReady ? 1 : 0) + "/" +
+               std::to_string(resultRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(resultSaveExact ? 1 : 0));
+      log.Line("mission_result_rollback=" +
+               std::to_string(resultRollbackReady ? 1 : 0) + "/" +
+               std::to_string(resultRollbackRecaptured ? 1 : 0) + "/" +
+               std::to_string(resultRollbackExact ? 1 : 0));
+      if (!resultReady)
+        log.Line(std::string("mission_result_error=") +
+                 RecruitCenterSubjectState_LastError());
+      else if (!resultSaveExact || !resultRollbackExact)
+        log.Line(std::string("mission_result_error=") +
+                 RecoveredGameServices_LastLevelContinuationError());
+      loopFailed = !resultReady || !resultSaveExact || !resultRollbackExact;
+    }
     if (!loopFailed && saveAfterMission) {
       const bool missionSaveRequested =
           RecoveredGameServices_RequestSaveSlot(
@@ -3355,9 +3447,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       const bool successfulExact =
           recaptureReady && continuation == recaptured &&
           captured.ready && restored.ready && verified.ready &&
-          captured.sections == 15 && restored.sections == 15 &&
-          restored.ownerPhases == 15 &&
-          restored.referencePhases == 15 &&
+          captured.sections == 16 && restored.sections == 16 &&
+          restored.ownerPhases == 16 &&
+          restored.referencePhases == 16 &&
           captured.worldFingerprint == restored.restoredWorldFingerprint &&
           captured.worldFingerprint == verified.worldFingerprint;
       SLevelContinuationSummary rejected;
@@ -3375,7 +3467,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               &rolledBack, &rollbackVerified);
       const bool rollbackExact = rollbackRecaptured &&
           rolledBack == continuation && rollbackVerified.ready &&
-          rollbackVerified.sections == 15 &&
+          rollbackVerified.sections == 16 &&
           rollbackVerified.worldFingerprint == captured.worldFingerprint;
       const bool exact = successfulExact && rollbackExact;
       log.Line("mission_continuation_capture=" +

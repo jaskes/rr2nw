@@ -413,6 +413,25 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  if (!Expect(GRSoftwareBeginFrame(5) == TRUE,
+              "ray proof frame clear failed")) {
+    return EXIT_FAILURE;
+  }
+  GRDrawRay(-20, 0, 20, 0,
+            static_cast<unsigned long>(
+                reinterpret_cast<std::uintptr_t>(blendTable)),
+            255, 65536, 4.0f, 0.5f);
+  SGRSoftwareRasterStats rayFrame = {};
+  GRSoftwareGetFrameStats(&rayFrame);
+  if (!Expect(Pixel(screen, -10, 0) == 20 &&
+                  Pixel(screen, 10, 0) == 20 &&
+                  rayFrame.submitted == 2 && rayFrame.accepted == 2 &&
+                  rayFrame.rasterized == 2 &&
+                  rayFrame.transparentPixels != 0,
+              "recovered tapered transparent ray did not rasterize")) {
+    return EXIT_FAILURE;
+  }
+
   GRDeleteTextureFromDB(alphaTexture);
   GRDeleteTextureFromDB(spriteTexture);
   GRDeleteTextureFromDB(opaqueTexture);

@@ -3719,13 +3719,27 @@ bool PublishArtefactAttributes(SimulationContext* context) {
            "script did not create Artefact.Attr.0");
     return false;
   }
-  if (!ArtefactAttributeState_IsRetailDefault(artefact)) {
+  if (!ArtefactAttributeState_IsRetailDefault(artefact) ||
+      !ArtefactAttributeState_CachesUnresolved(context)) {
     Report(RECOVERED_ARENA_SEANCE_ARTEFACT_DEFAULT_INVALID,
            "Artefact.Attr.0 does not match the retail common attribute");
     return false;
   }
 
   g_state.artefactAttributesReady = true;
+  return true;
+}
+
+bool InitializeArtefactSubjectTable(SimulationContext* context) {
+  if (context == nullptr || g_arena.getContext() != context) return false;
+  const ct_ClassTableID existing =
+      g_arena.searchSeanceClassTable("Artefact");
+  if (existing != ct_NULLID) return true;
+  if (g_arena.addClassTable("Artefact", 5) == ct_NULLID) {
+    Report(RECOVERED_ARENA_SEANCE_SCRIPT_PROCESS_FAILURE,
+           "Artefact subject table allocation failed");
+    return false;
+  }
   return true;
 }
 
@@ -6245,6 +6259,10 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
     RecoveredArenaSeance_Release();
     return FALSE;
   }
+  if (!InitializeArtefactSubjectTable(context)) {
+    RecoveredArenaSeance_Release();
+    return FALSE;
+  }
 
   try {
     TaxiSubjectScriptSummary taxiSubjectScript = {};
@@ -6405,6 +6423,11 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
       RecoveredArenaSeance_Release();
       return FALSE;
     }
+
+    // Source-only seance probes deliberately omit visual files.  Preserve
+    // that supported deferral while eagerly resolving the retail installation;
+    // the reward transaction repeats this bounded check before factory use.
+    (void)ArtefactAttributeState_ResolveReferences(context, startTime);
 
     if (!PublishBulletReferences(context) ||
         !PublishVehicleReferences(context) ||

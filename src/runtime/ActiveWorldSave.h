@@ -22,7 +22,8 @@ enum class EActiveWorldSectionKind : std::uint32_t {
   Clock = 13,
   Taxi = 14,
   Orphan = 15,
-  Howitzer = 16
+  Howitzer = 16,
+  Artefact = 17
 };
 
 enum class EActiveWorldSaveError : std::uint32_t {

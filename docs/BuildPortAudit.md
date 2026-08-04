@@ -3671,8 +3671,9 @@ Howitzer START handler during reconstruction ran AI and could create a Bullet
 after the Bullet section had been applied. Identity/visual binding is now
 separate from behavior start. Private queues replay backwards because the
 legacy kernel inserts before equal timestamps; Level.01N proves the exact
-source order. The fresh continuation contract is `LCN1-15/15/15`, active-world
-engine compatibility is 4, and Howitzer is the fifteenth required owner.
+source order. The fresh continuation contract is `LCN1-16/16/16`, active-world
+engine compatibility is 4, Howitzer is the fifteenth required owner and
+Artefact/ART1 is the sixteenth.
 
 ## Optimized-link ownership and support-surface handover
 
@@ -3711,6 +3712,14 @@ which enables a three-process acceptance gate: mission save, fresh same-Level
 load and fresh cross-Level load. This closes the lifecycle gap that an
 in-context continuation smoke could not expose because its Route owner never
 left memory.
+
+Mission result recovery advances MSH1 to version 3 for the command-35 reward
+flag and adds ART1 as a full owner section. The reward uses the real Artefact
+class/interface and deferred reference cache; optimized builds retain that
+file-local registration explicitly. A maintained software `GRDrawRay` fallback
+closes the previously missing corona link without reviving the retired D3D
+path. The result gate proves one real reward and byte-exact post-result restore
+plus pre-result rollback.
 
 ## May People state and event-26012 recovery
 

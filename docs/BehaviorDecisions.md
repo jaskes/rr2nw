@@ -5224,3 +5224,27 @@ quota remains. This mirrors the existing exclusion of an uncommitted pending
 START owner. The natural `Robot_01` gate proved the issue with 25 real
 projectiles and 24 scene impacts, then passed combat, restore and byte-exact
 recapture after the boundary was corrected.
+
+### BD-146: mission completion and its Artefact are one continuation boundary
+
+Status: accepted on 2026-08-04 for RecruitCenter result publication.
+
+A terminal PlayerMission is consumed only during a RecruitCenter revisit.
+Success first validates every dependency, then creates the command-35 reward,
+rewrites mission-check indices, removes the mission, repairs/refills the active
+Vehicle and exposes the highest eligible project. Failure and surrender remove
+the terminal mission without a reward. An active mission remains idempotently
+blocking. Result handling must not increment the cumulative completed-mission
+counter a second time.
+
+The reward is a real `Artefact` named `Artifact`, not presentation telemetry.
+Its class, `Artefact.Attr.0` references, IArtefact interface and finite pose must
+all exist before the mission result commits. Any failed publication removes the
+owner and both private event labels. The recovered May field writes place it at
+center-relative `+50/+30`; change that only from controlled retail evidence.
+
+MSH1 v3 owns the mission reward flag and migrates older slots with the flag
+disabled. ART1 owns live Artefact identity, dependencies, carrier relation,
+pose, direction and private scheduler deadlines. Capture excludes no partially
+initialized reward, and restore must reproduce all sixteen active-world owner
+sections exactly before references/events publish.

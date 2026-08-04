@@ -98,6 +98,11 @@ class AttributeTableArtefact : public ct_AttributeTable
 extern AttributeTableArtefact __attrArtefactTable;
 
 void ArtefactAttributeState_Link();
+bool ArtefactAttributeState_IsKnown(const KR_ObjectID &objectID);
 bool ArtefactAttributeState_IsRetailDefault(const KR_ObjectID &objectID);
+bool ArtefactAttributeState_CachesUnresolved(SimulationContext *context);
+bool ArtefactAttributeState_ResolveReferences(SimulationContext *context,
+                                              double timeStamp);
+bool ArtefactAttributeState_ReferencesResolved(SimulationContext *context);
 
 #endif

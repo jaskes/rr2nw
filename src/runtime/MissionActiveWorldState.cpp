@@ -22,7 +22,8 @@ namespace {
 
 const std::uint32_t kMissionMagic = 0x3148534du;  // MSH1
 const std::uint32_t kMissionLegacyVersion = 1u;
-const std::uint32_t kMissionVersion = 2u;
+const std::uint32_t kMissionRouteGeometryVersion = 2u;
+const std::uint32_t kMissionVersion = 3u;
 const std::size_t kMaximumMissions = 6;
 const std::size_t kMaximumReferences = KR_SetOfID::MAX_ID_CNT;
 const std::size_t kMaximumSymbolic = MAX_SYMBOLIC_LENGHT - 1;
@@ -51,6 +52,7 @@ struct StableReached {
 struct StableMission {
   int successFirst;
   int status;
+  int giveArtefact;
   StableReference project;
   StableReference commander;
   int hasSummary;
@@ -69,7 +71,7 @@ struct StableMission {
   std::vector<StableReached> failureReached;
 
   StableMission()
-      : successFirst(1), status(MISSION_NONE), hasSummary(0),
+      : successFirst(1), status(MISSION_NONE), giveArtefact(0), hasSummary(0),
         widthStart(0.0), widthEnd(0.0), color(0),
         routeGeometryFingerprint(0) {}
 };
@@ -313,6 +315,7 @@ bool CaptureState(SimulationContext *context, StableState *state) {
     StableMission mission;
     mission.successFirst = source.success_filed;
     mission.status = static_cast<int>(source.m_status);
+    mission.giveArtefact = source.m_giveArtefact;
     mission.hasSummary = source.m_missionInfoExist;
     if (!CaptureReference(context, source.mID, &mission.project) ||
         !CaptureReference(context, source.comID, &mission.commander) ||
@@ -390,8 +393,8 @@ bool EncodeReachedSet(Writer *writer,
 
 bool EncodeStateVersion(const StableState &state, std::uint32_t version,
                         std::vector<unsigned char> *bytes) {
-  if (bytes == NULL ||
-      (version != kMissionLegacyVersion && version != kMissionVersion))
+  if (bytes == NULL || version < kMissionLegacyVersion ||
+      version > kMissionVersion)
     return false;
   bytes->clear();
   Writer writer = {bytes};
@@ -405,6 +408,8 @@ bool EncodeStateVersion(const StableState &state, std::uint32_t version,
     const StableMission &mission = state.missions[index];
     writer.I32(mission.successFirst);
     writer.I32(mission.status);
+    if (version >= kMissionVersion)
+      writer.I32(mission.giveArtefact);
     if (!EncodeReference(&writer, mission.project) ||
         !EncodeReference(&writer, mission.commander))
       return false;
@@ -418,7 +423,7 @@ bool EncodeStateVersion(const StableState &state, std::uint32_t version,
       writer.U32(mission.color);
       if (!EncodeReference(&writer, mission.route))
         return false;
-      if (version >= 2u) {
+      if (version >= kMissionRouteGeometryVersion) {
         writer.U32(static_cast<std::uint32_t>(
             mission.routeGeometryFingerprint));
         writer.U32(static_cast<std::uint32_t>(
@@ -520,6 +525,7 @@ bool ValidateState(const StableState &state) {
     const StableMission &mission = state.missions[index];
     if ((mission.successFirst != 0 && mission.successFirst != 1) ||
         mission.status < MISSION_NONE || mission.status > MISSION_SURRENDER ||
+        (mission.giveArtefact != 0 && mission.giveArtefact != 1) ||
         !ValidateReference(mission.project) ||
         !ValidateReference(mission.commander) ||
         (mission.hasSummary != 0 && mission.hasSummary != 1) ||
@@ -559,7 +565,7 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
   std::uint32_t magic = 0, version = 0, count = 0;
   if (!reader.U32(&magic) || !reader.U32(&version) ||
       magic != kMissionMagic ||
-      (version != kMissionLegacyVersion && version != kMissionVersion) ||
+      (version < kMissionLegacyVersion || version > kMissionVersion) ||
       !reader.String(&state->vehicle, kMaximumSymbolic) ||
       !reader.I32(&state->totalMissionCount) || !reader.U32(&count) ||
       count > kMaximumMissions)
@@ -568,6 +574,8 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
   for (std::size_t index = 0; index < state->missions.size(); ++index) {
     StableMission &mission = state->missions[index];
     if (!reader.I32(&mission.successFirst) || !reader.I32(&mission.status) ||
+        (version >= kMissionVersion &&
+         !reader.I32(&mission.giveArtefact)) ||
         !DecodeReference(&reader, &mission.project) ||
         !DecodeReference(&reader, &mission.commander) ||
         !reader.I32(&mission.hasSummary))
@@ -579,7 +587,7 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
           !reader.Double(&mission.widthEnd) || !reader.U32(&mission.color) ||
           !DecodeReference(&reader, &mission.route))
         return false;
-      if (version >= 2u) {
+      if (version >= kMissionRouteGeometryVersion) {
         std::uint32_t low = 0, high = 0;
         if (!reader.U32(&low) || !reader.U32(&high))
           return false;
@@ -598,7 +606,7 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
   }
   if (reader.offset != bytes.size() || !ValidateState(*state))
     return false;
-  if (version >= 2u) {
+  if (version >= kMissionRouteGeometryVersion) {
     for (std::size_t index = 0; index < state->missions.size(); ++index) {
       const StableMission &mission = state->missions[index];
       if ((mission.route.kind == kReferenceSymbolic) !=
@@ -698,6 +706,7 @@ bool ApplyState(SimulationContext *context, const StableState &state) {
     mission.startInitialize(links.project, links.commander);
     mission.success_filed = saved.successFirst;
     mission.m_status = static_cast<MISSION_STATUS>(saved.status);
+    mission.m_giveArtefact = saved.giveArtefact;
     mission.m_TMissionId = -1;
     mission.m_missionInfoExist = saved.hasSummary;
     mission.m_missionName[0] = 0;
@@ -826,11 +835,15 @@ bool MissionActiveWorldState_ValidateStable(
 bool MissionActiveWorldState_ProbeLegacyVersionCompatibility(
     SimulationContext *context) {
   StableState state;
-  std::vector<unsigned char> legacy;
+  std::vector<unsigned char> version1;
+  std::vector<unsigned char> version2;
   return CaptureState(context, &state) && ValidateState(state) &&
-         EncodeStateVersion(state, kMissionLegacyVersion, &legacy) &&
-         MissionActiveWorldState_ValidateStable(legacy) &&
-         MissionActiveWorldState_MatchesStable(context, legacy);
+         EncodeStateVersion(state, kMissionLegacyVersion, &version1) &&
+         EncodeStateVersion(state, kMissionRouteGeometryVersion, &version2) &&
+         MissionActiveWorldState_ValidateStable(version1) &&
+         MissionActiveWorldState_ValidateStable(version2) &&
+         MissionActiveWorldState_MatchesStable(context, version1) &&
+         MissionActiveWorldState_MatchesStable(context, version2);
 }
 
 bool MissionActiveWorldState_RouteRequirements(

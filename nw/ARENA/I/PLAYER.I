@@ -58,12 +58,16 @@ public:
 	
     
 	MISSION_STATUS m_status;
+	// May 1999 command 35 stores this on the mission itself.  The flag is
+	// consumed only after a successful return to the issuing RecruitCenter.
+	int         m_giveArtefact;
 
     PlayerMission() {}
     void startInitialize(KR_ObjectID oID, KR_ObjectID _comID)
     {
         success_filed = 1;
         m_status      = MISSION_NONE;
+		m_giveArtefact = 0;
 
         mID   = oID;
         comID = _comID;

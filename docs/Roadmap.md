@@ -1811,7 +1811,7 @@ observation and a rollback-safe Vehicle/Taxi transfer.
 
 The Howitzer continuation boundary is now closed. `Level.05D` `ProjectA32`
 creates six real holder-backed subjects and eighteen preserved timers; schema
-4 reconstructs all fifteen active-world sections byte-identically and rolls
+4 reconstructs all sixteen active-world sections byte-identically and rolls
 the prior world back after an injected late failure.
 
 The People state/cadence half of this campaign slice is now closed. Mission
@@ -1891,8 +1891,14 @@ fires and produces a dynamic Bullet impact before exact LCN1 rollback. The
 world-space attack-target correction also removes the legacy origin-collapse
 path that could make aircraft jump or circle away from their target.
 
+Mission reward/completion is now closed at the maintained transaction boundary:
+real kill conditions produce success, command 35 produces one `Artifact`, the
+center repairs/refills the Vehicle, removes the terminal mission and selects the
+highest newly eligible project. MSH1 v3 and ART1 make both post-result save/load
+and pre-result rollback byte-exact across all sixteen owner sections.
+
 The next gameplay row is the visible guide/occupied-Vehicle town-route repeat,
-followed by mission reward/completion and Portal admission.
+followed by Artefact pickup/carry/drop and Portal admission.
 Timed and natural public-mission acquisition, attributed projectile damage,
 robot death effects and exact rollback are no longer part of that open row.
 

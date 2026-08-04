@@ -302,11 +302,11 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 - BUMP and active-light approximation counters remain zero;
 - `DITH.DTH` loads and the final framebuffer has a non-zero fingerprint and
   contains pixels different from its clear colour.
-- active-world format v1, engine compatibility 4, is initialized with `15/5`
-  for fourteen
+- active-world format v1, engine compatibility 4, is initialized with `16/5`
+  for sixteen
   Commander/TankGroup/People/Tank/Vehicle/Mission/Bullet/Explosion/Spark/Smoke/
-  Corpse/Clock/Taxi/Orphan owner sections and four versioned semantic events,
-  then reports `15/15/5`
+  Corpse/Clock/Taxi/Orphan/Howitzer/Artefact owner sections and five versioned
+  semantic-event families, then reports `16/16/5`
   owner/reference/event restore phases, `1/1`
   corruption/rollback proof and non-zero container size/fingerprint;
 - `continuation_state_probe` is `1/1/12/<draws>/1`: one canonical `CLK1`
@@ -851,6 +851,30 @@ an authored mission-time-100 start; do not shorten it by changing live state.
 This closes the automated unassisted pursuit boundary. A visible run remains
 useful for animation and flight-path parity, while guide/Vehicle obstruction
 is a separate manual and implementation row.
+
+## Mission result, reward and continuation pass
+
+This non-interactive gate accepts the real Level.03N Inhabitants mission,
+completes its authored kill condition, revisits the RecruitCenter and crosses
+both sides of the result transaction:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionResultSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+Each row must advance from `ProjectS22` to a different eligible project,
+remove at least one real condition owner, report
+`mission_result_commit=1/1/1/1/1/1`, preserve the cumulative mission count,
+and prove `mission_result_save=1/1/1/1` plus
+`mission_result_rollback=1/1/1`. The created `Artifact` must expose the real
+IArtefact interface; the repeated result call must be idempotent. The process
+must finish with zero service issues, `marker=level-ready` and clean shutdown.
+
+This gate proves result ownership and persistence. Picking the reward up,
+carrying it through a Portal and matching the exact retail reward offset remain
+the next visible/manual campaign boundary.
 
 ## Mission-guide dynamic obstruction pass
 

@@ -363,8 +363,8 @@ bool LevelContinuation_RestoreWorld(
   summary->worldMatches = verifiedWorldFingerprint ==
                           sourceWorld.worldFingerprint;
   summary->ready = restoreSummary.ready && summary->boundaryMatches &&
-                   summary->worldMatches && summary->ownerPhases == 15 &&
-                   summary->referencePhases == 15 &&
+                   summary->worldMatches && summary->ownerPhases == 16 &&
+                   summary->referencePhases == 16 &&
                    summary->eventPhases == summary->events;
   if (!summary->ready) {
     SetFailure(failure, "fresh Level recapture diverged from LCN1");

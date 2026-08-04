@@ -4497,7 +4497,7 @@ bool RecoveredGameServices_ProcessPendingDebugCommand() {
         RecoveredGameServices_CaptureLevelContinuation(
             &destroyedContinuation, &destroyedSummary);
     completed = destructionCaptured && destroyedSummary.ready &&
-        destroyedSummary.sections == 15 &&
+        destroyedSummary.sections == 16 &&
         destroyedSummary.worldFingerprint != 0 &&
         destroyedSummary.containerFingerprint != 0;
     if (completed) {

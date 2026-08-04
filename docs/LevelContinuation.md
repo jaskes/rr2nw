@@ -119,8 +119,8 @@ retail proof with a real atomic disk slot.
 
 The fingerprint covers the admitted dynamic world: Commander, TankGroup,
 People, Tank/Cannon, Vehicle, Player mission state, Bullet, Explosion, Spark,
-Smoke, Corpse/DynSmoker, Clock, Taxi, Orphan, Howitzer, simulation RNG and supported
-semantic events. `TXI1` and `ORP1` preserve repeated retail names by stable
+Smoke, Corpse/DynSmoker, Clock, Taxi, Orphan, Howitzer, Artefact, simulation
+RNG and supported semantic events. `TXI1` and `ORP1` preserve repeated retail names by stable
 occurrence order inside each equal-name group; uniqueness is not assumed.
 ORP1 also preserves the exact private moving event that resumes a falling body
 after reconstruction. AWV1 remains format version 1 with engine compatibility
@@ -130,10 +130,12 @@ Live owner families outside that admitted set require their own section before
 they may cross a public save boundary.
 
 Mission Routes are reloaded resources but their object identity is mutable
-mission state. MSH1 version 2 stores the symbolic identity plus node-geometry
-fingerprint. Fresh restore resolves that identity against both the mod-aware
+mission state. MSH1 version 3 stores the symbolic identity, node-geometry
+fingerprint and reward flag. Fresh restore resolves that identity against both the mod-aware
 virtual relative path and authored Route header; version 1 remains readable
-through semantic migration. The three-process mission Route gate is documented
+through semantic migration, while versions 1/2 default the reward flag off.
+ART1 restores live Artefact identity, dependencies, optional carrier relation,
+pose and private events. The three-process mission Route gate is documented
 in [`ManualAcceptance.md`](ManualAcceptance.md).
 
 Atomic named slots, bounded metadata/optional preview, same- and cross-Level

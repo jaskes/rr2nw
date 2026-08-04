@@ -7,6 +7,19 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- RecruitCenter revisits now commit terminal mission results instead of
+  permanently blocking on the completed slot. Success removes the mission,
+  repairs/refills the active Vehicle, creates the authored `Artifact` reward
+  when command 35 requested it and advances to the highest eligible project;
+  failure/surrender remove the terminal mission without a reward.
+- MSH1 version 3 preserves `m_giveArtefact`, and the new ART1 active-world
+  section reconstructs live Artefact identity, attribute, carrier relation,
+  pose, direction and private events. Post-result save/load and rollback are
+  byte-exact across all sixteen owner sections.
+- The software renderer now owns the missing `GRDrawRay` fallback used by the
+  Artefact corona. The mission-result acceptance gate proves real condition
+  completion, one reward, repair/refill, idempotence, project progression and
+  exact pre/post-result continuation.
 - Free-flight People attack targets now remain in world space when authored
   `maxOutDist` clamping activates. The legacy branches scaled a relative
   vector and stored it as an absolute position, which could pull mission

@@ -353,6 +353,7 @@ void *Vehicle::queryInterface( int interNum )
 
     case IVehicleIID:       return this;
     case IPlayerIID:        return (IPlayer*)(&m_player);
+    case ICarrierIID:       return (ICarrier*)this;
     }
 
     return 0;

@@ -3990,7 +3990,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   order. This preserves chronological order and the original order of every
   equal-time subgroup. Field-level diagnostics now report the holder and exact
   divergent field/source if a future codec regresses.
-- Verification: focused Level.01N fresh continuation passes `LCN1-15/15/15`,
+- Verification: focused Level.01N fresh continuation passes `LCN1-16/16/16`,
   and restore-time START suppression prevents the previously observed Bullet
   mutation during backup rollback.
 - Revisit when: the kernel event queue gains a maintained stable sequence ID.
@@ -4279,6 +4279,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   complete `1011` destruction and occupied-save/load masks in every profile.
 - Revisit when: repeat the original visible Level.01 mission route for visual
   parity. Keep guide/Vehicle path obstruction as a separate route/contact row.
+
+### CQ-217: completed missions blocked RecruitCenter progression and rewards
+
+- Status: `MANUAL_WINDOWS_OBSERVED`, `MAY_BINARY_CONTROL_FLOW_RECOVERED`,
+  `COMPLETION_OWNER_ACCEPTED`.
+- Evidence: public mission admission and briefing worked, but a terminal
+  PlayerMission remained in the six-slot array and every revisit took the
+  active-mission branch. Command 35 was decoded without its persistent
+  `m_giveArtefact` effect, so success could neither publish the retail-named
+  `Artifact` nor expose the next eligible project.
+- Handling: distinguish active/success/failure at the center boundary. Validate
+  reward and service dependencies before mutation, create the real Artefact,
+  reindex center check events, consume the terminal mission and retain the
+  cumulative completion count. Choose the eligible project with the greatest
+  satisfied mission threshold so discovery order cannot regress progression.
+  Failed reward publication removes both its owner and private events.
+- Continuation: MSH1 v3 persists the reward flag and migrates v1/v2 with it
+  disabled. ART1 is the sixteenth owner section and restores attribute,
+  commander/carrier references, pose, direction and private deadlines.
+- Verification: the installed Level.03N result smoke completes real
+  `ProjectS22` conditions, advances to `ProjectA39`, creates one interface-ready
+  reward, repairs/refills, rejects a repeat commit and proves exact post-result
+  save/load plus exact pre-result rollback.
+- Revisit when: Artefact pickup/drop and Portal transport are active, or a
+  controlled May run measures the exact reward placement. Keep the recovered
+  `+50/+30` field offset isolated until then.
 
 ## Maintenance rule
 

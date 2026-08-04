@@ -1837,6 +1837,28 @@ playable Level begins.
 - Unbound mission condition IDs reschedule `rc_CHECK_MISSION`; NUL is not
   interpreted as a dead target before deferred producers instantiate it.
 
+### RP-CAMPAIGN-004: terminal mission results publish an owned reward
+
+- Classification: `MAY_BINARY_CONTROL_FLOW_RECOVERED`,
+  `INSTALLED_RUNTIME_PROVED`, `SAVE_CONTRACT_EXTENDED`.
+- A RecruitCenter revisit distinguishes active, successful and failed mission
+  state. Active missions still block replacement and apply the minimum service;
+  success removes the mission, repairs/refills the current Vehicle, applies
+  command 35 by creating `Artifact` from `Artefact.Attr.0`, and exposes the
+  highest eligible unrepeated project. Failure/surrender remove the mission
+  without fabricating a reward.
+- MSH1 v3 stores the reward flag. ART1 stores each live Artefact's symbolic
+  identity, attribute, commander/carrier relationship, pose, velocity and
+  private move/change-direction deadlines. Engine compatibility 4 now requires
+  sixteen owner sections and five semantic-event families.
+- The installed Level.03N result gate completes the real `ProjectS22` kill
+  contract, creates exactly one reward with a real interface, repairs/refills,
+  advances to `ProjectA39`, proves repeat idempotence, restores the post-result
+  world byte-identically and then restores the pre-result world exactly.
+- Revisit when Portal pickup/carry is admitted or a controlled May trace
+  measures the reward offset. The current `+50/+30` center-relative placement
+  follows the recovered executable field writes and is not generalized.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.
@@ -2065,7 +2087,7 @@ playable Level begins.
   empty Howitzer population.
 - HWZ1 restores identity and state without running AI. FIND/ACTION queues
   preserve duplicate sources and equal-timestamp order. Engine compatibility
-  4 requires fifteen owner sections; fresh Level.01D, Level.01N, Level.06N and
+  4 requires sixteen owner sections; fresh Level.01D, Level.01N, Level.06N and
   Level.07N continuation prove the release-specific edges.
 
 ### RP-VEHICLE-008: Taxi handover respects the supporting basis

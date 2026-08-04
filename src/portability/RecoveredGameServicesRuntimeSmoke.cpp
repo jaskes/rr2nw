@@ -1855,7 +1855,7 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
         OrphanActiveWorldState_MatchesStable(context, orphanState) &&
         RecoveredGameServices_CaptureLevelContinuation(
             &continuation, &captured) && captured.ready &&
-        captured.sections == 15;
+        captured.sections == 16;
     if (continuationCaptured) break;
     if (OrphanSubjectState_LiveCount() != orphanCount + 1 ||
         !RunVehicleFrameAfter(0.025) ||
@@ -4352,10 +4352,10 @@ bool ExerciseDebugOccupiedVehicleDestruction(
       RecoveredGameServices_CaptureLevelContinuation(
           &suiteBaseline, &suiteSummary);
   const bool menuConfigured = suiteCaptured && suiteSummary.ready &&
-      suiteSummary.sections == 15 &&
+      suiteSummary.sections == 16 &&
       RecoveredGameServices_ConfigureDebugMenu(
           true, std::vector<std::string>{"Level.Debug.VehicleProfiles"});
-  if (!suiteCaptured || !suiteSummary.ready || suiteSummary.sections != 15 ||
+  if (!suiteCaptured || !suiteSummary.ready || suiteSummary.sections != 16 ||
       !menuConfigured) {
     std::fprintf(stderr,
                  "debug Vehicle profile baseline capture=%d ready=%d "
@@ -6534,7 +6534,7 @@ int main(int argc, char** argv) {
       !capturedContinuation.ready || !capturedContinuation.sealedJournal ||
       !capturedContinuation.boundaryMatches ||
       !capturedContinuation.worldMatches ||
-      capturedContinuation.sections != 15 ||
+      capturedContinuation.sections != 16 ||
       capturedContinuation.worldFingerprint == 0 ||
       capturedContinuation.journalFingerprint == 0 ||
       capturedContinuation.containerFingerprint == 0 ||
@@ -7382,9 +7382,9 @@ int main(int argc, char** argv) {
       !restoredContinuation.sealedJournal ||
       !restoredContinuation.boundaryMatches ||
       !restoredContinuation.worldMatches ||
-      restoredContinuation.sections != 15 ||
-      restoredContinuation.ownerPhases != 15 ||
-      restoredContinuation.referencePhases != 15 ||
+      restoredContinuation.sections != 16 ||
+      restoredContinuation.ownerPhases != 16 ||
+      restoredContinuation.referencePhases != 16 ||
       restoredContinuation.eventPhases != restoredContinuation.events ||
       restoredContinuation.worldFingerprint !=
           capturedContinuation.worldFingerprint ||
