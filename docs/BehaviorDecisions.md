@@ -5367,3 +5367,30 @@ Status: accepted on 2026-08-04 for terrain-aware runtime acceptance.
   ungrounded request.
 - This removes world-dependent false failures without weakening render,
   detach, light-chain, event-rollback, or live-object assertions.
+
+### BD-152: actor presentation interpolates confirmed poses instead of predicting
+
+Status: accepted on 2026-08-04 after the first visible mission-combat pass.
+
+The original Frontier E safety slice bounded People/Tank extrapolation to one
+observed displacement. That removed unbounded near/far pose explosions, but a
+manual Level.03N engagement exposed the remaining defect: units acquired and
+fired correctly while their visible motion still advanced in steps. At a
+target change, route turn or contact response, the next simulation event had
+to replace a speculative future pose formed from the old direction.
+
+Presentation now runs one confirmed simulation sample behind authority. It
+blends from `m_lastMovePos` to the current position during the recorded event
+interval, reaches the current pose by the end of that interval and never moves
+beyond it. The end of sample N and the beginning of sample N+1 therefore
+produce the same rendered position. Invalid, zero-length, stale and Tank
+intervals at or above the preserved 0.2-second limit use the authoritative
+current pose directly.
+
+This is derived display state. People/Tank positions, headings, scheduler
+deadlines, targeting, projectile emission and PEO1/TAN1/LCN1 bytes do not
+change. A one-event visual latency is preferable to inventing movement that
+the simulation may immediately reject. Loaded real-Skin probes require the
+half-sample pose behind authority, a stale authoritative pose and exact
+hidden-to-visible re-entry; scalar coverage proves continuity across two
+successive sample boundaries.

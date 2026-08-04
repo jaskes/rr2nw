@@ -1439,12 +1439,12 @@ static bool ProbePeoplePresentation(People *people, double timeStamp,
         people, timeStamp + sampleInterval * 0.5, &interpolated);
     if (valid) ++*renderedFrames;
     valid = valid && SameVector(interpolated - baseline,
-                                displacement * 0.5);
+                                displacement * -0.5);
 
     valid = valid && RenderPeoplePose(
         people, timeStamp + sampleInterval * 10.0, &stale);
     if (valid) ++*renderedFrames;
-    valid = valid && SameVector(stale - baseline, displacement);
+    valid = valid && SameVector(stale, baseline);
 
     people->m_isVisible = 0;
     people->onHide(timeStamp + sampleInterval * 11.0);

@@ -71,6 +71,24 @@ sample. Explosion/Corpse counts are correlated world deltas and are not alone
 proof of ownership; use the unified startup combat probe for the isolated
 owner graph and a manual mission run for timed engagement behavior.
 
+## Visible People/Tank interpolation pass
+
+Use the Playtest build so software-render cost does not dominate the result:
+
+```powershell
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --debug-menu --diagnostics-dir "$PWD\manual-logs\actor-interpolation-Level.03N"
+```
+
+Approach the dragonflies or another moving mission group until it acquires and
+fires. Strafe around it and force at least two target/route direction changes.
+The unit may retain the authored low-frame Skin animation, but its world
+position must move continuously: it must not jump one body-length forward and
+then snap back at the next AI event. Repeat once after moving beyond haze range
+and returning, and once across save/load. A position jump, smooth position with
+stepped rotation, and smooth transform with stepped Skin animation are three
+different results; record which channel failed rather than calling all three
+"AI jitter". Exit normally and retain the startup log.
+
 ## Grounded debug-vehicle pass
 
 The automated native-window gate spawns every active Taxi type on

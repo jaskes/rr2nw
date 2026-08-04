@@ -4356,6 +4356,35 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   `Portal.Arabesk`, restored-Portal and remaining-Artefact messages. Keep map,
   quests and character cinematics as separate campaign UI rows.
 
+### CQ-220: bounded actor extrapolation still produced visible AI steps
+
+- Status: `PLAYTEST_OBSERVED`, `PRESENTATION_CAUSE_CONFIRMED`,
+  `INTERPOLATION_POLICY_ACCEPTED`.
+- Evidence: the 2026-08-04 manual pass confirmed visible primary/secondary
+  projectiles and tracers, a successful Level 1 to Level 2 load, and Level.03N
+  dragonflies acquiring and shooting the player. Their motion remained
+  visibly jerky. Combat telemetry and the natural mission gate showed valid
+  authoritative displacement, target and fire events, isolating the remaining
+  symptom to presentation rather than pathfinding or attack delivery.
+- Root cause: People and Tank rendered the current authoritative position plus
+  up to one complete previous displacement. Any route turn, target switch or
+  collision response invalidated that old velocity at the next event, so the
+  drawable snapped from a predicted pose to the newly accepted pose.
+- Handling: blend the previous confirmed position toward the current position
+  during one recorded event interval. Never render beyond current authority;
+  stale/invalid samples and the Tank 0.2-second exclusion snap to current.
+  Keep this state derived and outside PEO1/TAN1/LCN1.
+- Verification: scalar math proves finite bounds and exact continuity between
+  consecutive samples. Real People/Tank Skin probes require four finite poses,
+  authoritative stale/re-entry frames and complete state rollback. Debug,
+  Release and RelWithDebInfo each pass 67/67 CTest; installed starts and fresh
+  continuations pass 27/27 with both Vehicle masks `1011` in every
+  configuration. The timed combat row passes 3/3, and Debug additionally passes
+  the unmodified two-minute natural combat row.
+- Revisit when: the same Level.03N encounter is repeated visibly. If rotation
+  or Skin animation still steps while position is smooth, instrument those as
+  separate derived channels; do not retune AI cadence to hide a drawable bug.
+
 ## Maintenance rule
 
 When a new quirk is found:

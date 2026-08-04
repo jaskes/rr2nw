@@ -7,6 +7,11 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- People and Tank rendering now interpolates from the previous confirmed
+  simulation pose to the current one instead of extrapolating one additional
+  AI step. Direction changes, target switches and collision corrections no
+  longer make the next scheduler event snap back from an invented future
+  position; authoritative movement, combat and save data remain unchanged.
 - Retail `portal` scene references now own real Level-local `Portal` subjects.
   Artefact admission checks capacity and attachment before owner removal,
   clears its private movement events atomically, and persists occupancy in the

@@ -1588,11 +1588,12 @@ reconstruct the catalog-index-five starting lift. Use the debug menu for repeata
 positioning only after their ownership is proven.
 
 The first scheduler/presentation slice is complete: People no longer changes
-MOVE cadence from the previous frame's visibility bit, People and Tank share a
-finite distance scale, and render prediction is capped at one confirmed
-simulation displacement. Entering the visible set clears only that prediction
-sample, leaving authoritative position, queued events and the existing
-PEO1/TAN1 save records intact.
+MOVE cadence from the previous frame's visibility bit and People/Tank share a
+finite distance scale. The initial bounded forward prediction was replaced
+after visible combat testing by one-sample-delayed interpolation between two
+confirmed positions. Entering the visible set clears only that derived sample,
+leaving authoritative position, queued events and the existing PEO1/TAN1 save
+records intact.
 
 The second slice is complete: the binary-confirmed May ROCK and ROTATEOYOut
 payloads execute through exact Level-local animation-only programs after Skin
@@ -1636,8 +1637,8 @@ The sixth slice completes the automated actor boundary: temporary Level-local
 People and Tank objects execute their original movement queues once hidden and
 once visible, proving cadence no longer depends on the previous rendered frame.
 Each then contributes four real model-backed render frames: the authoritative
-baseline, a half-sample interpolation, a deliberately stale sample capped to
-one displacement and the first visible frame after `onView`. The last frame
+baseline, a half-sample interpolation behind authority, a deliberately stale
+authoritative sample and the first visible frame after `onView`. The last frame
 must return exactly to the authoritative pose, and all subject data, matrix,
 events, child ownership and PEO1/TAN1 fingerprints roll back. Installed
 telemetry is `people_near_far_pose_probe=1/4/1` and
@@ -1970,9 +1971,37 @@ per configuration, 27/27 ordinary retail starts, and 27/27 fresh Level
 continuations. Both destruction and occupied save/load coverage report the
 complete campaign profile mask `1011` in every configuration.
 
-The next combat work should use this visible projectile path while completing
-the manual dragon/helicopter pass and the visible guide/occupied-Vehicle town
-route repeat. AI cleanup follows the staged boundary in BD-150: perception,
+The manual weapon pass now confirms both fire modes, tracers and a successful
+Level 1 to Level 2 load. Level.03N dragonflies acquire and fire, while their
+reported stepped motion identified the bounded-extrapolation defect fixed by
+BD-152. Repeat that encounter to close visible position smoothing, then run the
+guide/occupied-Vehicle town route. AI cleanup follows BD-150: perception,
 intent, route/steering, attack emission and presentation are extracted one at
-a time behind the existing May behavior and continuation gates. Do not start a
-new navigation or planner rewrite before those parity checks are green.
+a time behind the existing May behavior and continuation gates.
+
+### 2026-08-04 readiness snapshot toward 1.0
+
+These percentages are planning estimates, not release claims. Functional
+implementation is approximately **65%** of the Windows-first 1.0 scope; strict
+release readiness is approximately **50-55%** because a full campaign and the
+packaged Windows 10/11 manual gates have not yet passed.
+
+| Milestone | Estimate | Evidence already owned | Principal remainder |
+|---|---:|---|---|
+| M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
+| M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
+| M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
+| M3 retail parity | 65% | People/Tank combat, two weapons, missions, briefing, map, reward/Artefact and Portal progression | quests/objectives surface, center character clips, remaining AI/guide parity and complete campaign proof |
+| M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
+| M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
+| M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |
+
+The shortest critical path is not more subsystem archaeology. It is:
+
+1. close visible People/Tank/guide motion without changing working combat;
+2. restore the remaining campaign UI/quest/cinematic ownership and exercise
+   representative chains through Portal transitions;
+3. connect real audio and finish window/focus/performance stability;
+4. complete replay/import/mod UX gates;
+5. freeze a package and run the full Windows 10 plus extended Windows 11
+   acceptance campaign before `develop -> master -> 1.0.0`.

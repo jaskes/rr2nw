@@ -429,10 +429,10 @@ void Tank::render(  CViewDynamicList &list, double ts  )
  {
     CFMatrix3x4 &m = m_skin.GetDirModify();
     getMatrix(m);
-    const double prediction = rr2nw::ActorPresentationRatio(
+    const double previousWeight = rr2nw::ActorPresentationPreviousWeight(
          ts, m_lastMoveTimeStamp, m_lastDeltaT, 0.2);
-    if(  prediction > 0  )
-         m.TranslateL((getPosition()-m_lastMovePos)*prediction);
+    if(  previousWeight > 0  )
+         m.TranslateL((m_lastMovePos-getPosition())*previousWeight);
     m_viewDynObj.prepareToRender();
     list.Load( &m_viewDynObj );
  }

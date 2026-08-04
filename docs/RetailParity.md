@@ -1187,7 +1187,9 @@ state and input ordering are covered by RP-INPUT-001 below.
   `AUTHORITATIVE_STATE_PRESERVED`.
 - A representative temporary People and Tank each run four model-backed
   `render` calls through their real `CViewDynamicList`: baseline, half-sample,
-  capped stale sample and the first frame after a hidden-to-visible boundary.
+  authoritative stale sample and the first frame after a hidden-to-visible
+  boundary. The half-sample is one half displacement behind current authority,
+  not one half displacement beyond it.
   Re-entry must exactly match the authoritative baseline; rendering may not
   mutate the subject position.
 - The People proof executes one queued movement event from identical hidden and
@@ -1197,9 +1199,12 @@ state and input ordering are covered by RP-INPUT-001 below.
 - Admission restores the complete actor data, inherited frame timestamp and
   visibility, position, Skin matrix, event queue and child/object roster.
   Existing PEO1/TAN1 fingerprints remain the outer rollback authority.
+  Scalar coverage also requires the end of one sample and the beginning of
+  the next to produce the same screen position.
   Applicable installed owners report `1/4/1`; legitimate empty owners report
-  `0/0/0`. Debug and Release each pass 67/67 CTest and 9/9 independent
-  installed-Level starts.
+  `0/0/0`. Debug, Release and RelWithDebInfo each pass 67/67 CTest;
+  independent installed-Level starts and fresh continuations pass 27/27 with
+  complete Vehicle masks `1011` in every configuration.
 
 ### RP-RENDER-001: the recovered executable renders a real textured Level
 

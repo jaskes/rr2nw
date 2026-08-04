@@ -70,7 +70,37 @@ int main() {
                    0.0) ||
       !NearlyEqual(rr2nw::ActorPresentationRatio(10.1, 10.0, 0.2, 0.2),
                    0.0)) {
-    return Fail("actor presentation prediction bounds diverged");
+    return Fail("actor presentation phase bounds diverged");
+  }
+
+  if (!NearlyEqual(
+          rr2nw::ActorPresentationPreviousWeight(10.0, 10.0, 0.1), 1.0) ||
+      !NearlyEqual(
+          rr2nw::ActorPresentationPreviousWeight(10.05, 10.0, 0.1), 0.5) ||
+      !NearlyEqual(
+          rr2nw::ActorPresentationPreviousWeight(10.1, 10.0, 0.1), 0.0) ||
+      !NearlyEqual(
+          rr2nw::ActorPresentationPreviousWeight(9.9, 10.0, 0.1), 1.0) ||
+      !NearlyEqual(rr2nw::ActorPresentationPreviousWeight(
+                       std::numeric_limits<double>::quiet_NaN(), 10.0, 0.1),
+                   0.0) ||
+      !NearlyEqual(
+          rr2nw::ActorPresentationPreviousWeight(10.1, 10.0, 0.2, 0.2),
+          0.0)) {
+    return Fail("actor presentation interpolation bounds diverged");
+  }
+
+  // A newly accepted simulation sample begins exactly where the previous
+  // sample finished. Extrapolation would put the first value at 2.0 here.
+  const double oldSampleEnd =
+      1.0 + (0.0 - 1.0) *
+          rr2nw::ActorPresentationPreviousWeight(10.1, 10.0, 0.1);
+  const double newSampleBegin =
+      2.0 + (1.0 - 2.0) *
+          rr2nw::ActorPresentationPreviousWeight(10.1, 10.1, 0.1);
+  if (!NearlyEqual(oldSampleEnd, 1.0) ||
+      !NearlyEqual(newSampleBegin, oldSampleEnd)) {
+    return Fail("actor presentation sample boundary is discontinuous");
   }
 
   std::cout << "legacy-math-smoke: OK\n";

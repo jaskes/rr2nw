@@ -3474,7 +3474,10 @@ The BD-120 interpolation helpers are now exercised through loaded legacy actor
 objects rather than only through scalar math. Each applicable Level constructs
 a temporary People/Tank lifecycle owner, runs its real scheduler boundary and
 links four real dynamic-list render poses. Matrix offsets prove ordinary
-interpolation, the one-displacement stale cap and exact authoritative re-entry.
+one-sample-delayed interpolation, an authoritative stale pose and exact
+authoritative re-entry. The later BD-152 manual correction removed the bounded
+forward prediction: successive sample boundaries are now position-continuous
+even when the next AI event changes direction.
 The complete actor state, matrix, events and owned children are restored before
 the temporary owner is removed; PEO1/TAN1 fingerprints remain unchanged.
 
@@ -3495,6 +3498,14 @@ for an exact ASCII fragment, refuses any unexpected match count and reports
 both SHA-256 values. The `ON_OBJ` horizontal-step correction used one such
 replacement in `PEOPLE.CPP`; all bytes outside that expression and its legacy
 CRLF/code page remain untouched.
+
+The BD-152 interpolation correction used that same byte-preserving owner for
+the three ASCII-only render expressions in `PEOPLE.CPP` and `TANK_3.CPP`.
+Debug, Release and RelWithDebInfo each pass 67/67 CTest; installed startup and
+fresh continuation pass 27/27, both Vehicle profile masks remain `1011`, and
+the real timed mission-combat row passes 3/3. The longer unchanged mission
+route also passes in Debug, proving that display smoothing did not replace
+movement, acquisition or projectile delivery.
 
 ## Active retail DebugMap and software overlay boundary
 

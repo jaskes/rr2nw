@@ -1618,10 +1618,10 @@ void People::render   ( CViewDynamicList &list, double ts)
     m.RotateOxL(m_rotateOx);
     m.RotateOyL(m_rotateOy);
     CFVector3 np = getPosition()+CFVector3(0,m_attr->m_centerHeight,0);
-    const double prediction = rr2nw::ActorPresentationRatio(
+    const double previousWeight = rr2nw::ActorPresentationPreviousWeight(
          ts, m_lastMoveTimeStamp, m_lastMoveDeltaT);
-    if(  prediction > 0  )
-         np += (getPosition() - m_lastMovePos)*prediction;
+    if(  previousWeight > 0  )
+         np += (m_lastMovePos - getPosition())*previousWeight;
     m.TranslateL( np );
 
     m_viewDynObj.prepareToRender();
