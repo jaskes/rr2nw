@@ -76,6 +76,7 @@ struct StartupOptions {
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
   bool missionObjectiveChainSmoke = false;
+  bool missionTerminalStateSmoke = false;
   bool portalTransitionSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
@@ -329,6 +330,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionObjectiveChainSmoke = true;
+    } else if (argument == L"--mission-terminal-state-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionTerminalStateSmoke = true;
     } else if (argument == L"--portal-transition-smoke") {
       options->runtimeSmoke = true;
       options->portalTransitionSmoke = true;
@@ -468,6 +473,21 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     }
     if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
       *failure = L"--mission-objective-chain-smoke owns its save/rollback "
+                 L"transaction";
+      return false;
+    }
+  }
+  if (options->missionTerminalStateSmoke) {
+    if (options->missionCenter.empty()) {
+      options->missionCenter = L"Magician.Recruit.0";
+    } else if (_wcsicmp(options->missionCenter.c_str(),
+                        L"Magician.Recruit.0") != 0) {
+      *failure = L"--mission-terminal-state-smoke starts at "
+                 L"Magician.Recruit.0 on Level.02N";
+      return false;
+    }
+    if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
+      *failure = L"--mission-terminal-state-smoke owns its save/rollback "
                  L"transaction";
       return false;
     }
@@ -1115,8 +1135,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"           --mission-natural-combat-smoke |\n"
                 L"           --mission-guide-route-smoke |\n"
                 L"           --mission-continuation-smoke |\n"
-                L"           --mission-result-smoke |\n"
-                L"           --mission-objective-chain-smoke]\n"
+                 L"           --mission-result-smoke |\n"
+                 L"           --mission-objective-chain-smoke |\n"
+                 L"           --mission-terminal-state-smoke]\n"
                 L"          [--portal-transition-smoke]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
@@ -2916,7 +2937,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     RecruitCenterObjectiveStateSummary objectiveBaselineState = {};
     SLevelContinuationSummary objectiveBaselineSummary;
     const bool objectiveBaselineReady =
-        !options.missionObjectiveChainSmoke ||
+        (!options.missionObjectiveChainSmoke &&
+         !options.missionTerminalStateSmoke) ||
         (RecruitCenterSubjectState_ObjectiveState(
              g_super.m_context, &objectiveBaselineState) &&
          RecoveredGameServices_CaptureLevelContinuation(
@@ -3939,6 +3961,370 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           !mapClosed || !firstCompleted || !remainingExact ||
           !remainingSaveExact || !multiRollbackExact ||
           !baselineRollbackExact;
+    }
+    if (!loopFailed && options.missionTerminalStateSmoke) {
+      const char* firstCenter = "Magician.Recruit.0";
+      const char* firstProject = "Project2G03";
+      const char* secondCenter = "Kingdom.Recruit.0";
+      const char* failureProject = "Project2G07";
+      const bool terminalBaselineExact = objectiveBaselineReady &&
+          objectiveBaselineState.missions == 0 &&
+          objectiveBaselineState.scheduledChecks == 0 &&
+          objectiveBaselineState.mapBindings == 0 &&
+          std::strcmp(mission.centerName, firstCenter) == 0 &&
+          std::strcmp(mission.projectName, firstProject) == 0;
+
+      bool failureStaged = false;
+      RecruitCenterMissionProbeSummary failureMission = {};
+      const bool failureMissionReady = terminalBaselineExact &&
+          RecruitCenterSubjectState_StageMissionExecutionProbeForProject(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_viewTime + 0.5), secondCenter,
+              failureProject, &failureStaged, &failureMission) &&
+          failureStaged && runCompleteFrame();
+      std::string terminalFailureDetail;
+      if (!failureMissionReady) {
+        const char* detail = RecruitCenterSubjectState_LastError();
+        if (detail != nullptr) terminalFailureDetail = detail;
+      }
+      RecruitCenterObjectiveStateSummary dualState = {};
+      const bool dualStateReady = failureMissionReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &dualState);
+      const bool dualStateExact = dualStateReady &&
+          dualState.missions == 2 && dualState.totalMissions == 2 &&
+          dualState.inProcessMissions == 2 &&
+          dualState.successMissions == 0 && dualState.failedMissions == 0 &&
+          dualState.surrenderMissions == 0 &&
+          dualState.summaryMissions == 2 && dualState.routeMissions == 2 &&
+          dualState.conditionReferences > 0 &&
+          dualState.boundConditionReferences == dualState.conditionReferences &&
+          dualState.scheduledChecks == 2 && dualState.distinctProjects == 2 &&
+          dualState.distinctCommanders == 2 &&
+          dualState.mapMissions == 2 && dualState.mapBindings == 2 &&
+          std::strcmp(dualState.firstProjectName, firstProject) == 0 &&
+          std::strcmp(dualState.secondProjectName, failureProject) == 0;
+
+      std::vector<std::uint8_t> dualCheckpoint;
+      SLevelContinuationSummary dualCaptured;
+      const bool dualCaptureReady = dualStateExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &dualCheckpoint, &dualCaptured);
+
+      RecruitCenterMissionTerminalProbeSummary failureTransition = {};
+      const bool failureTransitionReady = dualCaptureReady &&
+          RecruitCenterSubjectState_FailMissionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.1), secondCenter,
+              &failureTransition);
+      RecruitCenterObjectiveStateSummary failureState = {};
+      const bool failureStateReady = failureTransitionReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &failureState);
+      const bool failureStateExact = failureStateReady &&
+          failureState.missions == 2 && failureState.totalMissions == 2 &&
+          failureState.inProcessMissions == 1 &&
+          failureState.successMissions == 0 && failureState.failedMissions == 1 &&
+          failureState.surrenderMissions == 0 &&
+          failureState.scheduledChecks == 1 &&
+          failureState.mapBindings == 2 &&
+          std::strcmp(failureState.firstProjectName, firstProject) == 0 &&
+          std::strcmp(failureState.secondProjectName, failureProject) == 0;
+
+      std::vector<std::uint8_t> failureCheckpoint;
+      std::vector<std::uint8_t> failureRecaptured;
+      SLevelContinuationSummary failureCaptured;
+      SLevelContinuationSummary failureRestored;
+      SLevelContinuationSummary failureVerified;
+      RecruitCenterObjectiveStateSummary failureRestoredState = {};
+      const bool failureCaptureReady = failureStateExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &failureCheckpoint, &failureCaptured);
+      const bool failureRestoreReady = failureCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              failureCheckpoint, &failureRestored);
+      const bool failureRestoredStateReady = failureRestoreReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &failureRestoredState);
+      const bool failureRecaptureReady = failureRestoredStateReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &failureRecaptured, &failureVerified);
+      const bool failureSaveExact = failureRecaptureReady &&
+          failureCheckpoint == failureRecaptured &&
+          std::memcmp(&failureState, &failureRestoredState,
+                      sizeof(failureState)) == 0 &&
+          failureCaptured.ready && failureRestored.ready &&
+          failureVerified.ready &&
+          failureCaptured.worldFingerprint ==
+              failureRestored.restoredWorldFingerprint &&
+          failureCaptured.worldFingerprint == failureVerified.worldFingerprint;
+
+      RecruitCenterMissionTerminalProbeSummary failureResult = {};
+      const bool failureResolved = failureSaveExact &&
+          RecruitCenterSubjectState_ResolveFailedMissionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.2), secondCenter,
+              &failureResult);
+      RecruitCenterObjectiveStateSummary failureRemainingState = {};
+      const bool failureRemainingReady = failureResolved &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &failureRemainingState);
+      const bool failureRemainingExact = failureRemainingReady &&
+          failureRemainingState.missions == 1 &&
+          failureRemainingState.totalMissions == 2 &&
+          failureRemainingState.inProcessMissions == 1 &&
+          failureRemainingState.failedMissions == 0 &&
+          failureRemainingState.surrenderMissions == 0 &&
+          failureRemainingState.scheduledChecks == 1 &&
+          failureRemainingState.mapBindings == 1 &&
+          std::strcmp(failureRemainingState.firstProjectName,
+                      firstProject) == 0;
+
+      std::vector<std::uint8_t> dualRollbackBytes;
+      SLevelContinuationSummary dualRollbackRestored;
+      SLevelContinuationSummary dualRollbackVerified;
+      RecruitCenterObjectiveStateSummary dualRollbackState = {};
+      const bool dualRollbackReady = dualCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              dualCheckpoint, &dualRollbackRestored) &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &dualRollbackState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &dualRollbackBytes, &dualRollbackVerified);
+      const bool dualRollbackExact = dualRollbackReady &&
+          dualRollbackBytes == dualCheckpoint &&
+          std::memcmp(&dualState, &dualRollbackState,
+                      sizeof(dualState)) == 0 &&
+          dualCaptured.worldFingerprint ==
+              dualRollbackRestored.restoredWorldFingerprint &&
+          dualCaptured.worldFingerprint ==
+              dualRollbackVerified.worldFingerprint;
+
+      RecruitCenterMissionTerminalProbeSummary surrenderTransition = {};
+      const bool surrenderTransitionReady = dualRollbackExact &&
+          RecruitCenterSubjectState_SurrenderMissionProbe(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.3),
+              &surrenderTransition);
+      RecruitCenterObjectiveStateSummary surrenderState = {};
+      const bool surrenderStateReady = surrenderTransitionReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &surrenderState);
+      const bool surrenderStateExact = surrenderStateReady &&
+          surrenderState.missions == 2 && surrenderState.totalMissions == 2 &&
+          surrenderState.inProcessMissions == 0 &&
+          surrenderState.successMissions == 0 &&
+          surrenderState.failedMissions == 0 &&
+          surrenderState.surrenderMissions == 2 &&
+          surrenderState.scheduledChecks == 2 &&
+          surrenderState.mapBindings == 2;
+
+      std::vector<std::uint8_t> surrenderCheckpoint;
+      std::vector<std::uint8_t> surrenderRecaptured;
+      SLevelContinuationSummary surrenderCaptured;
+      SLevelContinuationSummary surrenderRestored;
+      SLevelContinuationSummary surrenderVerified;
+      RecruitCenterObjectiveStateSummary surrenderRestoredState = {};
+      const bool surrenderCaptureReady = surrenderStateExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &surrenderCheckpoint, &surrenderCaptured);
+      const bool surrenderRestoreReady = surrenderCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              surrenderCheckpoint, &surrenderRestored);
+      const bool surrenderRestoredStateReady = surrenderRestoreReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &surrenderRestoredState);
+      const bool surrenderRecaptureReady = surrenderRestoredStateReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &surrenderRecaptured, &surrenderVerified);
+      const bool surrenderSaveExact = surrenderRecaptureReady &&
+          surrenderCheckpoint == surrenderRecaptured &&
+          std::memcmp(&surrenderState, &surrenderRestoredState,
+                      sizeof(surrenderState)) == 0 &&
+          surrenderCaptured.worldFingerprint ==
+              surrenderRestored.restoredWorldFingerprint &&
+          surrenderCaptured.worldFingerprint ==
+              surrenderVerified.worldFingerprint;
+
+      RecruitCenterMissionTerminalProbeSummary firstSurrenderResult = {};
+      const bool firstSurrenderResolved = surrenderSaveExact &&
+          RecruitCenterSubjectState_ResolveSurrenderedMissionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.4),
+              firstCenter, &firstSurrenderResult);
+      RecruitCenterObjectiveStateSummary surrenderRemainingState = {};
+      const bool surrenderRemainingReady = firstSurrenderResolved &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &surrenderRemainingState);
+      const bool surrenderRemainingExact = surrenderRemainingReady &&
+          surrenderRemainingState.missions == 1 &&
+          surrenderRemainingState.totalMissions == 2 &&
+          surrenderRemainingState.inProcessMissions == 0 &&
+          surrenderRemainingState.failedMissions == 0 &&
+          surrenderRemainingState.surrenderMissions == 1 &&
+          surrenderRemainingState.scheduledChecks == 1 &&
+          surrenderRemainingState.mapBindings == 1 &&
+          std::strcmp(surrenderRemainingState.firstProjectName,
+                      failureProject) == 0;
+
+      std::vector<std::uint8_t> survivorCheckpoint;
+      std::vector<std::uint8_t> survivorRecaptured;
+      SLevelContinuationSummary survivorCaptured;
+      SLevelContinuationSummary survivorRestored;
+      SLevelContinuationSummary survivorVerified;
+      RecruitCenterObjectiveStateSummary survivorRestoredState = {};
+      const bool survivorCaptureReady = surrenderRemainingExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &survivorCheckpoint, &survivorCaptured);
+      const bool survivorRestoreReady = survivorCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              survivorCheckpoint, &survivorRestored);
+      const bool survivorRestoredStateReady = survivorRestoreReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &survivorRestoredState);
+      const bool survivorRecaptureReady = survivorRestoredStateReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &survivorRecaptured, &survivorVerified);
+      const bool survivorSaveExact = survivorRecaptureReady &&
+          survivorCheckpoint == survivorRecaptured &&
+          std::memcmp(&surrenderRemainingState, &survivorRestoredState,
+                      sizeof(surrenderRemainingState)) == 0 &&
+          survivorCaptured.worldFingerprint ==
+              survivorRestored.restoredWorldFingerprint &&
+          survivorCaptured.worldFingerprint ==
+              survivorVerified.worldFingerprint;
+
+      RecruitCenterMissionTerminalProbeSummary secondSurrenderResult = {};
+      const bool secondSurrenderResolved = survivorSaveExact &&
+          RecruitCenterSubjectState_ResolveSurrenderedMissionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.5), secondCenter,
+              &secondSurrenderResult);
+      RecruitCenterObjectiveStateSummary cleanedState = {};
+      const bool cleanedStateReady = secondSurrenderResolved &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &cleanedState);
+      const bool cleanedStateExact = cleanedStateReady &&
+          cleanedState.missions == 0 && cleanedState.totalMissions == 2 &&
+          cleanedState.inProcessMissions == 0 &&
+          cleanedState.failedMissions == 0 &&
+          cleanedState.surrenderMissions == 0 &&
+          cleanedState.scheduledChecks == 0 &&
+          cleanedState.mapBindings == 0;
+
+      std::vector<std::uint8_t> baselineRollbackBytes;
+      SLevelContinuationSummary baselineRollbackRestored;
+      SLevelContinuationSummary baselineRollbackVerified;
+      RecruitCenterObjectiveStateSummary baselineRollbackState = {};
+      const bool baselineRollbackReady = objectiveBaselineReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              objectiveBaseline, &baselineRollbackRestored) &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &baselineRollbackState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &baselineRollbackBytes, &baselineRollbackVerified);
+      const bool baselineRollbackExact = baselineRollbackReady &&
+          baselineRollbackBytes == objectiveBaseline &&
+          std::memcmp(&objectiveBaselineState, &baselineRollbackState,
+                      sizeof(objectiveBaselineState)) == 0 &&
+          objectiveBaselineSummary.worldFingerprint ==
+              baselineRollbackRestored.restoredWorldFingerprint &&
+          objectiveBaselineSummary.worldFingerprint ==
+              baselineRollbackVerified.worldFingerprint;
+
+      log.Line(std::string("mission_terminal_projects=") +
+               (dualState.firstProjectName[0] == 0 ? "<none>" :
+                                                       dualState.firstProjectName) +
+               "/" +
+               (dualState.secondProjectName[0] == 0 ? "<none>" :
+                                                       dualState.secondProjectName));
+      log.Line("mission_terminal_baseline=" +
+               std::to_string(objectiveBaselineReady ? 1 : 0) + "/" +
+               std::to_string(terminalBaselineExact ? 1 : 0) + "/" +
+               std::to_string(objectiveBaselineState.missions) + "/" +
+               std::to_string(objectiveBaselineState.scheduledChecks) + "/" +
+               std::to_string(objectiveBaselineState.mapBindings) + "/" +
+               std::to_string(failureStaged ? 1 : 0) + "/" +
+               std::string(failureMission.projectName[0] == 0 ? "<none>" :
+                    failureMission.projectName));
+      log.Line("mission_terminal_failure=" +
+               std::to_string(failureMissionReady ? 1 : 0) + "/" +
+               std::to_string(failureTransitionReady ? 1 : 0) + "/" +
+               std::to_string(failureTransition.statusPresentations) + "/" +
+               std::to_string(failureTransition.statusTransitions) + "/" +
+               std::to_string(failureState.failedMissions) + "/" +
+               std::to_string(failureStateExact ? 1 : 0) + "/" +
+               std::to_string(failureTransition.checkGraphExact));
+      log.Line("mission_terminal_failure_save=" +
+               std::to_string(failureCaptureReady ? 1 : 0) + "/" +
+               std::to_string(failureRestoreReady ? 1 : 0) + "/" +
+               std::to_string(failureRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(failureSaveExact ? 1 : 0));
+      log.Line("mission_terminal_failure_result=" +
+               std::to_string(failureResolved ? 1 : 0) + "/" +
+               std::to_string(failureResult.removedMissions) + "/" +
+               std::to_string(failureResult.resultPresentations) + "/" +
+               std::to_string(failureResult.rewardCreated) + "/" +
+               std::to_string(failureResult.damagePreserved) + "/" +
+               std::to_string(failureResult.ammunitionPreserved) + "/" +
+               std::to_string(failureResult.repeatIdempotent) + "/" +
+               std::to_string(failureRemainingExact ? 1 : 0));
+      log.Line("mission_terminal_surrender=" +
+               std::to_string(surrenderTransitionReady ? 1 : 0) + "/" +
+               std::to_string(surrenderTransition.commandAccepted) + "/" +
+               std::to_string(surrenderTransition.statusPresentations) + "/" +
+               std::to_string(surrenderTransition.statusTransitions) + "/" +
+               std::to_string(surrenderState.surrenderMissions) + "/" +
+               std::to_string(surrenderStateExact ? 1 : 0) + "/" +
+               std::to_string(surrenderTransition.checkGraphExact));
+      log.Line("mission_terminal_surrender_save=" +
+               std::to_string(surrenderCaptureReady ? 1 : 0) + "/" +
+               std::to_string(surrenderRestoreReady ? 1 : 0) + "/" +
+               std::to_string(surrenderRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(surrenderSaveExact ? 1 : 0));
+      log.Line("mission_terminal_survivor=" +
+               std::to_string(firstSurrenderResolved ? 1 : 0) + "/" +
+               std::to_string(firstSurrenderResult.removedMissions) + "/" +
+               std::to_string(firstSurrenderResult.resultPresentations) + "/" +
+               std::to_string(firstSurrenderResult.rewardCreated) + "/" +
+               std::to_string(surrenderRemainingState.surrenderMissions) + "/" +
+               std::to_string(surrenderRemainingState.scheduledChecks) + "/" +
+               std::to_string(surrenderRemainingState.mapBindings) + "/" +
+               std::to_string(surrenderRemainingExact ? 1 : 0));
+      log.Line("mission_terminal_survivor_save=" +
+               std::to_string(survivorCaptureReady ? 1 : 0) + "/" +
+               std::to_string(survivorRestoreReady ? 1 : 0) + "/" +
+               std::to_string(survivorRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(survivorSaveExact ? 1 : 0));
+      log.Line("mission_terminal_cleanup=" +
+               std::to_string(secondSurrenderResolved ? 1 : 0) + "/" +
+               std::to_string(secondSurrenderResult.removedMissions) + "/" +
+               std::to_string(secondSurrenderResult.resultPresentations) + "/" +
+               std::to_string(cleanedState.missions) + "/" +
+               std::to_string(cleanedState.scheduledChecks) + "/" +
+               std::to_string(cleanedState.mapBindings) + "/" +
+               std::to_string(cleanedStateExact ? 1 : 0));
+      log.Line("mission_terminal_rollback=" +
+               std::to_string(dualRollbackReady ? 1 : 0) + "/" +
+               std::to_string(dualRollbackExact ? 1 : 0) + "/" +
+               std::to_string(baselineRollbackReady ? 1 : 0) + "/" +
+               std::to_string(baselineRollbackExact ? 1 : 0));
+      const bool terminalExact = terminalBaselineExact && dualStateExact &&
+          failureStateExact && failureSaveExact && failureResolved &&
+          failureRemainingExact && dualRollbackExact && surrenderStateExact &&
+          surrenderSaveExact && surrenderRemainingExact && survivorSaveExact &&
+          cleanedStateExact && baselineRollbackExact;
+      if (!terminalExact) {
+        const char* terminalError = RecruitCenterSubjectState_LastError();
+        if (!terminalFailureDetail.empty())
+          log.Line("mission_terminal_error=" + terminalFailureDetail);
+        else if (terminalError != nullptr && terminalError[0] != 0)
+          log.Line(std::string("mission_terminal_error=") + terminalError);
+        else
+          log.Line(std::string("mission_terminal_error=") +
+                   RecoveredGameServices_LastLevelContinuationError());
+      }
+      loopFailed = !terminalExact;
     }
     if (!loopFailed && options.missionResultSmoke) {
       std::vector<std::uint8_t> resultCheckpoint;

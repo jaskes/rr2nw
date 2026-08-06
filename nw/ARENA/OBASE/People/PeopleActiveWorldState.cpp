@@ -22,7 +22,7 @@ namespace
 {
 
 const std::uint32_t kPeopleMagic = 0x314f4550u; // PEO1
-const std::uint32_t kPeopleVersion = 7u;
+const std::uint32_t kPeopleVersion = 8u;
 const std::uint32_t kOldestPeopleVersion = 1u;
 const std::size_t kMaximumPeople = 4096;
 const int kSchedulerLabels[] = {
@@ -61,6 +61,7 @@ struct StablePeopleRecord
     std::string attribute;
     std::string route;
     unsigned long long routeGeometryFingerprint;
+    std::vector<CFVector3> routeGeometry;
     std::string commander;
     int audibleThisFrame;
     int visible;
@@ -364,6 +365,7 @@ bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
     for (int index = 0; index < route->GetNodeCnt(); ++index)
     {
         const CFVector3 node = route->GetNode(index);
+        record->routeGeometry.push_back(node);
         routeCoordinates.push_back(node.x);
         routeCoordinates.push_back(node.y);
         routeCoordinates.push_back(node.z);
@@ -619,6 +621,16 @@ bool PutRecord(std::vector<unsigned char> *bytes,
     if (version >= 2u)
         PutU64(bytes, static_cast<std::uint64_t>(
                           record.routeGeometryFingerprint));
+    if (version >= 8u)
+    {
+        if (record.routeGeometry.size() < 2 ||
+            record.routeGeometry.size() > 8192)
+            return false;
+        PutU32(bytes, static_cast<std::uint32_t>(
+                          record.routeGeometry.size()));
+        for (std::size_t index = 0; index < record.routeGeometry.size(); ++index)
+            PutVector(bytes, record.routeGeometry[index]);
+    }
     if (!PutString(bytes, record.commander))
         return false;
     PutBool(bytes, record.audibleThisFrame);
@@ -710,6 +722,20 @@ bool GetRecord(const std::vector<unsigned char> &bytes, std::size_t *offset,
         return false;
     record->routeGeometryFingerprint =
         static_cast<unsigned long long>(routeFingerprint);
+    if (version >= 8u)
+    {
+        std::uint32_t routeNodeCount = 0;
+        if (!GetU32(bytes, offset, &routeNodeCount) ||
+            routeNodeCount < 2 || routeNodeCount > 8192)
+            return false;
+        record->routeGeometry.clear();
+        for (std::uint32_t index = 0; index < routeNodeCount; ++index)
+        {
+            CFVector3 node;
+            if (!GetVector(bytes, offset, &node)) return false;
+            record->routeGeometry.push_back(node);
+        }
+    }
     if (!GetString(bytes, offset, &record->commander) ||
         !GetBool(bytes, offset, &record->audibleThisFrame) ||
         !GetBool(bytes, offset, &record->visible) ||
@@ -842,8 +868,26 @@ bool ValidateRecord(const StablePeopleRecord &record, std::uint32_t version)
         !std::isfinite(record.routeDeviationTime) ||
         record.routeDeviationTime < 0.0 ||
         !std::isfinite(record.obstacleRecoveryTime) ||
-        record.obstacleRecoveryTime < 0.0)
+        record.obstacleRecoveryTime < 0.0 ||
+        (version >= 8u && (record.routeGeometry.size() < 2 ||
+                          record.routeGeometry.size() > 8192)))
         return false;
+    if (version >= 8u)
+    {
+        std::vector<double> coordinates;
+        coordinates.reserve(record.routeGeometry.size() * 3);
+        for (std::size_t index = 0; index < record.routeGeometry.size(); ++index)
+        {
+            if (!FiniteVector(record.routeGeometry[index])) return false;
+            coordinates.push_back(record.routeGeometry[index].x);
+            coordinates.push_back(record.routeGeometry[index].y);
+            coordinates.push_back(record.routeGeometry[index].z);
+        }
+        if (PeopleActiveWorldState_RouteGeometryFingerprint(
+                &coordinates[0], coordinates.size()) !=
+            record.routeGeometryFingerprint)
+            return false;
+    }
     for (std::size_t index = 0; index < record.states.size(); ++index)
     {
         const StablePeopleState &state = record.states[index];
@@ -1224,6 +1268,17 @@ bool PeopleActiveWorldState_RouteRequirements(
         requirement.name = records[index].route;
         requirement.geometryFingerprint =
             records[index].routeGeometryFingerprint;
+        requirement.geometry.reserve(records[index].routeGeometry.size() * 3);
+        for (std::size_t node = 0;
+             node < records[index].routeGeometry.size(); ++node)
+        {
+            requirement.geometry.push_back(
+                records[index].routeGeometry[node].x);
+            requirement.geometry.push_back(
+                records[index].routeGeometry[node].y);
+            requirement.geometry.push_back(
+                records[index].routeGeometry[node].z);
+        }
         requirements->push_back(requirement);
     }
     std::sort(requirements->begin(), requirements->end(),

@@ -27,6 +27,7 @@ class CGRPanel;
 #include "message/hardmsg.h"
 #include "message/recrcenmsg.h"
 #include "message/unitmsg.h"
+#include "message/vehiclemsg.h"
 #include "mproj/h/mproj.h"
 #include "storage/h/subject.h"
 #include "i/carrier.i"
@@ -52,6 +53,8 @@ const unsigned long long kHashPrime = 1099511628211ull;
 char g_lastError[256] = {};
 RecruitCenterMissionProbeSummary g_lastMissionSummary = {};
 bool g_hasLastMissionSummary = false;
+int g_missionStatusPresentations = 0;
+int g_missionResultPresentations = 0;
 
 struct DeferredMissionCommand
 {
@@ -802,6 +805,7 @@ bool ProcessMissionVisit(SimulationContext *context, double timeStamp,
 bool StageMissionForCenter(SimulationContext *context, double timeStamp,
                            RecruitCenter *center, bool executeDeferred,
                            bool presentBriefing,
+                           const char *requestedProject,
                            bool *staged,
                            RecruitCenterMissionProbeSummary *summary);
 
@@ -937,9 +941,25 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
             const bool success = EvaluateConditions(&mission, context, true);
             const bool failure = EvaluateConditions(&mission, context, false);
             if (mission.success_filed ? success : failure)
+            {
                 mission.m_status = MISSION_SUCCESS;
+                if (g_GameConsole.MessagesReady())
+                {
+                    g_GameConsole.PrintUrgent("Mission complete", 20,
+                                              GameConsole::CENTER);
+                    ++g_missionStatusPresentations;
+                }
+            }
             else if (mission.success_filed ? failure : success)
+            {
                 mission.m_status = MISSION_FAILED;
+                if (g_GameConsole.MessagesReady())
+                {
+                    g_GameConsole.PrintUrgent("Mission failed", 20,
+                                              GameConsole::CENTER);
+                    ++g_missionStatusPresentations;
+                }
+            }
             else
             {
                 event.timeStamp += 10.0;
@@ -1140,6 +1160,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
             admitted = StageMissionForCenter(context, timeStamp, this,
                                              !m_probeAdmission,
                                              !m_probeAdmission,
+                                             NULL,
                                              &staged, &summary);
             if (admitted && staged)
             {
@@ -1283,6 +1304,7 @@ bool FindCenterCandidate(RecruitCenter *center, Player *player,
 bool StageMissionForCenter(SimulationContext *context, double timeStamp,
                            RecruitCenter *center, bool executeDeferred,
                            bool presentBriefing,
+                           const char *requestedProject,
                            bool *staged,
                            RecruitCenterMissionProbeSummary *summary)
 {
@@ -1311,7 +1333,27 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     }
 
     KR_ObjectID candidate = KR_ObjectID::NUL();
-    if (!FindCenterCandidate(center, &player, &candidate))
+    if (requestedProject != NULL && requestedProject[0] != 0)
+    {
+        if (!context->isExist(requestedProject))
+        {
+            SetError("RecruitCenter requested project does not exist");
+            return false;
+        }
+        candidate = context->searchObject(requestedProject);
+        bool matches = false;
+        bool eligible = false;
+        int requiredMissionCount = 0;
+        if (!ProjectMetadata(candidate, center->commander(),
+                             player.m_total_misCount, &matches, &eligible,
+                             &requiredMissionCount) || !matches || !eligible ||
+            HasMission(player, candidate))
+        {
+            SetError("RecruitCenter requested project is not eligible");
+            return false;
+        }
+    }
+    else if (!FindCenterCandidate(center, &player, &candidate))
     {
         SetError("RecruitCenter project eligibility graph is malformed");
         return false;
@@ -1523,6 +1565,49 @@ class RecruitCenterTable : public ct_SubjectTable
 };
 
 RecruitCenterTable g_recruitCenterTable;
+
+RecruitCenter *FindRecruitCenter(SimulationContext *context,
+                                 const char *centerName)
+{
+    if (context == NULL || centerName == NULL || centerName[0] == 0)
+        return NULL;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+    {
+        const char *name = context->searchObject(subject->getObjectID());
+        if (name != NULL && std::strcmp(name, centerName) == 0)
+            return static_cast<RecruitCenter *>(subject);
+    }
+    return NULL;
+}
+
+bool MissionCheckGraphExact(SimulationContext *context, Player *player)
+{
+    if (context == NULL || player == NULL) return false;
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+    {
+        RecruitCenter *center = static_cast<RecruitCenter *>(subject);
+        KR_Event events[6];
+        const int count = context->copyEventsTo(
+            rc_CHECK_MISSION, center->getObjectID(), events, 6);
+        if (count < 0 || count > 6) return false;
+        for (int eventIndex = 0; eventIndex < count; ++eventIndex)
+        {
+            int missionIndex = -1;
+            events[eventIndex].data.open(EDO_READ).getInt(missionIndex);
+            const bool exact = events[eventIndex].data.remaining() == 0 &&
+                missionIndex >= 0 && missionIndex < player->m_missCnt &&
+                player->m_mission[missionIndex].comID ==
+                    center->commanderID();
+            events[eventIndex].data.close();
+            if (!exact) return false;
+        }
+    }
+    return true;
+}
 
 bool RewriteMissionCheckEvents(SimulationContext *context, int removedIndex,
                                KR_ObjectID removedCenter)
@@ -1751,6 +1836,19 @@ bool ProcessMissionVisit(SimulationContext *context, double timeStamp,
         player->m_mission[move] = player->m_mission[move + 1];
     --player->m_missCnt;
     player->loadNotify();
+    if (g_GameConsole.MessagesReady())
+    {
+        const bool renegade = player->isRenegat(center->commanderID()) != 0;
+        const char *message = success
+            ? (renegade
+                   ? "You use nasty methods but do your job well"
+                   : "Well done, great job")
+            : (renegade
+                   ? "You did your best but failed! We're disappointed"
+                   : "You're nuts! Go fight and proove your loyalty");
+        g_GameConsole.PrintUrgent(message, 12, GameConsole::CENTER);
+        ++g_missionResultPresentations;
+    }
     result->success = success;
     result->failure = failure;
     result->rewardCreated = !reward.isNUL();
@@ -2383,7 +2481,7 @@ static bool StageMissionExecutionProbeForCenter(
             return true;
         }
         return StageMissionForCenter(context, timeStamp, center, true,
-                                     presentBriefing, staged, summary);
+                                     presentBriefing, NULL, staged, summary);
     }
     if (centerName != NULL && centerName[0] != 0)
     {
@@ -2416,6 +2514,30 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
     }
     return StageMissionExecutionProbeForCenter(context, timeStamp, centerName,
                                                false, staged, summary);
+}
+
+bool RecruitCenterSubjectState_StageMissionExecutionProbeForProject(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    const char *projectName, bool *staged,
+    RecruitCenterMissionProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || centerName == NULL || centerName[0] == 0 ||
+        projectName == NULL || projectName[0] == 0 || staged == NULL ||
+        summary == NULL || !std::isfinite(timeStamp) || timeStamp < 0.0 ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter project probe arguments are invalid");
+        return false;
+    }
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL)
+    {
+        SetError("RecruitCenter project probe cannot find the requested center");
+        return false;
+    }
+    return StageMissionForCenter(context, timeStamp, center, true, false,
+                                 projectName, staged, summary);
 }
 
 bool RecruitCenterSubjectState_EjectPlayerForCenter(
@@ -2592,6 +2714,324 @@ bool RecruitCenterSubjectState_ObjectiveState(
         summary->scheduledChecks += checks;
     }
     return true;
+}
+
+bool RecruitCenterSubjectState_FailMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionTerminalProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || centerName == NULL || centerName[0] == 0 ||
+        summary == NULL || !std::isfinite(timeStamp) || timeStamp < 0.0 ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter failure probe arguments are invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL)
+    {
+        SetError("RecruitCenter failure probe cannot find the requested center");
+        return false;
+    }
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    int missionIndex = -1;
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID() &&
+            player.m_mission[index].m_status == MISSION_INPROCESS)
+        {
+            missionIndex = index;
+            break;
+        }
+    if (missionIndex < 0)
+    {
+        SetError("RecruitCenter failure probe has no active center mission");
+        return false;
+    }
+    PlayerMission &mission = player.m_mission[missionIndex];
+    if (mission.filed_needReached.getCount() <= 0 &&
+        mission.filed_needKill.getCount() <= 0)
+    {
+        SetError("RecruitCenter failure probe needs an authored failure condition");
+        return false;
+    }
+    RecruitCenterObjectiveStateSummary before = {};
+    if (!RecruitCenterSubjectState_ObjectiveState(context, &before))
+        return false;
+    const char *projectName = context->searchObject(mission.mID);
+    if (projectName == NULL)
+    {
+        SetError("RecruitCenter failure probe lost its project name");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->projectName, sizeof(summary->projectName), "%s",
+                  projectName);
+    summary->missionsBefore = before.missions;
+    summary->totalMissionsBefore = before.totalMissions;
+    summary->scheduledChecksBefore = before.scheduledChecks;
+    summary->mapBindingsBefore = before.mapBindings;
+
+    if (mission.filed_needReached.getCount() > 0)
+    {
+        IDynamicObject *target = static_cast<IDynamicObject *>(
+            context->queryInterface(mission.filed_needReached[0],
+                                    IDynamicObjectIID));
+        if (target == NULL)
+        {
+            SetError("RecruitCenter failure target has no dynamic interface");
+            return false;
+        }
+        const CFVector2 goal = mission.filed_reachedPos[0];
+        const CFVector3 original = target->getPos();
+        CFMatrix3x4 atFailure;
+        atFailure.LoadIdentity().TranslateL(
+            CFVector3(goal.x, original.y, goal.y));
+        target->SetDir(atFailure);
+    }
+    else
+    {
+        std::vector<KR_ObjectID> targets;
+        for (int index = 0; index < mission.filed_needKill.getCount(); ++index)
+            if (context->isExist(mission.filed_needKill[index]))
+                targets.push_back(mission.filed_needKill[index]);
+        if (targets.empty())
+        {
+            SetError("RecruitCenter failure kill targets are already absent");
+            return false;
+        }
+        for (std::size_t index = 0; index < targets.size(); ++index)
+            if (context->isExist(targets[index]))
+                context->removeObject(targets[index]);
+    }
+    context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
+    const int presentationsBefore = g_missionStatusPresentations;
+    KR_Event check(rc_CHECK_MISSION, timeStamp,
+                   g_vehicle->getObjectID(), center->getObjectID());
+    check.data.open(EDO_WRITE).putInt(missionIndex).close();
+    context->sendEventNow(check);
+    summary->commandAccepted = 1;
+
+    RecruitCenterObjectiveStateSummary after = {};
+    if (!RecruitCenterSubjectState_ObjectiveState(context, &after))
+        return false;
+    summary->statusPresentations =
+        g_missionStatusPresentations - presentationsBefore;
+    summary->statusTransitions = after.failedMissions - before.failedMissions;
+    summary->failedMissions = after.failedMissions;
+    summary->surrenderedMissions = after.surrenderMissions;
+    summary->missionsAfter = after.missions;
+    summary->totalMissionsAfter = after.totalMissions;
+    summary->scheduledChecksAfter = after.scheduledChecks;
+    summary->mapBindingsAfter = after.mapBindings;
+    summary->checkGraphExact = MissionCheckGraphExact(context, &player) ? 1 : 0;
+    const bool exact = summary->commandAccepted == 1 &&
+        summary->statusPresentations == 1 &&
+        summary->statusTransitions == 1 &&
+        after.failedMissions == before.failedMissions + 1 &&
+        after.inProcessMissions == before.inProcessMissions - 1 &&
+        after.surrenderMissions == before.surrenderMissions &&
+        after.missions == before.missions &&
+        after.totalMissions == before.totalMissions &&
+        after.scheduledChecks == before.scheduledChecks - 1 &&
+        after.mapBindings == before.mapBindings &&
+        summary->checkGraphExact == 1;
+    if (!exact)
+        SetError("RecruitCenter authored failure transition diverged");
+    return exact;
+}
+
+bool RecruitCenterSubjectState_SurrenderMissionProbe(
+    SimulationContext *context, double timeStamp,
+    RecruitCenterMissionTerminalProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || summary == NULL || !std::isfinite(timeStamp) ||
+        timeStamp < 0.0 || g_vehicle == NULL ||
+        g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter surrender probe arguments are invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenterObjectiveStateSummary before = {};
+    if (!RecruitCenterSubjectState_ObjectiveState(context, &before) ||
+        before.missions <= 0 || before.inProcessMissions != before.missions)
+    {
+        if (g_lastError[0] == 0)
+            SetError("RecruitCenter surrender probe needs active missions");
+        return false;
+    }
+    summary->missionsBefore = before.missions;
+    summary->totalMissionsBefore = before.totalMissions;
+    summary->scheduledChecksBefore = before.scheduledChecks;
+    summary->mapBindingsBefore = before.mapBindings;
+    std::snprintf(summary->projectName, sizeof(summary->projectName), "%s",
+                  before.firstProjectName);
+    const bool presentationReady = g_GameConsole.MessagesReady();
+    KR_Event surrender(EV_VEHICLE_SURRENDER, timeStamp,
+                       g_vehicle->getObjectID(), g_vehicle->getObjectID());
+    summary->commandAccepted = g_vehicle->receiveEvent(surrender) == 1 ? 1 : 0;
+    summary->statusPresentations =
+        summary->commandAccepted && presentationReady ? 1 : 0;
+
+    RecruitCenterObjectiveStateSummary after = {};
+    if (!RecruitCenterSubjectState_ObjectiveState(context, &after))
+        return false;
+    summary->statusTransitions =
+        after.surrenderMissions - before.surrenderMissions;
+    summary->failedMissions = after.failedMissions;
+    summary->surrenderedMissions = after.surrenderMissions;
+    summary->missionsAfter = after.missions;
+    summary->totalMissionsAfter = after.totalMissions;
+    summary->scheduledChecksAfter = after.scheduledChecks;
+    summary->mapBindingsAfter = after.mapBindings;
+    summary->checkGraphExact = MissionCheckGraphExact(context,
+                                                       &static_cast<Player &>(
+                                                           g_vehicle->player()))
+        ? 1 : 0;
+    const bool exact = summary->commandAccepted == 1 &&
+        summary->statusPresentations == 1 &&
+        summary->statusTransitions == before.inProcessMissions &&
+        after.inProcessMissions == 0 && after.failedMissions == 0 &&
+        after.surrenderMissions == before.missions &&
+        after.missions == before.missions &&
+        after.totalMissions == before.totalMissions &&
+        after.scheduledChecks == before.scheduledChecks &&
+        after.mapBindings == before.mapBindings &&
+        summary->checkGraphExact == 1;
+    if (!exact) SetError("RecruitCenter surrender transition diverged");
+    return exact;
+}
+
+static bool ResolveTerminalMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    int expectedStatus, RecruitCenterMissionTerminalProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || centerName == NULL || centerName[0] == 0 ||
+        summary == NULL || !std::isfinite(timeStamp) || timeStamp < 0.0 ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter terminal result arguments are invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL)
+    {
+        SetError("RecruitCenter terminal result cannot find its center");
+        return false;
+    }
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    int missionIndex = -1;
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID() &&
+            player.m_mission[index].m_status == expectedStatus)
+        {
+            missionIndex = index;
+            break;
+        }
+    if (missionIndex < 0)
+    {
+        SetError("RecruitCenter terminal result has no matching mission");
+        return false;
+    }
+    RecruitCenterObjectiveStateSummary before = {};
+    if (!RecruitCenterSubjectState_ObjectiveState(context, &before))
+        return false;
+    const char *projectName = context->searchObject(
+        player.m_mission[missionIndex].mID);
+    if (projectName == NULL)
+    {
+        SetError("RecruitCenter terminal result lost its project name");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->projectName, sizeof(summary->projectName), "%s",
+                  projectName);
+    summary->missionsBefore = before.missions;
+    summary->totalMissionsBefore = before.totalMissions;
+    summary->scheduledChecksBefore = before.scheduledChecks;
+    summary->mapBindingsBefore = before.mapBindings;
+    const int centerChecks = context->copyEventsTo(
+        rc_CHECK_MISSION, center->getObjectID(), NULL, 0);
+    const double damage = g_vehicle->m_damage;
+    const int ammunition = g_vehicle->m_secBulletCnt;
+    const bool artifactBefore = context->isExist("Artifact");
+    const int presentationsBefore = g_missionResultPresentations;
+    MissionVisitResult result;
+    if (centerChecks < 0 ||
+        !ProcessMissionVisit(context, timeStamp, center, &player, &result))
+    {
+        if (g_lastError[0] == 0)
+            SetError("RecruitCenter terminal result did not commit");
+        return false;
+    }
+    RecruitCenterObjectiveStateSummary after = {};
+    if (!RecruitCenterSubjectState_ObjectiveState(context, &after))
+        return false;
+    summary->resultPresentations =
+        g_missionResultPresentations - presentationsBefore;
+    summary->removedMissions = before.missions - after.missions;
+    summary->failedMissions = after.failedMissions;
+    summary->surrenderedMissions = after.surrenderMissions;
+    summary->missionsAfter = after.missions;
+    summary->totalMissionsAfter = after.totalMissions;
+    summary->scheduledChecksAfter = after.scheduledChecks;
+    summary->mapBindingsAfter = after.mapBindings;
+    summary->rewardCreated = result.rewardCreated ? 1 : 0;
+    summary->damagePreserved = g_vehicle->m_damage == damage ? 1 : 0;
+    summary->ammunitionPreserved =
+        g_vehicle->m_secBulletCnt == ammunition ? 1 : 0;
+    summary->checkGraphExact = MissionCheckGraphExact(context, &player) ? 1 : 0;
+    std::snprintf(summary->survivingProjectName,
+                  sizeof(summary->survivingProjectName), "%s",
+                  after.firstProjectName);
+    MissionVisitResult repeat;
+    const bool repeated = ProcessMissionVisit(
+        context, timeStamp + 0.1, center, &player, &repeat);
+    summary->repeatIdempotent = repeated && !repeat.found &&
+        player.m_missCnt == after.missions ? 1 : 0;
+    const int expectedFailed = expectedStatus == MISSION_FAILED ? 1 : 0;
+    const int expectedSurrender = expectedStatus == MISSION_SURRENDER ? 1 : 0;
+    const bool exact = result.found && result.failure && !result.success &&
+        !result.repaired && !result.refilled && !result.rewardCreated &&
+        summary->resultPresentations == 1 &&
+        summary->removedMissions == 1 &&
+        before.failedMissions - after.failedMissions == expectedFailed &&
+        before.surrenderMissions - after.surrenderMissions ==
+            expectedSurrender &&
+        after.missions == before.missions - 1 &&
+        after.totalMissions == before.totalMissions &&
+        after.scheduledChecks == before.scheduledChecks - centerChecks &&
+        after.mapBindings == before.mapBindings - 1 &&
+        (context->isExist("Artifact") != 0) == artifactBefore &&
+        summary->damagePreserved == 1 &&
+        summary->ammunitionPreserved == 1 &&
+        summary->checkGraphExact == 1 && summary->repeatIdempotent == 1;
+    if (!exact)
+        SetError("RecruitCenter terminal result invariants did not hold");
+    return exact;
+}
+
+bool RecruitCenterSubjectState_ResolveFailedMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionTerminalProbeSummary *summary)
+{
+    return ResolveTerminalMissionProbeForCenter(
+        context, timeStamp, centerName, MISSION_FAILED, summary);
+}
+
+bool RecruitCenterSubjectState_ResolveSurrenderedMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionTerminalProbeSummary *summary)
+{
+    return ResolveTerminalMissionProbeForCenter(
+        context, timeStamp, centerName, MISSION_SURRENDER, summary);
 }
 
 const char *RecruitCenterSubjectState_LastError()

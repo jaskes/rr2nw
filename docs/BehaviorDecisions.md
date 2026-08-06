@@ -5553,3 +5553,45 @@ exact A37 save/load, rollback to the pair and rollback to the clean Level. It
 does not infer that accepting multiple missions early is desirable balance;
 it preserves the source/data rule until a March binary comparison proves a
 different progression boundary.
+
+### BD-159: terminal mission results remove one issuing slot at a time
+
+Status: accepted on 2026-08-06 for failure/surrender objective ownership.
+
+The preserved May failure check and `EV_VEHICLE_SURRENDER` event remain the
+authorities for changing mission status. A result-center visit then removes
+only the terminal slot owned by that center, rewrites every later
+`rc_CHECK_MISSION` index before shifting the Player array, republishes the map
+and leaves all other missions active or terminal exactly as they were. Failed
+and surrendered results grant no money, repair or ammunition refill. The May
+urgent console messages for status and center reaction are presentation after
+the committed state transition; an unavailable console cannot invalidate the
+mission transaction.
+
+The maintained Level.02N gate accepts real `Project2G03`, explicitly stages
+eligible authored `Project2G07` as an acceptance fixture, triggers a real
+failed-kill condition, and later sends the real surrender event to both
+adjacent mission slots. Each terminal state, one-slot removal, surviving check
+graph, map publication and final empty state survives exact LCN1 save/load and
+rollback. Production project selection is unchanged. Acceptance may name an
+authored project to construct the bounded two-slot state, but it never skips
+unsupported commands; the Level.03N checkpoint command 34 remains fail-closed.
+
+### BD-160: runtime-created People Routes travel with PEO1
+
+Status: accepted on 2026-08-06 for transactional mission rollback.
+
+Mission scripts can create a Route and People that depend on it without any
+corresponding `Route/**/*.rt` resource. Removing a failed mission deletes both
+owners. A later LCN1 rollback therefore cannot reconstruct the People by
+catalog lookup alone, even though its saved route name and fingerprint are
+valid.
+
+PEO1 version 8 stores the exact finite node sequence for every referenced
+People Route. Restore first retains a matching live Route, otherwise rebuilds
+the missing owner directly from the saved geometry and then reconnects the
+People reference. Geometry is bounded to 2..8192 nodes, must fit the static
+Route pool, and must reproduce the saved fingerprint before publication.
+Versions 1..7 remain readable and continue to use the unique catalog/header
+fallback because they contain no embedded nodes. Mission-owned MSH1 Routes
+retain their independent virtual-path and geometry identity contract.

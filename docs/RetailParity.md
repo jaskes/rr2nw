@@ -2186,6 +2186,29 @@ playable Level begins.
   RelWithDebInfo pass 67/67 CTest, installed starts pass 27/27 and fresh
   Level.03N continuation passes 3/3.
 
+### RP-MAP-004: failed and surrendered objectives retain independent results
+
+- Classification: `SOURCE_PATH_PRESERVED`, `RETAIL_DATA_EXECUTED`,
+  `SAVE_PATH_RECONNECTED`, `CAMPAIGN_CHAIN_PARTIAL`.
+- Clean Level.02N accepts authored `Project2G03` and stages authored
+  `Project2G07` for the bounded terminal transaction. Project2G07 reaches
+  `MISSION_FAILED` through its real failed-kill condition; the May status and
+  result-center messages execute when the console is available.
+- Failure and surrender grant no reward, repair or ammunition refill. A visit
+  removes only the issuing-center slot, rewrites later check indices and
+  republishes the remaining objective. Sending the real Vehicle surrender
+  event marks both adjacent slots and they remain independently removable.
+- Terminal pair, failed state, one-slot survivor and final clean state preserve
+  exact map/check graphs across save/load and rollback. Runtime-created People
+  Routes required by those graphs are now canonical PEO1 v8 state rather than
+  guessed retail resources.
+- Verification: `Invoke-MissionTerminalStateSmoke.ps1` is the maintained
+  three-configuration wrapper and passes 3/3. Debug, Release and
+  RelWithDebInfo each pass 67/67 CTest; all installed starts pass 27/27,
+  fresh Level.02N continuation passes 3/3 and the earlier simultaneous-chain
+  wrapper remains 3/3. Broader campaign failure balance and
+  checkpoint/destroyable commands 33/34 remain separate parity rows.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

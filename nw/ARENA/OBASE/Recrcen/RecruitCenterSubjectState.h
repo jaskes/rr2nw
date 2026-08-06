@@ -79,6 +79,33 @@ struct RecruitCenterObjectiveStateSummary
     char secondProjectName[81];
 };
 
+struct RecruitCenterMissionTerminalProbeSummary
+{
+    int commandAccepted;
+    int statusPresentations;
+    int resultPresentations;
+    int statusTransitions;
+    int failedMissions;
+    int surrenderedMissions;
+    int removedMissions;
+    int missionsBefore;
+    int missionsAfter;
+    int totalMissionsBefore;
+    int totalMissionsAfter;
+    int scheduledChecksBefore;
+    int scheduledChecksAfter;
+    int mapBindingsBefore;
+    int mapBindingsAfter;
+    int checkGraphExact;
+    int rewardCreated;
+    int damagePreserved;
+    int ammunitionPreserved;
+    int repeatIdempotent;
+    char centerName[81];
+    char projectName[81];
+    char survivingProjectName[81];
+};
+
 void RecruitCenterSubjectState_Link();
 bool RecruitCenterSubjectState_TableReady(SimulationContext *context);
 int RecruitCenterSubjectState_Capacity();
@@ -106,6 +133,10 @@ bool RecruitCenterSubjectState_StageMissionExecutionProbe(
 bool RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     bool *staged, RecruitCenterMissionProbeSummary *summary);
+bool RecruitCenterSubjectState_StageMissionExecutionProbeForProject(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    const char *projectName, bool *staged,
+    RecruitCenterMissionProbeSummary *summary);
 bool RecruitCenterSubjectState_EjectPlayerForCenter(
     SimulationContext *context, double timeStamp, const char *centerName);
 bool RecruitCenterSubjectState_StageMissionPresentationProbe(
@@ -126,6 +157,18 @@ bool RecruitCenterSubjectState_RewardCarrierState(
 bool RecruitCenterSubjectState_DropRewardProbe(
     SimulationContext *context, double timeStamp,
     RecruitCenterMissionResultProbeSummary *summary);
+bool RecruitCenterSubjectState_FailMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionTerminalProbeSummary *summary);
+bool RecruitCenterSubjectState_SurrenderMissionProbe(
+    SimulationContext *context, double timeStamp,
+    RecruitCenterMissionTerminalProbeSummary *summary);
+bool RecruitCenterSubjectState_ResolveFailedMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionTerminalProbeSummary *summary);
+bool RecruitCenterSubjectState_ResolveSurrenderedMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionTerminalProbeSummary *summary);
 const char *RecruitCenterSubjectState_LastError();
 
 #endif

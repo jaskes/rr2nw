@@ -4464,17 +4464,45 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-224: bulk terminal cleanup may skip an adjacent mission slot
 
-- Status: `SOURCE_RISK_RECORDED`, `NOT_CHANGED`.
+- Status: `SOURCE_RISK_RECORDED`, `ACTIVE_PATH_REGRESSION_CLOSED`.
 - Evidence: archived `Player::CleanupMissionPool()` shifts later missions left
   and decrements `m_missCnt`, then the surrounding `for` loop increments the
   same index. Two adjacent success/failed/surrender slots can therefore leave
   the second shifted terminal mission unvisited for that call.
 - Current boundary: the accepted RecruitCenter result path does not use this
-  bulk loop; it removes one known issuing-center slot and transactionally
-  rewrites later check-event indices, which CQ-223 proves with a live survivor.
-- Revisit when: failure/surrender and simultaneous terminal-status handling is
-  admitted. Add an adjacent-slot regression first, compare May behavior, then
-  choose repeat-index or reverse-order cleanup without a broad Player rewrite.
+  bulk loop. The Level.02N terminal-state gate surrenders two adjacent real
+  missions, removes the first known issuing-center slot, proves the shifted
+  survivor/check/map graph, then removes the second. Failure follows the same
+  one-slot transaction without rewards. Every intermediate state survives
+  exact save/load and rollback.
+- Revisit when: `CleanupMissionPool()` is reintroduced into production. Retire
+  it or add the adjacent-slot regression to its direct caller before choosing
+  repeat-index/reverse-order cleanup; do not replace the proven center-owned
+  transaction merely to preserve an unused bulk loop.
+
+### CQ-225: script-created People Routes had no fresh rollback source
+
+- Status: `REAL_ROLLBACK_FAILURE_REPRODUCED`, `SCHEMA_MIGRATION_ACCEPTED`,
+  `WINDOWS_RUNTIME_ACCEPTED`.
+- Evidence: failing Level.02N `Project2G07` removed mission People and its
+  runtime-created Route. Restoring the pre-result LCN1 then failed because
+  names such as `Route.m2g03.e.p0` have no retail file to enumerate. The former
+  PEO1 record retained only name and fingerprint, so the target transaction
+  could neither allocate the Route nor reconnect People.
+- Handling: PEO1 v8 embeds the exact bounded node sequence behind each People
+  route requirement. A missing Route is rebuilt in memory only after finite
+  2..8192-node validation and fingerprint agreement. V1-v7 snapshots remain
+  readable through the existing catalog/header resolver.
+- Verification: the terminal-state smoke captures, removes and reconstructs
+  the real runtime Route graph repeatedly across failure result, surrender,
+  survivor removal and clean rollback. Immediate recapture is byte-exact and
+  reports all seventeen owner sections with zero recovered-service issue. The
+  gate passes 3/3, every maintained configuration passes 67/67 CTest, fresh
+  Level.02N continuation passes 3/3 and all installed starts pass 27/27.
+- Revisit when: shared Route ownership is generalized or pool pressure is
+  observed in long campaigns. Deduplicate identical geometry at the decoded
+  requirement layer; do not weaken the fingerprint or silently synthesize a
+  straight-line Route.
 
 ## Maintenance rule
 

@@ -139,6 +139,14 @@ through semantic migration, while versions 1/2 default the reward flag off.
 ART1 restores live Artefact identity, dependencies, optional carrier relation,
 pose and private events. The three-process mission Route gate is documented
 in [`ManualAcceptance.md`](ManualAcceptance.md).
+People Routes have a broader lifetime: mission scripts may create them without
+any resource file and then delete them during a result transaction. PEO1
+version 8 therefore embeds the exact finite node sequence for each referenced
+Route. Fresh restore retains an exact live owner or reconstructs a missing
+Route in memory after bounded geometry/fingerprint validation. PEO1 versions
+1..7 remain readable through the existing unique catalog/header migration.
+This closes result rollback for runtime names such as `Route.m2g03.e.p0`
+without changing MSH1's separate virtual-filename contract.
 PRT1 restores only authored Level-local Portal occupancy after validating its
 symbolic roster and immutable placement/capacity. A Portal callback never
 tears down the Level directly; it stages a request consumed by the same

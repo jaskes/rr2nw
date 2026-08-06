@@ -5241,10 +5241,16 @@ int main(int argc, char** argv) {
   for (std::size_t index = 0; index < peopleRoutes.size(); ++index) {
     if (!g_super.m_context->isExist(peopleRoutes[index].c_str()) ||
         peopleRouteRequirements[index].name != peopleRoutes[index] ||
-        peopleRouteRequirements[index].geometryFingerprint == 0) {
+        peopleRouteRequirements[index].geometryFingerprint == 0 ||
+        peopleRouteRequirements[index].geometry.size() < 6 ||
+        peopleRouteRequirements[index].geometry.size() % 3 != 0 ||
+        PeopleActiveWorldState_RouteGeometryFingerprint(
+            &peopleRouteRequirements[index].geometry[0],
+            peopleRouteRequirements[index].geometry.size()) !=
+            peopleRouteRequirements[index].geometryFingerprint) {
       ZAV_DeInitLevel();
       ZAV_Deinit();
-      return Fail("People stable route manifest lost a live route");
+      return Fail("People stable route manifest lost exact geometry");
       }
   }
   const int skinAnimationEntries =

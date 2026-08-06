@@ -1058,6 +1058,32 @@ Inhabitants result, only the Marauders objective must remain; its text, Route
 and scheduled progress must continue after another save/load. Retain the slot
 and startup log if the visible names differ from the automated pair.
 
+## Mission failure and surrender transaction pass
+
+Run the bounded Level.02N gate as one PowerShell line:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionTerminalStateSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+All three rows must name `Project2G03/Project2G07` and pass. The gate uses the
+real Project2G07 failed-kill condition and later sends the real Vehicle
+surrender event to two adjacent mission slots. It proves May status/result
+presentation, zero reward/repair/refill, one-center-at-a-time removal, exact
+check reindexing and map publication. Required records are
+`mission_terminal_failure=1/1/1/1/1/1/1`,
+`mission_terminal_surrender=1/1/1/2/2/1/1`, every save/rollback record ending
+`1/1/1/1`, and `mission_terminal_cleanup=1/1/1/0/0/0/1`. The process must also
+report zero service issues and clean shutdown.
+
+This transaction deliberately removes and reconstructs runtime-created People
+Routes; an exact recapture therefore also proves the PEO1 v8 geometry owner.
+For a visible pass, fail an authored mission, return to its issuing center and
+confirm the failure reaction with no reward. Separately surrender while two
+objectives are active and visit one issuing center at a time: the other
+objective must remain on `M` until its own result visit. Retain the exact Level,
+objective names and slot if presentation differs from the automated result.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

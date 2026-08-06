@@ -46,6 +46,7 @@ struct RouteRestoreRequirement {
   std::string name;
   unsigned long long geometryFingerprint = 0;
   std::string owner;
+  std::vector<double> geometry;
 };
 
 std::string FoldRouteIdentity(const std::string& value) {
@@ -77,6 +78,24 @@ bool RestoreMissingRoutes(
                               " Route owner is incompatible: " +
                               requirement.name);
       return false;
+    }
+    if (requirement.geometryFingerprint != 0) {
+      std::vector<double> coordinates;
+      coordinates.reserve(static_cast<std::size_t>(route->GetNodeCnt()) * 3);
+      for (int index = 0; index < route->GetNodeCnt(); ++index) {
+        const CFVector3 node = route->GetNode(index);
+        coordinates.push_back(node.x);
+        coordinates.push_back(node.y);
+        coordinates.push_back(node.z);
+      }
+      if (PeopleActiveWorldState_RouteGeometryFingerprint(
+              &coordinates[0], coordinates.size()) !=
+          requirement.geometryFingerprint) {
+        SetFailure(failure, "saved " + requirement.owner +
+                                " Route geometry changed: " +
+                                requirement.name);
+        return false;
+      }
     }
   }
   if (missing.empty()) return true;
@@ -169,6 +188,39 @@ bool RestoreMissingRoutes(
   }
 
   for (const RouteRestoreRequirement& requirement : missing) {
+    if (!requirement.geometry.empty()) {
+      KR_ObjectID route =
+          g_arena.newObject("Route", requirement.name.c_str());
+      IRouteObject* routeObject = route.isNUL()
+          ? nullptr
+          : static_cast<IRouteObject*>(
+                context->queryInterface(route, IRouteObjectIID));
+      if (routeObject == nullptr) {
+        SetFailure(failure, "saved " + requirement.owner +
+                                " Route allocation failed: " +
+                                requirement.name);
+        return false;
+      }
+      created->push_back(route);
+      if (!routeObject->RestoreGeometry(
+              &requirement.geometry[0],
+              static_cast<int>(requirement.geometry.size()))) {
+        SetFailure(failure, "saved " + requirement.owner +
+                                " Route geometry restore failed: " +
+                                requirement.name);
+        return false;
+      }
+      if (requirement.geometryFingerprint != 0 &&
+          PeopleActiveWorldState_RouteGeometryFingerprint(
+              &requirement.geometry[0], requirement.geometry.size()) !=
+              requirement.geometryFingerprint) {
+        SetFailure(failure, "saved " + requirement.owner +
+                                " Route geometry changed: " +
+                                requirement.name);
+        return false;
+      }
+      continue;
+    }
     std::vector<const RouteCatalogEntry*> candidates;
     const std::string foldedRequirement =
         FoldRouteIdentity(requirement.name);
@@ -269,7 +321,7 @@ bool RestoreMissingPeopleRoutes(
   requirements.reserve(decoded.size());
   for (const SPeopleRouteRequirement& route : decoded)
     requirements.push_back(
-        {route.name, route.geometryFingerprint, "People"});
+        {route.name, route.geometryFingerprint, "People", route.geometry});
   return RestoreMissingRoutes(context, requirements, created, failure);
 }
 
@@ -285,7 +337,7 @@ bool RestoreMissingMissionRoutes(
   requirements.reserve(decoded.size());
   for (const SMissionRouteRequirement& route : decoded)
     requirements.push_back(
-        {route.name, route.geometryFingerprint, "Mission"});
+        {route.name, route.geometryFingerprint, "Mission", {}});
   return RestoreMissingRoutes(context, requirements, created, failure);
 }
 

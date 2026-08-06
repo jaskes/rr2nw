@@ -13,6 +13,7 @@ struct SPeopleRouteRequirement
 {
     std::string name;
     unsigned long long geometryFingerprint;
+    std::vector<double> geometry;
 
     SPeopleRouteRequirement() : geometryFingerprint(0) {}
 };

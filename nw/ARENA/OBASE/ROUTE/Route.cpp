@@ -169,6 +169,33 @@ void Route::EvaluateLenght()
 }
 
 //============================================================================
+bool Route::RestoreGeometry(const double *coordinates, int coordinateCount)
+{
+    if( coordinates == NULL || coordinateCount < 6 ||
+        coordinateCount % 3 != 0 )
+        return false;
+    const int nodeCount = coordinateCount / 3;
+    if( nodeCount < 2 || nodeCount > ROUTE_MAX_NODE_NUM ||
+        m_totalNodePos - m_nodeQnty > ROUTE_MAX_NODE_NUM - nodeCount )
+        return false;
+    for( int index = 0; index < coordinateCount; ++index )
+        if( !IsFinite(coordinates[index]) )
+            return false;
+
+    if( m_nodeQnty > 0 )
+        Delete();
+    m_base = m_totalNodePos;
+    m_nodeQnty = nodeCount;
+    for( int index = 0; index < nodeCount; ++index )
+        m_node[m_base + index] = CFVector3(
+            coordinates[index * 3], coordinates[index * 3 + 1],
+            coordinates[index * 3 + 2]);
+    m_totalNodePos += nodeCount;
+    EvaluateLenght();
+    return m_totalLenght > 0.0;
+}
+
+//============================================================================
 void Route::LoadRoute(const char *fName)
  {
     m_nodeQnty = 0;

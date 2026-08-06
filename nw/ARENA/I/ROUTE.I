@@ -19,6 +19,8 @@ public:
 	virtual int       GetLen() const = 0;
 	virtual CFVector3 GetNode(int n) const = 0;  
 	virtual CFVector3 GetPos(double part) const = 0;
+        virtual bool      RestoreGeometry(const double *coordinates,
+                                          int coordinateCount) = 0;
         virtual KR_ObjectID       getID()             = 0;
 
         virtual void      AddRef() = 0;
