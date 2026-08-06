@@ -98,9 +98,15 @@ public:
    int MissionRouteCount() const;
    int MissionTextCount() const;
    int CurrentMission() const { return m_curMission; }
+   int FollowMode() const { return m_followMode; }
+   int WindowBaseX() const { return m_winBaseX; }
+   int WindowBaseY() const { return m_winBaseY; }
+   int CurrentMissionTextLine() const;
+   int CurrentMissionTextLineCount() const;
    bool MissionInUse(TMissionId mId) const;
    int MissionRouteCount(TMissionId mId) const;
    bool MissionHasText(TMissionId mId) const;
+   bool ProbeMissionNavigation();
 
    virtual bool	shouldDump () { return false; }
 

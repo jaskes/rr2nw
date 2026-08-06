@@ -47,8 +47,10 @@ bool ExerciseMissionPool() {
   map.ClearMission(-1);
   map.DeleteMission(MAX_MISSIONS);
   map.ClearMissions();
-  return map.MissionCount() == 0 && map.CreateMission("after-clear") == 0 &&
-         map.MissionCount() == 1;
+  if (map.MissionCount() != 0 || map.CreateMission("after-clear") != 0 ||
+      map.MissionCount() != 1)
+    return false;
+  return map.ProbeMissionNavigation();
 }
 
 class HardwareProbe final : public KR_Object {

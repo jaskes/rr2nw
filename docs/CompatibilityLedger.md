@@ -4422,6 +4422,26 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   evidence, or a controlled May trace establishes a different side-selection
   rule. Do not generalize this bounded retry into a new path planner.
 
+### CQ-222: the modern map accepted only its toggle key
+
+- Status: `MARCH_DATA_CONFIRMED`, `NATIVE_ADAPTER_RECOVERED`,
+  `WINDOWS_RUNTIME_ACCEPTED`.
+- Evidence: retail `green_hardware.sci` binds `Del`, `[`/`]`, arrows and
+  `PgUp`/`PgDn`, and the preserved DebugMap receiver owns all corresponding
+  branches. The maintained Win32 adapter emitted only `M`; its dispatcher then
+  returned early for every other input while the map was active.
+- Handling: emit the missing discrete semantic actions, preserve the archival
+  extended-key offset in their physical code and route all active-overlay
+  input to DebugMap. Closed-overlay map actions are consumed. Do not expand the
+  CQ-170 legacy translator; this is part of its native replacement boundary.
+- Verification: a two-mission/eight-line kernel covers every navigation
+  branch and exact return. Debug, Release and RelWithDebInfo pass 67/67 CTest;
+  27/27 installed starts prove follow/pan pairs and exact state restoration,
+  with real Level.06N text scrolling in all three configurations.
+- Revisit when: two or more authored missions are simultaneously admitted in
+  a maintained campaign-chain gate. Prove `[`/`]` against those real
+  PlayerMission owners and retain the kernel row as the bounded edge proof.
+
 ## Maintenance rule
 
 When a new quirk is found:

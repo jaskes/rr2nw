@@ -690,6 +690,19 @@ foreach ($configurationName in $Configuration) {
                     [uint64]$missionMap[8] -lt 1) {
                     $issues.Add("PlayerMission map publication/render/rollback proof changed")
                 }
+                $mapControls = @(if ($log.ContainsKey("debug_map_control_probe")) {
+                    [string]$log["debug_map_control_probe"] -split "/"
+                })
+                if ($mapControls.Count -ne 9 -or
+                    [int]$mapControls[0] -ne 1 -or
+                    [int]$mapControls[1] -ne 1 -or
+                    [int]$mapControls[2] -ne 1 -or
+                    [int]$mapControls[3] -ne 1 -or
+                    [int]$mapControls[5] -ne [int]$mapControls[4] -or
+                    [int]$mapControls[7] -ne [int]$mapControls[6] -or
+                    [int]$mapControls[8] -ne 1) {
+                    $issues.Add("retail map objective navigation proof changed")
+                }
                 $recruitAdmission = @(if ($log.ContainsKey("recruit_center_admission_final")) {
                     [string]$log["recruit_center_admission_final"] -split "/"
                 })
@@ -794,6 +807,8 @@ foreach ($configurationName in $Configuration) {
                 debug_map_size = [string]$log["debug_map_size"]
                 debug_map_toggle_probe = [string]$log["debug_map_toggle_probe"]
                 mission_map_probe = [string]$log["mission_map_probe"]
+                debug_map_control_probe =
+                    [string]$log["debug_map_control_probe"]
                 explosion_active_world_probe = [string]$log["explosion_active_world_probe"]
                 explosion_active_world_fingerprint = Get-LogUnsigned $log "explosion_active_world_fingerprint"
                 spark_active_world_probe = [string]$log["spark_active_world_probe"]
@@ -847,6 +862,7 @@ $records | Select-Object configuration, data_root, level, accepted, exit_code,
     recruit_center_roster, recruit_center_fingerprint,
     recruit_center_admission,
     debug_map_size, debug_map_toggle_probe, mission_map_probe,
+    debug_map_control_probe,
     explosion_active_world_probe, explosion_active_world_fingerprint,
     spark_active_world_probe, spark_active_world_fingerprint,
     smoke_active_world_probe, smoke_active_world_fingerprint,

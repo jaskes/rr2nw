@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Restored the complete retail objective-map input path in the maintained
+  Win32 adapter. `Del` toggles follow/free-scroll mode, arrows pan in free
+  mode, `[`/`]` select missions and `PgUp`/`PgDn` scroll long objective text;
+  active-map input is delivered to DebugMap instead of leaking to Vehicle or
+  being discarded. Extended navigation keys retain the legacy `+256` code
+  needed to distinguish them from the numeric keypad. The 27-row retail matrix
+  now proves paired follow/pan restoration everywhere and real long-text
+  scrolling on Level.06N.
 - Real Level.03N mission guides now complete their full 15-node and 34-node
   authored Routes through static town geometry instead of compounding a
   persistent ten-degree contact response into an orbit. Horizontal classes

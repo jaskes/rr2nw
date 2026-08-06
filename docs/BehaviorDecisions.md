@@ -5501,3 +5501,31 @@ then the baseline checkpoint rolls back exactly across all seventeen owner
 sections. This closes the automated route/save/load/rollback row. A visible
 human pass through the same town geometry is still required before claiming
 complete presentation parity.
+
+### BD-157: objective-map keys belong to the native semantic adapter
+
+Status: accepted on 2026-08-06 for campaign-map navigation.
+
+The March retail `green_hardware.sci` binds `M`, `Del`, `[`/`]`,
+`PgUp`/`PgDn` and the arrow cluster to DebugMap. The preserved map receiver
+still implements follow/free-scroll, mission selection and text-line movement,
+but the first modern Win32 adapter emitted only `M`; active-map input then
+discarded every other semantic action. Objective content existed but could not
+be navigated.
+
+The native adapter now emits those discrete map actions directly. Navigation
+cluster key codes retain the archival `CTRL_EXTENDED_KEY` offset, so arrows
+match DebugMap's original key table and remain distinct from the numeric
+keypad. While the map is active, the frame-boundary dispatcher sends all input
+to DebugMap: arrow codes pan only in free-scroll mode, gameplay actions become
+map no-ops and cannot move or fire the Vehicle. Map-only actions received while
+the overlay is closed are safely consumed.
+
+This deliberately extends the CQ-170 replacement boundary instead of adding
+more reliance on the stateful legacy keyboard translator. DebugMap follow,
+window offset, selected mission and text line remain derived presentation and
+are restored by the acceptance transaction; no LCN1 or RR2SLOT1 field is
+added. A two-mission/eight-line kernel probe covers every branch, while all 27
+retail Level/configuration starts exercise paired follow and two-axis pan.
+Level.06N additionally proves real objective-text down/up scrolling in each
+configuration.

@@ -105,4 +105,72 @@ bool DebugMap::MissionHasText(TMissionId mId) const {
   return MissionInUse(mId) && m_mission[mId].text.font != NULL;
 }
 
+int DebugMap::CurrentMissionTextLine() const {
+  return MissionInUse(m_curMission)
+             ? m_mission[m_curMission].text.textCurrLine
+             : 0;
+}
+
+int DebugMap::CurrentMissionTextLineCount() const {
+  return MissionInUse(m_curMission)
+             ? m_mission[m_curMission].text.textLineQnty
+             : 0;
+}
+
+bool DebugMap::ProbeMissionNavigation() {
+  ClearMissions();
+  const int first = CreateMission("first");
+  const int second = CreateMission("second");
+  if (first != 0 || second != 1) return false;
+
+  m_initialized = TRUE;
+  m_enableDraw = TRUE;
+  m_active = TRUE;
+  m_followMode = TRUE;
+  m_mapW = 1000;
+  m_mapH = 1000;
+  m_winW = 640;
+  m_winH = 480;
+  m_winBaseX = 100;
+  m_winBaseY = 120;
+  m_step = 6;
+  m_mapScrollL = 101;
+  m_mapScrollR = 102;
+  m_mapScrollU = 103;
+  m_mapScrollD = 104;
+  m_textBoxStrQnty = 5;
+  m_mission[first].text.textLineQnty = 8;
+  m_mission[first].text.textCurrLine = 0;
+
+  const auto send = [this](int action, int code) {
+    KR_Event event;
+    event.label = CTRL_BUTTONS_MSG;
+    event.timeStamp = 1.0;
+    event.data.open(EDO_WRITE)
+        .putInt(action)
+        .putDouble(1.0)
+        .putInt(code)
+        .putInt(FALSE)
+        .close();
+    return receiveEvent(event) == 1;
+  };
+
+  if (!send(DMAP_TOGGLE_FOLLOW_MODE, 0) || m_followMode != FALSE ||
+      !send(TURN_RIGHT, m_mapScrollR) || m_winBaseX != 106 ||
+      !send(TURN_LEFT, m_mapScrollL) || m_winBaseX != 100 ||
+      !send(LOOK_DOWN, m_mapScrollD) || m_winBaseY != 126 ||
+      !send(LOOK_UP, m_mapScrollU) || m_winBaseY != 120 ||
+      !send(DMAP_NEXT_MISSION, 0) || m_curMission != second ||
+      !send(DMAP_PREVIOUS_MISSION, 0) || m_curMission != first ||
+      !send(DMAP_TEXT_BOX_DOWN, 0) || CurrentMissionTextLine() != 1 ||
+      !send(DMAP_TEXT_BOX_UP, 0) || CurrentMissionTextLine() != 0 ||
+      !send(DMAP_TOGGLE_FOLLOW_MODE, 0) || m_followMode != TRUE ||
+      !send(DMAP_TOGGLE, 0) || m_active != FALSE)
+    return false;
+
+  const int missionBefore = m_curMission;
+  return send(DMAP_NEXT_MISSION, 0) && m_curMission == missionBefore &&
+         m_closeTransitions == 1;
+}
+
 #endif

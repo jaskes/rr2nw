@@ -39,6 +39,16 @@ std::uint32_t NormalizeVirtualKey(std::uint32_t key, std::intptr_t lParam) {
   return key;
 }
 
+std::uint32_t LegacyKeyCode(std::uint32_t key, std::intptr_t lParam) {
+  // The archived Hardware table distinguishes the navigation cluster from
+  // the numeric keypad by adding CTRL_EXTENDED_KEY to the Win32 virtual key.
+  // Preserve that code in the semantic payload so DebugMap can reuse its
+  // retail scroll-key comparison without polling the keyboard.
+  if ((lParam & 0x01000000) != 0 && key != VK_RCONTROL && key != VK_RMENU)
+    return key + CTRL_EXTENDED_KEY;
+  return key;
+}
+
 }  // namespace
 
 RecoveredWindowsInputAdapter::RecoveredWindowsInputAdapter() { Reset(); }
@@ -142,27 +152,28 @@ bool RecoveredWindowsInputAdapter::HandleKeyboard(
   const bool fireBefore = PrimaryFireDown();
   keys_[virtualKey] = down;
   const bool fireAfter = PrimaryFireDown();
+  const std::uint32_t legacyCode = LegacyKeyCode(virtualKey, lParam);
   switch (virtualKey) {
     case 'W':
     case 'S':
       return Emit(batch, MOVE_FORWARD, Axis('W', 'S', sensitivity),
-                  virtualKey, FALSE);
+                  legacyCode, FALSE);
     case 'D':
     case 'A':
       return Emit(batch, STRAFE_RIGHT, Axis('D', 'A', sensitivity),
-                  virtualKey, FALSE);
+                  legacyCode, FALSE);
     case 'T':
     case 'G':
       return Emit(batch, STRAFE_UP, Axis('T', 'G', sensitivity),
-                  virtualKey, FALSE);
+                  legacyCode, FALSE);
     case VK_RIGHT:
     case VK_LEFT:
       return Emit(batch, TURN_RIGHT,
-                  Axis(VK_RIGHT, VK_LEFT, sensitivity), virtualKey, FALSE);
+                  Axis(VK_RIGHT, VK_LEFT, sensitivity), legacyCode, FALSE);
     case VK_UP:
     case VK_DOWN:
       return Emit(batch, LOOK_UP,
-                  Axis(VK_UP, VK_DOWN, sensitivity), virtualKey, FALSE);
+                  Axis(VK_UP, VK_DOWN, sensitivity), legacyCode, FALSE);
     case VK_SPACE:
       return Emit(batch, JUMP, down ? 1.0 : 0.0, virtualKey, FALSE);
     case VK_LCONTROL:
@@ -179,6 +190,21 @@ bool RecoveredWindowsInputAdapter::HandleKeyboard(
       return Emit(batch, EXIT, down ? 1.0 : 0.0, virtualKey, FALSE);
     case 'M':
       return down ? Emit(batch, DMAP_TOGGLE, 1.0, virtualKey, FALSE) : true;
+    case VK_DELETE:
+      return down ? Emit(batch, DMAP_TOGGLE_FOLLOW_MODE, 1.0,
+                         legacyCode, FALSE) : true;
+    case VK_OEM_6:
+      return down ? Emit(batch, DMAP_NEXT_MISSION, 1.0,
+                         legacyCode, FALSE) : true;
+    case VK_OEM_4:
+      return down ? Emit(batch, DMAP_PREVIOUS_MISSION, 1.0,
+                         legacyCode, FALSE) : true;
+    case VK_PRIOR:
+      return down ? Emit(batch, DMAP_TEXT_BOX_UP, 1.0,
+                         legacyCode, FALSE) : true;
+    case VK_NEXT:
+      return down ? Emit(batch, DMAP_TEXT_BOX_DOWN, 1.0,
+                         legacyCode, FALSE) : true;
     default:
       return true;
   }

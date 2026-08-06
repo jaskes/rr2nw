@@ -2842,6 +2842,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  !RecoveredGameServices_RequestDebugMapToggle() ||
                  !runCompleteFrame() ||
                  !RecoveredGameServices_VerifyMissionMapProbe() ||
+                 !RecoveredGameServices_ProbeDebugMapControls() ||
                  !RecoveredGameServices_RequestDebugMapToggle() ||
                  !RecoveredGameServices_ClearMissionMapProbe();
   }
@@ -4064,6 +4065,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(missionMapProbe.rollbacks) + "/" +
              std::to_string(missionMapProbe.framebufferHash) + "/" +
               std::to_string(missionMapProbe.framebufferNonClearPixels));
+  }
+  SRecoveredDebugMapControlProbeTelemetry debugMapControls = {};
+  if (RecoveredGameServices_DebugMapControlProbeTelemetry(
+          &debugMapControls)) {
+    log.Line("debug_map_control_probe=" +
+             std::to_string(debugMapControls.available) + "/" +
+             std::to_string(debugMapControls.followTogglePair) + "/" +
+             std::to_string(debugMapControls.horizontalScrollPair) + "/" +
+             std::to_string(debugMapControls.verticalScrollPair) + "/" +
+             std::to_string(debugMapControls.textScrollable) + "/" +
+             std::to_string(debugMapControls.textScrollPair) + "/" +
+             std::to_string(debugMapControls.missionSelectable) + "/" +
+             std::to_string(debugMapControls.missionSelectionPair) + "/" +
+             std::to_string(debugMapControls.stateRestored));
   }
   log.Line("recruit_center_admission_final=" + std::to_string(
                RecoveredArenaSeance_RecruitCenterRejectedCollisions()) + "/" +

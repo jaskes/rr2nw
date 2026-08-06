@@ -1073,6 +1073,7 @@ unsigned int g_mapTogglePresses = 0;
 FixedFontOBJ* g_debugMapMissionFont = nullptr;
 FixedFontOBJ* g_gameConsoleFont = nullptr;
 SRecoveredMissionMapProbeTelemetry g_missionMapProbe = {};
+SRecoveredDebugMapControlProbeTelemetry g_debugMapControlProbe = {};
 int g_missionMapBaselineMissions = 0;
 int g_missionMapBaselineTexts = 0;
 int g_missionMapBaselineRoutes = 0;
@@ -2059,7 +2060,38 @@ bool DispatchWindowsInputAction(
     return g_debugMap.receiveEvent(event) == 1 &&
            (g_debugMap.IsActive() != 0) != wasActive;
   }
-  if (g_debugMap.IsActive()) return true;
+  if (g_debugMap.IsActive()) {
+    KR_Event event;
+    event.source = g_hardware.getObjectID();
+    event.destination = g_debugMap.getObjectID();
+    event.timeStamp = eventTime;
+    event.label = CTRL_BUTTONS_MSG;
+    event.data.open(EDO_WRITE)
+        .putInt(input.action)
+        .putDouble(input.value)
+        .putInt(static_cast<int>(input.code))
+        .putInt(input.repeat)
+        .close();
+    return g_debugMap.receiveEvent(event) == 1;
+  }
+  switch (input.action) {
+    case DMAP_TOGGLE_OBST:
+    case DMAP_TOGGLE_ROUTE:
+    case DMAP_TOGGLE_OBJ:
+    case DMAP_TOGGLE_OBJINFO:
+    case DMAP_SCROLL_UP:
+    case DMAP_SCROLL_DOWN:
+    case DMAP_SCROLL_LEFT:
+    case DMAP_SCROLL_RIGHT:
+    case DMAP_TOGGLE_FOLLOW_MODE:
+    case DMAP_NEXT_MISSION:
+    case DMAP_PREVIOUS_MISSION:
+    case DMAP_TEXT_BOX_UP:
+    case DMAP_TEXT_BOX_DOWN:
+      return true;
+    default:
+      break;
+  }
   KR_Event event;
   event.source = g_hardware.getObjectID();
   event.timeStamp = eventTime;
@@ -2292,6 +2324,7 @@ bool BeginPrimaryFireTelemetry(SimulationContext* context) {
   g_windowsInputAdapter.Reset(true);
   g_mapTogglePresses = 0;
   g_missionMapProbe = {};
+  g_debugMapControlProbe = {};
   g_missionMapBaselineMissions = 0;
   g_missionMapBaselineTexts = 0;
   g_missionMapBaselineRoutes = 0;
@@ -5333,6 +5366,7 @@ bool RecoveredGameServices_StageMissionMapProbe() {
     return false;
   }
   g_missionMapProbe = {};
+  g_debugMapControlProbe = {};
   g_missionMapBaselineMissions = g_debugMap.MissionCount();
   g_missionMapBaselineTexts = g_debugMap.MissionTextCount();
   g_missionMapBaselineRoutes = g_debugMap.MissionRouteCount();
@@ -5380,6 +5414,138 @@ bool RecoveredGameServices_VerifyMissionMapProbe() {
          stats.framebufferHash != 0 && stats.framebufferNonClearPixels != 0;
 }
 
+bool RecoveredGameServices_ProbeDebugMapControls() {
+  if (!g_missionMapProbeLive || !g_debugMap.IsActive()) return false;
+  g_debugMapControlProbe = {};
+  g_debugMapControlProbe.available = 1;
+
+  const int initialFollow = g_debugMap.FollowMode();
+  const int initialX = g_debugMap.WindowBaseX();
+  const int initialY = g_debugMap.WindowBaseY();
+  const int initialMission = g_debugMap.CurrentMission();
+  const int initialTextLine = g_debugMap.CurrentMissionTextLine();
+  const double eventTime = CurrentInputEventTime();
+  const auto send = [eventTime](int action, double value,
+                                std::uint32_t code) {
+    SRecoveredWindowsInputAction input = {};
+    input.action = action;
+    input.value = value;
+    input.code = code;
+    return DispatchWindowsInputAction(input, eventTime);
+  };
+
+  if (!send(DMAP_TOGGLE_FOLLOW_MODE, 1.0,
+            static_cast<std::uint32_t>(g_hardware.SearchCode("Del"))))
+    return false;
+  const int toggledFollow = g_debugMap.FollowMode();
+  g_debugMapControlProbe.followTogglePair =
+      toggledFollow != initialFollow &&
+      send(DMAP_TOGGLE_FOLLOW_MODE, 1.0,
+           static_cast<std::uint32_t>(g_hardware.SearchCode("Del"))) &&
+      g_debugMap.FollowMode() == initialFollow ? 1 : 0;
+  if (g_debugMapControlProbe.followTogglePair != 1) return false;
+
+  // Enter free-scroll mode for the paired arrow proof, preserving either
+  // valid initial mode for callers outside the startup smoke.
+  if (g_debugMap.FollowMode() != FALSE &&
+      !send(DMAP_TOGGLE_FOLLOW_MODE, 1.0,
+            static_cast<std::uint32_t>(g_hardware.SearchCode("Del"))))
+    return false;
+
+  const auto scrollPair = [&send](int firstAction, const char* firstCode,
+                                  int secondAction, const char* secondCode,
+                                  bool horizontal) {
+    const int before = horizontal ? g_debugMap.WindowBaseX()
+                                  : g_debugMap.WindowBaseY();
+    if (!send(firstAction, 1.0, static_cast<std::uint32_t>(
+                                      g_hardware.SearchCode(firstCode))))
+      return false;
+    int changed = horizontal ? g_debugMap.WindowBaseX()
+                             : g_debugMap.WindowBaseY();
+    if (changed != before) {
+      return send(secondAction, 1.0, static_cast<std::uint32_t>(
+                                          g_hardware.SearchCode(secondCode))) &&
+             (horizontal ? g_debugMap.WindowBaseX()
+                         : g_debugMap.WindowBaseY()) == before;
+    }
+    if (!send(secondAction, 1.0, static_cast<std::uint32_t>(
+                                       g_hardware.SearchCode(secondCode))))
+      return false;
+    changed = horizontal ? g_debugMap.WindowBaseX()
+                         : g_debugMap.WindowBaseY();
+    return changed != before &&
+           send(firstAction, 1.0, static_cast<std::uint32_t>(
+                                      g_hardware.SearchCode(firstCode))) &&
+           (horizontal ? g_debugMap.WindowBaseX()
+                       : g_debugMap.WindowBaseY()) == before;
+  };
+  g_debugMapControlProbe.horizontalScrollPair =
+      scrollPair(TURN_RIGHT, "Right", TURN_RIGHT, "Left", true) ? 1 : 0;
+  g_debugMapControlProbe.verticalScrollPair =
+      scrollPair(LOOK_UP, "Down", LOOK_UP, "Up", false) ? 1 : 0;
+  if (g_debugMapControlProbe.horizontalScrollPair != 1 ||
+      g_debugMapControlProbe.verticalScrollPair != 1)
+    return false;
+
+  const int textLines = g_debugMap.CurrentMissionTextLineCount();
+  g_debugMapControlProbe.textScrollable = textLines > 5 ? 1 : 0;
+  if (g_debugMapControlProbe.textScrollable) {
+    const int before = g_debugMap.CurrentMissionTextLine();
+    const bool downChanged =
+        send(DMAP_TEXT_BOX_DOWN, 1.0, static_cast<std::uint32_t>(
+                                           g_hardware.SearchCode("PgDn"))) &&
+        g_debugMap.CurrentMissionTextLine() != before;
+    const bool restoredDown = downChanged &&
+        send(DMAP_TEXT_BOX_UP, 1.0, static_cast<std::uint32_t>(
+                                         g_hardware.SearchCode("PgUp"))) &&
+        g_debugMap.CurrentMissionTextLine() == before;
+    const bool upChanged = !downChanged &&
+        send(DMAP_TEXT_BOX_UP, 1.0, static_cast<std::uint32_t>(
+                                         g_hardware.SearchCode("PgUp"))) &&
+        g_debugMap.CurrentMissionTextLine() != before;
+    const bool restoredUp = upChanged &&
+        send(DMAP_TEXT_BOX_DOWN, 1.0, static_cast<std::uint32_t>(
+                                           g_hardware.SearchCode("PgDn"))) &&
+        g_debugMap.CurrentMissionTextLine() == before;
+    g_debugMapControlProbe.textScrollPair =
+        restoredDown || restoredUp ? 1 : 0;
+    if (g_debugMapControlProbe.textScrollPair != 1) return false;
+  }
+
+  g_debugMapControlProbe.missionSelectable =
+      g_debugMap.MissionCount() > 1 ? 1 : 0;
+  if (g_debugMapControlProbe.missionSelectable) {
+    const int before = g_debugMap.CurrentMission();
+    const bool nextChanged =
+        send(DMAP_NEXT_MISSION, 1.0, VK_OEM_6) &&
+        g_debugMap.CurrentMission() != before;
+    const bool restoredNext = nextChanged &&
+        send(DMAP_PREVIOUS_MISSION, 1.0, VK_OEM_4) &&
+        g_debugMap.CurrentMission() == before;
+    const bool previousChanged = !nextChanged &&
+        send(DMAP_PREVIOUS_MISSION, 1.0, VK_OEM_4) &&
+        g_debugMap.CurrentMission() != before;
+    const bool restoredPrevious = previousChanged &&
+        send(DMAP_NEXT_MISSION, 1.0, VK_OEM_6) &&
+        g_debugMap.CurrentMission() == before;
+    g_debugMapControlProbe.missionSelectionPair =
+        restoredNext || restoredPrevious ? 1 : 0;
+    if (g_debugMapControlProbe.missionSelectionPair != 1) return false;
+  }
+
+  if (g_debugMap.FollowMode() != initialFollow &&
+      !send(DMAP_TOGGLE_FOLLOW_MODE, 1.0,
+            static_cast<std::uint32_t>(g_hardware.SearchCode("Del"))))
+    return false;
+  g_debugMapControlProbe.stateRestored =
+      g_debugMap.FollowMode() == initialFollow &&
+      g_debugMap.WindowBaseX() == initialX &&
+      g_debugMap.WindowBaseY() == initialY &&
+      g_debugMap.CurrentMission() == initialMission &&
+      g_debugMap.CurrentMissionTextLine() == initialTextLine ? 1 : 0;
+  return g_debugMapControlProbe.stateRestored == 1;
+}
+
 bool RecoveredGameServices_ClearMissionMapProbe() {
   if (!g_missionMapProbeLive || g_super.m_context == nullptr ||
       g_debugMap.IsActive() ||
@@ -5399,6 +5565,14 @@ bool RecoveredGameServices_MissionMapProbeTelemetry(
     SRecoveredMissionMapProbeTelemetry* telemetry) {
   if (telemetry == nullptr || g_missionMapProbe.staged == 0) return false;
   *telemetry = g_missionMapProbe;
+  return true;
+}
+
+bool RecoveredGameServices_DebugMapControlProbeTelemetry(
+    SRecoveredDebugMapControlProbeTelemetry* telemetry) {
+  if (telemetry == nullptr || g_debugMapControlProbe.available == 0)
+    return false;
+  *telemetry = g_debugMapControlProbe;
   return true;
 }
 

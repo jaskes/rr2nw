@@ -4083,3 +4083,29 @@ cross-Level rows, 3/3 fresh Level.03N continuations and 3/3 ordinary retail
 Level.03N starts. Each configuration also builds completely and passes 67/67
 CTest. The abandoned broad fresh-matrix attempt was not counted; its bounded
 replacement is the changed Level in all three configurations.
+
+## Native objective-map navigation
+
+The recovered DebugMap renderer and `PlayerMission::loadNotify()` publication
+were live, but only `M` crossed the maintained Win32 adapter. The remaining
+March controls existed in retail `green_hardware.sci` and in the archived map
+receiver yet were either never emitted or discarded whenever the overlay was
+active. This was an input ownership gap, not missing quest data.
+
+`RecoveredWindowsInputAdapter` now publishes `Del`, `[`/`]` and
+`PgUp`/`PgDn` as their retail semantic actions. It carries the legacy extended
+navigation-key bit as `code + 256`; DebugMap's original arrow comparison can
+therefore pan the map without polling Win32 state. The complete-frame input
+dispatcher routes active-overlay input exclusively to DebugMap and consumes
+map-only actions when closed. Vehicle axes, fire and camera receive nothing
+while the map owns the screen.
+
+The renderer-independent map kernel stages two missions and eight text lines,
+then proves follow toggling, paired horizontal/vertical pan, next/previous,
+text down/up, close and inactive suppression. The live gate publishes the
+nine-field `debug_map_control_probe`; paired operations must restore all
+presentation state. Debug, Release and RelWithDebInfo each build and pass
+67/67 CTest. The installed retail matrix passes 27/27: all rows prove follow
+and both pan axes; Level.06N's real first objective also proves long-text
+scrolling. Multiple simultaneous authored missions remain the next objective
+chain row rather than being synthesized in this gate.

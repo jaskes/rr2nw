@@ -17,6 +17,11 @@ bool One(const SRecoveredWindowsInputBatch& batch, int action, double value) {
          batch.actions[0].repeat == 0;
 }
 
+bool OneCode(const SRecoveredWindowsInputBatch& batch, int action,
+             std::uint32_t code) {
+  return One(batch, action, 1.0) && batch.actions[0].code == code;
+}
+
 bool SendKey(RecoveredWindowsInputAdapter* input, unsigned int message,
              WPARAM key, LPARAM flags, double sensitivity,
              SRecoveredWindowsInputBatch* batch) {
@@ -96,6 +101,31 @@ int main() {
     return 5;
   }
 
+  if (!SendKey(&input, WM_KEYDOWN, VK_DELETE, 0x01000000, 1.0, &batch) ||
+      !OneCode(batch, DMAP_TOGGLE_FOLLOW_MODE,
+               VK_DELETE + CTRL_EXTENDED_KEY) ||
+      !SendKey(&input, WM_KEYUP, VK_DELETE, 0x01000000, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_OEM_6, 0, 1.0, &batch) ||
+      !OneCode(batch, DMAP_NEXT_MISSION, VK_OEM_6) ||
+      !SendKey(&input, WM_KEYUP, VK_OEM_6, 0, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_OEM_4, 0, 1.0, &batch) ||
+      !OneCode(batch, DMAP_PREVIOUS_MISSION, VK_OEM_4) ||
+      !SendKey(&input, WM_KEYUP, VK_OEM_4, 0, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_PRIOR, 0x01000000, 1.0, &batch) ||
+      !OneCode(batch, DMAP_TEXT_BOX_UP, VK_PRIOR + CTRL_EXTENDED_KEY) ||
+      !SendKey(&input, WM_KEYUP, VK_PRIOR, 0x01000000, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_NEXT, 0x01000000, 1.0, &batch) ||
+      !OneCode(batch, DMAP_TEXT_BOX_DOWN, VK_NEXT + CTRL_EXTENDED_KEY) ||
+      !SendKey(&input, WM_KEYUP, VK_NEXT, 0x01000000, 1.0, &batch) ||
+      batch.count != 0u) {
+    std::fprintf(stderr, "retail map navigation bindings failed\n");
+    return 6;
+  }
+
   if (!input.ProcessWindowMessage(WM_LBUTTONDOWN, 0, 0, 1.0, &batch) ||
       !One(batch, FIRE_PRIMARY, 1.0) ||
       !SendKey(&input, WM_KEYDOWN, VK_CONTROL, 0, 1.0, &batch) ||
@@ -105,7 +135,7 @@ int main() {
       !SendKey(&input, WM_KEYUP, VK_CONTROL, 0, 1.0, &batch) ||
       !One(batch, FIRE_PRIMARY, 0.0)) {
     std::fprintf(stderr, "combined MouseL/LCtrl fire failed\n");
-    return 6;
+    return 7;
   }
 
   if (!input.ProcessWindowMessage(WM_RBUTTONDOWN, 0, 0, 1.0, &batch) ||
@@ -113,7 +143,7 @@ int main() {
       !input.ProcessWindowMessage(WM_RBUTTONUP, 0, 0, 1.0, &batch) ||
       !One(batch, FIRE_SECONDARY, 0.0)) {
     std::fprintf(stderr, "MouseR secondary fire failed\n");
-    return 6;
+    return 7;
   }
 
   if (!SendKey(&input, WM_KEYDOWN, 'W', 0, 0.75, &batch) ||
@@ -125,12 +155,12 @@ int main() {
       !batch.applicationActiveChanged || batch.applicationActive ||
       batch.count != 5u || !input.IsNeutral()) {
     std::fprintf(stderr, "focus-loss clear failed\n");
-    return 7;
+    return 8;
   }
   for (std::size_t index = 0; index < batch.count; ++index) {
     if (batch.actions[index].value != 0.0) {
       std::fprintf(stderr, "focus clear emitted non-zero action\n");
-      return 8;
+      return 9;
     }
   }
 
@@ -144,13 +174,13 @@ int main() {
       !SendKey(&input, WM_KEYUP, 'W', 0, 1.0, &batch) ||
       !One(batch, MOVE_FORWARD, 0.0) || !input.IsNeutral()) {
     std::fprintf(stderr, "inactive/reacquire sequence failed\n");
-    return 9;
+    return 10;
   }
 
   const SRecoveredWindowsInputTelemetry& telemetry = input.Telemetry();
-  if (telemetry.keyboardMessages != 28u ||
+  if (telemetry.keyboardMessages != 38u ||
       telemetry.mouseButtonMessages != 6u || telemetry.focusMessages != 2u ||
-      telemetry.emittedActions != 31u || telemetry.filteredRepeats != 2u ||
+      telemetry.emittedActions != 36u || telemetry.filteredRepeats != 2u ||
       telemetry.suppressedMessages != 1u || telemetry.focusClearActions != 5u) {
     std::fprintf(stderr,
                  "telemetry mismatch keys=%llu mouse=%llu focus=%llu "
@@ -162,7 +192,7 @@ int main() {
                  static_cast<unsigned long long>(telemetry.filteredRepeats),
                  static_cast<unsigned long long>(telemetry.suppressedMessages),
                  static_cast<unsigned long long>(telemetry.focusClearActions));
-    return 10;
+    return 11;
   }
 
   std::printf(

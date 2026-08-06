@@ -1734,13 +1734,20 @@ playable Level begins.
   and suppresses other gameplay input until M closes the overlay. A Level
   switch, load reconstruction or repeated shutdown releases the private image
   and viewport and leaves the next Level closed.
+- March retail map navigation is restored through the maintained native input
+  boundary: `Del` toggles follow mode, arrows pan in free mode, `[`/`]` select
+  missions and `PgUp`/`PgDn` move long objective text. Navigation-cluster codes
+  keep the archived extended-key offset so arrows remain distinct from the
+  numeric keypad. Active-map input is owned by DebugMap and cannot drive the
+  Vehicle behind the overlay.
 - DebugMap is derived presentation and is not serialized. The existing
   PlayerMission/Route save contract remains authoritative for content that the
   map will display after reconstruction.
 - Debug and Release each pass 67/67 CTest and all nine installed starts. Every
   retail row requires a `1000/1000` map plus one real open/draw/close sequence
-  (`1/1/1`). Objective progression, populated mission text and Portal-driven
-  campaign switching remain unclaimed by this entry.
+  (`1/1/1`) and paired follow/horizontal/vertical navigation with exact return.
+  Objective progression and multiple simultaneous authored missions remain
+  outside this entry.
 
 ### RP-MAP-002: PlayerMission republishes objective text and optional Routes
 
@@ -1766,6 +1773,12 @@ playable Level begins.
   and `1/1/1/1/0/1/1/<hash>/<nonclear>` on `Level.07N`, with both framebuffer
   values non-zero. Authored objective progression remains gated on the real
   RecruitCenter owner described by `RP-CAMPAIGN-001`.
+- The expanded Debug/Release/RelWithDebInfo matrix passes 27/27 with
+  `debug_map_control_probe`. Every row restores follow mode, both pan axes,
+  mission selection and text position; Level.06N additionally exercises a
+  real text block longer than the five-line window. A synthetic two-mission,
+  eight-line kernel proves the bounded selection and scroll edges not present
+  in each single-mission startup row.
 
 ### RP-CAMPAIGN-001: retail ProjectTable catalogs execute in the bounded VM
 

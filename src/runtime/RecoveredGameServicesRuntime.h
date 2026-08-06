@@ -73,6 +73,18 @@ struct SRecoveredMissionMapProbeTelemetry {
   std::uint64_t framebufferNonClearPixels = 0;
 };
 
+struct SRecoveredDebugMapControlProbeTelemetry {
+  int available = 0;
+  int followTogglePair = 0;
+  int horizontalScrollPair = 0;
+  int verticalScrollPair = 0;
+  int textScrollable = 0;
+  int textScrollPair = 0;
+  int missionSelectable = 0;
+  int missionSelectionPair = 0;
+  int stateRestored = 0;
+};
+
 struct SRecoveredObserverAxes {
   double forward;
   double strafe;
@@ -698,9 +710,12 @@ unsigned int RecoveredGameServices_DebugMapCloseTransitions();
 bool RecoveredGameServices_RequestDebugMapToggle();
 bool RecoveredGameServices_StageMissionMapProbe();
 bool RecoveredGameServices_VerifyMissionMapProbe();
+bool RecoveredGameServices_ProbeDebugMapControls();
 bool RecoveredGameServices_ClearMissionMapProbe();
 bool RecoveredGameServices_MissionMapProbeTelemetry(
     SRecoveredMissionMapProbeTelemetry* telemetry);
+bool RecoveredGameServices_DebugMapControlProbeTelemetry(
+    SRecoveredDebugMapControlProbeTelemetry* telemetry);
 unsigned int RecoveredGameServices_VehiclePrimaryFirePresses();
 unsigned int RecoveredGameServices_VehicleSecondaryFirePresses();
 unsigned int RecoveredGameServices_VehicleSecondaryFireAcceptedShots();

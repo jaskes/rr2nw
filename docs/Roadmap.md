@@ -1677,6 +1677,15 @@ Route. Every matrix row now requires
 `mission_map_probe=1/1/1/1/<routes>/1/1/<hash>/<nonclear>`; `<routes>` is one on
 the eight routed Levels and zero on `Level.07N`.
 
+Objective-map navigation is now connected too. The maintained native adapter
+owns the complete March key set: `Del` follow/free mode, arrow panning,
+`[`/`]` mission selection and `PgUp`/`PgDn` text scrolling. Active map input
+cannot leak into Vehicle control. A two-mission/eight-line kernel covers the
+bounded branches; the 27-row installed matrix proves paired state restoration
+on every Level and real long-text scrolling on Level.06N. The next campaign
+surface row is simultaneous authored missions and their status/result changes,
+not more map plumbing.
+
 The third campaign slice is complete: every admitted Level now executes root
 `DEFS.H`/`PFUNC.SCI` and its own `SCINC/BRIEF.SCI` through the bounded legacy
 VM, constructing the original `ProjectTable(200, 1024, 10240)`. The runtime
@@ -2001,7 +2010,7 @@ existing May behavior and continuation gates.
 ### 2026-08-06 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **67%** of the Windows-first 1.0 scope; strict
+implementation is approximately **68%** of the Windows-first 1.0 scope; strict
 release readiness is approximately **52-57%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
@@ -2010,7 +2019,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 69% | People/Tank combat, two weapons, missions, center FLC plus briefing, map, reward/Artefact, Portal progression and full guide-route rollback | quests/objectives surface, remaining cinematics, visible AI/guide parity and complete campaign proof |
+| M3 retail parity | 71% | People/Tank combat, two weapons, missions, center FLC plus briefing, navigable objective map, reward/Artefact, Portal progression and full guide-route rollback | simultaneous authored objectives/status, remaining cinematics, visible AI/guide parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |
@@ -2019,8 +2028,8 @@ The shortest critical path is not more subsystem archaeology. It is:
 
 1. repeat visible People/Tank/guide motion while preserving the automated
    terminal-route and combat gates;
-2. restore the remaining campaign UI/quest/cinematic ownership and exercise
-   representative chains through Portal transitions;
+2. restore simultaneous authored objective/status and remaining cinematic
+   ownership, then exercise representative chains through Portal transitions;
 3. connect real audio and finish window/focus/performance stability;
 4. complete replay/import/mod UX gates;
 5. freeze a package and run the full Windows 10 plus extended Windows 11

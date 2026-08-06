@@ -176,6 +176,17 @@ Start any installed Level normally, move to a recognizable landmark and press
 controlled-body marker and a live 3D inset in its upper-right region. Pressing
 `M` again must return to a clean gameplay frame.
 
+While the map is open, use the retail controls:
+
+- `Del` switches between follow mode and free scrolling;
+- arrows pan the map in free mode and do not turn/move the Vehicle;
+- `[` and `]` select the previous/next active mission;
+- `PgUp` and `PgDn` scroll objective text longer than the five-line window.
+
+Return to the original mission, text line and follow mode before closing. A
+short objective or a single active mission makes the corresponding pair a
+valid no-op; Level.06N supplies a maintained real long-text scroll case.
+
 Repeat once while holding a movement or turn key. Opening the map must stop the
 held action; the Vehicle/player must not continue moving, rotating or firing
 behind the overlay. After closing, release and press the gameplay key again to
@@ -191,6 +202,12 @@ with one retail-font text block was published. Fields five through seven are
 route count, rendered map frames and rollback. The route count is `0` for
 `Level.06N` and `Level.07N` and `1` elsewhere; rendered frames and rollback are
 both `1`. The final framebuffer hash and non-clear-pixel count must be non-zero.
+The accompanying nine-field `debug_map_control_probe` is
+`available/follow-pair/horizontal-pair/vertical-pair/text-scrollable/text-pair/
+mission-selectable/mission-pair/state-restored`. Fields 1-4 and 9 must be one;
+fields 6 and 8 must equal their availability fields 5 and 7. The installed
+27-row matrix observes real text availability on Level.06N and requires its
+down/up pair to complete.
 
 For a human pass, the controlled authored objective should be visible in the
 map panel during `--runtime-smoke`; ordinary interactive play does not keep
