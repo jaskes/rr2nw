@@ -5529,3 +5529,27 @@ added. A two-mission/eight-line kernel probe covers every branch, while all 27
 retail Level/configuration starts exercise paired follow and two-axis pan.
 Level.06N additionally proves real objective-text down/up scrolling in each
 configuration.
+
+### BD-158: accepted missions advance the shared authored tier immediately
+
+Status: accepted on 2026-08-06 for simultaneous objective ownership.
+
+The preserved `Player::addMission()` increments `m_total_misCount` when a
+mission is accepted, not when it is completed. Project eligibility reads that
+same shared counter across RecruitCenters. Consequently a clean Level.03N
+player who accepts Inhabitants `ProjectS22` and then visits the Marauders
+center receives `ProjectA37`; the second mission must not be forced back to the
+standalone tier-zero `ProjectS25` merely to make an expected pair.
+
+Both missions remain independent PlayerMission owners: distinct project and
+commander IDs, condition sets, check events, summaries and Routes. DebugMap is
+still derived from those slots. Removing the successful slot rewrites every
+later `rc_CHECK_MISSION` index before shifting the array, then republishes the
+surviving mission. The shared total counter does not decrement on completion.
+
+The acceptance transaction proves the real S22/A37 pair, native map
+next/previous selection, exact pair save/load, independent S22 completion,
+exact A37 save/load, rollback to the pair and rollback to the clean Level. It
+does not infer that accepting multiple missions early is desirable balance;
+it preserves the source/data rule until a March binary comparison proves a
+different progression boundary.

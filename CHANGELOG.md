@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Restored simultaneous authored objective ownership on Level.03N. The player
+  can retain real `ProjectS22` and `ProjectA37` missions from different
+  RecruitCenters, switch their two text/Route entries with `[`/`]`, save and
+  restore the complete pair, complete only `ProjectS22`, then save and restore
+  the untouched `ProjectA37` graph. Mission check events are reindexed with
+  the surviving slot and both the two-mission and clean-Level rollback are
+  byte-exact across all seventeen active-world sections. A dedicated
+  three-configuration retail gate now owns this chain.
 - Restored the complete retail objective-map input path in the maintained
   Win32 adapter. `Del` toggles follow/free-scroll mode, arrows pan in free
   mode, `[`/`]` select missions and `PgUp`/`PgDn` scroll long objective text;

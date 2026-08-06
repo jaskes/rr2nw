@@ -56,6 +56,29 @@ struct RecruitCenterMissionResultProbeSummary
     char nextProjectName[81];
 };
 
+struct RecruitCenterObjectiveStateSummary
+{
+    int missions;
+    int totalMissions;
+    int inProcessMissions;
+    int successMissions;
+    int failedMissions;
+    int surrenderMissions;
+    int summaryMissions;
+    int routeMissions;
+    int conditionReferences;
+    int boundConditionReferences;
+    int scheduledChecks;
+    int distinctProjects;
+    int distinctCommanders;
+    int mapMissions;
+    int mapTexts;
+    int mapRoutes;
+    int mapBindings;
+    char firstProjectName[81];
+    char secondProjectName[81];
+};
+
 void RecruitCenterSubjectState_Link();
 bool RecruitCenterSubjectState_TableReady(SimulationContext *context);
 int RecruitCenterSubjectState_Capacity();
@@ -93,6 +116,8 @@ bool RecruitCenterSubjectState_StageMissionPresentationProbeForCenter(
     bool *staged, RecruitCenterMissionProbeSummary *summary);
 bool RecruitCenterSubjectState_LastMissionSummary(
     RecruitCenterMissionProbeSummary *summary);
+bool RecruitCenterSubjectState_ObjectiveState(
+    SimulationContext *context, RecruitCenterObjectiveStateSummary *summary);
 bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     RecruitCenterMissionResultProbeSummary *summary);

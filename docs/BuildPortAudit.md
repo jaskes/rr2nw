@@ -4107,5 +4107,37 @@ nine-field `debug_map_control_probe`; paired operations must restore all
 presentation state. Debug, Release and RelWithDebInfo each build and pass
 67/67 CTest. The installed retail matrix passes 27/27: all rows prove follow
 and both pan axes; Level.06N's real first objective also proves long-text
-scrolling. Multiple simultaneous authored missions remain the next objective
-chain row rather than being synthesized in this gate.
+scrolling. Multiple simultaneous authored missions are covered by the separate
+objective-chain transaction below rather than synthesized in this gate.
+
+## Simultaneous authored objective chain
+
+`--mission-objective-chain-smoke` captures a clean Level.03N baseline, accepts
+the real Inhabitants `ProjectS22`, then accepts the project currently eligible
+at `Marauders.Recruit.0`. Retail `Player::addMission()` increments the global
+`m_total_misCount` at acceptance time, so that second mission is correctly
+`ProjectA37`, not the standalone first-tier `ProjectS25`. The gate records this
+selection instead of overriding the original progression rule.
+
+A read-only objective snapshot checks Player slot/status counters, distinct
+project and commander owners, all condition references, every scheduled
+`rc_CHECK_MISSION`, and the derived DebugMap text/Route bindings. With both
+missions live the expected shape is 2 slots, 2 in-process statuses, 11/11
+bound condition references, 2 check events and 2/2/2 map missions/texts/routes.
+The active map then proves real next/previous selection and exact restoration
+of its presentation state.
+
+LCN1 restore/recapture of that pair is byte-exact. Completing only S22 through
+the production RecruitCenter condition/result path removes its slot, reward
+targets and check event while reindexing A37 to slot zero. A37 retains 7/7
+bound conditions, one scheduled check, one text/Route binding and an
+in-process status; its carried-reward checkpoint is also byte-exact. The test
+then restores the two-mission state exactly and finally restores the clean
+baseline unconditionally, including on assertion failure so a temporary
+attached Artefact cannot poison shutdown.
+
+The accepted gate passes 3/3 in Debug, Release and RelWithDebInfo, 67/67 CTest
+per configuration, the installed retail matrix 27/27 and fresh Level.03N
+continuation 3/3. The attempted full fresh 27-row matrix exceeded the bounded
+command window after completing Debug and part of Release; it is not counted
+as evidence.

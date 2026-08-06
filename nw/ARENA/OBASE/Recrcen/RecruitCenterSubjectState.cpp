@@ -16,6 +16,7 @@ class CGRPanel;
 #include "h/olevel.h"
 #include "hardware.h"
 #include "briefing.h"
+#include "dmap.h"
 #include "i/dynobj.i"
 #include "i/player.i"
 #include "i/route.i"
@@ -2489,6 +2490,107 @@ bool RecruitCenterSubjectState_LastMissionSummary(
     if (summary == NULL || !g_hasLastMissionSummary)
         return false;
     *summary = g_lastMissionSummary;
+    return true;
+}
+
+bool RecruitCenterSubjectState_ObjectiveState(
+    SimulationContext *context, RecruitCenterObjectiveStateSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || summary == NULL || g_vehicle == NULL ||
+        g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter objective state needs a live Player vehicle");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    if (player.m_missCnt < 0 || player.m_missCnt > 6 ||
+        player.m_total_misCount < player.m_missCnt)
+    {
+        SetError("RecruitCenter objective state has invalid Player counters");
+        return false;
+    }
+
+    summary->missions = player.m_missCnt;
+    summary->totalMissions = player.m_total_misCount;
+    std::vector<KR_ObjectID> projects;
+    std::vector<KR_ObjectID> commanders;
+    const KR_SetOfID *sets[6];
+    for (int missionIndex = 0; missionIndex < player.m_missCnt;
+         ++missionIndex)
+    {
+        PlayerMission &mission = player.m_mission[missionIndex];
+        switch (mission.m_status)
+        {
+        case MISSION_INPROCESS: ++summary->inProcessMissions; break;
+        case MISSION_SUCCESS: ++summary->successMissions; break;
+        case MISSION_FAILED: ++summary->failedMissions; break;
+        case MISSION_SURRENDER: ++summary->surrenderMissions; break;
+        default: break;
+        }
+        if (mission.m_missionInfoExist != 0) ++summary->summaryMissions;
+        if (!mission.m_missionRouteID.isNUL()) ++summary->routeMissions;
+        sets[0] = &mission.success_needKill;
+        sets[1] = &mission.success_needLive;
+        sets[2] = &mission.success_needReached;
+        sets[3] = &mission.filed_needKill;
+        sets[4] = &mission.filed_needLive;
+        sets[5] = &mission.filed_needReached;
+        for (int setIndex = 0; setIndex < 6; ++setIndex)
+            for (int reference = 0; reference < sets[setIndex]->getCount();
+                 ++reference)
+            {
+                ++summary->conditionReferences;
+                KR_ObjectID object = (*sets[setIndex])[reference];
+                if (!object.isNUL() && context->isExist(object))
+                    ++summary->boundConditionReferences;
+            }
+        bool knownProject = false;
+        for (std::size_t index = 0; index < projects.size(); ++index)
+            if (projects[index] == mission.mID) knownProject = true;
+        if (!knownProject) projects.push_back(mission.mID);
+        bool knownCommander = false;
+        for (std::size_t index = 0; index < commanders.size(); ++index)
+            if (commanders[index] == mission.comID) knownCommander = true;
+        if (!knownCommander) commanders.push_back(mission.comID);
+
+        const char *projectName = context->searchObject(mission.mID);
+        if (projectName == NULL)
+        {
+            SetError("RecruitCenter objective state lost a project name");
+            return false;
+        }
+        char *destination = missionIndex == 0 ? summary->firstProjectName :
+                            missionIndex == 1 ? summary->secondProjectName :
+                            NULL;
+        if (destination != NULL)
+            std::snprintf(destination, 81, "%s", projectName);
+        if (mission.m_missionInfoExist != 0 &&
+            g_debugMap.MissionInUse(mission.m_TMissionId) &&
+            g_debugMap.MissionHasText(mission.m_TMissionId) &&
+            (mission.m_missionRouteID.isNUL() ||
+             g_debugMap.MissionRouteCount(mission.m_TMissionId) > 0))
+            ++summary->mapBindings;
+    }
+    summary->distinctProjects = static_cast<int>(projects.size());
+    summary->distinctCommanders = static_cast<int>(commanders.size());
+    summary->mapMissions = g_debugMap.MissionCount();
+    summary->mapTexts = g_debugMap.MissionTextCount();
+    summary->mapRoutes = g_debugMap.MissionRouteCount();
+    for (ct_Subject *subject = g_recruitCenterTable.findFirstSubject();
+         subject != NULL;
+         subject = g_recruitCenterTable.findNextSubject(subject))
+    {
+        const int checks = context->copyEventsTo(
+            rc_CHECK_MISSION, subject->getObjectID(), NULL, 0);
+        if (checks < 0 || checks > 6)
+        {
+            SetError("RecruitCenter objective state has invalid check events");
+            return false;
+        }
+        summary->scheduledChecks += checks;
+    }
     return true;
 }
 

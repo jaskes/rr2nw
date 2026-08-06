@@ -2164,6 +2164,28 @@ playable Level begins.
   Debug, Release and Playtest pass 67/67 CTest and the combined installed-Level
   start matrix passes 27/27; Release and Playtest fresh matrices each pass 9/9.
 
+### RP-MAP-003: simultaneous authored objectives retain independent owners
+
+- Classification: `SOURCE_PATH_PRESERVED`, `RETAIL_DATA_EXECUTED`,
+  `SAVE_PATH_RECONNECTED`, `CAMPAIGN_CHAIN_PARTIAL`.
+- Clean Level.03N accepts real Inhabitants `ProjectS22`, then real Marauders
+  `ProjectA37`. The latter is the authored selection after S22 increments the
+  shared acceptance counter; standalone `ProjectS25` is not substituted.
+- The pair owns two in-process Player slots, distinct project/commander IDs,
+  11 bound condition references, two scheduled checks, two summaries and two
+  Routes. `Player::loadNotify()` publishes exactly two text/Route map entries,
+  and the maintained `[`/`]` input pair changes and restores the real selected
+  mission.
+- Completing S22 through its kill/reward result removes only that slot and
+  reindexes the later check. A37 remains in process with 7/7 references, one
+  check and one text/Route binding. The shared total remains two.
+- Pair save/restore, remaining-mission save/restore, rollback to the pair and
+  rollback to the pre-mission Level are byte-exact across seventeen owner
+  sections. DebugMap remains derived and adds no serialized fields.
+- Verification: the dedicated retail wrapper passes 3/3; Debug, Release and
+  RelWithDebInfo pass 67/67 CTest, installed starts pass 27/27 and fresh
+  Level.03N continuation passes 3/3.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

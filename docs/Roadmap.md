@@ -1948,6 +1948,17 @@ The closure gate is green in Debug, Release and RelWithDebInfo: 6/6 complete
 route rows, 3/3 ordinary mission save/fresh-load rows, 3/3 fresh Level.03N
 continuations, 3/3 retail starts and 67/67 CTest per configuration.
 
+Simultaneous objective ownership is now automated too. Level.03N accepts the
+real Inhabitants `ProjectS22`, then the real Marauders `ProjectA37` selected by
+the original global mission-count tier. Both independent condition/check
+graphs publish text plus Route to DebugMap and `[`/`]` returns to the original
+selection. The complete pair survives exact LCN1 restore; completing S22
+reindexes the surviving A37 check event, leaves its map entry and conditions
+intact, and that remaining graph also survives exact restore. Rollback first
+returns to both missions and then to the clean pre-mission Level. The gate is
+3/3 across Debug, Release and RelWithDebInfo; remaining M3 work is failure and
+surrender presentation, remaining cinematics and complete campaign flow.
+
 Gate: a player can discover objectives, navigate with the map, complete and
 transition a representative mission chain, save before/after a portal and
 continue after restart. Then extend to a complete retail campaign pass.
@@ -2010,8 +2021,8 @@ existing May behavior and continuation gates.
 ### 2026-08-06 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **68%** of the Windows-first 1.0 scope; strict
-release readiness is approximately **52-57%** because a full campaign and the
+implementation is approximately **69%** of the Windows-first 1.0 scope; strict
+release readiness is approximately **53-58%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
 | Milestone | Estimate | Evidence already owned | Principal remainder |
@@ -2019,7 +2030,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 71% | People/Tank combat, two weapons, missions, center FLC plus briefing, navigable objective map, reward/Artefact, Portal progression and full guide-route rollback | simultaneous authored objectives/status, remaining cinematics, visible AI/guide parity and complete campaign proof |
+| M3 retail parity | 74% | People/Tank combat, two weapons, missions, center FLC plus briefing, simultaneous navigable objective graphs, independent success/result persistence, reward/Artefact, Portal progression and full guide-route rollback | failure/surrender presentation, remaining cinematics, visible AI/guide parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |
@@ -2028,7 +2039,7 @@ The shortest critical path is not more subsystem archaeology. It is:
 
 1. repeat visible People/Tank/guide motion while preserving the automated
    terminal-route and combat gates;
-2. restore simultaneous authored objective/status and remaining cinematic
+2. restore failure/surrender objective presentation and remaining cinematic
    ownership, then exercise representative chains through Portal transitions;
 3. connect real audio and finish window/focus/performance stability;
 4. complete replay/import/mod UX gates;

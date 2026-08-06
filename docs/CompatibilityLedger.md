@@ -4442,6 +4442,40 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   a maintained campaign-chain gate. Prove `[`/`]` against those real
   PlayerMission owners and retain the kernel row as the bounded edge proof.
 
+### CQ-223: authored objectives were only proven one at a time
+
+- Status: `MAY_SOURCE_PRESERVED`, `MULTI_OWNER_RUNTIME_ACCEPTED`,
+  `SAVE_ROLLBACK_ACCEPTED`.
+- Evidence: Player owns six mission slots and `loadNotify()` publishes every
+  summarized slot to DebugMap. Level.03N has independent Inhabitants and
+  Marauders RecruitCenters. Accepting S22 increments the shared total count,
+  so the second real selection is A37 rather than standalone S25.
+- Handling: retain both normal admission transactions. Inspect, do not invent,
+  their Player status/condition/Route/check graph. Permit the native DebugMap
+  control probe on any active real map. Successful removal reuses the existing
+  check-event reindex path and leaves the other mission untouched.
+- Verification: `Invoke-MissionObjectiveChainSmoke.ps1` passes 3/3. The pair
+  has 11/11 bound references, two checks and 2/2/2 map entries; A37 alone has
+  7/7 references, one check and one map binding. Pair, remainder, pair rollback
+  and clean rollback are exact. All configurations pass 67/67 CTest, retail
+  starts pass 27/27 and fresh Level.03N continuation passes 3/3.
+- Revisit when: failure/surrender result presentation is admitted or a binary
+  comparison contradicts acceptance-time advancement of the shared counter.
+
+### CQ-224: bulk terminal cleanup may skip an adjacent mission slot
+
+- Status: `SOURCE_RISK_RECORDED`, `NOT_CHANGED`.
+- Evidence: archived `Player::CleanupMissionPool()` shifts later missions left
+  and decrements `m_missCnt`, then the surrounding `for` loop increments the
+  same index. Two adjacent success/failed/surrender slots can therefore leave
+  the second shifted terminal mission unvisited for that call.
+- Current boundary: the accepted RecruitCenter result path does not use this
+  bulk loop; it removes one known issuing-center slot and transactionally
+  rewrites later check-event indices, which CQ-223 proves with a live survivor.
+- Revisit when: failure/surrender and simultaneous terminal-status handling is
+  admitted. Add an adjacent-slot regression first, compare May behavior, then
+  choose repeat-index or reverse-order cleanup without a broad Player rewrite.
+
 ## Maintenance rule
 
 When a new quirk is found:

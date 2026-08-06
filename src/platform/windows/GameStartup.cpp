@@ -75,6 +75,7 @@ struct StartupOptions {
   bool missionGuideRouteSmoke = false;
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
+  bool missionObjectiveChainSmoke = false;
   bool portalTransitionSmoke = false;
   bool debugMenu = false;
   bool showHelp = false;
@@ -324,6 +325,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionResultSmoke = true;
+    } else if (argument == L"--mission-objective-chain-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionObjectiveChainSmoke = true;
     } else if (argument == L"--portal-transition-smoke") {
       options->runtimeSmoke = true;
       options->portalTransitionSmoke = true;
@@ -451,6 +456,21 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   if (!options->missionCenter.empty() && !options->missionSmoke) {
     *failure = L"--mission-center requires --mission-smoke";
     return false;
+  }
+  if (options->missionObjectiveChainSmoke) {
+    if (options->missionCenter.empty()) {
+      options->missionCenter = L"Inhabitants.Recruit.0";
+    } else if (_wcsicmp(options->missionCenter.c_str(),
+                        L"Inhabitants.Recruit.0") != 0) {
+      *failure = L"--mission-objective-chain-smoke starts at "
+                 L"Inhabitants.Recruit.0";
+      return false;
+    }
+    if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
+      *failure = L"--mission-objective-chain-smoke owns its save/rollback "
+                 L"transaction";
+      return false;
+    }
   }
   return true;
 }
@@ -1095,7 +1115,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"           --mission-natural-combat-smoke |\n"
                 L"           --mission-guide-route-smoke |\n"
                 L"           --mission-continuation-smoke |\n"
-                L"           --mission-result-smoke]\n"
+                L"           --mission-result-smoke |\n"
+                L"           --mission-objective-chain-smoke]\n"
                 L"          [--portal-transition-smoke]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
@@ -2891,6 +2912,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     loopFailed = !portalTransitionCompleted;
   }
   if (!loopFailed && options.missionSmoke) {
+    std::vector<std::uint8_t> objectiveBaseline;
+    RecruitCenterObjectiveStateSummary objectiveBaselineState = {};
+    SLevelContinuationSummary objectiveBaselineSummary;
+    const bool objectiveBaselineReady =
+        !options.missionObjectiveChainSmoke ||
+        (RecruitCenterSubjectState_ObjectiveState(
+             g_super.m_context, &objectiveBaselineState) &&
+         RecoveredGameServices_CaptureLevelContinuation(
+             &objectiveBaseline, &objectiveBaselineSummary));
+    if (options.missionObjectiveChainSmoke) {
+      log.Line("mission_objective_baseline=" +
+               std::to_string(objectiveBaselineReady ? 1 : 0) + "/" +
+               std::to_string(objectiveBaselineState.missions) + "/" +
+               std::to_string(objectiveBaselineState.scheduledChecks) + "/" +
+               std::to_string(objectiveBaseline.size()));
+      loopFailed = !objectiveBaselineReady;
+    }
     std::vector<KR_ObjectID> preMissionTaxis;
     const bool preMissionTaxisReady = TaxiSubjectState_ObjectIDs(
         g_super.m_context, &preMissionTaxis);
@@ -3634,6 +3672,273 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(missionVehicle.rollbackRestores) + "/" +
                std::to_string(missionVehicle.exactRollbacks));
       loopFailed = !missionVehicleReady;
+    }
+    if (!loopFailed && options.missionObjectiveChainSmoke) {
+      const char *secondCenter = "Marauders.Recruit.0";
+      bool secondStaged = false;
+      RecruitCenterMissionProbeSummary secondMission = {};
+      const bool secondReady =
+          std::strcmp(mission.centerName, "Inhabitants.Recruit.0") == 0 &&
+          RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_viewTime + 0.5), secondCenter,
+              &secondStaged, &secondMission) &&
+          secondStaged && runCompleteFrame();
+
+      RecruitCenterObjectiveStateSummary multiState = {};
+      const bool multiStateReady = secondReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &multiState);
+      const bool multiStateExact = multiStateReady &&
+          multiState.missions == objectiveBaselineState.missions + 2 &&
+          multiState.totalMissions ==
+              objectiveBaselineState.totalMissions + 2 &&
+          multiState.inProcessMissions == multiState.missions &&
+          multiState.successMissions == 0 &&
+          multiState.failedMissions == 0 &&
+          multiState.surrenderMissions == 0 &&
+          multiState.summaryMissions == 2 &&
+          multiState.routeMissions == 2 &&
+          multiState.conditionReferences > 0 &&
+          multiState.boundConditionReferences ==
+              multiState.conditionReferences &&
+          multiState.scheduledChecks ==
+              objectiveBaselineState.scheduledChecks + 2 &&
+          multiState.distinctProjects == 2 &&
+          multiState.distinctCommanders == 2 &&
+          multiState.mapMissions == 2 && multiState.mapTexts == 2 &&
+          multiState.mapRoutes == 2 && multiState.mapBindings == 2 &&
+          std::strcmp(multiState.firstProjectName, "ProjectS22") == 0 &&
+          secondMission.projectName[0] != 0 &&
+          std::strcmp(multiState.secondProjectName,
+                      secondMission.projectName) == 0 &&
+          std::strcmp(multiState.firstProjectName,
+                      multiState.secondProjectName) != 0;
+
+      std::vector<std::uint8_t> multiCheckpoint;
+      std::vector<std::uint8_t> multiRecaptured;
+      SLevelContinuationSummary multiCaptured;
+      SLevelContinuationSummary multiRestored;
+      SLevelContinuationSummary multiVerified;
+      RecruitCenterObjectiveStateSummary multiRestoredState = {};
+      const bool multiCaptureReady = multiStateExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &multiCheckpoint, &multiCaptured);
+      const bool multiRestoreReady = multiCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              multiCheckpoint, &multiRestored);
+      const bool multiRestoredStateReady = multiRestoreReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &multiRestoredState);
+      const bool multiRecaptureReady = multiRestoredStateReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &multiRecaptured, &multiVerified);
+      const bool multiSaveExact = multiRecaptureReady &&
+          multiCheckpoint == multiRecaptured &&
+          std::memcmp(&multiState, &multiRestoredState,
+                      sizeof(multiState)) == 0 &&
+          multiCaptured.ready && multiRestored.ready &&
+          multiVerified.ready &&
+          multiCaptured.sections == kActiveWorldOwnerSectionCount &&
+          multiRestored.ownerPhases == kActiveWorldOwnerSectionCount &&
+          multiRestored.referencePhases == kActiveWorldOwnerSectionCount &&
+          multiCaptured.worldFingerprint ==
+              multiRestored.restoredWorldFingerprint &&
+          multiCaptured.worldFingerprint == multiVerified.worldFingerprint;
+
+      SRecoveredDebugMapControlProbeTelemetry mapControls = {};
+      const bool mapOpened = multiSaveExact &&
+          RecoveredGameServices_RequestDebugMapToggle() &&
+          runCompleteFrame();
+      const bool mapControlled = mapOpened &&
+          RecoveredGameServices_ProbeDebugMapControls() &&
+          RecoveredGameServices_DebugMapControlProbeTelemetry(&mapControls) &&
+          mapControls.available == 1 &&
+          mapControls.missionSelectable == 1 &&
+          mapControls.missionSelectionPair == 1 &&
+          mapControls.stateRestored == 1;
+      const bool mapClosed = mapControlled &&
+          RecoveredGameServices_RequestDebugMapToggle() &&
+          runCompleteFrame() &&
+          !RecoveredGameServices_DebugMapActive();
+
+      RecruitCenterMissionResultProbeSummary firstResult = {};
+      const bool firstCompleted = mapClosed &&
+          RecruitCenterSubjectState_CompleteMissionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.1),
+              mission.centerName, &firstResult);
+      RecruitCenterObjectiveStateSummary remainingState = {};
+      const bool remainingReady = firstCompleted &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &remainingState);
+      const bool remainingExact = remainingReady &&
+          remainingState.missions == objectiveBaselineState.missions + 1 &&
+          remainingState.totalMissions ==
+              objectiveBaselineState.totalMissions + 2 &&
+          remainingState.inProcessMissions == remainingState.missions &&
+          remainingState.successMissions == 0 &&
+          remainingState.failedMissions == 0 &&
+          remainingState.surrenderMissions == 0 &&
+          remainingState.summaryMissions == 1 &&
+          remainingState.routeMissions == 1 &&
+          remainingState.conditionReferences > 0 &&
+          remainingState.boundConditionReferences ==
+              remainingState.conditionReferences &&
+          remainingState.scheduledChecks ==
+              objectiveBaselineState.scheduledChecks + 1 &&
+          remainingState.distinctProjects == 1 &&
+          remainingState.distinctCommanders == 1 &&
+          remainingState.mapMissions == 1 && remainingState.mapTexts == 1 &&
+          remainingState.mapRoutes == 1 && remainingState.mapBindings == 1 &&
+          std::strcmp(remainingState.firstProjectName,
+                      secondMission.projectName) == 0;
+
+      std::vector<std::uint8_t> remainingCheckpoint;
+      std::vector<std::uint8_t> remainingRecaptured;
+      SLevelContinuationSummary remainingCaptured;
+      SLevelContinuationSummary remainingRestored;
+      SLevelContinuationSummary remainingVerified;
+      RecruitCenterObjectiveStateSummary remainingRestoredState = {};
+      const bool remainingCaptureReady = remainingExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &remainingCheckpoint, &remainingCaptured);
+      const bool remainingRestoreReady = remainingCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              remainingCheckpoint, &remainingRestored) &&
+          RecruitCenterSubjectState_RewardCarrierState(
+              g_super.m_context, true);
+      const bool remainingRestoredStateReady = remainingRestoreReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &remainingRestoredState);
+      const bool remainingRecaptureReady = remainingRestoredStateReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &remainingRecaptured, &remainingVerified);
+      const bool remainingSaveExact = remainingRecaptureReady &&
+          remainingCheckpoint == remainingRecaptured &&
+          std::memcmp(&remainingState, &remainingRestoredState,
+                      sizeof(remainingState)) == 0 &&
+          remainingCaptured.ready && remainingRestored.ready &&
+          remainingVerified.ready &&
+          remainingCaptured.worldFingerprint ==
+              remainingRestored.restoredWorldFingerprint &&
+          remainingCaptured.worldFingerprint ==
+              remainingVerified.worldFingerprint;
+
+      std::vector<std::uint8_t> multiRollbackBytes;
+      SLevelContinuationSummary multiRollbackRestored;
+      SLevelContinuationSummary multiRollbackVerified;
+      RecruitCenterObjectiveStateSummary multiRollbackState = {};
+      const bool multiRollbackReady = remainingSaveExact &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              multiCheckpoint, &multiRollbackRestored) &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &multiRollbackState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &multiRollbackBytes, &multiRollbackVerified);
+      const bool multiRollbackExact = multiRollbackReady &&
+          multiRollbackBytes == multiCheckpoint &&
+          std::memcmp(&multiState, &multiRollbackState,
+                      sizeof(multiState)) == 0 &&
+          multiCaptured.worldFingerprint ==
+              multiRollbackRestored.restoredWorldFingerprint &&
+          multiCaptured.worldFingerprint ==
+              multiRollbackVerified.worldFingerprint;
+
+      std::vector<std::uint8_t> baselineRollbackBytes;
+      SLevelContinuationSummary baselineRollbackRestored;
+      SLevelContinuationSummary baselineRollbackVerified;
+      RecruitCenterObjectiveStateSummary baselineRollbackState = {};
+      // Cleanup is unconditional once the baseline exists. A failed proof may
+      // leave the result Artifact attached; abandoning that graph would turn a
+      // useful assertion failure into a shutdown access violation.
+      const bool baselineRollbackReady = objectiveBaselineReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              objectiveBaseline, &baselineRollbackRestored) &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &baselineRollbackState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &baselineRollbackBytes, &baselineRollbackVerified);
+      const bool baselineRollbackExact = baselineRollbackReady &&
+          baselineRollbackBytes == objectiveBaseline &&
+          std::memcmp(&objectiveBaselineState, &baselineRollbackState,
+                      sizeof(objectiveBaselineState)) == 0 &&
+          objectiveBaselineSummary.worldFingerprint ==
+              baselineRollbackRestored.restoredWorldFingerprint &&
+          objectiveBaselineSummary.worldFingerprint ==
+              baselineRollbackVerified.worldFingerprint;
+
+      log.Line(std::string("mission_objective_projects=") +
+               (multiState.firstProjectName[0] == 0 ? "<none>" :
+                                                       multiState.firstProjectName) +
+               "/" +
+               (multiState.secondProjectName[0] == 0 ? "<none>" :
+                                                        multiState.secondProjectName));
+      log.Line("mission_objective_active=" +
+               std::to_string(secondReady ? 1 : 0) + "/" +
+               std::to_string(multiStateExact ? 1 : 0) + "/" +
+               std::to_string(multiState.missions) + "/" +
+               std::to_string(multiState.inProcessMissions) + "/" +
+               std::to_string(multiState.conditionReferences) + "/" +
+               std::to_string(multiState.boundConditionReferences) + "/" +
+               std::to_string(multiState.scheduledChecks));
+      log.Line("mission_objective_map=" +
+               std::to_string(multiState.mapMissions) + "/" +
+               std::to_string(multiState.mapTexts) + "/" +
+               std::to_string(multiState.mapRoutes) + "/" +
+               std::to_string(multiState.mapBindings) + "/" +
+               std::to_string(mapControls.missionSelectable) + "/" +
+               std::to_string(mapControls.missionSelectionPair) + "/" +
+               std::to_string(mapControls.stateRestored) + "/" +
+               std::to_string(mapClosed ? 1 : 0));
+      log.Line("mission_objective_save=" +
+               std::to_string(multiCaptureReady ? 1 : 0) + "/" +
+               std::to_string(multiRestoreReady ? 1 : 0) + "/" +
+               std::to_string(multiRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(multiSaveExact ? 1 : 0));
+      log.Line(std::string("mission_objective_remaining=") +
+               (remainingState.firstProjectName[0] == 0 ? "<none>" :
+                                                           remainingState.firstProjectName) +
+               "/" + std::to_string(remainingExact ? 1 : 0) + "/" +
+               std::to_string(remainingState.missions) + "/" +
+               std::to_string(remainingState.inProcessMissions) + "/" +
+               std::to_string(remainingState.scheduledChecks) + "/" +
+               std::to_string(remainingState.mapBindings));
+      log.Line("mission_objective_remaining_state=" +
+               std::to_string(remainingState.totalMissions) + "/" +
+               std::to_string(remainingState.successMissions) + "/" +
+               std::to_string(remainingState.failedMissions) + "/" +
+               std::to_string(remainingState.surrenderMissions) + "/" +
+               std::to_string(remainingState.summaryMissions) + "/" +
+               std::to_string(remainingState.routeMissions) + "/" +
+               std::to_string(remainingState.conditionReferences) + "/" +
+               std::to_string(remainingState.boundConditionReferences) + "/" +
+               std::to_string(remainingState.distinctProjects) + "/" +
+               std::to_string(remainingState.distinctCommanders) + "/" +
+               std::to_string(remainingState.mapMissions) + "/" +
+               std::to_string(remainingState.mapTexts) + "/" +
+               std::to_string(remainingState.mapRoutes));
+      log.Line("mission_objective_remaining_save=" +
+               std::to_string(remainingCaptureReady ? 1 : 0) + "/" +
+               std::to_string(remainingRestoreReady ? 1 : 0) + "/" +
+               std::to_string(remainingRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(remainingSaveExact ? 1 : 0));
+      log.Line("mission_objective_rollback=" +
+               std::to_string(multiRollbackReady ? 1 : 0) + "/" +
+               std::to_string(multiRollbackExact ? 1 : 0) + "/" +
+               std::to_string(baselineRollbackReady ? 1 : 0) + "/" +
+               std::to_string(baselineRollbackExact ? 1 : 0));
+      if (!secondReady || !multiStateReady || !remainingReady)
+        log.Line(std::string("mission_objective_error=") +
+                 RecruitCenterSubjectState_LastError());
+      else if (!multiSaveExact || !remainingSaveExact ||
+               !multiRollbackExact || !baselineRollbackExact)
+        log.Line(std::string("mission_objective_error=") +
+                 RecoveredGameServices_LastLevelContinuationError());
+      loopFailed = !secondReady || !multiStateExact || !multiSaveExact ||
+          !mapClosed || !firstCompleted || !remainingExact ||
+          !remainingSaveExact || !multiRollbackExact ||
+          !baselineRollbackExact;
     }
     if (!loopFailed && options.missionResultSmoke) {
       std::vector<std::uint8_t> resultCheckpoint;

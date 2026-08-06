@@ -5415,7 +5415,10 @@ bool RecoveredGameServices_VerifyMissionMapProbe() {
 }
 
 bool RecoveredGameServices_ProbeDebugMapControls() {
-  if (!g_missionMapProbeLive || !g_debugMap.IsActive()) return false;
+  // The navigation adapter belongs to the real active DebugMap, not to the
+  // synthetic startup objective. Keeping this usable after authored missions
+  // lets the retail gate prove simultaneous objective selection as well.
+  if (!g_debugMap.IsActive()) return false;
   g_debugMapControlProbe = {};
   g_debugMapControlProbe.available = 1;
 

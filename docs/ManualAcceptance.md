@@ -1033,6 +1033,31 @@ screenshot near a former obstruction. The guide must make bounded detours,
 resume the authored path and must not circle, teleport or finish hidden. That
 human repeat remains the presentation-parity row.
 
+## Simultaneous objective-chain pass
+
+Run the bounded automated gate as one PowerShell line:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionObjectiveChainSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+All three rows must name `ProjectS22` then `ProjectA37` and pass. The second
+name is intentional: accepting S22 advances the original shared mission tier
+before the Marauders center selects its project. Required log records are
+`mission_objective_active=1/1/2/2/11/11/2`,
+`mission_objective_map=2/2/2/2/1/1/1/1`, both save records ending `1/1/1/1`,
+`mission_objective_remaining=ProjectA37/1/1/1/1/1` and
+`mission_objective_rollback=1/1/1/1`.
+
+For the visible pass, start Level.03N normally, accept the Inhabitants mission,
+then accept a Marauders mission before completing the first. Open `M` and use
+`[`/`]`: both objective names, text blocks and Routes must be independently
+selectable, and the Vehicle must not move behind the map. Save and load while
+both are active and repeat the selection. After completing and returning the
+Inhabitants result, only the Marauders objective must remain; its text, Route
+and scheduled progress must continue after another save/load. Retain the slot
+and startup log if the visible names differ from the automated pair.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so
