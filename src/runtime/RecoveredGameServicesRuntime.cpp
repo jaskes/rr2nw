@@ -612,19 +612,46 @@ class RecoveredVehicleControlInput final : public KR_Object {
                journal, &active, held);
   }
   bool AdoptControlJournal(const SVehicleControlJournal& journal) {
-    if (!CanAdoptControlJournal(journal)) return false;
+    m_controlJournalAdoptionFailure.clear();
+    if (!CanAdoptControlJournal(journal)) {
+      m_controlJournalAdoptionFailure =
+          "journal no longer binds to the live Vehicle controller";
+      return false;
+    }
     SSimulationClockState clock = {};
     bool active = false;
     double held[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT] = {};
     SVehicleControlJournal resumed = journal;
-    if (!SUA_CaptureSimulationClock(&clock) ||
-        clock.tick != journal.finalTick ||
-        (std::max)(clock.eventMoment, clock.viewTime) != journal.finalTime ||
-        !VehicleControlJournal_DeriveLifecycle(
-            journal, &active, held) ||
-        !VehicleRuntimeState_RebaseRestoredOwner(getContext()) ||
-        !VehicleControlJournal_Resume(&resumed))
+    if (!SUA_CaptureSimulationClock(&clock)) {
+      m_controlJournalAdoptionFailure =
+          "restored simulation clock is unavailable";
       return false;
+    }
+    if (clock.tick != journal.finalTick ||
+        (std::max)(clock.eventMoment, clock.viewTime) != journal.finalTime) {
+      std::ostringstream detail;
+      detail << "restored simulation clock does not match CTJ1 (tick="
+             << clock.tick << "/" << journal.finalTick << ", time="
+             << (std::max)(clock.eventMoment, clock.viewTime) << "/"
+             << journal.finalTime << ")";
+      m_controlJournalAdoptionFailure = detail.str();
+      return false;
+    }
+    if (!VehicleControlJournal_DeriveLifecycle(journal, &active, held)) {
+      m_controlJournalAdoptionFailure =
+          "restored CTJ1 lifecycle derivation failed";
+      return false;
+    }
+    if (!VehicleRuntimeState_RebaseRestoredOwner(getContext())) {
+      m_controlJournalAdoptionFailure =
+          "restored Vehicle owner rebase failed (reason=" +
+          std::to_string(VehicleRuntimeState_LastControlFailure()) + ")";
+      return false;
+    }
+    if (!VehicleControlJournal_Resume(&resumed)) {
+      m_controlJournalAdoptionFailure = "restored CTJ1 resume failed";
+      return false;
+    }
     m_controlJournal = resumed;
     m_controlJournalRecording = true;
     m_controlJournalAppendFailures = 0;
@@ -674,6 +701,9 @@ class RecoveredVehicleControlInput final : public KR_Object {
     m_heldActions[HeldActionIndex(LOOK_UP)] =
         m_directionalAxes.look;
     return true;
+  }
+  const std::string& ControlJournalAdoptionFailure() const {
+    return m_controlJournalAdoptionFailure;
   }
   bool QuitRequested() const { return m_quitRequested; }
   bool ForwardingFailed() const { return m_forwardingFailed; }
@@ -949,6 +979,7 @@ class RecoveredVehicleControlInput final : public KR_Object {
   bool m_quitRequested = false;
   bool m_forwardingFailed = false;
   int m_lastInputFailure = 0;
+  std::string m_controlJournalAdoptionFailure;
   bool m_subscribed = false;
   unsigned int m_handoffAttempts = 0;
   bool m_handoffPending = false;
@@ -3674,7 +3705,8 @@ bool RecoveredGameServices_RestoreLevelContinuation(
   }
   if (failure.empty()) {
     g_levelContinuationFailure = worldRestored
-        ? "restored CTJ1 adoption failed"
+        ? "restored CTJ1 adoption failed: " +
+              g_vehicleControlInput.ControlJournalAdoptionFailure()
         : "restored LCN1 world reconstruction failed";
   } else {
     g_levelContinuationFailure = failure;
@@ -3701,7 +3733,8 @@ bool RecoveredGameServices_RestoreLevelContinuation(
           teleportFingerprintBefore;
   if (!controlRolledBack) {
     g_levelContinuationFailure += rolledBack
-        ? "; backup CTJ1 adoption failed"
+        ? "; backup CTJ1 adoption failed: " +
+              g_vehicleControlInput.ControlJournalAdoptionFailure()
         : "; backup world restore failed: " + rollbackFailure;
   }
   return false;

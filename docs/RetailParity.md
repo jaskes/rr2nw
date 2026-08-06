@@ -1879,6 +1879,9 @@ playable Level begins.
   contract, creates exactly one reward with a real interface, repairs/refills,
   advances to `ProjectA39`, proves repeat idempotence, restores the post-result
   world byte-identically and then restores the pre-result world exactly.
+- May `DoMessage()` and the terminal result handler publish text and committed
+  state only; they do not call the briefing/FLC presenter. No synthetic result
+  clip belongs to this parity row.
 - Revisit when a controlled May trace measures the reward offset. Portal
   pickup/carry/admission is covered separately below. The current `+50/+30`
   center-relative placement follows the recovered executable field writes and
@@ -1906,6 +1909,28 @@ playable Level begins.
   `Level.07N` wrap in Debug, Release and RelWithDebInfo.
 - Revisit when the in-game remaining-Artefact strings and portal visual/status
   presentation are restored; those do not weaken the progression boundary.
+
+### RP-CAMPAIGN-006: an authored reward closes a connected Portal transition
+
+- Classification: `RETAIL_DATA_EXECUTED`, `TRANSACTION_CHAIN_CONNECTED`,
+  `FRESH_PROCESS_RESTORE_PROVED`.
+- Clean Level.03N accepts and completes real Inhabitants `ProjectS22` through
+  its authored conditions. Command 35 creates the only transition reward used
+  by the gate; the ordinary F2 path detaches it from `Vehicle.Default`.
+- The Portal is prepared with three earlier-reward slots occupied. The real
+  free `Artifact` is consumed into slot four, clears both motion event families
+  and makes the original player-collision callback request the catalog switch.
+- Free-reward/prepared-Portal and full-Portal states restore exactly. An
+  intentionally absent target exercises complete source teardown/start/LCN1
+  rollback; a second collision then commits `Level.03N -> Level.02D`.
+- The committed destination survives an immediate exact restore, an RR2SLOT1
+  save and a new-process cross-Level load with the same world fingerprint.
+  `Invoke-CampaignQuestChainSmoke.ps1` is the maintained three-configuration
+  gate. Earlier synthetic Portal fill/transition matrices remain the broader
+  catalog and completion-wrap proof.
+- Verification is 3/3 connected chains, 3/3 standalone results, 9/9 Portal
+  transitions, 6/6 source/destination fresh continuations, 27/27 installed
+  starts and 67/67 CTest in each maintained configuration.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

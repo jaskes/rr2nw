@@ -1965,9 +1965,24 @@ one-at-a-time removal, check reindexing, map publication and every intermediate
 save/load/rollback state are exact. The exercise also closed a real
 continuation hole: PEO1 v8 embeds runtime-created People Route geometry, so a
 mission result can delete that Route and a later rollback can reconstruct it
-without a nonexistent retail file. Remaining M3 work is character/result
-cinematics, representative quest chains, visible AI/guide parity and complete
-campaign flow.
+without a nonexistent retail file. That terminal-state slice left cinematic,
+representative-chain, visible AI/guide and complete-campaign work open.
+
+The first representative quest chain is now connected end to end rather than
+inferred from isolated probes. Real Level.03N `ProjectS22` creates the final
+`Artifact`; the ordinary F2 drop and Portal admission close slot four, an
+unavailable next Level rolls the complete source world back exactly, and a
+second occupied-Vehicle collision commits Level.02D. The destination restores
+immediately and through an RR2SLOT1 fresh-process cross-Level load with the
+same fingerprint. Earlier rewards remain a bounded three-slot fixture, so the
+critical completion edge still owns a real authored result. Remaining M3 work
+is non-center/exit cinematics, more representative chains, visible AI/guide
+parity and complete campaign flow.
+
+The connected wrapper passes 3/3 across Debug, Release and RelWithDebInfo.
+Regression gates retain mission result 3/3 and Portal transition 9/9; source
+and destination fresh continuations pass 6/6, all installed starts pass 27/27,
+and every configuration remains 67/67 CTest.
 
 Gate: a player can discover objectives, navigate with the map, complete and
 transition a representative mission chain, save before/after a portal and
@@ -2031,8 +2046,8 @@ existing May behavior and continuation gates.
 ### 2026-08-06 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **70%** of the Windows-first 1.0 scope; strict
-release readiness is approximately **54-59%** because a full campaign and the
+implementation is approximately **72%** of the Windows-first 1.0 scope; strict
+release readiness is approximately **57-62%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
 | Milestone | Estimate | Evidence already owned | Principal remainder |
@@ -2040,7 +2055,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 77% | People/Tank combat, two weapons, missions, center FLC plus briefing, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, Portal progression and full guide-route rollback | remaining cinematics, representative quest chains, visible AI/guide parity and complete campaign proof |
+| M3 retail parity | 81% | People/Tank combat, two weapons, missions, center FLC plus briefing, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, connected mission-reward/Portal/fresh-load chain and full guide-route rollback | remaining cinematics, broader representative chains, visible AI/guide parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |
@@ -2049,8 +2064,8 @@ The shortest critical path is not more subsystem archaeology. It is:
 
 1. repeat visible People/Tank/guide motion while preserving the automated
    terminal-route and combat gates;
-2. restore remaining cinematic ownership, then exercise representative chains
-   through Portal transitions;
+2. restore remaining cinematic ownership, then broaden the now-connected
+   mission/reward/Portal chain across campaign-specific commands and Levels;
 3. connect real audio and finish window/focus/performance stability;
 4. complete replay/import/mod UX gates;
 5. freeze a package and run the full Windows 10 plus extended Windows 11

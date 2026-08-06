@@ -177,6 +177,8 @@ struct Roster {
   bool valid;
 };
 
+bool CollectRoster(SimulationContext *context, Roster *roster);
+
 bool ReconcilePortalArabesk(SimulationContext *context,
                             const Roster &roster) {
   bool full = false;
@@ -196,6 +198,41 @@ bool ReconcilePortalArabesk(SimulationContext *context,
   if (!context->isExist("Fount.Attr.Arab")) return true;
   return FountainClassTable_EnsurePortalArabesk(context, Session::m_moment) ||
          Fail("partial restored Portal did not recreate Portal.Arabesk");
+}
+
+bool StageTransitionCollision(
+    SimulationContext *context, double timeStamp, bool prepareFull,
+    SPortalTransitionProbeSummary *summary) {
+  Roster roster = {};
+  if (summary == NULL || !std::isfinite(timeStamp) || timeStamp < 0.1 ||
+      !CollectRoster(context, &roster) || roster.entries.empty() ||
+      g_vehicle == NULL || g_vehicle->getContext() != context)
+    return Fail(prepareFull
+                    ? "Portal transition probe dependencies are unavailable"
+                    : "ready Portal transition probe dependencies are unavailable");
+  summary->portalCount = static_cast<int>(roster.entries.size());
+  Portal *portal = roster.entries.front().portal;
+  if (prepareFull) portal->m_occupiedSlotCnt = portal->m_slotCnt;
+  summary->fullPortal =
+      portal->m_occupiedSlotCnt == portal->m_slotCnt ? 1 : 0;
+  if (!summary->fullPortal)
+    return Fail("ready Portal transition probe requires a full Portal");
+
+  KR_Event collision;
+  collision.label = t_EV_ONCOLLISION;
+  collision.source = g_vehicle->getObjectID();
+  collision.destination = portal->getObjectID();
+  collision.timeStamp = timeStamp;
+  collision.data.open(EDO_WRITE)
+      .putObjectID(g_vehicle->getObjectID())
+      .close();
+  summary->collisionAccepted = portal->receiveEvent(collision) == 1 ? 1 : 0;
+  summary->transitionRequested = g_transitionRequested ? 1 : 0;
+  return (summary->collisionAccepted == 1 &&
+          summary->transitionRequested == 1) ||
+         Fail(prepareFull
+                  ? "full Portal collision did not request a Level transition"
+                  : "ready full Portal collision did not request a Level transition");
 }
 
 Portal *ResolvePortal(SimulationContext *context,
@@ -447,6 +484,10 @@ SPortalTransitionProbeSummary::SPortalTransitionProbeSummary()
     : portalCount(0), fullPortal(0), collisionAccepted(0),
       transitionRequested(0) {}
 
+SPortalFinalAdmissionProbeSummary::SPortalFinalAdmissionProbeSummary()
+    : portalCount(0), slots(0), occupiedBefore(0), occupiedPrepared(0),
+      remaining(0) {}
+
 SPortalPresentationProbeSummary::SPortalPresentationProbeSummary()
     : portalCount(0), singularStatus(0), fewStatus(0), manyStatus(0),
       restoredStatus(0), messagesPublished(0), arabeskPresent(0),
@@ -678,33 +719,42 @@ bool PortalActiveWorldState_AdmissionProbe(
          Fail("Portal admission did not close atomically");
 }
 
+bool PortalActiveWorldState_PrepareFinalAdmissionProbe(
+    SimulationContext *context,
+    SPortalFinalAdmissionProbeSummary *summary) {
+  g_lastFailure.clear();
+  Roster roster = {};
+  if (summary == NULL || !CollectRoster(context, &roster)) return false;
+  summary->portalCount = static_cast<int>(roster.entries.size());
+  Portal *portal = FirstOpenPortal(&roster);
+  if (portal == NULL || portal->portalGetSlotCnt() <= 0 ||
+      portal->portalGetOccupiedSlot() < 0 ||
+      portal->portalGetOccupiedSlot() >= portal->portalGetSlotCnt())
+    return Fail("Portal final-admission probe has no open Portal");
+
+  summary->slots = portal->portalGetSlotCnt();
+  summary->occupiedBefore = portal->portalGetOccupiedSlot();
+  portal->m_occupiedSlotCnt = portal->m_slotCnt - 1;
+  summary->occupiedPrepared = portal->portalGetOccupiedSlot();
+  summary->remaining =
+      portal->portalGetSlotCnt() - portal->portalGetOccupiedSlot();
+  return (summary->occupiedPrepared == summary->slots - 1 &&
+          summary->remaining == 1) ||
+         Fail("Portal final-admission preparation did not leave one slot");
+}
+
 bool PortalActiveWorldState_StageTransitionProbe(
     SimulationContext *context, double timeStamp,
     SPortalTransitionProbeSummary *summary) {
   g_lastFailure.clear();
-  Roster roster = {};
-  if (summary == NULL || !std::isfinite(timeStamp) || timeStamp < 0.1 ||
-      !CollectRoster(context, &roster) || roster.entries.empty() ||
-      g_vehicle == NULL || g_vehicle->getContext() != context)
-    return Fail("Portal transition probe dependencies are unavailable");
-  summary->portalCount = static_cast<int>(roster.entries.size());
-  Portal *portal = roster.entries.front().portal;
-  portal->m_occupiedSlotCnt = portal->m_slotCnt;
-  summary->fullPortal = portal->m_occupiedSlotCnt == portal->m_slotCnt ? 1 : 0;
+  return StageTransitionCollision(context, timeStamp, true, summary);
+}
 
-  KR_Event collision;
-  collision.label = t_EV_ONCOLLISION;
-  collision.source = g_vehicle->getObjectID();
-  collision.destination = portal->getObjectID();
-  collision.timeStamp = timeStamp;
-  collision.data.open(EDO_WRITE)
-      .putObjectID(g_vehicle->getObjectID())
-      .close();
-  summary->collisionAccepted = portal->receiveEvent(collision) == 1 ? 1 : 0;
-  summary->transitionRequested = g_transitionRequested ? 1 : 0;
-  return (summary->fullPortal == 1 && summary->collisionAccepted == 1 &&
-          summary->transitionRequested == 1) ||
-         Fail("full Portal collision did not request a Level transition");
+bool PortalActiveWorldState_StageReadyTransitionProbe(
+    SimulationContext *context, double timeStamp,
+    SPortalTransitionProbeSummary *summary) {
+  g_lastFailure.clear();
+  return StageTransitionCollision(context, timeStamp, false, summary);
 }
 
 bool PortalActiveWorldState_StagePresentationProbe(

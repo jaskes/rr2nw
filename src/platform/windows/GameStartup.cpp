@@ -75,6 +75,7 @@ struct StartupOptions {
   bool missionGuideRouteSmoke = false;
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
+  bool campaignQuestChainSmoke = false;
   bool missionObjectiveChainSmoke = false;
   bool missionTerminalStateSmoke = false;
   bool portalTransitionSmoke = false;
@@ -326,6 +327,11 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionResultSmoke = true;
+    } else if (argument == L"--campaign-quest-chain-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionResultSmoke = true;
+      options->campaignQuestChainSmoke = true;
     } else if (argument == L"--mission-objective-chain-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -1136,6 +1142,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"           --mission-guide-route-smoke |\n"
                 L"           --mission-continuation-smoke |\n"
                  L"           --mission-result-smoke |\n"
+                 L"           --campaign-quest-chain-smoke |\n"
                  L"           --mission-objective-chain-smoke |\n"
                  L"           --mission-terminal-state-smoke]\n"
                 L"          [--portal-transition-smoke]\n"
@@ -4517,9 +4524,221 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                !resultPortalSaveExact || !resultRollbackExact)
         log.Line(std::string("mission_result_error=") +
                  RecoveredGameServices_LastLevelContinuationError());
+      bool campaignChainExact = !options.campaignQuestChainSmoke;
+      if (options.campaignQuestChainSmoke && resultRollbackExact) {
+        const int chainSourceLevelIndex = currentLevelIndex;
+        const int chainTargetLevelIndex =
+            chainSourceLevelIndex == static_cast<int>(data.levels.size()) - 1
+                ? 0 : chainSourceLevelIndex + 1;
+        RecruitCenterMissionResultProbeSummary chainResult = {};
+        const bool chainResultReady =
+            RecruitCenterSubjectState_CompleteMissionProbeForCenter(
+                g_super.m_context,
+                (std::max)(0.1, Session::m_moment + 0.2),
+                mission.centerName, &chainResult);
+        const bool chainDropReady = chainResultReady &&
+            RecruitCenterSubjectState_DropRewardProbe(
+                g_super.m_context,
+                (std::max)(0.1, Session::m_viewTime), &chainResult);
+
+        SPortalFinalAdmissionProbeSummary chainPrepared;
+        const bool chainPrepareReady = chainDropReady &&
+            PortalActiveWorldState_PrepareFinalAdmissionProbe(
+                g_super.m_context, &chainPrepared);
+        std::vector<std::uint8_t> chainPreparedState;
+        std::vector<std::uint8_t> chainPreparedRecaptured;
+        SLevelContinuationSummary chainPreparedCaptured;
+        SLevelContinuationSummary chainPreparedRestored;
+        SLevelContinuationSummary chainPreparedVerified;
+        const bool chainPreparedCaptureReady = chainPrepareReady &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &chainPreparedState, &chainPreparedCaptured);
+        const bool chainPreparedRestoreReady = chainPreparedCaptureReady &&
+            RecoveredGameServices_RestoreLevelContinuation(
+                chainPreparedState, &chainPreparedRestored);
+        const bool chainPreparedRewardFree = chainPreparedRestoreReady &&
+            RecruitCenterSubjectState_RewardCarrierState(
+                g_super.m_context, false);
+        const bool chainPreparedRecaptureReady = chainPreparedRewardFree &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &chainPreparedRecaptured, &chainPreparedVerified);
+        const bool chainPreparedSaveExact = chainPreparedRecaptureReady &&
+            chainPreparedState == chainPreparedRecaptured &&
+            chainPreparedCaptured.ready && chainPreparedRestored.ready &&
+            chainPreparedVerified.ready &&
+            chainPreparedCaptured.worldFingerprint ==
+                chainPreparedRestored.restoredWorldFingerprint &&
+            chainPreparedCaptured.worldFingerprint ==
+                chainPreparedVerified.worldFingerprint;
+
+        SPortalAdmissionProbeSummary chainAdmission;
+        const bool chainAdmissionReady = chainPreparedSaveExact &&
+            PortalActiveWorldState_AdmissionProbe(
+                g_super.m_context,
+                g_super.m_context->searchObject("Artifact"),
+                (std::max)(0.1, Session::m_viewTime + 0.2),
+                &chainAdmission);
+        std::vector<std::uint8_t> chainFullState;
+        std::vector<std::uint8_t> chainFullRecaptured;
+        SLevelContinuationSummary chainFullCaptured;
+        SLevelContinuationSummary chainFullRestored;
+        SLevelContinuationSummary chainFullVerified;
+        const bool chainFullCaptureReady = chainAdmissionReady &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &chainFullState, &chainFullCaptured);
+        const bool chainFullRestoreReady = chainFullCaptureReady &&
+            RecoveredGameServices_RestoreLevelContinuation(
+                chainFullState, &chainFullRestored);
+        const bool chainFullRecaptureReady = chainFullRestoreReady &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &chainFullRecaptured, &chainFullVerified);
+        const bool chainFullSaveExact = chainFullRecaptureReady &&
+            chainFullState == chainFullRecaptured &&
+            chainFullCaptured.ready && chainFullRestored.ready &&
+            chainFullVerified.ready &&
+            chainFullCaptured.worldFingerprint ==
+                chainFullRestored.restoredWorldFingerprint &&
+            chainFullCaptured.worldFingerprint ==
+                chainFullVerified.worldFingerprint;
+
+        SPortalTransitionProbeSummary chainRejectedTransition;
+        const bool chainRejectedTransitionStaged = chainFullSaveExact &&
+            PortalActiveWorldState_StageReadyTransitionProbe(
+                g_super.m_context,
+                (std::max)(0.1, Session::m_viewTime + 0.3),
+                &chainRejectedTransition);
+        RetailData unavailableTarget = data;
+        if (chainTargetLevelIndex >= 0 &&
+            chainTargetLevelIndex <
+                static_cast<int>(unavailableTarget.levels.size()))
+          unavailableTarget.levels[chainTargetLevelIndex] =
+              L"__rr2nw_missing_campaign_chain_target__";
+        const bool chainRollbackProcessed = chainRejectedTransitionStaged &&
+            ProcessPortalLevelTransition(
+                unavailableTarget, &currentLevelIndex, true, &log);
+        std::vector<std::uint8_t> chainRolledBack;
+        SLevelContinuationSummary chainRollbackVerified;
+        const bool chainRollbackRecaptured = chainRollbackProcessed &&
+            currentLevelIndex == chainSourceLevelIndex &&
+            !PortalActiveWorldState_TransitionPending() &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &chainRolledBack, &chainRollbackVerified);
+        const bool chainRollbackExact = chainRollbackRecaptured &&
+            chainRolledBack == chainFullState &&
+            chainRollbackVerified.ready &&
+            chainRollbackVerified.worldFingerprint ==
+                chainFullCaptured.worldFingerprint;
+
+        SPortalTransitionProbeSummary chainCommittedTransition;
+        const bool chainCommittedTransitionStaged = chainRollbackExact &&
+            PortalActiveWorldState_StageReadyTransitionProbe(
+                g_super.m_context,
+                (std::max)(0.1, Session::m_viewTime + 0.4),
+                &chainCommittedTransition);
+        const bool chainTransitionCommitted =
+            chainCommittedTransitionStaged && runCompleteFrame() &&
+            currentLevelIndex == chainTargetLevelIndex &&
+            !PortalActiveWorldState_TransitionPending();
+
+        std::vector<std::uint8_t> chainDestinationState;
+        std::vector<std::uint8_t> chainDestinationRecaptured;
+        SLevelContinuationSummary chainDestinationCaptured;
+        SLevelContinuationSummary chainDestinationRestored;
+        SLevelContinuationSummary chainDestinationVerified;
+        const bool chainDestinationCaptureReady = chainTransitionCommitted &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &chainDestinationState, &chainDestinationCaptured);
+        const bool chainDestinationRestoreReady =
+            chainDestinationCaptureReady &&
+            RecoveredGameServices_RestoreLevelContinuation(
+                chainDestinationState, &chainDestinationRestored);
+        const bool chainDestinationRecaptureReady =
+            chainDestinationRestoreReady &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &chainDestinationRecaptured, &chainDestinationVerified);
+        const bool chainDestinationSaveExact =
+            chainDestinationRecaptureReady &&
+            chainDestinationState == chainDestinationRecaptured &&
+            chainDestinationCaptured.ready &&
+            chainDestinationRestored.ready &&
+            chainDestinationVerified.ready &&
+            chainDestinationCaptured.worldFingerprint ==
+                chainDestinationRestored.restoredWorldFingerprint &&
+            chainDestinationCaptured.worldFingerprint ==
+                chainDestinationVerified.worldFingerprint;
+
+        log.Line(std::string("campaign_chain_project=") +
+                 chainResult.completedProjectName + "/" +
+                 chainResult.nextProjectName);
+        log.Line("campaign_chain_reward=" +
+                 std::to_string(chainResultReady ? 1 : 0) + "/" +
+                 std::to_string(chainResult.rewardsCreated) + "/" +
+                 std::to_string(chainResult.rewardInterfaceReady) + "/" +
+                 std::to_string(chainDropReady ? 1 : 0));
+        log.Line("campaign_chain_prepare=" +
+                 std::to_string(chainPrepareReady ? 1 : 0) + "/" +
+                 std::to_string(chainPrepared.portalCount) + "/" +
+                 std::to_string(chainPrepared.slots) + "/" +
+                 std::to_string(chainPrepared.occupiedBefore) + "/" +
+                 std::to_string(chainPrepared.occupiedPrepared) + "/" +
+                 std::to_string(chainPrepared.remaining));
+        log.Line("campaign_chain_prepare_save=" +
+                 std::to_string(chainPreparedCaptureReady ? 1 : 0) + "/" +
+                 std::to_string(chainPreparedRestoreReady ? 1 : 0) + "/" +
+                 std::to_string(chainPreparedRecaptureReady ? 1 : 0) + "/" +
+                 std::to_string(chainPreparedSaveExact ? 1 : 0));
+        log.Line("campaign_chain_final_admission=" +
+                 std::to_string(chainAdmission.portalCount) + "/" +
+                 std::to_string(chainAdmission.consumed) + "/" +
+                 std::to_string(chainAdmission.occupiedAdvanced) + "/" +
+                 std::to_string(chainAdmission.eventResidueCleared));
+        log.Line("campaign_chain_full_save=" +
+                 std::to_string(chainFullCaptureReady ? 1 : 0) + "/" +
+                 std::to_string(chainFullRestoreReady ? 1 : 0) + "/" +
+                 std::to_string(chainFullRecaptureReady ? 1 : 0) + "/" +
+                 std::to_string(chainFullSaveExact ? 1 : 0));
+        log.Line("campaign_chain_transition_rollback=" +
+                 std::to_string(chainRejectedTransition.fullPortal) + "/" +
+                 std::to_string(chainRejectedTransition.collisionAccepted) +
+                 "/" +
+                 std::to_string(chainRejectedTransition.transitionRequested) +
+                 "/" + std::to_string(chainRollbackProcessed ? 1 : 0) +
+                 "/" + std::to_string(chainRollbackRecaptured ? 1 : 0) +
+                 "/" + std::to_string(chainRollbackExact ? 1 : 0));
+        log.Line("campaign_chain_transition_commit=" +
+                 std::to_string(chainCommittedTransition.fullPortal) + "/" +
+                 std::to_string(chainCommittedTransition.collisionAccepted) +
+                 "/" +
+                 std::to_string(chainCommittedTransition.transitionRequested) +
+                 "/" + std::to_string(chainSourceLevelIndex) + "/" +
+                 std::to_string(chainTargetLevelIndex) + "/" +
+                 std::to_string(currentLevelIndex) + "/" +
+                 std::to_string(chainTransitionCommitted ? 1 : 0));
+        log.Line("campaign_chain_destination_save=" +
+                 std::to_string(chainDestinationCaptureReady ? 1 : 0) + "/" +
+                 std::to_string(chainDestinationRestoreReady ? 1 : 0) + "/" +
+                 std::to_string(chainDestinationRecaptureReady ? 1 : 0) +
+                 "/" + std::to_string(chainDestinationSaveExact ? 1 : 0));
+        campaignChainExact = chainResultReady && chainDropReady &&
+            chainPreparedSaveExact && chainAdmissionReady &&
+            chainFullSaveExact && chainRollbackExact &&
+            chainTransitionCommitted && chainDestinationSaveExact;
+        if (!campaignChainExact) {
+          const char* portalError = PortalActiveWorldState_LastFailure();
+          const char* missionError = RecruitCenterSubjectState_LastError();
+          if (portalError != nullptr && portalError[0] != 0)
+            log.Line(std::string("campaign_chain_error=") + portalError);
+          else if (missionError != nullptr && missionError[0] != 0)
+            log.Line(std::string("campaign_chain_error=") + missionError);
+          else
+            log.Line(std::string("campaign_chain_error=") +
+                     RecoveredGameServices_LastLevelContinuationError());
+        }
+      }
       loopFailed = !resultReady || !resultSaveExact ||
           !resultDropSaveExact || !portalAdmissionReady ||
-          !resultPortalSaveExact || !resultRollbackExact;
+          !resultPortalSaveExact || !resultRollbackExact ||
+          !campaignChainExact;
     }
     if (!loopFailed && saveAfterMission) {
       const bool missionSaveRequested =

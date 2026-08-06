@@ -971,6 +971,35 @@ begin/commit/final-Level markers, zero recovered-service issues and clean
 shutdown. The legacy callback may only request the transition; teardown/start
 and source rollback belong to the frame-boundary coordinator.
 
+## Representative campaign quest-chain pass
+
+This gate joins the previously separate mission-result and Portal-transition
+transactions. It completes real Level.03N `ProjectS22`, drops the issued
+`Artifact`, leaves exactly one Portal slot open, admits that real reward, then
+uses the occupied Player Vehicle to cross into the next catalog Level. It also
+forces one unavailable destination first, requiring exact source rollback,
+and saves the successful destination for a fresh-process cross-Level load:
+
+```powershell
+& ".\tools\acceptance\Invoke-CampaignQuestChainSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+Every producer must report `campaign_chain_reward=1/1/1/1`,
+`campaign_chain_prepare=1/1/4/0/3/1`, exact prepared/full save rows, final
+admission `1/1/1/1`, transition rollback `1/1/1/1/1/1`, a catalog-matching
+transition commit and destination save `1/1/1/1`. The failed attempt must log
+`portal_transition_rollback=restored`; the retry must commit the next active
+`game.cfg` entry. The consumer must start from the source Level, load slot 1 in
+a new process, log the matching cross-Level begin/commit and reproduce the
+producer world fingerprint. Both processes require zero service issues and
+clean shutdown.
+
+The three prefilled slots are an acceptance fixture for earlier campaign
+rewards; the fourth slot is always occupied by the `Artifact` created by the
+authored mission result. No synthetic reward is used for the transition edge.
+
 ## Mission-guide dynamic obstruction pass
 
 The UI-suppressed Level.03N Marauders smoke now includes an exact dynamic

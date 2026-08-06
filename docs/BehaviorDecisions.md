@@ -5595,3 +5595,47 @@ Route pool, and must reproduce the saved fingerprint before publication.
 Versions 1..7 remain readable and continue to use the unique catalog/header
 fallback because they contain no embedded nodes. Mission-owned MSH1 Routes
 retain their independent virtual-path and geometry identity contract.
+
+### BD-161: the representative Portal edge must consume an authored reward
+
+Status: accepted on 2026-08-06 for the first connected campaign-chain gate.
+
+Mission result, Artefact carry/drop, Portal occupancy and catalog transition
+were individually exact but did not prove that their real owners compose. The
+maintained Level.03N chain therefore completes authored `ProjectS22`, uses its
+actual command-35 `Artifact` for the fourth Portal slot and enters the next
+catalog Level through the occupied Player Vehicle. The first three occupancy
+slots are an explicit acceptance fixture representing earlier rewards; they
+cannot stand in for the final mission-created object.
+
+The free reward, one-slot-remaining Portal and full Portal each cross an LCN1
+capture/restore boundary. One deliberately unavailable target then exercises
+the production frame coordinator's exact source rollback; the restored full
+Portal accepts a second collision and commits the real catalog target. That
+destination is saved and restored in a fresh process with the same world
+fingerprint.
+
+Synthetic direct events must use the current closed-frame timestamp. An early
+probe scheduled the drop 100 ms beyond `Session::m_viewTime`; Vehicle state
+then legitimately advanced past the serialized CTJ1 clock and both target and
+backup adoption failed. The gate now uses the same current-view-time boundary
+as ordinary input, and CTJ1 diagnostics identify clock, lifecycle, owner-rebase
+or resume failures separately. This does not relax timestamp validation or
+hide a future-dated production event.
+
+### BD-162: terminal RecruitCenter results do not invent a result FLC
+
+Status: accepted on 2026-08-06 after reconciling the remaining-cinematics row.
+
+The preserved May `RecruitCenter::DoMessage()` publishes active, success,
+failure and surrender text through the game console. Its result handler then
+removes the owned mission, conditionally repairs/refills and creates the
+reward, and selects the next project. That terminal path contains no
+`PlayBriefing` or FLC call. Character FLC ownership belongs to ordinary center
+admission, while mission briefing clips remain explicit ProjectTable commands.
+
+Consequently a missing terminal result movie is not an implementation gap and
+must not be filled with a guessed asset. Remaining cinematic archaeology is
+limited to paths that actually name a clip, including Vehicle exit profiles
+and campaign-specific scripted presentations. A verified March executable may
+add a separate row, but it cannot be inferred from the May result text alone.

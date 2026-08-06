@@ -4504,6 +4504,45 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   requirement layer; do not weaken the fingerprint or silently synthesize a
   straight-line Route.
 
+### CQ-226: a future-dated synthetic drop outran the CTJ1 clock
+
+- Status: `ACCEPTANCE_DEFECT_REPRODUCED`, `BOUNDARY_CORRECTED`,
+  `DIAGNOSTICS_EXTENDED`.
+- Evidence: the first connected campaign probe sent the real F2 drop message
+  at `Session::m_viewTime + 0.1` and immediately captured LCN1. The Vehicle's
+  restored `lastTime` was therefore newer than the sealed control journal
+  clock. Both target and backup worlds reconstructed, but gameplay-authority
+  adoption correctly failed at the Vehicle owner rebase.
+- Handling: closed-frame probes timestamp the drop at the current view time,
+  matching normal native input ownership. Restore diagnostics now distinguish
+  CTJ1 binding, clock mismatch, lifecycle derivation, Vehicle rebase and resume
+  failures; Vehicle rebase publishes bounded reason codes 10..16 rather than
+  the former uninformative zero.
+- Verification: the connected Level.03N chain restores free and full Portal
+  states exactly, rolls back an unavailable destination, commits Level.02D,
+  then saves and fresh-process loads the destination with an identical world
+  fingerprint in all maintained configurations.
+- Revisit when: fixed-tick input queues intentionally permit commands beyond
+  the current closed frame. Such commands must remain queued journal records;
+  do not advance an owner beyond its serialized clock before capture.
+
+### CQ-227: terminal result text was mistaken for a missing cinematic
+
+- Status: `MAY_SOURCE_RECONCILED`, `FALSE_GAP_RETIRED`.
+- Evidence: `RecruitCenter::DoMessage()` owns console strings for mission
+  status and the result-center reaction. The adjacent result handler owns
+  removal, repair/refill, reward and next-project selection, but neither path
+  calls the briefing/FLC presenter.
+- Handling: preserve those text messages and the already recovered ordinary
+  center/mission briefing clips. Do not assign a guessed result movie merely
+  because the roadmap previously grouped all presentation under “remaining
+  cinematics.”
+- Verification: success, failure and surrender gates publish the real result
+  state/messages without any required clip; the connected quest chain commits
+  through Portal and fresh load with no cinematic dependency.
+- Revisit when: a March executable or data trace names a result-specific clip.
+  Record its exact owner and trigger before adding any presentation call.
+
 ## Maintenance rule
 
 When a new quirk is found:

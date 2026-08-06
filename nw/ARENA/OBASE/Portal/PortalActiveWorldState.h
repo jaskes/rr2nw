@@ -27,6 +27,16 @@ struct SPortalTransitionProbeSummary {
   SPortalTransitionProbeSummary();
 };
 
+struct SPortalFinalAdmissionProbeSummary {
+  int portalCount;
+  int slots;
+  int occupiedBefore;
+  int occupiedPrepared;
+  int remaining;
+
+  SPortalFinalAdmissionProbeSummary();
+};
+
 struct SPortalPresentationProbeSummary {
   int portalCount;
   int singularStatus;
@@ -71,7 +81,13 @@ bool PortalActiveWorldState_RejectAttachedProbe(
 bool PortalActiveWorldState_AdmissionProbe(
     SimulationContext *context, const KR_ObjectID &artefact,
     double timeStamp, SPortalAdmissionProbeSummary *summary);
+bool PortalActiveWorldState_PrepareFinalAdmissionProbe(
+    SimulationContext *context,
+    SPortalFinalAdmissionProbeSummary *summary);
 bool PortalActiveWorldState_StageTransitionProbe(
+    SimulationContext *context, double timeStamp,
+    SPortalTransitionProbeSummary *summary);
+bool PortalActiveWorldState_StageReadyTransitionProbe(
     SimulationContext *context, double timeStamp,
     SPortalTransitionProbeSummary *summary);
 bool PortalActiveWorldState_StagePresentationProbe(

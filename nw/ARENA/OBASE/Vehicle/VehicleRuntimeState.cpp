@@ -925,16 +925,39 @@ bool VehicleRuntimeState_SynchronizeFirstFrame(
 
 bool VehicleRuntimeState_RebaseRestoredOwner(SimulationContext *context)
 {
+    g_lastControlFailure = 0;
     if (!g_owner.active || context == NULL || g_owner.context != context ||
         g_owner.vehicle == NULL || g_owner.frameBegun ||
         !context->isExist(g_owner.object) || !VehicleReady(g_owner.vehicle))
+    {
+        g_lastControlFailure = 10;
         return false;
+    }
     SRecoveredVehicleRuntimeState restored = {};
-    if (!ReadState(g_owner.vehicle, &restored) || !restored.active ||
-        !std::isfinite(restored.lastTime) || restored.lastTime < 0.1 ||
-        !std::isfinite(Session::m_viewTime) ||
-        Session::m_viewTime + kTimeEpsilon < restored.lastTime)
+    if (!ReadState(g_owner.vehicle, &restored)) {
+        g_lastControlFailure = 11;
         return false;
+    }
+    if (!restored.active) {
+        g_lastControlFailure = 12;
+        return false;
+    }
+    if (!std::isfinite(restored.lastTime)) {
+        g_lastControlFailure = 13;
+        return false;
+    }
+    if (restored.lastTime < 0.1) {
+        g_lastControlFailure = 14;
+        return false;
+    }
+    if (!std::isfinite(Session::m_viewTime)) {
+        g_lastControlFailure = 15;
+        return false;
+    }
+    if (Session::m_viewTime + kTimeEpsilon < restored.lastTime) {
+        g_lastControlFailure = 16;
+        return false;
+    }
     g_owner.lastTime = restored.lastTime;
     g_owner.frameAttribute = KR_ObjectID::NUL();
     g_owner.frameStartValid = false;
