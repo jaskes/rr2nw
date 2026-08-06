@@ -2001,7 +2001,12 @@ Flyers complete their real first-project kill graphs, remove only the issuing
 objective, preserve cumulative mission count, repair/refill, grant no Artifact
 and expose the exact `_02` project. Completed non-permanent Projects use a
 serialized selection tombstone so post-result save and pre-result rollback are
-both exact. The dedicated matrix is 9/9 and never enters Portal.
+both exact. Level.02D now proves that this is shared behavior rather than a
+Level.01D special case: Magician `ProjectDSCM -> ProjectA17` and Kingdom
+`ProjectDSCK -> Project2G04` execute the same exact contract. The dedicated
+matrix is 15/15 and never enters Portal. Level.01N Outsider was inventoried but
+not forced into this shape: its only authored `Mission` has no successor, so
+terminal single-project completion remains a separate future row.
 
 Gate: a player can discover objectives, navigate with the map, complete and
 transition a representative mission chain, save before/after a portal and
@@ -2062,11 +2067,11 @@ continues. AI cleanup follows BD-150: perception, intent, route/steering,
 attack emission and presentation are extracted one at a time behind the
 existing May behavior and continuation gates.
 
-### 2026-08-06 readiness snapshot toward 1.0
+### 2026-08-07 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **76%** of the Windows-first 1.0 scope; strict
-release readiness is approximately **61-66%** because a full campaign and the
+implementation is approximately **77%** of the Windows-first 1.0 scope; strict
+release readiness is approximately **62-67%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
 | Milestone | Estimate | Evidence already owned | Principal remainder |
@@ -2074,7 +2079,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 89% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, three Level.01D no-reward project advances, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains, visible AI/guide/cinematic parity and complete campaign proof |
+| M3 retail parity | 90% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, five no-reward project advances across Level.01D/02D, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | terminal no-successor centers, remaining world-specific chains, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |

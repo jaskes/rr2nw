@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the ordinary no-reward progression gate beyond Level.01D without
+  changing runtime selection policy. Level.02D Magician `ProjectDSCM` now
+  advances to `ProjectA17`, while Kingdom `ProjectDSCK` advances to
+  `Project2G04`; both execute real kill objectives, result cleanup,
+  repair/refill and exact save/load/rollback without an Artifact or Portal.
+  The maintained five-chain, three-configuration matrix passes 15/15. Retail
+  Level.01N Outsider was explicitly excluded: its sole `Mission` has no
+  authored successor, so a continuation must not be invented.
 - Separated ordinary successful RecruitCenter results from the Artifact
   reward path. Project decoding now sets `m_giveArtefact` only for authored
   command 35 instead of every briefing/script command. Completed

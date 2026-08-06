@@ -5709,7 +5709,8 @@ than mistaking catalog enumeration order for campaign progression.
 
 ### BD-167: successful no-reward results are not incomplete Portal chains
 
-Status: accepted on 2026-08-06 for Level.01D mission progression.
+Status: accepted on 2026-08-06 and expanded on 2026-08-07 for shared
+multi-Level mission progression.
 
 `COM_SET_GIVEARTEFACT` (command 35) is the only ProjectTable instruction that
 marks a successful RecruitCenter result as an Artifact reward. Ordinary
@@ -5725,3 +5726,8 @@ serialized Project tombstone: candidate selection skips it, while rollback
 can restore the prior tree node without inventing a missing symbolic object.
 Permanent projects remain selectable exactly as authored. This is state
 representation, not a changed mission-selection policy.
+
+The contract requires an authored successor only for a progression proof.
+Level.01N Outsider has a single terminal `Mission`, so it is excluded from that
+matrix until terminal-center completion is owned explicitly. No missing next
+Project, Artifact or Portal may be synthesized to make such a row pass.

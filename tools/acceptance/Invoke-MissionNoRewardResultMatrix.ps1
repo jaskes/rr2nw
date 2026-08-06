@@ -15,9 +15,6 @@ $DataRoot = [IO.Path]::GetFullPath($DataRoot)
 if (-not (Test-Path -LiteralPath (Join-Path $DataRoot "game.cfg") -PathType Leaf)) {
     throw "game.cfg not found under retail data root: $DataRoot"
 }
-if (-not (Test-Path -LiteralPath (Join-Path $DataRoot "Level.01D") -PathType Container)) {
-    throw "Level.01D not found under retail data root: $DataRoot"
-}
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
     $OutputRoot = Join-Path $repositoryRoot "manual-logs\mission-no-reward-$stamp"
@@ -27,18 +24,31 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $cases = @(
     [pscustomobject]@{
-        center = "Recruit.Robots"; project = "Robot_01"
+        level = "Level.01D"; center = "Recruit.Robots"; project = "Robot_01"
         next = "Robot_02"; conditions = 2
     },
     [pscustomobject]@{
-        center = "Recruit.Tanks"; project = "Tank_01"
+        level = "Level.01D"; center = "Recruit.Tanks"; project = "Tank_01"
         next = "Tank_02"; conditions = 1
     },
     [pscustomobject]@{
-        center = "Recruit.Flyers"; project = "Flyer_01"
+        level = "Level.01D"; center = "Recruit.Flyers"; project = "Flyer_01"
         next = "Flyer_02"; conditions = 3
+    },
+    [pscustomobject]@{
+        level = "Level.02D"; center = "Magician.Recruit.0"; project = "ProjectDSCM"
+        next = "ProjectA17"; conditions = 2
+    },
+    [pscustomobject]@{
+        level = "Level.02D"; center = "Kingdom.Recruit.0"; project = "ProjectDSCK"
+        next = "Project2G04"; conditions = 3
     }
 )
+foreach ($levelName in @($cases.level | Sort-Object -Unique)) {
+    if (-not (Test-Path -LiteralPath (Join-Path $DataRoot $levelName) -PathType Container)) {
+        throw "$levelName not found under retail data root: $DataRoot"
+    }
+}
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $repositoryRoot (
@@ -48,21 +58,21 @@ foreach ($configurationName in $Configuration) {
     }
     foreach ($case in $cases) {
         $caseRoot = Join-Path $OutputRoot (
-            "{0}-{1}" -f $configurationName, $case.project)
+            "{0}-{1}-{2}" -f $configurationName, $case.level, $case.project)
         $saveRoot = Join-Path $caseRoot "saves"
         New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
         $stdoutPath = Join-Path $caseRoot "stdout.log"
         $stderrPath = Join-Path $caseRoot "stderr.log"
         $arguments = @(
             "--data-dir", ('"' + $DataRoot + '"'),
-            "--start-level", "Level.01D",
+            "--start-level", $case.level,
             "--mission-no-reward-result-smoke",
             "--mission-center", $case.center,
             "--diagnostics-dir", ('"' + $caseRoot + '"'),
             "--save-dir", ('"' + $saveRoot + '"')
         )
 
-        Write-Host "[$configurationName][$($case.center)] $($case.project)"
+        Write-Host "[$configurationName][$($case.level)][$($case.center)] $($case.project)"
         $started = [DateTime]::UtcNow
         $process = Start-Process -FilePath $executable -ArgumentList $arguments `
             -WorkingDirectory $repositoryRoot -WindowStyle Hidden `
@@ -127,6 +137,7 @@ foreach ($configurationName in $Configuration) {
 
         $records.Add([pscustomobject]@{
             configuration = $configurationName
+            level = $case.level
             center = $case.center
             completed_project = $case.project
             next_project = $case.next
@@ -143,13 +154,13 @@ $records | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (
     Join-Path $OutputRoot "summary.json") -Encoding UTF8
 $records | Export-Csv -LiteralPath (Join-Path $OutputRoot "summary.csv") `
     -NoTypeInformation -Encoding UTF8
-$records | Format-Table configuration, completed_project, next_project, passed, elapsed_seconds
+$records | Format-Table configuration, level, completed_project, next_project, passed, elapsed_seconds
 
 $failed = @($records | Where-Object { -not $_.passed })
 if ($failed.Count -ne 0) {
     foreach ($record in $failed) {
-        Write-Error ("{0}/{1}: {2}" -f $record.configuration,
-            $record.completed_project, ($record.issues -join "; "))
+        Write-Error ("{0}/{1}/{2}: {3}" -f $record.configuration,
+            $record.level, $record.completed_project, ($record.issues -join "; "))
     }
     exit 1
 }

@@ -4625,8 +4625,9 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 - Status: `RETAIL_DATA_CONFIRMED`, `DECODER_FLAG_BUG_FIXED`,
   `NO_REWARD_MATRIX_ACCEPTED`.
-- Evidence: Level.01D `Robot_01`, `Tank_01` and `Flyer_01` contain briefing,
-  mission summary, script and real kill conditions but no
+- Evidence: Level.01D `Robot_01`, `Tank_01` and `Flyer_01`, plus Level.02D
+  Magician `ProjectDSCM` and Kingdom `ProjectDSCK`, contain briefing, mission
+  summary, script and real kill conditions but no
   `p_GiveArtefact`. The recovered decoder grouped command 35 with all other
   deferred commands and unconditionally set `m_giveArtefact`, so every first
   mission incorrectly entered the reward path and could select itself again.
@@ -4635,12 +4636,28 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   candidate enumeration ignores it and selects the next authored table entry.
   This preserves the observable retail cleanup and permits exact LCN1 rollback.
 - Verification: `Invoke-MissionNoRewardResultMatrix.ps1` proves
-  `Robot_01 -> Robot_02`, `Tank_01 -> Tank_02` and
-  `Flyer_01 -> Flyer_02` in all three configurations (9/9), including exact
-  objective cleanup, zero new reward, repair/refill, result save and baseline
-  rollback. The strict reward/Portal result gate remains independently green.
+  `Robot_01 -> Robot_02`, `Tank_01 -> Tank_02`,
+  `Flyer_01 -> Flyer_02`, `ProjectDSCM -> ProjectA17` and
+  `ProjectDSCK -> Project2G04` in all three configurations (15/15), including
+  exact objective cleanup, zero new reward, repair/refill, result save and
+  baseline rollback. The strict reward/Portal result gate remains independently
+  green.
 - Revisit when: a permanent no-reward project or a later campaign tier needs a
   repeat policy beyond the preserved ProjectTable permanence bit.
+
+### CQ-233: Level.01N Outsider has no authored next Project
+
+- Status: `RETAIL_DATA_CONFIRMED`, `TERMINAL_CENTER_BOUNDARY_RECORDED`.
+- Evidence: Level.01N `SCINC/BRIEF.SCI` is 617 bytes and contains one
+  `s_NewProject("Mission", nNode)` entry. It authors one
+  `p_AddSuccessReached` objective, `Brief/mission.sc`, Commander `Outsider` and
+  MissionInfo tier zero. It contains neither command 35 nor any second Project.
+- Handling: do not use this owner as evidence for ordinary project advancement,
+  do not manufacture a successor and do not attach Portal behavior. Prefer the
+  two closed Level.02D owners for the maintained multi-world progression
+  matrix. Terminal single-project completion remains a separate campaign row.
+- Revisit when: terminal no-successor centers receive an explicit completion,
+  revisit and fresh-load contract without assuming another briefing exists.
 
 ## Maintenance rule
 

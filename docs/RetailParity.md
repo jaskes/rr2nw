@@ -1962,19 +1962,26 @@ playable Level begins.
 - Level.01D Robots, Tanks and Flyers each accept their authored first project,
   remove respectively 2, 1 and 3 real kill-condition owners, reach
   `MISSION_SUCCESS` through the normal check event and revisit the issuing
-  center. Result presentation, full repair and maximum secondary-ammunition
-  refill execute without creating or attaching an Artifact.
+  center. Level.02D proves the same shared branch independently: Magician
+  `ProjectDSCM` removes 2 targets and advances to `ProjectA17`; Kingdom
+  `ProjectDSCK` removes 3 targets and advances to `Project2G04`. Result
+  presentation, full repair and maximum secondary-ammunition refill execute
+  without creating or attaching an Artifact.
 - Only the completed objective disappears. The shared cumulative mission count
   remains one, its scheduled check and map binding disappear, and the retired
   non-permanent Project cannot be selected again. The exact next candidates
-  are `Robot_02`, `Tank_02` and `Flyer_02`.
+  are `Robot_02`, `Tank_02`, `Flyer_02`, `ProjectA17` and `Project2G04`.
 - Post-result state restores and immediately recaptures byte/fingerprint exact;
   rollback restores the active first mission, Project tree node, check event
   and map binding exactly. No Portal owner is entered.
-- Verification: the dedicated matrix passes 9/9. The strict Artifact result,
+- Verification: the dedicated matrix passes 15/15. The strict Artifact result,
   simultaneous-objective, terminal-state and two-route campaign gates remain
-  green; Level.01D fresh continuation passes 3/3, installed starts pass 27/27
-  and CTest passes 67/67 in every maintained configuration.
+  green; Level.02D fresh continuation and installed starts pass 3/3 and CTest
+  passes 67/67 in every maintained configuration.
+- Level.01N Outsider is a proven boundary, not a missing row: its 617-byte
+  `BRIEF.SCI` defines only the non-permanent no-reward `Mission`, one reached
+  objective and one script. It has no next authored Project. The progression
+  gate therefore does not synthesize a successor or a Portal.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
