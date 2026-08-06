@@ -5706,3 +5706,22 @@ The selector exists because the first eligible mission is not necessarily a
 reward mission. It lets the maintained gate name an already eligible authored
 project and prove its exact objective/result/reward/Portal transaction rather
 than mistaking catalog enumeration order for campaign progression.
+
+### BD-167: successful no-reward results are not incomplete Portal chains
+
+Status: accepted on 2026-08-06 for Level.01D mission progression.
+
+`COM_SET_GIVEARTEFACT` (command 35) is the only ProjectTable instruction that
+marks a successful RecruitCenter result as an Artifact reward. Ordinary
+briefing, script and mission-summary commands do not imply one. A successful
+mission without command 35 still removes its objective, presents the result,
+repairs/refills the active Vehicle, preserves the cumulative accepted-mission
+count and exposes the next authored project. It must neither create
+`Artifact` nor invoke carrier, Portal or Level-transition probes.
+
+Retail `Player::CleanupMissionPool()` removes completed non-permanent Project
+objects. The maintained LCN1 transaction represents that disappearance as a
+serialized Project tombstone: candidate selection skips it, while rollback
+can restore the prior tree node without inventing a missing symbolic object.
+Permanent projects remain selectable exactly as authored. This is state
+representation, not a changed mission-selection policy.

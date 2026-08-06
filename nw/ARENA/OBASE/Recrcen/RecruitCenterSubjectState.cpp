@@ -302,6 +302,16 @@ bool ProjectMetadata(KR_ObjectID project, const char *commander,
     *matches = true;
     *eligible = true;
     *requiredMissionCount = 0;
+    mp_Project *projectState = projectTable.searchProject(project);
+    if (projectState == NULL) return false;
+    if (projectState->m_treeNode < 0)
+    {
+        // Completed non-permanent projects stay as serialized tombstones so
+        // a pre-result LCN1 checkpoint can restore their authored tree node.
+        *matches = false;
+        *eligible = false;
+        return true;
+    }
     std::set<int> visited;
     for (mp_NodeNum node = projectTable.getProjectRoot(project);
          node != mp_NodeNULL(); node = projectTable.getRight(node))
@@ -552,7 +562,11 @@ bool DecodeMission(SimulationContext *context, KR_ObjectID project,
                 !data.finish())
                 return false;
             deferredCommands->push_back(deferred);
-            mission->m_giveArtefact = 1;
+            // Only the authored March/May COM_SET_GIVEARTEFACT command marks
+            // a RecruitCenter result as an Artifact reward. Briefing and
+            // script commands are common to ordinary no-reward missions.
+            if (command == kSetGiveArtefactCommand)
+                mission->m_giveArtefact = 1;
             break;
         }
         case COM_BRIEFING_OVER:
@@ -1815,6 +1829,14 @@ bool ProcessMissionVisit(SimulationContext *context, double timeStamp,
         SetError("RecruitCenter success service thresholds are invalid");
         return false;
     }
+    const KR_ObjectID completedProject = mission.mID;
+    mp_Project *project = projectTable.searchProject(completedProject);
+    if (project == NULL)
+    {
+        SetError("RecruitCenter completed project is missing");
+        return false;
+    }
+    const bool retireCompletedProject = project->m_permanent == 0;
     KR_ObjectID reward = KR_ObjectID::NUL();
     if (success && mission.m_giveArtefact &&
         !CreateMissionReward(context, timeStamp, center, &reward))
@@ -1836,6 +1858,12 @@ bool ProcessMissionVisit(SimulationContext *context, double timeStamp,
         player->m_mission[move] = player->m_mission[move + 1];
     --player->m_missCnt;
     player->loadNotify();
+    // Retail Player::CleanupMissionPool removes non-permanent authored
+    // projects with their terminal mission. Keep an equivalent serialized
+    // tombstone here: it is excluded by ProjectMetadata, while CTJ1 can still
+    // restore an earlier checkpoint without recreating a vanished object.
+    if (retireCompletedProject)
+        project->m_treeNode = -1;
     if (g_GameConsole.MessagesReady())
     {
         const bool renegade = player->isRenegat(center->commanderID()) != 0;
@@ -2326,6 +2354,167 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
                     summary->nextProjectName) != 0;
     if (!exact)
         SetError("RecruitCenter result invariants did not hold");
+    return exact;
+}
+
+bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionNoRewardResultProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (summary == NULL || context == NULL || centerName == NULL ||
+        centerName[0] == 0 || !std::isfinite(timeStamp) ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter no-reward result arguments are invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL)
+    {
+        SetError("RecruitCenter no-reward result cannot find its center");
+        return false;
+    }
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    int missionIndex = -1;
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID() &&
+            player.m_mission[index].m_status == MISSION_INPROCESS)
+        {
+            missionIndex = index;
+            break;
+        }
+    if (missionIndex < 0)
+    {
+        SetError("RecruitCenter no-reward result has no active mission");
+        return false;
+    }
+    PlayerMission &mission = player.m_mission[missionIndex];
+    const KR_ObjectID completedProject = mission.mID;
+    const char *projectName = context->searchObject(completedProject);
+    if (projectName == NULL || mission.m_giveArtefact ||
+        mission.success_needKill.getCount() <= 0)
+    {
+        SetError("RecruitCenter no-reward result needs a kill mission "
+                 "without COM_SET_GIVEARTEFACT");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->completedProjectName,
+                  sizeof(summary->completedProjectName), "%s", projectName);
+    summary->missionsBefore = player.m_missCnt;
+    summary->totalMissionsBefore = player.m_total_misCount;
+    summary->scheduledChecksBefore = context->copyEventsTo(
+        rc_CHECK_MISSION, center->getObjectID(), NULL, 0);
+    if (summary->scheduledChecksBefore != 1)
+    {
+        SetError("RecruitCenter no-reward result has no unique check event");
+        return false;
+    }
+
+    std::vector<KR_ObjectID> targets;
+    for (int index = 0; index < mission.success_needKill.getCount(); ++index)
+        if (context->isExist(mission.success_needKill[index]))
+            targets.push_back(mission.success_needKill[index]);
+    if (targets.size() !=
+        static_cast<std::size_t>(mission.success_needKill.getCount()))
+    {
+        SetError("RecruitCenter no-reward kill graph is already incomplete");
+        return false;
+    }
+    context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
+    for (std::size_t index = 0; index < targets.size(); ++index)
+    {
+        context->removeObject(targets[index]);
+        ++summary->conditionsRemoved;
+    }
+    KR_Event check(rc_CHECK_MISSION, timeStamp,
+                   g_vehicle->getObjectID(), center->getObjectID());
+    check.data.open(EDO_WRITE).putInt(missionIndex).close();
+    context->sendEventNow(check);
+    if (player.m_mission[missionIndex].m_status != MISSION_SUCCESS)
+    {
+        SetError("RecruitCenter no-reward real condition check did not "
+                 "succeed");
+        return false;
+    }
+    summary->statusTransitions = 1;
+
+    const bool artifactExisted = context->isExist("Artifact") != 0;
+    const KR_ObjectID artifactBefore = artifactExisted
+        ? context->searchObject("Artifact") : KR_ObjectID::NUL();
+    const int presentationsBefore = g_missionResultPresentations;
+    g_vehicle->m_damage = 0.1;
+    g_vehicle->m_secBulletCnt = 0;
+    MissionVisitResult result;
+    if (!ProcessMissionVisit(context, timeStamp + 0.1, center, &player,
+                             &result) || !result.success ||
+        result.rewardCreated)
+    {
+        if (g_lastError[0] == 0)
+            SetError("RecruitCenter no-reward revisit did not commit");
+        return false;
+    }
+    summary->completedMissions = 1;
+    summary->resultPresentations =
+        g_missionResultPresentations - presentationsBefore;
+    summary->rewardsCreated = result.rewardCreated ? 1 : 0;
+    const bool artifactExistsAfter = context->isExist("Artifact") != 0;
+    summary->rewardAbsent =
+        artifactExistsAfter == artifactExisted &&
+        (!artifactExistsAfter ||
+         context->searchObject("Artifact") == artifactBefore) ? 1 : 0;
+    mp_Project *completedProjectState =
+        projectTable.searchProject(completedProject);
+    summary->completedProjectRetired = completedProjectState != NULL &&
+        completedProjectState->m_treeNode < 0 ? 1 : 0;
+    summary->repaired = g_vehicle->m_damage == 1.0 ? 1 : 0;
+    summary->refilled =
+        g_vehicle->m_secBulletCnt >= g_levelAttr.m_maxSecBulletCnt ? 1 : 0;
+    summary->missionsAfter = player.m_missCnt;
+    summary->totalMissionsAfter = player.m_total_misCount;
+    summary->scheduledChecksAfter = context->copyEventsTo(
+        rc_CHECK_MISSION, center->getObjectID(), NULL, 0);
+
+    KR_ObjectID next = KR_ObjectID::NUL();
+    if (!FindCenterCandidate(center, &player, &next) || next.isNUL())
+    {
+        SetError("RecruitCenter no-reward next project is unavailable");
+        return false;
+    }
+    const char *nextName = context->searchObject(next);
+    if (nextName == NULL)
+    {
+        SetError("RecruitCenter no-reward next project lost its name");
+        return false;
+    }
+    std::snprintf(summary->nextProjectName,
+                  sizeof(summary->nextProjectName), "%s", nextName);
+    MissionVisitResult repeat;
+    const bool repeated = ProcessMissionVisit(
+        context, timeStamp + 0.2, center, &player, &repeat);
+    summary->repeatIdempotent = repeated && !repeat.found &&
+        player.m_missCnt == summary->missionsAfter &&
+        (context->isExist("Artifact") != 0) == artifactExisted ? 1 : 0;
+
+    const bool exact = summary->conditionsRemoved ==
+                           static_cast<int>(targets.size()) &&
+        summary->statusTransitions == 1 &&
+        summary->completedMissions == 1 &&
+        summary->resultPresentations == 1 &&
+        summary->rewardsCreated == 0 && summary->rewardAbsent == 1 &&
+        summary->completedProjectRetired == 1 &&
+        summary->repaired == 1 && summary->refilled == 1 &&
+        summary->repeatIdempotent == 1 &&
+        summary->missionsAfter == summary->missionsBefore - 1 &&
+        summary->totalMissionsAfter == summary->totalMissionsBefore &&
+        summary->scheduledChecksAfter == 0 &&
+        std::strcmp(summary->completedProjectName,
+                    summary->nextProjectName) != 0;
+    if (!exact)
+        SetError("RecruitCenter no-reward result invariants did not hold");
     return exact;
 }
 

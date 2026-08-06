@@ -4621,6 +4621,27 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: the remaining center-specific chains receive equally exact
   progression evidence; do not generalize reward count from these two rows.
 
+### CQ-232: ordinary deferred commands were granting an Artifact
+
+- Status: `RETAIL_DATA_CONFIRMED`, `DECODER_FLAG_BUG_FIXED`,
+  `NO_REWARD_MATRIX_ACCEPTED`.
+- Evidence: Level.01D `Robot_01`, `Tank_01` and `Flyer_01` contain briefing,
+  mission summary, script and real kill conditions but no
+  `p_GiveArtefact`. The recovered decoder grouped command 35 with all other
+  deferred commands and unconditionally set `m_giveArtefact`, so every first
+  mission incorrectly entered the reward path and could select itself again.
+- Handling: set the flag only when the decoded command is exactly 35. On a
+  terminal result, retire a non-permanent Project as a serialized tombstone;
+  candidate enumeration ignores it and selects the next authored table entry.
+  This preserves the observable retail cleanup and permits exact LCN1 rollback.
+- Verification: `Invoke-MissionNoRewardResultMatrix.ps1` proves
+  `Robot_01 -> Robot_02`, `Tank_01 -> Tank_02` and
+  `Flyer_01 -> Flyer_02` in all three configurations (9/9), including exact
+  objective cleanup, zero new reward, repair/refill, result save and baseline
+  rollback. The strict reward/Portal result gate remains independently green.
+- Revisit when: a permanent no-reward project or a later campaign tier needs a
+  repeat policy beyond the preserved ProjectTable permanence bit.
+
 ## Maintenance rule
 
 When a new quirk is found:

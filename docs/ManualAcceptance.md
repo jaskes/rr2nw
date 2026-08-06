@@ -967,6 +967,34 @@ destination and loads it in a fresh process with the same world fingerprint.
 It does not alter ordinary RecruitCenter eligibility or offer a gameplay
 mission-select cheat.
 
+## Successful mission without reward pass
+
+Run the Level.01D owner matrix separately from the strict Artifact/Portal
+result gate:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionNoRewardResultMatrix.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+All nine rows must pass and name the exact authored transitions
+`Robot_01/Robot_02`, `Tank_01/Tank_02` and
+`Flyer_01/Flyer_02`. Required records are
+`mission_no_reward_commit=1/1/0/1/1/1/1/1`,
+`mission_no_reward_progress=1/0/1/1/1/0`,
+`mission_no_reward_objective=1/0/1/0/1`,
+`mission_no_reward_save=1/1/1/1` and
+`mission_no_reward_rollback=1/1/1`. No `mission_result_carrier` or
+`mission_result_portal` record may appear.
+
+For a visible repeat, complete one of these first Level.01D assignments and
+return to the same center. The success reaction must repair/refill the current
+Vehicle, remove only that objective from `M`, grant no Artifact and offer the
+matching `_02` briefing on the next admission. Save after the result, load and
+revisit the center; `_01` must not return. Keep the exact center, slot and log
+if presentation or selection differs.
+
 ## Portal campaign-transition pass
 
 This non-interactive gate fills a real Level-local Portal, sends the real

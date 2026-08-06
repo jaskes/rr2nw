@@ -79,6 +79,7 @@ struct StartupOptions {
   bool missionGuideRouteSmoke = false;
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
+  bool missionNoRewardResultSmoke = false;
   bool campaignQuestChainSmoke = false;
   bool missionObjectiveChainSmoke = false;
   bool missionTerminalStateSmoke = false;
@@ -333,6 +334,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionResultSmoke = true;
+    } else if (argument == L"--mission-no-reward-result-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionNoRewardResultSmoke = true;
     } else if (argument == L"--campaign-quest-chain-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -534,6 +539,15 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     }
     if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
       *failure = L"--mission-terminal-state-smoke owns its save/rollback "
+                 L"transaction";
+      return false;
+    }
+  }
+  if (options->missionNoRewardResultSmoke) {
+    if (options->missionCenter.empty())
+      options->missionCenter = L"Recruit.Robots";
+    if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
+      *failure = L"--mission-no-reward-result-smoke owns its save/rollback "
                  L"transaction";
       return false;
     }
@@ -1480,6 +1494,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"           --mission-guide-route-smoke |\n"
                 L"           --mission-continuation-smoke |\n"
                  L"           --mission-result-smoke |\n"
+                 L"           --mission-no-reward-result-smoke |\n"
                  L"           --campaign-quest-chain-smoke |\n"
                  L"           --mission-objective-chain-smoke |\n"
                  L"           --mission-terminal-state-smoke]\n"
@@ -4701,6 +4716,147 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                    RecoveredGameServices_LastLevelContinuationError());
       }
       loopFailed = !terminalExact;
+    }
+    if (!loopFailed && options.missionNoRewardResultSmoke) {
+      RecruitCenterObjectiveStateSummary noRewardBefore = {};
+      std::vector<std::uint8_t> noRewardCheckpoint;
+      SLevelContinuationSummary noRewardCheckpointSummary;
+      const bool noRewardCheckpointReady =
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &noRewardBefore) &&
+          noRewardBefore.missions > 0 &&
+          noRewardBefore.inProcessMissions == noRewardBefore.missions &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &noRewardCheckpoint, &noRewardCheckpointSummary);
+
+      RecruitCenterMissionNoRewardResultProbeSummary noReward = {};
+      const bool noRewardResultReady = noRewardCheckpointReady &&
+          RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
+              g_super.m_context,
+              (std::max)(0.1, Session::m_moment + 0.1),
+              mission.centerName, &noReward);
+      RecruitCenterObjectiveStateSummary noRewardAfter = {};
+      const bool noRewardAfterReady = noRewardResultReady &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &noRewardAfter);
+      const bool noRewardObjectiveExact = noRewardAfterReady &&
+          noRewardAfter.missions == noRewardBefore.missions - 1 &&
+          noRewardAfter.totalMissions == noRewardBefore.totalMissions &&
+          noRewardAfter.inProcessMissions ==
+              noRewardBefore.inProcessMissions - 1 &&
+          noRewardAfter.successMissions == 0 &&
+          noRewardAfter.failedMissions == 0 &&
+          noRewardAfter.surrenderMissions == 0 &&
+          noRewardAfter.scheduledChecks ==
+              noRewardBefore.scheduledChecks - 1 &&
+          noRewardAfter.mapBindings == noRewardBefore.mapBindings - 1;
+
+      std::vector<std::uint8_t> noRewardResultState;
+      std::vector<std::uint8_t> noRewardResultRecaptured;
+      SLevelContinuationSummary noRewardResultCaptured;
+      SLevelContinuationSummary noRewardResultRestored;
+      SLevelContinuationSummary noRewardResultVerified;
+      RecruitCenterObjectiveStateSummary noRewardResultRestoredState = {};
+      const bool noRewardResultCaptureReady = noRewardObjectiveExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &noRewardResultState, &noRewardResultCaptured);
+      const bool noRewardResultRestoreReady = noRewardResultCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              noRewardResultState, &noRewardResultRestored) &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &noRewardResultRestoredState);
+      const bool noRewardResultRecaptureReady = noRewardResultRestoreReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &noRewardResultRecaptured, &noRewardResultVerified);
+      const bool noRewardResultSaveExact = noRewardResultRecaptureReady &&
+          noRewardResultState == noRewardResultRecaptured &&
+          std::memcmp(&noRewardAfter, &noRewardResultRestoredState,
+                      sizeof(noRewardAfter)) == 0 &&
+          noRewardResultCaptured.ready && noRewardResultRestored.ready &&
+          noRewardResultVerified.ready &&
+          noRewardResultCaptured.sections ==
+              kActiveWorldOwnerSectionCount &&
+          noRewardResultRestored.ownerPhases ==
+              kActiveWorldOwnerSectionCount &&
+          noRewardResultRestored.referencePhases ==
+              kActiveWorldOwnerSectionCount &&
+          noRewardResultCaptured.worldFingerprint ==
+              noRewardResultRestored.restoredWorldFingerprint &&
+          noRewardResultCaptured.worldFingerprint ==
+              noRewardResultVerified.worldFingerprint;
+
+      std::vector<std::uint8_t> noRewardRolledBack;
+      SLevelContinuationSummary noRewardRollbackRestored;
+      SLevelContinuationSummary noRewardRollbackVerified;
+      RecruitCenterObjectiveStateSummary noRewardRollbackState = {};
+      const bool noRewardRollbackReady = noRewardResultSaveExact &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              noRewardCheckpoint, &noRewardRollbackRestored) &&
+          RecruitCenterSubjectState_ObjectiveState(
+              g_super.m_context, &noRewardRollbackState);
+      const bool noRewardRollbackRecaptureReady = noRewardRollbackReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &noRewardRolledBack, &noRewardRollbackVerified);
+      const bool noRewardRollbackExact = noRewardRollbackRecaptureReady &&
+          noRewardCheckpoint == noRewardRolledBack &&
+          std::memcmp(&noRewardBefore, &noRewardRollbackState,
+                      sizeof(noRewardBefore)) == 0 &&
+          noRewardCheckpointSummary.ready && noRewardRollbackRestored.ready &&
+          noRewardRollbackVerified.ready &&
+          noRewardCheckpointSummary.worldFingerprint ==
+              noRewardRollbackRestored.restoredWorldFingerprint &&
+          noRewardCheckpointSummary.worldFingerprint ==
+              noRewardRollbackVerified.worldFingerprint;
+
+      log.Line(std::string("mission_no_reward_project=") +
+               noReward.completedProjectName + "/" +
+               noReward.nextProjectName);
+      log.Line("mission_no_reward_conditions=" +
+               std::to_string(noReward.conditionsRemoved) + "/" +
+               std::to_string(noReward.statusTransitions));
+      log.Line("mission_no_reward_commit=" +
+               std::to_string(noReward.completedMissions) + "/" +
+               std::to_string(noReward.resultPresentations) + "/" +
+               std::to_string(noReward.rewardsCreated) + "/" +
+               std::to_string(noReward.rewardAbsent) + "/" +
+               std::to_string(noReward.completedProjectRetired) + "/" +
+               std::to_string(noReward.repaired) + "/" +
+               std::to_string(noReward.refilled) + "/" +
+               std::to_string(noReward.repeatIdempotent));
+      log.Line("mission_no_reward_progress=" +
+               std::to_string(noReward.missionsBefore) + "/" +
+               std::to_string(noReward.missionsAfter) + "/" +
+               std::to_string(noReward.totalMissionsBefore) + "/" +
+               std::to_string(noReward.totalMissionsAfter) + "/" +
+               std::to_string(noReward.scheduledChecksBefore) + "/" +
+               std::to_string(noReward.scheduledChecksAfter));
+      log.Line("mission_no_reward_objective=" +
+               std::to_string(noRewardBefore.missions) + "/" +
+               std::to_string(noRewardAfter.missions) + "/" +
+               std::to_string(noRewardBefore.mapBindings) + "/" +
+               std::to_string(noRewardAfter.mapBindings) + "/" +
+               std::to_string(noRewardObjectiveExact ? 1 : 0));
+      log.Line("mission_no_reward_save=" +
+               std::to_string(noRewardResultCaptureReady ? 1 : 0) + "/" +
+               std::to_string(noRewardResultRestoreReady ? 1 : 0) + "/" +
+               std::to_string(noRewardResultRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(noRewardResultSaveExact ? 1 : 0));
+      log.Line("mission_no_reward_rollback=" +
+               std::to_string(noRewardRollbackReady ? 1 : 0) + "/" +
+               std::to_string(noRewardRollbackRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(noRewardRollbackExact ? 1 : 0));
+      const bool noRewardExact = noRewardResultReady &&
+          noRewardObjectiveExact && noRewardResultSaveExact &&
+          noRewardRollbackExact;
+      if (!noRewardExact) {
+        const char* noRewardError = RecruitCenterSubjectState_LastError();
+        if (noRewardError != nullptr && noRewardError[0] != 0)
+          log.Line(std::string("mission_no_reward_error=") + noRewardError);
+        else
+          log.Line(std::string("mission_no_reward_error=") +
+                   RecoveredGameServices_LastLevelContinuationError());
+      }
+      loopFailed = !noRewardExact;
     }
     if (!loopFailed && options.missionResultSmoke) {
       std::vector<std::uint8_t> resultCheckpoint;

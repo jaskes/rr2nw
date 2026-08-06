@@ -1955,6 +1955,27 @@ playable Level begins.
   `Invoke-CampaignQuestChainMatrix.ps1` passes both independent routes 6/6
   across Debug, Release and RelWithDebInfo.
 
+### RP-CAMPAIGN-008: no-reward success advances ordinary center projects
+
+- Classification: `RETAIL_DATA_EXECUTED`, `RESULT_SEMANTICS_SEPARATED`,
+  `SAVE_PATH_RECONNECTED`.
+- Level.01D Robots, Tanks and Flyers each accept their authored first project,
+  remove respectively 2, 1 and 3 real kill-condition owners, reach
+  `MISSION_SUCCESS` through the normal check event and revisit the issuing
+  center. Result presentation, full repair and maximum secondary-ammunition
+  refill execute without creating or attaching an Artifact.
+- Only the completed objective disappears. The shared cumulative mission count
+  remains one, its scheduled check and map binding disappear, and the retired
+  non-permanent Project cannot be selected again. The exact next candidates
+  are `Robot_02`, `Tank_02` and `Flyer_02`.
+- Post-result state restores and immediately recaptures byte/fingerprint exact;
+  rollback restores the active first mission, Project tree node, check event
+  and map binding exactly. No Portal owner is entered.
+- Verification: the dedicated matrix passes 9/9. The strict Artifact result,
+  simultaneous-objective, terminal-state and two-route campaign gates remain
+  green; Level.01D fresh continuation passes 3/3, installed starts pass 27/27
+  and CTest passes 67/67 in every maintained configuration.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Separated ordinary successful RecruitCenter results from the Artifact
+  reward path. Project decoding now sets `m_giveArtefact` only for authored
+  command 35 instead of every briefing/script command. Completed
+  non-permanent projects become serialized selection tombstones, matching
+  retail cleanup while allowing exact pre-result rollback. Level.01D
+  `Robot_01`, `Tank_01` and `Flyer_01` now consume their real kill objectives,
+  repair/refill without creating an Artifact, expose the exact `_02` project
+  and preserve cumulative mission progress across save/load/rollback. The
+  dedicated three-configuration matrix passes 9/9 without entering Portal.
 - Extended the connected campaign proof beyond Level.03N. The maintained
   matrix now executes Level.02N Magician `Project2G02`, its six authored kill
   conditions, reward, exact result rollback, final Portal admission,
