@@ -5729,5 +5729,23 @@ representation, not a changed mission-selection policy.
 
 The contract requires an authored successor only for a progression proof.
 Level.01N Outsider has a single terminal `Mission`, so it is excluded from that
-matrix until terminal-center completion is owned explicitly. No missing next
-Project, Artifact or Portal may be synthesized to make such a row pass.
+matrix. No missing next Project, Artifact or Portal may be synthesized to make
+such a row pass; its separate terminal contract is BD-168.
+
+### BD-168: a no-successor result leaves a stable empty center
+
+Status: accepted on 2026-08-07 for Level.01N Outsider.
+
+The May executable cleans a completed non-permanent mission before looking for
+another eligible Project. If that search returns NUL, admission ends without
+creating a replacement. Level.01N Outsider authors exactly this case: one
+non-permanent no-reward `Mission`, one reached objective and no successor.
+
+The maintained result therefore removes only that objective and its map/check
+owners, keeps the cumulative accepted-mission count, repairs/refills the
+Vehicle, and leaves the center with no candidate on both the immediate and
+repeated revisit. It creates neither an Artifact nor a Portal and does not
+synthesize presentation. Because this state lives in ProjectTable rather than
+PlayerMission after cleanup, MSH1 v4 owns the full sorted project roster and
+restores both terminal retirement and the active pre-result tree node exactly.
+Older MSH1 versions retain their prior authored-roster restore behavior.

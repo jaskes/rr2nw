@@ -80,6 +80,8 @@ struct StartupOptions {
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
   bool missionNoRewardResultSmoke = false;
+  bool missionTerminalNoRewardResultSmoke = false;
+  bool missionTerminalNoRewardFreshSmoke = false;
   bool campaignQuestChainSmoke = false;
   bool missionObjectiveChainSmoke = false;
   bool missionTerminalStateSmoke = false;
@@ -338,6 +340,13 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionNoRewardResultSmoke = true;
+    } else if (argument == L"--mission-terminal-no-reward-result-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionTerminalNoRewardResultSmoke = true;
+    } else if (argument == L"--mission-terminal-no-reward-fresh-smoke") {
+      options->runtimeSmoke = true;
+      options->missionTerminalNoRewardFreshSmoke = true;
     } else if (argument == L"--campaign-quest-chain-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -549,6 +558,29 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
       *failure = L"--mission-no-reward-result-smoke owns its save/rollback "
                  L"transaction";
+      return false;
+    }
+  }
+  if (options->missionTerminalNoRewardResultSmoke) {
+    if (options->missionCenter.empty()) {
+      options->missionCenter = L"Recruit.Outsider";
+    } else if (_wcsicmp(options->missionCenter.c_str(),
+                        L"Recruit.Outsider") != 0) {
+      *failure = L"--mission-terminal-no-reward-result-smoke starts at "
+                 L"Recruit.Outsider on Level.01N";
+      return false;
+    }
+    if (options->startupLoadSlot >= 0) {
+      *failure = L"--mission-terminal-no-reward-result-smoke cannot load a "
+                 L"slot";
+      return false;
+    }
+  }
+  if (options->missionTerminalNoRewardFreshSmoke) {
+    if (options->startupLoadSlot < 0 || options->startupSaveSlot >= 0 ||
+        !options->missionCenter.empty() || !options->missionProject.empty()) {
+      *failure = L"--mission-terminal-no-reward-fresh-smoke requires one "
+                 L"--load-slot and owns its fixed Level.01N center";
       return false;
     }
   }
@@ -1495,6 +1527,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"           --mission-continuation-smoke |\n"
                  L"           --mission-result-smoke |\n"
                  L"           --mission-no-reward-result-smoke |\n"
+                 L"           --mission-terminal-no-reward-result-smoke |\n"
+                 L"           --mission-terminal-no-reward-fresh-smoke |\n"
                  L"           --campaign-quest-chain-smoke |\n"
                  L"           --mission-objective-chain-smoke |\n"
                  L"           --mission-terminal-state-smoke]\n"
@@ -4717,7 +4751,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       }
       loopFailed = !terminalExact;
     }
-    if (!loopFailed && options.missionNoRewardResultSmoke) {
+    if (!loopFailed && (options.missionNoRewardResultSmoke ||
+                        options.missionTerminalNoRewardResultSmoke)) {
+      const bool terminalNoReward =
+          options.missionTerminalNoRewardResultSmoke;
       RecruitCenterObjectiveStateSummary noRewardBefore = {};
       std::vector<std::uint8_t> noRewardCheckpoint;
       SLevelContinuationSummary noRewardCheckpointSummary;
@@ -4731,10 +4768,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
 
       RecruitCenterMissionNoRewardResultProbeSummary noReward = {};
       const bool noRewardResultReady = noRewardCheckpointReady &&
-          RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
-              g_super.m_context,
-              (std::max)(0.1, Session::m_moment + 0.1),
-              mission.centerName, &noReward);
+          (terminalNoReward
+               ? RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
+                         g_super.m_context,
+                         (std::max)(0.1, Session::m_moment + 0.1),
+                         mission.centerName, &noReward)
+               : RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
+                         g_super.m_context,
+                         (std::max)(0.1, Session::m_moment + 0.1),
+                         mission.centerName, &noReward));
       RecruitCenterObjectiveStateSummary noRewardAfter = {};
       const bool noRewardAfterReady = noRewardResultReady &&
           RecruitCenterSubjectState_ObjectiveState(
@@ -4808,13 +4850,42 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           noRewardCheckpointSummary.worldFingerprint ==
               noRewardRollbackVerified.worldFingerprint;
 
-      log.Line(std::string("mission_no_reward_project=") +
-               noReward.completedProjectName + "/" +
-               noReward.nextProjectName);
-      log.Line("mission_no_reward_conditions=" +
-               std::to_string(noReward.conditionsRemoved) + "/" +
+      std::vector<std::uint8_t> noRewardReapplied;
+      SLevelContinuationSummary noRewardReapplyRestored;
+      SLevelContinuationSummary noRewardReapplyVerified;
+      RecruitCenterObjectiveStateSummary noRewardReappliedState = {};
+      const bool noRewardReapplyRestoreReady = !terminalNoReward ||
+          (noRewardRollbackExact &&
+           RecoveredGameServices_RestoreLevelContinuation(
+               noRewardResultState, &noRewardReapplyRestored) &&
+           RecruitCenterSubjectState_ObjectiveState(
+               g_super.m_context, &noRewardReappliedState));
+      const bool noRewardReapplyRecaptureReady = !terminalNoReward ||
+          (noRewardReapplyRestoreReady &&
+           RecoveredGameServices_CaptureLevelContinuation(
+               &noRewardReapplied, &noRewardReapplyVerified));
+      const bool noRewardReapplyExact = !terminalNoReward ||
+          (noRewardReapplyRecaptureReady &&
+           noRewardResultState == noRewardReapplied &&
+           std::memcmp(&noRewardAfter, &noRewardReappliedState,
+                       sizeof(noRewardAfter)) == 0 &&
+           noRewardReapplyRestored.ready && noRewardReapplyVerified.ready &&
+           noRewardResultCaptured.worldFingerprint ==
+               noRewardReapplyRestored.restoredWorldFingerprint &&
+           noRewardResultCaptured.worldFingerprint ==
+               noRewardReapplyVerified.worldFingerprint);
+
+      const std::string noRewardPrefix = terminalNoReward
+          ? "mission_terminal_no_reward_" : "mission_no_reward_";
+      log.Line(noRewardPrefix + "project=" + noReward.completedProjectName +
+               "/" + (terminalNoReward ? "<none>"
+                                           : noReward.nextProjectName));
+      log.Line(noRewardPrefix + "conditions=" +
+               std::to_string(terminalNoReward
+                                  ? noReward.reachedConditions
+                                  : noReward.conditionsRemoved) + "/" +
                std::to_string(noReward.statusTransitions));
-      log.Line("mission_no_reward_commit=" +
+      log.Line(noRewardPrefix + "commit=" +
                std::to_string(noReward.completedMissions) + "/" +
                std::to_string(noReward.resultPresentations) + "/" +
                std::to_string(noReward.rewardsCreated) + "/" +
@@ -4822,38 +4893,47 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(noReward.completedProjectRetired) + "/" +
                std::to_string(noReward.repaired) + "/" +
                std::to_string(noReward.refilled) + "/" +
-               std::to_string(noReward.repeatIdempotent));
-      log.Line("mission_no_reward_progress=" +
+               std::to_string(noReward.repeatIdempotent) +
+               (terminalNoReward
+                    ? "/" + std::to_string(noReward.noNextCandidate)
+                    : std::string()));
+      log.Line(noRewardPrefix + "progress=" +
                std::to_string(noReward.missionsBefore) + "/" +
                std::to_string(noReward.missionsAfter) + "/" +
                std::to_string(noReward.totalMissionsBefore) + "/" +
                std::to_string(noReward.totalMissionsAfter) + "/" +
                std::to_string(noReward.scheduledChecksBefore) + "/" +
                std::to_string(noReward.scheduledChecksAfter));
-      log.Line("mission_no_reward_objective=" +
+      log.Line(noRewardPrefix + "objective=" +
                std::to_string(noRewardBefore.missions) + "/" +
                std::to_string(noRewardAfter.missions) + "/" +
                std::to_string(noRewardBefore.mapBindings) + "/" +
                std::to_string(noRewardAfter.mapBindings) + "/" +
                std::to_string(noRewardObjectiveExact ? 1 : 0));
-      log.Line("mission_no_reward_save=" +
+      log.Line(noRewardPrefix + "save=" +
                std::to_string(noRewardResultCaptureReady ? 1 : 0) + "/" +
                std::to_string(noRewardResultRestoreReady ? 1 : 0) + "/" +
                std::to_string(noRewardResultRecaptureReady ? 1 : 0) + "/" +
                std::to_string(noRewardResultSaveExact ? 1 : 0));
-      log.Line("mission_no_reward_rollback=" +
+      log.Line(noRewardPrefix + "rollback=" +
                std::to_string(noRewardRollbackReady ? 1 : 0) + "/" +
                std::to_string(noRewardRollbackRecaptureReady ? 1 : 0) + "/" +
                std::to_string(noRewardRollbackExact ? 1 : 0));
+      if (terminalNoReward) {
+        log.Line(noRewardPrefix + "reapply=" +
+                 std::to_string(noRewardReapplyRestoreReady ? 1 : 0) + "/" +
+                 std::to_string(noRewardReapplyRecaptureReady ? 1 : 0) +
+                 "/" + std::to_string(noRewardReapplyExact ? 1 : 0));
+      }
       const bool noRewardExact = noRewardResultReady &&
           noRewardObjectiveExact && noRewardResultSaveExact &&
-          noRewardRollbackExact;
+          noRewardRollbackExact && noRewardReapplyExact;
       if (!noRewardExact) {
         const char* noRewardError = RecruitCenterSubjectState_LastError();
         if (noRewardError != nullptr && noRewardError[0] != 0)
-          log.Line(std::string("mission_no_reward_error=") + noRewardError);
+          log.Line(noRewardPrefix + "error=" + noRewardError);
         else
-          log.Line(std::string("mission_no_reward_error=") +
+          log.Line(noRewardPrefix + "error=" +
                    RecoveredGameServices_LastLevelContinuationError());
       }
       loopFailed = !noRewardExact;
@@ -5336,6 +5416,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  RecoveredGameServices_LastLevelContinuationError());
       loopFailed = !exact;
     }
+  }
+  if (!loopFailed && options.missionTerminalNoRewardFreshSmoke) {
+    RecruitCenterMissionTerminalNoRewardStateSummary terminalState = {};
+    const bool terminalStateReady =
+        RecruitCenterSubjectState_TerminalNoRewardStateProbeForCenter(
+            g_super.m_context, "Recruit.Outsider", "Mission", &terminalState);
+    log.Line("mission_terminal_no_reward_fresh=" +
+             std::to_string(terminalState.missionAbsent) + "/" +
+             std::to_string(terminalState.projectRetired) + "/" +
+             std::to_string(terminalState.noNextCandidate) + "/" +
+             std::to_string(terminalState.scheduledChecks) + "/" +
+             std::to_string(terminalState.rewardDetached));
+    if (!terminalStateReady) {
+      log.Line(std::string("mission_terminal_no_reward_fresh_error=") +
+               RecruitCenterSubjectState_LastError());
+    }
+    loopFailed = !terminalStateReady;
   }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {

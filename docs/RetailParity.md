@@ -1983,6 +1983,25 @@ playable Level begins.
   objective and one script. It has no next authored Project. The progression
   gate therefore does not synthesize a successor or a Portal.
 
+### RP-CAMPAIGN-009: a terminal no-reward center remains complete
+
+- Classification: `MAY_CONTROL_FLOW_CONFIRMED`,
+  `NO_SUCCESSOR_SEMANTICS_RESTORED`, `FRESH_SAVE_OWNED`.
+- Level.01N Outsider accepts its sole authored `Mission`, satisfies the real
+  `Vehicle.Default` reached condition and commits success through the normal
+  mission check/result revisit. The non-permanent Project is retired, its
+  objective/map/check graph disappears, cumulative mission count remains one,
+  and Vehicle repair/refill runs without an Artifact or Portal.
+- A second and later center visit returns no candidate and performs no new
+  mutation. This follows the May cleanup-before-search and NUL-candidate exit;
+  no next briefing, reward or transition is invented.
+- MSH1 v4 embeds the complete sorted ProjectTable roster. Exact pre-result
+  rollback can restore an active project root, while result save and a fresh
+  process retain its tombstone with the same world fingerprint.
+- Verification: `Invoke-MissionTerminalNoRewardResultSmoke.ps1` passes the
+  result/fresh pair in all maintained configurations. The 15-row ordinary
+  successor matrix and strict Artifact/Portal result gate remain independent.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

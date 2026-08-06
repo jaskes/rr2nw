@@ -23,8 +23,12 @@ namespace {
 const std::uint32_t kMissionMagic = 0x3148534du;  // MSH1
 const std::uint32_t kMissionLegacyVersion = 1u;
 const std::uint32_t kMissionRouteGeometryVersion = 2u;
-const std::uint32_t kMissionVersion = 3u;
+const std::uint32_t kMissionArtefactVersion = 3u;
+const std::uint32_t kMissionProjectRosterVersion = 4u;
+const std::uint32_t kMissionVersion = kMissionProjectRosterVersion;
 const std::size_t kMaximumMissions = 6;
+const std::size_t kMaximumProjects = 200;
+const int kMaximumProjectTreeNode = 1024 * 1024;
 const std::size_t kMaximumReferences = KR_SetOfID::MAX_ID_CNT;
 const std::size_t kMaximumSymbolic = MAX_SYMBOLIC_LENGHT - 1;
 const char kProbeName[] = "Active World Mission Probe";
@@ -76,12 +80,22 @@ struct StableMission {
         routeGeometryFingerprint(0) {}
 };
 
+struct StableProject {
+  std::string name;
+  int treeNode;
+  int permanent;
+
+  StableProject() : treeNode(-1), permanent(0) {}
+};
+
 struct StableState {
   std::string vehicle;
   int totalMissionCount;
   std::vector<StableMission> missions;
+  std::vector<StableProject> projects;
+  bool projectRosterPresent;
 
-  StableState() : totalMissionCount(0) {}
+  StableState() : totalMissionCount(0), projectRosterPresent(false) {}
 };
 
 struct ResolvedMission {
@@ -295,10 +309,63 @@ bool CaptureReachedSet(SimulationContext *context, const KR_SetOfID &set,
   return true;
 }
 
+struct ProjectCollector {
+  SimulationContext *context;
+  std::vector<StableProject> *projects;
+  bool valid;
+
+  ProjectCollector(SimulationContext *value,
+                   std::vector<StableProject> *destination)
+      : context(value), projects(destination), valid(true) {}
+};
+
+bool CollectProject(KR_ObjectID object, void *user) {
+  ProjectCollector *collector = static_cast<ProjectCollector *>(user);
+  if (collector == NULL || collector->context == NULL ||
+      collector->projects == NULL) {
+    return false;
+  }
+  mp_Project *project = projectTable.searchProject(object);
+  const std::string name = ObjectName(collector->context, object);
+  if (project == NULL || name.empty() ||
+      collector->projects->size() >= kMaximumProjects) {
+    collector->valid = false;
+    return false;
+  }
+  StableProject saved;
+  saved.name = name;
+  saved.treeNode = project->m_treeNode;
+  saved.permanent = project->m_permanent;
+  collector->projects->push_back(saved);
+  return true;
+}
+
+bool CaptureProjectRoster(SimulationContext *context,
+                          std::vector<StableProject> *projects) {
+  if (context == NULL || projects == NULL)
+    return false;
+  projects->clear();
+  ProjectCollector collector(context, projects);
+  projectTable.userFind(CollectProject, &collector);
+  if (!collector.valid)
+    return false;
+  std::sort(projects->begin(), projects->end(),
+            [](const StableProject &left, const StableProject &right) {
+              return left.name < right.name;
+            });
+  for (std::size_t index = 1; index < projects->size(); ++index)
+    if ((*projects)[index - 1].name == (*projects)[index].name)
+      return false;
+  return true;
+}
+
 bool CaptureState(SimulationContext *context, StableState *state) {
   if (context == NULL || state == NULL)
     return false;
   *state = StableState();
+  if (!CaptureProjectRoster(context, &state->projects))
+    return Fail("MSH1 ProjectTable roster is invalid");
+  state->projectRosterPresent = true;
   Vehicle *vehicle = ResolveVehicle(context);
   if (vehicle == NULL)
     return true;
@@ -408,7 +475,7 @@ bool EncodeStateVersion(const StableState &state, std::uint32_t version,
     const StableMission &mission = state.missions[index];
     writer.I32(mission.successFirst);
     writer.I32(mission.status);
-    if (version >= kMissionVersion)
+    if (version >= kMissionArtefactVersion)
       writer.I32(mission.giveArtefact);
     if (!EncodeReference(&writer, mission.project) ||
         !EncodeReference(&writer, mission.commander))
@@ -437,6 +504,18 @@ bool EncodeStateVersion(const StableState &state, std::uint32_t version,
         !EncodeReferenceSet(&writer, mission.failureLive) ||
         !EncodeReachedSet(&writer, mission.failureReached))
       return false;
+  }
+  if (version >= kMissionProjectRosterVersion) {
+    if (!state.projectRosterPresent || state.projects.size() > kMaximumProjects)
+      return false;
+    writer.U32(static_cast<std::uint32_t>(state.projects.size()));
+    for (std::size_t index = 0; index < state.projects.size(); ++index) {
+      const StableProject &project = state.projects[index];
+      if (!writer.String(project.name, kMaximumSymbolic))
+        return false;
+      writer.I32(project.treeNode);
+      writer.I32(project.permanent);
+    }
   }
   return true;
 }
@@ -519,8 +598,21 @@ bool ValidateState(const StableState &state) {
       state.missions.size() > kMaximumMissions ||
       state.totalMissionCount < static_cast<int>(state.missions.size()) ||
       (state.vehicle.empty() &&
-       (!state.missions.empty() || state.totalMissionCount != 0)))
+       (!state.missions.empty() || state.totalMissionCount != 0)) ||
+      (state.projectRosterPresent &&
+       state.projects.size() > kMaximumProjects))
     return false;
+  if (state.projectRosterPresent) {
+    for (std::size_t index = 0; index < state.projects.size(); ++index) {
+      const StableProject &project = state.projects[index];
+      if (project.name.empty() || project.name.size() > kMaximumSymbolic ||
+          project.treeNode < -1 ||
+          project.treeNode > kMaximumProjectTreeNode ||
+          (project.permanent != 0 && project.permanent != 1) ||
+          (index > 0 && state.projects[index - 1].name >= project.name))
+        return false;
+    }
+  }
   for (std::size_t index = 0; index < state.missions.size(); ++index) {
     const StableMission &mission = state.missions[index];
     if ((mission.successFirst != 0 && mission.successFirst != 1) ||
@@ -574,7 +666,7 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
   for (std::size_t index = 0; index < state->missions.size(); ++index) {
     StableMission &mission = state->missions[index];
     if (!reader.I32(&mission.successFirst) || !reader.I32(&mission.status) ||
-        (version >= kMissionVersion &&
+        (version >= kMissionArtefactVersion &&
          !reader.I32(&mission.giveArtefact)) ||
         !DecodeReference(&reader, &mission.project) ||
         !DecodeReference(&reader, &mission.commander) ||
@@ -603,6 +695,19 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
         !DecodeReferenceSet(&reader, &mission.failureLive) ||
         !DecodeReachedSet(&reader, &mission.failureReached))
       return false;
+  }
+  if (version >= kMissionProjectRosterVersion) {
+    if (!reader.U32(&count) || count > kMaximumProjects)
+      return false;
+    state->projectRosterPresent = true;
+    state->projects.resize(count);
+    for (std::size_t index = 0; index < state->projects.size(); ++index) {
+      StableProject &project = state->projects[index];
+      if (!reader.String(&project.name, kMaximumSymbolic) ||
+          !reader.I32(&project.treeNode) ||
+          !reader.I32(&project.permanent))
+        return false;
+    }
   }
   if (reader.offset != bytes.size() || !ValidateState(*state))
     return false;
@@ -686,6 +791,24 @@ bool AddReferenceSet(KR_SetOfID *destination,
 }
 
 bool ApplyState(SimulationContext *context, const StableState &state) {
+  if (state.projectRosterPresent) {
+    std::vector<StableProject> current;
+    if (!CaptureProjectRoster(context, &current) ||
+        current.size() != state.projects.size())
+      return Fail("MSH1 ProjectTable roster is incompatible");
+    for (std::size_t index = 0; index < state.projects.size(); ++index) {
+      if (current[index].name != state.projects[index].name ||
+          !context->isExist(state.projects[index].name.c_str()))
+        return Fail("MSH1 ProjectTable symbolic roster is incompatible");
+      const KR_ObjectID object =
+          context->searchObject(state.projects[index].name.c_str());
+      mp_Project *project = projectTable.searchProject(object);
+      if (project == NULL)
+        return Fail("MSH1 ProjectTable object is unresolved");
+      project->m_treeNode = state.projects[index].treeNode;
+      project->m_permanent = state.projects[index].permanent;
+    }
+  }
   if (state.vehicle.empty())
     return ResolveVehicle(context) == NULL;
   Vehicle *vehicle = ResolveVehicle(context, state.vehicle);
@@ -837,13 +960,17 @@ bool MissionActiveWorldState_ProbeLegacyVersionCompatibility(
   StableState state;
   std::vector<unsigned char> version1;
   std::vector<unsigned char> version2;
+  std::vector<unsigned char> version3;
   return CaptureState(context, &state) && ValidateState(state) &&
          EncodeStateVersion(state, kMissionLegacyVersion, &version1) &&
          EncodeStateVersion(state, kMissionRouteGeometryVersion, &version2) &&
+         EncodeStateVersion(state, kMissionArtefactVersion, &version3) &&
          MissionActiveWorldState_ValidateStable(version1) &&
          MissionActiveWorldState_ValidateStable(version2) &&
+         MissionActiveWorldState_ValidateStable(version3) &&
          MissionActiveWorldState_MatchesStable(context, version1) &&
-         MissionActiveWorldState_MatchesStable(context, version2);
+         MissionActiveWorldState_MatchesStable(context, version2) &&
+         MissionActiveWorldState_MatchesStable(context, version3);
 }
 
 bool MissionActiveWorldState_RouteRequirements(

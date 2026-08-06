@@ -74,9 +74,22 @@ struct RecruitCenterMissionNoRewardResultProbeSummary
     int totalMissionsAfter;
     int scheduledChecksBefore;
     int scheduledChecksAfter;
+    int reachedConditions;
+    int noNextCandidate;
     char centerName[81];
     char completedProjectName[81];
     char nextProjectName[81];
+};
+
+struct RecruitCenterMissionTerminalNoRewardStateSummary
+{
+    int missionAbsent;
+    int projectRetired;
+    int noNextCandidate;
+    int scheduledChecks;
+    int rewardDetached;
+    char centerName[81];
+    char completedProjectName[81];
 };
 
 struct RecruitCenterObjectiveStateSummary
@@ -178,6 +191,13 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
 bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     RecruitCenterMissionNoRewardResultProbeSummary *summary);
+bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionNoRewardResultProbeSummary *summary);
+bool RecruitCenterSubjectState_TerminalNoRewardStateProbeForCenter(
+    SimulationContext *context, const char *centerName,
+    const char *completedProjectName,
+    RecruitCenterMissionTerminalNoRewardStateSummary *summary);
 bool RecruitCenterSubjectState_RewardCarrierState(
     SimulationContext *context, bool expectAttached);
 bool RecruitCenterSubjectState_DropRewardProbe(

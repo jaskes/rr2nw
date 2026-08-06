@@ -4647,17 +4647,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-233: Level.01N Outsider has no authored next Project
 
-- Status: `RETAIL_DATA_CONFIRMED`, `TERMINAL_CENTER_BOUNDARY_RECORDED`.
+- Status: `RETAIL_DATA_CONFIRMED`, `MAY_BINARY_CONTROL_FLOW_CONFIRMED`,
+  `TERMINAL_CENTER_ACCEPTED`.
 - Evidence: Level.01N `SCINC/BRIEF.SCI` is 617 bytes and contains one
   `s_NewProject("Mission", nNode)` entry. It authors one
   `p_AddSuccessReached` objective, `Brief/mission.sc`, Commander `Outsider` and
   MissionInfo tier zero. It contains neither command 35 nor any second Project.
-- Handling: do not use this owner as evidence for ordinary project advancement,
-  do not manufacture a successor and do not attach Portal behavior. Prefer the
-  two closed Level.02D owners for the maintained multi-world progression
-  matrix. Terminal single-project completion remains a separate campaign row.
-- Revisit when: terminal no-successor centers receive an explicit completion,
-  revisit and fresh-load contract without assuming another briefing exists.
+- May evidence: the installed 1999-05-27 `nw.exe` (SHA-256
+  `42F2FC3B632C58073307B1B95924C1EFC038B5B3879C7476E438336B5D497132`)
+  calls `handleMission` from `0x004CB6A0`; after a terminal result it calls
+  `Player::CleanupMissionPool` through the IPlayer slot at `0x004CB6BF`
+  before searching ProjectTable. The NUL-candidate branch at
+  `0x004CB70B-0x004CB716` ejects without creating another mission.
+- Handling: the real reached objective completes and retires `Mission`, cleans
+  its check/map state and repairs/refills without Artifact or Portal. An empty
+  next-candidate result is stable and idempotent. MSH1 v4 persists the complete
+  sorted ProjectTable roster (tree node plus permanence), making both the
+  terminal tombstone and the active pre-result tree node exact across LCN1,
+  RR2SLOT1, fresh load and rollback.
+- Verification: `Invoke-MissionTerminalNoRewardResultSmoke.ps1` owns the
+  result and a second-process load in Debug, Release and RelWithDebInfo. It
+  requires `Mission/<none>`, zero remaining mission/check/map owners, no reward,
+  exact repeated revisit, matching saved/restored world fingerprints and clean
+  shutdown. The ordinary successor matrix and strict Artifact/Portal gate stay
+  separate.
+- Revisit when: another retail center proves a distinct terminal repeat policy
+  or a permanent no-successor Project requires an explicit exception.
 
 ## Maintenance rule
 

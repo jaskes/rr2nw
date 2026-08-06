@@ -998,8 +998,26 @@ slot and log if presentation or selection differs.
 
 Level.01N Outsider is deliberately not a row in this progression matrix. Its
 retail `BRIEF.SCI` contains one non-permanent no-reward `Mission` and no
-successor Project; a separate terminal-center contract is required before that
-mission can be claimed complete without inventing campaign content.
+successor Project; run its separate terminal-center contract instead:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionTerminalNoRewardResultSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+All 3 rows must pass a result process and a second fresh-load process. Required
+records include `mission_terminal_no_reward_project=Mission/<none>`,
+`mission_terminal_no_reward_commit=1/1/0/1/1/1/1/1/1`,
+`mission_terminal_no_reward_objective=1/0/1/0/1`,
+`mission_terminal_no_reward_rollback=1/1/1` and fresh state
+`mission_terminal_no_reward_fresh=1/1/1/0/1`. The saved and freshly restored
+world fingerprints must match. No Artifact/Portal record may appear.
+
+For a visible repeat, take Outsider's mission, reach the marked point, return
+for the result and revisit again. The first result should repair/refill and
+clear the objective without a reward; later visits must leave the center empty
+and stable. Save after the result, restart and revisit once more.
 
 ## Portal campaign-transition pass
 

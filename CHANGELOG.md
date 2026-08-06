@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Restored the terminal no-reward RecruitCenter branch for Level.01N
+  Outsider. Its sole reached-objective `Mission` now completes, cleans the
+  objective/map/check graph, repairs and refills the current Vehicle, grants
+  no Artifact or Portal and remains a stable no-project center on later
+  visits. MSH1 v4 now persists the complete deterministic ProjectTable roster,
+  so project retirement and pre-result rollback survive RR2SLOT1 plus a fresh
+  process instead of silently resurrecting a completed Project. A dedicated
+  three-configuration result/fresh-load gate owns this no-successor boundary.
 - Extended the ordinary no-reward progression gate beyond Level.01D without
   changing runtime selection policy. Level.02D Magician `ProjectDSCM` now
   advances to `ProjectA17`, while Kingdom `ProjectDSCK` advances to

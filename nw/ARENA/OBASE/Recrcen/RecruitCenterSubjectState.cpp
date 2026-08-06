@@ -2518,6 +2518,219 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
     return exact;
 }
 
+bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionNoRewardResultProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (summary == NULL || context == NULL || centerName == NULL ||
+        centerName[0] == 0 || !std::isfinite(timeStamp) ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter terminal no-reward arguments are invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL)
+    {
+        SetError("RecruitCenter terminal no-reward cannot find its center");
+        return false;
+    }
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    int missionIndex = -1;
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID() &&
+            player.m_mission[index].m_status == MISSION_INPROCESS)
+        {
+            missionIndex = index;
+            break;
+        }
+    if (missionIndex < 0)
+    {
+        SetError("RecruitCenter terminal no-reward has no active mission");
+        return false;
+    }
+
+    PlayerMission &mission = player.m_mission[missionIndex];
+    const KR_ObjectID completedProject = mission.mID;
+    const char *projectName = context->searchObject(completedProject);
+    if (projectName == NULL || mission.m_giveArtefact ||
+        ConditionCount(mission) != 1 ||
+        mission.success_needReached.getCount() != 1 ||
+        mission.success_needReached[0] != g_vehicle->getObjectID() ||
+        !std::isfinite(mission.success_reachedPos[0].x) ||
+        !std::isfinite(mission.success_reachedPos[0].y) ||
+        !std::isfinite(mission.success_reachedRadius[0]) ||
+        mission.success_reachedRadius[0] <= 0.0)
+    {
+        SetError("RecruitCenter terminal no-reward needs one real Player "
+                 "reached condition without COM_SET_GIVEARTEFACT");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->completedProjectName,
+                  sizeof(summary->completedProjectName), "%s", projectName);
+    summary->missionsBefore = player.m_missCnt;
+    summary->totalMissionsBefore = player.m_total_misCount;
+    summary->scheduledChecksBefore = context->copyEventsTo(
+        rc_CHECK_MISSION, center->getObjectID(), NULL, 0);
+    if (summary->scheduledChecksBefore != 1)
+    {
+        SetError("RecruitCenter terminal no-reward has no unique check event");
+        return false;
+    }
+
+    const CFVector3 originalPosition = g_vehicle->Pos();
+    const double targetX = mission.success_reachedPos[0].x;
+    const double targetZ = mission.success_reachedPos[0].y;
+    const double radius = mission.success_reachedRadius[0];
+    const double originalDx = originalPosition.x - targetX;
+    const double originalDz = originalPosition.z - targetZ;
+    if (!FiniteVector(originalPosition) ||
+        originalDx * originalDx + originalDz * originalDz <= radius * radius)
+    {
+        SetError("RecruitCenter terminal reached condition is already true");
+        return false;
+    }
+    const CFVector3 target(targetX, originalPosition.y, targetZ);
+    g_vehicle->SetPos(target);
+    g_vehicle->setPosition(target);
+    g_vehicle->Stop();
+    context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
+    KR_Event check(rc_CHECK_MISSION, timeStamp,
+                   g_vehicle->getObjectID(), center->getObjectID());
+    check.data.open(EDO_WRITE).putInt(missionIndex).close();
+    context->sendEventNow(check);
+    if (player.m_mission[missionIndex].m_status != MISSION_SUCCESS)
+    {
+        SetError("RecruitCenter terminal real reached check did not succeed");
+        return false;
+    }
+    summary->reachedConditions = 1;
+    summary->statusTransitions = 1;
+
+    const bool artifactExisted = context->isExist("Artifact") != 0;
+    const KR_ObjectID artifactBefore = artifactExisted
+        ? context->searchObject("Artifact") : KR_ObjectID::NUL();
+    const int presentationsBefore = g_missionResultPresentations;
+    g_vehicle->m_damage = 0.1;
+    g_vehicle->m_secBulletCnt = 0;
+    MissionVisitResult result;
+    if (!ProcessMissionVisit(context, timeStamp + 0.1, center, &player,
+                             &result) || !result.success ||
+        result.rewardCreated)
+    {
+        if (g_lastError[0] == 0)
+            SetError("RecruitCenter terminal no-reward revisit did not commit");
+        return false;
+    }
+    summary->completedMissions = 1;
+    summary->resultPresentations =
+        g_missionResultPresentations - presentationsBefore;
+    summary->rewardsCreated = result.rewardCreated ? 1 : 0;
+    const bool artifactExistsAfter = context->isExist("Artifact") != 0;
+    summary->rewardAbsent = artifactExistsAfter == artifactExisted &&
+        (!artifactExistsAfter ||
+         context->searchObject("Artifact") == artifactBefore) ? 1 : 0;
+    mp_Project *completedProjectState =
+        projectTable.searchProject(completedProject);
+    summary->completedProjectRetired = completedProjectState != NULL &&
+        completedProjectState->m_treeNode < 0 ? 1 : 0;
+    summary->repaired = g_vehicle->m_damage == 1.0 ? 1 : 0;
+    summary->refilled =
+        g_vehicle->m_secBulletCnt >= g_levelAttr.m_maxSecBulletCnt ? 1 : 0;
+    summary->missionsAfter = player.m_missCnt;
+    summary->totalMissionsAfter = player.m_total_misCount;
+    summary->scheduledChecksAfter = context->copyEventsTo(
+        rc_CHECK_MISSION, center->getObjectID(), NULL, 0);
+
+    KR_ObjectID next = KR_ObjectID::NUL();
+    if (!FindCenterCandidate(center, &player, &next))
+    {
+        SetError("RecruitCenter terminal next-project graph is malformed");
+        return false;
+    }
+    summary->noNextCandidate = next.isNUL() ? 1 : 0;
+    MissionVisitResult repeat;
+    const bool repeated = ProcessMissionVisit(
+        context, timeStamp + 0.2, center, &player, &repeat);
+    summary->repeatIdempotent = repeated && !repeat.found &&
+        player.m_missCnt == summary->missionsAfter &&
+        (context->isExist("Artifact") != 0) == artifactExisted ? 1 : 0;
+
+    const bool exact = summary->reachedConditions == 1 &&
+        summary->statusTransitions == 1 &&
+        summary->completedMissions == 1 &&
+        summary->resultPresentations == 1 &&
+        summary->rewardsCreated == 0 && summary->rewardAbsent == 1 &&
+        summary->completedProjectRetired == 1 &&
+        summary->repaired == 1 && summary->refilled == 1 &&
+        summary->noNextCandidate == 1 && summary->repeatIdempotent == 1 &&
+        summary->missionsAfter == summary->missionsBefore - 1 &&
+        summary->totalMissionsAfter == summary->totalMissionsBefore &&
+        summary->scheduledChecksAfter == 0;
+    if (!exact)
+        SetError("RecruitCenter terminal no-reward invariants did not hold");
+    return exact;
+}
+
+bool RecruitCenterSubjectState_TerminalNoRewardStateProbeForCenter(
+    SimulationContext *context, const char *centerName,
+    const char *completedProjectName,
+    RecruitCenterMissionTerminalNoRewardStateSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (summary == NULL || context == NULL || centerName == NULL ||
+        centerName[0] == 0 || completedProjectName == NULL ||
+        completedProjectName[0] == 0 || g_vehicle == NULL ||
+        g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter terminal state arguments are invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL || !context->isExist(completedProjectName))
+    {
+        SetError("RecruitCenter terminal state lost its authored owners");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->completedProjectName,
+                  sizeof(summary->completedProjectName), "%s",
+                  completedProjectName);
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    bool missionAbsent = true;
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID())
+            missionAbsent = false;
+    summary->missionAbsent = missionAbsent ? 1 : 0;
+    const KR_ObjectID completedProject =
+        context->searchObject(completedProjectName);
+    mp_Project *project = projectTable.searchProject(completedProject);
+    summary->projectRetired = project != NULL && project->m_treeNode < 0 ? 1 : 0;
+    KR_ObjectID next = KR_ObjectID::NUL();
+    if (!FindCenterCandidate(center, &player, &next))
+    {
+        SetError("RecruitCenter terminal state project graph is malformed");
+        return false;
+    }
+    summary->noNextCandidate = next.isNUL() ? 1 : 0;
+    summary->scheduledChecks = context->copyEventsTo(
+        rc_CHECK_MISSION, center->getObjectID(), NULL, 0);
+    summary->rewardDetached = g_vehicle->m_artefact == NULL &&
+        g_vehicle->m_artefactID.isNUL() ? 1 : 0;
+    const bool exact = summary->missionAbsent == 1 &&
+        summary->projectRetired == 1 && summary->noNextCandidate == 1 &&
+        summary->scheduledChecks == 0 && summary->rewardDetached == 1;
+    if (!exact)
+        SetError("RecruitCenter terminal state invariants did not hold");
+    return exact;
+}
+
 bool RecruitCenterSubjectState_RewardCarrierState(
     SimulationContext *context, bool expectAttached)
 {
