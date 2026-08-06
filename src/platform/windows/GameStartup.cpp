@@ -72,6 +72,7 @@ struct StartupOptions {
   bool missionBriefingSmoke = false;
   bool missionCombatSmoke = false;
   bool missionNaturalCombatSmoke = false;
+  bool missionGuideRouteSmoke = false;
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
   bool portalTransitionSmoke = false;
@@ -311,6 +312,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionNaturalCombatSmoke = true;
+    } else if (argument == L"--mission-guide-route-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionGuideRouteSmoke = true;
     } else if (argument == L"--mission-continuation-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -1088,6 +1093,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-combat-smoke |\n"
                 L"           --mission-natural-combat-smoke |\n"
+                L"           --mission-guide-route-smoke |\n"
                 L"           --mission-continuation-smoke |\n"
                 L"           --mission-result-smoke]\n"
                 L"          [--portal-transition-smoke]\n"
@@ -3056,6 +3062,121 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              "/" + std::to_string(guideVehicleObstacle.rollbackExact) +
              "/" + std::to_string(guideVehicleObstacle.collisionTime));
     loopFailed = loopFailed || !guideVehicleObstacleReady;
+    if (!loopFailed && options.missionGuideRouteSmoke) {
+      std::vector<std::uint8_t> guideBaseline;
+      std::vector<std::uint8_t> guideProgress;
+      std::vector<std::uint8_t> guideProgressVerifiedBytes;
+      std::vector<std::uint8_t> guideRolledBack;
+      SLevelContinuationSummary guideBaselineSummary;
+      SLevelContinuationSummary guideProgressSummary;
+      SLevelContinuationSummary guideRestoredSummary;
+      SLevelContinuationSummary guideProgressVerified;
+      SLevelContinuationSummary guideRollbackSummary;
+      SLevelContinuationSummary guideRollbackVerified;
+      const bool guideBaselineReady =
+          RecoveredGameServices_CaptureLevelContinuation(
+              &guideBaseline, &guideBaselineSummary);
+      SPeopleGuideRouteProbeSummary guideRoute = {};
+      const bool guideRouteStaged = guideBaselineReady &&
+          PeopleSubjectState_StageGuideRoute(
+              g_super.m_context, &guideRoute) &&
+          guideRoute.available == 1;
+      const bool guideProgressReady = guideRouteStaged &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &guideProgress, &guideProgressSummary);
+      const bool guideProgressRestored = guideProgressReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              guideProgress, &guideRestoredSummary);
+      const bool guideProgressRecaptureReady = guideProgressRestored &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &guideProgressVerifiedBytes, &guideProgressVerified);
+      const bool guideProgressExact = guideProgressRecaptureReady &&
+          guideProgress == guideProgressVerifiedBytes &&
+          guideProgressSummary.ready && guideRestoredSummary.ready &&
+          guideProgressVerified.ready &&
+          guideProgressSummary.sections == kActiveWorldOwnerSectionCount &&
+          guideRestoredSummary.ownerPhases ==
+              kActiveWorldOwnerSectionCount &&
+          guideRestoredSummary.referencePhases ==
+              kActiveWorldOwnerSectionCount &&
+          guideProgressSummary.worldFingerprint ==
+              guideRestoredSummary.restoredWorldFingerprint &&
+          guideProgressSummary.worldFingerprint ==
+              guideProgressVerified.worldFingerprint;
+      const bool guideRollbackRestored = guideBaselineReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              guideBaseline, &guideRollbackSummary);
+      const bool guideRollbackRecaptured = guideRollbackRestored &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &guideRolledBack, &guideRollbackVerified);
+      const bool guideRollbackExact = guideRollbackRecaptured &&
+          guideBaseline == guideRolledBack &&
+          guideBaselineSummary.ready && guideRollbackSummary.ready &&
+          guideRollbackVerified.ready &&
+          guideBaselineSummary.worldFingerprint ==
+              guideRollbackSummary.restoredWorldFingerprint &&
+          guideBaselineSummary.worldFingerprint ==
+              guideRollbackVerified.worldFingerprint;
+      log.Line(std::string("mission_guide_route=") +
+               (guideRoute.actor[0] == 0 ? "<none>" : guideRoute.actor) +
+               "/" +
+               (guideRoute.route[0] == 0 ? "<none>" : guideRoute.route) +
+               "/" +
+               (guideRoute.vehicle[0] == 0 ? "<none>" :
+                                             guideRoute.vehicle) +
+               "/" + std::to_string(guideRoute.available) +
+               "/" + std::to_string(guideRoute.playerBound) +
+               "/" + std::to_string(guideRoute.visible) +
+               "/" + std::to_string(guideRoute.routeNodes) +
+               "/" + std::to_string(guideRoute.startNode) +
+               "/" + std::to_string(guideRoute.terminalNode) +
+               "/" + std::to_string(guideRoute.moveEvents) +
+               "/" + std::to_string(guideRoute.displacedEvents) +
+               "/" + std::to_string(guideRoute.segmentTransitions) +
+               "/" + std::to_string(guideRoute.staticSceneFrames) +
+               "/" + std::to_string(guideRoute.staticContactFrames) +
+               "/" + std::to_string(guideRoute.contactFrames) +
+               "/" + std::to_string(guideRoute.finiteMotion) +
+               "/" + std::to_string(guideRoute.boundedMotion) +
+               "/" + std::to_string(guideRoute.terminalReached) +
+               "/" + std::to_string(guideRoute.failureCode) +
+               "/" + std::to_string(guideRoute.lastEventLabel) +
+               "/" + std::to_string(guideRoute.endingPreviousNode) +
+               "/" + std::to_string(guideRoute.endingCurrentNode) +
+               "/" + std::to_string(guideRoute.contactCode1Frames) +
+               "/" + std::to_string(guideRoute.contactCode2Frames) +
+               "/" + std::to_string(guideRoute.contactCode3Frames) +
+               "/" + std::to_string(guideRoute.contactCode9Frames) +
+               "/" + std::to_string(guideRoute.contactCode11Frames) +
+               "/" + std::to_string(guideRoute.elapsed) +
+               "/" + std::to_string(guideRoute.authoredDistance) +
+               "/" + std::to_string(guideRoute.travelledDistance) +
+               "/" +
+               std::to_string(guideRoute.closestTerminalDistance) +
+               "/" + std::to_string(guideRoute.closestVehicleDistance) +
+               "/" + std::to_string(guideRoute.endingX) +
+               "/" + std::to_string(guideRoute.endingZ) +
+               "/" + std::to_string(guideRoute.routeStartTime) +
+               "/" + std::to_string(guideRoute.lastEventTime));
+      log.Line("mission_guide_route_save=" +
+               std::to_string(guideBaselineReady ? 1 : 0) + "/" +
+               std::to_string(guideRouteStaged ? 1 : 0) + "/" +
+               std::to_string(guideProgressReady ? 1 : 0) + "/" +
+               std::to_string(guideProgressRestored ? 1 : 0) + "/" +
+               std::to_string(guideProgressRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(guideProgressExact ? 1 : 0) + "/" +
+               std::to_string(guideRollbackRestored ? 1 : 0) + "/" +
+               std::to_string(guideRollbackRecaptured ? 1 : 0) + "/" +
+               std::to_string(guideRollbackExact ? 1 : 0) + "/" +
+               std::to_string(guideProgressSummary.sections));
+      if (!guideRouteStaged)
+        log.Line("mission_guide_route_error=route staging failed");
+      else if (!guideProgressExact || !guideRollbackExact)
+        log.Line(std::string("mission_guide_route_error=") +
+                 RecoveredGameServices_LastLevelContinuationError());
+      loopFailed = !guideRouteStaged || !guideProgressExact ||
+                   !guideRollbackExact;
+    }
     SPeopleCombatScheduleSummary missionPeopleSchedule = {};
     const bool missionPeopleScheduleReady =
         PeopleSubjectState_AuditCombatScheduling(
@@ -3486,7 +3607,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       loopFailed = loopFailed || !combatStageReady || !combatProof ||
                    !combatRollbackExact;
     }
-    if (!loopFailed &&
+    if (!loopFailed && !options.missionGuideRouteSmoke &&
         (missionProject == "ProjectS22" ||
          missionProject == "ProjectS23" ||
          missionProject == "ProjectS24" ||

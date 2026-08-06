@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Real Level.03N mission guides now complete their full 15-node and 34-node
+  authored Routes through static town geometry instead of compounding a
+  persistent ten-degree contact response into an orbit. Horizontal classes
+  `1/3` are bounded to the route bearing and ownerless static contact gets one
+  timed opposite-side retry; support/dynamic contact and scheduler behavior
+  remain intact. A new two-center, three-configuration gate proves terminal
+  progress, occupied Player Vehicle binding and exact progressed/baseline LCN1
+  restore plus rollback across all seventeen owner sections.
 - Restored the May Portal status path with exact centered CP866 singular,
   plural and restored messages. `Level.04D` now creates its authored
   `Portal.Arabesk` through the real archived Fountain/FountainAttr tables and

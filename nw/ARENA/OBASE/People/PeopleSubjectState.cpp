@@ -2533,6 +2533,293 @@ bool PeopleSubjectState_ProbeOccupiedVehicleObstacleCollision(
            summary->rollbackExact == 1;
 }
 
+bool PeopleSubjectState_StageGuideRoute(
+    SimulationContext *context,
+    SPeopleGuideRouteProbeSummary *summary)
+{
+    if (context == NULL || summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    summary->finiteMotion = 1;
+    summary->boundedMotion = 1;
+    summary->closestTerminalDistance = DBL_MAX;
+    summary->closestVehicleDistance = DBL_MAX;
+
+    ObjectRoster roster = {};
+    if (!CollectTable(context, "People", roster))
+        return false;
+
+    People *actor = NULL;
+    KR_ObjectID actorID = KR_ObjectID::NUL();
+    KR_Event startMove;
+    for (std::size_t index = 0; index < roster.ids.size(); ++index)
+    {
+        People *candidate = ResolvePeople(context, roster.ids[index]);
+        KR_Event pending[2];
+        if (RuntimeReady(candidate) && candidate->m_startMoveDelay > 0.0 &&
+            context->copyEvents(pe_EV_STARTMOVE, roster.ids[index],
+                                pending, 2) == 1 &&
+            (actor == NULL || roster.ids[index].id > actorID.id))
+        {
+            actor = candidate;
+            actorID = roster.ids[index];
+            startMove.getCopy(pending[0]);
+        }
+    }
+    if (actor == NULL)
+        return true;
+
+    Vehicle *vehicle = g_vehicle;
+    if (vehicle == NULL || vehicle->getContext() != context)
+        return false;
+    const KR_ObjectID vehicleID = vehicle->getObjectID();
+    IPlayer *player = static_cast<IPlayer *>(
+        context->queryInterface(vehicleID, IPlayerIID));
+    summary->playerBound =
+        context->queryInterface(vehicleID, IVehicleIID) == vehicle &&
+        player == &vehicle->player() && g_vehicle == vehicle ? 1 : 0;
+    if (summary->playerBound != 1)
+        return false;
+
+    IRouteObject *route = static_cast<IRouteObject *>(
+        context->queryInterface(actor->m_routeID, IRouteObjectIID));
+    const char *attributeName = context->searchObject(actor->m_peopleAttrID);
+    ct_Attribute *attribute = ResolvePeopleAttribute(context, attributeName);
+    if (route == NULL || route->GetNodeCnt() < 2 || attribute == NULL ||
+        attribute->get_int("m_onLand") != kPeopleOnObjects ||
+        actor->m_previousRouteNode < 0 ||
+        actor->m_previousRouteNode >= route->GetNodeCnt() ||
+        actor->m_curNode < 0 || actor->m_curNode >= route->GetNodeCnt())
+        return false;
+
+    summary->available = 1;
+    summary->routeNodes = route->GetNodeCnt();
+    summary->startNode = actor->m_previousRouteNode;
+    summary->terminalNode = route->GetNodeCnt() - 1;
+    CopyTelemetryName(summary->actor, sizeof(summary->actor),
+                      context->searchObject(actorID));
+    CopyTelemetryName(summary->route, sizeof(summary->route),
+                      context->searchObject(actor->m_routeID));
+    CopyTelemetryName(summary->vehicle, sizeof(summary->vehicle),
+                      context->searchObject(vehicleID));
+
+    for (int index = summary->startNode;
+         index < summary->terminalNode; ++index)
+    {
+        const CFVector3 from = route->GetNode(index);
+        const CFVector3 to = route->GetNode(index + 1);
+        const double length = hypot(to.x - from.x, to.z - from.z);
+        if (!FiniteVector(from) || !FiniteVector(to) ||
+            !std::isfinite(length))
+            return false;
+        summary->authoredDistance += length;
+    }
+    if (!std::isfinite(summary->authoredDistance) ||
+        summary->authoredDistance <= 1e-6)
+        return false;
+
+    KR_Event startShow[2];
+    const int startShowCount = context->copyEvents(
+        pe_EV_STARTSHOW, actorID, startShow, 2);
+    if (startShowCount < 0 || startShowCount > 1)
+        return false;
+    if (startShowCount == 1)
+    {
+        KR_Event event;
+        if (!TakePeopleEvent(context, pe_EV_STARTSHOW, actorID, &event) ||
+            actor->receiveEvent(event) != 1)
+            return false;
+    }
+    // The route transaction must keep the actor inside the full May
+    // static-support path even after it leaves the current camera zone.
+    actor->m_isVisible = 1;
+    actor->m_audibleThisFrame = 0;
+    summary->visible = actor->m_isNotCreate == 0 ? 1 : 0;
+    if (summary->visible != 1 ||
+        !TakePeopleEvent(context, pe_EV_STARTMOVE, actorID, &startMove) ||
+        actor->receiveEvent(startMove) != 1)
+        return false;
+    summary->routeStartTime = startMove.timeStamp;
+
+    const CFVector3 terminal = route->GetNode(summary->terminalNode);
+    CFVector3 previous = actor->getPosition();
+    double previousTime = actor->m_prevTime;
+    const double speed = actor->movementSpeed();
+    const double maximumCorridorDistance =
+        attribute->get_double("m_maxOutDist");
+    if (!FiniteVector(previous) || !std::isfinite(previousTime) ||
+        !std::isfinite(speed) || speed <= 1e-6 ||
+        !std::isfinite(maximumCorridorDistance) ||
+        maximumCorridorDistance < 0.0)
+        return false;
+
+    summary->closestTerminalDistance =
+        hypot(terminal.x - previous.x, terminal.z - previous.z);
+    const CFVector3 initialVehiclePosition = vehicle->getPos();
+    summary->closestVehicleDistance = hypot(
+        initialVehiclePosition.x - previous.x,
+        initialVehiclePosition.z - previous.z);
+    int previousRouteNode = actor->m_previousRouteNode;
+    int currentRouteNode = actor->m_curNode;
+
+    // Route authority is split between the recurring MOVE sample and the
+    // scheduled NEXTNODE compatibility event.  Driving MOVE alone can orbit a
+    // close authored waypoint forever even though the real scheduler would
+    // accept that waypoint through nexNodeDefault's retail arrival bound.
+    const int routeLabels[] = {
+        pe_EVC_NEXTNODE, pe_EVC_GROUNDED_NEXTNODE, pe_EVC_MOVE};
+    const int kMaximumRouteEvents = 32768;
+    double lastDispatchedTime = startMove.timeStamp;
+    for (int iteration = 0;
+         iteration < kMaximumRouteEvents && !summary->terminalReached;
+         ++iteration)
+    {
+        KR_Event scheduled;
+        int scheduledLabel = 0;
+        bool scheduledFound = false;
+        for (std::size_t labelIndex = 0;
+             labelIndex < sizeof(routeLabels) / sizeof(routeLabels[0]);
+             ++labelIndex)
+        {
+            KR_Event pending[2];
+            const int pendingCount = context->copyEvents(
+                routeLabels[labelIndex], actorID, pending, 2);
+            if (pendingCount < 0 || pendingCount > 1)
+            {
+                summary->failureCode = 1;
+                return false;
+            }
+            if (pendingCount == 1 &&
+                (!scheduledFound ||
+                 pending[0].timeStamp < scheduled.timeStamp - 1e-9))
+            {
+                scheduled.getCopy(pending[0]);
+                scheduledLabel = routeLabels[labelIndex];
+                scheduledFound = true;
+            }
+        }
+        if (!scheduledFound ||
+            !TakePeopleEvent(context, scheduledLabel, actorID, &scheduled))
+        {
+            summary->failureCode = 2;
+            return false;
+        }
+        summary->lastEventLabel = scheduledLabel;
+        summary->lastEventTime = scheduled.timeStamp;
+        if (!std::isfinite(scheduled.timeStamp) ||
+            scheduled.timeStamp < lastDispatchedTime - 1e-9)
+        {
+            summary->failureCode = 3;
+            return false;
+        }
+
+        const bool isMove = scheduledLabel == pe_EVC_MOVE;
+        // Every legacy receiver is allowed to reuse and mutate the event when
+        // it schedules its successor.  Chronology belongs to the deadline we
+        // removed from the queue, not to that post-dispatch scratch payload.
+        const double dispatchTime = scheduled.timeStamp;
+        const double deltaTime = isMove
+            ? dispatchTime - actor->m_prevTime : 0.0;
+        const double recoveryBefore = actor->m_obstacleRecoveryTime;
+        if (!std::isfinite(deltaTime) || deltaTime < -1e-9 ||
+            actor->receiveEvent(scheduled) != 1)
+        {
+            summary->failureCode = 4;
+            return false;
+        }
+        lastDispatchedTime = dispatchTime;
+
+        const CFVector3 position = actor->getPosition();
+        const double displacement = hypot(
+            position.x - previous.x, position.z - previous.z);
+        if (!FiniteVector(position) || !std::isfinite(displacement))
+        {
+            summary->finiteMotion = 0;
+            summary->failureCode = 5;
+            return false;
+        }
+        if (isMove)
+        {
+            ++summary->moveEvents;
+            if (deltaTime > 1e-9)
+                ++summary->staticSceneFrames;
+            // A normal centered step is capped at 1.5x travel.  A subject
+            // already outside its authored corridor may additionally receive
+            // one deterministic hard correction from either side of that
+            // corridor; this is bounded by twice m_maxOutDist.
+            if (displacement > speed * deltaTime * 1.6 +
+                    maximumCorridorDistance * 2.0 + 1e-4)
+                summary->boundedMotion = 0;
+            if (displacement > 1e-6)
+                ++summary->displacedEvents;
+            summary->travelledDistance += displacement;
+            summary->elapsed = dispatchTime - startMove.timeStamp;
+        }
+        if (actor->m_previousRouteNode != previousRouteNode ||
+            actor->m_curNode != currentRouteNode)
+        {
+            ++summary->segmentTransitions;
+            previousRouteNode = actor->m_previousRouteNode;
+            currentRouteNode = actor->m_curNode;
+        }
+        if (isMove)
+        {
+            if (actor->m_obstacleRecoveryTime > recoveryBefore + 1e-9)
+                ++summary->staticContactFrames;
+            if (actor->m_isClz != 0)
+                ++summary->contactFrames;
+            switch (actor->m_isClz)
+            {
+            case 1: ++summary->contactCode1Frames; break;
+            case 2: ++summary->contactCode2Frames; break;
+            case 3: ++summary->contactCode3Frames; break;
+            case 9: ++summary->contactCode9Frames; break;
+            case 11: ++summary->contactCode11Frames; break;
+            default: break;
+            }
+        }
+
+        const double terminalDistance = hypot(
+            terminal.x - position.x, terminal.z - position.z);
+        if (terminalDistance < summary->closestTerminalDistance)
+            summary->closestTerminalDistance = terminalDistance;
+        const CFVector3 vehiclePosition = vehicle->getPos();
+        const double vehicleDistance = hypot(
+            vehiclePosition.x - position.x,
+            vehiclePosition.z - position.z);
+        if (vehicleDistance < summary->closestVehicleDistance)
+            summary->closestVehicleDistance = vehicleDistance;
+
+        const double arrivalBound =
+            (std::max)(0.5, speed * (std::max)(deltaTime, 0.0) * 1.6);
+        if ((actor->m_previousRouteNode == summary->terminalNode) ||
+            (actor->m_previousRouteNode == summary->terminalNode - 1 &&
+             actor->m_curNode == summary->terminalNode &&
+             terminalDistance <= arrivalBound))
+            summary->terminalReached = 1;
+        previous = position;
+        previousTime = dispatchTime;
+    }
+
+    summary->endingPreviousNode = actor->m_previousRouteNode;
+    summary->endingCurrentNode = actor->m_curNode;
+    summary->endingX = actor->getPosition().x;
+    summary->endingZ = actor->getPosition().z;
+
+    const int requiredTransitions =
+        (std::max)(1, summary->terminalNode - summary->startNode - 1);
+    return summary->terminalReached == 1 && summary->finiteMotion == 1 &&
+           summary->boundedMotion == 1 && summary->staticSceneFrames > 0 &&
+           summary->displacedEvents > 0 &&
+           summary->segmentTransitions >= requiredTransitions &&
+           std::isfinite(summary->elapsed) && summary->elapsed > 0.0 &&
+           std::isfinite(summary->travelledDistance) &&
+           summary->travelledDistance > summary->authoredDistance * 0.75 &&
+           std::isfinite(summary->closestTerminalDistance) &&
+           std::isfinite(summary->closestVehicleDistance) &&
+           previousTime >= startMove.timeStamp;
+}
+
 bool PeopleSubjectState_ProbeCombatLifecycle(
     SimulationContext *context, double timeStamp,
     SPeopleCombatProbeSummary *summary)

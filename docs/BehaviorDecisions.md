@@ -5468,3 +5468,36 @@ presence bit.
 Only this Portal-specific Fountain owner enters the current frontier. Ordinary
 `main_CreateFountain()` population, broader Fountain save semantics and visual
 parity remain separate work and must not be inferred from this acceptance row.
+
+### BD-156: full guide routes bound persistent horizontal contacts
+
+Status: accepted on 2026-08-06 for the automated Level.03N town-route gate.
+
+The short collision probes proved individual May contact classes but did not
+prove that a visible guide could leave a wall and finish its authored Route.
+Chronological dispatch of the real guide queue exposed a persistent-contact
+failure: class `1/3` was reapplied to the already turned heading every frame,
+so a wall could compound the ten-degree response into a circular orbit.
+
+Horizontal classes `1/3` now retain their authored ten-degree direction and
+80-percent roll speed while anchoring that detour to the current authored
+route bearing. If an ownerless static forward sweep remains class `1` for one
+continuous second, the existing persisted recovery timer permits one bounded
+class-`3` side retry. Support classes `2/9/11`, dynamic-owner selection, Route
+cursor policy, scheduler cadence and combat remain unchanged. This is a narrow
+compatibility boundary, not a new planner, navigation mesh or balance policy.
+
+The maintained probe records an event's dispatch timestamp before the legacy
+receiver mutates that same `KR_Event` into its successor deadline. It executes
+real `STARTSHOW`, `STARTMOVE`, `NEXTNODE`, grounded-next-node and `MOVE` events
+until the terminal segment, with no synthetic position writes. `ProjectS22`
+traverses 13 segment transitions across its 15-node Route; `ProjectS25`
+traverses 32 across 34 nodes. Both exercise real static scene contact and both
+horizontal response classes while the real occupied Player Vehicle remains
+bound.
+
+The progressed LCN1 checkpoint restores and immediately recaptures exactly,
+then the baseline checkpoint rolls back exactly across all seventeen owner
+sections. This closes the automated route/save/load/rollback row. A visible
+human pass through the same town geometry is still required before claiming
+complete presentation parity.

@@ -2097,9 +2097,18 @@ playable Level begins.
   live response and rollback in all three configurations; the Vehicle row also
   requires byte-identical VEH1 restoration and the same embedded Player
   interface after rollback.
-  Code `4` remains an accepted/restored class, but no literal producer exists
-  in the complete May People field-write set. A visible full-route encounter
-  with authored static town geometry remains the manual closure row.
+  Full-route acceptance then runs the real Inhabitants and Marauders guides
+  through 13 and 32 segment transitions respectively. Persistent horizontal
+  classes `1/3` anchor their recovered ten-degree detour to the authored route
+  bearing, and one second of continuous ownerless class-`1` static contact
+  permits one class-`3` retry; this bounds the previously reproduced orbit
+  without changing support classes or dynamic-owner selection. Both guides
+  reach their terminal segment, exercise real static scene contacts, retain
+  the occupied Player Vehicle binding and restore/recapture progressed plus
+  baseline LCN1 exactly across seventeen owners. Code `4` remains an
+  accepted/restored class, but no literal producer exists in the complete May
+  People field-write set. A visible human repeat remains the presentation
+  closure row.
 - The free-flight far/near ATTACK branches retain their authored target
   prediction and random offset, but clamped relative vectors are restored to
   enemy/actor world space before assignment to `m_nextNode`. Assigning the

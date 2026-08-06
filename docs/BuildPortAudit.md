@@ -4043,3 +4043,43 @@ Clock/CTJ1 and adoption failed. The accepted gate uses the current closed
 The completed slice also passes 67/67 CTest in Debug, Release and
 RelWithDebInfo, the installed retail matrix 27/27 and the fresh-process Level
 continuation matrix 27/27 across all nine catalog levels.
+
+## Full mission-guide route and legacy event-mutation boundary
+
+The previous Level.03N guide checks covered two moves and isolated dynamic
+People/occupied-Vehicle contacts. They did not exercise the complete authored
+town route or the static scene repeatedly. `--mission-guide-route-smoke` now
+selects the delayed guide created by each real RecruitCenter mission, proves
+the live `IVehicle` plus embedded `IPlayer` binding and consumes the guide's
+real scheduled events in timestamp order until its terminal Route segment.
+
+One archival scheduler convention is critical: `People::receiveEvent` reuses
+and mutates the dispatched `KR_Event` as its next deadline. Acceptance must
+therefore copy the dispatch time before the call. Reading it afterwards made a
+completed event appear to occur at its successor time and hid valid queue
+progress. That rule is now explicit in the probe rather than encoded as a
+host-speed timeout.
+
+The long run also isolated a production route defect. Persistent horizontal
+contact classes were applied relative to the guide's already changed heading,
+compounding a ten-degree response into an orbit. Classes `1/3` are now anchored
+to the authored route bearing, with one opposite-side retry after one second
+of continuous ownerless static contact. Support classes, dynamic-owner logic,
+route data and event cadence are preserved.
+
+The maintained wrapper runs both Level.03N centers. The Inhabitants guide
+reaches segment 13/14 after 13 transitions; the Marauders guide reaches 32/33
+after 32. Both travel more than 75 percent of their authored Route, exercise
+real static contacts plus classes `1` and `3`, retain the occupied Player
+Vehicle binding and produce finite bounded motion. Progressed LCN1
+restore/recapture and baseline rollback are byte-exact across seventeen owner
+sections. The normal Taxi travel gate remains separate because LCN1
+reconstruction intentionally reallocates process-local ObjectIDs; it must not
+compare those owners to a pre-reconstruction ID set.
+
+The accepted 2026-08-06 gate passes 6/6 route rows (two centers in Debug,
+Release and RelWithDebInfo), 3/3 ordinary mission save/fresh same-Level/fresh
+cross-Level rows, 3/3 fresh Level.03N continuations and 3/3 ordinary retail
+Level.03N starts. Each configuration also builds completely and passes 67/67
+CTest. The abandoned broad fresh-matrix attempt was not counted; its bounded
+replacement is the changed Level in all three configurations.

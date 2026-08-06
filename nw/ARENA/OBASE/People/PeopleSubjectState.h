@@ -102,6 +102,46 @@ struct SPeopleOccupiedVehicleObstacleProbeSummary
     char vehicle[96];
 };
 
+struct SPeopleGuideRouteProbeSummary
+{
+    int available;
+    int playerBound;
+    int visible;
+    int routeNodes;
+    int startNode;
+    int terminalNode;
+    int moveEvents;
+    int displacedEvents;
+    int segmentTransitions;
+    int staticSceneFrames;
+    int staticContactFrames;
+    int contactFrames;
+    int finiteMotion;
+    int boundedMotion;
+    int terminalReached;
+    int failureCode;
+    int lastEventLabel;
+    int endingPreviousNode;
+    int endingCurrentNode;
+    int contactCode1Frames;
+    int contactCode2Frames;
+    int contactCode3Frames;
+    int contactCode9Frames;
+    int contactCode11Frames;
+    double elapsed;
+    double authoredDistance;
+    double travelledDistance;
+    double closestTerminalDistance;
+    double closestVehicleDistance;
+    double endingX;
+    double endingZ;
+    double routeStartTime;
+    double lastEventTime;
+    char actor[96];
+    char route[96];
+    char vehicle[96];
+};
+
 struct SPeopleCombatProbeSummary
 {
     int available;
@@ -312,6 +352,12 @@ bool PeopleSubjectState_ProbeDynamicObstacleCollision(
 bool PeopleSubjectState_ProbeOccupiedVehicleObstacleCollision(
     SimulationContext *context,
     SPeopleOccupiedVehicleObstacleProbeSummary *summary);
+// Drives one real delayed mission guide from its authored start phase through
+// the terminal Route segment using its ordinary MOVE/static-scene path. The
+// caller owns the enclosing LCN1 save/restore transaction.
+bool PeopleSubjectState_StageGuideRoute(
+    SimulationContext *context,
+    SPeopleGuideRouteProbeSummary *summary);
 bool PeopleSubjectState_ProbeCombatLifecycle(
     SimulationContext *context, double timeStamp,
     SPeopleCombatProbeSummary *summary);

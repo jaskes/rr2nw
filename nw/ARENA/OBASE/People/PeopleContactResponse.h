@@ -18,10 +18,11 @@ struct SPeopleContactResponseResult
     double heading;
 };
 
-// May 1999 ON_OBJ contact codes are persistent direction classes. Codes 1/9
-// turn ten degrees clockwise at 80% roll speed, code 2 turns ten degrees
-// counter-clockwise at full speed, codes 3/11 turn counter-clockwise at 80%,
-// and code 4 uses the contact-derived heading at 80%.
+// May 1999 ON_OBJ contact codes are persistent direction classes. Horizontal
+// classes 1/3 retain the authored ten-degree detour but anchor it to the route
+// bearing so a persistent contact cannot compound into an orbit. Support
+// classes 9/11 remain current-heading relative, code 2 retains full speed, and
+// code 4 uses the contact-derived heading at 80%.
 bool PeopleContactResponse_Advance(
     const SPeopleContactResponseRequest &request,
     SPeopleContactResponseResult *result);

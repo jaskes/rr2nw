@@ -75,6 +75,12 @@ bool PeopleContactResponse_Advance(
     switch (request.contactCode)
     {
     case 1:
+        // Horizontal obstacle classes persist across frames. Anchor their
+        // authored ten-degree detour to the route bearing: applying the same
+        // offset to an already turned heading produces an unbounded orbit.
+        result->targetHeading =
+            NormalizeAngle(request.contactHeading - kTenDegrees);
+        break;
     case 9:
         result->targetHeading =
             NormalizeAngle(request.heading - kTenDegrees);
@@ -85,6 +91,9 @@ bool PeopleContactResponse_Advance(
         speedScale = 1.0;
         break;
     case 3:
+        result->targetHeading =
+            NormalizeAngle(request.contactHeading + kTenDegrees);
+        break;
     case 11:
         result->targetHeading =
             NormalizeAngle(request.heading + kTenDegrees);
@@ -107,7 +116,7 @@ bool PeopleContactResponse_Probe()
 {
     SPeopleContactResponseRequest request = {};
     request.heading = 0.0;
-    request.contactHeading = 0.2;
+    request.contactHeading = 0.0;
     request.rollSpeed = 1.0;
     request.deltaTime = 0.05;
 
@@ -141,12 +150,31 @@ bool PeopleContactResponse_Probe()
             return false;
     }
 
+    // Horizontal classes use the authored route bearing, while support
+    // classes 9/11 above deliberately remain relative to the current heading.
+    request.heading = 0.0;
+    request.contactHeading = 0.2;
+    request.deltaTime = 1.0;
+    request.contactCode = 1;
+    if (!PeopleContactResponse_Advance(request, &result) ||
+        !Near(result.targetHeading, 0.2 - kTenDegrees) ||
+        !Near(result.heading, 0.2 - kTenDegrees))
+        return false;
+
+    request.contactCode = 3;
+    if (!PeopleContactResponse_Advance(request, &result) ||
+        !Near(result.targetHeading, 0.2 + kTenDegrees) ||
+        !Near(result.heading, 0.2 + kTenDegrees))
+        return false;
+
     request.contactCode = 4;
+    request.deltaTime = 0.05;
     if (!PeopleContactResponse_Advance(request, &result) ||
         !Near(result.targetHeading, 0.2) || !Near(result.heading, 0.04))
         return false;
 
     request.heading = kPi - 0.02;
+    request.contactHeading = kPi - 0.02;
     request.contactCode = 3;
     if (!PeopleContactResponse_Advance(request, &result) ||
         !Near(result.heading, -kPi + 0.02))

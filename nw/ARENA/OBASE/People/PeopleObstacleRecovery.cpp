@@ -10,6 +10,7 @@ const double kMinimumSweepRadius = 0.01;
 const double kRadiusDecayPerSecond = 2.0;
 const double kRecoveryDecayPerSecond = 2.0;
 const double kContactTravelFraction = 0.8;
+const double kStaticSideRetrySeconds = 1.0;
 
 bool SupportedContactCode(int code)
 {
@@ -65,6 +66,12 @@ bool PeopleObstacleRecovery_Advance(
         result->recoveryTime += request.deltaTime;
         result->contactCode = request.contactCode != 0
             ? request.contactCode : request.detectedContactCode;
+        // A forward static sweep has no dynamic owner from which to derive a
+        // preferred side. Retry the opposite horizontal class after one
+        // continuous second instead of orbiting indefinitely on class 1.
+        if (result->contactCode == 1 &&
+            result->recoveryTime >= kStaticSideRetrySeconds)
+            result->contactCode = 3;
         result->popState = request.stateDepth > 0 ? 1 : 0;
         const double boundedCollisionTime = std::max(
             0.0, std::min(request.collisionTime, request.deltaTime));
@@ -103,6 +110,15 @@ bool PeopleObstacleRecovery_Probe()
         !Near(hit.sweepRadius, 2.5) || !Near(hit.recoveryTime, 0.45) ||
         !Near(hit.travelTime, 0.08) || hit.sweepEnabled != 1 ||
         hit.popState != 1 || hit.contactCode != 3)
+        return false;
+
+    request.recoveryTime = 0.9;
+    request.deltaTime = 0.2;
+    request.contactCode = 1;
+    request.detectedContactCode = 1;
+    SPeopleObstacleRecoveryResult retried = {};
+    if (!PeopleObstacleRecovery_Advance(request, &retried) ||
+        !Near(retried.recoveryTime, 1.1) || retried.contactCode != 3)
         return false;
 
     request.collisionDetected = 0;

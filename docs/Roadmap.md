@@ -1927,9 +1927,17 @@ messages run after successful admission; full occupancy removes the real
 Level.04D `Portal.Arabesk` Fountain and publishes the restored message. The
 3-Level/configuration transition matrix passes 9/9 without changing PRT1.
 
-The next gameplay row is the visible guide/occupied-Vehicle town-route repeat,
-then quests/objectives and required campaign/menu flows (`M` already opens the
-recovered map). Broader mission cinematics remain separate UI work.
+The complete guide/occupied-Vehicle town route is now automated. Both real
+Level.03N guides reach their terminal authored segment through static scene
+contacts, exercise both horizontal response classes and retain exact
+progressed/baseline LCN1 restore and rollback. A visible human repeat remains
+the presentation row. The implementation frontier can now advance to
+quests/objectives and required campaign/menu flows (`M` already opens the
+recovered map); broader mission cinematics remain separate UI work.
+
+The closure gate is green in Debug, Release and RelWithDebInfo: 6/6 complete
+route rows, 3/3 ordinary mission save/fresh-load rows, 3/3 fresh Level.03N
+continuations, 3/3 retail starts and 67/67 CTest per configuration.
 
 Gate: a player can discover objectives, navigate with the map, complete and
 transition a representative mission chain, save before/after a portal and
@@ -1981,19 +1989,20 @@ per configuration, 27/27 ordinary retail starts, and 27/27 fresh Level
 continuations. Both destruction and occupied save/load coverage report the
 complete campaign profile mask `1011` in every configuration.
 
-The manual weapon pass now confirms both fire modes, tracers and a successful
+The manual weapon pass confirms both fire modes, tracers and a successful
 Level 1 to Level 2 load. Level.03N dragonflies acquire and fire, while their
 reported stepped motion identified the bounded-extrapolation defect fixed by
-BD-152. Repeat that encounter to close visible position smoothing, then run the
-guide/occupied-Vehicle town route. AI cleanup follows BD-150: perception,
-intent, route/steering, attack emission and presentation are extracted one at
-a time behind the existing May behavior and continuation gates.
+BD-152. The complete guide/occupied-Vehicle town route is now an automated
+save/load/rollback gate; repeat both motion rows visibly while campaign UI work
+continues. AI cleanup follows BD-150: perception, intent, route/steering,
+attack emission and presentation are extracted one at a time behind the
+existing May behavior and continuation gates.
 
-### 2026-08-04 readiness snapshot toward 1.0
+### 2026-08-06 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **66%** of the Windows-first 1.0 scope; strict
-release readiness is approximately **50-55%** because a full campaign and the
+implementation is approximately **67%** of the Windows-first 1.0 scope; strict
+release readiness is approximately **52-57%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
 | Milestone | Estimate | Evidence already owned | Principal remainder |
@@ -2001,14 +2010,15 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 66% | People/Tank combat, two weapons, missions, center FLC plus briefing, map, reward/Artefact and Portal progression | quests/objectives surface, remaining cinematics, AI/guide parity and complete campaign proof |
+| M3 retail parity | 69% | People/Tank combat, two weapons, missions, center FLC plus briefing, map, reward/Artefact, Portal progression and full guide-route rollback | quests/objectives surface, remaining cinematics, visible AI/guide parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |
 
 The shortest critical path is not more subsystem archaeology. It is:
 
-1. close visible People/Tank/guide motion without changing working combat;
+1. repeat visible People/Tank/guide motion while preserving the automated
+   terminal-route and combat gates;
 2. restore the remaining campaign UI/quest/cinematic ownership and exercise
    representative chains through Portal transitions;
 3. connect real audio and finish window/focus/performance stability;

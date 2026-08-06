@@ -4398,6 +4398,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   or Skin animation still steps while position is smooth, instrument those as
   separate derived channels; do not retune AI cadence to hide a drawable bug.
 
+### CQ-221: persistent horizontal contact could orbit authored geometry
+
+- Status: `AUTOMATED_LONG_ROUTE_REPRODUCED`,
+  `BOUNDED_COMPATIBILITY_POLICY_ACCEPTED`, `WINDOWS_RUNTIME_ACCEPTED`.
+- Evidence: the real `ProjectS22` guide repeatedly stalled on segment `7 -> 8`
+  and the real `ProjectS25` guide on `16 -> 17`. Their static forward sweeps
+  remained class `1`; applying ten degrees to the already turned heading on
+  every event generated a circle instead of a bounded detour.
+- Handling: horizontal classes `1/3` retain their recovered sign and speed but
+  use the authored route bearing as the reference. One continuous second of
+  ownerless class-`1` static contact permits a class-`3` retry through the
+  already persisted recovery timer. Classes `2/9/11`, dynamic-owner contact,
+  Route cursor logic, mission scripts and save schema are unchanged.
+- Verification: both real Level.03N mission guides reach their terminal Route
+  segment through authored town geometry. They exercise static contacts and
+  both horizontal classes, preserve the occupied Player Vehicle binding, and
+  restore/recapture progressed plus baseline LCN1 state exactly across all
+  seventeen owners. The route matrix passes 6/6, ordinary mission save/fresh
+  loads 3/3, fresh Level.03N continuation 3/3, retail startup 3/3 and each of
+  Debug, Release and RelWithDebInfo passes 67/67 CTest.
+- Revisit when: a visible human repeat supplies the exact route and frame
+  evidence, or a controlled May trace establishes a different side-selection
+  rule. Do not generalize this bounded retry into a new path planner.
+
 ## Maintenance rule
 
 When a new quirk is found:
