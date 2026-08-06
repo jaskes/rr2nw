@@ -67,6 +67,7 @@ struct StartupOptions {
   std::vector<std::wstring> selectedMods;
   std::wstring startLevel;
   std::wstring missionCenter;
+  std::wstring missionProject;
   int startupSaveSlot = -1;
   int startupLoadSlot = -1;
   bool launchSmoke = false;
@@ -445,6 +446,17 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
         *failure = L"empty value for --mission-center";
         return false;
       }
+    } else if (argument == L"--mission-project") {
+      if (!ParseOptionValue(argc, argv, &index, L"--mission-project",
+                            &options->missionProject, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 18, L"--mission-project=") == 0) {
+      options->missionProject = argument.substr(18);
+      if (options->missionProject.empty()) {
+        *failure = L"empty value for --mission-project";
+        return false;
+      }
     } else if (argument == L"--save-slot" ||
                argument == L"--load-slot") {
       std::wstring value;
@@ -476,6 +488,19 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   }
   if (!options->missionCenter.empty() && !options->missionSmoke) {
     *failure = L"--mission-center requires --mission-smoke";
+    return false;
+  }
+  if (!options->missionProject.empty() &&
+      (!options->campaignQuestChainSmoke || options->missionCenter.empty() ||
+       options->missionBriefingSmoke || options->missionCombatSmoke ||
+       options->missionNaturalCombatSmoke ||
+       options->missionGuideRouteSmoke ||
+       options->missionContinuationSmoke ||
+       options->missionObjectiveChainSmoke ||
+       options->missionTerminalStateSmoke)) {
+    *failure = L"--mission-project requires --campaign-quest-chain-smoke "
+               L"and --mission-center without another specialized mission "
+               L"smoke";
     return false;
   }
   if (options->levelBriefingSmoke && options->skipLevelBriefing) {
@@ -1462,6 +1487,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--level-briefing-smoke]\n"
                 L"          [--skip-level-briefing]\n"
                 L"          [--mission-center <name>]\n"
+                L"          [--mission-project <name>]\n"
                 L"          [--version] [--help]");
     return kSuccess;
   }
@@ -3300,9 +3326,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     const double missionTime =
         (std::max)(0.1, Session::m_viewTime + 0.25);
     const std::string missionCenter = WideToUtf8(options.missionCenter);
+    const std::string requestedMissionProject =
+        WideToUtf8(options.missionProject);
     log.Line("mission_smoke_center=" +
              (missionCenter.empty() ? std::string("<first-eligible>")
                                     : missionCenter));
+    log.Line("mission_smoke_requested_project=" +
+             (requestedMissionProject.empty()
+                  ? std::string("<first-eligible>")
+                  : requestedMissionProject));
     const bool missionExecuted = options.missionBriefingSmoke
         ? (missionCenter.empty()
                ? RecruitCenterSubjectState_StageMissionPresentationProbe(
@@ -3310,12 +3342,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                : RecruitCenterSubjectState_StageMissionPresentationProbeForCenter(
                      g_super.m_context, missionTime, missionCenter.c_str(),
                      &missionStaged, &mission))
-        : (missionCenter.empty()
-               ? RecruitCenterSubjectState_StageMissionExecutionProbe(
-                     g_super.m_context, missionTime, &missionStaged, &mission)
-               : RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+        : (!requestedMissionProject.empty()
+               ? RecruitCenterSubjectState_StageMissionExecutionProbeForProject(
                      g_super.m_context, missionTime, missionCenter.c_str(),
-                     &missionStaged, &mission));
+                     requestedMissionProject.c_str(), &missionStaged,
+                     &mission)
+               : missionCenter.empty()
+                     ? RecruitCenterSubjectState_StageMissionExecutionProbe(
+                           g_super.m_context, missionTime, &missionStaged,
+                           &mission)
+                     : RecruitCenterSubjectState_StageMissionExecutionProbeForCenter(
+                           g_super.m_context, missionTime,
+                           missionCenter.c_str(), &missionStaged, &mission));
     log.Line(std::string("mission_smoke_staged=") +
              (missionStaged ? "1" : "0"));
     log.Line(std::string("mission_smoke_selected_center=") +

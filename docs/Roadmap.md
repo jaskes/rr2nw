@@ -1968,16 +1968,17 @@ mission result can delete that Route and a later rollback can reconstruct it
 without a nonexistent retail file. That terminal-state slice left cinematic,
 representative-chain, visible AI/guide and complete-campaign work open.
 
-The first representative quest chain is now connected end to end rather than
-inferred from isolated probes. Real Level.03N `ProjectS22` creates the final
-`Artifact`; the ordinary F2 drop and Portal admission close slot four, an
-unavailable next Level rolls the complete source world back exactly, and a
-second occupied-Vehicle collision commits Level.02D. The destination restores
-immediately and through an RR2SLOT1 fresh-process cross-Level load with the
-same fingerprint. Earlier rewards remain a bounded three-slot fixture, so the
-critical completion edge still owns a real authored result. Remaining M3 work
-is broader representative chains, visible AI/guide/cinematic parity and
-complete campaign flow.
+Two independent representative quest chains are now connected end to end
+rather than inferred from isolated probes. Level.03N Inhabitants
+`ProjectS22 -> ProjectA39` commits Level.02D; Level.02N Magician
+`Project2G02 -> ProjectA19` commits Level.05D. Both use one real authored final
+`Artifact`, ordinary drop and Portal admission, exact unavailable-target source
+rollback, destination restore, RR2SLOT1 save and fresh-process load. The second
+row additionally proves six mission conditions, 19 script-created objects and
+12/12 stable commanded-shooter schedules despite the retail br2g02 duplicate
+unit name. The maintained matrix is 6/6. Remaining M3 work is the other
+world-specific chains, visible AI/guide/cinematic parity and complete campaign
+flow.
 
 Known Level-entry cinematic ownership is now reconnected. Seven retail
 `LEVEL.CFG` files enable authored briefing scripts; their 19 camera flights,
@@ -2056,8 +2057,8 @@ existing May behavior and continuation gates.
 ### 2026-08-06 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **74%** of the Windows-first 1.0 scope; strict
-release readiness is approximately **59-64%** because a full campaign and the
+implementation is approximately **75%** of the Windows-first 1.0 scope; strict
+release readiness is approximately **60-65%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
 | Milestone | Estimate | Evidence already owned | Principal remainder |
@@ -2065,7 +2066,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 85% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, connected mission-reward/Portal/fresh-load chain and full guide-route rollback | broader representative chains, visible AI/guide/cinematic parity and complete campaign proof |
+| M3 retail parity | 87% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |

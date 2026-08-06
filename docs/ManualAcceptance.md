@@ -947,6 +947,26 @@ This gate proves result ownership, pickup/carry/drop, Portal admission and
 Portal occupancy persistence. Matching the exact retail reward offset remains
 a visible/manual campaign boundary.
 
+Run the maintained connected-chain matrix after the standalone result pass:
+
+```powershell
+& ".\tools\acceptance\Invoke-CampaignQuestChainMatrix.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+All 6 rows must pass. The first route completes Level.03N Inhabitants
+`ProjectS22`, advances to `ProjectA39` and commits Level.02D. The independent
+second route selects the already eligible Level.02N Magician `Project2G02`,
+proves six rebound kill conditions and exact 12/12 AI schedule ownership,
+advances to `ProjectA19`, and commits Level.05D. Each route first rejects an
+unavailable destination with exact source rollback, then saves the committed
+destination and loads it in a fresh process with the same world fingerprint.
+
+`--mission-project` is deliberately limited to this bounded campaign smoke.
+It does not alter ordinary RecruitCenter eligibility or offer a gameplay
+mission-select cheat.
+
 ## Portal campaign-transition pass
 
 This non-interactive gate fills a real Level-local Portal, sends the real

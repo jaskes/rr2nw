@@ -128,6 +128,10 @@ double People::desireShoot()
 void   People::setCommander(KR_ObjectID oID)
 {
     m_commanderID = oID;
+    // Retail scripts can assign a commander repeatedly. Commander assignment
+    // replaces state, so keep only one future target-search owner instead of
+    // accumulating competing combat ticks on the same unit.
+    while(  context->removeEvent(pe_EVC_FIND_ENEMY,getObjectID())==1  ) {}
     KR_Event    event;
 
     event.label = pe_EVC_FIND_ENEMY;

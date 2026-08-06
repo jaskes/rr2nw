@@ -5,6 +5,8 @@ param(
     [string[]]$Configuration = @("Debug"),
     [string]$Level = "Level.03N",
     [string]$Center = "Inhabitants.Recruit.0",
+    [string]$Project = "",
+    [string]$ExpectedNextProject = "",
     [ValidateRange(10, 300)][int]$TimeoutSeconds = 120,
     [string]$OutputRoot
 )
@@ -101,8 +103,7 @@ foreach ($configurationName in $Configuration) {
     New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
 
     Write-Host "[$configurationName][$Level->$targetName] campaign quest chain"
-    $producer = Invoke-Rr2nwProcess -Executable $executable -CaseRoot $producerRoot `
-        -Arguments @(
+    $producerArguments = @(
             "--data-dir", ('"' + $DataRoot + '"'),
             "--start-level", $Level,
             "--campaign-quest-chain-smoke",
@@ -111,6 +112,11 @@ foreach ($configurationName in $Configuration) {
             "--save-dir", ('"' + $saveRoot + '"'),
             "--diagnostics-dir", ('"' + $producerRoot + '"')
         )
+    if (-not [string]::IsNullOrWhiteSpace($Project)) {
+        $producerArguments += @("--mission-project", $Project)
+    }
+    $producer = Invoke-Rr2nwProcess -Executable $executable -CaseRoot $producerRoot `
+        -Arguments $producerArguments
     $consumer = Invoke-Rr2nwProcess -Executable $executable -CaseRoot $consumerRoot `
         -Arguments @(
             "--data-dir", ('"' + $DataRoot + '"'),
@@ -129,6 +135,21 @@ foreach ($configurationName in $Configuration) {
     }
     if ($consumer.exit_code -ne 0) {
         $issues.Add("consumer exit=$($consumer.exit_code)")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Project) -and
+        $producer.startup -notmatch ("mission_smoke_selected_project={0}" -f
+            [regex]::Escape($Project))) {
+        $issues.Add("requested authored mission project was not selected")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedNextProject)) {
+        $completed = if ([string]::IsNullOrWhiteSpace($Project)) {
+            "[^/]+"
+        } else { [regex]::Escape($Project) }
+        $projectPattern = "campaign_chain_project={0}/{1}" -f $completed,
+            [regex]::Escape($ExpectedNextProject)
+        if ($producer.startup -notmatch $projectPattern) {
+            $issues.Add("authored next-project progression changed")
+        }
     }
     if ($producer.startup -notmatch 'campaign_chain_reward=1/1/1/1' -or
         $producer.startup -notmatch 'campaign_chain_prepare=1/1/4/0/3/1' -or
@@ -181,6 +202,10 @@ foreach ($configurationName in $Configuration) {
         configuration = $configurationName
         source_level = $Level
         target_level = $targetName
+        project = if ([string]::IsNullOrWhiteSpace($Project)) {
+            "<first-eligible>"
+        } else { $Project }
+        next_project = $ExpectedNextProject
         producer_exit = $producer.exit_code
         consumer_exit = $consumer.exit_code
         elapsed_seconds = $producer.elapsed_seconds + $consumer.elapsed_seconds

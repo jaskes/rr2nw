@@ -4582,6 +4582,45 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Portal revisit. Persist that campaign fact in an owned progression layer;
   do not infer it from save-slot presence or process lifetime.
 
+### CQ-230: br2g02 assigns one symbolic tank to two commanders
+
+- Status: `RETAIL_DATA_CONFIRMED`, `SCHEDULER_DUPLICATION_REPRODUCED`,
+  `RUNTIME_CONTAINMENT_ACCEPTED`.
+- Evidence: active `Level.02N/BRIEF/br2g02.sc` first creates
+  `K.Unit.2m02g2` for Kingdom, then calls `CreateMagicTank()` with the same
+  name. Its adjacent commented long form names `M.Unit.2m02g2`. The recovered
+  execution produced 12 commanded shooters but 11 exact target-search queues
+  and one malformed duplicate.
+- Handling: do not patch installed data or guess a replacement object.
+  `People::setCommander()` now replaces any existing `pe_EVC_FIND_ENEMY`
+  ownership before queuing the next search. The retail collision remains
+  visible in archaeology while the live scheduler stays deterministic.
+- Verification: `Project2G02` reports 12/12 exact target-search and motion
+  schedules, zero malformed queues, then completes the connected campaign
+  chain in all maintained configurations.
+- Revisit when: a March data image contains a corrected active symbol, or a
+  natural Project2G02 playtest proves the duplicate changes required-target
+  allegiance. Any data correction must be fingerprint-scoped; the idempotent
+  runtime rule remains valid independently.
+
+### CQ-231: first eligible does not imply an Artefact reward
+
+- Status: `FULL_CENTER_INVENTORY_RECORDED`, `SECOND_CHAIN_CONNECTED`.
+- Evidence: the installed Levels contain 15 active RecruitCenters. None of
+  the first projects outside Level.03N carries command 35. Level.02N Magician
+  `Project2G02` is already tier-zero eligible and explicitly authors six kill
+  conditions, a script, Route, mission summary and Artefact reward.
+- Handling: the campaign-only `--mission-project` selector names that exact
+  eligible project; normal gameplay selection remains untouched. The resulting
+  chain completes `Project2G02`, advances to `ProjectA19`, fills the final
+  Portal slot and commits catalog transition `Level.02N -> Level.05D`.
+- Verification: `Invoke-CampaignQuestChainMatrix.ps1` owns both this row and
+  `Level.03N ProjectS22 -> ProjectA39` across Debug, Release and
+  RelWithDebInfo. Both include source rollback, destination exact restore,
+  RR2SLOT1 save and fresh-process load with matching world fingerprints.
+- Revisit when: the remaining center-specific chains receive equally exact
+  progression evidence; do not generalize reward count from these two rows.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -5674,3 +5674,35 @@ perform the recovered Taxi/Orphan/Player handoff without inventing a clip.
 If a future March binary/data image activates that attribute, its exact profile
 and trigger can use the existing hook. The commented line alone is not release
 content and does not justify a guessed presentation dependency.
+
+### BD-165: commander assignment replaces target-search ownership
+
+Status: accepted on 2026-08-06 for deterministic retail mission AI.
+
+`People::setCommander()` changes one unit's current allegiance; it is not an
+additive scheduler command. The old method nevertheless appended a new
+`pe_EVC_FIND_ENEMY` every time. Retail `Level.02N/BRIEF/br2g02.sc` exposes the
+failure: its active magic-tank call reuses `K.Unit.2m02g2`, while the adjacent
+commented expansion names the intended `M.Unit.2m02g2`. The second commander
+assignment left the surviving object with two target-search ticks.
+
+The maintained runtime now removes prior target-search events before queuing
+the replacement five-second event. Motion ownership is unchanged. Retail data
+is not edited or silently corrected, but every commanded shooter returns to
+the existing one-search/one-motion invariant. This is also the safer behavior
+for mods that deliberately transfer a live unit between commanders.
+
+### BD-166: exact project selection is an acceptance-only campaign probe
+
+Status: accepted on 2026-08-06 for representative-chain coverage.
+
+Ordinary RecruitCenter admission continues to choose projects from commander
+and cumulative mission-count eligibility. `--mission-project` is accepted only
+together with `--campaign-quest-chain-smoke` and `--mission-center`; it cannot
+change interactive gameplay, bypass a prerequisite tier or select a project
+for briefing presentation.
+
+The selector exists because the first eligible mission is not necessarily a
+reward mission. It lets the maintained gate name an already eligible authored
+project and prove its exact objective/result/reward/Portal transaction rather
+than mistaking catalog enumeration order for campaign progression.

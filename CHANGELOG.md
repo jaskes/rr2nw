@@ -7,6 +7,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the connected campaign proof beyond Level.03N. The maintained
+  matrix now executes Level.02N Magician `Project2G02`, its six authored kill
+  conditions, reward, exact result rollback, final Portal admission,
+  `Level.05D` commit and fresh-process destination restore alongside the
+  original Inhabitants chain. Repeated retail commander assignments now own
+  one `FIND_ENEMY` event instead of accumulating competing AI ticks; this
+  safely contains `br2g02.sc` reusing `K.Unit.2m02g2` for its magic tank.
 - Reconnected the retail Level-entry briefing owner. Ordinary new arrivals now
   preflight and present the `LEVEL.CFG` camera/FLC script, while save restore,
   restart and rollback explicitly suppress replay. The nine-Level acceptance

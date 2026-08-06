@@ -1932,6 +1932,29 @@ playable Level begins.
   transitions, 6/6 source/destination fresh continuations, 27/27 installed
   starts and 67/67 CTest in each maintained configuration.
 
+### RP-CAMPAIGN-007: campaign chains are not Level.03N-specific
+
+- Classification: `RETAIL_OWNER_MATRIX_RECORDED`,
+  `SECOND_REWARD_CHAIN_CONNECTED`, `AI_SCHEDULER_STABILIZED`.
+- The installed active-center inventory is: Level.01D Robots/Tanks/Flyers;
+  Level.01N Outsider; Level.02D and Level.02N Kingdom/Magician; Level.03N
+  Inhabitants/Marauders; Level.04D Actek/Colony; Level.05D
+  Civilians/Robbers; Level.06N Our; Level.07N none. These 15 owners are the
+  campaign expansion matrix, not a claim that every first project rewards.
+- Level.02N Magician `Project2G02` is a tier-zero authored reward project. Its
+  real script creates 19 mission objects and binds all six kill conditions;
+  completion advances the same center to `ProjectA19` and creates one
+  Artefact. Portal preparation/admission, absent-target rollback, committed
+  `Level.02N -> Level.05D`, destination restore and fresh-process load are
+  byte/fingerprint exact.
+- The script's duplicate `K.Unit.2m02g2` commander assignment no longer adds a
+  second combat tick. All 12 commanded shooters retain one target-search and
+  one motion owner without rewriting retail files.
+- `--mission-project` is restricted to the campaign smoke and still enforces
+  the project's commander and mission-count eligibility. The maintained
+  `Invoke-CampaignQuestChainMatrix.ps1` passes both independent routes 6/6
+  across Debug, Release and RelWithDebInfo.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.
