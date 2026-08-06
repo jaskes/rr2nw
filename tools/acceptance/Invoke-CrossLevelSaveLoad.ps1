@@ -136,6 +136,12 @@ foreach ($configurationName in $Configuration) {
             $loadLog["cross_level_load_commit"] -ine $TargetLevel) {
             $issues.Add("cross-Level commit marker missing")
         }
+        if (-not $loadLog.ContainsKey("level_briefing_policy") -or
+            $loadLog["level_briefing_policy"] -ne "suppressed" -or
+            -not $loadLog.ContainsKey("cross_load_target_level_briefing_policy") -or
+            $loadLog["cross_load_target_level_briefing_policy"] -ne "suppressed") {
+            $issues.Add("save restore replayed or admitted a Level briefing")
+        }
         if (-not $loadLog.ContainsKey("final_level_dir") -or
             $loadLog["final_level_dir"] -ine $TargetLevel) {
             $issues.Add("final Level differs from target")

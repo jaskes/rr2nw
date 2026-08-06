@@ -2234,6 +2234,28 @@ playable Level begins.
   wrapper remains 3/3. Broader campaign failure balance and
   checkpoint/destroyable commands 33/34 remain separate parity rows.
 
+### RP-PRESENTATION-001: Level-authored intro scripts own new arrivals
+
+- Classification: `SOURCE_PATH_RECONNECTED`, `RETAIL_DATA_EXECUTED`,
+  `VFS_PREFLIGHTED`, `RESTORE_SAFE`.
+- The archived main loop presents `[Briefing] Name` after each new Level loop
+  boundary. The installed catalog enables seven scripts and explicitly
+  disables Level.02N plus Level.07N; disabled `outro.txt` remains data, not an
+  inferred completion movie.
+- Preflight checks the Level-relative script, every declared flight point and
+  every base-rooted FLC before entering the synchronous presenter. The retail
+  matrix contains 23 actions: 19 camera flights and 4 FLC actions. Level.03N's
+  authored one-point static cut receives a duplicate spline-storage sentinel
+  without changing its logical point count or timing.
+- Ordinary startup and committed Portal/debug arrivals present. Save restore,
+  current-Level restart and source rollback explicitly suppress, so no state
+  transaction depends on a movie or replays one unexpectedly.
+- Verification: `Invoke-LevelBriefingSmoke.ps1` passes 27/27 across Debug,
+  Release and RelWithDebInfo. Portal validation, cross-Level restore
+  suppression and current-Level restart suppression are separately gated.
+  Actual visual/audio timing and physical Esc/Space skip remain manual
+  presentation rows.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

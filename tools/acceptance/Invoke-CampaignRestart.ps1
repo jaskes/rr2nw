@@ -66,7 +66,8 @@ foreach ($configurationName in $Configuration) {
     New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
     $arguments = @(
         "--data-dir", $dataPath, "--start-level", $Level,
-        "--diagnostics-dir", $diagnostics, "--debug-menu"
+        "--diagnostics-dir", $diagnostics, "--debug-menu",
+        "--skip-level-briefing"
     ) | ForEach-Object { Quote-NativeArgument $_ }
 
     Write-Host "[$configurationName] fresh current-Level restart"
@@ -133,6 +134,8 @@ foreach ($configurationName in $Configuration) {
         campaign_restart_coordinator_pending = "0"
         campaign_restart_level = $Level
         campaign_restart_commit = $Level
+        level_briefing_policy = "suppressed"
+        campaign_restart_level_briefing_policy = "suppressed"
         vehicle_active_action_count = "0"
         vehicle_last_input_failure = "0"
         game_services_issues = "0"

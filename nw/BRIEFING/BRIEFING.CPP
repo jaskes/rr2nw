@@ -1069,6 +1069,7 @@ void CBriefing::TranslatePalette() const {
 int CBriefing::PlayFlight(CConfigFile &cfg, const char *flightName,
                            const char *fltType, int pNum){
    const double splineFactor = 0;
+   const int channelPoints = pNum < 2 ? 2 : pNum;
    int i, len;
    char pointSect[100];
    int itemsParsed;
@@ -1092,12 +1093,16 @@ int CBriefing::PlayFlight(CConfigFile &cfg, const char *flightName,
    TranslatePalette();
    g_hardware.GetExclusiveMode(getObjectID());
 
-   m_camX ->CreateOpen(pNum, -1, splineFactor);
-   m_camY ->CreateOpen(pNum, -1, splineFactor);
-   m_camZ ->CreateOpen(pNum, -1, splineFactor);
-   m_yaw  ->CreateOpen(pNum, -1, splineFactor);
-   m_pitch->CreateOpen(pNum, -1, splineFactor);
-   m_roll ->CreateOpen(pNum, -1, splineFactor);
+   // Retail demol3.txt deliberately begins with a one-point static cut.
+   // CChannelMap itself requires two storage nodes even though PerformFly(1)
+   // never interpolates. Keep the authored point count and provide only the
+   // duplicate sentinel needed by the old spline container.
+   m_camX ->CreateOpen(channelPoints, -1, splineFactor);
+   m_camY ->CreateOpen(channelPoints, -1, splineFactor);
+   m_camZ ->CreateOpen(channelPoints, -1, splineFactor);
+   m_yaw  ->CreateOpen(channelPoints, -1, splineFactor);
+   m_pitch->CreateOpen(channelPoints, -1, splineFactor);
+   m_roll ->CreateOpen(channelPoints, -1, splineFactor);
 
    m_brfTotalTime = 0;
    for(i = 0; i < pNum; ++i){            // Info fteching from file
@@ -1165,6 +1170,14 @@ int CBriefing::PlayFlight(CConfigFile &cfg, const char *flightName,
       m_pitch->Node(i).t = time;
       m_roll ->Node(i).t = time;
       time += deltaTime;
+   }
+   if(pNum == 1){
+      m_camX ->Node(1) = m_camX ->Node(0);
+      m_camY ->Node(1) = m_camY ->Node(0);
+      m_camZ ->Node(1) = m_camZ ->Node(0);
+      m_yaw  ->Node(1) = m_yaw  ->Node(0);
+      m_pitch->Node(1) = m_pitch->Node(0);
+      m_roll ->Node(1) = m_roll ->Node(0);
    }
    m_key = PerformFly(pNum);
 

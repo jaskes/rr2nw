@@ -5639,3 +5639,38 @@ must not be filled with a guessed asset. Remaining cinematic archaeology is
 limited to paths that actually name a clip, including Vehicle exit profiles
 and campaign-specific scripted presentations. A verified March executable may
 add a separate row, but it cannot be inferred from the May result text alone.
+
+### BD-163: Level briefing playback belongs only to a new arrival
+
+Status: accepted on 2026-08-06 for recovered campaign presentation.
+
+The retail main loop reads `[Briefing] Play/Name` from the active `LEVEL.CFG`
+after `ZAV_BeginLoop()` and viewport reconstruction. Seven installed Levels
+enable that owner; Level.02N and Level.07N deliberately set `Play=0` (the
+latter still names `brief\outro.txt`). A normal process start and a committed
+Portal/debug arrival therefore present the authored script. `Esc`/Space retain
+their original skip behavior.
+
+Save restore, current-Level restart and every source rollback suppress this
+presentation. Those boundaries reconstruct already-owned simulation state and
+must not replay an intro, acquire exclusive briefing input or make rollback
+depend on presentation assets. Bounded runtime smokes validate without
+playing; `--skip-level-briefing` gives interactive automation the same
+explicit suppression without changing ordinary player startup.
+
+Preflight resolves the script through the active Level VFS, validates every
+flight point, and resolves nested FLC files through the retail-data VFS before
+the synchronous presenter takes control. The save format is unchanged.
+
+### BD-164: absent Vehicle exit clips are not synthesized
+
+Status: accepted on 2026-08-06 after complete installed-data inventory.
+
+`Vehicle::LeaveVehicle()` retains its real `m_outFlicName` hook, but none of
+the nine active retail `SCINC/VEHICLE.SCI` files assigns it. Level.04D contains
+only a commented `brief/door.txt` placeholder. Leaving a Vehicle must therefore
+perform the recovered Taxi/Orphan/Player handoff without inventing a clip.
+
+If a future March binary/data image activates that attribute, its exact profile
+and trigger can use the existing hook. The commented line alone is not release
+content and does not justify a guessed presentation dependency.

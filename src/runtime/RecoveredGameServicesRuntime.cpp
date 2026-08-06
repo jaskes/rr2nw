@@ -79,6 +79,16 @@ void RecoveredGameServices_RefreshBriefingViewport() {
   }
 }
 
+bool RecoveredGameServices_PlayLevelBriefing(const char* resolvedPath) {
+  if (resolvedPath == nullptr || resolvedPath[0] == '\0' ||
+      g_super.m_context == nullptr ||
+      g_briefing.getContext() != g_super.m_context ||
+      !g_super.m_context->isExist("Briefing") || g_vehicle == nullptr)
+    return false;
+  g_briefing.PlayBriefing(resolvedPath);
+  return true;
+}
+
 namespace {
 
 bool CanonicalizeDirectionalAction(

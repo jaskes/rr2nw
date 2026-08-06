@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Reconnected the retail Level-entry briefing owner. Ordinary new arrivals now
+  preflight and present the `LEVEL.CFG` camera/FLC script, while save restore,
+  restart and rollback explicitly suppress replay. The nine-Level acceptance
+  matrix owns 19 camera flights, 4 FLC actions and their nested VFS assets.
+  Level.03N's authored one-point static cut now uses a duplicate spline-storage
+  sentinel instead of tripping the old two-node Debug assertion. Installed
+  Vehicle data was also inventoried: no active exit clip exists, so none is
+  synthesized from Level.04D's commented placeholder.
 - Restored simultaneous authored objective ownership on Level.03N. The player
   can retain real `ProjectS22` and `ProjectA37` missions from different
   RecruitCenters, switch their two text/Route entries with `[`/`]`, save and

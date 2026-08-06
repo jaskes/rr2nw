@@ -15,6 +15,7 @@
 #include "RecoveredRetailScriptManifest.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
+#include "filesys.h"
 #include "graph.h"
 #include "h/super.h"
 #include "obase/bullet/BulletSubjectState.h"
@@ -31,7 +32,9 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cwchar>
 #include <string>
@@ -79,6 +82,8 @@ struct StartupOptions {
   bool missionObjectiveChainSmoke = false;
   bool missionTerminalStateSmoke = false;
   bool portalTransitionSmoke = false;
+  bool levelBriefingSmoke = false;
+  bool skipLevelBriefing = false;
   bool debugMenu = false;
   bool showHelp = false;
   bool showVersion = false;
@@ -343,6 +348,11 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     } else if (argument == L"--portal-transition-smoke") {
       options->runtimeSmoke = true;
       options->portalTransitionSmoke = true;
+    } else if (argument == L"--level-briefing-smoke") {
+      options->runtimeSmoke = true;
+      options->levelBriefingSmoke = true;
+    } else if (argument == L"--skip-level-briefing") {
+      options->skipLevelBriefing = true;
     } else if (argument == L"--debug-menu") {
       options->debugMenu = true;
     } else if (argument == L"--help" || argument == L"-h") {
@@ -466,6 +476,11 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   }
   if (!options->missionCenter.empty() && !options->missionSmoke) {
     *failure = L"--mission-center requires --mission-smoke";
+    return false;
+  }
+  if (options->levelBriefingSmoke && options->skipLevelBriefing) {
+    *failure = L"--level-briefing-smoke cannot be combined with "
+               L"--skip-level-briefing";
     return false;
   }
   if (options->missionObjectiveChainSmoke) {
@@ -771,7 +786,282 @@ std::string RecoveredLevelStartFailure(const char* stage) {
   return detail;
 }
 
+enum class ELevelBriefingPolicy { Suppress, ValidateOnly, Present };
+
+struct SLevelBriefingPreflight {
+  bool configured = false;
+  std::string authoredPath;
+  std::string resolvedPath;
+  int actionCount = 0;
+  int flightCount = 0;
+  int flicCount = 0;
+  int flightPointCount = 0;
+  int assetCount = 0;
+  std::uint64_t assetBytes = 0;
+  std::uint64_t fingerprint = 1469598103934665603ull;
+};
+
+std::string TrimBriefingField(const std::string& value) {
+  const std::string whitespace(" \t\r\n");
+  const std::string::size_type first = value.find_first_not_of(whitespace);
+  if (first == std::string::npos) return std::string();
+  const std::string::size_type last = value.find_last_not_of(whitespace);
+  return value.substr(first, last - first + 1u);
+}
+
+std::vector<std::string> SplitBriefingAction(const char* value) {
+  std::vector<std::string> fields;
+  if (value == nullptr) return fields;
+  const std::string source(value);
+  std::string::size_type begin = 0;
+  for (;;) {
+    const std::string::size_type comma = source.find(',', begin);
+    fields.push_back(TrimBriefingField(
+        source.substr(begin, comma == std::string::npos
+                                 ? std::string::npos
+                                 : comma - begin)));
+    if (comma == std::string::npos) break;
+    begin = comma + 1u;
+  }
+  return fields;
+}
+
+bool IsSafeLevelBriefingPath(const std::string& path) {
+  if (path.empty() || path.size() >= 260u || path[0] == '/' ||
+      path[0] == '\\' || path.find(':') != std::string::npos)
+    return false;
+  std::string normalized(path);
+  std::replace(normalized.begin(), normalized.end(), '\\', '/');
+  return normalized != ".." && normalized.find("../") != 0u &&
+         normalized.find("/../") == std::string::npos &&
+         (normalized.size() < 3u ||
+          normalized.substr(normalized.size() - 3u) != "/..");
+}
+
+bool HashLevelBriefingAsset(const std::string& authoredPath,
+                            bool baseRootAsset,
+                            SLevelBriefingPreflight* summary,
+                            std::string* resolvedPath,
+                            std::string* failure) {
+  if (summary == nullptr || !IsSafeLevelBriefingPath(authoredPath)) {
+    if (failure != nullptr)
+      *failure = "Level briefing contains an unsafe asset path: " +
+                 authoredPath;
+    return false;
+  }
+  char resolved[32768] = {};
+  const bool resolvedAsset =
+      baseRootAsset
+          ? RecoveredModRuntime_ResolveBaseReadPath(
+                authoredPath.c_str(), resolved, sizeof(resolved))
+          : RecoveredModRuntime_ResolveReadPath(
+                authoredPath.c_str(), resolved, sizeof(resolved));
+  if (!resolvedAsset) {
+    if (failure != nullptr)
+      *failure = "Level briefing asset cannot be resolved: " + authoredPath;
+    return false;
+  }
+  long length = 0;
+  FILE* file = baseRootAsset
+                   ? RecoveredModRuntime_OpenBaseRead(authoredPath.c_str(),
+                                                      &length)
+                   : RecoveredModRuntime_OpenRead(authoredPath.c_str(),
+                                                  &length);
+  constexpr long kMaximumBriefingAssetBytes = 64l * 1024l * 1024l;
+  if (file == nullptr || length < 0 || length > kMaximumBriefingAssetBytes) {
+    if (file != nullptr) std::fclose(file);
+    if (failure != nullptr)
+      *failure = "Level briefing asset is missing or outside its size limit: " +
+                 authoredPath;
+    return false;
+  }
+  std::array<unsigned char, 16384> buffer = {};
+  long remaining = length;
+  while (remaining > 0) {
+    const std::size_t requested = static_cast<std::size_t>(std::min<long>(
+        remaining, static_cast<long>(buffer.size())));
+    const std::size_t read = std::fread(buffer.data(), 1, requested, file);
+    if (read != requested) {
+      std::fclose(file);
+      if (failure != nullptr)
+        *failure = "Level briefing asset could not be read completely: " +
+                   authoredPath;
+      return false;
+    }
+    for (std::size_t index = 0; index < read; ++index) {
+      summary->fingerprint ^= buffer[index];
+      summary->fingerprint *= 1099511628211ull;
+    }
+    remaining -= static_cast<long>(read);
+  }
+  std::fclose(file);
+  ++summary->assetCount;
+  summary->assetBytes += static_cast<std::uint64_t>(length);
+  if (resolvedPath != nullptr) *resolvedPath = resolved;
+  return true;
+}
+
+bool PreflightLevelBriefing(SLevelBriefingPreflight* summary,
+                            std::string* failure) {
+  if (summary == nullptr) {
+    if (failure != nullptr) *failure = "Level briefing has no summary storage";
+    return false;
+  }
+  *summary = SLevelBriefingPreflight{};
+  summary->configured = ZAV_Config().GetInt("Briefing", "Play", 0) != 0;
+  const char* configuredName = ZAV_Config()("Briefing", "Name");
+  summary->authoredPath = configuredName == nullptr
+                              ? std::string()
+                              : TrimBriefingField(configuredName);
+  if (!summary->configured) return true;
+  if (!HashLevelBriefingAsset(summary->authoredPath, false, summary,
+                              &summary->resolvedPath, failure))
+    return false;
+
+  CConfigFile config(const_cast<char*>(summary->resolvedPath.c_str()));
+  summary->actionCount = config.GetInt("Root", "ActionsNum", 0);
+  const int repeatCount = config.GetInt("Root", "RepeatsNum", 1);
+  if (summary->actionCount <= 0 || summary->actionCount > 256 ||
+      repeatCount <= 0 || repeatCount >= 10000) {
+    if (failure != nullptr)
+      *failure = "Level briefing Root action/repeat count is invalid";
+    return false;
+  }
+  for (int actionIndex = 1; actionIndex <= summary->actionCount;
+       ++actionIndex) {
+    char actionName[32] = {};
+    std::snprintf(actionName, sizeof(actionName), "Action%d", actionIndex);
+    const std::vector<std::string> fields =
+        SplitBriefingAction(config("Root", actionName));
+    if (fields.size() < 2u || fields[1].empty()) {
+      if (failure != nullptr)
+        *failure = "Level briefing action " + std::to_string(actionIndex) +
+                   " is incomplete";
+      return false;
+    }
+    if (fields[0] == "PlayFlight") {
+      if (fields.size() != 4u) {
+        if (failure != nullptr)
+          *failure = "Level briefing flight action has an invalid shape";
+        return false;
+      }
+      char* end = nullptr;
+      errno = 0;
+      const long pointCount = std::strtol(fields[3].c_str(), &end, 10);
+      if (errno != 0 || end == fields[3].c_str() || *end != '\0' ||
+          pointCount <= 0 || pointCount > 4096) {
+        if (failure != nullptr)
+          *failure = "Level briefing flight point count is invalid";
+        return false;
+      }
+      for (long point = 0; point < pointCount; ++point) {
+        const std::string section =
+            fields[1] + "." + std::to_string(point);
+        char* mutableSection = const_cast<char*>(section.c_str());
+        if (config(mutableSection, "Pos  ") == nullptr ||
+            config(mutableSection, "Angle") == nullptr ||
+            config(mutableSection, "Time ") == nullptr ||
+            config(mutableSection, "Delay") == nullptr) {
+          if (failure != nullptr)
+            *failure = "Level briefing flight is missing authored point " +
+                       section;
+          return false;
+        }
+      }
+      ++summary->flightCount;
+      summary->flightPointCount += static_cast<int>(pointCount);
+    } else if (fields[0] == "PlayFlic") {
+      if (fields.size() != 2u) {
+        if (failure != nullptr)
+          *failure = "Level briefing FLC action has an invalid shape";
+        return false;
+      }
+      char* section = const_cast<char*>(fields[1].c_str());
+      const char* flicName = config(section, "Name ");
+      const std::string flicPath =
+          flicName == nullptr ? std::string() : TrimBriefingField(flicName);
+      if (config(section, "Text ") == nullptr ||
+          config.GetDouble(section, "Delay", -1.0) <= 0.0) {
+        if (failure != nullptr)
+          *failure = "Level briefing FLC section is incomplete: " + fields[1];
+        return false;
+      }
+      if (!HashLevelBriefingAsset(flicPath, true, summary, nullptr, failure))
+        return false;
+      ++summary->flicCount;
+    } else {
+      if (failure != nullptr)
+        *failure = "Level briefing action " + std::to_string(actionIndex) +
+                   " has unsupported type " + fields[0];
+      return false;
+    }
+  }
+  return true;
+}
+
+const char* LevelBriefingPolicyName(ELevelBriefingPolicy policy) {
+  switch (policy) {
+    case ELevelBriefingPolicy::Suppress:
+      return "suppressed";
+    case ELevelBriefingPolicy::ValidateOnly:
+      return "validated";
+    case ELevelBriefingPolicy::Present:
+      return "presented";
+  }
+  return "unknown";
+}
+
+bool HandleLevelBriefing(ELevelBriefingPolicy policy, const char* boundary,
+                         StartupLog* log, std::string* failure) {
+  const std::string prefix =
+      boundary == nullptr || boundary[0] == '\0'
+          ? std::string("level_briefing_")
+          : std::string(boundary) + "_level_briefing_";
+  if (log != nullptr)
+    log->Line(prefix + "policy=" + LevelBriefingPolicyName(policy));
+  if (policy == ELevelBriefingPolicy::Suppress) return true;
+
+  SLevelBriefingPreflight summary;
+  if (!PreflightLevelBriefing(&summary, failure)) {
+    if (log != nullptr && failure != nullptr)
+      log->Line(prefix + "failure=" + *failure);
+    return false;
+  }
+  if (log != nullptr) {
+    log->Line(prefix + "configured=" +
+              std::to_string(summary.configured ? 1 : 0));
+    log->Line(prefix + "name=" + summary.authoredPath);
+    log->Line(prefix + "actions=" + std::to_string(summary.actionCount));
+    log->Line(prefix + "flights=" + std::to_string(summary.flightCount));
+    log->Line(prefix + "flics=" + std::to_string(summary.flicCount));
+    log->Line(prefix + "flight_points=" +
+              std::to_string(summary.flightPointCount));
+    log->Line(prefix + "assets=" + std::to_string(summary.assetCount));
+    log->Line(prefix + "bytes=" + std::to_string(summary.assetBytes));
+    log->Line(prefix + "fingerprint=" +
+              std::to_string(summary.fingerprint));
+    log->Line(prefix + "preflight=complete");
+  }
+  if (policy == ELevelBriefingPolicy::Present && summary.configured) {
+    if (!RecoveredGameServices_PlayLevelBriefing(
+            summary.resolvedPath.c_str())) {
+      if (failure != nullptr)
+        *failure = "Level briefing presenter is not attached to the active "
+                   "session";
+      if (log != nullptr && failure != nullptr)
+        log->Line(prefix + "failure=" + *failure);
+      return false;
+    }
+    if (log != nullptr) log->Line(prefix + "playback=returned");
+  } else if (log != nullptr) {
+    log->Line(prefix + "playback=skipped");
+  }
+  return true;
+}
+
 bool StartRecoveredLevel(const RetailData& data, int levelIndex,
+                         ELevelBriefingPolicy briefingPolicy,
+                         const char* briefingBoundary, StartupLog* log,
                          std::string* failure) {
   if (failure != nullptr) failure->clear();
   if (levelIndex < 0 ||
@@ -822,6 +1112,8 @@ bool StartRecoveredLevel(const RetailData& data, int levelIndex,
       *failure = RecoveredLevelStartFailure("loop initialization failed");
     return false;
   }
+  if (!HandleLevelBriefing(briefingPolicy, briefingBoundary, log, failure))
+    return false;
   return true;
 }
 
@@ -858,8 +1150,9 @@ bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
   ZAV_DeInitLevel();
 
   std::string targetFailure;
-  bool targetStarted =
-      StartRecoveredLevel(data, targetLevelIndex, &targetFailure);
+  bool targetStarted = StartRecoveredLevel(
+      data, targetLevelIndex, ELevelBriefingPolicy::Suppress,
+      "cross_load_target", log, &targetFailure);
   SLevelContinuationSummary restored;
   bool targetRestored =
       targetStarted && RecoveredGameServices_ApplyCrossLevelLoad(
@@ -885,8 +1178,9 @@ bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
   ZAV_DeInitLevel();
 
   std::string sourceFailure;
-  const bool sourceStarted =
-      StartRecoveredLevel(data, sourceLevelIndex, &sourceFailure);
+  const bool sourceStarted = StartRecoveredLevel(
+      data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+      "cross_load_rollback", log, &sourceFailure);
   SLevelContinuationSummary rolledBack;
   const bool sourceRestored =
       sourceStarted && RecoveredGameServices_RestoreLevelContinuation(
@@ -914,6 +1208,7 @@ bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
 
 bool ProcessDebugLevelSwitch(const RetailData& data,
                              int* currentLevelIndex, bool silent,
+                             bool suppressBriefing,
                              StartupLog* log) {
   SRecoveredDebugLevelSwitchRequest request;
   if (!RecoveredGameServices_TakeDebugLevelSwitchRequest(&request))
@@ -942,7 +1237,13 @@ bool ProcessDebugLevelSwitch(const RetailData& data,
   ZAV_DeInitLevel();
 
   std::string targetFailure;
-  if (StartRecoveredLevel(data, targetLevelIndex, &targetFailure)) {
+  if (StartRecoveredLevel(
+          data, targetLevelIndex,
+          suppressBriefing
+              ? ELevelBriefingPolicy::Suppress
+              : silent ? ELevelBriefingPolicy::ValidateOnly
+                       : ELevelBriefingPolicy::Present,
+          "debug_switch_target", log, &targetFailure)) {
     *currentLevelIndex = targetLevelIndex;
     RecoveredGameServices_RecordDebugLevelSwitchResult(
         request, true, false, false, std::string());
@@ -953,8 +1254,9 @@ bool ProcessDebugLevelSwitch(const RetailData& data,
 
   ZAV_DeInitLevel();
   std::string sourceFailure;
-  const bool sourceStarted =
-      StartRecoveredLevel(data, sourceLevelIndex, &sourceFailure);
+  const bool sourceStarted = StartRecoveredLevel(
+      data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+      "debug_switch_rollback", log, &sourceFailure);
   SLevelContinuationSummary restored;
   const bool sourceRestored =
       sourceStarted && RecoveredGameServices_RestoreLevelContinuation(
@@ -980,6 +1282,7 @@ bool ProcessDebugLevelSwitch(const RetailData& data,
 
 bool ProcessPortalLevelTransition(const RetailData& data,
                                   int* currentLevelIndex, bool silent,
+                                  bool suppressBriefing,
                                   StartupLog* log) {
   if (!PortalActiveWorldState_TakeTransitionRequest()) return true;
   if (currentLevelIndex == nullptr || *currentLevelIndex < 0 ||
@@ -1017,7 +1320,13 @@ bool ProcessPortalLevelTransition(const RetailData& data,
   ZAV_DeInitLevel();
 
   std::string targetFailure;
-  if (StartRecoveredLevel(data, targetLevelIndex, &targetFailure)) {
+  if (StartRecoveredLevel(
+          data, targetLevelIndex,
+          suppressBriefing
+              ? ELevelBriefingPolicy::Suppress
+              : silent ? ELevelBriefingPolicy::ValidateOnly
+                       : ELevelBriefingPolicy::Present,
+          "portal_target", log, &targetFailure)) {
     *currentLevelIndex = targetLevelIndex;
     if (log != nullptr)
       log->Line("portal_transition_commit=" +
@@ -1030,8 +1339,9 @@ bool ProcessPortalLevelTransition(const RetailData& data,
 
   ZAV_DeInitLevel();
   std::string sourceFailure;
-  const bool sourceStarted =
-      StartRecoveredLevel(data, sourceLevelIndex, &sourceFailure);
+  const bool sourceStarted = StartRecoveredLevel(
+      data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+      "portal_rollback", log, &sourceFailure);
   SLevelContinuationSummary restored;
   const bool sourceRestored = sourceStarted &&
       RecoveredGameServices_RestoreLevelContinuation(
@@ -1080,7 +1390,9 @@ bool ProcessCampaignRestart(const RetailData& data,
   ZAV_DeInitLevel();
 
   std::string restartFailure;
-  if (StartRecoveredLevel(data, sourceLevelIndex, &restartFailure)) {
+  if (StartRecoveredLevel(
+          data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+          "campaign_restart", log, &restartFailure)) {
     *currentLevelIndex = sourceLevelIndex;
     RecoveredGameServices_RecordCampaignRestartResult(
         request, true, false, false, std::string());
@@ -1091,8 +1403,9 @@ bool ProcessCampaignRestart(const RetailData& data,
 
   ZAV_DeInitLevel();
   std::string rollbackStartFailure;
-  const bool rollbackStarted =
-      StartRecoveredLevel(data, sourceLevelIndex, &rollbackStartFailure);
+  const bool rollbackStarted = StartRecoveredLevel(
+      data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+      "campaign_restart_rollback", log, &rollbackStartFailure);
   SLevelContinuationSummary restored;
   const bool rollbackRestored = rollbackStarted &&
       RecoveredGameServices_RestoreLevelContinuation(
@@ -1146,6 +1459,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  L"           --mission-objective-chain-smoke |\n"
                  L"           --mission-terminal-state-smoke]\n"
                 L"          [--portal-transition-smoke]\n"
+                L"          [--level-briefing-smoke]\n"
+                L"          [--skip-level-briefing]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--version] [--help]");
     return kSuccess;
@@ -2843,6 +3158,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(RecoveredGameServices_LoopReady() ? 1 : 0));
   int currentLevelIndex = data.startLevel;
   bool loopFailed = !RecoveredGameServices_IsReady();
+  std::string levelBriefingFailure;
+  const ELevelBriefingPolicy initialBriefingPolicy =
+      options.startupLoadSlot >= 0 || options.skipLevelBriefing
+          ? ELevelBriefingPolicy::Suppress
+          : options.runtimeSmoke
+                ? (options.levelBriefingSmoke
+                       ? ELevelBriefingPolicy::ValidateOnly
+                       : ELevelBriefingPolicy::Suppress)
+                : ELevelBriefingPolicy::Present;
+  if (!loopFailed && !HandleLevelBriefing(initialBriefingPolicy, nullptr,
+                                          &log, &levelBriefingFailure)) {
+    log.Line("failure_level_briefing=" + levelBriefingFailure);
+    loopFailed = true;
+  }
   // A mission acceptance save must be captured after the synthetic retail
   // mission has run.  Ordinary startup saves retain the original first-frame
   // boundary below; the mission path is committed later in the mission block.
@@ -2862,7 +3191,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     if (!RecoveredGameServices_RunFrame()) return false;
     if (PortalActiveWorldState_TransitionPending() &&
         !ProcessPortalLevelTransition(data, &currentLevelIndex,
-                                      options.runtimeSmoke, &log))
+                                      options.runtimeSmoke,
+                                      options.skipLevelBriefing, &log))
       return false;
     if (RecoveredGameServices_CampaignRestartPending() &&
         !ProcessCampaignRestart(data, &currentLevelIndex,
@@ -2874,7 +3204,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       return false;
     return !RecoveredGameServices_DebugLevelSwitchPending() ||
            ProcessDebugLevelSwitch(data, &currentLevelIndex,
-                                   options.runtimeSmoke, &log);
+                                   options.runtimeSmoke,
+                                   options.skipLevelBriefing, &log);
   };
   // Ordinary startup save/load is itself a closed-frame operation. Complete
   // it before staging the synthetic map mission. Mission acceptance saves are
@@ -4615,7 +4946,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               L"__rr2nw_missing_campaign_chain_target__";
         const bool chainRollbackProcessed = chainRejectedTransitionStaged &&
             ProcessPortalLevelTransition(
-                unavailableTarget, &currentLevelIndex, true, &log);
+                unavailableTarget, &currentLevelIndex, true, false, &log);
         std::vector<std::uint8_t> chainRolledBack;
         SLevelContinuationSummary chainRollbackVerified;
         const bool chainRollbackRecaptured = chainRollbackProcessed &&

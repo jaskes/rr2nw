@@ -120,6 +120,12 @@ foreach ($configurationName in $Configuration) {
         if ($startup -notmatch "portal_campaign_completion=$expectedCompletion") {
             $issues.Add("campaign completion branch changed")
         }
+        if ($startup -notmatch 'level_briefing_policy=suppressed' -or
+            $startup -notmatch 'portal_target_level_briefing_policy=validated' -or
+            $startup -notmatch 'portal_target_level_briefing_preflight=complete' -or
+            $startup -notmatch 'portal_target_level_briefing_playback=skipped') {
+            $issues.Add("Portal/new-Level briefing boundary proof missing")
+        }
         if ($startup -notmatch 'game_services_issues=0' -or
             $startup -notmatch 'runtime_shutdown=clean') {
             $issues.Add("clean runtime lifecycle proof missing")

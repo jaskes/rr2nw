@@ -1113,6 +1113,33 @@ objectives are active and visit one issuing center at a time: the other
 objective must remain on `M` until its own result visit. Retain the exact Level,
 objective names and slot if presentation differs from the automated result.
 
+## Level intro briefing pass
+
+First run the bounded authored-data matrix. It validates the Level script,
+every camera-flight point and every nested FLC without taking exclusive input:
+
+```powershell
+& ".\tools\acceptance\Invoke-LevelBriefingSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+All 27 rows must pass. Level.02N and Level.07N must report `configured=0`;
+the other seven Levels must report their exact action/flight/FLC contracts.
+Level.03N is the mixed-media stress row: 9 actions, 5 flights, 4 FLCs,
+43 flight points and 5 preflighted assets.
+
+Then launch Level.03N normally to exercise the real synchronous presenter:
+
+```powershell
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --diagnostics-dir "$PWD\manual-logs\level-intro-visible"
+```
+
+The intro must enter its authored camera/FLC sequence instead of failing at
+the initial one-point static cut. Confirm picture, sound and text, then press
+Esc or Space and verify normal control returns. A subsequent cross-Level save
+load or current-Level restart must not replay the intro. `--skip-level-briefing`
+is available for interactive automation and repeated gameplay diagnostics; it
+is not the default player behavior.
+
 ## Interactive crowded Taxi stability pass
 
 Use Release for this visual/physics pass and keep the default per-user slots so

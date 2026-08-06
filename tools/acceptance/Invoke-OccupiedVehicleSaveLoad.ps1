@@ -153,7 +153,8 @@ function Read-NativeVehicleCatalog(
     $arguments = @(
         "--data-dir", $dataPath, "--start-level", $LevelName,
         "--save-dir", $saveDirectory,
-        "--diagnostics-dir", $diagnostics, "--debug-menu"
+        "--diagnostics-dir", $diagnostics, "--debug-menu",
+        "--skip-level-briefing"
     ) | ForEach-Object { Quote-NativeArgument $_ }
 
     Write-Host "[$ConfigurationName][$LevelName] discover native Vehicle catalog"
@@ -316,7 +317,8 @@ if ($AcrossProcess -or $AcrossLevel) {
 
         $saveCommonArguments = @(
             "--data-dir", $dataPath, "--start-level", $Level,
-            "--save-dir", $saveDirectory, "--debug-menu"
+            "--save-dir", $saveDirectory, "--debug-menu",
+            "--skip-level-briefing"
         )
         $saveArguments = @($saveCommonArguments + @(
             "--diagnostics-dir", $saveDiagnostics
@@ -388,7 +390,8 @@ if ($AcrossProcess -or $AcrossLevel) {
         $loadStartLevel = if ($AcrossLevel) { $ForeignLevel } else { $Level }
         $loadCommonArguments = @(
             "--data-dir", $dataPath, "--start-level", $loadStartLevel,
-            "--save-dir", $saveDirectory, "--debug-menu"
+            "--save-dir", $saveDirectory, "--debug-menu",
+            "--skip-level-briefing"
         )
         $loadArguments = @($loadCommonArguments + @(
             "--diagnostics-dir", $loadDiagnostics
@@ -700,7 +703,8 @@ foreach ($configurationName in $Configuration) {
     $arguments = @(
         "--data-dir", $dataPath, "--start-level", $Level,
         "--save-dir", $saveDirectory,
-        "--diagnostics-dir", $diagnostics, "--debug-menu"
+        "--diagnostics-dir", $diagnostics, "--debug-menu",
+        "--skip-level-briefing"
     ) | ForEach-Object { Quote-NativeArgument $_ }
 
     Write-Host "[$configurationName][$Level] moving/damaged occupied Vehicle slot"

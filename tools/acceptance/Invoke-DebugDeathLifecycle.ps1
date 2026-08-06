@@ -66,7 +66,8 @@ foreach ($configurationName in $Configuration) {
     New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
     $arguments = @(
         "--data-dir", $dataPath, "--start-level", $Level,
-        "--diagnostics-dir", $diagnostics, "--debug-menu"
+        "--diagnostics-dir", $diagnostics, "--debug-menu",
+        "--skip-level-briefing"
     ) | ForEach-Object { Quote-NativeArgument $_ }
 
     Write-Host "[$configurationName][$Level] transactional player death"

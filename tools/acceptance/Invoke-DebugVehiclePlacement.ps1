@@ -101,7 +101,8 @@ foreach ($configurationName in $Configuration) {
     $logPath = Join-Path $diagnostics "rr2nw-startup.log"
     $arguments = @(
         "--data-dir", $dataPath, "--start-level", $Level,
-        "--diagnostics-dir", $diagnostics, "--debug-menu"
+        "--diagnostics-dir", $diagnostics, "--debug-menu",
+        "--skip-level-briefing"
     ) | ForEach-Object { Quote-NativeArgument $_ }
 
     Write-Host "[$configurationName][$Level] all catalog vehicles grounded for three frames"

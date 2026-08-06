@@ -4543,6 +4543,45 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: a March executable or data trace names a result-specific clip.
   Record its exact owner and trigger before adding any presentation call.
 
+### CQ-228: the first Level.03N intro cut had only one spline point
+
+- Status: `RETAIL_DATA_CONFIRMED`, `DEBUG_CRASH_REPRODUCED`,
+  `STATIC_CUT_COMPATIBILITY_ACCEPTED`.
+- Evidence: `brief/demol3.txt` starts with
+  `PlayFlight,Flight0,NONE,1`; the old `CChannelMap::CreateOpen()` asserts at
+  fewer than two storage nodes. Real interactive startup reached that Debug
+  assertion before the first FLC.
+- Handling: retain the authored one-point action and allocate one duplicate
+  sentinel node only for the spline container. `PerformFly(1)` still performs
+  no interpolation, so action count, timing, camera data and save state remain
+  unchanged.
+- Verification: the real presenter remains alive beyond the former immediate
+  assertion; the retail preflight proves 9 actions, 5 flights, 4 FLC actions,
+  43 authored flight points and all 5 assets on Level.03N. The complete
+  nine-Level matrix is also checked in every maintained configuration.
+- Revisit when: a March trace establishes that the static cut renders a frame
+  before its following FLC. Add that render boundary explicitly; do not turn
+  the authored one-point action into a timed camera movement.
+
+### CQ-229: cinematics were being attached to restore transactions
+
+- Status: `SOURCE_OWNER_RECOVERED`, `TRANSACTION_BOUNDARY_ACCEPTED`.
+- Evidence: archived `InitLevel()` invokes `[Briefing] Name` after
+  `ZAV_BeginLoop()`, but the modern startup omitted it. Calling the same hook
+  from every modern Level construction would also replay it during save-load,
+  current-Level restart and failed-target source rollback.
+- Handling: ordinary initial/Portal/debug arrivals preflight and present;
+  bounded smokes validate only. Restore/restart/rollback use an explicit
+  suppression policy. Nested FLC paths use the base retail/mod resolver while
+  the briefing script remains Level-relative.
+- Verification: `Invoke-LevelBriefingSmoke.ps1` owns the nine-Level
+  Play/Name/action/flight/FLC/point matrix. Portal target logs validation with
+  skipped playback; cross-Level load and campaign restart logs prove explicit
+  suppression and clean lifecycle.
+- Revisit when: campaign flow distinguishes first-ever entry from a later
+  Portal revisit. Persist that campaign fact in an owned progression layer;
+  do not infer it from save-slot presence or process lifetime.
+
 ## Maintenance rule
 
 When a new quirk is found:

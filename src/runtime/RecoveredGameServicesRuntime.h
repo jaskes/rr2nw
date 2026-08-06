@@ -104,6 +104,10 @@ bool RecoveredObserverAxes_IsNeutral(
 // Rebuild the viewport owned by the legacy synchronous briefing renderer.
 // The retail main loop invoked this after each ZAV_BeginLoop boundary.
 void RecoveredGameServices_RefreshBriefingViewport();
+// Runs the synchronous retail Level briefing only while its presenter is
+// attached to the active session. The caller owns asset preflight and decides
+// whether the current Level boundary is a new arrival or a restore/rollback.
+bool RecoveredGameServices_PlayLevelBriefing(const char* resolvedPath);
 
 struct SRecoveredVehicleDriveTelemetry {
   double positionX;
