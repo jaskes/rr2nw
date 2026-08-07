@@ -17,7 +17,7 @@ Native Windows x64, Linux, macOS и multiplayer не являются блоке
 современный компилятор.
 
 ```text
-M0 evidence ─> M1 modern x86 ─> M2 platform ─> M3 retail parity ─> M4 state/VFS ─> M5 mods ─> M6 RC ─> 1.0
+M0 evidence ─> M1 modern x86 ─> M2 platform ─> M2.5 in-game shell ─> M3 retail parity ─> M4 state/VFS ─> M5 mods ─> M6 RC ─> 1.0
 
 Legacy reference lane - - - > optional evidence for any milestone, never a gate
 ```
@@ -674,6 +674,82 @@ Windows, не переписывая игровую симуляцию и render
 
 На M2 начинается ограниченный ручной smoke: управление, техника, звук и
 переключение окна. Полного прохождения пока не требуется.
+
+## M2.5. In-game shell and settings — 0.3.0
+
+### Product boundary
+
+Replace the temporary native Windows `Game`/`Debug` menu scaffold with one
+in-frame main/pause shell. Recover the evidenced retail menu structure and
+presentation where the surviving source/data proves it; expose modern options
+as clearly owned extensions rather than inventing undocumented retail actions.
+This is mandatory Windows 1.0 scope.
+
+The current execution order has one explicit exception to the numeric milestone
+order: finish the already-open Level.04D Actek/AER branch through its first
+proved terminal or authored handoff boundary, then stop unrelated M3 breadth
+and deliver the first M2.5 vertical slice before continuing campaign expansion.
+
+### First vertical slice
+
+1. **Game:** Continue, Save, Load, Restart current Level and Exit. Reuse the
+   existing eight RR2SLOT1 slots, previews, compatibility diagnostics and
+   overwrite confirmation; do not create a second save service.
+2. **Controls:** action-based rebinding for every admitted Player/Vehicle/map
+   action, duplicate/conflict reporting, reset to evidenced defaults, mouse
+   sensitivity and optional invert-Y. Entering the menu or a binding capture
+   neutralizes all held gameplay actions.
+3. **Video:** Windowed, borderless and exclusive fullscreen where the active
+   backend supports it; enumerated resolutions, correct aspect/viewport,
+   resize/high-DPI handling and safe apply with a timed automatic revert.
+4. **Developer/Cheats:** preserve verified legacy cheat entry points and reveal
+   safe Debug commands only behind an explicit developer/cheat capability.
+   Ordinary startup exposes neither the page nor its commands.
+
+### Later tabs on the same shell
+
+- **Audio:** effect, UI, Vehicle and cinematic volume once a maintained output
+  backend exists. The page may be present but must not claim unavailable
+  controls before that backend is connected.
+- **Mods:** profile and active package selection after the existing M5 resolver
+  has a player-facing profile contract. The shell consumes its deterministic
+  order; it does not implement a second mod resolver.
+
+### Architecture contract
+
+- The shell is a UI publisher, never a world owner. Menu handlers enqueue typed
+  requests; Save/Load, restart, resolution changes and Debug mutations execute
+  only after simulation, render callbacks and presentation close the frame.
+- World-changing requests remain mutually exclusive, capture the existing LCN1
+  boundary where applicable and restore the exact prior world on partial
+  failure. Existing Save/Load and Debug transaction guarantees cannot be
+  weakened to simplify the UI.
+- Opening, closing, losing focus or rebinding always neutralizes input. Gameplay
+  must not move, rotate or fire behind any menu page.
+- Settings live outside the installation under `%LOCALAPPDATA%\RR2NW`, use a
+  versioned schema and atomic replacement, reject incompatible values and fall
+  back to defaults plus a safe windowed mode after corruption or failed video
+  apply. Retail data remains read-only.
+- Developer capability is fail-closed and separate from ordinary settings. A
+  corrupt config cannot accidentally expose mutating Debug commands.
+- The native Windows menus remain a temporary diagnostic fallback until the
+  in-game shell passes its complete gate; they are not the final 1.0 UX.
+
+### Gate
+
+- Main and pause shells render inside the game and return to the same finite
+  world/camera/input state.
+- All admitted actions can be rebound, conflicts are visible, defaults restore
+  exactly and the result survives restart.
+- Windowed/borderless/fullscreen plus resolution changes survive repeated
+  apply/revert, Alt-Tab, DPI and invalid-mode recovery without stretching the
+  authored viewport or leaving stale input.
+- Save/Load/restart and every enabled Debug command retain their closed-frame,
+  rollback and diagnostic contracts.
+- Ordinary startup has no Debug page; explicit developer mode exposes only the
+  supported transactional catalog.
+- A corrupt or newer settings file yields a useful diagnostic and a safe
+  runnable configuration rather than preventing startup.
 
 ## M3. Восстановление retail parity — 0.5.0
 
@@ -2068,8 +2144,9 @@ continue after restart. Then extend to a complete retail campaign pass.
 Replace the current device-free sound command state with a maintained Windows
 backend after world/gameplay ownership is stable. Profile slow Levels and
 separate simulation cadence from software-render cost; flying units are a
-measurement target, not a presumed cause. Finish fullscreen/window/DPI,
-Alt-Tab, resolution and diagnostic-crash presentation.
+measurement target, not a presumed cause. M2.5 owns the player-facing video
+settings and safe apply/revert path; this frontier finishes fullscreen/window/
+DPI/Alt-Tab soak, audio behavior and diagnostic-crash presentation.
 
 Gate: spatial/effect/vehicle/UI audio survives Level changes and focus changes;
 simulation speed is stable under variable render load; the package passes the
@@ -2078,7 +2155,8 @@ Windows 10 presentation/focus rows and then the same rows on Windows 11.
 ### Frontier H: mod UX, full campaign, and 1.0 RC
 
 Keep the existing deterministic stack, validator and bounded data contracts.
-Add an in-game selector/profile only after base gameplay is trustworthy. Run
+Extend the M2.5 shell with an in-game selector/profile only after base gameplay
+is trustworthy. Run
 the package-bound Windows 10 campaign, a full retail playthrough, then Windows
 11 against the exact same clean candidate. Fixes produce a new package hash
 and a new evidence campaign; manual results are never transferred between
@@ -2130,19 +2208,21 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
+| M2.5 in-game shell/settings | 15% | safe native eight-slot Save/Load, action-based input adapter and opt-in transactional Debug commands | recovered main/pause shell, binding UX, video apply/revert, versioned settings/safe mode and developer capability gate |
 | M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, seventeen no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains beginning with Actek AER10, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |
 
-The shortest critical path is not more subsystem archaeology. It is:
+The shortest critical path is:
 
-1. repeat visible People/Tank/guide motion while preserving the automated
-   terminal-route and combat gates;
-2. manually validate restored cinematic timing/skip, then broaden the
-   now-connected mission/reward/Portal chain across campaign-specific commands
-   and Levels;
-3. connect real audio and finish window/focus/performance stability;
-4. complete replay/import/mod UX gates;
-5. freeze a package and run the full Windows 10 plus extended Windows 11
+1. close the already-open Actek/AER branch at its first proved terminal or
+   authored handoff boundary without weakening its persisted chain gates;
+2. deliver M2.5 first slice: in-game Save/Load, Controls, Video and explicit
+   Developer mode over the existing typed-command/rollback boundaries;
+3. repeat visible People/Tank/guide motion and manually validate cinematic
+   timing/skip, then finish the remaining campaign-specific commands;
+4. connect real audio and finish window/focus/performance stability;
+5. complete replay/import/mod UX gates;
+6. freeze a package and run the full Windows 10 plus extended Windows 11
    acceptance campaign before `develop -> master -> 1.0.0`.

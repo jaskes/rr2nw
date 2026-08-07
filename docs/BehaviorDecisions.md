@@ -6088,3 +6088,35 @@ The automated chain must explicitly load and overwrite public slot 8, match
 the committed fingerprint in a fresh process and prove pre-result rollback plus
 committed reapply. This is the same bounded test orchestration accepted for
 AER04/AER06; it adds neither a ninth slot nor a private checkpoint format.
+
+### BD-184: the in-game shell publishes typed requests and owns no world state
+
+Status: accepted as Windows 1.0 architecture on 2026-08-07; implementation is
+scheduled after the current Actek/AER branch reaches its first proved terminal
+or authored handoff boundary.
+
+The recovered main/pause menu and its modern settings pages form one in-frame
+UI shell. They may inspect immutable slot, binding, display, mod-profile and
+diagnostic catalogs, but a menu callback may not mutate the Level, renderer,
+input adapter or filesystem-owned game state directly. It publishes one typed
+request to the existing coordinator. Save/Load, restart, Debug mutation and
+display reconfiguration execute only at a fully ended and presented frame.
+
+Existing transaction rules remain authoritative. Mutually exclusive world
+commands capture and restore the existing LCN1 boundary; the shell does not add
+a serializer or bypass rollback. Display apply owns a separate last-known-good
+platform snapshot and timed revert. Opening/closing the shell, focus changes and
+binding capture neutralize gameplay actions so no Vehicle, camera or weapon can
+continue behind the menu.
+
+User settings are versioned, atomically replaced and stored under
+`%LOCALAPPDATA%\RR2NW`, with defaults plus safe windowed recovery for invalid,
+newer or corrupt data. Retail content remains read-only. Developer/Cheat
+capability is fail-closed: ordinary startup exposes no Debug page, and malformed
+settings cannot enable it. The existing native Windows menus remain temporary
+diagnostic fallback until the in-game shell passes its complete acceptance
+gate; removing them earlier would discard useful recovery access.
+
+Audio and mod-profile pages extend this shell only when their maintained
+backends are real. The UI consumes the established deterministic mod resolver
+and sound service rather than becoming a second owner of either subsystem.
