@@ -4793,6 +4793,34 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   transaction journal with explicit owner restoration rather than broadening
   duplicate-name acceptance.
 
+### CQ-238: ProjectS07 authors eleven kills into a ten-ID mission set
+
+- Status: `RETAIL_CAPACITY_MISMATCH_CONFIRMED`,
+  `BOUNDED_TRUNCATION_PRESERVED`, `LEGACY_LAYOUT_UNCHANGED`.
+- Evidence: installed Level.04D `SCINC/BRIEF.SCI` defines 11 consecutive
+  `p_AddSuccessKill` commands for `ProjectS07`. `PlayerMission` stores every
+  success/failure kill/live/reached family as `KR_SetOfID`, whose released
+  `MAX_ID_CNT` is 10. Retail `Recrcen.cpp` invokes `add` without inspecting its
+  false return. Project traversal reaches the airplane last, so
+  `c.unit.ms07.ap00` is the single untracked authored command.
+- Handling: recovered decode admits a named condition past the full set only
+  as an explicitly counted capacity-limited retail condition. Initial and
+  post-script rebound decode must agree on both count and first symbol. Runtime
+  telemetry publishes `mission_smoke_capacity_limited_conditions=1` and
+  `mission_smoke_capacity_limited_condition=c.unit.ms07.ap00`; every Project
+  within capacity reports zero/`<none>`.
+- Rejected alternative: increasing global `KR_SetOfID` or only
+  `PlayerMission` storage would change raw `PlayerData` size, legacy PIN
+  boundaries and multiple unrelated owner layouts. That may be designed later
+  as a versioned modernization, but it is not required to reproduce the
+  released S07 graph safely.
+- Verification: S07 binds and removes ten real targets, advances
+  `ProjectS07 -> ProjectS10`, persists cumulative count three and survives
+  exact rollback/reapply plus fresh slot-3 load across all maintained builds.
+- Revisit when: versioned legacy-save import owns a migration for expanded
+  mission condition sets. At that point an opt-in modern ruleset may require
+  all 11 kills without silently changing retail campaign behavior.
+
 ## Maintenance rule
 
 When a new quirk is found:

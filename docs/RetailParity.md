@@ -2086,6 +2086,34 @@ playable Level begins.
   ordinary matrix, 6/6 Level.04D one-step fresh gate and strict reward/Portal
   gate remain separate and unchanged.
 
+### RP-CAMPAIGN-013: S07 preserves the retail ten-condition ceiling
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `BOUNDED_RETAIL_QUIRK_PRESERVED`, `MULTI_PROJECT_PROGRESSION_RESTORED`,
+  `FRESH_SAVE_OWNED`.
+- From the committed S04 result, Actek naturally selects `ProjectS07` at
+  cumulative mission count two. Installed `MS07.SC` (SHA-256
+  `5985304AF2487471DEB2F6184CF5FB80B6CD0DC036037FD2D04F4CF97AE5A939`)
+  creates 32 transaction owners, two reclaimed Routes and five ready occupied
+  Howitzers. The result advances cumulative count to three and exposes exact
+  authored successor `ProjectS10`; S07 has no command 35, Artifact or Portal.
+- Installed `BRIEF.SCI` authors 11 success-kill commands: one airplane, five
+  machine guns and five submarines. March/May `PlayerMission` stores each
+  condition family in `KR_SetOfID::MAX_ID_CNT == 10`, and the retail
+  `Recrcen.cpp` ignores `add` failure. Reverse Project traversal therefore
+  retains all five submarines and five machine guns while capacity-limiting
+  `c.unit.ms07.ap00`. RR2NW records `10` bound plus `1` limited and the exact
+  symbol; it does not expand the global set or raw `PlayerData` save layout in
+  this parity slice.
+- The acceptance chain retains the independent fresh S04 result check, then
+  loads slot 2 for S07, saves its exact result to slot 3 and starts another
+  process. That process requires the S07 tombstone, exact S10 candidate, no
+  active issuing-center mission/check/reward and the slot-3 world fingerprint.
+- Verification: the expanded
+  `Invoke-MissionNoRewardProgressionChainSmoke.ps1` passes 3/3 across Debug,
+  Release and RelWithDebInfo. Existing ordinary, one-step fresh, terminal and
+  strict reward/Portal gates remain independent.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

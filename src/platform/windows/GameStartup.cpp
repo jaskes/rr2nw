@@ -3469,6 +3469,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.routeReferences));
     log.Line("mission_smoke_rebound_conditions=" +
              std::to_string(mission.reboundConditionReferences));
+    log.Line("mission_smoke_capacity_limited_conditions=" +
+             std::to_string(
+                 mission.capacityLimitedConditionReferences));
+    log.Line(std::string("mission_smoke_capacity_limited_condition=") +
+             (mission.capacityLimitedConditionName[0] == 0
+                  ? "<none>"
+                  : mission.capacityLimitedConditionName));
     log.Line("mission_smoke_briefings=" +
              std::to_string(mission.presentedBriefings));
     log.Line("mission_smoke_center_presentations=" +

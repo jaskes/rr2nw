@@ -20,12 +20,14 @@ struct RecruitCenterMissionProbeSummary
     int createdMissionObjects;
     int reclaimedRouteObjects;
     int reboundConditionReferences;
+    int capacityLimitedConditionReferences;
     int scriptRollbacks;
     int rejectedNonPlayerCollisions;
     int acceptedPlayerCollisions;
     int admissionEvents;
     int ejections;
     int deferredArtefactRewards;
+    char capacityLimitedConditionName[81];
     char centerName[81];
     char projectName[81];
 };

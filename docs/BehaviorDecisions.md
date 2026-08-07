@@ -5827,3 +5827,24 @@ Simultaneous `--load-slot` plus a distinct `--save-slot` is admitted only for
 this bounded chained no-reward smoke. Normal command-line save/load remains
 mutually exclusive. This is test orchestration, not a gameplay population
 cleanup policy or permission to ignore serializer failures.
+
+### BD-172: keep S07's released ten-condition result until save layout is versioned
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectS07`.
+
+The installed Project asks for 11 kills, but released mission state can retain
+only 10 IDs and its insertion call ignores overflow. This is a stable retail
+campaign rule, not an arbitrary acceptance simplification: reverse Project
+order leaves `c.unit.ms07.ap00` untracked while five machine guns and five
+submarines remain required.
+
+The recovered decoder may reproduce this one bounded overflow and must expose
+its count and exact name. It must not accept malformed Project data, exceed the
+in-memory set, write beyond reached-condition arrays or alter global
+`KR_SetOfID`/raw `PlayerData` size. Initial decode and the post-script rebound
+must report the same limited symbol before mission admission commits.
+
+A future modern-rules profile may expand the condition set only together with
+a versioned Player/mission serializer and explicit compatibility policy. The
+default 1.0 campaign continues to target March/May behavior, so S07 completes
+after its ten effective conditions and advances to the authored S10 candidate.

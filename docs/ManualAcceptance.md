@@ -1024,10 +1024,19 @@ All 3 configuration rows must pass. The first process completes
 select `ProjectS04`, report `mission_smoke_created_objects=29`, eight rebound
 conditions, four ready occupied Howitzers, then complete
 `ProjectS04 -> ProjectS07` into slot 2 with
-`mission_no_reward_progress=1/0/2/2/1/0`. The third process must freshly load
-slot 2, report
+`mission_no_reward_progress=1/0/2/2/1/0`. A fresh process must load slot 2,
+report
 `mission_no_reward_fresh_identity=A.Recr0/ProjectS04/ProjectS07` and match the
-saved world fingerprint. No Artifact/Portal record may appear.
+saved world fingerprint.
+
+The gate then loads slot 2 again, naturally admits S07, creates 32 owners and
+five ready occupied Howitzers, and publishes its released capacity boundary:
+`mission_smoke_conditions=10`,
+`mission_smoke_capacity_limited_conditions=1` and exact limited symbol
+`c.unit.ms07.ap00`. It must complete `ProjectS07 -> ProjectS10` with cumulative
+count three, save slot 3 and match that fingerprint from another fresh process
+reporting `mission_no_reward_fresh_identity=A.Recr0/ProjectS07/ProjectS10`.
+No Artifact/Portal record may appear in any phase.
 
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed

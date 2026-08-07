@@ -7,6 +7,17 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the persisted Level.04D Actek chain through `ProjectS07` and exact
+  successor `ProjectS10`. S07 now creates its complete 32-owner script graph,
+  five occupied Howitzers and ten effective kill conditions, then survives
+  result save, fresh load, pre-result rollback and committed reapply after two
+  earlier completed missions. Its `BRIEF.SCI` contains 11 authored kill
+  commands while the March/May `PlayerMission` set stores 10; the original
+  unchecked insertion drops `c.unit.ms07.ap00`. The recovered decoder now
+  preserves that bounded retail behavior with explicit condition/name
+  telemetry instead of rejecting the whole Project or changing legacy raw
+  save layout. The maintained Actek progression gate proves both slot-2 and
+  slot-3 fresh fingerprints in all three configurations.
 - Connected the next authored Actek campaign step across a real process and
   save boundary. A chained Level.04D proof now completes `ProjectG0`, loads
   its result, naturally admits `ProjectS04`, consumes all eight retail kill

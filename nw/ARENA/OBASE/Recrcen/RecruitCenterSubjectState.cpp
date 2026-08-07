@@ -402,9 +402,23 @@ bool AddReached(KR_SetOfID *objects, CFVector2 *positions,
 }
 
 bool AddNamedCondition(KR_SetOfID *objects, SimulationContext *context,
-                       const std::string &objectName)
+                       const std::string &objectName,
+                       int *capacityLimitedConditions,
+                       std::string *firstCapacityLimitedCondition)
 {
-    if (objects->getCount() >= KR_SetOfID::MAX_ID_CNT) return false;
+    if (objects->getCount() >= KR_SetOfID::MAX_ID_CNT)
+    {
+        // The retail decoder ignored KR_SetOfID::add's false return. S07 has
+        // eleven authored kill commands but the March/May PlayerMission set
+        // stores ten, so preserve that exact bounded behavior without
+        // rejecting the whole mission or changing the raw PlayerData layout.
+        if (capacityLimitedConditions == NULL ||
+            firstCapacityLimitedCondition == NULL) return false;
+        if (firstCapacityLimitedCondition->empty())
+            *firstCapacityLimitedCondition = objectName;
+        ++*capacityLimitedConditions;
+        return true;
+    }
     return objects->add(context->isExist(objectName.c_str())
         ? context->searchObject(objectName.c_str()) : KR_ObjectID::NUL());
 }
@@ -456,9 +470,15 @@ bool ReadDeferredCommand(int command, ProjectDataReader *data,
 bool DecodeMission(SimulationContext *context, KR_ObjectID project,
                    KR_ObjectID commander, PlayerMission *mission,
                    std::string *routeName,
-                   std::vector<DeferredMissionCommand> *deferredCommands)
+                   std::vector<DeferredMissionCommand> *deferredCommands,
+                   int *capacityLimitedConditions,
+                   std::string *firstCapacityLimitedCondition)
 {
-    if (deferredCommands == NULL) return false;
+    if (deferredCommands == NULL || capacityLimitedConditions == NULL ||
+        firstCapacityLimitedCondition == NULL)
+        return false;
+    *capacityLimitedConditions = 0;
+    firstCapacityLimitedCondition->clear();
     InitializeMission(mission, project, commander);
     routeName->clear();
     deferredCommands->clear();
@@ -492,7 +512,9 @@ bool DecodeMission(SimulationContext *context, KR_ObjectID project,
                     : command == COM_FILED_KILL
                         ? &mission->filed_needKill
                         : &mission->filed_needLive;
-            if (!AddNamedCondition(set, context, objectName)) return false;
+            if (!AddNamedCondition(set, context, objectName,
+                                   capacityLimitedConditions,
+                                   firstCapacityLimitedCondition)) return false;
             break;
         }
         case COM_SUCCESS_REACHED:
@@ -1406,8 +1428,12 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     PlayerMission mission;
     std::string routeName;
     std::vector<DeferredMissionCommand> deferredCommands;
+    int capacityLimitedConditions = 0;
+    std::string firstCapacityLimitedCondition;
     if (!DecodeMission(context, candidate, center->commanderID(),
-                       &mission, &routeName, &deferredCommands))
+                       &mission, &routeName, &deferredCommands,
+                       &capacityLimitedConditions,
+                       &firstCapacityLimitedCondition))
     {
         SetError("RecruitCenter authored mission decode failed");
         return false;
@@ -1432,11 +1458,18 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         PlayerMission reboundMission;
         std::string reboundRoute;
         std::vector<DeferredMissionCommand> reboundDeferred;
+        int reboundCapacityLimitedConditions = 0;
+        std::string reboundFirstCapacityLimitedCondition;
         if (!DecodeMission(context, candidate, center->commanderID(),
                            &reboundMission, &reboundRoute,
-                           &reboundDeferred) ||
+                           &reboundDeferred,
+                           &reboundCapacityLimitedConditions,
+                           &reboundFirstCapacityLimitedCondition) ||
             reboundDeferred.size() != deferredCommands.size() ||
-            reboundRoute != routeName)
+            reboundRoute != routeName ||
+            reboundCapacityLimitedConditions != capacityLimitedConditions ||
+            reboundFirstCapacityLimitedCondition !=
+                firstCapacityLimitedCondition)
         {
             if (scriptHost.RollbackObjectTransaction())
                 ++summary->scriptRollbacks;
@@ -1458,6 +1491,12 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         summary->reboundConditionReferences =
             scriptCount > 0 ? ConditionCount(mission) : 0;
     }
+    summary->capacityLimitedConditionReferences =
+        capacityLimitedConditions;
+    if (!firstCapacityLimitedCondition.empty())
+        std::snprintf(summary->capacityLimitedConditionName,
+                      sizeof(summary->capacityLimitedConditionName), "%s",
+                      firstCapacityLimitedCondition.c_str());
 
     const struct RollbackScript
     {
