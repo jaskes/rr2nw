@@ -2340,6 +2340,32 @@ playable Level begins.
   restore in every maintained build. No slot-9 file, Artifact or Portal is
   introduced.
 
+### RP-CAMPAIGN-022: AER10 continues the installed Actek order to AER00
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CONFIRMED`, `EXACT_SUCCESSOR_CONFIRMED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed `CreateProjectAER10` owns six success kills
+  (`plane.a10_0..2`, `C.Unit.aer10.00..02`), Commander Actek, MissionInfo
+  `PRIOR_LEV == 2`, briefing `Brief/aer10.txt`, route
+  `Route/lev/aer10brf.rt`, script `Brief/aer10.sc` and no command 35 or
+  Project-owned Howitzer.
+- Installed `AER10.SC` (SHA-256
+  `FB3D1802C24DDE494927AA58252266B4D2D0B33508D8F56FB30B90F49DD5FE7A`)
+  creates eight named People on eight Routes, three Commander groups with
+  three TankLevEngl units and six member-route assignments, plus four Taxis.
+  The six Project targets all remain live and bind through the ordinary path.
+- Its result clears only mission/map/check state, repairs/refills, grants no
+  Artifact or Portal, advances cumulative count to twelve and selects exact
+  `ProjectAER00`. Installed registration places AER00 immediately before AER10,
+  making that successor observable without a synthetic campaign table.
+- Verification: the maintained Actek chain now proves
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00`,
+  26 transaction-created AER10 objects, two reclaimed Routes, six rebound
+  conditions, result rollback, committed reapply and exact fresh same-slot-8
+  restore in every maintained build. No slot-9 file, Artifact or Portal is
+  introduced.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

@@ -6120,3 +6120,25 @@ gate; removing them earlier would discard useful recovery access.
 Audio and mod-profile pages extend this shell only when their maintained
 backends are real. The UI consumes the established deterministic mod resolver
 and sound service rather than becoming a second owner of either subsystem.
+
+### BD-185: AER10 remains an ordinary no-reward slot-8 continuation
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectAER10`.
+
+The installed Project owns six success kills and no command-35 reward. Its
+mission script creates all six target owners live: three Colony People and
+three Colony Tank units. The other script owners are mission population, not
+implicit objectives or rewards. All objective names must bind through the
+ordinary symbolic-reference path; AER10 has no AER04-style admission tombstone
+and no capacity-limited condition.
+
+Successful result processing repairs/refills, removes only AER10 mission/map/
+check state, increments cumulative count to twelve and lets unchanged Project
+table order select exact `ProjectAER00`. It creates no Artifact or Portal and
+does not interpret `PRIOR_LEV` as a transition. AER00 remains only a proved
+candidate until its own script and result graph are recovered separately.
+
+The maintained chain must explicitly load and overwrite public slot 8, match
+the committed fingerprint in a fresh process and prove pre-result rollback plus
+committed reapply. This extends the existing bounded AER04/AER06/AER08
+orchestration; it adds neither a ninth slot nor a private checkpoint format.

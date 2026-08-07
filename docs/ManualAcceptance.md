@@ -1145,6 +1145,16 @@ rollback/reapply plus one save and load. The fresh process must report
 world fingerprint and `runtime_shutdown=clean`. AER10 is only the proved next
 candidate; this row makes no claim about its objectives or result.
 
+The gate then loads and overwrites slot 8 for AER10. It must report 26 created
+owners, two reclaimed Routes, six retained/rebound kill conditions, zero
+pre-satisfied or capacity-limited conditions and
+`mission_no_reward_project=ProjectAER10/ProjectAER00`. The ordinary result must
+reach cumulative count twelve without Artifact or Portal rows and preserve
+rollback/reapply plus one save and load. The fresh process must report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectAER10/ProjectAER00`, the same
+world fingerprint and `runtime_shutdown=clean`. AER00 is only the proved next
+candidate; this row makes no claim about its objectives or result.
+
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
 data: the runtime transaction pins the shared Route across the intended

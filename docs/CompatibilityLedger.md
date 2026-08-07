@@ -5116,6 +5116,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   MissionInfo, command 35 status or the eight-slot retail boundary changes.
   Do not infer AER10 objectives or result behavior from its selection alone.
 
+### CQ-250: AER10 is a six-target ordinary continuation to AER00
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`.
+- Evidence: installed `CreateProjectAER10` authors the exact six kills
+  `plane.a10_0..2` and `C.Unit.aer10.00..02`, Commander Actek, MissionInfo
+  `PRIOR_LEV == 2`, briefing `Brief/aer10.txt`, route
+  `Route/lev/aer10brf.rt`, script `Brief/aer10.sc` and no command 35 or
+  Project-owned Howitzer. Installed `AER10.SC` SHA-256 is
+  `FB3D1802C24DDE494927AA58252266B4D2D0B33508D8F56FB30B90F49DD5FE7A`;
+  it creates eight People on eight Routes, three groups/units with six
+  member-route assignments and four Taxis.
+- Result: all six objective names bind live. Ordinary completion removes only
+  AER10 mission/map/check state, repairs/refills, grants no Artifact or Portal,
+  advances cumulative mission count to twelve and selects exact
+  `ProjectAER00`. That successor is proved by installed adjacent registration
+  `AER00 -> AER10`, not by a synthetic air-chain table.
+- Verification: the persisted Actek gate explicitly loads and overwrites slot
+  8, reports 26 created owners, two reclaimed Routes, six rebound conditions,
+  exact pre-result rollback and committed reapply. A fresh process restores
+  `A.Recr0/ProjectAER10/ProjectAER00` with the identical world fingerprint and
+  clean shutdown in every maintained configuration.
+- Revisit when: AER10 owner names, script hash, registration order,
+  MissionInfo, command 35 status or the eight-slot retail boundary changes.
+  Do not infer AER00 objectives or result behavior from its selection alone.
+
 ## Maintenance rule
 
 When a new quirk is found:
