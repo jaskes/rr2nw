@@ -1109,6 +1109,19 @@ world fingerprint. The archaeology preflight also pins installed
 candidate eligibility only; no cross-Level transition or Portal may be inferred
 from the constant's name.
 
+The same gate then reuses public slot 8 for AER04; this is intentional because
+the retail menu has exactly eight slots. It must report 25 created owners,
+`mission_smoke_pre_satisfied_kill_conditions=4`, two retained/rebound kill
+conditions and first proof name `Taxia0403`. These four targets are the named
+parked Taxis that retail `AER04.SC` creates at damage `0.8` and immediately
+destroys with `s_SetDamage(...,0.8)`; `plane.a04_0/1` remain the live targets.
+The result must be ordinary no-reward state at cumulative count nine, with
+`mission_no_reward_project=ProjectAER04/ProjectAER06`, no carrier/Portal rows,
+successful rollback/reapply and one completed save plus load on slot 8. The
+fresh process must report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectAER04/ProjectAER06` and the
+same world fingerprint. Any Slot9 file or ninth menu entry is a failure.
+
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
 data: the runtime transaction pins the shared Route across the intended

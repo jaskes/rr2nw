@@ -659,6 +659,80 @@ bool MissionReferencesBound(const PlayerMission &mission)
     return true;
 }
 
+bool NormalizeTransactionSatisfiedKills(
+    SimulationContext *context, KR_ObjectID project,
+    const RecoveredLegacyScriptHost &host, PlayerMission *mission,
+    int *satisfiedCount, std::string *firstSatisfiedName)
+{
+    if (context == NULL || project.isNUL() || mission == NULL ||
+        satisfiedCount == NULL || firstSatisfiedName == NULL)
+        return false;
+    *satisfiedCount = 0;
+    firstSatisfiedName->clear();
+    const int retainedLimit = mission->success_needKill.getCount();
+    int authoredIndex = 0;
+    KR_SetOfID retained;
+    std::set<int> visited;
+    for (mp_NodeNum node = projectTable.getProjectRoot(project);
+         node != mp_NodeNULL(); node = projectTable.getRight(node))
+    {
+        const int decoded = mp_Code2Int(node);
+        if (decoded < 0 || decoded >= kMaximumProjectNodes ||
+            !visited.insert(decoded).second)
+            return false;
+        if (projectTable.getCommand(node) != COM_SUCCESS_KILL) continue;
+        std::string objectName;
+        ProjectDataReader data(node);
+        if (!data.readString(&objectName, 80) || !data.finish()) return false;
+        if (authoredIndex++ >= retainedLimit) continue;
+        if (context->isExist(objectName.c_str()))
+        {
+            if (!retained.add(context->searchObject(objectName.c_str())))
+                return false;
+        }
+        else if (host.TransactionDestroyedCreatedObject(objectName.c_str()))
+        {
+            if (firstSatisfiedName->empty())
+                *firstSatisfiedName = objectName;
+            ++*satisfiedCount;
+        }
+        else return false;
+    }
+    if (authoredIndex < retainedLimit) return false;
+    mission->success_needKill = retained;
+    return true;
+}
+
+std::string UnboundMissionReferences(SimulationContext *context,
+                                     KR_ObjectID project)
+{
+    if (context == NULL || project.isNUL()) return std::string();
+    std::string missing;
+    std::set<int> visited;
+    for (mp_NodeNum node = projectTable.getProjectRoot(project);
+         node != mp_NodeNULL(); node = projectTable.getRight(node))
+    {
+        const int decoded = mp_Code2Int(node);
+        if (decoded < 0 || decoded >= kMaximumProjectNodes ||
+            !visited.insert(decoded).second)
+            return std::string();
+        const int command = projectTable.getCommand(node);
+        if (command != COM_SUCCESS_KILL && command != COM_SUCCESS_LIVE &&
+            command != COM_SUCCESS_REACHED && command != COM_FILED_KILL &&
+            command != COM_FILED_LIVE && command != COM_FILED_REACHED)
+            continue;
+        std::string objectName;
+        ProjectDataReader data(node);
+        if (!data.readString(&objectName, 80)) return std::string();
+        if (!context->isExist(objectName.c_str()))
+        {
+            if (!missing.empty()) missing += ",";
+            missing += objectName;
+        }
+    }
+    return missing;
+}
+
 int DeferredCommandCount(const std::vector<DeferredMissionCommand> &commands,
                          int command)
 {
@@ -1506,16 +1580,38 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         }
         const int scriptCount = DeferredCommandCount(
             deferredCommands, COM_RUN_SCRIPT);
-        if (scriptCount > 0 && ConditionCount(reboundMission) > 0 &&
-            !MissionReferencesBound(reboundMission))
+        int preSatisfiedKillConditions = 0;
+        std::string firstPreSatisfiedKillCondition;
+        const bool normalized = scriptCount == 0 ||
+            NormalizeTransactionSatisfiedKills(
+                context, candidate, scriptHost, &reboundMission,
+                &preSatisfiedKillConditions,
+                &firstPreSatisfiedKillCondition);
+        if (scriptCount > 0 &&
+            (!normalized || (ConditionCount(reboundMission) > 0 &&
+                             !MissionReferencesBound(reboundMission))))
         {
+            const std::string unresolved =
+                UnboundMissionReferences(context, candidate);
             if (scriptHost.RollbackObjectTransaction())
                 ++summary->scriptRollbacks;
-            SetError("RecruitCenter mission script left an unresolved target");
+            char message[256] = {};
+            std::snprintf(message, sizeof(message),
+                          "RecruitCenter mission script left unresolved "
+                          "target %s",
+                          unresolved.empty() ? "<unknown>" :
+                                               unresolved.c_str());
+            SetError(message);
             return false;
         }
         mission = reboundMission;
         routeName = reboundRoute;
+        summary->preSatisfiedKillConditionReferences =
+            preSatisfiedKillConditions;
+        if (!firstPreSatisfiedKillCondition.empty())
+            std::snprintf(summary->preSatisfiedKillConditionName,
+                          sizeof(summary->preSatisfiedKillConditionName),
+                          "%s", firstPreSatisfiedKillCondition.c_str());
         summary->reboundConditionReferences =
             scriptCount > 0 ? ConditionCount(mission) : 0;
     }

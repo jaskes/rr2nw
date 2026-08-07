@@ -4987,6 +4987,37 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   later center revisit inside authored geometry is suppressed. Keep this
   separate from CQ-227 result visits, which have no authored cinematic.
 
+### CQ-245: AER04 destroys four of its own authored kill targets at admission
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`, `CAUSE_PROVED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`.
+- Evidence: installed `CreateProjectAER04` authors kills for
+  `Taxia0400..3` and `plane.a04_0/1`, Commander Actek, MissionInfo
+  `PRIOR_LEV == 2`, real briefing/route/script references and no command 35.
+  Installed `AER04.SC` SHA-256 is
+  `44B881D9F7971AEA6045CBD1DCD3FCED86E376D7DF11452EFA982BC785625D38`.
+  It creates all four named Taxis using an attribute with initial damage `0.8`
+  and immediately deals exactly `0.8` to each; all four disappear and create
+  Corpse scenery before condition rebinding. The remaining two airplanes stay
+  live. `AER04A.SC` and `AER04B.SC` exist but the Project references neither.
+- Cause: the recovered bound-reference guard rejected retail's intentional NUL
+  success-kill entries as unresolved names. The retail evaluator regards NUL
+  kill IDs as already absent, but accepting every unresolved name would also
+  hide broken scripts and typos.
+- Handling: the script host records exact transaction-created owners removed
+  by `s_SetDamage`. Rebinding converts only those proven kills into four
+  pre-satisfied conditions and retains the two live references. Transaction
+  rollback also removes native Corpses created by Taxi destruction. The result
+  advances count nine to exact `ProjectAER06` with no Artifact or Portal.
+- Verification: the Actek gate reports `4` pre-satisfied and `2` retained
+  AER04 kills, result rollback/reapply, and fresh identity
+  `A.Recr0/ProjectAER04/ProjectAER06`. It loads and overwrites public slot 8,
+  then matches its saved/restored fingerprint; no slot 9 is created.
+- Revisit when: installed data changes Taxi initial damage, AER04 stops calling
+  the four exact `s_SetDamage` operations, or another mission requires a
+  different authored tombstone mechanism. Do not generalize this proof to
+  arbitrary missing live/reached/failure references.
+
 ## Maintenance rule
 
 When a new quirk is found:

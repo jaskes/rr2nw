@@ -5983,3 +5983,28 @@ collisions are separate decisions. The maintained Level.03N proof requires the
 exact sequence: suppressed initial Level briefing, one ordinary Marauder flick,
 one ProjectS25 briefing and two stale collision suppressions. Hostile default
 briefing and relationship transitions retain their distinct source branch.
+
+### BD-179: retain only live AER04 kills after proved script destruction
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectAER04`.
+
+The installed project authors six kill commands. Its installed mission script
+creates `Taxia0400..3` with `Taxi.Attr.cln_f01` at initial damage `0.8`, then
+immediately calls `s_SetDamage(name,0.8)` on each. Retail mission decoding
+subsequently stores four NUL IDs, which its kill evaluator treats as already
+dead, plus the two live airplane IDs. This is an authored pre-satisfied state,
+not evidence that missing kill targets are generally acceptable.
+
+The recovered transaction records a pre-satisfied kill only when the exact
+symbolic object was both created by the current mission and removed by that
+transaction's `s_SetDamage`. Those four tombstones are excluded from the
+modern serializable reference set; `plane.a04_0/1` remain real objectives.
+Any missing name without that creation/destruction proof still aborts
+admission, and rollback removes native Corpses created outside the script host.
+
+AER04 has no command 35. Its ordinary result grants no Artifact or Portal,
+advances cumulative count nine and selects exact `ProjectAER06`. Because the
+retail menu owns only eight public slots, automation may overwrite slot 8 only
+when it explicitly loaded that same slot for a completed mission transaction.
+Interactive overwrite confirmation and the public `0..7` slot boundary remain
+unchanged; no ninth slot or private save format is permitted.

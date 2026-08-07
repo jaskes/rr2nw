@@ -2249,7 +2249,38 @@ playable Level begins.
 - Verification: the expanded Actek chain gate proves
   `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04`, all 29
   owners, 27 occupied Howitzers and exact fresh slot-8 identity in every
-  maintained build. AER04 execution remains the next separate parity slice.
+  maintained build.
+
+### RP-CAMPAIGN-019: AER04 preserves retail pre-destroyed objectives and reuses slot 8
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `SCRIPT_SATISFIED_OBJECTIVE_RESTORED`, `NO_REWARD_CONFIRMED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed `CreateProjectAER04` owns six success kills, Commander Actek,
+  MissionInfo `PRIOR_LEV == 2`, briefing `Brief/aer04.txt`, route
+  `Route/lev/aer04brf.rt`, script `Brief/aer04.sc` and no command 35. Installed
+  `AER04.SC` (SHA-256
+  `44B881D9F7971AEA6045CBD1DCD3FCED86E376D7DF11452EFA982BC785625D38`)
+  creates seven People, three groups/units and five Taxis.
+- Four named Taxi objectives `Taxia0400..3` use `Taxi.Attr.cln_f01`, whose
+  initial damage is exactly `0.8`, and the same script immediately applies
+  `s_SetDamage(...,0.8)`. Retail `Recrcen.cpp` would bind those now-absent names
+  as NUL kill entries, which already evaluate as killed. The recovered owner
+  accepts that state only when the current transaction proves the exact object
+  was created and destroyed by `s_SetDamage`; it omits the four satisfied
+  tombstones from the serializable active set. Arbitrary missing names still
+  reject and roll the full script transaction back, including native Corpses.
+- The two live `plane.a04_0/1` owners remain bound objectives. Their real result
+  clears mission/map/check state, repairs/refills, grants no Artifact or Portal,
+  advances cumulative count to nine and selects exact `ProjectAER06`.
+- Public save storage remains eight slots. The explicit automation path loads
+  slot 8 and overwrites the same slot after AER04, then a fresh process proves
+  `A.Recr0/ProjectAER04/ProjectAER06` and identical world fingerprint. No
+  slot-9 filename, format or UI entry is introduced.
+- Verification: the maintained Actek gate now proves
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06`,
+  four transaction-satisfied plus two retained AER04 kills, result rollback,
+  committed reapply and exact fresh same-slot restore in all maintained builds.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

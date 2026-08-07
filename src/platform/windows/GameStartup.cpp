@@ -516,8 +516,7 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   }
   const bool chainedNoRewardResultSave =
       options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0 &&
-      options->missionNoRewardResultSmoke &&
-      options->startupSaveSlot != options->startupLoadSlot;
+      options->missionNoRewardResultSmoke;
   if (options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0 &&
       !chainedNoRewardResultSave) {
     *failure = L"--save-slot and --load-slot cannot be used together";
@@ -587,8 +586,8 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     if (options->missionCenter.empty())
       options->missionCenter = L"Recruit.Robots";
     if (options->startupLoadSlot >= 0 && options->startupSaveSlot < 0) {
-      *failure = L"--mission-no-reward-result-smoke requires a distinct "
-                 L"--save-slot when it loads a progression slot";
+      *failure = L"--mission-no-reward-result-smoke requires a --save-slot "
+                 L"when it loads a progression slot";
       return false;
     }
   }
@@ -3492,6 +3491,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.routeReferences));
     log.Line("mission_smoke_rebound_conditions=" +
              std::to_string(mission.reboundConditionReferences));
+    log.Line("mission_smoke_pre_satisfied_kill_conditions=" +
+             std::to_string(
+                 mission.preSatisfiedKillConditionReferences));
+    log.Line(std::string("mission_smoke_pre_satisfied_kill_condition=") +
+             (mission.preSatisfiedKillConditionName[0] == 0
+                  ? "<none>"
+                  : mission.preSatisfiedKillConditionName));
     log.Line("mission_smoke_capacity_limited_conditions=" +
              std::to_string(
                  mission.capacityLimitedConditionReferences));
@@ -5494,9 +5500,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           !campaignChainExact;
     }
     if (!loopFailed && saveAfterMission) {
+      const bool overwriteLoadedSlot = options.startupLoadSlot >= 0 &&
+          options.startupLoadSlot == options.startupSaveSlot;
       const bool missionSaveRequested =
           RecoveredGameServices_RequestSaveSlot(
-              static_cast<std::uint32_t>(options.startupSaveSlot), false);
+              static_cast<std::uint32_t>(options.startupSaveSlot),
+              overwriteLoadedSlot);
       log.Line(std::string("mission_smoke_save_requested=") +
                (missionSaveRequested ? "1" : "0"));
       loopFailed = !missionSaveRequested || !runCompleteFrame();

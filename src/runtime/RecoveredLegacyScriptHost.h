@@ -78,6 +78,7 @@ class RecoveredLegacyScriptHost {
   bool RollbackObjectTransaction();
   void CommitObjectTransaction();
   int TransactionCreatedObjectCount() const;
+  bool TransactionDestroyedCreatedObject(const char* name) const;
   bool CreateProjectTable(int projectCapacity, int nodeCapacity,
                           int heapCapacity);
   int NewProjectNode(int command, int left, int right);
@@ -146,7 +147,9 @@ class RecoveredLegacyScriptHost {
   int m_deferredMissionDestroyableCount;
   bool m_objectTransactionActive;
   std::vector<KR_ObjectID> m_transactionCreatedObjects;
+  std::vector<std::string> m_transactionDestroyedCreatedObjectNames;
   std::vector<KR_ObjectID> m_transactionExistingRoutes;
+  std::vector<KR_ObjectID> m_transactionExistingCorpses;
   std::vector<KR_ObjectID> m_transactionPinnedRoutes;
   std::vector<ReclaimedRoute> m_transactionReclaimedRoutes;
 };

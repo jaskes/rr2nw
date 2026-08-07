@@ -565,7 +565,8 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_deferredMissionHowitzerCount(0),
       m_deferredMissionDestroyableCount(0),
       m_objectTransactionActive(false),
-      m_transactionCreatedObjects(), m_transactionExistingRoutes(),
+      m_transactionCreatedObjects(), m_transactionDestroyedCreatedObjectNames(),
+      m_transactionExistingRoutes(), m_transactionExistingCorpses(),
       m_transactionPinnedRoutes(), m_transactionReclaimedRoutes() {
   Reset();
 }
@@ -587,7 +588,9 @@ void RecoveredLegacyScriptHost::Reset() {
   m_deferredMissionDestroyableCount = 0;
   if (!m_objectTransactionActive) {
     m_transactionCreatedObjects.clear();
+    m_transactionDestroyedCreatedObjectNames.clear();
     m_transactionExistingRoutes.clear();
+    m_transactionExistingCorpses.clear();
     m_transactionPinnedRoutes.clear();
     m_transactionReclaimedRoutes.clear();
   }
@@ -980,8 +983,20 @@ int RecoveredLegacyScriptHost::SetDamage(const char* objectName,
   IUnit* unit = static_cast<IUnit*>(
       m_arena->getContext()->queryInterface(object, IUnitIID));
   if (unit == nullptr) return 0;
+  const bool transactionCreated = m_objectTransactionActive &&
+      ContainsObject(m_transactionCreatedObjects, object);
   unit->setDamage(damage, CFVector3(0.0, 0.0, 0.0), Session::m_moment,
                   m_arena->getObjectID());
+  if (transactionCreated && !m_arena->getContext()->isExist(object)) {
+    bool recorded = false;
+    for (const std::string& name : m_transactionDestroyedCreatedObjectNames)
+      if (name == objectName) {
+        recorded = true;
+        break;
+      }
+    if (!recorded)
+      m_transactionDestroyedCreatedObjectNames.push_back(objectName);
+  }
   return 1;
 }
 
@@ -1014,13 +1029,18 @@ void RecoveredLegacyScriptHost::Unsupported(const char* operation) {
 void RecoveredLegacyScriptHost::BeginObjectTransaction() {
   m_objectTransactionActive = true;
   m_transactionCreatedObjects.clear();
+  m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
+  m_transactionExistingCorpses.clear();
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   if (ArenaReady("capture Route transaction baseline") &&
       m_arena->searchSeanceClassTable("Route") != ct_NULLID)
     m_arena->userFind("Route", CollectObjectID,
                       &m_transactionExistingRoutes);
+  if (m_arena->searchSeanceClassTable("Corpse") != ct_NULLID)
+    m_arena->userFind("Corpse", CollectObjectID,
+                      &m_transactionExistingCorpses);
 }
 
 int RecoveredLegacyScriptHost::ReclaimUnreferencedRoutes(
@@ -1099,6 +1119,17 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
     if (context->isExist(*object)) context->removeObject(*object);
   }
 
+  // A retail mission can create a Taxi and destroy it immediately with
+  // s_SetDamage, which creates a Corpse outside the script host. Keep that
+  // native side effect inside the same admission transaction.
+  std::vector<KR_ObjectID> currentCorpses;
+  if (m_arena->searchSeanceClassTable("Corpse") != ct_NULLID)
+    m_arena->userFind("Corpse", CollectObjectID, &currentCorpses);
+  for (const KR_ObjectID& corpse : currentCorpses)
+    if (!ContainsObject(m_transactionExistingCorpses, corpse) &&
+        context->isExist(corpse))
+      context->removeObject(corpse);
+
   // Commander::com_EV_SET_ROUTE allocates Route objects natively, outside
   // s_NewObject/s_LoadRoute. Remove every Route that was not present at the
   // transaction boundary so a failed script cannot consume the fixed retail
@@ -1127,7 +1158,9 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
       return false;
   }
   m_transactionCreatedObjects.clear();
+  m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
+  m_transactionExistingCorpses.clear();
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   m_objectTransactionActive = false;
@@ -1145,7 +1178,9 @@ void RecoveredLegacyScriptHost::CommitObjectTransaction() {
     }
   }
   m_transactionCreatedObjects.clear();
+  m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
+  m_transactionExistingCorpses.clear();
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   m_objectTransactionActive = false;
@@ -1153,6 +1188,15 @@ void RecoveredLegacyScriptHost::CommitObjectTransaction() {
 
 int RecoveredLegacyScriptHost::TransactionCreatedObjectCount() const {
   return static_cast<int>(m_transactionCreatedObjects.size());
+}
+
+bool RecoveredLegacyScriptHost::TransactionDestroyedCreatedObject(
+    const char* name) const {
+  if (name == nullptr || !m_objectTransactionActive) return false;
+  for (const std::string& candidate :
+       m_transactionDestroyedCreatedObjectNames)
+    if (candidate == name) return true;
+  return false;
 }
 
 bool RecoveredLegacyScriptHost::CreateProjectTable(int projectCapacity,
