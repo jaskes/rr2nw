@@ -6164,3 +6164,22 @@ candidate until recovered separately.
 The chain continues to reuse public slot 8 and must prove identical fresh
 restore, pre-result rollback and committed reapply. Comment stripping is an
 evidence rule only; installed retail files remain untouched.
+
+### BD-187: the Actek AER tail hands ordinary progression back to S03
+
+Status: accepted on 2026-08-07 for Level.04D `ProjectAER16` and
+`ProjectAER21`.
+
+AER16 owns three live airplane kills and AER21 owns four live Tank plus two
+live airplane kills. Neither Project contains command 35. Both therefore use
+the ordinary no-reward result path: repair/refill, retire only the completed
+mission/map/check state, preserve accumulated population and reuse public slot
+8 with rollback and exact fresh restore.
+
+Unchanged ProjectTable selection advances cumulative count fourteen from AER16
+to exact `ProjectAER21`. Completing AER21 reaches count fifteen and selects
+exact `ProjectS03`; it is not a terminal center. The earlier `MissionInfo=0`
+S03 row becomes eligible again through the retail table. This exact selection
+is the authored handoff out of the AER sub-branch and is the stopping boundary
+before M2.5. Do not synthesize a terminal state or continue into S03 as part of
+the AER recovery slice.

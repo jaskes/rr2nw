@@ -2391,6 +2391,41 @@ playable Level begins.
   restore in every maintained build. No slot-9 file, Artifact or Portal is
   introduced.
 
+### RP-CAMPAIGN-024: AER16 continues the installed Actek order to AER21
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CONFIRMED`, `EXACT_SUCCESSOR_CONFIRMED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed `CreateProjectAER16` owns `plane.a16_0..2`, Commander Actek,
+  MissionInfo `PRIOR_LEV == 2`, its authored briefing/script/summary route and
+  no command 35 or Project-owned Howitzer. Installed `AER16.SC` SHA-256 is
+  `ACB8F7447D111454C70ED471F26D922DB684A473DFDD34196F6C8F486798BA6A`;
+  its owner graph is six People/Routes plus two Taxis.
+- Its ordinary result reaches cumulative count fourteen and selects exact
+  `ProjectAER21`. The maintained gate proves 14 created owners, two reclaimed
+  Routes, three rebound conditions, rollback/reapply and exact fresh slot-8
+  restore in all configurations.
+
+### RP-CAMPAIGN-025: AER21 is an ordinary handoff to ProjectS03
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CONFIRMED`, `AUTHORED_BRANCH_HANDOFF_CONFIRMED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed `CreateProjectAER21` owns four Tank and two airplane kills,
+  Commander Actek, MissionInfo `PRIOR_LEV == 2`, its authored presentation and
+  script, and no command 35. Installed `AER21.SC` SHA-256 is
+  `EDBC44970B3D0A78661303066312E3DB211CC4C8D93128F54CD6B1AD6F212940`;
+  its owner graph is three People/Routes, four groups/units, eight member-route
+  assignments and three Taxis.
+- Its ordinary result reaches cumulative count fifteen and selects exact
+  `ProjectS03`. Runtime evidence rejects the tempting terminal inference: the
+  old MissionInfo-0 S03 entry is again the real eligible Actek candidate.
+- Verification: the complete maintained chain is now
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03`.
+  The AER21 phase proves 17 created owners, two reclaimed Routes, six rebound
+  conditions, ordinary rollback/reapply and exact fresh same-slot-8 restore in
+  every build. S03 is the documented boundary, not part of this slice.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

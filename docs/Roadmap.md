@@ -1896,7 +1896,7 @@ The ordinary no-reward regression gate is now 21/21 across Debug, Release and
 RelWithDebInfo. Level.04D also owns a separate 6/6 one-step
 result/save/fresh-load gate and a 3/3 persisted Actek progression gate. The
 latter proves
-`ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08 -> ProjectAER10 -> ProjectAER00 -> ProjectAER16`,
+`ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08 -> ProjectAER10 -> ProjectAER00 -> ProjectAER16 -> ProjectAER21 -> ProjectS03`,
 completes S04's eight, S07's ten effective, S10's single, S05's six, A26's
 four kill plus four reached, S09's seven and S06's single kill conditions,
 contains the duplicate
@@ -1928,8 +1928,11 @@ exact AER00 and repeats the same rollback/reapply plus fresh slot-8 contract.
 AER00 then executes four live targets from its comment-stripped 20-owner graph,
 reaches cumulative count thirteen and selects exact AER16 with the same slot-8
 rollback/fresh-restore contract. Its commented Howitzer objective and fifth
-Taxi remain inactive retail evidence. AER16 is a candidate boundary only; its
-own mission graph remains the next slice. That
+Taxi remain inactive retail evidence. AER16's three live airplanes then advance
+cumulative count fourteen to exact AER21.
+AER21's four Tank and two airplane targets reach count fifteen and select exact
+S03 with another fresh slot-8 proof. S03 is the authored handoff out of the AER
+sub-branch, not a terminal center and not part of this bounded slice. That
 deep continuation also exposed and closed the January context bug that ignored
 an occupied stable-ID cache position: exact restore now fails closed, rolls a
 provisional class-table owner back and proves clean teardown after AER06. The
@@ -2216,20 +2219,18 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
 | M2.5 in-game shell/settings | 15% | safe native eight-slot Save/Load, action-based input adapter and opt-in transactional Debug commands | recovered main/pause shell, binding UX, video apply/revert, versioned settings/safe mode and developer capability gate |
-| M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, nineteen no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains beginning with Actek AER16, visible AI/guide/cinematic parity and complete campaign proof |
+| M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-one no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains from the documented S03 handoff, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |
 
 The shortest critical path is:
 
-1. close the already-open Actek/AER branch at its first proved terminal or
-   authored handoff boundary without weakening its persisted chain gates;
-2. deliver M2.5 first slice: in-game Save/Load, Controls, Video and explicit
+1. deliver M2.5 first slice: in-game Save/Load, Controls, Video and explicit
    Developer mode over the existing typed-command/rollback boundaries;
-3. repeat visible People/Tank/guide motion and manually validate cinematic
+2. repeat visible People/Tank/guide motion and manually validate cinematic
    timing/skip, then finish the remaining campaign-specific commands;
-4. connect real audio and finish window/focus/performance stability;
-5. complete replay/import/mod UX gates;
-6. freeze a package and run the full Windows 10 plus extended Windows 11
+3. connect real audio and finish window/focus/performance stability;
+4. complete replay/import/mod UX gates;
+5. freeze a package and run the full Windows 10 plus extended Windows 11
    acceptance campaign before `develop -> master -> 1.0.0`.

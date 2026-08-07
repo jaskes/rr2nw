@@ -1167,6 +1167,21 @@ kills and four active Taxis: the installed commented Howitzer objective and
 fifth Taxi remain untouched and do not enter runtime totals. AER16 is only the
 proved next candidate.
 
+The gate then loads and overwrites slot 8 for AER16. It must report 14 created
+owners, two reclaimed Routes, three retained/rebound kill conditions and
+`mission_no_reward_project=ProjectAER16/ProjectAER21`. Completion reaches
+cumulative count fourteen; fresh load must publish
+`mission_no_reward_fresh_identity=A.Recr0/ProjectAER16/ProjectAER21` with the
+same fingerprint and clean shutdown.
+
+The final AER phase loads slot 8 for AER21. It must report 17 created owners,
+two reclaimed Routes, six retained/rebound conditions and
+`mission_no_reward_project=ProjectAER21/ProjectS03`. Completion reaches count
+fifteen without reward or Portal, and fresh load must publish
+`mission_no_reward_fresh_identity=A.Recr0/ProjectAER21/ProjectS03` with the
+same fingerprint. `ProjectS03` is expected: treating this row as a terminal
+center or continuing S03 inside this AER gate is a failure.
+
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
 data: the runtime transaction pins the shared Route across the intended

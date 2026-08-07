@@ -614,6 +614,139 @@ if ($aer00OwnerCounts.routes -ne 6 -or
 }
 $aer00MissionHash = (Get-FileHash -LiteralPath $aer00MissionScript -Algorithm SHA256).Hash
 
+$aer16MissionScript = Join-Path $DataRoot "Level.04D\BRIEF\AER16.SC"
+if (-not (Test-Path -LiteralPath $aer16MissionScript -PathType Leaf)) {
+    throw "Level.04D AER16 mission script not found: $aer16MissionScript"
+}
+$aer21Project = [regex]::Match(
+    $briefSource,
+    'func void CreateProjectAER21\(\)(?<body>.*?)func void CreateProject',
+    [Text.RegularExpressions.RegexOptions]::Singleline)
+$aer21Body = if ($aer21Project.Success) { $aer21Project.Groups['body'].Value } else { "" }
+$s03Project = [regex]::Match(
+    $briefSource,
+    'func void CreateProjectS03\(\)(?<body>.*?)func void CreateProject',
+    [Text.RegularExpressions.RegexOptions]::Singleline)
+$s03Body = if ($s03Project.Success) { $s03Project.Groups['body'].Value } else { "" }
+$aer16KillNames = @('plane.a16_0', 'plane.a16_1', 'plane.a16_2')
+$aer16KillsExact = $true
+foreach ($killName in $aer16KillNames) {
+    if ($aer16Body -notmatch ('p_AddSuccessKill\(nNode,"{0}"\)' -f
+            [regex]::Escape($killName))) {
+        $aer16KillsExact = $false
+    }
+}
+$aer16KillCount = [regex]::Matches($aer16Body, 'p_AddSuccessKill\(').Count
+$aer16RewardCount = [regex]::Matches($aer16Body, 'p_GiveArtefact\(').Count
+$aer16HowitzerCount = [regex]::Matches(
+    $aer16Body, 'CreateHowitzerName\s*\(').Count
+$aer16EvidenceValid = $aer16Project.Success -and $aer21Project.Success -and
+    $aer16KillsExact -and $aer16KillCount -eq 3 -and
+    $aer16RewardCount -eq 0 -and $aer16HowitzerCount -eq 0 -and
+    $aer16Body -match 'p_AddPlayBriefing\(s_PNodeNULL\(\),"Brief/aer16\.txt"\)' -and
+    $aer16Body -match 'p_AddRunScript\(nNode,"Brief/aer16\.sc"\)' -and
+    $aer16Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $aer16Body -match 'p_AddMissionInfo\(nNode,PRIOR_LEV\)' -and
+    $aer16Body -match '"Route/lev/aer16brf\.rt", ConvertColor\(235,0,0\), 10,2' -and
+    $aer21Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $aer21Body -match 'p_AddMissionInfo\(nNode,PRIOR_LEV\)' -and
+    $briefSource -match 'CreateProjectAER21\(\);\s*CreateProjectAER16\(\);'
+if (-not $aer16EvidenceValid) {
+    throw "Retail ProjectAER16 objective, presentation, successor, or no-reward evidence changed"
+}
+$aer16MissionSource = Get-Content -LiteralPath $aer16MissionScript -Raw
+$aer16OwnerCounts = [ordered]@{
+    routes = [regex]::Matches($aer16MissionSource, 's_LoadRoute\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    people = [regex]::Matches($aer16MissionSource, 'CreateManName\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    groups = [regex]::Matches($aer16MissionSource, 'CreateGroup\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    tank_units = [regex]::Matches($aer16MissionSource, 'CreateUnit\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    member_routes = [regex]::Matches($aer16MissionSource, 'AddRouteToMember\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    taxis = [regex]::Matches($aer16MissionSource, 'CreateTaxi\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+}
+if ($aer16OwnerCounts.routes -ne 6 -or
+    $aer16OwnerCounts.people -ne 6 -or
+    $aer16OwnerCounts.groups -ne 0 -or
+    $aer16OwnerCounts.tank_units -ne 0 -or
+    $aer16OwnerCounts.member_routes -ne 0 -or
+    $aer16OwnerCounts.taxis -ne 2) {
+    throw "Retail AER16 mission owner graph changed"
+}
+$aer16MissionHash = (Get-FileHash -LiteralPath $aer16MissionScript -Algorithm SHA256).Hash
+
+$aer21MissionScript = Join-Path $DataRoot "Level.04D\BRIEF\AER21.SC"
+if (-not (Test-Path -LiteralPath $aer21MissionScript -PathType Leaf)) {
+    throw "Level.04D AER21 mission script not found: $aer21MissionScript"
+}
+$aer21KillNames = @(
+    'C.Unit.aer21.00', 'C.Unit.aer21.01',
+    'C.Unit.aer21.02', 'C.Unit.aer21.03',
+    'plane.a21_0', 'plane.a21_1')
+$aer21KillsExact = $true
+foreach ($killName in $aer21KillNames) {
+    if ($aer21Body -notmatch ('p_AddSuccessKill\(nNode,"{0}"\)' -f
+            [regex]::Escape($killName))) {
+        $aer21KillsExact = $false
+    }
+}
+$aer21KillCount = [regex]::Matches($aer21Body, 'p_AddSuccessKill\(').Count
+$aer21RewardCount = [regex]::Matches($aer21Body, 'p_GiveArtefact\(').Count
+$aer21HowitzerCount = [regex]::Matches(
+    $aer21Body, 'CreateHowitzerName\s*\(').Count
+$projectRegistration = [regex]::Match(
+    $briefSource, 'func void CreateTestProject\(\)(?<body>.*)$',
+    [Text.RegularExpressions.RegexOptions]::Singleline).Groups['body'].Value
+$projectRegistration = [regex]::Replace(
+    $projectRegistration, '/\*.*?\*/', '',
+    [Text.RegularExpressions.RegexOptions]::Singleline)
+$projectRegistration = [regex]::Replace(
+    $projectRegistration, '(?m)//.*$', '')
+$aer21EvidenceValid = $aer21Project.Success -and $s03Project.Success -and
+    $aer21KillsExact -and $aer21KillCount -eq 6 -and
+    $aer21RewardCount -eq 0 -and $aer21HowitzerCount -eq 0 -and
+    $aer21Body -match 'p_AddPlayBriefing\(s_PNodeNULL\(\),"Brief/aer21\.txt"\)' -and
+    $aer21Body -match 'p_AddRunScript\(nNode,"Brief/aer21\.sc"\)' -and
+    $aer21Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $aer21Body -match 'p_AddMissionInfo\(nNode,PRIOR_LEV\)' -and
+    $aer21Body -match '"Route/lev/aer21brf\.rt", ConvertColor\(235,0,0\), 10,2' -and
+    $s03Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $s03Body -match 'p_AddMissionInfo\(nNode,0\)' -and
+    $projectRegistration -match 'CreateProjectS03\(\);\s*CreateGProject\(\);' -and
+    $projectRegistration -match 'CreateProjectAER03\(\);\s*CreateProjectAER21\(\);' -and
+    $projectRegistration -notmatch 'CreateProjectACTEKPRD\(\);'
+if (-not $aer21EvidenceValid) {
+    throw "Retail ProjectAER21 objective, presentation, successor, or no-reward evidence changed"
+}
+$aer21MissionSource = Get-Content -LiteralPath $aer21MissionScript -Raw
+$aer21OwnerCounts = [ordered]@{
+    routes = [regex]::Matches($aer21MissionSource, 's_LoadRoute\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    people = [regex]::Matches($aer21MissionSource, 'CreateManName\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    groups = [regex]::Matches($aer21MissionSource, 'CreateGroup\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    tank_units = [regex]::Matches($aer21MissionSource, 'CreateUnit\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    member_routes = [regex]::Matches($aer21MissionSource, 'AddRouteToMember\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    taxis = [regex]::Matches($aer21MissionSource, 'CreateTaxi\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+}
+if ($aer21OwnerCounts.routes -ne 3 -or
+    $aer21OwnerCounts.people -ne 3 -or
+    $aer21OwnerCounts.groups -ne 4 -or
+    $aer21OwnerCounts.tank_units -ne 4 -or
+    $aer21OwnerCounts.member_routes -ne 8 -or
+    $aer21OwnerCounts.taxis -ne 3) {
+    throw "Retail AER21 mission owner graph changed"
+}
+$aer21MissionHash = (Get-FileHash -LiteralPath $aer21MissionScript -Algorithm SHA256).Hash
+
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
     $OutputRoot = Join-Path $repositoryRoot "manual-logs\mission-no-reward-chain-$stamp"
@@ -681,7 +814,7 @@ foreach ($configurationName in $Configuration) {
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }
-    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-G0-S04-S07-S10-S05-A26-S09-S06-AER04-AER06-AER08-AER10-AER00"
+    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-through-AER21"
     $saveRoot = Join-Path $caseRoot "saves"
     New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
     $common = @(
@@ -690,7 +823,7 @@ foreach ($configurationName in $Configuration) {
         "--save-dir", ('"' + $saveRoot + '"')
     )
 
-    Write-Host "[$configurationName][Level.04D][A.Recr0] G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16"
+    Write-Host "[$configurationName][Level.04D][A.Recr0] G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03"
     $started = [DateTime]::UtcNow
     $g0Root = Join-Path $caseRoot "g0-result"
     $g0 = Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
@@ -1049,6 +1182,64 @@ foreach ($configurationName in $Configuration) {
             ))
     } else {
         [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshAER00Root }
+    }
+
+    $aer16Root = Join-Path $caseRoot "aer16-result"
+    $aer16 = if (-not $freshAER00.timed_out -and $freshAER00.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "aer16-result" -Arguments ($common + @(
+                "--mission-no-reward-result-smoke",
+                "--mission-center", "A.Recr0",
+                "--diagnostics-dir", ('"' + $aer16Root + '"'),
+                "--load-slot", "8",
+                "--save-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $aer16Root }
+    }
+
+    $freshAER16Root = Join-Path $caseRoot "fresh-aer16-result"
+    $freshAER16 = if (-not $aer16.timed_out -and $aer16.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "fresh-aer16-result" -Arguments ($common + @(
+                "--mission-no-reward-fresh-smoke",
+                "--mission-center", "A.Recr0",
+                "--mission-project", "ProjectAER16",
+                "--mission-next-project", "ProjectAER21",
+                "--diagnostics-dir", ('"' + $freshAER16Root + '"'),
+                "--load-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshAER16Root }
+    }
+
+    $aer21Root = Join-Path $caseRoot "aer21-result"
+    $aer21 = if (-not $freshAER16.timed_out -and $freshAER16.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "aer21-result" -Arguments ($common + @(
+                "--mission-no-reward-result-smoke",
+                "--mission-center", "A.Recr0",
+                "--diagnostics-dir", ('"' + $aer21Root + '"'),
+                "--load-slot", "8",
+                "--save-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $aer21Root }
+    }
+
+    $freshAER21Root = Join-Path $caseRoot "fresh-aer21-result"
+    $freshAER21 = if (-not $aer21.timed_out -and $aer21.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "fresh-aer21-result" -Arguments ($common + @(
+                "--mission-no-reward-fresh-smoke",
+                "--mission-center", "A.Recr0",
+                "--mission-project", "ProjectAER21",
+                "--mission-next-project", "ProjectS03",
+                "--diagnostics-dir", ('"' + $freshAER21Root + '"'),
+                "--load-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshAER21Root }
     }
 
     $issues = [Collections.Generic.List[string]]::new()
@@ -1537,6 +1728,89 @@ foreach ($configurationName in $Configuration) {
         'marker=level-ready',
         'runtime_shutdown=clean'
     )
+    Add-ProofIssues -Issues $issues -Phase "AER16" -Probe $aer16 -Expected @(
+        'startup_load_slot=8',
+        'startup_save_slot=8',
+        'mission_smoke_selected_project=ProjectAER16',
+        'mission_smoke_tank_group_capacity=64',
+        'mission_smoke_scripts=1',
+        'mission_smoke_created_objects=14',
+        'mission_smoke_reclaimed_routes=2',
+        'mission_smoke_conditions=3',
+        'mission_smoke_rebound_conditions=3',
+        'mission_smoke_pre_satisfied_kill_conditions=0',
+        'mission_smoke_pre_satisfied_kill_condition=<none>',
+        'mission_smoke_capacity_limited_conditions=0',
+        'mission_smoke_capacity_limited_condition=<none>',
+        'mission_smoke_deferred_artefact_rewards=0',
+        'mission_smoke_howitzers=26/26/26',
+        'mission_smoke_auxiliary_policy=loaded-progression-skip',
+        'mission_no_reward_project=ProjectAER16/ProjectAER21',
+        'mission_no_reward_conditions=3/1',
+        'mission_no_reward_reached=0/1',
+        'mission_no_reward_commit=1/1/0/1/1/1/1/1',
+        'mission_no_reward_progress=1/0/14/14/1/0',
+        'mission_no_reward_save=1/1/1/1',
+        'mission_no_reward_rollback=1/1/1',
+        'mission_no_reward_reapply=1/1/1',
+        'mission_smoke_save_requested=1',
+        'save_menu_completed_saves=1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
+    Add-ProofIssues -Issues $issues -Phase "fresh-AER16" -Probe $freshAER16 -Expected @(
+        'startup_load_slot=8',
+        'mission_no_reward_fresh_identity=A.Recr0/ProjectAER16/ProjectAER21',
+        'mission_no_reward_fresh=1/1/1/0/1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
+    Add-ProofIssues -Issues $issues -Phase "AER21" -Probe $aer21 -Expected @(
+        'startup_load_slot=8',
+        'startup_save_slot=8',
+        'mission_smoke_selected_project=ProjectAER21',
+        'mission_smoke_tank_group_capacity=64',
+        'mission_smoke_scripts=1',
+        'mission_smoke_created_objects=17',
+        'mission_smoke_reclaimed_routes=2',
+        'mission_smoke_conditions=6',
+        'mission_smoke_rebound_conditions=6',
+        'mission_smoke_pre_satisfied_kill_conditions=0',
+        'mission_smoke_pre_satisfied_kill_condition=<none>',
+        'mission_smoke_capacity_limited_conditions=0',
+        'mission_smoke_capacity_limited_condition=<none>',
+        'mission_smoke_deferred_artefact_rewards=0',
+        'mission_smoke_howitzers=26/26/26',
+        'mission_smoke_auxiliary_policy=loaded-progression-skip',
+        'mission_no_reward_project=ProjectAER21/ProjectS03',
+        'mission_no_reward_conditions=6/1',
+        'mission_no_reward_reached=0/1',
+        'mission_no_reward_commit=1/1/0/1/1/1/1/1',
+        'mission_no_reward_progress=1/0/15/15/1/0',
+        'mission_no_reward_objective=1/0/1/0/1',
+        'mission_no_reward_save=1/1/1/1',
+        'mission_no_reward_rollback=1/1/1',
+        'mission_no_reward_reapply=1/1/1',
+        'mission_smoke_save_requested=1',
+        'save_menu_completed_saves=1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
+    Add-ProofIssues -Issues $issues -Phase "fresh-AER21" -Probe $freshAER21 -Expected @(
+        'startup_load_slot=8',
+        'mission_no_reward_fresh_identity=A.Recr0/ProjectAER21/ProjectS03',
+        'mission_no_reward_fresh=1/1/1/0/1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
     if ($g0.startup -match 'mission_result_(carrier|portal)=' -or
         $s04.startup -match 'mission_result_(carrier|portal)=' -or
         $freshS04.startup -match 'mission_result_(carrier|portal)=' -or
@@ -1561,7 +1835,11 @@ foreach ($configurationName in $Configuration) {
         $aer10.startup -match 'mission_result_(carrier|portal)=' -or
         $freshAER10.startup -match 'mission_result_(carrier|portal)=' -or
         $aer00.startup -match 'mission_result_(carrier|portal)=' -or
-        $freshAER00.startup -match 'mission_result_(carrier|portal)=') {
+        $freshAER00.startup -match 'mission_result_(carrier|portal)=' -or
+        $aer16.startup -match 'mission_result_(carrier|portal)=' -or
+        $freshAER16.startup -match 'mission_result_(carrier|portal)=' -or
+        $aer21.startup -match 'mission_result_(carrier|portal)=' -or
+        $freshAER21.startup -match 'mission_result_(carrier|portal)=') {
         $issues.Add("Artifact or Portal path leaked into Actek no-reward chain")
     }
     if ($s04.startup -match 'People stable capture failed') {
@@ -1686,12 +1964,32 @@ foreach ($configurationName in $Configuration) {
             $restoredAER00Fingerprint.Groups[1].Value) {
         $issues.Add("fresh AER00 result fingerprint does not match reused slot 8")
     }
+    $savedAER16Fingerprint = [regex]::Match(
+        $aer16.startup, 'save_menu_last_slot_world_fingerprint=(\d+)')
+    $restoredAER16Fingerprint = [regex]::Match(
+        $freshAER16.startup, 'save_menu_last_restored_world_fingerprint=(\d+)')
+    if (-not $savedAER16Fingerprint.Success -or
+        -not $restoredAER16Fingerprint.Success -or
+        $savedAER16Fingerprint.Groups[1].Value -ne
+            $restoredAER16Fingerprint.Groups[1].Value) {
+        $issues.Add("fresh AER16 result fingerprint does not match reused slot 8")
+    }
+    $savedAER21Fingerprint = [regex]::Match(
+        $aer21.startup, 'save_menu_last_slot_world_fingerprint=(\d+)')
+    $restoredAER21Fingerprint = [regex]::Match(
+        $freshAER21.startup, 'save_menu_last_restored_world_fingerprint=(\d+)')
+    if (-not $savedAER21Fingerprint.Success -or
+        -not $restoredAER21Fingerprint.Success -or
+        $savedAER21Fingerprint.Groups[1].Value -ne
+            $restoredAER21Fingerprint.Groups[1].Value) {
+        $issues.Add("fresh AER21 result fingerprint does not match reused slot 8")
+    }
 
     $records.Add([pscustomobject]@{
         configuration = $configurationName
         level = "Level.04D"
         center = "A.Recr0"
-        chain = "ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08 -> ProjectAER10 -> ProjectAER00 -> ProjectAER16"
+        chain = "ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08 -> ProjectAER10 -> ProjectAER00 -> ProjectAER16 -> ProjectAER21 -> ProjectS03"
         ms04_script_sha256 = $missionHash
         ms07_script_sha256 = $s07MissionHash
         ms10_script_sha256 = $s10MissionHash
@@ -1704,6 +2002,8 @@ foreach ($configurationName in $Configuration) {
         aer08_script_sha256 = $aer08MissionHash
         aer10_script_sha256 = $aer10MissionHash
         aer00_script_sha256 = $aer00MissionHash
+        aer16_script_sha256 = $aer16MissionHash
+        aer21_script_sha256 = $aer21MissionHash
         s07_authored_kill_commands = $s07KillCount
         s07_retained_kill_conditions = 10
         s10_authored_kill_commands = $s10KillCount
@@ -1754,6 +2054,19 @@ foreach ($configurationName in $Configuration) {
         aer00_owner_counts = $aer00OwnerCounts
         aer00_mission_info = 2
         aer00_reused_public_save_slot = 8
+        aer16_authored_kill_commands = $aer16KillCount
+        aer16_reward_commands = $aer16RewardCount
+        aer16_project_howitzers = $aer16HowitzerCount
+        aer16_owner_counts = $aer16OwnerCounts
+        aer16_mission_info = 2
+        aer16_reused_public_save_slot = 8
+        aer21_authored_kill_commands = $aer21KillCount
+        aer21_reward_commands = $aer21RewardCount
+        aer21_project_howitzers = $aer21HowitzerCount
+        aer21_owner_counts = $aer21OwnerCounts
+        aer21_mission_info = 2
+        aer21_next_project = "ProjectS03"
+        aer21_reused_public_save_slot = 8
         duplicate_airplane_calls = $duplicateCount
         elapsed_seconds = [Math]::Round(
             ([DateTime]::UtcNow - $started).TotalSeconds, 3)
@@ -1782,6 +2095,10 @@ foreach ($configurationName in $Configuration) {
         fresh_aer10_exit_code = $freshAER10.exit_code
         aer00_exit_code = $aer00.exit_code
         fresh_aer00_exit_code = $freshAER00.exit_code
+        aer16_exit_code = $aer16.exit_code
+        fresh_aer16_exit_code = $freshAER16.exit_code
+        aer21_exit_code = $aer21.exit_code
+        fresh_aer21_exit_code = $freshAER21.exit_code
         passed = $issues.Count -eq 0
         issues = @($issues)
         diagnostics = $caseRoot

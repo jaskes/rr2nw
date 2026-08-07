@@ -5169,6 +5169,44 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   hash changes, or the successor order changes. Do not count comments by raw
   text matches and do not edit the installed file to simplify archaeology.
 
+### CQ-252: AER16 is the three-target continuation to AER21
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`.
+- Evidence: installed `CreateProjectAER16` owns exact kills
+  `plane.a16_0..2`, Commander Actek, MissionInfo `PRIOR_LEV == 2`, briefing
+  `Brief/aer16.txt`, route `Route/lev/aer16brf.rt`, script
+  `Brief/aer16.sc` and no command 35 or Project-owned Howitzer. Installed
+  `AER16.SC` SHA-256 is
+  `ACB8F7447D111454C70ED471F26D922DB684A473DFDD34196F6C8F486798BA6A`;
+  it creates six People on six Routes and two Taxis.
+- Result: the three targets bind live. Ordinary completion reaches cumulative
+  count fourteen, creates no reward/Portal and selects exact `ProjectAER21`
+  from adjacent installed AER registration.
+- Verification: the persisted gate reports 14 created owners, two reclaimed
+  Routes, three rebound conditions and exact rollback/reapply plus fresh slot-8
+  restore in every maintained configuration.
+
+### CQ-253: AER21 hands the AER tail back to ProjectS03
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `AUTHORED_HANDOFF_CONFIRMED`.
+- Evidence: installed `CreateProjectAER21` owns four Tank and two airplane
+  kills, Commander Actek, MissionInfo `PRIOR_LEV == 2`, briefing
+  `Brief/aer21.txt`, route `Route/lev/aer21brf.rt`, script
+  `Brief/aer21.sc` and no command 35. Installed `AER21.SC` SHA-256 is
+  `EDBC44970B3D0A78661303066312E3DB211CC4C8D93128F54CD6B1AD6F212940`;
+  it creates three People/Routes, four groups/units with eight member-route
+  assignments and three Taxis.
+- Result: all six targets bind live. Ordinary completion reaches cumulative
+  count fifteen and selects exact `ProjectS03`; the center is not terminal.
+  S03's executable Commander Actek and MissionInfo 0 row is the observed
+  ProjectTable handoff out of the AER sub-branch.
+- Verification: the persisted gate reports 17 created owners, two reclaimed
+  Routes, six rebound conditions, rollback/reapply and fresh
+  `A.Recr0/ProjectAER21/ProjectS03` slot-8 identity in every configuration.
+  No Artifact, Portal or invented terminal record appears.
+
 ## Maintenance rule
 
 When a new quirk is found:
