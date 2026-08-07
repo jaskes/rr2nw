@@ -302,6 +302,24 @@ struct SPeopleNaturalCombatSummary
     char target[96];
 };
 
+// Moves one real mission-owned People center into an authored reached area.
+// The caller owns the enclosing continuation checkpoint and rollback.  No
+// temporary owner, route, or scheduler event is introduced by this stage.
+struct SPeopleMissionReachedStageSummary
+{
+    int available;
+    int activated;
+    int initiallyOutside;
+    int moved;
+    int reached;
+    double targetX;
+    double targetZ;
+    double radius;
+    double initialDistance;
+    double finalDistance;
+    char actor[96];
+};
+
 void PeopleSubjectState_Link();
 void PeopleSubjectState_SetExpectedCapacities(int attributeCapacity,
                                               int subjectCapacity);
@@ -370,6 +388,10 @@ bool PeopleSubjectState_LiveCombatTelemetry(
 bool PeopleSubjectState_SampleLiveCombat(SimulationContext *context);
 bool PeopleSubjectState_ObjectIDs(
     SimulationContext *context, std::vector<KR_ObjectID> *objects);
+bool PeopleSubjectState_StageMissionReachedCondition(
+    SimulationContext *context, const KR_ObjectID &actor,
+    double targetX, double targetZ, double radius,
+    SPeopleMissionReachedStageSummary *summary);
 bool PeopleSubjectState_StageMissionCombat(
     SimulationContext *context,
     const std::vector<KR_ObjectID> &baselineObjects,

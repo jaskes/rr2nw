@@ -1974,7 +1974,7 @@ playable Level begins.
 - Post-result state restores and immediately recaptures byte/fingerprint exact;
   rollback restores the active first mission, Project tree node, check event
   and map binding exactly. No Portal owner is entered.
-- Verification: the dedicated matrix passes 15/15. The strict Artifact result,
+- Verification: the dedicated matrix passes 21/21. The strict Artifact result,
   simultaneous-objective, terminal-state and two-route campaign gates remain
   green; Level.02D fresh continuation and installed starts pass 3/3 and CTest
   passes 67/67 in every maintained configuration.
@@ -1999,7 +1999,7 @@ playable Level begins.
   rollback can restore an active project root, while result save and a fresh
   process retain its tombstone with the same world fingerprint.
 - Verification: `Invoke-MissionTerminalNoRewardResultSmoke.ps1` passes the
-  result/fresh pair in all maintained configurations. The 18-row ordinary
+  result/fresh pair in all maintained configurations. The 21-row ordinary
   successor matrix and strict Artifact/Portal result gate remain independent.
 
 ### RP-CAMPAIGN-010: Level.04D Colony advances through a complete Route graph
@@ -2020,11 +2020,39 @@ playable Level begins.
   admits subset reconstruction, while the full active-world transaction
   replaces Tank/Cannon owners so pre-result rollback and post-result reapply
   both reproduce all seventeen sections and the sealed control journal.
-- Verification: `Invoke-MissionNoRewardResultMatrix.ps1` now passes 18/18.
+- Verification: `Invoke-MissionNoRewardResultMatrix.ps1` now passes 21/21.
   `Invoke-MissionNoRewardFreshSmoke.ps1` separately proves Level.04D result,
-  RR2SLOT1 write, fresh-process load, ProjectG3 tombstone, exact ProjectG5
-  candidate, zero old checks and matching world fingerprints in every
+  RR2SLOT1 write and fresh-process load for both Colony and Actek, with exact
+  successor, zero old checks and matching world fingerprints in every
   maintained configuration. The strict reward/Portal gate remains separate.
+
+### RP-CAMPAIGN-011: Level.04D Actek escorts a real delayed People owner
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `REACHED_OBJECTIVE_RESTORED`, `FRESH_SAVE_OWNED`,
+  `CAMPAIGN_CHAIN_PARTIAL`.
+- Clean Level.04D Actek `A.Recr0` naturally selects tier-zero `ProjectG0`.
+  Installed `BRIEFG0.SC` creates 28 mission owners and two reclaimed Routes;
+  its exact protected actor is People PushMachine `A.Unit.pm0` on
+  `Route/G00/pm0.rt`, with a 53-second movement delay. The Project requires
+  that same actor to remain alive and reach `(1390,-3180)` within radius 100.
+- The result probe owns no synthetic target. It activates the real delayed
+  People subject at the ordinary show boundary, moves its dynamic model center
+  from outside to inside the authored radius, proves the kill-failure guard
+  remains false, and lets the normal check/result visit retire G0. Actek then
+  exposes exact installed successor `ProjectS04`; no command 35 exists in G0,
+  so no Artifact or Portal is created.
+- The installed Project graph is newer than the archived source snapshot.
+  Installed `SCINC/BRIEF.SCI`, `BRIEF/BRIEFG0.SC` and `BRIEF/MS04.SC` have
+  SHA-256 `7746AB58...81B4`, `178285D8...F38` and `7A58B0AF...364C`;
+  archived `BRIEF.SCI` and `BRIEFG0.SC` differ and contain no `MS04.SC`.
+  Runtime truth therefore remains the selected VFS data, not copied archive
+  files or an inferred `PRIOR_LEV` branch.
+- Verification: the ordinary no-reward matrix passes 21/21 and the two-center
+  Level.04D result/save/fresh-load gate passes 6/6 across Debug, Release and
+  RelWithDebInfo. Exact result restore, active-G0 rollback, committed reapply,
+  G0 tombstone, S04 selection, detached reward and matching world fingerprints
+  are required independently from the strict Artifact/Portal probe.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

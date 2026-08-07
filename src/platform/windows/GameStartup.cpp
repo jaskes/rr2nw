@@ -68,6 +68,7 @@ struct StartupOptions {
   std::wstring startLevel;
   std::wstring missionCenter;
   std::wstring missionProject;
+  std::wstring missionNextProject;
   int startupSaveSlot = -1;
   int startupLoadSlot = -1;
   bool launchSmoke = false;
@@ -475,6 +476,17 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
         *failure = L"empty value for --mission-project";
         return false;
       }
+    } else if (argument == L"--mission-next-project") {
+      if (!ParseOptionValue(argc, argv, &index, L"--mission-next-project",
+                            &options->missionNextProject, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 23, L"--mission-next-project=") == 0) {
+      options->missionNextProject = argument.substr(23);
+      if (options->missionNextProject.empty()) {
+        *failure = L"empty value for --mission-next-project";
+        return false;
+      }
     } else if (argument == L"--save-slot" ||
                argument == L"--load-slot") {
       std::wstring value;
@@ -504,11 +516,13 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     *failure = L"--save-slot and --load-slot cannot be used together";
     return false;
   }
-  if (!options->missionCenter.empty() && !options->missionSmoke) {
+  if (!options->missionCenter.empty() && !options->missionSmoke &&
+      !options->missionNoRewardFreshSmoke) {
     *failure = L"--mission-center requires --mission-smoke";
     return false;
   }
   if (!options->missionProject.empty() &&
+      !options->missionNoRewardFreshSmoke &&
       (!options->campaignQuestChainSmoke || options->missionCenter.empty() ||
        options->missionBriefingSmoke || options->missionCombatSmoke ||
        options->missionNaturalCombatSmoke ||
@@ -519,6 +533,12 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     *failure = L"--mission-project requires --campaign-quest-chain-smoke "
                L"and --mission-center without another specialized mission "
                L"smoke";
+    return false;
+  }
+  if (!options->missionNextProject.empty() &&
+      !options->missionNoRewardFreshSmoke) {
+    *failure = L"--mission-next-project requires "
+               L"--mission-no-reward-fresh-smoke";
     return false;
   }
   if (options->levelBriefingSmoke && options->skipLevelBriefing) {
@@ -588,10 +608,18 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     }
   }
   if (options->missionNoRewardFreshSmoke) {
+    const bool hasFreshIdentity = !options->missionCenter.empty() ||
+        !options->missionProject.empty() ||
+        !options->missionNextProject.empty();
+    const bool completeFreshIdentity = !options->missionCenter.empty() &&
+        !options->missionProject.empty() &&
+        !options->missionNextProject.empty();
     if (options->startupLoadSlot < 0 || options->startupSaveSlot >= 0 ||
-        !options->missionCenter.empty() || !options->missionProject.empty()) {
+        (hasFreshIdentity && !completeFreshIdentity)) {
       *failure = L"--mission-no-reward-fresh-smoke requires one --load-slot "
-                 L"and owns its fixed Level.04D center";
+                 L"and either no identity override or a complete "
+                 L"--mission-center/--mission-project/"
+                 L"--mission-next-project triple";
       return false;
     }
   }
@@ -1549,6 +1577,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--skip-level-briefing]\n"
                 L"          [--mission-center <name>]\n"
                 L"          [--mission-project <name>]\n"
+                L"          [--mission-next-project <name>]\n"
                 L"          [--version] [--help]");
     return kSuccess;
   }
@@ -4897,10 +4926,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                "/" + (terminalNoReward ? "<none>"
                                            : noReward.nextProjectName));
       log.Line(noRewardPrefix + "conditions=" +
-               std::to_string(terminalNoReward
-                                  ? noReward.reachedConditions
-                                  : noReward.conditionsRemoved) + "/" +
-               std::to_string(noReward.statusTransitions));
+                std::to_string(terminalNoReward
+                                   ? noReward.reachedConditions
+                                   : noReward.conditionsRemoved +
+                                         noReward.reachedConditions) + "/" +
+                std::to_string(noReward.statusTransitions));
+      if (!terminalNoReward)
+        log.Line(noRewardPrefix + "reached=" +
+                 std::to_string(noReward.reachedConditions) + "/" +
+                 std::to_string(noReward.failureGuardPreserved));
       log.Line(noRewardPrefix + "commit=" +
                std::to_string(noReward.completedMissions) + "/" +
                std::to_string(noReward.resultPresentations) + "/" +
@@ -5449,11 +5483,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     loopFailed = !terminalStateReady;
   }
   if (!loopFailed && options.missionNoRewardFreshSmoke) {
+    const std::string freshCenter = options.missionCenter.empty()
+        ? "C.Recr0" : WideToUtf8(options.missionCenter);
+    const std::string freshCompletedProject = options.missionProject.empty()
+        ? "ProjectG3" : WideToUtf8(options.missionProject);
+    const std::string freshNextProject = options.missionNextProject.empty()
+        ? "ProjectG5" : WideToUtf8(options.missionNextProject);
     RecruitCenterMissionNoRewardProgressionStateSummary progression = {};
     const bool progressionReady =
         RecruitCenterSubjectState_NoRewardProgressionStateProbeForCenter(
-            g_super.m_context, "C.Recr0", "ProjectG3", "ProjectG5",
+            g_super.m_context, freshCenter.c_str(),
+            freshCompletedProject.c_str(), freshNextProject.c_str(),
             &progression);
+    log.Line("mission_no_reward_fresh_identity=" + freshCenter + "/" +
+             freshCompletedProject + "/" + freshNextProject);
     log.Line("mission_no_reward_fresh=" +
              std::to_string(progression.missionAbsent) + "/" +
              std::to_string(progression.projectRetired) + "/" +

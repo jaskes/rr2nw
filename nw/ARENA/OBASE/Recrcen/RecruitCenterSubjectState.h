@@ -76,6 +76,7 @@ struct RecruitCenterMissionNoRewardResultProbeSummary
     int scheduledChecksBefore;
     int scheduledChecksAfter;
     int reachedConditions;
+    int failureGuardPreserved;
     int noNextCandidate;
     char centerName[81];
     char completedProjectName[81];

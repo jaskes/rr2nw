@@ -5777,3 +5777,28 @@ existing `GROUP_DEL_MEMBER` event before its subject slot disappears, and
 Tank/Cannon continuation restore replaces the complete roster so both adding
 the pre-result target and removing it again are valid transaction directions.
 Stable serializers are not relaxed to accept dangling group members.
+
+### BD-170: reached-objective probes cross the real delayed People show edge
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectG0`.
+
+An authored People owner can exist, own a Route and mission symbol, yet still
+hide `IDynamicObjectIID` while `m_isNotCreate` is set. The ordinary scheduler
+clears that flag at the first show event; it is independent from a later
+movement delay. G0's protected PushMachine uses a 53-second movement delay, so
+a bounded result smoke can otherwise evaluate its reached condition before the
+first ordinary frame and incorrectly treat the real actor as unavailable.
+
+The acceptance stage may reproduce only that real show boundary on the
+mission-owned People subject, then move its model center into the exact authored
+horizontal radius. It must begin outside, retain finite geometry, preserve the
+same actor identity and leave the mission's kill-failure guard false. It creates
+no temporary People, Route, event, objective, reward or Portal. The enclosing
+LCN1 checkpoint owns failure rollback; the successful result, its pre-result
+rollback and committed reapply must all remain exact.
+
+This is an acceptance mutation, not a gameplay teleport or a general change to
+`People::queryInterface`. Natural gameplay still reaches the destination
+through the authored Route and scheduler. A future replay/fixed-tick gate should
+drive the same mission to completion by recorded time/input instead of
+weakening this identity contract.

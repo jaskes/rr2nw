@@ -978,11 +978,13 @@ Artifact/Portal result gate:
   -Configuration Debug,Release,RelWithDebInfo
 ```
 
-All 18 rows must pass and name the exact authored transitions
+All 21 rows must pass and name the exact authored transitions
 `Level.01D Robot_01/Robot_02`, `Tank_01/Tank_02`,
 `Flyer_01/Flyer_02`, `Level.02D ProjectDSCM/ProjectA17` and
 `ProjectDSCK/Project2G04`, plus `Level.04D ProjectG3/ProjectG5` from
-`C.Recr0`. Required records are
+`C.Recr0` and `ProjectG0/ProjectS04` from `A.Recr0`. Required records are
+`mission_no_reward_conditions=<authored-count>/1`,
+`mission_no_reward_reached=<reached-count>/1`,
 `mission_no_reward_commit=1/1/0/1/1/1/1/1`,
 `mission_no_reward_progress=1/0/1/1/1/0`,
 `mission_no_reward_objective=1/0/1/0/1`,
@@ -991,7 +993,7 @@ All 18 rows must pass and name the exact authored transitions
 `mission_no_reward_reapply=1/1/1`. No `mission_result_carrier` or
 `mission_result_portal` record may appear.
 
-Run the separate process-boundary proof for the Level.04D row:
+Run the separate process-boundary proof for both Level.04D rows:
 
 ```powershell
 & ".\tools\acceptance\Invoke-MissionNoRewardFreshSmoke.ps1" `
@@ -999,12 +1001,13 @@ Run the separate process-boundary proof for the Level.04D row:
   -Configuration Debug,Release,RelWithDebInfo
 ```
 
-All 3 rows must pass. The result process must report
+All 6 rows must pass. Each result process must report
 `mission_smoke_reclaimed_routes=2`, the ordinary result/save/rollback/reapply
 records above and one completed slot save. The fresh process must report
-`mission_no_reward_fresh=1/1/1/0/1`, proving no active Colony mission,
-retired `ProjectG3`, exact next candidate `ProjectG5`, zero old check events
-and no attached reward. Saved and restored world fingerprints must match.
+`mission_no_reward_fresh=1/1/1/0/1`, proving no active issuing-center mission,
+the retired completed Project, exact `ProjectG5` or `ProjectS04` candidate,
+zero old check events and no attached reward. Saved and restored world
+fingerprints must match.
 
 For a visible repeat, complete one of these first assignments and return to the
 same center. The success reaction must repair/refill the current Vehicle,
@@ -1012,6 +1015,12 @@ remove only that objective from `M`, grant no Artifact and offer the named next
 briefing on the next admission. Save after the result, load and revisit the
 center; the completed project must not return. Keep the exact Level, center,
 slot and log if presentation or selection differs.
+
+For the Actek G0 row specifically, escort the PushMachine `A.Unit.pm0` alive to
+the objective near `(1390,-3180)`. Destroying it must take the authored failure
+path; reaching the radius alive must complete G0 and make `ProjectS04` the next
+offer. Its 53-second delayed movement is not permission to replace it with a
+synthetic target or to grant an Artifact.
 
 Level.01N Outsider is deliberately not a row in this progression matrix. Its
 retail `BRIEF.SCI` contains one non-permanent no-reward `Mission` and no

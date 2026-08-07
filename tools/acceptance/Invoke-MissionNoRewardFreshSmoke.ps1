@@ -62,6 +62,16 @@ function Invoke-ProbeProcess {
     }
 }
 
+$cases = @(
+    [pscustomobject]@{
+        center = "C.Recr0"; project = "ProjectG3"; next = "ProjectG5"
+        conditions = 1; reached = 0; reclaimed_routes = 2
+    },
+    [pscustomobject]@{
+        center = "A.Recr0"; project = "ProjectG0"; next = "ProjectS04"
+        conditions = 1; reached = 1; reclaimed_routes = 2
+    }
+)
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $repositoryRoot (
@@ -69,101 +79,110 @@ foreach ($configurationName in $Configuration) {
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }
-    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-C.Recr0"
-    $saveRoot = Join-Path $caseRoot "saves"
-    New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
-    $common = @(
-        "--data-dir", ('"' + $DataRoot + '"'),
-        "--start-level", "Level.04D",
-        "--save-dir", ('"' + $saveRoot + '"')
-    )
+    foreach ($case in $cases) {
+        $caseRoot = Join-Path $OutputRoot (
+            "$configurationName-Level.04D-$($case.center)")
+        $saveRoot = Join-Path $caseRoot "saves"
+        New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
+        $common = @(
+            "--data-dir", ('"' + $DataRoot + '"'),
+            "--start-level", "Level.04D",
+            "--save-dir", ('"' + $saveRoot + '"')
+        )
 
-    Write-Host "[$configurationName][Level.04D][C.Recr0] result -> fresh load"
-    $started = [DateTime]::UtcNow
-    $resultRoot = Join-Path $caseRoot "result"
-    $result = Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
-        -Phase "result" -Arguments ($common + @(
-            "--mission-no-reward-result-smoke",
-            "--mission-center", "C.Recr0",
-            "--diagnostics-dir", ('"' + $resultRoot + '"'),
-            "--save-slot", "1"
-        ))
-    $freshRoot = Join-Path $caseRoot "fresh"
-    $fresh = if (-not $result.timed_out -and $result.exit_code -eq 0) {
-        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
-            -Phase "fresh" -Arguments ($common + @(
-                "--mission-no-reward-fresh-smoke",
-                "--diagnostics-dir", ('"' + $freshRoot + '"'),
-                "--load-slot", "1"
+        Write-Host "[$configurationName][Level.04D][$($case.center)] result -> fresh load"
+        $started = [DateTime]::UtcNow
+        $resultRoot = Join-Path $caseRoot "result"
+        $result = Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "result" -Arguments ($common + @(
+                "--mission-no-reward-result-smoke",
+                "--mission-center", $case.center,
+                "--diagnostics-dir", ('"' + $resultRoot + '"'),
+                "--save-slot", "1"
             ))
-    } else {
-        [pscustomobject]@{
-            timed_out = $false; exit_code = -2; startup = ""
-            diagnostics = $freshRoot
+        $freshRoot = Join-Path $caseRoot "fresh"
+        $fresh = if (-not $result.timed_out -and $result.exit_code -eq 0) {
+            Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+                -Phase "fresh" -Arguments ($common + @(
+                    "--mission-no-reward-fresh-smoke",
+                    "--mission-center", $case.center,
+                    "--mission-project", $case.project,
+                    "--mission-next-project", $case.next,
+                    "--diagnostics-dir", ('"' + $freshRoot + '"'),
+                    "--load-slot", "1"
+                ))
+        } else {
+            [pscustomobject]@{
+                timed_out = $false; exit_code = -2; startup = ""
+                diagnostics = $freshRoot
+            }
         }
-    }
 
-    $issues = [Collections.Generic.List[string]]::new()
-    if ($result.timed_out) { $issues.Add("result timeout") }
-    if ($result.exit_code -ne 0) { $issues.Add("result exit=$($result.exit_code)") }
-    if ($fresh.timed_out) { $issues.Add("fresh timeout") }
-    if ($fresh.exit_code -ne 0) { $issues.Add("fresh exit=$($fresh.exit_code)") }
-    foreach ($expected in @(
-        'mission_smoke_selected_project=ProjectG3',
-        'mission_smoke_reclaimed_routes=2',
-        'mission_no_reward_project=ProjectG3/ProjectG5',
-        'mission_no_reward_commit=1/1/0/1/1/1/1/1',
-        'mission_no_reward_save=1/1/1/1',
-        'mission_no_reward_rollback=1/1/1',
-        'mission_no_reward_reapply=1/1/1',
-        'save_menu_completed_saves=1',
-        'game_services_issues=0',
-        'marker=level-ready',
-        'runtime_shutdown=clean'
-    )) {
-        if ($result.startup -notmatch [regex]::Escape($expected)) {
-            $issues.Add("result proof missing: $expected")
+        $issues = [Collections.Generic.List[string]]::new()
+        if ($result.timed_out) { $issues.Add("result timeout") }
+        if ($result.exit_code -ne 0) { $issues.Add("result exit=$($result.exit_code)") }
+        if ($fresh.timed_out) { $issues.Add("fresh timeout") }
+        if ($fresh.exit_code -ne 0) { $issues.Add("fresh exit=$($fresh.exit_code)") }
+        foreach ($expected in @(
+            "mission_smoke_selected_project=$($case.project)",
+            "mission_smoke_reclaimed_routes=$($case.reclaimed_routes)",
+            "mission_no_reward_project=$($case.project)/$($case.next)",
+            "mission_no_reward_conditions=$($case.conditions)/1",
+            "mission_no_reward_reached=$($case.reached)/1",
+            'mission_no_reward_commit=1/1/0/1/1/1/1/1',
+            'mission_no_reward_save=1/1/1/1',
+            'mission_no_reward_rollback=1/1/1',
+            'mission_no_reward_reapply=1/1/1',
+            'save_menu_completed_saves=1',
+            'game_services_issues=0',
+            'marker=level-ready',
+            'runtime_shutdown=clean'
+        )) {
+            if ($result.startup -notmatch [regex]::Escape($expected)) {
+                $issues.Add("result proof missing: $expected")
+            }
         }
-    }
-    foreach ($expected in @(
-        'mission_no_reward_fresh=1/1/1/0/1',
-        'save_menu_completed_loads=1',
-        'game_services_issues=0',
-        'marker=level-ready',
-        'runtime_shutdown=clean'
-    )) {
-        if ($fresh.startup -notmatch [regex]::Escape($expected)) {
-            $issues.Add("fresh proof missing: $expected")
+        foreach ($expected in @(
+            "mission_no_reward_fresh_identity=$($case.center)/$($case.project)/$($case.next)",
+            'mission_no_reward_fresh=1/1/1/0/1',
+            'save_menu_completed_loads=1',
+            'game_services_issues=0',
+            'marker=level-ready',
+            'runtime_shutdown=clean'
+        )) {
+            if ($fresh.startup -notmatch [regex]::Escape($expected)) {
+                $issues.Add("fresh proof missing: $expected")
+            }
         }
-    }
-    if ($result.startup -match 'mission_result_(carrier|portal)=' -or
-        $fresh.startup -match 'mission_result_(carrier|portal)=') {
-        $issues.Add("Artifact or Portal path leaked into ordinary no-reward result")
-    }
-    $savedFingerprint = [regex]::Match(
-        $result.startup, 'save_menu_last_slot_world_fingerprint=(\d+)')
-    $restoredFingerprint = [regex]::Match(
-        $fresh.startup, 'save_menu_last_restored_world_fingerprint=(\d+)')
-    if (-not $savedFingerprint.Success -or
-        -not $restoredFingerprint.Success -or
-        $savedFingerprint.Groups[1].Value -ne $restoredFingerprint.Groups[1].Value) {
-        $issues.Add("fresh world fingerprint does not match saved result")
-    }
+        if ($result.startup -match 'mission_result_(carrier|portal)=' -or
+            $fresh.startup -match 'mission_result_(carrier|portal)=') {
+            $issues.Add("Artifact or Portal path leaked into ordinary no-reward result")
+        }
+        $savedFingerprint = [regex]::Match(
+            $result.startup, 'save_menu_last_slot_world_fingerprint=(\d+)')
+        $restoredFingerprint = [regex]::Match(
+            $fresh.startup, 'save_menu_last_restored_world_fingerprint=(\d+)')
+        if (-not $savedFingerprint.Success -or
+            -not $restoredFingerprint.Success -or
+            $savedFingerprint.Groups[1].Value -ne $restoredFingerprint.Groups[1].Value) {
+            $issues.Add("fresh world fingerprint does not match saved result")
+        }
 
-    $records.Add([pscustomobject]@{
-        configuration = $configurationName
-        level = "Level.04D"
-        center = "C.Recr0"
-        completed_project = "ProjectG3"
-        next_project = "ProjectG5"
-        elapsed_seconds = [Math]::Round(
-            ([DateTime]::UtcNow - $started).TotalSeconds, 3)
-        result_exit_code = $result.exit_code
-        fresh_exit_code = $fresh.exit_code
-        passed = $issues.Count -eq 0
-        issues = @($issues)
-        diagnostics = $caseRoot
-    })
+        $records.Add([pscustomobject]@{
+            configuration = $configurationName
+            level = "Level.04D"
+            center = $case.center
+            completed_project = $case.project
+            next_project = $case.next
+            elapsed_seconds = [Math]::Round(
+                ([DateTime]::UtcNow - $started).TotalSeconds, 3)
+            result_exit_code = $result.exit_code
+            fresh_exit_code = $fresh.exit_code
+            passed = $issues.Count -eq 0
+            issues = @($issues)
+            diagnostics = $caseRoot
+        })
+    }
 }
 
 $records | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (

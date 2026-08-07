@@ -7,6 +7,17 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Restored the second Level.04D campaign owner from the installed retail
+  graph. Actek `ProjectG0` now creates its complete 28-owner mission
+  population, activates and moves the real delayed PushMachine
+  `A.Unit.pm0` into the authored reached area while preserving its kill-failure
+  guard, retires G0 and exposes exact successor `ProjectS04` without an
+  Artifact or Portal. Result save, exact pre-result rollback, committed-state
+  reapply and a fresh-process RR2SLOT1 load are maintained independently for
+  both Level.04D centers. The ordinary no-reward matrix is now 21/21 and the
+  Level.04D result/fresh-load gate is 6/6 across all configurations. Installed
+  `BRIEF.SCI`, `BRIEFG0.SC` and retail-only `MS04.SC` are fingerprinted
+  separately from the older archived source snapshot.
 - Opened the first complete Level.04D campaign branch without preserving the
   June executable's silent partial-mission failure. The retail Colony center
   now accepts `ProjectG3`, creates its full Tank/People/Route graph, completes

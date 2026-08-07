@@ -33,6 +33,7 @@ class CGRPanel;
 #include "i/carrier.i"
 #include "obase/artefact/ArtefactActiveWorldState.h"
 #include "obase/artefact/ArtefactAttributeState.h"
+#include "obase/people/PeopleSubjectState.h"
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
 #include "RecoveredModRuntime.h"
@@ -2410,11 +2411,17 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
     PlayerMission &mission = player.m_mission[missionIndex];
     const KR_ObjectID completedProject = mission.mID;
     const char *projectName = context->searchObject(completedProject);
+    const int successKillCount = mission.success_needKill.getCount();
+    const int successReachedCount = mission.success_needReached.getCount();
+    const bool supportedSuccessShape =
+        mission.success_needLive.getCount() == 0 &&
+        ((successKillCount > 0 && successReachedCount == 0) ||
+         (successKillCount == 0 && successReachedCount == 1));
     if (projectName == NULL || mission.m_giveArtefact ||
-        mission.success_needKill.getCount() <= 0)
+        !supportedSuccessShape)
     {
-        SetError("RecruitCenter no-reward result needs a kill mission "
-                 "without COM_SET_GIVEARTEFACT");
+        SetError("RecruitCenter no-reward result needs an all-kill or one "
+                 "People-reached mission without COM_SET_GIVEARTEFACT");
         return false;
     }
     std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
@@ -2431,6 +2438,14 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
         return false;
     }
 
+    summary->failureGuardPreserved =
+        !EvaluateConditions(&mission, context, false) ? 1 : 0;
+    if (summary->failureGuardPreserved != 1)
+    {
+        SetError("RecruitCenter no-reward failure condition is already true");
+        return false;
+    }
+
     std::vector<KR_ObjectID> targets;
     for (int index = 0; index < mission.success_needKill.getCount(); ++index)
         if (context->isExist(mission.success_needKill[index]))
@@ -2440,6 +2455,38 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
     {
         SetError("RecruitCenter no-reward kill graph is already incomplete");
         return false;
+    }
+    if (successReachedCount == 1)
+    {
+        SPeopleMissionReachedStageSummary reached = {};
+        if (!PeopleSubjectState_StageMissionReachedCondition(
+                context, mission.success_needReached[0],
+                mission.success_reachedPos[0].x,
+                mission.success_reachedPos[0].y,
+                mission.success_reachedRadius[0], &reached) ||
+            reached.available != 1 || reached.initiallyOutside != 1 ||
+            reached.moved != 1 || reached.reached != 1)
+        {
+            char message[256] = {};
+            std::snprintf(message, sizeof(message),
+                          "RecruitCenter no-reward People reached stage "
+                          "failed %s %d/%d/%d/%d/%d %.3f/%.3f",
+                          reached.actor[0] == 0 ? "<unbound>" : reached.actor,
+                          reached.available, reached.activated,
+                          reached.initiallyOutside,
+                          reached.moved, reached.reached,
+                          reached.initialDistance, reached.finalDistance);
+            SetError(message);
+            return false;
+        }
+        summary->reachedConditions = 1;
+        summary->failureGuardPreserved =
+            !EvaluateConditions(&mission, context, false) ? 1 : 0;
+        if (summary->failureGuardPreserved != 1)
+        {
+            SetError("RecruitCenter no-reward reached stage killed its guard");
+            return false;
+        }
     }
     context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
     for (std::size_t index = 0; index < targets.size(); ++index)
@@ -2518,6 +2565,9 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
 
     const bool exact = summary->conditionsRemoved ==
                            static_cast<int>(targets.size()) &&
+        summary->conditionsRemoved + summary->reachedConditions ==
+            successKillCount + successReachedCount &&
+        summary->failureGuardPreserved == 1 &&
         summary->statusTransitions == 1 &&
         summary->completedMissions == 1 &&
         summary->resultPresentations == 1 &&

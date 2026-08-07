@@ -4638,7 +4638,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Verification: `Invoke-MissionNoRewardResultMatrix.ps1` proves
   `Robot_01 -> Robot_02`, `Tank_01 -> Tank_02`,
   `Flyer_01 -> Flyer_02`, `ProjectDSCM -> ProjectA17` and
-  `ProjectDSCK -> Project2G04` in all three configurations (15/15), including
+  `ProjectDSCK -> Project2G04`, plus both Level.04D centers, in all three
+  configurations (21/21), including
   exact objective cleanup, zero new reward, repair/refill, result save and
   baseline rollback. The strict reward/Portal result gate remains independently
   green.
@@ -4695,9 +4696,10 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   symmetric rather than dependent on whether a target was added or removed.
 - Verification: Colony `ProjectG3` creates all 13 script owners, binds its real
   kill condition, advances to `ProjectG5`, and proves exact result restore,
-  pre-result rollback and post-result reapply. The ordinary matrix is 18/18;
-  `Invoke-MissionNoRewardFreshSmoke.ps1` saves the result and reloads it in a
-  second process with matching world fingerprint and no Artifact/Portal.
+  pre-result rollback and post-result reapply. The ordinary matrix is 21/21;
+  `Invoke-MissionNoRewardFreshSmoke.ps1` saves both Level.04D center results
+  and reloads them in a second process with matching world fingerprints and no
+  Artifact/Portal.
   The isolated legacy-host smoke additionally proves reclaimed Route geometry
   rollback in a one-slot table.
 - Revisit when: a March executable or alternate retail data set authors a
@@ -4730,6 +4732,34 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: a retail Level contains a simultaneous authored light with an
   identical signature. Add position-aware public light inspection rather than
   restoring a global empty-world assumption.
+
+### CQ-236: installed Level.04D Actek data postdates the archived source tree
+
+- Status: `SOURCE_SNAPSHOTS_DIVERGE`, `INSTALLED_RETAIL_SCOPED`,
+  `RUNTIME_VFS_TRUTH_ACCEPTED`.
+- Evidence: installed `Level.04D/SCINC/BRIEF.SCI` has SHA-256
+  `7746AB58C1F76A0C2C871183436BEED72D27AA97A2F04BF4899556A85FD881B4`,
+  while archived `nw/OUTPUT/Level.04D/SCINC/BRIEF.SCI` has
+  `7FBB838F0AA8BB0C90AD72E3098601745ED39B404FF4403E0A2B821C2E5B03D2`.
+  Installed `BRIEF/BRIEFG0.SC` has
+  `178285D8BC5B5877B008A28FB5ED76B4EFBEF9C7F6D01B439AE0127D628A3F38`,
+  versus archived
+  `12E0F2E203F8DB3834BF2B5E8BE8EF256DB823D18945CA2400992937B7CB7EF4`.
+  Installed `BRIEF/MS04.SC` exists with
+  `7A58B0AF41A43D779457A36F76DD103C25F628FE5E5FE6640931080C840F364C`;
+  the archive has no corresponding file.
+- Handling: execute and fingerprint the active VFS files. Do not copy the
+  installed scripts into the archival `nw` snapshot, infer missing
+  `PRIOR_LEV` behavior, or force the older graph to describe the released data.
+  `ProjectG0 -> ProjectS04` is accepted only against the installed graph and
+  preserves ordinary selection policy.
+- Verification: the real G0 script creates 28 owners and two additional
+  Routes, binds live/reached conditions to `A.Unit.pm0`, completes without
+  reward/Portal, and survives exact result save, fresh load, rollback and
+  reapply in all maintained configurations.
+- Revisit when: the March disc image is mounted or another regional retail
+  root is available. Record its three hashes and authored Project matrix before
+  choosing any cross-version compatibility policy.
 
 ## Maintenance rule
 

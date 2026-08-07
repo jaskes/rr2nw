@@ -654,6 +654,98 @@ bool PeopleSubjectState_ObjectIDs(
     return true;
 }
 
+bool PeopleSubjectState_StageMissionReachedCondition(
+    SimulationContext *context, const KR_ObjectID &actorID,
+    double targetX, double targetZ, double radius,
+    SPeopleMissionReachedStageSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    summary->targetX = targetX;
+    summary->targetZ = targetZ;
+    summary->radius = radius;
+    KR_ObjectID mutableActorID = actorID;
+    if (context == NULL || mutableActorID.isNUL() ||
+        !std::isfinite(targetX) ||
+        !std::isfinite(targetZ) || !std::isfinite(radius) || radius <= 0.0)
+        return false;
+
+    People *actor = ResolvePeople(context, actorID);
+    const char *name = context->searchObject(actorID);
+    CopyTelemetryName(summary->actor, sizeof(summary->actor), name);
+    // Authored reached actors may deliberately still be in their delayed
+    // show/movement phase. ProjectG0's PushMachine already exists as a mission
+    // condition while its movement waits 53 seconds. This helper needs the
+    // real People subject, but must not require a fully running AI route.
+    if (actor == NULL || name == NULL)
+        return false;
+    summary->available = 1;
+
+    // People hides IDynamicObjectIID while m_isNotCreate is set.  The retail
+    // scheduler clears that flag at the first show event, independently of a
+    // later movement delay (ProjectG0 uses 53 seconds).  A result smoke can
+    // reach this point before its first ordinary frame, so reproduce that real
+    // activation boundary before evaluating the authored reached condition.
+    const int originalNotCreated = actor->m_isNotCreate;
+    if (actor->m_isNotCreate != 0)
+    {
+        actor->m_isNotCreate = 0;
+        summary->activated = 1;
+    }
+    IDynamicObject *dynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(actorID, IDynamicObjectIID));
+    if (dynamic == NULL)
+    {
+        actor->m_isNotCreate = originalNotCreated;
+        return false;
+    }
+
+    const CFVector3 initialCenter = dynamic->getPos();
+    const double initialDx = initialCenter.x - targetX;
+    const double initialDz = initialCenter.z - targetZ;
+    const double initialDistanceSquared =
+        initialDx * initialDx + initialDz * initialDz;
+    if (!FiniteVector(initialCenter) ||
+        !std::isfinite(initialDistanceSquared) ||
+        initialDistanceSquared <= radius * radius)
+    {
+        actor->m_isNotCreate = originalNotCreated;
+        return false;
+    }
+    summary->initiallyOutside = 1;
+    summary->initialDistance = std::sqrt(initialDistanceSquared);
+
+    // People::getPos() is the Subject origin plus its rotated model center.
+    // Preserve the vertical origin and orientation while placing that exact
+    // gameplay center at the authored horizontal destination.
+    const CFVector3 origin = actor->getPosition();
+    const CFVector3 centerOffset = initialCenter - origin;
+    const CFVector3 stagedOrigin(targetX - centerOffset.x, origin.y,
+                                 targetZ - centerOffset.z);
+    actor->ct_Subject::setPosition(stagedOrigin);
+    const CFVector3 finalCenter = dynamic->getPos();
+    const double finalDx = finalCenter.x - targetX;
+    const double finalDz = finalCenter.z - targetZ;
+    const double finalDistanceSquared = finalDx * finalDx + finalDz * finalDz;
+    if (!FiniteVector(finalCenter) || !std::isfinite(finalDistanceSquared))
+    {
+        actor->ct_Subject::setPosition(origin);
+        actor->m_isNotCreate = originalNotCreated;
+        return false;
+    }
+    summary->moved = Abs(stagedOrigin - origin) > 1e-6 ? 1 : 0;
+    summary->finalDistance = std::sqrt(finalDistanceSquared);
+    summary->reached = finalDistanceSquared <= radius * radius ? 1 : 0;
+    if (summary->moved != 1 || summary->reached != 1)
+    {
+        actor->ct_Subject::setPosition(origin);
+        actor->m_isNotCreate = originalNotCreated;
+        return false;
+    }
+    return true;
+}
+
 bool PeopleSubjectState_SelectNaturalMissionCombat(
     SimulationContext *context,
     const std::vector<KR_ObjectID> &baselineObjects,

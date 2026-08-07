@@ -25,27 +25,31 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $cases = @(
     [pscustomobject]@{
         level = "Level.01D"; center = "Recruit.Robots"; project = "Robot_01"
-        next = "Robot_02"; conditions = 2
+        next = "Robot_02"; conditions = 2; reached = 0
     },
     [pscustomobject]@{
         level = "Level.01D"; center = "Recruit.Tanks"; project = "Tank_01"
-        next = "Tank_02"; conditions = 1
+        next = "Tank_02"; conditions = 1; reached = 0
     },
     [pscustomobject]@{
         level = "Level.01D"; center = "Recruit.Flyers"; project = "Flyer_01"
-        next = "Flyer_02"; conditions = 3
+        next = "Flyer_02"; conditions = 3; reached = 0
     },
     [pscustomobject]@{
         level = "Level.02D"; center = "Magician.Recruit.0"; project = "ProjectDSCM"
-        next = "ProjectA17"; conditions = 2
+        next = "ProjectA17"; conditions = 2; reached = 0
     },
     [pscustomobject]@{
         level = "Level.02D"; center = "Kingdom.Recruit.0"; project = "ProjectDSCK"
-        next = "Project2G04"; conditions = 3
+        next = "Project2G04"; conditions = 3; reached = 0
     },
     [pscustomobject]@{
         level = "Level.04D"; center = "C.Recr0"; project = "ProjectG3"
-        next = "ProjectG5"; conditions = 1
+        next = "ProjectG5"; conditions = 1; reached = 0
+    },
+    [pscustomobject]@{
+        level = "Level.04D"; center = "A.Recr0"; project = "ProjectG0"
+        next = "ProjectS04"; conditions = 1; reached = 1
     }
 )
 foreach ($levelName in @($cases.level | Sort-Object -Unique)) {
@@ -111,7 +115,12 @@ foreach ($configurationName in $Configuration) {
         $expectedConditions = [regex]::Escape(
             "mission_no_reward_conditions=$($case.conditions)/1")
         if ($startup -notmatch $expectedConditions) {
-            $issues.Add("real kill-condition proof missing")
+            $issues.Add("real success-condition proof missing")
+        }
+        $expectedReached = [regex]::Escape(
+            "mission_no_reward_reached=$($case.reached)/1")
+        if ($startup -notmatch $expectedReached) {
+            $issues.Add("reached/failure-guard proof missing")
         }
         if ($startup -notmatch
             'mission_no_reward_commit=1/1/0/1/1/1/1/1') {
