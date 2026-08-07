@@ -2194,7 +2194,8 @@ playable Level begins.
   `SimulationContext` slot, so an otherwise successful A26 run could access a
   freed `A.Group.m0g0` during shutdown. Exact ready-retail manifests now use a
   bounded 64-slot TankGroup floor; fixture capacities and save layout remain
-  unchanged.
+  unchanged. CQ-248 later made generic fixed-pool eviction context-atomic as a
+  separate safety contract; the floor remains to preserve valid population.
 - Verification: the expanded
   `Invoke-MissionNoRewardProgressionChainSmoke.ps1` proves
   `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09`, capacity 64, result/fresh
@@ -2281,6 +2282,36 @@ playable Level begins.
   `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06`,
   four transaction-satisfied plus two retained AER04 kills, result rollback,
   committed reapply and exact fresh same-slot restore in all maintained builds.
+
+### RP-CAMPAIGN-020: AER06 continues the Actek air chain through the same public slot
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CONFIRMED`, `EXACT_SUCCESSOR_CONFIRMED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed `CreateProjectAER06` owns five success kills
+  (`C.Unit.aer06.00..02`, `plane.a06_0/1`), Commander Actek, MissionInfo
+  `PRIOR_LEV == 2`, briefing `Brief/aer06.txt`, route
+  `Route/lev/aer06brf.rt`, script `Brief/aer06.sc` and no command 35. The
+  Project also authors four Colony Howitzers during table construction.
+- Installed `AER06.SC` (SHA-256
+  `6781F73C5C88DF2953EF209FBB882804A86780A7B36B6CC11FAFF6CDA6B08F5A`)
+  creates seven named People on seven Routes, four Commander groups with four
+  TankLevEngl units and eight member-route assignments, plus four Taxis. All
+  five objective owners remain live and bind normally; unlike AER04, AER06 has
+  no transaction-satisfied tombstones.
+- Its ordinary result clears mission/map/check state, repairs/refills, grants
+  no Artifact or Portal, advances cumulative count to ten and selects exact
+  `ProjectAER08`. The persisted chain again explicitly loads and overwrites
+  public slot 8, then a fresh process proves
+  `A.Recr0/ProjectAER06/ProjectAER08` with an identical world fingerprint.
+- Verification: the maintained Actek gate now proves
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08`,
+  26 transaction-created AER06 objects, two reclaimed Routes, five rebound
+  conditions, result rollback, committed reapply and exact fresh same-slot
+  restore in every maintained build. The result and fresh processes must both
+  end with `runtime_shutdown=clean`; this additionally gates the explicit-ID
+  and fixed-pool context ownership fixes in CQ-247/CQ-248. No slot-9 file or
+  Portal is introduced.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

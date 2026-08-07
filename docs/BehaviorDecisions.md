@@ -5893,7 +5893,7 @@ unchanged authored `ProjectA26`. Adding an Artifact reward or Portal remains
 forbidden without a real command 35; pickup semantics for `ms05.artf` are a
 separate gameplay parity question.
 
-### BD-175: admit retained retail TankGroups before legacy invisible eviction
+### BD-175: retain the accumulated TankGroup floor after atomic eviction repair
 
 Status: accepted on 2026-08-07 for Level.04D Actek `ProjectA26`.
 
@@ -5905,19 +5905,25 @@ A26 admission, the legacy overflow path calls `forcedRemoveNotify()` and
 without calling `SimulationContext::removeObject`, leaving a dangling context
 slot that can crash later during otherwise clean session teardown.
 
-Deleting prior mission population or accepting the invisible eviction would
-make campaign behavior depend on allocator reuse. Rewriting the OEM translated
-source would also create a large encoding-only diff. Instead, when a ready
-retail manifest requests the exact released capacity ten, the modern host uses
-a bounded 64-slot TankGroup table. Source-only fixtures retain their requested
-capacities, the class policy and object format are unchanged, and old slot
-saves require no migration.
+Deleting prior mission population would make campaign behavior depend on
+allocator reuse. The eviction path now removes its chosen owner through
+`SimulationContext` after `forcedRemoveNotify()`, so the table and context slot
+change atomically. The archival file remains in its original OEM encoding and
+the diff is limited to that lifecycle block.
+
+This repair does not justify shrinking the campaign floor. When a ready retail
+manifest requests the exact released capacity ten, the modern host still uses
+a bounded 64-slot TankGroup table so accumulated valid mission groups are not
+evicted merely to admit a later assignment. Source-only fixtures retain their
+requested capacities, the object format is unchanged and old saves require no
+migration.
 
 The maintained A26 gate must start from the real slot-5 state, report capacity
 64, execute all four kill/reached pairs and 60 script owners, select S09, save
 slot 6, match it from a fresh process and finish with `runtime_shutdown=clean`.
-Any future general replacement of `CT_KILLINVISIBLE` must first make context
-removal atomic and preserve this accumulated-population contract.
+The generic `CT_KILLFIRST` and `CT_KILLINVISIBLE` paths are separately gated
+for atomic context removal. Any later policy change must still preserve this
+accumulated-population contract.
 
 ### BD-176: S09's authored world Artefact is not a result reward
 
@@ -6008,3 +6014,55 @@ retail menu owns only eight public slots, automation may overwrite slot 8 only
 when it explicitly loaded that same slot for a completed mission transaction.
 Interactive overwrite confirmation and the public `0..7` slot boundary remain
 unchanged; no ninth slot or private save format is permitted.
+
+### BD-180: continue ordinary Actek progression by overwriting public slot 8
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectAER06`.
+
+AER06 adds no exceptional result command and no command-35 reward. Its five
+authored kill names all resolve to live owners after `AER06.SC`, so admission
+uses the ordinary bound-reference path and retains all five. Successful revisit
+removes only AER06 mission state, repairs/refills, increments cumulative mission
+count to ten and lets authored candidate order select exact `ProjectAER08`.
+
+Automation continues through the retail eight-slot ceiling by explicitly
+loading slot 8 and requesting overwrite of that same slot. This remains a
+command-line progression proof only: interactive overwrite confirmation is
+unchanged, save indices remain `0..7`, and neither a ninth slot nor a private
+campaign checkpoint is created. Exact fresh restore and pre-result rollback are
+required before this progression row may be considered supported.
+
+### BD-181: explicit object restore may claim only a free context slot
+
+Status: accepted on 2026-08-07 for stable-ID world reconstruction.
+
+An object restored with an authored/saved `KR_ObjectID` may occupy its exact
+cache position only while that position is present in the context free list.
+The January implementation searched that list but ignored a failed search,
+overwrote the live owner and linked the same position into the active queue a
+second time. The displaced class-table object then became a stale pointer after
+table teardown and crashed `SimulationContext::clearObjects()`.
+
+Explicit admission now validates the ID and refuses an occupied position
+without mutating either owner. `ct_ClassTable` rolls its provisional pool
+allocation back when admission fails. This is a fail-closed save/load rule, not
+permission to remap stable IDs: a conflicting continuation must abort and
+retain/restore the previous world transaction. A freed position may still be
+reused with its exact saved ID, and ordinary automatic allocation is unchanged.
+
+### BD-182: class-table eviction owns context removal
+
+Status: accepted on 2026-08-07 for fixed-pool replacement policies.
+
+`forcedRemoveNotify()` owns object-specific pre-removal work; it is not a
+replacement for `SimulationContext::removeObject()`. A class table selecting a
+`CT_KILLFIRST` or `CT_KILLINVISIBLE` victim must capture its stable ID, run the
+forced hook and then remove through Context. Context invokes the ordinary
+virtual `removeNotify()`, returns the table node to its pool and releases the
+context slot as one lifecycle operation.
+
+If that operation does not produce a free table node, allocation fails closed.
+It may not recycle the same memory while an older context slot still points to
+it. The retained Level.04D TankGroup floor remains independent policy: atomic
+eviction prevents corruption, while the floor prevents valid accumulated
+campaign population from being discarded.

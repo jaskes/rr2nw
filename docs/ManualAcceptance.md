@@ -1122,6 +1122,19 @@ fresh process must report
 `mission_no_reward_fresh_identity=A.Recr0/ProjectAER04/ProjectAER06` and the
 same world fingerprint. Any Slot9 file or ninth menu entry is a failure.
 
+The gate next reuses slot 8 once more for AER06. It must report 26 created
+owners, two reclaimed Routes, five retained/rebound kill conditions, zero
+pre-satisfied or capacity-limited conditions and
+`mission_no_reward_project=ProjectAER06/ProjectAER08`. The result must reach
+cumulative count ten without Artifact or Portal rows, pass pre-result rollback
+and committed reapply, and complete one save plus load on slot 8. The fresh
+process must report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectAER06/ProjectAER08` and the
+same world fingerprint. AER06's installed five objectives are all live; do not
+apply the AER04 Taxi-tombstone exception to this row. Both processes must also
+report `runtime_shutdown=clean`; a completed save followed by an exit fault is
+a failed gate, because it indicates stale context ownership during teardown.
+
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
 data: the runtime transaction pins the shared Route across the intended

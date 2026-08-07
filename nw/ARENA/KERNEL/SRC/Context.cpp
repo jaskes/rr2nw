@@ -447,37 +447,42 @@ KR_ObjectID  SimulationContext::addObject(
                                     KR_ObjectID id
                                    )
 {
-   if(  m_freeObjectList != END_LIST  )
+   if( object == NULL || name == NULL || id.isNUL()
+    || id.cachePos < 0 || id.cachePos >= m_maxObjectQnty )
    {
-        int *curItem = &m_freeObjectList;
-        int  found = 0;
-
-        for(  ; *curItem!=END_LIST; curItem = &(m_objectIndex[*curItem].next) )
-             if(  *curItem==id.cachePos  )
-             {
-                  *curItem = m_objectIndex[*curItem].next;
-                  found = 1;
-                  break;
-             }
-
-        (void)found;
-        //s_ASSERT(!found,"SimulationContext::addObject() Dublicate add object");
-        KR_ObjectListElem &obj = m_objectIndex[id.cachePos];
-
-        obj.object = object;
-        s_ASSERT(strlen(name)<MAX_SYMBOLIC_LENGHT,"SimulationContext::addObject: Name too big");
-        strcpy( obj.symbolic, name );
-
-        obj.next = m_objectQueue;
-        m_objectQueue = id.cachePos;
-
-        object->context = this;
-        object->id = id;
-
-        //obj.object->/*load */ addNotify();
+        echo("SimulationContext::addObject: Invalid explicit object id");
+        return KR_ObjectID::NUL();
    }
-   else echo("SimulationContext::addObject: Object pool is fool");
 
+   int *curItem = &m_freeObjectList;
+   while( *curItem != END_LIST && *curItem != id.cachePos )
+        curItem = &(m_objectIndex[*curItem].next);
+
+   if( *curItem == END_LIST )
+   {
+        echo(
+              "SimulationContext::addObject: Explicit cache position <%d> "
+              "for object <%s> is already occupied",
+              id.cachePos,
+              name
+            );
+        return KR_ObjectID::NUL();
+   }
+
+   *curItem = m_objectIndex[id.cachePos].next;
+   KR_ObjectListElem &obj = m_objectIndex[id.cachePos];
+
+   obj.object = object;
+   s_ASSERT(strlen(name)<MAX_SYMBOLIC_LENGHT,"SimulationContext::addObject: Name too big");
+   strcpy( obj.symbolic, name );
+
+   obj.next = m_objectQueue;
+   m_objectQueue = id.cachePos;
+
+   object->context = this;
+   object->id = id;
+
+   //obj.object->/*load */ addNotify();
    return id;
 }
 

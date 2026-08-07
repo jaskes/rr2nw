@@ -257,21 +257,18 @@ KR_ObjectID ct_ClassTable::newObject( int AddMode, const char *name )
 						if (sbj->m_isVisible)
 							sbj = (ct_Subject *) sbj->m_prev;
 						else
-						{
-							sbj->forcedRemoveNotify();
-							sbj->removeNotify();
 							break;
-						}
 					}
 					
 					if (!sbj)	// all are visible
-					{
-						ct_Subject * sbj = (ct_Subject *) m_existList;
-						sbj->forcedRemoveNotify();
-						sbj->removeNotify();
-					}
+						sbj = (ct_Subject *) m_existList;
 
-					if (Session::m_moment - sbj->m_creationTime < 0.1)
+					const double removedCreationTime = sbj->m_creationTime;
+					const KR_ObjectID removedID = sbj->getObjectID();
+					sbj->forcedRemoveNotify();
+					m_context->removeObject(removedID);
+
+					if (Session::m_moment - removedCreationTime < 0.1)
 						warning("Possible overflow, INCREASE %s capacity",m_name);
 				}
 
@@ -281,10 +278,19 @@ KR_ObjectID ct_ClassTable::newObject( int AddMode, const char *name )
 				echo("Not Yet Implemented, killing the first");
 
 			case CT_KILLFIRST:
-				m_existList->forcedRemoveNotify();
-				m_existList->removeNotify();
-				// this will call m_master->delObj
+				{
+					ct_Object *removed = m_existList;
+					const KR_ObjectID removedID = removed->getObjectID();
+					removed->forcedRemoveNotify();
+					m_context->removeObject(removedID);
+				}
 				break;
+		}
+
+		if (m_freeList == NULL)
+		{
+			warning("ct_ClassTable<%s>::newObject: Eviction failed",m_name);
+			return KR_ObjectID::NUL();
 		}
 				
 	}
@@ -354,8 +360,15 @@ KR_ObjectID ct_ClassTable::newObject( const char *name, KR_ObjectID id )
 
          result->m_isExist   = 1;
 	 result->m_creationTime = Session::m_moment;
+	 result->m_tableName = m_name;
 
-         return m_context->addObject( name, result, id );
+         KR_ObjectID resultID = m_context->addObject( name, result, id );
+         if( resultID.isNUL() )
+         {
+              delObject( result );
+              return KR_ObjectID::NUL();
+         }
+         return resultID;
     }
     warning("ct_ClassTable<%s>::newObject: Table overflow",m_name);
     return KR_ObjectID::NUL();

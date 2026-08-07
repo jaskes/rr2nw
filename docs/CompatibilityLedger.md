@@ -4895,17 +4895,18 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   during `clearObjects`; four repeated pre-fix A26 result runs reproduced both
   clean and access-violation shutdowns.
 - Handling: an exact ready-retail request of 10 receives a bounded TankGroup
-  floor of 64 before any invisible eviction. Source-only test capacities,
-  serialization and `CT_KILLINVISIBLE` policy are unchanged. Earlier slot-5
-  state loads directly under the larger table.
+  floor of 64 before any invisible eviction. Source-only test capacities and
+  serialization are unchanged. CQ-248 subsequently made the retained
+  `CT_KILLINVISIBLE` policy context-atomic without weakening this floor.
+  Earlier slot-5 state loads directly under the larger table.
 - Verification: six repeated targeted A26 results shut down cleanly after the
   floor. The maintained Actek chain requires `mission_smoke_tank_group_capacity=64`,
   all eight rebound conditions, 60 owners, 22/22/22 Howitzers, cumulative count
   six, exact rollback/reapply and a matching fresh slot-6 fingerprint with no
   Artifact or Portal.
-- Revisit when: the class-table eviction path is refactored to remove owners
-  through `SimulationContext` atomically. Retained authored population must
-  remain valid; shrinking capacity or deleting it is not an acceptable fix.
+- Revisit when: retained authored population is unexpectedly evicted despite
+  the atomic class-table repair. Shrinking capacity or deleting earlier mission
+  state is not an acceptable fix.
 
 ### CQ-242: S09 comment and neutral Artefact do not encode a reward
 
@@ -5017,6 +5018,76 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   the four exact `s_SetDamage` operations, or another mission requires a
   different authored tombstone mechanism. Do not generalize this proof to
   arbitrary missing live/reached/failure references.
+
+### CQ-246: AER06 is an ordinary live-owner continuation at the slot ceiling
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`.
+- Evidence: installed `CreateProjectAER06` authors five exact success kills,
+  Commander Actek, MissionInfo `PRIOR_LEV == 2`, real briefing/route/script
+  references, four Project-construction Howitzers and no command 35. Installed
+  `AER06.SC` SHA-256 is
+  `6781F73C5C88DF2953EF209FBB882804A86780A7B36B6CC11FAFF6CDA6B08F5A`;
+  its graph is seven People/Routes, four groups/units, eight member-route
+  assignments and four Taxis.
+- Result: all five kill references bind live, with no capacity loss or
+  transaction-satisfied tombstone. Ordinary completion advances count ten and
+  selects exact `ProjectAER08`; no Artifact or Portal path executes.
+- Verification: persisted slot 8 is explicitly loaded and overwritten, then a
+  fresh process restores exact identity and world fingerprint. The maintained
+  chain reports 26 created owners, two reclaimed Routes, five rebound
+  conditions and successful rollback/reapply in all configurations.
+- Revisit when: AER06 owner names, registration order, MissionInfo, command 35
+  status or the eight-slot retail boundary changes. Do not infer AER08 mission
+  semantics from its selection alone; that is the next separate campaign row.
+
+### CQ-247: explicit-ID restore overwrote an occupied context owner
+
+- Status: `CAUSE_PROVED`, `FIXED_AND_GATED`, `TEARDOWN_CLEAN`.
+- Evidence: the complete AER06 result and slot-8 save succeeded, but all three
+  maintained builds then faulted before `runtime_shutdown=clean`. Windows crash
+  offsets mapped to `SimulationContext::removeObject/clearObjects` after
+  `ct_Storage::closeSeance()` released class-table pools.
+- Cause: the January explicit-ID `SimulationContext::addObject` removed a
+  requested cache position from the free list when found, but ignored the
+  `found` result and unconditionally overwrote the slot when it was occupied.
+  The displaced class-table owner survived in its table list while the context
+  retained an invalid pool pointer for final cleanup.
+- Handling: explicit IDs are range checked and must name an actual free-list
+  position before context mutation. Failed class-table publication returns its
+  provisional owner to the table free list. No stable ID is silently remapped.
+- Verification: `legacy-context-route-smoke` rejects an occupied exact ID,
+  proves the original owner remains searchable, then removes it, reuses the
+  same position successfully and clears the context. The full persisted Actek
+  chain completes AER06, restores the same slot-8 fingerprint and records
+  `runtime_shutdown=clean` in every maintained configuration.
+- Revisit when: a valid historic save reports a deterministic occupied-ID
+  conflict. Diagnose allocation/restore ordering; do not restore the overwrite
+  or choose another cache position behind the save format's back.
+
+### CQ-248: fixed-pool eviction recycled an owner before Context removal
+
+- Status: `CAUSE_PROVED`, `FIXED_AND_GATED`, `TECH_DEBT_CLOSED`.
+- Evidence: after CQ-247 closed explicit-ID overwrite, the complete AER06 gate
+  passed Debug and Release but one Playtest result still faulted at the first
+  read in `SimulationContext::removeObject` during final `clearObjects()`.
+  This matched the older CQ-241 diagnosis rather than a save-slot error.
+- Cause: `CT_KILLFIRST` and `CT_KILLINVISIBLE` called
+  `forcedRemoveNotify()` plus `removeNotify()` directly. The victim returned to
+  its class-table pool, was reused under a new ID and left its prior Context
+  slot pointing to the same pooled address. Closing the table freed that
+  address before the stale slot was visited.
+- Handling: eviction captures the victim ID, runs the forced hook and delegates
+  ordinary removal to Context. Context owns virtual notification, table unlink
+  and slot release. Allocation fails if no table node was actually returned.
+  The 64-slot retained TankGroup floor remains because it preserves campaign
+  population rather than merely avoiding corruption.
+- Verification: `legacy-context-route-smoke` uses a one-slot class table,
+  forces replacement, proves the old ID/name disappear and the new owner is
+  unique, then closes the arena and clears all 16 context slots. The complete
+  RelWithDebInfo Actek chain now finishes AER06 and its fresh load cleanly.
+- Revisit when: another add mode receives real semantics, a forced hook removes
+  itself recursively, or valid accumulated population is unexpectedly evicted.
 
 ## Maintenance rule
 

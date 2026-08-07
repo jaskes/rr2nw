@@ -11,6 +11,7 @@
 #include "kernel/h/context.h"
 #include "obase/route/route.h"
 #include "storage/h/savefile.h"
+#include "storage/h/subject.h"
 
 namespace {
 
@@ -42,9 +43,46 @@ class ProbeObject final : public KR_Object {
   bool shouldDump() override { return false; }
 };
 
+class OverflowProbeObject final : public ct_Object {
+ public:
+  void Bind(ct_ClassTable* master, int index) {
+    m_master = master;
+    m_index = index;
+  }
+
+  int receiveEvent(KR_Event&) override { return 1; }
+  bool shouldDump() override { return false; }
+};
+
+class OverflowProbeTable final : public ct_ClassTable {
+ public:
+  OverflowProbeTable() { registerClass("ContextOverflowProbe"); }
+
+ protected:
+  void allocObjects(int count) override {
+    objects_ = new OverflowProbeObject[count];
+    for (int index = 0; index < count; ++index) {
+      objects_[index].Bind(this, index);
+    }
+  }
+
+  void freeObjects() override {
+    delete[] objects_;
+    objects_ = nullptr;
+  }
+
+  ct_Object* getObjectPTR(int index) override { return &objects_[index]; }
+
+ private:
+  OverflowProbeObject* objects_ = nullptr;
+};
+
+OverflowProbeTable g_overflow_probe_table;
+
 bool ExerciseContext() {
   SimulationContext context(8, 8);
   ProbeObject probe;
+  ProbeObject restored_probe;
   KR_ObjectID id = context.addObject("context.probe", &probe);
   const char* symbolic_name = context.searchObject(id);
   if (id.isNUL() || probe.getContext() != &context ||
@@ -55,6 +93,15 @@ bool ExerciseContext() {
       context.queryInterface(id, IUnknownIID) != &probe ||
       !context.isExist(id) || !context.isExist("context.probe") ||
       context.isExist("missing.object")) {
+    return false;
+  }
+
+  KR_ObjectID rejected_id =
+      context.addObject("context.restored", &restored_probe, id);
+  if (!rejected_id.isNUL() || restored_probe.getContext() != nullptr ||
+      context.objectFreeCount() != 7 || !context.isExist(id) ||
+      context.searchObject("context.probe") != id ||
+      context.isExist("context.restored")) {
     return false;
   }
 
@@ -101,9 +148,52 @@ bool ExerciseContext() {
   }
 
   context.removeObject(id);
-  return probe.getContext() == nullptr && probe.getObjectID().isNUL() &&
-         !context.isExist(id) && !context.isExist("context.probe") &&
+  if (probe.getContext() != nullptr || !probe.getObjectID().isNUL() ||
+      context.isExist(id) || context.isExist("context.probe") ||
+      context.objectFreeCount() != 8) {
+    return false;
+  }
+
+  const KR_ObjectID restored_id =
+      context.addObject("context.restored", &restored_probe, id);
+  if (restored_id != id || restored_probe.getContext() != &context ||
+      context.objectFreeCount() != 7 || !context.isExist(id) ||
+      context.searchObject("context.restored") != id) {
+    return false;
+  }
+
+  context.clearObjects();
+  return restored_probe.getContext() == nullptr &&
+         restored_probe.getObjectID().isNUL() && !context.isExist(id) &&
+         !context.isExist("context.restored") &&
          context.objectFreeCount() == 8;
+}
+
+bool ExerciseClassTableEviction() {
+  SimulationContext context(8, 16);
+  ct_Arena arena;
+  arena.openSeance(&context, 128.0, 128.0);
+  const ct_ClassTableID table =
+      arena.addClassTable("ContextOverflowProbe", 1);
+  if (table == ct_NULLID) {
+    return false;
+  }
+  g_overflow_probe_table.setAddMode(CT_KILLFIRST);
+
+  KR_ObjectID first = arena.newObject(table, "overflow.first");
+  KR_ObjectID second = arena.newObject(table, "overflow.second");
+  if (first.isNUL() || second.isNUL() || first == second ||
+      context.isExist(first) || context.isExist("overflow.first") ||
+      !context.isExist(second) ||
+      context.searchObject("overflow.second") != second ||
+      context.objectFreeCount() != 14) {
+    return false;
+  }
+
+  arena.closeSeance();
+  context.clearObjects();
+  return context.objectFreeCount() == 16 &&
+         !context.isExist("overflow.second");
 }
 
 bool ExerciseRouteGeometry() {
@@ -173,6 +263,9 @@ int main(int argc, char** argv) {
   std::remove(argv[1]);
   if (!ExerciseContext()) {
     return Fail("SimulationContext lifecycle or event routing diverged");
+  }
+  if (!ExerciseClassTableEviction()) {
+    return Fail("class-table eviction left stale context ownership");
   }
   if (!ExerciseRouteGeometry()) {
     return Fail("route geometry or interface contract diverged");
