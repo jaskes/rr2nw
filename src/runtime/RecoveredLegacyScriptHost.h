@@ -146,6 +146,7 @@ class RecoveredLegacyScriptHost {
   bool m_objectTransactionActive;
   std::vector<KR_ObjectID> m_transactionCreatedObjects;
   std::vector<KR_ObjectID> m_transactionExistingRoutes;
+  std::vector<KR_ObjectID> m_transactionPinnedRoutes;
   std::vector<ReclaimedRoute> m_transactionReclaimedRoutes;
 };
 

@@ -2054,6 +2054,38 @@ playable Level begins.
   G0 tombstone, S04 selection, detached reward and matching world fingerprints
   are required independently from the strict Artifact/Portal probe.
 
+### RP-CAMPAIGN-012: Actek G0 and S04 form a persisted authored chain
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `MULTI_PROJECT_PROGRESSION_RESTORED`, `DUPLICATE_OWNER_CONTAINED`,
+  `FRESH_SAVE_OWNED`, `CAMPAIGN_CHAIN_PARTIAL`.
+- A first process completes `ProjectG0` and writes slot 1. A second process
+  loads that exact progression state, naturally selects `ProjectS04`, executes
+  installed `BRIEF/MS04.SC`, binds all eight kill conditions and one mission
+  Route, then retires S04 without Artifact/Portal and exposes exact successor
+  `ProjectS07`. Its cumulative mission count is two; result save, pre-result
+  rollback and committed reapply remain exact across all seventeen owners.
+- Installed `MS04.SC` contains two consecutive creation calls for symbolic
+  owner `a.unit.ms04.ap00`: first `CreateActekAirplaneEx`, then
+  `CreateActekAirplane`. The second retail wrapper loads the same Route before
+  `CreateManName` removes the first owner. Deduplicated modern Route lookup now
+  pins that live Route only for the script object transaction, allowing the
+  replacement People to acquire it before commit releases the pin. This
+  preserves the retail replacement order without editing the data file or
+  accepting a dangling People reference.
+- A third fresh process loads slot 2 and requires the S04 selection tombstone,
+  `ProjectS07` as the next exact candidate, no active issuing-center mission,
+  no old check event and the same saved world fingerprint. Loaded-progression
+  smoke deliberately skips clean-admission-only guide mutations because the
+  authored G0 population remains alive; S04 identity is instead proved by its
+  29 script-created owners, eight rebound conditions and exact result state.
+- Verification: `Invoke-MissionNoRewardProgressionChainSmoke.ps1` passes 3/3
+  across Debug, Release and RelWithDebInfo. The isolated legacy-script smoke
+  also proves that a reused referenced Route survives replacement and loses
+  only its temporary transaction reference at commit. The existing 21/21
+  ordinary matrix, 6/6 Level.04D one-step fresh gate and strict reward/Portal
+  gate remain separate and unchanged.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

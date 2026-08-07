@@ -512,7 +512,12 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       return false;
     }
   }
-  if (options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0) {
+  const bool chainedNoRewardResultSave =
+      options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0 &&
+      options->missionNoRewardResultSmoke &&
+      options->startupSaveSlot != options->startupLoadSlot;
+  if (options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0 &&
+      !chainedNoRewardResultSave) {
     *failure = L"--save-slot and --load-slot cannot be used together";
     return false;
   }
@@ -579,8 +584,9 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   if (options->missionNoRewardResultSmoke) {
     if (options->missionCenter.empty())
       options->missionCenter = L"Recruit.Robots";
-    if (options->startupLoadSlot >= 0) {
-      *failure = L"--mission-no-reward-result-smoke cannot load a slot";
+    if (options->startupLoadSlot >= 0 && options->startupSaveSlot < 0) {
+      *failure = L"--mission-no-reward-result-smoke requires a distinct "
+                 L"--save-slot when it loads a progression slot";
       return false;
     }
   }
@@ -1557,7 +1563,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--mod-dir <path>]... [--mods-dir <path>]\n"
                 L"          [--mod <id>]...\n"
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
-                L"          [--save-slot <1..8> | --load-slot <1..8>]\n"
+                L"          [--save-slot <1..8>] [--load-slot <1..8>]\n"
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-combat-smoke |\n"
@@ -1572,6 +1578,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  L"           --campaign-quest-chain-smoke |\n"
                  L"           --mission-objective-chain-smoke |\n"
                  L"           --mission-terminal-state-smoke]\n"
+                L"          (both slots only chain a no-reward result smoke)\n"
                 L"          [--portal-transition-smoke]\n"
                 L"          [--level-briefing-smoke]\n"
                 L"          [--skip-level-briefing]\n"
@@ -3530,6 +3537,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     if (!howitzerStateReady)
       log.Line(std::string("mission_smoke_howitzer_state_error=") +
                HowitzerActiveWorldState_LastFailure());
+    const bool loadedProgressionMission =
+        options.missionNoRewardResultSmoke &&
+        options.startupLoadSlot >= 0 && options.startupSaveSlot >= 0;
+    if (loadedProgressionMission) {
+      // A progression save deliberately retains the previous mission's
+      // authored population.  The clean-admission guide probes select the
+      // newest global guide and temporarily mutate it, so running them here
+      // would inspect the retired mission instead of the newly admitted one.
+      // The chained smoke proves the loaded population through continuation
+      // fingerprints and the new mission through its rebound objectives.
+      log.Line("mission_smoke_auxiliary_policy=loaded-progression-skip");
+    } else {
     SPeopleRouteMotionProbeSummary guide = {};
     const bool guideReady = PeopleSubjectState_ProbeNewestDelayedRoute(
         g_super.m_context, &guide);
@@ -3723,6 +3742,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               std::to_string(missionPeopleSchedule.attackStates) + "/" +
               std::to_string(missionPeopleSchedule.malformedQueues));
     loopFailed = loopFailed || !missionPeopleScheduleReady;
+    }
     const std::string missionProject = mission.projectName;
     if (!loopFailed && options.missionNaturalCombatSmoke) {
       std::vector<std::uint8_t> naturalCheckpoint;

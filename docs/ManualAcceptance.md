@@ -1009,6 +1009,31 @@ the retired completed Project, exact `ProjectG5` or `ProjectS04` candidate,
 zero old check events and no attached reward. Saved and restored world
 fingerprints must match.
 
+Then run the persisted two-project Actek chain. This is deliberately separate
+from the one-step matrix because S04 is eligible only after a committed G0
+result:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionNoRewardProgressionChainSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+All 3 configuration rows must pass. The first process completes
+`ProjectG0 -> ProjectS04` into slot 1. The second must load slot 1, naturally
+select `ProjectS04`, report `mission_smoke_created_objects=29`, eight rebound
+conditions, four ready occupied Howitzers, then complete
+`ProjectS04 -> ProjectS07` into slot 2 with
+`mission_no_reward_progress=1/0/2/2/1/0`. The third process must freshly load
+slot 2, report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectS04/ProjectS07` and match the
+saved world fingerprint. No Artifact/Portal record may appear.
+
+The gate also verifies that the selected retail `MS04.SC` contains its two
+authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
+data: the runtime transaction pins the shared Route across the intended
+replacement and stable People capture must remain clean.
+
 For a visible repeat, complete one of these first assignments and return to the
 same center. The success reaction must repair/refill the current Vehicle,
 remove only that objective from `M`, grant no Artifact and offer the named next

@@ -542,7 +542,7 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_deferredMissionDestroyableCount(0),
       m_objectTransactionActive(false),
       m_transactionCreatedObjects(), m_transactionExistingRoutes(),
-      m_transactionReclaimedRoutes() {
+      m_transactionPinnedRoutes(), m_transactionReclaimedRoutes() {
   Reset();
 }
 
@@ -564,6 +564,7 @@ void RecoveredLegacyScriptHost::Reset() {
   if (!m_objectTransactionActive) {
     m_transactionCreatedObjects.clear();
     m_transactionExistingRoutes.clear();
+    m_transactionPinnedRoutes.clear();
     m_transactionReclaimedRoutes.clear();
   }
 }
@@ -845,6 +846,15 @@ KR_ObjectID RecoveredLegacyScriptHost::LoadRoute(
     } else if (existing->GetNodeCnt() <= 0) {
       Report(RECOVERED_LEGACY_SCRIPT_HOST_ROUTE_LOAD_FAILURE,
              "existing symbolic route did not publish any nodes");
+    } else if (m_objectTransactionActive && existing->GetRefCount() > 0 &&
+               !ContainsObject(m_transactionPinnedRoutes, existingID)) {
+      // CreateManName removes an already named People after its wrapper has
+      // loaded the replacement route.  Retail S04 does exactly this by
+      // creating a.unit.ms04.ap00 twice.  Keep the reused route alive across
+      // that removal; the replacement People acquires its own reference when
+      // the script sends pe_EVCMD_START.
+      existing->AddRef();
+      m_transactionPinnedRoutes.push_back(existingID);
     }
     return existingID;
   }
@@ -966,6 +976,7 @@ void RecoveredLegacyScriptHost::BeginObjectTransaction() {
   m_objectTransactionActive = true;
   m_transactionCreatedObjects.clear();
   m_transactionExistingRoutes.clear();
+  m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   if (ArenaReady("capture Route transaction baseline") &&
       m_arena->searchSeanceClassTable("Route") != ct_NULLID)
@@ -1022,6 +1033,13 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
   if (!m_objectTransactionActive) return true;
   if (!ArenaReady("rollback object transaction")) return false;
   SimulationContext* context = m_arena->getContext();
+  for (const KR_ObjectID& routeID : m_transactionPinnedRoutes) {
+    if (!context->isExist(routeID)) continue;
+    IRouteObject* route = static_cast<IRouteObject*>(
+        context->queryInterface(routeID, IRouteObjectIID));
+    if (route != nullptr) route->DelRef();
+  }
+  m_transactionPinnedRoutes.clear();
   const int eventCount = context->eventCount();
   std::vector<KR_Event> events(
       eventCount > 0 ? static_cast<std::size_t>(eventCount) : 0u);
@@ -1071,14 +1089,25 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
   }
   m_transactionCreatedObjects.clear();
   m_transactionExistingRoutes.clear();
+  m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   m_objectTransactionActive = false;
   return true;
 }
 
 void RecoveredLegacyScriptHost::CommitObjectTransaction() {
+  if (m_arena != nullptr) {
+    SimulationContext* context = m_arena->getContext();
+    for (const KR_ObjectID& routeID : m_transactionPinnedRoutes) {
+      if (!context->isExist(routeID)) continue;
+      IRouteObject* route = static_cast<IRouteObject*>(
+          context->queryInterface(routeID, IRouteObjectIID));
+      if (route != nullptr) route->DelRef();
+    }
+  }
   m_transactionCreatedObjects.clear();
   m_transactionExistingRoutes.clear();
+  m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   m_objectTransactionActive = false;
 }

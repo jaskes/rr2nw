@@ -5802,3 +5802,28 @@ This is an acceptance mutation, not a gameplay teleport or a general change to
 through the authored Route and scheduler. A future replay/fixed-tick gate should
 drive the same mission to completion by recorded time/input instead of
 weakening this identity contract.
+
+### BD-171: loaded mission progression retains prior authored population
+
+Status: accepted on 2026-08-07 for Level.04D Actek
+`ProjectG0 -> ProjectS04`.
+
+Ordinary successful mission cleanup retires the objective, check event and
+Project selection state; it does not delete every object created by the
+mission script. Loading the committed G0 result therefore correctly retains
+its authored People/Tank/Route population before the center admits S04.
+
+Clean-admission auxiliary probes search for the newest global delayed guide and
+temporarily mutate route, obstacle and occupied-Vehicle state. Applying those
+probes to a loaded progression world selects the retained G0 guide rather than
+an S04 objective and can make a valid chain fail for an unrelated phase
+assumption. Chained no-reward result smoke skips only those clean-world
+auxiliary mutations. It still requires exact startup load, S04 project/script
+identity, created-owner and rebound-objective counts, stable active-world
+capture, real result processing, save, rollback, reapply and fresh-process
+fingerprint equality.
+
+Simultaneous `--load-slot` plus a distinct `--save-slot` is admitted only for
+this bounded chained no-reward smoke. Normal command-line save/load remains
+mutually exclusive. This is test orchestration, not a gameplay population
+cleanup policy or permission to ignore serializer failures.

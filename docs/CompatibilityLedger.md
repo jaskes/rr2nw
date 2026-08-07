@@ -4761,6 +4761,38 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   root is available. Record its three hashes and authored Project matrix before
   choosing any cross-version compatibility policy.
 
+### CQ-237: retail MS04 replaces one symbolic airplane after loading its Route
+
+- Status: `RETAIL_DUPLICATE_CONFIRMED`, `HOST_LIFETIME_FIXED`,
+  `DATA_LEFT_UNCHANGED`.
+- Evidence: installed Level.04D `BRIEF/MS04.SC` (SHA-256
+  `7A58B0AF41A43D779457A36F76DD103C25F628FE5E5FE6640931080C840F364C`)
+  calls both `CreateActekAirplaneEx` and `CreateActekAirplane` with identical
+  group, owner and Route names `a.group.ms04.ap00`, `a.unit.ms04.ap00` and
+  `ms04.ap00`. `CreateManName` intentionally force-removes an existing owner,
+  but only after its wrapper has called `s_LoadRoute`.
+- Cause: the recovered host deduplicates equal symbolic Routes to avoid the
+  retail fixed-table overflow. The first People was the Route's only owner;
+  force-removing it dropped the reference to zero before the replacement start
+  event, leaving `a.unit.ms04.ap00` with a missing Route. A stable PEO1 capture
+  now names the exact offending owner, attribute, Route and commander instead
+  of reporting only a generic reference failure.
+- Handling: while a mission object transaction is active, reuse of an existing
+  referenced Route acquires one idempotent temporary pin. Commit releases it
+  after the replacement owner has acquired its own reference; rollback
+  releases it before removing transaction-created objects. Zero-reference
+  Routes are not pinned, base bootstrap behavior is unchanged and the retail
+  script is never rewritten.
+- Verification: the legacy-script runtime smoke reproduces the
+  load/remove/rebind/commit lifetime directly. The three-process Actek chain
+  requires S04's 29 created-owner telemetry, stable capture, all eight kill
+  objectives, exact rollback/reapply and a fresh slot-2 fingerprint in all
+  maintained configurations.
+- Revisit when: another retail script repeats a name across different Route
+  geometry or replaces a pre-transaction persistent owner. Extend the
+  transaction journal with explicit owner restoration rather than broadening
+  duplicate-name acceptance.
+
 ## Maintenance rule
 
 When a new quirk is found:

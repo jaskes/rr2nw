@@ -346,13 +346,28 @@ void RemoveSchedulerEvents(SimulationContext *context,
 bool CaptureRecord(SimulationContext *context, const PeopleRoster &roster,
                    People *people, StablePeopleRecord *record)
 {
-    if (context == NULL || people == NULL || record == NULL ||
-        !people->stableReferencesReady())
-        return Fail("People runtime references are not ready");
+    if (context == NULL || people == NULL || record == NULL)
+        return Fail("People stable capture arguments are invalid");
     record->name = ObjectName(context, people->getObjectID());
     record->attribute = ObjectName(context, people->m_peopleAttrID);
     record->route = ObjectName(context, people->m_routeID);
     record->commander = ObjectName(context, people->m_commanderID);
+    if (!people->stableReferencesReady())
+    {
+        char message[384] = {};
+        std::snprintf(message, sizeof(message),
+                      "People runtime references are not ready for '%s' "
+                      "(attribute='%s', route='%s', commander='%s')",
+                      record->name.empty() ? "<unnamed>" :
+                                             record->name.c_str(),
+                      record->attribute.empty() ? "<missing>" :
+                                                  record->attribute.c_str(),
+                      record->route.empty() ? "<missing>" :
+                                              record->route.c_str(),
+                      record->commander.empty() ? "<none>" :
+                                                  record->commander.c_str());
+        return Fail(message);
+    }
     if (record->name.empty() || record->attribute.empty() ||
         record->route.empty())
         return Fail("People symbolic owner/attribute/route name is missing");

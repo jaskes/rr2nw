@@ -7,6 +7,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Connected the next authored Actek campaign step across a real process and
+  save boundary. A chained Level.04D proof now completes `ProjectG0`, loads
+  its result, naturally admits `ProjectS04`, consumes all eight retail kill
+  objectives and exposes exact successor `ProjectS07`; a third process proves
+  the S04 tombstone and candidate from the second save. The original
+  `MS04.SC` creates `a.unit.ms04.ap00` twice, so transactional Route reuse now
+  holds a temporary reference across `CreateManName` replacement instead of
+  leaving the replacement People owner with a dangling Route. Retail data is
+  unchanged, rollback remains atomic and the new chain gate passes 3/3 across
+  Debug, Release and Playtest.
 - Restored the second Level.04D campaign owner from the installed retail
   graph. Actek `ProjectG0` now creates its complete 28-owner mission
   population, activates and moves the real delayed PushMachine

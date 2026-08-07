@@ -241,6 +241,45 @@ bool ExerciseReclaimedRouteRollback() {
          Route::m_totalNodePos == 0;
 }
 
+bool ExercisePinnedRouteReplacement() {
+  SimulationContext context(16, 32);
+  g_arena.openSeance(&context, 64.0, 64.0);
+  RecoveredLegacyScriptHost host(&g_arena);
+  const int table = host.AddClassTable("Route", 1);
+  host.BeginObjectTransaction();
+  KR_ObjectID routeID =
+      host.LoadRoute(table, "route-fixture.rt", "Route.replace");
+  IRouteObject* route = routeID.isNUL()
+      ? nullptr
+      : static_cast<IRouteObject*>(
+            context.queryInterface(routeID, IRouteObjectIID));
+  bool passed = route != nullptr && route->GetNodeCnt() == 3 &&
+                route->GetRefCount() == 0;
+  if (route != nullptr) {
+    // First People owns the route.  A repeated retail wrapper loads the same
+    // name before deleting that People, so the host must hold a transient
+    // transaction reference across the replacement window.
+    route->AddRef();
+    KR_ObjectID reused =
+        host.LoadRoute(table, "route-fixture.rt", "Route.replace");
+    passed = passed && reused == routeID && route->GetRefCount() == 2;
+    route->DelRef();
+    passed = passed && context.isExist(routeID) &&
+             route->GetRefCount() == 1;
+    route->AddRef();
+    host.CommitObjectTransaction();
+    passed = passed && context.isExist(routeID) &&
+             route->GetRefCount() == 1;
+    route->DelRef();
+  } else {
+    host.RollbackObjectTransaction();
+  }
+  passed = passed && !context.isExist("Route.replace") &&
+           Route::m_totalNodePos == 0;
+  g_arena.closeSeance();
+  return passed && Route::m_totalNodePos == 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -528,6 +567,9 @@ var int node;
   }
   if (!ExerciseReclaimedRouteRollback()) {
     return Fail("reclaimed Route geometry did not roll back atomically");
+  }
+  if (!ExercisePinnedRouteReplacement()) {
+    return Fail("reused Route was not pinned across object replacement");
   }
 
   const char truncatedRouteSource[] =
