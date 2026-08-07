@@ -1363,6 +1363,16 @@ bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
               request.targetLevel);
   }
   ZAV_DeInitLevel();
+  if (log != nullptr) {
+    const SWindowsAudioRuntimeTelemetry* audio =
+        WindowsAudioRuntime_Telemetry();
+    if (audio != nullptr) {
+      log->Line("cross_level_audio_source_teardown=" +
+                std::to_string(audio->loopStops) + "/" +
+                std::to_string(audio->activeLoopVoices) + "/" +
+                std::to_string(audio->activeLoopRegistrations));
+    }
+  }
 
   std::string targetFailure;
   bool targetStarted = StartRecoveredLevel(
@@ -1391,6 +1401,16 @@ bool ProcessCrossLevelLoad(const RetailData& data, int* currentLevelIndex,
             : "target Level continuation restore failed";
   }
   ZAV_DeInitLevel();
+  if (log != nullptr) {
+    const SWindowsAudioRuntimeTelemetry* audio =
+        WindowsAudioRuntime_Telemetry();
+    if (audio != nullptr) {
+      log->Line("cross_level_audio_target_rollback_teardown=" +
+                std::to_string(audio->loopStops) + "/" +
+                std::to_string(audio->activeLoopVoices) + "/" +
+                std::to_string(audio->activeLoopRegistrations));
+    }
+  }
 
   std::string sourceFailure;
   const bool sourceStarted = StartRecoveredLevel(
@@ -1533,6 +1553,16 @@ bool ProcessPortalLevelTransition(const RetailData& data,
               (completedCampaign ? "1" : "0"));
   }
   ZAV_DeInitLevel();
+  if (log != nullptr) {
+    const SWindowsAudioRuntimeTelemetry* audio =
+        WindowsAudioRuntime_Telemetry();
+    if (audio != nullptr) {
+      log->Line("portal_audio_source_teardown=" +
+                std::to_string(audio->loopStops) + "/" +
+                std::to_string(audio->activeLoopVoices) + "/" +
+                std::to_string(audio->activeLoopRegistrations));
+    }
+  }
 
   std::string targetFailure;
   if (StartRecoveredLevel(
@@ -1553,6 +1583,16 @@ bool ProcessPortalLevelTransition(const RetailData& data,
   }
 
   ZAV_DeInitLevel();
+  if (log != nullptr) {
+    const SWindowsAudioRuntimeTelemetry* audio =
+        WindowsAudioRuntime_Telemetry();
+    if (audio != nullptr) {
+      log->Line("portal_audio_target_rollback_teardown=" +
+                std::to_string(audio->loopStops) + "/" +
+                std::to_string(audio->activeLoopVoices) + "/" +
+                std::to_string(audio->activeLoopRegistrations));
+    }
+  }
   std::string sourceFailure;
   const bool sourceStarted = StartRecoveredLevel(
       data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
@@ -2131,8 +2171,11 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   const float effectsVolume = configuredShell == nullptr
       ? 1.0f
       : static_cast<float>(configuredShell->effectsVolume);
-  if (!WindowsAudioRuntime_Configure(effectsVolume,
-                                     !options.runtimeSmoke)) {
+  // Keep device output closed while the recovered startup graph executes its
+  // bounded gameplay probes. WAV admission still fills the cache, but probe
+  // START commands cannot leak into the user's speakers. Interactive output
+  // is enabled only after every startup-only transaction has completed.
+  if (!WindowsAudioRuntime_Configure(effectsVolume, false)) {
     log.Line("failure=maintained audio backend boundary could not be installed");
     log.Line("marker=audio-not-ready");
     RecoveredGameServices_Release();
@@ -2143,7 +2186,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       WindowsAudioRuntime_Telemetry();
   log.Line("audio_backend=xaudio2-2.9-effects-v1");
   log.Line(std::string("audio_physical_output=") +
-           (!options.runtimeSmoke ? "enabled" : "headless"));
+           (!options.runtimeSmoke ? "deferred-until-interactive-loop"
+                                  : "headless"));
   log.Line(std::string("audio_device_ready=") +
            (initialAudio != nullptr && initialAudio->deviceReady ? "1" : "0"));
   log.Line("audio_effects_volume=" + std::to_string(effectsVolume));
@@ -5836,6 +5880,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     }
     loopFailed = !freshExact;
   }
+  if (!loopFailed && !options.runtimeSmoke) {
+    const bool audioDeviceReady =
+        WindowsAudioRuntime_EnablePhysicalOutput();
+    const SWindowsAudioRuntimeTelemetry* activatedAudio =
+        WindowsAudioRuntime_Telemetry();
+    log.Line("audio_interactive_device_enable=" +
+             std::to_string(audioDeviceReady ? 1 : 0));
+    log.Line("audio_startup_probe_output=deferred-device-closed");
+    if (!audioDeviceReady && activatedAudio != nullptr &&
+        activatedAudio->lastError[0] != 0)
+      log.Line(std::string("audio_interactive_device_error=") +
+               activatedAudio->lastError);
+  }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {
     if (!runCompleteFrame()) {
@@ -6854,6 +6911,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(audio->playbackStarts) + "/" +
              std::to_string(audio->completedVoices) + "/" +
              std::to_string(audio->stoppedVoices));
+    log.Line("audio_effect_loops=" +
+             std::to_string(audio->loopRequests) + "/" +
+             std::to_string(audio->loopStarts) + "/" +
+             std::to_string(audio->loopStops) + "/" +
+             std::to_string(audio->activeLoopVoices));
+    log.Line("audio_loop_registrations=" +
+             std::to_string(audio->loopRegistrations) + "/" +
+             std::to_string(audio->deferredLoopRegistrations) + "/" +
+             std::to_string(audio->activeLoopRegistrations));
+    log.Line("audio_loop_recovery=" +
+             std::to_string(audio->loopRestarts) + "/" +
+             std::to_string(audio->loopRecoveryFailures));
     log.Line("audio_effect_failures=" +
              std::to_string(audio->playbackFailures) + "/" +
              std::to_string(audio->voiceStealsPrevented));
@@ -6867,12 +6936,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(authoredAudio->oneShotRequests) + "/" +
              std::to_string(authoredAudio->oneShotStarts) + "/" +
              std::to_string(authoredAudio->oneShotFailures));
-    log.Line("audio_unsupported_stream_loop=" +
+    log.Line("audio_authored_loops=" +
+             std::to_string(authoredAudio->loopRequests) + "/" +
+             std::to_string(authoredAudio->loopStarts) + "/" +
+             std::to_string(authoredAudio->loopFailures));
+    log.Line("audio_unsupported_stream_repeat=" +
              std::to_string(authoredAudio->unsupportedStreamStarts) + "/" +
-             std::to_string(authoredAudio->unsupportedLoopStarts));
+             std::to_string(authoredAudio->unsupportedRepeatStarts));
   }
 
   ZAV_DeInitLevel();
+  audio = WindowsAudioRuntime_Telemetry();
+  if (audio != nullptr) {
+    log.Line("audio_post_level_loops=" +
+             std::to_string(audio->loopStops) + "/" +
+             std::to_string(audio->activeLoopVoices) + "/" +
+             std::to_string(audio->activeLoopRegistrations));
+  }
   ZAV_Deinit();
   log.Line("runtime_shutdown=clean");
   return kSuccess;

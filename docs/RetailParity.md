@@ -2779,17 +2779,42 @@ playable Level begins.
   flags-0 `START(1)` requests to XAudio2 2.9; `END`, object removal and rollback
   stop the matching physical token without serializing it.
 - The installed WAV corpus proves the maintained decoder subset, but does not
-  prove category semantics. Flags-1 dialogue/music and count-0 class loops stay
-  explicit deferred rows. `MOVE_TO` and emitter intensity remain authored state
-  until listener ownership and RSX attenuation behavior are recovered.
+  prove category semantics. Flags-1 dialogue/music stay explicit deferred
+  rows. Source-proven count-0 loop lifetime is closed separately by
+  RP-AUDIO-002; `MOVE_TO` remains authored state until listener ownership and
+  RSX attenuation behavior are recovered.
 - The Effects submix uses schema-4 player volume, focus suspension and bounded
   device-loss recovery. Playback success/failure cannot affect the scheduler,
   mission outcome, save fingerprint or Level transition.
 - Verification combines synthetic PCM rejection, fake-backend SoundObj
   rollback, headless installed Level admission and an opt-in physical
   device/generated-tone gate. Audibility and balance of real weapon/explosion
-  effects remain a short manual playtest; streamed/cinematic/loop/3D coverage
+  effects remain a short manual playtest; streamed/cinematic/spatial coverage
   remains open.
+
+### RP-AUDIO-002: Farter audible-zone loops have exact lifetime ownership
+
+- Classification: `SOURCE_COMMAND_PATH_PRESERVED`,
+  `RETAIL_DATA_EXECUTED`, `PHYSICAL_WINDOWS_OUTPUT_RECONNECTED`,
+  `LIFETIME_PARITY_WITHOUT_SPATIAL_PARITY`.
+- The archived API calls the cached-emitter parameter `nLoops`; Farter sends
+  count zero on audible-zone entry and END on exit. The maintained backend now
+  maps that exact pair to one stable `XAUDIO2_LOOP_INFINITE` voice token.
+  Registrations exist independently of the device, are never serialized, and
+  are removed by END, rollback or Level teardown. Focus preserves them and
+  device loss reconstructs only registrations that are still live.
+- Level.04D executes its real 23-object/four-attribute population. The bounded
+  probe observes at least one audible Farter near the camera and none from the
+  far viewpoint. Its headless run records 29 successful authored loop
+  registrations, 24 exits and five legitimately live registrations before
+  teardown; Level teardown produces exact `29/0/0` stopped/voice/registration
+  state. The separate generated-tone gate proves deferred materialization,
+  focus, forced device recovery and END against real XAudio2 2.9.
+- Authored intensity is applied, but the old inner/outer ellipsoid curve,
+  listener orientation, panning and HRTF are not claimed. Global DistMax=300
+  still controls entry/exit. Generic Taxi/Orphan/People/Tank START(0)/END
+  requests can use the bridge, but require their own moving-source and
+  save/Portal parity before being marked complete.
 
 ## Binary analysis boundary
 

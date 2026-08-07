@@ -6378,13 +6378,13 @@ state. A missing device, rejected WAV, voice exhaustion or critical XAudio2
 error is therefore an audible presentation failure with telemetry, not a
 mission/runtime transaction failure.
 
-The first supported category is intentionally narrow: bounded integer PCM
+The supported category is intentionally narrow: bounded integer PCM
 (128 clips/64 MiB process-wide and 8 MiB per source),
-`LoadWAVEx` flags 0 and exact `START(1)` route to the Effects submix. Flags 1,
-`START(0)`, spatial positions and intensity are retained as evidence but fail
-closed at physical playback. No fallback may turn dialogue/music into cached
-effects, turn a loop into one shot, or pretend a 2D voice implements the Intel
-RSX emitter model.
+`LoadWAVEx` flags 0, exact `START(1)` one-shots and the source-proven
+`START(0)`/`END` loop pair route to the Effects submix. Flags 1 and spatial
+positions remain evidence only. No fallback may turn dialogue/music into
+cached effects, turn a loop into one shot, or pretend a 2D voice implements
+the Intel RSX emitter model.
 
 Schema 4 persists only Effects volume and migrates schemas 1-3 with a 100%
 default. The in-frame shell applies it immediately through the same category
@@ -6392,3 +6392,31 @@ owner; invalid/newer settings retain atomic corrupt/safe-mode recovery. CI
 uses parser/fake-backend and headless retail gates. Physical device creation is
 a separate silent opt-in gate, and the only audible acceptance uses generated
 PCM rather than copied retail media.
+
+### BD-195: source-proven loops have stable presentation registrations
+
+Status: accepted on 2026-08-07 for the first authored loop-lifetime slice.
+
+`IRSXCachedEmitter::ControlMedia` names its second argument `nLoops`.
+Farter, Taxi, Orphan, People and Tank enter their audible zone by sending
+`START(0)` and leave it by sending `END`; the archived Vehicle engine likewise
+uses `RSX_PLAY, 0` followed by an explicit stop. The maintained bridge must
+therefore preserve zero as a long-lived loop, never reinterpret it as zero
+plays or a one-shot.
+
+The neutral SoundObj command state remains authoritative. A successful
+`START(0)` creates one stable, nonserialized presentation token even when the
+physical device is deliberately closed during startup probes. Interactive
+device enable materializes every still-live registration. Focus suspends the
+engine without destroying registrations; device loss destroys physical voices
+and reconstructs them with the same tokens; `END`, parent rollback, Level
+teardown and shutdown remove each registration exactly once. The 32-voice
+ceiling remains no-steal and failure remains presentation-only.
+
+The only per-emitter scalar applied in this slice is the authored normalized
+intensity. The surviving RSX source proves listener pose and inner/outer
+ellipsoid fields but not a byte-exact replacement attenuation or panning law.
+Global `DistMax=300` continues to own audible-zone entry/exit. XAudio2 voices
+stay centered until a separate evidence-backed spatial slice; this decision
+must not be cited as 3D-audio parity. Flags-1 streaming, Vehicle pitch, FLIC,
+dialogue, music and UI audio remain outside this boundary.

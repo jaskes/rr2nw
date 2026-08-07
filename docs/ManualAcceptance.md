@@ -1549,3 +1549,38 @@ private process/module data even though the manifest is sanitized; inspect it
 before sharing. This pass covers unexpected unhandled SEH only. Explicit
 legacy `ExitProcess`, CRT abort/assert and debug-break paths remain a separate
 consolidation item.
+
+## Authored Farter loop and physical recovery pass
+
+The installed-data gate is silent and may be run in all maintained
+configurations:
+
+```powershell
+& ".\tools\acceptance\Invoke-FarterAudioLoop.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+Every row must report `23/23/23`, audible `1/0`, zero rejected PCM and exact
+post-Level cleanup. Pre-teardown registrations may be nonzero: that means the
+final camera still hears authored emitters. The required invariant is loop
+stops plus live registrations equals requests, followed by post-Level
+`requests/0/0`.
+
+The physical gate is deliberately separate and generates a quiet 440 Hz loop;
+it neither reads nor copies retail media. It will be audible for about half a
+second:
+
+```powershell
+cmake --build ".\build\windows-msvc-x86" --config RelWithDebInfo --target rr2nw_audio_device_smoke -- /m:1 /nodeReuse:false
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw_audio_device_smoke.exe" --listen-loop
+```
+
+The result must contain `deferred=1 active=1 stopped=1`,
+`lifecycle=1/1/1` and `recovery=1/1/0`. This proves logical loop registration
+before device creation, physical materialization, focus pause/resume, forced
+device-loss reconstruction and exact END. It does not prove spatial audio.
+
+For the visual/listening Farter pass, launch Level.04D normally and move
+between factory/steam/windmill areas. Loops must begin and end without stacking
+copies, survive one Alt-Tab, and stop on a Level change. Current output is
+centered with authored intensity only; do not report missing left/right pan or
+RSX distance rolloff as a regression until the spatial slice is implemented.

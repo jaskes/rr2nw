@@ -34,6 +34,12 @@ struct CachedClip {
   SRecoveredPcmWav wav;
 };
 
+struct LoopRegistration {
+  std::string clipKey;
+  float intensity = 1.0f;
+  SoundStatePlaybackToken token = 0;
+};
+
 struct VoiceSlot;
 
 class VoiceCallback final : public IXAudio2VoiceCallback {
@@ -55,6 +61,9 @@ struct VoiceSlot {
   VoiceSlot() : callback(this) {}
   IXAudio2SourceVoice* voice = nullptr;
   SoundStatePlaybackToken token = 0;
+  std::string clipKey;
+  float intensity = 1.0f;
+  bool looping = false;
   std::atomic<bool> finished{false};
   std::atomic<bool> failed{false};
   VoiceCallback callback;
@@ -95,6 +104,7 @@ struct AudioRuntimeState {
   EngineCallback engineCallback;
   std::array<VoiceSlot, kMaximumVoices> voices;
   std::map<std::string, CachedClip> clips;
+  std::map<SoundStatePlaybackToken, LoopRegistration> loops;
   SoundStatePlaybackToken nextToken = 1;
 };
 
@@ -135,28 +145,41 @@ bool ValidAuthoredSoundPath(const char* path, std::string* folded) {
   return true;
 }
 
-void DestroyVoice(VoiceSlot* slot, bool completed) {
+void UpdateActiveLoopTelemetry() {
+  unsigned int active = 0;
+  for (const VoiceSlot& slot : g_audio.voices)
+    if (slot.voice != nullptr && slot.looping) ++active;
+  g_audio.telemetry.activeLoopVoices = active;
+  g_audio.telemetry.activeLoopRegistrations =
+      static_cast<unsigned int>(g_audio.loops.size());
+}
+
+void DestroyVoice(VoiceSlot* slot, bool completed, bool countStop) {
   if (slot == nullptr || slot->voice == nullptr) return;
   slot->voice->Stop(0u, XAUDIO2_COMMIT_NOW);
   slot->voice->FlushSourceBuffers();
   slot->voice->DestroyVoice();
   slot->voice = nullptr;
   slot->token = 0;
+  slot->clipKey.clear();
+  slot->intensity = 1.0f;
+  slot->looping = false;
   slot->finished.store(false);
   slot->failed.store(false);
   if (completed)
     ++g_audio.telemetry.completedVoices;
-  else
+  else if (countStop)
     ++g_audio.telemetry.stoppedVoices;
+  UpdateActiveLoopTelemetry();
 }
 
-void DestroyAllVoices() {
+void DestroyAllVoices(bool countStops) {
   for (VoiceSlot& slot : g_audio.voices)
-    DestroyVoice(&slot, false);
+    DestroyVoice(&slot, false, countStops);
 }
 
-void DestroyDevice() {
-  DestroyAllVoices();
+void DestroyDevice(bool countStops) {
+  DestroyAllVoices(countStops);
   if (g_audio.effectsVoice != nullptr) {
     g_audio.effectsVoice->DestroyVoice();
     g_audio.effectsVoice = nullptr;
@@ -242,7 +265,7 @@ void ReapVoices() {
   for (VoiceSlot& slot : g_audio.voices) {
     if (slot.voice != nullptr && slot.finished.load()) {
       if (slot.failed.load()) ++g_audio.telemetry.playbackFailures;
-      DestroyVoice(&slot, true);
+      DestroyVoice(&slot, true, false);
     }
   }
 }
@@ -321,20 +344,76 @@ bool AdmitClip(const char* fileName, int flags) {
   return true;
 }
 
-bool StartCachedClip(const std::string& key,
-                     SoundStatePlaybackToken* token) {
+bool StartCachedClip(const std::string& key, float intensity, bool looping,
+                     SoundStatePlaybackToken* token,
+                     SoundStatePlaybackToken recoveredToken = 0,
+                     bool deviceRecovery = false) {
   if (token == nullptr) return false;
   *token = 0;
-  ++g_audio.telemetry.playbackRequests;
+  const bool newRequest = recoveredToken == 0;
+  if (recoveredToken == 0) {
+    ++g_audio.telemetry.playbackRequests;
+    if (looping) ++g_audio.telemetry.loopRequests;
+  }
   ReapVoices();
   const auto found = g_audio.clips.find(key);
-  if (!g_audio.telemetry.deviceReady || found == g_audio.clips.end()) {
+  if (found == g_audio.clips.end()) {
     ++g_audio.telemetry.playbackFailures;
-    SetError(!g_audio.telemetry.deviceReady
-                 ? "effect playback requested without an audio device"
-                 : "effect playback requested before WAV admission");
+    SetError("effect playback requested before WAV admission");
     return false;
   }
+  const float boundedIntensity = (std::max)(0.0f, (std::min)(1.0f, intensity));
+  SoundStatePlaybackToken assignedToken = recoveredToken;
+  bool registeredHere = false;
+  if (looping && newRequest) {
+    if (g_audio.loops.size() >= kMaximumVoices) {
+      ++g_audio.telemetry.voiceStealsPrevented;
+      ++g_audio.telemetry.playbackFailures;
+      SetError("effect loop registration limit reached; an active loop was not stolen");
+      return false;
+    }
+    assignedToken = g_audio.nextToken++;
+    if (assignedToken == 0) assignedToken = g_audio.nextToken++;
+    LoopRegistration registration = {key, boundedIntensity, assignedToken};
+    try {
+      g_audio.loops.emplace(assignedToken, std::move(registration));
+    } catch (...) {
+      ++g_audio.telemetry.playbackFailures;
+      SetError("effect loop registration allocation failed");
+      return false;
+    }
+    registeredHere = true;
+    ++g_audio.telemetry.loopRegistrations;
+    *token = assignedToken;
+    UpdateActiveLoopTelemetry();
+    if (!g_audio.telemetry.deviceReady) {
+      ++g_audio.telemetry.deferredLoopRegistrations;
+      return true;
+    }
+  } else if (looping) {
+    const auto registration = g_audio.loops.find(recoveredToken);
+    if (registration == g_audio.loops.end() ||
+        registration->second.clipKey != key) {
+      ++g_audio.telemetry.playbackFailures;
+      SetError("effect loop recovery token was not registered");
+      return false;
+    }
+  } else if (!g_audio.telemetry.deviceReady) {
+    ++g_audio.telemetry.playbackFailures;
+    SetError("one-shot playback requested without an audio device");
+    return false;
+  } else {
+    assignedToken = g_audio.nextToken++;
+    if (assignedToken == 0) assignedToken = g_audio.nextToken++;
+  }
+
+  const auto rollbackRegistration = [&]() {
+    if (registeredHere) {
+      g_audio.loops.erase(assignedToken);
+      *token = 0;
+      UpdateActiveLoopTelemetry();
+    }
+  };
   VoiceSlot* slot = nullptr;
   for (VoiceSlot& candidate : g_audio.voices) {
     if (candidate.voice == nullptr) {
@@ -346,6 +425,7 @@ bool StartCachedClip(const std::string& key,
     ++g_audio.telemetry.voiceStealsPrevented;
     ++g_audio.telemetry.playbackFailures;
     SetError("effect voice limit reached; an active voice was not stolen");
+    rollbackRegistration();
     return false;
   }
 
@@ -366,6 +446,15 @@ bool StartCachedClip(const std::string& key,
     slot->voice = nullptr;
     ++g_audio.telemetry.playbackFailures;
     SetError("XAudio2 source voice could not be created", result);
+    rollbackRegistration();
+    return false;
+  }
+  result = slot->voice->SetVolume(boundedIntensity, XAUDIO2_COMMIT_NOW);
+  if (FAILED(result)) {
+    SetError("XAudio2 source intensity could not be applied", result);
+    ++g_audio.telemetry.playbackFailures;
+    DestroyVoice(slot, false, false);
+    rollbackRegistration();
     return false;
   }
   XAUDIO2_BUFFER buffer = {};
@@ -373,20 +462,31 @@ bool StartCachedClip(const std::string& key,
   buffer.AudioBytes = static_cast<UINT32>(clip.wav.samples.size());
   buffer.pAudioData = clip.wav.samples.data();
   buffer.pContext = slot;
+  if (looping) buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
   slot->finished.store(false);
   slot->failed.store(false);
-  slot->token = g_audio.nextToken++;
-  if (slot->token == 0) slot->token = g_audio.nextToken++;
+  slot->clipKey = key;
+  slot->intensity = boundedIntensity;
+  slot->looping = looping;
+  slot->token = assignedToken;
   result = slot->voice->SubmitSourceBuffer(&buffer);
   if (SUCCEEDED(result)) result = slot->voice->Start();
   if (FAILED(result)) {
     SetError("XAudio2 effect buffer could not be started", result);
     ++g_audio.telemetry.playbackFailures;
-    DestroyVoice(slot, false);
+    DestroyVoice(slot, false, false);
+    rollbackRegistration();
     return false;
   }
   *token = slot->token;
   ++g_audio.telemetry.playbackStarts;
+  if (looping) {
+    if (deviceRecovery)
+      ++g_audio.telemetry.loopRestarts;
+    else
+      ++g_audio.telemetry.loopStarts;
+  }
+  UpdateActiveLoopTelemetry();
   return true;
 }
 
@@ -400,16 +500,23 @@ bool BackendStart(void*, const SSoundStatePlaybackRequest* request,
   if (request == nullptr ||
       !ValidAuthoredSoundPath(request->fileName, &key))
     return false;
-  return StartCachedClip(key, token);
+  return StartCachedClip(key, request->intensity,
+                         request->playCount == 0, token);
 }
 
 void BackendStop(void*, SoundStatePlaybackToken token) {
   if (token == 0) return;
+  const bool registeredLoop = g_audio.loops.find(token) != g_audio.loops.end();
   for (VoiceSlot& slot : g_audio.voices) {
     if (slot.voice != nullptr && slot.token == token) {
-      DestroyVoice(&slot, false);
-      return;
+      DestroyVoice(&slot, false, true);
+      break;
     }
+  }
+  if (registeredLoop) {
+    g_audio.loops.erase(token);
+    ++g_audio.telemetry.loopStops;
+    UpdateActiveLoopTelemetry();
   }
 }
 
@@ -424,6 +531,71 @@ void BackendSetActive(void*, bool active) {
 
 void BackendMaintain(void*) { WindowsAudioRuntime_Maintain(); }
 
+bool InstallSyntheticProbeClip(unsigned int milliseconds) {
+  if (!g_audio.telemetry.configured || milliseconds < 100u ||
+      milliseconds > 2000u)
+    return false;
+  const std::uint32_t sampleRate = 22050u;
+  const std::size_t sampleCount =
+      static_cast<std::size_t>(sampleRate) * milliseconds / 1000u;
+  CachedClip clip;
+  clip.wav.channels = 1u;
+  clip.wav.bitsPerSample = 16u;
+  clip.wav.sampleRate = sampleRate;
+  clip.wav.blockAlign = 2u;
+  clip.wav.averageBytesPerSecond = sampleRate * 2u;
+  try {
+    clip.wav.samples.resize(sampleCount * 2u);
+  } catch (...) {
+    return false;
+  }
+  for (std::size_t index = 0; index < sampleCount; ++index) {
+    const double phase = 2.0 * 3.14159265358979323846 * 440.0 *
+                         static_cast<double>(index) /
+                         static_cast<double>(sampleRate);
+    const short sample = static_cast<short>(std::sin(phase) * 8192.0);
+    clip.wav.samples[index * 2u] =
+        static_cast<std::uint8_t>(sample & 0xff);
+    clip.wav.samples[index * 2u + 1u] =
+        static_cast<std::uint8_t>((sample >> 8) & 0xff);
+  }
+  std::vector<SoundStatePlaybackToken> loopTokens;
+  for (const auto& entry : g_audio.loops)
+    loopTokens.push_back(entry.first);
+  for (SoundStatePlaybackToken loopToken : loopTokens)
+    BackendStop(nullptr, loopToken);
+  DestroyAllVoices(true);
+  const auto existing = g_audio.clips.find(kSyntheticProbeKey);
+  if (existing != g_audio.clips.end()) g_audio.clips.erase(existing);
+  g_audio.clips.emplace(kSyntheticProbeKey, std::move(clip));
+  return true;
+}
+
+bool RecoverDeviceAndLoops(HRESULT deviceError) {
+  if (!g_audio.telemetry.configured || !g_audio.telemetry.deviceReady)
+    return false;
+  ++g_audio.telemetry.deviceLosses;
+  SetError("XAudio2 reported a critical device error", deviceError);
+  DestroyDevice(false);
+  if (!g_audio.telemetry.physicalOutputEnabled || !InitializeDevice()) {
+    g_audio.telemetry.loopRecoveryFailures +=
+        static_cast<unsigned int>(g_audio.loops.size());
+    return false;
+  }
+  ++g_audio.telemetry.deviceRecoveries;
+  bool exact = true;
+  for (const auto& entry : g_audio.loops) {
+    const LoopRegistration& loop = entry.second;
+    SoundStatePlaybackToken restored = 0;
+    if (!StartCachedClip(loop.clipKey, loop.intensity, true, &restored,
+                         loop.token, true) || restored != loop.token) {
+      ++g_audio.telemetry.loopRecoveryFailures;
+      exact = false;
+    }
+  }
+  return exact;
+}
+
 }  // namespace
 
 bool WindowsAudioRuntime_Configure(float effectsVolume,
@@ -433,7 +605,7 @@ bool WindowsAudioRuntime_Configure(float effectsVolume,
     return false;
   g_audio.telemetry = {};
   g_audio.telemetry.configured = true;
-  g_audio.telemetry.physicalOutputEnabled = enablePhysicalOutput;
+  g_audio.telemetry.physicalOutputEnabled = false;
   g_audio.telemetry.applicationActive = true;
   g_audio.telemetry.effectsVolume = effectsVolume;
   g_audio.nextToken = 1;
@@ -451,18 +623,39 @@ bool WindowsAudioRuntime_Configure(float effectsVolume,
     SetError("maintained sound-state backend boundary was unavailable");
     return false;
   }
-  if (enablePhysicalOutput && AcquireDeviceCom()) (void)InitializeDevice();
+  if (enablePhysicalOutput) (void)WindowsAudioRuntime_EnablePhysicalOutput();
   return true;
+}
+
+bool WindowsAudioRuntime_EnablePhysicalOutput() {
+  if (!g_audio.telemetry.configured) return false;
+  if (g_audio.telemetry.physicalOutputEnabled)
+    return g_audio.telemetry.deviceReady;
+  g_audio.telemetry.physicalOutputEnabled = true;
+  if (!AcquireDeviceCom() || !InitializeDevice()) return false;
+  bool exact = true;
+  for (const auto& entry : g_audio.loops) {
+    const LoopRegistration& loop = entry.second;
+    SoundStatePlaybackToken materialized = 0;
+    if (!StartCachedClip(loop.clipKey, loop.intensity, true, &materialized,
+                         loop.token, false) || materialized != loop.token) {
+      ++g_audio.telemetry.loopRecoveryFailures;
+      exact = false;
+    }
+  }
+  return exact;
 }
 
 void WindowsAudioRuntime_Shutdown() {
   if (!g_audio.telemetry.configured) return;
   SoundState_ClearBackend(&g_audio);
-  DestroyDevice();
+  DestroyDevice(true);
   if (g_audio.comOwned) CoUninitialize();
   g_audio.comOwned = false;
   g_audio.clips.clear();
+  g_audio.loops.clear();
   g_audio.telemetry.cachedSampleBytes = 0;
+  g_audio.telemetry.activeLoopRegistrations = 0;
   g_audio.telemetry.configured = false;
 }
 
@@ -472,11 +665,7 @@ void WindowsAudioRuntime_Maintain() {
   ReapVoices();
   HRESULT deviceError = S_OK;
   if (!g_audio.engineCallback.TakeCritical(&deviceError)) return;
-  ++g_audio.telemetry.deviceLosses;
-  SetError("XAudio2 reported a critical device error", deviceError);
-  DestroyDevice();
-  if (g_audio.telemetry.physicalOutputEnabled && InitializeDevice())
-    ++g_audio.telemetry.deviceRecoveries;
+  (void)RecoverDeviceAndLoops(deviceError);
 }
 
 void WindowsAudioRuntime_SetApplicationActive(bool active) {
@@ -508,39 +697,36 @@ const SWindowsAudioRuntimeTelemetry* WindowsAudioRuntime_Telemetry() {
 }
 
 bool WindowsAudioRuntime_StartListeningProbe(unsigned int milliseconds) {
-  if (!g_audio.telemetry.configured || !g_audio.telemetry.deviceReady ||
-      milliseconds < 100u || milliseconds > 2000u)
+  if (!g_audio.telemetry.deviceReady ||
+      !InstallSyntheticProbeClip(milliseconds))
     return false;
-  const std::uint32_t sampleRate = 22050u;
-  const std::size_t sampleCount =
-      static_cast<std::size_t>(sampleRate) * milliseconds / 1000u;
-  CachedClip clip;
-  clip.wav.channels = 1u;
-  clip.wav.bitsPerSample = 16u;
-  clip.wav.sampleRate = sampleRate;
-  clip.wav.blockAlign = 2u;
-  clip.wav.averageBytesPerSecond = sampleRate * 2u;
-  try {
-    clip.wav.samples.resize(sampleCount * 2u);
-  } catch (...) {
-    return false;
-  }
-  for (std::size_t index = 0; index < sampleCount; ++index) {
-    const double phase = 2.0 * 3.14159265358979323846 * 440.0 *
-                         static_cast<double>(index) /
-                         static_cast<double>(sampleRate);
-    const short sample = static_cast<short>(std::sin(phase) * 8192.0);
-    clip.wav.samples[index * 2u] =
-        static_cast<std::uint8_t>(sample & 0xff);
-    clip.wav.samples[index * 2u + 1u] =
-        static_cast<std::uint8_t>((sample >> 8) & 0xff);
-  }
-  DestroyAllVoices();
-  const auto existing = g_audio.clips.find(kSyntheticProbeKey);
-  if (existing != g_audio.clips.end()) g_audio.clips.erase(existing);
-  g_audio.clips.emplace(kSyntheticProbeKey, std::move(clip));
   SoundStatePlaybackToken token = 0;
-  return StartCachedClip(kSyntheticProbeKey, &token);
+  return StartCachedClip(kSyntheticProbeKey, 1.0f, false, &token);
+}
+
+bool WindowsAudioRuntime_StartLoopingProbe(unsigned int milliseconds) {
+  if (!InstallSyntheticProbeClip(milliseconds)) return false;
+  SoundStatePlaybackToken token = 0;
+  return StartCachedClip(kSyntheticProbeKey, 1.0f, true, &token);
+}
+
+bool WindowsAudioRuntime_StopListeningProbe() {
+  bool stopped = false;
+  std::vector<SoundStatePlaybackToken> tokens;
+  for (const VoiceSlot& slot : g_audio.voices)
+    if (slot.voice != nullptr && slot.clipKey == kSyntheticProbeKey)
+      tokens.push_back(slot.token);
+  for (SoundStatePlaybackToken token : tokens) {
+    if (g_audio.loops.find(token) != g_audio.loops.end())
+      BackendStop(nullptr, token);
+    else {
+      for (VoiceSlot& slot : g_audio.voices)
+        if (slot.voice != nullptr && slot.token == token)
+          DestroyVoice(&slot, false, true);
+    }
+    stopped = true;
+  }
+  return stopped;
 }
 
 bool WindowsAudioRuntime_ListeningProbeActive() {
@@ -548,6 +734,10 @@ bool WindowsAudioRuntime_ListeningProbeActive() {
   for (const VoiceSlot& slot : g_audio.voices)
     if (slot.voice != nullptr) return true;
   return false;
+}
+
+bool WindowsAudioRuntime_TestOnlySimulateDeviceLoss() {
+  return RecoverDeviceAndLoops(E_FAIL);
 }
 
 }  // namespace rr2nw

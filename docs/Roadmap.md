@@ -2203,14 +2203,17 @@ continue after restart. Then extend to a complete retail campaign pass.
 
 ### Frontier G: audio and presentation
 
-The first maintained Windows audio slice is complete. Exact flags-0
-`SoundObj START(1)` requests now reach an XAudio2 2.9 Effects submix through a
-bounded PCM cache, non-blocking voices, focus/device-loss lifecycle and
-schema-4 Effects volume. Headless tests do not open a device; a separate
-physical gate proves silent initialization and one generated tone. This is not
-yet full sound parity: streamed dialogue/music, FLIC/UI, Vehicle/Farter/Taxi
-loops, listener-distance behavior and authored 3D emitter semantics remain
-separate evidence-driven slices.
+The first two maintained Windows audio slices are complete. Exact flags-0
+`SoundObj START(1)` requests and source-proven `START(0)`/`END` loops now reach
+an XAudio2 2.9 Effects submix through a bounded PCM cache, non-blocking voices,
+stable no-steal loop registrations, focus/device-loss recovery and schema-4
+Effects volume. Startup verification keeps the device closed and materializes
+only loops still live on entry to the interactive frame loop. Level.04D closes
+the 23 authored Farter emitters through near/far entry, exact stop and Level
+teardown; a separate generated-loop gate proves physical recovery. This is not
+yet full sound parity: streamed dialogue/music, FLIC/UI, Vehicle pitch, moving
+emitters, listener-distance attenuation, panning and authored 3D semantics
+remain separate evidence-driven slices.
 
 Continue profiling slow Levels and separate simulation cadence from
 software-render cost; flying units are a measurement target, not a presumed
@@ -2269,15 +2272,15 @@ existing May behavior and continuation gates.
 ### 2026-08-07 readiness snapshot toward 1.0
 
 These percentages are planning estimates, not release claims. Functional
-implementation is approximately **83%** of the Windows-first 1.0 scope; strict
-release readiness is approximately **69-73%** because a full campaign and the
+implementation is approximately **84%** of the Windows-first 1.0 scope; strict
+release readiness is approximately **70-74%** because a full campaign and the
 packaged Windows 10/11 manual gates have not yet passed.
 
 | Milestone | Estimate | Evidence already owned | Principal remainder |
 |---|---:|---|---|
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
-| M2 Windows platform/stability | 76% | native window/input, focus neutralization, frame profiling, DPI-aware exclusive display ownership/recovery, exact SEH minidump/manifest diagnostics and maintained XAudio2 2.9 cached one-shot Effects output | streaming/loop/spatial/vehicle/UI/cinematic audio, prolonged multi-monitor/Win10/Win11 presentation soak, legacy fatal/assert consolidation and sanitizer coverage |
+| M2 Windows platform/stability | 79% | native window/input, focus neutralization, frame profiling, DPI-aware exclusive display ownership/recovery, exact SEH minidump/manifest diagnostics and maintained XAudio2 2.9 cached one-shot plus authored Farter loop lifetime | streaming/spatial/moving/Vehicle/UI/cinematic audio, prolonged multi-monitor/Win10/Win11 presentation soak, legacy fatal/assert consolidation and sanitizer coverage |
 | M2.5 in-game shell/settings | 99% | sole ordinary in-frame shell, typed eight-slot Save/Load/restart with asynchronous thumbnails and explicit compatibility states, 26 contextual bindings, retail-bounded mouse X/Y/invert, windowed/borderless/exclusive 4:3 presentation with timed rollback, atomic schema-4 settings/schema-1/2/3 migration/safe mode, owned Effects volume, full fail-closed typed Developer catalog and explicitly isolated native diagnostic fallback | packaged multi-monitor Win10/Win11 acceptance |
 | M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-one no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains from the documented S03 handoff, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
@@ -2290,8 +2293,9 @@ The shortest critical path is:
    Controls, Video rollback and explicit Developer capability;
 2. repeat visible People/Tank/guide motion and manually validate cinematic
    timing/skip, then finish the remaining campaign-specific commands;
-3. widen maintained audio from cached one-shots to proven loop/spatial/stream
-   owners, consolidate the remaining explicit legacy fatal paths and finish
+3. widen maintained audio from cached one-shots and proven Farter loops to an
+   evidence-backed listener/emitter model, moving/Vehicle and stream owners;
+   consolidate the remaining explicit legacy fatal paths and finish
    window/focus/performance stability;
 4. complete replay/import/mod UX gates;
 5. freeze a package and run the full Windows 10 plus extended Windows 11

@@ -136,6 +136,10 @@ foreach ($configurationName in $Configuration) {
             $loadLog["cross_level_load_commit"] -ine $TargetLevel) {
             $issues.Add("cross-Level commit marker missing")
         }
+        if (-not $loadLog.ContainsKey("cross_level_audio_source_teardown") -or
+            $loadLog["cross_level_audio_source_teardown"] -notmatch '^\d+/0/0$') {
+            $issues.Add("source Level retained a physical/logical audio loop")
+        }
         if (-not $loadLog.ContainsKey("level_briefing_policy") -or
             $loadLog["level_briefing_policy"] -ne "suppressed" -or
             -not $loadLog.ContainsKey("cross_load_target_level_briefing_policy") -or

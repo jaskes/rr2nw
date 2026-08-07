@@ -122,6 +122,9 @@ foreach ($configurationName in $Configuration) {
                 [regex]::Escape($targetName))) {
             $issues.Add("transactional Level switch proof missing")
         }
+        if ($startup -notmatch 'portal_audio_source_teardown=\d+/0/0') {
+            $issues.Add("source Level retained a physical/logical audio loop")
+        }
         $expectedCompletion = if ($sourceIndex -eq 8) { 1 } else { 0 }
         if ($startup -notmatch "portal_campaign_completion=$expectedCompletion") {
             $issues.Add("campaign completion branch changed")

@@ -5331,7 +5331,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 ### CQ-259: authored sound state and physical audio output have separate owners
 
 - Status: `XAUDIO2_2_9_DEVICE_OWNER_CONFIRMED`,
-  `CACHED_PCM_EFFECTS_PLAYABLE`, `STREAM_LOOP_SPATIAL_DEFERRED`.
+  `CACHED_PCM_EFFECTS_AND_LOOPS_PLAYABLE`, `STREAM_SPATIAL_DEFERRED`.
 - Evidence: the archived Intel RSX owner is not linked into the maintained
   executable. `WAVObj` retains the authored `..\SOUND\<name>.wav`, emitter
   model and `LoadWAVEx` flag; `SoundObj` retains `SET_WAV`, `MOVE_TO`,
@@ -5348,7 +5348,10 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   stealing a live voice. Callback completion is reaped on the frame owner.
   Device loss rebuilds the physical voices, focus suspends/resumes the engine,
   and the backend retains its own COM reference through Level teardown.
-  Audio failure never changes simulation, mission or save state.
+  Stable source-proven `START(0)` registrations share that bounded pool and
+  survive deferred device creation/focus/device loss until exact `END` or
+  object teardown. Audio failure never changes simulation, mission or save
+  state.
 - Verification: synthetic parser fixtures reject malformed RIFF, compressed
   format and duplicate data chunks. A fake backend proves admission,
   one-shot/start/stop/focus/volume/rollback without a device. Installed
@@ -5356,14 +5359,58 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   streams and reaches clean shutdown with zero service issues. The explicit
   physical gate separately proves silent device creation and one completed
   500 ms generated tone; it is excluded from CTest so CI never needs speakers
-  or emits sound. Three real Portal transitions retain the process cache across
-  Level teardown (up to 46 unique clips) with zero rejected admissions.
+  or emits sound. The loop extension separately proves a deferred generated
+  loop, focus suspension, device-loss reconstruction and exact stop. Three
+  real Portal transitions retain the process cache across Level teardown (up
+  to 46 unique clips) with zero rejected admissions.
 - Boundary: schema 4 exposes only `Gameplay effects volume`. Streamed speech,
-  music, FLIC audio, UI, vehicle engine loops, audible-zone attenuation and
-  authored 3D emitter semantics remain unsupported and are not synthesized.
+  music, FLIC audio, UI, Vehicle engine pitch, local distance attenuation,
+  panning and authored 3D emitter semantics remain unsupported and are not
+  synthesized.
 - Revisit when: the listener/Vehicle owner is stable enough to map emitter
   positions, loop lifecycle is proven per class, or a maintained streaming and
   cinematic clock owner exists.
+
+### CQ-260: zero-count cached playback is an infinite authored loop
+
+- Status: `START_ZERO_SEMANTICS_CONFIRMED`,
+  `FARTER_AUDIBLE_ZONE_LIFECYCLE_CONNECTED`,
+  `SPATIAL_CURVE_NOT_CLAIMED`.
+- Evidence: archived `RSX.H` names the cached-emitter argument `nLoops`;
+  `Farter::onEnterAudibleZone()` sends `snd_EV_START` with integer zero and
+  `onExitAudibleZone()` sends `snd_EV_END`. `ct_Arena::render()` owns the
+  global `distanceSquared < snd_distMax2` transition and the installed
+  `game.cfg` establishes `DistMax=300`. Level.04D authors 23 Farter objects
+  from four cached WAV attributes: Factory/Factory2 `50..200 @ 1.0`, Steam1
+  `15..100 @ 1.0` and Windmill `50..150 @ 0.7`. The archived Vehicle path also
+  uses `RSX_PLAY, 0` with explicit stop, independently excluding a zero-play
+  interpretation.
+- Handling: the neutral bridge accepts only count 0 or 1. Count 0 creates a
+  stable loop registration and count greater than 1 stays fail-closed until
+  finite-repeat semantics are required by authored data. Startup verification
+  keeps XAudio2 closed: registrations are valid and stoppable without a
+  device, then surviving registrations materialize only on entry to the real
+  interactive loop. Physical voices use `XAUDIO2_LOOP_INFINITE` and authored
+  intensity. Focus pauses the engine; device loss rebuilds still-live loops;
+  END/rollback/Level teardown remove the registration and physical voice.
+- Verification: the fake SoundObj backend proves SET_WAV/MOVE_TO/START(0),
+  token ownership and parent rollback. `Invoke-FarterAudioLoop.ps1` proves
+  Level.04D `23/23/23`, a real near/far `1/0` transition, the invariant
+  `stopped + active registrations = requests`, and post-Level `29/0/0` cleanup
+  in every maintained configuration. The opt-in generated-tone gate proves
+  deferred registration, one physical loop, focus suspend/resume, one forced
+  loss/recovery/restart and exact stop with no recovery failure. Portal 9/9
+  and cross-Level Save/Load 2/2 additionally require the source-Level teardown
+  telemetry to end in zero physical voices and zero logical registrations.
+- Boundary: global DistMax selects audible objects, but the retained RSX
+  min/max ellipsoid values are not mapped to an invented XAudio2 curve and no
+  panning/HRTF claim is made. Taxi/Orphan/People/Tank inherit the generic
+  START(0)/END bridge, but only Farter is closed end-to-end here. Streaming,
+  moving-source updates, Vehicle pitch and category expansion remain separate
+  rows.
+- Revisit when: an exact listener/emitter transform owner and a defensible
+  attenuation/panning mapping are recovered, or a moving class receives its
+  own complete Level/save/Portal acceptance.
 
 ## Maintenance rule
 

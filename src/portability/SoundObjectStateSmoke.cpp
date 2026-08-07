@@ -6,6 +6,7 @@
 #include "kernel/h/context.h"
 #include "kernel/h/session.h"
 #include "message/skinmsg.h"
+#include "message/sndmsg.h"
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
 #include "storage/h/subject.h"
@@ -16,6 +17,8 @@ namespace {
 struct FakeAudioBackend {
   unsigned int admissions = 0;
   unsigned int starts = 0;
+  unsigned int oneShots = 0;
+  unsigned int loops = 0;
   unsigned int stops = 0;
   unsigned int volumes = 0;
   unsigned int focusChanges = 0;
@@ -37,11 +40,15 @@ bool FakeStart(void* owner, const SSoundStatePlaybackRequest* request,
                SoundStatePlaybackToken* token) {
   FakeAudioBackend* backend = static_cast<FakeAudioBackend*>(owner);
   if (request == nullptr || token == nullptr || request->flags != 0 ||
-      request->playCount != 1 ||
+      (request->playCount != 0 && request->playCount != 1) ||
       std::strcmp(request->fileName,
                   "..\\SOUND\\soundobj-probe.wav") != 0)
     return false;
   ++backend->starts;
+  if (request->playCount == 0)
+    ++backend->loops;
+  else
+    ++backend->oneShots;
   *token = 0x5252324e57000000ull + backend->starts;
   return true;
 }
@@ -132,6 +139,33 @@ bool RunCycle(unsigned long long* expectedFingerprint,
       backend->starts == startsBefore + 1u &&
       SoundObjectState_RollbackOwned(&context, &oneShot) &&
       backend->stops == stopsBefore + 1u && oneShot.isNUL();
+  KR_ObjectID loopRollback =
+      g_arena.newObject(soundTable, "SoundObj.Loop.Rollback");
+  KR_Event loopEvent;
+  loopEvent.label = snd_EV_SET_WAV;
+  loopEvent.source = g_arena.getObjectID();
+  loopEvent.destination = loopRollback;
+  loopEvent.timeStamp = 0.1;
+  loopEvent.data.open(EDO_WRITE)
+      .put(&loadedWav, sizeof(loadedWav))
+      .close();
+  context.sendEventNow(loopEvent);
+  loopEvent.label = snd_EV_MOVE_TO;
+  loopEvent.data.open(EDO_WRITE)
+      .putDouble(4.0)
+      .putDouble(5.0)
+      .putDouble(6.0)
+      .close();
+  context.sendEventNow(loopEvent);
+  loopEvent.label = snd_EV_START;
+  loopEvent.data.open(EDO_WRITE).putInt(0).close();
+  context.sendEventNow(loopEvent);
+  const bool maintainedLoopRollback =
+      SoundObjectState_Matches(loopRollback, loadedWav,
+                               4.0, 5.0, 6.0, true, true, 0) &&
+      SoundObjectState_RollbackOwned(&context, &loopRollback) &&
+      loopRollback.isNUL() && backend->starts == startsBefore + 2u &&
+      backend->stops == stopsBefore + 2u;
   const unsigned long long fingerprint =
       SoundObjectState_Fingerprint(&context);
   const bool stable = fingerprint != 0 &&
@@ -148,23 +182,25 @@ bool RunCycle(unsigned long long* expectedFingerprint,
       !context.isExist("wav.SoundObj.Probe") &&
       !context.isExist("snd.snd");
   if (!constructed || !missingRejected || !lifecycle ||
-      !maintainedOneShot || !stable ||
+      !maintainedOneShot || !maintainedLoopRollback || !stable ||
       !released) {
     std::fprintf(stderr,
                  "sound-object-state-smoke: stage "
                  "constructed=%d missing=%d lifecycle=%d stable=%d "
-                 "oneshot=%d released=%d fingerprint=%llu "
+                 "oneshot=%d loop_rollback=%d released=%d fingerprint=%llu "
                  "wav_table=%d wav_null=%d wav_loaded=%d device_free=%d "
                  "sound_table=%d capacity=%d live=%d\n",
                  constructed ? 1 : 0, missingRejected ? 1 : 0,
                  lifecycle ? 1 : 0, stable ? 1 : 0,
-                 maintainedOneShot ? 1 : 0, released ? 1 : 0, fingerprint,
+                 maintainedOneShot ? 1 : 0,
+                 maintainedLoopRollback ? 1 : 0,
+                 released ? 1 : 0, fingerprint,
                  wavTable, wav.isNUL() ? 1 : 0,
                  wavLoaded ? 1 : 0, deviceFree ? 1 : 0,
                  soundTable, capacityBefore, liveBefore);
   }
   return constructed && missingRejected && lifecycle && maintainedOneShot &&
-         stable && released;
+         maintainedLoopRollback && stable && released;
 }
 
 }  // namespace
@@ -214,24 +250,37 @@ int main() {
   SSoundStatePlaybackRequest stream = {
       "..\\SOUND\\stream.wav", 1, 1, 1.0f};
   SSoundStatePlaybackRequest loop = {
-      "..\\SOUND\\loop.wav", 0, 0, 1.0f};
+      "..\\SOUND\\soundobj-probe.wav", 0, 0, 0.75f};
+  SSoundStatePlaybackRequest unsupportedRepeat = {
+      "..\\SOUND\\soundobj-probe.wav", 0, 2, 0.75f};
   SoundStatePlaybackToken unsupported = 0;
+  SoundStatePlaybackToken loopToken = 0;
   const SSoundStateTelemetry* telemetry = SoundState_Telemetry();
-  const bool bridgeExact = backend.admissions == 2u && backend.starts == 2u &&
-      backend.stops == 2u && backend.volumes == 2u &&
+  const bool streamRejected =
+      !SoundState_StartPlayback(&stream, &unsupported) && unsupported == 0;
+  const bool repeatRejected =
+      !SoundState_StartPlayback(&unsupportedRepeat, &unsupported) &&
+      unsupported == 0;
+  const bool explicitLoop =
+      SoundState_StartPlayback(&loop, &loopToken) && loopToken != 0;
+  SoundState_StopPlayback(&loopToken);
+  const bool bridgeExact = backend.admissions == 2u && backend.starts == 9u &&
+      backend.oneShots == 2u && backend.loops == 7u &&
+      backend.stops == 9u && backend.volumes == 2u &&
       backend.focusChanges == 2u && backend.maintains == 1u &&
       backend.active && backend.volume == 0.4f && telemetry != nullptr &&
-      !SoundState_StartPlayback(&stream, &unsupported) && unsupported == 0 &&
-      !SoundState_StartPlayback(&loop, &unsupported) && unsupported == 0 &&
+      streamRejected && repeatRejected && explicitLoop && loopToken == 0 &&
       telemetry->oneShotStarts == 2u &&
+      telemetry->loopRequests == 7u && telemetry->loopStarts == 7u &&
+      telemetry->loopFailures == 0u &&
       telemetry->unsupportedStreamStarts == 1u &&
-      telemetry->unsupportedLoopStarts >= 3u;
+      telemetry->unsupportedRepeatStarts == 1u;
   SoundState_ClearBackend(&backend);
   if (!bridgeExact || SoundState_BackendConfigured())
-    return Fail("maintained one-shot bridge was not exact or fail-closed");
+    return Fail("maintained one-shot/loop bridge was not exact or fail-closed");
   std::printf("sound distance=300/90000 invalid=transactional "
               "sound object table=SoundObj capacity=3 backend=callback-v1 "
-              "lifecycle=invalid-bind-updateSound-move-start-end-reuse-one-shot "
+              "lifecycle=invalid-bind-updateSound-move-start-end-reuse-one-shot-loop "
               "rollback=pool-name fingerprint=%llu\n",
               fingerprint);
   return EXIT_SUCCESS;

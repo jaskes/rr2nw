@@ -12,7 +12,7 @@ namespace
 const unsigned int kSoundStateBackendAbiVersion = 1u;
 SSoundStateBackend g_backend = {};
 SSoundStateTelemetry g_telemetry = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0f
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0f
 };
 
 bool ValidBackend(const SSoundStateBackend *backend)
@@ -84,7 +84,6 @@ bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
     if (token == NULL)
         return false;
     *token = 0;
-    ++g_telemetry.oneShotRequests;
     if (request == NULL || request->fileName == NULL ||
         request->fileName[0] == 0 || request->flags < 0 ||
         request->flags > 1 || request->playCount < 0 ||
@@ -98,19 +97,30 @@ bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
         ++g_telemetry.unsupportedStreamStarts;
         return false;
     }
-    if (request->playCount != 1)
+    if (request->playCount != 0 && request->playCount != 1)
     {
-        ++g_telemetry.unsupportedLoopStarts;
+        ++g_telemetry.unsupportedRepeatStarts;
         return false;
     }
+    const bool loop = request->playCount == 0;
+    if (loop)
+        ++g_telemetry.loopRequests;
+    else
+        ++g_telemetry.oneShotRequests;
     if (g_backend.owner == NULL ||
         !g_backend.start(g_backend.owner, request, token) || *token == 0)
     {
         *token = 0;
-        ++g_telemetry.oneShotFailures;
+        if (loop)
+            ++g_telemetry.loopFailures;
+        else
+            ++g_telemetry.oneShotFailures;
         return false;
     }
-    ++g_telemetry.oneShotStarts;
+    if (loop)
+        ++g_telemetry.loopStarts;
+    else
+        ++g_telemetry.oneShotStarts;
     return true;
 }
 

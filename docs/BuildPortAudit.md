@@ -4181,3 +4181,48 @@ physical in-frame shell passes 3/3, Level briefing 27/27, RecruitCenter
 presentation 3/3, Portal transition 9/9, representative reward campaign chains
 6/6 and cross-Level Save/Load 2/2. The separately explicit physical audio gate
 passes both silent `--device-check` and generated `--listen` modes.
+
+## Authored cached-loop lifetime boundary
+
+The next audio slice keeps the same neutral command bridge and adds only the
+loop meaning already present in source. `IRSXCachedEmitter::ControlMedia`
+labels its second parameter `nLoops`; Farter/Taxi/Orphan/People/Tank send
+`START(0)` on audible-zone entry and `END` on exit. The archival Vehicle engine
+also plays with zero and stops explicitly. Count zero is therefore an infinite
+owned loop, not an unsupported count or an immediate no-op. Counts greater
+than one remain rejected because no current recovered owner needs finite
+repeat playback.
+
+The XAudio2 owner now separates logical registrations from physical voices.
+A valid flags-0 loop receives one stable token while the startup verification
+graph deliberately keeps the device closed. Registrations that survive those
+probes materialize with `XAUDIO2_LOOP_INFINITE` immediately before the actual
+interactive frame loop. Device loss drops physical voices but preserves and
+restarts the same live registrations; focus only stops/starts the engine. END,
+SoundObj rollback, Level teardown and process shutdown remove the token and
+voice exactly. No token enters LCN1/RR2SLOT1 and no audio outcome changes a
+world transaction.
+
+Level.04D is the closed retail row. Its script creates 23 Farter objects backed
+by four cached WAV models: Steam1 15..100/intensity 1.0,
+Factory/Factory2 50..200/intensity 1.0 and Windmill 50..150/intensity 0.7.
+`Invoke-FarterAudioLoop.ps1` checks 23 script/live/SoundObj owners, near/far
+audibility 1/0, exact request/stop/live accounting and post-Level zero voices
+and registrations. A synthetic opt-in `--listen-loop` gate separately proves
+deferred device enable, one audible generated loop, focus, forced device-loss
+reconstruction and exact stop. It remains EXCLUDE_FROM_ALL and outside CTest.
+
+This is lifetime parity, not spatial parity. The source retains the camera
+listener transform and RSX inner/outer ellipsoid model, but the exact RSX
+attenuation and panning law has not survived as a maintained contract. The
+backend applies only authored normalized intensity and otherwise leaves the
+voice centered; global DistMax=300 still owns audible-zone entry/exit. Moving
+emitter updates, Vehicle engine pitch, flags-1 streaming, dialogue/music,
+FLIC and UI sound remain explicit follow-up work.
+
+The completed closure gate rebuilds Debug, Release and RelWithDebInfo, passes
+68/68 CTest in each, installed starts 27/27, Farter lifetime 3/3, in-frame
+shell 3/3, RecruitCenter presentation 3/3, Portal transitions 9/9 with explicit
+source audio teardown, representative campaign chains 6/6 and cross-Level
+Save/Load 2/2 with explicit source audio teardown. Silent device creation and
+the deferred generated-loop recovery gate pass in all three configurations.

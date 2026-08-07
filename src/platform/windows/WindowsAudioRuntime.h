@@ -20,6 +20,15 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int playbackRequests = 0;
   unsigned int playbackStarts = 0;
   unsigned int playbackFailures = 0;
+  unsigned int loopRequests = 0;
+  unsigned int loopRegistrations = 0;
+  unsigned int deferredLoopRegistrations = 0;
+  unsigned int loopStarts = 0;
+  unsigned int loopStops = 0;
+  unsigned int loopRestarts = 0;
+  unsigned int loopRecoveryFailures = 0;
+  unsigned int activeLoopVoices = 0;
+  unsigned int activeLoopRegistrations = 0;
   unsigned int voiceStealsPrevented = 0;
   unsigned int completedVoices = 0;
   unsigned int stoppedVoices = 0;
@@ -36,6 +45,10 @@ struct SWindowsAudioRuntimeTelemetry {
 // admission and telemetry remain available for diagnostics.
 bool WindowsAudioRuntime_Configure(float effectsVolume,
                                    bool enablePhysicalOutput);
+// Defers physical device creation until all startup-only gameplay probes have
+// completed. This prevents verification events from becoming audible while
+// still allowing their WAV resources to populate the process cache.
+bool WindowsAudioRuntime_EnablePhysicalOutput();
 void WindowsAudioRuntime_Shutdown();
 void WindowsAudioRuntime_Maintain();
 void WindowsAudioRuntime_SetApplicationActive(bool active);
@@ -45,6 +58,9 @@ const SWindowsAudioRuntimeTelemetry* WindowsAudioRuntime_Telemetry();
 // Explicit physical acceptance hook. It never runs in CTest or ordinary game
 // startup and uses a generated PCM tone rather than retail media.
 bool WindowsAudioRuntime_StartListeningProbe(unsigned int milliseconds);
+bool WindowsAudioRuntime_StartLoopingProbe(unsigned int milliseconds);
+bool WindowsAudioRuntime_StopListeningProbe();
 bool WindowsAudioRuntime_ListeningProbeActive();
+bool WindowsAudioRuntime_TestOnlySimulateDeviceLoss();
 
 }  // namespace rr2nw

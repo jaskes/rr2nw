@@ -22,9 +22,10 @@ bool SoundState_SetMaximumDistance(double maximumDistance);
 // Maintained physical playback is attached through this narrow callback
 // boundary.  Authored SoundObj state remains owned by the simulation and does
 // not depend on a device being present.  The first production backend admits
-// only cached PCM effects and START(1); streamed media, loops and spatial
-// semantics stay explicit unsupported branches until their owners are
-// recovered.
+// only cached PCM effects. START(1) is a one-shot and the source-proven
+// START(0)/END pair owns a long-lived loop. Streamed media, positional
+// attenuation and spatialization stay explicit unsupported branches until
+// their owners are recovered.
 enum ESoundStateCategory
 {
     SOUND_STATE_CATEGORY_EFFECTS = 0,
@@ -64,8 +65,11 @@ struct SSoundStateTelemetry
     unsigned int oneShotRequests;
     unsigned int oneShotStarts;
     unsigned int oneShotFailures;
+    unsigned int loopRequests;
+    unsigned int loopStarts;
+    unsigned int loopFailures;
     unsigned int unsupportedStreamStarts;
-    unsigned int unsupportedLoopStarts;
+    unsigned int unsupportedRepeatStarts;
     unsigned int stops;
     unsigned int focusChanges;
     unsigned int maintenanceCalls;
