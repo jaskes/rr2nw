@@ -1820,7 +1820,7 @@ The ordinary no-reward regression gate is now 21/21 across Debug, Release and
 RelWithDebInfo. Level.04D also owns a separate 6/6 one-step
 result/save/fresh-load gate and a 3/3 persisted Actek progression gate. The
 latter proves
-`ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08`,
+`ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08 -> ProjectAER10`,
 completes S04's eight, S07's ten effective, S10's single, S05's six, A26's
 four kill plus four reached, S09's seven and S06's single kill conditions,
 contains the duplicate
@@ -1843,6 +1843,10 @@ is introduced. AER06 then retains all five live kill targets from its 26-owner
 transaction, completes ordinary no-reward progression at cumulative count ten,
 selects exact AER08 and repeats the same exact slot-8 overwrite/fresh-restore
 contract without borrowing AER04's transaction-satisfied Taxi exception. That
+contract then continues through AER08's six live People/Tank targets: its
+ordinary no-reward result reaches cumulative count eleven, selects exact AER10
+and proves rollback/reapply plus another exact same-slot-8 fresh restore. AER10
+is a candidate boundary only; its own mission graph remains the next slice. That
 deep continuation also exposed and closed the January context bug that ignored
 an occupied stable-ID cache position: exact restore now fails closed, rolls a
 provisional class-table owner back and proves clean teardown after AER06. The
@@ -2126,7 +2130,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, sixteen no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains beginning with Actek AER08, visible AI/guide/cinematic parity and complete campaign proof |
+| M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, seventeen no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains beginning with Actek AER10, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |

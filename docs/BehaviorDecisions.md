@@ -6066,3 +6066,25 @@ It may not recycle the same memory while an older context slot still points to
 it. The retained Level.04D TankGroup floor remains independent policy: atomic
 eviction prevents corruption, while the floor prevents valid accumulated
 campaign population from being discarded.
+
+### BD-183: AER08 remains an ordinary no-reward slot-8 continuation
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectAER08`.
+
+The installed AER08 Project owns six success kills and no command-35 reward.
+Its mission script creates all six target owners live: three Colony People and
+three Colony Tank units. They use the ordinary symbolic-reference admission
+path; no transaction-satisfied tombstone or capacity-limited objective is
+permitted. The Project's separately constructed Howitzer is population, not a
+success condition or reward.
+
+Successful result processing repairs/refills, removes only AER08 mission/map/
+check state, increments cumulative count to eleven and lets unchanged Project
+table order select exact `ProjectAER10`. It creates no Artifact or Portal and
+does not interpret `PRIOR_LEV` as a transition. AER10 remains only a proved
+candidate until its own script and result graph are recovered separately.
+
+The automated chain must explicitly load and overwrite public slot 8, match
+the committed fingerprint in a fresh process and prove pre-result rollback plus
+committed reapply. This is the same bounded test orchestration accepted for
+AER04/AER06; it adds neither a ninth slot nor a private checkpoint format.
