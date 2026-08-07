@@ -4821,6 +4821,29 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   mission condition sets. At that point an opt-in modern ruleset may require
   all 11 kills without silently changing retail campaign behavior.
 
+### CQ-239: S10's executable graph is no-reward and advances to S05
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`, `PERSISTED_PROGRESSION_RESTORED`,
+  `COMMENT_ONLY_REWARD_REJECTED`.
+- Evidence: installed Level.04D `CreateProjectS10` authors one success kill
+  (`c.unit.ms10.an00`), Commander `Actek`, MissionInfo `3`, route
+  `Route/S10/ms.rt` and `Brief/ms10.sc`; it contains no `p_GiveArtefact`.
+  Installed `MS10.SC` has SHA-256
+  `55744D1F93D1E47F3C227DE9CCA6EC3D3A855ADB66D024BB63CD3C44686B4DEA`.
+  After three prior completions, retail eligibility chooses S10; after its
+  fourth completion the exact next candidate is Actek `ProjectS05`, whose
+  authored MissionInfo is `4`.
+- Handling: execute S10's 32-owner mission transaction, two reclaimed Routes,
+  seven occupied Howitzers and single rebound objective. Result revisit removes
+  only S10, repairs/refills without Artifact/Portal, exposes S05, and preserves
+  count four across rollback, reapply, save and fresh load.
+- Rejected alternative: the handwritten `artefact` note beside the later
+  `CreateProjectS05()` registration is not a Project command. It cannot be used
+  to attach a reward to S10 or to decide S05's eventual result behavior.
+- Verification: the maintained Actek chain now crosses four result saves and
+  independently compares slot-2, slot-3 and slot-4 fresh world fingerprints in
+  Debug, Release and RelWithDebInfo.
+
 ## Maintenance rule
 
 When a new quirk is found:

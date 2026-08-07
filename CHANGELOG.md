@@ -7,6 +7,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the persisted Level.04D Actek chain through `ProjectS10` and exact
+  successor `ProjectS05`. S10 now executes installed `MS10.SC`, creates its
+  complete 32-owner graph, reclaims two authored Routes, binds seven ready
+  Howitzers and completes the real antenna objective without synthesizing an
+  Artifact or Portal. The result preserves cumulative mission count four,
+  exact rollback/reapply and a slot-4 fresh fingerprint in all maintained
+  configurations. The acceptance gate also pins S10's explicit Commander,
+  MissionInfo, single kill and absent `p_GiveArtefact` command, plus S05's
+  exact next eligibility instead of inferring campaign behavior from nearby
+  handwritten comments.
 - Extended the persisted Level.04D Actek chain through `ProjectS07` and exact
   successor `ProjectS10`. S07 now creates its complete 32-owner script graph,
   five occupied Howitzers and ten effective kill conditions, then survives

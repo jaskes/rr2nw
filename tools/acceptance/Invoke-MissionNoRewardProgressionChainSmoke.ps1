@@ -45,6 +45,33 @@ if ($s07KillCount -ne 11) {
     throw "Retail ProjectS07 evidence changed: expected 11 kill commands, found $s07KillCount"
 }
 $s07MissionHash = (Get-FileHash -LiteralPath $s07MissionScript -Algorithm SHA256).Hash
+$s10MissionScript = Join-Path $DataRoot "Level.04D\BRIEF\MS10.SC"
+if (-not (Test-Path -LiteralPath $s10MissionScript -PathType Leaf)) {
+    throw "Level.04D S10 mission script not found: $s10MissionScript"
+}
+$s10Project = [regex]::Match(
+    $briefSource,
+    'func void CreateProjectS10\(\)(?<body>.*?)// ---------------------- End of mission projects',
+    [Text.RegularExpressions.RegexOptions]::Singleline)
+$s05Project = [regex]::Match(
+    $briefSource,
+    'func void CreateProjectS05\(\)(?<body>.*?)func void CreateProject',
+    [Text.RegularExpressions.RegexOptions]::Singleline)
+$s10Body = if ($s10Project.Success) { $s10Project.Groups['body'].Value } else { "" }
+$s05Body = if ($s05Project.Success) { $s05Project.Groups['body'].Value } else { "" }
+$s10KillCount = [regex]::Matches($s10Body, 'p_AddSuccessKill\(').Count
+$s10RewardCount = [regex]::Matches($s10Body, 'p_GiveArtefact\(').Count
+$s10EvidenceValid = $s10Project.Success -and $s05Project.Success -and
+    $s10KillCount -eq 1 -and $s10RewardCount -eq 0 -and
+    $s10Body -match 'p_AddSuccessKill\(nNode,"c\.unit\.ms10\.an00"\)' -and
+    $s10Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $s10Body -match 'p_AddMissionInfo\(nNode,3\)' -and
+    $s05Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $s05Body -match 'p_AddMissionInfo\(nNode,4\)'
+if (-not $s10EvidenceValid) {
+    throw "Retail ProjectS10/ProjectS05 evidence changed"
+}
+$s10MissionHash = (Get-FileHash -LiteralPath $s10MissionScript -Algorithm SHA256).Hash
 
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
@@ -113,7 +140,7 @@ foreach ($configurationName in $Configuration) {
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }
-    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-G0-S04-S07"
+    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-G0-S04-S07-S10"
     $saveRoot = Join-Path $caseRoot "saves"
     New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
     $common = @(
@@ -122,7 +149,7 @@ foreach ($configurationName in $Configuration) {
         "--save-dir", ('"' + $saveRoot + '"')
     )
 
-    Write-Host "[$configurationName][Level.04D][A.Recr0] G0 -> S04 -> S07 -> S10"
+    Write-Host "[$configurationName][Level.04D][A.Recr0] G0 -> S04 -> S07 -> S10 -> S05"
     $started = [DateTime]::UtcNow
     $g0Root = Join-Path $caseRoot "g0-result"
     $g0 = Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
@@ -189,6 +216,35 @@ foreach ($configurationName in $Configuration) {
             ))
     } else {
         [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshS07Root }
+    }
+
+    $s10Root = Join-Path $caseRoot "s10-result"
+    $s10 = if (-not $s07.timed_out -and $s07.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "s10-result" -Arguments ($common + @(
+                "--mission-no-reward-result-smoke",
+                "--mission-center", "A.Recr0",
+                "--diagnostics-dir", ('"' + $s10Root + '"'),
+                "--load-slot", "3",
+                "--save-slot", "4"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $s10Root }
+    }
+
+    $freshS10Root = Join-Path $caseRoot "fresh-s10-result"
+    $freshS10 = if (-not $s10.timed_out -and $s10.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "fresh-s10-result" -Arguments ($common + @(
+                "--mission-no-reward-fresh-smoke",
+                "--mission-center", "A.Recr0",
+                "--mission-project", "ProjectS10",
+                "--mission-next-project", "ProjectS05",
+                "--diagnostics-dir", ('"' + $freshS10Root + '"'),
+                "--load-slot", "4"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshS10Root }
     }
 
     $issues = [Collections.Generic.List[string]]::new()
@@ -280,11 +336,50 @@ foreach ($configurationName in $Configuration) {
         'marker=level-ready',
         'runtime_shutdown=clean'
     )
+    Add-ProofIssues -Issues $issues -Phase "S10" -Probe $s10 -Expected @(
+        'startup_load_slot=3',
+        'startup_save_slot=4',
+        'mission_smoke_selected_project=ProjectS10',
+        'mission_smoke_scripts=1',
+        'mission_smoke_created_objects=32',
+        'mission_smoke_reclaimed_routes=2',
+        'mission_smoke_conditions=1',
+        'mission_smoke_rebound_conditions=1',
+        'mission_smoke_capacity_limited_conditions=0',
+        'mission_smoke_capacity_limited_condition=<none>',
+        'mission_smoke_deferred_artefact_rewards=0',
+        'mission_smoke_howitzers=7/7/7',
+        'mission_smoke_auxiliary_policy=loaded-progression-skip',
+        'mission_no_reward_project=ProjectS10/ProjectS05',
+        'mission_no_reward_conditions=1/1',
+        'mission_no_reward_reached=0/1',
+        'mission_no_reward_commit=1/1/0/1/1/1/1/1',
+        'mission_no_reward_progress=1/0/4/4/1/0',
+        'mission_no_reward_save=1/1/1/1',
+        'mission_no_reward_rollback=1/1/1',
+        'mission_no_reward_reapply=1/1/1',
+        'save_menu_completed_saves=1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
+    Add-ProofIssues -Issues $issues -Phase "fresh-S10" -Probe $freshS10 -Expected @(
+        'startup_load_slot=4',
+        'mission_no_reward_fresh_identity=A.Recr0/ProjectS10/ProjectS05',
+        'mission_no_reward_fresh=1/1/1/0/1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
     if ($g0.startup -match 'mission_result_(carrier|portal)=' -or
         $s04.startup -match 'mission_result_(carrier|portal)=' -or
         $freshS04.startup -match 'mission_result_(carrier|portal)=' -or
         $s07.startup -match 'mission_result_(carrier|portal)=' -or
-        $freshS07.startup -match 'mission_result_(carrier|portal)=') {
+        $freshS07.startup -match 'mission_result_(carrier|portal)=' -or
+        $s10.startup -match 'mission_result_(carrier|portal)=' -or
+        $freshS10.startup -match 'mission_result_(carrier|portal)=') {
         $issues.Add("Artifact or Portal path leaked into Actek no-reward chain")
     }
     if ($s04.startup -match 'People stable capture failed') {
@@ -309,16 +404,29 @@ foreach ($configurationName in $Configuration) {
             $restoredS07Fingerprint.Groups[1].Value) {
         $issues.Add("fresh S07 result fingerprint does not match slot 3")
     }
+    $savedS10Fingerprint = [regex]::Match(
+        $s10.startup, 'save_menu_last_slot_world_fingerprint=(\d+)')
+    $restoredS10Fingerprint = [regex]::Match(
+        $freshS10.startup, 'save_menu_last_restored_world_fingerprint=(\d+)')
+    if (-not $savedS10Fingerprint.Success -or
+        -not $restoredS10Fingerprint.Success -or
+        $savedS10Fingerprint.Groups[1].Value -ne
+            $restoredS10Fingerprint.Groups[1].Value) {
+        $issues.Add("fresh S10 result fingerprint does not match slot 4")
+    }
 
     $records.Add([pscustomobject]@{
         configuration = $configurationName
         level = "Level.04D"
         center = "A.Recr0"
-        chain = "ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10"
+        chain = "ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05"
         ms04_script_sha256 = $missionHash
         ms07_script_sha256 = $s07MissionHash
+        ms10_script_sha256 = $s10MissionHash
         s07_authored_kill_commands = $s07KillCount
         s07_retained_kill_conditions = 10
+        s10_authored_kill_commands = $s10KillCount
+        s10_reward_commands = $s10RewardCount
         duplicate_airplane_calls = $duplicateCount
         elapsed_seconds = [Math]::Round(
             ([DateTime]::UtcNow - $started).TotalSeconds, 3)
@@ -327,6 +435,8 @@ foreach ($configurationName in $Configuration) {
         fresh_s04_exit_code = $freshS04.exit_code
         s07_exit_code = $s07.exit_code
         fresh_s07_exit_code = $freshS07.exit_code
+        s10_exit_code = $s10.exit_code
+        fresh_s10_exit_code = $freshS10.exit_code
         passed = $issues.Count -eq 0
         issues = @($issues)
         diagnostics = $caseRoot

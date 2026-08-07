@@ -5848,3 +5848,19 @@ A future modern-rules profile may expand the condition set only together with
 a versioned Player/mission serializer and explicit compatibility policy. The
 default 1.0 campaign continues to target March/May behavior, so S07 completes
 after its ten effective conditions and advances to the authored S10 candidate.
+
+### BD-173: derive S10 progression from executable Project commands
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectS10`.
+
+Campaign eligibility, objectives and rewards are owned by the command chain
+constructed inside each `CreateProject*` function. Informal comments beside
+the later registration list are archaeology hints only; they cannot create a
+reward, Portal or successor by themselves.
+
+S10 therefore has one antenna kill, Commander Actek, MissionInfo 3 and no
+reward command. At cumulative mission count four the unchanged retail search
+selects the separately authored Actek `ProjectS05`, whose MissionInfo is 4.
+The recovered runtime must preserve that selection, but this slice does not
+pre-judge S05 result semantics or synthesize the Artifact suggested by a
+registration comment. Those semantics require their own command/script proof.

@@ -2114,6 +2114,35 @@ playable Level begins.
   Release and RelWithDebInfo. Existing ordinary, one-step fresh, terminal and
   strict reward/Portal gates remain independent.
 
+### RP-CAMPAIGN-014: S10 closes the next persisted Actek step
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `MULTI_PROJECT_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`,
+  `FRESH_SAVE_OWNED`.
+- From the committed S07 result, Actek naturally selects `ProjectS10` at
+  cumulative mission count three. Installed `BRIEF.SCI` gives S10 exactly one
+  kill (`c.unit.ms10.an00`), Commander Actek, MissionInfo 3 and no command 35.
+  Installed `MS10.SC` (SHA-256
+  `55744D1F93D1E47F3C227DE9CCA6EC3D3A855ADB66D024BB63CD3C44686B4DEA`)
+  creates 32 transaction owners, two reclaimed Routes and seven ready occupied
+  Howitzers.
+- Successful result removes the single objective and map/check state,
+  repairs/refills without Artifact or Portal, advances cumulative count to
+  four and selects exact authored candidate `ProjectS05` (Actek,
+  MissionInfo 4). Initial S10 decode and post-script rebound both retain the
+  same real antenna owner.
+- The chain saves S10's committed result to slot 4, starts another process and
+  requires the S10 tombstone, S05 candidate, no active issuing-center mission,
+  no reward and the exact slot-4 world fingerprint. Pre-result rollback and
+  committed reapply remain part of the result process.
+- Nearby handwritten registration comments are not treated as executable
+  reward data. Any later S05 reward claim must be proved from its own Project
+  commands and result transaction rather than inferred in this slice.
+- Verification: the expanded
+  `Invoke-MissionNoRewardProgressionChainSmoke.ps1` passes across Debug,
+  Release and RelWithDebInfo while the ordinary, one-step fresh, terminal and
+  strict reward/Portal gates remain independent.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

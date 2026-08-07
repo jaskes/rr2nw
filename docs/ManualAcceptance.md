@@ -1036,7 +1036,13 @@ five ready occupied Howitzers, and publishes its released capacity boundary:
 `c.unit.ms07.ap00`. It must complete `ProjectS07 -> ProjectS10` with cumulative
 count three, save slot 3 and match that fingerprint from another fresh process
 reporting `mission_no_reward_fresh_identity=A.Recr0/ProjectS07/ProjectS10`.
-No Artifact/Portal record may appear in any phase.
+It next loads slot 3, naturally admits S10 and requires its installed one-kill
+graph, 32 created owners, two reclaimed Routes and seven ready occupied
+Howitzers. S10 must expose zero capacity-limited and zero reward commands,
+complete `ProjectS10 -> ProjectS05` with cumulative count four, save slot 4 and
+match that fingerprint from another fresh process reporting
+`mission_no_reward_fresh_identity=A.Recr0/ProjectS10/ProjectS05`. No
+Artifact/Portal record may appear in any phase.
 
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
