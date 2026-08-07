@@ -5752,7 +5752,7 @@ Older MSH1 versions retain their prior authored-roster restore behavior.
 
 ### BD-169: Level.04D Route overflow is admitted as a bounded complete graph
 
-Status: accepted on 2026-08-07 for the first Level.04D progression chain.
+Status: accepted on 2026-08-07 for the persisted Level.04D progression chain.
 
 Retail `SCINC/load_route.sci` creates `Route` with capacity 100. The clean
 Level.04D population already occupies 94 slots, while Colony `ProjectG3`
@@ -5763,9 +5763,13 @@ retains the default overflow mode and lets `s_LoadRoute` continue after a NUL
 allocation. That is evidence for the released partial behavior, not a safe
 contract for the modern fail-closed script host.
 
-RR2NW keeps a bounded table and applies a 128-slot floor only when the retail
+RR2NW keeps a bounded table and applies a 256-slot floor only when the retail
 bootstrap requests the exact legacy 100-slot Route table. Source-only host
-fixtures retain their requested capacities. Before a mission transaction,
+fixtures retain their requested capacities. The earlier 128 floor admitted a
+clean one-step mission but not the valid retained population from four prior
+Actek results plus `ProjectS05`; surviving authored units and their referenced
+Routes are campaign state and are not deleted merely to regain capacity.
+Before a mission transaction,
 zero-reference Routes may be reclaimed except for active Player-mission
 Routes. Reclamation stores symbolic identity plus every finite node; rollback
 removes all newly created script/native Routes and recreates the reclaimed
@@ -5864,3 +5868,27 @@ selects the separately authored Actek `ProjectS05`, whose MissionInfo is 4.
 The recovered runtime must preserve that selection, but this slice does not
 pre-judge S05 result semantics or synthesize the Artifact suggested by a
 registration comment. Those semantics require their own command/script proof.
+
+### BD-174: S05's world Artefact is not a RecruitCenter reward
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectS05`.
+
+`CreateProjectS05` authors six kills, Commander Actek and MissionInfo 4 but no
+command 35. Its separate `MS05.SC` calls `CreateArtefactZero` for the neutral
+world owner `ms05.artf` at `(3708.820,165.350,-3283.851)`. This physical
+mission population must not be reclassified as a successful-result reward,
+attached to the Player Vehicle or connected to a Portal.
+
+The archival Artefact constructor leaves its raw-dumped state uninitialised;
+the script later publishes attribute and transform but intentionally never a
+commander. Re-encoding that OEM translation unit would create a large archival
+diff. The modern script host therefore establishes NUL commander, zero motion
+and identity transform through `IUnit`/`IArtefact` immediately after `s_New`,
+before the authored setup events. Result, stable restore, pre-result rollback,
+committed reapply and fresh slot load all require the same free neutral owner,
+attribute, transform and absence of private motion events.
+
+The successful result advances cumulative mission count five and selects the
+unchanged authored `ProjectA26`. Adding an Artifact reward or Portal remains
+forbidden without a real command 35; pickup semantics for `ms05.artf` are a
+separate gameplay parity question.

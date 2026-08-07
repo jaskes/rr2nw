@@ -2013,7 +2013,7 @@ playable Level begins.
   exposes exact authored successor `ProjectG5` without Artifact or Portal.
 - The 94-Route base population plus mission graph no longer depends on the
   released executable silently accepting NUL Route allocations. The retail
-  100-slot request receives a bounded 128-slot floor, and unused zero-reference
+  100-slot request receives a bounded 256-slot floor, and unused zero-reference
   Routes are reclaimed only inside the mission object transaction. Exact
   symbolic geometry returns on rollback.
 - Tank death removes its TankGroup member synchronously. TAN1 owner restore
@@ -2142,6 +2142,35 @@ playable Level begins.
   `Invoke-MissionNoRewardProgressionChainSmoke.ps1` passes across Debug,
   Release and RelWithDebInfo while the ordinary, one-step fresh, terminal and
   strict reward/Portal gates remain independent.
+
+### RP-CAMPAIGN-015: S05 separates authored world population from rewards
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `MULTI_PROJECT_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`,
+  `NEUTRAL_ARTEFACT_PERSISTED`, `FRESH_SAVE_OWNED`.
+- From the committed S10 result, Actek naturally selects `ProjectS05` at
+  cumulative mission count four. Installed `BRIEF.SCI` authors six exact kills
+  (three Colony airplanes and three machine guns), Commander Actek,
+  MissionInfo 4 and no command 35. Installed `MS05.SC` (SHA-256
+  `1592E13409EDC59043E78ECAC35D4F3475802B11C4B742FDFF45B7F24CD13DF3`)
+  creates 26 transaction owners and nine occupied Howitzers.
+- `MS05.SC` separately creates neutral world owner `ms05.artf` with
+  `Artefact.Attr.0` at `(3708.820,165.350,-3283.851)`. It is mission
+  population, not a RecruitCenter result reward: it has no commander/carrier
+  or motion event, is never attached to the Player Vehicle and opens no Portal.
+- Successful result removes all six objectives and map/check state,
+  repairs/refills, advances cumulative count to five and selects exact authored
+  candidate `ProjectA26`. The neutral Artefact survives result capture/restore,
+  pre-result rollback, committed reapply and fresh slot-5 load exactly.
+- Four earlier completed Actek jobs retain valid authored population, so the
+  previous 128 Route floor was exhausted before the complete S05 graph. The
+  retail-only floor is now a bounded 256 while node capacity, transactional
+  reclamation and raw save layout remain unchanged. A slot-4 save produced by
+  the older floor loads in the new runtime without migration.
+- Verification: `Invoke-MissionNoRewardProgressionChainSmoke.ps1` now proves
+  the complete `G0 -> S04 -> S07 -> S10 -> S05 -> A26` boundary in Debug,
+  Release and RelWithDebInfo. Ordinary, terminal and strict reward/Portal gates
+  remain independent.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

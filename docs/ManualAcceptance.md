@@ -1044,6 +1044,19 @@ match that fingerprint from another fresh process reporting
 `mission_no_reward_fresh_identity=A.Recr0/ProjectS10/ProjectS05`. No
 Artifact/Portal record may appear in any phase.
 
+Finally it loads slot 4, admits S05, creates 26 owners, six rebound kill
+conditions and nine occupied Howitzers, and must report zero deferred reward.
+The separate physical `ms05.artf` must remain neutral, free and motionless at
+its authored position across result, restore, pre-result rollback and committed
+reapply:
+`mission_no_reward_authored_artefact=1/1/1/1/1`. S05 completes to exact
+`ProjectA26` with cumulative count five and saves slot 5. A final process must
+report `mission_no_reward_fresh_identity=A.Recr0/ProjectS05/ProjectA26`,
+`mission_no_reward_fresh_authored_artefact=1` and the same world fingerprint.
+The script fingerprints `MS05.SC` and verifies exactly one authored world
+Artefact plus no `p_GiveArtefact`; a `mission_result_carrier` or
+`mission_result_portal` line remains a failure.
+
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
 data: the runtime transaction pins the shared Route across the intended

@@ -22,11 +22,14 @@
 #define ROUTE_MAX_NODE_NUM 8192
 #define ROUTE_LEGACY_SOURCE_OBJECT_NUM 100
 // May Level.04D publishes 94 persistent population routes before a mission;
-// valid retail mission scripts add as many as 17 more plus the map guide.
-// The June executable keeps the script's 100-slot table and silently drops
-// overflowing routes. RR2NW retains a bounded table but admits the complete
-// released graph instead of creating partially routed units.
-#define ROUTE_MAY_OBJECT_NUM 128
+// valid retail mission scripts add as many as 17 more plus the map guide and
+// intentionally retain surviving non-objective units between campaign jobs.
+// A four-result Actek continuation therefore reaches the earlier 128-slot
+// recovery floor before ProjectS05. The June executable keeps the script's
+// 100-slot table and silently drops overflowing routes. RR2NW retains a
+// bounded table but admits the complete persisted branch instead of creating
+// partially routed units or deleting surviving authored population.
+#define ROUTE_MAY_OBJECT_NUM 256
 
 class CChannelMap;
 

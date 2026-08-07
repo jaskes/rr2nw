@@ -450,6 +450,52 @@ bool ArtefactActiveWorldState_IsReady(SimulationContext *context,
              artefact->m_attr;
 }
 
+bool ArtefactActiveWorldState_MatchesNeutralWorldObject(
+    SimulationContext *context, const char *name, const char *attribute,
+    const CFVector3 &position) {
+  g_lastFailure.clear();
+  if (context == NULL || name == NULL || name[0] == 0 || attribute == NULL ||
+      attribute[0] == 0 || !FiniteVector(position))
+    return Fail("Neutral Artefact expectation is invalid");
+  if (!context->isExist(name))
+    return Fail("Neutral Artefact owner is absent");
+
+  const KR_ObjectID object = context->searchObject(name);
+  Artefact *artefact = ResolveArtefact(context, object);
+  if (artefact == NULL || !ArtefactActiveWorldState_IsReady(context, object))
+    return Fail("Neutral Artefact owner is unresolved");
+  if (SymbolicName(context, artefact->m_artefactAttrID) != attribute)
+    return Fail("Neutral Artefact attribute differs from retail");
+  if (!IsNul(artefact->m_commander) || !IsNul(artefact->m_carrierID) ||
+      artefact->m_carrier != NULL)
+    return Fail("Neutral Artefact unexpectedly has an owner or carrier");
+  if (!FiniteMatrix(artefact->m_orient) || !FiniteVector(artefact->m_dir))
+    return Fail("Neutral Artefact motion is not finite");
+
+  const double epsilon = 0.001;
+  for (int row = 0; row < 3; ++row)
+    for (int column = 0; column < 3; ++column) {
+      const double expected = row == column ? 1.0 : 0.0;
+      if (std::fabs(artefact->m_orient.m[row][column] - expected) > epsilon)
+        return Fail("Neutral Artefact orientation differs from retail");
+    }
+  const CFVector3 actual = artefact->m_orient.Offset();
+  if (std::fabs(actual.x - position.x) > epsilon ||
+      std::fabs(actual.y - position.y) > epsilon ||
+      std::fabs(actual.z - position.z) > epsilon)
+    return Fail("Neutral Artefact position differs from retail");
+  if (std::fabs(artefact->m_dir.x) > epsilon ||
+      std::fabs(artefact->m_dir.y) > epsilon ||
+      std::fabs(artefact->m_dir.z) > epsilon)
+    return Fail("Neutral Artefact unexpectedly has motion");
+
+  KR_Event events[1];
+  if (context->copyEvents(ARTEFACT_MOVE, object, events, 1) != 0 ||
+      context->copyEvents(ARTEFACT_CHANGEDIR, object, events, 1) != 0)
+    return Fail("Neutral Artefact unexpectedly has private motion events");
+  return true;
+}
+
 unsigned long long ArtefactActiveWorldState_Fingerprint(
     SimulationContext *context) {
   std::vector<unsigned char> bytes;

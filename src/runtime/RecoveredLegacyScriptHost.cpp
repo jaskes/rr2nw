@@ -26,6 +26,7 @@
 #include "message/recrcenmsg.h"
 #include "message/unitmsg.h"
 #include "mproj/h/mproj.h"
+#include "i/carrier.i"
 #include "obase/route/route.h"
 #include "i/unit.i"
 #include "i/commander.i"
@@ -48,6 +49,29 @@ bool ContainsObject(const std::vector<KR_ObjectID>& objects,
   for (const KR_ObjectID& candidate : objects)
     if (candidate == object) return true;
   return false;
+}
+
+bool PrepareNewArtefact(SimulationContext* context,
+                        const KR_ObjectID& object) {
+  KR_ObjectID mutableObject = object;
+  if (context == nullptr || mutableObject.isNUL()) return false;
+  IArtefact* artefact = static_cast<IArtefact*>(
+      context->queryInterface(object, IArtefactIID));
+  IUnit* unit = static_cast<IUnit*>(
+      context->queryInterface(object, IUnitIID));
+  if (artefact == nullptr || unit == nullptr) return false;
+
+  // The archival constructor leaves the raw-dumped ArtefactData block
+  // untouched. A script publishes the attribute and authored transform next,
+  // but a neutral world artefact intentionally never receives a commander.
+  // Establish that deterministic pre-event state through public interfaces,
+  // keeping the OEM archival translation unit byte-for-byte unchanged.
+  unit->setCommander(KR_ObjectID::NUL());
+  artefact->artefactMove(CFVector3(0.0, 0.0, 0.0));
+  CFMatrix3x4 orientation;
+  orientation.LoadIdentity();
+  artefact->moveTo(orientation);
+  return true;
 }
 
 RecoveredLegacyScriptHost* Host(void* userData) {
@@ -784,6 +808,14 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(int classTable,
            "new Howitzer could not enter a safe pending state");
     return KR_ObjectID::NUL();
   }
+  if (!object.isNUL() &&
+      classTable == m_arena->searchSeanceClassTable("Artefact") &&
+      !PrepareNewArtefact(m_arena->getContext(), object)) {
+    m_arena->getContext()->removeObject(object);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_ARTEFACT_PENDING_FAILURE,
+           "new Artefact could not enter a deterministic pending state");
+    return KR_ObjectID::NUL();
+  }
   if (!object.isNUL() && m_objectTransactionActive)
     m_transactionCreatedObjects.push_back(object);
   return object;
@@ -808,6 +840,13 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(const char* className,
     m_arena->getContext()->removeObject(object);
     Report(RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE,
            "new named Howitzer could not enter a safe pending state");
+    return KR_ObjectID::NUL();
+  }
+  if (!object.isNUL() && std::strcmp(className, "Artefact") == 0 &&
+      !PrepareNewArtefact(m_arena->getContext(), object)) {
+    m_arena->getContext()->removeObject(object);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_ARTEFACT_PENDING_FAILURE,
+           "new named Artefact could not enter a deterministic pending state");
     return KR_ObjectID::NUL();
   }
   if (!object.isNUL() && m_objectTransactionActive)

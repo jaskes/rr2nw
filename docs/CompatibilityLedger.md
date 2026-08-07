@@ -4687,7 +4687,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   keeps the default overflow mode; its host can continue after Route
   allocation returns NUL, producing partially routed mission units. The
   recovered host correctly failed closed instead at `m4.route.e.mn0`.
-- Handling: an exact retail 100-slot request receives a bounded 128-slot May
+- Handling: an exact retail 100-slot request receives a bounded 256-slot May
   floor. Mission admission first reclaims only zero-reference Routes while
   protecting every active Player-mission Route. Reclaimed names and exact
   geometry are transaction state; rollback removes script/native additions
@@ -4712,7 +4712,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Evidence: the complete Level.04D fresh-continuation gate reached the visual
   suite with no live Bullet, Explosion, Smoke or DynSmoker owner but retained
   one late frame-local light (`color=5`, `brightness=150`, `radius=8`) near the
-  moving Player. Repeating with both the 128-slot Route floor and Tank group
+  moving Player. Repeating with both the bounded Route floor and Tank group
   detach disabled produced the same residue. The real retail world is active
   while these disposable probes run; global zero-light state is therefore not
   an ownership invariant.
@@ -4843,6 +4843,37 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Verification: the maintained Actek chain now crosses four result saves and
   independently compares slot-2, slot-3 and slot-4 fresh world fingerprints in
   Debug, Release and RelWithDebInfo.
+
+### CQ-240: S05 owns a neutral Artefact and exceeds the earlier Route floor
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`, `ARTEFACT_UB_CONTAINED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `SAVE_BACKWARD_COMPATIBLE`.
+- Evidence: installed `CreateProjectS05` has six exact kill commands, Commander
+  Actek, MissionInfo 4 and no `p_GiveArtefact`. Installed `MS05.SC` (SHA-256
+  `1592E13409EDC59043E78ECAC35D4F3475802B11C4B742FDFF45B7F24CD13DF3`)
+  creates 26 transaction owners, including nine occupied Howitzers and exactly
+  one neutral `CreateArtefactZero("ms05.artf",[3708.820,165.350,-3283.851])`.
+  Its result selects exact authored successor `ProjectA26`.
+- Cause: the archival `Artefact` constructor initializes only `m_attr`; the
+  raw-dumped attribute ID, transform, velocity and commander remain
+  indeterminate. Authored setup supplies the first two but a neutral world
+  pickup has no commander, so stable capture rejected a random live-looking
+  dependency. Separately, retained referenced Routes from G0/S04/S07/S10 plus
+  S05 legitimately exhaust the earlier 128-slot recovery floor.
+- Handling: every script-created Artefact receives NUL commander, zero motion
+  and identity transform through public interfaces at the `s_New` boundary;
+  the OEM archival source remains byte-identical. The bounded retail-only Route
+  floor is 256, zero-reference reclamation and 8192-node limit remain intact,
+  and surviving mission population is not deleted to manufacture capacity.
+- Verification: the Actek gate completes S05, requires the neutral Artefact at
+  all five result/restore/rollback/reapply boundaries, saves slot 5 and verifies
+  it plus `ProjectA26` from a fresh process. A slot-4 image created by the prior
+  128-floor build loads cleanly under the 256-floor runtime, proving that this
+  capacity change does not alter RR2SLOT1 state format.
+- Revisit when: Artefact legacy import gains a versioned field serializer or
+  mission-owned population receives explicit cleanup commands. Do not infer a
+  reward/Portal from object presence or delete live Routes without retail
+  evidence.
 
 ## Maintenance rule
 

@@ -6,12 +6,16 @@
 #include <vector>
 
 class SimulationContext;
+class CFVector3;
 
 void ArtefactActiveWorldState_Link();
 const char *ArtefactActiveWorldState_LastFailure();
 int ArtefactActiveWorldState_LiveCount(SimulationContext *context);
 bool ArtefactActiveWorldState_IsReady(SimulationContext *context,
                                       const KR_ObjectID &object);
+bool ArtefactActiveWorldState_MatchesNeutralWorldObject(
+    SimulationContext *context, const char *name, const char *attribute,
+    const CFVector3 &position);
 unsigned long long ArtefactActiveWorldState_Fingerprint(
     SimulationContext *context);
 bool ArtefactActiveWorldState_CaptureStable(

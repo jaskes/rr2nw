@@ -18,6 +18,7 @@
 #include "filesys.h"
 #include "graph.h"
 #include "h/super.h"
+#include "obase/artefact/ArtefactActiveWorldState.h"
 #include "obase/bullet/BulletSubjectState.h"
 #include "obase/explosion/ExplosionSubjectState.h"
 #include "obase/howitzer/HowitzerActiveWorldState.h"
@@ -4825,10 +4826,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                         options.missionTerminalNoRewardResultSmoke)) {
       const bool terminalNoReward =
           options.missionTerminalNoRewardResultSmoke;
+      const bool expectsAuthoredNeutralArtefact = !terminalNoReward &&
+          std::strcmp(mission.centerName, "A.Recr0") == 0 &&
+          std::strcmp(mission.projectName, "ProjectS05") == 0;
+      const auto authoredNeutralArtefactExact = [&]() {
+        return !expectsAuthoredNeutralArtefact ||
+            ArtefactActiveWorldState_MatchesNeutralWorldObject(
+                g_super.m_context, "ms05.artf", "Artefact.Attr.0",
+                CFVector3(3708.820, 165.350, -3283.851));
+      };
+      const bool noRewardAuthoredArtefactBefore =
+          authoredNeutralArtefactExact();
       RecruitCenterObjectiveStateSummary noRewardBefore = {};
       std::vector<std::uint8_t> noRewardCheckpoint;
       SLevelContinuationSummary noRewardCheckpointSummary;
-      const bool noRewardCheckpointReady =
+      const bool noRewardCheckpointReady = noRewardAuthoredArtefactBefore &&
           RecruitCenterSubjectState_ObjectiveState(
               g_super.m_context, &noRewardBefore) &&
           noRewardBefore.missions > 0 &&
@@ -4851,6 +4863,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       const bool noRewardAfterReady = noRewardResultReady &&
           RecruitCenterSubjectState_ObjectiveState(
               g_super.m_context, &noRewardAfter);
+      const bool noRewardAuthoredArtefactAfter = noRewardAfterReady &&
+          authoredNeutralArtefactExact();
       const bool noRewardObjectiveExact = noRewardAfterReady &&
           noRewardAfter.missions == noRewardBefore.missions - 1 &&
           noRewardAfter.totalMissions == noRewardBefore.totalMissions &&
@@ -4870,6 +4884,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       SLevelContinuationSummary noRewardResultVerified;
       RecruitCenterObjectiveStateSummary noRewardResultRestoredState = {};
       const bool noRewardResultCaptureReady = noRewardObjectiveExact &&
+          noRewardAuthoredArtefactAfter &&
           RecoveredGameServices_CaptureLevelContinuation(
               &noRewardResultState, &noRewardResultCaptured);
       const bool noRewardResultRestoreReady = noRewardResultCaptureReady &&
@@ -4877,7 +4892,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               noRewardResultState, &noRewardResultRestored) &&
           RecruitCenterSubjectState_ObjectiveState(
               g_super.m_context, &noRewardResultRestoredState);
-      const bool noRewardResultRecaptureReady = noRewardResultRestoreReady &&
+      const bool noRewardAuthoredArtefactRestored = noRewardResultRestoreReady &&
+          authoredNeutralArtefactExact();
+      const bool noRewardResultRecaptureReady =
+          noRewardAuthoredArtefactRestored &&
           RecoveredGameServices_CaptureLevelContinuation(
               &noRewardResultRecaptured, &noRewardResultVerified);
       const bool noRewardResultSaveExact = noRewardResultRecaptureReady &&
@@ -4906,7 +4924,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               noRewardCheckpoint, &noRewardRollbackRestored) &&
           RecruitCenterSubjectState_ObjectiveState(
               g_super.m_context, &noRewardRollbackState);
-      const bool noRewardRollbackRecaptureReady = noRewardRollbackReady &&
+      const bool noRewardAuthoredArtefactRolledBack = noRewardRollbackReady &&
+          authoredNeutralArtefactExact();
+      const bool noRewardRollbackRecaptureReady =
+          noRewardAuthoredArtefactRolledBack &&
           RecoveredGameServices_CaptureLevelContinuation(
               &noRewardRolledBack, &noRewardRollbackVerified);
       const bool noRewardRollbackExact = noRewardRollbackRecaptureReady &&
@@ -4933,8 +4954,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               noRewardResultState, &noRewardReapplyRestored) &&
           RecruitCenterSubjectState_ObjectiveState(
               g_super.m_context, &noRewardReappliedState);
+      const bool noRewardAuthoredArtefactReapplied =
+          noRewardReapplyRestoreReady && authoredNeutralArtefactExact();
       const bool noRewardReapplyRecaptureReady =
-          noRewardReapplyRestoreReady &&
+          noRewardAuthoredArtefactReapplied &&
           RecoveredGameServices_CaptureLevelContinuation(
               &noRewardReapplied, &noRewardReapplyVerified);
       const bool noRewardReapplyExact = noRewardReapplyRecaptureReady &&
@@ -5000,9 +5023,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(noRewardReapplyRestoreReady ? 1 : 0) + "/" +
                std::to_string(noRewardReapplyRecaptureReady ? 1 : 0) +
                "/" + std::to_string(noRewardReapplyExact ? 1 : 0));
+      if (expectsAuthoredNeutralArtefact)
+        log.Line(noRewardPrefix + "authored_artefact=" +
+                 std::to_string(noRewardAuthoredArtefactBefore ? 1 : 0) + "/" +
+                 std::to_string(noRewardAuthoredArtefactAfter ? 1 : 0) + "/" +
+                 std::to_string(noRewardAuthoredArtefactRestored ? 1 : 0) + "/" +
+                 std::to_string(noRewardAuthoredArtefactRolledBack ? 1 : 0) + "/" +
+                 std::to_string(noRewardAuthoredArtefactReapplied ? 1 : 0));
       const bool noRewardExact = noRewardResultReady &&
           noRewardObjectiveExact && noRewardResultSaveExact &&
-          noRewardRollbackExact && noRewardReapplyExact;
+          noRewardRollbackExact && noRewardReapplyExact &&
+          (!expectsAuthoredNeutralArtefact ||
+           (noRewardAuthoredArtefactBefore &&
+            noRewardAuthoredArtefactAfter &&
+            noRewardAuthoredArtefactRestored &&
+            noRewardAuthoredArtefactRolledBack &&
+            noRewardAuthoredArtefactReapplied));
       if (!noRewardExact) {
         const char* noRewardError = RecruitCenterSubjectState_LastError();
         if (noRewardError != nullptr && noRewardError[0] != 0)
@@ -5522,6 +5558,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
             g_super.m_context, freshCenter.c_str(),
             freshCompletedProject.c_str(), freshNextProject.c_str(),
             &progression);
+    const bool expectsAuthoredNeutralArtefact =
+        freshCenter == "A.Recr0" &&
+        freshCompletedProject == "ProjectS05";
+    const bool authoredNeutralArtefactExact =
+        !expectsAuthoredNeutralArtefact ||
+        ArtefactActiveWorldState_MatchesNeutralWorldObject(
+            g_super.m_context, "ms05.artf", "Artefact.Attr.0",
+            CFVector3(3708.820, 165.350, -3283.851));
+    const bool freshExact = progressionReady && authoredNeutralArtefactExact;
     log.Line("mission_no_reward_fresh_identity=" + freshCenter + "/" +
              freshCompletedProject + "/" + freshNextProject);
     log.Line("mission_no_reward_fresh=" +
@@ -5530,11 +5575,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(progression.nextCandidateExact) + "/" +
              std::to_string(progression.scheduledChecks) + "/" +
              std::to_string(progression.rewardDetached));
-    if (!progressionReady) {
+    if (expectsAuthoredNeutralArtefact)
+      log.Line("mission_no_reward_fresh_authored_artefact=" +
+               std::to_string(authoredNeutralArtefactExact ? 1 : 0));
+    if (!freshExact) {
       log.Line(std::string("mission_no_reward_fresh_error=") +
-               RecruitCenterSubjectState_LastError());
+               (!progressionReady
+                    ? RecruitCenterSubjectState_LastError()
+                    : ArtefactActiveWorldState_LastFailure()));
     }
-    loopFailed = !progressionReady;
+    loopFailed = !freshExact;
   }
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {

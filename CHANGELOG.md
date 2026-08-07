@@ -7,6 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the persisted Level.04D Actek chain through `ProjectS05` and exact
+  successor `ProjectA26`. Installed S05 executes six retail kill objectives,
+  its complete 26-owner `MS05.SC` graph and nine occupied Howitzers, then
+  completes as an ordinary no-reward result with cumulative mission count
+  five. The script-owned neutral `ms05.artf` is now distinct from command-35
+  RecruitCenter rewards: it remains free at its authored position across
+  result, rollback, committed reapply, slot-5 save and fresh load without
+  creating a Portal. Script-created Artefacts enter a deterministic pending
+  state through public interfaces, avoiding the archival OEM source rewrite
+  and its uninitialised raw-dumped commander field. The bounded May Route floor
+  is now 256 because valid retained population from four earlier Actek jobs can
+  exhaust 128 before S05; old 128-floor slot saves still load unchanged.
 - Extended the persisted Level.04D Actek chain through `ProjectS10` and exact
   successor `ProjectS05`. S10 now executes installed `MS10.SC`, creates its
   complete 32-owner graph, reclaims two authored Routes, binds seven ready
@@ -54,7 +66,7 @@ claim authorship of inherited Logos code or retail data.
   now accepts `ProjectG3`, creates its full Tank/People/Route graph, completes
   the real `A.Unit.3G.pm0` kill condition and advances to `ProjectG5` with no
   Artifact or Portal. Retail Route capacity is raised only from the authored
-  100-slot declaration to a bounded 128-slot May floor; zero-reference Routes
+  100-slot declaration to a bounded May floor; zero-reference Routes
   are reclaimed transactionally and their exact geometry is restored on
   rollback. Tank death now detaches the owner from TankGroup immediately, and
   active-world restore replaces the complete Tank/Cannon roster so both
