@@ -4963,25 +4963,29 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-244: normal Marauders admission repeats two post-briefing cinematics
 
-- Status: `MANUAL_PLAYTEST_REPRODUCED`, `PRESENTATION_OWNER_UNRESOLVED`.
+- Status: `MANUAL_PLAYTEST_REPRODUCED`, `CAUSE_PROVED`, `FIXED_AND_GATED`.
 - Evidence: during the 2026-08-07 normal RelWithDebInfo Level.03N playtest, a
   Marauders center visit showed the expected Marauder character cinematic,
   then the mission briefing, then two additional Marauder cinematics before
-  control returned to the world. The bounded `--mission-briefing-smoke` still
-  owns the expected one center FLC plus one Project briefing and exits cleanly,
-  so its early terminal boundary does not cover this normal post-briefing path.
-- Current boundary: do not delete retail FLC actions or suppress all repeated
-  names globally. First publish presenter source/reason and one-shot ownership
-  across center admission, Project briefing completion and Level-entry
-  presentation; then identify which normal-loop continuation requests the two
-  extra plays.
-- Verification required: a normal interactive or bounded full-loop Level.03N
-  admission must report and show exactly one center character cinematic, one
-  mission briefing and zero post-briefing repeats before Player control. Save
-  restore, restart and Portal arrival suppression gates must remain unchanged.
-- Revisit when: source/reason telemetry identifies the duplicate caller. Keep
-  this separate from CQ-227: result visits have no authored cinematic, while
-  this failure occurs during initial mission admission presentation.
+  control returned to the world.
+- Cause: both repeats were stale `t_EV_ONCOLLISION` deliveries owned by the same
+  RecruitCenter. Their timestamps predated the completed admission after the
+  synchronous FLC/briefing loop. The former debounce only compared timestamps
+  when they were monotonic, so each older event called `presentEncounter()`
+  again. Neither ProjectS25 nor the Level-entry presenter requested a replay.
+- Handling: the center closes admission at `max(event.timeStamp,
+  Session::m_moment)` and suppresses contact through that boundary plus the
+  existing 250 ms window. This remains per-center event ownership; no retail
+  FLC action or filename is globally suppressed. Ordered trace rows publish the
+  source, reason, outcome and asset for Level-entry, center and Project owners.
+- Verification: `Invoke-RecruitCenterPresentationLoopSmoke.ps1` passes 3/3 with
+  exact `1/1/0/0` center presentation, one Project briefing and post-briefing
+  collision proof `2/2/0`. Its five ordered trace rows prove the two suppressed
+  callers. Level briefing 3/3, Portal 9/9, fresh continuation 3/3 and all three
+  67/67 CTest gates preserve initial/Portal/restore behavior.
+- Revisit when: manual play still shows a post-briefing repeat, or a genuine
+  later center revisit inside authored geometry is suppressed. Keep this
+  separate from CQ-227 result visits, which have no authored cinematic.
 
 ## Maintenance rule
 

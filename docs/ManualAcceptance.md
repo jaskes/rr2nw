@@ -252,19 +252,29 @@ The log must name `ProjectS25`, report
 presented mission briefing, `created_objects=22`, `rollbacks=0`,
 `game_services_issues=0` and `runtime_shutdown=clean`. The four center fields
 are attempts/normal-flicks/hostile-briefings/failures. Its
+`mission_smoke_post_briefing_collisions` must be `2/2/0`: two bounded stale
+contacts, both suppressed, zero presentation repeats. The ordered trace must be
+initial Level-entry suppression, ordinary center flick, Project briefing and
+two post-admission collision suppressions. Its
 `mission_smoke_vehicle_drive` must begin
 `2/2/2/2/2` and end `2/2`, proving both same-name mission jeeps, both HUDs,
 forward-aligned travel and exact rollback. A transaction-only success with
 zero presentations, a missing center flick or a non-zero center failure is a
 presentation regression.
 
-For a normal interactive Marauders admission, continue beyond the briefing
-instead of using the smoke's immediate exit. Exactly one Marauder character
-FLC and one mission briefing may play before control returns to the world.
-Two additional Marauder FLCs were manually reproduced on 2026-08-07 and remain
-an open presentation-owner bug (CQ-244); preserve that run's diagnostics when
-checking the fix. Replaying center clips after the briefing is not accepted as
-authored Level-entry content.
+The maintained full-loop matrix is:
+
+```powershell
+& ".\tools\acceptance\Invoke-RecruitCenterPresentationLoopSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+For a normal interactive Marauders admission, continue beyond the briefing.
+Exactly one Marauder character FLC and one mission briefing may play before
+control returns to the world. The two additional FLCs manually reproduced on
+2026-08-07 were stale RecruitCenter collision events and are now CQ-244's gated
+regression. A repeat is still a failure; attach the new run's diagnostic log,
+whose `presentation_trace_*` rows identify the caller without requiring the
+preserved earlier manual log.
 
 The roster field is `ready/capacity/live/video/defaultTaxi/dictionary`. In
 Level order its expected values are `1/4/3/3/3/3`, `1/4/1/1/0/1`,

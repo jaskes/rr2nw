@@ -17,6 +17,9 @@ struct RecruitCenterMissionProbeSummary
     int presentedCenterFlicks;
     int presentedHostilityBriefings;
     int centerPresentationFailures;
+    int postBriefingCollisionEvents;
+    int postBriefingCollisionSuppressions;
+    int postBriefingPresentationRepeats;
     int createdMissionObjects;
     int reclaimedRouteObjects;
     int reboundConditionReferences;

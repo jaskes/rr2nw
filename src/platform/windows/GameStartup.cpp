@@ -12,6 +12,7 @@
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
+#include "RecoveredPresentationTrace.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
@@ -1130,16 +1131,23 @@ const char* LevelBriefingPolicyName(ELevelBriefingPolicy policy) {
 
 bool HandleLevelBriefing(ELevelBriefingPolicy policy, const char* boundary,
                          StartupLog* log, std::string* failure) {
+  const char* reason =
+      boundary == nullptr || boundary[0] == '\0' ? "initial" : boundary;
   const std::string prefix =
       boundary == nullptr || boundary[0] == '\0'
           ? std::string("level_briefing_")
           : std::string(boundary) + "_level_briefing_";
   if (log != nullptr)
     log->Line(prefix + "policy=" + LevelBriefingPolicyName(policy));
-  if (policy == ELevelBriefingPolicy::Suppress) return true;
+  if (policy == ELevelBriefingPolicy::Suppress) {
+    RecoveredPresentationTrace_Record("level-entry", reason, "suppressed", "");
+    return true;
+  }
 
   SLevelBriefingPreflight summary;
   if (!PreflightLevelBriefing(&summary, failure)) {
+    RecoveredPresentationTrace_Record("level-entry", reason,
+                                      "preflight-failed", "");
     if (log != nullptr && failure != nullptr)
       log->Line(prefix + "failure=" + *failure);
     return false;
@@ -1162,6 +1170,8 @@ bool HandleLevelBriefing(ELevelBriefingPolicy policy, const char* boundary,
   if (policy == ELevelBriefingPolicy::Present && summary.configured) {
     if (!RecoveredGameServices_PlayLevelBriefing(
             summary.resolvedPath.c_str())) {
+      RecoveredPresentationTrace_Record("level-entry", reason, "failed",
+                                        summary.resolvedPath.c_str());
       if (failure != nullptr)
         *failure = "Level briefing presenter is not attached to the active "
                    "session";
@@ -1169,9 +1179,17 @@ bool HandleLevelBriefing(ELevelBriefingPolicy policy, const char* boundary,
         log->Line(prefix + "failure=" + *failure);
       return false;
     }
+    RecoveredPresentationTrace_Record("level-entry", reason, "completed",
+                                      summary.resolvedPath.c_str());
     if (log != nullptr) log->Line(prefix + "playback=returned");
   } else if (log != nullptr) {
     log->Line(prefix + "playback=skipped");
+  }
+  if (policy == ELevelBriefingPolicy::ValidateOnly || !summary.configured) {
+    RecoveredPresentationTrace_Record(
+        "level-entry", reason,
+        policy == ELevelBriefingPolicy::ValidateOnly ? "validated" : "skipped",
+        summary.resolvedPath.c_str());
   }
   return true;
 }
@@ -1549,6 +1567,7 @@ bool ProcessCampaignRestart(const RetailData& data,
 }  // namespace
 
 int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
+  RecoveredPresentationTrace_Reset();
   StartupOptions options;
   std::wstring failure;
   if (!ParseOptions(argc, argv, &options, &failure)) {
@@ -3487,6 +3506,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.presentedCenterFlicks) + "/" +
              std::to_string(mission.presentedHostilityBriefings) + "/" +
              std::to_string(mission.centerPresentationFailures));
+    log.Line("mission_smoke_post_briefing_collisions=" +
+             std::to_string(mission.postBriefingCollisionEvents) + "/" +
+             std::to_string(mission.postBriefingCollisionSuppressions) + "/" +
+             std::to_string(mission.postBriefingPresentationRepeats));
     log.Line("mission_smoke_briefing_commands=" +
              std::to_string(mission.briefingCommands));
     log.Line("mission_smoke_script_commands=" +
@@ -3513,6 +3536,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                          mission.presentedHostilityBriefings !=
                      expectedCenterPresentations ||
                  mission.centerPresentationFailures != 0 ||
+                 (options.missionBriefingSmoke &&
+                  (mission.postBriefingCollisionEvents != 2 ||
+                   mission.postBriefingCollisionSuppressions != 2 ||
+                   mission.postBriefingPresentationRepeats != 0)) ||
                  mission.scriptRollbacks != 0 || !runCompleteFrame();
     if (!loopFailed && options.missionNaturalCombatSmoke) {
       const bool missionEjectionReady =
@@ -5811,6 +5838,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(lastMission.presentedCenterFlicks) + "/" +
              std::to_string(lastMission.presentedHostilityBriefings) + "/" +
              std::to_string(lastMission.centerPresentationFailures));
+  }
+  const int presentationTraceCount = RecoveredPresentationTrace_Count();
+  log.Line("presentation_trace_count=" +
+           std::to_string(presentationTraceCount));
+  for (int index = 0; index < presentationTraceCount; ++index) {
+    SRecoveredPresentationTraceEvent event = {};
+    if (!RecoveredPresentationTrace_Event(index, &event)) continue;
+    log.Line("presentation_trace_" + std::to_string(index) + "=" +
+             std::to_string(event.sequence) + "|" + event.source + "|" +
+             event.reason + "|" + event.outcome + "|" + event.asset);
   }
   log.Line("windows_input_primary_fire_presses=" + std::to_string(
                RecoveredGameServices_VehiclePrimaryFirePresses()));

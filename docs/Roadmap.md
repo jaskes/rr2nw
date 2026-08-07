@@ -1785,13 +1785,16 @@ presentation remains a separate post-commit counter. The Level.03N Marauder
 gate visibly plays `Flic/maroder.flc`, then ProjectS25, and reports center
 presentation `1/1/0/0` with clean shutdown.
 
-A normal interactive Level.03N run has since exposed a narrower remaining gap:
-after the expected Marauders center FLC and mission briefing, two extra
-Marauders cinematics can replay before world control returns. The bounded
-briefing smoke exits before this continuation. CQ-244 therefore tracks a
-source/reason presentation trace and exact one-shot ownership as the next
-visible cinematic parity fix; Level-entry restore/restart suppression must not
-be weakened while removing the duplicates.
+The later CQ-244 normal-loop gap is closed as well. Two queued collision events
+from before ejection carried timestamps older than the synchronous FLC/briefing
+completion; the monotonic-only debounce admitted both and replayed the center
+clip. RecruitCenter now closes that event boundary at the later of admission
+time and live simulation moment, while leaving later genuine visits and the
+hostile branch intact. Ordered source/reason/outcome telemetry distinguishes
+Level-entry, center and Project owners. The maintained Level.03N loop proves
+one center FLC, one Project briefing, two stale contacts suppressed and zero
+repeats in all three configurations; Level-entry, Portal and fresh continuation
+gates remain green.
 
 The current Windows playtest boundary is also explicit. Successful frames now
 publish input, simulation, software-render, present and frame-boundary timing.

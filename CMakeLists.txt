@@ -55,6 +55,16 @@ if(MSVC)
   target_compile_options(rr2nw_mod_runtime PRIVATE /W4 /permissive-)
 endif()
 
+add_library(rr2nw_presentation_trace STATIC
+  src/runtime/RecoveredPresentationTrace.cpp
+  src/runtime/RecoveredPresentationTrace.h
+)
+target_include_directories(rr2nw_presentation_trace PUBLIC src/runtime)
+target_compile_features(rr2nw_presentation_trace PUBLIC cxx_std_14)
+if(MSVC)
+  target_compile_options(rr2nw_presentation_trace PRIVATE /W4 /permissive-)
+endif()
+
 add_library(rr2nw_simulation_random STATIC
   src/runtime/SimulationRandom.cpp
   src/runtime/SimulationRandom.h
@@ -3127,6 +3137,7 @@ target_link_libraries(rr2nw_arena_obase_recrcen PUBLIC
   rr2nw_arena_obase_artefact
   rr2nw_mod_runtime
   rr2nw_recovered_legacy_script_runtime
+  rr2nw_presentation_trace
   rr2nw_legacy_shell_full
 )
 target_include_directories(rr2nw_arena_obase_recrcen PUBLIC
@@ -3707,6 +3718,7 @@ target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_active_world_save
   rr2nw_windows_input_adapter
   rr2nw_mod_runtime
+  rr2nw_presentation_trace
   rr2nw_arena_obase_debug_map
   rr2nw_arena_sua_shutdown_state
   rr2nw_arena_time_runtime_state

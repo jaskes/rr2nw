@@ -7,6 +7,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Stopped normal Level.03N Marauders admission from replaying two extra center
+  cinematics after the mission briefing. Synchronous presentation can leave
+  collision events whose timestamps predate the completed admission; the old
+  monotonic-only debounce admitted those stale events and called the center
+  presenter again. RecruitCenter now owns a post-admission event boundary
+  anchored to both the admission timestamp and simulation moment, while later
+  genuine visits remain eligible. A process-wide presentation trace records
+  ordered source/reason/outcome/asset events for center, Project and Level-entry
+  owners, and the bounded retail loop proves one character FLC, one ProjectS25
+  briefing, two stale collisions suppressed and zero repeats in all builds.
 - Extended the persisted Level.04D Actek chain through `ProjectS06` and exact
   successor `ProjectAER04`. S06 executes its single retail antenna objective,
   complete 29-owner `MS06.SC` graph and cumulative mission count eight, then

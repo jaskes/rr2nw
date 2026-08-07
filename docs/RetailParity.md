@@ -2575,6 +2575,26 @@ playable Level begins.
   Actual visual/audio timing and physical Esc/Space skip remain manual
   presentation rows.
 
+### RP-PRESENTATION-002: RecruitCenter presentation is one-shot per admission
+
+- Classification: `SOURCE_BEHAVIOR_RECOVERED`, `RETAIL_DATA_EXECUTED`,
+  `EVENT_BOUNDARY_OWNED`, `NORMAL_LOOP_GATED`.
+- A normal center collision owns the configured ordinary character flick (or
+  the hostile default briefing), then the selected Project owns its briefing.
+  Completing either synchronous presenter does not grant stale collision events
+  another admission. The guard is based on the completed admission boundary,
+  not a global FLC name, so authored Level-entry playback and later visits stay
+  independent.
+- Ordered diagnostics distinguish initial/Portal/debug/restore Level-entry
+  policy, center branch, Project command and suppressed stale contact. On
+  Level.03N Marauders the exact bounded sequence is one suppressed runtime-smoke
+  intro, `brief\mrdflc.TXT`, `Brief/ms25.txt`, then two suppressed collision
+  decisions with no additional completed presentation.
+- Verification: `Invoke-RecruitCenterPresentationLoopSmoke.ps1` passes 3/3;
+  Level.03N briefing policy passes 3/3, Portal arrival passes 9/9, fresh
+  continuation passes 3/3 and Debug/Release/RelWithDebInfo each pass 67/67
+  CTest. Visual return of control after the one briefing remains a manual check.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

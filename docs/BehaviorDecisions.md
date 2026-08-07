@@ -5962,3 +5962,24 @@ Acceptance must start from real slot-7 state, execute all 29 S06 script owners,
 save committed slot 8 and match the AER04 candidate plus world fingerprint in
 a fresh process. Changes to the constant or selection order require new retail
 evidence rather than a hard-coded campaign shortcut.
+
+### BD-178: presentation completion closes stale RecruitCenter collisions
+
+Status: accepted on 2026-08-07 for normal RecruitCenter admission.
+
+The synchronous center FLC and Project briefing may advance the live session
+while collision events prepared before ejection remain queued. The prior
+debounce accepted any event older than `m_previousVisitTime`, so those stale
+events fell back through `presentEncounter()` and replayed the center FLC. The
+admission boundary now records the later of the incoming timestamp and current
+simulation moment, and consumes every collision at or before that boundary plus
+the retained 250 ms contact window. This is per center and per admission; it is
+not an asset-name blacklist and does not disable a later real visit.
+
+Presentation ownership must remain observable. Ordered telemetry records
+`level-entry`, `center-admission` and `project-briefing` with reason, outcome and
+asset only after the synchronous owner returns; suppressed post-admission
+collisions are separate decisions. The maintained Level.03N proof requires the
+exact sequence: suppressed initial Level briefing, one ordinary Marauder flick,
+one ProjectS25 briefing and two stale collision suppressions. Hostile default
+briefing and relationship transitions retain their distinct source branch.

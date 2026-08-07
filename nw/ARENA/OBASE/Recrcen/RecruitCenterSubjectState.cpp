@@ -37,6 +37,7 @@ class CGRPanel;
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
 #include "RecoveredModRuntime.h"
+#include "RecoveredPresentationTrace.h"
 #include "../output/defs.h"
 
 namespace {
@@ -822,6 +823,12 @@ void PresentDeferredBriefings(
         g_vehicle->m_playedBrief = true;
         g_briefing.PlayBriefing(files[index].resolvedPath.c_str());
         g_vehicle->m_playedBrief = played;
+        RecoveredPresentationTrace_Record(
+            "project-briefing",
+            commands[index].command == COM_PLAY_BRIEFING_MSG
+                ? "play-briefing-message"
+                : "play-briefing",
+            "completed", files[index].resolvedPath.c_str());
         ++summary->presentedBriefings;
         if (commands[index].command == COM_PLAY_BRIEFING_MSG &&
             context->isExist("Publisher") && commands[index].integer > 0)
@@ -951,10 +958,15 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
             }
             ++m_playerCollisions;
             if (m_previousVisitTime >= 0.0 &&
-                event.timeStamp >= m_previousVisitTime &&
-                event.timeStamp - m_previousVisitTime <
-                    kCollisionDebounceSeconds)
+                event.timeStamp <=
+                    m_previousVisitTime + kCollisionDebounceSeconds)
+            {
+                ++m_suppressedPostAdmissionCollisions;
+                RecoveredPresentationTrace_Record(
+                    "center-admission", "post-admission-collision",
+                    "suppressed", "");
                 return 1;
+            }
             Player &player = static_cast<Player &>(g_vehicle->player());
             CenterEncounterPresentation presentation;
             if (!m_probeAdmission)
@@ -1107,6 +1119,10 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     {
         return m_centerPresentationFailures;
     }
+    int suppressedPostAdmissionCollisions() const
+    {
+        return m_suppressedPostAdmissionCollisions;
+    }
     void setProbeAdmission(bool value) { m_probeAdmission = value; }
     const RecruitCenterMissionProbeSummary &lastMissionSummary() const
     {
@@ -1145,6 +1161,11 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         {
             ++result.failures;
             ++m_centerPresentationFailures;
+            RecoveredPresentationTrace_Record(
+                "center-admission",
+                renegade ? "hostile-default-briefing"
+                         : "ordinary-character-flick",
+                "failed", authoredPath);
         }
         else
         {
@@ -1152,6 +1173,11 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
             g_vehicle->m_playedBrief = true;
             g_briefing.PlayBriefing(prepared.resolvedPath.c_str());
             g_vehicle->m_playedBrief = previous;
+            RecoveredPresentationTrace_Record(
+                "center-admission",
+                renegade ? "hostile-default-briefing"
+                         : "ordinary-character-flick",
+                "completed", prepared.resolvedPath.c_str());
             if (renegade)
             {
                 ++result.hostilityBriefings;
@@ -1252,7 +1278,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         g_vehicle->setPosition(target);
         g_vehicle->Stop();
         ++m_ejections;
-        m_previousVisitTime = timeStamp;
+        m_previousVisitTime = (std::max)(timeStamp, Session::m_moment);
         m_working = false;
         return 1;
     }
@@ -1304,6 +1330,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         m_presentedCenterFlicks = 0;
         m_presentedHostilityBriefings = 0;
         m_centerPresentationFailures = 0;
+        m_suppressedPostAdmissionCollisions = 0;
         std::memset(&m_lastMissionSummary, 0,
                     sizeof(m_lastMissionSummary));
         m_direction.LoadIdentity();
@@ -1339,6 +1366,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
     int m_presentedCenterFlicks;
     int m_presentedHostilityBriefings;
     int m_centerPresentationFailures;
+    int m_suppressedPostAdmissionCollisions;
     RecruitCenterMissionProbeSummary m_lastMissionSummary;
     CFMatrix3x4 m_direction;
 };
@@ -3025,8 +3053,28 @@ static bool StageMissionExecutionProbeForCenter(
             context->sendEventNow(collision);
             const RecruitCenterMissionProbeSummary &committed =
                 center->lastMissionSummary();
+            const int suppressedBefore =
+                center->suppressedPostAdmissionCollisions();
+            const int attemptsAfterAdmission =
+                center->centerPresentationAttempts();
+            for (int duplicate = 0; duplicate < 2; ++duplicate)
+            {
+                const double staleTime =
+                    (std::max)(0.1, timeStamp - 0.02 + duplicate * 0.01);
+                KR_Event queuedCollision(t_EV_ONCOLLISION, staleTime,
+                                         vehicle, center->getObjectID());
+                queuedCollision.data.open(EDO_WRITE)
+                    .putObjectID(vehicle).close();
+                context->sendEventNow(queuedCollision);
+            }
+            *summary = committed;
+            summary->postBriefingCollisionEvents = 2;
+            summary->postBriefingCollisionSuppressions =
+                center->suppressedPostAdmissionCollisions() - suppressedBefore;
+            summary->postBriefingPresentationRepeats =
+                center->centerPresentationAttempts() - attemptsAfterAdmission;
             const bool exact = player.m_missCnt == missionsBefore + 1 &&
-                center->playerCollisions() == collisionsBefore + 1 &&
+                center->playerCollisions() == collisionsBefore + 3 &&
                 center->admissions() == admissionsBefore + 1 &&
                 center->stagedMissions() == stagedBefore + 1 &&
                 center->ejections() == ejectionsBefore + 1 &&
@@ -3040,13 +3088,14 @@ static bool StageMissionExecutionProbeForCenter(
                 committed.centerPresentationAttempts == 1 &&
                 committed.presentedCenterFlicks == (renegade ? 0 : 1) &&
                 committed.presentedHostilityBriefings == (renegade ? 1 : 0) &&
-                committed.centerPresentationFailures == 0;
+                committed.centerPresentationFailures == 0 &&
+                summary->postBriefingCollisionSuppressions == 2 &&
+                summary->postBriefingPresentationRepeats == 0;
             if (!exact)
             {
                 SetError("RecruitCenter collision presentation did not commit");
                 return false;
             }
-            *summary = committed;
             *staged = true;
             return true;
         }
