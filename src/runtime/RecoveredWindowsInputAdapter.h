@@ -3,6 +3,38 @@
 #include <cstddef>
 #include <cstdint>
 
+enum ERecoveredInputBinding : std::size_t {
+  RECOVERED_BIND_MOVE_FORWARD = 0,
+  RECOVERED_BIND_MOVE_BACKWARD,
+  RECOVERED_BIND_STRAFE_LEFT,
+  RECOVERED_BIND_STRAFE_RIGHT,
+  RECOVERED_BIND_MOVE_UP,
+  RECOVERED_BIND_MOVE_DOWN,
+  RECOVERED_BIND_TURN_LEFT,
+  RECOVERED_BIND_TURN_RIGHT,
+  RECOVERED_BIND_LOOK_UP,
+  RECOVERED_BIND_LOOK_DOWN,
+  RECOVERED_BIND_JUMP,
+  RECOVERED_BIND_FIRE_PRIMARY,
+  RECOVERED_BIND_FIRE_PRIMARY_ALTERNATE,
+  RECOVERED_BIND_FIRE_SECONDARY,
+  RECOVERED_BIND_STOP_VEHICLE,
+  RECOVERED_BIND_CHANGE_VEHICLE,
+  RECOVERED_BIND_MAP,
+  RECOVERED_BIND_COUNT
+};
+
+struct SRecoveredInputBindings {
+  std::uint32_t key[RECOVERED_BIND_COUNT] = {};
+};
+
+SRecoveredInputBindings RecoveredWindowsInput_DefaultBindings();
+bool RecoveredWindowsInput_ValidateBindings(
+    const SRecoveredInputBindings& bindings, std::size_t* conflictFirst,
+    std::size_t* conflictSecond);
+const char* RecoveredWindowsInput_BindingName(std::size_t binding);
+const char* RecoveredWindowsInput_KeyName(std::uint32_t key);
+
 enum : std::size_t {
   RECOVERED_WINDOWS_INPUT_MAX_ACTIONS = 16u
 };
@@ -41,11 +73,17 @@ class RecoveredWindowsInputAdapter {
   RecoveredWindowsInputAdapter();
 
   void Reset(bool applicationActive = true);
+  bool SetBindings(const SRecoveredInputBindings& bindings);
+  const SRecoveredInputBindings& Bindings() const { return bindings_; }
+  bool EnterOverlay(double keySensitivity,
+                    SRecoveredWindowsInputBatch* batch);
+  void LeaveOverlay();
   bool ProcessWindowMessage(
       unsigned int message, std::uintptr_t wParam, std::intptr_t lParam,
       double keySensitivity, SRecoveredWindowsInputBatch* batch);
 
   bool ApplicationActive() const { return applicationActive_; }
+  bool OverlayActive() const { return overlayActive_; }
   bool IsNeutral() const;
   const SRecoveredWindowsInputTelemetry& Telemetry() const {
     return telemetry_;
@@ -65,11 +103,14 @@ class RecoveredWindowsInputAdapter {
                       SRecoveredWindowsInputBatch* batch);
   double Axis(std::uint32_t positive, std::uint32_t negative,
               double sensitivity) const;
+  bool BoundDown(ERecoveredInputBinding binding) const;
   bool PrimaryFireDown() const;
 
   bool keys_[256] = {};
   bool mouseLeft_ = false;
   bool mouseRight_ = false;
   bool applicationActive_ = true;
+  bool overlayActive_ = false;
+  SRecoveredInputBindings bindings_ = {};
   SRecoveredWindowsInputTelemetry telemetry_ = {};
 };

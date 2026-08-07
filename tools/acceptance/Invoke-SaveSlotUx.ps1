@@ -89,6 +89,27 @@ function Find-ProcessWindow([int]$ProcessId, [string]$Caption) {
     return $script:foundSaveUxWindow
 }
 
+function Get-ProcessWindowCaptions([int]$ProcessId) {
+    $script:saveUxWindowCaptions = [Collections.Generic.List[string]]::new()
+    $callback = [RR2SaveUxNative+EnumProc] {
+        param([IntPtr]$window, [IntPtr]$state)
+        $ownerProcess = 0
+        [RR2SaveUxNative]::GetWindowThreadProcessId(
+            $window, [ref]$ownerProcess) | Out-Null
+        if ($ownerProcess -eq $ProcessId) {
+            $text = [Text.StringBuilder]::new(512)
+            [RR2SaveUxNative]::GetWindowText(
+                $window, $text, $text.Capacity) | Out-Null
+            if ($text.Length -gt 0) {
+                $script:saveUxWindowCaptions.Add($text.ToString())
+            }
+        }
+        return $true
+    }
+    [RR2SaveUxNative]::EnumWindows($callback, [IntPtr]::Zero) | Out-Null
+    return @($script:saveUxWindowCaptions)
+}
+
 function Wait-ProcessWindow(
     [int]$ProcessId, [string]$Caption, [bool]$Present = $true) {
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
@@ -135,7 +156,8 @@ foreach ($configurationName in $Configuration) {
     $arguments = @(
         "--data-dir", $dataPath, "--start-level", $Level,
         "--save-dir", $saveDirectory,
-        "--diagnostics-dir", $uxDiagnostics
+        "--diagnostics-dir", $uxDiagnostics,
+        "--skip-level-briefing"
     ) | ForEach-Object { Quote-NativeArgument $_ }
     $game = Start-Process -FilePath $executable `
         -ArgumentList $arguments -WorkingDirectory $repositoryRoot -PassThru
@@ -151,6 +173,11 @@ foreach ($configurationName in $Configuration) {
         if ($mainWindow -eq [IntPtr]::Zero) {
             throw "[$configurationName] game window did not appear"
         }
+        # The HWND exists before the recovered Level has reached its first
+        # stable frame. Do not drive the fallback menu during startup owner
+        # publication, because a later session reset legitimately discards
+        # commands staged before marker=level-ready.
+        Start-Sleep -Milliseconds 700
 
         # Native Game > Load game > Slot 8.
         [RR2SaveUxNative]::PostMessage(
@@ -159,6 +186,9 @@ foreach ($configurationName in $Configuration) {
         [RR2SaveUxNative]::PostMessage(
             $loadDialog, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
         Wait-ProcessWindow $game.Id "RR2NW - Load game" $false | Out-Null
+        # Window destruction precedes the synchronous presenter returning,
+        # re-enabling its parent and rebasing the paused frame clock.
+        Start-Sleep -Milliseconds 500
 
         # Native Game > Save game > Slot 7 (empty in the isolated fixture).
         [RR2SaveUxNative]::PostMessage(
@@ -172,11 +202,11 @@ foreach ($configurationName in $Configuration) {
             $saveButton -eq [IntPtr]::Zero) {
             throw "[$configurationName] editable save controls are missing"
         }
-        # Queue the same BN_CLICKED command produced by the button. A queued
-        # command also lets the dialog's modal GetMessage loop close without
-        # cross-process SendMessage reentrancy.
+        # Ask the real button to perform its click. This preserves the native
+        # HWND notification payload and still keeps cross-process automation
+        # asynchronous inside the dialog's modal message loop.
         [RR2SaveUxNative]::PostMessage(
-            $saveDialog, 0x0111, [IntPtr]1, [IntPtr]::Zero) | Out-Null
+            $saveButton, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
         Wait-ProcessWindow $game.Id "RR2NW - Save game" $false | Out-Null
 
         $savedPath = Join-Path $saveDirectory "Slot6.rr2save"
@@ -186,6 +216,20 @@ foreach ($configurationName in $Configuration) {
             Start-Sleep -Milliseconds 100
         }
         if (-not (Test-Path -LiteralPath $savedPath -PathType Leaf)) {
+            $captions = Get-ProcessWindowCaptions $game.Id
+            $game.Refresh()
+            Write-Host ("[$configurationName] windows at save timeout: " +
+                ($captions -join "; "))
+            Write-Host ("[$configurationName] process at save timeout: " +
+                "responding=$($game.Responding) cpu=$($game.CPU) " +
+                "threads=$($game.Threads.Count)")
+            # Close through the real window before failing so deferred-save
+            # diagnostics are flushed instead of losing the only evidence to
+            # the finally-block's emergency process termination.
+            [RR2SaveUxNative]::PostMessage(
+                $mainWindow, 0x0010, [IntPtr]::Zero,
+                [IntPtr]::Zero) | Out-Null
+            $game.WaitForExit(10000) | Out-Null
             throw "[$configurationName] editable slot was not committed"
         }
         [RR2SaveUxNative]::PostMessage(

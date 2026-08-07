@@ -12,6 +12,12 @@
 
 namespace {
 
+const char* const kBindingNames[RECOVERED_BIND_COUNT] = {
+    "Move forward", "Move backward", "Strafe left", "Strafe right",
+    "Move up", "Move down", "Turn left", "Turn right", "Look up",
+    "Look down", "Jump", "Primary fire", "Primary fire (alternate)",
+    "Secondary fire", "Stop vehicle", "Change vehicle", "Map"};
+
 double BoundedSensitivity(double value) {
   if (!std::isfinite(value)) return 1.0;
   return (std::max)(0.01, (std::min)(1.0, value));
@@ -51,14 +57,123 @@ std::uint32_t LegacyKeyCode(std::uint32_t key, std::intptr_t lParam) {
 
 }  // namespace
 
-RecoveredWindowsInputAdapter::RecoveredWindowsInputAdapter() { Reset(); }
+SRecoveredInputBindings RecoveredWindowsInput_DefaultBindings() {
+  SRecoveredInputBindings result = {};
+  result.key[RECOVERED_BIND_MOVE_FORWARD] = 'W';
+  result.key[RECOVERED_BIND_MOVE_BACKWARD] = 'S';
+  result.key[RECOVERED_BIND_STRAFE_LEFT] = 'A';
+  result.key[RECOVERED_BIND_STRAFE_RIGHT] = 'D';
+  result.key[RECOVERED_BIND_MOVE_UP] = 'T';
+  result.key[RECOVERED_BIND_MOVE_DOWN] = 'G';
+  result.key[RECOVERED_BIND_TURN_LEFT] = VK_LEFT;
+  result.key[RECOVERED_BIND_TURN_RIGHT] = VK_RIGHT;
+  result.key[RECOVERED_BIND_LOOK_UP] = VK_UP;
+  result.key[RECOVERED_BIND_LOOK_DOWN] = VK_DOWN;
+  result.key[RECOVERED_BIND_JUMP] = VK_SPACE;
+  result.key[RECOVERED_BIND_FIRE_PRIMARY] = VK_LBUTTON;
+  result.key[RECOVERED_BIND_FIRE_PRIMARY_ALTERNATE] = VK_LCONTROL;
+  result.key[RECOVERED_BIND_FIRE_SECONDARY] = VK_RBUTTON;
+  result.key[RECOVERED_BIND_STOP_VEHICLE] = 'X';
+  result.key[RECOVERED_BIND_CHANGE_VEHICLE] = VK_F1;
+  result.key[RECOVERED_BIND_MAP] = 'M';
+  return result;
+}
+
+bool RecoveredWindowsInput_ValidateBindings(
+    const SRecoveredInputBindings& bindings, std::size_t* conflictFirst,
+    std::size_t* conflictSecond) {
+  for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index) {
+    const std::uint32_t key = bindings.key[index];
+    const bool axisBinding = index <= RECOVERED_BIND_LOOK_DOWN;
+    if (key == 0u || key >= 256u || key == VK_ESCAPE ||
+        (axisBinding && (key == VK_LBUTTON || key == VK_RBUTTON))) {
+      if (conflictFirst != nullptr) *conflictFirst = index;
+      if (conflictSecond != nullptr) *conflictSecond = index;
+      return false;
+    }
+    for (std::size_t previous = 0; previous < index; ++previous) {
+      if (bindings.key[previous] != key) continue;
+      if (conflictFirst != nullptr) *conflictFirst = previous;
+      if (conflictSecond != nullptr) *conflictSecond = index;
+      return false;
+    }
+  }
+  return true;
+}
+
+const char* RecoveredWindowsInput_BindingName(std::size_t binding) {
+  return binding < RECOVERED_BIND_COUNT ? kBindingNames[binding] : "Unknown";
+}
+
+const char* RecoveredWindowsInput_KeyName(std::uint32_t key) {
+  static char printable[2] = {};
+  if (key >= 'A' && key <= 'Z') {
+    printable[0] = static_cast<char>(key);
+    printable[1] = '\0';
+    return printable;
+  }
+  switch (key) {
+    case VK_LBUTTON: return "Mouse left";
+    case VK_RBUTTON: return "Mouse right";
+    case VK_LCONTROL: return "Left Ctrl";
+    case VK_RCONTROL: return "Right Ctrl";
+    case VK_SPACE: return "Space";
+    case VK_LEFT: return "Left";
+    case VK_RIGHT: return "Right";
+    case VK_UP: return "Up";
+    case VK_DOWN: return "Down";
+    case VK_F1: return "F1";
+    case VK_F2: return "F2";
+    case VK_F3: return "F3";
+    case VK_F4: return "F4";
+    case VK_F5: return "F5";
+    case VK_F6: return "F6";
+    case VK_F7: return "F7";
+    case VK_F8: return "F8";
+    case VK_F9: return "F9";
+    case VK_F10: return "F10";
+    case VK_F11: return "F11";
+    case VK_F12: return "F12";
+    default: return "Key";
+  }
+}
+
+RecoveredWindowsInputAdapter::RecoveredWindowsInputAdapter()
+    : bindings_(RecoveredWindowsInput_DefaultBindings()) {
+  Reset();
+}
 
 void RecoveredWindowsInputAdapter::Reset(bool applicationActive) {
   std::memset(keys_, 0, sizeof(keys_));
   mouseLeft_ = false;
   mouseRight_ = false;
   applicationActive_ = applicationActive;
+  overlayActive_ = false;
   telemetry_ = {};
+}
+
+bool RecoveredWindowsInputAdapter::SetBindings(
+    const SRecoveredInputBindings& bindings) {
+  if (!IsNeutral()) return false;
+  if (!RecoveredWindowsInput_ValidateBindings(bindings, nullptr, nullptr))
+    return false;
+  bindings_ = bindings;
+  return true;
+}
+
+bool RecoveredWindowsInputAdapter::EnterOverlay(
+    double keySensitivity, SRecoveredWindowsInputBatch* batch) {
+  if (batch == nullptr) return false;
+  *batch = {};
+  if (overlayActive_) return true;
+  if (!EmitFocusClear(BoundedSensitivity(keySensitivity), batch))
+    return false;
+  overlayActive_ = true;
+  return true;
+}
+
+void RecoveredWindowsInputAdapter::LeaveOverlay() {
+  overlayActive_ = false;
 }
 
 bool RecoveredWindowsInputAdapter::ProcessWindowMessage(
@@ -78,6 +193,12 @@ bool RecoveredWindowsInputAdapter::ProcessWindowMessage(
     // make. They belong to future text-entry UI, not the legacy translator.
     batch->consumed = true;
     ++telemetry_.keyboardMessages;
+    return true;
+  }
+  if (overlayActive_ &&
+      (IsKeyboardMessage(message) || IsMouseButtonMessage(message))) {
+    batch->consumed = true;
+    ++telemetry_.suppressedMessages;
     return true;
   }
   if (IsKeyboardMessage(message)) {
@@ -123,8 +244,17 @@ double RecoveredWindowsInputAdapter::Axis(
           (keys_[negative] ? 1.0 : 0.0)) * sensitivity;
 }
 
+bool RecoveredWindowsInputAdapter::BoundDown(
+    ERecoveredInputBinding binding) const {
+  const std::uint32_t key = bindings_.key[binding];
+  if (key == VK_LBUTTON) return mouseLeft_;
+  if (key == VK_RBUTTON) return mouseRight_;
+  return key < 256u && keys_[key];
+}
+
 bool RecoveredWindowsInputAdapter::PrimaryFireDown() const {
-  return mouseLeft_ || keys_[VK_LCONTROL];
+  return BoundDown(RECOVERED_BIND_FIRE_PRIMARY) ||
+         BoundDown(RECOVERED_BIND_FIRE_PRIMARY_ALTERNATE);
 }
 
 bool RecoveredWindowsInputAdapter::HandleKeyboard(
@@ -153,43 +283,59 @@ bool RecoveredWindowsInputAdapter::HandleKeyboard(
   keys_[virtualKey] = down;
   const bool fireAfter = PrimaryFireDown();
   const std::uint32_t legacyCode = LegacyKeyCode(virtualKey, lParam);
+  const auto matches = [this, virtualKey](ERecoveredInputBinding binding) {
+    return bindings_.key[binding] == virtualKey;
+  };
+  if (matches(RECOVERED_BIND_MOVE_FORWARD) ||
+      matches(RECOVERED_BIND_MOVE_BACKWARD))
+    return Emit(batch, MOVE_FORWARD,
+                Axis(bindings_.key[RECOVERED_BIND_MOVE_FORWARD],
+                     bindings_.key[RECOVERED_BIND_MOVE_BACKWARD],
+                     sensitivity), legacyCode, FALSE);
+  if (matches(RECOVERED_BIND_STRAFE_RIGHT) ||
+      matches(RECOVERED_BIND_STRAFE_LEFT))
+    return Emit(batch, STRAFE_RIGHT,
+                Axis(bindings_.key[RECOVERED_BIND_STRAFE_RIGHT],
+                     bindings_.key[RECOVERED_BIND_STRAFE_LEFT],
+                     sensitivity), legacyCode, FALSE);
+  if (matches(RECOVERED_BIND_MOVE_UP) ||
+      matches(RECOVERED_BIND_MOVE_DOWN))
+    return Emit(batch, STRAFE_UP,
+                Axis(bindings_.key[RECOVERED_BIND_MOVE_UP],
+                     bindings_.key[RECOVERED_BIND_MOVE_DOWN],
+                     sensitivity), legacyCode, FALSE);
+  if (matches(RECOVERED_BIND_TURN_RIGHT) ||
+      matches(RECOVERED_BIND_TURN_LEFT))
+    return Emit(batch, TURN_RIGHT,
+                Axis(bindings_.key[RECOVERED_BIND_TURN_RIGHT],
+                     bindings_.key[RECOVERED_BIND_TURN_LEFT],
+                     sensitivity), legacyCode, FALSE);
+  if (matches(RECOVERED_BIND_LOOK_UP) ||
+      matches(RECOVERED_BIND_LOOK_DOWN))
+    return Emit(batch, LOOK_UP,
+                Axis(bindings_.key[RECOVERED_BIND_LOOK_UP],
+                     bindings_.key[RECOVERED_BIND_LOOK_DOWN],
+                     sensitivity), legacyCode, FALSE);
+  if (matches(RECOVERED_BIND_JUMP))
+    return Emit(batch, JUMP, down ? 1.0 : 0.0, virtualKey, FALSE);
+  if (matches(RECOVERED_BIND_FIRE_PRIMARY) ||
+      matches(RECOVERED_BIND_FIRE_PRIMARY_ALTERNATE)) {
+    if (fireBefore == fireAfter) return true;
+    return Emit(batch, FIRE_PRIMARY, fireAfter ? 1.0 : 0.0,
+                virtualKey, FALSE);
+  }
+  if (matches(RECOVERED_BIND_FIRE_SECONDARY))
+    return Emit(batch, FIRE_SECONDARY, down ? 1.0 : 0.0,
+                virtualKey, FALSE);
+  if (matches(RECOVERED_BIND_STOP_VEHICLE))
+    return Emit(batch, STOP_VEHICLE, down ? 1.0 : 0.0,
+                virtualKey, FALSE);
+  if (matches(RECOVERED_BIND_CHANGE_VEHICLE))
+    return Emit(batch, CHANGE_VEHICLE, down ? 1.0 : 0.0,
+                virtualKey, FALSE);
+  if (matches(RECOVERED_BIND_MAP))
+    return down ? Emit(batch, DMAP_TOGGLE, 1.0, virtualKey, FALSE) : true;
   switch (virtualKey) {
-    case 'W':
-    case 'S':
-      return Emit(batch, MOVE_FORWARD, Axis('W', 'S', sensitivity),
-                  legacyCode, FALSE);
-    case 'D':
-    case 'A':
-      return Emit(batch, STRAFE_RIGHT, Axis('D', 'A', sensitivity),
-                  legacyCode, FALSE);
-    case 'T':
-    case 'G':
-      return Emit(batch, STRAFE_UP, Axis('T', 'G', sensitivity),
-                  legacyCode, FALSE);
-    case VK_RIGHT:
-    case VK_LEFT:
-      return Emit(batch, TURN_RIGHT,
-                  Axis(VK_RIGHT, VK_LEFT, sensitivity), legacyCode, FALSE);
-    case VK_UP:
-    case VK_DOWN:
-      return Emit(batch, LOOK_UP,
-                  Axis(VK_UP, VK_DOWN, sensitivity), legacyCode, FALSE);
-    case VK_SPACE:
-      return Emit(batch, JUMP, down ? 1.0 : 0.0, virtualKey, FALSE);
-    case VK_LCONTROL:
-      if (fireBefore == fireAfter) return true;
-      return Emit(batch, FIRE_PRIMARY, fireAfter ? 1.0 : 0.0,
-                  virtualKey, FALSE);
-    case 'X':
-      return Emit(batch, STOP_VEHICLE, down ? 1.0 : 0.0,
-                  virtualKey, FALSE);
-    case VK_F1:
-      return Emit(batch, CHANGE_VEHICLE, down ? 1.0 : 0.0,
-                  virtualKey, FALSE);
-    case VK_ESCAPE:
-      return Emit(batch, EXIT, down ? 1.0 : 0.0, virtualKey, FALSE);
-    case 'M':
-      return down ? Emit(batch, DMAP_TOGGLE, 1.0, virtualKey, FALSE) : true;
     case VK_DELETE:
       return down ? Emit(batch, DMAP_TOGGLE_FOLLOW_MODE, 1.0,
                          legacyCode, FALSE) : true;
@@ -216,8 +362,8 @@ bool RecoveredWindowsInputAdapter::HandleMouseButton(
     ++telemetry_.suppressedMessages;
     return true;
   }
-  const bool secondary =
-      message == WM_RBUTTONDOWN || message == WM_RBUTTONUP;
+  const bool secondary = message == WM_RBUTTONDOWN ||
+                         message == WM_RBUTTONUP;
   const bool down = message == WM_LBUTTONDOWN ||
                     message == WM_RBUTTONDOWN;
   bool& held = secondary ? mouseRight_ : mouseLeft_;
@@ -228,31 +374,42 @@ bool RecoveredWindowsInputAdapter::HandleMouseButton(
       ++telemetry_.redundantReleases;
     return true;
   }
-  if (secondary) {
-    held = down;
-    return Emit(batch, FIRE_SECONDARY, down ? 1.0 : 0.0,
-                VK_RBUTTON, FALSE);
-  }
   const bool fireBefore = PrimaryFireDown();
   held = down;
   const bool fireAfter = PrimaryFireDown();
-  if (fireBefore == fireAfter) return true;
-  return Emit(batch, FIRE_PRIMARY, fireAfter ? 1.0 : 0.0,
-              VK_LBUTTON, FALSE);
+  const std::uint32_t key = secondary ? VK_RBUTTON : VK_LBUTTON;
+  if (bindings_.key[RECOVERED_BIND_FIRE_PRIMARY] == key ||
+      bindings_.key[RECOVERED_BIND_FIRE_PRIMARY_ALTERNATE] == key) {
+    if (fireBefore == fireAfter) return true;
+    return Emit(batch, FIRE_PRIMARY, fireAfter ? 1.0 : 0.0, key, FALSE);
+  }
+  if (bindings_.key[RECOVERED_BIND_FIRE_SECONDARY] == key)
+    return Emit(batch, FIRE_SECONDARY, down ? 1.0 : 0.0, key, FALSE);
+  return true;
 }
 
 bool RecoveredWindowsInputAdapter::EmitFocusClear(
     double sensitivity, SRecoveredWindowsInputBatch* batch) {
-  const double forward = Axis('W', 'S', sensitivity);
-  const double strafe = Axis('D', 'A', sensitivity);
-  const double vertical = Axis('T', 'G', sensitivity);
-  const double turn = Axis(VK_RIGHT, VK_LEFT, sensitivity);
-  const double look = Axis(VK_UP, VK_DOWN, sensitivity);
-  const bool jump = keys_[VK_SPACE];
+  const double forward = Axis(bindings_.key[RECOVERED_BIND_MOVE_FORWARD],
+                              bindings_.key[RECOVERED_BIND_MOVE_BACKWARD],
+                              sensitivity);
+  const double strafe = Axis(bindings_.key[RECOVERED_BIND_STRAFE_RIGHT],
+                             bindings_.key[RECOVERED_BIND_STRAFE_LEFT],
+                             sensitivity);
+  const double vertical = Axis(bindings_.key[RECOVERED_BIND_MOVE_UP],
+                               bindings_.key[RECOVERED_BIND_MOVE_DOWN],
+                               sensitivity);
+  const double turn = Axis(bindings_.key[RECOVERED_BIND_TURN_RIGHT],
+                           bindings_.key[RECOVERED_BIND_TURN_LEFT],
+                           sensitivity);
+  const double look = Axis(bindings_.key[RECOVERED_BIND_LOOK_UP],
+                           bindings_.key[RECOVERED_BIND_LOOK_DOWN],
+                           sensitivity);
+  const bool jump = BoundDown(RECOVERED_BIND_JUMP);
   const bool fire = PrimaryFireDown();
-  const bool secondaryFire = mouseRight_;
-  const bool stop = keys_['X'];
-  const bool changeVehicle = keys_[VK_F1];
+  const bool secondaryFire = BoundDown(RECOVERED_BIND_FIRE_SECONDARY);
+  const bool stop = BoundDown(RECOVERED_BIND_STOP_VEHICLE);
+  const bool changeVehicle = BoundDown(RECOVERED_BIND_CHANGE_VEHICLE);
   std::memset(keys_, 0, sizeof(keys_));
   mouseLeft_ = false;
   mouseRight_ = false;

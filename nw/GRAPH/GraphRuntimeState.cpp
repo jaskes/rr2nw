@@ -1129,10 +1129,29 @@ int GRDumpScreen()
         return FALSE;
     if( _gr_hDC == NULL ) return TRUE;
 
-    return SetDIBitsToDevice(
-        _gr_hDC,0,0,_gr_nScreenWidth,_gr_nScreenHeight,0,0,0,
-        _gr_nScreenHeight,_gr_pScreen,
-        reinterpret_cast<BITMAPINFO *>(&_gr_DIBInfo),DIB_RGB_COLORS) != 0;
+    RECT client = {};
+    if( _gr_hWnd == NULL || GetClientRect(_gr_hWnd,&client) == FALSE )
+        return SetDIBitsToDevice(
+            _gr_hDC,0,0,_gr_nScreenWidth,_gr_nScreenHeight,0,0,0,
+            _gr_nScreenHeight,_gr_pScreen,
+            reinterpret_cast<BITMAPINFO *>(&_gr_DIBInfo),DIB_RGB_COLORS) != 0;
+    const int clientWidth = client.right-client.left;
+    const int clientHeight = client.bottom-client.top;
+    if( clientWidth <= 0 || clientHeight <= 0 ) return TRUE;
+    int width = clientWidth;
+    int height = width*_gr_nScreenHeight/_gr_nScreenWidth;
+    if( height > clientHeight ) {
+        height = clientHeight;
+        width = height*_gr_nScreenWidth/_gr_nScreenHeight;
+    }
+    const int x = (clientWidth-width)/2;
+    const int y = (clientHeight-height)/2;
+    FillRect(_gr_hDC,&client,(HBRUSH)GetStockObject(BLACK_BRUSH));
+    SetStretchBltMode(_gr_hDC,COLORONCOLOR);
+    return StretchDIBits(
+        _gr_hDC,x,y,width,height,0,0,_gr_nScreenWidth,_gr_nScreenHeight,
+        _gr_pScreen,reinterpret_cast<BITMAPINFO *>(&_gr_DIBInfo),
+        DIB_RGB_COLORS,SRCCOPY) != GDI_ERROR;
 }
 
 #if defined(_MSC_VER) && defined(_DEBUG)

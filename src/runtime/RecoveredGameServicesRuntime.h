@@ -29,7 +29,8 @@ enum ERecoveredGameServicesIssue {
   RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE = 1u << 14,
   RECOVERED_GAME_SERVICES_VEHICLE_DEATH_CAMERA_FAILURE = 1u << 15,
   RECOVERED_GAME_SERVICES_DEBUG_MAP_INITIALIZATION_FAILURE = 1u << 16,
-  RECOVERED_GAME_SERVICES_DEBUG_MAP_RENDER_FAILURE = 1u << 17
+  RECOVERED_GAME_SERVICES_DEBUG_MAP_RENDER_FAILURE = 1u << 17,
+  RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE = 1u << 18
 };
 
 struct SRecoveredObserverState {
@@ -490,6 +491,59 @@ struct SRecoveredDebugLevelSwitchRequest {
   SLevelContinuationSummary sourceContinuationSummary;
 };
 
+enum ERecoveredInGameShellPage {
+  RECOVERED_SHELL_PAGE_ROOT = 0,
+  RECOVERED_SHELL_PAGE_SAVE = 1,
+  RECOVERED_SHELL_PAGE_LOAD = 2,
+  RECOVERED_SHELL_PAGE_CONTROLS = 3,
+  RECOVERED_SHELL_PAGE_VIDEO = 4,
+  RECOVERED_SHELL_PAGE_DEVELOPER = 5,
+  RECOVERED_SHELL_PAGE_VIDEO_CONFIRM = 6
+};
+
+enum ERecoveredInGameVideoCommand {
+  RECOVERED_SHELL_VIDEO_NONE = 0,
+  RECOVERED_SHELL_VIDEO_APPLY = 1,
+  RECOVERED_SHELL_VIDEO_CONFIRM = 2,
+  RECOVERED_SHELL_VIDEO_REVERT = 3
+};
+
+struct SRecoveredInGameShellState {
+  bool configured = false;
+  bool open = false;
+  bool developerMode = false;
+  bool safeMode = false;
+  ERecoveredInGameShellPage page = RECOVERED_SHELL_PAGE_ROOT;
+  std::size_t selected = 0;
+  int captureBinding = -1;
+  int conflictBinding = -1;
+  bool overwriteConfirmation = false;
+  std::uint32_t overwriteSlot = 0;
+  int windowMode = 0;
+  int windowScale = 1;
+  bool videoConfirmationActive = false;
+  ERecoveredInGameVideoCommand pendingVideoCommand =
+      RECOVERED_SHELL_VIDEO_NONE;
+  unsigned int opens = 0;
+  unsigned int closes = 0;
+  unsigned int inputNeutralizations = 0;
+  unsigned int saveRequests = 0;
+  unsigned int loadRequests = 0;
+  unsigned int restartRequests = 0;
+  unsigned int bindingChanges = 0;
+  unsigned int bindingConflicts = 0;
+  unsigned int videoApplies = 0;
+  unsigned int videoConfirms = 0;
+  unsigned int videoRollbacks = 0;
+  unsigned int videoTimeoutRollbacks = 0;
+  unsigned int settingsLoads = 0;
+  unsigned int settingsWrites = 0;
+  unsigned int corruptSettingsRecoveries = 0;
+  std::wstring settingsPath;
+  std::string status;
+  std::string lastError;
+};
+
 void RecoveredGameServices_UseRuntime();
 void RecoveredGameServices_Release();
 bool RecoveredGameServices_PlatformReady();
@@ -635,6 +689,11 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
     const std::wstring& directory);
 bool RecoveredGameServices_ConfigureDebugMenu(
     bool enabled, const std::vector<std::string>& levelCatalog);
+bool RecoveredGameServices_ConfigureInGameShell(
+    const std::wstring& settingsPath, bool developerMode, bool safeMode);
+const SRecoveredInGameShellState* RecoveredGameServices_InGameShellState();
+const SRecoveredInputBindings* RecoveredGameServices_InputBindings();
+bool RecoveredGameServices_InGameShellKeyForTesting(std::uint32_t key);
 const SRecoveredDebugMenuState* RecoveredGameServices_DebugMenuState();
 std::size_t RecoveredGameServices_DebugVehicleTypeCount();
 bool RecoveredGameServices_DebugVehicleType(

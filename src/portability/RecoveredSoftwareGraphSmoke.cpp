@@ -23,6 +23,18 @@ int Fail(const char* message) {
 }  // namespace
 
 int main() {
+  SRecoveredWindowPresentation validPresentation;
+  validPresentation.mode = RECOVERED_WINDOW_MODE_WINDOWED;
+  validPresentation.clientWidth = 1280;
+  validPresentation.clientHeight = 960;
+  SRecoveredWindowPresentation invalidPresentation = validPresentation;
+  invalidPresentation.clientWidth = 1280;
+  invalidPresentation.clientHeight = 720;
+  if (!RecoveredSoftwareGraph_ValidatePresentation(validPresentation) ||
+      RecoveredSoftwareGraph_ValidatePresentation(invalidPresentation) ||
+      RecoveredSoftwareGraph_ApplyPresentation(validPresentation, nullptr)) {
+    return Fail("presentation validation did not remain fail-closed");
+  }
   GameEntry_UseRecoveredRuntime();
   const unsigned int missing = GameEntry_RuntimeMissingHooks();
   const unsigned int expectedMissing = GAME_ENTRY_MISSING_LEVEL_INIT |

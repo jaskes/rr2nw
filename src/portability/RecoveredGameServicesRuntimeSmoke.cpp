@@ -5249,6 +5249,105 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("save menu directory configuration failed");
   }
+  const std::wstring shellSettingsPath =
+      saveSlotDirectory + L"\\shell-settings.cfg";
+  if (!RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, false) ||
+      !RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("in-game shell did not open");
+  }
+  const SRecoveredInGameShellState* shell =
+      RecoveredGameServices_InGameShellState();
+  bool shellReady = shell != nullptr && shell->configured && shell->open &&
+                    !shell->developerMode &&
+                    shell->page == RECOVERED_SHELL_PAGE_ROOT &&
+                    shell->opens == 1u &&
+                    shell->inputNeutralizations == 1u;
+  for (int step = 0; shellReady && step < 4; ++step)
+    shellReady = RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+  shellReady = shellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->page == RECOVERED_SHELL_PAGE_CONTROLS &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->captureBinding == RECOVERED_BIND_MOVE_FORWARD &&
+      RecoveredGameServices_InGameShellKeyForTesting('Z') &&
+      shell->captureBinding == -1 &&
+      RecoveredGameServices_InputBindings() != nullptr &&
+      RecoveredGameServices_InputBindings()
+              ->key[RECOVERED_BIND_MOVE_FORWARD] == 'Z';
+  for (std::size_t step = 0;
+       shellReady && step < RECOVERED_BIND_COUNT; ++step)
+    shellReady = RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+  shellReady = shellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      RecoveredGameServices_InputBindings()
+              ->key[RECOVERED_BIND_MOVE_FORWARD] == 'W' &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      shell->page == RECOVERED_SHELL_PAGE_ROOT &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      !shell->open && shell->closes == 1u &&
+      shell->bindingChanges == 2u && shell->settingsWrites == 2u &&
+      GetFileAttributesW(shellSettingsPath.c_str()) !=
+          INVALID_FILE_ATTRIBUTES;
+  if (!shellReady) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("in-game shell controls/settings contract failed");
+  }
+  FILE* corruptSettings = nullptr;
+  if (_wfopen_s(&corruptSettings, shellSettingsPath.c_str(), L"wb") != 0 ||
+      corruptSettings == nullptr) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("in-game shell corrupt-settings fixture could not be written");
+  }
+  const char corruptBytes[] = "version=999\r\nwindow_mode=7\r\n";
+  const bool corruptBodyWritten =
+      std::fwrite(corruptBytes, 1u, sizeof(corruptBytes) - 1u,
+                  corruptSettings) == sizeof(corruptBytes) - 1u;
+  const bool corruptWritten =
+      std::fclose(corruptSettings) == 0 && corruptBodyWritten;
+  if (!corruptWritten ||
+      !RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, false)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("in-game shell corrupt settings recovery failed");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  if (shell == nullptr || shell->developerMode || shell->safeMode ||
+      shell->corruptSettingsRecoveries != 1u ||
+      shell->settingsWrites != 1u || shell->windowMode != 0 ||
+      shell->windowScale != 1 ||
+      RecoveredGameServices_InputBindings() == nullptr ||
+      RecoveredGameServices_InputBindings()
+              ->key[RECOVERED_BIND_MOVE_FORWARD] != 'W' ||
+      !RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, true)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("in-game shell safe recovery state was not fail-closed");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  if (shell == nullptr || shell->developerMode || !shell->safeMode ||
+      shell->settingsLoads != 0u || shell->settingsWrites != 0u ||
+      shell->corruptSettingsRecoveries != 0u || shell->windowMode != 0 ||
+      shell->windowScale != 1 ||
+      !RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, true, false)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("in-game shell safe-mode bypass failed");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  if (shell == nullptr || !shell->developerMode || shell->safeMode ||
+      shell->settingsLoads != 1u || shell->corruptSettingsRecoveries != 0u) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("in-game shell developer capability was not process-owned");
+  }
 
   SRecoveredVehicleControlReplayTelemetry replayTelemetry = {};
   SRecoveredVehicleControlJournalTelemetry initialJournalTelemetry = {};

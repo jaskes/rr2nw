@@ -5,8 +5,26 @@ claim authorship of inherited Logos code or retail data.
 
 ## Unreleased
 
+### Added
+
+- Added the first M2.5 in-game shell/settings slice. `Esc` now opens an
+  in-frame pause menu with typed eight-slot Save/Load, restart and exit;
+  conflict-checked rebinding for 17 Player/Vehicle/map-toggle actions;
+  windowed/borderless 4:3 presentation at 640x480, 960x720 and 1280x960 with
+  15-second automatic rollback; atomic schema-1 user settings and safe mode;
+  and a fail-closed Developer page enabled only by an explicit process
+  capability. The archival renderer still owns its original 640x480 buffer,
+  held input is neutralized behind the shell and all world mutations retain
+  their existing closed-frame rollback coordinators.
+
 ### Fixed
 
+- Rebased the legacy simulation clock after synchronous native Save/Load
+  dialogs so dialog dwell cannot become a later physics or continuation delta.
+  The native fallback UX gate now waits for a stable post-intro loop, drives
+  the real Save button notification and preserves diagnostics on timeout;
+  Level-entry presentation can no longer consume a command staged before its
+  session owner has finished publishing.
 - Stopped normal Level.03N Marauders admission from replaying two extra center
   cinematics after the mission briefing. Synchronous presentation can leave
   collision events whose timestamps predate the completed admission; the old

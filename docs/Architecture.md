@@ -164,6 +164,29 @@ Tick rate определяется измерением retail поведени�
 ограниченное число catch-up ticks; spiral-of-death ограничивается и логируется.
 Pause, focus loss и alt-tab имеют явные lifecycle transitions.
 
+## In-game shell and settings ownership
+
+The Windows in-frame shell is a command publisher, not a second game runtime.
+Opening it releases every held gameplay action and pauses event/simulation
+polling. The legacy timer sample is rebased during every paused frame so menu
+dwell cannot leak into physics or persisted continuation clocks. Save, Load,
+restart and Developer operations still execute through their existing typed
+coordinators only after the rendered frame has fully ended and presented.
+
+The renderer continues to own one 640x480 software framebuffer. Windowed and
+borderless modes scale that buffer into an aspect-correct 4:3 destination and
+letterbox any remaining client area. This keeps archival viewport, panel and
+scene assumptions stable while the platform layer owns window geometry. Video
+apply captures a last-known-good platform snapshot and reverts it after 15
+seconds unless the player confirms it.
+
+Input settings name actions rather than raw archival dispatch paths. The first
+catalog covers 17 Player/Vehicle/map-toggle actions, rejects duplicates and
+retains the exact recovered defaults. A bounded schema-1 config under
+`%LOCALAPPDATA%\RR2NW` is written by atomic replacement. Corrupt or newer data
+falls back to safe windowed defaults; `--safe-mode` bypasses it. Developer mode
+is a CLI capability and is deliberately absent from the persisted schema.
+
 ## RNG и replay
 
 - Не использовать libc `rand()` для нового authoritative поведения.

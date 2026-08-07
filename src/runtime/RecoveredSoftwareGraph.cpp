@@ -25,6 +25,10 @@ HINSTANCE g_windowInstance = nullptr;
 bool g_windowClassOwned = false;
 bool g_programmaticWindowDestroy = false;
 bool g_ready = false;
+SRecoveredWindowPresentation g_presentation = {};
+RECT g_windowedRect = {};
+bool g_windowedRectValid = false;
+DWORD g_presentationError = ERROR_SUCCESS;
 void (*g_previousClipUpdate)() = nullptr;
 TRecoveredSoftwareWindowMessageHook g_windowMessageHook = nullptr;
 
@@ -88,6 +92,9 @@ bool CreateSoftwareWindow(HINSTANCE instance) {
       windowRect.bottom - windowRect.top, nullptr, nullptr, instance, nullptr);
   if (_gr_hWnd == nullptr) return false;
 
+  if (GetWindowRect(_gr_hWnd, &g_windowedRect) != FALSE)
+    g_windowedRectValid = true;
+
   _gr_hDC = GetDC(_gr_hWnd);
   if (_gr_hDC == nullptr) return false;
 
@@ -139,6 +146,10 @@ void FinishSoftwareGraph() {
   g_previousClipUpdate = nullptr;
   g_windowMessageHook = nullptr;
   g_ready = false;
+  g_presentation = {};
+  g_windowedRect = {};
+  g_windowedRectValid = false;
+  g_presentationError = ERROR_SUCCESS;
 }
 
 }  // namespace
@@ -231,6 +242,109 @@ int RecoveredSoftwareGraph_Width() {
 
 int RecoveredSoftwareGraph_Height() {
   return g_ready ? kScreenHeight : 0;
+}
+
+bool RecoveredSoftwareGraph_ValidatePresentation(
+    const SRecoveredWindowPresentation& presentation) {
+  if (presentation.mode != RECOVERED_WINDOW_MODE_WINDOWED &&
+      presentation.mode != RECOVERED_WINDOW_MODE_BORDERLESS)
+    return false;
+  if (presentation.clientWidth < kScreenWidth ||
+      presentation.clientHeight < kScreenHeight ||
+      presentation.clientWidth > 7680 || presentation.clientHeight > 4320)
+    return false;
+  // This slice deliberately scales the retail 4:3 software framebuffer. It
+  // does not lie to the scene/panel ABI about an arbitrary internal mode.
+  return static_cast<long long>(presentation.clientWidth) * 3 ==
+         static_cast<long long>(presentation.clientHeight) * 4;
+}
+
+bool RecoveredSoftwareGraph_ApplyPresentation(
+    const SRecoveredWindowPresentation& presentation,
+    SRecoveredWindowPresentation* previous) {
+  g_presentationError = ERROR_SUCCESS;
+  if (!g_ready || _gr_hWnd == nullptr) {
+    g_presentationError = ERROR_INVALID_STATE;
+    return false;
+  }
+  if (!RecoveredSoftwareGraph_ValidatePresentation(presentation)) {
+    g_presentationError = ERROR_INVALID_PARAMETER;
+    return false;
+  }
+  if (previous != nullptr) *previous = g_presentation;
+
+  const ERecoveredWindowMode oldMode = g_presentation.mode;
+  if (oldMode == RECOVERED_WINDOW_MODE_WINDOWED &&
+      presentation.mode == RECOVERED_WINDOW_MODE_BORDERLESS &&
+      GetWindowRect(_gr_hWnd, &g_windowedRect) != FALSE)
+    g_windowedRectValid = true;
+
+  if (presentation.mode == RECOVERED_WINDOW_MODE_BORDERLESS) {
+    HMONITOR monitor = MonitorFromWindow(_gr_hWnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO info = {};
+    info.cbSize = sizeof(info);
+    if (monitor == nullptr || GetMonitorInfoW(monitor, &info) == FALSE) {
+      g_presentationError = GetLastError();
+      return false;
+    }
+    SetLastError(ERROR_SUCCESS);
+    SetWindowLongPtrW(_gr_hWnd, GWL_STYLE,
+                      WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
+    if (GetLastError() != ERROR_SUCCESS) {
+      g_presentationError = GetLastError();
+      return false;
+    }
+    if (SetWindowPos(_gr_hWnd, HWND_TOP, info.rcMonitor.left,
+                     info.rcMonitor.top,
+                     info.rcMonitor.right - info.rcMonitor.left,
+                     info.rcMonitor.bottom - info.rcMonitor.top,
+                     SWP_FRAMECHANGED | SWP_SHOWWINDOW) == FALSE) {
+      g_presentationError = GetLastError();
+      return false;
+    }
+  } else {
+    const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU |
+                        WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+    SetLastError(ERROR_SUCCESS);
+    SetWindowLongPtrW(_gr_hWnd, GWL_STYLE, style);
+    if (GetLastError() != ERROR_SUCCESS) {
+      g_presentationError = GetLastError();
+      return false;
+    }
+    RECT outer = {0, 0, presentation.clientWidth,
+                  presentation.clientHeight};
+    if (AdjustWindowRectEx(&outer, style,
+                           GetMenu(_gr_hWnd) != nullptr, WS_EX_APPWINDOW) ==
+        FALSE) {
+      g_presentationError = GetLastError();
+      return false;
+    }
+    int x = CW_USEDEFAULT;
+    int y = CW_USEDEFAULT;
+    if (g_windowedRectValid) {
+      x = g_windowedRect.left;
+      y = g_windowedRect.top;
+    }
+    if (SetWindowPos(_gr_hWnd, HWND_NOTOPMOST, x, y,
+                     outer.right - outer.left, outer.bottom - outer.top,
+                     SWP_FRAMECHANGED | SWP_SHOWWINDOW) == FALSE) {
+      g_presentationError = GetLastError();
+      return false;
+    }
+    if (GetWindowRect(_gr_hWnd, &g_windowedRect) != FALSE)
+      g_windowedRectValid = true;
+  }
+  g_presentation = presentation;
+  InvalidateRect(_gr_hWnd, nullptr, FALSE);
+  return true;
+}
+
+SRecoveredWindowPresentation RecoveredSoftwareGraph_Presentation() {
+  return g_presentation;
+}
+
+unsigned long RecoveredSoftwareGraph_LastPresentationError() {
+  return g_presentationError;
 }
 
 void RecoveredSoftwareGraph_ConfigureWindowMessageHook(

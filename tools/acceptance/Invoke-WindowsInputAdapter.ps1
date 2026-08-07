@@ -133,6 +133,13 @@ foreach ($configurationName in $Configuration) {
         Send-Key $window 0x20 $false
         Send-Key $window 0x4D $true
         Send-Key $window 0x4D $false
+        Wait-InputFrame
+        # The map is an exclusive overlay and correctly consumes fire. Close
+        # it before the weapon edge proof instead of asking mutually exclusive
+        # owners to handle the same input.
+        Send-Key $window 0x4D $true
+        Send-Key $window 0x4D $false
+        Wait-InputFrame
         Send-WindowMessage $window 0x0201 0
         # Keep the physical button down across several simulation boundaries:
         # the semantic edge must reach the recurring Vehicle fire owner and
@@ -179,10 +186,10 @@ foreach ($configurationName in $Configuration) {
     $expected = @{
         input_mode = "authoritative-windows-semantic-adapter"
         windows_input_mouse_button_messages = "6"
-        windows_input_emitted_actions = "25"
+        windows_input_emitted_actions = "26"
         windows_input_filtered_repeats = "1"
         windows_input_focus_clear_actions = "3"
-        windows_input_map_toggle_presses = "1"
+        windows_input_map_toggle_presses = "2"
         windows_input_primary_fire_presses = "2"
         windows_input_secondary_fire_presses = "2"
         windows_input_jump_presses = "1"

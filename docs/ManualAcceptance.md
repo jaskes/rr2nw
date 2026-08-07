@@ -49,6 +49,51 @@ present and boundary stages under `frame_profile_*`. Compare those with
 above the timer guard with growing clamped seconds is confirmed slow motion,
 not merely uneven presentation. Retain the log and the exact Level/route.
 
+## In-game shell and settings pass
+
+Build the optimized playtest configuration and start an ordinary game without
+a developer capability:
+
+```powershell
+cmake --build --preset windows-msvc-x86-playtest
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --diagnostics-dir "$PWD\manual-logs\in-game-shell"
+```
+
+Press `Esc`. The world must stop immediately and the menu must be drawn inside
+the 640x480 game image. Held movement, turning and fire must be released; after
+Continue they resume only after a new physical press.
+
+1. Save into an empty slot, then overwrite it and require the second Enter
+   confirmation. Move elsewhere, load that slot and confirm the existing
+   closed-frame restoration behavior.
+2. In Controls, rebind an action, deliberately choose an occupied key and
+   observe the conflict without changing either action. Choose a free key,
+   continue playing, restart the executable and verify persistence. Restore
+   defaults and verify the original binding returns.
+3. In Video, apply 960x720 or 1280x960 and confirm it. The image must retain
+   4:3 geometry. Apply another size and do nothing for 15 seconds; the last
+   confirmed mode must return automatically. Borderless must letterbox on a
+   non-4:3 desktop rather than stretch the scene.
+4. Confirm ordinary startup has no Developer entry. Restart with
+   `--developer-mode`; the Developer page must appear and its supported commands
+   must still report that they execute at the closed frame boundary.
+5. Exit, replace `%LOCALAPPDATA%\RR2NW\settings.cfg` with invalid text and start
+   again. The game must recover a valid schema-1 file and safe 640x480 windowed
+   defaults. `--safe-mode` must also start with those defaults while ignoring
+   otherwise valid saved settings.
+
+The bounded real-window proof exercises Save/Load, binding persistence/defaults,
+two confirmed video changes and one timed rollback in every maintained build:
+
+```powershell
+& ".\tools\acceptance\Invoke-InGameShell.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+This first slice does not yet claim mouse sensitivity/invert-Y, remaining map
+navigation bindings, exclusive fullscreen, in-frame preview images or complete
+DPI/Alt-Tab soak. The native Windows menu remains a diagnostic fallback until
+those remaining M2.5 rows close.
+
 ## Live People movement and combat telemetry
 
 Normal interactive runs now sample the real People roster immediately after

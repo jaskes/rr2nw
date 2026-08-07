@@ -735,6 +735,32 @@ and deliver the first M2.5 vertical slice before continuing campaign expansion.
 - The native Windows menus remain a temporary diagnostic fallback until the
   in-game shell passes its complete gate; they are not the final 1.0 UX.
 
+### First vertical slice status — 2026-08-07
+
+The first playable slice is now implemented on the recovered Windows runtime:
+
+- `Esc` opens an in-frame pause shell and atomically neutralizes held gameplay
+  input. Menu dwell is excluded from the next simulation-frame delta.
+- Game owns Continue, the existing eight RR2SLOT1 Save/Load slots with
+  overwrite confirmation and metadata labels, restart and exit. Every world
+  mutation still enters the established typed closed-frame coordinator.
+- Controls exposes 17 admitted Player/Vehicle/map-toggle actions, rejects
+  duplicate bindings, restores the evidenced defaults and persists changes.
+- Video exposes windowed and borderless presentation plus 640x480, 960x720 and
+  1280x960 4:3 client sizes. The retail 640x480 software framebuffer remains
+  the internal ABI; presentation scales and letterboxes it without stretching.
+  Apply owns a last-known-good snapshot and automatically reverts after 15
+  seconds unless confirmed.
+- Schema-1 `settings.cfg` is atomically replaced under `%LOCALAPPDATA%\RR2NW`.
+  Invalid/newer data recovers safe defaults, and `--safe-mode` bypasses the
+  file. `--developer-mode` is the only capability that exposes the in-frame
+  Developer page; it cannot be enabled by the settings file.
+
+Remaining M2.5 breadth is explicit rather than silently claimed: mouse
+sensitivity/invert-Y, the remaining map-navigation bindings, exclusive
+fullscreen and DPI/Alt-Tab soak, in-frame slot previews, the complete supported
+Developer catalog and final removal of the native diagnostic fallback.
+
 ### Gate
 
 - Main and pause shells render inside the game and return to the same finite
@@ -2218,7 +2244,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M2.5 in-game shell/settings | 15% | safe native eight-slot Save/Load, action-based input adapter and opt-in transactional Debug commands | recovered main/pause shell, binding UX, video apply/revert, versioned settings/safe mode and developer capability gate |
+| M2.5 in-game shell/settings | 60% | in-frame pause shell, typed eight-slot Save/Load/restart, 17 conflict-checked bindings, windowed/borderless 4:3 presentation with timed rollback, atomic schema-1 settings/safe mode and fail-closed Developer page | mouse sensitivity/invert and remaining map actions, exclusive fullscreen/DPI/Alt-Tab soak, in-frame previews, full Developer catalog and removal of native fallback |
 | M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-one no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains from the documented S03 handoff, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
@@ -2226,8 +2252,8 @@ packaged Windows 10/11 manual gates have not yet passed.
 
 The shortest critical path is:
 
-1. deliver M2.5 first slice: in-game Save/Load, Controls, Video and explicit
-   Developer mode over the existing typed-command/rollback boundaries;
+1. finish the remaining M2.5 UX and physical Windows gates now that in-game
+   Save/Load, Controls, Video rollback and explicit Developer mode are live;
 2. repeat visible People/Tank/guide motion and manually validate cinematic
    timing/skip, then finish the remaining campaign-specific commands;
 3. connect real audio and finish window/focus/performance stability;

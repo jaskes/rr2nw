@@ -64,6 +64,7 @@ struct StartupOptions {
   std::wstring dataDirectory;
   std::wstring diagnosticsDirectory;
   std::wstring saveDirectory;
+  std::wstring settingsFile;
   std::vector<std::wstring> modDirectories;
   std::wstring modsDirectory;
   std::vector<std::wstring> selectedMods;
@@ -93,6 +94,7 @@ struct StartupOptions {
   bool levelBriefingSmoke = false;
   bool skipLevelBriefing = false;
   bool debugMenu = false;
+  bool safeMode = false;
   bool showHelp = false;
   bool showVersion = false;
 };
@@ -377,6 +379,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->skipLevelBriefing = true;
     } else if (argument == L"--debug-menu") {
       options->debugMenu = true;
+    } else if (argument == L"--developer-mode") {
+      options->debugMenu = true;
+    } else if (argument == L"--safe-mode") {
+      options->safeMode = true;
     } else if (argument == L"--help" || argument == L"-h") {
       options->showHelp = true;
     } else if (argument == L"--version") {
@@ -449,6 +455,17 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       }
     } else if (argument.compare(0, 11, L"--save-dir=") == 0) {
       options->saveDirectory = argument.substr(11);
+    } else if (argument == L"--settings-file") {
+      if (!ParseOptionValue(argc, argv, &index, L"--settings-file",
+                            &options->settingsFile, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 16, L"--settings-file=") == 0) {
+      options->settingsFile = argument.substr(16);
+      if (options->settingsFile.empty()) {
+        *failure = L"empty value for --settings-file";
+        return false;
+      }
     } else if (argument == L"--start-level") {
       if (!ParseOptionValue(argc, argv, &index, L"--start-level",
                             &options->startLevel, failure)) {
@@ -653,6 +670,17 @@ std::wstring DefaultSaveDirectory() {
     base = CurrentDirectory();
   }
   return JoinPath(JoinPath(base, L"RR2NW"), L"saves");
+}
+
+std::wstring DefaultSettingsDirectory() {
+  std::wstring base = EnvironmentValue(L"LOCALAPPDATA");
+  if (base.empty()) base = EnvironmentValue(L"TEMP");
+  if (base.empty()) base = CurrentDirectory();
+  return JoinPath(base, L"RR2NW");
+}
+
+std::wstring DefaultSettingsPath() {
+  return JoinPath(DefaultSettingsDirectory(), L"settings.cfg");
 }
 
 bool EnsureDirectory(const std::wstring& path) {
@@ -1583,6 +1611,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--mod <id>]...\n"
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8>] [--load-slot <1..8>]\n"
+                L"          [--settings-file <path>]\n"
+                L"          [--developer-mode] [--safe-mode]\n"
                 L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-combat-smoke |\n"
@@ -1863,6 +1893,30 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   log.Line(std::string("debug_menu_configured=") +
            (options.debugMenu ? "1" : "0"));
+  const std::wstring settingsPath = options.settingsFile.empty()
+      ? DefaultSettingsPath()
+      : AbsolutePath(options.settingsFile);
+  const std::size_t settingsSeparator = settingsPath.find_last_of(L"\\/");
+  const std::wstring settingsDirectory =
+      settingsSeparator == std::wstring::npos
+          ? CurrentDirectory()
+          : settingsPath.substr(0, settingsSeparator);
+  if (!EnsureDirectory(settingsDirectory) ||
+      !RecoveredGameServices_ConfigureInGameShell(
+          settingsPath, options.debugMenu, options.safeMode)) {
+    log.WideLine("failure_settings_path", settingsPath);
+    log.Line("marker=in-game-shell-not-ready");
+    ShowMessage(options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW settings error",
+                L"The in-game settings shell could not be configured.\n\n"
+                L"Diagnostic log:\n" + log.path());
+    return kRuntimeNotReady;
+  }
+  log.WideLine("settings_path", settingsPath);
+  log.Line(std::string("developer_mode=") +
+           (options.debugMenu ? "1" : "0"));
+  log.Line(std::string("safe_mode=") +
+           (options.safeMode ? "1" : "0"));
   if (options.startupSaveSlot >= 0) {
     log.Line("startup_save_slot=" +
              std::to_string(options.startupSaveSlot + 1));
@@ -6454,6 +6508,53 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       log.Line("debug_menu_last_error=" + debugMenuState->lastError);
     log.Line("debug_menu_first_deferred_error=" +
              debugMenuState->firstDeferredError);
+  }
+  const SRecoveredInGameShellState* shellState =
+      RecoveredGameServices_InGameShellState();
+  if (shellState != nullptr) {
+    log.Line("in_game_shell_configured=" +
+             std::to_string(shellState->configured ? 1 : 0));
+    log.Line("in_game_shell_open=" +
+             std::to_string(shellState->open ? 1 : 0));
+    log.Line("in_game_shell_developer=" +
+             std::to_string(shellState->developerMode ? 1 : 0));
+    log.Line("in_game_shell_safe_mode=" +
+             std::to_string(shellState->safeMode ? 1 : 0));
+    log.Line("in_game_shell_opens=" +
+             std::to_string(shellState->opens));
+    log.Line("in_game_shell_closes=" +
+             std::to_string(shellState->closes));
+    log.Line("in_game_shell_input_neutralizations=" +
+             std::to_string(shellState->inputNeutralizations));
+    log.Line("in_game_shell_save_requests=" +
+             std::to_string(shellState->saveRequests));
+    log.Line("in_game_shell_load_requests=" +
+             std::to_string(shellState->loadRequests));
+    log.Line("in_game_shell_restart_requests=" +
+             std::to_string(shellState->restartRequests));
+    log.Line("in_game_shell_binding_changes=" +
+             std::to_string(shellState->bindingChanges));
+    log.Line("in_game_shell_binding_conflicts=" +
+             std::to_string(shellState->bindingConflicts));
+    log.Line("in_game_shell_video_applies=" +
+             std::to_string(shellState->videoApplies));
+    log.Line("in_game_shell_video_confirms=" +
+             std::to_string(shellState->videoConfirms));
+    log.Line("in_game_shell_video_rollbacks=" +
+             std::to_string(shellState->videoRollbacks));
+    log.Line("in_game_shell_video_timeout_rollbacks=" +
+             std::to_string(shellState->videoTimeoutRollbacks));
+    log.Line("in_game_shell_settings_loads=" +
+             std::to_string(shellState->settingsLoads));
+    log.Line("in_game_shell_settings_writes=" +
+             std::to_string(shellState->settingsWrites));
+    log.Line("in_game_shell_corrupt_recoveries=" +
+             std::to_string(shellState->corruptSettingsRecoveries));
+    log.Line("in_game_shell_window=" +
+             std::to_string(shellState->windowMode) + "/" +
+             std::to_string(shellState->windowScale));
+    log.Line("in_game_shell_status=" + shellState->status);
+    log.Line("in_game_shell_last_error=" + shellState->lastError);
   }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();

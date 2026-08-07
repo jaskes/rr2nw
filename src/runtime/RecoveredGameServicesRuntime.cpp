@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cerrno>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <iomanip>
@@ -1110,6 +1112,14 @@ HMENU g_nativeDebugLevelMenu = nullptr;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 RecoveredWindowsInputAdapter g_windowsInputAdapter;
+SRecoveredInGameShellState g_inGameShellState;
+SRecoveredInputBindings g_inGameShellBindings =
+    RecoveredWindowsInput_DefaultBindings();
+SRecoveredWindowPresentation g_inGameShellAppliedPresentation = {};
+SRecoveredWindowPresentation g_inGameShellRollbackPresentation = {};
+ULONGLONG g_inGameShellVideoDeadline = 0;
+int g_inGameShellPersistedWindowMode = 0;
+int g_inGameShellPersistedWindowScale = 1;
 unsigned int g_mapTogglePresses = 0;
 FixedFontOBJ* g_debugMapMissionFont = nullptr;
 FixedFontOBJ* g_gameConsoleFont = nullptr;
@@ -1205,6 +1215,151 @@ std::wstring Utf8ToWide(const std::string& text) {
   return wide;
 }
 
+constexpr unsigned int kInGameSettingsVersion = 1u;
+constexpr ULONGLONG kVideoConfirmationMilliseconds = 15000u;
+
+SRecoveredWindowPresentation ShellPresentation(int mode, int scale) {
+  SRecoveredWindowPresentation presentation;
+  presentation.mode = mode == 1 ? RECOVERED_WINDOW_MODE_BORDERLESS
+                                : RECOVERED_WINDOW_MODE_WINDOWED;
+  scale = (std::max)(1, (std::min)(3, scale));
+  presentation.clientWidth = 640 * scale;
+  presentation.clientHeight = 480 * scale;
+  return presentation;
+}
+
+bool ReadSmallFile(const std::wstring& path, std::string* bytes) {
+  if (bytes == nullptr) return false;
+  bytes->clear();
+  HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                            nullptr);
+  if (file == INVALID_HANDLE_VALUE) return false;
+  LARGE_INTEGER size = {};
+  const bool bounded = GetFileSizeEx(file, &size) != FALSE &&
+                       size.QuadPart >= 0 && size.QuadPart <= 65536;
+  if (!bounded) {
+    CloseHandle(file);
+    return false;
+  }
+  bytes->resize(static_cast<std::size_t>(size.QuadPart));
+  DWORD read = 0;
+  const bool ok = bytes->empty() ||
+      (ReadFile(file, &(*bytes)[0], static_cast<DWORD>(bytes->size()),
+                &read, nullptr) != FALSE && read == bytes->size());
+  CloseHandle(file);
+  if (!ok) bytes->clear();
+  return ok;
+}
+
+bool ParseUnsignedSetting(const std::string& line, const char* name,
+                          unsigned int* value) {
+  const std::string prefix = std::string(name) + "=";
+  if (line.compare(0, prefix.size(), prefix) != 0) return false;
+  const char* begin = line.c_str() + prefix.size();
+  char* end = nullptr;
+  errno = 0;
+  const unsigned long parsed = std::strtoul(begin, &end, 10);
+  if (errno != 0 || end == begin || *end != '\0' ||
+      parsed > (std::numeric_limits<unsigned int>::max)())
+    return false;
+  *value = static_cast<unsigned int>(parsed);
+  return true;
+}
+
+bool LoadInGameShellSettings(const std::wstring& path,
+                             SRecoveredInputBindings* bindings,
+                             int* windowMode, int* windowScale) {
+  if (bindings == nullptr || windowMode == nullptr || windowScale == nullptr)
+    return false;
+  std::string bytes;
+  if (!ReadSmallFile(path, &bytes)) return false;
+  SRecoveredInputBindings parsed = RecoveredWindowsInput_DefaultBindings();
+  unsigned int version = 0;
+  unsigned int mode = 0;
+  unsigned int scale = 0;
+  bool haveVersion = false;
+  bool haveMode = false;
+  bool haveScale = false;
+  bool haveBinding[RECOVERED_BIND_COUNT] = {};
+  std::istringstream input(bytes);
+  std::string line;
+  while (std::getline(input, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    unsigned int value = 0;
+    if (ParseUnsignedSetting(line, "version", &value)) {
+      version = value;
+      haveVersion = true;
+      continue;
+    }
+    if (ParseUnsignedSetting(line, "window_mode", &value)) {
+      mode = value;
+      haveMode = true;
+      continue;
+    }
+    if (ParseUnsignedSetting(line, "window_scale", &value)) {
+      scale = value;
+      haveScale = true;
+      continue;
+    }
+    for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index) {
+      const std::string name = "binding_" + std::to_string(index);
+      if (!ParseUnsignedSetting(line, name.c_str(), &value)) continue;
+      parsed.key[index] = value;
+      haveBinding[index] = true;
+      break;
+    }
+  }
+  if (!haveVersion || version != kInGameSettingsVersion || !haveMode ||
+      !haveScale || mode > 1u || scale < 1u || scale > 3u ||
+      !RecoveredSoftwareGraph_ValidatePresentation(
+          ShellPresentation(static_cast<int>(mode),
+                            static_cast<int>(scale))))
+    return false;
+  for (bool present : haveBinding)
+    if (!present) return false;
+  if (!RecoveredWindowsInput_ValidateBindings(parsed, nullptr, nullptr))
+    return false;
+  *bindings = parsed;
+  *windowMode = static_cast<int>(mode);
+  *windowScale = static_cast<int>(scale);
+  return true;
+}
+
+bool WriteInGameShellSettings() {
+  if (g_inGameShellState.settingsPath.empty()) return false;
+  std::ostringstream output;
+  output << "version=" << kInGameSettingsVersion << "\r\n"
+         << "window_mode=" << g_inGameShellPersistedWindowMode << "\r\n"
+         << "window_scale=" << g_inGameShellPersistedWindowScale << "\r\n";
+  for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index)
+    output << "binding_" << index << "="
+           << g_inGameShellBindings.key[index] << "\r\n";
+  const std::string bytes = output.str();
+  const std::wstring temporary =
+      g_inGameShellState.settingsPath + L".tmp";
+  HANDLE file = CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, nullptr,
+                            CREATE_ALWAYS,
+                            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH,
+                            nullptr);
+  if (file == INVALID_HANDLE_VALUE) return false;
+  DWORD written = 0;
+  const bool writeOk = WriteFile(file, bytes.data(),
+                                 static_cast<DWORD>(bytes.size()),
+                                 &written, nullptr) != FALSE &&
+                       written == bytes.size() &&
+                       FlushFileBuffers(file) != FALSE;
+  CloseHandle(file);
+  if (!writeOk || MoveFileExW(
+          temporary.c_str(), g_inGameShellState.settingsPath.c_str(),
+          MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) == FALSE) {
+    DeleteFileW(temporary.c_str());
+    return false;
+  }
+  ++g_inGameShellState.settingsWrites;
+  return true;
+}
+
 std::wstring EscapeNativeMenuText(const std::wstring& text) {
   std::wstring escaped;
   escaped.reserve(text.size());
@@ -1219,7 +1374,11 @@ void ResizeSoftwareWindowForMenu(bool hasMenu) {
   if (_gr_hWnd == nullptr || _gr_nScreenWidth <= 0 ||
       _gr_nScreenHeight <= 0)
     return;
-  RECT outer = {0, 0, _gr_nScreenWidth, _gr_nScreenHeight};
+  const SRecoveredWindowPresentation presentation =
+      RecoveredSoftwareGraph_Presentation();
+  if (presentation.mode == RECOVERED_WINDOW_MODE_BORDERLESS) return;
+  RECT outer = {0, 0, presentation.clientWidth,
+                presentation.clientHeight};
   const DWORD style =
       static_cast<DWORD>(GetWindowLongPtrW(_gr_hWnd, GWL_STYLE));
   const DWORD extendedStyle =
@@ -1752,7 +1911,34 @@ bool InstallNativeSaveMenu() {
   return true;
 }
 
+void RebasePausedRuntimeClock() {
+  // Synchronous native dialogs and the in-frame pause shell both stop the
+  // authoritative simulation loop. Their wall-clock dwell must not become a
+  // later physics delta or make the next LCN1 capture perpetually unstable.
+  g_timer.m_prevTime = static_cast<long>(GetTickCount());
+  Session::m_frameSec = 0.0;
+}
+
 void ResetSaveMenuSession() {
+  if (g_inGameShellState.videoConfirmationActive &&
+      RecoveredSoftwareGraph_IsReady()) {
+    if (RecoveredSoftwareGraph_ApplyPresentation(
+            g_inGameShellRollbackPresentation, nullptr)) {
+      g_inGameShellAppliedPresentation =
+          g_inGameShellRollbackPresentation;
+      ++g_inGameShellState.videoRollbacks;
+    }
+  }
+  g_windowsInputAdapter.LeaveOverlay();
+  g_inGameShellState.open = false;
+  g_inGameShellState.page = RECOVERED_SHELL_PAGE_ROOT;
+  g_inGameShellState.selected = 0;
+  g_inGameShellState.captureBinding = -1;
+  g_inGameShellState.conflictBinding = -1;
+  g_inGameShellState.overwriteConfirmation = false;
+  g_inGameShellState.videoConfirmationActive = false;
+  g_inGameShellState.pendingVideoCommand = RECOVERED_SHELL_VIDEO_NONE;
+  g_inGameShellVideoDeadline = 0;
   DestroyNativeSaveMenu();
   g_debugVehicleCatalog.clear();
   g_debugTaxiSettlements.clear();
@@ -1955,6 +2141,7 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
       *result = 0;
       return true;
     }
+    RebasePausedRuntimeClock();
     ++g_saveMenuState.slotDetailViews;
     if (dialog.previewDisplayed) ++g_saveMenuState.previewViews;
     if (dialog.previewDecodeFailed)
@@ -2005,6 +2192,7 @@ bool HandleNativeSaveMenuMessage(HWND window, UINT message,
       *result = 0;
       return true;
     }
+    RebasePausedRuntimeClock();
     ++g_saveMenuState.slotDetailViews;
     if (dialog.previewDisplayed) ++g_saveMenuState.previewViews;
     if (dialog.previewDecodeFailed)
@@ -2199,8 +2387,521 @@ bool FlushPendingWindowsInput(double eventTime) {
   return succeeded;
 }
 
+std::size_t ShellPageItemCount() {
+  switch (g_inGameShellState.page) {
+    case RECOVERED_SHELL_PAGE_ROOT:
+      return g_inGameShellState.developerMode ? 8u : 7u;
+    case RECOVERED_SHELL_PAGE_SAVE:
+    case RECOVERED_SHELL_PAGE_LOAD:
+      return LevelSaveSlot_Count() + 1u;
+    case RECOVERED_SHELL_PAGE_CONTROLS:
+      return RECOVERED_BIND_COUNT + 2u;
+    case RECOVERED_SHELL_PAGE_VIDEO:
+      return 4u;
+    case RECOVERED_SHELL_PAGE_DEVELOPER:
+      return 8u;
+    case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM:
+      return 2u;
+    default:
+      return 1u;
+  }
+}
+
+void ShellSelectPage(ERecoveredInGameShellPage page) {
+  g_inGameShellState.page = page;
+  g_inGameShellState.selected = 0;
+  g_inGameShellState.captureBinding = -1;
+  g_inGameShellState.conflictBinding = -1;
+  g_inGameShellState.overwriteConfirmation = false;
+}
+
+bool OpenInGameShell() {
+  if (!g_inGameShellState.configured || g_inGameShellState.open)
+    return false;
+  SRecoveredWindowsInputBatch releases = {};
+  const double sensitivity = g_levelAttr.get_double("keySens");
+  if (!g_windowsInputAdapter.EnterOverlay(sensitivity, &releases) ||
+      !DispatchWindowsInputBatch(releases)) {
+    g_inGameShellState.lastError =
+        "held gameplay input could not be neutralized";
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+    return false;
+  }
+  g_inGameShellState.open = true;
+  ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+  ++g_inGameShellState.opens;
+  ++g_inGameShellState.inputNeutralizations;
+  g_inGameShellState.status = "Simulation paused";
+  return true;
+}
+
+void CloseInGameShell() {
+  if (!g_inGameShellState.open) return;
+  if (g_inGameShellState.videoConfirmationActive) {
+    g_inGameShellState.pendingVideoCommand =
+        RECOVERED_SHELL_VIDEO_REVERT;
+    return;
+  }
+  g_windowsInputAdapter.LeaveOverlay();
+  g_inGameShellState.open = false;
+  ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+  ++g_inGameShellState.closes;
+}
+
+bool PersistShellSettings(const char* success) {
+  if (!WriteInGameShellSettings()) {
+    g_inGameShellState.lastError = "settings.cfg atomic write failed";
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+    return false;
+  }
+  g_inGameShellState.lastError.clear();
+  g_inGameShellState.status = success;
+  return true;
+}
+
+bool CaptureShellBinding(std::uint32_t key) {
+  if (g_inGameShellState.captureBinding < 0 ||
+      g_inGameShellState.captureBinding >=
+          static_cast<int>(RECOVERED_BIND_COUNT))
+    return false;
+  SRecoveredInputBindings candidate = g_inGameShellBindings;
+  const std::size_t changed = static_cast<std::size_t>(
+      g_inGameShellState.captureBinding);
+  candidate.key[changed] = key;
+  std::size_t first = 0;
+  std::size_t second = 0;
+  if (!RecoveredWindowsInput_ValidateBindings(candidate, &first, &second)) {
+    g_inGameShellState.conflictBinding =
+        first == changed ? static_cast<int>(second)
+                         : static_cast<int>(first);
+    ++g_inGameShellState.bindingConflicts;
+    g_inGameShellState.status = "Binding conflict; choose another key";
+    return true;
+  }
+  if (!g_windowsInputAdapter.SetBindings(candidate)) {
+    g_inGameShellState.lastError =
+        "binding change rejected while physical input is active";
+    return true;
+  }
+  g_inGameShellBindings = candidate;
+  g_inGameShellState.captureBinding = -1;
+  g_inGameShellState.conflictBinding = -1;
+  ++g_inGameShellState.bindingChanges;
+  PersistShellSettings("Control binding saved");
+  return true;
+}
+
+bool ActivateShellSaveSlot(std::uint32_t slot) {
+  const std::wstring path =
+      LevelSaveSlot_Path(g_saveMenuState.directory, slot);
+  const bool occupied = !path.empty() &&
+      GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+  if (occupied && (!g_inGameShellState.overwriteConfirmation ||
+                   g_inGameShellState.overwriteSlot != slot)) {
+    g_inGameShellState.overwriteConfirmation = true;
+    g_inGameShellState.overwriteSlot = slot;
+    g_inGameShellState.status =
+        "Press Enter again to replace this save slot";
+    return true;
+  }
+  if (!RecoveredGameServices_RequestSaveSlotWithMetadata(
+          slot, occupied, BuildAutomaticSaveTitle(),
+          "RR2NW in-game shell checkpoint")) {
+    g_inGameShellState.lastError = g_saveMenuState.lastError;
+    return true;
+  }
+  ++g_inGameShellState.saveRequests;
+  g_inGameShellState.status = "Save queued at the closed frame boundary";
+  CloseInGameShell();
+  return true;
+}
+
+bool ActivateShellLoadSlot(std::uint32_t slot) {
+  if (!RecoveredGameServices_RequestLoadSlot(slot)) {
+    g_inGameShellState.lastError = g_saveMenuState.lastError;
+    return true;
+  }
+  ++g_inGameShellState.loadRequests;
+  g_inGameShellState.status = "Load queued at the closed frame boundary";
+  CloseInGameShell();
+  return true;
+}
+
+bool ActivateDeveloperShellItem(std::size_t item) {
+  bool staged = false;
+  switch (item) {
+    case 0: staged = RecoveredGameServices_RequestDebugShowState(); break;
+    case 1: staged = RecoveredGameServices_RequestDebugStabilizeVehicle(); break;
+    case 2: staged = RecoveredGameServices_RequestDebugDamageOccupiedVehicle(); break;
+    case 3: staged = RecoveredGameServices_RequestDebugKillPlayer(); break;
+    case 4: staged = RecoveredGameServices_RequestDebugRestorePreDeath(); break;
+    case 5:
+      staged = RecoveredGameServices_RequestDebugDestroyOccupiedVehicle();
+      break;
+    case 6:
+      staged =
+          RecoveredGameServices_RequestDebugRestorePreVehicleDestruction();
+      break;
+    case 7: ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT); return true;
+    default: return false;
+  }
+  if (!staged) {
+    g_inGameShellState.lastError = g_debugMenuState.lastError;
+    return true;
+  }
+  g_inGameShellState.status =
+      "Developer command queued at the closed frame boundary";
+  CloseInGameShell();
+  return true;
+}
+
+bool ActivateShellSelection() {
+  const std::size_t selected = g_inGameShellState.selected;
+  switch (g_inGameShellState.page) {
+    case RECOVERED_SHELL_PAGE_ROOT: {
+      if (selected == 0u) {
+        CloseInGameShell();
+      } else if (selected == 1u) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_SAVE);
+      } else if (selected == 2u) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_LOAD);
+      } else if (selected == 3u) {
+        if (RecoveredGameServices_RequestCampaignRestart()) {
+          ++g_inGameShellState.restartRequests;
+          CloseInGameShell();
+        } else {
+          g_inGameShellState.lastError = g_campaignRestartState.lastError;
+        }
+      } else if (selected == 4u) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_CONTROLS);
+      } else if (selected == 5u) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
+      } else if (selected == 6u && g_inGameShellState.developerMode) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
+      } else {
+        if (_gr_hWnd != nullptr) PostMessageW(_gr_hWnd, WM_CLOSE, 0, 0);
+        CloseInGameShell();
+      }
+      return true;
+    }
+    case RECOVERED_SHELL_PAGE_SAVE:
+      if (selected < LevelSaveSlot_Count())
+        return ActivateShellSaveSlot(static_cast<std::uint32_t>(selected));
+      ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+      return true;
+    case RECOVERED_SHELL_PAGE_LOAD:
+      if (selected < LevelSaveSlot_Count())
+        return ActivateShellLoadSlot(static_cast<std::uint32_t>(selected));
+      ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+      return true;
+    case RECOVERED_SHELL_PAGE_CONTROLS:
+      if (selected < RECOVERED_BIND_COUNT) {
+        g_inGameShellState.captureBinding = static_cast<int>(selected);
+        g_inGameShellState.conflictBinding = -1;
+        g_inGameShellState.status = "Press a new key or mouse button";
+      } else if (selected == RECOVERED_BIND_COUNT) {
+        const SRecoveredInputBindings defaults =
+            RecoveredWindowsInput_DefaultBindings();
+        if (g_windowsInputAdapter.SetBindings(defaults)) {
+          g_inGameShellBindings = defaults;
+          ++g_inGameShellState.bindingChanges;
+          PersistShellSettings("Default controls restored");
+        }
+      } else {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+      }
+      return true;
+    case RECOVERED_SHELL_PAGE_VIDEO:
+      if (selected == 2u) {
+        g_inGameShellState.pendingVideoCommand =
+            RECOVERED_SHELL_VIDEO_APPLY;
+        g_inGameShellState.status =
+            "Video change queued at the closed frame boundary";
+      } else if (selected == 3u) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+      }
+      return true;
+    case RECOVERED_SHELL_PAGE_DEVELOPER:
+      return ActivateDeveloperShellItem(selected);
+    case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM:
+      g_inGameShellState.pendingVideoCommand =
+          selected == 0u ? RECOVERED_SHELL_VIDEO_CONFIRM
+                         : RECOVERED_SHELL_VIDEO_REVERT;
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool HandleInGameShellKey(std::uint32_t key) {
+  if (!g_inGameShellState.open) return key == VK_ESCAPE && OpenInGameShell();
+  g_inGameShellState.lastError.clear();
+  if (g_inGameShellState.captureBinding >= 0) {
+    if (key == VK_ESCAPE) {
+      g_inGameShellState.captureBinding = -1;
+      g_inGameShellState.conflictBinding = -1;
+      g_inGameShellState.status = "Binding capture cancelled";
+      return true;
+    }
+    return CaptureShellBinding(key);
+  }
+  if (key == VK_ESCAPE) {
+    if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_ROOT ||
+        g_inGameShellState.page == RECOVERED_SHELL_PAGE_VIDEO_CONFIRM)
+      CloseInGameShell();
+    else
+      ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+    return true;
+  }
+  const std::size_t count = ShellPageItemCount();
+  if (key == VK_UP) {
+    g_inGameShellState.selected =
+        g_inGameShellState.selected == 0u
+            ? count - 1u
+            : g_inGameShellState.selected - 1u;
+    g_inGameShellState.overwriteConfirmation = false;
+    return true;
+  }
+  if (key == VK_DOWN) {
+    g_inGameShellState.selected =
+        (g_inGameShellState.selected + 1u) % count;
+    g_inGameShellState.overwriteConfirmation = false;
+    return true;
+  }
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_VIDEO &&
+      (key == VK_LEFT || key == VK_RIGHT)) {
+    if (g_inGameShellState.selected == 0u)
+      g_inGameShellState.windowMode = 1 - g_inGameShellState.windowMode;
+    if (g_inGameShellState.selected == 1u) {
+      const int delta = key == VK_RIGHT ? 1 : -1;
+      g_inGameShellState.windowScale =
+          1 + (g_inGameShellState.windowScale - 1 + delta + 3) % 3;
+    }
+    return true;
+  }
+  return key == VK_RETURN ? ActivateShellSelection() : true;
+}
+
+bool HandleInGameShellMessage(UINT message, WPARAM wParam,
+                              LPARAM lParam, LRESULT* result) {
+  if (!g_inGameShellState.configured) return false;
+  const bool keyboard = message == WM_KEYDOWN || message == WM_KEYUP ||
+                        message == WM_SYSKEYDOWN || message == WM_SYSKEYUP;
+  const bool character = message == WM_CHAR || message == WM_DEADCHAR ||
+                         message == WM_SYSCHAR || message == WM_SYSDEADCHAR;
+  const bool mouse = message == WM_LBUTTONDOWN || message == WM_LBUTTONUP ||
+                     message == WM_RBUTTONDOWN || message == WM_RBUTTONUP;
+  if (!g_inGameShellState.open) {
+    if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
+        wParam == VK_ESCAPE && (lParam & 0x40000000) == 0) {
+      HandleInGameShellKey(VK_ESCAPE);
+      *result = 0;
+      return true;
+    }
+    return false;
+  }
+  if (!keyboard && !character && !mouse) return false;
+  if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
+      (lParam & 0x40000000) == 0)
+    HandleInGameShellKey(static_cast<std::uint32_t>(wParam));
+  if (g_inGameShellState.captureBinding >= 0 &&
+      (message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN))
+    CaptureShellBinding(message == WM_LBUTTONDOWN ? VK_LBUTTON
+                                                  : VK_RBUTTON);
+  *result = 0;
+  return true;
+}
+
+void ShellPrint(int x, int y, const std::string& text,
+                bool selected = false) {
+  if (g_gameConsoleFont == nullptr) return;
+  const unsigned long color = selected ? GRFillColor(255, 220, 80)
+                                       : GRFillColor(230, 230, 230);
+  std::string bounded = text.substr(0, 72);
+  g_gameConsoleFont->PrintColorAt(
+      x - _gr_nScreenOriginX, y - _gr_nScreenOriginY,
+      bounded.c_str(), color);
+}
+
+std::string ShellSlotLabel(std::uint32_t slot) {
+  SLevelSaveSlot archive;
+  SLevelSaveSlotStatus status;
+  const bool readable = LevelSaveSlot_Read(
+      g_saveMenuState.directory, slot, &archive, &status);
+  std::string label = "Slot " + std::to_string(slot + 1u) + " - ";
+  if (!readable) return label + "Empty";
+  label += archive.title.empty() ? archive.level : archive.title;
+  if (!SlotCanBeRequested(archive)) label += " [incompatible]";
+  return label;
+}
+
+void DrawInGameShell() {
+  if (!g_inGameShellState.open || g_gameConsoleFont == nullptr) return;
+  const unsigned long background = GRFillColor(18, 24, 32);
+  const unsigned long border = GRFillColor(150, 165, 180);
+  GREnable2D();
+  GRBar(52, 32, 587, 447, background);
+  GRRect(52, 32, 587, 447, border);
+  GRDisable2D();
+  ShellPrint(72, 50, "RR2NW - IN-GAME MENU");
+
+  std::vector<std::string> lines;
+  switch (g_inGameShellState.page) {
+    case RECOVERED_SHELL_PAGE_ROOT:
+      lines = {"Continue", "Save game", "Load game",
+               "Restart current Level", "Controls", "Video"};
+      if (g_inGameShellState.developerMode)
+        lines.push_back("Developer");
+      lines.push_back("Exit game");
+      break;
+    case RECOVERED_SHELL_PAGE_SAVE:
+    case RECOVERED_SHELL_PAGE_LOAD:
+      for (std::uint32_t slot = 0; slot < LevelSaveSlot_Count(); ++slot)
+        lines.push_back(ShellSlotLabel(slot));
+      lines.push_back("Back");
+      break;
+    case RECOVERED_SHELL_PAGE_CONTROLS:
+      for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index) {
+        std::string line = RecoveredWindowsInput_BindingName(index);
+        line += " : ";
+        line += RecoveredWindowsInput_KeyName(g_inGameShellBindings.key[index]);
+        if (g_inGameShellState.captureBinding == static_cast<int>(index))
+          line += "  <press new input>";
+        if (g_inGameShellState.conflictBinding == static_cast<int>(index))
+          line += "  <conflict>";
+        lines.push_back(line);
+      }
+      lines.push_back("Restore defaults");
+      lines.push_back("Back");
+      break;
+    case RECOVERED_SHELL_PAGE_VIDEO:
+      lines.push_back(std::string("Window mode : ") +
+                      (g_inGameShellState.windowMode == 0
+                           ? "Windowed"
+                           : "Borderless fullscreen"));
+      lines.push_back("Window size : " +
+                      std::to_string(640 * g_inGameShellState.windowScale) +
+                      "x" +
+                      std::to_string(480 * g_inGameShellState.windowScale) +
+                      " (4:3 internal)");
+      lines.push_back("Apply (15 second safety confirmation)");
+      lines.push_back("Back");
+      break;
+    case RECOVERED_SHELL_PAGE_DEVELOPER:
+      lines = {"Show current state", "Stabilize occupied vehicle",
+               "Damage occupied vehicle by 25%",
+               "Kill player (transactional)",
+               "Restore checkpoint before debug death",
+               "Destroy occupied vehicle (transactional)",
+               "Restore checkpoint before vehicle destruction", "Back"};
+      break;
+    case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM: {
+      const ULONGLONG now = GetTickCount64();
+      const ULONGLONG remaining =
+          now >= g_inGameShellVideoDeadline
+              ? 0
+              : g_inGameShellVideoDeadline - now;
+      lines.push_back("Keep this video mode");
+      lines.push_back("Revert now");
+      ShellPrint(72, 78, "Automatic revert in " +
+                           std::to_string((remaining + 999u) / 1000u) +
+                           " seconds");
+      break;
+    }
+    default:
+      break;
+  }
+
+  std::size_t first = 0;
+  const std::size_t visible = 17u;
+  if (g_inGameShellState.selected >= visible)
+    first = g_inGameShellState.selected - visible + 1u;
+  int y = 92;
+  for (std::size_t index = first;
+       index < lines.size() && index < first + visible; ++index, y += 18) {
+    ShellPrint(78, y, std::string(index == g_inGameShellState.selected
+                                      ? "> " : "  ") + lines[index],
+               index == g_inGameShellState.selected);
+  }
+  if (!g_inGameShellState.lastError.empty())
+    ShellPrint(72, 410, "ERROR: " + g_inGameShellState.lastError);
+  else if (!g_inGameShellState.status.empty())
+    ShellPrint(72, 410, g_inGameShellState.status);
+  ShellPrint(72, 428, "Arrows: select   Enter: accept   Esc: back");
+}
+
+bool ProcessPendingInGameShellVideoCommand() {
+  if (!g_inGameShellState.configured) return true;
+  if (g_inGameShellState.videoConfirmationActive &&
+      g_inGameShellState.pendingVideoCommand == RECOVERED_SHELL_VIDEO_NONE &&
+      GetTickCount64() >= g_inGameShellVideoDeadline) {
+    g_inGameShellState.pendingVideoCommand = RECOVERED_SHELL_VIDEO_REVERT;
+    ++g_inGameShellState.videoTimeoutRollbacks;
+  }
+  const ERecoveredInGameVideoCommand command =
+      g_inGameShellState.pendingVideoCommand;
+  if (command == RECOVERED_SHELL_VIDEO_NONE) return true;
+  g_inGameShellState.pendingVideoCommand = RECOVERED_SHELL_VIDEO_NONE;
+
+  if (command == RECOVERED_SHELL_VIDEO_APPLY) {
+    const SRecoveredWindowPresentation requested = ShellPresentation(
+        g_inGameShellState.windowMode, g_inGameShellState.windowScale);
+    SRecoveredWindowPresentation previous;
+    if (!RecoveredSoftwareGraph_ApplyPresentation(requested, &previous)) {
+      g_inGameShellState.lastError =
+          "video mode application failed (win32=" +
+          std::to_string(RecoveredSoftwareGraph_LastPresentationError()) +
+          ")";
+      Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+      return false;
+    }
+    g_inGameShellRollbackPresentation = previous;
+    g_inGameShellAppliedPresentation = requested;
+    g_inGameShellState.videoConfirmationActive = true;
+    g_inGameShellVideoDeadline =
+        GetTickCount64() + kVideoConfirmationMilliseconds;
+    ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO_CONFIRM);
+    ++g_inGameShellState.videoApplies;
+    g_inGameShellState.status = "Confirm the new mode or it will be reverted";
+    return true;
+  }
+  if (command == RECOVERED_SHELL_VIDEO_CONFIRM) {
+    if (!g_inGameShellState.videoConfirmationActive) return false;
+    g_inGameShellState.videoConfirmationActive = false;
+    g_inGameShellVideoDeadline = 0;
+    g_inGameShellPersistedWindowMode = g_inGameShellState.windowMode;
+    g_inGameShellPersistedWindowScale = g_inGameShellState.windowScale;
+    ++g_inGameShellState.videoConfirms;
+    PersistShellSettings("Video mode confirmed and saved");
+    ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
+    return true;
+  }
+  if (command == RECOVERED_SHELL_VIDEO_REVERT) {
+    if (!g_inGameShellState.videoConfirmationActive) return false;
+    if (!RecoveredSoftwareGraph_ApplyPresentation(
+            g_inGameShellRollbackPresentation, nullptr)) {
+      g_inGameShellState.lastError = "video rollback failed";
+      Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+      return false;
+    }
+    g_inGameShellAppliedPresentation = g_inGameShellRollbackPresentation;
+    g_inGameShellState.windowMode = g_inGameShellPersistedWindowMode;
+    g_inGameShellState.windowScale = g_inGameShellPersistedWindowScale;
+    g_inGameShellState.videoConfirmationActive = false;
+    g_inGameShellVideoDeadline = 0;
+    ++g_inGameShellState.videoRollbacks;
+    g_inGameShellState.status = "Previous video mode restored";
+    ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
+    return true;
+  }
+  return false;
+}
+
 LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
                                        WPARAM wParam, LPARAM lParam) {
+  LRESULT shellResult = 0;
+  if (HandleInGameShellMessage(message, wParam, lParam, &shellResult))
+    return shellResult;
   LRESULT saveMenuResult = 0;
   if (HandleNativeSaveMenuMessage(window, message, wParam,
                                   &saveMenuResult))
@@ -2733,6 +3434,14 @@ void InitializeSession() {
     g_hardware.m_ctrlUse.mouse = TRUE;
     g_hardware.m_ctrlUse.joystick = FALSE;
     g_windowsInputAdapter.Reset(true);
+    if (g_inGameShellState.configured &&
+        (!g_windowsInputAdapter.SetBindings(g_inGameShellBindings) ||
+         !RecoveredSoftwareGraph_ApplyPresentation(
+             g_inGameShellAppliedPresentation, nullptr))) {
+      EndBoundedSession();
+      Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+      return;
+    }
     g_pendingWindowsInput.clear();
     Session::m_hardware = &g_hardware;
 
@@ -4183,6 +4892,74 @@ bool RecoveredGameServices_ConfigureDebugMenu(
     return false;
   }
   return true;
+}
+
+bool RecoveredGameServices_ConfigureInGameShell(
+    const std::wstring& settingsPath, bool developerMode, bool safeMode) {
+  if (settingsPath.empty() || settingsPath.find(L'\0') != std::wstring::npos)
+    return false;
+  if (g_inGameShellState.open ||
+      g_inGameShellState.pendingVideoCommand != RECOVERED_SHELL_VIDEO_NONE)
+    return false;
+
+  g_inGameShellState = {};
+  g_inGameShellState.configured = true;
+  g_inGameShellState.developerMode = developerMode;
+  g_inGameShellState.safeMode = safeMode;
+  g_inGameShellState.settingsPath = settingsPath;
+  g_inGameShellState.windowMode = 0;
+  g_inGameShellState.windowScale = 1;
+  g_inGameShellBindings = RecoveredWindowsInput_DefaultBindings();
+
+  const bool exists =
+      GetFileAttributesW(settingsPath.c_str()) != INVALID_FILE_ATTRIBUTES;
+  bool rewriteRecoveredDefaults = false;
+  if (!safeMode && exists) {
+    if (LoadInGameShellSettings(settingsPath, &g_inGameShellBindings,
+                                &g_inGameShellState.windowMode,
+                                &g_inGameShellState.windowScale)) {
+      ++g_inGameShellState.settingsLoads;
+      g_inGameShellState.status = "Settings loaded";
+    } else {
+      ++g_inGameShellState.corruptSettingsRecoveries;
+      g_inGameShellState.status =
+          "Invalid settings ignored; safe windowed defaults restored";
+      rewriteRecoveredDefaults = true;
+    }
+  } else if (safeMode) {
+    g_inGameShellState.status = "Safe mode: settings bypassed";
+  }
+  if (!g_windowsInputAdapter.SetBindings(g_inGameShellBindings)) {
+    g_inGameShellState.lastError = "input bindings could not be activated";
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+    return false;
+  }
+  g_inGameShellAppliedPresentation = ShellPresentation(
+      g_inGameShellState.windowMode, g_inGameShellState.windowScale);
+  g_inGameShellRollbackPresentation = g_inGameShellAppliedPresentation;
+  g_inGameShellPersistedWindowMode = g_inGameShellState.windowMode;
+  g_inGameShellPersistedWindowScale = g_inGameShellState.windowScale;
+  g_inGameShellVideoDeadline = 0;
+  if (rewriteRecoveredDefaults && !WriteInGameShellSettings()) {
+    g_inGameShellState.lastError =
+        "invalid settings were recovered but could not be replaced";
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+    return false;
+  }
+  return true;
+}
+
+const SRecoveredInGameShellState*
+RecoveredGameServices_InGameShellState() {
+  return &g_inGameShellState;
+}
+
+const SRecoveredInputBindings* RecoveredGameServices_InputBindings() {
+  return g_inGameShellState.configured ? &g_inGameShellBindings : nullptr;
+}
+
+bool RecoveredGameServices_InGameShellKeyForTesting(std::uint32_t key) {
+  return HandleInGameShellKey(key);
 }
 
 const SRecoveredDebugMenuState* RecoveredGameServices_DebugMenuState() {
@@ -5861,7 +6638,15 @@ int RecoveredGameServices_RunFrame() {
   const FrameClock::time_point frameStart = FrameClock::now();
   if (!PumpMessages()) return FALSE;
   const FrameClock::time_point inputEnd = FrameClock::now();
-  bool vehicleFrame = g_vehicleControlReady;
+  const bool shellPaused = g_inGameShellState.open;
+  if (shellPaused) {
+    // The session poll is intentionally skipped while the shell is open.
+    // Rebase the timer sample owner as well, otherwise the first unpaused
+    // frame inherits the complete menu dwell and violates continuation
+    // clock invariants even though no simulation tick owned that interval.
+    RebasePausedRuntimeClock();
+  }
+  bool vehicleFrame = g_vehicleControlReady && !shellPaused;
   if (vehicleFrame && g_vehicleFrameCount == 0) {
     const double timerTime = g_timer.GetTime();
     if (!VehicleRuntimeState_SynchronizeFirstFrame(
@@ -5882,12 +6667,14 @@ int RecoveredGameServices_RunFrame() {
     if (!ActivateVehicleFallback(3)) return FALSE;
     vehicleFrame = false;
   }
-  SUA_ProcessEvents();
-  // Observe the real post-event roster once per rendered frame.  This keeps
-  // diagnostics out of the encoding-preserved People implementation and
-  // distinguishes an advancing MOVE deadline from actual displacement.
-  PeopleSubjectState_SampleLiveCombat(g_super.m_context);
-  ObserveDebugTaxiSettlements();
+  if (!shellPaused) {
+    SUA_ProcessEvents();
+    // Observe the real post-event roster once per rendered frame.  This keeps
+    // diagnostics out of the encoding-preserved People implementation and
+    // distinguishes an advancing MOVE deadline from actual displacement.
+    PeopleSubjectState_SampleLiveCombat(g_super.m_context);
+    ObserveDebugTaxiSettlements();
+  }
   if (vehicleFrame) {
     bool droppedTime = false;
     if (g_vehicleControlInput.ForwardingFailed()) {
@@ -5915,7 +6702,8 @@ int RecoveredGameServices_RunFrame() {
       }
     }
   }
-  if (!vehicleFrame) g_observerInput.Advance(Session::m_frameSec);
+  if (!vehicleFrame && !shellPaused)
+    g_observerInput.Advance(Session::m_frameSec);
   const FrameClock::time_point simulationEnd = FrameClock::now();
 
   Frame_ClearRuntimeIssues();
@@ -5973,6 +6761,7 @@ int RecoveredGameServices_RunFrame() {
     CViewObject::SetClipRect(oldViewport->clipRect);
     GRSetViewport(oldViewport);
   }
+  DrawInGameShell();
   ZAV_PrintFrameInfo();
   SUA_EndRender(ZAV_Scene());
   ZAV_EndRenderFrame();
@@ -6007,6 +6796,9 @@ int RecoveredGameServices_RunFrame() {
       !RecoveredGameServices_ProcessPendingSaveCommand() &&
       !g_saveMenuState.pending) {
     ShowNativeSaveFailure();
+  }
+  if (!ProcessPendingInGameShellVideoCommand()) {
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
   }
   const FrameClock::time_point boundaryEnd = FrameClock::now();
   const std::uint64_t inputMicroseconds = static_cast<std::uint64_t>(

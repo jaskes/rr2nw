@@ -1,5 +1,6 @@
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -193,6 +194,57 @@ int main() {
                  static_cast<unsigned long long>(telemetry.suppressedMessages),
                  static_cast<unsigned long long>(telemetry.focusClearActions));
     return 11;
+  }
+
+  SRecoveredInputBindings bindings =
+      RecoveredWindowsInput_DefaultBindings();
+  std::size_t conflictFirst = 99u;
+  std::size_t conflictSecond = 99u;
+  if (!RecoveredWindowsInput_ValidateBindings(
+          bindings, &conflictFirst, &conflictSecond) ||
+      std::strcmp(RecoveredWindowsInput_BindingName(
+                      RECOVERED_BIND_MOVE_FORWARD),
+                  "Move forward") != 0 ||
+      std::strcmp(RecoveredWindowsInput_KeyName(
+                      bindings.key[RECOVERED_BIND_FIRE_PRIMARY]),
+                  "Mouse left") != 0) {
+    std::fprintf(stderr, "default binding catalog failed\n");
+    return 12;
+  }
+  bindings.key[RECOVERED_BIND_MOVE_FORWARD] = 'Z';
+  bindings.key[RECOVERED_BIND_MOVE_BACKWARD] = 'Z';
+  if (RecoveredWindowsInput_ValidateBindings(
+          bindings, &conflictFirst, &conflictSecond) ||
+      conflictFirst != RECOVERED_BIND_MOVE_FORWARD ||
+      conflictSecond != RECOVERED_BIND_MOVE_BACKWARD) {
+    std::fprintf(stderr, "binding conflict was not diagnosed\n");
+    return 13;
+  }
+  bindings.key[RECOVERED_BIND_MOVE_BACKWARD] = 'S';
+  RecoveredWindowsInputAdapter rebound;
+  if (!rebound.SetBindings(bindings) ||
+      !SendKey(&rebound, WM_KEYDOWN, 'Z', 0, 0.5, &batch) ||
+      !One(batch, MOVE_FORWARD, 0.5)) {
+    std::fprintf(stderr, "rebound forward action failed\n");
+    return 14;
+  }
+  SRecoveredWindowsInputBatch releases = {};
+  if (!rebound.EnterOverlay(0.5, &releases) ||
+      !rebound.OverlayActive() || releases.count != 1u ||
+      releases.actions[0].action != MOVE_FORWARD ||
+      releases.actions[0].value != 0.0 || !rebound.IsNeutral() ||
+      !SendKey(&rebound, WM_KEYDOWN, 'Z', 0, 0.5, &batch) ||
+      !batch.consumed || batch.count != 0u) {
+    std::fprintf(stderr, "overlay neutralization/suppression failed\n");
+    return 15;
+  }
+  rebound.LeaveOverlay();
+  if (!SendKey(&rebound, WM_KEYDOWN, 'Z', 0, 0.5, &batch) ||
+      !One(batch, MOVE_FORWARD, 0.5) ||
+      !SendKey(&rebound, WM_KEYUP, 'Z', 0, 0.5, &batch) ||
+      !One(batch, MOVE_FORWARD, 0.0)) {
+    std::fprintf(stderr, "overlay release did not reacquire bindings\n");
+    return 16;
   }
 
   std::printf(

@@ -6091,9 +6091,9 @@ AER04/AER06; it adds neither a ninth slot nor a private checkpoint format.
 
 ### BD-184: the in-game shell publishes typed requests and owns no world state
 
-Status: accepted as Windows 1.0 architecture on 2026-08-07; implementation is
-scheduled after the current Actek/AER branch reaches its first proved terminal
-or authored handoff boundary.
+Status: accepted as Windows 1.0 architecture and implemented as the first
+vertical slice on 2026-08-07 after the Actek/AER branch reached its exact S03
+handoff boundary.
 
 The recovered main/pause menu and its modern settings pages form one in-frame
 UI shell. They may inspect immutable slot, binding, display, mod-profile and
@@ -6120,6 +6120,26 @@ gate; removing them earlier would discard useful recovery access.
 Audio and mod-profile pages extend this shell only when their maintained
 backends are real. The UI consumes the established deterministic mod resolver
 and sound service rather than becoming a second owner of either subsystem.
+
+The first implementation deliberately preserves the recovered 640x480
+software framebuffer as a scene/panel/save ABI. Windowed sizes and borderless
+desktop presentation use one aspect-preserving GDI scale with black letterbox;
+they do not tell archival rendering code that its viewport changed. Exclusive
+fullscreen, DPI work and arbitrary internal resolutions remain separate
+physical-platform gates.
+
+Seventeen admitted Player/Vehicle/map-toggle actions now have one validated
+binding catalog. The original defaults remain exact, duplicates fail closed
+and overlay entry emits releases before suppressing input. The shell pauses
+event/simulation polling and rebases the legacy timer every paused frame, so a
+long menu visit cannot become one inherited physics or save-clock delta.
+
+Schema-1 settings contain only presentation and bindings. They use bounded
+parsing and atomic replacement; invalid or newer data is replaced with safe
+windowed defaults. Developer capability remains process-owned through
+`--developer-mode` (with `--debug-menu` as a compatibility alias), never a
+persisted setting. The real-window gate proves Save/Load, binding persistence
+and defaults, two confirmed video changes and one unconfirmed 15-second revert.
 
 ### BD-185: AER10 remains an ordinary no-reward slot-8 continuation
 
