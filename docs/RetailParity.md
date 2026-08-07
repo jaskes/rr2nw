@@ -2227,6 +2227,30 @@ playable Level begins.
   Howitzers, neutral-object state and slot-7 fingerprint equality in every
   maintained build. Strict reward/Portal validation remains independent.
 
+### RP-CAMPAIGN-018: S06 uses proved PRIOR_LEV eligibility without a transition
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `MULTI_PROJECT_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`,
+  `PRIOR_LEV_VALUE_PROVED`, `FRESH_SAVE_OWNED`.
+- From committed S09 state, Actek naturally selects `ProjectS06` at cumulative
+  mission count seven. Installed `BRIEF.SCI` authors the single antenna kill,
+  Commander Actek, MissionInfo 2, briefing/route/script references and no
+  command 35. Installed `MS06.SC` (SHA-256
+  `83E6DD58B30AD8C528EED0889CAFBCE2A8FB589830D3D894648FCC2DBE645D18`)
+  creates its complete 29-owner graph.
+- Successful result removes the antenna objective and map/check state,
+  repairs/refills, advances cumulative count to eight and selects exact
+  `ProjectAER04`. The installed constant `PRIOR_LEV = 2` and AER04's Actek
+  Commander plus `p_AddMissionInfo(nNode,PRIOR_LEV)` prove eligibility; they do
+  not author a cross-Level transition, reward or Portal.
+- Result state survives pre-result rollback, committed reapply, slot-8 save and
+  fresh fingerprint restore while retained population remains intact under the
+  established Route and TankGroup floors.
+- Verification: the expanded Actek chain gate proves
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04`, all 29
+  owners, 27 occupied Howitzers and exact fresh slot-8 identity in every
+  maintained build. AER04 execution remains the next separate parity slice.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

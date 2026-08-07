@@ -258,6 +258,14 @@ forward-aligned travel and exact rollback. A transaction-only success with
 zero presentations, a missing center flick or a non-zero center failure is a
 presentation regression.
 
+For a normal interactive Marauders admission, continue beyond the briefing
+instead of using the smoke's immediate exit. Exactly one Marauder character
+FLC and one mission briefing may play before control returns to the world.
+Two additional Marauder FLCs were manually reproduced on 2026-08-07 and remain
+an open presentation-owner bug (CQ-244); preserve that run's diagnostics when
+checking the fix. Replaying center clips after the briefing is not accepted as
+authored Level-entry content.
+
 The roster field is `ready/capacity/live/video/defaultTaxi/dictionary`. In
 Level order its expected values are `1/4/3/3/3/3`, `1/4/1/1/0/1`,
 `1/4/2/2/2/2`, `1/4/2/2/2/2`, three `1/2/2/2/2/2` entries,
@@ -1080,6 +1088,16 @@ count seven and slot 7. The fresh process must report
 `mission_no_reward_fresh_authored_artefact=1`, the same world fingerprint and
 clean shutdown. The registration comment containing `artefact` is not command
 35; any carrier or Portal telemetry remains a gate failure.
+
+The final S06 step loads slot 7 and verifies its one antenna objective plus
+complete `MS06.SC` graph: 29 created owners, one rebound condition and
+27/27/27 occupied Howitzers. It must complete without reward to exact
+`ProjectAER04`, cumulative count eight and slot 8. A fresh process must report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectS06/ProjectAER04` and the same
+world fingerprint. The archaeology preflight also pins installed
+`PRIOR_LEV = 2`, AER04 Commander Actek and its use of that constant. This proves
+candidate eligibility only; no cross-Level transition or Portal may be inferred
+from the constant's name.
 
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed

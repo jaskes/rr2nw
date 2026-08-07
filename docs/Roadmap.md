@@ -1785,6 +1785,14 @@ presentation remains a separate post-commit counter. The Level.03N Marauder
 gate visibly plays `Flic/maroder.flc`, then ProjectS25, and reports center
 presentation `1/1/0/0` with clean shutdown.
 
+A normal interactive Level.03N run has since exposed a narrower remaining gap:
+after the expected Marauders center FLC and mission briefing, two extra
+Marauders cinematics can replay before world control returns. The bounded
+briefing smoke exits before this continuation. CQ-244 therefore tracks a
+source/reason presentation trace and exact one-shot ownership as the next
+visible cinematic parity fix; Level-entry restore/restart suppression must not
+be weakened while removing the duplicates.
+
 The current Windows playtest boundary is also explicit. Successful frames now
 publish input, simulation, software-render, present and frame-boundary timing.
 Evidence from both light and heavy Levels assigns the global Debug slow motion
@@ -1809,9 +1817,10 @@ The ordinary no-reward regression gate is now 21/21 across Debug, Release and
 RelWithDebInfo. Level.04D also owns a separate 6/6 one-step
 result/save/fresh-load gate and a 3/3 persisted Actek progression gate. The
 latter proves
-`ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06`,
+`ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04`,
 completes S04's eight, S07's ten effective, S10's single, S05's six, A26's
-four kill plus four reached and S09's seven kill conditions, contains the duplicate
+four kill plus four reached, S09's seven and S06's single kill conditions,
+contains the duplicate
 `a.unit.ms04.ap00` without editing `MS04.SC`, and records S07's single released
 ten-ID capacity limit explicitly. S05 additionally preserves its physical
 neutral `ms05.artf` across result, rollback, reapply and fresh slot-5 load
@@ -1821,7 +1830,9 @@ bounded 64-slot retail TankGroup floor. The isolated legacy-host smoke proves
 both exact reclaimed-Route rollback and the temporary Route lifetime across
 authored object replacement. S09 additionally preserves neutral `ms09.artf`
 and exact fresh slot-7 state without treating its registration comment as a
-command-35 reward.
+command-35 reward. S06 then proves installed `PRIOR_LEV = 2` as AER04
+eligibility, not as an invented cross-Level transition, and preserves exact
+fresh slot-8 state.
 
 RecruitCenter default-vehicle handover is tracked separately from mission
 script population. Retail `rc_SET_DEFTAXI` data is decoded and fingerprinted,
@@ -2099,7 +2110,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 55% | native window/input, focus neutralization, diagnostics, frame profiling | maintained audio output, fullscreen/resize/DPI/Alt-Tab soak, crash bundle, sanitizer coverage |
-| M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, thirteen no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains beginning with Actek S06, visible AI/guide/cinematic parity and complete campaign proof |
+| M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, fourteen no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains beginning with Actek AER04, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |

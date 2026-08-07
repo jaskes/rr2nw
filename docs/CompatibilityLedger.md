@@ -4933,6 +4933,56 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   not represented in installed `BRIEF.SCI`; record that as a version-specific
   divergence rather than promoting handwritten comments to commands globally.
 
+### CQ-243: S06 advances into an explicitly valued PRIOR_LEV Project
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `PRIOR_LEV_VALUE_PROVED`,
+  `NO_REWARD_CONFIRMED`.
+- Evidence: installed `CreateProjectS06` has one exact antenna kill
+  `c.unit.ms06.an00`, Commander Actek, MissionInfo 2, route `Route/S06/ms.rt`,
+  script `Brief/ms06.sc` and no `p_GiveArtefact`. Installed `MS06.SC`
+  (SHA-256
+  `83E6DD58B30AD8C528EED0889CAFBCE2A8FB589830D3D894648FCC2DBE645D18`)
+  creates 29 transaction owners: two Colony airplanes, two submarines, five
+  knights, four machine guns, one antenna, two Actek airplanes and two taxis.
+- Successor evidence: the same installed file declares `PRIOR_LEV = 2`.
+  `ProjectAER04` owns six kills, Commander Actek and MissionInfo `PRIOR_LEV`;
+  the real eighth result selects it after S06. No destination or Portal is
+  encoded by that integer.
+- Handling: execute S06 as an ordinary no-reward result, retain accumulated
+  world population, advance cumulative count eight and expose exact AER04
+  candidate. Do not synthesize a cross-Level transition or reward from the
+  constant name.
+- Verification: the Actek gate loads real slot 7, requires one rebound target,
+  29 owners, 27/27/27 occupied Howitzers, exact result rollback/reapply and a
+  matching fresh slot-8 fingerprint with identity
+  `A.Recr0/ProjectS06/ProjectAER04`.
+- Revisit when: AER04's own result chain is restored or another retail version
+  defines a different numeric `PRIOR_LEV`; keep those as explicit data-version
+  rows instead of changing current eligibility globally.
+
+### CQ-244: normal Marauders admission repeats two post-briefing cinematics
+
+- Status: `MANUAL_PLAYTEST_REPRODUCED`, `PRESENTATION_OWNER_UNRESOLVED`.
+- Evidence: during the 2026-08-07 normal RelWithDebInfo Level.03N playtest, a
+  Marauders center visit showed the expected Marauder character cinematic,
+  then the mission briefing, then two additional Marauder cinematics before
+  control returned to the world. The bounded `--mission-briefing-smoke` still
+  owns the expected one center FLC plus one Project briefing and exits cleanly,
+  so its early terminal boundary does not cover this normal post-briefing path.
+- Current boundary: do not delete retail FLC actions or suppress all repeated
+  names globally. First publish presenter source/reason and one-shot ownership
+  across center admission, Project briefing completion and Level-entry
+  presentation; then identify which normal-loop continuation requests the two
+  extra plays.
+- Verification required: a normal interactive or bounded full-loop Level.03N
+  admission must report and show exactly one center character cinematic, one
+  mission briefing and zero post-briefing repeats before Player control. Save
+  restore, restart and Portal arrival suppression gates must remain unchanged.
+- Revisit when: source/reason telemetry identifies the duplicate caller. Keep
+  this separate from CQ-227: result visits have no authored cinematic, while
+  this failure occurs during initial mission admission presentation.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -7,6 +7,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the persisted Level.04D Actek chain through `ProjectS06` and exact
+  successor `ProjectAER04`. S06 executes its single retail antenna objective,
+  complete 29-owner `MS06.SC` graph and cumulative mission count eight, then
+  survives ordinary no-reward result rollback, committed reapply, slot-8 save
+  and exact fresh load. The successor is not a guessed prior-Level branch:
+  installed `BRIEF.SCI` explicitly defines `PRIOR_LEV = 2`, and AER04 is an
+  Actek-owned six-kill Project using that exact eligibility value.
 - Extended the persisted Level.04D Actek chain through `ProjectS09` and exact
   successor `ProjectS06`. S09 executes seven retail kill objectives, its
   complete 28-owner `MS09.SC` graph and four additional occupied ship cannons,

@@ -5940,3 +5940,25 @@ The ordinary successful result removes S09's seven objective bindings,
 advances cumulative mission count seven and selects exact authored
 `ProjectS06`. A future reward claim for S09 requires a real command-35 or
 retail behavioral proof that contradicts the installed command graph.
+
+### BD-177: resolve S06 successor from the installed PRIOR_LEV constant
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectS06`.
+
+`CreateProjectS06` owns one antenna kill, Commander Actek, MissionInfo 2 and no
+reward command. After its eighth cumulative successful result, the unchanged
+Project search selects `ProjectAER04`. This is not permission to invent a
+generic prior-Level rule: installed Level.04D `BRIEF.SCI` explicitly declares
+`const int PRIOR_LEV = 2`, while AER04 is Commander Actek and calls
+`p_AddMissionInfo(nNode,PRIOR_LEV)`.
+
+The recovered campaign should preserve those executable values and the exact
+selection, not reinterpret `PRIOR_LEV` as a destination Level, Portal or hidden
+reward. S06 completes as ordinary no-reward state, repairs/refills and advances
+count eight; AER04 remains merely the next candidate until its own script and
+result graph are proved.
+
+Acceptance must start from real slot-7 state, execute all 29 S06 script owners,
+save committed slot 8 and match the AER04 candidate plus world fingerprint in
+a fresh process. Changes to the constant or selection order require new retail
+evidence rather than a hard-coded campaign shortcut.
