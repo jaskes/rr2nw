@@ -207,6 +207,28 @@ foreach ($configurationName in $Configuration) {
         Press-Key $window 0x1B
         Press-Key $window 0x1B
 
+        # Exercise the complete in-frame Developer catalog. A currently
+        # unavailable occupied-vehicle action must remain in the shell with an
+        # explicit reason; all three dynamic subcatalogs must be navigable;
+        # Stabilize must then use the existing typed closed-frame transaction.
+        Press-Key $window 0x1B
+        Press-Down $window 6
+        Press-Key $window 0x0D
+        Press-Down $window 2
+        Press-Key $window 0x0D
+        Press-Down $window 5
+        Press-Key $window 0x0D
+        Press-Key $window 0x1B
+        Press-Down $window 8
+        Press-Key $window 0x0D
+        Press-Key $window 0x1B
+        Press-Down $window 9
+        Press-Key $window 0x0D
+        Press-Key $window 0x1B
+        Press-Key $window 0x28
+        Press-Key $window 0x0D
+        Start-Sleep -Seconds 2
+
         Send-Message $window 0x0010 0
         if (-not $game.WaitForExit($TimeoutSeconds * 1000)) {
             throw "[$configurationName] game did not close cleanly"
@@ -223,6 +245,55 @@ foreach ($configurationName in $Configuration) {
         }
     }
 
+    # A second ordinary launch proves the capability is process-owned and
+    # fail-closed: row seven is Exit game, not a persisted Developer entry.
+    $ordinaryDiagnostics = Join-Path $caseRoot "ordinary-diagnostics"
+    $ordinarySettings = Join-Path $caseRoot "ordinary-settings.cfg"
+    New-Item -ItemType Directory -Force -Path $ordinaryDiagnostics | Out-Null
+    $ordinaryArguments = @(
+        "--data-dir", $dataPath,
+        "--start-level", $Level,
+        "--diagnostics-dir", $ordinaryDiagnostics,
+        "--save-dir", $saves,
+        "--settings-file", $ordinarySettings,
+        "--safe-mode", "--skip-level-briefing"
+    ) | ForEach-Object { Quote-NativeArgument $_ }
+    Write-Host "[$configurationName] proving ordinary startup is fail-closed"
+    $ordinaryGame = Start-Process -FilePath $executable `
+        -ArgumentList $ordinaryArguments -WorkingDirectory $repositoryRoot `
+        -PassThru
+    try {
+        $ordinaryDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        $ordinaryWindow = [IntPtr]::Zero
+        do {
+            Start-Sleep -Milliseconds 100
+            $ordinaryGame.Refresh()
+            $ordinaryWindow = $ordinaryGame.MainWindowHandle
+        } while ($ordinaryWindow -eq [IntPtr]::Zero -and
+                 -not $ordinaryGame.HasExited -and
+                 [DateTime]::UtcNow -lt $ordinaryDeadline)
+        if ($ordinaryWindow -eq [IntPtr]::Zero) {
+            throw "[$configurationName] ordinary game window did not appear"
+        }
+        Start-Sleep -Milliseconds 700
+        Press-Key $ordinaryWindow 0x1B
+        Press-Down $ordinaryWindow 6
+        Press-Key $ordinaryWindow 0x0D
+        if (-not $ordinaryGame.WaitForExit($TimeoutSeconds * 1000)) {
+            throw "[$configurationName] ordinary Exit row did not close the game"
+        }
+        $ordinaryGame.Refresh()
+        if ($ordinaryGame.ExitCode -ne 0) {
+            throw "[$configurationName] ordinary game exited with $($ordinaryGame.ExitCode)"
+        }
+    }
+    finally {
+        if (-not $ordinaryGame.HasExited) {
+            Stop-Process -Id $ordinaryGame.Id -Force
+            $ordinaryGame.WaitForExit()
+        }
+    }
+
     $logPath = Join-Path $diagnostics "rr2nw-startup.log"
     if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) {
         throw "[$configurationName] startup log is missing"
@@ -235,9 +306,9 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_open = "0"
         in_game_shell_developer = "1"
         in_game_shell_safe_mode = "1"
-        in_game_shell_opens = "5"
-        in_game_shell_closes = "5"
-        in_game_shell_input_neutralizations = "5"
+        in_game_shell_opens = "6"
+        in_game_shell_closes = "6"
+        in_game_shell_input_neutralizations = "6"
         in_game_shell_save_requests = "2"
         in_game_shell_save_overwrite_confirmations = "1"
         in_game_shell_load_requests = "1"
@@ -254,6 +325,14 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_save_catalog_ready = "1"
         in_game_shell_save_catalog_states = "4/1/1/2"
         in_game_shell_save_catalog_previews = "3/1/1"
+        in_game_shell_developer_catalog_capability = "1"
+        in_game_shell_developer_catalog_ready = "1"
+        in_game_shell_developer_blocked_selections = "1"
+        in_game_shell_developer_commands_queued = "1"
+        debug_menu_requests = "1"
+        debug_menu_completed_commands = "1"
+        debug_menu_failed_commands = "0"
+        debug_menu_stabilized_vehicles = "1"
         save_menu_completed_saves = "2"
         save_menu_completed_loads = "1"
         game_services_issues = "0"
@@ -271,7 +350,10 @@ foreach ($configurationName in $Configuration) {
     foreach ($counter in @(
             "in_game_shell_save_catalog_refreshes",
             "in_game_shell_save_catalog_publications",
-            "in_game_shell_save_preview_draw_frames")) {
+            "in_game_shell_save_preview_draw_frames",
+            "in_game_shell_developer_catalog_publications",
+            "in_game_shell_developer_catalog_generation",
+            "in_game_shell_developer_catalog_commands")) {
         if (-not $log.ContainsKey($counter) -or
             [int64]$log[$counter] -lt 1) {
             $actual = if ($log.ContainsKey($counter)) {
@@ -287,6 +369,47 @@ foreach ($configurationName in $Configuration) {
         } else { "<missing>" }
         $issues.Add(
             "in_game_shell_save_catalog_failures expected 0, got $actual")
+    }
+    if ($log.ContainsKey("in_game_shell_developer_catalog_commands") -and
+        $log.ContainsKey("in_game_shell_developer_catalog_states")) {
+        $commandCount = [int64]$log["in_game_shell_developer_catalog_commands"]
+        $stateParts = [string]$log["in_game_shell_developer_catalog_states"] -split '/'
+        if ($stateParts.Count -ne 2 -or
+            [int64]$stateParts[0] + [int64]$stateParts[1] -ne $commandCount -or
+            $commandCount -le 9) {
+            $issues.Add("Developer catalog totals are inconsistent")
+        }
+    } else {
+        $issues.Add("Developer catalog telemetry is missing")
+    }
+    $ordinaryLogPath = Join-Path $ordinaryDiagnostics "rr2nw-startup.log"
+    if (-not (Test-Path -LiteralPath $ordinaryLogPath -PathType Leaf)) {
+        $issues.Add("ordinary startup log is missing")
+    } else {
+        $ordinaryLog = Read-KeyValueLog $ordinaryLogPath
+        $ordinaryExpected = @{
+            marker = "level-ready"
+            runtime_shutdown = "clean"
+            debug_menu_configured = "0"
+            in_game_shell_developer = "0"
+            in_game_shell_developer_catalog_capability = "0"
+            in_game_shell_developer_catalog_ready = "0"
+            in_game_shell_developer_catalog_commands = "0"
+            in_game_shell_developer_catalog_reason = "developer capability is disabled"
+            in_game_shell_opens = "1"
+            in_game_shell_closes = "1"
+            game_services_issues = "0"
+        }
+        foreach ($entry in $ordinaryExpected.GetEnumerator()) {
+            if (-not $ordinaryLog.ContainsKey($entry.Key) -or
+                [string]$ordinaryLog[$entry.Key] -ne [string]$entry.Value) {
+                $actual = if ($ordinaryLog.ContainsKey($entry.Key)) {
+                    [string]$ordinaryLog[$entry.Key]
+                } else { "<missing>" }
+                $issues.Add(
+                    "ordinary $($entry.Key) expected $($entry.Value), got $actual")
+            }
+        }
     }
     if (-not (Test-Path -LiteralPath $settings -PathType Leaf)) {
         $issues.Add("settings.cfg was not written")

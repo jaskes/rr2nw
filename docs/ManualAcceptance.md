@@ -79,8 +79,11 @@ Continue they resume only after a new physical press.
    confirmed mode must return automatically. Borderless must letterbox on a
    non-4:3 desktop rather than stretch the scene.
 4. Confirm ordinary startup has no Developer entry. Restart with
-   `--developer-mode`; the Developer page must appear and its supported commands
-   must still report that they execute at the closed frame boundary.
+   `--developer-mode`; the Developer page must show fixed actions plus Spawn,
+   Spawn-and-enter and fresh-Level subcatalogs. Rows that do not apply to the
+   current Player/Vehicle state must show a concrete blocked reason and remain
+   in the menu. A ready row must close the shell and report that it was queued
+   at the closed frame boundary.
 5. Exit, replace `%LOCALAPPDATA%\RR2NW\settings.cfg` with invalid text and start
    again. The game must recover a valid schema-2 file and safe 640x480 windowed
    defaults. `--safe-mode` must also start with those defaults while ignoring
@@ -91,7 +94,8 @@ Continue they resume only after a new physical press.
 The bounded real-window proof exercises Save/Load, explicit overwrite
 confirmation, asynchronous thumbnails for old/current/corrupt/incompatible
 slots, binding and mouse persistence/defaults, schema migration, two confirmed
-video changes and one timed rollback in every maintained build. The separate
+video changes, one timed rollback, the complete typed Developer catalog and a
+second fail-closed ordinary launch in every maintained build. The separate
 input proof drives all semantic map actions through the real window:
 
 ```powershell

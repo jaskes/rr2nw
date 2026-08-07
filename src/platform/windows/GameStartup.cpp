@@ -6509,6 +6509,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("debug_menu_first_deferred_error=" +
              debugMenuState->firstDeferredError);
   }
+  const SRecoveredDeveloperCatalogSnapshot* developerCatalog =
+      RecoveredGameServices_InGameShellDeveloperCatalog();
   const SRecoveredInGameShellState* shellState =
       RecoveredGameServices_InGameShellState();
   if (shellState != nullptr) {
@@ -6564,6 +6566,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->saveCatalogFailures));
     log.Line("in_game_shell_save_preview_draw_frames=" +
              std::to_string(shellState->saveCatalogPreviewDrawFrames));
+    log.Line("in_game_shell_developer_catalog_publications=" +
+             std::to_string(shellState->developerCatalogPublications));
+    log.Line("in_game_shell_developer_blocked_selections=" +
+             std::to_string(
+                 shellState->developerCatalogBlockedSelections));
+    log.Line("in_game_shell_developer_commands_queued=" +
+             std::to_string(shellState->developerCommandsQueued));
     log.Line("in_game_shell_window=" +
              std::to_string(shellState->windowMode) + "/" +
              std::to_string(shellState->windowScale));
@@ -6594,6 +6603,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(saveCatalog->archiveBytesRead));
     log.Line("in_game_shell_save_catalog_palette=" +
              std::to_string(saveCatalog->paletteFingerprint));
+  }
+  if (developerCatalog != nullptr) {
+    log.Line("in_game_shell_developer_catalog_capability=" +
+             std::to_string(developerCatalog->capabilityEnabled ? 1 : 0));
+    log.Line("in_game_shell_developer_catalog_ready=" +
+             std::to_string(developerCatalog->ready ? 1 : 0));
+    log.Line("in_game_shell_developer_catalog_generation=" +
+             std::to_string(developerCatalog->generation));
+    log.Line("in_game_shell_developer_catalog_commands=" +
+             std::to_string(developerCatalog->commands.size()));
+    log.Line("in_game_shell_developer_catalog_states=" +
+             std::to_string(developerCatalog->availableCommands) + "/" +
+             std::to_string(developerCatalog->blockedCommands));
+    log.Line("in_game_shell_developer_catalog_reason=" +
+             developerCatalog->reason);
   }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();

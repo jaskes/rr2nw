@@ -1097,6 +1097,8 @@ bool g_debugPreVehicleDestructionPanelReady = false;
 bool g_debugPreVehicleDestructionPanelOpen = false;
 std::vector<std::string> g_debugLevelCatalog;
 std::vector<SRecoveredDebugVehicleType> g_debugVehicleCatalog;
+SRecoveredDeveloperCatalogSnapshot g_inGameShellDeveloperCatalog;
+std::uint64_t g_inGameShellDeveloperCatalogNextGeneration = 1u;
 struct SPendingDebugTaxiSettlement {
   std::string objectName;
   CFVector3 expectedPosition;
@@ -1784,6 +1786,190 @@ bool DebugCommandCanStage() {
     return false;
   }
   return true;
+}
+
+std::string DebugCommandLabel(ERecoveredDebugMenuAction action,
+                              std::size_t index) {
+  switch (action) {
+    case RECOVERED_DEBUG_MENU_SHOW_STATE:
+      return "Show current state";
+    case RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE:
+      return "Stabilize occupied vehicle";
+    case RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE:
+      return "Damage occupied vehicle by 25%";
+    case RECOVERED_DEBUG_MENU_KILL_PLAYER:
+      return "Kill player (transactional)";
+    case RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH:
+      return "Restore checkpoint before debug death";
+    case RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE:
+      return "Destroy occupied vehicle (transactional)";
+    case RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION:
+      return "Restore checkpoint before vehicle destruction";
+    case RECOVERED_DEBUG_MENU_SPAWN_VEHICLE:
+    case RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE: {
+      if (index >= g_debugVehicleCatalog.size()) return "Vehicle unavailable";
+      const SRecoveredDebugVehicleType& type = g_debugVehicleCatalog[index];
+      std::string label = type.vehicleAttribute.empty()
+                              ? "Vehicle"
+                              : type.vehicleAttribute;
+      if (!type.taxiAttribute.empty()) label += " [" + type.taxiAttribute + "]";
+      if (!type.dynamic.empty()) label += " {" + type.dynamic + "}";
+      return label;
+    }
+    case RECOVERED_DEBUG_MENU_SWITCH_LEVEL:
+      return index < g_debugLevelCatalog.size()
+                 ? g_debugLevelCatalog[index]
+                 : "Level unavailable";
+    default:
+      return "Unsupported developer command";
+  }
+}
+
+bool DebugCommandAvailability(ERecoveredDebugMenuAction action,
+                              std::size_t index, std::string* reason) {
+  const auto blocked = [&](const char* detail) {
+    if (reason != nullptr) *reason = detail;
+    return false;
+  };
+  if (!g_inGameShellState.developerMode || !g_debugMenuState.configured)
+    return blocked("developer capability is disabled");
+  if (!g_sessionReady || g_super.m_context == nullptr)
+    return blocked("active recovered Level session is unavailable");
+  if (g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready)
+    return blocked("another world command is pending");
+
+  if ((action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE ||
+       action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE) &&
+      index >= g_debugVehicleCatalog.size())
+    return blocked("vehicle is outside the active Level catalog");
+  if (action == RECOVERED_DEBUG_MENU_SWITCH_LEVEL &&
+      index >= g_debugLevelCatalog.size())
+    return blocked("Level is outside the configured catalog");
+  if (action == RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH) {
+    if (!g_debugMenuState.preDeathCheckpointAvailable ||
+        g_debugPreDeathCheckpoint.empty())
+      return blocked("no committed pre-death checkpoint");
+    return true;
+  }
+  if (action == RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION) {
+    if (!g_debugMenuState.preVehicleDestructionCheckpointAvailable ||
+        g_debugPreVehicleDestructionCheckpoint.empty())
+      return blocked("no committed pre-destruction checkpoint");
+    return true;
+  }
+  if (action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE ||
+      action == RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE ||
+      action == RECOVERED_DEBUG_MENU_SWITCH_LEVEL)
+    return true;
+
+  KR_ObjectID vehicle =
+      g_super.m_context->searchObject("Vehicle.Default");
+  SRecoveredVehicleRuntimeState vehicleState = {};
+  if (vehicle.isNUL() || !VehicleRuntimeState_Inspect(
+                              g_super.m_context, vehicle, &vehicleState))
+    return blocked("default player Vehicle state is unavailable");
+  Vehicle* controlled = static_cast<Vehicle*>(
+      g_super.m_context->queryInterface(vehicle, IVehicleIID));
+
+  if (action == RECOVERED_DEBUG_MENU_KILL_PLAYER) {
+    if (g_debugMenuState.preDeathCheckpointAvailable ||
+        g_debugMenuState.preVehicleDestructionCheckpointAvailable ||
+        !g_debugPreDeathCheckpoint.empty() ||
+        !g_debugPreVehicleDestructionCheckpoint.empty())
+      return blocked("restore the existing debug checkpoint first");
+    if (vehicleState.dead || vehicleState.takingTaxi ||
+        controlled == nullptr || !controlled->taxiChangeEnabled())
+      return blocked("requires the living default player body");
+    if (g_vehicleControlInput.ActiveActionCount() != 0u)
+      return blocked("neutral Vehicle controls are required");
+  } else if (action == RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE ||
+             action == RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE) {
+    if (g_debugMenuState.preDeathCheckpointAvailable ||
+        g_debugMenuState.preVehicleDestructionCheckpointAvailable ||
+        !g_debugPreDeathCheckpoint.empty() ||
+        !g_debugPreVehicleDestructionCheckpoint.empty())
+      return blocked("restore the existing debug checkpoint first");
+    if (vehicleState.dead || vehicleState.takingTaxi ||
+        controlled == nullptr || controlled->taxiChangeEnabled())
+      return blocked("requires a living occupied type-1 vehicle");
+    if (action == RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE &&
+        g_godMode != 0)
+      return blocked("disable god mode before authentic destruction");
+    if (g_vehicleControlInput.ActiveActionCount() != 0u)
+      return blocked("neutral Vehicle controls are required");
+  } else if (action != RECOVERED_DEBUG_MENU_SHOW_STATE &&
+             action != RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE) {
+    return blocked("command is not part of the supported catalog");
+  }
+  if (reason != nullptr) reason->clear();
+  return true;
+}
+
+bool DeveloperCatalogEquivalent(
+    const SRecoveredDeveloperCatalogSnapshot& left,
+    const SRecoveredDeveloperCatalogSnapshot& right) {
+  if (left.capabilityEnabled != right.capabilityEnabled ||
+      left.ready != right.ready || left.reason != right.reason ||
+      left.availableCommands != right.availableCommands ||
+      left.blockedCommands != right.blockedCommands ||
+      left.commands.size() != right.commands.size())
+    return false;
+  for (std::size_t index = 0; index < left.commands.size(); ++index) {
+    const SRecoveredDeveloperCatalogEntry& a = left.commands[index];
+    const SRecoveredDeveloperCatalogEntry& b = right.commands[index];
+    if (a.action != b.action || a.index != b.index ||
+        a.available != b.available || a.label != b.label ||
+        a.reason != b.reason)
+      return false;
+  }
+  return true;
+}
+
+void RefreshInGameDeveloperCatalog() {
+  SRecoveredDeveloperCatalogSnapshot next;
+  next.capabilityEnabled = g_inGameShellState.developerMode &&
+                           g_debugMenuState.configured;
+  if (!next.capabilityEnabled) {
+    next.reason = "developer capability is disabled";
+  } else {
+    next.ready = true;
+    const auto append = [&](ERecoveredDebugMenuAction action,
+                            std::size_t index) {
+      SRecoveredDeveloperCatalogEntry entry;
+      entry.action = action;
+      entry.index = index;
+      entry.label = DebugCommandLabel(action, index);
+      entry.available = DebugCommandAvailability(action, index, &entry.reason);
+      if (entry.available)
+        ++next.availableCommands;
+      else
+        ++next.blockedCommands;
+      next.commands.push_back(std::move(entry));
+    };
+    append(RECOVERED_DEBUG_MENU_SHOW_STATE, 0u);
+    append(RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE, 0u);
+    append(RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE, 0u);
+    append(RECOVERED_DEBUG_MENU_KILL_PLAYER, 0u);
+    append(RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH, 0u);
+    append(RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE, 0u);
+    append(RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION, 0u);
+    for (std::size_t index = 0; index < g_debugVehicleCatalog.size(); ++index) {
+      append(RECOVERED_DEBUG_MENU_SPAWN_VEHICLE, index);
+      append(RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE, index);
+    }
+    for (std::size_t index = 0; index < g_debugLevelCatalog.size(); ++index)
+      append(RECOVERED_DEBUG_MENU_SWITCH_LEVEL, index);
+  }
+  if (!DeveloperCatalogEquivalent(g_inGameShellDeveloperCatalog, next)) {
+    next.generation = g_inGameShellDeveloperCatalogNextGeneration++;
+    g_inGameShellDeveloperCatalog = std::move(next);
+    ++g_inGameShellState.developerCatalogPublications;
+  }
 }
 
 bool StageDebugCommand(ERecoveredDebugMenuAction action,
@@ -2649,9 +2835,13 @@ bool FlushPendingWindowsInput(double eventTime) {
 }
 
 std::size_t ShellPageItemCount() {
+  RefreshInGameDeveloperCatalog();
   switch (g_inGameShellState.page) {
     case RECOVERED_SHELL_PAGE_ROOT:
-      return g_inGameShellState.developerMode ? 8u : 7u;
+      return g_inGameShellState.developerMode &&
+                     g_debugMenuState.configured
+                 ? 8u
+                 : 7u;
     case RECOVERED_SHELL_PAGE_SAVE:
     case RECOVERED_SHELL_PAGE_LOAD:
       return LevelSaveSlot_Count() + 1u;
@@ -2660,9 +2850,14 @@ std::size_t ShellPageItemCount() {
     case RECOVERED_SHELL_PAGE_VIDEO:
       return 4u;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
-      return 8u;
+      return 11u;
     case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM:
       return 2u;
+    case RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN:
+    case RECOVERED_SHELL_PAGE_DEVELOPER_ENTER:
+      return g_debugVehicleCatalog.size() + 1u;
+    case RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL:
+      return g_debugLevelCatalog.size() + 1u;
     default:
       return 1u;
   }
@@ -2677,6 +2872,11 @@ void ShellSelectPage(ERecoveredInGameShellPage page) {
   if (page == RECOVERED_SHELL_PAGE_SAVE ||
       page == RECOVERED_SHELL_PAGE_LOAD)
     RequestShellSaveCatalogRefresh();
+  if (page == RECOVERED_SHELL_PAGE_DEVELOPER ||
+      page == RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN ||
+      page == RECOVERED_SHELL_PAGE_DEVELOPER_ENTER ||
+      page == RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL)
+    RefreshInGameDeveloperCatalog();
 }
 
 bool OpenInGameShell() {
@@ -2814,32 +3014,100 @@ bool ActivateShellLoadSlot(std::uint32_t slot) {
   return true;
 }
 
-bool ActivateDeveloperShellItem(std::size_t item) {
+const SRecoveredDeveloperCatalogEntry* DeveloperCatalogEntry(
+    ERecoveredDebugMenuAction action, std::size_t index) {
+  RefreshInGameDeveloperCatalog();
+  for (const SRecoveredDeveloperCatalogEntry& entry :
+       g_inGameShellDeveloperCatalog.commands) {
+    if (entry.action == action && entry.index == index) return &entry;
+  }
+  return nullptr;
+}
+
+bool StageDeveloperShellCommand(ERecoveredDebugMenuAction action,
+                                std::size_t index) {
+  const SRecoveredDeveloperCatalogEntry* entry =
+      DeveloperCatalogEntry(action, index);
+  if (entry == nullptr || !entry->available) {
+    ++g_inGameShellState.developerCatalogBlockedSelections;
+    g_inGameShellState.status = "Unavailable: " +
+        (entry == nullptr ? std::string("command is outside the catalog")
+                          : entry->reason);
+    return true;
+  }
   bool staged = false;
-  switch (item) {
-    case 0: staged = RecoveredGameServices_RequestDebugShowState(); break;
-    case 1: staged = RecoveredGameServices_RequestDebugStabilizeVehicle(); break;
-    case 2: staged = RecoveredGameServices_RequestDebugDamageOccupiedVehicle(); break;
-    case 3: staged = RecoveredGameServices_RequestDebugKillPlayer(); break;
-    case 4: staged = RecoveredGameServices_RequestDebugRestorePreDeath(); break;
-    case 5:
+  switch (action) {
+    case RECOVERED_DEBUG_MENU_SHOW_STATE:
+      staged = RecoveredGameServices_RequestDebugShowState();
+      break;
+    case RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE:
+      staged = RecoveredGameServices_RequestDebugStabilizeVehicle();
+      break;
+    case RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE:
+      staged = RecoveredGameServices_RequestDebugDamageOccupiedVehicle();
+      break;
+    case RECOVERED_DEBUG_MENU_KILL_PLAYER:
+      staged = RecoveredGameServices_RequestDebugKillPlayer();
+      break;
+    case RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH:
+      staged = RecoveredGameServices_RequestDebugRestorePreDeath();
+      break;
+    case RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE:
       staged = RecoveredGameServices_RequestDebugDestroyOccupiedVehicle();
       break;
-    case 6:
-      staged =
-          RecoveredGameServices_RequestDebugRestorePreVehicleDestruction();
+    case RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION:
+      staged = RecoveredGameServices_RequestDebugRestorePreVehicleDestruction();
       break;
-    case 7: ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT); return true;
+    case RECOVERED_DEBUG_MENU_SPAWN_VEHICLE:
+      staged = RecoveredGameServices_RequestDebugVehicleSpawn(index, false);
+      break;
+    case RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE:
+      staged = RecoveredGameServices_RequestDebugVehicleSpawn(index, true);
+      break;
+    case RECOVERED_DEBUG_MENU_SWITCH_LEVEL:
+      staged = RecoveredGameServices_RequestDebugLevelSwitch(index);
+      break;
     default: return false;
   }
   if (!staged) {
     g_inGameShellState.lastError = g_debugMenuState.lastError;
     return true;
   }
+  ++g_inGameShellState.developerCommandsQueued;
   g_inGameShellState.status =
       "Developer command queued at the closed frame boundary";
   CloseInGameShell();
   return true;
+}
+
+bool ActivateDeveloperShellItem(std::size_t item) {
+  static const ERecoveredDebugMenuAction kFixedActions[] = {
+      RECOVERED_DEBUG_MENU_SHOW_STATE,
+      RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE,
+      RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE,
+      RECOVERED_DEBUG_MENU_KILL_PLAYER,
+      RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH,
+      RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE,
+      RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION};
+  if (item < sizeof(kFixedActions) / sizeof(kFixedActions[0]))
+    return StageDeveloperShellCommand(kFixedActions[item], 0u);
+  if (item == 7u) {
+    ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN);
+    return true;
+  }
+  if (item == 8u) {
+    ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER_ENTER);
+    return true;
+  }
+  if (item == 9u) {
+    ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL);
+    return true;
+  }
+  if (item == 10u) {
+    ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+    return true;
+  }
+  return false;
 }
 
 bool ActivateShellSelection() {
@@ -2863,7 +3131,8 @@ bool ActivateShellSelection() {
         ShellSelectPage(RECOVERED_SHELL_PAGE_CONTROLS);
       } else if (selected == 5u) {
         ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
-      } else if (selected == 6u && g_inGameShellState.developerMode) {
+      } else if (selected == 6u && g_inGameShellState.developerMode &&
+                 g_debugMenuState.configured) {
         ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
       } else {
         if (_gr_hWnd != nullptr) PostMessageW(_gr_hWnd, WM_CLOSE, 0, 0);
@@ -2924,6 +3193,24 @@ bool ActivateShellSelection() {
       return true;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       return ActivateDeveloperShellItem(selected);
+    case RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN:
+      if (selected < g_debugVehicleCatalog.size())
+        return StageDeveloperShellCommand(
+            RECOVERED_DEBUG_MENU_SPAWN_VEHICLE, selected);
+      ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
+      return true;
+    case RECOVERED_SHELL_PAGE_DEVELOPER_ENTER:
+      if (selected < g_debugVehicleCatalog.size())
+        return StageDeveloperShellCommand(
+            RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE, selected);
+      ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
+      return true;
+    case RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL:
+      if (selected < g_debugLevelCatalog.size())
+        return StageDeveloperShellCommand(
+            RECOVERED_DEBUG_MENU_SWITCH_LEVEL, selected);
+      ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
+      return true;
     case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM:
       g_inGameShellState.pendingVideoCommand =
           selected == 0u ? RECOVERED_SHELL_VIDEO_CONFIRM
@@ -2950,6 +3237,13 @@ bool HandleInGameShellKey(std::uint32_t key) {
     if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_ROOT ||
         g_inGameShellState.page == RECOVERED_SHELL_PAGE_VIDEO_CONFIRM)
       CloseInGameShell();
+    else if (g_inGameShellState.page ==
+                 RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN ||
+             g_inGameShellState.page ==
+                 RECOVERED_SHELL_PAGE_DEVELOPER_ENTER ||
+             g_inGameShellState.page ==
+                 RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL)
+      ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
     else
       ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
     return true;
@@ -3178,7 +3472,7 @@ void DrawInGameShell() {
     case RECOVERED_SHELL_PAGE_ROOT:
       lines = {"Continue", "Save game", "Load game",
                "Restart current Level", "Controls", "Video"};
-      if (g_inGameShellState.developerMode)
+      if (g_inGameShellState.developerMode && g_debugMenuState.configured)
         lines.push_back("Developer");
       lines.push_back("Exit game");
       break;
@@ -3233,12 +3527,62 @@ void DrawInGameShell() {
       lines.push_back("Back");
       break;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
-      lines = {"Show current state", "Stabilize occupied vehicle",
-               "Damage occupied vehicle by 25%",
-               "Kill player (transactional)",
-               "Restore checkpoint before debug death",
-               "Destroy occupied vehicle (transactional)",
-               "Restore checkpoint before vehicle destruction", "Back"};
+      RefreshInGameDeveloperCatalog();
+      for (ERecoveredDebugMenuAction action : {
+               RECOVERED_DEBUG_MENU_SHOW_STATE,
+               RECOVERED_DEBUG_MENU_STABILIZE_VEHICLE,
+               RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE,
+               RECOVERED_DEBUG_MENU_KILL_PLAYER,
+               RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH,
+               RECOVERED_DEBUG_MENU_DESTROY_OCCUPIED_VEHICLE,
+               RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION}) {
+        const SRecoveredDeveloperCatalogEntry* entry =
+            DeveloperCatalogEntry(action, 0u);
+        if (entry != nullptr) {
+          lines.push_back(entry->label +
+                          (entry->available
+                               ? "  [ready]"
+                               : "  [blocked: " + entry->reason + "]"));
+        }
+      }
+      lines.push_back("Spawn vehicle nearby  >");
+      lines.push_back("Spawn and enter vehicle  >");
+      lines.push_back("Switch Level (fresh)  >");
+      lines.push_back("Back");
+      break;
+    case RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN:
+    case RECOVERED_SHELL_PAGE_DEVELOPER_ENTER: {
+      const ERecoveredDebugMenuAction action =
+          g_inGameShellState.page == RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN
+              ? RECOVERED_DEBUG_MENU_SPAWN_VEHICLE
+              : RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE;
+      for (std::size_t index = 0; index < g_debugVehicleCatalog.size(); ++index) {
+        const SRecoveredDeveloperCatalogEntry* entry =
+            DeveloperCatalogEntry(action, index);
+        if (entry != nullptr)
+          lines.push_back(entry->label +
+                          (entry->available
+                               ? "  [ready]"
+                               : "  [blocked: " + entry->reason + "]"));
+      }
+      lines.push_back("Back");
+      break;
+    }
+    case RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL:
+      for (std::size_t index = 0; index < g_debugLevelCatalog.size(); ++index) {
+        const SRecoveredDeveloperCatalogEntry* entry = DeveloperCatalogEntry(
+            RECOVERED_DEBUG_MENU_SWITCH_LEVEL, index);
+        if (entry != nullptr) {
+          std::string label = entry->label;
+          if (LevelIdentityMatches(entry->label, ContinuationLevelIdentity()))
+            label += "  [current]";
+          label += entry->available
+                       ? "  [ready]"
+                       : "  [blocked: " + entry->reason + "]";
+          lines.push_back(label);
+        }
+      }
+      lines.push_back("Back");
       break;
     case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM: {
       const ULONGLONG now = GetTickCount64();
@@ -3882,8 +4226,9 @@ void InitializeSession() {
     g_windowsInputAdapter.Reset(true);
     if (g_inGameShellState.configured &&
         (!g_windowsInputAdapter.SetBindings(g_inGameShellBindings) ||
-         !RecoveredSoftwareGraph_ApplyPresentation(
-             g_inGameShellAppliedPresentation, nullptr))) {
+         (_gr_hWnd != nullptr &&
+          !RecoveredSoftwareGraph_ApplyPresentation(
+              g_inGameShellAppliedPresentation, nullptr)))) {
       EndBoundedSession();
       Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
       return;
@@ -5341,6 +5686,7 @@ bool RecoveredGameServices_ConfigureDebugMenu(
     Report(RECOVERED_GAME_SERVICES_DEBUG_MENU_FAILURE);
     return false;
   }
+  RefreshInGameDeveloperCatalog();
   return true;
 }
 
@@ -5355,6 +5701,8 @@ bool RecoveredGameServices_ConfigureInGameShell(
   StopShellSaveCatalog();
   ClearShellSaveCatalog();
   g_inGameShellState = {};
+  g_inGameShellDeveloperCatalog = {};
+  g_inGameShellDeveloperCatalogNextGeneration = 1u;
   g_inGameShellState.configured = true;
   g_inGameShellState.developerMode = developerMode;
   g_inGameShellState.safeMode = safeMode;
@@ -5414,6 +5762,7 @@ bool RecoveredGameServices_ConfigureInGameShell(
     Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
     return false;
   }
+  RefreshInGameDeveloperCatalog();
   return true;
 }
 
@@ -5427,6 +5776,12 @@ const SRecoveredSaveSlotCatalogSnapshot*
 RecoveredGameServices_InGameShellSaveCatalog() {
   PollShellSaveCatalog();
   return &g_inGameShellSaveCatalog;
+}
+
+const SRecoveredDeveloperCatalogSnapshot*
+RecoveredGameServices_InGameShellDeveloperCatalog() {
+  RefreshInGameDeveloperCatalog();
+  return &g_inGameShellDeveloperCatalog;
 }
 
 const SRecoveredInputBindings* RecoveredGameServices_InputBindings() {

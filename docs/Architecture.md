@@ -192,6 +192,15 @@ atomic replacement; schema 1 migrates with new defaults. Corrupt or newer data
 falls back to safe windowed defaults; `--safe-mode` bypasses it. Developer mode
 is a CLI capability and is deliberately absent from the persisted schema.
 
+The Developer page is a read-only projection of the existing Debug owners. Its
+snapshot contains the seven fixed transactions, both views of the active
+`TaxiAttr -> VehicleAttr` catalog and the configured Level catalog. A shared
+preflight gives every row an explicit ready/blocked state and reason; selection
+of a blocked row cannot publish a request. An admitted row calls the same typed
+request used by the native fallback and closes the shell before the command is
+processed at the frame boundary. With no process capability the snapshot is
+not ready and contains zero commands, even if `settings.cfg` is corrupt.
+
 The present Win32/GDI owner proves windowed and borderless style/geometry only.
 It does not enumerate display modes, select a display device, call
 `ChangeDisplaySettingsEx` or own crash-safe restoration of the desktop mode.

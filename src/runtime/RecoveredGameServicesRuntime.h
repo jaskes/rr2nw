@@ -499,7 +499,31 @@ enum ERecoveredInGameShellPage {
   RECOVERED_SHELL_PAGE_CONTROLS = 3,
   RECOVERED_SHELL_PAGE_VIDEO = 4,
   RECOVERED_SHELL_PAGE_DEVELOPER = 5,
-  RECOVERED_SHELL_PAGE_VIDEO_CONFIRM = 6
+  RECOVERED_SHELL_PAGE_VIDEO_CONFIRM = 6,
+  RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN = 7,
+  RECOVERED_SHELL_PAGE_DEVELOPER_ENTER = 8,
+  RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL = 9
+};
+
+struct SRecoveredDeveloperCatalogEntry {
+  ERecoveredDebugMenuAction action = RECOVERED_DEBUG_MENU_NONE;
+  std::size_t index = 0;
+  bool available = false;
+  std::string label;
+  std::string reason;
+};
+
+// Read-only projection of the already-supported typed Debug commands. The
+// shell never mutates the world through this catalog; selecting an available
+// entry only stages the same closed-frame transaction as the native menu.
+struct SRecoveredDeveloperCatalogSnapshot {
+  bool capabilityEnabled = false;
+  bool ready = false;
+  std::uint64_t generation = 0;
+  unsigned int availableCommands = 0;
+  unsigned int blockedCommands = 0;
+  std::string reason;
+  std::vector<SRecoveredDeveloperCatalogEntry> commands;
 };
 
 enum ERecoveredInGameVideoCommand {
@@ -550,6 +574,9 @@ struct SRecoveredInGameShellState {
   unsigned int saveCatalogPublications = 0;
   unsigned int saveCatalogFailures = 0;
   unsigned int saveCatalogPreviewDrawFrames = 0;
+  unsigned int developerCatalogPublications = 0;
+  unsigned int developerCatalogBlockedSelections = 0;
+  unsigned int developerCommandsQueued = 0;
   std::wstring settingsPath;
   std::string status;
   std::string lastError;
@@ -705,6 +732,8 @@ bool RecoveredGameServices_ConfigureInGameShell(
 const SRecoveredInGameShellState* RecoveredGameServices_InGameShellState();
 const SRecoveredSaveSlotCatalogSnapshot*
 RecoveredGameServices_InGameShellSaveCatalog();
+const SRecoveredDeveloperCatalogSnapshot*
+RecoveredGameServices_InGameShellDeveloperCatalog();
 const SRecoveredInputBindings* RecoveredGameServices_InputBindings();
 bool RecoveredGameServices_InGameShellKeyForTesting(std::uint32_t key);
 const SRecoveredDebugMenuState* RecoveredGameServices_DebugMenuState();

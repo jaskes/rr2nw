@@ -4,6 +4,7 @@ param(
     [ValidateSet("Debug", "Release", "RelWithDebInfo")]
     [string[]]$Configuration = @("Debug"),
     [ValidateRange(10, 300)][int]$TimeoutSeconds = 120,
+    [string]$BuildRoot,
     [string]$OutputRoot
 )
 
@@ -47,6 +48,9 @@ foreach ($scenario in $scenarios) {
         TimeoutSeconds = $TimeoutSeconds
         OutputRoot = $caseRoot
         ExpectedNextProject = $scenario.next_project
+    }
+    if (-not [string]::IsNullOrWhiteSpace($BuildRoot)) {
+        $arguments.BuildRoot = $BuildRoot
     }
     if (-not [string]::IsNullOrWhiteSpace($scenario.project)) {
         $arguments.Project = $scenario.project

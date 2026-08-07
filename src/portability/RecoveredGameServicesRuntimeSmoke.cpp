@@ -395,6 +395,8 @@ void CleanupSaveSlotFixture(const std::wstring& directory) {
     const std::wstring path = LevelSaveSlot_Path(directory, slot);
     if (!path.empty()) DeleteFileW(path.c_str());
   }
+  DeleteFileW((directory + L"\\shell-settings.cfg").c_str());
+  DeleteFileW((directory + L"\\shell-settings.cfg.tmp").c_str());
   RemoveDirectoryW(directory.c_str());
 }
 
@@ -408,7 +410,8 @@ bool PrepareSaveSlotFixture(std::wstring* directory) {
   *directory += L"rr2nw-level-slot-runtime-";
   *directory += std::to_wstring(GetCurrentProcessId());
   CleanupSaveSlotFixture(*directory);
-  return true;
+  return CreateDirectoryW(directory->c_str(), nullptr) != FALSE ||
+         GetLastError() == ERROR_ALREADY_EXISTS;
 }
 
 int Fail(const char* message) {
@@ -5261,11 +5264,19 @@ int main(int argc, char** argv) {
   }
   const SRecoveredInGameShellState* shell =
       RecoveredGameServices_InGameShellState();
+  const SRecoveredDeveloperCatalogSnapshot* developerCatalog =
+      RecoveredGameServices_InGameShellDeveloperCatalog();
   bool shellReady = shell != nullptr && shell->configured && shell->open &&
-                    !shell->developerMode &&
+                     !shell->developerMode &&
                     shell->page == RECOVERED_SHELL_PAGE_ROOT &&
                     shell->opens == 1u &&
-                    shell->inputNeutralizations == 1u;
+                     shell->inputNeutralizations == 1u &&
+                     developerCatalog != nullptr &&
+                     !developerCatalog->capabilityEnabled &&
+                     !developerCatalog->ready &&
+                     developerCatalog->commands.empty() &&
+                     developerCatalog->reason ==
+                         "developer capability is disabled";
   shellReady = shellReady &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN) &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
@@ -5327,6 +5338,29 @@ int main(int argc, char** argv) {
       GetFileAttributesW(shellSettingsPath.c_str()) !=
           INVALID_FILE_ATTRIBUTES;
   if (!shellReady) {
+    std::fprintf(stderr,
+                 "shell detail open=%d dev=%d page=%d selected=%zu opens=%u "
+                 "closes=%u neutral=%u binds=%u mouse=%u writes=%u "
+                 "catalog=%d/%d/%zu reason=%s\n",
+                 shell == nullptr ? 0 : shell->open ? 1 : 0,
+                 shell == nullptr ? 0 : shell->developerMode ? 1 : 0,
+                 shell == nullptr ? -1 : static_cast<int>(shell->page),
+                 shell == nullptr ? 0u : shell->selected,
+                 shell == nullptr ? 0u : shell->opens,
+                 shell == nullptr ? 0u : shell->closes,
+                 shell == nullptr ? 0u : shell->inputNeutralizations,
+                 shell == nullptr ? 0u : shell->bindingChanges,
+                 shell == nullptr ? 0u : shell->mouseSettingChanges,
+                 shell == nullptr ? 0u : shell->settingsWrites,
+                 developerCatalog == nullptr
+                     ? 0
+                     : developerCatalog->capabilityEnabled ? 1 : 0,
+                 developerCatalog == nullptr ? 0 : developerCatalog->ready ? 1 : 0,
+                 developerCatalog == nullptr ? 0u
+                                             : developerCatalog->commands.size(),
+                 developerCatalog == nullptr
+                     ? "<null>"
+                     : developerCatalog->reason.c_str());
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("in-game shell controls/settings contract failed");
@@ -5416,6 +5450,9 @@ int main(int argc, char** argv) {
       shell->windowScale != 1 ||
       std::fabs(shell->mouseSensitivityX - 0.5) > 1.0e-12 ||
       shell->mouseInvertY ||
+      !RecoveredGameServices_ConfigureDebugMenu(
+          true, std::vector<std::string>{retailIdentity,
+                                         retailIdentity + ".Other"}) ||
       !RecoveredGameServices_ConfigureInGameShell(
           shellSettingsPath, true, false)) {
     ZAV_DeInitLevel();
@@ -5423,11 +5460,114 @@ int main(int argc, char** argv) {
     return Fail("in-game shell safe-mode bypass failed");
   }
   shell = RecoveredGameServices_InGameShellState();
-  if (shell == nullptr || !shell->developerMode || shell->safeMode ||
-      shell->settingsLoads != 1u || shell->corruptSettingsRecoveries != 0u) {
+  developerCatalog = RecoveredGameServices_InGameShellDeveloperCatalog();
+  const std::size_t expectedDeveloperCommands =
+      7u + RecoveredGameServices_DebugVehicleTypeCount() * 2u + 2u;
+  std::size_t spawnCommands = 0u;
+  std::size_t enterCommands = 0u;
+  std::size_t levelCommands = 0u;
+  bool fixedAvailabilityReady = false;
+  if (developerCatalog != nullptr) {
+    bool showReady = false;
+    bool killReady = false;
+    bool damageBlocked = false;
+    bool restoreDeathBlocked = false;
+    bool restoreVehicleBlocked = false;
+    for (const SRecoveredDeveloperCatalogEntry& entry :
+         developerCatalog->commands) {
+      if (entry.action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE)
+        ++spawnCommands;
+      else if (entry.action ==
+               RECOVERED_DEBUG_MENU_SPAWN_AND_ENTER_VEHICLE)
+        ++enterCommands;
+      else if (entry.action == RECOVERED_DEBUG_MENU_SWITCH_LEVEL)
+        ++levelCommands;
+      else if (entry.action == RECOVERED_DEBUG_MENU_SHOW_STATE)
+        showReady = entry.available && entry.reason.empty();
+      else if (entry.action == RECOVERED_DEBUG_MENU_KILL_PLAYER)
+        killReady = entry.available && entry.reason.empty();
+      else if (entry.action ==
+               RECOVERED_DEBUG_MENU_DAMAGE_OCCUPIED_VEHICLE)
+        damageBlocked = !entry.available &&
+            entry.reason.find("occupied type-1 vehicle") != std::string::npos;
+      else if (entry.action == RECOVERED_DEBUG_MENU_RESTORE_PRE_DEATH)
+        restoreDeathBlocked = !entry.available &&
+            entry.reason.find("pre-death checkpoint") != std::string::npos;
+      else if (entry.action ==
+               RECOVERED_DEBUG_MENU_RESTORE_PRE_VEHICLE_DESTRUCTION)
+        restoreVehicleBlocked = !entry.available &&
+            entry.reason.find("pre-destruction checkpoint") !=
+                std::string::npos;
+    }
+    fixedAvailabilityReady = showReady && killReady && damageBlocked &&
+                             restoreDeathBlocked && restoreVehicleBlocked;
+  }
+  bool developerShellReady = shell != nullptr && shell->developerMode &&
+      !shell->safeMode && shell->settingsLoads == 1u &&
+      shell->corruptSettingsRecoveries == 0u && developerCatalog != nullptr &&
+      developerCatalog->capabilityEnabled && developerCatalog->ready &&
+      developerCatalog->generation != 0u &&
+      developerCatalog->commands.size() == expectedDeveloperCommands &&
+      developerCatalog->availableCommands +
+              developerCatalog->blockedCommands ==
+          expectedDeveloperCommands &&
+      spawnCommands == RecoveredGameServices_DebugVehicleTypeCount() &&
+      enterCommands == RecoveredGameServices_DebugVehicleTypeCount() &&
+      levelCommands == 2u && fixedAvailabilityReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE);
+  for (int step = 0; developerShellReady && step < 6; ++step)
+    developerShellReady =
+        RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+  developerShellReady = developerShellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->page == RECOVERED_SHELL_PAGE_DEVELOPER &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN) &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN) &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->open && shell->page == RECOVERED_SHELL_PAGE_DEVELOPER &&
+      shell->developerCatalogBlockedSelections == 1u &&
+      !RecoveredGameServices_DebugMenuState()->pending;
+  for (int step = 0; developerShellReady && step < 5; ++step)
+    developerShellReady =
+        RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+  developerShellReady = developerShellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->page == RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      shell->page == RECOVERED_SHELL_PAGE_DEVELOPER;
+  for (int step = 0; developerShellReady && step < 8; ++step)
+    developerShellReady =
+        RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+  developerShellReady = developerShellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->page == RECOVERED_SHELL_PAGE_DEVELOPER_ENTER &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      shell->page == RECOVERED_SHELL_PAGE_DEVELOPER;
+  for (int step = 0; developerShellReady && step < 9; ++step)
+    developerShellReady =
+        RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+  developerShellReady = developerShellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->page == RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      shell->page == RECOVERED_SHELL_PAGE_DEVELOPER &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      !shell->open && shell->developerCommandsQueued == 1u &&
+      RecoveredGameServices_DebugMenuState()->pending &&
+      RecoveredGameServices_ProcessPendingDebugCommand() &&
+      !RecoveredGameServices_DebugMenuState()->pending &&
+      RecoveredGameServices_DebugMenuState()->lastAction == "show-state" &&
+      RecoveredGameServices_ConfigureDebugMenu(
+          false, std::vector<std::string>());
+  developerCatalog = RecoveredGameServices_InGameShellDeveloperCatalog();
+  developerShellReady = developerShellReady && developerCatalog != nullptr &&
+      !developerCatalog->capabilityEnabled && !developerCatalog->ready &&
+      developerCatalog->commands.empty() &&
+      developerCatalog->reason == "developer capability is disabled";
+  if (!developerShellReady) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("in-game shell developer capability was not process-owned");
+    return Fail("transactional developer catalog contract failed");
   }
 
   SRecoveredVehicleControlReplayTelemetry replayTelemetry = {};

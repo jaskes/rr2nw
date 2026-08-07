@@ -43,6 +43,25 @@ real `TaxiAttr -> VehicleAttr` table after references and resources have been
 resolved. A Level that cannot provide a valid catalog fails debug-menu startup
 instead of presenting an unsafe command.
 
+## In-game Developer catalog
+
+`--developer-mode` exposes the same supported command set under the in-frame
+pause shell. The fixed transactions are followed by three subcatalogs: **Spawn
+vehicle nearby**, **Spawn and enter vehicle**, and **Switch Level (fresh)**.
+They consume the same Level-local vehicle and configured Level tables as the
+native fallback; no second spawn registry or cheat interpreter exists.
+
+Every row is labelled `[ready]` or `[blocked: reason]`. The preflight reports
+pending world commands, missing checkpoints, wrong Player/Vehicle embodiment,
+active controls and god-mode restrictions without mutating the world. Enter on
+a blocked row leaves the shell open. Enter on a ready row merely calls the
+existing typed request and closes the shell; capture, mutation, validation and
+rollback still belong to the established closed-frame Debug coordinator.
+
+The capability is fail-closed. Without `--developer-mode` (or the compatibility
+alias `--debug-menu`) the root page has no Developer entry, the public catalog
+contains zero commands and `settings.cfg` cannot enable it.
+
 The ordinary **Game** menu also exposes **Restart current Level**. It is not a
 debug restore: it captures rollback state, destroys the current session and
 freshly constructs the same Level. It remains available after terminal player
@@ -134,6 +153,10 @@ campaign restart, repair or every damaged Vehicle class is complete.
 
 - With no `--debug-menu`, the normal Game menu and runtime behaviour are
   unchanged.
+- `Invoke-InGameShell.ps1` navigates all three in-frame subcatalogs, proves one
+  explicit blocked selection, commits one safe typed command, and then starts
+  a second ordinary process where row seven is **Exit game** and Developer
+  telemetry is fail-closed at zero commands.
 - A debug runtime smoke must report `debug_menu_native_installed=1`, a non-zero
   `debug_menu_vehicle_types` count and `game_services_issues=0`.
 - The service smoke enumerates the real catalog, rejects an absent attribute,

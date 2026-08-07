@@ -6259,3 +6259,27 @@ Save, Load and overwrite confirmation still publish the existing typed
 closed-frame commands. The catalog refreshes after a committed Save/Load and
 cannot become a second serializer, rollback owner or source of world state.
 Teardown joins its reader before changing the save root or software graph.
+
+### BD-190: Developer is a fail-closed projection of existing typed commands
+
+Status: accepted on 2026-08-07 for the completed M2.5 Developer catalog slice.
+
+The in-frame shell does not grow a second cheat interpreter. It projects the
+seven already-supported fixed Debug transactions, both views of the active
+Level's real `TaxiAttr -> VehicleAttr` table and the configured fresh-Level
+catalog. Labels and indices come from those existing owners; unsupported actor,
+mission, raw-event and repair commands remain absent.
+
+A shared read-only preflight publishes explicit ready/blocked state and reason
+for every row. Missing checkpoints, wrong Player/Vehicle embodiment, active
+controls, god mode and another pending world transaction are visible before
+selection. A blocked selection leaves the shell open and stages nothing. An
+available selection calls the original typed request, closes the shell and is
+processed only at the established closed-frame boundary with its existing LCN1
+rollback contract.
+
+Capability ownership stays outside schema-2 settings. Without the explicit
+process flag the Developer page is absent and its snapshot is not ready with
+zero commands. The real-window gate must prove both the enabled catalog and a
+second ordinary launch where the same menu position is Exit and all Developer
+catalog telemetry is fail-closed.
