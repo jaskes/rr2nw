@@ -4875,6 +4875,38 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   reward/Portal from object presence or delete live Routes without retail
   evidence.
 
+### CQ-241: A26 exceeds retail TankGroup capacity and exposes stale context state
+
+- Status: `RETAIL_CAPACITY_MISMATCH_CONFIRMED`,
+  `LEGACY_EVICTION_BUG_CONTAINED`, `PERSISTED_PROGRESSION_RESTORED`,
+  `SAVE_BACKWARD_COMPATIBLE`.
+- Evidence: installed `CreateProjectA26` authors four exact kill/reached pairs,
+  Commander Actek, MissionInfo 4, route `Route/A26/ms.rt`, script
+  `Brief/ma26.sc` and no `p_GiveArtefact`. Installed `MA26.SC` (SHA-256
+  `57FAFF348F68D68ACFFDDD6F10F4F32B69BB5D9AB32DA869E6F81DFCBEA4F61F`)
+  creates four Colony tanks, three airplanes, nine knights, three submarines,
+  16 machine guns, one Actek tank and four taxis. The runtime transaction owns
+  60 objects and 22 occupied Howitzers; result selection is exact `ProjectS09`.
+- Cause: Level.04D requests TankGroup capacity 10 with `CT_KILLINVISIBLE`.
+  Accumulated valid G0/S04/S07/S10/S05 population crosses that limit during
+  A26. The archival overflow path bypasses `SimulationContext::removeObject`,
+  so pooled `A.Group.m0g0` can be freed while context slot 363 still points to
+  it. Event-log offset `0x0042ba6e` maps to `SimulationContext::removeObject`
+  during `clearObjects`; four repeated pre-fix A26 result runs reproduced both
+  clean and access-violation shutdowns.
+- Handling: an exact ready-retail request of 10 receives a bounded TankGroup
+  floor of 64 before any invisible eviction. Source-only test capacities,
+  serialization and `CT_KILLINVISIBLE` policy are unchanged. Earlier slot-5
+  state loads directly under the larger table.
+- Verification: six repeated targeted A26 results shut down cleanly after the
+  floor. The maintained Actek chain requires `mission_smoke_tank_group_capacity=64`,
+  all eight rebound conditions, 60 owners, 22/22/22 Howitzers, cumulative count
+  six, exact rollback/reapply and a matching fresh slot-6 fingerprint with no
+  Artifact or Portal.
+- Revisit when: the class-table eviction path is refactored to remove owners
+  through `SimulationContext` atomically. Retained authored population must
+  remain valid; shrinking capacity or deleting it is not an acceptable fix.
+
 ## Maintenance rule
 
 When a new quirk is found:

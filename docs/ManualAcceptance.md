@@ -1009,7 +1009,7 @@ the retired completed Project, exact `ProjectG5` or `ProjectS04` candidate,
 zero old check events and no attached reward. Saved and restored world
 fingerprints must match.
 
-Then run the persisted two-project Actek chain. This is deliberately separate
+Then run the persisted Actek chain. This is deliberately separate
 from the one-step matrix because S04 is eligible only after a committed G0
 result:
 
@@ -1056,6 +1056,19 @@ report `mission_no_reward_fresh_identity=A.Recr0/ProjectS05/ProjectA26`,
 The script fingerprints `MS05.SC` and verifies exactly one authored world
 Artefact plus no `p_GiveArtefact`; a `mission_result_carrier` or
 `mission_result_portal` line remains a failure.
+
+It then loads the real slot-5 state and admits A26. The gate fingerprints
+`MA26.SC`, verifies four exact kill/reached pairs and its authored owner graph
+(4 Colony tanks, 3 airplanes, 9 knights, 3 submarines, 16 machine guns, one
+Actek tank and 4 taxis). Runtime proof must report
+`mission_smoke_tank_group_capacity=64`, 60 created owners, eight rebound
+conditions, 22/22/22 occupied Howitzers and no capacity-limited condition.
+A26 completes without reward to exact `ProjectS09`, increments cumulative
+count to six and saves slot 6. The final fresh process must report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectA26/ProjectS09`, match the
+slot-6 world fingerprint and shut down cleanly. This capacity record is a
+regression gate for the legacy ten-slot `CT_KILLINVISIBLE` stale-context crash;
+it is not permission to discard retained mission population.
 
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed

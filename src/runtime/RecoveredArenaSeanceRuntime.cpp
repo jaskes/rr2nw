@@ -96,6 +96,8 @@ constexpr int kFarterSubjectCapacity = 25;
 constexpr int kOrphanSubjectCapacity = 5;
 constexpr int kCorpseSubjectCapacity = 100;
 constexpr int kSparkSubjectCapacity = 40;
+constexpr int kRetailTankGroupSubjectCapacity = 10;
+constexpr int kPersistedCampaignTankGroupSubjectCapacity = 64;
 constexpr double kDeviceFreeSoundDistance = 300.0;
 constexpr int kSourceOnlySmokerAttributeCount = 11;
 constexpr const char kCommonBootstrapProgramName[] =
@@ -3080,10 +3082,25 @@ bool RunTankCannonAttributeBootstrap(SimulationContext* context,
       "SCINC\\TANK.SCI", true);
 }
 
+int EffectiveTankGroupSubjectCapacity(
+    const TankCannonScriptSummary& script) {
+  return RecoveredRetailScriptManifest_IsReady() &&
+                 script.tankGroupSubjectCapacity ==
+                     kRetailTankGroupSubjectCapacity
+             ? kPersistedCampaignTankGroupSubjectCapacity
+             : script.tankGroupSubjectCapacity;
+}
+
 bool InitializeTankCannonSubjectTables(
     SimulationContext* context, const TankCannonScriptSummary& script) {
+  // The released Level.04D table uses CT_KILLINVISIBLE with ten slots. Its
+  // legacy overflow path calls removeNotify() without removeObject(), leaving
+  // a dangling SimulationContext entry when valid population is retained over
+  // several campaign jobs. Preserve source-only fixture capacities, but admit
+  // the complete persisted retail branch before that unsafe path is reached.
+  const int tankGroupCapacity = EffectiveTankGroupSubjectCapacity(script);
   if (context == nullptr ||
-      g_arena.addClassTable("TankGroup", script.tankGroupSubjectCapacity) ==
+      g_arena.addClassTable("TankGroup", tankGroupCapacity) ==
           ct_NULLID ||
       g_arena.addClassTable("Cannon", script.cannonSubjectCapacity) ==
           ct_NULLID ||
@@ -5604,7 +5621,8 @@ bool PublishTankCannonSubjectTables(
   g_state.cannonSubjectCapacity = script.cannonSubjectCapacity;
   g_state.cannonSubjectCount = cannonCount;
   g_state.tankSubjectCapacity = script.tankSubjectCapacity;
-  g_state.tankGroupSubjectCapacity = script.tankGroupSubjectCapacity;
+  g_state.tankGroupSubjectCapacity =
+      EffectiveTankGroupSubjectCapacity(script);
   g_state.tankSubjectCount = tankCount;
   g_state.cannonSubjectFingerprint = cannonFingerprint;
   g_state.tankSubjectFingerprint = tankFingerprint;

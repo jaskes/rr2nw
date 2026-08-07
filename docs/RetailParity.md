@@ -2172,6 +2172,35 @@ playable Level begins.
   Release and RelWithDebInfo. Ordinary, terminal and strict reward/Portal gates
   remain independent.
 
+### RP-CAMPAIGN-016: A26 persists its convoy result without legacy eviction
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `MULTI_PROJECT_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`,
+  `LEGACY_CAPACITY_CONTAINED`, `FRESH_SAVE_OWNED`.
+- From committed S05 state, Actek naturally selects `ProjectA26` at cumulative
+  mission count five. Installed `BRIEF.SCI` authors four exact Colony convoy
+  kills and four matching reached fields, Commander Actek, MissionInfo 4,
+  briefing/route/script references and no command 35. Installed `MA26.SC`
+  (SHA-256
+  `57FAFF348F68D68ACFFDDD6F10F4F32B69BB5D9AB32DA869E6F81DFCBEA4F61F`)
+  creates its complete 60-owner graph and 22 occupied Howitzers.
+- Successful result removes the eight objective bindings and map/check state,
+  repairs/refills, advances cumulative count to six and selects exact authored
+  candidate `ProjectS09`. It creates no Artifact or Portal and survives
+  pre-result rollback, committed reapply, slot-6 save and fresh fingerprint
+  restore.
+- Retained TankGroups from the five earlier jobs exceed the released ten-slot
+  `CT_KILLINVISIBLE` table. Its direct notify eviction leaves a dangling
+  `SimulationContext` slot, so an otherwise successful A26 run could access a
+  freed `A.Group.m0g0` during shutdown. Exact ready-retail manifests now use a
+  bounded 64-slot TankGroup floor; fixture capacities and save layout remain
+  unchanged.
+- Verification: the expanded
+  `Invoke-MissionNoRewardProgressionChainSmoke.ps1` proves
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09`, capacity 64, result/fresh
+  slot-6 fingerprint equality and clean shutdown in every maintained build.
+  Ordinary, terminal and strict reward/Portal gates remain independent.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

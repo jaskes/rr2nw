@@ -5892,3 +5892,29 @@ The successful result advances cumulative mission count five and selects the
 unchanged authored `ProjectA26`. Adding an Artifact reward or Portal remains
 forbidden without a real command 35; pickup semantics for `ms05.artf` are a
 separate gameplay parity question.
+
+### BD-175: admit retained retail TankGroups before legacy invisible eviction
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectA26`.
+
+The released `set_tank.sci` asks for ten TankGroup subjects with
+`CT_KILLINVISIBLE`. That capacity is sufficient for an isolated Level but not
+for the authored population retained across the complete Actek branch. During
+A26 admission, the legacy overflow path calls `forcedRemoveNotify()` and
+`removeNotify()` directly. It removes the victim from its class table and pool
+without calling `SimulationContext::removeObject`, leaving a dangling context
+slot that can crash later during otherwise clean session teardown.
+
+Deleting prior mission population or accepting the invisible eviction would
+make campaign behavior depend on allocator reuse. Rewriting the OEM translated
+source would also create a large encoding-only diff. Instead, when a ready
+retail manifest requests the exact released capacity ten, the modern host uses
+a bounded 64-slot TankGroup table. Source-only fixtures retain their requested
+capacities, the class policy and object format are unchanged, and old slot
+saves require no migration.
+
+The maintained A26 gate must start from the real slot-5 state, report capacity
+64, execute all four kill/reached pairs and 60 script owners, select S09, save
+slot 6, match it from a fresh process and finish with `runtime_shutdown=clean`.
+Any future general replacement of `CT_KILLINVISIBLE` must first make context
+removal atomic and preserve this accumulated-population contract.

@@ -3458,6 +3458,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              mission.centerName);
     log.Line(std::string("mission_smoke_selected_project=") +
              mission.projectName);
+    log.Line("mission_smoke_tank_group_capacity=" +
+             std::to_string(
+                 RecoveredArenaSeance_TankGroupSubjectCapacity()));
     log.Line("mission_smoke_scripts=" +
              std::to_string(mission.executedScripts));
     log.Line("mission_smoke_created_objects=" +

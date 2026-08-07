@@ -7,6 +7,17 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the persisted Level.04D Actek chain through `ProjectA26` and exact
+  successor `ProjectS09`. A26 now executes four retail kill/reached objective
+  pairs, its complete 60-owner `MA26.SC` graph and 22 occupied Howitzers, then
+  completes as an ordinary no-reward result with cumulative mission count six
+  across rollback, committed reapply, slot-6 save and exact fresh load. The
+  retained campaign graph exposed a legacy `CT_KILLINVISIBLE` overflow bug:
+  retail's ten-slot TankGroup table could free `A.Group.m0g0` without removing
+  its `SimulationContext` entry, causing a nondeterministic shutdown access
+  violation after a successful result. Exact retail manifests now receive a
+  bounded 64-slot TankGroup floor; source-only fixture capacities and old save
+  layout remain unchanged, and the full chain shuts down cleanly.
 - Extended the persisted Level.04D Actek chain through `ProjectS05` and exact
   successor `ProjectA26`. Installed S05 executes six retail kill objectives,
   its complete 26-owner `MS05.SC` graph and nine occupied Howitzers, then
