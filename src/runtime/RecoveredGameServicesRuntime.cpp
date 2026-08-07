@@ -1117,6 +1117,7 @@ HMENU g_nativeDebugMenu = nullptr;
 HMENU g_nativeDebugSpawnMenu = nullptr;
 HMENU g_nativeDebugSpawnEnterMenu = nullptr;
 HMENU g_nativeDebugLevelMenu = nullptr;
+bool g_nativeDiagnosticMenuEnabled = false;
 RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 RecoveredWindowsInputAdapter g_windowsInputAdapter;
@@ -2238,6 +2239,10 @@ void DestroyNativeSaveMenu() {
 }
 
 bool InstallNativeSaveMenu() {
+  if (!g_nativeDiagnosticMenuEnabled) {
+    DestroyNativeSaveMenu();
+    return true;
+  }
   if (!g_saveMenuState.configured || _gr_hWnd == nullptr ||
       !g_sessionReady)
     return false;
@@ -2559,6 +2564,7 @@ void ShowNativeCampaignRestartFailure() {
 
 bool HandleNativeSaveMenuMessage(HWND window, UINT message,
                                  WPARAM wParam, LRESULT* result) {
+  if (!g_nativeDiagnosticMenuEnabled) return false;
   if (message == WM_INITMENUPOPUP && g_nativeMenuBar != nullptr) {
     RefreshNativeSaveMenu();
     RefreshNativeDebugMenu();
@@ -3807,6 +3813,23 @@ bool ProcessPendingInGameShellVideoCommand() {
     return true;
   }
   return false;
+}
+
+void PresentClosedFrameCommandFailure(
+    const char* owner, const std::string& detail,
+    void (*nativePresenter)()) {
+  if (g_nativeDiagnosticMenuEnabled) {
+    nativePresenter();
+    return;
+  }
+  if (!g_inGameShellState.configured) return;
+  if (!g_inGameShellState.open && !OpenInGameShell())
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+  g_inGameShellState.lastError =
+      detail.empty() ? std::string(owner) + " command failed" : detail;
+  g_inGameShellState.status =
+      std::string(owner) + " failed at the closed frame boundary";
+  ++g_inGameShellState.commandFailurePresentations;
 }
 
 LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
@@ -5789,6 +5812,35 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
   RefreshNativeSaveMenu();
   RequestShellSaveCatalogRefresh();
   return true;
+}
+
+bool RecoveredGameServices_ConfigureNativeDiagnosticMenu(bool enabled) {
+  if (g_saveMenuState.pending || g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending ||
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready) {
+    g_saveMenuState.lastError =
+        "native diagnostic menu capability cannot change while a command "
+        "is pending";
+    return false;
+  }
+  const bool previous = g_nativeDiagnosticMenuEnabled;
+  if (!enabled) DestroyNativeSaveMenu();
+  g_nativeDiagnosticMenuEnabled = enabled;
+  if (enabled && g_sessionReady && _gr_hWnd != nullptr &&
+      g_saveMenuState.configured && !InstallNativeSaveMenu()) {
+    g_nativeDiagnosticMenuEnabled = previous;
+    if (!previous) DestroyNativeSaveMenu();
+    Report(RECOVERED_GAME_SERVICES_SAVE_MENU_FAILURE);
+    return false;
+  }
+  return true;
+}
+
+bool RecoveredGameServices_NativeDiagnosticMenuEnabled() {
+  return g_nativeDiagnosticMenuEnabled;
 }
 
 bool RecoveredGameServices_ConfigureDebugMenu(
@@ -7830,12 +7882,15 @@ int RecoveredGameServices_RunFrame() {
   if (g_debugMenuState.pending &&
       !RecoveredGameServices_ProcessPendingDebugCommand() &&
       !g_debugMenuState.pending) {
-    ShowNativeDebugFailure();
+    PresentClosedFrameCommandFailure(
+        "Developer", g_debugMenuState.lastError, ShowNativeDebugFailure);
   }
   if (g_campaignRestartState.pending &&
       !RecoveredGameServices_ProcessPendingCampaignRestart() &&
       !g_campaignRestartState.pending) {
-    ShowNativeCampaignRestartFailure();
+    PresentClosedFrameCommandFailure(
+        "Restart", g_campaignRestartState.lastError,
+        ShowNativeCampaignRestartFailure);
   }
   // Save/load owns the last boundary of a fully simulated, rendered and
   // presented frame. In particular, every drawable Subject has received its
@@ -7845,7 +7900,8 @@ int RecoveredGameServices_RunFrame() {
   if (g_saveMenuState.pending &&
       !RecoveredGameServices_ProcessPendingSaveCommand() &&
       !g_saveMenuState.pending) {
-    ShowNativeSaveFailure();
+    PresentClosedFrameCommandFailure(
+        "Save/load", g_saveMenuState.lastError, ShowNativeSaveFailure);
   }
   if (!ProcessPendingInGameShellVideoCommand()) {
     Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);

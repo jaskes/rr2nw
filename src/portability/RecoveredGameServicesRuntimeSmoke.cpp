@@ -5247,15 +5247,21 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("save slot fixture directory is unavailable");
   }
-  if (!RecoveredGameServices_ConfigureSaveDirectory(
+  if (RecoveredGameServices_NativeDiagnosticMenuEnabled() ||
+      !RecoveredGameServices_ConfigureNativeDiagnosticMenu(true) ||
+      !RecoveredGameServices_NativeDiagnosticMenuEnabled() ||
+      !RecoveredGameServices_ConfigureNativeDiagnosticMenu(false) ||
+      RecoveredGameServices_NativeDiagnosticMenuEnabled() ||
+      !RecoveredGameServices_ConfigureSaveDirectory(
           saveSlotDirectory) ||
       RecoveredGameServices_SaveMenuState() == nullptr ||
       !RecoveredGameServices_SaveMenuState()->configured ||
+      RecoveredGameServices_SaveMenuState()->nativeMenuInstalled ||
       RecoveredGameServices_SaveMenuState()->directory !=
           saveSlotDirectory) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("save menu directory configuration failed");
+    return Fail("menu capability/save directory configuration failed");
   }
   const std::wstring shellSettingsPath =
       saveSlotDirectory + L"\\shell-settings.cfg";
@@ -7069,11 +7075,13 @@ int main(int argc, char** argv) {
       RecoveredGameServices_RequestSaveSlot(LevelSaveSlot_Count(), false) ||
       RecoveredGameServices_SaveMenuState() == nullptr ||
       RecoveredGameServices_SaveMenuState()->pending ||
-      !RecoveredGameServices_RequestSaveSlotWithMetadata(
-          3u, false, "Station approach",
-          "Vehicle checkpoint after focus recovery") ||
-      RecoveredGameServices_RequestLoadSlot(3u) ||
-      !RecoveredGameServices_SaveMenuState()->pending ||
+       !RecoveredGameServices_RequestSaveSlotWithMetadata(
+           3u, false, "Station approach",
+           "Vehicle checkpoint after focus recovery") ||
+       RecoveredGameServices_RequestLoadSlot(3u) ||
+       RecoveredGameServices_ConfigureNativeDiagnosticMenu(true) ||
+       RecoveredGameServices_NativeDiagnosticMenuEnabled() ||
+       !RecoveredGameServices_SaveMenuState()->pending ||
       RecoveredGameServices_SaveMenuState()->pendingAction !=
           RECOVERED_SAVE_MENU_SAVE ||
       RecoveredGameServices_SaveMenuState()->pendingSlot != 3u ||

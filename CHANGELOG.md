@@ -26,6 +26,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Made the in-frame shell the sole ordinary player-facing menu. Ordinary and
+  `--developer-mode` launches no longer install a Win32 menu bar; the old
+  `Game`/`Debug` adapter is isolated behind `--native-diagnostic-menu`, with
+  `--debug-menu` retained only as an automation compatibility alias. Native
+  handlers fail closed without that capability, while terminal typed-command
+  failures return to the in-frame shell instead of opening modal platform UI.
+  A physical four-process gate proves root-menu counts `0/0/2/2` and preserves
+  the existing Save/Load, restart and Debug rollback coordinators.
 - Rebased the legacy simulation clock after synchronous native Save/Load
   dialogs so dialog dwell cannot become a later physics or continuation delta.
   The native fallback UX gate now waits for a stable post-intro loop, drives

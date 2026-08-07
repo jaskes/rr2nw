@@ -515,7 +515,8 @@ struct SRecoveredDeveloperCatalogEntry {
 
 // Read-only projection of the already-supported typed Debug commands. The
 // shell never mutates the world through this catalog; selecting an available
-// entry only stages the same closed-frame transaction as the native menu.
+// entry only stages the same closed-frame transaction as the optional native
+// diagnostic fallback.
 struct SRecoveredDeveloperCatalogSnapshot {
   bool capabilityEnabled = false;
   bool ready = false;
@@ -581,6 +582,7 @@ struct SRecoveredInGameShellState {
   unsigned int developerCatalogPublications = 0;
   unsigned int developerCatalogBlockedSelections = 0;
   unsigned int developerCommandsQueued = 0;
+  unsigned int commandFailurePresentations = 0;
   std::wstring settingsPath;
   std::string status;
   std::string lastError;
@@ -729,6 +731,8 @@ bool RecoveredGameServices_LoadLevelSlot(
 const char* RecoveredGameServices_LastLevelSaveSlotError();
 bool RecoveredGameServices_ConfigureSaveDirectory(
     const std::wstring& directory);
+bool RecoveredGameServices_ConfigureNativeDiagnosticMenu(bool enabled);
+bool RecoveredGameServices_NativeDiagnosticMenuEnabled();
 bool RecoveredGameServices_ConfigureDebugMenu(
     bool enabled, const std::vector<std::string>& levelCatalog);
 bool RecoveredGameServices_ConfigureInGameShell(

@@ -1,18 +1,19 @@
-# Opt-in Windows debug menu
+# In-frame Developer catalog and native diagnostic fallback
 
-The native debug menu is an explicitly enabled development surface for the
-recovered Windows game. It is not shown during an ordinary launch and it does
-not modify retail files.
+The in-frame Developer page is the supported development surface for the
+recovered Windows game. A separate native `Game`/`Debug` menu survives only as
+an explicitly enabled diagnostic and automation fallback. Neither surface
+modifies retail files.
 
 ## Launch
 
 From the repository root:
 
 ```powershell
-& ".\build\windows-msvc-x86\Debug\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --debug-menu --diagnostics-dir "$PWD\manual-logs\debug-menu"
+& ".\build\windows-msvc-x86\Debug\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --developer-mode --diagnostics-dir "$PWD\manual-logs\debug-menu"
 ```
 
-The window menu bar then contains **Debug**. The first admitted command set is:
+Press `Esc` and open **Developer**. The admitted command set is:
 
 - **Spawn vehicle nearby**: creates a real `Taxi` subject about 16 world units
   in front of `Vehicle.Default`; its original start event resolves a supporting
@@ -58,14 +59,28 @@ a blocked row leaves the shell open. Enter on a ready row merely calls the
 existing typed request and closes the shell; capture, mutation, validation and
 rollback still belong to the established closed-frame Debug coordinator.
 
-The capability is fail-closed. Without `--developer-mode` (or the compatibility
-alias `--debug-menu`) the root page has no Developer entry, the public catalog
-contains zero commands and `settings.cfg` cannot enable it.
+The capability is fail-closed. Without `--developer-mode`,
+`--native-diagnostic-menu` or its compatibility alias `--debug-menu`, the root
+page has no Developer entry, the public catalog contains zero commands and
+`settings.cfg` cannot enable it. `--developer-mode` alone creates no native menu
+bar.
 
-The ordinary **Game** menu also exposes **Restart current Level**. It is not a
+The in-frame **Game** page also exposes **Restart current Level**. It is not a
 debug restore: it captures rollback state, destroys the current session and
 freshly constructs the same Level. It remains available after terminal player
 death and is the campaign-facing recovery policy.
+
+For bounded native automation or emergency diagnosis, use:
+
+```powershell
+& ".\build\windows-msvc-x86\Debug\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --native-diagnostic-menu --diagnostics-dir "$PWD\manual-logs\native-diagnostic-menu"
+```
+
+This opt-in installs the old `Game`/`Debug` menu bar and also enables the same
+Developer owner. `--debug-menu` is retained as a compatibility alias for
+existing Win32 automation. Neither flag creates another command implementation:
+native `WM_COMMAND` handlers publish the same typed requests and fail closed
+when the native capability is absent.
 
 ## Safety and rollback
 
@@ -151,13 +166,17 @@ campaign restart, repair or every damaged Vehicle class is complete.
 
 ## Acceptance
 
-- With no `--debug-menu`, the normal Game menu and runtime behaviour are
-  unchanged.
+- Ordinary and `--developer-mode` windows have no native menu bar; both keep the
+  same in-frame Game behavior.
+- `Invoke-NativeDiagnosticFallback.ps1` opens four physical windows and requires
+  native root-menu counts `0/0/2/2` for ordinary, developer-only, canonical
+  native diagnostic and `--debug-menu` compatibility launches.
 - `Invoke-InGameShell.ps1` navigates all three in-frame subcatalogs, proves one
   explicit blocked selection, commits one safe typed command, and then starts
   a second ordinary process where row seven is **Exit game** and Developer
   telemetry is fail-closed at zero commands.
-- A debug runtime smoke must report `debug_menu_native_installed=1`, a non-zero
+- A native diagnostic runtime smoke must report
+  `native_diagnostic_menu_enabled=1`, `debug_menu_native_installed=1`, a non-zero
   `debug_menu_vehicle_types` count and `game_services_issues=0`.
 - The service smoke enumerates the real catalog, rejects an absent attribute,
   creates every Level-local Taxi type, rejects a duplicate deterministic name

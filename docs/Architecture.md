@@ -203,6 +203,15 @@ request used by the native fallback and closes the shell before the command is
 processed at the frame boundary. With no process capability the snapshot is
 not ready and contains zero commands, even if `settings.cfg` is corrupt.
 
+The in-frame shell is also the sole player-facing menu owner. Ordinary launches
+and `--developer-mode` launches create no Win32 menu bar. The old `Game`/`Debug`
+bar survives only behind the process-local `--native-diagnostic-menu`
+capability (`--debug-menu` is a compatibility alias) for bounded automation and
+emergency diagnosis. Its `WM_COMMAND` handlers still publish the same typed
+requests and are inert when that capability is absent. A terminal command error
+returns an ordinary player to the in-frame shell; only the explicit native
+diagnostic mode may use the legacy modal error presenter.
+
 The Win32/GDI presentation owner resolves the monitor nearest the game window,
 enumerates a bounded set of exact 4:3 `DEVMODE` rows and is the only code that
 may call `ChangeDisplaySettingsEx`. Before an exclusive mutation it atomically

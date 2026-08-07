@@ -5278,6 +5278,28 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: the renderer leaves GDI, Windows display APIs are replaced, or
   packaged Win10/Win11 multi-monitor soak finds a device-selection edge case.
 
+### CQ-257: developer capability must not imply a native menu bar
+
+- Status: `IN_FRAME_PRODUCT_OWNER_CONFIRMED`, `NATIVE_FALLBACK_ISOLATED`,
+  `FIXED_AND_GATED`.
+- Evidence: startup previously installed the native `Game` menu unconditionally
+  and parsed `--developer-mode` and `--debug-menu` into one boolean. The
+  in-frame shell already owns every ordinary Game action and the complete typed
+  Developer catalog, so that coupling left platform UI in the product path.
+- Handling: ordinary and developer-only launches install no native menu.
+  `--native-diagnostic-menu` explicitly enables the old `Game`/`Debug` bar;
+  `--debug-menu` is its compatibility alias for bounded Win32 automation. The
+  native message handler fails closed without the capability. Terminal command
+  failures return to the in-frame shell unless native diagnostic presentation
+  was explicitly requested.
+- Verification: a physical four-process gate requires root menu counts
+  `0/0/2/2` for ordinary, developer, canonical diagnostic and compatibility
+  launches. The in-frame shell, input adapter and native restart gates prove
+  both the product path and retained typed fallback; all require clean shutdown
+  with zero service issues.
+- Revisit when: bounded automation no longer needs `WM_COMMAND`; removal may
+  then delete the diagnostic fallback and alias without changing product UX.
+
 ## Maintenance rule
 
 When a new quirk is found:

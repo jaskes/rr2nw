@@ -235,11 +235,15 @@ foreach ($configurationName in $Configuration) {
                 }
                 if ((Get-LogInteger $log "save_directory_ready") -ne 1 -or
                     (Get-LogInteger $log "save_menu_configured") -ne 1 -or
-                    (Get-LogInteger $log "save_menu_native_installed") -ne 1 -or
+                    (Get-LogInteger $log "save_menu_native_installed") -ne 0 -or
                     (Get-LogInteger $log "save_menu_slots") -ne 8 -or
                     -not $log.ContainsKey("save_menu_preview_format") -or
                     $log["save_menu_preview_format"] -ne "PNG-indexed-640x480") {
-                    $issues.Add("native save menu contract is not ready")
+                    $issues.Add("in-frame save contract/native fallback isolation is not ready")
+                }
+                if ((Get-LogInteger $log "native_diagnostic_menu_enabled") -ne 0 -or
+                    (Get-LogInteger $log "debug_menu_native_installed") -ne 0) {
+                    $issues.Add("ordinary retail launch exposed the native diagnostic menu")
                 }
                 if ((Get-LogInteger $log "renderer_frames") -lt 1) {
                     $issues.Add("renderer produced no frames")

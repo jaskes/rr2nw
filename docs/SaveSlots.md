@@ -22,8 +22,8 @@ and menu text therefore cannot escape the selected save directory.
 
 This is a modern continuation format. It does not import the old
 `Save0.sav`/`saves.cfg` representation. The recovered executable exposes the
-same eight-slot model through a native Windows `Game` menu; the incomplete
-retail menu-script graph and its filename-based save events are not activated.
+same eight-slot model through its in-frame shell. The incomplete retail
+menu-script graph and its filename-based save events are not activated.
 
 ## Container
 
@@ -127,14 +127,15 @@ source LCN1. Only failure of that rollback ends the game loop.
 
 ## Windows executable integration
 
-The visible software window has a native `Game` menu with:
+The in-frame Game page has:
 
 - `Save game` and `Load game`, each containing slots 1 through 8;
 - `Open save folder`;
 - `Exit`.
 
-Opening a menu rereads all fixed files. Empty and corrupt/unsupported slots are
-named explicitly. Readable slots show their saved title and Level. A slot for
+Opening a Save or Load page reads the bounded asynchronous catalog. Empty and
+corrupt/unsupported slots are named explicitly. Readable slots show their saved
+title and Level. A slot for
 the current Level but a different retail content fingerprint is disabled. A
 slot for another configured Level is enabled and labelled `switch Level`;
 its own fingerprint is verified only after that target has been reconstructed.
@@ -160,8 +161,13 @@ the same short-lived effect object names. Successful load keeps the saved
 roster; rollback removes the staged roster and reconstructs the exact backed-up
 one before restoring references, events, clock/RNG and control state.
 
-Headless service tests have no `HWND` and therefore no presentation menu, but
-exercise the same broker, framebuffer PNG and disk transaction.
+Ordinary and `--developer-mode` windows have no native menu bar. The same typed
+broker remains reachable through an explicit `--native-diagnostic-menu`
+fallback (`--debug-menu` compatibility alias) for bounded Win32 automation.
+Its `WM_COMMAND` callbacks only enqueue requests and are inert unless that
+process-local capability is enabled. Headless service tests have no `HWND` or
+presentation menu, but exercise the same broker, framebuffer PNG and disk
+transaction.
 
 The executable also accepts one-based `--save-slot <1..8>` and
 `--load-slot <1..8>` startup commands. They use the same broker and are useful
@@ -267,7 +273,7 @@ unloadable.
 `tools/acceptance/Invoke-OccupiedVehicleSaveLoad.ps1` exercises the visible
 same-Level authority path on Level.03N. It uses the Debug menu only to create a
 repeatable occupied/damaged fixture; save and load themselves go through the
-ordinary Game menu and modal slot dialogs. The final log must show one save,
+explicit native diagnostic Game adapter and modal slot dialogs. The final log must show one save,
 one load, two bounded damage applications, matching slot/restored world and
 container fingerprints, live camera, neutral controls and clean shutdown.
 With `-AllProfiles`, the tool first reads the deterministic native Vehicle

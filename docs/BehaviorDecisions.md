@@ -6113,9 +6113,10 @@ User settings are versioned, atomically replaced and stored under
 `%LOCALAPPDATA%\RR2NW`, with defaults plus safe windowed recovery for invalid,
 newer or corrupt data. Retail content remains read-only. Developer/Cheat
 capability is fail-closed: ordinary startup exposes no Debug page, and malformed
-settings cannot enable it. The existing native Windows menus remain temporary
-diagnostic fallback until the in-game shell passes its complete acceptance
-gate; removing them earlier would discard useful recovery access.
+settings cannot enable it. The in-frame shell is the only ordinary menu owner.
+The existing native Windows menus may remain solely behind an explicit
+process-local diagnostic capability for bounded automation and emergency
+recovery; they are not part of the player-facing UX.
 
 Audio and mod-profile pages extend this shell only when their maintained
 backends are real. The UI consumes the established deterministic mod resolver
@@ -6309,3 +6310,26 @@ migrate atomically. Missing modes disable only exclusive or recover a persisted
 exclusive request to windowed; they must not make ordinary windowed startup
 fail. Physical acceptance requires an explicit switch because it visibly
 changes the user's desktop mode.
+
+### BD-192: native Windows menus are an explicit diagnostic capability
+
+Status: accepted on 2026-08-07 for the final M2.5 native fallback cleanup.
+
+Ordinary startup and `--developer-mode` install no Win32 menu bar. Continue,
+Save, Load, restart, Controls, Video and Exit belong to the in-frame shell;
+Developer commands use that same shell when their separate process capability
+is present. The settings file cannot enable either capability.
+
+`--native-diagnostic-menu` is the canonical opt-in for the old `Game`/`Debug`
+bar and also enables the Developer command owner. `--debug-menu` remains a
+compatibility alias because existing real-window automation drives those
+`WM_COMMAND` IDs. Without the native capability, the handler is inert even for
+a synthetically delivered command. Both surfaces still publish the same typed
+closed-frame requests and share rollback; the fallback is not a second save or
+debug implementation.
+
+Terminal Save/Load, restart and Developer failures return an ordinary player to
+the in-frame shell with the failure detail. Legacy modal error presentation is
+permitted only in explicit native diagnostic mode. Physical acceptance requires
+zero menu items for ordinary and developer-only windows, and two root items for
+both the canonical diagnostic flag and its compatibility alias.

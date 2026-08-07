@@ -34,7 +34,7 @@ checks. Both commands below are deliberately single PowerShell lines:
 
 ```powershell
 cmake --build --preset windows-msvc-x86-playtest
-& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.01N" --debug-menu --diagnostics-dir "$PWD\manual-logs\playtest-Level.01N"
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.01N" --developer-mode --diagnostics-dir "$PWD\manual-logs\playtest-Level.01N"
 ```
 
 `RelWithDebInfo` keeps the PDB and all runtime diagnostics but optimizes the
@@ -120,8 +120,20 @@ closed-frame transaction and proves that no recovery marker remains. A second
 launch consumes a deliberately stale valid marker; a third launch proves that
 a corrupt marker restores all attached desktop devices and is also consumed.
 The script requires the explicit `-ExerciseExclusive` switch so routine test
-runs cannot mutate the desktop accidentally. The native Windows menu remains a
-diagnostic fallback until the final M2.5 cleanup.
+runs cannot mutate the desktop accidentally. Ordinary and developer-only runs
+have no native menu bar; the old bar is isolated behind the explicit
+`--native-diagnostic-menu` capability.
+
+The physical ownership split has its own non-destructive real-window gate:
+
+```powershell
+& ".\tools\acceptance\Invoke-NativeDiagnosticFallback.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+It requires zero native root items for ordinary and developer-only launches,
+then exactly two for the canonical diagnostic flag and its `--debug-menu`
+compatibility alias. All four processes must shut down cleanly with zero service
+issues.
 
 ## Live People movement and combat telemetry
 
@@ -150,7 +162,7 @@ owner graph and a manual mission run for timed engagement behavior.
 Use the Playtest build so software-render cost does not dominate the result:
 
 ```powershell
-& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --debug-menu --diagnostics-dir "$PWD\manual-logs\actor-interpolation-Level.03N"
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N" --developer-mode --diagnostics-dir "$PWD\manual-logs\actor-interpolation-Level.03N"
 ```
 
 Approach the dragonflies or another moving mission group until it acquires and
@@ -181,8 +193,8 @@ The broader fresh-continuation matrix separately creates every Level-local
 Taxi type and requires `taxi_debug_grounding` clearance/drift at or below
 `1e-6`.
 
-For a visual check, start `Level.02D` with `--debug-menu` and use **Debug >
-Spawn vehicle nearby** once for each listed entry. The chosen model must appear
+For a visual check, start `Level.02D` with `--developer-mode`, press `Esc`, and
+use **Developer > Spawn vehicle nearby** once for each listed entry. The chosen model must appear
 with its lower body on the supporting surface, not one probe radius in the air;
 it must not jump or disappear during the following seconds. Flying/fantasy
 entries are judged only on initial placement here—their animation and AI are a
@@ -221,8 +233,9 @@ unbounded rotation is a failure.
 
 ## Two-weapon and visible-projectile pass
 
-Start `Level.02N` or `Level.02D` with the playtest build and `--debug-menu`.
-Spawn and enter the dragon, then the helicopter. Use single taps rather than
+Start `Level.02N` or `Level.02D` with the playtest build and
+`--developer-mode`. Use `Esc` > **Developer > Spawn and enter vehicle** for the
+dragon, then the helicopter. Use single taps rather than
 holding the button while comparing the first shot:
 
 1. Dragon MouseL must launch the arrow skin; MouseR must throw a rotating
@@ -451,7 +464,7 @@ writes `summary.json` and `summary.csv`. A case passes only when:
 
 - the requested symbolic Level is the Level actually selected;
 - the process reaches `marker=level-ready` and exits cleanly;
-- the configured save root, native menu, all eight slots and indexed-PNG
+- the configured save root, in-frame catalog, all eight slots and indexed-PNG
   preview contract are installed;
 - the renderer produces accepted and rasterized scene polygons;
 - invalid, unsupported and missing-texture rejection counters remain zero;
@@ -855,8 +868,9 @@ This is a diagnostic contract preset, not a balanced gameplay preset.
 ## Occupied Vehicle save/load authority pass
 
 The automated real-window check enters an armed Level.03N Vehicle, drives it,
-applies bounded non-lethal damage, saves through the ordinary Game menu,
-changes pose and health, and loads through that same menu:
+applies bounded non-lethal damage, saves through the explicitly enabled native
+diagnostic Game adapter, changes pose and health, and loads through that same
+adapter:
 
 ```powershell
 & ".\tools\acceptance\Invoke-OccupiedVehicleSaveLoad.ps1" `

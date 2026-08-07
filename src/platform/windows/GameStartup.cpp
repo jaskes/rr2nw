@@ -94,7 +94,8 @@ struct StartupOptions {
   bool portalTransitionSmoke = false;
   bool levelBriefingSmoke = false;
   bool skipLevelBriefing = false;
-  bool debugMenu = false;
+  bool developerMode = false;
+  bool nativeDiagnosticMenu = false;
   bool safeMode = false;
   bool showHelp = false;
   bool showVersion = false;
@@ -379,9 +380,13 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     } else if (argument == L"--skip-level-briefing") {
       options->skipLevelBriefing = true;
     } else if (argument == L"--debug-menu") {
-      options->debugMenu = true;
+      options->developerMode = true;
+      options->nativeDiagnosticMenu = true;
     } else if (argument == L"--developer-mode") {
-      options->debugMenu = true;
+      options->developerMode = true;
+    } else if (argument == L"--native-diagnostic-menu") {
+      options->developerMode = true;
+      options->nativeDiagnosticMenu = true;
     } else if (argument == L"--safe-mode") {
       options->safeMode = true;
     } else if (argument == L"--help" || argument == L"-h") {
@@ -1613,8 +1618,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8>] [--load-slot <1..8>]\n"
                 L"          [--settings-file <path>]\n"
-                L"          [--developer-mode] [--safe-mode]\n"
-                L"          [--debug-menu] [--launch-smoke] [--runtime-smoke]\n"
+                L"          [--developer-mode] [--native-diagnostic-menu]\n"
+                L"          [--debug-menu] [--safe-mode]\n"
+                L"          [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-combat-smoke |\n"
                 L"           --mission-natural-combat-smoke |\n"
@@ -1681,7 +1687,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("configuration=" RR2NW_BUILD_CONFIGURATION);
   log.Line("marker=process-ready");
   log.Line(std::string("debug_menu_requested=") +
-           (options.debugMenu ? "1" : "0"));
+           (options.developerMode ? "1" : "0"));
+  log.Line(std::string("native_diagnostic_menu_requested=") +
+           (options.nativeDiagnosticMenu ? "1" : "0"));
 
   RetailData data;
   if (!LocateRetailData(options, &data, &failure)) {
@@ -1856,7 +1864,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kSuccess;
   }
 
-  if (!EnsureDirectory(options.saveDirectory) ||
+  if (!RecoveredGameServices_ConfigureNativeDiagnosticMenu(
+          options.nativeDiagnosticMenu) ||
+      !EnsureDirectory(options.saveDirectory) ||
       !RecoveredGameServices_ConfigureSaveDirectory(
           options.saveDirectory)) {
     log.WideLine("failure_save_dir", options.saveDirectory);
@@ -1880,7 +1890,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     debugLevelCatalog.push_back(identity);
   }
   if (!RecoveredGameServices_ConfigureDebugMenu(
-          options.debugMenu, debugLevelCatalog)) {
+          options.developerMode, debugLevelCatalog)) {
     const SRecoveredDebugMenuState* debugState =
         RecoveredGameServices_DebugMenuState();
     const std::string detail =
@@ -1893,7 +1903,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kRuntimeNotReady;
   }
   log.Line(std::string("debug_menu_configured=") +
-           (options.debugMenu ? "1" : "0"));
+           (options.developerMode ? "1" : "0"));
+  log.Line(std::string("native_diagnostic_menu_enabled=") +
+           (RecoveredGameServices_NativeDiagnosticMenuEnabled() ? "1"
+                                                                 : "0"));
   const std::wstring settingsPath = options.settingsFile.empty()
       ? DefaultSettingsPath()
       : AbsolutePath(options.settingsFile);
@@ -1904,7 +1917,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           : settingsPath.substr(0, settingsSeparator);
   if (!EnsureDirectory(settingsDirectory) ||
       !RecoveredGameServices_ConfigureInGameShell(
-          settingsPath, options.debugMenu, options.safeMode)) {
+          settingsPath, options.developerMode, options.safeMode)) {
     log.WideLine("failure_settings_path", settingsPath);
     log.Line("marker=in-game-shell-not-ready");
     ShowMessage(options.runtimeSmoke, MB_ICONERROR,
@@ -1915,7 +1928,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   log.WideLine("settings_path", settingsPath);
   log.Line(std::string("developer_mode=") +
-           (options.debugMenu ? "1" : "0"));
+           (options.developerMode ? "1" : "0"));
   log.Line(std::string("safe_mode=") +
            (options.safeMode ? "1" : "0"));
   if (options.startupSaveSlot >= 0) {
@@ -6582,6 +6595,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  shellState->developerCatalogBlockedSelections));
     log.Line("in_game_shell_developer_commands_queued=" +
              std::to_string(shellState->developerCommandsQueued));
+    log.Line("in_game_shell_command_failure_presentations=" +
+             std::to_string(shellState->commandFailurePresentations));
     log.Line("in_game_shell_window=" +
              std::to_string(shellState->windowMode) + "/" +
              std::to_string(shellState->windowScale));

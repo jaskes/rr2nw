@@ -30,8 +30,9 @@
 - [WindowsPackage.md](WindowsPackage.md) documents the standalone production-
   parser mod validator, deterministic Windows ZIP/SHA-256 gate and package-
   bound Win10/Win11 manual campaign ledger.
-- [DebugMenu.md](DebugMenu.md) documents the opt-in native Windows debug menu,
-  real Level-local Vehicle spawning and its closed-frame rollback contract.
+- [DebugMenu.md](DebugMenu.md) documents the in-frame Developer catalog and the
+  separately opt-in native Windows diagnostic fallback, including real
+  Level-local Vehicle spawning and closed-frame rollback.
 - [BehaviorDecisions.md](BehaviorDecisions.md) — принятые решения там, где
   исторические источники или возможные реализации расходятся.
 
@@ -64,5 +65,6 @@
   stable capture boundary, fresh-session transactional restore, whole-world
   recapture proof and resumed Vehicle control journal.
 - [SaveSlots.md](SaveSlots.md) documents the eight fixed RR2SLOT1 files,
-  bounded metadata/preview envelope, native Windows menu broker, per-user save
-  root, atomic replacement and destroyed-Level disk-load proof.
+  bounded metadata/preview envelope, in-frame broker plus optional native
+  diagnostic adapter, per-user save root, atomic replacement and destroyed-Level
+  disk-load proof.
