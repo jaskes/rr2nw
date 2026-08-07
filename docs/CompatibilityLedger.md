@@ -5142,6 +5142,33 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   MissionInfo, command 35 status or the eight-slot retail boundary changes.
   Do not infer AER00 objectives or result behavior from its selection alone.
 
+### CQ-251: commented AER00 alternatives are not mission owners
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`,
+  `PERSISTED_PROGRESSION_RESTORED`, `COMMENTED_COMMANDS_EXCLUDED`.
+- Evidence: installed `CreateProjectAER00` has four executable kills
+  (`C.Unit.aer00.00/01`, `plane.m13_0/1`), one executable Colony Howitzer,
+  Commander Actek, MissionInfo `PRIOR_LEV == 2`, briefing
+  `Brief/aer00.txt`, route `Route/lev/aer00brf.rt`, script
+  `Brief/aer00.sc` and no command 35. A commented Howitzer construction and
+  `p_AddSuccessKill` are inactive. Installed `AER00.SC` SHA-256 is
+  `461521C8EAFC94009AFC88057C4604A9CA4EB0C45D3EBD65A777B70E71583F8A`;
+  its executable graph creates six People on six Routes, two groups/units,
+  four member-route assignments and four Taxis. A fifth Taxi function and call
+  are commented out.
+- Result: all four executable objective names bind live. Ordinary completion
+  removes only AER00 mission/map/check state, repairs/refills, grants no
+  Artifact or Portal, advances cumulative mission count to thirteen and
+  selects exact `ProjectAER16` from adjacent installed registration
+  `AER16 -> AER00`.
+- Verification: the persisted Actek gate loads and overwrites slot 8, reports
+  20 created owners, two reclaimed Routes, four rebound conditions, exact
+  rollback/reapply and fresh `A.Recr0/ProjectAER00/ProjectAER16` restore with
+  an identical fingerprint in every maintained configuration.
+- Revisit when: the installed comments become executable, AER00 owner names or
+  hash changes, or the successor order changes. Do not count comments by raw
+  text matches and do not edit the installed file to simplify archaeology.
+
 ## Maintenance rule
 
 When a new quirk is found:

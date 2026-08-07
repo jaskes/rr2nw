@@ -6142,3 +6142,25 @@ The maintained chain must explicitly load and overwrite public slot 8, match
 the committed fingerprint in a fresh process and prove pre-result rollback plus
 committed reapply. This extends the existing bounded AER04/AER06/AER08
 orchestration; it adds neither a ninth slot nor a private checkpoint format.
+
+### BD-186: AER00 ignores commented objectives and remains no-reward
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectAER00`.
+
+The installed source contains commented historical alternatives for one
+Howitzer success target and one Taxi. They are evidence about development, not
+commands: the executable Project owns exactly four live success kills, one
+population Howitzer and no command-35 reward; the mission script creates four,
+not five, Taxis. Archaeology and regression preflight must strip comments
+before counting these rows.
+
+All four active targets bind live through ordinary symbolic references.
+Successful result processing repairs/refills, removes only AER00 mission/map/
+check state, increments cumulative count to thirteen and lets unchanged Project
+table order select exact `ProjectAER16`. It creates no Artifact or Portal and
+does not interpret `PRIOR_LEV` as a transition. AER16 remains only a proved
+candidate until recovered separately.
+
+The chain continues to reuse public slot 8 and must prove identical fresh
+restore, pre-result rollback and committed reapply. Comment stripping is an
+evidence rule only; installed retail files remain untouched.

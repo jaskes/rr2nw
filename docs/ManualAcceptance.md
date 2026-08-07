@@ -1155,6 +1155,18 @@ rollback/reapply plus one save and load. The fresh process must report
 world fingerprint and `runtime_shutdown=clean`. AER00 is only the proved next
 candidate; this row makes no claim about its objectives or result.
 
+The gate next loads and overwrites slot 8 for AER00. It must report 20 created
+owners, two reclaimed Routes, four retained/rebound kill conditions, zero
+pre-satisfied or capacity-limited conditions and
+`mission_no_reward_project=ProjectAER00/ProjectAER16`. The ordinary result must
+reach cumulative count thirteen without Artifact or Portal rows. The fresh
+process must report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectAER00/ProjectAER16`, the same
+world fingerprint and clean shutdown. Archaeology must count only four active
+kills and four active Taxis: the installed commented Howitzer objective and
+fifth Taxi remain untouched and do not enter runtime totals. AER16 is only the
+proved next candidate.
+
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
 data: the runtime transaction pins the shared Route across the intended
