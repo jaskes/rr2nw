@@ -5,6 +5,7 @@ param(
     [string[]]$Configuration = @("Debug"),
     [string]$Level = "Level.03N",
     [ValidateRange(20, 180)][int]$TimeoutSeconds = 90,
+    [string]$BuildRoot,
     [string]$OutputRoot
 )
 
@@ -13,6 +14,12 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $dataPath = [IO.Path]::GetFullPath($DataRoot)
+if ([string]::IsNullOrWhiteSpace($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot "build\windows-msvc-x86"
+} elseif (-not [IO.Path]::IsPathRooted($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot $BuildRoot
+}
+$BuildRoot = [IO.Path]::GetFullPath($BuildRoot)
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
     $OutputRoot = Join-Path $repositoryRoot (
@@ -73,8 +80,7 @@ function Read-KeyValueLog([string]$Path) {
 
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
-    $executable = Join-Path $repositoryRoot (
-        "build\windows-msvc-x86\{0}\rr2nw.exe" -f $configurationName)
+    $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Executable not found; build $configurationName first: $executable"
     }
@@ -124,13 +130,20 @@ foreach ($configurationName in $Configuration) {
         Press-Key $window 0x0D
         Start-Sleep -Seconds 2
 
-        # Rebind forward to Z, prove persistence, then restore defaults.
+        # Rebind forward to Z, exercise both retail mouse axes and invert-Y,
+        # then restore the complete gameplay/map catalog to defaults.
         Press-Key $window 0x1B
         Press-Down $window 4
         Press-Key $window 0x0D
         Press-Key $window 0x0D
         Press-Key $window 0x5A
-        Press-Down $window 17
+        Press-Down $window 26
+        Press-Key $window 0x27
+        Press-Key $window 0x28
+        Press-Key $window 0x25
+        Press-Key $window 0x28
+        Press-Key $window 0x0D
+        Press-Key $window 0x28
         Press-Key $window 0x0D
         Press-Key $window 0x1B
         Press-Key $window 0x1B
@@ -196,12 +209,15 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_save_requests = "1"
         in_game_shell_load_requests = "1"
         in_game_shell_binding_changes = "2"
+        in_game_shell_mouse_setting_changes = "3"
         in_game_shell_video_applies = "3"
         in_game_shell_video_confirms = "2"
         in_game_shell_video_rollbacks = "1"
         in_game_shell_video_timeout_rollbacks = "1"
-        in_game_shell_settings_writes = "4"
+        in_game_shell_settings_writes = "7"
+        in_game_shell_settings_migrations = "0"
         in_game_shell_window = "0/1"
+        in_game_shell_mouse = "0.500000/0.500000/0"
         save_menu_completed_saves = "1"
         save_menu_completed_loads = "1"
         game_services_issues = "0"
@@ -221,9 +237,13 @@ foreach ($configurationName in $Configuration) {
     }
     else {
         $settingsText = Get-Content -LiteralPath $settings -Raw
-        if ($settingsText -notmatch '(?m)^version=1\r?$' -or
+        if ($settingsText -notmatch '(?m)^version=2\r?$' -or
             $settingsText -notmatch '(?m)^window_mode=0\r?$' -or
             $settingsText -notmatch '(?m)^window_scale=1\r?$' -or
+            $settingsText -notmatch '(?m)^mouse_sensitivity_x=0\.500\r?$' -or
+            $settingsText -notmatch '(?m)^mouse_sensitivity_y=0\.500\r?$' -or
+            $settingsText -notmatch '(?m)^mouse_invert_y=0\r?$' -or
+            $settingsText -notmatch '(?m)^binding_25=34\r?$' -or
             $settingsText -notmatch '(?m)^binding_0=87\r?$') {
             $issues.Add("settings.cfg did not retain confirmed safe defaults")
         }

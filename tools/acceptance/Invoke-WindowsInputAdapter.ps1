@@ -4,6 +4,7 @@ param(
     [ValidateSet("Debug", "Release")][string[]]$Configuration = @("Debug", "Release"),
     [string]$Level = "Level.03N",
     [ValidateRange(10, 180)][int]$TimeoutSeconds = 60,
+    [string]$BuildRoot,
     [string]$OutputRoot
 )
 
@@ -12,6 +13,12 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $dataPath = [IO.Path]::GetFullPath($DataRoot)
+if ([string]::IsNullOrWhiteSpace($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot "build\windows-msvc-x86"
+} elseif (-not [IO.Path]::IsPathRooted($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot $BuildRoot
+}
+$BuildRoot = [IO.Path]::GetFullPath($BuildRoot)
 if ($Level -ne "Level.03N") {
     throw "The armed real-window input gate is calibrated for retail Level.03N"
 }
@@ -71,8 +78,7 @@ function Wait-InputFrame() { Start-Sleep -Milliseconds 80 }
 
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
-    $executable = Join-Path $repositoryRoot (
-        "build\windows-msvc-x86\{0}\rr2nw.exe" -f $configurationName)
+    $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Executable not found; build $configurationName first: $executable"
     }
@@ -134,6 +140,22 @@ foreach ($configurationName in $Configuration) {
         Send-Key $window 0x4D $true
         Send-Key $window 0x4D $false
         Wait-InputFrame
+        # The map owns a separate binding domain. Toggle free-scroll, exercise
+        # all nine admitted navigation actions through real window messages,
+        # then restore follow mode before closing it.
+        Send-Key $window 0x2E $true $true
+        Send-Key $window 0x2E $false $true
+        foreach ($arrow in @(0x25, 0x27, 0x26, 0x28)) {
+            Send-Key $window $arrow $true $true
+            Send-Key $window $arrow $false $true
+        }
+        foreach ($navigation in @(0xDD, 0xDB, 0x21, 0x22)) {
+            Send-Key $window $navigation $true $true
+            Send-Key $window $navigation $false $true
+        }
+        Send-Key $window 0x2E $true $true
+        Send-Key $window 0x2E $false $true
+        Wait-InputFrame
         # The map is an exclusive overlay and correctly consumes fire. Close
         # it before the weapon edge proof instead of asking mutually exclusive
         # owners to handle the same input.
@@ -186,7 +208,7 @@ foreach ($configurationName in $Configuration) {
     $expected = @{
         input_mode = "authoritative-windows-semantic-adapter"
         windows_input_mouse_button_messages = "6"
-        windows_input_emitted_actions = "26"
+        windows_input_emitted_actions = "36"
         windows_input_filtered_repeats = "1"
         windows_input_focus_clear_actions = "3"
         windows_input_map_toggle_presses = "2"

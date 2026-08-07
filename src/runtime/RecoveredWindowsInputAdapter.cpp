@@ -16,7 +16,22 @@ const char* const kBindingNames[RECOVERED_BIND_COUNT] = {
     "Move forward", "Move backward", "Strafe left", "Strafe right",
     "Move up", "Move down", "Turn left", "Turn right", "Look up",
     "Look down", "Jump", "Primary fire", "Primary fire (alternate)",
-    "Secondary fire", "Stop vehicle", "Change vehicle", "Map"};
+    "Secondary fire", "Stop vehicle", "Change vehicle", "Map",
+    "Map scroll left", "Map scroll right", "Map scroll up",
+    "Map scroll down", "Map follow mode", "Map next mission",
+    "Map previous mission", "Map text up", "Map text down"};
+
+enum : unsigned int {
+  kGameplayBindingDomain = 1u,
+  kMapBindingDomain = 2u
+};
+
+unsigned int BindingDomain(std::size_t binding) {
+  if (binding < RECOVERED_BIND_MAP) return kGameplayBindingDomain;
+  if (binding == RECOVERED_BIND_MAP)
+    return kGameplayBindingDomain | kMapBindingDomain;
+  return kMapBindingDomain;
+}
 
 double BoundedSensitivity(double value) {
   if (!std::isfinite(value)) return 1.0;
@@ -76,6 +91,15 @@ SRecoveredInputBindings RecoveredWindowsInput_DefaultBindings() {
   result.key[RECOVERED_BIND_STOP_VEHICLE] = 'X';
   result.key[RECOVERED_BIND_CHANGE_VEHICLE] = VK_F1;
   result.key[RECOVERED_BIND_MAP] = 'M';
+  result.key[RECOVERED_BIND_MAP_SCROLL_LEFT] = VK_LEFT;
+  result.key[RECOVERED_BIND_MAP_SCROLL_RIGHT] = VK_RIGHT;
+  result.key[RECOVERED_BIND_MAP_SCROLL_UP] = VK_UP;
+  result.key[RECOVERED_BIND_MAP_SCROLL_DOWN] = VK_DOWN;
+  result.key[RECOVERED_BIND_MAP_TOGGLE_FOLLOW] = VK_DELETE;
+  result.key[RECOVERED_BIND_MAP_NEXT_MISSION] = VK_OEM_6;
+  result.key[RECOVERED_BIND_MAP_PREVIOUS_MISSION] = VK_OEM_4;
+  result.key[RECOVERED_BIND_MAP_TEXT_UP] = VK_PRIOR;
+  result.key[RECOVERED_BIND_MAP_TEXT_DOWN] = VK_NEXT;
   return result;
 }
 
@@ -92,7 +116,9 @@ bool RecoveredWindowsInput_ValidateBindings(
       return false;
     }
     for (std::size_t previous = 0; previous < index; ++previous) {
-      if (bindings.key[previous] != key) continue;
+      if (bindings.key[previous] != key ||
+          (BindingDomain(previous) & BindingDomain(index)) == 0u)
+        continue;
       if (conflictFirst != nullptr) *conflictFirst = previous;
       if (conflictSecond != nullptr) *conflictSecond = index;
       return false;
@@ -122,6 +148,11 @@ const char* RecoveredWindowsInput_KeyName(std::uint32_t key) {
     case VK_RIGHT: return "Right";
     case VK_UP: return "Up";
     case VK_DOWN: return "Down";
+    case VK_DELETE: return "Delete";
+    case VK_PRIOR: return "Page Up";
+    case VK_NEXT: return "Page Down";
+    case VK_OEM_4: return "[";
+    case VK_OEM_6: return "]";
     case VK_F1: return "F1";
     case VK_F2: return "F2";
     case VK_F3: return "F3";
@@ -149,6 +180,7 @@ void RecoveredWindowsInputAdapter::Reset(bool applicationActive) {
   mouseRight_ = false;
   applicationActive_ = applicationActive;
   overlayActive_ = false;
+  mapOverlayActive_ = false;
   telemetry_ = {};
 }
 
@@ -159,6 +191,17 @@ bool RecoveredWindowsInputAdapter::SetBindings(
     return false;
   bindings_ = bindings;
   return true;
+}
+
+void RecoveredWindowsInputAdapter::SetMapOverlayActive(bool active) {
+  if (mapOverlayActive_ == active) return;
+  // DebugMap owns an exclusive input context. Its open transition already
+  // neutralizes the active Vehicle, so discard the adapter's physical latch
+  // instead of replaying gameplay releases into the map owner.
+  std::memset(keys_, 0, sizeof(keys_));
+  mouseLeft_ = false;
+  mouseRight_ = false;
+  mapOverlayActive_ = active;
 }
 
 bool RecoveredWindowsInputAdapter::EnterOverlay(
@@ -286,6 +329,30 @@ bool RecoveredWindowsInputAdapter::HandleKeyboard(
   const auto matches = [this, virtualKey](ERecoveredInputBinding binding) {
     return bindings_.key[binding] == virtualKey;
   };
+  if (matches(RECOVERED_BIND_MAP))
+    return down ? Emit(batch, DMAP_TOGGLE, 1.0, virtualKey, FALSE) : true;
+  if (mapOverlayActive_) {
+    struct MapBinding {
+      ERecoveredInputBinding binding;
+      int action;
+    };
+    const MapBinding mapBindings[] = {
+        {RECOVERED_BIND_MAP_SCROLL_LEFT, DMAP_SCROLL_LEFT},
+        {RECOVERED_BIND_MAP_SCROLL_RIGHT, DMAP_SCROLL_RIGHT},
+        {RECOVERED_BIND_MAP_SCROLL_UP, DMAP_SCROLL_UP},
+        {RECOVERED_BIND_MAP_SCROLL_DOWN, DMAP_SCROLL_DOWN},
+        {RECOVERED_BIND_MAP_TOGGLE_FOLLOW, DMAP_TOGGLE_FOLLOW_MODE},
+        {RECOVERED_BIND_MAP_NEXT_MISSION, DMAP_NEXT_MISSION},
+        {RECOVERED_BIND_MAP_PREVIOUS_MISSION, DMAP_PREVIOUS_MISSION},
+        {RECOVERED_BIND_MAP_TEXT_UP, DMAP_TEXT_BOX_UP},
+        {RECOVERED_BIND_MAP_TEXT_DOWN, DMAP_TEXT_BOX_DOWN}};
+    for (const MapBinding& mapBinding : mapBindings) {
+      if (matches(mapBinding.binding))
+        return down ? Emit(batch, mapBinding.action, 1.0,
+                           legacyCode, FALSE) : true;
+    }
+    return true;
+  }
   if (matches(RECOVERED_BIND_MOVE_FORWARD) ||
       matches(RECOVERED_BIND_MOVE_BACKWARD))
     return Emit(batch, MOVE_FORWARD,
@@ -333,27 +400,7 @@ bool RecoveredWindowsInputAdapter::HandleKeyboard(
   if (matches(RECOVERED_BIND_CHANGE_VEHICLE))
     return Emit(batch, CHANGE_VEHICLE, down ? 1.0 : 0.0,
                 virtualKey, FALSE);
-  if (matches(RECOVERED_BIND_MAP))
-    return down ? Emit(batch, DMAP_TOGGLE, 1.0, virtualKey, FALSE) : true;
-  switch (virtualKey) {
-    case VK_DELETE:
-      return down ? Emit(batch, DMAP_TOGGLE_FOLLOW_MODE, 1.0,
-                         legacyCode, FALSE) : true;
-    case VK_OEM_6:
-      return down ? Emit(batch, DMAP_NEXT_MISSION, 1.0,
-                         legacyCode, FALSE) : true;
-    case VK_OEM_4:
-      return down ? Emit(batch, DMAP_PREVIOUS_MISSION, 1.0,
-                         legacyCode, FALSE) : true;
-    case VK_PRIOR:
-      return down ? Emit(batch, DMAP_TEXT_BOX_UP, 1.0,
-                         legacyCode, FALSE) : true;
-    case VK_NEXT:
-      return down ? Emit(batch, DMAP_TEXT_BOX_DOWN, 1.0,
-                         legacyCode, FALSE) : true;
-    default:
-      return true;
-  }
+  return true;
 }
 
 bool RecoveredWindowsInputAdapter::HandleMouseButton(
@@ -385,6 +432,43 @@ bool RecoveredWindowsInputAdapter::HandleMouseButton(
   }
   if (bindings_.key[RECOVERED_BIND_FIRE_SECONDARY] == key)
     return Emit(batch, FIRE_SECONDARY, down ? 1.0 : 0.0, key, FALSE);
+  if (bindings_.key[RECOVERED_BIND_MAP] == key)
+    return down ? Emit(batch, DMAP_TOGGLE, 1.0, key, FALSE) : true;
+  if (mapOverlayActive_) {
+    struct MapBinding {
+      ERecoveredInputBinding binding;
+      int action;
+    };
+    const MapBinding mapBindings[] = {
+        {RECOVERED_BIND_MAP_SCROLL_LEFT, DMAP_SCROLL_LEFT},
+        {RECOVERED_BIND_MAP_SCROLL_RIGHT, DMAP_SCROLL_RIGHT},
+        {RECOVERED_BIND_MAP_SCROLL_UP, DMAP_SCROLL_UP},
+        {RECOVERED_BIND_MAP_SCROLL_DOWN, DMAP_SCROLL_DOWN},
+        {RECOVERED_BIND_MAP_TOGGLE_FOLLOW, DMAP_TOGGLE_FOLLOW_MODE},
+        {RECOVERED_BIND_MAP_NEXT_MISSION, DMAP_NEXT_MISSION},
+        {RECOVERED_BIND_MAP_PREVIOUS_MISSION, DMAP_PREVIOUS_MISSION},
+        {RECOVERED_BIND_MAP_TEXT_UP, DMAP_TEXT_BOX_UP},
+        {RECOVERED_BIND_MAP_TEXT_DOWN, DMAP_TEXT_BOX_DOWN}};
+    for (const MapBinding& mapBinding : mapBindings) {
+      if (bindings_.key[mapBinding.binding] == key)
+        return down ? Emit(batch, mapBinding.action, 1.0, key, FALSE)
+                    : true;
+    }
+    return true;
+  }
+  struct GameplayBinding {
+    ERecoveredInputBinding binding;
+    int action;
+  };
+  const GameplayBinding gameplayBindings[] = {
+      {RECOVERED_BIND_JUMP, JUMP},
+      {RECOVERED_BIND_STOP_VEHICLE, STOP_VEHICLE},
+      {RECOVERED_BIND_CHANGE_VEHICLE, CHANGE_VEHICLE}};
+  for (const GameplayBinding& gameplayBinding : gameplayBindings) {
+    if (bindings_.key[gameplayBinding.binding] == key)
+      return Emit(batch, gameplayBinding.action, down ? 1.0 : 0.0,
+                  key, FALSE);
+  }
   return true;
 }
 

@@ -521,6 +521,9 @@ struct SRecoveredInGameShellState {
   std::uint32_t overwriteSlot = 0;
   int windowMode = 0;
   int windowScale = 1;
+  double mouseSensitivityX = 0.5;
+  double mouseSensitivityY = 0.5;
+  bool mouseInvertY = false;
   bool videoConfirmationActive = false;
   ERecoveredInGameVideoCommand pendingVideoCommand =
       RECOVERED_SHELL_VIDEO_NONE;
@@ -532,12 +535,14 @@ struct SRecoveredInGameShellState {
   unsigned int restartRequests = 0;
   unsigned int bindingChanges = 0;
   unsigned int bindingConflicts = 0;
+  unsigned int mouseSettingChanges = 0;
   unsigned int videoApplies = 0;
   unsigned int videoConfirms = 0;
   unsigned int videoRollbacks = 0;
   unsigned int videoTimeoutRollbacks = 0;
   unsigned int settingsLoads = 0;
   unsigned int settingsWrites = 0;
+  unsigned int settingsMigrations = 0;
   unsigned int corruptSettingsRecoveries = 0;
   std::wstring settingsPath;
   std::string status;

@@ -4,6 +4,7 @@ param(
     [ValidateSet("Debug", "Release", "RelWithDebInfo")]
     [string[]]$Configuration = @("Debug"),
     [ValidateRange(10, 300)][int]$TimeoutSeconds = 120,
+    [string]$BuildRoot,
     [string]$OutputRoot
 )
 
@@ -12,6 +13,12 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $DataRoot = [IO.Path]::GetFullPath($DataRoot)
+if ([string]::IsNullOrWhiteSpace($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot "build\windows-msvc-x86"
+} elseif (-not [IO.Path]::IsPathRooted($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot $BuildRoot
+}
+$BuildRoot = [IO.Path]::GetFullPath($BuildRoot)
 if (-not (Test-Path -LiteralPath (Join-Path $DataRoot "game.cfg") -PathType Leaf)) {
     throw "game.cfg not found under retail data root: $DataRoot"
 }
@@ -809,8 +816,7 @@ function Add-ProofIssues {
 
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
-    $executable = Join-Path $repositoryRoot (
-        "build\windows-msvc-x86\{0}\rr2nw.exe" -f $configurationName)
+    $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }

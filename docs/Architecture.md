@@ -180,12 +180,25 @@ scene assumptions stable while the platform layer owns window geometry. Video
 apply captures a last-known-good platform snapshot and reverts it after 15
 seconds unless the player confirms it.
 
-Input settings name actions rather than raw archival dispatch paths. The first
-catalog covers 17 Player/Vehicle/map-toggle actions, rejects duplicates and
-retains the exact recovered defaults. A bounded schema-1 config under
-`%LOCALAPPDATA%\RR2NW` is written by atomic replacement. Corrupt or newer data
+Input settings name actions rather than raw archival dispatch paths. The
+catalog covers 26 Player/Vehicle/map actions and retains the exact recovered
+defaults. Conflict validation is context-aware: a gameplay and a map action
+may share a key, while two actions admitted in the same context fail closed.
+Map entry, binding capture and focus transitions neutralize physical and
+semantic latches. Persisted mouse X/Y sensitivity and invert-Y use the retail
+range and are applied to both the recovered attributes and legacy Hardware
+owner. A bounded schema-2 config under `%LOCALAPPDATA%\RR2NW` is written by
+atomic replacement; schema 1 migrates with new defaults. Corrupt or newer data
 falls back to safe windowed defaults; `--safe-mode` bypasses it. Developer mode
 is a CLI capability and is deliberately absent from the persisted schema.
+
+The present Win32/GDI owner proves windowed and borderless style/geometry only.
+It does not enumerate display modes, select a display device, call
+`ChangeDisplaySettingsEx` or own crash-safe restoration of the desktop mode.
+Exclusive fullscreen therefore remains a separate physical backend gate; it
+must not be represented by a borderless alias or mutate the display until that
+ownership exists. The archival 640x480 framebuffer remains unchanged in every
+presentation mode.
 
 ## RNG и replay
 

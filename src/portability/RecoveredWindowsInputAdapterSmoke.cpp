@@ -102,7 +102,24 @@ int main() {
     return 5;
   }
 
-  if (!SendKey(&input, WM_KEYDOWN, VK_DELETE, 0x01000000, 1.0, &batch) ||
+  input.SetMapOverlayActive(true);
+  if (!SendKey(&input, WM_KEYDOWN, VK_LEFT, 0x01000000, 1.0, &batch) ||
+      !OneCode(batch, DMAP_SCROLL_LEFT, VK_LEFT + CTRL_EXTENDED_KEY) ||
+      !SendKey(&input, WM_KEYUP, VK_LEFT, 0x01000000, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_RIGHT, 0x01000000, 1.0, &batch) ||
+      !OneCode(batch, DMAP_SCROLL_RIGHT, VK_RIGHT + CTRL_EXTENDED_KEY) ||
+      !SendKey(&input, WM_KEYUP, VK_RIGHT, 0x01000000, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_UP, 0x01000000, 1.0, &batch) ||
+      !OneCode(batch, DMAP_SCROLL_UP, VK_UP + CTRL_EXTENDED_KEY) ||
+      !SendKey(&input, WM_KEYUP, VK_UP, 0x01000000, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_DOWN, 0x01000000, 1.0, &batch) ||
+      !OneCode(batch, DMAP_SCROLL_DOWN, VK_DOWN + CTRL_EXTENDED_KEY) ||
+      !SendKey(&input, WM_KEYUP, VK_DOWN, 0x01000000, 1.0, &batch) ||
+      batch.count != 0u ||
+      !SendKey(&input, WM_KEYDOWN, VK_DELETE, 0x01000000, 1.0, &batch) ||
       !OneCode(batch, DMAP_TOGGLE_FOLLOW_MODE,
                VK_DELETE + CTRL_EXTENDED_KEY) ||
       !SendKey(&input, WM_KEYUP, VK_DELETE, 0x01000000, 1.0, &batch) ||
@@ -126,6 +143,7 @@ int main() {
     std::fprintf(stderr, "retail map navigation bindings failed\n");
     return 6;
   }
+  input.SetMapOverlayActive(false);
 
   if (!input.ProcessWindowMessage(WM_LBUTTONDOWN, 0, 0, 1.0, &batch) ||
       !One(batch, FIRE_PRIMARY, 1.0) ||
@@ -179,9 +197,9 @@ int main() {
   }
 
   const SRecoveredWindowsInputTelemetry& telemetry = input.Telemetry();
-  if (telemetry.keyboardMessages != 38u ||
+  if (telemetry.keyboardMessages != 46u ||
       telemetry.mouseButtonMessages != 6u || telemetry.focusMessages != 2u ||
-      telemetry.emittedActions != 36u || telemetry.filteredRepeats != 2u ||
+      telemetry.emittedActions != 40u || telemetry.filteredRepeats != 2u ||
       telemetry.suppressedMessages != 1u || telemetry.focusClearActions != 5u) {
     std::fprintf(stderr,
                  "telemetry mismatch keys=%llu mouse=%llu focus=%llu "
@@ -220,6 +238,23 @@ int main() {
     std::fprintf(stderr, "binding conflict was not diagnosed\n");
     return 13;
   }
+  bindings = RecoveredWindowsInput_DefaultBindings();
+  bindings.key[RECOVERED_BIND_MAP_SCROLL_LEFT] = 'W';
+  if (!RecoveredWindowsInput_ValidateBindings(
+          bindings, &conflictFirst, &conflictSecond)) {
+    std::fprintf(stderr, "context-disjoint map binding was rejected\n");
+    return 13;
+  }
+  bindings.key[RECOVERED_BIND_MAP_SCROLL_RIGHT] = 'W';
+  if (RecoveredWindowsInput_ValidateBindings(
+          bindings, &conflictFirst, &conflictSecond) ||
+      conflictFirst != RECOVERED_BIND_MAP_SCROLL_LEFT ||
+      conflictSecond != RECOVERED_BIND_MAP_SCROLL_RIGHT) {
+    std::fprintf(stderr, "map-context conflict was not diagnosed\n");
+    return 13;
+  }
+  bindings = RecoveredWindowsInput_DefaultBindings();
+  bindings.key[RECOVERED_BIND_MOVE_FORWARD] = 'Z';
   bindings.key[RECOVERED_BIND_MOVE_BACKWARD] = 'S';
   RecoveredWindowsInputAdapter rebound;
   if (!rebound.SetBindings(bindings) ||

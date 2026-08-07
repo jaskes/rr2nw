@@ -78,7 +78,7 @@ int DebugMap::receiveEvent(KR_Event& event) {
     case CTRL_JOYSTICK_MOVE_MSG:
       break;
 
-    case CTRL_BUTTONS_MSG:
+    case CTRL_BUTTONS_MSG: {
       event.data.open(EDO_READ)
           .getInt(ctrlEvent)
           .getDouble(down)
@@ -116,7 +116,12 @@ int DebugMap::receiveEvent(KR_Event& event) {
         break;
       }
 
-      if (!m_followMode) {
+      const bool explicitMapScroll =
+          ctrlEvent == DMAP_SCROLL_LEFT ||
+          ctrlEvent == DMAP_SCROLL_RIGHT ||
+          ctrlEvent == DMAP_SCROLL_UP ||
+          ctrlEvent == DMAP_SCROLL_DOWN;
+      if (!m_followMode && !explicitMapScroll) {
         if (code == m_mapScrollL) {
           m_winBaseX -= m_step;
           m_winBaseX = Max(0, m_winBaseX);
@@ -133,6 +138,34 @@ int DebugMap::receiveEvent(KR_Event& event) {
       }
 
       switch (ctrlEvent) {
+        case DMAP_SCROLL_LEFT:
+          if (!m_followMode) {
+            m_winBaseX -= m_step;
+            m_winBaseX = Max(0, m_winBaseX);
+          }
+          break;
+
+        case DMAP_SCROLL_RIGHT:
+          if (!m_followMode) {
+            m_winBaseX += m_step;
+            m_winBaseX = Min(m_mapW - m_winW, m_winBaseX);
+          }
+          break;
+
+        case DMAP_SCROLL_UP:
+          if (!m_followMode) {
+            m_winBaseY -= m_step;
+            m_winBaseY = Max(0, m_winBaseY);
+          }
+          break;
+
+        case DMAP_SCROLL_DOWN:
+          if (!m_followMode) {
+            m_winBaseY += m_step;
+            m_winBaseY = Min(m_mapH - m_winH, m_winBaseY);
+          }
+          break;
+
         case DMAP_TOGGLE_FOLLOW_MODE:
           m_followMode = !m_followMode;
           DebugMapSetHardwareMode(this,
@@ -178,6 +211,7 @@ int DebugMap::receiveEvent(KR_Event& event) {
           break;
       }
       break;
+    }
 
     default:
       return 0;

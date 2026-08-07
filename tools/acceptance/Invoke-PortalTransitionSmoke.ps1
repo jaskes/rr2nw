@@ -5,6 +5,7 @@ param(
     [string[]]$Configuration = @("Debug"),
     [string[]]$Level = @("Level.03N", "Level.04D", "Level.07N"),
     [ValidateRange(10, 300)][int]$TimeoutSeconds = 120,
+    [string]$BuildRoot,
     [string]$OutputRoot
 )
 
@@ -13,6 +14,12 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $DataRoot = [IO.Path]::GetFullPath($DataRoot)
+if ([string]::IsNullOrWhiteSpace($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot "build\windows-msvc-x86"
+} elseif (-not [IO.Path]::IsPathRooted($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot $BuildRoot
+}
+$BuildRoot = [IO.Path]::GetFullPath($BuildRoot)
 $configPath = Join-Path $DataRoot "game.cfg"
 if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
     throw "game.cfg not found under retail data root: $DataRoot"
@@ -47,8 +54,7 @@ if ($catalog.Count -ne 9 -or
 
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
-    $executable = Join-Path $repositoryRoot (
-        "build\windows-msvc-x86\{0}\rr2nw.exe" -f $configurationName)
+    $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }

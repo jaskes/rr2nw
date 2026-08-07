@@ -6128,18 +6128,21 @@ they do not tell archival rendering code that its viewport changed. Exclusive
 fullscreen, DPI work and arbitrary internal resolutions remain separate
 physical-platform gates.
 
-Seventeen admitted Player/Vehicle/map-toggle actions now have one validated
-binding catalog. The original defaults remain exact, duplicates fail closed
-and overlay entry emits releases before suppressing input. The shell pauses
-event/simulation polling and rebases the legacy timer every paused frame, so a
-long menu visit cannot become one inherited physics or save-clock delta.
+Twenty-six admitted Player/Vehicle/map actions now have one validated binding
+catalog. The original defaults remain exact, conflicts fail closed inside the
+active gameplay or map context, and disjoint contexts may reuse a key. Overlay
+entry and binding capture emit releases before suppressing input. The shell
+pauses event/simulation polling and rebases the legacy timer every paused frame,
+so a long menu visit cannot become one inherited physics or save-clock delta.
 
-Schema-1 settings contain only presentation and bindings. They use bounded
-parsing and atomic replacement; invalid or newer data is replaced with safe
-windowed defaults. Developer capability remains process-owned through
-`--developer-mode` (with `--debug-menu` as a compatibility alias), never a
-persisted setting. The real-window gate proves Save/Load, binding persistence
-and defaults, two confirmed video changes and one unconfirmed 15-second revert.
+Schema-2 settings contain presentation, bindings, separate mouse X/Y
+sensitivity and invert-Y. They use bounded parsing and atomic replacement;
+schema 1 migrates with evidenced defaults, while invalid or newer data is
+replaced with safe windowed defaults. Developer capability remains
+process-owned through `--developer-mode` (with `--debug-menu` as a compatibility
+alias), never a persisted setting. The real-window gate proves Save/Load,
+binding and mouse persistence/defaults, two confirmed video changes and one
+unconfirmed 15-second revert.
 
 ### BD-185: AER10 remains an ordinary no-reward slot-8 continuation
 
@@ -6203,3 +6206,32 @@ S03 row becomes eligible again through the retail table. This exact selection
 is the authored handoff out of the AER sub-branch and is the stopping boundary
 before M2.5. Do not synthesize a terminal state or continue into S03 as part of
 the AER recovery slice.
+
+### BD-188: map controls are context-owned and settings schema 1 migrates
+
+Status: accepted on 2026-08-07 for the completed M2.5 Controls slice.
+
+The recovered Hardware and DebugMap dispatch prove eight additional map-only
+actions: four scroll directions, follow toggle, next/previous mission and text
+up/down. They join the original gameplay and map-toggle entries as a 26-action
+catalog. Conflict detection follows the actual admission contexts, so the
+retail arrow defaults may serve both Player turning/looking and map scrolling;
+duplicates inside the same context remain invalid. Map context transitions,
+capture and focus loss clear physical keyboard/mouse latches before semantic
+input can resume.
+
+Installed `config.cfg` and `green_menu.sci` prove separate mouse X/Y
+sensitivity, invert-Y, bounds `0.01..1.01`, step `0.1` and default `0.5`.
+Settings schema 2 persists those values and all 26 bindings. Valid schema-1
+files retain their original 17 bindings, receive exact defaults for the new
+map actions and mouse values, and are atomically rewritten. Corrupt, newer and
+safe-mode paths remain fail-closed. Retail `DMapChangeViewMode` is not admitted:
+the archived enum and live handler expose no corresponding semantic command,
+so inventing one would create unsupported gameplay.
+
+Exclusive fullscreen is not part of this Controls closure. The current
+Win32/GDI platform owner changes only window styles and geometry; it has no
+display enumeration, device selection, `ChangeDisplaySettingsEx` ownership or
+crash-safe desktop restoration. Until that physical backend exists, windowed
+and borderless are the only truthful modes and the internal 640x480 framebuffer
+must not be stretched or relabelled as exclusive fullscreen.

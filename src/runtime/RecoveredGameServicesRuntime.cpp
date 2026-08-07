@@ -1215,8 +1215,12 @@ std::wstring Utf8ToWide(const std::string& text) {
   return wide;
 }
 
-constexpr unsigned int kInGameSettingsVersion = 1u;
+constexpr unsigned int kInGameSettingsVersion = 2u;
 constexpr ULONGLONG kVideoConfirmationMilliseconds = 15000u;
+constexpr double kDefaultMouseSensitivity = 0.5;
+constexpr double kMinimumMouseSensitivity = 0.01;
+constexpr double kMaximumMouseSensitivity = 1.01;
+constexpr double kMouseSensitivityStep = 0.1;
 
 SRecoveredWindowPresentation ShellPresentation(int mode, int scale) {
   SRecoveredWindowPresentation presentation;
@@ -1267,10 +1271,36 @@ bool ParseUnsignedSetting(const std::string& line, const char* name,
   return true;
 }
 
+bool ParseDoubleSetting(const std::string& line, const char* name,
+                        double* value) {
+  if (value == nullptr) return false;
+  const std::string prefix = std::string(name) + "=";
+  if (line.compare(0, prefix.size(), prefix) != 0) return false;
+  const char* begin = line.c_str() + prefix.size();
+  char* end = nullptr;
+  errno = 0;
+  const double parsed = std::strtod(begin, &end);
+  if (errno != 0 || end == begin || *end != '\0' ||
+      !std::isfinite(parsed))
+    return false;
+  *value = parsed;
+  return true;
+}
+
+bool ValidMouseSensitivity(double value) {
+  return std::isfinite(value) && value >= kMinimumMouseSensitivity &&
+         value <= kMaximumMouseSensitivity;
+}
+
 bool LoadInGameShellSettings(const std::wstring& path,
                              SRecoveredInputBindings* bindings,
-                             int* windowMode, int* windowScale) {
-  if (bindings == nullptr || windowMode == nullptr || windowScale == nullptr)
+                             int* windowMode, int* windowScale,
+                             double* mouseSensitivityX,
+                             double* mouseSensitivityY,
+                             bool* mouseInvertY, bool* migrated) {
+  if (bindings == nullptr || windowMode == nullptr || windowScale == nullptr ||
+      mouseSensitivityX == nullptr || mouseSensitivityY == nullptr ||
+      mouseInvertY == nullptr || migrated == nullptr)
     return false;
   std::string bytes;
   if (!ReadSmallFile(path, &bytes)) return false;
@@ -1278,9 +1308,15 @@ bool LoadInGameShellSettings(const std::wstring& path,
   unsigned int version = 0;
   unsigned int mode = 0;
   unsigned int scale = 0;
+  double sensitivityX = kDefaultMouseSensitivity;
+  double sensitivityY = kDefaultMouseSensitivity;
+  unsigned int invertY = 0;
   bool haveVersion = false;
   bool haveMode = false;
   bool haveScale = false;
+  bool haveSensitivityX = false;
+  bool haveSensitivityY = false;
+  bool haveInvertY = false;
   bool haveBinding[RECOVERED_BIND_COUNT] = {};
   std::istringstream input(bytes);
   std::string line;
@@ -1302,6 +1338,22 @@ bool LoadInGameShellSettings(const std::wstring& path,
       haveScale = true;
       continue;
     }
+    double doubleValue = 0.0;
+    if (ParseDoubleSetting(line, "mouse_sensitivity_x", &doubleValue)) {
+      sensitivityX = doubleValue;
+      haveSensitivityX = true;
+      continue;
+    }
+    if (ParseDoubleSetting(line, "mouse_sensitivity_y", &doubleValue)) {
+      sensitivityY = doubleValue;
+      haveSensitivityY = true;
+      continue;
+    }
+    if (ParseUnsignedSetting(line, "mouse_invert_y", &value)) {
+      invertY = value;
+      haveInvertY = true;
+      continue;
+    }
     for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index) {
       const std::string name = "binding_" + std::to_string(index);
       if (!ParseUnsignedSetting(line, name.c_str(), &value)) continue;
@@ -1310,19 +1362,32 @@ bool LoadInGameShellSettings(const std::wstring& path,
       break;
     }
   }
-  if (!haveVersion || version != kInGameSettingsVersion || !haveMode ||
+  if (!haveVersion || version < 1u || version > kInGameSettingsVersion ||
+      !haveMode ||
       !haveScale || mode > 1u || scale < 1u || scale > 3u ||
       !RecoveredSoftwareGraph_ValidatePresentation(
           ShellPresentation(static_cast<int>(mode),
                             static_cast<int>(scale))))
     return false;
-  for (bool present : haveBinding)
-    if (!present) return false;
+  if (version >= 2u &&
+      (!haveSensitivityX || !haveSensitivityY || !haveInvertY))
+    return false;
+  if (!ValidMouseSensitivity(sensitivityX) ||
+      !ValidMouseSensitivity(sensitivityY) || invertY > 1u)
+    return false;
+  const std::size_t requiredBindings =
+      version >= 2u ? RECOVERED_BIND_COUNT : RECOVERED_BIND_MAP + 1u;
+  for (std::size_t index = 0; index < requiredBindings; ++index)
+    if (!haveBinding[index]) return false;
   if (!RecoveredWindowsInput_ValidateBindings(parsed, nullptr, nullptr))
     return false;
   *bindings = parsed;
   *windowMode = static_cast<int>(mode);
   *windowScale = static_cast<int>(scale);
+  *mouseSensitivityX = sensitivityX;
+  *mouseSensitivityY = sensitivityY;
+  *mouseInvertY = invertY != 0u;
+  *migrated = version < kInGameSettingsVersion;
   return true;
 }
 
@@ -1331,7 +1396,14 @@ bool WriteInGameShellSettings() {
   std::ostringstream output;
   output << "version=" << kInGameSettingsVersion << "\r\n"
          << "window_mode=" << g_inGameShellPersistedWindowMode << "\r\n"
-         << "window_scale=" << g_inGameShellPersistedWindowScale << "\r\n";
+         << "window_scale=" << g_inGameShellPersistedWindowScale << "\r\n"
+         << std::fixed << std::setprecision(3)
+         << "mouse_sensitivity_x="
+         << g_inGameShellState.mouseSensitivityX << "\r\n"
+         << "mouse_sensitivity_y="
+         << g_inGameShellState.mouseSensitivityY << "\r\n"
+         << "mouse_invert_y="
+         << (g_inGameShellState.mouseInvertY ? 1 : 0) << "\r\n";
   for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index)
     output << "binding_" << index << "="
            << g_inGameShellBindings.key[index] << "\r\n";
@@ -1358,6 +1430,19 @@ bool WriteInGameShellSettings() {
   }
   ++g_inGameShellState.settingsWrites;
   return true;
+}
+
+void ApplyShellMouseSettingsToRuntime() {
+  if (!g_inGameShellState.configured ||
+      !ValidMouseSensitivity(g_inGameShellState.mouseSensitivityX) ||
+      !ValidMouseSensitivity(g_inGameShellState.mouseSensitivityY))
+    return;
+  g_levelAttr.set_double("msSensX", g_inGameShellState.mouseSensitivityX);
+  g_levelAttr.set_double("msSensY", g_inGameShellState.mouseSensitivityY);
+  g_levelAttr.set_int("msInvY", g_inGameShellState.mouseInvertY ? 1 : 0);
+  g_hardware.m_ms.sensX = g_inGameShellState.mouseSensitivityX;
+  g_hardware.m_ms.sensY = g_inGameShellState.mouseSensitivityY;
+  g_hardware.m_ms.invY = g_inGameShellState.mouseInvertY ? 1 : 0;
 }
 
 std::wstring EscapeNativeMenuText(const std::wstring& text) {
@@ -2395,7 +2480,7 @@ std::size_t ShellPageItemCount() {
     case RECOVERED_SHELL_PAGE_LOAD:
       return LevelSaveSlot_Count() + 1u;
     case RECOVERED_SHELL_PAGE_CONTROLS:
-      return RECOVERED_BIND_COUNT + 2u;
+      return RECOVERED_BIND_COUNT + 5u;
     case RECOVERED_SHELL_PAGE_VIDEO:
       return 4u;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
@@ -2457,6 +2542,28 @@ bool PersistShellSettings(const char* success) {
   g_inGameShellState.lastError.clear();
   g_inGameShellState.status = success;
   return true;
+}
+
+bool AdjustShellMouseSensitivity(double* value, int direction) {
+  if (value == nullptr || direction == 0) return false;
+  const double adjusted = (std::max)(
+      kMinimumMouseSensitivity,
+      (std::min)(kMaximumMouseSensitivity,
+                 *value + (direction < 0 ? -kMouseSensitivityStep
+                                         : kMouseSensitivityStep)));
+  const double rounded = std::round(adjusted * 100.0) / 100.0;
+  if (std::fabs(rounded - *value) <= 1.0e-12) return true;
+  *value = rounded;
+  ++g_inGameShellState.mouseSettingChanges;
+  ApplyShellMouseSettingsToRuntime();
+  return PersistShellSettings("Mouse sensitivity saved");
+}
+
+bool ToggleShellMouseInvertY() {
+  g_inGameShellState.mouseInvertY = !g_inGameShellState.mouseInvertY;
+  ++g_inGameShellState.mouseSettingChanges;
+  ApplyShellMouseSettingsToRuntime();
+  return PersistShellSettings("Mouse invert-Y saved");
 }
 
 bool CaptureShellBinding(std::uint32_t key) {
@@ -2600,10 +2707,24 @@ bool ActivateShellSelection() {
         g_inGameShellState.conflictBinding = -1;
         g_inGameShellState.status = "Press a new key or mouse button";
       } else if (selected == RECOVERED_BIND_COUNT) {
+        return AdjustShellMouseSensitivity(
+            &g_inGameShellState.mouseSensitivityX, 1);
+      } else if (selected == RECOVERED_BIND_COUNT + 1u) {
+        return AdjustShellMouseSensitivity(
+            &g_inGameShellState.mouseSensitivityY, 1);
+      } else if (selected == RECOVERED_BIND_COUNT + 2u) {
+        return ToggleShellMouseInvertY();
+      } else if (selected == RECOVERED_BIND_COUNT + 3u) {
         const SRecoveredInputBindings defaults =
             RecoveredWindowsInput_DefaultBindings();
         if (g_windowsInputAdapter.SetBindings(defaults)) {
           g_inGameShellBindings = defaults;
+          g_inGameShellState.mouseSensitivityX =
+              kDefaultMouseSensitivity;
+          g_inGameShellState.mouseSensitivityY =
+              kDefaultMouseSensitivity;
+          g_inGameShellState.mouseInvertY = false;
+          ApplyShellMouseSettingsToRuntime();
           ++g_inGameShellState.bindingChanges;
           PersistShellSettings("Default controls restored");
         }
@@ -2678,6 +2799,18 @@ bool HandleInGameShellKey(std::uint32_t key) {
           1 + (g_inGameShellState.windowScale - 1 + delta + 3) % 3;
     }
     return true;
+  }
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_CONTROLS &&
+      (key == VK_LEFT || key == VK_RIGHT)) {
+    const int direction = key == VK_LEFT ? -1 : 1;
+    if (g_inGameShellState.selected == RECOVERED_BIND_COUNT)
+      return AdjustShellMouseSensitivity(
+          &g_inGameShellState.mouseSensitivityX, direction);
+    if (g_inGameShellState.selected == RECOVERED_BIND_COUNT + 1u)
+      return AdjustShellMouseSensitivity(
+          &g_inGameShellState.mouseSensitivityY, direction);
+    if (g_inGameShellState.selected == RECOVERED_BIND_COUNT + 2u)
+      return ToggleShellMouseInvertY();
   }
   return key == VK_RETURN ? ActivateShellSelection() : true;
 }
@@ -2771,6 +2904,20 @@ void DrawInGameShell() {
           line += "  <conflict>";
         lines.push_back(line);
       }
+      {
+        std::ostringstream x;
+        x << std::fixed << std::setprecision(2)
+          << "Mouse sensitivity X : "
+          << g_inGameShellState.mouseSensitivityX;
+        lines.push_back(x.str());
+        std::ostringstream y;
+        y << std::fixed << std::setprecision(2)
+          << "Mouse sensitivity Y : "
+          << g_inGameShellState.mouseSensitivityY;
+        lines.push_back(y.str());
+      }
+      lines.push_back(std::string("Invert mouse Y : ") +
+                      (g_inGameShellState.mouseInvertY ? "Yes" : "No"));
       lines.push_back("Restore defaults");
       lines.push_back("Back");
       break;
@@ -2910,6 +3057,7 @@ LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
     return DefWindowProcA(window, message, wParam, lParam);
   }
   SRecoveredWindowsInputBatch inputBatch = {};
+  g_windowsInputAdapter.SetMapOverlayActive(g_debugMap.IsActive() != 0);
   if (!g_windowsInputAdapter.ProcessWindowMessage(
           message, static_cast<std::uintptr_t>(wParam),
           static_cast<std::intptr_t>(lParam),
@@ -3458,6 +3606,7 @@ void InitializeSession() {
       return;
     }
     g_hardwareReady = true;
+    ApplyShellMouseSettingsToRuntime();
 
     CFVector3 observerPosition(0.0, 0.0, 0.0);
     if (ZAV_Config()("Vessel", "Init", "%lg %lg %lg", &observerPosition.x,
@@ -4909,22 +5058,37 @@ bool RecoveredGameServices_ConfigureInGameShell(
   g_inGameShellState.settingsPath = settingsPath;
   g_inGameShellState.windowMode = 0;
   g_inGameShellState.windowScale = 1;
+  g_inGameShellState.mouseSensitivityX = kDefaultMouseSensitivity;
+  g_inGameShellState.mouseSensitivityY = kDefaultMouseSensitivity;
+  g_inGameShellState.mouseInvertY = false;
   g_inGameShellBindings = RecoveredWindowsInput_DefaultBindings();
 
   const bool exists =
       GetFileAttributesW(settingsPath.c_str()) != INVALID_FILE_ATTRIBUTES;
-  bool rewriteRecoveredDefaults = false;
+  bool rewriteSettings = false;
   if (!safeMode && exists) {
+    bool migrated = false;
     if (LoadInGameShellSettings(settingsPath, &g_inGameShellBindings,
                                 &g_inGameShellState.windowMode,
-                                &g_inGameShellState.windowScale)) {
+                                &g_inGameShellState.windowScale,
+                                &g_inGameShellState.mouseSensitivityX,
+                                &g_inGameShellState.mouseSensitivityY,
+                                &g_inGameShellState.mouseInvertY,
+                                &migrated)) {
       ++g_inGameShellState.settingsLoads;
-      g_inGameShellState.status = "Settings loaded";
+      if (migrated) {
+        ++g_inGameShellState.settingsMigrations;
+        rewriteSettings = true;
+        g_inGameShellState.status =
+            "Schema-1 settings migrated with retail mouse defaults";
+      } else {
+        g_inGameShellState.status = "Settings loaded";
+      }
     } else {
       ++g_inGameShellState.corruptSettingsRecoveries;
       g_inGameShellState.status =
           "Invalid settings ignored; safe windowed defaults restored";
-      rewriteRecoveredDefaults = true;
+      rewriteSettings = true;
     }
   } else if (safeMode) {
     g_inGameShellState.status = "Safe mode: settings bypassed";
@@ -4934,13 +5098,14 @@ bool RecoveredGameServices_ConfigureInGameShell(
     Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
     return false;
   }
+  ApplyShellMouseSettingsToRuntime();
   g_inGameShellAppliedPresentation = ShellPresentation(
       g_inGameShellState.windowMode, g_inGameShellState.windowScale);
   g_inGameShellRollbackPresentation = g_inGameShellAppliedPresentation;
   g_inGameShellPersistedWindowMode = g_inGameShellState.windowMode;
   g_inGameShellPersistedWindowScale = g_inGameShellState.windowScale;
   g_inGameShellVideoDeadline = 0;
-  if (rewriteRecoveredDefaults && !WriteInGameShellSettings()) {
+  if (rewriteSettings && !WriteInGameShellSettings()) {
     g_inGameShellState.lastError =
         "invalid settings were recovered but could not be replaced";
     Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);

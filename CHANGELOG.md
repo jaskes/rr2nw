@@ -7,11 +7,18 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Completed the player-facing Controls slice with 26 context-aware
+  Player/Vehicle/map actions, including the authored map scroll, follow,
+  mission-selection and text-navigation commands. Gameplay and map contexts
+  may reuse a physical key while conflicts inside one context still fail
+  closed. Persisted mouse X/Y sensitivity and invert-Y now follow the retail
+  `0.01..1.01`/`0.1`/`0.5` contract; schema-1 settings migrate atomically to
+  schema 2, while capture, overlay and focus transitions neutralize held input.
 - Added the first M2.5 in-game shell/settings slice. `Esc` now opens an
   in-frame pause menu with typed eight-slot Save/Load, restart and exit;
-  conflict-checked rebinding for 17 Player/Vehicle/map-toggle actions;
+  conflict-checked rebinding for the initial Player/Vehicle/map actions;
   windowed/borderless 4:3 presentation at 640x480, 960x720 and 1280x960 with
-  15-second automatic rollback; atomic schema-1 user settings and safe mode;
+  15-second automatic rollback; atomic versioned user settings and safe mode;
   and a fail-closed Developer page enabled only by an explicit process
   capability. The archival renderer still owns its original 640x480 buffer,
   held input is neutralized behind the shell and all world mutations retain

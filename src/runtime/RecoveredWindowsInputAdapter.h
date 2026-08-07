@@ -21,6 +21,15 @@ enum ERecoveredInputBinding : std::size_t {
   RECOVERED_BIND_STOP_VEHICLE,
   RECOVERED_BIND_CHANGE_VEHICLE,
   RECOVERED_BIND_MAP,
+  RECOVERED_BIND_MAP_SCROLL_LEFT,
+  RECOVERED_BIND_MAP_SCROLL_RIGHT,
+  RECOVERED_BIND_MAP_SCROLL_UP,
+  RECOVERED_BIND_MAP_SCROLL_DOWN,
+  RECOVERED_BIND_MAP_TOGGLE_FOLLOW,
+  RECOVERED_BIND_MAP_NEXT_MISSION,
+  RECOVERED_BIND_MAP_PREVIOUS_MISSION,
+  RECOVERED_BIND_MAP_TEXT_UP,
+  RECOVERED_BIND_MAP_TEXT_DOWN,
   RECOVERED_BIND_COUNT
 };
 
@@ -75,6 +84,7 @@ class RecoveredWindowsInputAdapter {
   void Reset(bool applicationActive = true);
   bool SetBindings(const SRecoveredInputBindings& bindings);
   const SRecoveredInputBindings& Bindings() const { return bindings_; }
+  void SetMapOverlayActive(bool active);
   bool EnterOverlay(double keySensitivity,
                     SRecoveredWindowsInputBatch* batch);
   void LeaveOverlay();
@@ -111,6 +121,7 @@ class RecoveredWindowsInputAdapter {
   bool mouseRight_ = false;
   bool applicationActive_ = true;
   bool overlayActive_ = false;
+  bool mapOverlayActive_ = false;
   SRecoveredInputBindings bindings_ = {};
   SRecoveredWindowsInputTelemetry telemetry_ = {};
 };

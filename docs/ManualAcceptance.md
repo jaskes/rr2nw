@@ -69,7 +69,11 @@ Continue they resume only after a new physical press.
 2. In Controls, rebind an action, deliberately choose an occupied key and
    observe the conflict without changing either action. Choose a free key,
    continue playing, restart the executable and verify persistence. Restore
-   defaults and verify the original binding returns.
+   defaults and verify the original binding returns. Open the map and exercise
+   arrow scrolling, Delete follow toggle, `[`/`]` mission selection and
+   PageUp/PageDown text navigation. Their shared gameplay keys must work in the
+   correct context rather than appear as false conflicts. Change mouse X and Y
+   sensitivity separately, enable invert-Y, restart and verify persistence.
 3. In Video, apply 960x720 or 1280x960 and confirm it. The image must retain
    4:3 geometry. Apply another size and do nothing for 15 seconds; the last
    confirmed mode must return automatically. Borderless must letterbox on a
@@ -78,21 +82,31 @@ Continue they resume only after a new physical press.
    `--developer-mode`; the Developer page must appear and its supported commands
    must still report that they execute at the closed frame boundary.
 5. Exit, replace `%LOCALAPPDATA%\RR2NW\settings.cfg` with invalid text and start
-   again. The game must recover a valid schema-1 file and safe 640x480 windowed
+   again. The game must recover a valid schema-2 file and safe 640x480 windowed
    defaults. `--safe-mode` must also start with those defaults while ignoring
-   otherwise valid saved settings.
+   otherwise valid saved settings. The bounded gate also creates a valid
+   schema-1 fixture and proves atomic migration with old bindings preserved and
+   new map/mouse defaults added.
 
-The bounded real-window proof exercises Save/Load, binding persistence/defaults,
-two confirmed video changes and one timed rollback in every maintained build:
+The bounded real-window proof exercises Save/Load, binding and mouse
+persistence/defaults, schema migration, two confirmed video changes and one
+timed rollback in every maintained build. The separate input proof drives all
+semantic map actions through the real window:
 
 ```powershell
 & ".\tools\acceptance\Invoke-InGameShell.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+& ".\tools\acceptance\Invoke-WindowsInputAdapter.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release
 ```
 
-This first slice does not yet claim mouse sensitivity/invert-Y, remaining map
-navigation bindings, exclusive fullscreen, in-frame preview images or complete
-DPI/Alt-Tab soak. The native Windows menu remains a diagnostic fallback until
-those remaining M2.5 rows close.
+Both scripts accept `-BuildRoot` for an isolated verification tree when an
+interactive playtest keeps the normal executable open; they never terminate
+that unrelated process.
+
+This slice does not yet claim exclusive fullscreen, in-frame preview images or
+complete DPI/Alt-Tab soak. The current backend has no display-mode enumeration,
+`ChangeDisplaySettingsEx` or crash-safe desktop restoration, so borderless is
+not labelled as exclusive fullscreen. The native Windows menu remains a
+diagnostic fallback until those remaining M2.5 rows close.
 
 ## Live People movement and combat telemetry
 

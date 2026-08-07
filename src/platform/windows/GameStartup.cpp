@@ -6536,6 +6536,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->bindingChanges));
     log.Line("in_game_shell_binding_conflicts=" +
              std::to_string(shellState->bindingConflicts));
+    log.Line("in_game_shell_mouse_setting_changes=" +
+             std::to_string(shellState->mouseSettingChanges));
     log.Line("in_game_shell_video_applies=" +
              std::to_string(shellState->videoApplies));
     log.Line("in_game_shell_video_confirms=" +
@@ -6548,11 +6550,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->settingsLoads));
     log.Line("in_game_shell_settings_writes=" +
              std::to_string(shellState->settingsWrites));
+    log.Line("in_game_shell_settings_migrations=" +
+             std::to_string(shellState->settingsMigrations));
     log.Line("in_game_shell_corrupt_recoveries=" +
              std::to_string(shellState->corruptSettingsRecoveries));
     log.Line("in_game_shell_window=" +
              std::to_string(shellState->windowMode) + "/" +
              std::to_string(shellState->windowScale));
+    log.Line("in_game_shell_mouse=" +
+             std::to_string(shellState->mouseSensitivityX) + "/" +
+             std::to_string(shellState->mouseSensitivityY) + "/" +
+             std::to_string(shellState->mouseInvertY ? 1 : 0));
     log.Line("in_game_shell_status=" + shellState->status);
     log.Line("in_game_shell_last_error=" + shellState->lastError);
   }

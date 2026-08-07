@@ -5207,6 +5207,33 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   `A.Recr0/ProjectAER21/ProjectS03` slot-8 identity in every configuration.
   No Artifact, Portal or invented terminal record appears.
 
+### CQ-254: retail map and mouse controls require contextual admission
+
+- Status: `RETAIL_INPUT_GRAPH_CONFIRMED`, `SETTINGS_SCHEMA_MIGRATED`,
+  `EXCLUSIVE_FULLSCREEN_BACKEND_MISSING`.
+- Evidence: installed `saves/config.cfg` SHA-256 is
+  `22A3CCCE0BF68D4E73F861E5CAEBE97801C9925A7D0A06ED45706B5158287A77` and
+  retains mouse X/Y `0.500`, invert-Y `0`, plus the authored map bindings.
+  Installed `green_menu.sci` SHA-256 is
+  `7412668AF8808E471E7BD9E874DFBB69E83CB54020271BD83690AE2B715785C3` and
+  proves bounds `0.01..1.01`, step `0.1` and default `0.5`. Archived Hardware
+  and DebugMap dispatch prove scroll left/right/up/down, follow toggle,
+  next/previous mission and text up/down.
+- Result: one 26-action catalog admits gameplay and map contexts separately,
+  so shared retail arrow defaults are valid while same-context conflicts fail.
+  Schema 2 persists every binding plus mouse X/Y/invert; schema 1 migrates
+  atomically without changing its original 17 bindings. Overlay/capture/focus
+  transitions clear physical and semantic latches. `DMapChangeViewMode` remains
+  unsupported because no recovered enum/handler command exists.
+- Verification: unit and real-window gates exercise every semantic map action,
+  cross-context and same-context conflicts, mouse changes/defaults, schema-1
+  migration, corrupt/newer recovery and safe mode. Windowed/borderless retain
+  the aspect-correct 640x480 framebuffer.
+- Revisit when: a recovered handler proves `DMapChangeViewMode`, retail input
+  evidence changes, or a Win32 backend owns display enumeration,
+  `ChangeDisplaySettingsEx`, Alt-Tab/DPI lifecycle and crash-safe desktop-mode
+  restoration. Do not alias borderless to exclusive fullscreen.
+
 ## Maintenance rule
 
 When a new quirk is found:
