@@ -85,11 +85,11 @@ Continue they resume only after a new physical press.
    in the menu. A ready row must close the shell and report that it was queued
    at the closed frame boundary.
 5. Exit, replace `%LOCALAPPDATA%\RR2NW\settings.cfg` with invalid text and start
-   again. The game must recover a valid schema-2 file and safe 640x480 windowed
+   again. The game must recover a valid schema-3 file and safe 640x480 windowed
    defaults. `--safe-mode` must also start with those defaults while ignoring
    otherwise valid saved settings. The bounded gate also creates a valid
-   schema-1 fixture and proves atomic migration with old bindings preserved and
-   new map/mouse defaults added.
+   schema-1 and schema-2 fixture and proves atomic migration with old bindings
+   preserved and new map/mouse/display defaults added.
 
 The bounded real-window proof exercises Save/Load, explicit overwrite
 confirmation, asynchronous thumbnails for old/current/corrupt/incompatible
@@ -107,11 +107,21 @@ Both scripts accept `-BuildRoot` for an isolated verification tree when an
 interactive playtest keeps the normal executable open; they never terminate
 that unrelated process.
 
-This slice does not yet claim exclusive fullscreen or complete DPI/Alt-Tab
-soak. The current backend has no display-mode enumeration,
-`ChangeDisplaySettingsEx` or crash-safe desktop restoration, so borderless is
-not labelled as exclusive fullscreen. The native Windows menu remains a
-diagnostic fallback until those remaining M2.5 rows close.
+The physical presentation gate deliberately changes the desktop display mode.
+Run it only after closing unrelated games and screen-sharing/capture software:
+
+```powershell
+& ".\tools\acceptance\Invoke-WindowsPresentation.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo -ExerciseExclusive
+```
+
+It applies and confirms a real enumerated 4:3 exclusive mode, restores the
+desktop on synthetic Alt-Tab, reapplies on focus gain, returns through a second
+closed-frame transaction and proves that no recovery marker remains. A second
+launch consumes a deliberately stale valid marker; a third launch proves that
+a corrupt marker restores all attached desktop devices and is also consumed.
+The script requires the explicit `-ExerciseExclusive` switch so routine test
+runs cannot mutate the desktop accidentally. The native Windows menu remains a
+diagnostic fallback until the final M2.5 cleanup.
 
 ## Live People movement and combat telemetry
 

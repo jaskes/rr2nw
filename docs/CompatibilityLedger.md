@@ -5256,6 +5256,28 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: RR2SLOT1 bounds or palette ABI change, preview capture gains a
   new format, or the renderer stops owning an indexed 640x480 framebuffer.
 
+### CQ-256: exclusive display ownership must survive focus loss and process loss
+
+- Status: `PHYSICAL_BACKEND_OWNED`, `CRASH_RECOVERY_MARKER_OWNED`,
+  `PHYSICAL_ACCEPTANCE_REQUIRED`.
+- Evidence: the recovered software presenter already scales one indexed
+  640x480 framebuffer into an aspect-correct client destination. The new Win32
+  owner enumerates at most 512 exact 4:3 modes on the nearest monitor and is the
+  only path that calls `ChangeDisplaySettingsEx`.
+- Handling: a write-through atomic marker records the display device before
+  exclusive apply. Windowed/borderless return, graph teardown and the next
+  startup restore the desktop. Alt-Tab restores without consuming the marker,
+  then reapplies the exact mode on focus gain; resume failure falls back to
+  640x480 windowed. Schema 3 stores exact dimensions, bit depth and refresh;
+  schemas 1/2 migrate and catalog indices never become persistent identity.
+- Verification: headless validation covers structural mode bounds and schema
+  migration; the ordinary real-window shell gate proves bounded enumeration,
+  DPI awareness and zero unrequested display mutations. The explicit physical
+  gate proves exclusive apply/confirm, focus suspend/resume, return to windowed
+  plus valid and corrupt stale-marker startup recovery.
+- Revisit when: the renderer leaves GDI, Windows display APIs are replaced, or
+  packaged Win10/Win11 multi-monitor soak finds a device-selection edge case.
+
 ## Maintenance rule
 
 When a new quirk is found:

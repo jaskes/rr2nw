@@ -30,8 +30,17 @@ int main() {
   SRecoveredWindowPresentation invalidPresentation = validPresentation;
   invalidPresentation.clientWidth = 1280;
   invalidPresentation.clientHeight = 720;
+  SRecoveredWindowPresentation validExclusive = validPresentation;
+  validExclusive.mode = RECOVERED_WINDOW_MODE_EXCLUSIVE;
+  validExclusive.bitsPerPixel = 32;
+  validExclusive.displayFrequency = 60;
+  validExclusive.displayDevice = L"\\\\.\\DISPLAY1";
+  SRecoveredWindowPresentation invalidExclusive = validExclusive;
+  invalidExclusive.displayDevice.clear();
   if (!RecoveredSoftwareGraph_ValidatePresentation(validPresentation) ||
+      !RecoveredSoftwareGraph_ValidatePresentation(validExclusive) ||
       RecoveredSoftwareGraph_ValidatePresentation(invalidPresentation) ||
+      RecoveredSoftwareGraph_ValidatePresentation(invalidExclusive) ||
       RecoveredSoftwareGraph_ApplyPresentation(validPresentation, nullptr)) {
     return Fail("presentation validation did not remain fail-closed");
   }
@@ -57,6 +66,19 @@ int main() {
     return Fail("headless software graph initialization failed");
   }
   unsigned char* const firstScreen = _gr_pScreen;
+  wchar_t temporaryDirectory[MAX_PATH] = {};
+  if (GetTempPathW(MAX_PATH, temporaryDirectory) == 0) {
+    return Fail("temporary directory lookup failed");
+  }
+  const std::wstring recoveryPath =
+      std::wstring(temporaryDirectory) + L"rr2nw-graph-smoke.display-recovery";
+  DeleteFileW(recoveryPath.c_str());
+  if (!RecoveredSoftwareGraph_ConfigureDisplayRecovery(recoveryPath) ||
+      RecoveredSoftwareGraph_DisplayModeCount() != 0u ||
+      !RecoveredSoftwareGraph_WindowsPresentationState().recoveryConfigured ||
+      RecoveredSoftwareGraph_WindowsPresentationState().staleModeRecovered) {
+    return Fail("headless display recovery did not remain bounded");
+  }
   if (!RecoveredSoftwareGraph_IsReady() || firstScreen == nullptr ||
       _gr_hWnd != nullptr || _gr_hDC != nullptr ||
       _gr_nScreenWidth != 640 || _gr_nScreenHeight != 480 ||

@@ -6278,8 +6278,34 @@ available selection calls the original typed request, closes the shell and is
 processed only at the established closed-frame boundary with its existing LCN1
 rollback contract.
 
-Capability ownership stays outside schema-2 settings. Without the explicit
+Capability ownership stays outside schema-3 settings. Without the explicit
 process flag the Developer page is absent and its snapshot is not ready with
 zero commands. The real-window gate must prove both the enabled catalog and a
 second ordinary launch where the same menu position is Exit and all Developer
 catalog telemetry is fail-closed.
+
+### BD-191: exclusive fullscreen is a recoverable physical transaction
+
+Status: accepted on 2026-08-07 for the M2.5 Windows presentation backend.
+
+Borderless and exclusive are distinct modes. Exclusive selection resolves one
+exact width/height/bit-depth/refresh row from the monitor nearest the game
+window. Only the Win32 presentation owner may enumerate `DEVMODE` or call
+`ChangeDisplaySettingsEx`; the shell still publishes a typed request processed
+after the frame closes. The internal renderer remains 640x480 and uses the same
+aspect-correct GDI stretch/pillarbox path in every mode.
+
+Before entering exclusive the owner atomically writes a small recovery marker
+beside `settings.cfg`. Confirming changes schema-3 settings but does not remove
+the marker while exclusive remains active. Leaving exclusive and normal graph
+teardown restore the desktop and remove it. Startup consumes a stale marker
+before admitting persisted settings; a corrupt marker restores every attached
+desktop device. Focus loss temporarily restores the desktop without deleting
+the marker, focus gain reapplies the exact mode, and failed resume falls back
+to safe windowed presentation.
+
+Settings persist exact mode fields, not catalog position. Schemas 1 and 2
+migrate atomically. Missing modes disable only exclusive or recover a persisted
+exclusive request to windowed; they must not make ordinary windowed startup
+fail. Physical acceptance requires an explicit switch because it visibly
+changes the user's desktop mode.

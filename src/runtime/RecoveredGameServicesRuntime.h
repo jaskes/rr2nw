@@ -546,6 +546,8 @@ struct SRecoveredInGameShellState {
   std::uint32_t overwriteSlot = 0;
   int windowMode = 0;
   int windowScale = 1;
+  std::size_t exclusiveModeIndex = 0;
+  std::size_t displayModeCount = 0;
   double mouseSensitivityX = 0.5;
   double mouseSensitivityY = 0.5;
   bool mouseInvertY = false;
@@ -566,6 +568,8 @@ struct SRecoveredInGameShellState {
   unsigned int videoConfirms = 0;
   unsigned int videoRollbacks = 0;
   unsigned int videoTimeoutRollbacks = 0;
+  unsigned int displayCatalogRefreshes = 0;
+  unsigned int staleDisplayRecoveries = 0;
   unsigned int settingsLoads = 0;
   unsigned int settingsWrites = 0;
   unsigned int settingsMigrations = 0;

@@ -1138,6 +1138,12 @@ SRecoveredWindowPresentation g_inGameShellRollbackPresentation = {};
 ULONGLONG g_inGameShellVideoDeadline = 0;
 int g_inGameShellPersistedWindowMode = 0;
 int g_inGameShellPersistedWindowScale = 1;
+std::size_t g_inGameShellPersistedExclusiveModeIndex = 0;
+std::size_t g_inGameShellRollbackExclusiveModeIndex = 0;
+int g_inGameShellRequestedExclusiveWidth = 640;
+int g_inGameShellRequestedExclusiveHeight = 480;
+int g_inGameShellRequestedExclusiveBits = 32;
+int g_inGameShellRequestedExclusiveFrequency = 60;
 unsigned int g_mapTogglePresses = 0;
 FixedFontOBJ* g_debugMapMissionFont = nullptr;
 FixedFontOBJ* g_gameConsoleFont = nullptr;
@@ -1233,20 +1239,33 @@ std::wstring Utf8ToWide(const std::string& text) {
   return wide;
 }
 
-constexpr unsigned int kInGameSettingsVersion = 2u;
+constexpr unsigned int kInGameSettingsVersion = 3u;
 constexpr ULONGLONG kVideoConfirmationMilliseconds = 15000u;
 constexpr double kDefaultMouseSensitivity = 0.5;
 constexpr double kMinimumMouseSensitivity = 0.01;
 constexpr double kMaximumMouseSensitivity = 1.01;
 constexpr double kMouseSensitivityStep = 0.1;
 
-SRecoveredWindowPresentation ShellPresentation(int mode, int scale) {
+SRecoveredWindowPresentation ShellPresentation(
+    int mode, int scale, std::size_t exclusiveModeIndex) {
   SRecoveredWindowPresentation presentation;
-  presentation.mode = mode == 1 ? RECOVERED_WINDOW_MODE_BORDERLESS
-                                : RECOVERED_WINDOW_MODE_WINDOWED;
+  presentation.mode = mode == 2
+      ? RECOVERED_WINDOW_MODE_EXCLUSIVE
+      : mode == 1 ? RECOVERED_WINDOW_MODE_BORDERLESS
+                  : RECOVERED_WINDOW_MODE_WINDOWED;
   scale = (std::max)(1, (std::min)(3, scale));
   presentation.clientWidth = 640 * scale;
   presentation.clientHeight = 480 * scale;
+  if (presentation.mode == RECOVERED_WINDOW_MODE_EXCLUSIVE) {
+    SRecoveredDisplayMode displayMode;
+    if (RecoveredSoftwareGraph_DisplayMode(exclusiveModeIndex, &displayMode)) {
+      presentation.clientWidth = displayMode.width;
+      presentation.clientHeight = displayMode.height;
+      presentation.bitsPerPixel = displayMode.bitsPerPixel;
+      presentation.displayFrequency = displayMode.displayFrequency;
+      presentation.displayDevice = displayMode.displayDevice;
+    }
+  }
   return presentation;
 }
 
@@ -1313,10 +1332,14 @@ bool ValidMouseSensitivity(double value) {
 bool LoadInGameShellSettings(const std::wstring& path,
                              SRecoveredInputBindings* bindings,
                              int* windowMode, int* windowScale,
+                             int* exclusiveWidth, int* exclusiveHeight,
+                             int* exclusiveBits, int* exclusiveFrequency,
                              double* mouseSensitivityX,
                              double* mouseSensitivityY,
                              bool* mouseInvertY, bool* migrated) {
   if (bindings == nullptr || windowMode == nullptr || windowScale == nullptr ||
+      exclusiveWidth == nullptr || exclusiveHeight == nullptr ||
+      exclusiveBits == nullptr || exclusiveFrequency == nullptr ||
       mouseSensitivityX == nullptr || mouseSensitivityY == nullptr ||
       mouseInvertY == nullptr || migrated == nullptr)
     return false;
@@ -1326,12 +1349,20 @@ bool LoadInGameShellSettings(const std::wstring& path,
   unsigned int version = 0;
   unsigned int mode = 0;
   unsigned int scale = 0;
+  unsigned int exclusiveWidthValue = 640;
+  unsigned int exclusiveHeightValue = 480;
+  unsigned int exclusiveBitsValue = 32;
+  unsigned int exclusiveFrequencyValue = 60;
   double sensitivityX = kDefaultMouseSensitivity;
   double sensitivityY = kDefaultMouseSensitivity;
   unsigned int invertY = 0;
   bool haveVersion = false;
   bool haveMode = false;
   bool haveScale = false;
+  bool haveExclusiveWidth = false;
+  bool haveExclusiveHeight = false;
+  bool haveExclusiveBits = false;
+  bool haveExclusiveFrequency = false;
   bool haveSensitivityX = false;
   bool haveSensitivityY = false;
   bool haveInvertY = false;
@@ -1354,6 +1385,26 @@ bool LoadInGameShellSettings(const std::wstring& path,
     if (ParseUnsignedSetting(line, "window_scale", &value)) {
       scale = value;
       haveScale = true;
+      continue;
+    }
+    if (ParseUnsignedSetting(line, "exclusive_width", &value)) {
+      exclusiveWidthValue = value;
+      haveExclusiveWidth = true;
+      continue;
+    }
+    if (ParseUnsignedSetting(line, "exclusive_height", &value)) {
+      exclusiveHeightValue = value;
+      haveExclusiveHeight = true;
+      continue;
+    }
+    if (ParseUnsignedSetting(line, "exclusive_bits", &value)) {
+      exclusiveBitsValue = value;
+      haveExclusiveBits = true;
+      continue;
+    }
+    if (ParseUnsignedSetting(line, "exclusive_frequency", &value)) {
+      exclusiveFrequencyValue = value;
+      haveExclusiveFrequency = true;
       continue;
     }
     double doubleValue = 0.0;
@@ -1382,10 +1433,22 @@ bool LoadInGameShellSettings(const std::wstring& path,
   }
   if (!haveVersion || version < 1u || version > kInGameSettingsVersion ||
       !haveMode ||
-      !haveScale || mode > 1u || scale < 1u || scale > 3u ||
-      !RecoveredSoftwareGraph_ValidatePresentation(
-          ShellPresentation(static_cast<int>(mode),
-                            static_cast<int>(scale))))
+       !haveScale || mode > (version >= 3u ? 2u : 1u) ||
+       scale < 1u || scale > 3u ||
+       (mode < 2u &&
+        !RecoveredSoftwareGraph_ValidatePresentation(
+            ShellPresentation(static_cast<int>(mode),
+                              static_cast<int>(scale), 0u))))
+    return false;
+  if (version >= 3u &&
+      (!haveExclusiveWidth || !haveExclusiveHeight || !haveExclusiveBits ||
+       !haveExclusiveFrequency || exclusiveWidthValue < 640u ||
+       exclusiveHeightValue < 480u || exclusiveWidthValue > 7680u ||
+       exclusiveHeightValue > 4320u ||
+       static_cast<unsigned long long>(exclusiveWidthValue) * 3u !=
+           static_cast<unsigned long long>(exclusiveHeightValue) * 4u ||
+       exclusiveBitsValue < 16u || exclusiveBitsValue > 64u ||
+       exclusiveFrequencyValue < 1u || exclusiveFrequencyValue > 1000u))
     return false;
   if (version >= 2u &&
       (!haveSensitivityX || !haveSensitivityY || !haveInvertY))
@@ -1402,6 +1465,10 @@ bool LoadInGameShellSettings(const std::wstring& path,
   *bindings = parsed;
   *windowMode = static_cast<int>(mode);
   *windowScale = static_cast<int>(scale);
+  *exclusiveWidth = static_cast<int>(exclusiveWidthValue);
+  *exclusiveHeight = static_cast<int>(exclusiveHeightValue);
+  *exclusiveBits = static_cast<int>(exclusiveBitsValue);
+  *exclusiveFrequency = static_cast<int>(exclusiveFrequencyValue);
   *mouseSensitivityX = sensitivityX;
   *mouseSensitivityY = sensitivityY;
   *mouseInvertY = invertY != 0u;
@@ -1412,9 +1479,22 @@ bool LoadInGameShellSettings(const std::wstring& path,
 bool WriteInGameShellSettings() {
   if (g_inGameShellState.settingsPath.empty()) return false;
   std::ostringstream output;
+  SRecoveredDisplayMode exclusiveMode;
+  if (!RecoveredSoftwareGraph_DisplayMode(
+          g_inGameShellPersistedExclusiveModeIndex, &exclusiveMode)) {
+    exclusiveMode.width = 640;
+    exclusiveMode.height = 480;
+    exclusiveMode.bitsPerPixel = 32;
+    exclusiveMode.displayFrequency = 60;
+  }
   output << "version=" << kInGameSettingsVersion << "\r\n"
          << "window_mode=" << g_inGameShellPersistedWindowMode << "\r\n"
          << "window_scale=" << g_inGameShellPersistedWindowScale << "\r\n"
+         << "exclusive_width=" << exclusiveMode.width << "\r\n"
+         << "exclusive_height=" << exclusiveMode.height << "\r\n"
+         << "exclusive_bits=" << exclusiveMode.bitsPerPixel << "\r\n"
+         << "exclusive_frequency=" << exclusiveMode.displayFrequency
+         << "\r\n"
          << std::fixed << std::setprecision(3)
          << "mouse_sensitivity_x="
          << g_inGameShellState.mouseSensitivityX << "\r\n"
@@ -1479,7 +1559,7 @@ void ResizeSoftwareWindowForMenu(bool hasMenu) {
     return;
   const SRecoveredWindowPresentation presentation =
       RecoveredSoftwareGraph_Presentation();
-  if (presentation.mode == RECOVERED_WINDOW_MODE_BORDERLESS) return;
+  if (presentation.mode != RECOVERED_WINDOW_MODE_WINDOWED) return;
   RECT outer = {0, 0, presentation.clientWidth,
                 presentation.clientHeight};
   const DWORD style =
@@ -2373,6 +2453,10 @@ void ResetSaveMenuSession() {
             g_inGameShellRollbackPresentation, nullptr)) {
       g_inGameShellAppliedPresentation =
           g_inGameShellRollbackPresentation;
+      g_inGameShellState.windowMode = g_inGameShellPersistedWindowMode;
+      g_inGameShellState.windowScale = g_inGameShellPersistedWindowScale;
+      g_inGameShellState.exclusiveModeIndex =
+          g_inGameShellRollbackExclusiveModeIndex;
       ++g_inGameShellState.videoRollbacks;
     }
   }
@@ -3265,12 +3349,24 @@ bool HandleInGameShellKey(std::uint32_t key) {
   }
   if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_VIDEO &&
       (key == VK_LEFT || key == VK_RIGHT)) {
-    if (g_inGameShellState.selected == 0u)
-      g_inGameShellState.windowMode = 1 - g_inGameShellState.windowMode;
+    const int delta = key == VK_RIGHT ? 1 : -1;
+    if (g_inGameShellState.selected == 0u) {
+      const int modeCount = g_inGameShellState.displayModeCount == 0u ? 2 : 3;
+      g_inGameShellState.windowMode =
+          (g_inGameShellState.windowMode + delta + modeCount) % modeCount;
+    }
     if (g_inGameShellState.selected == 1u) {
-      const int delta = key == VK_RIGHT ? 1 : -1;
-      g_inGameShellState.windowScale =
-          1 + (g_inGameShellState.windowScale - 1 + delta + 3) % 3;
+      if (g_inGameShellState.windowMode == 2 &&
+          g_inGameShellState.displayModeCount != 0u) {
+        const std::size_t displayCount =
+            g_inGameShellState.displayModeCount;
+        g_inGameShellState.exclusiveModeIndex =
+            (g_inGameShellState.exclusiveModeIndex + displayCount +
+             (delta > 0 ? 1u : displayCount - 1u)) % displayCount;
+      } else {
+        g_inGameShellState.windowScale =
+            1 + (g_inGameShellState.windowScale - 1 + delta + 3) % 3;
+      }
     }
     return true;
   }
@@ -3517,12 +3613,32 @@ void DrawInGameShell() {
       lines.push_back(std::string("Window mode : ") +
                       (g_inGameShellState.windowMode == 0
                            ? "Windowed"
-                           : "Borderless fullscreen"));
-      lines.push_back("Window size : " +
-                      std::to_string(640 * g_inGameShellState.windowScale) +
-                      "x" +
-                      std::to_string(480 * g_inGameShellState.windowScale) +
-                      " (4:3 internal)");
+                           : g_inGameShellState.windowMode == 1
+                                 ? "Borderless fullscreen"
+                                 : "Exclusive fullscreen"));
+      if (g_inGameShellState.windowMode == 2) {
+        SRecoveredDisplayMode mode;
+        if (RecoveredSoftwareGraph_DisplayMode(
+                g_inGameShellState.exclusiveModeIndex, &mode)) {
+          lines.push_back("Display mode : " + std::to_string(mode.width) +
+                          "x" + std::to_string(mode.height) + " " +
+                          std::to_string(mode.bitsPerPixel) + "bpp @ " +
+                          std::to_string(mode.displayFrequency) + "Hz (" +
+                          std::to_string(g_inGameShellState.exclusiveModeIndex +
+                                         1u) +
+                          "/" +
+                          std::to_string(g_inGameShellState.displayModeCount) +
+                          ")");
+        } else {
+          lines.push_back("Display mode : unavailable");
+        }
+      } else {
+        lines.push_back("Window size : " +
+                        std::to_string(640 * g_inGameShellState.windowScale) +
+                        "x" +
+                        std::to_string(480 * g_inGameShellState.windowScale) +
+                        " (4:3 internal)");
+      }
       lines.push_back("Apply (15 second safety confirmation)");
       lines.push_back("Back");
       break;
@@ -3634,7 +3750,8 @@ bool ProcessPendingInGameShellVideoCommand() {
 
   if (command == RECOVERED_SHELL_VIDEO_APPLY) {
     const SRecoveredWindowPresentation requested = ShellPresentation(
-        g_inGameShellState.windowMode, g_inGameShellState.windowScale);
+        g_inGameShellState.windowMode, g_inGameShellState.windowScale,
+        g_inGameShellState.exclusiveModeIndex);
     SRecoveredWindowPresentation previous;
     if (!RecoveredSoftwareGraph_ApplyPresentation(requested, &previous)) {
       g_inGameShellState.lastError =
@@ -3645,6 +3762,8 @@ bool ProcessPendingInGameShellVideoCommand() {
       return false;
     }
     g_inGameShellRollbackPresentation = previous;
+    g_inGameShellRollbackExclusiveModeIndex =
+        g_inGameShellPersistedExclusiveModeIndex;
     g_inGameShellAppliedPresentation = requested;
     g_inGameShellState.videoConfirmationActive = true;
     g_inGameShellVideoDeadline =
@@ -3660,6 +3779,8 @@ bool ProcessPendingInGameShellVideoCommand() {
     g_inGameShellVideoDeadline = 0;
     g_inGameShellPersistedWindowMode = g_inGameShellState.windowMode;
     g_inGameShellPersistedWindowScale = g_inGameShellState.windowScale;
+    g_inGameShellPersistedExclusiveModeIndex =
+        g_inGameShellState.exclusiveModeIndex;
     ++g_inGameShellState.videoConfirms;
     PersistShellSettings("Video mode confirmed and saved");
     ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
@@ -3676,6 +3797,8 @@ bool ProcessPendingInGameShellVideoCommand() {
     g_inGameShellAppliedPresentation = g_inGameShellRollbackPresentation;
     g_inGameShellState.windowMode = g_inGameShellPersistedWindowMode;
     g_inGameShellState.windowScale = g_inGameShellPersistedWindowScale;
+    g_inGameShellState.exclusiveModeIndex =
+        g_inGameShellRollbackExclusiveModeIndex;
     g_inGameShellState.videoConfirmationActive = false;
     g_inGameShellVideoDeadline = 0;
     ++g_inGameShellState.videoRollbacks;
@@ -4224,14 +4347,55 @@ void InitializeSession() {
     g_hardware.m_ctrlUse.mouse = TRUE;
     g_hardware.m_ctrlUse.joystick = FALSE;
     g_windowsInputAdapter.Reset(true);
-    if (g_inGameShellState.configured &&
-        (!g_windowsInputAdapter.SetBindings(g_inGameShellBindings) ||
-         (_gr_hWnd != nullptr &&
-          !RecoveredSoftwareGraph_ApplyPresentation(
-              g_inGameShellAppliedPresentation, nullptr)))) {
-      EndBoundedSession();
-      Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
-      return;
+    if (g_inGameShellState.configured) {
+      if (_gr_hWnd != nullptr) {
+        if (!RecoveredSoftwareGraph_RefreshDisplayModes()) {
+          EndBoundedSession();
+          Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+          return;
+        }
+        g_inGameShellState.displayModeCount =
+            RecoveredSoftwareGraph_DisplayModeCount();
+        std::size_t selected = 0u;
+        if (RecoveredSoftwareGraph_FindDisplayMode(
+                g_inGameShellRequestedExclusiveWidth,
+                g_inGameShellRequestedExclusiveHeight,
+                g_inGameShellRequestedExclusiveBits,
+                g_inGameShellRequestedExclusiveFrequency, &selected)) {
+          g_inGameShellState.exclusiveModeIndex = selected;
+        } else {
+          g_inGameShellState.exclusiveModeIndex = 0u;
+          if (g_inGameShellState.windowMode == 2) {
+            g_inGameShellState.windowMode = 0;
+            g_inGameShellPersistedWindowMode = 0;
+            g_inGameShellState.status =
+                "Unavailable exclusive mode recovered to windowed";
+          }
+        }
+        g_inGameShellPersistedExclusiveModeIndex =
+            g_inGameShellState.exclusiveModeIndex;
+        g_inGameShellRollbackExclusiveModeIndex =
+            g_inGameShellState.exclusiveModeIndex;
+        g_inGameShellAppliedPresentation = ShellPresentation(
+            g_inGameShellState.windowMode, g_inGameShellState.windowScale,
+            g_inGameShellState.exclusiveModeIndex);
+        g_inGameShellRollbackPresentation =
+            g_inGameShellAppliedPresentation;
+        const SRecoveredWindowsPresentationState presentationState =
+            RecoveredSoftwareGraph_WindowsPresentationState();
+        g_inGameShellState.displayCatalogRefreshes =
+            presentationState.catalogRefreshes;
+        g_inGameShellState.staleDisplayRecoveries =
+            presentationState.staleModeRecovered ? 1u : 0u;
+      }
+      if (!g_windowsInputAdapter.SetBindings(g_inGameShellBindings) ||
+          (_gr_hWnd != nullptr &&
+           !RecoveredSoftwareGraph_ApplyPresentation(
+               g_inGameShellAppliedPresentation, nullptr))) {
+        EndBoundedSession();
+        Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+        return;
+      }
     }
     g_pendingWindowsInput.clear();
     Session::m_hardware = &g_hardware;
@@ -5709,20 +5873,44 @@ bool RecoveredGameServices_ConfigureInGameShell(
   g_inGameShellState.settingsPath = settingsPath;
   g_inGameShellState.windowMode = 0;
   g_inGameShellState.windowScale = 1;
+  g_inGameShellState.exclusiveModeIndex = 0u;
   g_inGameShellState.mouseSensitivityX = kDefaultMouseSensitivity;
   g_inGameShellState.mouseSensitivityY = kDefaultMouseSensitivity;
   g_inGameShellState.mouseInvertY = false;
   g_inGameShellBindings = RecoveredWindowsInput_DefaultBindings();
 
+  const std::wstring displayRecoveryPath =
+      settingsPath + L".display-recovery";
+  if (!RecoveredSoftwareGraph_ConfigureDisplayRecovery(displayRecoveryPath)) {
+    g_inGameShellState.lastError =
+        "display recovery/catalog configuration failed";
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+    return false;
+  }
+  g_inGameShellState.displayModeCount =
+      RecoveredSoftwareGraph_DisplayModeCount();
+  const SRecoveredWindowsPresentationState presentationState =
+      RecoveredSoftwareGraph_WindowsPresentationState();
+  g_inGameShellState.displayCatalogRefreshes =
+      presentationState.catalogRefreshes;
+  g_inGameShellState.staleDisplayRecoveries =
+      presentationState.staleModeRecovered ? 1u : 0u;
+
   const bool exists =
       GetFileAttributesW(settingsPath.c_str()) != INVALID_FILE_ATTRIBUTES;
   bool rewriteSettings = false;
+  int exclusiveWidth = 640;
+  int exclusiveHeight = 480;
+  int exclusiveBits = 32;
+  int exclusiveFrequency = 60;
   if (!safeMode && exists) {
     bool migrated = false;
     if (LoadInGameShellSettings(settingsPath, &g_inGameShellBindings,
-                                &g_inGameShellState.windowMode,
-                                &g_inGameShellState.windowScale,
-                                &g_inGameShellState.mouseSensitivityX,
+                                 &g_inGameShellState.windowMode,
+                                 &g_inGameShellState.windowScale,
+                                 &exclusiveWidth, &exclusiveHeight,
+                                 &exclusiveBits, &exclusiveFrequency,
+                                 &g_inGameShellState.mouseSensitivityX,
                                 &g_inGameShellState.mouseSensitivityY,
                                 &g_inGameShellState.mouseInvertY,
                                 &migrated)) {
@@ -5731,7 +5919,7 @@ bool RecoveredGameServices_ConfigureInGameShell(
         ++g_inGameShellState.settingsMigrations;
         rewriteSettings = true;
         g_inGameShellState.status =
-            "Schema-1 settings migrated with retail mouse defaults";
+            "Legacy settings migrated with safe display defaults";
       } else {
         g_inGameShellState.status = "Settings loaded";
       }
@@ -5744,6 +5932,31 @@ bool RecoveredGameServices_ConfigureInGameShell(
   } else if (safeMode) {
     g_inGameShellState.status = "Safe mode: settings bypassed";
   }
+  if (g_inGameShellState.displayModeCount != 0u) {
+    std::size_t selected = 0u;
+    if (RecoveredSoftwareGraph_FindDisplayMode(
+            exclusiveWidth, exclusiveHeight, exclusiveBits,
+            exclusiveFrequency, &selected)) {
+      g_inGameShellState.exclusiveModeIndex = selected;
+    } else {
+      g_inGameShellState.exclusiveModeIndex = 0u;
+      rewriteSettings = rewriteSettings || exists;
+      if (g_inGameShellState.windowMode == 2) {
+        g_inGameShellState.windowMode = 0;
+        g_inGameShellState.status =
+            "Unavailable exclusive mode recovered to windowed";
+      }
+    }
+  } else if (_gr_hWnd != nullptr && g_inGameShellState.windowMode == 2) {
+    g_inGameShellState.windowMode = 0;
+    rewriteSettings = true;
+    g_inGameShellState.status =
+        "Exclusive display unavailable; windowed mode restored";
+  }
+  g_inGameShellRequestedExclusiveWidth = exclusiveWidth;
+  g_inGameShellRequestedExclusiveHeight = exclusiveHeight;
+  g_inGameShellRequestedExclusiveBits = exclusiveBits;
+  g_inGameShellRequestedExclusiveFrequency = exclusiveFrequency;
   if (!g_windowsInputAdapter.SetBindings(g_inGameShellBindings)) {
     g_inGameShellState.lastError = "input bindings could not be activated";
     Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
@@ -5751,10 +5964,15 @@ bool RecoveredGameServices_ConfigureInGameShell(
   }
   ApplyShellMouseSettingsToRuntime();
   g_inGameShellAppliedPresentation = ShellPresentation(
-      g_inGameShellState.windowMode, g_inGameShellState.windowScale);
+      g_inGameShellState.windowMode, g_inGameShellState.windowScale,
+      g_inGameShellState.exclusiveModeIndex);
   g_inGameShellRollbackPresentation = g_inGameShellAppliedPresentation;
   g_inGameShellPersistedWindowMode = g_inGameShellState.windowMode;
   g_inGameShellPersistedWindowScale = g_inGameShellState.windowScale;
+  g_inGameShellPersistedExclusiveModeIndex =
+      g_inGameShellState.exclusiveModeIndex;
+  g_inGameShellRollbackExclusiveModeIndex =
+      g_inGameShellState.exclusiveModeIndex;
   g_inGameShellVideoDeadline = 0;
   if (rewriteSettings && !WriteInGameShellSettings()) {
     g_inGameShellState.lastError =

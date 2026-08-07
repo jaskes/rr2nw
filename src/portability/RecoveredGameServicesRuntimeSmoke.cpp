@@ -397,6 +397,10 @@ void CleanupSaveSlotFixture(const std::wstring& directory) {
   }
   DeleteFileW((directory + L"\\shell-settings.cfg").c_str());
   DeleteFileW((directory + L"\\shell-settings.cfg.tmp").c_str());
+  DeleteFileW(
+      (directory + L"\\shell-settings.cfg.display-recovery").c_str());
+  DeleteFileW(
+      (directory + L"\\shell-settings.cfg.display-recovery.tmp").c_str());
   RemoveDirectoryW(directory.c_str());
 }
 
@@ -5405,6 +5409,45 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("schema-1 settings did not migrate exactly once");
+  }
+  FILE* schemaTwoSettings = nullptr;
+  if (_wfopen_s(&schemaTwoSettings, shellSettingsPath.c_str(), L"wb") != 0 ||
+      schemaTwoSettings == nullptr) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-2 settings migration fixture could not be written");
+  }
+  std::ostringstream schemaTwoBody;
+  schemaTwoBody << "version=2\r\nwindow_mode=1\r\nwindow_scale=2\r\n"
+                << "mouse_sensitivity_x=0.600\r\n"
+                << "mouse_sensitivity_y=0.400\r\n"
+                << "mouse_invert_y=1\r\n";
+  for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index)
+    schemaTwoBody << "binding_" << index << "="
+                  << legacyBindings.key[index] << "\r\n";
+  const std::string schemaTwoBytes = schemaTwoBody.str();
+  const bool schemaTwoBodyWritten =
+      std::fwrite(schemaTwoBytes.data(), 1u, schemaTwoBytes.size(),
+                  schemaTwoSettings) == schemaTwoBytes.size();
+  const bool schemaTwoWritten =
+      std::fclose(schemaTwoSettings) == 0 && schemaTwoBodyWritten;
+  if (!schemaTwoWritten ||
+      !RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, false)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-2 settings migration failed");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  if (shell == nullptr || shell->settingsLoads != 1u ||
+      shell->settingsMigrations != 1u || shell->settingsWrites != 1u ||
+      shell->windowMode != 1 || shell->windowScale != 2 ||
+      std::fabs(shell->mouseSensitivityX - 0.6) > 1.0e-12 ||
+      std::fabs(shell->mouseSensitivityY - 0.4) > 1.0e-12 ||
+      !shell->mouseInvertY) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-2 settings did not migrate exactly once");
   }
   FILE* corruptSettings = nullptr;
   if (_wfopen_s(&corruptSettings, shellSettingsPath.c_str(), L"wb") != 0 ||

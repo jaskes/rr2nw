@@ -9,6 +9,7 @@
 #include "RecoveredGameServicesRuntime.h"
 #include "RecoveredGameplayTuningRuntime.h"
 #include "RecoveredScriptEventRuntime.h"
+#include "RecoveredSoftwareGraph.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
@@ -6550,6 +6551,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->videoRollbacks));
     log.Line("in_game_shell_video_timeout_rollbacks=" +
              std::to_string(shellState->videoTimeoutRollbacks));
+    log.Line("in_game_shell_display_modes=" +
+             std::to_string(shellState->displayModeCount));
+    log.Line("in_game_shell_exclusive_mode_index=" +
+             std::to_string(shellState->exclusiveModeIndex));
+    log.Line("in_game_shell_display_catalog_refreshes=" +
+             std::to_string(shellState->displayCatalogRefreshes));
+    log.Line("in_game_shell_stale_display_recoveries=" +
+             std::to_string(shellState->staleDisplayRecoveries));
     log.Line("in_game_shell_settings_loads=" +
              std::to_string(shellState->settingsLoads));
     log.Line("in_game_shell_settings_writes=" +
@@ -6583,6 +6592,54 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("in_game_shell_status=" + shellState->status);
     log.Line("in_game_shell_last_error=" + shellState->lastError);
   }
+  const SRecoveredWindowsPresentationState windowsPresentation =
+      RecoveredSoftwareGraph_WindowsPresentationState();
+  const std::size_t displayModeCount =
+      RecoveredSoftwareGraph_DisplayModeCount();
+  log.Line("windows_presentation_mode_count=" +
+           std::to_string(displayModeCount));
+  for (std::size_t index = 0; index < displayModeCount; ++index) {
+    SRecoveredDisplayMode mode;
+    if (!RecoveredSoftwareGraph_DisplayMode(index, &mode)) continue;
+    log.Line("windows_presentation_mode_" + std::to_string(index) + "=" +
+             std::to_string(mode.width) + "x" +
+             std::to_string(mode.height) + "x" +
+             std::to_string(mode.bitsPerPixel) + "@" +
+             std::to_string(mode.displayFrequency) + "|" +
+             WideToUtf8(mode.displayDevice));
+  }
+  log.Line("windows_presentation_dpi_aware=" +
+           std::to_string(windowsPresentation.dpiAware ? 1 : 0));
+  log.Line("windows_presentation_recovery_configured=" +
+           std::to_string(
+               windowsPresentation.recoveryConfigured ? 1 : 0));
+  log.Line("windows_presentation_stale_recovered=" +
+           std::to_string(
+               windowsPresentation.staleModeRecovered ? 1 : 0));
+  log.Line("windows_presentation_corrupt_recovery_markers=" +
+           std::to_string(windowsPresentation.corruptRecoveryMarkers));
+  log.Line("windows_presentation_recovery_failures=" +
+           std::to_string(windowsPresentation.recoveryFailures));
+  log.Line("windows_presentation_exclusive_active=" +
+           std::to_string(windowsPresentation.exclusiveActive ? 1 : 0));
+  log.Line("windows_presentation_exclusive_suspended=" +
+           std::to_string(windowsPresentation.exclusiveSuspended ? 1 : 0));
+  log.Line("windows_presentation_catalog_refreshes=" +
+           std::to_string(windowsPresentation.catalogRefreshes));
+  log.Line("windows_presentation_exclusive_applies=" +
+           std::to_string(windowsPresentation.exclusiveApplies));
+  log.Line("windows_presentation_desktop_restores=" +
+           std::to_string(windowsPresentation.desktopRestores));
+  log.Line("windows_presentation_focus_suspends=" +
+           std::to_string(windowsPresentation.focusSuspends));
+  log.Line("windows_presentation_focus_resumes=" +
+           std::to_string(windowsPresentation.focusResumes));
+  log.Line("windows_presentation_focus_fallbacks=" +
+           std::to_string(windowsPresentation.focusFallbacks));
+  log.Line("windows_presentation_dpi_changes=" +
+           std::to_string(windowsPresentation.dpiChanges));
+  log.Line("windows_presentation_display_changes=" +
+           std::to_string(windowsPresentation.displayChanges));
   const SRecoveredSaveSlotCatalogSnapshot* saveCatalog =
       RecoveredGameServices_InGameShellSaveCatalog();
   if (saveCatalog != nullptr) {

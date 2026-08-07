@@ -416,15 +416,45 @@ foreach ($configurationName in $Configuration) {
     }
     else {
         $settingsText = Get-Content -LiteralPath $settings -Raw
-        if ($settingsText -notmatch '(?m)^version=2\r?$' -or
+        if ($settingsText -notmatch '(?m)^version=3\r?$' -or
             $settingsText -notmatch '(?m)^window_mode=0\r?$' -or
             $settingsText -notmatch '(?m)^window_scale=1\r?$' -or
+            $settingsText -notmatch '(?m)^exclusive_width=\d+\r?$' -or
+            $settingsText -notmatch '(?m)^exclusive_height=\d+\r?$' -or
+            $settingsText -notmatch '(?m)^exclusive_bits=\d+\r?$' -or
+            $settingsText -notmatch '(?m)^exclusive_frequency=\d+\r?$' -or
             $settingsText -notmatch '(?m)^mouse_sensitivity_x=0\.500\r?$' -or
             $settingsText -notmatch '(?m)^mouse_sensitivity_y=0\.500\r?$' -or
             $settingsText -notmatch '(?m)^mouse_invert_y=0\r?$' -or
             $settingsText -notmatch '(?m)^binding_25=34\r?$' -or
             $settingsText -notmatch '(?m)^binding_0=87\r?$') {
             $issues.Add("settings.cfg did not retain confirmed safe defaults")
+        }
+    }
+    foreach ($counter in @(
+            "in_game_shell_display_modes",
+            "in_game_shell_display_catalog_refreshes",
+            "windows_presentation_catalog_refreshes")) {
+        if (-not $log.ContainsKey($counter) -or [int64]$log[$counter] -lt 1) {
+            $actual = if ($log.ContainsKey($counter)) {
+                [string]$log[$counter]
+            } else { "<missing>" }
+            $issues.Add("$counter expected at least 1, got $actual")
+        }
+    }
+    foreach ($entry in @{
+            windows_presentation_dpi_aware = "1"
+            windows_presentation_recovery_configured = "1"
+            windows_presentation_stale_recovered = "0"
+            windows_presentation_exclusive_active = "0"
+            windows_presentation_focus_fallbacks = "0"
+        }.GetEnumerator()) {
+        if (-not $log.ContainsKey($entry.Key) -or
+            [string]$log[$entry.Key] -ne [string]$entry.Value) {
+            $actual = if ($log.ContainsKey($entry.Key)) {
+                [string]$log[$entry.Key]
+            } else { "<missing>" }
+            $issues.Add("$($entry.Key) expected $($entry.Value), got $actual")
         }
     }
     $record = [pscustomobject]@{

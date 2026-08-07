@@ -173,12 +173,12 @@ dwell cannot leak into physics or persisted continuation clocks. Save, Load,
 restart and Developer operations still execute through their existing typed
 coordinators only after the rendered frame has fully ended and presented.
 
-The renderer continues to own one 640x480 software framebuffer. Windowed and
-borderless modes scale that buffer into an aspect-correct 4:3 destination and
-letterbox any remaining client area. This keeps archival viewport, panel and
-scene assumptions stable while the platform layer owns window geometry. Video
-apply captures a last-known-good platform snapshot and reverts it after 15
-seconds unless the player confirms it.
+The renderer continues to own one 640x480 software framebuffer. Windowed,
+borderless and exclusive modes scale that buffer into an aspect-correct 4:3
+destination and letterbox any remaining client area. This keeps archival
+viewport, panel and scene assumptions stable while the platform layer owns
+window and display geometry. Video apply captures a last-known-good platform
+snapshot and reverts it after 15 seconds unless the player confirms it.
 
 Input settings name actions rather than raw archival dispatch paths. The
 catalog covers 26 Player/Vehicle/map actions and retains the exact recovered
@@ -187,10 +187,12 @@ may share a key, while two actions admitted in the same context fail closed.
 Map entry, binding capture and focus transitions neutralize physical and
 semantic latches. Persisted mouse X/Y sensitivity and invert-Y use the retail
 range and are applied to both the recovered attributes and legacy Hardware
-owner. A bounded schema-2 config under `%LOCALAPPDATA%\RR2NW` is written by
-atomic replacement; schema 1 migrates with new defaults. Corrupt or newer data
-falls back to safe windowed defaults; `--safe-mode` bypasses it. Developer mode
-is a CLI capability and is deliberately absent from the persisted schema.
+owner. A bounded schema-3 config under `%LOCALAPPDATA%\RR2NW` is written by
+atomic replacement; schemas 1 and 2 migrate with new defaults. Schema 3 stores
+the exact exclusive width, height, bit depth and refresh rate instead of an
+unstable enumeration index. Corrupt or newer data falls back to safe windowed
+defaults; `--safe-mode` bypasses it. Developer mode is a CLI capability and is
+deliberately absent from the persisted schema.
 
 The Developer page is a read-only projection of the existing Debug owners. Its
 snapshot contains the seven fixed transactions, both views of the active
@@ -201,13 +203,21 @@ request used by the native fallback and closes the shell before the command is
 processed at the frame boundary. With no process capability the snapshot is
 not ready and contains zero commands, even if `settings.cfg` is corrupt.
 
-The present Win32/GDI owner proves windowed and borderless style/geometry only.
-It does not enumerate display modes, select a display device, call
-`ChangeDisplaySettingsEx` or own crash-safe restoration of the desktop mode.
-Exclusive fullscreen therefore remains a separate physical backend gate; it
-must not be represented by a borderless alias or mutate the display until that
-ownership exists. The archival 640x480 framebuffer remains unchanged in every
-presentation mode.
+The Win32/GDI presentation owner resolves the monitor nearest the game window,
+enumerates a bounded set of exact 4:3 `DEVMODE` rows and is the only code that
+may call `ChangeDisplaySettingsEx`. Before an exclusive mutation it atomically
+writes `settings.cfg.display-recovery`; returning to windowed/borderless or
+normal graph teardown restores the desktop mode and removes the marker. A
+subsequent startup consumes a valid stale marker before applying persisted
+settings; a corrupt marker restores every attached desktop device and is then
+removed. UI code only publishes the existing closed-frame video command.
+
+Exclusive focus loss temporarily restores the desktop while retaining the
+marker, and focus gain reapplies the exact selected mode. A failed resume falls
+back to safe 640x480 windowed presentation. Per-monitor-v2 DPI awareness is
+requested before the window is created and `WM_DPICHANGED` owns the suggested
+window rectangle. None of these paths changes the archival 640x480 framebuffer
+or labels borderless as exclusive fullscreen.
 
 ## RNG и replay
 
