@@ -64,6 +64,7 @@ SoundObj::~SoundObj()
 
 void SoundObj::releaseEmitter()
  {
+    SoundState_StopPlayback(&m_backendPlayback);
 #ifndef RR2NW_SOUNDOBJ_DEVICE_FREE
     if (m_lpCE != 0)
     {
@@ -76,6 +77,7 @@ void SoundObj::releaseEmitter()
     m_emitterValid = 0;
     m_playing = 0;
     m_playCount = 0;
+    m_backendPlayback = 0;
  }
 
 void SoundObj::resetState()
@@ -85,6 +87,7 @@ void SoundObj::resetState()
     m_positionValid = 0;
     m_playing = 0;
     m_playCount = 0;
+    m_backendPlayback = 0;
     m_position = CFVector3(0,0,0);
     m_wav = 0;
  }
@@ -329,12 +332,21 @@ void SoundObj::startPlay( int count )
         return;
     m_playing = 1;
     m_playCount = count;
+    SoundState_StopPlayback(&m_backendPlayback);
+    SSoundStatePlaybackRequest request = {
+        m_wav->m_rsxCE.szFilename,
+        m_wav->m_flags,
+        count,
+        m_wav->m_rsxEModel.fIntensity
+    };
+    (void)SoundState_StartPlayback(&request, &m_backendPlayback);
     if (m_emitterValid)
         m_lpCE->ControlMedia(RSX_PLAY, count, 0);
  }
 
 void SoundObj::endPlay()
  {
+    SoundState_StopPlayback(&m_backendPlayback);
     m_playing = 0;
     m_playCount = 0;
     if (m_emitterValid)

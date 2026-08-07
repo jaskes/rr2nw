@@ -2770,6 +2770,27 @@ playable Level begins.
   continuation passes 3/3 and Debug/Release/RelWithDebInfo each pass 67/67
   CTest. Visual return of control after the one briefing remains a manual check.
 
+### RP-AUDIO-001: cached one-shot effects have a maintained output owner
+
+- Classification: `SOURCE_COMMAND_PATH_PRESERVED`,
+  `PHYSICAL_WINDOWS_OUTPUT_RECONNECTED`, `PARTIAL_CATEGORY_PARITY`.
+- `WAVObj` still executes retail resource construction and `SoundObj` still
+  executes its exact command lifecycle. A callback boundary now maps only
+  flags-0 `START(1)` requests to XAudio2 2.9; `END`, object removal and rollback
+  stop the matching physical token without serializing it.
+- The installed WAV corpus proves the maintained decoder subset, but does not
+  prove category semantics. Flags-1 dialogue/music and count-0 class loops stay
+  explicit deferred rows. `MOVE_TO` and emitter intensity remain authored state
+  until listener ownership and RSX attenuation behavior are recovered.
+- The Effects submix uses schema-4 player volume, focus suspension and bounded
+  device-loss recovery. Playback success/failure cannot affect the scheduler,
+  mission outcome, save fingerprint or Level transition.
+- Verification combines synthetic PCM rejection, fake-backend SoundObj
+  rollback, headless installed Level admission and an opt-in physical
+  device/generated-tone gate. Audibility and balance of real weapon/explosion
+  effects remain a short manual playtest; streamed/cinematic/loop/3D coverage
+  remains open.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

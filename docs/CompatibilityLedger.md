@@ -5269,7 +5269,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   startup restore the desktop. Alt-Tab restores without consuming the marker,
   then reapplies the exact mode on focus gain; resume failure falls back to
   640x480 windowed. Schema 3 stores exact dimensions, bit depth and refresh;
-  schemas 1/2 migrate and catalog indices never become persistent identity.
+  schema 4 retains those exact fields alongside Effects volume, schemas 1/2/3
+  migrate and catalog indices never become persistent identity.
 - Verification: headless validation covers structural mode bounds and schema
   migration; the ordinary real-window shell gate proves bounded enumeration,
   DPI awareness and zero unrequested display mutations. The explicit physical
@@ -5326,6 +5327,43 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: legacy explicit fatal/assert owners are consolidated, crash
   processing moves off the faulting thread, a consented support exporter is
   added, or x64 changes PE/stack/symbol assumptions.
+
+### CQ-259: authored sound state and physical audio output have separate owners
+
+- Status: `XAUDIO2_2_9_DEVICE_OWNER_CONFIRMED`,
+  `CACHED_PCM_EFFECTS_PLAYABLE`, `STREAM_LOOP_SPATIAL_DEFERRED`.
+- Evidence: the archived Intel RSX owner is not linked into the maintained
+  executable. `WAVObj` retains the authored `..\SOUND\<name>.wav`, emitter
+  model and `LoadWAVEx` flag; `SoundObj` retains `SET_WAV`, `MOVE_TO`,
+  `START(count)` and `END`. In the installed data all 86 WAV files are PCM,
+  mono, 22050 Hz and 16-bit (38,229,804 bytes total). The scripts use
+  `flags=0` for cached effects and `flags=1` for streamed dialogue/music;
+  proven Explosion one-shots use `START(1)`, while Farter/Taxi/Orphan use
+  `START(0)` and therefore cannot be relabelled as one-shots.
+- Handling: one Windows SDK XAudio2 2.9 owner admits only bounded `flags=0`
+  PCM WAVs through the active mod VFS. Admission is limited to 8 MiB per file,
+  128 clips and 64 MiB decoded samples, covering the 86-file retail union
+  across Level transitions. At most 32 non-blocking source voices
+  route through the Effects submix; saturation rejects a request rather than
+  stealing a live voice. Callback completion is reaped on the frame owner.
+  Device loss rebuilds the physical voices, focus suspends/resumes the engine,
+  and the backend retains its own COM reference through Level teardown.
+  Audio failure never changes simulation, mission or save state.
+- Verification: synthetic parser fixtures reject malformed RIFF, compressed
+  format and duplicate data chunks. A fake backend proves admission,
+  one-shot/start/stop/focus/volume/rollback without a device. Installed
+  Level.03N admits 26 short effects (1,492,248 decoded bytes), defers six
+  streams and reaches clean shutdown with zero service issues. The explicit
+  physical gate separately proves silent device creation and one completed
+  500 ms generated tone; it is excluded from CTest so CI never needs speakers
+  or emits sound. Three real Portal transitions retain the process cache across
+  Level teardown (up to 46 unique clips) with zero rejected admissions.
+- Boundary: schema 4 exposes only `Gameplay effects volume`. Streamed speech,
+  music, FLIC audio, UI, vehicle engine loops, audible-zone attenuation and
+  authored 3D emitter semantics remain unsupported and are not synthesized.
+- Revisit when: the listener/Vehicle owner is stable enough to map emitter
+  positions, loop lifecycle is proven per class, or a maintained streaming and
+  cinematic clock owner exists.
 
 ## Maintenance rule
 

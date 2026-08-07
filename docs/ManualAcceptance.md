@@ -85,11 +85,11 @@ Continue they resume only after a new physical press.
    in the menu. A ready row must close the shell and report that it was queued
    at the closed frame boundary.
 5. Exit, replace `%LOCALAPPDATA%\RR2NW\settings.cfg` with invalid text and start
-   again. The game must recover a valid schema-3 file and safe 640x480 windowed
+   again. The game must recover a valid schema-4 file and safe 640x480 windowed
    defaults. `--safe-mode` must also start with those defaults while ignoring
    otherwise valid saved settings. The bounded gate also creates a valid
-   schema-1 and schema-2 fixture and proves atomic migration with old bindings
-   preserved and new map/mouse/display defaults added.
+   schema-1, schema-2 and schema-3 fixture and proves atomic migration with old
+   bindings preserved and new map/mouse/display/audio defaults added.
 
 The bounded real-window proof exercises Save/Load, explicit overwrite
 confirmation, asynchronous thumbnails for old/current/corrupt/incompatible

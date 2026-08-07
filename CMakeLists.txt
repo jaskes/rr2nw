@@ -144,6 +144,16 @@ if(MSVC)
   target_compile_options(rr2nw_sound_state PRIVATE /W3 /permissive-)
 endif()
 
+add_library(rr2nw_pcm_wav STATIC
+  src/runtime/RecoveredPcmWav.cpp
+  src/runtime/RecoveredPcmWav.h
+)
+target_include_directories(rr2nw_pcm_wav PUBLIC src/runtime)
+target_compile_features(rr2nw_pcm_wav PUBLIC cxx_std_14)
+if(MSVC)
+  target_compile_options(rr2nw_pcm_wav PRIVATE /W4 /permissive-)
+endif()
+
 add_library(rr2nw_arena_kernel STATIC
   nw/ARENA/KERNEL/SRC/Object.cpp
   nw/ARENA/KERNEL/SRC/S_DEBUG.CPP
@@ -4359,6 +4369,35 @@ target_compile_definitions(rr2nw_game_entry_runtime_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_windows_audio_runtime STATIC
+  src/platform/windows/WindowsAudioRuntime.cpp
+  src/platform/windows/WindowsAudioRuntime.h
+)
+target_include_directories(rr2nw_windows_audio_runtime PUBLIC
+  src/platform/windows
+)
+target_include_directories(rr2nw_windows_audio_runtime PRIVATE
+  src/runtime
+  nw/INCLUDE
+  nw/DESIGN.LIB/H
+)
+target_compile_features(rr2nw_windows_audio_runtime PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_windows_audio_runtime PRIVATE
+  UNICODE
+  _UNICODE
+)
+target_link_libraries(rr2nw_windows_audio_runtime PUBLIC
+  rr2nw_pcm_wav
+  rr2nw_mod_runtime
+  rr2nw_sound_state
+  xaudio2
+)
+if(MSVC)
+  target_compile_options(rr2nw_windows_audio_runtime PRIVATE
+    /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_game_startup STATIC
   src/platform/windows/GameStartup.cpp
   src/platform/windows/GameStartup.h
@@ -4392,6 +4431,7 @@ target_compile_definitions(rr2nw_game_startup PRIVATE
 )
 target_link_libraries(rr2nw_game_startup PUBLIC
   rr2nw_recovered_game_services_runtime
+  rr2nw_windows_audio_runtime
   dbghelp
   shell32
 )
@@ -4403,6 +4443,21 @@ target_link_libraries(rr2nw_game PRIVATE rr2nw_game_startup)
 target_compile_features(rr2nw_game PRIVATE cxx_std_14)
 target_compile_definitions(rr2nw_game PRIVATE UNICODE _UNICODE)
 set_target_properties(rr2nw_game PROPERTIES OUTPUT_NAME rr2nw)
+
+add_executable(rr2nw_audio_device_smoke EXCLUDE_FROM_ALL
+  src/portability/WindowsAudioDeviceSmoke.cpp
+)
+target_link_libraries(rr2nw_audio_device_smoke PRIVATE
+  rr2nw_windows_audio_runtime
+)
+target_compile_features(rr2nw_audio_device_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_audio_device_smoke PRIVATE
+  UNICODE
+  _UNICODE
+)
+if(MSVC)
+  target_compile_options(rr2nw_audio_device_smoke PRIVATE /W4 /permissive-)
+endif()
 
 add_executable(rr2nw_scene_software_draw_link_probe
   src/portability/SceneSoftwareDrawLinkProbe.cpp
@@ -4685,6 +4740,15 @@ target_compile_definitions(rr2nw_sound_object_state_smoke PRIVATE
   _CRT_NONSTDC_NO_WARNINGS
   _CRT_SECURE_NO_WARNINGS
 )
+
+add_executable(rr2nw_pcm_wav_smoke
+  src/portability/RecoveredPcmWavSmoke.cpp
+)
+target_link_libraries(rr2nw_pcm_wav_smoke PRIVATE rr2nw_pcm_wav)
+target_compile_features(rr2nw_pcm_wav_smoke PRIVATE cxx_std_14)
+if(MSVC)
+  target_compile_options(rr2nw_pcm_wav_smoke PRIVATE /W4 /permissive-)
+endif()
 
 add_executable(rr2nw_farter_subject_state_smoke
   src/portability/FarterSubjectStateSmoke.cpp
@@ -5211,6 +5275,7 @@ if(BUILD_TESTING)
     NAME sound-object-state-smoke
     COMMAND rr2nw_sound_object_state_smoke
   )
+  add_test(NAME recovered-pcm-wav-smoke COMMAND rr2nw_pcm_wav_smoke)
   add_test(
     NAME farter-subject-state-smoke
     COMMAND rr2nw_farter_subject_state_smoke

@@ -173,7 +173,7 @@ campaign restart, repair or every damaged Vehicle class is complete.
   native diagnostic and `--debug-menu` compatibility launches.
 - `Invoke-InGameShell.ps1` navigates all three in-frame subcatalogs, proves one
   explicit blocked selection, commits one safe typed command, and then starts
-  a second ordinary process where row seven is **Exit game** and Developer
+  a second ordinary process where row eight is **Exit game** and Developer
   telemetry is fail-closed at zero commands.
 - A native diagnostic runtime smoke must report
   `native_diagnostic_menu_enabled=1`, `debug_menu_native_installed=1`, a non-zero

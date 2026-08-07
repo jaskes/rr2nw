@@ -220,6 +220,10 @@ int WAVObj::receiveEvent(KR_Event &event)
             load(fname, fMinFront, fMinBack, fMaxFront, fMaxBack,
                  fIntensity, flags);
             m_loaded = true;
+            // Physical admission is best-effort and cannot change authored
+            // resource construction.  The maintained backend caches only
+            // flags=0 PCM effects; flags=1 remains explicit streamed media.
+            (void)SoundState_AdmitWave(m_rsxCE.szFilename, m_flags);
         }
         break;
 

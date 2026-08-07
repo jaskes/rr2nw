@@ -73,6 +73,7 @@
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
+#include "sound.h"
 #include "obase/spark/SparkSubjectState.h"
 #include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
@@ -1240,12 +1241,14 @@ std::wstring Utf8ToWide(const std::string& text) {
   return wide;
 }
 
-constexpr unsigned int kInGameSettingsVersion = 3u;
+constexpr unsigned int kInGameSettingsVersion = 4u;
 constexpr ULONGLONG kVideoConfirmationMilliseconds = 15000u;
 constexpr double kDefaultMouseSensitivity = 0.5;
 constexpr double kMinimumMouseSensitivity = 0.01;
 constexpr double kMaximumMouseSensitivity = 1.01;
 constexpr double kMouseSensitivityStep = 0.1;
+constexpr double kDefaultEffectsVolume = 1.0;
+constexpr double kEffectsVolumeStep = 0.1;
 
 SRecoveredWindowPresentation ShellPresentation(
     int mode, int scale, std::size_t exclusiveModeIndex) {
@@ -1330,6 +1333,10 @@ bool ValidMouseSensitivity(double value) {
          value <= kMaximumMouseSensitivity;
 }
 
+bool ValidEffectsVolume(double value) {
+  return std::isfinite(value) && value >= 0.0 && value <= 1.0;
+}
+
 bool LoadInGameShellSettings(const std::wstring& path,
                              SRecoveredInputBindings* bindings,
                              int* windowMode, int* windowScale,
@@ -1337,12 +1344,14 @@ bool LoadInGameShellSettings(const std::wstring& path,
                              int* exclusiveBits, int* exclusiveFrequency,
                              double* mouseSensitivityX,
                              double* mouseSensitivityY,
-                             bool* mouseInvertY, bool* migrated) {
+                             bool* mouseInvertY, double* effectsVolume,
+                             bool* migrated) {
   if (bindings == nullptr || windowMode == nullptr || windowScale == nullptr ||
       exclusiveWidth == nullptr || exclusiveHeight == nullptr ||
       exclusiveBits == nullptr || exclusiveFrequency == nullptr ||
       mouseSensitivityX == nullptr || mouseSensitivityY == nullptr ||
-      mouseInvertY == nullptr || migrated == nullptr)
+      mouseInvertY == nullptr || effectsVolume == nullptr ||
+      migrated == nullptr)
     return false;
   std::string bytes;
   if (!ReadSmallFile(path, &bytes)) return false;
@@ -1357,6 +1366,7 @@ bool LoadInGameShellSettings(const std::wstring& path,
   double sensitivityX = kDefaultMouseSensitivity;
   double sensitivityY = kDefaultMouseSensitivity;
   unsigned int invertY = 0;
+  double effects = kDefaultEffectsVolume;
   bool haveVersion = false;
   bool haveMode = false;
   bool haveScale = false;
@@ -1367,6 +1377,7 @@ bool LoadInGameShellSettings(const std::wstring& path,
   bool haveSensitivityX = false;
   bool haveSensitivityY = false;
   bool haveInvertY = false;
+  bool haveEffects = false;
   bool haveBinding[RECOVERED_BIND_COUNT] = {};
   std::istringstream input(bytes);
   std::string line;
@@ -1424,6 +1435,11 @@ bool LoadInGameShellSettings(const std::wstring& path,
       haveInvertY = true;
       continue;
     }
+    if (ParseDoubleSetting(line, "effects_volume", &doubleValue)) {
+      effects = doubleValue;
+      haveEffects = true;
+      continue;
+    }
     for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index) {
       const std::string name = "binding_" + std::to_string(index);
       if (!ParseUnsignedSetting(line, name.c_str(), &value)) continue;
@@ -1454,8 +1470,10 @@ bool LoadInGameShellSettings(const std::wstring& path,
   if (version >= 2u &&
       (!haveSensitivityX || !haveSensitivityY || !haveInvertY))
     return false;
+  if (version >= 4u && !haveEffects) return false;
   if (!ValidMouseSensitivity(sensitivityX) ||
-      !ValidMouseSensitivity(sensitivityY) || invertY > 1u)
+      !ValidMouseSensitivity(sensitivityY) || invertY > 1u ||
+      !ValidEffectsVolume(effects))
     return false;
   const std::size_t requiredBindings =
       version >= 2u ? RECOVERED_BIND_COUNT : RECOVERED_BIND_MAP + 1u;
@@ -1473,6 +1491,7 @@ bool LoadInGameShellSettings(const std::wstring& path,
   *mouseSensitivityX = sensitivityX;
   *mouseSensitivityY = sensitivityY;
   *mouseInvertY = invertY != 0u;
+  *effectsVolume = effects;
   *migrated = version < kInGameSettingsVersion;
   return true;
 }
@@ -1502,7 +1521,9 @@ bool WriteInGameShellSettings() {
          << "mouse_sensitivity_y="
          << g_inGameShellState.mouseSensitivityY << "\r\n"
          << "mouse_invert_y="
-         << (g_inGameShellState.mouseInvertY ? 1 : 0) << "\r\n";
+         << (g_inGameShellState.mouseInvertY ? 1 : 0) << "\r\n"
+         << "effects_volume=" << g_inGameShellState.effectsVolume
+         << "\r\n";
   for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index)
     output << "binding_" << index << "="
            << g_inGameShellBindings.key[index] << "\r\n";
@@ -1542,6 +1563,15 @@ void ApplyShellMouseSettingsToRuntime() {
   g_hardware.m_ms.sensX = g_inGameShellState.mouseSensitivityX;
   g_hardware.m_ms.sensY = g_inGameShellState.mouseSensitivityY;
   g_hardware.m_ms.invY = g_inGameShellState.mouseInvertY ? 1 : 0;
+}
+
+void ApplyShellAudioSettingsToRuntime() {
+  if (!g_inGameShellState.configured ||
+      !ValidEffectsVolume(g_inGameShellState.effectsVolume))
+    return;
+  (void)SoundState_SetCategoryVolume(
+      SOUND_STATE_CATEGORY_EFFECTS,
+      static_cast<float>(g_inGameShellState.effectsVolume));
 }
 
 std::wstring EscapeNativeMenuText(const std::wstring& text) {
@@ -2930,8 +2960,8 @@ std::size_t ShellPageItemCount() {
     case RECOVERED_SHELL_PAGE_ROOT:
       return g_inGameShellState.developerMode &&
                      g_debugMenuState.configured
-                 ? 8u
-                 : 7u;
+                 ? 9u
+                 : 8u;
     case RECOVERED_SHELL_PAGE_SAVE:
     case RECOVERED_SHELL_PAGE_LOAD:
       return LevelSaveSlot_Count() + 1u;
@@ -2939,6 +2969,8 @@ std::size_t ShellPageItemCount() {
       return RECOVERED_BIND_COUNT + 5u;
     case RECOVERED_SHELL_PAGE_VIDEO:
       return 4u;
+    case RECOVERED_SHELL_PAGE_AUDIO:
+      return 2u;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       return 11u;
     case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM:
@@ -3026,6 +3058,21 @@ bool AdjustShellMouseSensitivity(double* value, int direction) {
   ++g_inGameShellState.mouseSettingChanges;
   ApplyShellMouseSettingsToRuntime();
   return PersistShellSettings("Mouse sensitivity saved");
+}
+
+bool AdjustShellEffectsVolume(int direction) {
+  if (direction == 0) return false;
+  const double adjusted = (std::max)(
+      0.0, (std::min)(1.0, g_inGameShellState.effectsVolume +
+                              (direction < 0 ? -kEffectsVolumeStep
+                                             : kEffectsVolumeStep)));
+  const double rounded = std::round(adjusted * 10.0) / 10.0;
+  if (std::fabs(rounded - g_inGameShellState.effectsVolume) <= 1.0e-12)
+    return true;
+  g_inGameShellState.effectsVolume = rounded;
+  ++g_inGameShellState.audioSettingChanges;
+  ApplyShellAudioSettingsToRuntime();
+  return PersistShellSettings("Effects volume saved");
 }
 
 bool ToggleShellMouseInvertY() {
@@ -3221,7 +3268,9 @@ bool ActivateShellSelection() {
         ShellSelectPage(RECOVERED_SHELL_PAGE_CONTROLS);
       } else if (selected == 5u) {
         ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
-      } else if (selected == 6u && g_inGameShellState.developerMode &&
+      } else if (selected == 6u) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_AUDIO);
+      } else if (selected == 7u && g_inGameShellState.developerMode &&
                  g_debugMenuState.configured) {
         ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
       } else {
@@ -3280,6 +3329,11 @@ bool ActivateShellSelection() {
       } else if (selected == 3u) {
         ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
       }
+      return true;
+    case RECOVERED_SHELL_PAGE_AUDIO:
+      if (selected == 0u)
+        return AdjustShellEffectsVolume(1);
+      ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
       return true;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       return ActivateDeveloperShellItem(selected);
@@ -3388,6 +3442,10 @@ bool HandleInGameShellKey(std::uint32_t key) {
     if (g_inGameShellState.selected == RECOVERED_BIND_COUNT + 2u)
       return ToggleShellMouseInvertY();
   }
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_AUDIO &&
+      (key == VK_LEFT || key == VK_RIGHT) &&
+      g_inGameShellState.selected == 0u)
+    return AdjustShellEffectsVolume(key == VK_LEFT ? -1 : 1);
   return key == VK_RETURN ? ActivateShellSelection() : true;
 }
 
@@ -3573,7 +3631,7 @@ void DrawInGameShell() {
   switch (g_inGameShellState.page) {
     case RECOVERED_SHELL_PAGE_ROOT:
       lines = {"Continue", "Save game", "Load game",
-               "Restart current Level", "Controls", "Video"};
+               "Restart current Level", "Controls", "Video", "Audio"};
       if (g_inGameShellState.developerMode && g_debugMenuState.configured)
         lines.push_back("Developer");
       lines.push_back("Exit game");
@@ -3648,6 +3706,17 @@ void DrawInGameShell() {
       lines.push_back("Apply (15 second safety confirmation)");
       lines.push_back("Back");
       break;
+    case RECOVERED_SHELL_PAGE_AUDIO: {
+      std::ostringstream effects;
+      effects << std::fixed << std::setprecision(0)
+              << "Gameplay effects volume : "
+              << g_inGameShellState.effectsVolume * 100.0 << "%";
+      lines.push_back(effects.str());
+      lines.push_back("Back");
+      ShellPrint(72, 78,
+                 "Short PCM effects only; speech/music/loops are pending");
+      break;
+    }
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       RefreshInGameDeveloperCatalog();
       for (ERecoveredDebugMenuAction action : {
@@ -3834,6 +3903,8 @@ void PresentClosedFrameCommandFailure(
 
 LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
                                        WPARAM wParam, LPARAM lParam) {
+  if (message == WM_ACTIVATEAPP)
+    SoundState_SetApplicationActive(wParam != FALSE);
   LRESULT shellResult = 0;
   if (HandleInGameShellMessage(message, wParam, lParam, &shellResult))
     return shellResult;
@@ -5929,6 +6000,7 @@ bool RecoveredGameServices_ConfigureInGameShell(
   g_inGameShellState.mouseSensitivityX = kDefaultMouseSensitivity;
   g_inGameShellState.mouseSensitivityY = kDefaultMouseSensitivity;
   g_inGameShellState.mouseInvertY = false;
+  g_inGameShellState.effectsVolume = kDefaultEffectsVolume;
   g_inGameShellBindings = RecoveredWindowsInput_DefaultBindings();
 
   const std::wstring displayRecoveryPath =
@@ -5963,9 +6035,10 @@ bool RecoveredGameServices_ConfigureInGameShell(
                                  &exclusiveWidth, &exclusiveHeight,
                                  &exclusiveBits, &exclusiveFrequency,
                                  &g_inGameShellState.mouseSensitivityX,
-                                &g_inGameShellState.mouseSensitivityY,
-                                &g_inGameShellState.mouseInvertY,
-                                &migrated)) {
+                                 &g_inGameShellState.mouseSensitivityY,
+                                 &g_inGameShellState.mouseInvertY,
+                                 &g_inGameShellState.effectsVolume,
+                                 &migrated)) {
       ++g_inGameShellState.settingsLoads;
       if (migrated) {
         ++g_inGameShellState.settingsMigrations;
@@ -6015,6 +6088,7 @@ bool RecoveredGameServices_ConfigureInGameShell(
     return false;
   }
   ApplyShellMouseSettingsToRuntime();
+  ApplyShellAudioSettingsToRuntime();
   g_inGameShellAppliedPresentation = ShellPresentation(
       g_inGameShellState.windowMode, g_inGameShellState.windowScale,
       g_inGameShellState.exclusiveModeIndex);

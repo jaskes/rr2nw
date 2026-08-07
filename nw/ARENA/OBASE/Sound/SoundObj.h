@@ -20,6 +20,7 @@ class SoundObj : public ct_Object
  int		      m_positionValid;
  int                  m_playing;
  int                  m_playCount;
+ SoundStatePlaybackToken m_backendPlayback;
 
     void releaseEmitter();
     void resetState();

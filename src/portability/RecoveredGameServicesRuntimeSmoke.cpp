@@ -5340,17 +5340,26 @@ int main(int argc, char** argv) {
       std::fabs(shell->mouseSensitivityY - 0.5) <= 1.0e-12 &&
       !shell->mouseInvertY &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      shell->page == RECOVERED_SHELL_PAGE_ROOT;
+  for (int step = 0; shellReady && step < 6; ++step)
+    shellReady = RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+  shellReady = shellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->page == RECOVERED_SHELL_PAGE_AUDIO &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_LEFT) &&
+      std::fabs(shell->effectsVolume - 0.9) <= 1.0e-12 &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
       shell->page == RECOVERED_SHELL_PAGE_ROOT &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
       !shell->open && shell->closes == 1u &&
       shell->bindingChanges == 2u && shell->mouseSettingChanges == 3u &&
-      shell->settingsWrites == 5u &&
+      shell->audioSettingChanges == 1u && shell->settingsWrites == 6u &&
       GetFileAttributesW(shellSettingsPath.c_str()) !=
           INVALID_FILE_ATTRIBUTES;
   if (!shellReady) {
     std::fprintf(stderr,
                  "shell detail open=%d dev=%d page=%d selected=%zu opens=%u "
-                 "closes=%u neutral=%u binds=%u mouse=%u writes=%u "
+                 "closes=%u neutral=%u binds=%u mouse=%u audio=%u writes=%u "
                  "catalog=%d/%d/%zu reason=%s\n",
                  shell == nullptr ? 0 : shell->open ? 1 : 0,
                  shell == nullptr ? 0 : shell->developerMode ? 1 : 0,
@@ -5361,6 +5370,7 @@ int main(int argc, char** argv) {
                  shell == nullptr ? 0u : shell->inputNeutralizations,
                  shell == nullptr ? 0u : shell->bindingChanges,
                  shell == nullptr ? 0u : shell->mouseSettingChanges,
+                 shell == nullptr ? 0u : shell->audioSettingChanges,
                  shell == nullptr ? 0u : shell->settingsWrites,
                  developerCatalog == nullptr
                      ? 0
@@ -5374,6 +5384,20 @@ int main(int argc, char** argv) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("in-game shell controls/settings contract failed");
+  }
+  if (!RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, false)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-4 settings could not be reloaded");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  if (shell == nullptr || shell->settingsLoads != 1u ||
+      shell->settingsMigrations != 0u || shell->settingsWrites != 0u ||
+      std::fabs(shell->effectsVolume - 0.9) > 1.0e-12) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-4 Effects volume did not round-trip exactly");
   }
   FILE* legacySettings = nullptr;
   if (_wfopen_s(&legacySettings, shellSettingsPath.c_str(), L"wb") != 0 ||
@@ -5408,6 +5432,7 @@ int main(int argc, char** argv) {
       shell->corruptSettingsRecoveries != 0u ||
       std::fabs(shell->mouseSensitivityX - 0.5) > 1.0e-12 ||
       std::fabs(shell->mouseSensitivityY - 0.5) > 1.0e-12 ||
+      std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       shell->mouseInvertY ||
       RecoveredGameServices_InputBindings() == nullptr ||
       RecoveredGameServices_InputBindings()
@@ -5450,10 +5475,53 @@ int main(int argc, char** argv) {
       shell->windowMode != 1 || shell->windowScale != 2 ||
       std::fabs(shell->mouseSensitivityX - 0.6) > 1.0e-12 ||
       std::fabs(shell->mouseSensitivityY - 0.4) > 1.0e-12 ||
+      std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       !shell->mouseInvertY) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("schema-2 settings did not migrate exactly once");
+  }
+  FILE* schemaThreeSettings = nullptr;
+  if (_wfopen_s(&schemaThreeSettings, shellSettingsPath.c_str(), L"wb") != 0 ||
+      schemaThreeSettings == nullptr) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-3 settings migration fixture could not be written");
+  }
+  std::ostringstream schemaThreeBody;
+  schemaThreeBody << "version=3\r\nwindow_mode=0\r\nwindow_scale=2\r\n"
+                  << "exclusive_width=1280\r\nexclusive_height=960\r\n"
+                  << "exclusive_bits=32\r\nexclusive_frequency=60\r\n"
+                  << "mouse_sensitivity_x=0.700\r\n"
+                  << "mouse_sensitivity_y=0.300\r\n"
+                  << "mouse_invert_y=0\r\n";
+  for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index)
+    schemaThreeBody << "binding_" << index << "="
+                    << legacyBindings.key[index] << "\r\n";
+  const std::string schemaThreeBytes = schemaThreeBody.str();
+  const bool schemaThreeBodyWritten =
+      std::fwrite(schemaThreeBytes.data(), 1u, schemaThreeBytes.size(),
+                  schemaThreeSettings) == schemaThreeBytes.size();
+  const bool schemaThreeWritten =
+      std::fclose(schemaThreeSettings) == 0 && schemaThreeBodyWritten;
+  if (!schemaThreeWritten ||
+      !RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, false)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-3 settings migration failed");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  if (shell == nullptr || shell->settingsLoads != 1u ||
+      shell->settingsMigrations != 1u || shell->settingsWrites != 1u ||
+      shell->windowMode != 0 || shell->windowScale != 2 ||
+      std::fabs(shell->mouseSensitivityX - 0.7) > 1.0e-12 ||
+      std::fabs(shell->mouseSensitivityY - 0.3) > 1.0e-12 ||
+      std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
+      shell->mouseInvertY) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-3 settings did not migrate exactly once");
   }
   FILE* corruptSettings = nullptr;
   if (_wfopen_s(&corruptSettings, shellSettingsPath.c_str(), L"wb") != 0 ||
@@ -5482,6 +5550,7 @@ int main(int argc, char** argv) {
       shell->windowScale != 1 || shell->settingsMigrations != 0u ||
       std::fabs(shell->mouseSensitivityX - 0.5) > 1.0e-12 ||
       std::fabs(shell->mouseSensitivityY - 0.5) > 1.0e-12 ||
+      std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       shell->mouseInvertY ||
       RecoveredGameServices_InputBindings() == nullptr ||
       RecoveredGameServices_InputBindings()
@@ -5498,6 +5567,7 @@ int main(int argc, char** argv) {
       shell->corruptSettingsRecoveries != 0u || shell->windowMode != 0 ||
       shell->windowScale != 1 ||
       std::fabs(shell->mouseSensitivityX - 0.5) > 1.0e-12 ||
+      std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       shell->mouseInvertY ||
       !RecoveredGameServices_ConfigureDebugMenu(
           true, std::vector<std::string>{retailIdentity,

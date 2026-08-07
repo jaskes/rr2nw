@@ -6279,7 +6279,7 @@ available selection calls the original typed request, closes the shell and is
 processed only at the established closed-frame boundary with its existing LCN1
 rollback contract.
 
-Capability ownership stays outside schema-3 settings. Without the explicit
+Capability ownership stays outside versioned settings. Without the explicit
 process flag the Developer page is absent and its snapshot is not ready with
 zero commands. The real-window gate must prove both the enabled catalog and a
 second ordinary launch where the same menu position is Exit and all Developer
@@ -6297,18 +6297,18 @@ after the frame closes. The internal renderer remains 640x480 and uses the same
 aspect-correct GDI stretch/pillarbox path in every mode.
 
 Before entering exclusive the owner atomically writes a small recovery marker
-beside `settings.cfg`. Confirming changes schema-3 settings but does not remove
-the marker while exclusive remains active. Leaving exclusive and normal graph
+beside `settings.cfg`. Confirming changes the versioned settings but does not
+remove the marker while exclusive remains active. Leaving exclusive and normal graph
 teardown restore the desktop and remove it. Startup consumes a stale marker
 before admitting persisted settings; a corrupt marker restores every attached
 desktop device. Focus loss temporarily restores the desktop without deleting
 the marker, focus gain reapplies the exact mode, and failed resume falls back
 to safe windowed presentation.
 
-Settings persist exact mode fields, not catalog position. Schemas 1 and 2
-migrate atomically. Missing modes disable only exclusive or recover a persisted
-exclusive request to windowed; they must not make ordinary windowed startup
-fail. Physical acceptance requires an explicit switch because it visibly
+Settings persist exact mode fields, not catalog position. Schemas 1, 2 and 3
+migrate atomically into the current schema 4. Missing modes disable only
+exclusive or recover a persisted exclusive request to windowed; they must not
+make ordinary windowed startup fail. Physical acceptance requires an explicit switch because it visibly
 changes the user's desktop mode.
 
 ### BD-192: native Windows menus are an explicit diagnostic capability
@@ -6366,3 +6366,29 @@ capabilities or any other smoke/save transaction. It must exit with the exact
 exception code and never produce a modal/getch wait. Explicit archival
 `ExitProcess`, CRT abort/assert and debug-break fatal paths remain documented
 debt; this slice does not claim to capture them.
+
+### BD-194: physical audio is presentation, never a simulation clock
+
+Status: accepted on 2026-08-07 for the first maintained Windows audio slice.
+
+`WAVObj` and `SoundObj` remain the authored gameplay owners. The physical
+backend observes their existing command stream through a narrow callback ABI;
+it cannot delay a frame, alter an event, keep an object alive or add serialized
+state. A missing device, rejected WAV, voice exhaustion or critical XAudio2
+error is therefore an audible presentation failure with telemetry, not a
+mission/runtime transaction failure.
+
+The first supported category is intentionally narrow: bounded integer PCM
+(128 clips/64 MiB process-wide and 8 MiB per source),
+`LoadWAVEx` flags 0 and exact `START(1)` route to the Effects submix. Flags 1,
+`START(0)`, spatial positions and intensity are retained as evidence but fail
+closed at physical playback. No fallback may turn dialogue/music into cached
+effects, turn a loop into one shot, or pretend a 2D voice implements the Intel
+RSX emitter model.
+
+Schema 4 persists only Effects volume and migrates schemas 1-3 with a 100%
+default. The in-frame shell applies it immediately through the same category
+owner; invalid/newer settings retain atomic corrupt/safe-mode recovery. CI
+uses parser/fake-backend and headless retail gates. Physical device creation is
+a separate silent opt-in gate, and the only audible acceptance uses generated
+PCM rather than copied retail media.

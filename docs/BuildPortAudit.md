@@ -4141,3 +4141,43 @@ per configuration, the installed retail matrix 27/27 and fresh Level.03N
 continuation 3/3. The attempted full fresh 27-row matrix exceeded the bounded
 command window after completing Debug and part of Release; it is not counted
 as evidence.
+
+## Maintained Windows audio boundary
+
+The surviving source separates authored sound objects from its obsolete
+device. `nw/SOUND/SOUND.CPP` and `ZOUND.CPP` own Intel RSX creation, cached
+emitters and listener calls, but that owner is outside the maintained link.
+The active runtime already reconstructs `WAVObj` metadata and a capacity-250
+`SoundObj` pool. Resource scripts distinguish cached `LoadWAV`/flags 0 from
+streamed `LoadWAVEx(..., 1)`; Explosion uses exact `START(1)`, while the
+Farter/Taxi/Orphan classes retain `START(0)` loop requests. Vehicle engine and
+listener calls remain direct archival RSX paths and are not silently reused.
+
+The first production slice adds a neutral sound-state callback boundary and a
+Windows-only XAudio2 2.9 owner. The owner reads through the existing VFS,
+strictly validates `..\SOUND\<name>.wav`, decodes a bounded RIFF/integer-PCM
+subset and owns Effects-submix/source-voice lifetime. XAudio callbacks only set
+atomic completion flags; the complete-frame owner destroys voices, handles
+device loss and advances telemetry. Focus stops/starts the engine. A private
+COM reference keeps XAudio alive while seance shutdown releases the platform
+reference before the process audio scope.
+
+Installed `E:\Games\The Next Worlds\SOUND` contains 86/86 admitted-format
+files: mono 22050 Hz 16-bit PCM, totalling 38,229,804 bytes. A headless
+Level.03N run admits 26 cached clips/1,492,248 sample bytes and classifies six
+streamed resources without creating a device. The physical executable is
+`EXCLUDE_FROM_ALL`: `--device-check` opens and closes XAudio silently;
+`--listen` completes one generated 440 Hz/500 ms voice. It is deliberately not
+a CTest target.
+
+Settings advance to schema 4 with one `effects_volume` field and atomic
+schemas 1-3 migration. The Audio page exposes no category the backend does not
+own. Streaming, dialogue/music, FLIC/UI, vehicle loops, distance attenuation
+and 3D positioning remain named follow-up slices.
+
+The closure gate builds Debug, Release and RelWithDebInfo completely and
+passes 68/68 CTest in each configuration. Installed starts pass 27/27, the
+physical in-frame shell passes 3/3, Level briefing 27/27, RecruitCenter
+presentation 3/3, Portal transition 9/9, representative reward campaign chains
+6/6 and cross-Level Save/Load 2/2. The separately explicit physical audio gate
+passes both silent `--device-check` and generated `--listen` modes.

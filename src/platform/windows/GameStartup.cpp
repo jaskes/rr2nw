@@ -1,5 +1,6 @@
 #include "GameStartup.h"
 #include "WindowsCrashDiagnostics.h"
+#include "WindowsAudioRuntime.h"
 
 #include "RR2NWBuildRevision.h"
 #include "ActiveWorldSave.h"
@@ -29,6 +30,7 @@
 #include "obase/portal/PortalActiveWorldState.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "obase/taxi/TaxiSubjectState.h"
+#include "sound.h"
 #include "suavik.h"
 
 #include <shlobj.h>
@@ -767,6 +769,11 @@ class StartupLog {
 class ModRuntimeScope {
  public:
   ~ModRuntimeScope() { RecoveredModRuntime_Release(); }
+};
+
+class AudioRuntimeScope {
+ public:
+  ~AudioRuntimeScope() { WindowsAudioRuntime_Shutdown(); }
 };
 
 class CrashDiagnosticsScope {
@@ -1756,6 +1763,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     return kDataNotReady;
   }
   ModRuntimeScope modRuntimeScope;
+  AudioRuntimeScope audioRuntimeScope;
   std::string baseDataPath;
   std::string modFailure;
   bool modReady = false;
@@ -2117,6 +2125,30 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
 
   PIN_InitEverything();
   log.Line("platform_initialized=1");
+  // PIN owns COM for the process thread. XAudio2 mastering-voice creation must
+  // follow that boundary, while configuration still has to precede SUA so
+  // authored WAV resources can be admitted as the session is constructed.
+  const float effectsVolume = configuredShell == nullptr
+      ? 1.0f
+      : static_cast<float>(configuredShell->effectsVolume);
+  if (!WindowsAudioRuntime_Configure(effectsVolume,
+                                     !options.runtimeSmoke)) {
+    log.Line("failure=maintained audio backend boundary could not be installed");
+    log.Line("marker=audio-not-ready");
+    RecoveredGameServices_Release();
+    ZAV_Deinit();
+    return kRuntimeNotReady;
+  }
+  const SWindowsAudioRuntimeTelemetry* initialAudio =
+      WindowsAudioRuntime_Telemetry();
+  log.Line("audio_backend=xaudio2-2.9-effects-v1");
+  log.Line(std::string("audio_physical_output=") +
+           (!options.runtimeSmoke ? "enabled" : "headless"));
+  log.Line(std::string("audio_device_ready=") +
+           (initialAudio != nullptr && initialAudio->deviceReady ? "1" : "0"));
+  log.Line("audio_effects_volume=" + std::to_string(effectsVolume));
+  if (initialAudio != nullptr && initialAudio->lastError[0] != 0)
+    log.Line(std::string("audio_device_error=") + initialAudio->lastError);
   SUA_InitEverything();
   log.Line("session_initialized=" +
            std::to_string(RecoveredGameServices_SessionReady() ? 1 : 0));
@@ -2258,7 +2290,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_ExplosionSoundProbeRollbacks()));
   log.Line(
       "explosion_subject_sound_lifecycle=SET_WAV-MOVE_TO-START(1)-parent-rollback");
-  log.Line("explosion_subject_sound_backend=device-free");
+  log.Line("explosion_subject_sound_backend=SoundObj-callback-v1");
   log.Line("explosion_subject_particles=" +
            std::to_string(
                RecoveredGameServices_ExplosionParticlesReady() ? 1 : 0));
@@ -2830,7 +2862,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_SoundObjectCapacity()));
   log.Line("sound_object_fingerprint=" + std::to_string(
                RecoveredArenaSeance_SoundObjectFingerprint()));
-  log.Line("audio_backend=device-free-command-state");
+  log.Line("audio_authored_state=SoundObj-command-state");
   log.Line("skin_resources_initialized=" +
            std::to_string(
                RecoveredGameServices_SkinResourcesReady() ? 1 : 0));
@@ -3485,6 +3517,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const auto runCompleteFrame = [&]() {
     if (!RecoveredGameServices_RunFrame()) return false;
+    SoundState_Maintain();
     if (PortalActiveWorldState_TransitionPending() &&
         !ProcessPortalLevelTransition(data, &currentLevelIndex,
                                       options.runtimeSmoke,
@@ -6651,6 +6684,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->bindingConflicts));
     log.Line("in_game_shell_mouse_setting_changes=" +
              std::to_string(shellState->mouseSettingChanges));
+    log.Line("in_game_shell_audio_setting_changes=" +
+             std::to_string(shellState->audioSettingChanges));
     log.Line("in_game_shell_video_applies=" +
              std::to_string(shellState->videoApplies));
     log.Line("in_game_shell_video_confirms=" +
@@ -6699,6 +6734,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->mouseSensitivityX) + "/" +
              std::to_string(shellState->mouseSensitivityY) + "/" +
              std::to_string(shellState->mouseInvertY ? 1 : 0));
+    log.Line("in_game_shell_effects_volume=" +
+             std::to_string(shellState->effectsVolume));
     log.Line("in_game_shell_status=" + shellState->status);
     log.Line("in_game_shell_last_error=" + shellState->lastError);
   }
@@ -6798,6 +6835,42 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(observer->pitch));
   }
   log.Line("marker=level-ready");
+
+  const SWindowsAudioRuntimeTelemetry* audio =
+      WindowsAudioRuntime_Telemetry();
+  const SSoundStateTelemetry* authoredAudio = SoundState_Telemetry();
+  if (audio != nullptr) {
+    log.Line(std::string("audio_final_device_ready=") +
+             (audio->deviceReady ? "1" : "0"));
+    log.Line("audio_pcm_cache=" + std::to_string(audio->admittedClips) +
+             "/" + std::to_string(audio->cachedSampleBytes));
+    log.Line("audio_pcm_admission=" +
+             std::to_string(audio->admittedClips) + "/" +
+             std::to_string(audio->duplicateAdmissions) + "/" +
+             std::to_string(audio->rejectedClips));
+    log.Line("audio_streams_deferred=" +
+             std::to_string(audio->deferredStreams));
+    log.Line("audio_effect_voices=" +
+             std::to_string(audio->playbackStarts) + "/" +
+             std::to_string(audio->completedVoices) + "/" +
+             std::to_string(audio->stoppedVoices));
+    log.Line("audio_effect_failures=" +
+             std::to_string(audio->playbackFailures) + "/" +
+             std::to_string(audio->voiceStealsPrevented));
+    log.Line("audio_device_lifecycle=" +
+             std::to_string(audio->deviceInitializations) + "/" +
+             std::to_string(audio->deviceLosses) + "/" +
+             std::to_string(audio->deviceRecoveries));
+  }
+  if (authoredAudio != nullptr) {
+    log.Line("audio_authored_one_shots=" +
+             std::to_string(authoredAudio->oneShotRequests) + "/" +
+             std::to_string(authoredAudio->oneShotStarts) + "/" +
+             std::to_string(authoredAudio->oneShotFailures));
+    log.Line("audio_unsupported_stream_loop=" +
+             std::to_string(authoredAudio->unsupportedStreamStarts) + "/" +
+             std::to_string(authoredAudio->unsupportedLoopStarts));
+  }
 
   ZAV_DeInitLevel();
   ZAV_Deinit();

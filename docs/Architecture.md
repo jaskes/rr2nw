@@ -187,12 +187,13 @@ may share a key, while two actions admitted in the same context fail closed.
 Map entry, binding capture and focus transitions neutralize physical and
 semantic latches. Persisted mouse X/Y sensitivity and invert-Y use the retail
 range and are applied to both the recovered attributes and legacy Hardware
-owner. A bounded schema-3 config under `%LOCALAPPDATA%\RR2NW` is written by
-atomic replacement; schemas 1 and 2 migrate with new defaults. Schema 3 stores
-the exact exclusive width, height, bit depth and refresh rate instead of an
-unstable enumeration index. Corrupt or newer data falls back to safe windowed
-defaults; `--safe-mode` bypasses it. Developer mode is a CLI capability and is
-deliberately absent from the persisted schema.
+owner. A bounded schema-4 config under `%LOCALAPPDATA%\RR2NW` is written by
+atomic replacement; schemas 1, 2 and 3 migrate with new defaults. Schema 4
+stores the exact exclusive width, height, bit depth and refresh rate instead
+of an unstable enumeration index, plus the owned Effects volume. Corrupt or
+newer data falls back to safe windowed/audio defaults; `--safe-mode` bypasses
+it. Developer mode is a CLI capability and is deliberately absent from the
+persisted schema.
 
 The Developer page is a read-only projection of the existing Debug owners. Its
 snapshot contains the seven fixed transactions, both views of the active

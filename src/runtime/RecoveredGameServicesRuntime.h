@@ -502,7 +502,8 @@ enum ERecoveredInGameShellPage {
   RECOVERED_SHELL_PAGE_VIDEO_CONFIRM = 6,
   RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN = 7,
   RECOVERED_SHELL_PAGE_DEVELOPER_ENTER = 8,
-  RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL = 9
+  RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL = 9,
+  RECOVERED_SHELL_PAGE_AUDIO = 10
 };
 
 struct SRecoveredDeveloperCatalogEntry {
@@ -552,6 +553,7 @@ struct SRecoveredInGameShellState {
   double mouseSensitivityX = 0.5;
   double mouseSensitivityY = 0.5;
   bool mouseInvertY = false;
+  double effectsVolume = 1.0;
   bool videoConfirmationActive = false;
   ERecoveredInGameVideoCommand pendingVideoCommand =
       RECOVERED_SHELL_VIDEO_NONE;
@@ -565,6 +567,7 @@ struct SRecoveredInGameShellState {
   unsigned int bindingChanges = 0;
   unsigned int bindingConflicts = 0;
   unsigned int mouseSettingChanges = 0;
+  unsigned int audioSettingChanges = 0;
   unsigned int videoApplies = 0;
   unsigned int videoConfirms = 0;
   unsigned int videoRollbacks = 0;

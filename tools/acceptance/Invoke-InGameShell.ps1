@@ -207,12 +207,21 @@ foreach ($configurationName in $Configuration) {
         Press-Key $window 0x1B
         Press-Key $window 0x1B
 
+        # Exercise the only category currently owned by the maintained audio
+        # backend. The change is persisted through schema 4 and applied live.
+        Press-Key $window 0x1B
+        Press-Down $window 6
+        Press-Key $window 0x0D
+        Press-Key $window 0x25
+        Press-Key $window 0x1B
+        Press-Key $window 0x1B
+
         # Exercise the complete in-frame Developer catalog. A currently
         # unavailable occupied-vehicle action must remain in the shell with an
         # explicit reason; all three dynamic subcatalogs must be navigable;
         # Stabilize must then use the existing typed closed-frame transaction.
         Press-Key $window 0x1B
-        Press-Down $window 6
+        Press-Down $window 7
         Press-Key $window 0x0D
         Press-Down $window 2
         Press-Key $window 0x0D
@@ -246,7 +255,7 @@ foreach ($configurationName in $Configuration) {
     }
 
     # A second ordinary launch proves the capability is process-owned and
-    # fail-closed: row seven is Exit game, not a persisted Developer entry.
+    # fail-closed: row eight is Exit game, not a persisted Developer entry.
     $ordinaryDiagnostics = Join-Path $caseRoot "ordinary-diagnostics"
     $ordinarySettings = Join-Path $caseRoot "ordinary-settings.cfg"
     New-Item -ItemType Directory -Force -Path $ordinaryDiagnostics | Out-Null
@@ -277,7 +286,7 @@ foreach ($configurationName in $Configuration) {
         }
         Start-Sleep -Milliseconds 700
         Press-Key $ordinaryWindow 0x1B
-        Press-Down $ordinaryWindow 6
+        Press-Down $ordinaryWindow 7
         Press-Key $ordinaryWindow 0x0D
         if (-not $ordinaryGame.WaitForExit($TimeoutSeconds * 1000)) {
             throw "[$configurationName] ordinary Exit row did not close the game"
@@ -306,22 +315,24 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_open = "0"
         in_game_shell_developer = "1"
         in_game_shell_safe_mode = "1"
-        in_game_shell_opens = "6"
-        in_game_shell_closes = "6"
-        in_game_shell_input_neutralizations = "6"
+        in_game_shell_opens = "7"
+        in_game_shell_closes = "7"
+        in_game_shell_input_neutralizations = "7"
         in_game_shell_save_requests = "2"
         in_game_shell_save_overwrite_confirmations = "1"
         in_game_shell_load_requests = "1"
         in_game_shell_binding_changes = "2"
         in_game_shell_mouse_setting_changes = "3"
+        in_game_shell_audio_setting_changes = "1"
         in_game_shell_video_applies = "3"
         in_game_shell_video_confirms = "2"
         in_game_shell_video_rollbacks = "1"
         in_game_shell_video_timeout_rollbacks = "1"
-        in_game_shell_settings_writes = "7"
+        in_game_shell_settings_writes = "8"
         in_game_shell_settings_migrations = "0"
         in_game_shell_window = "0/1"
         in_game_shell_mouse = "0.500000/0.500000/0"
+        in_game_shell_effects_volume = "0.900000"
         in_game_shell_save_catalog_ready = "1"
         in_game_shell_save_catalog_states = "4/1/1/2"
         in_game_shell_save_catalog_previews = "3/1/1"
@@ -423,7 +434,7 @@ foreach ($configurationName in $Configuration) {
     }
     else {
         $settingsText = Get-Content -LiteralPath $settings -Raw
-        if ($settingsText -notmatch '(?m)^version=3\r?$' -or
+        if ($settingsText -notmatch '(?m)^version=4\r?$' -or
             $settingsText -notmatch '(?m)^window_mode=0\r?$' -or
             $settingsText -notmatch '(?m)^window_scale=1\r?$' -or
             $settingsText -notmatch '(?m)^exclusive_width=\d+\r?$' -or
@@ -433,6 +444,7 @@ foreach ($configurationName in $Configuration) {
             $settingsText -notmatch '(?m)^mouse_sensitivity_x=0\.500\r?$' -or
             $settingsText -notmatch '(?m)^mouse_sensitivity_y=0\.500\r?$' -or
             $settingsText -notmatch '(?m)^mouse_invert_y=0\r?$' -or
+            $settingsText -notmatch '(?m)^effects_volume=0\.900\r?$' -or
             $settingsText -notmatch '(?m)^binding_25=34\r?$' -or
             $settingsText -notmatch '(?m)^binding_0=87\r?$') {
             $issues.Add("settings.cfg did not retain confirmed safe defaults")
