@@ -1445,46 +1445,84 @@ bool TankActiveWorldState_CreateStableOwners(
     SimulationContext *context, const std::vector<unsigned char> &bytes,
     std::vector<KR_ObjectID> *created)
 {
+    g_lastFailure.clear();
     std::vector<StableTankRecord> records;
     TankRoster roster = {};
     if (context == NULL || created == NULL || !created->empty() ||
         !DecodeRecords(bytes, &records) || !CollectRoster(context, &roster))
-        return false;
-    if (!roster.tanks.empty())
-        return RosterMatches(roster, records);
+        return Fail("Tank owner allocation preflight failed");
+
+    // A result transaction may remove one mission Tank while every other
+    // authored Tank remains alive.  Restoring the pre-result snapshot must
+    // therefore admit a live roster that is a strict subset of the target,
+    // instead of requiring either an empty table or an already exact roster.
+    // Match by symbolic owner, attribute and cannon shape so a foreign live
+    // Tank can never be silently adopted into the snapshot.
+    std::vector<bool> matched(records.size(), false);
+    for (std::size_t live = 0; live < roster.tanks.size(); ++live)
+    {
+        Tank *tank = roster.tanks[live];
+        const std::string name =
+            ObjectName(context, tank->getObjectID());
+        const std::string attribute =
+            ObjectName(context, tank->m_tankAttrID);
+        bool found = false;
+        for (std::size_t target = 0; target < records.size(); ++target)
+            if (!matched[target] && records[target].name == name &&
+                records[target].attribute == attribute &&
+                records[target].cannons.size() ==
+                    static_cast<std::size_t>(tank->m_cannons.getCount()))
+            {
+                matched[target] = true;
+                found = true;
+                break;
+            }
+        if (!found)
+            return Fail("live Tank roster is not a subset of the snapshot");
+    }
+
+    int missingTanks = 0;
     int cannonCount = 0;
     for (std::size_t index = 0; index < records.size(); ++index)
-        cannonCount += static_cast<int>(records[index].cannons.size());
+        if (!matched[index])
+        {
+            ++missingTanks;
+            cannonCount += static_cast<int>(records[index].cannons.size());
+        }
     const int tankFree = TankSubjectState_SubjectCapacity() -
                          TankSubjectState_LiveCount(context);
     const int cannonFree = CannonSubjectState_SubjectCapacity() -
                            CannonSubjectState_LiveCount(context);
     if ((!records.empty() &&
          g_arena.searchSeanceClassTable("Tank") == ct_NULLID) ||
-        static_cast<int>(records.size()) > tankFree ||
+        missingTanks > tankFree ||
         cannonCount > cannonFree)
-        return false;
+        return Fail("Tank or Cannon subject capacity is exhausted");
     for (std::size_t index = 0; index < records.size(); ++index)
     {
+        if (matched[index])
+            continue;
         if (!context->isExist(records[index].attribute.c_str()))
-            return false;
+            return Fail("Tank attribute owner is missing");
         const KR_ObjectID attribute =
             context->searchObject(records[index].attribute.c_str());
         AttributeTank *tankAttribute = static_cast<AttributeTank *>(
             g_tankAttrTable.searchAttribute(attribute));
         if (tankAttribute == NULL || tankAttribute->m_cannonCnt !=
                 static_cast<int>(records[index].cannons.size()))
-            return false;
+            return Fail("Tank attribute cannon shape is incompatible");
     }
     for (std::size_t index = 0; index < records.size(); ++index)
     {
+        if (matched[index])
+            continue;
         const KR_ObjectID object =
             g_arena.newObject("Tank", records[index].name.c_str());
         Tank *tank = ResolveTank(context, object);
         if (tank == NULL)
         {
             TankActiveWorldState_RemoveStableOwners(context, created);
-            return false;
+            return Fail("Tank owner creation failed");
         }
         created->push_back(object);
         KR_Event event(KR_SET_ATTR, 0.0, g_arena.getObjectID(), object);
@@ -1497,14 +1535,14 @@ bool TankActiveWorldState_CreateStableOwners(
                 static_cast<int>(records[index].cannons.size()))
         {
             TankActiveWorldState_RemoveStableOwners(context, created);
-            return false;
+            return Fail("Tank owner attribute initialization failed");
         }
     }
     TankRoster restored = {};
     if (!CollectRoster(context, &restored) || !RosterMatches(restored, records))
     {
         TankActiveWorldState_RemoveStableOwners(context, created);
-        return false;
+        return Fail("restored Tank owner roster does not match snapshot");
     }
     return true;
 }

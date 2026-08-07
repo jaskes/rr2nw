@@ -71,6 +71,7 @@ class CGRPanel;
 
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
+#include "obase/route/route.h"
 #include "ActiveWorldSave.h"
 #include "ActiveWorldRuntimeProbe.h"
 #include "RecoveredLevelRuntime.h"
@@ -2586,11 +2587,15 @@ bool RunBulletAttributeBootstrap(SimulationContext* context,
 }
 
 bool RunRouteBootstrap(SimulationContext* context, double startTime) {
-  return RunRetailAttributeBootstrap(
+  RecoveredLegacyScriptHost_SetRouteCapacityFloor(
+      RecoveredRetailScriptManifest_IsReady() ? ROUTE_MAY_OBJECT_NUM : 0);
+  const bool result = RunRetailAttributeBootstrap(
       context, startTime, "SCINC\\load_route.sci", nullptr,
       kRouteBootstrapSuffix, kRouteProgramName,
       RECOVERED_ARENA_SEANCE_EXT_ROUTE_SOURCE_UNAVAILABLE,
       "SCINC\\load_route.sci", true);
+  RecoveredLegacyScriptHost_SetRouteCapacityFloor(0);
+  return result;
 }
 
 bool RunPortalFountainBootstrap(SimulationContext* context,

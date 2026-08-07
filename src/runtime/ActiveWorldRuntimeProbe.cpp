@@ -735,12 +735,15 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     std::vector<KR_ObjectID> liveTaxis;
     std::vector<KR_ObjectID> liveOrphans;
     std::vector<KR_ObjectID> livePeople;
+    std::vector<KR_ObjectID> liveTanks;
     std::vector<KR_ObjectID> liveHowitzers;
     std::vector<KR_ObjectID> liveArtefacts;
     if (!PeopleActiveWorldState_CollectStableOwners(
             context_, peopleBackup_, &livePeople) ||
         !PeopleActiveWorldState_HoldRouteReferences(
             context_, peopleBackup_, &heldPeopleRoutes_) ||
+        !TankActiveWorldState_CollectStableOwners(
+            context_, tankBackup_, &liveTanks) ||
         !HowitzerActiveWorldState_CollectStableOwners(
             context_, howitzerBackup_, &liveHowitzers) ||
         !ArtefactActiveWorldState_CollectStableOwners(
@@ -818,6 +821,7 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
     // Detach carried artefacts before reconstructing their carrier owners.
     ArtefactActiveWorldState_RemoveStableOwners(context_, &liveArtefacts);
     PeopleActiveWorldState_RemoveStableOwners(context_, &livePeople);
+    TankActiveWorldState_RemoveStableOwners(context_, &liveTanks);
     HowitzerActiveWorldState_RemoveStableOwners(context_, &liveHowitzers);
     TaxiActiveWorldState_RemoveStableOwners(context_, &liveTaxis);
     CorpseActiveWorldState_RemoveStableOwners(context_, &liveCorpses);
@@ -1254,11 +1258,18 @@ class RuntimeRestoreTarget final : public IActiveWorldRestoreTarget {
         std::vector<KR_ObjectID> restoredTaxis;
         std::vector<KR_ObjectID> restoredOrphans;
         std::vector<KR_ObjectID> restoredPeople;
+        std::vector<KR_ObjectID> restoredTanks;
         std::vector<KR_ObjectID> restoredHowitzers;
         std::vector<KR_ObjectID> restoredArtefacts;
         clean = PeopleActiveWorldState_CreateStableOwners(
                     context_, peopleBackup_, &restoredPeople) &&
                 clean;
+        const bool tanksCreated = TankActiveWorldState_CreateStableOwners(
+            context_, tankBackup_, &restoredTanks);
+        if (!tanksCreated && rollbackFailure_.empty())
+          rollbackFailure_ = std::string("Tank create: ") +
+              TankActiveWorldState_LastFailure();
+        clean = tanksCreated && clean;
         const bool howitzersCreated =
             HowitzerActiveWorldState_CreateStableOwners(
                 context_, howitzerBackup_, &restoredHowitzers);

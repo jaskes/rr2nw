@@ -25,6 +25,7 @@ public:
 
         virtual void      AddRef() = 0;
         virtual void      DelRef() = 0;
+        virtual int       GetRefCount() const = 0;
 };
 
 #endif

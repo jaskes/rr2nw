@@ -740,6 +740,23 @@ bool RunDeferredMissionScripts(
     profile.maximumVmSlices = 8192;
 
     host->BeginObjectTransaction();
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    KR_ObjectID preservedRoutes[6];
+    int preservedRouteCount = 0;
+    for (int index = 0; index < player.m_missCnt && index < 6; ++index)
+        if (!player.m_mission[index].m_missionRouteID.isNUL())
+            preservedRoutes[preservedRouteCount++] =
+                player.m_mission[index].m_missionRouteID;
+    const int reclaimed = host->ReclaimUnreferencedRoutes(
+        preservedRoutes, preservedRouteCount);
+    if (reclaimed < 0)
+    {
+        const bool rolledBack = host->RollbackObjectTransaction();
+        summary->scriptRollbacks += rolledBack ? 1 : 0;
+        SetError("RecruitCenter Route capacity reclamation failed");
+        return false;
+    }
+    summary->reclaimedRouteObjects = reclaimed;
     for (std::size_t index = 0; index < commands.size(); ++index)
     {
         if (commands[index].command != COM_RUN_SCRIPT) continue;
@@ -2728,6 +2745,68 @@ bool RecruitCenterSubjectState_TerminalNoRewardStateProbeForCenter(
         summary->scheduledChecks == 0 && summary->rewardDetached == 1;
     if (!exact)
         SetError("RecruitCenter terminal state invariants did not hold");
+    return exact;
+}
+
+bool RecruitCenterSubjectState_NoRewardProgressionStateProbeForCenter(
+    SimulationContext *context, const char *centerName,
+    const char *completedProjectName, const char *nextProjectName,
+    RecruitCenterMissionNoRewardProgressionStateSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (summary == NULL || context == NULL || centerName == NULL ||
+        centerName[0] == 0 || completedProjectName == NULL ||
+        completedProjectName[0] == 0 || nextProjectName == NULL ||
+        nextProjectName[0] == 0 || g_vehicle == NULL ||
+        g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter no-reward progression arguments are invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL || !context->isExist(completedProjectName) ||
+        !context->isExist(nextProjectName))
+    {
+        SetError("RecruitCenter no-reward progression lost authored owners");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->completedProjectName,
+                  sizeof(summary->completedProjectName), "%s",
+                  completedProjectName);
+    std::snprintf(summary->nextProjectName,
+                  sizeof(summary->nextProjectName), "%s", nextProjectName);
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    bool missionAbsent = true;
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID())
+            missionAbsent = false;
+    summary->missionAbsent = missionAbsent ? 1 : 0;
+    const KR_ObjectID completed = context->searchObject(completedProjectName);
+    mp_Project *project = projectTable.searchProject(completed);
+    summary->projectRetired =
+        project != NULL && project->m_treeNode < 0 ? 1 : 0;
+    KR_ObjectID next = KR_ObjectID::NUL();
+    if (!FindCenterCandidate(center, &player, &next))
+    {
+        SetError("RecruitCenter no-reward progression graph is malformed");
+        return false;
+    }
+    const char *candidateName = next.isNUL()
+        ? NULL : context->searchObject(next);
+    summary->nextCandidateExact = candidateName != NULL &&
+        std::strcmp(candidateName, nextProjectName) == 0 ? 1 : 0;
+    summary->scheduledChecks = context->copyEventsTo(
+        rc_CHECK_MISSION, center->getObjectID(), NULL, 0);
+    summary->rewardDetached = g_vehicle->m_artefact == NULL &&
+        g_vehicle->m_artefactID.isNUL() ? 1 : 0;
+    const bool exact = summary->missionAbsent == 1 &&
+        summary->projectRetired == 1 && summary->nextCandidateExact == 1 &&
+        summary->scheduledChecks == 0 && summary->rewardDetached == 1;
+    if (!exact)
+        SetError("RecruitCenter no-reward progression invariants did not hold");
     return exact;
 }
 

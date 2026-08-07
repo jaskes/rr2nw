@@ -1999,8 +1999,32 @@ playable Level begins.
   rollback can restore an active project root, while result save and a fresh
   process retain its tombstone with the same world fingerprint.
 - Verification: `Invoke-MissionTerminalNoRewardResultSmoke.ps1` passes the
-  result/fresh pair in all maintained configurations. The 15-row ordinary
+  result/fresh pair in all maintained configurations. The 18-row ordinary
   successor matrix and strict Artifact/Portal result gate remain independent.
+
+### RP-CAMPAIGN-010: Level.04D Colony advances through a complete Route graph
+
+- Classification: `RETAIL_DATA_EXECUTED`, `JUNE_FAILURE_MODE_CONTAINED`,
+  `SAVE_PATH_RECONNECTED`, `CAMPAIGN_CHAIN_PARTIAL`.
+- Clean Level.04D Colony `C.Recr0` selects authored `ProjectG3` at the first
+  eligible tier. Its real script publishes 13 owners, including the commander,
+  grouped Tanks/People and their Routes; the mission binds the real
+  `A.Unit.3G.pm0` kill target and one map Route. The result retires G3 and
+  exposes exact authored successor `ProjectG5` without Artifact or Portal.
+- The 94-Route base population plus mission graph no longer depends on the
+  released executable silently accepting NUL Route allocations. The retail
+  100-slot request receives a bounded 128-slot floor, and unused zero-reference
+  Routes are reclaimed only inside the mission object transaction. Exact
+  symbolic geometry returns on rollback.
+- Tank death removes its TankGroup member synchronously. TAN1 owner restore
+  admits subset reconstruction, while the full active-world transaction
+  replaces Tank/Cannon owners so pre-result rollback and post-result reapply
+  both reproduce all seventeen sections and the sealed control journal.
+- Verification: `Invoke-MissionNoRewardResultMatrix.ps1` now passes 18/18.
+  `Invoke-MissionNoRewardFreshSmoke.ps1` separately proves Level.04D result,
+  RR2SLOT1 write, fresh-process load, ProjectG3 tombstone, exact ProjectG5
+  candidate, zero old checks and matching world fingerprints in every
+  maintained configuration. The strict reward/Portal gate remains separate.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

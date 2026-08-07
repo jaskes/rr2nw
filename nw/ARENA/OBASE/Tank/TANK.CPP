@@ -447,6 +447,24 @@ void Tank::addNotify()
  //============================================================
 void Tank::removeNotify()
  {
+    // GROUP_ADD_MEMBER gives every Tank the owning TankGroup, but the old
+    // death path removed the Tank without exercising TankGroup's existing
+    // GROUP_DEL_MEMBER handler. A mission result can capture the world in
+    // that same stable frame, so a dead member ID corrupts the saved graph.
+    if( !m_group.isNUL() && context->isExist(m_group) )
+    {
+         KR_Event event;
+         event.label       = GROUP_DEL_MEMBER;
+         event.source      = getObjectID();
+         event.destination = m_group;
+         event.timeStamp   = Session::m_moment;
+         event.data.open(EDO_WRITE)
+                   .putObjectID(getObjectID())
+                  .close();
+         context->sendEventNow(event);
+    }
+    m_group = KR_ObjectID::NUL();
+
     carrierRemoveNotify(context,Session::m_moment);
 
     if(  !m_snd.isNUL()  )

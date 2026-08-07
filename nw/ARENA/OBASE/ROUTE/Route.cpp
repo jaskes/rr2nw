@@ -50,17 +50,21 @@ void Route::DelRef()
 //============================================================================
 void Route::Delete()
 {
+     if( m_nodeQnty <= 0 )
+          return;
+
      int i;
      int cnt = m_totalNodePos-m_nodeQnty;
+     const int deletedNodeQnty = m_nodeQnty;
 
      for( i = m_base; i < cnt; ++i )
      {
-          m_node[i]   = m_node[i+m_nodeQnty];
-          m_napr[i]   = m_napr[i+m_nodeQnty];
-          m_length[i] = m_length[i+m_nodeQnty];
+          m_node[i]   = m_node[i+deletedNodeQnty];
+          m_napr[i]   = m_napr[i+deletedNodeQnty];
+          m_length[i] = m_length[i+deletedNodeQnty];
      }
 
-     m_totalNodePos -= m_nodeQnty;
+     m_totalNodePos -= deletedNodeQnty;
 
      for(
            ct_Object *ro = __routeTable.getExist();
@@ -71,8 +75,11 @@ void Route::Delete()
      {
           Route *r = (Route*)ro;
           if(  r->m_base > m_base  )
-               r->m_base -= m_nodeQnty;
+               r->m_base -= deletedNodeQnty;
      }
+     m_nodeQnty = 0;
+     m_totalLenght = 0;
+     m_base = 0;
 }
 
 //============================================================================
@@ -131,7 +138,12 @@ void Route::addNotify()
 //============================================================================
 void Route::removeNotify()
 {
-	m_nodeQnty = 0;
+	// Direct Context removal is used by mission rollback and route-table
+	// reclamation. The January implementation only released geometry through
+	// DelRef(), so those valid paths leaked the shared node arena even though
+	// the Route object slot itself returned to the table.
+	if( m_nodeQnty > 0 )
+		Delete();
 	m_totalLenght = 0;
 	ct_Object::removeNotify();
 }

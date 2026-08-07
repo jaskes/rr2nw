@@ -4,9 +4,12 @@
 #include "kernel/h/object.h"
 #include "sc.h"
 
+#include <string>
 #include <vector>
 
 class ct_Arena;
+
+void RecoveredLegacyScriptHost_SetRouteCapacityFloor(int capacity);
 
 enum ERecoveredLegacyScriptHostIssue {
   RECOVERED_LEGACY_SCRIPT_HOST_EVENT_POOL_EXHAUSTED = 1u << 0,
@@ -69,6 +72,8 @@ class RecoveredLegacyScriptHost {
   bool DeleteHowitzer(const char* holderName);
   void Unsupported(const char* operation);
   void BeginObjectTransaction();
+  int ReclaimUnreferencedRoutes(const KR_ObjectID* preserved,
+                                int preservedCount);
   bool RollbackObjectTransaction();
   void CommitObjectTransaction();
   int TransactionCreatedObjectCount() const;
@@ -112,6 +117,11 @@ class RecoveredLegacyScriptHost {
     ScriptEvent() : inUse(false) {}
   };
 
+  struct ReclaimedRoute {
+    std::string name;
+    std::vector<double> coordinates;
+  };
+
   ScriptEvent* Event(int eventIndex, const char* operation);
   bool ArenaReady(const char* operation);
   bool ProjectNodeValid(int node, bool allowNull = false) const;
@@ -135,6 +145,8 @@ class RecoveredLegacyScriptHost {
   int m_deferredMissionDestroyableCount;
   bool m_objectTransactionActive;
   std::vector<KR_ObjectID> m_transactionCreatedObjects;
+  std::vector<KR_ObjectID> m_transactionExistingRoutes;
+  std::vector<ReclaimedRoute> m_transactionReclaimedRoutes;
 };
 
 #endif

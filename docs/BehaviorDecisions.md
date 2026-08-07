@@ -5749,3 +5749,31 @@ synthesize presentation. Because this state lives in ProjectTable rather than
 PlayerMission after cleanup, MSH1 v4 owns the full sorted project roster and
 restores both terminal retirement and the active pre-result tree node exactly.
 Older MSH1 versions retain their prior authored-roster restore behavior.
+
+### BD-169: Level.04D Route overflow is admitted as a bounded complete graph
+
+Status: accepted on 2026-08-07 for the first Level.04D progression chain.
+
+Retail `SCINC/load_route.sci` creates `Route` with capacity 100. The clean
+Level.04D population already occupies 94 slots, while Colony `ProjectG3`
+creates additional unit Routes and a mission-map Route. The June disc
+executable (SHA-256
+`7C0E685B5EB1DA26EBAE4EEBBD4B32B8FEFF0B1C31565F9103BE8E1FFACE3282`)
+retains the default overflow mode and lets `s_LoadRoute` continue after a NUL
+allocation. That is evidence for the released partial behavior, not a safe
+contract for the modern fail-closed script host.
+
+RR2NW keeps a bounded table and applies a 128-slot floor only when the retail
+bootstrap requests the exact legacy 100-slot Route table. Source-only host
+fixtures retain their requested capacities. Before a mission transaction,
+zero-reference Routes may be reclaimed except for active Player-mission
+Routes. Reclamation stores symbolic identity plus every finite node; rollback
+removes all newly created script/native Routes and recreates the reclaimed
+geometry exactly. Commit retains the complete new mission graph. The node
+arena remains independently bounded at 8192.
+
+Tank ownership follows the same atomic boundary. A dying Tank must deliver the
+existing `GROUP_DEL_MEMBER` event before its subject slot disappears, and
+Tank/Cannon continuation restore replaces the complete roster so both adding
+the pre-result target and removing it again are valid transaction directions.
+Stable serializers are not relaxed to accept dangling group members.

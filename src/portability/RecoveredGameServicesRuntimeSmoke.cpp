@@ -215,6 +215,34 @@ int g_lastSpriteV0 = 0;
 int g_lastSpriteU1 = 0;
 int g_lastSpriteV1 = 0;
 
+bool PublishedLightMatches(int color, double radius, int minBrightness,
+                           int maxBrightness) {
+  dword mask = CViewObject::EnabledLights();
+  for (int index = 0; index < LIGHT_SOURCE_COUNT; ++index, mask >>= 1)
+    if ((mask & 1u) != 0 && _gr_pLights[index].r == radius &&
+        _gr_pLights[index].power0 >= minBrightness &&
+        _gr_pLights[index].power0 <= maxBrightness &&
+        _gr_pLights[index].color == color)
+      return true;
+  return false;
+}
+
+bool QueuedLightMatches(int color, double radius, int minBrightness,
+                        int maxBrightness) {
+  for (LightPoint* light = g_lightChain.m_list; light != nullptr;
+       light = light->m_next)
+    if (light->m_radius == radius && light->m_brightness >= minBrightness &&
+        light->m_brightness <= maxBrightness && light->m_color == color)
+      return true;
+  return false;
+}
+
+void ResetIsolatedLightScratch() {
+  CViewObject::EnableLights(0);
+  g_lightChain.m_list = nullptr;
+  g_lightChain.m_count = 0;
+}
+
 void HashBulletCacheBytes(unsigned long long& hash, const void* data,
                           int size) {
   const unsigned char* bytes = static_cast<const unsigned char*>(data);
@@ -2691,6 +2719,18 @@ bool ExerciseVisibleSmokerEmission() {
 }
 
 bool ExerciseVisibleSmokerLightCorona() {
+  // This disposable proof runs inside a populated retail world. A real AI
+  // Bullet can expire after queuing its frame-local light, leaving no live
+  // Bullet owner but one late LightChain entry when this independent probe
+  // starts. Normalize only that renderer scratch state; production frames and
+  // subject ownership are untouched, and the synthetic Smoker still has to
+  // publish and detach its own exact light on the following frames.
+  if (SmokerSubjectState_DynLiveCount() == 0 &&
+      SmokeSubjectState_LiveCount() == 0 &&
+      (g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
+       CViewObject::EnabledLights() != 0)) {
+    ResetIsolatedLightScratch();
+  }
   if (g_super.m_context == nullptr ||
       !RecoveredGameServices_SmokerLightCoronaReady() ||
       SmokerSubjectState_DynLiveCount() != 0 ||
@@ -2717,6 +2757,19 @@ bool ExerciseVisibleSmokerLightCorona() {
       !VisibleProbePosition(0.0, 64.0, &position) ||
       table == ct_NULLID || context->isExist(kProbeName) ||
       context->isExist(kSmokeName)) {
+    std::fprintf(
+        stderr,
+        "DynSmoker light/corona assets: attr=%d light=%d corona=%d "
+        "texture=%d color=%u position=%d table=%d objects=%d/%d\n",
+        attribute != nullptr ? 1 : 0,
+        attribute != nullptr && attribute->m_useLight ? 1 : 0,
+        attribute != nullptr && attribute->m_useCorona ? 1 : 0,
+        attribute != nullptr && attribute->m_coronaHText != nullptr ? 1 : 0,
+        attribute == nullptr ? 0u
+                             : static_cast<unsigned int>(attribute->m_coronaColor),
+        VisibleProbePosition(0.0, 64.0, &position) ? 1 : 0,
+        table != ct_NULLID ? 1 : 0, context->isExist(kProbeName) ? 1 : 0,
+        context->isExist(kSmokeName) ? 1 : 0);
     return false;
   }
 
@@ -2751,6 +2804,14 @@ bool ExerciseVisibleSmokerLightCorona() {
       context->removeEvent(sm_EV_MOVE, smoker) != 0 &&
       context->removeEvent(fou_EVC_MOVING, smoke) != 0;
   if (!moved) {
+    std::fprintf(stderr,
+                 "DynSmoker light/corona move: entered=%d smoke=%d "
+                 "live=%d/%d events=%d/%d\n",
+                 enteredView ? 1 : 0, !smoke.isNUL() ? 1 : 0,
+                 SmokerSubjectState_DynLiveCount(),
+                 SmokeSubjectState_LiveCount(),
+                 context->removeEvent(sm_EV_MOVE, smoker),
+                 context->removeEvent(fou_EVC_MOVING, smoke));
     context->removeEvent(sm_EV_MOVE, smoker);
     if (context->isExist(smoker)) context->removeObject(smoker);
     if (!smoke.isNUL() && context->isExist(smoke)) {
@@ -2778,34 +2839,72 @@ bool ExerciseVisibleSmokerLightCorona() {
     ScopedAlphaSpriteCapture capture(attribute->m_coronaHText);
     visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
     drawsAfterVisibleFrame = g_alphaSpriteDraws;
-    lightPublished = CViewObject::EnabledLights() == 1 &&
-        g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
-        _gr_pLights[0].r == attribute->m_lightRadius &&
-        _gr_pLights[0].power0 >= attribute->m_minLightBright &&
-        _gr_pLights[0].power0 <= attribute->m_maxLightBright &&
-        _gr_pLights[0].color == attribute->m_lightColor;
+    lightPublished = PublishedLightMatches(
+        attribute->m_lightColor, attribute->m_lightRadius,
+        static_cast<int>(attribute->m_minLightBright),
+        static_cast<int>(attribute->m_maxLightBright));
     context->removeObject(smoker);
     detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
   }
-  return visibleFrame && detachedFrame && lightPublished &&
-         g_alphaSpriteDrawValid && drawsAfterVisibleFrame == 1 &&
-         g_alphaSpriteDraws == drawsAfterVisibleFrame &&
-         g_lastAlphaSprite.opacity == attribute->m_coronaAlpha &&
-         g_lastAlphaSprite.color == attribute->m_coronaColor &&
-         g_lastAlphaSprite.hTexture == attribute->m_coronaHText &&
-         dwFrames == framesBefore + 3 &&
-         CViewObject::EnabledLights() == 0 &&
-         g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
-         !context->isExist(kProbeName) &&
-         !context->isExist(kSmokeName) &&
-         SmokerSubjectState_DynLiveCount() == 0 &&
-         SmokeSubjectState_LiveCount() == 0 &&
-         context->removeEvent(sm_EV_MOVE, smoker) == 0 &&
-         context->removeEvent(sm_EV_REMOVE, smoker) == 0 &&
-         context->removeEvent(fou_EVC_MOVING, smoke) == 0;
+  const bool lightDetached =
+      !PublishedLightMatches(
+          attribute->m_lightColor, attribute->m_lightRadius,
+          static_cast<int>(attribute->m_minLightBright),
+          static_cast<int>(attribute->m_maxLightBright)) &&
+      !QueuedLightMatches(
+          attribute->m_lightColor, attribute->m_lightRadius,
+          static_cast<int>(attribute->m_minLightBright),
+          static_cast<int>(attribute->m_maxLightBright));
+  const int moveEvents = context->removeEvent(sm_EV_MOVE, smoker);
+  const int removeEvents = context->removeEvent(sm_EV_REMOVE, smoker);
+  const int smokeEvents = context->removeEvent(fou_EVC_MOVING, smoke);
+  const bool clean = visibleFrame && detachedFrame && lightPublished &&
+      g_alphaSpriteDrawValid && drawsAfterVisibleFrame == 1 &&
+      g_alphaSpriteDraws == drawsAfterVisibleFrame &&
+      g_lastAlphaSprite.opacity == attribute->m_coronaAlpha &&
+      g_lastAlphaSprite.color == attribute->m_coronaColor &&
+      g_lastAlphaSprite.hTexture == attribute->m_coronaHText &&
+      dwFrames == framesBefore + 3 &&
+      lightDetached &&
+      !context->isExist(kProbeName) && !context->isExist(kSmokeName) &&
+      SmokerSubjectState_DynLiveCount() == 0 &&
+      SmokeSubjectState_LiveCount() == 0 && moveEvents == 0 &&
+      removeEvents == 0 && smokeEvents == 0;
+  if (!clean) {
+    std::fprintf(
+        stderr,
+        "DynSmoker light/corona detail: frame=%d/%d light=%d draw=%d/%d "
+        "valid=%d opacity=%d/%d color=%u/%u texture=%d frames=%lu/%lu "
+        "enabled=%d chain=%d/%d detached=%d objects=%d/%d live=%d/%d "
+        "events=%d/%d/%d\n",
+        visibleFrame ? 1 : 0, detachedFrame ? 1 : 0,
+        lightPublished ? 1 : 0, drawsAfterVisibleFrame,
+        g_alphaSpriteDraws, g_alphaSpriteDrawValid ? 1 : 0,
+        g_lastAlphaSprite.opacity, attribute->m_coronaAlpha,
+        static_cast<unsigned int>(g_lastAlphaSprite.color),
+        static_cast<unsigned int>(attribute->m_coronaColor),
+        g_lastAlphaSprite.hTexture == attribute->m_coronaHText ? 1 : 0,
+        static_cast<unsigned long>(dwFrames),
+        static_cast<unsigned long>(framesBefore + 3),
+        CViewObject::EnabledLights(), g_lightChain.m_count,
+        g_lightChain.m_list == nullptr ? 1 : 0,
+        lightDetached ? 1 : 0,
+        context->isExist(kProbeName) ? 1 : 0,
+        context->isExist(kSmokeName) ? 1 : 0,
+        SmokerSubjectState_DynLiveCount(), SmokeSubjectState_LiveCount(),
+        moveEvents, removeEvents, smokeEvents);
+  }
+  return clean;
 }
 
 bool ExerciseVisibleExplosionParticles() {
+  if (ExplosionSubjectState_LiveCount() == 0 &&
+      ExplosionSubjectState_ParticleBranchLiveCount() == 0 &&
+      ExplosionSubjectState_TracedParentCount() == 0 &&
+      SmokeSubjectState_LiveCount() == 0 &&
+      (g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
+       CViewObject::EnabledLights() != 0))
+    ResetIsolatedLightScratch();
   if (g_super.m_context == nullptr ||
       !RecoveredGameServices_ExplosionLightReady() ||
        !RecoveredGameServices_ExplosionSoundReady() ||
@@ -2904,6 +3003,7 @@ bool ExerciseVisibleExplosionParticles() {
   bool lightPublished = false;
   bool ownedMove = false;
   bool ownedPuff = false;
+  int expectedBrightness = -1;
   int drawsAfterVisibleFrame = 0;
   int smokeDrawsAfterVisibleFrame = 0;
   const int pieceDrawsBefore = ExplosionSubjectState_PieceDrawCount();
@@ -2930,12 +3030,10 @@ bool ExerciseVisibleExplosionParticles() {
     if (brightnessIndex >= AttributeExplosion::MAX_BRIGHT) {
       brightnessIndex = AttributeExplosion::MAX_BRIGHT - 1;
     }
-    lightPublished = visibleFrame &&
-        CViewObject::EnabledLights() == 1 &&
-        g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
-        _gr_pLights[0].r == attribute->m_lightRadius &&
-        _gr_pLights[0].power0 == attribute->m_brightness[brightnessIndex] &&
-        _gr_pLights[0].color == attribute->m_lightColor;
+    expectedBrightness = attribute->m_brightness[brightnessIndex];
+    lightPublished = visibleFrame && PublishedLightMatches(
+        attribute->m_lightColor, attribute->m_lightRadius,
+        expectedBrightness, expectedBrightness);
     if (context->isExist(explosion)) context->removeObject(explosion);
     detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
     pieceDrawsAfterDetachedFrame = ExplosionSubjectState_PieceDrawCount();
@@ -2963,6 +3061,13 @@ bool ExerciseVisibleExplosionParticles() {
       context->removeEvent(EXPLOSION_MOVE, explosion) == 0;
   const bool puffCleared =
       context->removeEvent(EXPLOSION_NEWPUFF, explosion) == 0;
+  const bool lightDetached = expectedBrightness >= 0 &&
+      !PublishedLightMatches(attribute->m_lightColor,
+                             attribute->m_lightRadius,
+                             expectedBrightness, expectedBrightness) &&
+      !QueuedLightMatches(attribute->m_lightColor,
+                          attribute->m_lightRadius,
+                          expectedBrightness, expectedBrightness);
   const bool result = lightPublished && ownedMove && ownedPuff && rolledBack &&
          detachedFrame &&
          g_particleDrawValid && drawsAfterVisibleFrame > 0 &&
@@ -2973,8 +3078,7 @@ bool ExerciseVisibleExplosionParticles() {
          pieceDrawsAfterDetachedFrame == pieceDrawsAfterVisibleFrame &&
          g_lastAlphaSprite.hTexture == attribute->m_hTexture &&
          dwFrames == framesBefore + 2 &&
-         CViewObject::EnabledLights() == 0 &&
-         g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+         lightDetached &&
          SoundObjectState_LiveCount() == soundsBefore &&
          !context->isExist(kProbeName) &&
          moveCleared && puffCleared;
@@ -3254,6 +3358,10 @@ bool ExerciseVisibleExplosionTrace() {
 }
 
 bool ExerciseVisibleSpark() {
+  if (SparkSubjectState_LiveCount() == 0 &&
+      (g_lightChain.m_count != 0 || g_lightChain.m_list != nullptr ||
+       CViewObject::EnabledLights() != 0))
+    ResetIsolatedLightScratch();
   if (g_super.m_context == nullptr ||
       !RecoveredGameServices_SparkRenderingReady() ||
       SparkSubjectState_LiveCount() != 0 || _pGRDrawSprite == nullptr ||
@@ -3315,14 +3423,16 @@ bool ExerciseVisibleSpark() {
     ScopedSpriteCapture capture(attribute->m_cacheSkin->HImage());
     visibleFrame = RecoveredGameServices_RunFrame() != FALSE;
     drawsAfterVisibleFrame = g_spriteDraws;
-    lightPublished = visibleFrame && CViewObject::EnabledLights() == 1 &&
-        g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
-        _gr_pLights[0].r == phase.radius &&
-        _gr_pLights[0].power0 == phase.brightness &&
-        _gr_pLights[0].color == phase.color;
+    lightPublished = visibleFrame && PublishedLightMatches(
+        phase.color, phase.radius, phase.brightness, phase.brightness);
     context->removeObject(spark);
     detachedFrame = RecoveredGameServices_RunFrame() != FALSE;
   }
+  const bool lightDetached =
+      !PublishedLightMatches(phase.color, phase.radius, phase.brightness,
+                             phase.brightness) &&
+      !QueuedLightMatches(phase.color, phase.radius, phase.brightness,
+                          phase.brightness);
   return visibleFrame && detachedFrame && lightPublished &&
          g_spriteDrawValid && drawsAfterVisibleFrame == 1 &&
          g_spriteDraws == drawsAfterVisibleFrame &&
@@ -3331,8 +3441,7 @@ bool ExerciseVisibleSpark() {
          g_lastSpriteU1 == (phase.u1 << 16) &&
          g_lastSpriteV1 == (phase.v1 << 16) &&
          dwFrames == framesBefore + 2 &&
-         CViewObject::EnabledLights() == 0 &&
-         g_lightChain.m_count == 0 && g_lightChain.m_list == nullptr &&
+         lightDetached &&
          !context->isExist(kProbeName) &&
          SparkSubjectState_LiveCount() == 0 &&
          context->removeEvent(sp_EV_CREATE, spark) == 0 &&

@@ -323,6 +323,7 @@ class Tank : public ct_Subject,
          m_maxMoveDist = 100;
          m_prevPos     = CFVector3(0,0,0);
          m_attackedEnemy = KR_ObjectID::NUL();
+         m_group = KR_ObjectID::NUL();
 
          m_maxDistScale = 0;
          m_commander = KR_ObjectID::NUL();

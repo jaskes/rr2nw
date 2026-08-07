@@ -33,6 +33,23 @@
 
 namespace {
 
+int g_routeCapacityFloor = 0;
+
+bool CollectObjectID(KR_ObjectID object, void* parameter) {
+  std::vector<KR_ObjectID>* objects =
+      static_cast<std::vector<KR_ObjectID>*>(parameter);
+  if (objects == nullptr) return false;
+  objects->push_back(object);
+  return true;
+}
+
+bool ContainsObject(const std::vector<KR_ObjectID>& objects,
+                    const KR_ObjectID& object) {
+  for (const KR_ObjectID& candidate : objects)
+    if (candidate == object) return true;
+  return false;
+}
+
 RecoveredLegacyScriptHost* Host(void* userData) {
   return static_cast<RecoveredLegacyScriptHost*>(userData);
 }
@@ -511,6 +528,10 @@ TLinkConstExtern g_constants[] = {
 
 }  // namespace
 
+void RecoveredLegacyScriptHost_SetRouteCapacityFloor(int capacity) {
+  g_routeCapacityFloor = capacity > 0 ? capacity : 0;
+}
+
 RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
     : m_arena(arena), m_issues(0), m_lastError{},
       m_projectTableCreated(false), m_projectDataOpen(false),
@@ -520,7 +541,8 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_deferredMissionHowitzerCount(0),
       m_deferredMissionDestroyableCount(0),
       m_objectTransactionActive(false),
-      m_transactionCreatedObjects() {
+      m_transactionCreatedObjects(), m_transactionExistingRoutes(),
+      m_transactionReclaimedRoutes() {
   Reset();
 }
 
@@ -539,7 +561,11 @@ void RecoveredLegacyScriptHost::Reset() {
   m_openProjectNode = mp_NodeNULL();
   m_deferredMissionHowitzerCount = 0;
   m_deferredMissionDestroyableCount = 0;
-  if (!m_objectTransactionActive) m_transactionCreatedObjects.clear();
+  if (!m_objectTransactionActive) {
+    m_transactionCreatedObjects.clear();
+    m_transactionExistingRoutes.clear();
+    m_transactionReclaimedRoutes.clear();
+  }
 }
 
 bool RecoveredLegacyScriptHost::IsHealthy() const { return m_issues == 0; }
@@ -719,12 +745,18 @@ bool RecoveredLegacyScriptHost::ForceRemoveObject(const char* name) {
 
 int RecoveredLegacyScriptHost::AddClassTable(const char* name, int capacity) {
   if (!ArenaReady("add class table") || name == nullptr) return ct_NULLID;
-  const int table = m_arena->addClassTable(name, capacity);
+  const int effectiveCapacity =
+      std::strcmp(name, "Route") == 0 &&
+              capacity == ROUTE_LEGACY_SOURCE_OBJECT_NUM &&
+              g_routeCapacityFloor > capacity
+          ? g_routeCapacityFloor
+          : capacity;
+  const int table = m_arena->addClassTable(name, effectiveCapacity);
   if (table == ct_NULLID) {
     char message[192] = {};
     std::snprintf(message, sizeof(message),
                   "script class table creation failed for %.100s/%d",
-                  name, capacity);
+                  name, effectiveCapacity);
     Report(RECOVERED_LEGACY_SCRIPT_HOST_CLASS_TABLE_FAILURE, message);
   }
   return table;
@@ -933,6 +965,57 @@ void RecoveredLegacyScriptHost::Unsupported(const char* operation) {
 void RecoveredLegacyScriptHost::BeginObjectTransaction() {
   m_objectTransactionActive = true;
   m_transactionCreatedObjects.clear();
+  m_transactionExistingRoutes.clear();
+  m_transactionReclaimedRoutes.clear();
+  if (ArenaReady("capture Route transaction baseline") &&
+      m_arena->searchSeanceClassTable("Route") != ct_NULLID)
+    m_arena->userFind("Route", CollectObjectID,
+                      &m_transactionExistingRoutes);
+}
+
+int RecoveredLegacyScriptHost::ReclaimUnreferencedRoutes(
+    const KR_ObjectID* preserved, int preservedCount) {
+  if (!m_objectTransactionActive || !ArenaReady("reclaim Route capacity") ||
+      preservedCount < 0 || (preservedCount > 0 && preserved == nullptr) ||
+      m_arena->searchSeanceClassTable("Route") == ct_NULLID)
+    return -1;
+
+  SimulationContext* context = m_arena->getContext();
+  std::vector<KR_ObjectID> routes;
+  m_arena->userFind("Route", CollectObjectID, &routes);
+  int reclaimed = 0;
+  for (const KR_ObjectID& routeID : routes) {
+    bool keep = false;
+    for (int index = 0; index < preservedCount; ++index)
+      if (preserved[index] == routeID) {
+        keep = true;
+        break;
+      }
+    if (keep) continue;
+
+    IRouteObject* route = static_cast<IRouteObject*>(
+        context->queryInterface(routeID, IRouteObjectIID));
+    const char* name = context->searchObject(routeID);
+    if (route == nullptr || name == nullptr || route->GetRefCount() != 0 ||
+        route->GetNodeCnt() < 2)
+      continue;
+
+    ReclaimedRoute record;
+    record.name = name;
+    record.coordinates.reserve(
+        static_cast<std::size_t>(route->GetNodeCnt()) * 3u);
+    for (int node = 0; node < route->GetNodeCnt(); ++node) {
+      const CFVector3 position = route->GetNode(node);
+      record.coordinates.push_back(position.x);
+      record.coordinates.push_back(position.y);
+      record.coordinates.push_back(position.z);
+    }
+    m_transactionReclaimedRoutes.push_back(record);
+    context->removeObject(routeID);
+    if (context->isExist(routeID)) return -1;
+    ++reclaimed;
+  }
+  return reclaimed;
 }
 
 bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
@@ -958,13 +1041,45 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
        object != m_transactionCreatedObjects.rend(); ++object) {
     if (context->isExist(*object)) context->removeObject(*object);
   }
+
+  // Commander::com_EV_SET_ROUTE allocates Route objects natively, outside
+  // s_NewObject/s_LoadRoute. Remove every Route that was not present at the
+  // transaction boundary so a failed script cannot consume the fixed retail
+  // table a little further on every retry.
+  std::vector<KR_ObjectID> currentRoutes;
+  if (m_arena->searchSeanceClassTable("Route") != ct_NULLID)
+    m_arena->userFind("Route", CollectObjectID, &currentRoutes);
+  for (const KR_ObjectID& route : currentRoutes)
+    if (!ContainsObject(m_transactionExistingRoutes, route) &&
+        context->isExist(route))
+      context->removeObject(route);
+
+  // Recreate only zero-reference routes reclaimed by this transaction. Their
+  // old IDs had no live owner; symbolic identity and exact geometry are the
+  // observable rollback contract.
+  for (const ReclaimedRoute& record : m_transactionReclaimedRoutes) {
+    if (context->isExist(record.name.c_str())) continue;
+    KR_ObjectID routeID = m_arena->newObject("Route", record.name.c_str());
+    IRouteObject* route = routeID.isNUL()
+        ? nullptr
+        : static_cast<IRouteObject*>(
+              context->queryInterface(routeID, IRouteObjectIID));
+    if (route == nullptr || record.coordinates.empty() ||
+        !route->RestoreGeometry(&record.coordinates[0],
+                                static_cast<int>(record.coordinates.size())))
+      return false;
+  }
   m_transactionCreatedObjects.clear();
+  m_transactionExistingRoutes.clear();
+  m_transactionReclaimedRoutes.clear();
   m_objectTransactionActive = false;
   return true;
 }
 
 void RecoveredLegacyScriptHost::CommitObjectTransaction() {
   m_transactionCreatedObjects.clear();
+  m_transactionExistingRoutes.clear();
+  m_transactionReclaimedRoutes.clear();
   m_objectTransactionActive = false;
 }
 

@@ -7,6 +7,20 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Opened the first complete Level.04D campaign branch without preserving the
+  June executable's silent partial-mission failure. The retail Colony center
+  now accepts `ProjectG3`, creates its full Tank/People/Route graph, completes
+  the real `A.Unit.3G.pm0` kill condition and advances to `ProjectG5` with no
+  Artifact or Portal. Retail Route capacity is raised only from the authored
+  100-slot declaration to a bounded 128-slot May floor; zero-reference Routes
+  are reclaimed transactionally and their exact geometry is restored on
+  rollback. Tank death now detaches the owner from TankGroup immediately, and
+  active-world restore replaces the complete Tank/Cannon roster so both
+  pre-result and post-result directions remain atomic. The ordinary matrix is
+  now 18/18 across three configurations, with a separate two-process
+  RR2SLOT1/fresh-load gate for Level.04D. Populated-world effect probes now
+  distinguish their exact synthetic light from an unrelated late Bullet light,
+  so active combat cannot invalidate the fresh-continuation proof.
 - Restored the terminal no-reward RecruitCenter branch for Level.01N
   Outsider. Its sole reached-objective `Mission` now completes, cleans the
   objective/map/check graph, repairs and refills the current Vehicle, grants

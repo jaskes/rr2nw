@@ -42,6 +42,10 @@ $cases = @(
     [pscustomobject]@{
         level = "Level.02D"; center = "Kingdom.Recruit.0"; project = "ProjectDSCK"
         next = "Project2G04"; conditions = 3
+    },
+    [pscustomobject]@{
+        level = "Level.04D"; center = "C.Recr0"; project = "ProjectG3"
+        next = "ProjectG5"; conditions = 1
     }
 )
 foreach ($levelName in @($cases.level | Sort-Object -Unique)) {
@@ -124,6 +128,9 @@ foreach ($configurationName in $Configuration) {
         }
         if ($startup -notmatch 'mission_no_reward_rollback=1/1/1') {
             $issues.Add("pre-result rollback proof missing")
+        }
+        if ($startup -notmatch 'mission_no_reward_reapply=1/1/1') {
+            $issues.Add("committed result reapply proof missing")
         }
         if ($startup -match 'mission_result_portal=' -or
             $startup -match 'mission_result_carrier=') {

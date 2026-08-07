@@ -978,16 +978,33 @@ Artifact/Portal result gate:
   -Configuration Debug,Release,RelWithDebInfo
 ```
 
-All 15 rows must pass and name the exact authored transitions
+All 18 rows must pass and name the exact authored transitions
 `Level.01D Robot_01/Robot_02`, `Tank_01/Tank_02`,
 `Flyer_01/Flyer_02`, `Level.02D ProjectDSCM/ProjectA17` and
-`ProjectDSCK/Project2G04`. Required records are
+`ProjectDSCK/Project2G04`, plus `Level.04D ProjectG3/ProjectG5` from
+`C.Recr0`. Required records are
 `mission_no_reward_commit=1/1/0/1/1/1/1/1`,
 `mission_no_reward_progress=1/0/1/1/1/0`,
 `mission_no_reward_objective=1/0/1/0/1`,
 `mission_no_reward_save=1/1/1/1` and
-`mission_no_reward_rollback=1/1/1`. No `mission_result_carrier` or
+`mission_no_reward_rollback=1/1/1`, followed by committed-state
+`mission_no_reward_reapply=1/1/1`. No `mission_result_carrier` or
 `mission_result_portal` record may appear.
+
+Run the separate process-boundary proof for the Level.04D row:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionNoRewardFreshSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+All 3 rows must pass. The result process must report
+`mission_smoke_reclaimed_routes=2`, the ordinary result/save/rollback/reapply
+records above and one completed slot save. The fresh process must report
+`mission_no_reward_fresh=1/1/1/0/1`, proving no active Colony mission,
+retired `ProjectG3`, exact next candidate `ProjectG5`, zero old check events
+and no attached reward. Saved and restored world fingerprints must match.
 
 For a visible repeat, complete one of these first assignments and return to the
 same center. The success reaction must repair/refill the current Vehicle,

@@ -18,6 +18,7 @@ struct RecruitCenterMissionProbeSummary
     int presentedHostilityBriefings;
     int centerPresentationFailures;
     int createdMissionObjects;
+    int reclaimedRouteObjects;
     int reboundConditionReferences;
     int scriptRollbacks;
     int rejectedNonPlayerCollisions;
@@ -90,6 +91,18 @@ struct RecruitCenterMissionTerminalNoRewardStateSummary
     int rewardDetached;
     char centerName[81];
     char completedProjectName[81];
+};
+
+struct RecruitCenterMissionNoRewardProgressionStateSummary
+{
+    int missionAbsent;
+    int projectRetired;
+    int nextCandidateExact;
+    int scheduledChecks;
+    int rewardDetached;
+    char centerName[81];
+    char completedProjectName[81];
+    char nextProjectName[81];
 };
 
 struct RecruitCenterObjectiveStateSummary
@@ -198,6 +211,10 @@ bool RecruitCenterSubjectState_TerminalNoRewardStateProbeForCenter(
     SimulationContext *context, const char *centerName,
     const char *completedProjectName,
     RecruitCenterMissionTerminalNoRewardStateSummary *summary);
+bool RecruitCenterSubjectState_NoRewardProgressionStateProbeForCenter(
+    SimulationContext *context, const char *centerName,
+    const char *completedProjectName, const char *nextProjectName,
+    RecruitCenterMissionNoRewardProgressionStateSummary *summary);
 bool RecruitCenterSubjectState_RewardCarrierState(
     SimulationContext *context, bool expectAttached);
 bool RecruitCenterSubjectState_DropRewardProbe(

@@ -4674,6 +4674,63 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: another retail center proves a distinct terminal repeat policy
   or a permanent no-successor Project requires an explicit exception.
 
+### CQ-234: Level.04D silently overflowed its released Route table
+
+- Status: `RETAIL_DATA_CONFIRMED`, `JUNE_BINARY_CONFIRMED`,
+  `BOUNDED_COMPLETE_GRAPH_ACCEPTED`, `FRESH_SAVE_OWNED`.
+- Evidence: `SCINC/load_route.sci` requests 100 Route subjects; clean
+  Level.04D publishes 94 before mission admission. Colony `ProjectG3` then
+  loads its commander/unit Routes and map guide. The June disc `NWRUS.EXE`
+  (SHA-256
+  `7C0E685B5EB1DA26EBAE4EEBBD4B32B8FEFF0B1C31565F9103BE8E1FFACE3282`)
+  keeps the default overflow mode; its host can continue after Route
+  allocation returns NUL, producing partially routed mission units. The
+  recovered host correctly failed closed instead at `m4.route.e.mn0`.
+- Handling: an exact retail 100-slot request receives a bounded 128-slot May
+  floor. Mission admission first reclaims only zero-reference Routes while
+  protecting every active Player-mission Route. Reclaimed names and exact
+  geometry are transaction state; rollback removes script/native additions
+  and recreates the baseline. Tank death now detaches its TankGroup member,
+  and active-world restore replaces Tank/Cannon rosters so result rollback is
+  symmetric rather than dependent on whether a target was added or removed.
+- Verification: Colony `ProjectG3` creates all 13 script owners, binds its real
+  kill condition, advances to `ProjectG5`, and proves exact result restore,
+  pre-result rollback and post-result reapply. The ordinary matrix is 18/18;
+  `Invoke-MissionNoRewardFreshSmoke.ps1` saves the result and reloads it in a
+  second process with matching world fingerprint and no Artifact/Portal.
+  The isolated legacy-host smoke additionally proves reclaimed Route geometry
+  rollback in a one-slot table.
+- Revisit when: a March executable or alternate retail data set authors a
+  different Route capacity or corrected mission graph. Fingerprint-scope that
+  evidence; do not restore silent NUL continuation as a general policy.
+
+### CQ-235: populated-world effect probes can overlap a late Bullet light
+
+- Status: `TEST_ASSUMPTION_REJECTED`, `ISOLATED_SIGNATURE_PROOF_ACCEPTED`.
+- Evidence: the complete Level.04D fresh-continuation gate reached the visual
+  suite with no live Bullet, Explosion, Smoke or DynSmoker owner but retained
+  one late frame-local light (`color=5`, `brightness=150`, `radius=8`) near the
+  moving Player. Repeating with both the 128-slot Route floor and Tank group
+  detach disabled produced the same residue. The real retail world is active
+  while these disposable probes run; global zero-light state is therefore not
+  an ownership invariant.
+- Handling: before each isolated DynSmoker, Explosion or Spark proof, clear
+  renderer scratch only when its corresponding subject pools are empty. During
+  the visible and detached frames, search all enabled and queued lights for the
+  exact synthetic color/radius/brightness signature. Unrelated world lights may
+  coexist, while a retained light matching the removed probe still fails.
+  Production frame logic, Arena ownership and ordinary gameplay lighting are
+  unchanged.
+- Verification: Debug, Release and Playtest each pass all nine installed
+  Levels with complete destruction and occupied-save masks `1011`. One initial
+  Playtest sweep stopped at Level.04D's generic second-context service
+  reconstruction boundary; three immediate targeted repeats and the complete
+  Playtest nine-Level rerun passed. The timing-sensitive reconstruction
+  diagnostic remains separate from the deterministic light-signature fix.
+- Revisit when: a retail Level contains a simultaneous authored light with an
+  identical signature. Add position-aware public light inspection rather than
+  restoring a global empty-world assumption.
+
 ## Maintenance rule
 
 When a new quirk is found:

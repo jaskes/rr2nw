@@ -193,6 +193,54 @@ bool RunCase(const char* source, const char* name,
          !context.isExist("Project.fixture") && Route::m_totalNodePos == 0;
 }
 
+bool ExerciseReclaimedRouteRollback() {
+  SimulationContext context(16, 32);
+  g_arena.openSeance(&context, 64.0, 64.0);
+  RecoveredLegacyScriptHost host(&g_arena);
+  const int table = host.AddClassTable("Route", 1);
+  KR_ObjectID baseline =
+      host.LoadRoute(table, "route-fixture.rt", "Route.rollback.baseline");
+  IRouteObject* baselineRoute = baseline.isNUL()
+      ? nullptr
+      : static_cast<IRouteObject*>(
+            context.queryInterface(baseline, IRouteObjectIID));
+  bool passed = host.IsHealthy() && baselineRoute != nullptr &&
+                baselineRoute->GetNodeCnt() == 3 &&
+                Route::m_totalNodePos == 3;
+
+  host.BeginObjectTransaction();
+  passed = passed && host.ReclaimUnreferencedRoutes(nullptr, 0) == 1 &&
+           !context.isExist("Route.rollback.baseline") &&
+           Route::m_totalNodePos == 0;
+  KR_ObjectID replacement =
+      host.LoadRoute(table, "route-fixture.rt", "Route.rollback.created");
+  passed = passed && !replacement.isNUL() && host.IsHealthy() &&
+           context.isExist("Route.rollback.created") &&
+           Route::m_totalNodePos == 3 && host.RollbackObjectTransaction() &&
+           !context.isExist("Route.rollback.created") &&
+           context.isExist("Route.rollback.baseline") &&
+           Route::m_totalNodePos == 3;
+
+  KR_ObjectID restoredID =
+      context.searchObject("Route.rollback.baseline");
+  IRouteObject* restored = restoredID.isNUL()
+      ? nullptr
+      : static_cast<IRouteObject*>(
+            context.queryInterface(restoredID, IRouteObjectIID));
+  if (restored != nullptr) {
+    const CFVector3 middle = restored->GetNode(1);
+    const CFVector3 end = restored->GetNode(2);
+    passed = passed && restored->GetNodeCnt() == 3 &&
+             NearlyEqual(middle.x, 10.0) && NearlyEqual(middle.z, 0.0) &&
+             NearlyEqual(end.x, 10.0) && NearlyEqual(end.z, 10.0);
+  } else {
+    passed = false;
+  }
+  g_arena.closeSeance();
+  return passed && !context.isExist("Route.rollback.baseline") &&
+         Route::m_totalNodePos == 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -477,6 +525,9 @@ var int node;
                 RECOVERED_LEGACY_SCRIPT_RUN_SUCCESS, 0, &result, true)) {
     return Fail("Route table/object binding did not load and roll back",
                 &result);
+  }
+  if (!ExerciseReclaimedRouteRollback()) {
+    return Fail("reclaimed Route geometry did not roll back atomically");
   }
 
   const char truncatedRouteSource[] =
