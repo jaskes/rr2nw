@@ -71,6 +71,11 @@ foreach ($configurationName in $Configuration) {
     $registrations = Read-UnsignedTuple $log "audio_loop_registrations" 3
     $authored = Read-UnsignedTuple $log "audio_authored_loops" 3
     $postLevel = Read-UnsignedTuple $log "audio_post_level_loops" 3
+    $positioned = Read-UnsignedTuple $log "audio_positioned_loops" 3
+    $listener = Read-UnsignedTuple $log "audio_listener_updates" 2
+    $spatial = Read-UnsignedTuple $log "audio_spatial_compatibility" 4
+    $authoredPositions = Read-UnsignedTuple $log "audio_authored_positions" 5
+    $tankAudio = Read-UnsignedTuple $log "tank_audio_move_probe" 3
     $unsupported = Read-UnsignedTuple $log "audio_unsupported_stream_repeat" 2
     $admission = Read-UnsignedTuple $log "audio_pcm_admission" 3
     $near = [uint64]$log["farter_near_frame_audible"]
@@ -91,6 +96,18 @@ foreach ($configurationName in $Configuration) {
         $authored[1] -eq $authored[0] -and $authored[2] -eq 0 -and
         $postLevel[0] -eq $physical[0] -and
         $postLevel[1] -eq 0 -and $postLevel[2] -eq 0 -and
+        $tankAudio[0] -eq 1 -and $tankAudio[1] -eq 1 -and
+        $tankAudio[2] -eq 1 -and
+        $positioned[0] -gt 0 -and $positioned[1] -gt 0 -and
+        $positioned[2] -eq 0 -and
+        $authoredPositions[0] -eq $authoredPositions[1] -and
+        $authoredPositions[0] -eq $positioned[1] -and
+        $authoredPositions[2] -eq 0 -and
+        $authoredPositions[3] -eq $listener[0] -and
+        $authoredPositions[4] -eq 0 -and $listener[0] -gt 0 -and
+        $listener[1] -eq 0 -and
+        $spatial[0] -eq 0 -and $spatial[1] -eq 0 -and
+        $spatial[2] -eq 0 -and $spatial[3] -eq 0 -and
         $unsupported[0] -eq 0 -and $unsupported[1] -eq 0 -and
         $admission[0] -gt 0 -and $admission[2] -eq 0 -and
         $log["game_services_issues"] -eq "0" -and
@@ -104,6 +121,9 @@ foreach ($configurationName in $Configuration) {
         physical_loops = $log["audio_effect_loops"]
         registrations = $log["audio_loop_registrations"]
         post_level = $log["audio_post_level_loops"]
+        tank_move = $log["tank_audio_move_probe"]
+        positions = $log["audio_positioned_loops"]
+        listener = $log["audio_listener_updates"]
         rejected_pcm = $admission[2]
     })
     if (-not $exact) {

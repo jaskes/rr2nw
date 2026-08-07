@@ -6420,3 +6420,36 @@ Global `DistMax=300` continues to own audible-zone entry/exit. XAudio2 voices
 stay centered until a separate evidence-backed spatial slice; this decision
 must not be cited as 3D-audio parity. Flags-1 streaming, Vehicle pitch, FLIC,
 dialogue, music and UI audio remain outside this boundary.
+
+### BD-196: moving cached emitters use an explicit RSX compatibility model
+
+Status: accepted on 2026-08-07 for the listener/moving-loop slice.
+
+The archived listener owner is `CViewObject::m_viewPointInvMx`: its offset is
+the listener position, column 2 is front and column 1 is up. `SoundObj`
+already owns emitter position and `MOVE_TO`; Taxi, Orphan, People and Tank send
+that command after authored movement. The maintained frame owner now publishes
+the same camera pose after a successful frame and the sound bridge forwards
+durable emitter updates without giving audio authority over movement, save
+state or a frame result.
+
+The exact Intel RSX interpolation law did not survive. The compatibility
+model is deliberately narrower than the old API: only finite, non-negative
+models with equal front/back inner and outer radii are admitted. Gain is full
+through the inner radius, falls linearly to zero at the outer radius and is
+silent beyond it. Listener-right is `cross(up, front)` and mono sources use
+equal-power left/right panning. Asymmetric models and non-mono sources fall
+back to authored intensity and centered output with telemetry; they are never
+described as byte-exact RSX or HRTF parity.
+
+Tank is the first closed moving class. The Level.04D probe executes its copied
+real `UNIT_I_DRIVE` event and requires one logical START, at least one exact
+emitter MOVE and one END, while Level teardown, Portal and cross-Level load
+require zero retained voices/registrations and no listener/emitter failure.
+Listener and registration state remain nonserialized presentation state and
+are reconstructed by the normal Level graph. Global `DistMax=300` still owns
+coarse audible-zone admission.
+
+Vehicle remains a separate direct archival owner: its engine is placed at the
+listener and changes pitch with speed. Flags-1 streaming, that Vehicle pitch,
+dialogue, music, FLIC and UI sound remain outside this decision.

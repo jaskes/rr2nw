@@ -2805,16 +2805,44 @@ playable Level begins.
   device loss reconstructs only registrations that are still live.
 - Level.04D executes its real 23-object/four-attribute population. The bounded
   probe observes at least one audible Farter near the camera and none from the
-  far viewpoint. Its headless run records 29 successful authored loop
-  registrations, 24 exits and five legitimately live registrations before
-  teardown; Level teardown produces exact `29/0/0` stopped/voice/registration
-  state. The separate generated-tone gate proves deferred materialization,
+  far viewpoint. Its headless run requires exact request/stop/live accounting
+  before teardown; Level teardown produces zero physical voices and zero
+  logical registrations. The separate generated-tone gate proves deferred materialization,
   focus, forced device recovery and END against real XAudio2 2.9.
 - Authored intensity is applied, but the old inner/outer ellipsoid curve,
-  listener orientation, panning and HRTF are not claimed. Global DistMax=300
-  still controls entry/exit. Generic Taxi/Orphan/People/Tank START(0)/END
-  requests can use the bridge, but require their own moving-source and
-  save/Portal parity before being marked complete.
+  listener orientation, panning and HRTF are not claimed by this lifetime row.
+  Global DistMax=300 still controls entry/exit. Generic
+  Taxi/Orphan/People/Tank START(0)/END requests can use the bridge; Tank
+  movement is closed separately by RP-AUDIO-003.
+
+### RP-AUDIO-003: symmetric cached emitters have moving positional output
+
+- Classification: `SOURCE_LISTENER_AND_MOVE_PATH_PRESERVED`,
+  `RETAIL_TANK_MOVEMENT_EXECUTED`, `COMPATIBILITY_SPATIALIZATION_NOT_RSX_PARITY`.
+- The active renderer and archived RSX owner agree on the listener transform:
+  inverse-view offset, column-2 front and column-1 up. SoundObj position and
+  `MOVE_TO` already survive in the recovered graph. Taxi `setPosition`, Orphan
+  and People movement, and Tank `UNIT_I_DRIVE` update it; Farter is static.
+  Vehicle is not a SoundObj owner and remains a separate pitch/lifecycle row.
+- The installed moving models used by the closed Tank row have symmetric
+  front/back inner and outer distances. The maintained evaluator applies full
+  gain through inner distance, linear attenuation to zero at outer distance,
+  and equal-power mono panning from listener-right. That curve is an explicit
+  compatibility choice because the internal Intel RSX curve did not survive.
+  Asymmetric and invalid models fail closed to centered authored intensity;
+  multichannel clips receive attenuation without invented channel geometry.
+- Level.04D executes a real Tank START, the copied real drive event and END as
+  `1/1/1`. Headless execution proves exact emitter/listener command ownership
+  without creating a device. The generated physical gate moves one synthetic
+  mono loop left to right and then outside its outer radius, including one
+  forced device reconstruction while silent. Portal and cross-Level Save/Load
+  require source-Level zero voice/registration teardown and zero position or
+  listener failures.
+- Global `DistMax=300` remains the coarse object admission rule. Audio state is
+  not serialized and never affects scheduler timing, movement, a transaction
+  or a mission outcome. Broader Taxi/Orphan/People natural-route acceptance,
+  direct Vehicle pitch, flags-1 streaming, dialogue/music, FLIC and UI audio
+  remain open.
 
 ## Binary analysis boundary
 

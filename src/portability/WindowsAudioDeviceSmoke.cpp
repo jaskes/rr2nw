@@ -9,28 +9,33 @@ int main(int argc, char** argv) {
   const bool listen = argc == 2 && std::strcmp(argv[1], "--listen") == 0;
   const bool listenLoop =
       argc == 2 && std::strcmp(argv[1], "--listen-loop") == 0;
+  const bool listenMovingLoop =
+      argc == 2 && std::strcmp(argv[1], "--listen-moving-loop") == 0;
   const bool deviceCheck =
       argc == 2 && std::strcmp(argv[1], "--device-check") == 0;
-  if (!listen && !listenLoop && !deviceCheck) {
+  if (!listen && !listenLoop && !listenMovingLoop && !deviceCheck) {
     std::fprintf(stderr,
                  "usage: rr2nw_audio_device_smoke "
-                 "--device-check | --listen | --listen-loop\n"
-                 "Only --listen/--listen-loop play a short synthetic tone.\n");
+                 "--device-check | --listen | --listen-loop | "
+                 "--listen-moving-loop\n"
+                 "Only --listen modes play a short synthetic tone.\n");
     return EXIT_FAILURE;
   }
-  if (!rr2nw::WindowsAudioRuntime_Configure(0.35f, !listenLoop)) {
+  if (!rr2nw::WindowsAudioRuntime_Configure(
+          0.35f, !listenLoop && !listenMovingLoop)) {
     std::fprintf(stderr, "audio-device-smoke: backend boundary failed\n");
     return EXIT_FAILURE;
   }
   const rr2nw::SWindowsAudioRuntimeTelemetry* telemetry =
       rr2nw::WindowsAudioRuntime_Telemetry();
-  if (telemetry == nullptr || (!listenLoop && !telemetry->deviceReady)) {
+  if (telemetry == nullptr ||
+      (!listenLoop && !listenMovingLoop && !telemetry->deviceReady)) {
     std::fprintf(stderr, "audio-device-smoke: %s\n",
                  telemetry == nullptr ? "no telemetry" : telemetry->lastError);
     rr2nw::WindowsAudioRuntime_Shutdown();
     return EXIT_FAILURE;
   }
-  if (!listenLoop) {
+  if (!listenLoop && !listenMovingLoop) {
     rr2nw::WindowsAudioRuntime_SetApplicationActive(false);
     telemetry = rr2nw::WindowsAudioRuntime_Telemetry();
     const bool suspended = telemetry != nullptr &&
@@ -51,8 +56,11 @@ int main(int argc, char** argv) {
     rr2nw::WindowsAudioRuntime_Shutdown();
     return EXIT_SUCCESS;
   }
-  if (listenLoop) {
-    if (!rr2nw::WindowsAudioRuntime_StartLoopingProbe(150u)) {
+  if (listenLoop || listenMovingLoop) {
+    const bool registered = listenMovingLoop
+        ? rr2nw::WindowsAudioRuntime_StartMovingLoopProbe(150u)
+        : rr2nw::WindowsAudioRuntime_StartLoopingProbe(150u);
+    if (!registered) {
       telemetry = rr2nw::WindowsAudioRuntime_Telemetry();
       std::fprintf(stderr,
                    "audio-device-smoke: loop registration failed "
@@ -74,6 +82,17 @@ int main(int argc, char** argv) {
         telemetry->activeLoopVoices == 0u;
     const bool materialized =
         rr2nw::WindowsAudioRuntime_EnablePhysicalOutput();
+    bool movedSpatially = true;
+    if (listenMovingLoop) {
+      Sleep(300u);
+      movedSpatially =
+          rr2nw::WindowsAudioRuntime_MoveListeningProbe(25.0f, 0.0f, 0.0f);
+      Sleep(300u);
+      movedSpatially =
+          rr2nw::WindowsAudioRuntime_MoveListeningProbe(100.0f, 0.0f, 0.0f) &&
+          movedSpatially;
+      Sleep(300u);
+    }
     rr2nw::WindowsAudioRuntime_SetApplicationActive(false);
     rr2nw::WindowsAudioRuntime_SetApplicationActive(true);
     Sleep(250u);
@@ -95,20 +114,37 @@ int main(int argc, char** argv) {
         telemetry->deviceRecoveries == 1u &&
         telemetry->loopRestarts == 1u &&
         telemetry->loopRecoveryFailures == 0u;
+    const bool spatialExact = !listenMovingLoop ||
+        (movedSpatially && telemetry->positionedRegistrations == 1u &&
+         telemetry->emitterMoveUpdates == 2u &&
+         telemetry->emitterMoveFailures == 0u &&
+         telemetry->listenerUpdates == 1u &&
+         telemetry->listenerFailures == 0u &&
+         telemetry->spatialApplications >= 4u &&
+         telemetry->spatialSilentApplications >= 1u &&
+         telemetry->asymmetricModelFallbacks == 0u &&
+         telemetry->nonMonoSpatialFallbacks == 0u);
     const bool stopped = rr2nw::WindowsAudioRuntime_StopListeningProbe() &&
         !rr2nw::WindowsAudioRuntime_ListeningProbeActive();
     telemetry = rr2nw::WindowsAudioRuntime_Telemetry();
     std::printf("audio loop device=%s deferred=%u active=%u stopped=%u "
-                "lifecycle=%u/%u/%u recovery=%u/%u/%u\n",
+                "lifecycle=%u/%u/%u recovery=%u/%u/%u "
+                "spatial=%u/%u/%u/%u/%u\n",
                 telemetry->deviceReady ? "XAudio2-2.9" : "unavailable",
                 deferred ? 1u : 0u, remainedActive ? 1u : 0u,
                 stopped ? 1u : 0u,
                 telemetry->loopRequests, telemetry->loopStarts,
                 telemetry->loopStops, telemetry->deviceLosses,
                 telemetry->deviceRecoveries,
-                telemetry->loopRecoveryFailures);
+                telemetry->loopRecoveryFailures,
+                telemetry->positionedRegistrations,
+                telemetry->emitterMoveUpdates,
+                telemetry->listenerUpdates,
+                telemetry->spatialApplications,
+                telemetry->spatialSilentApplications);
     rr2nw::WindowsAudioRuntime_Shutdown();
-    return remainedActive && stopped ? EXIT_SUCCESS : EXIT_FAILURE;
+    return remainedActive && spatialExact && stopped
+        ? EXIT_SUCCESS : EXIT_FAILURE;
   }
   if (!rr2nw::WindowsAudioRuntime_StartListeningProbe(500u)) {
     std::fprintf(stderr, "audio-device-smoke: %s\n", telemetry->lastError);

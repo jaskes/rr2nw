@@ -29,6 +29,15 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int loopRecoveryFailures = 0;
   unsigned int activeLoopVoices = 0;
   unsigned int activeLoopRegistrations = 0;
+  unsigned int positionedRegistrations = 0;
+  unsigned int emitterMoveUpdates = 0;
+  unsigned int emitterMoveFailures = 0;
+  unsigned int listenerUpdates = 0;
+  unsigned int listenerFailures = 0;
+  unsigned int spatialApplications = 0;
+  unsigned int spatialSilentApplications = 0;
+  unsigned int asymmetricModelFallbacks = 0;
+  unsigned int nonMonoSpatialFallbacks = 0;
   unsigned int voiceStealsPrevented = 0;
   unsigned int completedVoices = 0;
   unsigned int stoppedVoices = 0;
@@ -59,6 +68,8 @@ const SWindowsAudioRuntimeTelemetry* WindowsAudioRuntime_Telemetry();
 // startup and uses a generated PCM tone rather than retail media.
 bool WindowsAudioRuntime_StartListeningProbe(unsigned int milliseconds);
 bool WindowsAudioRuntime_StartLoopingProbe(unsigned int milliseconds);
+bool WindowsAudioRuntime_StartMovingLoopProbe(unsigned int milliseconds);
+bool WindowsAudioRuntime_MoveListeningProbe(float x, float y, float z);
 bool WindowsAudioRuntime_StopListeningProbe();
 bool WindowsAudioRuntime_ListeningProbeActive();
 bool WindowsAudioRuntime_TestOnlySimulateDeviceLoss();

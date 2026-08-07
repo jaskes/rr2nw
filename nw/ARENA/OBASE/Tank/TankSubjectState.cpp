@@ -736,6 +736,10 @@ static bool ProbeTankLifecycle(
             summary->saveStateRoundTrips = 1;
 
         tank->ct_Subject::setPosition(CFVector3(512.0, 10000.0, -512.0));
+        // Exercise the real authored Tank -> SoundObj loop before the real
+        // movement event below. The SoundObj registration is device
+        // independent and removal/death remains its exact rollback owner.
+        tank->onEnterAudibleZone(timeStamp + 0.09);
         const bool moveAccepted = StartMovement(tank, timeStamp + 0.1);
         const bool firstMoveScheduled =
             context->removeEvent(t_EVC_MOVING, probeID) == 1;
@@ -755,13 +759,20 @@ static bool ProbeTankLifecycle(
             context->copyEvents(UNIT_I_DRIVE, probeID, drive, 2);
         const double driveInterval = driveCount == 1
             ? drive[0].timeStamp - moveExecutionTime : 0.0;
+        // Execute the copied authored drive event before removing its queued
+        // twin. This proves the Tank movement owner itself publishes MOVE_TO
+        // to its live SoundObj, rather than testing only scheduler admission.
+        const bool driveExecuted = driveCount == 1 &&
+            tank->receiveEvent(drive[0]) == 1;
         context->removeEvent(UNIT_I_DRIVE, probeID);
         summary->cadenceBounded = driveCount == 1 &&
+            driveExecuted &&
             std::isfinite(driveInterval) &&
             driveInterval >= MODEL_TIME_DELTA_FORWARD * 0.2 - 1e-9 &&
             driveInterval <= MODEL_TIME_DELTA_FORWARD * 2.0 + 1e-9 ? 1 : 0;
         summary->scheduledMoves =
-            moveAccepted && moveExecuted && nextMoveScheduled ? 1 : 0;
+            moveAccepted && moveExecuted && nextMoveScheduled &&
+            driveExecuted ? 1 : 0;
 
         ProbeTankPresentation(tank, timeStamp + 2.0,
                               &summary->renderedPoseFrames,

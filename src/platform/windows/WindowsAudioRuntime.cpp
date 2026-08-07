@@ -1,6 +1,7 @@
 #include "WindowsAudioRuntime.h"
 
 #include "RecoveredModRuntime.h"
+#include "RecoveredAudioSpatial.h"
 #include "RecoveredPcmWav.h"
 #include "sound.h"
 
@@ -21,7 +22,7 @@
 namespace rr2nw {
 namespace {
 
-constexpr unsigned int kBackendAbiVersion = 1u;
+constexpr unsigned int kBackendAbiVersion = 2u;
 // The installed corpus contains 86 WAVs / about 38 MiB. Keep the process-wide
 // cache bounded while allowing every retail Level transition to retain the
 // union without turning late-campaign sounds into deterministic rejections.
@@ -34,10 +35,17 @@ struct CachedClip {
   SRecoveredPcmWav wav;
 };
 
+struct SpatialSourceState {
+  bool positionValid = false;
+  SRecoveredAudioVector3 position;
+  SRecoveredAudioEmitterModel model;
+};
+
 struct LoopRegistration {
   std::string clipKey;
   float intensity = 1.0f;
   SoundStatePlaybackToken token = 0;
+  SpatialSourceState spatial;
 };
 
 struct VoiceSlot;
@@ -63,6 +71,8 @@ struct VoiceSlot {
   SoundStatePlaybackToken token = 0;
   std::string clipKey;
   float intensity = 1.0f;
+  unsigned int sourceChannels = 0;
+  SpatialSourceState spatial;
   bool looping = false;
   std::atomic<bool> finished{false};
   std::atomic<bool> failed{false};
@@ -106,6 +116,8 @@ struct AudioRuntimeState {
   std::map<std::string, CachedClip> clips;
   std::map<SoundStatePlaybackToken, LoopRegistration> loops;
   SoundStatePlaybackToken nextToken = 1;
+  bool listenerValid = false;
+  SRecoveredAudioListenerPose listener;
 };
 
 AudioRuntimeState g_audio;
@@ -154,6 +166,31 @@ void UpdateActiveLoopTelemetry() {
       static_cast<unsigned int>(g_audio.loops.size());
 }
 
+bool ApplyVoiceSpatial(VoiceSlot* slot) {
+  if (slot == nullptr || slot->voice == nullptr) return false;
+  float gain = slot->intensity;
+  if (!slot->spatial.positionValid || !g_audio.listenerValid) {
+    return SUCCEEDED(slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
+  }
+  SRecoveredAudioSpatialResult spatial;
+  if (!RecoveredAudioSpatial_Evaluate(
+          g_audio.listener, slot->spatial.position, slot->spatial.model,
+          &spatial)) {
+    return SUCCEEDED(slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
+  }
+  gain *= spatial.attenuation;
+  HRESULT result = slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW);
+  if (FAILED(result)) return false;
+  if (slot->sourceChannels != 1u) return true;
+  const float matrix[2] = {spatial.left, spatial.right};
+  result = slot->voice->SetOutputMatrix(g_audio.effectsVoice, 1u, 2u, matrix,
+                                        XAUDIO2_COMMIT_NOW);
+  if (FAILED(result)) return false;
+  ++g_audio.telemetry.spatialApplications;
+  if (!spatial.audible) ++g_audio.telemetry.spatialSilentApplications;
+  return true;
+}
+
 void DestroyVoice(VoiceSlot* slot, bool completed, bool countStop) {
   if (slot == nullptr || slot->voice == nullptr) return;
   slot->voice->Stop(0u, XAUDIO2_COMMIT_NOW);
@@ -163,6 +200,8 @@ void DestroyVoice(VoiceSlot* slot, bool completed, bool countStop) {
   slot->token = 0;
   slot->clipKey.clear();
   slot->intensity = 1.0f;
+  slot->sourceChannels = 0;
+  slot->spatial = {};
   slot->looping = false;
   slot->finished.store(false);
   slot->failed.store(false);
@@ -347,7 +386,8 @@ bool AdmitClip(const char* fileName, int flags) {
 bool StartCachedClip(const std::string& key, float intensity, bool looping,
                      SoundStatePlaybackToken* token,
                      SoundStatePlaybackToken recoveredToken = 0,
-                     bool deviceRecovery = false) {
+                     bool deviceRecovery = false,
+                     const SpatialSourceState& spatial = {}) {
   if (token == nullptr) return false;
   *token = 0;
   const bool newRequest = recoveredToken == 0;
@@ -374,7 +414,11 @@ bool StartCachedClip(const std::string& key, float intensity, bool looping,
     }
     assignedToken = g_audio.nextToken++;
     if (assignedToken == 0) assignedToken = g_audio.nextToken++;
-    LoopRegistration registration = {key, boundedIntensity, assignedToken};
+    LoopRegistration registration;
+    registration.clipKey = key;
+    registration.intensity = boundedIntensity;
+    registration.token = assignedToken;
+    registration.spatial = spatial;
     try {
       g_audio.loops.emplace(assignedToken, std::move(registration));
     } catch (...) {
@@ -449,14 +493,6 @@ bool StartCachedClip(const std::string& key, float intensity, bool looping,
     rollbackRegistration();
     return false;
   }
-  result = slot->voice->SetVolume(boundedIntensity, XAUDIO2_COMMIT_NOW);
-  if (FAILED(result)) {
-    SetError("XAudio2 source intensity could not be applied", result);
-    ++g_audio.telemetry.playbackFailures;
-    DestroyVoice(slot, false, false);
-    rollbackRegistration();
-    return false;
-  }
   XAUDIO2_BUFFER buffer = {};
   buffer.Flags = XAUDIO2_END_OF_STREAM;
   buffer.AudioBytes = static_cast<UINT32>(clip.wav.samples.size());
@@ -467,8 +503,25 @@ bool StartCachedClip(const std::string& key, float intensity, bool looping,
   slot->failed.store(false);
   slot->clipKey = key;
   slot->intensity = boundedIntensity;
+  slot->sourceChannels = clip.wav.channels;
+  slot->spatial = spatial;
   slot->looping = looping;
   slot->token = assignedToken;
+  if (spatial.positionValid) {
+    if (RecoveredAudioSpatial_ValidateSymmetricModel(spatial.model)) {
+      if (clip.wav.channels != 1u)
+        ++g_audio.telemetry.nonMonoSpatialFallbacks;
+    } else {
+      ++g_audio.telemetry.asymmetricModelFallbacks;
+    }
+  }
+  if (!ApplyVoiceSpatial(slot)) {
+    SetError("XAudio2 source spatial state could not be applied");
+    ++g_audio.telemetry.playbackFailures;
+    DestroyVoice(slot, false, false);
+    rollbackRegistration();
+    return false;
+  }
   result = slot->voice->SubmitSourceBuffer(&buffer);
   if (SUCCEEDED(result)) result = slot->voice->Start();
   if (FAILED(result)) {
@@ -500,8 +553,19 @@ bool BackendStart(void*, const SSoundStatePlaybackRequest* request,
   if (request == nullptr ||
       !ValidAuthoredSoundPath(request->fileName, &key))
     return false;
-  return StartCachedClip(key, request->intensity,
-                         request->playCount == 0, token);
+  SpatialSourceState spatial;
+  spatial.positionValid = request->positionValid != 0;
+  spatial.position = {request->positionX, request->positionY,
+                      request->positionZ};
+  spatial.model = {request->minFront, request->minBack,
+                   request->maxFront, request->maxBack,
+                   request->intensity};
+  const bool started = StartCachedClip(key, request->intensity,
+                                       request->playCount == 0, token,
+                                       0, false, spatial);
+  if (started && spatial.positionValid && request->playCount == 0)
+    ++g_audio.telemetry.positionedRegistrations;
+  return started;
 }
 
 void BackendStop(void*, SoundStatePlaybackToken token) {
@@ -518,6 +582,62 @@ void BackendStop(void*, SoundStatePlaybackToken token) {
     ++g_audio.telemetry.loopStops;
     UpdateActiveLoopTelemetry();
   }
+}
+
+bool BackendMove(void*, SoundStatePlaybackToken token,
+                 float x, float y, float z) {
+  if (token == 0 || !std::isfinite(x) || !std::isfinite(y) ||
+      !std::isfinite(z)) {
+    ++g_audio.telemetry.emitterMoveFailures;
+    return false;
+  }
+  const SRecoveredAudioVector3 position = {x, y, z};
+  bool found = false;
+  const auto loop = g_audio.loops.find(token);
+  if (loop != g_audio.loops.end()) {
+    loop->second.spatial.position = position;
+    loop->second.spatial.positionValid = true;
+    found = true;
+  }
+  for (VoiceSlot& slot : g_audio.voices) {
+    if (slot.voice == nullptr || slot.token != token) continue;
+    slot.spatial.position = position;
+    slot.spatial.positionValid = true;
+    found = ApplyVoiceSpatial(&slot);
+    break;
+  }
+  if (!found) {
+    ++g_audio.telemetry.emitterMoveFailures;
+    return false;
+  }
+  ++g_audio.telemetry.emitterMoveUpdates;
+  return true;
+}
+
+bool BackendSetListener(void*, const SSoundStateListenerPose* listener) {
+  if (listener == nullptr) {
+    ++g_audio.telemetry.listenerFailures;
+    return false;
+  }
+  const SRecoveredAudioListenerPose pose = {
+      {listener->positionX, listener->positionY, listener->positionZ},
+      {listener->frontX, listener->frontY, listener->frontZ},
+      {listener->upX, listener->upY, listener->upZ}};
+  if (!RecoveredAudioSpatial_ValidateListener(pose)) {
+    ++g_audio.telemetry.listenerFailures;
+    return false;
+  }
+  g_audio.listener = pose;
+  g_audio.listenerValid = true;
+  bool applied = true;
+  for (VoiceSlot& slot : g_audio.voices)
+    if (slot.voice != nullptr && !ApplyVoiceSpatial(&slot)) applied = false;
+  if (!applied) {
+    ++g_audio.telemetry.listenerFailures;
+    return false;
+  }
+  ++g_audio.telemetry.listenerUpdates;
+  return true;
 }
 
 void BackendSetVolume(void*, ESoundStateCategory category, float volume) {
@@ -588,7 +708,8 @@ bool RecoverDeviceAndLoops(HRESULT deviceError) {
     const LoopRegistration& loop = entry.second;
     SoundStatePlaybackToken restored = 0;
     if (!StartCachedClip(loop.clipKey, loop.intensity, true, &restored,
-                         loop.token, true) || restored != loop.token) {
+                         loop.token, true, loop.spatial) ||
+        restored != loop.token) {
       ++g_audio.telemetry.loopRecoveryFailures;
       exact = false;
     }
@@ -609,12 +730,16 @@ bool WindowsAudioRuntime_Configure(float effectsVolume,
   g_audio.telemetry.applicationActive = true;
   g_audio.telemetry.effectsVolume = effectsVolume;
   g_audio.nextToken = 1;
+  g_audio.listenerValid = false;
+  g_audio.listener = {};
   SSoundStateBackend backend = {};
   backend.abiVersion = kBackendAbiVersion;
   backend.owner = &g_audio;
   backend.admit = BackendAdmit;
   backend.start = BackendStart;
   backend.stop = BackendStop;
+  backend.move = BackendMove;
+  backend.setListener = BackendSetListener;
   backend.setCategoryVolume = BackendSetVolume;
   backend.setApplicationActive = BackendSetActive;
   backend.maintain = BackendMaintain;
@@ -638,7 +763,8 @@ bool WindowsAudioRuntime_EnablePhysicalOutput() {
     const LoopRegistration& loop = entry.second;
     SoundStatePlaybackToken materialized = 0;
     if (!StartCachedClip(loop.clipKey, loop.intensity, true, &materialized,
-                         loop.token, false) || materialized != loop.token) {
+                         loop.token, false, loop.spatial) ||
+        materialized != loop.token) {
       ++g_audio.telemetry.loopRecoveryFailures;
       exact = false;
     }
@@ -654,6 +780,8 @@ void WindowsAudioRuntime_Shutdown() {
   g_audio.comOwned = false;
   g_audio.clips.clear();
   g_audio.loops.clear();
+  g_audio.listenerValid = false;
+  g_audio.listener = {};
   g_audio.telemetry.cachedSampleBytes = 0;
   g_audio.telemetry.activeLoopRegistrations = 0;
   g_audio.telemetry.configured = false;
@@ -708,6 +836,35 @@ bool WindowsAudioRuntime_StartLoopingProbe(unsigned int milliseconds) {
   if (!InstallSyntheticProbeClip(milliseconds)) return false;
   SoundStatePlaybackToken token = 0;
   return StartCachedClip(kSyntheticProbeKey, 1.0f, true, &token);
+}
+
+bool WindowsAudioRuntime_StartMovingLoopProbe(unsigned int milliseconds) {
+  if (!InstallSyntheticProbeClip(milliseconds)) return false;
+  const SSoundStateListenerPose listener = {
+      0.0f, 0.0f, 0.0f,
+      0.0f, 0.0f, 1.0f,
+      0.0f, 1.0f, 0.0f};
+  if (!BackendSetListener(nullptr, &listener)) return false;
+  SpatialSourceState spatial;
+  spatial.positionValid = true;
+  spatial.position = {-25.0f, 0.0f, 0.0f};
+  spatial.model = {5.0f, 5.0f, 100.0f, 100.0f, 1.0f};
+  SoundStatePlaybackToken token = 0;
+  const bool started = StartCachedClip(kSyntheticProbeKey, 1.0f, true,
+                                       &token, 0, false, spatial);
+  if (started) ++g_audio.telemetry.positionedRegistrations;
+  return started;
+}
+
+bool WindowsAudioRuntime_MoveListeningProbe(float x, float y, float z) {
+  std::vector<SoundStatePlaybackToken> tokens;
+  for (const auto& entry : g_audio.loops)
+    if (entry.second.clipKey == kSyntheticProbeKey)
+      tokens.push_back(entry.first);
+  bool moved = !tokens.empty();
+  for (SoundStatePlaybackToken token : tokens)
+    moved = BackendMove(nullptr, token, x, y, z) && moved;
+  return moved;
 }
 
 bool WindowsAudioRuntime_StopListeningProbe() {

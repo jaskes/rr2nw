@@ -1581,6 +1581,27 @@ device-loss reconstruction and exact END. It does not prove spatial audio.
 
 For the visual/listening Farter pass, launch Level.04D normally and move
 between factory/steam/windmill areas. Loops must begin and end without stacking
-copies, survive one Alt-Tab, and stop on a Level change. Current output is
-centered with authored intensity only; do not report missing left/right pan or
-RSX distance rolloff as a regression until the spatial slice is implemented.
+copies, survive one Alt-Tab, and stop on a Level change. Symmetric cached
+emitters now use the maintained listener model. Report a loop that fails to
+pan or fade, stacks copies, survives Level teardown, or changes simulation
+speed. Do not compare the exact falloff curve to Intel RSX: the maintained
+curve is deliberately linear because the RSX interpolation law did not
+survive.
+
+## Moving cached-loop spatial compatibility pass
+
+This explicit gate generates its own mono tone. It starts to the listener's
+left, moves to the right and then beyond the outer distance, so it should be
+heard left, then right, then silence. It neither reads nor copies retail media:
+
+```powershell
+cmake --build ".\build\windows-msvc-x86" --config RelWithDebInfo --target rr2nw_audio_device_smoke -- /m:1 /nodeReuse:false
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw_audio_device_smoke.exe" --listen-moving-loop
+```
+
+The result must report `spatial=1/2/1/4/2` together with
+`lifecycle=1/1/1` and `recovery=1/1/0`. This means one positioned
+registration, two successful emitter moves, one outer-distance silent state,
+four spatial applications and two listener updates. The final stop and clean
+shutdown are mandatory. This proves the maintained symmetric linear/equal-
+power model, not byte-exact RSX, HRTF or Doppler behavior.

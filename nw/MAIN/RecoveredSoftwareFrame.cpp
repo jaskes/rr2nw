@@ -9,6 +9,7 @@
 #include "kernel/h/session.h"
 #include "scene.h"
 #include "storage/h/subject.h"
+#include "sound.h"
 
 extern int __fullCnt;
 extern int __revCnt;
@@ -57,4 +58,17 @@ void Frame_BindRecoveredSoftware() {
       0
   };
   Frame_ConfigureRuntime(hooks);
+}
+
+bool Frame_PublishAudioListener() {
+  const CFVector3 position = CViewObject::m_viewPointInvMx.Offset();
+  const CFVector3 front = CViewObject::m_viewPointInvMx.Column(2);
+  const CFVector3 up = CViewObject::m_viewPointInvMx.Column(1);
+  const SSoundStateListenerPose listener = {
+      static_cast<float>(position.x), static_cast<float>(position.y),
+      static_cast<float>(position.z), static_cast<float>(front.x),
+      static_cast<float>(front.y), static_cast<float>(front.z),
+      static_cast<float>(up.x), static_cast<float>(up.y),
+      static_cast<float>(up.z)};
+  return SoundState_SetListener(&listener);
 }

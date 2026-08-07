@@ -2158,6 +2158,9 @@ struct RecoveredArenaSeanceState {
   int tankProbeDeathEffects;
   int tankProbeSaveStateRoundTrips;
   int tankProbeRollbacks;
+  int tankProbeAudioLoopStarts;
+  int tankProbeAudioMoves;
+  int tankProbeAudioStops;
   int commanderCapacity;
   int commanderCount;
   int commanderHostileLinks;
@@ -5637,6 +5640,13 @@ bool PublishTankLifecycle(SimulationContext* context, double startTime) {
     return false;
   }
   STankLifecycleProbeSummary probe = {};
+  const SSoundStateTelemetry* audioBefore = SoundState_Telemetry();
+  const unsigned int loopStartsBefore =
+      audioBefore == nullptr ? 0u : audioBefore->loopStarts;
+  const unsigned int movesBefore =
+      audioBefore == nullptr ? 0u : audioBefore->emitterMoveUpdates;
+  const unsigned int stopsBefore =
+      audioBefore == nullptr ? 0u : audioBefore->stops;
   if (g_state.tankAttributeCount > 0) {
     if (!TankSubjectState_ProbeLifecycle(context, startTime, &probe)) {
       char message[256] = {};
@@ -5680,6 +5690,13 @@ bool PublishTankLifecycle(SimulationContext* context, double startTime) {
   g_state.tankProbeDeathEffects = probe.deathEffects;
   g_state.tankProbeSaveStateRoundTrips = probe.saveStateRoundTrips;
   g_state.tankProbeRollbacks = probe.rollbacks;
+  const SSoundStateTelemetry* audioAfter = SoundState_Telemetry();
+  g_state.tankProbeAudioLoopStarts = audioAfter == nullptr ? 0 :
+      static_cast<int>(audioAfter->loopStarts - loopStartsBefore);
+  g_state.tankProbeAudioMoves = audioAfter == nullptr ? 0 :
+      static_cast<int>(audioAfter->emitterMoveUpdates - movesBefore);
+  g_state.tankProbeAudioStops = audioAfter == nullptr ? 0 :
+      static_cast<int>(audioAfter->stops - stopsBefore);
   return true;
 }
 
@@ -6880,6 +6897,9 @@ void RecoveredArenaSeance_Release() {
   g_state.tankProbeDeathEffects = 0;
   g_state.tankProbeSaveStateRoundTrips = 0;
   g_state.tankProbeRollbacks = 0;
+  g_state.tankProbeAudioLoopStarts = 0;
+  g_state.tankProbeAudioMoves = 0;
+  g_state.tankProbeAudioStops = 0;
   CannonSubjectState_SetExpectedCapacities(0, 0);
   TankSubjectState_SetExpectedCapacities(0, 0);
   g_state.sparkAttributesReady = false;
@@ -7454,6 +7474,21 @@ int RecoveredArenaSeance_TankProbeSaveStateRoundTrips() {
 
 int RecoveredArenaSeance_TankProbeRollbacks() {
   return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeRollbacks
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeAudioLoopStarts() {
+  return g_state.tankCannonSubjectTablesReady
+             ? g_state.tankProbeAudioLoopStarts : -1;
+}
+
+int RecoveredArenaSeance_TankProbeAudioMoves() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeAudioMoves
+                                              : -1;
+}
+
+int RecoveredArenaSeance_TankProbeAudioStops() {
+  return g_state.tankCannonSubjectTablesReady ? g_state.tankProbeAudioStops
                                               : -1;
 }
 

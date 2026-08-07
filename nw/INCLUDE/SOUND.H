@@ -23,9 +23,10 @@ bool SoundState_SetMaximumDistance(double maximumDistance);
 // boundary.  Authored SoundObj state remains owned by the simulation and does
 // not depend on a device being present.  The first production backend admits
 // only cached PCM effects. START(1) is a one-shot and the source-proven
-// START(0)/END pair owns a long-lived loop. Streamed media, positional
-// attenuation and spatialization stay explicit unsupported branches until
-// their owners are recovered.
+// START(0)/END pair owns a long-lived loop. The ABI-2 extension carries the
+// source-proven emitter model and CViewObject listener pose; the maintained
+// backend may apply a documented compatibility spatial model. Streamed media
+// remains an explicit unsupported branch.
 enum ESoundStateCategory
 {
     SOUND_STATE_CATEGORY_EFFECTS = 0,
@@ -38,6 +39,27 @@ struct SSoundStatePlaybackRequest
     int flags;
     int playCount;
     float intensity;
+    int positionValid;
+    float positionX;
+    float positionY;
+    float positionZ;
+    float minFront;
+    float minBack;
+    float maxFront;
+    float maxBack;
+};
+
+struct SSoundStateListenerPose
+{
+    float positionX;
+    float positionY;
+    float positionZ;
+    float frontX;
+    float frontY;
+    float frontZ;
+    float upX;
+    float upY;
+    float upZ;
 };
 
 typedef unsigned long long SoundStatePlaybackToken;
@@ -50,6 +72,10 @@ struct SSoundStateBackend
     bool (*start)(void *owner, const SSoundStatePlaybackRequest *request,
                   SoundStatePlaybackToken *token);
     void (*stop)(void *owner, SoundStatePlaybackToken token);
+    bool (*move)(void *owner, SoundStatePlaybackToken token,
+                 float x, float y, float z);
+    bool (*setListener)(void *owner,
+                        const SSoundStateListenerPose *listener);
     void (*setCategoryVolume)(void *owner, ESoundStateCategory category,
                               float volume);
     void (*setApplicationActive)(void *owner, bool active);
@@ -71,6 +97,12 @@ struct SSoundStateTelemetry
     unsigned int unsupportedStreamStarts;
     unsigned int unsupportedRepeatStarts;
     unsigned int stops;
+    unsigned int emitterMoveRequests;
+    unsigned int emitterMoveUpdates;
+    unsigned int emitterMoveFailures;
+    unsigned int listenerRequests;
+    unsigned int listenerUpdates;
+    unsigned int listenerFailures;
     unsigned int focusChanges;
     unsigned int maintenanceCalls;
     float effectsVolume;
@@ -82,6 +114,9 @@ bool SoundState_AdmitWave(const char *fileName, int flags);
 bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
                               SoundStatePlaybackToken *token);
 void SoundState_StopPlayback(SoundStatePlaybackToken *token);
+bool SoundState_MovePlayback(SoundStatePlaybackToken token,
+                             float x, float y, float z);
+bool SoundState_SetListener(const SSoundStateListenerPose *listener);
 bool SoundState_SetCategoryVolume(ESoundStateCategory category, float volume);
 void SoundState_SetApplicationActive(bool active);
 void SoundState_Maintain();

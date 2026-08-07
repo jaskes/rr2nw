@@ -5396,7 +5396,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Verification: the fake SoundObj backend proves SET_WAV/MOVE_TO/START(0),
   token ownership and parent rollback. `Invoke-FarterAudioLoop.ps1` proves
   Level.04D `23/23/23`, a real near/far `1/0` transition, the invariant
-  `stopped + active registrations = requests`, and post-Level `29/0/0` cleanup
+  `stopped + active registrations = requests`, and post-Level zero-voice/
+  zero-registration cleanup
   in every maintained configuration. The opt-in generated-tone gate proves
   deferred registration, one physical loop, focus suspend/resume, one forced
   loss/recovery/restart and exact stop with no recovery failure. Portal 9/9
@@ -5405,12 +5406,42 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Boundary: global DistMax selects audible objects, but the retained RSX
   min/max ellipsoid values are not mapped to an invented XAudio2 curve and no
   panning/HRTF claim is made. Taxi/Orphan/People/Tank inherit the generic
-  START(0)/END bridge, but only Farter is closed end-to-end here. Streaming,
-  moving-source updates, Vehicle pitch and category expansion remain separate
-  rows.
+  START(0)/END bridge; Tank movement is closed separately by CQ-261. Streaming,
+  Vehicle pitch and category expansion remain separate rows.
 - Revisit when: an exact listener/emitter transform owner and a defensible
   attenuation/panning mapping are recovered, or a moving class receives its
   own complete Level/save/Portal acceptance.
+
+### CQ-261: RSX exposes emitter radii but not its interpolation law
+
+- Status: `LISTENER_TRANSFORM_AND_MOVE_OWNER_CONFIRMED`,
+  `SYMMETRIC_LINEAR_COMPATIBILITY_MODEL`, `BYTE_EXACT_RSX_NOT_CLAIMED`.
+- Evidence: archived `PositionListener` reads position/front/up from
+  `CViewObject::m_viewPointInvMx`, matching the maintained renderer camera.
+  `SoundObj::onChangePos` and Taxi/Orphan/People/Tank movement retain exact
+  `MOVE_TO` ownership. The installed cached moving models selected for the
+  Tank proof have equal front/back min and max distances. Surviving comments
+  define inner as ambient, outer as inaudible and the interval as localized,
+  but no exact Intel RSX rolloff/pan formula survives.
+- Handling: the neutral bridge carries listener pose, emitter position and the
+  authored radii. The Windows owner admits spatial compatibility only for
+  finite symmetric radii, uses full/linear/silent gain across inner/interior/
+  outer ranges and equal-power mono panning from `cross(up, front)`. Invalid or
+  asymmetric models retain centered authored intensity and report a fallback.
+  Listener/emitter state is durable only for the live process registration;
+  normal Level restore recreates it instead of adding fields to LCN1/RR2SLOT1.
+- Verification: a synthetic headless evaluator proves center, left/right,
+  midpoint, outer silence and asymmetric rejection. Level.04D executes a real
+  Tank `UNIT_I_DRIVE` path with `start/move/stop=1/1/1`; the generated-device
+  gate proves left-to-right movement, outer silence and device recovery.
+  Farter, Portal and cross-Level gates require zero update failures and exact
+  source teardown.
+- Boundary: this is a maintained compatibility model, not byte-exact RSX,
+  Doppler, HRTF or oriented asymmetric-ellipsoid parity. Direct Vehicle engine
+  pitch and flags-1 streaming remain separate owners.
+- Revisit when: executable/binary evidence reveals the RSX curve, asymmetric
+  authored data needs directional output, multichannel media is admitted, or
+  the project adopts a deliberately new public spatial-audio contract.
 
 ## Maintenance rule
 

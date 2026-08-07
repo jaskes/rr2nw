@@ -4226,3 +4226,54 @@ shell 3/3, RecruitCenter presentation 3/3, Portal transitions 9/9 with explicit
 source audio teardown, representative campaign chains 6/6 and cross-Level
 Save/Load 2/2 with explicit source audio teardown. Silent device creation and
 the deferred generated-loop recovery gate pass in all three configurations.
+
+## Listener and moving cached-loop compatibility boundary
+
+The next slice recovers the exact owners around the missing RSX algorithm
+without pretending to recover the algorithm itself. Archived
+`PositionListener` and the active renderer both use inverse-view offset,
+column-2 front and column-1 up. SoundObj retains position and `MOVE_TO`;
+Taxi, Orphan, People and Tank all publish a move from their authored movement
+paths. Farter has no moving update. Vehicle bypasses SoundObj, keeps its engine
+at the listener and applies a speed pitch factor, so it remains an isolated
+follow-up rather than being folded into this bridge.
+
+| Authored class | Loop lifetime | Position update owner | This slice |
+|---|---|---|---|
+| Farter | SoundObj START(0)/END | static after construction | prior lifetime gate retained |
+| Tank | SoundObj START(0)/END | real `UNIT_I_DRIVE` calls MOVE_TO | full moving proof |
+| People | SoundObj START(0)/END | People movement calls MOVE_TO | bridge connected; natural route deferred |
+| Taxi | SoundObj START(0)/END | `Taxi::setPosition` calls MOVE_TO | bridge connected; natural route deferred |
+| Orphan | SoundObj START(0)/END | falling/moving owner calls MOVE_TO | bridge connected; natural route deferred |
+| Vehicle | direct RSX play/stop | listener-centered plus speed pitch | separate owner deferred |
+
+The neutral ABI is version 2. It carries the authored position and symmetric
+min/max radii with START, durable MOVE updates thereafter, and one listener
+pose after each accepted software frame. These values are presentation-only:
+tokens, listener pose and physical voice state stay outside LCN1/RR2SLOT1.
+Level reconstruction reissues the normal authored lifecycle; focus and device
+loss reapply current listener/emitter state, while END and Level teardown
+remove it exactly.
+
+The maintained spatial evaluator is explicitly a compatibility model. For a
+finite symmetric ellipsoid it uses full gain inside min distance, a linear
+falloff to silence at max distance and equal-power mono panning against
+`cross(up, front)`. An asymmetric model retains authored intensity and centered
+output with fallback telemetry because emitter orientation and the exact RSX
+law did not survive. A non-mono source receives distance gain but no invented
+channel layout. Global DistMax=300 continues to decide whether gameplay owns
+an audible SoundObj at all.
+
+The closed real row is Level.04D Tank. Its probe enters the audible zone,
+executes the copied real `UNIT_I_DRIVE` event and exits, producing exact
+`tank_audio_move_probe=1/1/1`. The Farter gate also proves listener publication,
+position updates, zero failures and post-Level cleanup. Synthetic unit coverage
+proves inner/mid/outer gain, pan and fail-closed asymmetry. The opt-in generated
+device gate moves a mono loop left to right and beyond outer distance, forces
+one device reconstruction while silent and stops the registration. Portal and
+cross-Level Save/Load keep exact source audio teardown. The closure gate is
+Debug/Release/RelWithDebInfo, 69/69 CTest per configuration, installed Farter
+3/3, generated movement 3/3, Portal 9/9 and cross-Level Save/Load 2/2.
+
+This does not close natural-route Taxi/Orphan/People parity, Vehicle pitch,
+flags-1 streaming, dialogue/music, FLIC or UI audio.

@@ -311,6 +311,12 @@ CFVector3  SoundObj::getPosition()
 
 void SoundObj::onChangePos()
  {
+    if (m_backendPlayback != 0)
+        (void)SoundState_MovePlayback(
+            m_backendPlayback,
+            static_cast<float>(m_position.x),
+            static_cast<float>(m_position.y),
+            static_cast<float>(m_position.z));
     if (!m_emitterValid)
         return;
 
@@ -337,7 +343,15 @@ void SoundObj::startPlay( int count )
         m_wav->m_rsxCE.szFilename,
         m_wav->m_flags,
         count,
-        m_wav->m_rsxEModel.fIntensity
+        m_wav->m_rsxEModel.fIntensity,
+        m_positionValid,
+        static_cast<float>(m_position.x),
+        static_cast<float>(m_position.y),
+        static_cast<float>(m_position.z),
+        m_wav->m_rsxEModel.fMinFront,
+        m_wav->m_rsxEModel.fMinBack,
+        m_wav->m_rsxEModel.fMaxFront,
+        m_wav->m_rsxEModel.fMaxBack
     };
     (void)SoundState_StartPlayback(&request, &m_backendPlayback);
     if (m_emitterValid)

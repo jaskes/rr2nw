@@ -140,6 +140,14 @@ foreach ($configurationName in $Configuration) {
             $loadLog["cross_level_audio_source_teardown"] -notmatch '^\d+/0/0$') {
             $issues.Add("source Level retained a physical/logical audio loop")
         }
+        if (-not $loadLog.ContainsKey("audio_positioned_loops") -or
+            $loadLog["audio_positioned_loops"] -notmatch '^\d+/\d+/0$' -or
+            -not $loadLog.ContainsKey("audio_listener_updates") -or
+            $loadLog["audio_listener_updates"] -notmatch '^\d+/0$' -or
+            -not $loadLog.ContainsKey("audio_authored_positions") -or
+            $loadLog["audio_authored_positions"] -notmatch '^\d+/\d+/0/\d+/0$') {
+            $issues.Add("moving audio/listener ownership reported a failure")
+        }
         if (-not $loadLog.ContainsKey("level_briefing_policy") -or
             $loadLog["level_briefing_policy"] -ne "suppressed" -or
             -not $loadLog.ContainsKey("cross_load_target_level_briefing_policy") -or

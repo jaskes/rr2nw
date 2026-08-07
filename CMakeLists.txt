@@ -154,6 +154,16 @@ if(MSVC)
   target_compile_options(rr2nw_pcm_wav PRIVATE /W4 /permissive-)
 endif()
 
+add_library(rr2nw_audio_spatial STATIC
+  src/runtime/RecoveredAudioSpatial.cpp
+  src/runtime/RecoveredAudioSpatial.h
+)
+target_include_directories(rr2nw_audio_spatial PUBLIC src/runtime)
+target_compile_features(rr2nw_audio_spatial PUBLIC cxx_std_14)
+if(MSVC)
+  target_compile_options(rr2nw_audio_spatial PRIVATE /W4 /permissive-)
+endif()
+
 add_library(rr2nw_arena_kernel STATIC
   nw/ARENA/KERNEL/SRC/Object.cpp
   nw/ARENA/KERNEL/SRC/S_DEBUG.CPP
@@ -4387,6 +4397,7 @@ target_compile_definitions(rr2nw_windows_audio_runtime PRIVATE
   _UNICODE
 )
 target_link_libraries(rr2nw_windows_audio_runtime PUBLIC
+  rr2nw_audio_spatial
   rr2nw_pcm_wav
   rr2nw_mod_runtime
   rr2nw_sound_state
@@ -4457,6 +4468,15 @@ target_compile_definitions(rr2nw_audio_device_smoke PRIVATE
 )
 if(MSVC)
   target_compile_options(rr2nw_audio_device_smoke PRIVATE /W4 /permissive-)
+endif()
+
+add_executable(rr2nw_audio_spatial_smoke
+  src/portability/RecoveredAudioSpatialSmoke.cpp
+)
+target_link_libraries(rr2nw_audio_spatial_smoke PRIVATE rr2nw_audio_spatial)
+target_compile_features(rr2nw_audio_spatial_smoke PRIVATE cxx_std_14)
+if(MSVC)
+  target_compile_options(rr2nw_audio_spatial_smoke PRIVATE /W4 /permissive-)
 endif()
 
 add_executable(rr2nw_scene_software_draw_link_probe
@@ -5275,6 +5295,8 @@ if(BUILD_TESTING)
     NAME sound-object-state-smoke
     COMMAND rr2nw_sound_object_state_smoke
   )
+  add_test(NAME recovered-audio-spatial-smoke
+           COMMAND rr2nw_audio_spatial_smoke)
   add_test(NAME recovered-pcm-wav-smoke COMMAND rr2nw_pcm_wav_smoke)
   add_test(
     NAME farter-subject-state-smoke

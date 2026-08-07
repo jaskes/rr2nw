@@ -9,11 +9,14 @@
 namespace
 {
 
-const unsigned int kSoundStateBackendAbiVersion = 1u;
+const unsigned int kSoundStateBackendAbiVersion = 2u;
 SSoundStateBackend g_backend = {};
-SSoundStateTelemetry g_telemetry = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0f
-};
+SSoundStateTelemetry g_telemetry = {};
+
+struct SoundTelemetryInitializer
+{
+    SoundTelemetryInitializer() { g_telemetry.effectsVolume = 1.0f; }
+} g_soundTelemetryInitializer;
 
 bool ValidBackend(const SSoundStateBackend *backend)
 {
@@ -21,6 +24,7 @@ bool ValidBackend(const SSoundStateBackend *backend)
            backend->abiVersion == kSoundStateBackendAbiVersion &&
            backend->owner != NULL && backend->admit != NULL &&
            backend->start != NULL && backend->stop != NULL &&
+           backend->move != NULL && backend->setListener != NULL &&
            backend->setCategoryVolume != NULL &&
            backend->setApplicationActive != NULL &&
            backend->maintain != NULL;
@@ -29,6 +33,30 @@ bool ValidBackend(const SSoundStateBackend *backend)
 bool ValidVolume(float volume)
 {
     return std::isfinite(volume) && volume >= 0.0f && volume <= 1.0f;
+}
+
+bool ValidPosition(float x, float y, float z)
+{
+    return std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
+}
+
+bool ValidListener(const SSoundStateListenerPose *listener)
+{
+    if (listener == NULL ||
+        !ValidPosition(listener->positionX, listener->positionY,
+                       listener->positionZ) ||
+        !ValidPosition(listener->frontX, listener->frontY,
+                       listener->frontZ) ||
+        !ValidPosition(listener->upX, listener->upY, listener->upZ))
+        return false;
+    const float front2 = listener->frontX * listener->frontX +
+                         listener->frontY * listener->frontY +
+                         listener->frontZ * listener->frontZ;
+    const float up2 = listener->upX * listener->upX +
+                      listener->upY * listener->upY +
+                      listener->upZ * listener->upZ;
+    return std::isfinite(front2) && std::isfinite(up2) &&
+           front2 > 1.0e-8f && up2 > 1.0e-8f;
 }
 
 }  // namespace
@@ -87,7 +115,14 @@ bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
     if (request == NULL || request->fileName == NULL ||
         request->fileName[0] == 0 || request->flags < 0 ||
         request->flags > 1 || request->playCount < 0 ||
-        !std::isfinite(request->intensity))
+        !std::isfinite(request->intensity) || request->intensity < 0.0f ||
+        (request->positionValid != 0 &&
+         (!ValidPosition(request->positionX, request->positionY,
+                         request->positionZ) ||
+          !std::isfinite(request->minFront) ||
+          !std::isfinite(request->minBack) ||
+          !std::isfinite(request->maxFront) ||
+          !std::isfinite(request->maxBack))))
     {
         ++g_telemetry.oneShotFailures;
         return false;
@@ -121,6 +156,33 @@ bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
         ++g_telemetry.loopStarts;
     else
         ++g_telemetry.oneShotStarts;
+    return true;
+}
+
+bool SoundState_MovePlayback(SoundStatePlaybackToken token,
+                             float x, float y, float z)
+{
+    ++g_telemetry.emitterMoveRequests;
+    if (token == 0 || !ValidPosition(x, y, z) || g_backend.owner == NULL ||
+        !g_backend.move(g_backend.owner, token, x, y, z))
+    {
+        ++g_telemetry.emitterMoveFailures;
+        return false;
+    }
+    ++g_telemetry.emitterMoveUpdates;
+    return true;
+}
+
+bool SoundState_SetListener(const SSoundStateListenerPose *listener)
+{
+    ++g_telemetry.listenerRequests;
+    if (!ValidListener(listener) || g_backend.owner == NULL ||
+        !g_backend.setListener(g_backend.owner, listener))
+    {
+        ++g_telemetry.listenerFailures;
+        return false;
+    }
+    ++g_telemetry.listenerUpdates;
     return true;
 }
 

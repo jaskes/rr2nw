@@ -17,6 +17,7 @@
 #include "RecoveredModRuntime.h"
 #include "RecoveredPresentationTrace.h"
 #include "RecoveredRetailScriptManifest.h"
+#include "RecoveredSoftwareFrame.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
 #include "filesys.h"
@@ -2184,7 +2185,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const SWindowsAudioRuntimeTelemetry* initialAudio =
       WindowsAudioRuntime_Telemetry();
-  log.Line("audio_backend=xaudio2-2.9-effects-v1");
+  log.Line("audio_backend=xaudio2-2.9-effects-spatial-v2");
   log.Line(std::string("audio_physical_output=") +
            (!options.runtimeSmoke ? "deferred-until-interactive-loop"
                                   : "headless"));
@@ -3206,6 +3207,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                RecoveredArenaSeance_TankProbeRenderedPoseFrames()) +
            "/" + std::to_string(
                RecoveredArenaSeance_TankProbeViewBoundaryResets()));
+  log.Line("tank_audio_move_probe=" +
+           std::to_string(
+               RecoveredArenaSeance_TankProbeAudioLoopStarts()) + "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeAudioMoves()) +
+           "/" +
+           std::to_string(RecoveredArenaSeance_TankProbeAudioStops()));
   log.Line("commander_roster=" +
            std::to_string(RecoveredArenaSeance_CommanderCount()) + "/" +
            std::to_string(RecoveredArenaSeance_CommanderCapacity()));
@@ -3561,6 +3568,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const auto runCompleteFrame = [&]() {
     if (!RecoveredGameServices_RunFrame()) return false;
+    // Audio remains subordinate to simulation. An invalid or unavailable
+    // device records telemetry but cannot reject an otherwise valid frame.
+    (void)Frame_PublishAudioListener();
     SoundState_Maintain();
     if (PortalActiveWorldState_TransitionPending() &&
         !ProcessPortalLevelTransition(data, &currentLevelIndex,
@@ -6923,6 +6933,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("audio_loop_recovery=" +
              std::to_string(audio->loopRestarts) + "/" +
              std::to_string(audio->loopRecoveryFailures));
+    log.Line("audio_positioned_loops=" +
+             std::to_string(audio->positionedRegistrations) + "/" +
+             std::to_string(audio->emitterMoveUpdates) + "/" +
+             std::to_string(audio->emitterMoveFailures));
+    log.Line("audio_listener_updates=" +
+             std::to_string(audio->listenerUpdates) + "/" +
+             std::to_string(audio->listenerFailures));
+    log.Line("audio_spatial_compatibility=" +
+             std::to_string(audio->spatialApplications) + "/" +
+             std::to_string(audio->spatialSilentApplications) + "/" +
+             std::to_string(audio->asymmetricModelFallbacks) + "/" +
+             std::to_string(audio->nonMonoSpatialFallbacks));
     log.Line("audio_effect_failures=" +
              std::to_string(audio->playbackFailures) + "/" +
              std::to_string(audio->voiceStealsPrevented));
@@ -6943,6 +6965,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("audio_unsupported_stream_repeat=" +
              std::to_string(authoredAudio->unsupportedStreamStarts) + "/" +
              std::to_string(authoredAudio->unsupportedRepeatStarts));
+    log.Line("audio_authored_positions=" +
+             std::to_string(authoredAudio->emitterMoveRequests) + "/" +
+             std::to_string(authoredAudio->emitterMoveUpdates) + "/" +
+             std::to_string(authoredAudio->emitterMoveFailures) + "/" +
+             std::to_string(authoredAudio->listenerUpdates) + "/" +
+             std::to_string(authoredAudio->listenerFailures));
   }
 
   ZAV_DeInitLevel();

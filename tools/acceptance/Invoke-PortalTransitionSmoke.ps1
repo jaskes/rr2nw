@@ -125,6 +125,11 @@ foreach ($configurationName in $Configuration) {
         if ($startup -notmatch 'portal_audio_source_teardown=\d+/0/0') {
             $issues.Add("source Level retained a physical/logical audio loop")
         }
+        if ($startup -notmatch 'audio_positioned_loops=\d+/\d+/0' -or
+            $startup -notmatch 'audio_listener_updates=\d+/0' -or
+            $startup -notmatch 'audio_authored_positions=\d+/\d+/0/\d+/0') {
+            $issues.Add("moving audio/listener ownership reported a failure")
+        }
         $expectedCompletion = if ($sourceIndex -eq 8) { 1 } else { 0 }
         if ($startup -notmatch "portal_campaign_completion=$expectedCompletion") {
             $issues.Add("campaign completion branch changed")
