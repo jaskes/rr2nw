@@ -1,4 +1,5 @@
 #include "GameStartup.h"
+#include "WindowsCrashDiagnostics.h"
 
 #include "RR2NWBuildRevision.h"
 #include "ActiveWorldSave.h"
@@ -77,6 +78,8 @@ struct StartupOptions {
   int startupLoadSlot = -1;
   bool launchSmoke = false;
   bool runtimeSmoke = false;
+  bool runtimeSmokeExplicit = false;
+  bool crashDiagnosticSmoke = false;
   bool missionSmoke = false;
   bool missionBriefingSmoke = false;
   bool missionCombatSmoke = false;
@@ -317,6 +320,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->launchSmoke = true;
     } else if (argument == L"--runtime-smoke") {
       options->runtimeSmoke = true;
+      options->runtimeSmokeExplicit = true;
+    } else if (argument == L"--crash-diagnostic-smoke") {
+      options->runtimeSmoke = true;
+      options->crashDiagnosticSmoke = true;
     } else if (argument == L"--mission-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -653,6 +660,19 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       return false;
     }
   }
+  if (options->crashDiagnosticSmoke &&
+      (options->launchSmoke || options->runtimeSmokeExplicit ||
+       options->missionSmoke || options->missionNoRewardFreshSmoke ||
+       options->missionTerminalNoRewardFreshSmoke ||
+       options->portalTransitionSmoke || options->levelBriefingSmoke ||
+       options->developerMode || options->nativeDiagnosticMenu ||
+       options->showHelp || options->showVersion ||
+       options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0 ||
+       !options->missionCenter.empty() || !options->missionProject.empty() ||
+       !options->missionNextProject.empty())) {
+    *failure = L"--crash-diagnostic-smoke is an isolated test-only mode";
+    return false;
+  }
   return true;
 }
 
@@ -729,6 +749,10 @@ class StartupLog {
            written == record.size();
   }
 
+  bool Flush() {
+    return file_ != INVALID_HANDLE_VALUE && FlushFileBuffers(file_) != FALSE;
+  }
+
   bool WideLine(const char* key, const std::wstring& value) {
     return Line(std::string(key) + "=" + WideToUtf8(value));
   }
@@ -743,6 +767,11 @@ class StartupLog {
 class ModRuntimeScope {
  public:
   ~ModRuntimeScope() { RecoveredModRuntime_Release(); }
+};
+
+class CrashDiagnosticsScope {
+ public:
+  ~CrashDiagnosticsScope() { WindowsCrashDiagnostics_Uninstall(); }
 };
 
 bool InspectRetailData(const std::wstring& candidate, RetailData* data,
@@ -1280,8 +1309,19 @@ bool StartRecoveredLevel(const RetailData& data, int levelIndex,
       *failure = RecoveredLevelStartFailure("loop initialization failed");
     return false;
   }
+  const SRecoveredRetailScriptManifestSummary* scriptManifest =
+      RecoveredRetailScriptManifest_Summary();
+  WindowsCrashDiagnostics_SetLevelIdentity(
+      levelIdentity.c_str(),
+      scriptManifest == nullptr
+          ? 0u
+          : RecoveredModRuntime_CombineContentFingerprint(
+                scriptManifest->contentFingerprint));
+  WindowsCrashDiagnostics_RecordBreadcrumb("level",
+                                           "transition-session-ready");
   if (!HandleLevelBriefing(briefingPolicy, briefingBoundary, log, failure))
     return false;
+  WindowsCrashDiagnostics_RecordBreadcrumb("level", "transition-committed");
   return true;
 }
 
@@ -1673,6 +1713,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                     options.diagnosticsDirectory);
     return kDiagnosticsFailure;
   }
+  CrashDiagnosticsScope crashDiagnosticsScope;
+  if (!WindowsCrashDiagnostics_Install(
+          options.diagnosticsDirectory, RR2NW_BUILD_VERSION,
+          RR2NW_BUILD_REVISION, RR2NW_BUILD_CONFIGURATION)) {
+    log.Line("failure=process crash diagnostics owner could not be installed");
+    log.Line("marker=crash-diagnostics-not-ready");
+    log.Flush();
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW startup error",
+                L"Cannot install the process crash diagnostics owner.\n\n"
+                L"Diagnostic log:\n" + log.path());
+    return kDiagnosticsFailure;
+  }
 
   SYSTEMTIME utc = {};
   GetSystemTime(&utc);
@@ -1686,6 +1739,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("revision=" RR2NW_BUILD_REVISION);
   log.Line("configuration=" RR2NW_BUILD_CONFIGURATION);
   log.Line("marker=process-ready");
+  log.Line("crash_diagnostics_owner=seh-minidump-manifest-v1");
+  WindowsCrashDiagnostics_RecordBreadcrumb("startup", "process-ready");
   log.Line(std::string("debug_menu_requested=") +
            (options.developerMode ? "1" : "0"));
   log.Line(std::string("native_diagnostic_menu_requested=") +
@@ -1852,6 +1907,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     }
     log.Line("mod_mount_order=" + mountOrder);
   }
+  std::string crashModIdentity = "base";
+  if (RecoveredModRuntime_IsActive() && modSummary != nullptr &&
+      modSummary->id[0] != '\0')
+    crashModIdentity = modSummary->id;
+  WindowsCrashDiagnostics_SetModIdentity(
+      crashModIdentity.c_str(),
+      modSummary == nullptr ? 0u : modSummary->modCount,
+      modSummary == nullptr ? 0u : modSummary->modFingerprint);
+  WindowsCrashDiagnostics_RecordBreadcrumb("content", "retail-data-ready");
   log.Line("mod_access=read-only");
   log.WideLine("save_dir", options.saveDirectory);
   log.Line(std::string("save_dir_source=") +
@@ -1926,6 +1990,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"Diagnostic log:\n" + log.path());
     return kRuntimeNotReady;
   }
+  const SRecoveredInGameShellState* configuredShell =
+      RecoveredGameServices_InGameShellState();
+  if (configuredShell != nullptr) {
+    WindowsCrashDiagnostics_SetSanitizedSettings(
+        configuredShell->windowMode, configuredShell->windowScale,
+        configuredShell->safeMode, configuredShell->developerMode,
+        options.nativeDiagnosticMenu, configuredShell->mouseSensitivityX,
+        configuredShell->mouseSensitivityY,
+        configuredShell->mouseInvertY);
+  }
+  WindowsCrashDiagnostics_RecordBreadcrumb("settings", "shell-configured");
   log.WideLine("settings_path", settingsPath);
   log.Line(std::string("developer_mode=") +
            (options.developerMode ? "1" : "0"));
@@ -2045,6 +2120,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   SUA_InitEverything();
   log.Line("session_initialized=" +
            std::to_string(RecoveredGameServices_SessionReady() ? 1 : 0));
+  WindowsCrashDiagnostics_SetLevelIdentity(
+      levelIdentity.c_str(),
+      RecoveredModRuntime_CombineContentFingerprint(
+          scriptManifest->contentFingerprint));
+  WindowsCrashDiagnostics_RecordBreadcrumb("level", "initial-session-ready");
+  if (options.crashDiagnosticSmoke) {
+    log.Line("controlled_crash=armed");
+    log.Line("marker=controlled-crash-ready");
+    log.Flush();
+    WindowsCrashDiagnostics_TriggerControlledCrash();
+  }
   const SRecoveredSaveMenuState* saveMenuState =
       RecoveredGameServices_SaveMenuState();
   log.Line("save_menu_configured=" +
@@ -3412,10 +3498,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
         !ProcessCrossLevelLoad(data, &currentLevelIndex,
                                options.runtimeSmoke, &log))
       return false;
-    return !RecoveredGameServices_DebugLevelSwitchPending() ||
-           ProcessDebugLevelSwitch(data, &currentLevelIndex,
-                                   options.runtimeSmoke,
-                                   options.skipLevelBriefing, &log);
+    if (RecoveredGameServices_DebugLevelSwitchPending() &&
+        !ProcessDebugLevelSwitch(data, &currentLevelIndex,
+                                 options.runtimeSmoke,
+                                 options.skipLevelBriefing, &log))
+      return false;
+    const SRecoveredInGameShellState* frameShell =
+        RecoveredGameServices_InGameShellState();
+    WindowsCrashDiagnostics_SetRuntimeState(
+        static_cast<std::uint64_t>(dwFrames),
+        RecoveredGameServices_VehicleActiveActionCount(),
+        RecoveredGameServices_DebugMapActive(),
+        frameShell != nullptr && frameShell->open);
+    return true;
   };
   // Ordinary startup save/load is itself a closed-frame operation. Complete
   // it before staging the synthetic map mission. Mission acceptance saves are

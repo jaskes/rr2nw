@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the first production Windows crash-diagnostic boundary. Unexpected
+  unhandled SEH failures now create a unique local `RR2CRASH1` bundle with a
+  `MiniDumpNormal` dump, atomic bounded manifest, exact build/PE/CodeView
+  identity, active Level/content/mod identity, sanitized shell settings and a
+  16-entry fixed breadcrumb ring. The reentrancy-guarded writer falls back to
+  the previous Windows/WER owner only when it cannot commit either artifact;
+  a hidden isolated subprocess gate proves predictable termination, dump and
+  symbols in Debug, Release and RelWithDebInfo without exposing the trigger to
+  ordinary or Developer UI.
 - Completed the player-facing Controls slice with 26 context-aware
   Player/Vehicle/map actions, including the authored map scroll, follow,
   mission-selection and text-navigation commands. Gameplay and map contexts
@@ -33,7 +42,10 @@ claim authorship of inherited Logos code or retail data.
   handlers fail closed without that capability, while terminal typed-command
   failures return to the in-frame shell instead of opening modal platform UI.
   A physical four-process gate proves root-menu counts `0/0/2/2` and preserves
-  the existing Save/Load, restart and Debug rollback coordinators.
+  the existing Save/Load, restart and Debug rollback coordinators. The legacy
+  native Save-slot UX acceptance now opts into that diagnostic capability
+  explicitly instead of sending inert `WM_COMMAND` messages to an ordinary
+  menu-less launch.
 - Rebased the legacy simulation clock after synchronous native Save/Load
   dialogs so dialog dwell cannot become a later physics or continuation delta.
   The native fallback UX gate now waits for a stable post-intro loop, drives

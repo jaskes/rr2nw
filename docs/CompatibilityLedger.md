@@ -5300,6 +5300,33 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: bounded automation no longer needs `WM_COMMAND`; removal may
   then delete the diagnostic fallback and alias without changing product UX.
 
+### CQ-258: unexpected SEH and ordinary runtime failure are different owners
+
+- Status: `PROCESS_SEH_OWNER_CONFIRMED`, `MINIDUMP_MANIFEST_GATED`,
+  `LEGACY_FATAL_DEBT_RETAINED`.
+- Evidence: maintained startup had a versioned log and PDB/MAP output but no
+  `SetUnhandledExceptionFilter` or `MiniDumpWriteDump` owner. The archived
+  fatal paths are not uniform: one calls `ExitProcess(1)`, another retains
+  `getch()`/`__debugbreak()`, and CRT assertions may abort. Treating those as
+  already covered would be a false compatibility claim.
+- Handling: after the startup log opens, one reentrancy-guarded process owner
+  publishes fixed, double-buffered context and a 16-entry breadcrumb ring.
+  Unexpected SEH creates a unique local `MiniDumpNormal` and atomically renames
+  a manifest capped at 64 KiB. The manifest carries build/compiler/OS/arch,
+  PE timestamp/size, sanitized CodeView GUID/age/basename, Level/content/mod
+  identity and non-path shell/runtime state. It attaches no retail payload,
+  save, settings file, credential or personal path. If neither artifact can be
+  committed, the prior filter/WER path remains available.
+- Verification: the isolated hidden crash subprocess raises noncontinuable
+  `0xE0425252` only after a real Level.03N session exists. All maintained
+  configurations must exit with that exact code, emit an `MDMP` dump and
+  complete `RR2CRASH1` manifest, match adjacent PDB/MAP availability and reject
+  the trigger when combined with Developer capability. Ordinary runtime error
+  presentation is unchanged.
+- Revisit when: legacy explicit fatal/assert owners are consolidated, crash
+  processing moves off the faulting thread, a consented support exporter is
+  added, or x64 changes PE/stack/symbol assumptions.
+
 ## Maintenance rule
 
 When a new quirk is found:

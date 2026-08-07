@@ -6333,3 +6333,36 @@ the in-frame shell with the failure detail. Legacy modal error presentation is
 permitted only in explicit native diagnostic mode. Physical acceptance requires
 zero menu items for ordinary and developer-only windows, and two root items for
 both the canonical diagnostic flag and its compatibility alias.
+
+### BD-193: crash capture owns unexpected SEH, not recoverable game errors
+
+Status: accepted on 2026-08-07 for the first Windows crash-bundle slice.
+
+The process crash owner is installed only after the normal startup log and
+diagnostics directory exist. It observes unexpected unhandled Windows SEH and
+must not intercept a typed Save/Load, campaign, presentation or startup error
+that can still report failure or roll back safely. It is reentrancy guarded,
+reserves main-thread emergency stack, publishes game context through fixed
+double buffers and records at most 16 sanitized breadcrumbs without taking a
+game lock in the fault path.
+
+A successful crash write creates exactly `crash.dmp` and atomically committed
+`manifest.txt`. `MiniDumpNormal` is the smallest useful local dump; the
+manifest is capped at 64 KiB and contains no physical data/mod/settings/save or
+user path. The embedded CodeView path is reduced to its basename plus GUID and
+age. A minidump can still contain private process/module data, so it remains
+local, is excluded from packages and requires user review before sharing. No
+automatic upload is permitted.
+
+The existing startup log remains a single overwritten file and breadcrumbs
+remain fixed-size. Crash bundles are not silently deleted: retention of those
+material diagnostics is user-owned until a consented support/export policy is
+designed. If both dump and manifest fail, the previous top-level filter or WER
+may proceed instead of pretending capture succeeded.
+
+The controlled crash option is hidden acceptance infrastructure, absent from
+help and UI, noncontinuable, and rejected beside Developer/native diagnostic
+capabilities or any other smoke/save transaction. It must exit with the exact
+exception code and never produce a modal/getch wait. Explicit archival
+`ExitProcess`, CRT abort/assert and debug-break fatal paths remain documented
+debt; this slice does not claim to capture them.

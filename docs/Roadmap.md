@@ -2269,7 +2269,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 |---|---:|---|---|
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
-| M2 Windows platform/stability | 62% | native window/input, focus neutralization, diagnostics, frame profiling, DPI-aware exclusive display ownership and crash/startup restoration | maintained audio output, prolonged multi-monitor/Win10/Win11 presentation soak, crash bundle, sanitizer coverage |
+| M2 Windows platform/stability | 70% | native window/input, focus neutralization, frame profiling, DPI-aware exclusive display ownership/recovery and an exact SEH minidump/manifest bundle with sanitized breadcrumbs and symbol identity | maintained audio output, prolonged multi-monitor/Win10/Win11 presentation soak, legacy fatal/assert consolidation and sanitizer coverage |
 | M2.5 in-game shell/settings | 99% | sole ordinary in-frame shell, typed eight-slot Save/Load/restart with asynchronous thumbnails and explicit compatibility states, 26 contextual bindings, retail-bounded mouse X/Y/invert, windowed/borderless/exclusive 4:3 presentation with timed rollback, atomic schema-3 settings/schema-1/2 migration/safe mode, full fail-closed typed Developer catalog and explicitly isolated native diagnostic fallback | packaged multi-monitor Win10/Win11 acceptance |
 | M3 retail parity | 94% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-one no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains from the documented S03 handoff, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
@@ -2282,7 +2282,8 @@ The shortest critical path is:
    Controls, Video rollback and explicit Developer capability;
 2. repeat visible People/Tank/guide motion and manually validate cinematic
    timing/skip, then finish the remaining campaign-specific commands;
-3. connect real audio and finish window/focus/performance stability;
+3. connect real audio, consolidate the remaining explicit legacy fatal paths
+   and finish window/focus/performance stability;
 4. complete replay/import/mod UX gates;
 5. freeze a package and run the full Windows 10 plus extended Windows 11
    acceptance campaign before `develop -> master -> 1.0.0`.

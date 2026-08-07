@@ -4362,6 +4362,8 @@ target_compile_definitions(rr2nw_game_entry_runtime_smoke PRIVATE
 add_library(rr2nw_game_startup STATIC
   src/platform/windows/GameStartup.cpp
   src/platform/windows/GameStartup.h
+  src/platform/windows/WindowsCrashDiagnostics.cpp
+  src/platform/windows/WindowsCrashDiagnostics.h
 )
 set(RR2NW_BUILD_REVISION_HEADER
   "${CMAKE_CURRENT_BINARY_DIR}/generated/RR2NWBuildRevision.h"
@@ -4390,6 +4392,7 @@ target_compile_definitions(rr2nw_game_startup PRIVATE
 )
 target_link_libraries(rr2nw_game_startup PUBLIC
   rr2nw_recovered_game_services_runtime
+  dbghelp
   shell32
 )
 

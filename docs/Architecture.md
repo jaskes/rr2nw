@@ -293,6 +293,14 @@ Release crash bundle должен содержать:
 Personal paths, retail media, full saves и credentials не прикладываются без
 явного действия пользователя.
 
+The maintained Windows boundary is documented in `CrashDiagnostics.md`.
+Unhandled SEH is process-owned after the startup log opens; ordinary runtime
+errors keep their typed error/rollback paths. A crash commits only
+`crash.dmp` plus a bounded sanitized manifest under the diagnostics root. The
+manifest identifies the exact PE and embedded CodeView record without storing
+the embedded absolute PDB path. Dumps are local diagnostic material and are
+never uploaded or included in packages automatically.
+
 ## Data delivery
 
 Консервативный shipping model 1.0:

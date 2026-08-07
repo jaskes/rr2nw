@@ -157,6 +157,7 @@ foreach ($configurationName in $Configuration) {
         "--data-dir", $dataPath, "--start-level", $Level,
         "--save-dir", $saveDirectory,
         "--diagnostics-dir", $uxDiagnostics,
+        "--native-diagnostic-menu",
         "--skip-level-briefing"
     ) | ForEach-Object { Quote-NativeArgument $_ }
     $game = Start-Process -FilePath $executable `

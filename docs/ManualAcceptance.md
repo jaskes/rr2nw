@@ -1526,3 +1526,26 @@ control immediately continues. The matching startup log must report
 `vehicle_last_stability_reason`: `0/0` is a clean pass; a non-zero recovery is
 evidence to retain with the exact route and screenshot for the deeper Wheels
 collision investigation, but must not launch the camera through the world.
+
+## Windows crash diagnostic bundle pass
+
+Build all three maintained configurations, then run the isolated controlled
+crash matrix. This intentionally terminates three subprocesses; it never uses
+an already-running game process and writes only below `build\verification`:
+
+```powershell
+& ".\tools\acceptance\Invoke-CrashDiagnosticBundle.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+Every row must report `PASS`, exact exit `-532524462` (`0xE0425252`), an `MDMP`
+dump, six bounded breadcrumbs and a complete `RR2CRASH1` manifest. The gate
+also proves the adjacent PDB/MAP availability and embedded CodeView identity,
+Level.03N/content/base-mod identity, safe-mode settings, absence of personal or
+retail paths in the manifest, exact two-file atomic bundle and rejection beside
+Developer capability. There must be no modal dialog or timeout.
+
+Do not attach these test dumps to a release package. A minidump may contain
+private process/module data even though the manifest is sanitized; inspect it
+before sharing. This pass covers unexpected unhandled SEH only. Explicit
+legacy `ExitProcess`, CRT abort/assert and debug-break paths remain a separate
+consolidation item.
