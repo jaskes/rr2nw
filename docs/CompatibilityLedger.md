@@ -5234,6 +5234,28 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   `ChangeDisplaySettingsEx`, Alt-Tab/DPI lifecycle and crash-safe desktop-mode
   restoration. Do not alias borderless to exclusive fullscreen.
 
+### CQ-255: RR2SLOT1 preview failure is not save incompatibility
+
+- Status: `ASYNC_PRESENTATION_OWNER_CONFIRMED`, `FIXED_AND_GATED`.
+- Evidence: RR2SLOT1 already stores bounded metadata, optional PNG and LCN1.
+  Reading one slot may admit up to 137 MiB, while the prior in-frame labels
+  synchronously called the complete reader from every rendered menu frame.
+- Cause: the first shell slice reused file-backed labels but did not yet own a
+  presentation cache. Extending that path to PNG decoding would stall the
+  paused frame loop and conflate a bad image with a bad continuation.
+- Handling: one background read-only catalog scans exactly eight slots through
+  the existing serializer/WIC bounds and publishes 176x132 palette-indexed
+  thumbnails plus explicit empty, ready, incompatible and corrupt states. A
+  missing/bad PNG leaves a readable compatible slot loadable. Palette changes
+  suppress stale pixels and request a rebuild. Save/Load mutations remain on
+  the typed closed-frame coordinator.
+- Verification: unit fixtures prove 3 ready, 1 incompatible, 1 corrupt and 3
+  empty rows before product Save. Real-window acceptance visits every state,
+  performs Save, explicit overwrite and Load, and ends with 4/1/1/2 states,
+  3/1/1 preview outcomes, physical framebuffer draws and zero catalog errors.
+- Revisit when: RR2SLOT1 bounds or palette ABI change, preview capture gains a
+  new format, or the renderer stops owning an indexed 640x480 framebuffer.
+
 ## Maintenance rule
 
 When a new quirk is found:

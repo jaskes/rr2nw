@@ -1,13 +1,17 @@
 #include "ActiveWorldSave.h"
+#include "IndexedPng.h"
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
+#include "RecoveredSaveSlotCatalog.h"
 #include "SimulationRandom.h"
 #include "hardware.h"
 
 #include <windows.h>
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
+#include <cwchar>
 #include <string>
 #include <vector>
 
@@ -18,7 +22,11 @@ int Fail(const char* message) {
   return EXIT_FAILURE;
 }
 
-bool BuildContinuation(std::vector<std::uint8_t>* bytes) {
+bool BuildContinuation(
+    std::vector<std::uint8_t>* bytes,
+    const std::string& level = "Level.04D",
+    std::uint64_t contentFingerprint =
+        UINT64_C(0x525232534c4f5431)) {
   if (bytes == nullptr) return false;
   double held[VEHICLE_CONTROL_JOURNAL_HELD_ACTION_COUNT] = {};
   SVehicleControlJournal journal;
@@ -33,13 +41,13 @@ bool BuildContinuation(std::vector<std::uint8_t>* bytes) {
 
   SActiveWorldSnapshot world;
   world.engineCompatibility = ActiveWorldSave_EngineCompatibilityVersion();
-  world.contentFingerprint = UINT64_C(0x525232534c4f5431);
+  world.contentFingerprint = contentFingerprint;
   world.simulationTick = 2400u;
   world.simulationTime = 80.0;
   world.rngAlgorithm = SimulationRandom_Algorithm();
   SimulationRandom_Reset(0x534c4f54u);
   if (!SimulationRandom_Capture(&world.rngState)) return false;
-  world.level = "Level.04D";
+  world.level = level;
   SActiveWorldSection commander = {};
   commander.kind = EActiveWorldSectionKind::Commander;
   commander.schemaVersion = 1u;
@@ -63,10 +71,30 @@ void RemoveFixture(const std::wstring& directory) {
   RemoveDirectoryW(directory.c_str());
 }
 
+bool WriteCatalogSlot(
+    const std::wstring& directory, std::uint32_t slot,
+    const std::string& level, std::uint64_t contentFingerprint,
+    const std::vector<std::uint8_t>& preview, const char* title) {
+  std::vector<std::uint8_t> continuation;
+  SLevelSaveSlot archive;
+  SLevelSaveSlotStatus status;
+  return BuildContinuation(&continuation, level, contentFingerprint) &&
+         LevelSaveSlot_Create(
+             slot, UINT64_C(1771000000) + slot, title,
+             "Catalog fixture", preview, continuation, &archive,
+             &status) &&
+         LevelSaveSlot_WriteAtomic(directory, archive, &status);
+}
+
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-  if (argc != 2) return Fail("expected one output directory");
+  if (argc != 2 && argc != 3)
+    return Fail("expected output directory and optional --keep-catalog-fixture");
+  const bool keepCatalogFixture =
+      argc == 3 && std::wcscmp(argv[2], L"--keep-catalog-fixture") == 0;
+  if (argc == 3 && !keepCatalogFixture)
+    return Fail("unknown optional argument");
   const std::wstring directory = argv[1];
   RemoveFixture(directory);
 
@@ -201,12 +229,93 @@ int wmain(int argc, wchar_t** argv) {
       status.error != ELevelSaveSlotError::MetadataMismatch)
     return Fail("slot/file identity mismatch was not rejected");
 
+  // Exercise the read-only shell catalog with all player-facing states.
   RemoveFixture(directory);
+  constexpr std::uint32_t previewWidth = 176u;
+  constexpr std::uint32_t previewHeight = 132u;
+  std::vector<std::uint8_t> previewPixels(
+      static_cast<std::size_t>(previewWidth) * previewHeight);
+  std::array<std::uint8_t, 256u * 3u> palette = {};
+  for (std::size_t index = 0; index < 256u; ++index) {
+    palette[index * 3u] = static_cast<std::uint8_t>(index);
+    palette[index * 3u + 1u] =
+        static_cast<std::uint8_t>(255u - index);
+    palette[index * 3u + 2u] =
+        static_cast<std::uint8_t>((index * 3u) & 0xffu);
+  }
+  for (std::uint32_t y = 0; y < previewHeight; ++y) {
+    for (std::uint32_t x = 0; x < previewWidth; ++x) {
+      previewPixels[static_cast<std::size_t>(y) * previewWidth + x] =
+          static_cast<std::uint8_t>((x + y * 3u) & 0xffu);
+    }
+  }
+  std::vector<std::uint8_t> validPreview;
+  SIndexedPngSummary pngSummary;
+  std::string catalogFailure;
+  if (!IndexedPng_Encode(
+          previewWidth, previewHeight, previewPixels.data(), previewWidth,
+          palette.data(), palette.size(), &validPreview, &pngSummary,
+          &catalogFailure) ||
+      !pngSummary.ready)
+    return Fail("catalog fixture PNG could not be encoded");
+  const std::vector<std::uint8_t> invalidPreview = {
+      0x89u, 'P', 'N', 'G', 0x0du, 0x0au, 0x1au, 0x0au, 0x31u};
+  if (!WriteCatalogSlot(directory, 0u, "Level.04D",
+                        UINT64_C(0x1111222233334444), {},
+                        "Legacy previewless") ||
+      !WriteCatalogSlot(directory, 1u, "Level.04D",
+                        UINT64_C(0x1111222233334444), validPreview,
+                        "Valid preview") ||
+      !WriteCatalogSlot(directory, 2u, "Level.04D",
+                        UINT64_C(0x1111222233334444), invalidPreview,
+                        "Broken preview") ||
+      !WriteCatalogSlot(directory, 3u, "Level.03N",
+                        UINT64_C(0x9999aaaabbbbcccc), validPreview,
+                        "Incompatible content"))
+    return Fail("catalog fixture slots could not be committed");
+  if (!CopyFileW(LevelSaveSlot_Path(directory, 1u).c_str(),
+                 LevelSaveSlot_Path(directory, 4u).c_str(), FALSE))
+    return Fail("catalog corrupt slot fixture could not be copied");
+
+  SRecoveredSaveSlotCatalogSnapshot catalog;
+  if (!RecoveredSaveSlotCatalog_Build(
+          directory, "Level.03N", UINT64_C(0x1111222233334444),
+          palette.data(), palette.size(), 16u, 12u, 7u, &catalog,
+          &catalogFailure) ||
+      !catalog.ready || catalog.generation != 7u ||
+      catalog.paletteFingerprint == 0u || catalog.emptySlots != 3u ||
+      catalog.readySlots != 3u || catalog.incompatibleSlots != 1u ||
+      catalog.corruptSlots != 1u || catalog.previewReadySlots != 2u ||
+      catalog.previewMissingSlots != 1u ||
+      catalog.previewDecodeFailures != 1u ||
+      catalog.archiveBytesRead == 0u ||
+      catalog.entry[0].state != RECOVERED_SAVE_SLOT_CATALOG_READY ||
+      !catalog.entry[0].previewMissing ||
+      catalog.entry[1].state != RECOVERED_SAVE_SLOT_CATALOG_READY ||
+      !catalog.entry[1].previewReady ||
+      catalog.entry[1].previewWidth != 16u ||
+      catalog.entry[1].previewHeight != 12u ||
+      catalog.entry[1].previewIndices.size() != 16u * 12u ||
+      catalog.entry[2].state != RECOVERED_SAVE_SLOT_CATALOG_READY ||
+      !catalog.entry[2].previewDecodeFailed ||
+      catalog.entry[3].state !=
+          RECOVERED_SAVE_SLOT_CATALOG_INCOMPATIBLE ||
+      catalog.entry[3].loadable ||
+      catalog.entry[4].state != RECOVERED_SAVE_SLOT_CATALOG_CORRUPT ||
+      catalog.entry[5].state != RECOVERED_SAVE_SLOT_CATALOG_EMPTY) {
+    return Fail(catalogFailure.empty()
+                    ? "save-slot catalog states diverged"
+                    : catalogFailure.c_str());
+  }
+
+  if (!keepCatalogFixture) RemoveFixture(directory);
   std::printf(
       "level save slot format=RR2SLOT1 slots=%u level=%s "
-      "continuation=LCN1 bytes=%zu fingerprint=%llu atomic=replace-safe\n",
+      "continuation=LCN1 bytes=%zu fingerprint=%llu atomic=replace-safe "
+      "catalog=3-ready/1-incompatible/1-corrupt/3-empty%s\n",
       LevelSaveSlot_Count(), replacement.level.c_str(),
       replacement.continuation.size(),
-      static_cast<unsigned long long>(committedFingerprint));
+      static_cast<unsigned long long>(committedFingerprint),
+      keepCatalogFixture ? " retained" : "");
   return EXIT_SUCCESS;
 }

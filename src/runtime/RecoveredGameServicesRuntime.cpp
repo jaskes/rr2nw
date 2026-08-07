@@ -3,6 +3,7 @@
 #include "ActiveWorldSave.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cerrno>
 #include <cctype>
@@ -11,11 +12,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <exception>
 #include <iomanip>
 #include <limits>
+#include <mutex>
 #include <new>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -49,6 +53,7 @@
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
+#include "RecoveredSaveSlotCatalog.h"
 #include "RecoveredSaveSlotDialog.h"
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
@@ -73,6 +78,7 @@
 #include "obase/vehicle/VehicleRuntimeState.h"
 
 extern int g_godMode;
+extern unsigned char _currPalette[256u * 3u];
 
 void RecoveredGameServices_RefreshBriefingViewport() {
   if (g_super.m_context != nullptr &&
@@ -1113,6 +1119,16 @@ RecoveredObserverInput g_observerInput;
 RecoveredVehicleControlInput g_vehicleControlInput;
 RecoveredWindowsInputAdapter g_windowsInputAdapter;
 SRecoveredInGameShellState g_inGameShellState;
+SRecoveredSaveSlotCatalogSnapshot g_inGameShellSaveCatalog;
+SRecoveredSaveSlotCatalogSnapshot g_pendingInGameShellSaveCatalog;
+std::thread g_inGameShellSaveCatalogWorker;
+std::mutex g_inGameShellSaveCatalogMutex;
+bool g_inGameShellSaveCatalogRunning = false;
+bool g_inGameShellSaveCatalogCompleted = false;
+bool g_inGameShellSaveCatalogRefreshRequested = false;
+bool g_inGameShellSaveCatalogBuildSucceeded = false;
+std::uint64_t g_inGameShellSaveCatalogNextGeneration = 1u;
+std::string g_inGameShellSaveCatalogFailure;
 SRecoveredInputBindings g_inGameShellBindings =
     RecoveredWindowsInput_DefaultBindings();
 SRecoveredWindowPresentation g_inGameShellAppliedPresentation = {};
@@ -1500,6 +1516,164 @@ bool SlotIsCompatible(const SLevelSaveSlot& archive) {
 
 bool SlotCanBeRequested(const SLevelSaveSlot& archive) {
   return !SlotTargetsCurrentLevel(archive) || SlotIsCompatible(archive);
+}
+
+constexpr std::uint32_t kShellSavePreviewWidth = 176u;
+constexpr std::uint32_t kShellSavePreviewHeight = 132u;
+constexpr std::size_t kShellPaletteBytes = 256u * 3u;
+constexpr std::uint64_t kShellPaletteHashOffset =
+    UINT64_C(14695981039346656037);
+constexpr std::uint64_t kShellPaletteHashPrime = UINT64_C(1099511628211);
+
+std::uint64_t ShellPaletteFingerprint() {
+  std::uint64_t hash = kShellPaletteHashOffset;
+  for (std::size_t index = 0; index < kShellPaletteBytes; ++index) {
+    hash ^= _currPalette[index];
+    hash *= kShellPaletteHashPrime;
+  }
+  return hash;
+}
+
+void PublishShellSaveCatalog(
+    bool succeeded, SRecoveredSaveSlotCatalogSnapshot snapshot,
+    const std::string& failure) {
+  if (succeeded && snapshot.ready) {
+    g_inGameShellSaveCatalog = std::move(snapshot);
+    ++g_inGameShellState.saveCatalogPublications;
+    return;
+  }
+  ++g_inGameShellState.saveCatalogFailures;
+  if (!failure.empty())
+    g_inGameShellState.status = "Save catalog unavailable: " + failure;
+}
+
+bool RequestShellSaveCatalogRefresh();
+
+void PollShellSaveCatalog() {
+  bool completed = false;
+  bool succeeded = false;
+  bool refreshAgain = false;
+  SRecoveredSaveSlotCatalogSnapshot snapshot;
+  std::string failure;
+  {
+    std::lock_guard<std::mutex> lock(g_inGameShellSaveCatalogMutex);
+    if (g_inGameShellSaveCatalogCompleted) {
+      completed = true;
+      succeeded = g_inGameShellSaveCatalogBuildSucceeded;
+      snapshot = std::move(g_pendingInGameShellSaveCatalog);
+      failure = g_inGameShellSaveCatalogFailure;
+      refreshAgain = g_inGameShellSaveCatalogRefreshRequested;
+      g_inGameShellSaveCatalogCompleted = false;
+      g_inGameShellSaveCatalogRefreshRequested = false;
+      g_inGameShellSaveCatalogFailure.clear();
+    }
+  }
+  if (!completed) return;
+  if (g_inGameShellSaveCatalogWorker.joinable())
+    g_inGameShellSaveCatalogWorker.join();
+  PublishShellSaveCatalog(succeeded, std::move(snapshot), failure);
+  if (refreshAgain) RequestShellSaveCatalogRefresh();
+}
+
+bool RequestShellSaveCatalogRefresh() {
+  if (!g_saveMenuState.configured || g_saveMenuState.directory.empty() ||
+      !g_sessionReady || !RecoveredSoftwareGraph_IsReady())
+    return false;
+  {
+    std::lock_guard<std::mutex> lock(g_inGameShellSaveCatalogMutex);
+    if (g_inGameShellSaveCatalogRunning ||
+        g_inGameShellSaveCatalogCompleted) {
+      g_inGameShellSaveCatalogRefreshRequested = true;
+      return true;
+    }
+  }
+  if (g_inGameShellSaveCatalogWorker.joinable())
+    g_inGameShellSaveCatalogWorker.join();
+
+  std::array<std::uint8_t, kShellPaletteBytes> palette = {};
+  std::copy(_currPalette, _currPalette + kShellPaletteBytes,
+            palette.begin());
+  const std::wstring directory = g_saveMenuState.directory;
+  const std::string level = ContinuationLevelIdentity();
+  const std::uint64_t contentFingerprint =
+      ContinuationContentFingerprint();
+  const std::uint64_t generation =
+      g_inGameShellSaveCatalogNextGeneration++;
+  {
+    std::lock_guard<std::mutex> lock(g_inGameShellSaveCatalogMutex);
+    g_inGameShellSaveCatalogRunning = true;
+    g_inGameShellSaveCatalogRefreshRequested = false;
+  }
+  try {
+    g_inGameShellSaveCatalogWorker = std::thread(
+        [directory, level, contentFingerprint, palette, generation]() {
+          SRecoveredSaveSlotCatalogSnapshot snapshot;
+          std::string failure;
+          bool succeeded = false;
+          try {
+            succeeded = RecoveredSaveSlotCatalog_Build(
+                directory, level, contentFingerprint, palette.data(),
+                palette.size(), kShellSavePreviewWidth,
+                kShellSavePreviewHeight, generation, &snapshot, &failure);
+          } catch (const std::exception& exception) {
+            failure = "save catalog worker exception: ";
+            failure += exception.what();
+          } catch (...) {
+            failure = "save catalog worker failed unexpectedly";
+          }
+          std::lock_guard<std::mutex> lock(
+              g_inGameShellSaveCatalogMutex);
+          g_pendingInGameShellSaveCatalog = std::move(snapshot);
+          g_inGameShellSaveCatalogFailure = failure;
+          g_inGameShellSaveCatalogBuildSucceeded = succeeded;
+          g_inGameShellSaveCatalogRunning = false;
+          g_inGameShellSaveCatalogCompleted = true;
+        });
+  } catch (...) {
+    std::lock_guard<std::mutex> lock(g_inGameShellSaveCatalogMutex);
+    g_inGameShellSaveCatalogRunning = false;
+    ++g_inGameShellState.saveCatalogFailures;
+    g_inGameShellState.status =
+        "Save catalog worker could not be started";
+    return false;
+  }
+  ++g_inGameShellState.saveCatalogRefreshes;
+  return true;
+}
+
+void StopShellSaveCatalog() {
+  {
+    std::lock_guard<std::mutex> lock(g_inGameShellSaveCatalogMutex);
+    g_inGameShellSaveCatalogRefreshRequested = false;
+  }
+  if (g_inGameShellSaveCatalogWorker.joinable())
+    g_inGameShellSaveCatalogWorker.join();
+
+  bool completed = false;
+  bool succeeded = false;
+  SRecoveredSaveSlotCatalogSnapshot snapshot;
+  std::string failure;
+  {
+    std::lock_guard<std::mutex> lock(g_inGameShellSaveCatalogMutex);
+    completed = g_inGameShellSaveCatalogCompleted;
+    succeeded = g_inGameShellSaveCatalogBuildSucceeded;
+    if (completed) {
+      snapshot = std::move(g_pendingInGameShellSaveCatalog);
+      failure = g_inGameShellSaveCatalogFailure;
+    }
+    g_inGameShellSaveCatalogRunning = false;
+    g_inGameShellSaveCatalogCompleted = false;
+    g_inGameShellSaveCatalogBuildSucceeded = false;
+    g_inGameShellSaveCatalogFailure.clear();
+  }
+  if (completed)
+    PublishShellSaveCatalog(succeeded, std::move(snapshot), failure);
+}
+
+void ClearShellSaveCatalog() {
+  g_inGameShellSaveCatalog = {};
+  g_pendingInGameShellSaveCatalog = {};
+  g_inGameShellSaveCatalogNextGeneration = 1u;
 }
 
 bool BuildDebugVehicleCatalog() {
@@ -2005,6 +2179,8 @@ void RebasePausedRuntimeClock() {
 }
 
 void ResetSaveMenuSession() {
+  StopShellSaveCatalog();
+  ClearShellSaveCatalog();
   if (g_inGameShellState.videoConfirmationActive &&
       RecoveredSoftwareGraph_IsReady()) {
     if (RecoveredSoftwareGraph_ApplyPresentation(
@@ -2498,6 +2674,9 @@ void ShellSelectPage(ERecoveredInGameShellPage page) {
   g_inGameShellState.captureBinding = -1;
   g_inGameShellState.conflictBinding = -1;
   g_inGameShellState.overwriteConfirmation = false;
+  if (page == RECOVERED_SHELL_PAGE_SAVE ||
+      page == RECOVERED_SHELL_PAGE_LOAD)
+    RequestShellSaveCatalogRefresh();
 }
 
 bool OpenInGameShell() {
@@ -2607,6 +2786,7 @@ bool ActivateShellSaveSlot(std::uint32_t slot) {
                    g_inGameShellState.overwriteSlot != slot)) {
     g_inGameShellState.overwriteConfirmation = true;
     g_inGameShellState.overwriteSlot = slot;
+    ++g_inGameShellState.saveOverwriteConfirmations;
     g_inGameShellState.status =
         "Press Enter again to replace this save slot";
     return true;
@@ -2857,19 +3037,134 @@ void ShellPrint(int x, int y, const std::string& text,
 }
 
 std::string ShellSlotLabel(std::uint32_t slot) {
-  SLevelSaveSlot archive;
-  SLevelSaveSlotStatus status;
-  const bool readable = LevelSaveSlot_Read(
-      g_saveMenuState.directory, slot, &archive, &status);
   std::string label = "Slot " + std::to_string(slot + 1u) + " - ";
-  if (!readable) return label + "Empty";
-  label += archive.title.empty() ? archive.level : archive.title;
-  if (!SlotCanBeRequested(archive)) label += " [incompatible]";
+  if (!g_inGameShellSaveCatalog.ready ||
+      slot >= g_inGameShellSaveCatalog.entry.size())
+    return label + "Scanning...";
+  const SRecoveredSaveSlotCatalogEntry& entry =
+      g_inGameShellSaveCatalog.entry[slot];
+  switch (entry.state) {
+    case RECOVERED_SAVE_SLOT_CATALOG_EMPTY:
+      return label + "Empty";
+    case RECOVERED_SAVE_SLOT_CATALOG_CORRUPT:
+      return label + "Corrupt / unsupported";
+    case RECOVERED_SAVE_SLOT_CATALOG_INCOMPATIBLE:
+      return label + "Incompatible - " + entry.summary.level;
+    case RECOVERED_SAVE_SLOT_CATALOG_READY:
+      label += entry.summary.title.empty() ? entry.summary.level
+                                           : entry.summary.title;
+      if (entry.switchesLevel) label += " [" + entry.summary.level + "]";
+      break;
+    default:
+      return label + "Unknown";
+  }
+  if (label.size() > 34u) label = label.substr(0u, 31u) + "...";
   return label;
+}
+
+std::string ShellSavedAt(std::uint64_t seconds) {
+  if (seconds == 0u ||
+      seconds > static_cast<std::uint64_t>(
+                    (std::numeric_limits<std::time_t>::max)()))
+    return "Unknown";
+  const std::time_t value = static_cast<std::time_t>(seconds);
+  std::tm utc = {};
+  char timestamp[32] = {};
+  if (gmtime_s(&utc, &value) != 0 ||
+      std::strftime(timestamp, sizeof(timestamp),
+                    "%Y-%m-%d %H:%M UTC", &utc) == 0)
+    return "Unknown";
+  return timestamp;
+}
+
+void DrawShellSaveSlotDetail(std::uint32_t slot) {
+  constexpr int kPreviewX = 380;
+  constexpr int kPreviewY = 92;
+  constexpr int kPreviewRight =
+      kPreviewX + static_cast<int>(kShellSavePreviewWidth) - 1;
+  constexpr int kPreviewBottom =
+      kPreviewY + static_cast<int>(kShellSavePreviewHeight) - 1;
+  const unsigned long panel = GRFillColor(8, 12, 18);
+  const unsigned long border = GRFillColor(105, 125, 145);
+  GREnable2D();
+  GRBar(kPreviewX - 5, kPreviewY - 5, kPreviewRight + 5,
+        kPreviewBottom + 78, panel);
+  GRRect(kPreviewX - 1, kPreviewY - 1, kPreviewRight + 1,
+         kPreviewBottom + 1, border);
+  GRDisable2D();
+
+  if (!g_inGameShellSaveCatalog.ready ||
+      slot >= g_inGameShellSaveCatalog.entry.size()) {
+    ShellPrint(kPreviewX + 42, kPreviewY + 58, "Scanning slots...");
+    return;
+  }
+  const SRecoveredSaveSlotCatalogEntry& entry =
+      g_inGameShellSaveCatalog.entry[slot];
+  bool drewPreview = false;
+  if (entry.previewReady && _gr_pScreen != nullptr &&
+      _gr_nScreenWidth >= kPreviewRight + 1 &&
+      _gr_nScreenHeight >= kPreviewBottom + 1 &&
+      entry.previewWidth == kShellSavePreviewWidth &&
+      entry.previewHeight == kShellSavePreviewHeight &&
+      entry.previewIndices.size() ==
+          static_cast<std::size_t>(kShellSavePreviewWidth) *
+              kShellSavePreviewHeight) {
+    const std::uint64_t paletteFingerprint = ShellPaletteFingerprint();
+    if (paletteFingerprint ==
+        g_inGameShellSaveCatalog.paletteFingerprint) {
+      for (std::uint32_t y = 0; y < kShellSavePreviewHeight; ++y) {
+        std::memcpy(
+            _gr_pScreen +
+                static_cast<std::size_t>(kPreviewY + y) *
+                    static_cast<std::size_t>(_gr_nScreenWidth) +
+                kPreviewX,
+            entry.previewIndices.data() +
+                static_cast<std::size_t>(y) * kShellSavePreviewWidth,
+            kShellSavePreviewWidth);
+      }
+      drewPreview = true;
+      ++g_inGameShellState.saveCatalogPreviewDrawFrames;
+    } else {
+      RequestShellSaveCatalogRefresh();
+    }
+  }
+  if (!drewPreview) {
+    std::string placeholder;
+    if (entry.state == RECOVERED_SAVE_SLOT_CATALOG_EMPTY)
+      placeholder = "EMPTY SLOT";
+    else if (entry.state == RECOVERED_SAVE_SLOT_CATALOG_CORRUPT)
+      placeholder = "CORRUPT / UNSUPPORTED";
+    else if (entry.state == RECOVERED_SAVE_SLOT_CATALOG_INCOMPATIBLE)
+      placeholder = "INCOMPATIBLE CONTENT";
+    else if (entry.previewDecodeFailed)
+      placeholder = "PREVIEW CORRUPT";
+    else if (entry.previewMissing)
+      placeholder = "PREVIEW NOT STORED";
+    else
+      placeholder = "PREVIEW REFRESHING";
+    ShellPrint(kPreviewX + 18, kPreviewY + 58, placeholder);
+  }
+
+  if (!entry.readable) {
+    ShellPrint(kPreviewX, kPreviewBottom + 16, entry.detail);
+    return;
+  }
+  ShellPrint(kPreviewX, kPreviewBottom + 16,
+             "Level: " + entry.summary.level);
+  ShellPrint(kPreviewX, kPreviewBottom + 32,
+             "Saved: " + ShellSavedAt(entry.summary.savedAtUnixSeconds));
+  std::ostringstream time;
+  time << std::fixed << std::setprecision(1) << entry.summary.simulationTime;
+  ShellPrint(kPreviewX, kPreviewBottom + 48,
+             "World: " + time.str() + "s  tick " +
+                 std::to_string(entry.summary.simulationTick));
+  ShellPrint(kPreviewX, kPreviewBottom + 64,
+             "Status: " + entry.detail);
 }
 
 void DrawInGameShell() {
   if (!g_inGameShellState.open || g_gameConsoleFont == nullptr) return;
+  PollShellSaveCatalog();
   const unsigned long background = GRFillColor(18, 24, 32);
   const unsigned long border = GRFillColor(150, 165, 180);
   GREnable2D();
@@ -2892,6 +3187,9 @@ void DrawInGameShell() {
       for (std::uint32_t slot = 0; slot < LevelSaveSlot_Count(); ++slot)
         lines.push_back(ShellSlotLabel(slot));
       lines.push_back("Back");
+      if (g_inGameShellState.selected < LevelSaveSlot_Count())
+        DrawShellSaveSlotDetail(
+            static_cast<std::uint32_t>(g_inGameShellState.selected));
       break;
     case RECOVERED_SHELL_PAGE_CONTROLS:
       for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index) {
@@ -4957,6 +5255,8 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
         "save directory cannot change while a command is pending";
     return false;
   }
+  StopShellSaveCatalog();
+  ClearShellSaveCatalog();
   g_crossLevelLoadRequest = {};
   g_saveMenuState.crossLevelRestartPending = false;
   g_saveMenuState.crossLevelRequests = 0;
@@ -4978,6 +5278,7 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
     return false;
   }
   RefreshNativeSaveMenu();
+  RequestShellSaveCatalogRefresh();
   return true;
 }
 
@@ -5051,6 +5352,8 @@ bool RecoveredGameServices_ConfigureInGameShell(
       g_inGameShellState.pendingVideoCommand != RECOVERED_SHELL_VIDEO_NONE)
     return false;
 
+  StopShellSaveCatalog();
+  ClearShellSaveCatalog();
   g_inGameShellState = {};
   g_inGameShellState.configured = true;
   g_inGameShellState.developerMode = developerMode;
@@ -5116,7 +5419,14 @@ bool RecoveredGameServices_ConfigureInGameShell(
 
 const SRecoveredInGameShellState*
 RecoveredGameServices_InGameShellState() {
+  PollShellSaveCatalog();
   return &g_inGameShellState;
+}
+
+const SRecoveredSaveSlotCatalogSnapshot*
+RecoveredGameServices_InGameShellSaveCatalog() {
+  PollShellSaveCatalog();
+  return &g_inGameShellSaveCatalog;
 }
 
 const SRecoveredInputBindings* RecoveredGameServices_InputBindings() {
@@ -6009,6 +6319,7 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
   if (continuationSummary != nullptr)
     *continuationSummary = completedContinuation;
   RefreshNativeSaveMenu();
+  RequestShellSaveCatalogRefresh();
   return true;
 }
 
@@ -6061,6 +6372,7 @@ bool RecoveredGameServices_ApplyCrossLevelLoad(
   ++g_saveMenuState.completedCrossLevelLoads;
   *continuationSummary = restored;
   RefreshNativeSaveMenu();
+  RequestShellSaveCatalogRefresh();
   return true;
 }
 

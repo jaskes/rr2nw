@@ -6532,6 +6532,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->loadRequests));
     log.Line("in_game_shell_restart_requests=" +
              std::to_string(shellState->restartRequests));
+    log.Line("in_game_shell_save_overwrite_confirmations=" +
+             std::to_string(shellState->saveOverwriteConfirmations));
     log.Line("in_game_shell_binding_changes=" +
              std::to_string(shellState->bindingChanges));
     log.Line("in_game_shell_binding_conflicts=" +
@@ -6554,6 +6556,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->settingsMigrations));
     log.Line("in_game_shell_corrupt_recoveries=" +
              std::to_string(shellState->corruptSettingsRecoveries));
+    log.Line("in_game_shell_save_catalog_refreshes=" +
+             std::to_string(shellState->saveCatalogRefreshes));
+    log.Line("in_game_shell_save_catalog_publications=" +
+             std::to_string(shellState->saveCatalogPublications));
+    log.Line("in_game_shell_save_catalog_failures=" +
+             std::to_string(shellState->saveCatalogFailures));
+    log.Line("in_game_shell_save_preview_draw_frames=" +
+             std::to_string(shellState->saveCatalogPreviewDrawFrames));
     log.Line("in_game_shell_window=" +
              std::to_string(shellState->windowMode) + "/" +
              std::to_string(shellState->windowScale));
@@ -6563,6 +6573,27 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->mouseInvertY ? 1 : 0));
     log.Line("in_game_shell_status=" + shellState->status);
     log.Line("in_game_shell_last_error=" + shellState->lastError);
+  }
+  const SRecoveredSaveSlotCatalogSnapshot* saveCatalog =
+      RecoveredGameServices_InGameShellSaveCatalog();
+  if (saveCatalog != nullptr) {
+    log.Line("in_game_shell_save_catalog_ready=" +
+             std::to_string(saveCatalog->ready ? 1 : 0));
+    log.Line("in_game_shell_save_catalog_generation=" +
+             std::to_string(saveCatalog->generation));
+    log.Line("in_game_shell_save_catalog_states=" +
+             std::to_string(saveCatalog->readySlots) + "/" +
+             std::to_string(saveCatalog->incompatibleSlots) + "/" +
+             std::to_string(saveCatalog->corruptSlots) + "/" +
+             std::to_string(saveCatalog->emptySlots));
+    log.Line("in_game_shell_save_catalog_previews=" +
+             std::to_string(saveCatalog->previewReadySlots) + "/" +
+             std::to_string(saveCatalog->previewMissingSlots) + "/" +
+             std::to_string(saveCatalog->previewDecodeFailures));
+    log.Line("in_game_shell_save_catalog_archive_bytes=" +
+             std::to_string(saveCatalog->archiveBytesRead));
+    log.Line("in_game_shell_save_catalog_palette=" +
+             std::to_string(saveCatalog->paletteFingerprint));
   }
   const SRecoveredObserverState* observer =
       RecoveredGameServices_ObserverState();

@@ -88,10 +88,11 @@ Continue they resume only after a new physical press.
    schema-1 fixture and proves atomic migration with old bindings preserved and
    new map/mouse defaults added.
 
-The bounded real-window proof exercises Save/Load, binding and mouse
-persistence/defaults, schema migration, two confirmed video changes and one
-timed rollback in every maintained build. The separate input proof drives all
-semantic map actions through the real window:
+The bounded real-window proof exercises Save/Load, explicit overwrite
+confirmation, asynchronous thumbnails for old/current/corrupt/incompatible
+slots, binding and mouse persistence/defaults, schema migration, two confirmed
+video changes and one timed rollback in every maintained build. The separate
+input proof drives all semantic map actions through the real window:
 
 ```powershell
 & ".\tools\acceptance\Invoke-InGameShell.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
@@ -102,8 +103,8 @@ Both scripts accept `-BuildRoot` for an isolated verification tree when an
 interactive playtest keeps the normal executable open; they never terminate
 that unrelated process.
 
-This slice does not yet claim exclusive fullscreen, in-frame preview images or
-complete DPI/Alt-Tab soak. The current backend has no display-mode enumeration,
+This slice does not yet claim exclusive fullscreen or complete DPI/Alt-Tab
+soak. The current backend has no display-mode enumeration,
 `ChangeDisplaySettingsEx` or crash-safe desktop restoration, so borderless is
 not labelled as exclusive fullscreen. The native Windows menu remains a
 diagnostic fallback until those remaining M2.5 rows close.

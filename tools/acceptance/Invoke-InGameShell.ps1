@@ -81,8 +81,13 @@ function Read-KeyValueLog([string]$Path) {
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
+    $fixtureExecutable = Join-Path $BuildRoot (
+        "{0}\rr2nw_level_save_slot_smoke.exe" -f $configurationName)
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Executable not found; build $configurationName first: $executable"
+    }
+    if (-not (Test-Path -LiteralPath $fixtureExecutable -PathType Leaf)) {
+        throw "Save-slot fixture helper not found: $fixtureExecutable"
     }
     $caseRoot = Join-Path $OutputRoot $configurationName
     $diagnostics = Join-Path $caseRoot "diagnostics"
@@ -90,6 +95,10 @@ foreach ($configurationName in $Configuration) {
     $settings = Join-Path $caseRoot "settings.cfg"
     New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
     New-Item -ItemType Directory -Force -Path $saves | Out-Null
+    & $fixtureExecutable $saves "--keep-catalog-fixture"
+    if ($LASTEXITCODE -ne 0) {
+        throw "[$configurationName] save-slot catalog fixture failed"
+    }
     $arguments = @(
         "--data-dir", $dataPath,
         "--start-level", $Level,
@@ -116,17 +125,40 @@ foreach ($configurationName in $Configuration) {
         }
         Start-Sleep -Milliseconds 700
 
-        # Save slot 1 through the in-frame shell.
+        # Inspect previewless, valid, corrupt-preview, incompatible and corrupt
+        # catalog rows without blocking the frame loop, then save into slot 8.
         Press-Key $window 0x1B
         Press-Down $window 1
+        Press-Key $window 0x0D
+        Start-Sleep -Seconds 2
+        Press-Key $window 0x28
+        Start-Sleep -Milliseconds 400
+        Press-Key $window 0x28
+        Start-Sleep -Milliseconds 400
+        Press-Key $window 0x28
+        Start-Sleep -Milliseconds 400
+        Press-Key $window 0x28
+        Start-Sleep -Milliseconds 400
+        Press-Down $window 3
+        Press-Key $window 0x0D
+        Start-Sleep -Seconds 2
+
+        # Reopen Save, select occupied slot 8 and require the explicit second
+        # Enter before replacing it.
+        Press-Key $window 0x1B
+        Press-Down $window 1
+        Press-Key $window 0x0D
+        Press-Down $window 7
         Press-Key $window 0x0D
         Press-Key $window 0x0D
         Start-Sleep -Seconds 2
 
-        # Load the same slot through the same closed-frame coordinator.
+        # Load slot 8 through the same closed-frame coordinator.
         Press-Key $window 0x1B
         Press-Down $window 2
         Press-Key $window 0x0D
+        Press-Down $window 7
+        Start-Sleep -Seconds 1
         Press-Key $window 0x0D
         Start-Sleep -Seconds 2
 
@@ -203,10 +235,11 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_open = "0"
         in_game_shell_developer = "1"
         in_game_shell_safe_mode = "1"
-        in_game_shell_opens = "4"
-        in_game_shell_closes = "4"
-        in_game_shell_input_neutralizations = "4"
-        in_game_shell_save_requests = "1"
+        in_game_shell_opens = "5"
+        in_game_shell_closes = "5"
+        in_game_shell_input_neutralizations = "5"
+        in_game_shell_save_requests = "2"
+        in_game_shell_save_overwrite_confirmations = "1"
         in_game_shell_load_requests = "1"
         in_game_shell_binding_changes = "2"
         in_game_shell_mouse_setting_changes = "3"
@@ -218,7 +251,10 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_settings_migrations = "0"
         in_game_shell_window = "0/1"
         in_game_shell_mouse = "0.500000/0.500000/0"
-        save_menu_completed_saves = "1"
+        in_game_shell_save_catalog_ready = "1"
+        in_game_shell_save_catalog_states = "4/1/1/2"
+        in_game_shell_save_catalog_previews = "3/1/1"
+        save_menu_completed_saves = "2"
         save_menu_completed_loads = "1"
         game_services_issues = "0"
     }
@@ -231,6 +267,26 @@ foreach ($configurationName in $Configuration) {
             } else { "<missing>" }
             $issues.Add("$($entry.Key) expected $($entry.Value), got $actual")
         }
+    }
+    foreach ($counter in @(
+            "in_game_shell_save_catalog_refreshes",
+            "in_game_shell_save_catalog_publications",
+            "in_game_shell_save_preview_draw_frames")) {
+        if (-not $log.ContainsKey($counter) -or
+            [int64]$log[$counter] -lt 1) {
+            $actual = if ($log.ContainsKey($counter)) {
+                [string]$log[$counter]
+            } else { "<missing>" }
+            $issues.Add("$counter expected at least 1, got $actual")
+        }
+    }
+    if (-not $log.ContainsKey("in_game_shell_save_catalog_failures") -or
+        [string]$log["in_game_shell_save_catalog_failures"] -ne "0") {
+        $actual = if ($log.ContainsKey("in_game_shell_save_catalog_failures")) {
+            [string]$log["in_game_shell_save_catalog_failures"]
+        } else { "<missing>" }
+        $issues.Add(
+            "in_game_shell_save_catalog_failures expected 0, got $actual")
     }
     if (-not (Test-Path -LiteralPath $settings -PathType Leaf)) {
         $issues.Add("settings.cfg was not written")

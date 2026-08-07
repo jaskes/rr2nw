@@ -6235,3 +6235,27 @@ display enumeration, device selection, `ChangeDisplaySettingsEx` ownership or
 crash-safe desktop restoration. Until that physical backend exists, windowed
 and borderless are the only truthful modes and the internal 640x480 framebuffer
 must not be stretched or relabelled as exclusive fullscreen.
+
+### BD-189: save-slot presentation is an asynchronous read-only projection
+
+Status: accepted on 2026-08-07 for the M2.5 in-frame preview slice.
+
+RR2SLOT1 remains the sole save format and owner of metadata, embedded PNG and
+LCN1. The shell must not synchronously read a potentially 137 MiB archive, run
+WIC or mutate files from the render callback. A bounded worker reads exactly
+the eight public paths, validates them through the existing serializer,
+decodes optional PNG data and quantizes it to a captured copy of the current
+256-color palette. Only its small completed catalog snapshot crosses to the
+frame owner.
+
+Empty, corrupt/unsupported, same-Level incompatible and loadable states remain
+separate. A missing or corrupt PNG is presentation state only and never makes
+an otherwise compatible RR2SLOT1 unloadable. Cross-Level slots remain
+loadable; same-Level content-fingerprint mismatches fail closed. A palette
+fingerprint mismatch suppresses the thumbnail and schedules a rebuild rather
+than publishing wrong colors.
+
+Save, Load and overwrite confirmation still publish the existing typed
+closed-frame commands. The catalog refreshes after a committed Save/Load and
+cannot become a second serializer, rollback owner or source of world state.
+Teardown joins its reader before changing the save root or software graph.

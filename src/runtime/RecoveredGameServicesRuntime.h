@@ -8,6 +8,7 @@
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
 #include "RecoveredFramePreview.h"
+#include "RecoveredSaveSlotCatalog.h"
 #include "RecoveredWindowsInputAdapter.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
 
@@ -533,6 +534,7 @@ struct SRecoveredInGameShellState {
   unsigned int saveRequests = 0;
   unsigned int loadRequests = 0;
   unsigned int restartRequests = 0;
+  unsigned int saveOverwriteConfirmations = 0;
   unsigned int bindingChanges = 0;
   unsigned int bindingConflicts = 0;
   unsigned int mouseSettingChanges = 0;
@@ -544,6 +546,10 @@ struct SRecoveredInGameShellState {
   unsigned int settingsWrites = 0;
   unsigned int settingsMigrations = 0;
   unsigned int corruptSettingsRecoveries = 0;
+  unsigned int saveCatalogRefreshes = 0;
+  unsigned int saveCatalogPublications = 0;
+  unsigned int saveCatalogFailures = 0;
+  unsigned int saveCatalogPreviewDrawFrames = 0;
   std::wstring settingsPath;
   std::string status;
   std::string lastError;
@@ -697,6 +703,8 @@ bool RecoveredGameServices_ConfigureDebugMenu(
 bool RecoveredGameServices_ConfigureInGameShell(
     const std::wstring& settingsPath, bool developerMode, bool safeMode);
 const SRecoveredInGameShellState* RecoveredGameServices_InGameShellState();
+const SRecoveredSaveSlotCatalogSnapshot*
+RecoveredGameServices_InGameShellSaveCatalog();
 const SRecoveredInputBindings* RecoveredGameServices_InputBindings();
 bool RecoveredGameServices_InGameShellKeyForTesting(std::uint32_t key);
 const SRecoveredDebugMenuState* RecoveredGameServices_DebugMenuState();

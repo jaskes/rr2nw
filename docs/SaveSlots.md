@@ -246,6 +246,24 @@ metadata-bearing save request and clean shutdown. Automated Win32 inspection
 proves the edit controls and their default flow; actual keyboard entry,
 including Cyrillic text, remains in the manual acceptance pass.
 
+The in-frame shell uses the same RR2SLOT1 reader and WIC decoder through one
+bounded read-only catalog. A background worker scans exactly eight paths,
+discards each large continuation after summarizing it and converts a valid PNG
+to the current 256-color software palette. The render thread publishes only
+the completed snapshot and copies the selected 176x132 indexed thumbnail; it
+does no filesystem or image-decoder work. Palette changes request a fresh
+snapshot rather than drawing stale indices. Save/Load remain typed closed-frame
+transactions and refresh the catalog only after commit.
+
+`tools/acceptance/Invoke-InGameShell.ps1` seeds old previewless, valid-preview,
+malformed-preview, incompatible-content and corrupt-file fixtures, visits each
+row in a real window, saves and explicitly confirms an overwrite in slot 8,
+then loads it. Final diagnostics require four ready, one incompatible, one
+corrupt and two empty slots; three decoded previews, one previewless slot and
+one PNG decode failure; at least one physical thumbnail draw; and zero catalog
+failures. The malformed PNG does not make its otherwise valid archive
+unloadable.
+
 `tools/acceptance/Invoke-OccupiedVehicleSaveLoad.ps1` exercises the visible
 same-Level authority path on Level.03N. It uses the Debug menu only to create a
 repeatable occupied/damaged fixture; save and load themselves go through the

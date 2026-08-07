@@ -3705,6 +3705,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredScriptEventRuntime.h
   src/runtime/RecoveredSavePreview.cpp
   src/runtime/RecoveredSavePreview.h
+  src/runtime/RecoveredSaveSlotCatalog.cpp
+  src/runtime/RecoveredSaveSlotCatalog.h
   src/runtime/RecoveredSaveSlotDialog.cpp
   src/runtime/RecoveredSaveSlotDialog.h
   src/runtime/RecoveredStaticMechanismRuntime.cpp

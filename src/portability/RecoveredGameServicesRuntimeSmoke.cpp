@@ -5266,6 +5266,27 @@ int main(int argc, char** argv) {
                     shell->page == RECOVERED_SHELL_PAGE_ROOT &&
                     shell->opens == 1u &&
                     shell->inputNeutralizations == 1u;
+  shellReady = shellReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN) &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      shell->page == RECOVERED_SHELL_PAGE_SAVE;
+  const SRecoveredSaveSlotCatalogSnapshot* shellCatalog = nullptr;
+  for (unsigned int attempt = 0; shellReady && attempt < 200u; ++attempt) {
+    shellCatalog = RecoveredGameServices_InGameShellSaveCatalog();
+    if (shellCatalog != nullptr && shellCatalog->ready) break;
+    Sleep(5u);
+  }
+  shellReady = shellReady && shellCatalog != nullptr &&
+      shellCatalog->ready && shellCatalog->generation != 0u &&
+      shellCatalog->emptySlots == LevelSaveSlot_Count() &&
+      shellCatalog->readySlots == 0u &&
+      shellCatalog->incompatibleSlots == 0u &&
+      shellCatalog->corruptSlots == 0u &&
+      shell->saveCatalogRefreshes >= 1u &&
+      shell->saveCatalogPublications >= 1u &&
+      shell->saveCatalogFailures == 0u &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      shell->page == RECOVERED_SHELL_PAGE_ROOT;
   for (int step = 0; shellReady && step < 4; ++step)
     shellReady = RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
   shellReady = shellReady &&
