@@ -5918,3 +5918,25 @@ The maintained A26 gate must start from the real slot-5 state, report capacity
 slot 6, match it from a fresh process and finish with `runtime_shutdown=clean`.
 Any future general replacement of `CT_KILLINVISIBLE` must first make context
 removal atomic and preserve this accumulated-population contract.
+
+### BD-176: S09's authored world Artefact is not a result reward
+
+Status: accepted on 2026-08-07 for Level.04D Actek `ProjectS09`.
+
+`CreateProjectS09` authors seven kills, Commander Actek and MissionInfo 6 but
+contains no command 35. Its separate `MS09.SC` creates neutral world owner
+`ms09.artf` at `(4128.977,68.029,-2766.013)`. The handwritten `artefact`
+comment beside Project registration is not executable Project state and cannot
+attach that object to the Player Vehicle or open a Portal.
+
+Use the same script-population boundary already accepted for S05: initialize
+the neutral object deterministically at `s_New`, then require its name,
+attribute, position, free carrier and absent motion across result, stable
+restore, pre-result rollback, committed reapply and fresh slot load. Do not
+manufacture a reward merely because an Artefact class owner exists in the
+mission graph.
+
+The ordinary successful result removes S09's seven objective bindings,
+advances cumulative mission count seven and selects exact authored
+`ProjectS06`. A future reward claim for S09 requires a real command-35 or
+retail behavioral proof that contradicts the installed command graph.

@@ -1070,6 +1070,17 @@ slot-6 world fingerprint and shut down cleanly. This capacity record is a
 regression gate for the legacy ten-slot `CT_KILLINVISIBLE` stale-context crash;
 it is not permission to discard retained mission population.
 
+Finally it loads slot 6, admits S09 and verifies seven exact kill conditions
+plus the installed `MS09.SC` owner graph. Required runtime records are 28
+created owners, 26/26/26 occupied Howitzers, zero reward commands and
+`mission_no_reward_authored_artefact=1/1/1/1/1` for the separate neutral
+`ms09.artf`. S09 must advance without reward to exact `ProjectS06`, cumulative
+count seven and slot 7. The fresh process must report
+`mission_no_reward_fresh_identity=A.Recr0/ProjectS09/ProjectS06`,
+`mission_no_reward_fresh_authored_artefact=1`, the same world fingerprint and
+clean shutdown. The registration comment containing `artefact` is not command
+35; any carrier or Portal telemetry remains a gate failure.
+
 The gate also verifies that the selected retail `MS04.SC` contains its two
 authored calls for `a.unit.ms04.ap00`. Do not remove either line from installed
 data: the runtime transaction pins the shared Route across the intended

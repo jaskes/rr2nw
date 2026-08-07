@@ -4907,6 +4907,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   through `SimulationContext` atomically. Retained authored population must
   remain valid; shrinking capacity or deleting it is not an acceptable fix.
 
+### CQ-242: S09 comment and neutral Artefact do not encode a reward
+
+- Status: `RETAIL_COMMAND_GRAPH_CONFIRMED`, `NEUTRAL_ARTEFACT_PERSISTED`,
+  `COMMENT_ONLY_REWARD_REJECTED`, `PERSISTED_PROGRESSION_RESTORED`.
+- Evidence: installed `CreateProjectS09` has seven exact kill commands,
+  Commander Actek, MissionInfo 6, briefing `Brief/ms09.txt`, route
+  `Route/S09/ms.rt`, script `Brief/ms09.sc` and no `p_GiveArtefact`.
+  Installed `MS09.SC` (SHA-256
+  `0D8830B8CDF76CC0D6AFB7ACD95F844D001B0D57A29160A3FDDFC3EE295001E1`)
+  creates 28 transaction owners: one Colony airplane, two submarines, five
+  knights, four ship cannons, two Actek airplanes, three parked taxis and one
+  neutral `CreateArtefactZero("ms09.artf",[4128.977,68.029,-2766.013])`.
+  The real result selects exact successor `ProjectS06`.
+- Handling: execute the complete script graph, retain the neutral Artefact as
+  free world population and process S09 as an ordinary successful no-reward
+  result. The nearby registration comment is archaeology evidence only; it
+  cannot create a carrier or Portal record.
+- Verification: the maintained Actek gate begins S09 from real slot-6 state,
+  requires seven rebound conditions, 28 owners, 26/26/26 occupied Howitzers
+  and the neutral Artefact at all five result boundaries, then saves slot 7 and
+  matches `ProjectS09/ProjectS06` plus the world fingerprint in a fresh process.
+  Existing strict reward/Portal probes remain independent.
+- Revisit when: an executable retail build demonstrates an additional reward
+  not represented in installed `BRIEF.SCI`; record that as a version-specific
+  divergence rather than promoting handwritten comments to commands globally.
+
 ## Maintenance rule
 
 When a new quirk is found:

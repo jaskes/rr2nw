@@ -4831,12 +4831,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           options.missionTerminalNoRewardResultSmoke;
       const bool expectsAuthoredNeutralArtefact = !terminalNoReward &&
           std::strcmp(mission.centerName, "A.Recr0") == 0 &&
-          std::strcmp(mission.projectName, "ProjectS05") == 0;
+          (std::strcmp(mission.projectName, "ProjectS05") == 0 ||
+           std::strcmp(mission.projectName, "ProjectS09") == 0);
       const auto authoredNeutralArtefactExact = [&]() {
-        return !expectsAuthoredNeutralArtefact ||
-            ArtefactActiveWorldState_MatchesNeutralWorldObject(
-                g_super.m_context, "ms05.artf", "Artefact.Attr.0",
-                CFVector3(3708.820, 165.350, -3283.851));
+        if (!expectsAuthoredNeutralArtefact)
+          return true;
+        if (std::strcmp(mission.projectName, "ProjectS05") == 0) {
+          return ArtefactActiveWorldState_MatchesNeutralWorldObject(
+              g_super.m_context, "ms05.artf", "Artefact.Attr.0",
+              CFVector3(3708.820, 165.350, -3283.851));
+        }
+        return ArtefactActiveWorldState_MatchesNeutralWorldObject(
+            g_super.m_context, "ms09.artf", "Artefact.Attr.0",
+            CFVector3(4128.977, 68.029, -2766.013));
       };
       const bool noRewardAuthoredArtefactBefore =
           authoredNeutralArtefactExact();
@@ -5563,12 +5570,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
             &progression);
     const bool expectsAuthoredNeutralArtefact =
         freshCenter == "A.Recr0" &&
-        freshCompletedProject == "ProjectS05";
-    const bool authoredNeutralArtefactExact =
-        !expectsAuthoredNeutralArtefact ||
-        ArtefactActiveWorldState_MatchesNeutralWorldObject(
+        (freshCompletedProject == "ProjectS05" ||
+         freshCompletedProject == "ProjectS09");
+    const bool authoredNeutralArtefactExact = [&]() {
+      if (!expectsAuthoredNeutralArtefact)
+        return true;
+      if (freshCompletedProject == "ProjectS05") {
+        return ArtefactActiveWorldState_MatchesNeutralWorldObject(
             g_super.m_context, "ms05.artf", "Artefact.Attr.0",
             CFVector3(3708.820, 165.350, -3283.851));
+      }
+      return ArtefactActiveWorldState_MatchesNeutralWorldObject(
+          g_super.m_context, "ms09.artf", "Artefact.Attr.0",
+          CFVector3(4128.977, 68.029, -2766.013));
+    }();
     const bool freshExact = progressionReady && authoredNeutralArtefactExact;
     log.Line("mission_no_reward_fresh_identity=" + freshCenter + "/" +
              freshCompletedProject + "/" + freshNextProject);

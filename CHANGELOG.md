@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Extended the persisted Level.04D Actek chain through `ProjectS09` and exact
+  successor `ProjectS06`. S09 executes seven retail kill objectives, its
+  complete 28-owner `MS09.SC` graph and four additional occupied ship cannons,
+  then completes as an ordinary no-reward result with cumulative mission count
+  seven across rollback, committed reapply, slot-7 save and exact fresh load.
+  Its script-owned neutral `ms09.artf` is now explicitly distinguished from a
+  command-35 RecruitCenter reward and must remain free at the authored position
+  at every result boundary; the nearby handwritten `artefact` registration
+  comment creates neither a carried Artifact nor a Portal.
 - Extended the persisted Level.04D Actek chain through `ProjectA26` and exact
   successor `ProjectS09`. A26 now executes four retail kill/reached objective
   pairs, its complete 60-owner `MA26.SC` graph and 22 occupied Howitzers, then

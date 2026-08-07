@@ -2201,6 +2201,32 @@ playable Level begins.
   slot-6 fingerprint equality and clean shutdown in every maintained build.
   Ordinary, terminal and strict reward/Portal gates remain independent.
 
+### RP-CAMPAIGN-017: S09 retains its neutral Artefact and advances to S06
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `MULTI_PROJECT_PROGRESSION_RESTORED`, `NO_REWARD_CONFIRMED`,
+  `NEUTRAL_ARTEFACT_PERSISTED`, `FRESH_SAVE_OWNED`.
+- From committed A26 state, Actek naturally selects `ProjectS09` at cumulative
+  mission count six. Installed `BRIEF.SCI` authors seven exact kills,
+  Commander Actek, MissionInfo 6, briefing/route/script references and no
+  command 35. Installed `MS09.SC` (SHA-256
+  `0D8830B8CDF76CC0D6AFB7ACD95F844D001B0D57A29160A3FDDFC3EE295001E1`)
+  creates its complete 28-owner graph, including four newly occupied ship
+  cannons and neutral `ms09.artf`.
+- Successful result removes the seven objective bindings and map/check state,
+  repairs/refills, advances cumulative count to seven and selects exact
+  authored candidate `ProjectS06`. The neutral Artefact remains free at
+  `(4128.977,68.029,-2766.013)` across result, restore, rollback, committed
+  reapply and fresh slot-7 load; no carried Artifact or Portal is created.
+- The handwritten `artefact` note beside registration is not part of S09's
+  command chain. Treating it as reward data would contradict both the installed
+  Project and the script-owned physical object.
+- Verification: the expanded
+  `Invoke-MissionNoRewardProgressionChainSmoke.ps1` proves
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06`, 26 occupied
+  Howitzers, neutral-object state and slot-7 fingerprint equality in every
+  maintained build. Strict reward/Portal validation remains independent.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.
