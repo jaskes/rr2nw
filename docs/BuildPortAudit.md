@@ -4277,3 +4277,22 @@ Debug/Release/RelWithDebInfo, 69/69 CTest per configuration, installed Farter
 
 This does not close natural-route Taxi/Orphan/People parity, Vehicle pitch,
 flags-1 streaming, dialogue/music, FLIC or UI audio.
+
+### 2026-08-08: direct Player Vehicle engine audio and schema-5 volume
+
+The archived direct `IRSXCachedEmitter` owner has been connected to maintained
+XAudio2 without changing Vehicle simulation or save layout. Neutral sound ABI
+3 adds Vehicle category routing and frequency ratio. Registrations retain
+sample/category/pitch while the physical device is absent, on focus loss and
+through device reconstruction; every replacement and teardown remains exact.
+XAudio2 uses a separate Vehicle submix and a 4.0 maximum source ratio, while
+the public boundary rejects ratios outside the authored 0.15..4.0 range.
+
+The Level transaction now publishes installed `Engine=1`,
+`EngineIntensity=0.5` and restores the previous globals on rollback/release.
+The shell's atomic config is schema 5 with independent Effects and Player
+Vehicle volume; schemas 1-4 migrate with a safe Vehicle default. A new CTest
+headless gate and `Invoke-VehicleEngineAudio.ps1` cover pitch bounds, real
+Level.04D movement and post-Level cleanup. The opt-in physical gate uses only
+a generated tone. No retail media is copied and no AI, streaming, dialogue,
+music, FLIC, UI, spatial Vehicle or byte-exact RSX claim is made.

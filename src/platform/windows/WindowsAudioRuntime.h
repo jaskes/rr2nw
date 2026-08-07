@@ -38,6 +38,10 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int spatialSilentApplications = 0;
   unsigned int asymmetricModelFallbacks = 0;
   unsigned int nonMonoSpatialFallbacks = 0;
+  unsigned int vehicleLoopRegistrations = 0;
+  unsigned int vehicleLoopStops = 0;
+  unsigned int vehiclePitchUpdates = 0;
+  unsigned int vehiclePitchFailures = 0;
   unsigned int voiceStealsPrevented = 0;
   unsigned int completedVoices = 0;
   unsigned int stoppedVoices = 0;
@@ -46,13 +50,14 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int maintenanceCalls = 0;
   std::size_t cachedSampleBytes = 0;
   float effectsVolume = 1.0f;
+  float vehicleVolume = 1.0f;
   char lastError[256] = {};
 };
 
 // Installs the one process-wide XAudio2 2.9 owner. Device creation failure is
 // a clean audio-disabled state rather than a game-startup failure; WAV
 // admission and telemetry remain available for diagnostics.
-bool WindowsAudioRuntime_Configure(float effectsVolume,
+bool WindowsAudioRuntime_Configure(float effectsVolume, float vehicleVolume,
                                    bool enablePhysicalOutput);
 // Defers physical device creation until all startup-only gameplay probes have
 // completed. This prevents verification events from becoming audible while
@@ -70,6 +75,8 @@ bool WindowsAudioRuntime_StartListeningProbe(unsigned int milliseconds);
 bool WindowsAudioRuntime_StartLoopingProbe(unsigned int milliseconds);
 bool WindowsAudioRuntime_StartMovingLoopProbe(unsigned int milliseconds);
 bool WindowsAudioRuntime_MoveListeningProbe(float x, float y, float z);
+bool WindowsAudioRuntime_StartVehicleEngineProbe(unsigned int milliseconds);
+bool WindowsAudioRuntime_SetVehicleEngineProbePitch(float ratio);
 bool WindowsAudioRuntime_StopListeningProbe();
 bool WindowsAudioRuntime_ListeningProbeActive();
 bool WindowsAudioRuntime_TestOnlySimulateDeviceLoss();

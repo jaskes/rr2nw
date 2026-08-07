@@ -328,6 +328,8 @@ int RecoveredArenaSeance_FarterSoundObjectCount();
 int RecoveredArenaSeance_FarterNearFrameAudibleCount();
 int RecoveredArenaSeance_FarterFarFrameAudibleCount();
 bool RecoveredArenaSeance_FarterAudibleFrameTransition();
+bool RecoveredArenaSeance_VehicleEngineSoundReady();
+double RecoveredArenaSeance_VehicleEngineSoundIntensity();
 bool RecoveredArenaSeance_SoundDistanceReady();
 double RecoveredArenaSeance_SoundDistance();
 double RecoveredArenaSeance_SoundDistanceSquared();

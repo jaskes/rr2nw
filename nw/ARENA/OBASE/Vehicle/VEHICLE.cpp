@@ -110,24 +110,26 @@ void Vehicle::UpdatePos(){
         up.z  = float(upper.z);
 
         m_lpDL->SetOrientation(&dir, &up);
-        if (m_vessel && m_lpCE && !m_playingBriefingSound)
-        {
-		    double pitch = 1 + Abs(m_vessel->Speed()) * 0.05;
-
-			if (pitch > m_attr->m_soundMaxPitch)
-				pitch = m_attr->m_soundMaxPitch;
-
-			if (pitch < m_attr->m_soundMinPitch)
-				pitch = m_attr->m_soundMinPitch;
-
-		    if (pitch != m_currentPitch)
-		    {
-		      m_currentPitch = pitch;
-		      m_lpCE->SetPitch(float(m_currentPitch));
-		    }
-        }
-
      }
+	if (m_vessel && m_attr &&
+	    (m_backendEnginePlayback != 0 || m_lpCE) &&
+	    !m_playingBriefingSound)
+	{
+		double pitch = 1 + Abs(m_vessel->Speed()) * 0.05;
+		if (pitch > m_attr->m_soundMaxPitch)
+			pitch = m_attr->m_soundMaxPitch;
+		if (pitch < m_attr->m_soundMinPitch)
+			pitch = m_attr->m_soundMinPitch;
+		if (pitch != m_currentPitch)
+		{
+			m_currentPitch = pitch;
+			if (m_backendEnginePlayback != 0)
+				(void)SoundState_SetPlaybackPitch(
+					m_backendEnginePlayback, float(m_currentPitch));
+			if (m_lpCE)
+				m_lpCE->SetPitch(float(m_currentPitch));
+		}
+	}
      carrierOnMove();
 }
 //-------------------------------------------------------------

@@ -434,7 +434,7 @@ foreach ($configurationName in $Configuration) {
     }
     else {
         $settingsText = Get-Content -LiteralPath $settings -Raw
-        if ($settingsText -notmatch '(?m)^version=4\r?$' -or
+        if ($settingsText -notmatch '(?m)^version=5\r?$' -or
             $settingsText -notmatch '(?m)^window_mode=0\r?$' -or
             $settingsText -notmatch '(?m)^window_scale=1\r?$' -or
             $settingsText -notmatch '(?m)^exclusive_width=\d+\r?$' -or
@@ -445,6 +445,7 @@ foreach ($configurationName in $Configuration) {
             $settingsText -notmatch '(?m)^mouse_sensitivity_y=0\.500\r?$' -or
             $settingsText -notmatch '(?m)^mouse_invert_y=0\r?$' -or
             $settingsText -notmatch '(?m)^effects_volume=0\.900\r?$' -or
+            $settingsText -notmatch '(?m)^vehicle_volume=1\.000\r?$' -or
             $settingsText -notmatch '(?m)^binding_25=34\r?$' -or
             $settingsText -notmatch '(?m)^binding_0=87\r?$') {
             $issues.Add("settings.cfg did not retain confirmed safe defaults")

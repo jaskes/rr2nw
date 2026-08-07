@@ -85,10 +85,10 @@ Continue they resume only after a new physical press.
    in the menu. A ready row must close the shell and report that it was queued
    at the closed frame boundary.
 5. Exit, replace `%LOCALAPPDATA%\RR2NW\settings.cfg` with invalid text and start
-   again. The game must recover a valid schema-4 file and safe 640x480 windowed
+   again. The game must recover a valid schema-5 file and safe 640x480 windowed
    defaults. `--safe-mode` must also start with those defaults while ignoring
    otherwise valid saved settings. The bounded gate also creates a valid
-   schema-1, schema-2 and schema-3 fixture and proves atomic migration with old
+   schema-1 through schema-4 fixtures and proves atomic migration with old
    bindings preserved and new map/mouse/display/audio defaults added.
 
 The bounded real-window proof exercises Save/Load, explicit overwrite
@@ -1605,3 +1605,29 @@ registration, two successful emitter moves, one outer-distance silent state,
 four spatial applications and two listener updates. The final stop and clean
 shutdown are mandatory. This proves the maintained symmetric linear/equal-
 power model, not byte-exact RSX, HRTF or Doppler behavior.
+
+## Player Vehicle engine pitch pass
+
+First run the silent three-configuration retail proof:
+
+```powershell
+& ".\tools\acceptance\Invoke-VehicleEngineAudio.ps1" -DataRoot "E:\Games\The Next Worlds"
+```
+
+It must report `Vehicle engine audio contract: 3/3`. Each row must contain
+nonzero registrations and pitch updates, zero pitch failures, and equal
+post-Level Vehicle registrations/stops. This uses real Level.04D Vehicle
+movement but keeps the physical device closed.
+
+The following opt-in gate is audible and uses only a generated 440 Hz tone:
+
+```powershell
+cmake --build ".\build\windows-msvc-x86" --config RelWithDebInfo --target rr2nw_audio_device_smoke -- /m:1 /nodeReuse:false
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw_audio_device_smoke.exe" --listen-vehicle-pitch
+```
+
+It should sound low, then high, and report `vehicle=1/2/0/1` together with
+`lifecycle=1/1/1` and `recovery=1/1/0`. Failure to change pitch, stacked
+engines after enter/exit, sound during briefing, or an engine surviving a
+Level/Portal/load transition is a regression. This does not test dialogue,
+music, UI audio, AI engines or byte-exact RSX resampling.

@@ -6453,3 +6453,30 @@ coarse audible-zone admission.
 Vehicle remains a separate direct archival owner: its engine is placed at the
 listener and changes pitch with speed. Flags-1 streaming, that Vehicle pitch,
 dialogue, music, FLIC and UI sound remain outside this decision.
+
+### BD-197: Player Vehicle engine audio is a separate nonspatial owner
+
+Status: accepted on 2026-08-08 for the direct Vehicle engine slice.
+
+The archived `Vehicle.Default` object, and no AI Vehicle class, owns the direct
+engine emitter. `setVehicleAttr()` replaces its sample when the player enters
+or leaves a Taxi, `UpdatePos()` applies
+`clamp(1 + abs(speed) * 0.05, soundMinPitch, soundMaxPitch)`, briefing takes
+the emitter temporarily, and remove/Level teardown releases it. The original
+flags explicitly disable spatialization, attenuation, Doppler and reverb, so
+the maintained owner routes this loop through a distinct listener-centred
+Vehicle category rather than through `SoundObj`.
+
+The neutral sound ABI advances to version 3 and adds a bounded frequency-ratio
+command plus Effects/Vehicle category routing. XAudio2 creates the source with
+a proven 4.0 maximum ratio and accepts only the authored 0.15..4.0 range.
+Logical tokens remain device-independent and nonserialized; focus/device loss
+reconstructs the same sample, pitch and category, while enter/exit, death,
+briefing, rollback, Portal and Level teardown use the normal object lifecycle.
+Presentation failure remains subordinate to the Vehicle simulation.
+
+The in-frame Audio page now persists Effects and Player Vehicle volumes in
+atomic settings schema 5. Schemas 1 through 4 migrate with Vehicle volume at
+1.0, corrupt input and safe mode retain their fail-closed defaults. This does
+not claim AI-engine audio, streamed briefing/dialogue, music, UI sound, HRTF,
+Doppler or byte-exact Intel RSX pitch resampling.

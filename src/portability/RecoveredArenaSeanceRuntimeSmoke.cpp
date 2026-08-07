@@ -850,6 +850,8 @@ bool IsReleased(SimulationContext& context) {
 bool RunCycle(bool expectVisualResources) {
   const double previousSoundDistance = snd_distMax;
   const double previousSoundDistanceSquared = snd_distMax2;
+  const int previousVehicleEngineEnabled = snd_engine;
+  const double previousVehicleEngineIntensity = snd_engineIntensity;
   SimulationContext context(64, 128);
   if (!RecoveredArenaSeance_Initialize(&context, Session::m_moment) ||
       !RecoveredArenaSeance_IsOpen() ||
@@ -1053,6 +1055,8 @@ bool RunCycle(bool expectVisualResources) {
       !RecoveredArenaSeance_SoundDistanceReady() ||
       RecoveredArenaSeance_SoundDistance() != 300.0 ||
       RecoveredArenaSeance_SoundDistanceSquared() != 90000.0 ||
+      !RecoveredArenaSeance_VehicleEngineSoundReady() ||
+      RecoveredArenaSeance_VehicleEngineSoundIntensity() != 0.5 ||
       FarterSubjectState_LiveCount() != 0 ||
       !RecoveredArenaSeance_FarterReferencesReady() ||
       !RecoveredArenaSeance_FarterRuntimeReady() ||
@@ -1580,7 +1584,9 @@ bool RunCycle(bool expectVisualResources) {
   return vehiclePublished && dynamicBulletCollision && reconstructionStable &&
          IsReleased(context) &&
          snd_distMax == previousSoundDistance &&
-         snd_distMax2 == previousSoundDistanceSquared;
+         snd_distMax2 == previousSoundDistanceSquared &&
+         snd_engine == previousVehicleEngineEnabled &&
+         snd_engineIntensity == previousVehicleEngineIntensity;
 }
 
 }  // namespace

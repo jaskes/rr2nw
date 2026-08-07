@@ -26,11 +26,13 @@ bool SoundState_SetMaximumDistance(double maximumDistance);
 // START(0)/END pair owns a long-lived loop. The ABI-2 extension carries the
 // source-proven emitter model and CViewObject listener pose; the maintained
 // backend may apply a documented compatibility spatial model. Streamed media
-// remains an explicit unsupported branch.
+// remains an explicit unsupported branch. ABI-3 adds separately routed
+// Vehicle loops and their source-proven frequency-ratio updates.
 enum ESoundStateCategory
 {
     SOUND_STATE_CATEGORY_EFFECTS = 0,
-    SOUND_STATE_CATEGORY_COUNT = 1
+    SOUND_STATE_CATEGORY_VEHICLE = 1,
+    SOUND_STATE_CATEGORY_COUNT = 2
 };
 
 struct SSoundStatePlaybackRequest
@@ -47,6 +49,7 @@ struct SSoundStatePlaybackRequest
     float minBack;
     float maxFront;
     float maxBack;
+    ESoundStateCategory category;
 };
 
 struct SSoundStateListenerPose
@@ -76,6 +79,8 @@ struct SSoundStateBackend
                  float x, float y, float z);
     bool (*setListener)(void *owner,
                         const SSoundStateListenerPose *listener);
+    bool (*setPitch)(void *owner, SoundStatePlaybackToken token,
+                     float ratio);
     void (*setCategoryVolume)(void *owner, ESoundStateCategory category,
                               float volume);
     void (*setApplicationActive)(void *owner, bool active);
@@ -103,9 +108,13 @@ struct SSoundStateTelemetry
     unsigned int listenerRequests;
     unsigned int listenerUpdates;
     unsigned int listenerFailures;
+    unsigned int pitchRequests;
+    unsigned int pitchUpdates;
+    unsigned int pitchFailures;
     unsigned int focusChanges;
     unsigned int maintenanceCalls;
     float effectsVolume;
+    float vehicleVolume;
 };
 
 bool SoundState_ConfigureBackend(const SSoundStateBackend *backend);
@@ -117,12 +126,14 @@ void SoundState_StopPlayback(SoundStatePlaybackToken *token);
 bool SoundState_MovePlayback(SoundStatePlaybackToken token,
                              float x, float y, float z);
 bool SoundState_SetListener(const SSoundStateListenerPose *listener);
+bool SoundState_SetPlaybackPitch(SoundStatePlaybackToken token, float ratio);
 bool SoundState_SetCategoryVolume(ESoundStateCategory category, float volume);
 void SoundState_SetApplicationActive(bool active);
 void SoundState_Maintain();
 bool SoundState_BackendConfigured();
 const SSoundStateTelemetry *SoundState_Telemetry();
 void SoundState_ResetTelemetryForTesting();
+bool SoundState_ConfigureVehicleEngine(int enabled, double intensity);
 
 extern int snd_engine ;
 extern int snd_true3d ;

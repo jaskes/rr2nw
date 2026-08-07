@@ -351,7 +351,8 @@ void SoundObj::startPlay( int count )
         m_wav->m_rsxEModel.fMinFront,
         m_wav->m_rsxEModel.fMinBack,
         m_wav->m_rsxEModel.fMaxFront,
-        m_wav->m_rsxEModel.fMaxBack
+        m_wav->m_rsxEModel.fMaxBack,
+        SOUND_STATE_CATEGORY_EFFECTS
     };
     (void)SoundState_StartPlayback(&request, &m_backendPlayback);
     if (m_emitterValid)

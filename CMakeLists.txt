@@ -4455,7 +4455,7 @@ target_compile_features(rr2nw_game PRIVATE cxx_std_14)
 target_compile_definitions(rr2nw_game PRIVATE UNICODE _UNICODE)
 set_target_properties(rr2nw_game PROPERTIES OUTPUT_NAME rr2nw)
 
-add_executable(rr2nw_audio_device_smoke EXCLUDE_FROM_ALL
+add_executable(rr2nw_audio_device_smoke
   src/portability/WindowsAudioDeviceSmoke.cpp
 )
 target_link_libraries(rr2nw_audio_device_smoke PRIVATE
@@ -5295,6 +5295,8 @@ if(BUILD_TESTING)
     NAME sound-object-state-smoke
     COMMAND rr2nw_sound_object_state_smoke
   )
+  add_test(NAME windows-audio-vehicle-headless
+           COMMAND rr2nw_audio_device_smoke --vehicle-pitch-headless)
   add_test(NAME recovered-audio-spatial-smoke
            COMMAND rr2nw_audio_spatial_smoke)
   add_test(NAME recovered-pcm-wav-smoke COMMAND rr2nw_pcm_wav_smoke)

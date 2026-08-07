@@ -78,6 +78,8 @@ foreach ($configurationName in $Configuration) {
     $tankAudio = Read-UnsignedTuple $log "tank_audio_move_probe" 3
     $unsupported = Read-UnsignedTuple $log "audio_unsupported_stream_repeat" 2
     $admission = Read-UnsignedTuple $log "audio_pcm_admission" 3
+    $vehicle = Read-UnsignedTuple $log "audio_vehicle_engine" 4
+    $postVehicle = Read-UnsignedTuple $log "audio_post_level_vehicle" 3
     $near = [uint64]$log["farter_near_frame_audible"]
     $far = [uint64]$log["farter_far_frame_audible"]
     $exact = $log["audio_physical_output"] -eq "headless" -and
@@ -94,7 +96,13 @@ foreach ($configurationName in $Configuration) {
         $registrations[1] -eq $physical[0] -and
         $authored[0] -eq $physical[0] -and
         $authored[1] -eq $authored[0] -and $authored[2] -eq 0 -and
-        $postLevel[0] -eq $physical[0] -and
+        $vehicle[0] -eq ($vehicle[1] + 1) -and
+        $vehicle[3] -eq 0 -and
+        $postVehicle[0] -eq ($vehicle[0] + 1) -and
+        $postVehicle[1] -eq ($vehicle[1] + 2) -and
+        $postVehicle[0] -eq $postVehicle[1] -and
+        $postVehicle[2] -eq 0 -and
+        $postLevel[0] -eq ($physical[0] + 1) -and
         $postLevel[1] -eq 0 -and $postLevel[2] -eq 0 -and
         $tankAudio[0] -eq 1 -and $tankAudio[1] -eq 1 -and
         $tankAudio[2] -eq 1 -and
@@ -122,6 +130,8 @@ foreach ($configurationName in $Configuration) {
         registrations = $log["audio_loop_registrations"]
         post_level = $log["audio_post_level_loops"]
         tank_move = $log["tank_audio_move_probe"]
+        vehicle = $log["audio_vehicle_engine"]
+        post_vehicle = $log["audio_post_level_vehicle"]
         positions = $log["audio_positioned_loops"]
         listener = $log["audio_listener_updates"]
         rejected_pcm = $admission[2]

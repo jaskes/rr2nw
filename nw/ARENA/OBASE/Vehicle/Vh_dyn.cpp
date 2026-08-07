@@ -64,6 +64,7 @@ bool g_preserveExternalControlSubscription = false;
 void Vehicle::addNotify()
 {
 	ct_Subject::addNotify();
+	m_backendEnginePlayback = 0;
 
         carrierAddNotify(context,Session::m_moment);
         m_secBulletCnt = 30;
@@ -97,6 +98,7 @@ void Vehicle::removeNotify()
 {
 	ct_Subject::removeNotify();
         carrierRemoveNotify(context,Session::m_moment);
+	SoundState_StopPlayback(&m_backendEnginePlayback);
 
 	if (m_lpCE)
 	{
@@ -398,14 +400,13 @@ void AttributeVehicle::removeNotify()
 
 void Vehicle::setBriefingSound(char * name, int cycle, double ts)
 {
-	if (!lpRSX2Unk)
-		return;
-
 	if (name)
 	 if (strcmp(name,"same")==0)
 	 {
           return;
 	 }
+
+	SoundState_StopPlayback(&m_backendEnginePlayback);
 	
 	if (m_lpCE)
 	{
@@ -414,6 +415,11 @@ void Vehicle::setBriefingSound(char * name, int cycle, double ts)
 	}
 
 	m_playingBriefingSound = true;
+
+	// Maintained streamed/dialogue playback is intentionally not claimed yet.
+	// The engine loop still has to stop at this authored ownership boundary.
+	if (!lpRSX2Unk)
+		return;
 
 	if (! name)
 		return;	
@@ -492,20 +498,17 @@ void Vehicle::setBriefingSound(char * name, int cycle, double ts)
 
 void Vehicle::updateSound(double ts)
 {
-	
+
 	m_playingBriefingSound = false;
-	
-	if (!lpRSX2Unk)
-		return;
-	
-	
+	SoundState_StopPlayback(&m_backendEnginePlayback);
+
 	if (m_lpCE)
 	{
 		m_lpCE->Release();
 		m_lpCE = 0;
 	}
 
-	if (!snd_engine)
+	if (!snd_engine || !m_attr)
 		return;
 
 	
@@ -531,6 +534,28 @@ void Vehicle::updateSound(double ts)
 	event.data.open(EDO_READ)
 		.get(&wav,sizeof(void*))
 		.close();
+
+	SSoundStatePlaybackRequest request = {
+		wav->m_rsxCE.szFilename,
+		0,
+		0,
+		float(snd_engineIntensity),
+		0,
+		0.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 0.0f,
+		SOUND_STATE_CATEGORY_VEHICLE
+	};
+	(void)SoundState_AdmitWave(request.fileName, request.flags);
+	if (SoundState_StartPlayback(&request, &m_backendEnginePlayback))
+	{
+		m_currentPitch = m_attr->m_soundMaxPitch;
+		(void)SoundState_SetPlaybackPitch(
+			m_backendEnginePlayback, float(m_currentPitch));
+		return;
+	}
+
+	if (!lpRSX2Unk)
+		return;
 	
 	HRESULT hr = CoCreateInstance(
 		CLSID_RSXCACHEDEMITTER,     // GUID for cachedemitter object

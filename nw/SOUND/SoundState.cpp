@@ -9,13 +9,17 @@
 namespace
 {
 
-const unsigned int kSoundStateBackendAbiVersion = 2u;
+const unsigned int kSoundStateBackendAbiVersion = 3u;
 SSoundStateBackend g_backend = {};
 SSoundStateTelemetry g_telemetry = {};
 
 struct SoundTelemetryInitializer
 {
-    SoundTelemetryInitializer() { g_telemetry.effectsVolume = 1.0f; }
+    SoundTelemetryInitializer()
+    {
+        g_telemetry.effectsVolume = 1.0f;
+        g_telemetry.vehicleVolume = 1.0f;
+    }
 } g_soundTelemetryInitializer;
 
 bool ValidBackend(const SSoundStateBackend *backend)
@@ -25,6 +29,7 @@ bool ValidBackend(const SSoundStateBackend *backend)
            backend->owner != NULL && backend->admit != NULL &&
            backend->start != NULL && backend->stop != NULL &&
            backend->move != NULL && backend->setListener != NULL &&
+           backend->setPitch != NULL &&
            backend->setCategoryVolume != NULL &&
            backend->setApplicationActive != NULL &&
            backend->maintain != NULL;
@@ -73,6 +78,16 @@ bool SoundState_SetMaximumDistance(double maximumDistance)
     return true;
 }
 
+bool SoundState_ConfigureVehicleEngine(int enabled, double intensity)
+{
+    if ((enabled != 0 && enabled != 1) || !std::isfinite(intensity) ||
+        intensity < 0.0 || intensity > 1.0)
+        return false;
+    snd_engine = enabled;
+    snd_engineIntensity = intensity;
+    return true;
+}
+
 bool SoundState_ConfigureBackend(const SSoundStateBackend *backend)
 {
     if (!ValidBackend(backend) || g_backend.owner != NULL)
@@ -82,6 +97,9 @@ bool SoundState_ConfigureBackend(const SSoundStateBackend *backend)
     g_backend.setCategoryVolume(g_backend.owner,
                                 SOUND_STATE_CATEGORY_EFFECTS,
                                 g_telemetry.effectsVolume);
+    g_backend.setCategoryVolume(g_backend.owner,
+                                SOUND_STATE_CATEGORY_VEHICLE,
+                                g_telemetry.vehicleVolume);
     return true;
 }
 
@@ -116,6 +134,8 @@ bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
         request->fileName[0] == 0 || request->flags < 0 ||
         request->flags > 1 || request->playCount < 0 ||
         !std::isfinite(request->intensity) || request->intensity < 0.0f ||
+        request->category < SOUND_STATE_CATEGORY_EFFECTS ||
+        request->category >= SOUND_STATE_CATEGORY_COUNT ||
         (request->positionValid != 0 &&
          (!ValidPosition(request->positionX, request->positionY,
                          request->positionZ) ||
@@ -186,6 +206,20 @@ bool SoundState_SetListener(const SSoundStateListenerPose *listener)
     return true;
 }
 
+bool SoundState_SetPlaybackPitch(SoundStatePlaybackToken token, float ratio)
+{
+    ++g_telemetry.pitchRequests;
+    if (token == 0 || !std::isfinite(ratio) || ratio < 0.15f ||
+        ratio > 4.0f || g_backend.owner == NULL ||
+        !g_backend.setPitch(g_backend.owner, token, ratio))
+    {
+        ++g_telemetry.pitchFailures;
+        return false;
+    }
+    ++g_telemetry.pitchUpdates;
+    return true;
+}
+
 void SoundState_StopPlayback(SoundStatePlaybackToken *token)
 {
     if (token == NULL || *token == 0)
@@ -203,6 +237,8 @@ bool SoundState_SetCategoryVolume(ESoundStateCategory category, float volume)
         return false;
     if (category == SOUND_STATE_CATEGORY_EFFECTS)
         g_telemetry.effectsVolume = volume;
+    else
+        g_telemetry.vehicleVolume = volume;
     if (g_backend.owner != NULL)
         g_backend.setCategoryVolume(g_backend.owner, category, volume);
     return true;
@@ -235,6 +271,8 @@ const SSoundStateTelemetry *SoundState_Telemetry()
 void SoundState_ResetTelemetryForTesting()
 {
     const float effectsVolume = g_telemetry.effectsVolume;
+    const float vehicleVolume = g_telemetry.vehicleVolume;
     std::memset(&g_telemetry, 0, sizeof(g_telemetry));
     g_telemetry.effectsVolume = effectsVolume;
+    g_telemetry.vehicleVolume = vehicleVolume;
 }

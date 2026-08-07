@@ -5443,6 +5443,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   authored data needs directional output, multichannel media is admitted, or
   the project adopts a deliberately new public spatial-audio contract.
 
+### CQ-262: Vehicle engine sound is not a SoundObj and must not be serialized
+
+- Evidence: archived `Vehicle::updateSound` creates its own cached emitter
+  with `NOSPATIALIZE`, `NOATTENUATE`, `NODOPPLER` and `NOREVERB`. Only the
+  player `Vehicle.Default` owns it. `UpdatePos` places it at the listener and
+  uses `1 + abs(speed) * 0.05`, clamped by the selected Vehicle attribute's
+  sound bounds. `setVehicleAttr`, briefing, restart, death/leave, load notify
+  and remove notify define replacement/reconstruction boundaries.
+- Handling: sound ABI 3 carries a Vehicle category and bounded 0.15..4.0 pitch
+  updates. XAudio2 owns a separate submix, retains pitch in device-independent
+  loop registration, recreates it after device loss and never feeds results
+  back into simulation. The token is a `Vehicle` presentation member outside
+  raw `VehicleData`, LCN1 and RR2SLOT1.
+- Verification: CTest proves deferred start/pitch bounds/stop without a
+  device. `Invoke-VehicleEngineAudio.ps1` runs real Level.04D movement in all
+  three configurations and requires starts, successful pitch changes, no
+  failures and zero post-Level registrations. The opt-in generated listening
+  gate audibly changes 0.6x to 1.8x and survives focus/device reconstruction.
+- Boundary: no AI Vehicle loop, streamed briefing/dialogue, music, UI audio,
+  spatial Vehicle engine, Doppler or byte-exact RSX resampling is claimed.
+- Revisit when: retail evidence assigns direct engine ownership to AI units,
+  streamed media gains a maintained owner, or comparison against an original
+  RSX device demonstrates a materially different pitch law.
+
 ## Maintenance rule
 
 When a new quirk is found:

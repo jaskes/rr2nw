@@ -1886,6 +1886,7 @@ struct RecoveredArenaSeanceState {
   bool wavMetadataReady;
   bool soundObjectReady;
   bool soundDistanceReady;
+  bool vehicleEngineSoundReady;
   bool skinResourcesReady;
   bool skinAnimationsReady;
   bool staticMechanismsReady;
@@ -2088,6 +2089,8 @@ struct RecoveredArenaSeanceState {
   unsigned long long soundObjectFingerprint;
   double previousSoundDistance;
   double previousSoundDistanceSquared;
+  int previousVehicleEngineEnabled;
+  double previousVehicleEngineIntensity;
   double soundDistance;
   double soundDistanceSquared;
   unsigned long long farterReferenceFingerprint;
@@ -3217,6 +3220,8 @@ bool OpenArena(SimulationContext* context) {
 bool InitializeDeviceFreeSoundDistance() {
   g_state.previousSoundDistance = snd_distMax;
   g_state.previousSoundDistanceSquared = snd_distMax2;
+  g_state.previousVehicleEngineEnabled = snd_engine;
+  g_state.previousVehicleEngineIntensity = snd_engineIntensity;
   if (!SoundState_SetMaximumDistance(kDeviceFreeSoundDistance)) {
     Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
            "device-free audible distance initialization failed");
@@ -3232,6 +3237,28 @@ bool InitializeDeviceFreeSoundDistance() {
     snd_distMax2 = g_state.previousSoundDistanceSquared;
     Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
            "device-free audible distance did not publish atomically");
+    return false;
+  }
+  if (!SoundState_ConfigureVehicleEngine(1, 0.5)) {
+    snd_distMax = g_state.previousSoundDistance;
+    snd_distMax2 = g_state.previousSoundDistanceSquared;
+    snd_engine = g_state.previousVehicleEngineEnabled;
+    snd_engineIntensity = g_state.previousVehicleEngineIntensity;
+    g_state.soundDistanceReady = false;
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "device-free Vehicle engine sound initialization failed");
+    return false;
+  }
+  g_state.vehicleEngineSoundReady = snd_engine == 1 &&
+      snd_engineIntensity == 0.5;
+  if (!g_state.vehicleEngineSoundReady) {
+    snd_distMax = g_state.previousSoundDistance;
+    snd_distMax2 = g_state.previousSoundDistanceSquared;
+    snd_engine = g_state.previousVehicleEngineEnabled;
+    snd_engineIntensity = g_state.previousVehicleEngineIntensity;
+    g_state.soundDistanceReady = false;
+    Report(RECOVERED_ARENA_SEANCE_FARTER_SUBJECT_FAILURE,
+           "Vehicle engine sound state did not publish atomically");
     return false;
   }
   return true;
@@ -6757,9 +6784,14 @@ int RecoveredArenaSeance_Initialize(SimulationContext* context,
 
 void RecoveredArenaSeance_Release() {
   const bool restoreSoundDistance = g_state.soundDistanceReady;
+  const bool restoreVehicleEngine = g_state.vehicleEngineSoundReady;
   const double previousSoundDistance = g_state.previousSoundDistance;
   const double previousSoundDistanceSquared =
       g_state.previousSoundDistanceSquared;
+  const int previousVehicleEngineEnabled =
+      g_state.previousVehicleEngineEnabled;
+  const double previousVehicleEngineIntensity =
+      g_state.previousVehicleEngineIntensity;
   PortalActiveWorldState_ReleaseLevelSubjects(g_arena.getContext());
   RecoveredStaticMechanism_Release();
   HowitzerSubjectState_ReleaseHolders();
@@ -7159,17 +7191,32 @@ void RecoveredArenaSeance_Release() {
     snd_distMax = previousSoundDistance;
     snd_distMax2 = previousSoundDistanceSquared;
   }
+  if (restoreVehicleEngine) {
+    snd_engine = previousVehicleEngineEnabled;
+    snd_engineIntensity = previousVehicleEngineIntensity;
+  }
   g_state.soundDistanceReady = false;
   g_state.previousSoundDistance = 0.0;
   g_state.previousSoundDistanceSquared = 0.0;
   g_state.soundDistance = 0.0;
   g_state.soundDistanceSquared = 0.0;
+  g_state.vehicleEngineSoundReady = false;
+  g_state.previousVehicleEngineEnabled = 0;
+  g_state.previousVehicleEngineIntensity = 0.0;
 }
 
 bool RecoveredArenaSeance_IsOpen() { return g_state.arenaOpen; }
 
 bool RecoveredArenaSeance_ScriptCompleted() {
   return g_state.scriptCompleted;
+}
+
+bool RecoveredArenaSeance_VehicleEngineSoundReady() {
+  return g_state.vehicleEngineSoundReady;
+}
+
+double RecoveredArenaSeance_VehicleEngineSoundIntensity() {
+  return g_state.vehicleEngineSoundReady ? snd_engineIntensity : 0.0;
 }
 
 bool RecoveredArenaSeance_RouteReady() { return g_state.routeReady; }

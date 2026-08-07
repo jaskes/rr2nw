@@ -22,6 +22,7 @@ struct FakeAudioBackend {
   unsigned int stops = 0;
   unsigned int moves = 0;
   unsigned int listeners = 0;
+  unsigned int pitches = 0;
   unsigned int volumes = 0;
   unsigned int focusChanges = 0;
   unsigned int maintains = 0;
@@ -77,6 +78,12 @@ bool FakeMove(void* owner, SoundStatePlaybackToken token,
 bool FakeListener(void* owner, const SSoundStateListenerPose* listener) {
   if (listener == nullptr) return false;
   ++static_cast<FakeAudioBackend*>(owner)->listeners;
+  return true;
+}
+
+bool FakePitch(void* owner, SoundStatePlaybackToken token, float ratio) {
+  if (token == 0 || ratio < 0.15f || ratio > 4.0f) return false;
+  ++static_cast<FakeAudioBackend*>(owner)->pitches;
   return true;
 }
 
@@ -237,6 +244,8 @@ bool RunCycle(unsigned long long* expectedFingerprint,
 int main() {
   const double originalDistance = snd_distMax;
   const double originalDistanceSquared = snd_distMax2;
+  const int originalEngine = snd_engine;
+  const double originalEngineIntensity = snd_engineIntensity;
   const bool invalidDistanceRejected =
       !SoundState_SetMaximumDistance(0.0) &&
       !SoundState_SetMaximumDistance(-1.0) &&
@@ -249,20 +258,33 @@ int main() {
       snd_distMax == 300.0 && snd_distMax2 == 90000.0;
   snd_distMax = originalDistance;
   snd_distMax2 = originalDistanceSquared;
-  if (!invalidDistanceRejected || !configuredDistance) {
+  const bool invalidEngineRejected =
+      !SoundState_ConfigureVehicleEngine(2, 0.5) &&
+      !SoundState_ConfigureVehicleEngine(1, -0.1) &&
+      !SoundState_ConfigureVehicleEngine(1, 1.1) &&
+      snd_engine == originalEngine &&
+      snd_engineIntensity == originalEngineIntensity;
+  const bool configuredEngine =
+      SoundState_ConfigureVehicleEngine(1, 0.5) &&
+      snd_engine == 1 && snd_engineIntensity == 0.5;
+  snd_engine = originalEngine;
+  snd_engineIntensity = originalEngineIntensity;
+  if (!invalidDistanceRejected || !configuredDistance ||
+      !invalidEngineRejected || !configuredEngine) {
     return Fail("device-free maximum distance was not transactional");
   }
   WAVResourceState_Link();
   SoundObjectState_Link();
   FakeAudioBackend backend;
   SSoundStateBackend bridge = {};
-  bridge.abiVersion = 2u;
+  bridge.abiVersion = 3u;
   bridge.owner = &backend;
   bridge.admit = FakeAdmit;
   bridge.start = FakeStart;
   bridge.stop = FakeStop;
   bridge.move = FakeMove;
   bridge.setListener = FakeListener;
+  bridge.setPitch = FakePitch;
   bridge.setCategoryVolume = FakeVolume;
   bridge.setApplicationActive = FakeFocus;
   bridge.maintain = FakeMaintain;
@@ -300,16 +322,19 @@ int main() {
       unsupported == 0;
   const bool explicitLoop =
       SoundState_StartPlayback(&loop, &loopToken) && loopToken != 0;
+  const bool explicitPitch = SoundState_SetPlaybackPitch(loopToken, 1.5f);
   SoundState_StopPlayback(&loopToken);
   const bool bridgeExact = backend.admissions == 2u && backend.starts == 9u &&
       backend.oneShots == 2u && backend.loops == 7u &&
       backend.stops == 9u && backend.volumes == 2u &&
       backend.moves == 2u && backend.listeners == 1u &&
+      backend.pitches == 1u &&
       backend.lastX == 7.0f && backend.lastY == 8.0f &&
       backend.lastZ == 9.0f &&
       backend.focusChanges == 2u && backend.maintains == 1u &&
       backend.active && backend.volume == 0.4f && telemetry != nullptr &&
-      streamRejected && repeatRejected && explicitLoop && loopToken == 0 &&
+      streamRejected && repeatRejected && explicitLoop && explicitPitch &&
+      loopToken == 0 &&
       telemetry->oneShotStarts == 2u &&
       telemetry->loopRequests == 7u && telemetry->loopStarts == 7u &&
       telemetry->loopFailures == 0u &&
@@ -319,13 +344,16 @@ int main() {
       telemetry->listenerRequests == 1u &&
       telemetry->listenerUpdates == 1u &&
       telemetry->listenerFailures == 0u &&
+      telemetry->pitchRequests == 1u &&
+      telemetry->pitchUpdates == 1u && telemetry->pitchFailures == 0u &&
       telemetry->unsupportedStreamStarts == 1u &&
       telemetry->unsupportedRepeatStarts == 1u;
   SoundState_ClearBackend(&backend);
   if (!bridgeExact || SoundState_BackendConfigured())
     return Fail("maintained one-shot/loop bridge was not exact or fail-closed");
   std::printf("sound distance=300/90000 invalid=transactional "
-              "sound object table=SoundObj capacity=3 backend=callback-v2 "
+              "vehicle-engine=1/0.5 invalid=transactional "
+              "sound object table=SoundObj capacity=3 backend=callback-v3 "
               "lifecycle=invalid-bind-updateSound-move-start-end-reuse-one-shot-loop "
               "rollback=pool-name fingerprint=%llu\n",
               fingerprint);

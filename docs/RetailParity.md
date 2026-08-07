@@ -2783,8 +2783,8 @@ playable Level begins.
   rows. Source-proven count-0 loop lifetime is closed separately by
   RP-AUDIO-002; `MOVE_TO` remains authored state until listener ownership and
   RSX attenuation behavior are recovered.
-- The Effects submix uses schema-4 player volume, focus suspension and bounded
-  device-loss recovery. Playback success/failure cannot affect the scheduler,
+- Effects and direct Player Vehicle submixes use schema-5 player volumes,
+  focus suspension and bounded device-loss recovery. Playback success/failure cannot affect the scheduler,
   mission outcome, save fingerprint or Level transition.
 - Verification combines synthetic PCM rejection, fake-backend SoundObj
   rollback, headless installed Level admission and an opt-in physical
@@ -2843,6 +2843,27 @@ playable Level begins.
   or a mission outcome. Broader Taxi/Orphan/People natural-route acceptance,
   direct Vehicle pitch, flags-1 streaming, dialogue/music, FLIC and UI audio
   remain open.
+
+### RP-AUDIO-004: occupied Player Vehicle engine lifecycle and pitch
+
+- The direct archived owner is `Vehicle.Default`, not Taxi/Orphan/Tank
+  `SoundObj`. It selects the current Vehicle attribute WAV, loops it without
+  spatialization or attenuation and changes frequency by
+  `clamp(1 + abs(speed) * 0.05, minPitch, maxPitch)`.
+- Maintained ABI 3 preserves this as a distinct Vehicle submix and durable
+  nonserialized loop. Enter/exit replaces the sample, briefing stops the
+  engine without inventing streamed dialogue, load reconstructs from the
+  occupied attribute, and death/removal/Portal/Level teardown release it.
+- Installed `game.cfg` values `Engine=1`, `EngineIntensity=0.5` are restored as
+  transactional Level configuration alongside `DistMax=300`; prior globals
+  are restored after Level teardown.
+- Headless synthetic coverage proves the 0.15 and 4.0 bounds and rejects
+  values outside them. The real Level.04D gate produces Vehicle registrations
+  and speed-driven pitch changes with zero failures, then zero retained loops.
+  A generated 440 Hz opt-in gate proves physical low/high pitch and device
+  reconstruction without reading retail media.
+- This is lifecycle and pitch-law parity, not byte-exact Intel RSX resampling.
+  AI engine loops, streamed dialogue/music, FLIC and UI audio remain open.
 
 ## Binary analysis boundary
 

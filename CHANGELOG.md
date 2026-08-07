@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Restored the direct occupied Player Vehicle engine presentation path on the
+  maintained Windows audio backend. The archival owner now selects its authored
+  engine WAV, starts and stops it across enter/exit, death, rollback and Level
+  teardown, and applies the recovered `1 + abs(speed) * 0.05` pitch law within
+  both authored and XAudio2 frequency-ratio limits. Vehicle audio has its own
+  schema-5 volume category, remains nonserialized and subordinate to simulation,
+  and is covered by headless lifecycle/pitch tests plus a real Level.04D gate in
+  Debug, Release and RelWithDebInfo.
 - Added the first production Windows crash-diagnostic boundary. Unexpected
   unhandled SEH failures now create a unique local `RR2CRASH1` bundle with a
   `MiniDumpNormal` dump, atomic bounded manifest, exact build/PE/CodeView
