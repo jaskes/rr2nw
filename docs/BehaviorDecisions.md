@@ -6783,3 +6783,38 @@ The next scheduler slice must preserve this invariant while introducing a
 bounded accumulator/catch-up policy, and must separately measure real window
 presentation rates. Complete active-world hashing, long-session wrap/drift and
 legacy import remain independent decisions.
+
+### BD-212: separate cadence ownership from production activation
+
+Status: accepted on 2026-08-09 for the bounded M4 scheduler seam.
+
+The surviving source and installed May data do not identify a single retail
+simulation frequency. Per-object 20--200 ms increments cannot be promoted into
+a global clock, and the current render-coupled timer clamp describes recovered
+behavior rather than design intent. Production therefore does not silently
+adopt the RPH1 probe's 25 ms step in this tranche.
+
+`SimulationCadence` is introduced as a renderer-independent owner with integer
+accumulation, bounded catch-up, explicit cap/drop counters and focus reset.
+RPH1's real Vehicle route is changed from passive sparse observation to actual
+dense and four-tick presentation submissions through this owner. Equal tick
+boundaries and equal authoritative hashes are now a precondition for any live
+switch. `Session::pollAt()` adds the missing one-tick explicit-time seam while
+retaining the old timer-sampling `poll()` entry point unchanged.
+
+`RecoveredGameServices_RunFrameAt()` is accepted as the next narrow seam: it
+runs one existing complete frame at a validated caller target and is currently
+used only by reconstruction acceptance. Invalid targets are mutation-free, and
+first-frame Vehicle synchronization owns the pre-target Session origin rather
+than consuming the target twice. We explicitly do not route the remaining
+legacy dynamic roster through it yet: those objects retain host-derived
+`m_lastTime`, and doing so without a whole-world rebase produced a valid
+negative-delta guard failure. F1 smoke deadlines may follow their real authored
+distance/speed law, but this does not alter gameplay movement.
+
+The production Windows loop will switch only when its outer owner can run zero
+or several complete `Session poll + Vehicle pre/update/post` ticks before one
+render/present and retain ordered input, focus neutralization and closed-frame
+Save/Load/Portal/debug transactions. Until that separate acceptance passes,
+startup telemetry calls this a scheduler boundary rather than fixed-step live
+gameplay. No cadence or presentation state is added to LCN1/RR2SLOT1.

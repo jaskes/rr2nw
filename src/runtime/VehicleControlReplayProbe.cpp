@@ -1,6 +1,7 @@
 #include "VehicleControlReplayProbe.h"
 
 #include "ReplayHashJournal.h"
+#include "SimulationCadence.h"
 #include "SimulationRandom.h"
 #include "TimeRuntimeState.h"
 #include "VehicleControlJournal.h"
@@ -14,6 +15,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -22,6 +24,67 @@ const double kStep = 0.025;
 const double kTolerance = 1.0e-7;
 const std::uint64_t kHashOffset = 14695981039346656037ull;
 const std::uint64_t kHashPrime = 1099511628211ull;
+
+SSimulationCadenceConfig ReplayCadenceConfig() {
+  SSimulationCadenceConfig config;
+  config.fixedStepSeconds = kStep;
+  config.maximumCatchUpTicks = 4u;
+  config.maximumFrameDeltaSeconds = 0.1;
+  config.hardDeltaLimitSeconds = 2.0;
+  return config;
+}
+
+bool ProbeCadenceBoundaries(
+    SRecoveredVehicleControlReplayProbeSummary* summary) {
+  if (summary == nullptr) return false;
+  const SSimulationCadenceConfig config = ReplayCadenceConfig();
+  int checks = 0;
+
+  SimulationCadence invalid;
+  std::vector<double> sentinel(1u, 123.0);
+  if (!invalid.Configure(config, 3.0) ||
+      invalid.Submit(0.0, true, &sentinel) ||
+      invalid.Submit((std::numeric_limits<double>::quiet_NaN)(), true,
+                     &sentinel) ||
+      sentinel.size() != 1u || sentinel[0] != 123.0 ||
+      invalid.Telemetry().invalidSamples != 2u)
+    return false;
+  ++checks;
+
+  SimulationCadence stalled;
+  std::vector<double> ticks;
+  if (!stalled.Configure(config, 7.0) ||
+      !stalled.Submit(0.25, true, &ticks) || ticks.size() != 4u)
+    return false;
+  const SSimulationCadenceTelemetry stalledTelemetry = stalled.Telemetry();
+  if (stalledTelemetry.cappedSamples != 1u ||
+      stalledTelemetry.maximumTicksPerSample != 4u ||
+      std::fabs(stalledTelemetry.droppedSeconds - 0.15) > kTolerance)
+    return false;
+  ++checks;
+
+  SimulationCadence focus;
+  if (!focus.Configure(config, 11.0) ||
+      !focus.Submit(0.0125, true, &ticks) || !ticks.empty() ||
+      !focus.Submit(0.1, false, &ticks) || !ticks.empty() ||
+      !focus.Submit(kStep, true, &ticks) || ticks.size() != 1u)
+    return false;
+  const SSimulationCadenceTelemetry focusTelemetry = focus.Telemetry();
+  if (focusTelemetry.focusResets != 1u ||
+      focusTelemetry.simulationTicks != 1u ||
+      focusTelemetry.maximumTicksPerSample != 1u ||
+      std::fabs(focusTelemetry.droppedSeconds - 0.1125) > kTolerance)
+    return false;
+  ++checks;
+
+  summary->cadenceBoundaryChecks = checks;
+  summary->cadenceFocusResets =
+      static_cast<int>(focusTelemetry.focusResets);
+  summary->cadenceCappedSamples =
+      static_cast<int>(stalledTelemetry.cappedSamples);
+  summary->cadenceDroppedSeconds = stalledTelemetry.droppedSeconds;
+  return true;
+}
 
 bool NearlyEqual(double left, double right) {
   return std::fabs(left - right) <= kTolerance;
@@ -217,40 +280,46 @@ bool AdvanceTo(SimulationContext* context, std::uint64_t targetTick,
                double targetTime, const KR_ObjectID& vehicle,
                std::uint64_t* tick, double* time, int* frames,
                std::vector<SReplayHashSample>* samples,
-               int presentationStride, int* presentationSamples) {
+               SimulationCadence* cadence, int presentationStride,
+               int* presentationSamples) {
   KR_ObjectID vehicleCopy = vehicle;
   if (context == nullptr || tick == nullptr || time == nullptr ||
       frames == nullptr || samples == nullptr || vehicleCopy.isNUL() ||
-      presentationStride < 0 ||
-      (presentationStride > 0 && presentationSamples == nullptr) ||
+      cadence == nullptr || !cadence->IsConfigured() ||
+      presentationStride <= 0 || presentationSamples == nullptr ||
       targetTick < *tick ||
       targetTime + kTolerance < *time)
     return false;
   while (*tick < targetTick) {
     const std::uint64_t ticksLeft = targetTick - *tick;
-    const double timeLeft = targetTime - *time;
-    if (ticksLeft == 0u || timeLeft <= 0.0) return false;
-    const double step = timeLeft / static_cast<double>(ticksLeft);
-    if (!std::isfinite(step) || step <= 0.0 ||
-        step > 0.05 + kTolerance)
+    const std::uint64_t presentationTicks = (std::min)(
+        ticksLeft, static_cast<std::uint64_t>(presentationStride));
+    std::vector<double> tickTimes;
+    if (presentationTicks == 0u ||
+        !cadence->Submit(
+            static_cast<double>(presentationTicks) * kStep, true,
+            &tickTimes) || tickTimes.size() != presentationTicks)
       return false;
-    ++*tick;
-    *time += step;
-    if (!ApplyClock(*tick, *time) ||
-        !VehicleRuntimeState_Advance(context, *time))
-      return false;
-    ++*frames;
-    const std::uint64_t stateHash =
-        AuthoritativeStateFingerprint(context, vehicle);
-    if (stateHash == 0u) return false;
-    SReplayHashSample sample;
-    sample.tick = *tick;
-    sample.simulationTime = *time;
-    sample.stateHash = stateHash;
-    samples->push_back(sample);
-    if (presentationStride > 0 &&
-        *frames % presentationStride == 0)
-      ++*presentationSamples;
+    ++*presentationSamples;
+    for (double tickTime : tickTimes) {
+      if (!NearlyEqual(tickTime, *time + kStep) ||
+          tickTime > targetTime + kTolerance)
+        return false;
+      ++*tick;
+      *time = tickTime;
+      if (!ApplyClock(*tick, *time) ||
+          !VehicleRuntimeState_Advance(context, *time))
+        return false;
+      ++*frames;
+      const std::uint64_t stateHash =
+          AuthoritativeStateFingerprint(context, vehicle);
+      if (stateHash == 0u) return false;
+      SReplayHashSample sample;
+      sample.tick = *tick;
+      sample.simulationTime = *time;
+      sample.stateHash = stateHash;
+      samples->push_back(sample);
+    }
   }
   return NearlyEqual(*time, targetTime) && ApplyClock(*tick, targetTime);
 }
@@ -299,10 +368,12 @@ bool ReplayJournal(SimulationContext* context,
                    int presentationStride,
                    std::vector<SReplayHashSample>* samples,
                    int* frames, int* presentationSamples,
-                   int* syntheticReleases) {
+                   int* syntheticReleases,
+                   SSimulationCadenceTelemetry* cadenceTelemetry) {
   if (context == nullptr || frames == nullptr ||
       samples == nullptr || presentationSamples == nullptr ||
-      syntheticReleases == nullptr || presentationStride <= 0 ||
+      syntheticReleases == nullptr || cadenceTelemetry == nullptr ||
+      presentationStride <= 0 ||
       !VehicleControlJournal_Validate(journal) || !journal.sealed)
     return false;
   KR_ObjectID target = context->searchObject(journal.target.c_str());
@@ -323,10 +394,12 @@ bool ReplayJournal(SimulationContext* context,
   }
   std::uint64_t tick = journal.checkpointTick;
   double time = journal.checkpointTime;
+  SimulationCadence cadence;
+  if (!cadence.Configure(ReplayCadenceConfig(), time)) return false;
   for (const SVehicleControlJournalRecord& record : journal.records) {
     if (!AdvanceTo(context, record.tick, record.eventTime,
                    target, &tick, &time, frames, samples,
-                   presentationStride, presentationSamples))
+                   &cadence, presentationStride, presentationSamples))
       return false;
     if (record.kind == VEHICLE_CONTROL_JOURNAL_ACTION) {
       if (!active || !VehicleRuntimeState_ApplyControlAt(
@@ -353,9 +426,17 @@ bool ReplayJournal(SimulationContext* context,
       active = nextActive;
     }
   }
-  return AdvanceTo(context, journal.finalTick, journal.finalTime,
-                   target, &tick, &time, frames, samples,
-                   presentationStride, presentationSamples);
+  if (!AdvanceTo(context, journal.finalTick, journal.finalTime,
+                 target, &tick, &time, frames, samples,
+                 &cadence, presentationStride, presentationSamples))
+    return false;
+  *cadenceTelemetry = cadence.Telemetry();
+  return cadenceTelemetry->simulationTicks ==
+             journal.finalTick - journal.checkpointTick &&
+         cadenceTelemetry->presentationSamples ==
+             static_cast<std::uint64_t>(*presentationSamples) &&
+         cadenceTelemetry->accumulatorSeconds == 0.0 &&
+         cadenceTelemetry->droppedSeconds == 0.0;
 }
 
 }  // namespace
@@ -413,10 +494,16 @@ bool VehicleControlReplayProbe_Run(
   std::vector<SReplayHashSample> recordedSamples;
   std::uint64_t tick = checkpointClock.tick;
   double time = startTime;
+  SimulationCadence recordingCadence;
+  SSimulationCadenceTelemetry recordingCadenceTelemetry = {};
   SRecoveredVehicleRuntimeState recorded = {};
   SSimulationClockState recordedClock;
   std::vector<std::uint8_t> recordedRandom;
 
+  if (succeeded) {
+    succeeded = recordingCadence.Configure(
+        ReplayCadenceConfig(), checkpointClock.viewTime);
+  }
   if (succeeded) {
     firstActivated = VehicleRuntimeState_Activate(
         context, vehicle, position, startTime);
@@ -431,7 +518,7 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, 1,
+                          &recordedSamples, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordAction(context, &journal, tick, time,
@@ -439,7 +526,7 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, 1,
+                          &recordedSamples, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordAction(context, &journal, tick, time,
@@ -447,7 +534,7 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, 1,
+                          &recordedSamples, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordFocus(context, &journal, tick, time, false,
@@ -456,17 +543,23 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 4u, time + 4.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, 1,
+                          &recordedSamples, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordFocus(context, &journal, tick, time, true,
                             &applicationActive, held,
                             &recordedSyntheticReleases);
-  if (succeeded)
-    succeeded = VehicleControlJournal_Seal(&journal, tick, time) &&
+  if (succeeded) {
+    recordingCadenceTelemetry = recordingCadence.Telemetry();
+    succeeded = recordingCadenceTelemetry.simulationTicks == 28u &&
+                recordingCadenceTelemetry.presentationSamples == 28u &&
+                recordingCadenceTelemetry.maximumTicksPerSample == 1u &&
+                recordingCadenceTelemetry.droppedSeconds == 0.0 &&
+                VehicleControlJournal_Seal(&journal, tick, time) &&
                 VehicleRuntimeState_Inspect(context, vehicle, &recorded) &&
                 SUA_CaptureSimulationClock(&recordedClock) &&
                 SimulationRandom_Capture(&recordedRandom);
+  }
   if (succeeded) summary->recordings = 1;
 
   const bool firstRollback = firstActivated &&
@@ -508,6 +601,7 @@ bool VehicleControlReplayProbe_Run(
   SRecoveredVehicleRuntimeState denseState = {};
   SSimulationClockState denseClock;
   std::vector<std::uint8_t> denseRandom;
+  SSimulationCadenceTelemetry denseCadenceTelemetry = {};
   if (succeeded)
     succeeded = VehicleControlJournal_ApplyCheckpoint(
         decodedReplayJournal.controls);
@@ -522,7 +616,8 @@ bool VehicleControlReplayProbe_Run(
                     context, decodedReplayJournal.controls, 1,
                     &denseSamples, &denseFrames,
                     &densePresentationSamples,
-                    &denseSyntheticReleases) &&
+                    &denseSyntheticReleases,
+                    &denseCadenceTelemetry) &&
                 VehicleRuntimeState_Inspect(
                     context, vehicle, &denseState) &&
                 SUA_CaptureSimulationClock(&denseClock) &&
@@ -543,6 +638,7 @@ bool VehicleControlReplayProbe_Run(
   SRecoveredVehicleRuntimeState sparseState = {};
   SSimulationClockState sparseClock;
   std::vector<std::uint8_t> sparseRandom;
+  SSimulationCadenceTelemetry sparseCadenceTelemetry = {};
   if (succeeded)
     succeeded = VehicleControlJournal_ApplyCheckpoint(
         decodedReplayJournal.controls);
@@ -557,7 +653,8 @@ bool VehicleControlReplayProbe_Run(
                     context, decodedReplayJournal.controls, 4,
                     &sparseSamples, &sparseFrames,
                     &sparsePresentationSamples,
-                    &sparseSyntheticReleases) &&
+                    &sparseSyntheticReleases,
+                    &sparseCadenceTelemetry) &&
                 VehicleRuntimeState_Inspect(
                     context, vehicle, &sparseState) &&
                 SUA_CaptureSimulationClock(&sparseClock) &&
@@ -606,6 +703,12 @@ bool VehicleControlReplayProbe_Run(
   summary->sparsePresentationSamples = sparsePresentationSamples;
   summary->denseSimulationTicks = denseFrames;
   summary->sparseSimulationTicks = sparseFrames;
+  summary->denseMaximumTicksPerPresentation =
+      static_cast<int>(denseCadenceTelemetry.maximumTicksPerSample);
+  summary->sparseMaximumTicksPerPresentation =
+      static_cast<int>(sparseCadenceTelemetry.maximumTicksPerSample);
+  summary->sparseCatchUpSamples =
+      static_cast<int>(sparseCadenceTelemetry.catchUpSamples);
   summary->encodedBytes = static_cast<unsigned int>(encoded.size());
   summary->replayEncodedBytes =
       static_cast<unsigned int>(replayEncoded.size());
@@ -618,12 +721,22 @@ bool VehicleControlReplayProbe_Run(
   summary->recordedStateFingerprint = StateFingerprint(recorded);
   summary->replayedStateFingerprint = StateFingerprint(sparseState);
 
-  const bool result = succeeded && stateMatch && clockMatch && randomMatch &&
+  const bool cadenceBoundaries = ProbeCadenceBoundaries(summary);
+  const bool result = succeeded && cadenceBoundaries && stateMatch &&
+         clockMatch && randomMatch &&
          worldRestored && globalsRestored && statsReady &&
          recordedFrames == denseFrames && recordedFrames == sparseFrames &&
          recordedPresentationSamples == recordedFrames &&
          densePresentationSamples == denseFrames &&
          sparsePresentationSamples == sparseFrames / 4 &&
+         denseCadenceTelemetry.maximumTicksPerSample == 1u &&
+         denseCadenceTelemetry.catchUpSamples == 0u &&
+         sparseCadenceTelemetry.maximumTicksPerSample == 4u &&
+         sparseCadenceTelemetry.catchUpSamples == 7u &&
+         summary->cadenceBoundaryChecks == 3 &&
+         summary->cadenceFocusResets == 1 &&
+         summary->cadenceCappedSamples == 1 &&
+         std::fabs(summary->cadenceDroppedSeconds - 0.15) <= kTolerance &&
          recordedSyntheticReleases == denseSyntheticReleases &&
          recordedSyntheticReleases == sparseSyntheticReleases &&
          statistics.actionRecords == 3u && statistics.focusRecords == 2u &&
@@ -641,7 +754,8 @@ bool VehicleControlReplayProbe_Run(
     std::fprintf(stderr,
         "vehicle-control-replay-probe: failed succeeded=%d state=%d "
         "clock=%d rng=%d world=%d globals=%d stats=%d "
-        "frames=%d/%d/%d present=%d/%d/%d hashes=%d/%d "
+        "frames=%d/%d/%d present=%d/%d/%d scheduler=%d/%d/%d/%d "
+        "hashes=%d/%d "
         "releases=%d/%d/%d records=%u/%u rollbacks=%d "
         "control_failure=%d frame_failure=%d\n",
         succeeded ? 1 : 0, stateMatch ? 1 : 0, clockMatch ? 1 : 0,
@@ -649,7 +763,11 @@ bool VehicleControlReplayProbe_Run(
         globalsRestored ? 1 : 0, statsReady ? 1 : 0,
         recordedFrames, denseFrames, sparseFrames,
         recordedPresentationSamples, densePresentationSamples,
-        sparsePresentationSamples, summary->hashMatches,
+        sparsePresentationSamples,
+        summary->denseMaximumTicksPerPresentation,
+        summary->sparseMaximumTicksPerPresentation,
+        summary->sparseCatchUpSamples, summary->cadenceBoundaryChecks,
+        summary->hashMatches,
         summary->hashSamples, recordedSyntheticReleases,
         denseSyntheticReleases, sparseSyntheticReleases,
         statistics.actionRecords, statistics.focusRecords,

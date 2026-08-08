@@ -256,7 +256,14 @@ foreach ($configurationName in $Configuration) {
                         '^[1-9][0-9]*/[1-9][0-9]*/[1-9][0-9]*/2/28$' -or
                     -not $log.ContainsKey("vehicle_control_replay_presentation_cadence") -or
                     $log["vehicle_control_replay_presentation_cadence"] -ne
-                        "28/28/28/7") {
+                        "28/28/28/7" -or
+                    -not $log.ContainsKey("vehicle_control_replay_scheduler") -or
+                    $log["vehicle_control_replay_scheduler"] -ne
+                        "1/4/7/3/1/1" -or
+                    -not $log.ContainsKey(
+                        "vehicle_control_replay_scheduler_dropped_seconds") -or
+                    $log["vehicle_control_replay_scheduler_dropped_seconds"] -ne
+                        "0.150000") {
                     $issues.Add("RPH1 authoritative hash/presentation-cadence proof changed")
                 }
                 if ((Get-LogInteger $log "renderer_frames") -lt 1) {
@@ -778,6 +785,12 @@ foreach ($configurationName in $Configuration) {
                 } else { "" }
                 replay_presentation_cadence = if ($log.ContainsKey("vehicle_control_replay_presentation_cadence")) {
                     $log["vehicle_control_replay_presentation_cadence"]
+                } else { "" }
+                replay_scheduler = if ($log.ContainsKey("vehicle_control_replay_scheduler")) {
+                    $log["vehicle_control_replay_scheduler"]
+                } else { "" }
+                replay_scheduler_dropped_seconds = if ($log.ContainsKey("vehicle_control_replay_scheduler_dropped_seconds")) {
+                    $log["vehicle_control_replay_scheduler_dropped_seconds"]
                 } else { "" }
                 renderer_frames = Get-LogInteger $log "renderer_frames"
                 renderer_submitted = Get-LogInteger $log "renderer_polygons_submitted"

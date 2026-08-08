@@ -46,6 +46,7 @@ class Session
        int  RemoveObserver(KR_Observer *observer);
 
        int  poll();
+       int  pollAt(double viewTime);
 
 
        static KR_RealTimer *m_realTimer;

@@ -3733,6 +3733,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredStaticMechanismRuntime.h
   src/runtime/ReplayHashJournal.cpp
   src/runtime/ReplayHashJournal.h
+  src/runtime/SimulationCadence.cpp
+  src/runtime/SimulationCadence.h
   src/runtime/VehicleControlJournal.cpp
   src/runtime/VehicleControlJournal.h
   src/runtime/VehicleControlReplayProbe.cpp
@@ -4645,6 +4647,21 @@ target_compile_definitions(
 add_executable(rr2nw_replay_hash_journal_smoke
   src/portability/ReplayHashJournalSmoke.cpp
 )
+
+add_executable(rr2nw_simulation_cadence_smoke
+  src/portability/SimulationCadenceSmoke.cpp
+)
+target_link_libraries(rr2nw_simulation_cadence_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_simulation_cadence_smoke PRIVATE cxx_std_14
+)
+if(MSVC)
+  target_compile_options(
+    rr2nw_simulation_cadence_smoke PRIVATE /W4 /permissive-
+  )
+endif()
 target_link_libraries(rr2nw_replay_hash_journal_smoke PRIVATE
   rr2nw_recovered_game_services_runtime
 )
@@ -5266,6 +5283,10 @@ if(BUILD_TESTING)
   add_test(
     NAME replay-hash-journal-smoke
     COMMAND rr2nw_replay_hash_journal_smoke
+  )
+  add_test(
+    NAME simulation-cadence-smoke
+    COMMAND rr2nw_simulation_cadence_smoke
   )
   add_test(
     NAME level-continuation-smoke

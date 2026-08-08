@@ -3125,6 +3125,33 @@ playable Level begins.
   or proof at real alternative render FPS. Those are subsequent M4 tranches;
   LCN1/RR2SLOT1 bytes and presentation/audio state remain unchanged.
 
+### RP-REPLAY-002: bounded scheduler submissions preserve RPH1 hashes
+
+- Exact surviving source still advances one variable Session/Vehicle step per
+  rendered loop. Installed script increments vary by object and do not prove a
+  global retail frequency, so this row makes no 25 ms retail-rate claim.
+- The RPH1 compatibility route now drives `SimulationCadence` with 28 dense
+  25 ms submissions and seven sparse 100 ms submissions. The sparse run emits
+  four bounded ticks per presentation sample; both runs reach the same 28
+  authoritative boundaries and reproduce every Vehicle/CLK1/gameplay-RNG hash.
+- The owner rejects zero, negative, nonfinite and over-2-second samples without
+  tick/accumulator mutation. A bounded stall records its cap and 150 ms drop;
+  focus loss drops pending/inactive time and resume emits one tick, not a storm.
+- `Session::pollAt()` is the source-compatible explicit-time dispatch seam for
+  the later live integration. Its standalone service gate proves one accepted
+  tick and atomic rejection of backwards/nonfinite time. The complete-frame
+  `RecoveredGameServices_RunFrameAt()` layer preserves the existing render and
+  closed-frame transaction order, rejects invalid targets without mutation and
+  proves one exact post-reconstruction tick. It is not used by ordinary play.
+- The acceptance-only F1 re-entry timeout is derived from retail Vehicle
+  `m_taxiMoveSpeed` and real admitted Taxi distance instead of assuming a
+  universal three-second route. This removes host-speed sensitivity without
+  changing the authored approach law or the 20-unit admission radius.
+- Every installed-data runtime row now requires scheduler marker
+  `1/4/7/3/1/1` plus `0.150000` dropped seconds in addition to the unchanged
+  `28/28/28/7` and `2/28` RPH1 contracts. Production render/simulation
+  decoupling remains deliberately unclaimed.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

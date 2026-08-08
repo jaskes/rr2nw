@@ -305,6 +305,13 @@ struct SRecoveredVehicleControlReplayTelemetry {
   int sparsePresentationSamples;
   int denseSimulationTicks;
   int sparseSimulationTicks;
+  int denseMaximumTicksPerPresentation;
+  int sparseMaximumTicksPerPresentation;
+  int sparseCatchUpSamples;
+  int cadenceBoundaryChecks;
+  int cadenceFocusResets;
+  int cadenceCappedSamples;
+  double cadenceDroppedSeconds;
 };
 
 enum ERecoveredSaveMenuAction {
@@ -913,3 +920,7 @@ bool RecoveredGameServices_IsReady();
 unsigned int RecoveredGameServices_Issues();
 const SRecoveredObserverState* RecoveredGameServices_ObserverState();
 int RecoveredGameServices_RunFrame();
+// Executes the existing complete input/simulation/render/present/boundary
+// frame at one caller-owned Session time. This is the integration seam for a
+// future cadence orchestrator; the ordinary Windows loop remains host-timed.
+int RecoveredGameServices_RunFrameAt(double simulationTime);

@@ -1,5 +1,7 @@
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
+#include <limits>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -13,6 +15,7 @@
 #include "obase/taxi/taxi.h"
 #include "storage/h/classtab.h"
 #include "suavik.h"
+#include "TimeRuntimeState.h"
 
 CViewObjectRef* pVesselObj = nullptr;
 
@@ -74,6 +77,35 @@ bool ExerciseTimeService() {
   Session empty_session;
   SUA_BindSession(&empty_session);
   SUA_ProcessEvents();
+
+  SimulationContext context(8, 8);
+  Session stepped_session(&g_timer, nullptr);
+  stepped_session.Add(&context);
+  Session::m_simulationTick = 41u;
+  Session::m_moment = 4.0;
+  Session::m_viewTime = 4.0;
+  Session::m_frameSec = 0.0;
+  SUA_BindSession(&stepped_session);
+  if (!SUA_ProcessEventsAt(4.025) ||
+      Session::m_simulationTick != 42u ||
+      std::fabs(Session::m_viewTime - 4.025) > 1.0e-9 ||
+      std::fabs(Session::m_frameSec - 0.025) > 1.0e-9) {
+    SUA_BindSession(nullptr);
+    return false;
+  }
+  SSimulationClockState accepted;
+  if (!SUA_CaptureSimulationClock(&accepted)) {
+    SUA_BindSession(nullptr);
+    return false;
+  }
+  if (SUA_ProcessEventsAt(4.0) ||
+      SUA_ProcessEventsAt((std::numeric_limits<double>::quiet_NaN)()) ||
+      Session::m_simulationTick != accepted.tick ||
+      Session::m_viewTime != accepted.viewTime ||
+      Session::m_frameSec != accepted.frameSeconds) {
+    SUA_BindSession(nullptr);
+    return false;
+  }
   SUA_BindSession(nullptr);
   return true;
 }

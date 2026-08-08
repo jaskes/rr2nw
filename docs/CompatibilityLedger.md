@@ -5816,6 +5816,55 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   renderer. Catch-up, interpolation, long-session drift/wrap and legacy import
   remain separate M4 slices.
 
+### CQ-276: fixed-step cadence is bounded before it owns the live loop
+
+- Status: `DETERMINISTIC_OWNER_ADDED`, `EXPLICIT_SESSION_SEAM_ADDED`,
+  `LIVE_SWITCH_DEFERRED_BY_EVIDENCE`.
+- Additional source/retail evidence: the surviving main loop performs one
+  `BeginPreStep -> SUA_ProcessEvents -> UpdatePos` sequence after each rendered
+  frame, while `Session::poll()` samples the host timer itself. Installed May
+  scripts set per-object `m_timeInc`/`m_timeIncrement` values from 20 to 200 ms;
+  those fields are behavior/animation parameters, not a global scheduler.
+  Neither source proves a 20 or 25 ms retail simulation rate.
+- Handling: `SimulationCadence` owns an integer-nanosecond accumulator, explicit
+  step, at most four catch-up ticks per presentation sample, a 100 ms admitted
+  frame delta and a 2 s hard input bound for the current RPH1 probe policy.
+  Zero, negative, nonfinite and over-hard-limit inputs fail closed. A 250 ms
+  stall emits four ticks, exposes one cap and 150 ms dropped time. Focus loss
+  discards both the fractional accumulator and inactive elapsed time so resume
+  cannot create a catch-up storm.
+- Explicit boundary: `Session::pollAt()`/`SUA_ProcessEventsAt()` dispatch exactly
+  one positive, finite, at-most-100-ms tick without sampling the host timer.
+  Invalid targets preserve tick/view/frame state. Legacy `Session::poll()` and
+  the production Windows loop are unchanged in this tranche.
+- Complete-frame seam: `RecoveredGameServices_RunFrameAt()` now executes the
+  existing input/simulation/render/present/closed-frame pipeline at one such
+  target. On the first Vehicle frame it binds Vehicle time to the committed
+  Session origin and lets `pollAt()` consume the target exactly once. Equal,
+  backwards and nonfinite targets are rejected before message, clock, Vehicle
+  or frame mutation. Fresh-runtime reconstruction uses this seam for its first
+  verification frame, removing host-speed-dependent Level.04D Explosion event
+  admission without switching ordinary play.
+- Acceptance cleanup: the F1 exit/re-entry smoke no longer assumes every
+  authored Taxi approach completes within 120 x 25 ms. Its bounded deadline is
+  derived from the admitted distance and `m_taxiMoveSpeed`, plus 500 ms and a
+  hard 400-frame ceiling. Attempts to drive all legacy dynamics directly from
+  the new target exposed their still-host-owned `m_lastTime` (`Bad deltaT`), so
+  that broader switch remains deliberately outside this slice.
+- Verification: `simulation-cadence-smoke` proves equal 28-tick boundaries for
+  28 x 25 ms and 7 x 100 ms schedules, invalid-input atomicity, stall cap and
+  focus reset. The installed Vehicle RPH1 route now consumes those schedules
+  through the real cadence owner rather than merely changing observation
+  frequency; all 28 Vehicle/CLK1/RNG hashes still match. Real executable
+  startup publishes `vehicle_control_replay_scheduler=1/4/7/3/1/1` and dropped
+  time `0.150000`, and the retail matrix requires both markers.
+- Boundary: the 25 ms step remains an isolated RPH1 compatibility fixture, not
+  a retail-rate claim. Production activation still needs one closed-frame
+  orchestration owner that can execute zero or several Session/Vehicle ticks
+  while preserving ordered input and one post-present transaction boundary.
+  Renderer interpolation, complete-world hashes and long-session drift remain
+  later M4 slices.
+
 ## Maintenance rule
 
 When a new quirk is found:

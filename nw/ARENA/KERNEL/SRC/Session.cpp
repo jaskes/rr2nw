@@ -8,6 +8,7 @@
 
 // =================================================================== INCLUDES
 #include <stdio.h>
+#include <cmath>
 // =================================================================== SYNOPSIS
 #include "Kernel\h\Session.h"
 #include "Kernel\h\Context.h"
@@ -198,6 +199,25 @@ int Session::poll()
     }
     // call viewports for the context
     return result;
+}
+// ============================================================================
+
+int Session::pollAt(double viewTime)
+// ============================================================================
+{
+    const double frameSeconds = viewTime - m_viewTime;
+    if (m_contextList == NULL || !std::isfinite(viewTime) ||
+        viewTime < 0.0 || !std::isfinite(frameSeconds) ||
+        frameSeconds <= 0.0 || frameSeconds > 0.1)
+        return 0;
+
+    ++m_simulationTick;
+    m_viewTime = viewTime;
+    m_frameSec = frameSeconds;
+    for (SimulationContextElem *elem = m_contextList;
+         elem != NULL; elem = elem->next)
+        elem->context->poll(m_viewTime);
+    return 1;
 }
 // ============================================================================
 

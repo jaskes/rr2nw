@@ -1986,12 +1986,26 @@ bool ExerciseSafeVehicleExitAndReentry() {
         exited.panelCloseTransitions != before.panelCloseTransitions + 1)))
     return false;
 
-  if (!SendHardwareButton("F1", TRUE) ||
+  AttributeVehicle* reentryAttribute = static_cast<AttributeVehicle*>(
+      __attrVehicleTable.searchAttribute(exitedState.attribute));
+  if (reentryAttribute == nullptr ||
+      !std::isfinite(reentryAttribute->m_taxiMoveSpeed) ||
+      reentryAttribute->m_taxiMoveSpeed <= 0.0)
+    return false;
+  const double authoredTravelSeconds = (std::max)(
+      0.0, proximity.nearestDistance - 1.0) /
+      reentryAttribute->m_taxiMoveSpeed;
+  const double frameSeconds = 0.025;
+  const int maximumFrames = static_cast<int>(std::ceil(
+      (authoredTravelSeconds + 0.5) / frameSeconds));
+  if (!std::isfinite(authoredTravelSeconds) || maximumFrames <= 0 ||
+      maximumFrames > 400 ||
+      !SendHardwareButton("F1", TRUE) ||
       !SendHardwareButton("F1", FALSE))
     return false;
   bool reentered = false;
-  for (int frame = 0; frame < 120; ++frame) {
-    if (!RunVehicleFrameAfter(0.025) ||
+  for (int frame = 0; frame < maximumFrames; ++frame) {
+    if (!RunVehicleFrameAfter(frameSeconds) ||
         !VehicleRuntimeState_Inspect(context, vehicleID, &exitedState))
       return false;
     if (exitedState.attribute == beforeState.attribute &&
@@ -6089,6 +6103,13 @@ int main(int argc, char** argv) {
       replayTelemetry.sparseSimulationTicks != 28 ||
       replayTelemetry.densePresentationSamples != 28 ||
       replayTelemetry.sparsePresentationSamples != 7 ||
+      replayTelemetry.denseMaximumTicksPerPresentation != 1 ||
+      replayTelemetry.sparseMaximumTicksPerPresentation != 4 ||
+      replayTelemetry.sparseCatchUpSamples != 7 ||
+      replayTelemetry.cadenceBoundaryChecks != 3 ||
+      replayTelemetry.cadenceFocusResets != 1 ||
+      replayTelemetry.cadenceCappedSamples != 1 ||
+      std::fabs(replayTelemetry.cadenceDroppedSeconds - 0.15) > 1.0e-7 ||
       replayTelemetry.encodedBytes == 0 ||
       replayTelemetry.replayEncodedBytes <= replayTelemetry.encodedBytes ||
       replayTelemetry.contentFingerprint == 0 ||
@@ -8008,7 +8029,21 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("service reconstruction startup failed");
   }
+  const std::uint64_t explicitBoundaryTick = Session::m_simulationTick;
+  const double explicitBoundaryViewTime = Session::m_viewTime;
+  const double explicitBoundaryFrameSeconds = Session::m_frameSec;
+  const DWORD explicitBoundaryFrames = dwFrames;
+  const bool explicitBoundaryRejectsInvalid =
+      !RecoveredGameServices_RunFrameAt(Session::m_viewTime) &&
+      !RecoveredGameServices_RunFrameAt(
+          (std::numeric_limits<double>::quiet_NaN)()) &&
+      Session::m_simulationTick == explicitBoundaryTick &&
+      Session::m_viewTime == explicitBoundaryViewTime &&
+      Session::m_frameSec == explicitBoundaryFrameSeconds &&
+      dwFrames == explicitBoundaryFrames &&
+      RecoveredGameServices_Issues() == 0;
   if (RecoveredGameServices_Issues() != 0 ||
+      !explicitBoundaryRejectsInvalid ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
       ExplosionAttributeState_Fingerprint(g_super.m_context) !=
           explosionFingerprint ||
@@ -8356,7 +8391,75 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SparkProbeQueueRollbacks() != 1 ||
       RecoveredArenaSeance_SparkProbePhaseTransitions() != 5 ||
       RecoveredArenaSeance_SparkProbeExpirations() != 1 ||
-      !RecoveredGameServices_RunFrame() || dwFrames != 1) {
+      !RecoveredGameServices_RunFrameAt(Session::m_viewTime + 0.025) ||
+      dwFrames != 1) {
+    std::fprintf(
+        stderr,
+        "reconstruction parity issues=%u/%llu "
+        "explosion=%d/%d/%llu/%llu/%d/%d "
+        "taxi=%d/%d/%llu/%llu bullet=%d/%llu/%llu "
+        "vehicle=%d/%llu/%llu smoke=%d/%d sound=%d/%d corpse=%d "
+        "people=%llu/%llu tank=%llu/%llu frames=%u\n",
+        RecoveredGameServices_Issues(),
+        RecoveredArenaSeance_ExtendedIssues(),
+        ExplosionSubjectState_Capacity(), explosionSubjectCapacity,
+        static_cast<unsigned long long>(
+            ExplosionSubjectState_Fingerprint(g_super.m_context)),
+        static_cast<unsigned long long>(explosionSubjectFingerprint),
+        ExplosionSubjectState_LiveCount(),
+        ExplosionSubjectState_TracedParentCount(),
+        TaxiSubjectState_LiveCount(), taxiSubjectCount,
+        static_cast<unsigned long long>(
+            TaxiSubjectState_Fingerprint(g_super.m_context)),
+        static_cast<unsigned long long>(taxiSubjectFingerprint),
+        BulletSubjectState_LiveCount(),
+        static_cast<unsigned long long>(
+            BulletSubjectState_Fingerprint(g_super.m_context)),
+        static_cast<unsigned long long>(bulletSubjectFingerprint),
+        IsVehicleControlActive(vehicleID, nullptr) ? 1 : 0,
+        static_cast<unsigned long long>(
+            RecoveredGameServices_VehicleRuntimeFingerprint()),
+        static_cast<unsigned long long>(vehicleRuntimeFingerprint),
+        SmokeSubjectState_LiveCount(), SmokerSubjectState_DynLiveCount(),
+        SoundObjectState_LiveCount(),
+        farterScriptObjectCount + taxiSubjectSoundCount +
+            RecoveredArenaSeance_PeopleSubjectSoundCount(),
+        CorpseSubjectState_LiveCount(),
+        static_cast<unsigned long long>(
+            RecoveredArenaSeance_PeopleSubjectFingerprint()),
+        static_cast<unsigned long long>(peopleSubjectFingerprint),
+        static_cast<unsigned long long>(
+            RecoveredArenaSeance_TankSubjectFingerprint()),
+        static_cast<unsigned long long>(tankSubjectFingerprint), dwFrames);
+    std::fprintf(
+        stderr,
+        "reconstruction effects smoke=%d/%d/%d/%d/%d/%d "
+        "piece=%d/%llu/%d/%d/%d/%d/%d "
+        "trace=%d/%llu/%d/%d/%d/%d/%d/%d/%d\n",
+        RecoveredGameServices_ExplosionSmokeReady() ? 1 : 0,
+        RecoveredArenaSeance_ExplosionSmokeProbeStartedSprites(),
+        RecoveredArenaSeance_ExplosionSmokeProbeDependencySkips(),
+        RecoveredArenaSeance_ExplosionSmokeProbeMoveSteps(),
+        RecoveredArenaSeance_ExplosionSmokeProbeExpiredParents(),
+        RecoveredArenaSeance_ExplosionSmokeProbeRolledBackSprites(),
+        RecoveredGameServices_ExplosionPieceReady() ? 1 : 0,
+        static_cast<unsigned long long>(
+            RecoveredArenaSeance_ExplosionPieceReferenceFingerprint()),
+        RecoveredArenaSeance_ExplosionPieceProbeStartedPieces(),
+        RecoveredArenaSeance_ExplosionPieceProbeDependencySkips(),
+        RecoveredArenaSeance_ExplosionPieceProbeMoveSteps(),
+        RecoveredArenaSeance_ExplosionPieceProbeExpiredParents(),
+        RecoveredArenaSeance_ExplosionPieceProbeRolledBackPieces(),
+        RecoveredGameServices_ExplosionTraceReady() ? 1 : 0,
+        static_cast<unsigned long long>(
+            RecoveredArenaSeance_ExplosionTraceReferenceFingerprint()),
+        RecoveredArenaSeance_ExplosionTraceProbeStartedPieces(),
+        RecoveredArenaSeance_ExplosionTraceProbeQuotaGateSkips(),
+        RecoveredArenaSeance_ExplosionTraceProbePuffEvents(),
+        RecoveredArenaSeance_ExplosionTraceProbeSmokeChildren(),
+        RecoveredArenaSeance_ExplosionTraceProbeMoveSteps(),
+        RecoveredArenaSeance_ExplosionTraceProbeExpiredParents(),
+        RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces());
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("service reconstruction failed");

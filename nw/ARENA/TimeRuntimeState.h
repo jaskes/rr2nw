@@ -19,5 +19,6 @@ bool SUA_CaptureSimulationClock(SSimulationClockState* state);
 bool SUA_ValidateSimulationClock(const SSimulationClockState& state);
 bool SUA_ApplySimulationClock(const SSimulationClockState& state);
 bool SUA_SimulationClockMatches(const SSimulationClockState& state);
+bool SUA_ProcessEventsAt(double viewTime);
 
 #endif

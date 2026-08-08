@@ -5435,6 +5435,20 @@ bool RecoveredGameServices_VehicleControlReplayTelemetry(
       g_vehicleControlReplayProbe.denseSimulationTicks;
   telemetry->sparseSimulationTicks =
       g_vehicleControlReplayProbe.sparseSimulationTicks;
+  telemetry->denseMaximumTicksPerPresentation =
+      g_vehicleControlReplayProbe.denseMaximumTicksPerPresentation;
+  telemetry->sparseMaximumTicksPerPresentation =
+      g_vehicleControlReplayProbe.sparseMaximumTicksPerPresentation;
+  telemetry->sparseCatchUpSamples =
+      g_vehicleControlReplayProbe.sparseCatchUpSamples;
+  telemetry->cadenceBoundaryChecks =
+      g_vehicleControlReplayProbe.cadenceBoundaryChecks;
+  telemetry->cadenceFocusResets =
+      g_vehicleControlReplayProbe.cadenceFocusResets;
+  telemetry->cadenceCappedSamples =
+      g_vehicleControlReplayProbe.cadenceCappedSamples;
+  telemetry->cadenceDroppedSeconds =
+      g_vehicleControlReplayProbe.cadenceDroppedSeconds;
   return true;
 }
 
@@ -8079,9 +8093,15 @@ bool StageRecruitCenterLevelTransition() {
 
 }  // namespace
 
-int RecoveredGameServices_RunFrame() {
+static int RunFrameInternal(const double* explicitSimulationTime) {
   if (!RecoveredGameServices_IsReady()) {
     Report(RECOVERED_GAME_SERVICES_BEGIN_LOOP_FAILURE);
+    return FALSE;
+  }
+  if (explicitSimulationTime != nullptr &&
+      (!std::isfinite(*explicitSimulationTime) ||
+       *explicitSimulationTime <= Session::m_viewTime ||
+       *explicitSimulationTime - Session::m_viewTime > 0.1)) {
     return FALSE;
   }
   typedef std::chrono::steady_clock FrameClock;
@@ -8089,6 +8109,9 @@ int RecoveredGameServices_RunFrame() {
   if (!PumpMessages()) return FALSE;
   const FrameClock::time_point inputEnd = FrameClock::now();
   const bool shellPaused = g_inGameShellState.open;
+  if (explicitSimulationTime != nullptr && shellPaused) {
+    return FALSE;
+  }
   if (shellPaused) {
     // The session poll is intentionally skipped while the shell is open.
     // Rebase the timer sample owner as well, otherwise the first unpaused
@@ -8098,7 +8121,12 @@ int RecoveredGameServices_RunFrame() {
   }
   bool vehicleFrame = g_vehicleControlReady && !shellPaused;
   if (vehicleFrame && g_vehicleFrameCount == 0) {
-    const double timerTime = g_timer.GetTime();
+    // First-frame Vehicle ownership is established at the already committed
+    // Session origin. The explicit target is consumed exactly once by the
+    // subsequent Session poll; using it here as well would advance viewTime
+    // twice and make pollAt correctly reject an equal boundary.
+    const double timerTime = explicitSimulationTime == nullptr
+        ? g_timer.GetTime() : Session::m_viewTime;
     if (!VehicleRuntimeState_SynchronizeFirstFrame(
             g_super.m_context,
             !std::isfinite(timerTime) || timerTime < 0.1
@@ -8118,7 +8146,12 @@ int RecoveredGameServices_RunFrame() {
     vehicleFrame = false;
   }
   if (!shellPaused) {
-    SUA_ProcessEvents();
+    if (explicitSimulationTime == nullptr) {
+      SUA_ProcessEvents();
+    } else if (!SUA_ProcessEventsAt(*explicitSimulationTime)) {
+      Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+      return FALSE;
+    }
     // Observe the real post-event roster once per rendered frame.  This keeps
     // diagnostics out of the encoding-preserved People implementation and
     // distinguishes an advancing MOVE deadline from actual displacement.
@@ -8341,4 +8374,12 @@ int RecoveredGameServices_RunFrame() {
       g_frameTimingTelemetry.maximumBoundaryMicroseconds,
       boundaryMicroseconds);
   return TRUE;
+}
+
+int RecoveredGameServices_RunFrame() {
+  return RunFrameInternal(nullptr);
+}
+
+int RecoveredGameServices_RunFrameAt(double simulationTime) {
+  return RunFrameInternal(&simulationTime);
 }

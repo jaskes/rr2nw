@@ -131,7 +131,7 @@ recording start. Checkpoint application first preserves the live clock/RNG,
 then applies and verifies both embedded states. A partial failure restores the
 previous pair.
 
-The current production probe deliberately uses a 25 ms cadence:
+The current compatibility probe deliberately uses a 25 ms cadence:
 
 1. activate the real retail Vehicle at tick 1532;
 2. press forward, advance eight frames;
@@ -141,8 +141,9 @@ The current production probe deliberately uses a 25 ms cadence:
 6. regain focus and seal the journal;
 7. capture Vehicle, clock and RNG state;
 8. roll back the Vehicle, apply the CTJ1 checkpoint and activate again;
-9. replay the five records and 28 simulation boundaries twice, once observing
-   every tick and once observing every fourth tick;
+9. replay the five records and 28 simulation boundaries twice through the
+   bounded cadence owner: once as 28 x 25 ms presentation submissions and once
+   as 7 x 100 ms submissions that emit four ticks each;
 10. require both runs to reproduce the same 28 per-tick RPH1 hashes, Vehicle
     state, clock, RNG and release count although presentation observations are
     28 versus 7;
@@ -159,7 +160,16 @@ Runtime telemetry exposes checkpoint/last tick, action/focus/total record
 counts, CTJ1/RPH1 encoded sizes, fingerprints, append failures, recording state
 and application-active state. Startup diagnostics separately publish content,
 RPH1 and sample-stream fingerprints, the `2/28` hash result and the
-`28/28/28/7` simulation/presentation-cadence result.
+`28/28/28/7` simulation/presentation-cadence result. Scheduler telemetry adds
+`1/4/7/3/1/1`: dense/sparse maximum ticks per sample, sparse catch-up samples,
+boundary checks, focus resets and capped samples. Its bounded stall records
+`0.150000` dropped seconds.
+
+The runtime also exposes a one-frame `RunFrameAt` integration seam. It retains
+the existing input, render, present and transactional boundary order while
+allowing one validated Session target to replace the host timer sample. Current
+production still calls `RunFrame`; only bounded reconstruction acceptance uses
+the explicit form until all dynamic-object clocks can be rebased together.
 
 ## LCN1 resume contract
 
@@ -182,12 +192,15 @@ moves from its restored position.
 CTJ1 now crosses fresh-Level reconstruction inside public RR2SLOT1 files, but
 neither CTJ1 nor RPH1 is exposed as a player replay file. The normal Windows
 loop remains variable-rate and presentation-coupled. The RPH1 proof drives an
-isolated 25 ms simulation route and varies only presentation observation; it
-does not claim that the production scheduler already supports arbitrary render
-FPS. There is no seeking or fast-forward.
+isolated 25 ms simulation route through real dense and four-tick scheduler
+submissions, but it does not claim that the production loop already supports
+arbitrary render FPS. `Session::pollAt()` is the admitted explicit-time seam
+for that later switch. There is no seeking or fast-forward.
 
 Cross-Level slot reconstruction carries both target and source LCN1/CTJ1
-containers through the main-loop restart. The next timing step is a bounded
-fixed-step/catch-up owner that can use RPH1 as its invariant, followed by
-long-session wrap/drift proof and broader active-world hashes. Legacy save
-import remains separate; multiplayer remains later.
+containers through the main-loop restart. The next timing step is the
+closed-frame production orchestrator that applies the bounded owner to complete
+Session/Vehicle ticks without moving Save/Load, Portal or debug transactions
+inside a simulation tick. Long-session wrap/drift proof and broader active-world
+hashes follow separately. Legacy save import remains separate; multiplayer
+remains later.

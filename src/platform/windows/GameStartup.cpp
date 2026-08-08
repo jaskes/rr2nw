@@ -2738,6 +2738,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(replayTelemetry.sparseSimulationTicks) + "/" +
              std::to_string(replayTelemetry.densePresentationSamples) + "/" +
              std::to_string(replayTelemetry.sparsePresentationSamples));
+    log.Line("vehicle_control_replay_scheduler=" +
+             std::to_string(
+                 replayTelemetry.denseMaximumTicksPerPresentation) + "/" +
+             std::to_string(
+                 replayTelemetry.sparseMaximumTicksPerPresentation) + "/" +
+             std::to_string(replayTelemetry.sparseCatchUpSamples) + "/" +
+             std::to_string(replayTelemetry.cadenceBoundaryChecks) + "/" +
+             std::to_string(replayTelemetry.cadenceFocusResets) + "/" +
+             std::to_string(replayTelemetry.cadenceCappedSamples));
+    log.Line("vehicle_control_replay_scheduler_dropped_seconds=" +
+             std::to_string(replayTelemetry.cadenceDroppedSeconds));
     log.Line("vehicle_control_replay_state_fingerprints=" +
              std::to_string(replayTelemetry.recordedStateFingerprint) +
              "/" +

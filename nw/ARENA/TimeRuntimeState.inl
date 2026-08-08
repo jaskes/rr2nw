@@ -202,6 +202,12 @@ void SUA_ProcessEvents()
         rr2nw_active_session->poll();
 }
 
+bool SUA_ProcessEventsAt(double viewTime)
+{
+    return rr2nw_active_session != NULL &&
+           rr2nw_active_session->pollAt(viewTime) != 0;
+}
+
 void SUA_SkipTime(double t)
 {
     g_timer.addTime(t);

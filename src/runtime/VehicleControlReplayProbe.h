@@ -23,6 +23,13 @@ struct SRecoveredVehicleControlReplayProbeSummary {
   int sparsePresentationSamples = 0;
   int denseSimulationTicks = 0;
   int sparseSimulationTicks = 0;
+  int denseMaximumTicksPerPresentation = 0;
+  int sparseMaximumTicksPerPresentation = 0;
+  int sparseCatchUpSamples = 0;
+  int cadenceBoundaryChecks = 0;
+  int cadenceFocusResets = 0;
+  int cadenceCappedSamples = 0;
+  double cadenceDroppedSeconds = 0.0;
   unsigned int encodedBytes = 0;
   unsigned int replayEncodedBytes = 0;
   unsigned long long contentFingerprint = 0;
