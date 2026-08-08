@@ -6759,3 +6759,27 @@ with the watcher requeued, and `CPK1 v2` replaces raw actor IDs with bounded
 center/actor/script identity plus exact geometry and timing. This keeps old
 `CPK1 v1` readable without pretending its raw event IDs can represent the new
 owner.
+
+### BD-211: establish a hash invariant before replacing the live scheduler
+
+Status: accepted on 2026-08-08 for the first M4 timing slice.
+
+The recovered production loop still advances one variable-duration simulation
+tick for every rendered loop. Its 50 ms timer clamp protects physics and the
+event graph from a large presentation stall, but it neither decouples rendering
+nor proves the original game's intended cadence. Replacing it immediately with
+an assumed fixed rate would change gameplay before we could detect the change.
+
+The first M4 step therefore keeps production cadence intact and introduces
+`RPH1`: a bounded versioned envelope around CTJ1, content identity and one
+authoritative Vehicle/CLK1/gameplay-RNG hash for each explicit simulation tick.
+The executable runs the same 28-tick route twice with dense and quarter-rate
+presentation observation and requires identical per-tick hashes and final
+state. RPH1 is presentation-only diagnostic data and is not serialized into
+LCN1 or RR2SLOT1.
+
+This intentionally does not label the existing Vehicle probe a complete replay.
+The next scheduler slice must preserve this invariant while introducing a
+bounded accumulator/catch-up policy, and must separately measure real window
+presentation rates. Complete active-world hashing, long-session wrap/drift and
+legacy import remain independent decisions.

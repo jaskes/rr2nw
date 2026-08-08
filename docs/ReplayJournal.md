@@ -4,9 +4,10 @@
 
 `CTJ1` version 2 is the portable boundary between platform input and gameplay
 control. It records the normalized commands accepted by `Vehicle.Default`; it
-does not record Windows messages or keyboard bindings. The first consumer is a
-local deterministic replay probe. Public replay files, UI controls and network
-transport are later work.
+does not record Windows messages or keyboard bindings. `RPH1` version 1 wraps
+one sealed CTJ1, content identity and one authoritative hash per simulation
+tick. The first consumer is a bounded local determinism probe. Public replay
+files, a complete-world hash, UI controls and network transport are later work.
 
 ## Recording boundary
 
@@ -91,6 +92,38 @@ version 2.
 The diagnostic fingerprint is 64-bit FNV-1a over canonical encoded bytes. It
 is an identity/regression marker, not a cryptographic integrity primitive.
 
+## RPH1 hash-journal format
+
+All integers and doubles use the same canonical little-endian encoding as
+CTJ1. The decoder admits at most 64 MiB of embedded CTJ1 data and one million
+hash samples. It rejects truncation, trailing bytes, a zero content identity,
+an unsealed or invalid CTJ1, a step outside 1--50 ms, missing/non-contiguous
+ticks, non-uniform simulation time, zero hashes and a final boundary that does
+not equal CTJ1. Decode remains atomic: malformed input cannot mutate its
+destination.
+
+| Field | Type |
+| --- | --- |
+| magic `RPH1`, version `1` | `u32`, `u32` |
+| admitted VFS/content fingerprint | `u64` |
+| simulation step | `double` |
+| state-hash algorithm | `u32` |
+| embedded CTJ1 length and bytes | `u32`, bytes |
+| sample count | `u32` |
+| samples: tick, simulation time, state hash | `u64`, `double`, `u64` |
+
+Algorithm 1 is canonical 64-bit FNV-1a over the recovered Vehicle runtime
+state, the complete `CLK1` fields and the gameplay RNG algorithm/state. It is
+deliberately narrow: other active-world owners are not yet hashed, so RPH1 is
+not called a full game replay or a multiplayer determinism proof. Presentation
+state is absent by design. A journal is admitted only when both its content
+fingerprint and embedded CTJ1 fingerprint match the requested identities.
+Normal game startup obtains that base identity from the preflighted retail
+script manifest. The direct service acceptance harness intentionally has no
+manifest owner, so it folds the already committed Commander/Tank/People
+retail-table fingerprints instead. Both paths remain content-derived and then
+pass through the same deterministic mod-content combiner.
+
 ## Checkpoint and replay contract
 
 The journal embeds the exact authoritative clock and simulation RNG state at
@@ -108,9 +141,12 @@ The current production probe deliberately uses a 25 ms cadence:
 6. regain focus and seal the journal;
 7. capture Vehicle, clock and RNG state;
 8. roll back the Vehicle, apply the CTJ1 checkpoint and activate again;
-9. replay the five records and 28 frame boundaries;
-10. require equal Vehicle state fingerprints, clock, RNG, frame/release counts
-    and a second complete rollback to the original Level.
+9. replay the five records and 28 simulation boundaries twice, once observing
+   every tick and once observing every fourth tick;
+10. require both runs to reproduce the same 28 per-tick RPH1 hashes, Vehicle
+    state, clock, RNG and release count although presentation observations are
+    28 versus 7;
+11. perform a complete rollback to the original Level after every run.
 
 The state comparison includes pose, subject position, speed, orientation,
 vessel identity/mass, last time, advance/control counts and ground/static/land/
@@ -120,9 +156,10 @@ The live Vehicle-control owner begins a journal when control is attached. The
 Windows adapter feeds that owner directly; legacy Hardware remains only for
 compatibility mouse motion, joystick/demo traffic and hermetic legacy probes.
 Runtime telemetry exposes checkpoint/last tick, action/focus/total record
-counts, encoded size, fingerprint, append failures, recording state and
-application-active state. Startup diagnostics separately publish the local
-replay proof and live journal.
+counts, CTJ1/RPH1 encoded sizes, fingerprints, append failures, recording state
+and application-active state. Startup diagnostics separately publish content,
+RPH1 and sample-stream fingerprints, the `2/28` hash result and the
+`28/28/28/7` simulation/presentation-cadence result.
 
 ## LCN1 resume contract
 
@@ -143,10 +180,14 @@ moves from its restored position.
 ## Current limits and next step
 
 CTJ1 now crosses fresh-Level reconstruction inside public RR2SLOT1 files, but
-is not yet exposed as a replay file. The normal Windows loop remains
-variable-rate; there are no periodic hashes, seeking or fast-forward.
+neither CTJ1 nor RPH1 is exposed as a player replay file. The normal Windows
+loop remains variable-rate and presentation-coupled. The RPH1 proof drives an
+isolated 25 ms simulation route and varies only presentation observation; it
+does not claim that the production scheduler already supports arbitrary render
+FPS. There is no seeking or fast-forward.
 
-Cross-Level slot reconstruction now carries both target and source LCN1/CTJ1
-containers through the main-loop restart. The next persistence step is a
-longer multi-Level manual load checklist and visible preview UX. A fixed-tick
-scheduler and longer hash-checked replay follow; multiplayer remains later.
+Cross-Level slot reconstruction carries both target and source LCN1/CTJ1
+containers through the main-loop restart. The next timing step is a bounded
+fixed-step/catch-up owner that can use RPH1 as its invariant, followed by
+long-session wrap/drift proof and broader active-world hashes. Legacy save
+import remains separate; multiplayer remains later.

@@ -245,6 +245,20 @@ foreach ($configurationName in $Configuration) {
                     (Get-LogInteger $log "debug_menu_native_installed") -ne 0) {
                     $issues.Add("ordinary retail launch exposed the native diagnostic menu")
                 }
+                if ((Get-LogInteger $log "vehicle_control_replay_ready") -ne 1 -or
+                    (Get-LogInteger $log "vehicle_control_replay_frames") -ne 28 -or
+                    (Get-LogInteger $log "vehicle_control_replay_state_match") -ne 1 -or
+                    (Get-LogInteger $log "vehicle_control_replay_clock_match") -ne 1 -or
+                    (Get-LogInteger $log "vehicle_control_replay_random_match") -ne 1 -or
+                    (Get-LogInteger $log "vehicle_control_replay_rollbacks") -ne 3 -or
+                    -not $log.ContainsKey("vehicle_control_replay_hash_journal") -or
+                    $log["vehicle_control_replay_hash_journal"] -notmatch
+                        '^[1-9][0-9]*/[1-9][0-9]*/[1-9][0-9]*/2/28$' -or
+                    -not $log.ContainsKey("vehicle_control_replay_presentation_cadence") -or
+                    $log["vehicle_control_replay_presentation_cadence"] -ne
+                        "28/28/28/7") {
+                    $issues.Add("RPH1 authoritative hash/presentation-cadence proof changed")
+                }
                 if ((Get-LogInteger $log "renderer_frames") -lt 1) {
                     $issues.Add("renderer produced no frames")
                 }
@@ -759,6 +773,12 @@ foreach ($configurationName in $Configuration) {
                 save_menu_configured = Get-LogInteger $log "save_menu_configured"
                 save_menu_native_installed = Get-LogInteger $log "save_menu_native_installed"
                 save_menu_slots = Get-LogInteger $log "save_menu_slots"
+                replay_hash_journal = if ($log.ContainsKey("vehicle_control_replay_hash_journal")) {
+                    $log["vehicle_control_replay_hash_journal"]
+                } else { "" }
+                replay_presentation_cadence = if ($log.ContainsKey("vehicle_control_replay_presentation_cadence")) {
+                    $log["vehicle_control_replay_presentation_cadence"]
+                } else { "" }
                 renderer_frames = Get-LogInteger $log "renderer_frames"
                 renderer_submitted = Get-LogInteger $log "renderer_polygons_submitted"
                 renderer_accepted = Get-LogInteger $log "renderer_polygons_accepted"

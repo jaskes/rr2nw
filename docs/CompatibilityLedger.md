@@ -5787,6 +5787,35 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   is inferred. The project-99 restart rows reuse the proved typed transition
   coordinator; this row does not claim a separate cinematic for them.
 
+### CQ-275: current simulation cadence is one variable-time tick per presented loop
+
+- Status: `SOURCE_DIRECT_OWNER_PRESERVED`, `MEASURED_BEFORE_FIXED_TICK`,
+  `VERSIONED_HASH_BOUNDARY_ADDED`.
+- Evidence: `Session::poll()` increments `m_simulationTick` once and samples
+  `a_TTimer::GetTime()` immediately before `SimulationContext::poll()`. The
+  recovered main loop renders, closes the frame, pumps messages, begins the
+  Vehicle pre-step, calls `SUA_ProcessEvents()` exactly once, then updates the
+  Vehicle and advances the presentation frame. `Frame_Runtime` owns render
+  hooks only; it has no accumulator or simulation scheduler.
+- Current clock law: the timer uses modulo-safe `GetTickCount` subtraction. A
+  sample above 50 ms contributes only 50 ms and records the discarded interval;
+  a sample above 2000 ms contributes zero and records the whole pause. `CLK1`
+  preserves tick, event/view time, frame delta, timer aspect and both clamp
+  counters. This is the measured baseline, not a retail-cadence claim.
+- Handling: `RPH1 v1` wraps a sealed CTJ1, admitted content fingerprint, 25 ms
+  step and one canonical Vehicle/CLK1/gameplay-RNG FNV-1a hash per tick. The
+  real Vehicle probe records 28 ticks, replays them twice and requires identical
+  28-sample streams while presentation observation changes from 28 to 7.
+- Verification: `replay-hash-journal-smoke` proves bounded/atomic codec and
+  identity rejection. Every `Invoke-RetailLevelMatrix.ps1` row requires
+  `vehicle_control_replay_hash_journal=*/2/28` and
+  `vehicle_control_replay_presentation_cadence=28/28/28/7`.
+- Boundary: this closes the versioned hash seam, not the production fixed-step
+  scheduler. The hash covers Vehicle, CLK1 and gameplay RNG, not the complete
+  active world; the sparse run varies observation cadence rather than a real
+  renderer. Catch-up, interpolation, long-session drift/wrap and legacy import
+  remain separate M4 slices.
+
 ## Maintenance rule
 
 When a new quirk is found:

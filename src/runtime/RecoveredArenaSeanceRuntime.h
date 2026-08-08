@@ -552,6 +552,10 @@ int RecoveredArenaSeance_ActiveWorldCorruptionRejects();
 int RecoveredArenaSeance_ActiveWorldRollbacks();
 unsigned long long RecoveredArenaSeance_ActiveWorldContainerBytes();
 unsigned long long RecoveredArenaSeance_ActiveWorldFingerprint();
+// Content-derived identity is available before the first active-world capture.
+// Normal game startup uses the admitted script manifest; direct service probes
+// fold their already committed retail-table fingerprints instead.
+unsigned long long RecoveredArenaSeance_ContentFingerprint();
 bool RecoveredArenaSeance_VehicleReady();
 int RecoveredArenaSeance_VehicleActiveWorldReconstructedIDs();
 int RecoveredArenaSeance_VehicleActiveWorldRollbacks();

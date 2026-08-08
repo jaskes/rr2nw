@@ -17,8 +17,18 @@ struct SRecoveredVehicleControlReplayProbeSummary {
   int clockMatches = 0;
   int randomMatches = 0;
   int rollbacks = 0;
+  int hashMatches = 0;
+  int hashSamples = 0;
+  int densePresentationSamples = 0;
+  int sparsePresentationSamples = 0;
+  int denseSimulationTicks = 0;
+  int sparseSimulationTicks = 0;
   unsigned int encodedBytes = 0;
+  unsigned int replayEncodedBytes = 0;
+  unsigned long long contentFingerprint = 0;
   unsigned long long journalFingerprint = 0;
+  unsigned long long replayFingerprint = 0;
+  unsigned long long hashStreamFingerprint = 0;
   unsigned long long recordedStateFingerprint = 0;
   unsigned long long replayedStateFingerprint = 0;
 };
@@ -26,4 +36,5 @@ struct SRecoveredVehicleControlReplayProbeSummary {
 bool VehicleControlReplayProbe_Run(
     SimulationContext* context, const KR_ObjectID& vehicle,
     const CFVector3& position, double startTime,
+    unsigned long long contentFingerprint,
     SRecoveredVehicleControlReplayProbeSummary* summary);

@@ -1178,7 +1178,7 @@ std::uint64_t ContinuationContentFingerprint() {
   const std::uint64_t baseFingerprint =
       manifest != nullptr && manifest->contentFingerprint != 0
           ? manifest->contentFingerprint
-          : RecoveredArenaSeance_ActiveWorldFingerprint();
+          : RecoveredArenaSeance_ContentFingerprint();
   return RecoveredModRuntime_CombineContentFingerprint(baseFingerprint);
 }
 
@@ -4730,7 +4730,8 @@ void InitializeSession() {
     g_vehicleDeathCameraReady = true;
     const bool replayProbeReady = VehicleControlReplayProbe_Run(
             g_super.m_context, vehicle, observerPosition,
-            vehicleStartTime, &g_vehicleControlReplayProbe);
+            vehicleStartTime, ContinuationContentFingerprint(),
+            &g_vehicleControlReplayProbe);
     if (!replayProbeReady) {
       EndBoundedSession();
       Report(RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_REPLAY_FAILURE);
@@ -5398,11 +5399,19 @@ bool RecoveredGameServices_VehicleControlReplayTelemetry(
   *telemetry = {};
   telemetry->journalFingerprint =
       g_vehicleControlReplayProbe.journalFingerprint;
+  telemetry->replayFingerprint =
+      g_vehicleControlReplayProbe.replayFingerprint;
+  telemetry->hashStreamFingerprint =
+      g_vehicleControlReplayProbe.hashStreamFingerprint;
+  telemetry->contentFingerprint =
+      g_vehicleControlReplayProbe.contentFingerprint;
   telemetry->recordedStateFingerprint =
       g_vehicleControlReplayProbe.recordedStateFingerprint;
   telemetry->replayedStateFingerprint =
       g_vehicleControlReplayProbe.replayedStateFingerprint;
   telemetry->encodedBytes = g_vehicleControlReplayProbe.encodedBytes;
+  telemetry->replayEncodedBytes =
+      g_vehicleControlReplayProbe.replayEncodedBytes;
   telemetry->recordings = g_vehicleControlReplayProbe.recordings;
   telemetry->replays = g_vehicleControlReplayProbe.replays;
   telemetry->codecRoundTrips = g_vehicleControlReplayProbe.codecRoundTrips;
@@ -5416,6 +5425,16 @@ bool RecoveredGameServices_VehicleControlReplayTelemetry(
   telemetry->clockMatches = g_vehicleControlReplayProbe.clockMatches;
   telemetry->randomMatches = g_vehicleControlReplayProbe.randomMatches;
   telemetry->rollbacks = g_vehicleControlReplayProbe.rollbacks;
+  telemetry->hashMatches = g_vehicleControlReplayProbe.hashMatches;
+  telemetry->hashSamples = g_vehicleControlReplayProbe.hashSamples;
+  telemetry->densePresentationSamples =
+      g_vehicleControlReplayProbe.densePresentationSamples;
+  telemetry->sparsePresentationSamples =
+      g_vehicleControlReplayProbe.sparsePresentationSamples;
+  telemetry->denseSimulationTicks =
+      g_vehicleControlReplayProbe.denseSimulationTicks;
+  telemetry->sparseSimulationTicks =
+      g_vehicleControlReplayProbe.sparseSimulationTicks;
   return true;
 }
 

@@ -3731,6 +3731,8 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
   src/runtime/RecoveredSaveSlotDialog.h
   src/runtime/RecoveredStaticMechanismRuntime.cpp
   src/runtime/RecoveredStaticMechanismRuntime.h
+  src/runtime/ReplayHashJournal.cpp
+  src/runtime/ReplayHashJournal.h
   src/runtime/VehicleControlJournal.cpp
   src/runtime/VehicleControlJournal.h
   src/runtime/VehicleControlReplayProbe.cpp
@@ -4640,6 +4642,22 @@ target_compile_definitions(
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_replay_hash_journal_smoke
+  src/portability/ReplayHashJournalSmoke.cpp
+)
+target_link_libraries(rr2nw_replay_hash_journal_smoke PRIVATE
+  rr2nw_recovered_game_services_runtime
+)
+target_compile_features(
+  rr2nw_replay_hash_journal_smoke PRIVATE cxx_std_14
+)
+target_compile_definitions(
+  rr2nw_replay_hash_journal_smoke PRIVATE
+  __NT__
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+
 add_executable(rr2nw_level_continuation_smoke
   src/portability/LevelContinuationSmoke.cpp
 )
@@ -5244,6 +5262,10 @@ if(BUILD_TESTING)
   add_test(
     NAME vehicle-control-journal-smoke
     COMMAND rr2nw_vehicle_control_journal_smoke
+  )
+  add_test(
+    NAME replay-hash-journal-smoke
+    COMMAND rr2nw_replay_hash_journal_smoke
   )
   add_test(
     NAME level-continuation-smoke

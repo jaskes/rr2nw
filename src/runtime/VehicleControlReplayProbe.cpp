@@ -1,5 +1,6 @@
 #include "VehicleControlReplayProbe.h"
 
+#include "ReplayHashJournal.h"
 #include "SimulationRandom.h"
 #include "TimeRuntimeState.h"
 #include "VehicleControlJournal.h"
@@ -73,10 +74,32 @@ void Hash(std::uint64_t* hash, const void* value, std::size_t size) {
   }
 }
 
+void HashU32(std::uint64_t* hash, std::uint32_t value) {
+  for (int shift = 0; shift < 32; shift += 8) {
+    const unsigned char byte =
+        static_cast<unsigned char>(value >> shift);
+    Hash(hash, &byte, 1u);
+  }
+}
+
+void HashU64(std::uint64_t* hash, std::uint64_t value) {
+  for (int shift = 0; shift < 64; shift += 8) {
+    const unsigned char byte =
+        static_cast<unsigned char>(value >> shift);
+    Hash(hash, &byte, 1u);
+  }
+}
+
+void HashDouble(std::uint64_t* hash, double value) {
+  std::uint64_t bits = 0;
+  std::memcpy(&bits, &value, sizeof(bits));
+  HashU64(hash, bits);
+}
+
 void HashVector(std::uint64_t* hash, const CFVector3& value) {
-  Hash(hash, &value.x, sizeof(value.x));
-  Hash(hash, &value.y, sizeof(value.y));
-  Hash(hash, &value.z, sizeof(value.z));
+  HashDouble(hash, value.x);
+  HashDouble(hash, value.y);
+  HashDouble(hash, value.z);
 }
 
 std::uint64_t StateFingerprint(
@@ -89,26 +112,95 @@ std::uint64_t StateFingerprint(
   HashVector(&hash, state.direction.Row(1));
   HashVector(&hash, state.direction.Row(2));
   HashVector(&hash, state.direction.Offset());
-  Hash(&hash, &state.mass, sizeof(state.mass));
-  Hash(&hash, &state.lastTime, sizeof(state.lastTime));
-  Hash(&hash, &state.vesselKind, sizeof(state.vesselKind));
-  Hash(&hash, &state.advanceCount, sizeof(state.advanceCount));
-  Hash(&hash, &state.controlEventCount, sizeof(state.controlEventCount));
-  Hash(&hash, &state.lastBumpFlags, sizeof(state.lastBumpFlags));
-  Hash(&hash, &state.touchingGround, sizeof(state.touchingGround));
-  Hash(&hash, &state.groundContactFrameCount,
-       sizeof(state.groundContactFrameCount));
-  Hash(&hash, &state.staticCollisionFrameCount,
-       sizeof(state.staticCollisionFrameCount));
-  Hash(&hash, &state.landCollisionFrameCount,
-       sizeof(state.landCollisionFrameCount));
-  Hash(&hash, &state.dynamicCollisionFrameCount,
-       sizeof(state.dynamicCollisionFrameCount));
-  Hash(&hash, &state.stabilityRecoveryCount,
-       sizeof(state.stabilityRecoveryCount));
-  Hash(&hash, &state.lastStabilityReason,
-       sizeof(state.lastStabilityReason));
+  HashDouble(&hash, state.mass);
+  HashDouble(&hash, state.damage);
+  HashDouble(&hash, state.lastTime);
+  HashU32(&hash, static_cast<std::uint32_t>(state.secondaryBulletCount));
+  HashU32(&hash, static_cast<std::uint32_t>(state.vesselKind));
+  HashU32(&hash, static_cast<std::uint32_t>(state.active));
+  HashU32(&hash, static_cast<std::uint32_t>(state.frameBegun));
+  HashU32(&hash, static_cast<std::uint32_t>(state.advanceCount));
+  HashU32(&hash, static_cast<std::uint32_t>(state.controlEventCount));
+  HashU32(&hash, static_cast<std::uint32_t>(state.lastBumpFlags));
+  HashU32(&hash, static_cast<std::uint32_t>(state.touchingGround));
+  HashU32(&hash, static_cast<std::uint32_t>(
+                     state.groundContactFrameCount));
+  HashU32(&hash, static_cast<std::uint32_t>(
+                     state.staticCollisionFrameCount));
+  HashU32(&hash, static_cast<std::uint32_t>(
+                     state.landCollisionFrameCount));
+  HashU32(&hash, static_cast<std::uint32_t>(
+                     state.dynamicCollisionFrameCount));
+  HashU32(&hash, static_cast<std::uint32_t>(
+                     state.stabilityRecoveryCount));
+  HashU32(&hash, static_cast<std::uint32_t>(state.lastStabilityReason));
+  HashU32(&hash, static_cast<std::uint32_t>(state.dead));
+  HashU32(&hash, static_cast<std::uint32_t>(state.takingTaxi));
   return hash;
+}
+
+std::uint64_t AuthoritativeStateFingerprint(
+    SimulationContext* context, const KR_ObjectID& vehicle) {
+  KR_ObjectID vehicleCopy = vehicle;
+  SRecoveredVehicleRuntimeState state = {};
+  SSimulationClockState clock;
+  std::vector<std::uint8_t> random;
+  if (context == nullptr || vehicleCopy.isNUL() ||
+      !VehicleRuntimeState_Inspect(context, vehicle, &state) ||
+      !SUA_CaptureSimulationClock(&clock) ||
+      !SUA_ValidateSimulationClock(clock) ||
+      !SimulationRandom_Capture(&random) || random.empty())
+    return 0u;
+  std::uint64_t hash = kHashOffset;
+  HashU32(&hash, 1u);
+  HashU64(&hash, StateFingerprint(state));
+  HashU64(&hash, clock.tick);
+  HashDouble(&hash, clock.eventMoment);
+  HashDouble(&hash, clock.viewTime);
+  HashDouble(&hash, clock.frameSeconds);
+  HashDouble(&hash, clock.timerAspect);
+  HashU32(&hash, clock.clampedSamples);
+  HashDouble(&hash, clock.clampedSeconds);
+  HashU32(&hash, SimulationRandom_Algorithm());
+  HashU32(&hash, static_cast<std::uint32_t>(random.size()));
+  Hash(&hash, random.data(), random.size());
+  return hash;
+}
+
+bool SamplesMatch(const std::vector<SReplayHashSample>& left,
+                  const std::vector<SReplayHashSample>& right) {
+  if (left.size() != right.size()) return false;
+  for (std::size_t index = 0; index < left.size(); ++index)
+    if (left[index].tick != right[index].tick ||
+        left[index].simulationTime != right[index].simulationTime ||
+        left[index].stateHash != right[index].stateHash)
+      return false;
+  return true;
+}
+
+std::uint64_t SampleStreamFingerprint(
+    const std::vector<SReplayHashSample>& samples) {
+  if (samples.empty()) return 0u;
+  std::uint64_t hash = kHashOffset;
+  HashU32(&hash, static_cast<std::uint32_t>(samples.size()));
+  for (const SReplayHashSample& sample : samples) {
+    HashU64(&hash, sample.tick);
+    HashDouble(&hash, sample.simulationTime);
+    HashU64(&hash, sample.stateHash);
+  }
+  return hash;
+}
+
+bool ClocksMatch(const SSimulationClockState& left,
+                 const SSimulationClockState& right) {
+  return SUA_ValidateSimulationClock(left) &&
+         SUA_ValidateSimulationClock(right) && left.tick == right.tick &&
+         left.eventMoment == right.eventMoment &&
+         left.viewTime == right.viewTime &&
+         left.frameSeconds == right.frameSeconds &&
+         left.timerAspect == right.timerAspect &&
+         left.clampedSamples == right.clampedSamples &&
+         left.clampedSeconds == right.clampedSeconds;
 }
 
 bool ApplyClock(std::uint64_t tick, double time) {
@@ -122,10 +214,16 @@ bool ApplyClock(std::uint64_t tick, double time) {
 }
 
 bool AdvanceTo(SimulationContext* context, std::uint64_t targetTick,
-               double targetTime, std::uint64_t* tick, double* time,
-               int* frames) {
+               double targetTime, const KR_ObjectID& vehicle,
+               std::uint64_t* tick, double* time, int* frames,
+               std::vector<SReplayHashSample>* samples,
+               int presentationStride, int* presentationSamples) {
+  KR_ObjectID vehicleCopy = vehicle;
   if (context == nullptr || tick == nullptr || time == nullptr ||
-      frames == nullptr || targetTick < *tick ||
+      frames == nullptr || samples == nullptr || vehicleCopy.isNUL() ||
+      presentationStride < 0 ||
+      (presentationStride > 0 && presentationSamples == nullptr) ||
+      targetTick < *tick ||
       targetTime + kTolerance < *time)
     return false;
   while (*tick < targetTick) {
@@ -142,6 +240,17 @@ bool AdvanceTo(SimulationContext* context, std::uint64_t targetTick,
         !VehicleRuntimeState_Advance(context, *time))
       return false;
     ++*frames;
+    const std::uint64_t stateHash =
+        AuthoritativeStateFingerprint(context, vehicle);
+    if (stateHash == 0u) return false;
+    SReplayHashSample sample;
+    sample.tick = *tick;
+    sample.simulationTime = *time;
+    sample.stateHash = stateHash;
+    samples->push_back(sample);
+    if (presentationStride > 0 &&
+        *frames % presentationStride == 0)
+      ++*presentationSamples;
   }
   return NearlyEqual(*time, targetTime) && ApplyClock(*tick, targetTime);
 }
@@ -187,9 +296,13 @@ bool RecordFocus(SimulationContext* context,
 
 bool ReplayJournal(SimulationContext* context,
                    const SVehicleControlJournal& journal,
-                   int* frames, int* syntheticReleases) {
+                   int presentationStride,
+                   std::vector<SReplayHashSample>* samples,
+                   int* frames, int* presentationSamples,
+                   int* syntheticReleases) {
   if (context == nullptr || frames == nullptr ||
-      syntheticReleases == nullptr ||
+      samples == nullptr || presentationSamples == nullptr ||
+      syntheticReleases == nullptr || presentationStride <= 0 ||
       !VehicleControlJournal_Validate(journal) || !journal.sealed)
     return false;
   KR_ObjectID target = context->searchObject(journal.target.c_str());
@@ -212,7 +325,8 @@ bool ReplayJournal(SimulationContext* context,
   double time = journal.checkpointTime;
   for (const SVehicleControlJournalRecord& record : journal.records) {
     if (!AdvanceTo(context, record.tick, record.eventTime,
-                   &tick, &time, frames))
+                   target, &tick, &time, frames, samples,
+                   presentationStride, presentationSamples))
       return false;
     if (record.kind == VEHICLE_CONTROL_JOURNAL_ACTION) {
       if (!active || !VehicleRuntimeState_ApplyControlAt(
@@ -240,7 +354,8 @@ bool ReplayJournal(SimulationContext* context,
     }
   }
   return AdvanceTo(context, journal.finalTick, journal.finalTime,
-                   &tick, &time, frames);
+                   target, &tick, &time, frames, samples,
+                   presentationStride, presentationSamples);
 }
 
 }  // namespace
@@ -248,22 +363,37 @@ bool ReplayJournal(SimulationContext* context,
 bool VehicleControlReplayProbe_Run(
     SimulationContext* context, const KR_ObjectID& vehicle,
     const CFVector3& position, double startTime,
+    unsigned long long contentFingerprint,
     SRecoveredVehicleControlReplayProbeSummary* summary) {
   if (summary == nullptr) return false;
   *summary = {};
   KR_ObjectID vehicleCopy = vehicle;
-  if (context == nullptr || vehicleCopy.isNUL() ||
-      !context->isExist(vehicle) || !std::isfinite(startTime) ||
-      startTime < 0.1 || !VehicleRuntimeState_IsClean(context))
+  const bool vehicleExists = context != nullptr &&
+      !vehicleCopy.isNUL() && context->isExist(vehicle);
+  const bool cleanRuntime = context != nullptr &&
+      VehicleRuntimeState_IsClean(context);
+  if (context == nullptr || vehicleCopy.isNUL() || !vehicleExists ||
+      !std::isfinite(startTime) || startTime < 0.1 ||
+      contentFingerprint == 0u || !cleanRuntime) {
+    std::fprintf(stderr,
+        "vehicle-control-replay-probe: precondition failed "
+        "context=%d vehicle=%d exists=%d time=%g content=%llu clean=%d\n",
+        context != nullptr ? 1 : 0, vehicleCopy.isNUL() ? 0 : 1,
+        vehicleExists ? 1 : 0, startTime, contentFingerprint,
+        cleanRuntime ? 1 : 0);
     return false;
+  }
 
   SRecoveredVehicleRuntimeState worldBefore = {};
   SSimulationClockState clockBefore;
   std::vector<std::uint8_t> randomBefore;
   if (!VehicleRuntimeState_Inspect(context, vehicle, &worldBefore) ||
       !SUA_CaptureSimulationClock(&clockBefore) ||
-      !SimulationRandom_Capture(&randomBefore))
+      !SimulationRandom_Capture(&randomBefore)) {
+    std::fprintf(stderr,
+        "vehicle-control-replay-probe: checkpoint capture failed\n");
     return false;
+  }
 
   SSimulationClockState checkpointClock = clockBefore;
   checkpointClock.tick = 1532u;
@@ -278,7 +408,9 @@ bool VehicleControlReplayProbe_Run(
   bool applicationActive = true;
   bool firstActivated = false;
   int recordedFrames = 0;
+  int recordedPresentationSamples = 0;
   int recordedSyntheticReleases = 0;
+  std::vector<SReplayHashSample> recordedSamples;
   std::uint64_t tick = checkpointClock.tick;
   double time = startTime;
   SRecoveredVehicleRuntimeState recorded = {};
@@ -298,26 +430,34 @@ bool VehicleControlReplayProbe_Run(
                              MOVE_FORWARD, 1.0, held);
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
-                          &tick, &time, &recordedFrames);
+                          vehicle, &tick, &time, &recordedFrames,
+                          &recordedSamples, 1,
+                          &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordAction(context, &journal, tick, time,
                              TURN_RIGHT, 1.0, held);
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
-                          &tick, &time, &recordedFrames);
+                          vehicle, &tick, &time, &recordedFrames,
+                          &recordedSamples, 1,
+                          &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordAction(context, &journal, tick, time,
                              TURN_RIGHT, 0.0, held);
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
-                          &tick, &time, &recordedFrames);
+                          vehicle, &tick, &time, &recordedFrames,
+                          &recordedSamples, 1,
+                          &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordFocus(context, &journal, tick, time, false,
                             &applicationActive, held,
                             &recordedSyntheticReleases);
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 4u, time + 4.0 * kStep,
-                          &tick, &time, &recordedFrames);
+                          vehicle, &tick, &time, &recordedFrames,
+                          &recordedSamples, 1,
+                          &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordFocus(context, &journal, tick, time, true,
                             &applicationActive, held,
@@ -337,55 +477,115 @@ bool VehicleControlReplayProbe_Run(
 
   std::vector<std::uint8_t> encoded;
   SVehicleControlJournal decoded;
+  SReplayHashJournal replayJournal;
+  SReplayHashJournal decodedReplayJournal;
+  std::vector<std::uint8_t> replayEncoded;
   if (succeeded)
     succeeded = VehicleControlJournal_Encode(journal, &encoded) &&
                 VehicleControlJournal_Decode(encoded, &decoded) &&
                 VehicleControlJournal_Fingerprint(journal) != 0 &&
                 VehicleControlJournal_Fingerprint(journal) ==
-                    VehicleControlJournal_Fingerprint(decoded);
+                    VehicleControlJournal_Fingerprint(decoded) &&
+                ReplayHashJournal_Create(
+                    contentFingerprint, kStep, decoded, recordedSamples,
+                    &replayJournal) &&
+                ReplayHashJournal_Encode(replayJournal, &replayEncoded) &&
+                ReplayHashJournal_Decode(replayEncoded,
+                                         &decodedReplayJournal) &&
+                ReplayHashJournal_MatchesIdentity(
+                    decodedReplayJournal, contentFingerprint,
+                    VehicleControlJournal_Fingerprint(decoded)) &&
+                ReplayHashJournal_Fingerprint(replayJournal) != 0u &&
+                ReplayHashJournal_Fingerprint(replayJournal) ==
+                    ReplayHashJournal_Fingerprint(decodedReplayJournal);
   if (succeeded) summary->codecRoundTrips = 1;
 
-  bool replayActivated = false;
-  int replayedFrames = 0;
-  int replayedSyntheticReleases = 0;
-  SRecoveredVehicleRuntimeState replayed = {};
-  SSimulationClockState replayedClock;
-  std::vector<std::uint8_t> replayedRandom;
+  bool denseActivated = false;
+  int denseFrames = 0;
+  int densePresentationSamples = 0;
+  int denseSyntheticReleases = 0;
+  std::vector<SReplayHashSample> denseSamples;
+  SRecoveredVehicleRuntimeState denseState = {};
+  SSimulationClockState denseClock;
+  std::vector<std::uint8_t> denseRandom;
   if (succeeded)
-    succeeded = VehicleControlJournal_ApplyCheckpoint(decoded);
+    succeeded = VehicleControlJournal_ApplyCheckpoint(
+        decodedReplayJournal.controls);
   if (succeeded) {
-    replayActivated = VehicleRuntimeState_Activate(
-        context, vehicle, position, decoded.checkpointTime);
-    succeeded = replayActivated;
+    denseActivated = VehicleRuntimeState_Activate(
+        context, vehicle, position,
+        decodedReplayJournal.controls.checkpointTime);
+    succeeded = denseActivated;
   }
   if (succeeded)
-    succeeded = ReplayJournal(context, decoded, &replayedFrames,
-                              &replayedSyntheticReleases) &&
-                VehicleRuntimeState_Inspect(context, vehicle, &replayed) &&
-                SUA_CaptureSimulationClock(&replayedClock) &&
-                SimulationRandom_Capture(&replayedRandom);
-  if (succeeded) summary->replays = 1;
+    succeeded = ReplayJournal(
+                    context, decodedReplayJournal.controls, 1,
+                    &denseSamples, &denseFrames,
+                    &densePresentationSamples,
+                    &denseSyntheticReleases) &&
+                VehicleRuntimeState_Inspect(
+                    context, vehicle, &denseState) &&
+                SUA_CaptureSimulationClock(&denseClock) &&
+                SimulationRandom_Capture(&denseRandom);
+  const bool denseHashMatch = succeeded &&
+      SamplesMatch(decodedReplayJournal.samples, denseSamples);
+  const bool denseRollback = denseActivated &&
+      VehicleRuntimeState_Rollback(context);
+  if (denseRollback) ++summary->rollbacks;
+  succeeded = succeeded && denseHashMatch && denseRollback &&
+              VehicleRuntimeState_IsClean(context);
 
-  const bool stateMatch = succeeded && StatesMatch(recorded, replayed, true);
+  bool sparseActivated = false;
+  int sparseFrames = 0;
+  int sparsePresentationSamples = 0;
+  int sparseSyntheticReleases = 0;
+  std::vector<SReplayHashSample> sparseSamples;
+  SRecoveredVehicleRuntimeState sparseState = {};
+  SSimulationClockState sparseClock;
+  std::vector<std::uint8_t> sparseRandom;
+  if (succeeded)
+    succeeded = VehicleControlJournal_ApplyCheckpoint(
+        decodedReplayJournal.controls);
+  if (succeeded) {
+    sparseActivated = VehicleRuntimeState_Activate(
+        context, vehicle, position,
+        decodedReplayJournal.controls.checkpointTime);
+    succeeded = sparseActivated;
+  }
+  if (succeeded)
+    succeeded = ReplayJournal(
+                    context, decodedReplayJournal.controls, 4,
+                    &sparseSamples, &sparseFrames,
+                    &sparsePresentationSamples,
+                    &sparseSyntheticReleases) &&
+                VehicleRuntimeState_Inspect(
+                    context, vehicle, &sparseState) &&
+                SUA_CaptureSimulationClock(&sparseClock) &&
+                SimulationRandom_Capture(&sparseRandom);
+  const bool sparseHashMatch = succeeded &&
+      SamplesMatch(decodedReplayJournal.samples, sparseSamples) &&
+      SamplesMatch(denseSamples, sparseSamples);
+  const bool sparseRollback = sparseActivated &&
+      VehicleRuntimeState_Rollback(context);
+  if (sparseRollback) ++summary->rollbacks;
+  if (succeeded) summary->replays = 2;
+
+  const bool stateMatch = succeeded &&
+      StatesMatch(recorded, denseState, true) &&
+      StatesMatch(recorded, sparseState, true);
   const bool clockMatch = succeeded &&
-      SUA_ValidateSimulationClock(recordedClock) &&
-      recordedClock.tick == replayedClock.tick &&
-      recordedClock.eventMoment == replayedClock.eventMoment &&
-      recordedClock.viewTime == replayedClock.viewTime &&
-      recordedClock.frameSeconds == replayedClock.frameSeconds &&
-      recordedClock.timerAspect == replayedClock.timerAspect &&
-      recordedClock.clampedSamples == replayedClock.clampedSamples &&
-      recordedClock.clampedSeconds == replayedClock.clampedSeconds;
-  const bool randomMatch = succeeded && recordedRandom == replayedRandom;
+      ClocksMatch(recordedClock, denseClock) &&
+      ClocksMatch(recordedClock, sparseClock);
+  const bool randomMatch = succeeded &&
+      recordedRandom == denseRandom && recordedRandom == sparseRandom;
   if (stateMatch) summary->stateMatches = 1;
   if (clockMatch) summary->clockMatches = 1;
   if (randomMatch) summary->randomMatches = 1;
+  summary->hashMatches = (denseHashMatch ? 1 : 0) +
+                         (sparseHashMatch ? 1 : 0);
 
-  const bool secondRollback = replayActivated &&
-      VehicleRuntimeState_Rollback(context);
-  if (secondRollback) ++summary->rollbacks;
   SRecoveredVehicleRuntimeState worldAfter = {};
-  const bool worldRestored = secondRollback &&
+  const bool worldRestored = sparseRollback &&
       VehicleRuntimeState_IsClean(context) &&
       VehicleRuntimeState_Inspect(context, vehicle, &worldAfter) &&
       StatesMatch(worldBefore, worldAfter, false);
@@ -401,33 +601,59 @@ bool VehicleControlReplayProbe_Run(
   summary->focusRecords = static_cast<int>(statistics.focusRecords);
   summary->syntheticReleases = recordedSyntheticReleases;
   summary->simulationFrames = recordedFrames;
+  summary->hashSamples = static_cast<int>(recordedSamples.size());
+  summary->densePresentationSamples = densePresentationSamples;
+  summary->sparsePresentationSamples = sparsePresentationSamples;
+  summary->denseSimulationTicks = denseFrames;
+  summary->sparseSimulationTicks = sparseFrames;
   summary->encodedBytes = static_cast<unsigned int>(encoded.size());
+  summary->replayEncodedBytes =
+      static_cast<unsigned int>(replayEncoded.size());
+  summary->contentFingerprint = contentFingerprint;
   summary->journalFingerprint = VehicleControlJournal_Fingerprint(journal);
+  summary->replayFingerprint =
+      ReplayHashJournal_Fingerprint(decodedReplayJournal);
+  summary->hashStreamFingerprint =
+      SampleStreamFingerprint(recordedSamples);
   summary->recordedStateFingerprint = StateFingerprint(recorded);
-  summary->replayedStateFingerprint = StateFingerprint(replayed);
+  summary->replayedStateFingerprint = StateFingerprint(sparseState);
 
   const bool result = succeeded && stateMatch && clockMatch && randomMatch &&
          worldRestored && globalsRestored && statsReady &&
-         recordedFrames == replayedFrames &&
-         recordedSyntheticReleases == replayedSyntheticReleases &&
+         recordedFrames == denseFrames && recordedFrames == sparseFrames &&
+         recordedPresentationSamples == recordedFrames &&
+         densePresentationSamples == denseFrames &&
+         sparsePresentationSamples == sparseFrames / 4 &&
+         recordedSyntheticReleases == denseSyntheticReleases &&
+         recordedSyntheticReleases == sparseSyntheticReleases &&
          statistics.actionRecords == 3u && statistics.focusRecords == 2u &&
          recordedSyntheticReleases == 1 && recordedFrames == 28 &&
+         summary->hashMatches == 2 && summary->hashSamples == 28 &&
+         summary->replayEncodedBytes > summary->encodedBytes &&
+         summary->contentFingerprint != 0u &&
+         summary->replayFingerprint != 0u &&
+         summary->hashStreamFingerprint != 0u &&
          summary->recordedStateFingerprint != 0 &&
          summary->recordedStateFingerprint ==
              summary->replayedStateFingerprint &&
-         summary->rollbacks == 2;
+         summary->rollbacks == 3;
   if (!result) {
     std::fprintf(stderr,
         "vehicle-control-replay-probe: failed succeeded=%d state=%d "
         "clock=%d rng=%d world=%d globals=%d stats=%d "
-        "frames=%d/%d releases=%d/%d records=%u/%u rollbacks=%d "
+        "frames=%d/%d/%d present=%d/%d/%d hashes=%d/%d "
+        "releases=%d/%d/%d records=%u/%u rollbacks=%d "
         "control_failure=%d frame_failure=%d\n",
         succeeded ? 1 : 0, stateMatch ? 1 : 0, clockMatch ? 1 : 0,
         randomMatch ? 1 : 0, worldRestored ? 1 : 0,
         globalsRestored ? 1 : 0, statsReady ? 1 : 0,
-        recordedFrames, replayedFrames, recordedSyntheticReleases,
-        replayedSyntheticReleases, statistics.actionRecords,
-        statistics.focusRecords, summary->rollbacks,
+        recordedFrames, denseFrames, sparseFrames,
+        recordedPresentationSamples, densePresentationSamples,
+        sparsePresentationSamples, summary->hashMatches,
+        summary->hashSamples, recordedSyntheticReleases,
+        denseSyntheticReleases, sparseSyntheticReleases,
+        statistics.actionRecords, statistics.focusRecords,
+        summary->rollbacks,
         VehicleRuntimeState_LastControlFailure(),
         VehicleRuntimeState_LastFrameFailure());
   }

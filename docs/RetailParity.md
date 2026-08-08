@@ -3103,6 +3103,28 @@ playable Level begins.
   from LCN1/RR2SLOT1. Non-WAV FLIC audio, UI sounds, lip synchronization and
   byte-exact RSX timing/mixing remain open.
 
+### RP-REPLAY-001: RPH1 proves a versioned per-tick determinism seam
+
+- The surviving loop is currently variable-rate: one `Session::poll()` tick is
+  issued after each rendered frame, and the real timer clamps a normal sample
+  to 50 ms. This slice records that source baseline and does not claim an
+  original retail fixed rate.
+- `RPH1 v1` binds one sealed CTJ1 to exact VFS/content identity, a 25 ms probe
+  step and a contiguous hash for every tick. Algorithm 1 hashes the recovered
+  Vehicle state, all CLK1 fields and the gameplay RNG state using canonical
+  little-endian FNV-1a input.
+- The installed-data probe records 28 real Vehicle simulation steps and replays
+  them twice. Both runs must reproduce the same 28 hashes, Vehicle state, clock
+  and RNG while presentation observation differs from 28 samples to 7. All
+  three runs roll back to the unmodified admitted Level.
+- The standalone codec gate rejects wrong content/CTJ identity, truncation,
+  bad magic, non-contiguous ticks, non-uniform time and zero hashes without
+  mutating the decode destination. Retail matrix rows make both startup markers
+  mandatory in every maintained configuration.
+- This is not a public replay, complete-world hash, fixed-step production loop
+  or proof at real alternative render FPS. Those are subsequent M4 tranches;
+  LCN1/RR2SLOT1 bytes and presentation/audio state remain unchanged.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

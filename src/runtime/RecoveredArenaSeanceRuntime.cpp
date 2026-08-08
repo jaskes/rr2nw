@@ -7866,6 +7866,10 @@ unsigned long long RecoveredArenaSeance_ActiveWorldFingerprint() {
              : 0;
 }
 
+unsigned long long RecoveredArenaSeance_ContentFingerprint() {
+  return ActiveWorldContentFingerprint();
+}
+
 bool RecoveredArenaSeance_BirdAttributesReady() {
   return g_state.birdAttributesReady;
 }

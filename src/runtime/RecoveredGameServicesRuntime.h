@@ -281,9 +281,13 @@ struct SRecoveredVehicleControlJournalTelemetry {
 
 struct SRecoveredVehicleControlReplayTelemetry {
   unsigned long long journalFingerprint;
+  unsigned long long replayFingerprint;
+  unsigned long long hashStreamFingerprint;
+  unsigned long long contentFingerprint;
   unsigned long long recordedStateFingerprint;
   unsigned long long replayedStateFingerprint;
   unsigned int encodedBytes;
+  unsigned int replayEncodedBytes;
   int recordings;
   int replays;
   int codecRoundTrips;
@@ -295,6 +299,12 @@ struct SRecoveredVehicleControlReplayTelemetry {
   int clockMatches;
   int randomMatches;
   int rollbacks;
+  int hashMatches;
+  int hashSamples;
+  int densePresentationSamples;
+  int sparsePresentationSamples;
+  int denseSimulationTicks;
+  int sparseSimulationTicks;
 };
 
 enum ERecoveredSaveMenuAction {

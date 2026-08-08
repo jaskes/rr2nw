@@ -2723,9 +2723,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("vehicle_control_replay_rollbacks=" +
              std::to_string(replayTelemetry.rollbacks));
     log.Line("vehicle_control_replay_encoded_bytes=" +
-             std::to_string(replayTelemetry.encodedBytes));
+             std::to_string(replayTelemetry.encodedBytes) + "/" +
+             std::to_string(replayTelemetry.replayEncodedBytes));
     log.Line("vehicle_control_replay_journal_fingerprint=" +
              std::to_string(replayTelemetry.journalFingerprint));
+    log.Line("vehicle_control_replay_hash_journal=" +
+             std::to_string(replayTelemetry.contentFingerprint) + "/" +
+             std::to_string(replayTelemetry.replayFingerprint) + "/" +
+             std::to_string(replayTelemetry.hashStreamFingerprint) + "/" +
+             std::to_string(replayTelemetry.hashMatches) + "/" +
+             std::to_string(replayTelemetry.hashSamples));
+    log.Line("vehicle_control_replay_presentation_cadence=" +
+             std::to_string(replayTelemetry.denseSimulationTicks) + "/" +
+             std::to_string(replayTelemetry.sparseSimulationTicks) + "/" +
+             std::to_string(replayTelemetry.densePresentationSamples) + "/" +
+             std::to_string(replayTelemetry.sparsePresentationSamples));
     log.Line("vehicle_control_replay_state_fingerprints=" +
              std::to_string(replayTelemetry.recordedStateFingerprint) +
              "/" +

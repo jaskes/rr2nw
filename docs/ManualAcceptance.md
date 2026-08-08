@@ -1733,6 +1733,33 @@ The terminal fresh fingerprint must equal the saved reused slot 8. Any next
 candidate, Artifact/Portal output, false failure guard or direct status bypass
 is a failure.
 
+## M4 replay-hash boundary pass
+
+The hermetic codec row is part of CTest:
+
+```powershell
+ctest --test-dir ".\build\windows-msvc-x86" -C RelWithDebInfo --output-on-failure -R "(vehicle-control-journal|replay-hash-journal)"
+```
+
+Run the installed runtime matrix in all maintained configurations. Every
+accepted Level must report:
+
+```text
+vehicle_control_replay_ready=1
+vehicle_control_replay_frames=28
+vehicle_control_replay_state_match=1
+vehicle_control_replay_clock_match=1
+vehicle_control_replay_random_match=1
+vehicle_control_replay_rollbacks=3
+vehicle_control_replay_hash_journal=<content>/<RPH1>/<sample-stream>/2/28
+vehicle_control_replay_presentation_cadence=28/28/28/7
+```
+
+The three fingerprints must be non-zero. This pass proves two identical
+per-tick Vehicle/CLK1/RNG streams under dense and sparse presentation
+observation. It does not test a production fixed-step scheduler or real
+alternative renderer FPS; those remain the next M4 gate.
+
 ## Complete persisted Colony campaign pass
 
 Run the installed-data Colony chain in all maintained configurations:

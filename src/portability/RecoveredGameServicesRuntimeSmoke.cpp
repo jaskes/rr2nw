@@ -6073,7 +6073,7 @@ int main(int argc, char** argv) {
   if (!RecoveredGameServices_VehicleControlReplayReady() ||
       !RecoveredGameServices_VehicleControlReplayTelemetry(
           &replayTelemetry) ||
-      replayTelemetry.recordings != 1 || replayTelemetry.replays != 1 ||
+      replayTelemetry.recordings != 1 || replayTelemetry.replays != 2 ||
       replayTelemetry.codecRoundTrips != 1 ||
       replayTelemetry.actionRecords != 3 ||
       replayTelemetry.focusRecords != 2 ||
@@ -6082,9 +6082,19 @@ int main(int argc, char** argv) {
       replayTelemetry.stateMatches != 1 ||
       replayTelemetry.clockMatches != 1 ||
       replayTelemetry.randomMatches != 1 ||
-      replayTelemetry.rollbacks != 2 ||
+      replayTelemetry.rollbacks != 3 ||
+      replayTelemetry.hashMatches != 2 ||
+      replayTelemetry.hashSamples != 28 ||
+      replayTelemetry.denseSimulationTicks != 28 ||
+      replayTelemetry.sparseSimulationTicks != 28 ||
+      replayTelemetry.densePresentationSamples != 28 ||
+      replayTelemetry.sparsePresentationSamples != 7 ||
       replayTelemetry.encodedBytes == 0 ||
+      replayTelemetry.replayEncodedBytes <= replayTelemetry.encodedBytes ||
+      replayTelemetry.contentFingerprint == 0 ||
       replayTelemetry.journalFingerprint == 0 ||
+      replayTelemetry.replayFingerprint == 0 ||
+      replayTelemetry.hashStreamFingerprint == 0 ||
       replayTelemetry.recordedStateFingerprint == 0 ||
       replayTelemetry.recordedStateFingerprint !=
           replayTelemetry.replayedStateFingerprint ||
