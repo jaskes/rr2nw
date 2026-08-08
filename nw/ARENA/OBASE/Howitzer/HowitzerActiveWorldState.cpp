@@ -701,6 +701,37 @@ bool HowitzerActiveWorldState_CaptureStable(
   return EncodeRecords(records, bytes);
 }
 
+bool HowitzerActiveWorldState_CaptureHolder(
+    SimulationContext* context, const char* holderName,
+    std::vector<unsigned char>* bytes) {
+  g_lastFailure.clear();
+  if (context == nullptr || holderName == nullptr || holderName[0] == '\0' ||
+      bytes == nullptr)
+    return Fail("Howitzer holder capture arguments are invalid");
+  const int holderIndex = HowitzerSubjectState_FindHolder(holderName);
+  KR_ObjectID occupant = HowitzerSubjectState_HolderOccupant(holderName);
+  if (holderIndex < 0 || occupant.isNUL() || !context->isExist(occupant))
+    return Fail(std::string("Howitzer holder is not occupied: ") + holderName);
+  Howitzer* howitzer = ResolveHowitzer(context, occupant);
+  const char* name = context->searchObject(occupant);
+  if (howitzer == nullptr || name == nullptr || name[0] == '\0' ||
+      howitzer->m_HolderIndex != holderIndex)
+    return Fail(std::string("Howitzer holder ownership is invalid: ") +
+                holderName);
+
+  // Mission scripts replace holders one by one. Earlier replacement owners in
+  // the same transaction can still be between s_New and pe_EVCMD_START, so a
+  // local rollback record must not enumerate or validate unrelated owners.
+  HowitzerRosterEntry entry;
+  entry.holder = holderName;
+  entry.name = name;
+  entry.howitzer = howitzer;
+  StableHowitzerRecord record;
+  if (!CaptureRecord(context, entry, &record)) return false;
+  std::vector<StableHowitzerRecord> records(1, record);
+  return EncodeRecords(records, bytes);
+}
+
 bool HowitzerActiveWorldState_ValidateStable(
     const std::vector<unsigned char>& bytes) {
   std::vector<StableHowitzerRecord> records;
@@ -821,6 +852,54 @@ bool HowitzerActiveWorldState_ApplyStableReferences(
       return Fail("Howitzer symbolic reconstruction failed: " +
                   records[index].holder);
   return HowitzerActiveWorldState_MatchesStable(context, bytes);
+}
+
+bool HowitzerActiveWorldState_RestoreHolder(
+    SimulationContext* context, const std::vector<unsigned char>& bytes) {
+  g_lastFailure.clear();
+  std::vector<StableHowitzerRecord> records;
+  if (context == nullptr || !DecodeRecords(bytes, &records) ||
+      records.size() != 1u)
+    return Fail("Howitzer holder restore payload is invalid");
+  const StableHowitzerRecord& record = records[0];
+  if (context->isExist(record.name.c_str()))
+    return Fail("Howitzer holder restore name is already occupied: " +
+                record.name);
+  const int holder =
+      HowitzerSubjectState_FindHolder(record.holder.c_str());
+  if (holder < 0 ||
+      holder >= HowitzerSubjectState_SupportedHolderCount() ||
+      !IsNul(HowitzerSubjectState_HolderOccupant(record.holder.c_str())))
+    return Fail("Howitzer holder restore target is unavailable: " +
+                record.holder);
+  if (!context->isExist(record.attribute.c_str()) ||
+      !HowitzerSubjectState_AttributeExists(
+          context, context->searchObject(record.attribute.c_str())))
+    return Fail("Howitzer holder restore attribute is unavailable: " +
+                record.attribute);
+
+  KR_ObjectID object = g_arena.newObject("Howitzer", record.name.c_str());
+  if (IsNul(object) ||
+      !HowitzerSubjectState_PrepareNewObject(context, object)) {
+    if (!IsNul(object) && context->isExist(object))
+      context->removeObject(object);
+    return Fail("Howitzer holder restore allocation failed: " + record.name);
+  }
+  Howitzer* howitzer = ResolveHowitzer(context, object);
+  if (howitzer == nullptr ||
+      g_super.m_level.AttachToHowitzerHolder(holder, object) != holder) {
+    context->removeObject(object);
+    return Fail("Howitzer holder restore reservation failed: " +
+                record.holder);
+  }
+  howitzer->m_HolderIndex = holder;
+  if (!ApplyRecord(context, howitzer, record)) {
+    RemovePrivateEvents(context, object);
+    if (context->isExist(object)) context->removeObject(object);
+    return Fail("Howitzer holder restore references failed: " +
+                record.holder);
+  }
+  return true;
 }
 
 void HowitzerActiveWorldState_RemoveStableOwners(

@@ -754,6 +754,70 @@ if ($aer21OwnerCounts.routes -ne 3 -or
 }
 $aer21MissionHash = (Get-FileHash -LiteralPath $aer21MissionScript -Algorithm SHA256).Hash
 
+$s03MissionScript = Join-Path $DataRoot "Level.04D\BRIEF\MS03.SC"
+if (-not (Test-Path -LiteralPath $s03MissionScript -PathType Leaf)) {
+    throw "Level.04D S03 mission script not found: $s03MissionScript"
+}
+$a27Project = [regex]::Match(
+    $briefSource,
+    'func void CreateProjectA27\(\)(?<body>.*?)func void CreateProject',
+    [Text.RegularExpressions.RegexOptions]::Singleline)
+$a27Body = if ($a27Project.Success) { $a27Project.Groups['body'].Value } else { "" }
+$s03KillNames = @(
+    'c.unit.ms03.ap00', 'c.unit.ms03.ap01',
+    'c.unit.ms03.mg00', 'c.unit.ms03.mg01',
+    'c.unit.ms03.mg02', 'c.unit.ms03.mg03',
+    'c.unit.ms03.00', 'c.unit.ms03.01')
+$s03KillsExact = $true
+foreach ($killName in $s03KillNames) {
+    if ($s03Body -notmatch ('p_AddSuccessKill\(nNode,"{0}"\)' -f
+            [regex]::Escape($killName))) {
+        $s03KillsExact = $false
+    }
+}
+$s03KillCount = [regex]::Matches($s03Body, 'p_AddSuccessKill\(').Count
+$s03RewardCount = [regex]::Matches($s03Body, 'p_GiveArtefact\(').Count
+$s03EvidenceValid = $s03Project.Success -and $a27Project.Success -and
+    $s03KillsExact -and $s03KillCount -eq 8 -and $s03RewardCount -eq 0 -and
+    $s03Body -match 'p_AddPlayBriefing\(s_PNodeNULL\(\),"Brief/ms03\.txt"\)' -and
+    $s03Body -match 'p_AddRunScript\(nNode,"Brief/ms03\.sc"\)' -and
+    $s03Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $s03Body -match 'p_AddMissionInfo\(nNode,0\)' -and
+    $s03Body -match '"Route/S03/ms\.rt",ConvertColor\(235,0,0\),20,2' -and
+    $a27Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $a27Body -match 'p_AddMissionInfo\(nNode,0\)' -and
+    $projectRegistration -match 'CreateProjectA27\(\);\s*CreateProjectS03\(\);'
+if (-not $s03EvidenceValid) {
+    throw "Retail ProjectS03 objective, presentation, successor, or no-reward evidence changed"
+}
+$s03MissionSource = Get-Content -LiteralPath $s03MissionScript -Raw
+$s03OwnerCounts = [ordered]@{
+    colony_tanks = [regex]::Matches($s03MissionSource, 'CreateColonyTank\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    colony_airplanes = [regex]::Matches($s03MissionSource, 'CreateColonyAirplane\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    colony_knights = [regex]::Matches($s03MissionSource, 'CreateColonyKnight\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    machine_guns = [regex]::Matches($s03MissionSource, 'CreateMachineGun\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    actek_airplanes = [regex]::Matches($s03MissionSource, 'CreateActekAirplane(?:Ex)?\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    actek_derigables = [regex]::Matches($s03MissionSource, 'CreateActekDerigableShiz\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    taxis = [regex]::Matches($s03MissionSource, 'CreateTaxi\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+}
+if ($s03OwnerCounts.colony_tanks -ne 2 -or
+    $s03OwnerCounts.colony_airplanes -ne 2 -or
+    $s03OwnerCounts.colony_knights -ne 5 -or
+    $s03OwnerCounts.machine_guns -ne 4 -or
+    $s03OwnerCounts.actek_airplanes -ne 2 -or
+    $s03OwnerCounts.actek_derigables -ne 1 -or
+    $s03OwnerCounts.taxis -ne 2) {
+    throw "Retail S03 mission owner graph changed"
+}
+$s03MissionHash = (Get-FileHash -LiteralPath $s03MissionScript -Algorithm SHA256).Hash
+
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
     $OutputRoot = Join-Path $repositoryRoot "manual-logs\mission-no-reward-chain-$stamp"
@@ -820,7 +884,7 @@ foreach ($configurationName in $Configuration) {
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }
-    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-through-AER21"
+    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-through-S03"
     $saveRoot = Join-Path $caseRoot "saves"
     New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
     $common = @(
@@ -829,7 +893,7 @@ foreach ($configurationName in $Configuration) {
         "--save-dir", ('"' + $saveRoot + '"')
     )
 
-    Write-Host "[$configurationName][Level.04D][A.Recr0] G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03"
+    Write-Host "[$configurationName][Level.04D][A.Recr0] G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27"
     $started = [DateTime]::UtcNow
     $g0Root = Join-Path $caseRoot "g0-result"
     $g0 = Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
@@ -1246,6 +1310,35 @@ foreach ($configurationName in $Configuration) {
             ))
     } else {
         [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshAER21Root }
+    }
+
+    $s03Root = Join-Path $caseRoot "s03-result"
+    $s03 = if (-not $freshAER21.timed_out -and $freshAER21.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "s03-result" -Arguments ($common + @(
+                "--mission-no-reward-result-smoke",
+                "--mission-center", "A.Recr0",
+                "--diagnostics-dir", ('"' + $s03Root + '"'),
+                "--load-slot", "8",
+                "--save-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $s03Root }
+    }
+
+    $freshS03Root = Join-Path $caseRoot "fresh-s03-result"
+    $freshS03 = if (-not $s03.timed_out -and $s03.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "fresh-s03-result" -Arguments ($common + @(
+                "--mission-no-reward-fresh-smoke",
+                "--mission-center", "A.Recr0",
+                "--mission-project", "ProjectS03",
+                "--mission-next-project", "ProjectA27",
+                "--diagnostics-dir", ('"' + $freshS03Root + '"'),
+                "--load-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshS03Root }
     }
 
     $issues = [Collections.Generic.List[string]]::new()
@@ -1817,6 +1910,49 @@ foreach ($configurationName in $Configuration) {
         'marker=level-ready',
         'runtime_shutdown=clean'
     )
+    Add-ProofIssues -Issues $issues -Phase "S03" -Probe $s03 -Expected @(
+        'startup_load_slot=8',
+        'startup_save_slot=8',
+        'mission_smoke_selected_project=ProjectS03',
+        'mission_smoke_tank_group_capacity=64',
+        'mission_smoke_scripts=1',
+        'mission_smoke_created_objects=30',
+        'mission_smoke_reclaimed_routes=2',
+        'mission_smoke_replaced_howitzers=4',
+        'mission_smoke_conditions=8',
+        'mission_smoke_rebound_conditions=8',
+        'mission_smoke_pre_satisfied_kill_conditions=0',
+        'mission_smoke_pre_satisfied_kill_condition=<none>',
+        'mission_smoke_capacity_limited_conditions=0',
+        'mission_smoke_capacity_limited_condition=<none>',
+        'mission_smoke_deferred_artefact_rewards=0',
+        'mission_smoke_howitzers=26/26/26',
+        'mission_smoke_auxiliary_policy=loaded-progression-skip',
+        'mission_no_reward_project=ProjectS03/ProjectA27',
+        'mission_no_reward_conditions=8/1',
+        'mission_no_reward_reached=0/1',
+        'mission_no_reward_commit=1/1/0/1/1/1/1/1',
+        'mission_no_reward_progress=1/0/16/16/1/0',
+        'mission_no_reward_objective=1/0/1/0/1',
+        'mission_no_reward_save=1/1/1/1',
+        'mission_no_reward_rollback=1/1/1',
+        'mission_no_reward_reapply=1/1/1',
+        'mission_smoke_save_requested=1',
+        'save_menu_completed_saves=1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
+    Add-ProofIssues -Issues $issues -Phase "fresh-S03" -Probe $freshS03 -Expected @(
+        'startup_load_slot=8',
+        'mission_no_reward_fresh_identity=A.Recr0/ProjectS03/ProjectA27',
+        'mission_no_reward_fresh=1/1/1/0/1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
     if ($g0.startup -match 'mission_result_(carrier|portal)=' -or
         $s04.startup -match 'mission_result_(carrier|portal)=' -or
         $freshS04.startup -match 'mission_result_(carrier|portal)=' -or
@@ -1845,7 +1981,9 @@ foreach ($configurationName in $Configuration) {
         $aer16.startup -match 'mission_result_(carrier|portal)=' -or
         $freshAER16.startup -match 'mission_result_(carrier|portal)=' -or
         $aer21.startup -match 'mission_result_(carrier|portal)=' -or
-        $freshAER21.startup -match 'mission_result_(carrier|portal)=') {
+        $freshAER21.startup -match 'mission_result_(carrier|portal)=' -or
+        $s03.startup -match 'mission_result_(carrier|portal)=' -or
+        $freshS03.startup -match 'mission_result_(carrier|portal)=') {
         $issues.Add("Artifact or Portal path leaked into Actek no-reward chain")
     }
     if ($s04.startup -match 'People stable capture failed') {
@@ -1990,12 +2128,22 @@ foreach ($configurationName in $Configuration) {
             $restoredAER21Fingerprint.Groups[1].Value) {
         $issues.Add("fresh AER21 result fingerprint does not match reused slot 8")
     }
+    $savedS03Fingerprint = [regex]::Match(
+        $s03.startup, 'save_menu_last_slot_world_fingerprint=(\d+)')
+    $restoredS03Fingerprint = [regex]::Match(
+        $freshS03.startup, 'save_menu_last_restored_world_fingerprint=(\d+)')
+    if (-not $savedS03Fingerprint.Success -or
+        -not $restoredS03Fingerprint.Success -or
+        $savedS03Fingerprint.Groups[1].Value -ne
+            $restoredS03Fingerprint.Groups[1].Value) {
+        $issues.Add("fresh S03 result fingerprint does not match reused slot 8")
+    }
 
     $records.Add([pscustomobject]@{
         configuration = $configurationName
         level = "Level.04D"
         center = "A.Recr0"
-        chain = "ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08 -> ProjectAER10 -> ProjectAER00 -> ProjectAER16 -> ProjectAER21 -> ProjectS03"
+        chain = "ProjectG0 -> ProjectS04 -> ProjectS07 -> ProjectS10 -> ProjectS05 -> ProjectA26 -> ProjectS09 -> ProjectS06 -> ProjectAER04 -> ProjectAER06 -> ProjectAER08 -> ProjectAER10 -> ProjectAER00 -> ProjectAER16 -> ProjectAER21 -> ProjectS03 -> ProjectA27"
         ms04_script_sha256 = $missionHash
         ms07_script_sha256 = $s07MissionHash
         ms10_script_sha256 = $s10MissionHash
@@ -2010,6 +2158,7 @@ foreach ($configurationName in $Configuration) {
         aer00_script_sha256 = $aer00MissionHash
         aer16_script_sha256 = $aer16MissionHash
         aer21_script_sha256 = $aer21MissionHash
+        ms03_script_sha256 = $s03MissionHash
         s07_authored_kill_commands = $s07KillCount
         s07_retained_kill_conditions = 10
         s10_authored_kill_commands = $s10KillCount
@@ -2073,6 +2222,13 @@ foreach ($configurationName in $Configuration) {
         aer21_mission_info = 2
         aer21_next_project = "ProjectS03"
         aer21_reused_public_save_slot = 8
+        s03_authored_kill_commands = $s03KillCount
+        s03_reward_commands = $s03RewardCount
+        s03_owner_counts = $s03OwnerCounts
+        s03_replaced_howitzers = 4
+        s03_mission_info = 0
+        s03_next_project = "ProjectA27"
+        s03_reused_public_save_slot = 8
         duplicate_airplane_calls = $duplicateCount
         elapsed_seconds = [Math]::Round(
             ([DateTime]::UtcNow - $started).TotalSeconds, 3)
@@ -2105,6 +2261,8 @@ foreach ($configurationName in $Configuration) {
         fresh_aer16_exit_code = $freshAER16.exit_code
         aer21_exit_code = $aer21.exit_code
         fresh_aer21_exit_code = $freshAER21.exit_code
+        s03_exit_code = $s03.exit_code
+        fresh_s03_exit_code = $freshS03.exit_code
         passed = $issues.Count -eq 0
         issues = @($issues)
         diagnostics = $caseRoot

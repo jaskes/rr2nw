@@ -6519,3 +6519,23 @@ runtime message. No raw path, varargs object, save, retail payload or game lock
 crosses the boundary. This does not convert ordinary startup/Save/Load/campaign
 errors into crashes, and it does not claim direct CRT abort, unrelated explicit
 exit or standalone debug-tool coverage.
+
+### BD-200: mission holder replacement captures the old owner, not the whole table
+
+Status: accepted on 2026-08-08 for persisted Level.04D ProjectS03.
+
+The retail helper deletes and recreates one Howitzer holder at a time. During
+that sequence an earlier new owner can legitimately exist between `s_New` and
+its scheduled `pe_EVCMD_START`; asking the global stable-world codec to approve
+that intermediate table incorrectly rejects the next replacement. The
+transaction therefore captures the exact currently occupied holder directly,
+including attribute, commander, damage, orientation, AI fields and private
+scheduler events, before allowing its deletion.
+
+This local record grants no general replacement authority. It is created only
+for a live pre-existing occupant named by `s_DeleteHowitzer`; ordinary created
+owners retain the existing transaction rules. Rollback first removes new
+owners and restores captured holders in reverse order, while committed mission
+population is validated and serialized by the unchanged full-world codec.
+The rule preserves old saves and makes no presentation or gameplay state part
+of the transaction.

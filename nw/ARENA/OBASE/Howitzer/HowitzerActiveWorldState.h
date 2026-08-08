@@ -16,6 +16,9 @@ unsigned long long HowitzerActiveWorldState_Fingerprint(
     SimulationContext* context);
 bool HowitzerActiveWorldState_CaptureStable(
     SimulationContext* context, std::vector<unsigned char>* bytes);
+bool HowitzerActiveWorldState_CaptureHolder(
+    SimulationContext* context, const char* holderName,
+    std::vector<unsigned char>* bytes);
 bool HowitzerActiveWorldState_ValidateStable(
     const std::vector<unsigned char>& bytes);
 bool HowitzerActiveWorldState_MatchesStable(
@@ -27,6 +30,8 @@ bool HowitzerActiveWorldState_CreateStableOwners(
     SimulationContext* context, const std::vector<unsigned char>& bytes,
     std::vector<KR_ObjectID>* created);
 bool HowitzerActiveWorldState_ApplyStableReferences(
+    SimulationContext* context, const std::vector<unsigned char>& bytes);
+bool HowitzerActiveWorldState_RestoreHolder(
     SimulationContext* context, const std::vector<unsigned char>& bytes);
 void HowitzerActiveWorldState_RemoveStableOwners(
     SimulationContext* context, std::vector<KR_ObjectID>* created);

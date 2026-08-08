@@ -3783,6 +3783,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.createdMissionObjects));
     log.Line("mission_smoke_reclaimed_routes=" +
              std::to_string(mission.reclaimedRouteObjects));
+    log.Line("mission_smoke_replaced_howitzers=" +
+             std::to_string(mission.replacedHowitzerObjects));
     log.Line("mission_smoke_conditions=" +
              std::to_string(mission.conditionReferences));
     log.Line("mission_smoke_routes=" +

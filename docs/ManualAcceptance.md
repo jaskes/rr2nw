@@ -1665,3 +1665,21 @@ device reconstruction. Focus suspend/resume, natural completion and zero live
 registrations are mandatory. This proves WAV stream ownership and buffering;
 it does not claim non-WAV FLIC audio, lip synchronization, UI sounds or
 byte-exact Intel RSX mixing.
+
+## Persisted Actek S03 holder-replacement pass
+
+Run the complete installed-data chain in all configurations:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionNoRewardProgressionChainSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration @("Debug","Release","RelWithDebInfo")
+```
+
+It must finish `3/3` with the chain ending `ProjectS03 -> ProjectA27`. The S03
+phase must report `mission_smoke_replaced_howitzers=4`,
+`mission_smoke_created_objects=30`, `mission_smoke_conditions=8`,
+`mission_no_reward_progress=1/0/16/16/1/0` and
+`mission_no_reward_project=ProjectS03/ProjectA27`. The fresh S03 process must
+report `mission_no_reward_fresh_identity=A.Recr0/ProjectS03/ProjectA27` and a
+world fingerprint matching the saved reused slot 8. Any missing restored old
+holder during rollback, retained Portal/Artifact path, changed retail script
+hash or mismatch on fresh restore is a failure.

@@ -78,6 +78,7 @@ class RecoveredLegacyScriptHost {
   bool RollbackObjectTransaction();
   void CommitObjectTransaction();
   int TransactionCreatedObjectCount() const;
+  int TransactionReplacedHowitzerCount() const;
   bool TransactionDestroyedCreatedObject(const char* name) const;
   bool CreateProjectTable(int projectCapacity, int nodeCapacity,
                           int heapCapacity);
@@ -124,6 +125,11 @@ class RecoveredLegacyScriptHost {
     std::vector<double> coordinates;
   };
 
+  struct ReplacedHowitzer {
+    std::string holder;
+    std::vector<unsigned char> stable;
+  };
+
   ScriptEvent* Event(int eventIndex, const char* operation);
   bool ArenaReady(const char* operation);
   bool ProjectNodeValid(int node, bool allowNull = false) const;
@@ -152,6 +158,7 @@ class RecoveredLegacyScriptHost {
   std::vector<KR_ObjectID> m_transactionExistingCorpses;
   std::vector<KR_ObjectID> m_transactionPinnedRoutes;
   std::vector<ReclaimedRoute> m_transactionReclaimedRoutes;
+  std::vector<ReplacedHowitzer> m_transactionReplacedHowitzers;
 };
 
 #endif

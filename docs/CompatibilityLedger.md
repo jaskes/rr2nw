@@ -5512,6 +5512,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   promise that every CRT `assert`/`abort`, explicit normal exit or standalone
   archival tool is reachable in the game. Those remain separate inventory.
 
+### CQ-265: S03 replaces four occupied authored Howitzer holders atomically
+
+- Status: `RETAIL_REPLACEMENT_ORDER_PRESERVED`, `ROLLBACK_STABLE`,
+  `SAME_SLOT_8_FRESH_LOAD_PROVEN`.
+- Evidence: installed `ProjectS03` owns eight exact kill targets, no command
+  35, `Brief/ms03.txt`, `Brief/ms03.sc`, route `Route/S03/ms.rt`, commander
+  Actek and `MissionInfo=0`. `MS03.SC` replaces `HwzCln64..67` with four
+  Colony machine guns after the persisted AER chain has already populated
+  those holders. The next equally ranked registered Actek row is exact
+  `ProjectA27`.
+- Handling: before deleting a pre-existing holder occupant, the mission
+  transaction captures only that owner's stable symbolic state. Rollback
+  removes transaction-created objects and recreates the four captured owners
+  in reverse order; commit discards the records. Unrelated Howitzers remain
+  under the full-world validator, so this does not weaken save admission.
+- Verification: the persisted chain now continues through S03 and requires
+  30 created owners, two reclaimed Routes, four replaced Howitzers, 8/8 bound
+  objectives, ordinary no-reward count sixteen, exact `ProjectA27`, pre-result
+  rollback/reapply and a matching same-slot-8 fresh-load fingerprint in Debug,
+  Release and RelWithDebInfo.
+- Boundary: this proves the authored S03 replacement sequence. It does not
+  permit arbitrary script deletion of nontransactional Howitzers or infer the
+  later A27 outcome before its own campaign slice is recovered.
+
 ## Maintenance rule
 
 When a new quirk is found:

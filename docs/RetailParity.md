@@ -2426,6 +2426,29 @@ playable Level begins.
   conditions, ordinary rollback/reapply and exact fresh same-slot-8 restore in
   every build. S03 is the documented boundary, not part of this slice.
 
+### RP-CAMPAIGN-026: ProjectS03 resumes the ordinary Actek sequence at A27
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CONFIRMED`, `AUTHORED_HOLDER_REPLACEMENT_PRESERVED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed `CreateProjectS03` owns two airplane, four machine-gun and two
+  Tank kill targets, Commander Actek, MissionInfo 0, its authored briefing,
+  script and summary route, and no command 35. Installed `MS03.SC` SHA-256 is
+  `4FF8E18A1008F3C4369A56CEDEFF081466924C350EAF1725DC94ADAE694B0E98`;
+  its graph owns two Colony Tanks, two Colony airplanes, five Colony knights,
+  four machine guns, two Actek airplanes, one Actek dirigible and two Taxis.
+- The four machine guns deliberately replace occupied `HwzCln64..67`. The
+  maintained transaction captures each old owner immediately before deletion
+  and restores all four on rollback; the committed graph retains 26/26/26
+  live/ready/stable Howitzers and remains serializable by the global codec.
+- Its ordinary result reaches cumulative count sixteen and selects exact
+  `ProjectA27`, whose registration precedes the removed S03 row at the same
+  MissionInfo rank. The complete gate is now
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`.
+  It proves 30 created owners, two reclaimed Routes, four replacements, eight
+  rebound conditions, rollback/reapply and exact same-slot-8 fresh restore in
+  all three configurations. A27 is the next boundary, not yet an outcome claim.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

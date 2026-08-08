@@ -1,5 +1,6 @@
 #include "RecoveredLegacyScriptHost.h"
 
+#include "HowitzerActiveWorldState.h"
 #include "HowitzerSubjectState.h"
 
 #include <cmath>
@@ -567,7 +568,8 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_objectTransactionActive(false),
       m_transactionCreatedObjects(), m_transactionDestroyedCreatedObjectNames(),
       m_transactionExistingRoutes(), m_transactionExistingCorpses(),
-      m_transactionPinnedRoutes(), m_transactionReclaimedRoutes() {
+      m_transactionPinnedRoutes(), m_transactionReclaimedRoutes(),
+      m_transactionReplacedHowitzers() {
   Reset();
 }
 
@@ -593,6 +595,7 @@ void RecoveredLegacyScriptHost::Reset() {
     m_transactionExistingCorpses.clear();
     m_transactionPinnedRoutes.clear();
     m_transactionReclaimedRoutes.clear();
+    m_transactionReplacedHowitzers.clear();
   }
 }
 
@@ -1005,9 +1008,28 @@ bool RecoveredLegacyScriptHost::DeleteHowitzer(const char* holderName) {
       holderName == nullptr) {
     return false;
   }
+  SimulationContext* context = m_arena->getContext();
+  KR_ObjectID occupant =
+      HowitzerSubjectState_HolderOccupant(holderName);
+  const bool replacingExisting = m_objectTransactionActive &&
+      !occupant.isNUL() && context->isExist(occupant) &&
+      !ContainsObject(m_transactionCreatedObjects, occupant);
+  ReplacedHowitzer replacement;
+  if (replacingExisting) {
+    replacement.holder = holderName;
+    if (!HowitzerActiveWorldState_CaptureHolder(
+            context, holderName, &replacement.stable)) {
+      char message[256] = {};
+      std::snprintf(message, sizeof(message),
+                    "Howitzer holder %.80s capture failed: %.140s",
+                    holderName, HowitzerActiveWorldState_LastFailure());
+      Report(RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE, message);
+      return false;
+    }
+  }
   if (!HowitzerSubjectState_DeleteHolderOccupant(
-          m_arena->getContext(), holderName, m_transactionCreatedObjects,
-          m_objectTransactionActive)) {
+          context, holderName, m_transactionCreatedObjects,
+          m_objectTransactionActive && !replacingExisting)) {
     char message[256] = {};
     std::snprintf(message, sizeof(message),
                   "Howitzer holder %.80s deletion failed: %.140s",
@@ -1015,6 +1037,8 @@ bool RecoveredLegacyScriptHost::DeleteHowitzer(const char* holderName) {
     Report(RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE, message);
     return false;
   }
+  if (replacingExisting)
+    m_transactionReplacedHowitzers.push_back(replacement);
   return true;
 }
 
@@ -1034,6 +1058,7 @@ void RecoveredLegacyScriptHost::BeginObjectTransaction() {
   m_transactionExistingCorpses.clear();
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
+  m_transactionReplacedHowitzers.clear();
   if (ArenaReady("capture Route transaction baseline") &&
       m_arena->searchSeanceClassTable("Route") != ct_NULLID)
     m_arena->userFind("Route", CollectObjectID,
@@ -1157,14 +1182,22 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
                                 static_cast<int>(record.coordinates.size())))
       return false;
   }
+  bool howitzersRestored = true;
+  for (std::vector<ReplacedHowitzer>::reverse_iterator replacement =
+           m_transactionReplacedHowitzers.rbegin();
+       replacement != m_transactionReplacedHowitzers.rend(); ++replacement)
+    if (!HowitzerActiveWorldState_RestoreHolder(
+            context, replacement->stable))
+      howitzersRestored = false;
   m_transactionCreatedObjects.clear();
   m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
   m_transactionExistingCorpses.clear();
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
+  m_transactionReplacedHowitzers.clear();
   m_objectTransactionActive = false;
-  return true;
+  return howitzersRestored;
 }
 
 void RecoveredLegacyScriptHost::CommitObjectTransaction() {
@@ -1183,11 +1216,16 @@ void RecoveredLegacyScriptHost::CommitObjectTransaction() {
   m_transactionExistingCorpses.clear();
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
+  m_transactionReplacedHowitzers.clear();
   m_objectTransactionActive = false;
 }
 
 int RecoveredLegacyScriptHost::TransactionCreatedObjectCount() const {
   return static_cast<int>(m_transactionCreatedObjects.size());
+}
+
+int RecoveredLegacyScriptHost::TransactionReplacedHowitzerCount() const {
+  return static_cast<int>(m_transactionReplacedHowitzers.size());
 }
 
 bool RecoveredLegacyScriptHost::TransactionDestroyedCreatedObject(

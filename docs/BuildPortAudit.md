@@ -4357,3 +4357,20 @@ silently relabelled as closed.
 All three full builds and their 71/71 CTest matrices pass. Ordinary installed-
 data regression remains green at 27/27 Levels, in-game shell 3/3, Portal 9/9
 and campaign reward/transition 6/6.
+
+### 2026-08-08: persisted ProjectS03 holder replacement
+
+The Level.04D Actek chain now executes `ProjectS03` after AER21. Installed
+retail data proves eight no-reward kill objectives and an exact next candidate
+`ProjectA27`. Four `CreateMachineGun` calls reuse already occupied
+`HwzCln64..67`; the former global transaction preflight rejected this legal
+one-at-a-time script sequence while an earlier replacement awaited its start
+event.
+
+Mission rollback now captures one pre-existing holder owner immediately before
+deletion and restores its complete stable record after removing transaction
+objects. Committed state still passes the unchanged global Howitzer codec.
+The extended gate proves 30 created owners, two reclaimed Routes, four holder
+replacements, 8/8 objectives, cumulative count sixteen, rollback/reapply and
+same-slot-8 fresh restore in Debug, Release and RelWithDebInfo. Old RR2SLOT1
+layout and the retail data remain unchanged.

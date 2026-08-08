@@ -876,6 +876,8 @@ bool RunDeferredMissionScripts(
         ++summary->executedScripts;
     }
     summary->createdMissionObjects = host->TransactionCreatedObjectCount();
+    summary->replacedHowitzerObjects =
+        host->TransactionReplacedHowitzerCount();
     return true;
 }
 

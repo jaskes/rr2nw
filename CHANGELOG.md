@@ -59,6 +59,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Continued the persisted Level.04D Actek campaign through `ProjectS03` to
+  exact `ProjectA27`. Mission transactions can now replace the four authored
+  occupied Howitzer holders atomically: each old owner receives a bounded
+  stable rollback record, while committed population still passes the full
+  world serializer. The extended three-configuration chain proves all eight
+  objectives, no-reward count sixteen, rollback/reapply and exact fresh restore
+  through the reused public slot 8 without changing retail files or save ABI.
 - Made the in-frame shell the sole ordinary player-facing menu. Ordinary and
   `--developer-mode` launches no longer install a Win32 menu bar; the old
   `Game`/`Debug` adapter is isolated behind `--native-diagnostic-menu`, with

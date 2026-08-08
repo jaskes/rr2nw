@@ -22,6 +22,7 @@ struct RecruitCenterMissionProbeSummary
     int postBriefingPresentationRepeats;
     int createdMissionObjects;
     int reclaimedRouteObjects;
+    int replacedHowitzerObjects;
     int reboundConditionReferences;
     int preSatisfiedKillConditionReferences;
     int capacityLimitedConditionReferences;
