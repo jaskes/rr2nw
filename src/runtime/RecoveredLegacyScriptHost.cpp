@@ -565,6 +565,7 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_projectDataBytes(0), m_openProjectNode(mp_NodeNULL()),
       m_deferredMissionHowitzerCount(0),
       m_deferredMissionDestroyableCount(0),
+      m_discardNextMissingHolderHowitzer(false),
       m_objectTransactionActive(false),
       m_transactionCreatedObjects(), m_transactionDestroyedCreatedObjectNames(),
       m_transactionExistingRoutes(), m_transactionExistingCorpses(),
@@ -588,6 +589,7 @@ void RecoveredLegacyScriptHost::Reset() {
   m_openProjectNode = mp_NodeNULL();
   m_deferredMissionHowitzerCount = 0;
   m_deferredMissionDestroyableCount = 0;
+  m_discardNextMissingHolderHowitzer = false;
   if (!m_objectTransactionActive) {
     m_transactionCreatedObjects.clear();
     m_transactionDestroyedCreatedObjectNames.clear();
@@ -676,10 +678,20 @@ void RecoveredLegacyScriptHost::IssueEvent(
   // Match the retail host contract: scheduled events may legitimately target
   // an object that is not published yet, but the kernel requires a usable
   // cache slot and a timestamp past its initialization sentinel. Retail
-  // mission helpers intentionally pass zero for an immediate start; map that
-  // one value to the first valid legacy boundary while preserving every
-  // positive absolute timestamp unchanged.
-  if (timeStamp == 0.0) timeStamp = 0.1;
+  // mission helpers intentionally pass zero for an immediate start.  Resolve
+  // that marker against the current simulation clock: pinning it to absolute
+  // 0.1 leaves newly admitted Howitzers pending forever once a long campaign
+  // has advanced beyond the first legacy boundary.  Authored positive values
+  // remain absolute timestamps.
+  // During initial graph construction the kernel has not reached its first
+  // valid scheduler boundary. Preserve the original 0.1 enqueue there. In a
+  // running session, enqueue zero-time commands at the current moment so
+  // poll() consumes them in the same scheduler boundary. Mission admission
+  // closes pending Howitzer STARTs only after the complete script graph has
+  // returned; event submission itself never re-enters a partially authored
+  // object graph.
+  if (timeStamp == 0.0)
+    timeStamp = Session::m_moment < 0.1 ? 0.1 : Session::m_moment;
   if (!std::isfinite(timeStamp) || timeStamp < 0.1 ||
       destination.getCachePos() < 0 || context->eventFreeCount() <= 0) {
     event->inUse = false;
@@ -805,6 +817,19 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(int classTable,
                   "script object creation failed for %.120s in table %d",
                   name, classTable);
     Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE, message);
+  }
+  const bool discardMissingHolderHowitzer =
+      m_discardNextMissingHolderHowitzer &&
+      classTable == m_arena->searchSeanceClassTable("Howitzer");
+  if (discardMissingHolderHowitzer) {
+    m_discardNextMissingHolderHowitzer = false;
+    // Installed ProjectG14 asks the archival CreateHowitzerName helper to
+    // place one owner into absent HwzAct77.  The original delete call is a
+    // silent no-op and the owner cannot acquire a valid placement.  Return its
+    // now-stale identity so the remaining helper calls retain their original
+    // harmless no-op behavior, but do not publish an unserializable owner.
+    if (!object.isNUL()) m_arena->getContext()->removeObject(object);
+    return object;
   }
   if (!object.isNUL() &&
       classTable == m_arena->searchSeanceClassTable("Howitzer") &&
@@ -1009,6 +1034,14 @@ bool RecoveredLegacyScriptHost::DeleteHowitzer(const char* holderName) {
     return false;
   }
   SimulationContext* context = m_arena->getContext();
+  if (HowitzerSubjectState_FindHolder(holderName) < 0) {
+    // Archival s_DeleteHowitzer delegates to AttachToHowitzerHolder, whose
+    // missing-name branch returns -1 without reporting an error.  Remember the
+    // immediately following Howitzer allocation so it can be discarded at
+    // the same authored boundary instead of poisoning stable save capture.
+    m_discardNextMissingHolderHowitzer = true;
+    return true;
+  }
   KR_ObjectID occupant =
       HowitzerSubjectState_HolderOccupant(holderName);
   const bool replacingExisting = m_objectTransactionActive &&
@@ -1052,6 +1085,7 @@ void RecoveredLegacyScriptHost::Unsupported(const char* operation) {
 
 void RecoveredLegacyScriptHost::BeginObjectTransaction() {
   m_objectTransactionActive = true;
+  m_discardNextMissingHolderHowitzer = false;
   m_transactionCreatedObjects.clear();
   m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
@@ -1196,6 +1230,7 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   m_transactionReplacedHowitzers.clear();
+  m_discardNextMissingHolderHowitzer = false;
   m_objectTransactionActive = false;
   return howitzersRestored;
 }
@@ -1217,6 +1252,7 @@ void RecoveredLegacyScriptHost::CommitObjectTransaction() {
   m_transactionPinnedRoutes.clear();
   m_transactionReclaimedRoutes.clear();
   m_transactionReplacedHowitzers.clear();
+  m_discardNextMissingHolderHowitzer = false;
   m_objectTransactionActive = false;
 }
 

@@ -33,6 +33,7 @@ class CGRPanel;
 #include "i/carrier.i"
 #include "obase/artefact/ArtefactActiveWorldState.h"
 #include "obase/artefact/ArtefactAttributeState.h"
+#include "obase/howitzer/HowitzerSubjectState.h"
 #include "obase/people/PeopleSubjectState.h"
 #include "obase/tank/TankSubjectState.h"
 #include "RecoveredLegacyScriptHost.h"
@@ -875,6 +876,22 @@ bool RunDeferredMissionScripts(
             return false;
         }
         ++summary->executedScripts;
+    }
+    // Script time zero is an event-loop marker.  Do not dispatch it from the
+    // host binding while later commands can still be authoring the same
+    // graph.  At the completed script boundary, close only pending Howitzer
+    // STARTs whose timestamp belongs to this admission so stable capture can
+    // never observe holder-only subjects.  Positive future starts remain
+    // scheduled.
+    const double completedScriptBoundary =
+        (std::max)((std::max)(0.1, timeStamp), Session::m_moment);
+    if (!HowitzerSubjectState_ActivateImmediateStarts(
+            context, completedScriptBoundary))
+    {
+        const bool rolledBack = host->RollbackObjectTransaction();
+        summary->scriptRollbacks += rolledBack ? 1 : 0;
+        SetError("RecruitCenter mission Howitzer start boundary is incomplete");
+        return false;
     }
     summary->createdMissionObjects = host->TransactionCreatedObjectCount();
     summary->replacedHowitzerObjects =

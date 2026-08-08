@@ -2471,6 +2471,34 @@ playable Level begins.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
+### RP-CAMPAIGN-028: the installed Colony branch persists through ProjectG7
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CHAIN_CONFIRMED`,
+  `LEGACY_SAVE_MIGRATION_PROVEN`, `AUTHORED_HANDOFF_PRESERVED`.
+- Starting from the already proved G3 result, the selected retail graph is
+  `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03`.
+  All fourteen results are ordinary no-reward completions: no command 35,
+  Artifact or Portal is inferred. `ProjectAER03` is the exact authored
+  handoff and remains the next unproved outcome.
+- The gate executes the installed mission scripts and binds their real kill
+  objectives. G11 retains the raw ten-condition ceiling from fifteen authored
+  Taxis (five are explicitly limited, first released `Taxim1105`). G14 keeps
+  fifteen valid Howitzers while its absent `HwzAct77` replacement remains an
+  archival no-op. A25's physical Artefact remains neutral world population,
+  never a reward.
+- Public persistence uses slots 1 through 8 and then explicit slot-8
+  load/overwrite. Every step proves result commit, pre-result rollback,
+  committed reapply, exact fresh-process project/count/world fingerprint and
+  zero reward/Portal leakage. The old HWZ1 v1 representation also restores
+  through semantic v2 migration without weakening the enclosing LCN1
+  fingerprint.
+- Verification: `Invoke-ColonyMissionProgressionChainSmoke.ps1` passes 42/42
+  (14/14 in each of Debug, Release and RelWithDebInfo). The Actek, ordinary no-reward,
+  terminal, reward/Portal, presentation and campaign gates remain independent.
+
+### RP-VEHICLE-001: retail death-camera ascent terminates as state
+
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.
   The recovered dead branch keeps its orientation rule, eight-unit-per-second
   ascent and `HazeMin + HazeMax` limit, but reaching that limit no longer calls

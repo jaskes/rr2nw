@@ -6556,3 +6556,54 @@ Acceptance stages the real authored reached actor and sends the real mission
 check event. It never writes `MISSION_SUCCESS` directly and does not serialize
 probe state. This decision applies to all Projects using the two precedence
 commands; A27 is the first persisted chain row that proves the false branch.
+
+### BD-202: script time zero is immediate at the current simulation boundary
+
+Status: accepted on 2026-08-08 for the persisted Colony chain.
+
+The recovered host previously converted `s_IssueEvent(..., 0)` to absolute
+time `0.1`. That happened to work at fresh startup but left a newly created
+Howitzer permanently pending after a long campaign had advanced the clock.
+The archival helper uses zero as an immediate marker. During bootstrap the
+kernel has not yet crossed its first valid event boundary, so zero retains the
+safe `0.1` enqueue and cannot re-enter a partially initialized subject. Once
+the session is running, the maintained host queues that marker at the current
+moment. The active `poll()` consumes it in the same scheduler boundary without
+recursive Subject dispatch. After a complete RecruitCenter script graph has
+returned, the admission owner drains only pending zero-time Howitzer STARTs at
+the later of its admitted timestamp and the live simulation moment. Holder,
+attribute and private events are therefore closed
+before stable capture without running AI while later script commands are still
+authoring the world. Every positive authored timestamp remains an absolute
+scheduler value.
+
+Private Howitzer events also need an identity independent of their optional
+source name. HWZ1 v2 therefore records destination-self explicitly. HWZ1 v1
+continues to decode the historical owner-name representation and LCN1 accepts
+the byte difference only after the restored live roster matches every decoded
+semantic field. The active-world probe generates both versions from the same
+real roster, so compatibility is not based on a hand-kept save alone.
+
+### BD-203: only non-restorable transient combat links become NUL
+
+Status: accepted on 2026-08-08 for installed Colony G1/G7/G11/G14.
+
+A surviving Tank may still hold the ObjectID of a target removed earlier in
+the same mission-result frame. A Bullet may remain physically valid after its
+master died, or while the installed mission owns two live masters with the
+same symbolic name. G11 can likewise make one of four identically named live
+Howitzers select another as its current enemy. These links cannot be
+reconstructed uniquely and do not own the Tank, Bullet or Howitzer lifecycle.
+Stable capture retains the physical owner and canonicalizes only that
+target/attribution relation to NUL, matching the existing
+tombstoned-projectile behavior; ordinary AI scanning reacquires a target after
+restore.
+
+G14's missing `HwzAct77` is a different archival boundary: the old helper's
+delete is a silent no-op, after which its paired Howitzer cannot acquire a
+holder. The recovered transaction remembers only that exact missing-holder
+pair, creates and immediately removes the unplaceable subject, and returns its
+stale identity so the remaining helper calls remain harmless no-ops. This is
+not general error suppression. Live Commander, Group, Artefact, holder,
+attribute and uniquely named dependency failures remain fatal to stable
+capture and rollback.

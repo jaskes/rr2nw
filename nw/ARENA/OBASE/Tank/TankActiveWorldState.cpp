@@ -469,10 +469,16 @@ bool CaptureRecord(SimulationContext *context, const TankRoster &roster,
     record->attackedEnemy =
         CaptureReference(context, roster, tank->m_attackedEnemy);
     record->artefact = ObjectName(context, tank->m_artefactID);
+    // A target can be removed earlier in the same mission-result frame while
+    // surviving AI still holds its stale ObjectID.  That transient relation
+    // has no restorable owner and is canonically persisted as NUL; live
+    // Commander, Group and Artefact dependencies remain fail-closed.
     if (record->name.empty() || record->attribute.empty() ||
         (!IsNul(tank->m_group) && record->group.name.empty()) ||
         (!IsNul(tank->m_commander) && record->commander.name.empty()) ||
-        (!IsNul(tank->m_attackedEnemy) && record->attackedEnemy.name.empty()) ||
+        (!IsNul(tank->m_attackedEnemy) &&
+         context->isExist(tank->m_attackedEnemy) &&
+         record->attackedEnemy.name.empty()) ||
         (!IsNul(tank->m_artefactID) && record->artefact.empty()))
         return Fail("Tank symbolic reference is missing");
     record->audibleThisFrame = tank->m_audibleThisFrame;

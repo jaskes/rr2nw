@@ -664,15 +664,25 @@ class BoundedBullet : public ct_Subject
         record->name = ObjectName(world, getObjectID());
         record->attribute =
             ObjectName(world, m_attribute->getObjectID());
-        record->master = ObjectName(world, m_master);
-        if (record->name.empty() || record->attribute.empty())
-            return FailActiveWorld(
-                "live Bullet symbolic owner/attribute is missing");
+        // The shooter can die while its already admitted projectile remains
+        // in flight.  That stale ObjectID is not a restorable dependency;
+        // preserve the Bullet and canonicalize only the expired attribution
+        // link to NUL.
+        record->master = world->isExist(m_master)
+            ? ObjectName(world, m_master) : std::string();
         if (!record->master.empty() &&
             (!world->isExist(record->master.c_str()) ||
              world->searchObject(record->master.c_str()) != m_master))
+        {
+            // Retail scripts may deliberately create duplicate symbolic unit
+            // names (ProjectG7 uses A.Unit.7G.rb0 twice).  Such a live shooter
+            // has no stable name identity, so apply the existing tombstoned-
+            // master rule while retaining the projectile's physical state.
+            record->master.clear();
+        }
+        if (record->name.empty() || record->attribute.empty())
             return FailActiveWorld(
-                "live Bullet master name is absent or ambiguous");
+                "live Bullet symbolic owner/attribute is missing");
 
         KR_Event moving[2];
         KR_Event collision[2];

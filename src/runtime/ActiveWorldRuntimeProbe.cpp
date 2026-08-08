@@ -1654,6 +1654,12 @@ bool CaptureRuntime(
     SetFailure(failure, "MSH1 version-1/2 semantic migration probe failed");
     return false;
   }
+  if (stageFixtures &&
+      !HowitzerActiveWorldState_ProbeLegacyVersionCompatibility(context)) {
+    cleanupProbeEvents();
+    SetFailure(failure, "HWZ1 version-1/2 semantic migration probe failed");
+    return false;
+  }
   if (!ActiveWorldSemanticEvents_Capture(
           context, &snapshot.events, failure)) {
     cleanupProbeEvents();

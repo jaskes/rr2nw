@@ -1999,6 +1999,17 @@ same gate closed the older fixed-pool eviction debt: forced replacement now
 removes through Context atomically instead of recycling a still-registered
 pool address; the 64-slot TankGroup floor remains to preserve valid population.
 
+The independent installed Colony branch now continues from the earlier G3
+slice through fourteen ordinary results:
+`G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03`.
+It preserves G11's authored fifteen Taxi commands at the released ten-ID
+mission ceiling, G14's absent `HwzAct77` no-op, duplicate Howitzer symbolic
+names and transient target reacquisition, A25's neutral Artefact and the exact
+AER03 handoff. Public slots 1..8
+then explicit slot-8 overwrite prove every result rollback/reapply and fresh
+restore without a ninth-slot format, Artifact or Portal. HWZ1 v1 saves migrate
+to explicit destination-self v2 only after semantic owner verification.
+
 RecruitCenter default-vehicle handover is tracked separately from mission
 script population. Retail `rc_SET_DEFTAXI` data is decoded and fingerprinted,
 but the January source does not show how the later retail center applied it and
@@ -2297,7 +2308,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 86% | native window/input, focus neutralization, frame profiling, DPI-aware exclusive display ownership/recovery, exact SEH plus primary RTCHECK/assert minidump/manifest diagnostics and maintained XAudio2 2.9 cached one-shot/loops, bounded flags-1 briefing streams, symmetric listener/moving-Tank compatibility and direct occupied-Player-Vehicle pitch/lifecycle | broader moving-class/asymmetric/UI/non-WAV cinematic audio, prolonged multi-monitor/Win10/Win11 presentation soak, direct CRT abort/tool-exit inventory and sanitizer coverage |
 | M2.5 in-game shell/settings | 99% | sole ordinary in-frame shell, typed eight-slot Save/Load/restart with asynchronous thumbnails and explicit compatibility states, 26 contextual bindings, retail-bounded mouse X/Y/invert, windowed/borderless/exclusive 4:3 presentation with timed rollback, atomic schema-6 settings/schema-1/2/3/4/5 migration/safe mode, owned Effects, Player Vehicle and Cinematic volumes, full fail-closed typed Developer catalog and explicitly isolated native diagnostic fallback | packaged multi-monitor Win10/Win11 acceptance |
-| M3 retail parity | 96% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-two ordinary no-reward advances across Level.01D/02D/04D plus terminal Level.01N Outsider and the complete persisted Level.04D Actek branch `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining non-Actek world-specific chains, visible AI/guide/cinematic parity and complete campaign proof |
+| M3 retail parity | 97% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-two ordinary no-reward advances across Level.01D/02D/04D, terminal Level.01N Outsider, the complete persisted Level.04D Actek branch `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`, and persisted Colony branch `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03`, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining non-Actek world-specific chains after AER03, Level.06N commands 33-34, Level.07N fresh-candidate gap, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |

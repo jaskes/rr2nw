@@ -151,6 +151,7 @@ class RecoveredLegacyScriptHost {
   int m_openProjectNode;
   int m_deferredMissionHowitzerCount;
   int m_deferredMissionDestroyableCount;
+  bool m_discardNextMissingHolderHowitzer;
   bool m_objectTransactionActive;
   std::vector<KR_ObjectID> m_transactionCreatedObjects;
   std::vector<std::string> m_transactionDestroyedCreatedObjectNames;

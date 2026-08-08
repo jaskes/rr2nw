@@ -329,8 +329,21 @@ experimental slots fail before mutation because they cannot reconstruct Portal
 progress. The Portal transition gate uses the same LCN1 transaction for source
 rollback but does not introduce a separate public slot format.
 
-The current accepted local Windows gate is 67/67 CTest in Debug, Release and
-Playtest,
+HWZ1 version 2 keeps the same Howitzer owner section and records a private
+scheduler event's destination-self source explicitly. Version 1 encoded that
+relation with the owner's symbolic name, which is ambiguous in installed
+missions that deliberately reuse a name. Both versions are decoded; a legacy
+LCN1 is admitted only when the reconstructed owner graph matches every
+semantic field, after which the outer historical fingerprint is normalized
+for that one verified section migration. New captures always emit version 2.
+Tank and Howitzer attack targets plus Bullet master attribution remain
+non-owning transient links: an already removed target, an ambiguous live
+Bullet master or an ambiguous selected Howitzer enemy becomes NUL while the
+complete physical owner state survives. Live Commander, Group, Artefact,
+holder and attribute dependencies remain strict.
+
+The current accepted local Windows gate is 71/71 CTest in Debug, Release and
+RelWithDebInfo,
 18/18 RR2SLOT1 destroyed-context cases, 18/18 independent ordinary retail
 runtime cases, 16/16 native-window occupied Vehicle profile cases and 2/2
 cross-Level coordinator cases. The independent-process occupied-vehicle gate

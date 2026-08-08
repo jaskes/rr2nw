@@ -67,9 +67,14 @@ bool ActivateImmediateStart(KR_ObjectID object, void* user) {
   KR_Event events[2];
   const int count = activation->context->copyEventsTo(
       pe_EVCMD_START, object, events, 2);
-  if (count != 1 || !std::isfinite(events[0].timeStamp) ||
-      events[0].timeStamp > activation->boundary ||
-      activation->context->removeEventsTo(pe_EVCMD_START, object) != 1) {
+  if (count != 1 || !std::isfinite(events[0].timeStamp)) {
+    activation->valid = false;
+    return false;
+  }
+  // Only the immediate marker belongs to the completed admission boundary.
+  // A real positive authored future start remains queued for the scheduler.
+  if (events[0].timeStamp > activation->boundary) return true;
+  if (activation->context->removeEventsTo(pe_EVCMD_START, object) != 1) {
     activation->valid = false;
     return false;
   }

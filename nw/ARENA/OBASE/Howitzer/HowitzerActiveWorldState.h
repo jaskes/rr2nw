@@ -21,6 +21,8 @@ bool HowitzerActiveWorldState_CaptureHolder(
     std::vector<unsigned char>* bytes);
 bool HowitzerActiveWorldState_ValidateStable(
     const std::vector<unsigned char>& bytes);
+bool HowitzerActiveWorldState_ProbeLegacyVersionCompatibility(
+    SimulationContext* context);
 bool HowitzerActiveWorldState_MatchesStable(
     SimulationContext* context, const std::vector<unsigned char>& bytes);
 bool HowitzerActiveWorldState_CollectStableOwners(

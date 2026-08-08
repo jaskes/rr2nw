@@ -5556,6 +5556,36 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Boundary: this closes the installed Level.04D Actek center graph. It does not
   invent a post-A27 Project or turn the probe teleport into gameplay logic.
 
+### CQ-267: the deep Colony chain crosses three symbolic-identity boundaries
+
+- Status: `INSTALLED_RETAIL_GRAPH_PRESERVED`,
+  `TRANSIENT_RELATIONS_CANONICALIZED`, `LEGACY_SAVE_MIGRATED`.
+- Evidence: the installed Colony sequence continues for fourteen ordinary
+  results after G3. G11 creates four live Howitzers named
+  `A.Unit.11G.rb0`; G14 calls the archival replacement helper for absent
+  holder `HwzAct77`; G7 again creates duplicate `A.Unit.7G.rb0` Howitzers and
+  can leave their already-admitted Bullets in flight. A long session also
+  makes an authored zero-time Howitzer START occur after absolute time `0.1`.
+- Handling: after the first kernel boundary zero queues at the current
+  simulation moment for same-poll delivery; bootstrap zero retains its safe
+  `0.1` enqueue. Completed RecruitCenter script admission then closes pending
+  zero-time Howitzer STARTs as one bounded lifecycle step, while
+  positive script times remain absolute. HWZ1 v2 represents a private event
+  whose source is its destination explicitly instead of by symbolic name; v1
+  decodes and migrates semantically without changing RR2SLOT1 or LCN1. The
+  exact absent-holder delete/new pair discards only its unplaceable Howitzer.
+  A removed Tank target, a Bullet whose live master name is ambiguous and a
+  Howitzer whose selected enemy is one of several identically named live
+  Howitzers are persisted through the same NUL transient-reference semantics.
+- Verification: the active-world probe synthesizes HWZ1 v1/v2 from every real
+  admitted roster. The persisted Colony gate proves
+  `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03`,
+  including every result rollback/reapply and exact fresh restore through the
+  eight public slots: 42/42 stages across Debug, Release and RelWithDebInfo.
+- Boundary: Commander, Group, Artefact, holder, attribute and unique live
+  object identities still fail closed. This does not legalize arbitrary
+  duplicate names, missing holders or broken mission references.
+
 ## Maintenance rule
 
 When a new quirk is found:

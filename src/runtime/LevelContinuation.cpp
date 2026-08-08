@@ -5,6 +5,7 @@
 #include "MissionActiveWorldState.h"
 
 #include "kernel/h/context.h"
+#include "obase/howitzer/HowitzerActiveWorldState.h"
 #include "obase/people/PeopleActiveWorldState.h"
 
 namespace {
@@ -129,6 +130,7 @@ bool NormalizeCompatibleSectionMigrations(
   SActiveWorldSnapshot normalized = restored;
   bool peopleMigrated = false;
   bool missionMigrated = false;
+  bool howitzerMigrated = false;
   for (std::size_t index = 0; index < source.sections.size(); ++index) {
     const SActiveWorldSection& expected = source.sections[index];
     SActiveWorldSection& actual = normalized.sections[index];
@@ -152,6 +154,15 @@ bool NormalizeCompatibleSectionMigrations(
       // data. A semantically verified v1 save retains its original outer
       // fingerprint after that one compatible migration.
       missionMigrated = true;
+    } else if (expected.kind == EActiveWorldSectionKind::Howitzer &&
+               !howitzerMigrated &&
+               HowitzerActiveWorldState_MatchesStable(
+                   context, expected.payload)) {
+      // HWZ1 v1 represents destination-self scheduler sources by a symbolic
+      // object name.  Duplicate authored names make that relation ambiguous,
+      // so HWZ1 v2 stores it explicitly.  The owner verifier has proved the
+      // restored v2 graph is semantically identical to the legacy payload.
+      howitzerMigrated = true;
     } else {
       return false;
     }
@@ -160,7 +171,7 @@ bool NormalizeCompatibleSectionMigrations(
     // to prove every other boundary remained identical.
     actual.payload = expected.payload;
   }
-  if (!peopleMigrated && !missionMigrated) return false;
+  if (!peopleMigrated && !missionMigrated && !howitzerMigrated) return false;
   *normalizedFingerprint =
       ActiveWorldSave_ComputeWorldFingerprint(normalized);
   return true;
