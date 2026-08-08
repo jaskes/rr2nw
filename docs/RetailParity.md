@@ -2580,6 +2580,26 @@ playable Level begins.
   exact fresh restore and public slot-8 overwrite at the ninth stage.
   Verification is 27/27 across Debug, Release and RelWithDebInfo.
 
+### RP-CAMPAIGN-033: Level.06N owns an authored two-node checkpoint chain
+
+- Classification: `INSTALLED_PROJECT_COMMAND_EXECUTED`,
+  `ORDERED_TRIGGER_LIFECYCLE_PRESERVED`, `SAVE_ROLLBACK_PROVEN`.
+- `Our.Recruit.0/Miss_Part1` admits exactly two command-34 nodes. The explicit
+  first node is `[1170,184,-4260]`, radius 10, `Brief\part6.sc`; the terminal
+  node is `[1428,164,-2403]`, radius 10, `Brief\part7.sc`. Commented historical
+  nodes are not reconstructed.
+- The first sphere stages a closed-frame transaction. Its real `part6.sc`
+  population commits before the active ordinal advances to one. Entry/exit is
+  edge-armed, so remaining inside cannot replay the script every frame.
+- `MSH1 v5` embeds one bounded `CPK1` graph after the v4 Project roster. Exact
+  baseline and progressed captures restore byte-for-byte; a pending trigger is
+  rejected, and fault-injected restore rollback preserves the committed
+  progressed graph. MSH1 v1-v4 stay accepted without a checkpoint payload.
+- `Invoke-MissionCheckpointSmoke.ps1` is the installed-retail gate. This row
+  does not claim the terminal `s_RestartLevel(7)` handoff; that process-level
+  transition remains fail-closed until it owns destination preflight and source
+  rollback.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

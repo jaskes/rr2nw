@@ -5696,6 +5696,36 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Boundary: no reward or Portal is inferred from neutral Artefacts or source
   comments. Level.06N command 34 and late Level.01D command 33 remain separate.
 
+### CQ-272: command 34 is an ordered checkpoint owner, not admission-time script execution
+
+- Status: `INSTALLED_RETAIL_GRAPH_PRESERVED`,
+  `CLOSED_FRAME_TRIGGER_TRANSACTION`, `MSH1_V5_PERSISTED`.
+- Evidence: installed `Level.06N/SCINC/BRIEF.SCI` publishes exactly two active
+  `p_AddCheckPoint` nodes for `Our.Recruit.0/Miss_Part1`. The source declaration
+  order is terminal `Brief\part7.sc` at `[1428,164,-2403]`, radius 10, followed
+  by explicitly first `Brief\part6.sc` at `[1170,184,-4260]`, radius 10. Four
+  older points are commented out and do not belong to the executable graph.
+  `part6.sc` authors the next encounter population; `part7.sc` contains the
+  separately unowned `s_RestartLevel(7)` transition.
+- Handling: admission preflights both scripts, rotates the decoded command
+  chain around its one explicit first flag and publishes no checkpoint side
+  effects. An armed sphere crossing stages one request during simulation; the
+  complete rendered-frame boundary runs its preflighted script in the existing
+  object transaction. Only a healthy script advances the active node. Failure
+  rolls back created/replaced owners and leaves the same node active.
+  Checkpoint chains are stored as bounded `CPK1` payloads inside `MSH1 v5`;
+  pending triggers are intentionally unsaveable, and MSH1 v1-v4 retain their
+  exact prior decode/migration contract.
+- Verification: `Invoke-MissionCheckpointSmoke.ps1` requires installed
+  admission `1/2/1`, initial `part6`, one rejected unstable capture, successful
+  advance to `part7`, exact baseline/progress restore and a fault-injected
+  rollback that retains the progressed byte vector. The release matrix runs
+  the same contract in all three configurations with zero service issues.
+- Boundary: this row restores command-34 ownership and the complete first
+  checkpoint transition. It does not claim that `s_RestartLevel(7)` has a
+  coordinator yet. Final Level.06N-to-Level.01N handoff remains a separate
+  transactional campaign slice, as does late Level.01D command 33.
+
 ## Maintenance rule
 
 When a new quirk is found:

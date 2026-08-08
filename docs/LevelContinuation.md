@@ -133,7 +133,14 @@ they may cross a public save boundary.
 
 Mission Routes are reloaded resources but their object identity is mutable
 mission state. MSH1 version 3 stores the symbolic identity, node-geometry
-fingerprint and reward flag. Fresh restore resolves that identity against both the mod-aware
+fingerprint and reward flag; version 4 adds the complete ProjectTable roster.
+Version 5 appends the bounded `CPK1` command-34 checkpoint graph after that
+roster without changing raw `PlayerData`. It preserves symbolic center/project
+owners, authored point/script identity, the active ordinal and committed
+execution counters. A staged but uncommitted trigger rejects capture. Fresh
+restore re-preflights every checkpoint script and resolves both symbolic owners
+before adopting the graph. Versions 1..4 remain readable and migrate to an
+empty checkpoint set. Fresh restore resolves mission Route identity against both the mod-aware
 virtual relative path and authored Route header; version 1 remains readable
 through semantic migration, while versions 1/2 default the reward flag off.
 ART1 restores live Artefact identity, dependencies, optional carrier relation,

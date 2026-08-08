@@ -90,6 +90,7 @@ struct StartupOptions {
   bool missionCombatSmoke = false;
   bool missionNaturalCombatSmoke = false;
   bool missionGuideRouteSmoke = false;
+  bool missionCheckpointSmoke = false;
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
   bool missionNoRewardResultSmoke = false;
@@ -351,6 +352,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionGuideRouteSmoke = true;
+    } else if (argument == L"--mission-checkpoint-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionCheckpointSmoke = true;
     } else if (argument == L"--mission-continuation-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -574,6 +579,7 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
        options->missionBriefingSmoke || options->missionCombatSmoke ||
        options->missionNaturalCombatSmoke ||
        options->missionGuideRouteSmoke ||
+       options->missionCheckpointSmoke ||
        options->missionContinuationSmoke ||
        options->missionObjectiveChainSmoke ||
        options->missionTerminalStateSmoke)) {
@@ -619,6 +625,21 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     }
     if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
       *failure = L"--mission-terminal-state-smoke owns its save/rollback "
+                 L"transaction";
+      return false;
+    }
+  }
+  if (options->missionCheckpointSmoke) {
+    if (options->missionCenter.empty()) {
+      options->missionCenter = L"Our.Recruit.0";
+    } else if (_wcsicmp(options->missionCenter.c_str(),
+                        L"Our.Recruit.0") != 0) {
+      *failure = L"--mission-checkpoint-smoke starts at Our.Recruit.0 on "
+                 L"Level.06N";
+      return false;
+    }
+    if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
+      *failure = L"--mission-checkpoint-smoke owns its save/rollback "
                  L"transaction";
       return false;
     }
@@ -1738,6 +1759,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--debug-menu] [--safe-mode]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
+                L"           --mission-checkpoint-smoke |\n"
                 L"           --mission-combat-smoke |\n"
                 L"           --mission-natural-combat-smoke |\n"
                 L"           --mission-guide-route-smoke |\n"
@@ -3827,6 +3849,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.scriptRollbacks));
     log.Line("mission_smoke_deferred_artefact_rewards=" +
              std::to_string(mission.deferredArtefactRewards));
+    log.Line("mission_smoke_checkpoints=" +
+             std::to_string(mission.checkpointChains) + "/" +
+             std::to_string(mission.checkpointCommands) + "/" +
+             std::to_string(mission.activeCheckpoints));
     if (!missionExecuted) {
       log.Line(std::string("mission_smoke_error=") +
                RecruitCenterSubjectState_LastError());
@@ -3835,6 +3861,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
         options.missionBriefingSmoke ? mission.briefingCommands : 0;
     const int expectedCenterPresentations =
         options.missionBriefingSmoke ? 1 : 0;
+    log.Line(std::string("mission_smoke_services_ready_before_frame=") +
+             (RecoveredGameServices_IsReady() ? "1" : "0"));
+    const bool missionFrameReady = runCompleteFrame();
+    log.Line(std::string("mission_smoke_frame_ready=") +
+             (missionFrameReady ? "1" : "0"));
+    log.Line("mission_smoke_frame_issues=" +
+             std::to_string(RecoveredGameServices_Issues()));
     loopFailed = !missionExecuted || !missionStaged ||
                  mission.executedScripts < 1 ||
                  mission.createdMissionObjects < 1 ||
@@ -3849,7 +3882,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                   (mission.postBriefingCollisionEvents != 2 ||
                    mission.postBriefingCollisionSuppressions != 2 ||
                    mission.postBriefingPresentationRepeats != 0)) ||
-                 mission.scriptRollbacks != 0 || !runCompleteFrame();
+                 mission.scriptRollbacks != 0 || !missionFrameReady;
     if (!loopFailed && options.missionNaturalCombatSmoke) {
       const bool missionEjectionReady =
           RecruitCenterSubjectState_EjectPlayerForCenter(
@@ -3888,14 +3921,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
         (options.missionNoRewardResultSmoke ||
          options.missionTerminalNoRewardResultSmoke) &&
         options.startupLoadSlot >= 0 && options.startupSaveSlot >= 0;
-    if (loadedProgressionMission) {
+    const bool checkpointProgressionMission =
+        mission.checkpointCommands > 0;
+    if (loadedProgressionMission || checkpointProgressionMission) {
       // A progression save deliberately retains the previous mission's
       // authored population.  The clean-admission guide probes select the
       // newest global guide and temporarily mutate it, so running them here
       // would inspect the retired mission instead of the newly admitted one.
       // The chained smoke proves the loaded population through continuation
       // fingerprints and the new mission through its rebound objectives.
-      log.Line("mission_smoke_auxiliary_policy=loaded-progression-skip");
+      log.Line(std::string("mission_smoke_auxiliary_policy=") +
+               (checkpointProgressionMission
+                    ? "checkpoint-progression-skip"
+                    : "loaded-progression-skip"));
     } else {
     SPeopleRouteMotionProbeSummary guide = {};
     const bool guideReady = PeopleSubjectState_ProbeNewestDelayedRoute(
@@ -4090,6 +4128,134 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               std::to_string(missionPeopleSchedule.attackStates) + "/" +
               std::to_string(missionPeopleSchedule.malformedQueues));
     loopFailed = loopFailed || !missionPeopleScheduleReady;
+    }
+    if (!loopFailed && options.missionCheckpointSmoke) {
+      std::vector<std::uint8_t> checkpointBaseline;
+      std::vector<std::uint8_t> checkpointBaselineRecaptured;
+      std::vector<std::uint8_t> checkpointProgress;
+      std::vector<std::uint8_t> checkpointProgressRecaptured;
+      std::vector<std::uint8_t> checkpointRollbackRecaptured;
+      SLevelContinuationSummary baselineCaptured;
+      SLevelContinuationSummary baselineRestored;
+      SLevelContinuationSummary baselineVerified;
+      SLevelContinuationSummary progressCaptured;
+      SLevelContinuationSummary progressRestored;
+      SLevelContinuationSummary progressVerified;
+      SLevelContinuationSummary rejected;
+      SLevelContinuationSummary rollbackVerified;
+      RecruitCenterCheckpointProbeSummary initial = {};
+      RecruitCenterCheckpointProbeSummary progressed = {};
+      RecruitCenterCheckpointProbeSummary baselineState = {};
+      RecruitCenterCheckpointProbeSummary restoredProgress = {};
+      const bool initialReady =
+          RecruitCenterSubjectState_CheckpointProbe(
+              g_super.m_context, &initial) &&
+          initial.chains == 1 && initial.checkpoints == 2 &&
+          initial.activeCheckpoints == 1 && initial.activeOrdinal == 0 &&
+          initial.activeIsFirst == 1 && initial.activeIsComplete == 0 &&
+          std::strcmp(initial.activeScript, "Brief\\part6.sc") == 0;
+      const bool baselineReady = initialReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &checkpointBaseline, &baselineCaptured);
+      const bool triggerStaged = baselineReady &&
+          RecruitCenterSubjectState_StageActiveCheckpointProbe(
+              g_super.m_context);
+      std::vector<std::uint8_t> unstableCapture;
+      SLevelContinuationSummary unstableSummary;
+      const bool pendingCaptureRejected = triggerStaged &&
+          !RecoveredGameServices_CaptureLevelContinuation(
+              &unstableCapture, &unstableSummary);
+      const bool triggerProcessed = pendingCaptureRejected &&
+          runCompleteFrame() &&
+          !RecruitCenterSubjectState_CheckpointPending();
+      const bool progressedReady = triggerProcessed &&
+          RecruitCenterSubjectState_CheckpointProbe(
+              g_super.m_context, &progressed) &&
+          progressed.chains == 1 && progressed.checkpoints == 2 &&
+          progressed.activeCheckpoints == 1 &&
+          progressed.activeOrdinal == 1 &&
+          progressed.activeIsFirst == 0 &&
+          progressed.activeIsComplete == 1 &&
+          progressed.executedScripts == 1 && progressed.rollbacks == 0 &&
+          std::strcmp(progressed.activeScript, "Brief\\part7.sc") == 0;
+      const bool progressReady = progressedReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &checkpointProgress, &progressCaptured);
+      const bool baselineRestoreReady = progressReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              checkpointBaseline, &baselineRestored);
+      const bool baselineRecaptureReady = baselineRestoreReady &&
+          RecruitCenterSubjectState_CheckpointProbe(
+              g_super.m_context, &baselineState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &checkpointBaselineRecaptured, &baselineVerified);
+      const bool baselineExact = baselineRecaptureReady &&
+          checkpointBaseline == checkpointBaselineRecaptured &&
+          baselineState.activeOrdinal == 0 &&
+          baselineState.executedScripts == 0 &&
+          baselineCaptured.worldFingerprint ==
+              baselineRestored.restoredWorldFingerprint &&
+          baselineCaptured.worldFingerprint ==
+              baselineVerified.worldFingerprint;
+      const bool progressRestoreReady = baselineExact &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              checkpointProgress, &progressRestored);
+      const bool progressRecaptureReady = progressRestoreReady &&
+          RecruitCenterSubjectState_CheckpointProbe(
+              g_super.m_context, &restoredProgress) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &checkpointProgressRecaptured, &progressVerified);
+      const bool progressExact = progressRecaptureReady &&
+          checkpointProgress == checkpointProgressRecaptured &&
+          restoredProgress.activeOrdinal == 1 &&
+          restoredProgress.executedScripts == 1 &&
+          progressCaptured.worldFingerprint ==
+              progressRestored.restoredWorldFingerprint &&
+          progressCaptured.worldFingerprint ==
+              progressVerified.worldFingerprint;
+      if (progressExact)
+        RecoveredGameServices_FailNextRestoredGameplayAuthorityForTesting();
+      const bool restoreRejected = progressExact &&
+          !RecoveredGameServices_RestoreLevelContinuation(
+              checkpointBaseline, &rejected);
+      const std::string rejection =
+          RecoveredGameServices_LastLevelContinuationError();
+      const bool rollbackRecaptured = restoreRejected &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &checkpointRollbackRecaptured, &rollbackVerified);
+      const bool rollbackExact = rollbackRecaptured &&
+          checkpointRollbackRecaptured == checkpointProgress &&
+          rollbackVerified.worldFingerprint ==
+              progressCaptured.worldFingerprint;
+      log.Line("mission_checkpoint_initial=" +
+               std::to_string(initialReady ? 1 : 0) + "/" +
+               std::to_string(initial.activeOrdinal) + "/" +
+               initial.activeScript);
+      log.Line("mission_checkpoint_trigger=" +
+               std::to_string(triggerStaged ? 1 : 0) + "/" +
+               std::to_string(pendingCaptureRejected ? 1 : 0) + "/" +
+               std::to_string(triggerProcessed ? 1 : 0) + "/" +
+               std::to_string(progressed.activeOrdinal) + "/" +
+               progressed.activeScript + "/" +
+               std::to_string(progressed.executedScripts) + "/" +
+               std::to_string(progressed.rollbacks));
+      log.Line("mission_checkpoint_save=" +
+               std::to_string(baselineReady ? 1 : 0) + "/" +
+               std::to_string(progressReady ? 1 : 0) + "/" +
+               std::to_string(baselineExact ? 1 : 0) + "/" +
+               std::to_string(progressExact ? 1 : 0));
+      log.Line("mission_checkpoint_rollback=" +
+               std::to_string(restoreRejected ? 1 : 0) + "/" +
+               std::to_string(rollbackRecaptured ? 1 : 0) + "/" +
+               std::to_string(rollbackExact ? 1 : 0));
+      if (!triggerProcessed || !progressedReady)
+        log.Line(std::string("mission_checkpoint_error=") +
+                 RecruitCenterSubjectState_LastError());
+      else if (!baselineExact || !progressExact || !rollbackExact)
+        log.Line("mission_checkpoint_error=" + rejection);
+      loopFailed = !initialReady || !pendingCaptureRejected ||
+          !progressedReady || !baselineExact || !progressExact ||
+          !rollbackExact;
     }
     const std::string missionProject = mission.projectName;
     if (!loopFailed && options.missionNaturalCombatSmoke) {
@@ -6169,6 +6335,31 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(lastMission.presentedCenterFlicks) + "/" +
              std::to_string(lastMission.presentedHostilityBriefings) + "/" +
              std::to_string(lastMission.centerPresentationFailures));
+  }
+  RecruitCenterCheckpointProbeSummary checkpointSummary = {};
+  if (RecruitCenterSubjectState_CheckpointProbe(
+          g_super.m_context, &checkpointSummary)) {
+    log.Line("mission_checkpoint_state=" +
+             std::to_string(checkpointSummary.chains) + "/" +
+             std::to_string(checkpointSummary.checkpoints) + "/" +
+             std::to_string(checkpointSummary.activeCheckpoints) + "/" +
+             std::to_string(checkpointSummary.pendingTriggers) + "/" +
+             std::to_string(checkpointSummary.completedChains) + "/" +
+             std::to_string(checkpointSummary.executedScripts) + "/" +
+             std::to_string(checkpointSummary.rollbacks));
+    if (checkpointSummary.activeOrdinal >= 0) {
+      log.Line(std::string("mission_checkpoint_active=") +
+               checkpointSummary.centerName + "/" +
+               checkpointSummary.projectName + "/" +
+               std::to_string(checkpointSummary.activeOrdinal) + "/" +
+               std::to_string(checkpointSummary.activeIsFirst) + "/" +
+               std::to_string(checkpointSummary.activeIsComplete) + "/" +
+               std::to_string(checkpointSummary.activeX) + "/" +
+               std::to_string(checkpointSummary.activeY) + "/" +
+               std::to_string(checkpointSummary.activeZ) + "/" +
+               std::to_string(checkpointSummary.activeRadius) + "/" +
+               checkpointSummary.activeScript);
+    }
   }
   const int presentationTraceCount = RecoveredPresentationTrace_Count();
   log.Line("presentation_trace_count=" +

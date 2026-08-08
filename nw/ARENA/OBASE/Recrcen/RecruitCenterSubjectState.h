@@ -1,6 +1,9 @@
 #ifndef RR2NW_RECRUIT_CENTER_SUBJECT_STATE_H
 #define RR2NW_RECRUIT_CENTER_SUBJECT_STATE_H
 
+#include <cstdint>
+#include <vector>
+
 class SimulationContext;
 
 struct RecruitCenterMissionProbeSummary
@@ -32,10 +35,34 @@ struct RecruitCenterMissionProbeSummary
     int admissionEvents;
     int ejections;
     int deferredArtefactRewards;
+    int checkpointChains;
+    int checkpointCommands;
+    int activeCheckpoints;
     char capacityLimitedConditionName[81];
     char preSatisfiedKillConditionName[81];
     char centerName[81];
     char projectName[81];
+};
+
+struct RecruitCenterCheckpointProbeSummary
+{
+    int chains;
+    int checkpoints;
+    int activeCheckpoints;
+    int pendingTriggers;
+    int completedChains;
+    int executedScripts;
+    int rollbacks;
+    int activeOrdinal;
+    int activeIsFirst;
+    int activeIsComplete;
+    double activeX;
+    double activeY;
+    double activeZ;
+    double activeRadius;
+    char centerName[81];
+    char projectName[81];
+    char activeScript[261];
 };
 
 struct RecruitCenterMissionResultProbeSummary
@@ -207,6 +234,24 @@ bool RecruitCenterSubjectState_LastMissionSummary(
     RecruitCenterMissionProbeSummary *summary);
 bool RecruitCenterSubjectState_ObjectiveState(
     SimulationContext *context, RecruitCenterObjectiveStateSummary *summary);
+bool RecruitCenterSubjectState_CaptureCheckpointState(
+    SimulationContext *context, std::vector<std::uint8_t> *bytes);
+bool RecruitCenterSubjectState_ValidateCheckpointState(
+    const std::vector<std::uint8_t> &bytes);
+bool RecruitCenterSubjectState_ApplyCheckpointState(
+    SimulationContext *context, const std::vector<std::uint8_t> &bytes);
+bool RecruitCenterSubjectState_CheckpointStateMatches(
+    SimulationContext *context, const std::vector<std::uint8_t> &bytes);
+void RecruitCenterSubjectState_ClearCheckpointState();
+bool RecruitCenterSubjectState_PollCheckpoints(
+    SimulationContext *context);
+bool RecruitCenterSubjectState_CheckpointPending();
+bool RecruitCenterSubjectState_ProcessPendingCheckpoint(
+    SimulationContext *context, double timeStamp);
+bool RecruitCenterSubjectState_CheckpointProbe(
+    SimulationContext *context, RecruitCenterCheckpointProbeSummary *summary);
+bool RecruitCenterSubjectState_StageActiveCheckpointProbe(
+    SimulationContext *context);
 bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     RecruitCenterMissionResultProbeSummary *summary);

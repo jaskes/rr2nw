@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -83,6 +84,44 @@ struct PreparedMissionFile
     std::string source;
 };
 
+struct MissionCheckpoint
+{
+    CFVector3 position;
+    double radius;
+    bool isFirst;
+    bool isComplete;
+    std::string script;
+    PreparedMissionFile prepared;
+
+    MissionCheckpoint()
+        : position(0.0, 0.0, 0.0), radius(0.0), isFirst(false),
+          isComplete(false) {}
+};
+
+struct MissionCheckpointChain
+{
+    std::string center;
+    std::string project;
+    std::vector<MissionCheckpoint> checkpoints;
+    int activeIndex;
+    bool completed;
+    bool armed;
+    int executedScripts;
+    int rollbacks;
+
+    MissionCheckpointChain()
+        : activeIndex(-1), completed(false), armed(true),
+          executedScripts(0), rollbacks(0) {}
+};
+
+const std::uint32_t kCheckpointMagic = 0x314b5043u;  // CPK1
+const std::uint32_t kCheckpointVersion = 1u;
+const std::size_t kMaximumCheckpointChains = 6;
+const std::size_t kMaximumCheckpointsPerChain = 32;
+const std::size_t kMaximumCheckpointPayload = 64u * 1024u;
+std::vector<MissionCheckpointChain> g_checkpointChains;
+int g_pendingCheckpointChain = -1;
+
 struct CenterEncounterPresentation
 {
     int attempts;
@@ -159,6 +198,220 @@ bool PrepareMissionFile(const std::string &path, bool readSource,
     prepared->authoredPath = path;
     prepared->resolvedPath = resolved;
     prepared->source.swap(source);
+    return true;
+}
+
+bool FiniteVector(const CFVector3 &value);
+
+void CheckpointU32(std::vector<std::uint8_t> *bytes, std::uint32_t value)
+{
+    for (int shift = 0; shift < 32; shift += 8)
+        bytes->push_back(static_cast<std::uint8_t>(value >> shift));
+}
+
+void CheckpointDouble(std::vector<std::uint8_t> *bytes, double value)
+{
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    for (int shift = 0; shift < 64; shift += 8)
+        bytes->push_back(static_cast<std::uint8_t>(bits >> shift));
+}
+
+bool CheckpointString(std::vector<std::uint8_t> *bytes,
+                      const std::string &value, std::size_t maximum)
+{
+    if (bytes == NULL || value.size() > maximum ||
+        value.find('\0') != std::string::npos)
+        return false;
+    CheckpointU32(bytes, static_cast<std::uint32_t>(value.size()));
+    bytes->insert(bytes->end(), value.begin(), value.end());
+    return true;
+}
+
+struct CheckpointReader
+{
+    const std::vector<std::uint8_t> &bytes;
+    std::size_t offset;
+
+    explicit CheckpointReader(const std::vector<std::uint8_t> &value)
+        : bytes(value), offset(0) {}
+
+    bool U32(std::uint32_t *value)
+    {
+        if (value == NULL || offset > bytes.size() ||
+            bytes.size() - offset < 4)
+            return false;
+        *value = 0;
+        for (int shift = 0; shift < 32; shift += 8)
+            *value |= static_cast<std::uint32_t>(bytes[offset++]) << shift;
+        return true;
+    }
+
+    bool I32(int *value)
+    {
+        std::uint32_t encoded = 0;
+        if (value == NULL || !U32(&encoded)) return false;
+        *value = static_cast<int>(encoded);
+        return true;
+    }
+
+    bool Double(double *value)
+    {
+        if (value == NULL || offset > bytes.size() ||
+            bytes.size() - offset < 8)
+            return false;
+        std::uint64_t bits = 0;
+        for (int shift = 0; shift < 64; shift += 8)
+            bits |= static_cast<std::uint64_t>(bytes[offset++]) << shift;
+        std::memcpy(value, &bits, sizeof(bits));
+        return true;
+    }
+
+    bool String(std::string *value, std::size_t maximum)
+    {
+        std::uint32_t count = 0;
+        if (value == NULL || !U32(&count) || count > maximum ||
+            offset > bytes.size() || bytes.size() - offset < count)
+            return false;
+        if (count == 0)
+            value->clear();
+        else
+            value->assign(
+                reinterpret_cast<const char *>(bytes.data() + offset), count);
+        offset += count;
+        return value->find('\0') == std::string::npos;
+    }
+};
+
+bool CheckpointChainValid(const MissionCheckpointChain &chain)
+{
+    if (chain.center.empty() || chain.center.size() > 80 ||
+        chain.project.empty() || chain.project.size() > 80 ||
+        chain.checkpoints.empty() ||
+        chain.checkpoints.size() > kMaximumCheckpointsPerChain ||
+        chain.executedScripts < 0 || chain.rollbacks < 0 ||
+        (chain.completed && chain.activeIndex != -1) ||
+        (!chain.completed && (chain.activeIndex < 0 ||
+            chain.activeIndex >= static_cast<int>(chain.checkpoints.size()))))
+        return false;
+    int firstCount = 0;
+    int completeCount = 0;
+    for (std::size_t index = 0; index < chain.checkpoints.size(); ++index)
+    {
+        const MissionCheckpoint &checkpoint = chain.checkpoints[index];
+        if (!FiniteVector(checkpoint.position) ||
+            !std::isfinite(checkpoint.radius) || checkpoint.radius <= 0.0 ||
+            checkpoint.radius > 1000000.0 || checkpoint.script.empty() ||
+            checkpoint.script.size() >= 260 ||
+            !IsSafeMissionPath(checkpoint.script))
+            return false;
+        firstCount += checkpoint.isFirst ? 1 : 0;
+        completeCount += checkpoint.isComplete ? 1 : 0;
+    }
+    return firstCount == 1 && completeCount == 1 &&
+           chain.checkpoints[0].isFirst &&
+           chain.checkpoints.back().isComplete;
+}
+
+bool EncodeCheckpointChains(
+    const std::vector<MissionCheckpointChain> &chains,
+    std::vector<std::uint8_t> *bytes)
+{
+    if (bytes == NULL || chains.size() > kMaximumCheckpointChains)
+        return false;
+    bytes->clear();
+    CheckpointU32(bytes, kCheckpointMagic);
+    CheckpointU32(bytes, kCheckpointVersion);
+    CheckpointU32(bytes, static_cast<std::uint32_t>(chains.size()));
+    for (std::size_t chainIndex = 0; chainIndex < chains.size(); ++chainIndex)
+    {
+        const MissionCheckpointChain &chain = chains[chainIndex];
+        if (!CheckpointChainValid(chain) ||
+            !CheckpointString(bytes, chain.center, 80) ||
+            !CheckpointString(bytes, chain.project, 80))
+            return false;
+        CheckpointU32(bytes, static_cast<std::uint32_t>(chain.activeIndex));
+        CheckpointU32(bytes, chain.completed ? 1u : 0u);
+        CheckpointU32(bytes, chain.armed ? 1u : 0u);
+        CheckpointU32(bytes,
+                      static_cast<std::uint32_t>(chain.executedScripts));
+        CheckpointU32(bytes, static_cast<std::uint32_t>(chain.rollbacks));
+        CheckpointU32(bytes,
+                      static_cast<std::uint32_t>(chain.checkpoints.size()));
+        for (std::size_t point = 0; point < chain.checkpoints.size(); ++point)
+        {
+            const MissionCheckpoint &checkpoint = chain.checkpoints[point];
+            CheckpointDouble(bytes, checkpoint.position.x);
+            CheckpointDouble(bytes, checkpoint.position.y);
+            CheckpointDouble(bytes, checkpoint.position.z);
+            CheckpointDouble(bytes, checkpoint.radius);
+            CheckpointU32(bytes, checkpoint.isFirst ? 1u : 0u);
+            CheckpointU32(bytes, checkpoint.isComplete ? 1u : 0u);
+            if (!CheckpointString(bytes, checkpoint.script, 259))
+                return false;
+        }
+    }
+    return bytes->size() <= kMaximumCheckpointPayload;
+}
+
+bool DecodeCheckpointChains(
+    const std::vector<std::uint8_t> &bytes,
+    std::vector<MissionCheckpointChain> *chains)
+{
+    if (chains == NULL || bytes.size() > kMaximumCheckpointPayload)
+        return false;
+    CheckpointReader reader(bytes);
+    std::uint32_t magic = 0, version = 0, count = 0;
+    if (!reader.U32(&magic) || !reader.U32(&version) ||
+        !reader.U32(&count) || magic != kCheckpointMagic ||
+        version != kCheckpointVersion || count > kMaximumCheckpointChains)
+        return false;
+    chains->clear();
+    chains->resize(count);
+    for (std::size_t chainIndex = 0; chainIndex < chains->size(); ++chainIndex)
+    {
+        MissionCheckpointChain &chain = (*chains)[chainIndex];
+        int activeIndex = -1;
+        std::uint32_t completed = 0, armed = 0, executed = 0,
+                      rollbacks = 0, pointCount = 0;
+        if (!reader.String(&chain.center, 80) ||
+            !reader.String(&chain.project, 80) ||
+            !reader.I32(&activeIndex) || !reader.U32(&completed) ||
+            !reader.U32(&armed) || !reader.U32(&executed) ||
+            !reader.U32(&rollbacks) || !reader.U32(&pointCount) ||
+            completed > 1 || armed > 1 ||
+            executed > 1000000u || rollbacks > 1000000u ||
+            pointCount == 0 || pointCount > kMaximumCheckpointsPerChain)
+            return false;
+        chain.activeIndex = activeIndex;
+        chain.completed = completed != 0;
+        chain.armed = armed != 0;
+        chain.executedScripts = static_cast<int>(executed);
+        chain.rollbacks = static_cast<int>(rollbacks);
+        chain.checkpoints.resize(pointCount);
+        for (std::size_t point = 0; point < chain.checkpoints.size(); ++point)
+        {
+            MissionCheckpoint &checkpoint = chain.checkpoints[point];
+            std::uint32_t isFirst = 0, isComplete = 0;
+            if (!reader.Double(&checkpoint.position.x) ||
+                !reader.Double(&checkpoint.position.y) ||
+                !reader.Double(&checkpoint.position.z) ||
+                !reader.Double(&checkpoint.radius) ||
+                !reader.U32(&isFirst) || !reader.U32(&isComplete) ||
+                isFirst > 1 || isComplete > 1 ||
+                !reader.String(&checkpoint.script, 259))
+                return false;
+            checkpoint.isFirst = isFirst != 0;
+            checkpoint.isComplete = isComplete != 0;
+        }
+        if (!CheckpointChainValid(chain)) return false;
+    }
+    if (reader.offset != bytes.size()) return false;
+    for (std::size_t left = 0; left < chains->size(); ++left)
+        for (std::size_t right = left + 1; right < chains->size(); ++right)
+            if ((*chains)[left].center == (*chains)[right].center &&
+                (*chains)[left].project == (*chains)[right].project)
+                return false;
     return true;
 }
 
@@ -744,6 +997,64 @@ int DeferredCommandCount(const std::vector<DeferredMissionCommand> &commands,
     return count;
 }
 
+bool BuildCheckpointChain(
+    const std::vector<DeferredMissionCommand> &commands,
+    const std::vector<PreparedMissionFile> &files,
+    const char *centerName, const char *projectName,
+    MissionCheckpointChain *chain)
+{
+    if (chain == NULL || centerName == NULL || projectName == NULL ||
+        centerName[0] == 0 || projectName[0] == 0 ||
+        commands.size() != files.size())
+        return false;
+    *chain = MissionCheckpointChain();
+    chain->center = centerName;
+    chain->project = projectName;
+    std::vector<MissionCheckpoint> authored;
+    int firstIndex = -1;
+    for (std::size_t index = 0; index < commands.size(); ++index)
+    {
+        if (commands[index].command != 34) continue;
+        if (authored.size() >= kMaximumCheckpointsPerChain)
+            return false;
+        const int flags = commands[index].integer;
+        if (flags < 0 || flags > 3 ||
+            !FiniteVector(CFVector3(commands[index].values[0],
+                                    commands[index].values[1],
+                                    commands[index].values[2])) ||
+            !std::isfinite(commands[index].values[3]) ||
+            commands[index].values[3] <= 0.0 ||
+            files[index].source.empty())
+            return false;
+        MissionCheckpoint checkpoint;
+        checkpoint.position = CFVector3(commands[index].values[0],
+                                        commands[index].values[1],
+                                        commands[index].values[2]);
+        checkpoint.radius = commands[index].values[3];
+        checkpoint.isComplete = (flags & 1) != 0;
+        checkpoint.isFirst = (flags & 2) != 0;
+        checkpoint.script = commands[index].first;
+        checkpoint.prepared = files[index];
+        if (checkpoint.isFirst)
+        {
+            if (firstIndex >= 0) return false;
+            firstIndex = static_cast<int>(authored.size());
+        }
+        authored.push_back(checkpoint);
+    }
+    if (authored.empty()) return true;
+    if (firstIndex < 0) return false;
+    // p_AddCheckPoint explicitly identifies the first node. Rotate the
+    // decoded right-link order around that marker instead of assuming source
+    // declaration order; this keeps the installed Level.06N chain stable.
+    for (std::size_t offset = 0; offset < authored.size(); ++offset)
+        chain->checkpoints.push_back(
+            authored[(static_cast<std::size_t>(firstIndex) + offset) %
+                     authored.size()]);
+    chain->activeIndex = 0;
+    return CheckpointChainValid(*chain);
+}
+
 bool PrepareDeferredMissionFiles(
     const std::vector<DeferredMissionCommand> &commands,
     std::vector<PreparedMissionFile> *files)
@@ -793,12 +1104,25 @@ bool PrepareDeferredMissionFiles(
                 return false;
             }
         }
+        else if (command == 34)
+        {
+            if (!PrepareMissionFile(commands[index].first, true,
+                                    &(*files)[index]))
+            {
+                char message[256] = {};
+                std::snprintf(message, sizeof(message),
+                              "RecruitCenter cannot preflight checkpoint "
+                              "script %.148s", commands[index].first.c_str());
+                SetError(message);
+                return false;
+            }
+        }
         else if (command != COM_BRIEFING_OVER &&
                  command != kSetGiveArtefactCommand)
         {
-            // CREATE_UNITS, SKIP_WAY and the May checkpoint command retain
-            // their decoded payloads, but they do not yet have a
-            // transactional modern owner. Never silently accept them.
+            // CREATE_UNITS, SKIP_WAY and command 33 retain their decoded
+            // payloads, but they do not yet have a transactional modern
+            // owner. Never silently accept them.
             char message[256] = {};
             std::snprintf(message, sizeof(message),
                           "RecruitCenter deferred command %d is unsupported",
@@ -1568,10 +1892,37 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     std::vector<PreparedMissionFile> preparedFiles;
     RecoveredLegacyScriptHost scriptHost(&g_arena);
     bool scriptTransaction = false;
+    MissionCheckpointChain checkpointChain;
+    bool checkpointPrepared = false;
     if (executeDeferred)
     {
         if (!PrepareDeferredMissionFiles(deferredCommands, &preparedFiles))
             return false;
+        if (DeferredCommandCount(deferredCommands, 34) > 0)
+        {
+            if (!BuildCheckpointChain(deferredCommands, preparedFiles,
+                                      centerName, projectName,
+                                      &checkpointChain) ||
+                checkpointChain.checkpoints.empty())
+            {
+                SetError("RecruitCenter checkpoint graph is malformed");
+                return false;
+            }
+            for (std::size_t index = 0; index < g_checkpointChains.size();
+                 ++index)
+                if (g_checkpointChains[index].center == centerName &&
+                    g_checkpointChains[index].project == projectName)
+                {
+                    SetError("RecruitCenter checkpoint graph is already active");
+                    return false;
+                }
+            if (g_checkpointChains.size() >= kMaximumCheckpointChains)
+            {
+                SetError("RecruitCenter checkpoint owner pool is full");
+                return false;
+            }
+            checkpointPrepared = true;
+        }
         if (!RunDeferredMissionScripts(context, timeStamp, deferredCommands,
                                        preparedFiles, &scriptHost, summary))
             return false;
@@ -1698,6 +2049,8 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     }
     player.m_mission[missionIndex] = mission;
     player.loadNotify();
+    if (checkpointPrepared)
+        g_checkpointChains.push_back(checkpointChain);
 
     KR_Event check(rc_CHECK_MISSION, timeStamp + 20.0,
                    g_vehicle->getObjectID(), center->getObjectID());
@@ -1712,6 +2065,9 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         --player.m_missCnt;
         if (player.m_total_misCount > 0) --player.m_total_misCount;
         player.loadNotify();
+        if (checkpointPrepared && !g_checkpointChains.empty() &&
+            g_checkpointChains.back().project == projectName)
+            g_checkpointChains.pop_back();
         if (createdRoute && context->isExist(route))
             context->removeObject(route);
         rollbackScript.Run(&scriptHost, scriptTransaction, summary);
@@ -1730,6 +2086,9 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         DeferredCommandCount(deferredCommands, COM_RUN_SCRIPT);
     summary->deferredArtefactRewards = DeferredCommandCount(
         deferredCommands, kSetGiveArtefactCommand);
+    summary->checkpointChains = checkpointPrepared ? 1 : 0;
+    summary->checkpointCommands = DeferredCommandCount(deferredCommands, 34);
+    summary->activeCheckpoints = checkpointPrepared ? 1 : 0;
     if (scriptTransaction) scriptHost.CommitObjectTransaction();
     if (presentBriefing)
         PresentDeferredBriefings(context, deferredCommands, preparedFiles,
@@ -1758,6 +2117,8 @@ class RecruitCenterTable : public ct_SubjectTable
         delete [] m_table;
         m_table = NULL;
         m_maxObjectQnty = 0;
+        g_checkpointChains.clear();
+        g_pendingCheckpointChain = -1;
     }
 
     ct_Object *getObjectPTR(int index) override
@@ -2119,6 +2480,8 @@ bool RewardCarrierState(SimulationContext *context, bool expectAttached)
 
 void RecruitCenterSubjectState_Link()
 {
+    g_checkpointChains.clear();
+    g_pendingCheckpointChain = -1;
 }
 
 bool RecruitCenterSubjectState_TableReady(SimulationContext *context)
@@ -3880,6 +4243,287 @@ bool RecruitCenterSubjectState_ResolveSurrenderedMissionProbeForCenter(
 {
     return ResolveTerminalMissionProbeForCenter(
         context, timeStamp, centerName, MISSION_SURRENDER, summary);
+}
+
+bool RecruitCenterSubjectState_CaptureCheckpointState(
+    SimulationContext *context, std::vector<std::uint8_t> *bytes)
+{
+    if (context == NULL || bytes == NULL ||
+        g_pendingCheckpointChain >= 0)
+    {
+        SetError("RecruitCenter checkpoint capture is not at a stable boundary");
+        return false;
+    }
+    for (std::size_t index = 0; index < g_checkpointChains.size(); ++index)
+    {
+        const MissionCheckpointChain &chain = g_checkpointChains[index];
+        if (!CheckpointChainValid(chain) ||
+            !context->isExist(chain.center.c_str()) ||
+            !context->isExist(chain.project.c_str()))
+        {
+            SetError("RecruitCenter checkpoint graph lost a symbolic owner");
+            return false;
+        }
+    }
+    if (!EncodeCheckpointChains(g_checkpointChains, bytes))
+    {
+        SetError("RecruitCenter checkpoint state encoding failed");
+        return false;
+    }
+    return true;
+}
+
+bool RecruitCenterSubjectState_ValidateCheckpointState(
+    const std::vector<std::uint8_t> &bytes)
+{
+    std::vector<MissionCheckpointChain> decoded;
+    return DecodeCheckpointChains(bytes, &decoded);
+}
+
+bool RecruitCenterSubjectState_ApplyCheckpointState(
+    SimulationContext *context, const std::vector<std::uint8_t> &bytes)
+{
+    std::vector<MissionCheckpointChain> decoded;
+    if (context == NULL || !DecodeCheckpointChains(bytes, &decoded))
+    {
+        SetError("RecruitCenter checkpoint restore payload is invalid");
+        return false;
+    }
+    Player *player = NULL;
+    if (g_vehicle != NULL && g_vehicle->getContext() == context)
+        player = &static_cast<Player &>(g_vehicle->player());
+    for (std::size_t chainIndex = 0; chainIndex < decoded.size(); ++chainIndex)
+    {
+        MissionCheckpointChain &chain = decoded[chainIndex];
+        bool missionFound = false;
+        if (!context->isExist(chain.center.c_str()) ||
+            !context->isExist(chain.project.c_str()) || player == NULL)
+        {
+            SetError("RecruitCenter checkpoint restore owner is unresolved");
+            return false;
+        }
+        const KR_ObjectID project = context->searchObject(chain.project.c_str());
+        for (int mission = 0; mission < player->m_missCnt; ++mission)
+            if (player->m_mission[mission].mID == project)
+                missionFound = true;
+        if (!missionFound)
+        {
+            SetError("RecruitCenter checkpoint restore mission is absent");
+            return false;
+        }
+        for (std::size_t point = 0; point < chain.checkpoints.size(); ++point)
+            if (!PrepareMissionFile(chain.checkpoints[point].script, true,
+                                    &chain.checkpoints[point].prepared))
+            {
+                SetError("RecruitCenter checkpoint restore script is unavailable");
+                return false;
+            }
+    }
+    g_checkpointChains.swap(decoded);
+    g_pendingCheckpointChain = -1;
+    return true;
+}
+
+bool RecruitCenterSubjectState_CheckpointStateMatches(
+    SimulationContext *context, const std::vector<std::uint8_t> &bytes)
+{
+    std::vector<std::uint8_t> current;
+    return RecruitCenterSubjectState_ValidateCheckpointState(bytes) &&
+           RecruitCenterSubjectState_CaptureCheckpointState(context,
+                                                            &current) &&
+           current == bytes;
+}
+
+void RecruitCenterSubjectState_ClearCheckpointState()
+{
+    g_checkpointChains.clear();
+    g_pendingCheckpointChain = -1;
+}
+
+bool RecruitCenterSubjectState_PollCheckpoints(SimulationContext *context)
+{
+    if (context == NULL || g_pendingCheckpointChain >= 0 ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+        return context != NULL;
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    const CFVector3 position = g_vehicle->getPos();
+    if (!FiniteVector(position)) return false;
+    for (std::size_t chainIndex = 0;
+         chainIndex < g_checkpointChains.size(); ++chainIndex)
+    {
+        MissionCheckpointChain &chain = g_checkpointChains[chainIndex];
+        if (chain.completed || chain.activeIndex < 0) continue;
+        const KR_ObjectID project = context->isExist(chain.project.c_str())
+            ? context->searchObject(chain.project.c_str())
+            : KR_ObjectID::NUL();
+        bool activeMission = false;
+        for (int mission = 0; mission < player.m_missCnt; ++mission)
+            if (player.m_mission[mission].mID == project &&
+                player.m_mission[mission].m_status == MISSION_INPROCESS)
+                activeMission = true;
+        if (!activeMission) continue;
+        const MissionCheckpoint &checkpoint =
+            chain.checkpoints[chain.activeIndex];
+        const double dx = position.x - checkpoint.position.x;
+        const double dy = position.y - checkpoint.position.y;
+        const double dz = position.z - checkpoint.position.z;
+        const bool inside = dx * dx + dy * dy + dz * dz <=
+            checkpoint.radius * checkpoint.radius;
+        if (!inside)
+        {
+            chain.armed = true;
+            continue;
+        }
+        if (chain.armed)
+        {
+            chain.armed = false;
+            g_pendingCheckpointChain = static_cast<int>(chainIndex);
+            return true;
+        }
+    }
+    return true;
+}
+
+bool RecruitCenterSubjectState_CheckpointPending()
+{
+    return g_pendingCheckpointChain >= 0;
+}
+
+bool RecruitCenterSubjectState_ProcessPendingCheckpoint(
+    SimulationContext *context, double timeStamp)
+{
+    const int chainIndex = g_pendingCheckpointChain;
+    g_pendingCheckpointChain = -1;
+    if (context == NULL || chainIndex < 0 ||
+        chainIndex >= static_cast<int>(g_checkpointChains.size()) ||
+        !std::isfinite(timeStamp) || timeStamp < 0.0)
+    {
+        SetError("RecruitCenter checkpoint trigger is invalid");
+        return false;
+    }
+    MissionCheckpointChain &chain = g_checkpointChains[chainIndex];
+    if (!CheckpointChainValid(chain) || chain.completed ||
+        chain.activeIndex < 0 ||
+        chain.activeIndex >= static_cast<int>(chain.checkpoints.size()))
+    {
+        SetError("RecruitCenter checkpoint trigger lost its active node");
+        return false;
+    }
+    MissionCheckpoint &checkpoint = chain.checkpoints[chain.activeIndex];
+    const int nextIndex = chain.activeIndex + 1;
+    if (!checkpoint.isComplete &&
+        nextIndex >= static_cast<int>(chain.checkpoints.size()))
+    {
+        SetError("RecruitCenter checkpoint chain has no successor");
+        return false;
+    }
+
+    SRecoveredLegacyScriptProfile profile =
+        RecoveredLegacyScript_RetailFragmentProfile();
+    profile.compilerWordBufferSize = 64 * 1024;
+    profile.compilerStringBufferSize = 128 * 1024;
+    profile.compilerNameCount = 4096;
+    profile.compilerTreeBufferSize = 256 * 1024;
+    profile.compilerCodeStreamSize = 256 * 1024;
+    profile.compilerLinkInfoSize = 64 * 1024;
+    profile.processStorageStackSize = 4096;
+    profile.processStackSize = 4096;
+    profile.processQuants = 32768;
+    profile.maximumVmSlices = 8192;
+
+    RecoveredLegacyScriptHost host(&g_arena);
+    host.BeginObjectTransaction();
+    SRecoveredLegacyScriptRunResult result = {};
+    const bool ran = RecoveredLegacyScript_RunMemory(
+        checkpoint.prepared.source.c_str(), checkpoint.script.c_str(),
+        profile, context, timeStamp, &host, &result);
+    const double completedBoundary =
+        (std::max)((std::max)(0.1, timeStamp), Session::m_moment);
+    if (!ran || !HowitzerSubjectState_ActivateImmediateStarts(
+                    context, completedBoundary))
+    {
+        if (host.RollbackObjectTransaction()) ++chain.rollbacks;
+        char message[256] = {};
+        std::snprintf(message, sizeof(message),
+                      "RecruitCenter checkpoint script %.96s failed: %.120s",
+                      checkpoint.script.c_str(), result.error);
+        SetError(message);
+        return false;
+    }
+    host.CommitObjectTransaction();
+    ++chain.executedScripts;
+    if (checkpoint.isComplete)
+    {
+        chain.activeIndex = -1;
+        chain.completed = true;
+        chain.armed = false;
+    }
+    else
+    {
+        chain.activeIndex = nextIndex;
+        chain.armed = true;
+    }
+    return true;
+}
+
+bool RecruitCenterSubjectState_CheckpointProbe(
+    SimulationContext *context, RecruitCenterCheckpointProbeSummary *summary)
+{
+    if (context == NULL || summary == NULL) return false;
+    std::memset(summary, 0, sizeof(*summary));
+    summary->chains = static_cast<int>(g_checkpointChains.size());
+    summary->pendingTriggers = g_pendingCheckpointChain >= 0 ? 1 : 0;
+    summary->activeOrdinal = -1;
+    for (std::size_t chainIndex = 0;
+         chainIndex < g_checkpointChains.size(); ++chainIndex)
+    {
+        const MissionCheckpointChain &chain = g_checkpointChains[chainIndex];
+        summary->checkpoints += static_cast<int>(chain.checkpoints.size());
+        summary->completedChains += chain.completed ? 1 : 0;
+        summary->executedScripts += chain.executedScripts;
+        summary->rollbacks += chain.rollbacks;
+        if (chain.completed || chain.activeIndex < 0) continue;
+        ++summary->activeCheckpoints;
+        if (summary->activeOrdinal >= 0) continue;
+        const MissionCheckpoint &checkpoint =
+            chain.checkpoints[chain.activeIndex];
+        summary->activeOrdinal = chain.activeIndex;
+        summary->activeIsFirst = checkpoint.isFirst ? 1 : 0;
+        summary->activeIsComplete = checkpoint.isComplete ? 1 : 0;
+        summary->activeX = checkpoint.position.x;
+        summary->activeY = checkpoint.position.y;
+        summary->activeZ = checkpoint.position.z;
+        summary->activeRadius = checkpoint.radius;
+        std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                      chain.center.c_str());
+        std::snprintf(summary->projectName, sizeof(summary->projectName), "%s",
+                      chain.project.c_str());
+        std::snprintf(summary->activeScript,
+                      sizeof(summary->activeScript), "%s",
+                      checkpoint.script.c_str());
+    }
+    return true;
+}
+
+bool RecruitCenterSubjectState_StageActiveCheckpointProbe(
+    SimulationContext *context)
+{
+    if (context == NULL || g_vehicle == NULL ||
+        g_vehicle->getContext() != context || g_pendingCheckpointChain >= 0)
+        return false;
+    for (std::size_t chainIndex = 0;
+         chainIndex < g_checkpointChains.size(); ++chainIndex)
+    {
+        const MissionCheckpointChain &chain = g_checkpointChains[chainIndex];
+        if (chain.completed || chain.activeIndex < 0) continue;
+        const CFVector3 target = chain.checkpoints[chain.activeIndex].position;
+        g_vehicle->SetPos(target);
+        g_vehicle->setPosition(target);
+        g_vehicle->Stop();
+        return RecruitCenterSubjectState_PollCheckpoints(context) &&
+               g_pendingCheckpointChain == static_cast<int>(chainIndex);
+    }
+    return false;
 }
 
 const char *RecruitCenterSubjectState_LastError()

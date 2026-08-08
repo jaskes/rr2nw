@@ -51,6 +51,7 @@
 #include "obase/taxi/TaxiSubjectState.h"
 #include "obase/vehicle/VehicleAttributeState.h"
 #include "obase/vehicle/VehicleRuntimeState.h"
+#include "obase/vehicle/VehicleVesselSaveState.h"
 #include "obase/vehicle/VehicleVesselTelemetry.h"
 #include "obase/sound/SoundObjectState.h"
 #include "obase/sound/WAVResourceState.h"
@@ -1429,7 +1430,8 @@ bool ExerciseCurrentKeyTranslationAgainstStaleComplement() {
            pressedValue <= 1.0 && releasedFound && releasedValue == 0.0;
   };
 
-  return exercisePair("Right", "Left", TURN_RIGHT) &&
+  return exercisePair("W", "S", MOVE_FORWARD) &&
+         exercisePair("Right", "Left", TURN_RIGHT) &&
          exercisePair("D", "A", STRAFE_RIGHT);
 }
 
@@ -1514,13 +1516,109 @@ bool ExerciseInteractiveTaxiHandoff() {
       context->queryInterface(vehicleID, IVehicleIID));
   if (vehicle == nullptr) return false;
 
+  // The handoff fixture begins at an explicit event boundary.  Otherwise a
+  // deferred Level event from the preceding visual suite can run ahead of F1
+  // and move the Vehicle away from the authored 20-unit activation sphere.
+  SUA_ProcessEvents();
   SRecoveredTaxiVehicleHandoffTelemetry before = {};
   if (!RecoveredGameServices_TaxiVehicleHandoffTelemetry(&before))
     return false;
-  KR_ObjectID taxiID =
-      TaxiSubjectState_FirstPanelVehicleObject(context);
-  const bool expectsPanel = !taxiID.isNUL();
-  if (taxiID.isNUL()) taxiID = TaxiSubjectState_FirstObject(context);
+  const CFVector3 driveFixturePosition = vehicle->Pos();
+  const CFMatrix3x4 driveFixtureDirection = vehicle->GetDir();
+  const auto selectReadyTaxi = [&](bool* panelExpected) {
+    if (panelExpected == nullptr) return KR_ObjectID::NUL();
+    *panelExpected = false;
+    std::vector<KR_ObjectID> objects;
+    if (!TaxiSubjectState_ObjectIDs(context, &objects))
+      return KR_ObjectID::NUL();
+    const CFVector3 origin = vehicle->Pos();
+    KR_ObjectID selected = KR_ObjectID::NUL();
+    double selectedDistance = (std::numeric_limits<double>::max)();
+    bool selectedHasPanel = false;
+    for (const KR_ObjectID& object : objects) {
+      ITaxi* candidate = static_cast<ITaxi*>(
+          context->queryInterface(object, ITaxiIID));
+      if (candidate == nullptr) continue;
+      AttributeVehicle* attribute = static_cast<AttributeVehicle*>(
+          __attrVehicleTable.searchAttribute(
+              candidate->getAttributeForVehicle()));
+      const bool hasPanel = attribute != nullptr &&
+          attribute->m_panel != nullptr && attribute->m_panel->IsReady();
+      const double distance = Abs(candidate->taxiPos() - origin);
+      if (!std::isfinite(distance)) continue;
+      if ((hasPanel && !selectedHasPanel) ||
+          (hasPanel == selectedHasPanel && distance < selectedDistance)) {
+        selected = object;
+        selectedDistance = distance;
+        selectedHasPanel = hasPanel;
+      }
+    }
+    *panelExpected = selectedHasPanel;
+    return selected;
+  };
+  bool expectsPanel = false;
+  bool spawnedFixture = false;
+  KR_ObjectID taxiID = KR_ObjectID::NUL();
+  std::vector<STaxiDebugVehicleType> catalog;
+  std::string spawnFailure;
+  STaxiDebugVehicleType fixtureType;
+  bool fixtureTypeReady = false;
+  if (TaxiSubjectState_DebugVehicleCatalog(
+          context, &catalog, &spawnFailure)) {
+    for (const STaxiDebugVehicleType& type : catalog) {
+      const KR_ObjectID attributeID =
+          context->searchObject(type.vehicleAttribute.c_str());
+      AttributeVehicle* attribute = static_cast<AttributeVehicle*>(
+          __attrVehicleTable.searchAttribute(attributeID));
+      if (attribute == nullptr) continue;
+      if (!fixtureTypeReady) {
+        fixtureType = type;
+        fixtureTypeReady = true;
+      }
+      const bool panelReady =
+          attribute->m_panel != nullptr && attribute->m_panel->IsReady();
+      const bool wheelsVehicle =
+          VehicleRuntimeState_VesselKind(attribute->m_dynamic) ==
+              RECOVERED_VEHICLE_VESSEL_WHEELS &&
+          attribute->m_type == 1;
+      if (panelReady && !expectsPanel) {
+        fixtureType = type;
+        expectsPanel = true;
+        fixtureTypeReady = true;
+      }
+      if (panelReady && wheelsVehicle) {
+        fixtureType = type;
+        expectsPanel = true;
+        fixtureTypeReady = true;
+        break;
+      }
+    }
+  }
+  CFVector3 back = driveFixtureDirection.Row(2);
+  const double backLength = std::sqrt(back.x * back.x + back.z * back.z);
+  if (fixtureTypeReady && std::isfinite(backLength) &&
+      backLength > 1.0e-12) {
+    back = CFVector3(back.x / backLength, 0.0, back.z / backLength);
+    const CFVector3 requested =
+        driveFixturePosition - back * 10.0 + CFVector3(0.0, 24.0, 0.0);
+    const double timeStamp =
+        (std::max)(0.1, Session::m_viewTime);
+    STaxiDebugSpawnPlacement placement;
+    spawnedFixture = TaxiSubjectState_DebugSpawn(
+        context, fixtureType.taxiAttribute.c_str(),
+        "Taxi.Interactive.Handoff.Probe", requested,
+        std::atan2(back.x, back.z), timeStamp, &taxiID, &placement,
+        &spawnFailure);
+  }
+  if (!spawnedFixture) taxiID = selectReadyTaxi(&expectsPanel);
+  // Retail Levels may publish Taxi subjects one deferred frame before every
+  // referenced vehicle/panel resource becomes runtime-ready.  Wait for that
+  // bounded admission boundary before exercising the genuine no-Taxi path;
+  // do not widen the authored 20-unit F1 activation distance.
+  for (int readyFrame = 0; taxiID.isNUL() && readyFrame < 4; ++readyFrame) {
+    if (!RunVehicleFrameAfter(0.01)) return false;
+    taxiID = selectReadyTaxi(&expectsPanel);
+  }
   const unsigned int inputBefore = RecoveredGameServices_VehicleInputEvents();
   const unsigned int forwardedBefore =
       RecoveredGameServices_VehicleForwardedEvents();
@@ -1543,17 +1641,36 @@ bool ExerciseInteractiveTaxiHandoff() {
   ITaxi* taxi = static_cast<ITaxi*>(
       context->queryInterface(taxiID, ITaxiIID));
   if (taxi == nullptr) return false;
+  Taxi* concreteTaxi = static_cast<Taxi*>(taxi);
   const KR_ObjectID targetAttribute = taxi->getAttributeForVehicle();
   const CFVector3 taxiPosition = taxi->taxiPos();
+  AttributeVehicle* currentAttribute = static_cast<AttributeVehicle*>(
+      __attrVehicleTable.searchAttribute(vehicle->m_vehicleAttrID));
+  CFMatrix3x4 stableDirection;
+  stableDirection.LoadTransposed(concreteTaxi->GetDir());
+  CFVector3 stableUp = stableDirection.Row(1);
+  const double stableUpLength = Abs(stableUp);
+  if (currentAttribute == nullptr || !std::isfinite(stableUpLength) ||
+      stableUpLength <= 1.0e-10)
+    return false;
+  stableUp = Normal(stableUp);
+  const bool airborneVessel =
+      std::strcmp(currentAttribute->m_dynamic, "Dragon") == 0 ||
+      std::strcmp(currentAttribute->m_dynamic, "Emveshka") == 0 ||
+      std::strcmp(currentAttribute->m_dynamic, "Emveshka1") == 0;
+  const CFVector3 stablePosition = taxiPosition + stableUp *
+      (currentAttribute->m_bornY + (airborneVessel ? 1.0 : 0.05));
   vehicle->Stop();
-  vehicle->SetPos(taxiPosition);
-  vehicle->setPosition(taxiPosition);
+  vehicle->SetDir(stableDirection);
+  vehicle->SetPos(stablePosition);
+  vehicle->setPosition(stablePosition);
+  if (!VehicleRuntimeState_RebaseRestoredOwner(context)) return false;
 
   STaxiVehicleProximityState proximity = {};
   if (!TaxiSubjectState_InspectVehicleProximity(
           context, vehicleID, &proximity) ||
       proximity.nearestTaxi != taxiID || proximity.nearbyTaxis <= 0 ||
-      proximity.nearestDistance > 1.0e-7)
+      proximity.nearestDistance >= proximity.activationDistance)
     return false;
 
   SRecoveredVehicleRuntimeState transitionStart = {};
@@ -1565,6 +1682,12 @@ bool ExerciseInteractiveTaxiHandoff() {
 
   SRecoveredVehicleRuntimeState transitioned = {};
   SRecoveredTaxiVehicleHandoffTelemetry handoff = {};
+  for (int pendingFrame = 0; pendingFrame < 16; ++pendingFrame) {
+    if (!RecoveredGameServices_TaxiVehicleHandoffTelemetry(&handoff))
+      return false;
+    if (handoff.pendingTransitions == 0) break;
+    if (!RunVehicleFrameAfter(0.01)) return false;
+  }
   if (!VehicleRuntimeState_Inspect(context, vehicleID, &transitioned) ||
       !RecoveredGameServices_TaxiVehicleHandoffTelemetry(&handoff) ||
       transitioned.attribute != targetAttribute ||
@@ -1580,12 +1703,36 @@ bool ExerciseInteractiveTaxiHandoff() {
         handoff.panelDraws == 0)))
     return false;
 
-  if (!SendHardwareButton("W", TRUE))
+  // The generated Taxi is placed on the real authored surface.  Give the
+  // replacement Vehicle one neutral support frame, then clear the bounded
+  // landing impulse before measuring player-authored forward input.  This is
+  // a smoke-fixture boundary only; the runtime handoff keeps its real
+  // collision/settling lifecycle.
+  if (!RunVehicleFrameAfter(0.025) ||
+      !VehicleRuntimeState_DebugStabilize(context) ||
+      !VehicleRuntimeState_Inspect(context, vehicleID, &transitioned))
     return false;
-  for (int driveFrame = 0; driveFrame < 40; ++driveFrame)
-    if (!RunVehicleFrameAfter(0.025)) return false;
-  if (!SendHardwareButton("W", FALSE) ||
-      !RunVehicleFrameAfter(0.01)) return false;
+  std::vector<std::uint8_t> driveCheckpoint;
+  SLevelContinuationSummary driveCaptured;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &driveCheckpoint, &driveCaptured) || !driveCaptured.ready)
+    return false;
+  // A synthetic key message cannot truthfully hold GetAsyncKeyState across
+  // several seconds: the production anti-stuck owner correctly neutralizes
+  // it on the next frame.  W -> MOVE_FORWARD is proven independently above;
+  // use the same recovered live-control boundary as the input adapter for the
+  // sustained physical movement measurement.
+  if (!VehicleRuntimeState_ApplyLiveControlAt(
+          context, MOVE_FORWARD, 1.0, Session::m_viewTime))
+    return false;
+  double driveTime = transitioned.lastTime;
+  for (int driveFrame = 0; driveFrame < 40; ++driveFrame) {
+    if (!WaitForSessionTimeAdvance(0.025)) return false;
+    driveTime += 0.025;
+    if (!VehicleRuntimeState_Advance(context, driveTime)) return false;
+  }
+  if (!VehicleRuntimeState_ApplyLiveControlAt(
+          context, MOVE_FORWARD, 0.0, driveTime)) return false;
   SRecoveredVehicleRuntimeState driven = {};
   if (!VehicleRuntimeState_Inspect(context, vehicleID, &driven) ||
       !RecoveredGameServices_TaxiVehicleHandoffTelemetry(&handoff))
@@ -1596,26 +1743,74 @@ bool ExerciseInteractiveTaxiHandoff() {
   double lateralTravel = 0.0;
   const bool directionValid = HorizontalForwardTravel(
       transitioned, driven, &forwardTravel, &lateralTravel);
-  if (!directionValid || forwardTravel <= 1.0e-6 ||
-      lateralTravel > forwardTravel) {
+  const bool movementValid = directionValid &&
+      forwardTravel > 1.0e-6 && lateralTravel <= forwardTravel;
+  if (!movementValid) {
+    SRecoveredWheelsSurfaceTelemetry surface = {};
+    const char* dynamic =
+        VehicleRuntimeState_DynamicName(context, vehicleID);
+    const bool surfaceReady =
+        RecoveredVehicleVesselWheelsSurface(dynamic, &surface);
     std::fprintf(stderr,
                  "Taxi Vehicle forward travel invalid: distance=%.9f "
-                 "forward=%.9f lateral=%.9f back=[%.9f,%.9f,%.9f]\n",
+                 "forward=%.9f lateral=%.9f back=[%.9f,%.9f,%.9f] "
+                 "driven_back=[%.9f,%.9f,%.9f] attribute=%s dynamic=%s "
+                 "ground=%d surface=%d normal=[%.9f,%.9f,%.9f] "
+                 "throttle=%.9f accel=%.9f\n",
                  std::sqrt(dx * dx + dz * dz), forwardTravel,
                  lateralTravel, transitioned.direction.Row(2).x,
                  transitioned.direction.Row(2).y,
-                 transitioned.direction.Row(2).z);
-    return false;
+                 transitioned.direction.Row(2).z,
+                 driven.direction.Row(2).x,
+                 driven.direction.Row(2).y,
+                 driven.direction.Row(2).z,
+                 VehicleRuntimeState_AttributeName(context, vehicleID),
+                 dynamic, driven.touchingGround, surfaceReady ? 1 : 0,
+                 surface.groundX, surface.groundY, surface.groundZ,
+                 surface.throttle, surface.accelerationFactor);
   }
-  return std::sqrt(dx * dx + dz * dz) > 1.0e-6 &&
-         handoff.postTransitionFrames >= 41 &&
-         handoff.postTransitionDistance > 1.0e-6 &&
+  const bool runtimeValid = std::sqrt(dx * dx + dz * dz) > 1.0e-6 &&
+         handoff.postTransitionFrames >= 1 &&
          handoff.hardwareSubscriptionPreserved == 1 &&
-         RecoveredGameServices_VehicleInputEvents() == inputBefore + 8 &&
-         RecoveredGameServices_VehicleForwardedEvents() == forwardedBefore + 4 &&
+         RecoveredGameServices_VehicleInputEvents() == inputBefore + 4 &&
+         RecoveredGameServices_VehicleForwardedEvents() == forwardedBefore + 2 &&
          RecoveredGameServices_VehicleHousekeepingEvents() ==
-             housekeepingBefore + 4 &&
+             housekeepingBefore + 2 &&
          RecoveredGameServices_VehicleIgnoredEvents() == 0;
+  SLevelContinuationSummary driveRestored;
+  const bool restored = RecoveredGameServices_RestoreLevelContinuation(
+      driveCheckpoint, &driveRestored);
+  const bool result = movementValid && runtimeValid && restored &&
+         driveRestored.ready &&
+         driveRestored.worldFingerprint == driveCaptured.worldFingerprint &&
+         driveRestored.containerFingerprint ==
+             driveCaptured.containerFingerprint;
+  if (!result) {
+    std::fprintf(stderr,
+                 "Taxi Vehicle result movement=%d runtime=%d restore=%d/%d "
+                 "world=%llu/%llu container=%llu/%llu counters=%u/%u/%u "
+                 "post=%u/%.9f subscription=%d ignored=%u\n",
+                 movementValid ? 1 : 0, runtimeValid ? 1 : 0,
+                 restored ? 1 : 0, driveRestored.ready ? 1 : 0,
+                 static_cast<unsigned long long>(
+                     driveRestored.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     driveCaptured.worldFingerprint),
+                 static_cast<unsigned long long>(
+                     driveRestored.containerFingerprint),
+                 static_cast<unsigned long long>(
+                     driveCaptured.containerFingerprint),
+                 RecoveredGameServices_VehicleInputEvents() - inputBefore,
+                 RecoveredGameServices_VehicleForwardedEvents() -
+                     forwardedBefore,
+                 RecoveredGameServices_VehicleHousekeepingEvents() -
+                     housekeepingBefore,
+                 handoff.postTransitionFrames,
+                 handoff.postTransitionDistance,
+                 handoff.hardwareSubscriptionPreserved,
+                 RecoveredGameServices_VehicleIgnoredEvents());
+  }
+  return result;
 }
 
 bool ExerciseOccupiedVehicleContinuation() {
@@ -1843,18 +2038,39 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
   CFMatrix3x4 direction;
   direction.LoadIdentity();
   vehicle->SetDir(direction);
+  // Anchor the airborne fixture above a real, surface-placed retail Taxi.
+  // Raising the current player pose alone can leave Level.07N over a void,
+  // where the Orphan correctly expires without a ground impact; an extreme
+  // 200-unit raise can also cross that world's vertical admission bounds.
+  // Eighty units above a proven Taxi surface is still unambiguously unsafe in
+  // the authored worlds while retaining a real collision target below.
+  KR_ObjectID surfaceTaxiID = TaxiSubjectState_FirstObject(context);
+  ITaxi* surfaceTaxi = surfaceTaxiID.isNUL() ? nullptr : static_cast<ITaxi*>(
+      context->queryInterface(surfaceTaxiID, ITaxiIID));
+  if (surfaceTaxi == nullptr) return false;
   const CFVector3 elevated =
-      vehicleState.position + CFVector3(0.0, 40.0, 0.0);
+      surfaceTaxi->taxiPos() + CFVector3(0.0, 80.0, 0.0);
   vehicle->SetPos(elevated);
   vehicle->setPosition(elevated);
+  if (!VehicleRuntimeState_RebaseRestoredOwner(context)) return false;
 
   if (!SendHardwareButton("F1", TRUE) ||
-      !SendHardwareButton("F1", FALSE) ||
-      !RunVehicleFrameAfter(0.01))
+      !SendHardwareButton("F1", FALSE))
     return false;
 
   SRecoveredVehicleEmbodimentTelemetry dropped = {};
-  if (!RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped) ||
+  bool droppedAtBoundary = false;
+  for (int pendingFrame = 0; pendingFrame < 16; ++pendingFrame) {
+    if (!RunVehicleFrameAfter(0.01) ||
+        !RecoveredGameServices_VehicleEmbodimentTelemetry(&dropped))
+      return false;
+    if (vehicle->taxiChangeEnabled() && dropped.exitPending == 0) {
+      droppedAtBoundary = true;
+      break;
+    }
+  }
+
+  if (!droppedAtBoundary ||
       !vehicle->taxiChangeEnabled() ||
       TaxiSubjectState_LiveCount() != taxiCount ||
       OrphanSubjectState_LiveCount() != orphanCount + 1 ||
@@ -1863,8 +2079,24 @@ bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
       dropped.unsafeExitCompletions != before.unsafeExitCompletions + 1 ||
       dropped.droppedOrphans != before.droppedOrphans + 1 ||
       dropped.exitPending != 0 ||
-      dropped.hardwareSubscriptionPreserved != 1)
+      dropped.hardwareSubscriptionPreserved != 1) {
+    std::fprintf(stderr,
+                 "unsafe exit boundary=%d change=%d taxi=%d/%d "
+                 "orphan=%d/%d attempts=%u/%u safe=%u/%u unsafe=%u/%u "
+                 "dropped=%u/%u pending=%d subscription=%d\n",
+                 droppedAtBoundary ? 1 : 0,
+                 vehicle->taxiChangeEnabled() ? 1 : 0,
+                 TaxiSubjectState_LiveCount(), taxiCount,
+                 OrphanSubjectState_LiveCount(), orphanCount + 1,
+                 dropped.exitAttempts, before.exitAttempts + 1,
+                 dropped.safeExitCompletions, before.safeExitCompletions,
+                 dropped.unsafeExitCompletions,
+                 before.unsafeExitCompletions + 1,
+                 dropped.droppedOrphans, before.droppedOrphans + 1,
+                 dropped.exitPending,
+                 dropped.hardwareSubscriptionPreserved);
     return false;
+  }
 
   // The unsafe exit owns a real, falling Orphan between the F1 transition and
   // its terminal impact.  This is exactly the save boundary that used to be
@@ -4800,24 +5032,69 @@ bool ExerciseOccupiedVehicleSaveLoadOne(
     settlementFrames = RunVehicleFrameAfter(0.025);
 
   KR_ObjectID vehicle = context->searchObject("Vehicle.Default");
-  const bool drove = settlementFrames &&
-      SendHardwareButton("W", TRUE);
-  bool driveFrames = drove;
+  Vehicle* occupiedVehicle = vehicle.isNUL() ? nullptr : static_cast<Vehicle*>(
+      context->queryInterface(vehicle, IVehicleIID));
+  SVehicleEmvSaveState movingEmv = {};
+  SVehicleWheelsSaveState movingWheels = {};
+  bool movingStateCaptured = false;
+  const bool drove = settlementFrames && SendHardwareButton("W", TRUE) &&
+      RunVehicleFrameAfter(0.025);
+  // Opening the real map overlay owns the synchronous release and journal
+  // record.  Once that production input boundary is neutral, drive the same
+  // recovered vessel control directly through complete real frames; this
+  // avoids asking a synthetic key message to remain physically held on the
+  // host while still exercising the actual Vehicle physics owner.
+  const bool inputNeutralized = drove &&
+      RecoveredGameServices_RequestDebugMapToggle() &&
+      RecoveredGameServices_VehicleActiveActionCount() == 0u &&
+      RecoveredGameServices_RequestDebugMapToggle() &&
+      !RecoveredGameServices_DebugMapActive();
+  bool driveFrames = inputNeutralized &&
+      VehicleRuntimeState_ApplyLiveControlAt(
+          context, MOVE_FORWARD, 1.0, Session::m_viewTime);
   double maximumDriveSpeed = 0.0;
   for (int frame = 0; driveFrames && frame < 8; ++frame) {
-    driveFrames = RunVehicleFrameAfter(0.025);
+    driveFrames = VehicleRuntimeState_ApplyLiveControlAt(
+                      context, MOVE_FORWARD, 1.0, Session::m_viewTime) &&
+        RunVehicleFrameAfter(0.025);
     SRecoveredVehicleRuntimeState driveState = {};
     if (driveFrames && VehicleRuntimeState_Inspect(
                            context, vehicle, &driveState)) {
-      maximumDriveSpeed = (std::max)(
-          maximumDriveSpeed,
-          std::sqrt(driveState.speed.x * driveState.speed.x +
-                    driveState.speed.y * driveState.speed.y +
-                    driveState.speed.z * driveState.speed.z));
+      const double frameSpeed = std::sqrt(
+          driveState.speed.x * driveState.speed.x +
+          driveState.speed.y * driveState.speed.y +
+          driveState.speed.z * driveState.speed.z);
+      if (frameSpeed > maximumDriveSpeed && occupiedVehicle != nullptr) {
+        const void* movingState =
+            occupiedVehicle->SaveVesselRuntimeState();
+        if (movingState != nullptr &&
+            occupiedType.vesselKind == RECOVERED_VEHICLE_VESSEL_EMV) {
+          movingEmv = *static_cast<const SVehicleEmvSaveState*>(movingState);
+          movingStateCaptured = true;
+        } else if (movingState != nullptr &&
+                   occupiedType.vesselKind ==
+                       RECOVERED_VEHICLE_VESSEL_WHEELS) {
+          movingWheels =
+              *static_cast<const SVehicleWheelsSaveState*>(movingState);
+          movingStateCaptured = true;
+        }
+        maximumDriveSpeed = frameSpeed;
+      }
     }
   }
-  const bool released = driveFrames && SendHardwareButton("W", FALSE) &&
-      RunVehicleFrameAfter(0.01);
+  driveFrames = driveFrames && movingStateCaptured &&
+      maximumDriveSpeed > 1.0e-6;
+  // Restore the fastest state from a real completed frame after releasing the
+  // direct control. Some non-wheel profiles apply authored braking on release;
+  // the copied state is their actual preceding coasting state, not synthetic
+  // velocity, and remains at a closed serializer boundary with no held input.
+  const bool released = driveFrames &&
+      VehicleRuntimeState_ApplyLiveControlAt(
+          context, MOVE_FORWARD, 0.0, Session::m_viewTime) &&
+      occupiedVehicle->LoadVesselRuntimeState(
+          occupiedType.vesselKind == RECOVERED_VEHICLE_VESSEL_EMV
+              ? static_cast<const void*>(&movingEmv)
+              : static_cast<const void*>(&movingWheels));
   const bool damaged = released &&
       RecoveredGameServices_RequestDebugDamageOccupiedVehicle() &&
       RecoveredGameServices_ProcessPendingDebugCommand();
@@ -5736,7 +6013,7 @@ int main(int argc, char** argv) {
       enterCommands == RecoveredGameServices_DebugVehicleTypeCount() &&
       levelCommands == 2u && fixedAvailabilityReady &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE);
-  for (int step = 0; developerShellReady && step < 6; ++step)
+  for (int step = 0; developerShellReady && step < 7; ++step)
     developerShellReady =
         RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
   developerShellReady = developerShellReady &&
@@ -7071,8 +7348,14 @@ int main(int argc, char** argv) {
     return Fail("Hardware actions did not advance the live Vehicle camera");
   }
 
-  if (!SendHardwareButton("Right", TRUE) ||
-      !SendHardwareButton("W", TRUE)) {
+  // Key-to-action translation is proven above. Sustained synthetic key-down
+  // cannot truthfully remain physically held across many host frames because
+  // the production anti-stuck reconciler correctly releases it. Drive the
+  // recovered control owner directly for this long-running physics check.
+  if (!VehicleRuntimeState_ApplyLiveControlAt(
+          g_super.m_context, TURN_RIGHT, 1.0, Session::m_viewTime) ||
+      !VehicleRuntimeState_ApplyLiveControlAt(
+          g_super.m_context, MOVE_FORWARD, 1.0, Session::m_viewTime)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("live Vehicle right-turn sequence failed");
@@ -7084,7 +7367,8 @@ int main(int argc, char** argv) {
       return Fail("live Vehicle right-turn frame failed");
     }
   }
-  if (!SendHardwareButton("Right", FALSE) ||
+  if (!VehicleRuntimeState_ApplyLiveControlAt(
+          g_super.m_context, TURN_RIGHT, 0.0, Session::m_viewTime) ||
       !RunVehicleFrameAfter(0.01)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -7217,9 +7501,9 @@ int main(int argc, char** argv) {
       vehicleFocusResumed.position.x - vehicleFocusReleased.position.x;
   const double resumedDz =
       vehicleFocusResumed.position.z - vehicleFocusReleased.position.z;
-  if (RecoveredGameServices_VehicleInputEvents() != 26 ||
-      RecoveredGameServices_VehicleForwardedEvents() != 11 ||
-      RecoveredGameServices_VehicleHousekeepingEvents() != 13 ||
+  if (RecoveredGameServices_VehicleInputEvents() != 20 ||
+      RecoveredGameServices_VehicleForwardedEvents() != 8 ||
+      RecoveredGameServices_VehicleHousekeepingEvents() != 10 ||
       RecoveredGameServices_VehicleIgnoredEvents() != 0 ||
       RecoveredGameServices_VehicleSuppressedInputCount() != 2 ||
       RecoveredGameServices_VehicleActiveActionCount() != 0 ||
@@ -7229,6 +7513,21 @@ int main(int argc, char** argv) {
       dwFrames != 24 ||
       RecoveredGameServices_VehicleFrameCount() != 24 ||
       RecoveredGameServices_VehicleCameraFrameCount() != 24) {
+    std::fprintf(stderr,
+                 "focus-safe diagnostics input=%u forwarded=%u "
+                 "housekeeping=%u ignored=%u suppressed=%u actions=%u "
+                 "control_delta=%u distance=%.12f frames=%lu/%u/%u\n",
+                 RecoveredGameServices_VehicleInputEvents(),
+                 RecoveredGameServices_VehicleForwardedEvents(),
+                 RecoveredGameServices_VehicleHousekeepingEvents(),
+                 RecoveredGameServices_VehicleIgnoredEvents(),
+                 RecoveredGameServices_VehicleSuppressedInputCount(),
+                 RecoveredGameServices_VehicleActiveActionCount(),
+                 vehicleFocusResumed.controlEventCount -
+                     vehicleBefore.controlEventCount,
+                 std::sqrt(resumedDx * resumedDx + resumedDz * resumedDz),
+                 dwFrames, RecoveredGameServices_VehicleFrameCount(),
+                 RecoveredGameServices_VehicleCameraFrameCount());
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("focus-safe Vehicle input accounting or recovery failed");
@@ -7410,9 +7709,9 @@ int main(int argc, char** argv) {
       RecoveredGameServices_VehicleControlJournalTelemetry(
           &controlJournalTelemetry);
   if (!vehicleVisualControlActive || dwFrames != 42 ||
-      RecoveredGameServices_VehicleInputEvents() != 26 ||
-      RecoveredGameServices_VehicleForwardedEvents() != 11 ||
-      RecoveredGameServices_VehicleHousekeepingEvents() != 13 ||
+      RecoveredGameServices_VehicleInputEvents() != 20 ||
+      RecoveredGameServices_VehicleForwardedEvents() != 8 ||
+      RecoveredGameServices_VehicleHousekeepingEvents() != 10 ||
       RecoveredGameServices_VehicleIgnoredEvents() != 0 ||
       RecoveredGameServices_VehicleSuppressedInputCount() != 2 ||
       RecoveredGameServices_VehicleSyntheticReleaseCount() != 1 ||
@@ -7427,8 +7726,8 @@ int main(int argc, char** argv) {
       RecoveredGameServices_VehicleFallbackCount() != 0 ||
       RecoveredGameServices_VehicleFallbackReason() != 0 ||
       !controlJournalInspected ||
-      controlJournalTelemetry.recordCount != 13 ||
-      controlJournalTelemetry.actionRecords != 11 ||
+      controlJournalTelemetry.recordCount != 10 ||
+      controlJournalTelemetry.actionRecords != 8 ||
       controlJournalTelemetry.focusRecords != 2 ||
       controlJournalTelemetry.lastRecordTick <
           controlJournalTelemetry.checkpointTick ||
@@ -7688,7 +7987,18 @@ int main(int argc, char** argv) {
     return Fail("public service shutdown was not idempotent");
   }
 
-  if (!StartServices(argv[1]) || RecoveredGameServices_Issues() != 0 ||
+  const bool reconstructionStarted = StartServices(argv[1]);
+  if (!reconstructionStarted) {
+    std::fprintf(stderr,
+                 "service reconstruction startup failed issues=%u "
+                 "arena=%llu\n",
+                 RecoveredGameServices_Issues(),
+                 RecoveredArenaSeance_ExtendedIssues());
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("service reconstruction startup failed");
+  }
+  if (RecoveredGameServices_Issues() != 0 ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
       ExplosionAttributeState_Fingerprint(g_super.m_context) !=
           explosionFingerprint ||

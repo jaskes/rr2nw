@@ -6689,3 +6689,28 @@ after A33 returns no candidate. The maintained gate intentionally attempts
 ordinary result semantics through A35 and uses the stricter terminal probe only
 for A33. Neutral mission Artefacts stay ordinary world population because no
 Robbers Project carries command 35.
+
+### BD-208: checkpoint scripts advance only after a committed closed-frame transaction
+
+Status: accepted on 2026-08-08 for installed Level.06N `Miss_Part1` command 34.
+
+The Project command list is declarative admission data. A checkpoint script
+must not run when the RecruitCenter grants the mission, and source declaration
+order is not travel order because `p_AddCheckPoint` carries an explicit first
+flag. The maintained owner validates one first and one terminal node, rotates
+the chain around the first node, arms only the current sphere and stages its
+crossing for the end of a completely presented frame.
+
+The script executes through `RecoveredLegacyScriptHost` with its existing
+object transaction. Script failure, fixed-owner failure or authority failure
+cannot advance the chain; rollback retains the active checkpoint. Presentation
+and collision polling never become save state. Stable `CPK1` records contain
+only symbolic center/project identity, authored geometry/script identity,
+active ordinal and committed counters, and are embedded in MSH1 v5 rather than
+changing raw `PlayerData`. A pending trigger rejects capture. MSH1 v1-v4 remain
+readable and migrate to no checkpoint chains.
+
+The terminal script's `s_RestartLevel(7)` is intentionally still fail-closed.
+It will be connected only through a process-coordinator request with source
+rollback; accepting command 34 does not authorize a direct Level teardown from
+the legacy VM.

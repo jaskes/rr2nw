@@ -70,6 +70,7 @@
 #include "obase/orphan/OrphanActiveWorldState.h"
 #include "obase/orphan/OrphanSubjectState.h"
 #include "obase/people/PeopleSubjectState.h"
+#include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
 #include "obase/sound/SoundObjectState.h"
@@ -3984,6 +3985,14 @@ void PresentClosedFrameCommandFailure(
   g_inGameShellState.status =
       std::string(owner) + " failed at the closed frame boundary";
   ++g_inGameShellState.commandFailurePresentations;
+}
+
+void ShowNativeMissionCheckpointFailure() {
+  if (_gr_hWnd == nullptr) return;
+  const std::wstring detail = Utf8ToWide(
+      RecruitCenterSubjectState_LastError());
+  MessageBoxW(_gr_hWnd, detail.c_str(), L"RR2NW mission checkpoint error",
+              MB_OK | MB_ICONERROR);
 }
 
 LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
@@ -7969,6 +7978,11 @@ int RecoveredGameServices_RunFrame() {
   }
   if (!vehicleFrame && !shellPaused)
     g_observerInput.Advance(Session::m_frameSec);
+  if (!shellPaused &&
+      !RecruitCenterSubjectState_PollCheckpoints(g_super.m_context)) {
+    Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+    return FALSE;
+  }
   const FrameClock::time_point simulationEnd = FrameClock::now();
 
   Frame_ClearRuntimeIssues();
@@ -8039,6 +8053,13 @@ int RecoveredGameServices_RunFrame() {
   }
   const FrameClock::time_point presentEnd = FrameClock::now();
   RecordPrimaryFireRenderFrame();
+  if (RecruitCenterSubjectState_CheckpointPending() &&
+      !RecruitCenterSubjectState_ProcessPendingCheckpoint(
+          g_super.m_context, Session::m_viewTime)) {
+    PresentClosedFrameCommandFailure(
+        "Mission checkpoint", RecruitCenterSubjectState_LastError(),
+        ShowNativeMissionCheckpointFailure);
+  }
   // Debug mutations share the same fully closed boundary as save/load and
   // are processed first so a later save request can only observe a committed
   // debug world. WM_COMMAND itself merely stages the operation.

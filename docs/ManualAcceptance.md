@@ -355,6 +355,19 @@ The maintained full-loop matrix is:
 & ".\tools\acceptance\Invoke-RecruitCenterPresentationLoopSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
 ```
 
+The installed Level.06N checkpoint owner has a separate noninteractive gate:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionCheckpointSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+It must admit `Our.Recruit.0/Miss_Part1` as `1/2/1`, start at
+`Brief\part6.sc`, reject capture while that crossing is merely pending, commit
+the real script and advance to `Brief\part7.sc`. Both the baseline and advanced
+state must restore exactly, and the injected restore failure must roll back to
+the advanced byte vector. This gate stops before executing `part7.sc`; its
+authored `s_RestartLevel(7)` remains the next process-coordinator boundary.
+
 For a normal interactive Marauders admission, continue beyond the briefing.
 Exactly one Marauder character FLC and one mission briefing may play before
 control returns to the world. The two additional FLCs manually reproduced on

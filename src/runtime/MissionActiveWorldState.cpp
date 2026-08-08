@@ -25,7 +25,8 @@ const std::uint32_t kMissionLegacyVersion = 1u;
 const std::uint32_t kMissionRouteGeometryVersion = 2u;
 const std::uint32_t kMissionArtefactVersion = 3u;
 const std::uint32_t kMissionProjectRosterVersion = 4u;
-const std::uint32_t kMissionVersion = kMissionProjectRosterVersion;
+const std::uint32_t kMissionCheckpointVersion = 5u;
+const std::uint32_t kMissionVersion = kMissionCheckpointVersion;
 const std::size_t kMaximumMissions = 6;
 const std::size_t kMaximumProjects = 200;
 const int kMaximumProjectTreeNode = 1024 * 1024;
@@ -93,6 +94,7 @@ struct StableState {
   int totalMissionCount;
   std::vector<StableMission> missions;
   std::vector<StableProject> projects;
+  std::vector<std::uint8_t> checkpoints;
   bool projectRosterPresent;
 
   StableState() : totalMissionCount(0), projectRosterPresent(false) {}
@@ -366,6 +368,9 @@ bool CaptureState(SimulationContext *context, StableState *state) {
   if (!CaptureProjectRoster(context, &state->projects))
     return Fail("MSH1 ProjectTable roster is invalid");
   state->projectRosterPresent = true;
+  if (!RecruitCenterSubjectState_CaptureCheckpointState(
+          context, &state->checkpoints))
+    return Fail(RecruitCenterSubjectState_LastError());
   Vehicle *vehicle = ResolveVehicle(context);
   if (vehicle == NULL)
     return true;
@@ -517,6 +522,13 @@ bool EncodeStateVersion(const StableState &state, std::uint32_t version,
       writer.I32(project.permanent);
     }
   }
+  if (version >= kMissionCheckpointVersion) {
+    if (state.checkpoints.size() > 64u * 1024u)
+      return false;
+    writer.U32(static_cast<std::uint32_t>(state.checkpoints.size()));
+    bytes->insert(bytes->end(), state.checkpoints.begin(),
+                  state.checkpoints.end());
+  }
   return true;
 }
 
@@ -600,7 +612,10 @@ bool ValidateState(const StableState &state) {
       (state.vehicle.empty() &&
        (!state.missions.empty() || state.totalMissionCount != 0)) ||
       (state.projectRosterPresent &&
-       state.projects.size() > kMaximumProjects))
+       state.projects.size() > kMaximumProjects) ||
+      (!state.checkpoints.empty() &&
+       !RecruitCenterSubjectState_ValidateCheckpointState(
+           state.checkpoints)))
     return false;
   if (state.projectRosterPresent) {
     for (std::size_t index = 0; index < state.projects.size(); ++index) {
@@ -653,6 +668,7 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
                  StableState *state, std::uint32_t *decodedVersion = NULL) {
   if (state == NULL)
     return false;
+  *state = StableState();
   Reader reader(bytes);
   std::uint32_t magic = 0, version = 0, count = 0;
   if (!reader.U32(&magic) || !reader.U32(&version) ||
@@ -708,6 +724,14 @@ bool DecodeState(const std::vector<unsigned char> &bytes,
           !reader.I32(&project.permanent))
         return false;
     }
+  }
+  if (version >= kMissionCheckpointVersion) {
+    if (!reader.U32(&count) || count > 64u * 1024u ||
+        reader.offset > bytes.size() || bytes.size() - reader.offset < count)
+      return false;
+    state->checkpoints.assign(bytes.begin() + reader.offset,
+                              bytes.begin() + reader.offset + count);
+    reader.offset += count;
   }
   if (reader.offset != bytes.size() || !ValidateState(*state))
     return false;
@@ -809,8 +833,10 @@ bool ApplyState(SimulationContext *context, const StableState &state) {
       project->m_permanent = state.projects[index].permanent;
     }
   }
-  if (state.vehicle.empty())
+  if (state.vehicle.empty()) {
+    RecruitCenterSubjectState_ClearCheckpointState();
     return ResolveVehicle(context) == NULL;
+  }
   Vehicle *vehicle = ResolveVehicle(context, state.vehicle);
   if (vehicle == NULL || vehicle != g_vehicle)
     return Fail("MSH1 target Vehicle is unresolved");
@@ -872,7 +898,12 @@ bool ApplyState(SimulationContext *context, const StableState &state) {
     ++player.m_missCnt;
   }
   player.loadNotify();
-  return true;
+  if (state.checkpoints.empty()) {
+    RecruitCenterSubjectState_ClearCheckpointState();
+    return true;
+  }
+  return RecruitCenterSubjectState_ApplyCheckpointState(
+      context, state.checkpoints);
 }
 
 struct FirstObject {
@@ -961,16 +992,20 @@ bool MissionActiveWorldState_ProbeLegacyVersionCompatibility(
   std::vector<unsigned char> version1;
   std::vector<unsigned char> version2;
   std::vector<unsigned char> version3;
+  std::vector<unsigned char> version4;
   return CaptureState(context, &state) && ValidateState(state) &&
          EncodeStateVersion(state, kMissionLegacyVersion, &version1) &&
          EncodeStateVersion(state, kMissionRouteGeometryVersion, &version2) &&
          EncodeStateVersion(state, kMissionArtefactVersion, &version3) &&
+         EncodeStateVersion(state, kMissionProjectRosterVersion, &version4) &&
          MissionActiveWorldState_ValidateStable(version1) &&
          MissionActiveWorldState_ValidateStable(version2) &&
          MissionActiveWorldState_ValidateStable(version3) &&
+         MissionActiveWorldState_ValidateStable(version4) &&
          MissionActiveWorldState_MatchesStable(context, version1) &&
          MissionActiveWorldState_MatchesStable(context, version2) &&
-         MissionActiveWorldState_MatchesStable(context, version3);
+         MissionActiveWorldState_MatchesStable(context, version3) &&
+         MissionActiveWorldState_MatchesStable(context, version4);
 }
 
 bool MissionActiveWorldState_RouteRequirements(
