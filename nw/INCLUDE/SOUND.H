@@ -26,13 +26,15 @@ bool SoundState_SetMaximumDistance(double maximumDistance);
 // START(0)/END pair owns a long-lived loop. The ABI-2 extension carries the
 // source-proven emitter model and CViewObject listener pose; the maintained
 // backend may apply a documented compatibility spatial model. Streamed media
-// remains an explicit unsupported branch. ABI-3 adds separately routed
-// Vehicle loops and their source-proven frequency-ratio updates.
+// ABI-3 adds separately routed Vehicle loops and their source-proven
+// frequency-ratio updates. ABI-4 admits source-proven flags-1 nonspatial
+// presentation streams through a separate Cinematic category.
 enum ESoundStateCategory
 {
     SOUND_STATE_CATEGORY_EFFECTS = 0,
     SOUND_STATE_CATEGORY_VEHICLE = 1,
-    SOUND_STATE_CATEGORY_COUNT = 2
+    SOUND_STATE_CATEGORY_CINEMATIC = 2,
+    SOUND_STATE_CATEGORY_COUNT = 3
 };
 
 struct SSoundStatePlaybackRequest
@@ -99,6 +101,9 @@ struct SSoundStateTelemetry
     unsigned int loopRequests;
     unsigned int loopStarts;
     unsigned int loopFailures;
+    unsigned int streamRequests;
+    unsigned int streamStarts;
+    unsigned int streamFailures;
     unsigned int unsupportedStreamStarts;
     unsigned int unsupportedRepeatStarts;
     unsigned int stops;
@@ -115,6 +120,7 @@ struct SSoundStateTelemetry
     unsigned int maintenanceCalls;
     float effectsVolume;
     float vehicleVolume;
+    float cinematicVolume;
 };
 
 bool SoundState_ConfigureBackend(const SSoundStateBackend *backend);

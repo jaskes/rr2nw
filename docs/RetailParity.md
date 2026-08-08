@@ -2783,7 +2783,7 @@ playable Level begins.
   rows. Source-proven count-0 loop lifetime is closed separately by
   RP-AUDIO-002; `MOVE_TO` remains authored state until listener ownership and
   RSX attenuation behavior are recovered.
-- Effects and direct Player Vehicle submixes use schema-5 player volumes,
+- Effects, direct Player Vehicle and Cinematic submixes use schema-6 player volumes,
   focus suspension and bounded device-loss recovery. Playback success/failure cannot affect the scheduler,
   mission outcome, save fingerprint or Level transition.
 - Verification combines synthetic PCM rejection, fake-backend SoundObj
@@ -2841,8 +2841,8 @@ playable Level begins.
 - Global `DistMax=300` remains the coarse object admission rule. Audio state is
   not serialized and never affects scheduler timing, movement, a transaction
   or a mission outcome. Broader Taxi/Orphan/People natural-route acceptance,
-  direct Vehicle pitch, flags-1 streaming, dialogue/music, FLIC and UI audio
-  remain open.
+  direct Vehicle pitch and briefing-owned flags-1 WAVs are closed separately
+  by RP-AUDIO-004/005; other music, FLIC and UI audio remain open.
 
 ### RP-AUDIO-004: occupied Player Vehicle engine lifecycle and pitch
 
@@ -2852,8 +2852,9 @@ playable Level begins.
   `clamp(1 + abs(speed) * 0.05, minPitch, maxPitch)`.
 - Maintained ABI 3 preserves this as a distinct Vehicle submix and durable
   nonserialized loop. Enter/exit replaces the sample, briefing stops the
-  engine without inventing streamed dialogue, load reconstructs from the
-  occupied attribute, and death/removal/Portal/Level teardown release it.
+  engine before the independently owned RP-AUDIO-005 briefing stream starts,
+  load reconstructs from the occupied attribute, and death/removal/Portal/
+  Level teardown release it.
 - Installed `game.cfg` values `Engine=1`, `EngineIntensity=0.5` are restored as
   transactional Level configuration alongside `DistMax=300`; prior globals
   are restored after Level teardown.
@@ -2863,7 +2864,30 @@ playable Level begins.
   A generated 440 Hz opt-in gate proves physical low/high pitch and device
   reconstruction without reading retail media.
 - This is lifecycle and pitch-law parity, not byte-exact Intel RSX resampling.
-  AI engine loops, streamed dialogue/music, FLIC and UI audio remain open.
+  Briefing-owned WAV streams are closed by RP-AUDIO-005; AI engine loops,
+  other music, FLIC and UI audio remain open.
+
+### RP-AUDIO-005: briefing-owned flags-1 PCM streams have maintained output
+
+- Classification: `SOURCE_DIRECT_OWNER_PRESERVED`,
+  `RETAIL_WAV_CORPUS_EXECUTED`, `PHYSICAL_WINDOWS_OUTPUT_RECONNECTED`,
+  `PRESENTATION_ONLY_NON_SERIALIZED`.
+- `CBriefing::PlayBriefing` and `Vehicle::setBriefingSound` retain selection,
+  cycle and replacement ownership. ABI 4 maps only this nonspatial flags-1 path
+  to the Cinematic submix; it does not reinterpret generic SoundObj or FLIC
+  media as dialogue.
+- Admission inspects a bounded PCM RIFF through VFS without copying samples.
+  Playback queues reusable 64 KiB chunks, never steals a voice, preserves
+  logical registration across focus/device loss and releases it on natural
+  completion, explicit replacement, rollback, Portal or Level teardown.
+- Headless generated coverage proves zero-device registration/stop. The opt-in
+  physical gate proves three-chunk playback plus exact device reconstruction.
+  The installed Marauders presentation loop starts authored streams with zero
+  neutral failures and retains zero streams after Level teardown.
+- Settings schema 6 owns independent Cinematic volume and exact schemas 1-5
+  migration. Audio outcome remains subordinate to simulation and is absent
+  from LCN1/RR2SLOT1. Non-WAV FLIC audio, UI sounds, lip synchronization and
+  byte-exact RSX timing/mixing remain open.
 
 ## Binary analysis boundary
 

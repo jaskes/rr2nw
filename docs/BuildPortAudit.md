@@ -4296,3 +4296,37 @@ headless gate and `Invoke-VehicleEngineAudio.ps1` cover pitch bounds, real
 Level.04D movement and post-Level cleanup. The opt-in physical gate uses only
 a generated tone. No retail media is copied and no AI, streaming, dialogue,
 music, FLIC, UI, spatial Vehicle or byte-exact RSX claim is made.
+
+### 2026-08-08: bounded flags-1 briefing/cinematic WAV streaming
+
+Archived `CBriefing::PlayBriefing` parses `SoundN=<WAVObj>,<cycle>,<delay>`
+and delegates to `Vehicle::setBriefingSound`. That direct owner stops the
+Player Vehicle engine, resolves the named WAV and passes cycle 0/1 to its own
+nonspatial emitter. The installed catalog classifies 21 unique flags-1
+resources; all are mono 22050 Hz 16-bit PCM, together 33,615,000 bytes, with
+individual durations large enough that copying all samples into the Effects
+cache would be the wrong lifetime model.
+
+Sound ABI 4 therefore admits flags-1 only for the nonspatial Cinematic owner.
+The XAudio2 process owner inspects RIFF metadata through the existing VFS,
+retains only logical path/format identity, and feeds at most three of four
+fixed 64 KiB buffers to one of eight no-steal stream voices. Count 1 completes
+naturally; count 0 rewinds at the exact data extent until the owner stops it.
+Focus preserves queues, device loss reopens and validates the same VFS object,
+and briefing replacement, Vehicle removal, rollback, Portal and Level teardown
+remove the registration. No audio token or cursor enters LCN1/RR2SLOT1.
+
+Atomic settings schema 6 adds independent Cinematic volume and migrates schema
+1 through 5 with a 1.0 default. Synthetic PCM inspection, fake ABI admission,
+headless generated-stream CTest and an opt-in generated listening/device-loss
+gate cover the maintained boundary. The real Level.03N Marauders presentation
+loop starts two authored streams without a device and ends with zero stream
+voices/registrations. Retail media is never copied into a test artifact.
+Non-WAV FLIC sound, UI audio, lip synchronization and byte-exact RSX mixing
+remain open.
+
+The completed slice builds in Debug, Release and RelWithDebInfo and passes
+71/71 CTest rows in each configuration. Installed-data acceptance passes the
+full 27/27 Level matrix, Marauders presentation 3/3, Farter and Vehicle audio
+3/3 each, Portal teardown 9/9, cross-Level save/load 2/2 and the campaign
+reward/transition matrix 6/6.

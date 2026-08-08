@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Restored source-owned flags-1 briefing/cinematic WAV playback through a
+  bounded XAudio2 streaming owner. Long PCM media is inspected without full
+  caching and fed through a four-buffer 64 KiB queue with stable no-steal
+  registrations, exact one-shot/loop stop, focus/device-loss recovery and
+  Level teardown. Sound ABI 4 and atomic settings schema 6 add an independent
+  Cinematic volume; synthetic headless/listening gates and the real Marauders
+  presentation loop prove admission, playback ownership and zero retained
+  streams without copying retail media into tests.
 - Restored the direct occupied Player Vehicle engine presentation path on the
   maintained Windows audio backend. The archival owner now selects its authored
   engine WAV, starts and stops it across enter/exit, death, rollback and Level

@@ -555,6 +555,7 @@ struct SRecoveredInGameShellState {
   bool mouseInvertY = false;
   double effectsVolume = 1.0;
   double vehicleVolume = 1.0;
+  double cinematicVolume = 1.0;
   bool videoConfirmationActive = false;
   ERecoveredInGameVideoCommand pendingVideoCommand =
       RECOVERED_SHELL_VIDEO_NONE;

@@ -66,6 +66,24 @@ int main() {
                  result.error);
     return EXIT_FAILURE;
   }
+  std::FILE* streamFile = nullptr;
+  const errno_t streamOpen = tmpfile_s(&streamFile);
+  SRecoveredPcmWavStreamInfo stream;
+  if (streamOpen != 0 || streamFile == nullptr ||
+      std::fwrite(valid.data(), 1u, valid.size(), streamFile) != valid.size() ||
+      !RecoveredPcmWav_InspectStream(streamFile, valid.size(), &stream,
+                                     &result) ||
+      stream.channels != 1u || stream.bitsPerSample != 16u ||
+      stream.sampleRate != 22050u || stream.blockAlign != 2u ||
+      stream.averageBytesPerSecond != 44100u || stream.dataOffset != 44u ||
+      stream.dataBytes != 8u || stream.sourceBytes != valid.size() ||
+      std::ftell(streamFile) != static_cast<long>(stream.dataOffset)) {
+    if (streamFile != nullptr) std::fclose(streamFile);
+    std::fprintf(stderr, "pcm-wav-smoke: stream inspection failed: %s\n",
+                 result.error);
+    return EXIT_FAILURE;
+  }
+  std::fclose(streamFile);
   std::vector<std::uint8_t> truncated = valid;
   truncated.pop_back();
   const std::vector<std::uint8_t> compressed = Fixture(2u, false);
@@ -84,7 +102,7 @@ int main() {
     return EXIT_FAILURE;
   }
   std::printf("pcm wav=RIFF/PCM channels=1-2 bits=8/16 source_limit=%zu "
-              "sample_limit=%zu malformed=fail-closed\n",
+              "sample_limit=%zu stream=44/8 malformed=fail-closed\n",
               RecoveredPcmWav_MaximumSourceBytes(),
               RecoveredPcmWav_MaximumSampleBytes());
   return EXIT_SUCCESS;

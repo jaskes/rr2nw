@@ -19,6 +19,7 @@ struct FakeAudioBackend {
   unsigned int starts = 0;
   unsigned int oneShots = 0;
   unsigned int loops = 0;
+  unsigned int streams = 0;
   unsigned int stops = 0;
   unsigned int moves = 0;
   unsigned int listeners = 0;
@@ -27,6 +28,7 @@ struct FakeAudioBackend {
   unsigned int focusChanges = 0;
   unsigned int maintains = 0;
   float volume = 0.0f;
+  float cinematicVolume = 0.0f;
   bool active = true;
   float lastX = 0.0f;
   float lastY = 0.0f;
@@ -35,8 +37,9 @@ struct FakeAudioBackend {
 
 bool FakeAdmit(void* owner, const char* fileName, int flags) {
   FakeAudioBackend* backend = static_cast<FakeAudioBackend*>(owner);
-  if (fileName == nullptr || flags != 0 ||
-      std::strcmp(fileName, "..\\SOUND\\soundobj-probe.wav") != 0)
+  if (fileName == nullptr || (flags != 0 && flags != 1) ||
+      (std::strcmp(fileName, "..\\SOUND\\soundobj-probe.wav") != 0 &&
+       std::strcmp(fileName, "..\\SOUND\\stream.wav") != 0))
     return false;
   ++backend->admissions;
   return true;
@@ -45,13 +48,17 @@ bool FakeAdmit(void* owner, const char* fileName, int flags) {
 bool FakeStart(void* owner, const SSoundStatePlaybackRequest* request,
                SoundStatePlaybackToken* token) {
   FakeAudioBackend* backend = static_cast<FakeAudioBackend*>(owner);
-  if (request == nullptr || token == nullptr || request->flags != 0 ||
+  if (request == nullptr || token == nullptr ||
+      (request->flags != 0 && request->flags != 1) ||
       (request->playCount != 0 && request->playCount != 1) ||
-      std::strcmp(request->fileName,
-                  "..\\SOUND\\soundobj-probe.wav") != 0)
+      (std::strcmp(request->fileName,
+                   "..\\SOUND\\soundobj-probe.wav") != 0 &&
+       std::strcmp(request->fileName, "..\\SOUND\\stream.wav") != 0))
     return false;
   ++backend->starts;
-  if (request->playCount == 0)
+  if (request->flags == 1)
+    ++backend->streams;
+  else if (request->playCount == 0)
     ++backend->loops;
   else
     ++backend->oneShots;
@@ -88,9 +95,11 @@ bool FakePitch(void* owner, SoundStatePlaybackToken token, float ratio) {
 }
 
 void FakeVolume(void* owner, ESoundStateCategory category, float volume) {
-  if (category != SOUND_STATE_CATEGORY_EFFECTS) return;
   FakeAudioBackend* backend = static_cast<FakeAudioBackend*>(owner);
-  backend->volume = volume;
+  if (category == SOUND_STATE_CATEGORY_EFFECTS)
+    backend->volume = volume;
+  else if (category == SOUND_STATE_CATEGORY_CINEMATIC)
+    backend->cinematicVolume = volume;
   ++backend->volumes;
 }
 
@@ -277,7 +286,7 @@ int main() {
   SoundObjectState_Link();
   FakeAudioBackend backend;
   SSoundStateBackend bridge = {};
-  bridge.abiVersion = 3u;
+  bridge.abiVersion = 4u;
   bridge.owner = &backend;
   bridge.admit = FakeAdmit;
   bridge.start = FakeStart;
@@ -308,15 +317,23 @@ int main() {
   }
   SSoundStatePlaybackRequest stream = {
       "..\\SOUND\\stream.wav", 1, 1, 1.0f};
+  stream.category = SOUND_STATE_CATEGORY_CINEMATIC;
+  SSoundStatePlaybackRequest unsupportedStream = stream;
+  unsupportedStream.category = SOUND_STATE_CATEGORY_EFFECTS;
   SSoundStatePlaybackRequest loop = {
       "..\\SOUND\\soundobj-probe.wav", 0, 0, 0.75f};
   SSoundStatePlaybackRequest unsupportedRepeat = {
       "..\\SOUND\\soundobj-probe.wav", 0, 2, 0.75f};
   SoundStatePlaybackToken unsupported = 0;
+  SoundStatePlaybackToken streamToken = 0;
   SoundStatePlaybackToken loopToken = 0;
   const SSoundStateTelemetry* telemetry = SoundState_Telemetry();
   const bool streamRejected =
-      !SoundState_StartPlayback(&stream, &unsupported) && unsupported == 0;
+      !SoundState_StartPlayback(&unsupportedStream, &unsupported) &&
+      unsupported == 0;
+  const bool streamAdmitted =
+      SoundState_AdmitWave(stream.fileName, stream.flags) &&
+      SoundState_StartPlayback(&stream, &streamToken) && streamToken != 0;
   const bool repeatRejected =
       !SoundState_StartPlayback(&unsupportedRepeat, &unsupported) &&
       unsupported == 0;
@@ -324,20 +341,25 @@ int main() {
       SoundState_StartPlayback(&loop, &loopToken) && loopToken != 0;
   const bool explicitPitch = SoundState_SetPlaybackPitch(loopToken, 1.5f);
   SoundState_StopPlayback(&loopToken);
-  const bool bridgeExact = backend.admissions == 2u && backend.starts == 9u &&
+  SoundState_StopPlayback(&streamToken);
+  const bool bridgeExact = backend.admissions == 3u && backend.starts == 10u &&
       backend.oneShots == 2u && backend.loops == 7u &&
-      backend.stops == 9u && backend.volumes == 2u &&
+      backend.streams == 1u && backend.stops == 10u &&
+      backend.volumes == 4u &&
       backend.moves == 2u && backend.listeners == 1u &&
       backend.pitches == 1u &&
       backend.lastX == 7.0f && backend.lastY == 8.0f &&
       backend.lastZ == 9.0f &&
       backend.focusChanges == 2u && backend.maintains == 1u &&
-      backend.active && backend.volume == 0.4f && telemetry != nullptr &&
-      streamRejected && repeatRejected && explicitLoop && explicitPitch &&
-      loopToken == 0 &&
+      backend.active && backend.volume == 0.4f &&
+      backend.cinematicVolume == 1.0f && telemetry != nullptr &&
+      streamRejected && streamAdmitted && repeatRejected && explicitLoop &&
+      explicitPitch && loopToken == 0 && streamToken == 0 &&
       telemetry->oneShotStarts == 2u &&
       telemetry->loopRequests == 7u && telemetry->loopStarts == 7u &&
       telemetry->loopFailures == 0u &&
+      telemetry->streamRequests == 1u && telemetry->streamStarts == 1u &&
+      telemetry->streamFailures == 1u &&
       telemetry->emitterMoveRequests == 2u &&
       telemetry->emitterMoveUpdates == 2u &&
       telemetry->emitterMoveFailures == 0u &&
@@ -353,7 +375,7 @@ int main() {
     return Fail("maintained one-shot/loop bridge was not exact or fail-closed");
   std::printf("sound distance=300/90000 invalid=transactional "
               "vehicle-engine=1/0.5 invalid=transactional "
-              "sound object table=SoundObj capacity=3 backend=callback-v3 "
+              "sound object table=SoundObj capacity=3 backend=callback-v4 "
               "lifecycle=invalid-bind-updateSound-move-start-end-reuse-one-shot-loop "
               "rollback=pool-name fingerprint=%llu\n",
               fingerprint);

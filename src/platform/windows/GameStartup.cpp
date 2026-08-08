@@ -2175,11 +2175,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   const float vehicleVolume = configuredShell == nullptr
       ? 1.0f
       : static_cast<float>(configuredShell->vehicleVolume);
+  const float cinematicVolume = configuredShell == nullptr
+      ? 1.0f
+      : static_cast<float>(configuredShell->cinematicVolume);
   // Keep device output closed while the recovered startup graph executes its
   // bounded gameplay probes. WAV admission still fills the cache, but probe
   // START commands cannot leak into the user's speakers. Interactive output
   // is enabled only after every startup-only transaction has completed.
-  if (!WindowsAudioRuntime_Configure(effectsVolume, vehicleVolume, false)) {
+  if (!WindowsAudioRuntime_Configure(effectsVolume, vehicleVolume,
+                                     cinematicVolume, false)) {
     log.Line("failure=maintained audio backend boundary could not be installed");
     log.Line("marker=audio-not-ready");
     RecoveredGameServices_Release();
@@ -2188,7 +2192,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const SWindowsAudioRuntimeTelemetry* initialAudio =
       WindowsAudioRuntime_Telemetry();
-  log.Line("audio_backend=xaudio2-2.9-effects-spatial-vehicle-pitch-v3");
+  log.Line("audio_backend=xaudio2-2.9-effects-spatial-vehicle-stream-v4");
   log.Line(std::string("audio_physical_output=") +
            (!options.runtimeSmoke ? "deferred-until-interactive-loop"
                                   : "headless"));
@@ -2196,6 +2200,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            (initialAudio != nullptr && initialAudio->deviceReady ? "1" : "0"));
   log.Line("audio_effects_volume=" + std::to_string(effectsVolume));
   log.Line("audio_vehicle_volume=" + std::to_string(vehicleVolume));
+  log.Line("audio_cinematic_volume=" + std::to_string(cinematicVolume));
   if (initialAudio != nullptr && initialAudio->lastError[0] != 0)
     log.Line(std::string("audio_device_error=") + initialAudio->lastError);
   SUA_InitEverything();
@@ -6815,6 +6820,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->effectsVolume));
     log.Line("in_game_shell_vehicle_volume=" +
              std::to_string(shellState->vehicleVolume));
+    log.Line("in_game_shell_cinematic_volume=" +
+             std::to_string(shellState->cinematicVolume));
     log.Line("in_game_shell_status=" + shellState->status);
     log.Line("in_game_shell_last_error=" + shellState->lastError);
   }
@@ -6927,8 +6934,25 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(audio->admittedClips) + "/" +
              std::to_string(audio->duplicateAdmissions) + "/" +
              std::to_string(audio->rejectedClips));
-    log.Line("audio_streams_deferred=" +
+    log.Line("audio_stream_admission=" +
+             std::to_string(audio->admittedStreams) + "/" +
+             std::to_string(audio->duplicateStreamAdmissions) + "/" +
+             std::to_string(audio->rejectedStreams) + "/" +
              std::to_string(audio->deferredStreams));
+    log.Line("audio_stream_lifecycle=" +
+             std::to_string(audio->streamRequests) + "/" +
+             std::to_string(audio->streamRegistrations) + "/" +
+             std::to_string(audio->deferredStreamRegistrations) + "/" +
+             std::to_string(audio->streamStarts) + "/" +
+             std::to_string(audio->streamStops) + "/" +
+             std::to_string(audio->streamCompletions) + "/" +
+             std::to_string(audio->activeStreamRegistrations));
+    log.Line("audio_stream_buffers=" +
+             std::to_string(audio->streamBufferSubmissions) + "/" +
+             std::to_string(audio->streamedSampleBytes) + "/" +
+             std::to_string(audio->streamUnderruns) + "/" +
+             std::to_string(audio->streamRestarts) + "/" +
+             std::to_string(audio->streamRecoveryFailures));
     log.Line("audio_effect_voices=" +
              std::to_string(audio->playbackStarts) + "/" +
              std::to_string(audio->completedVoices) + "/" +
@@ -6979,6 +7003,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(authoredAudio->loopRequests) + "/" +
              std::to_string(authoredAudio->loopStarts) + "/" +
              std::to_string(authoredAudio->loopFailures));
+    log.Line("audio_authored_streams=" +
+             std::to_string(authoredAudio->streamRequests) + "/" +
+             std::to_string(authoredAudio->streamStarts) + "/" +
+             std::to_string(authoredAudio->streamFailures));
     log.Line("audio_unsupported_stream_repeat=" +
              std::to_string(authoredAudio->unsupportedStreamStarts) + "/" +
              std::to_string(authoredAudio->unsupportedRepeatStarts));
@@ -7005,6 +7033,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(audio->vehicleLoopRegistrations) + "/" +
              std::to_string(audio->vehicleLoopStops) + "/" +
              std::to_string(audio->vehiclePitchFailures));
+    log.Line("audio_post_level_streams=" +
+             std::to_string(audio->streamStops) + "/" +
+             std::to_string(audio->activeStreamVoices) + "/" +
+             std::to_string(audio->activeStreamRegistrations));
   }
   ZAV_Deinit();
   log.Line("runtime_shutdown=clean");

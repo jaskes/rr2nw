@@ -9,7 +9,7 @@
 namespace
 {
 
-const unsigned int kSoundStateBackendAbiVersion = 3u;
+const unsigned int kSoundStateBackendAbiVersion = 4u;
 SSoundStateBackend g_backend = {};
 SSoundStateTelemetry g_telemetry = {};
 
@@ -19,6 +19,7 @@ struct SoundTelemetryInitializer
     {
         g_telemetry.effectsVolume = 1.0f;
         g_telemetry.vehicleVolume = 1.0f;
+        g_telemetry.cinematicVolume = 1.0f;
     }
 } g_soundTelemetryInitializer;
 
@@ -100,6 +101,9 @@ bool SoundState_ConfigureBackend(const SSoundStateBackend *backend)
     g_backend.setCategoryVolume(g_backend.owner,
                                 SOUND_STATE_CATEGORY_VEHICLE,
                                 g_telemetry.vehicleVolume);
+    g_backend.setCategoryVolume(g_backend.owner,
+                                SOUND_STATE_CATEGORY_CINEMATIC,
+                                g_telemetry.cinematicVolume);
     return true;
 }
 
@@ -147,18 +151,29 @@ bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
         ++g_telemetry.oneShotFailures;
         return false;
     }
-    if (request->flags != 0)
-    {
-        ++g_telemetry.unsupportedStreamStarts;
-        return false;
-    }
     if (request->playCount != 0 && request->playCount != 1)
     {
         ++g_telemetry.unsupportedRepeatStarts;
         return false;
     }
+    if (request->flags != 0 && request->flags != 1)
+    {
+        ++g_telemetry.unsupportedStreamStarts;
+        return false;
+    }
+    const bool stream = request->flags == 1;
+    if (stream &&
+        (request->category != SOUND_STATE_CATEGORY_CINEMATIC ||
+         request->positionValid != 0))
+    {
+        ++g_telemetry.unsupportedStreamStarts;
+        ++g_telemetry.streamFailures;
+        return false;
+    }
     const bool loop = request->playCount == 0;
-    if (loop)
+    if (stream)
+        ++g_telemetry.streamRequests;
+    else if (loop)
         ++g_telemetry.loopRequests;
     else
         ++g_telemetry.oneShotRequests;
@@ -166,13 +181,17 @@ bool SoundState_StartPlayback(const SSoundStatePlaybackRequest *request,
         !g_backend.start(g_backend.owner, request, token) || *token == 0)
     {
         *token = 0;
-        if (loop)
+        if (stream)
+            ++g_telemetry.streamFailures;
+        else if (loop)
             ++g_telemetry.loopFailures;
         else
             ++g_telemetry.oneShotFailures;
         return false;
     }
-    if (loop)
+    if (stream)
+        ++g_telemetry.streamStarts;
+    else if (loop)
         ++g_telemetry.loopStarts;
     else
         ++g_telemetry.oneShotStarts;
@@ -237,8 +256,10 @@ bool SoundState_SetCategoryVolume(ESoundStateCategory category, float volume)
         return false;
     if (category == SOUND_STATE_CATEGORY_EFFECTS)
         g_telemetry.effectsVolume = volume;
-    else
+    else if (category == SOUND_STATE_CATEGORY_VEHICLE)
         g_telemetry.vehicleVolume = volume;
+    else
+        g_telemetry.cinematicVolume = volume;
     if (g_backend.owner != NULL)
         g_backend.setCategoryVolume(g_backend.owner, category, volume);
     return true;
@@ -272,7 +293,9 @@ void SoundState_ResetTelemetryForTesting()
 {
     const float effectsVolume = g_telemetry.effectsVolume;
     const float vehicleVolume = g_telemetry.vehicleVolume;
+    const float cinematicVolume = g_telemetry.cinematicVolume;
     std::memset(&g_telemetry, 0, sizeof(g_telemetry));
     g_telemetry.effectsVolume = effectsVolume;
     g_telemetry.vehicleVolume = vehicleVolume;
+    g_telemetry.cinematicVolume = cinematicVolume;
 }

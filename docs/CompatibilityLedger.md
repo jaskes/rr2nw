@@ -5461,11 +5461,34 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   three configurations and requires starts, successful pitch changes, no
   failures and zero post-Level registrations. The opt-in generated listening
   gate audibly changes 0.6x to 1.8x and survives focus/device reconstruction.
-- Boundary: no AI Vehicle loop, streamed briefing/dialogue, music, UI audio,
-  spatial Vehicle engine, Doppler or byte-exact RSX resampling is claimed.
+- Boundary: briefing-owned WAV streaming is closed separately by CQ-263. No AI
+  Vehicle loop, other music/UI audio, spatial Vehicle engine, Doppler or
+  byte-exact RSX resampling is claimed here.
 - Revisit when: retail evidence assigns direct engine ownership to AI units,
   streamed media gains a maintained owner, or comparison against an original
   RSX device demonstrates a materially different pitch law.
+
+### CQ-263: flags 1 means deferred PCM payload, not an unsupported sound
+
+- Evidence: resource construction uses `LoadWAVEx(...,1)` for long WAVs while
+  `CBriefing::PlayBriefing` resolves `SoundN`, validates cycle 0/1 and invokes
+  `Vehicle::setBriefingSound`. The installed flags-1 corpus is 21 mono 22050 Hz
+  16-bit PCM files totalling 33,615,000 bytes. Level.03N Marauders names
+  `wav.Maroder` with cycle 1 in its authored presentation script.
+- Handling: ABI 4 accepts flags 1 only from the nonspatial Cinematic owner.
+  RIFF metadata and VFS identity are bounded at admission; playback reopens
+  the same object and queues four reusable 64 KiB buffers without caching the
+  full payload or stealing another voice. Count 0 rewinds, count 1 completes,
+  and explicit stop/rollback/Level teardown removes the logical registration.
+- Verification: a generated headless CTest proves admission/deferred stop;
+  the opt-in generated listening gate proves multi-buffer completion, focus
+  and exact device restart. The Marauders normal-loop gate proves real authored
+  starts and post-Level zero voice/registration ownership.
+- Boundary: restart begins presentation at byte zero and audio state stays out
+  of saves. FLIC/container audio, UI sounds, lip synchronization, arbitrary
+  flags-1 `SoundObj` and byte-exact RSX mixing are not claimed.
+- Revisit when: a remaining owner supplies an explicit stream command graph or
+  campaign play reveals presentation timing that requires a maintained cursor.
 
 ## Maintenance rule
 

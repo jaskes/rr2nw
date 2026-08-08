@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <new>
 #include <string>
@@ -22,17 +23,27 @@
 namespace rr2nw {
 namespace {
 
-constexpr unsigned int kBackendAbiVersion = 3u;
+constexpr unsigned int kBackendAbiVersion = 4u;
 // The installed corpus contains 86 WAVs / about 38 MiB. Keep the process-wide
 // cache bounded while allowing every retail Level transition to retain the
 // union without turning late-campaign sounds into deterministic rejections.
 constexpr std::size_t kMaximumCachedClips = 128u;
 constexpr std::size_t kMaximumCachedSampleBytes = 64u * 1024u * 1024u;
 constexpr std::size_t kMaximumVoices = 32u;
+constexpr std::size_t kMaximumStreamClips = 32u;
+constexpr std::size_t kMaximumActiveStreams = 8u;
+constexpr std::size_t kStreamBufferCount = 4u;
+constexpr std::size_t kStreamQueuedTarget = 3u;
+constexpr std::size_t kStreamChunkBytes = 64u * 1024u;
 constexpr char kSyntheticProbeKey[] = "__rr2nw_listening_probe__";
 
 struct CachedClip {
   SRecoveredPcmWav wav;
+};
+
+struct StreamClip {
+  std::string sourcePath;
+  SRecoveredPcmWavStreamInfo wav;
 };
 
 struct SpatialSourceState {
@@ -48,6 +59,14 @@ struct LoopRegistration {
   ESoundStateCategory category = SOUND_STATE_CATEGORY_EFFECTS;
   SoundStatePlaybackToken token = 0;
   SpatialSourceState spatial;
+};
+
+struct StreamRegistration {
+  std::string clipKey;
+  float intensity = 1.0f;
+  int playCount = 1;
+  ESoundStateCategory category = SOUND_STATE_CATEGORY_CINEMATIC;
+  SoundStatePlaybackToken token = 0;
 };
 
 struct VoiceSlot;
@@ -78,13 +97,22 @@ struct VoiceSlot {
   unsigned int sourceChannels = 0;
   SpatialSourceState spatial;
   bool looping = false;
+  bool streaming = false;
+  std::FILE* streamFile = nullptr;
+  SRecoveredPcmWavStreamInfo streamInfo;
+  std::size_t streamRemaining = 0;
+  std::size_t streamNextBuffer = 0;
+  bool streamFinalSubmitted = false;
+  std::array<std::vector<std::uint8_t>, kStreamBufferCount> streamBuffers;
   std::atomic<bool> finished{false};
   std::atomic<bool> failed{false};
   VoiceCallback callback;
 };
 
 void VoiceCallback::OnStreamEnd() { slot_->finished.store(true); }
-void VoiceCallback::OnBufferEnd(void*) { slot_->finished.store(true); }
+void VoiceCallback::OnBufferEnd(void*) {
+  if (!slot_->streaming) slot_->finished.store(true);
+}
 void VoiceCallback::OnVoiceError(void*, HRESULT) {
   slot_->failed.store(true);
   slot_->finished.store(true);
@@ -116,10 +144,13 @@ struct AudioRuntimeState {
   IXAudio2MasteringVoice* masteringVoice = nullptr;
   IXAudio2SubmixVoice* effectsVoice = nullptr;
   IXAudio2SubmixVoice* vehicleVoice = nullptr;
+  IXAudio2SubmixVoice* cinematicVoice = nullptr;
   EngineCallback engineCallback;
   std::array<VoiceSlot, kMaximumVoices> voices;
   std::map<std::string, CachedClip> clips;
+  std::map<std::string, StreamClip> streamClips;
   std::map<SoundStatePlaybackToken, LoopRegistration> loops;
+  std::map<SoundStatePlaybackToken, StreamRegistration> streams;
   SoundStatePlaybackToken nextToken = 1;
   bool listenerValid = false;
   SRecoveredAudioListenerPose listener;
@@ -171,10 +202,28 @@ void UpdateActiveLoopTelemetry() {
       static_cast<unsigned int>(g_audio.loops.size());
 }
 
+void UpdateActiveStreamTelemetry() {
+  unsigned int active = 0;
+  for (const VoiceSlot& slot : g_audio.voices)
+    if (slot.voice != nullptr && slot.streaming) ++active;
+  g_audio.telemetry.activeStreamVoices = active;
+  g_audio.telemetry.activeStreamRegistrations =
+      static_cast<unsigned int>(g_audio.streams.size());
+}
+
+IXAudio2SubmixVoice* CategoryVoice(ESoundStateCategory category) {
+  if (category == SOUND_STATE_CATEGORY_VEHICLE)
+    return g_audio.vehicleVoice;
+  if (category == SOUND_STATE_CATEGORY_CINEMATIC)
+    return g_audio.cinematicVoice;
+  return g_audio.effectsVoice;
+}
+
 bool ApplyVoiceSpatial(VoiceSlot* slot) {
   if (slot == nullptr || slot->voice == nullptr) return false;
   float gain = slot->intensity;
-  if (slot->category == SOUND_STATE_CATEGORY_VEHICLE)
+  if (slot->category == SOUND_STATE_CATEGORY_VEHICLE ||
+      slot->category == SOUND_STATE_CATEGORY_CINEMATIC)
     return SUCCEEDED(slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
   if (!slot->spatial.positionValid || !g_audio.listenerValid) {
     return SUCCEEDED(slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
@@ -204,6 +253,11 @@ void DestroyVoice(VoiceSlot* slot, bool completed, bool countStop) {
   slot->voice->FlushSourceBuffers();
   slot->voice->DestroyVoice();
   slot->voice = nullptr;
+  if (slot->streamFile != nullptr) {
+    std::fclose(slot->streamFile);
+    slot->streamFile = nullptr;
+  }
+  for (auto& buffer : slot->streamBuffers) buffer.clear();
   slot->token = 0;
   slot->clipKey.clear();
   slot->intensity = 1.0f;
@@ -212,6 +266,11 @@ void DestroyVoice(VoiceSlot* slot, bool completed, bool countStop) {
   slot->sourceChannels = 0;
   slot->spatial = {};
   slot->looping = false;
+  slot->streaming = false;
+  slot->streamInfo = {};
+  slot->streamRemaining = 0;
+  slot->streamNextBuffer = 0;
+  slot->streamFinalSubmitted = false;
   slot->finished.store(false);
   slot->failed.store(false);
   if (completed)
@@ -219,6 +278,7 @@ void DestroyVoice(VoiceSlot* slot, bool completed, bool countStop) {
   else if (countStop)
     ++g_audio.telemetry.stoppedVoices;
   UpdateActiveLoopTelemetry();
+  UpdateActiveStreamTelemetry();
 }
 
 void DestroyAllVoices(bool countStops) {
@@ -228,6 +288,10 @@ void DestroyAllVoices(bool countStops) {
 
 void DestroyDevice(bool countStops) {
   DestroyAllVoices(countStops);
+  if (g_audio.cinematicVoice != nullptr) {
+    g_audio.cinematicVoice->DestroyVoice();
+    g_audio.cinematicVoice = nullptr;
+  }
   if (g_audio.vehicleVoice != nullptr) {
     g_audio.vehicleVoice->DestroyVoice();
     g_audio.vehicleVoice = nullptr;
@@ -326,10 +390,36 @@ bool InitializeDevice() {
     SetError("XAudio2 vehicle volume could not be applied", result);
     return false;
   }
+  IXAudio2SubmixVoice* cinematic = nullptr;
+  result = engine->CreateSubmixVoice(&cinematic, 2u, 44100u);
+  if (FAILED(result) || cinematic == nullptr) {
+    vehicle->DestroyVoice();
+    effects->DestroyVoice();
+    mastering->DestroyVoice();
+    engine->UnregisterForCallbacks(&g_audio.engineCallback);
+    engine->Release();
+    ++g_audio.telemetry.deviceFailures;
+    SetError("XAudio2 cinematic category voice could not be created", result);
+    return false;
+  }
+  result = cinematic->SetVolume(g_audio.telemetry.cinematicVolume,
+                                XAUDIO2_COMMIT_NOW);
+  if (FAILED(result)) {
+    cinematic->DestroyVoice();
+    vehicle->DestroyVoice();
+    effects->DestroyVoice();
+    mastering->DestroyVoice();
+    engine->UnregisterForCallbacks(&g_audio.engineCallback);
+    engine->Release();
+    ++g_audio.telemetry.deviceFailures;
+    SetError("XAudio2 cinematic volume could not be applied", result);
+    return false;
+  }
   g_audio.engine = engine;
   g_audio.masteringVoice = mastering;
   g_audio.effectsVoice = effects;
   g_audio.vehicleVoice = vehicle;
+  g_audio.cinematicVoice = cinematic;
   g_audio.telemetry.deviceReady = true;
   ++g_audio.telemetry.deviceInitializations;
   g_audio.telemetry.lastError[0] = 0;
@@ -340,15 +430,67 @@ bool InitializeDevice() {
 void ReapVoices() {
   for (VoiceSlot& slot : g_audio.voices) {
     if (slot.voice != nullptr && slot.finished.load()) {
-      if (slot.failed.load()) ++g_audio.telemetry.playbackFailures;
+      const bool failed = slot.failed.load();
+      if (failed) ++g_audio.telemetry.playbackFailures;
+      if (slot.streaming) {
+        g_audio.streams.erase(slot.token);
+        if (!failed) ++g_audio.telemetry.streamCompletions;
+      }
       DestroyVoice(&slot, true, false);
     }
   }
+  UpdateActiveStreamTelemetry();
 }
 
 bool AdmitClip(const char* fileName, int flags) {
   if (flags == 1) {
     ++g_audio.telemetry.deferredStreams;
+    std::string key;
+    if (!ValidAuthoredSoundPath(fileName, &key)) {
+      ++g_audio.telemetry.rejectedStreams;
+      SetError("authored stream path was rejected");
+      return false;
+    }
+    if (g_audio.streamClips.find(key) != g_audio.streamClips.end()) {
+      ++g_audio.telemetry.duplicateStreamAdmissions;
+      return true;
+    }
+    if (g_audio.streamClips.size() >= kMaximumStreamClips) {
+      ++g_audio.telemetry.rejectedStreams;
+      SetError("authored stream entry limit was reached");
+      return false;
+    }
+    long length = 0;
+    std::FILE* file = RecoveredModRuntime_OpenRead(fileName, &length);
+    if (file == nullptr || length < 12 ||
+        static_cast<std::size_t>(length) >
+            RecoveredPcmWav_MaximumSourceBytes()) {
+      if (file != nullptr) std::fclose(file);
+      ++g_audio.telemetry.rejectedStreams;
+      SetError("authored stream WAV is unavailable or exceeds its limit");
+      return false;
+    }
+    StreamClip clip;
+    SRecoveredPcmWavResult inspected;
+    const bool valid = RecoveredPcmWav_InspectStream(
+        file, static_cast<std::size_t>(length), &clip.wav, &inspected);
+    std::fclose(file);
+    if (!valid) {
+      ++g_audio.telemetry.rejectedStreams;
+      SetError(inspected.error[0] == 0
+                   ? "authored stream WAV inspection failed"
+                   : inspected.error);
+      return false;
+    }
+    clip.sourcePath = fileName;
+    try {
+      g_audio.streamClips.emplace(key, std::move(clip));
+    } catch (...) {
+      ++g_audio.telemetry.rejectedStreams;
+      SetError("authored stream catalog allocation failed");
+      return false;
+    }
+    ++g_audio.telemetry.admittedStreams;
     return true;
   }
   std::string key;
@@ -417,6 +559,265 @@ bool AdmitClip(const char* fileName, int flags) {
   }
   g_audio.telemetry.cachedSampleBytes += sampleBytes;
   ++g_audio.telemetry.admittedClips;
+  return true;
+}
+
+bool SameStreamInfo(const SRecoveredPcmWavStreamInfo& left,
+                    const SRecoveredPcmWavStreamInfo& right) {
+  return left.channels == right.channels &&
+         left.bitsPerSample == right.bitsPerSample &&
+         left.sampleRate == right.sampleRate &&
+         left.blockAlign == right.blockAlign &&
+         left.averageBytesPerSecond == right.averageBytesPerSecond &&
+         left.dataOffset == right.dataOffset &&
+         left.dataBytes == right.dataBytes &&
+         left.sourceBytes == right.sourceBytes;
+}
+
+bool PumpStreamBuffer(VoiceSlot* slot) {
+  if (slot == nullptr || slot->voice == nullptr || !slot->streaming ||
+      slot->streamFile == nullptr || slot->streamInfo.blockAlign == 0u ||
+      slot->streamFinalSubmitted)
+    return false;
+  if (slot->streamRemaining == 0u) {
+    if (!slot->looping) return false;
+    if (slot->streamInfo.dataOffset >
+            static_cast<std::size_t>((std::numeric_limits<long>::max)()) ||
+        std::fseek(slot->streamFile,
+                   static_cast<long>(slot->streamInfo.dataOffset),
+                   SEEK_SET) != 0) {
+      slot->failed.store(true);
+      slot->finished.store(true);
+      SetError("authored stream loop seek failed");
+      return false;
+    }
+    slot->streamRemaining = slot->streamInfo.dataBytes;
+  }
+  std::size_t bytes = (std::min)(kStreamChunkBytes, slot->streamRemaining);
+  bytes -= bytes % slot->streamInfo.blockAlign;
+  if (bytes == 0u) {
+    slot->failed.store(true);
+    slot->finished.store(true);
+    SetError("authored stream produced an unaligned terminal buffer");
+    return false;
+  }
+  std::vector<std::uint8_t>& samples =
+      slot->streamBuffers[slot->streamNextBuffer];
+  if (samples.size() != kStreamChunkBytes) {
+    try {
+      samples.resize(kStreamChunkBytes);
+    } catch (...) {
+      slot->failed.store(true);
+      slot->finished.store(true);
+      SetError("authored stream buffer allocation failed");
+      return false;
+    }
+  }
+  if (std::fread(samples.data(), 1u, bytes, slot->streamFile) != bytes) {
+    slot->failed.store(true);
+    slot->finished.store(true);
+    SetError("authored stream buffer could not be read completely");
+    return false;
+  }
+  slot->streamRemaining -= bytes;
+  XAUDIO2_BUFFER buffer = {};
+  buffer.AudioBytes = static_cast<UINT32>(bytes);
+  buffer.pAudioData = samples.data();
+  buffer.pContext = slot;
+  if (!slot->looping && slot->streamRemaining == 0u) {
+    buffer.Flags = XAUDIO2_END_OF_STREAM;
+    slot->streamFinalSubmitted = true;
+  }
+  const HRESULT result = slot->voice->SubmitSourceBuffer(&buffer);
+  if (FAILED(result)) {
+    slot->failed.store(true);
+    slot->finished.store(true);
+    SetError("XAudio2 stream buffer submission failed", result);
+    return false;
+  }
+  slot->streamNextBuffer =
+      (slot->streamNextBuffer + 1u) % kStreamBufferCount;
+  ++g_audio.telemetry.streamBufferSubmissions;
+  g_audio.telemetry.streamedSampleBytes += bytes;
+  return true;
+}
+
+bool PumpStreamVoice(VoiceSlot* slot) {
+  if (slot == nullptr || slot->voice == nullptr || !slot->streaming)
+    return false;
+  XAUDIO2_VOICE_STATE state = {};
+  slot->voice->GetState(&state, XAUDIO2_VOICE_NOSAMPLESPLAYED);
+  if (state.BuffersQueued == 0u && !slot->streamFinalSubmitted &&
+      slot->streamRemaining != slot->streamInfo.dataBytes) {
+    ++g_audio.telemetry.streamUnderruns;
+  }
+  while (state.BuffersQueued < kStreamQueuedTarget &&
+         !slot->streamFinalSubmitted) {
+    if (!PumpStreamBuffer(slot)) return slot->streamFinalSubmitted;
+    ++state.BuffersQueued;
+  }
+  return true;
+}
+
+bool StartStreamClip(const std::string& key, float intensity, int playCount,
+                     SoundStatePlaybackToken* token,
+                     SoundStatePlaybackToken recoveredToken = 0,
+                     bool deviceRecovery = false) {
+  if (token == nullptr) return false;
+  *token = 0;
+  const bool newRequest = recoveredToken == 0;
+  if (newRequest) {
+    ++g_audio.telemetry.playbackRequests;
+    ++g_audio.telemetry.streamRequests;
+  }
+  ReapVoices();
+  const auto found = g_audio.streamClips.find(key);
+  if (found == g_audio.streamClips.end() ||
+      (playCount != 0 && playCount != 1)) {
+    ++g_audio.telemetry.playbackFailures;
+    SetError("stream playback requested before admission or with invalid cycle");
+    return false;
+  }
+  const float boundedIntensity = (std::max)(0.0f, (std::min)(1.0f, intensity));
+  SoundStatePlaybackToken assignedToken = recoveredToken;
+  bool registeredHere = false;
+  if (newRequest) {
+    if (g_audio.streams.size() >= kMaximumActiveStreams) {
+      ++g_audio.telemetry.voiceStealsPrevented;
+      ++g_audio.telemetry.playbackFailures;
+      SetError("stream registration limit reached; an active stream was not stolen");
+      return false;
+    }
+    assignedToken = g_audio.nextToken++;
+    if (assignedToken == 0) assignedToken = g_audio.nextToken++;
+    StreamRegistration registration;
+    registration.clipKey = key;
+    registration.intensity = boundedIntensity;
+    registration.playCount = playCount;
+    registration.token = assignedToken;
+    try {
+      g_audio.streams.emplace(assignedToken, std::move(registration));
+    } catch (...) {
+      ++g_audio.telemetry.playbackFailures;
+      SetError("stream registration allocation failed");
+      return false;
+    }
+    registeredHere = true;
+    ++g_audio.telemetry.streamRegistrations;
+    *token = assignedToken;
+    UpdateActiveStreamTelemetry();
+    if (!g_audio.telemetry.deviceReady) {
+      ++g_audio.telemetry.deferredStreamRegistrations;
+      return true;
+    }
+  } else {
+    const auto registration = g_audio.streams.find(recoveredToken);
+    if (registration == g_audio.streams.end() ||
+        registration->second.clipKey != key ||
+        registration->second.playCount != playCount) {
+      ++g_audio.telemetry.playbackFailures;
+      SetError("stream recovery token was not registered");
+      return false;
+    }
+  }
+
+  const auto rollbackRegistration = [&]() {
+    if (registeredHere) {
+      g_audio.streams.erase(assignedToken);
+      *token = 0;
+      UpdateActiveStreamTelemetry();
+    }
+  };
+  VoiceSlot* slot = nullptr;
+  for (VoiceSlot& candidate : g_audio.voices) {
+    if (candidate.voice == nullptr) {
+      slot = &candidate;
+      break;
+    }
+  }
+  if (slot == nullptr) {
+    ++g_audio.telemetry.voiceStealsPrevented;
+    ++g_audio.telemetry.playbackFailures;
+    SetError("stream voice limit reached; an active voice was not stolen");
+    rollbackRegistration();
+    return false;
+  }
+  const StreamClip& clip = found->second;
+  long length = 0;
+  slot->streamFile =
+      RecoveredModRuntime_OpenRead(clip.sourcePath.c_str(), &length);
+  SRecoveredPcmWavResult inspected;
+  if (slot->streamFile == nullptr || length < 12 ||
+      !RecoveredPcmWav_InspectStream(slot->streamFile,
+                                    static_cast<std::size_t>(length),
+                                    &slot->streamInfo, &inspected) ||
+      !SameStreamInfo(slot->streamInfo, clip.wav)) {
+    if (slot->streamFile != nullptr) {
+      std::fclose(slot->streamFile);
+      slot->streamFile = nullptr;
+    }
+    ++g_audio.telemetry.playbackFailures;
+    SetError(inspected.error[0] == 0
+                 ? "authored stream changed after admission"
+                 : inspected.error);
+    rollbackRegistration();
+    return false;
+  }
+  WAVEFORMATEX format = {};
+  format.wFormatTag = WAVE_FORMAT_PCM;
+  format.nChannels = slot->streamInfo.channels;
+  format.nSamplesPerSec = slot->streamInfo.sampleRate;
+  format.nAvgBytesPerSec = slot->streamInfo.averageBytesPerSecond;
+  format.nBlockAlign = slot->streamInfo.blockAlign;
+  format.wBitsPerSample = slot->streamInfo.bitsPerSample;
+  XAUDIO2_SEND_DESCRIPTOR send = {0u, g_audio.cinematicVoice};
+  XAUDIO2_VOICE_SENDS sends = {1u, &send};
+  HRESULT result = g_audio.engine->CreateSourceVoice(
+      &slot->voice, &format, 0u, 1.0f, &slot->callback, &sends, nullptr);
+  if (FAILED(result) || slot->voice == nullptr) {
+    slot->voice = nullptr;
+    std::fclose(slot->streamFile);
+    slot->streamFile = nullptr;
+    ++g_audio.telemetry.playbackFailures;
+    SetError("XAudio2 stream voice could not be created", result);
+    rollbackRegistration();
+    return false;
+  }
+  slot->finished.store(false);
+  slot->failed.store(false);
+  slot->token = assignedToken;
+  slot->clipKey = key;
+  slot->intensity = boundedIntensity;
+  slot->category = SOUND_STATE_CATEGORY_CINEMATIC;
+  slot->sourceChannels = slot->streamInfo.channels;
+  slot->looping = playCount == 0;
+  slot->streaming = true;
+  slot->streamRemaining = slot->streamInfo.dataBytes;
+  slot->streamNextBuffer = 0u;
+  slot->streamFinalSubmitted = false;
+  if (!ApplyVoiceSpatial(slot) || !PumpStreamVoice(slot)) {
+    ++g_audio.telemetry.playbackFailures;
+    if (g_audio.telemetry.lastError[0] == 0)
+      SetError("XAudio2 stream voice could not be initialized");
+    DestroyVoice(slot, false, false);
+    rollbackRegistration();
+    return false;
+  }
+  result = slot->voice->Start();
+  if (FAILED(result)) {
+    ++g_audio.telemetry.playbackFailures;
+    SetError("XAudio2 stream voice could not be started", result);
+    DestroyVoice(slot, false, false);
+    rollbackRegistration();
+    return false;
+  }
+  *token = assignedToken;
+  ++g_audio.telemetry.playbackStarts;
+  if (deviceRecovery)
+    ++g_audio.telemetry.streamRestarts;
+  else
+    ++g_audio.telemetry.streamStarts;
+  UpdateActiveStreamTelemetry();
   return true;
 }
 
@@ -532,9 +933,7 @@ bool StartCachedClip(const std::string& key, float intensity, bool looping,
   format.nAvgBytesPerSec = clip.wav.averageBytesPerSecond;
   format.nBlockAlign = clip.wav.blockAlign;
   format.wBitsPerSample = clip.wav.bitsPerSample;
-  IXAudio2SubmixVoice* categoryVoice =
-      category == SOUND_STATE_CATEGORY_VEHICLE ? g_audio.vehicleVoice
-                                               : g_audio.effectsVoice;
+  IXAudio2SubmixVoice* categoryVoice = CategoryVoice(category);
   XAUDIO2_SEND_DESCRIPTOR send = {0u, categoryVoice};
   XAUDIO2_VOICE_SENDS sends = {1u, &send};
   HRESULT result = g_audio.engine->CreateSourceVoice(
@@ -617,6 +1016,10 @@ bool BackendStart(void*, const SSoundStatePlaybackRequest* request,
   if (request == nullptr ||
       !ValidAuthoredSoundPath(request->fileName, &key))
     return false;
+  if (request->flags == 1) {
+    return StartStreamClip(key, request->intensity, request->playCount,
+                           token);
+  }
   SpatialSourceState spatial;
   spatial.positionValid = request->positionValid != 0;
   spatial.position = {request->positionX, request->positionY,
@@ -639,6 +1042,8 @@ void BackendStop(void*, SoundStatePlaybackToken token) {
   const bool registeredLoop = loop != g_audio.loops.end();
   const bool vehicleLoop = registeredLoop &&
       loop->second.category == SOUND_STATE_CATEGORY_VEHICLE;
+  const bool registeredStream = g_audio.streams.find(token) !=
+                                g_audio.streams.end();
   for (VoiceSlot& slot : g_audio.voices) {
     if (slot.voice != nullptr && slot.token == token) {
       DestroyVoice(&slot, false, true);
@@ -650,6 +1055,11 @@ void BackendStop(void*, SoundStatePlaybackToken token) {
     ++g_audio.telemetry.loopStops;
     if (vehicleLoop) ++g_audio.telemetry.vehicleLoopStops;
     UpdateActiveLoopTelemetry();
+  }
+  if (registeredStream) {
+    g_audio.streams.erase(token);
+    ++g_audio.telemetry.streamStops;
+    UpdateActiveStreamTelemetry();
   }
 }
 
@@ -745,6 +1155,11 @@ void BackendSetVolume(void*, ESoundStateCategory category, float volume) {
     g_audio.telemetry.vehicleVolume = volume;
     if (g_audio.vehicleVoice != nullptr)
       (void)g_audio.vehicleVoice->SetVolume(volume, XAUDIO2_COMMIT_NOW);
+  } else if (category == SOUND_STATE_CATEGORY_CINEMATIC) {
+    if (!std::isfinite(volume) || volume < 0.0f || volume > 1.0f) return;
+    g_audio.telemetry.cinematicVolume = volume;
+    if (g_audio.cinematicVoice != nullptr)
+      (void)g_audio.cinematicVoice->SetVolume(volume, XAUDIO2_COMMIT_NOW);
   }
 }
 
@@ -787,6 +1202,11 @@ bool InstallSyntheticProbeClip(unsigned int milliseconds) {
     loopTokens.push_back(entry.first);
   for (SoundStatePlaybackToken loopToken : loopTokens)
     BackendStop(nullptr, loopToken);
+  std::vector<SoundStatePlaybackToken> streamTokens;
+  for (const auto& entry : g_audio.streams)
+    streamTokens.push_back(entry.first);
+  for (SoundStatePlaybackToken streamToken : streamTokens)
+    BackendStop(nullptr, streamToken);
   DestroyAllVoices(true);
   const auto existing = g_audio.clips.find(kSyntheticProbeKey);
   if (existing != g_audio.clips.end()) g_audio.clips.erase(existing);
@@ -803,6 +1223,8 @@ bool RecoverDeviceAndLoops(HRESULT deviceError) {
   if (!g_audio.telemetry.physicalOutputEnabled || !InitializeDevice()) {
     g_audio.telemetry.loopRecoveryFailures +=
         static_cast<unsigned int>(g_audio.loops.size());
+    g_audio.telemetry.streamRecoveryFailures +=
+        static_cast<unsigned int>(g_audio.streams.size());
     return false;
   }
   ++g_audio.telemetry.deviceRecoveries;
@@ -818,18 +1240,30 @@ bool RecoverDeviceAndLoops(HRESULT deviceError) {
       exact = false;
     }
   }
+  for (const auto& entry : g_audio.streams) {
+    const StreamRegistration& stream = entry.second;
+    SoundStatePlaybackToken restored = 0;
+    if (!StartStreamClip(stream.clipKey, stream.intensity, stream.playCount,
+                         &restored, stream.token, true) ||
+        restored != stream.token) {
+      ++g_audio.telemetry.streamRecoveryFailures;
+      exact = false;
+    }
+  }
   return exact;
 }
 
 }  // namespace
 
 bool WindowsAudioRuntime_Configure(float effectsVolume, float vehicleVolume,
+                                   float cinematicVolume,
                                    bool enablePhysicalOutput) {
   if (g_audio.telemetry.configured || SoundState_BackendConfigured() ||
       !std::isfinite(effectsVolume) ||
       effectsVolume < 0.0f || effectsVolume > 1.0f ||
       !std::isfinite(vehicleVolume) || vehicleVolume < 0.0f ||
-      vehicleVolume > 1.0f)
+      vehicleVolume > 1.0f || !std::isfinite(cinematicVolume) ||
+      cinematicVolume < 0.0f || cinematicVolume > 1.0f)
     return false;
   g_audio.telemetry = {};
   g_audio.telemetry.configured = true;
@@ -837,6 +1271,7 @@ bool WindowsAudioRuntime_Configure(float effectsVolume, float vehicleVolume,
   g_audio.telemetry.applicationActive = true;
   g_audio.telemetry.effectsVolume = effectsVolume;
   g_audio.telemetry.vehicleVolume = vehicleVolume;
+  g_audio.telemetry.cinematicVolume = cinematicVolume;
   g_audio.nextToken = 1;
   g_audio.listenerValid = false;
   g_audio.listener = {};
@@ -846,7 +1281,9 @@ bool WindowsAudioRuntime_Configure(float effectsVolume, float vehicleVolume,
   if (!SoundState_SetCategoryVolume(SOUND_STATE_CATEGORY_EFFECTS,
                                     effectsVolume) ||
       !SoundState_SetCategoryVolume(SOUND_STATE_CATEGORY_VEHICLE,
-                                    vehicleVolume)) {
+                                    vehicleVolume) ||
+      !SoundState_SetCategoryVolume(SOUND_STATE_CATEGORY_CINEMATIC,
+                                    cinematicVolume)) {
     g_audio.telemetry.configured = false;
     return false;
   }
@@ -889,6 +1326,16 @@ bool WindowsAudioRuntime_EnablePhysicalOutput() {
       exact = false;
     }
   }
+  for (const auto& entry : g_audio.streams) {
+    const StreamRegistration& stream = entry.second;
+    SoundStatePlaybackToken materialized = 0;
+    if (!StartStreamClip(stream.clipKey, stream.intensity, stream.playCount,
+                         &materialized, stream.token, false) ||
+        materialized != stream.token) {
+      ++g_audio.telemetry.streamRecoveryFailures;
+      exact = false;
+    }
+  }
   return exact;
 }
 
@@ -899,17 +1346,24 @@ void WindowsAudioRuntime_Shutdown() {
   if (g_audio.comOwned) CoUninitialize();
   g_audio.comOwned = false;
   g_audio.clips.clear();
+  g_audio.streamClips.clear();
   g_audio.loops.clear();
+  g_audio.streams.clear();
   g_audio.listenerValid = false;
   g_audio.listener = {};
   g_audio.telemetry.cachedSampleBytes = 0;
   g_audio.telemetry.activeLoopRegistrations = 0;
+  g_audio.telemetry.activeStreamRegistrations = 0;
   g_audio.telemetry.configured = false;
 }
 
 void WindowsAudioRuntime_Maintain() {
   if (!g_audio.telemetry.configured) return;
   ++g_audio.telemetry.maintenanceCalls;
+  ReapVoices();
+  for (VoiceSlot& slot : g_audio.voices)
+    if (slot.voice != nullptr && slot.streaming)
+      (void)PumpStreamVoice(&slot);
   ReapVoices();
   HRESULT deviceError = S_OK;
   if (!g_audio.engineCallback.TakeCritical(&deviceError)) return;

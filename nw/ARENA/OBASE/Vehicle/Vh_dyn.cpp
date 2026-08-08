@@ -65,6 +65,7 @@ void Vehicle::addNotify()
 {
 	ct_Subject::addNotify();
 	m_backendEnginePlayback = 0;
+	m_backendBriefingPlayback = 0;
 
         carrierAddNotify(context,Session::m_moment);
         m_secBulletCnt = 30;
@@ -99,6 +100,7 @@ void Vehicle::removeNotify()
 	ct_Subject::removeNotify();
         carrierRemoveNotify(context,Session::m_moment);
 	SoundState_StopPlayback(&m_backendEnginePlayback);
+	SoundState_StopPlayback(&m_backendBriefingPlayback);
 
 	if (m_lpCE)
 	{
@@ -407,7 +409,8 @@ void Vehicle::setBriefingSound(char * name, int cycle, double ts)
 	 }
 
 	SoundState_StopPlayback(&m_backendEnginePlayback);
-	
+	SoundState_StopPlayback(&m_backendBriefingPlayback);
+
 	if (m_lpCE)
 	{
 		m_lpCE->Release();
@@ -415,11 +418,6 @@ void Vehicle::setBriefingSound(char * name, int cycle, double ts)
 	}
 
 	m_playingBriefingSound = true;
-
-	// Maintained streamed/dialogue playback is intentionally not claimed yet.
-	// The engine loop still has to stop at this authored ownership boundary.
-	if (!lpRSX2Unk)
-		return;
 
 	if (! name)
 		return;	
@@ -446,7 +444,24 @@ void Vehicle::setBriefingSound(char * name, int cycle, double ts)
 	event.data.open(EDO_READ)
 		.get(&wav,sizeof(void*))
 		.close();
-	
+
+	SSoundStatePlaybackRequest request = {
+		wav->m_rsxCE.szFilename,
+		wav->m_flags,
+		cycle,
+		float(snd_engineIntensity),
+		0,
+		0.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 0.0f,
+		SOUND_STATE_CATEGORY_CINEMATIC
+	};
+	(void)SoundState_AdmitWave(request.fileName, request.flags);
+	if (SoundState_StartPlayback(&request, &m_backendBriefingPlayback))
+		return;
+
+	if (!lpRSX2Unk)
+		return;
+
 	HRESULT hr = CoCreateInstance(
 		CLSID_RSXCACHEDEMITTER,     // GUID for cachedemitter object
 		NULL,
@@ -501,6 +516,7 @@ void Vehicle::updateSound(double ts)
 
 	m_playingBriefingSound = false;
 	SoundState_StopPlayback(&m_backendEnginePlayback);
+	SoundState_StopPlayback(&m_backendBriefingPlayback);
 
 	if (m_lpCE)
 	{

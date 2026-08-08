@@ -6480,3 +6480,24 @@ atomic settings schema 5. Schemas 1 through 4 migrate with Vehicle volume at
 1.0, corrupt input and safe mode retain their fail-closed defaults. This does
 not claim AI-engine audio, streamed briefing/dialogue, music, UI sound, HRTF,
 Doppler or byte-exact Intel RSX pitch resampling.
+
+### BD-198: flags-1 briefing WAVs stream through their direct presentation owner
+
+The archived briefing path names a WAV object, a cycle value and a delay, then
+calls `Vehicle::setBriefingSound`; it is not a positioned `SoundObj` and does
+not belong in the cached Effects pool. Flags 1 now require that exact
+nonspatial Cinematic category. Other flags-1 callers fail closed until their
+ownership is separately proven.
+
+The maintained owner keeps bounded RIFF metadata and a VFS identity, not the
+complete sample payload. XAudio2 receives a four-buffer 64 KiB queue with
+three buffers targeted in flight, eight no-steal registrations and exact
+one-shot/loop semantics. Presentation failure never changes briefing timing,
+mission state, save data or the simulation clock. Device reconstruction starts
+the same logical presentation from its beginning because no audio cursor is
+serialized; Level/rollback teardown always wins over recovery.
+
+Settings schema 6 exposes only the newly owned Cinematic category and migrates
+schema 1 through 5 atomically. This decision does not turn FLIC containers,
+music policy, UI sounds, dialogue timing or lip synchronization into supported
+features; each needs its own source and retail evidence.

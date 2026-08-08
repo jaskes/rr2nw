@@ -187,6 +187,7 @@ class Vehicle :
     IRSXCachedEmitter  * m_lpCE;
     IRSXCachedEmitter  * m_lpCannonCE;
     SoundStatePlaybackToken m_backendEnginePlayback;
+    SoundStatePlaybackToken m_backendBriefingPlayback;
     WAVObj    *m_wav;	
     
 
@@ -198,7 +199,7 @@ private:
     
 public:
     
-    Vehicle() {  m_playingBriefingSound = false; m_dead = false; m_power = 9.0; m_damage = 1; m_attr = 0; m_panel = 0; m_vessel = 0; m_lpDL = 0; m_lpCE = 0; m_lpCannonCE = 0; m_backendEnginePlayback = 0; }
+    Vehicle() {  m_playingBriefingSound = false; m_dead = false; m_power = 9.0; m_damage = 1; m_attr = 0; m_panel = 0; m_vessel = 0; m_lpDL = 0; m_lpCE = 0; m_lpCannonCE = 0; m_backendEnginePlayback = 0; m_backendBriefingPlayback = 0; }
 
     virtual int  receiveEvent( KR_Event &event );
     virtual void addNotify();

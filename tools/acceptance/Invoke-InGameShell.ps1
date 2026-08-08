@@ -207,11 +207,15 @@ foreach ($configurationName in $Configuration) {
         Press-Key $window 0x1B
         Press-Key $window 0x1B
 
-        # Exercise the only category currently owned by the maintained audio
-        # backend. The change is persisted through schema 4 and applied live.
+        # Exercise every category currently owned by the maintained audio
+        # backend. Changes persist through schema 6 and apply live.
         Press-Key $window 0x1B
         Press-Down $window 6
         Press-Key $window 0x0D
+        Press-Key $window 0x25
+        Press-Key $window 0x28
+        Press-Key $window 0x25
+        Press-Key $window 0x28
         Press-Key $window 0x25
         Press-Key $window 0x1B
         Press-Key $window 0x1B
@@ -323,16 +327,18 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_load_requests = "1"
         in_game_shell_binding_changes = "2"
         in_game_shell_mouse_setting_changes = "3"
-        in_game_shell_audio_setting_changes = "1"
+        in_game_shell_audio_setting_changes = "3"
         in_game_shell_video_applies = "3"
         in_game_shell_video_confirms = "2"
         in_game_shell_video_rollbacks = "1"
         in_game_shell_video_timeout_rollbacks = "1"
-        in_game_shell_settings_writes = "8"
+        in_game_shell_settings_writes = "10"
         in_game_shell_settings_migrations = "0"
         in_game_shell_window = "0/1"
         in_game_shell_mouse = "0.500000/0.500000/0"
         in_game_shell_effects_volume = "0.900000"
+        in_game_shell_vehicle_volume = "0.900000"
+        in_game_shell_cinematic_volume = "0.900000"
         in_game_shell_save_catalog_ready = "1"
         in_game_shell_save_catalog_states = "4/1/1/2"
         in_game_shell_save_catalog_previews = "3/1/1"
@@ -434,7 +440,7 @@ foreach ($configurationName in $Configuration) {
     }
     else {
         $settingsText = Get-Content -LiteralPath $settings -Raw
-        if ($settingsText -notmatch '(?m)^version=5\r?$' -or
+        if ($settingsText -notmatch '(?m)^version=6\r?$' -or
             $settingsText -notmatch '(?m)^window_mode=0\r?$' -or
             $settingsText -notmatch '(?m)^window_scale=1\r?$' -or
             $settingsText -notmatch '(?m)^exclusive_width=\d+\r?$' -or
@@ -445,7 +451,8 @@ foreach ($configurationName in $Configuration) {
             $settingsText -notmatch '(?m)^mouse_sensitivity_y=0\.500\r?$' -or
             $settingsText -notmatch '(?m)^mouse_invert_y=0\r?$' -or
             $settingsText -notmatch '(?m)^effects_volume=0\.900\r?$' -or
-            $settingsText -notmatch '(?m)^vehicle_volume=1\.000\r?$' -or
+            $settingsText -notmatch '(?m)^vehicle_volume=0\.900\r?$' -or
+            $settingsText -notmatch '(?m)^cinematic_volume=0\.900\r?$' -or
             $settingsText -notmatch '(?m)^binding_25=34\r?$' -or
             $settingsText -notmatch '(?m)^binding_0=87\r?$') {
             $issues.Add("settings.cfg did not retain confirmed safe defaults")

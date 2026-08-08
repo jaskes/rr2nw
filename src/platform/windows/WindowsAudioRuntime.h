@@ -17,6 +17,21 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int duplicateAdmissions = 0;
   unsigned int rejectedClips = 0;
   unsigned int deferredStreams = 0;
+  unsigned int admittedStreams = 0;
+  unsigned int duplicateStreamAdmissions = 0;
+  unsigned int rejectedStreams = 0;
+  unsigned int streamRequests = 0;
+  unsigned int streamRegistrations = 0;
+  unsigned int deferredStreamRegistrations = 0;
+  unsigned int streamStarts = 0;
+  unsigned int streamStops = 0;
+  unsigned int streamRestarts = 0;
+  unsigned int streamCompletions = 0;
+  unsigned int streamBufferSubmissions = 0;
+  unsigned int streamUnderruns = 0;
+  unsigned int streamRecoveryFailures = 0;
+  unsigned int activeStreamVoices = 0;
+  unsigned int activeStreamRegistrations = 0;
   unsigned int playbackRequests = 0;
   unsigned int playbackStarts = 0;
   unsigned int playbackFailures = 0;
@@ -49,8 +64,10 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int focusResumes = 0;
   unsigned int maintenanceCalls = 0;
   std::size_t cachedSampleBytes = 0;
+  std::size_t streamedSampleBytes = 0;
   float effectsVolume = 1.0f;
   float vehicleVolume = 1.0f;
+  float cinematicVolume = 1.0f;
   char lastError[256] = {};
 };
 
@@ -58,6 +75,7 @@ struct SWindowsAudioRuntimeTelemetry {
 // a clean audio-disabled state rather than a game-startup failure; WAV
 // admission and telemetry remain available for diagnostics.
 bool WindowsAudioRuntime_Configure(float effectsVolume, float vehicleVolume,
+                                   float cinematicVolume,
                                    bool enablePhysicalOutput);
 // Defers physical device creation until all startup-only gameplay probes have
 // completed. This prevents verification events from becoming audible while

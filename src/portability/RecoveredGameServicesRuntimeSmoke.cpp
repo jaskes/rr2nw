@@ -5353,12 +5353,15 @@ int main(int argc, char** argv) {
       RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN) &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_LEFT) &&
       std::fabs(shell->vehicleVolume - 0.9) <= 1.0e-12 &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN) &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_LEFT) &&
+      std::fabs(shell->cinematicVolume - 0.9) <= 1.0e-12 &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
       shell->page == RECOVERED_SHELL_PAGE_ROOT &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
       !shell->open && shell->closes == 1u &&
       shell->bindingChanges == 2u && shell->mouseSettingChanges == 3u &&
-      shell->audioSettingChanges == 2u && shell->settingsWrites == 7u &&
+      shell->audioSettingChanges == 3u && shell->settingsWrites == 8u &&
       GetFileAttributesW(shellSettingsPath.c_str()) !=
           INVALID_FILE_ATTRIBUTES;
   if (!shellReady) {
@@ -5394,16 +5397,17 @@ int main(int argc, char** argv) {
           shellSettingsPath, false, false)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("schema-5 settings could not be reloaded");
+    return Fail("schema-6 settings could not be reloaded");
   }
   shell = RecoveredGameServices_InGameShellState();
   if (shell == nullptr || shell->settingsLoads != 1u ||
       shell->settingsMigrations != 0u || shell->settingsWrites != 0u ||
       std::fabs(shell->effectsVolume - 0.9) > 1.0e-12 ||
-      std::fabs(shell->vehicleVolume - 0.9) > 1.0e-12) {
+      std::fabs(shell->vehicleVolume - 0.9) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 0.9) > 1.0e-12) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
-    return Fail("schema-5 Effects/Vehicle volumes did not round-trip exactly");
+    return Fail("schema-6 audio volumes did not round-trip exactly");
   }
   FILE* legacySettings = nullptr;
   if (_wfopen_s(&legacySettings, shellSettingsPath.c_str(), L"wb") != 0 ||
@@ -5440,6 +5444,7 @@ int main(int argc, char** argv) {
       std::fabs(shell->mouseSensitivityY - 0.5) > 1.0e-12 ||
       std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       std::fabs(shell->vehicleVolume - 1.0) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 1.0) > 1.0e-12 ||
       shell->mouseInvertY ||
       RecoveredGameServices_InputBindings() == nullptr ||
       RecoveredGameServices_InputBindings()
@@ -5484,6 +5489,7 @@ int main(int argc, char** argv) {
       std::fabs(shell->mouseSensitivityY - 0.4) > 1.0e-12 ||
       std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       std::fabs(shell->vehicleVolume - 1.0) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 1.0) > 1.0e-12 ||
       !shell->mouseInvertY) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -5527,6 +5533,7 @@ int main(int argc, char** argv) {
       std::fabs(shell->mouseSensitivityY - 0.3) > 1.0e-12 ||
       std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       std::fabs(shell->vehicleVolume - 1.0) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 1.0) > 1.0e-12 ||
       shell->mouseInvertY) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
@@ -5567,10 +5574,53 @@ int main(int argc, char** argv) {
   if (shell == nullptr || shell->settingsLoads != 1u ||
       shell->settingsMigrations != 1u || shell->settingsWrites != 1u ||
       std::fabs(shell->effectsVolume - 0.65) > 1.0e-12 ||
-      std::fabs(shell->vehicleVolume - 1.0) > 1.0e-12) {
+      std::fabs(shell->vehicleVolume - 1.0) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 1.0) > 1.0e-12) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("schema-4 settings did not default Vehicle volume exactly");
+  }
+  FILE* schemaFiveSettings = nullptr;
+  if (_wfopen_s(&schemaFiveSettings, shellSettingsPath.c_str(), L"wb") != 0 ||
+      schemaFiveSettings == nullptr) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-5 settings migration fixture could not be written");
+  }
+  std::ostringstream schemaFiveBody;
+  schemaFiveBody << "version=5\r\nwindow_mode=0\r\nwindow_scale=1\r\n"
+                 << "exclusive_width=1280\r\nexclusive_height=960\r\n"
+                 << "exclusive_bits=32\r\nexclusive_frequency=60\r\n"
+                 << "mouse_sensitivity_x=0.500\r\n"
+                 << "mouse_sensitivity_y=0.500\r\n"
+                 << "mouse_invert_y=0\r\n"
+                 << "effects_volume=0.650\r\n"
+                 << "vehicle_volume=0.750\r\n";
+  for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index)
+    schemaFiveBody << "binding_" << index << "="
+                   << legacyBindings.key[index] << "\r\n";
+  const std::string schemaFiveBytes = schemaFiveBody.str();
+  const bool schemaFiveBodyWritten =
+      std::fwrite(schemaFiveBytes.data(), 1u, schemaFiveBytes.size(),
+                  schemaFiveSettings) == schemaFiveBytes.size();
+  const bool schemaFiveWritten =
+      std::fclose(schemaFiveSettings) == 0 && schemaFiveBodyWritten;
+  if (!schemaFiveWritten ||
+      !RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, false)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-5 settings migration failed");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  if (shell == nullptr || shell->settingsLoads != 1u ||
+      shell->settingsMigrations != 1u || shell->settingsWrites != 1u ||
+      std::fabs(shell->effectsVolume - 0.65) > 1.0e-12 ||
+      std::fabs(shell->vehicleVolume - 0.75) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 1.0) > 1.0e-12) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("schema-5 settings did not default Cinematic volume exactly");
   }
   FILE* corruptSettings = nullptr;
   if (_wfopen_s(&corruptSettings, shellSettingsPath.c_str(), L"wb") != 0 ||
@@ -5601,6 +5651,7 @@ int main(int argc, char** argv) {
       std::fabs(shell->mouseSensitivityY - 0.5) > 1.0e-12 ||
       std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
       std::fabs(shell->vehicleVolume - 1.0) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 1.0) > 1.0e-12 ||
       shell->mouseInvertY ||
       RecoveredGameServices_InputBindings() == nullptr ||
       RecoveredGameServices_InputBindings()

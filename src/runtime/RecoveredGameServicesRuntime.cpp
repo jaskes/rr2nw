@@ -1241,7 +1241,7 @@ std::wstring Utf8ToWide(const std::string& text) {
   return wide;
 }
 
-constexpr unsigned int kInGameSettingsVersion = 5u;
+constexpr unsigned int kInGameSettingsVersion = 6u;
 constexpr ULONGLONG kVideoConfirmationMilliseconds = 15000u;
 constexpr double kDefaultMouseSensitivity = 0.5;
 constexpr double kMinimumMouseSensitivity = 0.01;
@@ -1250,6 +1250,7 @@ constexpr double kMouseSensitivityStep = 0.1;
 constexpr double kDefaultEffectsVolume = 1.0;
 constexpr double kEffectsVolumeStep = 0.1;
 constexpr double kDefaultVehicleVolume = 1.0;
+constexpr double kDefaultCinematicVolume = 1.0;
 
 SRecoveredWindowPresentation ShellPresentation(
     int mode, int scale, std::size_t exclusiveModeIndex) {
@@ -1347,13 +1348,14 @@ bool LoadInGameShellSettings(const std::wstring& path,
                              double* mouseSensitivityY,
                              bool* mouseInvertY, double* effectsVolume,
                              double* vehicleVolume,
+                             double* cinematicVolume,
                              bool* migrated) {
   if (bindings == nullptr || windowMode == nullptr || windowScale == nullptr ||
       exclusiveWidth == nullptr || exclusiveHeight == nullptr ||
       exclusiveBits == nullptr || exclusiveFrequency == nullptr ||
       mouseSensitivityX == nullptr || mouseSensitivityY == nullptr ||
       mouseInvertY == nullptr || effectsVolume == nullptr ||
-      vehicleVolume == nullptr ||
+      vehicleVolume == nullptr || cinematicVolume == nullptr ||
       migrated == nullptr)
     return false;
   std::string bytes;
@@ -1371,6 +1373,7 @@ bool LoadInGameShellSettings(const std::wstring& path,
   unsigned int invertY = 0;
   double effects = kDefaultEffectsVolume;
   double vehicle = kDefaultVehicleVolume;
+  double cinematic = kDefaultCinematicVolume;
   bool haveVersion = false;
   bool haveMode = false;
   bool haveScale = false;
@@ -1383,6 +1386,7 @@ bool LoadInGameShellSettings(const std::wstring& path,
   bool haveInvertY = false;
   bool haveEffects = false;
   bool haveVehicle = false;
+  bool haveCinematic = false;
   bool haveBinding[RECOVERED_BIND_COUNT] = {};
   std::istringstream input(bytes);
   std::string line;
@@ -1450,6 +1454,11 @@ bool LoadInGameShellSettings(const std::wstring& path,
       haveVehicle = true;
       continue;
     }
+    if (ParseDoubleSetting(line, "cinematic_volume", &doubleValue)) {
+      cinematic = doubleValue;
+      haveCinematic = true;
+      continue;
+    }
     for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index) {
       const std::string name = "binding_" + std::to_string(index);
       if (!ParseUnsignedSetting(line, name.c_str(), &value)) continue;
@@ -1482,9 +1491,11 @@ bool LoadInGameShellSettings(const std::wstring& path,
     return false;
   if (version >= 4u && !haveEffects) return false;
   if (version >= 5u && !haveVehicle) return false;
+  if (version >= 6u && !haveCinematic) return false;
   if (!ValidMouseSensitivity(sensitivityX) ||
       !ValidMouseSensitivity(sensitivityY) || invertY > 1u ||
-      !ValidEffectsVolume(effects) || !ValidEffectsVolume(vehicle))
+      !ValidEffectsVolume(effects) || !ValidEffectsVolume(vehicle) ||
+      !ValidEffectsVolume(cinematic))
     return false;
   const std::size_t requiredBindings =
       version >= 2u ? RECOVERED_BIND_COUNT : RECOVERED_BIND_MAP + 1u;
@@ -1504,6 +1515,7 @@ bool LoadInGameShellSettings(const std::wstring& path,
   *mouseInvertY = invertY != 0u;
   *effectsVolume = effects;
   *vehicleVolume = vehicle;
+  *cinematicVolume = cinematic;
   *migrated = version < kInGameSettingsVersion;
   return true;
 }
@@ -1537,6 +1549,8 @@ bool WriteInGameShellSettings() {
          << "effects_volume=" << g_inGameShellState.effectsVolume
          << "\r\n"
          << "vehicle_volume=" << g_inGameShellState.vehicleVolume
+         << "\r\n"
+         << "cinematic_volume=" << g_inGameShellState.cinematicVolume
          << "\r\n";
   for (std::size_t index = 0; index < RECOVERED_BIND_COUNT; ++index)
     output << "binding_" << index << "="
@@ -1582,7 +1596,8 @@ void ApplyShellMouseSettingsToRuntime() {
 void ApplyShellAudioSettingsToRuntime() {
   if (!g_inGameShellState.configured ||
       !ValidEffectsVolume(g_inGameShellState.effectsVolume) ||
-      !ValidEffectsVolume(g_inGameShellState.vehicleVolume))
+      !ValidEffectsVolume(g_inGameShellState.vehicleVolume) ||
+      !ValidEffectsVolume(g_inGameShellState.cinematicVolume))
     return;
   (void)SoundState_SetCategoryVolume(
       SOUND_STATE_CATEGORY_EFFECTS,
@@ -1590,6 +1605,9 @@ void ApplyShellAudioSettingsToRuntime() {
   (void)SoundState_SetCategoryVolume(
       SOUND_STATE_CATEGORY_VEHICLE,
       static_cast<float>(g_inGameShellState.vehicleVolume));
+  (void)SoundState_SetCategoryVolume(
+      SOUND_STATE_CATEGORY_CINEMATIC,
+      static_cast<float>(g_inGameShellState.cinematicVolume));
 }
 
 std::wstring EscapeNativeMenuText(const std::wstring& text) {
@@ -2988,7 +3006,7 @@ std::size_t ShellPageItemCount() {
     case RECOVERED_SHELL_PAGE_VIDEO:
       return 4u;
     case RECOVERED_SHELL_PAGE_AUDIO:
-      return 3u;
+      return 4u;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       return 11u;
     case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM:
@@ -3106,6 +3124,21 @@ bool AdjustShellVehicleVolume(int direction) {
   ++g_inGameShellState.audioSettingChanges;
   ApplyShellAudioSettingsToRuntime();
   return PersistShellSettings("Vehicle volume saved");
+}
+
+bool AdjustShellCinematicVolume(int direction) {
+  if (direction == 0) return false;
+  const double adjusted = (std::max)(
+      0.0, (std::min)(1.0, g_inGameShellState.cinematicVolume +
+                              (direction < 0 ? -kEffectsVolumeStep
+                                             : kEffectsVolumeStep)));
+  const double rounded = std::round(adjusted * 10.0) / 10.0;
+  if (std::fabs(rounded - g_inGameShellState.cinematicVolume) <= 1.0e-12)
+    return true;
+  g_inGameShellState.cinematicVolume = rounded;
+  ++g_inGameShellState.audioSettingChanges;
+  ApplyShellAudioSettingsToRuntime();
+  return PersistShellSettings("Briefing/cinematic volume saved");
 }
 
 bool ToggleShellMouseInvertY() {
@@ -3368,6 +3401,8 @@ bool ActivateShellSelection() {
         return AdjustShellEffectsVolume(1);
       if (selected == 1u)
         return AdjustShellVehicleVolume(1);
+      if (selected == 2u)
+        return AdjustShellCinematicVolume(1);
       ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
       return true;
     case RECOVERED_SHELL_PAGE_DEVELOPER:
@@ -3483,6 +3518,8 @@ bool HandleInGameShellKey(std::uint32_t key) {
       return AdjustShellEffectsVolume(key == VK_LEFT ? -1 : 1);
     if (g_inGameShellState.selected == 1u)
       return AdjustShellVehicleVolume(key == VK_LEFT ? -1 : 1);
+    if (g_inGameShellState.selected == 2u)
+      return AdjustShellCinematicVolume(key == VK_LEFT ? -1 : 1);
   }
   return key == VK_RETURN ? ActivateShellSelection() : true;
 }
@@ -3755,9 +3792,14 @@ void DrawInGameShell() {
               << "Player vehicle volume : "
               << g_inGameShellState.vehicleVolume * 100.0 << "%";
       lines.push_back(vehicle.str());
+      std::ostringstream cinematic;
+      cinematic << std::fixed << std::setprecision(0)
+                << "Briefing/cinematic volume : "
+                << g_inGameShellState.cinematicVolume * 100.0 << "%";
+      lines.push_back(cinematic.str());
       lines.push_back("Back");
       ShellPrint(72, 78,
-                 "Effects and player engine; speech/music remain pending");
+                 "Effects, player engine and admitted briefing streams");
       break;
     }
     case RECOVERED_SHELL_PAGE_DEVELOPER:
@@ -6045,6 +6087,7 @@ bool RecoveredGameServices_ConfigureInGameShell(
   g_inGameShellState.mouseInvertY = false;
   g_inGameShellState.effectsVolume = kDefaultEffectsVolume;
   g_inGameShellState.vehicleVolume = kDefaultVehicleVolume;
+  g_inGameShellState.cinematicVolume = kDefaultCinematicVolume;
   g_inGameShellBindings = RecoveredWindowsInput_DefaultBindings();
 
   const std::wstring displayRecoveryPath =
@@ -6083,6 +6126,7 @@ bool RecoveredGameServices_ConfigureInGameShell(
                                  &g_inGameShellState.mouseInvertY,
                                  &g_inGameShellState.effectsVolume,
                                  &g_inGameShellState.vehicleVolume,
+                                 &g_inGameShellState.cinematicVolume,
                                  &migrated)) {
       ++g_inGameShellState.settingsLoads;
       if (migrated) {

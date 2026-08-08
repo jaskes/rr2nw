@@ -5297,6 +5297,8 @@ if(BUILD_TESTING)
   )
   add_test(NAME windows-audio-vehicle-headless
            COMMAND rr2nw_audio_device_smoke --vehicle-pitch-headless)
+  add_test(NAME windows-audio-stream-headless
+           COMMAND rr2nw_audio_device_smoke --stream-headless)
   add_test(NAME recovered-audio-spatial-smoke
            COMMAND rr2nw_audio_spatial_smoke)
   add_test(NAME recovered-pcm-wav-smoke COMMAND rr2nw_pcm_wav_smoke)

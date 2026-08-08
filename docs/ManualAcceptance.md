@@ -85,10 +85,10 @@ Continue they resume only after a new physical press.
    in the menu. A ready row must close the shell and report that it was queued
    at the closed frame boundary.
 5. Exit, replace `%LOCALAPPDATA%\RR2NW\settings.cfg` with invalid text and start
-   again. The game must recover a valid schema-5 file and safe 640x480 windowed
+   again. The game must recover a valid schema-6 file and safe 640x480 windowed
    defaults. `--safe-mode` must also start with those defaults while ignoring
    otherwise valid saved settings. The bounded gate also creates a valid
-   schema-1 through schema-4 fixtures and proves atomic migration with old
+   schema-1 through schema-5 fixtures and proves atomic migration with old
    bindings preserved and new map/mouse/display/audio defaults added.
 
 The bounded real-window proof exercises Save/Load, explicit overwrite
@@ -1629,5 +1629,28 @@ cmake --build ".\build\windows-msvc-x86" --config RelWithDebInfo --target rr2nw_
 It should sound low, then high, and report `vehicle=1/2/0/1` together with
 `lifecycle=1/1/1` and `recovery=1/1/0`. Failure to change pitch, stacked
 engines after enter/exit, sound during briefing, or an engine surviving a
-Level/Portal/load transition is a regression. This does not test dialogue,
-music, UI audio, AI engines or byte-exact RSX resampling.
+Level/Portal/load transition is a regression. This does not test the separate
+briefing stream, other music, UI audio, AI engines or byte-exact RSX resampling.
+
+## Briefing/cinematic WAV stream pass
+
+The normal CTest row `windows-audio-stream-headless` creates a three-second
+PCM fixture, admits it as flags 1, registers it without opening a device and
+proves exact stop with zero queued buffers. The real
+`Invoke-RecruitCenterPresentationLoopSmoke.ps1` Marauders row must additionally
+report authored stream starts with zero failures and
+`audio_post_level_streams=*/0/0`.
+
+This separate opt-in gate is audible but reads only its generated fixture:
+
+```powershell
+cmake --build ".\build\windows-msvc-x86" --config RelWithDebInfo --target rr2nw_audio_device_smoke -- /m:1 /nodeReuse:false
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw_audio_device_smoke.exe" --listen-stream
+```
+
+It must report `exact=1`, six submitted buffers and 264600 submitted sample
+bytes: one initial three-buffer queue and one exact restart after the forced
+device reconstruction. Focus suspend/resume, natural completion and zero live
+registrations are mandatory. This proves WAV stream ownership and buffering;
+it does not claim non-WAV FLIC audio, lip synchronization, UI sounds or
+byte-exact Intel RSX mixing.

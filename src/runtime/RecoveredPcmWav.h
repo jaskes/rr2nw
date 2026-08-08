@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <vector>
 
 enum ERecoveredPcmWavIssue {
@@ -27,12 +28,31 @@ struct SRecoveredPcmWavResult {
   char error[192] = {};
 };
 
+struct SRecoveredPcmWavStreamInfo {
+  std::uint16_t channels = 0;
+  std::uint16_t bitsPerSample = 0;
+  std::uint32_t sampleRate = 0;
+  std::uint16_t blockAlign = 0;
+  std::uint32_t averageBytesPerSecond = 0;
+  std::size_t dataOffset = 0;
+  std::size_t dataBytes = 0;
+  std::size_t sourceBytes = 0;
+};
+
 // Parses an in-memory RIFF/WAVE file without touching a device.  The admitted
 // subset is deliberately narrow and matches all 86 inspected retail WAVs:
 // integer PCM, one or two channels, 8/16-bit samples and bounded payloads.
 bool RecoveredPcmWav_Decode(const void* bytes, std::size_t size,
                             SRecoveredPcmWav* wav,
                             SRecoveredPcmWavResult* result);
+
+// Inspects RIFF/WAVE metadata directly from a bounded seekable file without
+// copying its sample payload. On success the file is positioned at dataOffset
+// so a maintained backend can feed bounded chunks instead of caching the
+// complete authored stream.
+bool RecoveredPcmWav_InspectStream(std::FILE* file, std::size_t size,
+                                   SRecoveredPcmWavStreamInfo* stream,
+                                   SRecoveredPcmWavResult* result);
 
 std::size_t RecoveredPcmWav_MaximumSourceBytes();
 std::size_t RecoveredPcmWav_MaximumSampleBytes();

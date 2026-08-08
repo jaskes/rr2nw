@@ -187,11 +187,11 @@ may share a key, while two actions admitted in the same context fail closed.
 Map entry, binding capture and focus transitions neutralize physical and
 semantic latches. Persisted mouse X/Y sensitivity and invert-Y use the retail
 range and are applied to both the recovered attributes and legacy Hardware
-owner. A bounded schema-5 config under `%LOCALAPPDATA%\RR2NW` is written by
-atomic replacement; schemas 1 through 4 migrate with new defaults. Schema 5
-stores the exact exclusive width, height, bit depth and refresh rate instead
-of an unstable enumeration index, plus owned Effects and Player Vehicle
-volumes. Corrupt or
+owner. A bounded schema-6 config under `%LOCALAPPDATA%\RR2NW` is written by
+atomic replacement; schemas 1 through 5 migrate with new defaults. Schema 6
+retains the exact exclusive width, height, bit depth and refresh rate instead
+of an unstable enumeration index, plus owned Effects, Player Vehicle and
+Briefing/Cinematic volumes. Corrupt or
 newer data falls back to safe windowed/audio defaults; `--safe-mode` bypasses
 it. Developer mode is a CLI capability and is deliberately absent from the
 persisted schema.
