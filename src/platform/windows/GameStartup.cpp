@@ -91,6 +91,7 @@ struct StartupOptions {
   bool missionNaturalCombatSmoke = false;
   bool missionGuideRouteSmoke = false;
   bool missionCheckpointSmoke = false;
+  bool missionReachedScriptSmoke = false;
   bool missionContinuationSmoke = false;
   bool missionResultSmoke = false;
   bool missionNoRewardResultSmoke = false;
@@ -356,6 +357,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       options->runtimeSmoke = true;
       options->missionSmoke = true;
       options->missionCheckpointSmoke = true;
+    } else if (argument == L"--mission-reached-script-smoke") {
+      options->runtimeSmoke = true;
+      options->missionSmoke = true;
+      options->missionReachedScriptSmoke = true;
     } else if (argument == L"--mission-continuation-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -640,6 +645,29 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     }
     if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
       *failure = L"--mission-checkpoint-smoke owns its save/rollback "
+                 L"transaction";
+      return false;
+    }
+  }
+  if (options->missionReachedScriptSmoke) {
+    if (options->missionCenter.empty()) {
+      options->missionCenter = L"Recruit.Tanks";
+    } else if (_wcsicmp(options->missionCenter.c_str(),
+                        L"Recruit.Tanks") != 0) {
+      *failure = L"--mission-reached-script-smoke starts at Recruit.Tanks "
+                 L"on Level.01D";
+      return false;
+    }
+    if (options->missionProject.empty()) {
+      options->missionProject = L"Tank_04";
+    } else if (_wcsicmp(options->missionProject.c_str(),
+                        L"Tank_04") != 0) {
+      *failure = L"--mission-reached-script-smoke owns the exact Tank_04 "
+                 L"command-33 row";
+      return false;
+    }
+    if (options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0) {
+      *failure = L"--mission-reached-script-smoke owns its save/rollback "
                  L"transaction";
       return false;
     }
@@ -1860,6 +1888,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--launch-smoke] [--runtime-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-checkpoint-smoke |\n"
+                L"           --mission-reached-script-smoke |\n"
                 L"           --mission-combat-smoke |\n"
                 L"           --mission-natural-combat-smoke |\n"
                 L"           --mission-guide-route-smoke |\n"
@@ -3963,6 +3992,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.checkpointChains) + "/" +
              std::to_string(mission.checkpointCommands) + "/" +
              std::to_string(mission.activeCheckpoints));
+    log.Line("mission_smoke_reached_scripts=" +
+             std::to_string(mission.reachedScriptCommands) + "/" +
+             std::to_string(mission.reachedScriptEvents));
     if (!missionExecuted) {
       log.Line(std::string("mission_smoke_error=") +
                RecruitCenterSubjectState_LastError());
@@ -4033,7 +4065,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
         options.startupLoadSlot >= 0 && options.startupSaveSlot >= 0;
     const bool checkpointProgressionMission =
         mission.checkpointCommands > 0;
-    if (loadedProgressionMission || checkpointProgressionMission) {
+    if (loadedProgressionMission || checkpointProgressionMission ||
+        options.missionReachedScriptSmoke) {
       // A progression save deliberately retains the previous mission's
       // authored population.  The clean-admission guide probes select the
       // newest global guide and temporarily mutate it, so running them here
@@ -4041,7 +4074,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       // The chained smoke proves the loaded population through continuation
       // fingerprints and the new mission through its rebound objectives.
       log.Line(std::string("mission_smoke_auxiliary_policy=") +
-               (checkpointProgressionMission
+               (options.missionReachedScriptSmoke
+                    ? "reached-script-progression-skip"
+                    : checkpointProgressionMission
                     ? "checkpoint-progression-skip"
                     : "loaded-progression-skip"));
     } else {
@@ -4238,6 +4273,175 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
               std::to_string(missionPeopleSchedule.attackStates) + "/" +
               std::to_string(missionPeopleSchedule.malformedQueues));
     loopFailed = loopFailed || !missionPeopleScheduleReady;
+    }
+    if (!loopFailed && options.missionReachedScriptSmoke) {
+      std::vector<std::uint8_t> reachedBaseline;
+      std::vector<std::uint8_t> reachedBaselineRecaptured;
+      std::vector<std::uint8_t> reachedCommitted;
+      std::vector<std::uint8_t> reachedCommittedRecaptured;
+      SLevelContinuationSummary baselineCaptured;
+      SLevelContinuationSummary baselineRestored;
+      SLevelContinuationSummary baselineVerified;
+      SLevelContinuationSummary committedCaptured;
+      SLevelContinuationSummary committedRestored;
+      SLevelContinuationSummary committedVerified;
+      SLevelContinuationSummary pendingRejected;
+      RecruitCenterReachedScriptProbeSummary initial = {};
+      RecruitCenterReachedScriptProbeSummary outside = {};
+      RecruitCenterReachedScriptProbeSummary pending = {};
+      RecruitCenterReachedScriptProbeSummary rolledBack = {};
+      RecruitCenterReachedScriptProbeSummary baselineState = {};
+      RecruitCenterReachedScriptProbeSummary committedState = {};
+      RecruitCenterReachedScriptProbeSummary committedRestoredState = {};
+      const char* reachedCenter = "Recruit.Tanks";
+      const bool initialReady =
+          mission.reachedScriptCommands == 1 &&
+          mission.reachedScriptEvents == 1 &&
+          g_super.m_context->isExist("T04.Man.01") &&
+          RecruitCenterSubjectState_ReachedScriptProbe(
+              g_super.m_context, reachedCenter, &initial) &&
+          initial.events == 1 && initial.pendingTriggers == 0 &&
+          initial.targetResolved == 1 && initial.targetDynamic == 0 &&
+          initial.targetInside == 0 && initial.radius == 50.0 &&
+          initial.interval == 3.0 &&
+          std::strcmp(initial.actorName, "T04.Enemy.01") == 0 &&
+          std::strcmp(initial.script,
+                      "Brief/Pwr_Mis.T04/tnk_04a.sc") == 0;
+      const double initialEventTime = initial.eventTime;
+      const bool outsideDispatched = initialReady &&
+          RecruitCenterSubjectState_DispatchReachedScriptProbe(
+              g_super.m_context, reachedCenter, false);
+      const bool outsideExact = outsideDispatched &&
+          RecruitCenterSubjectState_ReachedScriptProbe(
+              g_super.m_context, reachedCenter, &outside) &&
+          outside.events == 1 && outside.pendingTriggers == 0 &&
+          outside.targetInside == 0 &&
+          outside.eventTime == initialEventTime + initial.interval &&
+          outside.requeues >= 1 &&
+          g_super.m_context->isExist("T04.Man.01");
+      const bool baselineReady = outsideExact &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &reachedBaseline, &baselineCaptured);
+      const bool triggerStaged = baselineReady &&
+          RecruitCenterSubjectState_DispatchReachedScriptProbe(
+              g_super.m_context, reachedCenter, true) &&
+          RecruitCenterSubjectState_ReachedScriptProbe(
+              g_super.m_context, reachedCenter, &pending) &&
+          pending.events == 0 && pending.pendingTriggers == 1 &&
+          pending.targetInside == 1 &&
+          g_super.m_context->isExist("T04.Man.01");
+      std::vector<std::uint8_t> unstable;
+      const bool pendingCaptureRejected = triggerStaged &&
+          !RecoveredGameServices_CaptureLevelContinuation(
+              &unstable, &pendingRejected);
+      if (pendingCaptureRejected)
+        RecruitCenterSubjectState_FailNextReachedScriptForTesting();
+      const bool rollbackProcessed = pendingCaptureRejected &&
+          runCompleteFrame() &&
+          RecruitCenterSubjectState_ReachedScriptProbe(
+              g_super.m_context, reachedCenter, &rolledBack) &&
+          rolledBack.events == 1 && rolledBack.pendingTriggers == 0 &&
+          rolledBack.rollbacks == 1 &&
+          g_super.m_context->isExist("T04.Man.01");
+      const bool baselineRestoreReady = rollbackProcessed &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              reachedBaseline, &baselineRestored);
+      const bool baselineRecaptureReady = baselineRestoreReady &&
+          RecruitCenterSubjectState_ReachedScriptProbe(
+              g_super.m_context, reachedCenter, &baselineState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &reachedBaselineRecaptured, &baselineVerified);
+      const bool baselineExact = baselineRecaptureReady &&
+          reachedBaseline == reachedBaselineRecaptured &&
+          baselineState.events == 1 &&
+          baselineState.pendingTriggers == 0 &&
+          baselineState.targetInside == 0 &&
+          g_super.m_context->isExist("T04.Man.01") &&
+          baselineCaptured.worldFingerprint ==
+              baselineRestored.restoredWorldFingerprint &&
+          baselineCaptured.worldFingerprint ==
+              baselineVerified.worldFingerprint;
+      const bool commitStaged = baselineExact &&
+          RecruitCenterSubjectState_DispatchReachedScriptProbe(
+              g_super.m_context, reachedCenter, true);
+      const bool commitProcessed = commitStaged && runCompleteFrame() &&
+          RecruitCenterSubjectState_ReachedScriptProbe(
+              g_super.m_context, reachedCenter, &committedState) &&
+          committedState.events == 0 &&
+          committedState.pendingTriggers == 0 &&
+          !g_super.m_context->isExist("T04.Man.01");
+      const bool committedCaptureReady = commitProcessed &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &reachedCommitted, &committedCaptured);
+      const bool committedRestoreReady = committedCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              reachedCommitted, &committedRestored);
+      const bool committedRecaptureReady = committedRestoreReady &&
+          RecruitCenterSubjectState_ReachedScriptProbe(
+              g_super.m_context, reachedCenter,
+              &committedRestoredState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &reachedCommittedRecaptured, &committedVerified);
+      const bool committedExact = committedRecaptureReady &&
+          reachedCommitted == reachedCommittedRecaptured &&
+          committedRestoredState.events == 0 &&
+          committedRestoredState.pendingTriggers == 0 &&
+          !g_super.m_context->isExist("T04.Man.01") &&
+          committedCaptured.worldFingerprint ==
+              committedRestored.restoredWorldFingerprint &&
+          committedCaptured.worldFingerprint ==
+              committedVerified.worldFingerprint;
+      const bool rollbackReapplyReady = committedExact &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              reachedBaseline, &baselineRestored) &&
+          g_super.m_context->isExist("T04.Man.01") &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              reachedCommitted, &committedRestored) &&
+          !g_super.m_context->isExist("T04.Man.01");
+      log.Line("mission_reached_script_authored=" +
+               std::to_string(initialReady ? 1 : 0) + "/" +
+               std::to_string(initial.events) + "/" +
+               std::to_string(initial.pendingTriggers) + "/" +
+               std::to_string(initial.targetResolved) + "/" +
+               std::to_string(initial.targetDynamic) + "/" +
+               std::to_string(initial.targetInside) + "/" +
+               initial.actorName + "/" + initial.script + "/" +
+               std::to_string(initial.targetX) + "/" +
+               std::to_string(initial.targetY) + "/" +
+               std::to_string(initial.targetZ) + "/" +
+               std::to_string(initial.radius) + "/" +
+               std::to_string(initial.interval));
+      log.Line("mission_reached_script_poll=" +
+               std::to_string(outsideDispatched ? 1 : 0) + "/" +
+               std::to_string(outsideExact ? 1 : 0) + "/" +
+               std::to_string(outside.events) + "/" +
+               std::to_string(outside.pendingTriggers) + "/" +
+               std::to_string(outside.targetResolved) + "/" +
+               std::to_string(outside.targetDynamic) + "/" +
+               std::to_string(outside.targetInside) + "/" +
+               std::to_string(outside.requeues) + "/" +
+               std::to_string(initialEventTime) + "/" +
+               std::to_string(outside.eventTime));
+      log.Line("mission_reached_script_rollback=" +
+               std::to_string(triggerStaged ? 1 : 0) + "/" +
+               std::to_string(pendingCaptureRejected ? 1 : 0) + "/" +
+               std::to_string(rollbackProcessed ? 1 : 0) + "/" +
+               std::to_string(rolledBack.events) + "/" +
+               std::to_string(rolledBack.rollbacks) + "/" +
+               std::to_string(baselineExact ? 1 : 0));
+      log.Line("mission_reached_script_commit=" +
+               std::to_string(commitStaged ? 1 : 0) + "/" +
+               std::to_string(commitProcessed ? 1 : 0) + "/" +
+               std::to_string(committedCaptureReady ? 1 : 0) + "/" +
+               std::to_string(committedRestoreReady ? 1 : 0) + "/" +
+               std::to_string(committedExact ? 1 : 0) + "/" +
+               std::to_string(rollbackReapplyReady ? 1 : 0));
+      if (!initialReady || !outsideExact || !rollbackProcessed ||
+          !baselineExact || !committedExact || !rollbackReapplyReady)
+        log.Line(std::string("mission_reached_script_error=") +
+                 RecruitCenterSubjectState_LastError());
+      loopFailed = !initialReady || !outsideExact || !rollbackProcessed ||
+          !baselineExact || !committedExact || !rollbackReapplyReady;
     }
     if (!loopFailed && options.missionCheckpointSmoke) {
       std::vector<std::uint8_t> checkpointBaseline;

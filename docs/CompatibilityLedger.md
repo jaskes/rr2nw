@@ -3754,10 +3754,10 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   `scripts=1`, `created_objects=22`, `conditions=3`,
   `rebound_conditions=3`, `briefings=0`, `rollbacks=0` in the UI-suppressed
   smoke path.
-- Revisit status: Howitzer-holder replacement, Route lifecycle, guide rollback
-  and Level.06N command 34 including its process handoff are now closed by later
-  rows. Late Level.01D command 33, unrecovered Destroyable behavior and nested
-  VM includes through the mod-aware VFS remain independent boundaries.
+- Revisit status: Howitzer-holder replacement, Route lifecycle, guide rollback,
+  Level.06N command 34 including its process handoff and Level.01D command 33
+  are now closed by later rows. Unrecovered Destroyable behavior and nested VM
+  includes through the mod-aware VFS remain independent boundaries.
 
 ### CQ-199: retail RecruitCenter default-Taxi application is not in source
 
@@ -5639,8 +5639,8 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   total/ready/stable Howitzers and S16 requires `5/1` reached/transition.
 - Boundary: ProjectA31 is only the exact next candidate. Its script currently
   reaches a separate fixed-owner capacity boundary and is not claimed by this
-  row. Level.06N checkpoint command 34 and the late Level.01D command-33
-  owners also remain separate campaign slices.
+  row. Level.06N checkpoint command 34 and Level.01D command 33 are owned by
+  their later independent campaign rows.
 
 ### CQ-270: Level.05D A31 crosses declared population capacity and a future holder
 
@@ -5750,6 +5750,42 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Boundary: this owns the exact installed part7 handoff and the general bounded
   `s_RestartLevel(index)` request shape. It does not infer missing indices,
   synthesize presentation, or close late Level.01D command 33.
+
+### CQ-274: command 33 is a RecruitCenter proximity watcher with a delayed script
+
+- Status: `MAY_RECEIVER_IDENTIFIED`, `INSTALLED_PAYLOAD_PRESERVED`,
+  `CLOSED_FRAME_ROLLBACK_AND_SAVE_PROVEN`.
+- Evidence: installed `DEFS.H` names command 33
+  `COM_RUN_SCRIPT_IF_REACHED`; `PFUNC.SCI` writes actor, three-dimensional
+  target, radius, polling delta and script. The May executable's open-Level
+  handler at `0x4cde2a` emits RecruitCenter event `39004` (the archival header
+  calls it `rc_RESERVED_39004`). Its receiver at `0x4cadf4..0x4cb04c` resolves
+  `IDynamicObject`, compares full 3D squared distance with radius squared,
+  executes the script inside the sphere and otherwise adds the authored delta
+  to the timestamp and reissues the same event. A missing/non-dynamic actor
+  consumes the watcher; no Destroyable callback is involved.
+- Installed matrix: Level.01D contains five active rows. `Tank_04` watches
+  `T04.Enemy.01` at `[1496.409,161,-4049.600]`, radius 50, delta 3 and runs
+  `Brief/Pwr_Mis.T04/tnk_04a.sc`, whose sole effect is immediate removal of
+  `T04.Man.01`. `Tank_99` also owns its `tnk_99a.sc` watcher; Tank/Robot/Flyer
+  project 99 rows share a second watcher that runs `Brief/restart.sc` at
+  `[4405,123,-3179]`, radius 4, delta 1. That script requests authored catalog
+  index 6 through the already typed process transition owner.
+- Handling: mission admission publishes the exact event without running its
+  script. A reached event stages one closed-frame command. Save is rejected
+  while that command is pending. Existing-object removal is deferred inside
+  this command's script transaction and becomes visible only on commit, so a
+  failed VM leaves the object and watcher intact. `CPK1 v2` stores watcher
+  center/actor names and exact payload, then rebuilds raw object IDs after
+  restore; v1 remains readable for saves that predate this owner.
+- Verification: `Invoke-MissionReachedScriptSmoke.ps1` admits real
+  `Recruit.Tanks/Tank_04`, proves the hidden delayed People actor, one outside
+  poll with exact +3 delta, rejected pending capture, fault-injected rollback,
+  committed `T04.Man.01` removal, byte-exact baseline/committed save round
+  trips and rollback/reapply in all three configurations.
+- Boundary: no PRIOR_LEV, presentation, reward, Portal or Destroyable behavior
+  is inferred. The project-99 restart rows reuse the proved typed transition
+  coordinator; this row does not claim a separate cinematic for them.
 
 ## Maintenance rule
 

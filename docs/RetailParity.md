@@ -2615,7 +2615,30 @@ playable Level begins.
   requests, one completion, one target failure, one exact rollback, zero
   rollback failures and final Level identity `7/Level.01N`.
 - No presentation asset, PRIOR_LEV, reward or Portal is inferred by this row.
-  Late Level.01D command 33 remains a separate authored callback frontier.
+  Level.01D command 33 is owned separately by RP-CAMPAIGN-035.
+
+### RP-CAMPAIGN-035: Level.01D command 33 polls and commits its authored callback
+
+- Classification: `MAY_EVENT_OWNER_PRESERVED`,
+  `INSTALLED_RETAIL_COMMAND_EXECUTED`, `SAVE_ROLLBACK_PROVEN`.
+- Installed `Recruit.Tanks/Tank_04` publishes one command-33 watcher for the
+  delayed People actor `T04.Enemy.01`. Its exact sphere is
+  `[1496.409,161,-4049.600]`, radius 50; an outside evaluation advances the
+  same event by exactly three seconds. Crossing it runs only
+  `Brief/Pwr_Mis.T04/tnk_04a.sc` and removes `T04.Man.01`.
+- The receiver is the May RecruitCenter event 39004 path, not a guessed
+  Destroyable owner. Admission accepts a hidden People subject because the
+  original receiver resolves `IDynamicObject` only when the scheduled event
+  fires. The modern closed-frame path retains the full 3D sphere predicate.
+- Existing removal is commit-deferred for this transaction. Fault injection
+  leaves `T04.Man.01` present and the watcher requeued; commit removes the man
+  and consumes the watcher. Pending capture is rejected. `CPK1 v2` remaps the
+  symbolic center and actor across restore, so baseline and committed LCN1
+  states both restore and recapture exactly before rollback/reapply.
+- Installed Tank/Robot/Flyer project-99 restart watchers are admitted with the
+  same payload and typed `s_RestartLevel(6)` capability. No reward, Portal,
+  PRIOR_LEV or presentation is synthesized. The maintained three-build gate is
+  `Invoke-MissionReachedScriptSmoke.ps1`.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

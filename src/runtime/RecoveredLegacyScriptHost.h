@@ -77,12 +77,13 @@ class RecoveredLegacyScriptHost {
   bool RestartLevelRequested() const;
   int RestartLevelIndex() const;
   void Unsupported(const char* operation);
-  void BeginObjectTransaction();
+  void BeginObjectTransaction(bool deferExistingRemovals = false);
   int ReclaimUnreferencedRoutes(const KR_ObjectID* preserved,
                                 int preservedCount);
   bool RollbackObjectTransaction();
-  void CommitObjectTransaction();
+  bool CommitObjectTransaction();
   int TransactionCreatedObjectCount() const;
+  int TransactionDeferredRemovalCount() const;
   int TransactionReplacedHowitzerCount() const;
   bool TransactionDestroyedCreatedObject(const char* name) const;
   bool CreateProjectTable(int projectCapacity, int nodeCapacity,
@@ -135,6 +136,13 @@ class RecoveredLegacyScriptHost {
     std::vector<unsigned char> stable;
   };
 
+  struct DeferredExistingRemoval {
+    KR_ObjectID object;
+    std::string name;
+    double from;
+    bool force;
+  };
+
   ScriptEvent* Event(int eventIndex, const char* operation);
   bool ArenaReady(const char* operation);
   bool ProjectNodeValid(int node, bool allowNull = false) const;
@@ -160,7 +168,9 @@ class RecoveredLegacyScriptHost {
   bool m_restartLevelRequested;
   int m_restartLevelIndex;
   bool m_objectTransactionActive;
+  bool m_deferExistingRemovals;
   std::vector<KR_ObjectID> m_transactionCreatedObjects;
+  std::vector<DeferredExistingRemoval> m_transactionDeferredRemovals;
   std::vector<std::string> m_transactionDestroyedCreatedObjectNames;
   std::vector<KR_ObjectID> m_transactionExistingRoutes;
   std::vector<KR_ObjectID> m_transactionExistingCorpses;

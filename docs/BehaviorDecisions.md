@@ -6733,3 +6733,29 @@ rollback counts as successful. A committed destination deliberately carries no
 checkpoint presentation state. This preserves the installed index law without
 putting process lifetime, filesystem policy or rollback inside the old script
 translator.
+
+### BD-210: command-33 existing-object removal is commit-deferred
+
+Status: accepted on 2026-08-08 for installed Level.01D `Tank_04`.
+
+The May receiver polls command 33 during simulation, but the modern runtime
+must not execute its script until the rendered frame is closed. The exact
+`tnk_04a.sc` script immediately removes an already existing People owner. The
+legacy object transaction could undo newly created owners but could not
+reconstruct an arbitrary existing object, its scheduler events and mission
+references after deletion.
+
+The reached-script owner therefore opens the same transaction in a narrow
+commit-deferred-removal mode. Inside that mode `s_RemoveObject` records the
+existing symbolic/ID target and makes host-side searches observe it as absent;
+rollback discards the prepared removal, while commit validates the original
+identity and performs the authored immediate or delayed deletion. Ordinary
+mission admission retains eager removal because replacement scripts depend on
+it. Transition-only reached scripts reject deferred removals and continue
+through BD-209.
+
+The save layer stores no pending command. Stable captures are allowed only
+with the watcher requeued, and `CPK1 v2` replaces raw actor IDs with bounded
+center/actor/script identity plus exact geometry and timing. This keeps old
+`CPK1 v1` readable without pretending its raw event IDs can represent the new
+owner.

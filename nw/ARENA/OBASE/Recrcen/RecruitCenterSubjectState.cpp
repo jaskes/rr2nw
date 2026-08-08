@@ -48,6 +48,7 @@ namespace {
 const int kMaximumCapacity = 16;
 const int kMaximumProjectNodes = 1024;
 const int kMaximumProjectPayload = 10240;
+const int kRunScriptIfReachedCommand = 33;
 const int kSetGiveArtefactCommand = 35;
 const double kRadius = 4.0;
 const double kCollisionDebounceSeconds = 0.25;
@@ -60,6 +61,29 @@ RecruitCenterMissionProbeSummary g_lastMissionSummary = {};
 bool g_hasLastMissionSummary = false;
 int g_missionStatusPresentations = 0;
 int g_missionResultPresentations = 0;
+
+struct PendingReachedScript
+{
+    bool active;
+    KR_ObjectID center;
+    KR_ObjectID actor;
+    CFVector3 position;
+    double radius;
+    double interval;
+    double eventTime;
+    std::string script;
+
+    PendingReachedScript()
+        : active(false), position(0.0, 0.0, 0.0), radius(0.0),
+          interval(0.0), eventTime(0.0) {}
+};
+
+PendingReachedScript g_pendingReachedScript;
+bool g_pendingReachedLevelTransition = false;
+int g_reachedScriptExecutions = 0;
+int g_reachedScriptRollbacks = 0;
+int g_reachedScriptRequeues = 0;
+bool g_failNextReachedScriptForTesting = false;
 
 struct DeferredMissionCommand
 {
@@ -115,14 +139,31 @@ struct MissionCheckpointChain
 };
 
 const std::uint32_t kCheckpointMagic = 0x314b5043u;  // CPK1
-const std::uint32_t kCheckpointVersion = 1u;
+const std::uint32_t kCheckpointVersion = 2u;
+const std::uint32_t kOldestCheckpointVersion = 1u;
 const std::size_t kMaximumCheckpointChains = 6;
 const std::size_t kMaximumCheckpointsPerChain = 32;
+const std::size_t kMaximumReachedScriptWatchers = 64;
 const std::size_t kMaximumCheckpointPayload = 64u * 1024u;
 std::vector<MissionCheckpointChain> g_checkpointChains;
 int g_pendingCheckpointChain = -1;
 int g_pendingLevelTransitionChain = -1;
 int g_pendingLevelTransitionIndex = -1;
+
+struct StableReachedScriptWatcher
+{
+    std::string center;
+    std::string actor;
+    CFVector3 position;
+    double radius;
+    double interval;
+    double eventTime;
+    std::string script;
+
+    StableReachedScriptWatcher()
+        : position(0.0, 0.0, 0.0), radius(0.0), interval(0.0),
+          eventTime(0.0) {}
+};
 
 struct CenterEncounterPresentation
 {
@@ -315,11 +356,26 @@ bool CheckpointChainValid(const MissionCheckpointChain &chain)
            chain.checkpoints.back().isComplete;
 }
 
+bool StableReachedScriptWatcherValid(
+    const StableReachedScriptWatcher &watcher)
+{
+    return !watcher.center.empty() && watcher.center.size() <= 80 &&
+           !watcher.actor.empty() && watcher.actor.size() <= 80 &&
+           FiniteVector(watcher.position) && std::isfinite(watcher.radius) &&
+           watcher.radius > 0.0 && watcher.radius <= 1000000.0 &&
+           std::isfinite(watcher.interval) && watcher.interval > 0.0 &&
+           watcher.interval <= 86400.0 &&
+           std::isfinite(watcher.eventTime) && watcher.eventTime >= 0.0 &&
+           IsSafeMissionPath(watcher.script);
+}
+
 bool EncodeCheckpointChains(
     const std::vector<MissionCheckpointChain> &chains,
+    const std::vector<StableReachedScriptWatcher> &watchers,
     std::vector<std::uint8_t> *bytes)
 {
-    if (bytes == NULL || chains.size() > kMaximumCheckpointChains)
+    if (bytes == NULL || chains.size() > kMaximumCheckpointChains ||
+        watchers.size() > kMaximumReachedScriptWatchers)
         return false;
     bytes->clear();
     CheckpointU32(bytes, kCheckpointMagic);
@@ -353,21 +409,42 @@ bool EncodeCheckpointChains(
                 return false;
         }
     }
+    CheckpointU32(bytes, static_cast<std::uint32_t>(watchers.size()));
+    for (std::size_t index = 0; index < watchers.size(); ++index)
+    {
+        const StableReachedScriptWatcher &watcher = watchers[index];
+        if (!StableReachedScriptWatcherValid(watcher) ||
+            !CheckpointString(bytes, watcher.center, 80) ||
+            !CheckpointString(bytes, watcher.actor, 80))
+            return false;
+        CheckpointDouble(bytes, watcher.position.x);
+        CheckpointDouble(bytes, watcher.position.y);
+        CheckpointDouble(bytes, watcher.position.z);
+        CheckpointDouble(bytes, watcher.radius);
+        CheckpointDouble(bytes, watcher.interval);
+        CheckpointDouble(bytes, watcher.eventTime);
+        if (!CheckpointString(bytes, watcher.script, 259)) return false;
+    }
     return bytes->size() <= kMaximumCheckpointPayload;
 }
 
 bool DecodeCheckpointChains(
     const std::vector<std::uint8_t> &bytes,
-    std::vector<MissionCheckpointChain> *chains)
+    std::vector<MissionCheckpointChain> *chains,
+    std::vector<StableReachedScriptWatcher> *watchers,
+    std::uint32_t *decodedVersion = NULL)
 {
-    if (chains == NULL || bytes.size() > kMaximumCheckpointPayload)
+    if (chains == NULL || watchers == NULL ||
+        bytes.size() > kMaximumCheckpointPayload)
         return false;
     CheckpointReader reader(bytes);
     std::uint32_t magic = 0, version = 0, count = 0;
     if (!reader.U32(&magic) || !reader.U32(&version) ||
         !reader.U32(&count) || magic != kCheckpointMagic ||
-        version != kCheckpointVersion || count > kMaximumCheckpointChains)
+        version < kOldestCheckpointVersion || version > kCheckpointVersion ||
+        count > kMaximumCheckpointChains)
         return false;
+    if (decodedVersion != NULL) *decodedVersion = version;
     chains->clear();
     chains->resize(count);
     for (std::size_t chainIndex = 0; chainIndex < chains->size(); ++chainIndex)
@@ -408,11 +485,48 @@ bool DecodeCheckpointChains(
         }
         if (!CheckpointChainValid(chain)) return false;
     }
+    watchers->clear();
+    if (version >= 2u)
+    {
+        std::uint32_t watcherCount = 0;
+        if (!reader.U32(&watcherCount) ||
+            watcherCount > kMaximumReachedScriptWatchers)
+            return false;
+        watchers->resize(watcherCount);
+        for (std::size_t index = 0; index < watchers->size(); ++index)
+        {
+            StableReachedScriptWatcher &watcher = (*watchers)[index];
+            if (!reader.String(&watcher.center, 80) ||
+                !reader.String(&watcher.actor, 80) ||
+                !reader.Double(&watcher.position.x) ||
+                !reader.Double(&watcher.position.y) ||
+                !reader.Double(&watcher.position.z) ||
+                !reader.Double(&watcher.radius) ||
+                !reader.Double(&watcher.interval) ||
+                !reader.Double(&watcher.eventTime) ||
+                !reader.String(&watcher.script, 259) ||
+                !StableReachedScriptWatcherValid(watcher))
+                return false;
+        }
+    }
     if (reader.offset != bytes.size()) return false;
     for (std::size_t left = 0; left < chains->size(); ++left)
         for (std::size_t right = left + 1; right < chains->size(); ++right)
             if ((*chains)[left].center == (*chains)[right].center &&
                 (*chains)[left].project == (*chains)[right].project)
+                return false;
+    for (std::size_t left = 0; left < watchers->size(); ++left)
+        for (std::size_t right = left + 1; right < watchers->size(); ++right)
+            if ((*watchers)[left].center == (*watchers)[right].center &&
+                (*watchers)[left].actor == (*watchers)[right].actor &&
+                (*watchers)[left].script == (*watchers)[right].script &&
+                (*watchers)[left].position.x ==
+                    (*watchers)[right].position.x &&
+                (*watchers)[left].position.y ==
+                    (*watchers)[right].position.y &&
+                (*watchers)[left].position.z ==
+                    (*watchers)[right].position.z &&
+                (*watchers)[left].radius == (*watchers)[right].radius)
                 return false;
     return true;
 }
@@ -421,6 +535,132 @@ bool FiniteVector(const CFVector3 &value)
 {
     return std::isfinite(value.x) && std::isfinite(value.y) &&
            std::isfinite(value.z);
+}
+
+bool ReachedScriptPayloadValid(const PendingReachedScript &trigger)
+{
+    KR_ObjectID center = trigger.center;
+    KR_ObjectID actor = trigger.actor;
+    return !center.isNUL() && !actor.isNUL() &&
+           FiniteVector(trigger.position) &&
+           std::isfinite(trigger.radius) && trigger.radius > 0.0 &&
+           trigger.radius <= 1000000.0 &&
+           std::isfinite(trigger.interval) && trigger.interval > 0.0 &&
+           trigger.interval <= 86400.0 &&
+           std::isfinite(trigger.eventTime) && trigger.eventTime >= 0.0 &&
+           IsSafeMissionPath(trigger.script);
+}
+
+bool ReadReachedScriptEvent(KR_Event &event, PendingReachedScript *trigger)
+{
+    if (trigger == NULL) return false;
+    *trigger = PendingReachedScript();
+    char script[260] = {};
+    event.data.open(EDO_READ)
+        .getObjectID(trigger->actor)
+        .getDouble(trigger->position.x)
+        .getDouble(trigger->position.y)
+        .getDouble(trigger->position.z)
+        .getDouble(trigger->radius)
+        .getDouble(trigger->interval)
+        .getStr(script, sizeof(script));
+    const bool complete = event.data.remaining() == 0;
+    event.data.close();
+    trigger->center = event.destination;
+    trigger->eventTime = event.timeStamp;
+    trigger->script = script;
+    return complete && ReachedScriptPayloadValid(*trigger) &&
+           event.source == event.destination;
+}
+
+KR_Event MakeReachedScriptEvent(const PendingReachedScript &trigger,
+                                double eventTime)
+{
+    KR_Event event(rc_RESERVED_39004, eventTime,
+                   trigger.center, trigger.center);
+    event.data.open(EDO_WRITE)
+        .putObjectID(trigger.actor)
+        .putDouble(trigger.position.x)
+        .putDouble(trigger.position.y)
+        .putDouble(trigger.position.z)
+        .putDouble(trigger.radius)
+        .putDouble(trigger.interval)
+        .putStr(trigger.script.c_str())
+        .close();
+    return event;
+}
+
+bool RequeueReachedScript(SimulationContext *context,
+                          const PendingReachedScript &trigger,
+                          double baseTime)
+{
+    if (context == NULL || !ReachedScriptPayloadValid(trigger) ||
+        !std::isfinite(baseTime) || baseTime < 0.0 ||
+        context->eventFreeCount() < 1)
+        return false;
+    const double nextTime =
+        (std::max)((std::max)(baseTime, Session::m_moment), 0.1) +
+        trigger.interval;
+    KR_Event retry = MakeReachedScriptEvent(trigger, nextTime);
+    context->addEvent(retry);
+    ++g_reachedScriptRequeues;
+    return true;
+}
+
+bool CollectStableReachedScriptWatchers(
+    SimulationContext *context,
+    std::vector<StableReachedScriptWatcher> *watchers)
+{
+    if (context == NULL || watchers == NULL) return false;
+    watchers->clear();
+    const int eventCount = context->eventCount();
+    std::vector<KR_Event> events(
+        eventCount > 0 ? static_cast<std::size_t>(eventCount) : 0u);
+    if (eventCount > 0 &&
+        context->copyAllEvents(events.data(), eventCount) != eventCount)
+        return false;
+    for (std::size_t index = 0; index < events.size(); ++index)
+    {
+        KR_Event event = events[index];
+        if (event.label != rc_RESERVED_39004) continue;
+        PendingReachedScript trigger;
+        if (!ReadReachedScriptEvent(event, &trigger) ||
+            !context->isExist(trigger.center) ||
+            !context->isExist(trigger.actor))
+            return false;
+        const char *center = context->searchObject(trigger.center);
+        const char *actor = context->searchObject(trigger.actor);
+        if (center == NULL || actor == NULL) return false;
+        StableReachedScriptWatcher watcher;
+        watcher.center = center;
+        watcher.actor = actor;
+        watcher.position = trigger.position;
+        watcher.radius = trigger.radius;
+        watcher.interval = trigger.interval;
+        watcher.eventTime = trigger.eventTime;
+        watcher.script = trigger.script;
+        if (!StableReachedScriptWatcherValid(watcher)) return false;
+        watchers->push_back(watcher);
+        if (watchers->size() > kMaximumReachedScriptWatchers) return false;
+    }
+    std::sort(watchers->begin(), watchers->end(),
+              [](const StableReachedScriptWatcher &left,
+                 const StableReachedScriptWatcher &right) {
+                  if (left.center != right.center)
+                      return left.center < right.center;
+                  if (left.actor != right.actor)
+                      return left.actor < right.actor;
+                  if (left.script != right.script)
+                      return left.script < right.script;
+                  if (left.eventTime != right.eventTime)
+                      return left.eventTime < right.eventTime;
+                  if (left.position.x != right.position.x)
+                      return left.position.x < right.position.x;
+                  if (left.position.y != right.position.y)
+                      return left.position.y < right.position.y;
+                  return left.position.z < right.position.z;
+              });
+    return true;
 }
 
 void HashBytes(unsigned long long &hash, const void *bytes,
@@ -706,7 +946,7 @@ bool ReadDeferredCommand(int command, ProjectDataReader *data,
     case COM_PLAY_BRIEFING_MSG:
         return data->readString(&deferred->first, 260) &&
                data->readInt(&deferred->integer);
-    case 33:
+    case kRunScriptIfReachedCommand:
         if (!data->readString(&deferred->first, 80)) return false;
         for (int index = 0; index < 5; ++index)
             if (!data->readDouble(&deferred->values[index])) return false;
@@ -833,7 +1073,7 @@ bool DecodeMission(SimulationContext *context, KR_ObjectID project,
         case COM_RUN_SCRIPT:
         case COM_SKIP_WAY:
         case COM_PLAY_BRIEFING_MSG:
-        case 33:
+        case kRunScriptIfReachedCommand:
         case 34:
         case 35:
         {
@@ -1106,6 +1346,20 @@ bool PrepareDeferredMissionFiles(
                 return false;
             }
         }
+        else if (command == kRunScriptIfReachedCommand)
+        {
+            if (!PrepareMissionFile(commands[index].second, true,
+                                    &(*files)[index]))
+            {
+                char message[256] = {};
+                std::snprintf(message, sizeof(message),
+                              "RecruitCenter cannot preflight reached "
+                              "script %.154s",
+                              commands[index].second.c_str());
+                SetError(message);
+                return false;
+            }
+        }
         else if (command == 34)
         {
             if (!PrepareMissionFile(commands[index].first, true,
@@ -1122,7 +1376,7 @@ bool PrepareDeferredMissionFiles(
         else if (command != COM_BRIEFING_OVER &&
                  command != kSetGiveArtefactCommand)
         {
-            // CREATE_UNITS, SKIP_WAY and command 33 retain their decoded
+            // CREATE_UNITS and SKIP_WAY retain their decoded
             // payloads, but they do not yet have a transactional modern
             // owner. Never silently accept them.
             char message[256] = {};
@@ -1138,6 +1392,44 @@ bool PrepareDeferredMissionFiles(
         // so retain it in the deferred command stream without blocking the
         // briefing, script transaction, or mission creation. Reward delivery
         // remains owned by the later mission-result lifecycle.
+    }
+    return true;
+}
+
+bool BuildReachedScriptEvents(
+    SimulationContext *context, KR_ObjectID center, double timeStamp,
+    const std::vector<DeferredMissionCommand> &commands,
+    const std::vector<PreparedMissionFile> &files,
+    std::vector<PendingReachedScript> *events)
+{
+    if (context == NULL || center.isNUL() || events == NULL ||
+        commands.size() != files.size() || !std::isfinite(timeStamp) ||
+        timeStamp < 0.0)
+        return false;
+    events->clear();
+    for (std::size_t index = 0; index < commands.size(); ++index)
+    {
+        if (commands[index].command != kRunScriptIfReachedCommand) continue;
+        if (events->size() >= 16 || commands[index].first.empty() ||
+            commands[index].second.empty() || files[index].source.empty() ||
+            !context->isExist(commands[index].first.c_str()))
+            return false;
+        PendingReachedScript trigger;
+        trigger.center = center;
+        trigger.actor = context->searchObject(commands[index].first.c_str());
+        trigger.position = CFVector3(commands[index].values[0],
+                                     commands[index].values[1],
+                                     commands[index].values[2]);
+        trigger.radius = commands[index].values[3];
+        trigger.interval = commands[index].values[4];
+        trigger.eventTime = timeStamp + trigger.interval;
+        trigger.script = commands[index].second;
+        // May resolves only the symbolic object ID here. The dynamic
+        // interface is queried later by rc_RESERVED_39004, after delayed
+        // People/Tank START events have had their authored time to mature.
+        if (!ReachedScriptPayloadValid(trigger))
+            return false;
+        events->push_back(trigger);
     }
     return true;
 }
@@ -1397,6 +1689,39 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
         {
             if (!m_configured || event.data.remaining() != 0) return 0;
             return admit(event.timeStamp, NULL);
+        }
+        if (event.label == rc_RESERVED_39004)
+        {
+            PendingReachedScript trigger;
+            if (!ReadReachedScriptEvent(event, &trigger) ||
+                trigger.center != getObjectID())
+                return 0;
+            IDynamicObject *actor = static_cast<IDynamicObject *>(
+                context->queryInterface(trigger.actor, IDynamicObjectIID));
+            // The May receiver consumed an orphaned watcher. Its symbolic
+            // object was resolved when command 33 was admitted, so absence
+            // here means that the watched object has since been removed.
+            if (actor == NULL) return 1;
+            const CFVector3 position = actor->getPos();
+            if (!FiniteVector(position)) return 0;
+            const double dx = position.x - trigger.position.x;
+            const double dy = position.y - trigger.position.y;
+            const double dz = position.z - trigger.position.z;
+            const bool reached = dx * dx + dy * dy + dz * dz <=
+                trigger.radius * trigger.radius;
+            if (!reached || g_pendingReachedScript.active)
+            {
+                event.timeStamp += trigger.interval;
+                issueEvent(event);
+                ++g_reachedScriptRequeues;
+                return 1;
+            }
+            // May ran the script directly from this event. The recovered
+            // loop retains the exact event/predicate semantics but stages the
+            // mutation for the fully rendered and presented frame boundary.
+            g_pendingReachedScript = trigger;
+            g_pendingReachedScript.active = true;
+            return 1;
         }
         if (event.label == rc_CHECK_MISSION)
         {
@@ -1837,6 +2162,12 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         SetError("RecruitCenter admission found a stale check event");
         return false;
     }
+    if (context->copyEventsTo(rc_RESERVED_39004,
+                              center->getObjectID(), NULL, 0) != 0)
+    {
+        SetError("RecruitCenter admission found a stale reached-script event");
+        return false;
+    }
 
     KR_ObjectID candidate = KR_ObjectID::NUL();
     if (requestedProject != NULL && requestedProject[0] != 0)
@@ -1890,8 +2221,17 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         SetError("RecruitCenter authored mission decode failed");
         return false;
     }
+    const int reachedScriptCommandCount = DeferredCommandCount(
+        deferredCommands, kRunScriptIfReachedCommand);
+    if (reachedScriptCommandCount < 0 || reachedScriptCommandCount > 16 ||
+        context->eventFreeCount() < 1 + reachedScriptCommandCount)
+    {
+        SetError("RecruitCenter admission has no reached-script event capacity");
+        return false;
+    }
 
     std::vector<PreparedMissionFile> preparedFiles;
+    std::vector<PendingReachedScript> reachedScriptEvents;
     RecoveredLegacyScriptHost scriptHost(&g_arena);
     bool scriptTransaction = false;
     MissionCheckpointChain checkpointChain;
@@ -1983,6 +2323,17 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         }
         mission = reboundMission;
         routeName = reboundRoute;
+        if (!BuildReachedScriptEvents(context, center->getObjectID(),
+                                      timeStamp, reboundDeferred,
+                                      preparedFiles, &reachedScriptEvents) ||
+            reachedScriptEvents.size() !=
+                static_cast<std::size_t>(reachedScriptCommandCount))
+        {
+            if (scriptHost.RollbackObjectTransaction())
+                ++summary->scriptRollbacks;
+            SetError("RecruitCenter reached-script graph is malformed");
+            return false;
+        }
         summary->preSatisfiedKillConditionReferences =
             preSatisfiedKillConditions;
         if (!firstPreSatisfiedKillCondition.empty())
@@ -2058,10 +2409,20 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
                    g_vehicle->getObjectID(), center->getObjectID());
     check.data.open(EDO_WRITE).putInt(missionIndex).close();
     context->addEvent(check);
+    for (std::size_t index = 0; index < reachedScriptEvents.size(); ++index)
+    {
+        KR_Event reached = MakeReachedScriptEvent(
+            reachedScriptEvents[index], reachedScriptEvents[index].eventTime);
+        context->addEvent(reached);
+    }
     if (context->copyEventsTo(rc_CHECK_MISSION,
-                              center->getObjectID(), NULL, 0) != 1)
+                              center->getObjectID(), NULL, 0) != 1 ||
+        context->copyEventsTo(rc_RESERVED_39004,
+                              center->getObjectID(), NULL, 0) !=
+            static_cast<int>(reachedScriptEvents.size()))
     {
         context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
+        context->removeEventsTo(rc_RESERVED_39004, center->getObjectID());
         for (int move = missionIndex; move + 1 < player.m_missCnt; ++move)
             player.m_mission[move] = player.m_mission[move + 1];
         --player.m_missCnt;
@@ -2073,7 +2434,7 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
         if (createdRoute && context->isExist(route))
             context->removeObject(route);
         rollbackScript.Run(&scriptHost, scriptTransaction, summary);
-        SetError("RecruitCenter mission check event was not queued");
+        SetError("RecruitCenter mission event graph was not queued");
         return false;
     }
 
@@ -2091,6 +2452,9 @@ bool StageMissionForCenter(SimulationContext *context, double timeStamp,
     summary->checkpointChains = checkpointPrepared ? 1 : 0;
     summary->checkpointCommands = DeferredCommandCount(deferredCommands, 34);
     summary->activeCheckpoints = checkpointPrepared ? 1 : 0;
+    summary->reachedScriptCommands = reachedScriptCommandCount;
+    summary->reachedScriptEvents =
+        static_cast<int>(reachedScriptEvents.size());
     if (scriptTransaction) scriptHost.CommitObjectTransaction();
     if (presentBriefing)
         PresentDeferredBriefings(context, deferredCommands, preparedFiles,
@@ -2123,6 +2487,12 @@ class RecruitCenterTable : public ct_SubjectTable
         g_pendingCheckpointChain = -1;
         g_pendingLevelTransitionChain = -1;
         g_pendingLevelTransitionIndex = -1;
+        g_pendingReachedScript = PendingReachedScript();
+        g_pendingReachedLevelTransition = false;
+        g_reachedScriptExecutions = 0;
+        g_reachedScriptRollbacks = 0;
+        g_reachedScriptRequeues = 0;
+        g_failNextReachedScriptForTesting = false;
     }
 
     ct_Object *getObjectPTR(int index) override
@@ -2196,6 +2566,9 @@ bool MissionCheckGraphExact(SimulationContext *context, Player *player)
 bool RewriteMissionCheckEvents(SimulationContext *context, int removedIndex,
                                KR_ObjectID removedCenter)
 {
+    if (g_pendingReachedScript.active &&
+        g_pendingReachedScript.center == removedCenter)
+        return false;
     struct CenterEvents
     {
         KR_ObjectID center;
@@ -2250,6 +2623,10 @@ bool RewriteMissionCheckEvents(SimulationContext *context, int removedIndex,
         for (std::size_t event = 0; event < all[center].events.size(); ++event)
             context->addEvent(all[center].events[event]);
     }
+    // Command 33 is owned by the same admitted Project as the mission check.
+    // A result revisit retires that Project and must not leave a callback
+    // capable of mutating the replacement mission later.
+    context->removeEventsTo(rc_RESERVED_39004, removedCenter);
     return true;
 }
 
@@ -4249,11 +4626,274 @@ bool RecruitCenterSubjectState_ResolveSurrenderedMissionProbeForCenter(
         context, timeStamp, centerName, MISSION_SURRENDER, summary);
 }
 
+bool RecruitCenterSubjectState_ReachedScriptProbe(
+    SimulationContext *context, const char *centerName,
+    RecruitCenterReachedScriptProbeSummary *summary)
+{
+    if (context == NULL || centerName == NULL || centerName[0] == 0 ||
+        summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    summary->targetLevelIndex = g_pendingLevelTransitionIndex;
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL) return false;
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    const int eventCount = context->copyEventsTo(
+        rc_RESERVED_39004, center->getObjectID(), NULL, 0);
+    if (eventCount < 0 || eventCount > 16) return false;
+    summary->events = eventCount;
+    summary->pendingTriggers = g_pendingReachedScript.active ? 1 : 0;
+    summary->executedScripts = g_reachedScriptExecutions;
+    summary->rollbacks = g_reachedScriptRollbacks;
+    summary->requeues = g_reachedScriptRequeues;
+    summary->pendingLevelTransitions =
+        g_pendingReachedLevelTransition ? 1 : 0;
+
+    PendingReachedScript trigger;
+    if (g_pendingReachedScript.active &&
+        g_pendingReachedScript.center == center->getObjectID())
+        trigger = g_pendingReachedScript;
+    else if (eventCount > 0)
+    {
+        std::vector<KR_Event> events(static_cast<std::size_t>(eventCount));
+        if (context->copyEventsTo(rc_RESERVED_39004,
+                                  center->getObjectID(), &events[0],
+                                  eventCount) != eventCount ||
+            !ReadReachedScriptEvent(events[0], &trigger))
+            return false;
+    }
+    else return true;
+
+    summary->eventTime = trigger.eventTime;
+    summary->targetX = trigger.position.x;
+    summary->targetY = trigger.position.y;
+    summary->targetZ = trigger.position.z;
+    summary->radius = trigger.radius;
+    summary->interval = trigger.interval;
+    std::snprintf(summary->script, sizeof(summary->script), "%s",
+                  trigger.script.c_str());
+    const char *actorName = context->searchObject(trigger.actor);
+    if (actorName == NULL) return true;
+    summary->targetResolved = 1;
+    std::snprintf(summary->actorName, sizeof(summary->actorName), "%s",
+                  actorName);
+    IDynamicObject *actor = static_cast<IDynamicObject *>(
+        context->queryInterface(trigger.actor, IDynamicObjectIID));
+    if (actor == NULL) return true;
+    summary->targetDynamic = 1;
+    const CFVector3 position = actor->getPos();
+    if (!FiniteVector(position)) return false;
+    const double dx = position.x - trigger.position.x;
+    const double dy = position.y - trigger.position.y;
+    const double dz = position.z - trigger.position.z;
+    summary->targetInside = dx * dx + dy * dy + dz * dz <=
+        trigger.radius * trigger.radius ? 1 : 0;
+    return true;
+}
+
+bool RecruitCenterSubjectState_DispatchReachedScriptProbe(
+    SimulationContext *context, const char *centerName, bool moveInside)
+{
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (context == NULL || center == NULL || g_pendingReachedScript.active)
+        return false;
+    const int count = context->copyEventsTo(
+        rc_RESERVED_39004, center->getObjectID(), NULL, 0);
+    if (count != 1) return false;
+    KR_Event event;
+    if (context->copyEventsTo(rc_RESERVED_39004, center->getObjectID(),
+                              &event, 1) != 1)
+        return false;
+    PendingReachedScript trigger;
+    if (!ReadReachedScriptEvent(event, &trigger)) return false;
+    if (moveInside)
+    {
+        SPeopleMissionReachedStageSummary movedPeople = {};
+        STankMissionReachedStageSummary movedTank = {};
+        const bool moved =
+            PeopleSubjectState_StageMissionReachedCondition(
+                context, trigger.actor, trigger.position.x,
+                trigger.position.z, trigger.radius, &movedPeople) ||
+            TankSubjectState_StageMissionReachedCondition(
+                context, trigger.actor, trigger.position.x,
+                trigger.position.z, trigger.radius, &movedTank);
+        if (!moved) return false;
+        IDynamicObject *actor = static_cast<IDynamicObject *>(
+            context->queryInterface(trigger.actor, IDynamicObjectIID));
+        if (actor == NULL) return false;
+        const CFVector3 position = actor->getPos();
+        const double dx = position.x - trigger.position.x;
+        const double dy = position.y - trigger.position.y;
+        const double dz = position.z - trigger.position.z;
+        if (!FiniteVector(position) ||
+            dx * dx + dy * dy + dz * dz >
+                trigger.radius * trigger.radius)
+            return false;
+    }
+    else if (context->queryInterface(trigger.actor, IDynamicObjectIID) == NULL)
+    {
+        // The exact T04 watcher is authored before its delayed People show
+        // event. The bounded acceptance path must not wait on host wall time;
+        // activate that real subject while placing it demonstrably outside
+        // the authored sphere, then dispatch the genuine kernel event.
+        SPeopleMissionReachedStageSummary activated = {};
+        if (!PeopleSubjectState_StageMissionReachedCondition(
+                context, trigger.actor,
+                trigger.position.x + trigger.radius * 4.0,
+                trigger.position.z, trigger.radius, &activated))
+            return false;
+        IDynamicObject *actor = static_cast<IDynamicObject *>(
+            context->queryInterface(trigger.actor, IDynamicObjectIID));
+        if (actor == NULL) return false;
+        const CFVector3 position = actor->getPos();
+        const double dx = position.x - trigger.position.x;
+        const double dy = position.y - trigger.position.y;
+        const double dz = position.z - trigger.position.z;
+        if (!FiniteVector(position) ||
+            dx * dx + dy * dy + dz * dz <=
+                trigger.radius * trigger.radius)
+            return false;
+    }
+    context->removeEventsTo(rc_RESERVED_39004, center->getObjectID());
+    event.timeStamp = (std::max)(event.timeStamp,
+                                 (std::max)(0.1, Session::m_moment + 0.1));
+    context->sendEventNow(event);
+    return true;
+}
+
+bool RecruitCenterSubjectState_ReachedScriptPending()
+{
+    return g_pendingReachedScript.active;
+}
+
+bool RecruitCenterSubjectState_DeferPendingReachedScript(
+    SimulationContext *context)
+{
+    if (context == NULL || !g_pendingReachedScript.active) return false;
+    const PendingReachedScript trigger = g_pendingReachedScript;
+    if (!RequeueReachedScript(context, trigger, trigger.eventTime))
+        return false;
+    g_pendingReachedScript = PendingReachedScript();
+    return true;
+}
+
+bool RecruitCenterSubjectState_ProcessPendingReachedScript(
+    SimulationContext *context, double timeStamp)
+{
+    if (context == NULL || !g_pendingReachedScript.active ||
+        !std::isfinite(timeStamp) || timeStamp < 0.0 ||
+        g_pendingLevelTransitionChain >= 0 ||
+        g_pendingReachedLevelTransition)
+    {
+        SetError("RecruitCenter reached-script trigger is invalid");
+        return false;
+    }
+    const PendingReachedScript trigger = g_pendingReachedScript;
+    g_pendingReachedScript = PendingReachedScript();
+    if (!ReachedScriptPayloadValid(trigger) ||
+        !context->isExist(trigger.center) ||
+        context->searchObject(trigger.center) == NULL)
+    {
+        SetError("RecruitCenter reached-script owner is unresolved");
+        return false;
+    }
+    PreparedMissionFile prepared;
+    if (!PrepareMissionFile(trigger.script, true, &prepared))
+    {
+        (void)RequeueReachedScript(context, trigger, timeStamp);
+        SetError("RecruitCenter reached script is unavailable");
+        return false;
+    }
+
+    SRecoveredLegacyScriptProfile profile =
+        RecoveredLegacyScript_RetailFragmentProfile();
+    profile.compilerWordBufferSize = 64 * 1024;
+    profile.compilerStringBufferSize = 128 * 1024;
+    profile.compilerNameCount = 4096;
+    profile.compilerTreeBufferSize = 256 * 1024;
+    profile.compilerCodeStreamSize = 256 * 1024;
+    profile.compilerLinkInfoSize = 64 * 1024;
+    profile.processStorageStackSize = 4096;
+    profile.processStackSize = 4096;
+    profile.processQuants = 32768;
+    profile.maximumVmSlices = 8192;
+
+    RecoveredLegacyScriptHost host(&g_arena);
+    // Command 33 runs after an authored proximity event, not during mission
+    // admission.  Existing-object removals must therefore become visible
+    // only when this closed-frame transaction commits; otherwise a VM or
+    // presentation failure after s_RemoveObject cannot restore the object.
+    host.BeginObjectTransaction(true);
+    SRecoveredLegacyScriptRunResult run = {};
+    const bool ran = RecoveredLegacyScript_RunMemory(
+        prepared.source.c_str(), trigger.script.c_str(), profile, context,
+        timeStamp, &host, &run);
+    const bool forcedRollback = g_failNextReachedScriptForTesting;
+    g_failNextReachedScriptForTesting = false;
+    const double completedBoundary =
+        (std::max)((std::max)(0.1, timeStamp), Session::m_moment);
+    if (!ran || forcedRollback ||
+        !HowitzerSubjectState_ActivateImmediateStarts(
+            context, completedBoundary))
+    {
+        if (host.RollbackObjectTransaction()) ++g_reachedScriptRollbacks;
+        const bool requeued = RequeueReachedScript(context, trigger, timeStamp);
+        if (forcedRollback && requeued) return true;
+        char message[256] = {};
+        std::snprintf(message, sizeof(message),
+                      "RecruitCenter reached script %.96s failed: %.120s",
+                      trigger.script.c_str(), run.error);
+        SetError(message);
+        return false;
+    }
+    if (host.RestartLevelRequested())
+    {
+        const int targetLevel = host.RestartLevelIndex();
+        if (targetLevel < 0 || host.TransactionCreatedObjectCount() != 0 ||
+            host.TransactionDeferredRemovalCount() != 0 ||
+            host.TransactionReplacedHowitzerCount() != 0 ||
+            !RequeueReachedScript(context, trigger, timeStamp))
+        {
+            if (host.RollbackObjectTransaction()) ++g_reachedScriptRollbacks;
+            SetError("RecruitCenter reached script is not a transition-only "
+                     "restart");
+            return false;
+        }
+        if (!host.CommitObjectTransaction())
+        {
+            (void)host.RollbackObjectTransaction();
+            SetError("RecruitCenter reached restart commit failed");
+            return false;
+        }
+        ++g_reachedScriptExecutions;
+        g_pendingReachedLevelTransition = true;
+        g_pendingLevelTransitionIndex = targetLevel;
+        return true;
+    }
+    if (!host.CommitObjectTransaction())
+    {
+        (void)host.RollbackObjectTransaction();
+        (void)RequeueReachedScript(context, trigger, timeStamp);
+        SetError("RecruitCenter reached script commit failed");
+        return false;
+    }
+    ++g_reachedScriptExecutions;
+    return true;
+}
+
+void RecruitCenterSubjectState_FailNextReachedScriptForTesting()
+{
+    g_failNextReachedScriptForTesting = true;
+}
+
 bool RecruitCenterSubjectState_CaptureCheckpointState(
     SimulationContext *context, std::vector<std::uint8_t> *bytes)
 {
     if (context == NULL || bytes == NULL ||
-        g_pendingCheckpointChain >= 0)
+        g_pendingCheckpointChain >= 0 || g_pendingReachedScript.active ||
+        g_pendingLevelTransitionChain >= 0 ||
+        g_pendingReachedLevelTransition)
     {
         SetError("RecruitCenter checkpoint capture is not at a stable boundary");
         return false;
@@ -4269,7 +4909,9 @@ bool RecruitCenterSubjectState_CaptureCheckpointState(
             return false;
         }
     }
-    if (!EncodeCheckpointChains(g_checkpointChains, bytes))
+    std::vector<StableReachedScriptWatcher> watchers;
+    if (!CollectStableReachedScriptWatchers(context, &watchers) ||
+        !EncodeCheckpointChains(g_checkpointChains, watchers, bytes))
     {
         SetError("RecruitCenter checkpoint state encoding failed");
         return false;
@@ -4281,14 +4923,18 @@ bool RecruitCenterSubjectState_ValidateCheckpointState(
     const std::vector<std::uint8_t> &bytes)
 {
     std::vector<MissionCheckpointChain> decoded;
-    return DecodeCheckpointChains(bytes, &decoded);
+    std::vector<StableReachedScriptWatcher> watchers;
+    return DecodeCheckpointChains(bytes, &decoded, &watchers);
 }
 
 bool RecruitCenterSubjectState_ApplyCheckpointState(
     SimulationContext *context, const std::vector<std::uint8_t> &bytes)
 {
     std::vector<MissionCheckpointChain> decoded;
-    if (context == NULL || !DecodeCheckpointChains(bytes, &decoded))
+    std::vector<StableReachedScriptWatcher> watchers;
+    std::uint32_t version = 0;
+    if (context == NULL ||
+        !DecodeCheckpointChains(bytes, &decoded, &watchers, &version))
     {
         SetError("RecruitCenter checkpoint restore payload is invalid");
         return false;
@@ -4323,8 +4969,80 @@ bool RecruitCenterSubjectState_ApplyCheckpointState(
                 return false;
             }
     }
+    std::vector<PendingReachedScript> restoredWatchers;
+    for (std::size_t index = 0; index < watchers.size(); ++index)
+    {
+        const StableReachedScriptWatcher &watcher = watchers[index];
+        PreparedMissionFile prepared;
+        RecruitCenter *center = FindRecruitCenter(
+            context, watcher.center.c_str());
+        if (center == NULL || !context->isExist(watcher.actor.c_str()) ||
+            !PrepareMissionFile(watcher.script, false, &prepared))
+        {
+            SetError("RecruitCenter reached watcher restore owner is "
+                     "unresolved");
+            return false;
+        }
+        PendingReachedScript trigger;
+        trigger.active = false;
+        trigger.center = center->getObjectID();
+        trigger.actor = context->searchObject(watcher.actor.c_str());
+        trigger.position = watcher.position;
+        trigger.radius = watcher.radius;
+        trigger.interval = watcher.interval;
+        trigger.eventTime = watcher.eventTime;
+        trigger.script = watcher.script;
+        if (!ReachedScriptPayloadValid(trigger)) return false;
+        restoredWatchers.push_back(trigger);
+    }
+    if (version >= 2u)
+    {
+        const int eventCount = context->eventCount();
+        std::vector<KR_Event> events(
+            eventCount > 0 ? static_cast<std::size_t>(eventCount) : 0u);
+        if ((eventCount > 0 &&
+             context->copyAllEvents(events.data(), eventCount) != eventCount))
+            return false;
+        int staleReachedEvents = 0;
+        for (std::size_t index = 0; index < events.size(); ++index)
+            if (events[index].label == rc_RESERVED_39004)
+                ++staleReachedEvents;
+        if (context->eventFreeCount() + staleReachedEvents <
+            static_cast<int>(restoredWatchers.size()))
+        {
+            SetError("RecruitCenter reached watcher restore lacks event "
+                     "capacity");
+            return false;
+        }
+        for (std::size_t index = 0; index < events.size(); ++index)
+            if (events[index].label == rc_RESERVED_39004)
+                context->removeEventsTo(rc_RESERVED_39004,
+                                        events[index].destination);
+        for (std::size_t index = 0; index < restoredWatchers.size(); ++index)
+        {
+            KR_Event event = MakeReachedScriptEvent(
+                restoredWatchers[index], restoredWatchers[index].eventTime);
+            context->addEvent(event);
+        }
+    }
     g_checkpointChains.swap(decoded);
     g_pendingCheckpointChain = -1;
+    g_pendingReachedScript = PendingReachedScript();
+    g_pendingReachedLevelTransition = false;
+    g_pendingLevelTransitionChain = -1;
+    g_pendingLevelTransitionIndex = -1;
+    if (version >= 2u)
+    {
+        std::vector<StableReachedScriptWatcher> verified;
+        std::vector<std::uint8_t> rebuilt;
+        if (!CollectStableReachedScriptWatchers(context, &verified) ||
+            !EncodeCheckpointChains(g_checkpointChains, verified, &rebuilt) ||
+            rebuilt != bytes)
+        {
+            SetError("RecruitCenter reached watcher restore diverged");
+            return false;
+        }
+    }
     return true;
 }
 
@@ -4332,10 +5050,23 @@ bool RecruitCenterSubjectState_CheckpointStateMatches(
     SimulationContext *context, const std::vector<std::uint8_t> &bytes)
 {
     std::vector<std::uint8_t> current;
-    return RecruitCenterSubjectState_ValidateCheckpointState(bytes) &&
+    std::vector<MissionCheckpointChain> expectedChains;
+    std::vector<MissionCheckpointChain> currentChains;
+    std::vector<StableReachedScriptWatcher> expectedWatchers;
+    std::vector<StableReachedScriptWatcher> currentWatchers;
+    std::vector<std::uint8_t> expectedCanonical;
+    std::vector<std::uint8_t> currentCanonical;
+    return DecodeCheckpointChains(bytes, &expectedChains,
+                                  &expectedWatchers) &&
            RecruitCenterSubjectState_CaptureCheckpointState(context,
                                                             &current) &&
-           current == bytes;
+           DecodeCheckpointChains(current, &currentChains,
+                                  &currentWatchers) &&
+           EncodeCheckpointChains(expectedChains, expectedWatchers,
+                                  &expectedCanonical) &&
+           EncodeCheckpointChains(currentChains, currentWatchers,
+                                  &currentCanonical) &&
+           expectedCanonical == currentCanonical;
 }
 
 void RecruitCenterSubjectState_ClearCheckpointState()
@@ -4344,6 +5075,8 @@ void RecruitCenterSubjectState_ClearCheckpointState()
     g_pendingCheckpointChain = -1;
     g_pendingLevelTransitionChain = -1;
     g_pendingLevelTransitionIndex = -1;
+    g_pendingReachedScript = PendingReachedScript();
+    g_pendingReachedLevelTransition = false;
 }
 
 bool RecruitCenterSubjectState_PollCheckpoints(SimulationContext *context)
@@ -4585,14 +5318,17 @@ bool RecruitCenterSubjectState_StageActiveCheckpointProbe(
 
 bool RecruitCenterSubjectState_LevelTransitionPending()
 {
-    return g_pendingLevelTransitionChain >= 0;
+    return g_pendingLevelTransitionChain >= 0 ||
+           g_pendingReachedLevelTransition;
 }
 
 bool RecruitCenterSubjectState_PeekLevelTransition(int *levelIndex)
 {
-    if (levelIndex == NULL || g_pendingLevelTransitionChain < 0 ||
-        g_pendingLevelTransitionChain >=
-            static_cast<int>(g_checkpointChains.size()) ||
+    const bool checkpointOwner = g_pendingLevelTransitionChain >= 0 &&
+        g_pendingLevelTransitionChain <
+            static_cast<int>(g_checkpointChains.size());
+    if (levelIndex == NULL ||
+        (!checkpointOwner && !g_pendingReachedLevelTransition) ||
         g_pendingLevelTransitionIndex < 0)
         return false;
     *levelIndex = g_pendingLevelTransitionIndex;
@@ -4601,10 +5337,15 @@ bool RecruitCenterSubjectState_PeekLevelTransition(int *levelIndex)
 
 bool RecruitCenterSubjectState_RejectLevelTransition()
 {
+    if (g_pendingReachedLevelTransition)
+    {
+        g_pendingReachedLevelTransition = false;
+        g_pendingLevelTransitionIndex = -1;
+        return true;
+    }
     if (g_pendingLevelTransitionChain < 0 ||
         g_pendingLevelTransitionChain >=
-            static_cast<int>(g_checkpointChains.size()))
-        return false;
+            static_cast<int>(g_checkpointChains.size())) return false;
     MissionCheckpointChain &chain =
         g_checkpointChains[g_pendingLevelTransitionChain];
     g_pendingLevelTransitionChain = -1;

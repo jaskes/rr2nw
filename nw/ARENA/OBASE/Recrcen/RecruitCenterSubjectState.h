@@ -38,6 +38,8 @@ struct RecruitCenterMissionProbeSummary
     int checkpointChains;
     int checkpointCommands;
     int activeCheckpoints;
+    int reachedScriptCommands;
+    int reachedScriptEvents;
     char capacityLimitedConditionName[81];
     char preSatisfiedKillConditionName[81];
     char centerName[81];
@@ -65,6 +67,29 @@ struct RecruitCenterCheckpointProbeSummary
     char centerName[81];
     char projectName[81];
     char activeScript[261];
+};
+
+struct RecruitCenterReachedScriptProbeSummary
+{
+    int events;
+    int pendingTriggers;
+    int targetResolved;
+    int targetDynamic;
+    int targetInside;
+    int executedScripts;
+    int rollbacks;
+    int requeues;
+    int pendingLevelTransitions;
+    int targetLevelIndex;
+    double eventTime;
+    double targetX;
+    double targetY;
+    double targetZ;
+    double radius;
+    double interval;
+    char centerName[81];
+    char actorName[81];
+    char script[261];
 };
 
 struct RecruitCenterMissionResultProbeSummary
@@ -258,6 +283,17 @@ bool RecruitCenterSubjectState_CheckpointProbe(
     SimulationContext *context, RecruitCenterCheckpointProbeSummary *summary);
 bool RecruitCenterSubjectState_StageActiveCheckpointProbe(
     SimulationContext *context);
+bool RecruitCenterSubjectState_ReachedScriptProbe(
+    SimulationContext *context, const char *centerName,
+    RecruitCenterReachedScriptProbeSummary *summary);
+bool RecruitCenterSubjectState_DispatchReachedScriptProbe(
+    SimulationContext *context, const char *centerName, bool moveInside);
+bool RecruitCenterSubjectState_ReachedScriptPending();
+bool RecruitCenterSubjectState_DeferPendingReachedScript(
+    SimulationContext *context);
+bool RecruitCenterSubjectState_ProcessPendingReachedScript(
+    SimulationContext *context, double timeStamp);
+void RecruitCenterSubjectState_FailNextReachedScriptForTesting();
 bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     RecruitCenterMissionResultProbeSummary *summary);

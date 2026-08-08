@@ -8210,7 +8210,9 @@ int RecoveredGameServices_RunFrame() {
   }
   const FrameClock::time_point presentEnd = FrameClock::now();
   RecordPrimaryFireRenderFrame();
+  bool missionCommandBoundaryUsed = false;
   if (RecruitCenterSubjectState_CheckpointPending()) {
+    missionCommandBoundaryUsed = true;
     if (ExplicitWorldCommandPending()) {
       if (!RecruitCenterSubjectState_DeferPendingCheckpoint()) {
         PresentClosedFrameCommandFailure(
@@ -8221,6 +8223,23 @@ int RecoveredGameServices_RunFrame() {
                    g_super.m_context, Session::m_viewTime)) {
       PresentClosedFrameCommandFailure(
           "Mission checkpoint", RecruitCenterSubjectState_LastError(),
+          ShowNativeMissionCheckpointFailure);
+    }
+  }
+  if (RecruitCenterSubjectState_ReachedScriptPending()) {
+    if (ExplicitWorldCommandPending() || missionCommandBoundaryUsed ||
+        RecruitCenterSubjectState_LevelTransitionPending()) {
+      if (!RecruitCenterSubjectState_DeferPendingReachedScript(
+              g_super.m_context)) {
+        PresentClosedFrameCommandFailure(
+            "Mission reached script",
+            RecruitCenterSubjectState_LastError(),
+            ShowNativeMissionCheckpointFailure);
+      }
+    } else if (!RecruitCenterSubjectState_ProcessPendingReachedScript(
+                   g_super.m_context, Session::m_viewTime)) {
+      PresentClosedFrameCommandFailure(
+          "Mission reached script", RecruitCenterSubjectState_LastError(),
           ShowNativeMissionCheckpointFailure);
     }
   }

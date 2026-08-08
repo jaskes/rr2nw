@@ -571,8 +571,9 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_deferredMissionDestroyableCount(0),
       m_discardNextMissingHolderHowitzer(false),
       m_restartLevelRequested(false), m_restartLevelIndex(-1),
-      m_objectTransactionActive(false),
-      m_transactionCreatedObjects(), m_transactionDestroyedCreatedObjectNames(),
+      m_objectTransactionActive(false), m_deferExistingRemovals(false),
+      m_transactionCreatedObjects(), m_transactionDeferredRemovals(),
+      m_transactionDestroyedCreatedObjectNames(),
       m_transactionExistingRoutes(), m_transactionExistingCorpses(),
       m_transactionPinnedRoutes(), m_transactionReclaimedRoutes(),
       m_transactionReplacedHowitzers() {
@@ -598,7 +599,9 @@ void RecoveredLegacyScriptHost::Reset() {
   m_restartLevelRequested = false;
   m_restartLevelIndex = -1;
   if (!m_objectTransactionActive) {
+    m_deferExistingRemovals = false;
     m_transactionCreatedObjects.clear();
+    m_transactionDeferredRemovals.clear();
     m_transactionDestroyedCreatedObjectNames.clear();
     m_transactionExistingRoutes.clear();
     m_transactionExistingCorpses.clear();
@@ -754,6 +757,11 @@ KR_ObjectID RecoveredLegacyScriptHost::SearchObject(const char* name) {
   if (!ArenaReady("search object") || name == nullptr) {
     return KR_ObjectID::NUL();
   }
+  if (m_objectTransactionActive && m_deferExistingRemovals) {
+    for (const DeferredExistingRemoval& removal :
+         m_transactionDeferredRemovals)
+      if (removal.name == name) return KR_ObjectID::NUL();
+  }
   // A missing symbolic name is valid legacy data flow: the script receives
   // NUL and decides whether that is optional. Infrastructure errors above are
   // still fail-closed.
@@ -773,6 +781,21 @@ bool RecoveredLegacyScriptHost::RemoveObject(const char* name, double from) {
   if (!context->isExist(name)) return true;
 
   const KR_ObjectID object = context->searchObject(name);
+  if (m_objectTransactionActive && m_deferExistingRemovals &&
+      !ContainsObject(m_transactionCreatedObjects, object)) {
+    for (const DeferredExistingRemoval& removal :
+         m_transactionDeferredRemovals) {
+      if (removal.object == object)
+        return removal.name == name && removal.from == from && !removal.force;
+    }
+    DeferredExistingRemoval removal;
+    removal.object = object;
+    removal.name = name;
+    removal.from = from;
+    removal.force = false;
+    m_transactionDeferredRemovals.push_back(removal);
+    return true;
+  }
   // Retail scripts pass a level-local absolute moment (and use zero for an
   // immediate removal).  Reuse ct_Storage's original delayed-delete event so
   // the operation participates in the same scheduler and saveable event
@@ -789,7 +812,23 @@ bool RecoveredLegacyScriptHost::ForceRemoveObject(const char* name) {
   if (!ArenaReady("force remove object") || name == nullptr) return false;
   SimulationContext* context = m_arena->getContext();
   if (!context->isExist(name)) return true;
-  context->removeObject(context->searchObject(name));
+  const KR_ObjectID object = context->searchObject(name);
+  if (m_objectTransactionActive && m_deferExistingRemovals &&
+      !ContainsObject(m_transactionCreatedObjects, object)) {
+    for (const DeferredExistingRemoval& removal :
+         m_transactionDeferredRemovals) {
+      if (removal.object == object)
+        return removal.name == name && removal.force;
+    }
+    DeferredExistingRemoval removal;
+    removal.object = object;
+    removal.name = name;
+    removal.from = 0.0;
+    removal.force = true;
+    m_transactionDeferredRemovals.push_back(removal);
+    return true;
+  }
+  context->removeObject(object);
   return !context->isExist(name);
 }
 
@@ -1115,10 +1154,13 @@ int RecoveredLegacyScriptHost::RestartLevelIndex() const {
   return m_restartLevelRequested ? m_restartLevelIndex : -1;
 }
 
-void RecoveredLegacyScriptHost::BeginObjectTransaction() {
+void RecoveredLegacyScriptHost::BeginObjectTransaction(
+    bool deferExistingRemovals) {
   m_objectTransactionActive = true;
+  m_deferExistingRemovals = deferExistingRemovals;
   m_discardNextMissingHolderHowitzer = false;
   m_transactionCreatedObjects.clear();
+  m_transactionDeferredRemovals.clear();
   m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
   m_transactionExistingCorpses.clear();
@@ -1256,6 +1298,7 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
             context, replacement->stable))
       howitzersRestored = false;
   m_transactionCreatedObjects.clear();
+  m_transactionDeferredRemovals.clear();
   m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
   m_transactionExistingCorpses.clear();
@@ -1263,13 +1306,36 @@ bool RecoveredLegacyScriptHost::RollbackObjectTransaction() {
   m_transactionReclaimedRoutes.clear();
   m_transactionReplacedHowitzers.clear();
   m_discardNextMissingHolderHowitzer = false;
+  m_deferExistingRemovals = false;
   m_objectTransactionActive = false;
   return howitzersRestored;
 }
 
-void RecoveredLegacyScriptHost::CommitObjectTransaction() {
+bool RecoveredLegacyScriptHost::CommitObjectTransaction() {
+  if (!m_objectTransactionActive) return true;
   if (m_arena != nullptr) {
     SimulationContext* context = m_arena->getContext();
+    if (context == nullptr) return false;
+    for (const DeferredExistingRemoval& removal :
+         m_transactionDeferredRemovals) {
+      if (!context->isExist(removal.object) ||
+          context->searchObject(removal.object) == nullptr ||
+          removal.name != context->searchObject(removal.object))
+        return false;
+    }
+    for (const DeferredExistingRemoval& removal :
+         m_transactionDeferredRemovals) {
+      if (removal.force) {
+        context->removeObject(removal.object);
+      } else if (removal.from <= Session::m_moment) {
+        m_arena->delObject(removal.object);
+      } else {
+        m_arena->delObject(removal.object, removal.from);
+      }
+      if ((removal.force || removal.from <= Session::m_moment) &&
+          context->isExist(removal.object))
+        return false;
+    }
     for (const KR_ObjectID& routeID : m_transactionPinnedRoutes) {
       if (!context->isExist(routeID)) continue;
       IRouteObject* route = static_cast<IRouteObject*>(
@@ -1278,6 +1344,7 @@ void RecoveredLegacyScriptHost::CommitObjectTransaction() {
     }
   }
   m_transactionCreatedObjects.clear();
+  m_transactionDeferredRemovals.clear();
   m_transactionDestroyedCreatedObjectNames.clear();
   m_transactionExistingRoutes.clear();
   m_transactionExistingCorpses.clear();
@@ -1285,11 +1352,17 @@ void RecoveredLegacyScriptHost::CommitObjectTransaction() {
   m_transactionReclaimedRoutes.clear();
   m_transactionReplacedHowitzers.clear();
   m_discardNextMissingHolderHowitzer = false;
+  m_deferExistingRemovals = false;
   m_objectTransactionActive = false;
+  return true;
 }
 
 int RecoveredLegacyScriptHost::TransactionCreatedObjectCount() const {
   return static_cast<int>(m_transactionCreatedObjects.size());
+}
+
+int RecoveredLegacyScriptHost::TransactionDeferredRemovalCount() const {
+  return static_cast<int>(m_transactionDeferredRemovals.size());
 }
 
 int RecoveredLegacyScriptHost::TransactionReplacedHowitzerCount() const {

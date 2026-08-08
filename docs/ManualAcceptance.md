@@ -371,6 +371,20 @@ retryable, while the second crossing must commit authored game.cfg index 7,
 start `Level.01N`, and preserve an exact destination save round-trip with no
 stale checkpoint graph.
 
+The installed Level.01D command-33 owner has its own noninteractive gate:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionReachedScriptSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+It must admit `Recruit.Tanks/Tank_04` with one watcher, retain the hidden
+`T04.Enemy.01` actor until its real People show boundary, then prove one
+outside poll, exact authored three-second requeue and one inside trigger. Save
+capture must fail while the trigger is pending. Fault injection must leave
+`T04.Man.01` present and requeue the watcher; commit must remove that object
+and consume the watcher. Baseline and committed LCN1 bytes must each survive
+restore/recapture exactly, followed by baseline-to-committed rollback/reapply.
+
 For a normal interactive Marauders admission, continue beyond the briefing.
 Exactly one Marauder character FLC and one mission briefing may play before
 control returns to the world. The two additional FLCs manually reproduced on
