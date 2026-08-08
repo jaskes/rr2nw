@@ -388,6 +388,34 @@ struct SRecoveredCampaignRestartRequest {
   SLevelContinuationSummary sourceContinuationSummary;
 };
 
+// An authored s_RestartLevel ordinal is captured by the neutral script host,
+// then translated by the process coordinator against the active game.cfg.
+// The still-active source checkpoint is retained in LCN1 for rollback.
+struct SRecoveredScriptedLevelTransitionState {
+  unsigned int requests = 0;
+  unsigned int completedTransitions = 0;
+  unsigned int failedTransitions = 0;
+  unsigned int rollbacks = 0;
+  unsigned int rollbackFailures = 0;
+  int lastTargetLevelIndex = -1;
+  std::string sourceLevel;
+  std::string targetLevel;
+  std::string lastError;
+};
+
+struct SRecoveredScriptedLevelTransitionRequest {
+  bool ready = false;
+  unsigned int requestOrdinal = 0;
+  unsigned int completedBefore = 0;
+  unsigned int failuresBefore = 0;
+  unsigned int rollbacksBefore = 0;
+  unsigned int rollbackFailuresBefore = 0;
+  int targetLevelIndex = -1;
+  std::string sourceLevel;
+  std::vector<std::uint8_t> sourceContinuation;
+  SLevelContinuationSummary sourceContinuationSummary;
+};
+
 enum ERecoveredDebugMenuAction {
   RECOVERED_DEBUG_MENU_NONE = 0,
   RECOVERED_DEBUG_MENU_SPAWN_VEHICLE = 1,
@@ -801,6 +829,16 @@ void RecoveredGameServices_RecordCampaignRestartResult(
     const std::string& detail);
 const SRecoveredCampaignRestartState*
 RecoveredGameServices_CampaignRestartState();
+bool RecoveredGameServices_ScriptedLevelTransitionPending();
+bool RecoveredGameServices_TakeScriptedLevelTransitionRequest(
+    SRecoveredScriptedLevelTransitionRequest* request);
+void RecoveredGameServices_RecordScriptedLevelTransitionResult(
+    const SRecoveredScriptedLevelTransitionRequest& request,
+    const std::string& targetLevel, bool committed,
+    bool rollbackAttempted, bool rollbackRestored,
+    const std::string& detail);
+const SRecoveredScriptedLevelTransitionState*
+RecoveredGameServices_ScriptedLevelTransitionState();
 const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState();
 bool RecoveredGameServices_VehicleFallbackActive();
 unsigned int RecoveredGameServices_VehicleInputEvents();

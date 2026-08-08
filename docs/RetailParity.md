@@ -2596,9 +2596,26 @@ playable Level begins.
   rejected, and fault-injected restore rollback preserves the committed
   progressed graph. MSH1 v1-v4 stay accepted without a checkpoint payload.
 - `Invoke-MissionCheckpointSmoke.ps1` is the installed-retail gate. This row
-  does not claim the terminal `s_RestartLevel(7)` handoff; that process-level
-  transition remains fail-closed until it owns destination preflight and source
-  rollback.
+  owns the checkpoint graph; RP-CAMPAIGN-034 separately owns the terminal
+  `s_RestartLevel(7)` process handoff.
+
+### RP-CAMPAIGN-034: Level.06N part7 hands off to authored Level.01N
+
+- Classification: `INSTALLED_RETAIL_COMMAND_EXECUTED`,
+  `AUTHORED_CATALOG_INDEX_PRESERVED`, `PROCESS_ROLLBACK_PROVEN`.
+- Installed `Brief/part7.sc` contains only `s_RestartLevel(7)`. Installed
+  `game.cfg` row 7 is `Level.01N`; the maintained path resolves that row only in
+  the process coordinator after the terminal checkpoint transaction commits.
+- The checkpoint-local owner is rearmed before exact source LCN1 capture. A
+  deliberately invalid target first proves `Level.06N` restart, byte-identical
+  recapture, unchanged world fingerprint and a retryable active part7. The next
+  crossing commits row 7 and starts the real `Level.01N` data.
+- Fresh destination capture/restore/recapture is exact and contains zero stale
+  Level.06N checkpoint chains. The three-configuration gate requires two
+  requests, one completion, one target failure, one exact rollback, zero
+  rollback failures and final Level identity `7/Level.01N`.
+- No presentation asset, PRIOR_LEV, reward or Portal is inferred by this row.
+  Late Level.01D command 33 remains a separate authored callback frontier.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

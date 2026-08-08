@@ -70,6 +70,7 @@
 #include "obase/orphan/OrphanActiveWorldState.h"
 #include "obase/orphan/OrphanSubjectState.h"
 #include "obase/people/PeopleSubjectState.h"
+#include "obase/portal/PortalActiveWorldState.h"
 #include "obase/recrcen/RecruitCenterSubjectState.h"
 #include "obase/smoke/SmokeSubjectState.h"
 #include "obase/smoke/SmokerSubjectState.h"
@@ -1086,6 +1087,8 @@ SRecoveredSaveMenuState g_saveMenuState;
 SRecoveredCrossLevelLoadRequest g_crossLevelLoadRequest;
 SRecoveredCampaignRestartState g_campaignRestartState;
 SRecoveredCampaignRestartRequest g_campaignRestartRequest;
+SRecoveredScriptedLevelTransitionState g_scriptedLevelTransitionState;
+SRecoveredScriptedLevelTransitionRequest g_scriptedLevelTransitionRequest;
 bool g_saveMenuAllowOverwrite = false;
 SRecoveredDebugMenuState g_debugMenuState;
 SRecoveredDebugLevelSwitchRequest g_debugLevelSwitchRequest;
@@ -1928,7 +1931,8 @@ bool DebugCommandCanStage() {
       g_saveMenuState.crossLevelRestartPending ||
       g_campaignRestartState.pending ||
       g_campaignRestartState.coordinatorPending ||
-      g_campaignRestartRequest.ready) {
+      g_campaignRestartRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready) {
     g_debugMenuState.lastError =
         "another world command is already pending";
     return false;
@@ -1988,7 +1992,8 @@ bool DebugCommandAvailability(ERecoveredDebugMenuAction action,
       g_saveMenuState.crossLevelRestartPending ||
       g_campaignRestartState.pending ||
       g_campaignRestartState.coordinatorPending ||
-      g_campaignRestartRequest.ready)
+      g_campaignRestartRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready)
     return blocked("another world command is pending");
 
   if ((action == RECOVERED_DEBUG_MENU_SPAWN_VEHICLE ||
@@ -2186,7 +2191,8 @@ void RefreshNativeSaveMenu() {
         !g_debugMenuState.pending && !g_debugLevelSwitchRequest.ready &&
         !g_campaignRestartState.pending &&
         !g_campaignRestartState.coordinatorPending &&
-        !g_campaignRestartRequest.ready;
+        !g_campaignRestartRequest.ready &&
+        !g_scriptedLevelTransitionRequest.ready;
     EnableMenuItem(
         g_nativeGameMenu, kNativeRestartCurrentLevel,
         MF_BYCOMMAND |
@@ -2205,7 +2211,8 @@ void RefreshNativeDebugMenu() {
       !g_saveMenuState.crossLevelRestartPending &&
       !g_campaignRestartState.pending &&
       !g_campaignRestartState.coordinatorPending &&
-      !g_campaignRestartRequest.ready;
+      !g_campaignRestartRequest.ready &&
+      !g_scriptedLevelTransitionRequest.ready;
   const UINT state = MF_BYCOMMAND |
       (commandAvailable ? MF_ENABLED : MF_GRAYED | MF_DISABLED);
   EnableMenuItem(g_nativeDebugMenu, kNativeDebugShowState, state);
@@ -2583,6 +2590,8 @@ void ResetSaveMenuSession() {
   g_saveMenuState.lastContinuation = {};
   g_campaignRestartState = {};
   g_campaignRestartRequest = {};
+  g_scriptedLevelTransitionState = {};
+  g_scriptedLevelTransitionRequest = {};
   g_saveMenuAllowOverwrite = false;
 }
 
@@ -3992,6 +4001,15 @@ void ShowNativeMissionCheckpointFailure() {
   const std::wstring detail = Utf8ToWide(
       RecruitCenterSubjectState_LastError());
   MessageBoxW(_gr_hWnd, detail.c_str(), L"RR2NW mission checkpoint error",
+              MB_OK | MB_ICONERROR);
+}
+
+void ShowNativeScriptedLevelTransitionFailure() {
+  if (_gr_hWnd == nullptr) return;
+  const std::wstring detail = Utf8ToWide(
+      g_scriptedLevelTransitionState.lastError);
+  MessageBoxW(_gr_hWnd, detail.c_str(),
+              L"RR2NW scripted Level transition error",
               MB_OK | MB_ICONERROR);
 }
 
@@ -5905,7 +5923,8 @@ bool RequestSaveSlotInternal(std::uint32_t slot, bool allowOverwrite,
       g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
       g_campaignRestartState.pending ||
       g_campaignRestartState.coordinatorPending ||
-      g_campaignRestartRequest.ready) {
+      g_campaignRestartRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -5947,7 +5966,8 @@ bool RecoveredGameServices_ConfigureSaveDirectory(
       g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
       g_campaignRestartState.pending ||
       g_campaignRestartState.coordinatorPending ||
-      g_campaignRestartRequest.ready) {
+      g_campaignRestartRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready) {
     g_saveMenuState.lastError =
         "save directory cannot change while a command is pending";
     return false;
@@ -5985,7 +6005,8 @@ bool RecoveredGameServices_ConfigureNativeDiagnosticMenu(bool enabled) {
       g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
       g_campaignRestartState.pending ||
       g_campaignRestartState.coordinatorPending ||
-      g_campaignRestartRequest.ready) {
+      g_campaignRestartRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready) {
     g_saveMenuState.lastError =
         "native diagnostic menu capability cannot change while a command "
         "is pending";
@@ -6013,7 +6034,8 @@ bool RecoveredGameServices_ConfigureDebugMenu(
   if (g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
       g_campaignRestartState.pending ||
       g_campaignRestartState.coordinatorPending ||
-      g_campaignRestartRequest.ready) {
+      g_campaignRestartRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready) {
     g_debugMenuState.lastError =
         "debug menu cannot be reconfigured while a command is pending";
     return false;
@@ -6946,7 +6968,8 @@ bool RecoveredGameServices_RequestLoadSlot(std::uint32_t slot) {
       g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
       g_campaignRestartState.pending ||
       g_campaignRestartState.coordinatorPending ||
-      g_campaignRestartRequest.ready) {
+      g_campaignRestartRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready) {
     g_saveMenuState.lastError =
         "another save/load command is already pending";
     return false;
@@ -7207,7 +7230,8 @@ bool RecoveredGameServices_RequestCampaignRestart() {
       g_campaignRestartRequest.ready || g_saveMenuState.pending ||
       g_crossLevelLoadRequest.ready ||
       g_saveMenuState.crossLevelRestartPending ||
-      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready) {
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_scriptedLevelTransitionRequest.ready) {
     g_campaignRestartState.lastError =
         "another world command is already pending";
     return false;
@@ -7342,6 +7366,59 @@ void RecoveredGameServices_RecordCampaignRestartResult(
 const SRecoveredCampaignRestartState*
 RecoveredGameServices_CampaignRestartState() {
   return &g_campaignRestartState;
+}
+
+bool RecoveredGameServices_ScriptedLevelTransitionPending() {
+  return g_scriptedLevelTransitionRequest.ready;
+}
+
+bool RecoveredGameServices_TakeScriptedLevelTransitionRequest(
+    SRecoveredScriptedLevelTransitionRequest* request) {
+  if (request == nullptr || !g_scriptedLevelTransitionRequest.ready)
+    return false;
+  *request = std::move(g_scriptedLevelTransitionRequest);
+  g_scriptedLevelTransitionRequest = {};
+  return request->ready;
+}
+
+void RecoveredGameServices_RecordScriptedLevelTransitionResult(
+    const SRecoveredScriptedLevelTransitionRequest& request,
+    const std::string& targetLevel, bool committed,
+    bool rollbackAttempted, bool rollbackRestored,
+    const std::string& detail) {
+  g_scriptedLevelTransitionState = {};
+  g_scriptedLevelTransitionState.requests = request.requestOrdinal;
+  g_scriptedLevelTransitionState.completedTransitions =
+      request.completedBefore;
+  g_scriptedLevelTransitionState.failedTransitions =
+      request.failuresBefore;
+  g_scriptedLevelTransitionState.rollbacks = request.rollbacksBefore;
+  g_scriptedLevelTransitionState.rollbackFailures =
+      request.rollbackFailuresBefore;
+  g_scriptedLevelTransitionState.lastTargetLevelIndex =
+      request.targetLevelIndex;
+  g_scriptedLevelTransitionState.sourceLevel = request.sourceLevel;
+  g_scriptedLevelTransitionState.targetLevel = targetLevel;
+  if (committed) {
+    ++g_scriptedLevelTransitionState.completedTransitions;
+  } else {
+    ++g_scriptedLevelTransitionState.failedTransitions;
+    g_scriptedLevelTransitionState.lastError =
+        detail.empty() ? "scripted Level transition failed" : detail;
+    if (rollbackAttempted) {
+      if (rollbackRestored)
+        ++g_scriptedLevelTransitionState.rollbacks;
+      else
+        ++g_scriptedLevelTransitionState.rollbackFailures;
+    }
+  }
+  RefreshNativeSaveMenu();
+  RefreshNativeDebugMenu();
+}
+
+const SRecoveredScriptedLevelTransitionState*
+RecoveredGameServices_ScriptedLevelTransitionState() {
+  return &g_scriptedLevelTransitionState;
 }
 
 const SRecoveredSaveMenuState* RecoveredGameServices_SaveMenuState() {
@@ -7903,6 +7980,86 @@ const SRecoveredObserverState* RecoveredGameServices_ObserverState() {
   return g_sessionReady ? &g_observerInput.state() : nullptr;
 }
 
+namespace {
+
+bool ExplicitWorldCommandPending() {
+  return PortalActiveWorldState_TransitionPending() ||
+      g_debugMenuState.pending || g_debugLevelSwitchRequest.ready ||
+      g_campaignRestartState.pending ||
+      g_campaignRestartState.coordinatorPending ||
+      g_campaignRestartRequest.ready || g_saveMenuState.pending ||
+      g_crossLevelLoadRequest.ready ||
+      g_saveMenuState.crossLevelRestartPending ||
+      g_scriptedLevelTransitionRequest.ready;
+}
+
+bool StageRecruitCenterLevelTransition() {
+  int targetLevelIndex = -1;
+  const unsigned int requestOrdinal =
+      g_scriptedLevelTransitionState.requests + 1u;
+  if (!RecruitCenterSubjectState_PeekLevelTransition(
+          &targetLevelIndex)) {
+    g_scriptedLevelTransitionState.lastError =
+        "scripted Level transition lost its authored target";
+    return false;
+  }
+  g_scriptedLevelTransitionState.requests = requestOrdinal;
+  g_scriptedLevelTransitionState.lastTargetLevelIndex = targetLevelIndex;
+  g_scriptedLevelTransitionState.sourceLevel =
+      ContinuationLevelIdentity();
+  g_scriptedLevelTransitionState.targetLevel.clear();
+  g_scriptedLevelTransitionState.lastError.clear();
+  if (ExplicitWorldCommandPending()) {
+    RecruitCenterSubjectState_RejectLevelTransition();
+    ++g_scriptedLevelTransitionState.failedTransitions;
+    g_scriptedLevelTransitionState.lastError =
+        "scripted Level transition conflicted with another world command";
+    return false;
+  }
+
+  // Convert the checkpoint-local request into process ownership before
+  // capturing the source continuation. RejectLevelTransition deliberately
+  // rearms the still-active terminal node, so a failed target activation can
+  // restore the exact pre-trigger LCN1 bytes and retry on a later entry.
+  if (!RecruitCenterSubjectState_RejectLevelTransition()) {
+    ++g_scriptedLevelTransitionState.failedTransitions;
+    g_scriptedLevelTransitionState.lastError =
+        "scripted Level transition could not rearm its source checkpoint";
+    return false;
+  }
+
+  std::vector<std::uint8_t> source;
+  SLevelContinuationSummary sourceSummary;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &source, &sourceSummary) || !sourceSummary.ready) {
+    const std::string detail =
+        RecoveredGameServices_LastLevelContinuationError();
+    ++g_scriptedLevelTransitionState.failedTransitions;
+    g_scriptedLevelTransitionState.lastError = detail.empty()
+        ? "scripted Level transition source capture failed" : detail;
+    return false;
+  }
+  g_scriptedLevelTransitionRequest = {};
+  g_scriptedLevelTransitionRequest.ready = true;
+  g_scriptedLevelTransitionRequest.requestOrdinal = requestOrdinal;
+  g_scriptedLevelTransitionRequest.completedBefore =
+      g_scriptedLevelTransitionState.completedTransitions;
+  g_scriptedLevelTransitionRequest.failuresBefore =
+      g_scriptedLevelTransitionState.failedTransitions;
+  g_scriptedLevelTransitionRequest.rollbacksBefore =
+      g_scriptedLevelTransitionState.rollbacks;
+  g_scriptedLevelTransitionRequest.rollbackFailuresBefore =
+      g_scriptedLevelTransitionState.rollbackFailures;
+  g_scriptedLevelTransitionRequest.targetLevelIndex = targetLevelIndex;
+  g_scriptedLevelTransitionRequest.sourceLevel =
+      ContinuationLevelIdentity();
+  g_scriptedLevelTransitionRequest.sourceContinuation = std::move(source);
+  g_scriptedLevelTransitionRequest.sourceContinuationSummary = sourceSummary;
+  return true;
+}
+
+}  // namespace
+
 int RecoveredGameServices_RunFrame() {
   if (!RecoveredGameServices_IsReady()) {
     Report(RECOVERED_GAME_SERVICES_BEGIN_LOOP_FAILURE);
@@ -8053,12 +8210,26 @@ int RecoveredGameServices_RunFrame() {
   }
   const FrameClock::time_point presentEnd = FrameClock::now();
   RecordPrimaryFireRenderFrame();
-  if (RecruitCenterSubjectState_CheckpointPending() &&
-      !RecruitCenterSubjectState_ProcessPendingCheckpoint(
-          g_super.m_context, Session::m_viewTime)) {
+  if (RecruitCenterSubjectState_CheckpointPending()) {
+    if (ExplicitWorldCommandPending()) {
+      if (!RecruitCenterSubjectState_DeferPendingCheckpoint()) {
+        PresentClosedFrameCommandFailure(
+            "Mission checkpoint", RecruitCenterSubjectState_LastError(),
+            ShowNativeMissionCheckpointFailure);
+      }
+    } else if (!RecruitCenterSubjectState_ProcessPendingCheckpoint(
+                   g_super.m_context, Session::m_viewTime)) {
+      PresentClosedFrameCommandFailure(
+          "Mission checkpoint", RecruitCenterSubjectState_LastError(),
+          ShowNativeMissionCheckpointFailure);
+    }
+  }
+  if (RecruitCenterSubjectState_LevelTransitionPending() &&
+      !StageRecruitCenterLevelTransition()) {
     PresentClosedFrameCommandFailure(
-        "Mission checkpoint", RecruitCenterSubjectState_LastError(),
-        ShowNativeMissionCheckpointFailure);
+        "Mission Level transition",
+        g_scriptedLevelTransitionState.lastError,
+        ShowNativeScriptedLevelTransitionFailure);
   }
   // Debug mutations share the same fully closed boundary as save/load and
   // are processed first so a later save request can only observe a committed

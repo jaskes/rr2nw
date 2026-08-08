@@ -121,6 +121,8 @@ const std::size_t kMaximumCheckpointsPerChain = 32;
 const std::size_t kMaximumCheckpointPayload = 64u * 1024u;
 std::vector<MissionCheckpointChain> g_checkpointChains;
 int g_pendingCheckpointChain = -1;
+int g_pendingLevelTransitionChain = -1;
+int g_pendingLevelTransitionIndex = -1;
 
 struct CenterEncounterPresentation
 {
@@ -2119,6 +2121,8 @@ class RecruitCenterTable : public ct_SubjectTable
         m_maxObjectQnty = 0;
         g_checkpointChains.clear();
         g_pendingCheckpointChain = -1;
+        g_pendingLevelTransitionChain = -1;
+        g_pendingLevelTransitionIndex = -1;
     }
 
     ct_Object *getObjectPTR(int index) override
@@ -4338,6 +4342,8 @@ void RecruitCenterSubjectState_ClearCheckpointState()
 {
     g_checkpointChains.clear();
     g_pendingCheckpointChain = -1;
+    g_pendingLevelTransitionChain = -1;
+    g_pendingLevelTransitionIndex = -1;
 }
 
 bool RecruitCenterSubjectState_PollCheckpoints(SimulationContext *context)
@@ -4389,6 +4395,25 @@ bool RecruitCenterSubjectState_CheckpointPending()
     return g_pendingCheckpointChain >= 0;
 }
 
+bool RecruitCenterSubjectState_DeferPendingCheckpoint()
+{
+    if (g_pendingCheckpointChain < 0 ||
+        g_pendingCheckpointChain >=
+            static_cast<int>(g_checkpointChains.size()))
+        return false;
+    MissionCheckpointChain &chain =
+        g_checkpointChains[g_pendingCheckpointChain];
+    g_pendingCheckpointChain = -1;
+    if (!CheckpointChainValid(chain) || chain.completed ||
+        chain.activeIndex < 0)
+        return false;
+    // An explicit Save/Load/Debug command already staged by the player owns
+    // this boundary. Rearming while the player remains inside makes the
+    // checkpoint retry on the next frame, after that command has committed.
+    chain.armed = true;
+    return true;
+}
+
 bool RecruitCenterSubjectState_ProcessPendingCheckpoint(
     SimulationContext *context, double timeStamp)
 {
@@ -4396,7 +4421,8 @@ bool RecruitCenterSubjectState_ProcessPendingCheckpoint(
     g_pendingCheckpointChain = -1;
     if (context == NULL || chainIndex < 0 ||
         chainIndex >= static_cast<int>(g_checkpointChains.size()) ||
-        !std::isfinite(timeStamp) || timeStamp < 0.0)
+        !std::isfinite(timeStamp) || timeStamp < 0.0 ||
+        g_pendingLevelTransitionChain >= 0)
     {
         SetError("RecruitCenter checkpoint trigger is invalid");
         return false;
@@ -4450,6 +4476,26 @@ bool RecruitCenterSubjectState_ProcessPendingCheckpoint(
         SetError(message);
         return false;
     }
+    if (host.RestartLevelRequested())
+    {
+        const int targetLevel = host.RestartLevelIndex();
+        if (!checkpoint.isComplete || targetLevel < 0 ||
+            host.TransactionCreatedObjectCount() != 0 ||
+            host.TransactionReplacedHowitzerCount() != 0)
+        {
+            if (host.RollbackObjectTransaction()) ++chain.rollbacks;
+            SetError("RecruitCenter Level transition script is not a "
+                     "terminal transition-only checkpoint");
+            return false;
+        }
+        host.CommitObjectTransaction();
+        // The process coordinator captures the still-active source state and
+        // owns teardown. Do not advance or complete this chain yet: a failed
+        // target preflight must restore the exact retryable terminal node.
+        g_pendingLevelTransitionChain = chainIndex;
+        g_pendingLevelTransitionIndex = targetLevel;
+        return true;
+    }
     host.CommitObjectTransaction();
     ++chain.executedScripts;
     if (checkpoint.isComplete)
@@ -4473,6 +4519,9 @@ bool RecruitCenterSubjectState_CheckpointProbe(
     std::memset(summary, 0, sizeof(*summary));
     summary->chains = static_cast<int>(g_checkpointChains.size());
     summary->pendingTriggers = g_pendingCheckpointChain >= 0 ? 1 : 0;
+    summary->pendingLevelTransitions =
+        g_pendingLevelTransitionChain >= 0 ? 1 : 0;
+    summary->targetLevelIndex = g_pendingLevelTransitionIndex;
     summary->activeOrdinal = -1;
     for (std::size_t chainIndex = 0;
          chainIndex < g_checkpointChains.size(); ++chainIndex)
@@ -4516,7 +4565,15 @@ bool RecruitCenterSubjectState_StageActiveCheckpointProbe(
     {
         const MissionCheckpointChain &chain = g_checkpointChains[chainIndex];
         if (chain.completed || chain.activeIndex < 0) continue;
-        const CFVector3 target = chain.checkpoints[chain.activeIndex].position;
+        const MissionCheckpoint &checkpoint =
+            chain.checkpoints[chain.activeIndex];
+        const CFVector3 target = checkpoint.position;
+        const CFVector3 outside =
+            target + CFVector3(checkpoint.radius * 2.0, 0.0, 0.0);
+        g_vehicle->SetPos(outside);
+        g_vehicle->setPosition(outside);
+        g_vehicle->Stop();
+        if (!RecruitCenterSubjectState_PollCheckpoints(context)) return false;
         g_vehicle->SetPos(target);
         g_vehicle->setPosition(target);
         g_vehicle->Stop();
@@ -4524,6 +4581,39 @@ bool RecruitCenterSubjectState_StageActiveCheckpointProbe(
                g_pendingCheckpointChain == static_cast<int>(chainIndex);
     }
     return false;
+}
+
+bool RecruitCenterSubjectState_LevelTransitionPending()
+{
+    return g_pendingLevelTransitionChain >= 0;
+}
+
+bool RecruitCenterSubjectState_PeekLevelTransition(int *levelIndex)
+{
+    if (levelIndex == NULL || g_pendingLevelTransitionChain < 0 ||
+        g_pendingLevelTransitionChain >=
+            static_cast<int>(g_checkpointChains.size()) ||
+        g_pendingLevelTransitionIndex < 0)
+        return false;
+    *levelIndex = g_pendingLevelTransitionIndex;
+    return true;
+}
+
+bool RecruitCenterSubjectState_RejectLevelTransition()
+{
+    if (g_pendingLevelTransitionChain < 0 ||
+        g_pendingLevelTransitionChain >=
+            static_cast<int>(g_checkpointChains.size()))
+        return false;
+    MissionCheckpointChain &chain =
+        g_checkpointChains[g_pendingLevelTransitionChain];
+    g_pendingLevelTransitionChain = -1;
+    g_pendingLevelTransitionIndex = -1;
+    if (!CheckpointChainValid(chain) || chain.completed ||
+        chain.activeIndex < 0)
+        return false;
+    chain.armed = true;
+    return true;
 }
 
 const char *RecruitCenterSubjectState_LastError()

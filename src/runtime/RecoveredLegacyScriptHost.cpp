@@ -287,9 +287,8 @@ void ScriptDeleteHowitzer(TProcessContext* pc, void* userData) {
 }
 
 void ScriptRestartLevel(TProcessContext* pc, void* userData) {
-  (void)pc;
   RecoveredLegacyScriptHost* host = Host(userData);
-  if (host != nullptr) host->Unsupported("s_RestartLevel");
+  if (host != nullptr) host->RequestRestartLevel(SC_PARI(0));
 }
 
 void ScriptCreateProjectTable(TProcessContext* pc, void* userData) {
@@ -571,6 +570,7 @@ RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
       m_deferredMissionHowitzerCount(0),
       m_deferredMissionDestroyableCount(0),
       m_discardNextMissingHolderHowitzer(false),
+      m_restartLevelRequested(false), m_restartLevelIndex(-1),
       m_objectTransactionActive(false),
       m_transactionCreatedObjects(), m_transactionDestroyedCreatedObjectNames(),
       m_transactionExistingRoutes(), m_transactionExistingCorpses(),
@@ -595,6 +595,8 @@ void RecoveredLegacyScriptHost::Reset() {
   m_deferredMissionHowitzerCount = 0;
   m_deferredMissionDestroyableCount = 0;
   m_discardNextMissingHolderHowitzer = false;
+  m_restartLevelRequested = false;
+  m_restartLevelIndex = -1;
   if (!m_objectTransactionActive) {
     m_transactionCreatedObjects.clear();
     m_transactionDestroyedCreatedObjectNames.clear();
@@ -1087,6 +1089,30 @@ void RecoveredLegacyScriptHost::Unsupported(const char* operation) {
                 "retail mission script called unsupported operation %s",
                 operation == nullptr ? "<unknown>" : operation);
   Report(RECOVERED_LEGACY_SCRIPT_HOST_UNSUPPORTED_OPERATION, message);
+}
+
+bool RecoveredLegacyScriptHost::RequestRestartLevel(int levelIndex) {
+  // Retail game.cfg is the authority for translating this authored ordinal
+  // into a Level identity. The process coordinator performs that lookup;
+  // the script host only admits one bounded request and never tears down the
+  // active Context from inside the VM callback.
+  if (levelIndex < 0 || levelIndex > 255 ||
+      (m_restartLevelRequested && m_restartLevelIndex != levelIndex)) {
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_LEVEL_TRANSITION_FAILURE,
+           "script Level transition request is invalid or conflicting");
+    return false;
+  }
+  m_restartLevelRequested = true;
+  m_restartLevelIndex = levelIndex;
+  return true;
+}
+
+bool RecoveredLegacyScriptHost::RestartLevelRequested() const {
+  return m_restartLevelRequested;
+}
+
+int RecoveredLegacyScriptHost::RestartLevelIndex() const {
+  return m_restartLevelRequested ? m_restartLevelIndex : -1;
 }
 
 void RecoveredLegacyScriptHost::BeginObjectTransaction() {

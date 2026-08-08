@@ -28,7 +28,8 @@ enum ERecoveredLegacyScriptHostIssue {
   RECOVERED_LEGACY_SCRIPT_HOST_UNSUPPORTED_OPERATION = 1u << 12,
   RECOVERED_LEGACY_SCRIPT_HOST_INVALID_EVENT_DESTINATION = 1u << 13,
   RECOVERED_LEGACY_SCRIPT_HOST_HOWITZER_HOLDER_FAILURE = 1u << 14,
-  RECOVERED_LEGACY_SCRIPT_HOST_ARTEFACT_PENDING_FAILURE = 1u << 15
+  RECOVERED_LEGACY_SCRIPT_HOST_ARTEFACT_PENDING_FAILURE = 1u << 15,
+  RECOVERED_LEGACY_SCRIPT_HOST_LEVEL_TRANSITION_FAILURE = 1u << 16
 };
 
 class RecoveredLegacyScriptHost {
@@ -72,6 +73,9 @@ class RecoveredLegacyScriptHost {
   bool UpdateAttributes();
   int SetDamage(const char* objectName, double damage);
   bool DeleteHowitzer(const char* holderName);
+  bool RequestRestartLevel(int levelIndex);
+  bool RestartLevelRequested() const;
+  int RestartLevelIndex() const;
   void Unsupported(const char* operation);
   void BeginObjectTransaction();
   int ReclaimUnreferencedRoutes(const KR_ObjectID* preserved,
@@ -153,6 +157,8 @@ class RecoveredLegacyScriptHost {
   int m_deferredMissionHowitzerCount;
   int m_deferredMissionDestroyableCount;
   bool m_discardNextMissingHolderHowitzer;
+  bool m_restartLevelRequested;
+  int m_restartLevelIndex;
   bool m_objectTransactionActive;
   std::vector<KR_ObjectID> m_transactionCreatedObjects;
   std::vector<std::string> m_transactionDestroyedCreatedObjectNames;

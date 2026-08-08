@@ -50,6 +50,8 @@ struct RecruitCenterCheckpointProbeSummary
     int checkpoints;
     int activeCheckpoints;
     int pendingTriggers;
+    int pendingLevelTransitions;
+    int targetLevelIndex;
     int completedChains;
     int executedScripts;
     int rollbacks;
@@ -246,8 +248,12 @@ void RecruitCenterSubjectState_ClearCheckpointState();
 bool RecruitCenterSubjectState_PollCheckpoints(
     SimulationContext *context);
 bool RecruitCenterSubjectState_CheckpointPending();
+bool RecruitCenterSubjectState_DeferPendingCheckpoint();
 bool RecruitCenterSubjectState_ProcessPendingCheckpoint(
     SimulationContext *context, double timeStamp);
+bool RecruitCenterSubjectState_LevelTransitionPending();
+bool RecruitCenterSubjectState_PeekLevelTransition(int *levelIndex);
+bool RecruitCenterSubjectState_RejectLevelTransition();
 bool RecruitCenterSubjectState_CheckpointProbe(
     SimulationContext *context, RecruitCenterCheckpointProbeSummary *summary);
 bool RecruitCenterSubjectState_StageActiveCheckpointProbe(

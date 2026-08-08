@@ -1565,6 +1565,106 @@ bool ProcessDebugLevelSwitch(const RetailData& data,
   return sourceRestored;
 }
 
+bool ProcessScriptedLevelTransition(
+    const RetailData& data, int* currentLevelIndex, bool silent,
+    bool suppressBriefing, bool forceTargetFailure,
+    StartupLog* log) {
+  SRecoveredScriptedLevelTransitionRequest request;
+  if (!RecoveredGameServices_TakeScriptedLevelTransitionRequest(&request))
+    return true;
+
+  const int sourceLevelIndex =
+      FindRetailLevel(data, request.sourceLevel);
+  const int targetLevelIndex = request.targetLevelIndex;
+  const bool validTarget = targetLevelIndex >= 0 &&
+      targetLevelIndex < static_cast<int>(data.levels.size());
+  const std::string targetLevel = validTarget
+      ? WideToUtf8(data.levels[static_cast<std::size_t>(targetLevelIndex)])
+      : std::string();
+  if (sourceLevelIndex < 0 || sourceLevelIndex != *currentLevelIndex ||
+      !validTarget || request.sourceContinuation.empty() ||
+      !request.sourceContinuationSummary.ready) {
+    const std::string detail =
+        "scripted Level transition no longer matches game.cfg/session";
+    RecoveredGameServices_RecordScriptedLevelTransitionResult(
+        request, targetLevel, false, false, false, detail);
+    if (log != nullptr)
+      log->Line("scripted_level_transition_preflight_failure=" + detail);
+    ShowMessage(silent, MB_ICONERROR,
+                L"RR2NW scripted Level transition error",
+                Utf8ToWide(detail.c_str()));
+    return true;
+  }
+
+  if (log != nullptr) {
+    log->Line("scripted_level_transition_begin=" + request.sourceLevel +
+              "->" + targetLevel + "/" +
+              std::to_string(targetLevelIndex));
+  }
+  ZAV_DeInitLevel();
+
+  RetailData targetData = data;
+  if (forceTargetFailure)
+    targetData.levels[static_cast<std::size_t>(targetLevelIndex)] =
+        L"__rr2nw_missing_scripted_transition_target__";
+  std::string targetFailure;
+  if (StartRecoveredLevel(
+          targetData, targetLevelIndex,
+          suppressBriefing
+              ? ELevelBriefingPolicy::Suppress
+              : silent ? ELevelBriefingPolicy::ValidateOnly
+                       : ELevelBriefingPolicy::Present,
+          "scripted_transition_target", log, &targetFailure)) {
+    *currentLevelIndex = targetLevelIndex;
+    RecoveredGameServices_RecordScriptedLevelTransitionResult(
+        request, targetLevel, true, false, false, std::string());
+    if (log != nullptr)
+      log->Line("scripted_level_transition_commit=" + targetLevel);
+    return true;
+  }
+
+  ZAV_DeInitLevel();
+  std::string sourceFailure;
+  const bool sourceStarted = StartRecoveredLevel(
+      data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+      "scripted_transition_rollback", log, &sourceFailure);
+  SLevelContinuationSummary restored;
+  const bool sourceRestored = sourceStarted &&
+      RecoveredGameServices_RestoreLevelContinuation(
+          request.sourceContinuation, &restored);
+  std::vector<std::uint8_t> rollbackContinuation;
+  SLevelContinuationSummary rollbackVerified;
+  const bool sourceRollbackExact = sourceRestored &&
+      RecoveredGameServices_CaptureLevelContinuation(
+          &rollbackContinuation, &rollbackVerified) &&
+      rollbackContinuation == request.sourceContinuation &&
+      rollbackVerified.worldFingerprint ==
+          request.sourceContinuationSummary.worldFingerprint;
+  std::string detail = "scripted Level transition failed: " + targetFailure;
+  if (!sourceRollbackExact) {
+    detail += "; source rollback failed: ";
+    if (!sourceStarted)
+      detail += sourceFailure;
+    else if (!sourceRestored)
+      detail += RecoveredGameServices_LastLevelContinuationError();
+    else
+      detail += "restored LCN1 does not match the captured source bytes";
+  }
+  RecoveredGameServices_RecordScriptedLevelTransitionResult(
+      request, targetLevel, false, true, sourceRollbackExact, detail);
+  if (log != nullptr) {
+    log->Line(std::string("scripted_level_transition_rollback=") +
+              (sourceRollbackExact ? "restored" : "failed"));
+    log->Line(std::string("scripted_level_transition_rollback_exact=") +
+              (sourceRollbackExact ? "1" : "0"));
+    log->Line("scripted_level_transition_failure=" + detail);
+  }
+  ShowMessage(silent, MB_ICONERROR,
+              L"RR2NW scripted Level transition error",
+              Utf8ToWide(detail.c_str()));
+  return sourceRollbackExact;
+}
+
 bool ProcessPortalLevelTransition(const RetailData& data,
                                   int* currentLevelIndex, bool silent,
                                   bool suppressBriefing,
@@ -3609,6 +3709,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   log.Line("loop_initialized=" +
            std::to_string(RecoveredGameServices_LoopReady() ? 1 : 0));
   int currentLevelIndex = data.startLevel;
+  int forcedScriptedTransitionFailures =
+      options.missionCheckpointSmoke ? 1 : 0;
   bool loopFailed = !RecoveredGameServices_IsReady();
   std::string levelBriefingFailure;
   const ELevelBriefingPolicy initialBriefingPolicy =
@@ -3650,6 +3752,14 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                                       options.runtimeSmoke,
                                       options.skipLevelBriefing, &log))
       return false;
+    if (RecoveredGameServices_ScriptedLevelTransitionPending()) {
+      const bool forceFailure = forcedScriptedTransitionFailures > 0;
+      if (forceFailure) --forcedScriptedTransitionFailures;
+      if (!ProcessScriptedLevelTransition(
+              data, &currentLevelIndex, options.runtimeSmoke,
+              options.skipLevelBriefing, forceFailure, &log))
+        return false;
+    }
     if (RecoveredGameServices_CampaignRestartPending() &&
         !ProcessCampaignRestart(data, &currentLevelIndex,
                                 options.runtimeSmoke, &log))
@@ -4227,6 +4337,80 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           checkpointRollbackRecaptured == checkpointProgress &&
           rollbackVerified.worldFingerprint ==
               progressCaptured.worldFingerprint;
+      const int checkpointSourceLevel = currentLevelIndex;
+      const int checkpointTargetLevel = 7;
+      const bool terminalTriggerStaged = rollbackExact &&
+          RecruitCenterSubjectState_StageActiveCheckpointProbe(
+              g_super.m_context);
+      const bool transitionRollbackProcessed = terminalTriggerStaged &&
+          runCompleteFrame();
+      const SRecoveredScriptedLevelTransitionState rollbackTransition =
+          RecoveredGameServices_ScriptedLevelTransitionState() == nullptr
+              ? SRecoveredScriptedLevelTransitionState()
+              : *RecoveredGameServices_ScriptedLevelTransitionState();
+      std::vector<std::uint8_t> transitionRollbackBytes;
+      SLevelContinuationSummary transitionRollbackVerified;
+      RecruitCenterCheckpointProbeSummary transitionRollbackState = {};
+      const bool transitionRollbackRecaptured =
+          transitionRollbackProcessed &&
+          currentLevelIndex == checkpointSourceLevel &&
+          RecruitCenterSubjectState_CheckpointProbe(
+              g_super.m_context, &transitionRollbackState) &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &transitionRollbackBytes, &transitionRollbackVerified);
+      const bool transitionRollbackExact =
+          transitionRollbackRecaptured &&
+          transitionRollbackState.activeOrdinal == 1 &&
+          transitionRollbackState.executedScripts == 1 &&
+          rollbackTransition.requests == 1 &&
+          rollbackTransition.completedTransitions == 0 &&
+          rollbackTransition.failedTransitions == 1 &&
+          rollbackTransition.rollbacks == 1 &&
+          rollbackTransition.rollbackFailures == 0 &&
+          rollbackTransition.lastTargetLevelIndex == checkpointTargetLevel;
+      const bool committedTriggerStaged = transitionRollbackExact &&
+          RecruitCenterSubjectState_StageActiveCheckpointProbe(
+              g_super.m_context);
+      const bool transitionCommitted = committedTriggerStaged &&
+          runCompleteFrame() &&
+          currentLevelIndex == checkpointTargetLevel;
+      const SRecoveredScriptedLevelTransitionState committedTransition =
+          RecoveredGameServices_ScriptedLevelTransitionState() == nullptr
+              ? SRecoveredScriptedLevelTransitionState()
+              : *RecoveredGameServices_ScriptedLevelTransitionState();
+      RecruitCenterCheckpointProbeSummary destinationCheckpoints = {};
+      std::vector<std::uint8_t> destinationState;
+      std::vector<std::uint8_t> destinationRecaptured;
+      SLevelContinuationSummary destinationCaptured;
+      SLevelContinuationSummary destinationRestored;
+      SLevelContinuationSummary destinationVerified;
+      const bool destinationCaptureReady = transitionCommitted &&
+          RecruitCenterSubjectState_CheckpointProbe(
+              g_super.m_context, &destinationCheckpoints) &&
+          destinationCheckpoints.chains == 0 &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &destinationState, &destinationCaptured);
+      const bool destinationRestoreReady = destinationCaptureReady &&
+          RecoveredGameServices_RestoreLevelContinuation(
+              destinationState, &destinationRestored);
+      const bool destinationRecaptureReady = destinationRestoreReady &&
+          RecoveredGameServices_CaptureLevelContinuation(
+              &destinationRecaptured, &destinationVerified);
+      const bool destinationExact = destinationRecaptureReady &&
+          destinationState == destinationRecaptured &&
+          destinationCaptured.worldFingerprint ==
+              destinationRestored.restoredWorldFingerprint &&
+          destinationCaptured.worldFingerprint ==
+              destinationVerified.worldFingerprint &&
+          committedTransition.requests == 2 &&
+          committedTransition.completedTransitions == 1 &&
+          committedTransition.failedTransitions == 1 &&
+          committedTransition.rollbacks == 1 &&
+          committedTransition.rollbackFailures == 0 &&
+          committedTransition.lastTargetLevelIndex ==
+              checkpointTargetLevel &&
+          committedTransition.sourceLevel == "Level.06N" &&
+          committedTransition.targetLevel == "Level.01N";
       log.Line("mission_checkpoint_initial=" +
                std::to_string(initialReady ? 1 : 0) + "/" +
                std::to_string(initial.activeOrdinal) + "/" +
@@ -4248,6 +4432,30 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(restoreRejected ? 1 : 0) + "/" +
                std::to_string(rollbackRecaptured ? 1 : 0) + "/" +
                std::to_string(rollbackExact ? 1 : 0));
+      log.Line("mission_checkpoint_level_rollback=" +
+               std::to_string(terminalTriggerStaged ? 1 : 0) + "/" +
+               std::to_string(transitionRollbackProcessed ? 1 : 0) + "/" +
+               std::to_string(transitionRollbackRecaptured ? 1 : 0) + "/" +
+               std::to_string(transitionRollbackExact ? 1 : 0) + "/" +
+               std::to_string(rollbackTransition.requests) + "/" +
+               std::to_string(rollbackTransition.failedTransitions) + "/" +
+               std::to_string(rollbackTransition.rollbacks));
+      log.Line("mission_checkpoint_level_commit=" +
+               std::to_string(committedTriggerStaged ? 1 : 0) + "/" +
+               std::to_string(transitionCommitted ? 1 : 0) + "/" +
+               std::to_string(checkpointSourceLevel) + "/" +
+               std::to_string(checkpointTargetLevel) + "/" +
+               std::to_string(currentLevelIndex) + "/" +
+               std::to_string(committedTransition.requests) + "/" +
+               std::to_string(
+                   committedTransition.completedTransitions) + "/" +
+               std::to_string(committedTransition.failedTransitions) + "/" +
+               std::to_string(committedTransition.rollbacks));
+      log.Line("mission_checkpoint_destination_save=" +
+               std::to_string(destinationCaptureReady ? 1 : 0) + "/" +
+               std::to_string(destinationRestoreReady ? 1 : 0) + "/" +
+               std::to_string(destinationRecaptureReady ? 1 : 0) + "/" +
+               std::to_string(destinationExact ? 1 : 0));
       if (!triggerProcessed || !progressedReady)
         log.Line(std::string("mission_checkpoint_error=") +
                  RecruitCenterSubjectState_LastError());
@@ -4255,7 +4463,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
         log.Line("mission_checkpoint_error=" + rejection);
       loopFailed = !initialReady || !pendingCaptureRejected ||
           !progressedReady || !baselineExact || !progressExact ||
-          !rollbackExact;
+          !rollbackExact || !transitionRollbackExact ||
+          !transitionCommitted || !destinationExact;
     }
     const std::string missionProject = mission.projectName;
     if (!loopFailed && options.missionNaturalCombatSmoke) {
@@ -6153,6 +6362,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       log.Line("campaign_restart_error=" +
                failedRestartState->lastError);
     }
+    const SRecoveredScriptedLevelTransitionState* failedScriptedState =
+        RecoveredGameServices_ScriptedLevelTransitionState();
+    if (failedScriptedState != nullptr &&
+        !failedScriptedState->lastError.empty()) {
+      log.Line("scripted_level_transition_error=" +
+               failedScriptedState->lastError);
+    }
     ZAV_DeInitLevel();
     ZAV_Deinit();
     ShowMessage(options.runtimeSmoke, MB_ICONERROR,
@@ -6347,6 +6563,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(checkpointSummary.completedChains) + "/" +
              std::to_string(checkpointSummary.executedScripts) + "/" +
              std::to_string(checkpointSummary.rollbacks));
+    log.Line("mission_checkpoint_process_transition=" +
+             std::to_string(
+                 checkpointSummary.pendingLevelTransitions) + "/" +
+             std::to_string(checkpointSummary.targetLevelIndex));
     if (checkpointSummary.activeOrdinal >= 0) {
       log.Line(std::string("mission_checkpoint_active=") +
                checkpointSummary.centerName + "/" +
@@ -6836,6 +7056,23 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  campaignRestartState->coordinatorPending ? 1 : 0));
     log.Line("campaign_restart_level=" +
              campaignRestartState->currentLevel);
+  }
+  const SRecoveredScriptedLevelTransitionState* scriptedTransitionState =
+      RecoveredGameServices_ScriptedLevelTransitionState();
+  if (scriptedTransitionState != nullptr) {
+    log.Line("scripted_level_transition_state=" +
+             std::to_string(scriptedTransitionState->requests) + "/" +
+             std::to_string(
+                 scriptedTransitionState->completedTransitions) + "/" +
+             std::to_string(scriptedTransitionState->failedTransitions) +
+             "/" + std::to_string(scriptedTransitionState->rollbacks) +
+             "/" +
+             std::to_string(scriptedTransitionState->rollbackFailures) +
+             "/" +
+             std::to_string(scriptedTransitionState->lastTargetLevelIndex));
+    log.Line("scripted_level_transition_levels=" +
+             scriptedTransitionState->sourceLevel + "/" +
+             scriptedTransitionState->targetLevel);
   }
   debugMenuState = RecoveredGameServices_DebugMenuState();
   if (debugMenuState != nullptr) {

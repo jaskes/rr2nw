@@ -3754,11 +3754,10 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   `scripts=1`, `created_objects=22`, `conditions=3`,
   `rebound_conditions=3`, `briefings=0`, `rollbacks=0` in the UI-suppressed
   smoke path.
-- Revisit when: Howitzer-holder deletion/creation, Route capacity/lifecycle and
-  checkpoint/destroyable commands 33-34 have transactional owners. Also close
-  the current rollback gap for pre-existing guide objects removed by a script,
-  and route nested VM includes through the mod-aware VFS instead of legacy
-  current-directory file I/O.
+- Revisit status: Howitzer-holder replacement, Route lifecycle, guide rollback
+  and Level.06N command 34 including its process handoff are now closed by later
+  rows. Late Level.01D command 33, unrecovered Destroyable behavior and nested
+  VM includes through the mod-aware VFS remain independent boundaries.
 
 ### CQ-199: retail RecruitCenter default-Taxi application is not in source
 
@@ -5722,9 +5721,35 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   rollback that retains the progressed byte vector. The release matrix runs
   the same contract in all three configurations with zero service issues.
 - Boundary: this row restores command-34 ownership and the complete first
-  checkpoint transition. It does not claim that `s_RestartLevel(7)` has a
-  coordinator yet. Final Level.06N-to-Level.01N handoff remains a separate
-  transactional campaign slice, as does late Level.01D command 33.
+  checkpoint transition. Terminal `s_RestartLevel(7)` process ownership is
+  tracked separately by CQ-273; late Level.01D command 33 remains independent.
+
+### CQ-273: a terminal checkpoint requests a process Level transition, never VM teardown
+
+- Status: `INSTALLED_RETAIL_INDEX_PRESERVED`,
+  `PROCESS_COORDINATOR_TRANSACTION`, `EXACT_SOURCE_LCN1_ROLLBACK`.
+- Evidence: installed `Level.06N/BRIEF/part7.sc` contains only
+  `s_RestartLevel(7)`, and installed `game.cfg` maps index 7 to `Level.01N`.
+  The neutral script host admits one bounded authored index; it does not call
+  Level teardown, resolve `game.cfg`, or retain a pointer across VM shutdown.
+- Handling: a successful terminal transition-only checkpoint becomes a typed
+  process request at the closed presented-frame boundary. Checkpoint ownership
+  is rearmed before source capture, so the request carries exact retryable
+  `Level.06N` LCN1 bytes. The process coordinator validates source identity and
+  catalog bounds, tears down the source, and starts the authored destination.
+  Target failure restarts the source and accepts the rollback only after a
+  fresh capture matches the saved LCN1 bytes and world fingerprint exactly.
+  Save/Load, Debug, Portal and campaign commands retain priority and cannot
+  race the checkpoint-local request.
+- Verification: `Invoke-MissionCheckpointSmoke.ps1` first substitutes a missing
+  destination for index 7, requires exact source rollback with active
+  `part7.sc`, then crosses the same checkpoint again and commits
+  `Level.06N -> Level.01N`. Destination capture/restore/recapture is exact,
+  publishes zero inherited checkpoint chains, and all three configurations
+  finish with request/completion/failure/rollback state `2/1/1/1/0/7`.
+- Boundary: this owns the exact installed part7 handoff and the general bounded
+  `s_RestartLevel(index)` request shape. It does not infer missing indices,
+  synthesize presentation, or close late Level.01D command 33.
 
 ## Maintenance rule
 

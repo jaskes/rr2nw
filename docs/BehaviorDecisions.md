@@ -6710,7 +6710,26 @@ active ordinal and committed counters, and are embedded in MSH1 v5 rather than
 changing raw `PlayerData`. A pending trigger rejects capture. MSH1 v1-v4 remain
 readable and migrate to no checkpoint chains.
 
-The terminal script's `s_RestartLevel(7)` is intentionally still fail-closed.
-It will be connected only through a process-coordinator request with source
-rollback; accepting command 34 does not authorize a direct Level teardown from
-the legacy VM.
+The terminal script's `s_RestartLevel(7)` remains separate from the checkpoint
+transaction itself. BD-209 supplies its process coordinator; accepting command
+34 still does not authorize direct Level teardown from the legacy VM.
+
+### BD-209: authored Level restart indices cross a typed process boundary
+
+Status: accepted on 2026-08-08 for installed Level.06N `Brief/part7.sc`.
+
+`s_RestartLevel(index)` records one bounded neutral-host request. The VM neither
+owns `game.cfg` nor tears down its own `SimulationContext`. After the rendered
+frame closes, the services layer converts the terminal checkpoint request into
+process ownership, rearms the source checkpoint and captures LCN1. Existing
+Portal, Save/Load, Debug and campaign transactions win the boundary; a conflict
+leaves the authored source retryable.
+
+The process coordinator alone maps the authored index through the admitted
+retail catalog. It preflights source identity and target bounds, then performs
+source teardown and destination startup. A failed target must restart the
+source and recapture byte-identical LCN1 with the same world fingerprint before
+rollback counts as successful. A committed destination deliberately carries no
+checkpoint presentation state. This preserves the installed index law without
+putting process lifetime, filesystem policy or rollback inside the old script
+translator.

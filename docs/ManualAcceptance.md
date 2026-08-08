@@ -365,8 +365,11 @@ It must admit `Our.Recruit.0/Miss_Part1` as `1/2/1`, start at
 `Brief\part6.sc`, reject capture while that crossing is merely pending, commit
 the real script and advance to `Brief\part7.sc`. Both the baseline and advanced
 state must restore exactly, and the injected restore failure must roll back to
-the advanced byte vector. This gate stops before executing `part7.sc`; its
-authored `s_RestartLevel(7)` remains the next process-coordinator boundary.
+the advanced byte vector. The gate then executes installed part7 twice: an
+injected missing target must restore byte-identical Level.06N LCN1 with part7
+retryable, while the second crossing must commit authored game.cfg index 7,
+start `Level.01N`, and preserve an exact destination save round-trip with no
+stale checkpoint graph.
 
 For a normal interactive Marauders admission, continue beyond the briefing.
 Exactly one Marauder character FLC and one mission briefing may play before
