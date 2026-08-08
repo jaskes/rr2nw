@@ -5536,6 +5536,26 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   permit arbitrary script deletion of nontransactional Howitzers or infer the
   later A27 outcome before its own campaign slice is recovered.
 
+### CQ-266: A27 is a guarded reached terminal, not another ordinary handoff
+
+- Status: `RETAIL_TERMINAL_ROW_PRESERVED`, `FILED_SUCCESS_ORDER_FIXED`,
+  `SAME_SLOT_8_FRESH_LOAD_PROVEN`.
+- Evidence: installed `ProjectA27` has one success-reached and one failure-kill
+  condition on the same `a.unit.ma27.01` Actek push machine, explicitly calls
+  `p_AddFiledSuccess`, has no command 35 and yields no eligible Actek Project
+  after retirement. `MA27.SC` SHA-256 is
+  `8902C00FE3000201E6C53B73B6C25804A8F27F1C5EA56D3941D8567ABBBBBDB0`.
+- Handling: the real Tank owner is moved into the authored destination only by
+  the bounded acceptance probe. The normal mission event evaluates that real
+  position. `COM_FILED_SUCCESS` now checks failure first and success second,
+  exactly as the archival RecruitCenter source does; simultaneous conditions
+  retain the authored failure precedence.
+- Verification: the full persisted chain reaches cumulative count seventeen,
+  retires A27 without Artifact, Portal or successor, proves failure guard,
+  result rollback/reapply and exact fresh restore from overwritten slot 8.
+- Boundary: this closes the installed Level.04D Actek center graph. It does not
+  invent a post-A27 Project or turn the probe teleport into gameplay logic.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -554,19 +554,22 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   }
   const bool chainedNoRewardResultSave =
       options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0 &&
-      options->missionNoRewardResultSmoke;
+      (options->missionNoRewardResultSmoke ||
+       options->missionTerminalNoRewardResultSmoke);
   if (options->startupSaveSlot >= 0 && options->startupLoadSlot >= 0 &&
       !chainedNoRewardResultSave) {
     *failure = L"--save-slot and --load-slot cannot be used together";
     return false;
   }
   if (!options->missionCenter.empty() && !options->missionSmoke &&
-      !options->missionNoRewardFreshSmoke) {
+      !options->missionNoRewardFreshSmoke &&
+      !options->missionTerminalNoRewardFreshSmoke) {
     *failure = L"--mission-center requires --mission-smoke";
     return false;
   }
   if (!options->missionProject.empty() &&
       !options->missionNoRewardFreshSmoke &&
+      !options->missionTerminalNoRewardFreshSmoke &&
       (!options->campaignQuestChainSmoke || options->missionCenter.empty() ||
        options->missionBriefingSmoke || options->missionCombatSmoke ||
        options->missionNaturalCombatSmoke ||
@@ -630,25 +633,25 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     }
   }
   if (options->missionTerminalNoRewardResultSmoke) {
-    if (options->missionCenter.empty()) {
+    if (options->missionCenter.empty())
       options->missionCenter = L"Recruit.Outsider";
-    } else if (_wcsicmp(options->missionCenter.c_str(),
-                        L"Recruit.Outsider") != 0) {
-      *failure = L"--mission-terminal-no-reward-result-smoke starts at "
-                 L"Recruit.Outsider on Level.01N";
-      return false;
-    }
-    if (options->startupLoadSlot >= 0) {
-      *failure = L"--mission-terminal-no-reward-result-smoke cannot load a "
-                 L"slot";
+    if (options->startupLoadSlot >= 0 && options->startupSaveSlot < 0) {
+      *failure = L"--mission-terminal-no-reward-result-smoke requires a "
+                 L"--save-slot when it loads a progression slot";
       return false;
     }
   }
   if (options->missionTerminalNoRewardFreshSmoke) {
+    const bool hasFreshIdentity = !options->missionCenter.empty() ||
+        !options->missionProject.empty();
+    const bool completeFreshIdentity = !options->missionCenter.empty() &&
+        !options->missionProject.empty();
     if (options->startupLoadSlot < 0 || options->startupSaveSlot >= 0 ||
-        !options->missionCenter.empty() || !options->missionProject.empty()) {
+        (hasFreshIdentity && !completeFreshIdentity) ||
+        !options->missionNextProject.empty()) {
       *failure = L"--mission-terminal-no-reward-fresh-smoke requires one "
-                 L"--load-slot and owns its fixed Level.01N center";
+                 L"--load-slot and either no identity override or a complete "
+                 L"--mission-center/--mission-project pair";
       return false;
     }
   }
@@ -3882,7 +3885,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       log.Line(std::string("mission_smoke_howitzer_state_error=") +
                HowitzerActiveWorldState_LastFailure());
     const bool loadedProgressionMission =
-        options.missionNoRewardResultSmoke &&
+        (options.missionNoRewardResultSmoke ||
+         options.missionTerminalNoRewardResultSmoke) &&
         options.startupLoadSlot >= 0 && options.startupSaveSlot >= 0;
     if (loadedProgressionMission) {
       // A progression save deliberately retains the previous mission's
@@ -5875,10 +5879,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     }
   }
   if (!loopFailed && options.missionTerminalNoRewardFreshSmoke) {
+    const std::string freshCenter = options.missionCenter.empty()
+        ? "Recruit.Outsider" : WideToUtf8(options.missionCenter);
+    const std::string freshCompletedProject = options.missionProject.empty()
+        ? "Mission" : WideToUtf8(options.missionProject);
     RecruitCenterMissionTerminalNoRewardStateSummary terminalState = {};
     const bool terminalStateReady =
         RecruitCenterSubjectState_TerminalNoRewardStateProbeForCenter(
-            g_super.m_context, "Recruit.Outsider", "Mission", &terminalState);
+            g_super.m_context, freshCenter.c_str(),
+            freshCompletedProject.c_str(), &terminalState);
+    log.Line("mission_terminal_no_reward_fresh_identity=" + freshCenter +
+             "/" + freshCompletedProject);
     log.Line("mission_terminal_no_reward_fresh=" +
              std::to_string(terminalState.missionAbsent) + "/" +
              std::to_string(terminalState.projectRetired) + "/" +

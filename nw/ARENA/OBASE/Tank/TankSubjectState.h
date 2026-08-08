@@ -2,6 +2,7 @@
 #define RR2NW_TANK_SUBJECT_STATE_H
 
 class SimulationContext;
+class KR_ObjectID;
 
 struct STankLifecycleProbeSummary
 {
@@ -49,6 +50,23 @@ struct STankGameplayTuningState
     char projectile[64];
 };
 
+// Moves one real mission-owned Tank origin into an authored reached area.
+// The caller owns the enclosing continuation checkpoint and rollback. No
+// temporary owner, route, or scheduler event is introduced by this stage.
+struct STankMissionReachedStageSummary
+{
+    int available;
+    int initiallyOutside;
+    int moved;
+    int reached;
+    double targetX;
+    double targetZ;
+    double radius;
+    double initialDistance;
+    double finalDistance;
+    char actor[96];
+};
+
 void TankSubjectState_Link();
 void TankSubjectState_SetExpectedCapacities(int attributeCapacity,
                                             int subjectCapacity);
@@ -82,5 +100,9 @@ bool TankSubjectState_ProbeTunedAttributeLifecycle(
     SimulationContext *context, const char *attributeName,
     bool requireMassConsumer, const char *expectedProjectile,
     double timeStamp, STankLifecycleProbeSummary *summary);
+bool TankSubjectState_StageMissionReachedCondition(
+    SimulationContext *context, const KR_ObjectID &actor,
+    double targetX, double targetZ, double radius,
+    STankMissionReachedStageSummary *summary);
 
 #endif

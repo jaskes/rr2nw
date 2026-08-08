@@ -4374,3 +4374,17 @@ The extended gate proves 30 created owners, two reclaimed Routes, four holder
 replacements, 8/8 objectives, cumulative count sixteen, rollback/reapply and
 same-slot-8 fresh restore in Debug, Release and RelWithDebInfo. Old RR2SLOT1
 layout and the retail data remain unchanged.
+
+### 2026-08-08: terminal ProjectA27 guarded reached result
+
+The final installed Actek Project uses an uncommon precedence branch: the same
+push machine is a failure-kill target and a success-reached target. Comparison
+with archival `Recrcen.cpp` exposed that the recovered handler had swapped the
+result labels when `success_filed == 0`; the source instead checks failure,
+then success. The corrected handler preserves that ordering.
+
+The acceptance owner can now stage a real Tank reached condition without
+writing mission status. A27 executes its 48-owner graph, proves the failure
+guard, retires as a no-reward/no-successor row at cumulative count seventeen,
+and passes continuation rollback/reapply plus slot-8 save/fresh-load. No save
+layout, retail file or gameplay movement path changed.

@@ -554,6 +554,69 @@ static bool RenderTankPose(Tank *tank, double timeStamp, CFVector3 *offset)
     return linked && FiniteVector(*offset);
 }
 
+bool TankSubjectState_StageMissionReachedCondition(
+    SimulationContext *context, const KR_ObjectID &actorID,
+    double targetX, double targetZ, double radius,
+    STankMissionReachedStageSummary *summary)
+{
+    if (summary == NULL)
+        return false;
+    std::memset(summary, 0, sizeof(*summary));
+    summary->targetX = targetX;
+    summary->targetZ = targetZ;
+    summary->radius = radius;
+    KR_ObjectID mutableActorID = actorID;
+    if (context == NULL || mutableActorID.isNUL() ||
+        !std::isfinite(targetX) || !std::isfinite(targetZ) ||
+        !std::isfinite(radius) || radius <= 0.0)
+        return false;
+
+    Tank *actor = ResolveTank(context, actorID);
+    const char *name = context->searchObject(actorID);
+    if (name != NULL)
+        std::snprintf(summary->actor, sizeof(summary->actor), "%s", name);
+    if (actor == NULL || name == NULL)
+        return false;
+    summary->available = 1;
+
+    IDynamicObject *dynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(actorID, IDynamicObjectIID));
+    if (dynamic == NULL)
+        return false;
+    const CFVector3 initial = dynamic->getPos();
+    const double initialDx = initial.x - targetX;
+    const double initialDz = initial.z - targetZ;
+    const double initialDistanceSquared =
+        initialDx * initialDx + initialDz * initialDz;
+    if (!FiniteVector(initial) || !std::isfinite(initialDistanceSquared) ||
+        initialDistanceSquared <= radius * radius)
+        return false;
+    summary->initiallyOutside = 1;
+    summary->initialDistance = std::sqrt(initialDistanceSquared);
+
+    const CFVector3 savedPosition = actor->getPosition();
+    actor->ct_Subject::setPosition(
+        CFVector3(targetX, savedPosition.y, targetZ));
+    const CFVector3 final = dynamic->getPos();
+    const double finalDx = final.x - targetX;
+    const double finalDz = final.z - targetZ;
+    const double finalDistanceSquared = finalDx * finalDx + finalDz * finalDz;
+    if (!FiniteVector(final) || !std::isfinite(finalDistanceSquared))
+    {
+        actor->ct_Subject::setPosition(savedPosition);
+        return false;
+    }
+    summary->moved = Abs(actor->getPosition() - savedPosition) > 1e-6 ? 1 : 0;
+    summary->finalDistance = std::sqrt(finalDistanceSquared);
+    summary->reached = finalDistanceSquared <= radius * radius ? 1 : 0;
+    if (summary->moved != 1 || summary->reached != 1)
+    {
+        actor->ct_Subject::setPosition(savedPosition);
+        return false;
+    }
+    return true;
+}
+
 static bool ProbeTankPresentation(Tank *tank, double timeStamp,
                                   int *renderedFrames,
                                   int *boundaryResets)

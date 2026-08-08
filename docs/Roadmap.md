@@ -1987,8 +1987,11 @@ S03 with another fresh slot-8 proof. S03 then atomically replaces the occupied
 `HwzCln64..67` owners, retains two airplanes, four machine guns and two Tanks
 as eight live objectives, reaches cumulative count sixteen and selects exact
 A27. Its 30-owner graph, four-holder rollback/reapply and same-slot-8 fresh
-restore are proved in all three configurations. A27 is now the next authored
-campaign boundary. That
+restore are proved in all three configurations. A27 then executes its guarded
+push-machine reached objective with the same actor retained as the failure-kill
+guard, reaches cumulative count seventeen and retires with no successor,
+Artifact or Portal. Terminal rollback/reapply and exact same-slot-8 fresh
+restore close the installed Level.04D Actek center graph. That
 deep continuation also exposed and closed the January context bug that ignored
 an occupied stable-ID cache position: exact restore now fails closed, rolls a
 provisional class-table owner back and proves clean teardown after AER06. The
@@ -2294,7 +2297,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
 | M2 Windows platform/stability | 86% | native window/input, focus neutralization, frame profiling, DPI-aware exclusive display ownership/recovery, exact SEH plus primary RTCHECK/assert minidump/manifest diagnostics and maintained XAudio2 2.9 cached one-shot/loops, bounded flags-1 briefing streams, symmetric listener/moving-Tank compatibility and direct occupied-Player-Vehicle pitch/lifecycle | broader moving-class/asymmetric/UI/non-WAV cinematic audio, prolonged multi-monitor/Win10/Win11 presentation soak, direct CRT abort/tool-exit inventory and sanitizer coverage |
 | M2.5 in-game shell/settings | 99% | sole ordinary in-frame shell, typed eight-slot Save/Load/restart with asynchronous thumbnails and explicit compatibility states, 26 contextual bindings, retail-bounded mouse X/Y/invert, windowed/borderless/exclusive 4:3 presentation with timed rollback, atomic schema-6 settings/schema-1/2/3/4/5 migration/safe mode, owned Effects, Player Vehicle and Cinematic volumes, full fail-closed typed Developer catalog and explicitly isolated native diagnostic fallback | packaged multi-monitor Win10/Win11 acceptance |
-| M3 retail parity | 95% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-two no-reward project advances across Level.01D/02D/04D including persisted Level.04D `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`, terminal Level.01N no-successor completion, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining world-specific chains from the documented A27 handoff, visible AI/guide/cinematic parity and complete campaign proof |
+| M3 retail parity | 96% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, twenty-two ordinary no-reward advances across Level.01D/02D/04D plus terminal Level.01N Outsider and the complete persisted Level.04D Actek branch `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`, two independent mission-reward/Portal/fresh-load chains and full guide-route rollback | remaining non-Actek world-specific chains, visible AI/guide/cinematic parity and complete campaign proof |
 | M4 save/timing/VFS | 75% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity | legacy import breadth, fixed-tick/replay hash gate and long-session timing proof |
 | M5 modding | 70% | discovery, dependencies/conflicts, deterministic mount order, validator and data/script overlays | player-facing profiles/selector, broader examples/localization and packaged compatibility UX |
 | M6 release candidate | 25% | CI configurations, reproducible package smoke, PDB/diagnostics and extensive automated matrices | clean RC artifact, installer/importer, Win10 full campaign, Win11 extended pass and final support docs |

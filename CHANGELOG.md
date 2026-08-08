@@ -59,6 +59,13 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Completed the persisted Level.04D Actek branch at terminal `ProjectA27`.
+  Its real push-machine target now satisfies the guarded reached objective;
+  destroying that same target remains the authored failure condition. The
+  recovered `COM_FILED_SUCCESS` precedence now matches the archival source
+  instead of swapping success and failure. A27 retires with no fabricated
+  successor, Artifact or Portal, and its result survives pre-result rollback,
+  committed reapply, same-slot-8 overwrite and exact fresh restore.
 - Continued the persisted Level.04D Actek campaign through `ProjectS03` to
   exact `ProjectA27`. Mission transactions can now replace the four authored
   occupied Howitzer holders atomically: each old owner receives a bounded

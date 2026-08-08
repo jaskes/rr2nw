@@ -6539,3 +6539,20 @@ owners and restores captured holders in reverse order, while committed mission
 population is validated and serialized by the unchanged full-world codec.
 The rule preserves old saves and makes no presentation or gameplay state part
 of the transaction.
+
+### BD-201: success_filed controls condition precedence, not result identity
+
+Status: accepted on 2026-08-08 for guarded ProjectA27 completion.
+
+The archival RecruitCenter checks success first when `success_filed` is set;
+otherwise it checks failure first. The recovered ternary implementation had
+incorrectly used that flag to choose which predicate meant success, so a valid
+`COM_FILED_SUCCESS` mission became failed when only its success condition was
+true. The maintained handler now computes completed/failed outcomes with the
+same short-circuit precedence as the source, including the simultaneous-case
+winner.
+
+Acceptance stages the real authored reached actor and sends the real mission
+check event. It never writes `MISSION_SUCCESS` directly and does not serialize
+probe state. This decision applies to all Projects using the two precedence
+commands; A27 is the first persisted chain row that proves the false branch.

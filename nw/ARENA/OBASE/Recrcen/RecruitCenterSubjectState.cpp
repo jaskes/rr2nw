@@ -34,6 +34,7 @@ class CGRPanel;
 #include "obase/artefact/ArtefactActiveWorldState.h"
 #include "obase/artefact/ArtefactAttributeState.h"
 #include "obase/people/PeopleSubjectState.h"
+#include "obase/tank/TankSubjectState.h"
 #include "RecoveredLegacyScriptHost.h"
 #include "RecoveredLegacyScriptRunner.h"
 #include "RecoveredModRuntime.h"
@@ -1082,7 +1083,11 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
             }
             const bool success = EvaluateConditions(&mission, context, true);
             const bool failure = EvaluateConditions(&mission, context, false);
-            if (mission.success_filed ? success : failure)
+            const bool completed = mission.success_filed
+                ? success : (!failure && success);
+            const bool failed = mission.success_filed
+                ? (!success && failure) : failure;
+            if (completed)
             {
                 mission.m_status = MISSION_SUCCESS;
                 if (g_GameConsole.MessagesReady())
@@ -1092,7 +1097,7 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
                     ++g_missionStatusPresentations;
                 }
             }
-            else if (mission.success_filed ? failure : success)
+            else if (failed)
             {
                 mission.m_status = MISSION_FAILED;
                 if (g_GameConsole.MessagesReady())
@@ -2624,23 +2629,42 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
     if (successReachedCount == 1)
     {
         SPeopleMissionReachedStageSummary reached = {};
-        if (!PeopleSubjectState_StageMissionReachedCondition(
+        STankMissionReachedStageSummary tankReached = {};
+        const bool peopleStaged =
+            PeopleSubjectState_StageMissionReachedCondition(
                 context, mission.success_needReached[0],
                 mission.success_reachedPos[0].x,
                 mission.success_reachedPos[0].y,
-                mission.success_reachedRadius[0], &reached) ||
-            reached.available != 1 || reached.initiallyOutside != 1 ||
-            reached.moved != 1 || reached.reached != 1)
+                mission.success_reachedRadius[0], &reached);
+        const bool tankStaged = !peopleStaged &&
+            TankSubjectState_StageMissionReachedCondition(
+                context, mission.success_needReached[0],
+                mission.success_reachedPos[0].x,
+                mission.success_reachedPos[0].y,
+                mission.success_reachedRadius[0], &tankReached);
+        if ((!peopleStaged && !tankStaged) ||
+            (peopleStaged &&
+             (reached.available != 1 || reached.initiallyOutside != 1 ||
+              reached.moved != 1 || reached.reached != 1)) ||
+            (tankStaged &&
+             (tankReached.available != 1 ||
+              tankReached.initiallyOutside != 1 ||
+              tankReached.moved != 1 || tankReached.reached != 1)))
         {
             char message[256] = {};
             std::snprintf(message, sizeof(message),
-                          "RecruitCenter no-reward People reached stage "
-                          "failed %s %d/%d/%d/%d/%d %.3f/%.3f",
+                          "RecruitCenter no-reward reached stage failed "
+                          "People %s %d/%d/%d/%d/%d; Tank %s "
+                          "%d/%d/%d/%d",
                           reached.actor[0] == 0 ? "<unbound>" : reached.actor,
                           reached.available, reached.activated,
-                          reached.initiallyOutside,
-                          reached.moved, reached.reached,
-                          reached.initialDistance, reached.finalDistance);
+                          reached.initiallyOutside, reached.moved,
+                          reached.reached,
+                          tankReached.actor[0] == 0
+                              ? "<unbound>" : tankReached.actor,
+                          tankReached.available,
+                          tankReached.initiallyOutside,
+                          tankReached.moved, tankReached.reached);
             SetError(message);
             return false;
         }
@@ -2659,14 +2683,34 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
         context->removeObject(targets[index]);
         ++summary->conditionsRemoved;
     }
+    const bool successBeforeCheck =
+        EvaluateConditions(&mission, context, true);
+    const bool failureBeforeCheck =
+        EvaluateConditions(&mission, context, false);
+    if (!successBeforeCheck || failureBeforeCheck)
+    {
+        char message[192] = {};
+        std::snprintf(message, sizeof(message),
+                      "RecruitCenter no-reward staged conditions are "
+                      "inconsistent success=%d failure=%d",
+                      successBeforeCheck ? 1 : 0,
+                      failureBeforeCheck ? 1 : 0);
+        SetError(message);
+        return false;
+    }
     KR_Event check(rc_CHECK_MISSION, timeStamp,
                    g_vehicle->getObjectID(), center->getObjectID());
     check.data.open(EDO_WRITE).putInt(missionIndex).close();
     context->sendEventNow(check);
     if (player.m_mission[missionIndex].m_status != MISSION_SUCCESS)
     {
-        SetError("RecruitCenter no-reward real condition check did not "
-                 "succeed");
+        char message[192] = {};
+        std::snprintf(message, sizeof(message),
+                      "RecruitCenter no-reward real condition check did not "
+                      "succeed status=%d precedence=%d",
+                      player.m_mission[missionIndex].m_status,
+                      player.m_mission[missionIndex].success_filed);
+        SetError(message);
         return false;
     }
     summary->statusTransitions = 1;
@@ -2788,16 +2832,17 @@ bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
     const KR_ObjectID completedProject = mission.mID;
     const char *projectName = context->searchObject(completedProject);
     if (projectName == NULL || mission.m_giveArtefact ||
-        ConditionCount(mission) != 1 ||
+        mission.success_needKill.getCount() != 0 ||
+        mission.success_needLive.getCount() != 0 ||
         mission.success_needReached.getCount() != 1 ||
-        mission.success_needReached[0] != g_vehicle->getObjectID() ||
         !std::isfinite(mission.success_reachedPos[0].x) ||
         !std::isfinite(mission.success_reachedPos[0].y) ||
         !std::isfinite(mission.success_reachedRadius[0]) ||
         mission.success_reachedRadius[0] <= 0.0)
     {
-        SetError("RecruitCenter terminal no-reward needs one real Player "
-                 "reached condition without COM_SET_GIVEARTEFACT");
+        SetError("RecruitCenter terminal no-reward needs one real reached "
+                 "condition without success kill/live or "
+                 "COM_SET_GIVEARTEFACT");
         return false;
     }
     std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
@@ -2814,22 +2859,53 @@ bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
         return false;
     }
 
-    const CFVector3 originalPosition = g_vehicle->Pos();
     const double targetX = mission.success_reachedPos[0].x;
     const double targetZ = mission.success_reachedPos[0].y;
     const double radius = mission.success_reachedRadius[0];
-    const double originalDx = originalPosition.x - targetX;
-    const double originalDz = originalPosition.z - targetZ;
-    if (!FiniteVector(originalPosition) ||
-        originalDx * originalDx + originalDz * originalDz <= radius * radius)
+    summary->failureGuardPreserved =
+        !EvaluateConditions(&mission, context, false) ? 1 : 0;
+    if (summary->failureGuardPreserved != 1)
     {
-        SetError("RecruitCenter terminal reached condition is already true");
+        SetError("RecruitCenter terminal failure condition is already true");
         return false;
     }
-    const CFVector3 target(targetX, originalPosition.y, targetZ);
-    g_vehicle->SetPos(target);
-    g_vehicle->setPosition(target);
-    g_vehicle->Stop();
+
+    const KR_ObjectID reachedActor = mission.success_needReached[0];
+    bool reachedStaged = false;
+    if (reachedActor == g_vehicle->getObjectID())
+    {
+        const CFVector3 originalPosition = g_vehicle->Pos();
+        const double originalDx = originalPosition.x - targetX;
+        const double originalDz = originalPosition.z - targetZ;
+        if (FiniteVector(originalPosition) &&
+            originalDx * originalDx + originalDz * originalDz >
+                radius * radius)
+        {
+            const CFVector3 target(targetX, originalPosition.y, targetZ);
+            g_vehicle->SetPos(target);
+            g_vehicle->setPosition(target);
+            g_vehicle->Stop();
+            reachedStaged = true;
+        }
+    }
+    else
+    {
+        SPeopleMissionReachedStageSummary people = {};
+        STankMissionReachedStageSummary tank = {};
+        reachedStaged = PeopleSubjectState_StageMissionReachedCondition(
+            context, reachedActor, targetX, targetZ, radius, &people);
+        if (!reachedStaged)
+            reachedStaged = TankSubjectState_StageMissionReachedCondition(
+                context, reachedActor, targetX, targetZ, radius, &tank);
+    }
+    if (!reachedStaged ||
+        !EvaluateConditions(&mission, context, true) ||
+        EvaluateConditions(&mission, context, false))
+    {
+        SetError("RecruitCenter terminal reached staging did not establish "
+                 "a guarded success state");
+        return false;
+    }
     context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
     KR_Event check(rc_CHECK_MISSION, timeStamp,
                    g_vehicle->getObjectID(), center->getObjectID());
@@ -2893,6 +2969,7 @@ bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
         (context->isExist("Artifact") != 0) == artifactExisted ? 1 : 0;
 
     const bool exact = summary->reachedConditions == 1 &&
+        summary->failureGuardPreserved == 1 &&
         summary->statusTransitions == 1 &&
         summary->completedMissions == 1 &&
         summary->resultPresentations == 1 &&

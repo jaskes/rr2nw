@@ -2449,6 +2449,26 @@ playable Level begins.
   rebound conditions, rollback/reapply and exact same-slot-8 fresh restore in
   all three configurations. A27 is the next boundary, not yet an outcome claim.
 
+### RP-CAMPAIGN-027: ProjectA27 terminates the installed Actek center graph
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `GUARDED_REACHED_OBJECTIVE_CONFIRMED`, `TERMINAL_NO_REWARD_CONFIRMED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed A27 owns a failure kill and success reached condition on
+  `a.unit.ma27.01`, destination `(2409.57,-2395.65)` radius `20`, Commander
+  Actek, MissionInfo 0, authored briefing/script/route and no command 35.
+  `MA27.SC` owns two Colony tanks, four submarines, two stroke airplanes,
+  eight knights, two machine guns, four Actek tanks, the one protected Actek
+  push machine and four Taxis.
+- The archival `p_AddFiledSuccess` order is preserved: target destruction wins
+  as failure; a live target reaching the destination completes the mission.
+  Runtime candidate discovery after result returns none, so no successor,
+  Artifact, Portal or presentation asset is synthesized.
+- The persisted chain now completes
+  `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`.
+  Its terminal result reaches count seventeen and proves rollback/reapply plus
+  exact same-slot-8 fresh restore in every configuration.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.

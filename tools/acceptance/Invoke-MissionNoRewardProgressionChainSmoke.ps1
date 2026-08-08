@@ -818,6 +818,59 @@ if ($s03OwnerCounts.colony_tanks -ne 2 -or
 }
 $s03MissionHash = (Get-FileHash -LiteralPath $s03MissionScript -Algorithm SHA256).Hash
 
+$a27MissionScript = Join-Path $DataRoot "Level.04D\BRIEF\MA27.SC"
+if (-not (Test-Path -LiteralPath $a27MissionScript -PathType Leaf)) {
+    throw "Level.04D A27 mission script not found: $a27MissionScript"
+}
+$a27KillCount = [regex]::Matches($a27Body, 'p_AddSuccessKill\(').Count
+$a27ReachedCount = [regex]::Matches($a27Body, 'p_AddSuccessReached\(').Count
+$a27FiledKillCount = [regex]::Matches($a27Body, 'p_AddFiledKill\(').Count
+$a27RewardCount = [regex]::Matches($a27Body, 'p_GiveArtefact\(').Count
+$a27EvidenceValid = $a27Project.Success -and $a27KillCount -eq 0 -and
+    $a27ReachedCount -eq 1 -and $a27FiledKillCount -eq 1 -and
+    $a27RewardCount -eq 0 -and
+    $a27Body -match 'p_AddPlayBriefing\(s_PNodeNULL\(\),"Brief/ma27\.txt"\)' -and
+    $a27Body -match 'p_AddFiledSuccess\(nNode\)' -and
+    $a27Body -match 'p_AddFiledKill\(nNode,"a\.unit\.ma27\.01"\)' -and
+    $a27Body -match 'p_AddSuccessReached\(nNode,"a\.unit\.ma27\.01",2409\.57,-2395\.65,20\.00\)' -and
+    $a27Body -match '"Route/A27/ms\.rt",ConvertColor\(235,0,0\),2,2' -and
+    $a27Body -match 'p_AddRunScript\(nNode,"Brief/ma27\.sc"\)' -and
+    $a27Body -match 'p_AddCommander\(nNode,"Actek"\)' -and
+    $a27Body -match 'p_AddMissionInfo\(nNode,0\)'
+if (-not $a27EvidenceValid) {
+    throw "Retail ProjectA27 guarded reached objective or no-reward evidence changed"
+}
+$a27MissionSource = Get-Content -LiteralPath $a27MissionScript -Raw
+$a27OwnerCounts = [ordered]@{
+    colony_tanks = [regex]::Matches($a27MissionSource, 'CreateColonyTank\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    colony_submarines = [regex]::Matches($a27MissionSource, 'CreateColonySubmarine\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    colony_airplanes = [regex]::Matches($a27MissionSource, 'CreateColonyStrokeAirplane\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    colony_knights = [regex]::Matches($a27MissionSource, 'CreateColonyKnight\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    machine_guns = [regex]::Matches($a27MissionSource, 'CreateMachineGun\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    actek_tanks = [regex]::Matches($a27MissionSource, 'CreateActekTank\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    actek_push_machines = [regex]::Matches($a27MissionSource, 'CreateActekPushMachine\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    taxis = [regex]::Matches($a27MissionSource, 'CreateTaxi\s*\(',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+}
+if ($a27OwnerCounts.colony_tanks -ne 2 -or
+    $a27OwnerCounts.colony_submarines -ne 4 -or
+    $a27OwnerCounts.colony_airplanes -ne 2 -or
+    $a27OwnerCounts.colony_knights -ne 8 -or
+    $a27OwnerCounts.machine_guns -ne 2 -or
+    $a27OwnerCounts.actek_tanks -ne 4 -or
+    $a27OwnerCounts.actek_push_machines -ne 1 -or
+    $a27OwnerCounts.taxis -ne 4) {
+    throw "Retail MA27 mission owner graph changed"
+}
+$a27MissionHash = (Get-FileHash -LiteralPath $a27MissionScript -Algorithm SHA256).Hash
+
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
     $OutputRoot = Join-Path $repositoryRoot "manual-logs\mission-no-reward-chain-$stamp"
@@ -884,7 +937,7 @@ foreach ($configurationName in $Configuration) {
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }
-    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-through-S03"
+    $caseRoot = Join-Path $OutputRoot "$configurationName-Level.04D-Actek-through-A27"
     $saveRoot = Join-Path $caseRoot "saves"
     New-Item -ItemType Directory -Force -Path $saveRoot | Out-Null
     $common = @(
@@ -1339,6 +1392,34 @@ foreach ($configurationName in $Configuration) {
             ))
     } else {
         [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshS03Root }
+    }
+
+    $a27Root = Join-Path $caseRoot "a27-terminal-result"
+    $a27 = if (-not $freshS03.timed_out -and $freshS03.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "a27-terminal-result" -Arguments ($common + @(
+                "--mission-terminal-no-reward-result-smoke",
+                "--mission-center", "A.Recr0",
+                "--diagnostics-dir", ('"' + $a27Root + '"'),
+                "--load-slot", "8",
+                "--save-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $a27Root }
+    }
+
+    $freshA27Root = Join-Path $caseRoot "fresh-a27-terminal-result"
+    $freshA27 = if (-not $a27.timed_out -and $a27.exit_code -eq 0) {
+        Invoke-ProbeProcess -Executable $executable -CaseRoot $caseRoot `
+            -Phase "fresh-a27-terminal-result" -Arguments ($common + @(
+                "--mission-terminal-no-reward-fresh-smoke",
+                "--mission-center", "A.Recr0",
+                "--mission-project", "ProjectA27",
+                "--diagnostics-dir", ('"' + $freshA27Root + '"'),
+                "--load-slot", "8"
+            ))
+    } else {
+        [pscustomobject]@{ timed_out = $false; exit_code = -2; startup = ""; diagnostics = $freshA27Root }
     }
 
     $issues = [Collections.Generic.List[string]]::new()
@@ -1953,6 +2034,46 @@ foreach ($configurationName in $Configuration) {
         'marker=level-ready',
         'runtime_shutdown=clean'
     )
+    Add-ProofIssues -Issues $issues -Phase "A27-terminal" -Probe $a27 -Expected @(
+        'startup_load_slot=8',
+        'startup_save_slot=8',
+        'mission_smoke_selected_project=ProjectA27',
+        'mission_smoke_tank_group_capacity=64',
+        'mission_smoke_scripts=1',
+        'mission_smoke_created_objects=48',
+        'mission_smoke_reclaimed_routes=2',
+        'mission_smoke_replaced_howitzers=0',
+        'mission_smoke_conditions=2',
+        'mission_smoke_rebound_conditions=2',
+        'mission_smoke_pre_satisfied_kill_conditions=0',
+        'mission_smoke_capacity_limited_conditions=0',
+        'mission_smoke_deferred_artefact_rewards=0',
+        'mission_smoke_howitzers=24/24/24',
+        'mission_smoke_auxiliary_policy=loaded-progression-skip',
+        'mission_terminal_no_reward_project=ProjectA27/<none>',
+        'mission_terminal_no_reward_conditions=1/1',
+        'mission_terminal_no_reward_commit=1/1/0/1/1/1/1/1/1',
+        'mission_terminal_no_reward_progress=1/0/17/17/1/0',
+        'mission_terminal_no_reward_objective=1/0/1/0/1',
+        'mission_terminal_no_reward_save=1/1/1/1',
+        'mission_terminal_no_reward_rollback=1/1/1',
+        'mission_terminal_no_reward_reapply=1/1/1',
+        'mission_smoke_save_requested=1',
+        'save_menu_completed_saves=1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
+    Add-ProofIssues -Issues $issues -Phase "fresh-A27-terminal" -Probe $freshA27 -Expected @(
+        'startup_load_slot=8',
+        'mission_terminal_no_reward_fresh_identity=A.Recr0/ProjectA27',
+        'mission_terminal_no_reward_fresh=1/1/1/0/1',
+        'save_menu_completed_loads=1',
+        'game_services_issues=0',
+        'marker=level-ready',
+        'runtime_shutdown=clean'
+    )
     if ($g0.startup -match 'mission_result_(carrier|portal)=' -or
         $s04.startup -match 'mission_result_(carrier|portal)=' -or
         $freshS04.startup -match 'mission_result_(carrier|portal)=' -or
@@ -1983,7 +2104,9 @@ foreach ($configurationName in $Configuration) {
         $aer21.startup -match 'mission_result_(carrier|portal)=' -or
         $freshAER21.startup -match 'mission_result_(carrier|portal)=' -or
         $s03.startup -match 'mission_result_(carrier|portal)=' -or
-        $freshS03.startup -match 'mission_result_(carrier|portal)=') {
+        $freshS03.startup -match 'mission_result_(carrier|portal)=' -or
+        $a27.startup -match 'mission_result_(carrier|portal)=' -or
+        $freshA27.startup -match 'mission_result_(carrier|portal)=') {
         $issues.Add("Artifact or Portal path leaked into Actek no-reward chain")
     }
     if ($s04.startup -match 'People stable capture failed') {
@@ -2138,6 +2261,16 @@ foreach ($configurationName in $Configuration) {
             $restoredS03Fingerprint.Groups[1].Value) {
         $issues.Add("fresh S03 result fingerprint does not match reused slot 8")
     }
+    $savedA27Fingerprint = [regex]::Match(
+        $a27.startup, 'save_menu_last_slot_world_fingerprint=(\d+)')
+    $restoredA27Fingerprint = [regex]::Match(
+        $freshA27.startup, 'save_menu_last_restored_world_fingerprint=(\d+)')
+    if (-not $savedA27Fingerprint.Success -or
+        -not $restoredA27Fingerprint.Success -or
+        $savedA27Fingerprint.Groups[1].Value -ne
+            $restoredA27Fingerprint.Groups[1].Value) {
+        $issues.Add("fresh terminal A27 result fingerprint does not match reused slot 8")
+    }
 
     $records.Add([pscustomobject]@{
         configuration = $configurationName
@@ -2159,6 +2292,7 @@ foreach ($configurationName in $Configuration) {
         aer16_script_sha256 = $aer16MissionHash
         aer21_script_sha256 = $aer21MissionHash
         ms03_script_sha256 = $s03MissionHash
+        ma27_script_sha256 = $a27MissionHash
         s07_authored_kill_commands = $s07KillCount
         s07_retained_kill_conditions = 10
         s10_authored_kill_commands = $s10KillCount
@@ -2229,6 +2363,14 @@ foreach ($configurationName in $Configuration) {
         s03_mission_info = 0
         s03_next_project = "ProjectA27"
         s03_reused_public_save_slot = 8
+        a27_authored_success_kill_commands = $a27KillCount
+        a27_authored_success_reached_commands = $a27ReachedCount
+        a27_authored_failure_kill_commands = $a27FiledKillCount
+        a27_reward_commands = $a27RewardCount
+        a27_owner_counts = $a27OwnerCounts
+        a27_success_precedence = "filed-then-success"
+        a27_terminal_no_successor = $true
+        a27_reused_public_save_slot = 8
         duplicate_airplane_calls = $duplicateCount
         elapsed_seconds = [Math]::Round(
             ([DateTime]::UtcNow - $started).TotalSeconds, 3)
@@ -2263,6 +2405,8 @@ foreach ($configurationName in $Configuration) {
         fresh_aer21_exit_code = $freshAER21.exit_code
         s03_exit_code = $s03.exit_code
         fresh_s03_exit_code = $freshS03.exit_code
+        a27_exit_code = $a27.exit_code
+        fresh_a27_exit_code = $freshA27.exit_code
         passed = $issues.Count -eq 0
         issues = @($issues)
         diagnostics = $caseRoot

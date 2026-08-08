@@ -1683,3 +1683,22 @@ report `mission_no_reward_fresh_identity=A.Recr0/ProjectS03/ProjectA27` and a
 world fingerprint matching the saved reused slot 8. Any missing restored old
 holder during rollback, retained Portal/Artifact path, changed retail script
 hash or mismatch on fresh restore is a failure.
+
+The same command now continues through terminal A27. Its final two phases must
+report:
+
+```text
+mission_terminal_no_reward_project=ProjectA27/<none>
+mission_terminal_no_reward_conditions=1/1
+mission_terminal_no_reward_commit=1/1/0/1/1/1/1/1/1
+mission_terminal_no_reward_progress=1/0/17/17/1/0
+mission_terminal_no_reward_save=1/1/1/1
+mission_terminal_no_reward_rollback=1/1/1
+mission_terminal_no_reward_reapply=1/1/1
+mission_terminal_no_reward_fresh_identity=A.Recr0/ProjectA27
+mission_terminal_no_reward_fresh=1/1/1/0/1
+```
+
+The terminal fresh fingerprint must equal the saved reused slot 8. Any next
+candidate, Artifact/Portal output, false failure guard or direct status bypass
+is a failure.
