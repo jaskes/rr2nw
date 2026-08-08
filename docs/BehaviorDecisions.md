@@ -6647,3 +6647,28 @@ until the original handler runs. Presentation and mission timing remain
 subordinate to the clock section. Older v1/v2 records continue to describe
 ready owners only. Missing attributes, holders, sources, duplicate ownership
 or malformed START payloads still fail closed.
+
+### BD-206: a future Howitzer may target a currently occupied holder
+
+Status: accepted on 2026-08-08 for installed Level.05D ProjectA31.
+
+The archival START handler owns replacement semantics: when a scheduled
+Howitzer starts, `AttachToHowitzerHolder` removes the then-current occupant and
+attaches the scheduled subject. S19 therefore may keep a time-110 owner for
+`HwzRbb12` while A31 uses that holder immediately. Advancing the clock,
+discarding either owner or rejecting the save would all change authored
+mission behavior.
+
+HWZ1 v4 encodes this narrow lifecycle as exactly one ready record followed by
+exactly one pending-start record for the same holder. More than two records,
+two ready owners, two pending owners or duplicate symbolic names remain hard
+errors. Restore constructs the ready roster first and then recreates the
+pending START packet, so the original handler performs the future replacement.
+Versions 1-3 keep their unique-holder interpretation and migrate without
+weakening validation.
+
+The selected-retail People and Route effective capacity floors are likewise
+bounded compatibility ownership, not a change to script declarations: the
+installed cumulative campaign needs 171 People scheduling owners and more
+than 150 Routes, while both maintained floors are 256. They are reset after
+the script transaction and do not alter raw PlayerData or public save ABI.

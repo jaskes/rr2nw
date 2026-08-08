@@ -28,7 +28,8 @@ namespace {
 const std::uint32_t kHowitzerMagic = 0x315A5748u;  // HWZ1
 const std::uint32_t kHowitzerLegacyVersion = 1u;
 const std::uint32_t kHowitzerSourceKindVersion = 2u;
-const std::uint32_t kHowitzerVersion = 3u;
+const std::uint32_t kHowitzerLifecycleVersion = 3u;
+const std::uint32_t kHowitzerVersion = 4u;
 const std::size_t kMaximumHowitzers = 4096u;
 const std::size_t kMaximumNameBytes = 1024u;
 const int kMaximumEventsPerKind = 32;
@@ -155,8 +156,7 @@ bool InspectPendingStart(SimulationContext* context,
   data.getInt(mode).close();
   const int holderIndex = HowitzerSubjectState_FindHolder(holder);
   if ((mode != 0 && mode != 1) || holderIndex < 0 ||
-      !HowitzerSubjectState_AttributeExists(context, attribute) ||
-      !IsNul(HowitzerSubjectState_HolderOccupant(holder)))
+      !HowitzerSubjectState_AttributeExists(context, attribute))
     return false;
   entry->holder = holder;
   entry->pendingAttribute = attribute;
@@ -220,7 +220,9 @@ bool CollectHowitzer(const KR_ObjectID object, void* user) {
 
 bool RosterEntryLess(const HowitzerRosterEntry& left,
                      const HowitzerRosterEntry& right) {
-  return left.holder < right.holder;
+  if (left.holder != right.holder) return left.holder < right.holder;
+  if (left.ready != right.ready) return left.ready;
+  return left.name < right.name;
 }
 
 bool CollectRoster(SimulationContext* context, bool requireReady,
@@ -237,9 +239,15 @@ bool CollectRoster(SimulationContext* context, bool requireReady,
   g_arena.userFind("Howitzer", CollectHowitzer, roster);
   if (!roster->valid) return false;
   std::sort(roster->entries.begin(), roster->entries.end(), RosterEntryLess);
-  for (std::size_t index = 1; index < roster->entries.size(); ++index)
-    if (roster->entries[index - 1].holder == roster->entries[index].holder)
-      return Fail("Howitzer roster contains duplicate holder ownership");
+  for (std::size_t index = 1; index < roster->entries.size(); ++index) {
+    const HowitzerRosterEntry& previous = roster->entries[index - 1];
+    const HowitzerRosterEntry& current = roster->entries[index];
+    if (previous.holder == current.holder &&
+        ((index >= 2u &&
+          roster->entries[index - 2].holder == current.holder) ||
+         !previous.ready || current.ready || previous.name == current.name))
+      return Fail("Howitzer roster has an ambiguous holder lifecycle");
+  }
   return true;
 }
 
@@ -555,10 +563,10 @@ bool GetEvents(
 bool PutRecord(std::vector<unsigned char>* bytes,
                const StableHowitzerRecord& record, std::uint32_t version) {
   if (!ValidateRecord(record) ||
-      (version < kHowitzerVersion &&
+      (version < kHowitzerLifecycleVersion &&
        record.lifecycle != StableHowitzerRecord::kReady))
     return false;
-  if (version >= kHowitzerVersion)
+  if (version >= kHowitzerLifecycleVersion)
     PutU32(bytes, static_cast<std::uint32_t>(record.lifecycle));
   PutString(bytes, record.holder);
   PutString(bytes, record.name);
@@ -578,7 +586,7 @@ bool PutRecord(std::vector<unsigned char>* bytes,
   PutDouble(bytes, record.lastShootTime);
   PutEvents(bytes, record.findEnemyEvents, version, record.name);
   PutEvents(bytes, record.actionEvents, version, record.name);
-  if (version >= kHowitzerVersion) {
+  if (version >= kHowitzerLifecycleVersion) {
     PutU32(bytes, static_cast<std::uint32_t>(record.startEvent.sourceKind));
     PutString(bytes, record.startEvent.source);
     PutDouble(bytes, record.startEvent.timeStamp);
@@ -591,7 +599,7 @@ bool GetRecord(const std::vector<unsigned char>& bytes, std::size_t* offset,
                std::uint32_t version, StableHowitzerRecord* record) {
   std::uint32_t lifecycle = 0, audible = 0, visible = 0, shooting = 0;
   if (record == nullptr ||
-      (version >= kHowitzerVersion &&
+      (version >= kHowitzerLifecycleVersion &&
        !GetU32(bytes, offset, &lifecycle)) ||
       lifecycle > static_cast<std::uint32_t>(
                       StableHowitzerRecord::kPendingStart) ||
@@ -635,7 +643,7 @@ bool GetRecord(const std::vector<unsigned char>& bytes, std::size_t* offset,
         event.source.clear();
       }
   }
-  if (version >= kHowitzerVersion) {
+  if (version >= kHowitzerLifecycleVersion) {
     std::uint32_t sourceKind = 0, startMode = 0;
     if (!GetU32(bytes, offset, &sourceKind) ||
         sourceKind > static_cast<std::uint32_t>(
@@ -654,7 +662,8 @@ bool EncodeRecordsVersion(const std::vector<StableHowitzerRecord>& records,
                           std::uint32_t version,
                           std::vector<unsigned char>* bytes) {
   if (version != kHowitzerLegacyVersion &&
-      version != kHowitzerSourceKindVersion && version != kHowitzerVersion)
+      version != kHowitzerSourceKindVersion &&
+      version != kHowitzerLifecycleVersion && version != kHowitzerVersion)
     return false;
   if (bytes == nullptr || records.size() > kMaximumHowitzers) return false;
   bytes->clear();
@@ -662,8 +671,14 @@ bool EncodeRecordsVersion(const std::vector<StableHowitzerRecord>& records,
   PutU32(bytes, version);
   PutU32(bytes, static_cast<std::uint32_t>(records.size()));
   for (std::size_t index = 0; index < records.size(); ++index) {
-    if ((index != 0 &&
-         records[index - 1].holder >= records[index].holder) ||
+    const bool invalidOrder = index != 0 &&
+        (records[index - 1].holder > records[index].holder ||
+         (records[index - 1].holder == records[index].holder &&
+          (version < kHowitzerVersion ||
+           records[index - 1].lifecycle != StableHowitzerRecord::kReady ||
+           records[index].lifecycle != StableHowitzerRecord::kPendingStart ||
+           records[index - 1].name == records[index].name)));
+    if (invalidOrder ||
         !PutRecord(bytes, records[index], version))
       return Fail("Howitzer records are invalid or not in holder order");
   }
@@ -684,15 +699,25 @@ bool DecodeRecords(const std::vector<unsigned char>& bytes,
       !GetU32(bytes, &offset, &count) || magic != kHowitzerMagic ||
       (version != kHowitzerLegacyVersion &&
        version != kHowitzerSourceKindVersion &&
+       version != kHowitzerLifecycleVersion &&
        version != kHowitzerVersion) ||
       count > kMaximumHowitzers)
     return false;
   records->clear();
   for (std::uint32_t index = 0; index < count; ++index) {
     StableHowitzerRecord record;
-    if (!GetRecord(bytes, &offset, version, &record) ||
-        (index != 0 && records->back().holder >= record.holder))
+    if (!GetRecord(bytes, &offset, version, &record))
       return false;
+    if (index != 0) {
+      const StableHowitzerRecord& previous = records->back();
+      if (previous.holder > record.holder ||
+          (previous.holder == record.holder &&
+           (version < kHowitzerVersion ||
+            previous.lifecycle != StableHowitzerRecord::kReady ||
+            record.lifecycle != StableHowitzerRecord::kPendingStart ||
+            previous.name == record.name)))
+        return false;
+    }
     records->push_back(record);
   }
   return offset == bytes.size();
@@ -915,7 +940,6 @@ bool ApplyPendingRecord(SimulationContext* context, Howitzer* howitzer,
   const int holder = HowitzerSubjectState_FindHolder(record.holder.c_str());
   KR_ObjectID commander;
   if (!HowitzerSubjectState_AttributeExists(context, attribute) || holder < 0 ||
-      !IsNul(HowitzerSubjectState_HolderOccupant(record.holder.c_str())) ||
       !ResolveOptionalReference(context, record.commander, IUnknownIID,
                                 &commander))
     return false;
@@ -1039,18 +1063,24 @@ bool HowitzerActiveWorldState_ProbeLegacyVersionCompatibility(
   std::vector<unsigned char> version1;
   std::vector<unsigned char> version2;
   std::vector<unsigned char> version3;
+  std::vector<unsigned char> version4;
   return EncodeRecordsVersion(records, kHowitzerLegacyVersion, &version1) &&
          EncodeRecordsVersion(records, kHowitzerSourceKindVersion,
                               &version2) &&
-         EncodeRecordsVersion(records, kHowitzerVersion, &version3) &&
+         EncodeRecordsVersion(records, kHowitzerLifecycleVersion,
+                              &version3) &&
+         EncodeRecordsVersion(records, kHowitzerVersion, &version4) &&
          version1 != version2 &&
          version2 != version3 &&
+         version3 != version4 &&
          HowitzerActiveWorldState_ValidateStable(version1) &&
          HowitzerActiveWorldState_ValidateStable(version2) &&
          HowitzerActiveWorldState_ValidateStable(version3) &&
+         HowitzerActiveWorldState_ValidateStable(version4) &&
          HowitzerActiveWorldState_MatchesStable(context, version1) &&
          HowitzerActiveWorldState_MatchesStable(context, version2) &&
-         HowitzerActiveWorldState_MatchesStable(context, version3);
+         HowitzerActiveWorldState_MatchesStable(context, version3) &&
+         HowitzerActiveWorldState_MatchesStable(context, version4);
 }
 
 bool HowitzerActiveWorldState_MatchesStable(

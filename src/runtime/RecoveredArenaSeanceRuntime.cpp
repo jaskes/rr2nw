@@ -98,6 +98,11 @@ constexpr int kCorpseSubjectCapacity = 100;
 constexpr int kSparkSubjectCapacity = 40;
 constexpr int kRetailTankGroupSubjectCapacity = 10;
 constexpr int kPersistedCampaignTankGroupSubjectCapacity = 64;
+// Installed Levels already declare as many as 250 People owners. Level.05D
+// starts lower at 170, but its authored campaign intentionally retains
+// surviving world/mission actors and eventually needs more than that before
+// ProjectA31. Keep a bounded May-data floor without changing save layout.
+constexpr int kPersistedCampaignPeopleSubjectCapacity = 256;
 constexpr double kDeviceFreeSoundDistance = 300.0;
 constexpr int kSourceOnlySmokerAttributeCount = 11;
 constexpr const char kCommonBootstrapProgramName[] =
@@ -2913,9 +2918,15 @@ bool RunPeopleSubjectBootstrap(SimulationContext* context,
   SRecoveredLegacyScriptRunResult result = {};
   const SRecoveredLegacyScriptProfile profile =
       RecoveredLegacyScript_RetailFragmentProfile();
-  if (!RecoveredLegacyScript_RunMemory(
-          program.c_str(), kPeopleSubjectProgramName, profile, context,
-          startTime, &host, &result)) {
+  RecoveredLegacyScriptHost_SetPeopleCapacityFloor(
+      RecoveredRetailScriptManifest_IsReady()
+          ? kPersistedCampaignPeopleSubjectCapacity
+          : 0);
+  const bool ran = RecoveredLegacyScript_RunMemory(
+      program.c_str(), kPeopleSubjectProgramName, profile, context,
+      startTime, &host, &result);
+  RecoveredLegacyScriptHost_SetPeopleCapacityFloor(0);
+  if (!ran) {
     Report(IssueForScriptStatus(result.status), result.error);
     return false;
   }

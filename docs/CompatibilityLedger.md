@@ -5643,6 +5643,35 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   row. Level.06N checkpoint command 34 and the late Level.01D command-33
   owners also remain separate campaign slices.
 
+### CQ-270: Level.05D A31 crosses declared population capacity and a future holder
+
+- Status: `RETAIL_CAPACITY_FLOOR_REQUIRED`, `FUTURE_REPLACEMENT_PERSISTED`,
+  `TERMINAL_NO_REWARD_CONFIRMED`.
+- Evidence: Level.05D declares People capacity 170 and Route capacity 150.
+  After the seven preceding Civilians missions, A31 creates 31 additional
+  owners and requires 171 live People scheduling owners. S19 also leaves
+  pending `r.unit.ms19.rc02` targeted at `HwzRbb12`, while A31 immediately
+  installs ready `r.unit.ma31.rc02` in that same holder. The archival START
+  handler later replaces the current holder occupant when scheduler time
+  reaches 110; ready-plus-future ownership is therefore authored state, not
+  corruption.
+- Handling: selected installed-retail admission raises only the effective
+  People and Route capacities to a bounded floor of 256; source declarations,
+  save layout and source-only fixtures remain unchanged. HWZ1 v4 permits one
+  ready owner followed by one pending-start owner for the same holder, while
+  rejecting every other duplicate lifecycle. Restore creates the ready owner
+  first and reconstructs the future START without reserving the holder. HWZ1
+  v1-v3 remain accepted under their stricter unique-holder contract.
+- Verification: the maintained Civilians gate proves all eight committed
+  results and exact fresh-process restores across public slots 1..8:
+  `A30 -> S18 -> S11 -> S12 -> S19 -> S16 -> S20 -> A31 -> <none>`.
+  A31 binds 8/8 conditions, creates all 31 owners, preserves 11/7/7 total/
+  ready/stable Howitzers, passes pre-result rollback and committed reapply,
+  and terminates with no active Project.
+- Boundary: A31 contains no command 35. Its neutral `ma31.artf` population and
+  the source comment describing an artefact do not authorize a reward or
+  Portal. The separate Level.05D Robbers center remains unclaimed.
+
 ## Maintenance rule
 
 When a new quirk is found:

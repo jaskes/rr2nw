@@ -2535,8 +2535,29 @@ playable Level begins.
   destinations while none of their failure-kill guards is true.
 - `Invoke-Level05DCiviliansProgressionChainSmoke.ps1` pins installed BRIEF,
   S19 and S16 evidence and requires seven result rollback/reapply plus seven
-  exact fresh-process fingerprints per configuration. ProjectA31 remains the
-  explicit next unproved outcome rather than an inferred terminal or reward.
+  exact fresh-process fingerprints per configuration. ProjectA31's terminal
+  outcome and overlapping future-holder state are covered separately by
+  RP-CAMPAIGN-031.
+
+### RP-CAMPAIGN-031: Level.05D Civilians terminate at ProjectA31
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `TERMINAL_NO_REWARD_CONFIRMED`, `CAPACITY_COMPATIBILITY_PROVEN`,
+  `FUTURE_HOLDER_REPLACEMENT_PRESERVED`.
+- Installed A31 binds eight real conditions and creates all 31 transaction
+  owners only when the declared People 170 and Route 150 tables receive the
+  same bounded 256 effective floors already required by the accumulated
+  campaign. It retains S19's pending `r.unit.ms19.rc02` for `HwzRbb12` beside
+  A31's ready `r.unit.ma31.rc02`; HWZ1 v4 persists both without consuming the
+  future START or evicting the current gun.
+- Result revisit removes A31, cleans objective/map/check state, repairs and
+  refills without an Artifact, and leaves no next candidate. There is no
+  command 35, so neutral `ma31.artf` and a source comment do not synthesize a
+  reward or Portal. Repeated revisit remains stable.
+- The maintained eight-stage gate uses public slots 1..8 exactly and proves
+  result rollback/reapply plus exact fresh-process fingerprints for
+  `A30 -> S18 -> S11 -> S12 -> S19 -> S16 -> S20 -> A31 -> <none>`.
+  Verification is 24/24 across Debug, Release and RelWithDebInfo.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

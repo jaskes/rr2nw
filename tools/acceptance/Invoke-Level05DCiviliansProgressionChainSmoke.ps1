@@ -26,8 +26,11 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $evidence = @(
     [pscustomobject]@{ file="SCINC\BRIEF.SCI"; bytes=17192; sha256="D7FF7BC28C350C04EA455AA3378ADB3CE13F3CDDD91EA7B2936937100C099B1F" },
+    [pscustomobject]@{ file="SCINC\set_people.sci"; bytes=15094; sha256="A90F2DED56A3723DAA72E839C427AC265553F90649597F66F716A5875BC5BFF8" },
+    [pscustomobject]@{ file="SCINC\load_route.sci"; bytes=190; sha256="9CDB4AF5D846635AD0082480ADD1CDD456FAB3B3B6EC84783CBFA34B467CFC28" },
     [pscustomobject]@{ file="BRIEF\ms19.sc";   bytes=2560;  sha256="A588E35622A86A30F70B6C7ABC93D3E53F2106D07620DA987C73147EA781F575" },
-    [pscustomobject]@{ file="BRIEF\ms16.sc";   bytes=2330;  sha256="4AB29127BFE70A27209AB2B77B44FC96D8D8B5B9E7B6A347840A86989334CCF2" }
+    [pscustomobject]@{ file="BRIEF\ms16.sc";   bytes=2330;  sha256="4AB29127BFE70A27209AB2B77B44FC96D8D8B5B9E7B6A347840A86989334CCF2" },
+    [pscustomobject]@{ file="BRIEF\ma31.sc";   bytes=1986;  sha256="5BCB6B3E917DD9C146F52A1961AD7E6D737296D1E6802BF35E05174D07E521A6" }
 )
 foreach ($item in $evidence) {
     $path = Join-Path (Join-Path $DataRoot "Level.05D") $item.file
@@ -74,16 +77,17 @@ function Require-Proof {
 }
 
 # Every edge is selected by the installed ProjectTable after the preceding
-# committed result. ProjectA31 is intentionally only the next candidate here:
-# its own script/capacity boundary is the following campaign slice.
+# committed result. The eighth public slot closes the Civilians center at
+# ProjectA31; it has no command 35 and no authored successor.
 $stages = @(
-    [pscustomobject]@{ project="ProjectA30"; next="ProjectS18"; conditions=4; created=33; howitzers="4/4/4"; reached=0 },
-    [pscustomobject]@{ project="ProjectS18"; next="ProjectS11"; conditions=8; created=21; howitzers="4/4/4"; reached=0 },
-    [pscustomobject]@{ project="ProjectS11"; next="ProjectS12"; conditions=7; created=31; howitzers="8/8/8"; reached=0 },
-    [pscustomobject]@{ project="ProjectS12"; next="ProjectS19"; conditions=7; created=35; howitzers="7/7/7"; reached=0 },
-    [pscustomobject]@{ project="ProjectS19"; next="ProjectS16"; conditions=5; created=31; howitzers="8/4/4"; reached=0 },
-    [pscustomobject]@{ project="ProjectS16"; next="ProjectS20"; conditions=5; created=36; howitzers="8/4/4"; reached=5 },
-    [pscustomobject]@{ project="ProjectS20"; next="ProjectA31"; conditions=6; created=19; howitzers="8/4/4"; reached=0 }
+    [pscustomobject]@{ project="ProjectA30"; next="ProjectS18"; conditions=4; created=33; howitzers="4/4/4"; reached=0; terminal=$false },
+    [pscustomobject]@{ project="ProjectS18"; next="ProjectS11"; conditions=8; created=21; howitzers="4/4/4"; reached=0; terminal=$false },
+    [pscustomobject]@{ project="ProjectS11"; next="ProjectS12"; conditions=7; created=31; howitzers="8/8/8"; reached=0; terminal=$false },
+    [pscustomobject]@{ project="ProjectS12"; next="ProjectS19"; conditions=7; created=35; howitzers="7/7/7"; reached=0; terminal=$false },
+    [pscustomobject]@{ project="ProjectS19"; next="ProjectS16"; conditions=5; created=31; howitzers="8/4/4"; reached=0; terminal=$false },
+    [pscustomobject]@{ project="ProjectS16"; next="ProjectS20"; conditions=5; created=36; howitzers="8/4/4"; reached=5; terminal=$false },
+    [pscustomobject]@{ project="ProjectS20"; next="ProjectA31"; conditions=6; created=19; howitzers="8/4/4"; reached=0; terminal=$false },
+    [pscustomobject]@{ project="ProjectA31"; next="<none>"; conditions=8; created=31; howitzers="11/7/7"; reached=0; terminal=$true }
 )
 
 $records = [Collections.Generic.List[object]]::new()
@@ -104,8 +108,11 @@ foreach ($configurationName in $Configuration) {
         $stage = $stages[$index]
         $ordinal = $index + 1
         $resultRoot = Join-Path $caseRoot ("{0:D2}-{1}-result" -f $ordinal, $stage.project)
+        $resultMode = if ($stage.terminal) {
+            "--mission-terminal-no-reward-result-smoke"
+        } else { "--mission-no-reward-result-smoke" }
         $arguments = $common + @(
-            "--mission-no-reward-result-smoke",
+            $resultMode,
             "--mission-center", "Civilians.Recruit.0",
             "--diagnostics-dir", ('"' + $resultRoot + '"'),
             "--save-slot", "$ordinal"
@@ -118,15 +125,21 @@ foreach ($configurationName in $Configuration) {
 
         $freshRoot = Join-Path $caseRoot ("{0:D2}-{1}-fresh" -f $ordinal, $stage.project)
         $fresh = if (-not $result.timed_out -and $result.exit_code -eq 0) {
-            Invoke-ProbeProcess -Executable $executable -PhaseRoot $freshRoot `
-                -Arguments ($common + @(
-                    "--mission-no-reward-fresh-smoke",
+            $freshMode = if ($stage.terminal) {
+                "--mission-terminal-no-reward-fresh-smoke"
+            } else { "--mission-no-reward-fresh-smoke" }
+            $freshArguments = $common + @(
+                    $freshMode,
                     "--mission-center", "Civilians.Recruit.0",
                     "--mission-project", $stage.project,
-                    "--mission-next-project", $stage.next,
                     "--diagnostics-dir", ('"' + $freshRoot + '"'),
                     "--load-slot", "$ordinal"
-                ))
+                )
+            if (-not $stage.terminal) {
+                $freshArguments += @("--mission-next-project", $stage.next)
+            }
+            Invoke-ProbeProcess -Executable $executable -PhaseRoot $freshRoot `
+                -Arguments $freshArguments
         } else {
             [pscustomobject]@{ timed_out=$false; exit_code=-2; startup=""; diagnostics=$freshRoot }
         }
@@ -136,30 +149,53 @@ foreach ($configurationName in $Configuration) {
         if ($result.exit_code -ne 0) { $issues.Add("result exit=$($result.exit_code)") }
         if ($fresh.timed_out) { $issues.Add("fresh timeout") }
         if ($fresh.exit_code -ne 0) { $issues.Add("fresh exit=$($fresh.exit_code)") }
-        Require-Proof -Log $result.startup -Issues $issues -Owner "result" -Expected @(
+        $commonResultProof = @(
             "mission_smoke_selected_project=$($stage.project)",
             "mission_smoke_created_objects=$($stage.created)",
             "mission_smoke_reclaimed_routes=1",
             "mission_smoke_replaced_howitzers=0",
             "mission_smoke_howitzers=$($stage.howitzers)",
-            "mission_no_reward_project=$($stage.project)/$($stage.next)",
-            "mission_no_reward_conditions=$($stage.conditions)/1",
-            "mission_no_reward_reached=$($stage.reached)/1",
-            "mission_no_reward_progress=1/0/$ordinal/$ordinal/1/0",
-            "mission_no_reward_commit=1/1/0/1/1/1/1/1",
-            "mission_no_reward_save=1/1/1/1",
-            "mission_no_reward_rollback=1/1/1",
-            "mission_no_reward_reapply=1/1/1",
+            "mission_smoke_deferred_artefact_rewards=0",
             "game_services_issues=0",
             "runtime_shutdown=clean"
         )
-        Require-Proof -Log $fresh.startup -Issues $issues -Owner "fresh" -Expected @(
-            "mission_no_reward_fresh_identity=Civilians.Recruit.0/$($stage.project)/$($stage.next)",
-            "mission_no_reward_fresh=1/1/1/0/1",
+        if ($stage.terminal) {
+            $resultProof = $commonResultProof + @(
+                "mission_terminal_no_reward_project=$($stage.project)/<none>",
+                "mission_terminal_no_reward_conditions=$($stage.conditions)/1",
+                "mission_terminal_no_reward_commit=1/1/0/1/1/1/1/1/1",
+                "mission_terminal_no_reward_progress=1/0/$ordinal/$ordinal/1/0",
+                "mission_terminal_no_reward_objective=1/0/1/0/1",
+                "mission_terminal_no_reward_save=1/1/1/1",
+                "mission_terminal_no_reward_rollback=1/1/1",
+                "mission_terminal_no_reward_reapply=1/1/1"
+            )
+            $freshProof = @(
+                "mission_terminal_no_reward_fresh_identity=Civilians.Recruit.0/$($stage.project)",
+                "mission_terminal_no_reward_fresh=1/1/1/0/1"
+            )
+        } else {
+            $resultProof = $commonResultProof + @(
+                "mission_no_reward_project=$($stage.project)/$($stage.next)",
+                "mission_no_reward_conditions=$($stage.conditions)/1",
+                "mission_no_reward_reached=$($stage.reached)/1",
+                "mission_no_reward_progress=1/0/$ordinal/$ordinal/1/0",
+                "mission_no_reward_commit=1/1/0/1/1/1/1/1",
+                "mission_no_reward_save=1/1/1/1",
+                "mission_no_reward_rollback=1/1/1",
+                "mission_no_reward_reapply=1/1/1"
+            )
+            $freshProof = @(
+                "mission_no_reward_fresh_identity=Civilians.Recruit.0/$($stage.project)/$($stage.next)",
+                "mission_no_reward_fresh=1/1/1/0/1"
+            )
+        }
+        Require-Proof -Log $result.startup -Issues $issues -Owner "result" -Expected $resultProof
+        Require-Proof -Log $fresh.startup -Issues $issues -Owner "fresh" -Expected ($freshProof + @(
             "save_menu_completed_loads=1",
             "game_services_issues=0",
             "runtime_shutdown=clean"
-        )
+        ))
         if ($result.startup -match 'mission_result_(carrier|portal)=' -or
             $fresh.startup -match 'mission_result_(carrier|portal)=') {
             $issues.Add("Artifact or Portal leaked into the no-reward chain")

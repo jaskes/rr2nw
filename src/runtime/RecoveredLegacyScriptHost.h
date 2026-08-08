@@ -10,6 +10,7 @@
 class ct_Arena;
 
 void RecoveredLegacyScriptHost_SetRouteCapacityFloor(int capacity);
+void RecoveredLegacyScriptHost_SetPeopleCapacityFloor(int capacity);
 
 enum ERecoveredLegacyScriptHostIssue {
   RECOVERED_LEGACY_SCRIPT_HOST_EVENT_POOL_EXHAUSTED = 1u << 0,

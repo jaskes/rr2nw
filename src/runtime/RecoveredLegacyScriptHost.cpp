@@ -36,6 +36,7 @@
 namespace {
 
 int g_routeCapacityFloor = 0;
+int g_peopleCapacityFloor = 0;
 
 bool CollectObjectID(KR_ObjectID object, void* parameter) {
   std::vector<KR_ObjectID>* objects =
@@ -557,6 +558,10 @@ void RecoveredLegacyScriptHost_SetRouteCapacityFloor(int capacity) {
   g_routeCapacityFloor = capacity > 0 ? capacity : 0;
 }
 
+void RecoveredLegacyScriptHost_SetPeopleCapacityFloor(int capacity) {
+  g_peopleCapacityFloor = capacity > 0 ? capacity : 0;
+}
+
 RecoveredLegacyScriptHost::RecoveredLegacyScriptHost(ct_Arena* arena)
     : m_arena(arena), m_issues(0), m_lastError{},
       m_projectTableCreated(false), m_projectDataOpen(false),
@@ -788,12 +793,13 @@ bool RecoveredLegacyScriptHost::ForceRemoveObject(const char* name) {
 
 int RecoveredLegacyScriptHost::AddClassTable(const char* name, int capacity) {
   if (!ArenaReady("add class table") || name == nullptr) return ct_NULLID;
-  const int effectiveCapacity =
-      std::strcmp(name, "Route") == 0 &&
-              capacity == ROUTE_LEGACY_SOURCE_OBJECT_NUM &&
-              g_routeCapacityFloor > capacity
-          ? g_routeCapacityFloor
-          : capacity;
+  int effectiveCapacity = capacity;
+  if (std::strcmp(name, "Route") == 0 &&
+      g_routeCapacityFloor > effectiveCapacity)
+    effectiveCapacity = g_routeCapacityFloor;
+  else if (std::strcmp(name, "People") == 0 &&
+           g_peopleCapacityFloor > effectiveCapacity)
+    effectiveCapacity = g_peopleCapacityFloor;
   const int table = m_arena->addClassTable(name, effectiveCapacity);
   if (table == ct_NULLID) {
     char message[192] = {};

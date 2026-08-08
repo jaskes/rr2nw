@@ -329,13 +329,16 @@ experimental slots fail before mutation because they cannot reconstruct Portal
 progress. The Portal transition gate uses the same LCN1 transaction for source
 rollback but does not introduce a separate public slot format.
 
-HWZ1 version 2 keeps the same Howitzer owner section and records a private
-scheduler event's destination-self source explicitly. Version 1 encoded that
-relation with the owner's symbolic name, which is ambiguous in installed
-missions that deliberately reuse a name. Both versions are decoded; a legacy
-LCN1 is admitted only when the reconstructed owner graph matches every
-semantic field, after which the outer historical fingerprint is normalized
-for that one verified section migration. New captures always emit version 2.
+HWZ1 version 2 records a private scheduler event's destination-self source
+explicitly; version 1 encoded that relation with the owner's symbolic name,
+which is ambiguous in installed missions that deliberately reuse a name.
+Version 3 adds pending-start lifecycle with its original absolute timestamp.
+Version 4 permits the one authored ready-plus-future pair that targets the
+same holder, preserving strict ready-before-pending order and rejecting every
+other duplicate lifecycle. All four versions are decoded; a legacy LCN1 is
+admitted only when the reconstructed owner graph matches every semantic field,
+after which the outer historical fingerprint is normalized for that verified
+section migration. New captures always emit version 4.
 Tank and Howitzer attack targets plus Bullet master attribution remain
 non-owning transient links: an already removed target, an ambiguous live
 Bullet master or an ambiguous selected Howitzer enemy becomes NUL while the
