@@ -6363,9 +6363,10 @@ may proceed instead of pretending capture succeeded.
 The controlled crash option is hidden acceptance infrastructure, absent from
 help and UI, noncontinuable, and rejected beside Developer/native diagnostic
 capabilities or any other smoke/save transaction. It must exit with the exact
-exception code and never produce a modal/getch wait. Explicit archival
-`ExitProcess`, CRT abort/assert and debug-break fatal paths remain documented
-debt; this slice does not claim to capture them.
+exception code and never produce a modal/getch wait. The product-linked
+DebugExt fatal is closed separately by BD-199; direct CRT abort/assert,
+unrelated explicit exits and standalone debug-break tools remain documented
+debt.
 
 ### BD-194: physical audio is presentation, never a simulation clock
 
@@ -6501,3 +6502,20 @@ Settings schema 6 exposes only the newly owned Cinematic category and migrates
 schema 1 through 5 atomically. This decision does not turn FLIC containers,
 music policy, UI sounds, dialogue timing or lip synchronization into supported
 features; each needs its own source and retail evidence.
+
+### BD-199: the archival fatal decision remains primary, diagnostics own termination
+
+The hundreds of `RTCHECK`/assert call sites are not rewritten into exceptions
+or recoverable errors: many guard corrupt content or impossible state after
+partial mutation. The existing Debug/Release macro and cleanup owner still
+decide that the failure is fatal. Only after that decision does a narrow
+callback publish bounded context and raise a maintained noncontinuable Windows
+exception. If the callback is absent or unexpectedly returns, the archival
+`ExitProcess(1)`/`exit(1)` fallback remains intact.
+
+The crash manifest stores a formatted message; Debug additionally stores the
+assertion, basename-only source and line, while Release truthfully has only its
+runtime message. No raw path, varargs object, save, retail payload or game lock
+crosses the boundary. This does not convert ordinary startup/Save/Load/campaign
+errors into crashes, and it does not claim direct CRT abort, unrelated explicit
+exit or standalone debug-tool coverage.

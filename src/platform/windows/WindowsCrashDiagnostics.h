@@ -29,10 +29,19 @@ void WindowsCrashDiagnostics_SetRuntimeState(std::uint64_t frame,
 void WindowsCrashDiagnostics_RecordBreadcrumb(const char* owner,
                                                const char* event);
 
+// Bridges the archival RTCHECK/assert owner into the same local diagnostic
+// bundle without treating typed runtime failures as crashes. Inputs are copied
+// into fixed sanitized buffers; source paths are reduced to a basename.
+void WindowsCrashDiagnostics_SetLegacyFatalContext(
+    const char* assertion, const char* sourceFile, int sourceLine,
+    const char* message);
+[[noreturn]] void WindowsCrashDiagnostics_TriggerLegacyFatal();
+
 // Hidden acceptance-only trigger. It deliberately bypasses ordinary and
 // Developer UI and raises one noncontinuable SEH exception.
 [[noreturn]] void WindowsCrashDiagnostics_TriggerControlledCrash();
 
 constexpr unsigned long kWindowsCrashDiagnosticsControlledCode = 0xE0425252ul;
+constexpr unsigned long kWindowsCrashDiagnosticsLegacyFatalCode = 0xE0425253ul;
 
 }  // namespace rr2nw

@@ -1546,9 +1546,20 @@ Developer capability. There must be no modal dialog or timeout.
 
 Do not attach these test dumps to a release package. A minidump may contain
 private process/module data even though the manifest is sanitized; inspect it
-before sharing. This pass covers unexpected unhandled SEH only. Explicit
-legacy `ExitProcess`, CRT abort/assert and debug-break paths remain a separate
-consolidation item.
+before sharing. Then run the primary archival fatal-owner gate:
+
+```powershell
+& ".\tools\acceptance\Invoke-CrashDiagnosticBundle.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo -Mode LegacyFatal
+```
+
+Every row must report `PASS`, exact exit `-532524461` (`0xE0425253`), seven
+bounded breadcrumbs and `legacy_fatal=1`. Debug must retain assertion
+`controlled legacy fatal`, source basename `legacy-fatal-smoke`, line 77 and
+formatted message `controlled legacy RTCHECK 17`; Release/RelWithDebInfo must
+truthfully retain only the formatted runtime message. The hidden option is
+rejected beside Developer mode and must not hang on a modal, `getch` or debug
+break. Direct CRT abort/assert, unrelated explicit exits and standalone debug
+tools remain a separate consolidation item.
 
 ## Authored Farter loop and physical recovery pass
 

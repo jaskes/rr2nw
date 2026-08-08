@@ -20,6 +20,7 @@
 #include "RecoveredSoftwareFrame.h"
 #include "ZavOverallInfoState.h"
 #include "ZavShutdownState.h"
+#include "debugext.h"
 #include "filesys.h"
 #include "graph.h"
 #include "h/super.h"
@@ -83,6 +84,7 @@ struct StartupOptions {
   bool runtimeSmoke = false;
   bool runtimeSmokeExplicit = false;
   bool crashDiagnosticSmoke = false;
+  bool legacyFatalDiagnosticSmoke = false;
   bool missionSmoke = false;
   bool missionBriefingSmoke = false;
   bool missionCombatSmoke = false;
@@ -327,6 +329,9 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     } else if (argument == L"--crash-diagnostic-smoke") {
       options->runtimeSmoke = true;
       options->crashDiagnosticSmoke = true;
+    } else if (argument == L"--legacy-fatal-diagnostic-smoke") {
+      options->runtimeSmoke = true;
+      options->legacyFatalDiagnosticSmoke = true;
     } else if (argument == L"--mission-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -663,8 +668,11 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
       return false;
     }
   }
-  if (options->crashDiagnosticSmoke &&
+  if ((options->crashDiagnosticSmoke ||
+       options->legacyFatalDiagnosticSmoke) &&
       (options->launchSmoke || options->runtimeSmokeExplicit ||
+       (options->crashDiagnosticSmoke &&
+        options->legacyFatalDiagnosticSmoke) ||
        options->missionSmoke || options->missionNoRewardFreshSmoke ||
        options->missionTerminalNoRewardFreshSmoke ||
        options->portalTransitionSmoke || options->levelBriefingSmoke ||
@@ -673,7 +681,7 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
        options->startupSaveSlot >= 0 || options->startupLoadSlot >= 0 ||
        !options->missionCenter.empty() || !options->missionProject.empty() ||
        !options->missionNextProject.empty())) {
-    *failure = L"--crash-diagnostic-smoke is an isolated test-only mode";
+    *failure = L"diagnostic crash/fatal smoke is an isolated test-only mode";
     return false;
   }
   return true;
@@ -780,6 +788,23 @@ class AudioRuntimeScope {
 class CrashDiagnosticsScope {
  public:
   ~CrashDiagnosticsScope() { WindowsCrashDiagnostics_Uninstall(); }
+};
+
+void LegacyFatalCrashBridge(TCchar* assertion, TCchar* sourceFile,
+                            int sourceLine, TCchar* message) {
+  WindowsCrashDiagnostics_SetLegacyFatalContext(
+      assertion, sourceFile, sourceLine, message);
+  WindowsCrashDiagnostics_TriggerLegacyFatal();
+}
+
+class LegacyFatalBridgeScope {
+ public:
+  LegacyFatalBridgeScope()
+      : previous_(SetDebugFatalProc(LegacyFatalCrashBridge)) {}
+  ~LegacyFatalBridgeScope() { SetDebugFatalProc(previous_); }
+
+ private:
+  TPDebugFatalProc previous_ = nullptr;
 };
 
 bool InspectRetailData(const std::wstring& candidate, RetailData* data,
@@ -1774,6 +1799,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"Diagnostic log:\n" + log.path());
     return kDiagnosticsFailure;
   }
+  LegacyFatalBridgeScope legacyFatalBridgeScope;
 
   SYSTEMTIME utc = {};
   GetSystemTime(&utc);
@@ -2216,6 +2242,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("marker=controlled-crash-ready");
     log.Flush();
     WindowsCrashDiagnostics_TriggerControlledCrash();
+  }
+  if (options.legacyFatalDiagnosticSmoke) {
+    log.Line("legacy_fatal=armed");
+    log.Line("marker=legacy-fatal-ready");
+    log.Flush();
+    DebugTriggerFatalForTesting();
+    return kDiagnosticsFailure;
   }
   const SRecoveredSaveMenuState* saveMenuState =
       RecoveredGameServices_SaveMenuState();

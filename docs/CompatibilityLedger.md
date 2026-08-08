@@ -5304,7 +5304,7 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 ### CQ-258: unexpected SEH and ordinary runtime failure are different owners
 
 - Status: `PROCESS_SEH_OWNER_CONFIRMED`, `MINIDUMP_MANIFEST_GATED`,
-  `LEGACY_FATAL_DEBT_RETAINED`.
+  `PRIMARY_LEGACY_FATAL_BRIDGED_BY_CQ_264`.
 - Evidence: maintained startup had a versioned log and PDB/MAP output but no
   `SetUnhandledExceptionFilter` or `MiniDumpWriteDump` owner. The archived
   fatal paths are not uniform: one calls `ExitProcess(1)`, another retains
@@ -5324,9 +5324,10 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   complete `RR2CRASH1` manifest, match adjacent PDB/MAP availability and reject
   the trigger when combined with Developer capability. Ordinary runtime error
   presentation is unchanged.
-- Revisit when: legacy explicit fatal/assert owners are consolidated, crash
+- Revisit when: remaining direct CRT/tool fatal owners are classified, crash
   processing moves off the faulting thread, a consented support exporter is
-  added, or x64 changes PE/stack/symbol assumptions.
+  added, or x64 changes PE/stack/symbol assumptions. The product-linked
+  DebugExt path is closed separately by CQ-264.
 
 ### CQ-259: authored sound state and physical audio output have separate owners
 
@@ -5489,6 +5490,27 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   flags-1 `SoundObj` and byte-exact RSX mixing are not claimed.
 - Revisit when: a remaining owner supplies an explicit stream command graph or
   campaign play reveals presentation timing that requires a maintained cursor.
+
+### CQ-264: primary legacy RTCHECK/assert reaches RR2CRASH1 before exit
+
+- Status: `DEBUGEXT_FATAL_OWNER_BRIDGED`, `TYPED_ERRORS_UNCHANGED`,
+  `DIRECT_CRT_ABORT_AND_TOOL_EXITS_RETAINED`.
+- Evidence: the maintained executable links one DebugExt `ASSERT.CPP`; its
+  selected abort branch ran cleanup and then called `ExitProcess(1)`, while
+  non-MSVC archival variants could wait on `getch`/breakpoint. That explicit
+  termination could not reach the unexpected-SEH owner.
+- Handling: one startup-scoped callback observes only an already-selected
+  DebugExt fatal. It publishes bounded formatted message plus Debug-only
+  assertion/basename/line and raises private noncontinuable `0xE0425253`.
+  Missing/returning observers retain the original immediate exit fallback.
+- Verification: the isolated real-Level gate executes the configuration-
+  appropriate formatted fatal path in all three builds, requires exact exit,
+  dump/manifest/privacy/symbol identity and seven breadcrumbs, and rejects the
+  hidden trigger beside Developer mode. The prior controlled SEH gate remains
+  independently 3/3.
+- Boundary: this is the primary product-linked RTCHECK/assert owner, not a
+  promise that every CRT `assert`/`abort`, explicit normal exit or standalone
+  archival tool is reachable in the game. Those remain separate inventory.
 
 ## Maintenance rule
 

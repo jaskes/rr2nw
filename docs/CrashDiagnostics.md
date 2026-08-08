@@ -26,6 +26,10 @@ process/native architecture and OS build, exception code/address, PE
 timestamp/size, adjacent PDB/MAP availability, embedded CodeView GUID/age/PDB
 basename, active Level and combined content/mod fingerprints, sanitized shell
 settings, current frame/action/map/shell state and the recent breadcrumbs.
+When the primary archival DebugExt owner selects a fatal RTCHECK/assert, the
+same record also carries `legacy_fatal=1`, the bounded formatted message and,
+in Debug, assertion text plus source basename and line. Release intentionally
+does not invent source detail that its original macro ABI discarded.
 
 It never includes the physical retail/mod root, settings/save contents,
 credentials or a user path. The startup log is outside the bundle and can name
@@ -67,12 +71,19 @@ signature and byte count, atomic two-file layout, manifest bounds/privacy,
 Level/content/mod/settings breadcrumbs and binary/PDB/MAP identity. It also
 runs a rejected Developer combination and requires that it create no bundle.
 
+The same script's `-Mode LegacyFatal` variant invokes the configuration-
+appropriate formatted DebugExt path after a real Level exists. Its hidden
+option raises private noncontinuable `0xE0425253`, is rejected beside Developer
+capability and proves the exact seven-breadcrumb fatal bundle in all maintained
+configurations. A returning or missing bridge retains DebugExt's original
+immediate process-exit fallback.
+
 ## Known incomplete fatal paths
 
-The archival fatal owners are heterogeneous. One maintained MSVC path still
-uses explicit `ExitProcess(1)` after its own diagnostics; another archival
-assert path retains `getch()` and `__debugbreak()`; CRT assertions may abort.
-Those actions do not necessarily reach a top-level unhandled-SEH filter. They
-must be consolidated separately before claiming universal fatal capture. The
-current bundle is truthful production coverage for unexpected SEH, not that
-future consolidation.
+The product-linked primary DebugExt `RTCHECK`/assert owner is bridged. Other
+archival owners remain heterogeneous: direct CRT assertions may abort,
+standalone debug/tool code can retain `getch()`/`__debugbreak()`, and unrelated
+explicit exits may represent normal termination rather than failure. Those
+paths require reachability classification before interception. Current
+coverage is truthful for unexpected SEH and the primary game fatal owner, not
+universal capture of every source-tree exit.

@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Routed the primary archival `RTCHECK`/assert fatal owner into the maintained
+  Windows diagnostic bundle. Fatal Debug assertions retain bounded assertion,
+  source-basename, line and formatted message context; Release retains the
+  formatted runtime message. Both terminate through a noncontinuable private
+  exception, produce the existing local minidump/atomic manifest and retain
+  the old immediate process-exit fallback if no maintained owner is installed.
+  A hidden isolated three-configuration gate proves exact exit, privacy and no
+  modal/console wait without exposing the trigger to ordinary or Developer UI.
 - Restored source-owned flags-1 briefing/cinematic WAV playback through a
   bounded XAudio2 streaming owner. Long PCM media is inspected without full
   caching and fed through a four-buffer 64 KiB queue with stable no-steal

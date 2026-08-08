@@ -3,6 +3,8 @@ param(
     [Parameter(Mandatory = $true)][string]$DataRoot,
     [ValidateSet("Debug", "Release", "RelWithDebInfo")]
     [string[]]$Configuration = @("Debug"),
+    [ValidateSet("UnexpectedSeh", "LegacyFatal")]
+    [string]$Mode = "UnexpectedSeh",
     [string]$Level = "Level.03N",
     [ValidateRange(20, 180)][int]$TimeoutSeconds = 90,
     [string]$BuildRoot,
@@ -22,8 +24,11 @@ if ([string]::IsNullOrWhiteSpace($BuildRoot)) {
 $BuildRoot = [IO.Path]::GetFullPath($BuildRoot)
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
+    $modeName = if ($Mode -eq "LegacyFatal") {
+        "legacy-fatal-bundle"
+    } else { "crash-diagnostic-bundle" }
     $OutputRoot = Join-Path $repositoryRoot (
-        "build\verification\crash-diagnostic-bundle-$stamp")
+        "build\verification\$modeName-$stamp")
 }
 $OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
@@ -76,8 +81,15 @@ function Invoke-BoundedProcess([string]$Executable, [string[]]$Arguments,
     }
 }
 
+$exceptionHex = if ($Mode -eq "LegacyFatal") { "E0425253" } else { "E0425252" }
+$diagnosticOption = if ($Mode -eq "LegacyFatal") {
+    "--legacy-fatal-diagnostic-smoke"
+} else { "--crash-diagnostic-smoke" }
+$readyMarker = if ($Mode -eq "LegacyFatal") {
+    "legacy-fatal-ready"
+} else { "controlled-crash-ready" }
 $expectedCrashExit = [BitConverter]::ToInt32(
-    [BitConverter]::GetBytes([Convert]::ToUInt32("E0425252", 16)), 0)
+    [BitConverter]::GetBytes([Convert]::ToUInt32($exceptionHex, 16)), 0)
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
@@ -95,9 +107,9 @@ foreach ($configurationName in $Configuration) {
         "--diagnostics-dir", $diagnostics,
         "--settings-file", $settings,
         "--safe-mode", "--skip-level-briefing",
-        "--crash-diagnostic-smoke"
+        $diagnosticOption
     )
-    Write-Host "[$configurationName] raising isolated controlled crash"
+    Write-Host "[$configurationName] raising isolated $Mode diagnostic"
     $exitCode = Invoke-BoundedProcess $executable $arguments `
         "$configurationName controlled crash"
     $issues = [Collections.Generic.List[string]]::new()
@@ -111,7 +123,7 @@ foreach ($configurationName in $Configuration) {
         $startup = @{}
     } else {
         $startup = Read-KeyValueFile $startupPath
-        Require-Value $startup "marker" "controlled-crash-ready" $issues
+        Require-Value $startup "marker" $readyMarker $issues
         Require-Value $startup "crash_diagnostics_owner" `
             "seh-minidump-manifest-v1" $issues
     }
@@ -155,7 +167,7 @@ foreach ($configurationName in $Configuration) {
             format = "RR2CRASH1"
             configuration = $configurationName
             process_architecture = "x86"
-            exception_code = "0xE0425252"
+            exception_code = "0x$exceptionHex"
             minidump = "crash.dmp"
             minidump_type = "MiniDumpNormal"
             minidump_written = "1"
@@ -171,8 +183,31 @@ foreach ($configurationName in $Configuration) {
             main_thread_stack_guarantee = "1"
             main_thread_stack_guarantee_bytes = "131072"
             manifest_complete = "1"
-        }.GetEnumerator()) {
+    }.GetEnumerator()) {
         Require-Value $manifest $entry.Key ([string]$entry.Value) $issues
+    }
+    if ($Mode -eq "LegacyFatal") {
+        Require-Value $manifest "legacy_fatal" "1" $issues
+        Require-Value $manifest "legacy_fatal_message" `
+            "controlled legacy RTCHECK 17" $issues
+        if ($configurationName -eq "Debug") {
+            Require-Value $manifest "legacy_fatal_kind" "assertion" $issues
+            Require-Value $manifest "legacy_fatal_assertion" `
+                "controlled legacy fatal" $issues
+            Require-Value $manifest "legacy_fatal_source" `
+                "legacy-fatal-smoke" $issues
+            Require-Value $manifest "legacy_fatal_line" "77" $issues
+        } else {
+            Require-Value $manifest "legacy_fatal_kind" "runtime" $issues
+            Require-Value $manifest "legacy_fatal_assertion" `
+                "unavailable" $issues
+            Require-Value $manifest "legacy_fatal_source" `
+                "unavailable" $issues
+            Require-Value $manifest "legacy_fatal_line" "0" $issues
+        }
+    } else {
+        Require-Value $manifest "legacy_fatal" "0" $issues
+        Require-Value $manifest "legacy_fatal_kind" "none" $issues
     }
     if ($startup.ContainsKey("version")) {
         Require-Value $manifest "version" ([string]$startup.version) $issues
@@ -251,7 +286,7 @@ foreach ($configurationName in $Configuration) {
     $blockedRoot = Join-Path $caseRoot "blocked-capability"
     New-Item -ItemType Directory -Force -Path $blockedRoot | Out-Null
     $blockedExit = Invoke-BoundedProcess $executable @(
-        "--crash-diagnostic-smoke", "--developer-mode",
+        $diagnosticOption, "--developer-mode",
         "--data-dir", $dataPath, "--diagnostics-dir", $blockedRoot
     ) "$configurationName blocked crash capability"
     if ($blockedExit -ne 2) {
@@ -263,6 +298,7 @@ foreach ($configurationName in $Configuration) {
     }
 
     $record = [pscustomobject]@{
+        Mode = $Mode
         Configuration = $configurationName
         ExitCode = $exitCode
         DumpBytes = $dumpBytes.Length
@@ -283,4 +319,4 @@ foreach ($configurationName in $Configuration) {
 $records | Export-Csv -NoTypeInformation -Encoding UTF8 `
     -LiteralPath (Join-Path $OutputRoot "summary.csv")
 $records | Format-Table -AutoSize
-Write-Host "Crash diagnostic bundle gate passed: $OutputRoot"
+Write-Host "$Mode diagnostic bundle gate passed: $OutputRoot"

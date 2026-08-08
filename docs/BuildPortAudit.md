@@ -4330,3 +4330,30 @@ The completed slice builds in Debug, Release and RelWithDebInfo and passes
 full 27/27 Level matrix, Marauders presentation 3/3, Farter and Vehicle audio
 3/3 each, Portal teardown 9/9, cross-Level save/load 2/2 and the campaign
 reward/transition matrix 6/6.
+
+### 2026-08-08: primary RTCHECK/assert fatal bridge
+
+The current executable links the single archival DebugExt assertion owner.
+Its MSVC abort branch already avoided `getch`, but ended with
+`ExitProcess(1)`, bypassing the maintained unexpected-SEH minidump owner. The
+new callback is installed only after crash diagnostics exist and is restored
+before their orderly teardown. The old cleanup, Debug/Release macro semantics,
+log output and immediate-exit fallback are unchanged.
+
+On a selected fatal boundary the observer copies fixed sanitized context,
+reduces source to a basename, records a breadcrumb and raises noncontinuable
+`0xE0425253`. `RR2CRASH1` now records whether the failure was a legacy fatal,
+its Debug assertion/source/line when available, and the already-formatted
+message in every configuration. Typed failures never use the callback.
+
+The hidden subprocess fixture exercises the real formatted varargs path and is
+rejected beside Developer capability. Debug, Release and RelWithDebInfo each
+produce exact MDMP/manifest pairs, seven bounded breadcrumbs, expected exit
+`-532524461`, no personal/content path and no modal timeout. The original
+unexpected-SEH matrix remains 3/3. Direct CRT abort/assert, standalone tool
+breakpoints and unrelated explicit exits remain inventoried rather than
+silently relabelled as closed.
+
+All three full builds and their 71/71 CTest matrices pass. Ordinary installed-
+data regression remains green at 27/27 Levels, in-game shell 3/3, Portal 9/9
+and campaign reward/transition 6/6.

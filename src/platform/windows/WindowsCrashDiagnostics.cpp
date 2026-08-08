@@ -73,6 +73,12 @@ struct CrashOwner {
   volatile LONG writing = 0;
   volatile LONG activeContext = 0;
   volatile LONG nextBreadcrumb = 0;
+  bool legacyFatal = false;
+  int legacyFatalLine = 0;
+  char legacyFatalKind[24] = "none";
+  char legacyFatalAssertion[160] = "unavailable";
+  char legacyFatalSource[96] = "unavailable";
+  char legacyFatalMessage[256] = "unavailable";
   std::array<CrashContext, 2> contexts = {};
   std::array<CrashBreadcrumb, kBreadcrumbCapacity> breadcrumbs = {};
 };
@@ -100,6 +106,16 @@ void CopySanitized(char* destination, std::size_t capacity,
     destination[written++] = static_cast<char>(value);
   }
   destination[written] = '\0';
+}
+
+void CopySourceBasename(char* destination, std::size_t capacity,
+                        const char* source) {
+  const char* basename = source;
+  if (source != nullptr) {
+    for (const char* cursor = source; *cursor != '\0'; ++cursor)
+      if (*cursor == '\\' || *cursor == '/') basename = cursor + 1;
+  }
+  CopySanitized(destination, capacity, basename);
 }
 
 bool JoinPath(const wchar_t* base, const wchar_t* child,
@@ -426,7 +442,14 @@ LONG WINAPI CrashFilter(EXCEPTION_POINTERS* exceptionPointers) {
              "runtime_map_open=%d\r\nruntime_shell_open=%d\r\n",
              static_cast<unsigned long long>(context.frame),
              context.activeActions, context.mapOpen ? 1 : 0,
-             context.shellOpen ? 1 : 0);
+             context.shellOpen ? 1 : 0) &&
+      Append(manifest, sizeof(manifest), &length,
+             "legacy_fatal=%d\r\nlegacy_fatal_kind=%s\r\n"
+             "legacy_fatal_assertion=%s\r\nlegacy_fatal_source=%s\r\n"
+             "legacy_fatal_line=%d\r\nlegacy_fatal_message=%s\r\n",
+             g_owner.legacyFatal ? 1 : 0, g_owner.legacyFatalKind,
+             g_owner.legacyFatalAssertion, g_owner.legacyFatalSource,
+             g_owner.legacyFatalLine, g_owner.legacyFatalMessage);
 
   const LONG newestSequence =
       InterlockedCompareExchange(&g_owner.nextBreadcrumb, 0, 0);
@@ -596,6 +619,47 @@ void WindowsCrashDiagnostics_RecordBreadcrumb(const char* owner,
   CopySanitized(breadcrumb.event, sizeof(breadcrumb.event), event);
   MemoryBarrier();
   InterlockedExchange(&breadcrumb.sequence, sequence);
+}
+
+void WindowsCrashDiagnostics_SetLegacyFatalContext(
+    const char* assertion, const char* sourceFile, int sourceLine,
+    const char* message) {
+  if (!g_owner.installed) return;
+  g_owner.legacyFatal = true;
+  g_owner.legacyFatalLine = sourceLine < 0 ? 0 : sourceLine;
+  CopySanitized(g_owner.legacyFatalKind, sizeof(g_owner.legacyFatalKind),
+                assertion == nullptr || assertion[0] == '\0'
+                    ? "runtime"
+                    : "assertion");
+  CopySanitized(g_owner.legacyFatalAssertion,
+                sizeof(g_owner.legacyFatalAssertion),
+                assertion == nullptr || assertion[0] == '\0'
+                    ? "unavailable"
+                    : assertion);
+  CopySourceBasename(g_owner.legacyFatalSource,
+                     sizeof(g_owner.legacyFatalSource),
+                     sourceFile == nullptr || sourceFile[0] == '\0'
+                         ? "unavailable"
+                         : sourceFile);
+  CopySanitized(g_owner.legacyFatalMessage,
+                sizeof(g_owner.legacyFatalMessage),
+                message == nullptr || message[0] == '\0'
+                    ? "unavailable"
+                    : message);
+  WindowsCrashDiagnostics_RecordBreadcrumb("legacy-fatal",
+                                           g_owner.legacyFatalMessage);
+}
+
+[[noreturn]] void WindowsCrashDiagnostics_TriggerLegacyFatal() {
+  WindowsCrashDiagnostics_RecordBreadcrumb("legacy-fatal",
+                                           "raising-diagnostic-exception");
+  SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS |
+               SEM_NOGPFAULTERRORBOX);
+  RaiseException(kWindowsCrashDiagnosticsLegacyFatalCode,
+                 EXCEPTION_NONCONTINUABLE, 0u, nullptr);
+  TerminateProcess(GetCurrentProcess(),
+                   kWindowsCrashDiagnosticsLegacyFatalCode);
+  __assume(0);
 }
 
 [[noreturn]] void WindowsCrashDiagnostics_TriggerControlledCrash() {

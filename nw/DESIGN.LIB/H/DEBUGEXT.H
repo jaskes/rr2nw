@@ -163,6 +163,18 @@
 
 void (*SetDebugCleanupProc(void (*pCleanupProc)(void)))(void);
 
+// Maintained hosts may observe the final, already-selected fatal boundary
+// before the archival implementation terminates the process. The callback
+// must not return during production crash handling; a returning callback
+// preserves the original ExitProcess/exit fallback.
+typedef void (*TPDebugFatalProc)(TCchar *pszAssertion,TCchar *pszFile,
+                                 int nLine,TCchar *pszMsg);
+TPDebugFatalProc SetDebugFatalProc(TPDebugFatalProc pFatalProc);
+
+// Hidden acceptance hook. It executes the configuration-appropriate archival
+// fatal path and is never exposed by the ordinary game or Developer UI.
+void DebugTriggerFatalForTesting();
+
 enum {
 	DBGF_ERR_ABORT = 1,	// Abort on error
 	DBGF_ERR_LOG = 2,	// Write to logfile on error

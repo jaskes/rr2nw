@@ -17,6 +17,7 @@
 // --------------------------------------------------------------------------
 static	bool	bDebugAssertionFlag = FALSE;
 static	void	(*pDebugCleanupProc)() = NULL;
+static	TPDebugFatalProc pDebugFatalProc = NULL;
 static	dword	dwDebugFlags = DBGF_DEFAULT;
 static	TCchar	*pszDebugLogFileName = "logfile";
 static	FILE	*pDebugLogFile = NULL;
@@ -129,6 +130,13 @@ extern "C" int
 		#endif
 		if( pDebugLogFile )	fclose(pDebugLogFile);
 		else fflush(f);
+		if( pDebugFatalProc ) {
+			#ifdef _DEBUG
+				pDebugFatalProc(pszAssertion,pszFile,nLine,pszMsg);
+			#else
+				pDebugFatalProc(NULL,NULL,0,pszMsg);
+			#endif
+		}
 		#ifdef __NT__
 			#if !defined(_MSC_VER)
 				if( ! getch() ) getch();
@@ -154,6 +162,17 @@ extern "C" int
 {
 	va_list ap;
 	va_start(ap,pszMsg);
+	char szFormattedMsg[1024] = "";
+	if( pszMsg ) {
+		#ifdef _MSC_VER
+			_vsnprintf_s(szFormattedMsg,sizeof(szFormattedMsg),_TRUNCATE,
+						pszMsg,ap);
+		#else
+			vsnprintf(szFormattedMsg,sizeof(szFormattedMsg),pszMsg,ap);
+			szFormattedMsg[sizeof(szFormattedMsg)-1] = 0;
+		#endif
+	}
+	va_end(ap);
 	if( dwDebugFlags & DBGF_ERR_ABORT ) {
 		if(bDebugAssertionFlag) return 0;
 		bDebugAssertionFlag = TRUE;
@@ -186,7 +205,7 @@ extern "C" int
 			fprintf(f,"Debug Assertion Failed: %s\n", pszAssertion );
 		if(pszMsg) {
 			fprintf(f,"Message: ");
-			vfprintf(f, pszMsg, ap );
+			fprintf(f,"%s",szFormattedMsg);
 			fprintf(f,"\n");
 		}
 		if(dwDebugFlags & DBGF_ERR_CALLS)
@@ -194,7 +213,7 @@ extern "C" int
 	#else
 		if(!pszMsg)	pszMsg = "Unknown";
 		fprintf(f,"Run-time error: ");
-		vfprintf(f, pszMsg, ap );
+		fprintf(f,"%s",szFormattedMsg[0] ? szFormattedMsg : pszMsg);
 		fprintf(f,"\n");
 	#endif
 	if(dwDebugFlags & DBGF_ERR_LOG) {
@@ -207,7 +226,7 @@ extern "C" int
 				printf("Debug Assertion Failed. See logfile for details\n");
 			#else
 				printf("Run-time error: ");
-				vprintf( pszMsg, ap );
+				printf("%s",szFormattedMsg[0] ? szFormattedMsg : pszMsg);
 				printf("\n");
 			#endif
 		}
@@ -218,6 +237,14 @@ extern "C" int
 		#endif
 		if( pDebugLogFile )	fclose(pDebugLogFile);
 		else fflush(f);
+		if( pDebugFatalProc ) {
+			TCchar *pszFatalMsg = szFormattedMsg[0] ? szFormattedMsg : pszMsg;
+			#ifdef _DEBUG
+				pDebugFatalProc(pszAssertion,pszFile,nLine,pszFatalMsg);
+			#else
+				pDebugFatalProc(NULL,NULL,0,pszFatalMsg);
+			#endif
+		}
 		#ifdef __NT__
 			#if !defined(_MSC_VER)
 				if( ! getch() ) getch();
@@ -230,7 +257,6 @@ extern "C" int
 			exit(1);
 		#endif
 	}
-	va_end(ap);
 	return 0;
 }
 // --------------------------------------------------------------------------
@@ -268,6 +294,23 @@ void (*SetDebugCleanupProc(void (*pCleanupProc)(void)))(void)
 	TPCleanUpProc	pPreviousProc = pDebugCleanupProc;
 	pDebugCleanupProc = pCleanupProc;
 	return	pPreviousProc;
+}
+// --------------------------------------------------------------------------
+extern "C" TPDebugFatalProc SetDebugFatalProc(TPDebugFatalProc pFatalProc)
+{
+	TPDebugFatalProc pPreviousProc = pDebugFatalProc;
+	pDebugFatalProc = pFatalProc;
+	return pPreviousProc;
+}
+// --------------------------------------------------------------------------
+extern "C" void DebugTriggerFatalForTesting()
+{
+	#ifdef _DEBUG
+		DebugAssertionFailedDP("controlled legacy fatal", "legacy-fatal-smoke",
+						77, "controlled legacy RTCHECK %d", 17);
+	#else
+		DebugAssertionFailedRP("controlled legacy RTCHECK %d", 17);
+	#endif
 }
 // --------------------------------------------------------------------------
 extern "C" dword SetDebugFlags(dword dwFlags)

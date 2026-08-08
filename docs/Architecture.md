@@ -303,6 +303,15 @@ manifest identifies the exact PE and embedded CodeView record without storing
 the embedded absolute PDB path. Dumps are local diagnostic material and are
 never uploaded or included in packages automatically.
 
+The archival `RTCHECK`/assert implementation keeps its cleanup and textual
+reporting, then calls one maintained fatal observer before its original
+`ExitProcess` fallback. That observer copies only bounded assertion/runtime
+context, reduces a source path to its basename and raises noncontinuable
+`0xE0425253`, so the same process owner writes the dump and manifest without a
+modal or `getch` wait. Typed runtime errors never enter this observer. Direct
+CRT abort/assert, unrelated explicit exits and debug-break-only tools remain
+separate debt until their real production reachability is proven.
+
 ## Data delivery
 
 Консервативный shipping model 1.0:
